@@ -38,6 +38,14 @@ extends SkeletonModifier3D
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0
 const STANDING_HIND_SPREAD := 0.16
+## Pose 1: spread of the raised hind legs around the body axis. 0.24 is a modest presentation
+## spread; larger values open her legs further toward the camera.
+const POSE1_HIND_SPREAD := 0.42
+## Pose 1: aim the head at Anon's camera, with a periodic reach toward it (deep-kiss nuzzle).
+const POSE1_LOOK_SCALE := 0.55
+const POSE1_NUZZLE_SCALE := 0.45
+const NUZZLE_PERIOD := 7.0
+const NUZZLE_DURATION := 2.4
 ## Temporary pose-1 diagnostics; set false when the neck/bones are tuned.
 const DEBUG_POSE1_DUMP := true
 ## Extra roll around her long axis after levelling, in radians. Positive rolls one side down.
@@ -64,6 +72,7 @@ var _cached := false
 var _debug_dumped := false
 var _last_roll := 0.0
 var _last_chest_roll := 0.0
+var _clock := 0.0
 
 
 func _ready() -> void:
@@ -121,6 +130,7 @@ func _process_modification_with_delta(delta: float) -> void:
 	if amount <= 0.001:
 		return
 	var weight := smoothstep(0.0, 1.0, amount)
+	_clock += delta
 	if mode == "pose2":
 		_standing(sk, weight)
 	elif mode == "afterglow":
@@ -151,6 +161,11 @@ func _missionary(sk: Skeleton3D, weight: float) -> void:
 	_bend_forelegs(sk, weight, 0.3)
 	_raise_hind_legs(sk, weight)
 	_hug_forelegs(sk, weight)
+	# POSE CONTENT: look up at Anon's camera and periodically reach toward it (nuzzle).
+	_aim_head(sk, weight, POSE1_LOOK_SCALE)
+	var pulse := _nuzzle_pulse()
+	if pulse > 0.001:
+		_aim_head(sk, weight * pulse, POSE1_NUZZLE_SCALE)
 	# NOTE: positive neck lift (the old 0.10/0.08/0.06 here) is the head-back effect. It is
 	# intentionally not applied in pose 1; keep it for a future thrown-back-head pose.
 	# _lift_neck(sk, weight)
@@ -376,7 +391,7 @@ func _raise_hind_legs(sk: Skeleton3D, weight: float) -> void:
 		var outward := pose.origin - sk.get_bone_global_pose(_hips).origin
 		outward.y = 0.0
 		var sign := 1.0 if forward.cross(direction).dot(outward) >= 0.0 else -1.0
-		_rotate(sk, bone, forward, sign * 0.24 * weight)
+		_rotate(sk, bone, forward, sign * POSE1_HIND_SPREAD * weight)
 		# Bend the knee toward the body so the hooves are in the air.
 		if lower >= 0:
 			_rotate(sk, lower, right, -0.55 * weight)
@@ -403,8 +418,18 @@ func _hug_forelegs(sk: Skeleton3D, weight: float) -> void:
 		_rotate(sk, lower, forward, 0.35 * weight)
 
 
+## POSE CONTENT helper: 0→1→0 pulse once per `NUZZLE_PERIOD`, peaking for `NUZZLE_DURATION`.
+## Drives the extra reach toward Anon's camera in pose 1.
+func _nuzzle_pulse() -> float:
+	var phase := fmod(_clock, NUZZLE_PERIOD)
+	if phase > NUZZLE_DURATION:
+		return 0.0
+	return sin(phase / NUZZLE_DURATION * PI)
+
+
 ## POSE CONTENT: aim neck/head at `look_point` with both yaw and pitch. Closely related to the carry
-## kiss reach.
+## kiss reach. In pose 1 `look_point` is Anon's camera, so this is her looking up at him; calling it
+## again with a pulsed scale produces the nuzzle.
 func _aim_head(sk: Skeleton3D, weight: float, scale: float) -> void:
 	if _neck.is_empty() or not look_point.is_finite():
 		return
@@ -437,8 +462,8 @@ func _bed(sk: Skeleton3D, weight: float) -> void:
 	_bend_forelegs(sk, weight, 0.35)
 
 
-## POSE CONTENT only: pose 2 standing presentation. No placement or context corrections; she is
-## already standing where the act started.
+## POSE CONTENT only: pose 2 standing presentation, reverted to the initial neck and glance
+## behaviour (`_bow`) while the straight-neck variant is parked for later.
 func _standing(sk: Skeleton3D, weight: float) -> void:
 	_bow(sk, weight, STANDING_BOW)
 	_bend_forelegs(sk, weight, STANDING_FORELEG)
@@ -484,15 +509,22 @@ func _roll_root(sk: Skeleton3D, angle: float) -> void:
 
 ## POSE CONTENT: gentle spine/neck bow used by the standing and fallback poses.
 func _bow(sk: Skeleton3D, weight: float, scale: float) -> void:
+	_bow_spine(sk, weight, scale)
+	var axis := _right_axis(sk)
+	var neck_angles: Array[float] = [-0.08, -0.06, -0.04]
+	for i: int in _neck.size():
+		var angle := neck_angles[mini(i, neck_angles.size() - 1)] * weight * scale
+		_rotate(sk, _neck[i], axis, angle)
+
+
+## POSE CONTENT: spine part of `_bow()`, shared with the pose-2 neck line so the neck does not get
+## a second, conflicting curl on top of it.
+func _bow_spine(sk: Skeleton3D, weight: float, scale: float) -> void:
 	var axis := _right_axis(sk)
 	var spine_angles: Array[float] = [-0.05, -0.06, -0.04]
 	for i: int in _spine.size():
 		var angle := spine_angles[mini(i, spine_angles.size() - 1)] * weight * scale
 		_rotate(sk, _spine[i], axis, angle)
-	var neck_angles: Array[float] = [-0.08, -0.06, -0.04]
-	for i: int in _neck.size():
-		var angle := neck_angles[mini(i, neck_angles.size() - 1)] * weight * scale
-		_rotate(sk, _neck[i], axis, angle)
 
 
 ## POSE CONTENT: small foreleg bend shared by the poses.

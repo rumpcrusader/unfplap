@@ -13,6 +13,9 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
 
 const SATISFACTION_MAX := 100
+## DEBUG: climax arrives at this satisfaction instead of 100 so the act is quick to test.
+## Restore to `SATISFACTION_MAX` for normal play.
+const CLIMAX_AT := 20
 const CAPACITY_MAX := 100
 const PUMP_SATISFACTION := 1
 const PUMP_CAPACITY := 1
@@ -27,6 +30,10 @@ const BREATH_MIN_INTERVAL_S := 0.2
 const BREATH_RATE_CAP := 10.0
 const WITNESS_RADIUS_M := 8.0
 const POSE1_STYLE := "side_lying" # B29 fallback is now the default cuddle-like lie.
+## Pose 1 camera: 0.75 m above the pony root and this far forward, so it sits above her neck/face
+## instead of above the middle of her body. `pony.global_basis.z` is her backward direction.
+const POSE1_CAMERA_HEIGHT_M := 0.40
+const POSE1_CAMERA_FORWARD_M := 0.10
 ## Presentation: how close the pony stands in front of the player for pose 2.
 const POSE2_GAP_M := 0.55
 ## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
@@ -56,6 +63,12 @@ const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Pose 2 after the climax: no cuddle afterglow; a short withdrawal shows the pull-back and flicks.
 const POSE2_WITHDRAW_SECONDS := 1.6
+## Wing spread easing and pump-flick decay for pose 2. Slower values read as smoother movement.
+const WING_FADE_SECONDS := 0.55
+const WING_FLICK_DECAY := 0.45
+## Wings slowly fold over the act, on top of the satisfaction-driven spread.
+const WING_DROOP_SECONDS := 25.0
+const WING_DROOP_AMOUNT := 0.35
 ## Pose 2 keeps her body facing away but lets her glance back over a shoulder now and then.
 const GLANCE_MIN_INTERVAL := 5.0
 const GLANCE_MAX_INTERVAL := 9.0
@@ -63,6 +76,8 @@ const GLANCE_HOLD := 1.8
 const GLANCE_YAW := 3.0
 const GLANCE_BACK_PITCH := 1.2
 const GLANCE_BACK_CHANCE := 0.5
+## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
+const GLANCE_BACK_FADE := 0.45
 ## Jiggle placement on the flank. DEBUG: strength is exaggerated to verify the hit points;
 ## lower JIGGLE_STRENGTH after the placement looks right.
 const JIGGLE_HEIGHT := 0.78
@@ -108,10 +123,20 @@ var _camera: Camera3D
 var _applied_bob := 0.0
 var _applied_lean := 0.0
 var _pose1_camera := Vector3.INF
+var _pose1_free_yaw := 0.0
+var _pose1_free_pitch := 0.0
+var _pose1_debug_rot := Basis.IDENTITY
+var _pose1_start_camera: Camera3D
+var _pose1_start_camera_transform := Transform3D.IDENTITY
+var _pose1_start_player_transform := Transform3D.IDENTITY
+var _pose1_start_pony_transform := Transform3D.IDENTITY
+var _pose1_start_pony_posture := ""
+var _pose1_start_saved := false
+var _pose1_basis_logged := false
 var _pose1_view: Camera3D
+var _pose1_view_basis := Basis.IDENTITY
+var _pose1_aim_until := 0
 var _pose1_prev_camera: Camera3D
-var _pose1_player_pitch := 0.0
-var _pose1_player_pitch_saved := false
 var _pose1_player_rotation := Vector3.ZERO
 var _pose1_player_rot_saved := false
 var _pose1_rot_saved := false
@@ -135,6 +160,7 @@ var _glance_left := 0.0
 var _glance_back := false
 var _glance_sign := 1.0
 var _glance_sign_set := false
+var _glance_head_back := 0.0
 var _look_yaw := 0.0
 var _look_pitch := 0.0
 var _camera_height_offset := 0.0
@@ -147,6 +173,9 @@ var _wing_clock := 0.0
 var _flutter_clock := 0.0
 var _wing_hold := false
 var _wing_flick := 0.0
+var _wing_hold_value := 1.0
+var _wing_hold_started := false
+var _act_seconds := 0.0
 var _wings_node: Node
 var _aftercare: Node
 var _satisfaction_tween: Tween
@@ -160,6 +189,7 @@ var _breath_clock := 0.0
 var _kiss_sound: AudioStreamPlayer3D
 var _flank: Node
 var _jiggle_side := 0
+var _jiggle_logged := false
 var _climax_sound: AudioStreamPlayer3D
 var _kiss_stream: AudioStream
 var _climax_streams: Array[AudioStream] = []
@@ -182,6 +212,7 @@ func _release_wing_hold() -> void:
 	if _wing_hold and is_instance_valid(_wings_node) and _wings_node.has_method("release_hold"):
 		_wings_node.call("release_hold", "unfunfunf")
 	_wing_hold = false
+	_wing_hold_started = false
 	_wings_node = null
 
 
@@ -194,6 +225,7 @@ func _log(text: String) -> void:
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
 		return
+	_act_seconds += delta
 	if pose_number == 1 and not is_instance_valid(_anon_avatar):
 		_hide_anon_avatar_for_pose1()
 	var boop: Variant = pony.get("boop_node")
@@ -219,8 +251,8 @@ func _act_presentation(delta: float) -> void:
 		if _wing_hold and is_instance_valid(_wings_node):
 			_wings_node.call("hold_at", "unfunfunf", 0.0)
 		return
-	_wing_flick = move_toward(_wing_flick, 0.0, delta / 0.25)
-	var level := sqrt(clampf(float(satisfaction) / 75.0, 0.0, 1.0))
+	_wing_flick = move_toward(_wing_flick, 0.0, delta / WING_FLICK_DECAY)
+	var level := sqrt(clampf(float(satisfaction) / (CLIMAX_AT * 0.75), 0.0, 1.0))
 	# At very low excitement keep the wings folded and only flick them on a pump; holding the
 	# game's half-open pose there reads as fully spread.
 	if level < 0.25:
@@ -234,12 +266,19 @@ func _act_presentation(delta: float) -> void:
 			_wing_hold = bool(_wings_node.call("hold_at", "unfunfunf", 1.0))
 	if _wing_hold and is_instance_valid(_wings_node):
 		# sqrt curve: low -> slightly open, 75 satisfaction -> fully spread. A pump briefly
-		# closes the spread a little for the flick.
-		var hold := clampf(1.0 - level + _wing_flick, 0.0, 1.0)
-		_wings_node.call("hold_at", "unfunfunf", hold)
+		# closes the spread a little for the flick. The value is eased so the wings glide instead
+		# of stepping with each pump.
+		# `droop` slowly folds the wings as the act goes on, so they lower over time.
+		var droop := clampf(_act_seconds / WING_DROOP_SECONDS, 0.0, 1.0) * WING_DROOP_AMOUNT
+		var target_hold := clampf(1.0 - level + _wing_flick + droop, 0.0, 1.0)
+		if not _wing_hold_started:
+			_wing_hold_value = target_hold
+			_wing_hold_started = true
+		_wing_hold_value = move_toward(_wing_hold_value, target_hold, delta / WING_FADE_SECONDS)
+		_wings_node.call("hold_at", "unfunfunf", _wing_hold_value)
 		return
 	# Fallback when the half-open wing pose is unavailable.
-	if satisfaction >= 75:
+	if satisfaction >= CLIMAX_AT * 0.75:
 		_wing_clock -= delta
 		if _wing_clock <= 0.0:
 			_wing_clock = 1.0
@@ -324,6 +363,20 @@ func _process(delta: float) -> void:
 	var back_speed := AFTERGLOW_BACK_SPEED if state in [State.AFTERGLOW, State.WITHDRAW] else RESTORE_BACK_SPEED
 	_back = move_toward(_back, _back_target, back_speed * delta)
 	_breath_tick(delta)
+
+
+## Pose 1 free look: rotate the mod camera with the mouse relative to the frozen base aim. This is
+## why the camera must not "lock" to her snout: the player can look around while she nuzzles at it.
+func _input(event: InputEvent) -> void:
+	if state == State.IDLE or pose_number != 1:
+		return
+	var motion := event as InputEventMouseMotion
+	if motion == null:
+		return
+	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
+		return
+	_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025, -1.2, 1.2)
+	_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025, -1.0, 1.0)
 
 
 func _physics_process(delta: float) -> void:
@@ -1054,6 +1107,10 @@ func start(pose: int, bed_in: Variant, act_source: String) -> bool:
 	_winged = identity != null and identity.has_method("has_wings") and bool(identity.call("has_wings"))
 	_apply_eye_override()
 	_wing_clock = 0.0
+	_wing_flick = 0.0
+	_wing_hold_started = false
+	_jiggle_logged = false
+	_act_seconds = 0.0
 	_flutter_clock = randf_range(0.5, 1.5)
 	_clear_face()
 	_set_face(0.45, 0.45)
@@ -1101,11 +1158,17 @@ func start(pose: int, bed_in: Variant, act_source: String) -> bool:
 		_glance_left = 0.0
 		_glance_back = false
 		_glance_sign_set = false
+		_glance_head_back = 0.0
 		_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
 
 	_build_pose()
+	_pose1_free_yaw = 0.0
+	_pose1_free_pitch = 0.0
+	_pose1_debug_rot = Basis.IDENTITY
+	_pose1_basis_logged = false
 	_pose1_camera = _pose1_camera_target() if pose == 1 else Vector3.INF
 	if pose == 1:
+		_snapshot_pose1_start()
 		_make_pose1_view()
 	_capture_look()
 	_lock_player()
@@ -1397,6 +1460,7 @@ func _build_pose() -> void:
 		_tail.mare = pony
 		_tail.amount = 0.0
 		_tail.target_amount = 1.0
+		_tail.call("choose_side")
 		(hair as Skeleton3D).add_child(_tail)
 
 
@@ -1434,7 +1498,7 @@ func pump() -> bool:
 	if satisfaction == 1 or satisfaction % 10 == 0:
 		_log("pump satisfaction=%d capacity=%d rate=%.1f/s" % [satisfaction, capacity, _pumps_per_second()])
 	_play_kiss()
-	if satisfaction >= SATISFACTION_MAX:
+	if satisfaction >= CLIMAX_AT:
 		_climax()
 	return true
 
@@ -1445,10 +1509,6 @@ func _pump_jiggle() -> void:
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(_flank) or not _flank.has_method("_start_jiggle"):
-		return
-	if int(_flank.get("_jiggle_index")) >= 0:
-		# Restarting calls _start_jiggle(), which rescans every coat material. Let the current
-		# wobble finish instead of spiking the frame at pump rate.
 		return
 	if _flank.has_method("wake_tick"):
 		_flank.call("wake_tick")
@@ -1466,7 +1526,15 @@ func _pump_jiggle() -> void:
 	var normal := (lateral + back * 0.35).normalized()
 	if normal.length_squared() < 0.001:
 		return
+	# Place the jiggle on the actual hip/flank joint instead of a fixed height above the root:
+	# in pose 1 she is lying down, so a world-up offset floated the point off her body.
 	var at: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + lateral * JIGGLE_SIDE + back * JIGGLE_BACK
+	var sk: Variant = pony.get("skeleton")
+	if sk is Skeleton3D:
+		var femur := (sk as Skeleton3D).find_bone("pony_femur_L" if side < 0 else "pony_femur_R")
+		if femur >= 0:
+			at = (sk as Skeleton3D).global_transform * (sk as Skeleton3D).get_bone_global_pose(femur).origin
+			at += normal * 0.10 + Vector3.UP * 0.04
 	var across := Vector3.UP.cross(normal).normalized()
 	if across.length_squared() < 0.5:
 		across = Vector3.RIGHT
@@ -1474,6 +1542,12 @@ func _pump_jiggle() -> void:
 	decal.global_transform = Transform3D(Basis(across, normal, across.cross(normal)).orthonormalized(), at + normal * 0.015)
 	decal.visible = false
 	_flank.call("_start_jiggle", index, JIGGLE_STRENGTH)
+	if not _jiggle_logged:
+		_jiggle_logged = true
+		var targets: Variant = _flank.get("_jiggle_targets")
+		_log("jiggle side=%d at=%s root=%s normal=%s targets=%d" % [
+			int(side), str(at), str(pony.global_position), str(normal),
+			(targets as Array).size() if targets is Array else -1])
 
 
 func cancel() -> void:
@@ -1594,13 +1668,16 @@ func _finish_restore() -> void:
 		_log("restore finished with invalid pony")
 		state = State.IDLE
 		return
+	var was_pose := pose_number
 	_log("restore finished pony=%s" % str(pony.name))
 	_unlock_player()
 	_restore_camera()
 	pony.remove_meta("sex_active")
-	if pony.get("posture") != null:
-		pony.request_posture("stand")
 	_release_nav()
+	if was_pose == 1:
+		_resume_pose1_cuddle()
+	elif pony.get("posture") != null:
+		pony.request_posture("stand")
 	_free_pose()
 	_stop_audio()
 	if is_instance_valid(main.hud):
@@ -1612,6 +1689,43 @@ func _finish_restore() -> void:
 	source = ""
 	bed = null
 	_reset_after_act()
+
+
+## Pose 1 ended early (Q): hand her back to the stock bed cuddle instead of leaving Anon posed
+## over her. Re-invites her onto the couch/bed through the seat's couch so cuddle/player_input
+## can start its session again.
+func _resume_pose1_cuddle() -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
+		_stand_after_pose()
+		return
+	# Revert the exact scene captured at start: camera, player and pony transforms.
+	if _pose1_start_saved:
+		if is_instance_valid(_pose1_start_camera):
+			_pose1_start_camera.global_transform = _pose1_start_camera_transform
+			_pose1_start_camera.make_current()
+		main.player.global_transform = _pose1_start_player_transform
+		pony.global_transform = _pose1_start_pony_transform
+		pony.reset_physics_interpolation()
+		_log("pose1 restore: snapshot camera=%s player=%s pony=%s" % [
+			str(_pose1_start_camera_transform.origin), str(_pose1_start_player_transform.origin),
+			str(_pose1_start_pony_transform.origin)])
+	var seat: Variant = main.player.get("seat")
+	var couch: Variant = null
+	if is_instance_valid(seat) and seat.has_meta("couch"):
+		couch = seat.get_meta("couch")
+	if is_instance_valid(couch) and couch.has_method("accept") and bool(couch.call("accept", pony)):
+		_log("pose1 restore: cuddle resumed")
+		return
+	_log("pose1 restore: cuddle resume failed; restoring posture")
+	if _pose1_start_saved and _pose1_start_pony_posture != "":
+		pony.request_posture(_pose1_start_pony_posture)
+	else:
+		_stand_after_pose()
+
+
+func _stand_after_pose() -> void:
+	if is_instance_valid(pony) and pony.get("posture") != null:
+		pony.request_posture("stand")
 
 
 func force_stop() -> void:
@@ -1770,6 +1884,25 @@ func _restore_anon_avatar() -> void:
 	_anon_avatar = null
 
 
+## Remember the exact scene at pose-1 start so ending early can revert to it.
+func _snapshot_pose1_start() -> void:
+	_pose1_start_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
+	if is_instance_valid(_pose1_start_camera):
+		_pose1_start_camera_transform = _pose1_start_camera.global_transform
+	if is_instance_valid(main) and is_instance_valid(main.player):
+		_pose1_start_player_transform = main.player.global_transform
+	if is_instance_valid(pony):
+		_pose1_start_pony_transform = pony.global_transform
+		if pony.has_method("posture_status"):
+			var status: Variant = pony.call("posture_status")
+			if status is Dictionary:
+				_pose1_start_pony_posture = str((status as Dictionary).get("requested", ""))
+	_pose1_start_saved = true
+	_log("pose1 snapshot camera=%s player=%s pony=%s posture=%s" % [
+		str(_pose1_start_camera_transform.origin), str(_pose1_start_player_transform.origin),
+		str(_pose1_start_pony_transform.origin), _pose1_start_pony_posture])
+
+
 func _make_pose1_view() -> void:
 	if _player_pony or not is_instance_valid(pony):
 		return
@@ -1789,30 +1922,10 @@ func _make_pose1_view() -> void:
 		_pose1_view.near = source.near
 		_pose1_view.far = source.far
 		_pose1_view.cull_mask = source.cull_mask
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		var pitch: Variant = main.player.get("_pitch")
-		if pitch != null:
-			if not _pose1_player_pitch_saved:
-				_pose1_player_pitch = float(pitch)
-				_pose1_player_pitch_saved = true
-			main.player.set("_pitch", -0.9)
-			if main.player.get("form_driver") == null and is_instance_valid(source):
-				source.rotation.x = -0.9
-		# Point the player look controls at her head so the copied basis faces her face,
-		# not whatever direction the bed rest left the player camera in.
-		var head: Vector3 = pony.global_position + Vector3.UP * 0.25
-		if pony.has_method("listen_point"):
-			var lp: Variant = pony.call("listen_point")
-			if lp is Vector3 and (lp as Vector3).is_finite() and (lp as Vector3).distance_to(pony.global_position) < 2.0:
-				head = lp as Vector3
-		var to := head - _pose1_camera
-		var flat := Vector2(to.x, to.z).length()
-		if flat > 0.01:
-			main.player.rotation.y = atan2(-to.x, -to.z)
-			var look_pitch := clampf(atan2(to.y, flat), -1.25, 0.2)
-			main.player.set("_pitch", look_pitch)
-			if main.player.get("form_driver") == null and is_instance_valid(source):
-				source.rotation.x = look_pitch
+	# The pose-1 view aims itself at her face every frame (`apply_camera_bob`); the player look
+	# controls are left alone so the bed/seated camera is not disturbed.
+	_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
+	_pose1_aim_until = Time.get_ticks_msec() + 1000
 	pony.add_child(_pose1_view)
 	_pose1_view.current = true
 	_pose1_log_setup()
@@ -1839,13 +1952,36 @@ func _free_pose1_view() -> void:
 		_pose1_prev_camera.make_current()
 	_pose1_prev_camera = null
 	if is_instance_valid(main) and is_instance_valid(main.player):
-		if _pose1_player_pitch_saved and main.player.get("_pitch") != null:
-			main.player.set("_pitch", _pose1_player_pitch)
 		var source: Camera3D = main.camera() if is_instance_valid(main) else null
 		if _pose1_player_rot_saved and is_instance_valid(source):
 			source.rotation = _pose1_player_rotation
-	_pose1_player_pitch_saved = false
 	_pose1_player_rot_saved = false
+
+
+## Stable pose-1 camera target: a point ahead of the root at chest/neck height. The live nose
+## (`listen_point`) moves as she aims/nuzzles and could end up behind the camera, which made the
+## camera look backwards at her rump. This point only depends on her body transform.
+func _pose1_look_target() -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var forward: Vector3 = -pony.global_basis.z.normalized()
+	return pony.global_position + forward * 0.20 + Vector3.UP * 0.10
+
+
+## The fixed pose-1 view orientation: from the camera anchor toward her face. Computed once so the
+## camera does not track the snout while she nuzzles; bob only moves its position.
+func _pose1_aim_basis(from_position: Vector3) -> Basis:
+	var look := _pose1_look_target()
+	var dir := look - from_position
+	if dir.length_squared() < 0.000001:
+		return Basis.IDENTITY
+	dir = dir.normalized()
+	# Near-vertical views make the world-up roll undefined; tilt the target a little further
+	# forward so the horizon stays level instead of rolling the camera 90 degrees.
+	if absf(dir.dot(Vector3.UP)) > 0.985:
+		look += -pony.global_basis.z * 0.30
+		dir = (look - from_position).normalized()
+	return Basis.looking_at(dir, Vector3.UP)
 
 
 func _pose1_camera_target() -> Vector3:
@@ -1853,7 +1989,8 @@ func _pose1_camera_target() -> Vector3:
 		return Vector3.INF
 	var root: Vector3 = pony.global_position
 	var back: Vector3 = pony.global_basis.z.normalized()
-	var target := root + Vector3.UP * 0.75 + back * 0.08
+	# Move toward her head/neck (forward is -back) so the camera is not centred over her body.
+	var target := root + Vector3.UP * POSE1_CAMERA_HEIGHT_M - back * POSE1_CAMERA_FORWARD_M
 	var bed_top := _bed_surface_top()
 	if is_finite(bed_top) and bed_top <= root.y + 2.0:
 		target.y = maxf(target.y, bed_top + 0.30)
@@ -1928,16 +2065,41 @@ func apply_camera_bob() -> void:
 		if not is_instance_valid(_pose1_view):
 			return
 		_pose1_view.global_position = _pose1_camera + Vector3.UP * _bob
-		_pose1_view.global_position -= _pose1_view.global_basis.z * (_lean - _back)
-		var source_view: Camera3D = main.camera() if is_instance_valid(main) else null
-		if is_instance_valid(source_view):
-			_pose1_view.global_basis = source_view.global_basis
-		else:
-			var look: Vector3 = pony.global_position + Vector3.UP * 0.30
-			if look.is_finite():
-				_pose1_view.look_at(look, Vector3.UP)
+		_pose1_view.global_position -= _pose1_view_basis.z * (_lean - _back)
+		# Track the face for the first second (while the pose blends in), then freeze the
+		# orientation so the camera is not locked to her snout while she nuzzles.
+		if Time.get_ticks_msec() < _pose1_aim_until:
+			_pose1_view_basis = _pose1_aim_basis(_pose1_view.global_position)
+		var free := Basis.from_euler(Vector3(_pose1_free_pitch, _pose1_free_yaw, 0.0))
+		_pose1_view.global_basis = _pose1_debug_rot * _pose1_camera_tweak() * (_pose1_view_basis * free)
+		if not _pose1_basis_logged:
+			_pose1_basis_logged = true
+			_log("pose1 camera base_euler=%s tweak_euler=%s applied_basis=%s" % [
+				str(_pose1_view_basis.get_euler()), str(_pose1_camera_tweak().get_euler()),
+				str(_pose1_view.global_basis)])
 		return
 	_set_camera_offsets(_camera_height_offset + _bob, _lean - _back)
+
+
+## Baseline correction copied EXACTLY from the last logged debug `total_basis` (the user's final
+## pressed state), not reconstructed from Euler angles. Change or clear this if re-tuned.
+func _pose1_camera_tweak() -> Basis:
+	return Basis.IDENTITY
+
+
+## DEBUG: rotate the pose-1 camera in world axes so the correct roll/orientation can be found
+## interactively (Ctrl+1..6 in input.gd). Logs the axis, step and accumulated rotation.
+func debug_rotate_pose1(axis_index: int) -> void:
+	if pose_number != 1 or state == State.IDLE:
+		_log("pose1 rotate ignored pose=%d state=%d" % [pose_number, state])
+		return
+	var axes: Array[Vector3] = [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.BACK, Vector3.FORWARD]
+	var names: Array[String] = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
+	var index := clampi(axis_index, 0, axes.size() - 1)
+	var step := deg_to_rad(5.0)
+	_pose1_debug_rot = Basis(axes[index], step) * _pose1_debug_rot
+	_log("pose1 camera rotate %s 5° total_euler=%s total_basis=%s base_basis=%s" % [
+		names[index], str(_pose1_debug_rot.get_euler()), str(_pose1_debug_rot), str(_pose1_view_basis)])
 
 
 func _player_eye_height() -> float:
@@ -1991,14 +2153,16 @@ func _lock_body_facing() -> void:
 	pony.global_transform = t
 
 
-## Every few seconds she turns her head back toward Anon, then forward again. The angles are
-## computed from his actual position, not a fixed side. Some glances throw her head back (the
-## carried look), the rest turn as far over the shoulder as her neck allows.
+## Every few seconds she turns her head back toward Anon, then forward again. Reverted to the
+## initial implementation: the game's secondary gaze owns the turn; pose 2 only adds the optional
+## throw-back rotation (`head_back`), eased so it does not snap.
 func _drive_glance(delta: float) -> void:
 	if not _has_facing or pose_number != 2 or not is_instance_valid(pony):
 		return
 	if is_instance_valid(_pose):
-		_pose.set("head_back", 1.0 if (_glance_left > 0.0 and _glance_back) else 0.0)
+		var back_target := 1.0 if (_glance_left > 0.0 and _glance_back) else 0.0
+		_glance_head_back = move_toward(_glance_head_back, back_target, delta / GLANCE_BACK_FADE)
+		_pose.set("head_back", _glance_head_back)
 	var secondary: Variant = pony.get("secondary")
 	if secondary == null or not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
 		return

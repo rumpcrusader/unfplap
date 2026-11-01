@@ -9,6 +9,7 @@ var target_amount := 1.0
 var _neck: Array[int] = []
 var _tail: Array[int] = []
 var _cached := false
+var _tail_logged := false
 
 
 func _cache() -> void:
@@ -54,17 +55,17 @@ func _head_down(sk: Skeleton3D, weight: float) -> void:
 		_rotate(sk, _neck[_neck.size() - 1], right, 0.18 * weight)
 
 
-## Tuck the tail down and forward between the hind legs, and straighten the chain toward that
-## same direction instead of merely lowering the highest point.
+## Lower the tail in aftercare: the whole chain (including the base) angles down and slightly back.
+## No between-the-legs tuck. Logs the base direction once so a missing/angled base is visible.
 func _tail_down(sk: Skeleton3D, weight: float) -> void:
 	if _tail.is_empty():
 		return
 	var up := (sk.global_basis.inverse() * pony.global_basis.y).normalized()
-	var forward := (sk.global_basis.inverse() * -pony.global_basis.z).normalized()
-	var target := (-up + forward * 0.2).normalized()
+	var back := (sk.global_basis.inverse() * pony.global_basis.z).normalized()
+	var target := (-up + back * 0.20).normalized()
 	if target.length_squared() < 0.001:
 		return
-	var base_direction := target
+	var base_before := sk.get_bone_global_pose(_tail[0]).basis.z
 	for i: int in _tail.size():
 		var bone := _tail[i]
 		var pose := sk.get_bone_global_pose(bone)
@@ -74,21 +75,37 @@ func _tail_down(sk: Skeleton3D, weight: float) -> void:
 		if direction.length_squared() < 0.0001:
 			continue
 		direction = direction.normalized()
-		# Only the base gets the tuck angle; the rest align to that new base so the tail
-		# straightens instead of curling hard toward the floor.
-		var wanted := target if i == 0 else base_direction
-		var axis := direction.cross(wanted)
+		var axis := direction.cross(target)
 		if axis.length_squared() < 0.0001:
 			continue
-		var angle := direction.angle_to(wanted) * weight
-		if i == 0:
-			angle = minf(angle, 0.9)
-		else:
-			angle *= 0.8
+		var angle := direction.angle_to(target) * weight
 		pose.basis = Basis(axis.normalized(), angle) * pose.basis
 		sk.set_bone_global_pose(bone, pose)
-		if i == 0:
-			base_direction = (Basis(axis.normalized(), angle) * direction).normalized()
+	if not _tail_logged and weight > 0.5:
+		_tail_logged = true
+		var base_after := sk.get_bone_global_pose(_tail[0]).basis.z
+		print("[unfunfunf] aftercare tail bones=%d base before=%s after=%s target=%s angle=%.1f°" % [
+			_tail.size(), str(base_before), str(base_after), str(target),
+			rad_to_deg(base_before.normalized().angle_to(target))])
+
+
+## The spine's rearward direction at the pelvis, expressed in this (hair) skeleton's space.
+## Falls back to `-forward` when the body skeleton or the bones are unavailable.
+func _spine_continuation(sk: Skeleton3D, fallback: Vector3) -> Vector3:
+	var body: Skeleton3D = pony.get("skeleton") if is_instance_valid(pony) else null
+	if body == null:
+		return fallback
+	var hips := body.find_bone("pony_hips")
+	var spine1 := body.find_bone("pony_spine1")
+	if hips < 0 or spine1 < 0:
+		return fallback
+	var a := body.global_transform * body.get_bone_global_pose(hips)
+	var b := body.global_transform * body.get_bone_global_pose(spine1)
+	var toward_head := b.origin - a.origin
+	if toward_head.length_squared() < 0.000001:
+		return fallback
+	var rear_world := -toward_head.normalized()
+	return (sk.global_basis.inverse() * rear_world).normalized()
 
 
 func _rotate(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:

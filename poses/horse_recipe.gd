@@ -4,15 +4,22 @@ extends RefCounted
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0
 const STANDING_HIND_SPREAD := 0.16
+var _config: Dictionary = {}
 
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
-	_bow(rig, sk, weight, STANDING_BOW)
-	_bend_forelegs(rig, sk, weight, STANDING_FORELEG)
-	_spread_hind(rig, sk, weight, STANDING_HIND_SPREAD)
+	_config = state.get("config", {})
+	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
+	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
+	_spread_hind(rig, sk, weight, _value("hind_spread", STANDING_HIND_SPREAD))
 	var head_back := float(state.get("head_back", 0.0))
 	if head_back > 0.001:
 		_raise_head(rig, sk, weight * head_back)
+
+
+func _value(key: String, fallback: float) -> float:
+	var value: Variant = _config.get(key)
+	return float(value) if value != null else fallback
 
 
 func _bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:

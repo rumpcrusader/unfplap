@@ -13,25 +13,27 @@ const POSE1_ROLL_TWEAK := 0.0
 
 var last_roll := 0.0
 var last_chest_roll := 0.0
+var _config: Dictionary = {}
 
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	_config = state.get("config", {})
 	_roll_root(rig, sk, PI * weight)
 	_lift_root(rig, sk, weight, 0.05)
 	_straighten_spine_neck(rig, sk, weight)
 	_align_chain_straight(rig, sk, weight)
 	_level_body_roll(rig, sk, weight)
 	_level_chest_roll(rig, sk, weight)
-	_pitch_body_about_shoulders(rig, sk, weight, POSE1_RUMP_DROP_DEG)
+	_pitch_body_about_shoulders(rig, sk, weight, _value("rump_drop_deg", POSE1_RUMP_DROP_DEG))
 	_bend_forelegs(rig, sk, weight, 0.3)
 	_raise_hind_legs(rig, sk, weight)
 	_hug_forelegs(rig, sk, weight)
-	_aim_head(rig, sk, weight, POSE1_LOOK_SCALE, state.get("look_point", Vector3.ZERO))
+	_aim_head(rig, sk, weight, _value("look_scale", POSE1_LOOK_SCALE), state.get("look_point", Vector3.ZERO))
 	var pulse := 1.0 if bool(state.get("climaxing", false)) else _nuzzle_pulse(float(state.get("clock", 0.0)))
 	if bool(state.get("climaxing", false)):
 		pulse = 0.75 + 0.25 * sin(float(state.get("clock", 0.0)) * 4.0)
 	if pulse > 0.001:
-		_aim_head(rig, sk, weight * pulse, POSE1_NUZZLE_SCALE, state.get("look_point", Vector3.ZERO))
+		_aim_head(rig, sk, weight * pulse, _value("nuzzle_scale", POSE1_NUZZLE_SCALE), state.get("look_point", Vector3.ZERO))
 	_roll_head(rig, sk, weight, float(state.get("head_roll", 0.0)))
 
 
@@ -125,7 +127,7 @@ func _level_body_roll(rig, sk: Skeleton3D, weight: float) -> void:
 		return
 	var left := sk.get_bone_global_pose(int(rig.hind[0].femur)).origin
 	var right := sk.get_bone_global_pose(int(rig.hind[1].femur)).origin
-	var angle := (_line_roll(rig, sk, left, right) + POSE1_ROLL_TWEAK) * weight
+	var angle := (_line_roll(rig, sk, left, right) + _value("roll_tweak", POSE1_ROLL_TWEAK)) * weight
 	last_roll = angle
 	if absf(angle) < 0.0001:
 		return
@@ -185,7 +187,7 @@ func _raise_hind_legs(rig, sk: Skeleton3D, weight: float) -> void:
 		var outward := pose.origin - sk.get_bone_global_pose(rig.hips).origin
 		outward.y = 0.0
 		var sign := 1.0 if forward.cross(direction).dot(outward) >= 0.0 else -1.0
-		rig.rotate(sk, bone, forward, sign * POSE1_HIND_SPREAD * weight)
+		rig.rotate(sk, bone, forward, sign * _value("hind_spread", POSE1_HIND_SPREAD) * weight)
 		if lower >= 0:
 			rig.rotate(sk, lower, right, -0.55 * weight)
 
@@ -233,10 +235,17 @@ func _aim_head(rig, sk: Skeleton3D, weight: float, scale: float, look_point: Vec
 
 
 func _nuzzle_pulse(clock: float) -> float:
-	var phase := fmod(clock, NUZZLE_PERIOD)
-	if phase > NUZZLE_DURATION:
+	var period := maxf(0.1, _value("nuzzle_period", NUZZLE_PERIOD))
+	var duration := maxf(0.05, _value("nuzzle_duration", NUZZLE_DURATION))
+	var phase := fmod(clock, period)
+	if phase > duration:
 		return 0.0
-	return sin(phase / NUZZLE_DURATION * PI)
+	return sin(phase / duration * PI)
+
+
+func _value(key: String, fallback: float) -> float:
+	var value: Variant = _config.get(key)
+	return float(value) if value != null else fallback
 
 
 func _roll_head(rig, sk: Skeleton3D, weight: float, head_roll: float) -> void:

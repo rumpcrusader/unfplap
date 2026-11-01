@@ -6,6 +6,8 @@ extends SkeletonModifier3D
 
 const ASIDE_ANGLE := 0.55
 const LIFT_ANGLE := 0.34
+var aside_angle := ASIDE_ANGLE
+var lift_angle := LIFT_ANGLE
 const FLICK_SECONDS := 0.9
 const FLICK_AMPLITUDE := 1.10
 
@@ -86,7 +88,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		# Rotating about `right` by a positive angle raises the tail when (right x direction)
 		# already points up; derive the sign so the lift always goes up.
 		var lift_sign := 1.0 if right.cross(direction).dot(up) >= 0.0 else -1.0
-		pose.basis = Basis(up, ASIDE_ANGLE * weight * aside_sign * falloff) * pose.basis
-		var lift := LIFT_ANGLE * weight + (flick * weight if flicking else 0.0)
+		pose.basis = Basis(up, aside_angle * weight * aside_sign * falloff) * pose.basis
+		var lift := lift_angle * weight + (flick * weight if flicking else 0.0)
 		pose.basis = Basis(right, lift_sign * lift * falloff) * pose.basis
 		sk.set_bone_global_pose(bone, pose)

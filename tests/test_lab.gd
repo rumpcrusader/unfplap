@@ -1,6 +1,6 @@
 extends Node
 ## Unfplap manual test lab. Run with:
-##   godot --xr-mode off --path <project> -- --mod-src unfplap \
+##   godot --xr-mode off --path <project> -- --mod-src unfplap --skip-title \
 ##       --lab res://mods/unfplap/tests/test_lab.gd
 ##
 ## Builds a clear test bed in front of the player, puts the first mares nearby at different
@@ -14,16 +14,29 @@ var game: Node
 var bed: Node3D
 var rest: Node3D
 var _done := false
+var _old_opening := ""
+var _settings: Node
 
 
 func _ready() -> void:
+	# The title screen adds this lab before starting the game scene. Skip the opening tutorial
+	# before the arrival story reads the setting, then restore the player's preference afterwards.
+	_settings = get_node_or_null("/root/Settings")
+	if _settings != null:
+		_old_opening = str(_settings.get_value("world/opening"))
+		_settings.set_value("world/opening", "skip")
+	print("[unfplap test] ready game=%s" % str(game))
 	run.call_deferred()
 
 
 func run() -> void:
+	print("[unfplap test] lab start game=%s" % str(game))
 	if not await _wait_for_world():
 		return
+	await _skip_arrival_tutorial()
 	_stop_standard_systems()
+	if _settings != null:
+		_settings.set_value("world/opening", _old_opening)
 	var ponies: Array = game.get("mares")
 	if not ponies is Array or ponies.is_empty():
 		print("[unfplap test] no mares loaded")
@@ -39,12 +52,34 @@ func run() -> void:
 
 func _wait_for_world() -> bool:
 	for i in 1800:
+		if not is_instance_valid(game):
+			var scene := get_tree().current_scene
+			if scene != null and scene.get("world_context") != null:
+				game = scene
 		if is_instance_valid(game) and is_instance_valid(game.get("player")) \
 				and is_instance_valid(game.get("world_context")):
-			return true
+			var loaded: Variant = game.get("mares")
+			if loaded is Array and not (loaded as Array).is_empty():
+				return true
 		await get_tree().process_frame
-	print("[unfplap test] world did not become ready")
+	print("[unfplap test] world did not become ready game=%s player=%s ctx=%s" % [str(game), str(game.get("player")) if is_instance_valid(game) else "null", str(game.get("world_context")) if is_instance_valid(game) else "null"])
 	return false
+
+
+## An existing save can already be in the tutorial stage even with `world/opening = skip`.
+## Skip that sequence explicitly before the bed is built.
+func _skip_arrival_tutorial() -> void:
+	var arrival: Variant = game.get("arrival")
+	if arrival == null or not is_instance_valid(arrival) or not arrival.has_method("stage"):
+		return
+	var stage := str(arrival.call("stage"))
+	if stage not in ["wake", "tutorial", "found"]:
+		return
+	print("[unfplap test] skipping arrival stage=%s" % stage)
+	if arrival.has_method("_skip_opening"):
+		await arrival.call("_skip_opening")
+	else:
+		arrival.call("_finish")
 
 
 func _stop_standard_systems() -> void:

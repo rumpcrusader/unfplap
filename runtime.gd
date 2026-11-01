@@ -35,8 +35,8 @@ const WITNESS_RADIUS_M := 8.0
 const POSE1_STYLE := "side_lying" # B29 fallback is now the default cuddle-like lie.
 ## Pose 1 camera: 0.75 m above the pony root and this far forward, so it sits above her neck/face
 ## instead of above the middle of her body. `pony.global_basis.z` is her backward direction.
-const POSE1_CAMERA_HEIGHT_M := 0.55
-const POSE1_CAMERA_FORWARD_M := 0.25
+const POSE1_CAMERA_HEIGHT_M := 0.65
+const POSE1_CAMERA_FORWARD_M := 0.15
 ## Pose 1 camera vertical bob scale (world up); lower it because the pose-1 view is close.
 const POSE1_BOB_SCALE := 0.35
 ## Presentation: how close the pony stands in front of the player for pose 2.

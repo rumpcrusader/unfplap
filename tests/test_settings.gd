@@ -37,6 +37,7 @@ func run() -> void:
 	check(int(profile.get("climax_at", 0)) == 80, "character override wins")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.5, "character pose override wins")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["rump_drop_deg"]) == 35.0, "character pose inherits other defaults")
+	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["camera_height"]) == 0.55, "missionary camera default")
 	check(float((profile["poses"] as Dictionary)[CATALOG.HORSE]["hind_spread"]) == 0.16, "unrelated pose inherits defaults")
 
 	var other := SETTINGS.profile_for(base, characters, "rainbow_dash")

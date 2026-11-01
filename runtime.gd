@@ -118,6 +118,7 @@ var _nav_old_wander := true
 var _token := ""
 var _id := ""
 var _profile: Dictionary = {}
+var _pose_cfg: Dictionary = {}
 var _climax_at := 100
 var _aftercare_min := 10
 var _display_name := "the pony"
@@ -977,6 +978,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
+	_pose_cfg = SETTINGS.pose(_id, pose_id)
 	_climax_at = int(_profile.get("climax_at", 100))
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_has_facing = false
@@ -1046,10 +1048,10 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		_glance_back = false
 		_glance_sign_set = false
 		_glance_head_back = 0.0
-		_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
+		_glance_wait = randf_range(float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)), float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
 
 	_build_pose()
-	_pose1_head_roll = 0.0
+	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	_pose1_free_yaw = 0.0
 	_pose1_free_pitch = 0.0
 	_pose1_debug_rot = Basis.IDENTITY
@@ -1291,7 +1293,8 @@ func _pose2_gap() -> float:
 	if settings == null:
 		return POSE2_GAP_M
 	var size := str(settings.call("get_value", "ponies/size"))
-	var gap := float(POSE2_GAPS.get(size, POSE2_GAP_M))
+	var gaps: Variant = _pose_cfg.get("gaps", POSE2_GAPS)
+	var gap := float((gaps as Dictionary).get(size, POSE2_GAP_M)) if gaps is Dictionary else POSE2_GAP_M
 	_log("pose2 size=%s gap=%.2f" % [size, gap])
 	return gap
 
@@ -1334,6 +1337,7 @@ func _build_pose() -> void:
 		_pose.name = "UnfplapPose"
 		_pose.mare = pony
 		_pose.mode = "pose2" if pose_id == CATALOG.HORSE else "pose1"
+		_pose.pose_config = SETTINGS.pose(_id, pose_id)
 		_pose.head_roll = _pose1_head_roll
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
@@ -1346,6 +1350,8 @@ func _build_pose() -> void:
 		_tail = TAIL.new()
 		_tail.name = "UnfplapTail"
 		_tail.mare = pony
+		_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
+		_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.34))
 		_tail.amount = 0.0
 		_tail.target_amount = 1.0
 		_tail.call("choose_side")
@@ -1497,7 +1503,7 @@ func _finish_climax() -> void:
 func _pose2_withdraw_begin() -> void:
 	_log("withdraw pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
 	state = State.WITHDRAW
-	_withdraw_left = POSE2_WITHDRAW_SECONDS
+	_withdraw_left = float(_pose_cfg.get("withdraw_seconds", POSE2_WITHDRAW_SECONDS))
 	_back_target = AFTERGLOW_BACK_M
 	_set_face(0.7, 0.55, 12.0)
 	if is_instance_valid(_tail):
@@ -1888,7 +1894,7 @@ func _pose1_camera_target() -> Vector3:
 	var root: Vector3 = pony.global_position
 	var back: Vector3 = pony.global_basis.z.normalized()
 	# Move toward her head/neck (forward is -back) so the camera is not centred over her body.
-	var target := root + Vector3.UP * POSE1_CAMERA_HEIGHT_M - back * POSE1_CAMERA_FORWARD_M
+	var target := root + Vector3.UP * float(_pose_cfg.get("camera_height", POSE1_CAMERA_HEIGHT_M)) - back * float(_pose_cfg.get("camera_forward", POSE1_CAMERA_FORWARD_M))
 	var bed_top := _bed_surface_top()
 	if is_finite(bed_top) and bed_top <= root.y + 2.0:
 		target.y = maxf(target.y, bed_top + 0.30)
@@ -1962,7 +1968,7 @@ func apply_camera_bob() -> void:
 			_make_pose1_view()
 		if not is_instance_valid(_pose1_view):
 			return
-		_pose1_view.global_position = _pose1_camera + Vector3.UP * (_bob * POSE1_BOB_SCALE)
+		_pose1_view.global_position = _pose1_camera + Vector3.UP * (_bob * float(_pose_cfg.get("bob_scale", POSE1_BOB_SCALE)))
 		_pose1_view.global_position -= _pose1_view_basis.z * (_lean - _back)
 		# Track the face for the first second (while the pose blends in), then freeze the
 		# orientation so the camera is not locked to her snout while she nuzzles.
@@ -2096,12 +2102,12 @@ func _drive_glance(delta: float) -> void:
 		secondary.call("look_toward", _glance_angles(), 0.4)
 		_aim_eyes_at_player()
 		if _glance_left <= 0.0:
-			_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
+			_glance_wait = randf_range(float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)), float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
 		return
 	_glance_wait -= delta
 	if _glance_wait <= 0.0:
-		_glance_left = GLANCE_HOLD
-		_glance_back = randf() < GLANCE_BACK_CHANCE
+		_glance_left = float(_pose_cfg.get("glance_hold", GLANCE_HOLD))
+		_glance_back = randf() < float(_pose_cfg.get("glance_back_chance", GLANCE_BACK_CHANCE))
 		_glance_sign_set = false
 	secondary.call("look_toward", Vector3.ZERO, 0.4)
 
@@ -2138,8 +2144,9 @@ func _glance_angles() -> Vector3:
 	var yaw: float = _glance_sign * absf(raw)
 	var pitch := atan2(local.y, Vector2(local.x, local.z).length())
 	if _glance_back:
-		return Vector3(clampf(pitch + GLANCE_BACK_PITCH, -0.25, 1.0), clampf(yaw, -1.35, 1.35), 0.0)
-	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -GLANCE_YAW, GLANCE_YAW), 0.0)
+		return Vector3(clampf(pitch + float(_pose_cfg.get("glance_back_pitch", GLANCE_BACK_PITCH)), -0.25, 1.0), clampf(yaw, -1.35, 1.35), 0.0)
+	var yaw_limit := float(_pose_cfg.get("glance_yaw", GLANCE_YAW))
+	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -yaw_limit, yaw_limit), 0.0)
 
 
 ## Free look, but inside a 45-degree cone around the direction the act began in. Movement stays

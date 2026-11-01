@@ -18,6 +18,7 @@ var amount := 0.0
 var target_amount := 0.0
 var head_roll := 0.0
 var climaxing := false
+var pose_config: Dictionary = {}
 
 var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
@@ -56,6 +57,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		"head_back": head_back,
 		"climaxing": climaxing,
 		"clock": _clock,
+		"config": pose_config,
 	}
 	if mode == "pose2":
 		_horse.apply(_rig, sk, weight, state)

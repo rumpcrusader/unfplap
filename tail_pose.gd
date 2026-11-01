@@ -1,9 +1,11 @@
 extends SkeletonModifier3D
 ## Moves the tail aside and slightly up for the standing presentation, and can flick it.
 ## Runs on the hair skeleton after hybrid_tail_motion; only rotates bones.
+##
+## The side is chosen per act by `choose_side()` so the tail does not always sweep the same way.
 
 const ASIDE_ANGLE := 0.55
-const LIFT_ANGLE := 0.22
+const LIFT_ANGLE := 0.34
 const FLICK_SECONDS := 0.9
 const FLICK_AMPLITUDE := 1.10
 
@@ -11,6 +13,8 @@ var mare: Node3D
 var amount := 0.0
 var target_amount := 0.0
 var aside := 1.0
+## +1 or -1: which way the tail sweeps. Randomized per act.
+var aside_sign := 1.0
 
 var _bones: Array[int] = []
 var _cached := false
@@ -32,6 +36,11 @@ func _cache() -> void:
 		var bone := sk.find_bone("mTail%d" % i)
 		if bone >= 0:
 			_bones.append(bone)
+
+
+## Pick a fresh side for this act.
+func choose_side() -> void:
+	aside_sign = 1.0 if randf() < 0.5 else -1.0
 
 
 ## Two quick up/down swings. Called when the pose 2 afterglow starts.
@@ -78,7 +87,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		# Rotating about `right` by a positive angle raises the tail when (right x direction)
 		# already points up; derive the sign so the lift always goes up.
 		var lift_sign := 1.0 if right.cross(direction).dot(up) >= 0.0 else -1.0
-		pose.basis = Basis(up, ASIDE_ANGLE * weight * aside * falloff) * pose.basis
+		pose.basis = Basis(up, ASIDE_ANGLE * weight * aside * aside_sign * falloff) * pose.basis
 		var lift := LIFT_ANGLE * weight + (flick * weight if flicking else 0.0)
 		pose.basis = Basis(right, lift_sign * lift * falloff) * pose.basis
 		sk.set_bone_global_pose(bone, pose)

@@ -51,6 +51,8 @@ const DEBUG_POSE1_DUMP := true
 ## Extra roll around her long axis after levelling, in radians. Positive rolls one side down.
 ## CORRECTION tuning knob: adjust only if the measured bed levelling still leaves a small tilt.
 const POSE1_ROLL_TWEAK := 0.0
+## Pose 1 head roll around her forward axis (radians). 0 = no roll; tune with Alt+1/2.
+const POSE1_HEAD_ROLL := 0.0
 
 var mare: Node3D
 var mode := "pose1"
@@ -60,6 +62,10 @@ var look_point := Vector3.ZERO
 var head_back := 0.0
 var amount := 0.0
 var target_amount := 0.0
+## Runtime-adjustable pose-1 head roll (radians), seeded from `POSE1_HEAD_ROLL`.
+var head_roll := POSE1_HEAD_ROLL
+## True while the runtime is in CLIMAX; pose 1 keeps her nuzzling Anon through it.
+var climaxing := false
 
 var _root := -1
 var _hips := -1
@@ -163,9 +169,13 @@ func _missionary(sk: Skeleton3D, weight: float) -> void:
 	_hug_forelegs(sk, weight)
 	# POSE CONTENT: look up at Anon's camera and periodically reach toward it (nuzzle).
 	_aim_head(sk, weight, POSE1_LOOK_SCALE)
-	var pulse := _nuzzle_pulse()
+	var pulse := 1.0 if climaxing else _nuzzle_pulse()
+	if climaxing:
+		# Keep nuzzling through the climax instead of waiting for the next periodic pulse.
+		pulse = 0.75 + 0.25 * sin(_clock * 4.0)
 	if pulse > 0.001:
 		_aim_head(sk, weight * pulse, POSE1_NUZZLE_SCALE)
+	_roll_head(sk, weight)
 	# NOTE: positive neck lift (the old 0.10/0.08/0.06 here) is the head-back effect. It is
 	# intentionally not applied in pose 1; keep it for a future thrown-back-head pose.
 	# _lift_neck(sk, weight)
@@ -416,6 +426,20 @@ func _hug_forelegs(sk: Skeleton3D, weight: float) -> void:
 		_rotate(sk, lower, right, 1.1 * weight)
 		_rotate(sk, upper, up, 0.18 * weight)
 		_rotate(sk, lower, forward, 0.35 * weight)
+
+
+## POSE CONTENT: roll the head around her forward axis so both eyes face Anon's camera. The
+## runtime debug keys (Alt+1/2) adjust `head_roll` and log it, so the correct amount can be
+## reported without recompiling.
+func _roll_head(sk: Skeleton3D, weight: float) -> void:
+	if absf(head_roll) < 0.0001 or _neck.is_empty():
+		return
+	var head := _neck[_neck.size() - 1]
+	if head < 0:
+		return
+	var pose := sk.get_bone_global_pose(head)
+	pose.basis = Basis(_forward_axis(sk), head_roll * weight) * pose.basis
+	sk.set_bone_global_pose(head, pose)
 
 
 ## POSE CONTENT helper: 0→1→0 pulse once per `NUZZLE_PERIOD`, peaking for `NUZZLE_DURATION`.

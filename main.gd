@@ -60,7 +60,12 @@ func _ready() -> void:
 	process_priority = 100
 	set_process(true)
 	debug_logs = SETTINGS.load_debug_logs()
-	_debug("entry ready (debug logs %s)" % ("ON" if debug_logs else "OFF"))
+	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
+	var source_mtime := maxi(
+		FileAccess.get_modified_time("res://mods/unfunfunf/runtime.gd"),
+		FileAccess.get_modified_time("res://mods/unfunfunf/pose.gd"))
+	_debug("entry ready (debug logs %s) runtime_mtime=%d" % [
+		"ON" if debug_logs else "OFF", source_mtime])
 	Mods.world_ready.connect(_on_world)
 	Mods.world_closed.connect(_on_world_closed)
 	Mods.player_ready.connect(_on_player)

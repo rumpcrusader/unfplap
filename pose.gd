@@ -41,6 +41,8 @@ const STANDING_HIND_SPREAD := 0.16
 ## Pose 1: spread of the raised hind legs around the body axis. 0.24 is a modest presentation
 ## spread; larger values open her legs further toward the camera.
 const POSE1_HIND_SPREAD := 0.42
+## Pose 1: pitch the whole body down at the rump by this angle, pivoting on the shoulder line.
+const POSE1_RUMP_DROP_DEG := 35.0
 ## Pose 1: aim the head at Anon's camera, with a periodic reach toward it (deep-kiss nuzzle).
 const POSE1_LOOK_SCALE := 0.55
 const POSE1_NUZZLE_SCALE := 0.45
@@ -163,6 +165,7 @@ func _missionary(sk: Skeleton3D, weight: float) -> void:
 	_align_chain_straight(sk, weight)
 	_level_body_roll(sk, weight)
 	_level_chest_roll(sk, weight)
+	_pitch_body_about_shoulders(sk, weight, POSE1_RUMP_DROP_DEG)
 	# POSE CONTENT: the act presentation itself.
 	_bend_forelegs(sk, weight, 0.3)
 	_raise_hind_legs(sk, weight)
@@ -302,6 +305,25 @@ func _line_roll(sk: Skeleton3D, left: Vector3, right: Vector3) -> float:
 	elif angle < -PI * 0.5:
 		angle += PI
 	return angle
+
+
+## POSE CONTENT: pitch the whole body around the shoulder line so the rump drops toward the bed.
+## The pivot is the midpoint of the two upper-arm roots; positive rotation about her right axis
+## moves the pelvis (behind the pivot) downward.
+func _pitch_body_about_shoulders(sk: Skeleton3D, weight: float, degrees: float) -> void:
+	if _root < 0 or _fore.size() < 2:
+		return
+	var left := sk.get_bone_global_pose(int(_fore[0].upper)).origin
+	var right := sk.get_bone_global_pose(int(_fore[1].upper)).origin
+	var pivot := (left + right) * 0.5
+	var angle := deg_to_rad(degrees) * weight
+	if absf(angle) < 0.0001:
+		return
+	var pose := sk.get_bone_global_pose(_root)
+	var turn := Basis(_right_axis(sk), angle)
+	pose.origin = pivot + turn * (pose.origin - pivot)
+	pose.basis = turn * pose.basis
+	sk.set_bone_global_pose(_root, pose)
 
 
 ## CORRECTION (bed contact, pelvis): roll the whole body around its long axis until her left/right

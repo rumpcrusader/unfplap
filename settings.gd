@@ -1,12 +1,18 @@
 extends RefCounted
 ## Persisted mod settings outside any world save: global DEBUG LOGS plus per-pony templates.
 ## The default template holds every pony-related setting; `characters` only needs overrides.
+##
+## A character inherits every field it does not override. Pose settings live under
+## `poses.<pose id>` and are merged with `poses/catalog.gd` defaults before use.
 
-const ID := "unfunfunf"
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const ID := "unfplap"
 const FILE := "settings.json"
 
 const DEFAULT_TEMPLATE := {
 	"chattiness": 0.6,
+	"climax_at": 100,
+	"aftercare_min": 10,
 	"event_prompts": {
 		"climax": "",
 		"end_early": "",
@@ -56,16 +62,41 @@ static func event_prompt(id: String, event: String) -> String:
 	return ""
 
 
-## The merged default + per-character template actually used at runtime.
+static func climax_at(id: String) -> int:
+	return clampi(int(template_for(id).get("climax_at", 100)), 1, 100)
+
+
+static func aftercare_min(id: String) -> int:
+	return clampi(int(template_for(id).get("aftercare_min", 10)), 0, 100)
+
+
+## The merged default + per-character template actually used at runtime, with all pose blocks
+## filled from the catalog defaults.
 static func template_for(id: String) -> Dictionary:
 	var data := _read()
-	var base: Dictionary = data.get("default", DEFAULT_TEMPLATE.duplicate(true))
-	var characters: Variant = data.get("characters", {})
+	return profile_for(
+		data.get("default", _filled_default()),
+		data.get("characters", {}),
+		id)
+
+
+## Pure merge for tests and for `template_for`.
+static func profile_for(base: Dictionary, characters: Variant, id: String) -> Dictionary:
+	var selected: Dictionary = base.duplicate(true)
 	if characters is Dictionary and (characters as Dictionary).has(id):
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:
-			return _merge(base, over)
-	return base.duplicate(true)
+			selected = _merge(selected, over)
+	return _fill_pose_defaults(selected)
+
+
+static func pose(id: String, pose_id: String) -> Dictionary:
+	var poses: Variant = template_for(id).get("poses", {})
+	if poses is Dictionary and (poses as Dictionary).has(pose_id):
+		var value: Variant = (poses as Dictionary)[pose_id]
+		if value is Dictionary:
+			return (value as Dictionary).duplicate(true)
+	return CATALOG.defaults(pose_id)
 
 
 static func set_character_override(id: String, override: Dictionary) -> void:
@@ -93,9 +124,29 @@ static func _read() -> Dictionary:
 static func _defaults() -> Dictionary:
 	return {
 		"debug_logs": true,
-		"default": DEFAULT_TEMPLATE.duplicate(true),
+		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}
+
+
+## Default template plus catalog pose defaults. Kept as a function so catalog constants are read
+## at run time instead of being baked into a preloaded const expression.
+static func _filled_default() -> Dictionary:
+	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
+	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
+	return out
+
+
+static func _fill_pose_defaults(template: Dictionary) -> Dictionary:
+	var out: Dictionary = template.duplicate(true)
+	var poses: Variant = out.get("poses", {})
+	var merged: Dictionary = {}
+	for pose_id: String in CATALOG.all():
+		var over: Variant = (poses as Dictionary).get(pose_id, {}) if poses is Dictionary else {}
+		var base: Dictionary = CATALOG.defaults(pose_id)
+		merged[pose_id] = _merge(base, over if over is Dictionary else {})
+	out["poses"] = merged
+	return out
 
 
 static func _merge(base: Dictionary, over: Dictionary) -> Dictionary:

@@ -1,0 +1,9 @@
+{
+	"id": "unfunfunf",
+	"name": "Unfunfunf",
+	"version": "0.2.0",
+	"author": "Anon",
+	"description": "Adult intimacy for consenting adult ponies at the Marefriend stage.",
+	"game_version": "0.1.1",
+	"entry": "res://mods/unfunfunf/main.gd"
+}

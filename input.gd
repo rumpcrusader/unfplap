@@ -76,8 +76,18 @@ func _input(event: InputEvent) -> void:
 			main.call("toggle_debug_logs")
 			get_viewport().set_input_as_handled()
 			return
-		# Pose-1 camera debug rotation. Alt+7/8/9/0/-/+ avoid the inventory's Ctrl+1..6.
+		# Pose-1 debug head roll (Alt+1/2) and camera rotation (Alt+7/8/9/0/-/+).
 		if debug_key.pressed and not debug_key.echo and debug_key.alt_pressed:
+			var active: Variant = main.get("active_runtime")
+			if is_instance_valid(active):
+				if debug_key.physical_keycode == KEY_1:
+					active.call("debug_roll_pose1_head", 1.0)
+					get_viewport().set_input_as_handled()
+					return
+				if debug_key.physical_keycode == KEY_2:
+					active.call("debug_roll_pose1_head", -1.0)
+					get_viewport().set_input_as_handled()
+					return
 			var axis := -1
 			match debug_key.physical_keycode:
 				KEY_7: axis = 0
@@ -87,7 +97,6 @@ func _input(event: InputEvent) -> void:
 				KEY_MINUS: axis = 4
 				KEY_EQUAL, KEY_PLUS: axis = 5
 			if axis >= 0:
-				var active: Variant = main.get("active_runtime")
 				if is_instance_valid(active):
 					active.call("debug_rotate_pose1", axis)
 					get_viewport().set_input_as_handled()

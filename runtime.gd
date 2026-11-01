@@ -28,12 +28,17 @@ const RESTORE_SECONDS := 0.4
 const BREATH_BASE_INTERVAL_S := 0.9
 const BREATH_MIN_INTERVAL_S := 0.2
 const BREATH_RATE_CAP := 10.0
+## Breath gain easing. Active: follows the plap rate; afterglow: fades over this many seconds.
+const BREATH_FADE_S := 2.5
+const AFTERGLOW_BREATH_FADE_S := 5.0
 const WITNESS_RADIUS_M := 8.0
 const POSE1_STYLE := "side_lying" # B29 fallback is now the default cuddle-like lie.
 ## Pose 1 camera: 0.75 m above the pony root and this far forward, so it sits above her neck/face
 ## instead of above the middle of her body. `pony.global_basis.z` is her backward direction.
-const POSE1_CAMERA_HEIGHT_M := 0.40
-const POSE1_CAMERA_FORWARD_M := 0.10
+const POSE1_CAMERA_HEIGHT_M := 0.55
+const POSE1_CAMERA_FORWARD_M := 0.25
+## Pose 1 camera vertical bob scale (world up); lower it because the pose-1 view is close.
+const POSE1_BOB_SCALE := 0.35
 ## Presentation: how close the pony stands in front of the player for pose 2.
 const POSE2_GAP_M := 0.55
 ## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
@@ -123,6 +128,7 @@ var _camera: Camera3D
 var _applied_bob := 0.0
 var _applied_lean := 0.0
 var _pose1_camera := Vector3.INF
+var _pose1_head_roll := 0.0
 var _pose1_free_yaw := 0.0
 var _pose1_free_pitch := 0.0
 var _pose1_debug_rot := Basis.IDENTITY
@@ -186,7 +192,9 @@ var _climax_progress := 0.0
 var _breath: AudioStreamPlayer3D
 var _breath_streams: Array[AudioStream] = []
 var _breath_clock := 0.0
+var _breath_gain := 0.0
 var _kiss_sound: AudioStreamPlayer3D
+var _plap_streams: Array[AudioStream] = []
 var _flank: Node
 var _jiggle_side := 0
 var _jiggle_logged := false
@@ -346,6 +354,7 @@ func _process(delta: float) -> void:
 			view = _pose1_view
 		if is_instance_valid(view):
 			_pose.look_point = view.global_position
+		_pose.climaxing = state == State.CLIMAX
 	if state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
 		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
@@ -1162,6 +1171,7 @@ func start(pose: int, bed_in: Variant, act_source: String) -> bool:
 		_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
 
 	_build_pose()
+	_pose1_head_roll = 0.0
 	_pose1_free_yaw = 0.0
 	_pose1_free_pitch = 0.0
 	_pose1_debug_rot = Basis.IDENTITY
@@ -1446,6 +1456,7 @@ func _build_pose() -> void:
 		_pose.name = "UnfunfunfPose"
 		_pose.mare = pony
 		_pose.mode = "pose2" if pose_number == 2 else "pose1"
+		_pose.head_roll = _pose1_head_roll
 		_pose.style = POSE1_STYLE
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
@@ -1515,38 +1526,42 @@ func _pump_jiggle() -> void:
 	var marks: Variant = _flank.get("marks")
 	if not marks is Array or (marks as Array).size() < 2:
 		return
-	var index := _jiggle_side
-	_jiggle_side = 1 - _jiggle_side
-	var mark: Variant = (marks as Array)[index]
+	# One shader center on the rump midline so both flanks wobble together. The native FlankTouch
+	# supports only one jiggle at a time, so this replaces the old left/right alternation.
+	var mark: Variant = (marks as Array)[0]
 	if not mark is Decal:
 		return
-	var side := -1.0 if index == 0 else 1.0
-	var lateral: Vector3 = pony.global_basis.x.normalized() * side
 	var back: Vector3 = pony.global_basis.z.normalized()
-	var normal := (lateral + back * 0.35).normalized()
+	var normal := back
 	if normal.length_squared() < 0.001:
 		return
-	# Place the jiggle on the actual hip/flank joint instead of a fixed height above the root:
-	# in pose 1 she is lying down, so a world-up offset floated the point off her body.
-	var at: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + lateral * JIGGLE_SIDE + back * JIGGLE_BACK
+	var at: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + back * JIGGLE_BACK
 	var sk: Variant = pony.get("skeleton")
 	if sk is Skeleton3D:
-		var femur := (sk as Skeleton3D).find_bone("pony_femur_L" if side < 0 else "pony_femur_R")
-		if femur >= 0:
-			at = (sk as Skeleton3D).global_transform * (sk as Skeleton3D).get_bone_global_pose(femur).origin
-			at += normal * 0.10 + Vector3.UP * 0.04
+		var skeleton := sk as Skeleton3D
+		var left := skeleton.find_bone("pony_femur_L")
+		var right := skeleton.find_bone("pony_femur_R")
+		if left >= 0 and right >= 0:
+			var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
+			var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
+			at = (a + b) * 0.5 + Vector3.UP * 0.08 + back * 0.10
 	var across := Vector3.UP.cross(normal).normalized()
 	if across.length_squared() < 0.5:
 		across = Vector3.RIGHT
 	var decal := mark as Decal
 	decal.global_transform = Transform3D(Basis(across, normal, across.cross(normal)).orthonormalized(), at + normal * 0.015)
 	decal.visible = false
-	_flank.call("_start_jiggle", index, JIGGLE_STRENGTH)
+	_flank.call("_start_jiggle", 0, JIGGLE_STRENGTH)
+	# Only one shader center now covers both flanks, so double the wobble amount. `_start_jiggle`
+	# clamps strength to 1.0, so scale its resolved amount directly instead.
+	var amount: Variant = _flank.get("_jiggle_amount")
+	if amount != null:
+		_flank.set("_jiggle_amount", float(amount) * 3.5)
 	if not _jiggle_logged:
 		_jiggle_logged = true
 		var targets: Variant = _flank.get("_jiggle_targets")
-		_log("jiggle side=%d at=%s root=%s normal=%s targets=%d" % [
-			int(side), str(at), str(pony.global_position), str(normal),
+		_log("jiggle rump at=%s root=%s normal=%s targets=%d" % [
+			str(at), str(pony.global_position), str(normal),
 			(targets as Array).size() if targets is Array else -1])
 
 
@@ -1674,6 +1689,7 @@ func _finish_restore() -> void:
 	_restore_camera()
 	pony.remove_meta("sex_active")
 	_release_nav()
+	_restore_look()
 	if was_pose == 1:
 		_resume_pose1_cuddle()
 	elif pony.get("posture") != null:
@@ -1700,15 +1716,18 @@ func _resume_pose1_cuddle() -> void:
 		return
 	# Revert the exact scene captured at start: camera, player and pony transforms.
 	if _pose1_start_saved:
-		if is_instance_valid(_pose1_start_camera):
-			_pose1_start_camera.global_transform = _pose1_start_camera_transform
-			_pose1_start_camera.make_current()
+		# Player/pony first, camera last: setting the player yaw rotates a child camera, so the
+		# snapshot camera transform must be applied after the rig is back in place.
 		main.player.global_transform = _pose1_start_player_transform
 		pony.global_transform = _pose1_start_pony_transform
 		pony.reset_physics_interpolation()
-		_log("pose1 restore: snapshot camera=%s player=%s pony=%s" % [
+		if is_instance_valid(_pose1_start_camera):
+			_pose1_start_camera.global_transform = _pose1_start_camera_transform
+			_pose1_start_camera.make_current()
+		_log("pose1 restore: snapshot camera=%s player=%s pony=%s player_yaw=%.3f" % [
 			str(_pose1_start_camera_transform.origin), str(_pose1_start_player_transform.origin),
-			str(_pose1_start_pony_transform.origin)])
+			str(_pose1_start_pony_transform.origin),
+			float(main.player.rotation.y)])
 	var seat: Variant = main.player.get("seat")
 	var couch: Variant = null
 	if is_instance_valid(seat) and seat.has_meta("couch"):
@@ -1743,6 +1762,7 @@ func _restore_now() -> void:
 		pony.remove_meta("sex_active")
 		if pony.get("posture") != null:
 			pony.request_posture("stand")
+		_restore_look()
 		_release_nav()
 	_free_pose()
 	_stop_audio()
@@ -1898,9 +1918,10 @@ func _snapshot_pose1_start() -> void:
 			if status is Dictionary:
 				_pose1_start_pony_posture = str((status as Dictionary).get("requested", ""))
 	_pose1_start_saved = true
-	_log("pose1 snapshot camera=%s player=%s pony=%s posture=%s" % [
+	_log("pose1 snapshot camera=%s player=%s pony=%s posture=%s player_yaw=%.3f" % [
 		str(_pose1_start_camera_transform.origin), str(_pose1_start_player_transform.origin),
-		str(_pose1_start_pony_transform.origin), _pose1_start_pony_posture])
+		str(_pose1_start_pony_transform.origin), _pose1_start_pony_posture,
+		_pose1_start_player_transform.basis.get_euler().y])
 
 
 func _make_pose1_view() -> void:
@@ -2064,7 +2085,7 @@ func apply_camera_bob() -> void:
 			_make_pose1_view()
 		if not is_instance_valid(_pose1_view):
 			return
-		_pose1_view.global_position = _pose1_camera + Vector3.UP * _bob
+		_pose1_view.global_position = _pose1_camera + Vector3.UP * (_bob * POSE1_BOB_SCALE)
 		_pose1_view.global_position -= _pose1_view_basis.z * (_lean - _back)
 		# Track the face for the first second (while the pose blends in), then freeze the
 		# orientation so the camera is not locked to her snout while she nuzzles.
@@ -2085,6 +2106,17 @@ func apply_camera_bob() -> void:
 ## pressed state), not reconstructed from Euler angles. Change or clear this if re-tuned.
 func _pose1_camera_tweak() -> Basis:
 	return Basis.IDENTITY
+
+
+## DEBUG: adjust the pose-1 head roll around her forward axis (Alt+1/2) and log it.
+func debug_roll_pose1_head(direction: float) -> void:
+	if pose_number != 1 or state == State.IDLE:
+		_log("pose1 head roll ignored pose=%d state=%d" % [pose_number, state])
+		return
+	_pose1_head_roll += direction * deg_to_rad(5.0)
+	if is_instance_valid(_pose):
+		_pose.set("head_roll", _pose1_head_roll)
+	_log("pose1 head roll %.1f°" % rad_to_deg(_pose1_head_roll))
 
 
 ## DEBUG: rotate the pose-1 camera in world axes so the correct roll/orientation can be found
@@ -2140,6 +2172,22 @@ func _capture_look() -> void:
 	_look_pitch = float(pitch) if pitch != null else 0.0
 
 
+## Restore the player's yaw/pitch captured at act start. Free look and the pose-2 look cone can
+## leave the rig yawed after the act, which makes W/D move relative to a different facing than the
+## camera. Restoring the captured look keeps movement and view aligned.
+func _restore_look() -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var yaw := _look_yaw
+	# Pose 1 restores the exact start snapshot; use its rig yaw rather than the later capture.
+	if pose_number == 1 and _pose1_start_saved:
+		yaw = _pose1_start_player_transform.basis.get_euler().y
+	main.player.rotation.y = yaw
+	if main.player.get("_pitch") != null:
+		main.player.set("_pitch", _look_pitch)
+	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _look_yaw, _look_pitch])
+
+
 ## Pose 2 must keep her rump toward Anon. The navigator tries to face a conversation partner
 ## and idle motion can add turns; this runs late and restores the start basis every tick.
 func _lock_body_facing() -> void:
@@ -2169,6 +2217,7 @@ func _drive_glance(delta: float) -> void:
 	if _glance_left > 0.0:
 		_glance_left -= delta
 		secondary.call("look_toward", _glance_angles(), 0.4)
+		_aim_eyes_at_player()
 		if _glance_left <= 0.0:
 			_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
 		return
@@ -2178,6 +2227,20 @@ func _drive_glance(delta: float) -> void:
 		_glance_back = randf() < GLANCE_BACK_CHANCE
 		_glance_sign_set = false
 	secondary.call("look_toward", Vector3.ZERO, 0.4)
+
+
+## Pupils/eyes follow Anon during a glance. The native eye modifier exposes `target_world` and
+## `target_weight`; runtime physics priority runs after the pony, so this wins for the frame.
+func _aim_eyes_at_player() -> void:
+	if not is_instance_valid(pony):
+		return
+	var eye_motion: Variant = pony.get("eye_motion")
+	if eye_motion == null or not is_instance_valid(eye_motion):
+		return
+	var view: Camera3D = main.camera() if is_instance_valid(main) else null
+	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
+	eye_motion.set("target_world", target)
+	eye_motion.set("target_weight", 1.0)
 
 
 func _glance_angles() -> Vector3:
@@ -2285,8 +2348,19 @@ func _start_audio() -> void:
 	_breath.max_distance = 8.0
 	add_child(_breath)
 	_breath_clock = 0.0
+	_breath_gain = 0.0
 
 	_kiss_stream = load("res://world/audio/pony/kiss.wav") if ResourceLoader.exists("res://world/audio/pony/kiss.wav") else null
+	# The boop kiss uses the `kiss_soft_*` pool; use the same streams for the pose-1 rump plap.
+	_plap_streams.clear()
+	for i: int in range(1, 41):
+		var path := "res://world/audio/pony/kiss_soft_%02d.wav" % i
+		if ResourceLoader.exists(path):
+			var stream: Resource = load(path)
+			if stream is AudioStream:
+				_plap_streams.append(stream)
+	if _plap_streams.is_empty() and _kiss_stream != null:
+		_plap_streams.append(_kiss_stream)
 	_kiss_sound = AudioStreamPlayer3D.new()
 	_kiss_sound.name = "UnfunfunfKiss"
 	_kiss_sound.bus = _breath.bus
@@ -2329,6 +2403,20 @@ func _stop_breath() -> void:
 
 
 func _play_kiss() -> void:
+	# Pose 1: the plap comes from her rump/dock. Other poses keep the boop kiss source.
+	if pose_number == 1 and is_instance_valid(_kiss_sound):
+		var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
+		if stream == null:
+			return
+		_kiss_sound.stream = stream
+		_kiss_sound.global_position = _dock_position()
+		# Same soft-kiss pool and player settings the boop uses, just positioned at the rump.
+		_kiss_sound.unit_size = 1.0
+		_kiss_sound.max_distance = 6.0
+		_kiss_sound.volume_db = -22.0
+		_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
+		_kiss_sound.play()
+		return
 	var boop: Variant = pony.get("boop_node")
 	if is_instance_valid(boop) and boop.has_method("play_kiss"):
 		boop.call("play_kiss", -22.0, false)
@@ -2339,6 +2427,23 @@ func _play_kiss() -> void:
 	_kiss_sound.global_position = _snout()
 	_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
 	_kiss_sound.play()
+
+
+## World position of the tail dock (hair `mTail1`, body `pony_tail_01` fallback).
+func _dock_position() -> Vector3:
+	if is_instance_valid(pony):
+		var hair: Variant = pony.get("hair_skeleton")
+		if hair is Skeleton3D:
+			var bone := (hair as Skeleton3D).find_bone("mTail1")
+			if bone >= 0:
+				return (hair as Skeleton3D).global_transform * (hair as Skeleton3D).get_bone_global_pose(bone).origin
+		var sk: Variant = pony.get("skeleton")
+		if sk is Skeleton3D:
+			var body_bone := (sk as Skeleton3D).find_bone("pony_tail_01")
+			if body_bone >= 0:
+				return (sk as Skeleton3D).global_transform * (sk as Skeleton3D).get_bone_global_pose(body_bone).origin
+		return pony.global_position
+	return Vector3.ZERO
 
 
 func _play_climax() -> void:
@@ -2355,19 +2460,39 @@ func _breath_tick(delta: float) -> void:
 		return
 	if _breath_streams.is_empty() or not is_instance_valid(_breath):
 		return
+	var rate := clampf(_pumps_per_second() / BREATH_RATE_CAP, 0.0, 1.0)
+	# Gain follows the plap rate, jumps loud at climax, and fades out over 5 s in afterglow.
+	var target := 0.0
+	var fade := BREATH_FADE_S
+	if state == State.ACTIVE:
+		target = rate
+	elif state == State.CLIMAX:
+		target = 1.0
+		fade = 0.25
+	else:
+		target = 0.0
+		fade = AFTERGLOW_BREATH_FADE_S
+	_breath_gain = move_toward(_breath_gain, target, delta / fade)
+	# Climax volume matches the kiss/plap level, not a shout.
+	var max_db := -22.0 if state == State.CLIMAX else -18.0
+	var db := lerpf(-42.0, max_db, _breath_gain)
+	if _breath.playing:
+		_breath.volume_db = db
 	_breath_clock -= delta
 	if _breath_clock > 0.0:
 		return
-	var rate := clampf(_pumps_per_second() / BREATH_RATE_CAP, 0.0, 1.0)
+	if _breath_gain < 0.02:
+		_breath_clock = 0.4
+		return
 	var interval := lerpf(BREATH_BASE_INTERVAL_S, BREATH_MIN_INTERVAL_S, rate)
 	if state == State.CLIMAX:
-		interval = 0.35
+		interval = 0.7
 	elif state == State.AFTERGLOW:
 		interval = 1.4
 	_breath_clock = interval
 	_breath.stream = _breath_streams[randi() % _breath_streams.size()]
 	_breath.global_position = _snout()
-	_breath.volume_db = lerpf(-36.0, -20.0, rate)
+	_breath.volume_db = db
 	_breath.pitch_scale = 1.0 + rate * 0.2
 	_breath.play()
 

@@ -12,21 +12,21 @@ static func start_event(game: Node, id: String, name: String, event_id: String) 
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "You and Anon just started having sex.", [id, "player"], [id, "player"], event_id)
+	ctx.record("intimacy", "The player just started having sex with you.", [id, "player"], [id, "player"], event_id)
 
 
 static func cancel_event(game: Node, id: String, name: String, event_id: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "You and Anon stopped having sex before you reached climax.", [id, "player"], [id, "player"], event_id + ":cancel")
+	ctx.record("intimacy", "The player stopped having sex with you before you reached climax.", [id, "player"], [id, "player"], event_id + ":cancel")
 
 
 static func climax_event(game: Node, id: String, name: String, event_id: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "You and Anon just had sex. You reached climax.", [id, "player"], [id, "player"], event_id + ":climax")
+	ctx.record("intimacy", "The player just had sex with you. You reached climax.", [id, "player"], [id, "player"], event_id + ":climax")
 
 
 ## Pose 2 after the climax. Direct: she is told he came inside her.
@@ -34,7 +34,7 @@ static func inside_event(game: Node, id: String, name: String, event_id: String)
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "Anon just came inside you.", [id, "player"], [id, "player"], event_id + ":inside")
+	ctx.record("intimacy", "The player just came inside you.", [id, "player"], [id, "player"], event_id + ":inside")
 
 
 ## One optional spoken reaction to a named act event. A custom per-character prompt is always
@@ -56,7 +56,7 @@ static func reaction_for(game: Node, id: String, event: String, event_id: String
 
 static func inside_response(game: Node, id: String, event_id: String, valid: Callable) -> void:
 	reaction_for(game, id, "inside", event_id,
-		"Anon just came inside you. React briefly in your own voice if you want to; staying quiet or staying close is fine. Do not start another act.",
+		"The player just came inside you. React briefly in your own voice if you want to; staying quiet or staying close is fine. Do not start another act.",
 		valid)
 
 
@@ -64,18 +64,18 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "You and Anon stopped having sex."
+	var text := "The player stopped having sex with you."
 	match reason:
 		"unwilling":
-			text = "You stopped having sex because you no longer wanted to."
+			text = "You stopped having sex with the player because you no longer wanted to."
 		"picked up":
-			text = "Anon picked you up, so you stopped having sex."
+			text = "The player picked you up, so you stopped having sex."
 		"interrupted":
-			text = "Your sex with Anon was interrupted."
+			text = "Your sex with the player was interrupted."
 		"form change":
-			text = "Anon changed form, so the sex stopped."
+			text = "The player changed form, so the sex stopped."
 		"world close":
-			text = "The world closed during sex with Anon."
+			text = "The world closed during sex with the player."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stop:" + reason)
 
 
@@ -131,13 +131,13 @@ static func witnesses(game: Node, partner_id: String, partner_name: String, seri
 		if not same_house and observer.global_position.distance_to(partner.global_position) > WITNESS_RADIUS_M:
 			continue
 		var event_id := "witness_%s_%s_%d" % [observer_id, partner_id, serial]
-		ctx.record("witnessed_intimacy", "You saw Anon and %s having sex." % partner_name,
+		ctx.record("witnessed_intimacy", "You saw the player and %s having sex." % partner_name,
 			[observer_id, "player", partner_id], [partner_id, "player"], event_id)
 		var impressions: Variant = ctx.get("impressions")
 		if impressions != null and is_instance_valid(impressions):
 			impressions.commit(observer_id, {
 				"mood": "surprised",
-				"thought": "I walked in on Anon and %s." % partner_name
+				"thought": "I walked in on the player and %s." % partner_name
 			}, event_id + ":gain")
 
 

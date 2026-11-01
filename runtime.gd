@@ -1,0 +1,2222 @@
+extends Node
+## One per pony. Holds the act state machine and all per-act state. It never edits game files.
+
+const POSE := preload("res://mods/unfunfunf/pose.gd")
+const TAIL := preload("res://mods/unfunfunf/tail_pose.gd")
+const MEMORY := preload("res://mods/unfunfunf/memory.gd")
+const REST := preload("res://mods/unfunfunf/rest_control.gd")
+const WITNESS := preload("res://mods/unfunfunf/witness.gd")
+const AFTERCARE := preload("res://mods/unfunfunf/aftercare.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const MATTRESS := preload("res://world/life/couch/mattress.gd")
+
+enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
+
+const SATISFACTION_MAX := 100
+const CAPACITY_MAX := 100
+const PUMP_SATISFACTION := 1
+const PUMP_CAPACITY := 1
+## Max pumping rate. One place to change: 100 ms = 10 pumps/second.
+const PUMP_INTERVAL_MS := 100
+const CLIMAX_SECONDS := 5.0
+const CLIMAX_BOBS := 2
+const POSE_IN_SECONDS := 0.6
+const RESTORE_SECONDS := 0.4
+const BREATH_BASE_INTERVAL_S := 0.9
+const BREATH_MIN_INTERVAL_S := 0.2
+const BREATH_RATE_CAP := 10.0
+const WITNESS_RADIUS_M := 8.0
+const POSE1_STYLE := "side_lying" # B29 fallback is now the default cuddle-like lie.
+## Presentation: how close the pony stands in front of the player for pose 2.
+const POSE2_GAP_M := 0.55
+## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
+const POSE2_GAPS := {
+	"same height": 0.55,
+	"mounting": 0.45,
+	"canon": 0.35,
+	"hoers": 0.55,
+}
+## Camera bob: damped spring, vertical and forward (a forward lean with each pump).
+const BOB_PUMP_IMPULSE := 2.30
+const BOB_STIFFNESS := 105.0
+const BOB_DAMPING := 13.0
+const BOB_CLIMAX_AMPLITUDE := 0.025
+const BOB_LIMIT := 0.40
+const BOB_FORWARD_IMPULSE := 1.80
+const BOB_FORWARD_STIFFNESS := 100.0
+const BOB_FORWARD_DAMPING := 12.0
+const BOB_FORWARD_LIMIT := 0.32
+const BOB_CLIMAX_FORWARD := 0.12
+## Free look stays inside a 45-degree cone around the direction the act started in.
+const LOOK_YAW_LIMIT := 0.785398
+const LOOK_PITCH_LIMIT := 0.785398
+## Pose 2 after the climax: Anon eases back before the act restores.
+const AFTERGLOW_BACK_M := 0.18
+const AFTERGLOW_BACK_SPEED := 0.16
+const RESTORE_BACK_SPEED := 0.6
+## Pose 2 after the climax: no cuddle afterglow; a short withdrawal shows the pull-back and flicks.
+const POSE2_WITHDRAW_SECONDS := 1.6
+## Pose 2 keeps her body facing away but lets her glance back over a shoulder now and then.
+const GLANCE_MIN_INTERVAL := 5.0
+const GLANCE_MAX_INTERVAL := 9.0
+const GLANCE_HOLD := 1.8
+const GLANCE_YAW := 3.0
+const GLANCE_BACK_PITCH := 1.2
+const GLANCE_BACK_CHANCE := 0.5
+## Jiggle placement on the flank. DEBUG: strength is exaggerated to verify the hit points;
+## lower JIGGLE_STRENGTH after the placement looks right.
+const JIGGLE_HEIGHT := 0.78
+const JIGGLE_SIDE := 0.24
+const JIGGLE_BACK := 0.12
+const JIGGLE_STRENGTH := 1.0
+
+var pony
+var main
+
+var state: int = State.IDLE
+var pose_number := 0
+var source := ""
+var bed: Node3D
+var satisfaction := 0
+var capacity := CAPACITY_MAX
+var last_pump_ms := -100000
+
+var _pose
+var _tail
+var _debug_pose: Node
+var _debug_pose_saved := Transform3D.IDENTITY
+var _debug_pose_active := false
+var _pose_in_left := 0.0
+var _climax_left := 0.0
+var _restore_left := 0.0
+var _check_clock := 0.0
+var _afterglow_pose := 0
+
+var _player_pony := false
+var _had_kiss_hold := false
+var _locked_player := false
+var _nav: Node
+var _nav_old_wander := true
+var _token := ""
+var _id := ""
+var _display_name := "the pony"
+var _serial := 0
+var _event_id := ""
+var _started_at := 0.0
+
+var _camera: Camera3D
+var _applied_bob := 0.0
+var _applied_lean := 0.0
+var _pose1_camera := Vector3.INF
+var _pose1_view: Camera3D
+var _pose1_prev_camera: Camera3D
+var _pose1_player_pitch := 0.0
+var _pose1_player_pitch_saved := false
+var _pose1_player_rotation := Vector3.ZERO
+var _pose1_player_rot_saved := false
+var _pose1_rot_saved := false
+var _pose1_saved_rotation := Vector3.ZERO
+var _pose1_pos_saved := false
+var _pose1_saved_position := Vector3.ZERO
+var _pose1_saved_global := Vector3.ZERO
+var _anon_avatar: Node3D
+var _anon_avatar_visible := true
+var _bob := 0.0
+var _bob_velocity := 0.0
+var _lean := 0.0
+var _lean_velocity := 0.0
+var _back := 0.0
+var _back_target := 0.0
+var _withdraw_left := 0.0
+var _facing_basis := Basis.IDENTITY
+var _has_facing := false
+var _glance_wait := 0.0
+var _glance_left := 0.0
+var _glance_back := false
+var _glance_sign := 1.0
+var _glance_sign_set := false
+var _look_yaw := 0.0
+var _look_pitch := 0.0
+var _camera_height_offset := 0.0
+var _eye_override := false
+var _saved_stand_eye := 0.0
+var _saved_eye_height := 0.0
+var _camera_target_eye := 0.0
+var _winged := false
+var _wing_clock := 0.0
+var _flutter_clock := 0.0
+var _wing_hold := false
+var _wing_flick := 0.0
+var _wings_node: Node
+var _aftercare: Node
+var _satisfaction_tween: Tween
+var _face_timer: Timer
+var _kisser: Node
+var _kisser_processing := false
+var _climax_progress := 0.0
+var _breath: AudioStreamPlayer3D
+var _breath_streams: Array[AudioStream] = []
+var _breath_clock := 0.0
+var _kiss_sound: AudioStreamPlayer3D
+var _flank: Node
+var _jiggle_side := 0
+var _climax_sound: AudioStreamPlayer3D
+var _kiss_stream: AudioStream
+var _climax_streams: Array[AudioStream] = []
+var _pump_times: Array[float] = []
+
+
+func _ready() -> void:
+	set_process(true)
+	set_physics_process(true)
+	# Run after locomotion/navigator/attention so the body facing lock and head glance win.
+	process_physics_priority = 100
+	_face_timer = Timer.new()
+	_face_timer.name = "UnfunfunfFaceTimer"
+	_face_timer.one_shot = true
+	_face_timer.timeout.connect(_clear_face)
+	add_child(_face_timer)
+
+
+func _release_wing_hold() -> void:
+	if _wing_hold and is_instance_valid(_wings_node) and _wings_node.has_method("release_hold"):
+		_wings_node.call("release_hold", "unfunfunf")
+	_wing_hold = false
+	_wings_node = null
+
+
+func _log(text: String) -> void:
+	if is_instance_valid(main) and main.has_method("debug"):
+		main.call("debug", text)
+
+
+## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
+func _act_presentation(delta: float) -> void:
+	if not is_instance_valid(pony):
+		return
+	if pose_number == 1 and not is_instance_valid(_anon_avatar):
+		_hide_anon_avatar_for_pose1()
+	var boop: Variant = pony.get("boop_node")
+	if boop != null and boop.has_method("sustain_blush"):
+		boop.call("sustain_blush", 1.0)
+	# Reuse the boop-fluster ear response: it pins the ears back along the skull and also keeps
+	# the nose blush strong. Our stare() calls still own the eyelids.
+	var expressions: Variant = pony.get("expressions")
+	if expressions != null and expressions.has_method("fluster"):
+		expressions.call("fluster", 1.2)
+	if not _winged:
+		return
+	var excitement: Variant = pony.get("excitement")
+	if excitement == null:
+		return
+	if pose_number == 1:
+		# Pose 1: wings stretched out to the sides.
+		if not _wing_hold:
+			var stretched: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
+			if stretched is Node and (stretched as Node).has_method("hold_at"):
+				_wings_node = stretched as Node
+				_wing_hold = bool(_wings_node.call("hold_at", "unfunfunf", 0.0))
+		if _wing_hold and is_instance_valid(_wings_node):
+			_wings_node.call("hold_at", "unfunfunf", 0.0)
+		return
+	_wing_flick = move_toward(_wing_flick, 0.0, delta / 0.25)
+	var level := sqrt(clampf(float(satisfaction) / 75.0, 0.0, 1.0))
+	# At very low excitement keep the wings folded and only flick them on a pump; holding the
+	# game's half-open pose there reads as fully spread.
+	if level < 0.25:
+		if _wing_hold:
+			_release_wing_hold()
+		return
+	if not _wing_hold:
+		var wings: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
+		if wings is Node and (wings as Node).has_method("hold_at"):
+			_wings_node = wings as Node
+			_wing_hold = bool(_wings_node.call("hold_at", "unfunfunf", 1.0))
+	if _wing_hold and is_instance_valid(_wings_node):
+		# sqrt curve: low -> slightly open, 75 satisfaction -> fully spread. A pump briefly
+		# closes the spread a little for the flick.
+		var hold := clampf(1.0 - level + _wing_flick, 0.0, 1.0)
+		_wings_node.call("hold_at", "unfunfunf", hold)
+		return
+	# Fallback when the half-open wing pose is unavailable.
+	if satisfaction >= 75:
+		_wing_clock -= delta
+		if _wing_clock <= 0.0:
+			_wing_clock = 1.0
+			excitement.call("spread", 2.0)
+		return
+	_flutter_clock -= delta
+	if _flutter_clock <= 0.0 and excitement.has_method("flutter"):
+		excitement.call("flutter")
+		_flutter_clock = randf_range(1.2, 2.3)
+
+
+func _set_ears(kind: String, weight: float) -> void:
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	var eyes: Variant = expressions.get("eyes")
+	if eyes == null:
+		return
+	var dict: Variant = eyes.get("expression_ears")
+	if not dict is Dictionary:
+		return
+	var ears: Dictionary = dict
+	for name: String in ["ears_alert", "ears_side", "ears_agitated", "ears_pinned"]:
+		ears[name] = 0.0
+	ears[kind] = clampf(weight, 0.0, 1.0)
+
+
+func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	if expressions.has_method("touch"):
+		expressions.call("touch", "unfunfunf_state", smile, 0.0)
+	if expressions.has_method("stare"):
+		expressions.call("stare", true, lids)
+	if hold_seconds > 0.0 and is_instance_valid(_face_timer):
+		_face_timer.start(hold_seconds)
+
+
+func _clear_face() -> void:
+	if is_instance_valid(_face_timer):
+		_face_timer.stop()
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	if expressions.has_method("stare"):
+		expressions.call("stare", false)
+	if expressions.has_method("release_touch"):
+		expressions.call("release_touch", "unfunfunf_state")
+
+
+func _process(delta: float) -> void:
+	if state == State.IDLE:
+		return
+	_clamp_look()
+	if is_instance_valid(_pose) and is_instance_valid(main):
+		var view: Camera3D = main.camera()
+		if pose_number == 1 and is_instance_valid(_pose1_view):
+			view = _pose1_view
+		if is_instance_valid(view):
+			_pose.look_point = view.global_position
+	if state == State.CLIMAX:
+		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
+		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
+		_bob = wave * BOB_CLIMAX_AMPLITUDE
+		_lean = wave * BOB_CLIMAX_FORWARD
+		_bob_velocity = 0.0
+		_lean_velocity = 0.0
+	else:
+		var accel := -BOB_STIFFNESS * _bob - BOB_DAMPING * _bob_velocity
+		_bob_velocity += accel * delta
+		_bob = clampf(_bob + _bob_velocity * delta, -BOB_LIMIT, BOB_LIMIT)
+		var forward_accel := -BOB_FORWARD_STIFFNESS * _lean - BOB_FORWARD_DAMPING * _lean_velocity
+		_lean_velocity += forward_accel * delta
+		_lean = clampf(_lean + _lean_velocity * delta, -BOB_FORWARD_LIMIT, BOB_FORWARD_LIMIT)
+	var back_speed := AFTERGLOW_BACK_SPEED if state in [State.AFTERGLOW, State.WITHDRAW] else RESTORE_BACK_SPEED
+	_back = move_toward(_back, _back_target, back_speed * delta)
+	_breath_tick(delta)
+
+
+func _physics_process(delta: float) -> void:
+	if state == State.IDLE:
+		return
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		force_stop()
+		return
+	if pony.sleeping:
+		pony.sleeping = false
+	_keep_nav()
+	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.WITHDRAW]:
+		_act_presentation(delta)
+	if state == State.POSING_IN:
+		_pose_in_left -= delta
+		if _pose_in_left <= 0.0:
+			state = State.ACTIVE
+	elif state == State.CLIMAX:
+		_climax_left -= delta
+		if _climax_left <= 0.0:
+			_finish_climax()
+	elif state == State.WITHDRAW:
+		_withdraw_left -= delta
+		if _withdraw_left <= 0.0:
+			_restore_begin()
+	elif state == State.RESTORE:
+		_restore_left -= delta
+		if _restore_left <= 0.0:
+			_finish_restore()
+	_lock_body_facing()
+	_drive_glance(delta)
+	_suppress_auto_cuddle()
+	_clamp_look()
+	apply_camera_bob()
+	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
+		_check_clock += delta
+		if _check_clock >= 0.25:
+			_check_clock = 0.0
+			_check_running()
+
+
+# --------------------------------------------------------------------------- gates
+
+func can_start(pose: int, act_source: String, bed_in: Variant = null) -> bool:
+	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
+		return false
+	if not _relationship_ok():
+		return false
+	if not _player_form_ok():
+		return false
+	if get_tree().paused:
+		return false
+	if not _conversation_ok():
+		return false
+	if pony.sleeping:
+		return false
+	if bool(pony.get_meta("sex_active", false)):
+		return false
+	if pony.has_meta("sex_aftercare"):
+		return false
+	if _cuddle_active() and not (pose == 1 and act_source in ["bed_side", "already_lying"]):
+		return false
+	if not _free_of_affection():
+		return false
+	if not _player_ready_for(pose, act_source, bed_in):
+		return false
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav == null or str(nav.get("reserved_by")) != "":
+		return false
+	if not _nav_owner_allows(pose, act_source):
+		return false
+	if not _nav_pose_gate(pose, act_source):
+		return false
+	if pose == 1:
+		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
+		if found == null:
+			return false
+		if main.bed_occupied(found, pony):
+			return false
+		if not _bed_gate(pose, act_source, found):
+			return false
+	return true
+
+
+func debug_report(pose: int, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
+	var lines: PackedStringArray = []
+	if not is_instance_valid(pony):
+		return "pony=INVALID"
+	var identity: Variant = pony.get("identity")
+	var id := ""
+	var display := "?"
+	if identity != null:
+		id = str(identity.get("id"))
+		display = str(identity.get("display_name")) if identity.get("display_name") != null else id
+	lines.append("pony=%s id=%s state=%d pose=%d source=%s dist=%.2f dot=%.2f" % [display, id, state, pose, act_source, float(distance), float(dot)])
+	lines.append("identity filly=%s stallion=%s" % [
+		str(identity.get("filly")) if identity != null else "?",
+		str(identity.get("stallion")) if identity != null else "?"])
+
+	var rel: Variant = pony.get_meta("relationship_runtime")
+	var bonds: Variant = rel.get("bonds") if rel != null and is_instance_valid(rel) else null
+	var stage := "?"
+	var love_name := "?"
+	var love_level := -1
+	var love_have := 0
+	var love_need := 0
+	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
+		var ladder: Dictionary = rel.call("ladder", id)
+		var love: Dictionary = ladder.get("love", {})
+		love_name = str(love.get("name", "?"))
+		love_level = int(love.get("level", -1))
+		love_have = int(love.get("have", 0))
+		love_need = int(love.get("need", 0))
+	if bonds != null and is_instance_valid(bonds) and bonds.has_method("record_for"):
+		var rec: Dictionary = bonds.call("record_for", id)
+		stage = str(rec.get("stage", "?"))
+	var adult := false
+	var welcomes := false
+	var eligible := false
+	if bonds != null and is_instance_valid(bonds):
+		var adults: Variant = bonds.get("adults")
+		if adults is Dictionary:
+			adult = bool(adults.get(id, false))
+		if bonds.has_method("welcomes"):
+			welcomes = bool(bonds.call("welcomes", id, "kiss"))
+		if bonds.has_method("eligible_for_romance"):
+			eligible = bool(bonds.call("eligible_for_romance", id))
+	var mood := "?"
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		var ctx: Variant = main.game.get("world_context")
+		if ctx != null and is_instance_valid(ctx):
+			var impressions: Variant = ctx.get("impressions")
+			if impressions != null and is_instance_valid(impressions) and impressions.has_method("profile"):
+				var prof: Dictionary = impressions.call("profile", id)
+				mood = str(prof.get("mood", "?"))
+	lines.append("relation stage=%s love=%s level=%d have=%d need=%d welcomes=%s adult=%s eligible=%s mood=%s" % [stage, love_name, love_level, love_have, love_need, str(welcomes), str(adult), str(eligible), mood])
+
+	var status: Dictionary = pony.posture_status() if pony.has_method("posture_status") else {}
+	lines.append("state sleeping=%s held=%s grounded=%s motion_paused=%s seated=%s speed=%.2f posture=%s/%s/settled=%s/%s interruption=%s" % [
+		str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.get("motion_paused")),
+		str(pony.has_meta("seated")), float(pony.get("actual_speed")), str(status.get("requested")), str(status.get("kind")),
+		str(status.get("settled")), str(status.get("refusal")), str(pony.action_interruption_reason())])
+	var conv: Variant = pony.get("conversation_target")
+	var conv_desc := "null"
+	if conv != null and is_instance_valid(conv):
+		conv_desc = str(conv.name) if conv is Node else str(conv)
+	var affection: Node = pony.get_node_or_null("Affection")
+	var affection_kind := str(affection.get("kind")) if affection != null else ""
+	var session: Variant = pony.get_meta("cuddle_session") if pony.has_meta("cuddle_session") else null
+	var session_enabled := false
+	var session_blend := 0.0
+	if session != null and is_instance_valid(session):
+		session_enabled = bool(session.get("enabled"))
+		var blend: Variant = session.get("blend")
+		if blend != null:
+			session_blend = float(blend)
+	lines.append("social conversation=%s (player_ok=%s) affection=%s cuddle_active=%s session=%s enabled=%s blend=%.2f" % [
+		conv_desc, str(_conversation_ok()), affection_kind, str(_cuddle_active()),
+		str(session != null), str(session_enabled), session_blend])
+
+	var nav: Node = pony.get_node_or_null("Navigator")
+	var owner := ""
+	var reserved := ""
+	var has_target := false
+	var follow := "null"
+	var wander := false
+	if nav != null:
+		owner = str(nav.get("command_owner"))
+		reserved = str(nav.get("reserved_by"))
+		has_target = bool(nav.get("_has_target"))
+		wander = bool(nav.get("wander_enabled"))
+		var ft: Variant = nav.get("_follow_target")
+		if ft != null and is_instance_valid(ft):
+			follow = str(ft.name)
+	lines.append("nav owner=%s reserved=%s has_target=%s follow=%s wander=%s" % [owner, reserved, str(has_target), follow, str(wander)])
+
+	var body: Variant = main.player if is_instance_valid(main) else null
+	var wing: Variant = body.get("wing_flight") if body != null else null
+	var swim: Variant = body.get("swimming") if body != null else null
+	lines.append("player locked=%s flying=%s wing=%s seat=%s knocked=%s swimming=%s mouse=%s paused=%s menu=%s" % [
+		str(body.get("controls_locked")) if body != null else "?",
+		str(body.get("flying")) if body != null else "?",
+		str(wing.get("active")) if wing != null else "?",
+		str(body.get("seat")) if body != null else "?",
+		str(body.get_meta("knocked_down", false)) if body != null else "?",
+		str(swim.get("active")) if swim != null else "?",
+		str(Input.mouse_mode), str(get_tree().paused),
+		str(main.call("menu_open")) if main != null and main.has_method("menu_open") else "?"])
+
+	var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in) if pose == 1 else null
+	var occupied := false
+	if pose == 1 and found_bed != null and is_instance_valid(main):
+		occupied = bool(main.call("bed_occupied", found_bed, pony))
+	lines.append("bed=%s occupied=%s" % [found_bed.name if found_bed != null else "null", str(occupied)])
+	lines.append("gates relation=%s form=%s conversation=%s free_affection=%s player=%s navowner=%s navpose=%s bed=%s" % [
+		str(_relationship_ok()), str(_player_form_ok()), str(_conversation_ok()), str(_free_of_affection()),
+		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
+		str(_nav_pose_gate(pose, act_source)),
+		str(_bed_gate(pose, act_source, found_bed) if pose == 1 and found_bed != null else true)])
+	lines.append("result can_start=%s refuse_available=%s" % [
+		str(can_start(pose, act_source, bed_in)), str(refuse_available(pose, act_source, bed_in))])
+	return "\n".join(lines)
+
+
+func _start_reasons(pose: int, act_source: String, bed_in: Variant = null) -> PackedStringArray:
+	var reasons: PackedStringArray = []
+	if not is_instance_valid(pony):
+		reasons.append("invalid_pony")
+		return reasons
+	if not is_instance_valid(main):
+		reasons.append("no_main")
+		return reasons
+	if not is_instance_valid(main.player):
+		reasons.append("no_player")
+		return reasons
+	if not is_instance_valid(main.game):
+		reasons.append("no_game")
+		return reasons
+	if state != State.IDLE:
+		reasons.append("state=%d" % state)
+	if not _relationship_ok():
+		reasons.append("relation")
+	if not _player_form_ok():
+		reasons.append("form")
+	if get_tree().paused:
+		reasons.append("paused")
+	if not _conversation_ok():
+		reasons.append("conversation")
+	if pony.sleeping:
+		reasons.append("sleeping")
+	if bool(pony.get_meta("sex_active", false)):
+		reasons.append("sex_active")
+	if pony.has_meta("sex_aftercare"):
+		reasons.append("aftercare")
+	if _cuddle_active() and not (pose == 1 and act_source in ["bed_side", "already_lying"]):
+		reasons.append("cuddle")
+	if not _free_of_affection():
+		reasons.append("affection")
+	if not _player_ready_for(pose, act_source, bed_in):
+		reasons.append("player")
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav == null:
+		reasons.append("no_navigator")
+	else:
+		if str(nav.get("reserved_by")) != "":
+			reasons.append("navigator_reserved")
+		if not _nav_owner_allows(pose, act_source):
+			reasons.append("nav_owner")
+	if not _nav_pose_gate(pose, act_source):
+		reasons.append("nav_pose")
+	if pose == 1:
+		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
+		if found == null:
+			reasons.append("no_bed")
+		else:
+			if main.bed_occupied(found, pony):
+				reasons.append("bed_occupied")
+			if not _bed_gate(pose, act_source, found):
+				reasons.append("bed_gate")
+	return reasons
+
+
+func debug_line(pose: int, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
+	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
+	var id := ""
+	var display := "?"
+	if identity != null:
+		id = str(identity.get("id"))
+		display = str(identity.get("display_name")) if identity.get("display_name") != null else id
+	var rel: Variant = pony.get_meta("relationship_runtime") if is_instance_valid(pony) else null
+	var bonds: Variant = rel.get("bonds") if rel != null and is_instance_valid(rel) else null
+	var stage := "?"
+	var love_name := "?"
+	var love_level := -1
+	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
+		var ladder: Dictionary = rel.call("ladder", id)
+		var love: Dictionary = ladder.get("love", {})
+		love_name = str(love.get("name", "?"))
+		love_level = int(love.get("level", -1))
+	if bonds != null and is_instance_valid(bonds) and bonds.has_method("record_for"):
+		var rec: Dictionary = bonds.call("record_for", id)
+		stage = str(rec.get("stage", "?"))
+	var welcomes := false
+	if bonds != null and is_instance_valid(bonds) and bonds.has_method("welcomes"):
+		welcomes = bool(bonds.call("welcomes", id, "kiss"))
+	var mood := "?"
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		var ctx: Variant = main.game.get("world_context")
+		if ctx != null and is_instance_valid(ctx):
+			var impressions: Variant = ctx.get("impressions")
+			if impressions != null and is_instance_valid(impressions) and impressions.has_method("profile"):
+				var prof: Dictionary = impressions.call("profile", id)
+				mood = str(prof.get("mood", "?"))
+	var status: Dictionary = pony.posture_status() if is_instance_valid(pony) and pony.has_method("posture_status") else {}
+	var nav: Node = pony.get_node_or_null("Navigator") if is_instance_valid(pony) else null
+	var owner := ""
+	var target := false
+	var reserved := ""
+	if nav != null:
+		owner = str(nav.get("command_owner"))
+		target = bool(nav.get("_has_target"))
+		reserved = str(nav.get("reserved_by"))
+	var body: Variant = main.player if is_instance_valid(main) else null
+	var reasons: PackedStringArray = _start_reasons(pose, act_source, bed_in)
+	var can := can_start(pose, act_source, bed_in)
+	var reason_text := "none" if reasons.is_empty() else ",".join(reasons)
+	var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in) if pose == 1 else null
+	var bed_gate := "n/a"
+	if pose == 1:
+		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
+	return "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), mood,
+		state, str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.has_meta("seated")),
+		str(_cuddle_active()), str(pony.get("motion_paused")), float(pony.get("actual_speed")), str(status.get("requested")),
+		str(pony.action_interruption_reason()), owner, str(target), reserved,
+		str(body.get("controls_locked")) if body != null else "?",
+		str(body.get("flying")) if body != null else "?",
+		str(body.get("seat")) if body != null else "?",
+		str(Input.mouse_mode), str(get_tree().paused),
+		str(_relationship_ok()), str(_player_form_ok()), str(_conversation_ok()), str(_free_of_affection()),
+		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
+		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
+
+
+func refuse_available(pose: int, act_source: String, bed_in: Variant = null) -> bool:
+	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
+		return false
+	if not _stage_ok() or not _player_form_ok():
+		return false
+	if _relationship_ok():
+		return false # Willing: the normal offer/start path owns it.
+	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
+		return false
+	if not _conversation_ok() or not _free_of_affection():
+		return false
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav == null or str(nav.get("reserved_by")) != "":
+		return false
+	if not _nav_owner_allows(pose, act_source):
+		return false
+	var body = main.player
+	if bool(body.get("controls_locked")) or bool(body.get("flying")):
+		return false
+	if bool(body.get_meta("knocked_down", false)):
+		return false
+	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return false
+	var affection: Node = pony.get_node_or_null("Affection")
+	if affection == null or not affection.has_method("buck"):
+		return false
+	if pose == 2:
+		if pony.is_held() or not pony.grounded() or pony.has_meta("seated"):
+			return false
+		var status: Dictionary = pony.posture_status()
+		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):
+			return false
+		if pony.global_position.distance_to(body.global_position) > 2.4:
+			return false
+		return true
+	if act_source == "cradle":
+		var reach: Node = main.interactor()
+		if not is_instance_valid(reach):
+			return false
+		return reach.get("held") == pony and reach.get("cradled") == true
+	if act_source == "already_lying":
+		var bed: Node3D = _resolve_bed(pose, act_source, bed_in)
+		if bed == null:
+			return false
+		var status2: Dictionary = pony.posture_status()
+		if str(status2.get("requested", "")) != "lie_down":
+			return false
+		return main.player_beside_bed(bed)
+	return false
+
+
+func refuse(pose: int, act_source: String, bed_in: Variant = null) -> void:
+	if not refuse_available(pose, act_source, bed_in):
+		return
+	if pose == 2:
+		_buck_or_push()
+		return
+	if act_source == "cradle":
+		if not _release_carry():
+			return
+		var at: Vector3 = _refusal_floor()
+		var forward: Vector3 = main.player.global_position - at
+		forward.y = 0.0
+		if forward.length_squared() < 0.0001:
+			forward = -main.player.global_basis.z
+		forward = forward.normalized()
+		pony.reset_motion(Transform3D(Basis.looking_at(forward, Vector3.UP), at))
+		pony.reset_physics_interpolation()
+		pony.request_posture("stand")
+		await get_tree().physics_frame
+		_buck_or_push()
+		return
+	if act_source == "already_lying":
+		if not REST.release_managed(pony):
+			return
+		pony.request_posture("stand")
+		await get_tree().physics_frame
+		_buck_or_push()
+
+
+func _refusal_floor() -> Vector3:
+	var forward: Vector3 = -main.player.global_basis.z
+	var view: Camera3D = main.camera()
+	if view != null:
+		forward = -view.global_basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		forward = Vector3.FORWARD
+	forward = forward.normalized()
+	var at: Vector3 = main.player.global_position + forward * 1.1
+	var world: World3D = main.player.get_world_3d()
+	if world != null:
+		var space: PhysicsDirectSpaceState3D = world.direct_space_state
+		if space != null:
+			var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 4.0, 1)
+			var hit: Dictionary = space.intersect_ray(query)
+			if not hit.is_empty():
+				at = hit.get("position", at)
+	return at
+
+
+func _buck_or_push() -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return
+	var affection: Node = pony.get_node_or_null("Affection")
+	if affection != null and affection.has_method("buck"):
+		if bool(affection.call("buck", main.player_body())):
+			return
+	var body = main.player
+	if not is_instance_valid(body):
+		return
+	var knockdown: Variant = body.get("knockdown")
+	if knockdown == null or not knockdown.has_method("start"):
+		return
+	var direction: Vector3 = pony.global_position - body.global_position
+	direction.y = 0.25
+	if direction.length_squared() < 0.0001:
+		direction = -body.global_basis.z
+	knockdown.call("start", body, direction.normalized() * 3.0)
+
+
+func can_offer() -> bool:
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if not _relationship_ok() or not _player_form_ok():
+		return false
+	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
+		return false
+	if pony.is_held() or _cuddle_active():
+		return false
+	if not _conversation_ok() or not _free_of_affection():
+		return false
+	return true
+
+
+func _stage_ok() -> bool:
+	var runtime: Variant = pony.get_meta("relationship_runtime")
+	if runtime == null or not is_instance_valid(runtime):
+		return false
+	_id = str(pony.get_meta("relationship_id", ""))
+	if _id.is_empty():
+		var identity_id: Variant = pony.get("identity")
+		if identity_id != null:
+			_id = str(identity_id.get("id"))
+	if _id.is_empty():
+		return false
+	var identity: Variant = pony.get("identity")
+	if identity == null or bool(identity.get("filly")):
+		return false
+	if not bool(runtime.bonds.adults.get(_id, false)):
+		return false
+	var ladder: Dictionary = runtime.ladder(_id)
+	var love: Dictionary = ladder.get("love", {})
+	if int(love.get("level", -1)) < 2:
+		return false
+	if not bool(runtime.bonds.eligible_for_romance(_id)):
+		return false
+	_display_name = str(identity.get("display_name")) if identity.get("display_name") != null else _id
+	return true
+
+
+func _relationship_ok() -> bool:
+	if not _stage_ok():
+		return false
+	var runtime: Variant = pony.get_meta("relationship_runtime")
+	if runtime == null or not is_instance_valid(runtime):
+		return false
+	return bool(runtime.bonds.welcomes(_id, "kiss"))
+
+
+func _player_form_ok() -> bool:
+	return not PLAYER_FORM.is_young(PLAYER_FORM.active(get_tree()))
+
+
+func _conversation_ok() -> bool:
+	var target: Variant = pony.get("conversation_target")
+	if target == null or not is_instance_valid(target):
+		return true
+	var body: Node3D = main.player_body()
+	if target == main.player or target == body:
+		return true
+	# The player's body/avatar is under the rig; another pony's is not.
+	if is_instance_valid(main.player) and main.player is Node and (main.player as Node).is_ancestor_of(target as Node):
+		return true
+	return false
+
+
+func _suppress_auto_cuddle() -> void:
+	if not is_instance_valid(pony):
+		return
+	# The stock bed marks a lying companion with couch_cuddle; cuddle/player_input then
+	# automatically begins a CuddleSession. That interrupts pose 1, so keep it off while active.
+	if pony.has_meta("couch_cuddle"):
+		pony.remove_meta("couch_cuddle")
+	var session: Node = pony.get_node_or_null("CuddleSession")
+	if session != null and (bool(session.get("enabled")) or float(session.get("blend")) > 0.0):
+		if session.has_method("end"):
+			session.call("end", true)
+	if pony.has_meta("cuddle_active"):
+		pony.remove_meta("cuddle_active")
+
+
+func _cuddle_active() -> bool:
+	if not is_instance_valid(pony):
+		return false
+	if pony.has_meta("cuddle_active"):
+		return true
+	# cuddle_session is a persistent reference to the cuddle input's session; the session
+	# stays on the pony after end(). Only an enabled/blending session is an active cuddle.
+	if not pony.has_meta("cuddle_session"):
+		return false
+	var session: Variant = pony.get_meta("cuddle_session")
+	if session == null or not is_instance_valid(session):
+		return false
+	if bool(session.get("enabled")):
+		return true
+	var blend: Variant = session.get("blend")
+	return blend != null and float(blend) > 0.01
+
+
+func _free_of_affection() -> bool:
+	var affection: Node = pony.get_node_or_null("Affection")
+	if affection != null:
+		var kind: Variant = affection.get("kind")
+		if kind != null and not str(kind).is_empty():
+			return false
+	var hoof: Variant = pony.get("hoof_hold")
+	if hoof != null and hoof.has_method("active") and bool(hoof.call("active")):
+		return false
+	return true
+
+
+func _nav_owner_allows(pose: int, act_source: String) -> bool:
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav == null:
+		return false
+	var owner := str(nav.get("command_owner"))
+	if owner.is_empty():
+		return true
+	if owner.begins_with("unfunfunf:") or owner.begins_with("sleep:"):
+		return false
+	if owner.begins_with("weather:") or owner.begins_with("show:"):
+		return false
+	if owner.begins_with("cuddle:"):
+		return pose == 1 and act_source in ["bed_side", "already_lying"]
+	# A managed bed/couch rest is valid for pose 1; every other leisure seat is not.
+	if owner.begins_with("leisure:"):
+		return pose == 1 and act_source in ["bed_side", "already_lying"]
+	# Player conversation is free; another pony's conversation is not.
+	if owner.begins_with("social:"):
+		return owner.begins_with("social:talk") and _conversation_ok()
+	# Normal routine owners: idle routines are free, an active route is not.
+	if owner.begins_with("life:") or owner.begins_with("day:"):
+		return not bool(nav.get("_has_target"))
+	# A player-owned date/outing, following the player, or an idle rest.
+	if owner.begins_with("bond:") or owner.begins_with("player:") or owner == "rest_after_command":
+		return true
+	return false
+
+
+func _nav_pose_gate(pose: int, act_source: String) -> bool:
+	if pose == 2:
+		if pony.is_held() or not pony.grounded():
+			return false
+		if bool(pony.motion_paused):
+			return false
+		if pony.has_meta("seated"):
+			return false
+		if not str(pony.action_interruption_reason()).is_empty():
+			return false
+		var status: Dictionary = pony.posture_status()
+		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):
+			return false
+		if float(pony.actual_speed) > 0.06:
+			return false
+		return true
+	if act_source == "cradle":
+		return true
+	# already_lying: seated is allowed; held/grounded/interruption are not used.
+	return true
+
+
+func _bed_gate(pose: int, act_source: String, found: Node3D) -> bool:
+	if pose != 1:
+		return true
+	var rest: Node = pony.get_node_or_null("CradleRest")
+	if rest != null:
+		if bool(rest.get("asleep")):
+			return false
+		if act_source == "cradle" and float(rest.get("drowse")) >= 0.5:
+			return false
+	if act_source == "cradle":
+		var reach: Node = main.interactor()
+		if not is_instance_valid(reach):
+			return false
+		if reach.get("held") != pony or reach.get("cradled") != true:
+			return false
+		# The cradle path exists only for human Anon.
+		if PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
+			return false
+		return true
+	if act_source == "bed_side":
+		var status: Dictionary = pony.posture_status()
+		if str(status.get("requested", "")) != "lie_down" or not bool(status.get("settled", false)):
+			return false
+		return main.player_beside_bed(found)
+	if not PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
+		return false
+	var status: Dictionary = pony.posture_status()
+	if str(status.get("requested", "")) != "lie_down" or not bool(status.get("settled", false)):
+		return false
+	return main.player_beside_bed(found)
+
+
+func _resolve_bed(pose: int, act_source: String, bed_in: Variant) -> Node3D:
+	if pose != 1:
+		return null
+	if bed_in is Node3D and is_instance_valid(bed_in):
+		return bed_in
+	if act_source == "cradle":
+		return main.bed_for_cradle(pony)
+	return find_bed_under()
+
+
+func find_bed_under() -> Node3D:
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return null
+	var exclude: RID = pony.get_rid() if pony is CollisionObject3D else RID()
+	return main.bed_under(pony.global_position, exclude)
+
+
+func _player_ready_for(pose: int, act_source: String, bed_in: Variant) -> bool:
+	var body = main.player
+	if not is_instance_valid(body):
+		return false
+	if bool(body.get("controls_locked")):
+		return false
+	if bool(body.get("flying")):
+		return false
+	var wing: Variant = body.get("wing_flight")
+	if wing != null and bool(wing.get("active")):
+		return false
+	if bool(body.get_meta("knocked_down", false)):
+		return false
+	var swimming: Variant = body.get("swimming")
+	if swimming != null and bool(swimming.get("active")):
+		return false
+	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return false
+	var inventory: Variant = main.game.get("inventory") if is_instance_valid(main.game) else null
+	if inventory != null:
+		var held: Variant = inventory.get("held")
+		if held is Dictionary and not (held as Dictionary).is_empty():
+			return false
+		if str(inventory.get("holding_case")) != "":
+			return false
+	var seat: Variant = body.get("seat")
+	if pose == 2:
+		if seat != null:
+			return false
+	elif act_source == "cradle":
+		if seat != null:
+			return false
+	elif act_source == "already_lying":
+		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
+		if not main.player_beside_bed(found):
+			return false
+	elif act_source == "bed_side":
+		if seat == null:
+			return false
+		var rest: Variant = body.get("_couch_rest")
+		if rest != null and is_instance_valid(rest) and float(rest.get("amount")) < 0.99:
+			return false
+		var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in)
+		if not main.player_beside_bed(found_bed):
+			return false
+	return true
+
+
+# --------------------------------------------------------------------------- start
+
+func start(pose: int, bed_in: Variant, act_source: String) -> bool:
+	if not can_start(pose, act_source, bed_in):
+		_log("start blocked pose=%d source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		return false
+	pose_number = pose
+	source = act_source
+	_has_facing = false
+	bed = _resolve_bed(pose, act_source, bed_in)
+	if pose == 1 and bed == null:
+		return false
+	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
+	_applied_bob = 0.0
+	_applied_lean = 0.0
+	_lean = 0.0
+	_lean_velocity = 0.0
+	_back = 0.0
+	_back_target = 0.0
+	var identity: Variant = pony.get("identity")
+	_winged = identity != null and identity.has_method("has_wings") and bool(identity.call("has_wings"))
+	_apply_eye_override()
+	_wing_clock = 0.0
+	_flutter_clock = randf_range(0.5, 1.5)
+	_clear_face()
+	_set_face(0.45, 0.45)
+	_serial = _next_serial()
+	_event_id = "intimacy_%s_%d" % [_id, _serial]
+	_started_at = Time.get_unix_time_from_system()
+	satisfaction = 0
+	capacity = CAPACITY_MAX
+	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
+		_satisfaction_tween.kill()
+
+	if source == "cradle":
+		if not _release_carry():
+			return false
+	elif source == "already_lying":
+		if not REST.release_managed(pony):
+			return false
+	elif source == "bed_side":
+		_end_cuddle_session()
+		if not REST.release_managed(pony):
+			return false
+	if not _claim_nav():
+		_abort_start()
+		return false
+
+	pony.sleeping = false
+	pony.set_sim_tier(pony.SimTier.HERO)
+	pony.set_meta("sex_active", true)
+
+	if pose == 1:
+		if source == "cradle":
+			_place_cradle(_bed_anchor())
+		else:
+			if str(pony.posture_status().get("requested", "")) != "lie_down":
+				if pony.get("posture") != null:
+					pony.posture.impact_flop()
+			pony.reset_physics_interpolation()
+	else:
+		var standing := _standing_transform()
+		pony.reset_motion(standing)
+		pony.reset_physics_interpolation()
+		pony.request_posture("stand")
+		_facing_basis = standing.basis
+		_has_facing = true
+		_glance_left = 0.0
+		_glance_back = false
+		_glance_sign_set = false
+		_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
+
+	_build_pose()
+	_pose1_camera = _pose1_camera_target() if pose == 1 else Vector3.INF
+	if pose == 1:
+		_make_pose1_view()
+	_capture_look()
+	_lock_player()
+	_hide_anon_avatar_for_pose1()
+	_start_audio()
+	MEMORY.start_event(main.game, _id, _display_name, _event_id)
+	state = State.POSING_IN
+	_pose_in_left = POSE_IN_SECONDS
+	main.set_active(self)
+	if is_instance_valid(main.hud):
+		main.hud.show_act(self)
+		main.hud.hide_prompt()
+	_log("started pose=%d source=%s pony=%s eye=%.2f" % [pose, act_source, str(pony.name), _camera_target_eye])
+	return true
+
+
+func _next_serial() -> int:
+	if is_instance_valid(main) and main.has_method("allocate_serial"):
+		return int(main.call("allocate_serial"))
+	return 1
+
+
+func _end_cuddle_session() -> void:
+	var session: Node = pony.get_node_or_null("CuddleSession") if is_instance_valid(pony) else null
+	if session != null and session.has_method("end"):
+		if bool(session.get("enabled")) or float(session.get("blend")) > 0.0:
+			session.call("end", true)
+	if is_instance_valid(pony) and pony.has_meta("cuddle_active"):
+		pony.remove_meta("cuddle_active")
+
+
+func _release_carry() -> bool:
+	var reach: Node = main.interactor()
+	if not is_instance_valid(reach):
+		return false
+	if reach.get("held") != pony or reach.get("cradled") != true:
+		return false
+	pony.end_interaction()
+	reach.set("held", null)
+	reach.set("cradled", false)
+	reach.set("_drop_upright", false)
+	reach.set("_laying", -1.0)
+	reach.set("_sleepy_kiss", false)
+	reach.set("_lean", 0.0)
+	reach.set("_lay", {})
+	var actions: Variant = reach.get("desktop_actions")
+	if is_instance_valid(actions) and actions.has_method("pony_released"):
+		actions.call("pony_released")
+	return true
+
+
+func _claim_nav() -> bool:
+	_nav = pony.get_node_or_null("Navigator")
+	if _nav == null:
+		return false
+	if str(_nav.get("reserved_by")) != "":
+		return false
+	_nav_old_wander = bool(_nav.get("wander_enabled"))
+	_token = "unfunfunf:" + _id
+	_nav.call("stay")
+	_nav.set("command_owner", _token)
+	_nav.set("wander_enabled", false)
+	return str(_nav.get("command_owner")) == _token
+
+
+func _keep_nav() -> void:
+	if _nav == null or not is_instance_valid(_nav):
+		return
+	if str(_nav.get("command_owner")) != _token:
+		_nav.call("stay")
+		_nav.set("command_owner", _token)
+		_nav.set("wander_enabled", false)
+
+
+func _release_nav() -> void:
+	if _nav == null or not is_instance_valid(_nav):
+		_nav = null
+		return
+	if str(_nav.get("command_owner")) == _token:
+		_nav.set("command_owner", "")
+	_nav.set("wander_enabled", true)
+	_nav = null
+
+
+func _lock_player() -> void:
+	var body = main.player
+	if not is_instance_valid(body):
+		return
+	# Hold movement with the game's kiss_hold meta, not controls_locked: the camera stays free.
+	_had_kiss_hold = body.has_meta("kiss_hold")
+	if not _had_kiss_hold:
+		body.set_meta("kiss_hold", true)
+	# pony_kisser.gd removes kiss_hold every physics tick when no deep kiss is active. Pause its
+	# physics for the act so the hold survives while mouse look remains free.
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		var kisser: Variant = main.game.get("kisser")
+		if is_instance_valid(kisser) and kisser is Node:
+			_kisser = kisser as Node
+			_kisser_processing = _kisser.is_physics_processing()
+			if _kisser_processing:
+				_kisser.set_physics_process(false)
+	_locked_player = true
+	if body.get("seat") != null:
+		body.set("_q_held", true)
+
+
+func _unlock_player() -> void:
+	if not _locked_player:
+		return
+	if is_instance_valid(_kisser):
+		_kisser.set_physics_process(_kisser_processing)
+	_kisser = null
+	_kisser_processing = false
+	if is_instance_valid(main) and is_instance_valid(main.player):
+		if not _had_kiss_hold and main.player.has_meta("kiss_hold"):
+			main.player.remove_meta("kiss_hold")
+	_locked_player = false
+
+
+func _abort_start() -> void:
+	_release_nav()
+	_unlock_player()
+	_free_pose()
+	if is_instance_valid(pony) and pony.has_meta("sex_active"):
+		pony.remove_meta("sex_active")
+	state = State.IDLE
+	if is_instance_valid(main):
+		main.clear_active(self)
+
+
+## Put her in the game's own lie-down state after the teleport. Waiting one physics frame lets
+## `grounded()` see the mattress; the native lie animation then settles her into the bedding
+## instead of the old immediate impact-flop that left her hovering.
+func _place_cradle(anchor: Transform3D) -> void:
+	if not is_instance_valid(pony):
+		return
+	pony.reset_motion(anchor)
+	pony.reset_physics_interpolation()
+	for _i in 3:
+		await get_tree().physics_frame
+		if not is_instance_valid(pony) or state == State.IDLE:
+			return
+		if pony.grounded():
+			break
+	pony.reset_physics_interpolation()
+	if not pony.request_posture("lie_down"):
+		if pony.get("posture") != null:
+			pony.posture.impact_flop()
+	for _i in 240:
+		await get_tree().physics_frame
+		if not is_instance_valid(pony) or state in [State.IDLE, State.RESTORE]:
+			return
+		var status: Dictionary = pony.posture_status()
+		if str(status.get("requested", "")) == "lie_down" and bool(status.get("settled", false)):
+			break
+
+
+func _bed_anchor() -> Transform3D:
+	if bed != null:
+		var shared: Variant = _shared_bed_rest(bed)
+		if shared != null:
+			return shared
+	var fallback := 0.6
+	if bed != null and bed.has_meta("mattress_top"):
+		fallback = float(bed.get_meta("mattress_top"))
+	var center: Vector3 = bed.global_position if bed != null else pony.global_position
+	var top: float = center.y
+	if bed != null:
+		var points: Array[Vector3] = [bed.to_global(Vector3(0.18, 0.0, 0.0)), bed.to_global(Vector3(-0.18, 0.0, 0.0))]
+		top = MATTRESS.visible_top(bed, points, bed.to_global(Vector3(0.0, fallback, 0.0)).y)
+		center = Vector3(bed.global_position.x, top, bed.global_position.z)
+	var player_at: Vector3 = main.player.global_position
+	var side := Vector3.FORWARD
+	if bed != null:
+		side = bed.global_basis.x
+		side.y = 0.0
+	if side.length_squared() < 0.0001:
+		side = player_at - center
+		side.y = 0.0
+	side = side.normalized()
+	var across := side * signf((player_at - center).dot(side)) * 0.25
+	var along: Vector3 = -bed.global_basis.z if bed != null else -main.player.global_basis.z
+	along.y = 0.0
+	if along.length_squared() < 0.0001:
+		along = player_at - center
+		along.y = 0.0
+	along = along.normalized()
+	var at: Vector3 = center + across
+	at.y = top + 0.02
+	return Transform3D(Basis.looking_at(along, Vector3.UP), at)
+
+
+## The game's own bed-rest place for a pony lying beside Anon. Using it keeps her along the
+## mattress (not across it) and on the drawn bedding, instead of the old floating cross-bed pose.
+func _shared_bed_rest(bed_node: Node3D) -> Variant:
+	if not is_instance_valid(bed_node) or not is_inside_tree():
+		return null
+	for node: Node in get_tree().get_nodes_in_group("couches"):
+		if not node is Node3D or node.get("bed_node") != bed_node:
+			continue
+		if not node.has_method("pony_transform"):
+			continue
+		var seats: Variant = node.get("seats")
+		if not seats is Array or (seats as Array).size() < 2:
+			continue
+		var rest: Variant = node.call("pony_transform", (seats as Array)[1])
+		if not rest is Transform3D:
+			continue
+		var t: Transform3D = rest
+		if t.origin.length_squared() < 0.01 or t.origin.distance_to(bed_node.global_position) > 4.0:
+			continue
+		return t
+	return null
+
+
+func _standing_transform() -> Transform3D:
+	var view: Camera3D = main.camera()
+	var forward := Vector3.FORWARD
+	if view != null:
+		forward = -view.global_basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		forward = -main.player.global_basis.z
+	forward = forward.normalized()
+	var at: Vector3 = main.player.global_position + forward * _pose2_gap()
+	at.y = main.player.global_position.y
+	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
+
+
+func _pose2_gap() -> float:
+	var settings: Node = get_node_or_null("/root/Settings")
+	if settings == null:
+		return POSE2_GAP_M
+	var size := str(settings.call("get_value", "ponies/size"))
+	var gap := float(POSE2_GAPS.get(size, POSE2_GAP_M))
+	_log("pose2 size=%s gap=%.2f" % [size, gap])
+	return gap
+
+
+func debug_float_pose1(seconds: float) -> void:
+	if state != State.IDLE or not is_instance_valid(pony) or _debug_pose_active:
+		_log("float pose1: busy")
+		return
+	var skeleton: Variant = pony.get("skeleton")
+	if not skeleton is Skeleton3D:
+		return
+	_debug_pose_active = true
+	_debug_pose_saved = pony.global_transform
+	pony.global_position.y += 0.45
+	pony.reset_physics_interpolation()
+	_debug_pose = POSE.new()
+	_debug_pose.name = "UnfunfunfDebugPose1"
+	_debug_pose.set("mare", pony)
+	_debug_pose.set("mode", "pose1")
+	_debug_pose.set("amount", 0.0)
+	_debug_pose.set("target_amount", 1.0)
+	_debug_pose.set("look_point", main.camera().global_position if main.camera() != null else pony.global_position)
+	(skeleton as Skeleton3D).add_child(_debug_pose)
+	_log("float pose1 pony=%s seconds=%.1f" % [str(pony.name), seconds])
+	await get_tree().create_timer(seconds).timeout
+	if is_instance_valid(pony) and _debug_pose_active:
+		pony.global_transform = _debug_pose_saved
+		pony.reset_physics_interpolation()
+	if is_instance_valid(_debug_pose):
+		_debug_pose.queue_free()
+	_debug_pose = null
+	_debug_pose_active = false
+
+
+func _build_pose() -> void:
+	_free_pose()
+	var skeleton: Variant = pony.get("skeleton")
+	if skeleton is Skeleton3D:
+		_pose = POSE.new()
+		_pose.name = "UnfunfunfPose"
+		_pose.mare = pony
+		_pose.mode = "pose2" if pose_number == 2 else "pose1"
+		_pose.style = POSE1_STYLE
+		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
+		_pose.amount = 0.0
+		_pose.target_amount = 1.0
+		(skeleton as Skeleton3D).add_child(_pose)
+	if pose_number != 2:
+		return
+	var hair: Variant = pony.get("hair_skeleton")
+	if hair is Skeleton3D:
+		_tail = TAIL.new()
+		_tail.name = "UnfunfunfTail"
+		_tail.mare = pony
+		_tail.amount = 0.0
+		_tail.target_amount = 1.0
+		(hair as Skeleton3D).add_child(_tail)
+
+
+func _free_pose() -> void:
+	if is_instance_valid(_pose):
+		_pose.queue_free()
+	_pose = null
+	if is_instance_valid(_tail):
+		_tail.queue_free()
+	_tail = null
+
+
+# --------------------------------------------------------------------------- pump
+
+func pump() -> bool:
+	if state != State.ACTIVE:
+		return false
+	var now := Time.get_ticks_msec()
+	if now - last_pump_ms < PUMP_INTERVAL_MS:
+		return false
+	last_pump_ms = now
+	satisfaction = mini(SATISFACTION_MAX, satisfaction + PUMP_SATISFACTION)
+	capacity = maxi(0, capacity - PUMP_CAPACITY)
+	_bob_velocity += BOB_PUMP_IMPULSE
+	_lean_velocity += BOB_FORWARD_IMPULSE
+	_wing_flick = 0.18
+	if _winged and not _wing_hold:
+		var excitement: Variant = pony.get("excitement")
+		if excitement != null and excitement.has_method("flutter"):
+			excitement.call("flutter")
+	_pump_jiggle()
+	_pump_times.append(now * 0.001)
+	while not _pump_times.is_empty() and now * 0.001 - float(_pump_times[0]) > 1.0:
+		_pump_times.pop_front()
+	if satisfaction == 1 or satisfaction % 10 == 0:
+		_log("pump satisfaction=%d capacity=%d rate=%.1f/s" % [satisfaction, capacity, _pumps_per_second()])
+	_play_kiss()
+	if satisfaction >= SATISFACTION_MAX:
+		_climax()
+	return true
+
+
+func _pump_jiggle() -> void:
+	if not is_instance_valid(pony):
+		return
+	if not is_instance_valid(_flank):
+		_flank = pony.get_node_or_null("FlankTouch")
+	if not is_instance_valid(_flank) or not _flank.has_method("_start_jiggle"):
+		return
+	if int(_flank.get("_jiggle_index")) >= 0:
+		# Restarting calls _start_jiggle(), which rescans every coat material. Let the current
+		# wobble finish instead of spiking the frame at pump rate.
+		return
+	if _flank.has_method("wake_tick"):
+		_flank.call("wake_tick")
+	var marks: Variant = _flank.get("marks")
+	if not marks is Array or (marks as Array).size() < 2:
+		return
+	var index := _jiggle_side
+	_jiggle_side = 1 - _jiggle_side
+	var mark: Variant = (marks as Array)[index]
+	if not mark is Decal:
+		return
+	var side := -1.0 if index == 0 else 1.0
+	var lateral: Vector3 = pony.global_basis.x.normalized() * side
+	var back: Vector3 = pony.global_basis.z.normalized()
+	var normal := (lateral + back * 0.35).normalized()
+	if normal.length_squared() < 0.001:
+		return
+	var at: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + lateral * JIGGLE_SIDE + back * JIGGLE_BACK
+	var across := Vector3.UP.cross(normal).normalized()
+	if across.length_squared() < 0.5:
+		across = Vector3.RIGHT
+	var decal := mark as Decal
+	decal.global_transform = Transform3D(Basis(across, normal, across.cross(normal)).orthonormalized(), at + normal * 0.015)
+	decal.visible = false
+	_flank.call("_start_jiggle", index, JIGGLE_STRENGTH)
+
+
+func cancel() -> void:
+	_log("cancel state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
+	if state in [State.POSING_IN, State.ACTIVE]:
+		MEMORY.cancel_event(main.game, _id, _display_name, _event_id)
+		var expiry := Time.get_ticks_msec() + 60000
+		var valid := func() -> bool:
+			return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
+		MEMORY.reaction_for(main.game, _id, "end_early", _event_id,
+			"Anon stopped before you reached climax. React briefly in your own voice if you want to; saying nothing is fine.",
+			valid)
+		_restore_begin()
+	elif state == State.AFTERGLOW:
+		end_afterglow()
+
+
+func end_afterglow() -> void:
+	if state == State.AFTERGLOW:
+		_log("afterglow end pony=%s" % str(pony.name))
+		_restore_begin()
+
+
+func _climax() -> void:
+	if state != State.ACTIVE:
+		return
+	_log("climax pose=%d pony=%s satisfaction=%d" % [pose_number, str(pony.name), satisfaction])
+	state = State.CLIMAX
+	_climax_left = CLIMAX_SECONDS
+	_climax_progress = 0.0
+	_set_face(0.3, 0.0)
+	var expiry := Time.get_ticks_msec() + 60000
+	var valid := func() -> bool:
+		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
+	MEMORY.reaction_for(main.game, _id, "climax", _event_id,
+		"You have just climaxed during intimacy with Anon. React briefly in your own voice if you want to; staying quiet is fine. Do not describe anatomy.",
+		valid)
+	_play_climax()
+	if is_instance_valid(main.hud):
+		main.hud.set_state("CLIMAX")
+
+
+func _finish_climax() -> void:
+	MEMORY.climax_event(main.game, _id, _display_name, _event_id)
+	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
+	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
+	if pose_number == 2:
+		_pose2_withdraw_begin()
+	else:
+		_afterglow_begin()
+
+
+## Pose 2 has no cuddle afterglow: the climax pose holds for a short withdrawal while Anon eases
+## back and her tail flicks, then the act restores on its own.
+func _pose2_withdraw_begin() -> void:
+	_log("withdraw pose=2 pony=%s" % str(pony.name))
+	state = State.WITHDRAW
+	_withdraw_left = POSE2_WITHDRAW_SECONDS
+	_back_target = AFTERGLOW_BACK_M
+	_set_face(0.7, 0.55, 12.0)
+	if is_instance_valid(_tail):
+		_tail.target_amount = 0.55
+		_tail.call("flick", 2)
+	_inside_aftermath()
+	if is_instance_valid(main.hud):
+		main.hud.hide_act()
+
+
+func _afterglow_begin() -> void:
+	_log("afterglow pose=%d pony=%s" % [pose_number, str(pony.name)])
+	state = State.AFTERGLOW
+	_afterglow_pose = pose_number
+	_set_face(0.85, 0.9)
+	if is_instance_valid(_pose):
+		_pose.mode = "afterglow"
+		_pose.afterglow_pose = pose_number
+		_pose.target_amount = 1.0
+		_pose.amount = 1.0
+	if is_instance_valid(_tail):
+		_tail.target_amount = 0.35
+	if is_instance_valid(main.hud):
+		main.hud.set_state("AFTERGLOW")
+
+
+## Pose 2 only: tell her Anon came inside her, then optionally invite a spoken reaction.
+func _inside_aftermath() -> void:
+	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
+	var expiry := Time.get_ticks_msec() + 60000
+	var valid := func() -> bool:
+		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
+	MEMORY.inside_response(main.game, _id, _event_id, valid)
+
+
+func _restore_begin() -> void:
+	if state == State.IDLE or state == State.RESTORE:
+		return
+	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
+	var from_state := state
+	state = State.RESTORE
+	_restore_left = RESTORE_SECONDS
+	if not (pose_number == 2 and from_state == State.WITHDRAW):
+		_clear_face()
+	_release_wing_hold()
+	if is_instance_valid(_pose):
+		_pose.target_amount = 0.0
+	if is_instance_valid(_tail):
+		_tail.target_amount = 0.0
+	_stop_breath()
+	_back_target = 0.0
+	_has_facing = false
+	_glance_left = 0.0
+	if is_instance_valid(main.hud):
+		main.hud.hide_act()
+
+
+func _finish_restore() -> void:
+	if not is_instance_valid(pony):
+		_log("restore finished with invalid pony")
+		state = State.IDLE
+		return
+	_log("restore finished pony=%s" % str(pony.name))
+	_unlock_player()
+	_restore_camera()
+	pony.remove_meta("sex_active")
+	if pony.get("posture") != null:
+		pony.request_posture("stand")
+	_release_nav()
+	_free_pose()
+	_stop_audio()
+	if is_instance_valid(main.hud):
+		main.hud.hide_all()
+	if is_instance_valid(main):
+		main.clear_active(self)
+	state = State.IDLE
+	pose_number = 0
+	source = ""
+	bed = null
+	_reset_after_act()
+
+
+func force_stop() -> void:
+	if state == State.IDLE:
+		return
+	_restore_now()
+
+
+func _restore_now() -> void:
+	if is_instance_valid(pony):
+		_clear_face()
+		_release_wing_hold()
+		_unlock_player()
+		_restore_camera()
+		pony.remove_meta("sex_active")
+		if pony.get("posture") != null:
+			pony.request_posture("stand")
+		_release_nav()
+	_free_pose()
+	_stop_audio()
+	if is_instance_valid(main):
+		main.clear_active(self)
+		if is_instance_valid(main.hud):
+			main.hud.hide_all()
+	state = State.IDLE
+	pose_number = 0
+	source = ""
+	bed = null
+	_reset_after_act()
+
+
+func _reset_after_act() -> void:
+	if not is_inside_tree():
+		return
+	capacity = CAPACITY_MAX
+	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
+		_satisfaction_tween.kill()
+	var from := float(satisfaction)
+	_satisfaction_tween = create_tween()
+	_satisfaction_tween.tween_method(func(value: float) -> void: satisfaction = int(round(value)), from, 0.0, 30.0)
+	_begin_aftercare()
+
+
+func _begin_aftercare() -> void:
+	if not is_inside_tree() or not is_instance_valid(pony):
+		return
+	if is_instance_valid(_aftercare):
+		return
+	_aftercare = AFTERCARE.new()
+	_aftercare.set("pony", pony)
+	_aftercare.set("runtime", self)
+	_aftercare.set("body_language", satisfaction >= 10)
+	add_child(_aftercare)
+
+
+# --------------------------------------------------------------------------- checks
+
+func _check_running() -> void:
+	if not is_instance_valid(pony):
+		force_stop()
+		return
+	if state == State.ACTIVE or state == State.POSING_IN:
+		if not _still_willing():
+			_stop("unwilling")
+			return
+	if pony.is_held():
+		_stop("picked up")
+		return
+	if not _conversation_ok():
+		_stop("interrupted")
+		return
+	var affection: Node = pony.get_node_or_null("Affection")
+	if affection != null and not str(affection.get("kind")).is_empty():
+		_stop("interrupted")
+		return
+	if _cuddle_active():
+		_stop("interrupted")
+		return
+	if _nav != null and is_instance_valid(_nav) and str(_nav.get("reserved_by")) != "":
+		_stop("interrupted")
+		return
+	if pose_number == 1 and bed != null and main.bed_occupied(bed, pony):
+		_stop("interrupted")
+		return
+	if _player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
+		_stop("form change")
+		return
+
+
+func _still_willing() -> bool:
+	var runtime: Variant = pony.get_meta("relationship_runtime")
+	if runtime == null or not is_instance_valid(runtime):
+		return false
+	if not _conversation_ok():
+		return false
+	return bool(runtime.bonds.welcomes(_id, "kiss"))
+
+
+func _stop(reason: String) -> void:
+	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
+	if state in [State.POSING_IN, State.ACTIVE]:
+		MEMORY.stop_event(main.game, _id, _display_name, _event_id, reason)
+	_restore_begin()
+
+
+# --------------------------------------------------------------------------- camera
+
+func _size_scale() -> float:
+	var settings: Node = get_node_or_null("/root/Settings")
+	if settings == null:
+		return 1.0
+	var size := str(settings.call("get_value", "ponies/size"))
+	match size:
+		"mounting":
+			return 0.80
+		"hoers":
+			return 1.10
+		"canon":
+			return 0.66
+	return 1.0
+
+
+func _bed_surface_top() -> float:
+	if not is_instance_valid(bed):
+		return 0.0
+	var fallback := float(bed.get_meta("mattress_top", 0.6)) + bed.global_position.y
+	var points: Array[Vector3] = [bed.global_position]
+	return MATTRESS.visible_top(bed, points, fallback)
+
+
+## Change the player's own eye height for the act instead of writing camera.position.y. That keeps
+## `desktop_player._set_eye_y` as the single owner of the camera height and avoids drift/teleports.
+func _hide_anon_avatar_for_pose1() -> void:
+	if pose_number != 1 or not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Node3D = main.player.find_child("CouchAnonBody", true, false) as Node3D
+	if body == null:
+		body = main.player.find_child("AnonBody", true, false) as Node3D
+	if body == null:
+		for node: Node in main.player.find_children("*AnonBody*", "", true, false):
+			if node is Node3D:
+				body = node as Node3D
+				break
+	if body == null:
+		return
+	_anon_avatar = body
+	_anon_avatar_visible = body.visible
+	# The first-person camera is the all-fours presentation; hide the reclining body so it does
+	# not appear standing over the pony.
+	body.visible = false
+
+
+func _restore_anon_avatar() -> void:
+	if is_instance_valid(_anon_avatar):
+		_anon_avatar.visible = _anon_avatar_visible
+	_anon_avatar = null
+
+
+func _make_pose1_view() -> void:
+	if _player_pony or not is_instance_valid(pony):
+		return
+	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
+		return
+	_pose1_prev_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
+	_pose1_view = Camera3D.new()
+	_pose1_view.name = "UnfunfunfPose1View"
+	_pose1_view.top_level = true
+	_pose1_view.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	var source: Camera3D = main.camera() if is_instance_valid(main) else null
+	if is_instance_valid(source):
+		if not _pose1_player_rot_saved:
+			_pose1_player_rotation = source.rotation
+			_pose1_player_rot_saved = true
+		_pose1_view.fov = source.fov
+		_pose1_view.near = source.near
+		_pose1_view.far = source.far
+		_pose1_view.cull_mask = source.cull_mask
+	if is_instance_valid(main) and is_instance_valid(main.player):
+		var pitch: Variant = main.player.get("_pitch")
+		if pitch != null:
+			if not _pose1_player_pitch_saved:
+				_pose1_player_pitch = float(pitch)
+				_pose1_player_pitch_saved = true
+			main.player.set("_pitch", -0.9)
+			if main.player.get("form_driver") == null and is_instance_valid(source):
+				source.rotation.x = -0.9
+		# Point the player look controls at her head so the copied basis faces her face,
+		# not whatever direction the bed rest left the player camera in.
+		var head: Vector3 = pony.global_position + Vector3.UP * 0.25
+		if pony.has_method("listen_point"):
+			var lp: Variant = pony.call("listen_point")
+			if lp is Vector3 and (lp as Vector3).is_finite() and (lp as Vector3).distance_to(pony.global_position) < 2.0:
+				head = lp as Vector3
+		var to := head - _pose1_camera
+		var flat := Vector2(to.x, to.z).length()
+		if flat > 0.01:
+			main.player.rotation.y = atan2(-to.x, -to.z)
+			var look_pitch := clampf(atan2(to.y, flat), -1.25, 0.2)
+			main.player.set("_pitch", look_pitch)
+			if main.player.get("form_driver") == null and is_instance_valid(source):
+				source.rotation.x = look_pitch
+	pony.add_child(_pose1_view)
+	_pose1_view.current = true
+	_pose1_log_setup()
+
+
+func _pose1_log_setup() -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(main) or not bool(main.get("debug_logs")):
+		return
+	var seat: Variant = main.player.get("seat") if is_instance_valid(main.player) else null
+	var rest: Variant = main.player.get("_couch_rest") if is_instance_valid(main.player) else null
+	_log("pose1 setup pony=%s pos=%s anchor=%s camera=%s bed=%s bed_top=%.2f seat=%s rest=%.2f" % [
+		str(pony.name), str(pony.global_position), str(_pose1_camera),
+		source,
+		str(bed.name) if is_instance_valid(bed) else "null", _bed_surface_top(),
+		str(seat.name) if is_instance_valid(seat) else "null",
+		float(rest.get("amount")) if is_instance_valid(rest) else -1.0])
+
+
+func _free_pose1_view() -> void:
+	if is_instance_valid(_pose1_view):
+		_pose1_view.queue_free()
+	_pose1_view = null
+	if is_instance_valid(_pose1_prev_camera):
+		_pose1_prev_camera.make_current()
+	_pose1_prev_camera = null
+	if is_instance_valid(main) and is_instance_valid(main.player):
+		if _pose1_player_pitch_saved and main.player.get("_pitch") != null:
+			main.player.set("_pitch", _pose1_player_pitch)
+		var source: Camera3D = main.camera() if is_instance_valid(main) else null
+		if _pose1_player_rot_saved and is_instance_valid(source):
+			source.rotation = _pose1_player_rotation
+	_pose1_player_pitch_saved = false
+	_pose1_player_rot_saved = false
+
+
+func _pose1_camera_target() -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var root: Vector3 = pony.global_position
+	var back: Vector3 = pony.global_basis.z.normalized()
+	var target := root + Vector3.UP * 0.75 + back * 0.08
+	var bed_top := _bed_surface_top()
+	if is_finite(bed_top) and bed_top <= root.y + 2.0:
+		target.y = maxf(target.y, bed_top + 0.30)
+	target.y = clampf(target.y, root.y + 0.30, root.y + 1.50)
+	return target
+
+
+func _apply_eye_override() -> void:
+	_camera_target_eye = 0.0
+	# Pose 1 is owned by the game's bed rest/seat camera. Do not fight it with eye-height edits.
+	if pose_number == 1 or _player_pony:
+		return
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Variant = main.player
+	if body.get("_stand_eye") == null or body.get("seat") != null:
+		return
+	var base := _player_eye_height()
+	var target := base * _size_scale()
+	_camera_target_eye = target
+	if absf(target - base) < 0.001:
+		return
+	if not _eye_override:
+		_saved_stand_eye = float(body.get("_stand_eye"))
+		_saved_eye_height = float(body.get("_eye_height"))
+		_eye_override = true
+	body.set("_stand_eye", target)
+	body.set("_eye_height", target)
+	if body.has_method("_set_eye_y"):
+		body.call("_set_eye_y", target)
+	_log("eye override standing base=%.2f target=%.2f" % [base, target])
+
+
+func _restore_eye_override() -> void:
+	if not _eye_override:
+		return
+	_eye_override = false
+	var body: Variant = main.player if is_instance_valid(main) else null
+	if not is_instance_valid(body):
+		return
+	if body.get("_stand_eye") != null:
+		body.set("_stand_eye", _saved_stand_eye)
+	if body.get("_eye_height") != null:
+		body.set("_eye_height", _saved_eye_height)
+	if body.has_method("_set_eye_y"):
+		body.call("_set_eye_y", _saved_stand_eye)
+
+
+func apply_camera_bob() -> void:
+	if state == State.IDLE:
+		return
+	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
+		return
+	if not is_instance_valid(_camera):
+		_camera = main.camera() if is_instance_valid(main) else null
+	if not is_instance_valid(_camera):
+		return
+	if pose_number == 1:
+		if not is_instance_valid(pony):
+			return
+		var bed_top := _bed_surface_top()
+		if not _pose1_camera.is_finite() or _pose1_camera.distance_to(pony.global_position) > 3.0 \
+				or (is_finite(bed_top) and _pose1_camera.y < bed_top - 0.05):
+			_pose1_camera = _pose1_camera_target()
+		if not _pose1_camera.is_finite():
+			return
+		if is_finite(bed_top) and bed_top <= pony.global_position.y + 2.0 and _pose1_camera.y < bed_top + 0.15:
+			_pose1_camera.y = bed_top + 0.30
+		_pose1_camera.y = clampf(_pose1_camera.y, pony.global_position.y + 0.30, pony.global_position.y + 1.50)
+		if not is_instance_valid(_pose1_view):
+			_make_pose1_view()
+		if not is_instance_valid(_pose1_view):
+			return
+		_pose1_view.global_position = _pose1_camera + Vector3.UP * _bob
+		_pose1_view.global_position -= _pose1_view.global_basis.z * (_lean - _back)
+		var source_view: Camera3D = main.camera() if is_instance_valid(main) else null
+		if is_instance_valid(source_view):
+			_pose1_view.global_basis = source_view.global_basis
+		else:
+			var look: Vector3 = pony.global_position + Vector3.UP * 0.30
+			if look.is_finite():
+				_pose1_view.look_at(look, Vector3.UP)
+		return
+	_set_camera_offsets(_camera_height_offset + _bob, _lean - _back)
+
+
+func _player_eye_height() -> float:
+	var body: Variant = main.player if is_instance_valid(main) else null
+	if is_instance_valid(body) and body.has_method("eye_height"):
+		return float(body.call("eye_height"))
+	if is_instance_valid(body) and body.get("_stand_eye") != null:
+		return float(body.get("_stand_eye"))
+	return 1.6
+
+
+## Desktop human camera: vertical is absolute from the player's eye height, so `_set_eye_y`
+## cannot stomp it. AnonPony's top-level camera keeps the delta form.
+func _set_camera_offsets(vertical: float, forward: float) -> void:
+	if not is_instance_valid(_camera):
+		return
+	var df := forward - _applied_lean
+	var seated := is_instance_valid(main) and is_instance_valid(main.player) and main.player.get("seat") != null
+	if _camera.top_level or seated:
+		var dy := vertical - _applied_bob
+		if absf(dy) > 0.00001:
+			_camera.global_position += Vector3.UP * dy
+		if absf(df) > 0.00001:
+			_camera.global_position -= _camera.global_basis.z * df
+	else:
+		_camera.position.y = _player_eye_height() + vertical
+		if absf(df) > 0.00001:
+			_camera.position.z -= df
+	_applied_bob = vertical
+	_applied_lean = forward
+
+
+func _capture_look() -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	_look_yaw = float(main.player.rotation.y)
+	var pitch: Variant = main.player.get("_pitch")
+	_look_pitch = float(pitch) if pitch != null else 0.0
+
+
+## Pose 2 must keep her rump toward Anon. The navigator tries to face a conversation partner
+## and idle motion can add turns; this runs late and restores the start basis every tick.
+func _lock_body_facing() -> void:
+	if not _has_facing or pose_number != 2 or not is_instance_valid(pony):
+		return
+	if state in [State.IDLE, State.RESTORE]:
+		return
+	var t: Transform3D = pony.global_transform
+	var scale := t.basis.get_scale()
+	t.basis = _facing_basis.scaled(scale)
+	pony.global_transform = t
+
+
+## Every few seconds she turns her head back toward Anon, then forward again. The angles are
+## computed from his actual position, not a fixed side. Some glances throw her head back (the
+## carried look), the rest turn as far over the shoulder as her neck allows.
+func _drive_glance(delta: float) -> void:
+	if not _has_facing or pose_number != 2 or not is_instance_valid(pony):
+		return
+	if is_instance_valid(_pose):
+		_pose.set("head_back", 1.0 if (_glance_left > 0.0 and _glance_back) else 0.0)
+	var secondary: Variant = pony.get("secondary")
+	if secondary == null or not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
+		return
+	if _glance_left > 0.0:
+		_glance_left -= delta
+		secondary.call("look_toward", _glance_angles(), 0.4)
+		if _glance_left <= 0.0:
+			_glance_wait = randf_range(GLANCE_MIN_INTERVAL, GLANCE_MAX_INTERVAL)
+		return
+	_glance_wait -= delta
+	if _glance_wait <= 0.0:
+		_glance_left = GLANCE_HOLD
+		_glance_back = randf() < GLANCE_BACK_CHANCE
+		_glance_sign_set = false
+	secondary.call("look_toward", Vector3.ZERO, 0.4)
+
+
+func _glance_angles() -> Vector3:
+	var head: Vector3 = pony.global_position + Vector3.UP
+	if pony.has_method("listen_point"):
+		head = pony.call("listen_point")
+	var target: Vector3 = head
+	if is_instance_valid(main) and is_instance_valid(main.player):
+		var view: Camera3D = main.camera()
+		if is_instance_valid(view):
+			target = view.global_position
+	var local: Vector3 = pony.global_basis.inverse() * (target - head)
+	var raw := atan2(-local.x, -local.z)
+	if not _glance_sign_set:
+		# Pick one shoulder for this glance so a small movement behind her cannot flip it.
+		_glance_sign = signf(raw) if absf(raw) > 0.3 else (1.0 if randf() < 0.5 else -1.0)
+		_glance_sign_set = true
+	var yaw: float = _glance_sign * absf(raw)
+	var pitch := atan2(local.y, Vector2(local.x, local.z).length())
+	if _glance_back:
+		return Vector3(clampf(pitch + GLANCE_BACK_PITCH, -0.25, 1.0), clampf(yaw, -1.35, 1.35), 0.0)
+	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -GLANCE_YAW, GLANCE_YAW), 0.0)
+
+
+## Free look, but inside a 45-degree cone around the direction the act began in. Movement stays
+## held by kiss_hold; this only limits where the camera can turn.
+func _clamp_look() -> void:
+	if pose_number == 1:
+		# Pose 1: temporary free look while the pose is being tuned.
+		return
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Node = main.player
+	var form: Variant = body.get("form_driver")
+	# AnonPony lying/sitting has her own body-yaw limit; never widen it.
+	if form != null and form is Node and (form as Node).has_method("clamp_view"):
+		form.call("clamp_view")
+	var yaw_delta := angle_difference(_look_yaw, float(body.rotation.y))
+	if absf(yaw_delta) > LOOK_YAW_LIMIT:
+		body.rotation.y = _look_yaw + clampf(yaw_delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
+	var headset: Variant = body.get("headset_view")
+	if headset is bool and headset:
+		return
+	var pitch_value: Variant = body.get("_pitch")
+	if pitch_value == null:
+		return
+	var want := _look_pitch + clampf(float(pitch_value) - _look_pitch, -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
+	if absf(float(pitch_value) - want) > 0.00001:
+		body.set("_pitch", want)
+	var view: Camera3D = main.camera()
+	if form == null and is_instance_valid(view):
+		view.rotation.x = want
+
+
+func _restore_camera() -> void:
+	_restore_eye_override()
+	_restore_anon_avatar()
+	_free_pose1_view()
+	if is_instance_valid(_camera):
+		if _pose1_rot_saved:
+			_camera.rotation = _pose1_saved_rotation
+		if _pose1_pos_saved:
+			if _camera.top_level:
+				_camera.global_position = _pose1_saved_global
+			else:
+				_camera.position = _pose1_saved_position
+		elif _camera.top_level:
+			if absf(_applied_bob) > 0.00001:
+				_camera.global_position -= Vector3.UP * _applied_bob
+			if absf(_applied_lean) > 0.00001:
+				_camera.global_position += _camera.global_basis.z * _applied_lean
+		else:
+			_camera.position.y = _player_eye_height()
+			_camera.position.z += _applied_lean
+	_applied_bob = 0.0
+	_applied_lean = 0.0
+	_bob = 0.0
+	_bob_velocity = 0.0
+	_lean = 0.0
+	_lean_velocity = 0.0
+	_back = 0.0
+	_back_target = 0.0
+	_camera_height_offset = 0.0
+	_pose1_camera = Vector3.INF
+	_pose1_rot_saved = false
+	_pose1_pos_saved = false
+	_camera = null
+
+
+# --------------------------------------------------------------------------- audio
+
+func _start_audio() -> void:
+	_stop_audio()
+	_breath_streams.clear()
+	for i: int in range(1, 15):
+		var path := "res://world/audio/pony/breath_%02d.wav" % i
+		if ResourceLoader.exists(path):
+			var stream: Resource = load(path)
+			if stream is AudioStream:
+				_breath_streams.append(stream)
+	_breath = AudioStreamPlayer3D.new()
+	_breath.name = "UnfunfunfBreath"
+	_breath.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
+	_breath.unit_size = 1.0
+	_breath.max_distance = 8.0
+	add_child(_breath)
+	_breath_clock = 0.0
+
+	_kiss_stream = load("res://world/audio/pony/kiss.wav") if ResourceLoader.exists("res://world/audio/pony/kiss.wav") else null
+	_kiss_sound = AudioStreamPlayer3D.new()
+	_kiss_sound.name = "UnfunfunfKiss"
+	_kiss_sound.bus = _breath.bus
+	_kiss_sound.unit_size = 1.0
+	_kiss_sound.max_distance = 6.0
+	add_child(_kiss_sound)
+
+	_climax_streams.clear()
+	for path: String in ["res://world/audio/pony/squee_1.ogg", "res://world/audio/pony/squee_2.ogg"]:
+		if ResourceLoader.exists(path):
+			var stream: Resource = load(path)
+			if stream is AudioStream:
+				_climax_streams.append(stream)
+	_climax_sound = AudioStreamPlayer3D.new()
+	_climax_sound.name = "UnfunfunfClimax"
+	_climax_sound.bus = _breath.bus
+	_climax_sound.unit_size = 1.0
+	_climax_sound.max_distance = 10.0
+	add_child(_climax_sound)
+
+
+func _stop_audio() -> void:
+	if is_instance_valid(_breath):
+		_breath.stop()
+		_breath.queue_free()
+		_breath = null
+	if is_instance_valid(_kiss_sound):
+		_kiss_sound.stop()
+		_kiss_sound.queue_free()
+		_kiss_sound = null
+	if is_instance_valid(_climax_sound):
+		_climax_sound.stop()
+		_climax_sound.queue_free()
+		_climax_sound = null
+
+
+func _stop_breath() -> void:
+	if is_instance_valid(_breath):
+		_breath.stop()
+
+
+func _play_kiss() -> void:
+	var boop: Variant = pony.get("boop_node")
+	if is_instance_valid(boop) and boop.has_method("play_kiss"):
+		boop.call("play_kiss", -22.0, false)
+		return
+	if _kiss_stream == null or not is_instance_valid(_kiss_sound):
+		return
+	_kiss_sound.stream = _kiss_stream
+	_kiss_sound.global_position = _snout()
+	_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
+	_kiss_sound.play()
+
+
+func _play_climax() -> void:
+	if _climax_streams.is_empty() or not is_instance_valid(_climax_sound):
+		return
+	_climax_sound.stream = _climax_streams[randi() % _climax_streams.size()]
+	_climax_sound.global_position = _snout()
+	_climax_sound.pitch_scale = randf_range(0.95, 1.05)
+	_climax_sound.play()
+
+
+func _breath_tick(delta: float) -> void:
+	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		return
+	if _breath_streams.is_empty() or not is_instance_valid(_breath):
+		return
+	_breath_clock -= delta
+	if _breath_clock > 0.0:
+		return
+	var rate := clampf(_pumps_per_second() / BREATH_RATE_CAP, 0.0, 1.0)
+	var interval := lerpf(BREATH_BASE_INTERVAL_S, BREATH_MIN_INTERVAL_S, rate)
+	if state == State.CLIMAX:
+		interval = 0.35
+	elif state == State.AFTERGLOW:
+		interval = 1.4
+	_breath_clock = interval
+	_breath.stream = _breath_streams[randi() % _breath_streams.size()]
+	_breath.global_position = _snout()
+	_breath.volume_db = lerpf(-36.0, -20.0, rate)
+	_breath.pitch_scale = 1.0 + rate * 0.2
+	_breath.play()
+
+
+func _pumps_per_second() -> float:
+	var now := Time.get_ticks_msec() * 0.001
+	while not _pump_times.is_empty() and now - float(_pump_times[0]) > 1.0:
+		_pump_times.pop_front()
+	return float(_pump_times.size())
+
+
+func _snout() -> Vector3:
+	var boop: Variant = pony.get("boop_node")
+	if is_instance_valid(boop) and boop.has_method("nose_world"):
+		return boop.call("nose_world")
+	return pony.global_position + Vector3.UP * 1.0

@@ -1,10 +1,10 @@
 {
-	"id": "unfunfunf",
-	"name": "Unfunfunf",
-	"version": "0.2.0",
+	"id": "unfplap",
+	"name": "Unfplap",
+	"version": "0.0.1",
 	"author": "Anon",
 	"description": "Adult intimacy for consenting adult ponies at the Marefriend stage.",
 	"game_version": "0.1.1",
-	"entry": "res://mods/unfunfunf/main.gd",
-	"extends": ["res://mods/unfunfunf/ext/shared_bed.gd"]
+	"entry": "res://mods/unfplap/main.gd",
+	"extends": ["res://mods/unfplap/ext/shared_bed.gd"]
 }

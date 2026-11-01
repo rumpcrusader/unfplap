@@ -16,7 +16,7 @@ var _hint: Label
 func _ready() -> void:
 	layer = 10
 	var root := Control.new()
-	root.name = "UnfunfunfRoot"
+	root.name = "UnfplapRoot"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)

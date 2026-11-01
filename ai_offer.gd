@@ -24,7 +24,7 @@ static func tick(main) -> void:
 	var ctx: Variant = game.get("world_context")
 	if ctx == null or not is_instance_valid(ctx):
 		return
-	var section: Dictionary = Mods.state("unfunfunf")
+	var section: Dictionary = Mods.state("unfplap")
 	var offers: Dictionary = section.get("offers", {})
 	var now := Time.get_unix_time_from_system()
 	var list: Variant = game.get("mares")

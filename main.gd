@@ -1,20 +1,21 @@
 extends Node
-## Unfunfunf: adult intimacy for consenting adult ponies at the Marefriend stage.
+## Unfplap: adult intimacy for consenting adult ponies at the Marefriend stage.
 ## The entry node owns the player HUD/input and one lightweight runtime per pony. It never edits
 ## game files; it only reads the game's pony, relationship, memory and bed APIs.
 
-const RUNTIME := preload("res://mods/unfunfunf/runtime.gd")
-const HUD := preload("res://mods/unfunfunf/hud.gd")
-const INPUT := preload("res://mods/unfunfunf/input.gd")
-const AI_OFFER := preload("res://mods/unfunfunf/ai_offer.gd")
-const SETTINGS := preload("res://mods/unfunfunf/settings.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const HUD := preload("res://mods/unfplap/hud.gd")
+const INPUT := preload("res://mods/unfplap/input.gd")
+const AI_OFFER := preload("res://mods/unfplap/ai_offer.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const CURRENCY := preload("res://world/ui/currency.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
-## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfunfunf/settings.json.
+## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default ON. Toggle in game with Ctrl+Shift+D.
 var debug_logs := true
 
@@ -40,7 +41,7 @@ var _native_hint_label: Label
 
 func debug(text: String) -> void:
 	if debug_logs:
-		print("[unfunfunf] " + text)
+		print("[unfplap] " + text)
 
 
 func _debug(text: String) -> void:
@@ -51,9 +52,9 @@ func toggle_debug_logs() -> void:
 	debug_logs = not debug_logs
 	SETTINGS.save_debug_logs(debug_logs)
 	if debug_logs:
-		print("[unfunfunf] debug logs ON")
+		print("[unfplap] debug logs ON")
 	else:
-		print("[unfunfunf] debug logs OFF")
+		print("[unfplap] debug logs OFF")
 
 
 func _ready() -> void:
@@ -61,9 +62,14 @@ func _ready() -> void:
 	set_process(true)
 	debug_logs = SETTINGS.load_debug_logs()
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
-	var source_mtime := maxi(
-		FileAccess.get_modified_time("res://mods/unfunfunf/runtime.gd"),
-		FileAccess.get_modified_time("res://mods/unfunfunf/pose.gd"))
+	var source_mtime := 0
+	for path: String in [
+			"res://mods/unfplap/runtime.gd",
+			"res://mods/unfplap/poses/skeleton_pose.gd",
+			"res://mods/unfplap/poses/missionary_recipe.gd",
+			"res://mods/unfplap/poses/horse_recipe.gd",
+	]:
+		source_mtime = maxi(source_mtime, FileAccess.get_modified_time(path))
 	_debug("entry ready (debug logs %s) runtime_mtime=%d" % [
 		"ON" if debug_logs else "OFF", source_mtime])
 	Mods.world_ready.connect(_on_world)
@@ -110,11 +116,11 @@ func _on_player(body: Node) -> void:
 	_debug("player ready")
 	if not is_instance_valid(hud):
 		hud = HUD.new()
-		hud.name = "UnfunfunfHUD"
+		hud.name = "UnfplapHUD"
 		add_child(hud)
 	if not is_instance_valid(input):
 		input = INPUT.new()
-		input.name = "UnfunfunfInput"
+		input.name = "UnfplapInput"
 		input.main = self
 		add_child(input)
 
@@ -128,7 +134,7 @@ func _on_pony(pony: Node) -> void:
 	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
 		return
 	var runtime: Node = RUNTIME.new()
-	runtime.name = "UnfunfunfRuntime"
+	runtime.name = "UnfplapRuntime"
 	runtime.set("pony", pony)
 	runtime.set("main", self)
 	pony.add_child(runtime)
@@ -187,8 +193,8 @@ func _refresh_offer() -> void:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and runtime.can_start(1, "bed_side", bed):
-					_offer = {"runtime": runtime, "pony": lying, "pose": 1, "source": "bed_side", "bed": bed}
+				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "bed_side", bed):
+					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY, "source": "bed_side", "bed": bed}
 					_log_offer()
 					return
 
@@ -199,8 +205,8 @@ func _refresh_offer() -> void:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and runtime.can_start(1, "already_lying", bed):
-					_offer = {"runtime": runtime, "pony": lying, "pose": 1, "source": "already_lying", "bed": bed}
+				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "already_lying", bed):
+					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY, "source": "already_lying", "bed": bed}
 					_log_offer()
 					return
 
@@ -208,8 +214,8 @@ func _refresh_offer() -> void:
 	var standing: Node = nearest_standing(view)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and runtime.can_start(2, "", null):
-			_offer = {"runtime": runtime, "pony": standing, "pose": 2, "source": "", "bed": null}
+		if is_instance_valid(runtime) and runtime.can_start(CATALOG.HORSE, "", null):
+			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.HORSE, "source": "", "bed": null}
 			_log_offer()
 
 
@@ -286,15 +292,16 @@ func _log_offer() -> void:
 	if _offer.is_empty():
 		return
 	var target: Variant = _offer.get("pony")
-	var key := "%s:%d:%s" % [
+	var key := "%s:%s:%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		int(_offer.get("pose", 0)), str(_offer.get("source", ""))]
+		str(_offer.get("pose", "")), str(_offer.get("source", ""))]
 	if key == _last_offer_key:
 		return
 	_last_offer_key = key
-	_debug("OFFER pony=%s pose=%d source=%s bed=%s" % [
+	_debug("OFFER pony=%s pose=%s legacy=%d source=%s bed=%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		int(_offer.get("pose", 0)), str(_offer.get("source", "")), str(_offer.get("bed"))])
+		str(_offer.get("pose", "")), CATALOG.legacy_index(str(_offer.get("pose", ""))),
+		str(_offer.get("source", "")), str(_offer.get("bed"))])
 
 
 func _debug_target(view: Camera3D) -> Node:
@@ -372,16 +379,16 @@ func _debug_offer() -> void:
 		_debug("debug nearest=%s no runtime" % str(target.name))
 		return
 	var pony_form := PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	var pose := 2
+	var pose := CATALOG.HORSE
 	var source := ""
 	var bed: Variant = null
 	var reach: Node = interactor()
 	if not pony_form and is_instance_valid(reach) and reach.get("held") == target and reach.get("cradled") == true:
-		pose = 1
+		pose = CATALOG.MISSIONARY
 		source = "cradle"
 		bed = bed_for_cradle(target)
 	elif str(target.call("posture_status").get("requested")) == "lie_down":
-		pose = 1
+		pose = CATALOG.MISSIONARY
 		source = "already_lying"
 		bed = runtime.call("find_bed_under")
 	var delta: Vector3 = target.global_position + Vector3.UP * 0.9 - view.global_position
@@ -400,7 +407,7 @@ func try_start() -> bool:
 	var runtime: Variant = _offer.get("runtime")
 	if not is_instance_valid(runtime):
 		return false
-	var started: bool = runtime.start(int(_offer.get("pose", 0)), _offer.get("bed"), str(_offer.get("source", "")))
+	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), str(_offer.get("source", "")))
 	if started:
 		_offer = {}
 		if is_instance_valid(hud):
@@ -441,8 +448,8 @@ func _try_refusal() -> bool:
 				var runtime: Node = runtime_for(held)
 				if is_instance_valid(runtime):
 					var bed: Node3D = bed_for_cradle(held)
-					if bed != null and bool(runtime.call("refuse_available", 1, "cradle", bed)):
-						runtime.call("refuse", 1, "cradle", bed)
+					if bed != null and bool(runtime.call("refuse_available", CATALOG.MISSIONARY, "cradle", bed)):
+						runtime.call("refuse", CATALOG.MISSIONARY, "cradle", bed)
 						return true
 	if pony_form:
 		var lying: Node = nearest_lying(view)
@@ -450,20 +457,20 @@ func _try_refusal() -> bool:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Variant = runtime.call("find_bed_under")
-				if bed is Node3D and bool(runtime.call("refuse_available", 1, "already_lying", bed)):
-					runtime.call("refuse", 1, "already_lying", bed)
+				if bed is Node3D and bool(runtime.call("refuse_available", CATALOG.MISSIONARY, "already_lying", bed)):
+					runtime.call("refuse", CATALOG.MISSIONARY, "already_lying", bed)
 					return true
 	var standing: Node = nearest_standing(view)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", 2, "", null)):
-			runtime.call("refuse", 2, "", null)
+		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", CATALOG.HORSE, "", null)):
+			runtime.call("refuse", CATALOG.HORSE, "", null)
 			return true
 	return false
 
 
 func allocate_serial() -> int:
-	var section: Dictionary = Mods.state("unfunfunf")
+	var section: Dictionary = Mods.state("unfplap")
 	var value: int = int(section.get("serial", 0)) + 1
 	section["serial"] = value
 	Mods.save_changed()
@@ -549,7 +556,7 @@ func runtime_for(pony: Node) -> Node:
 	var runtime: Variant = _runtimes.get(pony)
 	if is_instance_valid(runtime):
 		return runtime
-	var child: Node = pony.get_node_or_null("UnfunfunfRuntime")
+	var child: Node = pony.get_node_or_null("UnfplapRuntime")
 	return child if is_instance_valid(child) else null
 
 

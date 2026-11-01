@@ -84,28 +84,9 @@ func _tail_down(sk: Skeleton3D, weight: float) -> void:
 	if not _tail_logged and weight > 0.5:
 		_tail_logged = true
 		var base_after := sk.get_bone_global_pose(_tail[0]).basis.z
-		print("[unfunfunf] aftercare tail bones=%d base before=%s after=%s target=%s angle=%.1f°" % [
+		print("[unfplap] aftercare tail bones=%d base before=%s after=%s target=%s angle=%.1f°" % [
 			_tail.size(), str(base_before), str(base_after), str(target),
 			rad_to_deg(base_before.normalized().angle_to(target))])
-
-
-## The spine's rearward direction at the pelvis, expressed in this (hair) skeleton's space.
-## Falls back to `-forward` when the body skeleton or the bones are unavailable.
-func _spine_continuation(sk: Skeleton3D, fallback: Vector3) -> Vector3:
-	var body: Skeleton3D = pony.get("skeleton") if is_instance_valid(pony) else null
-	if body == null:
-		return fallback
-	var hips := body.find_bone("pony_hips")
-	var spine1 := body.find_bone("pony_spine1")
-	if hips < 0 or spine1 < 0:
-		return fallback
-	var a := body.global_transform * body.get_bone_global_pose(hips)
-	var b := body.global_transform * body.get_bone_global_pose(spine1)
-	var toward_head := b.origin - a.origin
-	if toward_head.length_squared() < 0.000001:
-		return fallback
-	var rear_world := -toward_head.normalized()
-	return (sk.global_basis.inverse() * rear_world).normalized()
 
 
 func _rotate(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:

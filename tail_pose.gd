@@ -12,7 +12,6 @@ const FLICK_AMPLITUDE := 1.10
 var mare: Node3D
 var amount := 0.0
 var target_amount := 0.0
-var aside := 1.0
 ## +1 or -1: which way the tail sweeps. Randomized per act.
 var aside_sign := 1.0
 
@@ -87,7 +86,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		# Rotating about `right` by a positive angle raises the tail when (right x direction)
 		# already points up; derive the sign so the lift always goes up.
 		var lift_sign := 1.0 if right.cross(direction).dot(up) >= 0.0 else -1.0
-		pose.basis = Basis(up, ASIDE_ANGLE * weight * aside * aside_sign * falloff) * pose.basis
+		pose.basis = Basis(up, ASIDE_ANGLE * weight * aside_sign * falloff) * pose.basis
 		var lift := LIFT_ANGLE * weight + (flick * weight if flicking else 0.0)
 		pose.basis = Basis(right, lift_sign * lift * falloff) * pose.basis
 		sk.set_bone_global_pose(bone, pose)

@@ -2,10 +2,10 @@ extends Node
 ## Ten seconds of post-sex body language: head and tail lower, no wandering, no new act.
 ## Created by the runtime after restore. Runs independently of the act state.
 
-const POSE := preload("res://mods/unfunfunf/aftercare_pose.gd")
+const POSE := preload("res://mods/unfplap/aftercare_pose.gd")
 const DURATION := 10.0
 const FADE := 0.6
-const OWNER := "unfunfunf:aftercare"
+const OWNER := "unfplap:aftercare"
 
 var pony: Node3D
 var runtime: Node
@@ -31,14 +31,14 @@ func _ready() -> void:
 		var skeleton: Variant = pony.get("skeleton")
 		if skeleton is Skeleton3D:
 			_body = POSE.new()
-			_body.name = "UnfunfunfAftercareBody"
+			_body.name = "UnfplapAftercareBody"
 			_body.set("pony", pony)
 			_body.set("mode", "body")
 			(skeleton as Skeleton3D).add_child(_body)
 		var hair: Variant = pony.get("hair_skeleton")
 		if hair is Skeleton3D:
 			_tail = POSE.new()
-			_tail.name = "UnfunfunfAftercareTail"
+			_tail.name = "UnfplapAftercareTail"
 			_tail.set("pony", pony)
 			_tail.set("mode", "tail")
 			(hair as Skeleton3D).add_child(_tail)

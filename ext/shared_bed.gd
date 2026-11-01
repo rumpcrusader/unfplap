@@ -40,3 +40,27 @@ func eligible(actor: Node3D) -> bool:
 	if not following and (not routine or nav.get("_has_target") == true):
 		return false
 	return _willing(actor)
+
+
+## The stock approach only accepts a floor within 0.5 m of the actor's current height. When the
+## pony is already on the mattress (for example after a previous pose), that check rejects every
+## otherwise valid floor spot and the navigator reports "Destination is not finite". Search a
+## wider ring around the bed and compare against the bed's floor height instead.
+func _front_for(actor: CharacterBody3D) -> Vector3:
+	var front: Vector3 = super._front_for(actor)
+	if front.is_finite():
+		return front
+	var clearance := float(actor.profile.clearance)
+	var radius := float(actor.profile.radius)
+	var z := (_frame.affine_inverse() * _mare_rest.origin).z
+	var candidates: Array[Vector3] = []
+	for distance: float in [0.55, 0.9, 1.3]:
+		for offset: float in [_half.x + distance, -(_half.x + distance)]:
+			candidates.append(_frame * Vector3(_side * offset, 0.0, z))
+		for along: float in [_half.z + distance, -(_half.z + distance)]:
+			candidates.append(_frame * Vector3(_lane + _side * BESIDE, 0.0, along))
+	for at: Vector3 in candidates:
+		var floor_at: Vector3 = EXIT.clear_floor(actor, at, clearance, radius)
+		if floor_at.is_finite() and absf(floor_at.y - _frame.origin.y) < 1.2:
+			return floor_at
+	return Vector3.INF

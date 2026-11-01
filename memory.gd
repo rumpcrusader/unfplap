@@ -4,7 +4,7 @@ extends RefCounted
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const SETTINGS := preload("res://mods/unfunfunf/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const WITNESS_RADIUS_M := 8.0
 
 

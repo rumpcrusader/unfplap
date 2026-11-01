@@ -1,21 +1,20 @@
 extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
-const POSE := preload("res://mods/unfunfunf/pose.gd")
-const TAIL := preload("res://mods/unfunfunf/tail_pose.gd")
-const MEMORY := preload("res://mods/unfunfunf/memory.gd")
-const REST := preload("res://mods/unfunfunf/rest_control.gd")
-const WITNESS := preload("res://mods/unfunfunf/witness.gd")
-const AFTERCARE := preload("res://mods/unfunfunf/aftercare.gd")
+const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+const TAIL := preload("res://mods/unfplap/tail_pose.gd")
+const MEMORY := preload("res://mods/unfplap/memory.gd")
+const REST := preload("res://mods/unfplap/rest_control.gd")
+const WITNESS := preload("res://mods/unfplap/witness.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
 
 const SATISFACTION_MAX := 100
-## DEBUG: climax arrives at this satisfaction instead of 100 so the act is quick to test.
-## Restore to `SATISFACTION_MAX` for normal play.
-const CLIMAX_AT := 20
 const CAPACITY_MAX := 100
 const PUMP_SATISFACTION := 1
 const PUMP_CAPACITY := 1
@@ -32,10 +31,9 @@ const BREATH_RATE_CAP := 10.0
 const BREATH_FADE_S := 2.5
 const AFTERGLOW_BREATH_FADE_S := 5.0
 const WITNESS_RADIUS_M := 8.0
-const POSE1_STYLE := "side_lying" # B29 fallback is now the default cuddle-like lie.
 ## Pose 1 camera: 0.75 m above the pony root and this far forward, so it sits above her neck/face
 ## instead of above the middle of her body. `pony.global_basis.z` is her backward direction.
-const POSE1_CAMERA_HEIGHT_M := 0.65
+const POSE1_CAMERA_HEIGHT_M := 0.55
 const POSE1_CAMERA_FORWARD_M := 0.15
 ## Pose 1 camera vertical bob scale (world up); lower it because the pose-1 view is close.
 const POSE1_BOB_SCALE := 0.35
@@ -94,7 +92,7 @@ var pony
 var main
 
 var state: int = State.IDLE
-var pose_number := 0
+var pose_id := ""
 var source := ""
 var bed: Node3D
 var satisfaction := 0
@@ -110,7 +108,7 @@ var _pose_in_left := 0.0
 var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
-var _afterglow_pose := 0
+var _afterglow_pose := ""
 
 var _player_pony := false
 var _had_kiss_hold := false
@@ -119,6 +117,9 @@ var _nav: Node
 var _nav_old_wander := true
 var _token := ""
 var _id := ""
+var _profile: Dictionary = {}
+var _climax_at := 100
+var _aftercare_min := 10
 var _display_name := "the pony"
 var _serial := 0
 var _event_id := ""
@@ -145,11 +146,6 @@ var _pose1_aim_until := 0
 var _pose1_prev_camera: Camera3D
 var _pose1_player_rotation := Vector3.ZERO
 var _pose1_player_rot_saved := false
-var _pose1_rot_saved := false
-var _pose1_saved_rotation := Vector3.ZERO
-var _pose1_pos_saved := false
-var _pose1_saved_position := Vector3.ZERO
-var _pose1_saved_global := Vector3.ZERO
 var _anon_avatar: Node3D
 var _anon_avatar_visible := true
 var _bob := 0.0
@@ -196,7 +192,6 @@ var _breath_gain := 0.0
 var _kiss_sound: AudioStreamPlayer3D
 var _plap_streams: Array[AudioStream] = []
 var _flank: Node
-var _jiggle_side := 0
 var _jiggle_logged := false
 var _climax_sound: AudioStreamPlayer3D
 var _kiss_stream: AudioStream
@@ -210,7 +205,7 @@ func _ready() -> void:
 	# Run after locomotion/navigator/attention so the body facing lock and head glance win.
 	process_physics_priority = 100
 	_face_timer = Timer.new()
-	_face_timer.name = "UnfunfunfFaceTimer"
+	_face_timer.name = "UnfplapFaceTimer"
 	_face_timer.one_shot = true
 	_face_timer.timeout.connect(_clear_face)
 	add_child(_face_timer)
@@ -218,7 +213,7 @@ func _ready() -> void:
 
 func _release_wing_hold() -> void:
 	if _wing_hold and is_instance_valid(_wings_node) and _wings_node.has_method("release_hold"):
-		_wings_node.call("release_hold", "unfunfunf")
+		_wings_node.call("release_hold", "unfplap")
 	_wing_hold = false
 	_wing_hold_started = false
 	_wings_node = null
@@ -234,7 +229,7 @@ func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
 		return
 	_act_seconds += delta
-	if pose_number == 1 and not is_instance_valid(_anon_avatar):
+	if pose_id == CATALOG.MISSIONARY and not is_instance_valid(_anon_avatar):
 		_hide_anon_avatar_for_pose1()
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
@@ -249,18 +244,18 @@ func _act_presentation(delta: float) -> void:
 	var excitement: Variant = pony.get("excitement")
 	if excitement == null:
 		return
-	if pose_number == 1:
+	if pose_id == CATALOG.MISSIONARY:
 		# Pose 1: wings stretched out to the sides.
 		if not _wing_hold:
 			var stretched: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
 			if stretched is Node and (stretched as Node).has_method("hold_at"):
 				_wings_node = stretched as Node
-				_wing_hold = bool(_wings_node.call("hold_at", "unfunfunf", 0.0))
+				_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 0.0))
 		if _wing_hold and is_instance_valid(_wings_node):
-			_wings_node.call("hold_at", "unfunfunf", 0.0)
+			_wings_node.call("hold_at", "unfplap", 0.0)
 		return
 	_wing_flick = move_toward(_wing_flick, 0.0, delta / WING_FLICK_DECAY)
-	var level := sqrt(clampf(float(satisfaction) / (CLIMAX_AT * 0.75), 0.0, 1.0))
+	var level := sqrt(clampf(float(satisfaction) / (_climax_at * 0.75), 0.0, 1.0))
 	# At very low excitement keep the wings folded and only flick them on a pump; holding the
 	# game's half-open pose there reads as fully spread.
 	if level < 0.25:
@@ -271,7 +266,7 @@ func _act_presentation(delta: float) -> void:
 		var wings: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
 		if wings is Node and (wings as Node).has_method("hold_at"):
 			_wings_node = wings as Node
-			_wing_hold = bool(_wings_node.call("hold_at", "unfunfunf", 1.0))
+			_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 1.0))
 	if _wing_hold and is_instance_valid(_wings_node):
 		# sqrt curve: low -> slightly open, 75 satisfaction -> fully spread. A pump briefly
 		# closes the spread a little for the flick. The value is eased so the wings glide instead
@@ -283,10 +278,10 @@ func _act_presentation(delta: float) -> void:
 			_wing_hold_value = target_hold
 			_wing_hold_started = true
 		_wing_hold_value = move_toward(_wing_hold_value, target_hold, delta / WING_FADE_SECONDS)
-		_wings_node.call("hold_at", "unfunfunf", _wing_hold_value)
+		_wings_node.call("hold_at", "unfplap", _wing_hold_value)
 		return
 	# Fallback when the half-open wing pose is unavailable.
-	if satisfaction >= CLIMAX_AT * 0.75:
+	if satisfaction >= _climax_at * 0.75:
 		_wing_clock -= delta
 		if _wing_clock <= 0.0:
 			_wing_clock = 1.0
@@ -323,7 +318,7 @@ func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
 	if expressions == null:
 		return
 	if expressions.has_method("touch"):
-		expressions.call("touch", "unfunfunf_state", smile, 0.0)
+		expressions.call("touch", "unfplap_state", smile, 0.0)
 	if expressions.has_method("stare"):
 		expressions.call("stare", true, lids)
 	if hold_seconds > 0.0 and is_instance_valid(_face_timer):
@@ -341,7 +336,7 @@ func _clear_face() -> void:
 	if expressions.has_method("stare"):
 		expressions.call("stare", false)
 	if expressions.has_method("release_touch"):
-		expressions.call("release_touch", "unfunfunf_state")
+		expressions.call("release_touch", "unfplap_state")
 
 
 func _process(delta: float) -> void:
@@ -350,7 +345,7 @@ func _process(delta: float) -> void:
 	_clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
 		var view: Camera3D = main.camera()
-		if pose_number == 1 and is_instance_valid(_pose1_view):
+		if pose_id == CATALOG.MISSIONARY and is_instance_valid(_pose1_view):
 			view = _pose1_view
 		if is_instance_valid(view):
 			_pose.look_point = view.global_position
@@ -377,7 +372,7 @@ func _process(delta: float) -> void:
 ## Pose 1 free look: rotate the mod camera with the mouse relative to the frozen base aim. This is
 ## why the camera must not "lock" to her snout: the player can look around while she nuzzles at it.
 func _input(event: InputEvent) -> void:
-	if state == State.IDLE or pose_number != 1:
+	if state == State.IDLE or pose_id != CATALOG.MISSIONARY:
 		return
 	var motion := event as InputEventMouseMotion
 	if motion == null:
@@ -429,7 +424,7 @@ func _physics_process(delta: float) -> void:
 
 # --------------------------------------------------------------------------- gates
 
-func can_start(pose: int, act_source: String, bed_in: Variant = null) -> bool:
+func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
 	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
@@ -448,7 +443,7 @@ func can_start(pose: int, act_source: String, bed_in: Variant = null) -> bool:
 		return false
 	if pony.has_meta("sex_aftercare"):
 		return false
-	if _cuddle_active() and not (pose == 1 and act_source in ["bed_side", "already_lying"]):
+	if _cuddle_active() and not (pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]):
 		return false
 	if not _free_of_affection():
 		return false
@@ -461,7 +456,7 @@ func can_start(pose: int, act_source: String, bed_in: Variant = null) -> bool:
 		return false
 	if not _nav_pose_gate(pose, act_source):
 		return false
-	if pose == 1:
+	if pose == CATALOG.MISSIONARY:
 		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
 		if found == null:
 			return false
@@ -472,127 +467,7 @@ func can_start(pose: int, act_source: String, bed_in: Variant = null) -> bool:
 	return true
 
 
-func debug_report(pose: int, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
-	var lines: PackedStringArray = []
-	if not is_instance_valid(pony):
-		return "pony=INVALID"
-	var identity: Variant = pony.get("identity")
-	var id := ""
-	var display := "?"
-	if identity != null:
-		id = str(identity.get("id"))
-		display = str(identity.get("display_name")) if identity.get("display_name") != null else id
-	lines.append("pony=%s id=%s state=%d pose=%d source=%s dist=%.2f dot=%.2f" % [display, id, state, pose, act_source, float(distance), float(dot)])
-	lines.append("identity filly=%s stallion=%s" % [
-		str(identity.get("filly")) if identity != null else "?",
-		str(identity.get("stallion")) if identity != null else "?"])
-
-	var rel: Variant = pony.get_meta("relationship_runtime")
-	var bonds: Variant = rel.get("bonds") if rel != null and is_instance_valid(rel) else null
-	var stage := "?"
-	var love_name := "?"
-	var love_level := -1
-	var love_have := 0
-	var love_need := 0
-	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
-		var ladder: Dictionary = rel.call("ladder", id)
-		var love: Dictionary = ladder.get("love", {})
-		love_name = str(love.get("name", "?"))
-		love_level = int(love.get("level", -1))
-		love_have = int(love.get("have", 0))
-		love_need = int(love.get("need", 0))
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("record_for"):
-		var rec: Dictionary = bonds.call("record_for", id)
-		stage = str(rec.get("stage", "?"))
-	var adult := false
-	var welcomes := false
-	var eligible := false
-	if bonds != null and is_instance_valid(bonds):
-		var adults: Variant = bonds.get("adults")
-		if adults is Dictionary:
-			adult = bool(adults.get(id, false))
-		if bonds.has_method("welcomes"):
-			welcomes = bool(bonds.call("welcomes", id, "kiss"))
-		if bonds.has_method("eligible_for_romance"):
-			eligible = bool(bonds.call("eligible_for_romance", id))
-	var mood := "?"
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var ctx: Variant = main.game.get("world_context")
-		if ctx != null and is_instance_valid(ctx):
-			var impressions: Variant = ctx.get("impressions")
-			if impressions != null and is_instance_valid(impressions) and impressions.has_method("profile"):
-				var prof: Dictionary = impressions.call("profile", id)
-				mood = str(prof.get("mood", "?"))
-	lines.append("relation stage=%s love=%s level=%d have=%d need=%d welcomes=%s adult=%s eligible=%s mood=%s" % [stage, love_name, love_level, love_have, love_need, str(welcomes), str(adult), str(eligible), mood])
-
-	var status: Dictionary = pony.posture_status() if pony.has_method("posture_status") else {}
-	lines.append("state sleeping=%s held=%s grounded=%s motion_paused=%s seated=%s speed=%.2f posture=%s/%s/settled=%s/%s interruption=%s" % [
-		str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.get("motion_paused")),
-		str(pony.has_meta("seated")), float(pony.get("actual_speed")), str(status.get("requested")), str(status.get("kind")),
-		str(status.get("settled")), str(status.get("refusal")), str(pony.action_interruption_reason())])
-	var conv: Variant = pony.get("conversation_target")
-	var conv_desc := "null"
-	if conv != null and is_instance_valid(conv):
-		conv_desc = str(conv.name) if conv is Node else str(conv)
-	var affection: Node = pony.get_node_or_null("Affection")
-	var affection_kind := str(affection.get("kind")) if affection != null else ""
-	var session: Variant = pony.get_meta("cuddle_session") if pony.has_meta("cuddle_session") else null
-	var session_enabled := false
-	var session_blend := 0.0
-	if session != null and is_instance_valid(session):
-		session_enabled = bool(session.get("enabled"))
-		var blend: Variant = session.get("blend")
-		if blend != null:
-			session_blend = float(blend)
-	lines.append("social conversation=%s (player_ok=%s) affection=%s cuddle_active=%s session=%s enabled=%s blend=%.2f" % [
-		conv_desc, str(_conversation_ok()), affection_kind, str(_cuddle_active()),
-		str(session != null), str(session_enabled), session_blend])
-
-	var nav: Node = pony.get_node_or_null("Navigator")
-	var owner := ""
-	var reserved := ""
-	var has_target := false
-	var follow := "null"
-	var wander := false
-	if nav != null:
-		owner = str(nav.get("command_owner"))
-		reserved = str(nav.get("reserved_by"))
-		has_target = bool(nav.get("_has_target"))
-		wander = bool(nav.get("wander_enabled"))
-		var ft: Variant = nav.get("_follow_target")
-		if ft != null and is_instance_valid(ft):
-			follow = str(ft.name)
-	lines.append("nav owner=%s reserved=%s has_target=%s follow=%s wander=%s" % [owner, reserved, str(has_target), follow, str(wander)])
-
-	var body: Variant = main.player if is_instance_valid(main) else null
-	var wing: Variant = body.get("wing_flight") if body != null else null
-	var swim: Variant = body.get("swimming") if body != null else null
-	lines.append("player locked=%s flying=%s wing=%s seat=%s knocked=%s swimming=%s mouse=%s paused=%s menu=%s" % [
-		str(body.get("controls_locked")) if body != null else "?",
-		str(body.get("flying")) if body != null else "?",
-		str(wing.get("active")) if wing != null else "?",
-		str(body.get("seat")) if body != null else "?",
-		str(body.get_meta("knocked_down", false)) if body != null else "?",
-		str(swim.get("active")) if swim != null else "?",
-		str(Input.mouse_mode), str(get_tree().paused),
-		str(main.call("menu_open")) if main != null and main.has_method("menu_open") else "?"])
-
-	var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in) if pose == 1 else null
-	var occupied := false
-	if pose == 1 and found_bed != null and is_instance_valid(main):
-		occupied = bool(main.call("bed_occupied", found_bed, pony))
-	lines.append("bed=%s occupied=%s" % [found_bed.name if found_bed != null else "null", str(occupied)])
-	lines.append("gates relation=%s form=%s conversation=%s free_affection=%s player=%s navowner=%s navpose=%s bed=%s" % [
-		str(_relationship_ok()), str(_player_form_ok()), str(_conversation_ok()), str(_free_of_affection()),
-		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
-		str(_nav_pose_gate(pose, act_source)),
-		str(_bed_gate(pose, act_source, found_bed) if pose == 1 and found_bed != null else true)])
-	lines.append("result can_start=%s refuse_available=%s" % [
-		str(can_start(pose, act_source, bed_in)), str(refuse_available(pose, act_source, bed_in))])
-	return "\n".join(lines)
-
-
-func _start_reasons(pose: int, act_source: String, bed_in: Variant = null) -> PackedStringArray:
+func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
 	var reasons: PackedStringArray = []
 	if not is_instance_valid(pony):
 		reasons.append("invalid_pony")
@@ -622,7 +497,7 @@ func _start_reasons(pose: int, act_source: String, bed_in: Variant = null) -> Pa
 		reasons.append("sex_active")
 	if pony.has_meta("sex_aftercare"):
 		reasons.append("aftercare")
-	if _cuddle_active() and not (pose == 1 and act_source in ["bed_side", "already_lying"]):
+	if _cuddle_active() and not (pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]):
 		reasons.append("cuddle")
 	if not _free_of_affection():
 		reasons.append("affection")
@@ -638,7 +513,7 @@ func _start_reasons(pose: int, act_source: String, bed_in: Variant = null) -> Pa
 			reasons.append("nav_owner")
 	if not _nav_pose_gate(pose, act_source):
 		reasons.append("nav_pose")
-	if pose == 1:
+	if pose == CATALOG.MISSIONARY:
 		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
 		if found == null:
 			reasons.append("no_bed")
@@ -650,7 +525,7 @@ func _start_reasons(pose: int, act_source: String, bed_in: Variant = null) -> Pa
 	return reasons
 
 
-func debug_line(pose: int, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
+func debug_line(pose: String, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
 	var id := ""
 	var display := "?"
@@ -694,9 +569,9 @@ func debug_line(pose: int, act_source: String, bed_in: Variant = null, distance 
 	var reasons: PackedStringArray = _start_reasons(pose, act_source, bed_in)
 	var can := can_start(pose, act_source, bed_in)
 	var reason_text := "none" if reasons.is_empty() else ",".join(reasons)
-	var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in) if pose == 1 else null
+	var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in) if pose == CATALOG.MISSIONARY else null
 	var bed_gate := "n/a"
-	if pose == 1:
+	if pose == CATALOG.MISSIONARY:
 		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
 	return "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
 		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), mood,
@@ -712,7 +587,7 @@ func debug_line(pose: int, act_source: String, bed_in: Variant = null, distance 
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
 
 
-func refuse_available(pose: int, act_source: String, bed_in: Variant = null) -> bool:
+func refuse_available(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
 	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
@@ -740,7 +615,7 @@ func refuse_available(pose: int, act_source: String, bed_in: Variant = null) -> 
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection == null or not affection.has_method("buck"):
 		return false
-	if pose == 2:
+	if pose == CATALOG.HORSE:
 		if pony.is_held() or not pony.grounded() or pony.has_meta("seated"):
 			return false
 		var status: Dictionary = pony.posture_status()
@@ -765,10 +640,10 @@ func refuse_available(pose: int, act_source: String, bed_in: Variant = null) -> 
 	return false
 
 
-func refuse(pose: int, act_source: String, bed_in: Variant = null) -> void:
+func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
 	if not refuse_available(pose, act_source, bed_in):
 		return
-	if pose == 2:
+	if pose == CATALOG.HORSE:
 		_buck_or_push()
 		return
 	if act_source == "cradle":
@@ -946,22 +821,22 @@ func _free_of_affection() -> bool:
 	return true
 
 
-func _nav_owner_allows(pose: int, act_source: String) -> bool:
+func _nav_owner_allows(pose: String, act_source: String) -> bool:
 	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav == null:
 		return false
 	var owner := str(nav.get("command_owner"))
 	if owner.is_empty():
 		return true
-	if owner.begins_with("unfunfunf:") or owner.begins_with("sleep:"):
+	if owner.begins_with("unfplap:") or owner.begins_with("sleep:"):
 		return false
 	if owner.begins_with("weather:") or owner.begins_with("show:"):
 		return false
 	if owner.begins_with("cuddle:"):
-		return pose == 1 and act_source in ["bed_side", "already_lying"]
+		return pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]
 	# A managed bed/couch rest is valid for pose 1; every other leisure seat is not.
 	if owner.begins_with("leisure:"):
-		return pose == 1 and act_source in ["bed_side", "already_lying"]
+		return pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]
 	# Player conversation is free; another pony's conversation is not.
 	if owner.begins_with("social:"):
 		return owner.begins_with("social:talk") and _conversation_ok()
@@ -974,8 +849,8 @@ func _nav_owner_allows(pose: int, act_source: String) -> bool:
 	return false
 
 
-func _nav_pose_gate(pose: int, act_source: String) -> bool:
-	if pose == 2:
+func _nav_pose_gate(pose: String, act_source: String) -> bool:
+	if pose == CATALOG.HORSE:
 		if pony.is_held() or not pony.grounded():
 			return false
 		if bool(pony.motion_paused):
@@ -996,8 +871,8 @@ func _nav_pose_gate(pose: int, act_source: String) -> bool:
 	return true
 
 
-func _bed_gate(pose: int, act_source: String, found: Node3D) -> bool:
-	if pose != 1:
+func _bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
+	if pose != CATALOG.MISSIONARY:
 		return true
 	var rest: Node = pony.get_node_or_null("CradleRest")
 	if rest != null:
@@ -1028,8 +903,8 @@ func _bed_gate(pose: int, act_source: String, found: Node3D) -> bool:
 	return main.player_beside_bed(found)
 
 
-func _resolve_bed(pose: int, act_source: String, bed_in: Variant) -> Node3D:
-	if pose != 1:
+func _resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
+	if pose != CATALOG.MISSIONARY:
 		return null
 	if bed_in is Node3D and is_instance_valid(bed_in):
 		return bed_in
@@ -1045,7 +920,7 @@ func find_bed_under() -> Node3D:
 	return main.bed_under(pony.global_position, exclude)
 
 
-func _player_ready_for(pose: int, act_source: String, bed_in: Variant) -> bool:
+func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool:
 	var body = main.player
 	if not is_instance_valid(body):
 		return false
@@ -1071,7 +946,7 @@ func _player_ready_for(pose: int, act_source: String, bed_in: Variant) -> bool:
 		if str(inventory.get("holding_case")) != "":
 			return false
 	var seat: Variant = body.get("seat")
-	if pose == 2:
+	if pose == CATALOG.HORSE:
 		if seat != null:
 			return false
 	elif act_source == "cradle":
@@ -1095,15 +970,18 @@ func _player_ready_for(pose: int, act_source: String, bed_in: Variant) -> bool:
 
 # --------------------------------------------------------------------------- start
 
-func start(pose: int, bed_in: Variant, act_source: String) -> bool:
+func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if not can_start(pose, act_source, bed_in):
-		_log("start blocked pose=%d source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		_log("start blocked pose=%s legacy=%d source=%s pony=%s" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
-	pose_number = pose
+	pose_id = pose
 	source = act_source
+	_profile = SETTINGS.template_for(_id)
+	_climax_at = int(_profile.get("climax_at", 100))
+	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_has_facing = false
 	bed = _resolve_bed(pose, act_source, bed_in)
-	if pose == 1 and bed == null:
+	if pose == CATALOG.MISSIONARY and bed == null:
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
 	_applied_bob = 0.0
@@ -1149,7 +1027,7 @@ func start(pose: int, bed_in: Variant, act_source: String) -> bool:
 	pony.set_sim_tier(pony.SimTier.HERO)
 	pony.set_meta("sex_active", true)
 
-	if pose == 1:
+	if pose == CATALOG.MISSIONARY:
 		if source == "cradle":
 			_place_cradle(_bed_anchor())
 		else:
@@ -1176,8 +1054,8 @@ func start(pose: int, bed_in: Variant, act_source: String) -> bool:
 	_pose1_free_pitch = 0.0
 	_pose1_debug_rot = Basis.IDENTITY
 	_pose1_basis_logged = false
-	_pose1_camera = _pose1_camera_target() if pose == 1 else Vector3.INF
-	if pose == 1:
+	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
+	if pose == CATALOG.MISSIONARY:
 		_snapshot_pose1_start()
 		_make_pose1_view()
 	_capture_look()
@@ -1191,7 +1069,7 @@ func start(pose: int, bed_in: Variant, act_source: String) -> bool:
 	if is_instance_valid(main.hud):
 		main.hud.show_act(self)
 		main.hud.hide_prompt()
-	_log("started pose=%d source=%s pony=%s eye=%.2f" % [pose, act_source, str(pony.name), _camera_target_eye])
+	_log("started pose=%s legacy=%d source=%s pony=%s eye=%.2f" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name), _camera_target_eye])
 	return true
 
 
@@ -1237,7 +1115,7 @@ func _claim_nav() -> bool:
 	if str(_nav.get("reserved_by")) != "":
 		return false
 	_nav_old_wander = bool(_nav.get("wander_enabled"))
-	_token = "unfunfunf:" + _id
+	_token = "unfplap:" + _id
 	_nav.call("stay")
 	_nav.set("command_owner", _token)
 	_nav.set("wander_enabled", false)
@@ -1430,7 +1308,7 @@ func debug_float_pose1(seconds: float) -> void:
 	pony.global_position.y += 0.45
 	pony.reset_physics_interpolation()
 	_debug_pose = POSE.new()
-	_debug_pose.name = "UnfunfunfDebugPose1"
+	_debug_pose.name = "UnfplapDebugPose1"
 	_debug_pose.set("mare", pony)
 	_debug_pose.set("mode", "pose1")
 	_debug_pose.set("amount", 0.0)
@@ -1453,21 +1331,20 @@ func _build_pose() -> void:
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
 		_pose = POSE.new()
-		_pose.name = "UnfunfunfPose"
+		_pose.name = "UnfplapPose"
 		_pose.mare = pony
-		_pose.mode = "pose2" if pose_number == 2 else "pose1"
+		_pose.mode = "pose2" if pose_id == CATALOG.HORSE else "pose1"
 		_pose.head_roll = _pose1_head_roll
-		_pose.style = POSE1_STYLE
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
 		_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_pose)
-	if pose_number != 2:
+	if pose_id != CATALOG.HORSE:
 		return
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		_tail = TAIL.new()
-		_tail.name = "UnfunfunfTail"
+		_tail.name = "UnfplapTail"
 		_tail.mare = pony
 		_tail.amount = 0.0
 		_tail.target_amount = 1.0
@@ -1509,7 +1386,7 @@ func pump() -> bool:
 	if satisfaction == 1 or satisfaction % 10 == 0:
 		_log("pump satisfaction=%d capacity=%d rate=%.1f/s" % [satisfaction, capacity, _pumps_per_second()])
 	_play_kiss()
-	if satisfaction >= CLIMAX_AT:
+	if satisfaction >= _climax_at:
 		_climax()
 	return true
 
@@ -1589,7 +1466,7 @@ func end_afterglow() -> void:
 func _climax() -> void:
 	if state != State.ACTIVE:
 		return
-	_log("climax pose=%d pony=%s satisfaction=%d" % [pose_number, str(pony.name), satisfaction])
+	_log("climax pose=%s legacy=%d pony=%s satisfaction=%d" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
@@ -1609,7 +1486,7 @@ func _finish_climax() -> void:
 	MEMORY.climax_event(main.game, _id, _display_name, _event_id)
 	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
 	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
-	if pose_number == 2:
+	if pose_id == CATALOG.HORSE:
 		_pose2_withdraw_begin()
 	else:
 		_afterglow_begin()
@@ -1618,7 +1495,7 @@ func _finish_climax() -> void:
 ## Pose 2 has no cuddle afterglow: the climax pose holds for a short withdrawal while Anon eases
 ## back and her tail flicks, then the act restores on its own.
 func _pose2_withdraw_begin() -> void:
-	_log("withdraw pose=2 pony=%s" % str(pony.name))
+	_log("withdraw pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
 	state = State.WITHDRAW
 	_withdraw_left = POSE2_WITHDRAW_SECONDS
 	_back_target = AFTERGLOW_BACK_M
@@ -1632,13 +1509,13 @@ func _pose2_withdraw_begin() -> void:
 
 
 func _afterglow_begin() -> void:
-	_log("afterglow pose=%d pony=%s" % [pose_number, str(pony.name)])
+	_log("afterglow pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
 	state = State.AFTERGLOW
-	_afterglow_pose = pose_number
+	_afterglow_pose = pose_id
 	_set_face(0.85, 0.9)
 	if is_instance_valid(_pose):
 		_pose.mode = "afterglow"
-		_pose.afterglow_pose = pose_number
+		_pose.afterglow_pose = pose_id
 		_pose.target_amount = 1.0
 		_pose.amount = 1.0
 	if is_instance_valid(_tail):
@@ -1663,7 +1540,7 @@ func _restore_begin() -> void:
 	var from_state := state
 	state = State.RESTORE
 	_restore_left = RESTORE_SECONDS
-	if not (pose_number == 2 and from_state == State.WITHDRAW):
+	if not (pose_id == CATALOG.HORSE and from_state == State.WITHDRAW):
 		_clear_face()
 	_release_wing_hold()
 	if is_instance_valid(_pose):
@@ -1683,14 +1560,14 @@ func _finish_restore() -> void:
 		_log("restore finished with invalid pony")
 		state = State.IDLE
 		return
-	var was_pose := pose_number
+	var was_pose := pose_id
 	_log("restore finished pony=%s" % str(pony.name))
 	_unlock_player()
 	_restore_camera()
 	pony.remove_meta("sex_active")
 	_release_nav()
 	_restore_look()
-	if was_pose == 1:
+	if was_pose == CATALOG.MISSIONARY:
 		_resume_pose1_cuddle()
 	elif pony.get("posture") != null:
 		pony.request_posture("stand")
@@ -1701,7 +1578,7 @@ func _finish_restore() -> void:
 	if is_instance_valid(main):
 		main.clear_active(self)
 	state = State.IDLE
-	pose_number = 0
+	pose_id = ""
 	source = ""
 	bed = null
 	_reset_after_act()
@@ -1771,7 +1648,7 @@ func _restore_now() -> void:
 		if is_instance_valid(main.hud):
 			main.hud.hide_all()
 	state = State.IDLE
-	pose_number = 0
+	pose_id = ""
 	source = ""
 	bed = null
 	_reset_after_act()
@@ -1797,7 +1674,7 @@ func _begin_aftercare() -> void:
 	_aftercare = AFTERCARE.new()
 	_aftercare.set("pony", pony)
 	_aftercare.set("runtime", self)
-	_aftercare.set("body_language", satisfaction >= 10)
+	_aftercare.set("body_language", satisfaction >= _aftercare_min)
 	add_child(_aftercare)
 
 
@@ -1827,7 +1704,7 @@ func _check_running() -> void:
 	if _nav != null and is_instance_valid(_nav) and str(_nav.get("reserved_by")) != "":
 		_stop("interrupted")
 		return
-	if pose_number == 1 and bed != null and main.bed_occupied(bed, pony):
+	if pose_id == CATALOG.MISSIONARY and bed != null and main.bed_occupied(bed, pony):
 		_stop("interrupted")
 		return
 	if _player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
@@ -1879,7 +1756,7 @@ func _bed_surface_top() -> float:
 ## Change the player's own eye height for the act instead of writing camera.position.y. That keeps
 ## `desktop_player._set_eye_y` as the single owner of the camera height and avoids drift/teleports.
 func _hide_anon_avatar_for_pose1() -> void:
-	if pose_number != 1 or not is_instance_valid(main) or not is_instance_valid(main.player):
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var body: Node3D = main.player.find_child("CouchAnonBody", true, false) as Node3D
 	if body == null:
@@ -1931,7 +1808,7 @@ func _make_pose1_view() -> void:
 		return
 	_pose1_prev_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
 	_pose1_view = Camera3D.new()
-	_pose1_view.name = "UnfunfunfPose1View"
+	_pose1_view.name = "UnfplapPose1View"
 	_pose1_view.top_level = true
 	_pose1_view.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	var source: Camera3D = main.camera() if is_instance_valid(main) else null
@@ -2022,7 +1899,7 @@ func _pose1_camera_target() -> Vector3:
 func _apply_eye_override() -> void:
 	_camera_target_eye = 0.0
 	# Pose 1 is owned by the game's bed rest/seat camera. Do not fight it with eye-height edits.
-	if pose_number == 1 or _player_pony:
+	if pose_id == CATALOG.MISSIONARY or _player_pony:
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -2069,7 +1946,7 @@ func apply_camera_bob() -> void:
 		_camera = main.camera() if is_instance_valid(main) else null
 	if not is_instance_valid(_camera):
 		return
-	if pose_number == 1:
+	if pose_id == CATALOG.MISSIONARY:
 		if not is_instance_valid(pony):
 			return
 		var bed_top := _bed_surface_top()
@@ -2110,8 +1987,8 @@ func _pose1_camera_tweak() -> Basis:
 
 ## DEBUG: adjust the pose-1 head roll around her forward axis (Alt+1/2) and log it.
 func debug_roll_pose1_head(direction: float) -> void:
-	if pose_number != 1 or state == State.IDLE:
-		_log("pose1 head roll ignored pose=%d state=%d" % [pose_number, state])
+	if pose_id != CATALOG.MISSIONARY or state == State.IDLE:
+		_log("pose1 head roll ignored pose=%s state=%d" % [pose_id, state])
 		return
 	_pose1_head_roll += direction * deg_to_rad(5.0)
 	if is_instance_valid(_pose):
@@ -2122,8 +1999,8 @@ func debug_roll_pose1_head(direction: float) -> void:
 ## DEBUG: rotate the pose-1 camera in world axes so the correct roll/orientation can be found
 ## interactively (Ctrl+1..6 in input.gd). Logs the axis, step and accumulated rotation.
 func debug_rotate_pose1(axis_index: int) -> void:
-	if pose_number != 1 or state == State.IDLE:
-		_log("pose1 rotate ignored pose=%d state=%d" % [pose_number, state])
+	if pose_id != CATALOG.MISSIONARY or state == State.IDLE:
+		_log("pose1 rotate ignored pose=%s state=%d" % [pose_id, state])
 		return
 	var axes: Array[Vector3] = [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.BACK, Vector3.FORWARD]
 	var names: Array[String] = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
@@ -2180,7 +2057,7 @@ func _restore_look() -> void:
 		return
 	var yaw := _look_yaw
 	# Pose 1 restores the exact start snapshot; use its rig yaw rather than the later capture.
-	if pose_number == 1 and _pose1_start_saved:
+	if pose_id == CATALOG.MISSIONARY and _pose1_start_saved:
 		yaw = _pose1_start_player_transform.basis.get_euler().y
 	main.player.rotation.y = yaw
 	if main.player.get("_pitch") != null:
@@ -2191,7 +2068,7 @@ func _restore_look() -> void:
 ## Pose 2 must keep her rump toward Anon. The navigator tries to face a conversation partner
 ## and idle motion can add turns; this runs late and restores the start basis every tick.
 func _lock_body_facing() -> void:
-	if not _has_facing or pose_number != 2 or not is_instance_valid(pony):
+	if not _has_facing or pose_id != CATALOG.HORSE or not is_instance_valid(pony):
 		return
 	if state in [State.IDLE, State.RESTORE]:
 		return
@@ -2205,7 +2082,7 @@ func _lock_body_facing() -> void:
 ## initial implementation: the game's secondary gaze owns the turn; pose 2 only adds the optional
 ## throw-back rotation (`head_back`), eased so it does not snap.
 func _drive_glance(delta: float) -> void:
-	if not _has_facing or pose_number != 2 or not is_instance_valid(pony):
+	if not _has_facing or pose_id != CATALOG.HORSE or not is_instance_valid(pony):
 		return
 	if is_instance_valid(_pose):
 		var back_target := 1.0 if (_glance_left > 0.0 and _glance_back) else 0.0
@@ -2268,7 +2145,7 @@ func _glance_angles() -> Vector3:
 ## Free look, but inside a 45-degree cone around the direction the act began in. Movement stays
 ## held by kiss_hold; this only limits where the camera can turn.
 func _clamp_look() -> void:
-	if pose_number == 1:
+	if pose_id == CATALOG.MISSIONARY:
 		# Pose 1: temporary free look while the pose is being tuned.
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -2300,14 +2177,7 @@ func _restore_camera() -> void:
 	_restore_anon_avatar()
 	_free_pose1_view()
 	if is_instance_valid(_camera):
-		if _pose1_rot_saved:
-			_camera.rotation = _pose1_saved_rotation
-		if _pose1_pos_saved:
-			if _camera.top_level:
-				_camera.global_position = _pose1_saved_global
-			else:
-				_camera.position = _pose1_saved_position
-		elif _camera.top_level:
+		if _camera.top_level:
 			if absf(_applied_bob) > 0.00001:
 				_camera.global_position -= Vector3.UP * _applied_bob
 			if absf(_applied_lean) > 0.00001:
@@ -2325,8 +2195,6 @@ func _restore_camera() -> void:
 	_back_target = 0.0
 	_camera_height_offset = 0.0
 	_pose1_camera = Vector3.INF
-	_pose1_rot_saved = false
-	_pose1_pos_saved = false
 	_camera = null
 
 
@@ -2342,7 +2210,7 @@ func _start_audio() -> void:
 			if stream is AudioStream:
 				_breath_streams.append(stream)
 	_breath = AudioStreamPlayer3D.new()
-	_breath.name = "UnfunfunfBreath"
+	_breath.name = "UnfplapBreath"
 	_breath.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
 	_breath.unit_size = 1.0
 	_breath.max_distance = 8.0
@@ -2362,7 +2230,7 @@ func _start_audio() -> void:
 	if _plap_streams.is_empty() and _kiss_stream != null:
 		_plap_streams.append(_kiss_stream)
 	_kiss_sound = AudioStreamPlayer3D.new()
-	_kiss_sound.name = "UnfunfunfKiss"
+	_kiss_sound.name = "UnfplapKiss"
 	_kiss_sound.bus = _breath.bus
 	_kiss_sound.unit_size = 1.0
 	_kiss_sound.max_distance = 6.0
@@ -2375,7 +2243,7 @@ func _start_audio() -> void:
 			if stream is AudioStream:
 				_climax_streams.append(stream)
 	_climax_sound = AudioStreamPlayer3D.new()
-	_climax_sound.name = "UnfunfunfClimax"
+	_climax_sound.name = "UnfplapClimax"
 	_climax_sound.bus = _breath.bus
 	_climax_sound.unit_size = 1.0
 	_climax_sound.max_distance = 10.0
@@ -2404,7 +2272,7 @@ func _stop_breath() -> void:
 
 func _play_kiss() -> void:
 	# Pose 1: the plap comes from her rump/dock. Other poses keep the boop kiss source.
-	if pose_number == 1 and is_instance_valid(_kiss_sound):
+	if pose_id == CATALOG.MISSIONARY and is_instance_valid(_kiss_sound):
 		var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
 		if stream == null:
 			return

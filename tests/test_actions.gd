@@ -78,6 +78,15 @@ func run() -> void:
 	lean_runtime.free()
 
 	check(near(RUNTIME.CARESS_SPEED_RAD_S, 3.6), "caress speed reduced 20 percent")
+	check(near(RUNTIME.CARESS_RADIUS_M, 0.04125), "caress radius reduced 25 percent")
+	var right_palm: Basis = RUNTIME.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
+	var left_palm: Basis = RUNTIME.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
+	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
+		"right palm faces the coat with fingers forward")
+	check(left_palm.x.dot(Vector3.LEFT) > 0.99 and (-left_palm.z).dot(Vector3.FORWARD) > 0.99,
+		"left palm faces the coat with fingers forward")
+	check(right_palm.determinant() > 0.99 and left_palm.determinant() > 0.99,
+		"palm surface bases stay orthonormal")
 	check(near(RUNTIME.CARESS_OVAL_ACROSS, 1.30) and near(RUNTIME.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
 	var canon_caress: Dictionary = RUNTIME.caress_profile_for("canon")

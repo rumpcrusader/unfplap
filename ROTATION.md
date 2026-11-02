@@ -162,22 +162,27 @@ these values here if a future pose needs that effect.
   `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted
   to `1.44`). A full forward `W` lean with no side lean forces `head_back = 1.0` and an upward
   look at Anon.
-- `Q`/`E` at `0.75` side lean reach Anon's same-side open palm to the outside of her shoulder
-  through `desktop_anon.set_hold_target(..., "rub")`. Hand-marker axes are local `-Z` fingers,
-  `+Y` thumb/up and palm normal `-X` right / `+X` left. The shoulder target uses the pony body
-  basis so the hand continues straight forward with palms inward. It eases in over `0.35 s` and
-  back to rest over another `0.35 s`. While held, `_forced_glance` overrides the random glance
-  scheduler and locks her look over that shoulder; release clears it.
-- `A`/`D` in horse pose hold an oval caress (`CARESS_RADIUS_M = 0.055`,
-  `CARESS_SPEED_RAD_S = 3.6`) with the palm `CARESS_SURFACE_LIFT_M = 0.085` off the coat. The
-  path is `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically.
-  Point offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
-  (4 cm wider between hands), Same Height and Hoers step up from there. Both keys can run
-  simultaneously; in hold mode a tap latches that hand until the next tap. The centre moves from
-  the flank (no lean) to the side/belly (half forward lean) to the exact Q/E shoulder touch
-  point (full forward lean); the extra surface lift fades to zero there. Backward lean moves it
-  toward the rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius
-  scales with pony size; the point offsets are already per size.
+- `Q`/`E` at `0.75` side lean reach Anon's same-side open palm to the shoulder through
+  `desktop_anon.set_hold_target(..., "rub")`. Hand-marker axes are local `-Z` fingers, `+Y`
+  thumb/up and palm normal `-X` right / `+X` left. The shoulder contact supplies the position and
+  normal; `palm_surface_basis()` keeps the fingers forward and the palm flat on the coat. It
+  eases in over `0.35 s` and back to rest over another `0.35 s`. While held, `_forced_glance`
+  overrides the random glance scheduler and locks her look over that shoulder; release clears it.
+- `A`/`D` in horse pose hold an oval caress (`CARESS_RADIUS_M = 0.04125`,
+  `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat each tick through
+  `FlankSurface.contact` or `PonyTouchBody.nearest`, and `palm_surface_basis()` makes the palm
+  plane perpendicular to the coat normal. Its centre sits at
+  `PALM_ON_COAT_CLEARANCE_M = 0.05`, the hand’s palm-ball radius plus a 2 cm raise. Contact is
+  cached per hand with source hysteresis and short position/normal smoothing, so a missed hit
+  holds the last valid point instead of snapping. The path is
+  `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically. Point
+  offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
+  between hands), Same Height and Hoers step up from there; the contact query snaps those points
+  to the coat. Both keys can run simultaneously; in hold mode a tap latches that hand until the
+  next tap. The centre moves from the flank (no lean) to the side/belly (half forward lean) to
+  the exact Q/E shoulder contact point (full forward lean). Backward lean moves it toward the
+  rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
+  pony size; the point offsets are already per size.
 - Anon's hip follows raw pump `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
   no spring or return animation.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
@@ -205,6 +210,8 @@ these values here if a future pose needs that effect.
   rump shader, strongest at the dock and lagging down the chain.
 - Pose 2 wings start at `WING_POSE2_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_POSE2_SPREAD = 0.25` as satisfaction rises. Pose 1 keeps the stock spread progression.
+  A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
+  in opposite directions, sweeping the spread wings slightly backwards.
 - Pose 2 enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
   recorded on entry. Lean and A/D caress remain live; hold Y ends it.
 

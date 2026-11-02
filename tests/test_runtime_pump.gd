@@ -1,5 +1,5 @@
 extends SceneTree
-## Minimal integration test for the runtime scoring path, without a world.
+## Minimal integration test for the ACTIVE readiness path, without a world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_pump.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
@@ -20,32 +20,48 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+func near(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
+
+
 func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._preferences = PREF.resolve({"speed": {"enabled": false}, "shape": {"enabled": false}})
+	runtime._taste = PREF.resolve({
+		"intensity": "firm",
+		"pattern": "steady",
+		"touch": ["caress"],
+		"talk": ["praise"],
+		"warmth": "normal",
+	})
 	runtime._pump_tracker = PUMP.new()
-	runtime._pump_pixels_per_full = 420.0
-	runtime._climax_at = 1000
 	runtime.state = 2 # ACTIVE
+
 	runtime._pump_move(1.0, 0.0)
 	runtime._pump_move(-1.0, 0.5)
 	runtime._pump_move(1.0, 1.0)
-	check(runtime.satisfaction == 2, "full steady pump scores 2 satisfaction")
-	check(absf(runtime._satisfaction_frac) < 0.0001, "no fractional remainder")
+	check(near(runtime.satisfaction, 0.0), "strokes do not add readiness directly")
+	check(not str(runtime._last_intensity).is_empty(), "stroke classifies intensity")
 	check(absf(float(runtime.depth) - 1.0) < 0.0001, "depth tracks the last move")
-	runtime.free()
 
-	var shaped: Node = RUNTIME.new()
-	shaped.pony = Node3D.new()
-	shaped._preferences = PREF.resolve({"shape": {"enabled": true, "likes": "ease_out"}})
-	shaped._pump_tracker = PUMP.new()
-	shaped._climax_at = 1000
-	shaped.state = 2
-	shaped._pump_move(1.0, 0.0)
-	shaped._pump_move(-1.0, 0.5)
-	check(str(shaped._last_stroke.get("shape", "")) != "", "shape classification path runs")
-	shaped.free()
+	runtime._last_intensity = "firm"
+	runtime._last_pattern = "steady"
+	runtime._last_stroke_at = runtime._now_s()
+	runtime._heat_tick(1.0)
+	check(runtime.satisfaction > 1.0, "matching both axes adds readiness")
+	var before: float = runtime.satisfaction
+	runtime._on_touch("caress")
+	check(runtime.satisfaction > before, "liked touch adds readiness")
+	before = runtime.satisfaction
+	runtime._on_talk("you are beautiful")
+	check(runtime.satisfaction > before, "liked talk adds readiness")
+	before = runtime.satisfaction
+	runtime._on_touch("smack")
+	check(near(runtime.satisfaction, before), "neutral touch does not add readiness")
+	runtime._add_heat(999.0)
+	check(near(runtime.satisfaction, 100.0), "readiness clamps at 100")
+	check(int(runtime.state) == 2, "readiness never auto-climaxes")
+	runtime.free()
 
 	print("RUNTIME_PUMP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

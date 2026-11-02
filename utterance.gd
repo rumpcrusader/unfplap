@@ -1,46 +1,6 @@
 extends RefCounted
-## Pure utterance scheduling and prompt formatting. The runtime owns the director and the
-## pending-line state; this file only decides where the points are and fills the template.
-
-const START_FRACTION := 0.08
-const END_FRACTION := 0.92
-const MIN_GAP := 6.0
-const MAX_LINES := 8
-
-
-static func line_count(min_lines: int, max_lines: int, rng: RandomNumberGenerator = null) -> int:
-	var low := clampi(mini(min_lines, max_lines), 0, MAX_LINES)
-	var high := clampi(maxi(min_lines, max_lines), 0, MAX_LINES)
-	if rng != null:
-		return rng.randi_range(low, high)
-	return randi_range(low, high)
-
-
-## Satisfaction thresholds, sorted, within 8–92% of `climax_at`. A deterministic seed keeps tests
-## repeatable; the runtime randomizes its own RNG per act.
-static func schedule(climax_at: int, count: int, seed: int) -> Array[float]:
-	var points: Array[float] = []
-	if count <= 0 or climax_at <= 0:
-		return points
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed
-	var start := float(climax_at) * START_FRACTION
-	var end := float(climax_at) * END_FRACTION
-	var span := maxf(0.01, end - start)
-	var bin := span / float(count)
-	var gap := minf(MIN_GAP, bin * 0.6)
-	var previous := -INF
-	for index in count:
-		var base := start + bin * (float(index) + 0.5)
-		var jittered := base + rng.randf_range(-bin * 0.15, bin * 0.15)
-		var point := clampf(jittered, start, end)
-		if previous > -INF:
-			point = maxf(point, previous + gap)
-		point = minf(point, end)
-		points.append(point)
-		previous = point
-	return points
-
+## Pure prompt formatting for the runtime. Scheduling now belongs to readiness cues and
+## touch/talk events, not to a satisfaction-threshold timeline.
 
 static func format(template: String, values: Dictionary) -> String:
 	var regex := RegEx.new()
@@ -52,15 +12,20 @@ static func format(template: String, values: Dictionary) -> String:
 	return out
 
 
-static func state_line(pose_id: String, satisfaction: int, climax_at: int, depth: float,
-		speed: float, zone: String, shape: String, seconds: float) -> String:
-	var depth_word := "shallow"
-	if depth >= 0.66:
-		depth_word = "deep"
-	elif depth >= 0.33:
-		depth_word = "middle"
-	var stroke := shape if not shape.is_empty() else "unknown"
-	return "pose=%s, satisfaction=%d/%d, depth=%.2f (%s), speed=%.2f/s (%s), stroke=%s, %.0fs in" % [
-		pose_id, satisfaction, climax_at, clampf(depth, 0.0, 1.0), depth_word,
-		maxf(0.0, speed), zone, stroke, maxf(0.0, seconds),
+## Short private state line for the AI. No speed/depth units: the mood, the two taste axes
+## and the last concrete input are what a partner would actually notice.
+static func state_line(pose_id: String, mood: String, intensity: String, pattern: String,
+		last_touch: String, last_talk: String, seconds: float) -> String:
+	var motion := "unknown"
+	if not intensity.is_empty() and not pattern.is_empty():
+		motion = "%s %s" % [intensity, pattern]
+	elif not intensity.is_empty():
+		motion = intensity
+	elif not pattern.is_empty():
+		motion = pattern
+	return "pose=%s, mood=%s, he is %s, last touch=%s, last talk=%s, %.0fs in" % [
+		pose_id, mood, motion,
+		last_touch if not last_touch.is_empty() else "none",
+		last_talk if not last_talk.is_empty() else "none",
+		maxf(0.0, seconds),
 	]

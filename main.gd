@@ -397,7 +397,10 @@ func _process(delta: float) -> void:
 	if is_instance_valid(active_runtime):
 		active_runtime.apply_camera_motion()
 		if is_instance_valid(hud):
-			hud.update_from(active_runtime, debug_logs)
+			var show_readiness := true
+			if active_runtime.has_method("readiness_hud"):
+				show_readiness = bool(active_runtime.call("readiness_hud"))
+			hud.update_from(active_runtime, show_readiness)
 		_offer = {}
 		_sync_native_hint(false)
 		return

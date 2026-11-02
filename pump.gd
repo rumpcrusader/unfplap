@@ -6,8 +6,7 @@ extends RefCounted
 ## (shallow -> deep) that reaches `PUMP_MIN_TRAVEL`.
 ##
 ## `move()` returns events for strokes it closed. `tick()` returns an event when an idle stroke
-## times out. `base_gain` is the weighted distance for that stroke; the caller applies speed and
-## shape multipliers when the event arrives.
+## times out. The caller classifies intensity and rhythm from the event; there is no score here.
 
 const STROKE_TIMEOUT_S := 0.18
 const PUMP_MIN_TRAVEL := 0.25
@@ -27,7 +26,6 @@ var _start_depth := 0.0
 var _start_time := 0.0
 var _last_move := 0.0
 var _samples: Array[Vector2] = []
-var _base_gain := 0.0
 
 
 static func mouse_to_depth(dy_pixels: float, pixels_per_full: float, up_is_deep: bool) -> float:
@@ -42,10 +40,9 @@ func reset() -> void:
 	_start_time = 0.0
 	_last_move = 0.0
 	_samples.clear()
-	_base_gain = 0.0
 
 
-func move(amount: float, now: float, weight: Callable) -> Array[Dictionary]:
+func move(amount: float, now: float) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
 	if absf(amount) < MIN_MOVE:
 		return events
@@ -68,15 +65,9 @@ func move(amount: float, now: float, weight: Callable) -> Array[Dictionary]:
 		_start_depth = before
 		_start_time = now
 		_samples.clear()
-		_base_gain = 0.0
 		_samples.append(Vector2(now, before))
 
 	depth = after
-	var middle := (before + after) * 0.5
-	if weight.is_valid():
-		_base_gain += absf(applied) * float(weight.call(middle))
-	else:
-		_base_gain += absf(applied)
 	_samples.append(Vector2(now, depth))
 	_last_move = maxf(_last_move, now)
 	return events
@@ -139,12 +130,9 @@ func _close(now: float) -> Dictionary:
 		"duration": duration,
 		"speed": speed,
 		"peak_speed": peak_speed,
-		"samples": samples,
-		"base_gain": _base_gain,
 		"pump": direction > 0 and travel >= PUMP_MIN_TRAVEL,
 		"strength": clampf(travel * speed_factor, 0.0, 1.0),
 	}
 	_direction = 0
 	_samples.clear()
-	_base_gain = 0.0
 	return event

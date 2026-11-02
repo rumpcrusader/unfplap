@@ -1,151 +1,146 @@
-# Pump preferences contract (`unfplap` 0.0.2)
+# Taste and ACTIVE readiness contract (`unfplap` 0.0.2)
 
-Brittle scoring rules for the mouse pump, camera bob, preferences and reactions. Update with
-`preferences.gd`/`pump.gd` whenever the math changes.
+This file is the ACTIVE-stage scoring contract. Camera, poses, aftercare and ordinary
+dialogue delivery are outside it.
 
-## Input and depth
+## What the player does
 
-- Mouse vertical relative motion feeds raw depth. The act camera ignores the rest of the mouse
-  motion.
-- `pump.orientation`:
-  - `"up"` (default): mouse up deepens; top = deep/orange, bottom = shallow/blue.
-  - `"down"`: mouse down deepens; top = shallow/blue, bottom = deep/orange.
-- `pump.pixels_per_full` is pixels for a `0→1` sweep (default `600`), independent of look
-  sensitivity.
-- Raw depth is clamped `0…1`; overshoot is discarded. The HUD reads raw depth directly.
-- The act camera uses `W`/`S` forward/back and `Q`/`E` side lean; mouse motion never turns it.
+- Mouse vertical motion feeds raw depth. `pump.orientation` flips the direction; the top of
+  the depth bar is deep/orange with `"up"`.
+- A **stroke** is continuous movement in one direction. It closes on reversal or
+  `STROKE_TIMEOUT_S = 0.18 s` without movement.
+- A **pump** is an inward stroke with `travel >= PUMP_MIN_TRAVEL = 0.25`.
+- There is no base gain and no per-stroke multiplier. A stroke is classified, not scored.
+- `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)` remains the physical
+  force used by jiggle and wings.
+- `satisfaction` is readiness 0–100. It is not a stroke score and it does **not** trigger the
+  climax automatically.
 
-## Strokes and scoring
+## Taste profile
 
-- A stroke is continuous movement between direction reversals.
-- It closes on reversal or `STROKE_TIMEOUT_S = 0.18 s` without movement.
-- A pump is an inward stroke with `travel >= PUMP_MIN_TRAVEL = 0.25`.
-- Base gain is `Σ |Δd| × depth_weight(d)`.
-- A full `0→1→0` at `steady` is exactly `2.0`.
-- Outward strokes score base gain only; speed/shape multipliers apply to inward strokes.
-- Final multiplier is `clamp(speed_multiplier × shape_multiplier, 0.40, 1.80)`.
+One block per mare. Unknown or missing values fall back to the neutral default.
 
-## Physical pump strength
+```gdscript
+{
+    "intensity": "firm",          # soft | firm | rough
+    "pattern": "steady",          # steady | building | teasing | quick
+    "touch": ["caress"],          # liked: smack, caress, kiss
+    "dislikes": [],               # touch or talk dislike
+    "talk": ["reassurance"],      # empty = talk does not score for her
+    "pose": "missionary",         # missionary | horse | any
+    "warmth": "normal",           # quick | normal | slow
+    "notes": "private attitude for the AI"
+}
+```
 
-- Separate from preference scoring.
-  `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)`.
-- Drives jiggle (`JIGGLE_RUMP_SCALE = 2.8`, also multiplied by `clamp(size_scale, 0.5, 1.2)`)
-  and wing flick. It is the intended selector input for future mod-owned plap clips; the current
-  plap sound is unchanged and emits from the rump point in both poses.
-- The pose-2 Anon hip follows raw `depth` directly and is **not** driven by strength:
-  `THRUST_MAX_M = 0.045 m` forward at full depth, with no spring or return animation.
+- `touch` and `talk` are lists. A liked item cannot also be a dislike.
+- `pose` is a soft preference. The current pose gives a small starting-readiness bonus and a
+  more enthusiastic cue; the other pose is neutral, not a failure.
+- `warmth` scales readiness gain (`quick` 1.25, `normal` 1.0, `slow` 0.8). It does not force
+  a fixed act length.
 
-## Camera bob
+## The two continuous axes
 
-- **Disabled by default.** `pump.bobs` is `false`; both pump and climax camera bobs are skipped.
-  Set `"bobs": true` in the top-level `pump` block to enable the springs below.
-- When enabled, each pump adds `BOB_PUMP_IMPULSE = 2.30 / 3` (≈`0.767`, doubled) to vertical
-  velocity and `BOB_FORWARD_IMPULSE = 1.80 / 4` (`0.45`, 50% more travel) to forward velocity.
-- Vertical spring: stiffness `105`, damping `13`, limit `±0.40`.
-- Forward spring: stiffness `100`, damping `12`, limit `±0.32`.
-- Pose 1 and pose 2 use the same vertical bob and camera rock.
-- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 3` (≈`0.0083`, doubled) vertically and
-  `BOB_CLIMAX_FORWARD = 0.12 / 6` (`0.02`).
-- **Pump-speed response.** At or above `BOB_SPEED_REFERENCE = 0.80` depth/s the bob uses the
-  full-speed spring. Below it, the response scale is `speed / 0.80`, clamped to
-  `BOB_SPEED_SCALE_MIN = 0.35`. Stiffness scales by `s²`, damping and impulse by `s`, so slow
-  strokes take longer while keeping roughly the same peak; fast strokes are unchanged.
+### Intensity
 
-## Depth profiles
+From the last inward pump's strength:
 
-Normalized so `∫₀¹ weight(d) dd = 1.0`:
+```text
+soft   strength < 0.33
+firm   0.33 <= strength < 0.66
+rough  strength >= 0.66
+```
 
-| Profile | Meaning |
+### Pattern
+
+Classified over the last 3–4 inward pumps. Fewer than 3 pumps means “no pattern yet”; only
+the intensity axis can match.
+
+```text
+teasing  mean travel < 0.38 and mean duration > 0.75 s
+quick    mean duration < 0.42 s and mean travel < 0.62
+building last travel > first travel × 1.25 and gain >= 0.08
+steady   otherwise
+```
+
+## Readiness
+
+`satisfaction` is readiness. It starts at 0 (plus a pose bonus), caps at 100 and is visible
+as the second HUD bar when `readiness_hud` is on.
+
+```text
+both axes match       +2.0 /s × warmth
+one axis matches      +1.0 /s × warmth
+neither matches       no gain; after 3 s, -1.5 /s
+liked touch / talk    +6.0 once
+disliked touch/talk   -6.0 once and 1.2 s overwhelmed
+```
+
+- The pattern/intensity memory clears after 1.2 s without an inward pump. A held caress or a
+  spoken line can keep the moment alive, but it does not replace the pump forever.
+- Cooling is recoverable. Change rhythm, touch her, or answer her.
+- No hard stop from a mismatch. Consent and the `Y` control remain separate.
+
+## Mood and cues
+
+```text
+warming       readiness < 40
+wanting       40 <= readiness < 65
+close         readiness >= 65
+cooling       no match for 3 s and readiness is falling
+overwhelmed   a disliked touch/talk landed recently
+```
+
+- `READY_AT = 65`. The player can finish at or above it; below it, hold `Y` still cancels.
+- The cue is a short third-person HUD line: “She wants it harder”, “She's losing focus”,
+  “She's close”, “She likes that”. It is not a new dialogue line.
+- A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a mare
+  with a non-empty `talk` taste. The HUD shows `T · Answer her`. The player's reply is the
+  director's player turn; the runtime drops the cue's pending line and scores the reply. A
+  missed invitation expires quietly.
+
+## Touch and talk classification
+
+Touch comes from the existing actions:
+
+| Action | Event |
 |---|---|
-| `steady` | flat |
-| `deep` | more weight near `1.0` |
-| `shallow` | more weight near `0.0` |
-| `peak` | more weight around `0.7` |
+| mouse right smack | `smack` |
+| held caress | `caress` |
+| kiss | `kiss` |
 
-Comfort bands:
+Each has a 4 s scoring cooldown. The actions themselves are not changed by this contract.
 
-```text
-deep    0.60–1.00
-shallow 0.00–0.40
-peak    0.50–0.85
-steady  none
-```
+Talk comes from the game's own `T` / microphone turn. The runtime watches
+`conversation_director._turn_id` and `_player_text`; the AI still writes her reply. The
+classifier is a small keyword map, not an LLM call:
 
-## Speed and boredom
-
-Measured on the inward stroke in depth units per second.
-
-```text
-slow:    speed < min
-perfect: abs(speed - perfect) <= epsilon
-fast:    speed > max
-ok:      otherwise
-```
-
-Default speed is **enabled**:
-
-```text
-min 0.001, perfect 0.80, max 1.60, epsilon 0.15
-slow_gain 0.70, fast_gain 0.70, perfect_gain 1.30
-```
-
-Twilight and all unspecified mares follow these defaults. `min = 0` disables slow/bored
-detection for special mares.
-
-Boredom:
-
-- 1.5 s rolling effective speed (travel / time; 0 when still).
-- If `min > 0`, below `min × 0.9` for 10 s queues `bored`.
-- Leaves boredom above `min × 1.2`.
-- Timer pauses while the director is speaking or the player is talking.
-- `speed_slow` and `speed_fast` were removed; only the `speed_perfect` praise remains.
-
-## Shapes
-
-Classified on the inward stroke only. Requires travel ≥ `0.30`, duration ≥ `0.12 s`, at least 4
-samples, and best-fit RMSE under `0.18`; otherwise `mixed`.
-
-| Shape | `d(t)` |
+| Category | Examples |
 |---|---|
-| `steady` | `t` |
-| `ease_in` | `t²` |
-| `ease_out` | `1 − (1−t)²` |
-| `ease_in_out` | `3t² − 2t³` |
+| `praise` | good, beautiful, perfect, love you |
+| `reassurance` | are you okay, safe, gentle, look at me |
+| `dirty` | want, more, harder, please |
+| `curious` | how, what, tell me, question mark |
+| `playful` | good girl, brat, tease, beg |
 
-Liked `1.20`, disliked `0.75`, neutral/mixed `1.0`.
+An unrelated line is neutral: it can still get a normal reply, but it does not move readiness.
 
-## Satisfaction phases
+## Finish and HUD
 
-`preferences.pump.phases` is an optional array. `progress = satisfaction / climax_at`; a phase
-applies when `min_satisfaction ≤ progress < max_satisfaction`. The last matching phase is merged
-over the base preferences; the active phase drives scoring, depth bands and prompt notes.
-
-Fluttershy has a `0.75–1.0` phase:
-
-```text
-depth deep
-speed 0.60 / 1.60 / 2.60 / 0.28
-likes ease_out, dislikes ease_in_out
-```
+- Hold `Y` at or above `READY_AT` to finish her. Below it, hold `Y` cancels.
+- `readiness_hud` defaults to `true` and gates the readiness bar and mood cues. With it off,
+  the depth bar and control hints remain; the player reads her.
+- `debug_logs` still gates the detailed debug overlay, not the readiness bar.
 
 ## Character examples
 
-| Character | Depth | Speed min/perfect/max/ε | Likes | Dislikes | Lines |
-|---|---|---|---|---|---|
-| Fluttershy | `deep` | `0.40 / 1.20 / 2.00 / 0.22` | `ease_out` | `ease_in_out` | `1–3` |
-| Fluttershy 75%+ | `deep` | `0.60 / 1.60 / 2.60 / 0.28` | `ease_out` | `ease_in_out` | `1–3` |
-| Rarity | `shallow` | `0.20 / 0.50 / 1.00 / 0.10` | `ease_in_out` | `ease_out` | `2–3` |
-| Twilight | `steady` | default | — | — | `2–3` |
-| Default | `steady` | `0.001 / 0.80 / 1.60 / 0.15` | — | — | `2–3` |
+| Character | Intensity | Pattern | Touch | Talk | Pose | Warmth |
+|---|---|---|---|---|---|---|
+| Fluttershy | firm | building | caress | reassurance | missionary | slow |
+| Rarity | soft | steady | caress | praise | missionary | normal |
+| Twilight | firm | steady | kiss | none | any | normal |
+| Derpy | rough | quick | smack | playful | horse | quick |
+| Default | firm | steady | none | none | any | normal |
 
-## Prompt values
-
-`{state}` example:
-
-```text
-pose=missionary, satisfaction=42/100, depth=0.78 (deep), speed=0.90/s (perfect), stroke=ease_in,
-18s in
-```
-
-`{preferences}` contains the mechanical summary plus `preferences.pump.notes`, marked as private
-feelings, never lines to say. `{recent}` is the last two lines the director actually spoke.
+The `notes` field carries the private attitude; the AI prompt receives the mood, the taste
+summary and the last concrete input, never a speed or depth dump.

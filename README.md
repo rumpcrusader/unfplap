@@ -23,7 +23,7 @@ Desktop only for now
 | `H`         | Toggle automatic lean return; hold is default, latches A/D caress and lets S recentre roll (experimental) |
 | Mouse right | Smack her flank during the act (experimental)                     |
 | `T`         | Talk to her; a talk cue can make her ask for your voice            |
-| Hold `Y`    | Finish when she is close / stop early / end afterglow             |
+| Hold `Y`    | Afterglow after her first climax / stop early / end afterglow     |
 
 ## Features
 
@@ -31,10 +31,10 @@ Desktop only for now
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing horse.
 - **Outdoor bed** — Adds a usable bed beside Golden Oak Library.
-- **Mouse pump readiness** — Vertical mouse movement builds her readiness; finish when she is close.
-- **Per-mare taste** — Each mare has an intensity, rhythm, touch, talk, pose and warmth profile.
+- **Mouse pump readiness** — Build her arousal; she can climax repeatedly while you keep pumping.
+- **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
-- **HUD** — Shows penetration and readiness, with an optional `Readiness HUD` setting.
+- **HUD** — Shows penetration, readiness and climax count, with an optional `Readiness HUD` setting.
 - **Act camera** — Offers a controlled lean camera with optional pump bob.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active (experimental).

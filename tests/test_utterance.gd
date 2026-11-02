@@ -24,12 +24,13 @@ func run() -> void:
 	})
 	check(text == "a S b T c C d R e ", "format placeholders")
 
-	var line := UTTER.state_line("missionary", "wanting", "firm", "building", "caress", "praise", 18.0)
+	var line := UTTER.state_line("missionary", "wanting", "firm", "building", "caress", "praise", 18.0, 2)
 	check(line.contains("pose=missionary"), "state line pose")
 	check(line.contains("mood=wanting"), "state line mood")
 	check(line.contains("firm building"), "state line motion")
 	check(line.contains("last touch=caress"), "state line touch")
 	check(line.contains("last talk=praise"), "state line talk")
+	check(line.contains("climaxes=2"), "state line climaxes")
 	check(line.contains("18s in"), "state line time")
 	check(not line.contains("/s"), "state line has no speed units")
 

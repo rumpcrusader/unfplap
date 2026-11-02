@@ -25,8 +25,11 @@ const VOICE := preload("res://mods/unfplap/voice_status.gd")
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 
 const READINESS_MAX := 100.0
-## The player may finish at or above this readiness. The bar is a readiness aid, not a timer.
-const READY_AT := 65.0
+## Her "close" cue. It no longer gates the player's afterglow.
+const CLOSE_AT := 65.0
+## Readiness that triggers one pony climax. The player's afterglow is separate.
+const PONY_CLIMAX_AT := READINESS_MAX
+const MAX_PONY_CLIMAXES := 5
 ## Readiness per second while both taste axes match, one axis matches, or neither matches.
 const HEAT_BOTH_RATE := 2.0
 const HEAT_ONE_RATE := 1.0
@@ -35,7 +38,6 @@ const COOL_DELAY_S := 3.0
 ## Concrete actions and their one-shot readiness chunks.
 const TOUCH_HEAT := 6.0
 const TALK_HEAT := 6.0
-const POSE_HEAT := 4.0
 const TOUCH_COOLDOWN_S := 4.0
 const TALK_COOLDOWN_S := 8.0
 ## A talk cue is an invitation, not a gate. It expires quietly.
@@ -247,12 +249,14 @@ var state: int = State.IDLE
 var pose_id := ""
 var source := ""
 var bed: Node3D
-## Readiness, 0..100. The player finishes with hold Y at or above READY_AT.
+## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
 var satisfaction := 0.0
 ## Public for the HUD: mood, a short third-person cue and an active talk invitation.
 var mood := "warming"
 var cue := ""
 var talk_wait := 0.0
+## Public for the HUD/debug: how many pony climaxes this act has had.
+var pony_climaxes := 0
 ## Public for the HUD: penetration 0..1 and the same orientation flag used by mouse input.
 var depth := 0.0
 var pump_up := true
@@ -727,7 +731,7 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
-		if state == State.ACTIVE and _pump_tracker != null:
+		if _pump_tracker != null:
 			var amount: float = PUMP.mouse_to_depth(motion.relative.y, _pump_pixels_per_full, pump_up)
 			_pump_move(amount, _now_s())
 		get_viewport().set_input_as_handled()
@@ -740,7 +744,7 @@ func _headset_view() -> bool:
 ## Y is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does nothing,
 ## and the trigger latches until release so a held key cannot fire twice.
 func _hold_y_tick(delta: float) -> void:
-	if state not in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
+	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_y_hold = 0.0
 		_y_hold_fired = false
 		return
@@ -756,11 +760,16 @@ func _hold_y_tick(delta: float) -> void:
 	if _y_hold < HOLD_Y_SECONDS or _y_hold_fired:
 		return
 	_y_hold_fired = true
-	_log("hold Y state=%d" % state)
+	_log("hold Y state=%d climaxes=%d" % [state, pony_climaxes])
 	if state == State.AFTERGLOW:
 		end_afterglow()
-	elif state == State.ACTIVE and satisfaction >= READY_AT:
-		_climax()
+	elif state == State.ACTIVE:
+		if pony_climaxes > 0:
+			_enter_afterglow()
+		else:
+			cancel()
+	elif state == State.CLIMAX:
+		_enter_afterglow()
 	else:
 		cancel()
 
@@ -780,11 +789,12 @@ func _physics_process(delta: float) -> void:
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_act_presentation(delta)
 	_kiss_tick(delta)
-	if state == State.ACTIVE:
+	if state in [State.ACTIVE, State.CLIMAX]:
 		_pump_tick()
-		_heat_tick(delta)
-		_talk_tick(delta)
-		_utterance_tick()
+		if state == State.ACTIVE:
+			_heat_tick(delta)
+			_talk_tick(delta)
+			_utterance_tick()
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
 		if _pose_in_left <= 0.0:
@@ -976,8 +986,9 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
 	if state != State.IDLE:
-		text += " | readiness=%.0f mood=%s intensity=%s pattern=%s cue=%s up=%s | %s" % [
-			satisfaction, mood, _last_intensity, _last_pattern, cue, str(pump_up),
+		text += " | readiness=%.0f mood=%s climaxes=%d/%d intensity=%s pattern=%s cue=%s up=%s | %s" % [
+			satisfaction, mood, pony_climaxes, MAX_PONY_CLIMAXES,
+			_last_intensity, _last_pattern, cue, str(pump_up),
 			PREFERENCES.describe(_taste).replace("\n", "; ")]
 	text += " | " + voice_status_line()
 	return text
@@ -1447,10 +1458,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
 	_remember_talk_turn()
-	# Pose is a soft taste input; it starts her a little warmer, never blocks the act.
-	if str(_taste.get("pose", "any")) == pose_id:
-		_add_heat(POSE_HEAT)
-
 	if source == "cradle":
 		if not _release_carry():
 			return false
@@ -1514,7 +1521,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	state = State.POSING_IN
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
-	if is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.show_act(self, readiness_hud())
 		main.hud.hide_prompt()
 	_log("started pose=%s legacy=%d source=%s pony=%s eye=%.2f" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name), _camera_target_eye])
@@ -1941,6 +1948,8 @@ func _reset_pump_state() -> void:
 	_last_pattern = ""
 	_stroke_window.clear()
 	_last_stroke_at = -1000.0
+	pony_climaxes = 0
+	_climax_left = 0.0
 	_utterance_pending_key = ""
 	_utterance_pending_until = 0.0
 	_utterance_done_key = ""
@@ -2112,9 +2121,14 @@ func _pump_tick() -> void:
 ## A closed stroke only updates the pattern window and the presentation. It never adds
 ## readiness directly: readiness is a rate over time so the player can read her response.
 func _on_stroke(event: Dictionary) -> void:
-	if state != State.ACTIVE:
+	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
 	if int(event.get("direction", 0)) <= 0:
+		return
+	if state == State.CLIMAX:
+		# The player can keep pumping through her climax; it is presentation only.
+		if bool(event.get("pump", false)):
+			_on_pump(event)
 		return
 	_last_stroke = event.duplicate(true)
 	_last_stroke_at = _now_s()
@@ -2197,6 +2211,9 @@ func _add_heat(amount: float) -> void:
 func _heat_tick(delta: float) -> void:
 	if state != State.ACTIVE:
 		return
+	if satisfaction >= PONY_CLIMAX_AT:
+		_climax()
+		return
 	var now := _now_s()
 	if now - _last_stroke_at > STROKE_MEMORY_S:
 		_last_intensity = ""
@@ -2220,6 +2237,9 @@ func _heat_tick(delta: float) -> void:
 		_cooling_seconds += delta
 		if _cooling_seconds >= COOL_DELAY_S:
 			_add_heat(-COOL_RATE * delta)
+	if satisfaction >= PONY_CLIMAX_AT:
+		_climax()
+		return
 	mood = _mood_for()
 	if not _cue_override.is_empty() and now < _cue_until:
 		cue = _cue_override
@@ -2237,7 +2257,7 @@ func _mood_for() -> String:
 		return "overwhelmed"
 	if _cooling_seconds >= COOL_DELAY_S:
 		return "cooling"
-	if satisfaction >= READY_AT:
+	if satisfaction >= CLOSE_AT:
 		return "close"
 	if satisfaction >= 40.0:
 		return "wanting"
@@ -2249,7 +2269,7 @@ func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
 		return "She's overwhelmed."
 	if _cooling_seconds >= COOL_DELAY_S:
 		return "She's losing focus."
-	if satisfaction >= READY_AT:
+	if satisfaction >= CLOSE_AT:
 		return "She's close."
 	if not _last_intensity.is_empty() and not intensity_match:
 		var wanted := str(_taste.get("intensity", "firm"))
@@ -2419,7 +2439,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 	var values := {
 		"state": UTTERANCE.state_line(
 			pose_id, mood, _last_intensity, _last_pattern,
-			_last_touch, _last_talk, _act_seconds),
+			_last_touch, _last_talk, _act_seconds, pony_climaxes),
 		"taste": PREFERENCES.describe(_taste),
 		"cue": cue,
 		"recent": _recent_lines(),
@@ -2662,19 +2682,27 @@ func end_afterglow() -> void:
 func _climax() -> void:
 	if state != State.ACTIVE:
 		return
-	_log("climax pose=%s legacy=%d pony=%s readiness=%.0f" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
+	pony_climaxes += 1
+	_log("pony climax=%d pose=%s legacy=%d pony=%s readiness=%.0f" % [
+		pony_climaxes, pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
+	mood = "climax"
+	cue = "She's coming."
+	_set_cue_override("She's coming.", CLIMAX_SECONDS)
 	_schedule_climax_hearts()
 	_climax_hearts_burst_at(_dock_point())
 	_set_face(0.3, 0.0)
 	if not _utterance_pending_key.is_empty():
 		_log("climax utterance pending key=%s" % _utterance_pending_key)
 		_drop_queued_utterance()
+	talk_wait = 0.0
+	if is_instance_valid(main):
+		MEMORY.climax_event(main.game, _id, _display_name, _event_id, pony_climaxes)
 	_queue_climax_reaction()
 	_play_climax()
-	if is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("CLIMAX")
 
 
@@ -2750,6 +2778,8 @@ func _climax_hearts_burst_at(origin: Vector3) -> void:
 func _dock_point() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
+	if not pony.is_inside_tree():
+		return pony.position
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		var tail := (hair as Skeleton3D).find_bone("mTail1")
@@ -2765,28 +2795,59 @@ func _dock_point() -> Vector3:
 
 
 func _queue_climax_reaction() -> void:
+	if not is_instance_valid(main):
+		return
 	var expiry := Time.get_ticks_msec() + 60000
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
-	MEMORY.reaction_for(main.game, _id, "climax", _event_id,
+	var climax_id := "%s:pony_climax:%d" % [_event_id, pony_climaxes]
+	MEMORY.reaction_for(main.game, _id, "climax", climax_id,
 		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Staying quiet is fine. Do not describe anatomy.",
 		valid)
 
 
+## The pony climax ends on its own. It returns to ACTIVE unless this was the fifth;
+## afterglow is the player's choice, not the climax state's automatic exit.
 func _finish_climax() -> void:
-	MEMORY.climax_event(main.game, _id, _display_name, _event_id)
-	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
-	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
+	if pony_climaxes >= MAX_PONY_CLIMAXES:
+		_enter_afterglow()
+		return
+	state = State.ACTIVE
+	satisfaction = float(_taste.get("recovery", PREFERENCES.RECOVERY_DEFAULT))
+	mood = "warming"
+	cue = ""
+	_cue_override = ""
+	_cue_until = 0.0
+	talk_wait = 0.0
+	_cooling_seconds = 0.0
+	_overwhelmed = 0.0
+	_last_intensity = ""
+	_last_pattern = ""
+	_stroke_window.clear()
+	_last_stroke_at = -1000.0
+	_log("pony climax end=%d/%d recovery=%.0f" % [
+		pony_climaxes, MAX_PONY_CLIMAXES, satisfaction])
+
+
+func _enter_afterglow() -> void:
 	if pose_id == CATALOG.HORSE:
 		_pose2_afterglow_begin()
 	else:
 		_afterglow_begin()
 
 
+func _commit_afterglow() -> void:
+	if not is_instance_valid(main):
+		return
+	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
+	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
+
+
 ## Pose 2 also gets a held afterglow now that there are things to do in it.
 func _pose2_afterglow_begin() -> void:
 	_log("afterglow pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
 	_drop_queued_utterance()
+	_commit_afterglow()
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
 	_set_face(0.85, 0.9)
@@ -2798,13 +2859,14 @@ func _pose2_afterglow_begin() -> void:
 		_tail.target_amount = 0.55
 		_tail.call("flick", 2)
 	_inside_aftermath()
-	if is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
 
 
 func _afterglow_begin() -> void:
 	_log("afterglow pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
 	_drop_queued_utterance()
+	_commit_afterglow()
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
 	_set_face(0.85, 0.9)
@@ -2815,12 +2877,14 @@ func _afterglow_begin() -> void:
 		_pose.amount = 1.0
 	if is_instance_valid(_tail):
 		_tail.target_amount = 0.35
-	if is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
 
 
 ## Pose 2 only: tell her Anon came inside her, then optionally invite a spoken reaction.
 func _inside_aftermath() -> void:
+	if not is_instance_valid(main):
+		return
 	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
 	var expiry := Time.get_ticks_msec() + 60000
 	var valid := func() -> bool:
@@ -2844,7 +2908,7 @@ func _restore_begin() -> void:
 	_back_target = 0.0
 	_has_facing = false
 	_glance_left = 0.0
-	if is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.hide_act()
 
 
@@ -2866,7 +2930,7 @@ func _finish_restore() -> void:
 		pony.request_posture("stand")
 	_free_pose()
 	_stop_audio()
-	if is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.hide_all()
 	if is_instance_valid(main):
 		main.clear_active(self)
@@ -2940,7 +3004,7 @@ func _restore_now() -> void:
 	_stop_audio()
 	if is_instance_valid(main):
 		main.clear_active(self)
-		if is_instance_valid(main.hud):
+		if is_instance_valid(main) and is_instance_valid(main.hud):
 			main.hud.hide_all()
 	state = State.IDLE
 	pose_id = ""

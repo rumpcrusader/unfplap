@@ -35,7 +35,7 @@ func run() -> void:
 	var taste: Dictionary = base.get("taste", {})
 	check(str(taste.get("intensity", "")) == "firm", "neutral intensity default")
 	check(str(taste.get("pattern", "")) == "steady", "neutral pattern default")
-	check(str(taste.get("pose", "")) == "any", "neutral pose default")
+	check(int(taste.get("recovery", 0)) == 20, "neutral recovery default")
 	check((taste.get("touch", []) as Array).is_empty(), "neutral touch default")
 	var prompts: Dictionary = base.get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
@@ -45,7 +45,7 @@ func run() -> void:
 	var characters := {
 		"fluttershy": {
 			"poses": {CATALOG.MISSIONARY: {"hind_spread": 0.5}},
-			"taste": {"intensity": "rough", "touch": ["smack"]},
+			"taste": {"intensity": "rough", "touch": ["smack"], "recovery": 30},
 		},
 	}
 	var profile := SETTINGS.profile_for(base, characters, "fluttershy")
@@ -57,6 +57,7 @@ func run() -> void:
 	check(str(profile_taste.get("intensity", "")) == "rough", "character taste override")
 	check((profile_taste.get("touch", []) as Array).has("smack"), "character touch override")
 	check(str(profile_taste.get("pattern", "")) == "steady", "character pattern inherits default")
+	check(int(profile_taste.get("recovery", 0)) == 30, "character recovery override")
 
 	var other := SETTINGS.profile_for(base, characters, "rainbow_dash")
 	check(float((other["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.42, "other character keeps pose default")
@@ -79,14 +80,14 @@ func run() -> void:
 	var fluttershy_taste: Dictionary = built_in["taste"]
 	check(str(fluttershy_taste.get("intensity", "")) == "firm", "Fluttershy intensity")
 	check(str(fluttershy_taste.get("pattern", "")) == "building", "Fluttershy pattern")
-	check(str(fluttershy_taste.get("pose", "")) == "missionary", "Fluttershy pose")
+	check(int(fluttershy_taste.get("recovery", 0)) == 12, "Fluttershy recovery")
 	check((fluttershy_taste.get("talk", []) as Array).has("reassurance"), "Fluttershy talk")
 	var rarity := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "rarity")
 	var rarity_taste: Dictionary = rarity["taste"]
 	check(str(rarity_taste.get("intensity", "")) == "soft", "Rarity intensity")
 	check((rarity_taste.get("talk", []) as Array).has("praise"), "Rarity talk")
 	var twilight := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "twilight_sparkle")
-	check(str((twilight["taste"] as Dictionary).get("pose", "")) == "any", "Twilight neutral pose")
+	check(int((twilight["taste"] as Dictionary).get("recovery", 0)) == 20, "Twilight recovery")
 
 	var defaults := SETTINGS._defaults()
 	var feature_block: Dictionary = defaults.get("features", {})

@@ -2,15 +2,18 @@ extends RefCounted
 ## Pure act-taste profile and ACTIVE-stage classifiers. No scene access.
 ##
 ## A mare's taste has two continuous axes (intensity and pattern), concrete touch/talk
-## likes, a pose preference and how quickly she warms. Readiness is accumulated by the
-## runtime; this file only validates the profile and classifies the player's input.
+## likes, how quickly she warms, and how much readiness she recovers after a climax.
+## Readiness is accumulated by the runtime; this file only validates the profile and
+## classifies the player's input.
 
 const INTENSITIES := ["soft", "firm", "rough"]
 const PATTERNS := ["steady", "building", "teasing", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "curious", "playful"]
-const POSES := ["missionary", "horse", "any"]
 const WARMTHS := ["quick", "normal", "slow"]
+const RECOVERY_MIN := 0
+const RECOVERY_MAX := 80
+const RECOVERY_DEFAULT := 20
 
 const DEFAULTS := {
 	"intensity": "firm",
@@ -18,8 +21,8 @@ const DEFAULTS := {
 	"touch": [],
 	"dislikes": [],
 	"talk": [],
-	"pose": "any",
 	"warmth": "normal",
+	"recovery": RECOVERY_DEFAULT,
 	"notes": "",
 }
 
@@ -51,8 +54,9 @@ static func resolve(raw: Variant) -> Dictionary:
 	out["touch"] = _clean_list(out.get("touch"), TOUCHES)
 	out["dislikes"] = _clean_list(out.get("dislikes"), TOUCHES + TALKS)
 	out["talk"] = _clean_list(out.get("talk"), TALKS)
-	out["pose"] = _enum(str(out.get("pose", "any")).to_lower(), POSES, "any")
 	out["warmth"] = _enum(str(out.get("warmth", "normal")).to_lower(), WARMTHS, "normal")
+	out["recovery"] = clampi(int(out.get("recovery", RECOVERY_DEFAULT)), RECOVERY_MIN, RECOVERY_MAX)
+	out.erase("pose")
 	out["notes"] = str(out.get("notes", "")).strip_edges()
 	# A liked item cannot also be disliked.
 	var dislikes: Array = []
@@ -144,12 +148,14 @@ static func describe(taste: Dictionary) -> String:
 	var talk := _names(taste.get("talk", []))
 	if not talk.is_empty():
 		parts.append("likes talk: %s" % talk)
-	var pose := str(taste.get("pose", "any"))
-	if pose != "any":
-		parts.append("prefers pose: %s" % pose)
 	var warmth := str(taste.get("warmth", "normal"))
 	if warmth != "normal":
 		parts.append("warmth: %s" % warmth)
+	var recovery := int(taste.get("recovery", RECOVERY_DEFAULT))
+	if recovery >= 30:
+		parts.append("recovers quickly after climax")
+	elif recovery <= 12:
+		parts.append("needs coaxing after climax")
 	var notes := str(taste.get("notes", "")).strip_edges()
 	if not notes.is_empty():
 		parts.append("attitude: " + notes)

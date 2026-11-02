@@ -45,18 +45,9 @@ func run() -> void:
 	shaped.state = 2
 	shaped._pump_move(1.0, 0.0)
 	shaped._pump_move(-1.0, 0.5)
-	check(str(shaped._stroke_shape) != "", "shape classification path runs")
+	check(str(shaped._last_stroke.get("shape", "")) != "", "shape classification path runs")
 	shaped.free()
 
-	var travel: Node = RUNTIME.new()
-	travel.depth = 1.0
-	for _i in 10:
-		travel._travel_tick(0.016)
-	check(travel.view_depth > 0.0 and travel.view_depth < 1.0, "view depth brakes toward target")
-	for _i in 120:
-		travel._travel_tick(0.016)
-	check(travel.view_depth > 0.99, "view depth settles at target")
-	travel.free()
 	print("RUNTIME_PUMP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("RUNTIME_PUMP_PASS")

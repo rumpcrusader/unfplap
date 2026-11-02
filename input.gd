@@ -76,31 +76,6 @@ func _input(event: InputEvent) -> void:
 			main.call("toggle_debug_logs")
 			get_viewport().set_input_as_handled()
 			return
-		# Pose-1 debug head roll (Alt+1/2) and camera rotation (Alt+7/8/9/0/-/+).
-		if debug_key.pressed and not debug_key.echo and debug_key.alt_pressed:
-			var active: Variant = main.get("active_runtime")
-			if is_instance_valid(active):
-				if debug_key.physical_keycode == KEY_1:
-					active.call("debug_roll_pose1_head", 1.0)
-					get_viewport().set_input_as_handled()
-					return
-				if debug_key.physical_keycode == KEY_2:
-					active.call("debug_roll_pose1_head", -1.0)
-					get_viewport().set_input_as_handled()
-					return
-			var axis := -1
-			match debug_key.physical_keycode:
-				KEY_7: axis = 0
-				KEY_8: axis = 1
-				KEY_9: axis = 2
-				KEY_0: axis = 3
-				KEY_MINUS: axis = 4
-				KEY_EQUAL, KEY_PLUS: axis = 5
-			if axis >= 0:
-				if is_instance_valid(active):
-					active.call("debug_rotate_pose1", axis)
-					get_viewport().set_input_as_handled()
-					return
 		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F8 \
 				and bool(main.get("debug_logs")):
 			main.call("_debug_offer")
@@ -125,13 +100,17 @@ func _input(event: InputEvent) -> void:
 		return
 	if is_instance_valid(runtime):
 		var state := int(runtime.get("state"))
+		# Debug camera toggle: free shot vs the legacy mouse-look behaviour. F is flight
+		# outside the act, but it is already consumed during the act.
+		if key.physical_keycode == KEY_F:
+			runtime.call("toggle_camera_mode")
+			get_viewport().set_input_as_handled()
+			return
 		# Space must not jump or start a couch sleep while the act holds the player.
 		if key.is_action("move_jump") or key.physical_keycode == KEY_SPACE:
 			get_viewport().set_input_as_handled()
 			return
 		if state == 4: # AFTERGLOW
-			if key.is_action("stand_up"):
-				runtime.call("end_afterglow")
 			if key.is_action("stand_up") or key.physical_keycode in [KEY_F, KEY_L]:
 				get_viewport().set_input_as_handled()
 			return
@@ -139,12 +118,7 @@ func _input(event: InputEvent) -> void:
 			if key.is_action("stand_up") or key.physical_keycode in [KEY_F, KEY_L]:
 				get_viewport().set_input_as_handled()
 			return
-		# F is flight: consume it so holding it cannot start flight, but it no longer pumps.
-		if key.physical_keycode == KEY_F:
-			get_viewport().set_input_as_handled()
-			return
 		if key.is_action("stand_up"):
-			runtime.call("cancel")
 			get_viewport().set_input_as_handled()
 			return
 		# Keep native world interactions from firing during the act.

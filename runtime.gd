@@ -14,6 +14,7 @@ const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
+const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
 
@@ -31,6 +32,8 @@ const CLIMAX_SECONDS := 5.0
 const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
+## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
+const HOLD_Q_SECONDS := 0.35
 const BREATH_BASE_INTERVAL_S := 0.9
 const BREATH_MIN_INTERVAL_S := 0.2
 const BREATH_RATE_CAP := 10.0
@@ -70,9 +73,15 @@ const BOB_CLIMAX_FORWARD := 0.12 / 6.0
 ## the motion takes longer. Very slow strokes stop at this scale.
 const BOB_SPEED_REFERENCE := 0.80
 const BOB_SPEED_SCALE_MIN := 0.35
-## The smoothed depth is HUD-only now; the mouse still drives raw depth for scoring.
-const PUMP_TRAVEL_OMEGA := 30.0
-const PUMP_TRAVEL_DAMPING := 60.0
+## Free camera: fixed shot, no mouse look, WASD offsets in the shot's yaw plane.
+const CAMERA_FREE_DEFAULT := true
+const CAMERA_MOVE_SPEED := 0.45
+const CAMERA_MOVE_SIDE := 0.40
+const CAMERA_MOVE_DOLLY := 0.35
+const POSE2_SHOULDER_HEIGHT_M := 1.0
+## Pose-2 Anon thrust: forward hip offset on a strong pump, eased back quickly.
+const THRUST_MAX_M := 0.045
+const THRUST_RETURN_S := 0.16
 ## Mouse look is nearly frozen during the act so pumping does not steer the camera.
 const ACT_LOOK_YAW_SCALE := 0.10
 const ACT_LOOK_PITCH_SCALE := 0.10
@@ -88,6 +97,8 @@ const POSE2_WITHDRAW_SECONDS := 1.6
 ## Wing spread/droop and jitter. Wings spread over two seconds, then lower over ten.
 const WING_FADE_SECONDS := 0.55
 const WING_FLICK_DECAY := 0.45
+const WING_FLICK_MIN := 0.10
+const WING_FLICK_MAX := 0.24
 const WING_SPREAD_SECONDS := 2.0
 const WING_DROOP_SECONDS := 10.0
 const WING_DROOP_AMOUNT := 0.35
@@ -109,7 +120,9 @@ const GLANCE_BACK_FADE := 0.45
 const JIGGLE_HEIGHT := 0.78
 const JIGGLE_SIDE := 0.24
 const JIGGLE_BACK := 0.12
-const JIGGLE_STRENGTH := 1.0
+## `_start_jiggle` clamps strength to 0.3..1, so weak pumps still move a little.
+const JIGGLE_MIN_STRENGTH := 0.30
+const JIGGLE_RUMP_SCALE := 3.5
 
 var pony
 var main
@@ -138,6 +151,9 @@ var _afterglow_pose := ""
 var _player_pony := false
 var _had_kiss_hold := false
 var _locked_player := false
+var _q_hold := 0.0
+var _q_hold_ready := false
+var _q_hold_fired := false
 var _nav: Node
 var _nav_old_wander := true
 var _token := ""
@@ -152,11 +168,11 @@ var _pump_tracker
 var _pump_pixels_per_full := 800.0
 var _pump_bobs := false
 var _satisfaction_frac := 0.0
-var _speed_zone := "ok"
 var _speed_zone_previous := "ok"
-var _stroke_speed := 0.0
-var _stroke_shape := ""
 var _speed_zone_strokes := 0
+## Last closed stroke: direction/travel/speed/peak_speed/strength, shape/zone/multiplier,
+## base/scaled gain. One result feeds scoring, HUD debug, utterances and the visual effects.
+var _last_stroke: Dictionary = {}
 var _last_reaction: Dictionary = {}
 var _depth_out_seconds := 0.0
 var _utterance_points: Array[float] = []
@@ -181,14 +197,27 @@ var _started_at := 0.0
 var _camera: Camera3D
 var _applied_bob := 0.0
 var _applied_lean := 0.0
-## Smoothed depth for the HUD only. Raw `depth` drives scoring/strokes.
-var view_depth := 0.0
-var _view_velocity := 0.0
+var _camera_free := CAMERA_FREE_DEFAULT
+var _camera_offset := Vector3.ZERO
+var _camera_base_basis := Basis.IDENTITY
+var _camera_basis_ready := false
+var _pose1_look_point := Vector3.INF
+var _pose2_base_look := Vector3.INF
+var _pose2_aim_until := 0
+var _pose2_base_local := Vector3.ZERO
+var _pose2_base_saved := false
+var _restore_yaw := 0.0
+var _restore_pitch := 0.0
+var _controls_locked_saved := false
+var _controls_locked_by_camera := false
+var _thrust := 0.0
+var _anon_thrust_driver: Node3D
+var _anon_thrust_original: Node
+var _anon_thrust_avatar: Node3D
 var _pose1_camera := Vector3.INF
 var _pose1_head_roll := 0.0
 var _pose1_free_yaw := 0.0
 var _pose1_free_pitch := 0.0
-var _pose1_debug_rot := Basis.IDENTITY
 var _pose1_start_camera: Camera3D
 var _pose1_start_camera_transform := Transform3D.IDENTITY
 var _pose1_start_player_transform := Transform3D.IDENTITY
@@ -390,7 +419,6 @@ func _clear_face() -> void:
 func _process(delta: float) -> void:
 	if state == State.IDLE:
 		return
-	_travel_tick(delta)
 	_clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
 		var view: Camera3D = main.camera()
@@ -428,23 +456,6 @@ func _process(delta: float) -> void:
 	_breath_tick(delta)
 
 
-## The bar/camera value brakes sharply before reversing. Raw `depth` keeps scoring exact.
-func _travel_tick(delta: float) -> void:
-	var dt := minf(maxf(delta, 0.0), 0.05)
-	if dt <= 0.0:
-		return
-	var error := view_depth - depth
-	_view_velocity += (-PUMP_TRAVEL_OMEGA * PUMP_TRAVEL_OMEGA * error
-		- PUMP_TRAVEL_DAMPING * _view_velocity) * dt
-	view_depth += _view_velocity * dt
-	if view_depth <= 0.0:
-		view_depth = 0.0
-		_view_velocity = 0.0
-	elif view_depth >= 1.0:
-		view_depth = 1.0
-		_view_velocity = 0.0
-
-
 ## Mouse input. Motion is consumed while the act owns the mouse so the two axes can use separate
 ## scales; scoring still uses the raw depth. Pose 1 also keeps its free-look offsets.
 func _input(event: InputEvent) -> void:
@@ -457,18 +468,19 @@ func _input(event: InputEvent) -> void:
 		return
 	var headset := _headset_view()
 	if state in [State.ACTIVE, State.CLIMAX]:
-		if pose_id == CATALOG.MISSIONARY:
-			if not headset:
-				_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025 * ACT_LOOK_YAW_SCALE, -1.2, 1.2)
-				_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025 * ACT_LOOK_PITCH_SCALE, -1.0, 1.0)
-		elif not headset:
-			_act_look(motion)
+		if not _camera_free:
+			if pose_id == CATALOG.MISSIONARY:
+				if not headset:
+					_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025 * ACT_LOOK_YAW_SCALE, -1.2, 1.2)
+					_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025 * ACT_LOOK_PITCH_SCALE, -1.0, 1.0)
+			elif not headset:
+				_act_look(motion)
 		if state == State.ACTIVE and _pump_tracker != null:
 			var amount: float = PUMP.mouse_to_depth(motion.relative.y, _pump_pixels_per_full, pump_up)
 			_pump_move(amount, _now_s())
 		get_viewport().set_input_as_handled()
 		return
-	if pose_id != CATALOG.MISSIONARY or headset:
+	if _camera_free or pose_id != CATALOG.MISSIONARY or headset:
 		return
 	_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025, -1.2, 1.2)
 	_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025, -1.0, 1.0)
@@ -500,6 +512,32 @@ func _act_look(motion: InputEventMouseMotion) -> void:
 	_clamp_look()
 
 
+## Q is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does nothing,
+## and the trigger latches until release so a held key cannot fire twice.
+func _hold_q_tick(delta: float) -> void:
+	if state not in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
+		_q_hold = 0.0
+		_q_hold_fired = false
+		return
+	var held := Input.is_action_pressed("stand_up")
+	if not held:
+		_q_hold = 0.0
+		_q_hold_fired = false
+		_q_hold_ready = true
+		return
+	if not _q_hold_ready:
+		return
+	_q_hold += delta
+	if _q_hold < HOLD_Q_SECONDS or _q_hold_fired:
+		return
+	_q_hold_fired = true
+	_log("hold Q state=%d" % state)
+	if state == State.AFTERGLOW:
+		end_afterglow()
+	else:
+		cancel()
+
+
 func _physics_process(delta: float) -> void:
 	if state == State.IDLE:
 		return
@@ -510,6 +548,7 @@ func _physics_process(delta: float) -> void:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 	_keep_nav()
+	_hold_q_tick(delta)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.WITHDRAW]:
 		_act_presentation(delta)
 	if state == State.ACTIVE:
@@ -537,6 +576,8 @@ func _physics_process(delta: float) -> void:
 	_drive_glance(delta)
 	_suppress_auto_cuddle()
 	_clamp_look()
+	_camera_move_tick(delta)
+	_thrust = move_toward(_thrust, 0.0, delta / THRUST_RETURN_S)
 	apply_camera_motion()
 	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
 		_check_clock += delta
@@ -709,8 +750,10 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
 	if state != State.IDLE and not _preferences.is_empty():
-		text += " | pump depth=%.2f speed=%.2f zone=%s shape=%s up=%s | %s" % [
-			depth, _stroke_speed, _speed_zone, _stroke_shape, str(pump_up),
+		text += " | pump depth=%.2f speed=%.2f peak=%.2f strength=%.2f zone=%s shape=%s up=%s | %s" % [
+			depth, float(_last_stroke.get("speed", 0.0)), float(_last_stroke.get("peak_speed", 0.0)),
+			float(_last_stroke.get("strength", 0.0)), str(_last_stroke.get("speed_zone", "ok")),
+			str(_last_stroke.get("shape", "mixed")), str(pump_up),
 			PREFERENCES.describe(_preferences).replace("\n", "; ")]
 	return text
 
@@ -1134,8 +1177,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_bob_speed_scale = 1.0
 	_lean = 0.0
 	_lean_velocity = 0.0
-	view_depth = 0.0
-	_view_velocity = 0.0
 	_back = 0.0
 	_back_target = 0.0
 	var identity: Variant = pony.get("identity")
@@ -1157,6 +1198,9 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_started_at = Time.get_unix_time_from_system()
 	satisfaction = 0
 	stamina = STAMINA_MAX
+	_q_hold = 0.0
+	_q_hold_ready = false
+	_q_hold_fired = false
 	_reset_pump_state()
 	_schedule_utterances()
 	_prepare_vocal()
@@ -1206,7 +1250,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	_pose1_free_yaw = 0.0
 	_pose1_free_pitch = 0.0
-	_pose1_debug_rot = Basis.IDENTITY
 	_pose1_basis_logged = false
 	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
 	if pose == CATALOG.MISSIONARY:
@@ -1214,6 +1257,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		_make_pose1_view()
 	_capture_look()
 	_lock_player()
+	_begin_camera_mode()
 	_hide_anon_avatar_for_pose1()
 	_start_audio()
 	MEMORY.start_event(main.game, _id, _display_name, _event_id)
@@ -1512,6 +1556,8 @@ func _build_pose() -> void:
 
 
 func _free_pose() -> void:
+	_release_pose1_camera_lock()
+	_remove_anon_thrust()
 	if is_instance_valid(_pose):
 		_pose.queue_free()
 	_pose = null
@@ -1529,11 +1575,9 @@ func _now_s() -> float:
 func _reset_pump_state() -> void:
 	depth = 0.0
 	_satisfaction_frac = 0.0
-	_speed_zone = "ok"
 	_speed_zone_previous = "ok"
-	_stroke_speed = 0.0
-	_stroke_shape = ""
 	_speed_zone_strokes = 0
+	_last_stroke.clear()
 	_last_reaction.clear()
 	_depth_out_seconds = 0.0
 	_utterance_points.clear()
@@ -1547,8 +1591,6 @@ func _reset_pump_state() -> void:
 	_vocal_cooldown = 0.0
 	_bored_seconds = 0.0
 	_speed_travel = 0.0
-	view_depth = 0.0
-	_view_velocity = 0.0
 	if _pump_tracker == null:
 		_pump_tracker = PUMP.new()
 	_pump_tracker.reset()
@@ -1608,9 +1650,10 @@ func _on_stroke(event: Dictionary) -> void:
 	if state != State.ACTIVE:
 		return
 	var direction := int(event.get("direction", 0))
-	var travel := float(event.get("travel", 0.0))
 	var speed := float(event.get("speed", 0.0))
 	var shape := PREFERENCES.MIXED
+	var zone := "ok"
+	var multiplier := 1.0
 	if direction > 0:
 		var shape_cfg: Dictionary = _preferences.get("shape", {})
 		if bool(shape_cfg.get("enabled", false)):
@@ -1620,37 +1663,54 @@ func _on_stroke(event: Dictionary) -> void:
 				float(shape_cfg.get("min_travel", 0.30)),
 				float(shape_cfg.get("max_rmse", 0.18)))
 			shape = str(classified.get("shape", PREFERENCES.MIXED))
-		_stroke_shape = shape
-		_stroke_speed = speed
-		_speed_zone = PREFERENCES.speed_zone(_preferences, speed)
-	var multiplier := 1.0
+		zone = PREFERENCES.speed_zone(_preferences, speed)
+		multiplier = PREFERENCES.multiplier(_preferences, zone, shape)
+	var base_gain := float(event.get("base_gain", 0.0))
+	var result := {
+		"direction": direction,
+		"start_depth": float(event.get("start_depth", 0.0)),
+		"end_depth": float(event.get("end_depth", 0.0)),
+		"travel": float(event.get("travel", 0.0)),
+		"duration": float(event.get("duration", 0.0)),
+		"speed": speed,
+		"peak_speed": float(event.get("peak_speed", speed)),
+		"base_gain": base_gain,
+		"scaled_gain": base_gain * multiplier,
+		"pump": bool(event.get("pump", false)),
+		"shape": shape,
+		"speed_zone": zone,
+		"multiplier": multiplier,
+		"strength": float(event.get("strength", 0.0)),
+	}
 	if direction > 0:
-		multiplier = PREFERENCES.multiplier(_preferences, _speed_zone, shape)
-	if bool(event.get("pump", false)):
-		_on_pump()
-	_add_satisfaction(float(event.get("base_gain", 0.0)) * multiplier)
-	if direction > 0:
-		_note_speed(_speed_zone)
+		_last_stroke = result
+		_note_speed(zone)
 		_note_shape(shape)
-	_log("stroke dir=%d travel=%.2f speed=%.2f shape=%s zone=%s gain=%.2f satisfaction=%d" % [
-		direction, travel, speed, shape, _speed_zone,
-		float(event.get("base_gain", 0.0)) * multiplier, satisfaction])
+	if result.pump:
+		_on_pump(result)
+	_add_satisfaction(float(result.scaled_gain))
+	_log("stroke dir=%d travel=%.2f speed=%.2f peak=%.2f shape=%s zone=%s strength=%.2f gain=%.2f satisfaction=%d" % [
+		direction, float(result.travel), speed, float(result.peak_speed), shape, zone,
+		float(result.strength), float(result.scaled_gain), satisfaction])
 	if state == State.ACTIVE and satisfaction >= _climax_at:
 		_climax()
 
 
-func _on_pump() -> void:
+func _on_pump(result: Dictionary) -> void:
+	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	stamina = maxi(0, stamina - 1)
 	if _pump_bobs:
-		_bob_speed_scale = _bob_response_scale(_stroke_speed)
+		_bob_speed_scale = _bob_response_scale(float(result.get("speed", 0.0)))
 		_bob_velocity += BOB_PUMP_IMPULSE * _bob_speed_scale
 		_lean_velocity += BOB_FORWARD_IMPULSE * _bob_speed_scale
-	_wing_flick = 0.18
+	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, strength)
 	if _winged and not _wing_hold:
 		var excitement: Variant = pony.get("excitement")
 		if excitement != null and excitement.has_method("flutter"):
 			excitement.call("flutter")
-	_pump_jiggle()
+	_pump_jiggle(strength)
+	if pose_id == CATALOG.HORSE:
+		_thrust = maxf(_thrust, strength)
 	var now := _now_s()
 	_pump_times.append(now)
 	while not _pump_times.is_empty() and now - float(_pump_times[0]) > 1.0:
@@ -1658,7 +1718,8 @@ func _on_pump() -> void:
 	_play_kiss()
 	_play_vocal()
 	if satisfaction == 0 or satisfaction % 10 == 0:
-		_log("pump satisfaction=%d stamina=%d rate=%.1f/s" % [satisfaction, stamina, _pumps_per_second()])
+		_log("pump satisfaction=%d stamina=%d rate=%.1f/s strength=%.2f" % [
+			satisfaction, stamina, _pumps_per_second(), strength])
 
 
 ## Slow strokes get a slower spring. Scaling stiffness by s², damping by s and the
@@ -1849,7 +1910,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 		_log("utterance missing prompt kind=%s" % kind)
 		return false
 	var values := {
-		"state": UTTERANCE.state_line(pose_id, satisfaction, _climax_at, depth, _stroke_speed, _speed_zone, _stroke_shape, _act_seconds),
+		"state": UTTERANCE.state_line(
+			pose_id, satisfaction, _climax_at, depth,
+			float(_last_stroke.get("speed", 0.0)), str(_last_stroke.get("speed_zone", "ok")),
+			str(_last_stroke.get("shape", "mixed")), _act_seconds),
 		"preferences": PREFERENCES.describe(_preferences),
 		"recent": _recent_lines(),
 	}
@@ -1926,7 +1990,7 @@ func _recent_lines() -> String:
 	return " | ".join(recent)
 
 
-func _pump_jiggle() -> void:
+func _pump_jiggle(strength: float) -> void:
 	if not is_instance_valid(pony):
 		return
 	if not is_instance_valid(_flank):
@@ -1963,12 +2027,12 @@ func _pump_jiggle() -> void:
 	var decal := mark as Decal
 	decal.global_transform = Transform3D(Basis(across, normal, across.cross(normal)).orthonormalized(), at + normal * 0.015)
 	decal.visible = false
-	_flank.call("_start_jiggle", 0, JIGGLE_STRENGTH)
-	# Only one shader center now covers both flanks, so double the wobble amount. `_start_jiggle`
-	# clamps strength to 1.0, so scale its resolved amount directly instead.
+	var jiggle := clampf(strength, JIGGLE_MIN_STRENGTH, 1.0)
+	_flank.call("_start_jiggle", 0, jiggle)
+	# One shader center now covers both flanks, so scale the resolved amount up.
 	var amount: Variant = _flank.get("_jiggle_amount")
 	if amount != null:
-		_flank.set("_jiggle_amount", float(amount) * 3.5)
+		_flank.set("_jiggle_amount", float(amount) * JIGGLE_RUMP_SCALE)
 	if not _jiggle_logged:
 		_jiggle_logged = true
 		var targets: Variant = _flank.get("_jiggle_targets")
@@ -2406,6 +2470,8 @@ func _free_pose1_view() -> void:
 ## (`listen_point`) moves as she aims/nuzzles and could end up behind the camera, which made the
 ## camera look backwards at her rump. This point only depends on her body transform.
 func _pose1_look_target() -> Vector3:
+	if _pose1_look_point.is_finite():
+		return _pose1_look_point
 	if not is_instance_valid(pony):
 		return Vector3.INF
 	var forward: Vector3 = -pony.global_basis.z.normalized()
@@ -2483,6 +2549,197 @@ func _restore_eye_override() -> void:
 		body.call("_set_eye_y", _saved_stand_eye)
 
 
+## Set up the pose's fixed shot before the first camera frame.
+func _begin_camera_mode() -> void:
+	_camera_free = CAMERA_FREE_DEFAULT
+	_camera_offset = Vector3.ZERO
+	_camera_base_basis = Basis.IDENTITY
+	_camera_basis_ready = false
+	_pose1_look_point = Vector3.INF
+	_pose2_base_look = Vector3.INF
+	_pose2_base_saved = false
+	if _player_pony or _headset_view():
+		_camera_free = false
+		return
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	_camera = main.camera()
+	if pose_id == CATALOG.MISSIONARY:
+		_apply_pose1_camera_lock()
+	elif pose_id == CATALOG.HORSE and is_instance_valid(_camera):
+		_pose2_base_local = _camera.position
+		_pose2_base_saved = true
+		_pose2_aim_until = Time.get_ticks_msec() + 1000
+		_pose2_base_look = _pose2_shoulder_point()
+		_apply_pose2_base_look()
+		_install_anon_thrust()
+
+
+## F debug toggle: free shot versus the previous mouse-look camera.
+func toggle_camera_mode() -> void:
+	if state == State.IDLE or _player_pony or _headset_view():
+		return
+	_camera_free = not _camera_free
+	_camera_offset = Vector3.ZERO
+	if pose_id == CATALOG.MISSIONARY:
+		_pose1_free_yaw = 0.0
+		_pose1_free_pitch = 0.0
+		if is_instance_valid(_pose1_view):
+			_pose1_look_point = _snout()
+			_pose1_view_basis = _pose1_aim_basis(_pose1_view.global_position)
+			_camera_base_basis = Basis(Vector3.UP, _pose1_view_basis.get_euler().y)
+			_camera_basis_ready = true
+		if _camera_free:
+			_apply_pose1_camera_lock()
+		else:
+			_release_pose1_camera_lock()
+	elif pose_id == CATALOG.HORSE and _camera_free and _pose2_base_saved:
+		_pose2_aim_until = Time.get_ticks_msec() + 400
+		_pose2_base_look = _pose2_shoulder_point()
+		_apply_pose2_base_look()
+	_log("camera mode=%s pose=%s" % ["free" if _camera_free else "legacy", pose_id])
+
+
+## WASD moves the fixed shot. It never rotates the camera and does not move Anon.
+func _camera_move_tick(delta: float) -> void:
+	if not _camera_free or state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	if _player_pony or _headset_view() or get_tree().paused:
+		return
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if input.length_squared() < 0.0001:
+		return
+	if not _camera_basis_ready:
+		return
+	_camera_offset += (_camera_base_basis.x * input.x + _camera_base_basis.z * input.y) \
+		* CAMERA_MOVE_SPEED * delta
+	var side := _camera_offset.dot(_camera_base_basis.x)
+	var dolly := _camera_offset.dot(_camera_base_basis.z)
+	side = clampf(side, -CAMERA_MOVE_SIDE, CAMERA_MOVE_SIDE)
+	dolly = clampf(dolly, -CAMERA_MOVE_DOLLY, CAMERA_MOVE_DOLLY)
+	_camera_offset = _camera_base_basis.x * side + _camera_base_basis.z * dolly
+
+
+func _apply_pose1_camera_lock() -> void:
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Variant = main.player
+	if not _controls_locked_by_camera:
+		_controls_locked_saved = bool(body.get("controls_locked"))
+		_controls_locked_by_camera = true
+	body.set("controls_locked", true)
+
+
+func _release_pose1_camera_lock() -> void:
+	if not _controls_locked_by_camera:
+		return
+	if is_instance_valid(main) and is_instance_valid(main.player):
+		main.player.set("controls_locked", _controls_locked_saved)
+	_controls_locked_by_camera = false
+	_controls_locked_saved = false
+
+
+func _pose2_shoulder_point() -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var scale := 1.0
+	if pony.get("body_scale") != null:
+		scale = float(pony.get("body_scale"))
+	var sk: Variant = pony.get("skeleton")
+	if sk is Skeleton3D:
+		var skeleton := sk as Skeleton3D
+		var points: Array[Vector3] = []
+		for bone_name: String in ["pony_spine3", "pony_neck1", "pony_upperArm_L", "pony_upperArm_R"]:
+			var bone := skeleton.find_bone(bone_name)
+			if bone >= 0:
+				points.append(skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin)
+		if points.size() >= 2:
+			var sum := Vector3.ZERO
+			for point: Vector3 in points:
+				sum += point
+			return sum / float(points.size())
+	return pony.global_position + Vector3.UP * (POSE2_SHOULDER_HEIGHT_M * scale)
+
+
+## Point the player's own camera at the pose-2 shoulders. Free mode uses this as the fixed
+## shot; legacy mode starts here and then mouse-look takes over.
+func _apply_pose2_base_look() -> void:
+	if _player_pony or _headset_view():
+		return
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Node = main.player
+	var view: Camera3D = main.camera()
+	if not is_instance_valid(view):
+		return
+	var target := _pose2_base_look
+	if not target.is_finite():
+		target = _pose2_shoulder_point()
+	if not target.is_finite():
+		return
+	var direction := target - view.global_position
+	var flat := Vector2(direction.x, direction.z).length()
+	if flat < 0.001:
+		return
+	var yaw := atan2(-direction.x, -direction.z)
+	var pitch := clampf(atan2(direction.y, flat), -1.0, 1.0)
+	body.rotation.y = yaw
+	if body.get("_pitch") != null:
+		body.set("_pitch", pitch)
+	if body.get("form_driver") == null:
+		view.rotation.x = pitch
+	_look_yaw = yaw
+	_look_pitch = pitch
+	_camera_base_basis = Basis(Vector3.UP, yaw)
+	_camera_basis_ready = true
+	_pose2_base_look = target
+	if pose_id == CATALOG.HORSE and _has_facing:
+		_facing_basis = Basis(Vector3.UP, yaw)
+
+
+func _install_anon_thrust() -> void:
+	_remove_anon_thrust()
+	if pose_id != CATALOG.HORSE or _player_pony or not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
+	if not is_instance_valid(avatar):
+		return
+	var original: Variant = avatar.get("desktop_pose_driver")
+	if not is_instance_valid(original):
+		return
+	var driver: Node3D = ANON_THRUST.new()
+	driver.name = "UnfplapAnonThrust"
+	driver.set("original", original)
+	driver.set("runtime", self)
+	main.player.add_child(driver)
+	avatar.set("desktop_pose_driver", driver)
+	_anon_thrust_driver = driver
+	_anon_thrust_original = original
+	_anon_thrust_avatar = avatar
+
+
+func _remove_anon_thrust() -> void:
+	if is_instance_valid(_anon_thrust_avatar) and is_instance_valid(_anon_thrust_original) \
+			and _anon_thrust_avatar.get("desktop_pose_driver") == _anon_thrust_driver:
+		_anon_thrust_avatar.set("desktop_pose_driver", _anon_thrust_original)
+	if is_instance_valid(_anon_thrust_driver):
+		_anon_thrust_driver.queue_free()
+	_anon_thrust_driver = null
+	_anon_thrust_original = null
+	_anon_thrust_avatar = null
+	_thrust = 0.0
+
+
+## Called after anon_body has set the hip target, through the desktop pose-driver wrapper.
+func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
+	if pose_id != CATALOG.HORSE or _thrust <= 0.0001 or not is_instance_valid(hip):
+		return
+	var scale := 1.0
+	if is_instance_valid(pony) and pony.get("body_scale") != null:
+		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
+	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _thrust)
+
+
 func apply_camera_motion() -> void:
 	if state == State.IDLE:
 		return
@@ -2508,53 +2765,33 @@ func apply_camera_motion() -> void:
 			_make_pose1_view()
 		if not is_instance_valid(_pose1_view):
 			return
-		_pose1_view.global_position = _pose1_camera + Vector3.UP * (_bob * POSE1_BOB_SCALE)
+		_pose1_view.global_position = _pose1_camera + _camera_offset + Vector3.UP * (_bob * POSE1_BOB_SCALE)
 		_pose1_view.global_position -= _pose1_view_basis.z * (_lean - _back)
-		# Track the face for the first second (while the pose blends in), then freeze the
-		# orientation so the camera is not locked to her snout while she nuzzles.
+		# Freeze the snout target once the pose has blended in. In free mode mouse motion
+		# never touches these offsets; legacy mode still uses _pose1_free_yaw/pitch.
 		if Time.get_ticks_msec() < _pose1_aim_until:
+			_pose1_look_point = _snout()
 			_pose1_view_basis = _pose1_aim_basis(_pose1_view.global_position)
+		_camera_base_basis = Basis(Vector3.UP, _pose1_view_basis.get_euler().y)
+		_camera_basis_ready = true
 		var free := Basis.from_euler(Vector3(_pose1_free_pitch, _pose1_free_yaw, 0.0))
-		_pose1_view.global_basis = _pose1_debug_rot * _pose1_camera_tweak() * (_pose1_view_basis * free)
+		_pose1_view.global_basis = _pose1_camera_tweak() * (_pose1_view_basis * free)
 		if not _pose1_basis_logged:
 			_pose1_basis_logged = true
 			_log("pose1 camera base_euler=%s tweak_euler=%s applied_basis=%s" % [
 				str(_pose1_view_basis.get_euler()), str(_pose1_camera_tweak().get_euler()),
 				str(_pose1_view.global_basis)])
 		return
+	if _pose2_base_saved and Time.get_ticks_msec() < _pose2_aim_until:
+		_pose2_base_look = _pose2_shoulder_point()
+		_apply_pose2_base_look()
 	_set_camera_offsets(_bob, _lean - _back)
 
 
-## Baseline correction copied EXACTLY from the last logged debug `total_basis` (the user's final
-## pressed state), not reconstructed from Euler angles. Change or clear this if re-tuned.
+## Optional manual pose-1 camera correction. Identity unless a future tuning pass needs a fixed
+## basis offset.
 func _pose1_camera_tweak() -> Basis:
 	return Basis.IDENTITY
-
-
-## DEBUG: adjust the pose-1 head roll around her forward axis (Alt+1/2) and log it.
-func debug_roll_pose1_head(direction: float) -> void:
-	if pose_id != CATALOG.MISSIONARY or state == State.IDLE:
-		_log("pose1 head roll ignored pose=%s state=%d" % [pose_id, state])
-		return
-	_pose1_head_roll += direction * deg_to_rad(5.0)
-	if is_instance_valid(_pose):
-		_pose.set("head_roll", _pose1_head_roll)
-	_log("pose1 head roll %.1f°" % rad_to_deg(_pose1_head_roll))
-
-
-## DEBUG: rotate the pose-1 camera in world axes so the correct roll/orientation can be found
-## interactively (Ctrl+1..6 in input.gd). Logs the axis, step and accumulated rotation.
-func debug_rotate_pose1(axis_index: int) -> void:
-	if pose_id != CATALOG.MISSIONARY or state == State.IDLE:
-		_log("pose1 rotate ignored pose=%s state=%d" % [pose_id, state])
-		return
-	var axes: Array[Vector3] = [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.BACK, Vector3.FORWARD]
-	var names: Array[String] = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
-	var index := clampi(axis_index, 0, axes.size() - 1)
-	var step := deg_to_rad(5.0)
-	_pose1_debug_rot = Basis(axes[index], step) * _pose1_debug_rot
-	_log("pose1 camera rotate %s 5° total_euler=%s total_basis=%s base_basis=%s" % [
-		names[index], str(_pose1_debug_rot.get_euler()), str(_pose1_debug_rot), str(_pose1_view_basis)])
 
 
 func _player_eye_height() -> float:
@@ -2571,8 +2808,17 @@ func _player_eye_height() -> float:
 func _set_camera_offsets(vertical: float, forward: float) -> void:
 	if not is_instance_valid(_camera):
 		return
-	var df := forward - _applied_lean
 	var seated := is_instance_valid(main) and is_instance_valid(main.player) and main.player.get("seat") != null
+	if _pose2_base_saved and not _camera.top_level and not seated:
+		var local := _camera_base_basis.inverse() * (_camera_offset if _camera_free else Vector3.ZERO)
+		_camera.position = Vector3(
+			_pose2_base_local.x + local.x,
+			_player_eye_height() + vertical,
+			_pose2_base_local.z + local.z - forward)
+		_applied_bob = vertical
+		_applied_lean = forward
+		return
+	var df := forward - _applied_lean
 	if _camera.top_level or seated:
 		var dy := vertical - _applied_bob
 		if absf(dy) > 0.00001:
@@ -2590,9 +2836,11 @@ func _set_camera_offsets(vertical: float, forward: float) -> void:
 func _capture_look() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
-	_look_yaw = float(main.player.rotation.y)
+	_restore_yaw = float(main.player.rotation.y)
 	var pitch: Variant = main.player.get("_pitch")
-	_look_pitch = float(pitch) if pitch != null else 0.0
+	_restore_pitch = float(pitch) if pitch != null else 0.0
+	_look_yaw = _restore_yaw
+	_look_pitch = _restore_pitch
 
 
 ## Restore the player's yaw/pitch captured at act start. Free look and the pose-2 look cone can
@@ -2601,14 +2849,18 @@ func _capture_look() -> void:
 func _restore_look() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
-	var yaw := _look_yaw
+	var yaw := _restore_yaw
 	# Pose 1 restores the exact start snapshot; use its rig yaw rather than the later capture.
 	if pose_id == CATALOG.MISSIONARY and _pose1_start_saved:
 		yaw = _pose1_start_player_transform.basis.get_euler().y
 	main.player.rotation.y = yaw
 	if main.player.get("_pitch") != null:
-		main.player.set("_pitch", _look_pitch)
-	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _look_yaw, _look_pitch])
+		main.player.set("_pitch", _restore_pitch)
+	if main.player.get("form_driver") == null:
+		var view: Camera3D = main.camera()
+		if is_instance_valid(view):
+			view.rotation.x = _restore_pitch
+	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
 
 
 ## Pose 2 must keep her rump toward Anon. The navigator tries to face a conversation partner
@@ -2720,11 +2972,15 @@ func _clamp_look() -> void:
 
 
 func _restore_camera() -> void:
+	_release_pose1_camera_lock()
+	_remove_anon_thrust()
 	_restore_eye_override()
 	_restore_anon_avatar()
 	_free_pose1_view()
 	if is_instance_valid(_camera):
-		if _camera.top_level:
+		if _pose2_base_saved:
+			_camera.position = Vector3(_pose2_base_local.x, _player_eye_height(), _pose2_base_local.z)
+		elif _camera.top_level:
 			if absf(_applied_bob) > 0.00001:
 				_camera.global_position -= Vector3.UP * _applied_bob
 			if absf(_applied_lean) > 0.00001:
@@ -2742,6 +2998,11 @@ func _restore_camera() -> void:
 	_back = 0.0
 	_back_target = 0.0
 	_pose1_camera = Vector3.INF
+	_camera_offset = Vector3.ZERO
+	_camera_base_basis = Basis.IDENTITY
+	_camera_basis_ready = false
+	_pose2_base_saved = false
+	_thrust = 0.0
 	_camera = null
 
 

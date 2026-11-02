@@ -13,6 +13,12 @@ const STROKE_TIMEOUT_S := 0.18
 const PUMP_MIN_TRAVEL := 0.25
 const MIN_MOVE := 0.0000001
 const MAX_SAMPLES := 240
+## Physical thrust strength: travel matters most, peak speed gives a fast thrust more impact.
+## The 0.35 floor keeps a slow deliberate stroke visible; the 1.5 ceiling stops flick input
+## from saturating every value.
+const STRENGTH_SPEED_REF := 1.0
+const STRENGTH_SPEED_MIN := 0.35
+const STRENGTH_SPEED_MAX := 1.5
 
 var depth := 0.0
 
@@ -115,16 +121,28 @@ func _close(now: float) -> Dictionary:
 	var samples := PackedVector2Array(_samples)
 	if samples.is_empty() or samples[samples.size() - 1].x < now:
 		samples.append(Vector2(now, depth))
+	var peak_speed := 0.0
+	for index: int in range(1, samples.size()):
+		var dt := samples[index].x - samples[index - 1].x
+		if dt <= 0.000001:
+			continue
+		peak_speed = maxf(peak_speed, absf(samples[index].y - samples[index - 1].y) / dt)
+	var speed := travel / duration
+	if peak_speed <= 0.0:
+		peak_speed = speed
+	var speed_factor := clampf(peak_speed / STRENGTH_SPEED_REF, STRENGTH_SPEED_MIN, STRENGTH_SPEED_MAX)
 	var event := {
 		"direction": direction,
 		"start_depth": _start_depth,
 		"end_depth": depth,
 		"travel": travel,
 		"duration": duration,
-		"speed": travel / duration,
+		"speed": speed,
+		"peak_speed": peak_speed,
 		"samples": samples,
 		"base_gain": _base_gain,
 		"pump": direction > 0 and travel >= PUMP_MIN_TRAVEL,
+		"strength": clampf(travel * speed_factor, 0.0, 1.0),
 	}
 	_direction = 0
 	_samples.clear()

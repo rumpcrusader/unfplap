@@ -40,7 +40,7 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 - **Disabled by default.** `pump.bobs` is `false`; both pump and climax camera bobs are skipped.
   Set `"bobs": true` in the top-level `pump` block to enable the springs below.
 - When enabled, each pump adds `BOB_PUMP_IMPULSE = 2.30 / 3` (≈`0.767`, doubled) to vertical
-  velocity and `BOB_FORWARD_IMPULSE = 1.80 / 6` (`0.30`) to forward velocity.
+  velocity and `BOB_FORWARD_IMPULSE = 1.80 / 4` (`0.45`, 50% more travel) to forward velocity.
 - Vertical spring: stiffness `105`, damping `13`, limit `±0.40`.
 - Forward spring: stiffness `100`, damping `12`, limit `±0.32`.
 - Pose 1 and pose 2 use the same vertical bob and camera rock.

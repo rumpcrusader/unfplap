@@ -13,7 +13,7 @@ const FILE := "settings.json"
 ## Experimental switches. Keep this as the single list; runtime reads it once per act.
 const FEATURE_DEFAULTS := {
 	"settings_tab": true,
-	"lean_return": true,
+	"lean_return": false,
 	"camera_inertia": true,
 	"camera_rock": true,
 	"body_sway": true,

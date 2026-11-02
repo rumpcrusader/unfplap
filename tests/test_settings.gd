@@ -90,8 +90,8 @@ func run() -> void:
 		"settings tab feature on")
 	check(bool((defaults.get("features", {}) as Dictionary).get("cuddle_override", false)),
 		"cuddle override feature on")
-	check(bool((defaults.get("features", {}) as Dictionary).get("lean_return", false)),
-		"lean return feature on")
+	check(not bool((defaults.get("features", {}) as Dictionary).get("lean_return", true)),
+		"lean return feature off by default")
 	check(int((defaults.get("default", {}) as Dictionary).get("max_utterances", 99)) == 3,
 		"act utterances capped at three")
 	check(not bool((defaults.get("features", {}) as Dictionary).get("act_text_only_ponese", true)),

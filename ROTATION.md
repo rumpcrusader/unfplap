@@ -79,9 +79,13 @@ these values here if a future pose needs that effect.
 - Stable aim point: `root + forward * 0.20 + up * 0.10`; not the live nose.
 - The aim basis follows the point for the first second, then freezes.
 - Mouse motion adds yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
-  `ACT_LOOK_PITCH_SCALE = 0.20`; motion is consumed while the act owns the mouse.
-- There is no artificial vertical bob. Camera forward/back comes from `view_depth`: `lean =
-  (view_depth - 0.10) * 0.09`.
+  `ACT_LOOK_PITCH_SCALE = 0.10`; motion is consumed while the act owns the mouse.
+- Camera bob is pump-driven: each pump adds to the vertical and forward spring velocities.
+- Pose 1 uses `_bob * POSE1_BOB_SCALE` (`0.35`); pose 2 uses `_bob` directly.
+- Slow pumps scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
+  `s = clamp(speed / BOB_SPEED_REFERENCE, 0.35, 1.0)`. At `>= 0.80` depth/s the bob is unchanged.
+- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 6` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.
+- `view_depth` is HUD-only and does not move the camera.
 - Restore order is load-bearing:
   1. player transform and yaw,
   2. pony transform and posture,

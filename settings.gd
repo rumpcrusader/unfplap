@@ -178,15 +178,18 @@ static func pump_controls() -> Dictionary:
 	var block: Variant = data.get("pump", {})
 	var orientation := "up"
 	var pixels := 800.0
+	var bobs := false
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
 		pixels = float((block as Dictionary).get("pixels_per_full", 800.0))
+		bobs = bool((block as Dictionary).get("bobs", false))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
 		"orientation": orientation,
 		"up": orientation == "up",
 		"pixels_per_full": clampf(pixels, 80.0, 2000.0),
+		"bobs": bobs,
 	}
 
 
@@ -256,6 +259,7 @@ static func _defaults() -> Dictionary:
 		"pump": {
 			"orientation": "up",
 			"pixels_per_full": 800.0,
+			"bobs": false,
 		},
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),

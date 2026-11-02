@@ -1,6 +1,6 @@
 # Pump preferences contract (`unfplap` 0.0.2)
 
-Brittle scoring rules for the mouse pump, travel, preferences and reactions. Update with
+Brittle scoring rules for the mouse pump, camera bob, preferences and reactions. Update with
 `preferences.gd`/`pump.gd` whenever the math changes.
 
 ## Input, depth and travel
@@ -13,10 +13,10 @@ Brittle scoring rules for the mouse pump, travel, preferences and reactions. Upd
   sensitivity.
 - Raw depth is clamped `0…1`; overshoot is discarded.
 - `view_depth` is a critically damped spring toward raw depth:
-  `PUMP_TRAVEL_OMEGA = 30`, damping `60`. The HUD knob and camera use it; scoring/strokes use raw
-  depth. It brakes sharply before changing direction.
+  `PUMP_TRAVEL_OMEGA = 30`, damping `60`. The HUD knob uses it; scoring/strokes use raw depth.
+  It brakes sharply before changing direction.
 - During `ACTIVE`, mouse look is `ACT_LOOK_YAW_SCALE = 0.10` laterally and
-  `ACT_LOOK_PITCH_SCALE = 0.20` vertically, with motion consumed.
+  `ACT_LOOK_PITCH_SCALE = 0.10` vertically, with motion consumed.
 
 ## Strokes and scoring
 
@@ -27,7 +27,23 @@ Brittle scoring rules for the mouse pump, travel, preferences and reactions. Upd
 - A full `0→1→0` at `steady` is exactly `2.0`.
 - Outward strokes score base gain only; speed/shape multipliers apply to inward strokes.
 - Final multiplier is `clamp(speed_multiplier × shape_multiplier, 0.40, 1.80)`.
-- Camera travel is `(view_depth − 0.10) × 0.09`: 10% behind at 0, 90% forward at 1.
+
+## Camera bob
+
+- **Disabled by default.** `pump.bobs` is `false`; both pump and climax camera bobs are skipped.
+  Set `"bobs": true` in the top-level `pump` block to enable the springs below.
+- When enabled, each pump adds `BOB_PUMP_IMPULSE = 2.30 / 6` (≈`0.383`) to vertical velocity and
+  `BOB_FORWARD_IMPULSE = 1.80 / 6` (`0.30`) to forward velocity.
+- Vertical spring: stiffness `105`, damping `13`, limit `±0.40`.
+- Forward spring: stiffness `100`, damping `12`, limit `±0.32`.
+- Pose 1 scales vertical bob by `POSE1_BOB_SCALE = 0.35`; pose 2 uses the full value.
+- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 6` (≈`0.0042`) vertically and
+  `BOB_CLIMAX_FORWARD = 0.12 / 6` (`0.02`).
+- **Pump-speed response.** At or above `BOB_SPEED_REFERENCE = 0.80` depth/s the bob uses the
+  full-speed spring. Below it, the response scale is `speed / 0.80`, clamped to
+  `BOB_SPEED_SCALE_MIN = 0.35`. Stiffness scales by `s²`, damping and impulse by `s`, so slow
+  strokes take longer while keeping roughly the same peak; fast strokes are unchanged.
+- `view_depth` is HUD-only; it does not drive the camera.
 
 ## Depth profiles
 

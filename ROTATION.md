@@ -79,7 +79,7 @@ these values here if a future pose needs that effect.
 - Stable aim point: `root + forward * 0.20 + up * 0.10`; not the live nose.
 - The aim basis follows the point for the first second, then freezes.
 - Mouse motion adds yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
-  `ACT_LOOK_PITCH_SCALE = 0.25`; motion is consumed while the act owns the mouse.
+  `ACT_LOOK_PITCH_SCALE = 0.20`; motion is consumed while the act owns the mouse.
 - There is no artificial vertical bob. Camera forward/back comes from `view_depth`: `lean =
   (view_depth - 0.10) * 0.09`.
 - Restore order is load-bearing:

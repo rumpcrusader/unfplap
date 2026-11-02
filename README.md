@@ -1,12 +1,23 @@
 # Unfplap
 
-Adult intimacy mod for **Home: Equestria** (`0.1.1-maredev`). It adds a consensual,
-relationship-gated intimacy scene for adult ponies, with two poses, a mouse-driven pump
-minigame, per-character preferences, reactive dialogue, and aftercare.
+Do your mares.
 
-> **Adults only.** Every participant is an adult. Encounters require Marefriend/Coltfriend or
-> higher. No pregnancy, heat, estrus, or conception content. There is no content warning or
-> toggle.
+## how
+
+Copy `.pck` from releases into your mod folder.
+
+Requires Home: Equestria `0.1.1-maredev`.
+
+Desktop only for now
+
+## Controls
+
+| Input          | Action                                                |
+| -------------- | ----------------------------------------------------- |
+| `L`            | Start an available encounter                          |
+| Mouse ↕        | Pump during the act                                   |
+| `Q`            | Stop before climax / end afterglow                    |
+| `Ctrl+Shift+D` | Toggle DEBUG LOGS (also gates the satisfaction meter) |
 
 ## Features
 
@@ -15,7 +26,7 @@ minigame, per-character preferences, reactive dialogue, and aftercare.
   no one else is present.
 - **Two poses** — `missionary` on a bed or couch, and `horse` standing. Each has its own camera,
   presentation, and aftermath.
-- **Mouse pump minigame** — Vertical mouse movement controls depth; `F` remains flight. Completed
+- **Mouse pump minigame** — Vertical mouse movement controls depth; Completed
   strokes earn satisfaction from travel distance, depth preference, speed, and stroke shape. `Q`
   stops before climax.
 - **Per-mare preferences** — Depth profiles (`steady`, `deep`, `shallow`, `peak`), speed windows,
@@ -35,28 +46,3 @@ minigame, per-character preferences, reactive dialogue, and aftercare.
   are granted only at climax.
 - **Memory and witnesses** — Intimacy is recorded in the game’s second-person memory style, and
   nearby awake adults remember witnessing it.
-
-## Controls
-
-| Input | Action |
-|---|---|
-| `L` | Start an available encounter |
-| Mouse ↕ | Pump during the act |
-| `Q` | Stop before climax / end afterglow |
-| `F` | Flight (never pumps) |
-| `Ctrl+Shift+D` | Toggle DEBUG LOGS (also gates the satisfaction meter) |
-| `F8` | Print offer, gate, and bed debug report |
-| `F9` | Preview the pose-1 presentation |
-
-## Requirements
-
-- Home: Equestria `0.1.1-maredev`.
-- Desktop only; VR is deferred.
-
-## More detail
-
-- [`PREFERENCES.md`](PREFERENCES.md) — pump, scoring, depth/speed/shape, phases, and boredom rules.
-- [`ROTATION.md`](ROTATION.md) — camera, pose, and restore ordering.
-
-The full design and status record lives outside this mod repo at `../../unfplap.md` in the game
-project.

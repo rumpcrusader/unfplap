@@ -50,7 +50,7 @@ const PUMP_LEAN_BASE_FRACTION := 0.10
 const PUMP_TRAVEL_OMEGA := 30.0
 const PUMP_TRAVEL_DAMPING := 60.0
 const ACT_LOOK_YAW_SCALE := 0.10
-const ACT_LOOK_PITCH_SCALE := 0.25
+const ACT_LOOK_PITCH_SCALE := 0.20
 const LEAN_CLIMAX_FORWARD := 0.09
 ## Free look stays inside a 45-degree cone around the direction the act started in.
 const LOOK_YAW_LIMIT := 0.785398

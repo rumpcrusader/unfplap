@@ -7,6 +7,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HUD := preload("res://mods/unfplap/hud.gd")
 const INPUT := preload("res://mods/unfplap/input.gd")
 const AI_OFFER := preload("res://mods/unfplap/ai_offer.gd")
+const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -37,6 +38,7 @@ var _camera_cache_at := 0.0
 var pending_unlock := -1
 var _last_offer_key := ""
 var _native_hint_label: Label
+var _debug_skeleton: Node3D
 
 
 func debug(text: String) -> void:
@@ -62,6 +64,8 @@ func _debug_block(title: String, rows: Array) -> void:
 func toggle_debug_logs() -> void:
 	debug_logs = not debug_logs
 	SETTINGS.save_debug_logs(debug_logs)
+	if not debug_logs and is_instance_valid(_debug_skeleton):
+		_debug_skeleton.set("enabled", false)
 	if debug_logs:
 		print("[unfplap] debug logs ON")
 	else:
@@ -435,6 +439,64 @@ func try_start() -> bool:
 		if is_instance_valid(hud):
 			hud.hide_prompt()
 	return started
+
+
+func debug_chin(step_deg: float) -> void:
+	if not debug_logs:
+		return
+	var runtime: Variant = active_runtime
+	if not is_instance_valid(runtime):
+		var view: Camera3D = camera()
+		if not is_instance_valid(view):
+			_debug("chin: no camera")
+			return
+		var target: Node = _debug_target(view)
+		if not is_instance_valid(target):
+			target = _nearest_pony(view)
+		runtime = runtime_for(target)
+	if not is_instance_valid(runtime):
+		_debug("chin: no pony target")
+		return
+	runtime.call("debug_chin", step_deg)
+
+
+## Chin debugging is not aim-gated: if the crosshair is not on a mare, use the nearest loaded
+## one within 8 m so Alt+7 / Alt+8 works while walking around idle.
+func _nearest_pony(view: Camera3D) -> Node:
+	if not is_instance_valid(view):
+		return null
+	var best: Node = null
+	var best_distance := 8.0
+	for node: Variant in mares():
+		if not is_instance_valid(node) or not node is Node3D:
+			continue
+		var actor: Node3D = node as Node3D
+		var distance := actor.global_position.distance_to(view.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = actor
+	return best
+
+
+func toggle_skeleton_debug() -> void:
+	if not debug_logs:
+		if is_instance_valid(_debug_skeleton):
+			_debug_skeleton.set("enabled", false)
+		return
+	if not is_instance_valid(_debug_skeleton):
+		_debug_skeleton = DEBUG_SKELETON.new()
+		_debug_skeleton.name = "UnfplapSkeleton"
+		_debug_skeleton.set("main", self)
+		add_child(_debug_skeleton)
+	var enabled := not bool(_debug_skeleton.get("enabled"))
+	_debug_skeleton.set("enabled", enabled)
+	_debug("skeleton overlay %s" % ("ON" if enabled else "OFF"))
+
+
+func skeleton_click() -> bool:
+	if not is_instance_valid(_debug_skeleton) or not bool(_debug_skeleton.get("enabled")):
+		return false
+	return bool(_debug_skeleton.call("handle_click"))
 
 
 func debug_pose1_float() -> void:

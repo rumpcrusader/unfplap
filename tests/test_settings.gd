@@ -85,10 +85,10 @@ func run() -> void:
 	var pump_defaults: Dictionary = defaults.get("pump", {})
 	check(str(pump_defaults.get("orientation", "")) == "up", "default pump orientation")
 	check(not bool(pump_defaults.get("bobs", true)), "default pump bobs disabled")
-	check(near(float(pump_defaults.get("pixels_per_full", 0.0)), 800.0), "default pump pixels")
+	check(near(float(pump_defaults.get("pixels_per_full", 0.0)), 600.0), "default pump pixels")
 	var controls := SETTINGS.pump_controls()
 	check(bool(controls.get("up", false)), "runtime pump controls up")
-	check(near(float(controls.get("pixels_per_full", 0.0)), 800.0), "runtime pump controls pixels")
+	check(near(float(controls.get("pixels_per_full", 0.0)), 600.0), "runtime pump controls pixels")
 	check(not bool(controls.get("bobs", true)), "runtime pump bobs disabled")
 
 	var live := SETTINGS.template_for("fluttershy")

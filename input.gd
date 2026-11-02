@@ -86,10 +86,26 @@ func _input(event: InputEvent) -> void:
 			main.call("debug_pose1_float")
 			get_viewport().set_input_as_handled()
 			return
+		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F10 \
+				and bool(main.get("debug_logs")):
+			main.call("toggle_skeleton_debug")
+			get_viewport().set_input_as_handled()
+			return
+		if debug_key.pressed and not debug_key.echo and debug_key.alt_pressed \
+				and debug_key.physical_keycode in [KEY_7, KEY_8] \
+				and bool(main.get("debug_logs")):
+			main.call("debug_chin", 5.0 if debug_key.physical_keycode == KEY_7 else -5.0)
+			get_viewport().set_input_as_handled()
+			return
 	if get_tree().paused:
 		return
 	var runtime: Variant = main.get("active_runtime")
 	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT \
+				and bool(main.get("debug_logs")) and bool(main.call("skeleton_click")):
+			get_viewport().set_input_as_handled()
+			return
 		if is_instance_valid(runtime):
 			get_viewport().set_input_as_handled()
 		return

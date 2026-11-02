@@ -3,10 +3,11 @@ extends Node
 ##   godot --xr-mode off --path <project> -- --mod-src unfplap --skip-title \
 ##       --lab res://mods/unfplap/tests/test_lab.gd
 ##
-## Loads only Twilight, Fluttershy, Rarity and Derpy, places them near the player and pauses
-## population/living-world/time plus background AI. No extra bed is spawned: use the Golden Oak
-## guest bed in the treebrary. The dialogue director stays running, because it serializes replies
-## and a stopped director leaves ponies stuck "thinking".
+## Loads only Twilight, Fluttershy, Rarity and Derpy and pauses population/living-world/time
+## plus background AI. They stay where the world spawned them; the lab never teleports them.
+## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. The dialogue director
+## stays running, because it serializes replies and a stopped director leaves ponies stuck
+## "thinking".
 ##
 ## Lab hotkeys (mouse must be captured, like normal play):
 ##   - / =       lower / raise the pointed mare's romance tier (all test mares when not aiming)
@@ -27,6 +28,21 @@ const TEST_ROMANCE := {
 }
 const ROMANCE_LEVELS := [0, 150, 400, 900]
 const ANGER_MOODS := ["neutral", "annoyed", "angry"]
+## Printed at startup so the lab's full session setup is explicit in the log.
+const SETUP_ACTIONS := [
+	"wait for the game's world loading screen to finish",
+	"temporarily set world/opening=skip, then restore the stored value",
+	"skip the arrival tutorial when it is active",
+	"restrict population to Twilight, Fluttershy, Rarity and Derpy (memory only)",
+	"despawn any other resident already live in the world",
+	"keep the dialogue director alive with ai_usage=talk",
+	"pause population, life and needs",
+	"pause PrincessVisits, TrixieShow, DayRunner, NightRest and StuckRescue",
+	"pause TimeOfDay",
+	"set friendship >= 500, romance tier, dating record and neutral mood",
+	"make each test mare idle and standing where she already is",
+	"spawn no bed; use the Golden Oak guest bed",
+]
 
 var game: Node
 var _done := false
@@ -48,6 +64,7 @@ func _ready() -> void:
 
 func run() -> void:
 	print("[unfplap test] lab start game=%s" % str(game))
+	_log_action("lab setup actions", PackedStringArray(SETUP_ACTIONS))
 	if not await _wait_for_world():
 		return
 	await _skip_arrival_tutorial()
@@ -65,7 +82,7 @@ func run() -> void:
 	var bed := _treebrary_bed()
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
-	print("[unfplap test] E sit, Ctrl lie back; test mares are waiting near the player")
+	print("[unfplap test] E sit, Ctrl lie back; test mares stay at their world spawn positions")
 	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 invite to bed, Mouse5 sex-ready")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
@@ -199,22 +216,9 @@ func _setup_ponies(ponies: Array) -> void:
 			xp = current
 		else:
 			impressions.set("xp", xp)
-	var anchor: Node3D = game.get("player") if is_instance_valid(game.get("player")) else (ponies[0] as Node3D)
-	var forward: Vector3 = -anchor.global_basis.z
-	forward.y = 0.0
-	if forward.length_squared() < 0.001:
-		forward = Vector3.FORWARD
-	forward = forward.normalized()
-	var right: Vector3 = anchor.global_basis.x
-	right.y = 0.0
-	if right.length_squared() < 0.001:
-		right = forward.cross(Vector3.UP).normalized()
-	else:
-		right = right.normalized()
-	var count := ponies.size()
 	var rows := PackedStringArray()
-	for i: int in count:
-		var pony: Node3D = ponies[i] as Node3D
+	for pony_node: Variant in ponies:
+		var pony: Node3D = pony_node as Node3D
 		if not is_instance_valid(pony):
 			continue
 		var id := _pony_id(pony)
@@ -227,17 +231,9 @@ func _setup_ponies(ponies: Array) -> void:
 			xp[id] = row
 		_set_dating_record(pony)
 		_set_mood(pony, "neutral")
-		var slot := float(i) - (float(count) - 1.0) * 0.5
-		var at: Vector3 = anchor.global_position + forward * 1.8 + right * slot * 1.15
-		var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 6.0, 1)
-		var hit := get_viewport().world_3d.direct_space_state.intersect_ray(query)
-		if not hit.is_empty():
-			at.y = float(hit.position.y)
-		pony.global_position = at
-		pony.reset_physics_interpolation()
 		_make_idle(pony, true)
-		rows.append("%s romance_xp=%d level=%s" % [
-			id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id)])
+		rows.append("%s romance_xp=%d level=%s pos=%s" % [
+			id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id), str(pony.global_position)])
 	if not rows.is_empty():
 		_log_action("test mares", rows)
 	if is_instance_valid(impressions):

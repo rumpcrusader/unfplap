@@ -63,6 +63,10 @@ Exact order:
 13. `_roll_head(head_roll)` around `forward`, head only.
 14. Dump once at weight > 0.9 if debug is on.
 
+The debug chin pitch lives in `chin_debug.gd`, a separate `SkeletonModifier3D` appended after
+the pose modifier. It is not part of the missionary recipe, so `Alt+7` / `Alt+8` also work
+while idle or standing.
+
 `_line_roll` must always select the branch nearest level, in (−90°, +90°]. Without the
 wrap, the correction can roll her belly-up to belly-down while still "levelling" the
 legs.
@@ -77,8 +81,11 @@ these values here if a future pose needs that effect.
 
 - Anchor: `root + up * 0.55 - back * 0.15`, where `back = +pony.global_basis.z`.
 - Snout aim is sampled during the 1 s blend and then frozen; it does not track the live nose.
-- Free camera mode has no mouse look. WASD moves the view in the shot's yaw plane, clamped to
-  `±0.40 m` side and `±0.35 m` dolly.
+- Free camera mode has no mouse look. WASD rotates the view at `CAMERA_LOOK_SPEED = 1.0 rad/s`;
+  W/S pitch within `±POSE1_FREE_PITCH_LIMIT = 1.0`, A/D yaw within
+  `±POSE1_FREE_YAW_LIMIT = 1.2`. It never translates Anon or the view.
+- Free mode locks `player.controls_locked` for both poses and restores the previous value on
+  legacy toggle/end.
 - Legacy mode adds mouse yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
   `ACT_LOOK_PITCH_SCALE = 0.10`.
 - Camera bobs are opt-in: `pump.bobs` defaults to `false` and skips pump and climax bob motion.
@@ -100,11 +107,15 @@ these values here if a future pose needs that effect.
 - Facing lock every physics tick at priority 100:
   `pony.global_transform.basis = _facing_basis.scaled(scale)`.
 - Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
-- Free mode aims the player camera at her shoulders during the 1 s blend, then freezes; WASD
-  offsets the camera horizontally. Legacy mode keeps the 45° look cone around the captured yaw.
+- Free mode aims the player camera at the joint connecting her head and neck (`pony_head`
+  origin, `pony_neck2` fallback) during the 1 s blend, then freezes; WASD rotates the view
+  (W/S pitch, A/D yaw) inside the 45° cone. Legacy mode keeps the same look cone around the
+  captured yaw.
 - Standing gap per size preset.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via
   `eye_motion.target_world` / `target_weight`.
+- Anon's hip follows raw pump `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
+  no spring or return animation.
 - Tail aside/lift/flick on the hair skeleton; side randomized per act.
 - Withdrawal eases back, flicks the tail twice, records the inside event, then
   restores automatically.

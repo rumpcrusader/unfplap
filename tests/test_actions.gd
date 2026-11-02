@@ -77,7 +77,7 @@ func run() -> void:
 	side_hip.free()
 	lean_runtime.free()
 
-	check(near(RUNTIME.CARESS_SPEED_RAD_S, 4.5), "caress speed increased 50 percent again")
+	check(near(RUNTIME.CARESS_SPEED_RAD_S, 3.6), "caress speed reduced 20 percent")
 	check(near(RUNTIME.CARESS_OVAL_ACROSS, 1.30) and near(RUNTIME.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
 	var canon_caress: Dictionary = RUNTIME.caress_profile_for("canon")
@@ -92,8 +92,14 @@ func run() -> void:
 	check(not RUNTIME.pose2_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
 	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "pump jiggle reduced 20 percent")
-	check(near(RUNTIME.CAMERA_ROCK_IMPULSE, 0.20), "camera rock impulse increased")
-	check(near(RUNTIME.CAMERA_ROCK_LIMIT, 0.026), "camera rock limit increased")
+	check(near(RUNTIME.BOB_FORWARD_IMPULSE, 0.45), "penetration camera travel increased 50 percent")
+	check(near(RUNTIME.KISS_LEAN_M, 0.23) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.16)
+		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
+	check(near(RUNTIME.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
+	check(near(RUNTIME.CAMERA_ROCK_IMPULSE, 0.30), "camera rock impulse increased 50 percent")
+	check(near(RUNTIME.CAMERA_ROCK_LIMIT, 0.039), "camera rock limit increased 50 percent")
+	check(near(RUNTIME.CAMERA_ROCK_PITCH_RATIO, 0.675), "pump camera pitch increased 50 percent")
+	check(near(RUNTIME.MOUNTING_POSE2_CAMERA_LIFT_M, 0.10), "JRHNBR pose-2 camera raised 10 cm")
 	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel tripled")
 	check(near(RUNTIME.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
 	check(near(RUNTIME.LEAN_FIRE, 0.75) and near(RUNTIME.LEAN_RELEASE, 0.60),

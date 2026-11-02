@@ -74,8 +74,8 @@ done
 ```
 
 - Current passing state: `CATALOG` 13, `SETTINGS` 48, `SOURCE_HYGIENE` 43 checks / 46 files,
-  `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 23, `RUNTIME_PUMP` 5, `VOICE` 9,
-  `ACTIONS` 46.
+  `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 23, `RUNTIME_PUMP` 4, `VOICE` 9,
+  `ACTIONS` 51.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
   ```bash
@@ -110,7 +110,7 @@ mods/unfplap/
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            three meters, hints and debug-gated satisfaction
   hud_pump.gd       vertical depth bar
-  hud_bar.gd        satisfaction/stamina fill bars
+  hud_bar.gd        satisfaction fill bar
   input.gd          Y start/end, right-click smack routing, key consumption, debug keys
   settings.gd       persisted DEBUG LOGS, pump controls and per-character templates
   memory.gd         world_context events, climax impression, witnesses, reactions
@@ -165,7 +165,8 @@ body-relative axes.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
 - Body facing is locked every physics tick at priority 100; the navigator must not turn her.
 - Glances use `pony.secondary.look_toward` plus optional `head_back`; pupils follow Anon through
-  `eye_motion.target_world`.
+  `eye_motion.target_world`. A full forward `W` lean with no side lean forces `head_back = 1.0`
+  and the upward look toward Anon instead of waiting for the random glance scheduler.
 - Tail aside/lift/flick is applied down the hair chain; the side is randomized per act.
   `poses.<pose>.tail_lift` defaults to `0.42` and is inherited/overridable per mare.
 - Pose 2 enters the same held `AFTERGLOW` state after climax. Lean and A/D caress stay live
@@ -203,11 +204,14 @@ body-relative axes.
 - `camera_inertia` smooths the displayed lean at `CAMERA_INERTIA_SMOOTH = 5.0`.
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at
   `LEAN_RELEASE = 0.60`. The action is latched while above release.
-- `lean_return` (default `true`) gates the slow automatic return to neutral. With it off, a
-  released lean holds its position until the player leans the other way or the act ends.
-- `H` toggles the same return mode during an act. In hold mode the camera lean gets a small,
-  slow rocking offset (`0.015` forward / `0.0125` side, clamped inside `-1…1`) so Anon never
-  becomes fully static or leaves the normal lean range.
+- `lean_return` (default `false`) gates the slow automatic return to neutral. By default a
+  released lean holds its position until the player leans the other way or the act ends; `H`
+  turns auto-return on for the current act.
+- `H` toggles the return mode during an act; hold is the default. In hold mode the camera lean
+  gets a small, slow rocking offset (`0.015` forward / `0.0125` side, clamped inside `-1…1`) so
+  Anon never becomes fully static or leaves the normal lean range. Hold mode also latches A/D
+  caress: tap once to keep rubbing after release, tap again to stop. Pressing `S` in hold mode
+  arms a gradual side return, so the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
 - The lean camera owns `player.controls_locked = true` for both poses. Save and restore the
   prior value at act end.
@@ -218,17 +222,26 @@ body-relative axes.
 ### Pose 1 shot
 
 - Mod-owned `UnfplapPose1View`, top-level, anchored at
-  `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) - back * 0.22`, then pulled
-  `POSE1_CAMERA_PULLBACK_M = 0.20` back along its own frozen view axis. Canon height is `0.9×`.
+  `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale - back * 0.22 * body_scale`, then
+  pulled `POSE1_CAMERA_PULLBACK_M = 0.40 * body_scale` back along its own frozen view axis. Canon
+  height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally higher, farther-forward and
+  farther-back shot so the camera is not inside her neck.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and
   broke the aim. The aim basis is always rebuilt from `_pose1_camera`, never the already moved
   view, to avoid a start-up feedback flicker.
 - Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the 1 s
   blend, then freeze. The live snout can end up behind the bed camera, so it is no longer used.
-- A forward-dot check re-aims the view if the cached basis points away from the target.
+- The frozen basis is re-aimed only below `POSE1_REAIM_DOT = 0.25` (was `0.9`, which kept
+  re-aiming on ordinary bob/lean movement and made the view snap). Re-aims and camera rebuilds
+  are logged.
+- Her head aims at the camera with a minimum `0.45 * body_scale` distance, so a near/inside
+  camera cannot make the look direction flip.
 - Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
   extra action. Pose 1 uses the same pump bob and roll/pitch rock as pose 2.
+- Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
+  the act, re-applying each tick because the stock rig can show itself again. Both are restored
+  at end, so the rotated bed body cannot appear inside the camera shot.
 
 ### Pose 2 shot
 
@@ -237,8 +250,8 @@ body-relative axes.
 - Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the 1 s blend,
   then freeze. Lean yaw/pitch are applied on top.
 - Pose-2 camera has a smoother, stronger roll-plus-pitch rock on each pump:
-  `CAMERA_ROCK_IMPULSE = 0.20`, `CAMERA_ROCK_LIMIT = 0.026`, stiffness `45`, damping `8.0`;
-  pitch is `0.45×` the roll.
+  `CAMERA_ROCK_IMPULSE = 0.30`, `CAMERA_ROCK_LIMIT = 0.039`, stiffness `45`, damping `8.0`;
+  pitch is `0.675×` the roll (pitch-only increase).
 - Lean owns `controls_locked` for pose 2 too, so Anon does not walk while the camera moves.
 - On restore, restore the player yaw/pitch to the **captured start values**, not the act base
   aim, and reset `camera.rotation.x` and `.z`.
@@ -266,7 +279,8 @@ body-relative axes.
   drives a sagittal swing (`ROCK_PITCH = 0.12`) and a smaller lateral wag (`ROCK_YAW = 0.08`).
   Pump jiggle strength and the pose-2 camera height scale with pony size: Canon gets
   `_jiggle_size_scale() = 0.66`, a `CANON_POSE2_CAMERA_DROP_M = 0.10` lower eye line, and
-  `_pose2_lean_scale()` multiplied by `0.8`.
+  `_pose2_lean_scale()` multiplied by `0.8`; JRHNBR gets a
+  `MOUNTING_POSE2_CAMERA_LIFT_M = 0.10` higher eye line.
   Every pump also calls `tail.pump(strength)`: a short `JIGGLE_DECAY = 3.6` /
   `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the dock
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). This is
@@ -294,6 +308,17 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   base kiss cannot start. Like a base kiss it may stop the pony's current speech, but it does
   not interrupt pumping or stats. `_check_running()` treats the act's own `Affection`-driven
   `kiss` as part of the act instead of an interruption.
+- `pony_kisser` physics is paused for the whole act, so the runtime feeds the base kiss the
+  live `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound
+  itself. Pose 1 uses the player camera, not the separate pose-1 framing view. The excitement
+  Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire during it.
+- While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.23`, shifts
+  `KISS_LEAN_SIDE_M = 0.16` farther to the shoulder side and drops
+  `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the pose-2 camera also yaws
+  `KISS_CAMERA_YAW_DEG = 10°` toward her. Pose 2 adds that to the act camera and pelvis
+  counter-lean, so the hips stay planted. Pose 1 moves the framing view and offsets the virtual
+  mouth by the same amount. Ending the kiss clears the forced over-the-shoulder glance and cancels
+  any base-kiss afterglow stare.
 - The shoulder reach uses `desktop_anon.set_hold_target(..., "rub")` through `anon_thrust.gd`,
   so it does not need `request_action()` and does not fight `controls_locked`. `rub` keeps the
   hand open. Hand-marker convention: local `-Z` is the fingers, `+Y` is the thumb/up, and the
@@ -303,15 +328,18 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   rest frame over `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
   `reach hand side=... x=... y=... z=... fingers=... palm=...` log prints the convention.
 - A/D caress uses the same hold-target path with an oval rub (`CARESS_RADIUS_M = 0.055`,
-  `CARESS_SPEED_RAD_S = 4.5`) lifted `CARESS_SURFACE_LIFT_M = 0.085` off the coat. The oval is
+  `CARESS_SPEED_RAD_S = 3.6`) lifted `CARESS_SURFACE_LIFT_M = 0.085` off the coat. The oval is
   `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically, so it reads
   as a stroke rather than a perfect circle. Point offsets are per size in `CARESS_PROFILES`:
   Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (both hands 4 cm wider), Same Height and Hoers
-  step up from there. Both A and D can run at once, one hand per side. The centre interpolates
+  step up from there. Both A and D can run at once, one hand per side. In hold mode an A/D tap
+  latches that hand until the next tap. The centre interpolates
   with the lean: backward lean moves it toward the rump top as soon as it passes zero
   (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly, full lean = the
-  exact same shoulder point used by the Q/E reach. The circle radius scales with pony size;
-  the point offsets are already per size. It is horse-only.
+  exact same shoulder point used by the Q/E reach. The extra surface lift fades to zero at full
+  forward lean, so the caress orbits the reach point instead of sitting farther outside the
+  shoulder. The circle radius scales with pony size; the point offsets are already per size.
+  It is horse-only.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
@@ -321,7 +349,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `SMACK_COOLDOWN_MS = 200` gate.
 - It reuses the slap sound/decal/blush/jiggle. The pony's `physical_reaction` connections are
   temporarily disconnected around the call, so `flank_smack` cannot trigger the game's
-  buck/fidget/hoof shuffle or a bond/context/memory/satisfaction/stamina event.
+  buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
 - A right lean (`side > 0`) selects the left cheek; a left lean selects the right cheek; exactly
   centered picks one of the two real cheek points at random. There is no rump target.
 
@@ -331,7 +359,8 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Pump bobs are opt-in through `pump.bobs` (default `false`); both pump and climax bob are
   skipped when off.
 - Vertical bob intensity is doubled: `BOB_PUMP_IMPULSE = 2.30 / 3` and
-  `BOB_CLIMAX_AMPLITUDE = 0.025 / 3`; forward bob is unchanged.
+  `BOB_CLIMAX_AMPLITUDE = 0.025 / 3`; forward penetration travel is `BOB_FORWARD_IMPULSE = 1.80 / 4`
+  (`0.45`, 50% more).
 - Pose 1 and pose 2 use the same vertical bob and pump camera rock.
 - Restore order is load-bearing:
   1. release the free-camera control lock;
@@ -353,8 +382,7 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - Base gain is `Σ |Δd| × depth_weight(d)`. A full `0→1→0` at `steady` is exactly `2.0`.
 - Inward strokes get the speed and shape multipliers; outward strokes score base gain only.
 - Combined multiplier is capped to `0.40–1.80`.
-- `climax_at` is per pony (`100` default). Stamina starts/resets at `400`, drains `1` per pump,
-  and does not affect scoring.
+- `climax_at` is per pony (`100` default); there is no stamina pool or per-pump drain.
 - The HUD reads raw `depth` directly. There is no penetration inertia spring.
 
 Every closed stroke becomes one result with:
@@ -451,9 +479,10 @@ multiplier rules, phases and character profiles.
 - The native offer hint uses the game's `button_y` icon plus `· sex`; the HUD fallback text is
   `Y · sex`, matching the game's small-dot separator.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
-  hotbar's `set_hud_visible(false)`; the previous state is restored at end.
-- Three vertical meters, left to right: penetration, satisfaction, stamina.
-- Depth is shown only during `ACTIVE`; satisfaction/stamina remain through `CLIMAX`;
+  hotbar's `set_hud_visible(false)`; the previous state is restored at end and the inventory's
+  `_place_hotbar()` re-evaluates it so a stale pre-act layer flag cannot leave it hidden.
+- Two vertical meters, left to right: penetration and satisfaction.
+- Depth is shown only during `ACTIVE`; satisfaction remains through `CLIMAX`;
   afterglow hides all meters. Satisfaction is hidden unless DEBUG LOGS is on.
 - The HUD reads raw `depth`; there is no smoothing spring.
 - Love XP and happy mood are granted only by `MEMORY.commit_climax()` on a completed climax.
@@ -515,7 +544,7 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 | Flag | Default | Gates |
 |---|---|---|
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
-| `lean_return` | `true` | auto-return the lean channel when keys are released; false holds position |
+| `lean_return` | `false` | auto-return the lean channel when keys are released; false (default) holds position |
 | `camera_inertia` | `true` | smoothed lean look/settle |
 | `camera_rock` | `true` | pose-2 pump roll/pitch rock |
 | `body_sway` | `true` | pose-2 upper-body sway modifier |
@@ -557,10 +586,10 @@ This is mandatory.
 
 ## Open tuning and limitations
 
-- Pose-1 camera sits at `camera_height = 0.45 + 0.10` / `camera_forward = 0.22`, then pulls
-  `0.20 m` back along its own view axis and uses the middle of the neck. Debug logs every
-  `100 ms` for the first `2.5 s` show anchor, view, basis, target, dot, bed, pose amount, lean
-  and size.
+- Pose-1 camera height/forward and pullback scale with `pony.body_scale`; JRHNBR (`1.35`) sits
+  higher and farther back. Debug logs every `100 ms` for `10 s` show anchor, view, basis, target,
+  dot, bed, pose amount, lean and size, plus explicit `CAMERA REBUILD`, `CAMERA REAIM`,
+  `CAMERA SNAP` and `HEAD SNAP` lines.
 - Pose-2 neck aim, body sway amplitude, camera inertia/rock and ear twitch still need a visual pass.
 - Lean amounts, side yaw (`3°`), forced shoulder look and the base-kiss reuse are first-pass
   values; tune in the lab. Verify the pose-2 `60°` wing start and the per-size caress points

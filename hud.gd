@@ -1,25 +1,23 @@
 extends CanvasLayer
-## Desktop HUD: prompt, hint, and three vertical meters on the right:
-## penetration, her satisfaction (debug only), and Anon's stamina.
+## Desktop HUD: prompt, hint, and two vertical meters on the right:
+## penetration and her satisfaction (debug only).
 
 const HUD_PUMP := preload("res://mods/unfplap/hud_pump.gd")
 const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
-const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean hold\nHold Y · Exit"
-const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean hold\nHold Y · Exit"
-const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nH · Toggle lean hold\nHold Y · Exit"
+const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Exit"
+const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Exit"
+const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nH · Toggle lean return\nHold Y · Exit"
 
 var _prompt: Label
 var _hint: Label
 var _bars: HBoxContainer
 var _depth_col: VBoxContainer
 var _satisfaction_col: VBoxContainer
-var _stamina_col: VBoxContainer
 var _depth: Control
 var _satisfaction: Control
-var _stamina: Control
 
 
 func _ready() -> void:
@@ -70,12 +68,6 @@ func _ready() -> void:
 	_satisfaction.custom_minimum_size = Vector2(40.0, 400.0)
 	_satisfaction.set("fill_color", Color(1.0, 0.45, 0.70))
 	_satisfaction_col = _make_column("Satisfaction", _satisfaction)
-
-	_stamina = HUD_BAR.new()
-	_stamina.name = "StaminaBar"
-	_stamina.custom_minimum_size = Vector2(40.0, 400.0)
-	_stamina.set("fill_color", Color(0.42, 0.68, 1.0))
-	_stamina_col = _make_column("Stamina", _stamina)
 
 	_hint = _make_label("")
 	_hint.name = "Hint"
@@ -163,12 +155,10 @@ func update_from(runtime: Node, show_satisfaction := true) -> void:
 	_bars.visible = active
 	_depth_col.visible = state == STATE_ACTIVE
 	_satisfaction_col.visible = active and show_satisfaction
-	_stamina_col.visible = active
 	if active:
 		if state == STATE_ACTIVE:
 			_depth.call("set_depth", float(runtime.get("depth")), bool(runtime.get("pump_up")))
 		_satisfaction.call("set_value", float(runtime.get("satisfaction")), 100.0)
-		_stamina.call("set_value", float(runtime.get("stamina")), 400.0)
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 	if state == STATE_ACTIVE:
 		_hint.text = ACTIVE_HINTS

@@ -32,7 +32,6 @@ func run() -> void:
 	runtime._pump_move(-1.0, 0.5)
 	runtime._pump_move(1.0, 1.0)
 	check(runtime.satisfaction == 2, "full steady pump scores 2 satisfaction")
-	check(runtime.stamina == 399, "one deep extreme costs one stamina")
 	check(absf(runtime._satisfaction_frac) < 0.0001, "no fractional remainder")
 	check(absf(float(runtime.depth) - 1.0) < 0.0001, "depth tracks the last move")
 	runtime.free()

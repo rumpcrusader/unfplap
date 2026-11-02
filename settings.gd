@@ -177,11 +177,11 @@ static func pump_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("pump", {})
 	var orientation := "up"
-	var pixels := 800.0
+	var pixels := 600.0
 	var bobs := false
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
-		pixels = float((block as Dictionary).get("pixels_per_full", 800.0))
+		pixels = float((block as Dictionary).get("pixels_per_full", 600.0))
 		bobs = bool((block as Dictionary).get("bobs", false))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
@@ -258,7 +258,7 @@ static func _defaults() -> Dictionary:
 		"debug_logs": true,
 		"pump": {
 			"orientation": "up",
-			"pixels_per_full": 800.0,
+			"pixels_per_full": 600.0,
 			"bobs": false,
 		},
 		"default": _filled_default(),

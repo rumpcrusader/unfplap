@@ -58,8 +58,9 @@ godot --xr-mode off --path <project> -- \
   background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
-- The lab re-seeds its four mares on every startup (romance tier, dating record, mood,
-  positions). The rest of the world's context and inventory persist.
+- The lab re-seeds its four mares on every startup (romance tier, dating record, mood, idle
+  posture) but leaves them where the world spawned them. The rest of the world's context and
+  inventory persist.
 
 Tests:
 
@@ -71,7 +72,7 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 40, `SOURCE_HYGIENE` 35 checks / 37 files,
+- Current passing state: `CATALOG` 13, `SETTINGS` 40, `SOURCE_HYGIENE` 37 checks / 39 files,
   `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 23, `RUNTIME_PUMP` 5.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
@@ -91,13 +92,15 @@ done
 mods/unfplap/
   mod.json          id, version, game_version, entry
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
-                    DEBUG LOGS toggle, F8/F9 helpers
+                    DEBUG LOGS toggle, F8/F9/F10 debug helpers
   runtime.gd        per-pony state machine, gates, start, pump scoring/strength,
                     free/legacy camera, climax, afterglow/withdrawal, restore, aftercare
   pump.gd           pure stroke tracker: reversal, timeout, speed, peak speed, strength
   preferences.gd    pure depth profiles, speed zones, shape classification, bands
   utterance.gd      pure act-line schedule and prompt formatting
   anon_thrust.gd    wraps the desktop Anon pose driver for the pose-2 hip thrust
+  chin_debug.gd     always-on debug head pitch for Alt+7 / Alt+8
+  debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            three meters, hints and debug-gated satisfaction
   hud_pump.gd       vertical depth bar
@@ -176,19 +179,23 @@ body-relative axes.
   `root + up * 0.55 - back * 0.15`.
 - Aim: sample `_snout()` during the 1 s blend, then freeze that point. Do not follow the live
   nose afterwards; she nuzzles.
-- Free mode: WASD applies a world offset in the shot's yaw plane, clamped to
-  `±CAMERA_MOVE_SIDE = 0.40 m` and `±CAMERA_MOVE_DOLLY = 0.35 m`.
-- Free mode temporarily sets `player.controls_locked = true` so the bed does not shift Anon with
-  WASD. Save and restore the prior value on legacy toggle and act end.
+- Free mode: WASD rotates the shot at `CAMERA_LOOK_SPEED = 1.0 rad/s`; W/S pitch
+  (`±POSE1_FREE_PITCH_LIMIT = 1.0`), A/D yaw (`±POSE1_FREE_YAW_LIMIT = 1.2`). It never
+  translates Anon.
+- Free mode sets `player.controls_locked = true` for **both** poses, so WASD cannot walk, jump,
+  shift on the bed, or start couch actions. Save and restore the prior value on legacy toggle
+  and act end.
 - Legacy mode adds mouse yaw/pitch offsets; no look cone.
 
 ### Pose 2 shot
 
 - Uses the player's eye camera. Pose-2 height still comes through
   `_stand_eye`/`_eye_height`; do not teleport the rig.
-- Aim: sample the shoulder point from `pony_spine3`, `pony_neck1` and the upper-arm origins
-  during the 1 s blend, then freeze.
-- Free mode: WASD offsets `camera.position` in the shot's yaw plane, same clamps as pose 1.
+- Aim: sample the joint that connects her head and neck (`pony_head` origin, then the
+  `pony_neck2` fallback) during the 1 s blend, then freeze.
+- Free mode: WASD rotates the player camera; W/S pitch and A/D yaw, clamped to the same
+  `LOOK_YAW_LIMIT`/`LOOK_PITCH_LIMIT` 45° cone used by legacy look. It never translates Anon.
+- Free mode owns `controls_locked` for pose 2 too, so Anon does not walk while the camera moves.
 - Legacy mode: 45° look cone around the captured look yaw.
 - On restore, restore the player yaw/pitch to the **captured start values**, not the act base
   aim, and reset `camera.rotation.x`.
@@ -200,7 +207,7 @@ body-relative axes.
   skipped when off.
 - Pose-1 vertical bob uses `POSE1_BOB_SCALE = 0.35`; pose 2 uses the full value.
 - Restore order is load-bearing:
-  1. release pose-1 camera lock;
+  1. release the free-camera control lock;
   2. remove the Anon thrust wrapper;
   3. restore eye override and hidden avatar;
   4. free the pose-1 view;
@@ -233,11 +240,21 @@ Physical strength is independent of per-mare preference scoring:
 strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)
 ```
 
-- Strength drives jiggle (`_start_jiggle` clamp `0.30–1.0`, then `JIGGLE_RUMP_SCALE = 3.5`),
-  wing flick (`0.10→0.24`) and the pose-2 Anon hip thrust.
-- Pose-2 thrust uses `THRUST_MAX_M = 0.045 m` and a `0.16 s` return. `anon_thrust.gd` wraps the
-  desktop Anon `desktop_pose_driver`, forwards the original torso/rest-hand methods, then offsets
+- Strength drives jiggle (`_start_jiggle` clamp `0.30–1.0`, then `JIGGLE_RUMP_SCALE = 3.5`)
+  and wing flick (`0.10→0.24`). It does not drive the pose-2 hip.
+- Pose-2 thrust follows raw `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
+  no spring, no return animation. `anon_thrust.gd` wraps the desktop Anon
+  `desktop_pose_driver`, forwards the original torso/rest-hand methods, then offsets
   `%HipsTarget` forward. Restore the original driver at act end.
+- Wing motion is deliberately slow during an act: fade `1.10 s`, flick decay `0.90 s`,
+  spread `4 s`, droop `20 s`, jitter `0.8–2.0 s` with a `0.4 s` fade. A pump may not restart
+  the game's `flutter()` before its complete `0.90 s` cycle.
+- Climax hearts use three pulses with at least `1 s` between them:
+  - pulse 1 at `t = 0`: four `celebrate()` bursts;
+  - pulse 2 at `t >= 1 s`: two bursts;
+  - pulse 3 at least `1 s` after pulse 2: one burst.
+  Each burst is five hearts, no boop count or squeak.
+- A separate `celebrate()` burst starts from her dock (`mTail1`) at the exact climax start.
 - Pose 1 keeps the bed avatar hidden and uses the strength-scaled jiggle for now.
 - Current plap audio is unchanged. Future mod-owned plap clips should select from the result's
   `strength`, `travel`, `depth`, `speed`, `speed_zone` and `shape`.
@@ -259,6 +276,7 @@ multiplier rules, phases and character profiles.
   before climax and ends pose-1 afterglow; Q is ignored in `CLIMAX`, `WITHDRAW` and `RESTORE`.
 - States: `IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW` (pose 1) or `WITHDRAW` (pose 2) →
   `RESTORE`.
+- Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in afterglow.
 - Aftercare starts only at final satisfaction ≥ 10; it holds navigator ownership for 10 s and
   keeps the tail raised straight with reduced flicks.
 - Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
@@ -279,6 +297,10 @@ multiplier rules, phases and character profiles.
   points only; reactive speed/shape/depth/bored lines are extra.
 - Climax logs and cancels an in-flight act line before queueing the climax reaction. End and
   inside reactions always queue. Only the cached “Mm.” is used; generated moans are parked.
+- Cancelling the act with `Q` does **not** cancel the current utterance. Act-line validity is
+  tied to the pony/event id, not `State.ACTIVE`, and `_restore_begin()` no longer clears the
+  pending/release state. Explicit `_cancel_pending_utterance` calls still cancel at climax or
+  afterglow boundaries.
 
 ## HUD and rewards
 
@@ -297,8 +319,17 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
   `user://mods/data/unfplap/settings.json`.
 - `F8`: offer/gate/bed report plus target pump data.
 - `F9`: pose-1 floating preview and one-shot `POSE1` dump.
+- `F10`: toggle the skeleton overlay for nearby ponies. Lines and joint circles are visible;
+  hover a joint to turn it red, then click to print its bone name, parent, world/local origin,
+  rotation, scale and rest.
+- `Alt+7` / `Alt+8`: raise/lower the debug chin pitch by `5°` and log head/chin/snout world
+  positions. The `chin_debug.gd` modifier works while idle, lying, standing or during an act;
+  when nothing is under the crosshair it targets the nearest mare within `8 m`.
 - `F`: free/legacy camera toggle during an act.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready.
+- The lab never teleports mares; they stay at their world spawn positions. Its startup log lists
+  every setup action (opening/tutorial handling, population restriction/prune, AI/time pauses,
+  per-mare friendship/romance/dating/mood/idle setup, no spawned bed).
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
 - Do not document or reintroduce removed debug keys or historical debug modes.
 - Test every pose start, climax, afterglow/withdraw, restore, hold-Q and cuddle path in the lab
@@ -310,7 +341,7 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
 - Top level: `debug_logs`, `pump`, `default` template, `characters` overrides.
 - `pump.orientation`: `"up"` (default) means mouse up deepens and the top of the bar is
-  deep/orange; `"down"` flips both. `pump.pixels_per_full` defaults to `800`; `pump.bobs`
+  deep/orange; `"down"` flips both. `pump.pixels_per_full` defaults to `600`; `pump.bobs`
   defaults to `false`.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
@@ -343,8 +374,8 @@ This is mandatory.
 
 ## Open tuning and limitations
 
-- Pose-2 shoulder shot pitch is steep at the default gap/size; tune after a visual pass.
-- Pose-1 camera and Anon hip-thrust visibility still need an in-game visual pass.
+- Pose-2 head-neck aim pitch may need a visual pass at the default gap/size.
+- Pose-1 camera and pose-1 Anon body/thrust visibility still need an in-game visual pass.
 - Bed-cuddle size gate is the stock `1.05`; JRHNBR, Same Height and Hoers bed cuddles are out of
   scope in release packs because `ext/shared_bed.gd` is parked against compiled `.gdc` bases.
 - Slow-stroke plap audio and custom plap clips are future work.

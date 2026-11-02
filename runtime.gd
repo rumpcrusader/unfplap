@@ -15,6 +15,7 @@ const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
+const CHIN_DEBUG := preload("res://mods/unfplap/chin_debug.gd")
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
 
@@ -36,6 +37,7 @@ const RESTORE_SECONDS := 0.4
 const HOLD_Q_SECONDS := 0.35
 const BREATH_BASE_INTERVAL_S := 0.9
 const BREATH_MIN_INTERVAL_S := 0.2
+const BREATH_CLIMAX_INTERVAL_S := 0.85
 const BREATH_RATE_CAP := 10.0
 ## Breath gain easing. Active: follows the plap rate; afterglow: fades over this many seconds.
 const BREATH_FADE_S := 2.5
@@ -73,15 +75,14 @@ const BOB_CLIMAX_FORWARD := 0.12 / 6.0
 ## the motion takes longer. Very slow strokes stop at this scale.
 const BOB_SPEED_REFERENCE := 0.80
 const BOB_SPEED_SCALE_MIN := 0.35
-## Free camera: fixed shot, no mouse look, WASD offsets in the shot's yaw plane.
+## Free camera: fixed shot, no mouse look. WASD rotates the view: W/S pitch, A/D yaw.
 const CAMERA_FREE_DEFAULT := true
-const CAMERA_MOVE_SPEED := 0.45
-const CAMERA_MOVE_SIDE := 0.40
-const CAMERA_MOVE_DOLLY := 0.35
-const POSE2_SHOULDER_HEIGHT_M := 1.0
-## Pose-2 Anon thrust: forward hip offset on a strong pump, eased back quickly.
+const CAMERA_LOOK_SPEED := 1.0
+const POSE1_FREE_YAW_LIMIT := 1.2
+const POSE1_FREE_PITCH_LIMIT := 1.0
+const POSE2_HEAD_NECK_HEIGHT_M := 1.0
+## Pose-2 Anon thrust: the hip follows raw depth directly, so it stays on the mouse.
 const THRUST_MAX_M := 0.045
-const THRUST_RETURN_S := 0.16
 ## Mouse look is nearly frozen during the act so pumping does not steer the camera.
 const ACT_LOOK_YAW_SCALE := 0.10
 const ACT_LOOK_PITCH_SCALE := 0.10
@@ -94,18 +95,22 @@ const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Pose 2 after the climax: no cuddle afterglow; a short withdrawal shows the pull-back and flicks.
 const POSE2_WITHDRAW_SECONDS := 1.6
-## Wing spread/droop and jitter. Wings spread over two seconds, then lower over ten.
-const WING_FADE_SECONDS := 0.55
-const WING_FLICK_DECAY := 0.45
+## Wing spread/droop and jitter. All mod-owned wing timing is deliberately slow: the wings
+## spread over four seconds, lower over twenty, and the flutter cannot restart mid-cycle.
+const WING_FADE_SECONDS := 1.10
+const WING_FLICK_DECAY := 0.90
 const WING_FLICK_MIN := 0.10
 const WING_FLICK_MAX := 0.24
-const WING_SPREAD_SECONDS := 2.0
-const WING_DROOP_SECONDS := 10.0
+const WING_SPREAD_SECONDS := 4.0
+const WING_DROOP_SECONDS := 20.0
 const WING_DROOP_AMOUNT := 0.35
 const WING_JITTER_AMOUNT := 0.04
-const WING_JITTER_MIN := 0.4
-const WING_JITTER_MAX := 1.0
-const WING_JITTER_FADE := 0.2
+const WING_JITTER_MIN := 0.8
+const WING_JITTER_MAX := 2.0
+const WING_JITTER_FADE := 0.4
+## The game's flutter cycle is 3 × (0.16 + 0.13) = 0.87 s. A pump may not restart it before
+## it finishes or the wings snap back open mid-motion.
+const WING_FLUTTER_COOLDOWN_S := 0.90
 ## Pose 2 keeps her body facing away but lets her glance back over a shoulder now and then.
 const GLANCE_MIN_INTERVAL := 5.0
 const GLANCE_MAX_INTERVAL := 9.0
@@ -165,7 +170,7 @@ var _preferences: Dictionary = {}
 var _phase_index := -1
 var _act_prompts: Dictionary = {}
 var _pump_tracker
-var _pump_pixels_per_full := 800.0
+var _pump_pixels_per_full := 600.0
 var _pump_bobs := false
 var _satisfaction_frac := 0.0
 var _speed_zone_previous := "ok"
@@ -210,14 +215,16 @@ var _restore_yaw := 0.0
 var _restore_pitch := 0.0
 var _controls_locked_saved := false
 var _controls_locked_by_camera := false
-var _thrust := 0.0
 var _anon_thrust_driver: Node3D
 var _anon_thrust_original: Node
 var _anon_thrust_avatar: Node3D
+var _chin_modifier: SkeletonModifier3D
 var _pose1_camera := Vector3.INF
 var _pose1_head_roll := 0.0
 var _pose1_free_yaw := 0.0
 var _pose1_free_pitch := 0.0
+var _pose2_free_yaw := 0.0
+var _pose2_free_pitch := 0.0
 var _pose1_start_camera: Camera3D
 var _pose1_start_camera_transform := Transform3D.IDENTITY
 var _pose1_start_player_transform := Transform3D.IDENTITY
@@ -265,6 +272,7 @@ var _wing_hold_started := false
 var _wing_jitter := 0.0
 var _wing_jitter_goal := 0.0
 var _wing_jitter_clock := 0.0
+var _last_wing_flutter := -1000.0
 var _act_seconds := 0.0
 var _wings_node: Node
 var _aftercare: Node
@@ -273,6 +281,15 @@ var _face_timer: Timer
 var _kisser: Node
 var _kisser_processing := false
 var _climax_progress := 0.0
+## Climax hearts: three pulses with at least one second between them. The first pulse emits
+## four boop bursts, the second two, and the last one. A separate burst starts from her dock at
+## the exact climax start. Each burst uses celebrate() (five hearts, no boop count).
+var _heart_elapsed := 0.0
+var _heart_index := 0
+var _heart_times: Array[float] = []
+var _heart_counts: Array[int] = []
+## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
+var _debug_chin_deg := 0.0
 var _breath: AudioStreamPlayer3D
 var _breath_streams: Array[AudioStream] = []
 var _breath_clock := 0.0
@@ -366,8 +383,11 @@ func _act_presentation(delta: float) -> void:
 		return
 	_flutter_clock -= delta
 	if _flutter_clock <= 0.0 and excitement.has_method("flutter"):
-		excitement.call("flutter")
-		_flutter_clock = randf_range(1.2, 2.3)
+		var now := _now_s()
+		if now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
+			excitement.call("flutter")
+			_last_wing_flutter = now
+		_flutter_clock = randf_range(2.4, 4.6)
 
 
 func _set_ears(kind: String, weight: float) -> void:
@@ -471,8 +491,8 @@ func _input(event: InputEvent) -> void:
 		if not _camera_free:
 			if pose_id == CATALOG.MISSIONARY:
 				if not headset:
-					_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025 * ACT_LOOK_YAW_SCALE, -1.2, 1.2)
-					_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025 * ACT_LOOK_PITCH_SCALE, -1.0, 1.0)
+					_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025 * ACT_LOOK_YAW_SCALE, -POSE1_FREE_YAW_LIMIT, POSE1_FREE_YAW_LIMIT)
+					_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025 * ACT_LOOK_PITCH_SCALE, -POSE1_FREE_PITCH_LIMIT, POSE1_FREE_PITCH_LIMIT)
 			elif not headset:
 				_act_look(motion)
 		if state == State.ACTIVE and _pump_tracker != null:
@@ -482,8 +502,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if _camera_free or pose_id != CATALOG.MISSIONARY or headset:
 		return
-	_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025, -1.2, 1.2)
-	_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025, -1.0, 1.0)
+	_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025, -POSE1_FREE_YAW_LIMIT, POSE1_FREE_YAW_LIMIT)
+	_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025, -POSE1_FREE_PITCH_LIMIT, POSE1_FREE_PITCH_LIMIT)
 
 
 func _headset_view() -> bool:
@@ -562,6 +582,7 @@ func _physics_process(delta: float) -> void:
 			state = State.ACTIVE
 	elif state == State.CLIMAX:
 		_climax_left -= delta
+		_climax_hearts_tick(delta)
 		if _climax_left <= 0.0:
 			_finish_climax()
 	elif state == State.WITHDRAW:
@@ -576,8 +597,7 @@ func _physics_process(delta: float) -> void:
 	_drive_glance(delta)
 	_suppress_auto_cuddle()
 	_clamp_look()
-	_camera_move_tick(delta)
-	_thrust = move_toward(_thrust, 0.0, delta / THRUST_RETURN_S)
+	_camera_look_tick(delta)
 	apply_camera_motion()
 	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
 		_check_clock += delta
@@ -1158,7 +1178,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_act_prompts = _profile.get("act_prompts", {})
 	var pump_controls := SETTINGS.pump_controls()
 	pump_up = bool(pump_controls.get("up", true))
-	_pump_pixels_per_full = float(pump_controls.get("pixels_per_full", 800.0))
+	_pump_pixels_per_full = float(pump_controls.get("pixels_per_full", 600.0))
 	_pump_bobs = bool(pump_controls.get("bobs", false))
 	_pump_tracker = PUMP.new()
 	_climax_at = int(_profile.get("climax_at", 100))
@@ -1188,9 +1208,14 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_wing_jitter = 0.0
 	_wing_jitter_goal = 0.0
 	_wing_jitter_clock = 0.0
+	_last_wing_flutter = -1000.0
 	_jiggle_logged = false
 	_act_seconds = 0.0
 	_flutter_clock = randf_range(0.5, 1.5)
+	_heart_elapsed = 0.0
+	_heart_index = 0
+	_heart_times.clear()
+	_heart_counts.clear()
 	_clear_face()
 	_set_face(0.45, 0.45)
 	_serial = _next_serial()
@@ -1496,6 +1521,66 @@ func _pose2_gap() -> float:
 	return gap
 
 
+func debug_chin(step_deg: float) -> void:
+	if not is_instance_valid(pony):
+		return
+	_debug_chin_deg = clampf(_debug_chin_deg + step_deg, -30.0, 30.0)
+	_apply_debug_chin()
+	# Let the skeleton modifier apply this frame before sampling the head/chin positions.
+	call_deferred("_log_chin")
+
+
+## Attach the debug chin modifier and keep it after every pose modifier, so an act cannot
+## overwrite the experimental head pitch.
+func _apply_debug_chin() -> void:
+	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+	if not skeleton is Skeleton3D:
+		return
+	if not is_instance_valid(_chin_modifier) or _chin_modifier.get_parent() != skeleton:
+		if is_instance_valid(_chin_modifier):
+			_chin_modifier.queue_free()
+		_chin_modifier = CHIN_DEBUG.new()
+		_chin_modifier.name = "UnfplapChinDebug"
+		_chin_modifier.set("mare", pony)
+		(skeleton as Skeleton3D).add_child(_chin_modifier)
+	_chin_modifier.set("chin_deg", _debug_chin_deg)
+	_keep_chin_last()
+
+
+func _keep_chin_last() -> void:
+	if not is_instance_valid(_chin_modifier):
+		return
+	var parent := _chin_modifier.get_parent()
+	if parent is Skeleton3D:
+		(parent as Skeleton3D).move_child(_chin_modifier, parent.get_child_count() - 1)
+
+
+func _log_chin() -> void:
+	if not is_instance_valid(pony):
+		return
+	var rows: Array[String] = []
+	rows.append("pony=%s angle=%+.1f°" % [str(pony.name), _debug_chin_deg])
+	var body: Variant = pony.get("skeleton")
+	if body is Skeleton3D:
+		var head_bone := (body as Skeleton3D).find_bone("pony_head")
+		if head_bone >= 0:
+			var head_pose := (body as Skeleton3D).get_bone_global_pose(head_bone)
+			rows.append("head origin=%s dir=%s" % [
+				str((body as Skeleton3D).global_transform * head_pose.origin),
+				str(head_pose.basis.z)])
+	var boop: Variant = pony.get("boop_node")
+	var head_sk: Variant = boop.get("head_skeleton") if boop != null else null
+	if head_sk is Skeleton3D:
+		var chin_bone := (head_sk as Skeleton3D).find_bone("mFaceChin")
+		if chin_bone >= 0:
+			var chin_pose := (head_sk as Skeleton3D).get_bone_global_pose(chin_bone)
+			rows.append("chin world=%s" % str((head_sk as Skeleton3D).global_transform * chin_pose.origin))
+		if boop.has_method("nose_world"):
+			rows.append("snout world=%s" % str(boop.call("nose_world")))
+	if is_instance_valid(main) and main.has_method("_debug_block"):
+		main.call("_debug_block", "CHIN", rows)
+
+
 func debug_float_pose1(seconds: float) -> void:
 	if state != State.IDLE or not is_instance_valid(pony) or _debug_pose_active:
 		_log("float pose1: busy")
@@ -1515,6 +1600,7 @@ func debug_float_pose1(seconds: float) -> void:
 	_debug_pose.set("target_amount", 1.0)
 	_debug_pose.set("look_point", main.camera().global_position if main.camera() != null else pony.global_position)
 	(skeleton as Skeleton3D).add_child(_debug_pose)
+	_keep_chin_last()
 	_log("float pose1 pony=%s seconds=%.1f" % [str(pony.name), seconds])
 	await get_tree().create_timer(seconds).timeout
 	if is_instance_valid(pony) and _debug_pose_active:
@@ -1540,6 +1626,7 @@ func _build_pose() -> void:
 		_pose.amount = 0.0
 		_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_pose)
+		_keep_chin_last()
 	if pose_id != CATALOG.HORSE:
 		return
 	var hair: Variant = pony.get("hair_skeleton")
@@ -1556,7 +1643,7 @@ func _build_pose() -> void:
 
 
 func _free_pose() -> void:
-	_release_pose1_camera_lock()
+	_release_free_camera_lock()
 	_remove_anon_thrust()
 	if is_instance_valid(_pose):
 		_pose.queue_free()
@@ -1698,20 +1785,19 @@ func _on_stroke(event: Dictionary) -> void:
 
 func _on_pump(result: Dictionary) -> void:
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
+	var now := _now_s()
 	stamina = maxi(0, stamina - 1)
 	if _pump_bobs:
 		_bob_speed_scale = _bob_response_scale(float(result.get("speed", 0.0)))
 		_bob_velocity += BOB_PUMP_IMPULSE * _bob_speed_scale
 		_lean_velocity += BOB_FORWARD_IMPULSE * _bob_speed_scale
 	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, strength)
-	if _winged and not _wing_hold:
+	if _winged and not _wing_hold and now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
 		var excitement: Variant = pony.get("excitement")
 		if excitement != null and excitement.has_method("flutter"):
 			excitement.call("flutter")
+			_last_wing_flutter = now
 	_pump_jiggle(strength)
-	if pose_id == CATALOG.HORSE:
-		_thrust = maxf(_thrust, strength)
-	var now := _now_s()
 	_pump_times.append(now)
 	while not _pump_times.is_empty() and now - float(_pump_times[0]) > 1.0:
 		_pump_times.pop_front()
@@ -1922,7 +2008,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 	var key := "%s:%d" % [key_suffix, _utterance_serial]
 	var event_id := _event_id
 	var valid := func() -> bool:
-		return is_instance_valid(pony) and state == State.ACTIVE and _event_id == event_id
+		# Deliberately independent of the act state: cancelling the act must not invalidate
+		# a line that is already being generated or spoken. Explicit `_cancel_pending_utterance`
+		# calls still cancel it at climax/afterglow boundaries.
+		return is_instance_valid(pony) and _event_id == event_id
 	var finished := func() -> void:
 		_utterance_done(key)
 	var queued := MEMORY.utterance_for(main.game, _id, event_id, key, purpose, valid, finished)
@@ -2069,6 +2158,8 @@ func _climax() -> void:
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
+	_schedule_climax_hearts()
+	_climax_hearts_burst_at(_dock_point())
 	_set_face(0.3, 0.0)
 	if not _utterance_pending_key.is_empty():
 		_log("climax cancel utterance key=%s" % _utterance_pending_key)
@@ -2077,6 +2168,92 @@ func _climax() -> void:
 	_play_climax()
 	if is_instance_valid(main.hud):
 		main.hud.set_state("CLIMAX")
+
+
+## Three pulses: four bursts at the start, two after at least one second, one after at least
+## another second. The dock burst is separate and fires from `_climax()`.
+func _schedule_climax_hearts() -> void:
+	_heart_elapsed = 0.0
+	_heart_index = 0
+	_heart_times.clear()
+	_heart_counts.clear()
+	_heart_times.append(0.0)
+	_heart_counts.append(4)
+	var latest := maxf(1.0, CLIMAX_SECONDS - 0.4)
+	var second := randf_range(1.0, minf(2.4, latest))
+	var third := randf_range(second + 1.0, maxf(second + 1.0, latest))
+	_heart_times.append(second)
+	_heart_counts.append(2)
+	_heart_times.append(third)
+	_heart_counts.append(1)
+
+
+func _climax_hearts_tick(delta: float) -> void:
+	if _heart_times.is_empty():
+		return
+	_heart_elapsed += delta
+	while _heart_index < _heart_times.size() and _heart_elapsed >= _heart_times[_heart_index]:
+		var count := _heart_counts[_heart_index] if _heart_index < _heart_counts.size() else 1
+		var at := _heart_times[_heart_index]
+		_heart_index += 1
+		for i: int in count:
+			_climax_hearts_burst()
+		_log("climax hearts pulse t=%.2f count=%d" % [at, count])
+
+
+## Same effect as a boop (five drifting hearts, her heart colours) without counting a boop or
+## restarting the blush/squeak reaction.
+func _climax_hearts_burst() -> void:
+	var boop: Variant = pony.get("boop_node") if is_instance_valid(pony) else null
+	if boop != null and boop.has_method("celebrate"):
+		boop.call("celebrate")
+
+
+## A boop-heart burst moved to `origin` while keeping its random spread and drift.
+func _climax_hearts_burst_at(origin: Vector3) -> void:
+	if not is_instance_valid(pony) or not origin.is_finite():
+		return
+	var boop: Variant = pony.get("boop_node")
+	if boop == null or not boop.has_method("celebrate"):
+		return
+	var stored: Variant = boop.get("_hearts")
+	if not stored is Array:
+		return
+	var hearts: Array = stored
+	var before := hearts.size()
+	boop.call("celebrate")
+	if hearts.size() <= before:
+		return
+	var first: Dictionary = hearts[before]
+	var first_origin: Vector3 = first.get("origin", origin)
+	var shift: Vector3 = origin - first_origin
+	for i: int in range(before, hearts.size()):
+		var heart: Dictionary = hearts[i]
+		var old: Vector3 = heart.get("origin", origin)
+		var moved := old + shift
+		heart["origin"] = moved
+		var sprite: Variant = heart.get("sprite")
+		if sprite is Node3D:
+			(sprite as Node3D).global_position = moved
+	_log("climax dock hearts=%d" % (hearts.size() - before))
+
+
+## Her dock is the tail base on the hair skeleton; fall back to the hips if it is unavailable.
+func _dock_point() -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var hair: Variant = pony.get("hair_skeleton")
+	if hair is Skeleton3D:
+		var tail := (hair as Skeleton3D).find_bone("mTail1")
+		if tail >= 0:
+			return (hair as Skeleton3D).global_transform * (hair as Skeleton3D).get_bone_global_pose(tail).origin
+	var body: Variant = pony.get("skeleton")
+	if body is Skeleton3D:
+		var hips := (body as Skeleton3D).find_bone("pony_hips")
+		if hips >= 0:
+			return (body as Skeleton3D).global_transform * (body as Skeleton3D).get_bone_global_pose(hips).origin \
+				+ pony.global_basis.z.normalized() * 0.18 + Vector3.UP * 0.05
+	return pony.global_position + Vector3.UP * 0.7
 
 
 func _queue_climax_reaction() -> void:
@@ -2144,7 +2321,6 @@ func _restore_begin() -> void:
 	if state == State.IDLE or state == State.RESTORE:
 		return
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
-	_cancel_pending_utterance()
 	var from_state := state
 	state = State.RESTORE
 	_restore_left = RESTORE_SECONDS
@@ -2555,6 +2731,10 @@ func _begin_camera_mode() -> void:
 	_camera_offset = Vector3.ZERO
 	_camera_base_basis = Basis.IDENTITY
 	_camera_basis_ready = false
+	_pose1_free_yaw = 0.0
+	_pose1_free_pitch = 0.0
+	_pose2_free_yaw = 0.0
+	_pose2_free_pitch = 0.0
 	_pose1_look_point = Vector3.INF
 	_pose2_base_look = Vector3.INF
 	_pose2_base_saved = false
@@ -2564,15 +2744,15 @@ func _begin_camera_mode() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	_camera = main.camera()
-	if pose_id == CATALOG.MISSIONARY:
-		_apply_pose1_camera_lock()
-	elif pose_id == CATALOG.HORSE and is_instance_valid(_camera):
+	if pose_id == CATALOG.HORSE and is_instance_valid(_camera):
 		_pose2_base_local = _camera.position
 		_pose2_base_saved = true
 		_pose2_aim_until = Time.get_ticks_msec() + 1000
-		_pose2_base_look = _pose2_shoulder_point()
+		_pose2_base_look = _pose2_head_neck_point()
 		_apply_pose2_base_look()
 		_install_anon_thrust()
+	if _camera_free:
+		_apply_free_camera_lock()
 
 
 ## F debug toggle: free shot versus the previous mouse-look camera.
@@ -2581,27 +2761,30 @@ func toggle_camera_mode() -> void:
 		return
 	_camera_free = not _camera_free
 	_camera_offset = Vector3.ZERO
+	_pose1_free_yaw = 0.0
+	_pose1_free_pitch = 0.0
+	_pose2_free_yaw = 0.0
+	_pose2_free_pitch = 0.0
 	if pose_id == CATALOG.MISSIONARY:
-		_pose1_free_yaw = 0.0
-		_pose1_free_pitch = 0.0
 		if is_instance_valid(_pose1_view):
 			_pose1_look_point = _snout()
 			_pose1_view_basis = _pose1_aim_basis(_pose1_view.global_position)
 			_camera_base_basis = Basis(Vector3.UP, _pose1_view_basis.get_euler().y)
 			_camera_basis_ready = true
-		if _camera_free:
-			_apply_pose1_camera_lock()
-		else:
-			_release_pose1_camera_lock()
 	elif pose_id == CATALOG.HORSE and _camera_free and _pose2_base_saved:
 		_pose2_aim_until = Time.get_ticks_msec() + 400
-		_pose2_base_look = _pose2_shoulder_point()
+		_pose2_base_look = _pose2_head_neck_point()
 		_apply_pose2_base_look()
+	if _camera_free:
+		_apply_free_camera_lock()
+	else:
+		_release_free_camera_lock()
 	_log("camera mode=%s pose=%s" % ["free" if _camera_free else "legacy", pose_id])
 
 
-## WASD moves the fixed shot. It never rotates the camera and does not move Anon.
-func _camera_move_tick(delta: float) -> void:
+## WASD rotates the free camera: W/S pitch it lower/upper, A/D yaw it left/right. It never
+## translates Anon as if walking.
+func _camera_look_tick(delta: float) -> void:
 	if not _camera_free or state not in [State.ACTIVE, State.CLIMAX]:
 		return
 	if _player_pony or _headset_view() or get_tree().paused:
@@ -2611,17 +2794,42 @@ func _camera_move_tick(delta: float) -> void:
 		return
 	if not _camera_basis_ready:
 		return
-	_camera_offset += (_camera_base_basis.x * input.x + _camera_base_basis.z * input.y) \
-		* CAMERA_MOVE_SPEED * delta
-	var side := _camera_offset.dot(_camera_base_basis.x)
-	var dolly := _camera_offset.dot(_camera_base_basis.z)
-	side = clampf(side, -CAMERA_MOVE_SIDE, CAMERA_MOVE_SIDE)
-	dolly = clampf(dolly, -CAMERA_MOVE_DOLLY, CAMERA_MOVE_DOLLY)
-	_camera_offset = _camera_base_basis.x * side + _camera_base_basis.z * dolly
+	var yaw_step := -input.x * CAMERA_LOOK_SPEED * delta
+	var pitch_step := -input.y * CAMERA_LOOK_SPEED * delta
+	if pose_id == CATALOG.MISSIONARY:
+		_pose1_free_yaw = clampf(_pose1_free_yaw + yaw_step,
+			-POSE1_FREE_YAW_LIMIT, POSE1_FREE_YAW_LIMIT)
+		_pose1_free_pitch = clampf(_pose1_free_pitch + pitch_step,
+			-POSE1_FREE_PITCH_LIMIT, POSE1_FREE_PITCH_LIMIT)
+	elif pose_id == CATALOG.HORSE:
+		_pose2_free_yaw = clampf(_pose2_free_yaw + yaw_step,
+			-LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
+		_pose2_free_pitch = clampf(_pose2_free_pitch + pitch_step,
+			-LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
+		_apply_pose2_free_look()
 
 
-func _apply_pose1_camera_lock() -> void:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(main) or not is_instance_valid(main.player):
+## Apply the pose-2 free-look offsets to the player's camera on top of the captured base aim.
+func _apply_pose2_free_look() -> void:
+	if not _camera_free or pose_id != CATALOG.HORSE or _player_pony or _headset_view():
+		return
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Node = main.player
+	body.rotation.y = _look_yaw + _pose2_free_yaw
+	var pitch := clampf(_look_pitch + _pose2_free_pitch, -1.5, 1.5)
+	if body.get("_pitch") != null:
+		body.set("_pitch", pitch)
+	if body.get("form_driver") == null:
+		var view: Camera3D = main.camera()
+		if is_instance_valid(view):
+			view.rotation.x = pitch
+
+
+## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
+## start couch actions while the shot is active. The previous value is restored on F/end.
+func _apply_free_camera_lock() -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var body: Variant = main.player
 	if not _controls_locked_by_camera:
@@ -2630,7 +2838,7 @@ func _apply_pose1_camera_lock() -> void:
 	body.set("controls_locked", true)
 
 
-func _release_pose1_camera_lock() -> void:
+func _release_free_camera_lock() -> void:
 	if not _controls_locked_by_camera:
 		return
 	if is_instance_valid(main) and is_instance_valid(main.player):
@@ -2639,30 +2847,25 @@ func _release_pose1_camera_lock() -> void:
 	_controls_locked_saved = false
 
 
-func _pose2_shoulder_point() -> Vector3:
+func _pose2_head_neck_point() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var scale := 1.0
-	if pony.get("body_scale") != null:
-		scale = float(pony.get("body_scale"))
 	var sk: Variant = pony.get("skeleton")
 	if sk is Skeleton3D:
 		var skeleton := sk as Skeleton3D
-		var points: Array[Vector3] = []
-		for bone_name: String in ["pony_spine3", "pony_neck1", "pony_upperArm_L", "pony_upperArm_R"]:
+		# The head bone origin is the joint that connects the neck chain to the head.
+		for bone_name: String in ["pony_head", "pony_neck2"]:
 			var bone := skeleton.find_bone(bone_name)
 			if bone >= 0:
-				points.append(skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin)
-		if points.size() >= 2:
-			var sum := Vector3.ZERO
-			for point: Vector3 in points:
-				sum += point
-			return sum / float(points.size())
-	return pony.global_position + Vector3.UP * (POSE2_SHOULDER_HEIGHT_M * scale)
+				return skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
+	var scale := 1.0
+	if pony.get("body_scale") != null:
+		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
+	return pony.global_position + Vector3.UP * (POSE2_HEAD_NECK_HEIGHT_M * scale)
 
 
-## Point the player's own camera at the pose-2 shoulders. Free mode uses this as the fixed
-## shot; legacy mode starts here and then mouse-look takes over.
+## Point the player's own camera at the joint between her head and neck. Free mode uses this
+## as the fixed shot; legacy mode starts here and then mouse-look takes over.
 func _apply_pose2_base_look() -> void:
 	if _player_pony or _headset_view():
 		return
@@ -2674,7 +2877,7 @@ func _apply_pose2_base_look() -> void:
 		return
 	var target := _pose2_base_look
 	if not target.is_finite():
-		target = _pose2_shoulder_point()
+		target = _pose2_head_neck_point()
 	if not target.is_finite():
 		return
 	var direction := target - view.global_position
@@ -2695,6 +2898,7 @@ func _apply_pose2_base_look() -> void:
 	_pose2_base_look = target
 	if pose_id == CATALOG.HORSE and _has_facing:
 		_facing_basis = Basis(Vector3.UP, yaw)
+	_apply_pose2_free_look()
 
 
 func _install_anon_thrust() -> void:
@@ -2727,17 +2931,17 @@ func _remove_anon_thrust() -> void:
 	_anon_thrust_driver = null
 	_anon_thrust_original = null
 	_anon_thrust_avatar = null
-	_thrust = 0.0
 
 
 ## Called after anon_body has set the hip target, through the desktop pose-driver wrapper.
+## The hip tracks raw mouse depth with no spring or return animation.
 func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
-	if pose_id != CATALOG.HORSE or _thrust <= 0.0001 or not is_instance_valid(hip):
+	if pose_id != CATALOG.HORSE or depth <= 0.0001 or not is_instance_valid(hip):
 		return
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
-	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _thrust)
+	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * clampf(depth, 0.0, 1.0))
 
 
 func apply_camera_motion() -> void:
@@ -2783,7 +2987,7 @@ func apply_camera_motion() -> void:
 				str(_pose1_view.global_basis)])
 		return
 	if _pose2_base_saved and Time.get_ticks_msec() < _pose2_aim_until:
-		_pose2_base_look = _pose2_shoulder_point()
+		_pose2_base_look = _pose2_head_neck_point()
 		_apply_pose2_base_look()
 	_set_camera_offsets(_bob, _lean - _back)
 
@@ -2813,7 +3017,7 @@ func _set_camera_offsets(vertical: float, forward: float) -> void:
 		var local := _camera_base_basis.inverse() * (_camera_offset if _camera_free else Vector3.ZERO)
 		_camera.position = Vector3(
 			_pose2_base_local.x + local.x,
-			_player_eye_height() + vertical,
+			_player_eye_height() + vertical + local.y,
 			_pose2_base_local.z + local.z - forward)
 		_applied_bob = vertical
 		_applied_lean = forward
@@ -2972,7 +3176,7 @@ func _clamp_look() -> void:
 
 
 func _restore_camera() -> void:
-	_release_pose1_camera_lock()
+	_release_free_camera_lock()
 	_remove_anon_thrust()
 	_restore_eye_override()
 	_restore_anon_avatar()
@@ -3002,7 +3206,6 @@ func _restore_camera() -> void:
 	_camera_base_basis = Basis.IDENTITY
 	_camera_basis_ready = false
 	_pose2_base_saved = false
-	_thrust = 0.0
 	_camera = null
 
 
@@ -3150,7 +3353,7 @@ func _breath_tick(delta: float) -> void:
 		return
 	var interval := lerpf(BREATH_BASE_INTERVAL_S, BREATH_MIN_INTERVAL_S, rate)
 	if state == State.CLIMAX:
-		interval = 0.7
+		interval = BREATH_CLIMAX_INTERVAL_S
 	elif state == State.AFTERGLOW:
 		interval = 1.4
 	_breath_clock = interval

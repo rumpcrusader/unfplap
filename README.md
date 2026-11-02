@@ -12,13 +12,13 @@ Desktop only for now
 
 ## Controls
 
-| Input    | Action                                        |
-| -------- | --------------------------------------------- |
-| `L`      | Start an available encounter                  |
-| Mouse ↕  | Pump during the act                           |
-| `WASD`   | Move the camera during the act (experimental) |
-| `F`      | Toggle free/legacy camera (experimental)      |
-| Hold `Q` | Stop before climax / end afterglow            |
+| Input    | Action                                                |
+| -------- | ----------------------------------------------------- |
+| `L`      | Start an available encounter                          |
+| Mouse ↕  | Pump during the act                                   |
+| `WASD`   | Rotate the camera during the act (experimental)       |
+| `F`      | Toggle free/legacy camera (experimental)              |
+| Hold `Q` | Stop before climax / end afterglow                    |
 
 ## Features
 
@@ -29,7 +29,7 @@ Desktop only for now
 - **Per-mare preferences** — Depth, speed and stroke-shape preferences can change during the act.
 - **Reactive dialogue** — On-demand lines react to speed, depth and stroke shape.
 - **HUD** — Shows meters for penetration, satisfaction and stamina.
-- **Act camera** — Offers a free camera with experimental WASD positioning, optional legacy mouse
+- **Act camera** — Offers a free camera with experimental WASD rotation, optional legacy mouse
   look and optional pump bob.
 - **Presentation** — Adds blush, eyes, ears, tail, jiggle, audio and wing motion.
 - **Aftermath** — Ends with cuddle afterglow or standing withdrawal, then short aftercare.

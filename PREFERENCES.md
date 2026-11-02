@@ -10,7 +10,7 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 - `pump.orientation`:
   - `"up"` (default): mouse up deepens; top = deep/orange, bottom = shallow/blue.
   - `"down"`: mouse down deepens; top = shallow/blue, bottom = deep/orange.
-- `pump.pixels_per_full` is pixels for a `0→1` sweep (default `800`), independent of look
+- `pump.pixels_per_full` is pixels for a `0→1` sweep (default `600`), independent of look
   sensitivity.
 - Raw depth is clamped `0…1`; overshoot is discarded. The HUD reads raw depth directly.
 - Legacy mode mouse look is `ACT_LOOK_YAW_SCALE = 0.10` laterally and
@@ -30,8 +30,10 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 
 - Separate from preference scoring.
   `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)`.
-- Drives jiggle, the pose-2 Anon hip thrust and wing flick. It is the intended selector input for
-  future mod-owned plap clips; the current plap sound is unchanged.
+- Drives jiggle and wing flick. It is the intended selector input for future mod-owned plap
+  clips; the current plap sound is unchanged.
+- The pose-2 Anon hip follows raw `depth` directly and is **not** driven by strength:
+  `THRUST_MAX_M = 0.045 m` forward at full depth, with no spring or return animation.
 
 ## Camera bob
 

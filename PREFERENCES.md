@@ -5,16 +5,15 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 
 ## Input and depth
 
-- Mouse vertical relative motion feeds raw depth. Free camera mode ignores the rest of the motion;
-  legacy camera mode keeps the old mouse look.
+- Mouse vertical relative motion feeds raw depth. The act camera ignores the rest of the mouse
+  motion.
 - `pump.orientation`:
   - `"up"` (default): mouse up deepens; top = deep/orange, bottom = shallow/blue.
   - `"down"`: mouse down deepens; top = shallow/blue, bottom = deep/orange.
 - `pump.pixels_per_full` is pixels for a `0→1` sweep (default `600`), independent of look
   sensitivity.
 - Raw depth is clamped `0…1`; overshoot is discarded. The HUD reads raw depth directly.
-- Legacy mode mouse look is `ACT_LOOK_YAW_SCALE = 0.10` laterally and
-  `ACT_LOOK_PITCH_SCALE = 0.10` vertically, with motion consumed. Free mode uses no mouse look.
+- The act camera uses `W`/`S` forward/back and `Q`/`E` side lean; mouse motion never turns it.
 
 ## Strokes and scoring
 
@@ -30,8 +29,9 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 
 - Separate from preference scoring.
   `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)`.
-- Drives jiggle and wing flick. It is the intended selector input for future mod-owned plap
-  clips; the current plap sound is unchanged.
+- Drives jiggle (`JIGGLE_RUMP_SCALE = 2.8`, also multiplied by `clamp(size_scale, 0.5, 1.2)`)
+  and wing flick. It is the intended selector input for future mod-owned plap clips; the current
+  plap sound is unchanged and emits from the rump point in both poses.
 - The pose-2 Anon hip follows raw `depth` directly and is **not** driven by strength:
   `THRUST_MAX_M = 0.045 m` forward at full depth, with no spring or return animation.
 
@@ -39,12 +39,12 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 
 - **Disabled by default.** `pump.bobs` is `false`; both pump and climax camera bobs are skipped.
   Set `"bobs": true` in the top-level `pump` block to enable the springs below.
-- When enabled, each pump adds `BOB_PUMP_IMPULSE = 2.30 / 6` (≈`0.383`) to vertical velocity and
-  `BOB_FORWARD_IMPULSE = 1.80 / 6` (`0.30`) to forward velocity.
+- When enabled, each pump adds `BOB_PUMP_IMPULSE = 2.30 / 3` (≈`0.767`, doubled) to vertical
+  velocity and `BOB_FORWARD_IMPULSE = 1.80 / 6` (`0.30`) to forward velocity.
 - Vertical spring: stiffness `105`, damping `13`, limit `±0.40`.
 - Forward spring: stiffness `100`, damping `12`, limit `±0.32`.
-- Pose 1 scales vertical bob by `POSE1_BOB_SCALE = 0.35`; pose 2 uses the full value.
-- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 6` (≈`0.0042`) vertically and
+- Pose 1 and pose 2 use the same vertical bob and camera rock.
+- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 3` (≈`0.0083`, doubled) vertically and
   `BOB_CLIMAX_FORWARD = 0.12 / 6` (`0.02`).
 - **Pump-speed response.** At or above `BOB_SPEED_REFERENCE = 0.80` depth/s the bob uses the
   full-speed spring. Below it, the response scale is `speed / 0.80`, clamped to
@@ -98,7 +98,7 @@ Boredom:
 - If `min > 0`, below `min × 0.9` for 10 s queues `bored`.
 - Leaves boredom above `min × 1.2`.
 - Timer pauses while the director is speaking or the player is talking.
-- `speed_slow` remains the immediate 3-stroke complaint.
+- `speed_slow` and `speed_fast` were removed; only the `speed_perfect` praise remains.
 
 ## Shapes
 
@@ -134,9 +134,9 @@ likes ease_out, dislikes ease_in_out
 |---|---|---|---|---|---|
 | Fluttershy | `deep` | `0.40 / 1.20 / 2.00 / 0.22` | `ease_out` | `ease_in_out` | `1–3` |
 | Fluttershy 75%+ | `deep` | `0.60 / 1.60 / 2.60 / 0.28` | `ease_out` | `ease_in_out` | `1–3` |
-| Rarity | `shallow` | `0.20 / 0.50 / 1.00 / 0.10` | `ease_in_out` | `ease_out` | `4–7` |
-| Twilight | `steady` | default | — | — | `2–5` |
-| Default | `steady` | `0.001 / 0.80 / 1.60 / 0.15` | — | — | `2–5` |
+| Rarity | `shallow` | `0.20 / 0.50 / 1.00 / 0.10` | `ease_in_out` | `ease_out` | `2–3` |
+| Twilight | `steady` | default | — | — | `2–3` |
+| Default | `steady` | `0.001 / 0.80 / 1.60 / 0.15` | — | — | `2–3` |
 
 ## Prompt values
 

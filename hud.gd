@@ -7,6 +7,9 @@ const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
+const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean hold\nHold Y · Exit"
+const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean hold\nHold Y · Exit"
+const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nH · Toggle lean hold\nHold Y · Exit"
 
 var _prompt: Label
 var _hint: Label
@@ -81,9 +84,10 @@ func _ready() -> void:
 	_hint.anchor_right = 0.0
 	_hint.anchor_bottom = 1.0
 	_hint.offset_left = 28.0
-	_hint.offset_top = -54.0
-	_hint.offset_right = 430.0
+	_hint.offset_top = -174.0
+	_hint.offset_right = 500.0
 	_hint.offset_bottom = -26.0
+	_hint.add_theme_font_size_override("font_size", 18)
 	_hint.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
 	_hint.visible = false
 	root.add_child(_hint)
@@ -144,9 +148,9 @@ func set_state(kind: String) -> void:
 	if _hint == null:
 		return
 	if kind == "CLIMAX":
-		_hint.text = ""
+		_hint.text = CLIMAX_HINTS
 	elif kind == "AFTERGLOW":
-		_hint.text = "Hold Q · End"
+		_hint.text = AFTERGLOW_HINTS
 		if _bars != null:
 			_bars.visible = false
 
@@ -167,10 +171,10 @@ func update_from(runtime: Node, show_satisfaction := true) -> void:
 		_stamina.call("set_value", float(runtime.get("stamina")), 400.0)
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 	if state == STATE_ACTIVE:
-		_hint.text = "Mouse ↕ · Pump    Hold Q · Stop"
+		_hint.text = ACTIVE_HINTS
 	elif state == STATE_CLIMAX:
-		_hint.text = ""
+		_hint.text = CLIMAX_HINTS
 	elif state == STATE_AFTERGLOW:
-		_hint.text = "Hold Q · End"
+		_hint.text = AFTERGLOW_HINTS
 	else:
 		_hint.text = ""

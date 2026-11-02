@@ -17,7 +17,7 @@ whenever a pose value or order changes.
   straight-chain alignment; keep it in the bone list only as a direction target for
   `pony_neck2`. The head follows neck2 through its rest offset.
 
-## Missionary (legacy Pose 1)
+## Missionary (Pose 1)
 
 Exact order:
 
@@ -79,47 +79,116 @@ these values here if a future pose needs that effect.
 
 ## Pose-1 camera
 
-- Anchor: `root + up * 0.55 - back * 0.15`, where `back = +pony.global_basis.z`.
-- Snout aim is sampled during the 1 s blend and then frozen; it does not track the live nose.
-- Free camera mode has no mouse look. WASD rotates the view at `CAMERA_LOOK_SPEED = 1.0 rad/s`;
-  W/S pitch within `±POSE1_FREE_PITCH_LIMIT = 1.0`, A/D yaw within
-  `±POSE1_FREE_YAW_LIMIT = 1.2`. It never translates Anon or the view.
-- Free mode locks `player.controls_locked` for both poses and restores the previous value on
-  legacy toggle/end.
-- Legacy mode adds mouse yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
-  `ACT_LOOK_PITCH_SCALE = 0.10`.
+- Anchor: `root + up * (0.45 + POSE1_CAMERA_LIFT_M 0.10) - back * 0.22`, where
+  `back = +pony.global_basis.z`. Canon height is `0.9×`. After positioning, the shot is pulled
+  `POSE1_CAMERA_PULLBACK_M = 0.20` back along `_pose1_view_basis.z` (its own view axis), so the
+  frozen aim still points at her neck. The aim basis is rebuilt from the stable anchor, not the
+  moved view, to prevent start-up flicker.
+- Aim: middle of the neck (`pony_neck1`/`pony_neck2` midpoint), sampled during the 1 s blend
+  and then frozen. The live snout is no longer used; it can fall behind the bed camera.
+- A forward-dot check re-aims once if the cached basis points away from the target.
+- Backward lean is clamped to stop `0.12 m` short of the neck target, so the camera can never
+  cross its own look point and flip backwards.
+- The camera has no mouse look. `W`/`S` lean forward/back and `Q`/`E` lean sideways:
+  `side = E - Q`, `forward = W - S + abs(side)`.
+- Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
+  lean is halved to `0.08 m`; side lean translates `0.18 m`. Both directions pitch `6°` down,
+  and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. `camera_inertia`
+  smooths the displayed lean at `CAMERA_INERTIA_SMOOTH = 5.0`.
+- All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
+  is the reference; Canon (`0.66`) is `1.34`. The pose-1 Canon camera height is also `0.9×`.
+- The lean camera locks `player.controls_locked` for both poses and restores the previous value
+  at act end.
+- `Q` also starts the act kiss at `LEAN_FIRE = 0.75` and releases at `LEAN_RELEASE = 0.60`.
+  The kiss aims her neck/head at Anon's mouth through the recipe `kiss` weight; `E` only leans.
 - Camera bobs are opt-in: `pump.bobs` defaults to `false` and skips pump and climax bob motion.
 - When enabled, each pump adds to the vertical and forward spring velocities.
-- Pose 1 uses `_bob * POSE1_BOB_SCALE` (`0.35`); pose 2 uses `_bob` directly.
+- Pose 1 uses the same `_bob` and pump camera rock as pose 2.
 - Slow pumps scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
   `s = clamp(speed / BOB_SPEED_REFERENCE, 0.35, 1.0)`. At `>= 0.80` depth/s the bob is unchanged.
-- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 6` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.
+- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 3` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.
 - Restore order is load-bearing:
   1. player transform and yaw,
   2. pony transform and posture,
   3. camera transform + `make_current()`.
 - Do not reorder: setting player yaw rotates a child camera.
+- Pose-1 setup saves the source camera `fov`, `near`, `far` and `cull_mask`; freeing the
+  mod-owned view restores those exact values and logs them before making the source current.
 - After restore, re-invite the pony through the seat's couch; if that fails, restore
   the captured posture.
 
-## Horse (legacy Pose 2)
+## Horse (Pose 2)
 
 - Facing lock every physics tick at priority 100:
   `pony.global_transform.basis = _facing_basis.scaled(scale)`.
 - Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
-- Free mode aims the player camera at the joint connecting her head and neck (`pony_head`
-  origin, `pony_neck2` fallback) during the 1 s blend, then freezes; WASD rotates the view
-  (W/S pitch, A/D yaw) inside the 45° cone. Legacy mode keeps the same look cone around the
-  captured yaw.
-- Standing gap per size preset.
+- The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the
+  1 s blend, then freezes. The same lean vector is applied on top: forward `0.24 m` /
+  `-6°` pitch / `1.5°` roll; backward `0.08 m` with the same downward pitch; side `0.18 m` /
+  `8°` outward roll / `3°` yaw. All scale with pony size. Canon lowers the pose-2 eye line by
+  `0.20 m` and uses a `0.66×` pump-jiggle scale.
+- Anon's pelvis stays planted: `apply_anon_lean()` cancels the camera's forward/side lean
+  translation on the hip target, so the torso hinges over her instead of the whole body sliding
+  into her rump. Pull-back still moves the whole body away. `ANON_PUMP_SWAY_M = 0.02` also
+  moves the pelvis back on the inward stroke, so his upper body pumps forward/back with depth.
+- Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
+- `H` toggles lean auto-return. In hold mode a slow `0.015` forward / `0.0125` side rock keeps
+  the camera/upper body from freezing completely; both are clamped inside `-1…1`.
+- Pose-2 camera adds a smoother, stronger roll-plus-pitch rock spring on each pump:
+  `CAMERA_ROCK_IMPULSE = 0.20`, `CAMERA_ROCK_LIMIT = 0.026`, stiffness `45`, damping `8.0`;
+  pitch is `0.45×` the roll.
+- Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
+  pose 1; releasing `F` or dropping the lean ends it.
+- Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
+- Canon lowers the pose-2 eye line by `0.10 m` and multiplies lean travel by `0.8`.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via
-  `eye_motion.target_world` / `target_weight`.
+  `eye_motion.target_world` / `target_weight`. Look-back yaw clamps at
+  `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted
+  to `1.44`).
+- `Q`/`E` at `0.75` side lean reach Anon's same-side open palm to the outside of her shoulder
+  through `desktop_anon.set_hold_target(..., "rub")`. Hand-marker axes are local `-Z` fingers,
+  `+Y` thumb/up and palm normal `-X` right / `+X` left. The shoulder target uses the pony body
+  basis so the hand continues straight forward with palms inward. It eases in over `0.35 s` and
+  back to rest over another `0.35 s`. While held, `_forced_glance` overrides the random glance
+  scheduler and locks her look over that shoulder; release clears it.
+- `A`/`D` in horse pose hold an oval caress (`CARESS_RADIUS_M = 0.055`,
+  `CARESS_SPEED_RAD_S = 4.5`) with the palm `CARESS_SURFACE_LIFT_M = 0.085` off the coat. The
+  path is `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically.
+  Point offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
+  (4 cm wider between hands), Same Height and Hoers step up from there. Both keys can run
+  simultaneously. The centre moves from the flank (no lean) to the side/belly (half forward
+  lean) to the exact Q/E shoulder touch point (full forward lean). Backward lean moves it
+  toward the rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius
+  scales with pony size; the point offsets are already per size.
 - Anon's hip follows raw pump `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
   no spring or return animation.
-- Tail aside/lift/flick on the hair skeleton; side randomized per act.
-- Withdrawal eases back, flicks the tail twice, records the inside event, then
-  restores automatically.
-- Pose 2 has no afterglow.
+- `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
+  forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
+  `BODY_SWAY_MAX_M = 0.035` is temporary/exaggerated.
+- Strong pumps build a subtle rump blush decal up to `0.25` albedo mix (smack uses `0.8`).
+- Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
+  right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
+  `SMACK_ZONE_RADIUS_M = 0.035`. A right lean selects the left cheek, a left lean the right, and
+  exactly centered picks one of the two at random. Anon's hand swings in/out over `0.20 s`
+  (`SMACK_CONTACT_PHASE = 0.45`) and there is a `200 ms` cooldown. The native impact supplies
+  sound, decal, blush, jiggle and `flank_smack`.
+- `ear_twitch.gd` flicks both ear roots together on a pump: a shared forward/back pitch and a
+  sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
+  from the root's lateral offset, with an eased envelope and cooldown.
+- Base pose adds `chin_up_deg = 30` on the head and `neck_down_deg = 15` total on neck1/neck2.
+- `foreleg_spread = 0.172 rad` is the absolute outward half-angle; the recipe measures the
+  current hoof line and rotates the upper arms only by the difference.
+- `hind_spread` defaults to `0.32`; Rarity no longer needs an override.
+- Tail aside/lift/flick on the hair skeleton; side randomized per act. `poses.<pose>.tail_lift`
+  defaults to `0.42` and is per-mare/per-pose overridable. A damped spring driven by
+  raw `depth` also rocks the tail with the pump: sagittal `ROCK_PITCH = 0.12` and lateral
+  `ROCK_YAW = 0.08`. Each pump adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
+  `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
+  rump shader, strongest at the dock and lagging down the chain.
+- Pose 2 wings start at `WING_POSE2_HOLD = 0.65` (about `60°` above the ground), then open by
+  `WING_POSE2_SPREAD = 0.25` as satisfaction rises. Pose 1 keeps the stock spread progression.
+- Pose 2 enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
+  recorded on entry. Lean and A/D caress remain live; hold Y ends it.
 
 ## Aftercare
 

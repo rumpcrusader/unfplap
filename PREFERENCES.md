@@ -16,7 +16,7 @@ Brittle scoring rules for the mouse pump, travel, preferences and reactions. Upd
   `PUMP_TRAVEL_OMEGA = 30`, damping `60`. The HUD knob and camera use it; scoring/strokes use raw
   depth. It brakes sharply before changing direction.
 - During `ACTIVE`, mouse look is `ACT_LOOK_YAW_SCALE = 0.10` laterally and
-  `ACT_LOOK_PITCH_SCALE = 0.25` vertically, with motion consumed.
+  `ACT_LOOK_PITCH_SCALE = 0.20` vertically, with motion consumed.
 
 ## Strokes and scoring
 

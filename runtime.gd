@@ -19,6 +19,14 @@ enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
 
 const SATISFACTION_MAX := 100
 const STAMINA_MAX := 400
+## Mod-owned generated lines wait this long after the previous line starts, even when the
+## director is free. Other systems keep their own scheduling.
+const UTTERANCE_MIN_GAP_S := 6.0
+## Safety timeout for a queued line that never starts. In-progress speech is never timed out.
+const UTTERANCE_QUEUE_TIMEOUT_S := 60.0
+## Keep the line slot reserved briefly after speech stops, so a split TTS reply cannot be
+## interrupted by the next queued line.
+const UTTERANCE_RELEASE_HOLD_S := 1.0
 const CLIMAX_SECONDS := 5.0
 const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
@@ -43,15 +51,31 @@ const POSE2_GAPS := {
 	"canon": 0.35,
 	"hoers": 0.55,
 }
-## Camera motion is forward/back only, driven by the smoothed penetration value.
-## `PUMP_LEAN_AMPLITUDE` is the old pump spring's peak (~0.09 m).
-const PUMP_LEAN_AMPLITUDE := 0.09
-const PUMP_LEAN_BASE_FRACTION := 0.10
+## Pose 1 camera vertical bob scale (world up); lower it because the pose-1 view is close.
+const POSE1_BOB_SCALE := 0.35
+## Camera bob: damped spring, vertical and forward. Amplitudes are one sixth of the
+## pre-mouse-pump values (2.30/1.80 impulses, 0.025/0.12 climax).
+const BOB_PUMP_IMPULSE := 2.30 / 6.0
+const BOB_STIFFNESS := 105.0
+const BOB_DAMPING := 13.0
+const BOB_CLIMAX_AMPLITUDE := 0.025 / 6.0
+const BOB_LIMIT := 0.40
+const BOB_FORWARD_IMPULSE := 1.80 / 6.0
+const BOB_FORWARD_STIFFNESS := 100.0
+const BOB_FORWARD_DAMPING := 12.0
+const BOB_FORWARD_LIMIT := 0.32
+const BOB_CLIMAX_FORWARD := 0.12 / 6.0
+## Pump speed at which the bob uses its full-speed spring. Slower strokes scale the whole
+## bob timebase down (spring, damping and impulse together), so the peak stays the same but
+## the motion takes longer. Very slow strokes stop at this scale.
+const BOB_SPEED_REFERENCE := 0.80
+const BOB_SPEED_SCALE_MIN := 0.35
+## The smoothed depth is HUD-only now; the mouse still drives raw depth for scoring.
 const PUMP_TRAVEL_OMEGA := 30.0
 const PUMP_TRAVEL_DAMPING := 60.0
+## Mouse look is nearly frozen during the act so pumping does not steer the camera.
 const ACT_LOOK_YAW_SCALE := 0.10
-const ACT_LOOK_PITCH_SCALE := 0.20
-const LEAN_CLIMAX_FORWARD := 0.09
+const ACT_LOOK_PITCH_SCALE := 0.10
 ## Free look stays inside a 45-degree cone around the direction the act started in.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
@@ -126,6 +150,7 @@ var _phase_index := -1
 var _act_prompts: Dictionary = {}
 var _pump_tracker
 var _pump_pixels_per_full := 800.0
+var _pump_bobs := false
 var _satisfaction_frac := 0.0
 var _speed_zone := "ok"
 var _speed_zone_previous := "ok"
@@ -138,8 +163,11 @@ var _utterance_points: Array[float] = []
 var _utterance_index := 0
 var _utterance_pending_key := ""
 var _utterance_pending_until := 0.0
+var _utterance_done_key := ""
+var _utterance_done_at := 0.0
 var _utterance_rng := RandomNumberGenerator.new()
 var _utterance_serial := 0
+var _last_utterance_at := -1000.0
 var _vocal_cooldown := 0.0
 var _bored_seconds := 0.0
 var _speed_travel := 0.0
@@ -151,8 +179,9 @@ var _event_id := ""
 var _started_at := 0.0
 
 var _camera: Camera3D
+var _applied_bob := 0.0
 var _applied_lean := 0.0
-## Smoothed depth for HUD/camera only. Raw `depth` still drives scoring/strokes.
+## Smoothed depth for the HUD only. Raw `depth` drives scoring/strokes.
 var view_depth := 0.0
 var _view_velocity := 0.0
 var _pose1_camera := Vector3.INF
@@ -175,7 +204,11 @@ var _pose1_player_rotation := Vector3.ZERO
 var _pose1_player_rot_saved := false
 var _anon_avatar: Node3D
 var _anon_avatar_visible := true
+var _bob := 0.0
+var _bob_velocity := 0.0
+var _bob_speed_scale := 1.0
 var _lean := 0.0
+var _lean_velocity := 0.0
 var _back := 0.0
 var _back_target := 0.0
 var _withdraw_left := 0.0
@@ -366,14 +399,30 @@ func _process(delta: float) -> void:
 		if is_instance_valid(view):
 			_pose.look_point = view.global_position
 		_pose.climaxing = state == State.CLIMAX
-	if state == State.CLIMAX:
+	if not _pump_bobs:
+		_bob = 0.0
+		_bob_velocity = 0.0
+		_lean = 0.0
+		_lean_velocity = 0.0
+	elif state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
 		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
-		_lean = wave * LEAN_CLIMAX_FORWARD
-	elif state == State.ACTIVE:
-		_lean = (view_depth - PUMP_LEAN_BASE_FRACTION) * PUMP_LEAN_AMPLITUDE
+		_bob = wave * BOB_CLIMAX_AMPLITUDE
+		_lean = wave * BOB_CLIMAX_FORWARD
+		_bob_velocity = 0.0
+		_lean_velocity = 0.0
 	else:
-		_lean = move_toward(_lean, 0.0, delta / 0.18)
+		var speed_scale := _bob_speed_scale
+		var bob_stiffness := BOB_STIFFNESS * speed_scale * speed_scale
+		var bob_damping := BOB_DAMPING * speed_scale
+		var accel := -bob_stiffness * _bob - bob_damping * _bob_velocity
+		_bob_velocity += accel * delta
+		_bob = clampf(_bob + _bob_velocity * delta, -BOB_LIMIT, BOB_LIMIT)
+		var lean_stiffness := BOB_FORWARD_STIFFNESS * speed_scale * speed_scale
+		var lean_damping := BOB_FORWARD_DAMPING * speed_scale
+		var forward_accel := -lean_stiffness * _lean - lean_damping * _lean_velocity
+		_lean_velocity += forward_accel * delta
+		_lean = clampf(_lean + _lean_velocity * delta, -BOB_FORWARD_LIMIT, BOB_FORWARD_LIMIT)
 	var back_speed := AFTERGLOW_BACK_SPEED if state in [State.AFTERGLOW, State.WITHDRAW] else RESTORE_BACK_SPEED
 	_back = move_toward(_back, _back_target, back_speed * delta)
 	_breath_tick(delta)
@@ -1067,6 +1116,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	var pump_controls := SETTINGS.pump_controls()
 	pump_up = bool(pump_controls.get("up", true))
 	_pump_pixels_per_full = float(pump_controls.get("pixels_per_full", 800.0))
+	_pump_bobs = bool(pump_controls.get("bobs", false))
 	_pump_tracker = PUMP.new()
 	_climax_at = int(_profile.get("climax_at", 100))
 	_phase_index = PREFERENCES.phase_index(_base_preferences, 0.0)
@@ -1077,8 +1127,13 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if pose == CATALOG.MISSIONARY and bed == null:
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
+	_applied_bob = 0.0
 	_applied_lean = 0.0
+	_bob = 0.0
+	_bob_velocity = 0.0
+	_bob_speed_scale = 1.0
 	_lean = 0.0
+	_lean_velocity = 0.0
 	view_depth = 0.0
 	_view_velocity = 0.0
 	_back = 0.0
@@ -1485,7 +1540,10 @@ func _reset_pump_state() -> void:
 	_utterance_index = 0
 	_utterance_pending_key = ""
 	_utterance_pending_until = 0.0
+	_utterance_done_key = ""
+	_utterance_done_at = 0.0
 	_utterance_serial = 0
+	_last_utterance_at = -1000.0
 	_vocal_cooldown = 0.0
 	_bored_seconds = 0.0
 	_speed_travel = 0.0
@@ -1583,6 +1641,10 @@ func _on_stroke(event: Dictionary) -> void:
 
 func _on_pump() -> void:
 	stamina = maxi(0, stamina - 1)
+	if _pump_bobs:
+		_bob_speed_scale = _bob_response_scale(_stroke_speed)
+		_bob_velocity += BOB_PUMP_IMPULSE * _bob_speed_scale
+		_lean_velocity += BOB_FORWARD_IMPULSE * _bob_speed_scale
 	_wing_flick = 0.18
 	if _winged and not _wing_hold:
 		var excitement: Variant = pony.get("excitement")
@@ -1597,6 +1659,12 @@ func _on_pump() -> void:
 	_play_vocal()
 	if satisfaction == 0 or satisfaction % 10 == 0:
 		_log("pump satisfaction=%d stamina=%d rate=%.1f/s" % [satisfaction, stamina, _pumps_per_second()])
+
+
+## Slow strokes get a slower spring. Scaling stiffness by s², damping by s and the
+## impulse by s keeps the peak displacement while stretching the response in time.
+func _bob_response_scale(speed: float) -> float:
+	return clampf(speed / BOB_SPEED_REFERENCE, BOB_SPEED_SCALE_MIN, 1.0)
 
 
 func _play_vocal() -> void:
@@ -1672,13 +1740,35 @@ func _depth_tick(delta: float) -> void:
 
 
 func _reaction_ready(kind: String, cooldown: float) -> bool:
-	if not _utterance_pending_key.is_empty():
+	if not _utterance_channel_free():
 		return false
 	var now := _now_s()
+	if now - _last_utterance_at < UTTERANCE_MIN_GAP_S:
+		return false
 	if now - float(_last_reaction.get(kind, -1000.0)) < cooldown:
 		return false
 	_last_reaction[kind] = now
 	return true
+
+
+## True while the director or the pony is actually speaking. Unlike
+## `_utterance_channel_free`, this ignores our own pending key, so a queued line can tell the
+## difference between "still talking" and "stuck".
+func _speech_busy() -> bool:
+	var director := _director()
+	if director != null and str(director.get("state")) != "idle":
+		return true
+	if is_instance_valid(pony) and pony.has_method("is_speaking") and bool(pony.call("is_speaking")):
+		return true
+	return false
+
+
+## True when no mod line is pending and the director/pony are not already speaking. This
+## keeps a new intent from being queued while the previous reply is still finishing its voice.
+func _utterance_channel_free() -> bool:
+	if not _utterance_pending_key.is_empty() or not _utterance_done_key.is_empty():
+		return false
+	return not _speech_busy()
 
 
 func _update_phase() -> void:
@@ -1718,17 +1808,23 @@ func _boredom_tick(delta: float) -> void:
 func _utterance_tick() -> void:
 	if state != State.ACTIVE:
 		return
+	_release_finished_utterance()
 	if not _utterance_pending_key.is_empty():
-		if _now_s() > _utterance_pending_until:
+		if _now_s() > _utterance_pending_until and not _speech_busy():
+			_log("utterance timeout key=%s" % _utterance_pending_key)
 			_cancel_pending_utterance()
 		else:
-			# A line is already in flight. Do not build a backlog: accept that these points are
-			# skipped and advance past them.
+			# A line is already in flight (or still speaking). Do not build a backlog: accept
+			# that these points are skipped and advance past them.
 			while _utterance_index < _utterance_points.size() \
 					and float(satisfaction) + _satisfaction_frac >= _utterance_points[_utterance_index]:
 				_log("utterance skipped point=%d pending" % _utterance_index)
 				_utterance_index += 1
 			return
+	if not _utterance_channel_free():
+		return
+	if _now_s() - _last_utterance_at < UTTERANCE_MIN_GAP_S:
+		return
 	while _utterance_index < _utterance_points.size() \
 			and float(satisfaction) + _satisfaction_frac >= _utterance_points[_utterance_index]:
 		var point := _utterance_index
@@ -1738,17 +1834,20 @@ func _utterance_tick() -> void:
 			return
 
 
-func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> void:
+func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> bool:
 	if state != State.ACTIVE or not is_instance_valid(main) or not is_instance_valid(main.game):
-		return
-	if not _utterance_pending_key.is_empty():
-		return
+		return false
+	if not _utterance_channel_free():
+		return false
+	var now := _now_s()
+	if now - _last_utterance_at < UTTERANCE_MIN_GAP_S:
+		return false
 	var template := str(_act_prompts.get(prompt_key, ""))
 	if template.strip_edges().is_empty():
 		template = str(_act_prompts.get("utterance", ""))
 	if template.strip_edges().is_empty():
 		_log("utterance missing prompt kind=%s" % kind)
-		return
+		return false
 	var values := {
 		"state": UTTERANCE.state_line(pose_id, satisfaction, _climax_at, depth, _stroke_speed, _speed_zone, _stroke_shape, _act_seconds),
 		"preferences": PREFERENCES.describe(_preferences),
@@ -1758,28 +1857,46 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> v
 	_utterance_serial += 1
 	var key := "%s:%d" % [key_suffix, _utterance_serial]
 	var event_id := _event_id
-	var expiry := _now_s() + 10.0
 	var valid := func() -> bool:
-		return is_instance_valid(pony) and state == State.ACTIVE \
-			and _event_id == event_id and _now_s() < expiry
+		return is_instance_valid(pony) and state == State.ACTIVE and _event_id == event_id
 	var finished := func() -> void:
 		_utterance_done(key)
 	var queued := MEMORY.utterance_for(main.game, _id, event_id, key, purpose, valid, finished)
 	if not queued:
 		_log("utterance queue failed kind=%s" % kind)
-		return
+		return false
 	_utterance_pending_key = key
-	_utterance_pending_until = _now_s() + 10.0
+	_utterance_done_key = ""
+	_utterance_done_at = 0.0
+	_utterance_pending_until = now + UTTERANCE_QUEUE_TIMEOUT_S
+	_last_utterance_at = now
 	_log("utterance kind=%s key=%s" % [kind, key])
+	return true
 
 
 func _utterance_done(key: String) -> void:
 	if _utterance_pending_key == key:
-		_utterance_pending_key = ""
-		_utterance_pending_until = 0.0
+		_utterance_done_key = key
+		_utterance_done_at = _now_s()
+		_release_finished_utterance()
+
+
+## The director can report a line finished before its final voice chunk has stopped. Keep the
+## slot reserved until `_speech_busy()` is false, otherwise the next line can cut it off.
+func _release_finished_utterance() -> void:
+	if _utterance_done_key.is_empty() or _speech_busy():
+		return
+	if _now_s() - _utterance_done_at < UTTERANCE_RELEASE_HOLD_S:
+		return
+	_utterance_pending_key = ""
+	_utterance_pending_until = 0.0
+	_utterance_done_key = ""
+	_utterance_done_at = 0.0
 
 
 func _cancel_pending_utterance() -> void:
+	_utterance_done_key = ""
+	_utterance_done_at = 0.0
 	if _utterance_pending_key.is_empty():
 		return
 	var key := _utterance_pending_key
@@ -1885,20 +2002,26 @@ func _climax() -> void:
 	if state != State.ACTIVE:
 		return
 	_log("climax pose=%s legacy=%d pony=%s satisfaction=%d" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
-	_cancel_pending_utterance()
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
 	_set_face(0.3, 0.0)
+	if not _utterance_pending_key.is_empty():
+		_log("climax cancel utterance key=%s" % _utterance_pending_key)
+		_cancel_pending_utterance()
+	_queue_climax_reaction()
+	_play_climax()
+	if is_instance_valid(main.hud):
+		main.hud.set_state("CLIMAX")
+
+
+func _queue_climax_reaction() -> void:
 	var expiry := Time.get_ticks_msec() + 60000
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
 	MEMORY.reaction_for(main.game, _id, "climax", _event_id,
 		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Staying quiet is fine. Do not describe anatomy.",
 		valid)
-	_play_climax()
-	if is_instance_valid(main.hud):
-		main.hud.set_state("CLIMAX")
 
 
 func _finish_climax() -> void:
@@ -2385,7 +2508,7 @@ func apply_camera_motion() -> void:
 			_make_pose1_view()
 		if not is_instance_valid(_pose1_view):
 			return
-		_pose1_view.global_position = _pose1_camera
+		_pose1_view.global_position = _pose1_camera + Vector3.UP * (_bob * POSE1_BOB_SCALE)
 		_pose1_view.global_position -= _pose1_view_basis.z * (_lean - _back)
 		# Track the face for the first second (while the pose blends in), then freeze the
 		# orientation so the camera is not locked to her snout while she nuzzles.
@@ -2399,7 +2522,7 @@ func apply_camera_motion() -> void:
 				str(_pose1_view_basis.get_euler()), str(_pose1_camera_tweak().get_euler()),
 				str(_pose1_view.global_basis)])
 		return
-	_set_camera_offsets(_lean - _back)
+	_set_camera_offsets(_bob, _lean - _back)
 
 
 ## Baseline correction copied EXACTLY from the last logged debug `total_basis` (the user's final
@@ -2443,20 +2566,24 @@ func _player_eye_height() -> float:
 	return 1.6
 
 
-## Desktop human camera: only the forward/back lean moves the camera. The artificial vertical
-## bob is gone; the player's look owns the pitch.
-func _set_camera_offsets(forward: float) -> void:
+## Desktop human camera: vertical is absolute from the player's eye height, so `_set_eye_y`
+## cannot stomp it. AnonPony's top-level camera keeps the delta form.
+func _set_camera_offsets(vertical: float, forward: float) -> void:
 	if not is_instance_valid(_camera):
 		return
 	var df := forward - _applied_lean
 	var seated := is_instance_valid(main) and is_instance_valid(main.player) and main.player.get("seat") != null
 	if _camera.top_level or seated:
+		var dy := vertical - _applied_bob
+		if absf(dy) > 0.00001:
+			_camera.global_position += Vector3.UP * dy
 		if absf(df) > 0.00001:
 			_camera.global_position -= _camera.global_basis.z * df
 	else:
-		_camera.position.y = _player_eye_height()
+		_camera.position.y = _player_eye_height() + vertical
 		if absf(df) > 0.00001:
 			_camera.position.z -= df
+	_applied_bob = vertical
 	_applied_lean = forward
 
 
@@ -2598,13 +2725,20 @@ func _restore_camera() -> void:
 	_free_pose1_view()
 	if is_instance_valid(_camera):
 		if _camera.top_level:
+			if absf(_applied_bob) > 0.00001:
+				_camera.global_position -= Vector3.UP * _applied_bob
 			if absf(_applied_lean) > 0.00001:
 				_camera.global_position += _camera.global_basis.z * _applied_lean
 		else:
 			_camera.position.y = _player_eye_height()
 			_camera.position.z += _applied_lean
+	_applied_bob = 0.0
 	_applied_lean = 0.0
+	_bob = 0.0
+	_bob_velocity = 0.0
+	_bob_speed_scale = 1.0
 	_lean = 0.0
+	_lean_velocity = 0.0
 	_back = 0.0
 	_back_target = 0.0
 	_pose1_camera = Vector3.INF

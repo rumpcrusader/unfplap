@@ -5,6 +5,5 @@
 	"author": "Anon",
 	"description": "Adult intimacy for consenting adult ponies at the Marefriend stage.",
 	"game_version": "0.1.1",
-	"entry": "res://mods/unfplap/main.gd",
-	"extends": ["res://mods/unfplap/ext/shared_bed.gd"]
+	"entry": "res://mods/unfplap/main.gd"
 }

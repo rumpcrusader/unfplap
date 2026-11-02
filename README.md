@@ -33,12 +33,15 @@ Desktop only for now
   liked/disliked acceleration shapes, and private attitude notes. Satisfaction-window phases can
   change preferences mid-act; Fluttershy, for example, becomes more demanding above 75%.
 - **Reactive dialogue** — Lines are scheduled across the act and generated on demand, with
-  reactions to speed, depth, stroke shape, and prolonged slow pumping. Climax, early-stop, and
-  pose-2 finish reactions always queue. Generated moans are not used; only a cached “Mm.”
+  reactions to speed, depth, stroke shape, and prolonged slow pumping. Only one act line is in
+  flight at a time, and new lines wait for the previous reply to finish. Climax cancels any
+  in-flight act line and queues its own reaction; early-stop and pose-2 finish reactions always
+  queue. Generated moans are not used; only a cached “Mm.”
 - **HUD** — Three vertical meters for penetration, satisfaction (debug only), and stamina.
   Stamina starts at 400 and drains one per pump.
-- **Camera and motion** — Depth-driven forward/back travel with no artificial bob, eased spring
-  motion, and reduced look sensitivity while the act owns the mouse.
+- **Camera and motion** — Optional pump-driven vertical bob and forward lean with damped
+  springs; bobs are off by default (`pump.bobs`), and look sensitivity stays reduced during the
+  act.
 - **Presentation** — Blush, half-lidded eyes, pinned ears, tail movement and flicks, flank jiggle,
   pump audio, and spread/droop/jitter wing motion for winged ponies.
 - **Aftermath** — Pose 1 cuddle afterglow; pose 2 automatic withdrawal with a spoken reaction.

@@ -1,11 +1,16 @@
 extends Node
-## Ten seconds of post-sex body language: head and tail lower, no wandering, no new act.
+## Ten seconds of post-sex body language: no wandering, no new act, tail held up and flicked.
 ## Created by the runtime after restore. Runs independently of the act state.
 
-const POSE := preload("res://mods/unfplap/aftercare_pose.gd")
+const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 const DURATION := 10.0
 const FADE := 0.6
 const OWNER := "unfplap:aftercare"
+## Aftercare keeps the tail raised straight (no aside), with smaller periodic flicks.
+const TAIL_LIFT := 0.34
+const TAIL_FLICK_AMPLITUDE := 0.55
+const FLICK_MIN := 1.4
+const FLICK_MAX := 2.4
 
 var pony: Node3D
 var runtime: Node
@@ -17,8 +22,8 @@ var _done := false
 var _nav: Node
 var _nav_owner := ""
 var _nav_wander := true
-var _body: Node
 var _tail: Node
+var _flick_clock := 0.0
 
 
 func _ready() -> void:
@@ -28,20 +33,18 @@ func _ready() -> void:
 		return
 	pony.set_meta("sex_aftercare", true)
 	if body_language:
-		var skeleton: Variant = pony.get("skeleton")
-		if skeleton is Skeleton3D:
-			_body = POSE.new()
-			_body.name = "UnfplapAftercareBody"
-			_body.set("pony", pony)
-			_body.set("mode", "body")
-			(skeleton as Skeleton3D).add_child(_body)
 		var hair: Variant = pony.get("hair_skeleton")
 		if hair is Skeleton3D:
-			_tail = POSE.new()
+			_tail = TAIL.new()
 			_tail.name = "UnfplapAftercareTail"
-			_tail.set("pony", pony)
-			_tail.set("mode", "tail")
+			_tail.set("mare", pony)
+			_tail.set("aside_angle", 0.0)
+			_tail.set("lift_angle", TAIL_LIFT)
+			_tail.set("flick_amplitude", TAIL_FLICK_AMPLITUDE)
+			_tail.set("amount", 0.0)
+			_tail.set("target_amount", 1.0)
 			(hair as Skeleton3D).add_child(_tail)
+			_flick_clock = randf_range(FLICK_MIN, FLICK_MAX)
 	_nav = pony.get_node_or_null("Navigator")
 	if _nav != null:
 		_nav_owner = str(_nav.get("command_owner"))
@@ -64,10 +67,12 @@ func _physics_process(delta: float) -> void:
 		return
 	_hold_nav()
 	_left -= delta
+	_flick_clock -= delta
+	if _flick_clock <= 0.0 and is_instance_valid(_tail):
+		_tail.call("flick", 1)
+		_flick_clock = randf_range(FLICK_MIN, FLICK_MAX)
 	if _left <= 0.0:
 		_fade = FADE
-		if is_instance_valid(_body):
-			_body.set("target_amount", 0.0)
 		if is_instance_valid(_tail):
 			_tail.set("target_amount", 0.0)
 
@@ -92,9 +97,6 @@ func _finish() -> void:
 			_nav.set("command_owner", _nav_owner)
 			_nav.set("wander_enabled", _nav_wander)
 	_nav = null
-	if is_instance_valid(_body):
-		_body.queue_free()
-		_body = null
 	if is_instance_valid(_tail):
 		_tail.queue_free()
 		_tail = null

@@ -1,16 +1,22 @@
 extends CanvasLayer
-## Desktop HUD: the L prompt, the Climax/Capacity bars, and the afterglow hint.
+## Desktop HUD: prompt, hint, and three vertical meters on the right:
+## penetration, her satisfaction (debug only), and Anon's stamina.
 
+const HUD_PUMP := preload("res://mods/unfplap/hud_pump.gd")
+const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
+const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 
 var _prompt: Label
-var _panel: VBoxContainer
-var _climax: ProgressBar
-var _capacity: ProgressBar
-var _climax_label: Label
-var _capacity_label: Label
 var _hint: Label
+var _bars: HBoxContainer
+var _depth_col: VBoxContainer
+var _satisfaction_col: VBoxContainer
+var _stamina_col: VBoxContainer
+var _depth: Control
+var _satisfaction: Control
+var _stamina: Control
 
 
 func _ready() -> void:
@@ -36,30 +42,62 @@ func _ready() -> void:
 	_prompt.visible = false
 	root.add_child(_prompt)
 
-	_panel = VBoxContainer.new()
-	_panel.name = "Bars"
-	_panel.anchor_left = 0.0
-	_panel.anchor_top = 0.5
-	_panel.anchor_right = 0.0
-	_panel.anchor_bottom = 0.5
-	_panel.offset_left = 28.0
-	_panel.offset_top = -70.0
-	_panel.offset_right = 300.0
-	_panel.offset_bottom = 70.0
-	_panel.visible = false
-	root.add_child(_panel)
+	_bars = HBoxContainer.new()
+	_bars.name = "Meters"
+	_bars.anchor_left = 1.0
+	_bars.anchor_right = 1.0
+	_bars.anchor_top = 0.5
+	_bars.anchor_bottom = 0.5
+	_bars.offset_left = -360.0
+	_bars.offset_right = -24.0
+	_bars.offset_top = -230.0
+	_bars.offset_bottom = 230.0
+	_bars.alignment = BoxContainer.ALIGNMENT_END
+	_bars.add_theme_constant_override("separation", 12)
+	_bars.visible = false
+	root.add_child(_bars)
 
-	_climax_label = _make_label("Climax")
-	_panel.add_child(_climax_label)
-	_climax = _make_bar(Color(1.0, 0.45, 0.70))
-	_panel.add_child(_climax)
-	_capacity_label = _make_label("Capacity")
-	_panel.add_child(_capacity_label)
-	_capacity = _make_bar(Color(0.42, 0.68, 1.0))
-	_panel.add_child(_capacity)
+	_depth = HUD_PUMP.new()
+	_depth.name = "DepthBar"
+	_depth.custom_minimum_size = Vector2(40.0, 400.0)
+	_depth_col = _make_column("Penetration", _depth)
+
+	_satisfaction = HUD_BAR.new()
+	_satisfaction.name = "SatisfactionBar"
+	_satisfaction.custom_minimum_size = Vector2(40.0, 400.0)
+	_satisfaction.set("fill_color", Color(1.0, 0.45, 0.70))
+	_satisfaction_col = _make_column("Satisfaction", _satisfaction)
+
+	_stamina = HUD_BAR.new()
+	_stamina.name = "StaminaBar"
+	_stamina.custom_minimum_size = Vector2(40.0, 400.0)
+	_stamina.set("fill_color", Color(0.42, 0.68, 1.0))
+	_stamina_col = _make_column("Stamina", _stamina)
+
 	_hint = _make_label("")
+	_hint.name = "Hint"
+	_hint.anchor_left = 0.0
+	_hint.anchor_top = 1.0
+	_hint.anchor_right = 0.0
+	_hint.anchor_bottom = 1.0
+	_hint.offset_left = 28.0
+	_hint.offset_top = -54.0
+	_hint.offset_right = 430.0
+	_hint.offset_bottom = -26.0
 	_hint.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
-	_panel.add_child(_hint)
+	_hint.visible = false
+	root.add_child(_hint)
+
+
+func _make_column(title: String, bar: Control) -> VBoxContainer:
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	var label := _make_label(title)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(label)
+	column.add_child(bar)
+	_bars.add_child(column)
+	return column
 
 
 func _make_label(text: String) -> Label:
@@ -70,17 +108,6 @@ func _make_label(text: String) -> Label:
 	label.add_theme_constant_override("shadow_offset_x", 1)
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	return label
-
-
-func _make_bar(color: Color) -> ProgressBar:
-	var bar := ProgressBar.new()
-	bar.min_value = 0.0
-	bar.max_value = 100.0
-	bar.value = 0.0
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(240.0, 18.0)
-	bar.modulate = color
-	return bar
 
 
 func show_prompt(text: String) -> void:
@@ -95,21 +122,17 @@ func hide_prompt() -> void:
 		_prompt.visible = false
 
 
-func show_act(runtime: Node) -> void:
-	if _panel == null:
-		return
-	_panel.visible = true
+func show_act(runtime: Node, show_satisfaction := true) -> void:
+	_bars.visible = false
 	_hint.visible = true
-	_climax.visible = true
-	_capacity.visible = true
-	_climax_label.visible = true
-	_capacity_label.visible = true
-	update_from(runtime)
+	update_from(runtime, show_satisfaction)
 
 
 func hide_act() -> void:
-	if _panel != null:
-		_panel.visible = false
+	if _bars != null:
+		_bars.visible = false
+	if _hint != null:
+		_hint.visible = false
 
 
 func hide_all() -> void:
@@ -118,37 +141,36 @@ func hide_all() -> void:
 
 
 func set_state(kind: String) -> void:
-	if _panel == null:
+	if _hint == null:
 		return
 	if kind == "CLIMAX":
 		_hint.text = ""
 	elif kind == "AFTERGLOW":
 		_hint.text = "Q · End"
-		_climax.visible = false
-		_capacity.visible = false
-		_climax_label.visible = false
-		_capacity_label.visible = false
+		if _bars != null:
+			_bars.visible = false
 
 
-func update_from(runtime: Node) -> void:
-	if _panel == null or not is_instance_valid(runtime):
+func update_from(runtime: Node, show_satisfaction := true) -> void:
+	if _bars == null or not is_instance_valid(runtime):
 		return
 	var state := int(runtime.get("state"))
-	if state == STATE_AFTERGLOW:
-		_panel.visible = true
-		_hint.text = "Q · End"
-		_climax.visible = false
-		_capacity.visible = false
-		_climax_label.visible = false
-		_capacity_label.visible = false
-		return
-	_climax.visible = true
-	_capacity.visible = true
-	_climax_label.visible = true
-	_capacity_label.visible = true
-	_climax.value = float(runtime.get("satisfaction"))
-	_capacity.value = float(runtime.get("capacity"))
-	if state == STATE_CLIMAX:
+	var active := state in [STATE_ACTIVE, STATE_CLIMAX]
+	_bars.visible = active
+	_depth_col.visible = state == STATE_ACTIVE
+	_satisfaction_col.visible = active and show_satisfaction
+	_stamina_col.visible = active
+	if active:
+		if state == STATE_ACTIVE:
+			_depth.call("set_depth", float(runtime.get("view_depth")), bool(runtime.get("pump_up")))
+		_satisfaction.call("set_value", float(runtime.get("satisfaction")), 100.0)
+		_stamina.call("set_value", float(runtime.get("stamina")), 400.0)
+	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
+	if state == STATE_ACTIVE:
+		_hint.text = "Mouse ↕ · Pump    Q · Stop"
+	elif state == STATE_CLIMAX:
 		_hint.text = ""
+	elif state == STATE_AFTERGLOW:
+		_hint.text = "Q · End"
 	else:
-		_hint.text = "F · Pump    Q · Stop"
+		_hint.text = ""

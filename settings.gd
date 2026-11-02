@@ -1,16 +1,29 @@
 extends RefCounted
-## Persisted mod settings outside any world save: global DEBUG LOGS plus per-pony templates.
-## The default template holds every pony-related setting; `characters` only needs overrides.
+## Persisted mod settings outside any world save: global DEBUG LOGS, pump controls, and the
+## default/per-character templates. A character inherits every field it does not override.
 ##
-## A character inherits every field it does not override. Pose settings live under
-## `poses.<pose id>` and are merged with `poses/catalog.gd` defaults before use.
+## Pre-release: the schema is intentionally breaking. `chattiness` is gone; do not add a fallback.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 
+const DEFAULT_ACT_PROMPTS := {
+	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. These preferences are private feelings, not a list to say. Current moment: {state}. Your preferences: {preferences}. Do not repeat: {recent}.",
+	"speed_slow": "During sex with Anon, he is going too slowly and you are getting bored. Complain or ask for more, in your own voice, at most 12 words. Begin with [sad] or [annoyed]. Current moment: {state}.",
+	"speed_fast": "During sex with Anon, he is going too fast or too rough. Ask him to slow down, in your own voice, at most 12 words. Begin with [surprised] or [annoyed]. Do not sound like you are ending the act. Current moment: {state}.",
+	"speed_perfect": "During sex with Anon, he has found the rhythm you like. Tell him to keep it, in your own voice, at most 8 words (for example: \"Just like that, Anon\"). Begin with [happy] or [whispering]. Current moment: {state}.",
+	"shape_like": "During sex with Anon, he just moved in the way you like. Ask for more of that, in your own voice, at most 10 words. Begin with [happy] or [whispering]. Current moment: {state}.",
+	"shape_dislike": "During sex with Anon, he just moved in a way you do not like. Complain briefly, in your own voice, at most 10 words. Begin with [annoyed]. Current moment: {state}.",
+	"depth_shallow": "During sex with Anon, he is not going deep enough for what you want. Ask for more, in your own voice, at most 10 words. Begin with [whispering] or [sad]. Current moment: {state}.",
+	"depth_deep": "During sex with Anon, he is going deeper than you like. Ask him to ease back, in your own voice, at most 10 words. Begin with [annoyed] or [surprised]. Current moment: {state}.",
+	"bored": "During sex with Anon, he has been going too slowly for a while. Ask him what is going on in your own voice, at most 12 words. Begin with [sad] or [annoyed]. Current moment: {state}.",
+}
+
 const DEFAULT_TEMPLATE := {
-	"chattiness": 0.6,
+	"min_utterances": 2,
+	"max_utterances": 5,
 	"climax_at": 100,
 	"aftercare_min": 10,
 	"event_prompts": {
@@ -18,14 +31,87 @@ const DEFAULT_TEMPLATE := {
 		"end_early": "",
 		"inside": "",
 	},
+	"act_prompts": {},
+	"preferences": {},
 }
 
-## Fluttershy is the only character with a custom prompt for now. Everything else is inherited
-## from DEFAULT_TEMPLATE, so her settings stay in sync with the defaults.
+## Three explicit character examples; every other pony inherits the neutral default.
 const CHARACTER_TEMPLATES := {
 	"fluttershy": {
+		"min_utterances": 1,
+		"max_utterances": 3,
 		"event_prompts": {
-			"climax": "You have just climaxed during intimacy with Anon. Say something like \"Oh goodness, oh goodness...\" in your own voice. Be creative, but keep that flustered baseline. Do not describe anatomy.",
+			"climax": "You have just climaxed during intimacy with Anon. Say ONE short sentence, at most 12 words, in your own voice. Something like \"Oh goodness, oh goodness...\" fits, but keep the flustered baseline. Do not describe anatomy.",
+		},
+		"preferences": {
+			"pump": {
+				"depth": "deep",
+				"speed": {
+					"enabled": true,
+					"min": 0.40,
+					"perfect": 1.20,
+					"max": 2.00,
+					"epsilon": 0.22,
+				},
+				"shape": {
+					"enabled": true,
+					"likes": "ease_out",
+					"dislikes": "ease_in_out",
+				},
+				"notes": "You are secretly overwhelmed by how much you enjoy being taken hard and deep. You would never admit it plainly: praise comes out flustered and reluctant, and complaints are apologetic rather than demanding.",
+				"phases": [
+					{
+						"min_satisfaction": 0.75,
+						"max_satisfaction": 1.0,
+						"depth": "deep",
+						"speed": {
+							"enabled": true,
+							"min": 0.60,
+							"perfect": 1.60,
+							"max": 2.60,
+							"epsilon": 0.28,
+						},
+						"shape": {
+							"enabled": true,
+							"likes": "ease_out",
+							"dislikes": "ease_in_out",
+						},
+						"notes": "Above three quarters you stop hiding it: you want it harder and faster, and you say so, still flustered.",
+					},
+				],
+			},
+		},
+		"poses": {"missionary": {"hind_spread": 0.45}},
+	},
+	"rarity": {
+		"min_utterances": 4,
+		"max_utterances": 7,
+		"preferences": {
+			"pump": {
+				"depth": "shallow",
+				"speed": {
+					"enabled": true,
+					"min": 0.20,
+					"perfect": 0.50,
+					"max": 1.00,
+					"epsilon": 0.10,
+				},
+				"shape": {
+					"enabled": true,
+					"likes": "ease_in_out",
+					"dislikes": "ease_out",
+				},
+				"notes": "You want slow, deliberate, elegant lovemaking. Brute force is crude; you say so with dry, refined disdain, never panic or whining.",
+			},
+		},
+	},
+	"twilight_sparkle": {
+		"min_utterances": 2,
+		"max_utterances": 5,
+		"preferences": {
+			"pump": {
+				"notes": "You have no strong preference; you respond to the moment and to Anon.",
+			},
 		},
 	},
 }
@@ -51,8 +137,22 @@ static func save_debug_logs(value: bool) -> void:
 	_write(data)
 
 
-static func chattiness(id: String) -> float:
-	return clampf(float(template_for(id).get("chattiness", 0.6)), 0.0, 1.0)
+static func utterance_range(id: String) -> Vector2i:
+	var template := template_for(id)
+	var low := clampi(int(template.get("min_utterances", 2)), 0, 8)
+	var high := clampi(int(template.get("max_utterances", 5)), 0, 8)
+	if low > high:
+		var swap := low
+		low = high
+		high = swap
+	return Vector2i(low, high)
+
+
+static func act_prompt(id: String, key: String) -> String:
+	var prompts: Variant = template_for(id).get("act_prompts", {})
+	if prompts is Dictionary:
+		return str((prompts as Dictionary).get(key, ""))
+	return ""
 
 
 static func event_prompt(id: String, event: String) -> String:
@@ -60,6 +160,34 @@ static func event_prompt(id: String, event: String) -> String:
 	if prompts is Dictionary:
 		return str((prompts as Dictionary).get(event, ""))
 	return ""
+
+
+static func preferences(id: String) -> Dictionary:
+	var template := template_for(id)
+	var prefs: Variant = template.get("preferences", {})
+	if prefs is Dictionary:
+		var pump: Variant = (prefs as Dictionary).get("pump", {})
+		if pump is Dictionary:
+			return (pump as Dictionary).duplicate(true)
+	return PREFERENCES.defaults()
+
+
+## One read for the global pump controls; oriented so the runtime and HUD share the same flag.
+static func pump_controls() -> Dictionary:
+	var data := _read()
+	var block: Variant = data.get("pump", {})
+	var orientation := "up"
+	var pixels := 800.0
+	if block is Dictionary:
+		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
+		pixels = float((block as Dictionary).get("pixels_per_full", 800.0))
+	if orientation not in ["up", "down"]:
+		orientation = "up"
+	return {
+		"orientation": orientation,
+		"up": orientation == "up",
+		"pixels_per_full": clampf(pixels, 80.0, 2000.0),
+	}
 
 
 static func climax_at(id: String) -> int:
@@ -70,8 +198,8 @@ static func aftercare_min(id: String) -> int:
 	return clampi(int(template_for(id).get("aftercare_min", 10)), 0, 100)
 
 
-## The merged default + per-character template actually used at runtime, with all pose blocks
-## filled from the catalog defaults.
+## The merged default + per-character template actually used at runtime, with pose and preference
+## blocks filled from their catalogs.
 static func template_for(id: String) -> Dictionary:
 	var data := _read()
 	return profile_for(
@@ -87,6 +215,7 @@ static func profile_for(base: Dictionary, characters: Variant, id: String) -> Di
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:
 			selected = _merge(selected, over)
+	selected = _fill_preferences(selected)
 	return _fill_pose_defaults(selected)
 
 
@@ -124,16 +253,33 @@ static func _read() -> Dictionary:
 static func _defaults() -> Dictionary:
 	return {
 		"debug_logs": true,
+		"pump": {
+			"orientation": "up",
+			"pixels_per_full": 800.0,
+		},
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}
 
 
-## Default template plus catalog pose defaults. Kept as a function so catalog constants are read
-## at run time instead of being baked into a preloaded const expression.
+## Default template plus catalog pose/preference/prompt defaults. Kept as a function so the
+## catalogs are read at run time instead of baked into a const expression.
 static func _filled_default() -> Dictionary:
 	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
 	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
+	out["preferences"] = {"pump": PREFERENCES.defaults()}
+	out["act_prompts"] = DEFAULT_ACT_PROMPTS.duplicate(true)
+	return out
+
+
+static func _fill_preferences(template: Dictionary) -> Dictionary:
+	var out: Dictionary = template.duplicate(true)
+	var prefs: Variant = out.get("preferences", {})
+	if not prefs is Dictionary:
+		prefs = {}
+	var pump: Variant = (prefs as Dictionary).get("pump", {})
+	(prefs as Dictionary)["pump"] = PREFERENCES.resolve(pump)
+	out["preferences"] = prefs
 	return out
 
 

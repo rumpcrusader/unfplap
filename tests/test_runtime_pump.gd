@@ -1,5 +1,5 @@
 extends SceneTree
-## Minimal integration test for the ACTIVE readiness path, without a world.
+## Minimal integration test for ACTIVE readiness and pony-climax separation, without a world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_pump.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
@@ -24,7 +24,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
 
-func run() -> void:
+func _runtime() -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._taste = PREF.resolve({
@@ -33,10 +33,15 @@ func run() -> void:
 		"touch": ["caress"],
 		"talk": ["praise"],
 		"warmth": "normal",
+		"recovery": 25,
 	})
 	runtime._pump_tracker = PUMP.new()
 	runtime.state = 2 # ACTIVE
+	return runtime
 
+
+func run() -> void:
+	var runtime: Node = _runtime()
 	runtime._pump_move(1.0, 0.0)
 	runtime._pump_move(-1.0, 0.5)
 	runtime._pump_move(1.0, 1.0)
@@ -58,9 +63,28 @@ func run() -> void:
 	before = runtime.satisfaction
 	runtime._on_touch("smack")
 	check(near(runtime.satisfaction, before), "neutral touch does not add readiness")
+
 	runtime._add_heat(999.0)
 	check(near(runtime.satisfaction, 100.0), "readiness clamps at 100")
-	check(int(runtime.state) == 2, "readiness never auto-climaxes")
+	runtime._heat_tick(0.1)
+	check(int(runtime.state) == 3, "100 readiness starts a pony climax")
+	check(runtime.pony_climaxes == 1, "pony climax count increments")
+	var climax_readiness: float = runtime.satisfaction
+	runtime._pump_move(-1.0, 1.0)
+	runtime._pump_move(1.0, 1.5)
+	check(near(runtime.satisfaction, climax_readiness), "pumping during climax does not score")
+	check(int(runtime.state) == 3, "pumping during climax does not end it")
+
+	runtime._finish_climax()
+	check(int(runtime.state) == 2, "first climax returns to ACTIVE")
+	check(near(runtime.satisfaction, 25.0), "recovery resets readiness to the mare's value")
+	check(runtime.pony_climaxes == 1, "climax count survives the return to ACTIVE")
+
+	runtime.pony_climaxes = 4
+	runtime.satisfaction = 100.0
+	runtime._climax()
+	runtime._finish_climax()
+	check(int(runtime.state) == 4, "fifth climax auto-enters AFTERGLOW")
 	runtime.free()
 
 	print("RUNTIME_PUMP_RESULT checks=%d failures=%d" % [checks, failures])

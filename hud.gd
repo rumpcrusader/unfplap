@@ -7,9 +7,9 @@ const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
-const READY_AT := 65.0
+const CLOSE_AT := 65.0
 const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return"
-const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Exit"
+const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Afterglow"
 const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nH · Toggle lean return\nHold Y · Exit"
 
 var _prompt: Label
@@ -154,13 +154,13 @@ func update_from(runtime: Node, show_readiness := true) -> void:
 	var state := int(runtime.get("state"))
 	var active := state in [STATE_ACTIVE, STATE_CLIMAX]
 	var readiness := float(runtime.get("satisfaction"))
-	var ready := readiness >= READY_AT
+	var ready := readiness >= CLOSE_AT
+	var climaxes := int(runtime.get("pony_climaxes"))
 	_bars.visible = active
-	_depth_col.visible = state == STATE_ACTIVE
+	_depth_col.visible = state in [STATE_ACTIVE, STATE_CLIMAX]
 	_satisfaction_col.visible = active and show_readiness
 	if active:
-		if state == STATE_ACTIVE:
-			_depth.call("set_depth", float(runtime.get("depth")), bool(runtime.get("pump_up")))
+		_depth.call("set_depth", float(runtime.get("depth")), bool(runtime.get("pump_up")))
 		_satisfaction.call("set_value", readiness, 100.0)
 		_satisfaction.set("fill_color",
 			Color(1.0, 0.76, 0.36) if ready else Color(1.0, 0.45, 0.70))
@@ -173,12 +173,22 @@ func update_from(runtime: Node, show_readiness := true) -> void:
 				lines.append(cue)
 			if float(runtime.get("talk_wait")) > 0.0:
 				lines.append("T · Answer her")
-			lines.append("Hold Y · Finish" if ready else "Hold Y · Stop")
+			if climaxes > 0:
+				lines.append("Climaxes · %d/5" % climaxes)
+				lines.append("Hold Y · Afterglow")
+			else:
+				lines.append("Hold Y · Stop")
 		else:
-			lines.append("Hold Y · Finish / Stop")
+			lines.append("Hold Y · Afterglow / Stop")
 		_hint.text = "\n".join(lines)
 	elif state == STATE_CLIMAX:
-		_hint.text = CLIMAX_HINTS
+		var climax_lines: PackedStringArray = [CLIMAX_HINTS]
+		if show_readiness:
+			var cue := str(runtime.get("cue"))
+			if not cue.is_empty():
+				climax_lines.append(cue)
+			climax_lines.append("Climaxes · %d/5" % climaxes)
+		_hint.text = "\n".join(climax_lines)
 	elif state == STATE_AFTERGLOW:
 		_hint.text = AFTERGLOW_HINTS
 	else:

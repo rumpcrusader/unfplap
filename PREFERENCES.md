@@ -1,7 +1,7 @@
-# Taste and ACTIVE readiness contract (`unfplap` 0.0.2)
+# Taste, readiness and climax contract (`unfplap` 0.0.2)
 
-This file is the ACTIVE-stage scoring contract. Camera, poses, aftercare and ordinary
-dialogue delivery are outside it.
+This file covers the ACTIVE-stage scoring, the pony's climaxes, and the player's afterglow
+choice. Camera/pose mechanics and aftercare are outside it.
 
 ## What the player does
 
@@ -13,12 +13,10 @@ dialogue delivery are outside it.
 - There is no base gain and no per-stroke multiplier. A stroke is classified, not scored.
 - `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)` remains the physical
   force used by jiggle and wings.
-- `satisfaction` is readiness 0–100. It is not a stroke score and it does **not** trigger the
-  climax automatically.
+- `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses
+  afterglow separately.
 
 ## Taste profile
-
-One block per mare. Unknown or missing values fall back to the neutral default.
 
 ```gdscript
 {
@@ -27,17 +25,19 @@ One block per mare. Unknown or missing values fall back to the neutral default.
     "touch": ["caress"],          # liked: smack, caress, kiss
     "dislikes": [],               # touch or talk dislike
     "talk": ["reassurance"],      # empty = talk does not score for her
-    "pose": "missionary",         # missionary | horse | any
     "warmth": "normal",           # quick | normal | slow
+    "recovery": 20,               # readiness after a climax, 0..80
     "notes": "private attitude for the AI"
 }
 ```
 
-- `touch` and `talk` are lists. A liked item cannot also be a dislike.
-- `pose` is a soft preference. The current pose gives a small starting-readiness bonus and a
-  more enthusiastic cue; the other pose is neutral, not a failure.
-- `warmth` scales readiness gain (`quick` 1.25, `normal` 1.0, `slow` 0.8). It does not force
-  a fixed act length.
+- `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
+- `recovery` is where readiness restarts after each pony climax:
+  - `0` means she must be built up from nothing;
+  - `20` is the baseline;
+  - `35` means she starts the next cycle already warm;
+  - cap is `80` so nobody instantly re-climaxes.
+- `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 
 ## The two continuous axes
 
@@ -65,8 +65,8 @@ steady   otherwise
 
 ## Readiness
 
-`satisfaction` is readiness. It starts at 0 (plus a pose bonus), caps at 100 and is visible
-as the second HUD bar when `readiness_hud` is on.
+`satisfaction` is readiness. It starts at 0, caps at 100, and is visible as the second HUD
+bar when `readiness_hud` is on.
 
 ```text
 both axes match       +2.0 /s × warmth
@@ -76,10 +76,9 @@ liked touch / talk    +6.0 once
 disliked touch/talk   -6.0 once and 1.2 s overwhelmed
 ```
 
-- The pattern/intensity memory clears after 1.2 s without an inward pump. A held caress or a
-  spoken line can keep the moment alive, but it does not replace the pump forever.
+- The pattern/intensity memory clears after 1.2 s without an inward pump.
 - Cooling is recoverable. Change rhythm, touch her, or answer her.
-- No hard stop from a mismatch. Consent and the `Y` control remain separate.
+- No hard stop from a mismatch.
 
 ## Mood and cues
 
@@ -87,21 +86,64 @@ disliked touch/talk   -6.0 once and 1.2 s overwhelmed
 warming       readiness < 40
 wanting       40 <= readiness < 65
 close         readiness >= 65
+climax        the pony is in her 5 s climax
 cooling       no match for 3 s and readiness is falling
 overwhelmed   a disliked touch/talk landed recently
 ```
 
-- `READY_AT = 65`. The player can finish at or above it; below it, hold `Y` still cancels.
-- The cue is a short third-person HUD line: “She wants it harder”, “She's losing focus”,
-  “She's close”, “She likes that”. It is not a new dialogue line.
-- A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a mare
-  with a non-empty `talk` taste. The HUD shows `T · Answer her`. The player's reply is the
-  director's player turn; the runtime drops the cue's pending line and scores the reply. A
-  missed invitation expires quietly.
+- `CLOSE_AT = 65` is only the “she's close” cue.
+- `PONY_CLIMAX_AT = 100` triggers the pony's climax.
+- A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a
+  mare with a non-empty `talk` taste. The HUD shows `T · Answer her`. The player's reply is
+  the director's player turn; the runtime drops the cue's pending line and scores the reply.
+
+## Pony climax
+
+- At 100 readiness she climaxes. `MAX_PONY_CLIMAXES = 5`.
+- The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`.
+- The player can keep pumping during those 5 s. The pump is presentation only: it does not
+  update intensity, pattern or readiness.
+- Each climax sends a unique world-context event and a unique generated reaction.
+- When the 5 s ends:
+  - fewer than 5 climaxes: return to `ACTIVE`, set readiness to `recovery`, clear pattern;
+  - 5th climax: enter `AFTERGLOW` automatically.
+- The pony's `recovery` is per-mare, so a slow/low-recovery mare needs a thorough approach
+  and a quick/high-recovery mare reaches the next climax faster.
+
+## Player afterglow
+
+Hold `Y`:
+
+| State | Climaxes | Result |
+|---|---:|---|
+| `POSING_IN` | any | cancel |
+| `ACTIVE` | 0 | cancel / early stop |
+| `ACTIVE` | 1+ | afterglow |
+| `CLIMAX` | 1+ | afterglow |
+| `AFTERGLOW` | any | end afterglow |
+
+- The player cannot enter afterglow before the first pony climax.
+- One or more climaxes allows afterglow at any time.
+- The 5th climax forces afterglow after its 5 s effect.
+
+## Memory and rewards
+
+- **Per pony climax:** a unique world-context event and a generated reaction.
+- **Once at afterglow:** `MEMORY.commit_climax` and `WITNESS.commit`.
+- **Pose-2 inside event:** at afterglow only, as the player's finish.
+- **Zero-climax Y:** the existing early-stop/cancel path; no romance commit.
+
+## HUD
+
+- Readiness bar shows arousal; `65` is close, `100` is pony climax.
+- The depth bar remains visible in `CLIMAX` because pumping is allowed.
+- `ACTIVE` Y hint: `Hold Y · Stop` at 0 climaxes; `Hold Y · Afterglow` at 1+.
+- `CLIMAX` Y hint: `Hold Y · Afterglow`.
+- A climax count/cue may be shown; no new meter.
+- `readiness_hud` defaults to `true` and gates the readiness bar and mood cues.
+- `debug_logs` gates the detailed overlay, not the readiness bar.
 
 ## Touch and talk classification
-
-Touch comes from the existing actions:
 
 | Action | Event |
 |---|---|
@@ -109,38 +151,18 @@ Touch comes from the existing actions:
 | held caress | `caress` |
 | kiss | `kiss` |
 
-Each has a 4 s scoring cooldown. The actions themselves are not changed by this contract.
-
-Talk comes from the game's own `T` / microphone turn. The runtime watches
-`conversation_director._turn_id` and `_player_text`; the AI still writes her reply. The
-classifier is a small keyword map, not an LLM call:
-
-| Category | Examples |
-|---|---|
-| `praise` | good, beautiful, perfect, love you |
-| `reassurance` | are you okay, safe, gentle, look at me |
-| `dirty` | want, more, harder, please |
-| `curious` | how, what, tell me, question mark |
-| `playful` | good girl, brat, tease, beg |
-
-An unrelated line is neutral: it can still get a normal reply, but it does not move readiness.
-
-## Finish and HUD
-
-- Hold `Y` at or above `READY_AT` to finish her. Below it, hold `Y` cancels.
-- `readiness_hud` defaults to `true` and gates the readiness bar and mood cues. With it off,
-  the depth bar and control hints remain; the player reads her.
-- `debug_logs` still gates the detailed debug overlay, not the readiness bar.
+Each has a 4 s scoring cooldown. Talk uses the game's `T`/microphone turn and the small
+keyword map in `preferences.gd`; the AI still writes her reply.
 
 ## Character examples
 
-| Character | Intensity | Pattern | Touch | Talk | Pose | Warmth |
+| Character | Intensity | Pattern | Touch | Talk | Warmth | Recovery |
 |---|---|---|---|---|---|---|
-| Fluttershy | firm | building | caress | reassurance | missionary | slow |
-| Rarity | soft | steady | caress | praise | missionary | normal |
-| Twilight | firm | steady | kiss | none | any | normal |
-| Derpy | rough | quick | smack | playful | horse | quick |
-| Default | firm | steady | none | none | any | normal |
+| Fluttershy | firm | building | caress | reassurance | slow | 12 |
+| Rarity | soft | steady | caress | praise | normal | 18 |
+| Twilight | firm | steady | kiss | none | normal | 20 |
+| Derpy | rough | quick | smack | playful | quick | 35 |
+| Default | firm | steady | none | none | normal | 20 |
 
 The `notes` field carries the private attitude; the AI prompt receives the mood, the taste
 summary and the last concrete input, never a speed or depth dump.

@@ -73,8 +73,8 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 51, `SOURCE_HYGIENE` 44 checks / 47 files,
-  `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 11, `RUNTIME_PUMP` 9, `VOICE` 9,
+- Current passing state: `CATALOG` 13, `SETTINGS` 52, `SOURCE_HYGIENE` 44 checks / 47 files,
+  `ROTATION` 8, `PUMP` 25, `PREFERENCES` 39, `UTTERANCE` 12, `RUNTIME_PUMP` 16, `VOICE` 9,
   `ACTIONS` 55.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
@@ -170,9 +170,10 @@ body-relative axes.
   and the upward look toward Anon instead of waiting for the random glance scheduler.
 - Tail aside/lift/flick is applied down the hair chain; the side is randomized per act.
   `poses.<pose>.tail_lift` defaults to `0.42` and is inherited/overridable per mare.
-- Pose 2 enters the same held `AFTERGLOW` state after climax. Lean and A/D caress stay live
-  there; hold Y ends it. Her tail lifts and flicks twice, and the inside event/reaction is
-  recorded on entry. No automatic withdrawal/restore.
+- Pose 2 enters the same held `AFTERGLOW` state when the player chooses it or the fifth pony
+  climax forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
+  flicks twice, and the inside event/reaction is recorded on entry. No automatic
+  withdrawal/restore.
 
 ## Critical: camera work
 
@@ -400,16 +401,21 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   - **intensity**: `soft` (< 0.33), `firm` (< 0.66), `rough`;
   - **pattern**: `steady`, `building`, `teasing` or `quick`, classified over the last 3–4
     inward pumps. Fewer than 3 pumps has no pattern yet.
-- The taste profile also has concrete `touch` and `talk` likes/dislikes, a soft `pose`
-  preference and a `warmth` scale. `preferences.gd` validates them and classifies the player's
+- The taste profile also has concrete `touch` and `talk` likes/dislikes, a `warmth` scale and
+  a per-mare `recovery` readiness. `preferences.gd` validates them and classifies the player's
   text; it no longer computes depth curves, speed windows or shape gains.
 - `satisfaction` is **readiness 0–100**, not a stroke score. Matching both axes raises it at
   `HEAT_BOTH_RATE`; one axis at `HEAT_ONE_RATE`; neither starts a cooling timer. Liked
   touch/talk adds a one-shot chunk; a disliked one subtracts and briefly sets `overwhelmed`.
-- Readiness is never an automatic climax. The player holds `Y` at or above `READY_AT = 65` to
-  finish; below it, hold `Y` cancels. `satisfaction` is still the public HUD value.
-- `mood` is `warming`, `wanting`, `close`, `cooling` or `overwhelmed`; `cue` is the short HUD
-  line. The readout is optional behind the `readiness_hud` feature flag.
+- `CLOSE_AT = 65` is only the “she's close” cue. `PONY_CLIMAX_AT = 100` triggers a pony
+  climax. `satisfaction` is still the public HUD value.
+- Each pony climax lasts `CLIMAX_SECONDS = 5`; the player can keep pumping, but those pumps
+  do not score. After it, readiness resets to `taste.recovery`; the 5th climax auto-enters
+  afterglow. `MAX_PONY_CLIMAXES = 5`.
+- Hold `Y` in `ACTIVE` with 0 climaxes cancels; with 1+ it enters afterglow. Hold `Y` in
+  `CLIMAX` enters afterglow. `Y` in `AFTERGLOW` ends it.
+- `mood` is `warming`, `wanting`, `close`, `climax`, `cooling` or `overwhelmed`; `cue` is the
+  short HUD line. The readout is optional behind the `readiness_hud` feature flag.
 - A talk cue is an invitation, not a gate. It only appears for a mare with a non-empty
   `talk` taste. The player's own text/speech is detected through
   `conversation_director._turn_id` / `_player_text`; the AI still writes her reply.
@@ -435,16 +441,18 @@ examples.
   `F` hold kiss in pose 2, mouse right smacks, `H` toggles lean hold. They are available in
   `ACTIVE`, `CLIMAX`, and the horse `AFTERGLOW`; `Y` is the context start/end control.
 - `Y` starts an act when idle and is a `0.35 s` hold while active, matching bridal-carry
-  initiation. A tap does nothing. At or above `READY_AT = 65` readiness, hold Y finishes her;
-  below it, hold Y cancels. Hold Y ends afterglow; Y is ignored in `CLIMAX` and `RESTORE`
-  except for event consumption. `T` remains the game's talk key and is not consumed; the
-  runtime watches player turns as a scoring input. `Q`/`E` are the side lean; during an act
-  the interaction keys are still consumed so the game's stand-up action cannot interrupt the
-  scene.
+  initiation. A tap does nothing. In `ACTIVE`, hold Y cancels with 0 pony climaxes and enters
+  afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends afterglow; Y is ignored
+  in `RESTORE` except for event consumption. `T` remains the game's talk key and is not
+  consumed; the runtime watches player turns as a scoring input. `Q`/`E` are the side lean;
+  during an act the interaction keys are still consumed so the game's stand-up action cannot
+  interrupt the scene.
 - States: `IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW → RESTORE` for both poses.
 - Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in afterglow.
 - Aftercare starts only at final readiness ≥ 10; it holds navigator ownership for 10 s and
   keeps the tail raised straight with reduced flicks.
+- Each pony climax records a unique memory event and reaction. The act-level romance impression
+  and witness pass commit once at afterglow; pose 2 records the inside event at afterglow only.
 - Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
   ponies and fillies/colts are skipped.
 - AI offer is strictly private and house-only.
@@ -454,8 +462,8 @@ examples.
 - There is no satisfaction-threshold schedule and no `min_utterances`/`max_utterances` cap.
   Cues are event-driven: a touch/talk result, a cooling/overwhelmed state, or a ready state.
 - A cue line uses the `cue` prompt; a talk invitation uses `talk_cue`. The state line contains
-  pose, mood, taste-axis motion, last touch, last talk and act time; it contains no speed or
-  depth units.
+  pose, mood, taste-axis motion, last touch, last talk, pony climax count and act time; it
+  contains no speed or depth units.
 - One mod line may be pending at a time. A new line needs an idle director and pony, plus
   `UTTERANCE_MIN_GAP_S = 6 s` since the previous line started.
 - The pending slot stays reserved until speech actually stops and a 1 s release hold passes.
@@ -464,8 +472,9 @@ examples.
 - A talk cue is an invitation, not a gate. If the player answers, the runtime drops the cue's
   pending line, scores the player's turn and lets the director's reply stand. If not, the
   invitation expires quietly.
-- Climax drops queued act lines but keeps an in-progress one, then queues the climax reaction.
-  End and inside reactions always queue. Only the cached “Mm.” is used; generated moans are parked.
+- Each pony climax drops queued act lines but keeps an in-progress one, then queues a unique
+  climax reaction. End and inside reactions always queue. Only the cached “Mm.” is used;
+  generated moans are parked.
 - Cancelling the act with `Y` does **not** cancel a line that is already being thought or
   spoken. `_drop_queued_utterance()` keeps the active authored line and drops only queued ones;
   it runs at climax, afterglow and restore. Act-line validity is tied to the pony/event id, not
@@ -480,14 +489,16 @@ examples.
   `_place_hotbar()` re-evaluates it so a stale pre-act layer flag cannot leave it hidden.
 - Two vertical meters, left to right: penetration and readiness (the internal
   `satisfaction` value).
-- The depth bar is shown only during `ACTIVE`; readiness remains through `CLIMAX`; afterglow
-  hides all meters.
+- The depth bar is shown during `ACTIVE` and `CLIMAX` (the player can pump during hers);
+  readiness remains through `CLIMAX`; afterglow hides all meters.
 - The readiness bar and mood cues are gated by `readiness_hud`, default `true`. With it off,
   the depth bar and control hints remain, and the player reads her instead. `debug_logs` no
   longer gates the readiness bar.
-- The bar changes color at `READY_AT = 65`; the control hint changes from
-  `Hold Y · Stop` to `Hold Y · Finish`. A `talk_wait` adds `T · Answer her`.
-- Love XP and happy mood are granted only by `MEMORY.commit_climax()` on a completed climax.
+- The bar changes color at `CLOSE_AT = 65`; `100` triggers a pony climax. The control hint is
+  `Hold Y · Stop` at 0 climaxes, `Hold Y · Afterglow` at 1+, and `Hold Y · Afterglow` in
+  `CLIMAX`. A `talk_wait` adds `T · Answer her`; the readiness HUD also shows
+  `Climaxes · N/5` and the cue.
+- Love XP and happy mood are granted once by `MEMORY.commit_climax()` at afterglow.
   Afterglow grants no extra reward.
 
 ## Debug and testing
@@ -560,8 +571,8 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
   defaults to `false`.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
-- Key fields: `smack_zone_radius`, `aftercare_min`, `taste`, `act_prompts`, `event_prompts`,
-  `poses.missionary`, `poses.horse`.
+- Key fields: `smack_zone_radius`, `aftercare_min`, `taste` (`recovery` included),
+  `act_prompts`, `event_prompts`, `poses.missionary`, `poses.horse`.
 - Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in
   `preferences.gd`/`settings.gd`.
 - No migration shims. Pre-release dev keys are ignored, not translated.
@@ -611,8 +622,8 @@ This is mandatory.
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying
   down before inviting.
-- `READY_AT = 65`, `HEAT_BOTH_RATE`, `HEAT_ONE_RATE`, `COOL_RATE` and the
-  `TOUCH_HEAT`/`TALK_HEAT` chunks are first-pass values; tune them in the lab.
+- `CLOSE_AT = 65`, `HEAT_BOTH_RATE`, `HEAT_ONE_RATE`, `COOL_RATE`, the per-mare
+  `recovery` values and the `TOUCH_HEAT`/`TALK_HEAT` chunks are first-pass; tune them in the lab.
 - The talk classifier in `preferences.gd` is a small keyword map, not an LLM call. Expand it
   only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
 - Slow-stroke plap audio and custom plap clips are future work.

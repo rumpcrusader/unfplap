@@ -22,11 +22,15 @@ static func cancel_event(game: Node, id: String, name: String, event_id: String)
 	ctx.record("intimacy", "The player stopped having sex with you before you reached climax.", [id, "player"], [id, "player"], event_id + ":cancel")
 
 
-static func climax_event(game: Node, id: String, name: String, event_id: String) -> void:
+static func climax_event(game: Node, id: String, name: String, event_id: String, count := 1) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "The player just had sex with you. You reached climax.", [id, "player"], [id, "player"], event_id + ":climax")
+	var text := "The player just had sex with you. You reached climax."
+	if count > 1:
+		text = "The player just had sex with you. You reached climax again."
+	ctx.record("intimacy", text, [id, "player"], [id, "player"],
+		"%s:pony_climax:%d" % [event_id, count])
 
 
 ## Pose 2 after the climax. Direct: she is told he came inside her.

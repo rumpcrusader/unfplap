@@ -11,7 +11,7 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file |
-| Pump, scoring, preferences, strength | `PREFERENCES.md`, `pump.gd`, `preferences.gd` |
+| ACTIVE readiness, taste, strength | `PREFERENCES.md`, `pump.gd`, `preferences.gd`, `utterance.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Settings or character profiles | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
@@ -73,8 +73,8 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 48, `SOURCE_HYGIENE` 43 checks / 46 files,
-  `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 23, `RUNTIME_PUMP` 4, `VOICE` 9,
+- Current passing state: `CATALOG` 13, `SETTINGS` 51, `SOURCE_HYGIENE` 43 checks / 46 files,
+  `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 11, `RUNTIME_PUMP` 9, `VOICE` 9,
   `ACTIONS` 51.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
@@ -95,12 +95,12 @@ mods/unfplap/
   mod.json          id, version, game_version, entry
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
                     DEBUG LOGS toggle, settings-tab injection, F8/F9/F10 debug helpers
-  runtime.gd        per-pony state machine, gates, start, pump scoring/strength,
+  runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow,
                     restore, aftercare
-  pump.gd           pure stroke tracker: reversal, timeout, speed, peak speed, strength
-  preferences.gd    pure depth profiles, speed zones, shape classification, bands
-  utterance.gd      pure act-line schedule and prompt formatting
+  pump.gd           pure stroke tracker: reversal, timeout, travel, speed, strength
+  preferences.gd    pure taste profile, intensity/rhythm and talk classification
+  utterance.gd      pure prompt formatting
   anon_thrust.gd    wraps the desktop Anon pose driver for the pose-2 hip thrust
   body_sway.gd      depth-driven pose-2 upper-body sway with planted forehooves
   ear_twitch.gd     eased random pump ear twitch on the head skeleton
@@ -108,11 +108,11 @@ mods/unfplap/
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
-  hud.gd            three meters, hints and debug-gated satisfaction
+  hud.gd            depth bar, optional readiness bar/mood cues and control hints
   hud_pump.gd       vertical depth bar
-  hud_bar.gd        satisfaction fill bar
+  hud_bar.gd        readiness fill bar
   input.gd          Y start/end, right-click smack routing, key consumption, debug keys
-  settings.gd       persisted DEBUG LOGS, pump controls and per-character templates
+  settings.gd       persisted DEBUG LOGS, pump controls and per-character taste templates
   memory.gd         world_context events, climax impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
@@ -122,7 +122,7 @@ mods/unfplap/
   witness.gd        witness pass
   ai_offer.gd       strictly private house-only spoken offer
   tests/            unit/source-hygiene tests + manual test_lab.gd
-  PREFERENCES.md    pump/scoring/preference/strength contract
+  PREFERENCES.md    taste/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
 ```
 
@@ -372,56 +372,39 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Pose 1 snapshots camera + current camera, player transform and pony transform/posture. Keep
   that snapshot exact; the bed cuddle re-invite depends on it.
 
-## Critical: pump scoring and strength
+## Critical: ACTIVE readiness and strength
 
 `pump.gd` is pure and has no scene access. It tracks raw depth and closes a stroke on a
 direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 
 - A **stroke** is continuous movement in one direction.
 - A **pump** is an inward stroke with `travel >= PUMP_MIN_TRAVEL = 0.25`.
-- Base gain is `Σ |Δd| × depth_weight(d)`. A full `0→1→0` at `steady` is exactly `2.0`.
-- Inward strokes get the speed and shape multipliers; outward strokes score base gain only.
-- Combined multiplier is capped to `0.40–1.80`.
-- `climax_at` is per pony (`100` default); there is no stamina pool or per-pump drain.
-- The HUD reads raw `depth` directly. There is no penetration inertia spring.
-
-Every closed stroke becomes one result with:
-`direction`, `start_depth`, `end_depth`, `travel`, `duration`, `speed`, `peak_speed`,
-`base_gain`, `scaled_gain`, `pump`, `shape`, `speed_zone`, `multiplier`, `strength`.
-
-Physical strength is independent of per-mare preference scoring:
-
-```text
-strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)
-```
-
-- Strength drives jiggle (`_start_jiggle` clamp `0.30–1.0`, then `JIGGLE_RUMP_SCALE = 2.8`)
-  and wing flick (`0.10→0.24`). Jiggle amount is also multiplied by
-  `_jiggle_size_scale() = clamp(size_scale, 0.5, 1.2)`; Canon (`0.66`) is `0.66×`. It does not
-  drive the pose-2 hip.
-- Pose-2 thrust follows raw `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
-  no spring, no return animation. `anon_thrust.gd` wraps the desktop Anon
-  `desktop_pose_driver`, forwards the original torso/rest-hand methods plus hold targets, then
-  offsets `%HipsTarget` forward. Restore the original driver at act end.
-- Wing motion is deliberately slow during an act: fade `2.20 s`, flick decay `1.80 s`,
-  spread `8 s`, droop `40 s`, jitter `1.6–4.0 s` with a `0.8 s` fade. The game's `flutter()`
-  is rate-limited to `1.80 s` between calls, and the fallback spread timer is `2 s`. Pose 2
-  starts from `WING_POSE2_HOLD = 0.65` (about `60°` above the ground) and opens by
-  `WING_POSE2_SPREAD = 0.25` as satisfaction rises. Pose 1 keeps the stock spread progression.
-- Climax hearts use three pulses with at least `1 s` between them:
-  - pulse 1 at `t = 0`: four `celebrate()` bursts;
-  - pulse 2 at `t >= 1 s`: two bursts;
-  - pulse 3 at least `1 s` after pulse 2: one burst.
-  Each burst is five hearts, no boop count or squeak.
-- A separate `celebrate()` burst starts from her dock (`mTail1`) at the exact climax start.
-- Pose 1 keeps the bed avatar hidden and uses the strength-scaled jiggle for now.
-- Current plap audio is unchanged, but its emitter is the rump point (`_rump_point()`) in both
-  poses. Future mod-owned plap clips should select from the result's `strength`, `travel`,
-  `depth`, `speed`, `speed_zone` and `shape`.
+- Every stroke carries `direction`, `start_depth`, `end_depth`, `travel`, `duration`, `speed`,
+  `peak_speed`, `pump` and `strength`. There is no base gain and no per-stroke multiplier.
+- Physical strength is `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)`.
+  It drives jiggle (`_start_jiggle` clamp `0.30–1.0`, then `JIGGLE_RUMP_SCALE = 2.8`) and wing
+  flick (`0.10→0.24`). Jiggle is also scaled by `_jiggle_size_scale()`.
+- The ACTIVE stage reads two continuous axes from the last inward pumps:
+  - **intensity**: `soft` (< 0.33), `firm` (< 0.66), `rough`;
+  - **pattern**: `steady`, `building`, `teasing` or `quick`, classified over the last 3–4
+    inward pumps. Fewer than 3 pumps has no pattern yet.
+- The taste profile also has concrete `touch` and `talk` likes/dislikes, a soft `pose`
+  preference and a `warmth` scale. `preferences.gd` validates them and classifies the player's
+  text; it no longer computes depth curves, speed windows or shape gains.
+- `satisfaction` is **readiness 0–100**, not a stroke score. Matching both axes raises it at
+  `HEAT_BOTH_RATE`; one axis at `HEAT_ONE_RATE`; neither starts a cooling timer. Liked
+  touch/talk adds a one-shot chunk; a disliked one subtracts and briefly sets `overwhelmed`.
+- Readiness is never an automatic climax. The player holds `Y` at or above `READY_AT = 65` to
+  finish; below it, hold `Y` cancels. `satisfaction` is still the public HUD value.
+- `mood` is `warming`, `wanting`, `close`, `cooling` or `overwhelmed`; `cue` is the short HUD
+  line. The readout is optional behind the `readiness_hud` feature flag.
+- A talk cue is an invitation, not a gate. It only appears for a mare with a non-empty
+  `talk` taste. The player's own text/speech is detected through
+  `conversation_director._turn_id` / `_player_text`; the AI still writes her reply.
 - Do **not** add a pump debug sub-gate. The per-stroke/pump log is the scoring view.
 
-Read `PREFERENCES.md` for the exact depth profiles, speed windows, shape curves, bands,
-multiplier rules, phases and character profiles.
+Read `PREFERENCES.md` for the exact taste schema, readiness rates, cue rules and character
+examples.
 
 ## Act flow, gates and controls
 
@@ -439,15 +422,16 @@ multiplier rules, phases and character profiles.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
   `F` hold kiss in pose 2, mouse right smacks, `H` toggles lean hold. They are available in
   `ACTIVE`, `CLIMAX`, and the horse `AFTERGLOW`; `Y` is the context start/end control.
-- `Y` starts an act when idle and is a `0.35 s` hold to cancel/end while active, matching
-  bridal-carry initiation. A tap does nothing. Hold Y cancels before climax and ends pose-1
-  afterglow; Y is ignored in `CLIMAX` and `RESTORE` except for event consumption.
-  `T` remains the game's talk key and is not consumed. `Q` is free for future left/right
-  actions; during an act it is still consumed so the game's stand-up action cannot interrupt
-  the scene.
+- `Y` starts an act when idle and is a `0.35 s` hold while active, matching bridal-carry
+  initiation. A tap does nothing. At or above `READY_AT = 65` readiness, hold Y finishes her;
+  below it, hold Y cancels. Hold Y ends afterglow; Y is ignored in `CLIMAX` and `RESTORE`
+  except for event consumption. `T` remains the game's talk key and is not consumed; the
+  runtime watches player turns as a scoring input. `Q`/`E` are the side lean; during an act
+  the interaction keys are still consumed so the game's stand-up action cannot interrupt the
+  scene.
 - States: `IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW → RESTORE` for both poses.
 - Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in afterglow.
-- Aftercare starts only at final satisfaction ≥ 10; it holds navigator ownership for 10 s and
+- Aftercare starts only at final readiness ≥ 10; it holds navigator ownership for 10 s and
   keeps the tail raised straight with reduced flicks.
 - Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
   ponies and fillies/colts are skipped.
@@ -455,18 +439,19 @@ multiplier rules, phases and character profiles.
 
 ## Dialogue utterances
 
-- `min_utterances`/`max_utterances` are clamped `0…3`; `min ≤ max`; the act picks one count.
-  This is a global chattiness cap even if a saved profile asks for more.
-- Scheduled points are satisfaction thresholds over `8–92%` of `climax_at`, jittered with a
-  minimum gap. They are generated on demand, not prefetched.
+- There is no satisfaction-threshold schedule and no `min_utterances`/`max_utterances` cap.
+  Cues are event-driven: a touch/talk result, a cooling/overwhelmed state, or a ready state.
+- A cue line uses the `cue` prompt; a talk invitation uses `talk_cue`. The state line contains
+  pose, mood, taste-axis motion, last touch, last talk and act time; it contains no speed or
+  depth units.
 - One mod line may be pending at a time. A new line needs an idle director and pony, plus
   `UTTERANCE_MIN_GAP_S = 6 s` since the previous line started.
 - The pending slot stays reserved until speech actually stops and a 1 s release hold passes.
   A queued line has a 60 s safety timeout only if it never starts; in-progress speech is never
   invalidated.
-- Points crossed while a line is pending are skipped and accepted. `max_utterances` caps scheduled
-  points only; reactive `speed_perfect`, `shape_like`/`shape_dislike`, `depth_deep` and `bored`
-  lines are extra. Speed slow/fast and depth-shallow reactions were removed.
+- A talk cue is an invitation, not a gate. If the player answers, the runtime drops the cue's
+  pending line, scores the player's turn and lets the director's reply stand. If not, the
+  invitation expires quietly.
 - Climax drops queued act lines but keeps an in-progress one, then queues the climax reaction.
   End and inside reactions always queue. Only the cached “Mm.” is used; generated moans are parked.
 - Cancelling the act with `Y` does **not** cancel a line that is already being thought or
@@ -481,10 +466,15 @@ multiplier rules, phases and character profiles.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; the previous state is restored at end and the inventory's
   `_place_hotbar()` re-evaluates it so a stale pre-act layer flag cannot leave it hidden.
-- Two vertical meters, left to right: penetration and satisfaction.
-- Depth is shown only during `ACTIVE`; satisfaction remains through `CLIMAX`;
-  afterglow hides all meters. Satisfaction is hidden unless DEBUG LOGS is on.
-- The HUD reads raw `depth`; there is no smoothing spring.
+- Two vertical meters, left to right: penetration and readiness (the internal
+  `satisfaction` value).
+- The depth bar is shown only during `ACTIVE`; readiness remains through `CLIMAX`; afterglow
+  hides all meters.
+- The readiness bar and mood cues are gated by `readiness_hud`, default `true`. With it off,
+  the depth bar and control hints remain, and the player reads her instead. `debug_logs` no
+  longer gates the readiness bar.
+- The bar changes color at `READY_AT = 65`; the control hint changes from
+  `Hold Y · Stop` to `Hold Y · Finish`. A `talk_wait` adds `T · Answer her`.
 - Love XP and happy mood are granted only by `MEMORY.commit_climax()` on a completed climax.
   Afterglow grants no extra reward.
 
@@ -544,6 +534,7 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 | Flag | Default | Gates |
 |---|---|---|
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
+| `readiness_hud` | `true` | show the readiness bar and mood cues; false = read her |
 | `lean_return` | `false` | auto-return the lean channel when keys are released; false (default) holds position |
 | `camera_inertia` | `true` | smoothed lean look/settle |
 | `camera_rock` | `true` | pose-2 pump roll/pitch rock |
@@ -557,9 +548,9 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
   defaults to `false`.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
-- Key fields: `min_utterances`, `max_utterances`, `smack_zone_radius`, `climax_at` (`1…100`), `aftercare_min`,
-  `preferences.pump`, `act_prompts`, `event_prompts`, `poses.missionary`, `poses.horse`.
-- Pose defaults live in `poses/catalog.gd`; pump defaults and validation live in
+- Key fields: `smack_zone_radius`, `aftercare_min`, `taste`, `act_prompts`, `event_prompts`,
+  `poses.missionary`, `poses.horse`.
+- Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in
   `preferences.gd`/`settings.gd`.
 - No migration shims. Pre-release dev keys are ignored, not translated.
 
@@ -608,6 +599,10 @@ This is mandatory.
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying
   down before inviting.
+- `READY_AT = 65`, `HEAT_BOTH_RATE`, `HEAT_ONE_RATE`, `COOL_RATE` and the
+  `TOUCH_HEAT`/`TALK_HEAT` chunks are first-pass values; tune them in the lab.
+- The talk classifier in `preferences.gd` is a small keyword map, not an LLM call. Expand it
+  only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
 - Slow-stroke plap audio and custom plap clips are future work.
 - `runtime.gd` still contains the deferred structural cleanup (splitting the missionary and
   horse state, and consolidating start/restore paths); no third pose is planned.

@@ -1,13 +1,14 @@
 extends CanvasLayer
 ## Desktop HUD: prompt, hint, and two vertical meters on the right:
-## penetration and her satisfaction (debug only).
+## penetration and her readiness.
 
 const HUD_PUMP := preload("res://mods/unfplap/hud_pump.gd")
 const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
-const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Exit"
+const READY_AT := 65.0
+const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return"
 const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Exit"
 const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nH · Toggle lean return\nHold Y · Exit"
 
@@ -118,10 +119,10 @@ func hide_prompt() -> void:
 		_prompt.visible = false
 
 
-func show_act(runtime: Node, show_satisfaction := true) -> void:
+func show_act(runtime: Node, show_readiness := true) -> void:
 	_bars.visible = false
 	_hint.visible = true
-	update_from(runtime, show_satisfaction)
+	update_from(runtime, show_readiness)
 
 
 func hide_act() -> void:
@@ -147,21 +148,35 @@ func set_state(kind: String) -> void:
 			_bars.visible = false
 
 
-func update_from(runtime: Node, show_satisfaction := true) -> void:
+func update_from(runtime: Node, show_readiness := true) -> void:
 	if _bars == null or not is_instance_valid(runtime):
 		return
 	var state := int(runtime.get("state"))
 	var active := state in [STATE_ACTIVE, STATE_CLIMAX]
+	var readiness := float(runtime.get("satisfaction"))
+	var ready := readiness >= READY_AT
 	_bars.visible = active
 	_depth_col.visible = state == STATE_ACTIVE
-	_satisfaction_col.visible = active and show_satisfaction
+	_satisfaction_col.visible = active and show_readiness
 	if active:
 		if state == STATE_ACTIVE:
 			_depth.call("set_depth", float(runtime.get("depth")), bool(runtime.get("pump_up")))
-		_satisfaction.call("set_value", float(runtime.get("satisfaction")), 100.0)
+		_satisfaction.call("set_value", readiness, 100.0)
+		_satisfaction.set("fill_color",
+			Color(1.0, 0.76, 0.36) if ready else Color(1.0, 0.45, 0.70))
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 	if state == STATE_ACTIVE:
-		_hint.text = ACTIVE_HINTS
+		var lines: PackedStringArray = [ACTIVE_HINTS]
+		if show_readiness:
+			var cue := str(runtime.get("cue"))
+			if not cue.is_empty():
+				lines.append(cue)
+			if float(runtime.get("talk_wait")) > 0.0:
+				lines.append("T · Answer her")
+			lines.append("Hold Y · Finish" if ready else "Hold Y · Stop")
+		else:
+			lines.append("Hold Y · Finish / Stop")
+		_hint.text = "\n".join(lines)
 	elif state == STATE_CLIMAX:
 		_hint.text = CLIMAX_HINTS
 	elif state == STATE_AFTERGLOW:

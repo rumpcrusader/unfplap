@@ -1,9 +1,10 @@
 extends RefCounted
-## Persisted mod settings outside any world save: global DEBUG LOGS, experimental feature flags,
-## pump controls, and the default/per-character templates. A character inherits every field it
+## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, pump
+## controls, and the default/per-character templates. A character inherits every field it
 ## does not override.
 ##
-## Pre-release: the schema is intentionally breaking. `chattiness` is gone; do not add a fallback.
+## Pre-release: the schema is intentionally breaking. The old per-stroke `preferences.pump`
+## block is gone; `taste` is the ACTIVE-stage profile.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -13,6 +14,7 @@ const FILE := "settings.json"
 ## Experimental switches. Keep this as the single list; runtime reads it once per act.
 const FEATURE_DEFAULTS := {
 	"settings_tab": true,
+	"readiness_hud": true,
 	"lean_return": false,
 	"camera_inertia": true,
 	"camera_rock": true,
@@ -24,20 +26,13 @@ const FEATURE_DEFAULTS := {
 }
 
 const DEFAULT_ACT_PROMPTS := {
-	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. These preferences are private feelings, not a list to say. Current moment: {state}. Your preferences: {preferences}. Do not repeat: {recent}.",
-
-	"speed_perfect": "During sex with Anon, he has found the rhythm you like. Tell him to keep it, in your own voice, at most 8 words (for example: \"Just like that, Anon\"). Begin with [happy] or [whispering]. Current moment: {state}.",
-	"shape_like": "During sex with Anon, he just moved in the way you like. Ask for more of that, in your own voice, at most 10 words. Begin with [happy] or [whispering]. Current moment: {state}.",
-	"shape_dislike": "During sex with Anon, he just moved in a way you do not like. Complain briefly, in your own voice, at most 10 words. Begin with [annoyed]. Current moment: {state}.",
-	"depth_deep": "During sex with Anon, he is going deeper than you like. Ask him to ease back, in your own voice, at most 10 words. Begin with [annoyed] or [surprised]. Current moment: {state}.",
-	"bored": "During sex with Anon, he has been going too slowly for a while. Ask him what is going on in your own voice, at most 12 words. Begin with [sad] or [annoyed]. Current moment: {state}.",
+	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
+	"cue": "During sex with Anon, your body and voice show: {cue} Say ONE short line in your own voice, at most 12 words. Begin with [whispering], [happy], [annoyed] or [surprised]. No narration, no stage directions, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
+	"talk_cue": "During sex with Anon, you want to hear his voice. Ask him ONE short question in your own voice, at most 10 words. Begin with [whispering]. No narration, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
 }
 
 const DEFAULT_TEMPLATE := {
-	"min_utterances": 2,
-	"max_utterances": 3,
 	"smack_zone_radius": 0.035,
-	"climax_at": 100,
 	"aftercare_min": 10,
 	"event_prompts": {
 		"climax": "",
@@ -45,86 +40,59 @@ const DEFAULT_TEMPLATE := {
 		"inside": "",
 	},
 	"act_prompts": {},
-	"preferences": {},
+	"taste": {},
 }
 
-## Three explicit character examples; every other pony inherits the neutral default.
+## Explicit character examples; every other pony inherits the neutral default.
 const CHARACTER_TEMPLATES := {
 	"fluttershy": {
-		"min_utterances": 1,
-		"max_utterances": 3,
 		"event_prompts": {
 			"climax": "You have just climaxed during intimacy with Anon. Say ONE short sentence, at most 12 words, in your own voice. Something like \"Oh goodness, oh goodness...\" fits, but keep the flustered baseline. Do not describe anatomy.",
 		},
-		"preferences": {
-			"pump": {
-				"depth": "deep",
-				"speed": {
-					"enabled": true,
-					"min": 0.40,
-					"perfect": 1.20,
-					"max": 2.00,
-					"epsilon": 0.22,
-				},
-				"shape": {
-					"enabled": true,
-					"likes": "ease_out",
-					"dislikes": "ease_in_out",
-				},
-				"notes": "You are secretly overwhelmed by how much you enjoy being taken hard and deep. You would never admit it plainly: praise comes out flustered and reluctant, and complaints are apologetic rather than demanding.",
-				"phases": [
-					{
-						"min_satisfaction": 0.75,
-						"max_satisfaction": 1.0,
-						"depth": "deep",
-						"speed": {
-							"enabled": true,
-							"min": 0.60,
-							"perfect": 1.60,
-							"max": 2.60,
-							"epsilon": 0.28,
-						},
-						"shape": {
-							"enabled": true,
-							"likes": "ease_out",
-							"dislikes": "ease_in_out",
-						},
-						"notes": "Above three quarters you stop hiding it: you want it harder and faster, and you say so, still flustered.",
-					},
-				],
-			},
+		"taste": {
+			"intensity": "firm",
+			"pattern": "building",
+			"touch": ["caress"],
+			"dislikes": ["smack"],
+			"talk": ["reassurance"],
+			"pose": "missionary",
+			"warmth": "slow",
+			"notes": "You are secretly overwhelmed by how much you enjoy being taken hard and deep. You would never admit it plainly: praise comes out flustered and reluctant, and complaints are apologetic rather than demanding.",
 		},
 		"poses": {"missionary": {"hind_spread": 0.45}},
 	},
 	"rarity": {
-		"min_utterances": 2,
-		"max_utterances": 3,
-		"preferences": {
-			"pump": {
-				"depth": "shallow",
-				"speed": {
-					"enabled": true,
-					"min": 0.20,
-					"perfect": 0.50,
-					"max": 1.00,
-					"epsilon": 0.10,
-				},
-				"shape": {
-					"enabled": true,
-					"likes": "ease_in_out",
-					"dislikes": "ease_out",
-				},
-				"notes": "You want slow, deliberate, elegant lovemaking. Brute force is crude; you say so with dry, refined disdain, never panic or whining.",
-			},
+		"taste": {
+			"intensity": "soft",
+			"pattern": "steady",
+			"touch": ["caress"],
+			"dislikes": ["smack"],
+			"talk": ["praise"],
+			"pose": "missionary",
+			"warmth": "normal",
+			"notes": "You want slow, deliberate, elegant lovemaking. Brute force is crude; you say so with dry, refined disdain, never panic or whining.",
 		},
 	},
 	"twilight_sparkle": {
-		"min_utterances": 2,
-		"max_utterances": 3,
-		"preferences": {
-			"pump": {
-				"notes": "You have no strong preference; you respond to the moment and to Anon.",
-			},
+		"taste": {
+			"intensity": "firm",
+			"pattern": "steady",
+			"touch": ["kiss"],
+			"talk": [],
+			"pose": "any",
+			"warmth": "normal",
+			"notes": "You have no strong preference; you respond to the moment and to Anon.",
+		},
+	},
+	"derpy_hooves": {
+		"taste": {
+			"intensity": "rough",
+			"pattern": "quick",
+			"touch": ["smack"],
+			"talk": ["playful"],
+			"pose": "horse",
+			"warmth": "quick",
+			"notes": "You are unpretentious and playful. You like being handled, laugh easily, and never want the moment to feel solemn.",
 		},
 	},
 }
@@ -150,17 +118,6 @@ static func save_debug_logs(value: bool) -> void:
 	_write(data)
 
 
-static func utterance_range(id: String) -> Vector2i:
-	var template := template_for(id)
-	var low := clampi(int(template.get("min_utterances", 2)), 0, 3)
-	var high := clampi(int(template.get("max_utterances", 3)), 0, 3)
-	if low > high:
-		var swap := low
-		low = high
-		high = swap
-	return Vector2i(low, high)
-
-
 static func act_prompt(id: String, key: String) -> String:
 	var prompts: Variant = template_for(id).get("act_prompts", {})
 	if prompts is Dictionary:
@@ -175,13 +132,11 @@ static func event_prompt(id: String, event: String) -> String:
 	return ""
 
 
-static func preferences(id: String) -> Dictionary:
+static func taste(id: String) -> Dictionary:
 	var template := template_for(id)
-	var prefs: Variant = template.get("preferences", {})
-	if prefs is Dictionary:
-		var pump: Variant = (prefs as Dictionary).get("pump", {})
-		if pump is Dictionary:
-			return (pump as Dictionary).duplicate(true)
+	var value: Variant = template.get("taste", {})
+	if value is Dictionary:
+		return PREFERENCES.resolve(value)
 	return PREFERENCES.defaults()
 
 
@@ -206,15 +161,11 @@ static func pump_controls() -> Dictionary:
 	}
 
 
-static func climax_at(id: String) -> int:
-	return clampi(int(template_for(id).get("climax_at", 100)), 1, 100)
-
-
 static func aftercare_min(id: String) -> int:
 	return clampi(int(template_for(id).get("aftercare_min", 10)), 0, 100)
 
 
-## The merged default + per-character template actually used at runtime, with pose and preference
+## The merged default + per-character template actually used at runtime, with pose and taste
 ## blocks filled from their catalogs.
 static func template_for(id: String) -> Dictionary:
 	var data := _read()
@@ -231,7 +182,8 @@ static func profile_for(base: Dictionary, characters: Variant, id: String) -> Di
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:
 			selected = _merge(selected, over)
-	selected = _fill_preferences(selected)
+	selected = _fill_taste(selected)
+	selected = _fill_prompts(selected)
 	return _fill_pose_defaults(selected)
 
 
@@ -280,7 +232,7 @@ static func _defaults() -> Dictionary:
 	}
 
 
-## The merged experimental feature switches, with unknown/missing keys off.
+## The merged feature switches, with unknown/missing keys off.
 static func features() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("features", {})
@@ -310,24 +262,35 @@ static func save_feature(name: String, value: bool) -> void:
 	_write(data)
 
 
-## Default template plus catalog pose/preference/prompt defaults. Kept as a function so the
+## Default template plus catalog pose/taste/prompt defaults. Kept as a function so the
 ## catalogs are read at run time instead of baked into a const expression.
 static func _filled_default() -> Dictionary:
 	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
 	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
-	out["preferences"] = {"pump": PREFERENCES.defaults()}
+	out["taste"] = PREFERENCES.defaults()
 	out["act_prompts"] = DEFAULT_ACT_PROMPTS.duplicate(true)
 	return out
 
 
-static func _fill_preferences(template: Dictionary) -> Dictionary:
+static func _fill_taste(template: Dictionary) -> Dictionary:
 	var out: Dictionary = template.duplicate(true)
-	var prefs: Variant = out.get("preferences", {})
-	if not prefs is Dictionary:
-		prefs = {}
-	var pump: Variant = (prefs as Dictionary).get("pump", {})
-	(prefs as Dictionary)["pump"] = PREFERENCES.resolve(pump)
-	out["preferences"] = prefs
+	out["taste"] = PREFERENCES.resolve(out.get("taste", {}))
+	return out
+
+
+## Keep only current prompt keys. Old per-stroke prompt keys are ignored, and an old
+## `{preferences}` utterance is replaced rather than sent to the model with a missing value.
+static func _fill_prompts(template: Dictionary) -> Dictionary:
+	var out: Dictionary = template.duplicate(true)
+	var prompts: Dictionary = DEFAULT_ACT_PROMPTS.duplicate(true)
+	var raw: Variant = out.get("act_prompts", {})
+	if raw is Dictionary:
+		for key: String in DEFAULT_ACT_PROMPTS:
+			if (raw as Dictionary).has(key):
+				prompts[key] = str((raw as Dictionary)[key])
+	if str(prompts.get("utterance", "")).contains("{preferences}"):
+		prompts["utterance"] = str(DEFAULT_ACT_PROMPTS["utterance"])
+	out["act_prompts"] = prompts
 	return out
 
 

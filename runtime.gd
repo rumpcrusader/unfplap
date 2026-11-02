@@ -23,7 +23,27 @@ const VOICE := preload("res://mods/unfplap/voice_status.gd")
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 
-const SATISFACTION_MAX := 100
+const READINESS_MAX := 100.0
+## The player may finish at or above this readiness. The bar is a readiness aid, not a timer.
+const READY_AT := 65.0
+## Readiness per second while both taste axes match, one axis matches, or neither matches.
+const HEAT_BOTH_RATE := 2.0
+const HEAT_ONE_RATE := 1.0
+const COOL_RATE := 1.5
+const COOL_DELAY_S := 3.0
+## Concrete actions and their one-shot readiness chunks.
+const TOUCH_HEAT := 6.0
+const TALK_HEAT := 6.0
+const POSE_HEAT := 4.0
+const TOUCH_COOLDOWN_S := 4.0
+const TALK_COOLDOWN_S := 8.0
+## A talk cue is an invitation, not a gate. It expires quietly.
+const TALK_CUE_GAP_S := 20.0
+const TALK_CUE_WAIT_S := 8.0
+const CUE_OVERRIDE_S := 2.5
+const OVERWHELM_S := 1.2
+## Readiness text clears after this long without an inward pump.
+const STROKE_MEMORY_S := 1.2
 ## Mod-owned generated lines wait this long after the previous line starts, even when the
 ## director is free. Other systems keep their own scheduling.
 const UTTERANCE_MIN_GAP_S := 6.0
@@ -45,7 +65,6 @@ const BREATH_RATE_CAP := 10.0
 ## Breath gain easing. Active: follows the plap rate; afterglow: fades over this many seconds.
 const BREATH_FADE_S := 2.5
 const AFTERGLOW_BREATH_FADE_S := 5.0
-const WITNESS_RADIUS_M := 8.0
 ## Pose 1 camera: closer to her neck/face so the free shot does not feel distant.
 ## `pony.global_basis.z` is her backward direction.
 const POSE1_CAMERA_HEIGHT_M := 0.45
@@ -152,7 +171,6 @@ const THRUST_MAX_M := 0.045
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
 ## Pose 2 after the climax: Anon eases back before the act restores.
-const AFTERGLOW_BACK_M := 0.18
 const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Pose 2 after the climax: held afterglow; Anon no longer auto-withdraws.
@@ -171,7 +189,7 @@ const WING_JITTER_MIN := 1.6
 const WING_JITTER_MAX := 4.0
 const WING_JITTER_FADE := 0.8
 ## Pose 2 starts at a relaxed ~60° spread instead of the half-open pose's ~75°. Lower values
-## blend further toward fully open; satisfaction gradually opens them from here.
+## blend further toward fully open; readiness gradually opens them from here.
 const WING_POSE2_HOLD := 0.65
 const WING_POSE2_SPREAD := 0.25
 ## The game's flutter cycle is 3 × (0.16 + 0.13) = 0.87 s. A pump may not restart it before
@@ -191,7 +209,6 @@ const GLANCE_BACK_YAW := 1.62
 ## Jiggle placement on the flank. The pump scale is reduced 20% from the review pass; the
 ## native smack keeps its own strength.
 const JIGGLE_HEIGHT := 0.78
-const JIGGLE_SIDE := 0.24
 const JIGGLE_BACK := 0.12
 ## `_start_jiggle` clamps strength to 0.3..1, so weak pumps still move a little.
 const JIGGLE_MIN_STRENGTH := 0.30
@@ -225,7 +242,12 @@ var state: int = State.IDLE
 var pose_id := ""
 var source := ""
 var bed: Node3D
-var satisfaction := 0
+## Readiness, 0..100. The player finishes with hold Y at or above READY_AT.
+var satisfaction := 0.0
+## Public for the HUD: mood, a short third-person cue and an active talk invitation.
+var mood := "warming"
+var cue := ""
+var talk_wait := 0.0
 ## Public for the HUD: penetration 0..1 and the same orientation flag used by mouse input.
 var depth := 0.0
 var pump_up := true
@@ -254,34 +276,36 @@ var _id := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
 var _pose_cfg: Dictionary = {}
-var _base_preferences: Dictionary = {}
-var _preferences: Dictionary = {}
-var _phase_index := -1
+var _taste: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _pump_tracker
 var _pump_pixels_per_full := 600.0
 var _pump_bobs := false
-var _satisfaction_frac := 0.0
-var _speed_zone_previous := "ok"
-var _speed_zone_strokes := 0
-## Last closed stroke: direction/travel/speed/peak_speed/strength, shape/zone/multiplier,
-## base/scaled gain. One result feeds scoring, HUD debug, utterances and the visual effects.
+## Last closed inward pump; the pattern window is the last three to four pumps.
 var _last_stroke: Dictionary = {}
-var _last_reaction: Dictionary = {}
-var _depth_out_seconds := 0.0
-var _utterance_points: Array[float] = []
-var _utterance_index := 0
+var _last_intensity := ""
+var _last_pattern := ""
+var _stroke_window: Array[Dictionary] = []
+var _last_stroke_at := -1000.0
 var _utterance_pending_key := ""
 var _utterance_pending_until := 0.0
 var _utterance_done_key := ""
 var _utterance_done_at := 0.0
-var _utterance_rng := RandomNumberGenerator.new()
 var _utterance_serial := 0
 var _last_utterance_at := -1000.0
 var _vocal_cooldown := 0.0
-var _bored_seconds := 0.0
-var _speed_travel := 0.0
-var _climax_at := 100
+var _cooling_seconds := 0.0
+var _overwhelmed := 0.0
+var _cue_override := ""
+var _cue_until := 0.0
+var _last_touch := ""
+var _last_talk := ""
+var _touch_at: Dictionary = {}
+var _last_talk_at := -1000.0
+var _last_talk_turn := -1
+var _last_talk_cue_at := -1000.0
+var _last_cue_text := ""
+var _last_cue_line_at := -1000.0
 var _aftercare_min := 10
 var _display_name := "the pony"
 var _serial := 0
@@ -496,6 +520,11 @@ func _feature(name: String) -> bool:
 	return bool(_features.get(name, true))
 
 
+## Readiness HUD aid. The HUD still works when this is false; the player just reads her.
+func readiness_hud() -> bool:
+	return bool(_features.get("readiness_hud", true))
+
+
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
@@ -523,7 +552,7 @@ func _act_presentation(delta: float) -> void:
 			_wings_node = wings as Node
 			_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 1.0))
 	if _wing_hold and is_instance_valid(_wings_node):
-		var level := sqrt(clampf(float(satisfaction) / (_climax_at * 0.75), 0.0, 1.0))
+		var level := sqrt(clampf(float(satisfaction) / READINESS_MAX, 0.0, 1.0))
 		var spread_t := smoothstep(0.0, 1.0, clampf(_act_seconds / WING_SPREAD_SECONDS, 0.0, 1.0))
 		var base_target := 1.0 - spread_t
 		if pose_id != CATALOG.MISSIONARY:
@@ -542,7 +571,7 @@ func _act_presentation(delta: float) -> void:
 		_wings_node.call("hold_at", "unfplap", _wing_hold_value)
 		return
 	# Fallback when the half-open wing pose is unavailable.
-	if satisfaction >= _climax_at * 0.75:
+	if satisfaction >= READINESS_MAX * 0.75:
 		_wing_clock -= delta
 		if _wing_clock <= 0.0:
 			_wing_clock = 2.0
@@ -693,6 +722,8 @@ func _hold_y_tick(delta: float) -> void:
 	_log("hold Y state=%d" % state)
 	if state == State.AFTERGLOW:
 		end_afterglow()
+	elif state == State.ACTIVE and satisfaction >= READY_AT:
+		_climax()
 	else:
 		cancel()
 
@@ -713,9 +744,9 @@ func _physics_process(delta: float) -> void:
 		_act_presentation(delta)
 	_kiss_tick(delta)
 	if state == State.ACTIVE:
-		_update_phase()
 		_pump_tick()
-		_boredom_tick(delta)
+		_heat_tick(delta)
+		_talk_tick(delta)
 		_utterance_tick()
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
@@ -907,12 +938,10 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(_relationship_ok()), str(_player_form_ok()), str(_conversation_ok()), str(_free_of_affection()),
 		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
-	if state != State.IDLE and not _preferences.is_empty():
-		text += " | pump depth=%.2f speed=%.2f peak=%.2f strength=%.2f zone=%s shape=%s up=%s | %s" % [
-			depth, float(_last_stroke.get("speed", 0.0)), float(_last_stroke.get("peak_speed", 0.0)),
-			float(_last_stroke.get("strength", 0.0)), str(_last_stroke.get("speed_zone", "ok")),
-			str(_last_stroke.get("shape", "mixed")), str(pump_up),
-			PREFERENCES.describe(_preferences).replace("\n", "; ")]
+	if state != State.IDLE:
+		text += " | readiness=%.0f mood=%s intensity=%s pattern=%s cue=%s up=%s | %s" % [
+			satisfaction, mood, _last_intensity, _last_pattern, cue, str(pump_up),
+			PREFERENCES.describe(_taste).replace("\n", "; ")]
 	text += " | " + voice_status_line()
 	return text
 
@@ -1320,21 +1349,13 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_profile = SETTINGS.template_for(_id)
 	_features = SETTINGS.features()
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
-	var preferences_block: Variant = _profile.get("preferences", {})
-	_base_preferences = PREFERENCES.defaults()
-	if preferences_block is Dictionary:
-		var pump_block: Variant = (preferences_block as Dictionary).get("pump", {})
-		if pump_block is Dictionary:
-			_base_preferences = (pump_block as Dictionary).duplicate(true)
+	_taste = SETTINGS.taste(_id)
 	_act_prompts = _profile.get("act_prompts", {})
 	var pump_controls := SETTINGS.pump_controls()
 	pump_up = bool(pump_controls.get("up", true))
 	_pump_pixels_per_full = float(pump_controls.get("pixels_per_full", 600.0))
 	_pump_bobs = bool(pump_controls.get("bobs", false))
 	_pump_tracker = PUMP.new()
-	_climax_at = int(_profile.get("climax_at", 100))
-	_phase_index = PREFERENCES.phase_index(_base_preferences, 0.0)
-	_preferences = PREFERENCES.active(_base_preferences, 0.0)
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_has_facing = false
 	bed = _resolve_bed(pose, act_source, bed_in)
@@ -1377,15 +1398,21 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_serial = _next_serial()
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
 	_started_at = Time.get_unix_time_from_system()
-	satisfaction = 0
+	satisfaction = 0.0
+	mood = "warming"
+	cue = ""
+	talk_wait = 0.0
 	_y_hold = 0.0
 	_y_hold_ready = false
 	_y_hold_fired = false
 	_reset_pump_state()
-	_schedule_utterances()
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
+	_remember_talk_turn()
+	# Pose is a soft taste input; it starts her a little warmer, never blocks the act.
+	if str(_taste.get("pose", "any")) == pose_id:
+		_add_heat(POSE_HEAT)
 
 	if source == "cradle":
 		if not _release_carry():
@@ -1451,7 +1478,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
 	if is_instance_valid(main.hud):
-		main.hud.show_act(self, main.debug_logs)
+		main.hud.show_act(self, readiness_hud())
 		main.hud.hide_prompt()
 	_log("started pose=%s legacy=%d source=%s pony=%s eye=%.2f" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name), _camera_target_eye])
 	return true
@@ -1872,14 +1899,11 @@ func _now_s() -> float:
 
 func _reset_pump_state() -> void:
 	depth = 0.0
-	_satisfaction_frac = 0.0
-	_speed_zone_previous = "ok"
-	_speed_zone_strokes = 0
 	_last_stroke.clear()
-	_last_reaction.clear()
-	_depth_out_seconds = 0.0
-	_utterance_points.clear()
-	_utterance_index = 0
+	_last_intensity = ""
+	_last_pattern = ""
+	_stroke_window.clear()
+	_last_stroke_at = -1000.0
 	_utterance_pending_key = ""
 	_utterance_pending_until = 0.0
 	_utterance_done_key = ""
@@ -1887,24 +1911,21 @@ func _reset_pump_state() -> void:
 	_utterance_serial = 0
 	_last_utterance_at = -1000.0
 	_vocal_cooldown = 0.0
-	_bored_seconds = 0.0
-	_speed_travel = 0.0
+	_cooling_seconds = 0.0
+	_overwhelmed = 0.0
+	_cue_override = ""
+	_cue_until = 0.0
+	_last_touch = ""
+	_last_talk = ""
+	_touch_at.clear()
+	_last_talk_at = -1000.0
+	talk_wait = 0.0
+	_last_talk_cue_at = -1000.0
+	_last_cue_text = ""
+	_last_cue_line_at = -1000.0
 	if _pump_tracker == null:
 		_pump_tracker = PUMP.new()
 	_pump_tracker.reset()
-
-
-func _schedule_utterances() -> void:
-	_utterance_rng.randomize()
-	# Keep sex dialogue sparse for every mare: at most three scheduled act lines.
-	var low := clampi(int(_profile.get("min_utterances", 2)), 0, 3)
-	var high := clampi(int(_profile.get("max_utterances", 3)), 0, 3)
-	if low > high:
-		low = high
-	var count := UTTERANCE.line_count(low, high, _utterance_rng)
-	_utterance_points = UTTERANCE.schedule(_climax_at, count, int(_utterance_rng.randi()))
-	if count > 0:
-		_log("utterances=%d points=%s" % [count, str(_utterance_points)])
 
 
 func _prepare_vocal() -> void:
@@ -2033,17 +2054,11 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 	_inventory_hud_hidden = false
 
 
-func _depth_weight(value: float) -> float:
-	return PREFERENCES.depth_weight(_preferences, value)
-
-
 func _pump_move(amount: float, now: float) -> void:
 	if _pump_tracker == null:
 		return
-	var before := depth
-	var events: Array = _pump_tracker.move(amount, now, _depth_weight)
+	var events: Array = _pump_tracker.move(amount, now)
 	depth = _pump_tracker.depth
-	_speed_travel += absf(depth - before)
 	for event: Dictionary in events:
 		_on_stroke(event)
 
@@ -2055,57 +2070,28 @@ func _pump_tick() -> void:
 	depth = _pump_tracker.depth
 	for event: Dictionary in events:
 		_on_stroke(event)
-	_depth_tick(get_physics_process_delta_time())
 
 
+## A closed stroke only updates the pattern window and the presentation. It never adds
+## readiness directly: readiness is a rate over time so the player can read her response.
 func _on_stroke(event: Dictionary) -> void:
 	if state != State.ACTIVE:
 		return
-	var direction := int(event.get("direction", 0))
-	var speed := float(event.get("speed", 0.0))
-	var shape := PREFERENCES.MIXED
-	var zone := "ok"
-	var multiplier := 1.0
-	if direction > 0:
-		var shape_cfg: Dictionary = _preferences.get("shape", {})
-		if bool(shape_cfg.get("enabled", false)):
-			var samples: PackedVector2Array = event.get("samples", PackedVector2Array())
-			var classified := PREFERENCES.classify_shape(
-				samples,
-				float(shape_cfg.get("min_travel", 0.30)),
-				float(shape_cfg.get("max_rmse", 0.18)))
-			shape = str(classified.get("shape", PREFERENCES.MIXED))
-		zone = PREFERENCES.speed_zone(_preferences, speed)
-		multiplier = PREFERENCES.multiplier(_preferences, zone, shape)
-	var base_gain := float(event.get("base_gain", 0.0))
-	var result := {
-		"direction": direction,
-		"start_depth": float(event.get("start_depth", 0.0)),
-		"end_depth": float(event.get("end_depth", 0.0)),
-		"travel": float(event.get("travel", 0.0)),
-		"duration": float(event.get("duration", 0.0)),
-		"speed": speed,
-		"peak_speed": float(event.get("peak_speed", speed)),
-		"base_gain": base_gain,
-		"scaled_gain": base_gain * multiplier,
-		"pump": bool(event.get("pump", false)),
-		"shape": shape,
-		"speed_zone": zone,
-		"multiplier": multiplier,
-		"strength": float(event.get("strength", 0.0)),
-	}
-	if direction > 0:
-		_last_stroke = result
-		_note_speed(zone)
-		_note_shape(shape)
-	if result.pump:
-		_on_pump(result)
-	_add_satisfaction(float(result.scaled_gain))
-	_log("stroke dir=%d travel=%.2f speed=%.2f peak=%.2f shape=%s zone=%s strength=%.2f gain=%.2f satisfaction=%d" % [
-		direction, float(result.travel), speed, float(result.peak_speed), shape, zone,
-		float(result.strength), float(result.scaled_gain), satisfaction])
-	if state == State.ACTIVE and satisfaction >= _climax_at:
-		_climax()
+	if int(event.get("direction", 0)) <= 0:
+		return
+	_last_stroke = event.duplicate(true)
+	_last_stroke_at = _now_s()
+	_stroke_window.append(_last_stroke)
+	while _stroke_window.size() > 4:
+		_stroke_window.pop_front()
+	_last_intensity = PREFERENCES.intensity_for(float(event.get("strength", 0.0)))
+	_last_pattern = PREFERENCES.pattern_for(_stroke_window)
+	if bool(event.get("pump", false)):
+		_on_pump(_last_stroke)
+	_log("stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f" % [
+		float(event.get("travel", 0.0)), float(event.get("speed", 0.0)),
+		float(event.get("peak_speed", 0.0)), float(event.get("strength", 0.0)),
+		_last_intensity, _last_pattern, satisfaction])
 
 
 func _on_pump(result: Dictionary) -> void:
@@ -2138,9 +2124,8 @@ func _on_pump(result: Dictionary) -> void:
 		_pump_times.pop_front()
 	_play_kiss()
 	_play_vocal()
-	if satisfaction == 0 or satisfaction % 10 == 0:
-		_log("pump satisfaction=%d rate=%.1f/s strength=%.2f" % [
-			satisfaction, _pumps_per_second(), strength])
+	_log("pump readiness=%.0f rate=%.1f/s strength=%.2f intensity=%s pattern=%s" % [
+		satisfaction, _pumps_per_second(), strength, _last_intensity, _last_pattern])
 
 
 ## Slow strokes get a slower spring. Scaling stiffness by s², damping by s and the
@@ -2161,72 +2146,192 @@ func _play_vocal() -> void:
 			_vocal_cooldown = 3.0
 
 
-func _add_satisfaction(amount: float) -> void:
-	if amount <= 0.0:
+func _add_heat(amount: float) -> void:
+	if is_zero_approx(amount):
 		return
-	_satisfaction_frac += amount
-	if _satisfaction_frac < 1.0:
-		return
-	var whole := int(floor(_satisfaction_frac))
-	var before := satisfaction
-	satisfaction = mini(SATISFACTION_MAX, satisfaction + whole)
-	_satisfaction_frac -= float(whole)
-	if satisfaction != before and (satisfaction == 1 or satisfaction % 10 == 0):
-		_log("satisfaction=%d rate=%.1f/s" % [satisfaction, _pumps_per_second()])
+	var before := int(satisfaction)
+	satisfaction = clampf(satisfaction + amount, 0.0, READINESS_MAX)
+	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
+		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
 
 
-func _note_speed(zone: String) -> void:
-	var cfg: Dictionary = _preferences.get("speed", {})
-	if not bool(cfg.get("enabled", false)):
-		return
-	if zone != _speed_zone_previous:
-		_speed_zone_previous = zone
-		_speed_zone_strokes = 1
-	else:
-		_speed_zone_strokes += 1
-	if zone == "perfect" and _speed_zone_strokes >= 2 and _reaction_ready("speed_perfect", 12.0):
-		_queue_utterance("speed_perfect", "speed_perfect", "speed_perfect")
-
-
-func _note_shape(shape: String) -> void:
-	if shape == PREFERENCES.MIXED or shape.is_empty():
-		return
-	var cfg: Dictionary = _preferences.get("shape", {})
-	if not bool(cfg.get("enabled", false)):
-		return
-	if shape == str(cfg.get("likes", "")) and _reaction_ready("shape_like", 12.0):
-		_queue_utterance("shape_like", "shape_like", "shape_like")
-	elif shape == str(cfg.get("dislikes", "")) and _reaction_ready("shape_dislike", 10.0):
-		_queue_utterance("shape_dislike", "shape_dislike", "shape_dislike")
-
-
-func _depth_tick(delta: float) -> void:
+## Readiness over time. Matching both taste axes is fast, one axis is slower, and neither
+## starts a cooling timer. This is the only source of continuous readiness.
+func _heat_tick(delta: float) -> void:
 	if state != State.ACTIVE:
 		return
-	var band := PREFERENCES.comfort_band(_preferences)
-	if band.x < 0.0:
-		return
-	# Only too-deep reactions remain; shallow reactions were removed for chattiness.
-	if depth > band.y:
-		_depth_out_seconds += delta
-	else:
-		_depth_out_seconds = 0.0
-	if _depth_out_seconds < 1.2:
-		return
-	if _reaction_ready("depth_deep", 12.0):
-		_queue_utterance("depth_deep", "depth_deep", "depth_deep")
-
-
-func _reaction_ready(kind: String, cooldown: float) -> bool:
-	if not _utterance_channel_free():
-		return false
 	var now := _now_s()
-	if now - _last_utterance_at < UTTERANCE_MIN_GAP_S:
-		return false
-	if now - float(_last_reaction.get(kind, -1000.0)) < cooldown:
-		return false
-	_last_reaction[kind] = now
-	return true
+	if now - _last_stroke_at > STROKE_MEMORY_S:
+		_last_intensity = ""
+		_last_pattern = ""
+		_stroke_window.clear()
+	if _overwhelmed > 0.0:
+		_overwhelmed = maxf(0.0, _overwhelmed - delta)
+	var wanted_intensity := str(_taste.get("intensity", "firm"))
+	var wanted_pattern := str(_taste.get("pattern", "steady"))
+	var intensity_match := not _last_intensity.is_empty() and _last_intensity == wanted_intensity
+	var pattern_match := not _last_pattern.is_empty() and _last_pattern == wanted_pattern
+	var gain := 0.0
+	if intensity_match and pattern_match:
+		gain = HEAT_BOTH_RATE
+	elif intensity_match or pattern_match:
+		gain = HEAT_ONE_RATE
+	if gain > 0.0:
+		_cooling_seconds = 0.0
+		_add_heat(gain * PREFERENCES.warmth_scale(_taste) * delta)
+	else:
+		_cooling_seconds += delta
+		if _cooling_seconds >= COOL_DELAY_S:
+			_add_heat(-COOL_RATE * delta)
+	mood = _mood_for()
+	if not _cue_override.is_empty() and now < _cue_until:
+		cue = _cue_override
+	else:
+		_cue_override = ""
+		cue = _base_cue(intensity_match, pattern_match)
+	if talk_wait <= 0.0 and cue != _last_cue_text \
+			and now - _last_cue_line_at >= 8.0 and _queue_utterance("cue", "cue", "cue"):
+		_last_cue_text = cue
+		_last_cue_line_at = now
+
+
+func _mood_for() -> String:
+	if _overwhelmed > 0.0:
+		return "overwhelmed"
+	if _cooling_seconds >= COOL_DELAY_S:
+		return "cooling"
+	if satisfaction >= READY_AT:
+		return "close"
+	if satisfaction >= 40.0:
+		return "wanting"
+	return "warming"
+
+
+func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
+	if _overwhelmed > 0.0:
+		return "She's overwhelmed."
+	if _cooling_seconds >= COOL_DELAY_S:
+		return "She's losing focus."
+	if satisfaction >= READY_AT:
+		return "She's close."
+	if not _last_intensity.is_empty() and not intensity_match:
+		var wanted := str(_taste.get("intensity", "firm"))
+		if wanted == "soft":
+			return "She wants it softer."
+		if wanted == "rough":
+			return "She wants it harder."
+		return "She wants it firmer." if _last_intensity == "soft" else "She wants it softer."
+	if not _last_pattern.is_empty() and not pattern_match:
+		match str(_taste.get("pattern", "steady")):
+			"building":
+				return "She wants it to build."
+			"teasing":
+				return "She wants to be teased."
+			"quick":
+				return "She wants it quicker."
+		return "She wants a steadier rhythm."
+	if intensity_match and pattern_match:
+		return "She likes that."
+	return "She's warming up."
+
+
+func _set_cue_override(text: String, seconds := CUE_OVERRIDE_S) -> void:
+	cue = text
+	_cue_override = text
+	_cue_until = _now_s() + maxf(0.0, seconds)
+
+
+func _on_touch(kind: String) -> void:
+	if state != State.ACTIVE:
+		return
+	var now := _now_s()
+	if now - float(_touch_at.get(kind, -1000.0)) < TOUCH_COOLDOWN_S:
+		return
+	_touch_at[kind] = now
+	_last_touch = kind
+	if kind in _taste.get("touch", []):
+		_cooling_seconds = 0.0
+		_add_heat(TOUCH_HEAT)
+		_set_cue_override("She likes that.")
+		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
+	elif kind in _taste.get("dislikes", []):
+		_add_heat(-TOUCH_HEAT)
+		_overwhelmed = OVERWHELM_S
+		_set_cue_override("She doesn't like that.")
+		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
+	else:
+		_set_cue_override("She notices your touch.")
+
+
+## The player's own words are a concrete input. The AI still writes her reply; this only
+## decides whether the line landed with her taste.
+func _on_talk(text: String) -> void:
+	if state != State.ACTIVE:
+		return
+	var category := PREFERENCES.classify_talk(text)
+	if category.is_empty():
+		return
+	var now := _now_s()
+	if now - _last_talk_at < TALK_COOLDOWN_S:
+		return
+	_last_talk_at = now
+	_last_talk = category
+	if talk_wait > 0.0:
+		talk_wait = 0.0
+		_cancel_pending_utterance()
+	if category in _taste.get("talk", []):
+		_cooling_seconds = 0.0
+		_add_heat(TALK_HEAT)
+		_set_cue_override("She likes that.")
+		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
+	elif category in _taste.get("dislikes", []):
+		_add_heat(-TALK_HEAT)
+		_overwhelmed = OVERWHELM_S
+		_set_cue_override("She didn't like that.")
+		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
+	else:
+		_set_cue_override("She listens.")
+
+
+## Watch the director for a new player turn. No new control: the game's T key already
+## produces the text/mic turn. A talk cue is an invitation, not a gate.
+func _talk_tick(delta: float) -> void:
+	if state != State.ACTIVE:
+		return
+	var director := _director()
+	if director != null:
+		var turn := int(director.get("_turn_id"))
+		var text := str(director.get("_player_text"))
+		if turn != _last_talk_turn:
+			_last_talk_turn = turn
+			if not text.strip_edges().is_empty():
+				_on_talk(text)
+	if talk_wait > 0.0:
+		talk_wait = maxf(0.0, talk_wait - delta)
+		if talk_wait <= 0.0:
+			_set_cue_override("She was waiting for you.")
+	_maybe_talk_cue()
+
+
+func _remember_talk_turn() -> void:
+	var director := _director()
+	if director == null:
+		_last_talk_turn = -1
+		return
+	_last_talk_turn = int(director.get("_turn_id"))
+
+
+func _maybe_talk_cue() -> void:
+	if _taste.get("talk", []).is_empty() or mood != "wanting":
+		return
+	var now := _now_s()
+	if talk_wait > 0.0 or now - _last_talk_cue_at < TALK_CUE_GAP_S:
+		return
+	if not _queue_utterance("talk_cue", "talk_cue", "talk_cue"):
+		return
+	talk_wait = TALK_CUE_WAIT_S
+	_last_talk_cue_at = now
+	_set_cue_override("She's waiting for you to say something.")
 
 
 ## True while the director or the pony is actually speaking. Unlike
@@ -2249,67 +2354,15 @@ func _utterance_channel_free() -> bool:
 	return not _speech_busy()
 
 
-func _update_phase() -> void:
-	var progress := clampf(float(satisfaction) / maxf(1.0, float(_climax_at)), 0.0, 1.0)
-	var index := PREFERENCES.phase_index(_base_preferences, progress)
-	if index == _phase_index:
-		return
-	_phase_index = index
-	_preferences = PREFERENCES.active(_base_preferences, progress)
-	_log("preference phase=%d progress=%.2f %s" % [index, progress, PREFERENCES.describe(_preferences).replace("\n", "; ")])
-
-
-func _boredom_tick(delta: float) -> void:
-	_speed_travel *= maxf(0.0, 1.0 - delta / 1.5)
-	var speed_cfg: Dictionary = _preferences.get("speed", {})
-	var min_speed := float(speed_cfg.get("min", 0.001))
-	if not bool(speed_cfg.get("enabled", true)) or min_speed <= 0.0:
-		_bored_seconds = 0.0
-		return
-	var director := _director()
-	if director != null and str(director.get("state")) != "idle":
-		return
-	var effective := _speed_travel / 1.5
-	if effective < min_speed * 0.9:
-		_bored_seconds += delta
-	elif effective > min_speed * 1.2:
-		_bored_seconds = 0.0
-	if _bored_seconds < 10.0:
-		return
-	if not _reaction_ready("bored", 25.0):
-		return
-	_log("bored effective=%.3f min=%.3f" % [effective, min_speed])
-	_bored_seconds = 0.0
-	_queue_utterance("bored", "bored", "bored")
-
-
 func _utterance_tick() -> void:
 	if state != State.ACTIVE:
 		return
 	_release_finished_utterance()
-	if not _utterance_pending_key.is_empty():
-		if _now_s() > _utterance_pending_until and not _speech_busy():
-			_log("utterance timeout key=%s" % _utterance_pending_key)
-			_cancel_pending_utterance()
-		else:
-			# A line is already in flight (or still speaking). Do not build a backlog: accept
-			# that these points are skipped and advance past them.
-			while _utterance_index < _utterance_points.size() \
-					and float(satisfaction) + _satisfaction_frac >= _utterance_points[_utterance_index]:
-				_log("utterance skipped point=%d pending" % _utterance_index)
-				_utterance_index += 1
-			return
-	if not _utterance_channel_free():
+	if _utterance_pending_key.is_empty():
 		return
-	if _now_s() - _last_utterance_at < UTTERANCE_MIN_GAP_S:
-		return
-	while _utterance_index < _utterance_points.size() \
-			and float(satisfaction) + _satisfaction_frac >= _utterance_points[_utterance_index]:
-		var point := _utterance_index
-		_utterance_index += 1
-		_queue_utterance("scheduled", "utterance", "point_%d" % point)
-		if not _utterance_pending_key.is_empty():
-			return
+	if _now_s() > _utterance_pending_until and not _speech_busy():
+		_log("utterance timeout key=%s" % _utterance_pending_key)
+		_cancel_pending_utterance()
 
 
 func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> bool:
@@ -2328,10 +2381,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 		return false
 	var values := {
 		"state": UTTERANCE.state_line(
-			pose_id, satisfaction, _climax_at, depth,
-			float(_last_stroke.get("speed", 0.0)), str(_last_stroke.get("speed_zone", "ok")),
-			str(_last_stroke.get("shape", "mixed")), _act_seconds),
-		"preferences": PREFERENCES.describe(_preferences),
+			pose_id, mood, _last_intensity, _last_pattern,
+			_last_touch, _last_talk, _act_seconds),
+		"taste": PREFERENCES.describe(_taste),
+		"cue": cue,
 		"recent": _recent_lines(),
 	}
 	var purpose := UTTERANCE.format(template, values)
@@ -2572,7 +2625,7 @@ func end_afterglow() -> void:
 func _climax() -> void:
 	if state != State.ACTIVE:
 		return
-	_log("climax pose=%s legacy=%d pony=%s satisfaction=%d" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
+	_log("climax pose=%s legacy=%d pony=%s readiness=%.0f" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
@@ -2867,7 +2920,7 @@ func _reset_after_act() -> void:
 		_satisfaction_tween.kill()
 	var from := float(satisfaction)
 	_satisfaction_tween = create_tween()
-	_satisfaction_tween.tween_method(func(value: float) -> void: satisfaction = int(round(value)), from, 0.0, 30.0)
+	_satisfaction_tween.tween_method(func(value: float) -> void: satisfaction = clampf(value, 0.0, READINESS_MAX), from, 0.0, 30.0)
 	_begin_aftercare()
 
 
@@ -2940,6 +2993,8 @@ func _stop(reason: String) -> void:
 # --------------------------------------------------------------------------- camera
 
 func _size_name() -> String:
+	if not is_inside_tree():
+		return ""
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings == null:
 		return ""
@@ -3450,6 +3505,7 @@ func _start_lean_action(side: float) -> void:
 		if _custom_kiss_active:
 			_play_mouth_kiss()
 			_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
+		_on_touch("kiss")
 	elif _lean_action_kind == "reach":
 		_lean_action_shoulder = "L" if side < 0.0 else "R"
 		_forced_glance = _lean_action_shoulder
@@ -3491,6 +3547,7 @@ func _pose2_kiss_tick() -> void:
 	if _custom_kiss_active:
 		_play_mouth_kiss()
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
+	_on_touch("kiss")
 	_log("pose2 kiss start lean=%.2f base=%s" % [
 		_lean_side, str(_base_kiss_active)])
 
@@ -3872,6 +3929,7 @@ func _caress_tick() -> void:
 				_caress_logged[side] = false
 				_log("caress start side=%s" % side)
 			_set_caress_hand(side)
+			_on_touch("caress")
 		elif bool(_caress_active[side]):
 			_end_caress_side(side)
 
@@ -4113,6 +4171,7 @@ func smack() -> void:
 				_lean_side, "L" if index == 0 else "R", str(at)])
 			return
 	_flank_impact_without_reaction(index, at)
+	_on_touch("smack")
 	_log("smack side=%.2f cheek=%s at=%s (instant)" % [
 		_lean_side, "L" if index == 0 else "R", str(at)])
 
@@ -4135,6 +4194,7 @@ func _smack_swing_tick() -> void:
 	if not _smack_impact_done and phase >= SMACK_CONTACT_PHASE:
 		_smack_impact_done = true
 		_flank_impact_without_reaction(_smack_index, _smack_at)
+		_on_touch("smack")
 	if phase >= 1.0:
 		_end_smack_swing()
 

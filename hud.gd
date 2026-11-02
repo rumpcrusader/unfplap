@@ -146,7 +146,7 @@ func set_state(kind: String) -> void:
 	if kind == "CLIMAX":
 		_hint.text = ""
 	elif kind == "AFTERGLOW":
-		_hint.text = "Q · End"
+		_hint.text = "Hold Q · End"
 		if _bars != null:
 			_bars.visible = false
 
@@ -162,15 +162,15 @@ func update_from(runtime: Node, show_satisfaction := true) -> void:
 	_stamina_col.visible = active
 	if active:
 		if state == STATE_ACTIVE:
-			_depth.call("set_depth", float(runtime.get("view_depth")), bool(runtime.get("pump_up")))
+			_depth.call("set_depth", float(runtime.get("depth")), bool(runtime.get("pump_up")))
 		_satisfaction.call("set_value", float(runtime.get("satisfaction")), 100.0)
 		_stamina.call("set_value", float(runtime.get("stamina")), 400.0)
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 	if state == STATE_ACTIVE:
-		_hint.text = "Mouse ↕ · Pump    Q · Stop"
+		_hint.text = "Mouse ↕ · Pump    Hold Q · Stop"
 	elif state == STATE_CLIMAX:
 		_hint.text = ""
 	elif state == STATE_AFTERGLOW:
-		_hint.text = "Q · End"
+		_hint.text = "Hold Q · End"
 	else:
 		_hint.text = ""

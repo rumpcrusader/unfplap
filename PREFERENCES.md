@@ -3,20 +3,18 @@
 Brittle scoring rules for the mouse pump, camera bob, preferences and reactions. Update with
 `preferences.gd`/`pump.gd` whenever the math changes.
 
-## Input, depth and travel
+## Input and depth
 
-- Mouse vertical relative motion feeds raw depth; horizontal motion is camera look.
+- Mouse vertical relative motion feeds raw depth. Free camera mode ignores the rest of the motion;
+  legacy camera mode keeps the old mouse look.
 - `pump.orientation`:
   - `"up"` (default): mouse up deepens; top = deep/orange, bottom = shallow/blue.
   - `"down"`: mouse down deepens; top = shallow/blue, bottom = deep/orange.
 - `pump.pixels_per_full` is pixels for a `0→1` sweep (default `800`), independent of look
   sensitivity.
-- Raw depth is clamped `0…1`; overshoot is discarded.
-- `view_depth` is a critically damped spring toward raw depth:
-  `PUMP_TRAVEL_OMEGA = 30`, damping `60`. The HUD knob uses it; scoring/strokes use raw depth.
-  It brakes sharply before changing direction.
-- During `ACTIVE`, mouse look is `ACT_LOOK_YAW_SCALE = 0.10` laterally and
-  `ACT_LOOK_PITCH_SCALE = 0.10` vertically, with motion consumed.
+- Raw depth is clamped `0…1`; overshoot is discarded. The HUD reads raw depth directly.
+- Legacy mode mouse look is `ACT_LOOK_YAW_SCALE = 0.10` laterally and
+  `ACT_LOOK_PITCH_SCALE = 0.10` vertically, with motion consumed. Free mode uses no mouse look.
 
 ## Strokes and scoring
 
@@ -27,6 +25,13 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
 - A full `0→1→0` at `steady` is exactly `2.0`.
 - Outward strokes score base gain only; speed/shape multipliers apply to inward strokes.
 - Final multiplier is `clamp(speed_multiplier × shape_multiplier, 0.40, 1.80)`.
+
+## Physical pump strength
+
+- Separate from preference scoring.
+  `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)`.
+- Drives jiggle, the pose-2 Anon hip thrust and wing flick. It is the intended selector input for
+  future mod-owned plap clips; the current plap sound is unchanged.
 
 ## Camera bob
 
@@ -43,7 +48,6 @@ Brittle scoring rules for the mouse pump, camera bob, preferences and reactions.
   full-speed spring. Below it, the response scale is `speed / 0.80`, clamped to
   `BOB_SPEED_SCALE_MIN = 0.35`. Stiffness scales by `s²`, damping and impulse by `s`, so slow
   strokes take longer while keeping roughly the same peak; fast strokes are unchanged.
-- `view_depth` is HUD-only; it does not drive the camera.
 
 ## Depth profiles
 

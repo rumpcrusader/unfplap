@@ -39,6 +39,8 @@ func run() -> void:
 	check(bool(inward.get("pump", false)), "full inward travel is a pump")
 	check(near(float(inward.get("base_gain", 0.0)), 1.0), "overshoot discarded above 1")
 	check(near(float(inward.get("speed", 0.0)), 2.0), "inward speed")
+	check(near(float(inward.get("peak_speed", 0.0)), 2.0), "inward peak speed")
+	check(near(float(inward.get("strength", 0.0)), 1.0), "full deep pump strength")
 	events = tracker.tick(0.8)
 	check(events.size() == 1, "idle outward stroke closes on timeout")
 	var outward: Dictionary = events[0]
@@ -53,6 +55,7 @@ func run() -> void:
 	events = tiny.move(-0.01, 0.05, weight)
 	check(events.size() == 1, "reversal closes a tiny stroke")
 	check(not bool((events[0] as Dictionary).get("pump", false)), "tiny stroke is not a pump")
+	check(float((events[0] as Dictionary).get("strength", 1.0)) < 0.1, "tiny stroke has tiny strength")
 
 	var hold: RefCounted = PUMP.new()
 	hold.move(0.5, 0.0, weight)

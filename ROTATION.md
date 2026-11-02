@@ -76,16 +76,17 @@ these values here if a future pose needs that effect.
 ## Pose-1 camera
 
 - Anchor: `root + up * 0.55 - back * 0.15`, where `back = +pony.global_basis.z`.
-- Stable aim point: `root + forward * 0.20 + up * 0.10`; not the live nose.
-- The aim basis follows the point for the first second, then freezes.
-- Mouse motion adds yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
-  `ACT_LOOK_PITCH_SCALE = 0.10`; motion is consumed while the act owns the mouse.
-- Camera bob is pump-driven: each pump adds to the vertical and forward spring velocities.
+- Snout aim is sampled during the 1 s blend and then frozen; it does not track the live nose.
+- Free camera mode has no mouse look. WASD moves the view in the shot's yaw plane, clamped to
+  `±0.40 m` side and `±0.35 m` dolly.
+- Legacy mode adds mouse yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
+  `ACT_LOOK_PITCH_SCALE = 0.10`.
+- Camera bobs are opt-in: `pump.bobs` defaults to `false` and skips pump and climax bob motion.
+- When enabled, each pump adds to the vertical and forward spring velocities.
 - Pose 1 uses `_bob * POSE1_BOB_SCALE` (`0.35`); pose 2 uses `_bob` directly.
 - Slow pumps scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
   `s = clamp(speed / BOB_SPEED_REFERENCE, 0.35, 1.0)`. At `>= 0.80` depth/s the bob is unchanged.
 - Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 6` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.
-- `view_depth` is HUD-only and does not move the camera.
 - Restore order is load-bearing:
   1. player transform and yaw,
   2. pony transform and posture,
@@ -99,7 +100,8 @@ these values here if a future pose needs that effect.
 - Facing lock every physics tick at priority 100:
   `pony.global_transform.basis = _facing_basis.scaled(scale)`.
 - Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
-- 45° look cone around the captured look yaw.
+- Free mode aims the player camera at her shoulders during the 1 s blend, then freezes; WASD
+  offsets the camera horizontally. Legacy mode keeps the 45° look cone around the captured yaw.
 - Standing gap per size preset.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via
   `eye_motion.target_world` / `target_weight`.

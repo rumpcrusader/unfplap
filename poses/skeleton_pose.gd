@@ -77,7 +77,8 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 	body.y = 0.0
 	if body.length_squared() > 0.0001:
 		body = body.normalized()
-	print("[unfplap] POSE1 root=%s mare=%s scale=%.2f roll pelvis=%.1f° chest=%.1f°" % [
+	var rows := PackedStringArray()
+	rows.append("root=%s mare=%s scale=%.2f roll pelvis=%.1f° chest=%.1f°" % [
 		str(sk.global_basis), str(mare.global_basis), float(mare.body_scale),
 		rad_to_deg(_missionary.last_roll), rad_to_deg(_missionary.last_chest_roll)])
 	var chain: Array[int] = []
@@ -98,14 +99,20 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 		direction = direction.normalized()
 		parts.append("%s %.0f°" % [sk.get_bone_name(bone).trim_prefix("pony_"),
 			rad_to_deg(direction.angle_to(body))])
-	print("[unfplap] POSE1 chain %s (deviation from body axis)" % " | ".join(parts))
+	rows.append("chain %s (deviation from body axis)" % " | ".join(parts))
 	var boop: Variant = mare.get("boop_node")
 	var hs: Variant = boop.get("head_skeleton") if boop != null else null
 	if hs is Skeleton3D:
 		var head_bone := (hs as Skeleton3D).find_bone("mHead")
 		if head_bone >= 0:
 			var head_pose := (hs as Skeleton3D).get_bone_global_pose(head_bone)
-			print("[unfplap] POSE1 head mHead origin=%s dir=%s" % [
+			rows.append("head mHead origin=%s dir=%s" % [
 				str(head_pose.origin), str(head_pose.basis.z)])
+		else:
+			rows.append("head mHead missing")
 	else:
-		print("[unfplap] POSE1 head_skeleton unavailable")
+		rows.append("head_skeleton unavailable")
+	var text := "[unfplap] POSE1"
+	for row: String in rows:
+		text += "\n\t" + row
+	print(text)

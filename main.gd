@@ -48,6 +48,17 @@ func _debug(text: String) -> void:
 	debug(text)
 
 
+## One entry per diagnostic action: identification first, then tab-indented rows.
+func _debug_block(title: String, rows: Array) -> void:
+	var text := title
+	for row: Variant in rows:
+		var line := str(row)
+		if line.is_empty():
+			continue
+		text += "\n\t" + line
+	debug(text)
+
+
 func toggle_debug_logs() -> void:
 	debug_logs = not debug_logs
 	SETTINGS.save_debug_logs(debug_logs)
@@ -342,24 +353,22 @@ func _debug_target(view: Camera3D) -> Node:
 	return best
 
 
-func _debug_bed_state() -> void:
+func _debug_bed_state() -> String:
 	if not is_instance_valid(player):
-		return
+		return ""
 	var seat: Variant = player.get("seat")
 	if not is_instance_valid(seat):
-		_debug("bed: seat=null")
-		return
+		return "bed: seat=null"
 	var couch: Variant = seat.get_meta("couch") if seat.has_meta("couch") else null
 	if not is_instance_valid(couch):
-		_debug("bed: seat=%s couch=null" % str(seat.name))
-		return
+		return "bed: seat=%s couch=null" % str(seat.name)
 	var guest: Variant = couch.get("_guest")
 	var sleeper: Variant = couch.get("_sleeper")
-	_debug("bed: seat=%s couch=%s fits=%s side=%.2f guest=%s sleeper=%s mare_front=%s mare_rest=%s" % [
+	return "bed: seat=%s couch=%s fits=%s side=%.2f guest=%s sleeper=%s mare_front=%s mare_rest=%s" % [
 		str(seat.name), str(couch.name), str(couch.get("_mare_fits")), float(couch.get("_side")),
 		str((guest as Dictionary).get("state", "?")) if guest is Dictionary and not (guest as Dictionary).is_empty() else "none",
 		str(sleeper.name) if is_instance_valid(sleeper) else "null",
-		str(couch.get("_mare_front")), str(couch.get("_mare_rest"))])
+		str(couch.get("_mare_front")), str(couch.get("_mare_rest"))]
 
 
 func _debug_offer() -> void:
@@ -367,20 +376,26 @@ func _debug_offer() -> void:
 		return
 	if not is_instance_valid(player) or not is_instance_valid(game):
 		return
-	_debug_bed_state()
+	var rows: Array[String] = []
+	var bed_line := _debug_bed_state()
+	if not bed_line.is_empty():
+		rows.append(bed_line)
 	var view: Camera3D = camera()
 	if view == null:
-		_debug("debug camera=null")
+		rows.append("camera=null")
+		_debug_block("DEBUG nearest", rows)
 		return
 	var target = _debug_target(view)
 	if target == null:
-		_debug("debug nearest=none locked=%s mouse=%s paused=%s menu=%s" % [
+		rows.append("nearest=none locked=%s mouse=%s paused=%s menu=%s" % [
 			str(player.get("controls_locked")), str(Input.mouse_mode), str(get_tree().paused),
 			str(menu_open())])
+		_debug_block("DEBUG nearest", rows)
 		return
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime):
-		_debug("debug nearest=%s no runtime" % str(target.name))
+		rows.append("nearest=%s no runtime" % str(target.name))
+		_debug_block("DEBUG nearest", rows)
 		return
 	var pony_form := PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
 	var pose := CATALOG.HORSE
@@ -399,7 +414,10 @@ func _debug_offer() -> void:
 	var dist: float = delta.length()
 	var dot: float = (-view.global_basis.z).dot(delta.normalized()) if dist > 0.001 else 0.0
 	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot))
-	_debug("DEBUG nearest = " + line)
+	for part: String in line.split(" | "):
+		if not part.is_empty():
+			rows.append(part)
+	_debug_block("DEBUG nearest", rows)
 
 
 func try_start() -> bool:

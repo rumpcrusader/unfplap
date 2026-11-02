@@ -73,9 +73,9 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 51, `SOURCE_HYGIENE` 43 checks / 46 files,
+- Current passing state: `CATALOG` 13, `SETTINGS` 51, `SOURCE_HYGIENE` 44 checks / 47 files,
   `ROTATION` 8, `PUMP` 25, `PREFERENCES` 37, `UTTERANCE` 11, `RUNTIME_PUMP` 9, `VOICE` 9,
-  `ACTIONS` 51.
+  `ACTIONS` 55.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
   ```bash
@@ -104,6 +104,7 @@ mods/unfplap/
   anon_thrust.gd    wraps the desktop Anon pose driver for the pose-2 hip thrust
   body_sway.gd      depth-driven pose-2 upper-body sway with planted forehooves
   ear_twitch.gd     eased random pump ear twitch on the head skeleton
+  wing_sweep.gd     pose-2 wing root sweep after the game's WingTuck modifier
   chin_debug.gd     always-on debug head pitch for Alt+7 / Alt+8
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
@@ -286,6 +287,9 @@ body-relative axes.
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). This is
   the cheapest way to make rump jiggle and tail read as one motion; the shader itself stays
   native.
+- A mod-owned `wing_sweep.gd` modifier runs last on the skeleton while pose 2 holds the wings,
+  yawing `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°` in opposite directions to sweep the spread
+  wings slightly backwards. It is removed with the wing hold.
 - Look-back glances clamp yaw to `GLANCE_BACK_YAW = 1.62` and add 20% to
   `glance_back_pitch` (base `1.2`, boosted to `1.44`).
 
@@ -317,34 +321,42 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the pose-2 camera also yaws
   `KISS_CAMERA_YAW_DEG = 10°` toward her. Pose 2 adds that to the act camera and pelvis
   counter-lean, so the hips stay planted. Pose 1 moves the framing view and offsets the virtual
-  mouth by the same amount. Ending the kiss clears the forced over-the-shoulder glance and cancels
-  any base-kiss afterglow stare.
+  mouth by the same amount. During the kiss the forced over-the-shoulder glance is cleared and
+  `head_back` eases to zero, so the kiss head pose is not fought by the reach glance. Ending the
+  kiss clears the forced glance and cancels any base-kiss afterglow stare.
 - The shoulder reach uses `desktop_anon.set_hold_target(..., "rub")` through `anon_thrust.gd`,
   so it does not need `request_action()` and does not fight `controls_locked`. `rub` keeps the
   hand open. Hand-marker convention: local `-Z` is the fingers, `+Y` is the thumb/up, and the
   palm normal is `-X` on the right hand / `+X` on the left. The shoulder target uses the pony's
-  body basis, so fingers continue straight forward, thumbs up and palms inward. It interpolates
-  from the current rest hand over `REACH_HAND_BLEND_S = 0.35`, and release blends back to that
-  rest frame over `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
-  `reach hand side=... x=... y=... z=... fingers=... palm=...` log prints the convention.
-- A/D caress uses the same hold-target path with an oval rub (`CARESS_RADIUS_M = 0.055`,
-  `CARESS_SPEED_RAD_S = 3.6`) lifted `CARESS_SURFACE_LIFT_M = 0.085` off the coat. The oval is
-  `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically, so it reads
-  as a stroke rather than a perfect circle. Point offsets are per size in `CARESS_PROFILES`:
-  Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (both hands 4 cm wider), Same Height and Hoers
-  step up from there. Both A and D can run at once, one hand per side. In hold mode an A/D tap
-  latches that hand until the next tap. The centre interpolates
-  with the lean: backward lean moves it toward the rump top as soon as it passes zero
-  (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly, full lean = the
-  exact same shoulder point used by the Q/E reach. The extra surface lift fades to zero at full
-  forward lean, so the caress orbits the reach point instead of sitting farther outside the
-  shoulder. The circle radius scales with pony size; the point offsets are already per size.
-  It is horse-only.
+  surface contact for the palm position and outward normal; `palm_surface_basis()` keeps
+  the fingers straight forward and the palm inward. It interpolates from the current rest hand
+  over `REACH_HAND_BLEND_S = 0.35`, and release blends back to that rest frame over
+  `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
+  `reach hand side=... target=... x=... y=... z=... fingers=... palm=...` log prints the result.
+- A/D caress uses the same hold-target path with an oval rub (`CARESS_RADIUS_M = 0.04125`,
+  `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat every tick through
+  `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
+  orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
+  The palm centre sits at `PALM_ON_COAT_CLEARANCE_M = 0.05` (the hand’s palm-ball radius plus a
+  2 cm raise), not a tuned lift. Contact is cached per hand with source hysteresis and short
+  position/normal smoothing: a miss holds the last valid point instead of snapping to the raw
+  target, and a flank↔body source change needs two hits before it is accepted.
+  The oval is `CARESS_OVAL_ACROSS = 1.30` along the body and
+  `CARESS_OVAL_UP = 0.70` vertically, so it reads as a stroke rather than a perfect circle.
+  Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
+  (both hands 4 cm wider), Same Height and Hoers step up from there; those choose where on the
+  body to caress, then the contact query snaps the palm to the coat. Both A and D can run at
+  once, one hand per side. In hold mode an A/D tap latches that hand until the next tap. The
+  centre interpolates with the lean: backward lean moves it toward the rump top as soon as it
+  passes zero (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly, full
+  lean = the exact same shoulder contact point used by the Q/E reach. The circle radius scales
+  with pony size; the point offsets are already per size. It is horse-only.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
   `1 = right cheek`. `at` shifts the mark centre `0.08 m` up and `0.08 m` back, then jitters
-  within `SMACK_ZONE_RADIUS_M = 0.035` around that point. The hand swings in/out over
+  within `SMACK_ZONE_RADIUS_M = 0.035` around that point. The contact palm uses the same
+  `palm_surface_basis()` and `PALM_ON_COAT_CLEARANCE_M` above. The hand swings in/out over
   `SMACK_SWING_SECONDS = 0.20`, impacts at `SMACK_CONTACT_PHASE = 0.45`, and has a
   `SMACK_COOLDOWN_MS = 200` gate.
 - It reuses the slap sound/decal/blush/jiggle. The pony's `physical_reaction` connections are

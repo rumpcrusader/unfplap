@@ -1,5 +1,5 @@
 extends RefCounted
-## Missionary (legacy Pose 1) skeleton recipe. Order is load-bearing; see ROTATION.md.
+## Missionary (Pose 1) skeleton recipe. Order is load-bearing; see ROTATION.md.
 
 const ROT := preload("res://mods/unfplap/poses/rotation.gd")
 
@@ -34,6 +34,10 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 		pulse = 0.75 + 0.25 * sin(float(state.get("clock", 0.0)) * 4.0)
 	if pulse > 0.001:
 		_aim_head(rig, sk, weight * pulse, _value("nuzzle_scale", POSE1_NUZZLE_SCALE), state.get("look_point", Vector3.ZERO))
+	var kiss := float(state.get("kiss", 0.0))
+	if kiss > 0.001:
+		# Extra neck/head share toward Anon's lips for the act kiss action.
+		_aim_head(rig, sk, weight * kiss, 1.0, state.get("look_point", Vector3.ZERO))
 	_roll_head(rig, sk, weight, float(state.get("head_roll", 0.0)))
 
 

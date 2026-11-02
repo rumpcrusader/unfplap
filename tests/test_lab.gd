@@ -4,7 +4,7 @@ extends Node
 ##       --lab res://mods/unfplap/tests/test_lab.gd
 ##
 ## Loads only Twilight, Fluttershy, Rarity and Derpy and pauses population/living-world/time
-## plus background AI. They stay where the world spawned them; the lab never teleports them.
+## plus background AI. At setup they are moved to the path in front of Golden Oak Library.
 ## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. The dialogue director
 ## stays running, because it serializes replies and a stopped director leaves ponies stuck
 ## "thinking".
@@ -12,7 +12,8 @@ extends Node
 ## Lab hotkeys (mouse must be captured, like normal play):
 ##   - / =       lower / raise the pointed mare's romance tier (all test mares when not aiming)
 ##   9 / 0       lower / raise the pointed mare's anger mood (all test mares when not aiming)
-##   Mouse 4     invite the pointed mare to the treebrary bed; logs why cuddling cannot start
+##   Mouse 4     invite a test mare to the treebrary bed; a far mare is moved to the bed approach
+##               first, and the log says why cuddling cannot start
 ##   Mouse 5     make the pointed mare idle and qualify for sex without changing her romance tier
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
@@ -82,7 +83,7 @@ func run() -> void:
 	var bed := _treebrary_bed()
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
-	print("[unfplap test] E sit, Ctrl lie back; test mares stay at their world spawn positions")
+	print("[unfplap test] E sit, Ctrl lie back; test mares teleported in front of the library")
 	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 invite to bed, Mouse5 sex-ready")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
@@ -217,6 +218,8 @@ func _setup_ponies(ponies: Array) -> void:
 		else:
 			impressions.set("xp", xp)
 	var rows := PackedStringArray()
+	var home := _library_home()
+	var index := 0
 	for pony_node: Variant in ponies:
 		var pony: Node3D = pony_node as Node3D
 		if not is_instance_valid(pony):
@@ -232,8 +235,11 @@ func _setup_ponies(ponies: Array) -> void:
 		_set_dating_record(pony)
 		_set_mood(pony, "neutral")
 		_make_idle(pony, true)
-		rows.append("%s romance_xp=%d level=%s pos=%s" % [
-			id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id), str(pony.global_position)])
+		var placed := _place_front(pony, home, index, ponies.size())
+		index += 1
+		rows.append("%s romance_xp=%d level=%s pos=%s front=%s" % [
+			id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id),
+			str(pony.global_position), str(placed)])
 	if not rows.is_empty():
 		_log_action("test mares", rows)
 	if is_instance_valid(impressions):
@@ -288,6 +294,9 @@ func _input(event: InputEvent) -> void:
 			KEY_0:
 				_adjust_anger(1)
 				get_viewport().set_input_as_handled()
+			KEY_QUOTELEFT:
+				_toggle_console()
+				get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
@@ -299,6 +308,29 @@ func _input(event: InputEvent) -> void:
 		elif mouse.button_index == MOUSE_BUTTON_XBUTTON2:
 			_qualify_target()
 			get_viewport().set_input_as_handled()
+
+
+## Console is normally refused while the player's rest owns controls_locked. Open it with a
+## temporary unlock so the lab can be inspected while lying on the bed.
+func _toggle_console() -> void:
+	var console: Node = game.get_node_or_null("CommandConsole") if is_instance_valid(game) else null
+	if console == null:
+		return
+	if bool(console.get("visible")):
+		# Already open (the console may have handled this same key first). Leaving it alone
+		# avoids a double toggle; the console closes itself on the next backtick.
+		return
+	var body: Variant = game.get("player")
+	var locked := false
+	if is_instance_valid(body) and body.get("controls_locked") != null:
+		locked = bool(body.get("controls_locked"))
+		body.set("controls_locked", false)
+	var event := InputEventKey.new()
+	event.physical_keycode = KEY_QUOTELEFT
+	event.pressed = true
+	console.call("_input", event)
+	if not bool(console.get("visible")) and is_instance_valid(body):
+		body.set("controls_locked", locked)
 
 
 ## Aiming at a test mare affects her only; otherwise the hotkeys apply to every test mare so a
@@ -390,21 +422,43 @@ func _set_anger(pony: Node3D, step: int) -> String:
 
 func _invite_target_to_bed() -> void:
 	var target := _target_under_aim()
-	if not is_instance_valid(target):
-		print("[unfplap test] Mouse4: no test mare under the crosshair")
-		return
-	var id := _pony_id(target)
 	var bed := _treebrary_bed()
 	if not is_instance_valid(bed):
-		print("[unfplap test] Mouse4 %s: no Golden Oak guest bed found" % id)
+		print("[unfplap test] Mouse4: no Golden Oak guest bed found")
 		return
 	var rest: Node3D = BED_REST.for_bed(bed)
 	rest.call("refresh")
+	var note := ""
+	if not is_instance_valid(target):
+		target = _nearest_test_pony(bed)
+		note = "no mare under the crosshair; nearest test mare"
+	if not is_instance_valid(target):
+		print("[unfplap test] Mouse4: no test mare loaded")
+		return
+	var id := _pony_id(target)
 	var idle := _make_idle(target, true)
-	var lying := _ensure_player_lying(rest)
 	var rows := PackedStringArray()
+	if not note.is_empty():
+		rows.append(note)
 	rows.append("idle=" + idle)
+	if _needs_bed_transport(target, bed):
+		rows.append("transport=" + _bring_to_bed(target, rest))
+		await get_tree().create_timer(0.7).timeout
+		if not is_instance_valid(target) or not is_instance_valid(rest) or not is_inside_tree():
+			return
+		idle = _make_idle(target, true)
+		rows.append("grounded=" + idle)
+		# Recompute once she is inside: the first pass ran while she was outside the house,
+		# where the bed-front height test cannot match her floor.
+		rows.append("front=" + _bring_to_bed(target, rest))
+	var lying := _ensure_player_lying(rest)
 	rows.append("player=" + lying)
+	if _player_lying():
+		# Let the reclined avatar settle before inviting: the snuggle support takes its
+		# landing height from the avatar's hip/head targets.
+		await get_tree().create_timer(1.2).timeout
+		if not is_instance_valid(target) or not is_instance_valid(rest) or not is_inside_tree():
+			return
 	rows.append_array(_report_rows(_cuddle_state(target, rest), "cuddle "))
 	if not _player_lying():
 		rows.append("Anon must be lying on the bed to cuddle")
@@ -414,6 +468,52 @@ func _invite_target_to_bed() -> void:
 	rows.append("invite=" + str(accepted))
 	_log_action("Mouse4 " + id, rows)
 	_follow_cuddle(id, target, rest)
+
+
+## The lab starts the mares outside the library. Bed eligibility needs the same floor and a
+## short walk, so move the pointed mare to the guest-bed approach before inviting her.
+func _needs_bed_transport(pony: Node3D, bed: Node3D) -> bool:
+	var to_bed := pony.global_position - bed.global_position
+	return Vector2(to_bed.x, to_bed.z).length() > 8.0 or absf(to_bed.y) > 0.5
+
+
+func _nearest_test_pony(bed: Node3D) -> Node3D:
+	var best: Node3D = null
+	var best_distance := INF
+	for node: Variant in _test_ponies():
+		var pony: Node3D = node as Node3D
+		if not is_instance_valid(pony):
+			continue
+		var distance := pony.global_position.distance_to(bed.global_position)
+		if distance < best_distance:
+			best = pony
+			best_distance = distance
+	return best
+
+
+func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
+	var front: Vector3 = rest.call("_front_for", pony)
+	if not front.is_finite():
+		var exit_at: Variant = rest.get("_exit")
+		if exit_at is Vector3:
+			front = exit_at
+	if not front.is_finite():
+		return "no floor beside the bed"
+	pony.global_position = front
+	if pony.get("velocity") != null:
+		pony.set("velocity", Vector3.ZERO)
+	if pony.get("motion_paused") != null:
+		pony.set("motion_paused", false)
+	pony.reset_physics_interpolation()
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav != null:
+		var travel: Variant = nav.get("house_travel")
+		if travel != null and is_instance_valid(travel):
+			travel.call("clear", pony)
+		nav.call("stay")
+		nav.set("command_owner", "")
+		nav.set("wander_enabled", false)
+	return str(front)
 
 
 func _qualify_target() -> void:
@@ -692,6 +792,38 @@ func _ensure_player_lying(rest: Node3D) -> String:
 	if not bool(body.call("toggle_couch_sleep")):
 		return "lie-down failed"
 	return "Anon sat and lay down"
+
+
+func _library_home() -> Node3D:
+	for node: Node in get_tree().get_nodes_in_group("house_interiors"):
+		if not is_instance_valid(node) or not node is Node3D:
+			continue
+		if node.has_method("place_id") and str(node.call("place_id")) == "house:golden_oak_library":
+			return node as Node3D
+	return null
+
+
+## Put the four test mares in a loose row on the path outside the library door.
+func _place_front(pony: Node3D, home: Node3D, index: int, count: int) -> bool:
+	if not is_instance_valid(pony) or not is_instance_valid(home):
+		return false
+	if not home.has_method("outside"):
+		return false
+	var front: Vector3 = home.call("outside")
+	var right: Vector3 = home.global_basis.x.normalized()
+	var back: Vector3 = home.global_basis.z.normalized()
+	var at := front + right * ((float(index) - (float(count) - 1.0) * 0.5) * 0.80) + back * 0.80
+	var space := pony.get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 4.0, 1)
+	query.exclude = [pony.get_rid()]
+	var hit: Dictionary = space.intersect_ray(query)
+	if not hit.is_empty():
+		at = hit.get("position", at)
+	pony.global_position = at
+	if pony.get("velocity") != null:
+		pony.set("velocity", Vector3.ZERO)
+	pony.reset_physics_interpolation()
+	return true
 
 
 func _treebrary_bed() -> Node3D:

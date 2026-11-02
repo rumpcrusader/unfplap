@@ -33,7 +33,7 @@ func run() -> void:
 		var defaults := CATALOG.defaults(id)
 		check(not defaults.is_empty(), "defaults exist for " + id)
 	check(float(CATALOG.defaults(CATALOG.MISSIONARY).get("rump_drop_deg", -1.0)) == 35.0, "missionary rump pitch default")
-	check(float(CATALOG.defaults(CATALOG.HORSE).get("hind_spread", -1.0)) == 0.16, "horse hind spread default")
+	check(float(CATALOG.defaults(CATALOG.HORSE).get("hind_spread", -1.0)) == 0.32, "horse hind spread default")
 	var gaps: Variant = CATALOG.defaults(CATALOG.HORSE).get("gaps", {})
 	check(gaps is Dictionary and int((gaps as Dictionary).size()) == 4, "horse size gaps")
 	print("CATALOG_RESULT checks=%d failures=%d" % [checks, failures])

@@ -29,7 +29,7 @@ func run() -> void:
 	check(int(base.get("climax_at", 0)) == 100, "default climax_at is 100")
 	check(int(base.get("aftercare_min", 0)) == 10, "default aftercare_min is 10")
 	check(int(base.get("min_utterances", -1)) == 2, "default min_utterances")
-	check(int(base.get("max_utterances", -1)) == 5, "default max_utterances")
+	check(int(base.get("max_utterances", -1)) == 3, "default max_utterances")
 	check(not base.has("chattiness"), "chattiness removed")
 	var poses: Dictionary = base.get("poses", {})
 	check(poses.has(CATALOG.MISSIONARY) and poses.has(CATALOG.HORSE), "pose defaults present")
@@ -55,8 +55,8 @@ func run() -> void:
 	check(int(profile.get("min_utterances", 0)) == 1 and int(profile.get("max_utterances", 0)) == 3, "character utterance range")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.5, "character pose override wins")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["rump_drop_deg"]) == 35.0, "character pose inherits other defaults")
-	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["camera_height"]) == 0.55, "missionary camera default")
-	check(float((profile["poses"] as Dictionary)[CATALOG.HORSE]["hind_spread"]) == 0.16, "unrelated pose inherits defaults")
+	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["camera_height"]) == 0.45, "missionary camera default")
+	check(float((profile["poses"] as Dictionary)[CATALOG.HORSE]["hind_spread"]) == 0.32, "unrelated pose inherits defaults")
 	var pump: Dictionary = (profile["preferences"] as Dictionary)["pump"]
 	check(str(pump.get("depth", "")) == "deep", "character depth override")
 	check(near(float((pump["speed"] as Dictionary).get("min", 0.0)), 0.001), "character speed inherits default")
@@ -77,11 +77,26 @@ func run() -> void:
 	check(str(built_pump.get("depth", "")) == "deep", "Fluttershy depth profile")
 	check(str((built_pump["shape"] as Dictionary).get("likes", "")) == "ease_out", "Fluttershy shape")
 	var rarity := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "rarity")
-	check(int(rarity.get("min_utterances", 0)) == 4, "Rarity line range")
+	check(int(rarity.get("min_utterances", 0)) == 2, "Rarity line range")
+	var rarity_horse: Dictionary = (rarity["poses"] as Dictionary).get("horse", {})
+	check(near(float(rarity_horse.get("hind_spread", 0.0)), 0.32), "Rarity horse hind spread")
 	var twilight := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "twilight_sparkle")
 	check(str(((twilight["preferences"] as Dictionary)["pump"] as Dictionary).get("depth", "")) == "steady", "Twilight neutral")
 
 	var defaults := SETTINGS._defaults()
+	check(bool((defaults.get("features", {}) as Dictionary).get("camera_inertia", false)),
+		"camera inertia feature on")
+	check(bool((defaults.get("features", {}) as Dictionary).get("settings_tab", false)),
+		"settings tab feature on")
+	check(bool((defaults.get("features", {}) as Dictionary).get("cuddle_override", false)),
+		"cuddle override feature on")
+	check(bool((defaults.get("features", {}) as Dictionary).get("lean_return", false)),
+		"lean return feature on")
+	check(int((defaults.get("default", {}) as Dictionary).get("max_utterances", 99)) == 3,
+		"act utterances capped at three")
+	check(not bool((defaults.get("features", {}) as Dictionary).get("act_text_only_ponese", true)),
+		"text-only Ponese off")
+	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
 	var pump_defaults: Dictionary = defaults.get("pump", {})
 	check(str(pump_defaults.get("orientation", "")) == "up", "default pump orientation")
 	check(not bool(pump_defaults.get("bobs", true)), "default pump bobs disabled")

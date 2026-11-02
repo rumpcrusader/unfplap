@@ -38,7 +38,7 @@ func cache(mare_node: Node3D, sk: Skeleton3D) -> void:
 		var upper := sk.find_bone("pony_upperArm_" + side)
 		var lower := sk.find_bone("pony_lowerArm_" + side)
 		if upper >= 0 and lower >= 0:
-			fore.append({"upper": upper, "lower": lower})
+			fore.append({"upper": upper, "lower": lower, "side": side})
 	hind.clear()
 	for side: String in ["L", "R"]:
 		var femur := sk.find_bone("pony_femur_" + side)

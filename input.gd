@@ -1,7 +1,7 @@
 extends Node
 ## Input and the seated-player Q guard. Runs in _input before desktop_player._unhandled_input.
-## While an act is active it consumes F/Q/L and the interaction keys, and keeps the game's own
-## stand_up poll from force-standing a seated player.
+## While an act is active it consumes the act keys and the interaction keys, and keeps the
+## game's own stand_up poll from force-standing a seated player.
 
 var main: Node
 
@@ -76,6 +76,12 @@ func _input(event: InputEvent) -> void:
 			main.call("toggle_debug_logs")
 			get_viewport().set_input_as_handled()
 			return
+		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_V \
+				and debug_key.ctrl_pressed and debug_key.shift_pressed \
+				and bool(main.get("debug_logs")):
+			main.call("debug_voices")
+			get_viewport().set_input_as_handled()
+			return
 		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F8 \
 				and bool(main.get("debug_logs")):
 			main.call("_debug_offer")
@@ -106,6 +112,10 @@ func _input(event: InputEvent) -> void:
 				and bool(main.get("debug_logs")) and bool(main.call("skeleton_click")):
 			get_viewport().set_input_as_handled()
 			return
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_RIGHT and is_instance_valid(runtime):
+			runtime.call("smack")
+			get_viewport().set_input_as_handled()
+			return
 		if is_instance_valid(runtime):
 			get_viewport().set_input_as_handled()
 		return
@@ -116,32 +126,33 @@ func _input(event: InputEvent) -> void:
 		return
 	if is_instance_valid(runtime):
 		var state := int(runtime.get("state"))
-		# Debug camera toggle: free shot vs the legacy mouse-look behaviour. F is flight
-		# outside the act, but it is already consumed during the act.
-		if key.physical_keycode == KEY_F:
-			runtime.call("toggle_camera_mode")
-			get_viewport().set_input_as_handled()
-			return
 		# Space must not jump or start a couch sleep while the act holds the player.
 		if key.is_action("move_jump") or key.physical_keycode == KEY_SPACE:
 			get_viewport().set_input_as_handled()
 			return
+		if key.physical_keycode == KEY_H:
+			runtime.call("toggle_lean_return")
+			get_viewport().set_input_as_handled()
+			return
 		if state == 4: # AFTERGLOW
-			if key.is_action("stand_up") or key.physical_keycode in [KEY_F, KEY_L]:
+			if key.is_action("stand_up") or key.physical_keycode in [KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F]:
 				get_viewport().set_input_as_handled()
 			return
-		if state in [3, 5, 6]: # CLIMAX / WITHDRAW / RESTORE: no controls
-			if key.is_action("stand_up") or key.physical_keycode in [KEY_F, KEY_L]:
+		if state in [3, 5]: # CLIMAX / RESTORE: only polled act actions
+			if key.is_action("stand_up") or key.physical_keycode in [KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F]:
 				get_viewport().set_input_as_handled()
 			return
 		if key.is_action("stand_up"):
 			get_viewport().set_input_as_handled()
 			return
+		if key.physical_keycode == KEY_Y:
+			get_viewport().set_input_as_handled()
+			return
 		# Keep native world interactions from firing during the act.
-		if key.physical_keycode in [KEY_E, KEY_G, KEY_K, KEY_H]:
+		if key.physical_keycode in [KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_G, KEY_K]:
 			get_viewport().set_input_as_handled()
 		return
-	if key.physical_keycode == KEY_L:
+	if key.physical_keycode == KEY_Y:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			return
 		if bool(main.call("try_start")):

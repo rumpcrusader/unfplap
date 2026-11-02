@@ -13,9 +13,11 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
+const OUTDOOR_BED := preload("res://mods/unfplap/outdoor_bed.gd")
 const CURRENCY := preload("res://world/ui/currency.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
+const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default ON. Toggle in game with Ctrl+Shift+D.
 var debug_logs := true
@@ -37,8 +39,10 @@ var _camera_cache_at := 0.0
 ## -1 = nothing pending; 0/1 = the controls_locked value to restore once menus close.
 var pending_unlock := -1
 var _last_offer_key := ""
-var _native_hint_label: Label
+var _native_hint_label: Control
 var _debug_skeleton: Node3D
+var _injected_settings: Array = []
+var _settings_switch_guard := false
 
 
 func debug(text: String) -> void:
@@ -95,6 +99,7 @@ func _ready() -> void:
 	Mods.world_closed.connect(_on_world_closed)
 	Mods.player_ready.connect(_on_player)
 	Mods.on_node(PONY_PATH, _on_pony)
+	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
 	# Switched on mid-game: the world and player already exist.
 	if is_instance_valid(Mods.game):
 		_on_world(Mods.game)
@@ -106,7 +111,10 @@ func _ready() -> void:
 func _on_world(host: Node) -> void:
 	_clear_native_hint()
 	game = host
-	_debug("world ready")
+	var outdoor: Node3D = OUTDOOR_BED.install(host)
+	if not is_instance_valid(outdoor):
+		_deferred_outdoor_bed.call_deferred(host)
+	_debug("world ready outdoor_bed=%s" % (str(outdoor.global_position) if is_instance_valid(outdoor) else "pending"))
 	_interactor = null
 	_desktop = null
 	_camera_cache = null
@@ -115,6 +123,12 @@ func _on_world(host: Node) -> void:
 	_ai_clock = 0.0
 	if is_instance_valid(hud):
 		hud.hide_all()
+
+
+func _deferred_outdoor_bed(host: Node) -> void:
+	var outdoor: Node3D = OUTDOOR_BED.install(host)
+	if is_instance_valid(outdoor):
+		_debug("outdoor bed at %s" % str(outdoor.global_position))
 
 
 func _on_world_closed(_host: Node) -> void:
@@ -160,6 +174,219 @@ func _on_pony(pony: Node) -> void:
 	_runtimes[pony] = runtime
 	_debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
+
+
+## Runtime-injected Unfplap tab. No game-script extension is used: if `settings_tab` is false,
+## this returns before touching the page. The title and pause hosts add the page to the tree
+## before calling setup(), so the actual injection is deferred and retries for a few frames.
+func _on_settings_page(page: Node) -> void:
+	if not SETTINGS.feature("settings_tab"):
+		return
+	if not is_instance_valid(page) or page.has_meta("unfplap_tab") or page.has_meta("unfplap_pending"):
+		return
+	page.set_meta("unfplap_pending", true)
+	_inject_settings_page.call_deferred(page)
+
+
+func _inject_settings_page(page: Node) -> void:
+	for attempt: int in 10:
+		if not is_instance_valid(page):
+			return
+		if page.has_meta("unfplap_tab"):
+			page.remove_meta("unfplap_pending")
+			return
+		var side_scroll: Variant = page.get("_side_scroll")
+		var content: Variant = page.get("_content")
+		var tabs: Variant = page.get("_tabs")
+		var scroll: Variant = page.get("_scroll")
+		var title: Variant = page.get("_tab_title")
+		var icon: Variant = page.get("_tab_icon")
+		if side_scroll is ScrollContainer and content is VBoxContainer and tabs is Array \
+				and scroll is ScrollContainer and title is Label and icon is Control:
+			page.remove_meta("unfplap_pending")
+			_inject_settings_page_now(page)
+			return
+		await get_tree().process_frame
+	if is_instance_valid(page):
+		page.remove_meta("unfplap_pending")
+	_debug("settings tab: page internals unavailable; skipped")
+
+
+## No game-script extension is used. If `settings_tab` is false this never runs; if the page's
+## internals are unavailable it skips rather than risking a release-breaking extension.
+func _inject_settings_page_now(page: Node) -> void:
+	if not SETTINGS.feature("settings_tab"):
+		return
+	if not is_instance_valid(page) or page.has_meta("unfplap_tab"):
+		return
+	var side_scroll: Variant = page.get("_side_scroll")
+	var content: Variant = page.get("_content")
+	var tabs: Variant = page.get("_tabs")
+	var scroll: Variant = page.get("_scroll")
+	var title: Variant = page.get("_tab_title")
+	var icon: Variant = page.get("_tab_icon")
+	if not (side_scroll is ScrollContainer and content is VBoxContainer and tabs is Array \
+			and scroll is ScrollContainer and title is Label and icon is Control):
+		_debug("settings tab: page internals unavailable; skipped")
+		return
+	if not page.has_method("_button") or not page.has_method("_redraw"):
+		_debug("settings tab: page API unavailable; skipped")
+		return
+	if (side_scroll as ScrollContainer).get_child_count() == 0:
+		_debug("settings tab: sidebar unavailable; skipped")
+		return
+	var side: Variant = (side_scroll as ScrollContainer).get_child(0)
+	if not side is VBoxContainer:
+		_debug("settings tab: sidebar layout unavailable; skipped")
+		return
+	var font_size := int(page.get("font_size"))
+	if font_size <= 0:
+		font_size = 20
+	var button: Button = page.call("_button", side, "Unfplap",
+		Callable(self, "_show_settings_tab").bind(page))
+	button.theme_type_variation = "Tab"
+	button.toggle_mode = true
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(0, font_size * 2.05)
+	button.add_theme_font_size_override("font_size", font_size - 2)
+	button.expand_icon = false
+	if page.has_method("_icon_texture"):
+		button.icon = page.call("_icon_texture", "gem")
+	var ui := VBoxContainer.new()
+	ui.name = "UnfplapSettings"
+	ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	ui.add_theme_constant_override("separation", 10)
+	ui.visible = false
+	(content as VBoxContainer).add_child(ui)
+	var heading := Label.new()
+	heading.text = "Unfplap"
+	heading.add_theme_font_size_override("font_size", font_size + 6)
+	ui.add_child(heading)
+	var note := Label.new()
+	note.text = "Experimental feature flags. Most changes apply on the next act."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	ui.add_child(note)
+	var scroll_box := ScrollContainer.new()
+	scroll_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll_box.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ui.add_child(scroll_box)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll_box.add_child(list)
+	for key: String in SETTINGS.FEATURE_DEFAULTS:
+		if key == "settings_tab":
+			continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		list.add_child(row)
+		var label := Label.new()
+		label.text = key.replace("_", " ").capitalize()
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_font_size_override("font_size", font_size)
+		row.add_child(label)
+		var toggle := CheckButton.new()
+		toggle.button_pressed = SETTINGS.feature(key)
+		toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(toggle)
+		var feature_key := key
+		toggle.toggled.connect(func(on: bool) -> void:
+			SETTINGS.save_feature(feature_key, on)
+			_debug("feature %s=%s" % [feature_key, str(on)])
+			page.call("_redraw"))
+	var text_only_note := Label.new()
+	text_only_note.text = "act_text_only_ponese keeps the act's text and mutes only her Ponese voice."
+	text_only_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_only_note.add_theme_font_size_override("font_size", font_size - 5)
+	list.add_child(text_only_note)
+	for tab: Variant in tabs:
+		if tab is Button:
+			(tab as Button).pressed.connect(_hide_settings_tab.bind(page))
+	for key: String in ["_scroll", "provider", "prompts", "feedback_notes", "controls_map"]:
+		var native_page: Variant = page.get(key)
+		if native_page is CanvasItem:
+			(native_page as CanvasItem).visibility_changed.connect(_native_settings_shown.bind(page))
+	page.set_meta("unfplap_tab", true)
+	page.set_meta("unfplap_ui", ui)
+	page.set_meta("unfplap_button", button)
+	_injected_settings.append({"page": page, "button": button, "ui": ui})
+	_debug("settings tab injected")
+
+
+func _show_settings_tab(page: Node) -> void:
+	if not is_instance_valid(page):
+		return
+	var ui: Variant = page.get_meta("unfplap_ui")
+	var button: Variant = page.get_meta("unfplap_button")
+	if not ui is Control or not button is Button:
+		return
+	_settings_switch_guard = true
+	_set_native_settings_visible(page, false)
+	(ui as Control).visible = true
+	var title: Variant = page.get("_tab_title")
+	if title is Label:
+		(title as Label).text = "Unfplap"
+	var icon: Variant = page.get("_tab_icon")
+	if icon is Control:
+		(icon as Control).set("kind", "gem")
+	var tabs: Variant = page.get("_tabs")
+	if tabs is Array:
+		for tab: Variant in tabs:
+			if tab is Button:
+				(tab as Button).set_pressed_no_signal(false)
+	(button as Button).set_pressed_no_signal(true)
+	page.call("_redraw")
+	_settings_switch_guard = false
+
+
+func _hide_settings_tab(page: Node) -> void:
+	if _settings_switch_guard or not is_instance_valid(page):
+		return
+	var ui: Variant = page.get_meta("unfplap_ui")
+	var button: Variant = page.get_meta("unfplap_button")
+	if ui is Control:
+		(ui as Control).visible = false
+	if button is Button:
+		(button as Button).set_pressed_no_signal(false)
+
+
+func _native_settings_shown(page: Node) -> void:
+	if _settings_switch_guard or not is_instance_valid(page):
+		return
+	var ui: Variant = page.get_meta("unfplap_ui")
+	if not ui is Control or not (ui as Control).visible:
+		return
+	for key: String in ["_scroll", "provider", "prompts", "feedback_notes", "controls_map"]:
+		var native_page: Variant = page.get(key)
+		if native_page is CanvasItem and (native_page as CanvasItem).visible:
+			_hide_settings_tab(page)
+			return
+
+
+func _set_native_settings_visible(page: Node, value: bool) -> void:
+	for key: String in ["_scroll", "provider", "prompts", "feedback_notes", "controls_map"]:
+		var native_page: Variant = page.get(key)
+		if native_page is CanvasItem:
+			(native_page as CanvasItem).visible = value
+
+
+func _clear_injected_settings() -> void:
+	for entry: Dictionary in _injected_settings:
+		var page: Variant = entry.get("page")
+		var ui: Variant = entry.get("ui")
+		var button: Variant = entry.get("button")
+		if is_instance_valid(ui) and (ui as Node).get_parent() != null:
+			(ui as Node).queue_free()
+		if is_instance_valid(button) and (button as Node).get_parent() != null:
+			(button as Node).queue_free()
+		if is_instance_valid(page):
+			(page as Node).remove_meta("unfplap_tab")
+			(page as Node).remove_meta("unfplap_ui")
+			(page as Node).remove_meta("unfplap_button")
+	_injected_settings.clear()
 
 
 func _process(delta: float) -> void:
@@ -244,7 +471,7 @@ func _native_row() -> HBoxContainer:
 	var hints: Node = game.get_node_or_null("InteractionHints")
 	if hints == null:
 		return null
-	# VR uses the world-space prompt row; the L hint falls back to the HUD prompt there.
+	# VR uses the world-space prompt row; the Y hint falls back to the HUD prompt there.
 	if bool(hints.get("xr")):
 		return null
 	var row: Variant = hints.get("_prompt2d")
@@ -253,16 +480,29 @@ func _native_row() -> HBoxContainer:
 	return null
 
 
-func _make_native_hint_label() -> Label:
+func _make_native_hint_label() -> Control:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	var icon_path := "res://world/ui/prompts/button_y.png"
+	if ResourceLoader.exists(icon_path):
+		var icon := TextureRect.new()
+		icon.texture = load(icon_path)
+		icon.custom_minimum_size = Vector2(40, 40)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
 	var label := Label.new()
-	label.text = "L · Intimate"
+	label.text = " · sex" if row.get_child_count() > 0 else "Y · sex"
 	CURRENCY.apply(label)
 	label.add_theme_font_size_override("font_size", 30)
 	label.add_theme_color_override("font_color", Color("f4f1ff"))
 	label.add_theme_color_override("font_outline_color", Color("1a1624"))
 	label.add_theme_constant_override("outline_size", 10)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
+	row.add_child(label)
+	return row
 
 
 func _remove_native_hint(row: HBoxContainer = null) -> void:
@@ -287,7 +527,7 @@ func _sync_native_hint(show_hint: bool) -> void:
 	if row == null:
 		if is_instance_valid(hud):
 			if show_hint:
-				hud.show_prompt("L · Intimate")
+				hud.show_prompt("Y · sex")
 			else:
 				hud.hide_prompt()
 		return
@@ -458,6 +698,26 @@ func debug_chin(step_deg: float) -> void:
 		_debug("chin: no pony target")
 		return
 	runtime.call("debug_chin", step_deg)
+
+
+func debug_voices() -> void:
+	if not debug_logs:
+		return
+	var rows: Array[String] = []
+	for node: Variant in mares():
+		if not is_instance_valid(node):
+			continue
+		var id := str((node as Node).get_meta("relationship_id", ""))
+		if id.is_empty():
+			var identity: Variant = (node as Node).get("identity")
+			if identity != null:
+				id = str(identity.get("id"))
+		var runtime: Variant = runtime_for(node)
+		if is_instance_valid(runtime):
+			rows.append("%s %s" % [id, str(runtime.call("voice_status_line"))])
+		else:
+			rows.append("%s no runtime" % id)
+	_debug_block("VOICES", rows)
 
 
 ## Chin debugging is not aim-gated: if the crosshair is not on a mare, use the nearest loaded
@@ -834,6 +1094,7 @@ func nearest_lying(view: Camera3D) -> Node:
 
 
 func _exit_tree() -> void:
+	_clear_injected_settings()
 	_clear_native_hint()
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()

@@ -12,25 +12,31 @@ Desktop only for now
 
 ## Controls
 
-| Input    | Action                                                |
-| -------- | ----------------------------------------------------- |
-| `L`      | Start an available encounter                          |
-| Mouse ↕  | Pump during the act                                   |
-| `WASD`   | Rotate the camera during the act (experimental)       |
-| `F`      | Toggle free/legacy camera (experimental)              |
-| Hold `Q` | Stop before climax / end afterglow                    |
+| Input       | Action                                                            |
+| ----------- | ----------------------------------------------------------------- |
+| `Y`         | Start an available encounter                                      |
+| Mouse ↕     | Pump during the act                                               |
+| `W` / `S`   | Lean the act camera forward / back (experimental)                 |
+| `Q` / `E`   | Lean diagonally; also cue a kiss or shoulder reach (experimental) |
+| `A` / `D`   | Caress her left / right flank in horse pose (experimental)        |
+| `F` (hold)  | Kiss while fully shoulder-leaning in horse pose (experimental)    |
+| `H`         | Toggle automatic lean return (experimental)                       |
+| Mouse right | Smack her flank during the act (experimental)                     |
+| Hold `Y`    | Stop before climax / end afterglow                                |
 
 ## Features
 
 - **Relationship-gated encounters** — Adult mares and stallions only, with consent and refusals
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing horse.
+- **Outdoor bed** — Adds a usable bed beside Golden Oak Library.
 - **Mouse pump minigame** — Vertical mouse movement controls depth, satisfaction and stamina.
 - **Per-mare preferences** — Depth, speed and stroke-shape preferences can change during the act.
 - **Reactive dialogue** — On-demand lines react to speed, depth and stroke shape.
 - **HUD** — Shows meters for penetration, satisfaction and stamina.
-- **Act camera** — Offers a free camera with experimental WASD rotation, optional legacy mouse
-  look and optional pump bob.
+- **Act camera** — Offers a controlled lean camera with optional pump bob.
+- **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, F kisses at a full shoulder lean, and right-click smacks one.
+- **Cuddle override** — Lets an encounter begin while a cuddle is active (experimental).
 - **Presentation** — Adds blush, eyes, ears, tail, jiggle, audio and wing motion.
-- **Aftermath** — Ends with cuddle afterglow or standing withdrawal, then short aftercare.
+- **Aftermath** — Ends with a held afterglow for either pose, then short aftercare.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake adults can witness it.

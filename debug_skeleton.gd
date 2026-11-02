@@ -10,7 +10,7 @@ const HOVER_COLOR := Color(1.0, 0.12, 0.12)
 const JOINT_SEGMENTS := 12
 ## Thick enough to read clearly, without turning the skeleton into a solid mass.
 const JOINT_RADIUS := 0.018
-const LINE_HALF_WIDTH := 0.004
+const LINE_HALF_WIDTH := 0.0015
 const UPDATE_HZ := 30.0
 const MAX_DISTANCE_M := 15.0
 const HOVER_MIN_PX := 9.0

@@ -153,13 +153,13 @@ static func witnesses(game: Node, partner_id: String, partner_name: String, seri
 		if not same_house and observer.global_position.distance_to(partner.global_position) > WITNESS_RADIUS_M:
 			continue
 		var event_id := "witness_%s_%s_%d" % [observer_id, partner_id, serial]
-		ctx.record("witnessed_intimacy", "You saw the player and %s having sex." % partner_name,
+		ctx.record("witnessed_intimacy", "You saw Anon and %s having sex." % partner_name,
 			[observer_id, "player", partner_id], [partner_id, "player"], event_id)
 		var impressions: Variant = ctx.get("impressions")
 		if impressions != null and is_instance_valid(impressions):
 			impressions.commit(observer_id, {
 				"mood": "surprised",
-				"thought": "I walked in on the player and %s." % partner_name
+				"thought": "I walked in on Anon and %s." % partner_name
 			}, event_id + ":gain")
 
 

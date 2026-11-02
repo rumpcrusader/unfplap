@@ -14,6 +14,7 @@ var mode := "pose1"
 var afterglow_pose := CATALOG.MISSIONARY
 var look_point := Vector3.ZERO
 var head_back := 0.0
+var kiss := 0.0
 var amount := 0.0
 var target_amount := 0.0
 var head_roll := 0.0
@@ -55,6 +56,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		"look_point": look_point,
 		"head_roll": head_roll,
 		"head_back": head_back,
+		"kiss": kiss,
 		"climaxing": climaxing,
 		"clock": _clock,
 		"config": pose_config,

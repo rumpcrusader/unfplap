@@ -1,0 +1,22 @@
+# Godot editor cache
+.godot/
+
+# Generated resource UIDs. This mod loads every script by path, so it does not
+# need stable UIDs and Godot recreates these files on demand.
+*.uid
+
+# Local build/export output
+/build/
+/dist/
+*.pck
+*.zip
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.tmp
+*.bak
+*.orig
+*.log

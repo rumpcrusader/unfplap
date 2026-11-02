@@ -37,12 +37,10 @@ static func inside_event(game: Node, id: String, name: String, event_id: String)
 	ctx.record("intimacy", "The player just came inside you.", [id, "player"], [id, "player"], event_id + ":inside")
 
 
-## One optional spoken reaction to a named act event. A custom per-character prompt is always
-## injected; without one, chattiness decides whether the model gets a default nudge.
+## One spoken reaction to a named act event. Custom prompts override the fallback; there is no
+## probability gate any more. Every mod-owned director key is prefixed so the act owns its lines.
 static func reaction_for(game: Node, id: String, event: String, event_id: String, fallback: String, valid: Callable) -> void:
 	var custom := SETTINGS.event_prompt(id, event)
-	if custom.is_empty() and randf() >= SETTINGS.chattiness(id):
-		return
 	if not is_instance_valid(game) or not game.is_inside_tree():
 		return
 	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
@@ -51,12 +49,36 @@ static func reaction_for(game: Node, id: String, event: String, event_id: String
 	var purpose := custom if not custom.is_empty() else fallback
 	if event == "climax":
 		purpose += " Include a private first-person [thought: ...] impression of this moment in your reply."
-	director.call("queue_generated_intent", id, purpose, event_id + ":reply:" + event, valid, Callable(), true)
+	director.call("queue_generated_intent", id, purpose, mod_key(event_id, "reply", event), valid, Callable(), true)
+
+
+## One on-demand act utterance. The caller supplies the already-formatted private purpose and a
+## `valid` guard tied to the act/event. Delivery is asynchronous, so a pending line is the
+## runtime's responsibility.
+static func utterance_for(game: Node, id: String, event_id: String, key: String, purpose: String, valid: Callable, finished: Callable) -> bool:
+	if not is_instance_valid(game) or not game.is_inside_tree():
+		return false
+	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	if director == null or not director.has_method("queue_generated_intent"):
+		return false
+	return bool(director.call("queue_generated_intent", id, purpose, mod_key(event_id, "line", key), valid, finished, true, false))
+
+
+static func cancel_generated(game: Node, event_id: String, key: String) -> void:
+	if not is_instance_valid(game) or not game.is_inside_tree():
+		return
+	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	if director != null and director.has_method("cancel_authored_line"):
+		director.call("cancel_authored_line", mod_key(event_id, "line", key))
+
+
+static func mod_key(event_id: String, kind: String, key: String) -> String:
+	return "unfplap:%s:%s:%s" % [event_id, kind, key]
 
 
 static func inside_response(game: Node, id: String, event_id: String, valid: Callable) -> void:
 	reaction_for(game, id, "inside", event_id,
-		"The player just came inside you. React briefly in your own voice if you want to; staying quiet or staying close is fine. Do not start another act.",
+		"The player just came inside you. Say one short sentence, at most 12 words, in your own voice. Staying quiet or staying close is fine. Do not start another act.",
 		valid)
 
 

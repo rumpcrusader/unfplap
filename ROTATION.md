@@ -75,11 +75,13 @@ these values here if a future pose needs that effect.
 
 ## Pose-1 camera
 
-- Anchor: `root + up * 0.65 - back * 0.15`, where `back = +pony.global_basis.z`.
+- Anchor: `root + up * 0.55 - back * 0.15`, where `back = +pony.global_basis.z`.
 - Stable aim point: `root + forward * 0.20 + up * 0.10`; not the live nose.
 - The aim basis follows the point for the first second, then freezes.
-- Mouse motion adds yaw/pitch offsets on top.
-- Vertical bob is scaled by `POSE1_BOB_SCALE = 0.35`; forward lean is unchanged.
+- Mouse motion adds yaw/pitch offsets on top, scaled by `ACT_LOOK_YAW_SCALE = 0.10` and
+  `ACT_LOOK_PITCH_SCALE = 0.25`; motion is consumed while the act owns the mouse.
+- There is no artificial vertical bob. Camera forward/back comes from `view_depth`: `lean =
+  (view_depth - 0.10) * 0.09`.
 - Restore order is load-bearing:
   1. player transform and yaw,
   2. pony transform and posture,
@@ -104,16 +106,16 @@ these values here if a future pose needs that effect.
 
 ## Aftercare
 
-- Neck forward/down: neck1–3 `-0.38 / -0.30 / -0.20`; head `+0.18`.
-- Tail target `(-up + back * 0.20)` in hair space; align all `mTail1..6`, base
-  included. No tucking.
+- No head lowering.
+- Tail held raised straight (`aside_angle = 0`), with `flick_amplitude = 0.55` and a
+  one-cycle flick every `1.4–2.4 s` on the hair skeleton.
 - Navigator held for 10 s.
 
 ## Timing domains
 
-- `runtime._process`: bob/lean, climax wave, breath, look point, pose climax flag.
+- `runtime._process`: view-depth travel, lean, climax wave, breath, look point, pose climax flag.
 - `runtime._physics_process`: presentation, timers, facing lock, glances,
   auto-cuddle suppression.
-- `main._process`: calls `active_runtime.apply_camera_bob()` every rendered frame.
+- `main._process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
   Keep this single owner.
 - Do not merge these timing domains blindly.

@@ -8,6 +8,7 @@ const ASIDE_ANGLE := 0.55
 const LIFT_ANGLE := 0.34
 var aside_angle := ASIDE_ANGLE
 var lift_angle := LIFT_ANGLE
+var flick_amplitude := FLICK_AMPLITUDE
 const FLICK_SECONDS := 0.9
 const FLICK_AMPLITUDE := 1.10
 
@@ -58,7 +59,7 @@ func _flick_angle(delta: float) -> float:
 	if t >= 1.0:
 		_flick_time = -1.0
 		return 0.0
-	return sin(t * TAU * _flick_cycles) * FLICK_AMPLITUDE * sin(t * PI)
+	return sin(t * TAU * _flick_cycles) * flick_amplitude * sin(t * PI)
 
 
 func _process_modification_with_delta(delta: float) -> void:

@@ -27,7 +27,6 @@ const POSE_DEFAULTS := {
 		"roll_tweak": 0.0,
 		"camera_height": 0.55,
 		"camera_forward": 0.15,
-		"bob_scale": 0.35,
 		"look_scale": 0.55,
 		"nuzzle_scale": 0.45,
 		"nuzzle_period": 7.0,

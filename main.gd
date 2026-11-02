@@ -65,6 +65,10 @@ func _ready() -> void:
 	var source_mtime := 0
 	for path: String in [
 			"res://mods/unfplap/runtime.gd",
+			"res://mods/unfplap/pump.gd",
+			"res://mods/unfplap/preferences.gd",
+			"res://mods/unfplap/utterance.gd",
+			"res://mods/unfplap/hud_pump.gd",
 			"res://mods/unfplap/poses/skeleton_pose.gd",
 			"res://mods/unfplap/poses/missionary_recipe.gd",
 			"res://mods/unfplap/poses/horse_recipe.gd",
@@ -149,9 +153,9 @@ func _process(delta: float) -> void:
 		if is_instance_valid(body):
 			_on_player(body)
 	if is_instance_valid(active_runtime):
-		active_runtime.apply_camera_bob()
+		active_runtime.apply_camera_motion()
 		if is_instance_valid(hud):
-			hud.update_from(active_runtime)
+			hud.update_from(active_runtime, debug_logs)
 		_offer = {}
 		_sync_native_hint(false)
 		return

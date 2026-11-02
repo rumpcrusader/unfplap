@@ -139,8 +139,8 @@ func _input(event: InputEvent) -> void:
 			if key.is_action("stand_up") or key.physical_keycode in [KEY_F, KEY_L]:
 				get_viewport().set_input_as_handled()
 			return
+		# F is flight: consume it so holding it cannot start flight, but it no longer pumps.
 		if key.physical_keycode == KEY_F:
-			runtime.call("pump")
 			get_viewport().set_input_as_handled()
 			return
 		if key.is_action("stand_up"):

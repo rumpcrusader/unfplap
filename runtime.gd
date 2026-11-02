@@ -9,17 +9,16 @@ const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
+const PUMP := preload("res://mods/unfplap/pump.gd")
+const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, WITHDRAW, RESTORE }
 
 const SATISFACTION_MAX := 100
-const CAPACITY_MAX := 100
-const PUMP_SATISFACTION := 1
-const PUMP_CAPACITY := 1
-## Max pumping rate. One place to change: 100 ms = 10 pumps/second.
-const PUMP_INTERVAL_MS := 100
+const STAMINA_MAX := 400
 const CLIMAX_SECONDS := 5.0
 const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
@@ -35,8 +34,6 @@ const WITNESS_RADIUS_M := 8.0
 ## instead of above the middle of her body. `pony.global_basis.z` is her backward direction.
 const POSE1_CAMERA_HEIGHT_M := 0.55
 const POSE1_CAMERA_FORWARD_M := 0.15
-## Pose 1 camera vertical bob scale (world up); lower it because the pose-1 view is close.
-const POSE1_BOB_SCALE := 0.35
 ## Presentation: how close the pony stands in front of the player for pose 2.
 const POSE2_GAP_M := 0.55
 ## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
@@ -46,17 +43,15 @@ const POSE2_GAPS := {
 	"canon": 0.35,
 	"hoers": 0.55,
 }
-## Camera bob: damped spring, vertical and forward (a forward lean with each pump).
-const BOB_PUMP_IMPULSE := 2.30
-const BOB_STIFFNESS := 105.0
-const BOB_DAMPING := 13.0
-const BOB_CLIMAX_AMPLITUDE := 0.025
-const BOB_LIMIT := 0.40
-const BOB_FORWARD_IMPULSE := 1.80
-const BOB_FORWARD_STIFFNESS := 100.0
-const BOB_FORWARD_DAMPING := 12.0
-const BOB_FORWARD_LIMIT := 0.32
-const BOB_CLIMAX_FORWARD := 0.12
+## Camera motion is forward/back only, driven by the smoothed penetration value.
+## `PUMP_LEAN_AMPLITUDE` is the old pump spring's peak (~0.09 m).
+const PUMP_LEAN_AMPLITUDE := 0.09
+const PUMP_LEAN_BASE_FRACTION := 0.10
+const PUMP_TRAVEL_OMEGA := 30.0
+const PUMP_TRAVEL_DAMPING := 60.0
+const ACT_LOOK_YAW_SCALE := 0.10
+const ACT_LOOK_PITCH_SCALE := 0.25
+const LEAN_CLIMAX_FORWARD := 0.09
 ## Free look stays inside a 45-degree cone around the direction the act started in.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
@@ -66,12 +61,16 @@ const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Pose 2 after the climax: no cuddle afterglow; a short withdrawal shows the pull-back and flicks.
 const POSE2_WITHDRAW_SECONDS := 1.6
-## Wing spread easing and pump-flick decay for pose 2. Slower values read as smoother movement.
+## Wing spread/droop and jitter. Wings spread over two seconds, then lower over ten.
 const WING_FADE_SECONDS := 0.55
 const WING_FLICK_DECAY := 0.45
-## Wings slowly fold over the act, on top of the satisfaction-driven spread.
-const WING_DROOP_SECONDS := 25.0
+const WING_SPREAD_SECONDS := 2.0
+const WING_DROOP_SECONDS := 10.0
 const WING_DROOP_AMOUNT := 0.35
+const WING_JITTER_AMOUNT := 0.04
+const WING_JITTER_MIN := 0.4
+const WING_JITTER_MAX := 1.0
+const WING_JITTER_FADE := 0.2
 ## Pose 2 keeps her body facing away but lets her glance back over a shoulder now and then.
 const GLANCE_MIN_INTERVAL := 5.0
 const GLANCE_MAX_INTERVAL := 9.0
@@ -96,8 +95,10 @@ var pose_id := ""
 var source := ""
 var bed: Node3D
 var satisfaction := 0
-var capacity := CAPACITY_MAX
-var last_pump_ms := -100000
+var stamina := STAMINA_MAX
+## Public for the HUD: penetration 0..1 and the same orientation flag used by mouse input.
+var depth := 0.0
+var pump_up := true
 
 var _pose
 var _tail
@@ -119,6 +120,29 @@ var _token := ""
 var _id := ""
 var _profile: Dictionary = {}
 var _pose_cfg: Dictionary = {}
+var _base_preferences: Dictionary = {}
+var _preferences: Dictionary = {}
+var _phase_index := -1
+var _act_prompts: Dictionary = {}
+var _pump_tracker
+var _pump_pixels_per_full := 800.0
+var _satisfaction_frac := 0.0
+var _speed_zone := "ok"
+var _speed_zone_previous := "ok"
+var _stroke_speed := 0.0
+var _stroke_shape := ""
+var _speed_zone_strokes := 0
+var _last_reaction: Dictionary = {}
+var _depth_out_seconds := 0.0
+var _utterance_points: Array[float] = []
+var _utterance_index := 0
+var _utterance_pending_key := ""
+var _utterance_pending_until := 0.0
+var _utterance_rng := RandomNumberGenerator.new()
+var _utterance_serial := 0
+var _vocal_cooldown := 0.0
+var _bored_seconds := 0.0
+var _speed_travel := 0.0
 var _climax_at := 100
 var _aftercare_min := 10
 var _display_name := "the pony"
@@ -127,8 +151,10 @@ var _event_id := ""
 var _started_at := 0.0
 
 var _camera: Camera3D
-var _applied_bob := 0.0
 var _applied_lean := 0.0
+## Smoothed depth for HUD/camera only. Raw `depth` still drives scoring/strokes.
+var view_depth := 0.0
+var _view_velocity := 0.0
 var _pose1_camera := Vector3.INF
 var _pose1_head_roll := 0.0
 var _pose1_free_yaw := 0.0
@@ -149,10 +175,7 @@ var _pose1_player_rotation := Vector3.ZERO
 var _pose1_player_rot_saved := false
 var _anon_avatar: Node3D
 var _anon_avatar_visible := true
-var _bob := 0.0
-var _bob_velocity := 0.0
 var _lean := 0.0
-var _lean_velocity := 0.0
 var _back := 0.0
 var _back_target := 0.0
 var _withdraw_left := 0.0
@@ -166,7 +189,6 @@ var _glance_sign_set := false
 var _glance_head_back := 0.0
 var _look_yaw := 0.0
 var _look_pitch := 0.0
-var _camera_height_offset := 0.0
 var _eye_override := false
 var _saved_stand_eye := 0.0
 var _saved_eye_height := 0.0
@@ -178,6 +200,9 @@ var _wing_hold := false
 var _wing_flick := 0.0
 var _wing_hold_value := 1.0
 var _wing_hold_started := false
+var _wing_jitter := 0.0
+var _wing_jitter_goal := 0.0
+var _wing_jitter_clock := 0.0
 var _act_seconds := 0.0
 var _wings_node: Node
 var _aftercare: Node
@@ -245,38 +270,27 @@ func _act_presentation(delta: float) -> void:
 	var excitement: Variant = pony.get("excitement")
 	if excitement == null:
 		return
-	if pose_id == CATALOG.MISSIONARY:
-		# Pose 1: wings stretched out to the sides.
-		if not _wing_hold:
-			var stretched: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
-			if stretched is Node and (stretched as Node).has_method("hold_at"):
-				_wings_node = stretched as Node
-				_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 0.0))
-		if _wing_hold and is_instance_valid(_wings_node):
-			_wings_node.call("hold_at", "unfplap", 0.0)
-		return
 	_wing_flick = move_toward(_wing_flick, 0.0, delta / WING_FLICK_DECAY)
-	var level := sqrt(clampf(float(satisfaction) / (_climax_at * 0.75), 0.0, 1.0))
-	# At very low excitement keep the wings folded and only flick them on a pump; holding the
-	# game's half-open pose there reads as fully spread.
-	if level < 0.25:
-		if _wing_hold:
-			_release_wing_hold()
-		return
 	if not _wing_hold:
 		var wings: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
 		if wings is Node and (wings as Node).has_method("hold_at"):
 			_wings_node = wings as Node
 			_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 1.0))
 	if _wing_hold and is_instance_valid(_wings_node):
-		# sqrt curve: low -> slightly open, 75 satisfaction -> fully spread. A pump briefly
-		# closes the spread a little for the flick. The value is eased so the wings glide instead
-		# of stepping with each pump.
-		# `droop` slowly folds the wings as the act goes on, so they lower over time.
+		var level := sqrt(clampf(float(satisfaction) / (_climax_at * 0.75), 0.0, 1.0))
+		var spread_t := smoothstep(0.0, 1.0, clampf(_act_seconds / WING_SPREAD_SECONDS, 0.0, 1.0))
+		var base_target := 1.0 - spread_t
+		if pose_id != CATALOG.MISSIONARY:
+			base_target = lerpf(1.0, 1.0 - level, spread_t)
 		var droop := clampf(_act_seconds / WING_DROOP_SECONDS, 0.0, 1.0) * WING_DROOP_AMOUNT
-		var target_hold := clampf(1.0 - level + _wing_flick + droop, 0.0, 1.0)
+		_wing_jitter_clock -= delta
+		if _wing_jitter_clock <= 0.0:
+			_wing_jitter_goal = randf_range(-WING_JITTER_AMOUNT, WING_JITTER_AMOUNT)
+			_wing_jitter_clock = randf_range(WING_JITTER_MIN, WING_JITTER_MAX)
+		_wing_jitter = move_toward(_wing_jitter, _wing_jitter_goal, delta / WING_JITTER_FADE)
+		var target_hold := clampf(base_target + droop + _wing_flick + _wing_jitter, 0.0, 1.0)
 		if not _wing_hold_started:
-			_wing_hold_value = target_hold
+			_wing_hold_value = 1.0
 			_wing_hold_started = true
 		_wing_hold_value = move_toward(_wing_hold_value, target_hold, delta / WING_FADE_SECONDS)
 		_wings_node.call("hold_at", "unfplap", _wing_hold_value)
@@ -343,6 +357,7 @@ func _clear_face() -> void:
 func _process(delta: float) -> void:
 	if state == State.IDLE:
 		return
+	_travel_tick(delta)
 	_clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
 		var view: Camera3D = main.camera()
@@ -354,34 +369,86 @@ func _process(delta: float) -> void:
 	if state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
 		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
-		_bob = wave * BOB_CLIMAX_AMPLITUDE
-		_lean = wave * BOB_CLIMAX_FORWARD
-		_bob_velocity = 0.0
-		_lean_velocity = 0.0
+		_lean = wave * LEAN_CLIMAX_FORWARD
+	elif state == State.ACTIVE:
+		_lean = (view_depth - PUMP_LEAN_BASE_FRACTION) * PUMP_LEAN_AMPLITUDE
 	else:
-		var accel := -BOB_STIFFNESS * _bob - BOB_DAMPING * _bob_velocity
-		_bob_velocity += accel * delta
-		_bob = clampf(_bob + _bob_velocity * delta, -BOB_LIMIT, BOB_LIMIT)
-		var forward_accel := -BOB_FORWARD_STIFFNESS * _lean - BOB_FORWARD_DAMPING * _lean_velocity
-		_lean_velocity += forward_accel * delta
-		_lean = clampf(_lean + _lean_velocity * delta, -BOB_FORWARD_LIMIT, BOB_FORWARD_LIMIT)
+		_lean = move_toward(_lean, 0.0, delta / 0.18)
 	var back_speed := AFTERGLOW_BACK_SPEED if state in [State.AFTERGLOW, State.WITHDRAW] else RESTORE_BACK_SPEED
 	_back = move_toward(_back, _back_target, back_speed * delta)
 	_breath_tick(delta)
 
 
-## Pose 1 free look: rotate the mod camera with the mouse relative to the frozen base aim. This is
-## why the camera must not "lock" to her snout: the player can look around while she nuzzles at it.
+## The bar/camera value brakes sharply before reversing. Raw `depth` keeps scoring exact.
+func _travel_tick(delta: float) -> void:
+	var dt := minf(maxf(delta, 0.0), 0.05)
+	if dt <= 0.0:
+		return
+	var error := view_depth - depth
+	_view_velocity += (-PUMP_TRAVEL_OMEGA * PUMP_TRAVEL_OMEGA * error
+		- PUMP_TRAVEL_DAMPING * _view_velocity) * dt
+	view_depth += _view_velocity * dt
+	if view_depth <= 0.0:
+		view_depth = 0.0
+		_view_velocity = 0.0
+	elif view_depth >= 1.0:
+		view_depth = 1.0
+		_view_velocity = 0.0
+
+
+## Mouse input. Motion is consumed while the act owns the mouse so the two axes can use separate
+## scales; scoring still uses the raw depth. Pose 1 also keeps its free-look offsets.
 func _input(event: InputEvent) -> void:
-	if state == State.IDLE or pose_id != CATALOG.MISSIONARY:
+	if state == State.IDLE:
 		return
 	var motion := event as InputEventMouseMotion
 	if motion == null:
 		return
-	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
+	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	var headset := _headset_view()
+	if state in [State.ACTIVE, State.CLIMAX]:
+		if pose_id == CATALOG.MISSIONARY:
+			if not headset:
+				_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025 * ACT_LOOK_YAW_SCALE, -1.2, 1.2)
+				_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025 * ACT_LOOK_PITCH_SCALE, -1.0, 1.0)
+		elif not headset:
+			_act_look(motion)
+		if state == State.ACTIVE and _pump_tracker != null:
+			var amount: float = PUMP.mouse_to_depth(motion.relative.y, _pump_pixels_per_full, pump_up)
+			_pump_move(amount, _now_s())
+		get_viewport().set_input_as_handled()
+		return
+	if pose_id != CATALOG.MISSIONARY or headset:
 		return
 	_pose1_free_yaw = clampf(_pose1_free_yaw - motion.relative.x * 0.0025, -1.2, 1.2)
 	_pose1_free_pitch = clampf(_pose1_free_pitch - motion.relative.y * 0.0025, -1.0, 1.0)
+
+
+func _headset_view() -> bool:
+	return is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view"))
+
+
+## Pose-2 look during the act. Separate axis scales keep lateral movement nearly still while
+## vertical still responds a little to the same mouse stroke that changes depth.
+func _act_look(motion: InputEventMouseMotion) -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var body: Node = main.player
+	var sensitivity: Variant = body.get("mouse_sensitivity")
+	if sensitivity == null:
+		return
+	var value := float(sensitivity)
+	body.rotation.y -= motion.relative.x * value * ACT_LOOK_YAW_SCALE
+	var pitch: Variant = body.get("_pitch")
+	if pitch != null:
+		var invert: Variant = body.get("invert_y")
+		var dy := motion.relative.y * value * (-1.0 if bool(invert) else 1.0) * ACT_LOOK_PITCH_SCALE
+		body.set("_pitch", clampf(float(pitch) - dy, -1.5, 1.5))
+		var form: Variant = body.get("form_driver")
+		if form is Node and (form as Node).has_method("clamp_view"):
+			form.call("clamp_view")
+	_clamp_look()
 
 
 func _physics_process(delta: float) -> void:
@@ -392,9 +459,15 @@ func _physics_process(delta: float) -> void:
 		return
 	if pony.sleeping:
 		pony.sleeping = false
+	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 	_keep_nav()
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.WITHDRAW]:
 		_act_presentation(delta)
+	if state == State.ACTIVE:
+		_update_phase()
+		_pump_tick()
+		_boredom_tick(delta)
+		_utterance_tick()
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
 		if _pose_in_left <= 0.0:
@@ -415,7 +488,7 @@ func _physics_process(delta: float) -> void:
 	_drive_glance(delta)
 	_suppress_auto_cuddle()
 	_clamp_look()
-	apply_camera_bob()
+	apply_camera_motion()
 	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
 		_check_clock += delta
 		if _check_clock >= 0.25:
@@ -574,7 +647,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	var bed_gate := "n/a"
 	if pose == CATALOG.MISSIONARY:
 		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
-	return "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
 		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), mood,
 		state, str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.has_meta("seated")),
 		str(_cuddle_active()), str(pony.get("motion_paused")), float(pony.get("actual_speed")), str(status.get("requested")),
@@ -586,6 +659,11 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(_relationship_ok()), str(_player_form_ok()), str(_conversation_ok()), str(_free_of_affection()),
 		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
+	if state != State.IDLE and not _preferences.is_empty():
+		text += " | pump depth=%.2f speed=%.2f zone=%s shape=%s up=%s | %s" % [
+			depth, _stroke_speed, _speed_zone, _stroke_shape, str(pump_up),
+			PREFERENCES.describe(_preferences).replace("\n", "; ")]
+	return text
 
 
 func refuse_available(pose: String, act_source: String, bed_in: Variant = null) -> bool:
@@ -979,17 +1057,30 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
+	var preferences_block: Variant = _profile.get("preferences", {})
+	_base_preferences = PREFERENCES.defaults()
+	if preferences_block is Dictionary:
+		var pump_block: Variant = (preferences_block as Dictionary).get("pump", {})
+		if pump_block is Dictionary:
+			_base_preferences = (pump_block as Dictionary).duplicate(true)
+	_act_prompts = _profile.get("act_prompts", {})
+	var pump_controls := SETTINGS.pump_controls()
+	pump_up = bool(pump_controls.get("up", true))
+	_pump_pixels_per_full = float(pump_controls.get("pixels_per_full", 800.0))
+	_pump_tracker = PUMP.new()
 	_climax_at = int(_profile.get("climax_at", 100))
+	_phase_index = PREFERENCES.phase_index(_base_preferences, 0.0)
+	_preferences = PREFERENCES.active(_base_preferences, 0.0)
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_has_facing = false
 	bed = _resolve_bed(pose, act_source, bed_in)
 	if pose == CATALOG.MISSIONARY and bed == null:
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	_applied_bob = 0.0
 	_applied_lean = 0.0
 	_lean = 0.0
-	_lean_velocity = 0.0
+	view_depth = 0.0
+	_view_velocity = 0.0
 	_back = 0.0
 	_back_target = 0.0
 	var identity: Variant = pony.get("identity")
@@ -998,6 +1089,9 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_wing_clock = 0.0
 	_wing_flick = 0.0
 	_wing_hold_started = false
+	_wing_jitter = 0.0
+	_wing_jitter_goal = 0.0
+	_wing_jitter_clock = 0.0
 	_jiggle_logged = false
 	_act_seconds = 0.0
 	_flutter_clock = randf_range(0.5, 1.5)
@@ -1007,7 +1101,10 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
 	_started_at = Time.get_unix_time_from_system()
 	satisfaction = 0
-	capacity = CAPACITY_MAX
+	stamina = STAMINA_MAX
+	_reset_pump_state()
+	_schedule_utterances()
+	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
 
@@ -1069,7 +1166,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
 	if is_instance_valid(main.hud):
-		main.hud.show_act(self)
+		main.hud.show_act(self, main.debug_logs)
 		main.hud.hide_prompt()
 	_log("started pose=%s legacy=%d source=%s pony=%s eye=%.2f" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name), _camera_target_eye])
 	return true
@@ -1179,6 +1276,7 @@ func _unlock_player() -> void:
 
 
 func _abort_start() -> void:
+	_cancel_pending_utterance()
 	_release_nav()
 	_unlock_player()
 	_free_pose()
@@ -1369,32 +1467,346 @@ func _free_pose() -> void:
 
 # --------------------------------------------------------------------------- pump
 
-func pump() -> bool:
+func _now_s() -> float:
+	return Time.get_ticks_msec() * 0.001
+
+
+func _reset_pump_state() -> void:
+	depth = 0.0
+	_satisfaction_frac = 0.0
+	_speed_zone = "ok"
+	_speed_zone_previous = "ok"
+	_stroke_speed = 0.0
+	_stroke_shape = ""
+	_speed_zone_strokes = 0
+	_last_reaction.clear()
+	_depth_out_seconds = 0.0
+	_utterance_points.clear()
+	_utterance_index = 0
+	_utterance_pending_key = ""
+	_utterance_pending_until = 0.0
+	_utterance_serial = 0
+	_vocal_cooldown = 0.0
+	_bored_seconds = 0.0
+	_speed_travel = 0.0
+	view_depth = 0.0
+	_view_velocity = 0.0
+	if _pump_tracker == null:
+		_pump_tracker = PUMP.new()
+	_pump_tracker.reset()
+
+
+func _schedule_utterances() -> void:
+	_utterance_rng.randomize()
+	var low := clampi(int(_profile.get("min_utterances", 2)), 0, 8)
+	var high := clampi(int(_profile.get("max_utterances", 5)), 0, 8)
+	var count := UTTERANCE.line_count(low, high, _utterance_rng)
+	_utterance_points = UTTERANCE.schedule(_climax_at, count, int(_utterance_rng.randi()))
+	if count > 0:
+		_log("utterances=%d points=%s" % [count, str(_utterance_points)])
+
+
+func _prepare_vocal() -> void:
+	var director := _director()
+	if director == null:
+		return
+	var vocal: Variant = director.get("vocal")
+	if vocal != null and vocal.has_method("prepare"):
+		vocal.call("prepare", _id)
+
+
+func _director() -> Node:
+	if not is_inside_tree():
+		return null
+	return get_tree().get_first_node_in_group("conversation_director")
+
+
+func _depth_weight(value: float) -> float:
+	return PREFERENCES.depth_weight(_preferences, value)
+
+
+func _pump_move(amount: float, now: float) -> void:
+	if _pump_tracker == null:
+		return
+	var before := depth
+	var events: Array = _pump_tracker.move(amount, now, _depth_weight)
+	depth = _pump_tracker.depth
+	_speed_travel += absf(depth - before)
+	for event: Dictionary in events:
+		_on_stroke(event)
+
+
+func _pump_tick() -> void:
+	if _pump_tracker == null:
+		return
+	var events: Array = _pump_tracker.tick(_now_s())
+	depth = _pump_tracker.depth
+	for event: Dictionary in events:
+		_on_stroke(event)
+	_depth_tick(get_physics_process_delta_time())
+
+
+func _on_stroke(event: Dictionary) -> void:
 	if state != State.ACTIVE:
-		return false
-	var now := Time.get_ticks_msec()
-	if now - last_pump_ms < PUMP_INTERVAL_MS:
-		return false
-	last_pump_ms = now
-	satisfaction = mini(SATISFACTION_MAX, satisfaction + PUMP_SATISFACTION)
-	capacity = maxi(0, capacity - PUMP_CAPACITY)
-	_bob_velocity += BOB_PUMP_IMPULSE
-	_lean_velocity += BOB_FORWARD_IMPULSE
+		return
+	var direction := int(event.get("direction", 0))
+	var travel := float(event.get("travel", 0.0))
+	var speed := float(event.get("speed", 0.0))
+	var shape := PREFERENCES.MIXED
+	if direction > 0:
+		var shape_cfg: Dictionary = _preferences.get("shape", {})
+		if bool(shape_cfg.get("enabled", false)):
+			var samples: PackedVector2Array = event.get("samples", PackedVector2Array())
+			var classified := PREFERENCES.classify_shape(
+				samples,
+				float(shape_cfg.get("min_travel", 0.30)),
+				float(shape_cfg.get("max_rmse", 0.18)))
+			shape = str(classified.get("shape", PREFERENCES.MIXED))
+		_stroke_shape = shape
+		_stroke_speed = speed
+		_speed_zone = PREFERENCES.speed_zone(_preferences, speed)
+	var multiplier := 1.0
+	if direction > 0:
+		multiplier = PREFERENCES.multiplier(_preferences, _speed_zone, shape)
+	if bool(event.get("pump", false)):
+		_on_pump()
+	_add_satisfaction(float(event.get("base_gain", 0.0)) * multiplier)
+	if direction > 0:
+		_note_speed(_speed_zone)
+		_note_shape(shape)
+	_log("stroke dir=%d travel=%.2f speed=%.2f shape=%s zone=%s gain=%.2f satisfaction=%d" % [
+		direction, travel, speed, shape, _speed_zone,
+		float(event.get("base_gain", 0.0)) * multiplier, satisfaction])
+	if state == State.ACTIVE and satisfaction >= _climax_at:
+		_climax()
+
+
+func _on_pump() -> void:
+	stamina = maxi(0, stamina - 1)
 	_wing_flick = 0.18
 	if _winged and not _wing_hold:
 		var excitement: Variant = pony.get("excitement")
 		if excitement != null and excitement.has_method("flutter"):
 			excitement.call("flutter")
 	_pump_jiggle()
-	_pump_times.append(now * 0.001)
-	while not _pump_times.is_empty() and now * 0.001 - float(_pump_times[0]) > 1.0:
+	var now := _now_s()
+	_pump_times.append(now)
+	while not _pump_times.is_empty() and now - float(_pump_times[0]) > 1.0:
 		_pump_times.pop_front()
-	if satisfaction == 1 or satisfaction % 10 == 0:
-		_log("pump satisfaction=%d capacity=%d rate=%.1f/s" % [satisfaction, capacity, _pumps_per_second()])
 	_play_kiss()
-	if satisfaction >= _climax_at:
-		_climax()
+	_play_vocal()
+	if satisfaction == 0 or satisfaction % 10 == 0:
+		_log("pump satisfaction=%d stamina=%d rate=%.1f/s" % [satisfaction, stamina, _pumps_per_second()])
+
+
+func _play_vocal() -> void:
+	if _vocal_cooldown > 0.0:
+		return
+	var director := _director()
+	if director == null or str(director.get("state")) != "idle" or not is_instance_valid(pony):
+		return
+	var vocal: Variant = director.get("vocal")
+	if vocal != null and vocal.has_method("play"):
+		if bool(vocal.call("play", _id, "m", pony, -34.0)):
+			_vocal_cooldown = 3.0
+
+
+func _add_satisfaction(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	_satisfaction_frac += amount
+	if _satisfaction_frac < 1.0:
+		return
+	var whole := int(floor(_satisfaction_frac))
+	var before := satisfaction
+	satisfaction = mini(SATISFACTION_MAX, satisfaction + whole)
+	_satisfaction_frac -= float(whole)
+	if satisfaction != before and (satisfaction == 1 or satisfaction % 10 == 0):
+		_log("satisfaction=%d stamina=%d rate=%.1f/s" % [satisfaction, stamina, _pumps_per_second()])
+
+
+func _note_speed(zone: String) -> void:
+	var cfg: Dictionary = _preferences.get("speed", {})
+	if not bool(cfg.get("enabled", false)):
+		return
+	if zone != _speed_zone_previous:
+		_speed_zone_previous = zone
+		_speed_zone_strokes = 1
+	else:
+		_speed_zone_strokes += 1
+	if zone == "perfect" and _speed_zone_strokes >= 2 and _reaction_ready("speed_perfect", 12.0):
+		_queue_utterance("speed_perfect", "speed_perfect", "speed_perfect")
+	elif zone == "slow" and _speed_zone_strokes >= 3 and _reaction_ready("speed_slow", 10.0):
+		_queue_utterance("speed_slow", "speed_slow", "speed_slow")
+	elif zone == "fast" and _speed_zone_strokes >= 3 and _reaction_ready("speed_fast", 8.0):
+		_queue_utterance("speed_fast", "speed_fast", "speed_fast")
+
+
+func _note_shape(shape: String) -> void:
+	if shape == PREFERENCES.MIXED or shape.is_empty():
+		return
+	var cfg: Dictionary = _preferences.get("shape", {})
+	if not bool(cfg.get("enabled", false)):
+		return
+	if shape == str(cfg.get("likes", "")) and _reaction_ready("shape_like", 12.0):
+		_queue_utterance("shape_like", "shape_like", "shape_like")
+	elif shape == str(cfg.get("dislikes", "")) and _reaction_ready("shape_dislike", 10.0):
+		_queue_utterance("shape_dislike", "shape_dislike", "shape_dislike")
+
+
+func _depth_tick(delta: float) -> void:
+	if state != State.ACTIVE:
+		return
+	var band := PREFERENCES.comfort_band(_preferences)
+	if band.x < 0.0:
+		return
+	if depth < band.x or depth > band.y:
+		_depth_out_seconds += delta
+	else:
+		_depth_out_seconds = 0.0
+	if _depth_out_seconds < 1.2:
+		return
+	var kind := "depth_shallow" if depth < band.x else "depth_deep"
+	if _reaction_ready(kind, 12.0):
+		_queue_utterance(kind, kind, kind)
+
+
+func _reaction_ready(kind: String, cooldown: float) -> bool:
+	if not _utterance_pending_key.is_empty():
+		return false
+	var now := _now_s()
+	if now - float(_last_reaction.get(kind, -1000.0)) < cooldown:
+		return false
+	_last_reaction[kind] = now
 	return true
+
+
+func _update_phase() -> void:
+	var progress := clampf(float(satisfaction) / maxf(1.0, float(_climax_at)), 0.0, 1.0)
+	var index := PREFERENCES.phase_index(_base_preferences, progress)
+	if index == _phase_index:
+		return
+	_phase_index = index
+	_preferences = PREFERENCES.active(_base_preferences, progress)
+	_log("preference phase=%d progress=%.2f %s" % [index, progress, PREFERENCES.describe(_preferences).replace("\n", "; ")])
+
+
+func _boredom_tick(delta: float) -> void:
+	_speed_travel *= maxf(0.0, 1.0 - delta / 1.5)
+	var speed_cfg: Dictionary = _preferences.get("speed", {})
+	var min_speed := float(speed_cfg.get("min", 0.001))
+	if not bool(speed_cfg.get("enabled", true)) or min_speed <= 0.0:
+		_bored_seconds = 0.0
+		return
+	var director := _director()
+	if director != null and str(director.get("state")) != "idle":
+		return
+	var effective := _speed_travel / 1.5
+	if effective < min_speed * 0.9:
+		_bored_seconds += delta
+	elif effective > min_speed * 1.2:
+		_bored_seconds = 0.0
+	if _bored_seconds < 10.0:
+		return
+	if not _reaction_ready("bored", 25.0):
+		return
+	_log("bored effective=%.3f min=%.3f" % [effective, min_speed])
+	_bored_seconds = 0.0
+	_queue_utterance("bored", "bored", "bored")
+
+
+func _utterance_tick() -> void:
+	if state != State.ACTIVE:
+		return
+	if not _utterance_pending_key.is_empty():
+		if _now_s() > _utterance_pending_until:
+			_cancel_pending_utterance()
+		else:
+			# A line is already in flight. Do not build a backlog: accept that these points are
+			# skipped and advance past them.
+			while _utterance_index < _utterance_points.size() \
+					and float(satisfaction) + _satisfaction_frac >= _utterance_points[_utterance_index]:
+				_log("utterance skipped point=%d pending" % _utterance_index)
+				_utterance_index += 1
+			return
+	while _utterance_index < _utterance_points.size() \
+			and float(satisfaction) + _satisfaction_frac >= _utterance_points[_utterance_index]:
+		var point := _utterance_index
+		_utterance_index += 1
+		_queue_utterance("scheduled", "utterance", "point_%d" % point)
+		if not _utterance_pending_key.is_empty():
+			return
+
+
+func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> void:
+	if state != State.ACTIVE or not is_instance_valid(main) or not is_instance_valid(main.game):
+		return
+	if not _utterance_pending_key.is_empty():
+		return
+	var template := str(_act_prompts.get(prompt_key, ""))
+	if template.strip_edges().is_empty():
+		template = str(_act_prompts.get("utterance", ""))
+	if template.strip_edges().is_empty():
+		_log("utterance missing prompt kind=%s" % kind)
+		return
+	var values := {
+		"state": UTTERANCE.state_line(pose_id, satisfaction, _climax_at, depth, _stroke_speed, _speed_zone, _stroke_shape, _act_seconds),
+		"preferences": PREFERENCES.describe(_preferences),
+		"recent": _recent_lines(),
+	}
+	var purpose := UTTERANCE.format(template, values)
+	_utterance_serial += 1
+	var key := "%s:%d" % [key_suffix, _utterance_serial]
+	var event_id := _event_id
+	var expiry := _now_s() + 10.0
+	var valid := func() -> bool:
+		return is_instance_valid(pony) and state == State.ACTIVE \
+			and _event_id == event_id and _now_s() < expiry
+	var finished := func() -> void:
+		_utterance_done(key)
+	var queued := MEMORY.utterance_for(main.game, _id, event_id, key, purpose, valid, finished)
+	if not queued:
+		_log("utterance queue failed kind=%s" % kind)
+		return
+	_utterance_pending_key = key
+	_utterance_pending_until = _now_s() + 10.0
+	_log("utterance kind=%s key=%s" % [kind, key])
+
+
+func _utterance_done(key: String) -> void:
+	if _utterance_pending_key == key:
+		_utterance_pending_key = ""
+		_utterance_pending_until = 0.0
+
+
+func _cancel_pending_utterance() -> void:
+	if _utterance_pending_key.is_empty():
+		return
+	var key := _utterance_pending_key
+	_utterance_pending_key = ""
+	_utterance_pending_until = 0.0
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		MEMORY.cancel_generated(main.game, _event_id, key)
+
+
+func _recent_lines() -> String:
+	var director := _director()
+	if director == null or not is_instance_valid(pony):
+		return ""
+	var characters: Variant = director.get("characters")
+	if not characters is Dictionary or not (characters as Dictionary).has(_id):
+		return ""
+	var entry: Variant = (characters as Dictionary)[_id]
+	if not entry is Dictionary:
+		return ""
+	var spoken: Variant = (entry as Dictionary).get("spoken", [])
+	if not spoken is Array or (spoken as Array).is_empty():
+		return ""
+	var recent: Array[String] = []
+	var start := maxi(0, (spoken as Array).size() - 2)
+	for index in range(start, (spoken as Array).size()):
+		recent.append(str((spoken as Array)[index]))
+	return " | ".join(recent)
 
 
 func _pump_jiggle() -> void:
@@ -1456,7 +1868,7 @@ func cancel() -> void:
 		var valid := func() -> bool:
 			return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
 		MEMORY.reaction_for(main.game, _id, "end_early", _event_id,
-			"Anon stopped before you reached climax. React briefly in your own voice if you want to; saying nothing is fine.",
+			"Anon stopped before you reached climax. Say one short sentence, at most 12 words, in your own voice. Saying nothing is fine.",
 			valid)
 		_restore_begin()
 	elif state == State.AFTERGLOW:
@@ -1473,6 +1885,7 @@ func _climax() -> void:
 	if state != State.ACTIVE:
 		return
 	_log("climax pose=%s legacy=%d pony=%s satisfaction=%d" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
+	_cancel_pending_utterance()
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
@@ -1481,7 +1894,7 @@ func _climax() -> void:
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
 	MEMORY.reaction_for(main.game, _id, "climax", _event_id,
-		"You have just climaxed during intimacy with Anon. React briefly in your own voice if you want to; staying quiet is fine. Do not describe anatomy.",
+		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Staying quiet is fine. Do not describe anatomy.",
 		valid)
 	_play_climax()
 	if is_instance_valid(main.hud):
@@ -1516,6 +1929,7 @@ func _pose2_withdraw_begin() -> void:
 
 func _afterglow_begin() -> void:
 	_log("afterglow pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
+	_cancel_pending_utterance()
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
 	_set_face(0.85, 0.9)
@@ -1543,6 +1957,7 @@ func _restore_begin() -> void:
 	if state == State.IDLE or state == State.RESTORE:
 		return
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
+	_cancel_pending_utterance()
 	var from_state := state
 	state = State.RESTORE
 	_restore_left = RESTORE_SECONDS
@@ -1637,6 +2052,7 @@ func force_stop() -> void:
 
 
 func _restore_now() -> void:
+	_cancel_pending_utterance()
 	if is_instance_valid(pony):
 		_clear_face()
 		_release_wing_hold()
@@ -1663,7 +2079,8 @@ func _restore_now() -> void:
 func _reset_after_act() -> void:
 	if not is_inside_tree():
 		return
-	capacity = CAPACITY_MAX
+	_reset_pump_state()
+	stamina = STAMINA_MAX
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
 	var from := float(satisfaction)
@@ -1826,7 +2243,7 @@ func _make_pose1_view() -> void:
 		_pose1_view.near = source.near
 		_pose1_view.far = source.far
 		_pose1_view.cull_mask = source.cull_mask
-	# The pose-1 view aims itself at her face every frame (`apply_camera_bob`); the player look
+	# The pose-1 view aims itself at her face every frame (`apply_camera_motion`); the player look
 	# controls are left alone so the bed/seated camera is not disturbed.
 	_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
 	_pose1_aim_until = Time.get_ticks_msec() + 1000
@@ -1943,7 +2360,7 @@ func _restore_eye_override() -> void:
 		body.call("_set_eye_y", _saved_stand_eye)
 
 
-func apply_camera_bob() -> void:
+func apply_camera_motion() -> void:
 	if state == State.IDLE:
 		return
 	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
@@ -1968,7 +2385,7 @@ func apply_camera_bob() -> void:
 			_make_pose1_view()
 		if not is_instance_valid(_pose1_view):
 			return
-		_pose1_view.global_position = _pose1_camera + Vector3.UP * (_bob * float(_pose_cfg.get("bob_scale", POSE1_BOB_SCALE)))
+		_pose1_view.global_position = _pose1_camera
 		_pose1_view.global_position -= _pose1_view_basis.z * (_lean - _back)
 		# Track the face for the first second (while the pose blends in), then freeze the
 		# orientation so the camera is not locked to her snout while she nuzzles.
@@ -1982,7 +2399,7 @@ func apply_camera_bob() -> void:
 				str(_pose1_view_basis.get_euler()), str(_pose1_camera_tweak().get_euler()),
 				str(_pose1_view.global_basis)])
 		return
-	_set_camera_offsets(_camera_height_offset + _bob, _lean - _back)
+	_set_camera_offsets(_lean - _back)
 
 
 ## Baseline correction copied EXACTLY from the last logged debug `total_basis` (the user's final
@@ -2026,24 +2443,20 @@ func _player_eye_height() -> float:
 	return 1.6
 
 
-## Desktop human camera: vertical is absolute from the player's eye height, so `_set_eye_y`
-## cannot stomp it. AnonPony's top-level camera keeps the delta form.
-func _set_camera_offsets(vertical: float, forward: float) -> void:
+## Desktop human camera: only the forward/back lean moves the camera. The artificial vertical
+## bob is gone; the player's look owns the pitch.
+func _set_camera_offsets(forward: float) -> void:
 	if not is_instance_valid(_camera):
 		return
 	var df := forward - _applied_lean
 	var seated := is_instance_valid(main) and is_instance_valid(main.player) and main.player.get("seat") != null
 	if _camera.top_level or seated:
-		var dy := vertical - _applied_bob
-		if absf(dy) > 0.00001:
-			_camera.global_position += Vector3.UP * dy
 		if absf(df) > 0.00001:
 			_camera.global_position -= _camera.global_basis.z * df
 	else:
-		_camera.position.y = _player_eye_height() + vertical
+		_camera.position.y = _player_eye_height()
 		if absf(df) > 0.00001:
 			_camera.position.z -= df
-	_applied_bob = vertical
 	_applied_lean = forward
 
 
@@ -2185,22 +2598,15 @@ func _restore_camera() -> void:
 	_free_pose1_view()
 	if is_instance_valid(_camera):
 		if _camera.top_level:
-			if absf(_applied_bob) > 0.00001:
-				_camera.global_position -= Vector3.UP * _applied_bob
 			if absf(_applied_lean) > 0.00001:
 				_camera.global_position += _camera.global_basis.z * _applied_lean
 		else:
 			_camera.position.y = _player_eye_height()
 			_camera.position.z += _applied_lean
-	_applied_bob = 0.0
 	_applied_lean = 0.0
-	_bob = 0.0
-	_bob_velocity = 0.0
 	_lean = 0.0
-	_lean_velocity = 0.0
 	_back = 0.0
 	_back_target = 0.0
-	_camera_height_offset = 0.0
 	_pose1_camera = Vector3.INF
 	_camera = null
 
@@ -2278,28 +2684,16 @@ func _stop_breath() -> void:
 
 
 func _play_kiss() -> void:
-	# Pose 1: the plap comes from her rump/dock. Other poses keep the boop kiss source.
-	if pose_id == CATALOG.MISSIONARY and is_instance_valid(_kiss_sound):
-		var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
-		if stream == null:
-			return
-		_kiss_sound.stream = stream
-		_kiss_sound.global_position = _dock_position()
-		# Same soft-kiss pool and player settings the boop uses, just positioned at the rump.
-		_kiss_sound.unit_size = 1.0
-		_kiss_sound.max_distance = 6.0
-		_kiss_sound.volume_db = -22.0
-		_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
-		_kiss_sound.play()
+	# Use the mod-owned player in both poses. Calling the game's boop `play_kiss()` increments her
+	# kiss counter, and pony_awareness then tells the AI "The player kissed your face." during sex.
+	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
+	if stream == null or not is_instance_valid(_kiss_sound):
 		return
-	var boop: Variant = pony.get("boop_node")
-	if is_instance_valid(boop) and boop.has_method("play_kiss"):
-		boop.call("play_kiss", -22.0, false)
-		return
-	if _kiss_stream == null or not is_instance_valid(_kiss_sound):
-		return
-	_kiss_sound.stream = _kiss_stream
-	_kiss_sound.global_position = _snout()
+	_kiss_sound.stream = stream
+	_kiss_sound.global_position = _dock_position() if pose_id == CATALOG.MISSIONARY else _snout()
+	_kiss_sound.unit_size = 1.0
+	_kiss_sound.max_distance = 6.0
+	_kiss_sound.volume_db = -22.0
 	_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
 	_kiss_sound.play()
 

@@ -682,7 +682,8 @@ examples.
 
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
-- Top level: `debug_logs`, `features`, `thrust`, `default` template, `characters` overrides.
+- Top level: `debug_logs`, `features`, `thrust`, `camera_thrust`, `presentation`, `default`
+  template, `characters` overrides.
 - Feature flags live in `SETTINGS.FEATURE_DEFAULTS`; the runtime caches them at act start and
   `apply_live_settings()` refreshes them after any settings-tab edit. Keep these documented here
   when adding one:
@@ -745,7 +746,7 @@ This is mandatory.
   - Do not rewrite or reformat the rest of README.
 - Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md` and `WORKFLOW.md` consistent.
 
-## Current notes
+## Known constraints
 
 - `ext/shared_bed.gd` lifts the stock `1.05` bed-cuddle body-scale cap and tries the bed's
   authored `side_local` approach before the generic side. It is intentionally kept even when a
@@ -756,4 +757,3 @@ This is mandatory.
   down before inviting.
 - The talk classifier in `preferences.gd` is a small keyword map, not an LLM call. Expand it
   only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
-- `README.md` is user-maintained except CONTROLS and FEATURES.

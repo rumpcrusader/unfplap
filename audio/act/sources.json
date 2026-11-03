@@ -1,0 +1,584 @@
+{
+	"bed/wood_in_01.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-027  [IN].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.2
+	},
+	"bed/wood_in_02.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-033  [IN].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.258
+	},
+	"bed/wood_in_03.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-029  [IN].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.17
+	},
+	"bed/wood_in_04.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-023  [IN].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.231
+	},
+	"bed/wood_in_05.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-025  [IN].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.184
+	},
+	"bed/wood_out_01.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-030 [OUT].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.173
+	},
+	"bed/wood_out_02.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-028 [OUT].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.179
+	},
+	"bed/wood_out_03.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-012 [OUT].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.275
+	},
+	"bed/wood_out_04.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-010 [OUT].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.216
+	},
+	"bed/wood_out_05.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Wooden Bed Creak (SquishSuccubus)/Fast/Squish - Wooden Bed Creak Fast-008 [OUT].wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.223
+	},
+	"climax/wet_01.wav": {
+		"source": "Cum/External & Multipurpose/Wet Soft Cum (SquishSuccubus)/Squish - Wet Soft Cum-008.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 1.301
+	},
+	"climax/wet_02.wav": {
+		"source": "Cum/External & Multipurpose/Wet Soft Cum (SquishSuccubus)/Squish - Wet Soft Cum-018.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 1.208
+	},
+	"climax/wet_03.wav": {
+		"source": "Cum/External & Multipurpose/Wet Soft Cum (SquishSuccubus)/Squish - Wet Soft Cum-027.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 1.262
+	},
+	"climax/wet_04.wav": {
+		"source": "Cum/External & Multipurpose/Wet Soft Cum (SquishSuccubus)/Squish - Wet Soft Cum-003.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 1.445
+	},
+	"fabric/01.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Pillow Impacts (CC4.0 ATTRIBUTION)/Soft/Cloth-12.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.163
+	},
+	"fabric/02.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Pillow Impacts (CC4.0 ATTRIBUTION)/Soft/Cloth-04.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.178
+	},
+	"fabric/03.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Pillow Impacts (CC4.0 ATTRIBUTION)/Soft/Cloth-11.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.161
+	},
+	"fabric/04.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Pillow Impacts (CC4.0 ATTRIBUTION)/Soft/Cloth-10.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.165
+	},
+	"fabric/05.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Rhythmn Mattress Press (pixelcarnagee)/Mattress_Press-16.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.354
+	},
+	"fabric/06.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Rhythmn Mattress Press (pixelcarnagee)/Mattress_Press-04.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.333
+	},
+	"fabric/07.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Bed Humps (SquishSuccubus)/Soft/Squish - Bed Hump Soft-025.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.448
+	},
+	"fabric/08.wav": {
+		"source": "Furniture & Fabric/Bed & Furniture/Cloth Bed Humps (SquishSuccubus)/Soft/Squish - Bed Hump Soft-008.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.485
+	},
+	"mouth/kiss_01.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-13.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.207
+	},
+	"mouth/kiss_02.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-09.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.289
+	},
+	"mouth/kiss_03.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-07.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.173
+	},
+	"mouth/kiss_04.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-14.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.155
+	},
+	"mouth/kiss_05.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-15.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.134
+	},
+	"mouth/kiss_06.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-05.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.124
+	},
+	"mouth/kiss_07.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-02.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.184
+	},
+	"mouth/kiss_08.wav": {
+		"source": "Oral - Mouth/Recordings/Kisses & Licking/Kisses Regular (NyaughtyMeow)/Kiss-RegNM-11.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.227
+	},
+	"plap/firm_01.wav": {
+		"source": "Plaps/SquishSuccubus/Sticky Plaps/Sticky Plaps Fast/Squish - Sticky Plaps Fast-043.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.348
+	},
+	"plap/firm_02.wav": {
+		"source": "Plaps/SquishSuccubus/Sticky Plaps/Sticky Plaps Fast/Squish - Sticky Plaps Fast-006.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.396
+	},
+	"plap/firm_03.wav": {
+		"source": "Plaps/SquishSuccubus/Sticky Plaps/Sticky Plaps Fast/Squish - Sticky Plaps Fast-009.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.282
+	},
+	"plap/firm_04.wav": {
+		"source": "Plaps/SquishSuccubus/Sticky Plaps/Sticky Plaps Fast/Squish - Sticky Plaps Fast-023.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.338
+	},
+	"plap/firm_05.wav": {
+		"source": "Plaps/SquishSuccubus/Sticky Plaps/Sticky Plaps Fast/Squish - Sticky Plaps Fast-010.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.31
+	},
+	"plap/firm_06.wav": {
+		"source": "Plaps/SquishSuccubus/Sticky Plaps/Sticky Plaps Fast/Squish - Sticky Plaps Fast-033.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.203
+	},
+	"plap/firm_07.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Soft Medium/Squish - Riding Plaps Soft Medium-038.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.198
+	},
+	"plap/firm_08.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Soft Medium/Squish - Riding Plaps Soft Medium-014.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.193
+	},
+	"plap/horse_01.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 10.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.173
+	},
+	"plap/horse_02.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 17.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.196
+	},
+	"plap/horse_03.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 9.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.196
+	},
+	"plap/horse_04.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 6.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.199
+	},
+	"plap/horse_05.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 14.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.221
+	},
+	"plap/horse_06.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 16.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.178
+	},
+	"plap/horse_07.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 7.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.206
+	},
+	"plap/horse_08.wav": {
+		"source": "Plaps/PointyAux/Doggystyle (PointyAux)/Original/DS_PS - 3.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.196
+	},
+	"plap/rough_01.wav": {
+		"source": "Plaps/SquishSuccubus/Two-Step Hard/Squish - Knot Plap-003 (Cleaned).wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.292
+	},
+	"plap/rough_02.wav": {
+		"source": "Plaps/SquishSuccubus/Two-Step Hard/Squish - Knot Plap-002 (Cleaned).wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.307
+	},
+	"plap/rough_03.wav": {
+		"source": "Plaps/SquishSuccubus/Two-Step Hard/Squish - Knot Plap-007 (Cleaned).wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.313
+	},
+	"plap/rough_04.wav": {
+		"source": "Plaps/SquishSuccubus/Two-Step Hard/Squish - Knot Plap-013 (Cleaned).wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.288
+	},
+	"plap/rough_05.wav": {
+		"source": "Plaps/LehornySFX3D/Clappy (LeHornySFX3D)/Type 1/Normal/PC1 - (38).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.091
+	},
+	"plap/rough_06.wav": {
+		"source": "Plaps/LehornySFX3D/Clappy (LeHornySFX3D)/Type 1/Normal/PC1 - (7).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.126
+	},
+	"plap/rough_07.wav": {
+		"source": "Plaps/LehornySFX3D/Clappy (LeHornySFX3D)/Type 1/Normal/PC1 - (29).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.104
+	},
+	"plap/rough_08.wav": {
+		"source": "Plaps/LehornySFX3D/Clappy (LeHornySFX3D)/Type 1/Normal/PC1 - (34).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.124
+	},
+	"plap/soft_01.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-065.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.204
+	},
+	"plap/soft_02.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-042.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.222
+	},
+	"plap/soft_03.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-011.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.224
+	},
+	"plap/soft_04.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-014.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.217
+	},
+	"plap/soft_05.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-008.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.207
+	},
+	"plap/soft_06.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-063.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.218
+	},
+	"plap/soft_07.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-062.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.218
+	},
+	"plap/soft_08.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Very Soft/Squish - Riding Plaps - Very Soft-060.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.224
+	},
+	"slide/in_01.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (33).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.201
+	},
+	"slide/in_02.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (43).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.307
+	},
+	"slide/in_03.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (34).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.283
+	},
+	"slide/in_04.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (40).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.194
+	},
+	"slide/in_05.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (19).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.507
+	},
+	"slide/in_06.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (27).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.205
+	},
+	"slide/out_01.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide out/Normal/SIOFSO - (41).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.252
+	},
+	"slide/out_02.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide out/Normal/SIOFSO - (27).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.161
+	},
+	"slide/out_03.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide out/Normal/SIOFSO - (38).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.231
+	},
+	"slide/out_04.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide out/Normal/SIOFSO - (39).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.184
+	},
+	"slide/out_05.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide out/Normal/SIOFSO - (29).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.162
+	},
+	"slide/out_06.wav": {
+		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide out/Normal/SIOFSO - (32).wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.303
+	},
+	"smack/01.wav": {
+		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-020.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.117
+	},
+	"smack/02.wav": {
+		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-021.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.118
+	},
+	"smack/03.wav": {
+		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-022.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.106
+	},
+	"smack/04.wav": {
+		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-019.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.12
+	},
+	"smack/05.wav": {
+		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-007.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.103
+	},
+	"smack/06.wav": {
+		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-030.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.095
+	},
+	"voice/anon_breath_01.wav": {
+		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-01.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.908
+	},
+	"voice/anon_breath_02.wav": {
+		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-05.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.937
+	},
+	"voice/anon_breath_03.wav": {
+		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-07.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.964
+	},
+	"voice/anon_breath_04.wav": {
+		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-09.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.975
+	},
+	"voice/anon_breath_05.wav": {
+		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-10.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.958
+	},
+	"voice/anon_breath_06.wav": {
+		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-11.wav",
+		"original_rate": 44100,
+		"prepared_rate": 48000,
+		"seconds": 0.974
+	},
+	"voice/climax_01.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan2.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.572
+	},
+	"voice/climax_02.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan9.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.74
+	},
+	"voice/climax_03.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan12.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.531
+	},
+	"voice/moan_intense_01.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan11.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.753
+	},
+	"voice/moan_intense_02.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan10.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 1.058
+	},
+	"voice/moan_intense_03.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan3.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.64
+	},
+	"voice/moan_intense_04.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan7.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.857
+	},
+	"voice/moan_soft_01.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan4.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.777
+	},
+	"voice/moan_soft_02.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan5.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.674
+	},
+	"voice/moan_soft_03.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan6.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.76
+	},
+	"voice/moan_soft_04.wav": {
+		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan1.wav",
+		"original_rate": 48000,
+		"prepared_rate": 48000,
+		"seconds": 0.768
+	}
+}

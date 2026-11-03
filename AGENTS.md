@@ -10,7 +10,7 @@ Do not start implementation until you have read the required files for the area 
 
 | Task | Read first |
 |---|---|
-| Any task | `res://mods/AGENTS.md`, then this file |
+| Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
 | ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `preferences.gd`, `utterance.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
@@ -30,6 +30,8 @@ Do not start implementation until you have read the required files for the area 
   `ROTATION.md`.
 
 ## Workflow
+
+Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 Run from source:
 

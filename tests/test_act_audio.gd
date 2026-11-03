@@ -1,0 +1,135 @@
+extends SceneTree
+## Pure/unit checks for the optional OpenNSFW act audio layer.
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_act_audio.gd
+
+const ACT := preload("res://mods/unfplap/act_audio.gd")
+const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
+const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+var failures := 0
+var checks := 0
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func near(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
+
+
+func run() -> void:
+	for value: float in [0.0, 0.1, 0.33, 0.5, 0.66, 0.9, 1.0]:
+		check(ACT.tier_for(value) == PREFERENCES.intensity_for(value),
+			"tier matches preferences at %.2f" % value)
+	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "soft") == "plap_soft",
+		"missionary soft cue")
+	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "rough") == "plap_rough",
+		"missionary rough cue")
+	check(ACT.cue_for_plap(CATALOG.HORSE, "firm") == "plap_horse",
+		"horse uses the doggy plap pool")
+	check(ACT.pitch_for(0.0) < ACT.pitch_for(1.0), "pitch rises with strength")
+	check(ACT.pitch_for(0.0) >= 0.9 and ACT.pitch_for(1.0) <= 1.1, "pitch stays bounded")
+	check(ACT.gain_db(0.0) < ACT.gain_db(0.5) and ACT.gain_db(0.5) < ACT.gain_db(1.0),
+		"gain rises with strength")
+	check(near(ACT.gain_db(0.0), -10.0), "soft gain floor")
+	check(near(ACT.gain_db(1.0), 0.0), "full-strength gain")
+
+	check(ACT.next_index(1, 0, 0) == 0, "single variant index")
+	for last: int in range(4):
+		for roll: int in range(4):
+			var picked := ACT.next_index(4, last, roll)
+			check(picked >= 0 and picked < 4, "variant index in range")
+			check(picked != last or last < 0, "variant never repeats the previous index")
+	check(ACT.next_index(4, 2, 2) == 3, "repeat rolls forward")
+
+	var expected := {
+		"plap_soft": 8, "plap_firm": 8, "plap_rough": 8, "plap_horse": 8,
+		"slide_in": 6, "slide_out": 6, "bed_wood_in": 5, "bed_wood_out": 5,
+		"fabric": 8, "mouth_kiss": 8, "smack": 6, "climax_wet": 4,
+		"moan_soft": 4, "moan_intense": 4, "climax_voice": 3, "anon_breath": 6,
+	}
+	check(CATALOGUE.CUES.size() == expected.size(), "cue count")
+	for cue: String in expected:
+		var spec: Variant = CATALOGUE.CUES.get(cue, {})
+		check(spec is Dictionary, "cue exists: " + cue)
+		if not spec is Dictionary:
+			continue
+		var streams: Array = (spec as Dictionary).get("streams", [])
+		check(streams.size() == int(expected[cue]), "variant count: " + cue)
+		for stream: Variant in streams:
+			check(stream is AudioStream, "stream type: " + cue)
+			if stream is AudioStream:
+				check((stream as AudioStream).get_length() > 0.02, "stream length: " + cue)
+
+	var act: Node = ACT.new()
+	act.setup(false, false)
+	check(not act.foley_enabled() and not act.vocals_enabled(), "both flags off")
+	check((act.get("_pools") as Dictionary).is_empty(), "off/off allocates no players")
+
+	act.setup(true, false)
+	var pools: Dictionary = act.get("_pools")
+	check(act.foley_enabled() and not act.vocals_enabled(), "foley only")
+	check(pools.has("plap_soft"), "foley pool built")
+	check(not pools.has("moan_soft"), "vocal pool not built")
+
+	act.set_enabled(false, true)
+	pools = act.get("_pools")
+	check(not act.foley_enabled() and act.vocals_enabled(), "vocals only")
+	check(not pools.has("plap_soft"), "foley pool cleared")
+	check(pools.has("moan_soft"), "vocal pool built after switch")
+
+	act.set_enabled(false, false)
+	check((act.get("_pools") as Dictionary).is_empty(), "both off clears every pool")
+
+	var parent := Node3D.new()
+	root.add_child(parent)
+	parent.add_child(act)
+	act.setup(true, false)
+	check(act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
+		"foley plap starts a player")
+	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
+		"cooldown blocks an immediate second plap")
+	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
+	check(act.play_smack(Vector3.ZERO), "smack plays")
+	act.set_enabled(false, true)
+	act.play_climax_voice(Vector3.ZERO)
+	check(act.vocals_enabled(), "vocal climax cue accepted after a live toggle")
+	check(not act.play_plap(CATALOG.HORSE, "rough", 0.9, Vector3.ZERO),
+		"foley plap is off after a live toggle")
+	act.stop()
+	parent.remove_child(act)
+	act.free()
+	parent.free()
+
+	# Runtime integration: both flags off leaves the pack node out entirely; either flag on
+	# creates it. _start_audio() also builds the existing fallback players.
+	var runtime: Node = RUNTIME.new()
+	runtime.pony = Node3D.new()
+	runtime.bed = Node3D.new()
+	runtime._features = {"act_foley": false, "act_vocals": false}
+	root.add_child(runtime)
+	runtime._start_audio()
+	check(not runtime.has_node("UnfplapActAudio"), "off/off starts no pack audio node")
+	runtime._stop_audio()
+	runtime._features = {"act_foley": true, "act_vocals": false}
+	runtime._start_audio()
+	check(runtime.has_node("UnfplapActAudio"), "foley on starts the pack audio node")
+	runtime._stop_audio()
+	runtime._features = {"act_foley": false, "act_vocals": true}
+	runtime._start_audio()
+	check(runtime.has_node("UnfplapActAudio"), "vocals on starts the pack audio node")
+	runtime._stop_audio()
+	root.remove_child(runtime)
+	runtime.free()
+
+	print("_RESULT checks=%d failures=%d" % [checks, failures])
+	quit(1 if failures > 0 else 0)

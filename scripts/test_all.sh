@@ -24,6 +24,7 @@ TESTS=(
 	test_voice
 	test_actions
 	test_initiation
+	test_act_audio
 )
 
 failed=0

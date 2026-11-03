@@ -255,8 +255,10 @@ body-relative axes.
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
-- The lean camera owns `player.controls_locked = true` for both poses. Save and restore the
-  prior value at act end.
+- The lean camera holds movement with the game's `kiss_hold` meta and `input.gd`'s key
+  consumption; it deliberately does **not** set `controls_locked`, so the backtick command
+  console can still open during an act. If a future action needs the stronger lock, add a
+  console-safe path instead of setting it globally.
 - `F` is not an act control in pose 1. In pose 2, holding `F` at a full side lean
   (`abs(side) >= POSE2_KISS_LEAN = 0.90`) starts the same base-game kiss; outside an act it
   remains the game's flight key.
@@ -323,7 +325,9 @@ body-relative axes.
   then freeze. Lean yaw/pitch are applied on top.
 - Pose 2 has no separate thrust rock spring. The shared speed-driven surge/bob handles the
   thrust camera; lean yaw/pitch stays on top.
-- Lean owns `controls_locked` for pose 2 too, so Anon does not walk while the camera moves.
+- Pose 2 also holds movement with `kiss_hold`; it leaves `controls_locked` false so the
+  command console remains available. Verify no walking or native interaction leaks when
+  changing this path.
 - On restore, restore the player yaw/pitch to the **captured start values**, not the act base
   aim, and reset `camera.rotation.x` and `.z`.
 
@@ -535,10 +539,9 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   line. `hud_readouts` gates the cue segment, readiness bar and the `Wants`/`You` segments.
 - Readiness never decays passively. Only a disliked touch or talk subtracts; neutral and quiet
   input leave it unchanged.
-- A talk cue is an invitation, not a gate. It only appears for a mare with a non-empty
-  `talk` taste; the HUD cue is “She needs to hear you.” The player's own text/speech is
-  detected through `conversation_director._turn_id` / `_player_text`; the AI still writes her
-  reply.
+- Talk is scored when the player actually speaks. The game's `T` text/mic turn is detected
+  through `conversation_director._turn_id` / `_player_text`; the AI still writes her reply.
+  There is no act talk-invitation line or HUD hint.
 - Do **not** add a thrust debug sub-gate. The per-thrust log is the scoring view.
 
 Read `PREFERENCES.md` for the exact taste schema, readiness rates, cue rules and character
@@ -617,11 +620,15 @@ examples.
 
 - Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
 - A cue line is generated at most once per `cue_gap` (default `12 s`, clamped `8..30`,
-  per character) after the previous cue line was queued. The cue still needs a changed cue text,
-  the 6 s global utterance gap and a free director.
-- A cue line uses the `cue` prompt; a talk invitation uses `talk_cue`. The state line contains
-  pose, mood, taste-axis motion, last touch, last talk, pony climax count and act time; it
-  contains no speed or depth units.
+  per character) after the previous cue line was queued, and the cue must have stayed unchanged
+  for `CUE_STABLE_S = 2 s`. The 18 s global utterance gap and a free director are still needed.
+- Demand cues ("She wants…"/"She needs…") have a separate `DEMAND_LINE_GAP_S = 28 s` budget
+  and a `DEMAND_REPEAT_S = 45 s` lock for the same text, so a flapping preference cannot become
+  a stream of commands.
+- A cue line uses the `cue` prompt. The state line contains pose, mood, taste-axis motion, last
+  touch, last talk, pony climax count and act time; it contains no speed or depth units. The
+  cue prompt gets `CUE_REACTION_NOTE`, which tells the model to phrase the cue as a reaction or
+  preference rather than a repeated command.
 - Every cue line carries a private relationship note and tone. The note uses the friendship/love
   level names, relationship stage, first-time/repeat and current mood; the tone is `tender`,
   `warm`, `ardent`, `open` or `careful`. The functional cue text is unchanged. The prompt tells
@@ -631,13 +638,11 @@ examples.
   exchange. It falls back to the world-context events. Intimacy events and private brain notes
   are not used as the hint. The memory is marked used only after the line is queued.
 - One mod line may be pending at a time. A new line needs an idle director and pony, plus
-  `UTTERANCE_MIN_GAP_S = 6 s` since the previous line started.
+  `UTTERANCE_MIN_GAP_S = 18 s` since the previous line started.
 - The pending slot stays reserved until speech actually stops and a 1 s release hold passes.
   A queued line has a 60 s safety timeout only if it never starts; in-progress speech is never
   invalidated.
-- A talk cue is an invitation, not a gate. If the player answers, the runtime drops the cue's
-  pending line, scores the player's turn and lets the director's reply stand. If not, the
-  invitation expires quietly.
+- The repeat hint contains the last four generated lines. There is no talk-cue line.
 - Each pony climax drops queued act lines but keeps an in-progress one, then queues a unique
   climax reaction. End and inside reactions always queue. Only the cached “Mm.” is used;
   generated moans are parked.
@@ -654,8 +659,8 @@ examples.
 - The native offer hint uses the game's `button_y` icon plus `sex` (no leading dot); without the
   icon it falls back to `Y · sex`.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
-  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, Z/C caress movement, F, mouse right,
-  T and Y; `Y` text
+  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, Z/C caress movement, F, mouse right
+  and Y; `Y` text
   changes by state.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; the previous state is restored on every exit path:
@@ -682,6 +687,9 @@ examples.
 
 ## Debug and testing
 
+- The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
+  player build unlocks it with **Settings → Updates** pressed five times. During an act the
+  mod leaves `player.controls_locked` false, so the console's own lock guard does not block it.
 - `Ctrl+Shift+D`: master DEBUG LOGS toggle; default ON; persists in
   `user://mods/data/unfplap/settings.json`.
 - `F4`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
@@ -695,9 +703,11 @@ examples.
   hover a joint to turn it red, then click to print its bone name, parent, world/local origin,
   rotation, scale and rest.
 - While `debug_logs` is on, **Settings → Unfplap → Debug** exposes a hidden
-  **Trigger sex offer (F4)** button. It uses the aimed mare with the nearest fallback and
-  calls the same `initiation.force()` path as F4; the status label reports the target or gate
-  rejection. Because the settings page pauses the tree, the offer advances after it closes.
+  **Trigger sex offer (F4)** button and a **Pinned act ears** checkbox. The offer uses the
+  aimed mare with the nearest fallback and calls the same `initiation.force()` path as F4; the
+  status label reports the target or gate rejection. Because the settings page pauses the tree,
+  the offer advances after it closes. `act_ear_pin` defaults off; when off the act skips
+  `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - `Alt+7` / `Alt+8`: raise/lower the debug chin pitch by `5°` and log head/chin/snout world
   positions. The `chin_debug.gd` modifier works while idle, lying, standing or during an act;
   when nothing is under the crosshair it targets the nearest mare within `8 m`.

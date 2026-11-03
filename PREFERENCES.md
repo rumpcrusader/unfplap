@@ -149,9 +149,11 @@ overwhelmed   a disliked touch/talk landed recently
 
 - `CLOSE_AT = 65` is only the “she's close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
-- Cue lines are event-driven, not a timer. When the displayed cue changes, a new line can be
-  generated after `cue_gap` seconds (default `12`, per character, clamped `8..30`) and the
-  shared 6 s utterance gap. A quiet or unchanged act may produce no cue line.
+- Cue lines are event-driven, not a timer. When the displayed cue changes, it must stay
+  unchanged for `CUE_STABLE_S = 2 s`; then a new line can be generated after `cue_gap` seconds
+  (default `12`, per character, clamped `8..30`) and the shared 18 s utterance gap. Demand
+  cues get a 28 s demand budget and a 45 s same-text repeat lock. A quiet or unchanged act may
+  produce no cue line.
 - Every cue line gets a private relationship note and tone: friendship/love level, stage,
   first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
   text is unchanged, and the model is not told to repeat specific names.
@@ -159,10 +161,8 @@ overwhelmed   a disliked touch/talk landed recently
   the story journal (a cue-word match, then the most recent player exchange), then older
   world-context events. Intimacy events and private brain notes are skipped. The memory is
   colour, not a script.
-- A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a
-  mare with a non-empty `talk` taste. The HUD cue is “She needs to hear you.” and the player
-  uses `T`. The player's reply is the director's player turn; the runtime drops the cue's
-  pending line and scores the reply.
+- Talk is scored when the player actually uses the game's talk turn. There is no act
+  talk-invitation line or HUD hint.
 
 ## Pony climax
 

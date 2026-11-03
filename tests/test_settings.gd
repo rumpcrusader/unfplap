@@ -65,7 +65,7 @@ func run() -> void:
 	check(str(prompts.get("cue", "")).contains("{relationship}"), "cue prompt has relationship note")
 	check(str(prompts.get("cue", "")).contains("{tone}"), "cue prompt has tone")
 	check(str(prompts.get("cue", "")).contains("{memory}"), "cue prompt has memory hint")
-	check(not str(prompts.get("talk_cue", "")).is_empty(), "talk cue prompt present")
+	check(not (prompts as Dictionary).has("talk_cue"), "talk cue prompt removed")
 
 	var characters := {
 		"fluttershy": {
@@ -117,6 +117,7 @@ func run() -> void:
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
+	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
 	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.FEATURE_DEFAULTS:
 		var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})

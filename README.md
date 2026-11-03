@@ -21,7 +21,6 @@ Desktop only for now
 | `A` / `D`   | Caress her left / right flank in horse pose, including afterglow   |
 | `F` (hold)  | Kiss while fully shoulder-leaning in horse pose                   |
 | Mouse right | Smack her flank during the act                                    |
-| `T`         | Talk to her; a talk cue can make her ask for your voice            |
 | Hold `Y`    | Afterglow after her first climax / stop early / end afterglow     |
 
 ## Features

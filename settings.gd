@@ -62,7 +62,12 @@ const FEATURE_DEFAULTS := {
 	"allow_act_during_cuddle": true,
 	"mute_ponese_audio": true,
 	"settings_tab": true,
+	"act_ear_pin": false,
 }
+
+## Debug-only flags live in FEATURE_DEFAULTS for persistence but are not listed in the normal
+## feature block; the hidden Debug section owns their controls.
+const FEATURE_HIDDEN := ["act_ear_pin"]
 
 ## Human labels and help for the injected settings tab. `live` flags apply without a new act.
 const FEATURE_INFO := {
@@ -102,6 +107,10 @@ const FEATURE_INFO := {
 	"settings_tab": {
 		"label": "Unfplap settings tab",
 		"help": "Show the Unfplap settings page. Turning this off hides it on the next settings open; edit settings.json to restore it.",
+	},
+	"act_ear_pin": {
+		"label": "Pinned act ears",
+		"help": "Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.",
 	},
 }
 
@@ -147,7 +156,6 @@ const CARESS_IGNORE_REGIONS := ["tail", "mane", "wing", "leg"]
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
 	"cue": "During sex with Anon, your body and voice show: {cue}. Private relationship note: {relationship}. Tone: {tone}. {memory} Let the relationship and memory color the line, but keep the cue's meaning. Do not mention relationship labels, levels, numbers, or that you are following a note. Do not invent a memory beyond the one given. Say ONE short line in your own voice, at most 14 words. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your taste: {taste}. Do not repeat: {recent}.",
-	"talk_cue": "During sex with Anon, you want to hear his voice. Ask him ONE short question in your own voice, at most 10 words. Begin with [whispering]. No narration, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
 }
 
 const DEFAULT_TEMPLATE := {

@@ -22,6 +22,9 @@ func run() -> void:
 	check(UTTER.ready(12.0, 0.0, 12.0), "cue gap ready at the boundary")
 	check(not UTTER.ready(11.9, 0.0, 12.0), "cue gap blocks before the boundary")
 	check(UTTER.ready(30.0, 15.0, 12.0), "cue gap uses the per-mare value")
+	check(UTTER.is_demand("She wants it firmer."), "demand cue classified")
+	check(UTTER.is_demand("She needs you to move."), "need cue classified")
+	check(not UTTER.is_demand("She likes that."), "positive cue is not a demand")
 
 	var text := UTTER.format("a {state} b {taste} c {cue} d {recent} e {missing}", {
 		"state": "S", "taste": "T", "cue": "C", "recent": "R",

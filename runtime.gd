@@ -57,16 +57,21 @@ const TALK_COOLDOWN_S := 8.0
 ## A liked touch/talk briefly makes real thrusts land harder.
 const RECEPTIVE_S := 8.0
 const RECEPTIVE_BOOST := 1.25
-## A talk cue is an invitation, not a gate. It expires quietly.
-const TALK_CUE_GAP_S := 20.0
-const TALK_CUE_WAIT_S := 8.0
 const CUE_OVERRIDE_S := 2.5
 const OVERWHELM_S := 1.2
 ## Readiness text clears after this long without an inward thrust.
 const STROKE_MEMORY_S := 1.2
 ## Mod-owned generated lines wait this long after the previous line starts, even when the
 ## director is free. Other systems keep their own scheduling.
-const UTTERANCE_MIN_GAP_S := 6.0
+const UTTERANCE_MIN_GAP_S := 18.0
+## A changed cue must stay stable before it can become a line, so thrust variation does not
+## fire a new request every stroke.
+const CUE_STABLE_S := 2.0
+## Demand lines ("She wants it…"/"She needs…") get their own budget and repeat lock.
+const DEMAND_LINE_GAP_S := 28.0
+const DEMAND_REPEAT_S := 45.0
+## Appended to cue prompts to stop the model turning every cue into a command.
+const CUE_REACTION_NOTE := "\nDo not turn the cue into a repeated command; say it as your own reaction or preference."
 ## Safety timeout for a queued line that never starts. In-progress speech is never timed out.
 const UTTERANCE_QUEUE_TIMEOUT_S := 60.0
 ## Keep the line slot reserved briefly after speech stops, so a split TTS reply cannot be
@@ -294,10 +299,10 @@ var source := ""
 var bed: Node3D
 ## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
 var satisfaction := 0.0
-## Public for the HUD: mood, a short third-person cue and an active talk invitation.
+## Public for the HUD: mood and a short third-person cue.
 var mood := "warming"
 var cue := ""
-var talk_wait := 0.0
+
 ## Public for the HUD/debug: how many pony climaxes this act has had.
 var pony_climaxes := 0
 ## Public: penetration 0..1 and the same orientation flag used by mouse input.
@@ -368,9 +373,13 @@ var _last_thrust_score_at := -1000.0
 var _receptive_until := 0.0
 var _last_talk_at := -1000.0
 var _last_talk_turn := -1
-var _last_talk_cue_at := -1000.0
 var _last_cue_text := ""
+var _last_cue_seen := ""
+var _cue_changed_at := 0.0
 var _last_cue_line_at := -1000.0
+var _last_demand_text := ""
+var _last_demand_at := -1000.0
+var _last_blocked_cue := ""
 var _cue_gap := 12.0
 var _used_memory_ids: Array[String] = []
 var _peak_satisfaction := 0.0
@@ -819,10 +828,10 @@ func _act_presentation(delta: float) -> void:
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
 		boop.call("sustain_blush", 1.0)
-	# Reuse the boop-fluster ear response: it pins the ears back along the skull and also keeps
-	# the nose blush strong. Our stare() calls still own the eyelids.
+	# The optional debug pin reuses the boop-fluster response: it pins the ears back along the
+	# skull. Off keeps normal ears; the blush and stare() eyelids are independent.
 	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("fluster"):
+	if expressions != null and expressions.has_method("fluster") and _feature("act_ear_pin"):
 		expressions.call("fluster", 1.2)
 	if not _winged:
 		return
@@ -1712,7 +1721,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
-	talk_wait = 0.0
 	_y_hold = 0.0
 	_y_hold_ready = false
 	_y_hold_fired = false
@@ -2423,10 +2431,13 @@ func _reset_thrust_state() -> void:
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
 	_last_talk_at = -1000.0
-	talk_wait = 0.0
-	_last_talk_cue_at = -1000.0
 	_last_cue_text = ""
+	_last_cue_seen = ""
+	_cue_changed_at = 0.0
 	_last_cue_line_at = -1000.0
+	_last_demand_text = ""
+	_last_demand_at = -1000.0
+	_last_blocked_cue = ""
 	_used_memory_ids.clear()
 	_peak_satisfaction = 0.0
 	_act_both_matches = 0
@@ -2723,11 +2734,24 @@ func _readiness_tick(delta: float) -> void:
 	else:
 		_cue_override = ""
 		cue = _base_cue(intensity_match, pattern_match)
-	if talk_wait <= 0.0 and cue != _last_cue_text \
+	if cue != _last_cue_seen:
+		_last_cue_seen = cue
+		_cue_changed_at = now
+	var demand := UTTERANCE.is_demand(cue)
+	var blocked := demand and _demand_line_blocked(cue, now)
+	if blocked and _last_blocked_cue != cue:
+		_last_blocked_cue = cue
+		_log("cue blocked demand=%s gap=%.1f repeat=%.1f" % [
+			cue, DEMAND_LINE_GAP_S, DEMAND_REPEAT_S])
+	if not blocked and cue != _last_cue_text \
+			and now - _cue_changed_at >= CUE_STABLE_S \
 			and UTTERANCE.ready(now, _last_cue_line_at, _cue_gap) \
 			and _queue_utterance("cue", "cue", "cue"):
 		_last_cue_text = cue
 		_last_cue_line_at = now
+		if demand:
+			_last_demand_text = cue
+			_last_demand_at = now
 
 
 func _mood_for() -> String:
@@ -2762,6 +2786,16 @@ func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
 	if intensity_match and pattern_match:
 		return "She likes that."
 	return "She's warming up."
+
+
+## Demand lines get their own budget so a flapping preference cue cannot turn into a stream of
+## commands. Non-demand lines only obey the shared utterance gap.
+func _demand_line_blocked(text: String, now: float) -> bool:
+	if not UTTERANCE.is_demand(text):
+		return false
+	if now - _last_demand_at < DEMAND_LINE_GAP_S:
+		return true
+	return text == _last_demand_text and now - _last_demand_at < DEMAND_REPEAT_S
 
 
 func _set_cue_override(text: String, seconds := CUE_OVERRIDE_S) -> void:
@@ -2811,9 +2845,6 @@ func _on_talk(text: String) -> void:
 		return
 	_last_talk_at = now
 	_last_talk = category
-	if talk_wait > 0.0:
-		talk_wait = 0.0
-		_cancel_pending_utterance()
 	if category in _taste.get("talk", []):
 		_act_liked_talk += 1
 		if satisfaction < ASSIST_CAP:
@@ -2834,8 +2865,8 @@ func _on_talk(text: String) -> void:
 
 
 ## Watch the director for a new player turn. No new control: the game's T key already
-## produces the text/mic turn. A talk cue is an invitation, not a gate.
-func _talk_tick(delta: float) -> void:
+## produces the text/mic turn. Talk is scored when it actually happens.
+func _talk_tick(_delta: float) -> void:
 	if state != State.ACTIVE:
 		return
 	var director := _director()
@@ -2847,11 +2878,6 @@ func _talk_tick(delta: float) -> void:
 			if not text.strip_edges().is_empty():
 				_last_player_talk = text.strip_edges()
 				_on_talk(text)
-	if talk_wait > 0.0:
-		talk_wait = maxf(0.0, talk_wait - delta)
-		if talk_wait <= 0.0:
-			_set_cue_override("She was waiting for you.")
-	_maybe_talk_cue()
 
 
 func _remember_talk_turn() -> void:
@@ -2860,19 +2886,6 @@ func _remember_talk_turn() -> void:
 		_last_talk_turn = -1
 		return
 	_last_talk_turn = int(director.get("_turn_id"))
-
-
-func _maybe_talk_cue() -> void:
-	if _taste.get("talk", []).is_empty() or mood != "wanting":
-		return
-	var now := _now_s()
-	if talk_wait > 0.0 or now - _last_talk_cue_at < TALK_CUE_GAP_S:
-		return
-	if not _queue_utterance("talk_cue", "talk_cue", "talk_cue"):
-		return
-	talk_wait = TALK_CUE_WAIT_S
-	_last_talk_cue_at = now
-	_set_cue_override("She needs to hear you.")
 
 
 ## True while the director or the pony is actually speaking. Unlike
@@ -2938,6 +2951,8 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 		values["memory"] = RELATIONSHIP_CUE.memory_line(str(memory.get("text", "")))
 		memory_id = str(memory.get("id", ""))
 	var purpose := UTTERANCE.format(template, values)
+	if kind == "cue":
+		purpose += CUE_REACTION_NOTE
 	_utterance_serial += 1
 	var key := "%s:%d" % [key_suffix, _utterance_serial]
 	var event_id := _event_id
@@ -3023,7 +3038,7 @@ func _recent_lines() -> String:
 	if not spoken is Array or (spoken as Array).is_empty():
 		return ""
 	var recent: Array[String] = []
-	var start := maxi(0, (spoken as Array).size() - 2)
+	var start := maxi(0, (spoken as Array).size() - 4)
 	for index in range(start, (spoken as Array).size()):
 		recent.append(str((spoken as Array)[index]))
 	return " | ".join(recent)
@@ -3218,7 +3233,6 @@ func _climax() -> void:
 	_climax_hearts_burst_at(_dock_point())
 	_set_face(0.3, CLIMAX_LIDS)
 	_end_act_lines(true)
-	talk_wait = 0.0
 	if is_instance_valid(main):
 		MEMORY.climax_event(main.game, _id, _display_name, _event_id, pony_climaxes)
 	_queue_climax_reaction()
@@ -3340,7 +3354,6 @@ func _finish_climax() -> void:
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
-	talk_wait = 0.0
 	_overwhelmed = 0.0
 	_last_intensity = ""
 	_last_pattern = ""
@@ -5577,8 +5590,9 @@ func _apply_pose2_lean_look() -> void:
 			view.rotation.x = pitch
 
 
-## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
-## start couch actions while the shot is active. The previous value is restored at act end.
+## Keep the body unlocked so the game's command console can still open with ` during an act.
+## Movement, jump, rest and interactions are held by input.gd's kiss_hold path instead;
+## controls_locked would make command_console.gd refuse the backtick key.
 func _apply_free_camera_lock() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -5586,7 +5600,7 @@ func _apply_free_camera_lock() -> void:
 	if not _controls_locked_by_camera:
 		_controls_locked_saved = bool(body.get("controls_locked"))
 		_controls_locked_by_camera = true
-	body.set("controls_locked", true)
+	# Deliberately do not set controls_locked; see comment above.
 
 
 func _release_free_camera_lock() -> void:

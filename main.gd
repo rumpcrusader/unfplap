@@ -314,6 +314,8 @@ func _inject_settings_page_now(page: Node) -> void:
 	list.add_theme_constant_override("separation", 8)
 	scroll_box.add_child(list)
 	for key: String in SETTINGS.FEATURE_DEFAULTS:
+		if key in SETTINGS.FEATURE_HIDDEN:
+			continue
 		var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
 		var block := VBoxContainer.new()
 		block.add_theme_constant_override("separation", 2)
@@ -698,6 +700,13 @@ func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
+	var ear_pin := CheckButton.new()
+	ear_pin.text = "Pinned act ears"
+	ear_pin.button_pressed = SETTINGS.feature("act_ear_pin")
+	ear_pin.toggled.connect(func(on: bool) -> void:
+		SETTINGS.save_feature("act_ear_pin", on)
+		_apply_live_settings())
+	list.add_child(ear_pin)
 	var status := Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", font_size - 4)

@@ -7,6 +7,11 @@ static func ready(now: float, last: float, gap: float) -> bool:
 	return now - last >= gap
 
 
+## A demand cue asks Anon to change something. These get the longer repeat budget.
+static func is_demand(text: String) -> bool:
+	return text.begins_with("She wants") or text.begins_with("She needs")
+
+
 static func format(template: String, values: Dictionary) -> String:
 	var regex := RegEx.new()
 	regex.compile("\\{([a-z_]+)\\}")

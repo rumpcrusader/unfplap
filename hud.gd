@@ -113,7 +113,6 @@ func _build_controls() -> void:
 	_add_hint_row("caress_move_right", "", "C", "Caress movement right")
 	_add_hint_row("kiss", "key_f", "F", "Hold to kiss at full lean")
 	_add_hint_row("smack", "mouse_right", "", "Smack flank")
-	_add_hint_row("talk", "", "T", "Answer her when asked")
 	_y_label = _add_hint_row("y", "button_y", "Y", "")
 
 
@@ -270,5 +269,5 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 			else:
 				show = key == "y"
 		elif state == STATE_CLIMAX:
-			show = key != "talk"
+			show = true
 		control.visible = show

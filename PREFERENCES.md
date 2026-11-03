@@ -16,8 +16,9 @@ choice. Camera/pose mechanics and aftercare are outside it.
   The `0.15` floor lets a slow full-depth stroke read as soft. Average speed drives intensity;
   peak speed is logged and capped at `2 × average speed`, but one fast sample cannot saturate
   the score by itself.
-- Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned jiggle,
-  camera rock and wing response while slow or shallow strokes stay lighter.
+- Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned jiggle
+  and wing response while slow or shallow strokes stay lighter. The camera is on its own
+  speed-driven channel, not this impact value.
 - `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses
   afterglow separately. Readiness now rises in discrete chunks from real thrusts, not on a
   passive timer.
@@ -53,21 +54,19 @@ apply live during an act.
 `Settings → Unfplap` has a **Thrust** section:
 
 - mouse-up direction;
-- sensitivity in pixels per full thrust (`240…1200`, default `600`);
-- opt-in vertical camera bob on each thrust;
-- opt-in forward/back camera motion on each thrust.
+- sensitivity in pixels per full thrust (`240…1200`, default `600`).
 
-It also has a **Camera rock** section:
+It also has a **Camera thrust** section with two `0…100%` amounts, both default `0`:
 
-- impulse, stiffness, damping and maximum angle;
-- pitch share and roll share. Roll defaults to `0.0`, so the thrust rock is pitch-only;
-- the default maximum angle is `0.0`, which disables the spring until it is raised.
+- **Surge** — forward camera travel;
+- **Bob** — vertical camera dip.
 
-There are no Save buttons. Thrust and camera-rock controls write their own blocks immediately
-and apply live during an act.
+Both follow the filtered thrust **speed**, not depth, with one smooth critically damped
+response. There are no Save buttons. Thrust and camera-thrust controls write their own blocks
+immediately and apply live during an act.
 
-The **Act presentation** section has **Glance-back speed**, a `0.25…3.0×` multiplier for the
-head-back glance ease. Higher is faster; it applies live.
+The **Act presentation** section has **Glance-back speed** (`0.25…3.0×`), the **Missionary
+camera** offset and **Anon torso lean** (`0…20°`, pose 2). All apply live.
 
 The **Character taste** section exposes one pony selector and one form:
 
@@ -213,7 +212,7 @@ arrive late. `event_prompts.stay_close` is its per-character override.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.
 - Afterglow shows `❤ N/5 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  horse keeps forward/back, Q/E reach, A/D caress, F kiss, H and Y.
+  horse keeps forward/back, Q/E reach, A/D caress, F kiss and Y.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
 - `debug_logs` gates the detailed overlay, not the HUD.

@@ -136,11 +136,12 @@ func _input(event: InputEvent) -> void:
 		if key.is_action("move_jump") or key.physical_keycode == KEY_SPACE:
 			get_viewport().set_input_as_handled()
 			return
+		# H is the game's hug/deep-kiss key. Keep it consumed for the whole act even though the
+		# mod no longer binds it, or a hug release can end the act's base kiss.
 		if key.physical_keycode == KEY_H:
-			runtime.call("toggle_lean_return")
 			get_viewport().set_input_as_handled()
 			return
-		if state == 4: # AFTERGLOW: only Y / lean / caress / kiss / H are live
+		if state == 4: # AFTERGLOW: only Y / lean / caress / kiss are live
 			if key.is_action("stand_up") or key.physical_keycode in [
 					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T]:
 				get_viewport().set_input_as_handled()

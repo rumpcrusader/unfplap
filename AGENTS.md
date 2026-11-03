@@ -73,9 +73,9 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 8, `SETTINGS` 94, `SOURCE_HYGIENE` 46 checks / 49 files,
+- Current passing state: `CATALOG` 8, `SETTINGS` 85, `SOURCE_HYGIENE` 46 checks / 49 files,
   `ROTATION` 8, `THRUST` 39, `PREFERENCES` 38, `UTTERANCE` 12, `RUNTIME_THRUST` 22,
-  `AFTERGLOW` 19, `VOICE` 9, `ACTIONS` 91, `INITIATION` 15.
+  `AFTERGLOW` 19, `VOICE` 9, `ACTIONS` 86, `INITIATION` 15.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
   ```bash
@@ -215,13 +215,21 @@ body-relative axes.
   cancels the same translation on the pelvis. The hips stay planted behind her rump while the
   torso hinges over her, instead of the whole body sliding forward and clipping. Pull-back
   still moves the whole body away.
-- Experiment: `ANON_THRUST_SWAY_M = 0.02` moves the pelvis back on the inward stroke, so Anon's
-  chest/upper body travels forward and back with the thrust.
-- The Anon hip/lean use `_anon_thrust_phase`, not raw mouse pixels. Inward strokes attack from
-  live stroke speed and strength (`ANON_THRUST_ATTACK = 7`, speed ref `3.0`, speed clamp
-  `0.6…1.8`, strength floor `0.45`); outward strokes use the damped return spring
-  (`ANON_THRUST_STIFFNESS = 55`, `ANON_THRUST_DAMPING = 11`). The phase is clamped `0…1`, so
-  `THRUST_MAX_M = 0.045` and `ANON_THRUST_SWAY_M = 0.02` still bound every frame.
+- `ANON_THRUST_SWAY_M = 0.02` moves the pelvis back on the inward stroke, so Anon's chest and
+  upper body travel forward and back with the thrust.
+- The hip is **depth-driven**. `_hip_phase` is the mouse `depth` low-passed by
+  `HIP_SMOOTH_S = 0.04 s`; `apply_anon_thrust()` moves the hip by
+  `THRUST_MAX_M = 0.045 * body_scale * phase`, and `apply_anon_lean()` counter-moves the pelvis
+  by `ANON_THRUST_SWAY_M * phase * lean_scale`. There is no speed/strength attack and no return
+  spring.
+- The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
+  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `_camera_thrust_tick()` follows it with one critically
+  damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
+  outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
+  toward her on the inward stroke and rises on the return.
+- `presentation.torso_angle_deg` (`0…20°`, default `0`) hinges Anon's upper body forward over
+  her. `apply_anon_lean()` counters the hip and pins the feet; `apply_camera_motion()` moves the
+  head/camera along the spine arc (`ANON_TORSO_LEN_M = 0.65`). It applies live.
 - Pose-2 palms are scaled on the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`,
   other presets `1.0`. `palm_scale.gd` runs after BodyIK and restores the cached bone scales in
   `_remove_anon_thrust()` on every act exit. Marker scaling would be discarded by the IK solver.
@@ -229,14 +237,13 @@ body-relative axes.
 - The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at
   `LEAN_RELEASE = 0.60`. The action is latched while above release.
-- Hold mode is the default at every act start. A released lean holds its position until the
-  player leans the other way or the act ends; `H` turns auto-return on or off for the current
-  act only.
-- With `idle_camera_sway` enabled (default off) the camera lean gets a small, slow rocking
-  offset (`0.010` forward / `0.0084` side, clamped inside `-1…1`). Hold mode also latches A/D
-  caress: tap once to keep rubbing after release, tap again to stop. Pressing `S` in hold mode
-  arms a gradual side return, so the shoulder roll decays to neutral without leaning the other
-  way.
+- The lean always holds a released position. `_lean_step()` only ramps toward a pressed target;
+  the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
+  return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
+- With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow rocking offset
+  (`0.010` forward / `0.0084` side, clamped inside `-1…1`). A/D caress always latches: tap once
+  to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
+  the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
 - The lean camera owns `player.controls_locked = true` for both poses. Save and restore the
   prior value at act end.
@@ -271,9 +278,9 @@ body-relative axes.
   `0.45 * body_scale` distance. Aiming at the shot camera (now behind her neck) demanded a
   half-turn and snapped her head from side to side.
 - Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
-  extra action. Pose 1 uses the same camera bob/motion and camera-rock spring as pose 2, plus a
-  `POSE1_BED_MOTION = 0.5` fraction of the thrust travel along the mattress toward her head. The
-  rock is pitch-only by default (`roll_ratio = 0`); the side-lean roll remains separate.
+  extra action. Pose 1 uses the same speed-driven surge/bob as pose 2; the surge runs along the
+  mattress toward her head, while the bob moves the view up at her face on the inward stroke.
+  The side-lean roll remains separate.
 - Pose 1 body motion is `prone_sway` (`pose1_body_motion`), not the standing `body_sway`
   (`pose2_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.
@@ -290,11 +297,8 @@ body-relative axes.
   `_stand_eye`/`_eye_height`; do not teleport the rig.
 - Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start,
   then freeze. Lean yaw/pitch are applied on top.
-- Pose-2 camera has a pitch/roll rock spring on each thrust. Its constants are persisted in the
-  `camera_rock` settings block and read once per act: `impulse 0.50`, `stiffness 30`,
-  `damping 1`, `limit 0.0 rad`, `pitch_ratio 1.0`, `roll_ratio 0.0`. The spring is
-  pitch-only and the default limit disables it; the settings tab exposes all six values and
-  applies them live.
+- Pose 2 has no separate thrust rock spring. The shared speed-driven surge/bob handles the
+  thrust camera; lean yaw/pitch stays on top.
 - Lean owns `controls_locked` for pose 2 too, so Anon does not walk while the camera moves.
 - On restore, restore the player yaw/pitch to the **captured start values**, not the act base
   aim, and reset `camera.rotation.x` and `.z`.
@@ -408,7 +412,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
   (both hands 4 cm wider), Same Height and Hoers step up from there; those choose where on the
   body to caress, then the contact query snaps the palm to the coat. Both A and D can run at
-  once, one hand per side. In hold mode an A/D tap latches that hand until the next tap. The
+  once, one hand per side. An A/D tap latches that hand until the next tap. The
   centre interpolates with the lean: backward lean moves it toward the rump top as soon as it
   passes zero (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly, full
   lean = the exact same shoulder contact point used by the Q/E reach. The circle radius scales
@@ -430,16 +434,15 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - A right lean (`side > 0`) selects the left cheek; a left lean selects the right cheek; exactly
   centered picks one of the two real cheek points at random. There is no rump target.
 
-### Bob and restore
+### Thrust camera and restore
 
-- Climax bob is untouched by camera mode.
-- Camera bob and forward/back motion are separate opt-ins through `thrust.camera_bob` and
-  `thrust.camera_motion` (both default `false`). Each gates its own thrust and climax component.
-- Vertical bob intensity is doubled: `BOB_THRUST_IMPULSE = 2.30 / 3` and
-  `BOB_CLIMAX_AMPLITUDE = 0.025 / 3`; forward penetration travel is `BOB_FORWARD_IMPULSE = 1.80 / 4`
-  (`0.45`, 50% more).
-- Pose 1 and pose 2 use the same vertical bob and thrust camera rock. Pose 1 also slides
-  `POSE1_BED_MOTION = 0.5` of the motion along the mattress toward her head.
+- The camera thrust is two amounts in `camera_thrust`: `surge` and `bob`, both `0…1` and default
+  `0`. They scale `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
+- Both follow the filtered signed depth speed with one critically damped response. No impulses,
+  no per-stroke kick and no camera rock.
+- Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
+- Pose 1 and pose 2 use the same surge/bob. Pose 1 sends the surge along the mattress toward her
+  head; pose 2 sends it along the camera forward.
 - Restore order is load-bearing:
   1. release the free-camera control lock;
   2. remove the Anon thrust wrapper and restore any pose-2 palm scale;
@@ -518,8 +521,9 @@ examples.
 - During the act the quick-slot inventory HUD is hidden and restored at end.
 - `kiss_hold` owns movement hold; `pony_kisser` physics is paused so it cannot remove it.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
-  `F` hold kiss in pose 2, mouse right smacks, `H` toggles lean hold. They are available in
-  `ACTIVE`, `CLIMAX`, and the horse `AFTERGLOW`; `Y` is the context start/end control.
+  `F` hold kiss in pose 2, mouse right smacks. They are available in `ACTIVE`, `CLIMAX`, and the
+  horse `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's hug/deep-kiss key;
+  the act consumes it without binding it so a hug cannot end the act's kiss.
 - `Y` starts an act when idle and is a `0.35 s` hold while active, matching bridal-carry
   initiation. A tap does nothing. In `ACTIVE`, hold Y cancels with 0 pony climaxes and enters
   afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends afterglow; Y is ignored
@@ -596,7 +600,7 @@ examples.
 - The native offer hint uses the game's `button_y` icon plus `sex` (no leading dot); without the
   icon it falls back to `Y · sex`.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
-  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, F, mouse right, H, T and Y; `Y` text
+  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, F, mouse right, T and Y; `Y` text
   changes by state.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; the previous state is restored on every exit path:
@@ -611,7 +615,7 @@ examples.
 - The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
   (default `true`). The bar has no ticks. The hearts remain when readouts are off.
 - Afterglow shows `❤ N/5 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  horse keeps forward/back, Q/E reach, A/D caress, F kiss, H and Y, while thrust, smack and talk
+  horse keeps forward/back, Q/E reach, A/D caress, F kiss and Y, while thrust, smack and talk
   are hidden. The horse close hint is independent of `hud_readouts`.
 - Love XP and happy mood are granted once by `MEMORY.commit_climax()` at afterglow.
   `MEMORY.stay_close_reward()` may add a small extra romance, happy mood and private thought
@@ -682,8 +686,7 @@ examples.
 | Flag | Default | Gates |
 |---|---|---|
 | `hud_readouts` | `true` | mood cue, readiness bar and `Wants`/`You` segments; hearts and the close prompt stay |
-| `thrust_camera_rock` | `true` | pose-2 thrust pitch/roll spring; roll is off by default |
-| `idle_camera_sway` | `true` | slow idle breathing in hold mode; false = no camera drift without input |
+| `idle_camera_sway` | `true` | slow idle breathing when not leaning; false = no camera drift without input |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `pose2_body_sway` | `true` | pose-2 upper-body sway modifier |
 | `pose1_body_motion` | `true` | pose-1 torso slide and head nod on the thrust |
@@ -695,20 +698,18 @@ examples.
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. There are no migration shims; unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `600`; `thrust.camera_bob` and
-  `thrust.camera_motion` default to `false`.
-- `camera_rock` stores `impulse`, `stiffness`, `damping`, `limit` (radians), `pitch_ratio`
-  and `roll_ratio`. Defaults: `0.50`, `30`, `1`, `0.0`, `1.0`, `0.0`. Roll is off by default;
-  the zero limit disables the spring.
+  `thrust.pixels_per_full` defaults to `600`.
+- `camera_thrust` stores `surge` and `bob`, both `0…1` and default `0`. They scale the
+  speed-driven camera travel and apply live during an act.
 - Feature flags are one ungrouped list. Each row uses `FEATURE_INFO` for a human label and a
   help line. Edits apply live during an act; `live` flags also apply immediately outside one.
   `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
-- The injected settings tab has a **Thrust** section (orientation, sensitivity `240…1200`,
-  camera bob, camera motion), a **Camera rock** section (all six constants, max angle shown in
-  degrees), an **Act presentation** section (glance-back speed and missionary camera framing)
-  and **Character taste**. There
-  are no Save buttons: each control writes its own block and calls `apply_live_settings()` so
-  the active act updates immediately.
+- The injected settings tab has a **Thrust** section (orientation, sensitivity `240…1200`), a
+  **Camera thrust** section (surge and bob, `0…100%`), an **Act presentation** section
+  (glance-back speed, missionary camera framing and Anon torso lean) and **Character
+  taste**. There are no Save
+  buttons: each control writes its own block and calls `apply_live_settings()` so the active
+  act updates immediately.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `taste` (`recovery` included),

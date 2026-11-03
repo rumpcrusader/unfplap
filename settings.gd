@@ -1,11 +1,11 @@
 extends RefCounted
 ## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, thrust
-## controls, camera-rock constants, and the default/per-character templates. A character
+## controls, camera-thrust amounts, and the default/per-character templates. A character
 ## inherits every field it does not override.
 ##
 ## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
-## `thrust` holds the mouse-control settings, `camera_rock` holds the rock spring and
-## `presentation` holds shared act timings such as the glance-back speed.
+## `thrust` holds the mouse-control settings, `camera_thrust` holds the two camera amounts and
+## `presentation` holds shared act settings such as the glance-back speed.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -54,7 +54,6 @@ const CHARACTER_NAMES := {
 ## Feature switches. Keep this as the single list; runtime reads it once per act.
 const FEATURE_DEFAULTS := {
 	"hud_readouts": true,
-	"thrust_camera_rock": true,
 	"idle_camera_sway": true,
 	"captions_on_top": true,
 	"pose2_body_sway": true,
@@ -71,13 +70,9 @@ const FEATURE_INFO := {
 		"label": "HUD readouts",
 		"help": "Show the mood cue, readiness bar and Wants/You line. Hearts and the afterglow close prompt stay visible.",
 	},
-	"thrust_camera_rock": {
-		"label": "Thrust camera rock",
-		"help": "Pitch the camera on each thrust. Tuning is under Camera rock.",
-	},
 	"idle_camera_sway": {
 		"label": "Idle camera sway",
-		"help": "Add a slow sway when lean auto-return is off.",
+		"help": "Add a slow sway when you are not leaning.",
 	},
 	"captions_on_top": {
 		"label": "Captions on top",
@@ -110,23 +105,20 @@ const FEATURE_INFO := {
 	},
 }
 
-## Camera-rock spring. `impulse` is the kick in radians per second; `limit` is the maximum
-## absolute angle in radians. `roll_ratio` defaults to zero so the thrust rock is pitch-only;
-## set it back toward 1.0 to bring the roll back.
-const CAMERA_ROCK_DEFAULTS := {
-	"impulse": 0.50,
-	"stiffness": 30.0,
-	"damping": 1.0,
-	"limit": 0.0,
-	"pitch_ratio": 1.0,
-	"roll_ratio": 0.0,
+## Camera-thrust amounts, 0..1. `surge` is the forward speed-driven travel; `bob` is the
+## vertical speed-driven travel. Both are read live and scale the runtime amplitudes.
+const CAMERA_THRUST_DEFAULTS := {
+	"surge": 0.0,
+	"bob": 0.0,
 }
 
 ## Shared act presentation. `glance_back_speed` is a multiplier; higher is faster.
 ## `pose1_camera` moves the missionary shot toward her torso and lower by this many metres.
+## `torso_angle_deg` hinges Anon's pose-2 upper body forward over her.
 const PRESENTATION_DEFAULTS := {
 	"glance_back_speed": 1.0,
 	"pose1_camera": 0.12,
+	"torso_angle_deg": 0.0,
 }
 
 const DEFAULT_ACT_PROMPTS := {
@@ -429,27 +421,20 @@ static func thrust_controls() -> Dictionary:
 	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
 	var pixels := 600.0
-	var camera_bob := false
-	var camera_motion := false
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
 		pixels = float((block as Dictionary).get("pixels_per_full", 600.0))
-		camera_bob = bool((block as Dictionary).get("camera_bob", false))
-		camera_motion = bool((block as Dictionary).get("camera_motion", false))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
 		"orientation": orientation,
 		"up": orientation == "up",
 		"pixels_per_full": clampf(pixels, 240.0, 1200.0),
-		"camera_bob": camera_bob,
-		"camera_motion": camera_motion,
 	}
 
 
 ## Save only the thrust block. Other settings and character overrides are preserved.
-static func save_thrust_controls(up: bool, pixels_per_full: float,
-		camera_bob: bool, camera_motion: bool) -> void:
+static func save_thrust_controls(up: bool, pixels_per_full: float) -> void:
 	var data := _read()
 	var block: Variant = data.get("thrust", {})
 	if not block is Dictionary:
@@ -457,50 +442,34 @@ static func save_thrust_controls(up: bool, pixels_per_full: float,
 	var controls: Dictionary = block
 	controls["orientation"] = "up" if up else "down"
 	controls["pixels_per_full"] = clampf(pixels_per_full, 240.0, 1200.0)
-	controls["camera_bob"] = camera_bob
-	controls["camera_motion"] = camera_motion
 	data["thrust"] = controls
 	_write(data)
 
 
-## One read for the camera-rock constants; the runtime reads it once per act.
-static func camera_rock_controls() -> Dictionary:
+## The two camera-thrust amounts. Read live; 0 disables that channel.
+static func camera_thrust_controls() -> Dictionary:
 	var data := _read()
-	var block: Variant = data.get("camera_rock", {})
-	var out: Dictionary = CAMERA_ROCK_DEFAULTS.duplicate(true)
+	var block: Variant = data.get("camera_thrust", {})
+	var out: Dictionary = CAMERA_THRUST_DEFAULTS.duplicate(true)
 	if block is Dictionary:
 		for key: String in out:
 			if (block as Dictionary).has(key):
 				out[key] = float((block as Dictionary)[key])
-	out["impulse"] = clampf(float(out["impulse"]), 0.0, 2.0)
-	out["stiffness"] = clampf(float(out["stiffness"]), 5.0, 200.0)
-	out["damping"] = clampf(float(out["damping"]), 0.0, 50.0)
-	out["limit"] = clampf(float(out["limit"]), 0.0, 0.35)
-	out["pitch_ratio"] = clampf(float(out["pitch_ratio"]), 0.0, 2.0)
-	out["roll_ratio"] = clampf(float(out["roll_ratio"]), 0.0, 2.0)
+	out["surge"] = clampf(float(out["surge"]), 0.0, 1.0)
+	out["bob"] = clampf(float(out["bob"]), 0.0, 1.0)
 	return out
 
 
-## Save only the camera-rock block. Other settings and character overrides are preserved.
-static func save_camera_rock_controls(values: Dictionary) -> void:
+## Save only the camera-thrust block. Other settings and character overrides are preserved.
+static func save_camera_thrust_controls(values: Dictionary) -> void:
 	var data := _read()
-	var block: Variant = data.get("camera_rock", {})
-	if not block is Dictionary:
-		block = {}
-	var controls: Dictionary = block
-	controls["impulse"] = clampf(float(values.get(
-		"impulse", CAMERA_ROCK_DEFAULTS["impulse"])), 0.0, 2.0)
-	controls["stiffness"] = clampf(float(values.get(
-		"stiffness", CAMERA_ROCK_DEFAULTS["stiffness"])), 5.0, 200.0)
-	controls["damping"] = clampf(float(values.get(
-		"damping", CAMERA_ROCK_DEFAULTS["damping"])), 0.0, 50.0)
-	controls["limit"] = clampf(float(values.get(
-		"limit", CAMERA_ROCK_DEFAULTS["limit"])), 0.0, 0.35)
-	controls["pitch_ratio"] = clampf(float(values.get(
-		"pitch_ratio", CAMERA_ROCK_DEFAULTS["pitch_ratio"])), 0.0, 2.0)
-	controls["roll_ratio"] = clampf(float(values.get(
-		"roll_ratio", CAMERA_ROCK_DEFAULTS["roll_ratio"])), 0.0, 2.0)
-	data["camera_rock"] = controls
+	var block: Variant = data.get("camera_thrust", {})
+	var controls: Dictionary = block if block is Dictionary else {}
+	controls["surge"] = clampf(float(values.get(
+		"surge", controls.get("surge", CAMERA_THRUST_DEFAULTS["surge"]))), 0.0, 1.0)
+	controls["bob"] = clampf(float(values.get(
+		"bob", controls.get("bob", CAMERA_THRUST_DEFAULTS["bob"]))), 0.0, 1.0)
+	data["camera_thrust"] = controls
 	_write(data)
 
 
@@ -510,12 +479,15 @@ static func presentation_controls() -> Dictionary:
 	var block: Variant = data.get("presentation", {})
 	var speed := float(PRESENTATION_DEFAULTS["glance_back_speed"])
 	var pose1_camera := float(PRESENTATION_DEFAULTS["pose1_camera"])
+	var torso_angle := float(PRESENTATION_DEFAULTS["torso_angle_deg"])
 	if block is Dictionary:
 		speed = float((block as Dictionary).get("glance_back_speed", speed))
 		pose1_camera = float((block as Dictionary).get("pose1_camera", pose1_camera))
+		torso_angle = float((block as Dictionary).get("torso_angle_deg", torso_angle))
 	return {
 		"glance_back_speed": clampf(speed, 0.25, 3.0),
 		"pose1_camera": clampf(pose1_camera, -0.10, 0.20),
+		"torso_angle_deg": clampf(torso_angle, 0.0, 20.0),
 	}
 
 
@@ -530,6 +502,9 @@ static func save_presentation_controls(values: Dictionary) -> void:
 	controls["pose1_camera"] = clampf(float(values.get(
 		"pose1_camera", controls.get("pose1_camera",
 			PRESENTATION_DEFAULTS["pose1_camera"]))), -0.10, 0.20)
+	controls["torso_angle_deg"] = clampf(float(values.get(
+		"torso_angle_deg", controls.get("torso_angle_deg",
+			PRESENTATION_DEFAULTS["torso_angle_deg"]))), 0.0, 20.0)
 	data["presentation"] = controls
 	_write(data)
 
@@ -588,10 +563,8 @@ static func _defaults() -> Dictionary:
 		"thrust": {
 			"orientation": "up",
 			"pixels_per_full": 600.0,
-			"camera_bob": false,
-			"camera_motion": false,
 		},
-		"camera_rock": CAMERA_ROCK_DEFAULTS.duplicate(true),
+		"camera_thrust": CAMERA_THRUST_DEFAULTS.duplicate(true),
 		"presentation": PRESENTATION_DEFAULTS.duplicate(true),
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),

@@ -102,7 +102,6 @@ func run() -> void:
 	var feature_block: Dictionary = defaults.get("features", {})
 	check(bool(feature_block.get("hud_readouts", false)), "HUD readouts feature on")
 	check(bool(feature_block.get("settings_tab", false)), "settings tab feature on")
-	check(bool(feature_block.get("thrust_camera_rock", false)), "thrust camera rock feature on")
 	check(bool(feature_block.get("idle_camera_sway", false)), "idle camera sway on by default")
 	check(bool(feature_block.get("captions_on_top", false)), "captions on top feature on")
 	check(bool(feature_block.get("pose2_body_sway", false)), "pose 2 body sway feature on")
@@ -119,33 +118,27 @@ func run() -> void:
 		"feature info matches the flag set")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
-	check(not bool(thrust_defaults.get("camera_bob", true)), "default camera bob disabled")
-	check(not bool(thrust_defaults.get("camera_motion", true)), "default camera motion disabled")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 600.0), "default thrust pixels")
 	var controls := SETTINGS.thrust_controls()
 	check(bool(controls.get("up", false)), "runtime thrust controls up")
 	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
 	check(runtime_pixels >= 240.0 and runtime_pixels <= 1200.0,
 		"runtime thrust controls pixels in range")
-	check(controls.has("camera_bob"), "runtime camera bob read")
-	check(controls.has("camera_motion"), "runtime camera motion read")
-	var rock_defaults: Dictionary = SETTINGS.CAMERA_ROCK_DEFAULTS
-	check(near(float(rock_defaults.get("impulse", 0.0)), 0.50), "camera rock default impulse")
-	check(near(float(rock_defaults.get("stiffness", 0.0)), 30.0), "camera rock default stiffness")
-	check(near(float(rock_defaults.get("damping", 0.0)), 1.0), "camera rock default damping")
-	check(near(float(rock_defaults.get("limit", 0.0)), 0.0), "camera rock default limit off")
-	check(near(float(rock_defaults.get("pitch_ratio", 0.0)), 1.0), "camera rock default pitch share")
-	check(near(float(rock_defaults.get("roll_ratio", 1.0)), 0.0), "camera rock default roll off")
-	var rock_controls := SETTINGS.camera_rock_controls()
-	var rock_impulse := float(rock_controls.get("impulse", -1.0))
-	var rock_roll := float(rock_controls.get("roll_ratio", -1.0))
-	check(rock_impulse >= 0.0 and rock_impulse <= 2.0, "runtime camera rock impulse in range")
-	check(rock_roll >= 0.0 and rock_roll <= 2.0, "runtime camera rock roll share in range")
+	var camera_defaults: Dictionary = defaults.get("camera_thrust", {})
+	check(near(float(camera_defaults.get("surge", -1.0)), 0.0), "default camera surge off")
+	check(near(float(camera_defaults.get("bob", -1.0)), 0.0), "default camera bob off")
+	var camera_controls := SETTINGS.camera_thrust_controls()
+	var camera_surge := float(camera_controls.get("surge", -1.0))
+	var camera_bob := float(camera_controls.get("bob", -1.0))
+	check(camera_surge >= 0.0 and camera_surge <= 1.0, "runtime camera surge in range")
+	check(camera_bob >= 0.0 and camera_bob <= 1.0, "runtime camera bob in range")
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
 	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 1.0),
 		"default glance-back speed")
 	check(near(float(presentation_defaults.get("pose1_camera", 0.0)), 0.12),
 		"default missionary camera offset")
+	check(near(float(presentation_defaults.get("torso_angle_deg", -1.0)), 0.0),
+		"default Anon torso lean off")
 	var presentation := SETTINGS.presentation_controls()
 	var glance_speed := float(presentation.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
@@ -153,6 +146,9 @@ func run() -> void:
 	var pose1_camera := float(presentation.get("pose1_camera", 99.0))
 	check(pose1_camera >= -0.10 and pose1_camera <= 0.20,
 		"runtime missionary camera offset in range")
+	var torso_angle := float(presentation.get("torso_angle_deg", 99.0))
+	check(torso_angle >= 0.0 and torso_angle <= 20.0,
+		"runtime Anon torso lean in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("stay_close"), "stay close event prompt exists")
 

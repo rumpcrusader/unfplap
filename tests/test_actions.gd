@@ -113,7 +113,8 @@ func run() -> void:
 	check(not RUNTIME.pose2_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
 	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
-	check(near(RUNTIME.BOB_FORWARD_IMPULSE, 0.45), "camera motion impulse")
+	check(near(RUNTIME.CAM_SURGE_M, 0.06), "camera surge amplitude")
+	check(near(RUNTIME.CAM_BOB_M, 0.02), "camera bob amplitude")
 	check(near(RUNTIME.KISS_LEAN_M, 0.27) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.18)
 		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
 	check(near(RUNTIME.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
@@ -132,12 +133,6 @@ func run() -> void:
 	check(near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.0), 1.0)
 		and near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.9), -1.0),
 		"unpinned kiss still chooses a side")
-	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["impulse"]), 0.50),
-		"camera rock impulse default")
-	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["limit"]), 0.0),
-		"camera rock limit default")
-	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["roll_ratio"]), 0.0),
-		"camera rock roll is off by default")
 	check(near(RUNTIME.pose2_palm_scale_for("canon"), 0.85), "Canon pose-2 palm scale")
 	check(near(RUNTIME.pose2_palm_scale_for("mounting"), 0.95), "JRHNBR pose-2 palm scale")
 	check(near(RUNTIME.pose2_palm_scale_for("hoers"), 1.0), "Hoers pose-2 palm scale unchanged")
@@ -171,27 +166,21 @@ func run() -> void:
 	check(near(RUNTIME.glance_back_fade_for(9.0), RUNTIME.GLANCE_BACK_FADE / 3.0),
 		"glance-back speed clamps fast")
 
-	var slow_attack := RUNTIME.anon_thrust_phase_attack(0.0, 1.0, 1.0, 0.1, 0.2)
-	var fast_attack := RUNTIME.anon_thrust_phase_attack(0.0, 1.0, 5.0, 1.0, 0.2)
-	check(fast_attack > slow_attack, "quick strong stroke attacks the hip faster")
-	check(fast_attack > 0.5, "quick strong stroke reaches visible hip travel")
-
-	var phase := RUNTIME.anon_thrust_phase_step(0.0, 0.0, 1.0, 1.0 / 60.0)
-	check(phase.x > 0.0 and phase.x < 1.0, "Anon thrust phase eases in")
+	var phase := RUNTIME.hip_phase_step(0.0, 1.0, 1.0 / 60.0)
+	check(phase > 0.0 and phase < 1.0, "hip phase eases toward the mouse depth")
 	for _step: int in 120:
-		phase = RUNTIME.anon_thrust_phase_step(phase.x, phase.y, 1.0, 1.0 / 60.0)
-	check(near(phase.x, 1.0, 0.01), "Anon thrust phase settles at the forward bound")
-	var returning := RUNTIME.anon_thrust_phase_step(1.0, 0.0, 0.0, 1.0 / 60.0)
-	check(returning.x < 1.0, "Anon thrust phase eases back")
-	check(RUNTIME.anon_thrust_phase_step(0.0, -10.0, 0.0, 1.0 / 60.0).x >= 0.0,
-		"Anon thrust phase cannot undershoot zero")
+		phase = RUNTIME.hip_phase_step(phase, 1.0, 1.0 / 60.0)
+	check(near(phase, 1.0, 0.01), "hip phase settles at full depth")
+	check(near(RUNTIME.hip_phase_step(0.0, -10.0, 1.0 / 60.0), 0.0),
+		"hip phase clamps depth to zero")
 
 	var live_runtime: Node = RUNTIME.new()
 	live_runtime.state = 2 # ACTIVE
 	live_runtime.pose_id = CATALOG.HORSE
 	live_runtime.call("apply_live_settings")
 	check(live_runtime._features.has("hud_readouts"), "live settings refresh feature flags")
-	check(live_runtime._camera_rock_cfg.has("impulse"), "live settings refresh camera rock")
+	check(live_runtime._camera_surge >= 0.0 and live_runtime._camera_surge <= 1.0,
+		"live settings refresh camera thrust")
 	live_runtime.free()
 
 	check(near(RUNTIME.HOLD_SWAY_FORWARD, 0.010) and near(RUNTIME.HOLD_SWAY_SIDE, 0.0084),
@@ -203,9 +192,10 @@ func run() -> void:
 		"lean threshold uses 75/60 hysteresis")
 
 	check(near(RUNTIME._lean_step(0.0, 1.0, 0.25), 0.5), "lean ramps in over half a second")
-	check(near(RUNTIME._lean_step(1.0, 0.0, 0.8), 0.5), "lean returns over 1.6 seconds")
-	check(near(RUNTIME._lean_step(1.0, 0.0, 0.8, false), 1.0),
-		"lean return disabled holds position")
+	check(near(RUNTIME._lean_step(1.0, 0.0, 0.8), 1.0),
+		"released lean holds its position")
+	check(near(RUNTIME._lean_step(1.0, 0.0, 0.8, true), 0.5),
+		"shoulder recentre returns over 1.6 seconds")
 
 	var runtime: Node = RUNTIME.new()
 	runtime.state = 2 # ACTIVE

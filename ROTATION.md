@@ -140,14 +140,17 @@ these values here if a future pose needs that effect.
   (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
   switch is disabled for the act. The lateral travel crossfades from the lean's `0.18 m` to the
   kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
-- Camera bob and forward/back motion are separate opt-ins: `thrust.camera_bob` and
-  `thrust.camera_motion` default to `false`; each gates its own thrust and climax component.
-- When enabled, each thrust adds to the vertical and forward spring velocities.
-- Pose 1 uses the same `_bob` and thrust camera rock as pose 2, plus `POSE1_BED_MOTION = 0.5`
-  of the forward travel along the mattress toward her head.
-- Slow thrusts scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
-  `s = clamp(speed / BOB_SPEED_REFERENCE, 0.35, 1.0)`. At `>= 0.80` depth/s the bob is unchanged.
-- Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 3` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.
+- Camera thrust is speed-driven, not impulse-driven. `_process` filters the signed depth speed
+  (`CAM_SPEED_SMOOTH_S = 0.06 s`); `_camera_thrust_tick()` follows it with one critically damped
+  response (`CAM_RESPONSE_S = 0.12 s`). No per-stroke kick.
+- `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward strokes use `CAM_BACK_RATIO = 0.5`.
+- Two `camera_thrust` amounts (`surge`, `bob`, both `0…1`, default `0`) scale
+  `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
+- The bob target is negative: an inward stroke dips the camera toward her, so the frozen aim
+  moves up her body. The outward stroke rises back.
+- Pose 1 sends the surge along the mattress toward her head; pose 2 sends it along the camera
+  forward. Both use the same bob.
+- Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
 - Restore order is load-bearing:
   1. player transform and yaw,
   2. pony transform and posture,
@@ -178,21 +181,22 @@ these values here if a future pose needs that effect.
   holds both foot targets at their neutral transforms, so his legs stay out of the camera.
   `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
   thrusts forward/back with depth.
+- `presentation.torso_angle_deg` (`0…20°`, default `0`) hinges his upper body forward. The
+  head/camera moves along the spine arc (`forward = 0.65 sin θ`, `drop = 0.65 (1 − cos θ)`);
+  `apply_anon_lean()` counters the hip by the same forward amount and pins the feet.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
-- `H` toggles lean auto-return; hold is the default. With `idle_camera_sway` enabled (default
-  off), a slow `0.010` forward / `0.0084` side rock keeps the camera/upper body from freezing
-  completely; both are clamped inside `-1…1`. Hold mode also latches caress: an A/D tap starts
-  it and a second tap stops it. Pressing `S` in hold mode arms a gradual side return so the
-  shoulder roll decays to neutral.
-- Pose-2 camera adds a pitch/roll rock spring on each thrust. The constants are persisted in
-  `settings.gd` under `camera_rock` and read at act start: impulse `0.50`, stiffness `30`,
-  damping `1`, limit `0.0 rad`, pitch share `1.0`, roll share `0.0`. The spring is pitch-only
-  and the default limit disables it; the side-lean roll remains separate. The settings tab
-  exposes all six values.
-- Anon's hip and lean use `_anon_thrust_phase`. Inward strokes attack from live stroke speed
-  and strength (`ANON_THRUST_ATTACK = 7`, speed ref `3.0`, clamp `0.6…1.8`, strength floor
-  `0.45`); outward strokes use the damped return spring (`stiffness 55`, `damping 11`). The
-  phase is clamped `0…1`, so `THRUST_MAX_M` and `ANON_THRUST_SWAY_M` bounds are unchanged.
+- A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
+  explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
+  `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
+- With `idle_camera_sway` enabled (default on), a slow `0.010` forward / `0.0084` side rock
+  keeps the camera/upper body from freezing completely; both are clamped inside `-1…1`. A/D
+  caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
+  return so the shoulder roll decays to neutral.
+- Pose 2 has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
+- The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`;
+  `apply_anon_thrust()` moves the hip by `THRUST_MAX_M = 0.045 * body_scale * phase`, and
+  `apply_anon_lean()` counter-moves the pelvis by `ANON_THRUST_SWAY_M * phase * lean_scale`.
+  There is no attack or return spring.
 - Pose-2 palms scale the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`, others
   `1.0`. `palm_scale.gd` runs after BodyIK and restores the cached scales in
   `_remove_anon_thrust()` on every act exit.
@@ -234,14 +238,14 @@ these values here if a future pose needs that effect.
   `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically. Point
   offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
   between hands), Same Height and Hoers step up from there; the contact query snaps those points
-  to the coat. Both keys can run simultaneously; in hold mode a tap latches that hand until the
-  next tap. The centre moves from the flank (no lean) to the side/belly (half forward lean) to
+  to the coat. Both keys can run simultaneously; a tap latches that hand until the next tap.
+  The centre moves from the flank (no lean) to the side/belly (half forward lean) to
   the exact Q/E shoulder contact point (full forward lean). Backward lean moves it toward the
   rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
   pony size; the point offsets are already per size.
-- Anon's hip follows a damped `_anon_thrust_phase` toward raw thrust `depth`:
-  `THRUST_MAX_M = 0.045 m` forward at phase 1. The phase is clamped `0…1`, so it eases in and
-  back out with inertia without exceeding the maximum travel.
+- Anon's hip follows the lightly smoothed mouse `depth` (`HIP_SMOOTH_S = 0.04 s`):
+  `THRUST_MAX_M = 0.045 m` forward at phase 1. Depth is the input, so the maximum travel is
+  exactly the mouse travel.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
   `BODY_SWAY_MAX_M = 0.035`.

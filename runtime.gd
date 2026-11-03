@@ -103,27 +103,24 @@ const POSE2_GAPS := {
 	"canon": 0.25,
 	"hoers": 0.55,
 }
-## Pose 1 camera vertical bob uses the same spring as pose 2.
-## Camera bob: damped spring, vertical and forward. Amplitudes are one sixth of the
-## pre-mouse-thrust values (2.30/1.80 impulses, 0.025/0.12 climax).
-const BOB_THRUST_IMPULSE := 2.30 / 3.0
-const BOB_STIFFNESS := 105.0
-const BOB_DAMPING := 13.0
-const BOB_CLIMAX_AMPLITUDE := 0.025 / 3.0
-const BOB_LIMIT := 0.40
-const BOB_FORWARD_IMPULSE := 1.80 / 4.0
-const BOB_FORWARD_STIFFNESS := 100.0
-const BOB_FORWARD_DAMPING := 12.0
-const BOB_FORWARD_LIMIT := 0.32
-const BOB_CLIMAX_FORWARD := 0.12 / 6.0
-## Pose-1 thrust camera also slides this fraction of the forward travel along the mattress
-## toward her head, so the motion reads as moving on the bed, not only into her body.
-const POSE1_BED_MOTION := 0.5
-## Thrust speed at which the bob uses its full-speed spring. Slower strokes scale the whole
-## bob timebase down (spring, damping and impulse together), so the peak stays the same but
-## the motion takes longer. Very slow strokes stop at this scale.
-const BOB_SPEED_REFERENCE := 0.80
-const BOB_SPEED_SCALE_MIN := 0.35
+## Camera thrust amplitudes at full slider and full speed. The camera follows the filtered
+## thrust speed, never an impulse: surge moves forward, bob dips toward the bed.
+const CAM_SURGE_M := 0.06
+const CAM_BOB_M := 0.02
+## Depth speed (depth/second) that reaches full camera travel.
+const CAM_SPEED_REF := 4.0
+## Low-pass on the raw depth speed, seconds.
+const CAM_SPEED_SMOOTH_S := 0.06
+## One critically damped camera response for surge and bob, seconds.
+const CAM_RESPONSE_S := 0.12
+## Outward strokes move the camera this fraction of the inward travel.
+const CAM_BACK_RATIO := 0.5
+## Climax camera amplitudes at full sliders. The sine keeps the same smooth envelope.
+const CAM_CLIMAX_BOB_M := 0.008
+const CAM_CLIMAX_SURGE_M := 0.02
+## Hip phase low-pass on mouse depth. Depth is the input; this only removes single-frame
+## mouse steps, it is not a speed attack.
+const HIP_SMOOTH_S := 0.04
 ## Pose-2 F kiss: hold F at a full side lean (the shoulder reach) to use the same base kiss.
 const POSE2_KISS_LEAN := 0.90
 ## Act camera lean. Q/E drive one controlled lean vector: W/S forward/back, Q/E a
@@ -198,19 +195,11 @@ const POSE2_HEAD_NECK_HEIGHT_M := 1.0
 const CANON_POSE2_CAMERA_DROP_M := 0.10
 ## JRHNBR is tall enough that the standing shot needs a higher eye line.
 const MOUNTING_POSE2_CAMERA_LIFT_M := 0.10
-## Pose-2 Anon thrust: the hip follows a smoothed depth phase, not raw mouse pixels, so the
-## body carries a little inertia. The phase is clamped 0..1, so the existing travel maxima still
-## bound every frame.
+## Anon's spine length, used to turn the pose-2 torso angle into head/camera travel.
+const ANON_TORSO_LEN_M := 0.65
+## Pose-2 Anon thrust: mouse depth (only lightly smoothed) moves the hip. This is position, not
+## speed; the camera's speed-driven thrust is separate.
 const THRUST_MAX_M := 0.045
-const ANON_THRUST_STIFFNESS := 55.0
-const ANON_THRUST_DAMPING := 11.0
-## Quick, strong strokes should reach the hip target instead of being swallowed by the
-## return spring. Attack uses the live stroke speed and strength; release keeps the spring.
-const ANON_THRUST_ATTACK := 7.0
-const ANON_THRUST_SPEED_REF := 3.0
-const ANON_THRUST_SPEED_MIN := 0.6
-const ANON_THRUST_SPEED_MAX := 1.8
-const ANON_THRUST_STRENGTH_MIN := 0.45
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
@@ -343,8 +332,8 @@ var _taste: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 var _thrust_pixels_per_full := 480.0
-var _thrust_bob := false
-var _thrust_motion := false
+var _camera_surge := 0.0
+var _camera_bob := 0.0
 ## Last closed inward thrust; the pattern window is the last three to four thrusts.
 var _last_stroke: Dictionary = {}
 var _last_intensity := ""
@@ -403,7 +392,6 @@ var _lean_forward := 0.0
 var _lean_side := 0.0
 var _lean_view_forward := 0.0
 var _lean_view_side := 0.0
-var _lean_return_enabled := false
 var _side_return_armed := false
 var _hold_rock_clock := 0.0
 var _lean_action_active := false
@@ -455,13 +443,10 @@ var _base_kiss_excitement: Node
 var _base_kiss_beat: Timer
 var _base_kiss_beat_paused := false
 var _forced_glance := ""
-var _camera_rock := 0.0
-var _camera_rock_velocity := 0.0
-var _camera_rock_sign := 1.0
-var _camera_rock_cfg: Dictionary = {}
+var _depth_prev := 0.0
+var _depth_speed := 0.0
 var _presentation_cfg: Dictionary = {}
-var _anon_thrust_phase := 0.0
-var _anon_thrust_phase_velocity := 0.0
+var _hip_phase := 0.0
 var _rump_blush := 0.0
 var _rump_decal: Decal
 var _voice_info: Dictionary = {}
@@ -508,7 +493,6 @@ var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
 var _bob := 0.0
 var _bob_velocity := 0.0
-var _bob_speed_scale := 1.0
 var _lean := 0.0
 var _lean_velocity := 0.0
 var _back := 0.0
@@ -640,9 +624,9 @@ func apply_live_settings() -> void:
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_bob = bool(thrust_controls.get("camera_bob", false))
-	_thrust_motion = bool(thrust_controls.get("camera_motion", false))
-	_camera_rock_cfg = SETTINGS.camera_rock_controls()
+	var camera_thrust := SETTINGS.camera_thrust_controls()
+	_camera_surge = float(camera_thrust.get("surge", 0.0))
+	_camera_bob = float(camera_thrust.get("bob", 0.0))
 	_presentation_cfg = SETTINGS.presentation_controls()
 	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
@@ -662,15 +646,6 @@ func apply_live_settings() -> void:
 	_refresh_live_modifiers()
 	if previous_mute != _feature("mute_ponese_audio"):
 		_refresh_live_voice()
-	if not _feature("thrust_camera_rock"):
-		_camera_rock = 0.0
-		_camera_rock_velocity = 0.0
-	if not _thrust_bob:
-		_bob = 0.0
-		_bob_velocity = 0.0
-	if not _thrust_motion:
-		_lean = 0.0
-		_lean_velocity = 0.0
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.update_from(self, hud_readouts())
 
@@ -856,49 +831,34 @@ func _process(delta: float) -> void:
 				_pose.look_point = view.global_position
 		_pose.kiss = _kiss_amount if custom_kiss else 0.0
 		_pose.climaxing = state == State.CLIMAX
-	if not _thrust_bob and not _thrust_motion:
-		_bob = 0.0
-		_bob_velocity = 0.0
-		_lean = 0.0
-		_lean_velocity = 0.0
+	var surge_target := 0.0
+	var bob_target := 0.0
+	if state == State.ACTIVE:
+		var norm := clampf(_depth_speed / CAM_SPEED_REF, -1.0, 1.0)
+		surge_target = norm * CAM_SURGE_M * _camera_surge \
+			* (CAM_BACK_RATIO if norm < 0.0 else 1.0)
+		bob_target = -norm * CAM_BOB_M * _camera_bob
 	elif state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
 		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
-		if _thrust_bob:
-			_bob = wave * BOB_CLIMAX_AMPLITUDE
-			_bob_velocity = 0.0
-		else:
-			_bob = 0.0
-			_bob_velocity = 0.0
-		if _thrust_motion:
-			_lean = wave * BOB_CLIMAX_FORWARD
-			_lean_velocity = 0.0
-		else:
-			_lean = 0.0
-			_lean_velocity = 0.0
-	else:
-		var speed_scale := _bob_speed_scale
-		if _thrust_bob:
-			var bob_stiffness := BOB_STIFFNESS * speed_scale * speed_scale
-			var bob_damping := BOB_DAMPING * speed_scale
-			var accel := -bob_stiffness * _bob - bob_damping * _bob_velocity
-			_bob_velocity += accel * delta
-			_bob = clampf(_bob + _bob_velocity * delta, -BOB_LIMIT, BOB_LIMIT)
-		else:
-			_bob = 0.0
-			_bob_velocity = 0.0
-		if _thrust_motion:
-			var lean_stiffness := BOB_FORWARD_STIFFNESS * speed_scale * speed_scale
-			var lean_damping := BOB_FORWARD_DAMPING * speed_scale
-			var forward_accel := -lean_stiffness * _lean - lean_damping * _lean_velocity
-			_lean_velocity += forward_accel * delta
-			_lean = clampf(_lean + _lean_velocity * delta, -BOB_FORWARD_LIMIT, BOB_FORWARD_LIMIT)
-		else:
-			_lean = 0.0
-			_lean_velocity = 0.0
+		surge_target = wave * CAM_CLIMAX_SURGE_M * _camera_surge
+		bob_target = -wave * CAM_CLIMAX_BOB_M * _camera_bob
+	_camera_thrust_tick(delta, surge_target, bob_target)
 	var back_speed := AFTERGLOW_BACK_SPEED if state == State.AFTERGLOW else RESTORE_BACK_SPEED
 	_back = move_toward(_back, _back_target, back_speed * delta)
 	_breath_tick(delta)
+
+
+## One critically damped response for both camera channels. The targets are velocity-driven
+## metres, so the camera eases through the stroke instead of being kicked at its close.
+func _camera_thrust_tick(delta: float, surge_target: float, bob_target: float) -> void:
+	var omega := 1.0 / maxf(CAM_RESPONSE_S, 0.001)
+	var surge_accel := omega * omega * (surge_target - _lean) - 2.0 * omega * _lean_velocity
+	_lean_velocity += surge_accel * delta
+	_lean += _lean_velocity * delta
+	var bob_accel := omega * omega * (bob_target - _bob) - 2.0 * omega * _bob_velocity
+	_bob_velocity += bob_accel * delta
+	_bob += _bob_velocity * delta
 
 
 ## Mouse input. Vertical motion thrusts; the act camera intentionally ignores it for look.
@@ -1001,8 +961,8 @@ func _physics_process(delta: float) -> void:
 	_drive_glance(delta)
 	_suppress_auto_cuddle()
 	_clamp_look()
-	_camera_rock_tick(delta)
-	_anon_thrust_phase_tick(delta)
+	_depth_speed_tick(delta)
+	_hip_phase_tick(delta)
 	_rump_blush_tick(delta)
 	apply_camera_motion()
 	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
@@ -1600,14 +1560,14 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_features = SETTINGS.features()
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
 	_taste = SETTINGS.taste(_id)
-	_camera_rock_cfg = SETTINGS.camera_rock_controls()
 	_presentation_cfg = SETTINGS.presentation_controls()
 	_act_prompts = _profile.get("act_prompts", {})
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_bob = bool(thrust_controls.get("camera_bob", false))
-	_thrust_motion = bool(thrust_controls.get("camera_motion", false))
+	var camera_thrust := SETTINGS.camera_thrust_controls()
+	_camera_surge = float(camera_thrust.get("surge", 0.0))
+	_camera_bob = float(camera_thrust.get("bob", 0.0))
 	_thrust_tracker = THRUST.new()
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_has_facing = false
@@ -1619,9 +1579,10 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_applied_lean = 0.0
 	_bob = 0.0
 	_bob_velocity = 0.0
-	_bob_speed_scale = 1.0
 	_lean = 0.0
 	_lean_velocity = 0.0
+	_depth_prev = 0.0
+	_depth_speed = 0.0
 	_back = 0.0
 	_back_target = 0.0
 	var identity: Variant = pony.get("identity")
@@ -1642,9 +1603,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_heart_times.clear()
 	_heart_counts.clear()
 	_reset_lean_state()
-	_camera_rock = 0.0
-	_camera_rock_velocity = 0.0
-	_camera_rock_sign = 1.0
 	_rump_blush = 0.0
 	_clear_face()
 	_set_face(0.45, ACT_LIDS)
@@ -2336,8 +2294,9 @@ func _now_s() -> float:
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
-	_anon_thrust_phase = 0.0
-	_anon_thrust_phase_velocity = 0.0
+	_hip_phase = 0.0
+	_depth_prev = 0.0
+	_depth_speed = 0.0
 	_last_stroke.clear()
 	_last_intensity = ""
 	_last_pattern = ""
@@ -2579,12 +2538,6 @@ func _on_thrust(result: Dictionary) -> void:
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var now := _now_s()
-	if _thrust_bob or _thrust_motion:
-		_bob_speed_scale = _bob_response_scale(float(result.get("speed", 0.0)))
-		if _thrust_bob:
-			_bob_velocity += BOB_THRUST_IMPULSE * _bob_speed_scale
-		if _thrust_motion:
-			_lean_velocity += BOB_FORWARD_IMPULSE * _bob_speed_scale
 	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, impact)
 	if _winged and not _wing_hold and now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
 		var excitement: Variant = pony.get("excitement")
@@ -2594,9 +2547,6 @@ func _on_thrust(result: Dictionary) -> void:
 	_thrust_jiggle(impact)
 	if pose_id == CATALOG.HORSE and is_instance_valid(_tail):
 		_tail.call("thrust", impact * _jiggle_size_scale())
-	if _feature("thrust_camera_rock"):
-		_camera_rock_velocity += _camera_rock_value("impulse") * impact * _camera_rock_sign
-		_camera_rock_sign = -_camera_rock_sign
 	if pose_id == CATALOG.HORSE:
 		if impact >= RUMP_BLUSH_MIN_STRENGTH:
 			_rump_blush = minf(RUMP_BLUSH_MAX, _rump_blush + RUMP_BLUSH_STEP)
@@ -2610,12 +2560,6 @@ func _on_thrust(result: Dictionary) -> void:
 	_play_vocal()
 	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
 		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
-
-
-## Slow strokes get a slower spring. Scaling stiffness by s², damping by s and the
-## impulse by s keeps the peak displacement while stretching the response in time.
-func _bob_response_scale(speed: float) -> float:
-	return clampf(speed / BOB_SPEED_REFERENCE, BOB_SPEED_SCALE_MIN, 1.0)
 
 
 func _play_vocal() -> void:
@@ -3914,10 +3858,7 @@ func _begin_camera_mode() -> void:
 	_free_camera_active = false
 	_camera_basis_ready = false
 	_reset_lean_state()
-	_camera_rock = 0.0
-	_camera_rock_velocity = 0.0
-	_anon_thrust_phase = 0.0
-	_anon_thrust_phase_velocity = 0.0
+	_hip_phase = 0.0
 	_pose1_look_point = Vector3.INF
 	_pose2_base_look = Vector3.INF
 	_pose2_base_saved = false
@@ -3937,16 +3878,6 @@ func _begin_camera_mode() -> void:
 
 
 ## Lean/caress remain live through the pose-2 afterglow; pose 1 afterglow stays passive.
-func toggle_lean_return() -> void:
-	if not _act_actions_allowed():
-		return
-	_lean_return_enabled = not _lean_return_enabled
-	if _lean_return_enabled:
-		_caress_latched = {"L": false, "R": false}
-		_side_return_armed = false
-	_log("lean return %s" % ("on" if _lean_return_enabled else "hold"))
-
-
 func _act_actions_allowed() -> bool:
 	return state in [State.ACTIVE, State.CLIMAX] \
 		or (state == State.AFTERGLOW and pose_id == CATALOG.HORSE)
@@ -3985,25 +3916,22 @@ func _lean_tick(delta: float) -> void:
 	if Input.is_action_pressed("move_back"):
 		forward += 1.0
 	var targets := lean_targets(side, forward)
-	if _lean_return_enabled:
-		_side_return_armed = false
-	elif targets.y != 0.0:
+	if targets.y != 0.0:
 		_side_return_armed = false
 	elif targets.x < 0.0:
-		# Pulling back in hold mode also recentres the shoulder roll instead of leaving it
-		# locked until a lean to the other side.
+		# Pulling back also recentres the shoulder roll instead of leaving it locked until a
+		# lean to the other side.
 		_side_return_armed = true
-	var side_return := _lean_return_enabled or _side_return_armed
-	_lean_forward = _lean_step(_lean_forward, targets.x, delta, _lean_return_enabled)
-	_lean_side = _lean_step(_lean_side, targets.y, delta, side_return)
+	_lean_forward = _lean_step(_lean_forward, targets.x, delta)
+	_lean_side = _lean_step(_lean_side, targets.y, delta, _side_return_armed)
 	if _side_return_armed and is_zero_approx(targets.y) and absf(_lean_side) <= 0.001:
 		_side_return_armed = false
 	var alpha := 1.0 - exp(-CAMERA_INERTIA_SMOOTH * delta)
 	_lean_view_forward = lerpf(_lean_view_forward, _lean_forward, alpha)
 	_lean_view_side = lerpf(_lean_view_side, _lean_side, alpha)
-	if not _lean_return_enabled and _feature("idle_camera_sway"):
-		# Idle breathing. Off by default: hold mode must not drift the camera
-		# when the player is not leaning.
+	if _feature("idle_camera_sway"):
+		# Idle breathing. The feature toggle is the only way to stop the drift when the
+		# player is not leaning.
 		_hold_rock_clock += delta
 		_lean_view_forward = clampf(_lean_view_forward
 			+ sin(_hold_rock_clock * 0.80) * HOLD_SWAY_FORWARD, -1.0, 1.0)
@@ -4052,6 +3980,20 @@ func _pose2_lean_scale() -> float:
 	return scale
 
 
+## Pose-2 torso angle: hinge Anon's upper body forward over her by moving the head/camera
+## forward and down by the spine arc, then countering the hip in `apply_anon_lean`.
+func _anon_torso_angle() -> float:
+	return deg_to_rad(clampf(float(_presentation_cfg.get("torso_angle_deg", 0.0)), 0.0, 20.0))
+
+
+func _anon_torso_forward() -> float:
+	return ANON_TORSO_LEN_M * sin(_anon_torso_angle())
+
+
+func _anon_torso_drop() -> float:
+	return ANON_TORSO_LEN_M * (1.0 - cos(_anon_torso_angle()))
+
+
 func _jiggle_size_scale() -> float:
 	return clampf(_size_scale(), 0.5, 1.2)
 
@@ -4062,13 +4004,15 @@ static func lean_distance(forward: float, size_scale := 1.0) -> float:
 	return metres * forward * size_scale
 
 
-static func _lean_step(current: float, target: float, delta: float, auto_return := true) -> float:
-	if not auto_return and is_zero_approx(target):
-		return current
-	var returning := absf(target) < absf(current) \
-		and (is_zero_approx(target) or signf(target) == signf(current))
-	var seconds := LEAN_RETURN_SECONDS if returning else LEAN_RAMP_SECONDS
-	return move_toward(current, target, delta / maxf(seconds, 0.001))
+## The lean always holds a released position. `return_to_zero` is only used by the explicit
+## S shoulder recentre; forced end-of-act returns bypass this helper.
+static func _lean_step(current: float, target: float, delta: float,
+		return_to_zero := false) -> float:
+	if is_zero_approx(target):
+		if not return_to_zero:
+			return current
+		return move_toward(current, 0.0, delta / maxf(LEAN_RETURN_SECONDS, 0.001))
+	return move_toward(current, target, delta / maxf(LEAN_RAMP_SECONDS, 0.001))
 
 
 ## Pose support for the threshold-triggered side action.
@@ -4228,7 +4172,6 @@ func _reset_lean_state() -> void:
 	_lean_side = 0.0
 	_lean_view_forward = 0.0
 	_lean_view_side = 0.0
-	_lean_return_enabled = false
 	_side_return_armed = false
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
@@ -4663,7 +4606,7 @@ func _caress_tick() -> void:
 		var held := bool(keys[side])
 		var pressed := held and not bool(_caress_key_down[side])
 		_caress_key_down[side] = held
-		if not _lean_return_enabled and pressed:
+		if pressed:
 			_caress_latched[side] = not bool(_caress_latched[side])
 		var hand_side := "left" if side == "L" else "right"
 		# The slapping hand owns the hold target during its swing. Freeze the oval phase so
@@ -4672,7 +4615,7 @@ func _caress_tick() -> void:
 			if bool(_caress_active[side]):
 				_caress_started[side] += int(get_physics_process_delta_time() * 1000.0)
 			continue
-		var want := held if _lean_return_enabled else bool(_caress_latched[side])
+		var want := bool(_caress_latched[side])
 		if want:
 			if not bool(_caress_active[side]):
 				_caress_active[side] = true
@@ -5237,69 +5180,29 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 			sig.connect(callable)
 
 
-## Slight pitch/roll camera rock on each thrust, driven by a damped spring. Both poses.
-func _camera_rock_tick(delta: float) -> void:
-	if not _feature("thrust_camera_rock") or pose_id not in [CATALOG.HORSE, CATALOG.MISSIONARY] \
-			or not _free_camera_active or state not in [State.ACTIVE, State.CLIMAX]:
-		_camera_rock = 0.0
-		_camera_rock_velocity = 0.0
-		return
-	var stiffness := _camera_rock_value("stiffness")
-	var damping := _camera_rock_value("damping")
-	var limit := _camera_rock_value("limit")
-	var accel := -stiffness * _camera_rock - damping * _camera_rock_velocity
-	_camera_rock_velocity += accel * delta
-	_camera_rock = clampf(_camera_rock + _camera_rock_velocity * delta, -limit, limit)
-
-
-func _camera_rock_value(key: String) -> float:
-	return float(_camera_rock_cfg.get(key, SETTINGS.CAMERA_ROCK_DEFAULTS.get(key, 0.0)))
-
-
-## Pure spring step so the inertial Anon-body phase is testable without a scene.
-static func anon_thrust_phase_step(phase: float, velocity: float, target: float,
-		delta: float) -> Vector2:
-	var wanted := clampf(target, 0.0, 1.0)
-	var accel := -ANON_THRUST_STIFFNESS * (phase - wanted) - ANON_THRUST_DAMPING * velocity
-	velocity += accel * delta
-	phase = clampf(phase + velocity * delta, 0.0, 1.0)
-	return Vector2(phase, velocity)
-
-
-## Inward attack. Quick, strong strokes move the phase much faster than slow/soft ones.
-static func anon_thrust_phase_attack(phase: float, target: float, speed: float,
-		strength: float, delta: float) -> float:
-	var speed_factor := clampf(speed / ANON_THRUST_SPEED_REF,
-		ANON_THRUST_SPEED_MIN, ANON_THRUST_SPEED_MAX)
-	var strength_factor := lerpf(ANON_THRUST_STRENGTH_MIN, 1.0,
-		clampf(strength, 0.0, 1.0))
-	var rate := ANON_THRUST_ATTACK * speed_factor * strength_factor
-	return move_toward(phase, clampf(target, 0.0, 1.0), rate * delta)
-
-
-## Pose-2 Anon body phase. Inward strokes use a speed/strength attack so quick thrusts are
-## visible; outward strokes keep the damped spring so the body still settles with inertia.
-## The phase is clamped to 0..1, so THRUST_MAX_M and ANON_THRUST_SWAY_M bounds are unchanged.
-func _anon_thrust_phase_tick(delta: float) -> void:
+## Pose-2 hip phase follows the mouse depth directly, with a short low-pass so a single-frame
+## mouse step does not snap the body. Depth is the input; this is not a speed attack.
+func _hip_phase_tick(delta: float) -> void:
 	if pose_id != CATALOG.HORSE or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		_anon_thrust_phase = 0.0
-		_anon_thrust_phase_velocity = 0.0
+		_hip_phase = 0.0
 		return
-	var live_speed := 0.0
-	var live_strength := 0.0
-	if _thrust_tracker != null:
-		var now := _now_s()
-		live_speed = float(_thrust_tracker.live_speed(now))
-		live_strength = float(_thrust_tracker.live_strength(now))
-	if depth > _anon_thrust_phase:
-		_anon_thrust_phase = anon_thrust_phase_attack(_anon_thrust_phase, depth,
-			live_speed, live_strength, delta)
-		_anon_thrust_phase_velocity = 0.0
-		return
-	var step := anon_thrust_phase_step(_anon_thrust_phase, _anon_thrust_phase_velocity,
-		depth, delta)
-	_anon_thrust_phase = step.x
-	_anon_thrust_phase_velocity = step.y
+	_hip_phase = hip_phase_step(_hip_phase, depth, delta)
+
+
+## Pure hip smoothing for tests: depth is the input, this only removes single-frame steps.
+static func hip_phase_step(current: float, depth_value: float, delta: float) -> float:
+	var alpha := 1.0 - exp(-delta / maxf(HIP_SMOOTH_S, 0.001))
+	return lerpf(current, clampf(depth_value, 0.0, 1.0), alpha)
+
+
+## Signed mouse-depth speed for the camera. Update it on the physics tick where `depth`
+## changes; render frames only consume the filtered value, so physics/render rate mismatch
+## cannot inject a ripple.
+func _depth_speed_tick(delta: float) -> void:
+	var raw_speed := (depth - _depth_prev) / maxf(delta, 0.0001)
+	_depth_prev = depth
+	var alpha := 1.0 - exp(-delta / maxf(CAM_SPEED_SMOOTH_S, 0.001))
+	_depth_speed = lerpf(_depth_speed, raw_speed, alpha)
 
 
 ## Pose-2 yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
@@ -5475,15 +5378,14 @@ func _remove_anon_thrust() -> void:
 
 
 ## Called after anon_body has set the hip target, through the desktop pose-driver wrapper.
-## The hip follows the smoothed thrust phase, so it eases in and out with inertia instead of
-## mapping pixel travel directly to position. The phase is clamped 0..1 by its spring step.
+## The hip follows the lightly smoothed mouse depth, so its position is the mouse travel.
 func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
-	if pose_id != CATALOG.HORSE or _anon_thrust_phase <= 0.0001 or not is_instance_valid(hip):
+	if pose_id != CATALOG.HORSE or _hip_phase <= 0.0001 or not is_instance_valid(hip):
 		return
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
-	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _anon_thrust_phase)
+	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _hip_phase)
 
 
 ## Phase-2 Anon body lean: keep the pelvis planted behind her rump. The camera/head moves
@@ -5495,14 +5397,15 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
 	var lean_scale := _pose2_lean_scale()
-	var forward_shift := lean_distance(maxf(_lean_view_forward, 0.0), lean_scale) + _kiss_lean_distance()
+	var forward_shift := lean_distance(maxf(_lean_view_forward, 0.0), lean_scale) \
+		+ _kiss_lean_distance() + _anon_torso_forward()
 	hip.global_position -= forward * forward_shift
 	var side_shift := _lateral_lean_shift(lean_scale)
 	hip.global_position -= side * side_shift
-	# The kiss drops the camera/head slightly; keep the pelvis planted through the hinge.
-	hip.global_position.y += KISS_LEAN_DROP_M * _kiss_lean
-	# Phase 1 moves the pelvis back; the chest/head stay forward, so the upper body thrusts.
-	hip.global_position -= forward * (_anon_thrust_phase * ANON_THRUST_SWAY_M * lean_scale)
+	# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
+	hip.global_position.y += KISS_LEAN_DROP_M * _kiss_lean + _anon_torso_drop()
+	# Depth moves the pelvis back; the chest/head stay forward, so the upper body thrusts.
+	hip.global_position -= forward * (_hip_phase * ANON_THRUST_SWAY_M * lean_scale)
 	# The feet are placed from the camera/head before this call. Pin the lower body so a forward
 	# or kiss lean hinges the torso instead of walking his legs into the shot.
 	var body := hip.get_parent()
@@ -5580,15 +5483,12 @@ func apply_camera_motion() -> void:
 				- _pose1_pullback() - 0.12 - maxf(lean_forward, 0.0))
 			kiss_lean = minf(kiss_lean, view_room)
 		_pose1_view.global_position -= _pose1_view_basis.z \
-			* (_lean - _back + lean_forward + kiss_lean)
-		# Add a little travel along the mattress toward her head on each thrust. The view-axis
-		# motion alone reads as leaning down into her body instead of moving on the bed.
-		if _thrust_motion and absf(_lean) > 0.00001:
-			var bed_forward: Vector3 = -pony.global_basis.z
-			bed_forward.y = 0.0
-			if bed_forward.length_squared() > 0.0001:
-				_pose1_view.global_position += bed_forward.normalized() \
-					* (_lean * POSE1_BED_MOTION)
+			* (-_back + lean_forward + kiss_lean)
+		# The speed-driven surge runs along the mattress toward her head, not down the view axis.
+		var bed_forward: Vector3 = -pony.global_basis.z
+		bed_forward.y = 0.0
+		if bed_forward.length_squared() > 0.0001:
+			_pose1_view.global_position += bed_forward.normalized() * _lean
 		_pose1_view.global_position.y -= KISS_LEAN_DROP_M * _kiss_lean
 		_pose1_view.global_position += _pose1_view_basis.x \
 			* _lateral_lean_shift(lean_scale)
@@ -5603,15 +5503,11 @@ func apply_camera_motion() -> void:
 			if neck.is_finite() and (neck - _pose1_camera).dot(forward) > 0.02:
 				_pose1_look_point = neck
 			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
-		var rock := _camera_rock if _feature("thrust_camera_rock") else 0.0
-		var rock_roll := rock * _camera_rock_value("roll_ratio")
-		var rock_pitch := rock * _camera_rock_value("pitch_ratio")
 		var lean := Basis.from_euler(Vector3(
-			-deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale
-				+ rock_pitch,
+			-deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
 			-deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale,
 			(-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side
-				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale + rock_roll))
+				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale))
 		_pose1_view.global_basis = _pose1_view_basis * lean
 		var look_dir := _pose1_look_target() - _pose1_view.global_position
 		var look_dot := (-_pose1_view.global_basis.z).dot(look_dir.normalized()) \
@@ -5656,17 +5552,15 @@ func apply_camera_motion() -> void:
 			_pose1_snap_ready = true
 		return
 	var lean_scale := _pose2_lean_scale()
-	_set_camera_offsets(_bob - KISS_LEAN_DROP_M * _kiss_lean,
+	_set_camera_offsets(_bob - KISS_LEAN_DROP_M * _kiss_lean - _anon_torso_drop(),
 		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
-		+ _kiss_lean_distance(), _lateral_lean_shift(lean_scale))
+		+ _kiss_lean_distance() + _anon_torso_forward(), _lateral_lean_shift(lean_scale))
 	if pose_id == CATALOG.HORSE and _free_camera_active and is_instance_valid(_camera):
-		var rock := _camera_rock if _feature("thrust_camera_rock") else 0.0
-		_camera.rotation.z = rock * _camera_rock_value("roll_ratio") \
-			+ (-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side \
+		_camera.rotation.z = (-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side \
 			+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale
 		_camera.rotation.x = clampf(
 			_look_pitch - deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
-			-1.5, 1.5) + (rock * _camera_rock_value("pitch_ratio"))
+			-1.5, 1.5)
 
 
 func _pose_basis_amount() -> float:
@@ -5757,8 +5651,6 @@ func _restore_look() -> void:
 			view.rotation.x = _restore_pitch
 			view.rotation.z = 0.0
 	_reset_lean_state()
-	_camera_rock = 0.0
-	_camera_rock_velocity = 0.0
 	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
 
 
@@ -5949,11 +5841,11 @@ func _restore_camera() -> void:
 	_applied_side = 0.0
 	_bob = 0.0
 	_bob_velocity = 0.0
-	_bob_speed_scale = 1.0
 	_lean = 0.0
 	_lean_velocity = 0.0
-	_anon_thrust_phase = 0.0
-	_anon_thrust_phase_velocity = 0.0
+	_depth_prev = 0.0
+	_depth_speed = 0.0
+	_hip_phase = 0.0
 	_back = 0.0
 	_back_target = 0.0
 	_pose1_camera = Vector3.INF

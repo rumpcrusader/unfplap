@@ -347,7 +347,7 @@ func _inject_settings_page_now(page: Node) -> void:
 			_apply_live_settings()
 			page.call("_redraw"))
 	_add_thrust_section(list, font_size)
-	_add_camera_rock_section(list, font_size)
+	_add_camera_thrust_section(list, font_size)
 	_add_presentation_section(list, font_size)
 	_add_taste_section(list, font_size)
 	for tab: Variant in tabs:
@@ -460,55 +460,29 @@ func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	pixels.add_theme_font_size_override("font_size", font_size - 2)
 	form.add_child(pixels)
 
-	var bob_label := Label.new()
-	bob_label.text = "Camera bob"
-	bob_label.add_theme_font_size_override("font_size", font_size)
-	form.add_child(bob_label)
-	var camera_bob := CheckButton.new()
-	camera_bob.text = "Vertical camera bob on each thrust"
-	camera_bob.add_theme_font_size_override("font_size", font_size - 3)
-	form.add_child(camera_bob)
-
-	var motion_label := Label.new()
-	motion_label.text = "Camera motion"
-	motion_label.add_theme_font_size_override("font_size", font_size)
-	form.add_child(motion_label)
-	var camera_motion := CheckButton.new()
-	camera_motion.text = "Forward/back camera motion on each thrust"
-	camera_motion.add_theme_font_size_override("font_size", font_size - 3)
-	form.add_child(camera_motion)
-
 	var controls := SETTINGS.thrust_controls()
 	orientation.selected = 0 if bool(controls.get("up", true)) else 1
 	pixels.value = float(controls.get("pixels_per_full", 480.0))
-	camera_bob.button_pressed = bool(controls.get("camera_bob", false))
-	camera_motion.button_pressed = bool(controls.get("camera_motion", false))
 
 	orientation.item_selected.connect(func(_index: int) -> void:
-		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
+		_save_thrust_controls(orientation, pixels))
 	pixels.value_changed.connect(func(_value: float) -> void:
-		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
-	camera_bob.toggled.connect(func(_on: bool) -> void:
-		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
-	camera_motion.toggled.connect(func(_on: bool) -> void:
-		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
+		_save_thrust_controls(orientation, pixels))
 
 
-func _save_thrust_controls(orientation: OptionButton, pixels: SpinBox,
-		camera_bob: CheckButton, camera_motion: CheckButton) -> void:
-	SETTINGS.save_thrust_controls(orientation.selected == 0, pixels.value,
-		camera_bob.button_pressed, camera_motion.button_pressed)
+func _save_thrust_controls(orientation: OptionButton, pixels: SpinBox) -> void:
+	SETTINGS.save_thrust_controls(orientation.selected == 0, pixels.value)
 	_apply_live_settings()
 
 
-func _add_camera_rock_section(list: VBoxContainer, font_size: int) -> void:
+func _add_camera_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	list.add_child(HSeparator.new())
 	var heading := Label.new()
-	heading.text = "Camera rock"
+	heading.text = "Camera thrust"
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Thrust camera spring. Roll share 0 keeps the rock pitch-only. Changes apply live during an act."
+	note.text = "Camera travel follows thrust speed, not depth. Surge moves the camera forward; bob dips it toward her. Changes apply live during an act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
@@ -518,35 +492,23 @@ func _add_camera_rock_section(list: VBoxContainer, font_size: int) -> void:
 	form.add_theme_constant_override("h_separation", 16)
 	form.add_theme_constant_override("v_separation", 8)
 	list.add_child(form)
-	var controls := SETTINGS.camera_rock_controls()
-	var impulse := _settings_spin(form, "Impulse (rad/s)", 0.0, 2.0, 0.05,
-		float(controls.get("impulse", 0.50)), font_size)
-	var stiffness := _settings_spin(form, "Stiffness", 5.0, 200.0, 1.0,
-		float(controls.get("stiffness", 45.0)), font_size)
-	var damping := _settings_spin(form, "Damping", 0.0, 50.0, 0.5,
-		float(controls.get("damping", 8.0)), font_size)
-	var limit_deg := _settings_spin(form, "Max angle (deg)", 0.0, 20.0, 0.5,
-		rad_to_deg(float(controls.get("limit", 0.055))), font_size)
-	var pitch_ratio := _settings_spin(form, "Pitch share", 0.0, 2.0, 0.05,
-		float(controls.get("pitch_ratio", 1.0)), font_size)
-	var roll_ratio := _settings_spin(form, "Roll share", 0.0, 2.0, 0.05,
-		float(controls.get("roll_ratio", 0.0)), font_size)
-
-	var save_rock := func(_value: float) -> void:
-		_save_camera_rock_controls(impulse, stiffness, damping, limit_deg, pitch_ratio, roll_ratio)
-	for spin: SpinBox in [impulse, stiffness, damping, limit_deg, pitch_ratio, roll_ratio]:
-		spin.value_changed.connect(save_rock)
+	var controls := SETTINGS.camera_thrust_controls()
+	var surge := _settings_spin(form, "Surge", 0.0, 100.0, 5.0,
+		float(controls.get("surge", 0.0)) * 100.0, font_size)
+	surge.suffix = "%"
+	var bob := _settings_spin(form, "Bob", 0.0, 100.0, 5.0,
+		float(controls.get("bob", 0.0)) * 100.0, font_size)
+	bob.suffix = "%"
+	var save := func(_value: float) -> void:
+		_save_camera_thrust_controls(surge, bob)
+	surge.value_changed.connect(save)
+	bob.value_changed.connect(save)
 
 
-func _save_camera_rock_controls(impulse: SpinBox, stiffness: SpinBox, damping: SpinBox,
-		limit_deg: SpinBox, pitch_ratio: SpinBox, roll_ratio: SpinBox) -> void:
-	SETTINGS.save_camera_rock_controls({
-		"impulse": impulse.value,
-		"stiffness": stiffness.value,
-		"damping": damping.value,
-		"limit": deg_to_rad(limit_deg.value),
-		"pitch_ratio": pitch_ratio.value,
-		"roll_ratio": roll_ratio.value,
+func _save_camera_thrust_controls(surge: SpinBox, bob: SpinBox) -> void:
+	SETTINGS.save_camera_thrust_controls({
+		"surge": surge.value / 100.0,
+		"bob": bob.value / 100.0,
 	})
 	_apply_live_settings()
 
@@ -574,7 +536,7 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Glance ease and the missionary shot. Higher glance speed is faster; positive missionary camera moves the shot toward her torso and lower. Changes apply live."
+	note.text = "Glance ease, the missionary shot and pose-2 torso lean. Higher glance speed is faster; positive missionary camera moves the shot toward her torso and lower. Changes apply live."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
@@ -595,6 +557,12 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	pose1_camera.suffix = " m"
 	pose1_camera.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_camera": pose1_camera.value})
+		_apply_live_settings())
+	var torso_angle := _settings_spin(form, "Anon torso lean", 0.0, 20.0, 1.0,
+		float(controls.get("torso_angle_deg", 0.0)), font_size)
+	torso_angle.suffix = "°"
+	torso_angle.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls({"torso_angle_deg": torso_angle.value})
 		_apply_live_settings())
 
 

@@ -188,8 +188,6 @@ const DEFAULT_TEMPLATE := {
 	"event_prompts": {
 		"climax": "",
 		"end_early": "",
-		"inside": "",
-		"stay_close": "",
 	},
 	"act_prompts": {},
 	"taste": {},

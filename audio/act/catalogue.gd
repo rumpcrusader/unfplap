@@ -89,15 +89,6 @@ const MOUTH_KISS := [
 	preload("res://mods/unfplap/audio/act/mouth/kiss_08.wav"),
 ]
 
-const SMACK := [
-	preload("res://mods/unfplap/audio/act/smack/01.wav"),
-	preload("res://mods/unfplap/audio/act/smack/02.wav"),
-	preload("res://mods/unfplap/audio/act/smack/03.wav"),
-	preload("res://mods/unfplap/audio/act/smack/04.wav"),
-	preload("res://mods/unfplap/audio/act/smack/05.wav"),
-	preload("res://mods/unfplap/audio/act/smack/06.wav"),
-]
-
 const CLIMAX_WET := [
 	preload("res://mods/unfplap/audio/act/climax/wet_01.wav"),
 	preload("res://mods/unfplap/audio/act/climax/wet_02.wav"),
@@ -157,11 +148,6 @@ const CUES := {
 	"mouth_kiss": {
 		"group": "foley", "streams": MOUTH_KISS, "voices": 2,
 		"volume_db": -24.0, "cooldown": 0.3, "distance": 4.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
-	"smack": {
-		"group": "foley", "streams": SMACK, "voices": 2,
-		"volume_db": -12.0, "cooldown": 0.2, "distance": 6.0,
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},
 	"climax_wet": {

@@ -207,15 +207,17 @@ The horse afterglow always starts an 8 s close window:
   the “She seems content.” cue;
 - missionary afterglow is unchanged.
 
-The `stay_close` event queues a separate generated line asking the player to stay close. It is
-queued after the `inside` line. The HUD timer starts immediately; the line is flavour and may
-arrive late. `event_prompts.stay_close` is its per-character override.
+Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
+removed; the HUD timer and active caress time own the horse close invitation. A world-context
+event records that the act has ended while the two are still in the afterglow together, so a
+normal reply keeps the moment present without a scripted line.
 
 ## Memory and rewards
 
 - **Per pony climax:** a unique world-context event and a generated reaction.
-- **Once at afterglow:** `MEMORY.commit_climax` and `WITNESS.commit`.
-- **Pose-2 inside event:** at afterglow only, as the player's finish.
+- **Once at afterglow:** `MEMORY.commit_climax`, `MEMORY.afterglow_event` and `WITNESS.commit`.
+- **Pose-2 inside event:** at afterglow only, as the player's finish. It records context but no
+  longer queues a line.
 - **Horse close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
   caressing adds a happy mood, a private thought and a small `romance` gain; staying alone
   records the warm beat without the extra romance.

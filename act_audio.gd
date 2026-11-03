@@ -2,7 +2,7 @@ extends Node
 ## Optional OpenNSFW act audio. The runtime creates this node only when `act_foley` or
 ## `act_vocals` is on, so both flags off never loads a pack stream or allocates a player.
 ##
-## `foley` covers thrust plaps, slides, bed/fabric, mouth kisses and flank smacks. `vocals`
+## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `vocals`
 ## covers only the pack climax moan. `climax` is the separate wet finish layer. The mod's pony
 ## breath, Ponese voice and `squee_*` climax stay in runtime.gd and are not gated by these flags.
 
@@ -204,10 +204,6 @@ func play_slide(direction: String, strength: float, at: Vector3, extra_db := -6.
 
 func play_mouth_kiss(at: Vector3) -> bool:
 	return play("mouth_kiss", at, 0.55)
-
-
-func play_smack(at: Vector3) -> bool:
-	return play("smack", at, 1.0)
 
 
 func play_climax_wet(at: Vector3) -> void:

@@ -198,9 +198,9 @@ body-relative axes.
   `poses.<pose>.tail_lift` defaults to `0.42` and is inherited/overridable per mare.
 - Pose 2 enters the same held `AFTERGLOW` state when the player chooses it or the third pony
   climax forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
-  flicks twice, and the inside event/reaction is recorded on entry. A separate `stay_close`
-  line follows the inside line, and the 8 s HUD close window counts active caress time. No
-  automatic withdrawal/restore.
+  flicks twice, and the inside event is recorded on entry. Normal dialogue resumes; a
+  world-context afterglow event keeps the just-intimate moment present. The 8 s HUD close
+  window counts active caress time. No automatic withdrawal/restore.
 
 ## Critical: camera work
 
@@ -670,8 +670,8 @@ examples.
   every act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`). The intentional
   early-stop line is queued after the restore begins. Act-line validity is tied to the
   pony/event id, not `State.ACTIVE`.
-- The horse afterglow queues a separate `stay_close` line after the `inside` line. The HUD
-  close timer, not the line, owns the invitation.
+- The horse afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
+  with the afterglow context event; the HUD close timer owns the invitation.
 
 ## HUD and rewards
 
@@ -815,7 +815,7 @@ rump blush. Unknown settings keys are ignored.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),
-  `act_prompts`, `event_prompts` (`climax`, `end_early`, `inside`, `stay_close`),
+  `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.horse`. `cue_gap` is a per-character JSON value, not a settings-tab
   control.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (16 IDs) and uses `CHARACTER_NAMES` for

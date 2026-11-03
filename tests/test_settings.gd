@@ -206,7 +206,10 @@ func run() -> void:
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
-	check(event_prompts.has("stay_close"), "stay close event prompt exists")
+	check(event_prompts.has("climax") and event_prompts.has("end_early"),
+		"remaining event prompts exist")
+	check(not event_prompts.has("inside") and not event_prompts.has("stay_close"),
+		"afterglow scripted prompts removed")
 
 	var live := SETTINGS.template_for("fluttershy")
 	check(not live.is_empty(), "live template")

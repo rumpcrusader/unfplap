@@ -600,9 +600,6 @@ var _kiss_stream: AudioStream
 var _climax_streams: Array[AudioStream] = []
 var _thrust_times: Array[float] = []
 var _act_audio: Node
-var _flank_sound: AudioStreamPlayer3D
-var _flank_sound_saved := 0.0
-var _flank_sound_muted := false
 var _bed_soft := false
 
 
@@ -737,7 +734,6 @@ func apply_live_settings() -> void:
 		_ensure_act_audio(foley, vocals, climax)
 	elif is_instance_valid(_act_audio):
 		_act_audio.set_enabled(false, false, false)
-	_mute_flank_sound(foley)
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
@@ -2052,7 +2048,7 @@ func _keep_nav() -> void:
 ## tick stops the director from turning her away or pinning her gaze; speech, emotions and
 ## locomotion keep running, and `_check_running` does not treat conversation as a stop.
 func _keep_act_attention() -> void:
-	if state == State.IDLE or state == State.RESTORE or not is_instance_valid(pony):
+	if state in [State.IDLE, State.RESTORE, State.AFTERGLOW] or not is_instance_valid(pony):
 		return
 	if pony.has_method("set_conversation_target"):
 		pony.call("set_conversation_target", null, false)
@@ -3524,6 +3520,7 @@ func _commit_afterglow() -> void:
 		return
 	_record_peak_memory()
 	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
+	MEMORY.afterglow_event(main.game, _id, _display_name, _event_id, pose_id)
 	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
 
 
@@ -3572,19 +3569,15 @@ func _afterglow_begin() -> void:
 		main.hud.set_state("AFTERGLOW")
 
 
-## Pose 2 only: tell her Anon came inside her, then optionally invite a spoken reaction.
+## Pose 2 only: tell her Anon came inside her. Normal dialogue resumes from here.
 func _inside_aftermath() -> void:
 	if not is_instance_valid(main):
 		return
 	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
-	var expiry := Time.get_ticks_msec() + 60000
-	var valid := func() -> bool:
-		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
-	MEMORY.inside_response(main.game, _id, _event_id, valid)
 
 
-## Horse afterglow only. She asks the player to stay close; the HUD and this timer are the
-## reliable cue, while her generated line is flavour.
+## Horse afterglow only. The HUD and this timer own the stay-close invitation; normal dialogue
+## resumes instead of a scripted stay-close line.
 func _begin_close_window() -> void:
 	if pose_id != CATALOG.HORSE:
 		return
@@ -3594,12 +3587,6 @@ func _begin_close_window() -> void:
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
-	if not is_instance_valid(main):
-		return
-	var expiry := Time.get_ticks_msec() + 60000
-	var valid := func() -> bool:
-		return is_instance_valid(pony) and Time.get_ticks_msec() < expiry
-	MEMORY.stay_close_response(main.game, _id, _event_id, valid)
 
 
 func _afterglow_tick(delta: float) -> void:
@@ -5672,11 +5659,8 @@ func _end_smack_swing() -> void:
 ## Native impact, but with the pony's game reaction signals silenced. During an act those
 ## reactions can trigger a buck/fidget or hoof shuffle, which is not wanted for a sex smack.
 func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
-	if is_instance_valid(_act_audio) and _act_audio.foley_enabled() and not _flank_sound_muted:
-		_mute_flank_sound(true)
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
 		_flank.call("impact", index, at)
-		_play_pack_smack(at)
 		return
 	var sig: Signal = pony.physical_reaction
 	var links: Array = sig.get_connections()
@@ -5687,19 +5671,11 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 		if callable is Callable and sig.is_connected(callable):
 			sig.disconnect(callable)
 	_flank.call("impact", index, at)
-	_play_pack_smack(at)
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and not sig.is_connected(callable):
 			sig.connect(callable)
-
-
-func _play_pack_smack(at: Vector3) -> void:
-	if not _flank_sound_muted:
-		return
-	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
-		_act_audio.play_smack(at)
 
 
 ## Pose-2 hip phase follows the mouse depth directly, with a short low-pass so a single-frame
@@ -6422,7 +6398,6 @@ func _start_audio() -> void:
 	var climax := _feature("act_climax")
 	if foley or vocals or climax:
 		_ensure_act_audio(foley, vocals, climax)
-	_mute_flank_sound(foley)
 	_breath_streams.clear()
 	for i: int in range(1, 15):
 		var path := "res://world/audio/pony/breath_%02d.wav" % i
@@ -6483,7 +6458,6 @@ func _stop_audio() -> void:
 		_act_audio.stop()
 		_act_audio.queue_free()
 		_act_audio = null
-	_restore_flank_sound()
 	if is_instance_valid(_breath):
 		_breath.stop()
 		_breath.queue_free()
@@ -6500,33 +6474,6 @@ func _stop_audio() -> void:
 		_climax_sound.stop()
 		_climax_sound.queue_free()
 		_climax_sound = null
-
-
-## The game's flank touch owns its own slap player. With pack foley on, mute that player for the
-## act and replace it with the curated spank so the two do not double.
-func _mute_flank_sound(foley: bool) -> void:
-	_restore_flank_sound()
-	if not foley or not is_instance_valid(pony):
-		return
-	if not is_instance_valid(_flank):
-		_flank = pony.get_node_or_null("FlankTouch")
-	if not is_instance_valid(_flank):
-		return
-	var sound: Variant = _flank.get("sound")
-	if not sound is AudioStreamPlayer3D:
-		return
-	_flank_sound = sound as AudioStreamPlayer3D
-	_flank_sound_saved = _flank_sound.volume_db
-	_flank_sound.volume_db = -80.0
-	_flank_sound_muted = true
-
-
-func _restore_flank_sound() -> void:
-	if _flank_sound_muted and is_instance_valid(_flank_sound):
-		_flank_sound.volume_db = _flank_sound_saved
-	_flank_sound = null
-	_flank_sound_saved = 0.0
-	_flank_sound_muted = false
 
 
 func _stop_breath() -> void:

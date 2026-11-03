@@ -3,6 +3,7 @@ extends RefCounted
 ## both world_context.record and impressions.commit idempotent.
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const WITNESS_RADIUS_M := 8.0
@@ -39,6 +40,20 @@ static func inside_event(game: Node, id: String, name: String, event_id: String)
 	if ctx == null:
 		return
 	ctx.record("intimacy", "The player just came inside you.", [id, "player"], [id, "player"], event_id + ":inside")
+
+
+## Normal dialogue resumes in the afterglow, but the moment is not socially over yet. This
+## world-context event keeps that in view without queuing a scripted line.
+static func afterglow_text(pose: String) -> String:
+	var closeness := "lying close together" if pose != CATALOG.HORSE else "standing close together"
+	return "You and Anon just had sex. You are still in the afterglow together, %s; the act has ended, but the moment is not finished yet." % closeness
+
+
+static func afterglow_event(game: Node, id: String, name: String, event_id: String, pose: String) -> void:
+	var ctx = _context(game)
+	if ctx == null:
+		return
+	ctx.record("intimacy", afterglow_text(pose), [id, "player"], [id, "player"], event_id + ":afterglow")
 
 
 ## One spoken reaction to a named act event. Custom prompts override the fallback; there is no
@@ -111,18 +126,6 @@ static func cancel_act_lines(game: Node, event_id: String, keep_speaking := true
 		director.call("cancel_authored_line", key)
 		cancelled += 1
 	return cancelled
-
-
-static func inside_response(game: Node, id: String, event_id: String, valid: Callable) -> void:
-	reaction_for(game, id, "inside", event_id,
-		"The player just came inside you. Say one short sentence, at most 12 words, in your own voice. Staying quiet or staying close is fine. Do not start another act.",
-		valid)
-
-
-static func stay_close_response(game: Node, id: String, event_id: String, valid: Callable) -> void:
-	reaction_for(game, id, "stay_close", event_id,
-		"You are in the afterglow with Anon. Ask him to stay close for a moment; say one short sentence, at most 12 words, in your own voice. Do not start another act.",
-		valid)
 
 
 ## The horse afterglow close reward. Staying and caressing gets a small romance gain and a

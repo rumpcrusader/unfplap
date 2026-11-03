@@ -32,6 +32,12 @@ func _runtime(pose: String) -> Node:
 
 
 func run() -> void:
+	var mission_text := MEMORY.afterglow_text("missionary")
+	var horse_text := MEMORY.afterglow_text("horse")
+	check(mission_text.contains("lying close"), "missionary afterglow context")
+	check(horse_text.contains("standing close"), "horse afterglow context")
+	check(mission_text.contains("not finished yet"), "afterglow context keeps the moment open")
+	check(not mission_text.contains("Do not start another act"), "afterglow context is not a scripted line")
 	check(MEMORY.keep_active_line("speaking", "line", "line", true), "speaking line is kept")
 	check(not MEMORY.keep_active_line("thinking", "line", "line", true), "thinking line is dropped")
 	check(not MEMORY.keep_active_line("speaking", "other", "line", true), "inactive line is dropped")

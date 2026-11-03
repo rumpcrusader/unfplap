@@ -61,7 +61,7 @@ func run() -> void:
 	var expected := {
 		"plap_firm": 7, "plap_rough": 7, "plap_horse": 8,
 		"slide_in": 6, "slide_out": 6, "bed_wood_in": 5, "bed_wood_out": 5,
-		"fabric": 8, "mouth_kiss": 8, "smack": 6, "climax_wet": 4,
+		"fabric": 8, "mouth_kiss": 8, "climax_wet": 4,
 		"climax_voice": 3,
 	}
 	check(CATALOGUE.CUES.size() == expected.size(), "cue count")
@@ -118,7 +118,7 @@ func run() -> void:
 	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
-	check(act.play_smack(Vector3.ZERO), "smack plays")
+	check(not CATALOGUE.CUES.has("smack"), "flank smack is not a pack cue")
 	act.set_enabled(false, true, false)
 	act.play_climax_voice(Vector3.ZERO)
 	check(act.vocals_enabled(), "climax voice accepted after a live toggle")

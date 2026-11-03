@@ -25,7 +25,7 @@ func run() -> void:
 	check(files.size() > 10, "source files found")
 	var manifest := FileAccess.get_file_as_string(ROOT.path_join("mod.json"))
 	check(manifest.contains("\"id\": \"unfplap\""), "mod id")
-	check(manifest.contains("\"version\": \"0.0.2\""), "mod version")
+	check(manifest.contains("\"version\": \"0.0.3\""), "mod version")
 	check(manifest.contains("res://mods/unfplap/"), "entry/extension paths")
 	for path: String in files:
 		var text := FileAccess.get_file_as_string(path)

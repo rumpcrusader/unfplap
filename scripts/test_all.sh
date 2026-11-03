@@ -18,6 +18,7 @@ TESTS=(
 	test_thrust
 	test_preferences
 	test_utterance
+	test_relationship_cue
 	test_runtime_thrust
 	test_afterglow
 	test_voice

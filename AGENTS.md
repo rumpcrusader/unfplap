@@ -103,6 +103,7 @@ mods/unfplap/
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   preferences.gd    pure taste profile, intensity/rhythm and talk classification
   utterance.gd      pure prompt formatting
+  relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   anon_thrust.gd    wraps the desktop Anon pose driver for the pose-2 hip thrust
   palm_scale.gd     pose-2 hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven pose-2 upper-body sway with planted forehooves
@@ -589,6 +590,10 @@ examples.
 - A cue line uses the `cue` prompt; a talk invitation uses `talk_cue`. The state line contains
   pose, mood, taste-axis motion, last touch, last talk, pony climax count and act time; it
   contains no speed or depth units.
+- Every cue line carries a private relationship note and tone. The note uses the friendship/love
+  level names, relationship stage, first-time/repeat and current mood; the tone is `tender`,
+  `warm`, `ardent`, `open` or `careful`. The functional cue text is unchanged. The prompt tells
+  her not to say the labels, levels or numbers.
 - One mod line may be pending at a time. A new line needs an idle director and pony, plus
   `UTTERANCE_MIN_GAP_S = 6 s` since the previous line started.
 - The pending slot stays reserved until speech actually stops and a 1 s release hold passes.

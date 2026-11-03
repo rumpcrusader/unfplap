@@ -228,6 +228,54 @@ static func witnesses(game: Node, partner_id: String, partner_name: String, seri
 			}, event_id + ":gain")
 
 
+## Private facts for the cue prompt. No raw scores or counts leave this function.
+static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	if not is_instance_valid(game):
+		return out
+	var rel: Variant = game.get("relationship_runtime")
+	if rel == null or not rel is Node or not is_instance_valid(rel):
+		return out
+	var ladder: Variant = rel.call("ladder", id) if rel.has_method("ladder") else {}
+	if ladder is Dictionary:
+		var friend: Variant = (ladder as Dictionary).get("friendship", {})
+		var love: Variant = (ladder as Dictionary).get("love", {})
+		if friend is Dictionary:
+			out["friendship"] = str((friend as Dictionary).get("name", ""))
+		if love is Dictionary:
+			out["love"] = str((love as Dictionary).get("name", ""))
+			out["love_level"] = int((love as Dictionary).get("level", -1))
+	var bonds: Variant = rel.get("bonds")
+	if bonds is Node and is_instance_valid(bonds) and bonds.has_method("record_for"):
+		var record: Variant = bonds.call("record_for", id)
+		if record is Dictionary:
+			out["stage"] = str((record as Dictionary).get("stage", ""))
+			out["anger"] = float((record as Dictionary).get("anger", 0.0))
+	var ctx := _context(game)
+	if ctx != null:
+		if ctx.has_method("events_for"):
+			var prior := 0
+			for event: Variant in ctx.call("events_for", id, 64):
+				if not event is Dictionary:
+					continue
+				var row: Dictionary = event
+				if str(row.get("kind", "")) != "intimacy":
+					continue
+				var eid := str(row.get("id", ""))
+				if eid == event_id or eid.begins_with(event_id + ":"):
+					continue
+				prior += 1
+			out["first_time"] = prior == 0
+		var impressions: Variant = ctx.get("impressions")
+		if impressions is Node and is_instance_valid(impressions) and impressions.has_method("profile"):
+			var profile: Variant = impressions.call("profile", id)
+			if profile is Dictionary:
+				out["mood"] = str((profile as Dictionary).get("mood", ""))
+	out["careful"] = str(out.get("mood", "")) == "annoyed" \
+		or float(out.get("anger", 0.0)) > 0.0
+	return out
+
+
 static func _context(game: Node) -> Node:
 	if not is_instance_valid(game):
 		return null

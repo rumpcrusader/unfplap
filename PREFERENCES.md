@@ -144,6 +144,9 @@ overwhelmed   a disliked touch/talk landed recently
 - Cue lines are event-driven, not a timer. When the displayed cue changes, a new line can be
   generated after `cue_gap` seconds (default `12`, per character, clamped `8..30`) and the
   shared 6 s utterance gap. A quiet or unchanged act may produce no cue line.
+- Every cue line gets a private relationship note and tone: friendship/love level, stage,
+  first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
+  text is unchanged, and the model is not told to repeat specific names.
 - A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a
   mare with a non-empty `talk` taste. The HUD cue is “She needs to hear you.” and the player
   uses `T`. The player's reply is the director's player turn; the runtime drops the cue's

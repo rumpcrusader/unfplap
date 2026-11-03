@@ -62,6 +62,8 @@ func run() -> void:
 	var prompts: Dictionary = base.get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
 	check(not str(prompts.get("cue", "")).is_empty(), "cue prompt present")
+	check(str(prompts.get("cue", "")).contains("{relationship}"), "cue prompt has relationship note")
+	check(str(prompts.get("cue", "")).contains("{tone}"), "cue prompt has tone")
 	check(not str(prompts.get("talk_cue", "")).is_empty(), "talk cue prompt present")
 
 	var characters := {

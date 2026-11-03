@@ -12,6 +12,7 @@ const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
+const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
@@ -2817,6 +2818,11 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 		"cue": cue,
 		"recent": _recent_lines(),
 	}
+	if kind == "cue":
+		var facts := MEMORY.cue_facts(main.game, _id, _event_id)
+		var tone_name := RELATIONSHIP_CUE.tone(facts)
+		values["relationship"] = RELATIONSHIP_CUE.note(facts)
+		values["tone"] = RELATIONSHIP_CUE.tone_line(tone_name)
 	var purpose := UTTERANCE.format(template, values)
 	_utterance_serial += 1
 	var key := "%s:%d" % [key_suffix, _utterance_serial]

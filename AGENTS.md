@@ -18,7 +18,7 @@ Do not start implementation until you have read the required files for the area 
 
 ## Identity and scope
 
-- Mod id `unfplap`; current public version `0.0.2`; target game `0.1.1-maredev`
+- Mod id `unfplap`; current public version `0.0.3`; target game `0.1.1-maredev`
   (`project.godot` reports `0.1.0-maredev`).
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
@@ -80,9 +80,15 @@ done
 - Build only when the user asks:
   ```bash
   godot --headless --xr-mode off --path <project> \
-    --script res://tools/modding/build_mod.gd -- unfplap --out <file.pck>
+    --script res://tools/modding/build_mod.gd -- unfplap --out <file.pck> [--no-extends]
   ```
   Success prints `MOD_BUILT <path>`.
+- Release note: the `0.1.1.1-maredev` loader cannot compile a script extension whose base is a
+  `.gdc` (`user://mods/.bases/0.gd` / `.gdc` mismatch). Build that release with
+  `--no-extends`, which drops `"extends"` from the packed `mod.json` while the source
+  `--mod-src` run keeps it. The `0.0.3` release pck was built that way, so the bed
+  body-scale/approach extension is source-only until the game loader is fixed or the next game
+  build ships the fix.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
   shadows source edits.
 - `mods/unfplap/README.md` and `mods/unfplap/AGENTS.md` are excluded from the pack by the
@@ -683,8 +689,9 @@ This is mandatory.
 - `ext/shared_bed.gd` lifts the stock `1.05` bed-cuddle body-scale cap. It lowers the numeric
   `body_scale` only for the synchronous `eligible()` check, then restores it, so JRHNBR, Same
   Height and Hoers mares can share a bed. It also tries the bed's authored `side_local` approach
-  before the generic side, which the Golden Oak guest nook needs. Verify the built pack still
-  logs `unfplap extends res://world/relationships/shared_bed.gd`.
+  before the generic side, which the Golden Oak guest nook needs. Source runs log
+  `unfplap extends res://world/relationships/shared_bed.gd`; the `0.1.1.1` release pck omits
+  that extension because its loader cannot compile the `.gdc` base (see the build note above).
 - The stock bed captures a snuggle guest's rest transform at invite time from the player's
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying

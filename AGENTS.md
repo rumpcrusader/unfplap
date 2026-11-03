@@ -15,6 +15,7 @@ Do not start implementation until you have read the required files for the area 
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Settings or character profiles | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
+| Act audio or sound assets | `act_audio.gd`, `audio/act/catalogue.gd`, `AUDIO_CREDITS.md` |
 
 ## Identity and scope
 

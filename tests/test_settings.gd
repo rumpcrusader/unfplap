@@ -135,17 +135,32 @@ func run() -> void:
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
 	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
-	check(near(float(presentation_defaults.get("pose1_camera", 0.0)), 0.10),
-		"default missionary camera offset")
+	check(near(float(presentation_defaults.get("pose1_forward", 0.0)), 0.10),
+		"default missionary forward")
+	check(near(float(presentation_defaults.get("pose1_height", 0.0)), -0.10),
+		"default missionary height")
+	check(near(float(presentation_defaults.get("pose1_side", -1.0)), 0.0),
+		"default missionary side")
+	check(near(float(presentation_defaults.get("pose1_pullback", 0.0)), 0.22),
+		"default missionary pullback")
 	check(near(float(presentation_defaults.get("torso_angle_deg", -1.0)), 0.0),
 		"default Anon torso lean off")
 	var presentation := SETTINGS.presentation_controls()
 	var glance_speed := float(presentation.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
-	var pose1_camera := float(presentation.get("pose1_camera", 99.0))
-	check(pose1_camera >= -0.10 and pose1_camera <= 0.20,
-		"runtime missionary camera offset in range")
+	var pose1_forward := float(presentation.get("pose1_forward", 99.0))
+	check(pose1_forward >= -0.20 and pose1_forward <= 0.20,
+		"runtime missionary forward in range")
+	var pose1_height := float(presentation.get("pose1_height", 99.0))
+	check(pose1_height >= -0.20 and pose1_height <= 0.30,
+		"runtime missionary height in range")
+	var pose1_side := float(presentation.get("pose1_side", 99.0))
+	check(pose1_side >= -0.20 and pose1_side <= 0.20,
+		"runtime missionary side in range")
+	var pose1_pullback := float(presentation.get("pose1_pullback", 99.0))
+	check(pose1_pullback >= 0.0 and pose1_pullback <= 0.40,
+		"runtime missionary pullback in range")
 	var torso_angle := float(presentation.get("torso_angle_deg", 99.0))
 	check(torso_angle >= 0.0 and torso_angle <= 20.0,
 		"runtime Anon torso lean in range")

@@ -66,8 +66,9 @@ Both follow the filtered thrust **speed**, not depth, with one smooth critically
 response. There are no Save buttons. Thrust and camera-thrust controls write their own blocks
 immediately and apply live during an act.
 
-The **Act presentation** section has **Glance-back speed** (`0.25…3.0×`), the **Missionary
-camera** offset and **Anon torso lean** (`0…20°`, pose 2). All apply live.
+The **Act presentation** section has **Glance-back speed** (`0.25…3.0×`), the **Missionary**
+framing axes (forward, height, side, pullback), the side-lean head-forward amount and
+**Anon torso lean** (`0…20°`, pose 2). All apply live.
 
 The **Character taste** section exposes one pony selector and one form:
 

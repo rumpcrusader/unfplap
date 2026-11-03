@@ -88,14 +88,14 @@ these values here if a future pose needs that effect.
   where `back = +pony.global_basis.z`. The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
-  farther-back anchor. The **Act presentation → Missionary camera** setting (`pose1_camera`,
-  default `0.10 m`, range `-0.10…0.20`) moves the anchor toward her torso and lower by that
-  distance; positive values bring the shot in and down, negative values back it off and up. After
-  positioning, the shot is pulled `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along
-  `_pose1_view_basis.z` (its own view axis), then advanced by `POSE1_START_LEAN = 1.0` (one full
-  `LEAN_FORWARD_M` lean) along the same axis. The shot therefore starts at the old maximum
-  W-lean point, and W pushes further up her torso toward the neck. The aim basis is computed
-  once from the stable anchor, not the moved view, to prevent start-up flicker.
+  farther-back anchor. The **Act presentation → Missionary** axes move the frozen anchor:
+  `pose1_forward` (`-0.20…0.20 m`, default `0.10`), `pose1_height` (`-0.20…0.30 m`, default
+  `-0.10`) and `pose1_side` (`-0.20…0.20 m`, default `0`). The **Missionary pullback** setting
+  (`pose1_pullback`, default `0.22 m`, range `0…0.40`, times body scale) then pulls the shot
+  back along `_pose1_view_basis.z` (its own view axis), and `POSE1_START_LEAN = 1.0` (one full
+  `LEAN_FORWARD_M` lean) advances it along the same axis. The shot therefore starts at the old
+  maximum W-lean point, and W pushes further up her torso toward the neck. The aim basis is
+  computed once from the stable anchor, not the moved view, to prevent start-up flicker.
 - Aim: sample the middle of the neck (`pony_neck1`/`pony_neck2` midpoint) during the first
   second while the pose blends, then freeze. The live snout is not used, and the target is never
   derived from the moving view.

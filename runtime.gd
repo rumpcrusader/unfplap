@@ -88,7 +88,7 @@ const AFTERGLOW_BREATH_FADE_S := 5.0
 ## face. `pony.global_basis.z` is her backward direction.
 const POSE1_CAMERA_HEIGHT_M := 0.45
 const POSE1_CAMERA_BACK_M := 0.22
-## Additional room between the pose-1 shot and the pony.
+## Default room between the pose-1 shot and the pony; the presentation setting overrides it.
 const POSE1_CAMERA_PULLBACK_M := 0.22
 ## Extra height requested after the first visual pass.
 const POSE1_CAMERA_LIFT_M := 0.10
@@ -461,7 +461,7 @@ var _inventory_hud_saved := false
 var _inventory_hotbar_visible := true
 var _inventory_hud_layer_visible := true
 var _pose1_camera := Vector3.INF
-var _pose1_camera_applied := -1.0
+var _pose1_camera_applied := Vector3.INF
 var _pose1_head_roll := 0.0
 var _pose1_start_camera: Camera3D
 var _pose1_start_camera_transform := Transform3D.IDENTITY
@@ -634,14 +634,15 @@ func apply_live_settings() -> void:
 	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
-	var pose1_offset := _pose1_camera_offset()
+	var pose1_offsets := _pose1_camera_offsets()
 	if pose_id == CATALOG.MISSIONARY and state != State.IDLE and is_instance_valid(pony) \
 			and _pose1_camera.is_finite() \
-			and not is_equal_approx(pose1_offset, _pose1_camera_applied):
-		var delta := pose1_offset - _pose1_camera_applied
-		_pose1_camera += -pony.global_basis.z.normalized() * delta
-		_pose1_camera.y -= delta
-		_pose1_camera_applied = pose1_offset
+			and not pose1_offsets.is_equal_approx(_pose1_camera_applied):
+		var delta := pose1_offsets - _pose1_camera_applied
+		_pose1_camera += -pony.global_basis.z.normalized() * delta.x
+		_pose1_camera.y += delta.y
+		_pose1_camera += pony.global_basis.x.normalized() * delta.z
+		_pose1_camera_applied = pose1_offsets
 		if _pose1_look_point.is_finite():
 			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
 	if not _id.is_empty():
@@ -1672,7 +1673,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_lean_state()
 	_pose1_basis_logged = false
 	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
-	_pose1_camera_applied = _pose1_camera_offset() if pose == CATALOG.MISSIONARY else -1.0
+	_pose1_camera_applied = _pose1_camera_offsets() if pose == CATALOG.MISSIONARY else Vector3.INF
 	if pose == CATALOG.MISSIONARY:
 		_snapshot_pose1_start()
 		_make_pose1_view()
@@ -3747,11 +3748,18 @@ func _pose1_body_scale() -> float:
 
 
 func _pose1_pullback() -> float:
-	return POSE1_CAMERA_PULLBACK_M * _pose1_body_scale()
+	var value := float(_presentation_cfg.get("pose1_pullback", POSE1_CAMERA_PULLBACK_M))
+	return clampf(value, 0.0, 0.40) * _pose1_body_scale()
 
 
-func _pose1_camera_offset() -> float:
-	return float(_presentation_cfg.get("pose1_camera", SETTINGS.PRESENTATION_DEFAULTS["pose1_camera"]))
+func _pose1_camera_offsets() -> Vector3:
+	return Vector3(
+		float(_presentation_cfg.get(
+			"pose1_forward", SETTINGS.PRESENTATION_DEFAULTS["pose1_forward"])),
+		float(_presentation_cfg.get(
+			"pose1_height", SETTINGS.PRESENTATION_DEFAULTS["pose1_height"])),
+		float(_presentation_cfg.get(
+			"pose1_side", SETTINGS.PRESENTATION_DEFAULTS["pose1_side"])))
 
 
 func _pose1_camera_target() -> Vector3:
@@ -3773,14 +3781,14 @@ func _pose1_camera_target() -> Vector3:
 	if is_finite(bed_top) and bed_top <= root.y + 2.0:
 		target.y = maxf(target.y, bed_top + 0.30 * body_scale)
 	target.y = clampf(target.y, root.y + 0.30 * body_scale, root.y + 1.50 * body_scale)
-	# One framing control: shift toward her torso and lower by the same distance. The base
-	# anchor would otherwise sit behind her neck and too high for the close shot.
-	var offset := _pose1_camera_offset()
-	if absf(offset) > 0.0001:
-		target += -back * offset
-		target.y -= offset
-		if is_finite(bed_top) and bed_top <= root.y + 2.0:
-			target.y = maxf(target.y, bed_top + 0.10 * body_scale)
+	# Fine missionary framing: forward along her body, vertical, and her lateral axis. The
+	# base anchor would otherwise sit behind her neck and too high for the close shot.
+	var offsets := _pose1_camera_offsets()
+	target += -back * offsets.x
+	target.y += offsets.y
+	target += pony.global_basis.x.normalized() * offsets.z
+	if is_finite(bed_top) and bed_top <= root.y + 2.0:
+		target.y = maxf(target.y, bed_top + 0.10 * body_scale)
 	return target
 
 

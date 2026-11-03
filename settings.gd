@@ -113,11 +113,15 @@ const CAMERA_THRUST_DEFAULTS := {
 }
 
 ## Shared act presentation. `glance_back_speed` is a multiplier; higher is faster.
-## `pose1_camera` moves the missionary shot toward her torso and lower by this many metres.
+## Missionary framing: forward/height/side move the frozen anchor; pullback is the distance
+## along its own view axis. All are metres and read live.
 ## `torso_angle_deg` hinges Anon's pose-2 upper body forward over her.
 const PRESENTATION_DEFAULTS := {
 	"glance_back_speed": 2.0,
-	"pose1_camera": 0.10,
+	"pose1_forward": 0.10,
+	"pose1_height": -0.10,
+	"pose1_side": 0.0,
+	"pose1_pullback": 0.22,
 	"torso_angle_deg": 0.0,
 }
 
@@ -478,15 +482,24 @@ static func presentation_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("presentation", {})
 	var speed := float(PRESENTATION_DEFAULTS["glance_back_speed"])
-	var pose1_camera := float(PRESENTATION_DEFAULTS["pose1_camera"])
+	var forward := float(PRESENTATION_DEFAULTS["pose1_forward"])
+	var height := float(PRESENTATION_DEFAULTS["pose1_height"])
+	var side := float(PRESENTATION_DEFAULTS["pose1_side"])
+	var pullback := float(PRESENTATION_DEFAULTS["pose1_pullback"])
 	var torso_angle := float(PRESENTATION_DEFAULTS["torso_angle_deg"])
 	if block is Dictionary:
 		speed = float((block as Dictionary).get("glance_back_speed", speed))
-		pose1_camera = float((block as Dictionary).get("pose1_camera", pose1_camera))
+		forward = float((block as Dictionary).get("pose1_forward", forward))
+		height = float((block as Dictionary).get("pose1_height", height))
+		side = float((block as Dictionary).get("pose1_side", side))
+		pullback = float((block as Dictionary).get("pose1_pullback", pullback))
 		torso_angle = float((block as Dictionary).get("torso_angle_deg", torso_angle))
 	return {
 		"glance_back_speed": clampf(speed, 0.25, 3.0),
-		"pose1_camera": clampf(pose1_camera, -0.10, 0.20),
+		"pose1_forward": clampf(forward, -0.20, 0.20),
+		"pose1_height": clampf(height, -0.20, 0.20),
+		"pose1_side": clampf(side, -0.20, 0.20),
+		"pose1_pullback": clampf(pullback, 0.0, 0.40),
 		"torso_angle_deg": clampf(torso_angle, 0.0, 20.0),
 	}
 
@@ -499,9 +512,18 @@ static func save_presentation_controls(values: Dictionary) -> void:
 	controls["glance_back_speed"] = clampf(float(values.get(
 		"glance_back_speed", controls.get("glance_back_speed",
 			PRESENTATION_DEFAULTS["glance_back_speed"]))), 0.25, 3.0)
-	controls["pose1_camera"] = clampf(float(values.get(
-		"pose1_camera", controls.get("pose1_camera",
-			PRESENTATION_DEFAULTS["pose1_camera"]))), -0.10, 0.20)
+	controls["pose1_forward"] = clampf(float(values.get(
+		"pose1_forward", controls.get("pose1_forward",
+			PRESENTATION_DEFAULTS["pose1_forward"]))), -0.20, 0.20)
+	controls["pose1_height"] = clampf(float(values.get(
+		"pose1_height", controls.get("pose1_height",
+			PRESENTATION_DEFAULTS["pose1_height"]))), -0.20, 0.20)
+	controls["pose1_side"] = clampf(float(values.get(
+		"pose1_side", controls.get("pose1_side",
+			PRESENTATION_DEFAULTS["pose1_side"]))), -0.20, 0.20)
+	controls["pose1_pullback"] = clampf(float(values.get(
+		"pose1_pullback", controls.get("pose1_pullback",
+			PRESENTATION_DEFAULTS["pose1_pullback"]))), 0.0, 0.40)
 	controls["torso_angle_deg"] = clampf(float(values.get(
 		"torso_angle_deg", controls.get("torso_angle_deg",
 			PRESENTATION_DEFAULTS["torso_angle_deg"]))), 0.0, 20.0)

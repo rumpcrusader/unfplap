@@ -256,15 +256,17 @@ body-relative axes.
 
 - Mod-owned `UnfplapPose1View`, top-level, anchored at
   `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
-  pulled `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along its own frozen view axis. Canon
-  height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally higher, farther-back shot
-  so the camera is not inside her neck. The anchor stays behind her neck, toward her rump, so the
-  frozen aim looks forward along her body at her face. Anchoring ahead of the neck put the camera
-  over her head and aimed back down her torso. The **Act presentation → Missionary camera**
-  setting (`pose1_camera`, default `0.10 m`, range `-0.10…0.20`) then shifts the anchor toward
-  her torso and lower by the same distance; the range keeps it behind her neck. The base view
-  then adds `POSE1_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so
-  the shot starts at the old maximum W-lean point and W pushes further up her torso.
+  shifted by the **Act presentation → Missionary** axes and pulled by the **Missionary pullback**
+  setting (`pose1_pullback`, default `0.22 m`, range `0…0.40`, times body scale) back along its
+  own frozen view axis. Canon height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally
+  higher, farther-back shot so the camera is not inside her neck. The anchor stays behind her
+  neck, toward her rump, so the frozen aim looks forward along her body at her face. Anchoring
+  ahead of the neck put the camera over her head and aimed back down her torso.
+  The fine axes are `pose1_forward` (`-0.20…0.20 m`, default `0.10`), `pose1_height`
+  (`-0.20…0.30 m`, default `-0.10`) and `pose1_side` (`-0.20…0.20 m`, default `0`); all are
+  metres and applied to the frozen anchor. The base view then adds `POSE1_START_LEAN = 1.0`
+  (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot starts at the old maximum
+  W-lean point and W pushes further up her torso.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and
   broke the aim. The aim basis is always rebuilt from `_pose1_camera`, never the already moved

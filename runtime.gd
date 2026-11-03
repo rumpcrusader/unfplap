@@ -365,6 +365,7 @@ var _last_talk_cue_at := -1000.0
 var _last_cue_text := ""
 var _last_cue_line_at := -1000.0
 var _cue_gap := 12.0
+var _used_memory_ids: Array[String] = []
 var _aftercare_min := 10
 var _display_name := "the pony"
 var _serial := 0
@@ -2334,6 +2335,7 @@ func _reset_thrust_state() -> void:
 	_last_talk_cue_at = -1000.0
 	_last_cue_text = ""
 	_last_cue_line_at = -1000.0
+	_used_memory_ids.clear()
 	if _thrust_tracker == null:
 		_thrust_tracker = THRUST.new()
 	_thrust_tracker.reset()
@@ -2818,11 +2820,15 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 		"cue": cue,
 		"recent": _recent_lines(),
 	}
+	var memory_id := ""
 	if kind == "cue":
 		var facts := MEMORY.cue_facts(main.game, _id, _event_id)
 		var tone_name := RELATIONSHIP_CUE.tone(facts)
 		values["relationship"] = RELATIONSHIP_CUE.note(facts)
 		values["tone"] = RELATIONSHIP_CUE.tone_line(tone_name)
+		var memory := MEMORY.shared_memory(main.game, _id, cue, _event_id, _used_memory_ids)
+		values["memory"] = RELATIONSHIP_CUE.memory_line(str(memory.get("text", "")))
+		memory_id = str(memory.get("id", ""))
 	var purpose := UTTERANCE.format(template, values)
 	_utterance_serial += 1
 	var key := "%s:%d" % [key_suffix, _utterance_serial]
@@ -2838,6 +2844,8 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 	if not queued:
 		_log("utterance queue failed kind=%s" % kind)
 		return false
+	if not memory_id.is_empty():
+		_used_memory_ids.append(memory_id)
 	_utterance_pending_key = key
 	_utterance_done_key = ""
 	_utterance_done_at = 0.0

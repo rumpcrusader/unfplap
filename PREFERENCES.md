@@ -147,6 +147,9 @@ overwhelmed   a disliked touch/talk landed recently
 - Every cue line gets a private relationship note and tone: friendship/love level, stage,
   first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
   text is unchanged, and the model is not told to repeat specific names.
+- One unused shared memory may ride with a cue. The story journal is preferred (a cue-word
+  match, then the most recent player exchange); older world-context events are the fallback.
+  Intimacy events and private brain notes are skipped. The memory is colour, not a script.
 - A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a
   mare with a non-empty `talk` taste. The HUD cue is “She needs to hear you.” and the player
   uses `T`. The player's reply is the director's player turn; the runtime drops the cue's

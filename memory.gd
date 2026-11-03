@@ -276,6 +276,88 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 	return out
 
 
+## One unused shared memory for the cue prompt. The story journal is preferred because it keeps
+## the actual exchange; the older world-context events are the fallback.
+static func shared_memory(game: Node, id: String, cue: String, event_id: String,
+		used_ids: Array) -> Dictionary:
+	var ctx := _context(game)
+	if ctx == null:
+		return {}
+	var story := _story_memory(ctx, id, cue, used_ids)
+	if not story.is_empty():
+		return story
+	return _event_memory(ctx, id, event_id, used_ids)
+
+
+static func _story_memory(ctx: Node, id: String, cue: String, used_ids: Array) -> Dictionary:
+	var story: Variant = ctx.get("story")
+	if story == null or not story.has_method("is_open") or not bool(story.call("is_open")):
+		return {}
+	var store: Variant = story.get("store")
+	if store == null or not store.has_method("search") or not store.has_method("witnessed"):
+		return {}
+	var before := int(store.call("last_line_id")) + 1
+	for row: Variant in store.call("search", id, _memory_words(cue), before, 8):
+		if row is Dictionary and _memory_ok(row, id, used_ids):
+			return {"id": "story:" + str((row as Dictionary).get("id", "")),
+				"text": str(story.call("line_text", row, id, true))}
+	var recent: Array = store.call("witnessed", id, 24, 0, ["say"])
+	for index in range(recent.size() - 1, -1, -1):
+		var row: Variant = recent[index]
+		if row is Dictionary and _memory_ok(row, id, used_ids):
+			return {"id": "story:" + str((row as Dictionary).get("id", "")),
+				"text": str(story.call("line_text", row, id, true))}
+	return {}
+
+
+static func _event_memory(ctx: Node, id: String, event_id: String, used_ids: Array) -> Dictionary:
+	var events: Array = ctx.call("events_for", id, 64)
+	for index in range(events.size() - 1, -1, -1):
+		var event: Variant = events[index]
+		if not event is Dictionary:
+			continue
+		var row: Dictionary = event
+		var kind := str(row.get("kind", ""))
+		if kind in ["intimacy", "brain"]:
+			continue
+		var eid := str(row.get("id", ""))
+		if eid == event_id or eid.begins_with(event_id + ":"):
+			continue
+		var key := "event:" + eid
+		if key in used_ids:
+			continue
+		var text := str(row.get("text", "")).strip_edges()
+		if text.is_empty():
+			continue
+		return {"id": key, "text": ("Anon: " if kind == "heard_speech" else "") + text}
+	return {}
+
+
+static func _memory_ok(row: Dictionary, id: String, used_ids: Array) -> bool:
+	var kind := str(row.get("kind", ""))
+	if kind in ["intimacy", "brain"]:
+		return false
+	if str(row.get("text", "")).strip_edges().is_empty():
+		return false
+	if "story:" + str(row.get("id", "")) in used_ids:
+		return false
+	if kind == "say":
+		var speaker := str(row.get("speaker", ""))
+		var listener := str(row.get("listener", ""))
+		return (speaker == "player" and listener == id) or (speaker == id and listener == "player")
+	return true
+
+
+static func _memory_words(cue: String) -> Array:
+	var words: Array = ["anon"]
+	var clean := cue.to_lower().replace("'", " ").replace("’", " ")
+	for word: String in clean.split(" ", false):
+		if word.length() >= 5 and word not in ["there", "about", "would", "could", "should",
+				"really", "maybe", "right", "where", "which", "these", "those", "going", "doing"]:
+			words.append(word)
+	return words.slice(0, 8)
+
+
 static func _context(game: Node) -> Node:
 	if not is_instance_valid(game):
 		return null

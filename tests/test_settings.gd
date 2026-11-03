@@ -64,6 +64,7 @@ func run() -> void:
 	check(not str(prompts.get("cue", "")).is_empty(), "cue prompt present")
 	check(str(prompts.get("cue", "")).contains("{relationship}"), "cue prompt has relationship note")
 	check(str(prompts.get("cue", "")).contains("{tone}"), "cue prompt has tone")
+	check(str(prompts.get("cue", "")).contains("{memory}"), "cue prompt has memory hint")
 	check(not str(prompts.get("talk_cue", "")).is_empty(), "talk cue prompt present")
 
 	var characters := {

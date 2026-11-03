@@ -594,6 +594,10 @@ examples.
   level names, relationship stage, first-time/repeat and current mood; the tone is `tender`,
   `warm`, `ardent`, `open` or `careful`. The functional cue text is unchanged. The prompt tells
   her not to say the labels, levels or numbers.
+- The cue prompt may include one unused shared memory. `MEMORY.shared_memory()` prefers the
+  story journal: a cue-word match, then the most recent player exchange. It falls back to the
+  world-context events. Intimacy events and private brain notes are not used as the hint. The
+  memory is marked used only after the line is queued.
 - One mod line may be pending at a time. A new line needs an idle director and pony, plus
   `UTTERANCE_MIN_GAP_S = 6 s` since the previous line started.
 - The pending slot stays reserved until speech actually stops and a 1 s release hold passes.

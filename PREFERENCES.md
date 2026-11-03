@@ -114,7 +114,7 @@ steady   otherwise
 ```text
 both axes match       +1.4 per real thrust × warmth
 one axis matches      +0.7 per real thrust × warmth
-neither matches       no gain; after 3 s, -1.5 /s
+neither matches       no gain; stopping and waiting simply pauses progress
 liked touch / talk    +6.0 once, capped at ASSIST_CAP = 60
 disliked touch/talk   -6.0 once and 1.2 s overwhelmed
 ```

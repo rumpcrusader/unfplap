@@ -24,6 +24,8 @@ const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
 const WING_SWEEP := preload("res://mods/unfplap/wing_sweep.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
+## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
+const ACT_AUDIO_PATH := "res://mods/unfplap/act_audio.gd"
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 
@@ -597,6 +599,11 @@ var _climax_sound: AudioStreamPlayer3D
 var _kiss_stream: AudioStream
 var _climax_streams: Array[AudioStream] = []
 var _thrust_times: Array[float] = []
+var _act_audio: Node
+var _flank_sound: AudioStreamPlayer3D
+var _flank_sound_saved := 0.0
+var _flank_sound_muted := false
+var _bed_soft := false
 
 
 func _ready() -> void:
@@ -723,6 +730,13 @@ func apply_live_settings() -> void:
 		return
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	_features = SETTINGS.features()
+	var foley := _feature("act_foley")
+	var vocals := _feature("act_vocals")
+	if foley or vocals:
+		_ensure_act_audio(foley, vocals)
+	elif is_instance_valid(_act_audio):
+		_act_audio.set_enabled(false, false)
+	_mute_flank_sound(foley)
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
@@ -2588,8 +2602,13 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 func _thrust_move(amount: float, now: float) -> void:
 	if _thrust_tracker == null:
 		return
+	var before := depth
 	var events: Array = _thrust_tracker.move(amount, now)
 	depth = _thrust_tracker.depth
+	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
+			and _act_audio.crossed(before, depth):
+		_act_audio.depth_crossed(before, depth, _thrust_tracker.live_strength(now),
+			pose_id, _rump_point(), _bed_audio_point(), _bed_soft)
 	for event: Dictionary in events:
 		_on_stroke(event)
 
@@ -2685,6 +2704,8 @@ func _on_thrust(result: Dictionary) -> void:
 		_thrust_times.pop_front()
 	_play_kiss()
 	_play_vocal()
+	if is_instance_valid(_act_audio):
+		_act_audio.maybe_moan(strength, _thrusts_per_second(), _snout())
 	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
 		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
 
@@ -4871,6 +4892,9 @@ func _kiss_mouth_view() -> Camera3D:
 
 
 func _play_mouth_kiss() -> void:
+	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
+		_act_audio.play_mouth_kiss(_snout())
+		return
 	if not is_instance_valid(_mouth_kiss_sound):
 		return
 	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
@@ -5637,8 +5661,11 @@ func _end_smack_swing() -> void:
 ## Native impact, but with the pony's game reaction signals silenced. During an act those
 ## reactions can trigger a buck/fidget or hoof shuffle, which is not wanted for a sex smack.
 func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
+	if is_instance_valid(_act_audio) and _act_audio.foley_enabled() and not _flank_sound_muted:
+		_mute_flank_sound(true)
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
 		_flank.call("impact", index, at)
+		_play_pack_smack(at)
 		return
 	var sig: Signal = pony.physical_reaction
 	var links: Array = sig.get_connections()
@@ -5649,11 +5676,19 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 		if callable is Callable and sig.is_connected(callable):
 			sig.disconnect(callable)
 	_flank.call("impact", index, at)
+	_play_pack_smack(at)
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and not sig.is_connected(callable):
 			sig.connect(callable)
+
+
+func _play_pack_smack(at: Vector3) -> void:
+	if not _flank_sound_muted:
+		return
+	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
+		_act_audio.play_smack(at)
 
 
 ## Pose-2 hip phase follows the mouse depth directly, with a short low-pass so a single-frame
@@ -6351,8 +6386,31 @@ func _restore_camera() -> void:
 
 # --------------------------------------------------------------------------- audio
 
+## Create the optional audio node on first use, or update its flags if it already exists.
+## This keeps act_audio.gd and its 97 preloaded streams out of a both-flags-off act.
+func _ensure_act_audio(foley: bool, vocals: bool) -> void:
+	if is_instance_valid(_act_audio):
+		_act_audio.set_enabled(foley, vocals)
+		return
+	var audio_script: Script = load(ACT_AUDIO_PATH)
+	if audio_script == null:
+		return
+	_act_audio = audio_script.new()
+	_act_audio.name = "UnfplapActAudio"
+	add_child(_act_audio)
+	_act_audio.setup(foley, vocals)
+
+
 func _start_audio() -> void:
 	_stop_audio()
+	_bed_soft = is_instance_valid(bed) \
+		and ("couch" in bed.name.to_lower() or "sofa" in bed.name.to_lower()
+			or "cloth" in bed.name.to_lower())
+	var foley := _feature("act_foley")
+	var vocals := _feature("act_vocals")
+	if foley or vocals:
+		_ensure_act_audio(foley, vocals)
+	_mute_flank_sound(foley)
 	_breath_streams.clear()
 	for i: int in range(1, 15):
 		var path := "res://world/audio/pony/breath_%02d.wav" % i
@@ -6409,6 +6467,11 @@ func _start_audio() -> void:
 
 
 func _stop_audio() -> void:
+	if is_instance_valid(_act_audio):
+		_act_audio.stop()
+		_act_audio.queue_free()
+		_act_audio = null
+	_restore_flank_sound()
 	if is_instance_valid(_breath):
 		_breath.stop()
 		_breath.queue_free()
@@ -6427,12 +6490,43 @@ func _stop_audio() -> void:
 		_climax_sound = null
 
 
+## The game's flank touch owns its own slap player. With pack foley on, mute that player for the
+## act and replace it with the curated spank so the two do not double.
+func _mute_flank_sound(foley: bool) -> void:
+	_restore_flank_sound()
+	if not foley or not is_instance_valid(pony):
+		return
+	if not is_instance_valid(_flank):
+		_flank = pony.get_node_or_null("FlankTouch")
+	if not is_instance_valid(_flank):
+		return
+	var sound: Variant = _flank.get("sound")
+	if not sound is AudioStreamPlayer3D:
+		return
+	_flank_sound = sound as AudioStreamPlayer3D
+	_flank_sound_saved = _flank_sound.volume_db
+	_flank_sound.volume_db = -80.0
+	_flank_sound_muted = true
+
+
+func _restore_flank_sound() -> void:
+	if _flank_sound_muted and is_instance_valid(_flank_sound):
+		_flank_sound.volume_db = _flank_sound_saved
+	_flank_sound = null
+	_flank_sound_saved = 0.0
+	_flank_sound_muted = false
+
+
 func _stop_breath() -> void:
 	if is_instance_valid(_breath):
 		_breath.stop()
 
 
 func _play_kiss() -> void:
+	# With act foley on, the depth-crossing trigger owns the impact. Keeping this silent avoids a
+	# second plap when the stroke closes on the mouse reversal.
+	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
+		return
 	# Use the mod-owned player in both poses. Calling the game's boop `play_kiss()` increments her
 	# kiss counter, and pony_awareness then tells the AI "The player kissed your face." during sex.
 	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
@@ -6448,17 +6542,22 @@ func _play_kiss() -> void:
 
 
 func _play_climax() -> void:
-	if _climax_streams.is_empty() or not is_instance_valid(_climax_sound):
-		return
-	_climax_sound.stream = _climax_streams[randi() % _climax_streams.size()]
-	_climax_sound.global_position = _snout()
-	_climax_sound.pitch_scale = randf_range(0.95, 1.05)
-	_climax_sound.play()
+	if not _climax_streams.is_empty() and is_instance_valid(_climax_sound):
+		_climax_sound.stream = _climax_streams[randi() % _climax_streams.size()]
+		_climax_sound.global_position = _snout()
+		_climax_sound.pitch_scale = randf_range(0.95, 1.05)
+		_climax_sound.play()
+	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
+		_act_audio.play_climax_wet(_dock_point())
+	if is_instance_valid(_act_audio):
+		_act_audio.play_climax_voice(_snout())
 
 
 func _breath_tick(delta: float) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return
+	if is_instance_valid(_act_audio):
+		_act_audio.tick_vocals(delta, _thrusts_per_second(), true, _camera_position())
 	if _breath_streams.is_empty() or not is_instance_valid(_breath):
 		return
 	var rate := clampf(_thrusts_per_second() / BREATH_RATE_CAP, 0.0, 1.0)
@@ -6503,6 +6602,18 @@ func _thrusts_per_second() -> float:
 	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
 		_thrust_times.pop_front()
 	return float(_thrust_times.size())
+
+
+func _camera_position() -> Vector3:
+	if is_instance_valid(_camera):
+		return _camera.global_position
+	return _snout()
+
+
+func _bed_audio_point() -> Vector3:
+	if is_instance_valid(bed):
+		return bed.global_position + Vector3.UP * 0.35
+	return _rump_point()
 
 
 func _snout() -> Vector3:

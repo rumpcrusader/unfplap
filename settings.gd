@@ -62,6 +62,8 @@ const FEATURE_DEFAULTS := {
 	"thrust_tail_dock_jiggle": false,
 	"allow_act_during_cuddle": true,
 	"mute_ponese_audio": true,
+	"act_foley": true,
+	"act_vocals": false,
 	"settings_tab": true,
 	"act_ear_pin": false,
 }
@@ -108,6 +110,16 @@ const FEATURE_INFO := {
 	"mute_ponese_audio": {
 		"label": "Mute Ponese audio",
 		"help": "Keep the act's generated text but silence the Ponese voice for that act.",
+	},
+	"act_foley": {
+		"label": "Act foley",
+		"help": "Use the pack's thrust, bed, fabric, kiss, smack and wet climax sounds. Off restores the current kiss-sample plap.",
+		"live": true,
+	},
+	"act_vocals": {
+		"label": "Act vocals",
+		"help": "Add human moans and Anon breath from the pack. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
+		"live": true,
 	},
 	"settings_tab": {
 		"label": "Unfplap settings tab",

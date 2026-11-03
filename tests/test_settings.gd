@@ -119,6 +119,8 @@ func run() -> void:
 		"tail/dock jiggle off by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
+	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
+	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
 	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.FEATURE_DEFAULTS:

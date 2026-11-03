@@ -28,7 +28,7 @@ Desktop only for now
 - **Relationship-gated encounters** — Adult mares and stallions only, with consent and refusals
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing horse.
-- **Proactive mares** — A ready mare may ask for sex herself; a private standing mare presents for horse, and `Y` still accepts.
+- **Proactive mares** — A ready mare may ask for sex herself. In private she asks directly; answer yes to let her take the standing position and invite you, or no to turn her down. `Y` still starts the act immediately.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
 - **Act settings** — Tune mouse thrust, camera thrust, per-pose presentation, caress palm distance/scale and body-part ignores, plus each pony's taste in `Settings → Unfplap`.

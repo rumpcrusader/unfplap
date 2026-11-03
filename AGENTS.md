@@ -128,7 +128,8 @@ mods/unfplap/
   ext/shared_bed.gd lifts the stock 1.05 body-scale cap for bed cuddles
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   witness.gd        witness pass
-  initiation.gd     proactive requests: privacy, approach, ask/reminders, horse invitation
+  initiation.gd     proactive requests: privacy, approach, ask, consent, horse invitation
+  consent_classifier.gd  local yes/no + bounded model fallback for a private offer
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    taste/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
@@ -608,19 +609,27 @@ examples.
 - Horse: requires `can_start(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
   navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The request starts
   only if the current `Y` offer actually targets her.
-- Private for horse means alone in the house or nobody within 30 m. Private lets the AI choose
-  direct or indirect wording and turns on the invitation; with others around she only hints.
+- Private for horse means alone in the house or nobody within 30 m. Private asks directly and
+  makes the invitation available; with others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
   house, every mare within 30 m separately labelled with the target, and the computed result.
   The offering mare is excluded from the other-pony checks, so the target label in the log is
   diagnostic only.
+- Private horse order: she asks while standing, Anon answers by text/voice, then `present` and
+  `invite`. Clear yes/no uses `consent_classifier.local_intent()`; anything else is classified
+  by a short provider request (one try, 16 tokens, 4 s). A decline cancels with the full
+  cooldown and no presentation. An accept re-checks privacy, presents, waits for
+  `runtime.presentation_settled()`, queues one generated comment/invite line, then waits for
+  `Y`. `Y` itself keeps its old behavior: pressing it during any phase cancels the episode and
+  starts the act immediately.
 - The horse invitation is IDLE-only: turn away over 2.4 rad/s, clear navigator `face_point` and
   conversation target late each physics tick, hold `face_turn_rate = 0`, then attach a pose-2
   modifier and tail-aside. It is not the act: no camera, lock, HUD or `sex_active`.
   `unfplap:request:` navigator ownership keeps `Y` valid until the episode ends.
 - Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
   as `situation`. Reminders are generated at 12 s and 24 s, and a give-up line at 30 s. If the
-  player speaks, reminders stop but `Y` remains until the deadline.
+  player speaks, reminders stop but `Y` remains until the deadline. An unclear private answer
+  gets one generated clarification; the invite phase waits up to 60 s after the comment.
 - Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach or initial-ask
   failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
   cooldown. `Y` cancels the episode before `start()`.

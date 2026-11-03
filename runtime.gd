@@ -1961,6 +1961,14 @@ func presentation_active() -> bool:
 	return _presenting
 
 
+## True once the invitation turn has reached its target yaw. The post-accept line waits for
+## this so she comments after taking the position, not while still turning into it.
+func presentation_settled() -> bool:
+	if not _presenting:
+		return false
+	return absf(wrapf(_present_yaw - _present_target_yaw, -PI, PI)) <= 0.02
+
+
 func clear_presentation() -> void:
 	if is_instance_valid(_present_pose):
 		_present_pose.queue_free()

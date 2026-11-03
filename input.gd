@@ -82,6 +82,11 @@ func _input(event: InputEvent) -> void:
 			main.call("debug_voices")
 			get_viewport().set_input_as_handled()
 			return
+		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F7 \
+				and bool(main.get("debug_logs")):
+			main.call("debug_request")
+			get_viewport().set_input_as_handled()
+			return
 		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F8 \
 				and bool(main.get("debug_logs")):
 			main.call("_debug_offer")

@@ -39,6 +39,20 @@ choice. Camera/pose mechanics and aftercare are outside it.
   - cap is `80` so nobody instantly re-climaxes.
 - `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 
+## Settings editor
+
+`Settings → Unfplap → Character taste` exposes one pony selector and one form:
+
+- intensity, pattern, warmth;
+- recovery `0…80`;
+- liked touch and talk;
+- disliked touch and talk;
+- private notes.
+
+`Save taste` writes only `characters[id].taste`; it preserves that character's custom
+`event_prompts` and pose settings. `Reset to default` removes only the taste override.
+The runtime reads the merged taste at act start, so saved changes apply on the next act.
+
 ## The two continuous axes
 
 ### Intensity
@@ -158,11 +172,26 @@ keyword map in `preferences.gd`; the AI still writes her reply.
 
 | Character | Intensity | Pattern | Touch | Talk | Warmth | Recovery |
 |---|---|---|---|---|---|---|
+| Twilight | firm | steady | kiss | curious, praise | normal | 20 |
 | Fluttershy | firm | building | caress | reassurance | slow | 12 |
 | Rarity | soft | steady | caress | praise | normal | 18 |
-| Twilight | firm | steady | kiss | none | normal | 20 |
+| Pinkie | firm | quick | smack | playful | quick | 35 |
+| Applejack | firm | steady | caress, smack | praise, reassurance | normal | 24 |
+| Rainbow | rough | quick | smack | praise, playful | quick | 30 |
 | Derpy | rough | quick | smack | playful | quick | 35 |
+| Lyra | firm | steady | caress, kiss | curious, playful | normal | 22 |
+| Octavia | soft | steady | caress | praise | slow | 15 |
+| Vinyl | rough | quick | smack, kiss | playful | quick | 32 |
+| Berry | rough | quick | smack | playful, dirty | quick | 30 |
+| Cheerilee | firm | building | caress | praise, reassurance | normal | 20 |
+| Maud | soft | steady | caress | none (quiet) | slow | 10 |
+| Trixie | firm | building | kiss | praise, playful | quick | 28 |
+| Zecora | firm | steady | caress | curious, reassurance | slow | 18 |
+| Spitfire | rough | quick | smack | praise, playful | normal | 26 |
 | Default | firm | steady | none | none | normal | 20 |
+
+Dislikes are shown in the settings editor and stay in the `taste` block. The current
+templates use `smack` and/or `dirty` as dislikes for Rarity, Octavia, Maud and Zecora.
 
 The `notes` field carries the private attitude; the AI prompt receives the mood, the taste
 summary and the last concrete input, never a speed or depth dump.

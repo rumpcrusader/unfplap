@@ -4,6 +4,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 
 var failures := 0
 var checks := 0
@@ -105,6 +106,21 @@ func run() -> void:
 	check(near(RUNTIME.KISS_LEAN_M, 0.23) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.16)
 		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
 	check(near(RUNTIME.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
+	check(near(RUNTIME.KISS_PONY_SIDE_SIGN, -1.0), "pony kiss side is opposite the camera side sign")
+	check(near(RUNTIME.kiss_pony_side(-1.0), 1.0), "left lean makes her lean toward his left")
+	check(near(RUNTIME.kiss_pony_side(1.0), -1.0), "right lean makes her lean toward his right")
+	check(near(RUNTIME.kiss_pony_side(0.0), 0.0), "centered kiss leaves the side to her")
+	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 0.0), -0.18),
+		"kiss starts at the lean lateral offset")
+	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 1.0), -0.16),
+		"full kiss uses one lateral offset")
+	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 0.5), -0.17),
+		"kiss lateral crossfades instead of stacking")
+	check(near(AFFECTION_POSE.resolve_kiss_side(1.0, 0.0), 1.0),
+		"scripted kiss keeps a pinned side")
+	check(near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.0), 1.0)
+		and near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.9), -1.0),
+		"unpinned kiss still chooses a side")
 	check(near(RUNTIME.CAMERA_ROCK_IMPULSE, 0.30), "camera rock impulse increased 50 percent")
 	check(near(RUNTIME.CAMERA_ROCK_LIMIT, 0.039), "camera rock limit increased 50 percent")
 	check(near(RUNTIME.CAMERA_ROCK_PITCH_RATIO, 0.675), "pump camera pitch increased 50 percent")

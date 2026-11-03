@@ -81,6 +81,8 @@ const POSE1_REAIM_DOT := 0.25
 const POSE1_CAMERA_LIFT_M := 0.10
 ## Presentation: how close the pony stands in front of the player for pose 2.
 const POSE2_GAP_M := 0.55
+## Idle horse invitation: turn away from Anon at this rate before she settles into the stance.
+const PRESENT_TURN_RATE := 2.4
 ## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
 const POSE2_GAPS := {
 	"same height": 0.55,
@@ -139,7 +141,7 @@ const CARESS_OVAL_ACROSS := 1.30
 const CARESS_OVAL_UP := 0.70
 ## The palm ball's own collision radius (anon_body.gd hand sweep). The palm marker is its
 ## centre, so this is how far the centre sits above the coat when the visible palm touches.
-const PALM_ON_COAT_CLEARANCE_M := 0.05
+const PALM_ON_COAT_CLEARANCE_M := 0.03
 const PALM_CONTACT_SMOOTH := 18.0
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
@@ -241,6 +243,9 @@ const KISS_LEAN_SIDE_M := 0.16
 const KISS_LEAN_DROP_M := 0.035
 const KISS_CAMERA_YAW_DEG := 10.0
 const KISS_LEAN_SECONDS := 0.35
+## `AffectionPose`'s lean/tilt sign is opposite the camera lean sign: `+1` rolls her head toward
+## Anon's left, while a negative lean moves the camera to his left. Keep the mapping in one place.
+const KISS_PONY_SIDE_SIGN := -1.0
 
 var pony
 var main
@@ -263,6 +268,12 @@ var pump_up := true
 
 var _pose
 var _tail
+## Idle horse invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
+var _presenting := false
+var _present_pose
+var _present_tail
+var _present_yaw := 0.0
+var _present_target_yaw := 0.0
 var _debug_pose: Node
 var _debug_pose_saved := Transform3D.IDENTITY
 var _debug_pose_active := false
@@ -275,6 +286,8 @@ var _afterglow_pose := ""
 var _player_pony := false
 var _had_kiss_hold := false
 var _locked_player := false
+var _face_turn_rate_saved := -1.0
+var _face_turn_rate_owned := false
 var _y_hold := 0.0
 var _y_hold_ready := false
 var _y_hold_fired := false
@@ -384,6 +397,12 @@ var _base_kiss_active := false
 var _base_kiss_releasing := false
 var _pose2_kiss_active := false
 var _pose2_kiss_used := false
+var _pose2_kiss_ready_at := 0
+const KISS_RESTART_COOLDOWN_MS := 500
+## Latched for the whole kiss (including the Affection release) so rock noise cannot flip sides.
+var _kiss_camera_side := 0.0
+var _kiss_pony_side := 0.0
+var _kiss_diag_clock := 0.0
 var _base_kiss_affection: Node
 var _base_kiss_pose: SkeletonModifier3D
 var _base_kiss_pose_index := -1
@@ -436,6 +455,9 @@ var _anon_avatars: Array[Node3D] = []
 var _anon_avatar_states: Array[bool] = []
 var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
+var _lower_left := Transform3D.IDENTITY
+var _lower_right := Transform3D.IDENTITY
+var _lower_captured := false
 var _bob := 0.0
 var _bob_velocity := 0.0
 var _bob_speed_scale := 1.0
@@ -675,6 +697,8 @@ func _clear_face() -> void:
 
 func _process(delta: float) -> void:
 	if state == State.IDLE:
+		if _presenting:
+			_presentation_process()
 		return
 	_clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
@@ -776,6 +800,8 @@ func _hold_y_tick(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	if state == State.IDLE:
+		if _presenting:
+			_presentation_physics(delta)
 		return
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		force_stop()
@@ -784,6 +810,7 @@ func _physics_process(delta: float) -> void:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 	_keep_nav()
+	_pause_face_turn()
 	_hold_y_tick(delta)
 	_lean_tick(delta)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
@@ -973,9 +1000,9 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	var bed_gate := "n/a"
 	if pose == CATALOG.MISSIONARY:
 		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
-	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
 		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), mood,
-		state, str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.has_meta("seated")),
+		state, str(_presenting), str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.has_meta("seated")),
 		str(_cuddle_active()), str(pony.get("motion_paused")), float(pony.get("actual_speed")), str(status.get("requested")),
 		str(pony.action_interruption_reason()), owner, str(target), reserved,
 		str(body.get("controls_locked")) if body != null else "?",
@@ -1246,6 +1273,9 @@ func _nav_owner_allows(pose: String, act_source: String) -> bool:
 	var owner := str(nav.get("command_owner"))
 	if owner.is_empty():
 		return true
+	# The request controller holds her while she walks over, presents and waits for Y.
+	if owner.begins_with("unfplap:request:"):
+		return state == State.IDLE
 	if owner.begins_with("unfplap:") or owner.begins_with("sleep:"):
 		return false
 	if owner.begins_with("weather:") or owner.begins_with("show:"):
@@ -1392,6 +1422,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if not can_start(pose, act_source, bed_in):
 		_log("start blocked pose=%s legacy=%d source=%s pony=%s" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
+	# The idle horse invitation is temporary. Remove it before the act builds its own pose.
+	clear_presentation()
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
@@ -1512,6 +1544,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		_make_pose1_view()
 	_capture_look()
 	_lock_player()
+	_pause_face_turn()
 	_begin_camera_mode()
 	_hide_anon_avatar_for_pose1()
 	_start_audio()
@@ -1577,6 +1610,168 @@ func _claim_nav() -> bool:
 	return str(_nav.get("command_owner")) == _token
 
 
+## Pose 2 keeps her body turned away and planted. Stop the standing face-turn response so a
+## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
+func _pause_face_turn(force := false) -> void:
+	if (not force and pose_id != CATALOG.HORSE) or not is_instance_valid(pony):
+		return
+	if _face_turn_rate_owned:
+		if absf(float(pony.get("face_turn_rate"))) > 0.0001:
+			pony.set("face_turn_rate", 0.0)
+		return
+	var rate: Variant = pony.get("face_turn_rate")
+	if rate == null:
+		return
+	_face_turn_rate_saved = float(rate)
+	if absf(_face_turn_rate_saved) > 0.0001:
+		pony.set("face_turn_rate", 0.0)
+		_face_turn_rate_owned = true
+
+
+func _restore_face_turn() -> void:
+	if _face_turn_rate_owned and is_instance_valid(pony):
+		pony.set("face_turn_rate", _face_turn_rate_saved)
+	_face_turn_rate_owned = false
+	_face_turn_rate_saved = -1.0
+
+
+## Idle horse invitation: turn her back to Anon, look over the shoulder, bow and lift the tail.
+## This is not the act: no player lock, camera, HUD, sex_active or state change. Y remains the
+## only way to begin the real act.
+func present_horse() -> bool:
+	if _presenting:
+		return true
+	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if pony.is_held() or pony.sleeping or _cuddle_active():
+		return false
+	if not _free_of_affection():
+		return false
+	if _id.is_empty() and not _stage_ok():
+		return false
+	var player: Variant = main.player
+	var view: Camera3D = main.camera()
+	var target: Vector3 = pony.global_position - Vector3.FORWARD
+	if is_instance_valid(view):
+		target = view.global_position
+	elif is_instance_valid(player):
+		target = player.global_position
+	var away: Vector3 = pony.global_position - target
+	away.y = 0.0
+	if away.length_squared() < 0.0001:
+		away = pony.global_basis.z
+	away = away.normalized()
+	_present_target_yaw = atan2(-away.x, -away.z)
+	_present_yaw = pony.rotation.y
+	_pose_cfg = SETTINGS.pose(_id, CATALOG.HORSE)
+	var skeleton: Variant = pony.get("skeleton")
+	if skeleton is Skeleton3D:
+		_present_pose = POSE.new()
+		_present_pose.name = "UnfplapPresentPose"
+		_present_pose.mare = pony
+		_present_pose.mode = "pose2"
+		_present_pose.pose_config = SETTINGS.pose(_id, CATALOG.HORSE)
+		_present_pose.look_point = target
+		_present_pose.amount = 0.0
+		_present_pose.target_amount = 1.0
+		(skeleton as Skeleton3D).add_child(_present_pose)
+		_keep_chin_last()
+	var hair: Variant = pony.get("hair_skeleton")
+	if hair is Skeleton3D:
+		_present_tail = TAIL.new()
+		_present_tail.name = "UnfplapPresentTail"
+		_present_tail.mare = pony
+		_present_tail.runtime = self
+		_present_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
+		_present_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
+		_present_tail.amount = 0.0
+		_present_tail.target_amount = 1.0
+		_present_tail.call("choose_side")
+		(hair as Skeleton3D).add_child(_present_tail)
+	_presenting = true
+	_glance_back = true
+	_glance_sign_set = false
+	_pause_face_turn(true)
+	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
+		pony.request_posture("stand")
+	_log("present horse target_yaw=%.2f" % _present_target_yaw)
+	return true
+
+
+func presentation_active() -> bool:
+	return _presenting
+
+
+func clear_presentation() -> void:
+	if is_instance_valid(_present_pose):
+		_present_pose.queue_free()
+	_present_pose = null
+	if is_instance_valid(_present_tail):
+		_present_tail.queue_free()
+	_present_tail = null
+	_presenting = false
+	_glance_back = false
+	_glance_sign_set = false
+	_restore_face_turn()
+
+
+func _presentation_valid() -> bool:
+	if not _presenting or state != State.IDLE:
+		return false
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
+		return false
+	if _cuddle_active() or not _free_of_affection():
+		return false
+	if not pony.grounded():
+		return false
+	var status: Dictionary = pony.posture_status()
+	if str(status.get("requested", "")) != "stand":
+		return false
+	if float(pony.actual_speed) > 0.10:
+		return false
+	var player: Variant = main.player
+	if is_instance_valid(player) and player.global_position.distance_to(pony.global_position) > 8.0:
+		return false
+	return true
+
+
+## Turn her away in place and stop conversation facing from taking the body back. Runs late in
+## physics, after the navigator and locomotion, like the act's horse facing lock.
+func _presentation_physics(delta: float) -> void:
+	if not _presentation_valid():
+		clear_presentation()
+		return
+	_present_yaw = rotate_toward(_present_yaw, _present_target_yaw, PRESENT_TURN_RATE * delta)
+	var t: Transform3D = pony.global_transform
+	var scale := t.basis.get_scale()
+	t.basis = Basis(Vector3.UP, _present_yaw).scaled(scale)
+	pony.global_transform = t
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav != null:
+		if "face_point" in nav:
+			nav.set("face_point", Vector3.INF)
+		if nav.has_method("set_conversation_target"):
+			nav.call("set_conversation_target", null, false)
+	_pause_face_turn(true)
+
+
+func _presentation_process() -> void:
+	if not _presentation_valid():
+		clear_presentation()
+		return
+	var view: Camera3D = main.camera() if is_instance_valid(main) else null
+	if is_instance_valid(_present_pose) and is_instance_valid(view):
+		_present_pose.look_point = view.global_position
+		_present_pose.head_back = 0.0
+	_glance_back = true
+	var secondary: Variant = pony.get("secondary")
+	if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
+		secondary.call("look_toward", _glance_angles(), 0.45)
+	_aim_eyes_at_player()
+
+
 func _keep_nav() -> void:
 	if _nav == null or not is_instance_valid(_nav):
 		return
@@ -1634,6 +1829,7 @@ func _unlock_player() -> void:
 func _abort_start() -> void:
 	_cancel_pending_utterance()
 	_set_inventory_hud_hidden(false)
+	_restore_face_turn()
 	_release_nav()
 	_unlock_player()
 	_free_pose()
@@ -1882,6 +2078,7 @@ func _build_pose() -> void:
 
 
 func _free_pose() -> void:
+	clear_presentation()
 	_end_caress()
 	_end_smack_swing()
 	_end_lean_action()
@@ -2983,6 +3180,7 @@ func _stand_after_pose() -> void:
 
 func force_stop() -> void:
 	if state == State.IDLE:
+		clear_presentation()
 		return
 	_restore_now()
 
@@ -2990,6 +3188,7 @@ func force_stop() -> void:
 func _restore_now() -> void:
 	_drop_queued_utterance()
 	_set_inventory_hud_hidden(false)
+	_restore_face_turn()
 	if is_instance_valid(pony):
 		_clear_face()
 		_release_wing_hold()
@@ -3602,11 +3801,14 @@ func _start_lean_action(side: float) -> void:
 	_lean_action_kind = lean_action_kind(pose_id, side)
 	_lean_action_shoulder = ""
 	if _lean_action_kind == "kiss":
+		_latch_kiss_side()
 		_custom_kiss_active = not _start_base_kiss()
 		if _custom_kiss_active:
 			_play_mouth_kiss()
 			_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 		_on_touch("kiss")
+		_log("kiss side anon=%.2f pony=%.2f base=%s" % [
+			_kiss_camera_side, _kiss_pony_side, str(_base_kiss_active)])
 	elif _lean_action_kind == "reach":
 		_lean_action_shoulder = "L" if side < 0.0 else "R"
 		_forced_glance = _lean_action_shoulder
@@ -3639,25 +3841,31 @@ func _pose2_kiss_tick() -> void:
 			var affection: Variant = _base_kiss_affection
 			if not is_instance_valid(affection) or str(affection.get("kind")) != "kiss":
 				_end_pose2_kiss()
+		elif not _custom_kiss_active:
+			_end_pose2_kiss()
 		return
-	if _pose2_kiss_used:
+	if _pose2_kiss_used or Time.get_ticks_msec() < _pose2_kiss_ready_at:
 		return
 	_pose2_kiss_used = true
 	_pose2_kiss_active = true
 	_forced_glance = ""
+	_latch_kiss_side()
 	_custom_kiss_active = not _start_base_kiss()
 	if _custom_kiss_active:
 		_play_mouth_kiss()
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 	_on_touch("kiss")
-	_log("pose2 kiss start lean=%.2f base=%s" % [
-		_lean_side, str(_base_kiss_active)])
+	_log("pose2 kiss start lean=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
+		_lean_side, _kiss_camera_side, _kiss_pony_side,
+		_lateral_lean_shift(_pose2_lean_scale()), str(_base_kiss_active)])
 
 
 func _end_pose2_kiss() -> void:
 	if not _pose2_kiss_active:
 		return
 	_pose2_kiss_active = false
+	_pose2_kiss_used = false
+	_pose2_kiss_ready_at = Time.get_ticks_msec() + KISS_RESTART_COOLDOWN_MS
 	_end_base_kiss()
 	_custom_kiss_active = false
 	_release_kiss_face()
@@ -3700,7 +3908,9 @@ func _reset_lean_state() -> void:
 	_end_lean_action()
 	_clear_reach_hand()
 	_palm_contacts.clear()
+	_lower_captured = false
 	_end_base_kiss()
+	_clear_kiss_side()
 	_custom_kiss_active = false
 	_lean_forward = 0.0
 	_lean_side = 0.0
@@ -3711,6 +3921,7 @@ func _reset_lean_state() -> void:
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
 	_pose2_kiss_used = false
+	_pose2_kiss_ready_at = 0
 	_hold_rock_clock = 0.0
 	_kiss_amount = 0.0
 	_kiss_lean = 0.0
@@ -3746,6 +3957,8 @@ func _start_base_kiss() -> bool:
 	_suppress_base_kiss_excitement()
 	var pose_node: Variant = affection.get("pose")
 	var sk: Variant = pony.get("skeleton")
+	if pose_node != null and pose_node.has_method("set_kiss_side"):
+		pose_node.call("set_kiss_side", _kiss_pony_side)
 	if pose_node is SkeletonModifier3D and sk is Skeleton3D:
 		var index := (sk as Skeleton3D).get_children().find(pose_node)
 		if index >= 0:
@@ -3783,6 +3996,8 @@ func _end_base_kiss() -> void:
 
 ## Keep the AffectionPose last while its own 0.6 s release eases out, then restore the child order.
 func _restore_base_kiss_pose() -> void:
+	if is_instance_valid(_base_kiss_pose) and _base_kiss_pose.has_method("set_kiss_side"):
+		_base_kiss_pose.call("set_kiss_side", 0.0)
 	_base_kiss_releasing = false
 	if is_instance_valid(_base_kiss_pose) and is_instance_valid(pony):
 		var sk: Variant = pony.get("skeleton")
@@ -3834,12 +4049,56 @@ func _kiss_lean_distance() -> float:
 	return KISS_LEAN_M * _kiss_lean
 
 
+## The act kiss follows the side Anon leaned to; outside a latched kiss fall back to live input.
 func _kiss_side() -> float:
+	if absf(_kiss_camera_side) > 0.5:
+		return _kiss_camera_side
 	if absf(_lean_view_side) > 0.01:
 		return signf(_lean_view_side)
 	if absf(_lean_action_side) > 0.01:
 		return signf(_lean_action_side)
 	return 0.0
+
+
+## `AffectionPose` wants the opposite sign: she must lean toward the same world side Anon moved to.
+static func kiss_pony_side(lean_side: float) -> float:
+	if absf(lean_side) <= 0.001:
+		return 0.0
+	return KISS_PONY_SIDE_SIGN * signf(lean_side)
+
+
+## Lateral shot/hip travel. The lean offset hands over to the single kiss offset as the kiss
+## blends in, instead of adding both (0.18 m + 0.16 m is further sideways than her neck reaches,
+## and the clearance pass then pushed her muzzle back into him).
+static func kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
+		size_scale := 1.0) -> float:
+	var blend := clampf(kiss_lean, 0.0, 1.0)
+	var lean := LEAN_SIDE_M * lean_side * size_scale
+	var kiss := KISS_LEAN_SIDE_M * kiss_side
+	return lerpf(lean, kiss, blend)
+
+
+func _lateral_lean_shift(lean_scale: float) -> float:
+	return kiss_lateral_offset(_lean_view_side, _kiss_side(), _kiss_lean, lean_scale)
+
+
+func _latch_kiss_side() -> void:
+	_kiss_camera_side = 0.0
+	_kiss_pony_side = 0.0
+	_kiss_diag_clock = 0.0
+	var lean := _lean_view_side
+	if absf(lean) <= 0.01:
+		lean = _lean_action_side
+	if absf(lean) <= 0.01:
+		return
+	_kiss_camera_side = signf(lean)
+	_kiss_pony_side = kiss_pony_side(_kiss_camera_side)
+
+
+func _clear_kiss_side() -> void:
+	_kiss_camera_side = 0.0
+	_kiss_pony_side = 0.0
+	_kiss_diag_clock = 0.0
 
 
 func _kiss_side_distance() -> float:
@@ -3848,12 +4107,23 @@ func _kiss_side_distance() -> float:
 
 ## Her mouth stays at Anon's lips while the kiss channel is held, with a soft repeat sound.
 func _kiss_tick(delta: float) -> void:
-	_kiss_lean = move_toward(_kiss_lean, 1.0 if _kiss_visible() else 0.0, delta / KISS_LEAN_SECONDS)
+	var holding := _kiss_visible()
+	if _base_kiss_releasing:
+		var releasing_affection: Variant = _base_kiss_affection
+		if is_instance_valid(releasing_affection) and float(releasing_affection.get("amount")) > 0.2:
+			holding = true
+	_kiss_lean = move_toward(_kiss_lean, 1.0 if holding else 0.0, delta / KISS_LEAN_SECONDS)
+	if _kiss_lean <= 0.0001 and not holding:
+		_clear_kiss_side()
 	if _base_kiss_releasing:
 		var affection: Variant = _base_kiss_affection
 		if not is_instance_valid(affection) or float(affection.get("amount")) <= 0.001:
 			_restore_base_kiss_pose()
 	if _base_kiss_active:
+		_kiss_diag_clock -= delta
+		if _kiss_diag_clock <= 0.0:
+			_kiss_diag_clock = 1.0
+			_kiss_diag()
 		_update_base_kiss(delta)
 		_kiss_amount = move_toward(_kiss_amount, 0.0, delta / KISS_FADE_OUT)
 		return
@@ -3898,6 +4168,28 @@ func _update_base_kiss(delta: float) -> void:
 	if _kiss_sound_clock <= 0.0:
 		_play_mouth_kiss()
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
+
+
+## Once a second while a base kiss runs: confirms she is on the latched side and whether any
+## remaining clip is a joint limit, a reach miss, or Anon's eye clearance pushing her back.
+func _kiss_diag() -> void:
+	var affection: Variant = _base_kiss_affection
+	if not is_instance_valid(affection):
+		return
+	var pose: Variant = affection.get("pose")
+	var pose_side := 0.0
+	var limited := 0.0
+	var miss := 0.0
+	var cleared := ""
+	if pose != null:
+		pose_side = float(pose.get("_side_now"))
+		limited = rad_to_deg(float(pose.get("limited")))
+		miss = float(pose.get("miss"))
+		cleared = str(pose.get("cleared_by"))
+	_log("kiss diag amount=%.2f lean=%.2f cam_side=%.2f pony_side=%.2f pose_side=%.2f limited=%.1fdeg miss=%.3fm clear=%s lateral=%.3f" % [
+		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
+		pose_side, limited, miss, cleared,
+		_lateral_lean_shift(_pose2_lean_scale()) if pose_id == CATALOG.HORSE else 0.0])
 
 
 func _kiss_target(view: Camera3D) -> Vector3:
@@ -4023,6 +4315,13 @@ func _caress_tick() -> void:
 		_caress_key_down[side] = held
 		if not _lean_return_enabled and pressed:
 			_caress_latched[side] = not bool(_caress_latched[side])
+		var hand_side := "left" if side == "L" else "right"
+		# The slapping hand owns the hold target during its swing. Freeze the oval phase so
+		# the hand can return to the same caress point without a jump.
+		if _smack_active and _smack_side == hand_side:
+			if bool(_caress_active[side]):
+				_caress_started[side] += int(get_physics_process_delta_time() * 1000.0)
+			continue
 		var want := held if _lean_return_enabled else bool(_caress_latched[side])
 		if want:
 			if not bool(_caress_active[side]):
@@ -4137,6 +4436,22 @@ func _reset_palm_contact(side: String) -> void:
 	_palm_contacts.erase(side)
 
 
+func _palm_stable_outward(point: Vector3, hint: Vector3) -> Vector3:
+	if not is_instance_valid(pony):
+		return hint.normalized()
+	var scale := clampf(float(pony.get("body_scale")), 0.8, 1.6)
+	var centre: Vector3 = pony.global_position + Vector3.UP * (0.55 * scale)
+	var radial: Vector3 = point - centre
+	if radial.length_squared() < 0.001:
+		radial = hint
+	radial = radial.normalized()
+	var wanted := hint.normalized()
+	if wanted.length_squared() < 0.5:
+		return radial
+	var blended := wanted.lerp(radial, 0.25).normalized()
+	return radial if blended.dot(radial) < 0.2 else blended
+
+
 func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		finger_hint: Vector3, smooth := true) -> Transform3D:
 	var hit := _coat_contact(point, outward_hint)
@@ -4145,6 +4460,7 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 	var hit_normal: Vector3 = hit.get("normal", outward_hint)
 	if hit_normal.length_squared() < 0.5:
 		hit_normal = outward_hint.normalized()
+	hit_normal = _palm_stable_outward(hit_point, hit_normal)
 	if not smooth:
 		return Transform3D(palm_surface_basis(side, hit_normal, finger_hint),
 			hit_point + hit_normal * PALM_ON_COAT_CLEARANCE_M)
@@ -4159,6 +4475,11 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 	else:
 		state.switches = 0
 	var accept := not changed or int(state.switches) >= PALM_CONTACT_SOURCE_HITS or not have
+	if have and last_normal.dot(hit_normal) < 0.2:
+		# A triangle or hull normal can flip under the same source; do not let the palm
+		# rotate through the body on one bad frame.
+		hit_normal = last_normal
+		accept = false
 	if source == "fallback":
 		state.miss = int(state.miss) + 1
 		if have:
@@ -4358,9 +4679,22 @@ func smack() -> void:
 		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
 	if not is_instance_valid(_flank) or not _flank.has_method("impact"):
 		return
-	var index := smack_side_index(_lean_side)
+	# If a hand is already resting on the flank, slap with that hand. Both on the flank: pick
+	# one at random. Otherwise keep the lean-based cheek/hand mapping.
+	var hand_side := ""
+	if _caress_active["L"] and _caress_active["R"]:
+		hand_side = "left" if randf() < 0.5 else "right"
+	elif _caress_active["L"]:
+		hand_side = "left"
+	elif _caress_active["R"]:
+		hand_side = "right"
+	var index := 0 if hand_side == "left" else (1 if hand_side == "right" else smack_side_index(_lean_side))
 	if index < 0:
 		index = 0 if randf() < 0.5 else 1
+		hand_side = "left" if index == 0 else "right"
+	elif hand_side.is_empty():
+		hand_side = "left" if index == 0 else "right"
+	var source := "caress" if _caress_active["L"] or _caress_active["R"] else "lean"
 	var at := Vector3.INF
 	var normal := Vector3.UP
 	var centers: Variant = _flank.get("centers")
@@ -4387,7 +4721,6 @@ func smack() -> void:
 				normal = -normal
 	_last_smack_ms = now
 	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
-		var hand_side := "left" if index == 0 else "right"
 		var driver := _desktop_pose_driver()
 		var from_frame := Transform3D.IDENTITY
 		if is_instance_valid(driver) and driver.has_method("hand_frame"):
@@ -4405,8 +4738,8 @@ func smack() -> void:
 			_smack_started = now
 			_smack_impact_done = false
 			_smack_active = true
-			_log("smack swing side=%.2f cheek=%s at=%s" % [
-				_lean_side, "L" if index == 0 else "R", str(at)])
+			_log("smack swing side=%.2f cheek=%s at=%s hand=%s source=%s" % [
+				_lean_side, "L" if index == 0 else "R", str(at), hand_side, source])
 			return
 	_flank_impact_without_reaction(index, at)
 	_on_touch("smack")
@@ -4442,7 +4775,11 @@ func _end_smack_swing() -> void:
 		return
 	if not _smack_side.is_empty():
 		var driver := _desktop_pose_driver()
-		if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
+		var caress_side := "L" if _smack_side == "left" else "R"
+		if bool(_caress_active[caress_side]):
+			# Return to the frozen caress point instead of clearing the hold for one frame.
+			_set_caress_hand(caress_side)
+		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 			driver.call("clear_hold_target", _smack_side)
 	_smack_active = false
 	_smack_side = ""
@@ -4649,12 +4986,32 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var lean_scale := _pose2_lean_scale()
 	var forward_shift := lean_distance(maxf(_lean_view_forward, 0.0), lean_scale) + _kiss_lean_distance()
 	hip.global_position -= forward * forward_shift
-	var side_shift := LEAN_SIDE_M * _lean_view_side * lean_scale + _kiss_side_distance()
+	var side_shift := _lateral_lean_shift(lean_scale)
 	hip.global_position -= side * side_shift
 	# The kiss drops the camera/head slightly; keep the pelvis planted through the hinge.
 	hip.global_position.y += KISS_LEAN_DROP_M * _kiss_lean
 	# Depth 1 moves the pelvis back; the chest/head stay forward, so the upper body pumps.
 	hip.global_position -= forward * (clampf(depth, 0.0, 1.0) * ANON_PUMP_SWAY_M * lean_scale)
+	# The feet are placed from the camera/head before this call. Pin the lower body so a forward
+	# or kiss lean hinges the torso instead of walking his legs into the shot.
+	var body := hip.get_parent()
+	if body != null:
+		var left: Variant = body.get("_left_foot")
+		var right: Variant = body.get("_right_foot")
+		if forward_shift > 0.001 or absf(side_shift) > 0.001 or _kiss_lean > 0.001:
+			if not _lower_captured and left is Node3D and right is Node3D:
+				_lower_left = (left as Node3D).global_transform
+				_lower_right = (right as Node3D).global_transform
+				_lower_captured = true
+				_log("pose2 lower body pinned")
+			if _lower_captured:
+				if left is Node3D:
+					(left as Node3D).global_transform = _lower_left
+				if right is Node3D:
+					(right as Node3D).global_transform = _lower_right
+		elif _lower_captured:
+			_lower_captured = false
+			_log("pose2 lower body released")
 
 
 func apply_camera_motion() -> void:
@@ -4715,7 +5072,7 @@ func apply_camera_motion() -> void:
 			* (_lean - _back + lean_forward + kiss_lean)
 		_pose1_view.global_position.y -= KISS_LEAN_DROP_M * _kiss_lean
 		_pose1_view.global_position += _pose1_view_basis.x \
-			* (LEAN_SIDE_M * _lean_view_side * lean_scale + _kiss_side_distance())
+			* _lateral_lean_shift(lean_scale)
 		# Freeze the neck target once the pose has blended in. The live snout moves with her
 		# nuzzles and can end up behind the camera in the bed pose.
 		if Time.get_ticks_msec() < _pose1_aim_until:
@@ -4793,7 +5150,7 @@ func apply_camera_motion() -> void:
 	var lean_scale := _pose2_lean_scale()
 	_set_camera_offsets(_bob - KISS_LEAN_DROP_M * _kiss_lean,
 		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
-		+ _kiss_lean_distance(), LEAN_SIDE_M * _lean_view_side * lean_scale + _kiss_side_distance())
+		+ _kiss_lean_distance(), _lateral_lean_shift(lean_scale))
 	if pose_id == CATALOG.HORSE and _free_camera_active and is_instance_valid(_camera):
 		var rock := _camera_rock if _feature("camera_rock") else 0.0
 		_camera.rotation.z = rock \
@@ -4914,6 +5271,14 @@ func _lock_body_facing() -> void:
 	var scale := t.basis.get_scale()
 	t.basis = _facing_basis.scaled(scale)
 	pony.global_transform = t
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav != null:
+		# stay() clears the route, but conversation facing still writes face_point and can make
+		# her take a turn step. Clear both late in the tick so the act owns the body facing.
+		if "face_point" in nav:
+			nav.set("face_point", Vector3.INF)
+		if nav.has_method("set_conversation_target"):
+			nav.call("set_conversation_target", null, false)
 
 
 ## Every few seconds she turns her head back toward Anon, then forward again. Reverted to the
@@ -4922,9 +5287,9 @@ func _lock_body_facing() -> void:
 func _drive_glance(delta: float) -> void:
 	if not _has_facing or pose_id != CATALOG.HORSE or not is_instance_valid(pony):
 		return
-	# The base kiss owns the head and gaze while it runs. Clear the shoulder reach's forced
-	# over-the-shoulder look so the two head poses do not fight and clip.
-	if _pose2_kiss_active:
+	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
+	# forced over-the-shoulder look so the two head poses do not fight and clip.
+	if _pose2_kiss_active or _base_kiss_releasing:
 		if is_instance_valid(_pose):
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / GLANCE_BACK_FADE)
 			_pose.set("head_back", _glance_head_back)

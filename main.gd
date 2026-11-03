@@ -6,9 +6,10 @@ extends Node
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HUD := preload("res://mods/unfplap/hud.gd")
 const INPUT := preload("res://mods/unfplap/input.gd")
-const AI_OFFER := preload("res://mods/unfplap/ai_offer.gd")
+const INITIATION := preload("res://mods/unfplap/initiation.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const TASTE := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
@@ -26,12 +27,12 @@ var game
 var player
 var hud
 var input
+var initiation
 var active_runtime
 
 var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
 var _offer_clock := 0.0
-var _ai_clock := 0.0
 var _interactor: Node
 var _desktop: Node
 var _camera_cache: Camera3D
@@ -80,6 +81,10 @@ func _ready() -> void:
 	process_priority = 100
 	set_process(true)
 	debug_logs = SETTINGS.load_debug_logs()
+	initiation = INITIATION.new()
+	initiation.name = "UnfplapInitiation"
+	initiation.main = self
+	add_child(initiation)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -120,7 +125,8 @@ func _on_world(host: Node) -> void:
 	_camera_cache = null
 	_camera_cache_at = 0.0
 	_offer = {}
-	_ai_clock = 0.0
+	if is_instance_valid(initiation):
+		initiation.reset()
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -134,6 +140,8 @@ func _deferred_outdoor_bed(host: Node) -> void:
 func _on_world_closed(_host: Node) -> void:
 	_debug("world closed")
 	_clear_native_hint()
+	if is_instance_valid(initiation):
+		initiation.reset()
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
@@ -264,7 +272,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 6)
 	ui.add_child(heading)
 	var note := Label.new()
-	note.text = "Experimental feature flags. Most changes apply on the next act."
+	note.text = "Feature flags and per-character taste. Changes apply on the next act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	ui.add_child(note)
@@ -302,6 +310,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	text_only_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_only_note.add_theme_font_size_override("font_size", font_size - 5)
 	list.add_child(text_only_note)
+	_add_taste_section(list, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
 			(tab as Button).pressed.connect(_hide_settings_tab.bind(page))
@@ -373,6 +382,234 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 			(native_page as CanvasItem).visible = value
 
 
+func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Character taste"
+	heading.add_theme_font_size_override("font_size", font_size + 2)
+	list.add_child(heading)
+	var note := Label.new()
+	note.text = "Taste is read at the start of an act. Changes apply on the next act."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(note)
+	var selector := OptionButton.new()
+	for id: String in SETTINGS.CHARACTER_ORDER:
+		selector.add_item(SETTINGS.character_name(id))
+		selector.set_item_metadata(selector.get_item_count() - 1, id)
+	list.add_child(selector)
+
+	var form := GridContainer.new()
+	form.columns = 2
+	form.add_theme_constant_override("h_separation", 16)
+	form.add_theme_constant_override("v_separation", 8)
+	list.add_child(form)
+	var intensity := _taste_option(form, "Intensity", TASTE.INTENSITIES, font_size)
+	var pattern := _taste_option(form, "Pattern", TASTE.PATTERNS, font_size)
+	var warmth := _taste_option(form, "Warmth", TASTE.WARMTHS, font_size)
+	var recovery := _taste_spin(form, "Recovery (0–80)", font_size)
+	var touch_likes := _taste_checks(form, "Likes touch", TASTE.TOUCHES, font_size)
+	var talk_likes := _taste_checks(form, "Likes talk", TASTE.TALKS, font_size)
+	var touch_dislikes := _taste_checks(form, "Dislikes touch", TASTE.TOUCHES, font_size)
+	var talk_dislikes := _taste_checks(form, "Dislikes talk", TASTE.TALKS, font_size)
+	var notes := TextEdit.new()
+	notes.custom_minimum_size = Vector2(0.0, 76.0)
+	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	notes.add_theme_font_size_override("font_size", font_size - 2)
+	var notes_label := Label.new()
+	notes_label.text = "Notes"
+	notes_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	form.add_child(notes_label)
+	form.add_child(notes)
+
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	list.add_child(buttons)
+	var save := Button.new()
+	save.text = "Save taste"
+	buttons.add_child(save)
+	var reset := Button.new()
+	reset.text = "Reset to default"
+	buttons.add_child(reset)
+	var status := Label.new()
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(status)
+
+	var refs := {
+		"selector": selector,
+		"intensity": intensity,
+		"pattern": pattern,
+		"warmth": warmth,
+		"recovery": recovery,
+		"touch_likes": touch_likes,
+		"talk_likes": talk_likes,
+		"touch_dislikes": touch_dislikes,
+		"talk_dislikes": talk_dislikes,
+		"notes": notes,
+		"status": status,
+	}
+	selector.item_selected.connect(func(_index: int) -> void: _refresh_taste_form(refs))
+	save.pressed.connect(func() -> void: _save_taste_form(refs))
+	reset.pressed.connect(func() -> void: _reset_taste_form(refs))
+	_refresh_taste_form(refs)
+
+
+func _taste_option(parent: GridContainer, label_text: String, values: Array, font_size: int) -> OptionButton:
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", font_size)
+	parent.add_child(label)
+	var option := OptionButton.new()
+	for value: Variant in values:
+		option.add_item(str(value))
+	option.add_theme_font_size_override("font_size", font_size - 2)
+	parent.add_child(option)
+	return option
+
+
+func _taste_spin(parent: GridContainer, label_text: String, font_size: int) -> SpinBox:
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", font_size)
+	parent.add_child(label)
+	var spin := SpinBox.new()
+	spin.min_value = float(TASTE.RECOVERY_MIN)
+	spin.max_value = float(TASTE.RECOVERY_MAX)
+	spin.step = 1.0
+	spin.add_theme_font_size_override("font_size", font_size - 2)
+	parent.add_child(spin)
+	return spin
+
+
+func _taste_checks(parent: GridContainer, label_text: String, values: Array, font_size: int) -> Dictionary:
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", font_size)
+	parent.add_child(label)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+	var checks: Dictionary = {}
+	for value: Variant in values:
+		var check := CheckButton.new()
+		check.text = str(value)
+		check.add_theme_font_size_override("font_size", font_size - 3)
+		row.add_child(check)
+		checks[str(value)] = check
+	return checks
+
+
+func _selected_taste_id(refs: Dictionary) -> String:
+	var selector: Variant = refs.get("selector")
+	if not selector is OptionButton or (selector as OptionButton).selected < 0:
+		return ""
+	return str((selector as OptionButton).get_item_metadata((selector as OptionButton).selected))
+
+
+func _refresh_taste_form(refs: Dictionary) -> void:
+	var id := _selected_taste_id(refs)
+	if id.is_empty():
+		return
+	var taste := SETTINGS.taste(id)
+	_select_taste_value(refs.get("intensity"), TASTE.INTENSITIES, str(taste.get("intensity", "firm")))
+	_select_taste_value(refs.get("pattern"), TASTE.PATTERNS, str(taste.get("pattern", "steady")))
+	_select_taste_value(refs.get("warmth"), TASTE.WARMTHS, str(taste.get("warmth", "normal")))
+	var recovery: Variant = refs.get("recovery")
+	if recovery is SpinBox:
+		(recovery as SpinBox).value = float(taste.get("recovery", TASTE.RECOVERY_DEFAULT))
+	_set_taste_checks(refs.get("touch_likes"), TASTE.TOUCHES, taste.get("touch", []))
+	_set_taste_checks(refs.get("talk_likes"), TASTE.TALKS, taste.get("talk", []))
+	_set_taste_checks(refs.get("touch_dislikes"), TASTE.TOUCHES, taste.get("dislikes", []))
+	_set_taste_checks(refs.get("talk_dislikes"), TASTE.TALKS, taste.get("dislikes", []))
+	var notes: Variant = refs.get("notes")
+	if notes is TextEdit:
+		(notes as TextEdit).text = str(taste.get("notes", ""))
+	var status: Variant = refs.get("status")
+	if status is Label:
+		(status as Label).text = "Editing %s" % SETTINGS.character_name(id)
+
+
+func _select_taste_value(control: Variant, values: Array, selected_value: String) -> void:
+	if not control is OptionButton:
+		return
+	var option := control as OptionButton
+	for index in values.size():
+		if str(values[index]) == selected_value:
+			option.selected = index
+			return
+	option.selected = 0
+
+
+func _set_taste_checks(control: Variant, values: Array, selected: Variant) -> void:
+	if not control is Dictionary:
+		return
+	var checks: Dictionary = control
+	var selected_list: Array = selected if selected is Array else []
+	for value: Variant in values:
+		var key := str(value)
+		var check: Variant = checks.get(key)
+		if check is CheckButton:
+			(check as CheckButton).button_pressed = key in selected_list
+
+
+func _checked_taste_values(control: Variant, values: Array) -> Array:
+	var out: Array = []
+	if not control is Dictionary:
+		return out
+	var checks: Dictionary = control
+	for value: Variant in values:
+		var check: Variant = checks.get(str(value))
+		if check is CheckButton and bool((check as CheckButton).button_pressed):
+			out.append(str(value))
+	return out
+
+
+func _save_taste_form(refs: Dictionary) -> void:
+	var id := _selected_taste_id(refs)
+	if id.is_empty():
+		return
+	var dislikes := _checked_taste_values(refs.get("touch_dislikes"), TASTE.TOUCHES)
+	dislikes.append_array(_checked_taste_values(refs.get("talk_dislikes"), TASTE.TALKS))
+	var taste := {
+		"intensity": _option_taste_value(refs.get("intensity"), TASTE.INTENSITIES, "firm"),
+		"pattern": _option_taste_value(refs.get("pattern"), TASTE.PATTERNS, "steady"),
+		"touch": _checked_taste_values(refs.get("touch_likes"), TASTE.TOUCHES),
+		"dislikes": dislikes,
+		"talk": _checked_taste_values(refs.get("talk_likes"), TASTE.TALKS),
+		"warmth": _option_taste_value(refs.get("warmth"), TASTE.WARMTHS, "normal"),
+		"recovery": int((refs.get("recovery") as SpinBox).value) if refs.get("recovery") is SpinBox else TASTE.RECOVERY_DEFAULT,
+		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
+	}
+	SETTINGS.save_taste(id, taste)
+	_refresh_taste_form(refs)
+	var status: Variant = refs.get("status")
+	if status is Label:
+		(status as Label).text = "Saved %s." % SETTINGS.character_name(id)
+	_debug("taste saved id=%s" % id)
+
+
+func _reset_taste_form(refs: Dictionary) -> void:
+	var id := _selected_taste_id(refs)
+	if id.is_empty():
+		return
+	SETTINGS.reset_taste(id)
+	_refresh_taste_form(refs)
+	var status: Variant = refs.get("status")
+	if status is Label:
+		(status as Label).text = "Reset %s to its default taste." % SETTINGS.character_name(id)
+	_debug("taste reset id=%s" % id)
+
+
+func _option_taste_value(control: Variant, values: Array, fallback: String) -> String:
+	if not control is OptionButton:
+		return fallback
+	var option := control as OptionButton
+	if option.selected < 0 or option.selected >= values.size():
+		return fallback
+	return str(values[option.selected])
+
+
 func _clear_injected_settings() -> void:
 	for entry: Dictionary in _injected_settings:
 		var page: Variant = entry.get("page")
@@ -406,13 +643,11 @@ func _process(delta: float) -> void:
 		return
 
 	_offer_clock += delta
-	_ai_clock += delta
 	if _offer_clock >= 0.15:
 		_offer_clock = 0.0
 		_refresh_offer()
-	if _ai_clock >= 30.0:
-		_ai_clock = 0.0
-		AI_OFFER.tick(self)
+	if is_instance_valid(initiation):
+		initiation.tick(delta)
 	if _offer.is_empty():
 		_last_offer_key = ""
 		_sync_native_hint(false)
@@ -676,12 +911,35 @@ func try_start() -> bool:
 	var runtime: Variant = _offer.get("runtime")
 	if not is_instance_valid(runtime):
 		return false
+	var target: Variant = _offer.get("pony")
+	if is_instance_valid(initiation) and is_instance_valid(target):
+		initiation.cancel_for(target)
 	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), str(_offer.get("source", "")))
 	if started:
 		_offer = {}
 		if is_instance_valid(hud):
 			hud.hide_prompt()
 	return started
+
+
+## Debug helper: force a proactive request for the aimed (or nearest) mare. It bypasses the
+## quiet/cooldown/AI-usage checks so the lab can test requests with ai_usage=talk.
+func debug_request() -> void:
+	if not debug_logs:
+		return
+	if not is_instance_valid(initiation) or not is_instance_valid(player):
+		return
+	var target: Node = _debug_target(camera()) if is_instance_valid(camera()) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(camera())
+	if not is_instance_valid(target):
+		_debug("request: no pony target")
+		return
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime):
+		_debug("request: no runtime for %s" % str(target.name))
+		return
+	initiation.force(runtime)
 
 
 func debug_chin(step_deg: float) -> void:
@@ -825,6 +1083,10 @@ func allocate_serial() -> int:
 
 
 func set_active(runtime: Node) -> void:
+	if is_instance_valid(initiation):
+		var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+		if is_instance_valid(pony):
+			initiation.cancel_for(pony)
 	active_runtime = runtime
 	_offer = {}
 
@@ -1099,6 +1361,9 @@ func nearest_lying(view: Camera3D) -> Node:
 func _exit_tree() -> void:
 	_clear_injected_settings()
 	_clear_native_hint()
+	if is_instance_valid(initiation):
+		initiation.reset()
+		initiation.queue_free()
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null

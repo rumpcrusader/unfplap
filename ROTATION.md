@@ -110,10 +110,14 @@ these values here if a future pose needs that effect.
   While the base kiss runs, the runtime writes its live mouth/eye/face targets (the player camera,
   not the pose-1 framing view) and repeats the mouth kiss sound, because the player kisser's
   physics is paused for the act. The excitement Beat timer is paused so unicorn horns do not
-  sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.23`, shifts
-  `KISS_LEAN_SIDE_M = 0.16` to the shoulder side and drops `KISS_LEAN_DROP_M = 0.035`; pose 2
-  adds all three to the camera and pelvis counter-lean and yaws the camera
-  `KISS_CAMERA_YAW_DEG = 10°` toward her, pose 1 to the framing view and virtual mouth.
+  sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.23`, shifts to the shoulder side and
+  drops `KISS_LEAN_DROP_M = 0.035`; pose 2 applies it to the camera and pelvis counter-lean and
+  yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her, pose 1 to the framing view and virtual
+  mouth. The kiss side is latched from the lean at start (`_kiss_camera_side`), and
+  `AffectionPose.set_kiss_side()` pins her tilt to the same world side
+  (`KISS_PONY_SIDE_SIGN = -1`) so she cannot pick or deep-kiss switch to the opposite side. The
+  lateral travel crossfades from the lean's `0.18 m` to the kiss's `0.16 m` rather than adding
+  both, so the full kiss uses one offset.
 - Camera bobs are opt-in: `pump.bobs` defaults to `false` and skips pump and climax bob motion.
 - When enabled, each pump adds to the vertical and forward spring velocities.
 - Pose 1 uses the same `_bob` and pump camera rock as pose 2.
@@ -133,7 +137,9 @@ these values here if a future pose needs that effect.
 ## Horse (Pose 2)
 
 - Facing lock every physics tick at priority 100:
-  `pony.global_transform.basis = _facing_basis.scaled(scale)`.
+  `pony.global_transform.basis = _facing_basis.scaled(scale)`. `stay()` alone does not stop
+  conversation facing, so `face_point`/conversation target are cleared late each tick and
+  `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
 - Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the
   1 s blend, then freezes. The same lean vector is applied on top: forward `0.24 m` /
@@ -142,8 +148,10 @@ these values here if a future pose needs that effect.
   `0.20 m` and uses a `0.66×` pump-jiggle scale.
 - Anon's pelvis stays planted: `apply_anon_lean()` cancels the camera's forward/side lean
   translation on the hip target, so the torso hinges over her instead of the whole body sliding
-  into her rump. Pull-back still moves the whole body away. `ANON_PUMP_SWAY_M = 0.02` also
-  moves the pelvis back on the inward stroke, so his upper body pumps forward/back with depth.
+  into her rump. Pull-back still moves the whole body away. Forward/kiss lean also captures and
+  holds both foot targets at their neutral transforms, so his legs stay out of the camera.
+  `ANON_PUMP_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
+  pumps forward/back with depth.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - `H` toggles lean auto-return; hold is the default. In hold mode a slow `0.015` forward /
   `0.0125` side rock keeps the camera/upper body from freezing completely; both are clamped
@@ -153,7 +161,11 @@ these values here if a future pose needs that effect.
   `CAMERA_ROCK_IMPULSE = 0.30`, `CAMERA_ROCK_LIMIT = 0.039`, stiffness `45`, damping `8.0`;
   pitch is `0.675×` the roll (side roll unchanged).
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
-  pose 1; releasing `F` or dropping the lean ends it.
+  pose 1; releasing `F` or dropping the lean ends it. The side is latched from that lean and
+  passed to `AffectionPose.set_kiss_side()`, so she leans to the same side as Anon and the
+  deep-kiss side switch is disabled for the act. During the `Affection` release the camera lean
+  and glance suppression are held until the head has retracted, then ease out. A completed kiss
+  has a `500 ms` restart cooldown.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
 - Canon lowers the pose-2 eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR
   raises the pose-2 eye line by `MOUNTING_POSE2_CAMERA_LIFT_M = 0.10 m`.
@@ -172,9 +184,10 @@ these values here if a future pose needs that effect.
   `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat each tick through
   `FlankSurface.contact` or `PonyTouchBody.nearest`, and `palm_surface_basis()` makes the palm
   plane perpendicular to the coat normal. Its centre sits at
-  `PALM_ON_COAT_CLEARANCE_M = 0.05`, the hand’s palm-ball radius plus a 2 cm raise. Contact is
-  cached per hand with source hysteresis and short position/normal smoothing, so a missed hit
-  holds the last valid point instead of snapping. The path is
+  `PALM_ON_COAT_CLEARANCE_M = 0.03`, the hand’s palm-ball radius. Contact is cached per hand
+  with source hysteresis and short position/normal smoothing, so a missed hit holds the last
+  valid point instead of snapping; a normal that would flip more than ~78° is rejected and the
+  final normal is blended toward a stable torso-radial outward. The path is
   `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically. Point
   offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
   between hands), Same Height and Hoers step up from there; the contact query snaps those points
@@ -191,10 +204,12 @@ these values here if a future pose needs that effect.
 - Strong pumps build a subtle rump blush decal up to `0.25` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
-  `SMACK_ZONE_RADIUS_M = 0.035`. A right lean selects the left cheek, a left lean the right, and
-  exactly centered picks one of the two at random. Anon's hand swings in/out over `0.20 s`
-  (`SMACK_CONTACT_PHASE = 0.45`) and there is a `200 ms` cooldown. The native impact supplies
-  sound, decal, blush, jiggle and `flank_smack`.
+  `SMACK_ZONE_RADIUS_M = 0.035`. If a hand is already caressing, the slap uses that hand and its
+  same-side cheek; if both caress, one is chosen at random. Otherwise a right lean selects the
+  left cheek, a left lean the right, and centered picks randomly. The caress oval is frozen for
+  the slapping hand during the swing and the hand returns to that caress point at the end. Anon's
+  hand swings in/out over `0.20 s` (`SMACK_CONTACT_PHASE = 0.45`) with a `200 ms` cooldown. The
+  native impact supplies sound, decal, blush, jiggle and `flank_smack`.
 - `ear_twitch.gd` flicks both ear roots together on a pump: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.

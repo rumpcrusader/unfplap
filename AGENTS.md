@@ -67,15 +67,15 @@ Tests:
 ```bash
 for t in test_catalog test_settings test_source_hygiene test_rotation \
          test_pump test_preferences test_utterance test_runtime_pump test_voice \
-         test_actions; do
+         test_actions test_initiation; do
   godot --headless --xr-mode off --path <project> \
     --script res://mods/unfplap/tests/$t.gd
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 52, `SOURCE_HYGIENE` 44 checks / 47 files,
+- Current passing state: `CATALOG` 13, `SETTINGS` 59, `SOURCE_HYGIENE` 45 checks / 48 files,
   `ROTATION` 8, `PUMP` 25, `PREFERENCES` 39, `UTTERANCE` 12, `RUNTIME_PUMP` 16, `VOICE` 9,
-  `ACTIONS` 55.
+  `ACTIONS` 64, `INITIATION` 15.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
   ```bash
@@ -94,7 +94,8 @@ done
 mods/unfplap/
   mod.json          id, version, game_version, entry
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
-                    DEBUG LOGS toggle, settings-tab injection, F8/F9/F10 debug helpers
+                    DEBUG LOGS toggle, settings-tab injection with guard and taste editor,
+                    F8/F9/F10 debug helpers
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow,
                     restore, aftercare
@@ -121,7 +122,7 @@ mods/unfplap/
   ext/shared_bed.gd lifts the stock 1.05 body-scale cap for bed cuddles
   tail_pose.gd      tail aside/lift/flick + pump jiggle on the hair skeleton
   witness.gd        witness pass
-  ai_offer.gd       strictly private house-only spoken offer
+  initiation.gd     proactive requests: privacy, approach, ask/reminders, horse invitation
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    taste/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
@@ -165,6 +166,12 @@ body-relative axes.
 - Stance: `STANDING_BOW = 2.4`, `STANDING_FORELEG = 2.0`, `STANDING_HIND_SPREAD = 0.16`.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
 - Body facing is locked every physics tick at priority 100; the navigator must not turn her.
+  `stay()` alone does not stop conversation facing, so `face_point` and the conversation target
+  are cleared late each tick and `face_turn_rate` is held at `0` for the act. This stops the
+  player-conversation turn steps without pausing locomotion or emotions.
+- The player's lower body stays planted during a forward or kiss lean: the hip is counter-shifted
+  and both foot targets are captured and held at their neutral transforms until the lean/kiss
+  ends.
 - Glances use `pony.secondary.look_toward` plus optional `head_back`; pupils follow Anon through
   `eye_motion.target_world`. A full forward `W` lean with no side lean forces `head_back = 1.0`
   and the upward look toward Anon instead of waiting for the random glance scheduler.
@@ -317,14 +324,20 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   live `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound
   itself. Pose 1 uses the player camera, not the separate pose-1 framing view. The excitement
   Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire during it.
-- While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.23`, shifts
-  `KISS_LEAN_SIDE_M = 0.16` farther to the shoulder side and drops
-  `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the pose-2 camera also yaws
-  `KISS_CAMERA_YAW_DEG = 10°` toward her. Pose 2 adds that to the act camera and pelvis
-  counter-lean, so the hips stay planted. Pose 1 moves the framing view and offsets the virtual
-  mouth by the same amount. During the kiss the forced over-the-shoulder glance is cleared and
-  `head_back` eases to zero, so the kiss head pose is not fought by the reach glance. Ending the
-  kiss clears the forced glance and cancels any base-kiss afterglow stare.
+- While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.23`, shifts to the shoulder side
+  and drops `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the pose-2 camera also yaws
+  `KISS_CAMERA_YAW_DEG = 10°` toward her. The kiss side is latched at the start from the lean
+  (`_kiss_camera_side`) and `AffectionPose.set_kiss_side()` pins her lean to the same world side
+  (`KISS_PONY_SIDE_SIGN = -1`), so she cannot pick or deep-kiss switch to the opposite side and
+  collide with him. The lateral offset crossfades from the lean's `0.18 m` to the kiss's
+  `0.16 m` instead of adding both; `KISS_LEAN_SIDE_M = 0.16` is the single full-kiss value.
+  Pose 2 applies it to the act camera and pelvis counter-lean, so the hips stay planted; pose 1
+  applies it to the framing view and offsets the virtual mouth by the kiss distance. During the
+  kiss and its `Affection` release the forced over-the-shoulder glance is cleared and `head_back`
+  eases to zero, so the kiss head pose is not fought by the reach glance. The camera lean is held
+  until the release has retracted (`Affection.amount > 0.2`) before easing out, and a completed
+  kiss has a `KISS_RESTART_COOLDOWN_MS = 500` before another kiss can start. The side latch and
+  the pose lock are cleared when the kiss lean reaches zero.
 - The shoulder reach uses `desktop_anon.set_hold_target(..., "rub")` through `anon_thrust.gd`,
   so it does not need `request_action()` and does not fight `controls_locked`. `rub` keeps the
   hand open. Hand-marker convention: local `-Z` is the fingers, `+Y` is the thumb/up, and the
@@ -338,10 +351,11 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat every tick through
   `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
   orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
-  The palm centre sits at `PALM_ON_COAT_CLEARANCE_M = 0.05` (the hand’s palm-ball radius plus a
-  2 cm raise), not a tuned lift. Contact is cached per hand with source hysteresis and short
-  position/normal smoothing: a miss holds the last valid point instead of snapping to the raw
-  target, and a flank↔body source change needs two hits before it is accepted.
+  The palm centre sits at `PALM_ON_COAT_CLEARANCE_M = 0.03` (the hand’s palm-ball radius),
+  not a tuned lift. Contact is cached per hand with source hysteresis and short position/normal
+  smoothing: a miss holds the last valid point, a flank↔body source change needs two hits, and a
+  normal that would flip more than ~78° is rejected. The final normal is blended toward a stable
+  radial outward from her torso, so a triangle/hull normal cannot turn the palm inside the body.
   The oval is `CARESS_OVAL_ACROSS = 1.30` along the body and
   `CARESS_OVAL_UP = 0.70` vertically, so it reads as a stroke rather than a perfect circle.
   Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
@@ -357,7 +371,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
   `1 = right cheek`. `at` shifts the mark centre `0.08 m` up and `0.08 m` back, then jitters
   within `SMACK_ZONE_RADIUS_M = 0.035` around that point. The contact palm uses the same
-  `palm_surface_basis()` and `PALM_ON_COAT_CLEARANCE_M` above. The hand swings in/out over
+  `palm_surface_basis()` and `PALM_ON_COAT_CLEARANCE_M` above. If a hand is already caressing,
+  the smack uses that hand and its same-side cheek; if both are caressing, one is chosen at
+  random. The caress oval is frozen for that hand during the swing, and at the end the hand
+  returns to the same caress point instead of clearing to rest. The hand swings in/out over
   `SMACK_SWING_SECONDS = 0.20`, impacts at `SMACK_CONTACT_PHASE = 0.45`, and has a
   `SMACK_COOLDOWN_MS = 200` gate.
 - It reuses the slap sound/decal/blush/jiggle. The pony's `physical_reaction` connections are
@@ -455,7 +472,35 @@ examples.
   and witness pass commit once at afterglow; pose 2 records the inside event at afterglow only.
 - Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
   ponies and fillies/colts are skipped.
-- AI offer is strictly private and house-only.
+- Proactive requests are a separate controller (`initiation.gd`), not an action tag. They never
+  start the act; `Y` remains the only acceptance path.
+
+### Proactive requests
+
+- One request episode at a time. Automatic requests require AI usage Full
+  (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
+  character chat within 45 s. The lab runs in Talk, so use `F7`.
+- Eligibility is the existing relationship/social gate (`can_start` for the pose), not the
+  act-time readiness value. No anger bypass.
+- Cuddle: requires an active cuddle and `can_start(MISSIONARY, "bed_side")` or
+  `"already_lying"`. Indoor privacy is house-only solitude; on the outdoor bed it is nobody
+  within 30 m. A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle.
+- Horse: requires `can_start(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
+  navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The request starts
+  only if the current `Y` offer actually targets her.
+- Private for horse means alone in the house or nobody within 30 m. Private lets the AI choose
+  direct or indirect wording and turns on the invitation; with others around she only hints.
+- The horse invitation is IDLE-only: turn away over 2.4 rad/s, clear navigator `face_point` and
+  conversation target late each physics tick, hold `face_turn_rate = 0`, then attach a pose-2
+  modifier and tail-aside. It is not the act: no camera, lock, HUD or `sex_active`.
+  `unfplap:request:` navigator ownership keeps `Y` valid until the episode ends.
+- Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
+  as `situation`. Reminders are generated at 12 s and 24 s, and a give-up line at 30 s. If the
+  player speaks, reminders stop but `Y` remains until the deadline.
+- Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach or initial-ask
+  failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
+  cooldown. `Y` cancels the episode before `start()`.
+- `F7` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
 
 ## Dialogue utterances
 
@@ -507,6 +552,9 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 
 - `Ctrl+Shift+D`: master DEBUG LOGS toggle; default ON; persists in
   `user://mods/data/unfplap/settings.json`.
+- `F7`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
+  cooldown and AI-usage checks, but not relationship, consent or pose gates; use it in the lab,
+  which runs with `ai_usage=talk`.
 - `F8`: offer/gate/bed report plus target pump data.
 - `F9`: pose-1 floating preview and one-shot `POSE1` dump.
 - `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
@@ -543,6 +591,11 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
   `Mods.on_node("res://world/ui/settings_page.gd", ...)`, not a `mod.json` extension. If
   `settings_tab` is false it returns before touching the page. If the page's private fields are
   unavailable it logs and skips. This avoids the old release-breaking extension attempt.
+- The injected tab also owns the **Character taste** editor: one pony selector from
+  `SETTINGS.CHARACTER_ORDER`, enum controls from `preferences.gd`, recovery `0…80`, touch/talk
+  like and dislike checkboxes, and editable private notes. `Save taste` writes only
+  `characters[id].taste`; `Reset to default` removes only that taste override. Custom
+  `event_prompts` and `poses` on the character entry must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
 
@@ -573,6 +626,8 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `taste` (`recovery` included),
   `act_prompts`, `event_prompts`, `poses.missionary`, `poses.horse`.
+- The settings editor lists `SETTINGS.CHARACTER_ORDER` (16 IDs) and uses `CHARACTER_NAMES` for
+  display labels. Add a pony to both and to `CHARACTER_TEMPLATES` when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in
   `preferences.gd`/`settings.gd`.
 - No migration shims. Pre-release dev keys are ignored, not translated.

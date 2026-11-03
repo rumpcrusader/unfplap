@@ -11,6 +11,45 @@ const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 
+## Stable order for the settings-tab pony selector.
+const CHARACTER_ORDER := [
+	"twilight_sparkle",
+	"fluttershy",
+	"rarity",
+	"pinkie_pie",
+	"applejack",
+	"rainbow_dash",
+	"derpy_hooves",
+	"lyra_heartstrings",
+	"octavia_melody",
+	"vinyl_scratch",
+	"berry_punch",
+	"cheerilee",
+	"maud_pie",
+	"trixie",
+	"zecora",
+	"spitfire",
+]
+
+const CHARACTER_NAMES := {
+	"twilight_sparkle": "Twilight Sparkle",
+	"fluttershy": "Fluttershy",
+	"rarity": "Rarity",
+	"pinkie_pie": "Pinkie Pie",
+	"applejack": "Applejack",
+	"rainbow_dash": "Rainbow Dash",
+	"derpy_hooves": "Derpy Hooves",
+	"lyra_heartstrings": "Lyra Heartstrings",
+	"octavia_melody": "Octavia Melody",
+	"vinyl_scratch": "Vinyl Scratch",
+	"berry_punch": "Berry Punch",
+	"cheerilee": "Cheerilee",
+	"maud_pie": "Maud Pie",
+	"trixie": "Trixie",
+	"zecora": "Zecora",
+	"spitfire": "Spitfire",
+}
+
 ## Experimental switches. Keep this as the single list; runtime reads it once per act.
 const FEATURE_DEFAULTS := {
 	"settings_tab": true,
@@ -66,7 +105,7 @@ const CHARACTER_TEMPLATES := {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
-			"dislikes": ["smack"],
+			"dislikes": ["smack", "dirty"],
 			"talk": ["praise"],
 			"warmth": "normal",
 			"recovery": 18,
@@ -78,10 +117,10 @@ const CHARACTER_TEMPLATES := {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss"],
-			"talk": [],
+			"talk": ["curious", "praise"],
 			"warmth": "normal",
 			"recovery": 20,
-			"notes": "You have no strong preference; you respond to the moment and to Anon.",
+			"notes": "You like being understood. Ask what he notices, praise effort, and let curiosity lead. Deliberate beats rough.",
 		},
 	},
 	"derpy_hooves": {
@@ -93,6 +132,141 @@ const CHARACTER_TEMPLATES := {
 			"warmth": "quick",
 			"recovery": 35,
 			"notes": "You are unpretentious and playful. You like being handled, laugh easily, and never want the moment to feel solemn.",
+		},
+	},
+	"pinkie_pie": {
+		"taste": {
+			"intensity": "firm",
+			"pattern": "quick",
+			"touch": ["smack"],
+			"talk": ["playful"],
+			"warmth": "quick",
+			"recovery": 35,
+			"notes": "You want it playful and a little silly. Laughter belongs here; keep it light, eager and never solemn.",
+		},
+	},
+	"applejack": {
+		"taste": {
+			"intensity": "firm",
+			"pattern": "steady",
+			"touch": ["caress", "smack"],
+			"talk": ["praise", "reassurance"],
+			"warmth": "normal",
+			"recovery": 24,
+			"notes": "You are honest and grounded. A firm, equal hand and plain praise land best.",
+		},
+	},
+	"rainbow_dash": {
+		"taste": {
+			"intensity": "rough",
+			"pattern": "quick",
+			"touch": ["smack"],
+			"talk": ["praise", "playful"],
+			"warmth": "quick",
+			"recovery": 30,
+			"notes": "You are competitive and bold. Momentum, a challenge and being told you are impressive matter more than softness.",
+		},
+	},
+	"lyra_heartstrings": {
+		"taste": {
+			"intensity": "firm",
+			"pattern": "steady",
+			"touch": ["caress", "kiss"],
+			"talk": ["curious", "playful"],
+			"warmth": "normal",
+			"recovery": 22,
+			"notes": "You are curious about everything, especially him. Ask questions, follow tangents and keep it a little strange.",
+		},
+	},
+	"octavia_melody": {
+		"taste": {
+			"intensity": "soft",
+			"pattern": "steady",
+			"touch": ["caress"],
+			"dislikes": ["smack", "dirty"],
+			"talk": ["praise"],
+			"warmth": "slow",
+			"recovery": 15,
+			"notes": "You want a measured, elegant pace and to be appreciated for your restraint. Crudeness breaks the mood.",
+		},
+	},
+	"vinyl_scratch": {
+		"taste": {
+			"intensity": "rough",
+			"pattern": "quick",
+			"touch": ["smack", "kiss"],
+			"talk": ["playful"],
+			"warmth": "quick",
+			"recovery": 32,
+			"notes": "You are loud, casual and physical. You like momentum, teasing and not taking any of it too seriously.",
+		},
+	},
+	"berry_punch": {
+		"taste": {
+			"intensity": "rough",
+			"pattern": "quick",
+			"touch": ["smack"],
+			"talk": ["playful", "dirty"],
+			"warmth": "quick",
+			"recovery": 30,
+			"notes": "You are uninhibited and mischievous. You say what you want and like being grabbed, teased and answered in kind.",
+		},
+	},
+	"cheerilee": {
+		"taste": {
+			"intensity": "firm",
+			"pattern": "building",
+			"touch": ["caress"],
+			"talk": ["praise", "reassurance"],
+			"warmth": "normal",
+			"recovery": 20,
+			"notes": "You are warm, patient and encouraging. You notice when he listens and like being told you are doing well.",
+		},
+	},
+	"maud_pie": {
+		"taste": {
+			"intensity": "soft",
+			"pattern": "steady",
+			"touch": ["caress"],
+			"dislikes": ["smack", "dirty"],
+			"talk": [],
+			"warmth": "slow",
+			"recovery": 10,
+			"notes": "You are stone-steady and spare with words. Affection is stillness and small deliberate touches. Do not fill the silence.",
+		},
+	},
+	"trixie": {
+		"taste": {
+			"intensity": "firm",
+			"pattern": "building",
+			"touch": ["kiss"],
+			"talk": ["praise", "playful"],
+			"warmth": "quick",
+			"recovery": 28,
+			"notes": "You are theatrical and proud. You want admiration and applause, and get flustered when he sees through the act.",
+		},
+	},
+	"zecora": {
+		"taste": {
+			"intensity": "firm",
+			"pattern": "steady",
+			"touch": ["caress"],
+			"dislikes": ["smack"],
+			"talk": ["curious", "reassurance"],
+			"warmth": "slow",
+			"recovery": 18,
+			"notes": "You are measured, private and poetic. You like real questions and time to answer; do not rush the words.",
+		},
+	},
+	"spitfire": {
+		"taste": {
+			"intensity": "rough",
+			"pattern": "quick",
+			"touch": ["smack"],
+			"talk": ["praise", "playful"],
+			"warmth": "normal",
+			"recovery": 26,
+			"notes": "You are competitive and direct. You like confidence, a firm hand and being told you can take it.",
 		},
 	},
 }
@@ -138,6 +312,49 @@ static func taste(id: String) -> Dictionary:
 	if value is Dictionary:
 		return PREFERENCES.resolve(value)
 	return PREFERENCES.defaults()
+
+
+static func character_name(id: String) -> String:
+	if CHARACTER_NAMES.has(id):
+		return str(CHARACTER_NAMES[id])
+	return id.replace("_", " ").capitalize()
+
+
+## Save only the taste block. Character prompts and pose settings are preserved.
+static func save_taste(id: String, taste: Dictionary) -> void:
+	var data := _read()
+	var characters: Variant = data.get("characters", {})
+	if not characters is Dictionary:
+		characters = {}
+	var roster: Dictionary = characters
+	var entry: Variant = roster.get(id, {})
+	if not entry is Dictionary:
+		entry = {}
+	var character: Dictionary = entry
+	character["taste"] = PREFERENCES.resolve(taste)
+	roster[id] = character
+	data["characters"] = roster
+	_write(data)
+
+
+## Remove only the taste override; the generated/default taste returns. Prompts and poses stay.
+static func reset_taste(id: String) -> void:
+	var data := _read()
+	var characters: Variant = data.get("characters", {})
+	if not characters is Dictionary:
+		characters = {}
+	var roster: Dictionary = characters
+	var entry: Variant = roster.get(id, {})
+	if entry is Dictionary:
+		(entry as Dictionary).erase("taste")
+		if (entry as Dictionary).is_empty():
+			roster.erase(id)
+		else:
+			roster[id] = entry
+	else:
+		roster.erase(id)
+	data["characters"] = roster
+	_write(data)
 
 
 ## One read for the global pump controls; oriented so the runtime and HUD share the same flag.

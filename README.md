@@ -31,8 +31,10 @@ Desktop only for now
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing horse.
 - **Outdoor bed** — Adds a usable bed beside Golden Oak Library.
+- **Proactive mares** — A ready mare may ask for sex herself; a private standing mare presents for horse, and `Y` still accepts.
 - **Mouse pump readiness** — Build her arousal; she can climax repeatedly while you keep pumping.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
+- **Character taste editor** — Edit each pony's taste in `Settings → Unfplap`.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
 - **HUD** — Shows penetration, readiness and climax count, with an optional `Readiness HUD` setting.
 - **Act camera** — Offers a controlled lean camera with optional pump bob.

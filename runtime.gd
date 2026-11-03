@@ -11,6 +11,7 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
+const KISS_LEGS := preload("res://mods/unfplap/kiss_legs.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
@@ -609,6 +610,9 @@ var _satisfaction_tween: Tween
 var _kiss_forelegs_planted := false
 var _kiss_saved_rear := 1.0
 var _kiss_saved_hooves := 1.0
+var _kiss_leg_pin: Node
+## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
+var _act_eyes_released := false
 var _face_timer: Timer
 var _kisser: Node
 var _kisser_processing := false
@@ -784,8 +788,11 @@ func apply_live_settings() -> void:
 	if pose_id == CATALOG.HORSE:
 		if _base_kiss_active:
 			_apply_kiss_forelegs()
+			if _kiss_forelegs_mode() == "base":
+				_stop_kiss_leg_pin()
 		elif _kiss_forelegs_planted:
 			_restore_kiss_forelegs()
+			_stop_kiss_leg_pin()
 	elif pose_id == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
 	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
@@ -1144,11 +1151,29 @@ func _physics_process(delta: float) -> void:
 	_eyes_tick()
 
 
-## The act owns the lids. Set at every transition, then reasserted late so a kiss release,
-## climax return, or fluster peek cannot leave her wide-eyed while leaning.
+## A kiss runs the game's own Affection/fluster eyelids. The act's stare is an override, so
+## release it once when a kiss starts and stop touching the eyes until the kiss ends.
+func _kiss_eyes_active() -> bool:
+	return _base_kiss_active or _base_kiss_releasing or _pose2_kiss_active \
+		or (_lean_action_active and _lean_action_kind == "kiss" and _custom_kiss_active) \
+		or _kiss_amount > 0.05
+
+
+## The act owns the lids outside a kiss. Set at every transition, then reasserted late so a
+## climax return or fluster peek cannot leave her wide-eyed while leaning.
 func _eyes_tick() -> void:
 	if not is_instance_valid(pony):
 		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	if _kiss_eyes_active():
+		if not _act_eyes_released:
+			if expressions.has_method("stare"):
+				expressions.call("stare", false)
+			_act_eyes_released = true
+		return
+	_act_eyes_released = false
 	var lids := -1.0
 	match state:
 		State.POSING_IN, State.ACTIVE:
@@ -1159,8 +1184,7 @@ func _eyes_tick() -> void:
 			lids = AFTERGLOW_CLOSE_LIDS if _close_rewarded else AFTERGLOW_LIDS
 	if lids < 0.0:
 		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("stare"):
+	if expressions.has_method("stare"):
 		expressions.call("stare", true, lids)
 
 
@@ -2327,6 +2351,7 @@ func _abort_start() -> void:
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_restore_kiss_forelegs()
+	_stop_kiss_leg_pin()
 	_restore_face_turn()
 	_release_nav()
 	_unlock_player()
@@ -4092,6 +4117,7 @@ func force_stop() -> void:
 	if state == State.IDLE:
 		set_request_face(false)
 		_restore_kiss_forelegs()
+		_stop_kiss_leg_pin()
 		clear_presentation()
 		return
 	_restore_now()
@@ -4102,6 +4128,7 @@ func _restore_now() -> void:
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_restore_kiss_forelegs()
+	_stop_kiss_leg_pin()
 	_restore_face_turn()
 	if is_instance_valid(pony):
 		_clear_face()
@@ -4984,6 +5011,33 @@ func _restore_kiss_forelegs() -> void:
 	_kiss_forelegs_planted = false
 
 
+## The base kiss's chest flex runs after body_sway's upper-arm pin. This extra modifier runs
+## last and brings the visible hoof tips back to where they were before the kiss.
+func _start_kiss_leg_pin() -> void:
+	if pose_id != CATALOG.HORSE or _kiss_forelegs_mode() == "base":
+		return
+	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
+		return
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return
+	var skeleton := sk as Skeleton3D
+	_kiss_leg_pin = KISS_LEGS.new()
+	_kiss_leg_pin.name = "UnfplapKissLegPin"
+	_kiss_leg_pin.set("mare", pony)
+	_kiss_leg_pin.set("runtime", self)
+	skeleton.add_child(_kiss_leg_pin)
+	skeleton.move_child(_kiss_leg_pin, skeleton.get_child_count() - 1)
+	_kiss_leg_pin.call("capture")
+	_log("kiss foreleg pin captured")
+
+
+func _stop_kiss_leg_pin() -> void:
+	if is_instance_valid(_kiss_leg_pin):
+		_kiss_leg_pin.queue_free()
+	_kiss_leg_pin = null
+
+
 ## Reuse the game's own kiss in pose 2. `pony_kisser.begin_from_pony()` runs the same eligibility
 ## checks as a normal Ponese kiss, including `controls_locked`, so unlock for that one call only.
 ## The AffectionPose modifier is moved to the end of the skeleton chain so its kiss IK layers on
@@ -5025,6 +5079,7 @@ func _start_base_kiss() -> bool:
 			_base_kiss_pose = pose_node as SkeletonModifier3D
 			_base_kiss_pose_index = index
 			(sk as Skeleton3D).move_child(_base_kiss_pose, (sk as Skeleton3D).get_child_count() - 1)
+	_start_kiss_leg_pin()
 	_log("base kiss start pony=%s" % _id)
 	return true
 
@@ -5052,11 +5107,14 @@ func _end_base_kiss() -> void:
 	_base_kiss_releasing = is_instance_valid(_base_kiss_pose)
 	if not _base_kiss_releasing:
 		_base_kiss_affection = null
+		_restore_kiss_forelegs()
+		_stop_kiss_leg_pin()
 
 
 ## Keep the AffectionPose last while its own 0.6 s release eases out, then restore the child order.
 func _restore_base_kiss_pose() -> void:
 	_restore_kiss_forelegs()
+	_stop_kiss_leg_pin()
 	if is_instance_valid(_base_kiss_pose) and _base_kiss_pose.has_method("set_kiss_side"):
 		_base_kiss_pose.call("set_kiss_side", 0.0)
 	_base_kiss_releasing = false
@@ -7048,6 +7106,7 @@ func _snout() -> Vector3:
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
 	_restore_kiss_forelegs()
+	_stop_kiss_leg_pin()
 	if is_instance_valid(_satisfied):
 		_satisfied.queue_free()
 		_satisfied = null

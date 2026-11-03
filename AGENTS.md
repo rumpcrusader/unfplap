@@ -116,6 +116,7 @@ mods/unfplap/
   anon_thrust.gd    wraps the desktop Anon pose driver for the pose-2 hip thrust
   palm_scale.gd     pose-2 hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven pose-2 upper-body sway with planted forehooves
+  kiss_legs.gd      pose-2 kiss hoof-tip pin after AffectionPose's chest flex
   prone_sway.gd     pose-1 lying torso slide and head nod on the thrust
   ear_twitch.gd     eased random thrust ear twitch on the head skeleton
   wing_sweep.gd     pose-2 wing root sweep after the game's WingTuck modifier
@@ -326,7 +327,9 @@ body-relative axes.
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.
 - Eyes: `ACT_LIDS = 0.45` during `POSING_IN`/`ACTIVE`, `CLIMAX_LIDS = 0.0` only in `CLIMAX`, and
   sleepier afterglow `0.90`/`0.95`. A late `_eyes_tick()` reasserts the stare every tick so a
-  kiss release, climax return or fluster peek cannot leave her wide-eyed.
+  climax return or fluster peek cannot leave her wide-eyed. While a kiss is active it releases
+  the act's stare once and stops touching the eyes, so the game's own fluster/deep-kiss eyelids
+  run; the custom kiss's `touch("affection", ..., 0.95)` lid layer is not overridden.
 - Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
   the act, re-applying each tick because the stock rig can show itself again. Both are restored
   at end, so the rotated bed body cannot appear inside the camera shot.
@@ -423,8 +426,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `KISS_CAMERA_YAW_DEG` constants. All pose-2 values apply live from the settings tab.
 - `presentation.horse.kiss.forelegs = "planted"` saves the game's `AffectionPose.kiss_settings()`
   `rear` and `hooves` values, sets both to zero before the base kiss and restores them when the
-  release pose is removed. The act's horse pose therefore keeps both forelegs on the ground.
-  `"base"` keeps the stock both-up kiss animation.
+  release pose is removed. `kiss_legs.gd` then captures both foreleg tips before the base kiss
+  and runs last to CCD them back to those positions, because the base kiss's chest flex would
+  otherwise drag the legs after `body_sway`'s upper-arm pin. `"base"` keeps the stock both-up
+  kiss animation.
 - While a kiss is active, Anon leans in by the pose-2 `lean_forward` (pose 1 `KISS_LEAN_M = 0.27`),
   shifts to the shoulder side by `lean_side` (pose 1 `0.18`) and drops by `lean_drop` (pose 1
   `0.035`) lower over `0.35 s`; the

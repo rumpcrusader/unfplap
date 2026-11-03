@@ -91,6 +91,30 @@ func move(amount: float, now: float) -> Array[Dictionary]:
 	return events
 
 
+## Live, in-progress stroke readings for presentation. `strength` mirrors the closed-stroke
+## formula, but uses the travel and duration so far.
+func live_travel() -> float:
+	if _direction == 0:
+		return 0.0
+	return absf(depth - _start_depth)
+
+
+func live_speed(now: float) -> float:
+	var travel := live_travel()
+	if travel <= 0.0:
+		return 0.0
+	return travel / maxf(0.001, now - _start_time)
+
+
+func live_strength(now: float) -> float:
+	var travel := live_travel()
+	if travel <= 0.0:
+		return 0.0
+	var speed := live_speed(now)
+	var speed_factor := clampf(speed / STRENGTH_SPEED_REF, STRENGTH_SPEED_MIN, STRENGTH_SPEED_MAX)
+	return clampf(travel * speed_factor, 0.0, 1.0)
+
+
 func tick(now: float) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
 	if _direction == 0:

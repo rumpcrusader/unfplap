@@ -6,7 +6,7 @@ choice. Camera/pose mechanics and aftercare are outside it.
 ## What the player does
 
 - Mouse vertical motion feeds raw depth. `thrust.orientation` flips the direction; `"up"`
-  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `480`.
+  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `600`.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
   (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
@@ -53,17 +53,21 @@ apply live during an act.
 `Settings → Unfplap` has a **Thrust** section:
 
 - mouse-up direction;
-- sensitivity in pixels per full thrust (`240…1200`, default `480`);
+- sensitivity in pixels per full thrust (`240…1200`, default `600`);
 - opt-in vertical camera bob on each thrust;
 - opt-in forward/back camera motion on each thrust.
 
 It also has a **Camera rock** section:
 
 - impulse, stiffness, damping and maximum angle;
-- pitch share and roll share. Roll defaults to `0.0`, so the thrust rock is pitch-only.
+- pitch share and roll share. Roll defaults to `0.0`, so the thrust rock is pitch-only;
+- the default maximum angle is `0.0`, which disables the spring until it is raised.
 
 There are no Save buttons. Thrust and camera-rock controls write their own blocks immediately
 and apply live during an act.
+
+The **Act presentation** section has **Glance-back speed**, a `0.25…3.0×` multiplier for the
+head-back glance ease. Higher is faster; it applies live.
 
 The **Character taste** section exposes one pony selector and one form:
 
@@ -200,11 +204,11 @@ arrive late. `event_prompts.stay_close` is its per-character override.
 ## HUD
 
 - `hud_readouts` (default `true`) shows the cue, a short 0–100 bar with no ticks, and the
-  `Wants`/`You` segments.
-- Top to bottom: one status line
-  `❤ N/5 | cue | Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank
-  separator, controls.
-- When readouts are off, the hearts remain; the cue, bar and `Wants`/`You` segments are hidden.
+  separate `Wants`/`You` line.
+- Top to bottom: cue line `❤ N/5 | cue`, readiness line
+  `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
+  controls.
+- When readouts are off, the hearts remain; the cue, readiness line and bar are hidden.
 - There is no penetration/depth bar; the thrust mechanic and `thrust.orientation` still apply.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.

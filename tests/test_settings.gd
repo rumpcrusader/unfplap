@@ -114,13 +114,13 @@ func run() -> void:
 	check(bool(feature_block.get("hud_readouts", false)), "HUD readouts feature on")
 	check(bool(feature_block.get("settings_tab", false)), "settings tab feature on")
 	check(bool(feature_block.get("thrust_camera_rock", false)), "thrust camera rock feature on")
-	check(not bool(feature_block.get("idle_camera_sway", true)), "idle camera sway off by default")
+	check(bool(feature_block.get("idle_camera_sway", false)), "idle camera sway on by default")
 	check(bool(feature_block.get("captions_on_top", false)), "captions on top feature on")
 	check(bool(feature_block.get("pose2_body_sway", false)), "pose 2 body sway feature on")
 	check(bool(feature_block.get("pose1_body_motion", false)), "pose 1 body motion feature on")
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
-	check(not bool(feature_block.get("mute_ponese_audio", true)), "mute Ponese audio off")
+	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(not feature_block.has("mood_cues"), "old mood cues flag removed")
 	check(not feature_block.has("readiness_hud"), "old readiness HUD flag removed")
 	check(not feature_block.has("afterglow_close"), "afterglow close flag removed")
@@ -148,7 +148,7 @@ func run() -> void:
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(not bool(thrust_defaults.get("camera_bob", true)), "default camera bob disabled")
 	check(not bool(thrust_defaults.get("camera_motion", true)), "default camera motion disabled")
-	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 480.0), "default thrust pixels")
+	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 600.0), "default thrust pixels")
 	var legacy_thrust := {"thrust": {"bobs": true}}
 	SETTINGS._migrate_thrust_block(legacy_thrust)
 	var migrated: Dictionary = legacy_thrust["thrust"]
@@ -170,7 +170,9 @@ func run() -> void:
 	check(not controls.has("bobs"), "old combined bob toggle removed")
 	var rock_defaults: Dictionary = SETTINGS.CAMERA_ROCK_DEFAULTS
 	check(near(float(rock_defaults.get("impulse", 0.0)), 0.50), "camera rock default impulse")
-	check(near(float(rock_defaults.get("limit", 0.0)), 0.055), "camera rock default limit")
+	check(near(float(rock_defaults.get("stiffness", 0.0)), 30.0), "camera rock default stiffness")
+	check(near(float(rock_defaults.get("damping", 0.0)), 1.0), "camera rock default damping")
+	check(near(float(rock_defaults.get("limit", 0.0)), 0.0), "camera rock default limit off")
 	check(near(float(rock_defaults.get("pitch_ratio", 0.0)), 1.0), "camera rock default pitch share")
 	check(near(float(rock_defaults.get("roll_ratio", 1.0)), 0.0), "camera rock default roll off")
 	var rock_controls := SETTINGS.camera_rock_controls()
@@ -178,6 +180,13 @@ func run() -> void:
 	var rock_roll := float(rock_controls.get("roll_ratio", -1.0))
 	check(rock_impulse >= 0.0 and rock_impulse <= 2.0, "runtime camera rock impulse in range")
 	check(rock_roll >= 0.0 and rock_roll <= 2.0, "runtime camera rock roll share in range")
+	var presentation_defaults: Dictionary = defaults.get("presentation", {})
+	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 1.0),
+		"default glance-back speed")
+	var presentation := SETTINGS.presentation_controls()
+	var glance_speed := float(presentation.get("glance_back_speed", 0.0))
+	check(glance_speed >= 0.25 and glance_speed <= 3.0,
+		"runtime glance-back speed in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("stay_close"), "stay close event prompt exists")
 

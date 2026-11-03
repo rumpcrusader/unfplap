@@ -4,7 +4,8 @@ extends RefCounted
 ## inherits every field it does not override.
 ##
 ## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
-## `thrust` holds the mouse-control settings and `camera_rock` holds the rock spring.
+## `thrust` holds the mouse-control settings, `camera_rock` holds the rock spring and
+## `presentation` holds shared act timings such as the glance-back speed.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -55,13 +56,13 @@ const CHARACTER_NAMES := {
 const FEATURE_DEFAULTS := {
 	"hud_readouts": true,
 	"thrust_camera_rock": true,
-	"idle_camera_sway": false,
+	"idle_camera_sway": true,
 	"captions_on_top": true,
 	"pose2_body_sway": true,
 	"pose1_body_motion": true,
 	"thrust_ear_twitch": true,
 	"allow_act_during_cuddle": true,
-	"mute_ponese_audio": false,
+	"mute_ponese_audio": true,
 	"settings_tab": true,
 }
 
@@ -115,11 +116,16 @@ const FEATURE_INFO := {
 ## set it back toward 1.0 to bring the roll back.
 const CAMERA_ROCK_DEFAULTS := {
 	"impulse": 0.50,
-	"stiffness": 45.0,
-	"damping": 8.0,
-	"limit": 0.055,
+	"stiffness": 30.0,
+	"damping": 1.0,
+	"limit": 0.0,
 	"pitch_ratio": 1.0,
 	"roll_ratio": 0.0,
+}
+
+## Shared act-presentation timings. `glance_back_speed` is a multiplier; higher is faster.
+const PRESENTATION_DEFAULTS := {
+	"glance_back_speed": 1.0,
 }
 
 const DEFAULT_ACT_PROMPTS := {
@@ -421,12 +427,12 @@ static func thrust_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
-	var pixels := 480.0
+	var pixels := 600.0
 	var camera_bob := false
 	var camera_motion := false
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
-		pixels = float((block as Dictionary).get("pixels_per_full", 480.0))
+		pixels = float((block as Dictionary).get("pixels_per_full", 600.0))
 		# Old combined toggle: both split toggles inherit it until the next save.
 		var legacy_bobs := bool((block as Dictionary).get("bobs", false))
 		camera_bob = bool((block as Dictionary).get("camera_bob", legacy_bobs))
@@ -497,6 +503,30 @@ static func save_camera_rock_controls(values: Dictionary) -> void:
 	controls["roll_ratio"] = clampf(float(values.get(
 		"roll_ratio", CAMERA_ROCK_DEFAULTS["roll_ratio"])), 0.0, 2.0)
 	data["camera_rock"] = controls
+	_write(data)
+
+
+## Shared presentation timings. Read by the runtime and applied live.
+static func presentation_controls() -> Dictionary:
+	var data := _read()
+	var block: Variant = data.get("presentation", {})
+	var speed := float(PRESENTATION_DEFAULTS["glance_back_speed"])
+	if block is Dictionary and (block as Dictionary).has("glance_back_speed"):
+		speed = float((block as Dictionary)["glance_back_speed"])
+	return {
+		"glance_back_speed": clampf(speed, 0.25, 3.0),
+	}
+
+
+static func save_presentation_controls(values: Dictionary) -> void:
+	var data := _read()
+	var block: Variant = data.get("presentation", {})
+	if not block is Dictionary:
+		block = {}
+	var controls: Dictionary = block
+	controls["glance_back_speed"] = clampf(float(values.get(
+		"glance_back_speed", PRESENTATION_DEFAULTS["glance_back_speed"])), 0.25, 3.0)
+	data["presentation"] = controls
 	_write(data)
 
 
@@ -582,11 +612,12 @@ static func _defaults() -> Dictionary:
 		"features": FEATURE_DEFAULTS.duplicate(true),
 		"thrust": {
 			"orientation": "up",
-			"pixels_per_full": 480.0,
+			"pixels_per_full": 600.0,
 			"camera_bob": false,
 			"camera_motion": false,
 		},
 		"camera_rock": CAMERA_ROCK_DEFAULTS.duplicate(true),
+		"presentation": PRESENTATION_DEFAULTS.duplicate(true),
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}

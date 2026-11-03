@@ -42,10 +42,11 @@ func run() -> void:
 	active.cue = "She's close."
 	active._last_intensity = "firm"
 	active._last_pattern = "steady"
-	check(active.hud_cue_line(true) ==
-		"❤ 0/5 | She's close. | Wants: firm & steady | You: firm & steady",
-		"combined HUD cue line")
-	check(active.hud_cue_line(false) == "❤ 0/5", "combined line without optional segments")
+	check(active.hud_cue_line(true) == "❤ 0/5 | She's close.", "HUD cue line")
+	check(active.hud_cue_line(false) == "❤ 0/5", "HUD cue line without optional segments")
+	check(active.hud_readiness_line(true) ==
+		"Wants: firm & steady | You: firm & steady", "separate HUD readiness line")
+	check(active.hud_readiness_line(false) == "", "readiness line hidden with readouts off")
 	active.free()
 
 	var horse: Node = _runtime("horse")

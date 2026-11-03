@@ -349,6 +349,7 @@ func _inject_settings_page_now(page: Node) -> void:
 			page.call("_redraw"))
 	_add_thrust_section(list, font_size)
 	_add_camera_rock_section(list, font_size)
+	_add_presentation_section(list, font_size)
 	_add_taste_section(list, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
@@ -565,6 +566,31 @@ func _camera_rock_spin(form: GridContainer, label_text: String, minimum: float,
 	spin.add_theme_font_size_override("font_size", font_size - 2)
 	form.add_child(spin)
 	return spin
+
+
+func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Act presentation"
+	heading.add_theme_font_size_override("font_size", font_size + 2)
+	list.add_child(heading)
+	var note := Label.new()
+	note.text = "Head-back glance ease. Higher speed is faster. Changes apply live."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(note)
+	var form := GridContainer.new()
+	form.columns = 2
+	form.add_theme_constant_override("h_separation", 16)
+	form.add_theme_constant_override("v_separation", 8)
+	list.add_child(form)
+	var controls := SETTINGS.presentation_controls()
+	var glance_speed := _camera_rock_spin(form, "Glance-back speed", 0.25, 3.0, 0.05,
+		float(controls.get("glance_back_speed", 1.0)), font_size)
+	glance_speed.suffix = "×"
+	glance_speed.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls({"glance_back_speed": glance_speed.value})
+		_apply_live_settings())
 
 
 func _add_taste_section(list: VBoxContainer, font_size: int) -> void:

@@ -170,12 +170,14 @@ these values here if a future pose needs that effect.
   it and a second tap stops it. Pressing `S` in hold mode arms a gradual side return so the
   shoulder roll decays to neutral.
 - Pose-2 camera adds a pitch/roll rock spring on each thrust. The constants are persisted in
-  `settings.gd` under `camera_rock` and read at act start: impulse `0.50`, stiffness `45`,
-  damping `8`, limit `0.055 rad`, pitch share `1.0`, roll share `0.0`. The default is
-  pitch-only; the side-lean roll remains separate. The settings tab exposes all six values.
-- Anon's hip and lean use `_anon_thrust_phase`, a damped spring toward raw `depth`
-  (`stiffness 55`, `damping 11`). The phase is clamped `0…1`, so `THRUST_MAX_M` and
-  `ANON_THRUST_SWAY_M` bounds are unchanged.
+  `settings.gd` under `camera_rock` and read at act start: impulse `0.50`, stiffness `30`,
+  damping `1`, limit `0.0 rad`, pitch share `1.0`, roll share `0.0`. The spring is pitch-only
+  and the default limit disables it; the side-lean roll remains separate. The settings tab
+  exposes all six values.
+- Anon's hip and lean use `_anon_thrust_phase`. Inward strokes attack from live stroke speed
+  and strength (`ANON_THRUST_ATTACK = 7`, speed ref `3.0`, clamp `0.6…1.8`, strength floor
+  `0.45`); outward strokes use the damped return spring (`stiffness 55`, `damping 11`). The
+  phase is clamped `0…1`, so `THRUST_MAX_M` and `ANON_THRUST_SWAY_M` bounds are unchanged.
 - Pose-2 palms scale the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`, others
   `1.0`. `palm_scale.gd` runs after BodyIK and restores the cached scales in
   `_remove_anon_thrust()` on every act exit.
@@ -191,8 +193,9 @@ these values here if a future pose needs that effect.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via
   `eye_motion.target_world` / `target_weight`. Look-back yaw clamps at
   `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted
-  to `1.44`). A full forward `W` lean with no side lean forces `head_back = 1.0` and an upward
-  look at Anon.
+  to `1.44`). The `head_back` ease uses `GLANCE_BACK_FADE / glance_back_speed`, with
+  `glance_back_speed` defaulting to `1.0` and live in the settings tab. A full forward `W` lean
+  with no side lean forces `head_back = 1.0` and an upward look at Anon.
 - `Q`/`E` at `0.75` side lean reach Anon's same-side open palm to the shoulder through
   `desktop_anon.set_hold_target(..., "rub")`. Hand-marker axes are local `-Z` fingers, `+Y`
   thumb/up and palm normal `-X` right / `+X` left. The shoulder contact supplies the position and

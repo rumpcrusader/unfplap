@@ -134,7 +134,7 @@ func run() -> void:
 		"unpinned kiss still chooses a side")
 	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["impulse"]), 0.50),
 		"camera rock impulse default")
-	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["limit"]), 0.055),
+	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["limit"]), 0.0),
 		"camera rock limit default")
 	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["roll_ratio"]), 0.0),
 		"camera rock roll is off by default")
@@ -161,6 +161,20 @@ func run() -> void:
 		"palm scale restores the right hand")
 	palm.free()
 	sk.free()
+
+	check(near(RUNTIME.glance_back_fade_for(1.0), RUNTIME.GLANCE_BACK_FADE),
+		"default glance-back fade")
+	check(near(RUNTIME.glance_back_fade_for(2.0), RUNTIME.GLANCE_BACK_FADE * 0.5),
+		"faster glance-back speed shortens the fade")
+	check(near(RUNTIME.glance_back_fade_for(0.1), RUNTIME.GLANCE_BACK_FADE / 0.25),
+		"glance-back speed clamps slow")
+	check(near(RUNTIME.glance_back_fade_for(9.0), RUNTIME.GLANCE_BACK_FADE / 3.0),
+		"glance-back speed clamps fast")
+
+	var slow_attack := RUNTIME.anon_thrust_phase_attack(0.0, 1.0, 1.0, 0.1, 0.2)
+	var fast_attack := RUNTIME.anon_thrust_phase_attack(0.0, 1.0, 5.0, 1.0, 0.2)
+	check(fast_attack > slow_attack, "quick strong stroke attacks the hip faster")
+	check(fast_attack > 0.5, "quick strong stroke reaches visible hip travel")
 
 	var phase := RUNTIME.anon_thrust_phase_step(0.0, 0.0, 1.0, 1.0 / 60.0)
 	check(phase.x > 0.0 and phase.x < 1.0, "Anon thrust phase eases in")

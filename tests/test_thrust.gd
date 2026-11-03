@@ -100,6 +100,13 @@ func run() -> void:
 	check(near(fast_strength, 5.0 / 6.0, 0.001), "fast full-depth strength is high")
 	check(PREF.intensity_for(fast_strength) == "rough", "fast full-depth reads rough")
 
+	var live: RefCounted = THRUST.new()
+	live.move(0.2, 0.0)
+	live.move(0.2, 0.1)
+	check(near(live.live_travel(), 0.4), "live travel follows the open stroke")
+	check(near(live.live_speed(0.1), 4.0), "live speed follows the open stroke")
+	check(near(live.live_strength(0.1), 0.2), "live strength follows the open stroke")
+
 	var reset: RefCounted = THRUST.new()
 	reset.move(0.5, 0.0)
 	reset.reset()

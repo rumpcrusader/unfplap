@@ -201,6 +201,13 @@ const MOUNTING_POSE2_CAMERA_LIFT_M := 0.10
 const THRUST_MAX_M := 0.045
 const ANON_THRUST_STIFFNESS := 55.0
 const ANON_THRUST_DAMPING := 11.0
+## Quick, strong strokes should reach the hip target instead of being swallowed by the
+## return spring. Attack uses the live stroke speed and strength; release keeps the spring.
+const ANON_THRUST_ATTACK := 7.0
+const ANON_THRUST_SPEED_REF := 3.0
+const ANON_THRUST_SPEED_MIN := 0.6
+const ANON_THRUST_SPEED_MAX := 1.8
+const ANON_THRUST_STRENGTH_MIN := 0.45
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera no longer free-looks.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
@@ -449,6 +456,7 @@ var _camera_rock := 0.0
 var _camera_rock_velocity := 0.0
 var _camera_rock_sign := 1.0
 var _camera_rock_cfg: Dictionary = {}
+var _presentation_cfg: Dictionary = {}
 var _anon_thrust_phase := 0.0
 var _anon_thrust_phase_velocity := 0.0
 var _rump_blush := 0.0
@@ -631,6 +639,7 @@ func apply_live_settings() -> void:
 	_thrust_bob = bool(thrust_controls.get("camera_bob", false))
 	_thrust_motion = bool(thrust_controls.get("camera_motion", false))
 	_camera_rock_cfg = SETTINGS.camera_rock_controls()
+	_presentation_cfg = SETTINGS.presentation_controls()
 	if not _id.is_empty():
 		_taste = SETTINGS.taste(_id)
 	_refresh_live_modifiers()
@@ -701,14 +710,19 @@ func hud_cue_line(show_readouts := true) -> String:
 			cue_text = close_text
 	if show_readouts or closing:
 		parts.append(cue_text if not cue_text.is_empty() else "—")
-	if not closing and show_readouts:
-		var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
-		var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
-		var want_intensity := str(_taste.get("intensity", "firm"))
-		var want_pattern := str(_taste.get("pattern", "steady"))
-		parts.append("Wants: %s & %s" % [want_intensity, want_pattern])
-		parts.append("You: %s & %s" % [have_intensity, have_pattern])
 	return " | ".join(parts)
+
+
+## Separate readiness/taste line under the cue. Empty outside ACTIVE/CLIMAX or when readouts off.
+func hud_readiness_line(show_readouts := true) -> String:
+	if not show_readouts or state not in [State.ACTIVE, State.CLIMAX]:
+		return ""
+	var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
+	var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
+	var want_intensity := str(_taste.get("intensity", "firm"))
+	var want_pattern := str(_taste.get("pattern", "steady"))
+	return "Wants: %s & %s | You: %s & %s" % [
+		want_intensity, want_pattern, have_intensity, have_pattern]
 
 
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
@@ -1599,6 +1613,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
 	_taste = SETTINGS.taste(_id)
 	_camera_rock_cfg = SETTINGS.camera_rock_controls()
+	_presentation_cfg = SETTINGS.presentation_controls()
 	_act_prompts = _profile.get("act_prompts", {})
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
@@ -5245,12 +5260,34 @@ static func anon_thrust_phase_step(phase: float, velocity: float, target: float,
 	return Vector2(phase, velocity)
 
 
-## Pose-2 Anon body phase. The hip/lean use this instead of raw depth so the body eases into
-## each stroke and settles back under inertia. It can never exceed 1.0, so the existing
-## THRUST_MAX_M and ANON_THRUST_SWAY_M bounds are unchanged.
+## Inward attack. Quick, strong strokes move the phase much faster than slow/soft ones.
+static func anon_thrust_phase_attack(phase: float, target: float, speed: float,
+		strength: float, delta: float) -> float:
+	var speed_factor := clampf(speed / ANON_THRUST_SPEED_REF,
+		ANON_THRUST_SPEED_MIN, ANON_THRUST_SPEED_MAX)
+	var strength_factor := lerpf(ANON_THRUST_STRENGTH_MIN, 1.0,
+		clampf(strength, 0.0, 1.0))
+	var rate := ANON_THRUST_ATTACK * speed_factor * strength_factor
+	return move_toward(phase, clampf(target, 0.0, 1.0), rate * delta)
+
+
+## Pose-2 Anon body phase. Inward strokes use a speed/strength attack so quick thrusts are
+## visible; outward strokes keep the damped spring so the body still settles with inertia.
+## The phase is clamped to 0..1, so THRUST_MAX_M and ANON_THRUST_SWAY_M bounds are unchanged.
 func _anon_thrust_phase_tick(delta: float) -> void:
 	if pose_id != CATALOG.HORSE or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_anon_thrust_phase = 0.0
+		_anon_thrust_phase_velocity = 0.0
+		return
+	var live_speed := 0.0
+	var live_strength := 0.0
+	if _thrust_tracker != null:
+		var now := _now_s()
+		live_speed = float(_thrust_tracker.live_speed(now))
+		live_strength = float(_thrust_tracker.live_strength(now))
+	if depth > _anon_thrust_phase:
+		_anon_thrust_phase = anon_thrust_phase_attack(_anon_thrust_phase, depth,
+			live_speed, live_strength, delta)
 		_anon_thrust_phase_velocity = 0.0
 		return
 	var step := anon_thrust_phase_step(_anon_thrust_phase, _anon_thrust_phase_velocity,
@@ -5729,6 +5766,15 @@ func _lock_body_facing() -> void:
 			nav.call("set_conversation_target", null, false)
 
 
+## Multiplier-based glance-back speed. Higher speed means a shorter fade.
+static func glance_back_fade_for(speed: float) -> float:
+	return GLANCE_BACK_FADE / clampf(speed, 0.25, 3.0)
+
+
+func _glance_back_fade() -> float:
+	return glance_back_fade_for(float(_presentation_cfg.get("glance_back_speed", 1.0)))
+
+
 ## Every few seconds she turns her head back toward Anon, then forward again. Reverted to the
 ## initial implementation: the game's secondary gaze owns the turn; pose 2 only adds the optional
 ## throw-back rotation (`head_back`), eased so it does not snap.
@@ -5739,7 +5785,7 @@ func _drive_glance(delta: float) -> void:
 	# forced over-the-shoulder look so the two head poses do not fight and clip.
 	if _pose2_kiss_active or _base_kiss_releasing:
 		if is_instance_valid(_pose):
-			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / GLANCE_BACK_FADE)
+			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
 			_pose.set("head_back", _glance_head_back)
 		_forced_glance = ""
 		_glance_left = 0.0
@@ -5751,7 +5797,7 @@ func _drive_glance(delta: float) -> void:
 	if is_instance_valid(_pose):
 		var back_target := 1.0 if (not _forced_glance.is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
-		_glance_head_back = move_toward(_glance_head_back, back_target, delta / GLANCE_BACK_FADE)
+		_glance_head_back = move_toward(_glance_head_back, back_target, delta / _glance_back_fade())
 		_pose.set("head_back", _glance_head_back)
 	var secondary: Variant = pony.get("secondary")
 	if not _forced_glance.is_empty():

@@ -12,6 +12,7 @@ const KEYCAP_SIZE := Vector2(30.0, 26.0)
 var _prompt: Label
 var _hint: VBoxContainer
 var _hint_status: Label
+var _hint_readiness: Label
 var _hint_gap: Control
 var _readiness_bar: Control
 var _y_label: Label
@@ -64,6 +65,14 @@ func _ready() -> void:
 	_hint_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint_status.visible = false
 	_hint.add_child(_hint_status)
+	_hint_readiness = _make_label("")
+	_hint_readiness.name = "HintReadiness"
+	_hint_readiness.custom_minimum_size = Vector2(580.0, 0.0)
+	_hint_readiness.add_theme_font_size_override("font_size", 14)
+	_hint_readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_readiness.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint_readiness.visible = false
+	_hint.add_child(_hint_readiness)
 	_hint_gap = Control.new()
 	_hint_gap.custom_minimum_size.y = 10.0
 	_hint_gap.visible = false
@@ -73,10 +82,11 @@ func _ready() -> void:
 	_readiness_bar.visible = false
 	_hint.add_child(_readiness_bar)
 	_build_controls()
-	# Status line first, readiness under it, then the separator, then the controls.
+	# Cue line, readiness text, bar, then the separator, then the controls.
 	_hint.move_child(_hint_status, 0)
-	_hint.move_child(_readiness_bar, 1)
-	_hint.move_child(_hint_gap, 2)
+	_hint.move_child(_hint_readiness, 1)
+	_hint.move_child(_readiness_bar, 2)
+	_hint.move_child(_hint_gap, 3)
 
 
 func _make_label(text: String) -> Label:
@@ -187,6 +197,8 @@ func hide_act() -> void:
 		_hint.visible = false
 	if _hint_status != null:
 		_hint_status.visible = false
+	if _hint_readiness != null:
+		_hint_readiness.visible = false
 	if _hint_gap != null:
 		_hint_gap.visible = false
 	if _readiness_bar != null:
@@ -231,6 +243,11 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		line = str(runtime.call("hud_cue_line", show_readouts))
 	_hint_status.text = line
 	_hint_status.visible = not line.is_empty()
+	var readiness_line := ""
+	if _hint.visible and runtime.has_method("hud_readiness_line"):
+		readiness_line = str(runtime.call("hud_readiness_line", show_readouts))
+	_hint_readiness.text = readiness_line
+	_hint_readiness.visible = not readiness_line.is_empty()
 	if _hint_gap != null:
 		_hint_gap.visible = _hint.visible
 

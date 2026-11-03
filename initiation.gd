@@ -45,8 +45,6 @@ var _serial := 0
 var _cuddle_seen: Dictionary = {}
 var _cuddle_asked: Dictionary = {}
 var _retry_at: Dictionary = {}
-var _consent: Node
-var _consent_director: Node
 
 
 func _ready() -> void:
@@ -72,9 +70,9 @@ func reset() -> void:
 	if not _episode.is_empty():
 		_cancel_episode(false)
 	_unhook_director()
-	if is_instance_valid(_consent):
-		_consent.call("cancel")
-	_consent_director = null
+	var classifier := _classifier()
+	if is_instance_valid(classifier):
+		classifier.call("cancel_scope", "offer:")
 	_cuddle_seen.clear()
 	_cuddle_asked.clear()
 	_retry_at.clear()
@@ -477,9 +475,11 @@ func _tick_arrive() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
 		_cancel_episode(false)
 		return
-	if not _offer_targets_pony(pony):
+	var player: Variant = main.get("player")
+	if not is_instance_valid(player) \
+			or player.global_position.distance_to(pony.global_position) > ARRIVE_RANGE_M + 0.75:
 		if _now() >= float(_episode.get("arrive_until")):
-			_cancel_episode(false)
+			_cancel_episode(false, "arrive target moved")
 		return
 	_episode["private"] = _private_at_player(pony)
 	_log_privacy_once(pony)
@@ -734,8 +734,10 @@ func _on_player_transcript(text: String) -> void:
 		return
 	if bool(_episode.get("consent_pending", false)):
 		# A new answer replaces the one still waiting for the model.
-		if bool(_episode.get("consent_started", false)) and is_instance_valid(_consent):
-			_consent.call("cancel")
+		if bool(_episode.get("consent_started", false)):
+			var classifier := _classifier()
+			if is_instance_valid(classifier):
+				classifier.call("cancel_key", str(_episode.get("consent_key", "")))
 		_episode["consent_pending"] = false
 		_episode["consent_started"] = false
 		_episode["reply_seen"] = false
@@ -783,14 +785,17 @@ func _start_consent_classification() -> void:
 	if text.is_empty():
 		_resolve_consent("unclear", text, "empty")
 		return
-	if not _consent_ready():
+	var classifier := _classifier()
+	if not is_instance_valid(classifier):
 		_resolve_consent("unclear", text, "unavailable")
 		return
 	var id := str(_episode.get("id", ""))
 	var offer := "The pony %s has just asked Anon directly to have sex with her. She is waiting for his answer." % id
 	var serial := int(_episode.get("serial", -1))
+	var key := "offer:%s:%d" % [id, serial]
+	_episode["consent_key"] = key
 	_episode["consent_started"] = true
-	var accepted: bool = bool(_consent_node().call("classify", text, offer,
+	var accepted: bool = bool(classifier.call("classify_offer", text, offer, key,
 		Callable(self, "_on_consent_result").bind(serial, text)))
 	if not accepted:
 		_episode["consent_started"] = false
@@ -904,35 +909,28 @@ func _invite_give_up() -> void:
 	_debug("request invite give up %s" % id)
 
 
-func _consent_node() -> Node:
-	if not is_instance_valid(_consent):
-		_consent = CONSENT.new()
-		_consent.name = "UnfplapConsent"
-		add_child(_consent)
-	return _consent
+func _classifier() -> Node:
+	if not is_instance_valid(main):
+		return null
+	var classifier: Variant = main.get("classifier")
+	return classifier if is_instance_valid(classifier) else null
 
 
-func _consent_ready() -> bool:
-	var director: Node = _director()
-	if director == null:
-		return false
-	var config: Variant = director.get("config")
-	if config == null or not AI_CONFIG.ai_enabled(config):
-		return false
-	if not director.has_method("_llm_section"):
-		return false
-	var section: Dictionary = director.call("_llm_section")
-	if section.is_empty():
-		return false
-	if _consent_director == director and is_instance_valid(_consent):
+## The scenario that allows Y while the feature flag is off. An active request is enough;
+## the later present/invite phases keep the same scenario.
+func press_y_scenario(pony: Node) -> String:
+	if _episode.is_empty() or not is_instance_valid(pony) or _episode.get("pony") != pony:
+		return ""
+	var phase := str(_episode.get("phase", ""))
+	return "request" if phase in ["ask", "present", "invite"] else ""
+
+
+static func y_start_allowed(flag: bool, source: String, scenario: String) -> bool:
+	if flag:
 		return true
-	var status_path := ""
-	var llm: Variant = director.get("llm")
-	if is_instance_valid(llm):
-		status_path = str(llm.get("status_path"))
-	var ready := bool(_consent_node().call("setup", section, status_path))
-	_consent_director = director if ready else null
-	return ready
+	if source in ["bed_side", "already_lying"]:
+		return true
+	return not scenario.is_empty()
 
 
 func _player_name() -> String:
@@ -1005,8 +1003,9 @@ func _cancel_episode(set_cooldown: bool, reason := "") -> void:
 	var runtime: Node = _episode.get("runtime")
 	var id := str(_episode.get("id", ""))
 	var phase := str(_episode.get("phase", ""))
-	if is_instance_valid(_consent):
-		_consent.call("cancel")
+	var classifier := _classifier()
+	if is_instance_valid(classifier):
+		classifier.call("cancel_scope", "offer:")
 	if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
 		runtime.call("set_request_face", false)
 	if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):

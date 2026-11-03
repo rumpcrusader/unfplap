@@ -61,6 +61,7 @@ const FEATURE_DEFAULTS := {
 	"thrust_ear_twitch": true,
 	"thrust_tail_dock_jiggle": false,
 	"allow_act_during_cuddle": true,
+	"press_y_starts_sex": false,
 	"mute_ponese_audio": true,
 	"act_foley": true,
 	"act_vocals": false,
@@ -107,6 +108,10 @@ const FEATURE_INFO := {
 	"allow_act_during_cuddle": {
 		"label": "Allow acts during cuddles",
 		"help": "End an active cuddle when an act starts instead of blocking it.",
+	},
+	"press_y_starts_sex": {
+		"label": "Press Y starts sex",
+		"help": "On: Y starts with any valid pose-2 offer inside the smack-flank aim zone, and with bed offers. Off: only a proactive ask, a clear verbal agreement, or already resting together in bed.",
 	},
 	"mute_ponese_audio": {
 		"label": "Mute Ponese audio",

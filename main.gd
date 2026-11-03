@@ -7,6 +7,8 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HUD := preload("res://mods/unfplap/hud.gd")
 const INPUT := preload("res://mods/unfplap/input.gd")
 const INITIATION := preload("res://mods/unfplap/initiation.gd")
+const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
+const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TASTE := preload("res://mods/unfplap/preferences.gd")
@@ -20,12 +22,16 @@ const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default ON. Toggle in game with Ctrl+Shift+D.
 var debug_logs := true
+## Cached feature flags read outside act start; SETTINGS.feature() reads the file.
+var press_y_starts_sex := false
 
 var game
 var player
 var hud
 var input
 var initiation
+var classifier
+var dialogue_consent
 var active_runtime
 
 var _runtimes: Dictionary = {}
@@ -90,6 +96,14 @@ func _ready() -> void:
 	set_process(true)
 	add_to_group("pony_prompt_notes")
 	debug_logs = SETTINGS.load_debug_logs()
+	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
+	classifier = CLASSIFIER.new()
+	classifier.name = "UnfplapClassifier"
+	add_child(classifier)
+	dialogue_consent = DIALOGUE_CONSENT.new()
+	dialogue_consent.name = "UnfplapDialogueConsent"
+	dialogue_consent.main = self
+	add_child(dialogue_consent)
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.main = self
@@ -130,6 +144,7 @@ func _ready() -> void:
 
 func _on_world(host: Node) -> void:
 	_clear_native_hint()
+	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
 	game = host
 	_interactor = null
 	_desktop = null
@@ -138,6 +153,10 @@ func _on_world(host: Node) -> void:
 	_offer = {}
 	if is_instance_valid(initiation):
 		initiation.reset()
+	if is_instance_valid(classifier):
+		classifier.call("cancel_all")
+	if is_instance_valid(dialogue_consent):
+		dialogue_consent.call("reset")
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -147,6 +166,10 @@ func _on_world_closed(_host: Node) -> void:
 	_clear_native_hint()
 	if is_instance_valid(initiation):
 		initiation.reset()
+	if is_instance_valid(classifier):
+		classifier.call("cancel_all")
+	if is_instance_valid(dialogue_consent):
+		dialogue_consent.call("reset")
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
@@ -188,6 +211,7 @@ func _on_game_setting_changed(key: String) -> void:
 
 
 func _apply_live_settings() -> void:
+	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
 	if is_instance_valid(active_runtime) and active_runtime.has_method("apply_live_settings"):
 		active_runtime.call("apply_live_settings")
 
@@ -1153,6 +1177,7 @@ func _refresh_offer() -> void:
 		return
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var pony_form: bool = PLAYER_FORM.is_pony(form)
+	var flag := press_y_starts_sex
 
 	# Pose 1 now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid pose-1 camera, so that entry is not offered.
@@ -1163,9 +1188,12 @@ func _refresh_offer() -> void:
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "bed_side", bed):
-					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY, "source": "bed_side", "bed": bed}
-					_log_offer()
-					return
+					var scenario := _scenario_for(lying)
+					if INITIATION.y_start_allowed(flag, "bed_side", scenario):
+						_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
+							"source": "bed_side", "bed": bed, "scenario": scenario}
+						_log_offer()
+						return
 
 	# Pose 1, AnonPony: an awake pony already lying on a bed.
 	if pony_form:
@@ -1175,17 +1203,60 @@ func _refresh_offer() -> void:
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "already_lying", bed):
-					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY, "source": "already_lying", "bed": bed}
-					_log_offer()
-					return
+					var scenario := _scenario_for(lying)
+					if INITIATION.y_start_allowed(flag, "already_lying", scenario):
+						_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
+							"source": "already_lying", "bed": bed, "scenario": scenario}
+						_log_offer()
+						return
 
-	# Pose 2: a settled standing pony in front of the player.
-	var standing: Node = nearest_standing(view)
-	if is_instance_valid(standing):
+	# Pose 2: only the base-game smack-flank aim zone, regardless of the feature flag.
+	var standing: Node = _smack_flank_target(view)
+	if is_instance_valid(standing) and str(standing.call("posture_status").get("requested", "")) == "stand":
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime) and runtime.can_start(CATALOG.HORSE, "", null):
-			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.HORSE, "source": "", "bed": null}
-			_log_offer()
+			var scenario := _scenario_for(standing)
+			if INITIATION.y_start_allowed(flag, "", scenario):
+				_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.HORSE,
+					"source": "", "bed": null, "scenario": scenario}
+				_log_offer()
+
+
+## The Y scenario for a pony: a proactive request or a verbal agreement. Bed contexts are
+## allowed by source without this.
+func _scenario_for(pony: Node) -> String:
+	if not is_instance_valid(pony):
+		return ""
+	if is_instance_valid(initiation) and initiation.has_method("press_y_scenario"):
+		var scenario := str(initiation.call("press_y_scenario", pony))
+		if not scenario.is_empty():
+			return scenario
+	if is_instance_valid(dialogue_consent) and dialogue_consent.has_method("scenario_for"):
+		return str(dialogue_consent.call("scenario_for", pony))
+	return ""
+
+
+## The base game's right-click smack selection: crosshair on the flank, TOUCH_REACH. This is
+## also the only standing Y sex zone.
+func _smack_flank_target(view: Camera3D) -> Node:
+	if not is_instance_valid(game) or view == null:
+		return null
+	var interactions: Variant = game.get("desktop_interactions")
+	if is_instance_valid(interactions) and interactions.has_method("_select"):
+		var hit: Variant = interactions.call("_select", true)
+		if hit is Dictionary and hit.get("target") is Node:
+			return hit.get("target") as Node
+	# Headless/VR fallback: keep the same reach and a tight crosshair cone.
+	var standing: Node = nearest_standing(view)
+	if not is_instance_valid(standing):
+		return null
+	var at: Vector3 = (standing as Node3D).global_position + Vector3.UP * 0.9
+	var delta := at - view.global_position
+	if delta.length() > 1.6:
+		return null
+	if (-view.global_basis.z).dot(delta.normalized()) < 0.96:
+		return null
+	return standing
 
 
 func _native_row() -> HBoxContainer:
@@ -1396,10 +1467,19 @@ func try_start() -> bool:
 	if not is_instance_valid(runtime):
 		return false
 	var target: Variant = _offer.get("pony")
+	var source := str(_offer.get("source", ""))
+	var scenario := str(_offer.get("scenario", _scenario_for(target)))
+	var allowed := INITIATION.y_start_allowed(press_y_starts_sex, source, scenario)
+	if not allowed:
+		return false
 	if is_instance_valid(initiation) and is_instance_valid(target):
 		initiation.cancel_for(target)
-	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), str(_offer.get("source", "")))
+	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), source, allowed)
 	if started:
+		if is_instance_valid(classifier):
+			classifier.call("cancel_scope", "dialogue:")
+		if is_instance_valid(dialogue_consent) and is_instance_valid(target):
+			dialogue_consent.call("clear_for", target)
 		_offer = {}
 		if is_instance_valid(hud):
 			hud.hide_prompt()
@@ -1559,7 +1639,7 @@ func _try_refusal() -> bool:
 				if bed is Node3D and bool(runtime.call("refuse_available", CATALOG.MISSIONARY, "already_lying", bed)):
 					runtime.call("refuse", CATALOG.MISSIONARY, "already_lying", bed)
 					return true
-	var standing: Node = nearest_standing(view)
+	var standing: Node = _smack_flank_target(view)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", CATALOG.HORSE, "", null)):
@@ -1854,6 +1934,12 @@ func _exit_tree() -> void:
 	if is_instance_valid(initiation):
 		initiation.reset()
 		initiation.queue_free()
+	if is_instance_valid(classifier):
+		classifier.call("cancel_all")
+		classifier.queue_free()
+	if is_instance_valid(dialogue_consent):
+		dialogue_consent.call("reset")
+		dialogue_consent.queue_free()
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null

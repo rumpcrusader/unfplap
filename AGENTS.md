@@ -136,7 +136,8 @@ mods/unfplap/
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, horse invitation
-  consent_classifier.gd  local yes/no + bounded model fallback for a private offer
+  consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
+  dialogue_consent.gd    verbal yes/now/here agreement from player dialogue
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    taste/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
@@ -635,8 +636,9 @@ examples.
   `"already_lying"`. Indoor privacy is house-only solitude; outdoors it is nobody
   within 30 m. A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle.
 - Horse: requires `can_start(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
-  navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The request starts
-  only if the current `Y` offer actually targets her.
+  navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The ask is decoupled
+  from the Y aim zone: it starts when she is still present and eligible, not only while the
+  player aims at her flank.
 - Private for horse means alone in the house or nobody within 30 m. Private asks directly and
   makes the invitation available; with others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
@@ -675,6 +677,25 @@ examples.
   failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
   cooldown. `Y` cancels the episode before `start()`.
 - `F4` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
+
+### Y start gate and aim zone
+
+- `features.press_y_starts_sex` defaults **off**. `main.try_start()` is the only act-start
+  path; `runtime.start()` now takes an explicit `y_allowed` gate and refuses without it.
+- `INITIATION.y_start_allowed(flag, source, scenario)`:
+  - flag on: any valid offer;
+  - flag off: `bed_side`, `already_lying`, an active proactive request, or a dialogue
+    agreement.
+- Pose 2 offers use the base game’s smack-flank selection: crosshair on the flank and
+  `TOUCH_REACH = 1.6 m`. This applies with the flag on or off. Pose 1 bed offers stay
+  contextual.
+- `dialogue_consent.gd` checks every player line with a pony reply through the shared
+  classifier. `sex_accept` leaves a per-mare agreement until she moves, changes region or
+  posture, refuses, the act starts, or the world closes. The Y hint still only appears in the
+  smack-flank zone.
+- `consent_classifier.gd` is one shared service: one LLM client, one queue and scoped
+  cancellation for `offer:` and `dialogue:` jobs. It never runs two mod classifier requests at
+  the same time.
 
 ## Dialogue utterances
 

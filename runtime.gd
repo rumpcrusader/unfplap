@@ -1746,7 +1746,10 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 
 # --------------------------------------------------------------------------- start
 
-func start(pose: String, bed_in: Variant, act_source: String) -> bool:
+func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false) -> bool:
+	if not y_allowed:
+		_log("start blocked by Y scenario gate pose=%s source=%s" % [pose, act_source])
+		return false
 	if not can_start(pose, act_source, bed_in):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false

@@ -137,6 +137,22 @@ func run() -> void:
 	check(CONSENT.parse_reply("yes", "") == "unclear", "non-JSON reply is unclear")
 	check(CONSENT.parse_reply('{"intent":"accept"}', "boom") == "unclear", "provider error is unclear")
 	check(CONSENT.parse_reply('{"intent":"accept","why":"x"}', "") == "unclear", "extra keys are rejected")
+	check(CONSENT.local_dialogue_intent("let's have sex", "yes, now") == "sex_accept",
+		"clear dialogue agreement is accepted locally")
+	check(CONSENT.local_dialogue_intent("let's have sex", "not now") == "decline",
+		"clear dialogue refusal is declined locally")
+	check(CONSENT.local_dialogue_intent("hello there", "yes") == "other",
+		"an ordinary line is not a sex request")
+	check(CONSENT.parse_dialogue_reply('{"intent":"sex_accept"}', "") == "sex_accept",
+		"strict dialogue accept reply")
+	check(CONSENT.parse_dialogue_reply('{"intent":"maybe"}', "") == "unclear",
+		"unknown dialogue intent is unclear")
+	check(INIT.y_start_allowed(true, "", ""), "flag on allows any scenario")
+	check(INIT.y_start_allowed(false, "bed_side", ""), "bed-side is allowed with flag off")
+	check(INIT.y_start_allowed(false, "already_lying", ""), "already-lying is allowed with flag off")
+	check(INIT.y_start_allowed(false, "", "request"), "a proactive request is allowed with flag off")
+	check(INIT.y_start_allowed(false, "", "dialogue"), "a dialogue agreement is allowed with flag off")
+	check(not INIT.y_start_allowed(false, "", ""), "arbitrary standing Y is blocked with flag off")
 
 	check(INIT.next_prompt_time(0) == 12.0, "first reminder at twelve seconds")
 	check(INIT.next_prompt_time(1) == 24.0, "second reminder at twenty-four seconds")

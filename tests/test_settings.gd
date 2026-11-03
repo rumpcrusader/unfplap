@@ -118,6 +118,7 @@ func run() -> void:
 	check(not bool(feature_block.get("thrust_tail_dock_jiggle", true)),
 		"tail/dock jiggle off by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
+	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")

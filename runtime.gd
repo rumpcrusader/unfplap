@@ -89,7 +89,7 @@ const AFTERGLOW_BREATH_FADE_S := 5.0
 const POSE1_CAMERA_HEIGHT_M := 0.45
 const POSE1_CAMERA_BACK_M := 0.22
 ## Additional room between the pose-1 shot and the pony.
-const POSE1_CAMERA_PULLBACK_M := 0.40
+const POSE1_CAMERA_PULLBACK_M := 0.22
 ## Extra height requested after the first visual pass.
 const POSE1_CAMERA_LIFT_M := 0.10
 ## Presentation: how close the pony stands in front of the player for pose 2.
@@ -116,6 +116,9 @@ const BOB_FORWARD_STIFFNESS := 100.0
 const BOB_FORWARD_DAMPING := 12.0
 const BOB_FORWARD_LIMIT := 0.32
 const BOB_CLIMAX_FORWARD := 0.12 / 6.0
+## Pose-1 thrust camera also slides this fraction of the forward travel along the mattress
+## toward her head, so the motion reads as moving on the bed, not only into her body.
+const POSE1_BED_MOTION := 0.5
 ## Thrust speed at which the bob uses its full-speed spring. Slower strokes scale the whole
 ## bob timebase down (spring, damping and impulse together), so the peak stays the same but
 ## the motion takes longer. Very slow strokes stop at this scale.
@@ -831,7 +834,10 @@ func _process(delta: float) -> void:
 			if custom_kiss and is_instance_valid(kiss_view):
 				_pose.look_point = _kiss_target(kiss_view)
 			elif pose_id == CATALOG.MISSIONARY:
-				_pose.look_point = _pose1_head_look_point(view)
+				# Look at Anon, not at the framing view: the shot now sits behind her neck and a
+				# camera there would demand a half-turn and flip her head side to side.
+				var head_view: Camera3D = kiss_view if is_instance_valid(kiss_view) else view
+				_pose.look_point = _pose1_head_look_point(head_view)
 			else:
 				_pose.look_point = view.global_position
 		_pose.kiss = _kiss_amount if custom_kiss else 0.0
@@ -4209,11 +4215,16 @@ func _reset_lean_state() -> void:
 	_restore_base_kiss_pose()
 
 
-## Reuse the game's own kiss. `pony_kisser.begin_from_pony()` runs the same eligibility checks as
-## a normal Ponese kiss, including `controls_locked`, so unlock for that one call only. The
-## AffectionPose modifier is moved to the end of the skeleton chain so its kiss IK layers on top
-## of the act pose instead of being overwritten by it.
+## Reuse the game's own kiss in pose 2. `pony_kisser.begin_from_pony()` runs the same eligibility
+## checks as a normal Ponese kiss, including `controls_locked`, so unlock for that one call only.
+## The AffectionPose modifier is moved to the end of the skeleton chain so its kiss IK layers on
+## top of the act pose instead of being overwritten by it. Pose 1 always returns false here.
 func _start_base_kiss() -> bool:
+	# The stock kiss pose is authored for a standing pony. On the bed its chest/neck give lifts
+	# the lying body off the mattress and turns her head across it, so pose 1 uses the act's own
+	# head aim instead.
+	if pose_id == CATALOG.MISSIONARY:
+		return false
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
 			or not is_instance_valid(main.player) or not is_instance_valid(main.game):
 		return false
@@ -5543,6 +5554,14 @@ func apply_camera_motion() -> void:
 			kiss_lean = minf(kiss_lean, view_room)
 		_pose1_view.global_position -= _pose1_view_basis.z \
 			* (_lean - _back + lean_forward + kiss_lean)
+		# Add a little travel along the mattress toward her head on each thrust. The view-axis
+		# motion alone reads as leaning down into her body instead of moving on the bed.
+		if _thrust_motion and absf(_lean) > 0.00001:
+			var bed_forward: Vector3 = -pony.global_basis.z
+			bed_forward.y = 0.0
+			if bed_forward.length_squared() > 0.0001:
+				_pose1_view.global_position += bed_forward.normalized() \
+					* (_lean * POSE1_BED_MOTION)
 		_pose1_view.global_position.y -= KISS_LEAN_DROP_M * _kiss_lean
 		_pose1_view.global_position += _pose1_view_basis.x \
 			* _lateral_lean_shift(lean_scale)

@@ -84,7 +84,7 @@ these values here if a future pose needs that effect.
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
   farther-back anchor. After positioning, the shot is pulled
-  `POSE1_CAMERA_PULLBACK_M = 0.40 * body_scale` back along `_pose1_view_basis.z` (its own view
+  `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along `_pose1_view_basis.z` (its own view
   axis), so the frozen aim still points at her neck. The aim basis is computed once from the
   stable anchor, not the moved view, to prevent start-up flicker.
 - Aim: sample the middle of the neck (`pony_neck1`/`pony_neck2` midpoint) during the first
@@ -93,8 +93,10 @@ these values here if a future pose needs that effect.
 - The aim basis comes from the stable anchor and is updated only during that settle second; no
   forward-dot re-aim loop. A neck point behind the anchor is rejected, so the shot cannot flip
   back down her torso. Rebuilds are limited to an invalid/too-far anchor or a genuinely
-  below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head look point keeps at
-  least `0.45 * body_scale` from her head.
+  below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head aims at Anon's player
+  camera, not the framing view, and its look point keeps at least `0.45 * body_scale` from her
+  head. Aiming at the framing view (now behind her neck) demanded a half-turn and snapped her
+  head side to side.
 - Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
   the act, re-applying each tick; both are restored at end. The stock bed body must never appear
   inside the shot with a different orientation.
@@ -117,22 +119,25 @@ these values here if a future pose needs that effect.
   at act end.
 - `Q` also starts the act kiss at `LEAN_FIRE = 0.75` and releases at `LEAN_RELEASE = 0.60`.
   The kiss aims her neck/head at Anon's mouth through the recipe `kiss` weight; `E` only leans.
-  While the base kiss runs, the runtime writes its live mouth/eye/face targets (the player camera,
-  not the pose-1 framing view) and repeats the mouth kiss sound, because the player kisser's
-  physics is paused for the act. The excitement Beat timer is paused so unicorn horns do not
+  Pose 1 always uses that custom head aim: the stock kiss pose is authored for standing and its
+  chest/neck give lifts the lying body and turns her head across the mattress. Pose 2 uses the
+  base kiss, with the runtime writing its live mouth/eye/face targets from Anon's real mouth
+  camera and repeating the mouth kiss sound because the player kisser's physics is paused for
+  the act. The excitement Beat timer is paused so unicorn horns do not
   sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.27`, shifts to the shoulder side by
   `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035`; pose 2 applies it to the
   camera and pelvis counter-lean and yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her,
   pose 1 to the framing view and virtual mouth. The kiss side is latched from the input lean at
   start (`_lean_side`, falling back to `_lean_action_side`, not the lagging camera view), and
-  `AffectionPose.set_kiss_side()` pins her tilt to the complementary side
+  `AffectionPose.set_kiss_side()` pins her tilt to the complementary side in pose 2
   (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
   switch is disabled for the act. The lateral travel crossfades from the lean's `0.18 m` to the
   kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
 - Camera bob and forward/back motion are separate opt-ins: `thrust.camera_bob` and
   `thrust.camera_motion` default to `false`; each gates its own thrust and climax component.
 - When enabled, each thrust adds to the vertical and forward spring velocities.
-- Pose 1 uses the same `_bob` and thrust camera rock as pose 2.
+- Pose 1 uses the same `_bob` and thrust camera rock as pose 2, plus `POSE1_BED_MOTION = 0.5`
+  of the forward travel along the mattress toward her head.
 - Slow thrusts scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
   `s = clamp(speed / BOB_SPEED_REFERENCE, 0.35, 1.0)`. At `>= 0.80` depth/s the bob is unchanged.
 - Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 3` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.

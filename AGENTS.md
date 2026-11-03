@@ -244,7 +244,7 @@ body-relative axes.
 
 - Mod-owned `UnfplapPose1View`, top-level, anchored at
   `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
-  pulled `POSE1_CAMERA_PULLBACK_M = 0.40 * body_scale` back along its own frozen view axis. Canon
+  pulled `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along its own frozen view axis. Canon
   height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally higher, farther-back shot
   so the camera is not inside her neck. The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face. Anchoring ahead of the neck put the camera
@@ -261,11 +261,13 @@ body-relative axes.
   cannot flip back down her torso. Rebuild only when the anchor is invalid, more than 3 m away, or
   genuinely below a **valid** bed top. `_bed_surface_top()` returns invalid (`INF`) when the bed
   reference is gone, so a missing bed cannot trigger a rebuild every frame.
-- Her head aims at the camera with a minimum `0.45 * body_scale` distance, so a near/inside
-  camera cannot make the look direction flip.
+- Her head aims at Anon's player camera, not the framing view, with a minimum
+  `0.45 * body_scale` distance. Aiming at the shot camera (now behind her neck) demanded a
+  half-turn and snapped her head from side to side.
 - Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
-  extra action. Pose 1 uses the same camera bob/motion and camera-rock spring as pose 2. The rock is
-  pitch-only by default (`roll_ratio = 0`); the side-lean roll remains separate.
+  extra action. Pose 1 uses the same camera bob/motion and camera-rock spring as pose 2, plus a
+  `POSE1_BED_MOTION = 0.5` fraction of the thrust travel along the mattress toward her head. The
+  rock is pitch-only by default (`roll_ratio = 0`); the side-lean roll remains separate.
 - Pose 1 body motion is `prone_sway` (`pose1_body_motion`), not the standing `body_sway`
   (`pose2_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.
@@ -340,17 +342,19 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 | `F` (hold) | none | kiss at a full shoulder lean |
 | Mouse right | left/right cheek opposite the lean | same |
 
-- The kiss reuses the game's own path: temporarily clear `controls_locked` for
+- Pose 2 reuses the game's own kiss path: temporarily clear `controls_locked` for
   `pony_kisser.begin_from_pony()`, move `AffectionPose` last in the skeleton so its IK layers on
   the act pose, and call `Affection.end()` on release. This gives the normal face, mouth,
-  deep-kiss and soft-kiss audio behaviour. The fallback custom head-aim path only runs if the
-  base kiss cannot start. Like a base kiss it may stop the pony's current speech, but it does
-  not interrupt thrusting or stats. `_check_running()` treats the act's own `Affection`-driven
+  deep-kiss and soft-kiss audio behaviour. Pose 1 always uses the custom head-aim path: the
+  stock kiss pose is authored for a standing pony and its chest/neck give lifts the lying body
+  and turns her head across the mattress. The custom path still sets the mouth expressions and
+  repeats the mouth kiss sound. Either path may stop the pony's current speech, but it does not
+  interrupt thrusting or stats. `_check_running()` treats the act's own `Affection`-driven
   `kiss` as part of the act instead of an interruption.
-- `pony_kisser` physics is paused for the whole act, so the runtime feeds the base kiss the
-  live `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound
-  itself. Pose 1 uses the player camera, not the separate pose-1 framing view. The excitement
-  Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire during it.
+- `pony_kisser` physics is paused for the whole act, so the runtime feeds a base kiss the live
+  `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound itself.
+  Pose 1's custom kiss also aims at the player camera, not the separate pose-1 framing view. The
+  excitement Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire.
 - While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.27`, shifts to the shoulder side
   by `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the
   pose-2 camera also yaws `KISS_CAMERA_YAW_DEG = 10°` toward her. The kiss side is latched at
@@ -428,7 +432,8 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Vertical bob intensity is doubled: `BOB_THRUST_IMPULSE = 2.30 / 3` and
   `BOB_CLIMAX_AMPLITUDE = 0.025 / 3`; forward penetration travel is `BOB_FORWARD_IMPULSE = 1.80 / 4`
   (`0.45`, 50% more).
-- Pose 1 and pose 2 use the same vertical bob and thrust camera rock.
+- Pose 1 and pose 2 use the same vertical bob and thrust camera rock. Pose 1 also slides
+  `POSE1_BED_MOTION = 0.5` of the motion along the mattress toward her head.
 - Restore order is load-bearing:
   1. release the free-camera control lock;
   2. remove the Anon thrust wrapper and restore any pose-2 palm scale;

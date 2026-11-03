@@ -519,17 +519,17 @@ func _add_camera_rock_section(list: VBoxContainer, font_size: int) -> void:
 	form.add_theme_constant_override("v_separation", 8)
 	list.add_child(form)
 	var controls := SETTINGS.camera_rock_controls()
-	var impulse := _camera_rock_spin(form, "Impulse (rad/s)", 0.0, 2.0, 0.05,
+	var impulse := _settings_spin(form, "Impulse (rad/s)", 0.0, 2.0, 0.05,
 		float(controls.get("impulse", 0.50)), font_size)
-	var stiffness := _camera_rock_spin(form, "Stiffness", 5.0, 200.0, 1.0,
+	var stiffness := _settings_spin(form, "Stiffness", 5.0, 200.0, 1.0,
 		float(controls.get("stiffness", 45.0)), font_size)
-	var damping := _camera_rock_spin(form, "Damping", 0.0, 50.0, 0.5,
+	var damping := _settings_spin(form, "Damping", 0.0, 50.0, 0.5,
 		float(controls.get("damping", 8.0)), font_size)
-	var limit_deg := _camera_rock_spin(form, "Max angle (deg)", 0.0, 20.0, 0.5,
+	var limit_deg := _settings_spin(form, "Max angle (deg)", 0.0, 20.0, 0.5,
 		rad_to_deg(float(controls.get("limit", 0.055))), font_size)
-	var pitch_ratio := _camera_rock_spin(form, "Pitch share", 0.0, 2.0, 0.05,
+	var pitch_ratio := _settings_spin(form, "Pitch share", 0.0, 2.0, 0.05,
 		float(controls.get("pitch_ratio", 1.0)), font_size)
-	var roll_ratio := _camera_rock_spin(form, "Roll share", 0.0, 2.0, 0.05,
+	var roll_ratio := _settings_spin(form, "Roll share", 0.0, 2.0, 0.05,
 		float(controls.get("roll_ratio", 0.0)), font_size)
 
 	var save_rock := func(_value: float) -> void:
@@ -551,7 +551,7 @@ func _save_camera_rock_controls(impulse: SpinBox, stiffness: SpinBox, damping: S
 	_apply_live_settings()
 
 
-func _camera_rock_spin(form: GridContainer, label_text: String, minimum: float,
+func _settings_spin(form: GridContainer, label_text: String, minimum: float,
 		maximum: float, step: float, value: float, font_size: int) -> SpinBox:
 	var label := Label.new()
 	label.text = label_text
@@ -584,7 +584,7 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	form.add_theme_constant_override("v_separation", 8)
 	list.add_child(form)
 	var controls := SETTINGS.presentation_controls()
-	var glance_speed := _camera_rock_spin(form, "Glance-back speed", 0.25, 3.0, 0.05,
+	var glance_speed := _settings_spin(form, "Glance-back speed", 0.25, 3.0, 0.05,
 		float(controls.get("glance_back_speed", 1.0)), font_size)
 	glance_speed.suffix = "×"
 	glance_speed.value_changed.connect(func(_value: float) -> void:
@@ -657,13 +657,13 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	selector.item_selected.connect(func(_index: int) -> void: _refresh_taste_form(refs))
 	for control: OptionButton in [intensity, pattern, warmth]:
 		control.item_selected.connect(func(_index: int) -> void:
-			_save_taste_form(refs, false))
+			_save_taste_form(refs))
 	recovery.value_changed.connect(func(_value: float) -> void:
-		_save_taste_form(refs, false))
+		_save_taste_form(refs))
 	for checks: Dictionary in [touch_likes, talk_likes, touch_dislikes, talk_dislikes]:
 		for key: String in checks:
 			(checks[key] as CheckButton).toggled.connect(func(_on: bool) -> void:
-				_save_taste_form(refs, false))
+				_save_taste_form(refs))
 	var notes_timer := Timer.new()
 	notes_timer.one_shot = true
 	notes_timer.wait_time = 0.4
@@ -673,8 +673,8 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 			notes_timer.start())
 	notes.focus_exited.connect(func() -> void:
 		notes_timer.stop()
-		_save_taste_form(refs, false))
-	notes_timer.timeout.connect(func() -> void: _save_taste_form(refs, false))
+		_save_taste_form(refs))
+	notes_timer.timeout.connect(func() -> void: _save_taste_form(refs))
 	reset.pressed.connect(func() -> void: _reset_taste_form(refs))
 	_refresh_taste_form(refs)
 
@@ -792,7 +792,7 @@ func _checked_taste_values(control: Variant, values: Array) -> Array:
 	return out
 
 
-func _save_taste_form(refs: Dictionary, refresh := true) -> void:
+func _save_taste_form(refs: Dictionary) -> void:
 	if bool(refs.get("refreshing", false)):
 		return
 	var id := _selected_taste_id(refs)
@@ -812,8 +812,6 @@ func _save_taste_form(refs: Dictionary, refresh := true) -> void:
 	}
 	SETTINGS.save_taste(id, taste)
 	_apply_live_settings()
-	if refresh:
-		_refresh_taste_form(refs)
 	var status: Variant = refs.get("status")
 	if status is Label:
 		(status as Label).text = "Saved %s live." % SETTINGS.character_name(id)

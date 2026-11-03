@@ -547,7 +547,7 @@ static func profile_for(base: Dictionary, characters: Variant, id: String) -> Di
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:
 			selected = _merge(selected, over)
-	selected = _fill_taste(selected)
+	selected["taste"] = PREFERENCES.resolve(selected.get("taste", {}))
 	selected = _fill_prompts(selected)
 	return _fill_pose_defaults(selected)
 
@@ -627,12 +627,6 @@ static func _filled_default() -> Dictionary:
 	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
 	out["taste"] = PREFERENCES.defaults()
 	out["act_prompts"] = DEFAULT_ACT_PROMPTS.duplicate(true)
-	return out
-
-
-static func _fill_taste(template: Dictionary) -> Dictionary:
-	var out: Dictionary = template.duplicate(true)
-	out["taste"] = PREFERENCES.resolve(out.get("taste", {}))
 	return out
 
 

@@ -12,6 +12,15 @@ func _initialize() -> void:
 	run.call_deferred()
 
 
+class FakeMain extends Node:
+	var player: Node3D
+	var game: Node
+
+
+class FakeGame extends Node:
+	var mares: Array = []
+
+
 func check(ok: bool, text: String) -> void:
 	checks += 1
 	if not ok:
@@ -35,6 +44,33 @@ func run() -> void:
 
 	check(INIT.wording_mode(true) == "free", "private wording is free")
 	check(INIT.wording_mode(false) == "indirect", "public wording is indirect")
+
+	var fake_main := FakeMain.new()
+	var player := Node3D.new()
+	var target := Node3D.new()
+	root.add_child(player)
+	root.add_child(target)
+	target.global_position = Vector3(1.0, 0.0, 0.0)
+	var fake_game := FakeGame.new()
+	fake_game.mares = [target]
+	fake_main.player = player
+	fake_main.game = fake_game
+	var initiation := INIT.new()
+	initiation.main = fake_main
+	check(initiation._private_at_player(target),
+		"the offering mare is not another pony")
+	var other := Node3D.new()
+	root.add_child(other)
+	other.global_position = Vector3(2.0, 0.0, 0.0)
+	fake_game.mares = [target, other]
+	check(not initiation._private_at_player(target),
+		"a third nearby pony blocks private")
+	initiation.free()
+	fake_main.free()
+	fake_game.free()
+	player.free()
+	target.free()
+	other.free()
 
 	check(INIT.next_prompt_time(0) == 12.0, "first reminder at twelve seconds")
 	check(INIT.next_prompt_time(1) == 24.0, "second reminder at twenty-four seconds")

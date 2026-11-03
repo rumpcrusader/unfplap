@@ -610,8 +610,8 @@ examples.
   direct or indirect wording and turns on the invitation; with others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
   house, every mare within 30 m separately labelled with the target, and the computed result.
-  The target is currently included in the other-pony checks; the log makes that visible while
-  the privacy rule is under review.
+  The offering mare is excluded from the other-pony checks, so the target label in the log is
+  diagnostic only.
 - The horse invitation is IDLE-only: turn away over 2.4 rad/s, clear navigator `face_point` and
   conversation target late each physics tick, hold `face_turn_rate = 0`, then attach a pose-2
   modifier and tail-aside. It is not the act: no camera, lock, HUD or `sex_active`.

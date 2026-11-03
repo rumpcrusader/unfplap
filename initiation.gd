@@ -248,7 +248,7 @@ func _candidate_for(runtime: Node, forced: bool) -> Dictionary:
 	return {
 		"pony": pony, "runtime": runtime, "id": id,
 		"pose": CATALOG.HORSE, "source": "", "bed": null,
-		"private": _private_at_player(), "cuddle": false,
+		"private": _private_at_player(pony), "cuddle": false,
 	}
 
 
@@ -271,12 +271,13 @@ func _can_approach(pony: Node3D) -> bool:
 
 # --------------------------------------------------------------------------- privacy
 
-func _private_at_player() -> bool:
+func _private_at_player(except: Node = null) -> bool:
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
 		return false
 	var house: Node3D = _house_at(player.global_position)
-	return presentation_allowed(house != null and not _other_in_house(house, null), _other_within(player.global_position, null, PRIVACY_RADIUS_M))
+	return presentation_allowed(house != null and not _other_in_house(house, except),
+		_other_within(player.global_position, except, PRIVACY_RADIUS_M))
 
 
 func _cuddle_privacy_ok(pony: Node3D) -> bool:
@@ -315,8 +316,8 @@ func _other_within(at: Vector3, except: Node, radius: float) -> bool:
 	return false
 
 
-## Diagnostic for a horse offer's privacy decision. The target is labelled but still counted by
-## the current `_private_at_player()`; the log makes that visible while the rule is under review.
+## Diagnostic for a horse offer's privacy decision. The target is labelled and excluded from
+## the other-pony checks, so the logged result matches the offer's actual privacy rule.
 func _privacy_report(target: Node = null) -> String:
 	var player: Variant = main.get("player") if is_instance_valid(main) else null
 	if not is_instance_valid(player):
@@ -343,7 +344,7 @@ func _privacy_report(target: Node = null) -> String:
 	return "player=%s target=%s house=%s in_house=[%s] within_%dm=[%s] private=%s" % [
 		str((player as Node3D).global_position), str(_pony_id(target)) if is_instance_valid(target) else "?",
 		house_text, ",".join(in_house), int(PRIVACY_RADIUS_M), ",".join(nearby),
-		str(_private_at_player())]
+		str(_private_at_player(target))]
 
 
 func _log_privacy_once(target: Node) -> void:
@@ -464,7 +465,7 @@ func _tick_arrive() -> void:
 		if _now() >= float(_episode.get("arrive_until")):
 			_cancel_episode(false)
 		return
-	_episode["private"] = _private_at_player()
+	_episode["private"] = _private_at_player(pony)
 	_log_privacy_once(pony)
 	if bool(_episode.get("private")) and runtime.has_method("present_horse"):
 		if bool(runtime.call("present_horse")):

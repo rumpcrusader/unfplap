@@ -3762,6 +3762,14 @@ func _pose1_camera_offsets() -> Vector3:
 			"pose1_side", SETTINGS.PRESENTATION_DEFAULTS["pose1_side"])))
 
 
+## Side lean also travels along the mattress toward her head, outside the view-axis clamp. The
+## amount is metres at full Q/E and is live.
+func _pose1_side_lean_forward() -> float:
+	var amount := float(_presentation_cfg.get(
+		"pose1_side_lean", SETTINGS.PRESENTATION_DEFAULTS["pose1_side_lean"]))
+	return clampf(amount, 0.0, 0.30) * absf(_lean_view_side) * _lean_size_scale()
+
+
 func _pose1_camera_target() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
@@ -5503,7 +5511,8 @@ func apply_camera_motion() -> void:
 		var bed_forward: Vector3 = -pony.global_basis.z
 		bed_forward.y = 0.0
 		if bed_forward.length_squared() > 0.0001:
-			_pose1_view.global_position += bed_forward.normalized() * _lean
+			_pose1_view.global_position += bed_forward.normalized() \
+				* (_lean + _pose1_side_lean_forward())
 		_pose1_view.global_position.y -= KISS_LEAN_DROP_M * _kiss_lean
 		_pose1_view.global_position += _pose1_view_basis.x \
 			* _lateral_lean_shift(lean_scale)

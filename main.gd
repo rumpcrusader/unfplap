@@ -576,6 +576,12 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	pose1_pullback.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_pullback": pose1_pullback.value})
 		_apply_live_settings())
+	var pose1_side_lean := _settings_spin(form, "Side lean forward", 0.0, 0.30, 0.01,
+		float(controls.get("pose1_side_lean", 0.10)), font_size)
+	pose1_side_lean.suffix = " m"
+	pose1_side_lean.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls({"pose1_side_lean": pose1_side_lean.value})
+		_apply_live_settings())
 	var torso_angle := _settings_spin(form, "Anon torso lean", 0.0, 20.0, 1.0,
 		float(controls.get("torso_angle_deg", 0.0)), font_size)
 	torso_angle.suffix = "°"

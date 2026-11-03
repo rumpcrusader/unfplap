@@ -286,7 +286,9 @@ body-relative axes.
   extra action. Pose 1 uses the same speed-driven surge/bob as pose 2; the surge runs along the
   mattress toward her head, while the bob moves the view up at her face on the inward stroke.
   The base already includes one full forward lean (`POSE1_START_LEAN`). Forward lean is clamped
-  to stop `0.12 m` short of the neck target; the side-lean roll remains separate.
+  to stop `0.12 m` short of the neck target. A side lean also travels `pose1_side_lean`
+  (default `0.10 m`, range `0…0.30`) along the mattress toward her head, outside the view-axis
+  clamp; the side-lean roll remains separate.
 - Pose 1 body motion is `prone_sway` (`pose1_body_motion`), not the standing `body_sway`
   (`pose2_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.

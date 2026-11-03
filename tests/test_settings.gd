@@ -143,6 +143,8 @@ func run() -> void:
 		"default missionary side")
 	check(near(float(presentation_defaults.get("pose1_pullback", 0.0)), 0.22),
 		"default missionary pullback")
+	check(near(float(presentation_defaults.get("pose1_side_lean", 0.0)), 0.10),
+		"default missionary side-lean forward")
 	check(near(float(presentation_defaults.get("torso_angle_deg", -1.0)), 0.0),
 		"default Anon torso lean off")
 	var presentation := SETTINGS.presentation_controls()
@@ -161,6 +163,9 @@ func run() -> void:
 	var pose1_pullback := float(presentation.get("pose1_pullback", 99.0))
 	check(pose1_pullback >= 0.0 and pose1_pullback <= 0.40,
 		"runtime missionary pullback in range")
+	var pose1_side_lean := float(presentation.get("pose1_side_lean", 99.0))
+	check(pose1_side_lean >= 0.0 and pose1_side_lean <= 0.30,
+		"runtime missionary side-lean forward in range")
 	var torso_angle := float(presentation.get("torso_angle_deg", 99.0))
 	check(torso_angle >= 0.0 and torso_angle <= 20.0,
 		"runtime Anon torso lean in range")

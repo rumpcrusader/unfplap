@@ -122,6 +122,7 @@ const PRESENTATION_DEFAULTS := {
 	"pose1_height": -0.10,
 	"pose1_side": 0.0,
 	"pose1_pullback": 0.22,
+	"pose1_side_lean": 0.10,
 	"torso_angle_deg": 0.0,
 }
 
@@ -486,6 +487,7 @@ static func presentation_controls() -> Dictionary:
 	var height := float(PRESENTATION_DEFAULTS["pose1_height"])
 	var side := float(PRESENTATION_DEFAULTS["pose1_side"])
 	var pullback := float(PRESENTATION_DEFAULTS["pose1_pullback"])
+	var side_lean := float(PRESENTATION_DEFAULTS["pose1_side_lean"])
 	var torso_angle := float(PRESENTATION_DEFAULTS["torso_angle_deg"])
 	if block is Dictionary:
 		speed = float((block as Dictionary).get("glance_back_speed", speed))
@@ -493,6 +495,7 @@ static func presentation_controls() -> Dictionary:
 		height = float((block as Dictionary).get("pose1_height", height))
 		side = float((block as Dictionary).get("pose1_side", side))
 		pullback = float((block as Dictionary).get("pose1_pullback", pullback))
+		side_lean = float((block as Dictionary).get("pose1_side_lean", side_lean))
 		torso_angle = float((block as Dictionary).get("torso_angle_deg", torso_angle))
 	return {
 		"glance_back_speed": clampf(speed, 0.25, 3.0),
@@ -500,6 +503,7 @@ static func presentation_controls() -> Dictionary:
 		"pose1_height": clampf(height, -0.20, 0.20),
 		"pose1_side": clampf(side, -0.20, 0.20),
 		"pose1_pullback": clampf(pullback, 0.0, 0.40),
+		"pose1_side_lean": clampf(side_lean, 0.0, 0.30),
 		"torso_angle_deg": clampf(torso_angle, 0.0, 20.0),
 	}
 
@@ -524,6 +528,9 @@ static func save_presentation_controls(values: Dictionary) -> void:
 	controls["pose1_pullback"] = clampf(float(values.get(
 		"pose1_pullback", controls.get("pose1_pullback",
 			PRESENTATION_DEFAULTS["pose1_pullback"]))), 0.0, 0.40)
+	controls["pose1_side_lean"] = clampf(float(values.get(
+		"pose1_side_lean", controls.get("pose1_side_lean",
+			PRESENTATION_DEFAULTS["pose1_side_lean"]))), 0.0, 0.30)
 	controls["torso_angle_deg"] = clampf(float(values.get(
 		"torso_angle_deg", controls.get("torso_angle_deg",
 			PRESENTATION_DEFAULTS["torso_angle_deg"]))), 0.0, 20.0)

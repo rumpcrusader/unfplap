@@ -67,8 +67,9 @@ response. There are no Save buttons. Thrust and camera-thrust controls write the
 immediately and apply live during an act.
 
 The **Act presentation** section has **Glance-back speed** (`0.25…3.0×`), the **Missionary**
-framing axes (forward, height, side, pullback), the side-lean head-forward amount and
-**Anon torso lean** (`0…20°`, pose 2). All apply live.
+framing axes (forward, height, side, pullback), the side-lean head-forward amount
+(`pose1_side_lean`, `0…0.30 m`, default `0.10`) and **Anon torso lean** (`0…20°`, pose 2).
+All apply live.
 
 The **Character taste** section exposes one pony selector and one form:
 

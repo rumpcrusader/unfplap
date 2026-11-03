@@ -120,8 +120,10 @@ these values here if a future pose needs that effect.
   `side = E - Q`, `forward = W - S + abs(side)`.
 - Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
   lean is halved to `0.08 m`; side lean translates `0.18 m`. Both directions pitch `6°` down,
-  and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. The displayed lean
-  is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
+  and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. A side lean also
+  travels `pose1_side_lean` (`0…0.30 m`, default `0.10`) along the mattress toward her head,
+  outside the view-axis clamp. The displayed lean is always smoothed at
+  `CAMERA_INERTIA_SMOOTH = 5.0`.
 - All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
   is the reference; Canon (`0.66`) is `1.34`. The pose-1 Canon camera height is also `0.9×`.
 - The lean camera locks `player.controls_locked` for both poses and restores the previous value

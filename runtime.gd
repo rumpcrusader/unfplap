@@ -107,6 +107,17 @@ const POSE1_START_LEAN := 1.0
 const POSE2_GAP_M := 0.55
 ## Idle horse invitation: turn away from Anon at this rate before she settles into the stance.
 const PRESENT_TURN_RATE := 2.4
+## The game's supported standing turn steps the hooves. Its default 0.45 rad/s half-turn would
+## take about 7 s, so the request speeds it up while it owns the turn.
+const PRESENT_FACE_TURN_RATE := 1.5
+## The locomotion's stepping turn stops at 3°, so settle just beyond that.
+const PRESENT_TURN_SETTLE_RAD := 0.06
+const PRESENT_TURN_TIMEOUT_S := 4.0
+## A blocked ground probe can leave the stepping turn standing still; snap instead of waiting.
+const PRESENT_TURN_STALL_S := 0.75
+## The request's face: the act's half-lidded gaze and a full blush while she asks and presents.
+const REQUEST_LIDS := 0.45
+const REQUEST_BLUSH := 1.0
 ## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
 const POSE2_GAPS := {
 	"same height": 0.55,
@@ -315,10 +326,21 @@ var _pose
 var _tail
 ## Idle horse invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 var _presenting := false
+var _present_turning := false
+var _present_turn_started := 0.0
+var _present_turn_last_yaw := 0.0
+var _present_turn_still := 0.0
+var _present_turn_rate_saved := -1.0
+var _present_turn_rate_owned := false
 var _present_pose
 var _present_tail
 var _present_yaw := 0.0
 var _present_target_yaw := 0.0
+var _present_look_point := Vector3.ZERO
+var _present_face_direction := Vector3.ZERO
+## Idle request face: blush and lids while a private offer is being asked or presented.
+var _request_face := false
+var _request_claimed_affection := false
 var _debug_pose: Node
 var _debug_pose_saved := Transform3D.IDENTITY
 var _debug_pose_active := false
@@ -929,8 +951,12 @@ func _clear_face() -> void:
 
 func _process(delta: float) -> void:
 	if state == State.IDLE:
-		if _presenting:
+		if _present_turning:
+			_present_turn_process()
+		elif _presenting:
 			_presentation_process()
+		if _request_face:
+			_request_face_process()
 		return
 	_clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
@@ -1039,7 +1065,7 @@ func _physics_process(delta: float) -> void:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		if _inventory_hud_hidden:
 			_set_inventory_hud_hidden(false)
-		if _presenting:
+		if _present_turning or _presenting:
 			_presentation_physics(delta)
 		return
 	if not is_instance_valid(pony) or not is_instance_valid(main):
@@ -1555,8 +1581,11 @@ func _nav_pose_gate(pose: String, act_source: String) -> bool:
 			return false
 		if pony.has_meta("seated"):
 			return false
-		if not str(pony.action_interruption_reason()).is_empty():
-			return false
+		var interruption := str(pony.action_interruption_reason())
+		if not interruption.is_empty():
+			# The request's own affection_active hold is not a gate against its invite.
+			if not (_request_face and state == State.IDLE and interruption.contains("Affection")):
+				return false
 		var status: Dictionary = pony.posture_status()
 		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):
 			return false
@@ -1672,7 +1701,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if not can_start(pose, act_source, bed_in):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
-	# Remove the idle horse invitation before the act builds its own pose.
+	# Remove the idle horse invitation and its request face before the act builds its own pose.
+	set_request_face(false)
 	clear_presentation()
 	pose_id = pose
 	source = act_source
@@ -1894,7 +1924,7 @@ func _restore_face_turn() -> void:
 ## This is not the act: no player lock, camera, HUD, sex_active or state change. Y remains the
 ## only way to begin the real act.
 func present_horse() -> bool:
-	if _presenting:
+	if _presenting or _present_turning:
 		return true
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
@@ -1904,6 +1934,8 @@ func present_horse() -> bool:
 		return false
 	if _id.is_empty() and not _stage_ok():
 		return false
+	if not _request_face:
+		set_request_face(true)
 	var player: Variant = main.player
 	var view: Camera3D = main.camera()
 	var target: Vector3 = pony.global_position - Vector3.FORWARD
@@ -1918,6 +1950,31 @@ func present_horse() -> bool:
 	away = away.normalized()
 	_present_target_yaw = atan2(-away.x, -away.z)
 	_present_yaw = pony.rotation.y
+	_present_look_point = target
+	_present_face_direction = away
+	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
+		pony.request_posture("stand")
+	_present_turn_started = _now_s()
+	_present_turn_last_yaw = pony.rotation.y
+	_present_turn_still = 0.0
+	if pony.has_method("face_direction") and pony.get("face_turn_rate") != null:
+		_present_turning = true
+		_begin_present_turn()
+	else:
+		# Unusual actor without the locomotion turn: keep the old direct-rotation fallback.
+		_present_turning = false
+		_attach_present_pose()
+		_pause_face_turn(true)
+	_log("present horse target_yaw=%.2f turn=%s" % [
+		_present_target_yaw, "stepping" if _present_turning else "direct"])
+	return true
+
+
+## Create the idle pose and tail once she has finished turning. Doing this before the turn
+## let the spread/bow pose fight the planted hooves and twisted the legs.
+func _attach_present_pose() -> void:
+	if not is_instance_valid(pony):
+		return
 	_pose_cfg = SETTINGS.pose(_id, CATALOG.HORSE)
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
@@ -1926,7 +1983,7 @@ func present_horse() -> bool:
 		_present_pose.mare = pony
 		_present_pose.mode = "pose2"
 		_present_pose.pose_config = SETTINGS.pose(_id, CATALOG.HORSE)
-		_present_pose.look_point = target
+		_present_pose.look_point = _present_look_point
 		_present_pose.amount = 0.0
 		_present_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_present_pose)
@@ -1946,26 +2003,69 @@ func present_horse() -> bool:
 	_presenting = true
 	_glance_back = true
 	_glance_sign_set = false
+
+
+func _begin_present_turn() -> void:
+	if not is_instance_valid(pony) or not pony.has_method("face_direction"):
+		return
+	var rate: Variant = pony.get("face_turn_rate")
+	if rate != null:
+		_present_turn_rate_saved = float(rate)
+		_present_turn_rate_owned = true
+		pony.set("face_turn_rate", maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
+	pony.call("face_direction", _present_face_direction)
+
+
+func _restore_present_turn_rate() -> void:
+	if _present_turn_rate_owned and is_instance_valid(pony):
+		pony.set("face_turn_rate", _present_turn_rate_saved)
+	_present_turn_rate_owned = false
+	_present_turn_rate_saved = -1.0
+
+
+func _finish_present_turn() -> void:
+	if is_instance_valid(pony) and pony.has_method("face_direction"):
+		pony.call("face_direction", Vector3.ZERO)
+	_restore_present_turn_rate()
+	_present_turning = false
+	if is_instance_valid(pony):
+		var error := absf(wrapf(pony.rotation.y - _present_target_yaw, -PI, PI))
+		if error > PRESENT_TURN_SETTLE_RAD:
+			# The stepping turn could not finish (blocked feet, touch, wall). Snap once here
+			# rather than letting the old static-lock path rotate the body under planted feet.
+			var t: Transform3D = pony.global_transform
+			var scale := t.basis.get_scale()
+			t.basis = Basis(Vector3.UP, _present_target_yaw).scaled(scale)
+			pony.global_transform = t
+			_present_yaw = _present_target_yaw
+			_log("present horse turn snap error=%.2f target=%.2f" % [error, _present_target_yaw])
+		else:
+			_present_yaw = pony.rotation.y
+			_present_target_yaw = _present_yaw
+			_log("present horse turn settled yaw=%.2f" % _present_yaw)
+	if not _presenting:
+		_attach_present_pose()
 	_pause_face_turn(true)
-	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
-		pony.request_posture("stand")
-	_log("present horse target_yaw=%.2f" % _present_target_yaw)
-	return true
 
 
 func presentation_active() -> bool:
-	return _presenting
+	return _presenting or _present_turning
 
 
-## True once the invitation turn has reached its target yaw. The post-accept line waits for
-## this so she comments after taking the position, not while still turning into it.
+## True once the stepping turn is done and the idle pose is attached. The post-accept line
+## waits for this so she comments after taking the position, not while still turning into it.
 func presentation_settled() -> bool:
-	if not _presenting:
+	if not _presenting or _present_turning:
 		return false
-	return absf(wrapf(_present_yaw - _present_target_yaw, -PI, PI)) <= 0.02
+	return absf(wrapf(_present_yaw - _present_target_yaw, -PI, PI)) <= 0.05
 
 
 func clear_presentation() -> void:
+	if _present_turning:
+		if is_instance_valid(pony) and pony.has_method("face_direction"):
+			pony.call("face_direction", Vector3.ZERO)
+		_restore_present_turn_rate()
+		_present_turning = false
 	if is_instance_valid(_present_pose):
 		_present_pose.queue_free()
 	_present_pose = null
@@ -2003,6 +2103,9 @@ func _presentation_valid() -> bool:
 ## Turn her away in place and stop conversation facing from taking the body back. Runs late in
 ## physics, after the navigator and locomotion, like the act's horse facing lock.
 func _presentation_physics(delta: float) -> void:
+	if _present_turning:
+		_presentation_turn_physics(delta)
+		return
 	if not _presentation_valid():
 		clear_presentation()
 		return
@@ -2018,6 +2121,97 @@ func _presentation_physics(delta: float) -> void:
 		if nav.has_method("set_conversation_target"):
 			nav.call("set_conversation_target", null, false)
 	_pause_face_turn(true)
+
+
+## Turn her with the game's supported standing turn, which steps the hooves. The direct
+## transform write used to rotate the body under planted feet and twisted her legs.
+func _presentation_turn_physics(delta: float) -> void:
+	if not _presentation_turn_valid():
+		clear_presentation()
+		return
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav != null:
+		if "face_point" in nav:
+			nav.set("face_point", Vector3.INF)
+		if nav.has_method("set_conversation_target"):
+			nav.call("set_conversation_target", null, false)
+	if is_instance_valid(pony) and pony.has_method("face_direction"):
+		pony.call("face_direction", _present_face_direction)
+	var yaw: float = pony.rotation.y
+	if absf(wrapf(yaw - _present_turn_last_yaw, -PI, PI)) < 0.0005:
+		_present_turn_still += delta
+	else:
+		_present_turn_still = 0.0
+		_present_turn_last_yaw = yaw
+	var error := absf(wrapf(yaw - _present_target_yaw, -PI, PI))
+	if error <= PRESENT_TURN_SETTLE_RAD \
+			or _present_turn_still >= PRESENT_TURN_STALL_S \
+			or _now_s() - _present_turn_started >= PRESENT_TURN_TIMEOUT_S:
+		_finish_present_turn()
+
+
+func _presentation_turn_valid() -> bool:
+	if not _present_turning or state != State.IDLE:
+		return false
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
+		return false
+	if _cuddle_active() or not _free_of_affection():
+		return false
+	if not pony.grounded():
+		return false
+	var status: Dictionary = pony.posture_status()
+	if str(status.get("requested", "")) != "stand":
+		return false
+	var player: Variant = main.player
+	if is_instance_valid(player) and player.global_position.distance_to(pony.global_position) > 8.0:
+		return false
+	return true
+
+
+## Idle request face and action hold. `affection_active` is the game's existing "physical
+## affection owns her" flag; it blocks AI approach/follow actions while she asks and presents.
+func set_request_face(on: bool) -> void:
+	if not is_instance_valid(pony):
+		return
+	if on:
+		_request_face = true
+		if not pony.has_meta("affection_active"):
+			pony.set_meta("affection_active", true)
+			_request_claimed_affection = true
+		return
+	_request_face = false
+	if _request_claimed_affection:
+		pony.remove_meta("affection_active")
+		_request_claimed_affection = false
+	var expressions: Variant = pony.get("expressions")
+	if expressions != null and expressions.has_method("stare"):
+		expressions.call("stare", false)
+
+
+func request_face_active() -> bool:
+	return _request_face
+
+
+func _request_face_process() -> void:
+	if not _request_face or not is_instance_valid(pony):
+		return
+	var boop: Variant = pony.get("boop_node")
+	if boop != null and boop.has_method("sustain_blush"):
+		boop.call("sustain_blush", REQUEST_BLUSH)
+	var expressions: Variant = pony.get("expressions")
+	if expressions != null and expressions.has_method("stare"):
+		expressions.call("stare", true, REQUEST_LIDS)
+
+
+func _present_turn_process() -> void:
+	if not _present_turning or not is_instance_valid(pony):
+		return
+	# Conversation facing can write a target in process after our late physics tick. Reassert
+	# the away direction in process so the next locomotion step keeps turning her back.
+	if pony.has_method("face_direction"):
+		pony.call("face_direction", _present_face_direction)
 
 
 func _presentation_process() -> void:
@@ -2102,6 +2296,7 @@ func _unlock_player() -> void:
 func _abort_start() -> void:
 	_end_act_lines(true)
 	_set_inventory_hud_hidden(false)
+	set_request_face(false)
 	_restore_face_turn()
 	_release_nav()
 	_unlock_player()
@@ -3731,6 +3926,7 @@ func force_stop() -> void:
 	# Defensive: every stop path must leave the quick slots in their pre-act state.
 	_set_inventory_hud_hidden(false)
 	if state == State.IDLE:
+		set_request_face(false)
 		clear_presentation()
 		return
 	_restore_now()
@@ -3739,6 +3935,7 @@ func force_stop() -> void:
 func _restore_now() -> void:
 	_end_act_lines(true)
 	_set_inventory_hud_hidden(false)
+	set_request_face(false)
 	_restore_face_turn()
 	if is_instance_valid(pony):
 		_clear_face()

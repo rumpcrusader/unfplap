@@ -617,19 +617,32 @@ examples.
   diagnostic only.
 - Private horse order: she asks while standing, Anon answers by text/voice, then `present` and
   `invite`. Clear yes/no uses `consent_classifier.local_intent()`; anything else is classified
-  by a short provider request (one try, 16 tokens, 4 s). A decline cancels with the full
-  cooldown and no presentation. An accept re-checks privacy, presents, waits for
-  `runtime.presentation_settled()`, queues one generated comment/invite line, then waits for
-  `Y`. `Y` itself keeps its old behavior: pressing it during any phase cancels the episode and
-  starts the act immediately.
-- The horse invitation is IDLE-only: turn away over 2.4 rad/s, clear navigator `face_point` and
-  conversation target late each physics tick, hold `face_turn_rate = 0`, then attach a pose-2
-  modifier and tail-aside. It is not the act: no camera, lock, HUD or `sex_active`.
-  `unfplap:request:` navigator ownership keeps `Y` valid until the episode ends.
+  by a short provider request (one try, 16 tokens, 4 s) after the director is idle. The request
+  includes an offer line so short answers like "right here" are understood. The controller does
+  not run the classifier beside the director's own reply; that caused HTTP 429s. A decline
+  cancels with the full cooldown and no presentation. An accept re-checks privacy, presents,
+  waits for `runtime.presentation_settled()`, queues one generated comment/invite line, then
+  waits for `Y`. `Y` itself keeps its old behavior: pressing it during any phase cancels the
+  episode and starts the act immediately.
+- Private ask/presentation has a request face: full blush and half-lidded eyes while she asks
+  and presents. It also sets the game's `affection_active` hold so an AI `[approach]`/`[follow]`
+  from her reply cannot break the pose; `_nav_pose_gate` exempts that hold while
+  `_request_face` is true. If movement still clears the presentation, the controller re-presents
+  twice before ending the offer.
+- The horse invitation is IDLE-only: turn away with `pony.face_direction()` at
+  `PRESENT_FACE_TURN_RATE = 1.5`, clear navigator `face_point` and conversation target late each
+  physics tick, then attach the pose-2 modifier and tail-aside once the turn settles. Do not
+  write the transform directly during the turn: that rotated the body under planted hooves and
+  twisted her legs. After settling, hold `face_turn_rate = 0` and lock the body facing. It is not
+  the act: no camera, lock, HUD or `sex_active`. `unfplap:request:` navigator ownership keeps
+  `Y` valid until the episode ends.
 - Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
-  as `situation`. Reminders are generated at 12 s and 24 s, and a give-up line at 30 s. If the
-  player speaks, reminders stop but `Y` remains until the deadline. An unclear private answer
-  gets one generated clarification; the invite phase waits up to 60 s after the comment.
+  as `situation`. The ask must be phrased as a question. Reminders are generated at 12 s and
+  24 s. A no-reply offer gives up at 60 s; after any answer the deadline is 45 s, and after a
+  clarification 30 s. A pending classifier or a busy director extends the deadline instead of
+  cancelling the line. An unclear answer gets one clarification. A give-up records an "offer is
+  over" situation, queues a short give-up line even when he answered, and logs
+  `request end ... reason=...`; the invite phase waits up to 60 s after the comment.
 - Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach or initial-ask
   failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
   cooldown. `Y` cancels the episode before `start()`.

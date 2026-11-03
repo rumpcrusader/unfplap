@@ -26,11 +26,15 @@ const ASK_RANGE_CANCEL_M := 8.0
 const PRIVACY_RADIUS_M := 30.0
 const PROMPT_1_S := 12.0
 const PROMPT_2_S := 24.0
-const GIVE_UP_S := 30.0
+## No reply at all: she lets it go after this long.
+const GIVE_UP_S := 60.0
+## After Anon answers, the answer, classifier and clarification need their own window.
+const REPLY_GRACE_S := 45.0
+const CLARIFY_GRACE_S := 30.0
 ## How long a private horse invitation may wait after the turn completes.
 const INVITE_TIMEOUT_S := 60.0
 ## Safety cap while the presentation turns; `presentation_settled()` normally wins earlier.
-const PRESENT_TURN_TIMEOUT_S := 3.0
+const PRESENT_TURN_TIMEOUT_S := 5.0
 const RETRY_S := 30.0
 const KEY_PREFIX := "unfplap:request"
 
@@ -521,41 +525,63 @@ func _issue_initial() -> void:
 		return
 	_episode["phase"] = "ask"
 	_episode["ask_started"] = _now()
+	_episode["deadline_at"] = _now() + GIVE_UP_S
 	_episode["prompts_sent"] = 0
 	if bool(_episode.get("cuddle")):
 		_cuddle_asked[id] = true
+	if _is_private_horse():
+		var runtime: Node = _episode.get("runtime")
+		if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
+			runtime.call("set_request_face", true)
 	_record_situation()
 	_debug("request ask %s pose=%s private=%s cuddle=%s" % [
 		id, str(_episode.get("pose", "")), str(_episode.get("private", false)),
 		str(_episode.get("cuddle", false))])
 
 
+func _is_private_horse() -> bool:
+	return not _episode.is_empty() and str(_episode.get("pose", "")) == CATALOG.HORSE \
+		and bool(_episode.get("private", false))
+
+
 func _tick_ask(_delta: float) -> void:
 	var pony: Node = _episode.get("pony")
 	var runtime: Node = _episode.get("runtime")
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
-		_cancel_episode(true)
+		_cancel_episode(true, "ask pony lost")
 		return
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
-		_cancel_episode(true)
+		_cancel_episode(true, "ask player lost")
 		return
 	var pose := str(_episode.get("pose", ""))
 	var source := str(_episode.get("source", ""))
 	if not bool(runtime.call("can_start", pose, source, _episode.get("bed"))):
-		_cancel_episode(true)
+		_cancel_episode(true, "ask can_start false")
 		return
 	if player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
-		_cancel_episode(true)
+		_cancel_episode(true, "ask player moved")
 		return
 	var now := _now()
-	if now - float(_episode.get("ask_started")) >= GIVE_UP_S:
-		_give_up()
-		return
-	var horse_private := str(_episode.get("pose", "")) == CATALOG.HORSE \
-		and bool(_episode.get("private", false))
+	var deadline := float(_episode.get("deadline_at",
+		float(_episode.get("ask_started", now)) + GIVE_UP_S))
+	if now >= deadline:
+		if bool(_episode.get("consent_pending", false)) or not _director_idle() \
+				or _episode_pony_speaking():
+			# His answer or her reply is still in flight. Do not cancel the line the player is
+			# waiting on; give it another moment and check again.
+			_episode["deadline_at"] = now + 5.0
+		else:
+			_give_up("timeout")
+			return
+	var horse_private := _is_private_horse()
 	if horse_private:
 		if bool(_episode.get("reply_seen", false)):
+			if bool(_episode.get("consent_pending", false)):
+				if not bool(_episode.get("consent_started", false)) and _director_idle() \
+						and not _episode_pony_speaking():
+					_start_consent_classification()
+				return
 			if str(_episode.get("consent_intent", "")) == "unclear" \
 					and not bool(_episode.get("clarified", false)):
 				_clarify_consent()
@@ -589,14 +615,15 @@ func _tick_present() -> void:
 	var runtime: Node = _episode.get("runtime")
 	var pony: Node = _episode.get("pony")
 	if not is_instance_valid(runtime) or not is_instance_valid(pony):
-		_cancel_episode(false)
+		_cancel_episode(false, "present pony lost")
 		return
 	if not bool(runtime.call("presentation_active")):
-		_cancel_episode(false)
+		if _represent_or_cancel("presentation lost"):
+			return
 		return
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player) or player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
-		_cancel_episode(false)
+		_cancel_episode(false, "present player moved")
 		return
 	if bool(_episode.get("invite_queued", false)):
 		return
@@ -607,7 +634,7 @@ func _tick_present() -> void:
 	if not settled and now < float(_episode.get("present_until", 0.0)):
 		return
 	if not _queue_invitation():
-		_cancel_episode(false)
+		_cancel_episode(false, "invite queue failed")
 		return
 	_episode["invite_queued"] = true
 	_episode["phase"] = "invite"
@@ -619,20 +646,42 @@ func _tick_invite() -> void:
 	var runtime: Node = _episode.get("runtime")
 	var pony: Node = _episode.get("pony")
 	if not is_instance_valid(runtime) or not is_instance_valid(pony):
-		_cancel_episode(false)
+		_cancel_episode(false, "invite pony lost")
 		return
 	if not bool(runtime.call("presentation_active")):
-		_cancel_episode(false)
+		if _represent_or_cancel("invite presentation lost"):
+			return
+		return
+	if runtime.has_method("presentation_settled") \
+			and not bool(runtime.call("presentation_settled")):
+		# A re-present is turning her again; wait for the pose before checking the act gates.
 		return
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player) or player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
-		_cancel_episode(false)
+		_cancel_episode(false, "invite player moved")
 		return
 	if not bool(runtime.call("can_start", CATALOG.HORSE, "", null)):
-		_cancel_episode(true)
+		_cancel_episode(true, "invite can_start false")
 		return
 	if _now() - float(_episode.get("invite_started", _now())) >= INVITE_TIMEOUT_S:
 		_invite_give_up()
+
+
+## A movement or other action can still break the idle pose. Re-present twice before ending
+## an offer the player already accepted.
+func _represent_or_cancel(reason: String) -> bool:
+	var runtime: Node = _episode.get("runtime")
+	var id := str(_episode.get("id", ""))
+	var count := int(_episode.get("represent_count", 0))
+	if is_instance_valid(runtime) and count < 2 and runtime.has_method("present_horse"):
+		if bool(runtime.call("present_horse")):
+			_episode["represent_count"] = count + 1
+			_episode["present_until"] = _now() + PRESENT_TURN_TIMEOUT_S
+			_episode["invite_started"] = _now()
+			_debug("request re-present %s reason=%s" % [id, reason])
+			return true
+	_cancel_episode(false, reason)
+	return false
 
 
 func _queue_invitation() -> bool:
@@ -684,7 +733,12 @@ func _on_player_transcript(text: String) -> void:
 	if text.is_empty():
 		return
 	if bool(_episode.get("consent_pending", false)):
-		return
+		# A new answer replaces the one still waiting for the model.
+		if bool(_episode.get("consent_started", false)) and is_instance_valid(_consent):
+			_consent.call("cancel")
+		_episode["consent_pending"] = false
+		_episode["consent_started"] = false
+		_episode["reply_seen"] = false
 	if bool(_episode.get("reply_seen", false)):
 		# One clear answer ends the wait. After the one clarification, a different answer
 		# may still resolve it; the same text is the `_tick_ask` fallback re-reading it.
@@ -695,28 +749,55 @@ func _on_player_transcript(text: String) -> void:
 	_episode["reply_seen"] = true
 	_episode["reacted"] = true
 	_episode["response_text"] = text
+	_episode["deadline_at"] = _now() + REPLY_GRACE_S
 	_debug("request consent text=\"%s\"" % text.left(120))
 	var intent := CONSENT.local_intent(text, _player_name())
 	if intent != "unclear":
 		_resolve_consent(intent, text, "local")
 		return
-	if not _consent_ready():
-		_resolve_consent("unclear", text, "unavailable")
-		return
+	# Do not put a classifier request beside the director's reply to the same line. The
+	# tick starts it once the director is idle again.
+	_episode["consent_text"] = text
 	_episode["consent_pending"] = true
-	var serial := int(_episode.get("serial", -1))
-	var accepted: bool = bool(_consent_node().call("classify", text,
-		Callable(self, "_on_consent_result").bind(serial, text)))
-	if not accepted:
-		_episode["consent_pending"] = false
-		_resolve_consent("unclear", text, "unavailable")
+	_episode["consent_started"] = false
+	_debug("request consent waiting %s" % str(_episode.get("id", "")))
 
 
 func _on_consent_result(intent: String, detail: String, serial: int, text: String) -> void:
 	if _episode.is_empty() or int(_episode.get("serial", -1)) != serial:
 		return
 	_episode["consent_pending"] = false
+	_episode["consent_started"] = false
 	_resolve_consent(intent, text, "llm" if detail.is_empty() else "llm:%s" % detail)
+
+
+## Start the model request only after the director is idle. The player's line and the
+## director's reply already occupy the provider; a second request beside it is what produced
+## the HTTP 429s. Clear answers never reach this function.
+func _start_consent_classification() -> void:
+	if _episode.is_empty() or bool(_episode.get("consent_started", false)):
+		return
+	if not bool(_episode.get("consent_pending", false)):
+		return
+	var text := str(_episode.get("consent_text", "")).strip_edges()
+	if text.is_empty():
+		_resolve_consent("unclear", text, "empty")
+		return
+	if not _consent_ready():
+		_resolve_consent("unclear", text, "unavailable")
+		return
+	var id := str(_episode.get("id", ""))
+	var offer := "The pony %s has just asked Anon directly to have sex with her. She is waiting for his answer." % id
+	var serial := int(_episode.get("serial", -1))
+	_episode["consent_started"] = true
+	var accepted: bool = bool(_consent_node().call("classify", text, offer,
+		Callable(self, "_on_consent_result").bind(serial, text)))
+	if not accepted:
+		_episode["consent_started"] = false
+		_episode["consent_pending"] = false
+		_resolve_consent("unclear", text, "unavailable")
+		return
+	_debug("request consent classify %s text=\"%s\"" % [id, text.left(120)])
 
 
 func _resolve_consent(intent: String, text: String, source: String) -> void:
@@ -741,18 +822,18 @@ func _accept_offer() -> void:
 	var pony: Node3D = _episode.get("pony")
 	var runtime: Node = _episode.get("runtime")
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
-		_cancel_episode(false)
+		_cancel_episode(false, "accept pony lost")
 		return
 	# A third pony may have arrived while she was asking.
 	_episode["private"] = _private_at_player(pony)
 	_log_privacy_once(pony)
 	if not bool(_episode.get("private", false)):
 		_debug("request accept blocked %s: no longer private" % str(_episode.get("id", "")))
-		_cancel_episode(false)
+		_cancel_episode(false, "accept not private")
 		return
 	if not runtime.has_method("present_horse") or not bool(runtime.call("present_horse")):
 		_debug("request accept present failed %s" % str(_episode.get("id", "")))
-		_cancel_episode(false)
+		_cancel_episode(false, "accept present failed")
 		return
 	_episode["phase"] = "present"
 	_episode["accepted_at"] = _now()
@@ -765,7 +846,7 @@ func _accept_offer() -> void:
 func _decline_offer() -> void:
 	var id := str(_episode.get("id", ""))
 	_record_consent_situation(false)
-	_cancel_episode(true)
+	_cancel_episode(true, "declined")
 	_debug("request decline %s" % id)
 
 
@@ -773,7 +854,7 @@ func _clarify_consent() -> void:
 	if _episode.is_empty():
 		return
 	if bool(_episode.get("clarified", false)):
-		_give_up()
+		_give_up("unclear")
 		return
 	var director: Node = _director()
 	if director == null or not director.has_method("queue_generated_intent"):
@@ -785,6 +866,7 @@ func _clarify_consent() -> void:
 		Callable(self, "_clarify_valid").bind(serial), Callable(), true))
 	if queued:
 		_episode["clarified"] = true
+		_episode["deadline_at"] = _now() + CLARIFY_GRACE_S
 		var keys: Array = _episode.get("keys", [])
 		if not key in keys:
 			keys.append(key)
@@ -812,12 +894,13 @@ func _clarify_valid(serial: int) -> bool:
 
 func _invite_give_up() -> void:
 	var id := str(_episode.get("id", ""))
+	_record_end_situation("invite timeout")
 	var director: Node = _director()
-	if director != null and _director_idle() and director.has_method("queue_generated_intent"):
+	if director != null and director.has_method("queue_generated_intent"):
 		var key := "%s:%s:%d:invite_giveup" % [KEY_PREFIX, id, int(_episode.get("serial", 0))]
 		director.call("queue_generated_intent", id, _invite_give_up_purpose(), key,
 			Callable(self, "_pony_alive").bind(id), Callable(), true)
-	_cancel_episode(true)
+	_cancel_episode(true, "invite give up")
 	_debug("request invite give up %s" % id)
 
 
@@ -903,20 +986,19 @@ func _queue_reminder(number: int) -> bool:
 	return queued
 
 
-func _give_up() -> void:
+func _give_up(reason := "timeout") -> void:
 	var id := str(_episode.get("id", ""))
-	var reacted := bool(_episode.get("reacted", false)) or _player_reacted()
-	if not reacted:
-		var director: Node = _director()
-		if director != null and str(director.get("state")) == "idle" and director.has_method("queue_generated_intent"):
-			var key := "%s:%s:%d:giveup" % [KEY_PREFIX, id, int(_episode.get("serial", 0))]
-			director.call("queue_generated_intent", id, _give_up_purpose(), key,
-				Callable(self, "_pony_alive").bind(id), Callable(), true)
-	_cancel_episode(true)
-	_debug("request give up %s reacted=%s" % [id, str(reacted)])
+	_record_end_situation(reason)
+	var director: Node = _director()
+	if director != null and director.has_method("queue_generated_intent"):
+		var key := "%s:%s:%d:giveup" % [KEY_PREFIX, id, int(_episode.get("serial", 0))]
+		director.call("queue_generated_intent", id, _give_up_purpose(), key,
+			Callable(self, "_pony_alive").bind(id), Callable(), true)
+	_cancel_episode(true, "give up:" + reason)
+	_debug("request give up %s reason=%s" % [id, reason])
 
 
-func _cancel_episode(set_cooldown: bool) -> void:
+func _cancel_episode(set_cooldown: bool, reason := "") -> void:
 	if _episode.is_empty():
 		return
 	var pony: Node = _episode.get("pony")
@@ -925,6 +1007,8 @@ func _cancel_episode(set_cooldown: bool) -> void:
 	var phase := str(_episode.get("phase", ""))
 	if is_instance_valid(_consent):
 		_consent.call("cancel")
+	if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
+		runtime.call("set_request_face", false)
 	if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 		runtime.call("clear_presentation")
 	_release_nav()
@@ -938,6 +1022,8 @@ func _cancel_episode(set_cooldown: bool) -> void:
 	if director != null and director.has_method("cancel_authored_line"):
 		for key: Variant in _episode.get("keys", []):
 			director.call("cancel_authored_line", str(key))
+	if not reason.is_empty():
+		_debug("request end %s phase=%s reason=%s" % [id, phase, reason])
 	_episode = {}
 
 
@@ -983,11 +1069,11 @@ func _ask_context() -> String:
 	else:
 		text += "You are with Anon. You want him and have decided to ask him for sex. "
 	if not private:
-		text += "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. "
+		text += "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. Phrase it as a question to him. "
 	elif horse:
-		text += "You are alone together. Ask him directly, in your own voice, and make it an unmistakable sexual invitation; do not hint. "
+		text += "You are alone together. Ask him directly, in your own voice, and make it an unmistakable sexual invitation; do not hint. Phrase it as a direct question ending with a question mark. "
 	else:
-		text += "You are alone together. You may ask directly and bluntly or hint indirectly, whichever fits you. "
+		text += "You are alone together. You may ask directly and bluntly or hint indirectly, whichever fits you; phrase it as a question to him. "
 	text += "Say one or two short sentences in your own voice. Do not describe your body or narrate actions, and do not use action tags."
 	return text
 
@@ -1000,12 +1086,12 @@ func _ask_purpose() -> String:
 	if cuddle:
 		text = "You are cuddling with Anon and have decided to ask him for sex."
 	if not private:
-		text += " Other ponies are around, so hint indirectly and do not say it plainly."
+		text += " Other ponies are around, so hint indirectly and do not say it plainly; phrase it as a question."
 	elif horse:
-		text += " You are alone together. Ask him directly and unmistakably in your own voice; do not hint."
+		text += " You are alone together. Ask him directly and unmistakably in your own voice; do not hint. You are asking him a question."
 	else:
-		text += " You may ask directly and bluntly or hint indirectly, in your own voice."
-	text += " Say one or two short sentences. Do not narrate actions."
+		text += " You may ask directly and bluntly or hint indirectly, in your own voice; phrase it as a question."
+	text += " Say one or two short sentences. Do not narrate actions. End with a question mark."
 	return text
 
 
@@ -1014,7 +1100,7 @@ func _invite_purpose() -> String:
 
 
 func _clarify_purpose() -> String:
-	return "Anon's answer was not clear. Ask him plainly whether he wants this, in your own voice. One short sentence. Do not narrate actions."
+	return "Anon's answer was not clear. Ask him plainly, as a direct question, whether he wants this, in your own voice. One short sentence ending with a question mark. Do not narrate actions."
 
 
 func _invite_give_up_purpose() -> String:
@@ -1023,12 +1109,12 @@ func _invite_give_up_purpose() -> String:
 
 func _reminder_purpose() -> String:
 	if not bool(_episode.get("private", false)):
-		return "Anon has not reacted to your hint. Hint once more, indirectly and in character, in one short sentence. Other ponies are around. Do not repeat your first line."
-	return "Anon has not reacted to your offer. Prompt him once more, short and in character; playful or blunt is fine (\"come on\", \"don't you want it?\"). Do not repeat your first line."
+		return "Anon has not reacted to your hint. Ask once more, indirectly and in character, as a question in one short sentence. Other ponies are around. Do not repeat your first line."
+	return "Anon has not answered your offer. Ask the question once more, short and in character; playful or blunt is fine (\"come on, don't you want me?\"). Do not repeat your first line."
 
 
 func _give_up_purpose() -> String:
-	return "Anon did not react to your offer. Say one short, in-character line giving up on it for now, without anger. Do not narrate actions."
+	return "Your offer is over for now. Say one short, in-character line letting it go without pressure or anger. Do not ask again and do not narrate actions."
 
 
 func _record_situation() -> void:
@@ -1065,6 +1151,23 @@ func _record_consent_situation(accepted: bool) -> void:
 	var mark := "accepted" if accepted else "declined"
 	ctx.call("record", "situation", text, [id], [id],
 		"%s:%s:%d:%s" % [KEY_PREFIX, id, int(_episode.get("serial", 0)), mark])
+
+
+## The offer is over without an answer. Replace the open "you have decided to ask" situation
+## so the director's next line does not keep the offer alive after the controller gave up.
+func _record_end_situation(reason: String) -> void:
+	var game: Variant = main.get("game")
+	if not is_instance_valid(game):
+		return
+	var ctx: Variant = game.get("world_context")
+	if not is_instance_valid(ctx):
+		return
+	var id := str(_episode.get("id", ""))
+	if id.is_empty():
+		return
+	var text := "Your offer for sex is over for now. Anon did not take it up; let it go without pressure and stop asking."
+	ctx.call("record", "situation", text, [id], [id],
+		"%s:%s:%d:end:%s" % [KEY_PREFIX, id, int(_episode.get("serial", 0)), reason])
 
 
 func _episode_valid(serial: int) -> bool:
@@ -1116,6 +1219,11 @@ func _director() -> Node:
 func _director_idle() -> bool:
 	var director: Node = _director()
 	return director != null and str(director.get("state")) == "idle"
+
+
+func _episode_pony_speaking() -> bool:
+	var pony: Node = _episode.get("pony")
+	return is_instance_valid(pony) and pony.has_method("is_speaking") and bool(pony.call("is_speaking"))
 
 
 func _quiet() -> bool:

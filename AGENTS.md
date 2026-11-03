@@ -280,8 +280,9 @@ body-relative axes.
   genuinely below a **valid** bed top. `_bed_surface_top()` returns invalid (`INF`) when the bed
   reference is gone, so a missing bed cannot trigger a rebuild every frame.
 - Her head aims at Anon's player camera, not the framing view, with a minimum
-  `0.45 * body_scale` distance. Aiming at the shot camera (now behind her neck) demanded a
-  half-turn and snapped her head from side to side.
+  `0.45 * body_scale` distance. The look point moves with the displayed lean's lateral shift and
+  `pose1_side_lean` travel, so a side lean turns her toward the lean instead of away. Aiming at
+  the shot camera (now behind her neck) demanded a half-turn and snapped her head side to side.
 - Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
   extra action. Pose 1 uses the same speed-driven surge/bob as pose 2; the surge runs along the
   mattress toward her head, while the bob moves the view up at her face on the inward stroke.

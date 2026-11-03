@@ -3818,13 +3818,23 @@ func _pose1_head_transform() -> Transform3D:
 func _pose1_head_look_point(view: Camera3D) -> Vector3:
 	if not is_instance_valid(view):
 		return Vector3.INF
+	var point := view.global_position
+	# Move the virtual partner with the displayed lean. Otherwise the framing camera slides
+	# sideways while her head stays on the fixed player camera and appears to turn the other way.
+	if is_instance_valid(_pose1_view) and view != _pose1_view:
+		point += _pose1_view_basis.x * _lateral_lean_shift(_lean_size_scale())
+		if is_instance_valid(pony):
+			var bed_forward: Vector3 = -pony.global_basis.z
+			bed_forward.y = 0.0
+			if bed_forward.length_squared() > 0.0001:
+				point += bed_forward.normalized() * _pose1_side_lean_forward()
 	var head := _pose1_head_transform()
 	if not head.origin.is_finite():
-		return view.global_position
-	var offset := view.global_position - head.origin
+		return point
+	var offset := point - head.origin
 	var minimum := 0.45 * _pose1_body_scale()
 	if offset.length() >= minimum:
-		return view.global_position
+		return point
 	var direction: Vector3 = offset.normalized() if offset.length_squared() > 0.000001 \
 		else -pony.global_basis.z.normalized()
 	return head.origin + direction * minimum

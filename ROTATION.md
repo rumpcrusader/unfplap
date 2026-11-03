@@ -104,8 +104,9 @@ these values here if a future pose needs that effect.
   back down her torso. Rebuilds are limited to an invalid/too-far anchor or a genuinely
   below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head aims at Anon's player
   camera, not the framing view, and its look point keeps at least `0.45 * body_scale` from her
-  head. Aiming at the framing view (now behind her neck) demanded a half-turn and snapped her
-  head side to side.
+  head. The look point moves with the lean's lateral shift and `pose1_side_lean` travel, so a
+  side lean turns her toward the lean. Aiming at the framing view (now behind her neck) demanded
+  a half-turn and snapped her head side to side.
 - Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
   the act, re-applying each tick; both are restored at end. The stock bed body must never appear
   inside the shot with a different orientation.

@@ -3752,7 +3752,7 @@ func _pose1_body_scale() -> float:
 
 func _pose1_pullback() -> float:
 	var value := float(_presentation_cfg.get("pose1_pullback", POSE1_CAMERA_PULLBACK_M))
-	return clampf(value, 0.0, 0.40) * _pose1_body_scale()
+	return value * _pose1_body_scale()
 
 
 func _pose1_camera_offsets() -> Vector3:
@@ -3770,7 +3770,7 @@ func _pose1_camera_offsets() -> Vector3:
 func _pose1_side_lean_forward() -> float:
 	var amount := float(_presentation_cfg.get(
 		"pose1_side_lean", SETTINGS.PRESENTATION_DEFAULTS["pose1_side_lean"]))
-	return clampf(amount, 0.0, 0.30) * absf(_lean_view_side) * _lean_size_scale()
+	return amount * absf(_lean_view_side) * _lean_size_scale()
 
 
 func _pose1_camera_target() -> Vector3:
@@ -4015,7 +4015,7 @@ func _pose2_lean_scale() -> float:
 ## Pose-2 torso angle: hinge Anon's upper body forward over her by moving the head/camera
 ## forward and down by the spine arc, then countering the hip in `apply_anon_lean`.
 func _anon_torso_angle() -> float:
-	return deg_to_rad(clampf(float(_presentation_cfg.get("torso_angle_deg", 0.0)), 0.0, 20.0))
+	return deg_to_rad(float(_presentation_cfg.get("torso_angle_deg", 0.0)))
 
 
 func _anon_torso_forward() -> float:

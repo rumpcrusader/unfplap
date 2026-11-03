@@ -228,7 +228,7 @@ body-relative axes.
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
-- `presentation.torso_angle_deg` (`0…20°`, default `0`) hinges Anon's upper body forward over
+- `presentation.torso_angle_deg` (default `0`, experimental/unbounded) hinges Anon's upper body forward over
   her. `apply_anon_lean()` counters the hip and pins the feet; `apply_camera_motion()` moves the
   head/camera along the spine arc (`ANON_TORSO_LEN_M = 0.65`). It applies live.
 - Pose-2 palms are scaled on the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`,
@@ -257,14 +257,14 @@ body-relative axes.
 - Mod-owned `UnfplapPose1View`, top-level, anchored at
   `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
   shifted by the **Act presentation → Missionary** axes and pulled by the **Missionary pullback**
-  setting (`pose1_pullback`, default `0.22 m`, range `0…0.40`, times body scale) back along its
+  setting (`pose1_pullback`, default `0.22 m`, times body scale) back along its
   own frozen view axis. Canon height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally
   higher, farther-back shot so the camera is not inside her neck. The anchor stays behind her
   neck, toward her rump, so the frozen aim looks forward along her body at her face. Anchoring
   ahead of the neck put the camera over her head and aimed back down her torso.
-  The fine axes are `pose1_forward` (`-0.20…0.20 m`, default `0.10`), `pose1_height`
-  (`-0.20…0.30 m`, default `-0.10`) and `pose1_side` (`-0.20…0.20 m`, default `0`; positive is
-  her right); all are metres and applied to the frozen anchor. The base view then adds
+  The fine axes are `pose1_forward` (default `0.10`), `pose1_height` (default `-0.10`) and
+  `pose1_side` (default `0`; positive is her right). They are experimental/unbounded, in
+  metres, and applied to the frozen anchor. The base view then adds
   `POSE1_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot
   starts at the old maximum
   W-lean point and W pushes further up her torso.
@@ -289,7 +289,7 @@ body-relative axes.
   mattress toward her head, while the bob moves the view up at her face on the inward stroke.
   The base already includes one full forward lean (`POSE1_START_LEAN`). Forward lean is clamped
   to stop `0.12 m` short of the neck target. A side lean also travels `pose1_side_lean`
-  (default `0.10 m`, range `0…0.30`) along the mattress toward her head, outside the view-axis
+  (default `0.10 m`, experimental/unbounded) along the mattress toward her head, outside the view-axis
   clamp; the side-lean roll remains separate.
 - Pose 1 body motion is `prone_sway` (`pose1_body_motion`), not the standing `body_sway`
   (`pose2_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
@@ -715,6 +715,8 @@ rump blush. There are no migration shims; unknown settings keys are ignored.
   `thrust.pixels_per_full` defaults to `800`.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
+- Only bound a settings control when the bound is part of the explicit user-facing contract
+  (sensitivity, glance speed, percentages, taste). Experimental tuning controls stay unbounded.
 - Feature flags are one ungrouped list. Each row uses `FEATURE_INFO` for a human label and a
   help line. Edits apply live during an act; `live` flags also apply immediately outside one.
   `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.

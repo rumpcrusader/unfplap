@@ -89,10 +89,10 @@ these values here if a future pose needs that effect.
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
   farther-back anchor. The **Act presentation → Missionary** axes move the frozen anchor:
-  `pose1_forward` (`-0.20…0.20 m`, default `0.10`), `pose1_height` (`-0.20…0.30 m`, default
-  `-0.10`) and `pose1_side` (`-0.20…0.20 m`, default `0`; positive is her right). The
-  **Missionary pullback** setting (`pose1_pullback`, default `0.22 m`, range `0…0.40`, times
-  body scale) then pulls the shot back along `_pose1_view_basis.z` (its own view axis), and
+  `pose1_forward` (default `0.10`), `pose1_height` (default `-0.10`) and `pose1_side`
+  (default `0`; positive is her right). All are experimental and unbounded. The
+  **Missionary pullback** setting (`pose1_pullback`, default `0.22 m`, times body scale) then
+  pulls the shot back along `_pose1_view_basis.z` (its own view axis), and
   `POSE1_START_LEAN = 1.0` (one full
   `LEAN_FORWARD_M` lean) advances it along the same axis. The shot therefore starts at the old
   maximum W-lean point, and W pushes further up her torso toward the neck. The aim basis is
@@ -123,7 +123,7 @@ these values here if a future pose needs that effect.
 - Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
   lean is halved to `0.08 m`; side lean translates `0.18 m`. Both directions pitch `6°` down,
   and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. A side lean also
-  travels `pose1_side_lean` (`0…0.30 m`, default `0.10`) along the mattress toward her head,
+  travels `pose1_side_lean` (default `0.10 m`, experimental/unbounded) along the mattress toward her head,
   outside the view-axis clamp. The displayed lean is always smoothed at
   `CAMERA_INERTIA_SMOOTH = 5.0`.
 - All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
@@ -187,7 +187,7 @@ these values here if a future pose needs that effect.
   holds both foot targets at their neutral transforms, so his legs stay out of the camera.
   `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
   thrusts forward/back with depth.
-- `presentation.torso_angle_deg` (`0…20°`, default `0`) hinges his upper body forward. The
+- `presentation.torso_angle_deg` (default `0`, experimental/unbounded) hinges his upper body forward. The
   head/camera moves along the spine arc (`forward = 0.65 sin θ`, `drop = 0.65 (1 − cos θ)`);
   `apply_anon_lean()` counters the hip by the same forward amount and pins the feet.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).

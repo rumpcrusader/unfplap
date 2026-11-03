@@ -156,24 +156,6 @@ func run() -> void:
 	var glance_speed := float(presentation.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
-	var pose1_forward := float(presentation.get("pose1_forward", 99.0))
-	check(pose1_forward >= -0.20 and pose1_forward <= 0.20,
-		"runtime missionary forward in range")
-	var pose1_height := float(presentation.get("pose1_height", 99.0))
-	check(pose1_height >= -0.20 and pose1_height <= 0.30,
-		"runtime missionary height in range")
-	var pose1_side := float(presentation.get("pose1_side", 99.0))
-	check(pose1_side >= -0.20 and pose1_side <= 0.20,
-		"runtime missionary side in range")
-	var pose1_pullback := float(presentation.get("pose1_pullback", 99.0))
-	check(pose1_pullback >= 0.0 and pose1_pullback <= 0.40,
-		"runtime missionary pullback in range")
-	var pose1_side_lean := float(presentation.get("pose1_side_lean", 99.0))
-	check(pose1_side_lean >= 0.0 and pose1_side_lean <= 0.30,
-		"runtime missionary side-lean forward in range")
-	var torso_angle := float(presentation.get("torso_angle_deg", 99.0))
-	check(torso_angle >= 0.0 and torso_angle <= 20.0,
-		"runtime Anon torso lean in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("stay_close"), "stay close event prompt exists")
 

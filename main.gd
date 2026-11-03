@@ -513,6 +513,12 @@ func _save_camera_thrust_controls(surge: SpinBox, bob: SpinBox) -> void:
 	_apply_live_settings()
 
 
+## Experimental/tuning controls are deliberately unbounded; type any practical value.
+func _settings_spin_free(form: GridContainer, label_text: String, step: float,
+		value: float, font_size: int) -> SpinBox:
+	return _settings_spin(form, label_text, -100000.0, 100000.0, step, value, font_size)
+
+
 func _settings_spin(form: GridContainer, label_text: String, minimum: float,
 		maximum: float, step: float, value: float, font_size: int) -> SpinBox:
 	var label := Label.new()
@@ -552,37 +558,37 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	glance_speed.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"glance_back_speed": glance_speed.value})
 		_apply_live_settings())
-	var pose1_forward := _settings_spin(form, "Missionary forward", -0.20, 0.20, 0.01,
+	var pose1_forward := _settings_spin_free(form, "Missionary forward", 0.01,
 		float(controls.get("pose1_forward", 0.10)), font_size)
 	pose1_forward.suffix = " m"
 	pose1_forward.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_forward": pose1_forward.value})
 		_apply_live_settings())
-	var pose1_height := _settings_spin(form, "Missionary height", -0.20, 0.20, 0.01,
+	var pose1_height := _settings_spin_free(form, "Missionary height", 0.01,
 		float(controls.get("pose1_height", -0.10)), font_size)
 	pose1_height.suffix = " m"
 	pose1_height.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_height": pose1_height.value})
 		_apply_live_settings())
-	var pose1_side := _settings_spin(form, "Missionary side", -0.20, 0.20, 0.01,
+	var pose1_side := _settings_spin_free(form, "Missionary side", 0.01,
 		float(controls.get("pose1_side", 0.0)), font_size)
 	pose1_side.suffix = " m"
 	pose1_side.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_side": pose1_side.value})
 		_apply_live_settings())
-	var pose1_pullback := _settings_spin(form, "Missionary pullback", 0.0, 0.40, 0.01,
+	var pose1_pullback := _settings_spin_free(form, "Missionary pullback", 0.01,
 		float(controls.get("pose1_pullback", 0.22)), font_size)
 	pose1_pullback.suffix = " m"
 	pose1_pullback.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_pullback": pose1_pullback.value})
 		_apply_live_settings())
-	var pose1_side_lean := _settings_spin(form, "Side lean forward", 0.0, 0.30, 0.01,
+	var pose1_side_lean := _settings_spin_free(form, "Side lean forward", 0.01,
 		float(controls.get("pose1_side_lean", 0.10)), font_size)
 	pose1_side_lean.suffix = " m"
 	pose1_side_lean.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_side_lean": pose1_side_lean.value})
 		_apply_live_settings())
-	var torso_angle := _settings_spin(form, "Anon torso lean", 0.0, 20.0, 1.0,
+	var torso_angle := _settings_spin_free(form, "Anon torso lean", 1.0,
 		float(controls.get("torso_angle_deg", 0.0)), font_size)
 	torso_angle.suffix = "°"
 	torso_angle.value_changed.connect(func(_value: float) -> void:

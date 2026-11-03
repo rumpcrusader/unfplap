@@ -128,7 +128,7 @@ const PRESENTATION_DEFAULTS := {
 
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
-	"cue": "During sex with Anon, your body and voice show: {cue} Say ONE short line in your own voice, at most 12 words. Begin with [whispering], [happy], [annoyed] or [surprised]. No narration, no stage directions, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
+	"cue": "During sex with Anon, your body and voice show: {cue}. Private relationship note: {relationship}. Tone: {tone}. Let the relationship color the line, but keep the cue's meaning. Do not mention relationship labels, levels, numbers, or that you are following a note. Say ONE short line in your own voice, at most 14 words. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your taste: {taste}. Do not repeat: {recent}.",
 	"talk_cue": "During sex with Anon, you want to hear his voice. Ask him ONE short question in your own voice, at most 10 words. Begin with [whispering]. No narration, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
 }
 
@@ -498,14 +498,16 @@ static func presentation_controls() -> Dictionary:
 		pullback = float((block as Dictionary).get("pose1_pullback", pullback))
 		side_lean = float((block as Dictionary).get("pose1_side_lean", side_lean))
 		torso_angle = float((block as Dictionary).get("torso_angle_deg", torso_angle))
+	# Only the user-facing glance multiplier is bounded. The missionary framing and torso
+	# controls are experimental and intentionally pass through unbounded values.
 	return {
 		"glance_back_speed": clampf(speed, 0.25, 3.0),
-		"pose1_forward": clampf(forward, -0.20, 0.20),
-		"pose1_height": clampf(height, -0.20, 0.20),
-		"pose1_side": clampf(side, -0.20, 0.20),
-		"pose1_pullback": clampf(pullback, 0.0, 0.40),
-		"pose1_side_lean": clampf(side_lean, 0.0, 0.30),
-		"torso_angle_deg": clampf(torso_angle, 0.0, 20.0),
+		"pose1_forward": forward,
+		"pose1_height": height,
+		"pose1_side": side,
+		"pose1_pullback": pullback,
+		"pose1_side_lean": side_lean,
+		"torso_angle_deg": torso_angle,
 	}
 
 
@@ -517,24 +519,24 @@ static func save_presentation_controls(values: Dictionary) -> void:
 	controls["glance_back_speed"] = clampf(float(values.get(
 		"glance_back_speed", controls.get("glance_back_speed",
 			PRESENTATION_DEFAULTS["glance_back_speed"]))), 0.25, 3.0)
-	controls["pose1_forward"] = clampf(float(values.get(
+	controls["pose1_forward"] = float(values.get(
 		"pose1_forward", controls.get("pose1_forward",
-			PRESENTATION_DEFAULTS["pose1_forward"]))), -0.20, 0.20)
-	controls["pose1_height"] = clampf(float(values.get(
+			PRESENTATION_DEFAULTS["pose1_forward"])))
+	controls["pose1_height"] = float(values.get(
 		"pose1_height", controls.get("pose1_height",
-			PRESENTATION_DEFAULTS["pose1_height"]))), -0.20, 0.20)
-	controls["pose1_side"] = clampf(float(values.get(
+			PRESENTATION_DEFAULTS["pose1_height"])))
+	controls["pose1_side"] = float(values.get(
 		"pose1_side", controls.get("pose1_side",
-			PRESENTATION_DEFAULTS["pose1_side"]))), -0.20, 0.20)
-	controls["pose1_pullback"] = clampf(float(values.get(
+			PRESENTATION_DEFAULTS["pose1_side"])))
+	controls["pose1_pullback"] = float(values.get(
 		"pose1_pullback", controls.get("pose1_pullback",
-			PRESENTATION_DEFAULTS["pose1_pullback"]))), 0.0, 0.40)
-	controls["pose1_side_lean"] = clampf(float(values.get(
+			PRESENTATION_DEFAULTS["pose1_pullback"])))
+	controls["pose1_side_lean"] = float(values.get(
 		"pose1_side_lean", controls.get("pose1_side_lean",
-			PRESENTATION_DEFAULTS["pose1_side_lean"]))), 0.0, 0.30)
-	controls["torso_angle_deg"] = clampf(float(values.get(
+			PRESENTATION_DEFAULTS["pose1_side_lean"])))
+	controls["torso_angle_deg"] = float(values.get(
 		"torso_angle_deg", controls.get("torso_angle_deg",
-			PRESENTATION_DEFAULTS["torso_angle_deg"]))), 0.0, 20.0)
+			PRESENTATION_DEFAULTS["torso_angle_deg"])))
 	data["presentation"] = controls
 	_write(data)
 

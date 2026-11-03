@@ -49,6 +49,16 @@ func debug(text: String) -> void:
 		print("[unfplap] " + text)
 
 
+## Live act/afterglow context for the game's normal dialogue prompt (pony_prompt_notes).
+func prompt_note(pony: String) -> String:
+	if pony.is_empty():
+		return ""
+	for runtime: Variant in _runtimes.values():
+		if is_instance_valid(runtime) and str(runtime.get("_id")) == pony:
+			return str(runtime.call("prompt_note"))
+	return ""
+
+
 func _debug(text: String) -> void:
 	debug(text)
 
@@ -78,6 +88,7 @@ func toggle_debug_logs() -> void:
 func _ready() -> void:
 	process_priority = 100
 	set_process(true)
+	add_to_group("pony_prompt_notes")
 	debug_logs = SETTINGS.load_debug_logs()
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"

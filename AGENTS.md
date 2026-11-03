@@ -199,8 +199,10 @@ body-relative axes.
 - Pose 2 enters the same held `AFTERGLOW` state when the player chooses it or the third pony
   climax forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
   flicks twice, and the inside event is recorded on entry. Normal dialogue resumes; a
-  world-context afterglow event keeps the just-intimate moment present. The 8 s HUD close
-  window counts active caress time. No automatic withdrawal/restore.
+  world-context afterglow event keeps the just-intimate moment present, and a live
+  `pony_prompt_notes` line reports caressing/leaning. After 16 s she may choose to end the
+  afterglow; an accepted `[stay: SECONDS]` pauses that roll. The 8 s HUD close window counts
+  active caress time. No automatic withdrawal/restore.
 
 ## Critical: camera work
 
@@ -684,7 +686,9 @@ examples.
   early-stop line is queued after the restore begins. Act-line validity is tied to the
   pony/event id, not `State.ACTIVE`.
 - The horse afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
-  with the afterglow context event; the HUD close timer owns the invitation.
+  with the afterglow context event; the HUD close timer owns the invitation. The prompt note
+  provider (`main.gd` → runtime) reports caressing/leaning, and `[stay: SECONDS]` extends the
+  no-self-end hold.
 
 ## HUD and rewards
 

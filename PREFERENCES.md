@@ -212,6 +212,11 @@ removed; the HUD timer and active caress time own the horse close invitation. A 
 event records that the act has ended while the two are still in the afterglow together, so a
 normal reply keeps the moment present without a scripted line.
 
+After 16 s the mare may choose to end the afterglow herself. The roll is once per second;
+caressing or leaning close lowers the chance. An accepted `[stay: SECONDS]` action from normal
+dialogue pauses the roll for that long. The live prompt note tells her whether Anon is
+caressing her or leaning in; leaning counts as staying close/hugging.
+
 ## Memory and rewards
 
 - **Per pony climax:** a unique world-context event and a generated reaction.

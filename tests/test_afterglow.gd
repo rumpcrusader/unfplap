@@ -38,6 +38,44 @@ func run() -> void:
 	check(horse_text.contains("standing close"), "horse afterglow context")
 	check(mission_text.contains("not finished yet"), "afterglow context keeps the moment open")
 	check(not mission_text.contains("Do not start another act"), "afterglow context is not a scripted line")
+	var note_runtime: Node = _runtime("horse")
+	note_runtime._id = "fluttershy"
+	var idle_note: String = str(note_runtime.prompt_note())
+	check(idle_note.contains("afterglow") and idle_note.contains("not caressing"),
+		"afterglow prompt note carries the live state")
+	check(idle_note.contains("[stay:"), "afterglow prompt note advertises the stay tag")
+	note_runtime._caress_active = {"L": true, "R": false}
+	check(note_runtime.prompt_note().contains("caressing your flank"), "caress note")
+	note_runtime._caress_active = {"L": false, "R": false}
+	note_runtime._lean_forward = 0.8
+	check(note_runtime.prompt_note().contains("leaning in close"), "lean note")
+	note_runtime.state = 2 # ACTIVE
+	note_runtime._lean_forward = 0.0
+	check(note_runtime.prompt_note().contains("middle of sex"), "active prompt note")
+	note_runtime.free()
+
+	check(RUNTIME.self_end_chance(true) < RUNTIME.self_end_chance(false),
+		"holding her lowers the self-end chance")
+	var held: Node = _runtime("horse")
+	held._afterglow_elapsed = 100.0
+	held._afterglow_hold_until = Time.get_ticks_msec() * 0.001 + 60.0
+	held._self_end_tick(1.0)
+	check(held.state == 4, "an accepted stay pauses the self-end roll")
+	held.free()
+	var early_end: Node = _runtime("horse")
+	early_end._afterglow_elapsed = 15.0
+	early_end._self_end_tick(1.0)
+	check(early_end.state == 4, "no self-end before the minimum time")
+	early_end.free()
+	var stayed: Node = _runtime("horse")
+	stayed._afterglow_elapsed = 100.0
+	stayed._action_executor = FakeExecutor.new()
+	stayed._on_action_outcome({"type": "stay", "status": "accepted"})
+	check(stayed._afterglow_hold_until > Time.get_ticks_msec() * 0.001 + 50.0,
+		"an accepted stay extends the afterglow hold")
+	stayed._action_executor.free()
+	stayed.free()
+
 	check(MEMORY.keep_active_line("speaking", "line", "line", true), "speaking line is kept")
 	check(not MEMORY.keep_active_line("thinking", "line", "line", true), "thinking line is dropped")
 	check(not MEMORY.keep_active_line("speaking", "other", "line", true), "inactive line is dropped")
@@ -112,6 +150,10 @@ func run() -> void:
 	if failures == 0:
 		print("AFTERGLOW_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+class FakeExecutor extends Node:
+	var movement := {"duration_s": 60.0}
 
 
 class FakeWings extends Node:

@@ -92,6 +92,12 @@ const BREATH_RATE_CAP := 10.0
 ## Breath gain easing. Active: follows the plap rate; afterglow: fades over this many seconds.
 const BREATH_FADE_S := 2.5
 const AFTERGLOW_BREATH_FADE_S := 5.0
+## After this long the mare may choose to end the afterglow herself. Being held or caressed
+## lowers the chance; an accepted [stay] pauses the roll entirely.
+const AFTERGLOW_SELF_END_SECONDS := 16.0
+const AFTERGLOW_SELF_END_CHECK_S := 1.0
+const AFTERGLOW_SELF_END_CHANCE_CLOSE := 0.12
+const AFTERGLOW_SELF_END_CHANCE_ALONE := 0.30
 ## Pose 1 camera: above and behind her neck so the shot looks forward along her body at her
 ## face. `pony.global_basis.z` is her backward direction.
 const POSE1_CAMERA_HEIGHT_M := 0.45
@@ -349,6 +355,10 @@ var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
 var _afterglow_pose := ""
+var _afterglow_elapsed := 0.0
+var _afterglow_hold_until := 0.0
+var _self_end_clock := 0.0
+var _action_executor: Node
 var _close_left := 0.0
 var _close_caress_seconds := 0.0
 var _close_rewarded := false
@@ -1832,6 +1842,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pause_face_turn()
 	_begin_camera_mode()
 	_hide_anon_avatar_for_pose1()
+	_bind_action_executor()
 	_start_audio()
 	_apply_voice_policy()
 	_set_inventory_hud_hidden(true)
@@ -3702,6 +3713,108 @@ func _finish_climax() -> void:
 		pony_climaxes, MAX_PONY_CLIMAXES, satisfaction])
 
 
+## Live context for the normal dialogue prompt. The entry node joins the game's
+## `pony_prompt_notes` group and forwards to the active runtime for that pony.
+func prompt_note() -> String:
+	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		return ""
+	var parts: PackedStringArray = []
+	if state == State.AFTERGLOW:
+		parts.append("- You are still in the afterglow with Anon; the act has ended, but the moment is not finished yet.")
+	else:
+		parts.append("- You are in the middle of sex with Anon.")
+	var caressing := _player_is_caressing()
+	var leaning := _player_is_leaning_close()
+	if caressing and leaning:
+		parts.append("He is leaning in close against you and caressing your flank.")
+	elif caressing:
+		parts.append("He is caressing your flank.")
+	elif leaning:
+		parts.append("He is leaning in close, holding you.")
+	else:
+		parts.append("He is close but not caressing or leaning in right now.")
+	if state == State.AFTERGLOW:
+		parts.append("If Anon asks to stay longer, use [stay: 120] to hold the afterglow.")
+	return " ".join(parts)
+
+
+func _player_is_caressing() -> bool:
+	return bool(_caress_active.get("L", false)) or bool(_caress_active.get("R", false))
+
+
+func _player_is_leaning_close() -> bool:
+	return _lean_forward >= 0.35 or _lean_action_active or _kiss_amount > 0.05 \
+		or _base_kiss_active or _base_kiss_releasing or _pose2_kiss_active
+
+
+func _player_is_close() -> bool:
+	return _player_is_caressing() or _player_is_leaning_close()
+
+
+## The game's action executor owns [stay: SECONDS]. A permitted stay during the afterglow is
+## her agreement to keep the moment going, so pause the self-end roll for that long.
+func _bind_action_executor() -> void:
+	if is_instance_valid(_action_executor) and _action_executor.is_inside_tree():
+		return
+	_action_executor = null
+	var director := _director()
+	if director == null:
+		return
+	var actions: Variant = director.get("actions")
+	if actions == null:
+		return
+	var executors: Variant = actions.get("executors")
+	if not executors is Dictionary:
+		return
+	var executor: Variant = (executors as Dictionary).get(_id)
+	if not executor is Node:
+		return
+	_action_executor = executor as Node
+	var callback := Callable(self, "_on_action_outcome")
+	if _action_executor.has_signal("outcome") and not _action_executor.is_connected("outcome", callback):
+		_action_executor.connect("outcome", callback)
+
+
+func _on_action_outcome(event: Dictionary) -> void:
+	if state != State.AFTERGLOW:
+		return
+	if str(event.get("type", "")) != "stay":
+		return
+	if str(event.get("status", "")) != "accepted":
+		return
+	var duration := 30.0
+	if is_instance_valid(_action_executor):
+		var movement: Variant = _action_executor.get("movement")
+		if movement is Dictionary:
+			duration = float((movement as Dictionary).get("duration_s", 30.0))
+	duration = clampf(duration, 0.5, 600.0)
+	_afterglow_hold_until = maxf(_afterglow_hold_until, _now_s() + duration)
+	_log("afterglow hold extended %.0fs by [stay]" % duration)
+
+
+static func self_end_chance(close: bool) -> float:
+	return AFTERGLOW_SELF_END_CHANCE_CLOSE if close else AFTERGLOW_SELF_END_CHANCE_ALONE
+
+
+func _self_end_tick(delta: float) -> void:
+	if _afterglow_elapsed < AFTERGLOW_SELF_END_SECONDS:
+		return
+	if _now_s() < _afterglow_hold_until:
+		return
+	_self_end_clock -= delta
+	if _self_end_clock > 0.0:
+		return
+	_self_end_clock = AFTERGLOW_SELF_END_CHECK_S
+	if _speech_busy():
+		return
+	var close := _player_is_close()
+	var chance := self_end_chance(close)
+	if randf() >= chance:
+		return
+	_log("afterglow self end after %.1fs close=%s" % [_afterglow_elapsed, str(close)])
+	end_afterglow()
+
+
 func _enter_afterglow() -> void:
 	if pose_id == CATALOG.HORSE:
 		_pose2_afterglow_begin()
@@ -3726,6 +3839,10 @@ func _pose2_afterglow_begin() -> void:
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
+	_afterglow_elapsed = 0.0
+	_afterglow_hold_until = 0.0
+	_self_end_clock = 0.0
+	_bind_action_executor()
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
@@ -3749,6 +3866,10 @@ func _afterglow_begin() -> void:
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
+	_afterglow_elapsed = 0.0
+	_afterglow_hold_until = 0.0
+	_self_end_clock = 0.0
+	_bind_action_executor()
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
@@ -3785,6 +3906,10 @@ func _begin_close_window() -> void:
 
 
 func _afterglow_tick(delta: float) -> void:
+	if state != State.AFTERGLOW:
+		return
+	_afterglow_elapsed += delta
+	_self_end_tick(delta)
 	if state != State.AFTERGLOW or pose_id != CATALOG.HORSE:
 		return
 	if _close_left <= 0.0:

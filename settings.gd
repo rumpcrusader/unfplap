@@ -64,6 +64,7 @@ const FEATURE_DEFAULTS := {
 	"mute_ponese_audio": true,
 	"act_foley": true,
 	"act_vocals": false,
+	"act_climax": false,
 	"settings_tab": true,
 	"act_ear_pin": false,
 }
@@ -119,6 +120,11 @@ const FEATURE_INFO := {
 	"act_vocals": {
 		"label": "Act vocals",
 		"help": "Add human moans and Anon breath from the pack. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
+		"live": true,
+	},
+	"act_climax": {
+		"label": "Wet climax layer",
+		"help": "Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
 		"live": true,
 	},
 	"settings_tab": {

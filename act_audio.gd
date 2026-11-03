@@ -2,23 +2,24 @@ extends Node
 ## Optional OpenNSFW act audio. The runtime creates this node only when `act_foley` or
 ## `act_vocals` is on, so both flags off never loads a pack stream or allocates a player.
 ##
-## `foley` covers thrust plaps, slides, bed/fabric, mouth kisses, flank smacks and the wet
-## climax layer. `vocals` covers pack human moans and Anon breath. The mod's pony breath,
-## Ponese voice and `squee_*` climax stay in runtime.gd and are not gated by these flags.
+## `foley` covers thrust plaps, slides, bed/fabric, mouth kisses and flank smacks. `vocals`
+## covers pack human moans and Anon breath. `climax` is the separate wet finish layer. The mod's
+## pony breath, Ponese voice and `squee_*` climax stay in runtime.gd and are not gated by these
+## flags.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
-## Depth crossings that fire the presentation sounds. A thrust closes on the mouse reversal,
-## which is too late for the impact; these are read while the depth is moving.
-const IMPACT_DEPTH := 0.78
+## The withdraw sound fires when the depth crosses back out. The impact itself fires from the
+## closed-stroke event, which is the deepest point and works for shallow thrusts too.
 const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
 
 var _foley := false
 var _vocals := false
+var _climax := false
 var _pools: Dictionary = {}
 var _next: Dictionary = {}
 var _last: Dictionary = {}
@@ -28,9 +29,9 @@ var _moan_clock := 0.0
 var _breath_clock := 0.0
 
 
-func setup(foley: bool, vocals: bool) -> void:
+func setup(foley: bool, vocals: bool, climax: bool) -> void:
 	_rng.randomize()
-	set_enabled(foley, vocals)
+	set_enabled(foley, vocals, climax)
 
 
 func foley_enabled() -> bool:
@@ -41,21 +42,31 @@ func vocals_enabled() -> bool:
 	return _vocals
 
 
-## Rebuild only the group that changed. Called at act start and from apply_live_settings().
-func set_enabled(foley: bool, vocals: bool) -> void:
-	if foley == _foley and vocals == _vocals and not _pools.is_empty():
+func climax_enabled() -> bool:
+	return _climax
+
+
+## Rebuild only the layer that changed. Called at start and from apply_live_settings().
+func set_enabled(foley: bool, vocals: bool, climax: bool) -> void:
+	if foley == _foley and vocals == _vocals and climax == _climax \
+			and not _pools.is_empty():
 		return
 	if _foley and not foley:
 		_clear_group("foley")
 	if _vocals and not vocals:
 		_clear_group("vocals")
+	if _climax and not climax:
+		_clear_group("climax")
 	_foley = foley
 	_vocals = vocals
+	_climax = climax
 	if _foley:
 		_build_group("foley")
 	if _vocals:
 		_build_group("vocals")
-	if not _foley and not _vocals:
+	if _climax:
+		_build_group("climax")
+	if not _foley and not _vocals and not _climax:
 		_moan_clock = 0.0
 		_breath_clock = 0.0
 
@@ -161,7 +172,23 @@ func _take_player(cue: String) -> AudioStreamPlayer3D:
 
 func play_plap(pose: String, intensity: String, strength: float, at: Vector3) -> bool:
 	var cue := cue_for_plap(pose, intensity)
-	return play(cue, at, strength, 0.0, pitch_for(strength))
+	var pitch := pitch_for(strength)
+	if pose == CATALOG.HORSE:
+		pitch *= 0.96
+	return play(cue, at, strength, 0.0, pitch)
+
+
+## Called from the closed-stroke event. This is the deepest point of a real thrust, so it also
+## catches shallow strokes that never crossed a fixed depth.
+func play_impact(pose: String, strength: float, rump: Vector3,
+		bed_at: Vector3, soft_bed: bool) -> void:
+	if not _foley:
+		return
+	var level := clampf(strength, 0.0, 1.0)
+	play_plap(pose, PREFERENCES.intensity_for(level), level, rump)
+	if uses_bed(pose):
+		play_bed("in", level, bed_at, soft_bed)
+	play_slide("in", level, rump, -12.0)
 
 
 func play_bed(direction: String, strength: float, at: Vector3, soft := false) -> bool:
@@ -185,7 +212,8 @@ func play_smack(at: Vector3) -> bool:
 
 
 func play_climax_wet(at: Vector3) -> void:
-	play("climax_wet", at, 1.0)
+	if _climax:
+		play("climax_wet", at, 1.0)
 
 
 func play_climax_voice(at: Vector3) -> void:
@@ -214,28 +242,21 @@ func tick_vocals(delta: float, rate: float, active: bool, at: Vector3) -> void:
 		_breath_clock = clampf(2.8 - rate * 0.2, 1.4, 2.8) * _rng.randf_range(0.9, 1.1)
 
 
-## True only on the frames that will fire a presentation sound. The caller uses this before
-## asking for the rump point, which walks the skeleton and should not run on every mouse move.
+## True only on the frames that will fire the withdraw layer. The caller uses this before asking
+## for the rump point, which walks the skeleton and should not run on every mouse move.
 func crossed(before: float, after: float) -> bool:
-	return (before < IMPACT_DEPTH and after >= IMPACT_DEPTH) \
-		or (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH)
+	return before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH
 
 
-## Presentation-only depth triggers. Scoring still uses the closed stroke in _on_stroke().
-func depth_crossed(before: float, after: float, strength: float, pose: String,
+## Withdraw only. The impact layer is fired from play_impact() on the closed-stroke event.
+func withdraw_crossed(before: float, after: float, strength: float, pose: String,
 		rump: Vector3, bed_at: Vector3, soft_bed: bool) -> void:
-	if not _foley:
+	if not _foley or not (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH):
 		return
 	var level := clampf(strength, 0.0, 1.0)
-	if before < IMPACT_DEPTH and after >= IMPACT_DEPTH:
-		play_plap(pose, PREFERENCES.intensity_for(level), level, rump)
-		if uses_bed(pose):
-			play_bed("in", level, bed_at, soft_bed)
-		play_slide("in", level, rump, -12.0)
-	if before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH:
-		play_slide("out", level, rump, -4.0)
-		if uses_bed(pose):
-			play_bed("out", level, bed_at, soft_bed)
+	play_slide("out", level, rump, -4.0)
+	if uses_bed(pose):
+		play_bed("out", level, bed_at, soft_bed)
 
 
 func stop() -> void:

@@ -153,22 +153,22 @@ const CUES := {
 	"plap_soft": {
 		"group": "foley", "streams": PLAP_SOFT, "voices": 4,
 		"volume_db": -20.0, "cooldown": 0.05, "distance": 6.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
+		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
 	"plap_firm": {
 		"group": "foley", "streams": PLAP_FIRM, "voices": 4,
 		"volume_db": -16.0, "cooldown": 0.05, "distance": 6.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
+		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
 	"plap_rough": {
 		"group": "foley", "streams": PLAP_ROUGH, "voices": 4,
 		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
+		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
 	"plap_horse": {
 		"group": "foley", "streams": PLAP_HORSE, "voices": 4,
 		"volume_db": -14.0, "cooldown": 0.05, "distance": 6.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
+		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
 	"slide_in": {
 		"group": "foley", "streams": SLIDE_IN, "voices": 3,
@@ -206,7 +206,7 @@ const CUES := {
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},
 	"climax_wet": {
-		"group": "foley", "streams": CLIMAX_WET, "voices": 2,
+		"group": "climax", "streams": CLIMAX_WET, "voices": 2,
 		"volume_db": -18.0, "cooldown": 0.5, "distance": 10.0,
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},

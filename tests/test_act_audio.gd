@@ -35,7 +35,7 @@ func run() -> void:
 	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "rough") == "plap_rough",
 		"missionary rough cue")
 	check(ACT.cue_for_plap(CATALOG.HORSE, "firm") == "plap_horse",
-		"horse uses the doggy plap pool")
+		"horse uses its own plap pool")
 	check(ACT.uses_bed(CATALOG.MISSIONARY), "missionary uses bed cues")
 	check(not ACT.uses_bed(CATALOG.HORSE), "horse skips bed cues")
 	check(ACT.pitch_for(0.0) < ACT.pitch_for(1.0), "pitch rises with strength")
@@ -73,36 +73,41 @@ func run() -> void:
 				check((stream as AudioStream).get_length() > 0.02, "stream length: " + cue)
 
 	var act: Node = ACT.new()
-	act.setup(false, false)
+	act.setup(false, false, false)
 	check(not act.foley_enabled() and not act.vocals_enabled(), "both flags off")
 	check((act.get("_pools") as Dictionary).is_empty(), "off/off allocates no players")
 
-	act.setup(true, false)
+	act.setup(true, false, false)
 	var pools: Dictionary = act.get("_pools")
 	check(act.foley_enabled() and not act.vocals_enabled(), "foley only")
 	check(pools.has("plap_soft"), "foley pool built")
 	check(not pools.has("moan_soft"), "vocal pool not built")
 
-	act.set_enabled(false, true)
+	act.set_enabled(false, true, false)
 	pools = act.get("_pools")
 	check(not act.foley_enabled() and act.vocals_enabled(), "vocals only")
 	check(not pools.has("plap_soft"), "foley pool cleared")
 	check(pools.has("moan_soft"), "vocal pool built after switch")
+	check(not pools.has("climax_wet"), "wet climax stays off with vocals only")
+	act.set_enabled(false, false, true)
+	pools = act.get("_pools")
+	check(act.climax_enabled() and pools.has("climax_wet"), "wet climax builds only from its own flag")
+	act.set_enabled(false, true, true)
 
-	act.set_enabled(false, false)
+	act.set_enabled(false, false, false)
 	check((act.get("_pools") as Dictionary).is_empty(), "both off clears every pool")
 
 	var parent := Node3D.new()
 	root.add_child(parent)
 	parent.add_child(act)
-	act.setup(true, false)
+	act.setup(true, false, false)
 	check(act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"foley plap starts a player")
 	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
 	check(act.play_smack(Vector3.ZERO), "smack plays")
-	act.set_enabled(false, true)
+	act.set_enabled(false, true, false)
 	act.play_climax_voice(Vector3.ZERO)
 	check(act.vocals_enabled(), "vocal climax cue accepted after a live toggle")
 	check(not act.play_plap(CATALOG.HORSE, "rough", 0.9, Vector3.ZERO),
@@ -117,18 +122,22 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime.bed = Node3D.new()
-	runtime._features = {"act_foley": false, "act_vocals": false}
+	runtime._features = {"act_foley": false, "act_vocals": false, "act_climax": false}
 	root.add_child(runtime)
 	runtime._start_audio()
 	check(not runtime.has_node("UnfplapActAudio"), "off/off starts no pack audio node")
 	runtime._stop_audio()
-	runtime._features = {"act_foley": true, "act_vocals": false}
+	runtime._features = {"act_foley": true, "act_vocals": false, "act_climax": false}
 	runtime._start_audio()
 	check(runtime.has_node("UnfplapActAudio"), "foley on starts the pack audio node")
 	runtime._stop_audio()
-	runtime._features = {"act_foley": false, "act_vocals": true}
+	runtime._features = {"act_foley": false, "act_vocals": true, "act_climax": false}
 	runtime._start_audio()
 	check(runtime.has_node("UnfplapActAudio"), "vocals on starts the pack audio node")
+	runtime._stop_audio()
+	runtime._features = {"act_foley": false, "act_vocals": false, "act_climax": true}
+	runtime._start_audio()
+	check(runtime.has_node("UnfplapActAudio"), "climax on starts the pack audio node")
 	runtime._stop_audio()
 	root.remove_child(runtime)
 	runtime.free()

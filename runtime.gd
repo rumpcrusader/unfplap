@@ -732,10 +732,11 @@ func apply_live_settings() -> void:
 	_features = SETTINGS.features()
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
-	if foley or vocals:
-		_ensure_act_audio(foley, vocals)
+	var climax := _feature("act_climax")
+	if foley or vocals or climax:
+		_ensure_act_audio(foley, vocals, climax)
 	elif is_instance_valid(_act_audio):
-		_act_audio.set_enabled(false, false)
+		_act_audio.set_enabled(false, false, false)
 	_mute_flank_sound(foley)
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
@@ -2607,7 +2608,7 @@ func _thrust_move(amount: float, now: float) -> void:
 	depth = _thrust_tracker.depth
 	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
 			and _act_audio.crossed(before, depth):
-		_act_audio.depth_crossed(before, depth, _thrust_tracker.live_strength(now),
+		_act_audio.withdraw_crossed(before, depth, _thrust_tracker.live_strength(now),
 			pose_id, _rump_point(), _bed_audio_point(), _bed_soft)
 	for event: Dictionary in events:
 		_on_stroke(event)
@@ -2705,6 +2706,9 @@ func _on_thrust(result: Dictionary) -> void:
 	_play_kiss()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
+		if _act_audio.foley_enabled():
+			_act_audio.play_impact(pose_id, strength, _rump_point(),
+				_bed_audio_point(), _bed_soft)
 		_act_audio.maybe_moan(strength, _thrusts_per_second(), _snout())
 	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
 		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
@@ -6388,9 +6392,9 @@ func _restore_camera() -> void:
 
 ## Create the optional audio node on first use, or update its flags if it already exists.
 ## This keeps act_audio.gd and its 97 preloaded streams out of a both-flags-off act.
-func _ensure_act_audio(foley: bool, vocals: bool) -> void:
+func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(foley, vocals)
+		_act_audio.set_enabled(foley, vocals, climax)
 		return
 	var audio_script: Script = load(ACT_AUDIO_PATH)
 	if audio_script == null:
@@ -6398,7 +6402,7 @@ func _ensure_act_audio(foley: bool, vocals: bool) -> void:
 	_act_audio = audio_script.new()
 	_act_audio.name = "UnfplapActAudio"
 	add_child(_act_audio)
-	_act_audio.setup(foley, vocals)
+	_act_audio.setup(foley, vocals, climax)
 
 
 func _start_audio() -> void:
@@ -6408,8 +6412,9 @@ func _start_audio() -> void:
 			or "cloth" in bed.name.to_lower())
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
-	if foley or vocals:
-		_ensure_act_audio(foley, vocals)
+	var climax := _feature("act_climax")
+	if foley or vocals or climax:
+		_ensure_act_audio(foley, vocals, climax)
 	_mute_flank_sound(foley)
 	_breath_streams.clear()
 	for i: int in range(1, 15):
@@ -6547,9 +6552,8 @@ func _play_climax() -> void:
 		_climax_sound.global_position = _snout()
 		_climax_sound.pitch_scale = randf_range(0.95, 1.05)
 		_climax_sound.play()
-	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
-		_act_audio.play_climax_wet(_dock_point())
 	if is_instance_valid(_act_audio):
+		_act_audio.play_climax_wet(_dock_point())
 		_act_audio.play_climax_voice(_snout())
 
 

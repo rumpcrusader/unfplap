@@ -21,11 +21,6 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.HORSE], "pose ids")
-	check(CATALOG.legacy_index(CATALOG.MISSIONARY) == 1, "missionary legacy index")
-	check(CATALOG.legacy_index(CATALOG.HORSE) == 2, "horse legacy index")
-	check(CATALOG.from_legacy(1) == CATALOG.MISSIONARY, "legacy 1 maps to missionary")
-	check(CATALOG.from_legacy(2) == CATALOG.HORSE, "legacy 2 maps to horse")
-	check(CATALOG.from_legacy(99) == "", "unknown legacy index")
 	var ids := {}
 	for id: String in CATALOG.all():
 		check(not ids.has(id), "unique pose id " + id)

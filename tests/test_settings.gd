@@ -47,9 +47,6 @@ func run() -> void:
 	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
 
 	check(int(base.get("aftercare_min", 0)) == 10, "default aftercare_min is 10")
-	check(not base.has("climax_at"), "climax_at removed")
-	check(not base.has("min_utterances"), "min_utterances removed")
-	check(not base.has("max_utterances"), "max_utterances removed")
 	var poses: Dictionary = base.get("poses", {})
 	check(poses.has(CATALOG.MISSIONARY) and poses.has(CATALOG.HORSE), "pose defaults present")
 	var taste: Dictionary = base.get("taste", {})
@@ -87,15 +84,6 @@ func run() -> void:
 	check((with_unknown["poses"] as Dictionary).has(CATALOG.MISSIONARY), "unknown pose does not remove known poses")
 	check(not (with_unknown["poses"] as Dictionary).has("unknown"), "unknown pose is ignored")
 
-	var old_prompts := base.duplicate(true)
-	old_prompts["act_prompts"] = {"utterance": "old {preferences}", "speed_perfect": "old"}
-	var cleaned := SETTINGS.profile_for(old_prompts, {}, "x")
-	var cleaned_prompts: Dictionary = cleaned.get("act_prompts", {})
-	check(not str(cleaned_prompts.get("utterance", "")).contains("{preferences}"),
-		"old preferences prompt replaced")
-	check(not cleaned_prompts.has("speed_perfect"), "old prompt key dropped")
-	check(cleaned_prompts.has("cue") and cleaned_prompts.has("talk_cue"), "new prompt keys present")
-
 	var built_in := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "fluttershy")
 	var fluttershy_taste: Dictionary = built_in["taste"]
 	check(str(fluttershy_taste.get("intensity", "")) == "firm", "Fluttershy intensity")
@@ -121,11 +109,6 @@ func run() -> void:
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
-	check(not feature_block.has("mood_cues"), "old mood cues flag removed")
-	check(not feature_block.has("readiness_hud"), "old readiness HUD flag removed")
-	check(not feature_block.has("afterglow_close"), "afterglow close flag removed")
-	check(not feature_block.has("camera_inertia"), "camera inertia flag removed")
-	check(not feature_block.has("rump_blush"), "rump blush flag removed")
 	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.FEATURE_DEFAULTS:
 		var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
@@ -133,33 +116,11 @@ func run() -> void:
 		check(not str(info.get("help", "")).is_empty(), "feature help for " + key)
 	check(SETTINGS.FEATURE_INFO.size() == SETTINGS.FEATURE_DEFAULTS.size(),
 		"feature info matches the flag set")
-	var pruned := SETTINGS.prune_features({
-		"hud_readouts": false,
-		"afterglow_close": true,
-		"free_camera": true,
-		"lean_return": true,
-	})
-	check(not bool(pruned.get("hud_readouts", true)), "prune keeps current values")
-	check(not pruned.has("afterglow_close"), "prune drops removed flags")
-	check(not pruned.has("free_camera"), "prune drops stale free camera")
-	check(not pruned.has("lean_return"), "prune drops stale lean return")
-	check(pruned.size() == SETTINGS.FEATURE_DEFAULTS.size(), "prune fills the current flag set")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(not bool(thrust_defaults.get("camera_bob", true)), "default camera bob disabled")
 	check(not bool(thrust_defaults.get("camera_motion", true)), "default camera motion disabled")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 600.0), "default thrust pixels")
-	var legacy_thrust := {"thrust": {"bobs": true}}
-	SETTINGS._migrate_thrust_block(legacy_thrust)
-	var migrated: Dictionary = legacy_thrust["thrust"]
-	check(bool(migrated.get("camera_bob", false)), "legacy bob migrates to camera bob")
-	check(bool(migrated.get("camera_motion", false)), "legacy bob migrates to camera motion")
-	check(not migrated.has("bobs"), "legacy bob key is removed")
-	var default_written := {"thrust": {"bobs": true, "camera_bob": false, "camera_motion": false}}
-	SETTINGS._migrate_thrust_block(default_written)
-	var recovered: Dictionary = default_written["thrust"]
-	check(bool(recovered.get("camera_bob", false)), "legacy bob overrides default camera bob")
-	check(bool(recovered.get("camera_motion", false)), "legacy bob overrides default camera motion")
 	var controls := SETTINGS.thrust_controls()
 	check(bool(controls.get("up", false)), "runtime thrust controls up")
 	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
@@ -167,7 +128,6 @@ func run() -> void:
 		"runtime thrust controls pixels in range")
 	check(controls.has("camera_bob"), "runtime camera bob read")
 	check(controls.has("camera_motion"), "runtime camera motion read")
-	check(not controls.has("bobs"), "old combined bob toggle removed")
 	var rock_defaults: Dictionary = SETTINGS.CAMERA_ROCK_DEFAULTS
 	check(near(float(rock_defaults.get("impulse", 0.0)), 0.50), "camera rock default impulse")
 	check(near(float(rock_defaults.get("stiffness", 0.0)), 30.0), "camera rock default stiffness")

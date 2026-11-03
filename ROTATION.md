@@ -226,10 +226,10 @@ these values here if a future pose needs that effect.
   pony size; the point offsets are already per size.
 - Anon's hip follows a damped `_anon_thrust_phase` toward raw thrust `depth`:
   `THRUST_MAX_M = 0.045 m` forward at phase 1. The phase is clamped `0…1`, so it eases in and
-  back out with inertia without exceeding the old maximum travel.
+  back out with inertia without exceeding the maximum travel.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
-  `BODY_SWAY_MAX_M = 0.035` is temporary/exaggerated.
+  `BODY_SWAY_MAX_M = 0.035`.
 - Strong thrusts build a subtle rump blush decal up to `0.25` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
@@ -245,7 +245,6 @@ these values here if a future pose needs that effect.
 - Base pose adds `chin_up_deg = 30` on the head and `neck_down_deg = 15` total on neck1/neck2.
 - `foreleg_spread = 0.172 rad` is the absolute outward half-angle; the recipe measures the
   current hoof line and rotates the upper arms only by the difference.
-- `hind_spread` defaults to `0.32`; Rarity no longer needs an override.
 - Tail aside/lift/flick on the hair skeleton; side randomized per act. `poses.<pose>.tail_lift`
   defaults to `0.42` and is per-mare/per-pose overridable. A damped spring driven by
   raw `depth` also rocks the tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral

@@ -1,5 +1,5 @@
 extends SkeletonModifier3D
-## EXPERIMENTAL (feature: thrust_ear_twitch). A small, eased ear twitch on a thrust, layered on top of the
+## A small, eased ear twitch on a thrust (feature: thrust_ear_twitch), layered on top of the
 ## act's pinned ears. The shape is a short forward/back plus mirrored sideways flick of both ear
 ## roots, not a change of expression weight, so it cannot fight the fluster/line-face ear system.
 

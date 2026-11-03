@@ -54,7 +54,6 @@ static func resolve(raw: Variant) -> Dictionary:
 	out["talk"] = _clean_list(out.get("talk"), TALKS)
 	out["warmth"] = _enum(str(out.get("warmth", "normal")).to_lower(), WARMTHS, "normal")
 	out["recovery"] = clampi(int(out.get("recovery", RECOVERY_DEFAULT)), RECOVERY_MIN, RECOVERY_MAX)
-	out.erase("pose")
 	out["notes"] = str(out.get("notes", "")).strip_edges()
 	# A liked item cannot also be disliked.
 	var dislikes: Array = []

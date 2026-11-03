@@ -50,7 +50,7 @@ func run() -> void:
 	check(RUNTIME.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
 	check(RUNTIME.smack_side_index(0.0) == -1, "centered smack is random")
 
-	check(near(RUNTIME.lean_distance(1.0), 0.24), "forward lean distance increased 50 percent")
+	check(near(RUNTIME.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(RUNTIME.lean_distance(-1.0), -0.08), "backward lean distance is halved")
 	check(near(RUNTIME.lean_size_scale_for(1.0), 1.0), "JRHNBR lean scale is reference")
 	check(near(RUNTIME.lean_size_scale_for(0.66), 1.34), "Canon lean scale is +34 percent")
@@ -80,8 +80,8 @@ func run() -> void:
 	side_hip.free()
 	lean_runtime.free()
 
-	check(near(RUNTIME.CARESS_SPEED_RAD_S, 3.6), "caress speed reduced 20 percent")
-	check(near(RUNTIME.CARESS_RADIUS_M, 0.04125), "caress radius reduced 25 percent")
+	check(near(RUNTIME.CARESS_SPEED_RAD_S, 3.6), "caress speed")
+	check(near(RUNTIME.CARESS_RADIUS_M, 0.04125), "caress radius")
 	var right_palm: Basis = RUNTIME.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
 	var left_palm: Basis = RUNTIME.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
@@ -112,8 +112,8 @@ func run() -> void:
 	check(RUNTIME.pose2_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
 	check(not RUNTIME.pose2_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
-	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle reduced 20 percent")
-	check(near(RUNTIME.BOB_FORWARD_IMPULSE, 0.45), "penetration camera travel increased 50 percent")
+	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
+	check(near(RUNTIME.BOB_FORWARD_IMPULSE, 0.45), "camera motion impulse")
 	check(near(RUNTIME.KISS_LEAN_M, 0.27) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.18)
 		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
 	check(near(RUNTIME.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
@@ -195,9 +195,9 @@ func run() -> void:
 	live_runtime.free()
 
 	check(near(RUNTIME.HOLD_SWAY_FORWARD, 0.010) and near(RUNTIME.HOLD_SWAY_SIDE, 0.0084),
-		"hold sway amplitude reduced 33 percent")
+		"idle camera sway amplitude")
 	check(near(RUNTIME.MOUNTING_POSE2_CAMERA_LIFT_M, 0.10), "JRHNBR pose-2 camera raised 10 cm")
-	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel tripled")
+	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel")
 	check(near(RUNTIME.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
 	check(near(RUNTIME.LEAN_FIRE, 0.75) and near(RUNTIME.LEAN_RELEASE, 0.60),
 		"lean threshold uses 75/60 hysteresis")

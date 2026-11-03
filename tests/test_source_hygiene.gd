@@ -1,10 +1,8 @@
 extends SceneTree
-## Source hygiene for the renamed mod.
+## Source hygiene for the mod.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_source_hygiene.gd
 
 const ROOT := "res://mods/unfplap"
-const BANNED := "unfun" + "funf"
-const OLD_NAME := "pu" + "mp"
 var failures := 0
 var checks := 0
 
@@ -28,12 +26,6 @@ func run() -> void:
 	check(manifest.contains("\"id\": \"unfplap\""), "mod id")
 	check(manifest.contains("\"version\": \"0.0.3\""), "mod version")
 	check(manifest.contains("res://mods/unfplap/"), "entry/extension paths")
-	for path: String in files:
-		var text := FileAccess.get_file_as_string(path)
-		if text.contains(BANNED):
-			check(false, "old name in " + path)
-		if path.to_lower().contains(OLD_NAME) or text.to_lower().contains(OLD_NAME):
-			check(false, "renamed term still present in " + path)
 	_check_preloads(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:

@@ -1,23 +1,10 @@
 extends RefCounted
-## Pose catalog: stable ids, legacy indexes and default per-pose settings.
+## Pose catalog: stable ids and default per-pose settings.
 ## New poses add an entry here and a controller/recipe; shared runtime should not branch on
 ## numeric pose indexes.
 
 const MISSIONARY := "missionary"
 const HORSE := "horse"
-
-## Legacy indexes are kept only for logs/debug output:
-##   Pose 1 = missionary
-##   Pose 2 = horse
-const LEGACY := {
-	MISSIONARY: 1,
-	HORSE: 2,
-}
-
-const BY_LEGACY := {
-	1: MISSIONARY,
-	2: HORSE,
-}
 
 const POSE_DEFAULTS := {
 	MISSIONARY: {
@@ -60,14 +47,6 @@ const POSE_DEFAULTS := {
 
 static func all() -> Array:
 	return [MISSIONARY, HORSE]
-
-
-static func legacy_index(id: String) -> int:
-	return int(LEGACY.get(id, 0))
-
-
-static func from_legacy(index: int) -> String:
-	return str(BY_LEGACY.get(index, ""))
 
 
 static func defaults(id: String) -> Dictionary:

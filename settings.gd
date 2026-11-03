@@ -52,7 +52,6 @@ const CHARACTER_NAMES := {
 }
 
 ## Feature switches. Keep this as the single list; runtime reads it once per act.
-## Renamed without migration: old keys are pruned on the next settings read.
 const FEATURE_DEFAULTS := {
 	"hud_readouts": true,
 	"thrust_camera_rock": true,
@@ -433,10 +432,8 @@ static func thrust_controls() -> Dictionary:
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
 		pixels = float((block as Dictionary).get("pixels_per_full", 600.0))
-		# Old combined toggle: both split toggles inherit it until the next save.
-		var legacy_bobs := bool((block as Dictionary).get("bobs", false))
-		camera_bob = bool((block as Dictionary).get("camera_bob", legacy_bobs))
-		camera_motion = bool((block as Dictionary).get("camera_motion", legacy_bobs))
+		camera_bob = bool((block as Dictionary).get("camera_bob", false))
+		camera_motion = bool((block as Dictionary).get("camera_motion", false))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
@@ -460,7 +457,6 @@ static func save_thrust_controls(up: bool, pixels_per_full: float,
 	controls["pixels_per_full"] = clampf(pixels_per_full, 240.0, 1200.0)
 	controls["camera_bob"] = camera_bob
 	controls["camera_motion"] = camera_motion
-	controls.erase("bobs")
 	data["thrust"] = controls
 	_write(data)
 
@@ -565,16 +561,6 @@ static func pose(id: String, pose_id: String) -> Dictionary:
 	return CATALOG.defaults(pose_id)
 
 
-static func set_character_override(id: String, override: Dictionary) -> void:
-	var data := _read()
-	var characters: Variant = data.get("characters", {})
-	if not characters is Dictionary:
-		characters = {}
-	characters[id] = override
-	data["characters"] = characters
-	_write(data)
-
-
 static func _read() -> Dictionary:
 	var path := _path()
 	var data: Dictionary = {}
@@ -582,28 +568,9 @@ static func _read() -> Dictionary:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
-	_migrate_thrust_block(data)
 	data = _merge(_defaults(), data)
-	data["features"] = prune_features(data.get("features", {}))
 	_write(data)
 	return data
-
-
-## Split the old combined `thrust.bobs` into its two controls before defaults are merged.
-static func _migrate_thrust_block(data: Dictionary) -> void:
-	var block: Variant = data.get("thrust", {})
-	if not block is Dictionary:
-		return
-	var thrust_block: Dictionary = block
-	if not thrust_block.has("bobs"):
-		return
-	var legacy := bool(thrust_block["bobs"])
-	# Until this split existed, `bobs` was the only source of truth. Let it win over any
-	# default-written camera keys, then drop it.
-	thrust_block["camera_bob"] = legacy
-	thrust_block["camera_motion"] = legacy
-	thrust_block.erase("bobs")
-	data["thrust"] = thrust_block
 
 
 static func _defaults() -> Dictionary:
@@ -623,21 +590,16 @@ static func _defaults() -> Dictionary:
 	}
 
 
-## Keep only current flags, fill missing defaults, and drop retired/renamed keys. Shared by
-## the disk read path and the pure settings tests.
-static func prune_features(block: Variant) -> Dictionary:
+## The merged feature switches. Unknown keys are ignored; missing keys use defaults.
+static func features() -> Dictionary:
+	var data := _read()
+	var block: Variant = data.get("features", {})
 	var out: Dictionary = FEATURE_DEFAULTS.duplicate(true)
 	if block is Dictionary:
 		for key: String in FEATURE_DEFAULTS:
 			if (block as Dictionary).has(key):
 				out[key] = bool((block as Dictionary)[key])
 	return out
-
-
-## The merged feature switches. Unknown/missing keys are pruned to the current flag set.
-static func features() -> Dictionary:
-	var data := _read()
-	return prune_features(data.get("features", {}))
 
 
 static func feature(name: String) -> bool:
@@ -674,8 +636,7 @@ static func _fill_taste(template: Dictionary) -> Dictionary:
 	return out
 
 
-## Keep only current prompt keys. Old per-stroke prompt keys are ignored, and an old
-## `{preferences}` utterance is replaced rather than sent to the model with a missing value.
+## Keep only current prompt keys.
 static func _fill_prompts(template: Dictionary) -> Dictionary:
 	var out: Dictionary = template.duplicate(true)
 	var prompts: Dictionary = DEFAULT_ACT_PROMPTS.duplicate(true)
@@ -684,8 +645,6 @@ static func _fill_prompts(template: Dictionary) -> Dictionary:
 		for key: String in DEFAULT_ACT_PROMPTS:
 			if (raw as Dictionary).has(key):
 				prompts[key] = str((raw as Dictionary)[key])
-	if str(prompts.get("utterance", "")).contains("{preferences}"):
-		prompts["utterance"] = str(DEFAULT_ACT_PROMPTS["utterance"])
 	out["act_prompts"] = prompts
 	return out
 

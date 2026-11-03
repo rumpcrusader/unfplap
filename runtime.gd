@@ -27,7 +27,7 @@ const VOICE := preload("res://mods/unfplap/voice_status.gd")
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 
 const READINESS_MAX := 100.0
-## Her "close" cue. It no longer gates the player's afterglow.
+## Her "close" cue. The player's afterglow is chosen separately.
 const CLOSE_AT := 65.0
 ## Act eyelid values: half-lidded through ACTIVE, wide only at climax, sleepier afterglow.
 const ACT_LIDS := 0.45
@@ -40,9 +40,9 @@ const MAX_PONY_CLIMAXES := 5
 ## Readiness per real thrust. Both taste axes match, one axis matches, or neither matches.
 const THRUST_HEAT_BOTH := 1.4
 const THRUST_HEAT_ONE := 0.7
-## Perceived intensity is scored from average stroke speed. Visual impact keeps the old generous
-## scale so normal and fast thrusts still move the rump and camera as tuned; slow and shallow
-## strokes stay lighter.
+## Perceived intensity is scored from average stroke speed. Visual impact uses a separate
+## scale so normal and fast thrusts move the rump and camera; slow and shallow strokes stay
+## lighter.
 const THRUST_IMPACT_GAIN := 2.0
 const THRUST_HEAT_NONE := 0.0
 ## Never let a macro score faster than this.
@@ -166,7 +166,7 @@ const PALM_CONTACT_SMOOTH := 18.0
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
 ## A palm normal may turn this fast when the coat normal moves or the contact source changes.
-## Slower than a snap, faster than the old stuck-then-jump behaviour.
+## Fast enough to track the coat, slow enough to avoid snapping.
 const PALM_NORMAL_MAX_DEG_S := 120.0
 ## The clearance scales with the pony's actual body scale so Canon, JRHNBR and Hoers keep the
 ## same relative palm stand-off. Clamped so a malformed scale cannot push the hand far away.
@@ -208,13 +208,13 @@ const ANON_THRUST_SPEED_REF := 3.0
 const ANON_THRUST_SPEED_MIN := 0.6
 const ANON_THRUST_SPEED_MAX := 1.8
 const ANON_THRUST_STRENGTH_MIN := 0.45
-## Safety cone for AnonPony's own body-yaw limit; the desktop act camera no longer free-looks.
+## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
 ## Pose 2 after the climax: Anon eases back before the act restores.
 const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
-## Pose 2 after the climax: held afterglow; Anon no longer auto-withdraws.
+## Pose 2 after the climax: held afterglow; Anon stays put.
 ## The close window only exists in the horse afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
@@ -787,24 +787,6 @@ func _act_presentation(delta: float) -> void:
 		_flutter_clock = randf_range(4.8, 9.2)
 
 
-func _set_ears(kind: String, weight: float) -> void:
-	if not is_instance_valid(pony):
-		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null:
-		return
-	var eyes: Variant = expressions.get("eyes")
-	if eyes == null:
-		return
-	var dict: Variant = eyes.get("expression_ears")
-	if not dict is Dictionary:
-		return
-	var ears: Dictionary = dict
-	for name: String in ["ears_alert", "ears_side", "ears_agitated", "ears_pinned"]:
-		ears[name] = 0.0
-	ears[kind] = clampf(weight, 0.0, 1.0)
-
-
 func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -1326,20 +1308,6 @@ func _buck_or_push() -> void:
 	knockdown.call("start", body, direction.normalized() * 3.0)
 
 
-func can_offer() -> bool:
-	if not is_instance_valid(pony) or not is_instance_valid(main):
-		return false
-	if not _relationship_ok() or not _player_form_ok():
-		return false
-	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
-		return false
-	if pony.is_held() or _cuddle_active():
-		return false
-	if not _conversation_ok() or not _free_of_affection():
-		return false
-	return true
-
-
 func _stage_ok() -> bool:
 	var runtime: Variant = pony.get_meta("relationship_runtime")
 	if runtime == null or not is_instance_valid(runtime):
@@ -1602,9 +1570,9 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 
 func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if not can_start(pose, act_source, bed_in):
-		_log("start blocked pose=%s legacy=%d source=%s pony=%s" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
-	# The idle horse invitation is temporary. Remove it before the act builds its own pose.
+	# Remove the idle horse invitation before the act builds its own pose.
 	clear_presentation()
 	pose_id = pose
 	source = act_source
@@ -1741,7 +1709,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.show_act(self, hud_readouts())
 		main.hud.hide_prompt()
-	_log("started pose=%s legacy=%d source=%s pony=%s eye=%.2f" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name), _camera_target_eye])
+	_log("started pose=%s source=%s pony=%s eye=%.2f" % [pose, act_source, str(pony.name), _camera_target_eye])
 	return true
 
 
@@ -1967,7 +1935,7 @@ func _keep_nav() -> void:
 
 ## Keep the act's attention while another character talks to Anon. Clearing the listener every
 ## tick stops the director from turning her away or pinning her gaze; speech, emotions and
-## locomotion keep running, and `_check_running` no longer treats conversation as a stop.
+## locomotion keep running, and `_check_running` does not treat conversation as a stop.
 func _keep_act_attention() -> void:
 	if state == State.IDLE or state == State.RESTORE or not is_instance_valid(pony):
 		return
@@ -2036,7 +2004,7 @@ func _abort_start() -> void:
 
 ## Put her in the game's own lie-down state after the teleport. Waiting one physics frame lets
 ## `grounded()` see the mattress; the native lie animation then settles her into the bedding
-## instead of the old immediate impact-flop that left her hovering.
+## so she settles onto the mattress instead of hovering.
 func _place_cradle(anchor: Transform3D) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -2097,7 +2065,7 @@ func _bed_anchor() -> Transform3D:
 
 
 ## The game's own bed-rest place for a pony lying beside Anon. Using it keeps her along the
-## mattress (not across it) and on the drawn bedding, instead of the old floating cross-bed pose.
+## mattress (not across it) and on the drawn bedding.
 func _shared_bed_rest(bed_node: Node3D) -> Variant:
 	if not is_instance_valid(bed_node) or not is_inside_tree():
 		return null
@@ -2154,7 +2122,7 @@ func debug_chin(step_deg: float) -> void:
 
 
 ## Attach the debug chin modifier and keep it after every pose modifier, so an act cannot
-## overwrite the experimental head pitch.
+## overwrite the debug head pitch.
 func _apply_debug_chin() -> void:
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not skeleton is Skeleton3D:
@@ -2980,7 +2948,7 @@ func _thrust_jiggle(strength: float) -> void:
 	if not marks is Array or (marks as Array).size() < 2:
 		return
 	# One shader center on the rump midline so both flanks wobble together. The native FlankTouch
-	# supports only one jiggle at a time, so this replaces the old left/right alternation.
+	# supports only one jiggle at a time; the shader center covers both flanks.
 	var mark: Variant = (marks as Array)[0]
 	if not mark is Decal:
 		return
@@ -3110,8 +3078,8 @@ func _climax() -> void:
 	if state != State.ACTIVE:
 		return
 	pony_climaxes += 1
-	_log("pony climax=%d pose=%s legacy=%d pony=%s readiness=%.0f" % [
-		pony_climaxes, pose_id, CATALOG.legacy_index(pose_id), str(pony.name), satisfaction])
+	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
+		pony_climaxes, pose_id, str(pony.name), satisfaction])
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
@@ -3272,7 +3240,7 @@ func _commit_afterglow() -> void:
 
 ## Pose 2 also gets a held afterglow now that there are things to do in it.
 func _pose2_afterglow_begin() -> void:
-	_log("afterglow pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
+	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_end_act_lines(true)
 	_commit_afterglow()
 	state = State.AFTERGLOW
@@ -3295,7 +3263,7 @@ func _pose2_afterglow_begin() -> void:
 
 
 func _afterglow_begin() -> void:
-	_log("afterglow pose=%s legacy=%d pony=%s" % [pose_id, CATALOG.legacy_index(pose_id), str(pony.name)])
+	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_end_act_lines(true)
 	_commit_afterglow()
 	state = State.AFTERGLOW
@@ -4001,7 +3969,7 @@ func _lean_tick(delta: float) -> void:
 	_lean_view_forward = lerpf(_lean_view_forward, _lean_forward, alpha)
 	_lean_view_side = lerpf(_lean_view_side, _lean_side, alpha)
 	if not _lean_return_enabled and _feature("idle_camera_sway"):
-		# Experimental idle breathing. Off by default: hold mode must not drift the camera
+		# Idle breathing. Off by default: hold mode must not drift the camera
 		# when the player is not leaning.
 		_hold_rock_clock += delta
 		_lean_view_forward = clampf(_lean_view_forward
@@ -5563,7 +5531,7 @@ func apply_camera_motion() -> void:
 		var lean_scale := _lean_size_scale()
 		var lean_forward := lean_distance(_lean_view_forward, lean_scale)
 		if lean_forward < 0.0:
-			# Never let the shot cross its own neck target; that used to flip the view backwards.
+			# Never let the shot cross its own neck target and flip the view backwards.
 			var to_target := _pose1_look_target() - _pose1_camera
 			var room := maxf(0.0, to_target.dot(-_pose1_view_basis.z) - 0.12)
 			lean_forward = -minf(-lean_forward, room)
@@ -5775,9 +5743,9 @@ func _glance_back_fade() -> float:
 	return glance_back_fade_for(float(_presentation_cfg.get("glance_back_speed", 1.0)))
 
 
-## Every few seconds she turns her head back toward Anon, then forward again. Reverted to the
-## initial implementation: the game's secondary gaze owns the turn; pose 2 only adds the optional
-## throw-back rotation (`head_back`), eased so it does not snap.
+## Every few seconds she turns her head back toward Anon, then forward again. The game's
+## secondary gaze owns the turn; pose 2 only adds the optional throw-back rotation (`head_back`),
+## eased so it does not snap.
 func _drive_glance(delta: float) -> void:
 	if not _has_facing or pose_id != CATALOG.HORSE or not is_instance_valid(pony):
 		return

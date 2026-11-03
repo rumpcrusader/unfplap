@@ -73,7 +73,7 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 113, `SOURCE_HYGIENE` 46 checks / 49 files,
+- Current passing state: `CATALOG` 8, `SETTINGS` 91, `SOURCE_HYGIENE` 46 checks / 49 files,
   `ROTATION` 8, `THRUST` 39, `PREFERENCES` 38, `UTTERANCE` 12, `RUNTIME_THRUST` 22,
   `AFTERGLOW` 19, `VOICE` 9, `ACTIONS` 91, `INITIATION` 15.
 - Update these counts when tests change. A stale count is a docs bug.
@@ -83,12 +83,6 @@ done
     --script res://tools/modding/build_mod.gd -- unfplap --out <file.pck> [--no-extends]
   ```
   Success prints `MOD_BUILT <path>`.
-- Release note: the `0.1.1.1-maredev` loader cannot compile a script extension whose base is a
-  `.gdc` (`user://mods/.bases/0.gd` / `.gdc` mismatch). Build that release with
-  `--no-extends`, which drops `"extends"` from the packed `mod.json` while the source
-  `--mod-src` run keeps it. The `0.0.3` release pck was built that way, so the bed
-  body-scale/approach extension is source-only until the game loader is fixed or the next game
-  build ships the fix.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
   shadows source edits.
 - `mods/unfplap/README.md` and `mods/unfplap/AGENTS.md` are excluded from the pack by the
@@ -308,7 +302,6 @@ body-relative axes.
 - `foreleg_spread` is the absolute outward half-angle from the body centreline. The default
   `0.172 rad` matches the current rest placement; `_spread_fore()` measures the current hoof line
   and rotates the upper arms only by the difference.
-- `poses.horse.hind_spread` defaults to `0.32`; Rarity no longer needs an override.
 - Ears keep the current fluster/pinned baseline. `ear_twitch.gd` flicks **both** ear roots
   together: a shared forward/back pitch plus a sideways twitch that moves both ears outward or
   both toward the head. The per-ear sign is derived from the ear root's lateral offset, never a
@@ -561,8 +554,7 @@ examples.
 
 ## Dialogue utterances
 
-- There is no satisfaction-threshold schedule and no `min_utterances`/`max_utterances` cap.
-  Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
+- Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
 - A cue line uses the `cue` prompt; a talk invitation uses `talk_cue`. The state line contains
   pose, mood, taste-axis motion, last touch, last talk, pony climax count and act time; it
   contains no speed or depth units.
@@ -616,8 +608,6 @@ examples.
 
 ## Debug and testing
 
-Keep this section concise; do not rebuild the removed debug-key catalogue.
-
 - `Ctrl+Shift+D`: master DEBUG LOGS toggle; default ON; persists in
   `user://mods/data/unfplap/settings.json`.
 - `F7`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
@@ -641,7 +631,6 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
   every setup action (opening/tutorial handling, population restriction/prune, AI/time pauses,
   per-mare friendship/romance/dating/mood/idle setup, no spawned bed).
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
-- Do not document or reintroduce removed debug keys or historical debug modes.
 - Test every pose start, climax, afterglow, restore, hold-Y and cuddle path in the lab
   after changing camera, pose or scoring code.
 
@@ -658,7 +647,7 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 - The Unfplap settings tab is **runtime-injected** with
   `Mods.on_node("res://world/ui/settings_page.gd", ...)`, not a `mod.json` extension. If
   `settings_tab` is false it returns before touching the page. If the page's private fields are
-  unavailable it logs and skips. This avoids the old release-breaking extension attempt.
+  unavailable it logs and skips, so the settings page is never required for the mod to load.
 - The injected tab also owns the **Character taste** editor: one pony selector from
   `SETTINGS.CHARACTER_ORDER`, enum controls from `preferences.gd`, recovery `0…80`, touch/talk
   like and dislike checkboxes, and editable private notes. Taste edits save automatically and
@@ -690,8 +679,7 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
-rump blush. `lean_return` and `free_camera` are retired; `prune_features()` drops them and every
-renamed key on the next settings read (hard cutoff, no migration).
+rump blush. There are no migration shims; unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `600`; `thrust.camera_bob` and
   `thrust.camera_motion` default to `false`.
@@ -715,7 +703,6 @@ renamed key on the next settings read (hard cutoff, no migration).
   display labels. Add a pony to both and to `CHARACTER_TEMPLATES` when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in
   `preferences.gd`/`settings.gd`.
-- No migration shims. Pre-release dev keys are ignored, not translated.
 
 ## Documentation discipline
 
@@ -732,41 +719,20 @@ This is mandatory.
   - Only update **CONTROLS** and **FEATURES** unless the user explicitly asks for another
     section.
   - Do not list debug controls in README.
-  - Mark experimental controls `(experimental)`.
   - Features are concise, high-level and one sentence each. No history, implementation detail
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
 - Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md` and the test counts consistent.
 
-## Open tuning and limitations
+## Current notes
 
-- Pose-1 camera height/forward and pullback scale with `pony.body_scale`; JRHNBR (`1.35`) sits
-  higher and farther back. Debug logs every `100 ms` for `10 s` show anchor, view, basis, target,
-  dot, bed, pose amount, lean and size, plus explicit `CAMERA REBUILD`, `CAMERA REAIM`,
-  `CAMERA SNAP` and `HEAD SNAP` lines.
-- Pose-2 neck aim, body sway amplitude, camera inertia/rock and ear twitch still need a visual pass.
-- Lean amounts, side yaw (`3°`), forced shoulder look and the base-kiss reuse are first-pass
-  values; tune in the lab. Verify the pose-2 `60°` wing start and the per-size caress points
-  visually.
-- Verify `foreleg_spread = 0.172` preserves the current foreleg stance in the lab; tune if needed.
-- `BODY_SWAY_MAX_M` is intentionally exaggerated at `0.035 m`; reduce toward `0.012 m`.
-- `ext/shared_bed.gd` lifts the stock `1.05` bed-cuddle body-scale cap. It lowers the numeric
-  `body_scale` only for the synchronous `eligible()` check, then restores it, so JRHNBR, Same
-  Height and Hoers mares can share a bed. It also tries the bed's authored `side_local` approach
-  before the generic side, which the Golden Oak guest nook needs. Source runs log
-  `unfplap extends res://world/relationships/shared_bed.gd`; the `0.1.1.1` release pck omits
-  that extension because its loader cannot compile the `.gdc` base (see the build note above).
+- `ext/shared_bed.gd` lifts the stock `1.05` bed-cuddle body-scale cap and tries the bed's
+  authored `side_local` approach before the generic side. It is intentionally kept even when a
+  release build omits the extension.
 - The stock bed captures a snuggle guest's rest transform at invite time from the player's
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying
   down before inviting.
-- `CLOSE_AT = 65`, `ASSIST_CAP = 60`, `THRUST_HEAT_BOTH`/`THRUST_HEAT_ONE`,
-  `THRUST_SCORE_MIN_INTERVAL`, the per-mare `recovery` values, `TOUCH_HEAT`/`TALK_HEAT`,
-  `RECEPTIVE_S`/`RECEPTIVE_BOOST` and the close-window thresholds are first-pass; tune them
-  in the lab.
 - The talk classifier in `preferences.gd` is a small keyword map, not an LLM call. Expand it
   only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
-- Slow-stroke plap audio and custom plap clips are future work.
-- `runtime.gd` still contains the deferred structural cleanup (splitting the missionary and
-  horse state, and consolidating start/restore paths); no third pose is planned.
 - `README.md` is user-maintained except CONTROLS and FEATURES.

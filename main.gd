@@ -13,7 +13,6 @@ const TASTE := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const HOUSE := preload("res://world/buildings/house_interior.gd")
 const CURRENCY := preload("res://world/ui/currency.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
@@ -1027,10 +1026,9 @@ func _log_offer() -> void:
 	if key == _last_offer_key:
 		return
 	_last_offer_key = key
-	_debug("OFFER pony=%s pose=%s legacy=%d source=%s bed=%s" % [
+	_debug("OFFER pony=%s pose=%s source=%s bed=%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		str(_offer.get("pose", "")), CATALOG.legacy_index(str(_offer.get("pose", ""))),
-		str(_offer.get("source", "")), str(_offer.get("bed"))])
+		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(_offer.get("bed"))])
 
 
 func _debug_target(view: Camera3D) -> Node:
@@ -1491,10 +1489,6 @@ func player_beside_bed(bed: Node3D) -> bool:
 			if is_instance_valid(bed_node) and (bed_node as Node3D).is_ancestor_of(seat as Node):
 				return true
 	return false
-
-
-func house_at(point: Vector3) -> Node3D:
-	return HOUSE.at(get_tree(), point)
 
 
 func menu_open() -> bool:

@@ -1,10 +1,8 @@
 extends SkeletonModifier3D
-## EXPERIMENTAL (feature: pose2_body_sway). Pose-2 upper-body sway on the thrust stroke. The chest, neck
+## Pose-2 upper-body sway on the thrust stroke (feature: pose2_body_sway). The chest, neck
 ## and head move fore/aft with raw depth while the foreleg chains are pinned back to their original
 ## origins, so the hooves stay planted.
 ##
-## TEMP: deliberately exaggerated for the first visual pass. Reduce BODY_SWAY_MAX_M to about
-## 0.012 m once the motion reads correctly.
 
 const BODY_SWAY_MAX_M := 0.035
 const SWAY_STIFFNESS := 90.0

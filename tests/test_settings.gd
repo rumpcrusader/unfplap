@@ -26,6 +26,26 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 func run() -> void:
 	var base: Dictionary = SETTINGS._filled_default()
+	check(SETTINGS.CHARACTER_ORDER.size() == 16, "sixteen editable ponies")
+	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_NAMES.size(), "every pony has a display name")
+	check(SETTINGS.character_name("pinkie_pie") == "Pinkie Pie", "display name lookup")
+	var catalog_ok := true
+	var taste_ok := true
+	for id: String in SETTINGS.CHARACTER_ORDER:
+		if not SETTINGS.CHARACTER_TEMPLATES.has(id):
+			catalog_ok = false
+		var built_taste: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, id).get("taste", {})
+		if built_taste.has("pose"):
+			taste_ok = false
+		var recovery := int((built_taste as Dictionary).get("recovery", -1))
+		if recovery < 0 or recovery > 80:
+			taste_ok = false
+	check(catalog_ok, "every pony has a taste template")
+	check(taste_ok, "generated tastes are valid and pose-free")
+	var maud := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "maud_pie")
+	check(int((maud["taste"] as Dictionary).get("recovery", -1)) == 10, "Maud is slow to recover")
+	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
+
 	check(int(base.get("aftercare_min", 0)) == 10, "default aftercare_min is 10")
 	check(not base.has("climax_at"), "climax_at removed")
 	check(not base.has("min_utterances"), "min_utterances removed")

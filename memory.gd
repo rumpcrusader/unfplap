@@ -280,6 +280,12 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 ## the actual exchange; the older world-context events are the fallback.
 static func shared_memory(game: Node, id: String, cue: String, event_id: String,
 		used_ids: Array) -> Dictionary:
+	var peak := peak_memory(id)
+	if not peak.is_empty():
+		var peak_id := "peak:" + id
+		var peak_text := str(peak.get("text", "")).strip_edges()
+		if not peak_id in used_ids and not peak_text.is_empty():
+			return {"id": peak_id, "text": peak_text}
 	var ctx := _context(game)
 	if ctx == null:
 		return {}
@@ -287,6 +293,53 @@ static func shared_memory(game: Node, id: String, cue: String, event_id: String,
 	if not story.is_empty():
 		return story
 	return _event_memory(ctx, id, event_id, used_ids)
+
+
+## The strongest peak act is a mod-owned, per-world record. It is separate from the story
+## summary so a compressed summary cannot lose the exchange that mattered.
+static func peak_memory(id: String) -> Dictionary:
+	var mods := _mods()
+	if mods == null:
+		return {}
+	var state: Variant = mods.call("state", "unfplap")
+	if not state is Dictionary:
+		return {}
+	var rows: Variant = (state as Dictionary).get("peak_memories", {})
+	if not rows is Dictionary:
+		return {}
+	var row: Variant = (rows as Dictionary).get(id, {})
+	return (row as Dictionary).duplicate(true) if row is Dictionary else {}
+
+
+static func record_peak_memory(id: String, event_id: String, text: String, score: float) -> void:
+	var mods := _mods()
+	if mods == null:
+		return
+	var state: Variant = mods.call("state", "unfplap")
+	if not state is Dictionary:
+		return
+	var rows: Variant = (state as Dictionary).get("peak_memories", {})
+	if not rows is Dictionary:
+		rows = {}
+	var old: Variant = (rows as Dictionary).get(id, {})
+	if old is Dictionary and float((old as Dictionary).get("score", -1.0)) >= score:
+		return
+	(rows as Dictionary)[id] = {
+		"text": text,
+		"score": score,
+		"event_id": event_id,
+		"at": Time.get_unix_time_from_system(),
+	}
+	(state as Dictionary)["peak_memories"] = rows
+	if mods.has_method("save_changed"):
+		mods.call("save_changed")
+
+
+static func _mods() -> Node:
+	var loop := Engine.get_main_loop() as SceneTree
+	if loop == null or loop.root == null:
+		return null
+	return loop.root.get_node_or_null("Mods")
 
 
 static func _story_memory(ctx: Node, id: String, cue: String, used_ids: Array) -> Dictionary:

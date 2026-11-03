@@ -147,9 +147,10 @@ overwhelmed   a disliked touch/talk landed recently
 - Every cue line gets a private relationship note and tone: friendship/love level, stage,
   first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
   text is unchanged, and the model is not told to repeat specific names.
-- One unused shared memory may ride with a cue. The story journal is preferred (a cue-word
-  match, then the most recent player exchange); older world-context events are the fallback.
-  Intimacy events and private brain notes are skipped. The memory is colour, not a script.
+- One unused shared memory may ride with a cue. A stored peak memory is preferred; otherwise
+  the story journal (a cue-word match, then the most recent player exchange), then older
+  world-context events. Intimacy events and private brain notes are skipped. The memory is
+  colour, not a script.
 - A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a
   mare with a non-empty `talk` taste. The HUD cue is “She needs to hear you.” and the player
   uses `T`. The player's reply is the director's player turn; the runtime drops the cue's
@@ -207,6 +208,10 @@ arrive late. `event_prompts.stay_close` is its per-character override.
 - **Horse close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
   caressing adds a happy mood, a private thought and a small `romance` gain; staying alone
   records the warm beat without the extra romance.
+- **Peak act:** one strongest memory per mare is kept in
+  `Mods.state("unfplap").peak_memories`. It requires no disliked touch/talk and either peak
+  readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces it. The
+  text is the last player exchange, or a generic warm beat if he did not speak.
 - **Zero-climax Y:** the existing early-stop/cancel path; no romance commit.
 - Act lines that have not started speaking are cancelled at every climax/afterglow boundary and
   at every act end. A line already speaking may finish. The intentional early-stop line is

@@ -366,6 +366,13 @@ var _last_cue_text := ""
 var _last_cue_line_at := -1000.0
 var _cue_gap := 12.0
 var _used_memory_ids: Array[String] = []
+var _peak_satisfaction := 0.0
+var _act_both_matches := 0
+var _act_dislikes := 0
+var _act_liked_touch := 0
+var _act_liked_talk := 0
+var _last_player_talk := ""
+var _peak_recorded := false
 var _aftercare_min := 10
 var _display_name := "the pony"
 var _serial := 0
@@ -2336,6 +2343,13 @@ func _reset_thrust_state() -> void:
 	_last_cue_text = ""
 	_last_cue_line_at = -1000.0
 	_used_memory_ids.clear()
+	_peak_satisfaction = 0.0
+	_act_both_matches = 0
+	_act_dislikes = 0
+	_act_liked_touch = 0
+	_act_liked_talk = 0
+	_last_player_talk = ""
+	_peak_recorded = false
 	if _thrust_tracker == null:
 		_thrust_tracker = THRUST.new()
 	_thrust_tracker.reset()
@@ -2528,6 +2542,8 @@ func _score_thrust() -> void:
 	var wanted_pattern := str(_taste.get("pattern", "steady"))
 	var intensity_match := not _last_intensity.is_empty() and _last_intensity == wanted_intensity
 	var pattern_match := not _last_pattern.is_empty() and _last_pattern == wanted_pattern
+	if intensity_match and pattern_match:
+		_act_both_matches += 1
 	var heat := THRUST_HEAT_NONE
 	if intensity_match and pattern_match:
 		heat = THRUST_HEAT_BOTH
@@ -2588,6 +2604,8 @@ func _add_heat(amount: float) -> void:
 		return
 	var before := int(satisfaction)
 	satisfaction = clampf(satisfaction + amount, 0.0, READINESS_MAX)
+	if satisfaction > _peak_satisfaction:
+		_peak_satisfaction = satisfaction
 	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
 		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
 
@@ -2677,6 +2695,7 @@ func _on_touch(kind: String) -> void:
 	_last_touch_at = now
 	_last_touch = kind
 	if kind in _taste.get("touch", []):
+		_act_liked_touch += 1
 		if satisfaction < ASSIST_CAP:
 			_add_heat(minf(TOUCH_HEAT, ASSIST_CAP - satisfaction))
 			_set_cue_override("She likes that.")
@@ -2685,6 +2704,7 @@ func _on_touch(kind: String) -> void:
 		_receptive_until = now + RECEPTIVE_S
 		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
 	elif kind in _taste.get("dislikes", []):
+		_act_dislikes += 1
 		_add_heat(-TOUCH_HEAT)
 		_overwhelmed = OVERWHELM_S
 		_set_cue_override("She doesn't like that.")
@@ -2710,6 +2730,7 @@ func _on_talk(text: String) -> void:
 		talk_wait = 0.0
 		_cancel_pending_utterance()
 	if category in _taste.get("talk", []):
+		_act_liked_talk += 1
 		if satisfaction < ASSIST_CAP:
 			_add_heat(minf(TALK_HEAT, ASSIST_CAP - satisfaction))
 			_set_cue_override("She likes that.")
@@ -2718,6 +2739,7 @@ func _on_talk(text: String) -> void:
 		_receptive_until = now + RECEPTIVE_S
 		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
 	elif category in _taste.get("dislikes", []):
+		_act_dislikes += 1
 		_add_heat(-TALK_HEAT)
 		_overwhelmed = OVERWHELM_S
 		_set_cue_override("She didn't like that.")
@@ -2738,6 +2760,7 @@ func _talk_tick(delta: float) -> void:
 		if turn != _last_talk_turn:
 			_last_talk_turn = turn
 			if not text.strip_edges().is_empty():
+				_last_player_talk = text.strip_edges()
 				_on_talk(text)
 	if talk_wait > 0.0:
 		talk_wait = maxf(0.0, talk_wait - delta)
@@ -2919,6 +2942,40 @@ func _recent_lines() -> String:
 	for index in range(start, (spoken as Array).size()):
 		recent.append(str((spoken as Array)[index]))
 	return " | ".join(recent)
+
+
+func _last_spoken_line() -> String:
+	var recent := _recent_lines()
+	if recent.is_empty():
+		return ""
+	var parts := recent.split(" | ")
+	return parts[parts.size() - 1].strip_edges() if not parts.is_empty() else ""
+
+
+## Store the strongest clean act per mare. The exchange is the useful part: a later cue can
+## infer that she liked it without any name-specific instruction.
+func _record_peak_memory() -> void:
+	if _peak_recorded:
+		return
+	_peak_recorded = true
+	if not RELATIONSHIP_CUE.peak_eligible(_peak_satisfaction, _act_both_matches, _act_dislikes):
+		return
+	var player := _last_player_talk.strip_edges()
+	var her := _last_spoken_line()
+	if player.length() > 160:
+		player = player.left(160).strip_edges()
+	if her.length() > 160:
+		her = her.left(160).strip_edges()
+	var text := ""
+	if not player.is_empty():
+		text = "Anon said: \"%s\"." % player
+		if not her.is_empty():
+			text += " You answered: \"%s\"." % her
+	else:
+		text = "Anon made you feel completely wanted."
+	var score := RELATIONSHIP_CUE.peak_score(_peak_satisfaction, _act_both_matches,
+		_act_liked_touch, _act_liked_talk, _act_dislikes)
+	MEMORY.record_peak_memory(_id, _event_id, text, score)
 
 
 func _thrust_jiggle(strength: float) -> void:
@@ -3220,6 +3277,7 @@ func _enter_afterglow() -> void:
 func _commit_afterglow() -> void:
 	if not is_instance_valid(main):
 		return
+	_record_peak_memory()
 	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
 	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
 
@@ -3346,6 +3404,7 @@ func close_hint() -> String:
 func _restore_begin() -> void:
 	if state == State.IDLE or state == State.RESTORE:
 		return
+	_record_peak_memory()
 	_close_cancel()
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])

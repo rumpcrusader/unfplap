@@ -549,6 +549,10 @@ examples.
 - Each pony climax records a unique memory event and reaction. The act-level romance impression
   and witness pass commit once at afterglow; pose 2 records the inside event at afterglow only.
   The horse afterglow also runs the 8 s close window and records its own stay-close memory.
+- A peak act keeps one strongest memory per mare in `Mods.state("unfplap").peak_memories`.
+  It is written only with no disliked touch/talk and either peak satisfaction >= 90 or six
+  both-axis thrust matches; a higher score replaces it. The stored text is the last player
+  exchange, or a generic warm beat when he did not speak. The cue prompt prefers this memory.
 - Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
   ponies and fillies/colts are skipped.
 - Proactive requests are a separate controller (`initiation.gd`), not an action tag. They never
@@ -595,9 +599,9 @@ examples.
   `warm`, `ardent`, `open` or `careful`. The functional cue text is unchanged. The prompt tells
   her not to say the labels, levels or numbers.
 - The cue prompt may include one unused shared memory. `MEMORY.shared_memory()` prefers the
-  story journal: a cue-word match, then the most recent player exchange. It falls back to the
-  world-context events. Intimacy events and private brain notes are not used as the hint. The
-  memory is marked used only after the line is queued.
+  stored peak memory, then the story journal: a cue-word match, then the most recent player
+  exchange. It falls back to the world-context events. Intimacy events and private brain notes
+  are not used as the hint. The memory is marked used only after the line is queued.
 - One mod line may be pending at a time. A new line needs an idle director and pony, plus
   `UTTERANCE_MIN_GAP_S = 6 s` since the previous line started.
 - The pending slot stays reserved until speech actually stops and a 1 s release hold passes.

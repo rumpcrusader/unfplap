@@ -135,6 +135,7 @@ const DEFAULT_ACT_PROMPTS := {
 const DEFAULT_TEMPLATE := {
 	"smack_zone_radius": 0.035,
 	"aftercare_min": 10,
+	"cue_gap": 12.0,
 	"event_prompts": {
 		"climax": "",
 		"end_early": "",
@@ -540,6 +541,16 @@ static func save_presentation_controls(values: Dictionary) -> void:
 
 static func aftercare_min(id: String) -> int:
 	return clampi(int(template_for(id).get("aftercare_min", 10)), 0, 100)
+
+
+## A cue line cannot repeat faster than this per mare. Values outside the band are clamped so
+## a hand-edited settings file cannot make her speak over every touch.
+static func cue_gap_value(value: float) -> float:
+	return clampf(value, 8.0, 30.0)
+
+
+static func cue_gap(id: String) -> float:
+	return cue_gap_value(float(template_for(id).get("cue_gap", 12.0)))
 
 
 ## The merged default + per-character template actually used at runtime, with pose and taste

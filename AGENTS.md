@@ -583,6 +583,9 @@ examples.
 ## Dialogue utterances
 
 - Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
+- A cue line is generated at most once per `cue_gap` (default `12 s`, clamped `8..30`,
+  per character) after the previous cue line was queued. The cue still needs a changed cue text,
+  the 6 s global utterance gap and a free director.
 - A cue line uses the `cue` prompt; a talk invitation uses `talk_cue`. The state line contains
   pose, mood, taste-axis motion, last touch, last talk, pony climax count and act time; it
   contains no speed or depth units.
@@ -723,9 +726,10 @@ rump blush. There are no migration shims; unknown settings keys are ignored.
   act updates immediately.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
-- Key fields: `smack_zone_radius`, `aftercare_min`, `taste` (`recovery` included),
+- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),
   `act_prompts`, `event_prompts` (`climax`, `end_early`, `inside`, `stay_close`),
-  `poses.missionary`, `poses.horse`.
+  `poses.missionary`, `poses.horse`. `cue_gap` is a per-character JSON value, not a settings-tab
+  control.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (16 IDs) and uses `CHARACTER_NAMES` for
   display labels. Add a pony to both and to `CHARACTER_TEMPLATES` when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in

@@ -47,6 +47,11 @@ func run() -> void:
 	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
 
 	check(int(base.get("aftercare_min", 0)) == 10, "default aftercare_min is 10")
+	check(near(float(base.get("cue_gap", 0.0)), 12.0), "default cue_gap is 12")
+	check(near(SETTINGS.cue_gap_value(99.0), 30.0), "cue_gap clamps high")
+	check(near(SETTINGS.cue_gap_value(1.0), 8.0), "cue_gap clamps low")
+	var cue_override := SETTINGS.profile_for(base, {"fluttershy": {"cue_gap": 15.0}}, "fluttershy")
+	check(near(float(cue_override.get("cue_gap", 0.0)), 15.0), "character cue_gap override wins")
 	var poses: Dictionary = base.get("poses", {})
 	check(poses.has(CATALOG.MISSIONARY) and poses.has(CATALOG.HORSE), "pose defaults present")
 	var taste: Dictionary = base.get("taste", {})

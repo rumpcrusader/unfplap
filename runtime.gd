@@ -363,6 +363,7 @@ var _last_talk_turn := -1
 var _last_talk_cue_at := -1000.0
 var _last_cue_text := ""
 var _last_cue_line_at := -1000.0
+var _cue_gap := 12.0
 var _aftercare_min := 10
 var _display_name := "the pony"
 var _serial := 0
@@ -1574,6 +1575,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_camera_bob = float(camera_thrust.get("bob", 0.0))
 	_thrust_tracker = THRUST.new()
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
+	_cue_gap = SETTINGS.cue_gap_value(float(_profile.get("cue_gap", 12.0)))
 	_has_facing = false
 	bed = _resolve_bed(pose, act_source, bed_in)
 	if pose == CATALOG.MISSIONARY and bed == null:
@@ -2616,7 +2618,8 @@ func _readiness_tick(delta: float) -> void:
 		_cue_override = ""
 		cue = _base_cue(intensity_match, pattern_match)
 	if talk_wait <= 0.0 and cue != _last_cue_text \
-			and now - _last_cue_line_at >= 8.0 and _queue_utterance("cue", "cue", "cue"):
+			and UTTERANCE.ready(now, _last_cue_line_at, _cue_gap) \
+			and _queue_utterance("cue", "cue", "cue"):
 		_last_cue_text = cue
 		_last_cue_line_at = now
 

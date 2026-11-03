@@ -2,6 +2,11 @@ extends RefCounted
 ## Pure prompt formatting for the runtime. Scheduling now belongs to readiness cues and
 ## touch/talk events, not to a satisfaction-threshold timeline.
 
+## A cue line may be queued when the per-mare gap since the last one has elapsed.
+static func ready(now: float, last: float, gap: float) -> bool:
+	return now - last >= gap
+
+
 static func format(template: String, values: Dictionary) -> String:
 	var regex := RegEx.new()
 	regex.compile("\\{([a-z_]+)\\}")

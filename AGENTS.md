@@ -338,8 +338,9 @@ body-relative axes.
   the outward stroke. The chest, neck and head follow; `pony_upperArm_L/R` origins are restored
   afterward so the forehooves stay planted. `BODY_SWAY_MAX_M = 0.035` is deliberately exaggerated
   for review; park it near `0.012`.
-- Strong thrusts (`strength >= 0.55`) build a subtle rump blush decal by `0.035` per thrust, capped
-  at `0.25` (the smack decal uses `0.8`). It decays slowly and is removed at act end.
+- Strong thrusts (`strength >= 0.55`) build a subtle rump blush decal by `0.0525` per thrust,
+  capped at `0.375` (the smack decal uses `0.8`). It decays at `0.006`/s and is removed at act
+  end.
 - Base posture adds `chin_up_deg = 30` (head) and `neck_down_deg = 15` total (neck1/neck2), giving
   the chin-up, snout-reaching S-curve. The debug chin modifier remains additive.
 - `foreleg_spread` is the absolute outward half-angle from the body centreline. The default

@@ -202,9 +202,9 @@ const CARESS_RUMP_LEAN := 0.5
 const CAMERA_INERTIA_SMOOTH := 5.0
 ## Rump blush from strong thrusts: a fraction of the 0.8 smack decal strength. Always on.
 const RUMP_BLUSH_MIN_STRENGTH := 0.55
-const RUMP_BLUSH_STEP := 0.035
-const RUMP_BLUSH_MAX := 0.25
-const RUMP_BLUSH_DECAY := 0.012
+const RUMP_BLUSH_STEP := 0.0525
+const RUMP_BLUSH_MAX := 0.375
+const RUMP_BLUSH_DECAY := 0.006
 const POSE2_HEAD_NECK_HEIGHT_M := 1.0
 ## Canon is small enough that the standing shot needs a lower eye line.
 const CANON_POSE2_CAMERA_DROP_M := 0.10

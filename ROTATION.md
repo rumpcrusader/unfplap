@@ -271,7 +271,7 @@ these values here if a future pose needs that effect.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
   `BODY_SWAY_MAX_M = 0.035`.
-- Strong thrusts build a subtle rump blush decal up to `0.25` albedo mix (smack uses `0.8`).
+- Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
   `SMACK_ZONE_RADIUS_M = 0.035`. If a hand is already caressing, the slap uses that hand and its

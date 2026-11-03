@@ -89,7 +89,7 @@ these values here if a future pose needs that effect.
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
   farther-back anchor. The **Act presentation → Missionary camera** setting (`pose1_camera`,
-  default `0.12 m`, range `-0.10…0.20`) moves the anchor toward her torso and lower by that
+  default `0.10 m`, range `-0.10…0.20`) moves the anchor toward her torso and lower by that
   distance; positive values bring the shot in and down, negative values back it off and up. After
   positioning, the shot is pulled `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along
   `_pose1_view_basis.z` (its own view axis), so the frozen aim still points at her neck. The aim
@@ -144,7 +144,7 @@ these values here if a future pose needs that effect.
   (`CAM_SPEED_SMOOTH_S = 0.06 s`); `_camera_thrust_tick()` follows it with one critically damped
   response (`CAM_RESPONSE_S = 0.12 s`). No per-stroke kick.
 - `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward strokes use `CAM_BACK_RATIO = 0.5`.
-- Two `camera_thrust` amounts (`surge`, `bob`, both `0…1`, default `0`) scale
+- Two `camera_thrust` amounts (`surge`, `bob`, both `0…1`, defaults `1.0`/`0.35`) scale
   `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
 - The bob target is negative: an inward stroke dips the camera toward her, so the frozen aim
   moves up her body. The outward stroke rises back.
@@ -213,7 +213,7 @@ these values here if a future pose needs that effect.
   `eye_motion.target_world` / `target_weight`. Look-back yaw clamps at
   `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted
   to `1.44`). The `head_back` ease uses `GLANCE_BACK_FADE / glance_back_speed`, with
-  `glance_back_speed` defaulting to `1.0` and live in the settings tab. A full forward `W` lean
+  `glance_back_speed` defaulting to `2.0` and live in the settings tab. A full forward `W` lean
   with no side lean forces `head_back = 1.0` and an upward look at Anon.
 - `Q`/`E` at `0.75` side lean reach Anon's same-side open palm to the shoulder through
   `desktop_anon.set_hold_target(..., "rub")`. Hand-marker axes are local `-Z` fingers, `+Y`

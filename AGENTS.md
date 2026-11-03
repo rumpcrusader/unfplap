@@ -260,7 +260,7 @@ body-relative axes.
   so the camera is not inside her neck. The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face. Anchoring ahead of the neck put the camera
   over her head and aimed back down her torso. The **Act presentation → Missionary camera**
-  setting (`pose1_camera`, default `0.12 m`, range `-0.10…0.20`) then shifts the anchor toward
+  setting (`pose1_camera`, default `0.10 m`, range `-0.10…0.20`) then shifts the anchor toward
   her torso and lower by the same distance; the range keeps it behind her neck.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and
@@ -337,7 +337,7 @@ body-relative axes.
   wings slightly backwards. It is removed with the wing hold.
 - Look-back glances clamp yaw to `GLANCE_BACK_YAW = 1.62` and add 20% to
   `glance_back_pitch` (base `1.2`, boosted to `1.44`). The `head_back` ease uses
-  `GLANCE_BACK_FADE / glance_back_speed`; `glance_back_speed` defaults to `1.0` and is live in
+  `GLANCE_BACK_FADE / glance_back_speed`; `glance_back_speed` defaults to `2.0` and is live in
   the settings tab.
 
 ### Act actions
@@ -436,8 +436,8 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 
 ### Thrust camera and restore
 
-- The camera thrust is two amounts in `camera_thrust`: `surge` and `bob`, both `0…1` and default
-  `0`. They scale `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
+- The camera thrust is two amounts in `camera_thrust`: `surge` and `bob`, both `0…1`; defaults
+  `1.0` and `0.35`. They scale `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
 - Both follow the filtered signed depth speed with one critically damped response. No impulses,
   no per-stroke kick and no camera rock.
 - Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
@@ -698,8 +698,8 @@ examples.
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. There are no migration shims; unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `600`.
-- `camera_thrust` stores `surge` and `bob`, both `0…1` and default `0`. They scale the
+  `thrust.pixels_per_full` defaults to `800`.
+- `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
 - Feature flags are one ungrouped list. Each row uses `FEATURE_INFO` for a human label and a
   help line. Edits apply live during an act; `live` flags also apply immediately outside one.

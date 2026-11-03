@@ -108,16 +108,16 @@ const FEATURE_INFO := {
 ## Camera-thrust amounts, 0..1. `surge` is the forward speed-driven travel; `bob` is the
 ## vertical speed-driven travel. Both are read live and scale the runtime amplitudes.
 const CAMERA_THRUST_DEFAULTS := {
-	"surge": 0.0,
-	"bob": 0.0,
+	"surge": 1.0,
+	"bob": 0.35,
 }
 
 ## Shared act presentation. `glance_back_speed` is a multiplier; higher is faster.
 ## `pose1_camera` moves the missionary shot toward her torso and lower by this many metres.
 ## `torso_angle_deg` hinges Anon's pose-2 upper body forward over her.
 const PRESENTATION_DEFAULTS := {
-	"glance_back_speed": 1.0,
-	"pose1_camera": 0.12,
+	"glance_back_speed": 2.0,
+	"pose1_camera": 0.10,
 	"torso_angle_deg": 0.0,
 }
 
@@ -420,10 +420,10 @@ static func thrust_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
-	var pixels := 600.0
+	var pixels := 800.0
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
-		pixels = float((block as Dictionary).get("pixels_per_full", 600.0))
+		pixels = float((block as Dictionary).get("pixels_per_full", 800.0))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
@@ -562,7 +562,7 @@ static func _defaults() -> Dictionary:
 		"features": FEATURE_DEFAULTS.duplicate(true),
 		"thrust": {
 			"orientation": "up",
-			"pixels_per_full": 600.0,
+			"pixels_per_full": 800.0,
 		},
 		"camera_thrust": CAMERA_THRUST_DEFAULTS.duplicate(true),
 		"presentation": PRESENTATION_DEFAULTS.duplicate(true),

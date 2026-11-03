@@ -494,10 +494,10 @@ func _add_camera_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	list.add_child(form)
 	var controls := SETTINGS.camera_thrust_controls()
 	var surge := _settings_spin(form, "Surge", 0.0, 100.0, 5.0,
-		float(controls.get("surge", 0.0)) * 100.0, font_size)
+		float(controls.get("surge", 1.0)) * 100.0, font_size)
 	surge.suffix = "%"
 	var bob := _settings_spin(form, "Bob", 0.0, 100.0, 5.0,
-		float(controls.get("bob", 0.0)) * 100.0, font_size)
+		float(controls.get("bob", 0.35)) * 100.0, font_size)
 	bob.suffix = "%"
 	var save := func(_value: float) -> void:
 		_save_camera_thrust_controls(surge, bob)
@@ -547,13 +547,13 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	list.add_child(form)
 	var controls := SETTINGS.presentation_controls()
 	var glance_speed := _settings_spin(form, "Glance-back speed", 0.25, 3.0, 0.05,
-		float(controls.get("glance_back_speed", 1.0)), font_size)
+		float(controls.get("glance_back_speed", 2.0)), font_size)
 	glance_speed.suffix = "×"
 	glance_speed.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"glance_back_speed": glance_speed.value})
 		_apply_live_settings())
 	var pose1_camera := _settings_spin(form, "Missionary camera", -0.10, 0.20, 0.01,
-		float(controls.get("pose1_camera", 0.12)), font_size)
+		float(controls.get("pose1_camera", 0.10)), font_size)
 	pose1_camera.suffix = " m"
 	pose1_camera.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"pose1_camera": pose1_camera.value})

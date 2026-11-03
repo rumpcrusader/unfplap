@@ -118,24 +118,24 @@ func run() -> void:
 		"feature info matches the flag set")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
-	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 600.0), "default thrust pixels")
+	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 800.0), "default thrust pixels")
 	var controls := SETTINGS.thrust_controls()
 	check(bool(controls.get("up", false)), "runtime thrust controls up")
 	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
 	check(runtime_pixels >= 240.0 and runtime_pixels <= 1200.0,
 		"runtime thrust controls pixels in range")
 	var camera_defaults: Dictionary = defaults.get("camera_thrust", {})
-	check(near(float(camera_defaults.get("surge", -1.0)), 0.0), "default camera surge off")
-	check(near(float(camera_defaults.get("bob", -1.0)), 0.0), "default camera bob off")
+	check(near(float(camera_defaults.get("surge", -1.0)), 1.0), "default camera surge full")
+	check(near(float(camera_defaults.get("bob", -1.0)), 0.35), "default camera bob amount")
 	var camera_controls := SETTINGS.camera_thrust_controls()
 	var camera_surge := float(camera_controls.get("surge", -1.0))
 	var camera_bob := float(camera_controls.get("bob", -1.0))
 	check(camera_surge >= 0.0 and camera_surge <= 1.0, "runtime camera surge in range")
 	check(camera_bob >= 0.0 and camera_bob <= 1.0, "runtime camera bob in range")
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
-	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 1.0),
+	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
-	check(near(float(presentation_defaults.get("pose1_camera", 0.0)), 0.12),
+	check(near(float(presentation_defaults.get("pose1_camera", 0.0)), 0.10),
 		"default missionary camera offset")
 	check(near(float(presentation_defaults.get("torso_angle_deg", -1.0)), 0.0),
 		"default Anon torso lean off")

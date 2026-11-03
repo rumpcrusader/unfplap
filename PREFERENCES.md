@@ -6,7 +6,7 @@ choice. Camera/pose mechanics and aftercare are outside it.
 ## What the player does
 
 - Mouse vertical motion feeds raw depth. `thrust.orientation` flips the direction; `"up"`
-  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `600`.
+  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `800`.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
   (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
@@ -54,9 +54,10 @@ apply live during an act.
 `Settings → Unfplap` has a **Thrust** section:
 
 - mouse-up direction;
-- sensitivity in pixels per full thrust (`240…1200`, default `600`).
+- sensitivity in pixels per full thrust (`240…1200`, default `800`).
 
-It also has a **Camera thrust** section with two `0…100%` amounts, both default `0`:
+It also has a **Camera thrust** section with two `0…100%` amounts, defaulting to Surge `100%`
+and Bob `35%`:
 
 - **Surge** — forward camera travel;
 - **Bob** — vertical camera dip.

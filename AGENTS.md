@@ -64,21 +64,20 @@ godot --xr-mode off --path <project> -- \
   posture) and moves them to a row on the path in front of Golden Oak Library. The rest of the
   world's context and inventory persist.
 
-Tests:
+Tests (manual, before every commit):
 
 ```bash
-for t in test_catalog test_settings test_source_hygiene test_rotation \
-         test_thrust test_preferences test_utterance test_runtime_thrust \
-         test_afterglow test_voice test_actions test_initiation; do
-  godot --headless --xr-mode off --path <project> \
-    --script res://mods/unfplap/tests/$t.gd
-done
+scripts/test_all.sh
 ```
 
-- Current passing state: `CATALOG` 8, `SETTINGS` 85, `SOURCE_HYGIENE` 46 checks / 49 files,
-  `ROTATION` 8, `THRUST` 39, `PREFERENCES` 38, `UTTERANCE` 12, `RUNTIME_THRUST` 22,
-  `AFTERGLOW` 19, `VOICE` 9, `ACTIONS` 86, `INITIATION` 15.
-- Update these counts when tests change. A stale count is a docs bug.
+Source smoke:
+
+```bash
+scripts/smoke.sh
+```
+
+- `test_all.sh` runs every suite, prints each `RESULT` line and exits nonzero on any failure.
+  The printed output is the current state; do not copy counts into docs.
 - Build only when the user asks:
   ```bash
   godot --headless --xr-mode off --path <project> \
@@ -729,9 +728,10 @@ rump blush. There are no migration shims; unknown settings keys are ignored.
 
 This is mandatory.
 
-- Update documentation in the same change as behavior, settings, controls or test-count changes.
-- Never leave stale paths, removed controls, obsolete constants, old test counts or incorrect
-  claims. Remove obsolete documentation instead of keeping historical notes.
+- Update the contract in the same commit as behavior, settings or controls. Put rationale,
+  measurements and tuning history in the commit body.
+- Never leave stale paths, removed controls, obsolete constants or incorrect claims. Remove
+  obsolete documentation instead of keeping historical notes.
 - Keep camera, pose, thrust and strength details here and in `PREFERENCES.md`/`ROTATION.md`.
   Summarize non-critical areas such as debug logs; do not build long catalogues.
 - Verify every claim against code before writing it. If docs and code disagree, fix the docs or
@@ -743,7 +743,7 @@ This is mandatory.
   - Features are concise, high-level and one sentence each. No history, implementation detail
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
-- Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md` and the test counts consistent.
+- Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md` and `WORKFLOW.md` consistent.
 
 ## Current notes
 

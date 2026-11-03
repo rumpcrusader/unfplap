@@ -122,9 +122,11 @@ const CAMERA_ROCK_DEFAULTS := {
 	"roll_ratio": 0.0,
 }
 
-## Shared act-presentation timings. `glance_back_speed` is a multiplier; higher is faster.
+## Shared act presentation. `glance_back_speed` is a multiplier; higher is faster.
+## `pose1_camera` moves the missionary shot toward her torso and lower by this many metres.
 const PRESENTATION_DEFAULTS := {
 	"glance_back_speed": 1.0,
+	"pose1_camera": 0.12,
 }
 
 const DEFAULT_ACT_PROMPTS := {
@@ -507,21 +509,27 @@ static func presentation_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("presentation", {})
 	var speed := float(PRESENTATION_DEFAULTS["glance_back_speed"])
-	if block is Dictionary and (block as Dictionary).has("glance_back_speed"):
-		speed = float((block as Dictionary)["glance_back_speed"])
+	var pose1_camera := float(PRESENTATION_DEFAULTS["pose1_camera"])
+	if block is Dictionary:
+		speed = float((block as Dictionary).get("glance_back_speed", speed))
+		pose1_camera = float((block as Dictionary).get("pose1_camera", pose1_camera))
 	return {
 		"glance_back_speed": clampf(speed, 0.25, 3.0),
+		"pose1_camera": clampf(pose1_camera, -0.10, 0.20),
 	}
 
 
 static func save_presentation_controls(values: Dictionary) -> void:
 	var data := _read()
 	var block: Variant = data.get("presentation", {})
-	if not block is Dictionary:
-		block = {}
-	var controls: Dictionary = block
+	var controls: Dictionary = block if block is Dictionary else {}
+	# Each row writes its own value; keep the other row instead of resetting it to default.
 	controls["glance_back_speed"] = clampf(float(values.get(
-		"glance_back_speed", PRESENTATION_DEFAULTS["glance_back_speed"])), 0.25, 3.0)
+		"glance_back_speed", controls.get("glance_back_speed",
+			PRESENTATION_DEFAULTS["glance_back_speed"]))), 0.25, 3.0)
+	controls["pose1_camera"] = clampf(float(values.get(
+		"pose1_camera", controls.get("pose1_camera",
+			PRESENTATION_DEFAULTS["pose1_camera"]))), -0.10, 0.20)
 	data["presentation"] = controls
 	_write(data)
 

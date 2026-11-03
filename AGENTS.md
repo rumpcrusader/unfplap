@@ -73,7 +73,7 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 8, `SETTINGS` 91, `SOURCE_HYGIENE` 46 checks / 49 files,
+- Current passing state: `CATALOG` 8, `SETTINGS` 94, `SOURCE_HYGIENE` 46 checks / 49 files,
   `ROTATION` 8, `THRUST` 39, `PREFERENCES` 38, `UTTERANCE` 12, `RUNTIME_THRUST` 22,
   `AFTERGLOW` 19, `VOICE` 9, `ACTIONS` 91, `INITIATION` 15.
 - Update these counts when tests change. A stale count is a docs bug.
@@ -155,6 +155,10 @@ body-relative axes.
   the front upper-arm line. Wrap measured left/right line angles into ±90° or the correction can
   roll her belly-down.
 - `POSE1_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
+- After the head aim and kiss, `_neck_lift(neck_lift_deg)` bends `pony_neck1`/`pony_neck2` about
+  the body right axis and lifts her head off the mattress. With the head aimed at Anon the
+  neck-to-body angle is ~13–15°; the default `15°` lift takes it to ~30°. In the standing model
+  this bend is chin-down; the supine body turns it into an upward head lift.
 - `POSE1_RUMP_DROP_DEG` pitches the whole body about the shoulders; `POSE1_HIND_SPREAD` sets
   hind-leg spread.
 - Bed context is not optional: the lie pose, mattress surface and shared-bed transform all
@@ -248,7 +252,9 @@ body-relative axes.
   height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally higher, farther-back shot
   so the camera is not inside her neck. The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face. Anchoring ahead of the neck put the camera
-  over her head and aimed back down her torso.
+  over her head and aimed back down her torso. The **Act presentation → Missionary camera**
+  setting (`pose1_camera`, default `0.12 m`, range `-0.10…0.20`) then shifts the anchor toward
+  her torso and lower by the same distance; the range keeps it behind her neck.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and
   broke the aim. The aim basis is always rebuilt from `_pose1_camera`, never the already moved
@@ -699,7 +705,8 @@ rump blush. There are no migration shims; unknown settings keys are ignored.
   `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
 - The injected settings tab has a **Thrust** section (orientation, sensitivity `240…1200`,
   camera bob, camera motion), a **Camera rock** section (all six constants, max angle shown in
-  degrees), an **Act presentation** section (glance-back speed) and **Character taste**. There
+  degrees), an **Act presentation** section (glance-back speed and missionary camera framing)
+  and **Character taste**. There
   are no Save buttons: each control writes its own block and calls `apply_live_settings()` so
   the active act updates immediately.
 - `debug_logs` defaults to `true`.

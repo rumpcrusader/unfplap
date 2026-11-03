@@ -33,7 +33,7 @@ Desktop only for now
 - **Proactive mares** — A ready mare may ask for sex herself; a private standing mare presents for horse, and `Y` still accepts.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
-- **Act settings** — Tune mouse thrust, camera rock, glance timing and each pony's taste in `Settings → Unfplap`.
+- **Act settings** — Tune mouse thrust, camera rock, glance timing, the missionary shot and each pony's taste in `Settings → Unfplap`.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
 - **HUD** — Shows the act controls list, readiness meter, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with optional thrust bob and motion.

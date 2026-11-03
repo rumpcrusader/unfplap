@@ -69,6 +69,7 @@ func run() -> void:
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.5, "character pose override wins")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["rump_drop_deg"]) == 35.0, "character pose inherits other defaults")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["camera_height"]) == 0.45, "missionary camera default")
+	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["neck_lift_deg"]) == 15.0, "missionary neck lift default")
 	check(float((profile["poses"] as Dictionary)[CATALOG.HORSE]["hind_spread"]) == 0.32, "unrelated pose inherits defaults")
 	var profile_taste: Dictionary = profile["taste"]
 	check(str(profile_taste.get("intensity", "")) == "rough", "character taste override")
@@ -143,10 +144,15 @@ func run() -> void:
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
 	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 1.0),
 		"default glance-back speed")
+	check(near(float(presentation_defaults.get("pose1_camera", 0.0)), 0.12),
+		"default missionary camera offset")
 	var presentation := SETTINGS.presentation_controls()
 	var glance_speed := float(presentation.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
+	var pose1_camera := float(presentation.get("pose1_camera", 99.0))
+	check(pose1_camera >= -0.10 and pose1_camera <= 0.20,
+		"runtime missionary camera offset in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("stay_close"), "stay close event prompt exists")
 

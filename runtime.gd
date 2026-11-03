@@ -473,6 +473,7 @@ var _inventory_hud_saved := false
 var _inventory_hotbar_visible := true
 var _inventory_hud_layer_visible := true
 var _pose1_camera := Vector3.INF
+var _pose1_camera_applied := -1.0
 var _pose1_head_roll := 0.0
 var _pose1_start_camera: Camera3D
 var _pose1_start_camera_transform := Transform3D.IDENTITY
@@ -643,6 +644,19 @@ func apply_live_settings() -> void:
 	_thrust_motion = bool(thrust_controls.get("camera_motion", false))
 	_camera_rock_cfg = SETTINGS.camera_rock_controls()
 	_presentation_cfg = SETTINGS.presentation_controls()
+	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
+	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
+	# has settled since the start anchor was taken and the bed reference may be gone.
+	var pose1_offset := _pose1_camera_offset()
+	if pose_id == CATALOG.MISSIONARY and state != State.IDLE and is_instance_valid(pony) \
+			and _pose1_camera.is_finite() \
+			and not is_equal_approx(pose1_offset, _pose1_camera_applied):
+		var delta := pose1_offset - _pose1_camera_applied
+		_pose1_camera += -pony.global_basis.z.normalized() * delta
+		_pose1_camera.y -= delta
+		_pose1_camera_applied = pose1_offset
+		if _pose1_look_point.is_finite():
+			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
 	if not _id.is_empty():
 		_taste = SETTINGS.taste(_id)
 	_refresh_live_modifiers()
@@ -1697,6 +1711,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_lean_state()
 	_pose1_basis_logged = false
 	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
+	_pose1_camera_applied = _pose1_camera_offset() if pose == CATALOG.MISSIONARY else -1.0
 	if pose == CATALOG.MISSIONARY:
 		_snapshot_pose1_start()
 		_make_pose1_view()
@@ -3788,6 +3803,10 @@ func _pose1_pullback() -> float:
 	return POSE1_CAMERA_PULLBACK_M * _pose1_body_scale()
 
 
+func _pose1_camera_offset() -> float:
+	return float(_presentation_cfg.get("pose1_camera", SETTINGS.PRESENTATION_DEFAULTS["pose1_camera"]))
+
+
 func _pose1_camera_target() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
@@ -3807,6 +3826,14 @@ func _pose1_camera_target() -> Vector3:
 	if is_finite(bed_top) and bed_top <= root.y + 2.0:
 		target.y = maxf(target.y, bed_top + 0.30 * body_scale)
 	target.y = clampf(target.y, root.y + 0.30 * body_scale, root.y + 1.50 * body_scale)
+	# One framing control: shift toward her torso and lower by the same distance. The base
+	# anchor would otherwise sit behind her neck and too high for the close shot.
+	var offset := _pose1_camera_offset()
+	if absf(offset) > 0.0001:
+		target += -back * offset
+		target.y -= offset
+		if is_finite(bed_top) and bed_top <= root.y + 2.0:
+			target.y = maxf(target.y, bed_top + 0.10 * body_scale)
 	return target
 
 

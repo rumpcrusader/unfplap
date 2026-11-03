@@ -60,8 +60,13 @@ Exact order:
     - `_nuzzle_pulse()`: 0→1→0 over `NUZZLE_DURATION` every `NUZZLE_PERIOD`.
     - extra `_aim_head(pulse * POSE1_NUZZLE_SCALE)`.
     - during climax: `pulse = 0.75 + 0.25 * sin(_clock * 4.0)`.
-13. `_roll_head(head_roll)` around `forward`, head only.
-14. Dump once at weight > 0.9 if debug is on.
+13. Kiss aim: extra `_aim_head(weight * kiss, 1.0, look_point)`.
+14. `_neck_lift(neck_lift_deg)` around the body right axis on `pony_neck1`/`pony_neck2` (half
+    each). Default `15°`, applied after the aim so the lift is a fixed offset. Measured with the
+    head aimed at Anon, the neck-to-body angle is ~13–15°; the lift takes it to ~30°. In the
+    standing model this is the chin-down direction, which becomes an upward head lift on her back.
+15. `_roll_head(head_roll)` around `forward`, head only.
+16. Dump once at weight > 0.9 if debug is on.
 
 The debug chin pitch lives in `chin_debug.gd`, a separate `SkeletonModifier3D` appended after
 the pose modifier. It is not part of the missionary recipe, so `Alt+7` / `Alt+8` also work
@@ -83,10 +88,12 @@ these values here if a future pose needs that effect.
   where `back = +pony.global_basis.z`. The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
-  farther-back anchor. After positioning, the shot is pulled
-  `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along `_pose1_view_basis.z` (its own view
-  axis), so the frozen aim still points at her neck. The aim basis is computed once from the
-  stable anchor, not the moved view, to prevent start-up flicker.
+  farther-back anchor. The **Act presentation → Missionary camera** setting (`pose1_camera`,
+  default `0.12 m`, range `-0.10…0.20`) moves the anchor toward her torso and lower by that
+  distance; positive values bring the shot in and down, negative values back it off and up. After
+  positioning, the shot is pulled `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along
+  `_pose1_view_basis.z` (its own view axis), so the frozen aim still points at her neck. The aim
+  basis is computed once from the stable anchor, not the moved view, to prevent start-up flicker.
 - Aim: sample the middle of the neck (`pony_neck1`/`pony_neck2` midpoint) during the first
   second while the pose blends, then freeze. The live snout is not used, and the target is never
   derived from the moving view.

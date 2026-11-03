@@ -10,6 +10,9 @@ const POSE1_NUZZLE_SCALE := 0.45
 const NUZZLE_PERIOD := 7.0
 const NUZZLE_DURATION := 2.4
 const POSE1_ROLL_TWEAK := 0.0
+## Extra neck lift off the mattress after the head aim. In the standing model this is the
+## chin-down direction; the supine body turns it into an upward head lift.
+const POSE1_NECK_LIFT_DEG := 15.0
 
 var last_roll := 0.0
 var last_chest_roll := 0.0
@@ -38,6 +41,7 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	if kiss > 0.001:
 		# Extra neck/head share toward Anon's lips for the act kiss action.
 		_aim_head(rig, sk, weight * kiss, 1.0, state.get("look_point", Vector3.ZERO))
+	_neck_lift(rig, sk, weight, _value("neck_lift_deg", POSE1_NECK_LIFT_DEG))
 	_roll_head(rig, sk, weight, float(state.get("head_roll", 0.0)))
 
 
@@ -236,6 +240,17 @@ func _aim_head(rig, sk: Skeleton3D, weight: float, scale: float, look_point: Vec
 		var share := shares[mini(i, shares.size() - 1)] * weight * scale
 		rig.rotate(sk, rig.neck[i], up, clampf(yaw, -1.1, 1.1) * share)
 		rig.rotate(sk, rig.neck[i], right, clampf(pitch, -0.8, 0.8) * share)
+
+
+## Lift the head off the mattress by bending the neck "down" in the standing model. Applied
+## after the head aim so the lift is a fixed offset, not something the aim can cancel.
+func _neck_lift(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
+	if rig.neck.size() < 2 or absf(degrees) < 0.0001:
+		return
+	var angle := deg_to_rad(degrees) * weight
+	var right: Vector3 = rig.right_axis(sk)
+	rig.rotate(sk, rig.neck[0], right, angle * 0.5)
+	rig.rotate(sk, rig.neck[1], right, angle * 0.5)
 
 
 func _nuzzle_pulse(clock: float) -> float:

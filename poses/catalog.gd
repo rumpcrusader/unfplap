@@ -12,6 +12,7 @@ const POSE_DEFAULTS := {
 		"rump_drop_deg": 35.0,
 		"head_roll": 0.0,
 		"roll_tweak": 0.0,
+		"neck_lift_deg": 15.0,
 		"camera_height": 0.45,
 		"camera_back": 0.22,
 		"look_scale": 0.55,

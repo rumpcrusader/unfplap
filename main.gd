@@ -574,7 +574,7 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Head-back glance ease. Higher speed is faster. Changes apply live."
+	note.text = "Glance ease and the missionary shot. Higher glance speed is faster; positive missionary camera moves the shot toward her torso and lower. Changes apply live."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
@@ -589,6 +589,12 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	glance_speed.suffix = "×"
 	glance_speed.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls({"glance_back_speed": glance_speed.value})
+		_apply_live_settings())
+	var pose1_camera := _settings_spin(form, "Missionary camera", -0.10, 0.20, 0.01,
+		float(controls.get("pose1_camera", 0.12)), font_size)
+	pose1_camera.suffix = " m"
+	pose1_camera.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls({"pose1_camera": pose1_camera.value})
 		_apply_live_settings())
 
 

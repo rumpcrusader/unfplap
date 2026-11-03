@@ -24,7 +24,8 @@ is a separate repository; never commit game-source changes from the mod repo.
    - `scripts/smoke.sh` for entry/runtime changes;
    - the relevant lab path for camera/pose changes, and say it was manual.
 6. Commit with a scoped imperative subject and a body covering why, behavior and tests.
-7. Commit locally only. Do not push, fetch, pull or force-push. The remote is not used.
+7. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
+   CI builds and releases from the remote, but the agent never pushes.
 
 ## Commit messages
 

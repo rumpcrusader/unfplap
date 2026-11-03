@@ -91,6 +91,8 @@ scripts/smoke.sh
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
   `AUDIO_CREDITS.md` does.
+- `.github/workflows/build.yml` builds on pushes and pull requests; a `v*` tag builds with
+  `--no-extends` and publishes `dist/unfplap.pck` as a GitHub release asset.
 - The official `tools/modding/build_mod.gd` command remains a fallback when the full game
   project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it

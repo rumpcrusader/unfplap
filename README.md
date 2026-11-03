@@ -63,3 +63,6 @@ does, for credit.
 `--no-extends` removes the parked `ext/shared_bed.gd` extension and the `extends` entry from the
 packed `mod.json`; source runs keep it. The official
 `tools/modding/build_mod.gd` command still works for quick builds, but packs the whole folder.
+
+On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests, and on a `v*` tag it
+builds with `--no-extends` and attaches `dist/unfplap.pck` to a GitHub release.

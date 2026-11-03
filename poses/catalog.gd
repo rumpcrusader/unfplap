@@ -13,7 +13,7 @@ const POSE_DEFAULTS := {
 		"head_roll": 0.0,
 		"roll_tweak": 0.0,
 		"camera_height": 0.45,
-		"camera_forward": 0.22,
+		"camera_back": 0.22,
 		"look_scale": 0.55,
 		"nuzzle_scale": 0.45,
 		"nuzzle_period": 7.0,

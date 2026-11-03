@@ -79,9 +79,11 @@ these values here if a future pose needs that effect.
 
 ## Pose-1 camera
 
-- Anchor: `root + up * (0.45 + POSE1_CAMERA_LIFT_M 0.10) * body_scale - back * 0.22 * body_scale`,
-  where `back = +pony.global_basis.z`. Canon height is `0.9×`; JRHNBR (`1.35`) gets a
-  proportionally higher, farther-forward anchor. After positioning, the shot is pulled
+- Anchor: `root + up * (0.45 + POSE1_CAMERA_LIFT_M 0.10) * body_scale + back * 0.22 * body_scale`,
+  where `back = +pony.global_basis.z`. The anchor stays behind her neck, toward her rump, so the
+  frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
+  back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
+  farther-back anchor. After positioning, the shot is pulled
   `POSE1_CAMERA_PULLBACK_M = 0.40 * body_scale` back along `_pose1_view_basis.z` (its own view
   axis), so the frozen aim still points at her neck. The aim basis is computed once from the
   stable anchor, not the moved view, to prevent start-up flicker.
@@ -89,7 +91,8 @@ these values here if a future pose needs that effect.
   second while the pose blends, then freeze. The live snout is not used, and the target is never
   derived from the moving view.
 - The aim basis comes from the stable anchor and is updated only during that settle second; no
-  forward-dot re-aim loop. Rebuilds are limited to an invalid/too-far anchor or a genuinely
+  forward-dot re-aim loop. A neck point behind the anchor is rejected, so the shot cannot flip
+  back down her torso. Rebuilds are limited to an invalid/too-far anchor or a genuinely
   below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head look point keeps at
   least `0.45 * body_scale` from her head.
 - Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for

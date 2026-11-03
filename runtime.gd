@@ -84,10 +84,10 @@ const BREATH_RATE_CAP := 10.0
 ## Breath gain easing. Active: follows the plap rate; afterglow: fades over this many seconds.
 const BREATH_FADE_S := 2.5
 const AFTERGLOW_BREATH_FADE_S := 5.0
-## Pose 1 camera: closer to her neck/face so the free shot does not feel distant.
-## `pony.global_basis.z` is her backward direction.
+## Pose 1 camera: above and behind her neck so the shot looks forward along her body at her
+## face. `pony.global_basis.z` is her backward direction.
 const POSE1_CAMERA_HEIGHT_M := 0.45
-const POSE1_CAMERA_FORWARD_M := 0.22
+const POSE1_CAMERA_BACK_M := 0.22
 ## Additional room between the pose-1 shot and the pony.
 const POSE1_CAMERA_PULLBACK_M := 0.40
 ## Extra height requested after the first visual pass.
@@ -3690,8 +3690,8 @@ func _make_pose1_view() -> void:
 		_pose1_view.cull_mask = _pose1_source_cull
 		_log("pose1 view setup source_fov=%.1f near=%.3f far=%.0f" % [
 			source.fov, source.near, source.far])
-	# The pose-1 view aims itself at her face every frame (`apply_camera_motion`); the player look
-	# controls are left alone so the bed/seated camera is not disturbed.
+	# The pose-1 view settles its aim on her neck (`apply_camera_motion`); the player look controls
+	# are left alone so the bed/seated camera is not disturbed.
 	_pose1_look_point = _neck_midpoint()
 	var forward: Vector3 = -pony.global_basis.z.normalized() if is_instance_valid(pony) else Vector3.FORWARD
 	if not _pose1_look_point.is_finite() or not is_instance_valid(pony) \
@@ -3756,7 +3756,7 @@ func _pose1_look_target() -> Vector3:
 	return pony.global_position + forward * 0.20 + Vector3.UP * 0.10
 
 
-## The fixed pose-1 view orientation: from the camera anchor toward her face. Computed once so the
+## The fixed pose-1 view orientation: from the camera anchor toward her neck. Computed once so the
 ## camera does not track the snout while she nuzzles; bob only moves its position.
 func _pose1_aim_basis(from_position: Vector3) -> Basis:
 	var look := _pose1_look_target()
@@ -3788,15 +3788,15 @@ func _pose1_camera_target() -> Vector3:
 	var root: Vector3 = pony.global_position
 	var back: Vector3 = pony.global_basis.z.normalized()
 	var body_scale := _pose1_body_scale()
-	# Move toward her head/neck (forward is -back) so the camera is not centred over her body.
-	# Larger ponies need a proportionally higher and farther-forward anchor, or the shot sits
-	# inside her neck for JRHNBR/Same Height/Hoers.
+	# Stay behind her neck, toward her rump. Anchoring ahead of the neck put the camera over her
+	# head and aimed the shot back down her torso, away from her face. Larger ponies need a
+	# proportionally higher and farther-back anchor so the shot does not sit inside her neck.
 	var height := (float(_pose_cfg.get("camera_height", POSE1_CAMERA_HEIGHT_M)) + POSE1_CAMERA_LIFT_M) \
 		* body_scale
 	if _size_name() == "canon":
 		height *= 0.9
 	var target := root + Vector3.UP * height \
-		- back * float(_pose_cfg.get("camera_forward", POSE1_CAMERA_FORWARD_M)) * body_scale
+		+ back * float(_pose_cfg.get("camera_back", POSE1_CAMERA_BACK_M)) * body_scale
 	var bed_top := _bed_surface_top()
 	if is_finite(bed_top) and bed_top <= root.y + 2.0:
 		target.y = maxf(target.y, bed_top + 0.30 * body_scale)
@@ -5551,7 +5551,10 @@ func apply_camera_motion() -> void:
 		# the moving view, and the basis comes from the fixed anchor; no feedback loop.
 		if Time.get_ticks_msec() < _pose1_aim_until:
 			var neck := _neck_midpoint()
-			if neck.is_finite():
+			var forward: Vector3 = -pony.global_basis.z.normalized()
+			# Never re-aim at a neck point behind the anchor; that flips the shot back down her
+			# torso. Keep the previous target when the pose puts the neck behind the camera.
+			if neck.is_finite() and (neck - _pose1_camera).dot(forward) > 0.02:
 				_pose1_look_point = neck
 			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
 		var rock := _camera_rock if _feature("thrust_camera_rock") else 0.0

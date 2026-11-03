@@ -243,10 +243,12 @@ body-relative axes.
 ### Pose 1 shot
 
 - Mod-owned `UnfplapPose1View`, top-level, anchored at
-  `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale - back * 0.22 * body_scale`, then
+  `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
   pulled `POSE1_CAMERA_PULLBACK_M = 0.40 * body_scale` back along its own frozen view axis. Canon
-  height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally higher, farther-forward and
-  farther-back shot so the camera is not inside her neck.
+  height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally higher, farther-back shot
+  so the camera is not inside her neck. The anchor stays behind her neck, toward her rump, so the
+  frozen aim looks forward along her body at her face. Anchoring ahead of the neck put the camera
+  over her head and aimed back down her torso.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and
   broke the aim. The aim basis is always rebuilt from `_pose1_camera`, never the already moved
@@ -255,7 +257,8 @@ body-relative axes.
   second while the act pose blends, then freeze. The live snout is not used; it can fall behind
   the bed camera. The look target is never derived from the moving view.
 - The aim basis is built from `_pose1_camera` and updated only during that settle second; there
-  is no forward-dot re-aim loop. Rebuild only when the anchor is invalid, more than 3 m away, or
+  is no forward-dot re-aim loop. A neck point behind the anchor is never accepted, so the shot
+  cannot flip back down her torso. Rebuild only when the anchor is invalid, more than 3 m away, or
   genuinely below a **valid** bed top. `_bed_surface_top()` returns invalid (`INF`) when the bed
   reference is gone, so a missing bed cannot trigger a rebuild every frame.
 - Her head aims at the camera with a minimum `0.45 * body_scale` distance, so a near/inside

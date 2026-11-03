@@ -5,8 +5,8 @@ choice. Camera/pose mechanics and aftercare are outside it.
 
 ## What the player does
 
-- Mouse vertical motion feeds raw depth. `pump.orientation` flips the direction; the top of
-  the depth bar is deep/orange with `"up"`.
+- Mouse vertical motion feeds raw depth. `pump.orientation` flips the direction; `"up"`
+  (the default) means mouse up deepens.
 - A **stroke** is continuous movement in one direction. It closes on reversal or
   `STROKE_TIMEOUT_S = 0.18 s` without movement.
 - A **pump** is an inward stroke with `travel >= PUMP_MIN_TRAVEL = 0.25`.
@@ -150,7 +150,7 @@ Hold `Y`:
 ## HUD
 
 - Readiness bar shows arousal; `65` is close, `100` is pony climax.
-- The depth bar remains visible in `CLIMAX` because pumping is allowed.
+- There is no penetration/depth bar; the pump mechanic and `pump.orientation` still apply.
 - `ACTIVE` Y hint: `Hold Y · Stop` at 0 climaxes; `Hold Y · Afterglow` at 1+.
 - `CLIMAX` Y hint: `Hold Y · Afterglow`.
 - A climax count/cue may be shown; no new meter.

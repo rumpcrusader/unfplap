@@ -110,14 +110,15 @@ these values here if a future pose needs that effect.
   While the base kiss runs, the runtime writes its live mouth/eye/face targets (the player camera,
   not the pose-1 framing view) and repeats the mouth kiss sound, because the player kisser's
   physics is paused for the act. The excitement Beat timer is paused so unicorn horns do not
-  sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.23`, shifts to the shoulder side and
-  drops `KISS_LEAN_DROP_M = 0.035`; pose 2 applies it to the camera and pelvis counter-lean and
-  yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her, pose 1 to the framing view and virtual
-  mouth. The kiss side is latched from the lean at start (`_kiss_camera_side`), and
-  `AffectionPose.set_kiss_side()` pins her tilt to the same world side
-  (`KISS_PONY_SIDE_SIGN = -1`) so she cannot pick or deep-kiss switch to the opposite side. The
-  lateral travel crossfades from the lean's `0.18 m` to the kiss's `0.16 m` rather than adding
-  both, so the full kiss uses one offset.
+  sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.27`, shifts to the shoulder side by
+  `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035`; pose 2 applies it to the
+  camera and pelvis counter-lean and yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her,
+  pose 1 to the framing view and virtual mouth. The kiss side is latched from the input lean at
+  start (`_lean_side`, falling back to `_lean_action_side`, not the lagging camera view), and
+  `AffectionPose.set_kiss_side()` pins her tilt to the complementary side
+  (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
+  switch is disabled for the act. The lateral travel crossfades from the lean's `0.18 m` to the
+  kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
 - Camera bobs are opt-in: `pump.bobs` defaults to `false` and skips pump and climax bob motion.
 - When enabled, each pump adds to the vertical and forward spring velocities.
 - Pose 1 uses the same `_bob` and pump camera rock as pose 2.
@@ -140,6 +141,8 @@ these values here if a future pose needs that effect.
   `pony.global_transform.basis = _facing_basis.scaled(scale)`. `stay()` alone does not stop
   conversation facing, so `face_point`/conversation target are cleared late each tick and
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
+  Conversation attention is not a stop condition: another character addressing Anon can talk
+  while `_keep_act_attention()` clears her listener each tick.
 - Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the
   1 s blend, then freezes. The same lean vector is applied on top: forward `0.24 m` /
@@ -161,11 +164,11 @@ these values here if a future pose needs that effect.
   `CAMERA_ROCK_IMPULSE = 0.30`, `CAMERA_ROCK_LIMIT = 0.039`, stiffness `45`, damping `8.0`;
   pitch is `0.675×` the roll (side roll unchanged).
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
-  pose 1; releasing `F` or dropping the lean ends it. The side is latched from that lean and
-  passed to `AffectionPose.set_kiss_side()`, so she leans to the same side as Anon and the
-  deep-kiss side switch is disabled for the act. During the `Affection` release the camera lean
-  and glance suppression are held until the head has retracted, then ease out. A completed kiss
-  has a `500 ms` restart cooldown.
+  pose 1; releasing `F` or dropping the lean ends it. The side is latched from the input lean
+  and passed to `AffectionPose.set_kiss_side()`, so she takes the complementary head tilt and
+  the deep-kiss side switch is disabled for the act. During the `Affection` release the camera
+  lean and glance suppression are held until the head has retracted, then ease out. A completed
+  kiss has a `500 ms` restart cooldown.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
 - Canon lowers the pose-2 eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR
   raises the pose-2 eye line by `MOUNTING_POSE2_CAMERA_LIFT_M = 0.10 m`.
@@ -184,10 +187,16 @@ these values here if a future pose needs that effect.
   `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat each tick through
   `FlankSurface.contact` or `PonyTouchBody.nearest`, and `palm_surface_basis()` makes the palm
   plane perpendicular to the coat normal. Its centre sits at
-  `PALM_ON_COAT_CLEARANCE_M = 0.03`, the hand’s palm-ball radius. Contact is cached per hand
-  with source hysteresis and short position/normal smoothing, so a missed hit holds the last
-  valid point instead of snapping; a normal that would flip more than ~78° is rejected and the
-  final normal is blended toward a stable torso-radial outward. The path is
+  `PALM_ON_COAT_CLEARANCE_M = 0.04` (a 1 cm lift over the palm-ball radius); normal smoothing
+  adds no lift. Contact is cached per hand with source hysteresis and short position/normal
+  smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite
+  normal (dot < -0.5) is rejected under the same source. `FlankSurface` precomputes a two-ring,
+  area-weighted average of the patch rest normals and skins those, removing triangle/seam
+  jitter before the query. The final normal turns toward each new contact normal at
+  `PALM_NORMAL_MAX_DEG_S = 120°/s`, and the palm basis is rebuilt from that final normal each
+  frame so it cannot rotate into her. The rub centre is lifted
+  `CARESS_UP_BIAS_M = 0.05` above the profile point; a 1 Hz log reports the rub/shoulder heights,
+  source, misses, switches, normal step/out angle and hand distance. The path is
   `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically. Point
   offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
   between hands), Same Height and Hoers step up from there; the contact query snaps those points

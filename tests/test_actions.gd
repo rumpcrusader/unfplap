@@ -90,6 +90,13 @@ func run() -> void:
 		"palm surface bases stay orthonormal")
 	check(near(RUNTIME.CARESS_OVAL_ACROSS, 1.30) and near(RUNTIME.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
+	check(near(RUNTIME.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
+	check(near(RUNTIME.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat")
+	check(near(RUNTIME.PALM_NORMAL_MAX_DEG_S, 120.0), "palm normal turns at a bounded rate")
+	var capped: Vector3 = RUNTIME.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
+	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
+	check(RUNTIME.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
+		"normal rate reaches the target")
 	var canon_caress: Dictionary = RUNTIME.caress_profile_for("canon")
 	var mounting_caress: Dictionary = RUNTIME.caress_profile_for("mounting")
 	check(float(canon_caress["up"]) < float(mounting_caress["up"]), "Canon caress sits lower")
@@ -103,18 +110,18 @@ func run() -> void:
 
 	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "pump jiggle reduced 20 percent")
 	check(near(RUNTIME.BOB_FORWARD_IMPULSE, 0.45), "penetration camera travel increased 50 percent")
-	check(near(RUNTIME.KISS_LEAN_M, 0.23) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.16)
+	check(near(RUNTIME.KISS_LEAN_M, 0.27) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.18)
 		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
 	check(near(RUNTIME.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
-	check(near(RUNTIME.KISS_PONY_SIDE_SIGN, -1.0), "pony kiss side is opposite the camera side sign")
-	check(near(RUNTIME.kiss_pony_side(-1.0), 1.0), "left lean makes her lean toward his left")
-	check(near(RUNTIME.kiss_pony_side(1.0), -1.0), "right lean makes her lean toward his right")
+	check(near(RUNTIME.KISS_PONY_SIDE_SIGN, 1.0), "pony kiss side matches the input side sign")
+	check(near(RUNTIME.kiss_pony_side(-1.0), -1.0), "left lean gives her the opposite head tilt")
+	check(near(RUNTIME.kiss_pony_side(1.0), 1.0), "right lean gives her the opposite head tilt")
 	check(near(RUNTIME.kiss_pony_side(0.0), 0.0), "centered kiss leaves the side to her")
 	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 0.0), -0.18),
 		"kiss starts at the lean lateral offset")
-	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 1.0), -0.16),
+	check(near(RUNTIME.kiss_lateral_offset(-0.5, -1.0, 1.0), -0.18),
 		"full kiss uses one lateral offset")
-	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 0.5), -0.17),
+	check(near(RUNTIME.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
 		"kiss lateral crossfades instead of stacking")
 	check(near(AFFECTION_POSE.resolve_kiss_side(1.0, 0.0), 1.0),
 		"scripted kiss keeps a pinned side")

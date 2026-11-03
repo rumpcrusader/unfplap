@@ -73,9 +73,9 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 59, `SOURCE_HYGIENE` 45 checks / 48 files,
+- Current passing state: `CATALOG` 13, `SETTINGS` 59, `SOURCE_HYGIENE` 44 checks / 47 files,
   `ROTATION` 8, `PUMP` 25, `PREFERENCES` 39, `UTTERANCE` 12, `RUNTIME_PUMP` 16, `VOICE` 9,
-  `ACTIONS` 64, `INITIATION` 15.
+  `ACTIONS` 69, `INITIATION` 15.
 - Update these counts when tests change. A stale count is a docs bug.
 - Build only when the user asks:
   ```bash
@@ -110,8 +110,7 @@ mods/unfplap/
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
-  hud.gd            depth bar, optional readiness bar/mood cues and control hints
-  hud_pump.gd       vertical depth bar
+  hud.gd            optional readiness bar/mood cues and control hints
   hud_bar.gd        readiness fill bar
   input.gd          Y start/end, right-click smack routing, key consumption, debug keys
   settings.gd       persisted DEBUG LOGS, pump controls and per-character taste templates
@@ -168,7 +167,10 @@ body-relative axes.
 - Body facing is locked every physics tick at priority 100; the navigator must not turn her.
   `stay()` alone does not stop conversation facing, so `face_point` and the conversation target
   are cleared late each tick and `face_turn_rate` is held at `0` for the act. This stops the
-  player-conversation turn steps without pausing locomotion or emotions.
+  player-conversation turn steps without pausing locomotion or emotions. Conversation is also
+  not an interruption: `_check_running()` does not stop for it, and `_keep_act_attention()`
+  clears her listener every tick, so another character addressing Anon can talk while the act
+  keeps running.
 - The player's lower body stays planted during a forward or kiss lean: the hip is counter-shifted
   and both foot targets are captured and held at their neutral transforms until the lean/kiss
   ends.
@@ -324,13 +326,14 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   live `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound
   itself. Pose 1 uses the player camera, not the separate pose-1 framing view. The excitement
   Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire during it.
-- While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.23`, shifts to the shoulder side
-  and drops `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the pose-2 camera also yaws
-  `KISS_CAMERA_YAW_DEG = 10°` toward her. The kiss side is latched at the start from the lean
-  (`_kiss_camera_side`) and `AffectionPose.set_kiss_side()` pins her lean to the same world side
-  (`KISS_PONY_SIDE_SIGN = -1`), so she cannot pick or deep-kiss switch to the opposite side and
-  collide with him. The lateral offset crossfades from the lean's `0.18 m` to the kiss's
-  `0.16 m` instead of adding both; `KISS_LEAN_SIDE_M = 0.16` is the single full-kiss value.
+- While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.27`, shifts to the shoulder side
+  by `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the
+  pose-2 camera also yaws `KISS_CAMERA_YAW_DEG = 10°` toward her. The kiss side is latched at
+  the start from the input lean (`_lean_side`, falling back to `_lean_action_side`), not the
+  lagging camera view, and `AffectionPose.set_kiss_side()` pins her head tilt to the
+  complementary side (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding;
+  the deep-kiss side switch is disabled for the act. The lateral offset crossfades from the
+  lean's `0.18 m` to the kiss's `0.18 m` instead of adding both.
   Pose 2 applies it to the act camera and pelvis counter-lean, so the hips stay planted; pose 1
   applies it to the framing view and offsets the virtual mouth by the kiss distance. During the
   kiss and its `Affection` release the forced over-the-shoulder glance is cleared and `head_back`
@@ -351,11 +354,19 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat every tick through
   `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
   orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
-  The palm centre sits at `PALM_ON_COAT_CLEARANCE_M = 0.03` (the hand’s palm-ball radius),
-  not a tuned lift. Contact is cached per hand with source hysteresis and short position/normal
-  smoothing: a miss holds the last valid point, a flank↔body source change needs two hits, and a
-  normal that would flip more than ~78° is rejected. The final normal is blended toward a stable
-  radial outward from her torso, so a triangle/hull normal cannot turn the palm inside the body.
+  The palm centre sits at `PALM_ON_COAT_CLEARANCE_M = 0.04` (a 1 cm lift over the
+  palm-ball radius); the normal smoothing adds no extra lift. Contact is cached per hand with
+  source hysteresis and short position/normal smoothing: a miss holds the last valid point, a
+  flank↔body source change needs two hits, and a near-opposite normal (dot < -0.5) is rejected
+  under the same source. `FlankSurface` precomputes a two-ring, area-weighted average of the
+  patch's rest normals and skins those, so triangle and seam jitter is gone before the hand
+  query. The final normal turns toward each new contact normal at
+  `PALM_NORMAL_MAX_DEG_S = 120°/s` instead of snapping, and the palm basis is rebuilt from that
+  final normal every frame. The torso-radial fallback only applies to a degenerate or inward
+  normal. The rub centre is lifted
+  `CARESS_UP_BIAS_M = 0.05` above each size profile's `up` point, and a 1 Hz log prints the rub
+  and shoulder heights, source, misses, switches, normal step/out angle and driven-hand
+  distance.
   The oval is `CARESS_OVAL_ACROSS = 1.30` along the body and
   `CARESS_OVAL_UP = 0.70` vertically, so it reads as a stroke rather than a perfect circle.
   Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
@@ -530,15 +541,17 @@ examples.
 - The native offer hint uses the game's `button_y` icon plus `· sex`; the HUD fallback text is
   `Y · sex`, matching the game's small-dot separator.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
-  hotbar's `set_hud_visible(false)`; the previous state is restored at end and the inventory's
-  `_place_hotbar()` re-evaluates it so a stale pre-act layer flag cannot leave it hidden.
-- Two vertical meters, left to right: penetration and readiness (the internal
-  `satisfaction` value).
-- The depth bar is shown during `ACTIVE` and `CLIMAX` (the player can pump during hers);
-  readiness remains through `CLIMAX`; afterglow hides all meters.
+  hotbar's `set_hud_visible(false)`; the previous state is restored on every exit path:
+  `_abort_start()`, `_restore_now()`, `_finish_restore()` (including the invalid-pony branch),
+  and `force_stop()`. `_physics_process` also restores it if `IDLE` is ever reached while still
+  marked hidden. The inventory's `_place_hotbar()` re-evaluates the state after restoring, so a
+  stale pre-act layer flag cannot leave it hidden.
+- One vertical meter on the right: her readiness (the internal `satisfaction` value). The
+  penetration/depth meter was removed; the pump mechanic and `pump.orientation` remain.
+- The readiness bar is shown during `ACTIVE` and `CLIMAX`; afterglow hides it.
 - The readiness bar and mood cues are gated by `readiness_hud`, default `true`. With it off,
-  the depth bar and control hints remain, and the player reads her instead. `debug_logs` no
-  longer gates the readiness bar.
+  no right-side meter is shown and only the control hints remain, so the player reads her.
+  `debug_logs` does not gate the readiness bar.
 - The bar changes color at `CLOSE_AT = 65`; `100` triggers a pony climax. The control hint is
   `Hold Y · Stop` at 0 climaxes, `Hold Y · Afterglow` at 1+, and `Hold Y · Afterglow` in
   `CLIMAX`. A `talk_wait` adds `T · Answer her`; the readiness HUD also shows
@@ -619,9 +632,8 @@ Keep this section concise; do not rebuild the removed debug-key catalogue.
 | `ear_twitch` | `true` | pose-2 pump ear-twitch modifier |
 | `cuddle_override` | `true` | allow starting an act while the stock cuddle session is active |
 | `act_text_only_ponese` | `false` | mute a Ponese-only act voice but keep its text |
-- `pump.orientation`: `"up"` (default) means mouse up deepens and the top of the bar is
-  deep/orange; `"down"` flips both. `pump.pixels_per_full` defaults to `600`; `pump.bobs`
-  defaults to `false`.
+- `pump.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
+  `pump.pixels_per_full` defaults to `600`; `pump.bobs` defaults to `false`.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `taste` (`recovery` included),

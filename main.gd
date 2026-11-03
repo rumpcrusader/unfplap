@@ -92,7 +92,6 @@ func _ready() -> void:
 			"res://mods/unfplap/pump.gd",
 			"res://mods/unfplap/preferences.gd",
 			"res://mods/unfplap/utterance.gd",
-			"res://mods/unfplap/hud_pump.gd",
 			"res://mods/unfplap/poses/skeleton_pose.gd",
 			"res://mods/unfplap/poses/missionary_recipe.gd",
 			"res://mods/unfplap/poses/horse_recipe.gd",

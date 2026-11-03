@@ -36,7 +36,7 @@ Desktop only for now
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
 - **Character taste editor** — Edit each pony's taste in `Settings → Unfplap`.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
-- **HUD** — Shows penetration, readiness and climax count, with an optional `Readiness HUD` setting.
+- **HUD** — Shows her readiness and climax count, with an optional `Readiness HUD` setting.
 - **Act camera** — Offers a controlled lean camera with optional pump bob.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active (experimental).

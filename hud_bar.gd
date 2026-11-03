@@ -1,5 +1,5 @@
 extends Control
-## Simple vertical fill bar for readiness. The depth bar has its own gradient/knob.
+## Simple vertical fill bar for readiness.
 
 const BACKGROUND := Color(0.03, 0.03, 0.05, 0.58)
 const OUTLINE := Color(1.0, 1.0, 1.0, 0.28)

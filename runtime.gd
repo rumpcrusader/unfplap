@@ -139,12 +139,18 @@ const CARESS_RADIUS_M := 0.04125
 const CARESS_SPEED_RAD_S := 3.6
 const CARESS_OVAL_ACROSS := 1.30
 const CARESS_OVAL_UP := 0.70
+## The rub centre is lifted this far above each size profile's `up` point. The cutie-mark
+## anchor sits low on the flank; this keeps the stroke on the barrel instead of the belly.
+const CARESS_UP_BIAS_M := 0.05
 ## The palm ball's own collision radius (anon_body.gd hand sweep). The palm marker is its
 ## centre, so this is how far the centre sits above the coat when the visible palm touches.
-const PALM_ON_COAT_CLEARANCE_M := 0.03
+const PALM_ON_COAT_CLEARANCE_M := 0.04
 const PALM_CONTACT_SMOOTH := 18.0
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
+## A palm normal may turn this fast when the coat normal moves or the contact source changes.
+## Slower than a snap, faster than the old stuck-then-jump behaviour.
+const PALM_NORMAL_MAX_DEG_S := 120.0
 ## Caress-point offsets are per size preset, in metres before the body scale is applied to
 ## only the circle radius. `out` moves each hand out from the flank; both hands together gain
 ## twice that amount. JRHNBR (`mounting`) is 4 cm wider; Canon sits lower.
@@ -238,14 +244,15 @@ const KISS_SOUND_MAX := 3.4
 ## Anon leans in while kissing. Pose 2 moves the act camera (and the hip counter keeps his
 ## pelvis planted); pose 1 moves the framing view and offsets the virtual mouth by the same
 ## amount, because its player camera is not the rendered shot.
-const KISS_LEAN_M := 0.23
-const KISS_LEAN_SIDE_M := 0.16
+const KISS_LEAN_M := 0.27
+const KISS_LEAN_SIDE_M := 0.18
 const KISS_LEAN_DROP_M := 0.035
 const KISS_CAMERA_YAW_DEG := 10.0
 const KISS_LEAN_SECONDS := 0.35
 ## `AffectionPose`'s lean/tilt sign is opposite the camera lean sign: `+1` rolls her head toward
 ## Anon's left, while a negative lean moves the camera to his left. Keep the mapping in one place.
-const KISS_PONY_SIDE_SIGN := -1.0
+## Kissing heads need complementary tilts, so she rolls away from his lean.
+const KISS_PONY_SIDE_SIGN := 1.0
 
 var pony
 var main
@@ -262,7 +269,7 @@ var cue := ""
 var talk_wait := 0.0
 ## Public for the HUD/debug: how many pony climaxes this act has had.
 var pony_climaxes := 0
-## Public for the HUD: penetration 0..1 and the same orientation flag used by mouse input.
+## Public: penetration 0..1 and the same orientation flag used by mouse input.
 var depth := 0.0
 var pump_up := true
 
@@ -380,6 +387,7 @@ var _caress_latched := {"L": false, "R": false}
 var _caress_key_down := {"L": false, "R": false}
 var _caress_started := {"L": 0, "R": 0}
 var _caress_logged := {"L": false, "R": false}
+var _caress_diag_at := 0
 var _last_smack_ms := -10000
 var _smack_active := false
 var _smack_index := 0
@@ -800,6 +808,9 @@ func _hold_y_tick(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	if state == State.IDLE:
+		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
+		if _inventory_hud_hidden:
+			_set_inventory_hud_hidden(false)
 		if _presenting:
 			_presentation_physics(delta)
 		return
@@ -810,6 +821,7 @@ func _physics_process(delta: float) -> void:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 	_keep_nav()
+	_keep_act_attention()
 	_pause_face_turn()
 	_hold_y_tick(delta)
 	_lean_tick(delta)
@@ -1781,6 +1793,16 @@ func _keep_nav() -> void:
 		_nav.set("wander_enabled", false)
 
 
+## Keep the act's attention while another character talks to Anon. Clearing the listener every
+## tick stops the director from turning her away or pinning her gaze; speech, emotions and
+## locomotion keep running, and `_check_running` no longer treats conversation as a stop.
+func _keep_act_attention() -> void:
+	if state == State.IDLE or state == State.RESTORE or not is_instance_valid(pony):
+		return
+	if pony.has_method("set_conversation_target"):
+		pony.call("set_conversation_target", null, false)
+
+
 func _release_nav() -> void:
 	if _nav == null or not is_instance_valid(_nav):
 		_nav = null
@@ -2295,6 +2317,8 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 	if inventory.has_method("_place_hotbar"):
 		inventory.call("_place_hotbar")
 	_inventory_hud_hidden = false
+	_log("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s" % [
+		str(_inventory_hud_saved), str(_inventory_hotbar_visible), str(_inventory_hud_layer_visible)])
 
 
 func _pump_move(amount: float, now: float) -> void:
@@ -3112,10 +3136,12 @@ func _restore_begin() -> void:
 func _finish_restore() -> void:
 	if not is_instance_valid(pony):
 		_log("restore finished with invalid pony")
+		_set_inventory_hud_hidden(false)
 		state = State.IDLE
 		return
 	var was_pose := pose_id
 	_log("restore finished pony=%s" % str(pony.name))
+	_set_inventory_hud_hidden(false)
 	_unlock_player()
 	_restore_camera()
 	pony.remove_meta("sex_active")
@@ -3179,6 +3205,8 @@ func _stand_after_pose() -> void:
 
 
 func force_stop() -> void:
+	# Defensive: every stop path must leave the quick slots in their pre-act state.
+	_set_inventory_hud_hidden(false)
 	if state == State.IDLE:
 		clear_presentation()
 		return
@@ -3249,9 +3277,8 @@ func _check_running() -> void:
 	if pony.is_held():
 		_stop("picked up")
 		return
-	if not _conversation_ok():
-		_stop("interrupted")
-		return
+	# Conversation attention does not end an act. The runtime owns her body and clears the
+	# listener each tick, so a character addressing Anon can keep talking without cancelling it.
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null:
 		var kind := str(affection.get("kind"))
@@ -3277,8 +3304,6 @@ func _check_running() -> void:
 func _still_willing() -> bool:
 	var runtime: Variant = pony.get_meta("relationship_runtime")
 	if runtime == null or not is_instance_valid(runtime):
-		return false
-	if not _conversation_ok():
 		return false
 	return bool(runtime.bonds.welcomes(_id, "kiss"))
 
@@ -4068,7 +4093,7 @@ static func kiss_pony_side(lean_side: float) -> float:
 
 
 ## Lateral shot/hip travel. The lean offset hands over to the single kiss offset as the kiss
-## blends in, instead of adding both (0.18 m + 0.16 m is further sideways than her neck reaches,
+## blends in, instead of adding both (0.18 m + 0.18 m is further sideways than her neck reaches,
 ## and the clearance pass then pushed her muzzle back into him).
 static func kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
 		size_scale := 1.0) -> float:
@@ -4086,9 +4111,13 @@ func _latch_kiss_side() -> void:
 	_kiss_camera_side = 0.0
 	_kiss_pony_side = 0.0
 	_kiss_diag_clock = 0.0
-	var lean := _lean_view_side
+	# Latch the requested lean, not the inertia-smoothed view: switching sides and pressing F
+	# immediately must not keep the previous side for the whole kiss.
+	var lean := _lean_side
 	if absf(lean) <= 0.01:
 		lean = _lean_action_side
+	if absf(lean) <= 0.01:
+		lean = _lean_view_side
 	if absf(lean) <= 0.01:
 		return
 	_kiss_camera_side = signf(lean)
@@ -4186,9 +4215,38 @@ func _kiss_diag() -> void:
 		limited = rad_to_deg(float(pose.get("limited")))
 		miss = float(pose.get("miss"))
 		cleared = str(pose.get("cleared_by"))
-	_log("kiss diag amount=%.2f lean=%.2f cam_side=%.2f pony_side=%.2f pose_side=%.2f limited=%.1fdeg miss=%.3fm clear=%s lateral=%.3f" % [
+	var cam_roll := 0.0
+	var head_roll := 0.0
+	var skull_lateral := 0.0
+	var mouth_gap := -1.0
+	var view := _kiss_mouth_view()
+	if is_instance_valid(view):
+		var target := _kiss_target(view)
+		var right := view.global_basis.x.normalized()
+		if affection.has_method("mouth_point"):
+			var mouth: Variant = affection.call("mouth_point")
+			if mouth is Vector3 and (mouth as Vector3).is_finite():
+				mouth_gap = (mouth as Vector3).distance_to(target)
+		var boop: Variant = pony.get("boop_node") if is_instance_valid(pony) else null
+		if boop != null and boop.has_method("skull_world"):
+			var skull: Variant = boop.call("skull_world")
+			if skull is Vector3:
+				skull_lateral = ((skull as Vector3) - target).dot(right)
+		cam_roll = rad_to_deg(_camera.rotation.z) if is_instance_valid(_camera) else 0.0
+		var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+		if sk is Skeleton3D:
+			var skeleton := sk as Skeleton3D
+			var head_bone := skeleton.find_bone("pony_head")
+			if head_bone >= 0:
+				var head_t := skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
+				var up := head_t.basis.y.normalized()
+				var view_up := view.global_basis.y.normalized()
+				head_roll = rad_to_deg(up.signed_angle_to(view_up, -view.global_basis.z.normalized()))
+	_log("kiss diag base=%s custom=%s amount=%.2f lean=%.2f cam_side=%.2f pony_side=%.2f pose_side=%.2f cam_roll=%.1f head_roll=%.1f skull_lat=%.3f gap=%.3f limited=%.1fdeg miss=%.3fm clear=%s lateral=%.3f" % [
+		str(_base_kiss_active), str(_custom_kiss_active),
 		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
-		pose_side, limited, miss, cleared,
+		pose_side, cam_roll, head_roll, skull_lateral, mouth_gap,
+		limited, miss, cleared,
 		_lateral_lean_shift(_pose2_lean_scale()) if pose_id == CATALOG.HORSE else 0.0])
 
 
@@ -4354,6 +4412,7 @@ func _end_caress() -> void:
 	_end_caress_side("L")
 	_end_caress_side("R")
 	_caress_key_down = {"L": false, "R": false}
+	_caress_diag_at = 0
 
 
 ## Hand-marker basis with the palm flat on the coat: local -Z is the fingers, and the palm
@@ -4428,6 +4487,7 @@ func _palm_contact_state(side: String) -> Dictionary:
 		_palm_contacts[side] = {
 			"point": Vector3.INF, "normal": Vector3.UP, "basis": Basis.IDENTITY,
 			"source": "", "switches": 0, "miss": 0, "logged": "",
+			"normal_step": 0.0, "normal_out": 0.0,
 		}
 	return _palm_contacts[side]
 
@@ -4436,20 +4496,45 @@ func _reset_palm_contact(side: String) -> void:
 	_palm_contacts.erase(side)
 
 
+## Keep a genuine coat normal: blending toward a torso radial tilts the palm off the surface
+## and presses its heel into the coat. The radial is only a fallback for a degenerate normal or
+## one that points into the body.
 func _palm_stable_outward(point: Vector3, hint: Vector3) -> Vector3:
+	if not is_instance_valid(pony):
+		return hint.normalized()
+	var wanted := hint.normalized()
+	if wanted.length_squared() < 0.5:
+		return _palm_radial_outward(point, hint)
+	var radial := _palm_radial_outward(point, hint)
+	if radial.length_squared() < 0.5:
+		return wanted
+	return radial if wanted.dot(radial) < 0.1 else wanted
+
+
+func _palm_radial_outward(point: Vector3, hint: Vector3) -> Vector3:
 	if not is_instance_valid(pony):
 		return hint.normalized()
 	var scale := clampf(float(pony.get("body_scale")), 0.8, 1.6)
 	var centre: Vector3 = pony.global_position + Vector3.UP * (0.55 * scale)
 	var radial: Vector3 = point - centre
 	if radial.length_squared() < 0.001:
-		radial = hint
-	radial = radial.normalized()
-	var wanted := hint.normalized()
-	if wanted.length_squared() < 0.5:
-		return radial
-	var blended := wanted.lerp(radial, 0.25).normalized()
-	return radial if blended.dot(radial) < 0.2 else blended
+		return Vector3.ZERO
+	return radial.normalized()
+
+
+## Rotate `from` toward `to` by at most `max_step` radians. Keeps a palm normal from snapping
+## when the contact source changes or the coat curvature jumps.
+static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) -> Vector3:
+	var a := from.normalized()
+	var b := to.normalized()
+	if a.length_squared() < 0.5:
+		return b
+	if b.length_squared() < 0.5:
+		return a
+	var angle := a.angle_to(b)
+	if angle <= 0.0001 or angle <= max_step:
+		return b
+	return a.slerp(b, clampf(max_step / angle, 0.0, 1.0)).normalized()
 
 
 func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
@@ -4467,7 +4552,6 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 	var state := _palm_contact_state(side)
 	var last_point: Vector3 = state.point
 	var last_normal: Vector3 = state.normal
-	var last_basis: Basis = state.basis
 	var have := last_point.is_finite()
 	var changed := source != str(state.source)
 	if changed:
@@ -4475,9 +4559,9 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 	else:
 		state.switches = 0
 	var accept := not changed or int(state.switches) >= PALM_CONTACT_SOURCE_HITS or not have
-	if have and last_normal.dot(hit_normal) < 0.2:
-		# A triangle or hull normal can flip under the same source; do not let the palm
-		# rotate through the body on one bad frame.
+	if not changed and have and last_normal.dot(hit_normal) < -0.5:
+		# A near-opposite normal under the same source is a bad triangle/hull frame; do not
+		# let the palm rotate through the body. Smaller changes update the point and blend.
 		hit_normal = last_normal
 		accept = false
 	if source == "fallback":
@@ -4491,25 +4575,44 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		hit_normal = last_normal
 	if accept:
 		state.source = source
-	var target_basis := palm_surface_basis(side, hit_normal, finger_hint)
 	var smooth_point := hit_point
 	var smooth_normal := hit_normal
-	var smooth_basis := target_basis
+	var normal_step := 0.0
+	var normal_out := 0.0
 	if have:
 		var step := smooth_point - last_point
 		if step.length() > PALM_CONTACT_MAX_STEP_M:
 			smooth_point = last_point + step.normalized() * PALM_CONTACT_MAX_STEP_M
-		var alpha := 1.0 - exp(-PALM_CONTACT_SMOOTH * get_physics_process_delta_time())
+		var frame_delta := maxf(get_physics_process_delta_time(), 0.001)
+		var alpha := 1.0 - exp(-PALM_CONTACT_SMOOTH * frame_delta)
 		smooth_point = last_point.lerp(smooth_point, alpha)
-		smooth_normal = last_normal.lerp(hit_normal, alpha)
-		if smooth_normal.length_squared() < 0.5:
-			smooth_normal = hit_normal
+		var blended := last_normal.lerp(hit_normal, alpha)
+		if blended.length_squared() < 0.5:
+			blended = hit_normal
 		else:
-			smooth_normal = smooth_normal.normalized()
-		smooth_basis = last_basis.slerp(target_basis, alpha)
+			blended = blended.normalized()
+		var max_step := deg_to_rad(PALM_NORMAL_MAX_DEG_S) * frame_delta
+		smooth_normal = rotate_normal_toward(last_normal, blended, max_step)
+		# A stale normal must never tuck the palm into the coat. Rotate back toward the
+		# outward hint at the bounded rate; only a frame that is already bad snaps out.
+		var outward := outward_hint.normalized()
+		if outward.length_squared() < 0.5:
+			outward = last_normal
+		if outward.length_squared() > 0.5:
+			normal_out = rad_to_deg(smooth_normal.angle_to(outward))
+			if smooth_normal.dot(outward) < 0.1:
+				smooth_normal = rotate_normal_toward(last_normal, outward, max_step)
+				if smooth_normal.dot(outward) < 0.1:
+					smooth_normal = outward
+		normal_step = rad_to_deg(last_normal.angle_to(smooth_normal))
+	# The palm plane is rebuilt from the final normal every frame, not slerped on its own,
+	# so it cannot lag around and rotate into her between contact updates.
+	var smooth_basis := palm_surface_basis(side, smooth_normal, finger_hint)
 	state.point = smooth_point
 	state.normal = smooth_normal
 	state.basis = smooth_basis
+	state.normal_step = normal_step
+	state.normal_out = normal_out
 	if str(state.logged) != source:
 		state.logged = source
 		_log("palm contact side=%s source=%s point=%s normal=%s" % [
@@ -4547,7 +4650,8 @@ func _set_caress_hand(side: String) -> void:
 		normal = -normal
 	var size := _size_scale()
 	var profile := _caress_profile()
-	var flank_world: Vector3 = centre_world + Vector3.UP * float(profile.get("up", 0.16)) \
+	var flank_world: Vector3 = centre_world \
+		+ Vector3.UP * (float(profile.get("up", 0.16)) + CARESS_UP_BIAS_M) \
 		+ pony.global_basis.z.normalized() * float(profile.get("back", 0.08)) \
 		+ outward * float(profile.get("out", 0.0))
 	var shoulder_world: Vector3 = flank_world
@@ -4584,12 +4688,36 @@ func _set_caress_hand(side: String) -> void:
 		-pony.global_basis.z)
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		_log("caress hand side=%s target=%s normal=%s x=%s y=%s z=%s" % [
+		_log("caress hand side=%s target=%s normal=%s x=%s y=%s z=%s lift=%.3f" % [
 			hand_side, str(target.origin), str(normal), str(target.basis.x),
-			str(target.basis.y), str(target.basis.z)])
+			str(target.basis.y), str(target.basis.z),
+			(centre_world + offset).y - pony.global_position.y])
+	if Time.get_ticks_msec() >= _caress_diag_at:
+		_caress_diag_at = Time.get_ticks_msec() + 1000
+		_caress_diag(hand_side, target, centre_world + offset, shoulder_world, side)
 	var driver := _desktop_pose_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
+
+
+## Once a second while a hand caresses: where the rub sits relative to her root/shoulder, how
+## far the driven hand is from its target, and whether the contact is missing or switching.
+func _caress_diag(hand_side: String, target: Transform3D, rub_point: Vector3,
+		shoulder_point: Vector3, side: String) -> void:
+	if not is_instance_valid(pony):
+		return
+	var root_y: float = pony.global_position.y
+	var state := _palm_contact_state(hand_side)
+	var hand_dist := -1.0
+	var driver := _desktop_pose_driver()
+	if is_instance_valid(driver) and driver.has_method("hand_frame"):
+		var frame_v: Variant = driver.call("hand_frame", hand_side)
+		if frame_v is Transform3D and (frame_v as Transform3D).is_finite():
+			hand_dist = (frame_v as Transform3D).origin.distance_to(target.origin)
+	_log("caress diag side=%s rub_h=%.3f shoulder_h=%.3f hand_dist=%.3f source=%s miss=%d switches=%d normal_step=%.1f normal_out=%.1f" % [
+		side, rub_point.y - root_y, shoulder_point.y - root_y, hand_dist,
+		str(state.source), int(state.miss), int(state.switches),
+		float(state.get("normal_step", 0.0)), float(state.get("normal_out", 0.0))])
 
 
 ## Release from the shoulder smoothly rather than teleporting back.

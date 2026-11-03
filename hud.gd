@@ -1,8 +1,6 @@
 extends CanvasLayer
-## Desktop HUD: prompt, hint, and two vertical meters on the right:
-## penetration and her readiness.
+## Desktop HUD: prompt, hint, and her readiness meter on the right.
 
-const HUD_PUMP := preload("res://mods/unfplap/hud_pump.gd")
 const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
@@ -15,9 +13,7 @@ const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse
 var _prompt: Label
 var _hint: Label
 var _bars: HBoxContainer
-var _depth_col: VBoxContainer
 var _satisfaction_col: VBoxContainer
-var _depth: Control
 var _satisfaction: Control
 
 
@@ -50,7 +46,7 @@ func _ready() -> void:
 	_bars.anchor_right = 1.0
 	_bars.anchor_top = 0.5
 	_bars.anchor_bottom = 0.5
-	_bars.offset_left = -360.0
+	_bars.offset_left = -200.0
 	_bars.offset_right = -24.0
 	_bars.offset_top = -230.0
 	_bars.offset_bottom = 230.0
@@ -58,11 +54,6 @@ func _ready() -> void:
 	_bars.add_theme_constant_override("separation", 12)
 	_bars.visible = false
 	root.add_child(_bars)
-
-	_depth = HUD_PUMP.new()
-	_depth.name = "DepthBar"
-	_depth.custom_minimum_size = Vector2(40.0, 400.0)
-	_depth_col = _make_column("Penetration", _depth)
 
 	_satisfaction = HUD_BAR.new()
 	_satisfaction.name = "SatisfactionBar"
@@ -156,11 +147,9 @@ func update_from(runtime: Node, show_readiness := true) -> void:
 	var readiness := float(runtime.get("satisfaction"))
 	var ready := readiness >= CLOSE_AT
 	var climaxes := int(runtime.get("pony_climaxes"))
-	_bars.visible = active
-	_depth_col.visible = state in [STATE_ACTIVE, STATE_CLIMAX]
-	_satisfaction_col.visible = active and show_readiness
-	if active:
-		_depth.call("set_depth", float(runtime.get("depth")), bool(runtime.get("pump_up")))
+	_bars.visible = active and show_readiness
+	_satisfaction_col.visible = _bars.visible
+	if _bars.visible:
 		_satisfaction.call("set_value", readiness, 100.0)
 		_satisfaction.set("fill_color",
 			Color(1.0, 0.76, 0.36) if ready else Color(1.0, 0.45, 0.70))

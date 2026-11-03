@@ -11,12 +11,12 @@ var lift_angle := LIFT_ANGLE
 var flick_amplitude := FLICK_AMPLITUDE
 const FLICK_SECONDS := 0.9
 const FLICK_AMPLITUDE := 1.10
-## Tail follows the pump/body rock: a sagittal swing plus a smaller lateral wag.
+## Tail follows the thrust/body rock: a sagittal swing plus a smaller lateral wag.
 const ROCK_STIFFNESS := 90.0
 const ROCK_DAMPING := 16.0
 const ROCK_PITCH := 0.12
 const ROCK_YAW := 0.08
-## Pump impulse: a short decaying wave down the tail so the rump jiggle is carried into the
+## Thrust impulse: a short decaying wave down the tail so the rump jiggle is carried into the
 ## dock and tail instead of leaving the tail rigid.
 const JIGGLE_DECAY := 3.6
 const JIGGLE_FREQ := 18.0
@@ -36,8 +36,8 @@ var _flick_time := -1.0
 var _flick_cycles := 2.0
 var _rock := 0.0
 var _rock_velocity := 0.0
-var _pump_strength := 0.0
-var _pump_clock := 0.0
+var _thrust_strength := 0.0
+var _thrust_clock := 0.0
 
 
 func _ready() -> void:
@@ -61,10 +61,10 @@ func choose_side() -> void:
 	aside_sign = 1.0 if randf() < 0.5 else -1.0
 
 
-## A pump restarts the tail's short jiggle at the same strength as the rump shader.
-func pump(strength: float) -> void:
-	_pump_strength = maxf(_pump_strength, clampf(strength, 0.0, 1.0))
-	_pump_clock = 0.0
+## A thrust restarts the tail's short jiggle at the same strength as the rump shader.
+func thrust(strength: float) -> void:
+	_thrust_strength = maxf(_thrust_strength, clampf(strength, 0.0, 1.0))
+	_thrust_clock = 0.0
 
 
 ## Two quick up/down swings. Called when the pose 2 afterglow starts.
@@ -100,7 +100,7 @@ func _process_modification_with_delta(delta: float) -> void:
 	var weight := smoothstep(0.0, 1.0, amount)
 	var up := (sk.global_basis.inverse() * mare.global_basis.y).normalized()
 	var right := (sk.global_basis.inverse() * mare.global_basis.x).normalized()
-	# The body sway already rocks the spine; let the tail carry the same pump cadence with a
+	# The body sway already rocks the spine; let the tail carry the same thrust cadence with a
 	# damped spring so it swings back/forth and slightly up/down instead of staying rigid.
 	var depth_value := 0.0
 	if is_instance_valid(runtime):
@@ -109,10 +109,10 @@ func _process_modification_with_delta(delta: float) -> void:
 	var accel := -ROCK_STIFFNESS * (_rock - rock_target) - ROCK_DAMPING * _rock_velocity
 	_rock_velocity += accel * delta
 	_rock += _rock_velocity * delta
-	_pump_clock += delta
-	var pump_envelope := exp(-_pump_clock * JIGGLE_DECAY)
-	if pump_envelope < 0.001:
-		_pump_strength = 0.0
+	_thrust_clock += delta
+	var thrust_envelope := exp(-_thrust_clock * JIGGLE_DECAY)
+	if thrust_envelope < 0.001:
+		_thrust_strength = 0.0
 	var flicking := absf(flick) > 0.0001
 	for i: int in _bones.size():
 		var bone := _bones[i]
@@ -129,10 +129,10 @@ func _process_modification_with_delta(delta: float) -> void:
 		pose.basis = Basis(right, lift_sign * lift * falloff) * pose.basis
 		pose.basis = Basis(right, lift_sign * _rock * ROCK_PITCH * weight * falloff) * pose.basis
 		pose.basis = Basis(up, _rock * ROCK_YAW * weight * falloff) * pose.basis
-		if _pump_strength > 0.001 and pump_envelope > 0.001:
+		if _thrust_strength > 0.001 and thrust_envelope > 0.001:
 			# The dock (mTail1) takes the strongest impulse; the wave lags slightly down the chain.
-			var wave := sin(_pump_clock * JIGGLE_FREQ - float(i) * 0.55)
-			var impulse := _pump_strength * pump_envelope * wave * weight * falloff
+			var wave := sin(_thrust_clock * JIGGLE_FREQ - float(i) * 0.55)
+			var impulse := _thrust_strength * thrust_envelope * wave * weight * falloff
 			pose.basis = Basis(right, lift_sign * impulse * JIGGLE_PITCH) * pose.basis
 			pose.basis = Basis(up, impulse * JIGGLE_YAW) * pose.basis
 		sk.set_bone_global_pose(bone, pose)

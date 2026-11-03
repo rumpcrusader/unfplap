@@ -118,7 +118,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_RIGHT and is_instance_valid(runtime):
-			runtime.call("smack")
+			if int(runtime.get("state")) != 4: # AFTERGLOW keeps only close actions
+				runtime.call("smack")
 			get_viewport().set_input_as_handled()
 			return
 		if is_instance_valid(runtime):
@@ -139,8 +140,9 @@ func _input(event: InputEvent) -> void:
 			runtime.call("toggle_lean_return")
 			get_viewport().set_input_as_handled()
 			return
-		if state == 4: # AFTERGLOW
-			if key.is_action("stand_up") or key.physical_keycode in [KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F]:
+		if state == 4: # AFTERGLOW: only Y / lean / caress / kiss / H are live
+			if key.is_action("stand_up") or key.physical_keycode in [
+					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T]:
 				get_viewport().set_input_as_handled()
 			return
 		if state in [3, 5]: # CLIMAX / RESTORE: only polled act actions

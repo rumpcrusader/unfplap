@@ -26,7 +26,7 @@ const DEFAULTS := {
 	"notes": "",
 }
 
-## Strength is travel x peak-speed factor from pump.gd, clamped 0..1.
+## Strength is travel x peak-speed factor from thrust.gd, clamped 0..1.
 const SOFT_MAX := 0.33
 const FIRM_MAX := 0.66
 ## The pattern classifier is intentionally a small, readable window, not a curve fit.

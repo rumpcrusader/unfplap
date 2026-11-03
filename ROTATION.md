@@ -119,10 +119,10 @@ these values here if a future pose needs that effect.
   (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
   switch is disabled for the act. The lateral travel crossfades from the lean's `0.18 m` to the
   kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
-- Camera bobs are opt-in: `pump.bobs` defaults to `false` and skips pump and climax bob motion.
-- When enabled, each pump adds to the vertical and forward spring velocities.
-- Pose 1 uses the same `_bob` and pump camera rock as pose 2.
-- Slow pumps scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
+- Camera bobs are opt-in: `thrust.bobs` defaults to `false` and skips thrust and climax bob motion.
+- When enabled, each thrust adds to the vertical and forward spring velocities.
+- Pose 1 uses the same `_bob` and thrust camera rock as pose 2.
+- Slow thrusts scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
   `s = clamp(speed / BOB_SPEED_REFERENCE, 0.35, 1.0)`. At `>= 0.80` depth/s the bob is unchanged.
 - Climax uses `BOB_CLIMAX_AMPLITUDE = 0.025 / 3` and `BOB_CLIMAX_FORWARD = 0.12 / 6`.
 - Restore order is load-bearing:
@@ -144,23 +144,24 @@ these values here if a future pose needs that effect.
   Conversation attention is not a stop condition: another character addressing Anon can talk
   while `_keep_act_attention()` clears her listener each tick.
 - Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
-- The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the
-  1 s blend, then freezes. The same lean vector is applied on top: forward `0.24 m` /
+- The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose
+  start, then freezes. The same lean vector is applied on top: forward `0.24 m` /
   `-6°` pitch / `1.5°` roll; backward `0.08 m` with the same downward pitch; side `0.18 m` /
   `8°` outward roll / `3°` yaw. All scale with pony size. Canon lowers the pose-2 eye line by
-  `0.20 m` and uses a `0.66×` pump-jiggle scale.
+  `0.20 m` and uses a `0.66×` thrust-jiggle scale.
 - Anon's pelvis stays planted: `apply_anon_lean()` cancels the camera's forward/side lean
   translation on the hip target, so the torso hinges over her instead of the whole body sliding
   into her rump. Pull-back still moves the whole body away. Forward/kiss lean also captures and
   holds both foot targets at their neutral transforms, so his legs stay out of the camera.
-  `ANON_PUMP_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
-  pumps forward/back with depth.
+  `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
+  thrusts forward/back with depth.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
-- `H` toggles lean auto-return; hold is the default. In hold mode a slow `0.015` forward /
-  `0.0125` side rock keeps the camera/upper body from freezing completely; both are clamped
+- `H` toggles lean auto-return; hold is the default. With `hold_sway` enabled (default off),
+  a slow `0.010` forward / `0.0084` side rock keeps the camera/upper body from freezing
+  completely; both are clamped
   inside `-1…1`. Hold mode also latches caress: an A/D tap starts it and a second tap stops it.
   Pressing `S` in hold mode arms a gradual side return so the shoulder roll decays to neutral.
-- Pose-2 camera adds a smoother, stronger roll-plus-pitch rock spring on each pump:
+- Pose-2 camera adds a smoother, stronger roll-plus-pitch rock spring on each thrust:
   `CAMERA_ROCK_IMPULSE = 0.30`, `CAMERA_ROCK_LIMIT = 0.039`, stiffness `45`, damping `8.0`;
   pitch is `0.675×` the roll (side roll unchanged).
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
@@ -187,8 +188,8 @@ these values here if a future pose needs that effect.
   `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat each tick through
   `FlankSurface.contact` or `PonyTouchBody.nearest`, and `palm_surface_basis()` makes the palm
   plane perpendicular to the coat normal. Its centre sits at
-  `PALM_ON_COAT_CLEARANCE_M = 0.04` (a 1 cm lift over the palm-ball radius); normal smoothing
-  adds no lift. Contact is cached per hand with source hysteresis and short position/normal
+  `PALM_ON_COAT_CLEARANCE_M = 0.04` at body scale `1.0`, scaled by the pony's actual
+  `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is cached per hand with source hysteresis and short position/normal
   smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite
   normal (dot < -0.5) is rejected under the same source. `FlankSurface` precomputes a two-ring,
   area-weighted average of the patch rest normals and skins those, removing triangle/seam
@@ -205,12 +206,12 @@ these values here if a future pose needs that effect.
   the exact Q/E shoulder contact point (full forward lean). Backward lean moves it toward the
   rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
   pony size; the point offsets are already per size.
-- Anon's hip follows raw pump `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
+- Anon's hip follows raw thrust `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
   no spring or return animation.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
   `BODY_SWAY_MAX_M = 0.035` is temporary/exaggerated.
-- Strong pumps build a subtle rump blush decal up to `0.25` albedo mix (smack uses `0.8`).
+- Strong thrusts build a subtle rump blush decal up to `0.25` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
   `SMACK_ZONE_RADIUS_M = 0.035`. If a hand is already caressing, the slap uses that hand and its
@@ -219,7 +220,7 @@ these values here if a future pose needs that effect.
   the slapping hand during the swing and the hand returns to that caress point at the end. Anon's
   hand swings in/out over `0.20 s` (`SMACK_CONTACT_PHASE = 0.45`) with a `200 ms` cooldown. The
   native impact supplies sound, decal, blush, jiggle and `flank_smack`.
-- `ear_twitch.gd` flicks both ear roots together on a pump: a shared forward/back pitch and a
+- `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.
 - Base pose adds `chin_up_deg = 30` on the head and `neck_down_deg = 15` total on neck1/neck2.
@@ -228,8 +229,8 @@ these values here if a future pose needs that effect.
 - `hind_spread` defaults to `0.32`; Rarity no longer needs an override.
 - Tail aside/lift/flick on the hair skeleton; side randomized per act. `poses.<pose>.tail_lift`
   defaults to `0.42` and is per-mare/per-pose overridable. A damped spring driven by
-  raw `depth` also rocks the tail with the pump: sagittal `ROCK_PITCH = 0.12` and lateral
-  `ROCK_YAW = 0.08`. Each pump adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
+  raw `depth` also rocks the tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral
+  `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
   rump shader, strongest at the dock and lagging down the chain.
 - Pose 2 wings start at `WING_POSE2_HOLD = 0.65` (about `60°` above the ground), then open by
@@ -237,7 +238,9 @@ these values here if a future pose needs that effect.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
   in opposite directions, sweeping the spread wings slightly backwards.
 - Pose 2 enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
-  recorded on entry. Lean and A/D caress remain live; hold Y ends it.
+  recorded on entry. Lean and A/D caress remain live; hold Y ends it. For the first 8 s the
+  HUD shows `Stay close · 8s · caress`; 2.5 s of active caress completes the close reward.
+  Missionary afterglow stays passive.
 
 ## Aftercare
 

@@ -91,7 +91,9 @@ func run() -> void:
 	check(near(RUNTIME.CARESS_OVAL_ACROSS, 1.30) and near(RUNTIME.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
 	check(near(RUNTIME.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
-	check(near(RUNTIME.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat")
+	check(near(RUNTIME.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat at 1.0 scale")
+	check(near(RUNTIME.palm_clearance_for(0.66), 0.0264), "Canon palm clearance scales down")
+	check(near(RUNTIME.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")
 	check(near(RUNTIME.PALM_NORMAL_MAX_DEG_S, 120.0), "palm normal turns at a bounded rate")
 	var capped: Vector3 = RUNTIME.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
@@ -108,7 +110,7 @@ func run() -> void:
 	check(RUNTIME.pose2_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
 	check(not RUNTIME.pose2_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
-	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "pump jiggle reduced 20 percent")
+	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle reduced 20 percent")
 	check(near(RUNTIME.BOB_FORWARD_IMPULSE, 0.45), "penetration camera travel increased 50 percent")
 	check(near(RUNTIME.KISS_LEAN_M, 0.27) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.18)
 		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
@@ -130,7 +132,9 @@ func run() -> void:
 		"unpinned kiss still chooses a side")
 	check(near(RUNTIME.CAMERA_ROCK_IMPULSE, 0.30), "camera rock impulse increased 50 percent")
 	check(near(RUNTIME.CAMERA_ROCK_LIMIT, 0.039), "camera rock limit increased 50 percent")
-	check(near(RUNTIME.CAMERA_ROCK_PITCH_RATIO, 0.675), "pump camera pitch increased 50 percent")
+	check(near(RUNTIME.HOLD_SWAY_FORWARD, 0.010) and near(RUNTIME.HOLD_SWAY_SIDE, 0.0084),
+		"hold sway amplitude reduced 33 percent")
+	check(near(RUNTIME.CAMERA_ROCK_PITCH_RATIO, 0.675), "thrust camera pitch increased 50 percent")
 	check(near(RUNTIME.MOUNTING_POSE2_CAMERA_LIFT_M, 0.10), "JRHNBR pose-2 camera raised 10 cm")
 	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel tripled")
 	check(near(RUNTIME.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")

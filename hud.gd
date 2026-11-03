@@ -1,20 +1,23 @@
 extends CanvasLayer
-## Desktop HUD: prompt, hint, and her readiness meter on the right.
+## Desktop HUD: prompt and a bottom-left controls/cue list.
 
-const HUD_BAR := preload("res://mods/unfplap/hud_bar.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
-const CLOSE_AT := 65.0
-const ACTIVE_HINTS := "Mouse ↕ · Pump\nW/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return"
-const CLIMAX_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nMouse right · Smack\nH · Toggle lean return\nHold Y · Afterglow"
-const AFTERGLOW_HINTS := "W/S · Lean\nQ/E · Lean + reach\nA/D · Caress (horse)\nF · Kiss (horse lean)\nH · Toggle lean return\nHold Y · Exit"
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const READINESS_BAR := preload("res://mods/unfplap/readiness_bar.gd")
+const ICON_PATH := "res://world/ui/prompts/%s.png"
+const KEYCAP_SIZE := Vector2(30.0, 26.0)
 
 var _prompt: Label
-var _hint: Label
-var _bars: HBoxContainer
-var _satisfaction_col: VBoxContainer
-var _satisfaction: Control
+var _hint: VBoxContainer
+var _hint_status: Label
+var _hint_gap: Control
+var _readiness_bar: Control
+var _readiness_line: Label
+var _y_label: Label
+var _hint_icons := {}
+var _control_rows := {}
 
 
 func _ready() -> void:
@@ -40,52 +43,47 @@ func _ready() -> void:
 	_prompt.visible = false
 	root.add_child(_prompt)
 
-	_bars = HBoxContainer.new()
-	_bars.name = "Meters"
-	_bars.anchor_left = 1.0
-	_bars.anchor_right = 1.0
-	_bars.anchor_top = 0.5
-	_bars.anchor_bottom = 0.5
-	_bars.offset_left = -200.0
-	_bars.offset_right = -24.0
-	_bars.offset_top = -230.0
-	_bars.offset_bottom = 230.0
-	_bars.alignment = BoxContainer.ALIGNMENT_END
-	_bars.add_theme_constant_override("separation", 12)
-	_bars.visible = false
-	root.add_child(_bars)
-
-	_satisfaction = HUD_BAR.new()
-	_satisfaction.name = "SatisfactionBar"
-	_satisfaction.custom_minimum_size = Vector2(40.0, 400.0)
-	_satisfaction.set("fill_color", Color(1.0, 0.45, 0.70))
-	_satisfaction_col = _make_column("Satisfaction", _satisfaction)
-
-	_hint = _make_label("")
+	_hint = VBoxContainer.new()
 	_hint.name = "Hint"
 	_hint.anchor_left = 0.0
 	_hint.anchor_top = 1.0
 	_hint.anchor_right = 0.0
 	_hint.anchor_bottom = 1.0
 	_hint.offset_left = 28.0
-	_hint.offset_top = -174.0
-	_hint.offset_right = 500.0
+	_hint.offset_top = -430.0
+	_hint.offset_right = 620.0
 	_hint.offset_bottom = -26.0
-	_hint.add_theme_font_size_override("font_size", 18)
-	_hint.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	_hint.add_theme_constant_override("separation", 2)
+	_hint.alignment = BoxContainer.ALIGNMENT_END
 	_hint.visible = false
 	root.add_child(_hint)
-
-
-func _make_column(title: String, bar: Control) -> VBoxContainer:
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 4)
-	var label := _make_label(title)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(label)
-	column.add_child(bar)
-	_bars.add_child(column)
-	return column
+	_hint_status = _make_label("")
+	_hint_status.name = "HintStatus"
+	_hint_status.custom_minimum_size = Vector2(580.0, 0.0)
+	_hint_status.add_theme_font_size_override("font_size", 16)
+	_hint_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint_status.visible = false
+	_hint.add_child(_hint_status)
+	_hint_gap = Control.new()
+	_hint_gap.custom_minimum_size.y = 10.0
+	_hint_gap.visible = false
+	_hint.add_child(_hint_gap)
+	_readiness_bar = READINESS_BAR.new()
+	_readiness_bar.name = "Readiness"
+	_readiness_bar.set("assist_cap", 60.0)
+	_readiness_bar.set("close_at", 65.0)
+	_readiness_bar.visible = false
+	_hint.add_child(_readiness_bar)
+	_readiness_line = _make_label("")
+	_readiness_line.name = "ReadinessLine"
+	_readiness_line.custom_minimum_size = Vector2(580.0, 0.0)
+	_readiness_line.add_theme_font_size_override("font_size", 14)
+	_readiness_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_readiness_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_readiness_line.visible = false
+	_hint.add_child(_readiness_line)
+	_build_controls()
 
 
 func _make_label(text: String) -> Label:
@@ -96,6 +94,82 @@ func _make_label(text: String) -> Label:
 	label.add_theme_constant_override("shadow_offset_x", 1)
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	return label
+
+
+## One row per control: a keycap/controller icon and one description. Built once; only the
+## Y row and the status line change with act state.
+func _build_controls() -> void:
+	_add_hint_row("thrust", "", "↕", "Thrust (mouse)")
+	_add_hint_row("forward", "", "W", "Lean forward")
+	_add_hint_row("back", "", "S", "Lean back")
+	_add_hint_row("left", "key_q", "Q", "Lean left · kiss / reach")
+	_add_hint_row("right", "key_e", "E", "Lean right · reach")
+	_add_hint_row("caress_left", "", "A", "Caress left")
+	_add_hint_row("caress_right", "", "D", "Caress right")
+	_add_hint_row("kiss", "key_f", "F", "Hold to kiss at full lean")
+	_add_hint_row("smack", "mouse_right", "", "Smack flank")
+	_add_hint_row("lean_hold", "", "H", "Toggle lean hold / return")
+	_add_hint_row("talk", "", "T", "Answer her when asked")
+	_y_label = _add_hint_row("y", "button_y", "Y", "")
+
+
+func _add_hint_row(key: String, icon_name: String, key_text: String, text: String) -> Label:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var texture := _hint_icon(icon_name)
+	if texture != null:
+		var icon := TextureRect.new()
+		icon.texture = texture
+		icon.custom_minimum_size = KEYCAP_SIZE
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
+	else:
+		row.add_child(_keycap(key_text))
+	var label := _make_label(text)
+	label.add_theme_font_size_override("font_size", 16)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(label)
+	_hint.add_child(row)
+	_control_rows[key] = row
+	return label
+
+
+func _keycap(text: String) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = KEYCAP_SIZE
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.06, 0.08, 0.88)
+	style.border_color = Color(1.0, 1.0, 1.0, 0.32)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	style.content_margin_left = 3.0
+	style.content_margin_right = 3.0
+	style.content_margin_top = 1.0
+	style.content_margin_bottom = 1.0
+	panel.add_theme_stylebox_override("panel", style)
+	var label := _make_label(text)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(label)
+	return panel
+
+
+func _hint_icon(name: String) -> Texture2D:
+	if name.is_empty():
+		return null
+	if _hint_icons.has(name):
+		return _hint_icons[name] as Texture2D
+	var path := ICON_PATH % name
+	var texture: Texture2D = load(path) if ResourceLoader.exists(path) else null
+	_hint_icons[name] = texture
+	return texture
 
 
 func show_prompt(text: String) -> void:
@@ -110,17 +184,22 @@ func hide_prompt() -> void:
 		_prompt.visible = false
 
 
-func show_act(runtime: Node, show_readiness := true) -> void:
-	_bars.visible = false
+func show_act(runtime: Node, show_cues := true, show_readiness := true) -> void:
 	_hint.visible = true
-	update_from(runtime, show_readiness)
+	update_from(runtime, show_cues, show_readiness)
 
 
 func hide_act() -> void:
-	if _bars != null:
-		_bars.visible = false
 	if _hint != null:
 		_hint.visible = false
+	if _hint_status != null:
+		_hint_status.visible = false
+	if _hint_gap != null:
+		_hint_gap.visible = false
+	if _readiness_bar != null:
+		_readiness_bar.visible = false
+	if _readiness_line != null:
+		_readiness_line.visible = false
 
 
 func hide_all() -> void:
@@ -128,57 +207,72 @@ func hide_all() -> void:
 	hide_act()
 
 
-func set_state(kind: String) -> void:
+func set_state(_kind: String) -> void:
 	if _hint == null:
 		return
-	if kind == "CLIMAX":
-		_hint.text = CLIMAX_HINTS
-	elif kind == "AFTERGLOW":
-		_hint.text = AFTERGLOW_HINTS
-		if _bars != null:
-			_bars.visible = false
 
 
-func update_from(runtime: Node, show_readiness := true) -> void:
-	if _bars == null or not is_instance_valid(runtime):
+func update_from(runtime: Node, show_cues := true, show_readiness := true) -> void:
+	if _hint == null or not is_instance_valid(runtime):
 		return
 	var state := int(runtime.get("state"))
-	var active := state in [STATE_ACTIVE, STATE_CLIMAX]
-	var readiness := float(runtime.get("satisfaction"))
-	var ready := readiness >= CLOSE_AT
 	var climaxes := int(runtime.get("pony_climaxes"))
-	_bars.visible = active and show_readiness
-	_satisfaction_col.visible = _bars.visible
-	if _bars.visible:
-		_satisfaction.call("set_value", readiness, 100.0)
-		_satisfaction.set("fill_color",
-			Color(1.0, 0.76, 0.36) if ready else Color(1.0, 0.45, 0.70))
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
-	if state == STATE_ACTIVE:
-		var lines: PackedStringArray = [ACTIVE_HINTS]
-		if show_readiness:
+	_apply_control_visibility(state, runtime)
+	if _y_label != null:
+		var y_text := ""
+		if state == STATE_ACTIVE:
+			y_text = "Hold: afterglow" if climaxes > 0 else "Hold: stop"
+		elif state == STATE_CLIMAX:
+			y_text = "Hold: afterglow"
+		elif state == STATE_AFTERGLOW:
+			y_text = "Hold: exit"
+		_y_label.text = y_text
+
+	var show_thrust := show_readiness and state in [STATE_ACTIVE, STATE_CLIMAX]
+	if _readiness_bar != null:
+		_readiness_bar.visible = show_thrust
+		if show_thrust and _readiness_bar.has_method("set_value"):
+			_readiness_bar.call("set_value", float(runtime.get("satisfaction")))
+	if _readiness_line != null:
+		_readiness_line.visible = show_thrust
+		if show_thrust and runtime.has_method("thrust_hint"):
+			_readiness_line.text = str(runtime.call("thrust_hint"))
+
+	var status: PackedStringArray = []
+	if _hint.visible:
+		if show_cues:
 			var cue := str(runtime.get("cue"))
 			if not cue.is_empty():
-				lines.append(cue)
-			if float(runtime.get("talk_wait")) > 0.0:
-				lines.append("T · Answer her")
-			if climaxes > 0:
-				lines.append("Climaxes · %d/5" % climaxes)
-				lines.append("Hold Y · Afterglow")
+				status.append(cue)
+		if state in [STATE_ACTIVE, STATE_CLIMAX] and (climaxes > 0 or state == STATE_CLIMAX):
+			status.append("Climaxes · %d/5" % climaxes)
+		if runtime.has_method("close_hint"):
+			var close_text := str(runtime.call("close_hint"))
+			if not close_text.is_empty():
+				status.append(close_text)
+	_hint_status.text = "\n".join(status)
+	_hint_status.visible = not status.is_empty()
+	if _hint_gap != null:
+		_hint_gap.visible = _hint_status.visible
+
+
+## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
+## afterglow keeps only Y; horse afterglow keeps lean, reach, caress, kiss, H and Y.
+func _apply_control_visibility(state: int, runtime: Node) -> void:
+	var horse := str(runtime.get("pose_id")) == CATALOG.HORSE
+	var afterglow := state == STATE_AFTERGLOW
+	for key: String in _control_rows:
+		var control := _control_rows[key] as Control
+		if control == null:
+			continue
+		var show := true
+		if afterglow:
+			if horse:
+				show = key in ["forward", "back", "left", "right", "caress_left",
+					"caress_right", "kiss", "lean_hold", "y"]
 			else:
-				lines.append("Hold Y · Stop")
-		else:
-			lines.append("Hold Y · Afterglow / Stop")
-		_hint.text = "\n".join(lines)
-	elif state == STATE_CLIMAX:
-		var climax_lines: PackedStringArray = [CLIMAX_HINTS]
-		if show_readiness:
-			var cue := str(runtime.get("cue"))
-			if not cue.is_empty():
-				climax_lines.append(cue)
-			climax_lines.append("Climaxes · %d/5" % climaxes)
-		_hint.text = "\n".join(climax_lines)
-	elif state == STATE_AFTERGLOW:
-		_hint.text = AFTERGLOW_HINTS
-	else:
-		_hint.text = ""
+				show = key == "y"
+		elif state == STATE_CLIMAX:
+			show = key != "talk"
+		control.visible = show

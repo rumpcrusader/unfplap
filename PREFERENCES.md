@@ -5,16 +5,19 @@ choice. Camera/pose mechanics and aftercare are outside it.
 
 ## What the player does
 
-- Mouse vertical motion feeds raw depth. `pump.orientation` flips the direction; `"up"`
-  (the default) means mouse up deepens.
-- A **stroke** is continuous movement in one direction. It closes on reversal or
-  `STROKE_TIMEOUT_S = 0.18 s` without movement.
-- A **pump** is an inward stroke with `travel >= PUMP_MIN_TRAVEL = 0.25`.
-- There is no base gain and no per-stroke multiplier. A stroke is classified, not scored.
+- Mouse vertical motion feeds raw depth. `thrust.orientation` flips the direction; `"up"`
+  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `480`.
+- A **stroke** is continuous movement in one direction. It closes on a real reversal
+  (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement.
+- A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
+  `duration >= MIN_THRUST_DURATION = 0.04 s`. Tiny jitter, pullbacks and outward strokes are
+  presentation only: they do not update the axes or score readiness.
 - `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)` remains the physical
-  force used by jiggle and wings.
+  force used by jiggle and wings. Peak speed is capped at `2 × average speed` so one bad mouse
+  sample cannot turn a soft stroke into a rough one.
 - `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses
-  afterglow separately.
+  afterglow separately. Readiness now rises in discrete chunks from real thrusts, not on a
+  passive timer.
 
 ## Taste profile
 
@@ -41,7 +44,15 @@ choice. Camera/pose mechanics and aftercare are outside it.
 
 ## Settings editor
 
-`Settings → Unfplap → Character taste` exposes one pony selector and one form:
+`Settings → Unfplap` has a **Thrust** section:
+
+- mouse-up direction;
+- sensitivity in pixels per full thrust (`240…1200`, default `480`);
+- opt-in thrust bobs.
+
+`Save thrust` writes only the `thrust` block and applies on the next act.
+
+The **Character taste** section exposes one pony selector and one form:
 
 - intensity, pattern, warmth;
 - recovery `0…80`;
@@ -52,12 +63,13 @@ choice. Camera/pose mechanics and aftercare are outside it.
 `Save taste` writes only `characters[id].taste`; it preserves that character's custom
 `event_prompts` and pose settings. `Reset to default` removes only the taste override.
 The runtime reads the merged taste at act start, so saved changes apply on the next act.
+`readiness_hud` and `afterglow_close` are normal feature toggles in the same tab.
 
 ## The two continuous axes
 
 ### Intensity
 
-From the last inward pump's strength:
+From the last real inward thrust's strength:
 
 ```text
 soft   strength < 0.33
@@ -67,7 +79,7 @@ rough  strength >= 0.66
 
 ### Pattern
 
-Classified over the last 3–4 inward pumps. Fewer than 3 pumps means “no pattern yet”; only
+Classified over the last 3–4 real inward thrusts. Fewer than 3 means “no pattern yet”; only
 the intensity axis can match.
 
 ```text
@@ -79,20 +91,26 @@ steady   otherwise
 
 ## Readiness
 
-`satisfaction` is readiness. It starts at 0, caps at 100, and is visible as the second HUD
-bar when `readiness_hud` is on.
+`satisfaction` is readiness. It starts at 0 and caps at 100. The optional readiness HUD
+(`readiness_hud`, default `true`) shows a bar plus `Thrust: firm · steady · wants …`.
 
 ```text
-both axes match       +2.0 /s × warmth
-one axis matches      +1.0 /s × warmth
+both axes match       +1.4 per real thrust × warmth
+one axis matches      +0.7 per real thrust × warmth
 neither matches       no gain; after 3 s, -1.5 /s
-liked touch / talk    +6.0 once
+liked touch / talk    +6.0 once, capped at ASSIST_CAP = 60
 disliked touch/talk   -6.0 once and 1.2 s overwhelmed
 ```
 
-- The pattern/intensity memory clears after 1.2 s without an inward pump.
-- Cooling is recoverable. Change rhythm, touch her, or answer her.
-- No hard stop from a mismatch.
+- Real thrusts are rate-limited to one scored thrust every `0.2 s`; faster input is presentation.
+- A liked touch or talk opens an 8 s receptive window: real thrusts gain `×1.25`.
+- Touch shares one 4 s scoring cooldown. Alternating caress, kiss and smack does not bypass it.
+  Talk has its own 8 s scoring cooldown.
+- Touch/talk cannot take her past `ASSIST_CAP = 60`. At the cap, caress says “She needs more
+  than your hands”; talk says “She needs you to move.”
+- The pattern/intensity memory clears after 1.2 s without a real thrust.
+- Cooling means no positive heat for 3 s. It is recoverable: thrust in her rhythm, touch her,
+  or answer her. No hard stop from a mismatch.
 
 ## Mood and cues
 
@@ -101,7 +119,7 @@ warming       readiness < 40
 wanting       40 <= readiness < 65
 close         readiness >= 65
 climax        the pony is in her 5 s climax
-cooling       no match for 3 s and readiness is falling
+cooling       no positive heat for 3 s and readiness is falling
 overwhelmed   a disliked touch/talk landed recently
 ```
 
@@ -115,7 +133,7 @@ overwhelmed   a disliked touch/talk landed recently
 
 - At 100 readiness she climaxes. `MAX_PONY_CLIMAXES = 5`.
 - The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`.
-- The player can keep pumping during those 5 s. The pump is presentation only: it does not
+- The player can keep thrusting during those 5 s. The thrust is presentation only: it does not
   update intensity, pattern or readiness.
 - Each climax sends a unique world-context event and a unique generated reaction.
 - When the 5 s ends:
@@ -140,22 +158,48 @@ Hold `Y`:
 - One or more climaxes allows afterglow at any time.
 - The 5th climax forces afterglow after its 5 s effect.
 
+### Horse close window
+
+`afterglow_close` (default `true`) starts an 8 s window in the horse afterglow only:
+
+- the HUD shows `Stay close · 8s · caress`;
+- A/D caress time is counted while a hand is active;
+- the player can hold `Y` to leave early, which cancels the reward;
+- at 8 s, 2.5 s or more of caress grants the full reward; staying without caressing gets only
+  the “She seems content.” cue;
+- missionary afterglow is unchanged.
+
+The `stay_close` event queues a separate generated line asking the player to stay close. It is
+queued after the `inside` line. The HUD timer starts immediately; the line is flavour and may
+arrive late. `event_prompts.stay_close` is its per-character override.
+
 ## Memory and rewards
 
 - **Per pony climax:** a unique world-context event and a generated reaction.
 - **Once at afterglow:** `MEMORY.commit_climax` and `WITNESS.commit`.
 - **Pose-2 inside event:** at afterglow only, as the player's finish.
+- **Horse close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
+  caressing adds a happy mood, a private thought and a small `romance` gain; staying alone
+  records the warm beat without the extra romance.
 - **Zero-climax Y:** the existing early-stop/cancel path; no romance commit.
+- Act lines that have not started speaking are cancelled at every climax/afterglow boundary and
+  at every act end. A line already speaking may finish. The intentional early-stop line is
+  queued after the act-line cancel.
 
 ## HUD
 
-- Readiness bar shows arousal; `65` is close, `100` is pony climax.
-- There is no penetration/depth bar; the pump mechanic and `pump.orientation` still apply.
-- `ACTIVE` Y hint: `Hold Y · Stop` at 0 climaxes; `Hold Y · Afterglow` at 1+.
-- `CLIMAX` Y hint: `Hold Y · Afterglow`.
-- A climax count/cue may be shown; no new meter.
-- `readiness_hud` defaults to `true` and gates the readiness bar and mood cues.
-- `debug_logs` gates the detailed overlay, not the readiness bar.
+- `readiness_hud` (default `true`) shows a 0–100 readiness bar with ticks at the touch cap
+  (`60`) and the close cue (`65`), plus `Thrust: … · wants …`.
+- There is no penetration/depth bar; the thrust mechanic and `thrust.orientation` still apply.
+- The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
+  at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.
+- A climax count is shown above the controls; the short mood cue is gated by `mood_cues`
+  (default `true`). The horse afterglow close cue is independent of `mood_cues`.
+- Afterglow hides controls that cannot act: missionary keeps only `Y`; horse keeps forward/back,
+  Q/E reach, A/D caress, F kiss, H and Y.
+- Captions can move to the top of the screen when the game's speech setting is the explicit
+  bottom caption; `caption_top` defaults to `true`.
+- `debug_logs` gates the detailed overlay, not the HUD.
 
 ## Touch and talk classification
 
@@ -165,8 +209,9 @@ Hold `Y`:
 | held caress | `caress` |
 | kiss | `kiss` |
 
-Each has a 4 s scoring cooldown. Talk uses the game's `T`/microphone turn and the small
-keyword map in `preferences.gd`; the AI still writes her reply.
+Touch shares one 4 s scoring cooldown across smack, caress and kiss. Talk has an 8 s scoring
+cooldown and uses the game's `T`/microphone turn plus the small keyword map in
+`preferences.gd`; the AI still writes her reply.
 
 ## Character examples
 

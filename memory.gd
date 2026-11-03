@@ -80,10 +80,71 @@ static func mod_key(event_id: String, kind: String, key: String) -> String:
 	return "unfplap:%s:%s:%s" % [event_id, kind, key]
 
 
+## Keep only a line that has actually started speaking. A line that is merely queued or still
+## being generated must not outlive the act.
+static func keep_active_line(state: String, key: String, active: String, keep_speaking: bool) -> bool:
+	return keep_speaking and state == "speaking" and not key.is_empty() and key == active
+
+
+## Drop every mod-owned line for one act. Called at climax/afterglow boundaries and at every
+## act end. Returns the number of cancelled lines.
+static func cancel_act_lines(game: Node, event_id: String, keep_speaking := true) -> int:
+	if not is_instance_valid(game) or not game.is_inside_tree() or event_id.is_empty():
+		return 0
+	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	if director == null or not director.has_method("cancel_authored_line"):
+		return 0
+	var raw: Variant = director.get("_authored_lines")
+	if not raw is Dictionary:
+		return 0
+	var lines: Dictionary = raw
+	var active := str(director.get("_authored_active"))
+	var state := str(director.get("state"))
+	var prefix := "unfplap:%s:" % event_id
+	var cancelled := 0
+	for key_value: Variant in lines.keys():
+		var key := str(key_value)
+		if not key.begins_with(prefix):
+			continue
+		if keep_active_line(state, key, active, keep_speaking):
+			continue
+		director.call("cancel_authored_line", key)
+		cancelled += 1
+	return cancelled
+
+
 static func inside_response(game: Node, id: String, event_id: String, valid: Callable) -> void:
 	reaction_for(game, id, "inside", event_id,
 		"The player just came inside you. Say one short sentence, at most 12 words, in your own voice. Staying quiet or staying close is fine. Do not start another act.",
 		valid)
+
+
+static func stay_close_response(game: Node, id: String, event_id: String, valid: Callable) -> void:
+	reaction_for(game, id, "stay_close", event_id,
+		"You are in the afterglow with Anon. Ask him to stay close for a moment; say one short sentence, at most 12 words, in your own voice. Do not start another act.",
+		valid)
+
+
+## The horse afterglow close reward. Staying and caressing gets a small romance gain and a
+## private thought; staying alone is a warm beat without the extra romance.
+static func stay_close_reward(game: Node, id: String, event_id: String, caressed: bool) -> void:
+	var ctx = _context(game)
+	if ctx == null:
+		return
+	var text := "After sex, Anon stayed close and held you for a while."
+	if caressed:
+		text = "After sex, Anon stayed close, held you and caressed you for a while. You felt cared for."
+	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stay_close")
+	var impressions: Variant = ctx.get("impressions")
+	if impressions == null or not is_instance_valid(impressions):
+		return
+	var thought := "He stayed close after; I felt cared for."
+	if caressed:
+		thought = "He stayed close and caressed me after; I felt cared for."
+	var data := {"mood": "happy", "thought": thought}
+	if caressed:
+		data["romance"] = 1
+	impressions.commit(id, data, event_id + ":stay_close_gain")
 
 
 static func stop_event(game: Node, id: String, name: String, event_id: String, reason: String) -> void:

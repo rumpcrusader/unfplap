@@ -88,7 +88,7 @@ func _ready() -> void:
 	var source_mtime := 0
 	for path: String in [
 			"res://mods/unfplap/runtime.gd",
-			"res://mods/unfplap/pump.gd",
+			"res://mods/unfplap/thrust.gd",
 			"res://mods/unfplap/preferences.gd",
 			"res://mods/unfplap/utterance.gd",
 			"res://mods/unfplap/poses/skeleton_pose.gd",
@@ -103,6 +103,13 @@ func _ready() -> void:
 	Mods.player_ready.connect(_on_player)
 	Mods.on_node(PONY_PATH, _on_pony)
 	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null and settings.has_signal("changed") \
+			and not settings.changed.is_connected(_on_game_setting_changed):
+		settings.changed.connect(_on_game_setting_changed)
+	if not get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.connect(_on_node_added)
+	_apply_caption_top.call_deferred()
 	# Switched on mid-game: the world and player already exist.
 	if is_instance_valid(Mods.game):
 		_on_world(Mods.game)
@@ -138,6 +145,36 @@ func _on_world_closed(_host: Node) -> void:
 	_offer = {}
 	if is_instance_valid(hud):
 		hud.hide_all()
+
+
+## Move the game's bottom dialogue caption to the top only when the player chose the explicit
+## bottom-caption mode. "Over the pony's head" and "auto" are left untouched.
+func _caption_top_enabled() -> bool:
+	if not SETTINGS.feature("caption_top"):
+		return false
+	var settings := get_node_or_null("/root/Settings")
+	if settings == null:
+		return false
+	return str(settings.call("get_value", "access/speech_text")) == "caption"
+
+
+func _apply_caption_top() -> void:
+	if not is_inside_tree():
+		return
+	var enabled := _caption_top_enabled()
+	for node: Node in get_tree().get_nodes_in_group("speech_caption"):
+		if node is Control:
+			node.set("caption_top", enabled)
+
+
+func _on_node_added(node: Node) -> void:
+	if node.is_in_group("speech_caption"):
+		node.set("caption_top", _caption_top_enabled())
+
+
+func _on_game_setting_changed(key: String) -> void:
+	if key == "access/speech_text":
+		_apply_caption_top()
 
 
 func _on_player(body: Node) -> void:
@@ -260,7 +297,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 6)
 	ui.add_child(heading)
 	var note := Label.new()
-	note.text = "Feature flags and per-character taste. Changes apply on the next act."
+	note.text = "Feature flags and per-character taste. Most apply on the next act; Caption Top applies immediately."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	ui.add_child(note)
@@ -292,12 +329,15 @@ func _inject_settings_page_now(page: Node) -> void:
 		toggle.toggled.connect(func(on: bool) -> void:
 			SETTINGS.save_feature(feature_key, on)
 			_debug("feature %s=%s" % [feature_key, str(on)])
+			if feature_key == "caption_top":
+				_apply_caption_top()
 			page.call("_redraw"))
 	var text_only_note := Label.new()
 	text_only_note.text = "act_text_only_ponese keeps the act's text and mutes only her Ponese voice."
 	text_only_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_only_note.add_theme_font_size_override("font_size", font_size - 5)
 	list.add_child(text_only_note)
+	_add_thrust_section(list, font_size)
 	_add_taste_section(list, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
@@ -368,6 +408,75 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 		var native_page: Variant = page.get(key)
 		if native_page is CanvasItem:
 			(native_page as CanvasItem).visible = value
+
+
+func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Thrust"
+	heading.add_theme_font_size_override("font_size", font_size + 2)
+	list.add_child(heading)
+	var note := Label.new()
+	note.text = "Mouse thrust controls. Changes apply on the next act."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(note)
+
+	var form := GridContainer.new()
+	form.columns = 2
+	form.add_theme_constant_override("h_separation", 16)
+	form.add_theme_constant_override("v_separation", 8)
+	list.add_child(form)
+	var orientation_label := Label.new()
+	orientation_label.text = "Mouse up"
+	orientation_label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(orientation_label)
+	var orientation := OptionButton.new()
+	orientation.add_item("Deepens")
+	orientation.add_item("Shallows")
+	orientation.add_theme_font_size_override("font_size", font_size - 2)
+	form.add_child(orientation)
+
+	var pixels_label := Label.new()
+	pixels_label.text = "Sensitivity"
+	pixels_label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(pixels_label)
+	var pixels := SpinBox.new()
+	pixels.min_value = 240.0
+	pixels.max_value = 1200.0
+	pixels.step = 20.0
+	pixels.suffix = " px per full thrust"
+	pixels.add_theme_font_size_override("font_size", font_size - 2)
+	form.add_child(pixels)
+
+	var bobs_label := Label.new()
+	bobs_label.text = "Thrust bobs"
+	bobs_label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(bobs_label)
+	var bobs := CheckButton.new()
+	bobs.text = "Camera/bob motion on each thrust"
+	bobs.add_theme_font_size_override("font_size", font_size - 3)
+	form.add_child(bobs)
+
+	var controls := SETTINGS.thrust_controls()
+	orientation.selected = 0 if bool(controls.get("up", true)) else 1
+	pixels.value = float(controls.get("pixels_per_full", 480.0))
+	bobs.button_pressed = bool(controls.get("bobs", false))
+
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	list.add_child(buttons)
+	var save := Button.new()
+	save.text = "Save thrust"
+	buttons.add_child(save)
+	var status := Label.new()
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(status)
+	save.pressed.connect(func() -> void:
+		SETTINGS.save_thrust_controls(orientation.selected == 0, pixels.value, bobs.button_pressed)
+		status.text = "Saved thrust controls. Applies next act."
+		_debug("thrust controls saved"))
 
 
 func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
@@ -622,10 +731,13 @@ func _process(delta: float) -> void:
 	if is_instance_valid(active_runtime):
 		active_runtime.apply_camera_motion()
 		if is_instance_valid(hud):
+			var show_cues := true
+			if active_runtime.has_method("mood_cues"):
+				show_cues = bool(active_runtime.call("mood_cues"))
 			var show_readiness := true
 			if active_runtime.has_method("readiness_hud"):
 				show_readiness = bool(active_runtime.call("readiness_hud"))
-			hud.update_from(active_runtime, show_readiness)
+			hud.update_from(active_runtime, show_cues, show_readiness)
 		_offer = {}
 		_sync_native_hint(false)
 		return
@@ -720,7 +832,7 @@ func _make_native_hint_label() -> Control:
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(icon)
 	var label := Label.new()
-	label.text = " · sex" if row.get_child_count() > 0 else "Y · sex"
+	label.text = "sex" if row.get_child_count() > 0 else "Y · sex"
 	CURRENCY.apply(label)
 	label.add_theme_font_size_override("font_size", 30)
 	label.add_theme_color_override("font_color", Color("f4f1ff"))

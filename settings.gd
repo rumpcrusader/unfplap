@@ -1,10 +1,10 @@
 extends RefCounted
-## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, pump
+## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, thrust
 ## controls, and the default/per-character templates. A character inherits every field it
 ## does not override.
 ##
-## Pre-release: the schema is intentionally breaking. The old per-stroke `preferences.pump`
-## block is gone; `taste` is the ACTIVE-stage profile.
+## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile and
+## `thrust` holds the mouse-control settings.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -53,10 +53,14 @@ const CHARACTER_NAMES := {
 ## Experimental switches. Keep this as the single list; runtime reads it once per act.
 const FEATURE_DEFAULTS := {
 	"settings_tab": true,
+	"mood_cues": true,
 	"readiness_hud": true,
+	"afterglow_close": true,
 	"lean_return": false,
 	"camera_inertia": true,
 	"camera_rock": true,
+	"hold_sway": false,
+	"caption_top": true,
 	"body_sway": true,
 	"rump_blush": true,
 	"ear_twitch": true,
@@ -77,6 +81,7 @@ const DEFAULT_TEMPLATE := {
 		"climax": "",
 		"end_early": "",
 		"inside": "",
+		"stay_close": "",
 	},
 	"act_prompts": {},
 	"taste": {},
@@ -357,25 +362,39 @@ static func reset_taste(id: String) -> void:
 	_write(data)
 
 
-## One read for the global pump controls; oriented so the runtime and HUD share the same flag.
-static func pump_controls() -> Dictionary:
+## One read for the global thrust controls; oriented so the runtime and HUD share the same flag.
+static func thrust_controls() -> Dictionary:
 	var data := _read()
-	var block: Variant = data.get("pump", {})
+	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
-	var pixels := 600.0
+	var pixels := 480.0
 	var bobs := false
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
-		pixels = float((block as Dictionary).get("pixels_per_full", 600.0))
+		pixels = float((block as Dictionary).get("pixels_per_full", 480.0))
 		bobs = bool((block as Dictionary).get("bobs", false))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
 		"orientation": orientation,
 		"up": orientation == "up",
-		"pixels_per_full": clampf(pixels, 80.0, 2000.0),
+		"pixels_per_full": clampf(pixels, 240.0, 1200.0),
 		"bobs": bobs,
 	}
+
+
+## Save only the thrust block. Other settings and character overrides are preserved.
+static func save_thrust_controls(up: bool, pixels_per_full: float, bobs: bool) -> void:
+	var data := _read()
+	var block: Variant = data.get("thrust", {})
+	if not block is Dictionary:
+		block = {}
+	var controls: Dictionary = block
+	controls["orientation"] = "up" if up else "down"
+	controls["pixels_per_full"] = clampf(pixels_per_full, 240.0, 1200.0)
+	controls["bobs"] = bobs
+	data["thrust"] = controls
+	_write(data)
 
 
 static func aftercare_min(id: String) -> int:
@@ -439,9 +458,9 @@ static func _defaults() -> Dictionary:
 	return {
 		"debug_logs": true,
 		"features": FEATURE_DEFAULTS.duplicate(true),
-		"pump": {
+		"thrust": {
 			"orientation": "up",
-			"pixels_per_full": 600.0,
+			"pixels_per_full": 480.0,
 			"bobs": false,
 		},
 		"default": _filled_default(),

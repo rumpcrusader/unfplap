@@ -42,8 +42,8 @@ func run() -> void:
 	active.cue = "She's close."
 	active._last_intensity = "firm"
 	active._last_pattern = "steady"
-	check(active.hud_cue_line(true) == "❤ 0/5 | She's close.", "HUD cue line")
-	check(active.hud_cue_line(false) == "❤ 0/5", "HUD cue line without optional segments")
+	check(active.hud_cue_line(true) == "❤ 0/3 | She's close.", "HUD cue line")
+	check(active.hud_cue_line(false) == "❤ 0/3", "HUD cue line without optional segments")
 	check(active.hud_readiness_line(true) ==
 		"Wants: firm & steady | You: firm & steady", "separate HUD readiness line")
 	check(active.hud_readiness_line(false) == "", "readiness line hidden with readouts off")
@@ -80,10 +80,45 @@ func run() -> void:
 	check(mission.close_hint() == "", "missionary has no close cue")
 	mission.free()
 
+	var wings := FakeWings.new()
+	root.add_child(wings)
+	var winged: Node = _runtime("horse")
+	winged._winged = true
+	winged._wing_hold = true
+	winged._wings_node = wings
+	winged._begin_wing_afterglow()
+	check(winged._wing_returning, "afterglow starts the slow wing return")
+	check(wings.released, "afterglow releases the wing hold")
+	check(not wings.opened, "afterglow targets folded wings")
+	winged._wing_return_tick(RUNTIME.WING_AFTERGLOW_RETURN_SECONDS * 0.5)
+	check(wings.tuck > 0.0 and wings.tuck < 1.0, "wings fold through the midpoint")
+	winged._wing_return_tick(RUNTIME.WING_AFTERGLOW_RETURN_SECONDS)
+	check(near(wings.tuck, 1.0), "wings reach the folded tuck")
+	check(near(wings.half, 0.0), "wing half-open blend returns to zero")
+	check(winged._wing_return_done, "wing return completes")
+	winged._release_wing_hold()
+	check(not winged._wing_returning and winged._wings_node == null,
+		"wing return state clears on release")
+	winged.free()
+	wings.free()
+
 	print("AFTERGLOW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("AFTERGLOW_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+class FakeWings extends Node:
+	var tuck := 0.0
+	var half := 1.0
+	var opened := true
+	var released := false
+
+	func release_hold(_owner: String) -> void:
+		released = true
+
+	func set_open(value: bool) -> void:
+		opened = value
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:

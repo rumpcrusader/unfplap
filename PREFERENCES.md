@@ -66,10 +66,18 @@ Both follow the filtered thrust **speed**, not depth, with one smooth critically
 response. There are no Save buttons. Thrust and camera-thrust controls write their own blocks
 immediately and apply live during an act.
 
-The **Act presentation** section has **Glance-back speed** (`0.25…3.0×`), the **Missionary**
-framing axes (forward, height, side, pullback), the side-lean head-forward amount
-(`pose1_side_lean`, default `0.10`) and **Anon torso lean** (pose 2). The framing and torso
-controls are experimental and unbounded; all apply live.
+The **Act presentation** section is split per pose:
+
+- **Missionary**: forward, height, side, pullback, pitch (`pitch_deg`, default `0`;
+  positive looks up) and the side-lean head-forward amount (`side_lean`, default `0.20`).
+- **Horse**: glance-back speed (`0.25…3.0×`) and Anon torso lean (`torso_angle_deg`).
+- **Horse → Caress**: palm distance in cm (`palm_distance`, default `0.04 m`), palm size
+  and palm scale. Palm scale is absolute per body-size preset (Canon `0.85`, mounting
+  `0.95`, same height/hoers `1.0`) and is edited through the size selector. Caress can
+  ignore tail, mane, wings and legs; tail is ignored by default.
+
+All controls apply live during an act. The framing, pitch and torso controls remain
+experimental and unbounded where noted.
 
 The **Character taste** section exposes one pony selector and one form:
 
@@ -158,14 +166,14 @@ overwhelmed   a disliked touch/talk landed recently
 
 ## Pony climax
 
-- At 100 readiness she climaxes. `MAX_PONY_CLIMAXES = 5`.
+- At 100 readiness she climaxes. `MAX_PONY_CLIMAXES = 3`.
 - The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`.
 - The player can keep thrusting during those 5 s. The thrust is presentation only: it does not
   update intensity, pattern or readiness.
 - Each climax sends a unique world-context event and a unique generated reaction.
 - When the 5 s ends:
-  - fewer than 5 climaxes: return to `ACTIVE`, set readiness to `recovery`, clear pattern;
-  - 5th climax: enter `AFTERGLOW` automatically.
+  - fewer than 3 climaxes: return to `ACTIVE`, set readiness to `recovery`, clear pattern;
+  - 3rd climax: enter `AFTERGLOW` automatically.
 - The pony's `recovery` is per-mare, so a slow/low-recovery mare needs a thorough approach
   and a quick/high-recovery mare reaches the next climax faster.
 
@@ -183,14 +191,17 @@ Hold `Y`:
 
 - The player cannot enter afterglow before the first pony climax.
 - One or more climaxes allows afterglow at any time.
-- The 5th climax forces afterglow after its 5 s effect.
+- The 3rd climax forces afterglow after its 5 s effect.
+- Pegasi and alicorns slowly fold their wings back to rest during afterglow over 6 s rather
+  than holding the spread pose until the act ends.
 
 ### Horse close window
 
 The horse afterglow always starts an 8 s close window:
 
 - the HUD shows `Stay close · 8s · caress`;
-- A/D caress time is counted while a hand is active;
+- A/D caress time is counted while a hand is active; Z/C pause/resume the oval movement
+  without releasing the palm;
 - the player can hold `Y` to leave early, which cancels the reward;
 - at 8 s, 2.5 s or more of caress grants the full reward; staying without caressing gets only
   the “She seems content.” cue;
@@ -221,15 +232,15 @@ arrive late. `event_prompts.stay_close` is its per-character override.
 
 - `hud_readouts` (default `true`) shows the cue, a short 0–100 bar with no ticks, and the
   separate `Wants`/`You` line.
-- Top to bottom: cue line `❤ N/5 | cue`, readiness line
+- Top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
   controls.
 - When readouts are off, the hearts remain; the cue, readiness line and bar are hidden.
 - There is no penetration/depth bar; the thrust mechanic and `thrust.orientation` still apply.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.
-- Afterglow shows `❤ N/5 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  horse keeps forward/back, Q/E reach, A/D caress, F kiss and Y.
+- Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
+  horse keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
 - `debug_logs` gates the detailed overlay, not the HUD.

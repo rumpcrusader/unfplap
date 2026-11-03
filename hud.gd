@@ -109,6 +109,8 @@ func _build_controls() -> void:
 	_add_hint_row("right", "key_e", "E", "Lean right · reach")
 	_add_hint_row("caress_left", "", "A", "Caress left")
 	_add_hint_row("caress_right", "", "D", "Caress right")
+	_add_hint_row("caress_move_left", "", "Z", "Caress movement left")
+	_add_hint_row("caress_move_right", "", "C", "Caress movement right")
 	_add_hint_row("kiss", "key_f", "F", "Hold to kiss at full lean")
 	_add_hint_row("smack", "mouse_right", "", "Smack flank")
 	_add_hint_row("talk", "", "T", "Answer her when asked")
@@ -264,7 +266,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		if afterglow:
 			if horse:
 				show = key in ["forward", "back", "left", "right", "caress_left",
-					"caress_right", "kiss", "y"]
+					"caress_right", "caress_move_left", "caress_move_right", "kiss", "y"]
 			else:
 				show = key == "y"
 		elif state == STATE_CLIMAX:

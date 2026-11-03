@@ -93,9 +93,17 @@ func run() -> void:
 	check(near(RUNTIME.CARESS_OVAL_ACROSS, 1.30) and near(RUNTIME.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
 	check(near(RUNTIME.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
+	check(near(RUNTIME.caress_phase_step(0.5, true, 0.25),
+		RUNTIME.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
+	check(near(RUNTIME.caress_phase_step(0.5, false, 0.25), 0.5),
+		"caress phase holds while movement is off")
 	check(near(RUNTIME.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat at 1.0 scale")
 	check(near(RUNTIME.palm_clearance_for(0.66), 0.0264), "Canon palm clearance scales down")
 	check(near(RUNTIME.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")
+	check(near(RUNTIME.palm_clearance_for(1.0, 0.07), 0.07),
+		"caress palm distance overrides the default")
+	check(RUNTIME._region_ignored("tail", ["tail"]), "caress ignores the tail hull")
+	check(not RUNTIME._region_ignored("flank", ["tail"]), "caress keeps the flank hull")
 	check(near(RUNTIME.PALM_NORMAL_MAX_DEG_S, 120.0), "palm normal turns at a bounded rate")
 	var capped: Vector3 = RUNTIME.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")

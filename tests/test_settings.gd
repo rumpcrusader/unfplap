@@ -141,22 +141,62 @@ func run() -> void:
 	check(camera_surge >= 0.0 and camera_surge <= 1.0, "runtime camera surge in range")
 	check(camera_bob >= 0.0 and camera_bob <= 1.0, "runtime camera bob in range")
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
-	check(near(float(presentation_defaults.get("glance_back_speed", 0.0)), 2.0),
-		"default glance-back speed")
-	check(near(float(presentation_defaults.get("pose1_forward", 0.0)), 0.10),
+	var missionary_defaults: Dictionary = presentation_defaults.get("missionary", {})
+	var horse_defaults: Dictionary = presentation_defaults.get("horse", {})
+	check(near(float(missionary_defaults.get("forward", 0.0)), 0.26),
 		"default missionary forward")
-	check(near(float(presentation_defaults.get("pose1_height", 0.0)), -0.10),
+	check(near(float(missionary_defaults.get("height", 0.0)), -0.21),
 		"default missionary height")
-	check(near(float(presentation_defaults.get("pose1_side", -1.0)), 0.0),
+	check(near(float(missionary_defaults.get("side", -1.0)), 0.0),
 		"default missionary side")
-	check(near(float(presentation_defaults.get("pose1_pullback", 0.0)), 0.22),
+	check(near(float(missionary_defaults.get("pullback", 0.0)), 0.22),
 		"default missionary pullback")
-	check(near(float(presentation_defaults.get("pose1_side_lean", 0.0)), 0.10),
+	check(near(float(missionary_defaults.get("side_lean", 0.0)), 0.20),
 		"default missionary side-lean forward")
-	check(near(float(presentation_defaults.get("torso_angle_deg", -1.0)), 0.0),
-		"default Anon torso lean off")
-	var presentation := SETTINGS.presentation_controls()
-	var glance_speed := float(presentation.get("glance_back_speed", 0.0))
+	check(near(float(missionary_defaults.get("pitch_deg", -1.0)), 0.0),
+		"default missionary pitch")
+	check(near(float(horse_defaults.get("glance_back_speed", 0.0)), 2.0),
+		"default glance-back speed")
+	check(near(float(horse_defaults.get("torso_angle_deg", -1.0)), 15.0),
+		"default Anon torso lean")
+	var caress_defaults: Dictionary = horse_defaults.get("caress", {})
+	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.04),
+		"default caress palm distance")
+	var scale_defaults: Dictionary = caress_defaults.get("palm_scale", {})
+	check(near(float(scale_defaults.get("canon", 0.0)), 0.85),
+		"default Canon palm scale")
+	check(near(float(scale_defaults.get("mounting", 0.0)), 0.95),
+		"default mounting palm scale")
+	check((caress_defaults.get("ignore", []) as Array).has("tail"),
+		"default caress ignores tail")
+
+	var old_presentation := {
+		"presentation": {
+			"pose1_forward": 0.31,
+			"pose1_height": -0.2,
+			"pose1_pitch_deg": 3.0,
+			"glance_back_speed": 1.5,
+			"torso_angle_deg": 7.0,
+			"pose1_camera": 0.09,
+		},
+	}
+	var migrated: Dictionary = SETTINGS._normalize_presentation(old_presentation)
+	var migrated_block: Dictionary = migrated.get("presentation", {})
+	var migrated_mission: Dictionary = migrated_block.get("missionary", {})
+	var migrated_horse: Dictionary = migrated_block.get("horse", {})
+	check(near(float(migrated_mission.get("forward", 0.0)), 0.31),
+		"migrates old missionary forward")
+	check(near(float(migrated_mission.get("pitch_deg", 0.0)), 3.0),
+		"migrates old missionary pitch")
+	check(near(float(migrated_horse.get("glance_back_speed", 0.0)), 1.5),
+		"migrates old glance speed")
+	check(near(float(migrated_horse.get("torso_angle_deg", 0.0)), 7.0),
+		"migrates old torso lean")
+	check(not migrated_block.has("pose1_forward"), "drops old flat presentation keys")
+	check(not migrated_block.has("pose1_camera"), "drops obsolete camera key")
+
+	var horse := SETTINGS.presentation_controls("horse")
+	var glance_speed := float(horse.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})

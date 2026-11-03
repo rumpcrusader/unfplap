@@ -82,7 +82,7 @@ func _input(event: InputEvent) -> void:
 			main.call("debug_voices")
 			get_viewport().set_input_as_handled()
 			return
-		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F7 \
+		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F4 \
 				and bool(main.get("debug_logs")):
 			main.call("debug_request")
 			get_viewport().set_input_as_handled()
@@ -143,11 +143,12 @@ func _input(event: InputEvent) -> void:
 			return
 		if state == 4: # AFTERGLOW: only Y / lean / caress / kiss are live
 			if key.is_action("stand_up") or key.physical_keycode in [
-					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T]:
+					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T, KEY_Z, KEY_C]:
 				get_viewport().set_input_as_handled()
 			return
 		if state in [3, 5]: # CLIMAX / RESTORE: only polled act actions
-			if key.is_action("stand_up") or key.physical_keycode in [KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F]:
+			if key.is_action("stand_up") or key.physical_keycode in [
+					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_Z, KEY_C]:
 				get_viewport().set_input_as_handled()
 			return
 		if key.is_action("stand_up"):
@@ -156,8 +157,9 @@ func _input(event: InputEvent) -> void:
 		if key.physical_keycode == KEY_Y:
 			get_viewport().set_input_as_handled()
 			return
-		# Keep native world interactions from firing during the act.
-		if key.physical_keycode in [KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_G, KEY_K]:
+		# Keep native world interactions from firing during the act. Z/C are the per-side
+		# caress-motion toggles and would otherwise sit/lie or interact.
+		if key.physical_keycode in [KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_G, KEY_K, KEY_Z, KEY_C]:
 			get_viewport().set_input_as_handled()
 		return
 	if key.physical_keycode == KEY_Y:

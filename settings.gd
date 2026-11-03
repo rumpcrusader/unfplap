@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
 ## `thrust` holds the mouse-control settings, `camera_thrust` holds the two camera amounts and
-## `presentation` holds shared act settings such as the glance-back speed.
+## `presentation` is split into `missionary` and `horse` blocks.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -112,19 +112,37 @@ const CAMERA_THRUST_DEFAULTS := {
 	"bob": 0.35,
 }
 
-## Shared act presentation. `glance_back_speed` is a multiplier; higher is faster.
-## Missionary framing: forward/height/side move the frozen anchor; pullback is the distance
-## along its own view axis. All are metres and read live.
-## `torso_angle_deg` hinges Anon's pose-2 upper body forward over her.
+## Pose-specific act presentation. Missionary owns its framing/pitch; horse owns the glance,
+## torso lean and caress controls. All values are read live during an act.
 const PRESENTATION_DEFAULTS := {
-	"glance_back_speed": 2.0,
-	"pose1_forward": 0.10,
-	"pose1_height": -0.10,
-	"pose1_side": 0.0,
-	"pose1_pullback": 0.22,
-	"pose1_side_lean": 0.10,
-	"torso_angle_deg": 0.0,
+	"missionary": {
+		"forward": 0.26,
+		"height": -0.21,
+		"side": 0.0,
+		"pullback": 0.22,
+		"side_lean": 0.20,
+		"pitch_deg": 0.0,
+	},
+	"horse": {
+		"glance_back_speed": 2.0,
+		"torso_angle_deg": 15.0,
+		"caress": {
+			"palm_distance": 0.04,
+			"palm_scale": {
+				"canon": 0.85,
+				"mounting": 0.95,
+				"same height": 1.0,
+				"hoers": 1.0,
+			},
+			"ignore": ["tail"],
+		},
+	},
 }
+
+## Body-size presets exposed by the caress palm-scale selector.
+const CARESS_SIZES := ["canon", "mounting", "same height", "hoers"]
+## Regions the caress contact query may skip. `tail` is on by default.
+const CARESS_IGNORE_REGIONS := ["tail", "mane", "wing", "leg"]
 
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
@@ -479,66 +497,86 @@ static func save_camera_thrust_controls(values: Dictionary) -> void:
 	_write(data)
 
 
-## Shared presentation timings. Read by the runtime and applied live.
-static func presentation_controls() -> Dictionary:
+## One pose's presentation block, merged with that pose's defaults and read live.
+static func presentation_controls(pose_id: String) -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("presentation", {})
-	var speed := float(PRESENTATION_DEFAULTS["glance_back_speed"])
-	var forward := float(PRESENTATION_DEFAULTS["pose1_forward"])
-	var height := float(PRESENTATION_DEFAULTS["pose1_height"])
-	var side := float(PRESENTATION_DEFAULTS["pose1_side"])
-	var pullback := float(PRESENTATION_DEFAULTS["pose1_pullback"])
-	var side_lean := float(PRESENTATION_DEFAULTS["pose1_side_lean"])
-	var torso_angle := float(PRESENTATION_DEFAULTS["torso_angle_deg"])
+	var pose_block: Variant = {}
 	if block is Dictionary:
-		speed = float((block as Dictionary).get("glance_back_speed", speed))
-		forward = float((block as Dictionary).get("pose1_forward", forward))
-		height = float((block as Dictionary).get("pose1_height", height))
-		side = float((block as Dictionary).get("pose1_side", side))
-		pullback = float((block as Dictionary).get("pose1_pullback", pullback))
-		side_lean = float((block as Dictionary).get("pose1_side_lean", side_lean))
-		torso_angle = float((block as Dictionary).get("torso_angle_deg", torso_angle))
-	# Only the user-facing glance multiplier is bounded. The missionary framing and torso
-	# controls are experimental and intentionally pass through unbounded values.
-	return {
-		"glance_back_speed": clampf(speed, 0.25, 3.0),
-		"pose1_forward": forward,
-		"pose1_height": height,
-		"pose1_side": side,
-		"pose1_pullback": pullback,
-		"pose1_side_lean": side_lean,
-		"torso_angle_deg": torso_angle,
-	}
+		pose_block = (block as Dictionary).get(pose_id, {})
+	var defaults: Variant = PRESENTATION_DEFAULTS.get(pose_id, {})
+	var out: Dictionary = _merge(
+		(defaults as Dictionary).duplicate(true) if defaults is Dictionary else {},
+		pose_block if pose_block is Dictionary else {})
+	if pose_id == "horse":
+		out["glance_back_speed"] = clampf(float(out.get(
+			"glance_back_speed", 2.0)), 0.25, 3.0)
+		var caress: Dictionary = out.get("caress", {})
+		caress["palm_distance"] = clampf(float(caress.get("palm_distance", 0.04)),
+			0.0, 0.2)
+		var scales: Dictionary = caress.get("palm_scale", {})
+		for size: String in CARESS_SIZES:
+			scales[size] = clampf(float(scales.get(size, 1.0)), 0.25, 2.0)
+		caress["palm_scale"] = scales
+		var ignore: Array = []
+		var raw_ignore: Variant = caress.get("ignore", [])
+		if raw_ignore is Array:
+			for region: Variant in raw_ignore:
+				var name := str(region).to_lower()
+				if name in CARESS_IGNORE_REGIONS and not ignore.has(name):
+					ignore.append(name)
+		caress["ignore"] = ignore
+		out["caress"] = caress
+	return out
 
 
-static func save_presentation_controls(values: Dictionary) -> void:
+## Write one presentation row. `values` may contain a nested `caress` dictionary; the merge
+## preserves every sibling and the other pose's block.
+static func save_presentation_controls(pose_id: String, values: Dictionary) -> void:
 	var data := _read()
 	var block: Variant = data.get("presentation", {})
-	var controls: Dictionary = block if block is Dictionary else {}
-	# Each row writes its own value; keep the other row instead of resetting it to default.
-	controls["glance_back_speed"] = clampf(float(values.get(
-		"glance_back_speed", controls.get("glance_back_speed",
-			PRESENTATION_DEFAULTS["glance_back_speed"]))), 0.25, 3.0)
-	controls["pose1_forward"] = float(values.get(
-		"pose1_forward", controls.get("pose1_forward",
-			PRESENTATION_DEFAULTS["pose1_forward"])))
-	controls["pose1_height"] = float(values.get(
-		"pose1_height", controls.get("pose1_height",
-			PRESENTATION_DEFAULTS["pose1_height"])))
-	controls["pose1_side"] = float(values.get(
-		"pose1_side", controls.get("pose1_side",
-			PRESENTATION_DEFAULTS["pose1_side"])))
-	controls["pose1_pullback"] = float(values.get(
-		"pose1_pullback", controls.get("pose1_pullback",
-			PRESENTATION_DEFAULTS["pose1_pullback"])))
-	controls["pose1_side_lean"] = float(values.get(
-		"pose1_side_lean", controls.get("pose1_side_lean",
-			PRESENTATION_DEFAULTS["pose1_side_lean"])))
-	controls["torso_angle_deg"] = float(values.get(
-		"torso_angle_deg", controls.get("torso_angle_deg",
-			PRESENTATION_DEFAULTS["torso_angle_deg"])))
-	data["presentation"] = controls
+	if not block is Dictionary:
+		block = {}
+	var poses: Dictionary = block
+	var current: Variant = poses.get(pose_id, {})
+	if not current is Dictionary:
+		current = {}
+	poses[pose_id] = _merge(current, values)
+	data["presentation"] = poses
 	_write(data)
+
+
+## Move the pre-split flat presentation block into pose sections. Old unknown keys (such as
+## `pose1_camera`) are dropped instead of being written back forever.
+static func _normalize_presentation(data: Dictionary) -> Dictionary:
+	var raw: Variant = data.get("presentation")
+	if not raw is Dictionary:
+		return data
+	var block: Dictionary = raw
+	if block.has("missionary") or block.has("horse"):
+		for key: String in ["pose1_forward", "pose1_height", "pose1_side",
+				"pose1_pullback", "pose1_side_lean", "pose1_pitch_deg",
+				"glance_back_speed", "torso_angle_deg", "pose1_camera"]:
+			block.erase(key)
+		data["presentation"] = block
+		return data
+	var out: Dictionary = PRESENTATION_DEFAULTS.duplicate(true)
+	var missionary: Dictionary = out["missionary"]
+	var horse: Dictionary = out["horse"]
+	missionary["forward"] = float(block.get("pose1_forward", missionary["forward"]))
+	missionary["height"] = float(block.get("pose1_height", missionary["height"]))
+	missionary["side"] = float(block.get("pose1_side", missionary["side"]))
+	missionary["pullback"] = float(block.get("pose1_pullback", missionary["pullback"]))
+	missionary["side_lean"] = float(block.get("pose1_side_lean", missionary["side_lean"]))
+	missionary["pitch_deg"] = float(block.get("pose1_pitch_deg", missionary["pitch_deg"]))
+	horse["glance_back_speed"] = float(block.get(
+		"glance_back_speed", horse["glance_back_speed"]))
+	horse["torso_angle_deg"] = float(block.get(
+		"torso_angle_deg", horse["torso_angle_deg"]))
+	out["missionary"] = missionary
+	out["horse"] = horse
+	data["presentation"] = out
+	return data
 
 
 static func aftercare_min(id: String) -> int:
@@ -593,6 +631,7 @@ static func _read() -> Dictionary:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
+	data = _normalize_presentation(data)
 	data = _merge(_defaults(), data)
 	_write(data)
 	return data

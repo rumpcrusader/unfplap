@@ -37,7 +37,7 @@ const AFTERGLOW_LIDS := 0.9
 const AFTERGLOW_CLOSE_LIDS := 0.95
 ## Readiness that triggers one pony climax. The player's afterglow is separate.
 const PONY_CLIMAX_AT := READINESS_MAX
-const MAX_PONY_CLIMAXES := 5
+const MAX_PONY_CLIMAXES := 3
 ## Readiness per real thrust. Both taste axes match, one axis matches, or neither matches.
 const THRUST_HEAT_BOTH := 1.4
 const THRUST_HEAT_ONE := 0.7
@@ -163,6 +163,9 @@ const CARESS_OVAL_UP := 0.70
 ## The rub centre is lifted this far above each size profile's `up` point. The cutie-mark
 ## anchor sits low on the flank; this keeps the stroke on the barrel instead of the belly.
 const CARESS_UP_BIAS_M := 0.05
+## A smack swings the caress hand to the cheek and back; ease the return so the contact reset
+## does not read as a teleport.
+const CARESS_RETURN_SECONDS := 0.12
 ## The palm ball's own collision radius (anon_body.gd hand sweep). The palm marker is its
 ## centre, so this is how far the centre sits above the coat when the visible palm touches.
 const PALM_ON_COAT_CLEARANCE_M := 0.04
@@ -174,8 +177,9 @@ const PALM_CONTACT_SOURCE_HITS := 2
 const PALM_NORMAL_MAX_DEG_S := 120.0
 ## The clearance scales with the pony's actual body scale so Canon, JRHNBR and Hoers keep the
 ## same relative palm stand-off. Clamped so a malformed scale cannot push the hand far away.
-static func palm_clearance_for(body_scale: float) -> float:
-	return PALM_ON_COAT_CLEARANCE_M * clampf(body_scale, 0.5, 2.0)
+static func palm_clearance_for(body_scale: float,
+		distance := PALM_ON_COAT_CLEARANCE_M) -> float:
+	return distance * clampf(body_scale, 0.5, 2.0)
 ## Caress-point offsets are per size preset, in metres before the body scale is applied to
 ## only the circle radius. `out` moves each hand out from the flank; both hands together gain
 ## twice that amount. JRHNBR (`mounting`) is 4 cm wider; Canon sits lower.
@@ -232,6 +236,9 @@ const WING_JITTER_FADE := 0.8
 ## blend further toward fully open; readiness gradually opens them from here.
 const WING_POSE2_HOLD := 0.65
 const WING_POSE2_SPREAD := 0.25
+## Afterglow eases the open wings all the way down to the folded resting pose. The game's
+## release_hold() folds in about 0.3 s; this drives the same WingTuck blend slowly instead.
+const WING_AFTERGLOW_RETURN_SECONDS := 6.0
 ## The game's flutter cycle is 3 × (0.16 + 0.13) = 0.87 s. A thrust may not restart it before
 ## it finishes or the wings snap back open mid-motion.
 const WING_FLUTTER_COOLDOWN_S := 1.80
@@ -423,8 +430,12 @@ var _reach_hand_return_side := ""
 var _caress_active := {"L": false, "R": false}
 var _caress_latched := {"L": false, "R": false}
 var _caress_key_down := {"L": false, "R": false}
-var _caress_started := {"L": 0, "R": 0}
+var _caress_moving := {"L": true, "R": true}
+var _caress_move_key_down := {"L": false, "R": false}
+var _caress_phase := {"L": 0.0, "R": 0.0}
 var _caress_logged := {"L": false, "R": false}
+var _caress_return_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
+var _caress_return_started := {"L": 0, "R": 0}
 var _caress_diag_at := 0
 var _last_smack_ms := -10000
 var _smack_active := false
@@ -538,6 +549,12 @@ var _last_wing_flutter := -1000.0
 var _act_seconds := 0.0
 var _wings_node: Node
 var _wing_sweep: SkeletonModifier3D
+var _wing_returning := false
+var _wing_return_done := false
+var _wing_return_node: Node
+var _wing_return_progress := 0.0
+var _wing_return_from_tuck := 0.0
+var _wing_return_from_half := 0.0
 const WING_SWEEP_DEG := 10.0
 var _aftercare: Node
 var _satisfaction_tween: Tween
@@ -583,12 +600,72 @@ func _ready() -> void:
 
 
 func _release_wing_hold() -> void:
+	if _wing_returning:
+		if is_instance_valid(_wing_return_node):
+			_wing_return_node.set_process(true)
+		_wing_returning = false
+		_wing_return_done = false
+		_wing_return_node = null
+		_wing_return_progress = 0.0
+		_clear_wing_sweep()
+		_wing_hold = false
+		_wing_hold_started = false
+		_wings_node = null
+		return
 	if _wing_hold and is_instance_valid(_wings_node) and _wings_node.has_method("release_hold"):
 		_wings_node.call("release_hold", "unfplap")
 	_clear_wing_sweep()
 	_wing_hold = false
 	_wing_hold_started = false
 	_wings_node = null
+
+
+## Afterglow: clear the act's wing hold, then drive the same WingTuck blend to a full fold
+## over WING_AFTERGLOW_RETURN_SECONDS. The game's own release path only takes 0.3 s.
+func _begin_wing_afterglow() -> void:
+	if not _winged or not is_instance_valid(_wings_node) \
+			or not _wings_node.has_method("release_hold"):
+		return
+	var wings: Node = _wings_node
+	_clear_wing_sweep()
+	wings.call("release_hold", "unfplap")
+	wings.call("set_open", false)
+	var tuck_value: Variant = wings.get("tuck")
+	var half_value: Variant = wings.get("half")
+	_wing_return_from_tuck = float(tuck_value) if tuck_value != null else 0.0
+	_wing_return_from_half = float(half_value) if half_value != null else 0.0
+	_wing_return_node = wings
+	_wing_return_progress = 0.0
+	_wing_return_done = false
+	_wing_returning = true
+	wings.set("opened", false)
+	wings.set_process(false)
+	_wing_hold = false
+	_wing_hold_started = false
+	_log("wing afterglow return %.1fs from tuck=%.2f half=%.2f" % [
+		WING_AFTERGLOW_RETURN_SECONDS, _wing_return_from_tuck, _wing_return_from_half])
+
+
+func _wing_return_tick(delta: float) -> void:
+	if not is_instance_valid(_wing_return_node):
+		_wing_returning = false
+		_wing_return_done = false
+		_wing_return_node = null
+		return
+	if _wing_return_done:
+		return
+	_wing_return_progress = minf(1.0,
+		_wing_return_progress + delta / maxf(WING_AFTERGLOW_RETURN_SECONDS, 0.001))
+	var eased := smoothstep(0.0, 1.0, _wing_return_progress)
+	_wing_return_node.set("tuck", lerpf(_wing_return_from_tuck, 1.0, eased))
+	_wing_return_node.set("half", lerpf(_wing_return_from_half, 0.0, eased))
+	_wing_return_node.set("opened", false)
+	_wing_return_node.set_process(false)
+	if _wing_return_progress >= 1.0:
+		_wing_return_done = true
+		# The wing node's own process finalizes the fold: hides the open meshes, shows folded.
+		_wing_return_node.set_process(true)
+		_log("wing afterglow return complete")
 
 
 func _ensure_wing_sweep() -> void:
@@ -640,7 +717,7 @@ func apply_live_settings() -> void:
 	var camera_thrust := SETTINGS.camera_thrust_controls()
 	_camera_surge = float(camera_thrust.get("surge", 0.0))
 	_camera_bob = float(camera_thrust.get("bob", 0.0))
-	_presentation_cfg = SETTINGS.presentation_controls()
+	_presentation_cfg = SETTINGS.presentation_controls(pose_id)
 	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
@@ -682,6 +759,7 @@ func _refresh_live_modifiers() -> void:
 		elif not _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
 			_ear_twitch.queue_free()
 			_ear_twitch = null
+		_refresh_palm_scale()
 	elif pose_id == CATALOG.MISSIONARY:
 		if _feature("pose1_body_motion") and not is_instance_valid(_prone_sway):
 			_install_prone_sway(skeleton)
@@ -747,6 +825,9 @@ func _act_presentation(delta: float) -> void:
 	if expressions != null and expressions.has_method("fluster"):
 		expressions.call("fluster", 1.2)
 	if not _winged:
+		return
+	if _wing_returning:
+		_wing_return_tick(delta)
 		return
 	var excitement: Variant = pony.get("excitement")
 	if excitement == null:
@@ -1574,7 +1655,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_features = SETTINGS.features()
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
 	_taste = SETTINGS.taste(_id)
-	_presentation_cfg = SETTINGS.presentation_controls()
+	_presentation_cfg = SETTINGS.presentation_controls(pose_id)
 	_act_prompts = _profile.get("act_prompts", {})
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
@@ -1610,6 +1691,10 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_wing_jitter_goal = 0.0
 	_wing_jitter_clock = 0.0
 	_last_wing_flutter = -1000.0
+	_wing_returning = false
+	_wing_return_done = false
+	_wing_return_node = null
+	_wing_return_progress = 0.0
 	_jiggle_logged = false
 	_act_seconds = 0.0
 	_flutter_clock = randf_range(1.0, 3.0)
@@ -3242,7 +3327,7 @@ func _queue_climax_reaction() -> void:
 		valid)
 
 
-## The pony climax ends on its own. It returns to ACTIVE unless this was the fifth;
+## The pony climax ends on its own. It returns to ACTIVE unless this was the third;
 ## afterglow is the player's choice, not the climax state's automatic exit.
 func _finish_climax() -> void:
 	if pony_climaxes >= MAX_PONY_CLIMAXES:
@@ -3272,6 +3357,7 @@ func _enter_afterglow() -> void:
 		_pose2_afterglow_begin()
 	else:
 		_afterglow_begin()
+	_begin_wing_afterglow()
 
 
 func _commit_afterglow() -> void:
@@ -3640,6 +3726,16 @@ static func pose2_palm_scale_for(size_name: String) -> float:
 	return 1.0
 
 
+## Absolute hand scale for the current body preset, from the per-size caress setting.
+func _palm_scale_factor() -> float:
+	var caress: Variant = _presentation_cfg.get("caress", {})
+	if caress is Dictionary:
+		var scales: Variant = (caress as Dictionary).get("palm_scale", {})
+		if scales is Dictionary:
+			return float((scales as Dictionary).get(_size_name(), 1.0))
+	return 1.0
+
+
 func _bed_surface_top() -> float:
 	if not is_instance_valid(bed):
 		return INF
@@ -3824,25 +3920,32 @@ func _pose1_body_scale() -> float:
 
 
 func _pose1_pullback() -> float:
-	var value := float(_presentation_cfg.get("pose1_pullback", POSE1_CAMERA_PULLBACK_M))
+	var value := float(_presentation_cfg.get("pullback", POSE1_CAMERA_PULLBACK_M))
 	return value * _pose1_body_scale()
+
+
+## Framing pitch after the frozen neck aim. Positive looks up; the anchor and settle target do
+## not move, so this only tilts the shot and applies live.
+func _pose1_pitch_basis() -> Basis:
+	var degrees := float(_presentation_cfg.get("pitch_deg", 0.0))
+	return Basis(Vector3.RIGHT, deg_to_rad(degrees))
 
 
 func _pose1_camera_offsets() -> Vector3:
 	return Vector3(
-		float(_presentation_cfg.get(
-			"pose1_forward", SETTINGS.PRESENTATION_DEFAULTS["pose1_forward"])),
-		float(_presentation_cfg.get(
-			"pose1_height", SETTINGS.PRESENTATION_DEFAULTS["pose1_height"])),
-		float(_presentation_cfg.get(
-			"pose1_side", SETTINGS.PRESENTATION_DEFAULTS["pose1_side"])))
+		float(_presentation_cfg.get("forward",
+			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["forward"])),
+		float(_presentation_cfg.get("height",
+			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["height"])),
+		float(_presentation_cfg.get("side",
+			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["side"])))
 
 
 ## Side lean also travels along the mattress toward her head, outside the view-axis clamp. The
 ## amount is metres at full Q/E and is live.
 func _pose1_side_lean_forward() -> float:
-	var amount := float(_presentation_cfg.get(
-		"pose1_side_lean", SETTINGS.PRESENTATION_DEFAULTS["pose1_side_lean"]))
+	var amount := float(_presentation_cfg.get("side_lean",
+		SETTINGS.PRESENTATION_DEFAULTS["missionary"]["side_lean"]))
 	return amount * absf(_lean_view_side) * _lean_size_scale()
 
 
@@ -3914,6 +4017,26 @@ func _pose1_head_look_point(view: Camera3D) -> Vector3:
 	var direction: Vector3 = offset.normalized() if offset.length_squared() > 0.000001 \
 		else -pony.global_basis.z.normalized()
 	return head.origin + direction * minimum
+
+
+## Debug readout of how far her actual face points from the act look target. The link updates
+## the OpenPony head after the pose modifier, so this is the previous frame's settled frame.
+func _pose1_gaze_error() -> float:
+	if not is_instance_valid(pony) or not is_instance_valid(_pose) or not _pose.look_point.is_finite():
+		return -1.0
+	if not pony.has_method("awareness_forward"):
+		return -1.0
+	var forward: Variant = pony.call("awareness_forward")
+	var boop: Variant = pony.get("boop_node")
+	if not forward is Vector3 or boop == null or not boop.has_method("skull_world"):
+		return -1.0
+	var origin: Variant = boop.call("skull_world")
+	if not origin is Vector3 or not (origin as Vector3).is_finite():
+		return -1.0
+	var to: Vector3 = _pose.look_point - (origin as Vector3)
+	if to.length_squared() < 0.000001:
+		return -1.0
+	return rad_to_deg((forward as Vector3).angle_to(to))
 
 
 func _apply_eye_override() -> void:
@@ -4044,7 +4167,7 @@ func _lean_tick(delta: float) -> void:
 			+ sin(_hold_rock_clock * 0.57 + 1.1) * HOLD_SWAY_SIDE, -1.0, 1.0)
 	_lean_action_tick()
 	_pose2_kiss_tick()
-	_caress_tick()
+	_caress_tick(delta)
 	_smack_swing_tick()
 	if pose_id == CATALOG.HORSE:
 		_apply_pose2_lean_look()
@@ -4075,6 +4198,14 @@ static func caress_profile_for(size_name: String) -> Dictionary:
 
 func _caress_profile() -> Dictionary:
 	return caress_profile_for(_size_name())
+
+
+## Advance the oval phase only while that hand is moving. Stopping keeps the palm at the
+## current point instead of resetting the stroke.
+static func caress_phase_step(phase: float, moving: bool, delta: float) -> float:
+	if not moving:
+		return phase
+	return fmod(phase + CARESS_SPEED_RAD_S * delta, TAU)
 
 
 ## Canon needs a little less travel in the standing pose than the other presets.
@@ -4699,7 +4830,7 @@ func _set_reach_hand() -> void:
 	driver.call("set_hold_target", side, frame, "rub")
 
 
-func _caress_tick() -> void:
+func _caress_tick(delta: float) -> void:
 	if pose_id != CATALOG.HORSE:
 		_end_caress()
 		return
@@ -4707,27 +4838,39 @@ func _caress_tick() -> void:
 		"L": Input.is_physical_key_pressed(KEY_A),
 		"R": Input.is_physical_key_pressed(KEY_D),
 	}
+	var motion_keys := {
+		"L": KEY_Z,
+		"R": KEY_C,
+	}
 	for side: String in ["L", "R"]:
 		var held := bool(keys[side])
 		var pressed := held and not bool(_caress_key_down[side])
 		_caress_key_down[side] = held
 		if pressed:
 			_caress_latched[side] = not bool(_caress_latched[side])
+		var move_held := Input.is_physical_key_pressed(motion_keys[side])
+		var move_pressed := move_held and not bool(_caress_move_key_down[side])
+		_caress_move_key_down[side] = move_held
+		if move_pressed:
+			_caress_moving[side] = not bool(_caress_moving[side])
+			_log("caress movement side=%s %s" % [
+				side, "on" if bool(_caress_moving[side]) else "off"])
 		var hand_side := "left" if side == "L" else "right"
 		# The slapping hand owns the hold target during its swing. Freeze the oval phase so
 		# the hand can return to the same caress point without a jump.
 		if _smack_active and _smack_side == hand_side:
-			if bool(_caress_active[side]):
-				_caress_started[side] += int(get_physics_process_delta_time() * 1000.0)
 			continue
 		var want := bool(_caress_latched[side])
 		if want:
 			if not bool(_caress_active[side]):
 				_caress_active[side] = true
-				_caress_started[side] = Time.get_ticks_msec()
+				_caress_phase[side] = 0.0
 				_caress_logged[side] = false
+				_caress_return_started[side] = 0
 				_reset_palm_contact("left" if side == "L" else "right")
 				_log("caress start side=%s" % side)
+			_caress_phase[side] = caress_phase_step(
+				float(_caress_phase[side]), bool(_caress_moving[side]), delta)
 			_set_caress_hand(side)
 			_on_touch("caress")
 		elif bool(_caress_active[side]):
@@ -4744,14 +4887,18 @@ func _end_caress_side(side: String) -> void:
 	_log("caress stop side=%s" % side)
 	_caress_active[side] = false
 	_caress_latched[side] = false
-	_caress_started[side] = 0
+	_caress_phase[side] = 0.0
 	_caress_logged[side] = false
+	_caress_return_started[side] = 0
 
 
 func _end_caress() -> void:
 	_end_caress_side("L")
 	_end_caress_side("R")
 	_caress_key_down = {"L": false, "R": false}
+	_caress_moving = {"L": true, "R": true}
+	_caress_move_key_down = {"L": false, "R": false}
+	_caress_phase = {"L": 0.0, "R": 0.0}
 	_caress_diag_at = 0
 
 
@@ -4774,9 +4921,81 @@ static func palm_surface_basis(side: String, outward: Vector3, finger_hint: Vect
 	return Basis(x_axis, y_axis, z_axis)
 
 
+## Caress contact exclusions. The tail flick after a smack can put a tail hull beside the rub
+## point; without this the fallback nearest() would snap the palm onto the tail.
+func _caress_ignore() -> Array:
+	var caress: Variant = _presentation_cfg.get("caress", {})
+	if not caress is Dictionary:
+		return []
+	var raw: Variant = (caress as Dictionary).get("ignore", [])
+	if not raw is Array:
+		return []
+	var out: Array = []
+	for region: Variant in raw:
+		var name := str(region).to_lower()
+		if name in SETTINGS.CARESS_IGNORE_REGIONS and not out.has(name):
+			out.append(name)
+	return out
+
+
+static func _region_ignored(region: String, ignore: Array) -> bool:
+	if ignore.is_empty():
+		return false
+	var name := region.to_lower()
+	for value: Variant in ignore:
+		var prefix := str(value).to_lower()
+		if name == prefix or name.begins_with(prefix + "_"):
+			return true
+	return false
+
+
+## PonyTouchBody.nearest() without the caress-ignored regions. Only used when the ignore list
+## is non-empty; otherwise the game's own query is used unchanged.
+func _nearest_touch(point: Vector3, ignore: Array) -> Dictionary:
+	var touch: Variant = pony.get("touch_body") if is_instance_valid(pony) else null
+	if touch == null or not touch.has_method("nearest"):
+		return {}
+	var near: Dictionary = touch.call("nearest", point)
+	if ignore.is_empty():
+		return near
+	var entry: Variant = near.get("entry")
+	if entry is Dictionary and not _region_ignored(
+			str((entry as Dictionary).get("region", "")), ignore):
+		return near
+	var entries: Variant = touch.get("_entries")
+	if not entries is Array:
+		return {}
+	var best: Dictionary = {}
+	var best_distance := INF
+	for e: Variant in entries:
+		if not e is Dictionary:
+			continue
+		var ed: Dictionary = e
+		if _region_ignored(str(ed.get("region", "")), ignore):
+			continue
+		var world: Variant = ed.get("world")
+		if not world is Transform3D:
+			continue
+		var local: Vector3 = (world as Transform3D).affine_inverse() * point
+		var a: Vector3 = ed.get("a", Vector3.ZERO)
+		var b: Vector3 = ed.get("b", Vector3.ZERO)
+		var ab := b - a
+		var t := clampf((local - a).dot(ab) / maxf(ab.length_squared(), 1e-9), 0.0, 1.0)
+		var away := local - (a + ab * t)
+		var distance := away.length() - float(ed.get("r", 0.0))
+		if distance < best_distance:
+			best_distance = distance
+			var normal := Vector3.UP
+			if away.length() > 0.000001:
+				normal = away.normalized()
+			best = {"entry": ed, "distance": distance, "local": local, "normal": normal}
+	return best
+
+
 ## Nearest coat point/normal for a palm. FlankSurface owns the flank/rump patch; the body
 ## hull query covers the shoulder and any point outside that patch.
-func _coat_contact(point: Vector3, outward_hint: Vector3) -> Dictionary:
+func _coat_contact(point: Vector3, outward_hint: Vector3,
+		ignore: Array = []) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {"point": point, "normal": outward_hint, "source": "fallback"}
 	var outward := outward_hint.normalized()
@@ -4805,7 +5024,7 @@ func _coat_contact(point: Vector3, outward_hint: Vector3) -> Dictionary:
 				return {"point": hit_world, "normal": hit_normal, "source": "flank"}
 	var touch: Variant = pony.get("touch_body")
 	if touch != null and touch.has_method("nearest"):
-		var near: Dictionary = touch.call("nearest", point)
+		var near: Dictionary = _nearest_touch(point, ignore)
 		var entry: Variant = near.get("entry")
 		var normal_local: Variant = near.get("normal")
 		if entry is Dictionary and normal_local is Vector3:
@@ -4878,8 +5097,8 @@ static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) ->
 
 
 func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
-		finger_hint: Vector3, smooth := true) -> Transform3D:
-	var hit := _coat_contact(point, outward_hint)
+		finger_hint: Vector3, smooth := true, ignore: Array = []) -> Transform3D:
+	var hit := _coat_contact(point, outward_hint, ignore)
 	var source := str(hit.get("source", "fallback"))
 	var hit_point: Vector3 = hit.get("point", point)
 	var hit_normal: Vector3 = hit.get("normal", outward_hint)
@@ -4966,7 +5185,11 @@ func _palm_clearance() -> float:
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = float(pony.get("body_scale"))
-	return palm_clearance_for(scale)
+	var distance := PALM_ON_COAT_CLEARANCE_M
+	var caress: Variant = _presentation_cfg.get("caress", {})
+	if caress is Dictionary:
+		distance = float((caress as Dictionary).get("palm_distance", distance))
+	return palm_clearance_for(scale, distance)
 
 
 ## Slow oval palm movement on the chosen flank/side.
@@ -5028,12 +5251,21 @@ func _set_caress_hand(side: String) -> void:
 		up = -pony.global_basis.z.slide(normal)
 	up = up.normalized()
 	var across := up.cross(normal).normalized()
-	var angle := float(Time.get_ticks_msec() - int(_caress_started[side])) * 0.001 * CARESS_SPEED_RAD_S
+	var angle := float(_caress_phase[side])
 	var offset := (across * (cos(angle) * CARESS_OVAL_ACROSS)
 		+ up * (sin(angle) * CARESS_OVAL_UP)) * (CARESS_RADIUS_M * size)
 	var hand_side := "left" if side == "L" else "right"
 	var target := _palm_on_coat_frame(hand_side, centre_world + offset, normal,
-		-pony.global_basis.z)
+		-pony.global_basis.z, true, _caress_ignore())
+	var return_started := int(_caress_return_started.get(side, 0))
+	if return_started > 0:
+		var elapsed := float(Time.get_ticks_msec() - return_started) / 1000.0
+		if elapsed >= CARESS_RETURN_SECONDS:
+			_caress_return_started[side] = 0
+		else:
+			var t := smoothstep(0.0, 1.0, elapsed / CARESS_RETURN_SECONDS)
+			var from: Transform3D = _caress_return_from[side]
+			target = from.interpolate_with(target, t)
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
 		_log("caress hand side=%s target=%s normal=%s x=%s y=%s z=%s lift=%.3f" % [
@@ -5253,8 +5485,20 @@ func _end_smack_swing() -> void:
 		var driver := _desktop_pose_driver()
 		var caress_side := "L" if _smack_side == "left" else "R"
 		if bool(_caress_active[caress_side]):
-			# Return to the frozen caress point instead of clearing the hold for one frame.
+			# The smack may have moved the tail or another soft hull next to the rub point.
+			# Drop the cached source/normal and reacquire the caress contact before returning.
+			var from := _smack_to
+			if is_instance_valid(driver) and driver.has_method("hand_frame"):
+				var current: Variant = driver.call("hand_frame", _smack_side)
+				if current is Transform3D and (current as Transform3D).is_finite():
+					from = current
+			_reset_palm_contact(_smack_side)
+			_caress_return_from[caress_side] = from
+			_caress_return_started[caress_side] = Time.get_ticks_msec()
 			_set_caress_hand(caress_side)
+			_log("smack return side=%s caress=%s target=%s" % [
+				_smack_side, caress_side,
+				str(_palm_contact_state(_smack_side).get("point", Vector3.INF))])
 		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 			driver.call("clear_hold_target", _smack_side)
 	_smack_active = false
@@ -5446,7 +5690,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 	_remove_palm_scale()
 	if not is_instance_valid(avatar):
 		return
-	var factor := pose2_palm_scale_for(_size_name())
+	var factor := _palm_scale_factor()
 	if is_equal_approx(factor, 1.0):
 		return
 	var skeleton := avatar.find_child("Skeleton3D", true, false) as Skeleton3D
@@ -5460,6 +5704,20 @@ func _install_palm_scale(avatar: Node3D) -> void:
 	_palm_scale.process_priority = 10
 	skeleton.add_child(_palm_scale)
 	_log("pose2 palm scale=%.2f size=%s" % [factor, _size_name()])
+
+
+func _refresh_palm_scale() -> void:
+	if pose_id != CATALOG.HORSE or not is_instance_valid(_anon_thrust_avatar):
+		return
+	var factor := _palm_scale_factor()
+	if is_equal_approx(factor, 1.0):
+		_remove_palm_scale()
+		return
+	if is_instance_valid(_palm_scale):
+		if not is_equal_approx(float(_palm_scale.get("factor")), factor):
+			_palm_scale.set("factor", factor)
+		return
+	_install_palm_scale(_anon_thrust_avatar)
 
 
 func _remove_palm_scale() -> void:
@@ -5618,7 +5876,7 @@ func apply_camera_motion() -> void:
 			-deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale,
 			(-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side
 				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale))
-		_pose1_view.global_basis = _pose1_view_basis * lean
+		_pose1_view.global_basis = _pose1_view_basis * _pose1_pitch_basis() * lean
 		var look_dir := _pose1_look_target() - _pose1_view.global_position
 		var look_dot := (-_pose1_view.global_basis.z).dot(look_dir.normalized()) \
 			if look_dir.length_squared() > 0.000001 else 1.0
@@ -5631,11 +5889,11 @@ func apply_camera_motion() -> void:
 			_pose1_camera_log_next = now + 100
 			var dot := (-_pose1_view.global_basis.z).dot(look_dir.normalized()) \
 				if look_dir.length_squared() > 0.000001 else 0.0
-			_log("pose1 cam anchor=%s view=%s base_euler=%s target=%s dot=%.3f bed=%.2f pose=%.2f lean=%.2f/%.2f size=%s%.2f" % [
+			_log("pose1 cam anchor=%s view=%s base_euler=%s target=%s dot=%.3f gaze=%.1f bed=%.2f pose=%.2f lean=%.2f/%.2f size=%s%.2f" % [
 				str(_pose1_camera), str(_pose1_view.global_position),
 				str(_pose1_view_basis.get_euler()), str(_pose1_look_target()), dot,
-				bed_top, _pose_basis_amount(), _lean_view_forward, _lean_view_side,
-				_size_name(), _size_scale()])
+				_pose1_gaze_error(), bed_top, _pose_basis_amount(),
+				_lean_view_forward, _lean_view_side, _size_name(), _size_scale()])
 		if is_instance_valid(main) and bool(main.get("debug_logs")):
 			var view_basis := _pose1_view.global_basis
 			if _pose1_snap_ready:

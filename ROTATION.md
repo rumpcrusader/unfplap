@@ -52,21 +52,24 @@ Exact order:
    - femur target `(up * 0.75 + forward * 0.45).normalized()`
    - knee bend `-0.55` around `right`.
 10. `_hug_forelegs()`.
-11. `_aim_head(POSE1_LOOK_SCALE)`
-    - yaw/pitch from head origin to `look_point`.
-    - neck shares `[0.30, 0.36, 0.34]`.
-    - pitch clamp `±0.8`, yaw clamp `±1.1`.
+11. `_neck_lift(neck_lift_deg)` around the body right axis on `pony_neck1`/`pony_neck2` (half
+    each). Default `15°`. This is a posture offset and runs before the gaze solve, so it moves
+    her head off the mattress without tilting her final gaze. In the standing model this is the
+    chin-down direction, which becomes an upward head lift on her back.
 12. Nuzzle
     - `_nuzzle_pulse()`: 0→1→0 over `NUZZLE_DURATION` every `NUZZLE_PERIOD`.
-    - extra `_aim_head(pulse * POSE1_NUZZLE_SCALE)`.
+    - offsets the gaze target by the small angle `nuzzle_scale * 8°`; base gaze remains on Anon.
     - during climax: `pulse = 0.75 + 0.25 * sin(_clock * 4.0)`.
-13. Kiss aim: extra `_aim_head(weight * kiss, 1.0, look_point)`.
-14. `_neck_lift(neck_lift_deg)` around the body right axis on `pony_neck1`/`pony_neck2` (half
-    each). Default `15°`, applied after the aim so the lift is a fixed offset. Measured with the
-    head aimed at Anon, the neck-to-body angle is ~13–15°; the lift takes it to ~30°. In the
-    standing model this is the chin-down direction, which becomes an upward head lift on her back.
-15. `_roll_head(head_roll)` around `forward`, head only.
-16. Dump once at weight > 0.9 if debug is on.
+13. `_aim_gaze(look_point)` — the true gaze solve.
+    - uses the current `pony_head` frame plus `HybridNeckLink`'s fixed `pony_head → mHead`
+      offset, so it reads the face direction after the pose and neck lift.
+    - shortest-arc rotation from her current face direction to Anon; no absolute yaw/pitch and
+      no rest-orientation assumption. This is what keeps the lying missionary head off the
+      ceiling.
+    - neck shares `[0.30, 0.36, 0.34]`; `rig.rotate()` applies the native joint limits.
+    - the kiss target is already the runtime's `look_point`, so the old extra kiss aim is gone.
+14. `_roll_head(head_roll)` around `forward`, head only.
+15. Dump once at weight > 0.9 if debug is on.
 
 The debug chin pitch lives in `chin_debug.gd`, a separate `SkeletonModifier3D` appended after
 the pose modifier. It is not part of the missionary recipe, so `Alt+7` / `Alt+8` also work
@@ -89,9 +92,13 @@ these values here if a future pose needs that effect.
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
   farther-back anchor. The **Act presentation → Missionary** axes move the frozen anchor:
-  `pose1_forward` (default `0.10`), `pose1_height` (default `-0.10`) and `pose1_side`
-  (default `0`; positive is her right). All are experimental and unbounded. The
-  **Missionary pullback** setting (`pose1_pullback`, default `0.22 m`, times body scale) then
+  `presentation.missionary.forward` (default `0.26`),
+  `presentation.missionary.height` (default `-0.21`) and `presentation.missionary.side`
+  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `0`;
+  positive looks up) tilts the view about its local right axis after the frozen neck aim; the
+  anchor and neck settle target do not move. All are experimental and unbounded. The
+  **Missionary pullback** setting (`presentation.missionary.pullback`, default `0.22 m`, times
+  body scale) then
   pulls the shot back along `_pose1_view_basis.z` (its own view axis), and
   `POSE1_START_LEAN = 1.0` (one full
   `LEAN_FORWARD_M` lean) advances it along the same axis. The shot therefore starts at the old
@@ -105,8 +112,9 @@ these values here if a future pose needs that effect.
   back down her torso. Rebuilds are limited to an invalid/too-far anchor or a genuinely
   below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head aims at Anon's player
   camera, not the framing view, and its look point keeps at least `0.45 * body_scale` from her
-  head. The look point moves with the lean's lateral shift and `pose1_side_lean` travel, so a
-  side lean turns her toward the lean. Aiming at the framing view (now behind her neck) demanded
+  head. The look point moves with the lean's lateral shift and
+  `presentation.missionary.side_lean` travel, so a side lean turns her toward the lean. Aiming
+  at the framing view (now behind her neck) demanded
   a half-turn and snapped her head side to side.
 - Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
   the act, re-applying each tick; both are restored at end. The stock bed body must never appear
@@ -123,8 +131,9 @@ these values here if a future pose needs that effect.
 - Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
   lean is halved to `0.08 m`; side lean translates `0.18 m`. Both directions pitch `6°` down,
   and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. A side lean also
-  travels `pose1_side_lean` (default `0.10 m`, experimental/unbounded) along the mattress toward her head,
-  outside the view-axis clamp. The displayed lean is always smoothed at
+  travels `presentation.missionary.side_lean` (default `0.20 m`, experimental/unbounded) along
+  the mattress toward her head, outside the view-axis clamp. The displayed lean is always
+  smoothed at
   `CAMERA_INERTIA_SMOOTH = 5.0`.
 - All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
   is the reference; Canon (`0.66`) is `1.34`. The pose-1 Canon camera height is also `0.9×`.
@@ -187,9 +196,10 @@ these values here if a future pose needs that effect.
   holds both foot targets at their neutral transforms, so his legs stay out of the camera.
   `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
   thrusts forward/back with depth.
-- `presentation.torso_angle_deg` (default `0`, experimental/unbounded) hinges his upper body forward. The
-  head/camera moves along the spine arc (`forward = 0.65 sin θ`, `drop = 0.65 (1 − cos θ)`);
-  `apply_anon_lean()` counters the hip by the same forward amount and pins the feet.
+- `presentation.horse.torso_angle_deg` (default `15`, experimental/unbounded) hinges his upper
+  body forward. The head/camera moves along the spine arc (`forward = 0.65 sin θ`,
+  `drop = 0.65 (1 − cos θ)`); `apply_anon_lean()` counters the hip by the same forward amount
+  and pins the feet.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
   explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
@@ -203,9 +213,10 @@ these values here if a future pose needs that effect.
   `apply_anon_thrust()` moves the hip by `THRUST_MAX_M = 0.045 * body_scale * phase`, and
   `apply_anon_lean()` counter-moves the pelvis by `ANON_THRUST_SWAY_M * phase * lean_scale`.
   There is no attack or return spring.
-- Pose-2 palms scale the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`, others
-  `1.0`. `palm_scale.gd` runs after BodyIK and restores the cached scales in
-  `_remove_anon_thrust()` on every act exit.
+- Pose-2 palms scale absolutely per body preset from
+  `presentation.horse.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers `1.0`.
+  The settings size selector edits each preset. `palm_scale.gd` runs after BodyIK and restores
+  the cached scales in `_remove_anon_thrust()` on every act exit.
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
   pose 1; releasing `F` or dropping the lean ends it. The side is latched from the input lean
   and passed to `AffectionPose.set_kiss_side()`, so she takes the complementary head tilt and
@@ -228,11 +239,16 @@ these values here if a future pose needs that effect.
   eases in over `0.35 s` and back to rest over another `0.35 s`. While held, `_forced_glance`
   overrides the random glance scheduler and locks her look over that shoulder; release clears it.
 - `A`/`D` in horse pose hold an oval caress (`CARESS_RADIUS_M = 0.04125`,
-  `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat each tick through
-  `FlankSurface.contact` or `PonyTouchBody.nearest`, and `palm_surface_basis()` makes the palm
-  plane perpendicular to the coat normal. Its centre sits at
-  `PALM_ON_COAT_CLEARANCE_M = 0.04` at body scale `1.0`, scaled by the pony's actual
-  `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is cached per hand with source hysteresis and short position/normal
+  `CARESS_SPEED_RAD_S = 3.6`). `Z`/`C` toggle the left/right oval movement; the palm stays on
+  the coat and keeps scoring while the phase is frozen. The palm is projected onto the coat
+  each tick through
+  `FlankSurface.contact` or an exclusion-aware `PonyTouchBody.nearest` fallback, and
+  `palm_surface_basis()` makes the palm plane perpendicular to the coat normal. The fallback
+  skips `presentation.horse.caress.ignore` regions (default `tail`; UI also exposes mane, wings
+  and legs), so a tail flick cannot steal the contact. Its centre sits at
+  `presentation.horse.caress.palm_distance` (default `0.04 m`) at body scale `1.0`, scaled by
+  the pony's actual `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is
+  cached per hand with source hysteresis and short position/normal
   smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite
   normal (dot < -0.5) is rejected under the same source. `FlankSurface` precomputes a two-ring,
   area-weighted average of the patch rest normals and skins those, removing triangle/seam
@@ -261,8 +277,10 @@ these values here if a future pose needs that effect.
   `SMACK_ZONE_RADIUS_M = 0.035`. If a hand is already caressing, the slap uses that hand and its
   same-side cheek; if both caress, one is chosen at random. Otherwise a right lean selects the
   left cheek, a left lean the right, and centered picks randomly. The caress oval is frozen for
-  the slapping hand during the swing and the hand returns to that caress point at the end. Anon's
-  hand swings in/out over `0.20 s` (`SMACK_CONTACT_PHASE = 0.45`) with a `200 ms` cooldown. The
+  the slapping hand during the swing. At the end the palm cache is reset, the contact is
+  reacquired with the caress ignore list, and the hand returns over `CARESS_RETURN_SECONDS =
+  0.12`. Anon's hand swings in/out over `0.20 s` (`SMACK_CONTACT_PHASE = 0.45`) with a `200 ms`
+  cooldown. The
   native impact supplies sound, decal, blush, jiggle and `flank_smack`.
 - `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
@@ -279,7 +297,9 @@ these values here if a future pose needs that effect.
 - Pose 2 wings start at `WING_POSE2_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_POSE2_SPREAD = 0.25` as satisfaction rises. Pose 1 keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
-  in opposite directions, sweeping the spread wings slightly backwards.
+  in opposite directions, sweeping the spread wings slightly backwards. Entering afterglow
+  releases the hold and drives the same `WingTuck` blend to a full fold over
+  `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
 - Pose 2 enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
   recorded on entry. Lean and A/D caress remain live; hold Y ends it. For the first 8 s the
   HUD shows `Stay close · 8s · caress`; 2.5 s of active caress completes the close reward.

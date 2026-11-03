@@ -32,11 +32,11 @@ Desktop only for now
 - **Proactive mares** — A ready mare may ask for sex herself; a private standing mare presents for horse, and `Y` still accepts.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
-- **Act settings** — Tune mouse thrust, camera thrust, glance timing, the missionary shot, Anon's torso lean and each pony's taste in `Settings → Unfplap`.
+- **Act settings** — Tune mouse thrust, camera thrust, per-pose presentation, caress palm distance/scale and body-part ignores, plus each pony's taste in `Settings → Unfplap`.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
 - **HUD** — Shows the act controls list, readiness meter, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
-- **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, F kisses at a full shoulder lean, and right-click smacks one.
+- **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, Z/C pause or resume each caress oval, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
 - **Presentation** — Adds blush, eyes, ears, tail, jiggle, audio and wing motion.
 - **Aftermath** — Ends with a held afterglow for either pose; in horse afterglow, staying close and caressing earns a small extra reward, then short aftercare.

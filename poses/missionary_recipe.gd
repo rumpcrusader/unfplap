@@ -5,12 +5,11 @@ const ROT := preload("res://mods/unfplap/poses/rotation.gd")
 
 const POSE1_HIND_SPREAD := 0.42
 const POSE1_RUMP_DROP_DEG := 35.0
-const POSE1_LOOK_SCALE := 0.55
 const POSE1_NUZZLE_SCALE := 0.45
 const NUZZLE_PERIOD := 7.0
 const NUZZLE_DURATION := 2.4
 const POSE1_ROLL_TWEAK := 0.0
-## Extra neck lift off the mattress after the head aim. In the standing model this is the
+## Extra neck lift off the mattress before the gaze solve. In the standing model this is the
 ## chin-down direction; the supine body turns it into an upward head lift.
 const POSE1_NECK_LIFT_DEG := 15.0
 
@@ -31,17 +30,14 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_bend_forelegs(rig, sk, weight, 0.3)
 	_raise_hind_legs(rig, sk, weight)
 	_hug_forelegs(rig, sk, weight)
-	_aim_head(rig, sk, weight, _value("look_scale", POSE1_LOOK_SCALE), state.get("look_point", Vector3.ZERO))
+	_neck_lift(rig, sk, weight, _value("neck_lift_deg", POSE1_NECK_LIFT_DEG))
 	var pulse := 1.0 if bool(state.get("climaxing", false)) else _nuzzle_pulse(float(state.get("clock", 0.0)))
 	if bool(state.get("climaxing", false)):
 		pulse = 0.75 + 0.25 * sin(float(state.get("clock", 0.0)) * 4.0)
-	if pulse > 0.001:
-		_aim_head(rig, sk, weight * pulse, _value("nuzzle_scale", POSE1_NUZZLE_SCALE), state.get("look_point", Vector3.ZERO))
-	var kiss := float(state.get("kiss", 0.0))
-	if kiss > 0.001:
-		# Extra neck/head share toward Anon's lips for the act kiss action.
-		_aim_head(rig, sk, weight * kiss, 1.0, state.get("look_point", Vector3.ZERO))
-	_neck_lift(rig, sk, weight, _value("neck_lift_deg", POSE1_NECK_LIFT_DEG))
+	var look_point: Vector3 = state.get("look_point", Vector3.ZERO)
+	if pulse > 0.001 and look_point.is_finite():
+		look_point = _nuzzle_look_point(rig, sk, look_point, pulse)
+	_aim_gaze(rig, sk, weight, look_point)
 	_roll_head(rig, sk, weight, float(state.get("head_roll", 0.0)))
 
 
@@ -220,30 +216,103 @@ func _hug_forelegs(rig, sk: Skeleton3D, weight: float) -> void:
 		rig.rotate(sk, lower, forward, 0.35 * weight)
 
 
-func _aim_head(rig, sk: Skeleton3D, weight: float, scale: float, look_point: Vector3) -> void:
-	if rig.neck.is_empty() or not look_point.is_finite():
-		return
+## Current skull frame in world space. The body's `pony_head` bone is mapped to the OpenPony
+## head by HybridNeckLink with a fixed per-pair offset; applying that offset gives the same
+## `mHead` frame the head skeleton will use after this pose. This is why the gaze solve can use
+## the *current* pose instead of last frame's linked head.
+func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
+	if rig.neck.is_empty():
+		return {}
 	var head: int = rig.neck[rig.neck.size() - 1]
-	var head_pose := sk.get_bone_global_pose(head)
-	var head_world := sk.global_transform * head_pose
-	var to := look_point - head_world.origin
-	if to.length_squared() < 0.0001:
+	var world := sk.global_transform * sk.get_bone_global_pose(head)
+	var mare: Variant = rig.mare
+	if mare != null:
+		var link: Variant = mare.get("neck_link")
+		if link != null:
+			var offsets: Variant = link.get("_offsets")
+			if offsets is Array and (offsets as Array).size() >= 3:
+				var head_offset: Transform3D = (offsets as Array)[2]
+				world = world * head_offset
+				return {"origin": world.origin, "forward": world.basis.z.normalized()}
+		# A headless/test rig may not have the link. Fall back to the head skeleton's own gaze
+		# from the last update, then to the body bone.
+		if mare.has_method("awareness_forward"):
+			var forward: Variant = mare.call("awareness_forward")
+			var boop: Variant = mare.get("boop_node")
+			var origin: Variant = null
+			if boop != null and boop.has_method("skull_world"):
+				origin = boop.call("skull_world")
+			if forward is Vector3 and (forward as Vector3).length_squared() > 0.000001 \
+					and origin is Vector3 and (origin as Vector3).is_finite():
+				return {"origin": origin, "forward": (forward as Vector3).normalized()}
+	return {"origin": world.origin, "forward": world.basis.z.normalized()}
+
+
+## Rotate the neck/head chain by the shortest arc between her current face direction and Anon.
+## Unlike the old absolute yaw/pitch solve this is independent of the body's rest orientation,
+## so the lying missionary pose does not leave her staring at the ceiling. The shares keep the
+## bend distributed through the chain and `rig.rotate()` applies the native joint limits.
+func _aim_gaze(rig, sk: Skeleton3D, weight: float, look_point: Vector3) -> void:
+	if rig.neck.is_empty() or not look_point.is_finite() or weight <= 0.0001:
 		return
-	var right: Vector3 = rig.right_axis(sk)
-	var up: Vector3 = rig.up_axis(sk)
-	var local := sk.global_basis.inverse() * to
-	var flat := Vector2(local.x, local.z).length()
-	var yaw := atan2(-local.x, -local.z) if flat > 0.001 else 0.0
-	var pitch := atan2(local.y, flat)
+	var frame := _head_gaze_frame(rig, sk)
+	if frame.is_empty():
+		return
+	var origin: Vector3 = frame["origin"]
+	var forward: Vector3 = frame["forward"]
+	var to := look_point - origin
+	if to.length_squared() < 0.0001 or forward.length_squared() < 0.000001:
+		return
+	# Blend target: at full weight the residual is zero. Keep the per-frame budget so an
+	# early pose blend under-aims instead of snapping the head straight to Anon.
+	var desired := forward.angle_to(to) * (1.0 - clampf(weight, 0.0, 1.0))
 	var shares: Array[float] = [0.30, 0.36, 0.34]
-	for i: int in rig.neck.size():
-		var share := shares[mini(i, shares.size() - 1)] * weight * scale
-		rig.rotate(sk, rig.neck[i], up, clampf(yaw, -1.1, 1.1) * share)
-		rig.rotate(sk, rig.neck[i], right, clampf(pitch, -0.8, 0.8) * share)
+	# The head origin moves as the neck bends, so one shortest-arc correction leaves a few
+	# degrees behind. Re-read the body head + link offset and mop up that residual here;
+	# the head skeleton has not updated yet inside this modifier.
+	for _step: int in 3:
+		frame = _head_gaze_frame(rig, sk)
+		if frame.is_empty():
+			return
+		origin = frame["origin"]
+		forward = frame["forward"]
+		to = look_point - origin
+		if to.length_squared() < 0.0001:
+			return
+		var error := forward.angle_to(to)
+		if error <= desired + 0.0005:
+			return
+		var axis_world := forward.cross(to)
+		if axis_world.length_squared() < 0.0000001:
+			return
+		var axis := (sk.global_basis.inverse() * axis_world.normalized()).normalized()
+		var step_angle := error - desired
+		for i: int in rig.neck.size():
+			rig.rotate(sk, rig.neck[i], axis,
+				step_angle * shares[mini(i, shares.size() - 1)])
 
 
-## Lift the head off the mattress by bending the neck "down" in the standing model. Applied
-## after the head aim so the lift is a fixed offset, not something the aim can cancel.
+## A small off-target look for the nuzzle pulse, expressed as an angle at the target distance.
+## Base gaze stays locked on Anon; nuzzling briefly wanders a few degrees and returns.
+func _nuzzle_look_point(rig, sk: Skeleton3D, look_point: Vector3, pulse: float) -> Vector3:
+	var frame := _head_gaze_frame(rig, sk)
+	if frame.is_empty():
+		return look_point
+	var origin: Vector3 = frame["origin"]
+	var distance := origin.distance_to(look_point)
+	if distance < 0.01:
+		return look_point
+	var degrees := _value("nuzzle_scale", POSE1_NUZZLE_SCALE) * 8.0 * clampf(pulse, 0.0, 1.0)
+	if absf(degrees) < 0.01:
+		return look_point
+	var right: Vector3 = (sk.global_basis * rig.right_axis(sk)).normalized()
+	var up: Vector3 = (sk.global_basis * rig.up_axis(sk)).normalized()
+	var offset: Vector3 = (right + up * 0.25).normalized() * tan(deg_to_rad(degrees)) * distance
+	return look_point + offset
+
+
+## Lift the head off the mattress by bending the neck "down" in the standing model. It runs
+## before `_aim_gaze()` so it changes her head position, not the final face direction.
 func _neck_lift(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
 	if rig.neck.size() < 2 or absf(degrees) < 0.0001:
 		return

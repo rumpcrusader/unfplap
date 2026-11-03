@@ -109,11 +109,11 @@ func run() -> void:
 	check(near(runtime.satisfaction, 25.0), "recovery resets readiness to the mare's value")
 	check(runtime.pony_climaxes == 1, "climax count survives the return to ACTIVE")
 
-	runtime.pony_climaxes = 4
+	runtime.pony_climaxes = 2
 	runtime.satisfaction = 100.0
 	runtime._climax()
 	runtime._finish_climax()
-	check(int(runtime.state) == 4, "fifth climax auto-enters AFTERGLOW")
+	check(int(runtime.state) == 4, "third climax auto-enters AFTERGLOW")
 	runtime.free()
 
 	print("RUNTIME_THRUST_RESULT checks=%d failures=%d" % [checks, failures])

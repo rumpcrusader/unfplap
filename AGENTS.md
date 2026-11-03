@@ -157,10 +157,15 @@ body-relative axes.
   the front upper-arm line. Wrap measured left/right line angles into ±90° or the correction can
   roll her belly-down.
 - `POSE1_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
-- After the head aim and kiss, `_neck_lift(neck_lift_deg)` bends `pony_neck1`/`pony_neck2` about
-  the body right axis and lifts her head off the mattress. With the head aimed at Anon the
-  neck-to-body angle is ~13–15°; the default `15°` lift takes it to ~30°. In the standing model
-  this bend is chin-down; the supine body turns it into an upward head lift.
+- `_neck_lift(neck_lift_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis and
+  lifts her head off the mattress. Default `15°`. It runs **before** the gaze solve, so it
+  changes head position without biasing the final face direction. In the standing model this
+  bend is chin-down; the supine body turns it into an upward head lift.
+- `_aim_gaze()` is a true shortest-arc solve from her current face direction to Anon, using the
+  current `pony_head` frame plus `HybridNeckLink`'s fixed `pony_head → mHead` offset. Do not
+  replace it with absolute yaw/pitch from the body axis: that assumed a standing rest
+  orientation and left the missionary head aimed at the ceiling. The nuzzle offsets the target
+  by a few degrees rather than adding a second absolute aim.
 - `POSE1_RUMP_DROP_DEG` pitches the whole body about the shoulders; `POSE1_HIND_SPREAD` sets
   hind-leg spread.
 - Bed context is not optional: the lie pose, mattress surface and shared-bed transform all
@@ -186,7 +191,7 @@ body-relative axes.
   and the upward look toward Anon instead of waiting for the random glance scheduler.
 - Tail aside/lift/flick is applied down the hair chain; the side is randomized per act.
   `poses.<pose>.tail_lift` defaults to `0.42` and is inherited/overridable per mare.
-- Pose 2 enters the same held `AFTERGLOW` state when the player chooses it or the fifth pony
+- Pose 2 enters the same held `AFTERGLOW` state when the player chooses it or the third pony
   climax forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
   flicks twice, and the inside event/reaction is recorded on entry. A separate `stay_close`
   line follows the inside line, and the 8 s HUD close window counts active caress time. No
@@ -229,12 +234,15 @@ body-relative axes.
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
-- `presentation.torso_angle_deg` (default `0`, experimental/unbounded) hinges Anon's upper body forward over
-  her. `apply_anon_lean()` counters the hip and pins the feet; `apply_camera_motion()` moves the
-  head/camera along the spine arc (`ANON_TORSO_LEN_M = 0.65`). It applies live.
-- Pose-2 palms are scaled on the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`,
-  other presets `1.0`. `palm_scale.gd` runs after BodyIK and restores the cached bone scales in
-  `_remove_anon_thrust()` on every act exit. Marker scaling would be discarded by the IK solver.
+- `presentation.horse.torso_angle_deg` (default `15`, experimental/unbounded) hinges Anon's
+  upper body forward over her. `apply_anon_lean()` counters the hip and pins the feet;
+  `apply_camera_motion()` moves the head/camera along the spine arc
+  (`ANON_TORSO_LEN_M = 0.65`). It applies live.
+- Pose-2 palms are scaled absolutely per body preset from
+  `presentation.horse.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers
+  `1.0`. The settings tab edits the selected size. `palm_scale.gd` runs after BodyIK and
+  restores the cached bone scales in `_remove_anon_thrust()` on every act exit. Marker scaling
+  would be discarded by the IK solver.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at
@@ -258,14 +266,16 @@ body-relative axes.
 - Mod-owned `UnfplapPose1View`, top-level, anchored at
   `root + up * (0.45 + POSE1_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
   shifted by the **Act presentation → Missionary** axes and pulled by the **Missionary pullback**
-  setting (`pose1_pullback`, default `0.22 m`, times body scale) back along its
+  setting (`presentation.missionary.pullback`, default `0.22 m`, times body scale) back along its
   own frozen view axis. Canon height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally
   higher, farther-back shot so the camera is not inside her neck. The anchor stays behind her
   neck, toward her rump, so the frozen aim looks forward along her body at her face. Anchoring
   ahead of the neck put the camera over her head and aimed back down her torso.
-  The fine axes are `pose1_forward` (default `0.10`), `pose1_height` (default `-0.10`) and
-  `pose1_side` (default `0`; positive is her right). They are experimental/unbounded, in
-  metres, and applied to the frozen anchor. The base view then adds
+  The fine axes are `presentation.missionary.forward` (default `0.26`),
+  `presentation.missionary.height` (default `-0.21`) and `presentation.missionary.side`
+  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `0`;
+  positive looks up) tilts the frozen view about its local right axis after the aim. They are
+  experimental/unbounded and applied live. The base view then adds
   `POSE1_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot
   starts at the old maximum
   W-lean point and W pushes further up her torso.
@@ -283,15 +293,18 @@ body-relative axes.
   reference is gone, so a missing bed cannot trigger a rebuild every frame.
 - Her head aims at Anon's player camera, not the framing view, with a minimum
   `0.45 * body_scale` distance. The look point moves with the displayed lean's lateral shift and
-  `pose1_side_lean` travel, so a side lean turns her toward the lean instead of away. Aiming at
-  the shot camera (now behind her neck) demanded a half-turn and snapped her head side to side.
+  `presentation.missionary.side_lean` travel, so a side lean turns her toward the lean instead
+  of away. Aiming at the shot camera (now behind her neck) demanded a half-turn and snapped her
+  head side to side.
 - Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
   extra action. Pose 1 uses the same speed-driven surge/bob as pose 2; the surge runs along the
   mattress toward her head, while the bob moves the view up at her face on the inward stroke.
   The base already includes one full forward lean (`POSE1_START_LEAN`). Forward lean is clamped
-  to stop `0.12 m` short of the neck target. A side lean also travels `pose1_side_lean`
-  (default `0.10 m`, experimental/unbounded) along the mattress toward her head, outside the view-axis
-  clamp; the side-lean roll remains separate.
+  to stop `0.12 m` short of the neck target. A side lean also travels
+  `presentation.missionary.side_lean` (default `0.20 m`, experimental/unbounded) along the
+  mattress toward her head, outside the view-axis clamp; the side-lean roll remains separate.
+  `presentation.missionary.pitch_deg` is applied as a local right-axis rotation after the base
+  aim, before the lean basis.
 - Pose 1 body motion is `prone_sway` (`pose1_body_motion`), not the standing `body_sway`
   (`pose2_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.
@@ -346,6 +359,11 @@ body-relative axes.
 - A mod-owned `wing_sweep.gd` modifier runs last on the skeleton while pose 2 holds the wings,
   yawing `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°` in opposite directions to sweep the spread
   wings slightly backwards. It is removed with the wing hold.
+- Entering `AFTERGLOW` starts a slow fold instead of holding the spread until restore. The
+  runtime releases the hold, disables the wing node's own 0.3 s fold, and drives `tuck` toward
+  `1.0` / `half` toward `0` over `WING_AFTERGLOW_RETURN_SECONDS = 6.0`. At completion the wing
+  node's process is re-enabled so `WingTuck` hides the open meshes and shows the folded ones.
+  Leaving afterglow early re-enables the node and lets it finish immediately.
 - Look-back glances clamp yaw to `GLANCE_BACK_YAW = 1.62` and add 20% to
   `glance_back_pitch` (base `1.2`, boosted to `1.44`). The `head_back` ease uses
   `GLANCE_BACK_FADE / glance_back_speed`; `glance_back_speed` defaults to `2.0` and is live in
@@ -360,6 +378,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 | `Q` | kiss | left-hand reach to her left shoulder |
 | `E` | none (lean only) | right-hand reach to her right shoulder |
 | `A` / `D` | none | slow left/right flank caress |
+| `Z` / `C` | none | toggle left/right caress oval movement |
 | `F` (hold) | none | kiss at a full shoulder lean |
 | Mouse right | left/right cheek opposite the lean | same |
 
@@ -401,11 +420,18 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
   `reach hand side=... target=... x=... y=... z=... fingers=... palm=...` log prints the result.
 - A/D caress uses the same hold-target path with an oval rub (`CARESS_RADIUS_M = 0.04125`,
-  `CARESS_SPEED_RAD_S = 3.6`). The palm is projected onto the coat every tick through
+  `CARESS_SPEED_RAD_S = 3.6`). Z/C toggle the left/right oval movement: the hand keeps its
+  current coat contact and still scores, but the phase is frozen until toggled back on. During
+  a smack the phase is frozen for the swinging hand. The palm is projected onto the coat every
+  tick through
   `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
   orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
-  The palm centre sits at `PALM_ON_COAT_CLEARANCE_M = 0.04` at body scale `1.0`, multiplied by
-  the pony's actual `body_scale` (clamped `0.5…2.0`); the normal smoothing adds no extra lift.
+  The fallback uses `_nearest_touch()`, which skips
+  `presentation.horse.caress.ignore` regions (default `tail`; UI also exposes mane, wings and
+  legs). This prevents a tail flick after a smack from stealing the caress contact.
+  The palm centre sits at `presentation.horse.caress.palm_distance` (default `0.04 m`) at body
+  scale `1.0`, multiplied by the pony's actual `body_scale` (clamped `0.5…2.0`); the normal
+  smoothing adds no extra lift.
   Contact is cached per hand with
   source hysteresis and short position/normal smoothing: a miss holds the last valid point, a
   flank↔body source change needs two hits, and a near-opposite normal (dot < -0.5) is rejected
@@ -433,10 +459,11 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
   `1 = right cheek`. `at` shifts the mark centre `0.08 m` up and `0.08 m` back, then jitters
   within `SMACK_ZONE_RADIUS_M = 0.035` around that point. The contact palm uses the same
-  `palm_surface_basis()` and `PALM_ON_COAT_CLEARANCE_M` above. If a hand is already caressing,
+  `palm_surface_basis()` and caress palm distance above. If a hand is already caressing,
   the smack uses that hand and its same-side cheek; if both are caressing, one is chosen at
-  random. The caress oval is frozen for that hand during the swing, and at the end the hand
-  returns to the same caress point instead of clearing to rest. The hand swings in/out over
+  random. The caress oval is frozen for that hand during the swing. At the end the palm cache
+  is reset, the current contact is reacquired (with caress ignore rules), and the hand returns
+  over `CARESS_RETURN_SECONDS = 0.12` instead of clearing to rest. The hand swings in/out over
   `SMACK_SWING_SECONDS = 0.20`, impacts at `SMACK_CONTACT_PHASE = 0.45`, and has a
   `SMACK_COOLDOWN_MS = 200` gate.
 - It reuses the slap sound/decal/blush/jiggle. The pony's `physical_reaction` connections are
@@ -500,8 +527,8 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - `CLOSE_AT = 65` is only the “she's close” cue. `PONY_CLIMAX_AT = 100` triggers a pony
   climax. `satisfaction` is still the public HUD value.
 - Each pony climax lasts `CLIMAX_SECONDS = 5`; the player can keep thrusting, but those thrusts
-  do not score. After it, readiness resets to `taste.recovery`; the 5th climax auto-enters
-  afterglow. `MAX_PONY_CLIMAXES = 5`.
+  do not score. After it, readiness resets to `taste.recovery`; the 3rd climax auto-enters
+  afterglow. `MAX_PONY_CLIMAXES = 3`.
 - Hold `Y` in `ACTIVE` with 0 climaxes cancels; with 1+ it enters afterglow. Hold `Y` in
   `CLIMAX` enters afterglow. `Y` in `AFTERGLOW` ends it.
 - `mood` is `warming`, `wanting`, `close`, `climax` or `overwhelmed`; `cue` is the short HUD
@@ -532,6 +559,7 @@ examples.
 - During the act the quick-slot inventory HUD is hidden and restored at end.
 - `kiss_hold` owns movement hold; `pony_kisser` physics is paused so it cannot remove it.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
+  `Z`/`C` toggle caress movement,
   `F` hold kiss in pose 2, mouse right smacks. They are available in `ACTIVE`, `CLIMAX`, and the
   horse `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's hug/deep-kiss key;
   the act consumes it without binding it so a hug cannot end the act's kiss.
@@ -562,7 +590,7 @@ examples.
 
 - One request episode at a time. Automatic requests require AI usage Full
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
-  character chat within 45 s. The lab runs in Talk, so use `F7`.
+  character chat within 45 s. The lab runs in Talk, so use `F4`.
 - Eligibility is the existing relationship/social gate (`can_start` for the pose), not the
   act-time readiness value. No anger bypass.
 - Cuddle: requires an active cuddle and `can_start(MISSIONARY, "bed_side")` or
@@ -583,7 +611,7 @@ examples.
 - Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach or initial-ask
   failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
   cooldown. `Y` cancels the episode before `start()`.
-- `F7` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
+- `F4` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
 
 ## Dialogue utterances
 
@@ -626,7 +654,8 @@ examples.
 - The native offer hint uses the game's `button_y` icon plus `sex` (no leading dot); without the
   icon it falls back to `Y · sex`.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
-  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, F, mouse right, T and Y; `Y` text
+  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, Z/C caress movement, F, mouse right,
+  T and Y; `Y` text
   changes by state.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; the previous state is restored on every exit path:
@@ -635,13 +664,14 @@ examples.
   marked hidden. The inventory's `_place_hotbar()` re-evaluates the state after restoring, so a
   stale pre-act layer flag cannot leave it hidden.
 - The bottom-left controls list is one row per button with a keycap/controller icon. Top to
-  bottom: cue line `❤ N/5 | cue`, readiness line
+  bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
   controls.
 - The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
   (default `true`). The bar has no ticks. The hearts remain when readouts are off.
-- Afterglow shows `❤ N/5 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  horse keeps forward/back, Q/E reach, A/D caress, F kiss and Y, while thrust, smack and talk
+- Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
+  horse keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y, while
+  thrust, smack and talk
   are hidden. The horse close hint is independent of `hud_readouts`.
 - Love XP and happy mood are granted once by `MEMORY.commit_climax()` at afterglow.
   `MEMORY.stay_close_reward()` may add a small extra romance, happy mood and private thought
@@ -654,15 +684,20 @@ examples.
 
 - `Ctrl+Shift+D`: master DEBUG LOGS toggle; default ON; persists in
   `user://mods/data/unfplap/settings.json`.
-- `F7`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
+- `F4`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
   cooldown and AI-usage checks, but not relationship, consent or pose gates; use it in the lab,
-  which runs with `ai_usage=talk`.
+  which runs with `ai_usage=talk`. F4 is otherwise the dev-only performance-capture key; the
+  mod consumes it while DEBUG LOGS is on. (F7 is the game settings menu.)
 - `F8`: offer/gate/bed report plus target thrust data.
 - `F9`: pose-1 floating preview and one-shot `POSE1` dump.
 - `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible;
   hover a joint to turn it red, then click to print its bone name, parent, world/local origin,
   rotation, scale and rest.
+- While `debug_logs` is on, **Settings → Unfplap → Debug** exposes a hidden
+  **Trigger sex offer (F4)** button. It uses the aimed mare with the nearest fallback and
+  calls the same `initiation.force()` path as F4; the status label reports the target or gate
+  rejection. Because the settings page pauses the tree, the offer advances after it closes.
 - `Alt+7` / `Alt+8`: raise/lower the debug chin pitch by `5°` and log head/chin/snout world
   positions. The `chin_debug.gd` modifier works while idle, lying, standing or during an act;
   when nothing is under the crosshair it targets the nearest mare within `8 m`.
@@ -723,22 +758,29 @@ examples.
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
-rump blush. There are no migration shims; unknown settings keys are ignored.
+rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `800`.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
+- `presentation` is split per pose:
+  - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
+  - `horse`: `glance_back_speed`, `torso_angle_deg`, and `caress` with `palm_distance`,
+    `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`.
+  - The old flat `pose1_*`, `glance_back_speed` and `torso_angle_deg` block migrates once in
+    `_normalize_presentation()`; obsolete `pose1_camera` is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
   (sensitivity, glance speed, percentages, taste). Experimental tuning controls stay unbounded.
 - Feature flags are one ungrouped list. Each row uses `FEATURE_INFO` for a human label and a
   help line. Edits apply live during an act; `live` flags also apply immediately outside one.
   `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
 - The injected settings tab has a **Thrust** section (orientation, sensitivity `240…1200`), a
-  **Camera thrust** section (surge and bob, `0…100%`), an **Act presentation** section
-  (glance-back speed, missionary camera framing and Anon torso lean) and **Character
-  taste**. There are no Save
-  buttons: each control writes its own block and calls `apply_live_settings()` so the active
-  act updates immediately.
+  **Camera thrust** section (surge and bob, `0…100%`), an **Act presentation** section split
+  into **Missionary** and **Horse** (horse includes caress palm distance, size-selected palm
+  scale and body-part ignores), a hidden **Debug** block only while `debug_logs` is on, and
+  **Character taste**. There are no Save buttons: each control writes its own block and calls
+  `apply_live_settings()` so the active act updates
+  immediately.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

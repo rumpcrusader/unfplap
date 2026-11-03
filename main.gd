@@ -301,7 +301,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 6)
 	ui.add_child(heading)
 	var note := Label.new()
-	note.text = "Feature flags, thrust/camera-rock tuning and per-character taste. Changes apply live during an act."
+	note.text = "Feature flags, thrust, per-pose presentation, caress and per-character taste. Changes apply live during an act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	ui.add_child(note)
@@ -349,6 +349,8 @@ func _inject_settings_page_now(page: Node) -> void:
 	_add_thrust_section(list, font_size)
 	_add_camera_thrust_section(list, font_size)
 	_add_presentation_section(list, font_size)
+	if debug_logs:
+		_add_debug_section(list, font_size)
 	_add_taste_section(list, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
@@ -542,58 +544,169 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Glance ease, the missionary framing axes, the side-lean head-forward amount and Anon torso lean. Side positive is her right. Changes apply live."
+	note.text = "Pose-specific framing, pitch and caress controls. Changes apply live."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
+	_add_missionary_presentation(list, font_size)
+	_add_horse_presentation(list, font_size)
+
+
+func _presentation_heading(list: VBoxContainer, text: String, font_size: int) -> void:
+	var heading := Label.new()
+	heading.text = text
+	heading.add_theme_font_size_override("font_size", font_size + 1)
+	list.add_child(heading)
+
+
+func _add_missionary_presentation(list: VBoxContainer, font_size: int) -> void:
+	_presentation_heading(list, "Missionary", font_size)
 	var form := GridContainer.new()
 	form.columns = 2
 	form.add_theme_constant_override("h_separation", 16)
 	form.add_theme_constant_override("v_separation", 8)
 	list.add_child(form)
-	var controls := SETTINGS.presentation_controls()
+	var controls := SETTINGS.presentation_controls("missionary")
+	var forward := _settings_spin_free(form, "Missionary forward", 0.01,
+		float(controls.get("forward", 0.26)), font_size)
+	forward.suffix = " m"
+	forward.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"forward": forward.value})
+		_apply_live_settings())
+	var height := _settings_spin_free(form, "Missionary height", 0.01,
+		float(controls.get("height", -0.21)), font_size)
+	height.suffix = " m"
+	height.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"height": height.value})
+		_apply_live_settings())
+	var side := _settings_spin_free(form, "Missionary side", 0.01,
+		float(controls.get("side", 0.0)), font_size)
+	side.suffix = " m"
+	side.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"side": side.value})
+		_apply_live_settings())
+	var pullback := _settings_spin_free(form, "Missionary pullback", 0.01,
+		float(controls.get("pullback", 0.22)), font_size)
+	pullback.suffix = " m"
+	pullback.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"pullback": pullback.value})
+		_apply_live_settings())
+	var pitch := _settings_spin_free(form, "Missionary pitch", 0.5,
+		float(controls.get("pitch_deg", 0.0)), font_size)
+	pitch.suffix = "°"
+	pitch.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"pitch_deg": pitch.value})
+		_apply_live_settings())
+	var side_lean := _settings_spin_free(form, "Side lean forward", 0.01,
+		float(controls.get("side_lean", 0.20)), font_size)
+	side_lean.suffix = " m"
+	side_lean.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"side_lean": side_lean.value})
+		_apply_live_settings())
+
+
+func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
+	_presentation_heading(list, "Horse", font_size)
+	var form := GridContainer.new()
+	form.columns = 2
+	form.add_theme_constant_override("h_separation", 16)
+	form.add_theme_constant_override("v_separation", 8)
+	list.add_child(form)
+	var controls := SETTINGS.presentation_controls("horse")
 	var glance_speed := _settings_spin(form, "Glance-back speed", 0.25, 3.0, 0.05,
 		float(controls.get("glance_back_speed", 2.0)), font_size)
 	glance_speed.suffix = "×"
 	glance_speed.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"glance_back_speed": glance_speed.value})
-		_apply_live_settings())
-	var pose1_forward := _settings_spin_free(form, "Missionary forward", 0.01,
-		float(controls.get("pose1_forward", 0.10)), font_size)
-	pose1_forward.suffix = " m"
-	pose1_forward.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"pose1_forward": pose1_forward.value})
-		_apply_live_settings())
-	var pose1_height := _settings_spin_free(form, "Missionary height", 0.01,
-		float(controls.get("pose1_height", -0.10)), font_size)
-	pose1_height.suffix = " m"
-	pose1_height.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"pose1_height": pose1_height.value})
-		_apply_live_settings())
-	var pose1_side := _settings_spin_free(form, "Missionary side", 0.01,
-		float(controls.get("pose1_side", 0.0)), font_size)
-	pose1_side.suffix = " m"
-	pose1_side.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"pose1_side": pose1_side.value})
-		_apply_live_settings())
-	var pose1_pullback := _settings_spin_free(form, "Missionary pullback", 0.01,
-		float(controls.get("pose1_pullback", 0.22)), font_size)
-	pose1_pullback.suffix = " m"
-	pose1_pullback.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"pose1_pullback": pose1_pullback.value})
-		_apply_live_settings())
-	var pose1_side_lean := _settings_spin_free(form, "Side lean forward", 0.01,
-		float(controls.get("pose1_side_lean", 0.10)), font_size)
-	pose1_side_lean.suffix = " m"
-	pose1_side_lean.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"pose1_side_lean": pose1_side_lean.value})
+		SETTINGS.save_presentation_controls("horse",
+			{"glance_back_speed": glance_speed.value})
 		_apply_live_settings())
 	var torso_angle := _settings_spin_free(form, "Anon torso lean", 1.0,
 		float(controls.get("torso_angle_deg", 0.0)), font_size)
 	torso_angle.suffix = "°"
 	torso_angle.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls({"torso_angle_deg": torso_angle.value})
+		SETTINGS.save_presentation_controls("horse",
+			{"torso_angle_deg": torso_angle.value})
 		_apply_live_settings())
+
+	var caress_heading := Label.new()
+	caress_heading.text = "Caress"
+	caress_heading.add_theme_font_size_override("font_size", font_size)
+	list.add_child(caress_heading)
+	var caress_form := GridContainer.new()
+	caress_form.columns = 2
+	caress_form.add_theme_constant_override("h_separation", 16)
+	caress_form.add_theme_constant_override("v_separation", 8)
+	list.add_child(caress_form)
+	var caress: Dictionary = controls.get("caress", {})
+	var palm_distance := _settings_spin(caress_form, "Palm distance", 0.0, 20.0, 0.5,
+		float(caress.get("palm_distance", 0.04)) * 100.0, font_size)
+	palm_distance.suffix = " cm"
+	palm_distance.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"caress": {"palm_distance": palm_distance.value / 100.0}})
+		_apply_live_settings())
+	var scales: Dictionary = caress.get("palm_scale", {})
+	var size_label := Label.new()
+	size_label.text = "Palm size"
+	size_label.add_theme_font_size_override("font_size", font_size)
+	caress_form.add_child(size_label)
+	var size_selector := OptionButton.new()
+	for size: String in SETTINGS.CARESS_SIZES:
+		size_selector.add_item(size)
+		size_selector.set_item_metadata(size_selector.get_item_count() - 1, size)
+	size_selector.add_theme_font_size_override("font_size", font_size - 2)
+	caress_form.add_child(size_selector)
+	var palm_scale := _settings_spin(caress_form, "Palm scale", 0.25, 2.0, 0.01,
+		float(scales.get("canon", 1.0)), font_size)
+	palm_scale.suffix = "×"
+	palm_scale.value_changed.connect(func(_value: float) -> void:
+		var selected := str(size_selector.get_item_metadata(size_selector.selected))
+		scales[selected] = palm_scale.value
+		SETTINGS.save_presentation_controls("horse",
+			{"caress": {"palm_scale": {selected: palm_scale.value}}})
+		_apply_live_settings())
+	size_selector.item_selected.connect(func(index: int) -> void:
+		var selected := str(size_selector.get_item_metadata(index))
+		palm_scale.set_block_signals(true)
+		palm_scale.value = float(scales.get(selected, 1.0))
+		palm_scale.set_block_signals(false))
+	var ignore_checks := _taste_checks(caress_form, "Ignore body parts",
+		SETTINGS.CARESS_IGNORE_REGIONS, font_size)
+	var ignored: Array = caress.get("ignore", ["tail"])
+	for key: String in ignore_checks:
+		var check: CheckButton = ignore_checks[key]
+		check.text = key.capitalize()
+		check.button_pressed = key in ignored
+		check.toggled.connect(func(_on: bool) -> void:
+			var values: Array = []
+			for name: String in ignore_checks:
+				if (ignore_checks[name] as CheckButton).button_pressed:
+					values.append(name)
+			SETTINGS.save_presentation_controls("horse",
+				{"caress": {"ignore": values}})
+			_apply_live_settings())
+
+
+func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Debug"
+	heading.add_theme_font_size_override("font_size", font_size + 2)
+	list.add_child(heading)
+	var note := Label.new()
+	note.text = "Hidden test controls. The offer sequence advances after you close this menu."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(note)
+	var status := Label.new()
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size", font_size - 4)
+	var button := Button.new()
+	button.text = "Trigger sex offer (F4)"
+	button.pressed.connect(func() -> void:
+		status.text = _debug_offer_request())
+	list.add_child(button)
+	list.add_child(status)
 
 
 func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
@@ -1157,21 +1270,31 @@ func try_start() -> bool:
 ## Debug helper: force a proactive request for the aimed (or nearest) mare. It bypasses the
 ## quiet/cooldown/AI-usage checks so the lab can test requests with ai_usage=talk.
 func debug_request() -> void:
+	_debug_offer_request()
+
+
+## Shared by F7 and the hidden settings button, so both paths report the same status.
+func _debug_offer_request() -> String:
 	if not debug_logs:
-		return
+		return "Debug logs are off."
 	if not is_instance_valid(initiation) or not is_instance_valid(player):
-		return
-	var target: Node = _debug_target(camera()) if is_instance_valid(camera()) else null
+		return "Act system not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
-		target = _nearest_pony(camera())
+		target = _nearest_pony(view)
 	if not is_instance_valid(target):
 		_debug("request: no pony target")
-		return
+		return "No mare under the crosshair or nearby."
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime):
 		_debug("request: no runtime for %s" % str(target.name))
-		return
-	initiation.force(runtime)
+		return "No runtime for %s." % str(target.name)
+	var started: bool = bool(initiation.force(runtime))
+	if started:
+		_debug("request button: %s" % str(target.name))
+		return "Offer started for %s. Close settings to let her approach." % str(target.name)
+	return "Gates rejected %s (relationship, consent or pose)." % str(target.name)
 
 
 func debug_chin(step_deg: float) -> void:

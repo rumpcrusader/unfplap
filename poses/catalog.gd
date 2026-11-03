@@ -15,7 +15,6 @@ const POSE_DEFAULTS := {
 		"neck_lift_deg": 15.0,
 		"camera_height": 0.45,
 		"camera_back": 0.22,
-		"look_scale": 0.55,
 		"nuzzle_scale": 0.45,
 		"nuzzle_period": 7.0,
 		"nuzzle_duration": 2.4,

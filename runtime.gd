@@ -92,6 +92,9 @@ const POSE1_CAMERA_BACK_M := 0.22
 const POSE1_CAMERA_PULLBACK_M := 0.22
 ## Extra height requested after the first visual pass.
 const POSE1_CAMERA_LIFT_M := 0.10
+## The pose-1 shot starts at the old maximum forward lean, so W pushes further up her torso
+## instead of starting from the wide position. 1.0 is one full `LEAN_FORWARD_M` lean.
+const POSE1_START_LEAN := 1.0
 ## Presentation: how close the pony stands in front of the player for pose 2.
 const POSE2_GAP_M := 0.55
 ## Idle horse invitation: turn away from Anon at this rate before she settles into the stance.
@@ -5470,17 +5473,21 @@ func apply_camera_motion() -> void:
 		# Pull the whole shot back along its own view axis; the frozen aim still points at her neck.
 		_pose1_view.global_position += _pose1_view_basis.z * _pose1_pullback()
 		var lean_scale := _lean_size_scale()
-		var lean_forward := lean_distance(_lean_view_forward, lean_scale)
+		var lean_forward := lean_distance(_lean_view_forward, lean_scale) \
+			+ lean_distance(POSE1_START_LEAN, lean_scale)
+		var to_target := _pose1_look_target() - _pose1_camera
 		if lean_forward < 0.0:
 			# Never let the shot cross its own neck target and flip the view backwards.
-			var to_target := _pose1_look_target() - _pose1_camera
 			var room := maxf(0.0, to_target.dot(-_pose1_view_basis.z) - 0.12)
 			lean_forward = -minf(-lean_forward, room)
+		# Stop 0.12 m before the neck instead of crossing it when the start offset is added.
+		var forward_room := maxf(0.0, to_target.dot(-_pose1_view_basis.z)
+			+ _pose1_pullback() - 0.12)
+		lean_forward = minf(lean_forward, forward_room)
 		var kiss_lean := _kiss_lean_distance()
 		if kiss_lean > 0.0:
-			var to_target := _pose1_look_target() - _pose1_camera
 			var view_room := maxf(0.0, to_target.dot(-_pose1_view_basis.z)
-				- _pose1_pullback() - 0.12 - maxf(lean_forward, 0.0))
+				+ _pose1_pullback() - 0.12 - maxf(lean_forward, 0.0))
 			kiss_lean = minf(kiss_lean, view_room)
 		_pose1_view.global_position -= _pose1_view_basis.z \
 			* (-_back + lean_forward + kiss_lean)

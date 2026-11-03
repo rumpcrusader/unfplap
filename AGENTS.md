@@ -261,7 +261,9 @@ body-relative axes.
   frozen aim looks forward along her body at her face. Anchoring ahead of the neck put the camera
   over her head and aimed back down her torso. The **Act presentation → Missionary camera**
   setting (`pose1_camera`, default `0.10 m`, range `-0.10…0.20`) then shifts the anchor toward
-  her torso and lower by the same distance; the range keeps it behind her neck.
+  her torso and lower by the same distance; the range keeps it behind her neck. The base view
+  then adds `POSE1_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so
+  the shot starts at the old maximum W-lean point and W pushes further up her torso.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and
   broke the aim. The aim basis is always rebuilt from `_pose1_camera`, never the already moved
@@ -280,7 +282,8 @@ body-relative axes.
 - Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
   extra action. Pose 1 uses the same speed-driven surge/bob as pose 2; the surge runs along the
   mattress toward her head, while the bob moves the view up at her face on the inward stroke.
-  The side-lean roll remains separate.
+  The base already includes one full forward lean (`POSE1_START_LEAN`). Forward lean is clamped
+  to stop `0.12 m` short of the neck target; the side-lean roll remains separate.
 - Pose 1 body motion is `prone_sway` (`pose1_body_motion`), not the standing `body_sway`
   (`pose2_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.

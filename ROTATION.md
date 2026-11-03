@@ -92,8 +92,10 @@ these values here if a future pose needs that effect.
   default `0.10 m`, range `-0.10…0.20`) moves the anchor toward her torso and lower by that
   distance; positive values bring the shot in and down, negative values back it off and up. After
   positioning, the shot is pulled `POSE1_CAMERA_PULLBACK_M = 0.22 * body_scale` back along
-  `_pose1_view_basis.z` (its own view axis), so the frozen aim still points at her neck. The aim
-  basis is computed once from the stable anchor, not the moved view, to prevent start-up flicker.
+  `_pose1_view_basis.z` (its own view axis), then advanced by `POSE1_START_LEAN = 1.0` (one full
+  `LEAN_FORWARD_M` lean) along the same axis. The shot therefore starts at the old maximum
+  W-lean point, and W pushes further up her torso toward the neck. The aim basis is computed
+  once from the stable anchor, not the moved view, to prevent start-up flicker.
 - Aim: sample the middle of the neck (`pony_neck1`/`pony_neck2` midpoint) during the first
   second while the pose blends, then freeze. The live snout is not used, and the target is never
   derived from the moving view.
@@ -112,8 +114,8 @@ these values here if a future pose needs that effect.
   `body_sway` (`pose2_body_sway`) and does not pin hooves like the standing pose.
 - Eyes: `ACT_LIDS = 0.45` in `POSING_IN`/`ACTIVE`, `CLIMAX_LIDS = 0.0` in `CLIMAX`, sleepier
   `0.90`/`0.95` in afterglow. `_eyes_tick()` reasserts the stare late each tick.
-- Backward lean is clamped to stop `0.12 m` short of the neck target, so the camera can never
-  cross its own look point and flip backwards.
+- Lean is clamped to stop `0.12 m` short of the neck target in both directions, so the camera
+  can never cross its own look point and flip backwards.
 - The camera has no mouse look. `W`/`S` lean forward/back and `Q`/`E` lean sideways:
   `side = E - Q`, `forward = W - S + abs(side)`.
 - Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward

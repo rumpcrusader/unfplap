@@ -255,10 +255,8 @@ body-relative axes.
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
-- The lean camera holds movement with the game's `kiss_hold` meta and `input.gd`'s key
-  consumption; it deliberately does **not** set `controls_locked`, so the backtick command
-  console can still open during an act. If a future action needs the stronger lock, add a
-  console-safe path instead of setting it globally.
+- The lean camera owns `player.controls_locked = true` for both poses. Save and restore the
+  prior value at act end.
 - `F` is not an act control in pose 1. In pose 2, holding `F` at a full side lean
   (`abs(side) >= POSE2_KISS_LEAN = 0.90`) starts the same base-game kiss; outside an act it
   remains the game's flight key.
@@ -325,9 +323,7 @@ body-relative axes.
   then freeze. Lean yaw/pitch are applied on top.
 - Pose 2 has no separate thrust rock spring. The shared speed-driven surge/bob handles the
   thrust camera; lean yaw/pitch stays on top.
-- Pose 2 also holds movement with `kiss_hold`; it leaves `controls_locked` false so the
-  command console remains available. Verify no walking or native interaction leaks when
-  changing this path.
+- Lean owns `controls_locked` for pose 2 too, so Anon does not walk while the camera moves.
 - On restore, restore the player yaw/pitch to the **captured start values**, not the act base
   aim, and reset `camera.rotation.x` and `.z`.
 
@@ -360,6 +356,11 @@ body-relative axes.
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). This is
   the cheapest way to make rump jiggle and tail read as one motion; the shader itself stays
   native.
+- With `thrust_tail_dock_jiggle` enabled (default off), the rigid `OpenPonyDock` mesh and the
+  merged near-mesh dock palette entries join the same rump shader wobble. The runtime duplicates
+  the body coat jiggle material onto the dock, appends it to `_flank._jiggle_targets`, and
+  raises the dock's near-mesh `jiggle_entry` mask. The material override is restored at act end
+  or when the flag is turned off. The hair tail base already jiggles through `tail_pose`.
 - A mod-owned `wing_sweep.gd` modifier runs last on the skeleton while pose 2 holds the wings,
   yawing `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°` in opposite directions to sweep the spread
   wings slightly backwards. It is removed with the wing hold.
@@ -688,8 +689,8 @@ examples.
 ## Debug and testing
 
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
-  player build unlocks it with **Settings → Updates** pressed five times. During an act the
-  mod leaves `player.controls_locked` false, so the console's own lock guard does not block it.
+  player build unlocks it with **Settings → Updates** pressed five times. Acts own
+  `controls_locked`, so the console is not available while an act is running.
 - `Ctrl+Shift+D`: master DEBUG LOGS toggle; default ON; persists in
   `user://mods/data/unfplap/settings.json`.
 - `F4`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
@@ -763,6 +764,8 @@ examples.
 | `pose2_body_sway` | `true` | pose-2 upper-body sway modifier |
 | `pose1_body_motion` | `true` | pose-1 torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | pose-2 thrust ear-twitch modifier |
+| `thrust_tail_dock_jiggle` | `false` | add the dock and merged dock surface to the rump thrust jiggle |
+| `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |

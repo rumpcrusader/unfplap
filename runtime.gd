@@ -590,6 +590,9 @@ var _plap_streams: Array[AudioStream] = []
 var _flank: Node
 var _palm_contacts: Dictionary = {}
 var _jiggle_logged := false
+var _dock_jiggle_mesh: MeshInstance3D
+var _dock_jiggle_material: ShaderMaterial
+var _dock_jiggle_original: Material
 var _climax_sound: AudioStreamPlayer3D
 var _kiss_stream: AudioStream
 var _climax_streams: Array[AudioStream] = []
@@ -757,6 +760,8 @@ func _refresh_live_modifiers() -> void:
 	if not skeleton_value is Skeleton3D:
 		return
 	var skeleton := skeleton_value as Skeleton3D
+	if not _feature("thrust_tail_dock_jiggle"):
+		_restore_dock_jiggle_material()
 	if pose_id == CATALOG.HORSE:
 		if _feature("pose2_body_sway") and not is_instance_valid(_body_sway):
 			_install_body_sway(skeleton)
@@ -2383,6 +2388,7 @@ func _install_ear_twitch() -> void:
 
 
 func _remove_extra_modifiers() -> void:
+	_restore_dock_jiggle_material()
 	if is_instance_valid(_body_sway):
 		_body_sway.queue_free()
 	_body_sway = null
@@ -3122,12 +3128,120 @@ func _thrust_jiggle(strength: float) -> void:
 	var amount: Variant = _flank.get("_jiggle_amount")
 	if amount != null:
 		_flank.set("_jiggle_amount", float(amount) * JIGGLE_RUMP_SCALE * _jiggle_size_scale())
+	if _feature("thrust_tail_dock_jiggle"):
+		_include_dock_jiggle()
+	else:
+		_restore_dock_jiggle_material()
 	if not _jiggle_logged:
 		_jiggle_logged = true
 		var targets: Variant = _flank.get("_jiggle_targets")
 		_log("jiggle rump at=%s root=%s normal=%s targets=%d" % [
 			str(at), str(pony.global_position), str(normal),
 			(targets as Array).size() if targets is Array else -1])
+
+
+## Add the rigid dock and merged near-dock surface to the rump's shader wobble. The hair tail
+## bones are already driven by tail_pose; this is the missing dock piece.
+func _include_dock_jiggle() -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(_flank):
+		return
+	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
+	if not is_instance_valid(dock):
+		return
+	var body: Variant = _flank.get("_body")
+	var source: Material = null
+	if body is MeshInstance3D:
+		source = (body as MeshInstance3D).get_active_material(0)
+	if not source is ShaderMaterial:
+		return
+	if not is_instance_valid(_dock_jiggle_mesh) or _dock_jiggle_mesh != dock:
+		_restore_dock_jiggle_material()
+		_dock_jiggle_mesh = dock
+		_dock_jiggle_original = dock.get_surface_override_material(0)
+		_dock_jiggle_material = (source as ShaderMaterial).duplicate() as ShaderMaterial
+		if not is_instance_valid(_dock_jiggle_material):
+			_dock_jiggle_mesh = null
+			_dock_jiggle_original = null
+			return
+		dock.set_surface_override_material(0, _dock_jiggle_material)
+	var targets: Variant = _flank.get("_jiggle_targets")
+	if targets is Array:
+		(targets as Array).append([_dock_jiggle_material, dock])
+	_include_dock_near_masks()
+
+
+## The near mesh merges the dock into the body palette with a zero jiggle_entry mask. Raise
+## the dock's palette entries so the merged surface follows the same wobble.
+func _include_dock_near_masks() -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(_flank):
+		return
+	var near: Variant = pony.get("_near")
+	if not near is Dictionary:
+		return
+	var groups: Variant = (near as Dictionary).get("groups", [])
+	if not groups is Array:
+		return
+	var targets: Variant = _flank.get("_jiggle_targets")
+	if not targets is Array:
+		return
+	for entry_v: Variant in groups:
+		if not entry_v is Dictionary:
+			continue
+		var entry: Dictionary = entry_v
+		var mi_v: Variant = entry.get("mi")
+		if not mi_v is MeshInstance3D:
+			continue
+		var group_v: Variant = entry.get("group")
+		if not group_v is Dictionary:
+			continue
+		var variants_v: Variant = (group_v as Dictionary).get("variants", {})
+		if not variants_v is Dictionary:
+			continue
+		var variant_v: Variant = (variants_v as Dictionary).get(entry.get("variant"))
+		if not variant_v is Dictionary:
+			continue
+		var outputs_v: Variant = (variant_v as Dictionary).get("outputs", [])
+		if not outputs_v is Array:
+			continue
+		for target_v: Variant in targets:
+			if not target_v is Array or (target_v as Array).size() < 2:
+				continue
+			var mat_v: Variant = (target_v as Array)[0]
+			var target_mi_v: Variant = (target_v as Array)[1]
+			if target_mi_v != mi_v or not mat_v is ShaderMaterial:
+				continue
+			var mat := mat_v as ShaderMaterial
+			var mask_v: Variant = mat.get_shader_parameter("jiggle_entry")
+			if not mask_v is PackedFloat32Array:
+				continue
+			var mask: PackedFloat32Array = mask_v
+			var changed := false
+			for si: int in (outputs_v as Array).size():
+				var output_v: Variant = (outputs_v as Array)[si]
+				if not output_v is Dictionary:
+					continue
+				var sources_v: Variant = (output_v as Dictionary).get("entries", [])
+				if not sources_v is Array:
+					continue
+				for i: int in mini((sources_v as Array).size(), mask.size()):
+					var source_v: Variant = (sources_v as Array)[i]
+					if not source_v is Array:
+						continue
+					var path_v: Variant = (source_v as Array)[0]
+					var src_node: Node = pony.get_node_or_null(NodePath(str(path_v)))
+					if src_node is Node and String(src_node.name).begins_with("OpenPonyDock"):
+						mask[i] = 1.0
+						changed = true
+			if changed:
+				mat.set_shader_parameter("jiggle_entry", mask)
+
+
+func _restore_dock_jiggle_material() -> void:
+	if is_instance_valid(_dock_jiggle_mesh):
+		_dock_jiggle_mesh.set_surface_override_material(0, _dock_jiggle_original)
+	_dock_jiggle_mesh = null
+	_dock_jiggle_material = null
+	_dock_jiggle_original = null
 
 
 func _ensure_rump_decal() -> void:
@@ -5590,9 +5704,8 @@ func _apply_pose2_lean_look() -> void:
 			view.rotation.x = pitch
 
 
-## Keep the body unlocked so the game's command console can still open with ` during an act.
-## Movement, jump, rest and interactions are held by input.gd's kiss_hold path instead;
-## controls_locked would make command_console.gd refuse the backtick key.
+## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
+## start couch actions while the shot is active. The previous value is restored at act end.
 func _apply_free_camera_lock() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -5600,7 +5713,7 @@ func _apply_free_camera_lock() -> void:
 	if not _controls_locked_by_camera:
 		_controls_locked_saved = bool(body.get("controls_locked"))
 		_controls_locked_by_camera = true
-	# Deliberately do not set controls_locked; see comment above.
+	body.set("controls_locked", true)
 
 
 func _release_free_camera_lock() -> void:

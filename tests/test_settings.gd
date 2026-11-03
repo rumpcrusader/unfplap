@@ -115,6 +115,8 @@ func run() -> void:
 	check(bool(feature_block.get("pose2_body_sway", false)), "pose 2 body sway feature on")
 	check(bool(feature_block.get("pose1_body_motion", false)), "pose 1 body motion feature on")
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
+	check(not bool(feature_block.get("thrust_tail_dock_jiggle", true)),
+		"tail/dock jiggle off by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")

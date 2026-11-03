@@ -59,6 +59,7 @@ const FEATURE_DEFAULTS := {
 	"pose2_body_sway": true,
 	"pose1_body_motion": true,
 	"thrust_ear_twitch": true,
+	"thrust_tail_dock_jiggle": false,
 	"allow_act_during_cuddle": true,
 	"mute_ponese_audio": true,
 	"settings_tab": true,
@@ -95,6 +96,10 @@ const FEATURE_INFO := {
 	"thrust_ear_twitch": {
 		"label": "Thrust ear twitch",
 		"help": "Flick both ears on some thrusts.",
+	},
+	"thrust_tail_dock_jiggle": {
+		"label": "Tail base + dock jiggle",
+		"help": "Add the tail base and dock to the rump's thrust jiggle.",
 	},
 	"allow_act_during_cuddle": {
 		"label": "Allow acts during cuddles",

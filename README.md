@@ -37,6 +37,6 @@ Desktop only for now
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, Z/C pause or resume each caress oval, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
-- **Presentation** — Adds blush, eyes, ears, tail, jiggle, audio and wing motion.
+- **Presentation** — Adds blush, eyes, ears, tail, rump jiggle, audio and wing motion; an optional flag adds the dock and tail base to the thrust wobble.
 - **Aftermath** — Ends with a held afterglow for either pose; in horse afterglow, staying close and caressing earns a small extra reward, then short aftercare.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake adults can witness it.

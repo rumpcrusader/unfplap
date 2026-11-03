@@ -1273,7 +1273,7 @@ func debug_request() -> void:
 	_debug_offer_request()
 
 
-## Shared by F7 and the hidden settings button, so both paths report the same status.
+## Shared by F4 and the hidden settings button, so both paths report the same status.
 func _debug_offer_request() -> String:
 	if not debug_logs:
 		return "Debug logs are off."

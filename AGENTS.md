@@ -263,9 +263,10 @@ body-relative axes.
   neck, toward her rump, so the frozen aim looks forward along her body at her face. Anchoring
   ahead of the neck put the camera over her head and aimed back down her torso.
   The fine axes are `pose1_forward` (`-0.20…0.20 m`, default `0.10`), `pose1_height`
-  (`-0.20…0.30 m`, default `-0.10`) and `pose1_side` (`-0.20…0.20 m`, default `0`); all are
-  metres and applied to the frozen anchor. The base view then adds `POSE1_START_LEAN = 1.0`
-  (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot starts at the old maximum
+  (`-0.20…0.30 m`, default `-0.10`) and `pose1_side` (`-0.20…0.20 m`, default `0`; positive is
+  her right); all are metres and applied to the frozen anchor. The base view then adds
+  `POSE1_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot
+  starts at the old maximum
   W-lean point and W pushes further up her torso.
   The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
   Do not bake the pullback into the world-space anchor; that moved the shot vertically and

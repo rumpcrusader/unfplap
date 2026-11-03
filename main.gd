@@ -536,7 +536,7 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Glance ease, the missionary shot and pose-2 torso lean. Higher glance speed is faster; positive missionary camera moves the shot toward her torso and lower. Changes apply live."
+	note.text = "Glance ease, the missionary framing axes, the side-lean head-forward amount and Anon torso lean. Side positive is her right. Changes apply live."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)

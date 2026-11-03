@@ -284,7 +284,7 @@ static func shared_memory(game: Node, id: String, cue: String, event_id: String,
 	if not peak.is_empty():
 		var peak_id := "peak:" + id
 		var peak_text := str(peak.get("text", "")).strip_edges()
-		if not peak_id in used_ids and not peak_text.is_empty():
+		if not (peak_id in used_ids) and not peak_text.is_empty():
 			return {"id": peak_id, "text": peak_text}
 	var ctx := _context(game)
 	if ctx == null:
@@ -392,7 +392,8 @@ static func _memory_ok(row: Dictionary, id: String, used_ids: Array) -> bool:
 		return false
 	if str(row.get("text", "")).strip_edges().is_empty():
 		return false
-	if "story:" + str(row.get("id", "")) in used_ids:
+	var key := "story:" + str(row.get("id", ""))
+	if key in used_ids:
 		return false
 	if kind == "say":
 		var speaker := str(row.get("speaker", ""))

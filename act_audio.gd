@@ -229,11 +229,13 @@ func depth_crossed(before: float, after: float, strength: float, pose: String,
 	var level := clampf(strength, 0.0, 1.0)
 	if before < IMPACT_DEPTH and after >= IMPACT_DEPTH:
 		play_plap(pose, PREFERENCES.intensity_for(level), level, rump)
-		play_bed("in", level, bed_at, soft_bed)
+		if uses_bed(pose):
+			play_bed("in", level, bed_at, soft_bed)
 		play_slide("in", level, rump, -12.0)
 	if before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH:
 		play_slide("out", level, rump, -4.0)
-		play_bed("out", level, bed_at, soft_bed)
+		if uses_bed(pose):
+			play_bed("out", level, bed_at, soft_bed)
 
 
 func stop() -> void:
@@ -254,6 +256,12 @@ static func cue_for_plap(pose: String, intensity: String) -> String:
 	if pose == CATALOG.HORSE:
 		return "plap_horse"
 	return "plap_" + intensity
+
+
+## Bed and fabric only belong to the missionary shot. The standing horse pose has no bed under
+## her; its bed sounds would be a floating wooden creak.
+static func uses_bed(pose: String) -> bool:
+	return pose != CATALOG.HORSE
 
 
 static func tier_for(strength: float) -> String:

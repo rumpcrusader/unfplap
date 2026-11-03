@@ -36,6 +36,8 @@ func run() -> void:
 		"missionary rough cue")
 	check(ACT.cue_for_plap(CATALOG.HORSE, "firm") == "plap_horse",
 		"horse uses the doggy plap pool")
+	check(ACT.uses_bed(CATALOG.MISSIONARY), "missionary uses bed cues")
+	check(not ACT.uses_bed(CATALOG.HORSE), "horse skips bed cues")
 	check(ACT.pitch_for(0.0) < ACT.pitch_for(1.0), "pitch rises with strength")
 	check(ACT.pitch_for(0.0) >= 0.9 and ACT.pitch_for(1.0) <= 1.1, "pitch stays bounded")
 	check(ACT.gain_db(0.0) < ACT.gain_db(0.5) and ACT.gain_db(0.5) < ACT.gain_db(1.0),

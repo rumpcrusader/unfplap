@@ -1,0 +1,22 @@
+# Repository files, development tooling and docs are never part of the pack.
+.git
+.github
+.godot
+build
+dist
+scripts
+tests
+tools
+build.sh
+.pckignore
+.gitignore
+README.md
+AGENTS.md
+PREFERENCES.md
+ROTATION.md
+WORKFLOW.md
+mod.built.json
+*.uid
+*.pck
+*.zip
+*.log

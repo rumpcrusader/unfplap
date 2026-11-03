@@ -30,7 +30,6 @@ Desktop only for now
 - **Relationship-gated encounters** — Adult mares and stallions only, with consent and refusals
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing horse.
-- **Outdoor bed** — Adds a usable bed beside Golden Oak Library.
 - **Proactive mares** — A ready mare may ask for sex herself; a private standing mare presents for horse, and `Y` still accepts.
 - **Mouse pump readiness** — Build her arousal; she can climax repeatedly while you keep pumping.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.

@@ -14,7 +14,6 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
-const OUTDOOR_BED := preload("res://mods/unfplap/outdoor_bed.gd")
 const CURRENCY := preload("res://world/ui/currency.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
@@ -115,10 +114,6 @@ func _ready() -> void:
 func _on_world(host: Node) -> void:
 	_clear_native_hint()
 	game = host
-	var outdoor: Node3D = OUTDOOR_BED.install(host)
-	if not is_instance_valid(outdoor):
-		_deferred_outdoor_bed.call_deferred(host)
-	_debug("world ready outdoor_bed=%s" % (str(outdoor.global_position) if is_instance_valid(outdoor) else "pending"))
 	_interactor = null
 	_desktop = null
 	_camera_cache = null
@@ -128,12 +123,6 @@ func _on_world(host: Node) -> void:
 		initiation.reset()
 	if is_instance_valid(hud):
 		hud.hide_all()
-
-
-func _deferred_outdoor_bed(host: Node) -> void:
-	var outdoor: Node3D = OUTDOOR_BED.install(host)
-	if is_instance_valid(outdoor):
-		_debug("outdoor bed at %s" % str(outdoor.global_position))
 
 
 func _on_world_closed(_host: Node) -> void:

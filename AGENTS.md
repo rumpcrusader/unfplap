@@ -73,7 +73,7 @@ for t in test_catalog test_settings test_source_hygiene test_rotation \
 done
 ```
 
-- Current passing state: `CATALOG` 13, `SETTINGS` 59, `SOURCE_HYGIENE` 44 checks / 47 files,
+- Current passing state: `CATALOG` 13, `SETTINGS` 59, `SOURCE_HYGIENE` 43 checks / 46 files,
   `ROTATION` 8, `PUMP` 25, `PREFERENCES` 39, `UTTERANCE` 12, `RUNTIME_PUMP` 16, `VOICE` 9,
   `ACTIONS` 69, `INITIATION` 15.
 - Update these counts when tests change. A stale count is a docs bug.
@@ -123,7 +123,6 @@ mods/unfplap/
   memory.gd         world_context events, climax impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
-  outdoor_bed.gd    installs a usable bed outside Golden Oak Library
   ext/shared_bed.gd lifts the stock 1.05 body-scale cap for bed cuddles
   tail_pose.gd      tail aside/lift/flick + pump jiggle on the hair skeleton
   witness.gd        witness pass
@@ -500,7 +499,7 @@ examples.
 - Eligibility is the existing relationship/social gate (`can_start` for the pose), not the
   act-time readiness value. No anger bypass.
 - Cuddle: requires an active cuddle and `can_start(MISSIONARY, "bed_side")` or
-  `"already_lying"`. Indoor privacy is house-only solitude; on the outdoor bed it is nobody
+  `"already_lying"`. Indoor privacy is house-only solitude; outdoors it is nobody
   within 30 m. A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle.
 - Horse: requires `can_start(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
   navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The request starts
@@ -683,9 +682,6 @@ This is mandatory.
   visually.
 - Verify `foreleg_spread = 0.172` preserves the current foreleg stance in the lab; tune if needed.
 - `BODY_SWAY_MAX_M` is intentionally exaggerated at `0.035 m`; reduce toward `0.012 m`.
-- `outdoor_bed.gd` installs `UnfplapOutdoorBed` beside Golden Oak Library on world ready (retry
-  deferred if the house group is not populated yet). It is a normal pony bed; aim at it to let
-  Seating install the shared-bed rest. Verify its spot is pathable and does not block the door.
 - `ext/shared_bed.gd` lifts the stock `1.05` bed-cuddle body-scale cap. It lowers the numeric
   `body_scale` only for the synchronous `eligible()` check, then restores it, so JRHNBR, Same
   Height and Hoers mares can share a bed. It also tries the bed's authored `side_local` approach

@@ -315,6 +315,51 @@ func _other_within(at: Vector3, except: Node, radius: float) -> bool:
 	return false
 
 
+## Diagnostic for a horse offer's privacy decision. The target is labelled but still counted by
+## the current `_private_at_player()`; the log makes that visible while the rule is under review.
+func _privacy_report(target: Node = null) -> String:
+	var player: Variant = main.get("player") if is_instance_valid(main) else null
+	if not is_instance_valid(player):
+		return "player=none"
+	var house: Node3D = _house_at((player as Node3D).global_position)
+	var in_house: Array[String] = []
+	var nearby: Array[String] = []
+	for node: Variant in _mares():
+		if not is_instance_valid(node) or not node is Node3D:
+			continue
+		var actor := node as Node3D
+		var distance := actor.global_position.distance_to((player as Node3D).global_position)
+		var id := _pony_id(actor)
+		var tag := id if not id.is_empty() else str(actor.name)
+		if actor == target:
+			tag += "(target)"
+		if house != null and _house_at(actor.global_position) == house:
+			in_house.append("%s(%.1fm)" % [tag, distance])
+		if distance <= PRIVACY_RADIUS_M:
+			nearby.append("%s(%.1fm)" % [tag, distance])
+	var house_text := "none"
+	if house != null:
+		house_text = "%s@%s" % [str(house.name), str(house.global_position)]
+	return "player=%s target=%s house=%s in_house=[%s] within_%dm=[%s] private=%s" % [
+		str((player as Node3D).global_position), str(_pony_id(target)) if is_instance_valid(target) else "?",
+		house_text, ",".join(in_house), int(PRIVACY_RADIUS_M), ",".join(nearby),
+		str(_private_at_player())]
+
+
+func _log_privacy_once(target: Node) -> void:
+	if not is_instance_valid(main):
+		return
+	var now := _now()
+	if now - float(_episode.get("privacy_log_at", -1000.0)) < 1.0:
+		return
+	var report := _privacy_report(target)
+	if str(_episode.get("privacy_report", "")) == report:
+		return
+	_episode["privacy_report"] = report
+	_episode["privacy_log_at"] = now
+	_debug("request privacy " + report)
+
+
 # --------------------------------------------------------------------------- approach
 
 func _start_approach(candidate: Dictionary) -> void:
@@ -342,6 +387,7 @@ func _start_approach(candidate: Dictionary) -> void:
 		"keys": [],
 	}
 	_episode = episode
+	_log_privacy_once(pony)
 	nav.call("stay")
 	nav.set("command_owner", str(episode.get("token")))
 	nav.set("wander_enabled", false)
@@ -419,6 +465,7 @@ func _tick_arrive() -> void:
 			_cancel_episode(false)
 		return
 	_episode["private"] = _private_at_player()
+	_log_privacy_once(pony)
 	if bool(_episode.get("private")) and runtime.has_method("present_horse"):
 		if bool(runtime.call("present_horse")):
 			_episode["phase"] = "present"

@@ -63,6 +63,9 @@ godot --xr-mode off --path <project> -- \
 - The lab re-seeds its four mares on every startup (romance tier, dating record, mood, idle
   posture) and moves them to a row on the path in front of Golden Oak Library. The rest of the
   world's context and inventory persist.
+- The lab normalizes a mare's saved actor rotation to yaw-only in `_upright()` during setup and
+  after bed transport. A tilted saved transform otherwise makes support recovery fight the
+  collider every frame and print endless `re-seated on the floor` lines.
 
 Tests (manual, before every commit):
 
@@ -605,6 +608,10 @@ examples.
   only if the current `Y` offer actually targets her.
 - Private for horse means alone in the house or nobody within 30 m. Private lets the AI choose
   direct or indirect wording and turns on the invitation; with others around she only hints.
+  A throttled `request privacy ...` log lists the player position, house, every mare in the
+  house, every mare within 30 m separately labelled with the target, and the computed result.
+  The target is currently included in the other-pony checks; the log makes that visible while
+  the privacy rule is under review.
 - The horse invitation is IDLE-only: turn away over 2.4 rad/s, clear navigator `face_point` and
   conversation target late each physics tick, hold `face_turn_rate = 0`, then attach a pose-2
   modifier and tail-aside. It is not the act: no camera, lock, HUD or `sex_active`.

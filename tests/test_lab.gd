@@ -504,6 +504,7 @@ func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 		pony.set("velocity", Vector3.ZERO)
 	if pony.get("motion_paused") != null:
 		pony.set("motion_paused", false)
+	_upright(pony)
 	pony.reset_physics_interpolation()
 	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav != null:
@@ -718,6 +719,27 @@ func _set_mood(pony: Node3D, mood: String) -> String:
 	return "%s -> %s" % [before, after]
 
 
+## A saved test-world actor can carry a non-yaw transform from an old throw/cuddle. Reset the
+## tilt while keeping the facing yaw; otherwise support recovery fights the tilted collider every
+## tick and the body looks broken on every reload.
+func _upright(pony: Node3D) -> void:
+	if not is_instance_valid(pony):
+		return
+	var t := pony.global_transform
+	var euler := t.basis.get_euler()
+	if absf(euler.x) < 0.01 and absf(euler.z) < 0.01:
+		return
+	var yaw := euler.y
+	var scale := t.basis.get_scale()
+	t.basis = Basis(Vector3.UP, yaw) * Basis.from_scale(scale)
+	pony.global_transform = t
+	if pony.get("velocity") != null:
+		pony.set("velocity", Vector3.ZERO)
+	pony.reset_physics_interpolation()
+	print("[unfplap test] upright %s rot=(%.2f, %.2f, %.2f) -> yaw=%.2f" % [
+		str(pony.name), euler.x, euler.y, euler.z, yaw])
+
+
 func _make_idle(pony: Node3D, stand: bool) -> String:
 	var notes := PackedStringArray()
 	var nav: Node = pony.get_node_or_null("Navigator")
@@ -739,6 +761,8 @@ func _make_idle(pony: Node3D, stand: bool) -> String:
 		if pony.has_method("request_posture"):
 			pony.call("request_posture", "stand")
 			notes.append("stand requested")
+	if stand:
+		_upright(pony)
 	return "none" if notes.is_empty() else ", ".join(notes)
 
 
@@ -822,6 +846,7 @@ func _place_front(pony: Node3D, home: Node3D, index: int, count: int) -> bool:
 	pony.global_position = at
 	if pony.get("velocity") != null:
 		pony.set("velocity", Vector3.ZERO)
+	_upright(pony)
 	pony.reset_physics_interpolation()
 	return true
 

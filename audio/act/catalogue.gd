@@ -118,33 +118,10 @@ const CLIMAX_WET := [
 	preload("res://mods/unfplap/audio/act/climax/wet_04.wav"),
 ]
 
-const MOAN_SOFT := [
-	preload("res://mods/unfplap/audio/act/voice/moan_soft_01.wav"),
-	preload("res://mods/unfplap/audio/act/voice/moan_soft_02.wav"),
-	preload("res://mods/unfplap/audio/act/voice/moan_soft_03.wav"),
-	preload("res://mods/unfplap/audio/act/voice/moan_soft_04.wav"),
-]
-
-const MOAN_INTENSE := [
-	preload("res://mods/unfplap/audio/act/voice/moan_intense_01.wav"),
-	preload("res://mods/unfplap/audio/act/voice/moan_intense_02.wav"),
-	preload("res://mods/unfplap/audio/act/voice/moan_intense_03.wav"),
-	preload("res://mods/unfplap/audio/act/voice/moan_intense_04.wav"),
-]
-
 const CLIMAX_VOICE := [
 	preload("res://mods/unfplap/audio/act/voice/climax_01.wav"),
 	preload("res://mods/unfplap/audio/act/voice/climax_02.wav"),
 	preload("res://mods/unfplap/audio/act/voice/climax_03.wav"),
-]
-
-const ANON_BREATH := [
-	preload("res://mods/unfplap/audio/act/voice/anon_breath_01.wav"),
-	preload("res://mods/unfplap/audio/act/voice/anon_breath_02.wav"),
-	preload("res://mods/unfplap/audio/act/voice/anon_breath_03.wav"),
-	preload("res://mods/unfplap/audio/act/voice/anon_breath_04.wav"),
-	preload("res://mods/unfplap/audio/act/voice/anon_breath_05.wav"),
-	preload("res://mods/unfplap/audio/act/voice/anon_breath_06.wav"),
 ]
 
 ## group: foley | vocals. volume_db is the full-strength level; act_audio scales down
@@ -210,24 +187,9 @@ const CUES := {
 		"volume_db": -18.0, "cooldown": 0.5, "distance": 10.0,
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},
-	"moan_soft": {
-		"group": "vocals", "streams": MOAN_SOFT, "voices": 2,
-		"volume_db": -24.0, "cooldown": 0.8, "distance": 8.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
-	"moan_intense": {
-		"group": "vocals", "streams": MOAN_INTENSE, "voices": 2,
-		"volume_db": -20.0, "cooldown": 0.8, "distance": 8.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
 	"climax_voice": {
 		"group": "vocals", "streams": CLIMAX_VOICE, "voices": 2,
 		"volume_db": -18.0, "cooldown": 0.5, "distance": 10.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
-	"anon_breath": {
-		"group": "vocals", "streams": ANON_BREATH, "voices": 2,
-		"volume_db": -30.0, "cooldown": 1.0, "distance": 4.0,
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},
 }

@@ -119,7 +119,7 @@ const FEATURE_INFO := {
 	},
 	"act_vocals": {
 		"label": "Act vocals",
-		"help": "Add human moans and Anon breath from the pack. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
+		"help": "Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
 		"live": true,
 	},
 	"act_climax": {

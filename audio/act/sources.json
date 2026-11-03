@@ -479,42 +479,6 @@
 		"prepared_rate": 48000,
 		"seconds": 0.095
 	},
-	"voice/anon_breath_01.wav": {
-		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-01.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.908
-	},
-	"voice/anon_breath_02.wav": {
-		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-05.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.937
-	},
-	"voice/anon_breath_03.wav": {
-		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-07.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.964
-	},
-	"voice/anon_breath_04.wav": {
-		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-09.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.975
-	},
-	"voice/anon_breath_05.wav": {
-		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-10.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.958
-	},
-	"voice/anon_breath_06.wav": {
-		"source": "Bodily Functions & Noises/Breathing & Emotes/Breathing - Male/Mouth Breathing (KGF_Kiko)/Fast/Inhales+Exhales/BreathKGF-11.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.974
-	},
 	"voice/climax_01.wav": {
 		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan2.wav",
 		"original_rate": 48000,
@@ -532,53 +496,5 @@
 		"original_rate": 48000,
 		"prepared_rate": 48000,
 		"seconds": 0.531
-	},
-	"voice/moan_intense_01.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan11.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.753
-	},
-	"voice/moan_intense_02.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan10.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 1.058
-	},
-	"voice/moan_intense_03.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan3.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.64
-	},
-	"voice/moan_intense_04.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan7.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.857
-	},
-	"voice/moan_soft_01.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan4.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.777
-	},
-	"voice/moan_soft_02.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan5.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.674
-	},
-	"voice/moan_soft_03.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan6.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.76
-	},
-	"voice/moan_soft_04.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan1.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.768
 	}
 }

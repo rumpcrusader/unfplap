@@ -3,9 +3,8 @@ extends Node
 ## `act_vocals` is on, so both flags off never loads a pack stream or allocates a player.
 ##
 ## `foley` covers thrust plaps, slides, bed/fabric, mouth kisses and flank smacks. `vocals`
-## covers pack human moans and Anon breath. `climax` is the separate wet finish layer. The mod's
-## pony breath, Ponese voice and `squee_*` climax stay in runtime.gd and are not gated by these
-## flags.
+## covers only the pack climax moan. `climax` is the separate wet finish layer. The mod's pony
+## breath, Ponese voice and `squee_*` climax stay in runtime.gd and are not gated by these flags.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -25,8 +24,6 @@ var _next: Dictionary = {}
 var _last: Dictionary = {}
 var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
-var _moan_clock := 0.0
-var _breath_clock := 0.0
 
 
 func setup(foley: bool, vocals: bool, climax: bool) -> void:
@@ -66,9 +63,6 @@ func set_enabled(foley: bool, vocals: bool, climax: bool) -> void:
 		_build_group("vocals")
 	if _climax:
 		_build_group("climax")
-	if not _foley and not _vocals and not _climax:
-		_moan_clock = 0.0
-		_breath_clock = 0.0
 
 
 func _build_group(group: String) -> void:
@@ -221,27 +215,6 @@ func play_climax_voice(at: Vector3) -> void:
 		play("climax_voice", at, 1.0)
 
 
-## Called for every real thrust. Moans are not per-stroke; the clock keeps them sparse.
-func maybe_moan(strength: float, rate: float, at: Vector3) -> void:
-	if not _vocals or _moan_clock > 0.0:
-		return
-	var cue := "moan_intense" if strength >= 0.55 else "moan_soft"
-	if play(cue, at, strength):
-		_moan_clock = clampf(2.4 - rate * 0.25, 0.9, 2.4) * _rng.randf_range(0.85, 1.2)
-
-
-## Called once per physics tick from _breath_tick(). Only Anon's breath is pack-driven.
-func tick_vocals(delta: float, rate: float, active: bool, at: Vector3) -> void:
-	if not _vocals:
-		return
-	_moan_clock = maxf(0.0, _moan_clock - delta)
-	_breath_clock = maxf(0.0, _breath_clock - delta)
-	if not active or _breath_clock > 0.0:
-		return
-	if play("anon_breath", at, 0.55):
-		_breath_clock = clampf(2.8 - rate * 0.2, 1.4, 2.8) * _rng.randf_range(0.9, 1.1)
-
-
 ## True only on the frames that will fire the withdraw layer. The caller uses this before asking
 ## for the rump point, which walks the skeleton and should not run on every mouse move.
 func crossed(before: float, after: float) -> bool:
@@ -269,8 +242,6 @@ func stop() -> void:
 	_next.clear()
 	_last.clear()
 	_ready_at.clear()
-	_moan_clock = 0.0
-	_breath_clock = 0.0
 
 
 static func cue_for_plap(pose: String, intensity: String) -> String:

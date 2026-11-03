@@ -2709,7 +2709,6 @@ func _on_thrust(result: Dictionary) -> void:
 		if _act_audio.foley_enabled():
 			_act_audio.play_impact(pose_id, strength, _rump_point(),
 				_bed_audio_point(), _bed_soft)
-		_act_audio.maybe_moan(strength, _thrusts_per_second(), _snout())
 	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
 		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
 
@@ -6391,7 +6390,7 @@ func _restore_camera() -> void:
 # --------------------------------------------------------------------------- audio
 
 ## Create the optional audio node on first use, or update its flags if it already exists.
-## This keeps act_audio.gd and its 97 preloaded streams out of a both-flags-off act.
+## This keeps act_audio.gd and its pack streams out of a both-flags-off act.
 func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.set_enabled(foley, vocals, climax)
@@ -6560,8 +6559,6 @@ func _play_climax() -> void:
 func _breath_tick(delta: float) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return
-	if is_instance_valid(_act_audio):
-		_act_audio.tick_vocals(delta, _thrusts_per_second(), true, _camera_position())
 	if _breath_streams.is_empty() or not is_instance_valid(_breath):
 		return
 	var rate := clampf(_thrusts_per_second() / BREATH_RATE_CAP, 0.0, 1.0)

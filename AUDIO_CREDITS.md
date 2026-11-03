@@ -6,7 +6,7 @@ Pack**.
 ```text
 SFX: OpenNSFW Sound Pack | @OpenNSFWSP
 Contributors used: @SquishSuccubus, @lehornysfx3d, @pixelcarnagee,
-@NyaughtyMeow, @KGF_Kiko, @That1LewdDude
+@NyaughtyMeow, @That1LewdDude
 Cloth Pillow Impacts: F.M.Audio (freesound.org/s/561141), CC BY 4.0
 License: CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
 ```

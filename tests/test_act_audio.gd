@@ -57,7 +57,7 @@ func run() -> void:
 		"plap_soft": 8, "plap_firm": 8, "plap_rough": 8, "plap_horse": 8,
 		"slide_in": 6, "slide_out": 6, "bed_wood_in": 5, "bed_wood_out": 5,
 		"fabric": 8, "mouth_kiss": 8, "smack": 6, "climax_wet": 4,
-		"moan_soft": 4, "moan_intense": 4, "climax_voice": 3, "anon_breath": 6,
+		"climax_voice": 3,
 	}
 	check(CATALOGUE.CUES.size() == expected.size(), "cue count")
 	for cue: String in expected:
@@ -81,13 +81,13 @@ func run() -> void:
 	var pools: Dictionary = act.get("_pools")
 	check(act.foley_enabled() and not act.vocals_enabled(), "foley only")
 	check(pools.has("plap_soft"), "foley pool built")
-	check(not pools.has("moan_soft"), "vocal pool not built")
+	check(not pools.has("climax_voice"), "vocal pool not built")
 
 	act.set_enabled(false, true, false)
 	pools = act.get("_pools")
 	check(not act.foley_enabled() and act.vocals_enabled(), "vocals only")
 	check(not pools.has("plap_soft"), "foley pool cleared")
-	check(pools.has("moan_soft"), "vocal pool built after switch")
+	check(pools.has("climax_voice"), "climax voice pool built after switch")
 	check(not pools.has("climax_wet"), "wet climax stays off with vocals only")
 	act.set_enabled(false, false, true)
 	pools = act.get("_pools")
@@ -109,7 +109,7 @@ func run() -> void:
 	check(act.play_smack(Vector3.ZERO), "smack plays")
 	act.set_enabled(false, true, false)
 	act.play_climax_voice(Vector3.ZERO)
-	check(act.vocals_enabled(), "vocal climax cue accepted after a live toggle")
+	check(act.vocals_enabled(), "climax voice accepted after a live toggle")
 	check(not act.play_plap(CATALOG.HORSE, "rough", 0.9, Vector3.ZERO),
 		"foley plap is off after a live toggle")
 	act.stop()

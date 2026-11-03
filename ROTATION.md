@@ -83,24 +83,31 @@ these values here if a future pose needs that effect.
   where `back = +pony.global_basis.z`. Canon height is `0.9×`; JRHNBR (`1.35`) gets a
   proportionally higher, farther-forward anchor. After positioning, the shot is pulled
   `POSE1_CAMERA_PULLBACK_M = 0.40 * body_scale` back along `_pose1_view_basis.z` (its own view
-  axis), so the frozen aim still points at her neck. The aim basis is rebuilt from the stable
-  anchor, not the moved view, to prevent start-up flicker.
-- Aim: middle of the neck (`pony_neck1`/`pony_neck2` midpoint), sampled during the 1 s blend
-  and then frozen. The live snout is no longer used; it can fall behind the bed camera.
-- A forward-dot check re-aims only below `POSE1_REAIM_DOT = 0.25`; re-aims and camera rebuilds
-  are logged. Her head look point keeps at least `0.45 * body_scale` from her head so a near
-  camera cannot flip the aim.
+  axis), so the frozen aim still points at her neck. The aim basis is computed once from the
+  stable anchor, not the moved view, to prevent start-up flicker.
+- Aim: sample the middle of the neck (`pony_neck1`/`pony_neck2` midpoint) during the first
+  second while the pose blends, then freeze. The live snout is not used, and the target is never
+  derived from the moving view.
+- The aim basis comes from the stable anchor and is updated only during that settle second; no
+  forward-dot re-aim loop. Rebuilds are limited to an invalid/too-far anchor or a genuinely
+  below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head look point keeps at
+  least `0.45 * body_scale` from her head.
 - Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
   the act, re-applying each tick; both are restored at end. The stock bed body must never appear
   inside the shot with a different orientation.
+- Pose-1 body motion is `prone_sway` (`pose1_body_motion`): the spine slides along the bed with
+  raw thrust depth, and the neck/head nod about `3°`. It is separate from the standing
+  `body_sway` (`pose2_body_sway`) and does not pin hooves like the standing pose.
+- Eyes: `ACT_LIDS = 0.45` in `POSING_IN`/`ACTIVE`, `CLIMAX_LIDS = 0.0` in `CLIMAX`, sleepier
+  `0.90`/`0.95` in afterglow. `_eyes_tick()` reasserts the stare late each tick.
 - Backward lean is clamped to stop `0.12 m` short of the neck target, so the camera can never
   cross its own look point and flip backwards.
 - The camera has no mouse look. `W`/`S` lean forward/back and `Q`/`E` lean sideways:
   `side = E - Q`, `forward = W - S + abs(side)`.
 - Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
   lean is halved to `0.08 m`; side lean translates `0.18 m`. Both directions pitch `6°` down,
-  and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. `camera_inertia`
-  smooths the displayed lean at `CAMERA_INERTIA_SMOOTH = 5.0`.
+  and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. The displayed lean
+  is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
 - All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
   is the reference; Canon (`0.66`) is `1.34`. The pose-1 Canon camera height is also `0.9×`.
 - The lean camera locks `player.controls_locked` for both poses and restores the previous value
@@ -119,7 +126,8 @@ these values here if a future pose needs that effect.
   (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
   switch is disabled for the act. The lateral travel crossfades from the lean's `0.18 m` to the
   kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
-- Camera bobs are opt-in: `thrust.bobs` defaults to `false` and skips thrust and climax bob motion.
+- Camera bob and forward/back motion are separate opt-ins: `thrust.camera_bob` and
+  `thrust.camera_motion` default to `false`; each gates its own thrust and climax component.
 - When enabled, each thrust adds to the vertical and forward spring velocities.
 - Pose 1 uses the same `_bob` and thrust camera rock as pose 2.
 - Slow thrusts scale the bob timebase: stiffness by `s²`, damping and impulse by `s`, with
@@ -156,14 +164,21 @@ these values here if a future pose needs that effect.
   `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
   thrusts forward/back with depth.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
-- `H` toggles lean auto-return; hold is the default. With `hold_sway` enabled (default off),
-  a slow `0.010` forward / `0.0084` side rock keeps the camera/upper body from freezing
-  completely; both are clamped
-  inside `-1…1`. Hold mode also latches caress: an A/D tap starts it and a second tap stops it.
-  Pressing `S` in hold mode arms a gradual side return so the shoulder roll decays to neutral.
-- Pose-2 camera adds a smoother, stronger roll-plus-pitch rock spring on each thrust:
-  `CAMERA_ROCK_IMPULSE = 0.30`, `CAMERA_ROCK_LIMIT = 0.039`, stiffness `45`, damping `8.0`;
-  pitch is `0.675×` the roll (side roll unchanged).
+- `H` toggles lean auto-return; hold is the default. With `idle_camera_sway` enabled (default
+  off), a slow `0.010` forward / `0.0084` side rock keeps the camera/upper body from freezing
+  completely; both are clamped inside `-1…1`. Hold mode also latches caress: an A/D tap starts
+  it and a second tap stops it. Pressing `S` in hold mode arms a gradual side return so the
+  shoulder roll decays to neutral.
+- Pose-2 camera adds a pitch/roll rock spring on each thrust. The constants are persisted in
+  `settings.gd` under `camera_rock` and read at act start: impulse `0.50`, stiffness `45`,
+  damping `8`, limit `0.055 rad`, pitch share `1.0`, roll share `0.0`. The default is
+  pitch-only; the side-lean roll remains separate. The settings tab exposes all six values.
+- Anon's hip and lean use `_anon_thrust_phase`, a damped spring toward raw `depth`
+  (`stiffness 55`, `damping 11`). The phase is clamped `0…1`, so `THRUST_MAX_M` and
+  `ANON_THRUST_SWAY_M` bounds are unchanged.
+- Pose-2 palms scale the `LeftHand`/`RightHand` bones: Canon `0.85`, JRHNBR `0.95`, others
+  `1.0`. `palm_scale.gd` runs after BodyIK and restores the cached scales in
+  `_remove_anon_thrust()` on every act exit.
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
   pose 1; releasing `F` or dropping the lean ends it. The side is latched from the input lean
   and passed to `AffectionPose.set_kiss_side()`, so she takes the complementary head tilt and
@@ -206,8 +221,9 @@ these values here if a future pose needs that effect.
   the exact Q/E shoulder contact point (full forward lean). Backward lean moves it toward the
   rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
   pony size; the point offsets are already per size.
-- Anon's hip follows raw thrust `depth` directly: `THRUST_MAX_M = 0.045 m` forward at full depth,
-  no spring or return animation.
+- Anon's hip follows a damped `_anon_thrust_phase` toward raw thrust `depth`:
+  `THRUST_MAX_M = 0.045 m` forward at phase 1. The phase is clamped `0…1`, so it eases in and
+  back out with inertia without exceeding the old maximum travel.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
   `BODY_SWAY_MAX_M = 0.035` is temporary/exaggerated.

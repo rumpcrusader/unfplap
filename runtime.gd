@@ -17,6 +17,8 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 const CHIN_DEBUG := preload("res://mods/unfplap/chin_debug.gd")
 const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
+const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
+const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
 const WING_SWEEP := preload("res://mods/unfplap/wing_sweep.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
@@ -27,17 +29,24 @@ enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 const READINESS_MAX := 100.0
 ## Her "close" cue. It no longer gates the player's afterglow.
 const CLOSE_AT := 65.0
+## Act eyelid values: half-lidded through ACTIVE, wide only at climax, sleepier afterglow.
+const ACT_LIDS := 0.45
+const CLIMAX_LIDS := 0.0
+const AFTERGLOW_LIDS := 0.9
+const AFTERGLOW_CLOSE_LIDS := 0.95
 ## Readiness that triggers one pony climax. The player's afterglow is separate.
 const PONY_CLIMAX_AT := READINESS_MAX
 const MAX_PONY_CLIMAXES := 5
 ## Readiness per real thrust. Both taste axes match, one axis matches, or neither matches.
 const THRUST_HEAT_BOTH := 1.4
 const THRUST_HEAT_ONE := 0.7
+## Perceived intensity is scored from average stroke speed. Visual impact keeps the old generous
+## scale so normal and fast thrusts still move the rump and camera as tuned; slow and shallow
+## strokes stay lighter.
+const THRUST_IMPACT_GAIN := 2.0
 const THRUST_HEAT_NONE := 0.0
 ## Never let a macro score faster than this.
 const THRUST_SCORE_MIN_INTERVAL := 0.2
-const COOL_RATE := 1.5
-const COOL_DELAY_S := 3.0
 ## Touch and talk can warm her to this point; only real thrusts can finish her.
 const ASSIST_CAP := 60.0
 const TOUCH_HEAT := 6.0
@@ -81,9 +90,6 @@ const POSE1_CAMERA_HEIGHT_M := 0.45
 const POSE1_CAMERA_FORWARD_M := 0.22
 ## Additional room between the pose-1 shot and the pony.
 const POSE1_CAMERA_PULLBACK_M := 0.40
-## Re-aim the frozen pose-1 basis only when it is actually looking away. 0.9 was strict enough
-## that ordinary bob/lean position changes kept triggering re-aims and visible camera snaps.
-const POSE1_REAIM_DOT := 0.25
 ## Extra height requested after the first visual pass.
 const POSE1_CAMERA_LIFT_M := 0.10
 ## Presentation: how close the pony stands in front of the player for pose 2.
@@ -177,16 +183,9 @@ const CARESS_PROFILES := {
 }
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
-## EXPERIMENTAL (feature: camera_inertia).
+## Displayed-lean smoothing. Always on.
 const CAMERA_INERTIA_SMOOTH := 5.0
-## EXPERIMENTAL (feature: camera_rock).
-const CAMERA_ROCK_IMPULSE := 0.30
-const CAMERA_ROCK_STIFFNESS := 45.0
-const CAMERA_ROCK_DAMPING := 8.0
-const CAMERA_ROCK_LIMIT := 0.039
-const CAMERA_ROCK_PITCH_RATIO := 0.675
-## EXPERIMENTAL (feature: rump_blush). Rump blush from strong thrusts: a fraction of the 0.8
-## smack decal strength.
+## Rump blush from strong thrusts: a fraction of the 0.8 smack decal strength. Always on.
 const RUMP_BLUSH_MIN_STRENGTH := 0.55
 const RUMP_BLUSH_STEP := 0.035
 const RUMP_BLUSH_MAX := 0.25
@@ -196,8 +195,12 @@ const POSE2_HEAD_NECK_HEIGHT_M := 1.0
 const CANON_POSE2_CAMERA_DROP_M := 0.10
 ## JRHNBR is tall enough that the standing shot needs a higher eye line.
 const MOUNTING_POSE2_CAMERA_LIFT_M := 0.10
-## Pose-2 Anon thrust: the hip follows raw depth directly, so it stays on the mouse.
+## Pose-2 Anon thrust: the hip follows a smoothed depth phase, not raw mouse pixels, so the
+## body carries a little inertia. The phase is clamped 0..1, so the existing travel maxima still
+## bound every frame.
 const THRUST_MAX_M := 0.045
+const ANON_THRUST_STIFFNESS := 55.0
+const ANON_THRUST_DAMPING := 11.0
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera no longer free-looks.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
@@ -330,7 +333,8 @@ var _taste: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 var _thrust_pixels_per_full := 480.0
-var _thrust_bobs := false
+var _thrust_bob := false
+var _thrust_motion := false
 ## Last closed inward thrust; the pattern window is the last three to four thrusts.
 var _last_stroke: Dictionary = {}
 var _last_intensity := ""
@@ -344,14 +348,12 @@ var _utterance_done_at := 0.0
 var _utterance_serial := 0
 var _last_utterance_at := -1000.0
 var _vocal_cooldown := 0.0
-var _cooling_seconds := 0.0
 var _overwhelmed := 0.0
 var _cue_override := ""
 var _cue_until := 0.0
 var _last_touch := ""
 var _last_talk := ""
 var _last_touch_at := -1000.0
-var _last_heat_at := -1000.0
 var _last_thrust_score_at := -1000.0
 var _receptive_until := 0.0
 var _last_talk_at := -1000.0
@@ -382,14 +384,16 @@ var _controls_locked_by_camera := false
 var _anon_thrust_driver: Node3D
 var _anon_thrust_original: Node
 var _anon_thrust_avatar: Node3D
+var _palm_scale: SkeletonModifier3D
 var _chin_modifier: SkeletonModifier3D
 var _body_sway: SkeletonModifier3D
+var _prone_sway: SkeletonModifier3D
 var _ear_twitch: SkeletonModifier3D
 var _lean_forward := 0.0
 var _lean_side := 0.0
 var _lean_view_forward := 0.0
 var _lean_view_side := 0.0
-var _lean_return_enabled := true
+var _lean_return_enabled := false
 var _side_return_armed := false
 var _hold_rock_clock := 0.0
 var _lean_action_active := false
@@ -444,6 +448,9 @@ var _forced_glance := ""
 var _camera_rock := 0.0
 var _camera_rock_velocity := 0.0
 var _camera_rock_sign := 1.0
+var _camera_rock_cfg: Dictionary = {}
+var _anon_thrust_phase := 0.0
+var _anon_thrust_phase_velocity := 0.0
 var _rump_blush := 0.0
 var _rump_decal: Decal
 var _voice_info: Dictionary = {}
@@ -463,7 +470,6 @@ var _pose1_start_pony_transform := Transform3D.IDENTITY
 var _pose1_start_pony_posture := ""
 var _pose1_start_saved := false
 var _pose1_basis_logged := false
-var _pose1_aim_fix_logged := false
 var _pose1_camera_log_until := 0
 var _pose1_camera_log_next := 0
 var _pose1_view: Camera3D
@@ -472,13 +478,12 @@ var _pose1_source_near := 0.05
 var _pose1_source_far := 4000.0
 var _pose1_source_cull := 0xFFFFFFFF
 var _pose1_view_basis := Basis.IDENTITY
-var _pose1_aim_until := 0
 var _pose1_last_view_basis := Basis.IDENTITY
 var _pose1_last_view_pos := Vector3.INF
 var _pose1_last_head := Transform3D.IDENTITY
-var _pose1_reaims := 0
 var _pose1_camera_rebuilds := 0
 var _pose1_snap_ready := false
+var _pose1_aim_until := 0
 var _pose1_prev_camera: Camera3D
 var _pose1_player_rotation := Vector3.ZERO
 var _pose1_player_rot_saved := false
@@ -613,26 +618,97 @@ func _feature(name: String) -> bool:
 	return bool(_features.get(name, true))
 
 
-## Optional mood-cue line in the HUD. The act continues without it.
-func mood_cues() -> bool:
-	return bool(_features.get("mood_cues", true))
+## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
+## idempotent so repeated edits do not stack modifiers.
+func apply_live_settings() -> void:
+	if state == State.IDLE:
+		return
+	var previous_mute := bool(_features.get("mute_ponese_audio", false))
+	_features = SETTINGS.features()
+	var thrust_controls := SETTINGS.thrust_controls()
+	thrust_up = bool(thrust_controls.get("up", true))
+	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
+	_thrust_bob = bool(thrust_controls.get("camera_bob", false))
+	_thrust_motion = bool(thrust_controls.get("camera_motion", false))
+	_camera_rock_cfg = SETTINGS.camera_rock_controls()
+	if not _id.is_empty():
+		_taste = SETTINGS.taste(_id)
+	_refresh_live_modifiers()
+	if previous_mute != _feature("mute_ponese_audio"):
+		_refresh_live_voice()
+	if not _feature("thrust_camera_rock"):
+		_camera_rock = 0.0
+		_camera_rock_velocity = 0.0
+	if not _thrust_bob:
+		_bob = 0.0
+		_bob_velocity = 0.0
+	if not _thrust_motion:
+		_lean = 0.0
+		_lean_velocity = 0.0
+	if is_instance_valid(main) and is_instance_valid(main.hud):
+		main.hud.update_from(self, hud_readouts())
 
 
-## Optional readiness meter and thrust match readout.
-func readiness_hud() -> bool:
-	return bool(_features.get("readiness_hud", true))
+func _refresh_live_modifiers() -> void:
+	if not is_instance_valid(pony):
+		return
+	var skeleton_value: Variant = pony.get("skeleton")
+	if not skeleton_value is Skeleton3D:
+		return
+	var skeleton := skeleton_value as Skeleton3D
+	if pose_id == CATALOG.HORSE:
+		if _feature("pose2_body_sway") and not is_instance_valid(_body_sway):
+			_install_body_sway(skeleton)
+		elif not _feature("pose2_body_sway") and is_instance_valid(_body_sway):
+			_body_sway.queue_free()
+			_body_sway = null
+		if _feature("thrust_ear_twitch") and not is_instance_valid(_ear_twitch):
+			_install_ear_twitch()
+		elif not _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
+			_ear_twitch.queue_free()
+			_ear_twitch = null
+	elif pose_id == CATALOG.MISSIONARY:
+		if _feature("pose1_body_motion") and not is_instance_valid(_prone_sway):
+			_install_prone_sway(skeleton)
+		elif not _feature("pose1_body_motion") and is_instance_valid(_prone_sway):
+			_prone_sway.queue_free()
+			_prone_sway = null
 
 
-## Current thrust versus her taste. No numbers and no speed units.
-func thrust_hint() -> String:
-	if state not in [State.ACTIVE, State.CLIMAX]:
+func _refresh_live_voice() -> void:
+	if not is_inside_tree():
+		return
+	_restore_voice_volume()
+	_apply_voice_policy()
+
+
+## Optional HUD cue and readiness readouts. The act continues without them.
+func hud_readouts() -> bool:
+	return bool(_features.get("hud_readouts", true))
+
+
+## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
+## always kept in afterglow even when the optional readouts are off.
+func hud_cue_line(show_readouts := true) -> String:
+	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return ""
-	var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
-	var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
-	var want_intensity := str(_taste.get("intensity", "firm"))
-	var want_pattern := str(_taste.get("pattern", "steady"))
-	return "Thrust: %s · %s · wants %s · %s" % [
-		have_intensity, have_pattern, want_intensity, want_pattern]
+	var parts: PackedStringArray = ["❤ %d/%d" % [pony_climaxes, MAX_PONY_CLIMAXES]]
+	var cue_text := cue.strip_edges()
+	var closing := state == State.AFTERGLOW
+	if closing:
+		var close_text := close_hint()
+		if not close_text.is_empty():
+			cue_text = close_text
+	if show_readouts or closing:
+		parts.append(cue_text if not cue_text.is_empty() else "—")
+	if not closing and show_readouts:
+		var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
+		var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
+		var want_intensity := str(_taste.get("intensity", "firm"))
+		var want_pattern := str(_taste.get("pattern", "steady"))
+		parts.append("Wants: %s & %s" % [want_intensity, want_pattern])
+		parts.append("You: %s & %s" % [have_intensity, have_pattern])
+	return " | ".join(parts)
 
 
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
@@ -764,7 +840,7 @@ func _process(delta: float) -> void:
 				_pose.look_point = view.global_position
 		_pose.kiss = _kiss_amount if custom_kiss else 0.0
 		_pose.climaxing = state == State.CLIMAX
-	if not _thrust_bobs:
+	if not _thrust_bob and not _thrust_motion:
 		_bob = 0.0
 		_bob_velocity = 0.0
 		_lean = 0.0
@@ -772,22 +848,38 @@ func _process(delta: float) -> void:
 	elif state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
 		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
-		_bob = wave * BOB_CLIMAX_AMPLITUDE
-		_lean = wave * BOB_CLIMAX_FORWARD
-		_bob_velocity = 0.0
-		_lean_velocity = 0.0
+		if _thrust_bob:
+			_bob = wave * BOB_CLIMAX_AMPLITUDE
+			_bob_velocity = 0.0
+		else:
+			_bob = 0.0
+			_bob_velocity = 0.0
+		if _thrust_motion:
+			_lean = wave * BOB_CLIMAX_FORWARD
+			_lean_velocity = 0.0
+		else:
+			_lean = 0.0
+			_lean_velocity = 0.0
 	else:
 		var speed_scale := _bob_speed_scale
-		var bob_stiffness := BOB_STIFFNESS * speed_scale * speed_scale
-		var bob_damping := BOB_DAMPING * speed_scale
-		var accel := -bob_stiffness * _bob - bob_damping * _bob_velocity
-		_bob_velocity += accel * delta
-		_bob = clampf(_bob + _bob_velocity * delta, -BOB_LIMIT, BOB_LIMIT)
-		var lean_stiffness := BOB_FORWARD_STIFFNESS * speed_scale * speed_scale
-		var lean_damping := BOB_FORWARD_DAMPING * speed_scale
-		var forward_accel := -lean_stiffness * _lean - lean_damping * _lean_velocity
-		_lean_velocity += forward_accel * delta
-		_lean = clampf(_lean + _lean_velocity * delta, -BOB_FORWARD_LIMIT, BOB_FORWARD_LIMIT)
+		if _thrust_bob:
+			var bob_stiffness := BOB_STIFFNESS * speed_scale * speed_scale
+			var bob_damping := BOB_DAMPING * speed_scale
+			var accel := -bob_stiffness * _bob - bob_damping * _bob_velocity
+			_bob_velocity += accel * delta
+			_bob = clampf(_bob + _bob_velocity * delta, -BOB_LIMIT, BOB_LIMIT)
+		else:
+			_bob = 0.0
+			_bob_velocity = 0.0
+		if _thrust_motion:
+			var lean_stiffness := BOB_FORWARD_STIFFNESS * speed_scale * speed_scale
+			var lean_damping := BOB_FORWARD_DAMPING * speed_scale
+			var forward_accel := -lean_stiffness * _lean - lean_damping * _lean_velocity
+			_lean_velocity += forward_accel * delta
+			_lean = clampf(_lean + _lean_velocity * delta, -BOB_FORWARD_LIMIT, BOB_FORWARD_LIMIT)
+		else:
+			_lean = 0.0
+			_lean_velocity = 0.0
 	var back_speed := AFTERGLOW_BACK_SPEED if state == State.AFTERGLOW else RESTORE_BACK_SPEED
 	_back = move_toward(_back, _back_target, back_speed * delta)
 	_breath_tick(delta)
@@ -894,6 +986,7 @@ func _physics_process(delta: float) -> void:
 	_suppress_auto_cuddle()
 	_clamp_look()
 	_camera_rock_tick(delta)
+	_anon_thrust_phase_tick(delta)
 	_rump_blush_tick(delta)
 	apply_camera_motion()
 	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
@@ -901,6 +994,27 @@ func _physics_process(delta: float) -> void:
 		if _check_clock >= 0.25:
 			_check_clock = 0.0
 			_check_running()
+	_eyes_tick()
+
+
+## The act owns the lids. Set at every transition, then reasserted late so a kiss release,
+## climax return, or fluster peek cannot leave her wide-eyed while leaning.
+func _eyes_tick() -> void:
+	if not is_instance_valid(pony):
+		return
+	var lids := -1.0
+	match state:
+		State.POSING_IN, State.ACTIVE:
+			lids = ACT_LIDS
+		State.CLIMAX:
+			lids = CLIMAX_LIDS
+		State.AFTERGLOW:
+			lids = AFTERGLOW_CLOSE_LIDS if _close_rewarded else AFTERGLOW_LIDS
+	if lids < 0.0:
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions != null and expressions.has_method("stare"):
+		expressions.call("stare", true, lids)
 
 
 # --------------------------------------------------------------------------- gates
@@ -1285,9 +1399,9 @@ func _suppress_auto_cuddle() -> void:
 func _cuddle_start_override(pose: String, act_source: String) -> bool:
 	if pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]:
 		return true
-	if _features.has("cuddle_override"):
-		return bool(_features.get("cuddle_override", false))
-	return SETTINGS.feature("cuddle_override")
+	if _features.has("allow_act_during_cuddle"):
+		return bool(_features.get("allow_act_during_cuddle", false))
+	return SETTINGS.feature("allow_act_during_cuddle")
 
 
 func _cuddle_active() -> bool:
@@ -1484,11 +1598,13 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_features = SETTINGS.features()
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
 	_taste = SETTINGS.taste(_id)
+	_camera_rock_cfg = SETTINGS.camera_rock_controls()
 	_act_prompts = _profile.get("act_prompts", {})
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_bobs = bool(thrust_controls.get("bobs", false))
+	_thrust_bob = bool(thrust_controls.get("camera_bob", false))
+	_thrust_motion = bool(thrust_controls.get("camera_motion", false))
 	_thrust_tracker = THRUST.new()
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_has_facing = false
@@ -1528,7 +1644,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_camera_rock_sign = 1.0
 	_rump_blush = 0.0
 	_clear_face()
-	_set_face(0.45, 0.45)
+	_set_face(0.45, ACT_LIDS)
 	_serial = _next_serial()
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
 	_started_at = Time.get_unix_time_from_system()
@@ -1554,7 +1670,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		_end_cuddle_session()
 		if not REST.release_managed(pony):
 			return false
-	if _cuddle_active() and _feature("cuddle_override") \
+	if _cuddle_active() and _feature("allow_act_during_cuddle") \
 			and source not in ["bed_side", "already_lying"]:
 		_end_cuddle_session()
 		REST.release_managed(pony)
@@ -1591,7 +1707,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	_reset_lean_state()
 	_pose1_basis_logged = false
-	_pose1_aim_fix_logged = false
 	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
 	if pose == CATALOG.MISSIONARY:
 		_snapshot_pose1_start()
@@ -1609,7 +1724,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.show_act(self, mood_cues(), readiness_hud())
+		main.hud.show_act(self, hud_readouts())
 		main.hud.hide_prompt()
 	_log("started pose=%s legacy=%d source=%s pony=%s eye=%.2f" % [pose, CATALOG.legacy_index(pose), act_source, str(pony.name), _camera_target_eye])
 	return true
@@ -2120,10 +2235,12 @@ func _build_pose() -> void:
 		_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_pose)
 		if pose_id == CATALOG.HORSE:
-			if _feature("body_sway"):
+			if _feature("pose2_body_sway"):
 				_install_body_sway(skeleton)
-			if _feature("ear_twitch"):
+			if _feature("thrust_ear_twitch"):
 				_install_ear_twitch()
+		elif _feature("pose1_body_motion"):
+			_install_prone_sway(skeleton)
 		_keep_chin_last()
 	if pose_id != CATALOG.HORSE:
 		return
@@ -2165,7 +2282,7 @@ func _free_pose() -> void:
 
 
 func _install_body_sway(skeleton: Skeleton3D) -> void:
-	if not _feature("body_sway"):
+	if not _feature("pose2_body_sway"):
 		return
 	_body_sway = BODY_SWAY.new()
 	_body_sway.name = "UnfplapBodySway"
@@ -2174,8 +2291,16 @@ func _install_body_sway(skeleton: Skeleton3D) -> void:
 	skeleton.add_child(_body_sway)
 
 
+func _install_prone_sway(skeleton: Skeleton3D) -> void:
+	_prone_sway = PRONE_SWAY.new()
+	_prone_sway.name = "UnfplapProneSway"
+	_prone_sway.set("mare", pony)
+	_prone_sway.set("runtime", self)
+	skeleton.add_child(_prone_sway)
+
+
 func _install_ear_twitch() -> void:
-	if not _feature("ear_twitch"):
+	if not _feature("thrust_ear_twitch"):
 		return
 	var boop: Variant = pony.get("boop_node")
 	var head: Variant = boop.get("head_skeleton") if boop != null else null
@@ -2191,6 +2316,9 @@ func _remove_extra_modifiers() -> void:
 	if is_instance_valid(_body_sway):
 		_body_sway.queue_free()
 	_body_sway = null
+	if is_instance_valid(_prone_sway):
+		_prone_sway.queue_free()
+	_prone_sway = null
 	if is_instance_valid(_ear_twitch):
 		_ear_twitch.queue_free()
 	_ear_twitch = null
@@ -2204,6 +2332,8 @@ func _now_s() -> float:
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
+	_anon_thrust_phase = 0.0
+	_anon_thrust_phase_velocity = 0.0
 	_last_stroke.clear()
 	_last_intensity = ""
 	_last_pattern = ""
@@ -2221,14 +2351,12 @@ func _reset_thrust_state() -> void:
 	_utterance_serial = 0
 	_last_utterance_at = -1000.0
 	_vocal_cooldown = 0.0
-	_cooling_seconds = 0.0
 	_overwhelmed = 0.0
 	_cue_override = ""
 	_cue_until = 0.0
 	_last_touch = ""
 	_last_talk = ""
 	_last_touch_at = -1000.0
-	_last_heat_at = _now_s()
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
 	_last_talk_at = -1000.0
@@ -2304,11 +2432,11 @@ func _find_voice_player() -> AudioStreamPlayer3D:
 	return found as AudioStreamPlayer3D if found is AudioStreamPlayer3D else null
 
 
-## `act_text_only_ponese`: keep the generated line and text HUD, but silence the Ponese audio
+## `mute_ponese_audio`: keep the generated line and text HUD, but silence the Ponese audio
 ## for this act. A generated-voice pony is left alone.
 func _apply_voice_policy() -> void:
 	_voice_info = _classify_voice()
-	_text_only_voice = _feature("act_text_only_ponese") \
+	_text_only_voice = _feature("mute_ponese_audio") \
 		and bool(_voice_info.get("effective_ponese", false))
 	if not _text_only_voice:
 		return
@@ -2445,36 +2573,39 @@ func _score_thrust() -> void:
 
 func _on_thrust(result: Dictionary) -> void:
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
+	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var now := _now_s()
-	if _thrust_bobs:
+	if _thrust_bob or _thrust_motion:
 		_bob_speed_scale = _bob_response_scale(float(result.get("speed", 0.0)))
-		_bob_velocity += BOB_THRUST_IMPULSE * _bob_speed_scale
-		_lean_velocity += BOB_FORWARD_IMPULSE * _bob_speed_scale
-	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, strength)
+		if _thrust_bob:
+			_bob_velocity += BOB_THRUST_IMPULSE * _bob_speed_scale
+		if _thrust_motion:
+			_lean_velocity += BOB_FORWARD_IMPULSE * _bob_speed_scale
+	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, impact)
 	if _winged and not _wing_hold and now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
 		var excitement: Variant = pony.get("excitement")
 		if excitement != null and excitement.has_method("flutter"):
 			excitement.call("flutter")
 			_last_wing_flutter = now
-	_thrust_jiggle(strength)
+	_thrust_jiggle(impact)
 	if pose_id == CATALOG.HORSE and is_instance_valid(_tail):
-		_tail.call("thrust", strength * _jiggle_size_scale())
-	if _feature("camera_rock"):
-		_camera_rock_velocity += CAMERA_ROCK_IMPULSE * strength * _camera_rock_sign
+		_tail.call("thrust", impact * _jiggle_size_scale())
+	if _feature("thrust_camera_rock"):
+		_camera_rock_velocity += _camera_rock_value("impulse") * impact * _camera_rock_sign
 		_camera_rock_sign = -_camera_rock_sign
 	if pose_id == CATALOG.HORSE:
-		if _feature("rump_blush") and strength >= RUMP_BLUSH_MIN_STRENGTH:
+		if impact >= RUMP_BLUSH_MIN_STRENGTH:
 			_rump_blush = minf(RUMP_BLUSH_MAX, _rump_blush + RUMP_BLUSH_STEP)
 			_ensure_rump_decal()
-		if _feature("ear_twitch") and is_instance_valid(_ear_twitch):
-			_ear_twitch.call("try_trigger", strength)
+		if _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
+			_ear_twitch.call("try_trigger", impact)
 	_thrust_times.append(now)
 	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
 		_thrust_times.pop_front()
 	_play_kiss()
 	_play_vocal()
-	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f intensity=%s pattern=%s" % [
-		satisfaction, _thrusts_per_second(), strength, _last_intensity, _last_pattern])
+	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
+		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
 
 
 ## Slow strokes get a slower spring. Scaling stiffness by s², damping by s and the
@@ -2498,17 +2629,14 @@ func _play_vocal() -> void:
 func _add_heat(amount: float) -> void:
 	if is_zero_approx(amount):
 		return
-	if amount > 0.0:
-		_last_heat_at = _now_s()
-		_cooling_seconds = 0.0
 	var before := int(satisfaction)
 	satisfaction = clampf(satisfaction + amount, 0.0, READINESS_MAX)
 	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
 		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
 
 
-## Readiness no longer rises on its own. Real thrusts add the chunks in `_score_thrust`;
-## this tick only clears stale thrust memory, cools her after a quiet spell, and updates cues.
+## Readiness never decays on its own. Real thrusts add the chunks in `_score_thrust`; only a
+## disliked touch/talk subtracts. This tick clears stale thrust memory and updates cues.
 func _readiness_tick(delta: float) -> void:
 	if state != State.ACTIVE:
 		return
@@ -2522,11 +2650,6 @@ func _readiness_tick(delta: float) -> void:
 		_stroke_window.clear()
 	if _overwhelmed > 0.0:
 		_overwhelmed = maxf(0.0, _overwhelmed - delta)
-	if now - _last_heat_at >= COOL_DELAY_S:
-		_cooling_seconds = now - _last_heat_at
-		_add_heat(-COOL_RATE * delta)
-	else:
-		_cooling_seconds = 0.0
 	if satisfaction >= PONY_CLIMAX_AT:
 		_climax()
 		return
@@ -2549,8 +2672,6 @@ func _readiness_tick(delta: float) -> void:
 func _mood_for() -> String:
 	if _overwhelmed > 0.0:
 		return "overwhelmed"
-	if _cooling_seconds >= COOL_DELAY_S:
-		return "cooling"
 	if satisfaction >= CLOSE_AT:
 		return "close"
 	if satisfaction >= 40.0:
@@ -2561,8 +2682,6 @@ func _mood_for() -> String:
 func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
 	if _overwhelmed > 0.0:
 		return "She's overwhelmed."
-	if _cooling_seconds >= COOL_DELAY_S:
-		return "She's losing focus."
 	if satisfaction >= CLOSE_AT:
 		return "She's close."
 	if not _last_intensity.is_empty() and not intensity_match:
@@ -2574,8 +2693,6 @@ func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
 		return "She wants it firmer." if _last_intensity == "soft" else "She wants it softer."
 	if not _last_pattern.is_empty() and not pattern_match:
 		match str(_taste.get("pattern", "steady")):
-			"building":
-				return "She wants it to build."
 			"teasing":
 				return "She wants to be teased."
 			"quick":
@@ -2607,7 +2724,6 @@ func _on_touch(kind: String) -> void:
 			_set_cue_override("She likes that.")
 		else:
 			_set_cue_override("She needs more than your hands.")
-		_last_heat_at = now
 		_receptive_until = now + RECEPTIVE_S
 		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
 	elif kind in _taste.get("dislikes", []):
@@ -2641,7 +2757,6 @@ func _on_talk(text: String) -> void:
 			_set_cue_override("She likes that.")
 		else:
 			_set_cue_override("She needs you to move.")
-		_last_heat_at = now
 		_receptive_until = now + RECEPTIVE_S
 		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
 	elif category in _taste.get("dislikes", []):
@@ -2691,7 +2806,7 @@ func _maybe_talk_cue() -> void:
 		return
 	talk_wait = TALK_CUE_WAIT_S
 	_last_talk_cue_at = now
-	_set_cue_override("She's waiting for you to say something.")
+	_set_cue_override("She needs to hear you.")
 
 
 ## True while the director or the pony is actually speaking. Unlike
@@ -2932,7 +3047,7 @@ func _rump_point() -> Vector3:
 
 
 func _rump_blush_tick(delta: float) -> void:
-	if not _feature("rump_blush") or pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.HORSE:
 		return
 	if _rump_blush > 0.0:
 		_rump_blush = maxf(0.0, _rump_blush - RUMP_BLUSH_DECAY * delta)
@@ -2990,7 +3105,7 @@ func _climax() -> void:
 	_set_cue_override("She's coming.", CLIMAX_SECONDS)
 	_schedule_climax_hearts()
 	_climax_hearts_burst_at(_dock_point())
-	_set_face(0.3, 0.0)
+	_set_face(0.3, CLIMAX_LIDS)
 	_end_act_lines(true)
 	talk_wait = 0.0
 	if is_instance_valid(main):
@@ -3108,19 +3223,18 @@ func _finish_climax() -> void:
 		_enter_afterglow()
 		return
 	state = State.ACTIVE
+	_set_face(0.45, ACT_LIDS)
 	satisfaction = float(_taste.get("recovery", PREFERENCES.RECOVERY_DEFAULT))
 	mood = "warming"
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
 	talk_wait = 0.0
-	_cooling_seconds = 0.0
 	_overwhelmed = 0.0
 	_last_intensity = ""
 	_last_pattern = ""
 	_stroke_window.clear()
 	_last_stroke_at = -1000.0
-	_last_heat_at = _now_s()
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
 	_log("pony climax end=%d/%d recovery=%.0f" % [
@@ -3151,7 +3265,7 @@ func _pose2_afterglow_begin() -> void:
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
-	_set_face(0.85, 0.9)
+	_set_face(0.85, AFTERGLOW_LIDS)
 	if is_instance_valid(_pose):
 		_pose.mode = "pose2"
 		_pose.target_amount = 1.0
@@ -3174,7 +3288,7 @@ func _afterglow_begin() -> void:
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
-	_set_face(0.85, 0.9)
+	_set_face(0.85, AFTERGLOW_LIDS)
 	if is_instance_valid(_pose):
 		_pose.mode = "afterglow"
 		_pose.afterglow_pose = pose_id
@@ -3200,7 +3314,7 @@ func _inside_aftermath() -> void:
 ## Horse afterglow only. She asks the player to stay close; the HUD and this timer are the
 ## reliable cue, while her generated line is flavour.
 func _begin_close_window() -> void:
-	if pose_id != CATALOG.HORSE or not _feature("afterglow_close"):
+	if pose_id != CATALOG.HORSE:
 		return
 	_close_left = STAY_CLOSE_SECONDS
 	_close_caress_seconds = 0.0
@@ -3236,7 +3350,7 @@ func _close_afterglow() -> void:
 	var caressed := _close_caress_seconds >= STAY_CLOSE_CARESS_SECONDS
 	if is_instance_valid(main):
 		MEMORY.stay_close_reward(main.game, _id, _event_id, caressed)
-	_set_face(0.9, 0.95)
+	_set_face(0.9, AFTERGLOW_CLOSE_LIDS)
 	_climax_hearts_burst()
 	cue = ""
 	_log("stay close reward caressed=%s caress_seconds=%.1f" % [
@@ -3252,8 +3366,6 @@ func _close_cancel() -> void:
 
 func close_hint() -> String:
 	if state != State.AFTERGLOW or pose_id != CATALOG.HORSE:
-		return ""
-	if not _feature("afterglow_close"):
 		return ""
 	if _close_left > 0.0:
 		return "Stay close · %ds · caress" % int(ceil(_close_left))
@@ -3489,9 +3601,20 @@ func _size_scale() -> float:
 	return 1.0
 
 
+## Pose-2 presentation only. The accepted Anon rig's hands read a little large beside a Canon
+## pony; JRHNBR needs a smaller correction. Other presets keep the authored size.
+static func pose2_palm_scale_for(size_name: String) -> float:
+	match size_name:
+		"canon":
+			return 0.85
+		"mounting":
+			return 0.95
+	return 1.0
+
+
 func _bed_surface_top() -> float:
 	if not is_instance_valid(bed):
-		return 0.0
+		return INF
 	var fallback := float(bed.get_meta("mattress_top", 0.6)) + bed.global_position.y
 	var points: Array[Vector3] = [bed.global_position]
 	return MATTRESS.visible_top(bed, points, fallback)
@@ -3586,12 +3709,17 @@ func _make_pose1_view() -> void:
 			source.fov, source.near, source.far])
 	# The pose-1 view aims itself at her face every frame (`apply_camera_motion`); the player look
 	# controls are left alone so the bed/seated camera is not disturbed.
+	_pose1_look_point = _neck_midpoint()
+	var forward: Vector3 = -pony.global_basis.z.normalized() if is_instance_valid(pony) else Vector3.FORWARD
+	if not _pose1_look_point.is_finite() or not is_instance_valid(pony) \
+			or (_pose1_look_point - _pose1_camera).dot(forward) < -0.05:
+		_pose1_look_point = (pony.global_position if is_instance_valid(pony) else _pose1_camera) \
+			+ forward * 0.20 + Vector3.UP * 0.10
 	_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
 	_pose1_aim_until = Time.get_ticks_msec() + 1000
 	_pose1_camera_log_until = Time.get_ticks_msec() + 10000
 	_pose1_camera_log_next = 0
 	_pose1_snap_ready = false
-	_pose1_reaims = 0
 	_pose1_camera_rebuilds = 0
 	pony.add_child(_pose1_view)
 	_pose1_view.current = true
@@ -3639,11 +3767,6 @@ func _free_pose1_view() -> void:
 func _pose1_look_target() -> Vector3:
 	if _pose1_look_point.is_finite():
 		return _pose1_look_point
-	var neck := _neck_midpoint()
-	if neck.is_finite() and is_instance_valid(pony):
-		var from: Vector3 = _pose1_view.global_position if is_instance_valid(_pose1_view) else _pose1_camera
-		if from.is_finite() and (neck - from).dot(-pony.global_basis.z) >= -0.05:
-			return neck
 	if not is_instance_valid(pony):
 		return Vector3.INF
 	var forward: Vector3 = -pony.global_basis.z.normalized()
@@ -3777,6 +3900,8 @@ func _begin_camera_mode() -> void:
 	_reset_lean_state()
 	_camera_rock = 0.0
 	_camera_rock_velocity = 0.0
+	_anon_thrust_phase = 0.0
+	_anon_thrust_phase_velocity = 0.0
 	_pose1_look_point = Vector3.INF
 	_pose2_base_look = Vector3.INF
 	_pose2_base_saved = false
@@ -3858,13 +3983,9 @@ func _lean_tick(delta: float) -> void:
 	if _side_return_armed and is_zero_approx(targets.y) and absf(_lean_side) <= 0.001:
 		_side_return_armed = false
 	var alpha := 1.0 - exp(-CAMERA_INERTIA_SMOOTH * delta)
-	if _feature("camera_inertia"):
-		_lean_view_forward = lerpf(_lean_view_forward, _lean_forward, alpha)
-		_lean_view_side = lerpf(_lean_view_side, _lean_side, alpha)
-	else:
-		_lean_view_forward = _lean_forward
-		_lean_view_side = _lean_side
-	if not _lean_return_enabled and _feature("hold_sway"):
+	_lean_view_forward = lerpf(_lean_view_forward, _lean_forward, alpha)
+	_lean_view_side = lerpf(_lean_view_side, _lean_side, alpha)
+	if not _lean_return_enabled and _feature("idle_camera_sway"):
 		# Experimental idle breathing. Off by default: hold mode must not drift the camera
 		# when the player is not leaning.
 		_hold_rock_clock += delta
@@ -4091,7 +4212,7 @@ func _reset_lean_state() -> void:
 	_lean_side = 0.0
 	_lean_view_forward = 0.0
 	_lean_view_side = 0.0
-	_lean_return_enabled = _feature("lean_return")
+	_lean_return_enabled = false
 	_side_return_armed = false
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
@@ -5095,17 +5216,47 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 			sig.connect(callable)
 
 
-## Slight camera roll on each thrust; roll only, driven by a damped spring. Both poses.
+## Slight pitch/roll camera rock on each thrust, driven by a damped spring. Both poses.
 func _camera_rock_tick(delta: float) -> void:
-	if not _feature("camera_rock") or pose_id not in [CATALOG.HORSE, CATALOG.MISSIONARY] \
+	if not _feature("thrust_camera_rock") or pose_id not in [CATALOG.HORSE, CATALOG.MISSIONARY] \
 			or not _free_camera_active or state not in [State.ACTIVE, State.CLIMAX]:
 		_camera_rock = 0.0
 		_camera_rock_velocity = 0.0
 		return
-	var accel := -CAMERA_ROCK_STIFFNESS * _camera_rock - CAMERA_ROCK_DAMPING * _camera_rock_velocity
+	var stiffness := _camera_rock_value("stiffness")
+	var damping := _camera_rock_value("damping")
+	var limit := _camera_rock_value("limit")
+	var accel := -stiffness * _camera_rock - damping * _camera_rock_velocity
 	_camera_rock_velocity += accel * delta
-	_camera_rock = clampf(_camera_rock + _camera_rock_velocity * delta,
-		-CAMERA_ROCK_LIMIT, CAMERA_ROCK_LIMIT)
+	_camera_rock = clampf(_camera_rock + _camera_rock_velocity * delta, -limit, limit)
+
+
+func _camera_rock_value(key: String) -> float:
+	return float(_camera_rock_cfg.get(key, SETTINGS.CAMERA_ROCK_DEFAULTS.get(key, 0.0)))
+
+
+## Pure spring step so the inertial Anon-body phase is testable without a scene.
+static func anon_thrust_phase_step(phase: float, velocity: float, target: float,
+		delta: float) -> Vector2:
+	var wanted := clampf(target, 0.0, 1.0)
+	var accel := -ANON_THRUST_STIFFNESS * (phase - wanted) - ANON_THRUST_DAMPING * velocity
+	velocity += accel * delta
+	phase = clampf(phase + velocity * delta, 0.0, 1.0)
+	return Vector2(phase, velocity)
+
+
+## Pose-2 Anon body phase. The hip/lean use this instead of raw depth so the body eases into
+## each stroke and settles back under inertia. It can never exceed 1.0, so the existing
+## THRUST_MAX_M and ANON_THRUST_SWAY_M bounds are unchanged.
+func _anon_thrust_phase_tick(delta: float) -> void:
+	if pose_id != CATALOG.HORSE or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		_anon_thrust_phase = 0.0
+		_anon_thrust_phase_velocity = 0.0
+		return
+	var step := anon_thrust_phase_step(_anon_thrust_phase, _anon_thrust_phase_velocity,
+		depth, delta)
+	_anon_thrust_phase = step.x
+	_anon_thrust_phase_velocity = step.y
 
 
 ## Pose-2 yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
@@ -5237,9 +5388,39 @@ func _install_anon_thrust() -> void:
 	_anon_thrust_driver = driver
 	_anon_thrust_original = original
 	_anon_thrust_avatar = avatar
+	_install_palm_scale(avatar)
+
+
+func _install_palm_scale(avatar: Node3D) -> void:
+	_remove_palm_scale()
+	if not is_instance_valid(avatar):
+		return
+	var factor := pose2_palm_scale_for(_size_name())
+	if is_equal_approx(factor, 1.0):
+		return
+	var skeleton := avatar.find_child("Skeleton3D", true, false) as Skeleton3D
+	if not is_instance_valid(skeleton):
+		_log("pose2 palm scale skipped: no skeleton")
+		return
+	_palm_scale = PALM_SCALE.new()
+	_palm_scale.name = "UnfplapPalmScale"
+	_palm_scale.set("skeleton", skeleton)
+	_palm_scale.set("factor", factor)
+	_palm_scale.process_priority = 10
+	skeleton.add_child(_palm_scale)
+	_log("pose2 palm scale=%.2f size=%s" % [factor, _size_name()])
+
+
+func _remove_palm_scale() -> void:
+	if is_instance_valid(_palm_scale):
+		_palm_scale.set("active", false)
+		_palm_scale.call("restore")
+		_palm_scale.queue_free()
+	_palm_scale = null
 
 
 func _remove_anon_thrust() -> void:
+	_remove_palm_scale()
 	if is_instance_valid(_anon_thrust_avatar) and is_instance_valid(_anon_thrust_original) \
 			and _anon_thrust_avatar.get("desktop_pose_driver") == _anon_thrust_driver:
 		_anon_thrust_avatar.set("desktop_pose_driver", _anon_thrust_original)
@@ -5251,14 +5432,15 @@ func _remove_anon_thrust() -> void:
 
 
 ## Called after anon_body has set the hip target, through the desktop pose-driver wrapper.
-## The hip tracks raw mouse depth with no spring or return animation.
+## The hip follows the smoothed thrust phase, so it eases in and out with inertia instead of
+## mapping pixel travel directly to position. The phase is clamped 0..1 by its spring step.
 func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
-	if pose_id != CATALOG.HORSE or depth <= 0.0001 or not is_instance_valid(hip):
+	if pose_id != CATALOG.HORSE or _anon_thrust_phase <= 0.0001 or not is_instance_valid(hip):
 		return
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
-	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * clampf(depth, 0.0, 1.0))
+	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _anon_thrust_phase)
 
 
 ## Phase-2 Anon body lean: keep the pelvis planted behind her rump. The camera/head moves
@@ -5276,8 +5458,8 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	hip.global_position -= side * side_shift
 	# The kiss drops the camera/head slightly; keep the pelvis planted through the hinge.
 	hip.global_position.y += KISS_LEAN_DROP_M * _kiss_lean
-	# Depth 1 moves the pelvis back; the chest/head stay forward, so the upper body thrusts.
-	hip.global_position -= forward * (clampf(depth, 0.0, 1.0) * ANON_THRUST_SWAY_M * lean_scale)
+	# Phase 1 moves the pelvis back; the chest/head stay forward, so the upper body thrusts.
+	hip.global_position -= forward * (_anon_thrust_phase * ANON_THRUST_SWAY_M * lean_scale)
 	# The feet are placed from the camera/head before this call. Pin the lower body so a forward
 	# or kiss lean hinges the torso instead of walking his legs into the shot.
 	var body := hip.get_parent()
@@ -5359,42 +5541,31 @@ func apply_camera_motion() -> void:
 		_pose1_view.global_position.y -= KISS_LEAN_DROP_M * _kiss_lean
 		_pose1_view.global_position += _pose1_view_basis.x \
 			* _lateral_lean_shift(lean_scale)
-		# Freeze the neck target once the pose has blended in. The live snout moves with her
-		# nuzzles and can end up behind the camera in the bed pose.
+		_camera_basis_ready = true
+		# Settle the aim on her neck while the act pose blends in. The target is her neck, not
+		# the moving view, and the basis comes from the fixed anchor; no feedback loop.
 		if Time.get_ticks_msec() < _pose1_aim_until:
 			var neck := _neck_midpoint()
-			if neck.is_finite() \
-					and (neck - _pose1_view.global_position).dot(-pony.global_basis.z) >= -0.05:
+			if neck.is_finite():
 				_pose1_look_point = neck
-			else:
-				_pose1_look_point = Vector3.INF
-			# Always aim from the stable anchor. Re-aiming from the already moved view created a
-			# position/basis feedback loop that flickered at act start.
 			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
-		_camera_basis_ready = true
-		var rock := _camera_rock if _feature("camera_rock") else 0.0
+		var rock := _camera_rock if _feature("thrust_camera_rock") else 0.0
+		var rock_roll := rock * _camera_rock_value("roll_ratio")
+		var rock_pitch := rock * _camera_rock_value("pitch_ratio")
 		var lean := Basis.from_euler(Vector3(
 			-deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale
-				+ rock * CAMERA_ROCK_PITCH_RATIO,
+				+ rock_pitch,
 			-deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale,
 			(-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side
-				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale + rock))
-		_pose1_view.global_basis = _pose1_camera_tweak() * (_pose1_view_basis * lean)
+				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale + rock_roll))
+		_pose1_view.global_basis = _pose1_view_basis * lean
 		var look_dir := _pose1_look_target() - _pose1_view.global_position
 		var look_dot := (-_pose1_view.global_basis.z).dot(look_dir.normalized()) \
 			if look_dir.length_squared() > 0.000001 else 1.0
-		if look_dot < POSE1_REAIM_DOT:
-			_pose1_reaims += 1
-			_log("pose1 CAMERA REAIM #%d dot=%.3f target=%s view=%s anchor=%s" % [
-				_pose1_reaims, look_dot, str(_pose1_look_target()),
-				str(_pose1_view.global_position), str(_pose1_camera)])
-			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
-			_pose1_view.global_basis = _pose1_camera_tweak() * (_pose1_view_basis * lean)
 		if not _pose1_basis_logged:
 			_pose1_basis_logged = true
-			_log("pose1 camera base_euler=%s tweak_euler=%s applied_basis=%s" % [
-				str(_pose1_view_basis.get_euler()), str(_pose1_camera_tweak().get_euler()),
-				str(_pose1_view.global_basis)])
+			_log("pose1 camera base_euler=%s applied_basis=%s" % [
+				str(_pose1_view_basis.get_euler()), str(_pose1_view.global_basis)])
 		var now := Time.get_ticks_msec()
 		if now < _pose1_camera_log_until and now >= _pose1_camera_log_next:
 			_pose1_camera_log_next = now + 100
@@ -5435,19 +5606,13 @@ func apply_camera_motion() -> void:
 		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
 		+ _kiss_lean_distance(), _lateral_lean_shift(lean_scale))
 	if pose_id == CATALOG.HORSE and _free_camera_active and is_instance_valid(_camera):
-		var rock := _camera_rock if _feature("camera_rock") else 0.0
-		_camera.rotation.z = rock \
+		var rock := _camera_rock if _feature("thrust_camera_rock") else 0.0
+		_camera.rotation.z = rock * _camera_rock_value("roll_ratio") \
 			+ (-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side \
 			+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale
 		_camera.rotation.x = clampf(
 			_look_pitch - deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
-			-1.5, 1.5) + (rock * CAMERA_ROCK_PITCH_RATIO)
-
-
-## Optional manual pose-1 camera correction. Identity unless a future tuning pass needs a fixed
-## basis offset.
-func _pose1_camera_tweak() -> Basis:
-	return Basis.IDENTITY
+			-1.5, 1.5) + (rock * _camera_rock_value("pitch_ratio"))
 
 
 func _pose_basis_amount() -> float:
@@ -5724,6 +5889,8 @@ func _restore_camera() -> void:
 	_bob_speed_scale = 1.0
 	_lean = 0.0
 	_lean_velocity = 0.0
+	_anon_thrust_phase = 0.0
+	_anon_thrust_phase_velocity = 0.0
 	_back = 0.0
 	_back_target = 0.0
 	_pose1_camera = Vector3.INF

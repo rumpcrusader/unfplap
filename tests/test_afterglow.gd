@@ -26,7 +26,6 @@ func _runtime(pose: String) -> Node:
 	runtime.pony = Node3D.new()
 	runtime.pose_id = pose
 	runtime.state = 4 # AFTERGLOW
-	runtime._features = {"afterglow_close": true}
 	runtime._taste = PREF.resolve({})
 	runtime._thrust_tracker = THRUST.new()
 	return runtime
@@ -37,6 +36,17 @@ func run() -> void:
 	check(not MEMORY.keep_active_line("thinking", "line", "line", true), "thinking line is dropped")
 	check(not MEMORY.keep_active_line("speaking", "other", "line", true), "inactive line is dropped")
 	check(not MEMORY.keep_active_line("speaking", "line", "line", false), "cancel-all drops even speaking")
+
+	var active: Node = _runtime("horse")
+	active.state = 2 # ACTIVE
+	active.cue = "She's close."
+	active._last_intensity = "firm"
+	active._last_pattern = "steady"
+	check(active.hud_cue_line(true) ==
+		"❤ 0/5 | She's close. | Wants: firm & steady | You: firm & steady",
+		"combined HUD cue line")
+	check(active.hud_cue_line(false) == "❤ 0/5", "combined line without optional segments")
+	active.free()
 
 	var horse: Node = _runtime("horse")
 	horse._begin_close_window()

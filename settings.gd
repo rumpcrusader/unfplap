@@ -1,10 +1,10 @@
 extends RefCounted
 ## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, thrust
-## controls, and the default/per-character templates. A character inherits every field it
-## does not override.
+## controls, camera-rock constants, and the default/per-character templates. A character
+## inherits every field it does not override.
 ##
-## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile and
-## `thrust` holds the mouse-control settings.
+## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
+## `thrust` holds the mouse-control settings and `camera_rock` holds the rock spring.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -50,22 +50,76 @@ const CHARACTER_NAMES := {
 	"spitfire": "Spitfire",
 }
 
-## Experimental switches. Keep this as the single list; runtime reads it once per act.
+## Feature switches. Keep this as the single list; runtime reads it once per act.
+## Renamed without migration: old keys are pruned on the next settings read.
 const FEATURE_DEFAULTS := {
+	"hud_readouts": true,
+	"thrust_camera_rock": true,
+	"idle_camera_sway": false,
+	"captions_on_top": true,
+	"pose2_body_sway": true,
+	"pose1_body_motion": true,
+	"thrust_ear_twitch": true,
+	"allow_act_during_cuddle": true,
+	"mute_ponese_audio": false,
 	"settings_tab": true,
-	"mood_cues": true,
-	"readiness_hud": true,
-	"afterglow_close": true,
-	"lean_return": false,
-	"camera_inertia": true,
-	"camera_rock": true,
-	"hold_sway": false,
-	"caption_top": true,
-	"body_sway": true,
-	"rump_blush": true,
-	"ear_twitch": true,
-	"cuddle_override": true,
-	"act_text_only_ponese": false,
+}
+
+## Human labels and help for the injected settings tab. `live` flags apply without a new act.
+const FEATURE_INFO := {
+	"hud_readouts": {
+		"label": "HUD readouts",
+		"help": "Show the mood cue, readiness bar and Wants/You line. Hearts and the afterglow close prompt stay visible.",
+	},
+	"thrust_camera_rock": {
+		"label": "Thrust camera rock",
+		"help": "Pitch the camera on each thrust. Tuning is under Camera rock.",
+	},
+	"idle_camera_sway": {
+		"label": "Idle camera sway",
+		"help": "Add a slow sway when lean auto-return is off.",
+	},
+	"captions_on_top": {
+		"label": "Captions on top",
+		"help": "Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.",
+		"live": true,
+	},
+	"pose2_body_sway": {
+		"label": "Pose 2 body sway",
+		"help": "Move her upper body with the thrust while the forehooves stay planted.",
+	},
+	"pose1_body_motion": {
+		"label": "Pose 1 body motion",
+		"help": "Slide her body along the bed and nod her head on the thrust.",
+	},
+	"thrust_ear_twitch": {
+		"label": "Thrust ear twitch",
+		"help": "Flick both ears on some thrusts.",
+	},
+	"allow_act_during_cuddle": {
+		"label": "Allow acts during cuddles",
+		"help": "End an active cuddle when an act starts instead of blocking it.",
+	},
+	"mute_ponese_audio": {
+		"label": "Mute Ponese audio",
+		"help": "Keep the act's generated text but silence the Ponese voice for that act.",
+	},
+	"settings_tab": {
+		"label": "Unfplap settings tab",
+		"help": "Show the Unfplap settings page. Turning this off hides it on the next settings open; edit settings.json to restore it.",
+	},
+}
+
+## Camera-rock spring. `impulse` is the kick in radians per second; `limit` is the maximum
+## absolute angle in radians. `roll_ratio` defaults to zero so the thrust rock is pitch-only;
+## set it back toward 1.0 to bring the roll back.
+const CAMERA_ROCK_DEFAULTS := {
+	"impulse": 0.50,
+	"stiffness": 45.0,
+	"damping": 8.0,
+	"limit": 0.055,
+	"pitch_ratio": 1.0,
+	"roll_ratio": 0.0,
 }
 
 const DEFAULT_ACT_PROMPTS := {
@@ -95,7 +149,7 @@ const CHARACTER_TEMPLATES := {
 		},
 		"taste": {
 			"intensity": "firm",
-			"pattern": "building",
+			"pattern": "steady",
 			"touch": ["caress"],
 			"dislikes": ["smack"],
 			"talk": ["reassurance"],
@@ -220,7 +274,7 @@ const CHARACTER_TEMPLATES := {
 	"cheerilee": {
 		"taste": {
 			"intensity": "firm",
-			"pattern": "building",
+			"pattern": "steady",
 			"touch": ["caress"],
 			"talk": ["praise", "reassurance"],
 			"warmth": "normal",
@@ -243,7 +297,7 @@ const CHARACTER_TEMPLATES := {
 	"trixie": {
 		"taste": {
 			"intensity": "firm",
-			"pattern": "building",
+			"pattern": "steady",
 			"touch": ["kiss"],
 			"talk": ["praise", "playful"],
 			"warmth": "quick",
@@ -368,23 +422,29 @@ static func thrust_controls() -> Dictionary:
 	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
 	var pixels := 480.0
-	var bobs := false
+	var camera_bob := false
+	var camera_motion := false
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
 		pixels = float((block as Dictionary).get("pixels_per_full", 480.0))
-		bobs = bool((block as Dictionary).get("bobs", false))
+		# Old combined toggle: both split toggles inherit it until the next save.
+		var legacy_bobs := bool((block as Dictionary).get("bobs", false))
+		camera_bob = bool((block as Dictionary).get("camera_bob", legacy_bobs))
+		camera_motion = bool((block as Dictionary).get("camera_motion", legacy_bobs))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
 		"orientation": orientation,
 		"up": orientation == "up",
 		"pixels_per_full": clampf(pixels, 240.0, 1200.0),
-		"bobs": bobs,
+		"camera_bob": camera_bob,
+		"camera_motion": camera_motion,
 	}
 
 
 ## Save only the thrust block. Other settings and character overrides are preserved.
-static func save_thrust_controls(up: bool, pixels_per_full: float, bobs: bool) -> void:
+static func save_thrust_controls(up: bool, pixels_per_full: float,
+		camera_bob: bool, camera_motion: bool) -> void:
 	var data := _read()
 	var block: Variant = data.get("thrust", {})
 	if not block is Dictionary:
@@ -392,8 +452,51 @@ static func save_thrust_controls(up: bool, pixels_per_full: float, bobs: bool) -
 	var controls: Dictionary = block
 	controls["orientation"] = "up" if up else "down"
 	controls["pixels_per_full"] = clampf(pixels_per_full, 240.0, 1200.0)
-	controls["bobs"] = bobs
+	controls["camera_bob"] = camera_bob
+	controls["camera_motion"] = camera_motion
+	controls.erase("bobs")
 	data["thrust"] = controls
+	_write(data)
+
+
+## One read for the camera-rock constants; the runtime reads it once per act.
+static func camera_rock_controls() -> Dictionary:
+	var data := _read()
+	var block: Variant = data.get("camera_rock", {})
+	var out: Dictionary = CAMERA_ROCK_DEFAULTS.duplicate(true)
+	if block is Dictionary:
+		for key: String in out:
+			if (block as Dictionary).has(key):
+				out[key] = float((block as Dictionary)[key])
+	out["impulse"] = clampf(float(out["impulse"]), 0.0, 2.0)
+	out["stiffness"] = clampf(float(out["stiffness"]), 5.0, 200.0)
+	out["damping"] = clampf(float(out["damping"]), 0.0, 50.0)
+	out["limit"] = clampf(float(out["limit"]), 0.0, 0.35)
+	out["pitch_ratio"] = clampf(float(out["pitch_ratio"]), 0.0, 2.0)
+	out["roll_ratio"] = clampf(float(out["roll_ratio"]), 0.0, 2.0)
+	return out
+
+
+## Save only the camera-rock block. Other settings and character overrides are preserved.
+static func save_camera_rock_controls(values: Dictionary) -> void:
+	var data := _read()
+	var block: Variant = data.get("camera_rock", {})
+	if not block is Dictionary:
+		block = {}
+	var controls: Dictionary = block
+	controls["impulse"] = clampf(float(values.get(
+		"impulse", CAMERA_ROCK_DEFAULTS["impulse"])), 0.0, 2.0)
+	controls["stiffness"] = clampf(float(values.get(
+		"stiffness", CAMERA_ROCK_DEFAULTS["stiffness"])), 5.0, 200.0)
+	controls["damping"] = clampf(float(values.get(
+		"damping", CAMERA_ROCK_DEFAULTS["damping"])), 0.0, 50.0)
+	controls["limit"] = clampf(float(values.get(
+		"limit", CAMERA_ROCK_DEFAULTS["limit"])), 0.0, 0.35)
+	controls["pitch_ratio"] = clampf(float(values.get(
+		"pitch_ratio", CAMERA_ROCK_DEFAULTS["pitch_ratio"])), 0.0, 2.0)
+	controls["roll_ratio"] = clampf(float(values.get(
+		"roll_ratio", CAMERA_ROCK_DEFAULTS["roll_ratio"])), 0.0, 2.0)
+	data["camera_rock"] = controls
 	_write(data)
 
 
@@ -449,9 +552,28 @@ static func _read() -> Dictionary:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
+	_migrate_thrust_block(data)
 	data = _merge(_defaults(), data)
+	data["features"] = prune_features(data.get("features", {}))
 	_write(data)
 	return data
+
+
+## Split the old combined `thrust.bobs` into its two controls before defaults are merged.
+static func _migrate_thrust_block(data: Dictionary) -> void:
+	var block: Variant = data.get("thrust", {})
+	if not block is Dictionary:
+		return
+	var thrust_block: Dictionary = block
+	if not thrust_block.has("bobs"):
+		return
+	var legacy := bool(thrust_block["bobs"])
+	# Until this split existed, `bobs` was the only source of truth. Let it win over any
+	# default-written camera keys, then drop it.
+	thrust_block["camera_bob"] = legacy
+	thrust_block["camera_motion"] = legacy
+	thrust_block.erase("bobs")
+	data["thrust"] = thrust_block
 
 
 static func _defaults() -> Dictionary:
@@ -461,23 +583,30 @@ static func _defaults() -> Dictionary:
 		"thrust": {
 			"orientation": "up",
 			"pixels_per_full": 480.0,
-			"bobs": false,
+			"camera_bob": false,
+			"camera_motion": false,
 		},
+		"camera_rock": CAMERA_ROCK_DEFAULTS.duplicate(true),
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}
 
 
-## The merged feature switches, with unknown/missing keys off.
-static func features() -> Dictionary:
-	var data := _read()
-	var block: Variant = data.get("features", {})
+## Keep only current flags, fill missing defaults, and drop retired/renamed keys. Shared by
+## the disk read path and the pure settings tests.
+static func prune_features(block: Variant) -> Dictionary:
 	var out: Dictionary = FEATURE_DEFAULTS.duplicate(true)
 	if block is Dictionary:
 		for key: String in FEATURE_DEFAULTS:
 			if (block as Dictionary).has(key):
 				out[key] = bool((block as Dictionary)[key])
 	return out
+
+
+## The merged feature switches. Unknown/missing keys are pruned to the current flag set.
+static func features() -> Dictionary:
+	var data := _read()
+	return prune_features(data.get("features", {}))
 
 
 static func feature(name: String) -> bool:

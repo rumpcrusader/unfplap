@@ -3,6 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_actions.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 
@@ -130,11 +132,56 @@ func run() -> void:
 	check(near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.0), 1.0)
 		and near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.9), -1.0),
 		"unpinned kiss still chooses a side")
-	check(near(RUNTIME.CAMERA_ROCK_IMPULSE, 0.30), "camera rock impulse increased 50 percent")
-	check(near(RUNTIME.CAMERA_ROCK_LIMIT, 0.039), "camera rock limit increased 50 percent")
+	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["impulse"]), 0.50),
+		"camera rock impulse default")
+	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["limit"]), 0.055),
+		"camera rock limit default")
+	check(near(float(SETTINGS.CAMERA_ROCK_DEFAULTS["roll_ratio"]), 0.0),
+		"camera rock roll is off by default")
+	check(near(RUNTIME.pose2_palm_scale_for("canon"), 0.85), "Canon pose-2 palm scale")
+	check(near(RUNTIME.pose2_palm_scale_for("mounting"), 0.95), "JRHNBR pose-2 palm scale")
+	check(near(RUNTIME.pose2_palm_scale_for("hoers"), 1.0), "Hoers pose-2 palm scale unchanged")
+
+	var sk := Skeleton3D.new()
+	root.add_child(sk)
+	sk.add_bone("LeftHand")
+	sk.add_bone("RightHand")
+	var palm := PALM_SCALE.new()
+	palm.set("skeleton", sk)
+	palm.set("factor", 0.85)
+	palm.call("apply_scale")
+	check(near(sk.get_bone_pose_scale(sk.find_bone("LeftHand")).x, 0.85),
+		"palm scale applies to the left hand")
+	check(near(sk.get_bone_pose_scale(sk.find_bone("RightHand")).x, 0.85),
+		"palm scale applies to the right hand")
+	palm.call("restore")
+	check(sk.get_bone_pose_scale(sk.find_bone("LeftHand")).is_equal_approx(Vector3.ONE),
+		"palm scale restores the left hand")
+	check(sk.get_bone_pose_scale(sk.find_bone("RightHand")).is_equal_approx(Vector3.ONE),
+		"palm scale restores the right hand")
+	palm.free()
+	sk.free()
+
+	var phase := RUNTIME.anon_thrust_phase_step(0.0, 0.0, 1.0, 1.0 / 60.0)
+	check(phase.x > 0.0 and phase.x < 1.0, "Anon thrust phase eases in")
+	for _step: int in 120:
+		phase = RUNTIME.anon_thrust_phase_step(phase.x, phase.y, 1.0, 1.0 / 60.0)
+	check(near(phase.x, 1.0, 0.01), "Anon thrust phase settles at the forward bound")
+	var returning := RUNTIME.anon_thrust_phase_step(1.0, 0.0, 0.0, 1.0 / 60.0)
+	check(returning.x < 1.0, "Anon thrust phase eases back")
+	check(RUNTIME.anon_thrust_phase_step(0.0, -10.0, 0.0, 1.0 / 60.0).x >= 0.0,
+		"Anon thrust phase cannot undershoot zero")
+
+	var live_runtime: Node = RUNTIME.new()
+	live_runtime.state = 2 # ACTIVE
+	live_runtime.pose_id = CATALOG.HORSE
+	live_runtime.call("apply_live_settings")
+	check(live_runtime._features.has("hud_readouts"), "live settings refresh feature flags")
+	check(live_runtime._camera_rock_cfg.has("impulse"), "live settings refresh camera rock")
+	live_runtime.free()
+
 	check(near(RUNTIME.HOLD_SWAY_FORWARD, 0.010) and near(RUNTIME.HOLD_SWAY_SIDE, 0.0084),
 		"hold sway amplitude reduced 33 percent")
-	check(near(RUNTIME.CAMERA_ROCK_PITCH_RATIO, 0.675), "thrust camera pitch increased 50 percent")
 	check(near(RUNTIME.MOUNTING_POSE2_CAMERA_LIFT_M, 0.10), "JRHNBR pose-2 camera raised 10 cm")
 	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel tripled")
 	check(near(RUNTIME.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")

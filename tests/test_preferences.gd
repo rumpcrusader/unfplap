@@ -35,12 +35,6 @@ func run() -> void:
 	check(PREF.pattern_for(_strokes(0.60, 0.60, 3)) == "steady", "steady pattern")
 	check(PREF.pattern_for(_strokes(0.30, 0.90, 3)) == "teasing", "teasing pattern")
 	check(PREF.pattern_for(_strokes(0.50, 0.30, 3)) == "quick", "quick pattern")
-	var building := [
-		{"travel": 0.40, "duration": 0.60},
-		{"travel": 0.62, "duration": 0.60},
-		{"travel": 0.82, "duration": 0.60},
-	]
-	check(PREF.pattern_for(building) == "building", "building pattern")
 
 	check(PREF.classify_talk("you are so beautiful") == "praise", "praise classification")
 	check(PREF.classify_talk("are you okay?") == "reassurance", "reassurance classification")
@@ -52,7 +46,7 @@ func run() -> void:
 
 	var taste := PREF.resolve({
 		"intensity": "rough",
-		"pattern": "building",
+		"pattern": "teasing",
 		"touch": ["smack", "nonsense"],
 		"dislikes": ["smack", "kiss"],
 		"talk": ["praise", "nonsense"],
@@ -61,7 +55,7 @@ func run() -> void:
 		"notes": "  private  ",
 	})
 	check(str(taste.get("intensity", "")) == "rough", "valid intensity kept")
-	check(str(taste.get("pattern", "")) == "building", "valid pattern kept")
+	check(str(taste.get("pattern", "")) == "teasing", "valid pattern kept")
 	check(str(taste.get("warmth", "")) == "quick", "valid warmth kept")
 	check(int(taste.get("recovery", 0)) == 35, "valid recovery kept")
 	check((taste["touch"] as Array).has("smack"), "liked touch kept")

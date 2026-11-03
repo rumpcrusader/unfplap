@@ -16,12 +16,12 @@ const MIN_THRUST_DURATION := 0.04
 const REVERSAL_HYSTERESIS := 0.06
 const MIN_MOVE := 0.0000001
 const MAX_SAMPLES := 240
-## Physical thrust strength: travel matters most, peak speed gives a fast thrust more impact.
-## The 0.35 floor keeps a slow deliberate stroke visible; the 1.5 ceiling stops flick input
-## from saturating every value. Peak speed is capped against average speed so one bad sample
-## cannot turn a soft stroke into a rough one.
-const STRENGTH_SPEED_REF := 1.0
-const STRENGTH_SPEED_MIN := 0.35
+## Physical thrust strength: travel matters most, average stroke speed scales it. The 8.0
+## reference makes a normal full stroke firm, a deliberately slow one soft, and a fast one
+## rough. The value is calibrated against real stroke logs (normal full strokes land around
+## 3.5–5.0 units/s). Peak speed is still logged and capped, but does not saturate scoring.
+const STRENGTH_SPEED_REF := 8.0
+const STRENGTH_SPEED_MIN := 0.15
 const STRENGTH_SPEED_MAX := 1.5
 const PEAK_SPEED_CAP := 2.0
 
@@ -140,7 +140,7 @@ func _close(now: float) -> Dictionary:
 	if peak_speed <= 0.0:
 		peak_speed = speed
 	peak_speed = minf(peak_speed, speed * PEAK_SPEED_CAP)
-	var speed_factor := clampf(peak_speed / STRENGTH_SPEED_REF, STRENGTH_SPEED_MIN, STRENGTH_SPEED_MAX)
+	var speed_factor := clampf(speed / STRENGTH_SPEED_REF, STRENGTH_SPEED_MIN, STRENGTH_SPEED_MAX)
 	var event := {
 		"direction": direction,
 		"start_depth": _start_depth,

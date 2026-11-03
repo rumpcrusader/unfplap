@@ -14,7 +14,6 @@ var _hint: VBoxContainer
 var _hint_status: Label
 var _hint_gap: Control
 var _readiness_bar: Control
-var _readiness_line: Label
 var _y_label: Label
 var _hint_icons := {}
 var _control_rows := {}
@@ -71,19 +70,13 @@ func _ready() -> void:
 	_hint.add_child(_hint_gap)
 	_readiness_bar = READINESS_BAR.new()
 	_readiness_bar.name = "Readiness"
-	_readiness_bar.set("assist_cap", 60.0)
-	_readiness_bar.set("close_at", 65.0)
 	_readiness_bar.visible = false
 	_hint.add_child(_readiness_bar)
-	_readiness_line = _make_label("")
-	_readiness_line.name = "ReadinessLine"
-	_readiness_line.custom_minimum_size = Vector2(580.0, 0.0)
-	_readiness_line.add_theme_font_size_override("font_size", 14)
-	_readiness_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_readiness_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_readiness_line.visible = false
-	_hint.add_child(_readiness_line)
 	_build_controls()
+	# Status line first, readiness under it, then the separator, then the controls.
+	_hint.move_child(_hint_status, 0)
+	_hint.move_child(_readiness_bar, 1)
+	_hint.move_child(_hint_gap, 2)
 
 
 func _make_label(text: String) -> Label:
@@ -184,9 +177,9 @@ func hide_prompt() -> void:
 		_prompt.visible = false
 
 
-func show_act(runtime: Node, show_cues := true, show_readiness := true) -> void:
+func show_act(runtime: Node, show_readouts := true) -> void:
 	_hint.visible = true
-	update_from(runtime, show_cues, show_readiness)
+	update_from(runtime, show_readouts)
 
 
 func hide_act() -> void:
@@ -198,8 +191,6 @@ func hide_act() -> void:
 		_hint_gap.visible = false
 	if _readiness_bar != null:
 		_readiness_bar.visible = false
-	if _readiness_line != null:
-		_readiness_line.visible = false
 
 
 func hide_all() -> void:
@@ -212,7 +203,7 @@ func set_state(_kind: String) -> void:
 		return
 
 
-func update_from(runtime: Node, show_cues := true, show_readiness := true) -> void:
+func update_from(runtime: Node, show_readouts := true) -> void:
 	if _hint == null or not is_instance_valid(runtime):
 		return
 	var state := int(runtime.get("state"))
@@ -229,32 +220,19 @@ func update_from(runtime: Node, show_cues := true, show_readiness := true) -> vo
 			y_text = "Hold: exit"
 		_y_label.text = y_text
 
-	var show_thrust := show_readiness and state in [STATE_ACTIVE, STATE_CLIMAX]
+	var show_readout := show_readouts and state in [STATE_ACTIVE, STATE_CLIMAX]
 	if _readiness_bar != null:
-		_readiness_bar.visible = show_thrust
-		if show_thrust and _readiness_bar.has_method("set_value"):
+		_readiness_bar.visible = show_readout
+		if show_readout and _readiness_bar.has_method("set_value"):
 			_readiness_bar.call("set_value", float(runtime.get("satisfaction")))
-	if _readiness_line != null:
-		_readiness_line.visible = show_thrust
-		if show_thrust and runtime.has_method("thrust_hint"):
-			_readiness_line.text = str(runtime.call("thrust_hint"))
 
-	var status: PackedStringArray = []
-	if _hint.visible:
-		if show_cues:
-			var cue := str(runtime.get("cue"))
-			if not cue.is_empty():
-				status.append(cue)
-		if state in [STATE_ACTIVE, STATE_CLIMAX] and (climaxes > 0 or state == STATE_CLIMAX):
-			status.append("Climaxes · %d/5" % climaxes)
-		if runtime.has_method("close_hint"):
-			var close_text := str(runtime.call("close_hint"))
-			if not close_text.is_empty():
-				status.append(close_text)
-	_hint_status.text = "\n".join(status)
-	_hint_status.visible = not status.is_empty()
+	var line := ""
+	if _hint.visible and runtime.has_method("hud_cue_line"):
+		line = str(runtime.call("hud_cue_line", show_readouts))
+	_hint_status.text = line
+	_hint_status.visible = not line.is_empty()
 	if _hint_gap != null:
-		_hint_gap.visible = _hint_status.visible
+		_hint_gap.visible = _hint.visible
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary

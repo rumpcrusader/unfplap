@@ -12,9 +12,12 @@ choice. Camera/pose mechanics and aftercare are outside it.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`. Tiny jitter, pullbacks and outward strokes are
   presentation only: they do not update the axes or score readiness.
-- `strength = clamp(travel × clamp(peak_speed / 1.0, 0.35, 1.5), 0, 1)` remains the physical
-  force used by jiggle and wings. Peak speed is capped at `2 × average speed` so one bad mouse
-  sample cannot turn a soft stroke into a rough one.
+- `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)` is the intensity value.
+  The `0.15` floor lets a slow full-depth stroke read as soft. Average speed drives intensity;
+  peak speed is logged and capped at `2 × average speed`, but one fast sample cannot saturate
+  the score by itself.
+- Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned jiggle,
+  camera rock and wing response while slow or shallow strokes stay lighter.
 - `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses
   afterglow separately. Readiness now rises in discrete chunks from real thrusts, not on a
   passive timer.
@@ -24,7 +27,7 @@ choice. Camera/pose mechanics and aftercare are outside it.
 ```gdscript
 {
     "intensity": "firm",          # soft | firm | rough
-    "pattern": "steady",          # steady | building | teasing | quick
+    "pattern": "steady",          # steady | teasing | quick
     "touch": ["caress"],          # liked: smack, caress, kiss
     "dislikes": [],               # touch or talk dislike
     "talk": ["reassurance"],      # empty = talk does not score for her
@@ -44,13 +47,23 @@ choice. Camera/pose mechanics and aftercare are outside it.
 
 ## Settings editor
 
+The feature flags are one ungrouped list. Each row has a human label and a help line. Changes
+apply live during an act.
+
 `Settings → Unfplap` has a **Thrust** section:
 
 - mouse-up direction;
 - sensitivity in pixels per full thrust (`240…1200`, default `480`);
-- opt-in thrust bobs.
+- opt-in vertical camera bob on each thrust;
+- opt-in forward/back camera motion on each thrust.
 
-`Save thrust` writes only the `thrust` block and applies on the next act.
+It also has a **Camera rock** section:
+
+- impulse, stiffness, damping and maximum angle;
+- pitch share and roll share. Roll defaults to `0.0`, so the thrust rock is pitch-only.
+
+There are no Save buttons. Thrust and camera-rock controls write their own blocks immediately
+and apply live during an act.
 
 The **Character taste** section exposes one pony selector and one form:
 
@@ -60,10 +73,9 @@ The **Character taste** section exposes one pony selector and one form:
 - disliked touch and talk;
 - private notes.
 
-`Save taste` writes only `characters[id].taste`; it preserves that character's custom
-`event_prompts` and pose settings. `Reset to default` removes only the taste override.
-The runtime reads the merged taste at act start, so saved changes apply on the next act.
-`readiness_hud` and `afterglow_close` are normal feature toggles in the same tab.
+Taste edits save automatically and apply live during an act. `Reset to default` removes only the
+taste override and preserves that character's custom `event_prompts` and pose settings.
+`hud_readouts` is a normal feature toggle in the same tab; the horse close window is always on.
 
 ## The two continuous axes
 
@@ -85,14 +97,13 @@ the intensity axis can match.
 ```text
 teasing  mean travel < 0.38 and mean duration > 0.75 s
 quick    mean duration < 0.42 s and mean travel < 0.62
-building last travel > first travel × 1.25 and gain >= 0.08
 steady   otherwise
 ```
 
 ## Readiness
 
-`satisfaction` is readiness. It starts at 0 and caps at 100. The optional readiness HUD
-(`readiness_hud`, default `true`) shows a bar plus `Thrust: firm · steady · wants …`.
+`satisfaction` is readiness. It starts at 0 and caps at 100. The optional HUD readouts
+(`hud_readouts`, default `true`) show a short bar plus `Wants: firm & steady | You: …`.
 
 ```text
 both axes match       +1.4 per real thrust × warmth
@@ -109,8 +120,8 @@ disliked touch/talk   -6.0 once and 1.2 s overwhelmed
 - Touch/talk cannot take her past `ASSIST_CAP = 60`. At the cap, caress says “She needs more
   than your hands”; talk says “She needs you to move.”
 - The pattern/intensity memory clears after 1.2 s without a real thrust.
-- Cooling means no positive heat for 3 s. It is recoverable: thrust in her rhythm, touch her,
-  or answer her. No hard stop from a mismatch.
+- Readiness never decays on its own. Only a disliked touch or talk subtracts. No hard stop from
+  a mismatch; stopping and waiting simply pauses progress.
 
 ## Mood and cues
 
@@ -119,15 +130,15 @@ warming       readiness < 40
 wanting       40 <= readiness < 65
 close         readiness >= 65
 climax        the pony is in her 5 s climax
-cooling       no positive heat for 3 s and readiness is falling
 overwhelmed   a disliked touch/talk landed recently
 ```
 
 - `CLOSE_AT = 65` is only the “she's close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
 - A **talk cue** is an invitation, not a gate. It can appear while `mood == wanting` for a
-  mare with a non-empty `talk` taste. The HUD shows `T · Answer her`. The player's reply is
-  the director's player turn; the runtime drops the cue's pending line and scores the reply.
+  mare with a non-empty `talk` taste. The HUD cue is “She needs to hear you.” and the player
+  uses `T`. The player's reply is the director's player turn; the runtime drops the cue's
+  pending line and scores the reply.
 
 ## Pony climax
 
@@ -160,7 +171,7 @@ Hold `Y`:
 
 ### Horse close window
 
-`afterglow_close` (default `true`) starts an 8 s window in the horse afterglow only:
+The horse afterglow always starts an 8 s close window:
 
 - the HUD shows `Stay close · 8s · caress`;
 - A/D caress time is counted while a hand is active;
@@ -188,17 +199,19 @@ arrive late. `event_prompts.stay_close` is its per-character override.
 
 ## HUD
 
-- `readiness_hud` (default `true`) shows a 0–100 readiness bar with ticks at the touch cap
-  (`60`) and the close cue (`65`), plus `Thrust: … · wants …`.
+- `hud_readouts` (default `true`) shows the cue, a short 0–100 bar with no ticks, and the
+  `Wants`/`You` segments.
+- Top to bottom: one status line
+  `❤ N/5 | cue | Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank
+  separator, controls.
+- When readouts are off, the hearts remain; the cue, bar and `Wants`/`You` segments are hidden.
 - There is no penetration/depth bar; the thrust mechanic and `thrust.orientation` still apply.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.
-- A climax count is shown above the controls; the short mood cue is gated by `mood_cues`
-  (default `true`). The horse afterglow close cue is independent of `mood_cues`.
-- Afterglow hides controls that cannot act: missionary keeps only `Y`; horse keeps forward/back,
-  Q/E reach, A/D caress, F kiss, H and Y.
+- Afterglow shows `❤ N/5 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
+  horse keeps forward/back, Q/E reach, A/D caress, F kiss, H and Y.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
-  bottom caption; `caption_top` defaults to `true`.
+  bottom caption; `captions_on_top` defaults to `true`.
 - `debug_logs` gates the detailed overlay, not the HUD.
 
 ## Touch and talk classification
@@ -218,7 +231,7 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 | Character | Intensity | Pattern | Touch | Talk | Warmth | Recovery |
 |---|---|---|---|---|---|---|
 | Twilight | firm | steady | kiss | curious, praise | normal | 20 |
-| Fluttershy | firm | building | caress | reassurance | slow | 12 |
+| Fluttershy | firm | steady | caress | reassurance | slow | 12 |
 | Rarity | soft | steady | caress | praise | normal | 18 |
 | Pinkie | firm | quick | smack | playful | quick | 35 |
 | Applejack | firm | steady | caress, smack | praise, reassurance | normal | 24 |
@@ -228,9 +241,9 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 | Octavia | soft | steady | caress | praise | slow | 15 |
 | Vinyl | rough | quick | smack, kiss | playful | quick | 32 |
 | Berry | rough | quick | smack | playful, dirty | quick | 30 |
-| Cheerilee | firm | building | caress | praise, reassurance | normal | 20 |
+| Cheerilee | firm | steady | caress | praise, reassurance | normal | 20 |
 | Maud | soft | steady | caress | none (quiet) | slow | 10 |
-| Trixie | firm | building | kiss | praise, playful | quick | 28 |
+| Trixie | firm | steady | kiss | praise, playful | quick | 28 |
 | Zecora | firm | steady | caress | curious, reassurance | slow | 18 |
 | Spitfire | rough | quick | smack | praise, playful | normal | 26 |
 | Default | firm | steady | none | none | normal | 20 |

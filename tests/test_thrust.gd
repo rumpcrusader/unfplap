@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_thrust.gd
 
 const THRUST := preload("res://mods/unfplap/thrust.gd")
+const PREF := preload("res://mods/unfplap/preferences.gd")
 var failures := 0
 var checks := 0
 
@@ -31,16 +32,18 @@ func run() -> void:
 	var events: Array = tracker.move(2.0, 0.0)
 	check(events.is_empty(), "overshoot emits no stroke yet")
 	check(near(tracker.depth, 1.0), "depth clamps at 1")
-	events = tracker.move(-2.0, 0.5)
+	events = tracker.move(-2.0, 0.25)
 	check(events.size() == 1, "reversal closes the inward stroke")
 	var inward: Dictionary = events[0]
 	check(int(inward.get("direction", 0)) == 1, "inward direction")
 	check(bool(inward.get("thrust", false)), "full inward travel is a thrust")
 	check(near(float(inward.get("travel", 0.0)), 1.0), "inward travel")
-	check(near(float(inward.get("duration", 0.0)), 0.5), "inward duration")
-	check(near(float(inward.get("speed", 0.0)), 2.0), "inward speed")
-	check(near(float(inward.get("peak_speed", 0.0)), 2.0), "inward peak speed")
-	check(near(float(inward.get("strength", 0.0)), 1.0), "full deep thrust strength")
+	check(near(float(inward.get("duration", 0.0)), 0.25), "inward duration")
+	check(near(float(inward.get("speed", 0.0)), 4.0), "inward speed")
+	check(near(float(inward.get("peak_speed", 0.0)), 4.0), "inward peak speed")
+	check(near(float(inward.get("strength", 0.0)), 0.5), "full deep thrust strength")
+	check(PREF.intensity_for(float(inward.get("strength", 0.0))) == "firm",
+		"full normal-speed thrust reads firm")
 	check(not inward.has("base_gain"), "stroke has no base gain")
 	events = tracker.tick(0.8)
 	check(events.size() == 1, "idle outward stroke closes on timeout")
@@ -80,6 +83,22 @@ func run() -> void:
 	var speed := float(smoothed_event.get("speed", 0.0))
 	var peak := float(smoothed_event.get("peak_speed", 0.0))
 	check(peak <= speed * THRUST.PEAK_SPEED_CAP + 0.0001, "peak speed is capped against average")
+
+	var slow_full: RefCounted = THRUST.new()
+	slow_full.move(1.0, 0.0)
+	events = slow_full.move(-1.0, 2.0)
+	check(events.size() == 1, "slow full-depth stroke closes")
+	var slow_strength := float((events[0] as Dictionary).get("strength", 0.0))
+	check(near(slow_strength, 0.15), "slow full-depth strength is soft")
+	check(PREF.intensity_for(slow_strength) == "soft", "slow full-depth reads soft")
+
+	var fast_full: RefCounted = THRUST.new()
+	fast_full.move(1.0, 0.0)
+	events = fast_full.move(-1.0, 0.15)
+	check(events.size() == 1, "fast full-depth stroke closes")
+	var fast_strength := float((events[0] as Dictionary).get("strength", 0.0))
+	check(near(fast_strength, 5.0 / 6.0, 0.001), "fast full-depth strength is high")
+	check(PREF.intensity_for(fast_strength) == "rough", "fast full-depth reads rough")
 
 	var reset: RefCounted = THRUST.new()
 	reset.move(0.5, 0.0)

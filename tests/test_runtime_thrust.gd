@@ -31,13 +31,13 @@ func _runtime() -> Node:
 		"intensity": "firm",
 		"pattern": "steady",
 		"touch": ["caress"],
+		"dislikes": ["smack"],
 		"talk": ["praise"],
 		"warmth": "normal",
 		"recovery": 25,
 	})
 	runtime._thrust_tracker = THRUST.new()
 	runtime.state = 2 # ACTIVE
-	runtime._last_heat_at = runtime._now_s()
 	runtime._last_touch_at = -1000.0
 	runtime._last_talk_at = -1000.0
 	return runtime
@@ -49,9 +49,9 @@ func run() -> void:
 	runtime._thrust_move(-0.15, 0.1)
 	check(str(runtime._last_intensity).is_empty(), "tiny stroke does not feed the axes")
 	runtime._thrust_move(1.0, 0.2)
-	runtime._thrust_move(-1.0, 0.7)
+	runtime._thrust_move(-1.0, 0.45)
 	check(not str(runtime._last_intensity).is_empty(), "real thrust classifies intensity")
-	check(near(runtime.satisfaction, 0.0), "a single stroke does not add readiness yet")
+	check(near(runtime.satisfaction, 0.7), "a single matching axis adds only the one-axis chunk")
 
 	runtime._last_intensity = "firm"
 	runtime._last_pattern = "steady"
@@ -60,8 +60,8 @@ func run() -> void:
 	runtime._score_thrust()
 	check(runtime.satisfaction > 1.0, "matching both axes adds readiness")
 	var before: float = runtime.satisfaction
-	runtime._readiness_tick(1.0)
-	check(near(runtime.satisfaction, before), "readiness does not rise without a real thrust")
+	runtime._readiness_tick(10.0)
+	check(near(runtime.satisfaction, before), "readiness does not decay on its own")
 
 	before = runtime.satisfaction
 	runtime._on_touch("caress")
@@ -72,6 +72,14 @@ func run() -> void:
 	before = runtime.satisfaction
 	runtime._on_touch("smack")
 	check(near(runtime.satisfaction, before), "shared touch cooldown blocks a second chunk")
+	runtime._last_touch_at = -1000.0
+	before = runtime.satisfaction
+	runtime._on_touch("kiss")
+	check(near(runtime.satisfaction, before), "neutral touch does not change readiness")
+	runtime._last_touch_at = -1000.0
+	before = runtime.satisfaction
+	runtime._on_touch("smack")
+	check(runtime.satisfaction < before, "disliked touch lowers readiness")
 
 	runtime.satisfaction = 59.0
 	runtime._last_touch_at = -1000.0

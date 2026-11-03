@@ -7,7 +7,7 @@ extends RefCounted
 ## classifies the player's input.
 
 const INTENSITIES := ["soft", "firm", "rough"]
-const PATTERNS := ["steady", "building", "teasing", "quick"]
+const PATTERNS := ["steady", "teasing", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "curious", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
@@ -35,8 +35,6 @@ const TEASE_TRAVEL := 0.38
 const TEASE_DURATION := 0.75
 const QUICK_DURATION := 0.42
 const QUICK_TRAVEL := 0.62
-const BUILD_RATIO := 1.25
-const BUILD_MIN_GAIN := 0.08
 
 
 static func defaults() -> Dictionary:
@@ -84,8 +82,6 @@ static func pattern_for(strokes: Array) -> String:
 		return ""
 	var travel_total := 0.0
 	var duration_total := 0.0
-	var first_travel := 0.0
-	var last_travel := 0.0
 	for index in strokes.size():
 		var stroke: Variant = strokes[index]
 		if not stroke is Dictionary:
@@ -94,9 +90,6 @@ static func pattern_for(strokes: Array) -> String:
 		var duration := maxf(0.001, float((stroke as Dictionary).get("duration", 0.001)))
 		travel_total += travel
 		duration_total += duration
-		if index == 0:
-			first_travel = travel
-		last_travel = travel
 	var count := float(strokes.size())
 	var mean_travel := travel_total / count
 	var mean_duration := duration_total / count
@@ -104,8 +97,6 @@ static func pattern_for(strokes: Array) -> String:
 		return "teasing"
 	if mean_duration < QUICK_DURATION and mean_travel < QUICK_TRAVEL:
 		return "quick"
-	if last_travel > first_travel * BUILD_RATIO and last_travel - first_travel >= BUILD_MIN_GAIN:
-		return "building"
 	return "steady"
 
 

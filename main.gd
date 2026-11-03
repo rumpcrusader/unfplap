@@ -150,7 +150,7 @@ func _on_world_closed(_host: Node) -> void:
 ## Move the game's bottom dialogue caption to the top only when the player chose the explicit
 ## bottom-caption mode. "Over the pony's head" and "auto" are left untouched.
 func _caption_top_enabled() -> bool:
-	if not SETTINGS.feature("caption_top"):
+	if not SETTINGS.feature("captions_on_top"):
 		return false
 	var settings := get_node_or_null("/root/Settings")
 	if settings == null:
@@ -175,6 +175,11 @@ func _on_node_added(node: Node) -> void:
 func _on_game_setting_changed(key: String) -> void:
 	if key == "access/speech_text":
 		_apply_caption_top()
+
+
+func _apply_live_settings() -> void:
+	if is_instance_valid(active_runtime) and active_runtime.has_method("apply_live_settings"):
+		active_runtime.call("apply_live_settings")
 
 
 func _on_player(body: Node) -> void:
@@ -297,7 +302,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 6)
 	ui.add_child(heading)
 	var note := Label.new()
-	note.text = "Feature flags and per-character taste. Most apply on the next act; Caption Top applies immediately."
+	note.text = "Feature flags, thrust/camera-rock tuning and per-character taste. Changes apply live during an act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	ui.add_child(note)
@@ -310,13 +315,15 @@ func _inject_settings_page_now(page: Node) -> void:
 	list.add_theme_constant_override("separation", 8)
 	scroll_box.add_child(list)
 	for key: String in SETTINGS.FEATURE_DEFAULTS:
-		if key == "settings_tab":
-			continue
+		var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
+		var block := VBoxContainer.new()
+		block.add_theme_constant_override("separation", 2)
+		list.add_child(block)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 12)
-		list.add_child(row)
+		block.add_child(row)
 		var label := Label.new()
-		label.text = key.replace("_", " ").capitalize()
+		label.text = str(info.get("label", key.replace("_", " ").capitalize()))
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.add_theme_font_size_override("font_size", font_size)
@@ -325,19 +332,23 @@ func _inject_settings_page_now(page: Node) -> void:
 		toggle.button_pressed = SETTINGS.feature(key)
 		toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(toggle)
+		var help := Label.new()
+		help.text = str(info.get("help", ""))
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.add_theme_font_size_override("font_size", font_size - 5)
+		help.modulate = Color(1.0, 1.0, 1.0, 0.72)
+		block.add_child(help)
 		var feature_key := key
+		var live := bool(info.get("live", false))
 		toggle.toggled.connect(func(on: bool) -> void:
 			SETTINGS.save_feature(feature_key, on)
 			_debug("feature %s=%s" % [feature_key, str(on)])
-			if feature_key == "caption_top":
+			if live:
 				_apply_caption_top()
+			_apply_live_settings()
 			page.call("_redraw"))
-	var text_only_note := Label.new()
-	text_only_note.text = "act_text_only_ponese keeps the act's text and mutes only her Ponese voice."
-	text_only_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_only_note.add_theme_font_size_override("font_size", font_size - 5)
-	list.add_child(text_only_note)
 	_add_thrust_section(list, font_size)
+	_add_camera_rock_section(list, font_size)
 	_add_taste_section(list, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
@@ -417,7 +428,7 @@ func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Mouse thrust controls. Changes apply on the next act."
+	note.text = "Mouse thrust controls. Changes apply live during an act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
@@ -449,34 +460,111 @@ func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	pixels.add_theme_font_size_override("font_size", font_size - 2)
 	form.add_child(pixels)
 
-	var bobs_label := Label.new()
-	bobs_label.text = "Thrust bobs"
-	bobs_label.add_theme_font_size_override("font_size", font_size)
-	form.add_child(bobs_label)
-	var bobs := CheckButton.new()
-	bobs.text = "Camera/bob motion on each thrust"
-	bobs.add_theme_font_size_override("font_size", font_size - 3)
-	form.add_child(bobs)
+	var bob_label := Label.new()
+	bob_label.text = "Camera bob"
+	bob_label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(bob_label)
+	var camera_bob := CheckButton.new()
+	camera_bob.text = "Vertical camera bob on each thrust"
+	camera_bob.add_theme_font_size_override("font_size", font_size - 3)
+	form.add_child(camera_bob)
+
+	var motion_label := Label.new()
+	motion_label.text = "Camera motion"
+	motion_label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(motion_label)
+	var camera_motion := CheckButton.new()
+	camera_motion.text = "Forward/back camera motion on each thrust"
+	camera_motion.add_theme_font_size_override("font_size", font_size - 3)
+	form.add_child(camera_motion)
 
 	var controls := SETTINGS.thrust_controls()
 	orientation.selected = 0 if bool(controls.get("up", true)) else 1
 	pixels.value = float(controls.get("pixels_per_full", 480.0))
-	bobs.button_pressed = bool(controls.get("bobs", false))
+	camera_bob.button_pressed = bool(controls.get("camera_bob", false))
+	camera_motion.button_pressed = bool(controls.get("camera_motion", false))
 
-	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 12)
-	list.add_child(buttons)
-	var save := Button.new()
-	save.text = "Save thrust"
-	buttons.add_child(save)
-	var status := Label.new()
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size", font_size - 4)
-	list.add_child(status)
-	save.pressed.connect(func() -> void:
-		SETTINGS.save_thrust_controls(orientation.selected == 0, pixels.value, bobs.button_pressed)
-		status.text = "Saved thrust controls. Applies next act."
-		_debug("thrust controls saved"))
+	orientation.item_selected.connect(func(_index: int) -> void:
+		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
+	pixels.value_changed.connect(func(_value: float) -> void:
+		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
+	camera_bob.toggled.connect(func(_on: bool) -> void:
+		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
+	camera_motion.toggled.connect(func(_on: bool) -> void:
+		_save_thrust_controls(orientation, pixels, camera_bob, camera_motion))
+
+
+func _save_thrust_controls(orientation: OptionButton, pixels: SpinBox,
+		camera_bob: CheckButton, camera_motion: CheckButton) -> void:
+	SETTINGS.save_thrust_controls(orientation.selected == 0, pixels.value,
+		camera_bob.button_pressed, camera_motion.button_pressed)
+	_apply_live_settings()
+
+
+func _add_camera_rock_section(list: VBoxContainer, font_size: int) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Camera rock"
+	heading.add_theme_font_size_override("font_size", font_size + 2)
+	list.add_child(heading)
+	var note := Label.new()
+	note.text = "Thrust camera spring. Roll share 0 keeps the rock pitch-only. Changes apply live during an act."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(note)
+
+	var form := GridContainer.new()
+	form.columns = 2
+	form.add_theme_constant_override("h_separation", 16)
+	form.add_theme_constant_override("v_separation", 8)
+	list.add_child(form)
+	var controls := SETTINGS.camera_rock_controls()
+	var impulse := _camera_rock_spin(form, "Impulse (rad/s)", 0.0, 2.0, 0.05,
+		float(controls.get("impulse", 0.50)), font_size)
+	var stiffness := _camera_rock_spin(form, "Stiffness", 5.0, 200.0, 1.0,
+		float(controls.get("stiffness", 45.0)), font_size)
+	var damping := _camera_rock_spin(form, "Damping", 0.0, 50.0, 0.5,
+		float(controls.get("damping", 8.0)), font_size)
+	var limit_deg := _camera_rock_spin(form, "Max angle (deg)", 0.0, 20.0, 0.5,
+		rad_to_deg(float(controls.get("limit", 0.055))), font_size)
+	var pitch_ratio := _camera_rock_spin(form, "Pitch share", 0.0, 2.0, 0.05,
+		float(controls.get("pitch_ratio", 1.0)), font_size)
+	var roll_ratio := _camera_rock_spin(form, "Roll share", 0.0, 2.0, 0.05,
+		float(controls.get("roll_ratio", 0.0)), font_size)
+
+	var save_rock := func(_value: float) -> void:
+		_save_camera_rock_controls(impulse, stiffness, damping, limit_deg, pitch_ratio, roll_ratio)
+	for spin: SpinBox in [impulse, stiffness, damping, limit_deg, pitch_ratio, roll_ratio]:
+		spin.value_changed.connect(save_rock)
+
+
+func _save_camera_rock_controls(impulse: SpinBox, stiffness: SpinBox, damping: SpinBox,
+		limit_deg: SpinBox, pitch_ratio: SpinBox, roll_ratio: SpinBox) -> void:
+	SETTINGS.save_camera_rock_controls({
+		"impulse": impulse.value,
+		"stiffness": stiffness.value,
+		"damping": damping.value,
+		"limit": deg_to_rad(limit_deg.value),
+		"pitch_ratio": pitch_ratio.value,
+		"roll_ratio": roll_ratio.value,
+	})
+	_apply_live_settings()
+
+
+func _camera_rock_spin(form: GridContainer, label_text: String, minimum: float,
+		maximum: float, step: float, value: float, font_size: int) -> SpinBox:
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(label)
+	var spin := SpinBox.new()
+	spin.min_value = minimum
+	spin.max_value = maximum
+	spin.step = step
+	spin.value = value
+	spin.add_theme_font_size_override("font_size", font_size - 2)
+	form.add_child(spin)
+	return spin
 
 
 func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
@@ -486,7 +574,7 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 2)
 	list.add_child(heading)
 	var note := Label.new()
-	note.text = "Taste is read at the start of an act. Changes apply on the next act."
+	note.text = "Taste changes apply live during an act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
@@ -519,15 +607,9 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	form.add_child(notes_label)
 	form.add_child(notes)
 
-	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 12)
-	list.add_child(buttons)
-	var save := Button.new()
-	save.text = "Save taste"
-	buttons.add_child(save)
 	var reset := Button.new()
 	reset.text = "Reset to default"
-	buttons.add_child(reset)
+	list.add_child(reset)
 	var status := Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", font_size - 4)
@@ -545,9 +627,29 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 		"talk_dislikes": talk_dislikes,
 		"notes": notes,
 		"status": status,
+		"refreshing": false,
 	}
 	selector.item_selected.connect(func(_index: int) -> void: _refresh_taste_form(refs))
-	save.pressed.connect(func() -> void: _save_taste_form(refs))
+	for control: OptionButton in [intensity, pattern, warmth]:
+		control.item_selected.connect(func(_index: int) -> void:
+			_save_taste_form(refs, false))
+	recovery.value_changed.connect(func(_value: float) -> void:
+		_save_taste_form(refs, false))
+	for checks: Dictionary in [touch_likes, talk_likes, touch_dislikes, talk_dislikes]:
+		for key: String in checks:
+			(checks[key] as CheckButton).toggled.connect(func(_on: bool) -> void:
+				_save_taste_form(refs, false))
+	var notes_timer := Timer.new()
+	notes_timer.one_shot = true
+	notes_timer.wait_time = 0.4
+	list.add_child(notes_timer)
+	notes.text_changed.connect(func() -> void:
+		if not bool(refs.get("refreshing", false)):
+			notes_timer.start())
+	notes.focus_exited.connect(func() -> void:
+		notes_timer.stop()
+		_save_taste_form(refs, false))
+	notes_timer.timeout.connect(func() -> void: _save_taste_form(refs, false))
 	reset.pressed.connect(func() -> void: _reset_taste_form(refs))
 	_refresh_taste_form(refs)
 
@@ -607,7 +709,9 @@ func _selected_taste_id(refs: Dictionary) -> String:
 func _refresh_taste_form(refs: Dictionary) -> void:
 	var id := _selected_taste_id(refs)
 	if id.is_empty():
+		refs["refreshing"] = false
 		return
+	refs["refreshing"] = true
 	var taste := SETTINGS.taste(id)
 	_select_taste_value(refs.get("intensity"), TASTE.INTENSITIES, str(taste.get("intensity", "firm")))
 	_select_taste_value(refs.get("pattern"), TASTE.PATTERNS, str(taste.get("pattern", "steady")))
@@ -625,6 +729,7 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	var status: Variant = refs.get("status")
 	if status is Label:
 		(status as Label).text = "Editing %s" % SETTINGS.character_name(id)
+	refs["refreshing"] = false
 
 
 func _select_taste_value(control: Variant, values: Array, selected_value: String) -> void:
@@ -647,7 +752,7 @@ func _set_taste_checks(control: Variant, values: Array, selected: Variant) -> vo
 		var key := str(value)
 		var check: Variant = checks.get(key)
 		if check is CheckButton:
-			(check as CheckButton).button_pressed = key in selected_list
+			(check as CheckButton).set_pressed_no_signal(key in selected_list)
 
 
 func _checked_taste_values(control: Variant, values: Array) -> Array:
@@ -662,7 +767,9 @@ func _checked_taste_values(control: Variant, values: Array) -> Array:
 	return out
 
 
-func _save_taste_form(refs: Dictionary) -> void:
+func _save_taste_form(refs: Dictionary, refresh := true) -> void:
+	if bool(refs.get("refreshing", false)):
+		return
 	var id := _selected_taste_id(refs)
 	if id.is_empty():
 		return
@@ -679,11 +786,12 @@ func _save_taste_form(refs: Dictionary) -> void:
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
 	SETTINGS.save_taste(id, taste)
-	_refresh_taste_form(refs)
+	_apply_live_settings()
+	if refresh:
+		_refresh_taste_form(refs)
 	var status: Variant = refs.get("status")
 	if status is Label:
-		(status as Label).text = "Saved %s." % SETTINGS.character_name(id)
-	_debug("taste saved id=%s" % id)
+		(status as Label).text = "Saved %s live." % SETTINGS.character_name(id)
 
 
 func _reset_taste_form(refs: Dictionary) -> void:
@@ -692,6 +800,7 @@ func _reset_taste_form(refs: Dictionary) -> void:
 		return
 	SETTINGS.reset_taste(id)
 	_refresh_taste_form(refs)
+	_apply_live_settings()
 	var status: Variant = refs.get("status")
 	if status is Label:
 		(status as Label).text = "Reset %s to its default taste." % SETTINGS.character_name(id)
@@ -731,13 +840,10 @@ func _process(delta: float) -> void:
 	if is_instance_valid(active_runtime):
 		active_runtime.apply_camera_motion()
 		if is_instance_valid(hud):
-			var show_cues := true
-			if active_runtime.has_method("mood_cues"):
-				show_cues = bool(active_runtime.call("mood_cues"))
-			var show_readiness := true
-			if active_runtime.has_method("readiness_hud"):
-				show_readiness = bool(active_runtime.call("readiness_hud"))
-			hud.update_from(active_runtime, show_cues, show_readiness)
+			var show_readouts := true
+			if active_runtime.has_method("hud_readouts"):
+				show_readouts = bool(active_runtime.call("hud_readouts"))
+			hud.update_from(active_runtime, show_readouts)
 		_offer = {}
 		_sync_native_hint(false)
 		return

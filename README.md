@@ -36,7 +36,7 @@ Desktop only for now
 - **Thrust and taste editors** — Tune mouse sensitivity and each pony's taste in `Settings → Unfplap`.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
 - **HUD** — Shows the act controls list, readiness meter, optional mood cues and climax count.
-- **Act camera** — Offers a controlled lean camera with optional thrust bob.
+- **Act camera** — Offers a controlled lean camera with optional thrust bob and motion.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active (experimental).
 - **Presentation** — Adds blush, eyes, ears, tail, jiggle, audio and wing motion.

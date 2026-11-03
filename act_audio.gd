@@ -124,7 +124,7 @@ func play(cue: String, at: Vector3, strength := 1.0,
 	var index := next_index(variants.size(), int(_last.get(cue, -1)),
 		_rng.randi_range(0, variants.size() - 1))
 	_last[cue] = index
-	var player := _take_player(cue, config)
+	var player := _take_player(cue)
 	if player == null:
 		return false
 	var level := clampf(strength, 0.0, 1.0)
@@ -139,7 +139,7 @@ func play(cue: String, at: Vector3, strength := 1.0,
 	return true
 
 
-func _take_player(cue: String, config: Dictionary) -> AudioStreamPlayer3D:
+func _take_player(cue: String) -> AudioStreamPlayer3D:
 	var players: Array = _pools.get(cue, [])
 	if players.is_empty():
 		return null

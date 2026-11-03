@@ -154,10 +154,25 @@ const PRESENTATION_DEFAULTS := {
 		"pullback": 0.22,
 		"side_lean": 0.20,
 		"pitch_deg": 0.0,
+		"neck1_deg": 7.5,
+		"neck2_deg": 7.5,
+		"neck_roll_deg": 0.0,
+		"head_pitch_deg": 0.0,
+		"head_roll_deg": 0.0,
 	},
 	"horse": {
 		"glance_back_speed": 2.0,
 		"torso_angle_deg": 15.0,
+		"kiss": {
+			"mouth_right": 0.0,
+			"mouth_drop": 0.07,
+			"mouth_forward": 0.02,
+			"camera_yaw_deg": 10.0,
+			"lean_side": 0.18,
+			"lean_forward": 0.27,
+			"lean_drop": 0.035,
+			"forelegs": "planted",
+		},
 		"caress": {
 			"palm_distance": 0.04,
 			"palm_scale": {
@@ -556,6 +571,17 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 					ignore.append(name)
 		caress["ignore"] = ignore
 		out["caress"] = caress
+		var kiss: Dictionary = out.get("kiss", {})
+		kiss["mouth_right"] = clampf(float(kiss.get("mouth_right", 0.0)), -0.5, 0.5)
+		kiss["mouth_drop"] = clampf(float(kiss.get("mouth_drop", 0.07)), -0.5, 0.5)
+		kiss["mouth_forward"] = clampf(float(kiss.get("mouth_forward", 0.02)), -0.5, 0.5)
+		kiss["camera_yaw_deg"] = clampf(float(kiss.get("camera_yaw_deg", 10.0)), -60.0, 60.0)
+		kiss["lean_side"] = clampf(float(kiss.get("lean_side", 0.18)), 0.0, 0.8)
+		kiss["lean_forward"] = clampf(float(kiss.get("lean_forward", 0.27)), 0.0, 0.8)
+		kiss["lean_drop"] = clampf(float(kiss.get("lean_drop", 0.035)), 0.0, 0.3)
+		var forelegs := str(kiss.get("forelegs", "planted")).to_lower()
+		kiss["forelegs"] = forelegs if forelegs in ["planted", "base"] else "planted"
+		out["kiss"] = kiss
 	return out
 
 

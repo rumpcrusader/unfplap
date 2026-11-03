@@ -30,7 +30,10 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_bend_forelegs(rig, sk, weight, 0.3)
 	_raise_hind_legs(rig, sk, weight)
 	_hug_forelegs(rig, sk, weight)
-	_neck_lift(rig, sk, weight, _value("neck_lift_deg", POSE1_NECK_LIFT_DEG))
+	var lift := _value("neck_lift_deg", POSE1_NECK_LIFT_DEG)
+	_neck_bend(rig, sk, weight,
+		_value("neck1_deg", lift * 0.5), _value("neck2_deg", lift * 0.5))
+	_neck_roll(rig, sk, weight, _value("neck_roll_deg", 0.0))
 	var pulse := 1.0 if bool(state.get("climaxing", false)) else _nuzzle_pulse(float(state.get("clock", 0.0)))
 	if bool(state.get("climaxing", false)):
 		pulse = 0.75 + 0.25 * sin(float(state.get("clock", 0.0)) * 4.0)
@@ -38,6 +41,7 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	if pulse > 0.001 and look_point.is_finite():
 		look_point = _nuzzle_look_point(rig, sk, look_point, pulse)
 	_aim_gaze(rig, sk, weight, look_point)
+	_head_pitch(rig, sk, weight, _value("head_pitch_deg", 0.0))
 	_roll_head(rig, sk, weight, float(state.get("head_roll", 0.0)))
 
 
@@ -311,15 +315,39 @@ func _nuzzle_look_point(rig, sk: Skeleton3D, look_point: Vector3, pulse: float) 
 	return look_point + offset
 
 
-## Lift the head off the mattress by bending the neck "down" in the standing model. It runs
-## before `_aim_gaze()` so it changes her head position, not the final face direction.
-func _neck_lift(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
+## Bend each neck bone separately. Positive angles lift the head off the mattress in the supine
+## pose; zero straightens the neck. It runs before `_aim_gaze()` so it changes position, not the
+## final face direction.
+func _neck_bend(rig, sk: Skeleton3D, weight: float, neck1_deg: float, neck2_deg: float) -> void:
+	if rig.neck.size() < 2:
+		return
+	var right: Vector3 = rig.right_axis(sk)
+	if absf(neck1_deg) > 0.0001:
+		rig.rotate(sk, rig.neck[0], right, deg_to_rad(neck1_deg) * weight)
+	if absf(neck2_deg) > 0.0001:
+		rig.rotate(sk, rig.neck[1], right, deg_to_rad(neck2_deg) * weight)
+
+
+## Roll the neck away from the mattress about the body's long axis. The gaze solve runs after
+## this, so the face returns to Anon while the nape shifts sideways.
+func _neck_roll(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
 	if rig.neck.size() < 2 or absf(degrees) < 0.0001:
 		return
 	var angle := deg_to_rad(degrees) * weight
-	var right: Vector3 = rig.right_axis(sk)
-	rig.rotate(sk, rig.neck[0], right, angle * 0.5)
-	rig.rotate(sk, rig.neck[1], right, angle * 0.5)
+	var forward: Vector3 = rig.forward_axis(sk)
+	rig.rotate(sk, rig.neck[0], forward, angle * 0.5)
+	rig.rotate(sk, rig.neck[1], forward, angle * 0.5)
+
+
+## Final head pitch after the gaze solve. This intentionally trades a little exact aim for a
+## natural head angle; the presentation control is a debug offset.
+func _head_pitch(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
+	if rig.neck.is_empty() or absf(degrees) < 0.0001:
+		return
+	var head: int = rig.neck[rig.neck.size() - 1]
+	if head < 0:
+		return
+	rig.rotate(sk, head, rig.right_axis(sk), deg_to_rad(degrees) * weight)
 
 
 func _nuzzle_pulse(clock: float) -> float:

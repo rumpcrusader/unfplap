@@ -161,10 +161,35 @@ func run() -> void:
 		"default missionary side-lean forward")
 	check(near(float(missionary_defaults.get("pitch_deg", -1.0)), 0.0),
 		"default missionary pitch")
+	check(near(float(missionary_defaults.get("neck1_deg", 0.0)), 7.5),
+		"default missionary neck1")
+	check(near(float(missionary_defaults.get("neck2_deg", 0.0)), 7.5),
+		"default missionary neck2")
+	check(near(float(missionary_defaults.get("neck_roll_deg", -1.0)), 0.0),
+		"default missionary neck roll")
+	check(near(float(missionary_defaults.get("head_pitch_deg", -1.0)), 0.0),
+		"default missionary head pitch")
+	check(near(float(missionary_defaults.get("head_roll_deg", -1.0)), 0.0),
+		"default missionary head roll")
 	check(near(float(horse_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
 	check(near(float(horse_defaults.get("torso_angle_deg", -1.0)), 15.0),
 		"default Anon torso lean")
+	var kiss_defaults: Dictionary = horse_defaults.get("kiss", {})
+	check(near(float(kiss_defaults.get("mouth_drop", 0.0)), 0.07),
+		"default kiss mouth drop")
+	check(near(float(kiss_defaults.get("mouth_forward", 0.0)), 0.02),
+		"default kiss mouth forward")
+	check(near(float(kiss_defaults.get("camera_yaw_deg", 0.0)), 10.0),
+		"default kiss camera yaw")
+	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.18),
+		"default kiss side lean")
+	check(near(float(kiss_defaults.get("lean_forward", 0.0)), 0.27),
+		"default kiss forward lean")
+	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.035),
+		"default kiss lean drop")
+	check(str(kiss_defaults.get("forelegs", "")) == "planted",
+		"default kiss forelegs planted")
 	var caress_defaults: Dictionary = horse_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.04),
 		"default caress palm distance")

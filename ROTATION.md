@@ -52,10 +52,11 @@ Exact order:
    - femur target `(up * 0.75 + forward * 0.45).normalized()`
    - knee bend `-0.55` around `right`.
 10. `_hug_forelegs()`.
-11. `_neck_lift(neck_lift_deg)` around the body right axis on `pony_neck1`/`pony_neck2` (half
-    each). Default `15°`. This is a posture offset and runs before the gaze solve, so it moves
-    her head off the mattress without tilting her final gaze. In the standing model this is the
-    chin-down direction, which becomes an upward head lift on her back.
+11. `_neck_bend(neck1_deg, neck2_deg)` about the body right axis on `pony_neck1`/`pony_neck2`.
+    The presentation defaults are `7.5°` each (the old 15° split); zero straightens the neck.
+    `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both are
+    posture offsets and run before the gaze solve, so they move her head off the mattress
+    without tilting her final gaze.
 12. Nuzzle
     - `_nuzzle_pulse()`: 0→1→0 over `NUZZLE_DURATION` every `NUZZLE_PERIOD`.
     - offsets the gaze target by the small angle `nuzzle_scale * 8°`; base gaze remains on Anon.
@@ -68,6 +69,8 @@ Exact order:
       ceiling.
     - neck shares `[0.30, 0.36, 0.34]`; `rig.rotate()` applies the native joint limits.
     - the kiss target is already the runtime's `look_point`, so the old extra kiss aim is gone.
+    - after the solve, `_head_pitch(head_pitch_deg)` rotates the head about the body right axis.
+      This intentionally trades a little exact aim for a natural head angle.
 14. `_roll_head(head_roll)` around `forward`, head only.
 15. Dump once at weight > 0.9 if debug is on.
 

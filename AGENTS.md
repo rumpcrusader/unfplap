@@ -84,14 +84,17 @@ scripts/smoke.sh
   The printed output is the current state; do not copy counts into docs.
 - Build only when the user asks:
   ```bash
-  godot --headless --xr-mode off --path <project> \
-    --script res://tools/modding/build_mod.gd -- unfplap --out <file.pck> [--no-extends]
+  ./build.sh [--no-extends] [--out <file.pck>]
   ```
-  Success prints `MOD_BUILT <path>`.
+  Success prints `MOD_BUILT <path>`. Use `--no-extends` for release packs for games that
+  ship compiled `.gdc` scripts; the source manifest keeps the parked extension.
+- `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
+  the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
+  `AUDIO_CREDITS.md` does.
+- The official `tools/modding/build_mod.gd` command remains a fallback when the full game
+  project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
   shadows source edits.
-- `mods/unfplap/README.md` and `mods/unfplap/AGENTS.md` are excluded from the pack by the
-  builder.
 
 ## Architecture and important files
 
@@ -125,6 +128,7 @@ mods/unfplap/
   memory.gd         world_context events, climax impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
+  satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   ext/shared_bed.gd lifts the stock 1.05 body-scale cap for bed cuddles
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   witness.gd        witness pass
@@ -162,10 +166,13 @@ body-relative axes.
   the front upper-arm line. Wrap measured left/right line angles into ±90° or the correction can
   roll her belly-down.
 - `POSE1_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
-- `_neck_lift(neck_lift_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis and
-  lifts her head off the mattress. Default `15°`. It runs **before** the gaze solve, so it
-  changes head position without biasing the final face direction. In the standing model this
-  bend is chin-down; the supine body turns it into an upward head lift.
+- `_neck_bend(neck1_deg, neck2_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis.
+  Presentation defaults are `7.5°` each (the old `15°` split); zero straightens the neck.
+  `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both run
+  **before** the gaze solve, so they change head position without biasing the final face
+  direction. After the gaze solve, `_head_pitch(head_pitch_deg)` tilts the head about the body
+  right axis, and `_roll_head(head_roll)` stays last. These are live presentation controls under
+  Missionary → Neck angles.
 - `_aim_gaze()` is a true shortest-arc solve from her current face direction to Anon, using the
   current `pony_head` frame plus `HybridNeckLink`'s fixed `pony_head → mHead` offset. Do not
   replace it with absolute yaw/pitch from the body axis: that assumed a standing rest
@@ -408,9 +415,18 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound itself.
   Pose 1's custom kiss also aims at the player camera, not the separate pose-1 framing view. The
   excitement Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire.
-- While a kiss is active, Anon leans in by `KISS_LEAN_M = 0.27`, shifts to the shoulder side
-  by `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035` lower over `0.35 s`; the
-  pose-2 camera also yaws `KISS_CAMERA_YAW_DEG = 10°` toward her. The kiss side is latched at
+- Pose 2 reads `presentation.horse.kiss`: `mouth_right`, `mouth_drop` and `mouth_forward` place
+  Anon's mouth target; `camera_yaw_deg` is the over-the-shoulder kiss yaw; `lean_side`,
+  `lean_forward` and `lean_drop` are his kiss lean. Pose 1 keeps the `KISS_LEAN_*` /
+  `KISS_CAMERA_YAW_DEG` constants. All pose-2 values apply live from the settings tab.
+- `presentation.horse.kiss.forelegs = "planted"` saves the game's `AffectionPose.kiss_settings()`
+  `rear` and `hooves` values, sets both to zero before the base kiss and restores them when the
+  release pose is removed. The act's horse pose therefore keeps both forelegs on the ground.
+  `"base"` keeps the stock both-up kiss animation.
+- While a kiss is active, Anon leans in by the pose-2 `lean_forward` (pose 1 `KISS_LEAN_M = 0.27`),
+  shifts to the shoulder side by `lean_side` (pose 1 `0.18`) and drops by `lean_drop` (pose 1
+  `0.035`) lower over `0.35 s`; the
+  pose-2 camera also yaws by the pose-2 `camera_yaw_deg` (pose 1 `10°`) toward her. The kiss side is latched at
   the start from the input lean (`_lean_side`, falling back to `_lean_action_side`), not the
   lagging camera view, and `AffectionPose.set_kiss_side()` pins her head tilt to the
   complementary side (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding;
@@ -586,6 +602,9 @@ examples.
 - Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in afterglow.
 - Aftercare starts only at final readiness ≥ 10; it holds navigator ownership for 10 s and
   keeps the tail raised straight with reduced flicks.
+- A positive act also starts `satisfied.gd` for 300 s, matching the impression mood freshness:
+  a relaxed face, light blush and a warm prompt note. It does not hold the navigator or block
+  another act; a new act clears it.
 - Each pony climax records a unique memory event and reaction. The act-level romance impression
   and witness pass commit once at afterglow; pose 2 records the inside event at afterglow only.
   The horse afterglow also runs the 8 s close window and records its own stay-close memory.

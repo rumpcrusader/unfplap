@@ -617,6 +617,46 @@ func _add_missionary_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("missionary", {"side_lean": side_lean.value})
 		_apply_live_settings())
 
+	var neck_heading := Label.new()
+	neck_heading.text = "Neck angles"
+	neck_heading.add_theme_font_size_override("font_size", font_size)
+	list.add_child(neck_heading)
+	var neck_form := GridContainer.new()
+	neck_form.columns = 2
+	neck_form.add_theme_constant_override("h_separation", 16)
+	neck_form.add_theme_constant_override("v_separation", 8)
+	list.add_child(neck_form)
+	var neck1 := _settings_spin_free(neck_form, "Neck 1 angle", 1.0,
+		float(controls.get("neck1_deg", 7.5)), font_size)
+	neck1.suffix = "°"
+	neck1.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"neck1_deg": neck1.value})
+		_apply_live_settings())
+	var neck2 := _settings_spin_free(neck_form, "Neck 2 angle", 1.0,
+		float(controls.get("neck2_deg", 7.5)), font_size)
+	neck2.suffix = "°"
+	neck2.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"neck2_deg": neck2.value})
+		_apply_live_settings())
+	var neck_roll := _settings_spin_free(neck_form, "Neck roll", 1.0,
+		float(controls.get("neck_roll_deg", 0.0)), font_size)
+	neck_roll.suffix = "°"
+	neck_roll.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"neck_roll_deg": neck_roll.value})
+		_apply_live_settings())
+	var head_pitch := _settings_spin_free(neck_form, "Head pitch", 1.0,
+		float(controls.get("head_pitch_deg", 0.0)), font_size)
+	head_pitch.suffix = "°"
+	head_pitch.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"head_pitch_deg": head_pitch.value})
+		_apply_live_settings())
+	var head_roll := _settings_spin_free(neck_form, "Head roll", 1.0,
+		float(controls.get("head_roll_deg", 0.0)), font_size)
+	head_roll.suffix = "°"
+	head_roll.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("missionary", {"head_roll_deg": head_roll.value})
+		_apply_live_settings())
+
 
 func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 	_presentation_heading(list, "Horse", font_size)
@@ -640,6 +680,85 @@ func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("horse",
 			{"torso_angle_deg": torso_angle.value})
 		_apply_live_settings())
+
+	var kiss_heading := Label.new()
+	kiss_heading.text = "Kiss alignment"
+	kiss_heading.add_theme_font_size_override("font_size", font_size)
+	list.add_child(kiss_heading)
+	var kiss_form := GridContainer.new()
+	kiss_form.columns = 2
+	kiss_form.add_theme_constant_override("h_separation", 16)
+	kiss_form.add_theme_constant_override("v_separation", 8)
+	list.add_child(kiss_form)
+	var kiss: Dictionary = controls.get("kiss", {})
+	var mouth_right := _settings_spin_free(kiss_form, "Kiss mouth right", 0.5,
+		float(kiss.get("mouth_right", 0.0)) * 100.0, font_size)
+	mouth_right.suffix = " cm"
+	mouth_right.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"mouth_right": mouth_right.value / 100.0}})
+		_apply_live_settings())
+	var mouth_drop := _settings_spin_free(kiss_form, "Kiss mouth down", 0.5,
+		float(kiss.get("mouth_drop", 0.07)) * 100.0, font_size)
+	mouth_drop.suffix = " cm"
+	mouth_drop.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"mouth_drop": mouth_drop.value / 100.0}})
+		_apply_live_settings())
+	var mouth_forward := _settings_spin_free(kiss_form, "Kiss mouth forward", 0.5,
+		float(kiss.get("mouth_forward", 0.02)) * 100.0, font_size)
+	mouth_forward.suffix = " cm"
+	mouth_forward.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"mouth_forward": mouth_forward.value / 100.0}})
+		_apply_live_settings())
+	var kiss_yaw := _settings_spin_free(kiss_form, "Kiss camera yaw", 1.0,
+		float(kiss.get("camera_yaw_deg", 10.0)), font_size)
+	kiss_yaw.suffix = "°"
+	kiss_yaw.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"camera_yaw_deg": kiss_yaw.value}})
+		_apply_live_settings())
+	var kiss_lean_side := _settings_spin_free(kiss_form, "Kiss side lean", 0.5,
+		float(kiss.get("lean_side", 0.18)) * 100.0, font_size)
+	kiss_lean_side.suffix = " cm"
+	kiss_lean_side.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"lean_side": kiss_lean_side.value / 100.0}})
+		_apply_live_settings())
+	var kiss_lean_forward := _settings_spin_free(kiss_form, "Kiss forward lean", 0.5,
+		float(kiss.get("lean_forward", 0.27)) * 100.0, font_size)
+	kiss_lean_forward.suffix = " cm"
+	kiss_lean_forward.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"lean_forward": kiss_lean_forward.value / 100.0}})
+		_apply_live_settings())
+	var kiss_lean_drop := _settings_spin_free(kiss_form, "Kiss lean drop", 0.5,
+		float(kiss.get("lean_drop", 0.035)) * 100.0, font_size)
+	kiss_lean_drop.suffix = " cm"
+	kiss_lean_drop.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"lean_drop": kiss_lean_drop.value / 100.0}})
+		_apply_live_settings())
+	var forelegs_label := Label.new()
+	forelegs_label.text = "Kiss forelegs"
+	forelegs_label.add_theme_font_size_override("font_size", font_size)
+	kiss_form.add_child(forelegs_label)
+	var forelegs_selector := OptionButton.new()
+	for mode: String in ["planted", "base"]:
+		forelegs_selector.add_item("Planted" if mode == "planted" else "Base (both up)")
+		forelegs_selector.set_item_metadata(forelegs_selector.get_item_count() - 1, mode)
+	forelegs_selector.add_theme_font_size_override("font_size", font_size - 2)
+	var current_forelegs := str(kiss.get("forelegs", "planted"))
+	for index: int in forelegs_selector.item_count:
+		if str(forelegs_selector.get_item_metadata(index)) == current_forelegs:
+			forelegs_selector.select(index)
+			break
+	forelegs_selector.item_selected.connect(func(index: int) -> void:
+		SETTINGS.save_presentation_controls("horse",
+			{"kiss": {"forelegs": str(forelegs_selector.get_item_metadata(index))}})
+		_apply_live_settings())
+	kiss_form.add_child(forelegs_selector)
 
 	var caress_heading := Label.new()
 	caress_heading.text = "Caress"

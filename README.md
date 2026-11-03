@@ -39,5 +39,27 @@ Desktop only for now
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
 - **Presentation** — Adds blush, eyes, ears, tail, rump jiggle, audio and wing motion; an optional flag adds the dock and tail base to the thrust wobble.
 - **Act audio** — `Act foley` adds pack thrust, bed, fabric and kiss sounds; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default. All off restore the original kiss-sample plap.
-- **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In horse afterglow, staying close and caressing earns a small extra reward, then short aftercare.
+- **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In horse afterglow, staying close and caressing earns a small extra reward, then short aftercare. A warm, relaxed "satisfied" mood and expression last for five minutes afterward.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake adults can witness it.
+
+## Build
+
+Requires Godot 4.5.x and `python3`.
+
+```sh
+./build.sh
+# -> dist/unfplap.pck
+
+./build.sh --no-extends   # release pack for games that ship compiled .gdc scripts
+./build.sh --out /tmp/unfplap.pck
+GODOT=/path/to/godot ./build.sh
+```
+
+`build.sh` stages the runtime tree selected by `.pckignore` in a temporary Godot project, imports
+the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported data. Repository
+docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
+does, for credit.
+
+`--no-extends` removes the parked `ext/shared_bed.gd` extension and the `extends` entry from the
+packed `mod.json`; source runs keep it. The official
+`tools/modding/build_mod.gd` command still works for quick builds, but packs the whole folder.

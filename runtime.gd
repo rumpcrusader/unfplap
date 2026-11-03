@@ -9,6 +9,8 @@ const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
+const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
+const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
@@ -600,7 +602,13 @@ var _wing_return_from_tuck := 0.0
 var _wing_return_from_half := 0.0
 const WING_SWEEP_DEG := 10.0
 var _aftercare: Node
+var _satisfied: Node
 var _satisfaction_tween: Tween
+## The act's base kiss normally rears and lifts both forelegs; "planted" zeroes those two
+## shared settings for the kiss and restores them when it ends.
+var _kiss_forelegs_planted := false
+var _kiss_saved_rear := 1.0
+var _kiss_saved_hooves := 1.0
 var _face_timer: Timer
 var _kisser: Node
 var _kisser_processing := false
@@ -773,6 +781,13 @@ func apply_live_settings() -> void:
 	_camera_surge = float(camera_thrust.get("surge", 0.0))
 	_camera_bob = float(camera_thrust.get("bob", 0.0))
 	_presentation_cfg = SETTINGS.presentation_controls(pose_id)
+	if pose_id == CATALOG.HORSE:
+		if _base_kiss_active:
+			_apply_kiss_forelegs()
+		elif _kiss_forelegs_planted:
+			_restore_kiss_forelegs()
+	elif pose_id == CATALOG.MISSIONARY:
+		_sync_missionary_pose_config()
 	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
@@ -1714,6 +1729,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	# Remove the idle horse invitation and its request face before the act builds its own pose.
 	set_request_face(false)
 	clear_presentation()
+	_end_satisfied()
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
@@ -1830,6 +1846,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 
 	_build_pose()
 	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
+	if pose == CATALOG.MISSIONARY:
+		_sync_missionary_pose_config()
 	_reset_lean_state()
 	_pose1_basis_logged = false
 	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
@@ -2308,6 +2326,7 @@ func _abort_start() -> void:
 	_end_act_lines(true)
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
+	_restore_kiss_forelegs()
 	_restore_face_turn()
 	_release_nav()
 	_unlock_player()
@@ -2518,6 +2537,24 @@ func debug_float_pose1(seconds: float) -> void:
 		_debug_pose.queue_free()
 	_debug_pose = null
 	_debug_pose_active = false
+
+
+## The missionary recipe reads these from pose_config every frame. Re-reading the character's
+## pose first keeps hind spread/rump drop overrides, then the presentation neck controls win.
+func _sync_missionary_pose_config() -> void:
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
+		return
+	_pose_cfg = SETTINGS.pose(_id, CATALOG.MISSIONARY)
+	_pose_cfg["neck1_deg"] = float(_presentation_cfg.get("neck1_deg", 7.5))
+	_pose_cfg["neck2_deg"] = float(_presentation_cfg.get("neck2_deg", 7.5))
+	_pose_cfg["neck_roll_deg"] = float(_presentation_cfg.get("neck_roll_deg", 0.0))
+	_pose_cfg["head_pitch_deg"] = float(_presentation_cfg.get("head_pitch_deg", 0.0))
+	_pose_cfg["head_roll"] = float(_presentation_cfg.get("head_roll_deg", 0.0))
+	if is_instance_valid(_pose):
+		_pose.pose_config = _pose_cfg
+	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
+	if is_instance_valid(_pose):
+		_pose.head_roll = _pose1_head_roll
 
 
 func _build_pose() -> void:
@@ -3717,6 +3754,8 @@ func _finish_climax() -> void:
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		if is_instance_valid(_satisfied):
+			return "- You are still warm and satisfied after sex with Anon. Keep a relaxed, affectionate tone; do not act stiff or businesslike."
 		return ""
 	var parts: PackedStringArray = []
 	if state == State.AFTERGLOW:
@@ -4052,6 +4091,7 @@ func force_stop() -> void:
 	_set_inventory_hud_hidden(false)
 	if state == State.IDLE:
 		set_request_face(false)
+		_restore_kiss_forelegs()
 		clear_presentation()
 		return
 	_restore_now()
@@ -4061,6 +4101,7 @@ func _restore_now() -> void:
 	_end_act_lines(true)
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
+	_restore_kiss_forelegs()
 	_restore_face_turn()
 	if is_instance_valid(pony):
 		_clear_face()
@@ -4107,6 +4148,29 @@ func _begin_aftercare() -> void:
 	_aftercare.set("runtime", self)
 	_aftercare.set("body_language", satisfaction >= _aftercare_min)
 	add_child(_aftercare)
+	if satisfaction >= _aftercare_min:
+		_start_satisfied()
+
+
+## The emotional grace after a positive act: relaxed face, light blush and a warm prompt note.
+## It lasts as long as the game's impression mood stays fresh (satisfied.gd) and never holds
+## her navigator or blocks another act.
+func _start_satisfied() -> void:
+	if not is_inside_tree() or not is_instance_valid(pony):
+		return
+	if is_instance_valid(_satisfied):
+		return
+	_satisfied = SATISFIED.new()
+	_satisfied.name = "UnfplapSatisfied"
+	_satisfied.set("pony", pony)
+	_satisfied.set("runtime", self)
+	add_child(_satisfied)
+
+
+func _end_satisfied() -> void:
+	if is_instance_valid(_satisfied):
+		_satisfied.queue_free()
+	_satisfied = null
 
 
 # --------------------------------------------------------------------------- checks
@@ -4889,6 +4953,37 @@ func _reset_lean_state() -> void:
 	_restore_base_kiss_pose()
 
 
+## The base kiss rears and lifts both forelegs when it needs the height. "planted" turns that
+## rear and hoof support off for the act kiss only, then restores the player's saved values.
+func _apply_kiss_forelegs() -> void:
+	if pose_id != CATALOG.HORSE:
+		return
+	var planted := _kiss_forelegs_mode() != "base"
+	if planted == _kiss_forelegs_planted:
+		return
+	var settings := AFFECTION_POSE.kiss_settings()
+	if planted:
+		_kiss_saved_rear = float(settings.get("rear", 1.0))
+		_kiss_saved_hooves = float(settings.get("hooves", 1.0))
+		settings["rear"] = 0.0
+		settings["hooves"] = 0.0
+		_kiss_forelegs_planted = true
+	else:
+		settings["rear"] = _kiss_saved_rear
+		settings["hooves"] = _kiss_saved_hooves
+		_kiss_forelegs_planted = false
+	_log("kiss forelegs %s" % ("planted" if planted else "base"))
+
+
+func _restore_kiss_forelegs() -> void:
+	if not _kiss_forelegs_planted:
+		return
+	var settings := AFFECTION_POSE.kiss_settings()
+	settings["rear"] = _kiss_saved_rear
+	settings["hooves"] = _kiss_saved_hooves
+	_kiss_forelegs_planted = false
+
+
 ## Reuse the game's own kiss in pose 2. `pony_kisser.begin_from_pony()` runs the same eligibility
 ## checks as a normal Ponese kiss, including `controls_locked`, so unlock for that one call only.
 ## The AffectionPose modifier is moved to the end of the skeleton chain so its kiss IK layers on
@@ -4915,6 +5010,7 @@ func _start_base_kiss() -> bool:
 	body.set("controls_locked", was_locked)
 	if not begun:
 		return false
+	_apply_kiss_forelegs()
 	_base_kiss_active = true
 	_base_kiss_releasing = false
 	_base_kiss_affection = affection
@@ -4960,6 +5056,7 @@ func _end_base_kiss() -> void:
 
 ## Keep the AffectionPose last while its own 0.6 s release eases out, then restore the child order.
 func _restore_base_kiss_pose() -> void:
+	_restore_kiss_forelegs()
 	if is_instance_valid(_base_kiss_pose) and _base_kiss_pose.has_method("set_kiss_side"):
 		_base_kiss_pose.call("set_kiss_side", 0.0)
 	_base_kiss_releasing = false
@@ -5009,8 +5106,44 @@ func _kiss_visible() -> bool:
 	return _lean_action_active and _lean_action_kind == "kiss" and _custom_kiss_active
 
 
+## Pose-2 kiss controls. Pose 1 keeps the fixed constants.
+func _kiss_controls() -> Dictionary:
+	if pose_id != CATALOG.HORSE:
+		return {}
+	var kiss: Variant = _presentation_cfg.get("kiss", {})
+	return kiss if kiss is Dictionary else {}
+
+
+func _kiss_mouth_offset() -> Vector3:
+	var kiss := _kiss_controls()
+	return Vector3(
+		float(kiss.get("mouth_right", 0.0)),
+		-float(kiss.get("mouth_drop", 0.07)),
+		-float(kiss.get("mouth_forward", 0.02)))
+
+
+func _kiss_camera_yaw_deg() -> float:
+	return float(_kiss_controls().get("camera_yaw_deg", KISS_CAMERA_YAW_DEG))
+
+
+func _kiss_lean_side() -> float:
+	return float(_kiss_controls().get("lean_side", KISS_LEAN_SIDE_M))
+
+
+func _kiss_lean_forward() -> float:
+	return float(_kiss_controls().get("lean_forward", KISS_LEAN_M))
+
+
+func _kiss_lean_drop() -> float:
+	return float(_kiss_controls().get("lean_drop", KISS_LEAN_DROP_M))
+
+
+func _kiss_forelegs_mode() -> String:
+	return str(_kiss_controls().get("forelegs", "planted"))
+
+
 func _kiss_lean_distance() -> float:
-	return KISS_LEAN_M * _kiss_lean
+	return _kiss_lean_forward() * _kiss_lean
 
 
 ## The act kiss follows the side Anon leaned to; outside a latched kiss fall back to live input.
@@ -5042,8 +5175,16 @@ static func kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: f
 	return lerpf(lean, kiss, blend)
 
 
+func _kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
+		size_scale := 1.0) -> float:
+	var blend := clampf(kiss_lean, 0.0, 1.0)
+	var lean := LEAN_SIDE_M * lean_side * size_scale
+	var kiss := _kiss_lean_side() * kiss_side
+	return lerpf(lean, kiss, blend)
+
+
 func _lateral_lean_shift(lean_scale: float) -> float:
-	return kiss_lateral_offset(_lean_view_side, _kiss_side(), _kiss_lean, lean_scale)
+	return _kiss_lateral_offset(_lean_view_side, _kiss_side(), _kiss_lean, lean_scale)
 
 
 func _latch_kiss_side() -> void:
@@ -5070,7 +5211,7 @@ func _clear_kiss_side() -> void:
 
 
 func _kiss_side_distance() -> float:
-	return KISS_LEAN_SIDE_M * _kiss_side() * _kiss_lean
+	return _kiss_lean_side() * _kiss_side() * _kiss_lean
 
 
 ## Her mouth stays at Anon's lips while the kiss channel is held, with a soft repeat sound.
@@ -5192,12 +5333,14 @@ func _kiss_diag() -> void:
 func _kiss_target(view: Camera3D) -> Vector3:
 	if not is_instance_valid(view):
 		return Vector3.INF
-	var point := view.global_position + view.global_basis * Vector3(0.0, -0.07, -0.02)
+	var point: Vector3 = view.global_position + view.global_basis * Vector3(0.0, -0.07, -0.02)
+	if pose_id == CATALOG.HORSE:
+		point = view.global_position + view.global_basis * _kiss_mouth_offset()
 	# Pose 1's player camera is not the rendered shot; move the virtual mouth with the view.
 	if pose_id == CATALOG.MISSIONARY:
 		point += -view.global_basis.z.normalized() * _kiss_lean_distance()
 		point += view.global_basis.x.normalized() * _kiss_side_distance()
-		point.y -= KISS_LEAN_DROP_M * _kiss_lean
+		point.y -= _kiss_lean_drop() * _kiss_lean
 	return point
 
 
@@ -6035,7 +6178,7 @@ func _apply_pose2_lean_look() -> void:
 	var lean_scale := _pose2_lean_scale()
 	var yaw := _look_yaw + deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale
 	# Turn a little further toward her while kissing, over the shoulder.
-	yaw += deg_to_rad(KISS_CAMERA_YAW_DEG) * _kiss_lean * _kiss_side()
+	yaw += deg_to_rad(_kiss_camera_yaw_deg()) * _kiss_lean * _kiss_side()
 	var pitch := clampf(
 		_look_pitch - deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
 		-1.5, 1.5)
@@ -6237,7 +6380,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var side_shift := _lateral_lean_shift(lean_scale)
 	hip.global_position -= side * side_shift
 	# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
-	hip.global_position.y += KISS_LEAN_DROP_M * _kiss_lean + _anon_torso_drop()
+	hip.global_position.y += _kiss_lean_drop() * _kiss_lean + _anon_torso_drop()
 	# Depth moves the pelvis back; the chest/head stay forward, so the upper body thrusts.
 	hip.global_position -= forward * (_hip_phase * ANON_THRUST_SWAY_M * lean_scale)
 	# The feet are placed from the camera/head before this call. Pin the lower body so a forward
@@ -6328,7 +6471,7 @@ func apply_camera_motion() -> void:
 		if bed_forward.length_squared() > 0.0001:
 			_pose1_view.global_position += bed_forward.normalized() \
 				* (_lean + _pose1_side_lean_forward())
-		_pose1_view.global_position.y -= KISS_LEAN_DROP_M * _kiss_lean
+		_pose1_view.global_position.y -= _kiss_lean_drop() * _kiss_lean
 		_pose1_view.global_position += _pose1_view_basis.x \
 			* _lateral_lean_shift(lean_scale)
 		_camera_basis_ready = true
@@ -6391,7 +6534,7 @@ func apply_camera_motion() -> void:
 			_pose1_snap_ready = true
 		return
 	var lean_scale := _pose2_lean_scale()
-	_set_camera_offsets(_bob - KISS_LEAN_DROP_M * _kiss_lean - _anon_torso_drop(),
+	_set_camera_offsets(_bob - _kiss_lean_drop() * _kiss_lean - _anon_torso_drop(),
 		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
 		+ _kiss_lean_distance() + _anon_torso_forward(), _lateral_lean_shift(lean_scale))
 	if pose_id == CATALOG.HORSE and _free_camera_active and is_instance_valid(_camera):
@@ -6899,3 +7042,12 @@ func _snout() -> Vector3:
 	if is_instance_valid(boop) and boop.has_method("nose_world"):
 		return boop.call("nose_world")
 	return pony.global_position + Vector3.UP * 1.0
+
+
+## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
+## closes or the mod is switched off mid-kiss.
+func _exit_tree() -> void:
+	_restore_kiss_forelegs()
+	if is_instance_valid(_satisfied):
+		_satisfied.queue_free()
+		_satisfied = null

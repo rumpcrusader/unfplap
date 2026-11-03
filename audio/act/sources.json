@@ -179,198 +179,6 @@
 		"prepared_rate": 48000,
 		"seconds": 0.227
 	},
-	"plap/firm_01.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-004.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.115
-	},
-	"plap/firm_02.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-006.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.101
-	},
-	"plap/firm_03.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-007.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.116
-	},
-	"plap/firm_04.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-010.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.116
-	},
-	"plap/firm_05.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-011.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.15
-	},
-	"plap/firm_06.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-012.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.134
-	},
-	"plap/firm_07.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-013.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.154
-	},
-	"plap/firm_08.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.145
-	},
-	"plap/horse_01.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-004.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.115
-	},
-	"plap/horse_02.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-006.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.101
-	},
-	"plap/horse_03.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-007.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.116
-	},
-	"plap/horse_04.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-010.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.116
-	},
-	"plap/horse_05.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-011.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.15
-	},
-	"plap/horse_06.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-012.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.134
-	},
-	"plap/horse_07.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-013.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.154
-	},
-	"plap/horse_08.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.145
-	},
-	"plap/rough_01.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-004.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.115
-	},
-	"plap/rough_02.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-006.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.101
-	},
-	"plap/rough_03.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-007.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.116
-	},
-	"plap/rough_04.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-009.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.128
-	},
-	"plap/rough_05.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-010.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.116
-	},
-	"plap/rough_06.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-011.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.15
-	},
-	"plap/rough_07.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-013.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.154
-	},
-	"plap/rough_08.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.145
-	},
-	"plap/soft_01.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-001.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.136
-	},
-	"plap/soft_02.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-002.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.151
-	},
-	"plap/soft_03.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-003.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.15
-	},
-	"plap/soft_04.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-005.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.152
-	},
-	"plap/soft_05.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-008.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.144
-	},
-	"plap/soft_06.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-009.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.128
-	},
-	"plap/soft_07.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-012.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.134
-	},
-	"plap/soft_08.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.145
-	},
 	"slide/in_01.wav": {
 		"source": "Sliding In & Out/Slide in-out (LeHornySFX3D)/Fat/Slide in/Normal/SIOFSI - (33).wav",
 		"original_rate": 48000,
@@ -496,5 +304,137 @@
 		"original_rate": 48000,
 		"prepared_rate": 48000,
 		"seconds": 0.531
+	},
+	"plap/firm_01.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-001.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.136
+	},
+	"plap/firm_02.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-002.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.151
+	},
+	"plap/firm_03.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-003.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.15
+	},
+	"plap/firm_04.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-005.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.152
+	},
+	"plap/firm_05.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-008.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.144
+	},
+	"plap/firm_06.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-009.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.128
+	},
+	"plap/firm_07.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-012.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.134
+	},
+	"plap/horse_01.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-001.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.136
+	},
+	"plap/horse_02.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-002.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.151
+	},
+	"plap/horse_03.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-003.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.15
+	},
+	"plap/horse_04.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-005.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.152
+	},
+	"plap/horse_05.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-008.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.144
+	},
+	"plap/horse_06.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-009.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.128
+	},
+	"plap/horse_07.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-012.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.134
+	},
+	"plap/horse_08.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.145
+	},
+	"plap/rough_01.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-004.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.115
+	},
+	"plap/rough_02.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-006.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.101
+	},
+	"plap/rough_03.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-007.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.116
+	},
+	"plap/rough_04.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-010.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.116
+	},
+	"plap/rough_05.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-011.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.15
+	},
+	"plap/rough_06.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-013.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.154
+	},
+	"plap/rough_07.wav": {
+		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
+		"original_rate": 96000,
+		"prepared_rate": 48000,
+		"seconds": 0.145
 	}
 }

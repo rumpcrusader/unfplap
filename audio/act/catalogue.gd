@@ -2,17 +2,6 @@ extends RefCounted
 ## Curated OpenNSFW act cues. Generated from audio/act/sources.json.
 ## Keep the arrays in filename order so the variant bags stay stable.
 
-const PLAP_SOFT := [
-	preload("res://mods/unfplap/audio/act/plap/soft_01.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_02.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_03.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_04.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_05.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_06.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_07.wav"),
-	preload("res://mods/unfplap/audio/act/plap/soft_08.wav"),
-]
-
 const PLAP_FIRM := [
 	preload("res://mods/unfplap/audio/act/plap/firm_01.wav"),
 	preload("res://mods/unfplap/audio/act/plap/firm_02.wav"),
@@ -21,7 +10,6 @@ const PLAP_FIRM := [
 	preload("res://mods/unfplap/audio/act/plap/firm_05.wav"),
 	preload("res://mods/unfplap/audio/act/plap/firm_06.wav"),
 	preload("res://mods/unfplap/audio/act/plap/firm_07.wav"),
-	preload("res://mods/unfplap/audio/act/plap/firm_08.wav"),
 ]
 
 const PLAP_ROUGH := [
@@ -32,7 +20,6 @@ const PLAP_ROUGH := [
 	preload("res://mods/unfplap/audio/act/plap/rough_05.wav"),
 	preload("res://mods/unfplap/audio/act/plap/rough_06.wav"),
 	preload("res://mods/unfplap/audio/act/plap/rough_07.wav"),
-	preload("res://mods/unfplap/audio/act/plap/rough_08.wav"),
 ]
 
 const PLAP_HORSE := [
@@ -127,14 +114,9 @@ const CLIMAX_VOICE := [
 ## group: foley | vocals. volume_db is the full-strength level; act_audio scales down
 ## with strength. voices is the number of overlapping 3D players for that cue.
 const CUES := {
-	"plap_soft": {
-		"group": "foley", "streams": PLAP_SOFT, "voices": 4,
-		"volume_db": -20.0, "cooldown": 0.05, "distance": 6.0,
-		"pitch_min": 0.98, "pitch_max": 1.02,
-	},
 	"plap_firm": {
 		"group": "foley", "streams": PLAP_FIRM, "voices": 4,
-		"volume_db": -16.0, "cooldown": 0.05, "distance": 6.0,
+		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
 		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
 	"plap_rough": {
@@ -144,7 +126,7 @@ const CUES := {
 	},
 	"plap_horse": {
 		"group": "foley", "streams": PLAP_HORSE, "voices": 4,
-		"volume_db": -14.0, "cooldown": 0.05, "distance": 6.0,
+		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
 		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
 	"slide_in": {

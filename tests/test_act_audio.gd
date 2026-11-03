@@ -30,8 +30,8 @@ func run() -> void:
 	for value: float in [0.0, 0.1, 0.33, 0.5, 0.66, 0.9, 1.0]:
 		check(ACT.tier_for(value) == PREFERENCES.intensity_for(value),
 			"tier matches preferences at %.2f" % value)
-	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "soft") == "plap_soft",
-		"missionary soft cue")
+	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "soft") == "",
+		"soft has no plap cue")
 	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "rough") == "plap_rough",
 		"missionary rough cue")
 	check(ACT.cue_for_plap(CATALOG.HORSE, "firm") == "plap_horse",
@@ -44,6 +44,11 @@ func run() -> void:
 		"gain rises with strength")
 	check(near(ACT.gain_db(0.0), -10.0), "soft gain floor")
 	check(near(ACT.gain_db(1.0), 0.0), "full-strength gain")
+	check(ACT.plap_volume_db(0.2) == -80.0, "soft emits no plap")
+	check(ACT.plap_volume_db(0.33) < ACT.plap_volume_db(0.5), "firm plap fades in")
+	check(ACT.plap_volume_db(0.5) < ACT.plap_volume_db(0.66), "firm plap keeps rising")
+	check(ACT.plap_volume_db(0.66) == 0.0, "rough starts at full plap volume")
+	check(ACT.plap_volume_db(1.0) == 0.0, "rough stays at full plap volume")
 
 	check(ACT.next_index(1, 0, 0) == 0, "single variant index")
 	for last: int in range(4):
@@ -54,7 +59,7 @@ func run() -> void:
 	check(ACT.next_index(4, 2, 2) == 3, "repeat rolls forward")
 
 	var expected := {
-		"plap_soft": 8, "plap_firm": 8, "plap_rough": 8, "plap_horse": 8,
+		"plap_firm": 7, "plap_rough": 7, "plap_horse": 8,
 		"slide_in": 6, "slide_out": 6, "bed_wood_in": 5, "bed_wood_out": 5,
 		"fabric": 8, "mouth_kiss": 8, "smack": 6, "climax_wet": 4,
 		"climax_voice": 3,
@@ -80,13 +85,13 @@ func run() -> void:
 	act.setup(true, false, false)
 	var pools: Dictionary = act.get("_pools")
 	check(act.foley_enabled() and not act.vocals_enabled(), "foley only")
-	check(pools.has("plap_soft"), "foley pool built")
+	check(pools.has("plap_firm"), "foley pool built")
 	check(not pools.has("climax_voice"), "vocal pool not built")
 
 	act.set_enabled(false, true, false)
 	pools = act.get("_pools")
 	check(not act.foley_enabled() and act.vocals_enabled(), "vocals only")
-	check(not pools.has("plap_soft"), "foley pool cleared")
+	check(not pools.has("plap_firm"), "foley pool cleared")
 	check(pools.has("climax_voice"), "climax voice pool built after switch")
 	check(not pools.has("climax_wet"), "wet climax stays off with vocals only")
 	act.set_enabled(false, false, true)
@@ -101,6 +106,13 @@ func run() -> void:
 	root.add_child(parent)
 	parent.add_child(act)
 	act.setup(true, false, false)
+	act.play_impact(CATALOG.MISSIONARY, 0.2, Vector3.ZERO, Vector3.ZERO, false)
+	var ready_at: Dictionary = act.get("_ready_at")
+	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "soft impact emits no plap")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "soft impact keeps the slide")
+	check(float(ready_at.get("bed_wood_in", 0.0)) > 0.0, "soft impact keeps the bed")
+	check(not act.play_plap(CATALOG.MISSIONARY, "soft", 0.2, Vector3.ZERO),
+		"soft plap call is refused")
 	check(act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"foley plap starts a player")
 	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),

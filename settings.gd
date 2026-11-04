@@ -1,7 +1,7 @@
 extends RefCounted
 ## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, thrust
-## controls, camera-thrust amounts, and the default/per-character templates. A character
-## inherits every field it does not override.
+## controls, camera-thrust amounts, presentation tuning and the default/per-character templates.
+## A character inherits every field it does not override.
 ##
 ## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
 ## `thrust` holds the mouse-control settings, `camera_thrust` holds the two camera amounts and

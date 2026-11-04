@@ -6,7 +6,7 @@ Do your mares.
 
 Copy `.pck` from releases into your mod folder.
 
-Requires Home: Equestria `0.1.1-maredev`.
+Requires Home: Equestria `0.3.0-maredev`.
 
 Desktop only for now
 
@@ -60,9 +60,9 @@ the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported
 docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
 does, for credit.
 
-`--no-extends` removes the parked `ext/shared_bed.gd` extension and the `extends` entry from the
-packed `mod.json`; source runs keep it. The official
-`tools/modding/build_mod.gd` command still works for quick builds, but packs the whole folder.
+The mod has no script extension; `--no-extends` remains accepted for older release flows and
+produces the same pack. The official `tools/modding/build_mod.gd` command still works for quick
+builds, but packs the whole folder.
 
 On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests, and on a `v*` tag it
 builds with `--no-extends` and attaches `dist/unfplap-<version>.pck` to a GitHub release.

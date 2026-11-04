@@ -1633,7 +1633,11 @@ func _nav_owner_allows(pose: String, act_source: String) -> bool:
 	# The request controller holds her while she walks over, presents and waits for Y.
 	if owner.begins_with("unfplap:request:"):
 		return state == State.IDLE
-	if owner.begins_with("unfplap:") or owner.begins_with("sleep:"):
+	# NightRest's new [go_to_bed] owns her with a sleep: lease. While she is lying awake in a
+	# bed, a bed-side act is still valid; walking to bed or sleeping is not.
+	if owner.begins_with("sleep:"):
+		return _sleep_owner_allows_bed(pose, act_source)
+	if owner.begins_with("unfplap:"):
 		return false
 	if owner.begins_with("weather:") or owner.begins_with("show:"):
 		return false
@@ -1652,6 +1656,19 @@ func _nav_owner_allows(pose: String, act_source: String) -> bool:
 	if owner.begins_with("bond:") or owner.begins_with("player:") or owner == "rest_after_command":
 		return true
 	return false
+
+
+## NightRest's sleep: lease is also used for an awake [go_to_bed] rest. Only a pony already
+## lying in a bed, with Anon there too, may accept a bed-side act through it.
+func _sleep_owner_allows_bed(pose: String, act_source: String) -> bool:
+	if pose != CATALOG.MISSIONARY or act_source not in ["bed_side", "already_lying"]:
+		return false
+	if not is_instance_valid(pony) or bool(pony.get("sleeping")):
+		return false
+	if not pony.has_method("posture_status"):
+		return false
+	var status: Dictionary = pony.posture_status()
+	return str(status.get("requested", "")) == "lie_down"
 
 
 func _nav_pose_gate(pose: String, act_source: String) -> bool:
@@ -2506,6 +2523,7 @@ func _pose2_gap() -> float:
 	var size := str(settings.call("get_value", "ponies/size"))
 	var gaps: Variant = _pose_cfg.get("gaps", POSE2_GAPS)
 	var gap := float((gaps as Dictionary).get(size, POSE2_GAP_M)) if gaps is Dictionary else POSE2_GAP_M
+	gap *= _same_height_scale()
 	_log("pose2 size=%s gap=%.2f" % [size, gap])
 	return gap
 
@@ -4308,7 +4326,21 @@ func _size_scale() -> float:
 			return 1.10
 		"canon":
 			return 0.66
+	return _same_height_scale()
+
+
+## Anon's chosen height over the 6 ft rig every offset was tuned on (1.0 at default).
+func _anon_height_scale() -> float:
+	var settings: Node = get_node_or_null("/root/Settings")
+	if settings != null and settings.has_method("anon_height_scale"):
+		return clampf(float(settings.call("anon_height_scale")), 0.6, 1.4)
 	return 1.0
+
+
+## "Same height as Anon" now sizes the pony from Anon's chosen height too. Other presets keep
+## their authored sizes, so only this preset's camera/gap offsets follow the setting.
+func _same_height_scale() -> float:
+	return _anon_height_scale() if _size_name() == "same height" else 1.0
 
 
 ## Pose-2 presentation only. The accepted Anon rig's hands read a little large beside a Canon
@@ -4793,7 +4825,12 @@ static func caress_profile_for(size_name: String) -> Dictionary:
 
 
 func _caress_profile() -> Dictionary:
-	return caress_profile_for(_size_name())
+	var profile := caress_profile_for(_size_name()).duplicate(true)
+	if _size_name() == "same height":
+		var scale := _same_height_scale()
+		for key: String in ["up", "back", "out"]:
+			profile[key] = float(profile.get(key, 0.0)) * scale
+	return profile
 
 
 ## Advance the oval phase only while that hand is moving. Stopping keeps the palm at the
@@ -5211,10 +5248,11 @@ func _kiss_controls() -> Dictionary:
 
 func _kiss_mouth_offset() -> Vector3:
 	var kiss := _kiss_controls()
+	var scale := _anon_height_scale()
 	return Vector3(
 		float(kiss.get("mouth_right", 0.0)),
 		-float(kiss.get("mouth_drop", 0.07)),
-		-float(kiss.get("mouth_forward", 0.02)))
+		-float(kiss.get("mouth_forward", 0.02))) * scale
 
 
 func _kiss_camera_yaw_deg() -> float:
@@ -5222,15 +5260,15 @@ func _kiss_camera_yaw_deg() -> float:
 
 
 func _kiss_lean_side() -> float:
-	return float(_kiss_controls().get("lean_side", KISS_LEAN_SIDE_M))
+	return float(_kiss_controls().get("lean_side", KISS_LEAN_SIDE_M)) * _anon_height_scale()
 
 
 func _kiss_lean_forward() -> float:
-	return float(_kiss_controls().get("lean_forward", KISS_LEAN_M))
+	return float(_kiss_controls().get("lean_forward", KISS_LEAN_M)) * _anon_height_scale()
 
 
 func _kiss_lean_drop() -> float:
-	return float(_kiss_controls().get("lean_drop", KISS_LEAN_DROP_M))
+	return float(_kiss_controls().get("lean_drop", KISS_LEAN_DROP_M)) * _anon_height_scale()
 
 
 func _kiss_forelegs_mode() -> String:
@@ -5428,7 +5466,8 @@ func _kiss_diag() -> void:
 func _kiss_target(view: Camera3D) -> Vector3:
 	if not is_instance_valid(view):
 		return Vector3.INF
-	var point: Vector3 = view.global_position + view.global_basis * Vector3(0.0, -0.07, -0.02)
+	var point: Vector3 = view.global_position + view.global_basis \
+		* (Vector3(0.0, -0.07, -0.02) * _anon_height_scale())
 	if pose_id == CATALOG.HORSE:
 		point = view.global_position + view.global_basis * _kiss_mouth_offset()
 	# Pose 1's player camera is not the rendered shot; move the virtual mouth with the view.

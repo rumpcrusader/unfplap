@@ -19,8 +19,7 @@ Do not start implementation until you have read the required files for the area 
 
 ## Identity and scope
 
-- Mod id `unfplap`; current public version `0.1.0`; target game `0.1.1-maredev`
-  (`project.godot` reports `0.1.0-maredev`).
+- Mod id `unfplap`; current public version `0.2.0`; target game `0.3.0-maredev`.
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `horse` standing.
@@ -86,8 +85,8 @@ scripts/smoke.sh
   ```bash
   ./build.sh [--no-extends] [--out <file.pck>]
   ```
-  Success prints `MOD_BUILT <path>`. Use `--no-extends` for release packs for games that
-  ship compiled `.gdc` scripts; the source manifest keeps the parked extension.
+  Success prints `MOD_BUILT <path>`. The mod has no script extension; `--no-extends` is still
+  accepted for older release flows and produces the same pack.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
   `AUDIO_CREDITS.md` does.
@@ -132,7 +131,6 @@ mods/unfplap/
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
-  ext/shared_bed.gd lifts the stock 1.05 body-scale cap for bed cuddles
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, horse invitation
@@ -143,9 +141,9 @@ mods/unfplap/
   ROTATION.md       pose, skeleton and camera positioning contract
 ```
 
-Entry script only. No script extensions, game-file edits or JSON merges. The former bed-size
-extension is parked because release builds ship compiled `.gdc` scripts that the mod loader
-cannot subclass.
+Entry script only. No script extensions, game-file edits or JSON merges. The bed-size extension
+was removed after the 0.3.0 stock bed made its eligibility and approach rules size-aware; release
+builds ship compiled `.gdc` scripts that the mod loader cannot subclass anyway.
 
 ## Critical: poses and skeleton work
 
@@ -938,9 +936,16 @@ This is mandatory.
 
 ## Known constraints
 
-- `ext/shared_bed.gd` lifts the stock `1.05` bed-cuddle body-scale cap and tries the bed's
-  authored `side_local` approach before the generic side. It is intentionally kept even when a
-  release build omits the extension.
+- The stock 0.3.0 bed is size-aware: `eligible()` accepts up to `1.05 * Settings.pony_scale()`
+  and `_mare_fits` scales her half of the lane and her length with her size. A bed too short for
+  a Hoers or Same Height mare is refused; that is stock behavior, not a mod override.
+- `[go_to_bed]` keeps a `sleep:` navigator lease even while she lies awake by day. A bed-side
+  offer through that lease is valid only for `bed_side`/`already_lying` when she is not sleeping
+  and `posture_status().requested == "lie_down"`; walking to bed or sleeping is not.
+- "Same Height as Anon" now follows Anon's `player/height_cm`. The mod's lean scale, pose-2 gap
+  and caress offsets follow the same multiplier; other size presets keep their authored values.
+- Pose-2 kiss offsets, the pose-1 virtual mouth and kiss lean distances scale with Anon's chosen
+  height (`Settings.anon_height_scale()`), matching `player/player_mouth.gd`.
 - The stock bed captures a snuggle guest's rest transform at invite time from the player's
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying

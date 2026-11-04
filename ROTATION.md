@@ -226,7 +226,12 @@ these values here if a future pose needs that effect.
   the deep-kiss side switch is disabled for the act. During the `Affection` release the camera
   lean and glance suppression are held until the head has retracted, then ease out. A completed
   kiss has a `500 ms` restart cooldown.
-- Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
+- Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
+  Same Height preset now follows Anon's `player/height_cm`, so that gap, the lean scale and the
+  same-height caress offsets are multiplied by `Settings.anon_height_scale()`; the other presets
+  keep their authored values.
+- Pose-2 kiss mouth offsets, kiss lean distances and the pose-1 virtual mouth scale with
+  `Settings.anon_height_scale()`, matching `player/player_mouth.gd`.
 - Canon lowers the pose-2 eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR
   raises the pose-2 eye line by `MOUNTING_POSE2_CAMERA_LIFT_M = 0.10 m`.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via

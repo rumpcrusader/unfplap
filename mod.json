@@ -1,11 +1,10 @@
 {
 	"id": "unfplap",
 	"name": "Unfplap",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"author": "Anon",
 	"description": "Plap your mares!",
 	"credits": "SFX: OpenNSFW Sound Pack (@OpenNSFWSP); see AUDIO_CREDITS.md",
-	"game_version": "0.1.1",
-	"entry": "res://mods/unfplap/main.gd",
-	"extends": ["res://mods/unfplap/ext/shared_bed.gd"]
+	"game_version": "0.3.0",
+	"entry": "res://mods/unfplap/main.gd"
 }

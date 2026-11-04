@@ -1,6 +1,6 @@
 extends RefCounted
-## Standing Anon body: the hip thrust wrapper, torso lean counter-move, foot pin and palm
-## scale. The runtime owns readiness and scoring; this controller only poses the player rig.
+## Standing Anon body: the hip thrust wrapper, planted lower body and palm scale. The runtime
+## owns readiness and scoring; this controller only poses the player rig.
 
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
@@ -8,6 +8,9 @@ const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const THRUST_MAX_M := 0.045
+## Captured feet sit this far behind their first act frame spot so they are not between her
+## hind legs. The hips use the same capture, so the whole lower body translates as one.
+const PLANT_FEET_BACK_M := 0.15
 
 var runtime: Node
 var main: Variant
@@ -23,6 +26,7 @@ var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
 var _plant_left := Transform3D.IDENTITY
 var _plant_right := Transform3D.IDENTITY
+var _plant_hip := Transform3D.IDENTITY
 var _plant_captured := false
 
 func _hip_phase_tick(delta: float) -> void:
@@ -32,17 +36,12 @@ func _hip_phase_tick(delta: float) -> void:
 	_hip_phase = MOTION.hip_phase_step(_hip_phase, float(runtime.get("depth")), delta)
 
 
-
-
-
-## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
-## start couch actions while the shot is active. The previous value is restored at act end.
-
-## Initial backset from the fixed rump limit. At phase 0 the hips are back by the full
-## travel; at phase 1 they return to the limit.
-static func hip_backset(phase: float, scale: float, travel: float) -> float:
-	return THRUST_MAX_M * clampf(scale, 0.5, 2.5) * maxf(0.0, travel) \
-		* (1.0 - clampf(phase, 0.0, 1.0))
+## Signed forward offset from the base HipsTarget. Positive is toward the fixed rump limit;
+## negative is the initial backset behind the base. `travel` is the backset multiplier.
+static func hip_offset(phase: float, scale: float, travel: float) -> float:
+	var forward_reach := THRUST_MAX_M * clampf(scale, 0.5, 2.5)
+	var backset := forward_reach * maxf(0.0, travel)
+	return forward_reach - backset * (1.0 - clampf(phase, 0.0, 1.0))
 
 
 func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
@@ -57,61 +56,73 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	var travel_value: Variant = runtime.get("_thrust_travel")
 	if travel_value != null:
 		travel = maxf(0.0, float(travel_value))
-	var back := facing.z.normalized()
-	_hip_thrust.set("offset_world", back * hip_backset(_hip_phase, scale, travel))
+	var forward := -facing.z.normalized()
+	_hip_thrust.set("offset_world", forward * hip_offset(_hip_phase, scale, travel))
 
 
-## Phase-2 Anon body lean: keep the pelvis planted behind her rump. The camera/head moves
-## forward or sideways, so the torso hinges at the hips instead of the whole body sliding into
-## her. Pulling back still moves the whole body away.
-
+## Phase-2 Anon body lean: the lower body stays exactly where the act started. The camera/head
+## moves forward, sideways or down, so the torso hinges over her while the feet and hips stay
+## planted. Pulling back moves the whole lower body away from her; the hips and both feet use the
+## same capture offset, so the legs keep their pose.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var kiss: Variant = runtime.call("_kiss_controller")
 	if str(runtime.get("pose_id")) != CATALOG.STANDING or not bool(runtime.get("_free_camera_active")) or not is_instance_valid(hip):
 		return
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
-	var lean_scale: float = float(runtime.call("_standing_lean_scale"))
-	var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale) \
-		+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward"))
-	hip.global_position -= forward * forward_shift
-	var side_shift: float = kiss.lateral_offset(lean_scale)
-	hip.global_position -= side * side_shift
-	# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
-	hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(runtime.call("_anon_torso_drop"))
-	# The feet are placed from the camera/head before this call. Pin the lower body so a forward
-	# or kiss lean hinges the torso instead of walking his legs into the shot.
 	var body := hip.get_parent()
 	if body != null:
 		var left: Variant = body.get("_left_foot")
 		var right: Variant = body.get("_right_foot")
-		var planted := false
-		if left is Node3D and right is Node3D:
-			if not _plant_captured:
-				_plant_left = (left as Node3D).global_transform
-				_plant_right = (right as Node3D).global_transform
-				_plant_captured = true
-				_log("standing feet pinned")
-			if _feature_on("standing_plant_feet"):
-				(left as Node3D).global_transform = _plant_left
-				(right as Node3D).global_transform = _plant_right
-				planted = true
-		if not planted:
-			if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
-				if not _lower_captured and left is Node3D and right is Node3D:
-					_lower_left = (left as Node3D).global_transform
-					_lower_right = (right as Node3D).global_transform
-					_lower_captured = true
-					_log("standing lower body pinned")
-				if _lower_captured:
-					if left is Node3D:
-						(left as Node3D).global_transform = _lower_left
-					if right is Node3D:
-						(right as Node3D).global_transform = _lower_right
-			elif _lower_captured:
-				_lower_captured = false
-				_log("standing lower body released")
-
+		# The capture happens on the first act frame, after the game placed the feet and hips
+		# from the act camera. Freeze that as the lower-body rest for the whole act.
+		if not _plant_captured and left is Node3D and right is Node3D:
+			_plant_left = (left as Node3D).global_transform
+			_plant_right = (right as Node3D).global_transform
+			var back := facing.z.normalized()
+			_plant_left.origin += back * PLANT_FEET_BACK_M
+			_plant_right.origin += back * PLANT_FEET_BACK_M
+			_plant_hip = hip.global_transform
+			_plant_captured = true
+			_log("standing feet pinned")
+		if _feature_on("standing_plant_feet") and _plant_captured:
+			# S pulls the whole lower body back; every other lean only moves the upper body.
+			var lean_scale: float = float(runtime.call("_standing_lean_scale"))
+			var pull := -MOTION.lean_distance(
+				minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale)
+			var shift := -forward * pull
+			if left is Node3D:
+				(left as Node3D).global_transform = Transform3D(
+					_plant_left.basis, _plant_left.origin + shift)
+			if right is Node3D:
+				(right as Node3D).global_transform = Transform3D(
+					_plant_right.basis, _plant_right.origin + shift)
+			hip.global_transform = Transform3D(
+				_plant_hip.basis, _plant_hip.origin + shift)
+			return
+		var lean_scale: float = float(runtime.call("_standing_lean_scale"))
+		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale) \
+			+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward"))
+		hip.global_position -= forward * forward_shift
+		var side_shift: float = kiss.lateral_offset(lean_scale)
+		hip.global_position -= side * side_shift
+		# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
+		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(runtime.call("_anon_torso_drop"))
+		# Flag off: keep the game's stepping feet and only pin the lower body while leaning.
+		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
+			if not _lower_captured and left is Node3D and right is Node3D:
+				_lower_left = (left as Node3D).global_transform
+				_lower_right = (right as Node3D).global_transform
+				_lower_captured = true
+				_log("standing lower body pinned")
+			if _lower_captured:
+				if left is Node3D:
+					(left as Node3D).global_transform = _lower_left
+				if right is Node3D:
+					(right as Node3D).global_transform = _lower_right
+		elif _lower_captured:
+			_lower_captured = false
+			_log("standing lower body released")
 
 
 func _install_anon_thrust() -> void:

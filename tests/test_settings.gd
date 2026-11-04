@@ -138,7 +138,7 @@ func run() -> void:
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 1000.0), "default thrust pixels")
-	check(near(float(thrust_defaults.get("travel", 0.0)), 1.0), "default hip travel")
+	check(near(float(thrust_defaults.get("travel", 0.0)), 2.0), "default hip travel")
 	var controls := SETTINGS.thrust_controls()
 	check(bool(controls.get("up", false)), "runtime thrust controls up")
 	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
@@ -150,9 +150,9 @@ func run() -> void:
 	var jiggle_defaults: Dictionary = defaults.get("jiggle", {})
 	check(near(float(jiggle_defaults.get("radius", -1.0)), 0.26),
 		"default jiggle radius")
-	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.55),
+	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.25),
 		"default jiggle intensity")
-	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 1.0),
+	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.55),
 		"default smack jiggle intensity")
 	var jiggle_controls := SETTINGS.jiggle_controls()
 	check(float(jiggle_controls.get("radius", -1.0)) >= 0.02,
@@ -213,7 +213,7 @@ func run() -> void:
 		"default kiss lean drop")
 	check(str(kiss_defaults.get("forelegs", "")) == "planted",
 		"default kiss forelegs planted")
-	check(near(float(standing_defaults.get("idle_sway_side", -1.0)), 0.0084),
+	check(near(float(standing_defaults.get("idle_sway_side", -1.0)), 0.0),
 		"default idle side sway")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
@@ -225,22 +225,24 @@ func run() -> void:
 	var scale_defaults: Dictionary = caress_defaults.get("palm_scale", {})
 	check(near(float(scale_defaults.get("canon", 0.0)), 0.75),
 		"default Canon palm scale")
-	check(near(float(scale_defaults.get("mounting", 0.0)), 0.95),
+	check(near(float(scale_defaults.get("mounting", 0.0)), 0.9),
 		"default mounting palm scale")
 	check((caress_defaults.get("ignore", []) as Array).has("tail"),
 		"default caress ignores tail")
 	check((caress_defaults.get("ignore", []) as Array).has("wing"),
 		"default caress ignores wing")
 	var smack_defaults: Dictionary = standing_defaults.get("smack", {})
-	check(near(float(smack_defaults.get("raise_m", -1.0)), 0.18),
+	check(near(float(smack_defaults.get("raise_m", -1.0)), 0.30),
 		"default smack raise")
-	check(near(float(smack_defaults.get("hind_m", -1.0)), 0.08),
+	check(near(float(smack_defaults.get("hind_m", -1.0)), 0.10),
 		"default smack hind offset")
+	check(near(float(smack_defaults.get("arc_m", -1.0)), 0.06),
+		"default smack arc")
 	check(near(float(smack_defaults.get("pitch_deg", -1.0)), 12.0),
 		"default smack pitch")
-	check(near(float(smack_defaults.get("raise_speed", -1.0)), 1.2),
+	check(near(float(smack_defaults.get("raise_speed", -1.0)), 2.0),
 		"default smack raise speed")
-	check(near(float(smack_defaults.get("return_speed", -1.0)), 1.9),
+	check(near(float(smack_defaults.get("return_speed", -1.0)), 6.0),
 		"default smack return speed")
 
 	var old_presentation := {
@@ -350,6 +352,8 @@ func run() -> void:
 		"runtime smack raise is non-negative")
 	check(float(smack_controls.get("hind_m", -1.0)) >= 0.0,
 		"runtime smack hind offset is non-negative")
+	check(float(smack_controls.get("arc_m", -1.0)) >= 0.0,
+		"runtime smack arc is non-negative")
 	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")
 	check(float(smack_controls.get("raise_speed", 0.0)) >= 0.05,
 		"runtime smack raise speed is positive")

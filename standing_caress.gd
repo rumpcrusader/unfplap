@@ -51,10 +51,10 @@ const SMACK_CONTACT_PHASE := 0.45
 ## Standing smack: lift off the coat, accelerate into the contact, hold for a frame or two,
 ## then return to the live caress point or the rest hand. The raise distance is the debug
 ## `presentation.standing.smack.raise_m` value, scaled by the pony's body size.
-const SMACK_RAISE_SPEED_M_S := 1.2
+const SMACK_RAISE_SPEED_M_S := 2.0
 const SMACK_RAISE_MIN_S := 0.12
 const SMACK_RAISE_MAX_S := 0.30
-const SMACK_RETURN_SPEED_M_S := 1.9
+const SMACK_RETURN_SPEED_M_S := 6.0
 const SMACK_STRIKE_MIN_S := 0.06
 const SMACK_STRIKE_MAX_S := 0.20
 const SMACK_PITCH_DEG := 12.0
@@ -62,7 +62,8 @@ const SMACK_RAISE_BACK_M := 0.05
 ## Non-caress smack: the query sits this far below the cheek centre, and the wind-up is a
 ## backswing from behind/below rather than an outward lift. All distances scale with the pony.
 const SMACK_CHEEK_DROP_M := 0.03
-const SMACK_HIND_M := 0.08
+const SMACK_HIND_M := 0.10
+const SMACK_ARC_M := 0.06
 const SMACK_SWING_DOWN_RATIO := 0.55
 const SMACK_SWING_OUT_RATIO := 0.15
 const SMACK_CONTACT_HOLD_SECONDS := 0.03
@@ -172,7 +173,8 @@ static func smack_swing_raise_frame(contact: Transform3D, outward: Vector3, back
 	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg), origin)
 
 
-## Medium-speed lift with a small backward bow. `back` is the tangent toward her rump.
+## Medium-speed lift with a backward bow. `back` is the bow vector toward her rump; its length
+## is `smack.arc_m` × body scale. Zero gives a straight blend.
 static func smack_raise_blend(from: Transform3D, to: Transform3D, back: Vector3,
 		t: float) -> Transform3D:
 	var eased := smoothstep(0.0, 1.0, clampf(t, 0.0, 1.0))
@@ -1208,7 +1210,7 @@ func _smack_phase_tick(driver: Node) -> void:
 	match _smack_phase:
 		SMACK_PHASE_RAISE:
 			var t := clampf(elapsed / maxf(_smack_raise_seconds, 0.001), 0.0, 1.0)
-			var bow := _smack_back_dir() * (SMACK_RAISE_BACK_M * _smack_body_scale() * 0.5)
+			var bow := _smack_back_dir() * _smack_arc_m()
 			var frame := smack_raise_blend(_smack_from, _smack_raised, bow, t)
 			driver.call("set_hold_target", _smack_side, frame, "rub")
 			if t >= 1.0:
@@ -1326,11 +1328,15 @@ func _smack_setting(name: String, fallback: float) -> float:
 
 
 func _smack_raise_m() -> float:
-	return maxf(0.0, _smack_setting("raise_m", 0.18)) * _smack_body_scale()
+	return maxf(0.0, _smack_setting("raise_m", 0.30)) * _smack_body_scale()
 
 
 func _smack_hind_m() -> float:
 	return maxf(0.0, _smack_setting("hind_m", SMACK_HIND_M))
+
+
+func _smack_arc_m() -> float:
+	return maxf(0.0, _smack_setting("arc_m", SMACK_ARC_M)) * _smack_body_scale()
 
 
 func _smack_pitch_deg() -> float:

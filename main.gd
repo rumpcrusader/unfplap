@@ -551,7 +551,7 @@ func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	travel.max_value = 2.0
 	travel.step = 0.05
 	travel.suffix = "×"
-	travel.value = float(controls.get("travel", 1.0))
+	travel.value = float(controls.get("travel", 2.0))
 	travel.add_theme_font_size_override("font_size", font_size - 2)
 	form.add_child(travel)
 
@@ -685,6 +685,7 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
 	_add_missionary_presentation(list, font_size)
+	list.add_child(HSeparator.new())
 	_add_standing_presentation(list, font_size)
 
 
@@ -804,7 +805,7 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 			{"torso_angle_deg": torso_angle.value})
 		_apply_live_settings())
 	var idle_sway_side := _settings_spin_free(form, "Idle side sway", 0.0005,
-		float(controls.get("idle_sway_side", 0.0084)), font_size)
+		float(controls.get("idle_sway_side", 0.0)), font_size)
 	idle_sway_side.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"idle_sway_side": idle_sway_side.value})
@@ -972,18 +973,25 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 	list.add_child(smack_form)
 	var smack: Dictionary = controls.get("smack", {})
 	var smack_raise := _settings_spin_free(smack_form, "Max raise", 0.5,
-		float(smack.get("raise_m", 0.18)) * 100.0, font_size)
+		float(smack.get("raise_m", 0.30)) * 100.0, font_size)
 	smack_raise.suffix = " cm"
 	smack_raise.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"raise_m": smack_raise.value / 100.0}})
 		_apply_live_settings())
 	var smack_hind := _settings_spin_free(smack_form, "Hind offset", 0.5,
-		float(smack.get("hind_m", 0.08)) * 100.0, font_size)
+		float(smack.get("hind_m", 0.10)) * 100.0, font_size)
 	smack_hind.suffix = " cm"
 	smack_hind.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"hind_m": smack_hind.value / 100.0}})
+		_apply_live_settings())
+	var smack_arc := _settings_spin_free(smack_form, "Palm arc", 0.5,
+		float(smack.get("arc_m", 0.06)) * 100.0, font_size)
+	smack_arc.suffix = " cm"
+	smack_arc.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"arc_m": smack_arc.value / 100.0}})
 		_apply_live_settings())
 	var smack_pitch := _settings_spin_free(smack_form, "Palm pitch", 1.0,
 		float(smack.get("pitch_deg", 12.0)), font_size)
@@ -993,14 +1001,14 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 			{"smack": {"pitch_deg": smack_pitch.value}})
 		_apply_live_settings())
 	var smack_raise_speed := _settings_spin_free(smack_form, "Raise speed", 0.1,
-		float(smack.get("raise_speed", 1.2)), font_size)
+		float(smack.get("raise_speed", 2.0)), font_size)
 	smack_raise_speed.suffix = " m/s"
 	smack_raise_speed.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"raise_speed": smack_raise_speed.value}})
 		_apply_live_settings())
 	var smack_return_speed := _settings_spin_free(smack_form, "Return speed", 0.1,
-		float(smack.get("return_speed", 1.9)), font_size)
+		float(smack.get("return_speed", 6.0)), font_size)
 	smack_return_speed.suffix = " m/s"
 	smack_return_speed.value_changed.connect(func(_value: float) -> void:
 		SETTINGS.save_presentation_controls("standing",

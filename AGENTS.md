@@ -108,7 +108,7 @@ mods/unfplap/
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  frozen missionary shot, aim, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
-  standing_anon.gd  standing hip thrust wrapper, torso lean counter and palm scale
+  standing_anon.gd  standing hip thrust wrapper, planted lower body and palm scale
   standing_presentation.gd  idle standing invitation, turn and request face
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
   palm_scale.gd     standing hand-bone scale, restored when the act ends
@@ -246,32 +246,35 @@ body-relative axes.
 - Lean distances, pitch, yaw and roll scale with pony size:
   `lean_size_scale_for(size) = clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`) is the reference;
   Canon (`0.66`) is `1.34` (+34%). Missionary Canon camera height is also multiplied by `0.9`.
-- Standing Anon body lean: the camera/head moves forward or sideways, and `apply_anon_lean()`
-  cancels the same translation on the pelvis. The hips stay planted behind her rump while the
-  torso hinges over her, instead of the whole body sliding forward and clipping. Pull-back
-  still moves the whole body away.
+- Standing Anon body lean: `apply_anon_lean()` freezes the whole lower body (hip target and both
+  foot targets) at its act-start pose. The camera/head moves forward, sideways or down, so the
+  torso hinges over her while the legs keep their pose instead of walking into the shot.
+  Pulling back translates the hips and both feet together, so the whole lower body moves away
+  without changing the leg pose.
 - The hip is **depth-driven**. `_hip_phase` is the mouse `depth` low-passed by
-  `HIP_SMOOTH_S = 0.04 s`. The base HipsTarget is the fixed limit at her rump;
-  `anon_hip_thrust.gd` moves only the Hips bone backward by
-  `THRUST_MAX_M = 0.045 * body_scale * thrust.travel * (1 - phase)`, so depth 0 is the full
-  backset and depth 1 returns to the limit. The modifier restores the Spine and both UpperLegs
-  to their pre-offset global poses, so the torso, head and legs do not follow. There is no
-  speed/strength attack and no return spring.
+  `HIP_SMOOTH_S = 0.04 s`. The fixed rump point is the base HipsTarget plus
+  `THRUST_MAX_M = 0.045 × body_scale` toward her; `anon_hip_thrust.gd` moves only the Hips bone
+  by `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so depth 0 is the full backset and
+  depth 1 reaches the rump point. `thrust.travel` defaults to `2.0`. The modifier restores the
+  Spine and both UpperLegs to their pre-offset global poses, so the torso, head and legs do not
+  follow. There is no speed/strength attack and no return spring.
 - With `standing_plant_feet` on (default), the standing controller captures both foot targets on
-  the first act frame and rewrites them every frame after the body places them. The torso,
-  camera lean, hands, kiss and hip thrust still move; only the feet stay planted. Off restores
-  the game's stepping and lean foot motion; the capture clears at act end.
+  the first act frame, moves them `PLANT_FEET_BACK_M = 0.15 m` behind Anon so they are not
+  between her hind legs, and captures the hip target. Every frame after the body places them it
+  rewrites all three to that capture. The torso, camera lean, hands, kiss and hip thrust still
+  move; the lower body does not. Off restores the game's stepping and lean foot motion; the
+  capture clears at act end.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
   speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `_camera_thrust_tick()` follows it with one critically
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
 - `presentation.standing.torso_angle_deg` (default `6`, experimental/unbounded) hinges Anon's
-  upper body forward over her. `apply_anon_lean()` counters the hip and pins the feet;
+  upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
 - Standing palms are scaled absolutely per body preset from
-  `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.95`, same height/hoers
+  `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.9`, same height/hoers
   `1.0`. The settings tab edits the selected size. `palm_scale.gd` runs after BodyIK and
   restores the cached bone scales in `_remove_anon_thrust()` on every act exit. Marker scaling
   would be discarded by the IK solver.
@@ -283,7 +286,7 @@ body-relative axes.
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow rocking offset
-  (`0.010` forward / `presentation.standing.idle_sway_side`, default `0.0084`, clamped inside
+  (`0.010` forward / `presentation.standing.idle_sway_side`, default `0.0`, clamped inside
   `-1…1`). A/D caress always latches: tap once
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
@@ -400,8 +403,8 @@ body-relative axes.
   hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave, restoring
   `mChest`/`mNeck`/`mHead` so only the tail base and chain move.
 - The rump shader wobble is tuned by the `jiggle` block: `radius` (default `0.26 m`) spreads it
-  across the whole flank, `intensity` (default `0.55×`) scales the thrust amount, and
-  `smack_intensity` (default `1.0×`) scales the act smack amount. The runtime
+  across the whole flank, `intensity` (default `0.25×`) scales the thrust amount, and
+  `smack_intensity` (default `0.55×`) scales the act smack amount. The runtime
   sets `jiggle_radius` on every active `_flank._jiggle_targets` material and restores the override
   at act end, so stock smacks keep the shader default `0.12 m`. `apply_live_settings()` updates
   the radius on an active wobble.
@@ -535,7 +538,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `1 = right cheek`. Standing targets the flank patch: if the striking hand is already
   caressing and its contact source is `flank`, that live point is used. A free-hand smack
   targets the chosen cheek just below its mark centre: the mark centre dropped
-  `SMACK_CHEEK_DROP_M = 0.03 m` × body scale and moved `smack.hind_m` (default `0.08 m`) ×
+  `SMACK_CHEEK_DROP_M = 0.03 m` × body scale and moved `smack.hind_m` (default `0.10 m`) ×
   body scale toward her rump, snapped to the nearest `FlankSurface` point and jittered
   tangentially within `smack_zone_radius` (default `0.035 m`). That keeps a resting hand from
   reaching the leg and puts the contact on the hind of the flank.
@@ -549,15 +552,16 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Standing plays four phases. The contact palm uses the caress finger hint (`-pony.global_basis.z`,
   forward) when caressing, and `Vector3.DOWN` for a free-hand smack, so the fingers stay in the
   right plane. A caress RAISE lifts the palm from its current frame to the contact plus
-  `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal and
+  `presentation.standing.smack.raise_m` (default `0.30 m`, body-scaled) along the coat normal and
   `SMACK_RAISE_BACK_M = 0.05 m` toward her rump. A free-hand RAISE is a backswing from behind and
   below: `back × raise_m`, `down × (raise_m × SMACK_SWING_DOWN_RATIO = 0.55)` and a small
   `outward × (raise_m × SMACK_SWING_OUT_RATIO = 0.15)` clearance. Both raised bases are the
   straight contact basis pitched down by `smack.pitch_deg` (default `12°`) about the palm normal,
-  so the wind-up is a pitch, not a roll around the arm. Its speed is `smack.raise_speed` (default
-  `1.2 m/s`), clamped to `0.12–0.30 s`. STRIKE travels straight to the contact with cubic
-  acceleration and pitches back to the straight contact basis at `smack.return_speed` (default
-  `1.9 m/s`), clamped to `0.06–0.20 s`. CONTACT holds for `SMACK_CONTACT_HOLD_SECONDS = 0.03 s`
+  so the wind-up is a pitch, not a roll around the arm. The lift path bows toward her rump by
+  `smack.arc_m` (default `0.06 m`, body-scaled) at the middle of the raise. Its speed is
+  `smack.raise_speed` (default `2.0 m/s`), clamped to `0.12–0.30 s`. STRIKE travels straight to
+  the contact with cubic acceleration and pitches back to the straight contact basis at
+  `smack.return_speed` (default `6.0 m/s`), clamped to `0.06–0.20 s`. CONTACT holds for `SMACK_CONTACT_HOLD_SECONDS = 0.03 s`
   and fires `impact` and `_on_touch("smack")`. RECOVER blends to the live caress oval over
   `CARESS_RETURN_SECONDS = 0.12 s`, or to the captured rest hand over
   `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the old
@@ -933,7 +937,7 @@ examples.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
-| `standing_plant_feet` | `true` | hold both Anon foot targets at their act-start points; off restores the game's stepping/lean foot motion |
+| `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
@@ -948,20 +952,20 @@ Always on: standing afterglow stay-close window, lean-camera inertia smoothing a
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `1000`; `thrust.travel` is the hip backset multiplier,
-  default `1.0`.
+  default `2.0`.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
-  `intensity` multiplier (default `0.55`) and the act-smack `smack_intensity` multiplier
-  (default `1.0`). It is read live with the other thrust controls.
+  `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
+  (default `0.55`). It is read live with the other thrust controls.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
-  - `standing`: `glance_back_speed`, `torso_angle_deg`, `idle_sway_side` (default `0.0084`),
+  - `standing`: `glance_back_speed`, `torso_angle_deg`, `idle_sway_side` (default `0.0`),
     `caress` with `palm_distance`, `oval_across_m` (default `5.36 cm`), `oval_up_m` (default
     `2.89 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
-    and `smack` with `raise_m` (default `0.18 m`), `hind_m` (default `0.08 m`), `pitch_deg`
-    (default `12°`), `raise_speed` (default `1.2 m/s`) and `return_speed` (default `1.9 m/s`).
-    The smack values are experimental/unbounded.
+    and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.10 m`), `arc_m`
+    (default `0.06 m`), `pitch_deg` (default `12°`), `raise_speed` (default `2.0 m/s`) and
+    `return_speed` (default `6.0 m/s`). The smack values are experimental/unbounded.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
@@ -978,9 +982,9 @@ rump blush. Unknown settings keys are ignored.
   (radius, thrust intensity and smack intensity), the **Act presentation** section split into
   **Missionary** and **Standing** (standing includes idle side sway, caress palm distance, oval
   radii, size-selected palm scale, body-part ignores, and the smack raise height, hind offset,
-  palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There are no Save
-  buttons: each control writes its own block and calls `apply_live_settings()` so the active act
-  updates immediately.
+  palm arc, palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There
+  are no Save buttons: each control writes its own block and calls `apply_live_settings()` so the
+  active act updates immediately.
 - `debug_logs` defaults to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

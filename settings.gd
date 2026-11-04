@@ -127,8 +127,8 @@ const FEATURE_INFO := {
 		"help": "Add the tail base and dock to the rump's thrust and smack jiggle.",
 	},
 	"standing_plant_feet": {
-		"label": "Plant Anon's feet",
-		"help": "Hold both foot targets at their act-start positions. Off restores the game's stepping and lean foot motion.",
+		"label": "Plant Anon's lower body",
+		"help": "Hold Anon's hips and both feet at their act-start positions, 15 cm behind him. Off restores the game's stepping and lean foot motion.",
 	},
 	"allow_act_during_cuddle": {
 		"label": "Allow acts during cuddles",
@@ -182,8 +182,8 @@ const CAMERA_THRUST_DEFAULTS := {
 ## Shared rump wobble tuning. `radius` is metres; `intensity` scales the thrust amount.
 const JIGGLE_DEFAULTS := {
 	"radius": 0.26,
-	"intensity": 0.55,
-	"smack_intensity": 1.0,
+	"intensity": 0.25,
+	"smack_intensity": 0.55,
 }
 
 ## Pose-specific act presentation. Missionary owns its framing/pitch; standing owns the glance,
@@ -205,7 +205,7 @@ const PRESENTATION_DEFAULTS := {
 	"standing": {
 		"glance_back_speed": 2.0,
 		"torso_angle_deg": 6.0,
-		"idle_sway_side": 0.0084,
+		"idle_sway_side": 0.0,
 		"kiss": {
 			"mouth_right": 0.0,
 			"mouth_drop": 0.0,
@@ -222,18 +222,19 @@ const PRESENTATION_DEFAULTS := {
 			"oval_up_m": 0.04125 * 0.70,
 			"palm_scale": {
 				"canon": 0.75,
-				"mounting": 0.95,
+				"mounting": 0.9,
 				"same height": 1.0,
 				"hoers": 1.0,
 			},
 			"ignore": ["tail", "wing"],
 		},
 		"smack": {
-			"raise_m": 0.18,
-			"hind_m": 0.08,
+			"raise_m": 0.30,
+			"hind_m": 0.10,
+			"arc_m": 0.06,
 			"pitch_deg": 12.0,
-			"raise_speed": 1.2,
-			"return_speed": 1.9,
+			"raise_speed": 2.0,
+			"return_speed": 6.0,
 		},
 	},
 }
@@ -545,7 +546,7 @@ static func thrust_controls() -> Dictionary:
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
 		pixels = float((block as Dictionary).get("pixels_per_full", 1000.0))
-		travel = float((block as Dictionary).get("travel", 1.0))
+		travel = float((block as Dictionary).get("travel", 2.0))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
@@ -652,7 +653,7 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 	if pose_id == "standing":
 		out["glance_back_speed"] = clampf(float(out.get(
 			"glance_back_speed", 2.0)), 0.25, 3.0)
-		out["idle_sway_side"] = maxf(0.0, float(out.get("idle_sway_side", 0.0084)))
+		out["idle_sway_side"] = maxf(0.0, float(out.get("idle_sway_side", 0.0)))
 		var caress: Dictionary = out.get("caress", {})
 		caress["palm_distance"] = clampf(float(caress.get("palm_distance", 0.04)),
 			0.0, 0.2)
@@ -674,11 +675,12 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 		caress["ignore"] = ignore
 		out["caress"] = caress
 		var smack: Dictionary = out.get("smack", {})
-		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.18)))
-		smack["hind_m"] = maxf(0.0, float(smack.get("hind_m", 0.08)))
+		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.30)))
+		smack["hind_m"] = maxf(0.0, float(smack.get("hind_m", 0.10)))
+		smack["arc_m"] = maxf(0.0, float(smack.get("arc_m", 0.06)))
 		smack["pitch_deg"] = float(smack.get("pitch_deg", 12.0))
-		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 1.2)))
-		smack["return_speed"] = maxf(0.05, float(smack.get("return_speed", 1.9)))
+		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 2.0)))
+		smack["return_speed"] = maxf(0.05, float(smack.get("return_speed", 6.0)))
 		out["smack"] = smack
 		var kiss: Dictionary = out.get("kiss", {})
 		kiss["mouth_right"] = clampf(float(kiss.get("mouth_right", 0.0)), -0.5, 0.5)
@@ -845,7 +847,7 @@ static func _defaults() -> Dictionary:
 		"thrust": {
 			"orientation": "up",
 			"pixels_per_full": 1000.0,
-			"travel": 1.0,
+			"travel": 2.0,
 		},
 		"jiggle": JIGGLE_DEFAULTS.duplicate(true),
 		"camera_thrust": CAMERA_THRUST_DEFAULTS.duplicate(true),

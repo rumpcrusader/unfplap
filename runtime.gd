@@ -244,10 +244,10 @@ var _taste: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 var _thrust_pixels_per_full := 480.0
-var _thrust_travel := 1.0
+var _thrust_travel := 2.0
 var _jiggle_radius_m := 0.26
-var _jiggle_intensity_scale := 0.55
-var _jiggle_smack_intensity := 1.0
+var _jiggle_intensity_scale := 0.25
+var _jiggle_smack_intensity := 0.55
 var _jiggle_radius_materials: Array = []
 var _camera_surge := 0.0
 var _camera_bob := 0.0
@@ -466,11 +466,11 @@ func apply_live_settings() -> void:
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_travel = float(thrust_controls.get("travel", 1.0))
+	_thrust_travel = float(thrust_controls.get("travel", 2.0))
 	var jiggle_controls := SETTINGS.jiggle_controls()
 	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
-	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.55))
-	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 1.0))
+	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.25))
+	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 0.55))
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
 	var camera_thrust := SETTINGS.camera_thrust_controls()
@@ -1356,11 +1356,11 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_travel = float(thrust_controls.get("travel", 1.0))
+	_thrust_travel = float(thrust_controls.get("travel", 2.0))
 	var jiggle_controls := SETTINGS.jiggle_controls()
 	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
-	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.55))
-	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 1.0))
+	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.25))
+	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 0.55))
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
 	var camera_thrust := SETTINGS.camera_thrust_controls()
@@ -3483,16 +3483,6 @@ func _anon_height_scale() -> float:
 func _same_height_scale() -> float:
 	return _anon_height_scale() if _size_name() == "same height" else 1.0
 
-## Standing presentation only. The accepted Anon rig's hands read a little large beside a Canon
-## pony; JRHNBR needs a smaller correction. Other presets keep the authored size.
-static func standing_palm_scale_for(size_name: String) -> float:
-	match size_name:
-		"canon":
-			return 0.85
-		"mounting":
-			return 0.95
-	return 1.0
-
 ## Absolute hand scale for the current body preset, from the per-size caress setting.
 func _palm_scale_factor() -> float:
 	var caress: Variant = _presentation_cfg.get("caress", {})
@@ -3501,6 +3491,7 @@ func _palm_scale_factor() -> float:
 		if scales is Dictionary:
 			return float((scales as Dictionary).get(_size_name(), 1.0))
 	return 1.0
+
 
 func _apply_eye_override() -> void:
 	_camera_target_eye = 0.0

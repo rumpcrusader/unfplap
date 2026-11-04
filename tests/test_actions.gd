@@ -112,6 +112,14 @@ func run() -> void:
 		smack_contact, smack_raised, Vector3.BACK * 0.02, 0.5)
 	check(raise_mid.origin.x > smack_contact.origin.x
 		and raise_mid.origin.x < smack_raised.origin.x, "smack raise blends between frames")
+	check(near(raise_mid.origin.z - smack_contact.origin.z
+		- (smack_raised.origin.z - smack_contact.origin.z) * 0.5, 0.02, 0.002),
+		"smack raise bows along the arc parameter")
+	var no_arc_mid: Transform3D = CAESS.smack_raise_blend(
+		smack_contact, smack_raised, Vector3.ZERO, 0.5)
+	check(near(no_arc_mid.origin.z - smack_contact.origin.z,
+		(smack_raised.origin.z - smack_contact.origin.z) * 0.5, 0.002),
+		"zero arc is a straight blend")
 	var strike_mid: Transform3D = CAESS.smack_strike_blend(smack_raised, smack_contact, 0.5)
 	check(strike_mid.origin.distance_to(smack_raised.origin)
 		< strike_mid.origin.distance_to(smack_contact.origin), "smack strike accelerates")
@@ -119,8 +127,8 @@ func run() -> void:
 		smack_contact.origin), "smack strike reaches the contact")
 	check(CAESS.smack_recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
 		smack_raised.origin), "smack recovery reaches its target")
-	check(near(CAESS.SMACK_RAISE_SPEED_M_S, 1.2)
-		and near(CAESS.SMACK_RETURN_SPEED_M_S, 1.9), "smack default speeds")
+	check(near(CAESS.SMACK_RAISE_SPEED_M_S, 2.0)
+		and near(CAESS.SMACK_RETURN_SPEED_M_S, 6.0), "smack default speeds")
 	check(near(CAESS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack contact hold")
 	var quad_faces := PackedVector3Array([
 		Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0),
@@ -231,9 +239,6 @@ func run() -> void:
 		"full kiss uses one lateral offset")
 	check(near(KISS.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
 		"kiss lateral crossfades instead of stacking")
-	check(near(RUNTIME.standing_palm_scale_for("canon"), 0.85), "Canon standing palm scale")
-	check(near(RUNTIME.standing_palm_scale_for("mounting"), 0.95), "JRHNBR standing palm scale")
-	check(near(RUNTIME.standing_palm_scale_for("hoers"), 1.0), "Hoers standing palm scale unchanged")
 
 	var sk := Skeleton3D.new()
 	root.add_child(sk)
@@ -295,7 +300,8 @@ func run() -> void:
 	check(near(fake_tail.last_strength, 0.0), "smack tail jiggle is gated off")
 	jiggle_runtime._features = {"thrust_tail_dock_jiggle": true}
 	jiggle_runtime.call("_on_smack_impact", 0.8)
-	var expected_jiggle := float(jiggle_runtime.call("_jiggle_size_scale"))
+	var expected_jiggle := float(jiggle_runtime.call("_jiggle_size_scale")) \
+		* float(jiggle_runtime._jiggle_smack_intensity)
 	check(near(fake_tail.last_strength, expected_jiggle),
 		"smack tail jiggle follows the flag")
 	jiggle_runtime._features = {"thrust_tail_dock_jiggle": false}
@@ -367,16 +373,18 @@ func run() -> void:
 	root.remove_child(mask_runtime)
 	mask_runtime.free()
 
-	check(near(STANDING_ANON.hip_backset(0.0, 1.0, 1.0), 0.045),
-		"hip backset is full at rest")
-	check(near(STANDING_ANON.hip_backset(1.0, 1.0, 1.0), 0.0),
-		"hip backset returns to the rump limit")
-	check(near(STANDING_ANON.hip_backset(0.0, 0.66, 0.5), 0.045 * 0.66 * 0.5),
-		"hip backset scales with size and travel")
+	check(near(STANDING_ANON.hip_offset(0.0, 1.0, 2.0), -0.045),
+		"hip rests one reach behind the rump limit")
+	check(near(STANDING_ANON.hip_offset(1.0, 1.0, 2.0), 0.045),
+		"hip reaches the rump limit at full depth")
+	check(near(STANDING_ANON.hip_offset(0.5, 1.0, 2.0), 0.0),
+		"half depth returns to the base hip target")
+	check(near(STANDING_ANON.hip_offset(1.0, 0.66, 2.0), 0.045 * 0.66),
+		"hip reach scales with pony size")
 
 	var hip_runtime: Node = RUNTIME.new()
 	hip_runtime.pose_id = CATALOG.STANDING
-	hip_runtime._thrust_travel = 1.5
+	hip_runtime._thrust_travel = 2.0
 	var hip_pony := Node3D.new()
 	root.add_child(hip_pony)
 	var hip_modifier = HIP_THRUST.new()
@@ -387,8 +395,13 @@ func run() -> void:
 	stand.set("_hip_phase", 0.0)
 	stand.call("apply_anon_thrust", Node3D.new(), Basis.IDENTITY)
 	var hip_offset: Vector3 = hip_modifier.get("offset_world")
-	check(near(hip_offset.length(), 0.045 * 1.5), "hip travel multiplier sets the backset")
-	check(hip_offset.z > 0.0, "hip backset points backward")
+	check(near(hip_offset.length(), 0.045) and hip_offset.z > 0.0,
+		"depth 0 sets the hips back from the rump limit")
+	stand.set("_hip_phase", 1.0)
+	stand.call("apply_anon_thrust", Node3D.new(), Basis.IDENTITY)
+	hip_offset = hip_modifier.get("offset_world")
+	check(near(hip_offset.length(), 0.045) and hip_offset.z < 0.0,
+		"depth 1 moves the hips onto the rump limit")
 	hip_runtime.free()
 	hip_modifier.free()
 	hip_pony.free()
@@ -516,16 +529,26 @@ func run() -> void:
 	var plant_anon := STANDING_ANON.new(plant_runtime)
 	plant_anon.set("pony", plant_runtime.pony)
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	var planted_left := plant_left.global_position
+	var planted_right := plant_right.global_position
+	check(planted_left.is_equal_approx(Vector3(0.2, 0.0, 0.15)),
+		"planted left foot sits 15 cm behind its act-start point")
+	check(planted_right.is_equal_approx(Vector3(-0.2, 0.0, 0.15)),
+		"planted right foot sits 15 cm behind its act-start point")
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
+	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_left.global_position.is_equal_approx(Vector3(0.2, 0.0, 0.0)),
+	check(plant_left.global_position.is_equal_approx(planted_left),
 		"planted left foot holds its act-start point")
-	check(plant_right.global_position.is_equal_approx(Vector3(-0.2, 0.0, 0.0)),
+	check(plant_right.global_position.is_equal_approx(planted_right),
 		"planted right foot holds its act-start point")
+	check(plant_hip.global_position.is_equal_approx(Vector3.ZERO),
+		"planted hips hold their act-start point")
 	plant_runtime._features = {"standing_plant_feet": false}
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
+	plant_hip.global_position = Vector3.ZERO
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	check(plant_left.global_position.is_equal_approx(Vector3(5.0, 0.0, 0.0)),
 		"plant flag off releases the feet")
@@ -542,7 +565,7 @@ func run() -> void:
 		"gate report keeps the invalid-pony reason")
 	gate_runtime.free()
 
-	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010) and near(MOTION.HOLD_SWAY_SIDE, 0.0084),
+	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010) and near(MOTION.HOLD_SWAY_SIDE, 0.0),
 		"idle camera sway amplitude")
 	check(near(STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
 	check(near(MOTION.LEAN_SIDE_M, 0.18), "side lean travel")

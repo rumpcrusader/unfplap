@@ -33,7 +33,7 @@ class FakeWorldContext extends Node:
 class FakeRuntime extends Node:
 	var presented := false
 
-	func present_horse() -> bool:
+	func present_standing() -> bool:
 		presented = true
 		return true
 
@@ -91,7 +91,7 @@ func run() -> void:
 	var fake_runtime := FakeRuntime.new()
 	initiation._episode = {
 		"serial": 7, "pony": target, "runtime": fake_runtime, "id": "rarity",
-		"pose": "horse", "source": "", "bed": null, "private": true, "cuddle": false,
+		"pose": "standing", "source": "", "bed": null, "private": true, "cuddle": false,
 		"phase": "ask", "ask_started": 0.0, "keys": [],
 	}
 	initiation._serial = 7
@@ -104,7 +104,7 @@ func run() -> void:
 	fake_runtime.presented = false
 	initiation._episode = {
 		"serial": 8, "pony": target, "runtime": fake_runtime, "id": "rarity",
-		"pose": "horse", "source": "", "bed": null, "private": true, "cuddle": false,
+		"pose": "standing", "source": "", "bed": null, "private": true, "cuddle": false,
 		"phase": "ask", "ask_started": 0.0, "keys": [],
 	}
 	initiation._serial = 8
@@ -154,9 +154,9 @@ func run() -> void:
 	check(INIT.y_start_allowed(false, "", "dialogue"), "a dialogue agreement is allowed with flag off")
 	check(not INIT.y_start_allowed(false, "", ""), "arbitrary standing Y is blocked with flag off")
 	check(INIT.pick_offer_pose(true, true, 0.1) == "missionary", "bed wins the low coin flip")
-	check(INIT.pick_offer_pose(true, true, 0.9) == "horse", "horse wins the high coin flip")
-	check(INIT.pick_offer_pose(true, false, 0.9) == "missionary", "bed is used when horse is unavailable")
-	check(INIT.pick_offer_pose(false, true, 0.1) == "horse", "horse is used when no bed is available")
+	check(INIT.pick_offer_pose(true, true, 0.9) == "standing", "standing wins the high coin flip")
+	check(INIT.pick_offer_pose(true, false, 0.9) == "missionary", "bed is used when standing is unavailable")
+	check(INIT.pick_offer_pose(false, true, 0.1) == "standing", "standing is used when no bed is available")
 	check(INIT.pick_offer_pose(false, false, 0.5) == "", "no pose when neither offer fits")
 
 	check(INIT.next_prompt_time(0) == 12.0, "first reminder at twelve seconds")

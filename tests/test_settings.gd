@@ -53,7 +53,7 @@ func run() -> void:
 	var cue_override := SETTINGS.profile_for(base, {"fluttershy": {"cue_gap": 15.0}}, "fluttershy")
 	check(near(float(cue_override.get("cue_gap", 0.0)), 15.0), "character cue_gap override wins")
 	var poses: Dictionary = base.get("poses", {})
-	check(poses.has(CATALOG.MISSIONARY) and poses.has(CATALOG.HORSE), "pose defaults present")
+	check(poses.has(CATALOG.MISSIONARY) and poses.has(CATALOG.STANDING), "pose defaults present")
 	var taste: Dictionary = base.get("taste", {})
 	check(str(taste.get("intensity", "")) == "firm", "neutral intensity default")
 	check(str(taste.get("pattern", "")) == "steady", "neutral pattern default")
@@ -78,7 +78,7 @@ func run() -> void:
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["rump_drop_deg"]) == 35.0, "character pose inherits other defaults")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["camera_height"]) == 0.45, "missionary camera default")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["neck_lift_deg"]) == 15.0, "missionary neck lift default")
-	check(float((profile["poses"] as Dictionary)[CATALOG.HORSE]["hind_spread"]) == 0.32, "unrelated pose inherits defaults")
+	check(float((profile["poses"] as Dictionary)[CATALOG.STANDING]["hind_spread"]) == 0.32, "unrelated pose inherits defaults")
 	var profile_taste: Dictionary = profile["taste"]
 	check(str(profile_taste.get("intensity", "")) == "rough", "character taste override")
 	check((profile_taste.get("touch", []) as Array).has("smack"), "character touch override")
@@ -151,7 +151,7 @@ func run() -> void:
 	check(camera_bob >= 0.0 and camera_bob <= 1.0, "runtime camera bob in range")
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
 	var missionary_defaults: Dictionary = presentation_defaults.get("missionary", {})
-	var horse_defaults: Dictionary = presentation_defaults.get("horse", {})
+	var standing_defaults: Dictionary = presentation_defaults.get("standing", {})
 	check(near(float(missionary_defaults.get("forward", 0.0)), 0.30),
 		"default missionary forward")
 	check(near(float(missionary_defaults.get("height", 0.0)), 0.25),
@@ -174,11 +174,11 @@ func run() -> void:
 		"default missionary head pitch")
 	check(near(float(missionary_defaults.get("head_roll_deg", -1.0)), 13.0),
 		"default missionary head roll")
-	check(near(float(horse_defaults.get("glance_back_speed", 0.0)), 2.0),
+	check(near(float(standing_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
-	check(near(float(horse_defaults.get("torso_angle_deg", -1.0)), 6.0),
+	check(near(float(standing_defaults.get("torso_angle_deg", -1.0)), 6.0),
 		"default Anon torso lean")
-	var kiss_defaults: Dictionary = horse_defaults.get("kiss", {})
+	var kiss_defaults: Dictionary = standing_defaults.get("kiss", {})
 	check(near(float(kiss_defaults.get("mouth_drop", -1.0)), 0.0),
 		"default kiss mouth drop")
 	check(near(float(kiss_defaults.get("mouth_forward", -1.0)), 0.0),
@@ -193,7 +193,7 @@ func run() -> void:
 		"default kiss lean drop")
 	check(str(kiss_defaults.get("forelegs", "")) == "planted",
 		"default kiss forelegs planted")
-	var caress_defaults: Dictionary = horse_defaults.get("caress", {})
+	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
 		"default caress palm distance")
 	var scale_defaults: Dictionary = caress_defaults.get("palm_scale", {})
@@ -219,20 +219,59 @@ func run() -> void:
 	var migrated: Dictionary = SETTINGS._normalize_presentation(old_presentation)
 	var migrated_block: Dictionary = migrated.get("presentation", {})
 	var migrated_mission: Dictionary = migrated_block.get("missionary", {})
-	var migrated_horse: Dictionary = migrated_block.get("horse", {})
+	var migrated_standing: Dictionary = migrated_block.get("standing", {})
 	check(near(float(migrated_mission.get("forward", 0.0)), 0.31),
 		"migrates old missionary forward")
 	check(near(float(migrated_mission.get("pitch_deg", 0.0)), 3.0),
 		"migrates old missionary pitch")
-	check(near(float(migrated_horse.get("glance_back_speed", 0.0)), 1.5),
+	check(near(float(migrated_standing.get("glance_back_speed", 0.0)), 1.5),
 		"migrates old glance speed")
-	check(near(float(migrated_horse.get("torso_angle_deg", 0.0)), 7.0),
+	check(near(float(migrated_standing.get("torso_angle_deg", 0.0)), 7.0),
 		"migrates old torso lean")
 	check(not migrated_block.has("pose1_forward"), "drops old flat presentation keys")
 	check(not migrated_block.has("pose1_camera"), "drops obsolete camera key")
 
-	var horse := SETTINGS.presentation_controls("horse")
-	var glance_speed := float(horse.get("glance_back_speed", 0.0))
+	var legacy_pose := {
+		"presentation": {
+			"missionary": {"forward": 0.31},
+			"horse": {"glance_back_speed": 1.5},
+		},
+		"default": {"poses": {"horse": {"hind_spread": 0.77}}},
+		"characters": {
+			"fluttershy": {"poses": {"horse": {"bow": 1.9}}},
+		},
+	}
+	var renamed: Dictionary = SETTINGS._normalize_pose_names(legacy_pose)
+	var renamed_presentation: Dictionary = renamed.get("presentation", {})
+	var renamed_default: Dictionary = renamed.get("default", {})
+	var renamed_fluttershy: Dictionary = (renamed.get("characters", {}) as Dictionary).get(
+		"fluttershy", {})
+	check(renamed_presentation.has("standing") and not renamed_presentation.has("horse"),
+		"migrates the legacy presentation pose id")
+	check(near(float((renamed_presentation.get("standing", {}) as Dictionary).get(
+		"glance_back_speed", 0.0)), 1.5), "keeps legacy presentation values")
+	var renamed_default_poses: Dictionary = renamed_default.get("poses", {})
+	var renamed_default_standing: Dictionary = renamed_default_poses.get("standing", {})
+	check(near(float(renamed_default_standing.get("hind_spread", 0.0)), 0.77),
+		"migrates the default pose block")
+	var renamed_fluttershy_poses: Dictionary = renamed_fluttershy.get("poses", {})
+	var renamed_fluttershy_standing: Dictionary = renamed_fluttershy_poses.get("standing", {})
+	check(near(float(renamed_fluttershy_standing.get("bow", 0.0)), 1.9),
+		"migrates a character pose block")
+	var both_pose := {
+		"presentation": {
+			"standing": {"glance_back_speed": 2.5},
+			"horse": {"glance_back_speed": 1.5},
+		},
+	}
+	var both_renamed: Dictionary = SETTINGS._normalize_pose_names(both_pose)
+	var both_standing: Dictionary = (both_renamed.get("presentation", {}) as Dictionary).get(
+		"standing", {})
+	check(near(float(both_standing.get("glance_back_speed", 0.0)), 2.5),
+		"current pose values win over legacy values")
+
+	var standing := SETTINGS.presentation_controls("standing")
+	var glance_speed := float(standing.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})

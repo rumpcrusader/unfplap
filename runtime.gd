@@ -114,7 +114,7 @@ const POSE1_CAMERA_LIFT_M := 0.10
 const POSE1_START_LEAN := 1.0
 ## Presentation: how close the pony stands in front of the player for pose 2.
 const POSE2_GAP_M := 0.55
-## Idle horse invitation: turn away from Anon at this rate before she settles into the stance.
+## Idle standing invitation: turn away from Anon at this rate before she settles into the stance.
 const PRESENT_TURN_RATE := 2.4
 ## The game's supported standing turn steps the hooves. Its default 0.45 rad/s half-turn would
 ## take about 7 s, so the request speeds it up while it owns the turn.
@@ -242,7 +242,7 @@ const LOOK_PITCH_LIMIT := 0.785398
 const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Pose 2 after the climax: held afterglow; Anon stays put.
-## The close window only exists in the horse afterglow.
+## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 
@@ -333,7 +333,7 @@ var thrust_up := true
 
 var _pose
 var _tail
-## Idle horse invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
+## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 var _presenting := false
 var _present_turning := false
 var _present_turn_started := 0.0
@@ -729,7 +729,7 @@ func _wing_return_tick(delta: float) -> void:
 
 
 func _ensure_wing_sweep() -> void:
-	if pose_id != CATALOG.HORSE or not _wing_hold or not is_instance_valid(pony):
+	if pose_id != CATALOG.STANDING or not _wing_hold or not is_instance_valid(pony):
 		_clear_wing_sweep()
 		return
 	var sk: Variant = pony.get("skeleton")
@@ -786,7 +786,7 @@ func apply_live_settings() -> void:
 	_camera_surge = float(camera_thrust.get("surge", 0.0))
 	_camera_bob = float(camera_thrust.get("bob", 0.0))
 	_presentation_cfg = SETTINGS.presentation_controls(pose_id)
-	if pose_id == CATALOG.HORSE:
+	if pose_id == CATALOG.STANDING:
 		if _base_kiss_active:
 			_apply_kiss_forelegs()
 			if _kiss_forelegs_mode() == "base":
@@ -828,7 +828,7 @@ func _refresh_live_modifiers() -> void:
 	var skeleton := skeleton_value as Skeleton3D
 	if not _feature("thrust_tail_dock_jiggle"):
 		_restore_dock_jiggle_material()
-	if pose_id == CATALOG.HORSE:
+	if pose_id == CATALOG.STANDING:
 		if _feature("pose2_body_sway") and not is_instance_valid(_body_sway):
 			_install_body_sway(skeleton)
 		elif not _feature("pose2_body_sway") and is_instance_valid(_body_sway):
@@ -1261,7 +1261,7 @@ func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool
 		if found == null or main.bed_occupied(found, pony):
 			return false
 		return true
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		return not pony.is_held() and not pony.has_meta("seated")
 	return false
 
@@ -1421,7 +1421,7 @@ func refuse_available(pose: String, act_source: String, bed_in: Variant = null) 
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection == null or not affection.has_method("buck"):
 		return false
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		if pony.is_held() or not pony.grounded() or pony.has_meta("seated"):
 			return false
 		var status: Dictionary = pony.posture_status()
@@ -1449,7 +1449,7 @@ func refuse_available(pose: String, act_source: String, bed_in: Variant = null) 
 func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
 	if not refuse_available(pose, act_source, bed_in):
 		return
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		_buck_or_push()
 		return
 	if act_source == "cradle":
@@ -1673,7 +1673,7 @@ func _sleep_owner_allows_bed(pose: String, act_source: String) -> bool:
 
 
 func _nav_pose_gate(pose: String, act_source: String) -> bool:
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		if pony.is_held() or not pony.grounded():
 			return false
 		if bool(pony.motion_paused):
@@ -1774,7 +1774,7 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 		if str(inventory.get("holding_case")) != "":
 			return false
 	var seat: Variant = body.get("seat")
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		if seat != null:
 			return false
 	elif act_source == "cradle":
@@ -1805,7 +1805,7 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	if not can_start(pose, act_source, bed_in):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
-	# Remove the idle horse invitation and its request face before the act builds its own pose.
+	# Remove the idle standing invitation and its request face before the act builds its own pose.
 	set_request_face(false)
 	clear_presentation()
 	_end_satisfied()
@@ -2006,7 +2006,7 @@ func _claim_nav() -> bool:
 ## Pose 2 keeps her body turned away and planted. Stop the standing face-turn response so a
 ## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
 func _pause_face_turn(force := false) -> void:
-	if (not force and pose_id != CATALOG.HORSE) or not is_instance_valid(pony):
+	if (not force and pose_id != CATALOG.STANDING) or not is_instance_valid(pony):
 		return
 	if _face_turn_rate_owned:
 		if absf(float(pony.get("face_turn_rate"))) > 0.0001:
@@ -2028,10 +2028,10 @@ func _restore_face_turn() -> void:
 	_face_turn_rate_saved = -1.0
 
 
-## Idle horse invitation: turn her back to Anon, look over the shoulder, bow and lift the tail.
+## Idle standing invitation: turn her back to Anon, look over the shoulder, bow and lift the tail.
 ## This is not the act: no player lock, camera, HUD, sex_active or state change. Y remains the
 ## only way to begin the real act.
-func present_horse() -> bool:
+func present_standing() -> bool:
 	if _presenting or _present_turning:
 		return true
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
@@ -2073,7 +2073,7 @@ func present_horse() -> bool:
 		_present_turning = false
 		_attach_present_pose()
 		_pause_face_turn(true)
-	_log("present horse target_yaw=%.2f turn=%s" % [
+	_log("present standing target_yaw=%.2f turn=%s" % [
 		_present_target_yaw, "stepping" if _present_turning else "direct"])
 	return true
 
@@ -2083,14 +2083,14 @@ func present_horse() -> bool:
 func _attach_present_pose() -> void:
 	if not is_instance_valid(pony):
 		return
-	_pose_cfg = SETTINGS.pose(_id, CATALOG.HORSE)
+	_pose_cfg = SETTINGS.pose(_id, CATALOG.STANDING)
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
 		_present_pose = POSE.new()
 		_present_pose.name = "UnfplapPresentPose"
 		_present_pose.mare = pony
 		_present_pose.mode = "pose2"
-		_present_pose.pose_config = SETTINGS.pose(_id, CATALOG.HORSE)
+		_present_pose.pose_config = SETTINGS.pose(_id, CATALOG.STANDING)
 		_present_pose.look_point = _present_look_point
 		_present_pose.amount = 0.0
 		_present_pose.target_amount = 1.0
@@ -2146,11 +2146,11 @@ func _finish_present_turn() -> void:
 			t.basis = Basis(Vector3.UP, _present_target_yaw).scaled(scale)
 			pony.global_transform = t
 			_present_yaw = _present_target_yaw
-			_log("present horse turn snap error=%.2f target=%.2f" % [error, _present_target_yaw])
+			_log("present standing turn snap error=%.2f target=%.2f" % [error, _present_target_yaw])
 		else:
 			_present_yaw = pony.rotation.y
 			_present_target_yaw = _present_yaw
-			_log("present horse turn settled yaw=%.2f" % _present_yaw)
+			_log("present standing turn settled yaw=%.2f" % _present_yaw)
 	if not _presenting:
 		_attach_present_pose()
 	_pause_face_turn(true)
@@ -2209,7 +2209,7 @@ func _presentation_valid() -> bool:
 
 
 ## Turn her away in place and stop conversation facing from taking the body back. Runs late in
-## physics, after the navigator and locomotion, like the act's horse facing lock.
+## physics, after the navigator and locomotion, like the act's standing facing lock.
 func _presentation_physics(delta: float) -> void:
 	if _present_turning:
 		_presentation_turn_physics(delta)
@@ -2645,14 +2645,14 @@ func _build_pose() -> void:
 		_pose = POSE.new()
 		_pose.name = "UnfplapPose"
 		_pose.mare = pony
-		_pose.mode = "pose2" if pose_id == CATALOG.HORSE else "pose1"
+		_pose.mode = "pose2" if pose_id == CATALOG.STANDING else "pose1"
 		_pose.pose_config = SETTINGS.pose(_id, pose_id)
 		_pose.head_roll = _pose1_head_roll
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
 		_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_pose)
-		if pose_id == CATALOG.HORSE:
+		if pose_id == CATALOG.STANDING:
 			if _feature("pose2_body_sway"):
 				_install_body_sway(skeleton)
 			if _feature("thrust_ear_twitch"):
@@ -2660,7 +2660,7 @@ func _build_pose() -> void:
 		elif _feature("pose1_body_motion"):
 			_install_prone_sway(skeleton)
 		_keep_chin_last()
-	if pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.STANDING:
 		return
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
@@ -3020,9 +3020,9 @@ func _on_thrust(result: Dictionary) -> void:
 			excitement.call("flutter")
 			_last_wing_flutter = now
 	_thrust_jiggle(impact)
-	if pose_id == CATALOG.HORSE and is_instance_valid(_tail):
+	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
 		_tail.call("thrust", impact * _jiggle_size_scale())
-	if pose_id == CATALOG.HORSE:
+	if pose_id == CATALOG.STANDING:
 		if impact >= RUMP_BLUSH_MIN_STRENGTH:
 			_rump_blush = minf(RUMP_BLUSH_MAX, _rump_blush + RUMP_BLUSH_STEP)
 			_ensure_rump_decal()
@@ -3639,7 +3639,7 @@ func _rump_point() -> Vector3:
 
 
 func _rump_blush_tick(delta: float) -> void:
-	if pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.STANDING:
 		return
 	if _rump_blush > 0.0:
 		_rump_blush = maxf(0.0, _rump_blush - RUMP_BLUSH_DECAY * delta)
@@ -3936,7 +3936,7 @@ func _self_end_tick(delta: float) -> void:
 
 
 func _enter_afterglow() -> void:
-	if pose_id == CATALOG.HORSE:
+	if pose_id == CATALOG.STANDING:
 		_pose2_afterglow_begin()
 	else:
 		_afterglow_begin()
@@ -4012,10 +4012,10 @@ func _inside_aftermath() -> void:
 	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
 
 
-## Horse afterglow only. The HUD and this timer own the stay-close invitation; normal dialogue
+## Standing afterglow only. The HUD and this timer own the stay-close invitation; normal dialogue
 ## resumes instead of a scripted stay-close line.
 func _begin_close_window() -> void:
-	if pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.STANDING:
 		return
 	_close_left = STAY_CLOSE_SECONDS
 	_close_caress_seconds = 0.0
@@ -4030,7 +4030,7 @@ func _afterglow_tick(delta: float) -> void:
 		return
 	_afterglow_elapsed += delta
 	_self_end_tick(delta)
-	if state != State.AFTERGLOW or pose_id != CATALOG.HORSE:
+	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return
 	if _close_left <= 0.0:
 		return
@@ -4064,7 +4064,7 @@ func _close_cancel() -> void:
 
 
 func close_hint() -> String:
-	if state != State.AFTERGLOW or pose_id != CATALOG.HORSE:
+	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return ""
 	if _close_left > 0.0:
 		return "Stay close · %ds · caress" % int(ceil(_close_left))
@@ -4725,7 +4725,7 @@ func _begin_camera_mode() -> void:
 		return
 	_free_camera_active = true
 	_camera = main.camera()
-	if pose_id == CATALOG.HORSE and is_instance_valid(_camera):
+	if pose_id == CATALOG.STANDING and is_instance_valid(_camera):
 		_pose2_base_local = _camera.position
 		_pose2_base_saved = true
 		_pose2_base_look = _pose2_neck_point()
@@ -4737,7 +4737,7 @@ func _begin_camera_mode() -> void:
 ## Lean/caress remain live through the pose-2 afterglow; pose 1 afterglow stays passive.
 func _act_actions_allowed() -> bool:
 	return state in [State.ACTIVE, State.CLIMAX] \
-		or (state == State.AFTERGLOW and pose_id == CATALOG.HORSE)
+		or (state == State.AFTERGLOW and pose_id == CATALOG.STANDING)
 
 
 ## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and
@@ -4798,7 +4798,7 @@ func _lean_tick(delta: float) -> void:
 	_pose2_kiss_tick()
 	_caress_tick(delta)
 	_smack_swing_tick()
-	if pose_id == CATALOG.HORSE:
+	if pose_id == CATALOG.STANDING:
 		_apply_pose2_lean_look()
 
 
@@ -4889,7 +4889,7 @@ static func _lean_step(current: float, target: float, delta: float,
 static func lean_action_kind(pose: String, side: float) -> String:
 	if pose == CATALOG.MISSIONARY and side < 0.0:
 		return "kiss"
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		return "reach"
 	return ""
 
@@ -4952,7 +4952,7 @@ static func pose2_kiss_wanted(key_down: bool, lean: float) -> bool:
 
 
 func _pose2_kiss_tick() -> void:
-	if pose_id != CATALOG.HORSE or not _act_actions_allowed():
+	if pose_id != CATALOG.STANDING or not _act_actions_allowed():
 		_pose2_kiss_used = false
 		_end_pose2_kiss()
 		return
@@ -5058,7 +5058,7 @@ func _reset_lean_state() -> void:
 ## The base kiss rears and lifts both forelegs when it needs the height. "planted" turns that
 ## rear and hoof support off for the act kiss only, then restores the player's saved values.
 func _apply_kiss_forelegs() -> void:
-	if pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.STANDING:
 		return
 	var planted := _kiss_forelegs_mode() != "base"
 	if planted == _kiss_forelegs_planted:
@@ -5089,7 +5089,7 @@ func _restore_kiss_forelegs() -> void:
 ## The base kiss's chest flex runs after body_sway's upper-arm pin. This extra modifier runs
 ## last and brings the visible hoof tips back to where they were before the kiss.
 func _start_kiss_leg_pin() -> void:
-	if pose_id != CATALOG.HORSE or _kiss_forelegs_mode() == "base":
+	if pose_id != CATALOG.STANDING or _kiss_forelegs_mode() == "base":
 		return
 	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
 		return
@@ -5240,7 +5240,7 @@ func _kiss_visible() -> bool:
 
 ## Pose-2 kiss controls. Pose 1 keeps the fixed constants.
 func _kiss_controls() -> Dictionary:
-	if pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.STANDING:
 		return {}
 	var kiss: Variant = _presentation_cfg.get("kiss", {})
 	return kiss if kiss is Dictionary else {}
@@ -5476,7 +5476,7 @@ func _kiss_diag() -> void:
 		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
 		pose_side, cam_roll, head_roll, skull_lateral, mouth_gap,
 		limited, miss, cleared,
-		_lateral_lean_shift(_pose2_lean_scale()) if pose_id == CATALOG.HORSE else 0.0])
+		_lateral_lean_shift(_pose2_lean_scale()) if pose_id == CATALOG.STANDING else 0.0])
 
 
 func _kiss_target(view: Camera3D) -> Vector3:
@@ -5484,7 +5484,7 @@ func _kiss_target(view: Camera3D) -> Vector3:
 		return Vector3.INF
 	var point: Vector3 = view.global_position + view.global_basis \
 		* (Vector3(0.0, -0.07, -0.02) * _anon_height_scale())
-	if pose_id == CATALOG.HORSE:
+	if pose_id == CATALOG.STANDING:
 		point = view.global_position + view.global_basis * _kiss_mouth_offset()
 	# Pose 1's player camera is not the rendered shot; move the virtual mouth with the view.
 	if pose_id == CATALOG.MISSIONARY:
@@ -5595,7 +5595,7 @@ func _set_reach_hand() -> void:
 
 
 func _caress_tick(delta: float) -> void:
-	if pose_id != CATALOG.HORSE:
+	if pose_id != CATALOG.STANDING:
 		_end_caress()
 		return
 	var keys := {
@@ -6296,7 +6296,7 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 ## Pose-2 hip phase follows the mouse depth directly, with a short low-pass so a single-frame
 ## mouse step does not snap the body. Depth is the input; this is not a speed attack.
 func _hip_phase_tick(delta: float) -> void:
-	if pose_id != CATALOG.HORSE or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+	if pose_id != CATALOG.STANDING or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_hip_phase = 0.0
 		return
 	_hip_phase = hip_phase_step(_hip_phase, depth, delta)
@@ -6320,7 +6320,7 @@ func _depth_speed_tick(delta: float) -> void:
 
 ## Pose-2 yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
 func _apply_pose2_lean_look() -> void:
-	if not _free_camera_active or pose_id != CATALOG.HORSE or _player_pony or _headset_view():
+	if not _free_camera_active or pose_id != CATALOG.STANDING or _player_pony or _headset_view():
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -6423,14 +6423,14 @@ func _apply_pose2_base_look() -> void:
 	_look_pitch = pitch
 	_camera_basis_ready = true
 	_pose2_base_look = target
-	if pose_id == CATALOG.HORSE and _has_facing:
+	if pose_id == CATALOG.STANDING and _has_facing:
 		_facing_basis = Basis(Vector3.UP, yaw)
 	_apply_pose2_lean_look()
 
 
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
-	if pose_id != CATALOG.HORSE or _player_pony or not is_instance_valid(main) or not is_instance_valid(main.player):
+	if pose_id != CATALOG.STANDING or _player_pony or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
@@ -6471,7 +6471,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 
 
 func _refresh_palm_scale() -> void:
-	if pose_id != CATALOG.HORSE or not is_instance_valid(_anon_thrust_avatar):
+	if pose_id != CATALOG.STANDING or not is_instance_valid(_anon_thrust_avatar):
 		return
 	var factor := _palm_scale_factor()
 	if is_equal_approx(factor, 1.0):
@@ -6507,7 +6507,7 @@ func _remove_anon_thrust() -> void:
 ## Called after anon_body has set the hip target, through the desktop pose-driver wrapper.
 ## The hip follows the lightly smoothed mouse depth, so its position is the mouse travel.
 func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
-	if pose_id != CATALOG.HORSE or _hip_phase <= 0.0001 or not is_instance_valid(hip):
+	if pose_id != CATALOG.STANDING or _hip_phase <= 0.0001 or not is_instance_valid(hip):
 		return
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
@@ -6519,7 +6519,7 @@ func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
 ## forward or sideways, so the torso hinges at the hips instead of the whole body sliding into
 ## her. Pulling back still moves the whole body away.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
-	if pose_id != CATALOG.HORSE or not _free_camera_active or not is_instance_valid(hip):
+	if pose_id != CATALOG.STANDING or not _free_camera_active or not is_instance_valid(hip):
 		return
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
@@ -6687,7 +6687,7 @@ func apply_camera_motion() -> void:
 	_set_camera_offsets(_bob - _kiss_lean_drop() * _kiss_lean - _anon_torso_drop(),
 		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
 		+ _kiss_lean_distance() + _anon_torso_forward(), _lateral_lean_shift(lean_scale))
-	if pose_id == CATALOG.HORSE and _free_camera_active and is_instance_valid(_camera):
+	if pose_id == CATALOG.STANDING and _free_camera_active and is_instance_valid(_camera):
 		_camera.rotation.z = (-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side \
 			+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale
 		_camera.rotation.x = clampf(
@@ -6789,7 +6789,7 @@ func _restore_look() -> void:
 ## Pose 2 must keep her rump toward Anon. The navigator tries to face a conversation partner
 ## and idle motion can add turns; this runs late and restores the start basis every tick.
 func _lock_body_facing() -> void:
-	if not _has_facing or pose_id != CATALOG.HORSE or not is_instance_valid(pony):
+	if not _has_facing or pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return
 	if state in [State.IDLE, State.RESTORE]:
 		return
@@ -6820,7 +6820,7 @@ func _glance_back_fade() -> float:
 ## secondary gaze owns the turn; pose 2 only adds the optional throw-back rotation (`head_back`),
 ## eased so it does not snap.
 func _drive_glance(delta: float) -> void:
-	if not _has_facing or pose_id != CATALOG.HORSE or not is_instance_valid(pony):
+	if not _has_facing or pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return
 	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
 	# forced over-the-shoulder look so the two head poses do not fight and clip.

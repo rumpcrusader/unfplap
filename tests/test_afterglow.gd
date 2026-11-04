@@ -1,5 +1,5 @@
 extends SceneTree
-## Horse afterglow close window and act-line keep rule.
+## Standing afterglow close window and act-line keep rule.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_afterglow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
@@ -33,12 +33,12 @@ func _runtime(pose: String) -> Node:
 
 func run() -> void:
 	var mission_text := MEMORY.afterglow_text("missionary")
-	var horse_text := MEMORY.afterglow_text("horse")
+	var standing_text := MEMORY.afterglow_text("standing")
 	check(mission_text.contains("lying close"), "missionary afterglow context")
-	check(horse_text.contains("standing close"), "horse afterglow context")
+	check(standing_text.contains("standing close"), "standing afterglow context")
 	check(mission_text.contains("not finished yet"), "afterglow context keeps the moment open")
 	check(not mission_text.contains("Do not start another act"), "afterglow context is not a scripted line")
-	var note_runtime: Node = _runtime("horse")
+	var note_runtime: Node = _runtime("standing")
 	note_runtime._id = "fluttershy"
 	var idle_note: String = str(note_runtime.prompt_note())
 	check(idle_note.contains("afterglow") and idle_note.contains("not caressing"),
@@ -56,18 +56,18 @@ func run() -> void:
 
 	check(RUNTIME.self_end_chance(true) < RUNTIME.self_end_chance(false),
 		"holding her lowers the self-end chance")
-	var held: Node = _runtime("horse")
+	var held: Node = _runtime("standing")
 	held._afterglow_elapsed = 100.0
 	held._afterglow_hold_until = Time.get_ticks_msec() * 0.001 + 60.0
 	held._self_end_tick(1.0)
 	check(held.state == 4, "an accepted stay pauses the self-end roll")
 	held.free()
-	var early_end: Node = _runtime("horse")
+	var early_end: Node = _runtime("standing")
 	early_end._afterglow_elapsed = 15.0
 	early_end._self_end_tick(1.0)
 	check(early_end.state == 4, "no self-end before the minimum time")
 	early_end.free()
-	var stayed: Node = _runtime("horse")
+	var stayed: Node = _runtime("standing")
 	stayed._afterglow_elapsed = 100.0
 	stayed._action_executor = FakeExecutor.new()
 	stayed._on_action_outcome({"type": "stay", "status": "accepted"})
@@ -81,7 +81,7 @@ func run() -> void:
 	check(not MEMORY.keep_active_line("speaking", "other", "line", true), "inactive line is dropped")
 	check(not MEMORY.keep_active_line("speaking", "line", "line", false), "cancel-all drops even speaking")
 
-	var active: Node = _runtime("horse")
+	var active: Node = _runtime("standing")
 	active.state = 2 # ACTIVE
 	active.cue = "She's close."
 	active._last_intensity = "firm"
@@ -93,25 +93,25 @@ func run() -> void:
 	check(active.hud_readiness_line(false) == "", "readiness line hidden with readouts off")
 	active.free()
 
-	var horse: Node = _runtime("horse")
-	horse._begin_close_window()
-	check(near(horse._close_left, RUNTIME.STAY_CLOSE_SECONDS), "horse close window starts")
-	var hint := str(horse.call("close_hint"))
+	var standing: Node = _runtime("standing")
+	standing._begin_close_window()
+	check(near(standing._close_left, RUNTIME.STAY_CLOSE_SECONDS), "standing close window starts")
+	var hint := str(standing.call("close_hint"))
 	check(hint.contains("Stay close") and hint.contains("caress"), "close cue names caressing")
-	horse._caress_active = {"L": true, "R": false}
-	horse._afterglow_tick(0.5)
-	check(horse._close_caress_seconds > 0.4, "caress time is counted")
-	check(horse._close_left < RUNTIME.STAY_CLOSE_SECONDS, "close window counts down")
-	horse._close_left = 0.01
-	horse._close_caress_seconds = 3.0
-	horse._afterglow_tick(0.02)
-	check(horse._close_rewarded, "reaching the window grants the reward")
-	check(horse.close_hint() == "She seems content.", "reward cue")
-	horse._afterglow_tick(1.0)
-	check(horse._close_rewarded, "reward is not granted twice")
-	horse.free()
+	standing._caress_active = {"L": true, "R": false}
+	standing._afterglow_tick(0.5)
+	check(standing._close_caress_seconds > 0.4, "caress time is counted")
+	check(standing._close_left < RUNTIME.STAY_CLOSE_SECONDS, "close window counts down")
+	standing._close_left = 0.01
+	standing._close_caress_seconds = 3.0
+	standing._afterglow_tick(0.02)
+	check(standing._close_rewarded, "reaching the window grants the reward")
+	check(standing.close_hint() == "She seems content.", "reward cue")
+	standing._afterglow_tick(1.0)
+	check(standing._close_rewarded, "reward is not granted twice")
+	standing.free()
 
-	var early: Node = _runtime("horse")
+	var early: Node = _runtime("standing")
 	early._begin_close_window()
 	early._close_cancel()
 	check(near(early._close_left, 0.0), "early exit cancels the window")
@@ -126,7 +126,7 @@ func run() -> void:
 
 	var wings := FakeWings.new()
 	root.add_child(wings)
-	var winged: Node = _runtime("horse")
+	var winged: Node = _runtime("standing")
 	winged._winged = true
 	winged._wing_hold = true
 	winged._wings_node = wings

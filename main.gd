@@ -114,7 +114,7 @@ func _ready() -> void:
 			"res://mods/unfplap/utterance.gd",
 			"res://mods/unfplap/poses/skeleton_pose.gd",
 			"res://mods/unfplap/poses/missionary_recipe.gd",
-			"res://mods/unfplap/poses/horse_recipe.gd",
+			"res://mods/unfplap/poses/standing_recipe.gd",
 	]:
 		source_mtime = maxi(source_mtime, FileAccess.get_modified_time(path))
 	_debug("entry ready (debug logs %s) runtime_mtime=%d" % [
@@ -621,7 +621,7 @@ func _add_presentation_section(list: VBoxContainer, font_size: int) -> void:
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
 	_add_missionary_presentation(list, font_size)
-	_add_horse_presentation(list, font_size)
+	_add_standing_presentation(list, font_size)
 
 
 func _presentation_heading(list: VBoxContainer, text: String, font_size: int) -> void:
@@ -717,26 +717,26 @@ func _add_missionary_presentation(list: VBoxContainer, font_size: int) -> void:
 		_apply_live_settings())
 
 
-func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
-	_presentation_heading(list, "Horse", font_size)
+func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
+	_presentation_heading(list, "Standing", font_size)
 	var form := GridContainer.new()
 	form.columns = 2
 	form.add_theme_constant_override("h_separation", 16)
 	form.add_theme_constant_override("v_separation", 8)
 	list.add_child(form)
-	var controls := SETTINGS.presentation_controls("horse")
+	var controls := SETTINGS.presentation_controls("standing")
 	var glance_speed := _settings_spin(form, "Glance-back speed", 0.25, 3.0, 0.05,
 		float(controls.get("glance_back_speed", 2.0)), font_size)
 	glance_speed.suffix = "×"
 	glance_speed.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"glance_back_speed": glance_speed.value})
 		_apply_live_settings())
 	var torso_angle := _settings_spin_free(form, "Anon torso lean", 1.0,
 		float(controls.get("torso_angle_deg", 0.0)), font_size)
 	torso_angle.suffix = "°"
 	torso_angle.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"torso_angle_deg": torso_angle.value})
 		_apply_live_settings())
 
@@ -754,49 +754,49 @@ func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 		float(kiss.get("mouth_right", 0.0)) * 100.0, font_size)
 	mouth_right.suffix = " cm"
 	mouth_right.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"mouth_right": mouth_right.value / 100.0}})
 		_apply_live_settings())
 	var mouth_drop := _settings_spin_free(kiss_form, "Kiss mouth down", 0.5,
 		float(kiss.get("mouth_drop", 0.07)) * 100.0, font_size)
 	mouth_drop.suffix = " cm"
 	mouth_drop.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"mouth_drop": mouth_drop.value / 100.0}})
 		_apply_live_settings())
 	var mouth_forward := _settings_spin_free(kiss_form, "Kiss mouth forward", 0.5,
 		float(kiss.get("mouth_forward", 0.02)) * 100.0, font_size)
 	mouth_forward.suffix = " cm"
 	mouth_forward.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"mouth_forward": mouth_forward.value / 100.0}})
 		_apply_live_settings())
 	var kiss_yaw := _settings_spin_free(kiss_form, "Kiss camera yaw", 1.0,
 		float(kiss.get("camera_yaw_deg", 10.0)), font_size)
 	kiss_yaw.suffix = "°"
 	kiss_yaw.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"camera_yaw_deg": kiss_yaw.value}})
 		_apply_live_settings())
 	var kiss_lean_side := _settings_spin_free(kiss_form, "Kiss side lean", 0.5,
 		float(kiss.get("lean_side", 0.18)) * 100.0, font_size)
 	kiss_lean_side.suffix = " cm"
 	kiss_lean_side.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"lean_side": kiss_lean_side.value / 100.0}})
 		_apply_live_settings())
 	var kiss_lean_forward := _settings_spin_free(kiss_form, "Kiss forward lean", 0.5,
 		float(kiss.get("lean_forward", 0.27)) * 100.0, font_size)
 	kiss_lean_forward.suffix = " cm"
 	kiss_lean_forward.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"lean_forward": kiss_lean_forward.value / 100.0}})
 		_apply_live_settings())
 	var kiss_lean_drop := _settings_spin_free(kiss_form, "Kiss lean drop", 0.5,
 		float(kiss.get("lean_drop", 0.035)) * 100.0, font_size)
 	kiss_lean_drop.suffix = " cm"
 	kiss_lean_drop.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"lean_drop": kiss_lean_drop.value / 100.0}})
 		_apply_live_settings())
 	var forelegs_label := Label.new()
@@ -814,7 +814,7 @@ func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 			forelegs_selector.select(index)
 			break
 	forelegs_selector.item_selected.connect(func(index: int) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"kiss": {"forelegs": str(forelegs_selector.get_item_metadata(index))}})
 		_apply_live_settings())
 	kiss_form.add_child(forelegs_selector)
@@ -833,7 +833,7 @@ func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 		float(caress.get("palm_distance", 0.04)) * 100.0, font_size)
 	palm_distance.suffix = " cm"
 	palm_distance.value_changed.connect(func(_value: float) -> void:
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"caress": {"palm_distance": palm_distance.value / 100.0}})
 		_apply_live_settings())
 	var scales: Dictionary = caress.get("palm_scale", {})
@@ -853,7 +853,7 @@ func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 	palm_scale.value_changed.connect(func(_value: float) -> void:
 		var selected := str(size_selector.get_item_metadata(size_selector.selected))
 		scales[selected] = palm_scale.value
-		SETTINGS.save_presentation_controls("horse",
+		SETTINGS.save_presentation_controls("standing",
 			{"caress": {"palm_scale": {selected: palm_scale.value}}})
 		_apply_live_settings())
 	size_selector.item_selected.connect(func(index: int) -> void:
@@ -873,7 +873,7 @@ func _add_horse_presentation(list: VBoxContainer, font_size: int) -> void:
 			for name: String in ignore_checks:
 				if (ignore_checks[name] as CheckButton).button_pressed:
 					values.append(name)
-			SETTINGS.save_presentation_controls("horse",
+			SETTINGS.save_presentation_controls("standing",
 				{"caress": {"ignore": values}})
 			_apply_live_settings())
 
@@ -904,11 +904,11 @@ func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
 	bed_button.pressed.connect(func() -> void:
 		status.text = _debug_offer_request(CATALOG.MISSIONARY))
 	list.add_child(bed_button)
-	var horse_button := Button.new()
-	horse_button.text = "Trigger horse offer (\\)"
-	horse_button.pressed.connect(func() -> void:
-		status.text = _debug_offer_request(CATALOG.HORSE))
-	list.add_child(horse_button)
+	var standing_button := Button.new()
+	standing_button.text = "Trigger standing offer (\\)"
+	standing_button.pressed.connect(func() -> void:
+		status.text = _debug_offer_request(CATALOG.STANDING))
+	list.add_child(standing_button)
 	list.add_child(status)
 
 
@@ -1255,10 +1255,10 @@ func _refresh_offer() -> void:
 	var standing: Node = _smack_flank_target(view)
 	if is_instance_valid(standing) and str(standing.call("posture_status").get("requested", "")) == "stand":
 		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and runtime.can_start(CATALOG.HORSE, "", null):
+		if is_instance_valid(runtime) and runtime.can_start(CATALOG.STANDING, "", null):
 			var scenario := _scenario_for(standing)
 			if INITIATION.y_start_allowed(flag, "", scenario):
-				_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.HORSE,
+				_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
 					"source": "", "bed": null, "scenario": scenario}
 				_log_offer()
 
@@ -1462,7 +1462,7 @@ func try_start() -> bool:
 
 ## Debug helper: force a proactive request for the aimed (or nearest) mare. It bypasses the
 ## quiet/cooldown/AI-usage checks so the lab can test requests with ai_usage=talk. An empty
-## `pose` lets the mare choose; `missionary` and `horse` force that invite.
+## `pose` lets the mare choose; `missionary` and `standing` force that invite.
 func debug_request(pose := "") -> void:
 	_debug_offer_request(pose)
 
@@ -1486,8 +1486,8 @@ func _debug_offer_request(pose := "") -> String:
 	var label := ""
 	if pose == CATALOG.MISSIONARY:
 		label = " (bed)"
-	elif pose == CATALOG.HORSE:
-		label = " (horse)"
+	elif pose == CATALOG.STANDING:
+		label = " (standing)"
 	if started:
 		_debug("request button: %s%s" % [str(target.name), label])
 		return "Offer started for %s%s. Close settings to let her approach." % [
@@ -1565,8 +1565,8 @@ func _try_refusal() -> bool:
 	var standing: Node = _smack_flank_target(view)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", CATALOG.HORSE, "", null)):
-			runtime.call("refuse", CATALOG.HORSE, "", null)
+		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", CATALOG.STANDING, "", null)):
+			runtime.call("refuse", CATALOG.STANDING, "", null)
 			return true
 	return false
 

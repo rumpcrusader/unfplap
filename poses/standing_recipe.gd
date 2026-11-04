@@ -1,5 +1,5 @@
 extends RefCounted
-## Horse (Pose 2) standing skeleton recipe.
+## Standing (Pose 2) skeleton recipe.
 
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0

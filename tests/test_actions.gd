@@ -42,8 +42,8 @@ func run() -> void:
 
 	check(RUNTIME.lean_action_kind(CATALOG.MISSIONARY, -1.0) == "kiss", "Q fires kiss in missionary")
 	check(RUNTIME.lean_action_kind(CATALOG.MISSIONARY, 1.0) == "", "E has no missionary action")
-	check(RUNTIME.lean_action_kind(CATALOG.HORSE, -1.0) == "reach", "Q fires reach in horse")
-	check(RUNTIME.lean_action_kind(CATALOG.HORSE, 1.0) == "reach", "E fires reach in horse")
+	check(RUNTIME.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
+	check(RUNTIME.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
 
 	check(RUNTIME.smack_side_index(0.4) == 0, "right lean smacks left cheek")
 	check(RUNTIME.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
@@ -59,7 +59,7 @@ func run() -> void:
 	var hip := Node3D.new()
 	root.add_child(hip)
 	var lean_runtime: Node = RUNTIME.new()
-	lean_runtime.pose_id = CATALOG.HORSE
+	lean_runtime.pose_id = CATALOG.STANDING
 	lean_runtime._free_camera_active = true
 	lean_runtime._lean_view_forward = 1.0
 	lean_runtime._lean_view_side = 0.0
@@ -178,7 +178,7 @@ func run() -> void:
 
 	var live_runtime: Node = RUNTIME.new()
 	live_runtime.state = 2 # ACTIVE
-	live_runtime.pose_id = CATALOG.HORSE
+	live_runtime.pose_id = CATALOG.STANDING
 	live_runtime.call("apply_live_settings")
 	check(live_runtime._features.has("hud_readouts"), "live settings refresh feature flags")
 	check(live_runtime._camera_surge >= 0.0 and live_runtime._camera_surge <= 1.0,

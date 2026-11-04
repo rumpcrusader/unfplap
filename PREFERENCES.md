@@ -70,8 +70,8 @@ The **Act presentation** section is split per pose:
 
 - **Missionary**: forward, height, side, pullback, pitch (`pitch_deg`, default `0`;
   positive looks up) and the side-lean head-forward amount (`side_lean`, default `0.20`).
-- **Horse**: glance-back speed (`0.25…3.0×`) and Anon torso lean (`torso_angle_deg`).
-- **Horse → Caress**: palm distance in cm (`palm_distance`, default `0.04 m`), palm size
+- **Standing**: glance-back speed (`0.25…3.0×`) and Anon torso lean (`torso_angle_deg`).
+- **Standing → Caress**: palm distance in cm (`palm_distance`, default `0.04 m`), palm size
   and palm scale. Palm scale is absolute per body-size preset (Canon `0.85`, mounting
   `0.95`, same height/hoers `1.0`) and is edited through the size selector. Caress can
   ignore tail, mane, wings and legs; tail is ignored by default.
@@ -89,7 +89,7 @@ The **Character taste** section exposes one pony selector and one form:
 
 Taste edits save automatically and apply live during an act. `Reset to default` removes only the
 taste override and preserves that character's custom `event_prompts` and pose settings.
-`hud_readouts` is a normal feature toggle in the same tab; the horse close window is always on.
+`hud_readouts` is a normal feature toggle in the same tab; the standing close window is always on.
 
 ## The two continuous axes
 
@@ -195,9 +195,9 @@ Hold `Y`:
 - Pegasi and alicorns slowly fold their wings back to rest during afterglow over 6 s rather
   than holding the spread pose until the act ends.
 
-### Horse close window
+### Standing close window
 
-The horse afterglow always starts an 8 s close window:
+The standing afterglow always starts an 8 s close window:
 
 - the HUD shows `Stay close · 8s · caress`;
 - A/D caress time is counted while a hand is active; Z/C pause/resume the oval movement
@@ -208,7 +208,7 @@ The horse afterglow always starts an 8 s close window:
 - missionary afterglow is unchanged.
 
 Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
-removed; the HUD timer and active caress time own the horse close invitation. A world-context
+removed; the HUD timer and active caress time own the standing close invitation. A world-context
 event records that the act has ended while the two are still in the afterglow together, so a
 normal reply keeps the moment present without a scripted line.
 
@@ -223,7 +223,7 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - **Once at afterglow:** `MEMORY.commit_climax`, `MEMORY.afterglow_event` and `WITNESS.commit`.
 - **Pose-2 inside event:** at afterglow only, as the player's finish. It records context but no
   longer queues a line.
-- **Horse close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
+- **Standing close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
   caressing adds a happy mood, a private thought and a small `romance` gain; staying alone
   records the warm beat without the extra romance.
 - **Peak act:** one strongest memory per mare is kept in
@@ -247,7 +247,7 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  horse keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y.
+  standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
 - `debug_logs` gates the detailed overlay, not the HUD.

@@ -22,7 +22,7 @@ Do not start implementation until you have read the required files for the area 
 - Mod id `unfplap`; current public version `0.1.1`; target game `0.3.0-maredev`.
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
-- Exactly two poses: `missionary` on a bed/couch and `horse` standing.
+- Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, heat, estrus, conception, content warning, toggle, new models, genitals or
   anatomy. The act stays off-camera by framing.
 - Desktop first. VR and seated VR are deferred; desktop human Anon owns the free act camera.
@@ -132,7 +132,7 @@ mods/unfplap/
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   witness.gd        witness pass
-  initiation.gd     proactive requests: privacy, approach, ask, consent, horse invitation
+  initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
   consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
   dialogue_consent.gd    verbal yes/now/here agreement from player dialogue
   tests/            unit/source-hygiene tests + manual test_lab.gd
@@ -195,7 +195,7 @@ body-relative axes.
   supported way to keep the pose stable.
 - Start waits for player rest ≥ 0.99 and the pony's `lie_down` to settle.
 
-### Pose 2: horse
+### Pose 2: standing
 
 - Stance: `STANDING_BOW = 2.4`, `STANDING_FORELEG = 2.0`, `STANDING_HIND_SPREAD = 0.16`.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
@@ -259,12 +259,12 @@ body-relative axes.
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
-- `presentation.horse.torso_angle_deg` (default `6`, experimental/unbounded) hinges Anon's
+- `presentation.standing.torso_angle_deg` (default `6`, experimental/unbounded) hinges Anon's
   upper body forward over her. `apply_anon_lean()` counters the hip and pins the feet;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
 - Pose-2 palms are scaled absolutely per body preset from
-  `presentation.horse.caress.palm_scale`: Canon `0.75`, JRHNBR `0.95`, same height/hoers
+  `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.95`, same height/hoers
   `1.0`. The settings tab edits the selected size. `palm_scale.gd` runs after BodyIK and
   restores the cached bone scales in `_remove_anon_thrust()` on every act exit. Marker scaling
   would be discarded by the IK solver.
@@ -406,7 +406,7 @@ body-relative axes.
 
 Pose support lives in `lean_action_kind()` in `runtime.gd`:
 
-| Input | Missionary | Horse |
+| Input | Missionary | Standing |
 |---|---|---|
 | `Q` | kiss | left-hand reach to her left shoulder |
 | `E` | none (lean only) | right-hand reach to her right shoulder |
@@ -428,11 +428,11 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound itself.
   Pose 1's custom kiss also aims at the player camera, not the separate pose-1 framing view. The
   excitement Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire.
-- Pose 2 reads `presentation.horse.kiss`: `mouth_right`, `mouth_drop` and `mouth_forward` place
+- Pose 2 reads `presentation.standing.kiss`: `mouth_right`, `mouth_drop` and `mouth_forward` place
   Anon's mouth target; `camera_yaw_deg` is the over-the-shoulder kiss yaw; `lean_side`,
   `lean_forward` and `lean_drop` are his kiss lean. Pose 1 keeps the `KISS_LEAN_*` /
   `KISS_CAMERA_YAW_DEG` constants. All pose-2 values apply live from the settings tab.
-- `presentation.horse.kiss.forelegs = "planted"` saves the game's `AffectionPose.kiss_settings()`
+- `presentation.standing.kiss.forelegs = "planted"` saves the game's `AffectionPose.kiss_settings()`
   `rear` and `hooves` values, sets both to zero before the base kiss and restores them when the
   release pose is removed. `kiss_legs.gd` then captures both foreleg tips before the base kiss
   and runs last to CCD them back to those positions, because the base kiss's chest flex would
@@ -473,9 +473,9 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
   orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
   The fallback uses `_nearest_touch()`, which skips
-  `presentation.horse.caress.ignore` regions (default `tail` and `wing`; UI also exposes mane and
+  `presentation.standing.caress.ignore` regions (default `tail` and `wing`; UI also exposes mane and
   legs). This prevents a tail flick after a smack from stealing the caress contact.
-  The palm centre sits at `presentation.horse.caress.palm_distance` (default `0.02 m`) at body
+  The palm centre sits at `presentation.standing.caress.palm_distance` (default `0.02 m`) at body
   scale `1.0`, multiplied by the pony's actual `body_scale` (clamped `0.5…2.0`); the normal
   smoothing adds no extra lift.
   Contact is cached per hand with
@@ -498,7 +498,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   centre interpolates with the lean: backward lean moves it toward the rump top as soon as it
   passes zero (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly, full
   lean = the exact same shoulder contact point used by the Q/E reach. The circle radius scales
-  with pony size; the point offsets are already per size. It is horse-only.
+  with pony size; the point offsets are already per size. It is standing-only.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
@@ -605,7 +605,7 @@ examples.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
   `Z`/`C` toggle caress movement,
   `F` hold kiss in pose 2, mouse right smacks. They are available in `ACTIVE`, `CLIMAX`, and the
-  horse `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's hug/deep-kiss key;
+  standing `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's hug/deep-kiss key;
   the act consumes it without binding it so a hug cannot end the act's kiss.
 - `Y` starts an act when idle and is a `0.35 s` hold while active, matching bridal-carry
   initiation. A tap does nothing. In `ACTIVE`, hold Y cancels with 0 pony climaxes and enters
@@ -623,7 +623,7 @@ examples.
   another act; a new act clears it.
 - Each pony climax records a unique memory event and reaction. The act-level romance impression
   and witness pass commit once at afterglow; pose 2 records the inside event at afterglow only.
-  The horse afterglow also runs the 8 s close window and records its own stay-close memory.
+  The standing afterglow also runs the 8 s close window and records its own stay-close memory.
 - A peak act keeps one strongest memory per mare in `Mods.state("unfplap").peak_memories`.
   It is written only with no disliked touch/talk and either peak satisfaction >= 90 or six
   both-axis thrust matches; a higher score replaces it. The stored text is the last player
@@ -641,7 +641,7 @@ examples.
 - Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
   exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
   gate.
-- The mare chooses the pose. With both a usable bed and a standing horse offer, she picks one at
+- The mare chooses the pose. With both a usable bed and a standing offer, she picks one at
   random (`pick_offer_pose`); with one, she uses it. An active cuddle always offers missionary.
 - Cuddle: requires an active cuddle and `can_offer(MISSIONARY, "bed_side")` or
   `"already_lying"`. Indoor privacy is house-only solitude; outdoors it is nobody
@@ -652,7 +652,7 @@ examples.
   beside him; then she queues the invite line and `Y` becomes available. Lying down after the
   ask's `PHYSICAL_ACCEPT_GRACE_S = 2.5 s` grace counts as a physical yes. No free bed means she
   cannot choose missionary.
-- Horse: requires `can_offer(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
+- Standing: requires `can_offer(STANDING)`. She walks to a spot 2 m in front of Anon's view (same
   navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The ask is decoupled
   from the Y aim zone: it starts when she is still present and eligible, not only while the
   player aims at her flank.
@@ -668,20 +668,20 @@ examples.
   offer line so short answers like "right here" are understood. The controller does not run the
   classifier beside the director's own reply; that caused HTTP 429s. A decline cancels with the
   full cooldown and no presentation.
-  - Horse accept re-checks privacy, presents, waits for `runtime.presentation_settled()`, queues
+  - Standing accept re-checks privacy, presents, waits for `runtime.presentation_settled()`, queues
     one generated comment/invite line, then waits for `Y`.
   - Missionary cuddle accept queues the invite line in the existing bed.
   - Missionary bed accept walks her to the bed (`bed_lead`), waits for Anon to lie down
     (`bed_wait`), joins through the bed rest, then queues the invite line.
   - `Y` itself keeps its old behavior: pressing it during any phase cancels the episode and
     starts the act immediately.
-- The private horse ask/presentation has a request face: full blush and half-lidded eyes while
+- The private standing ask/presentation has a request face: full blush and half-lidded eyes while
   she asks and presents. It also sets the game's `affection_active` hold so an AI
   `[approach]`/`[follow]` from her reply cannot break the pose; `_nav_pose_gate` exempts that
   hold while `_request_face` is true. If movement still clears the presentation, the controller
   re-presents twice before ending the offer. The bed invite does not set the request face because
   `SharedBedRest.eligible()` rejects `affection_active`.
-- The horse invitation is IDLE-only: turn away with `pony.face_direction()` at
+- The standing invitation is IDLE-only: turn away with `pony.face_direction()` at
   `PRESENT_FACE_TURN_RATE = 1.5`, clear navigator `face_point` and conversation target late each
   physics tick, then attach the pose-2 modifier and tail-aside once the turn settles. Do not
   write the transform directly during the turn: that rotated the body under planted hooves and
@@ -699,7 +699,7 @@ examples.
   initial-ask failure sets a short 30 s retry instead; an ask, presentation, invite or give-up
   sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
   bed rest so `runtime.start()` still sees her lying.
-- `'` forces a missionary ask; `\` forces a horse ask. Both bypass quiet, cooldown and AI-usage
+- `'` forces a missionary ask; `\` forces a standing ask. Both bypass quiet, cooldown and AI-usage
   checks for lab testing, but not relationship, consent, pose or free-bed gates.
 
 ### Y start gate and aim zone
@@ -757,7 +757,7 @@ examples.
   every act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`). The intentional
   early-stop line is queued after the restore begins. Act-line validity is tied to the
   pony/event id, not `State.ACTIVE`.
-- The horse afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
+- The standing afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
   with the afterglow context event; the HUD close timer owns the invitation. The prompt note
   provider (`main.gd` → runtime) reports caressing/leaning, and `[stay: SECONDS]` extends the
   no-self-end hold.
@@ -783,12 +783,12 @@ examples.
 - The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
   (default `true`). The bar has no ticks. The hearts remain when readouts are off.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  horse keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y, while
+  standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y, while
   thrust, smack and talk
-  are hidden. The horse close hint is independent of `hud_readouts`.
+  are hidden. The standing close hint is independent of `hud_readouts`.
 - Love XP and happy mood are granted once by `MEMORY.commit_climax()` at afterglow.
   `MEMORY.stay_close_reward()` may add a small extra romance, happy mood and private thought
-  when the horse close window is completed; staying alone records the memory without the extra
+  when the standing close window is completed; staying alone records the memory without the extra
   romance. No other afterglow reward is granted.
 - `captions_on_top`, default `true`, moves the game's desktop bottom caption to the top only
   when `access/speech_text` is the explicit bottom-caption mode; overhead and auto are untouched.
@@ -798,7 +798,7 @@ examples.
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
   player build unlocks it with **Settings → Updates** pressed five times. Acts own
   `controls_locked`, so the console is not available while an act is running.
-- `'`: force a missionary ask for the aimed/nearest test mare. `\`: force a horse ask. Both
+- `'`: force a missionary ask for the aimed/nearest test mare. `\`: force a standing ask. Both
   bypass the quiet, cooldown and AI-usage checks, but not relationship, consent, pose or free-bed
   gates; use them in the lab, which runs with `ai_usage=talk`. They do not fire while a text
   field has focus or while the tree is paused. `Shift+\` is left to the game's dev noclip.
@@ -808,7 +808,7 @@ examples.
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - `debug_logs` is read from settings and defaults OFF. There is no key toggle; it controls
   logging only. The Debug settings tab is always present.
-- **Settings → Unfplap → Debug** exposes `Trigger bed offer (')`, `Trigger horse offer (\)` and
+- **Settings → Unfplap → Debug** exposes `Trigger bed offer (')`, `Trigger standing offer (\)` and
   a **Pinned act ears** checkbox. The offers use the aimed mare with the nearest fallback and
   call the same `initiation.force(runtime, pose)` path as the keys; the status label reports the
   target or gate rejection. Because the settings page pauses the tree, an offer advances after
@@ -876,7 +876,7 @@ examples.
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
-Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
+Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `1000`.
@@ -884,7 +884,7 @@ rump blush. Unknown settings keys are ignored.
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
-  - `horse`: `glance_back_speed`, `torso_angle_deg`, and `caress` with `palm_distance`,
+  - `standing`: `glance_back_speed`, `torso_angle_deg`, and `caress` with `palm_distance`,
     `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`.
   - The old flat `pose1_*`, `glance_back_speed` and `torso_angle_deg` block migrates once in
     `_normalize_presentation()`; obsolete `pose1_camera` is dropped.
@@ -898,7 +898,7 @@ rump blush. Unknown settings keys are ignored.
   the four player-facing flags (`hud_readouts`, `captions_on_top`, `press_y_starts_sex`,
   `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`) and
   **Character taste**. **Debug** holds every other flag, the **Camera thrust** section (surge and
-  bob, `0…100%`), the **Act presentation** section split into **Missionary** and **Horse** (horse
+  bob, `0…100%`), the **Act presentation** section split into **Missionary** and **Standing** (standing
   includes caress palm distance, size-selected palm scale and body-part ignores), and the offer /
   ear-pin debug controls. There are no Save buttons: each control writes its own block and calls
   `apply_live_settings()` so the active act updates immediately.
@@ -906,7 +906,7 @@ rump blush. Unknown settings keys are ignored.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
-  `poses.missionary`, `poses.horse`. `cue_gap` is a per-character JSON value, not a settings-tab
+  `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
   control.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (16 IDs) and uses `CHARACTER_NAMES` for
   display labels. Add a pony to both and to `CHARACTER_TEMPLATES` when expanding the roster.

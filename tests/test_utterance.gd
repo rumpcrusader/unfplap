@@ -41,7 +41,7 @@ func run() -> void:
 	check(line.contains("18s in"), "state line time")
 	check(not line.contains("/s"), "state line has no speed units")
 
-	var empty := UTTER.state_line("horse", "warming", "", "", "", "", 0.0)
+	var empty := UTTER.state_line("standing", "warming", "", "", "", "", 0.0)
 	check(empty.contains("he is unknown"), "state line handles no motion")
 	check(empty.contains("last touch=none"), "state line handles no touch")
 	check(empty.contains("last talk=none"), "state line handles no talk")

@@ -555,9 +555,9 @@ func _report_line(pony: Node3D, label: String) -> void:
 		dist = delta.length()
 		if dist > 0.001:
 			dot = (-view.global_basis.z).dot(delta.normalized())
-	# Match the runtime debug_line pose choice: a standing mare reports the horse gate; one
+	# Match the runtime debug_line pose choice: a standing mare reports the standing gate; one
 	# already lying reports the bed path so the report explains the pose the player would get.
-	var pose := CATALOG.HORSE
+	var pose := CATALOG.STANDING
 	var source := ""
 	var bed: Variant = null
 	var status: Dictionary = pony.call("posture_status") if pony.has_method("posture_status") else {}

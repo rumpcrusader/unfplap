@@ -20,7 +20,7 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
-	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.HORSE], "pose ids")
+	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.STANDING], "pose ids")
 	var ids := {}
 	for id: String in CATALOG.all():
 		check(not ids.has(id), "unique pose id " + id)
@@ -28,9 +28,9 @@ func run() -> void:
 		var defaults := CATALOG.defaults(id)
 		check(not defaults.is_empty(), "defaults exist for " + id)
 	check(float(CATALOG.defaults(CATALOG.MISSIONARY).get("rump_drop_deg", -1.0)) == 35.0, "missionary rump pitch default")
-	check(float(CATALOG.defaults(CATALOG.HORSE).get("hind_spread", -1.0)) == 0.32, "horse hind spread default")
-	var gaps: Variant = CATALOG.defaults(CATALOG.HORSE).get("gaps", {})
-	check(gaps is Dictionary and int((gaps as Dictionary).size()) == 4, "horse size gaps")
+	check(float(CATALOG.defaults(CATALOG.STANDING).get("hind_spread", -1.0)) == 0.32, "standing hind spread default")
+	var gaps: Variant = CATALOG.defaults(CATALOG.STANDING).get("gaps", {})
+	check(gaps is Dictionary and int((gaps as Dictionary).size()) == 4, "standing size gaps")
 	print("CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CATALOG_PASS")

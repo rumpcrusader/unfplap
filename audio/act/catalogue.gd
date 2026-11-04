@@ -22,15 +22,15 @@ const PLAP_ROUGH := [
 	preload("res://mods/unfplap/audio/act/plap/rough_07.wav"),
 ]
 
-const PLAP_HORSE := [
-	preload("res://mods/unfplap/audio/act/plap/horse_01.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_02.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_03.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_04.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_05.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_06.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_07.wav"),
-	preload("res://mods/unfplap/audio/act/plap/horse_08.wav"),
+const PLAP_STANDING := [
+	preload("res://mods/unfplap/audio/act/plap/standing_01.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_02.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_03.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_04.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_05.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_06.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_07.wav"),
+	preload("res://mods/unfplap/audio/act/plap/standing_08.wav"),
 ]
 
 const SLIDE_IN := [
@@ -115,8 +115,8 @@ const CUES := {
 		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
 		"pitch_min": 0.98, "pitch_max": 1.02,
 	},
-	"plap_horse": {
-		"group": "foley", "streams": PLAP_HORSE, "voices": 4,
+	"plap_standing": {
+		"group": "foley", "streams": PLAP_STANDING, "voices": 4,
 		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
 		"pitch_min": 0.98, "pitch_max": 1.02,
 	},

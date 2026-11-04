@@ -176,7 +176,7 @@ func play_plap(pose: String, intensity: String, strength: float, at: Vector3,
 		return false
 	var cue := cue_for_plap(pose, intensity)
 	var pitch := pitch_for(strength)
-	if pose == CATALOG.HORSE:
+	if pose == CATALOG.STANDING:
 		pitch *= 0.96
 	return play(cue, at, 1.0, extra_db, pitch)
 
@@ -256,15 +256,15 @@ func stop() -> void:
 static func cue_for_plap(pose: String, intensity: String) -> String:
 	if intensity == "soft":
 		return ""
-	if pose == CATALOG.HORSE:
-		return "plap_horse"
+	if pose == CATALOG.STANDING:
+		return "plap_standing"
 	return "plap_" + intensity
 
 
-## Bed and fabric only belong to the missionary shot. The standing horse pose has no bed under
+## Bed and fabric only belong to the missionary shot. The standing pose has no bed under
 ## her; its bed sounds would be a floating wooden creak.
 static func uses_bed(pose: String) -> bool:
-	return pose != CATALOG.HORSE
+	return pose != CATALOG.STANDING
 
 
 static func tier_for(strength: float) -> String:

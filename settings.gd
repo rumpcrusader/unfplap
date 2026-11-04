@@ -5,12 +5,15 @@ extends RefCounted
 ##
 ## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
 ## `thrust` holds the mouse-control settings, `camera_thrust` holds the two camera amounts and
-## `presentation` is split into `missionary` and `horse` blocks.
+## `presentation` is split into `missionary` and `standing` blocks.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
+## One-release migration for settings written before the pose was renamed. This is the only
+## place the legacy id is kept; remove it after the migration window.
+const LEGACY_POSE_ID := "horse"
 
 ## Stable order for the settings-tab pony selector.
 const CHARACTER_ORDER := [
@@ -158,7 +161,7 @@ const CAMERA_THRUST_DEFAULTS := {
 	"bob": 0.35,
 }
 
-## Pose-specific act presentation. Missionary owns its framing/pitch; horse owns the glance,
+## Pose-specific act presentation. Missionary owns its framing/pitch; standing owns the glance,
 ## torso lean and caress controls. All values are read live during an act.
 const PRESENTATION_DEFAULTS := {
 	"missionary": {
@@ -174,7 +177,7 @@ const PRESENTATION_DEFAULTS := {
 		"head_pitch_deg": 0.0,
 		"head_roll_deg": 13.0,
 	},
-	"horse": {
+	"standing": {
 		"glance_back_speed": 2.0,
 		"torso_angle_deg": 6.0,
 		"kiss": {
@@ -560,7 +563,7 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 	var out: Dictionary = _merge(
 		(defaults as Dictionary).duplicate(true) if defaults is Dictionary else {},
 		pose_block if pose_block is Dictionary else {})
-	if pose_id == "horse":
+	if pose_id == "standing":
 		out["glance_back_speed"] = clampf(float(out.get(
 			"glance_back_speed", 2.0)), 0.25, 3.0)
 		var caress: Dictionary = out.get("caress", {})
@@ -609,6 +612,30 @@ static func save_presentation_controls(pose_id: String, values: Dictionary) -> v
 	_write(data)
 
 
+## Move a settings block written with the legacy pose id onto the current pose id. The new key
+## wins if a file already has both, so an interrupted migration cannot overwrite a newer value.
+static func _normalize_pose_names(data: Dictionary) -> Dictionary:
+	var blocks: Array = []
+	if data.get("default") is Dictionary:
+		blocks.append(data["default"])
+	if data.get("characters") is Dictionary:
+		for entry: Variant in (data["characters"] as Dictionary).values():
+			if entry is Dictionary:
+				blocks.append(entry)
+	for block: Dictionary in blocks:
+		var poses: Variant = block.get("poses")
+		if poses is Dictionary and (poses as Dictionary).has(LEGACY_POSE_ID):
+			if not (poses as Dictionary).has(CATALOG.STANDING):
+				(poses as Dictionary)[CATALOG.STANDING] = (poses as Dictionary)[LEGACY_POSE_ID]
+			(poses as Dictionary).erase(LEGACY_POSE_ID)
+	var presentation: Variant = data.get("presentation")
+	if presentation is Dictionary and (presentation as Dictionary).has(LEGACY_POSE_ID):
+		if not (presentation as Dictionary).has(CATALOG.STANDING):
+			(presentation as Dictionary)[CATALOG.STANDING] = (presentation as Dictionary)[LEGACY_POSE_ID]
+		(presentation as Dictionary).erase(LEGACY_POSE_ID)
+	return data
+
+
 ## Move the pre-split flat presentation block into pose sections. Old unknown keys (such as
 ## `pose1_camera`) are dropped instead of being written back forever.
 static func _normalize_presentation(data: Dictionary) -> Dictionary:
@@ -616,7 +643,7 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 	if not raw is Dictionary:
 		return data
 	var block: Dictionary = raw
-	if block.has("missionary") or block.has("horse"):
+	if block.has("missionary") or block.has("standing"):
 		for key: String in ["pose1_forward", "pose1_height", "pose1_side",
 				"pose1_pullback", "pose1_side_lean", "pose1_pitch_deg",
 				"glance_back_speed", "torso_angle_deg", "pose1_camera"]:
@@ -625,19 +652,19 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 		return data
 	var out: Dictionary = PRESENTATION_DEFAULTS.duplicate(true)
 	var missionary: Dictionary = out["missionary"]
-	var horse: Dictionary = out["horse"]
+	var standing: Dictionary = out["standing"]
 	missionary["forward"] = float(block.get("pose1_forward", missionary["forward"]))
 	missionary["height"] = float(block.get("pose1_height", missionary["height"]))
 	missionary["side"] = float(block.get("pose1_side", missionary["side"]))
 	missionary["pullback"] = float(block.get("pose1_pullback", missionary["pullback"]))
 	missionary["side_lean"] = float(block.get("pose1_side_lean", missionary["side_lean"]))
 	missionary["pitch_deg"] = float(block.get("pose1_pitch_deg", missionary["pitch_deg"]))
-	horse["glance_back_speed"] = float(block.get(
-		"glance_back_speed", horse["glance_back_speed"]))
-	horse["torso_angle_deg"] = float(block.get(
-		"torso_angle_deg", horse["torso_angle_deg"]))
+	standing["glance_back_speed"] = float(block.get(
+		"glance_back_speed", standing["glance_back_speed"]))
+	standing["torso_angle_deg"] = float(block.get(
+		"torso_angle_deg", standing["torso_angle_deg"]))
 	out["missionary"] = missionary
-	out["horse"] = horse
+	out["standing"] = standing
 	data["presentation"] = out
 	return data
 
@@ -694,6 +721,7 @@ static func _read() -> Dictionary:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
+	data = _normalize_pose_names(data)
 	data = _normalize_presentation(data)
 	data = _merge(_defaults(), data)
 	_write(data)

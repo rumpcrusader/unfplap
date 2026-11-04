@@ -4,7 +4,7 @@ extends RefCounted
 ## numeric pose indexes.
 
 const MISSIONARY := "missionary"
-const HORSE := "horse"
+const STANDING := "standing"
 
 const POSE_DEFAULTS := {
 	MISSIONARY: {
@@ -20,7 +20,7 @@ const POSE_DEFAULTS := {
 		"nuzzle_duration": 2.4,
 		"tail_lift": 0.42,
 	},
-	HORSE: {
+	STANDING: {
 		"bow": 2.4,
 		"foreleg": 2.0,
 		"foreleg_spread": 0.172,
@@ -46,7 +46,7 @@ const POSE_DEFAULTS := {
 
 
 static func all() -> Array:
-	return [MISSIONARY, HORSE]
+	return [MISSIONARY, STANDING]
 
 
 static func defaults(id: String) -> Dictionary:

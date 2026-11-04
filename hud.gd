@@ -253,9 +253,9 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
-## afterglow keeps only Y; horse afterglow keeps lean, reach, caress, kiss and Y.
+## afterglow keeps only Y; standing afterglow keeps lean, reach, caress, kiss and Y.
 func _apply_control_visibility(state: int, runtime: Node) -> void:
-	var horse := str(runtime.get("pose_id")) == CATALOG.HORSE
+	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
 	var afterglow := state == STATE_AFTERGLOW
 	for key: String in _control_rows:
 		var control := _control_rows[key] as Control
@@ -263,7 +263,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 			continue
 		var show := true
 		if afterglow:
-			if horse:
+			if standing:
 				show = key in ["forward", "back", "left", "right", "caress_left",
 					"caress_right", "caress_move_left", "caress_move_right", "kiss", "y"]
 			else:

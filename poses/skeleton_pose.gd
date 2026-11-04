@@ -1,11 +1,11 @@
 extends SkeletonModifier3D
 ## SkeletonModifier3D driver. Pose-specific numbers and bone steps live in
-## `missionary_recipe.gd` / `horse_recipe.gd`; shared bone access lives in `pose_rig.gd`.
+## `missionary_recipe.gd` / `standing_recipe.gd`; shared bone access lives in `pose_rig.gd`.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
-const HORSE := preload("res://mods/unfplap/poses/horse_recipe.gd")
+const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 
 const DEBUG_POSE1_DUMP := true
 
@@ -23,7 +23,7 @@ var pose_config: Dictionary = {}
 
 var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
-var _horse = HORSE.new()
+var _standing = STANDING.new()
 var _debug_dumped := false
 var _clock := 0.0
 
@@ -62,7 +62,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		"config": pose_config,
 	}
 	if mode == "pose2":
-		_horse.apply(_rig, sk, weight, state)
+		_standing.apply(_rig, sk, weight, state)
 	elif mode == "afterglow" and afterglow_pose == CATALOG.MISSIONARY:
 		_missionary.apply(_rig, sk, weight, state)
 		_dump_if_needed(sk, weight)

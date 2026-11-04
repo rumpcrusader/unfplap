@@ -45,7 +45,7 @@ static func inside_event(game: Node, id: String, name: String, event_id: String)
 ## Normal dialogue resumes in the afterglow, but the moment is not socially over yet. This
 ## world-context event keeps that in view without queuing a scripted line.
 static func afterglow_text(pose: String) -> String:
-	var closeness := "lying close together" if pose != CATALOG.HORSE else "standing close together"
+	var closeness := "lying close together" if pose != CATALOG.STANDING else "standing close together"
 	return "You and Anon just had sex. You are still in the afterglow together, %s; the act has ended, but the moment is not finished yet." % closeness
 
 
@@ -128,7 +128,7 @@ static func cancel_act_lines(game: Node, event_id: String, keep_speaking := true
 	return cancelled
 
 
-## The horse afterglow close reward. Staying and caressing gets a small romance gain and a
+## The standing afterglow close reward. Staying and caressing gets a small romance gain and a
 ## private thought; staying alone is a warm beat without the extra romance.
 static func stay_close_reward(game: Node, id: String, event_id: String, caressed: bool) -> void:
 	var ctx = _context(game)

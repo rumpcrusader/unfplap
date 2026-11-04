@@ -180,7 +180,7 @@ these values here if a future pose needs that effect.
 - After restore, re-invite the pony through the seat's couch; if that fails, restore
   the captured posture.
 
-## Horse (Pose 2)
+## Standing (Pose 2)
 
 - Facing lock every physics tick at priority 100:
   `pony.global_transform.basis = _facing_basis.scaled(scale)`. `stay()` alone does not stop
@@ -200,7 +200,7 @@ these values here if a future pose needs that effect.
   holds both foot targets at their neutral transforms, so his legs stay out of the camera.
   `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
   thrusts forward/back with depth.
-- `presentation.horse.torso_angle_deg` (default `15`, experimental/unbounded) hinges his upper
+- `presentation.standing.torso_angle_deg` (default `15`, experimental/unbounded) hinges his upper
   body forward. The head/camera moves along the spine arc (`forward = 0.65 sin θ`,
   `drop = 0.65 (1 − cos θ)`); `apply_anon_lean()` counters the hip by the same forward amount
   and pins the feet.
@@ -218,7 +218,7 @@ these values here if a future pose needs that effect.
   `apply_anon_lean()` counter-moves the pelvis by `ANON_THRUST_SWAY_M * phase * lean_scale`.
   There is no attack or return spring.
 - Pose-2 palms scale absolutely per body preset from
-  `presentation.horse.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers `1.0`.
+  `presentation.standing.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers `1.0`.
   The settings size selector edits each preset. `palm_scale.gd` runs after BodyIK and restores
   the cached scales in `_remove_anon_thrust()` on every act exit.
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
@@ -247,15 +247,15 @@ these values here if a future pose needs that effect.
   normal; `palm_surface_basis()` keeps the fingers forward and the palm flat on the coat. It
   eases in over `0.35 s` and back to rest over another `0.35 s`. While held, `_forced_glance`
   overrides the random glance scheduler and locks her look over that shoulder; release clears it.
-- `A`/`D` in horse pose hold an oval caress (`CARESS_RADIUS_M = 0.04125`,
+- `A`/`D` in standing pose hold an oval caress (`CARESS_RADIUS_M = 0.04125`,
   `CARESS_SPEED_RAD_S = 3.6`). `Z`/`C` toggle the left/right oval movement; the palm stays on
   the coat and keeps scoring while the phase is frozen. The palm is projected onto the coat
   each tick through
   `FlankSurface.contact` or an exclusion-aware `PonyTouchBody.nearest` fallback, and
   `palm_surface_basis()` makes the palm plane perpendicular to the coat normal. The fallback
-  skips `presentation.horse.caress.ignore` regions (default `tail`; UI also exposes mane, wings
+  skips `presentation.standing.caress.ignore` regions (default `tail`; UI also exposes mane, wings
   and legs), so a tail flick cannot steal the contact. Its centre sits at
-  `presentation.horse.caress.palm_distance` (default `0.04 m`) at body scale `1.0`, scaled by
+  `presentation.standing.caress.palm_distance` (default `0.04 m`) at body scale `1.0`, scaled by
   the pony's actual `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is
   cached per hand with source hysteresis and short position/normal
   smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite

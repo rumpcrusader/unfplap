@@ -1,6 +1,6 @@
 extends Node
 ## Proactive sex requests. One episode at a time: she waits for a quiet moment, walks to
-## Anon when needed, asks in character, reminds him twice, then gives up. A private horse
+## Anon when needed, asks in character, reminds him twice, then gives up. A private standing
 ## offer is asked while standing; after Anon accepts she presents, comments on the pose and
 ## waits for Y. Nothing starts until the player presses Y.
 ##
@@ -33,7 +33,7 @@ const GIVE_UP_S := 60.0
 ## After Anon answers, the answer, classifier and clarification need their own window.
 const REPLY_GRACE_S := 45.0
 const CLARIFY_GRACE_S := 30.0
-## How long a private horse invitation may wait after the turn completes.
+## How long a private standing invitation may wait after the turn completes.
 const INVITE_TIMEOUT_S := 60.0
 ## Safety cap while the presentation turns; `presentation_settled()` normally wins earlier.
 const PRESENT_TURN_TIMEOUT_S := 5.0
@@ -262,18 +262,18 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "") -> Dictiona
 			else _bed_candidate(runtime, forced)
 		if not bed_candidate.is_empty() or not pose_request.is_empty():
 			return bed_candidate
-	var horse_candidate := _horse_candidate(runtime, forced)
-	if pose_request == CATALOG.HORSE:
-		return horse_candidate
+	var standing_candidate := _standing_candidate(runtime, forced)
+	if pose_request == CATALOG.STANDING:
+		return standing_candidate
 	if cuddle:
 		return {}
 	var bed_candidate := _bed_candidate(runtime, forced)
 	var pose := pick_offer_pose(not bed_candidate.is_empty(),
-		not horse_candidate.is_empty(), randf())
+		not standing_candidate.is_empty(), randf())
 	if pose == CATALOG.MISSIONARY:
 		return bed_candidate
-	if pose == CATALOG.HORSE:
-		return horse_candidate
+	if pose == CATALOG.STANDING:
+		return standing_candidate
 	return {}
 
 
@@ -324,17 +324,17 @@ func _bed_candidate(runtime: Node, _forced: bool) -> Dictionary:
 	}
 
 
-func _horse_candidate(runtime: Node, _forced: bool) -> Dictionary:
+func _standing_candidate(runtime: Node, _forced: bool) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
 		return {}
-	if not bool(runtime.call("can_offer", CATALOG.HORSE, "", null)):
+	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null)):
 		return {}
 	if not _can_approach(pony):
 		return {}
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
-		"pose": CATALOG.HORSE, "source": "", "bed": null,
+		"pose": CATALOG.STANDING, "source": "", "bed": null,
 		"private": _private_at_player(pony), "cuddle": false, "bed_invite": false,
 	}
 
@@ -403,7 +403,7 @@ func _other_within(at: Vector3, except: Node, radius: float) -> bool:
 	return false
 
 
-## Diagnostic for a horse offer's privacy decision. The target is labelled and excluded from
+## Diagnostic for a standing offer's privacy decision. The target is labelled and excluded from
 ## the other-pony checks, so the logged result matches the offer's actual privacy rule.
 func _privacy_report(target: Node = null) -> String:
 	var player: Variant = main.get("player") if is_instance_valid(main) else null
@@ -924,7 +924,7 @@ func _issue_initial() -> void:
 	_episode["prompts_sent"] = 0
 	if bool(_episode.get("cuddle")):
 		_cuddle_asked[id] = true
-	if _is_private_horse():
+	if _is_private_standing():
 		var runtime: Node = _episode.get("runtime")
 		if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
 			runtime.call("set_request_face", true)
@@ -938,8 +938,8 @@ func _is_private_offer() -> bool:
 	return not _episode.is_empty() and bool(_episode.get("private", false))
 
 
-func _is_private_horse() -> bool:
-	return _is_private_offer() and str(_episode.get("pose", "")) == CATALOG.HORSE
+func _is_private_standing() -> bool:
+	return _is_private_offer() and str(_episode.get("pose", "")) == CATALOG.STANDING
 
 
 func _tick_ask(_delta: float) -> void:
@@ -1078,7 +1078,7 @@ func _tick_invite() -> void:
 	if not is_instance_valid(player) or player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		_cancel_episode(false, "invite player moved")
 		return
-	if not bool(runtime.call("can_start", CATALOG.HORSE, "", null)):
+	if not bool(runtime.call("can_start", CATALOG.STANDING, "", null)):
 		_cancel_episode(true, "invite can_start false")
 		return
 	if _now() - float(_episode.get("invite_started", _now())) >= INVITE_TIMEOUT_S:
@@ -1091,8 +1091,8 @@ func _represent_or_cancel(reason: String) -> bool:
 	var runtime: Node = _episode.get("runtime")
 	var id := str(_episode.get("id", ""))
 	var count := int(_episode.get("represent_count", 0))
-	if is_instance_valid(runtime) and count < 2 and runtime.has_method("present_horse"):
-		if bool(runtime.call("present_horse")):
+	if is_instance_valid(runtime) and count < 2 and runtime.has_method("present_standing"):
+		if bool(runtime.call("present_standing")):
 			_episode["represent_count"] = count + 1
 			_episode["present_until"] = _now() + PRESENT_TURN_TIMEOUT_S
 			_episode["invite_started"] = _now()
@@ -1140,7 +1140,7 @@ func _invite_valid(serial: int) -> bool:
 		return false
 	if player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		return false
-	return bool(runtime.call("can_start", CATALOG.HORSE, "", null))
+	return bool(runtime.call("can_start", CATALOG.STANDING, "", null))
 
 
 ## A private offer waits for Anon's own answer. Clear yes/no is parsed locally before the
@@ -1277,7 +1277,7 @@ func _accept_offer() -> void:
 		_debug("request accept %s pose=missionary cuddle=%s" % [
 			str(_episode.get("id", "")), str(_episode.get("cuddle", false))])
 		return
-	if not runtime.has_method("present_horse") or not bool(runtime.call("present_horse")):
+	if not runtime.has_method("present_standing") or not bool(runtime.call("present_standing")):
 		_debug("request accept present failed %s" % str(_episode.get("id", "")))
 		_cancel_episode(false, "accept present failed")
 		return
@@ -1523,7 +1523,7 @@ func _ask_context() -> String:
 		text += "You want Anon to take you from behind. You have decided to ask him to come and have sex with you. "
 	if not private:
 		text += "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. Phrase it as a question to him. "
-	elif pose == CATALOG.HORSE:
+	elif pose == CATALOG.STANDING:
 		text += "You are alone together. Ask him directly, in your own voice, and make it an unmistakable sexual invitation; do not hint. Phrase it as a direct question ending with a question mark. "
 	elif pose == CATALOG.MISSIONARY:
 		text += "You are alone together. Ask him directly to come to bed with you, in your own voice, and make it an unmistakable invitation; do not hint. Phrase it as a direct question ending with a question mark. "
@@ -1542,11 +1542,11 @@ func _ask_purpose() -> String:
 		text = "You are cuddling with Anon and have decided to invite him to have sex in the bed."
 	elif pose == CATALOG.MISSIONARY:
 		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
-	elif pose == CATALOG.HORSE:
+	elif pose == CATALOG.STANDING:
 		text = "You want Anon to take you from behind and have decided to ask him for sex."
 	if not private:
 		text += " Other ponies are around, so hint indirectly and do not say it plainly; phrase it as a question."
-	elif pose == CATALOG.HORSE:
+	elif pose == CATALOG.STANDING:
 		text += " You are alone together. Ask him directly and unmistakably in your own voice; do not hint. You are asking him a question."
 	elif pose == CATALOG.MISSIONARY:
 		text += " You are alone together. Ask him directly to come to bed with you; do not hint. You are asking him a question."
@@ -1595,7 +1595,7 @@ func _record_situation() -> void:
 		text = "You are cuddling with Anon and have decided to invite him to have sex in the bed."
 	elif str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
 		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
-	elif str(_episode.get("pose", "")) == CATALOG.HORSE:
+	elif str(_episode.get("pose", "")) == CATALOG.STANDING:
 		text = "You want Anon to take you from behind and have decided to ask him for sex."
 	if not bool(_episode.get("private", false)):
 		text += " Other ponies are around, so you can only hint at it."
@@ -1813,11 +1813,11 @@ static func next_prompt_time(prompts_sent: int) -> float:
 
 
 ## Per-mare pose choice for an automatic offer. Both feasible: a coin flip; one feasible: it.
-static func pick_offer_pose(bed_ok: bool, horse_ok: bool, roll: float) -> String:
-	if bed_ok and horse_ok:
-		return CATALOG.MISSIONARY if roll < 0.5 else CATALOG.HORSE
+static func pick_offer_pose(bed_ok: bool, standing_ok: bool, roll: float) -> String:
+	if bed_ok and standing_ok:
+		return CATALOG.MISSIONARY if roll < 0.5 else CATALOG.STANDING
 	if bed_ok:
 		return CATALOG.MISSIONARY
-	if horse_ok:
-		return CATALOG.HORSE
+	if standing_ok:
+		return CATALOG.STANDING
 	return ""

@@ -34,10 +34,10 @@ func run() -> void:
 		"soft has no plap cue")
 	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "rough") == "plap_rough",
 		"missionary rough cue")
-	check(ACT.cue_for_plap(CATALOG.HORSE, "firm") == "plap_horse",
-		"horse uses its own plap pool")
+	check(ACT.cue_for_plap(CATALOG.STANDING, "firm") == "plap_standing",
+		"standing uses its own plap pool")
 	check(ACT.uses_bed(CATALOG.MISSIONARY), "missionary uses bed cues")
-	check(not ACT.uses_bed(CATALOG.HORSE), "horse skips bed cues")
+	check(not ACT.uses_bed(CATALOG.STANDING), "standing skips bed cues")
 	check(ACT.pitch_for(0.0) < ACT.pitch_for(1.0), "pitch rises with strength")
 	check(ACT.pitch_for(0.0) >= 0.9 and ACT.pitch_for(1.0) <= 1.1, "pitch stays bounded")
 	check(ACT.gain_db(0.0) < ACT.gain_db(0.5) and ACT.gain_db(0.5) < ACT.gain_db(1.0),
@@ -59,7 +59,7 @@ func run() -> void:
 	check(ACT.next_index(4, 2, 2) == 3, "repeat rolls forward")
 
 	var expected := {
-		"plap_firm": 7, "plap_rough": 7, "plap_horse": 8,
+		"plap_firm": 7, "plap_rough": 7, "plap_standing": 8,
 		"slide_in": 6, "slide_out": 6, "bed_wood_in": 5, "bed_wood_out": 5,
 		"fabric": 8, "mouth_kiss": 8, "climax_wet": 4,
 		"climax_voice": 3,
@@ -138,7 +138,7 @@ func run() -> void:
 	act.set_enabled(false, true, false)
 	act.play_climax_voice(Vector3.ZERO)
 	check(act.vocals_enabled(), "climax voice accepted after a live toggle")
-	check(not act.play_plap(CATALOG.HORSE, "rough", 0.9, Vector3.ZERO),
+	check(not act.play_plap(CATALOG.STANDING, "rough", 0.9, Vector3.ZERO),
 		"foley plap is off after a live toggle")
 	act.stop()
 	parent.remove_child(act)

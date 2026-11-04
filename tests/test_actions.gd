@@ -67,6 +67,12 @@ func run() -> void:
 	check((-pitched_palm.z).y < (-straight_palm.z).y, "positive pitch lowers the fingers")
 	var pitched_up: Basis = CAESS.smack_pitch_basis(straight_palm, -15.0)
 	check((-pitched_up.z).y > (-straight_palm.z).y, "negative pitch raises the fingers")
+	var smack_left_palm: Basis = CAESS.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
+	var smack_left_pitched: Basis = CAESS.smack_pitch_basis(smack_left_palm, 15.0)
+	check((-smack_left_pitched.z).y < (-smack_left_palm.z).y,
+		"left palm also pitches down")
+	check(smack_left_pitched.x.dot(smack_left_palm.x) > 0.999,
+		"left palm pitch keeps the palm normal")
 	check(CAESS.smack_pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
 		"zero palm pitch keeps the basis")
 	var raise_mid: Transform3D = CAESS.smack_raise_blend(

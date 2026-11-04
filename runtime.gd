@@ -3428,7 +3428,6 @@ func _begin_camera_mode() -> void:
 	_reset_lean_state()
 	_standing_anon_controller().reset_phase()
 	_missionary_camera_controller().reset_look()
-	_standing_camera_controller().reset()
 	if _player_pony or _headset_view():
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):

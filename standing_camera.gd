@@ -335,6 +335,7 @@ func prepare() -> void:
 		_apply_standing_base_look()
 
 func begin_facing(transform: Transform3D) -> void:
+	_sync()
 	_facing_basis = transform.basis
 	_has_facing = true
 	_glance_left = 0.0

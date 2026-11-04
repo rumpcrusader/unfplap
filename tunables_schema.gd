@@ -193,6 +193,30 @@ static func all() -> Dictionary:
 		"presentation.standing.smack.return_speed": num(6.0, "Return speed",
 			"Strike speed in metres per second.", "Standing › Smack", "m/s", 0.1),
 
+		# Debug: the satin tail bow.
+		"features.tail_bow": flag(true, "Tail bow gifts",
+			"Let a mare accept a satin tail bow when Anon offers one in conversation. Off hides the whole accessory.",
+			"Tail bow"),
+		"presentation.tail_bow.size": num(1.0, "Bow size",
+			"Scale of the whole bow, on top of her body size.", "Tail bow", "×", 0.01),
+		"presentation.tail_bow.outward_m": num(0.05, "Out from the tail",
+			"Distance of the bow from the tail axis.", "Tail bow", "cm", 0.5, 100.0),
+		"presentation.tail_bow.along_m": num(0.03, "Down the tail",
+			"Distance from the tail root toward her tail tip.", "Tail bow", "cm", 0.5, 100.0),
+		"presentation.tail_bow.outward_up": num(0.65, "Outward tilt",
+			"How far the bow faces up as well as back.", "Tail bow", "", 0.01),
+		"presentation.tail_bow.tilt_deg": num(0.0, "Tilt",
+			"Pitch the bow about its own side axis.", "Tail bow", "°", 1.0),
+		"presentation.tail_bow.yaw_deg": num(0.0, "Yaw",
+			"Turn the bow about the tail.", "Tail bow", "°", 1.0),
+		"presentation.tail_bow.roll_deg": num(0.0, "Roll",
+			"Roll the bow in its own plane.", "Tail bow", "°", 1.0),
+		"presentation.tail_bow.band_radius": num(0.042, "Band radius",
+			"Radius of the band that ties the bow around the tail.", "Tail bow", "cm", 0.1, 100.0),
+		"presentation.tail_bow.colour": choice("rose", ["rose", "pink", "cream", "purple", "midnight"],
+			["Rose", "Pink", "Cream", "Purple", "Midnight"], "Dye",
+			"Satin colour of the bow.", "Tail bow"),
+
 	}
 	return _cache
 

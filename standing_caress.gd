@@ -144,7 +144,7 @@ static func smack_raise_frame(contact: Transform3D, outward: Vector3, raise_m: f
 	if rear.length_squared() < 0.5:
 		rear = contact.basis.z
 	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg),
-		contact.origin + normal * maxf(0.0, raise_m) + rear * maxf(0.0, back_m))
+		contact.origin + normal * raise_m + rear * back_m)
 
 
 ## Caressing keeps the palm in the caress plane (fingers forward). A free-hand smack comes
@@ -161,7 +161,7 @@ static func smack_finger_hint(caressing: bool, forward: Vector3) -> Vector3:
 ## Non-caress wind-up: a backswing from behind and below the contact, with the fingers down.
 static func smack_swing_raise_frame(contact: Transform3D, outward: Vector3, back: Vector3,
 		raise_m: float, pitch_deg: float) -> Transform3D:
-	var distance := maxf(0.0, raise_m)
+	var distance := raise_m
 	var rear := back.normalized()
 	if rear.length_squared() < 0.5:
 		rear = contact.basis.z
@@ -757,7 +757,7 @@ func _caress_oval_across_m() -> float:
 	var caress: Variant = _presentation_cfg.get("caress", {})
 	if caress is Dictionary:
 		value = float((caress as Dictionary).get("oval_across_m", value))
-	return maxf(0.0, value)
+	return value
 
 
 func _caress_oval_up_m() -> float:
@@ -765,7 +765,7 @@ func _caress_oval_up_m() -> float:
 	var caress: Variant = _presentation_cfg.get("caress", {})
 	if caress is Dictionary:
 		value = float((caress as Dictionary).get("oval_up_m", value))
-	return maxf(0.0, value)
+	return value
 
 
 ## Slow oval palm movement on the chosen flank/side. `apply` false only computes the live

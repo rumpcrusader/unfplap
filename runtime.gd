@@ -2688,7 +2688,7 @@ func _apply_jiggle_radius() -> void:
 	var targets: Variant = _flank.get("_jiggle_targets")
 	if not targets is Array:
 		return
-	var radius := maxf(0.02, _jiggle_radius_m)
+	var radius := _jiggle_radius_m
 	for target_v: Variant in targets:
 		if not target_v is Array or (target_v as Array).is_empty():
 			continue
@@ -3618,8 +3618,8 @@ func _lean_tick(delta: float) -> void:
 		# Idle breathing. The feature toggle is the only way to stop the drift when the
 		# player is not leaning.
 		_hold_rock_clock += delta
-		var side_sway := maxf(0.0, float(_presentation_cfg.get(
-			"idle_sway_side", MOTION.HOLD_SWAY_SIDE)))
+		var side_sway := float(_presentation_cfg.get(
+			"idle_sway_side", MOTION.HOLD_SWAY_SIDE))
 		_lean_view_forward = clampf(_lean_view_forward
 			+ sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD, -1.0, 1.0)
 		_lean_view_side = clampf(_lean_view_side

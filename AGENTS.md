@@ -1004,6 +1004,10 @@ rump blush. Unknown settings keys are ignored.
   contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, camera surge/bob `0…1`, glance
   speed `0.25…3×`). Do not add a clamp in a consumer "to be safe": if a value must be bounded to
   stay playable, make it a `user_num` and say so in the help text.
+  No consumer clamps a tunable-derived value today; the jiggle radius, idle sway, smack raise,
+  smack arc and caress oval radii are applied as stored. The only other bounds are the smack
+  animation duration (`0.12–0.30 s` raise, `0.06–0.20 s` return), which bound the slide, not the
+  setting.
 - Feature flags are split by the schema's `tab`: entries marked `"settings"` are the
   player-facing page, every other flag is in the Debug page. Label, help and section all come
   from the schema entry; there is no separate feature info table.

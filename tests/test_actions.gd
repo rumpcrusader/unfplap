@@ -113,6 +113,10 @@ func run() -> void:
 		and near(smack_raised.origin.y, 1.0), "smack raise lifts along the normal and back")
 	check((-smack_raised.basis.z).y < (-smack_contact.basis.z).y,
 		"raised palm pitches the fingers down")
+	var smack_lowered: Transform3D = CAESS.smack_raise_frame(
+		smack_contact, Vector3.RIGHT, -0.10, -0.04, Vector3.BACK, 15.0)
+	check(near(smack_lowered.origin.x, -0.10) and near(smack_lowered.origin.z, -0.04),
+		"smack raise and arc are applied unclamped")
 	var straight_palm: Basis = CAESS.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
 	var pitched_palm: Basis = CAESS.smack_pitch_basis(straight_palm, 15.0)
 	check(pitched_palm.determinant() > 0.99, "palm pitch stays orthonormal")
@@ -384,6 +388,10 @@ func run() -> void:
 	radius_runtime.call("_apply_jiggle_radius")
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), 0.30),
 		"jiggle radius applies to the targets")
+	radius_runtime._jiggle_radius_m = -0.05
+	radius_runtime.call("_apply_jiggle_radius")
+	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), -0.05),
+		"jiggle radius is applied unclamped")
 	radius_runtime.call("_restore_jiggle_radius")
 	check(radius_mat.get_shader_parameter("jiggle_radius") == null,
 		"jiggle radius override restores")

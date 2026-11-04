@@ -624,42 +624,56 @@ examples.
 - Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
   ponies and fillies/colts are skipped.
 - Proactive requests are a separate controller (`initiation.gd`), not an action tag. They never
-  start the act; `Y` remains the only acceptance path.
+  start the act; `Y` remains the only act-start path.
 
 ### Proactive requests
 
 - One request episode at a time. Automatic requests require AI usage Full
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
-  character chat within 45 s. The lab runs in Talk, so use `\`.
-- Eligibility is the existing relationship/social gate (`can_start` for the pose), not the
-  act-time readiness value. No anger bypass.
-- Cuddle: requires an active cuddle and `can_start(MISSIONARY, "bed_side")` or
+  character chat within 45 s. The lab runs in Talk, so use `'` or `\`.
+- Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
+  exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
+  gate.
+- The mare chooses the pose. With both a usable bed and a standing horse offer, she picks one at
+  random (`pick_offer_pose`); with one, she uses it. An active cuddle always offers missionary.
+- Cuddle: requires an active cuddle and `can_offer(MISSIONARY, "bed_side")` or
   `"already_lying"`. Indoor privacy is house-only solitude; outdoors it is nobody
   within 30 m. A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle.
-- Horse: requires `can_start(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
+- Bed: a free bed within `BED_SEARCH_M = 10 m` of Anon, same region and floor, with no other
+  guest or sleeper. She walks to the bed front, asks him to come to bed, and waits up to
+  `BED_WAIT_TIMEOUT_S = 90 s`. Once Anon lies on that bed, the native `SharedBedRest` seats her
+  beside him; then she queues the invite line and `Y` becomes available. Lying down after the
+  ask's `PHYSICAL_ACCEPT_GRACE_S = 2.5 s` grace counts as a physical yes. No free bed means she
+  cannot choose missionary.
+- Horse: requires `can_offer(HORSE)`. She walks to a spot 2 m in front of Anon's view (same
   navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The ask is decoupled
   from the Y aim zone: it starts when she is still present and eligible, not only while the
   player aims at her flank.
-- Private for horse means alone in the house or nobody within 30 m. Private asks directly and
-  makes the invitation available; with others around she only hints.
+- Private means alone in the house or nobody within 30 m. Private asks directly and makes the
+  invitation available; with others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
   house, every mare within 30 m separately labelled with the target, and the computed result.
   The offering mare is excluded from the other-pony checks, so the target label in the log is
   diagnostic only.
-- Private horse order: she asks while standing, Anon answers by text/voice, then `present` and
-  `invite`. Clear yes/no uses `consent_classifier.local_intent()`; anything else is classified
-  by a short provider request (one try, 16 tokens, 4 s) after the director is idle. The request
-  includes an offer line so short answers like "right here" are understood. The controller does
-  not run the classifier beside the director's own reply; that caused HTTP 429s. A decline
-  cancels with the full cooldown and no presentation. An accept re-checks privacy, presents,
-  waits for `runtime.presentation_settled()`, queues one generated comment/invite line, then
-  waits for `Y`. `Y` itself keeps its old behavior: pressing it during any phase cancels the
-  episode and starts the act immediately.
-- Private ask/presentation has a request face: full blush and half-lidded eyes while she asks
-  and presents. It also sets the game's `affection_active` hold so an AI `[approach]`/`[follow]`
-  from her reply cannot break the pose; `_nav_pose_gate` exempts that hold while
-  `_request_face` is true. If movement still clears the presentation, the controller re-presents
-  twice before ending the offer.
+- Private offer order: she asks, Anon answers by text/voice, then the pose-specific invite.
+  Clear yes/no uses `consent_classifier.local_intent()`; anything else is classified by a short
+  provider request (one try, 16 tokens, 4 s) after the director is idle. The request includes an
+  offer line so short answers like "right here" are understood. The controller does not run the
+  classifier beside the director's own reply; that caused HTTP 429s. A decline cancels with the
+  full cooldown and no presentation.
+  - Horse accept re-checks privacy, presents, waits for `runtime.presentation_settled()`, queues
+    one generated comment/invite line, then waits for `Y`.
+  - Missionary cuddle accept queues the invite line in the existing bed.
+  - Missionary bed accept walks her to the bed (`bed_lead`), waits for Anon to lie down
+    (`bed_wait`), joins through the bed rest, then queues the invite line.
+  - `Y` itself keeps its old behavior: pressing it during any phase cancels the episode and
+    starts the act immediately.
+- The private horse ask/presentation has a request face: full blush and half-lidded eyes while
+  she asks and presents. It also sets the game's `affection_active` hold so an AI
+  `[approach]`/`[follow]` from her reply cannot break the pose; `_nav_pose_gate` exempts that
+  hold while `_request_face` is true. If movement still clears the presentation, the controller
+  re-presents twice before ending the offer. The bed invite does not set the request face because
+  `SharedBedRest.eligible()` rejects `affection_active`.
 - The horse invitation is IDLE-only: turn away with `pony.face_direction()` at
   `PRESENT_FACE_TURN_RATE = 1.5`, clear navigator `face_point` and conversation target late each
   physics tick, then attach the pose-2 modifier and tail-aside once the turn settles. Do not
@@ -674,10 +688,12 @@ examples.
   cancelling the line. An unclear answer gets one clarification. A give-up records an "offer is
   over" situation, queues a short give-up line even when he answered, and logs
   `request end ... reason=...`; the invite phase waits up to 60 s after the comment.
-- Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach or initial-ask
-  failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
-  cooldown. `Y` cancels the episode before `start()`.
-- `\` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
+- Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach, bed walk or
+  initial-ask failure sets a short 30 s retry instead; an ask, presentation, invite or give-up
+  sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
+  bed rest so `runtime.start()` still sees her lying.
+- `'` forces a missionary ask; `\` forces a horse ask. Both bypass quiet, cooldown and AI-usage
+  checks for lab testing, but not relationship, consent, pose or free-bed gates.
 
 ### Y start gate and aim zone
 
@@ -686,7 +702,8 @@ examples.
 - `INITIATION.y_start_allowed(flag, source, scenario)`:
   - flag on: any valid offer;
   - flag off: `bed_side`, `already_lying`, an active proactive request, or a dialogue
-    agreement.
+    agreement. `ask`, `present`, `invite`, `bed_lead` and `bed_wait` all keep the request
+    scenario.
 - Pose 2 offers use the base game’s smack-flank selection: crosshair on the flank and
   `TOUCH_REACH = 1.6 m`. This applies with the flag on or off. Pose 1 bed offers stay
   contextual.
@@ -774,21 +791,22 @@ examples.
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
   player build unlocks it with **Settings → Updates** pressed five times. Acts own
   `controls_locked`, so the console is not available while an act is running.
-- `\`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
-  cooldown and AI-usage checks, but not relationship, consent or pose gates; use it in the lab,
-  which runs with `ai_usage=talk`. It does not fire while a text field has focus or while the
-  tree is paused. `Shift+\` is left to the game's dev noclip. (F7 is the game settings menu.)
+- `'`: force a missionary ask for the aimed/nearest test mare. `\`: force a horse ask. Both
+  bypass the quiet, cooldown and AI-usage checks, but not relationship, consent, pose or free-bed
+  gates; use them in the lab, which runs with `ai_usage=talk`. They do not fire while a text
+  field has focus or while the tree is paused. `Shift+\` is left to the game's dev noclip.
+  (F7 is the game settings menu.)
 - `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - `debug_logs` is read from settings and defaults ON. There is no key toggle; it controls
-  logging and whether the hidden Debug settings section appears.
-- While `debug_logs` is on, **Settings → Unfplap → Debug** exposes a hidden
-  `Trigger sex offer (\)` button and a **Pinned act ears** checkbox. The offer uses the
-  aimed mare with the nearest fallback and calls the same `initiation.force()` path as `\`; the
-  status label reports the target or gate rejection. Because the settings page pauses the tree,
-  the offer advances after it closes. `act_ear_pin` defaults off; when off the act skips
-  `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
+  logging only. The Debug settings tab is always present.
+- **Settings → Unfplap → Debug** exposes `Trigger bed offer (')`, `Trigger horse offer (\)` and
+  a **Pinned act ears** checkbox. The offers use the aimed mare with the nearest fallback and
+  call the same `initiation.force(runtime, pose)` path as the keys; the status label reports the
+  target or gate rejection. Because the settings page pauses the tree, an offer advances after
+  it closes. `act_ear_pin` defaults off; when off the act skips `expressions.fluster()`, keeping
+  normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready. Mouse4
   moves a mare farther than `8 m` (or on another floor) to the guest-bed approach before inviting,
   then waits for Anon's recline blend before the snuggle invite. Backtick (`` ` ``) toggles the
@@ -843,7 +861,12 @@ examples.
 | `thrust_tail_dock_jiggle` | `false` | add the dock and merged dock surface to the rump thrust jiggle |
 | `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
+| `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
+| `act_foley` | `true` | pack thrust, slide, bed/fabric and mouth-kiss foley |
+| `act_vocals` | `false` | pack climax moan only |
+| `act_climax` | `false` | pack wet finish layer |
+| `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
@@ -860,16 +883,18 @@ rump blush. Unknown settings keys are ignored.
     `_normalize_presentation()`; obsolete `pose1_camera` is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
   (sensitivity, glance speed, percentages, taste). Experimental tuning controls stay unbounded.
-- Feature flags are one ungrouped list. Each row uses `FEATURE_INFO` for a human label and a
-  help line. Edits apply live during an act; `live` flags also apply immediately outside one.
-  `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
-- The injected settings tab has a **Thrust** section (orientation, sensitivity `240…1200`), a
-  **Camera thrust** section (surge and bob, `0…100%`), an **Act presentation** section split
-  into **Missionary** and **Horse** (horse includes caress palm distance, size-selected palm
-  scale and body-part ignores), a hidden **Debug** block only while `debug_logs` is on, and
-  **Character taste**. There are no Save buttons: each control writes its own block and calls
-  `apply_live_settings()` so the active act updates
-  immediately.
+- Feature flags are split: `SETTINGS.FEATURE_USER` is the player-facing **Settings** tab; every
+  other non-hidden flag is in the **Debug** tab. Each row uses `FEATURE_INFO` for a human label
+  and a help line. Edits apply live during an act; `live` flags also apply immediately outside
+  one. `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
+- The injected settings tab has nested **Settings** and **Debug** sub-tabs. **Settings** holds
+  the four player-facing flags (`hud_readouts`, `captions_on_top`, `press_y_starts_sex`,
+  `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`) and
+  **Character taste**. **Debug** holds every other flag, the **Camera thrust** section (surge and
+  bob, `0…100%`), the **Act presentation** section split into **Missionary** and **Horse** (horse
+  includes caress palm distance, size-selected palm scale and body-part ignores), and the offer /
+  ear-pin debug controls. There are no Save buttons: each control writes its own block and calls
+  `apply_live_settings()` so the active act updates immediately.
 - `debug_logs` defaults to `true`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

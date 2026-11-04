@@ -123,6 +123,7 @@ func run() -> void:
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")
 	check(not bool(feature_block.get("act_climax", true)), "wet climax off by default")
+	check(not bool(feature_block.get("bed_creaks", true)), "bed creaks off by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
 	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.FEATURE_DEFAULTS:

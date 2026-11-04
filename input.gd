@@ -71,14 +71,16 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey:
 		var debug_key := event as InputEventKey
-		# Backslash is the request helper. Do not claim it in a text field, and leave
-		# Shift+\ alone for the game's dev noclip toggle.
-		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_BACKSLASH \
+		# Backslash asks for the horse invite; apostrophe asks for the bed invite. Do not claim
+		# them in a text field, and leave Shift+\ alone for the game's dev noclip toggle.
+		if debug_key.pressed and not debug_key.echo \
+				and debug_key.physical_keycode in [KEY_BACKSLASH, KEY_APOSTROPHE] \
 				and not debug_key.ctrl_pressed and not debug_key.shift_pressed \
 				and not debug_key.alt_pressed and not get_tree().paused:
 			var focus := get_viewport().gui_get_focus_owner()
 			if not (focus is LineEdit or focus is TextEdit):
-				main.call("debug_request")
+				var pose := "horse" if debug_key.physical_keycode == KEY_BACKSLASH else "missionary"
+				main.call("debug_request", pose)
 				get_viewport().set_input_as_handled()
 				return
 		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F10:

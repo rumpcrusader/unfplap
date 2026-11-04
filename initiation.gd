@@ -12,6 +12,8 @@ const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
+const BED_REST := preload("res://world/relationships/shared_bed.gd")
+const REST_CONTROL := preload("res://mods/unfplap/rest_control.gd")
 
 const COOLDOWN_S := 600.0
 const SCAN_INTERVAL_S := 0.5
@@ -36,6 +38,13 @@ const INVITE_TIMEOUT_S := 60.0
 ## Safety cap while the presentation turns; `presentation_settled()` normally wins earlier.
 const PRESENT_TURN_TIMEOUT_S := 5.0
 const RETRY_S := 30.0
+## A bed invite only considers beds this close to Anon, so she can join without a long detour.
+const BED_SEARCH_M := 10.0
+## Walking to the bed front and waiting for Anon to lie down.
+const BED_LEAD_TIMEOUT_S := 25.0
+const BED_WAIT_TIMEOUT_S := 90.0
+## Give her the ask line a moment before lying down on the offered bed counts as a yes.
+const PHYSICAL_ACCEPT_GRACE_S := 2.5
 const KEY_PREFIX := "unfplap:request"
 
 var main
@@ -80,19 +89,26 @@ func reset() -> void:
 
 
 ## Manual lab/debug entry point: bypass the quiet, cooldown and AI-usage checks, but keep the
-## relationship, consent and pose gates.
-func force(runtime: Node) -> bool:
+## relationship, consent and pose gates. An empty `pose` lets the mare choose.
+func force(runtime: Node, pose := "") -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(runtime):
 		return false
 	if not _episode.is_empty():
 		_cancel_episode(false)
-	var candidate: Dictionary = _candidate_for(runtime, true)
+	var candidate: Dictionary = _candidate_for(runtime, true, pose)
 	if candidate.is_empty():
-		_debug("request force: gates reject %s" % _runtime_name(runtime))
+		_debug("request force: gates reject %s pose=%s" % [
+			_runtime_name(runtime), "any" if pose.is_empty() else pose])
 		return false
 	candidate["forced"] = true
 	_serial += 1
-	if str(candidate.get("pose", "")) == CATALOG.MISSIONARY:
+	var player: Variant = main.get("player")
+	var pony: Node3D = candidate.get("pony")
+	var near: bool = is_instance_valid(player) and is_instance_valid(pony) \
+		and player.global_position.distance_to(pony.global_position) <= ARRIVE_RANGE_M
+	if bool(candidate.get("bed_invite", false)):
+		_start_bed_approach(candidate)
+	elif near:
 		_start_ask(candidate)
 	else:
 		_start_approach(candidate)
@@ -103,7 +119,8 @@ func force(runtime: Node) -> bool:
 ## Called before a normal Y start. The act owns the pony now.
 func cancel_for(pony: Node) -> void:
 	if is_instance_valid(pony) and not _episode.is_empty() and _episode.get("pony") == pony:
-		_cancel_episode(true)
+		# The act start owns the bed now; do not stand her up before runtime.start().
+		_cancel_episode(true, "", true)
 		return
 	if is_instance_valid(pony):
 		var runtime: Variant = main.call("runtime_for", pony) if is_instance_valid(main) else null
@@ -191,7 +208,7 @@ func _consider_start() -> void:
 	if not is_instance_valid(player):
 		return
 	var cuddles: Array = []
-	var horses: Array = []
+	var offers: Array = []
 	for node: Variant in _mares():
 		if not is_instance_valid(node):
 			continue
@@ -201,25 +218,30 @@ func _consider_start() -> void:
 		var candidate: Dictionary = _candidate_for(runtime, false)
 		if candidate.is_empty():
 			continue
-		if str(candidate.get("pose", "")) == CATALOG.MISSIONARY:
+		if bool(candidate.get("cuddle", false)):
 			cuddles.append(candidate)
 		else:
-			horses.append(candidate)
+			offers.append(candidate)
 	var chosen: Dictionary = {}
 	if not cuddles.is_empty():
 		chosen = cuddles.pick_random()
-	elif not horses.is_empty():
-		chosen = horses.pick_random()
+	elif not offers.is_empty():
+		chosen = offers.pick_random()
 	if chosen.is_empty():
 		return
 	_serial += 1
-	if str(chosen.get("pose", "")) == CATALOG.MISSIONARY:
+	var pony: Node3D = chosen.get("pony")
+	var near: bool = is_instance_valid(pony) \
+		and player.global_position.distance_to(pony.global_position) <= ARRIVE_RANGE_M
+	if bool(chosen.get("bed_invite", false)):
+		_start_bed_approach(chosen)
+	elif near:
 		_start_ask(chosen)
 	else:
 		_start_approach(chosen)
 
 
-func _candidate_for(runtime: Node, forced: bool) -> Dictionary:
+func _candidate_for(runtime: Node, forced: bool, pose_request := "") -> Dictionary:
 	if not is_instance_valid(main) or not is_instance_valid(runtime):
 		return {}
 	var pony: Variant = runtime.get("pony")
@@ -235,33 +257,85 @@ func _candidate_for(runtime: Node, forced: bool) -> Dictionary:
 	if not forced and _now() < float(_retry_at.get(id, -100000.0)):
 		return {}
 	var cuddle: bool = bool(runtime.call("_cuddle_active")) if runtime.has_method("_cuddle_active") else false
+	if pose_request == CATALOG.MISSIONARY or (pose_request.is_empty() and cuddle):
+		var bed_candidate := _cuddle_candidate(runtime, forced) if cuddle \
+			else _bed_candidate(runtime, forced)
+		if not bed_candidate.is_empty() or not pose_request.is_empty():
+			return bed_candidate
+	var horse_candidate := _horse_candidate(runtime, forced)
+	if pose_request == CATALOG.HORSE:
+		return horse_candidate
 	if cuddle:
-		if not forced and bool(_cuddle_asked.get(id, false)):
-			return {}
-		if not _cuddle_privacy_ok(pony):
-			return {}
-		var form: Dictionary = PLAYER_FORM.active(get_tree())
-		var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
-		var bed: Variant = runtime.call("find_bed_under")
-		if not is_instance_valid(bed):
-			return {}
-		if not bool(runtime.call("can_start", CATALOG.MISSIONARY, source, bed)):
-			return {}
-		if not _offer_targets_pony(pony):
-			return {}
-		return {
-			"pony": pony, "runtime": runtime, "id": id,
-			"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
-			"private": true, "cuddle": true,
-		}
-	if not bool(runtime.call("can_start", CATALOG.HORSE, "", null)):
+		return {}
+	var bed_candidate := _bed_candidate(runtime, forced)
+	var pose := pick_offer_pose(not bed_candidate.is_empty(),
+		not horse_candidate.is_empty(), randf())
+	if pose == CATALOG.MISSIONARY:
+		return bed_candidate
+	if pose == CATALOG.HORSE:
+		return horse_candidate
+	return {}
+
+
+func _cuddle_candidate(runtime: Node, forced: bool) -> Dictionary:
+	var pony: Variant = runtime.get("pony")
+	if not is_instance_valid(pony):
+		return {}
+	var id := _pony_id(pony)
+	if id.is_empty():
+		return {}
+	if not forced and bool(_cuddle_asked.get(id, false)):
+		return {}
+	if not _cuddle_privacy_ok(pony):
+		return {}
+	var form: Dictionary = PLAYER_FORM.active(get_tree())
+	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
+	var bed: Variant = runtime.call("find_bed_under")
+	if not is_instance_valid(bed):
+		return {}
+	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed)):
+		return {}
+	if not _offer_targets_pony(pony):
+		return {}
+	return {
+		"pony": pony, "runtime": runtime, "id": id,
+		"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
+		"private": true, "cuddle": true, "bed_invite": false,
+	}
+
+
+func _bed_candidate(runtime: Node, _forced: bool) -> Dictionary:
+	var pony: Node3D = runtime.get("pony") if is_instance_valid(runtime) else null
+	if not is_instance_valid(pony):
+		return {}
+	var found := _find_bed_for(pony)
+	if found.is_empty():
+		return {}
+	var bed: Node3D = found.get("bed")
+	var form: Dictionary = PLAYER_FORM.active(get_tree())
+	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
+	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed)):
+		return {}
+	return {
+		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
+		"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
+		"private": _private_at_player(pony), "cuddle": false, "bed_invite": true,
+		"bed_rest": found.get("rest"), "bed_front": found.get("front"),
+	}
+
+
+func _horse_candidate(runtime: Node, _forced: bool) -> Dictionary:
+	var pony: Variant = runtime.get("pony")
+	if not is_instance_valid(pony):
+		return {}
+	if not bool(runtime.call("can_offer", CATALOG.HORSE, "", null)):
 		return {}
 	if not _can_approach(pony):
 		return {}
 	return {
-		"pony": pony, "runtime": runtime, "id": id,
+		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
 		"pose": CATALOG.HORSE, "source": "", "bed": null,
-		"private": _private_at_player(pony), "cuddle": false,
+		"private": _private_at_player(pony), "cuddle": false, "bed_invite": false,
 	}
 
 
@@ -389,6 +463,8 @@ func _start_approach(candidate: Dictionary) -> void:
 		"pose": str(candidate.get("pose", "")), "source": str(candidate.get("source", "")),
 		"bed": candidate.get("bed"), "private": bool(candidate.get("private", false)),
 		"cuddle": false, "phase": "arrive",
+		"bed_invite": bool(candidate.get("bed_invite", false)),
+		"bed_rest": candidate.get("bed_rest"), "bed_front": candidate.get("bed_front"),
 		"started_at": _now(), "arrive_until": _now() + ARRIVE_WAIT_S,
 		"nav": nav, "token": KEY_PREFIX + ":" + str(candidate.get("id", "")),
 		"prev_owner": str(nav.get("command_owner")),
@@ -486,6 +562,323 @@ func _tick_arrive() -> void:
 	_issue_initial()
 
 
+# --------------------------------------------------------------------------- bed invitation
+
+## A bed offer walks to the bed front, not to Anon. Asking from the bed avoids a blocked
+## approach spot when he is already lying down.
+func _start_bed_approach(candidate: Dictionary) -> void:
+	if not _episode.is_empty():
+		return
+	var pony: Node3D = candidate.get("pony")
+	var runtime: Node = candidate.get("runtime")
+	var rest: Node = candidate.get("bed_rest")
+	var front: Variant = candidate.get("bed_front")
+	if not is_instance_valid(pony) or not is_instance_valid(runtime) \
+			or not is_instance_valid(rest) or not front is Vector3:
+		return
+	_episode = {
+		"serial": _serial,
+		"pony": pony, "runtime": runtime, "id": str(candidate.get("id", "")),
+		"pose": CATALOG.MISSIONARY, "source": str(candidate.get("source", "")),
+		"bed": candidate.get("bed"), "private": bool(candidate.get("private", false)),
+		"cuddle": false, "bed_invite": true,
+		"bed_rest": rest, "bed_front": front,
+		"phase": "bed_approach", "started_at": _now(),
+		"bed_approach_started": _now(),
+		"forced": bool(candidate.get("forced", false)),
+		"keys": [],
+	}
+	_hook_director()
+	_log_privacy_once(pony)
+	var nav := _claim_nav(pony)
+	if nav == null:
+		_cancel_episode(false)
+		return
+	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
+		pony.request_posture("stand")
+	if pony.global_position.distance_to(front) <= 1.2:
+		nav.call("stay")
+		_arrive_bed_ask()
+		return
+	if not bool(nav.call("command_destination", front, "trot")):
+		_cancel_episode(false)
+
+
+func _arrive_bed_ask() -> void:
+	_episode["phase"] = "ask"
+	_issue_initial()
+
+
+func _tick_bed_approach() -> void:
+	var pony: Node3D = _episode.get("pony")
+	var nav: Node = _episode.get("nav")
+	var front: Variant = _episode.get("bed_front")
+	if not is_instance_valid(pony) or not is_instance_valid(nav) or not front is Vector3:
+		_cancel_episode(false, "bed approach lost")
+		return
+	if str(nav.get("command_owner")) != str(_episode.get("token")):
+		_cancel_episode(false, "bed approach owner")
+		return
+	if _now() - float(_episode.get("bed_approach_started", _now())) > BED_LEAD_TIMEOUT_S:
+		_cancel_episode(false, "bed approach timeout")
+		return
+	if pony.global_position.distance_to(front) <= 1.4 or not bool(nav.get("_has_target")):
+		nav.call("stay")
+		_arrive_bed_ask()
+
+
+## Walk her to the offered bed and wait for Anon to lie down. The native bed rest seats her
+## once he is reclined; only then is the missionary pose actually startable.
+func _start_bed_lead() -> bool:
+	var pony: Node3D = _episode.get("pony")
+	var rest: Node = _episode.get("bed_rest")
+	if not is_instance_valid(pony) or not is_instance_valid(rest):
+		return false
+	var front: Variant = _episode.get("bed_front")
+	if not front is Vector3 or not (front as Vector3).is_finite():
+		front = rest.call("_front_for", pony)
+	if not front is Vector3 or not (front as Vector3).is_finite():
+		return false
+	var nav := _claim_nav(pony)
+	if nav == null:
+		return false
+	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
+		pony.request_posture("stand")
+	_episode["bed_front"] = front
+	_episode["bed_lead_started"] = _now()
+	if pony.global_position.distance_to(front) <= 1.2:
+		nav.call("stay")
+		_begin_bed_wait()
+		return true
+	if not bool(nav.call("command_destination", front, "trot")):
+		return false
+	_episode["phase"] = "bed_lead"
+	_debug("request bed lead %s front=%s" % [str(_episode.get("id", "")), str(front)])
+	return true
+
+
+func _begin_bed_wait() -> void:
+	_episode["phase"] = "bed_wait"
+	_episode["bed_wait_started"] = _now()
+	_episode["bed_join_tries"] = 0
+	_debug("request bed wait %s" % str(_episode.get("id", "")))
+
+
+func _tick_bed_lead() -> void:
+	var pony: Node3D = _episode.get("pony")
+	var nav: Node = _episode.get("nav")
+	var front: Variant = _episode.get("bed_front")
+	if not is_instance_valid(pony) or not is_instance_valid(nav) or not front is Vector3:
+		_cancel_episode(false, "bed lead lost")
+		return
+	if str(nav.get("command_owner")) != str(_episode.get("token")):
+		_cancel_episode(false, "bed lead owner")
+		return
+	if _now() - float(_episode.get("bed_lead_started", _now())) > BED_LEAD_TIMEOUT_S:
+		_give_up("bed walk timeout")
+		return
+	if pony.global_position.distance_to(front) <= 1.4 or not bool(nav.get("_has_target")):
+		nav.call("stay")
+		_begin_bed_wait()
+
+
+func _tick_bed_wait() -> void:
+	var pony: Node3D = _episode.get("pony")
+	var runtime: Node = _episode.get("runtime")
+	var rest: Node = _episode.get("bed_rest")
+	var bed: Variant = _episode.get("bed")
+	var player: Variant = main.get("player")
+	if not is_instance_valid(pony) or not is_instance_valid(runtime) \
+			or not is_instance_valid(rest) or not is_instance_valid(player) or not is_instance_valid(bed):
+		_cancel_episode(false, "bed wait lost")
+		return
+	if _now() - float(_episode.get("bed_wait_started", _now())) > BED_WAIT_TIMEOUT_S:
+		_give_up("bed wait timeout")
+		return
+	if player.global_position.distance_to(pony.global_position) > PRIVACY_RADIUS_M:
+		_cancel_episode(false, "bed wait player left")
+		return
+	if not bool(_episode.get("bed_joining", false)):
+		if not _player_in_bed(bed):
+			return
+		if _now() < float(_episode.get("bed_join_retry_at", 0.0)):
+			return
+		# The bed rest refuses an actor whose navigator is still owned by the request. Hand it
+		# back without standing her up, then let the native invite take her onto the bed.
+		_yield_nav_to_bed()
+		runtime.call("set_request_face", false)
+		if not bool(rest.call("accept", pony)):
+			var tries := int(_episode.get("bed_join_tries", 0)) + 1
+			_episode["bed_join_tries"] = tries
+			_episode["bed_join_retry_at"] = _now() + 1.0
+			if tries >= 5:
+				_give_up("bed join failed")
+			return
+		_episode["bed_joining"] = true
+		_episode["bed_joined"] = true
+		_debug("request bed join %s" % str(_episode.get("id", "")))
+	if not bool(runtime.call("can_start", CATALOG.MISSIONARY, str(_episode.get("source", "")), bed)):
+		if not _player_in_bed(bed):
+			_cancel_episode(false, "bed player stood up")
+		return
+	if bool(_episode.get("invite_queued", false)):
+		return
+	if not _queue_invitation():
+		_cancel_episode(false, "bed invite queue failed")
+		return
+	_episode["invite_queued"] = true
+	_episode["phase"] = "invite"
+	_episode["invite_started"] = _now()
+	_debug("request invite %s pose=missionary" % str(_episode.get("id", "")))
+
+
+func _claim_nav(pony: Node3D) -> Node:
+	var nav: Node = pony.get_node_or_null("Navigator") if is_instance_valid(pony) else null
+	if nav == null:
+		return null
+	if not _episode.has("nav"):
+		var id := str(_episode.get("id", ""))
+		_episode["nav"] = nav
+		_episode["token"] = KEY_PREFIX + ":" + id
+		_episode["prev_owner"] = str(nav.get("command_owner"))
+		_episode["prev_wander"] = bool(nav.get("wander_enabled"))
+		_episode["prev_limit"] = nav.get("command_speed_limit")
+		_episode["prev_pace"] = nav.get("command_pace_target")
+	nav.set("command_owner", str(_episode.get("token", "")))
+	nav.set("wander_enabled", false)
+	nav.set("command_speed_limit", INF)
+	nav.set("command_pace_target", -1.0)
+	return nav
+
+
+func _yield_nav_to_bed() -> void:
+	if bool(_episode.get("nav_released", false)):
+		return
+	var nav: Node = _episode.get("nav")
+	if is_instance_valid(nav):
+		nav.call("stay")
+		if str(nav.get("command_owner")) == str(_episode.get("token", "")):
+			nav.set("command_owner", str(_episode.get("prev_owner", "")))
+			nav.set("wander_enabled", bool(_episode.get("prev_wander", true)))
+			if _episode.get("prev_limit") != null:
+				nav.set("command_speed_limit", _episode.get("prev_limit"))
+			if _episode.get("prev_pace") != null:
+				nav.set("command_pace_target", _episode.get("prev_pace"))
+	_episode["nav_released"] = true
+
+
+func _player_in_bed(bed: Variant) -> bool:
+	var player: Variant = main.get("player")
+	if not is_instance_valid(player) or not is_instance_valid(bed):
+		return false
+	if not bool(player.get_meta("couch_sleeping", false)):
+		return false
+	var seat: Variant = player.get("seat")
+	if not is_instance_valid(seat):
+		return false
+	if not seat.has_meta("couch"):
+		return false
+	var couch: Variant = seat.get_meta("couch")
+	if not is_instance_valid(couch):
+		return false
+	var bed_node: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
+	return bed_node == bed
+
+
+# --------------------------------------------------------------------------- bed search
+
+func _find_bed_for(pony: Node3D) -> Dictionary:
+	var player: Variant = main.get("player")
+	if not is_instance_valid(player) or not is_instance_valid(pony):
+		return {}
+	var own := _player_bed_node(player)
+	if own != null:
+		var own_row := _bed_row(own, pony, player)
+		if not own_row.is_empty():
+			return own_row
+	var best: Dictionary = {}
+	var best_distance := BED_SEARCH_M
+	for bed: Node3D in _beds_near(player):
+		var row := _bed_row(bed, pony, player)
+		if row.is_empty():
+			continue
+		var distance := float(row.get("distance", BED_SEARCH_M))
+		if distance < best_distance:
+			best_distance = distance
+			best = row
+	return best
+
+
+func _player_bed_node(player: Node3D) -> Node3D:
+	var seat: Variant = player.get("seat")
+	if not is_instance_valid(seat) or not seat.has_meta("couch"):
+		return null
+	var couch: Variant = seat.get_meta("couch")
+	if not is_instance_valid(couch):
+		return null
+	var bed: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
+	return bed as Node3D if is_instance_valid(bed) else null
+
+
+func _beds_near(player: Node3D) -> Array:
+	var found: Array = []
+	var seen: Dictionary = {}
+	for node: Variant in get_tree().get_nodes_in_group("couches"):
+		if not is_instance_valid(node) or not (node as Node).has_method("rest_word"):
+			continue
+		if str((node as Node).call("rest_word")) != "bed":
+			continue
+		var bed: Variant = node.get("_bed") if node.get("_bed") != null else node.get("bed_node")
+		if is_instance_valid(bed) and not seen.has((bed as Node).get_instance_id()):
+			seen[(bed as Node).get_instance_id()] = true
+			found.append(bed)
+	var house: Node3D = _house_at(player.global_position)
+	if house != null:
+		for node: Node in house.find_children("*", "Node3D", true, false):
+			if not node.has_meta("mattress_top") and not node.has_meta("soft_support"):
+				continue
+			if seen.has(node.get_instance_id()):
+				continue
+			seen[node.get_instance_id()] = true
+			found.append(node)
+	return found
+
+
+func _bed_row(bed: Node3D, pony: Node3D, player: Node3D) -> Dictionary:
+	if not is_instance_valid(bed) or not bed.is_inside_tree():
+		return {}
+	var at := bed.global_position
+	if at.distance_to(player.global_position) > BED_SEARCH_M:
+		return {}
+	if absf(at.y - player.global_position.y) > 1.5:
+		return {}
+	if _region_of(at) != _region_of(player.global_position):
+		return {}
+	var rest: Variant = bed.get_meta("bed_rest") if bed.has_meta("bed_rest") else null
+	if not is_instance_valid(rest):
+		rest = BED_REST.for_bed(bed)
+	if not is_instance_valid(rest):
+		return {}
+	rest.call("refresh")
+	if not bool(rest.get("_mare_fits")):
+		return {}
+	var guest: Variant = rest.get("_guest")
+	if guest is Dictionary and not (guest as Dictionary).is_empty():
+		return {}
+	if is_instance_valid(rest.get("_sleeper")):
+		return {}
+	if bool(main.call("bed_occupied", bed, pony)):
+		return {}
+	var front: Variant = rest.call("_front_for", pony)
+	if not front is Vector3 or not (front as Vector3).is_finite():
+		return {}
+	return {
+		"bed": bed, "rest": rest, "front": front,
+		"distance": at.distance_to(player.global_position),
+	}
+
+
+
 # --------------------------------------------------------------------------- ask
 
 func _start_ask(candidate: Dictionary) -> void:
@@ -497,6 +890,8 @@ func _start_ask(candidate: Dictionary) -> void:
 		"id": str(candidate.get("id", "")), "pose": str(candidate.get("pose", "")),
 		"source": str(candidate.get("source", "")), "bed": candidate.get("bed"),
 		"private": bool(candidate.get("private", true)), "cuddle": bool(candidate.get("cuddle", false)),
+		"bed_invite": bool(candidate.get("bed_invite", false)),
+		"bed_rest": candidate.get("bed_rest"), "bed_front": candidate.get("bed_front"),
 		"phase": "ask", "started_at": _now(), "ask_started": _now(),
 		"forced": bool(candidate.get("forced", false)),
 		"prompts_sent": 0, "keys": [],
@@ -539,9 +934,12 @@ func _issue_initial() -> void:
 		str(_episode.get("cuddle", false))])
 
 
+func _is_private_offer() -> bool:
+	return not _episode.is_empty() and bool(_episode.get("private", false))
+
+
 func _is_private_horse() -> bool:
-	return not _episode.is_empty() and str(_episode.get("pose", "")) == CATALOG.HORSE \
-		and bool(_episode.get("private", false))
+	return _is_private_offer() and str(_episode.get("pose", "")) == CATALOG.HORSE
 
 
 func _tick_ask(_delta: float) -> void:
@@ -556,8 +954,8 @@ func _tick_ask(_delta: float) -> void:
 		return
 	var pose := str(_episode.get("pose", ""))
 	var source := str(_episode.get("source", ""))
-	if not bool(runtime.call("can_start", pose, source, _episode.get("bed"))):
-		_cancel_episode(true, "ask can_start false")
+	if not bool(runtime.call("can_offer", pose, source, _episode.get("bed"))):
+		_cancel_episode(true, "ask can_offer false")
 		return
 	if player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		_cancel_episode(true, "ask player moved")
@@ -574,8 +972,17 @@ func _tick_ask(_delta: float) -> void:
 		else:
 			_give_up("timeout")
 			return
-	var horse_private := _is_private_horse()
-	if horse_private:
+	if pose == CATALOG.MISSIONARY and not bool(_episode.get("cuddle", false)) \
+			and not bool(_episode.get("consent_pending", false)) \
+			and _now() - float(_episode.get("ask_started", now)) >= PHYSICAL_ACCEPT_GRACE_S \
+			and _player_in_bed(_episode.get("bed")):
+		# Lying down on the offered bed is a physical yes.
+		if bool(_episode.get("reply_seen", false)):
+			return
+		_accept_offer()
+		return
+	var private_offer := _is_private_offer()
+	if private_offer:
 		if bool(_episode.get("reply_seen", false)):
 			if bool(_episode.get("consent_pending", false)):
 				if not bool(_episode.get("consent_started", false)) and _director_idle() \
@@ -648,6 +1055,17 @@ func _tick_invite() -> void:
 	if not is_instance_valid(runtime) or not is_instance_valid(pony):
 		_cancel_episode(false, "invite pony lost")
 		return
+	if str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
+		if not _player_in_bed(_episode.get("bed")):
+			_cancel_episode(false, "invite left bed")
+			return
+		if not bool(runtime.call("can_start", CATALOG.MISSIONARY,
+				str(_episode.get("source", "")), _episode.get("bed"))):
+			_cancel_episode(true, "invite can_start false")
+			return
+		if _now() - float(_episode.get("invite_started", _now())) >= INVITE_TIMEOUT_S:
+			_invite_give_up()
+		return
 	if not bool(runtime.call("presentation_active")):
 		if _represent_or_cancel("invite presentation lost"):
 			return
@@ -704,12 +1122,17 @@ func _queue_invitation() -> bool:
 func _invite_valid(serial: int) -> bool:
 	if _episode.is_empty() or int(_episode.get("serial", -1)) != serial:
 		return false
-	if str(_episode.get("phase", "")) not in ["present", "invite"]:
+	if str(_episode.get("phase", "")) not in ["present", "invite", "bed_wait"]:
 		return false
 	var pony: Node = _episode.get("pony")
 	var runtime: Node = _episode.get("runtime")
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
 		return false
+	if str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
+		if not _player_in_bed(_episode.get("bed")):
+			return false
+		return bool(runtime.call("can_start", CATALOG.MISSIONARY,
+			str(_episode.get("source", "")), _episode.get("bed")))
 	if not bool(runtime.call("presentation_active")):
 		return false
 	var player: Variant = main.get("player") if is_instance_valid(main) else null
@@ -727,7 +1150,7 @@ func _on_player_transcript(text: String) -> void:
 		return
 	if str(_episode.get("phase", "")) != "ask":
 		return
-	if str(_episode.get("pose", "")) != CATALOG.HORSE or not bool(_episode.get("private", false)):
+	if not bool(_episode.get("private", false)):
 		return
 	text = text.strip_edges()
 	if text.is_empty():
@@ -836,6 +1259,24 @@ func _accept_offer() -> void:
 		_debug("request accept blocked %s: no longer private" % str(_episode.get("id", "")))
 		_cancel_episode(false, "accept not private")
 		return
+	var pose := str(_episode.get("pose", ""))
+	if pose == CATALOG.MISSIONARY:
+		_episode["accepted_at"] = _now()
+		_episode["invite_queued"] = false
+		if bool(_episode.get("cuddle", false)):
+			_episode["phase"] = "invite"
+			_episode["invite_started"] = _now()
+			if not _queue_invitation():
+				_cancel_episode(false, "accept bed invite failed")
+				return
+			_episode["invite_queued"] = true
+		elif not _start_bed_lead():
+			_cancel_episode(false, "accept bed lead failed")
+			return
+		_record_consent_situation(true)
+		_debug("request accept %s pose=missionary cuddle=%s" % [
+			str(_episode.get("id", "")), str(_episode.get("cuddle", false))])
+		return
 	if not runtime.has_method("present_horse") or not bool(runtime.call("present_horse")):
 		_debug("request accept present failed %s" % str(_episode.get("id", "")))
 		_cancel_episode(false, "accept present failed")
@@ -893,7 +1334,7 @@ func _clarify_valid(serial: int) -> bool:
 		return false
 	if player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		return false
-	return bool(runtime.call("can_start", str(_episode.get("pose", "")),
+	return bool(runtime.call("can_offer", str(_episode.get("pose", "")),
 		str(_episode.get("source", "")), _episode.get("bed")))
 
 
@@ -922,7 +1363,7 @@ func press_y_scenario(pony: Node) -> String:
 	if _episode.is_empty() or not is_instance_valid(pony) or _episode.get("pony") != pony:
 		return ""
 	var phase := str(_episode.get("phase", ""))
-	return "request" if phase in ["ask", "present", "invite"] else ""
+	return "request" if phase in ["ask", "present", "invite", "bed_lead", "bed_wait"] else ""
 
 
 static func y_start_allowed(flag: bool, source: String, scenario: String) -> bool:
@@ -996,7 +1437,7 @@ func _give_up(reason := "timeout") -> void:
 	_debug("request give up %s reason=%s" % [id, reason])
 
 
-func _cancel_episode(set_cooldown: bool, reason := "") -> void:
+func _cancel_episode(set_cooldown: bool, reason := "", keep_rest := false) -> void:
 	if _episode.is_empty():
 		return
 	var pony: Node = _episode.get("pony")
@@ -1010,10 +1451,13 @@ func _cancel_episode(set_cooldown: bool, reason := "") -> void:
 		runtime.call("set_request_face", false)
 	if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 		runtime.call("clear_presentation")
+	if not keep_rest and bool(_episode.get("bed_joined", false)) and is_instance_valid(pony):
+		REST_CONTROL.release_managed(pony)
 	_release_nav()
-	if set_cooldown and phase in ["present", "invite", "ask"]:
+	if set_cooldown and phase in ["present", "invite", "ask", "bed_lead", "bed_wait"]:
 		_set_cooldown(id)
-	elif not set_cooldown and phase in ["approach", "arrive", "present", "invite", "ask"]:
+	elif not set_cooldown and phase in ["approach", "arrive", "present", "invite", "ask",
+			"bed_approach", "bed_lead", "bed_wait"]:
 		# A walk-over or unavailable ask must not retry every scan, but must not eat the full
 		# cooldown either.
 		_retry_at[id] = _now() + RETRY_S
@@ -1027,6 +1471,8 @@ func _cancel_episode(set_cooldown: bool, reason := "") -> void:
 
 
 func _release_nav() -> void:
+	if bool(_episode.get("nav_released", false)):
+		return
 	var nav: Node = _episode.get("nav")
 	if not is_instance_valid(nav):
 		return
@@ -1050,6 +1496,12 @@ func _tick_episode(delta: float) -> void:
 		_tick_present()
 	elif phase == "invite":
 		_tick_invite()
+	elif phase == "bed_lead":
+		_tick_bed_lead()
+	elif phase == "bed_approach":
+		_tick_bed_approach()
+	elif phase == "bed_wait":
+		_tick_bed_wait()
 	elif phase == "ask":
 		_tick_ask(delta)
 	else:
@@ -1061,16 +1513,20 @@ func _tick_episode(delta: float) -> void:
 func _ask_context() -> String:
 	var cuddle := bool(_episode.get("cuddle", false))
 	var private := bool(_episode.get("private", false))
-	var horse := str(_episode.get("pose", "")) == CATALOG.HORSE
+	var pose := str(_episode.get("pose", ""))
 	var text := "[Observed situation, not player speech] "
 	if cuddle:
-		text += "You are cuddling with Anon and you want more. You have decided to ask him for sex. "
+		text += "You are cuddling with Anon and want more. You have decided to invite him to have sex in the bed. "
+	elif pose == CATALOG.MISSIONARY:
+		text += "You want Anon in bed with you. You have decided to invite him to come to bed and have sex. "
 	else:
-		text += "You are with Anon. You want him and have decided to ask him for sex. "
+		text += "You want Anon to take you from behind. You have decided to ask him to come and have sex with you. "
 	if not private:
 		text += "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. Phrase it as a question to him. "
-	elif horse:
+	elif pose == CATALOG.HORSE:
 		text += "You are alone together. Ask him directly, in your own voice, and make it an unmistakable sexual invitation; do not hint. Phrase it as a direct question ending with a question mark. "
+	elif pose == CATALOG.MISSIONARY:
+		text += "You are alone together. Ask him directly to come to bed with you, in your own voice, and make it an unmistakable invitation; do not hint. Phrase it as a direct question ending with a question mark. "
 	else:
 		text += "You are alone together. You may ask directly and bluntly or hint indirectly, whichever fits you; phrase it as a question to him. "
 	text += "Say one or two short sentences in your own voice. Do not describe your body or narrate actions, and do not use action tags."
@@ -1080,14 +1536,20 @@ func _ask_context() -> String:
 func _ask_purpose() -> String:
 	var private := bool(_episode.get("private", false))
 	var cuddle := bool(_episode.get("cuddle", false))
-	var horse := str(_episode.get("pose", "")) == CATALOG.HORSE
+	var pose := str(_episode.get("pose", ""))
 	var text := "You have decided to ask Anon for sex."
 	if cuddle:
-		text = "You are cuddling with Anon and have decided to ask him for sex."
+		text = "You are cuddling with Anon and have decided to invite him to have sex in the bed."
+	elif pose == CATALOG.MISSIONARY:
+		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
+	elif pose == CATALOG.HORSE:
+		text = "You want Anon to take you from behind and have decided to ask him for sex."
 	if not private:
 		text += " Other ponies are around, so hint indirectly and do not say it plainly; phrase it as a question."
-	elif horse:
+	elif pose == CATALOG.HORSE:
 		text += " You are alone together. Ask him directly and unmistakably in your own voice; do not hint. You are asking him a question."
+	elif pose == CATALOG.MISSIONARY:
+		text += " You are alone together. Ask him directly to come to bed with you; do not hint. You are asking him a question."
 	else:
 		text += " You may ask directly and bluntly or hint indirectly, in your own voice; phrase it as a question."
 	text += " Say one or two short sentences. Do not narrate actions. End with a question mark."
@@ -1095,6 +1557,8 @@ func _ask_purpose() -> String:
 
 
 func _invite_purpose() -> String:
+	if str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
+		return "You are lying beside Anon on the bed, ready for him. Comment on taking the bed position and invite him in your own voice. One short sentence. Do not narrate actions."
 	return "You have just turned your back to Anon and lifted your tail aside, ready for him. Comment on taking the position and invite him in your own voice. One short sentence. Do not narrate actions."
 
 
@@ -1128,7 +1592,11 @@ func _record_situation() -> void:
 		return
 	var text := "You are with Anon and have decided to ask him for sex."
 	if bool(_episode.get("cuddle", false)):
-		text = "You are cuddling with Anon and have decided to ask him for sex."
+		text = "You are cuddling with Anon and have decided to invite him to have sex in the bed."
+	elif str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
+		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
+	elif str(_episode.get("pose", "")) == CATALOG.HORSE:
+		text = "You want Anon to take you from behind and have decided to ask him for sex."
 	if not bool(_episode.get("private", false)):
 		text += " Other ponies are around, so you can only hint at it."
 	ctx.call("record", "situation", text, [id], [id],
@@ -1183,7 +1651,7 @@ func _episode_valid(serial: int) -> bool:
 		return false
 	if player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		return false
-	return bool(runtime.call("can_start", str(_episode.get("pose", "")), str(_episode.get("source", "")), _episode.get("bed")))
+	return bool(runtime.call("can_offer", str(_episode.get("pose", "")), str(_episode.get("source", "")), _episode.get("bed")))
 
 
 func _pony_alive(id: String) -> bool:
@@ -1342,3 +1810,14 @@ static func next_prompt_time(prompts_sent: int) -> float:
 	if prompts_sent == 1:
 		return PROMPT_2_S
 	return -1.0
+
+
+## Per-mare pose choice for an automatic offer. Both feasible: a coin flip; one feasible: it.
+static func pick_offer_pose(bed_ok: bool, horse_ok: bool, roll: float) -> String:
+	if bed_ok and horse_ok:
+		return CATALOG.MISSIONARY if roll < 0.5 else CATALOG.HORSE
+	if bed_ok:
+		return CATALOG.MISSIONARY
+	if horse_ok:
+		return CATALOG.HORSE
+	return ""

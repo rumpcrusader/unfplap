@@ -66,6 +66,7 @@ const FEATURE_DEFAULTS := {
 	"act_foley": true,
 	"act_vocals": false,
 	"act_climax": false,
+	"bed_creaks": false,
 	"settings_tab": true,
 	"act_ear_pin": false,
 }
@@ -73,6 +74,9 @@ const FEATURE_DEFAULTS := {
 ## Debug-only flags live in FEATURE_DEFAULTS for persistence but are not listed in the normal
 ## feature block; the hidden Debug section owns their controls.
 const FEATURE_HIDDEN := ["act_ear_pin"]
+
+## Player-facing flags. Everything else lives in the Debug tab.
+const FEATURE_USER := ["hud_readouts", "captions_on_top", "press_y_starts_sex", "mute_ponese_audio"]
 
 ## Human labels and help for the injected settings tab. `live` flags apply without a new act.
 const FEATURE_INFO := {
@@ -119,7 +123,7 @@ const FEATURE_INFO := {
 	},
 	"act_foley": {
 		"label": "Act foley",
-		"help": "Use the pack's thrust, bed, fabric, kiss, smack and wet climax sounds. Off restores the current kiss-sample plap.",
+		"help": "Use the pack's thrust, slide, bed/fabric and mouth-kiss sounds. Off restores the current kiss-sample plap.",
 		"live": true,
 	},
 	"act_vocals": {
@@ -130,6 +134,11 @@ const FEATURE_INFO := {
 	"act_climax": {
 		"label": "Wet climax layer",
 		"help": "Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
+		"live": true,
+	},
+	"bed_creaks": {
+		"label": "Bed creaks",
+		"help": "Play the pack's wooden bed creak on missionary thrusts. Off keeps plaps, slides and soft-bed fabric.",
 		"live": true,
 	},
 	"settings_tab": {

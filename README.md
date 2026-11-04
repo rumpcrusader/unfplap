@@ -28,17 +28,17 @@ Desktop only for now
 - **Relationship-gated encounters** — Adult mares and stallions only, with consent and refusals
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing horse.
-- **Proactive mares** — A ready mare may ask for sex herself. In private she asks directly; answer yes to let her take the standing position and invite you, or no to turn her down. You can also ask her in dialogue: a clear “yes, now, here” leaves the encounter available. Pose-2 `Y` appears when you aim at her flank; the feature flag can restrict `Y` to asks, verbal agreements and bed contexts.
+- **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. You can also ask her in dialogue: a clear “yes, now, here” leaves the encounter available. Pose-2 `Y` appears when you aim at her flank; the feature flag can restrict `Y` to asks, verbal agreements and bed contexts.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
-- **Act settings** — Tune mouse thrust, camera thrust, per-pose presentation, caress palm distance/scale and body-part ignores, plus each pony's taste in `Settings → Unfplap`.
+- **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, per-mare taste) from pose tuning and feature flags in a Debug tab.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
 - **HUD** — Shows the act controls list, readiness meter, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, Z/C pause or resume each caress oval, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
 - **Presentation** — Adds blush, eyes, ears, tail, rump jiggle, audio and wing motion; an optional flag adds the dock and tail base to the thrust wobble.
-- **Act audio** — `Act foley` adds pack thrust, bed, fabric and kiss sounds; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default. All off restore the original kiss-sample plap.
+- **Act audio** — `Act foley` adds pack thrust, slide, bed/fabric and kiss sounds; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default. Wooden bed creaks are off by default and can be re-enabled separately. All off restore the original kiss-sample plap.
 - **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In horse afterglow, staying close and caressing earns a small extra reward, then short aftercare. A warm, relaxed "satisfied" mood and expression last for five minutes afterward.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake adults can witness it.
 

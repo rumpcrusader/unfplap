@@ -325,59 +325,28 @@ func _inject_settings_page_now(page: Node) -> void:
 	heading.add_theme_font_size_override("font_size", font_size + 6)
 	ui.add_child(heading)
 	var note := Label.new()
-	note.text = "Feature flags, thrust, per-pose presentation, caress and per-character taste. Changes apply live during an act."
+	note.text = "Player settings and character taste in Settings; pose tuning, feature flags and test controls in Debug. Changes apply live during an act."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	ui.add_child(note)
-	var scroll_box := ScrollContainer.new()
-	scroll_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll_box.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	ui.add_child(scroll_box)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
-	scroll_box.add_child(list)
+	var tabs_box := TabContainer.new()
+	tabs_box.name = "UnfplapTabs"
+	tabs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	ui.add_child(tabs_box)
+	var user_list := _settings_tab_list("Settings", tabs_box)
+	for key: String in SETTINGS.FEATURE_USER:
+		_add_feature_toggle(user_list, key, font_size, page)
+	_add_thrust_section(user_list, font_size)
+	_add_taste_section(user_list, font_size)
+	var debug_list := _settings_tab_list("Debug", tabs_box)
 	for key: String in SETTINGS.FEATURE_DEFAULTS:
-		if key in SETTINGS.FEATURE_HIDDEN:
+		if key in SETTINGS.FEATURE_USER or key in SETTINGS.FEATURE_HIDDEN:
 			continue
-		var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
-		var block := VBoxContainer.new()
-		block.add_theme_constant_override("separation", 2)
-		list.add_child(block)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 12)
-		block.add_child(row)
-		var label := Label.new()
-		label.text = str(info.get("label", key.replace("_", " ").capitalize()))
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.add_theme_font_size_override("font_size", font_size)
-		row.add_child(label)
-		var toggle := CheckButton.new()
-		toggle.button_pressed = SETTINGS.feature(key)
-		toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(toggle)
-		var help := Label.new()
-		help.text = str(info.get("help", ""))
-		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		help.add_theme_font_size_override("font_size", font_size - 5)
-		help.modulate = Color(1.0, 1.0, 1.0, 0.72)
-		block.add_child(help)
-		var feature_key := key
-		var live := bool(info.get("live", false))
-		toggle.toggled.connect(func(on: bool) -> void:
-			SETTINGS.save_feature(feature_key, on)
-			_debug("feature %s=%s" % [feature_key, str(on)])
-			if live:
-				_apply_caption_top()
-			_apply_live_settings()
-			page.call("_redraw"))
-	_add_thrust_section(list, font_size)
-	_add_camera_thrust_section(list, font_size)
-	_add_presentation_section(list, font_size)
-	if debug_logs:
-		_add_debug_section(list, font_size)
-	_add_taste_section(list, font_size)
+		_add_feature_toggle(debug_list, key, font_size, page)
+	_add_camera_thrust_section(debug_list, font_size)
+	_add_presentation_section(debug_list, font_size)
+	_add_debug_section(debug_list, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
 			(tab as Button).pressed.connect(_hide_settings_tab.bind(page))
@@ -390,6 +359,54 @@ func _inject_settings_page_now(page: Node) -> void:
 	page.set_meta("unfplap_button", button)
 	_injected_settings.append({"page": page, "button": button, "ui": ui})
 	_debug("settings tab injected")
+
+
+func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = title
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
+	tabs_box.add_child(scroll)
+	return list
+
+
+func _add_feature_toggle(list: VBoxContainer, key: String, font_size: int, page: Node) -> void:
+	var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 2)
+	list.add_child(block)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	block.add_child(row)
+	var label := Label.new()
+	label.text = str(info.get("label", key.replace("_", " ").capitalize()))
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
+	row.add_child(label)
+	var toggle := CheckButton.new()
+	toggle.button_pressed = SETTINGS.feature(key)
+	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(toggle)
+	var help := Label.new()
+	help.text = str(info.get("help", ""))
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_font_size_override("font_size", font_size - 5)
+	help.modulate = Color(1.0, 1.0, 1.0, 0.72)
+	block.add_child(help)
+	var live := bool(info.get("live", false))
+	toggle.toggled.connect(func(on: bool) -> void:
+		SETTINGS.save_feature(key, on)
+		_debug("feature %s=%s" % [key, str(on)])
+		if live:
+			_apply_caption_top()
+		_apply_live_settings()
+		page.call("_redraw"))
 
 
 func _show_settings_tab(page: Node) -> void:
@@ -853,11 +870,16 @@ func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
 	var status := Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", font_size - 4)
-	var button := Button.new()
-	button.text = "Trigger sex offer (\\)"
-	button.pressed.connect(func() -> void:
-		status.text = _debug_offer_request())
-	list.add_child(button)
+	var bed_button := Button.new()
+	bed_button.text = "Trigger bed offer (')"
+	bed_button.pressed.connect(func() -> void:
+		status.text = _debug_offer_request(CATALOG.MISSIONARY))
+	list.add_child(bed_button)
+	var horse_button := Button.new()
+	horse_button.text = "Trigger horse offer (\\)"
+	horse_button.pressed.connect(func() -> void:
+		status.text = _debug_offer_request(CATALOG.HORSE))
+	list.add_child(horse_button)
 	list.add_child(status)
 
 
@@ -1409,13 +1431,14 @@ func try_start() -> bool:
 
 
 ## Debug helper: force a proactive request for the aimed (or nearest) mare. It bypasses the
-## quiet/cooldown/AI-usage checks so the lab can test requests with ai_usage=talk.
-func debug_request() -> void:
-	_debug_offer_request()
+## quiet/cooldown/AI-usage checks so the lab can test requests with ai_usage=talk. An empty
+## `pose` lets the mare choose; `missionary` and `horse` force that invite.
+func debug_request(pose := "") -> void:
+	_debug_offer_request(pose)
 
 
-## Shared by `\` and the hidden settings button, so both paths report the same status.
-func _debug_offer_request() -> String:
+## Shared by the debug keys and the hidden settings buttons.
+func _debug_offer_request(pose := "") -> String:
 	if not is_instance_valid(initiation) or not is_instance_valid(player):
 		return "Act system not ready."
 	var view: Camera3D = camera()
@@ -1429,11 +1452,18 @@ func _debug_offer_request() -> String:
 	if not is_instance_valid(runtime):
 		_debug("request: no runtime for %s" % str(target.name))
 		return "No runtime for %s." % str(target.name)
-	var started: bool = bool(initiation.force(runtime))
+	var started: bool = bool(initiation.force(runtime, pose))
+	var label := ""
+	if pose == CATALOG.MISSIONARY:
+		label = " (bed)"
+	elif pose == CATALOG.HORSE:
+		label = " (horse)"
 	if started:
-		_debug("request button: %s" % str(target.name))
-		return "Offer started for %s. Close settings to let her approach." % str(target.name)
-	return "Gates rejected %s (relationship, consent or pose)." % str(target.name)
+		_debug("request button: %s%s" % [str(target.name), label])
+		return "Offer started for %s%s. Close settings to let her approach." % [
+			str(target.name), label]
+	return "Gates rejected %s%s (relationship, consent, pose or no free bed)." % [
+		str(target.name), label]
 
 
 ## The request helper is not aim-gated: if the crosshair is not on a mare, use the nearest

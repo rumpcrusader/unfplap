@@ -105,7 +105,7 @@ func run() -> void:
 	var parent := Node3D.new()
 	root.add_child(parent)
 	parent.add_child(act)
-	act.setup(true, false, false)
+	act.setup(true, false, false, true)
 	act.play_impact(CATALOG.MISSIONARY, 0.2, Vector3.ZERO, Vector3.ZERO, false)
 	var ready_at: Dictionary = act.get("_ready_at")
 	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "soft impact emits no plap")
@@ -113,6 +113,22 @@ func run() -> void:
 	check(float(ready_at.get("bed_wood_in", 0.0)) > 0.0, "soft impact keeps the bed")
 	check(not act.play_plap(CATALOG.MISSIONARY, "soft", 0.2, Vector3.ZERO),
 		"soft plap call is refused")
+	act.set_enabled(true, false, false, false)
+	ready_at = act.get("_ready_at")
+	ready_at["plap_rough"] = 0.0
+	ready_at["slide_in"] = 0.0
+	ready_at["bed_wood_in"] = 0.0
+	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false)
+	check(not act.bed_creaks_enabled(), "bed creaks can be disabled live")
+	check(float(ready_at.get("bed_wood_in", 0.0)) == 0.0, "bed creak is skipped when disabled")
+	check(float(ready_at.get("plap_rough", 0.0)) > 0.0, "plap still fires without bed creaks")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "slide still fires without bed creaks")
+	check(act.play_bed("in", 0.7, Vector3.ZERO, true), "soft-bed fabric still fires without bed creaks")
+	act.set_enabled(true, false, false, true)
+	ready_at["bed_wood_in"] = 0.0
+	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false)
+	check(float(ready_at.get("bed_wood_in", 0.0)) > 0.0,
+		"wood bed creak returns when enabled")
 	check(act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"foley plap starts a player")
 	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),

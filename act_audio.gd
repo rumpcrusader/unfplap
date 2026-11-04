@@ -19,6 +19,7 @@ const STRENGTH_GAIN_DB := 10.0
 var _foley := false
 var _vocals := false
 var _climax := false
+var _bed_creaks := false
 var _pools: Dictionary = {}
 var _next: Dictionary = {}
 var _last: Dictionary = {}
@@ -26,9 +27,9 @@ var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 
-func setup(foley: bool, vocals: bool, climax: bool) -> void:
+func setup(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -> void:
 	_rng.randomize()
-	set_enabled(foley, vocals, climax)
+	set_enabled(foley, vocals, climax, bed_creaks)
 
 
 func foley_enabled() -> bool:
@@ -43,10 +44,14 @@ func climax_enabled() -> bool:
 	return _climax
 
 
+func bed_creaks_enabled() -> bool:
+	return _bed_creaks
+
+
 ## Rebuild only the layer that changed. Called at start and from apply_live_settings().
-func set_enabled(foley: bool, vocals: bool, climax: bool) -> void:
+func set_enabled(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -> void:
 	if foley == _foley and vocals == _vocals and climax == _climax \
-			and not _pools.is_empty():
+			and bed_creaks == _bed_creaks and not _pools.is_empty():
 		return
 	if _foley and not foley:
 		_clear_group("foley")
@@ -57,6 +62,7 @@ func set_enabled(foley: bool, vocals: bool, climax: bool) -> void:
 	_foley = foley
 	_vocals = vocals
 	_climax = climax
+	_bed_creaks = bed_creaks
 	if _foley:
 		_build_group("foley")
 	if _vocals:
@@ -193,6 +199,8 @@ func play_impact(pose: String, strength: float, rump: Vector3,
 func play_bed(direction: String, strength: float, at: Vector3, soft := false) -> bool:
 	if soft:
 		return play("fabric", at, strength)
+	if not _bed_creaks:
+		return false
 	var cue := "bed_wood_in" if direction == "in" else "bed_wood_out"
 	return play(cue, at, strength)
 

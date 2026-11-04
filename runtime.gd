@@ -774,8 +774,9 @@ func apply_live_settings() -> void:
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
+	var bed_creaks := bool(_features.get("bed_creaks", false))
 	if foley or vocals or climax:
-		_ensure_act_audio(foley, vocals, climax)
+		_ensure_act_audio(foley, vocals, climax, bed_creaks)
 	elif is_instance_valid(_act_audio):
 		_act_audio.set_enabled(false, false, false)
 	var thrust_controls := SETTINGS.thrust_controls()
@@ -1231,6 +1232,37 @@ func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool
 		if not _bed_gate(pose, act_source, found):
 			return false
 	return true
+
+
+## Offer eligibility before she is in position. Unlike can_start(), this does not require the
+## pony to be lying or the player to be ready; those stay in the final Y gate.
+func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
+		return false
+	if not _relationship_ok() or not _player_form_ok():
+		return false
+	if get_tree().paused or not _conversation_ok():
+		return false
+	if pony.sleeping:
+		return false
+	if bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
+		return false
+	if _cuddle_active() and not _cuddle_start_override(pose, act_source):
+		return false
+	if not _free_of_affection():
+		return false
+	if not _nav_owner_allows(pose, act_source):
+		return false
+	if pose == CATALOG.MISSIONARY:
+		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
+		if found == null or main.bed_occupied(found, pony):
+			return false
+		return true
+	if pose == CATALOG.HORSE:
+		return not pony.is_held() and not pony.has_meta("seated")
+	return false
 
 
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
@@ -6901,9 +6933,9 @@ func _restore_camera() -> void:
 
 ## Create the optional audio node on first use, or update its flags if it already exists.
 ## This keeps act_audio.gd and its pack streams out of a both-flags-off act.
-func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
+func _ensure_act_audio(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(foley, vocals, climax)
+		_act_audio.set_enabled(foley, vocals, climax, bed_creaks)
 		return
 	var audio_script: Script = load(ACT_AUDIO_PATH)
 	if audio_script == null:
@@ -6911,7 +6943,7 @@ func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
 	_act_audio = audio_script.new()
 	_act_audio.name = "UnfplapActAudio"
 	add_child(_act_audio)
-	_act_audio.setup(foley, vocals, climax)
+	_act_audio.setup(foley, vocals, climax, bed_creaks)
 
 
 func _start_audio() -> void:
@@ -6922,8 +6954,9 @@ func _start_audio() -> void:
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
+	var bed_creaks := bool(_features.get("bed_creaks", false))
 	if foley or vocals or climax:
-		_ensure_act_audio(foley, vocals, climax)
+		_ensure_act_audio(foley, vocals, climax, bed_creaks)
 	_breath_streams.clear()
 	for i: int in range(1, 15):
 		var path := "res://world/audio/pony/breath_%02d.wav" % i

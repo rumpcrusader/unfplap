@@ -153,6 +153,11 @@ func run() -> void:
 	check(INIT.y_start_allowed(false, "", "request"), "a proactive request is allowed with flag off")
 	check(INIT.y_start_allowed(false, "", "dialogue"), "a dialogue agreement is allowed with flag off")
 	check(not INIT.y_start_allowed(false, "", ""), "arbitrary standing Y is blocked with flag off")
+	check(INIT.pick_offer_pose(true, true, 0.1) == "missionary", "bed wins the low coin flip")
+	check(INIT.pick_offer_pose(true, true, 0.9) == "horse", "horse wins the high coin flip")
+	check(INIT.pick_offer_pose(true, false, 0.9) == "missionary", "bed is used when horse is unavailable")
+	check(INIT.pick_offer_pose(false, true, 0.1) == "horse", "horse is used when no bed is available")
+	check(INIT.pick_offer_pose(false, false, 0.5) == "", "no pose when neither offer fits")
 
 	check(INIT.next_prompt_time(0) == 12.0, "first reminder at twelve seconds")
 	check(INIT.next_prompt_time(1) == 24.0, "second reminder at twenty-four seconds")

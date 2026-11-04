@@ -418,41 +418,5 @@
 		"original_rates": [44100, 96000],
 		"prepared_rate": 48000,
 		"seconds": 0.246
-	},
-	"smack/alt_spank_021.wav": {
-		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-021.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.113
-	},
-	"smack/alt_spank_020.wav": {
-		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-020.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.117
-	},
-	"smack/alt_spank_025.wav": {
-		"source": "Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-025.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.097
-	},
-	"smack/alt_skin_14.wav": {
-		"source": "Slaps & Impacts/Spanks & Slaps/Skin Slaps solid (JimmySpaceDean)/Skin Slaps solid_14.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.121
-	},
-	"smack/alt_skin_09.wav": {
-		"source": "Slaps & Impacts/Spanks & Slaps/Skin Slaps solid (JimmySpaceDean)/Skin Slaps solid_09.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.078
-	},
-	"smack/alt_spank_21.wav": {
-		"source": "Slaps & Impacts/Spanks & Slaps/SpankSlap (DrDabblur)/spank_21.wav",
-		"original_rate": 44100,
-		"prepared_rate": 48000,
-		"seconds": 0.25
 	}
 }

@@ -328,7 +328,6 @@ var _smack_strike_seconds := 0.10
 var _smack_caress := false
 var _smack_streams: Array[AudioStream] = []
 var _smack_stream_last := -1
-var _smack_stream_id := ""
 var _smack_sound_restore: Dictionary = {}
 var _smack_sound_installed := false
 
@@ -1424,28 +1423,14 @@ func _smack_sound_player() -> AudioStreamPlayer3D:
 	return player if player is AudioStreamPlayer3D else null
 
 
-## Load the streams for the selected `smack.sound` option. The id changes live with the
-## settings tab, so a different id rebuilds the list while the act runs.
-func _load_smack_streams(sound_id: String) -> void:
-	if sound_id == _smack_stream_id and not _smack_streams.is_empty():
+func _load_smack_streams() -> void:
+	if not _smack_streams.is_empty():
 		return
-	_smack_stream_id = sound_id
-	_smack_streams.clear()
-	_smack_stream_last = -1
-	for path: String in SMACK_AUDIO.paths_for(sound_id):
+	for path: String in SMACK_AUDIO.PATHS:
 		if ResourceLoader.exists(path):
 			var stream: Resource = load(path)
 			if stream is AudioStream:
 				_smack_streams.append(stream)
-
-
-func _smack_sound_id() -> String:
-	var smack: Variant = _presentation_cfg.get("smack", {})
-	if smack is Dictionary:
-		var id := str((smack as Dictionary).get("sound", SMACK_AUDIO.DEFAULT_ID))
-		if SMACK_AUDIO.valid_id(id):
-			return id
-	return SMACK_AUDIO.DEFAULT_ID
 
 
 func _next_smack_stream(count: int) -> int:
@@ -1468,7 +1453,7 @@ func _install_smack_sound() -> void:
 	var player := _smack_sound_player()
 	if player == null:
 		return
-	_load_smack_streams(_smack_sound_id())
+	_load_smack_streams()
 	if _smack_streams.is_empty():
 		_restore_smack_sound()
 		return

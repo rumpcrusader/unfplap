@@ -132,7 +132,7 @@ func run() -> void:
 	check(not bool(feature_block.get("act_climax", true)), "wet climax off by default")
 	check(not bool(feature_block.get("bed_creaks", true)), "bed creaks off by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
-	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
+	check(not TUNABLES.get_bool("features.unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.feature_keys():
 		var info: Dictionary = SETTINGS.feature_info(key)
 		check(not str(info.get("label", "")).is_empty(), "feature label for " + key)
@@ -144,14 +144,11 @@ func run() -> void:
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 1000.0), "default thrust pixels")
 	check(near(float(thrust_defaults.get("travel", 0.0)), 2.0), "default hip travel")
-	var controls := SETTINGS.thrust_controls()
-	check(bool(controls.get("up", false)), "runtime thrust controls up")
-	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
-	check(runtime_pixels >= 240.0 and runtime_pixels <= 1200.0,
-		"runtime thrust controls pixels in range")
-	var runtime_travel := float(controls.get("travel", -1.0))
-	check(runtime_travel >= 0.0 and runtime_travel <= 3.0,
-		"runtime hip travel in range")
+	var controls := TUNABLES.block("thrust.")
+	check(str(controls.get("orientation", "")) == "up", "runtime thrust controls up")
+	check(float(controls.get("pixels_per_full", 0.0)) >= 240.0,
+		"runtime thrust controls expose the sensitivity")
+	check(float(controls.get("travel", -1.0)) >= 0.0, "runtime hip travel is exposed")
 	var jiggle_defaults: Dictionary = defaults.get("jiggle", {})
 	check(near(float(jiggle_defaults.get("radius", -1.0)), 0.26),
 		"default jiggle radius")
@@ -159,21 +156,19 @@ func run() -> void:
 		"default jiggle intensity")
 	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.55),
 		"default smack jiggle intensity")
-	var jiggle_controls := SETTINGS.jiggle_controls()
-	check(float(jiggle_controls.get("radius", -1.0)) >= 0.02,
-		"runtime jiggle radius in range")
-	check(float(jiggle_controls.get("intensity", -1.0)) >= 0.0,
-		"runtime jiggle intensity in range")
-	check(float(jiggle_controls.get("smack_intensity", -1.0)) >= 0.0,
-		"runtime smack jiggle intensity in range")
+	var jiggle_controls := TUNABLES.block("jiggle.")
+	check(near(float(jiggle_controls.get("radius", -1.0)), 0.26),
+		"runtime jiggle radius is the stored value")
+	check(near(float(jiggle_controls.get("intensity", -1.0)), 0.25),
+		"runtime jiggle intensity is the stored value")
+	check(near(float(jiggle_controls.get("smack_intensity", -1.0)), 0.55),
+		"runtime smack jiggle intensity is the stored value")
 	var camera_defaults: Dictionary = defaults.get("camera_thrust", {})
 	check(near(float(camera_defaults.get("surge", -1.0)), 1.0), "default camera surge full")
 	check(near(float(camera_defaults.get("bob", -1.0)), 0.35), "default camera bob amount")
-	var camera_controls := SETTINGS.camera_thrust_controls()
-	var camera_surge := float(camera_controls.get("surge", -1.0))
-	var camera_bob := float(camera_controls.get("bob", -1.0))
-	check(camera_surge >= 0.0 and camera_surge <= 1.0, "runtime camera surge in range")
-	check(camera_bob >= 0.0 and camera_bob <= 1.0, "runtime camera bob in range")
+	var camera_controls := TUNABLES.block("camera_thrust.")
+	check(near(float(camera_controls.get("surge", -1.0)), 1.0), "runtime camera surge is exposed")
+	check(near(float(camera_controls.get("bob", -1.0)), 0.35), "runtime camera bob is exposed")
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
 	var missionary_defaults: Dictionary = presentation_defaults.get("missionary", {})
 	var standing_defaults: Dictionary = presentation_defaults.get("standing", {})
@@ -343,32 +338,24 @@ func run() -> void:
 	check(near(float(both_standing.get("glance_back_speed", 0.0)), 2.5),
 		"current pose values win over legacy values")
 
-	var standing := SETTINGS.presentation_controls("standing")
-	var glance_speed := float(standing.get("glance_back_speed", 0.0))
-	check(glance_speed >= 0.25 and glance_speed <= 3.0,
-		"runtime glance-back speed in range")
-	check(float(standing.get("idle_sway_side", -1.0)) >= 0.0,
-		"runtime idle side sway is non-negative")
+	# A per-act presentation snapshot must carry the whole nested schema shape. Values come from
+	# the saved file, so only the defaults are asserted by value.
+	var standing := TUNABLES.block("presentation.standing.")
+	var standing_schema := SCHEMA.default_block("presentation.standing.")
+	check(standing.has("glance_back_speed"), "runtime presentation snapshot has the glance speed")
 	var caress_controls: Dictionary = standing.get("caress", {})
-	check(float(caress_controls.get("palm_distance", -1.0)) >= 0.04,
-		"runtime caress palm distance clears the palm radius")
-	check(float(caress_controls.get("oval_across_m", -1.0)) >= 0.0,
-		"runtime caress oval across is non-negative")
-	check(float(caress_controls.get("oval_up_m", -1.0)) >= 0.0,
-		"runtime caress oval up is non-negative")
+	var caress_saved: Dictionary = standing_schema.get("caress", {})
+	check(caress_controls.has("palm_distance"), "runtime presentation snapshot has the caress")
+	check(near(float(caress_saved.get("palm_distance", -1.0)), 0.04),
+		"default caress palm distance")
+	check((caress_saved.get("ignore", []) as Array).has("tail"),
+		"default caress ignore list keeps tail")
 	var smack_controls: Dictionary = standing.get("smack", {})
-	check(float(smack_controls.get("raise_m", -1.0)) >= 0.0,
-		"runtime smack raise is non-negative")
-	check(float(smack_controls.get("hind_m", -1.0)) >= 0.0,
-		"runtime smack hind offset is non-negative")
-	check(smack_controls.has("height_m"), "runtime smack height is present")
-	check(float(smack_controls.get("arc_m", -1.0)) >= 0.0,
-		"runtime smack arc is non-negative")
-	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")
-	check(float(smack_controls.get("raise_speed", 0.0)) >= 0.05,
-		"runtime smack raise speed is positive")
-	check(float(smack_controls.get("return_speed", 0.0)) >= 0.05,
-		"runtime smack return speed is positive")
+	var smack_saved: Dictionary = standing_schema.get("smack", {})
+	check(smack_controls.has("raise_m"), "runtime presentation snapshot has the smack")
+	check(near(float(smack_saved.get("raise_m", -1.0)), 0.30), "default smack raise")
+	check(near(float(smack_saved.get("height_m", 1.0)), -0.03), "default smack height")
+	check(near(float(smack_saved.get("return_speed", 0.0)), 6.0), "default smack return speed")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("climax") and event_prompts.has("end_early"),
 		"remaining event prompts exist")

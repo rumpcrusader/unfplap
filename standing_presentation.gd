@@ -5,6 +5,7 @@ extends RefCounted
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 const DOCK_TAIL := preload("res://mods/unfplap/dock_tail_follow.gd")
@@ -126,7 +127,7 @@ func _attach_present_pose() -> void:
 		(hair as Skeleton3D).add_child(_present_tail)
 		# The offer presentation lifts and sweeps the tail too; the dock must follow it the
 		# same way it does in the act. This also reveals the rig so the rig dock is visible.
-		if bool(SETTINGS.feature("dock_tail_follow")):
+		if TUNABLES.get_bool("features.dock_tail_follow"):
 			_present_dock = DOCK_TAIL.new()
 			_present_dock.name = "UnfplapPresentDock"
 			_present_dock.mare = pony

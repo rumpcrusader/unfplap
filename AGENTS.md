@@ -948,8 +948,9 @@ examples.
 - Top level: `debug_logs`, `features`, `thrust`, `jiggle`, `camera_thrust`, `presentation`,
   `default` template, `characters` overrides.
 - Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read
-  through `tunables.gd`; the runtime caches them at act start and `apply_live_settings()` refreshes
-  them after any settings-tab edit. Keep these documented here when adding one:
+  through `tunables.gd`; the runtime snapshots them with every other act value in
+  `_snapshot_settings()` at act start, and `apply_live_settings()` re-runs that snapshot after any
+  settings edit. Keep these documented here when adding one:
 
 | Flag | Default | Gates |
 |---|---|---|
@@ -993,8 +994,12 @@ rump blush. Unknown settings keys are ignored.
     are experimental/unbounded.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
-- Only bound a settings control when the bound is part of the explicit user-facing contract
-  (sensitivity, glance speed, percentages, taste). Experimental tuning controls stay unbounded.
+- **Never clamp a debug setting.** A schema `num` entry is stored and returned verbatim; its
+  `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
+  Only a `user_num` entry clamps, and only because its bound is part of the player-facing
+  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, camera surge/bob `0…1`, glance
+  speed `0.25…3×`). Do not add a clamp in a consumer "to be safe": if a value must be bounded to
+  stay playable, make it a `user_num` and say so in the help text.
 - Feature flags are split by the schema's `tab`: entries marked `"settings"` are the
   player-facing page, every other flag is in the Debug page. Label, help and section all come
   from the schema entry; there is no separate feature info table.

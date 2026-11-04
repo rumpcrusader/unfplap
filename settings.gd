@@ -97,11 +97,6 @@ static func feature_info(name: String) -> Dictionary:
 	return SCHEMA.entry("features." + name)
 
 
-## Body-size presets exposed by the caress palm-scale selector.
-const CARESS_SIZES := ["canon", "mounting", "same height", "hoers"]
-## Regions the caress contact query may skip. `tail` is on by default.
-const CARESS_IGNORE_REGIONS := ["tail", "mane", "wing", "leg"]
-
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
 	"cue": "During sex with Anon, your body and voice show: {cue}. Private relationship note: {relationship}. Tone: {tone}. {memory} Let the relationship and memory color the line, but keep the cue's meaning. Do not mention relationship labels, levels, numbers, or that you are following a note. Do not invent a memory beyond the one given. Say ONE short line in your own voice, at most 14 words. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your taste: {taste}. Do not repeat: {recent}.",
@@ -318,11 +313,6 @@ static func _path() -> String:
 	return "user://mods/data/%s/%s" % [ID, FILE]
 
 
-static func load_debug_logs() -> bool:
-	var data := _read()
-	return bool(data.get("debug_logs", false))
-
-
 static func act_prompt(id: String, key: String) -> String:
 	var prompts: Variant = template_for(id).get("act_prompts", {})
 	if prompts is Dictionary:
@@ -386,116 +376,6 @@ static func reset_taste(id: String) -> void:
 		roster.erase(id)
 	data["characters"] = roster
 	_write(data)
-
-
-## One read for the global thrust controls; oriented so the runtime and HUD share the same flag.
-static func thrust_controls() -> Dictionary:
-	var data := _read()
-	var block: Variant = data.get("thrust", {})
-	var orientation := "up"
-	var pixels := 1000.0
-	var travel := 1.0
-	if block is Dictionary:
-		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
-		pixels = float((block as Dictionary).get("pixels_per_full", 1000.0))
-		travel = float((block as Dictionary).get("travel", 2.0))
-	if orientation not in ["up", "down"]:
-		orientation = "up"
-	return {
-		"orientation": orientation,
-		"up": orientation == "up",
-		"pixels_per_full": clampf(pixels, 240.0, 1200.0),
-		"travel": clampf(travel, 0.0, 3.0),
-	}
-
-
-## The shared rump wobble radius and thrust intensity. Read live; both are experimental.
-static func jiggle_controls() -> Dictionary:
-	var data := _read()
-	var block: Variant = data.get("jiggle", {})
-	var out: Dictionary = SCHEMA.default_block("jiggle.")
-	if block is Dictionary:
-		out["radius"] = float((block as Dictionary).get("radius", out["radius"]))
-		out["intensity"] = float((block as Dictionary).get("intensity", out["intensity"]))
-		out["smack_intensity"] = float((block as Dictionary).get(
-			"smack_intensity", out["smack_intensity"]))
-	out["radius"] = maxf(0.02, float(out["radius"]))
-	out["intensity"] = maxf(0.0, float(out["intensity"]))
-	out["smack_intensity"] = maxf(0.0, float(out["smack_intensity"]))
-	return out
-
-
-## The two camera-thrust amounts. Read live; 0 disables that channel.
-static func camera_thrust_controls() -> Dictionary:
-	var data := _read()
-	var block: Variant = data.get("camera_thrust", {})
-	var out: Dictionary = SCHEMA.default_block("camera_thrust.")
-	if block is Dictionary:
-		for key: String in out:
-			if (block as Dictionary).has(key):
-				out[key] = float((block as Dictionary)[key])
-	out["surge"] = clampf(float(out["surge"]), 0.0, 1.0)
-	out["bob"] = clampf(float(out["bob"]), 0.0, 1.0)
-	return out
-
-
-## One pose's presentation block, merged with that pose's defaults and read live.
-static func presentation_controls(pose_id: String) -> Dictionary:
-	var data := _read()
-	var block: Variant = data.get("presentation", {})
-	var pose_block: Variant = {}
-	if block is Dictionary:
-		pose_block = (block as Dictionary).get(pose_id, {})
-	var defaults: Dictionary = SCHEMA.default_block("presentation." + pose_id + ".")
-	var out: Dictionary = _merge(defaults,
-		pose_block if pose_block is Dictionary else {})
-	if pose_id == "standing":
-		out["glance_back_speed"] = clampf(float(out.get(
-			"glance_back_speed", 2.0)), 0.25, 3.0)
-		out["idle_sway_side"] = maxf(0.0, float(out.get("idle_sway_side", 0.0)))
-		var caress: Dictionary = out.get("caress", {})
-		# The palm ball's radius is 4 cm; a smaller centre distance sinks the visible palm
-		# into the coat.
-		caress["palm_distance"] = clampf(float(caress.get("palm_distance", 0.04)),
-			0.04, 0.2)
-		caress["oval_across_m"] = maxf(0.0, float(caress.get(
-			"oval_across_m", 0.04125 * 1.30)))
-		caress["oval_up_m"] = maxf(0.0, float(caress.get(
-			"oval_up_m", 0.04125 * 0.70)))
-		var scales: Dictionary = caress.get("palm_scale", {})
-		for size: String in CARESS_SIZES:
-			scales[size] = clampf(float(scales.get(size, 1.0)), 0.25, 2.0)
-		caress["palm_scale"] = scales
-		var ignore: Array = []
-		var raw_ignore: Variant = caress.get("ignore", [])
-		if raw_ignore is Array:
-			for region: Variant in raw_ignore:
-				var name := str(region).to_lower()
-				if name in CARESS_IGNORE_REGIONS and not ignore.has(name):
-					ignore.append(name)
-		caress["ignore"] = ignore
-		out["caress"] = caress
-		var smack: Dictionary = out.get("smack", {})
-		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.30)))
-		smack["hind_m"] = maxf(0.0, float(smack.get("hind_m", 0.10)))
-		smack["height_m"] = float(smack.get("height_m", -0.03))
-		smack["arc_m"] = maxf(0.0, float(smack.get("arc_m", 0.06)))
-		smack["pitch_deg"] = float(smack.get("pitch_deg", 12.0))
-		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 2.0)))
-		smack["return_speed"] = maxf(0.05, float(smack.get("return_speed", 6.0)))
-		out["smack"] = smack
-		var kiss: Dictionary = out.get("kiss", {})
-		kiss["mouth_right"] = clampf(float(kiss.get("mouth_right", 0.0)), -0.5, 0.5)
-		kiss["mouth_drop"] = clampf(float(kiss.get("mouth_drop", 0.07)), -0.5, 0.5)
-		kiss["mouth_forward"] = clampf(float(kiss.get("mouth_forward", 0.02)), -0.5, 0.5)
-		kiss["camera_yaw_deg"] = clampf(float(kiss.get("camera_yaw_deg", 10.0)), -60.0, 60.0)
-		kiss["lean_side"] = clampf(float(kiss.get("lean_side", 0.18)), 0.0, 0.8)
-		kiss["lean_forward"] = clampf(float(kiss.get("lean_forward", 0.27)), 0.0, 0.8)
-		kiss["lean_drop"] = clampf(float(kiss.get("lean_drop", 0.035)), 0.0, 0.3)
-		var forelegs := str(kiss.get("forelegs", "planted")).to_lower()
-		kiss["forelegs"] = forelegs if forelegs in ["planted", "base"] else "planted"
-		out["kiss"] = kiss
-	return out
 
 
 ## Move a settings block written with the legacy pose id onto the current pose id. The new key
@@ -685,25 +565,6 @@ static func _defaults() -> Dictionary:
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}
-
-
-## The merged feature switches. Unknown keys are ignored; missing keys use defaults.
-static func features() -> Dictionary:
-	var data := _read()
-	var block: Variant = data.get("features", {})
-	var out: Dictionary = feature_defaults()
-	if block is Dictionary:
-		for key: String in out:
-			if (block as Dictionary).has(key):
-				out[key] = bool((block as Dictionary)[key])
-	return out
-
-
-## Unknown switches read as off everywhere; the runtime must not disagree with this.
-static func feature(name: String) -> bool:
-	if not feature_defaults().has(name):
-		return false
-	return bool(features().get(name, false))
 
 
 ## Default template plus catalog pose/taste/prompt defaults. Kept as a function so the

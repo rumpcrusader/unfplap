@@ -8,6 +8,7 @@ const MEMORY := preload("res://mods/unfplap/memory.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
@@ -447,8 +448,27 @@ func _standing_presentation_controller():
 		_standing_presentation_ctl = STANDING_PRESENTATION.new(self)
 	return _standing_presentation_ctl
 
+## Feature flag from the act snapshot. Unknown flags read as off, matching TUNABLES.
 func _feature(name: String) -> bool:
-	return bool(_features.get(name, true))
+	return bool(_features.get(name, false))
+
+
+## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
+## it so a settings edit applies without a new act.
+func _snapshot_settings() -> void:
+	_features = TUNABLES.block("features.")
+	var thrust_block := TUNABLES.block("thrust.")
+	thrust_up = str(thrust_block.get("orientation", "up")).to_lower() == "up"
+	_thrust_pixels_per_full = float(thrust_block.get("pixels_per_full", 1000.0))
+	_thrust_travel = float(thrust_block.get("travel", 2.0))
+	var jiggle_block := TUNABLES.block("jiggle.")
+	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
+	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.25))
+	_jiggle_smack_intensity = float(jiggle_block.get("smack_intensity", 0.55))
+	var camera_block := TUNABLES.block("camera_thrust.")
+	_camera_surge = float(camera_block.get("surge", 1.0))
+	_camera_bob = float(camera_block.get("bob", 0.35))
+	_presentation_cfg = TUNABLES.block("presentation." + pose_id + ".")
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
 ## idempotent so repeated edits do not stack modifiers.
@@ -456,29 +476,17 @@ func apply_live_settings() -> void:
 	if state == State.IDLE:
 		return
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
-	_features = SETTINGS.features()
+	_snapshot_settings()
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
-	var bed_creaks := bool(_features.get("bed_creaks", false))
+	var bed_creaks := _feature("bed_creaks")
 	if foley or vocals or climax:
 		_ensure_act_audio(foley, vocals, climax, bed_creaks)
 	elif is_instance_valid(_act_audio):
 		_act_audio.set_enabled(false, false, false)
-	var thrust_controls := SETTINGS.thrust_controls()
-	thrust_up = bool(thrust_controls.get("up", true))
-	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_travel = float(thrust_controls.get("travel", 2.0))
-	var jiggle_controls := SETTINGS.jiggle_controls()
-	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
-	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.25))
-	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 0.55))
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
-	var camera_thrust := SETTINGS.camera_thrust_controls()
-	_camera_surge = float(camera_thrust.get("surge", 0.0))
-	_camera_bob = float(camera_thrust.get("bob", 0.0))
-	_presentation_cfg = SETTINGS.presentation_controls(pose_id)
 	if pose_id == CATALOG.STANDING:
 		_kiss_controller().apply_live_settings()
 	elif pose_id == CATALOG.MISSIONARY:
@@ -1137,9 +1145,10 @@ func _suppress_auto_cuddle() -> void:
 func _cuddle_start_override(pose: String, act_source: String) -> bool:
 	if pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]:
 		return true
-	if _features.has("allow_act_during_cuddle"):
-		return bool(_features.get("allow_act_during_cuddle", false))
-	return SETTINGS.feature("allow_act_during_cuddle")
+	if _features.is_empty():
+		return TUNABLES.get_bool("features.allow_act_during_cuddle")
+	return _feature("allow_act_during_cuddle")
+
 
 func _cuddle_active() -> bool:
 	if not is_instance_valid(pony):
@@ -1350,24 +1359,12 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
-	_features = SETTINGS.features()
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
 	_taste = SETTINGS.taste(_id)
-	_presentation_cfg = SETTINGS.presentation_controls(pose_id)
 	_act_prompts = _profile.get("act_prompts", {})
-	var thrust_controls := SETTINGS.thrust_controls()
-	thrust_up = bool(thrust_controls.get("up", true))
-	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
-	_thrust_travel = float(thrust_controls.get("travel", 2.0))
-	var jiggle_controls := SETTINGS.jiggle_controls()
-	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
-	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.25))
-	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 0.55))
+	_snapshot_settings()
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
-	var camera_thrust := SETTINGS.camera_thrust_controls()
-	_camera_surge = float(camera_thrust.get("surge", 0.0))
-	_camera_bob = float(camera_thrust.get("bob", 0.0))
 	_thrust_tracker = THRUST.new()
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_cue_gap = SETTINGS.cue_gap_value(float(_profile.get("cue_gap", 12.0)))
@@ -1886,6 +1883,7 @@ func _build_pose() -> void:
 		_dock_tail.runtime = self
 		_dock_tail.process_priority = 40
 		(hair as Skeleton3D).add_child(_dock_tail)
+		_log("dock tail controller created")
 
 func _free_pose() -> void:
 	clear_presentation()

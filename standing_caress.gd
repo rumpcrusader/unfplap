@@ -3,7 +3,6 @@ extends RefCounted
 ## scoring and the act state; this controller only drives the desktop hands and contact frames.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -490,15 +489,9 @@ func _caress_ignore() -> Array:
 	var caress: Variant = _presentation_cfg.get("caress", {})
 	if not caress is Dictionary:
 		return []
+	# The tunable schema keeps only the known region names, so this needs no filtering.
 	var raw: Variant = (caress as Dictionary).get("ignore", [])
-	if not raw is Array:
-		return []
-	var out: Array = []
-	for region: Variant in raw:
-		var name := str(region).to_lower()
-		if name in SETTINGS.CARESS_IGNORE_REGIONS and not out.has(name):
-			out.append(name)
-	return out
+	return raw if raw is Array else []
 
 
 static func _region_ignored(region: String, ignore: Array) -> bool:

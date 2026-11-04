@@ -12,6 +12,7 @@ const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
 const TASTE := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -29,7 +30,7 @@ const OFFER_HINT := "Make love"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default OFF. Toggle in the Debug settings tab.
 var debug_logs := false
-## Cached feature flags read outside act start; SETTINGS.feature() reads the file.
+## Cached feature flags read outside an act; a settings edit refreshes them.
 var press_y_starts_sex := false
 
 var game
@@ -95,9 +96,9 @@ func _ready() -> void:
 	process_priority = 100
 	set_process(true)
 	add_to_group("pony_prompt_notes")
-	debug_logs = SETTINGS.load_debug_logs()
-	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
-	_captions_on_top = SETTINGS.feature("captions_on_top")
+	debug_logs = TUNABLES.get_bool("debug_logs")
+	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
+	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
@@ -144,7 +145,7 @@ func _ready() -> void:
 
 func _on_world(host: Node) -> void:
 	_clear_native_hint()
-	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
+	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	game = host
 	_interactor = null
 	_desktop = null
@@ -201,7 +202,7 @@ func _on_caption(node: Node) -> void:
 func _apply_caption_top() -> void:
 	if not is_inside_tree():
 		return
-	_captions_on_top = SETTINGS.feature("captions_on_top")
+	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
 	_caption_top_tick()
 
 
@@ -233,7 +234,7 @@ func _on_game_setting_changed(key: String) -> void:
 
 
 func _apply_live_settings() -> void:
-	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
+	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	if is_instance_valid(active_runtime) and active_runtime.has_method("apply_live_settings"):
 		active_runtime.call("apply_live_settings")
 
@@ -241,7 +242,7 @@ func _apply_live_settings() -> void:
 ## One path for every control edit: refresh the cached flags, the caption position and the live
 ## act. Every tunable change goes through here, so a control never needs its own handler.
 func _apply_settings_changed() -> void:
-	debug_logs = SETTINGS.load_debug_logs()
+	debug_logs = TUNABLES.get_bool("debug_logs")
 	_apply_caption_top()
 	_apply_live_settings()
 
@@ -283,8 +284,8 @@ func _on_pony(pony: Node) -> void:
 ## before calling setup(), so the actual injection is deferred and retries for a few frames.
 func _on_settings_page(page: Node) -> void:
 	# Opening the page re-reads settings.json, so hand-edited values apply without a restart.
-	SETTINGS.reload()
-	if not SETTINGS.feature("settings_tab"):
+	TUNABLES.reload()
+	if not TUNABLES.get_bool("features.settings_tab"):
 		return
 	if not is_instance_valid(page) or page.has_meta("unfplap_tab") or page.has_meta("unfplap_pending"):
 		return
@@ -319,7 +320,7 @@ func _inject_settings_page(page: Node) -> void:
 ## No game-script extension is used. If `settings_tab` is false this never runs; if the page's
 ## internals are unavailable it skips rather than risking a release-breaking extension.
 func _inject_settings_page_now(page: Node) -> void:
-	if not SETTINGS.feature("settings_tab"):
+	if not TUNABLES.get_bool("features.settings_tab"):
 		return
 	if not is_instance_valid(page) or page.has_meta("unfplap_tab"):
 		return

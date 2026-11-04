@@ -208,6 +208,12 @@ func run() -> void:
 	var smack_defaults: Dictionary = standing_defaults.get("smack", {})
 	check(near(float(smack_defaults.get("raise_m", -1.0)), 0.18),
 		"default smack raise")
+	check(near(float(smack_defaults.get("pitch_deg", -1.0)), 12.0),
+		"default smack pitch")
+	check(near(float(smack_defaults.get("raise_speed", -1.0)), 1.2),
+		"default smack raise speed")
+	check(near(float(smack_defaults.get("return_speed", -1.0)), 1.9),
+		"default smack return speed")
 
 	var old_presentation := {
 		"presentation": {
@@ -307,6 +313,11 @@ func run() -> void:
 	var smack_controls: Dictionary = standing.get("smack", {})
 	check(float(smack_controls.get("raise_m", -1.0)) >= 0.0,
 		"runtime smack raise is non-negative")
+	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")
+	check(float(smack_controls.get("raise_speed", 0.0)) >= 0.05,
+		"runtime smack raise speed is positive")
+	check(float(smack_controls.get("return_speed", 0.0)) >= 0.05,
+		"runtime smack return speed is positive")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("climax") and event_prompts.has("end_early"),
 		"remaining event prompts exist")

@@ -290,18 +290,23 @@ these values here if a future pose needs that effect.
   caressing, the slap uses that hand; if both caress, one is chosen at random. Otherwise a right
   lean selects the left index, a left lean the right, and centered picks randomly. The caress
   oval keeps moving through the smack, so the hand returns to the live point.
-- Standing smacks play four phases. RAISE lifts from the current hand frame to the contact plus
-  `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal
-  and `SMACK_RAISE_BACK_M = 0.05 m` toward her rump over `0.12–0.30 s`. STRIKE travels straight
-  to the contact with cubic acceleration over `SMACK_STRIKE_SECONDS = 0.10 s`. CONTACT holds the
-  exact contact frame for `SMACK_CONTACT_HOLD_SECONDS = 0.03 s` and fires the native impact.
-  RECOVER blends to the live caress oval over `CARESS_RETURN_SECONDS = 0.12 s` or to the
-  captured rest hand over `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary
-  keeps the hidden-hand `SMACK_SWING_SECONDS = 0.20` swing at `SMACK_CONTACT_PHASE = 0.45`. A
-  `SMACK_COOLDOWN_MS = 200` gate remains, and a new smack waits for the current recovery. With
-  `act_foley` on the native sound player gets a peak-normalised OpenNSFW hand-smack variant for
-  that impact; off keeps the stock `flank_slap.wav`. The native impact still supplies the decal,
-  blush, jiggle and `flank_smack`.
+- Standing smacks play four phases. The contact palm uses the same forward finger hint as the
+  caress (`-pony.global_basis.z`). RAISE lifts from the current hand frame to the contact plus
+  `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal and
+  `SMACK_RAISE_BACK_M = 0.05 m` toward her rump at `smack.raise_speed` (default `1.2 m/s`,
+  clamped to `0.12–0.30 s`). The raised basis is the straight contact basis pitched down by
+  `smack.pitch_deg` (default `12°`) about the palm normal, so the wind-up is a pitch, not a roll
+  around the arm. STRIKE travels straight to the contact with cubic acceleration at
+  `smack.return_speed` (default `1.9 m/s`, clamped to `0.06–0.20 s`), pitching back to the
+  straight contact basis. CONTACT holds the exact contact frame for
+  `SMACK_CONTACT_HOLD_SECONDS = 0.03 s` and fires the native impact. RECOVER blends to the live
+  caress oval over `CARESS_RETURN_SECONDS = 0.12 s` or to the captured rest hand over
+  `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the hidden-hand
+  `SMACK_SWING_SECONDS = 0.20` swing at `SMACK_CONTACT_PHASE = 0.45`. A `SMACK_COOLDOWN_MS = 200`
+  gate remains, and a new smack waits for the current recovery. With `act_foley` on the native
+  sound player gets a peak-normalised OpenNSFW hand-smack variant for that impact; off keeps the
+  stock `flank_slap.wav`. The native impact still supplies the decal, blush, jiggle and
+  `flank_smack`.
 - `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.

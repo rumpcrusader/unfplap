@@ -215,6 +215,9 @@ const PRESENTATION_DEFAULTS := {
 		},
 		"smack": {
 			"raise_m": 0.18,
+			"pitch_deg": 12.0,
+			"raise_speed": 1.2,
+			"return_speed": 1.9,
 		},
 	},
 }
@@ -600,6 +603,9 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 		out["caress"] = caress
 		var smack: Dictionary = out.get("smack", {})
 		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.18)))
+		smack["pitch_deg"] = float(smack.get("pitch_deg", 12.0))
+		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 1.2)))
+		smack["return_speed"] = maxf(0.05, float(smack.get("return_speed", 1.9)))
 		out["smack"] = smack
 		var kiss: Dictionary = out.get("kiss", {})
 		kiss["mouth_right"] = clampf(float(kiss.get("mouth_right", 0.0)), -0.5, 0.5)

@@ -55,9 +55,20 @@ func run() -> void:
 	check(CAESS.smack_side_index(0.0) == -1, "centered smack is random")
 	var smack_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
 	var smack_raised: Transform3D = CAESS.smack_raise_frame(
-		smack_contact, Vector3.RIGHT, 0.18, 0.05, Vector3.BACK)
+		smack_contact, Vector3.RIGHT, 0.18, 0.05, Vector3.BACK, 15.0)
 	check(near(smack_raised.origin.x, 0.18) and near(smack_raised.origin.z, 0.05)
 		and near(smack_raised.origin.y, 1.0), "smack raise lifts along the normal and back")
+	check((-smack_raised.basis.z).y < (-smack_contact.basis.z).y,
+		"raised palm pitches the fingers down")
+	var straight_palm: Basis = CAESS.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
+	var pitched_palm: Basis = CAESS.smack_pitch_basis(straight_palm, 15.0)
+	check(pitched_palm.determinant() > 0.99, "palm pitch stays orthonormal")
+	check(pitched_palm.x.dot(straight_palm.x) > 0.999, "palm pitch keeps the palm normal")
+	check((-pitched_palm.z).y < (-straight_palm.z).y, "positive pitch lowers the fingers")
+	var pitched_up: Basis = CAESS.smack_pitch_basis(straight_palm, -15.0)
+	check((-pitched_up.z).y > (-straight_palm.z).y, "negative pitch raises the fingers")
+	check(CAESS.smack_pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
+		"zero palm pitch keeps the basis")
 	var raise_mid: Transform3D = CAESS.smack_raise_blend(
 		smack_contact, smack_raised, Vector3.BACK * 0.02, 0.5)
 	check(raise_mid.origin.x > smack_contact.origin.x
@@ -69,8 +80,9 @@ func run() -> void:
 		smack_contact.origin), "smack strike reaches the contact")
 	check(CAESS.smack_recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
 		smack_raised.origin), "smack recovery reaches its target")
-	check(near(CAESS.SMACK_STRIKE_SECONDS, 0.10)
-		and near(CAESS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack phase timings")
+	check(near(CAESS.SMACK_RAISE_SPEED_M_S, 1.2)
+		and near(CAESS.SMACK_RETURN_SPEED_M_S, 1.9), "smack default speeds")
+	check(near(CAESS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack contact hold")
 	var quad_faces := PackedVector3Array([
 		Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0),
 		Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0),

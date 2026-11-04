@@ -896,6 +896,27 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"raise_m": smack_raise.value / 100.0}})
 		_apply_live_settings())
+	var smack_pitch := _settings_spin_free(smack_form, "Palm pitch", 1.0,
+		float(smack.get("pitch_deg", 12.0)), font_size)
+	smack_pitch.suffix = "°"
+	smack_pitch.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"pitch_deg": smack_pitch.value}})
+		_apply_live_settings())
+	var smack_raise_speed := _settings_spin_free(smack_form, "Raise speed", 0.1,
+		float(smack.get("raise_speed", 1.2)), font_size)
+	smack_raise_speed.suffix = " m/s"
+	smack_raise_speed.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"raise_speed": smack_raise_speed.value}})
+		_apply_live_settings())
+	var smack_return_speed := _settings_spin_free(smack_form, "Return speed", 0.1,
+		float(smack.get("return_speed", 1.9)), font_size)
+	smack_return_speed.suffix = " m/s"
+	smack_return_speed.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"return_speed": smack_return_speed.value}})
+		_apply_live_settings())
 
 
 func _add_debug_section(list: VBoxContainer, font_size: int) -> void:

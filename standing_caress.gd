@@ -54,8 +54,11 @@ const SMACK_CONTACT_PHASE := 0.45
 const SMACK_RAISE_SPEED_M_S := 1.2
 const SMACK_RAISE_MIN_S := 0.12
 const SMACK_RAISE_MAX_S := 0.30
+const SMACK_RETURN_SPEED_M_S := 1.9
+const SMACK_STRIKE_MIN_S := 0.06
+const SMACK_STRIKE_MAX_S := 0.20
+const SMACK_PITCH_DEG := 12.0
 const SMACK_RAISE_BACK_M := 0.05
-const SMACK_STRIKE_SECONDS := 0.10
 const SMACK_CONTACT_HOLD_SECONDS := 0.03
 const SMACK_REST_RETURN_SECONDS := 0.20
 const SMACK_PHASE_NONE := 0
@@ -101,17 +104,37 @@ static func smack_side_index(side: float) -> int:
 	return -1
 
 
-## Raised palm frame: lift along the coat normal and pull slightly toward her rump.
+## Pitch the palm about its own normal (local X). Positive values lower the fingers; negative
+## values raise them. The palm normal is unchanged, so this is a wrist pitch, not a roll around
+## the finger/arm axis (local Z).
+static func smack_pitch_basis(straight: Basis, pitch_deg: float) -> Basis:
+	if absf(pitch_deg) < 0.0001:
+		return straight
+	var axis := straight.x.normalized()
+	if axis.length_squared() < 0.5:
+		return straight
+	var angle := deg_to_rad(absf(pitch_deg))
+	var positive := straight.rotated(axis, angle)
+	var negative := straight.rotated(axis, -angle)
+	var positive_down := (-positive.z).y
+	var negative_down := (-negative.z).y
+	var down := positive if positive_down < negative_down else negative
+	var up := negative if positive_down < negative_down else positive
+	return down if pitch_deg > 0.0 else up
+
+
+## Raised palm frame: lift along the coat normal and pull slightly toward her rump. The palm
+## is pitched down by `pitch_deg` about its normal so the wind-up is not a roll.
 static func smack_raise_frame(contact: Transform3D, outward: Vector3, raise_m: float,
-		back_m: float, back: Vector3) -> Transform3D:
+		back_m: float, back: Vector3, pitch_deg: float) -> Transform3D:
 	var normal := outward.normalized()
 	if normal.length_squared() < 0.5:
 		normal = Vector3.UP
 	var rear := back.normalized()
 	if rear.length_squared() < 0.5:
 		rear = contact.basis.z
-	return Transform3D(contact.basis, contact.origin + normal * maxf(0.0, raise_m)
-		+ rear * maxf(0.0, back_m))
+	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg),
+		contact.origin + normal * maxf(0.0, raise_m) + rear * maxf(0.0, back_m))
 
 
 ## Medium-speed lift with a small backward bow. `back` is the tangent toward her rump.
@@ -262,6 +285,7 @@ var _smack_raised := Transform3D.IDENTITY
 var _smack_rest := Transform3D.IDENTITY
 var _smack_outward := Vector3.UP
 var _smack_raise_seconds := SMACK_RAISE_MIN_S
+var _smack_strike_seconds := 0.10
 var _smack_caress := false
 var _smack_streams: Array[AudioStream] = []
 var _smack_stream_last := -1
@@ -1045,7 +1069,8 @@ func _smack() -> void:
 	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank_frame() * at
-			var target := _palm_on_coat_frame(hand_side, world_centre, normal, Vector3.UP, false)
+			var target := _palm_on_coat_frame(hand_side, world_centre, normal,
+				_smack_finger_hint(), false)
 			_smack_index = index
 			_smack_at = at
 			_smack_side = hand_side
@@ -1107,7 +1132,7 @@ func _smack_phase_tick(driver: Node) -> void:
 				_smack_phase = SMACK_PHASE_STRIKE
 				_smack_phase_started = now
 		SMACK_PHASE_STRIKE:
-			var t := clampf(elapsed / SMACK_STRIKE_SECONDS, 0.0, 1.0)
+			var t := clampf(elapsed / maxf(_smack_strike_seconds, 0.001), 0.0, 1.0)
 			var frame := smack_strike_blend(_smack_raised, _smack_contact, t)
 			driver.call("set_hold_target", _smack_side, frame, "rub")
 			if t >= 1.0:
@@ -1144,10 +1169,13 @@ func _start_standing_smack(hand_side: String, from_frame: Transform3D, contact: 
 	_smack_caress = bool(_caress_active["L" if hand_side == "left" else "R"])
 	var scale := _smack_body_scale()
 	_smack_raised = smack_raise_frame(contact, _smack_outward, _smack_raise_m(),
-		SMACK_RAISE_BACK_M * scale, _smack_back_dir())
+		SMACK_RAISE_BACK_M * scale, _smack_back_dir(), _smack_pitch_deg())
 	var distance := from_frame.origin.distance_to(_smack_raised.origin)
-	_smack_raise_seconds = clampf(distance / SMACK_RAISE_SPEED_M_S,
+	_smack_raise_seconds = clampf(distance / _smack_raise_speed(),
 		SMACK_RAISE_MIN_S, SMACK_RAISE_MAX_S)
+	var return_distance := _smack_raised.origin.distance_to(contact.origin)
+	_smack_strike_seconds = clampf(return_distance / _smack_return_speed(),
+		SMACK_STRIKE_MIN_S, SMACK_STRIKE_MAX_S)
 	_smack_phase = SMACK_PHASE_RAISE
 	_smack_phase_started = now
 
@@ -1196,12 +1224,33 @@ func _smack_body_scale() -> float:
 	return 1.0
 
 
-func _smack_raise_m() -> float:
+func _smack_finger_hint() -> Vector3:
+	if is_instance_valid(pony):
+		return -pony.global_basis.z.normalized()
+	return Vector3.FORWARD
+
+
+func _smack_setting(name: String, fallback: float) -> float:
 	var smack: Variant = _presentation_cfg.get("smack", {})
-	var value := 0.18
 	if smack is Dictionary:
-		value = float((smack as Dictionary).get("raise_m", value))
-	return maxf(0.0, value) * _smack_body_scale()
+		return float((smack as Dictionary).get(name, fallback))
+	return fallback
+
+
+func _smack_raise_m() -> float:
+	return maxf(0.0, _smack_setting("raise_m", 0.18)) * _smack_body_scale()
+
+
+func _smack_pitch_deg() -> float:
+	return _smack_setting("pitch_deg", SMACK_PITCH_DEG)
+
+
+func _smack_raise_speed() -> float:
+	return maxf(0.05, _smack_setting("raise_speed", SMACK_RAISE_SPEED_M_S))
+
+
+func _smack_return_speed() -> float:
+	return maxf(0.05, _smack_setting("return_speed", SMACK_RETURN_SPEED_M_S))
 
 
 func _end_smack_swing() -> void:

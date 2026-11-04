@@ -10,18 +10,15 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
-const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 const CHIN_DEBUG := preload("res://mods/unfplap/chin_debug.gd")
 const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
-const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
 const CAESS := preload("res://mods/unfplap/standing_caress.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
@@ -129,7 +126,6 @@ const CAM_BOB_M := 0.02
 ## Depth speed (depth/second) that reaches full camera travel.
 const CAM_SPEED_REF := 4.0
 ## Low-pass on the raw depth speed, seconds.
-const CAM_SPEED_SMOOTH_S := 0.06
 ## One critically damped camera response for surge and bob, seconds.
 const CAM_RESPONSE_S := 0.12
 ## Outward strokes move the camera this fraction of the inward travel.
@@ -157,18 +153,13 @@ const RUMP_BLUSH_MIN_STRENGTH := 0.55
 const RUMP_BLUSH_STEP := 0.0525
 const RUMP_BLUSH_MAX := 0.375
 const RUMP_BLUSH_DECAY := 0.006
-const STANDING_HEAD_NECK_HEIGHT_M := 1.0
 ## Canon is small enough that the standing shot needs a lower eye line.
-const CANON_STANDING_CAMERA_DROP_M := 0.10
 ## JRHNBR is tall enough that the standing shot needs a higher eye line.
-const MOUNTING_STANDING_CAMERA_LIFT_M := 0.10
 ## Anon's spine length, used to turn the standing torso angle into head/camera travel.
 const ANON_TORSO_LEN_M := 0.65
 ## Standing Anon thrust: mouse depth (only lightly smoothed) moves the hip. This is position, not
 ## speed; the camera's speed-driven thrust is separate.
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
-const LOOK_YAW_LIMIT := 0.785398
-const LOOK_PITCH_LIMIT := 0.785398
 ## Standing after the climax: Anon eases back before the act restores.
 const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
@@ -178,12 +169,6 @@ const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 
 ## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
-const GLANCE_MIN_INTERVAL := 5.0
-const GLANCE_MAX_INTERVAL := 9.0
-const GLANCE_HOLD := 1.8
-const GLANCE_YAW := 3.0
-const GLANCE_BACK_PITCH := 1.2
-const GLANCE_BACK_CHANCE := 0.5
 ## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
 ## Yaw limit for a look-back glance. Raised 20% from 1.35 so she turns farther over her shoulder.
 ## Jiggle placement on the flank. The thrust scale is reduced 20% from the review pass; the
@@ -389,7 +374,6 @@ var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
 
-
 func _ready() -> void:
 	set_process(true)
 	set_physics_process(true)
@@ -401,18 +385,15 @@ func _ready() -> void:
 	_face_timer.timeout.connect(_clear_face)
 	add_child(_face_timer)
 
-
 func _log(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
 		main.call("debug", text)
-
 
 ## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
 func _wings_controller():
 	if _wings == null:
 		_wings = WING.new(self)
 	return _wings
-
 
 ## Lazily create the base-game act sound controller, including outside the tree in tests.
 func _sounds_controller():
@@ -422,13 +403,11 @@ func _sounds_controller():
 		add_child(_sounds)
 	return _sounds
 
-
 ## Lazily create the standing caress controller, including outside the tree in tests.
 func _caress_controller():
 	if _caress == null:
 		_caress = CAESS.new(self)
 	return _caress
-
 
 ## Lazily create the kiss controller, including outside the tree in tests.
 func _kiss_controller():
@@ -436,13 +415,11 @@ func _kiss_controller():
 		_kiss = KISS.new(self)
 	return _kiss
 
-
 ## Lazily create the missionary camera controller, including outside the tree in tests.
 func _missionary_camera_controller():
 	if _missionary_camera_ctl == null:
 		_missionary_camera_ctl = MISSIONARY_CAMERA.new(self)
 	return _missionary_camera_ctl
-
 
 ## Lazily create the standing camera controller, including outside the tree in tests.
 func _standing_camera_controller():
@@ -450,15 +427,11 @@ func _standing_camera_controller():
 		_standing_camera_ctl = STANDING_CAMERA.new(self)
 	return _standing_camera_ctl
 
-
-
 ## Lazily create the standing Anon body controller, including outside the tree in tests.
 func _standing_anon_controller():
 	if _standing_anon_ctl == null:
 		_standing_anon_ctl = STANDING_ANON.new(self)
 	return _standing_anon_ctl
-
-
 
 ## Lazily create the idle standing presentation controller.
 func _standing_presentation_controller():
@@ -466,10 +439,8 @@ func _standing_presentation_controller():
 		_standing_presentation_ctl = STANDING_PRESENTATION.new(self)
 	return _standing_presentation_ctl
 
-
 func _feature(name: String) -> bool:
 	return bool(_features.get(name, true))
-
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
 ## idempotent so repeated edits do not stack modifiers.
@@ -510,7 +481,6 @@ func apply_live_settings() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.update_from(self, hud_readouts())
 
-
 func _refresh_live_modifiers() -> void:
 	if not is_instance_valid(pony):
 		return
@@ -539,18 +509,15 @@ func _refresh_live_modifiers() -> void:
 			_prone_sway.queue_free()
 			_prone_sway = null
 
-
 func _refresh_live_voice() -> void:
 	if not is_inside_tree():
 		return
 	_restore_voice_volume()
 	_apply_voice_policy()
 
-
 ## Optional HUD cue and readiness readouts. The act continues without them.
 func hud_readouts() -> bool:
 	return bool(_features.get("hud_readouts", true))
-
 
 ## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
 ## always kept in afterglow even when the optional readouts are off.
@@ -568,7 +535,6 @@ func hud_cue_line(show_readouts := true) -> String:
 		parts.append(cue_text if not cue_text.is_empty() else "—")
 	return " | ".join(parts)
 
-
 ## Separate readiness/taste line under the cue. Empty outside ACTIVE/CLIMAX or when readouts off.
 func hud_readiness_line(show_readouts := true) -> String:
 	if not show_readouts or state not in [State.ACTIVE, State.CLIMAX]:
@@ -579,7 +545,6 @@ func hud_readiness_line(show_readouts := true) -> String:
 	var want_pattern := str(_taste.get("pattern", "steady"))
 	return "Wants: %s & %s | You: %s & %s" % [
 		want_intensity, want_pattern, have_intensity, have_pattern]
-
 
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
 func _act_presentation(delta: float) -> void:
@@ -598,7 +563,6 @@ func _act_presentation(delta: float) -> void:
 		expressions.call("fluster", 1.2)
 	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
 
-
 func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -612,7 +576,6 @@ func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
 	if hold_seconds > 0.0 and is_instance_valid(_face_timer):
 		_face_timer.start(hold_seconds)
 
-
 func _clear_face() -> void:
 	if is_instance_valid(_face_timer):
 		_face_timer.stop()
@@ -625,7 +588,6 @@ func _clear_face() -> void:
 		expressions.call("stare", false)
 	if expressions.has_method("release_touch"):
 		expressions.call("release_touch", "unfplap_state")
-
 
 func _process(delta: float) -> void:
 	if state == State.IDLE:
@@ -668,7 +630,6 @@ func _process(delta: float) -> void:
 	_back = move_toward(_back, _back_target, back_speed * delta)
 	_breath_tick(delta)
 
-
 ## One critically damped response for both camera channels. The targets are velocity-driven
 ## metres, so the camera eases through the stroke instead of being kicked at its close.
 func _camera_thrust_tick(delta: float, surge_target: float, bob_target: float) -> void:
@@ -679,7 +640,6 @@ func _camera_thrust_tick(delta: float, surge_target: float, bob_target: float) -
 	var bob_accel := omega * omega * (bob_target - _bob) - 2.0 * omega * _bob_velocity
 	_bob_velocity += bob_accel * delta
 	_bob += _bob_velocity * delta
-
 
 ## Mouse input. Vertical motion thrusts; the act camera intentionally ignores it for look.
 func _input(event: InputEvent) -> void:
@@ -696,10 +656,8 @@ func _input(event: InputEvent) -> void:
 			_thrust_move(amount, _now_s())
 		get_viewport().set_input_as_handled()
 
-
 func _headset_view() -> bool:
 	return is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view"))
-
 
 ## Y is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does nothing,
 ## and the trigger latches until release so a held key cannot fire twice.
@@ -732,7 +690,6 @@ func _hold_y_tick(delta: float) -> void:
 		_enter_afterglow()
 	else:
 		cancel()
-
 
 func _physics_process(delta: float) -> void:
 	if state == State.IDLE:
@@ -791,8 +748,6 @@ func _physics_process(delta: float) -> void:
 			_check_running()
 	_eyes_tick()
 
-
-
 ## The act owns the lids outside a kiss. Set at every transition, then reasserted late so a
 ## climax return or fluster peek cannot leave her wide-eyed while leaning.
 func _eyes_tick() -> void:
@@ -820,7 +775,6 @@ func _eyes_tick() -> void:
 		return
 	if expressions.has_method("stare"):
 		expressions.call("stare", true, lids)
-
 
 # --------------------------------------------------------------------------- gates
 
@@ -866,7 +820,6 @@ func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool
 			return false
 	return true
 
-
 ## Offer eligibility before she is in position. Unlike can_start(), this does not require the
 ## pony to be lying or the player to be ready; those stay in the final Y gate.
 func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool:
@@ -896,7 +849,6 @@ func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool
 	if pose == CATALOG.STANDING:
 		return not pony.is_held() and not pony.has_meta("seated")
 	return false
-
 
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
 	var reasons: PackedStringArray = []
@@ -954,7 +906,6 @@ func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) ->
 			if not _bed_gate(pose, act_source, found):
 				reasons.append("bed_gate")
 	return reasons
-
 
 func debug_line(pose: String, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
@@ -1024,7 +975,6 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	text += " | " + voice_status_line()
 	return text
 
-
 func refuse_available(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
@@ -1077,7 +1027,6 @@ func refuse_available(pose: String, act_source: String, bed_in: Variant = null) 
 		return main.player_beside_bed(bed)
 	return false
 
-
 func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
 	if not refuse_available(pose, act_source, bed_in):
 		return
@@ -1106,7 +1055,6 @@ func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
 		await get_tree().physics_frame
 		_buck_or_push()
 
-
 func _refusal_floor() -> Vector3:
 	var forward: Vector3 = -main.player.global_basis.z
 	var view: Camera3D = main.camera()
@@ -1127,7 +1075,6 @@ func _refusal_floor() -> Vector3:
 				at = hit.get("position", at)
 	return at
 
-
 func _buck_or_push() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return
@@ -1146,7 +1093,6 @@ func _buck_or_push() -> void:
 	if direction.length_squared() < 0.0001:
 		direction = -body.global_basis.z
 	knockdown.call("start", body, direction.normalized() * 3.0)
-
 
 func _stage_ok() -> bool:
 	var runtime: Variant = pony.get_meta("relationship_runtime")
@@ -1173,7 +1119,6 @@ func _stage_ok() -> bool:
 	_display_name = str(identity.get("display_name")) if identity.get("display_name") != null else _id
 	return true
 
-
 func _relationship_ok() -> bool:
 	if not _stage_ok():
 		return false
@@ -1182,10 +1127,8 @@ func _relationship_ok() -> bool:
 		return false
 	return bool(runtime.bonds.welcomes(_id, "kiss"))
 
-
 func _player_form_ok() -> bool:
 	return not PLAYER_FORM.is_young(PLAYER_FORM.active(get_tree()))
-
 
 func _conversation_ok() -> bool:
 	var target: Variant = pony.get("conversation_target")
@@ -1198,7 +1141,6 @@ func _conversation_ok() -> bool:
 	if is_instance_valid(main.player) and main.player is Node and (main.player as Node).is_ancestor_of(target as Node):
 		return true
 	return false
-
 
 func _suppress_auto_cuddle() -> void:
 	if state == State.IDLE:
@@ -1216,7 +1158,6 @@ func _suppress_auto_cuddle() -> void:
 	if pony.has_meta("cuddle_active"):
 		pony.remove_meta("cuddle_active")
 
-
 ## The stock cuddle gate is bypassable by feature flag. The normal bed-side paths remain.
 func _cuddle_start_override(pose: String, act_source: String) -> bool:
 	if pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]:
@@ -1224,7 +1165,6 @@ func _cuddle_start_override(pose: String, act_source: String) -> bool:
 	if _features.has("allow_act_during_cuddle"):
 		return bool(_features.get("allow_act_during_cuddle", false))
 	return SETTINGS.feature("allow_act_during_cuddle")
-
 
 func _cuddle_active() -> bool:
 	if not is_instance_valid(pony):
@@ -1243,7 +1183,6 @@ func _cuddle_active() -> bool:
 	var blend: Variant = session.get("blend")
 	return blend != null and float(blend) > 0.01
 
-
 func _free_of_affection() -> bool:
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null:
@@ -1254,7 +1193,6 @@ func _free_of_affection() -> bool:
 	if hoof != null and hoof.has_method("active") and bool(hoof.call("active")):
 		return false
 	return true
-
 
 func _nav_owner_allows(pose: String, act_source: String) -> bool:
 	var nav: Node = pony.get_node_or_null("Navigator")
@@ -1290,7 +1228,6 @@ func _nav_owner_allows(pose: String, act_source: String) -> bool:
 		return true
 	return false
 
-
 ## NightRest's sleep: lease is also used for an awake [go_to_bed] rest. Only a pony already
 ## lying in a bed, with Anon there too, may accept a bed-side act through it.
 func _sleep_owner_allows_bed(pose: String, act_source: String) -> bool:
@@ -1302,7 +1239,6 @@ func _sleep_owner_allows_bed(pose: String, act_source: String) -> bool:
 		return false
 	var status: Dictionary = pony.posture_status()
 	return str(status.get("requested", "")) == "lie_down"
-
 
 func _nav_pose_gate(pose: String, act_source: String) -> bool:
 	if pose == CATALOG.STANDING:
@@ -1327,7 +1263,6 @@ func _nav_pose_gate(pose: String, act_source: String) -> bool:
 		return true
 	# already_lying: seated is allowed; held/grounded/interruption are not used.
 	return true
-
 
 func _bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 	if pose != CATALOG.MISSIONARY:
@@ -1360,7 +1295,6 @@ func _bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 		return false
 	return main.player_beside_bed(found)
 
-
 func _resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
 	if pose != CATALOG.MISSIONARY:
 		return null
@@ -1372,13 +1306,11 @@ func _resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
 		return main.bed_for_cradle(pony)
 	return find_bed_under()
 
-
 func find_bed_under() -> Node3D:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return null
 	var exclude: RID = pony.get_rid() if pony is CollisionObject3D else RID()
 	return main.bed_under(pony.global_position, exclude)
-
 
 func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool:
 	var body = main.player
@@ -1426,7 +1358,6 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 		if not main.player_beside_bed(found_bed):
 			return false
 	return true
-
 
 # --------------------------------------------------------------------------- start
 
@@ -1558,12 +1489,10 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	_log("started pose=%s source=%s pony=%s eye=%.2f" % [pose, act_source, str(pony.name), _camera_target_eye])
 	return true
 
-
 func _next_serial() -> int:
 	if is_instance_valid(main) and main.has_method("allocate_serial"):
 		return int(main.call("allocate_serial"))
 	return 1
-
 
 func _end_cuddle_session() -> void:
 	var session: Node = pony.get_node_or_null("CuddleSession") if is_instance_valid(pony) else null
@@ -1572,7 +1501,6 @@ func _end_cuddle_session() -> void:
 			session.call("end", true)
 	if is_instance_valid(pony) and pony.has_meta("cuddle_active"):
 		pony.remove_meta("cuddle_active")
-
 
 func _release_carry() -> bool:
 	var reach: Node = main.interactor()
@@ -1593,7 +1521,6 @@ func _release_carry() -> bool:
 		actions.call("pony_released")
 	return true
 
-
 func _claim_nav() -> bool:
 	_nav = pony.get_node_or_null("Navigator")
 	if _nav == null:
@@ -1606,7 +1533,6 @@ func _claim_nav() -> bool:
 	_nav.set("command_owner", _token)
 	_nav.set("wander_enabled", false)
 	return str(_nav.get("command_owner")) == _token
-
 
 ## Standing keeps her body turned away and planted. Stop the standing face-turn response so a
 ## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
@@ -1625,56 +1551,29 @@ func _pause_face_turn(force := false) -> void:
 		pony.set("face_turn_rate", 0.0)
 		_face_turn_rate_owned = true
 
-
 func _restore_face_turn() -> void:
 	if _face_turn_rate_owned and is_instance_valid(pony):
 		pony.set("face_turn_rate", _face_turn_rate_saved)
 	_face_turn_rate_owned = false
 	_face_turn_rate_saved = -1.0
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 func present_standing() -> bool:
 	return bool(_standing_presentation_controller().present_standing())
-
 
 func presentation_active() -> bool:
 	return bool(_standing_presentation_controller().presentation_active())
 
-
 func presentation_settled() -> bool:
 	return bool(_standing_presentation_controller().presentation_settled())
-
 
 func clear_presentation() -> void:
 	_standing_presentation_controller().clear_presentation()
 
-
 func set_request_face(on: bool) -> void:
 	_standing_presentation_controller().set_request_face(on)
 
-
 func request_face_active() -> bool:
 	return bool(_standing_presentation_controller().request_face_active())
-
 
 func _keep_nav() -> void:
 	if _nav == null or not is_instance_valid(_nav):
@@ -1683,7 +1582,6 @@ func _keep_nav() -> void:
 		_nav.call("stay")
 		_nav.set("command_owner", _token)
 		_nav.set("wander_enabled", false)
-
 
 ## Keep the act's attention while another character talks to Anon. Clearing the listener every
 ## tick stops the director from turning her away or pinning her gaze; speech, emotions and
@@ -1694,7 +1592,6 @@ func _keep_act_attention() -> void:
 	if pony.has_method("set_conversation_target"):
 		pony.call("set_conversation_target", null, false)
 
-
 func _release_nav() -> void:
 	if _nav == null or not is_instance_valid(_nav):
 		_nav = null
@@ -1703,7 +1600,6 @@ func _release_nav() -> void:
 		_nav.set("command_owner", "")
 	_nav.set("wander_enabled", true)
 	_nav = null
-
 
 func _lock_player() -> void:
 	var body = main.player
@@ -1726,7 +1622,6 @@ func _lock_player() -> void:
 	if body.get("seat") != null:
 		body.set("_q_held", true)
 
-
 func _unlock_player() -> void:
 	if not _locked_player:
 		return
@@ -1738,7 +1633,6 @@ func _unlock_player() -> void:
 		if not _had_kiss_hold and main.player.has_meta("kiss_hold"):
 			main.player.remove_meta("kiss_hold")
 	_locked_player = false
-
 
 func _abort_start() -> void:
 	_end_act_lines(true)
@@ -1754,7 +1648,6 @@ func _abort_start() -> void:
 	state = State.IDLE
 	if is_instance_valid(main):
 		main.clear_active(self)
-
 
 ## Put her in the game's own lie-down state after the teleport. Waiting one physics frame lets
 ## `grounded()` see the mattress; the native lie animation then settles her into the bedding
@@ -1781,7 +1674,6 @@ func _place_cradle(anchor: Transform3D) -> void:
 		var status: Dictionary = pony.posture_status()
 		if str(status.get("requested", "")) == "lie_down" and bool(status.get("settled", false)):
 			break
-
 
 func _bed_anchor() -> Transform3D:
 	if bed != null:
@@ -1817,7 +1709,6 @@ func _bed_anchor() -> Transform3D:
 	at.y = top + 0.02
 	return Transform3D(Basis.looking_at(along, Vector3.UP), at)
 
-
 ## The game's own bed-rest place for a pony lying beside Anon. Using it keeps her along the
 ## mattress (not across it) and on the drawn bedding.
 func _shared_bed_rest(bed_node: Node3D) -> Variant:
@@ -1840,7 +1731,6 @@ func _shared_bed_rest(bed_node: Node3D) -> Variant:
 		return t
 	return null
 
-
 func _standing_transform() -> Transform3D:
 	var view: Camera3D = main.camera()
 	var forward := Vector3.FORWARD
@@ -1854,7 +1744,6 @@ func _standing_transform() -> Transform3D:
 	at.y = main.player.global_position.y
 	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
 
-
 func _standing_gap() -> float:
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings == null:
@@ -1866,7 +1755,6 @@ func _standing_gap() -> float:
 	_log("standing size=%s gap=%.2f" % [size, gap])
 	return gap
 
-
 func debug_chin(step_deg: float) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -1874,7 +1762,6 @@ func debug_chin(step_deg: float) -> void:
 	_apply_debug_chin()
 	# Let the skeleton modifier apply this frame before sampling the head/chin positions.
 	call_deferred("_log_chin")
-
 
 ## Attach the debug chin modifier and keep it after every pose modifier, so an act cannot
 ## overwrite the debug head pitch.
@@ -1892,14 +1779,12 @@ func _apply_debug_chin() -> void:
 	_chin_modifier.set("chin_deg", _debug_chin_deg)
 	_keep_chin_last()
 
-
 func _keep_chin_last() -> void:
 	if not is_instance_valid(_chin_modifier):
 		return
 	var parent := _chin_modifier.get_parent()
 	if parent is Skeleton3D:
 		(parent as Skeleton3D).move_child(_chin_modifier, parent.get_child_count() - 1)
-
 
 func _log_chin() -> void:
 	if not is_instance_valid(pony):
@@ -1925,7 +1810,6 @@ func _log_chin() -> void:
 			rows.append("snout world=%s" % str(boop.call("nose_world")))
 	if is_instance_valid(main) and main.has_method("_debug_block"):
 		main.call("_debug_block", "CHIN", rows)
-
 
 func debug_float_missionary(seconds: float) -> void:
 	if state != State.IDLE or not is_instance_valid(pony) or _debug_pose_active:
@@ -1957,7 +1841,6 @@ func debug_float_missionary(seconds: float) -> void:
 	_debug_pose = null
 	_debug_pose_active = false
 
-
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
 ## pose first keeps hind spread/rump drop overrides, then the presentation neck controls win.
 func _sync_missionary_pose_config() -> void:
@@ -1974,7 +1857,6 @@ func _sync_missionary_pose_config() -> void:
 	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	if is_instance_valid(_pose):
 		_pose.head_roll = _missionary_head_roll
-
 
 func _build_pose() -> void:
 	_free_pose()
@@ -2013,7 +1895,6 @@ func _build_pose() -> void:
 		_tail.call("choose_side")
 		(hair as Skeleton3D).add_child(_tail)
 
-
 func _free_pose() -> void:
 	clear_presentation()
 	_end_lean_action()
@@ -2034,7 +1915,6 @@ func _free_pose() -> void:
 		_tail.queue_free()
 	_tail = null
 
-
 func _install_body_sway(skeleton: Skeleton3D) -> void:
 	if not _feature("standing_body_sway"):
 		return
@@ -2044,14 +1924,12 @@ func _install_body_sway(skeleton: Skeleton3D) -> void:
 	_body_sway.set("runtime", self)
 	skeleton.add_child(_body_sway)
 
-
 func _install_prone_sway(skeleton: Skeleton3D) -> void:
 	_prone_sway = PRONE_SWAY.new()
 	_prone_sway.name = "UnfplapProneSway"
 	_prone_sway.set("mare", pony)
 	_prone_sway.set("runtime", self)
 	skeleton.add_child(_prone_sway)
-
 
 func _install_ear_twitch() -> void:
 	if not _feature("thrust_ear_twitch"):
@@ -2065,7 +1943,6 @@ func _install_ear_twitch() -> void:
 	_ear_twitch.set("mare", pony)
 	(head as Skeleton3D).add_child(_ear_twitch)
 
-
 func _remove_extra_modifiers() -> void:
 	_restore_dock_jiggle_material()
 	if is_instance_valid(_body_sway):
@@ -2078,12 +1955,10 @@ func _remove_extra_modifiers() -> void:
 		_ear_twitch.queue_free()
 	_ear_twitch = null
 
-
 # --------------------------------------------------------------------------- thrust
 
 func _now_s() -> float:
 	return Time.get_ticks_msec() * 0.001
-
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
@@ -2134,7 +2009,6 @@ func _reset_thrust_state() -> void:
 		_thrust_tracker = THRUST.new()
 	_thrust_tracker.reset()
 
-
 func _prepare_vocal() -> void:
 	var director := _director()
 	if director == null:
@@ -2143,12 +2017,10 @@ func _prepare_vocal() -> void:
 	if vocal != null and vocal.has_method("prepare"):
 		vocal.call("prepare", _id)
 
-
 func _director() -> Node:
 	if not is_inside_tree():
 		return null
 	return get_tree().get_first_node_in_group("conversation_director")
-
 
 func _voice_profile() -> Dictionary:
 	var director := _director()
@@ -2163,7 +2035,6 @@ func _voice_profile() -> Dictionary:
 				return profile
 	return {}
 
-
 func _tts_node() -> Node:
 	var director := _director()
 	if director == null:
@@ -2171,21 +2042,17 @@ func _tts_node() -> Node:
 	var tts: Variant = director.get("tts")
 	return tts as Node if is_instance_valid(tts) else null
 
-
 func _tts_enabled() -> bool:
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null and settings.has_method("tts_enabled"):
 		return bool(settings.call("tts_enabled"))
 	return true
 
-
 func _classify_voice() -> Dictionary:
 	return VOICE.classify(_voice_profile(), _tts_node(), _tts_enabled())
 
-
 func voice_status_line() -> String:
 	return "voice " + VOICE.describe(_classify_voice())
-
 
 func _find_voice_player() -> AudioStreamPlayer3D:
 	if not is_instance_valid(pony):
@@ -2196,7 +2063,6 @@ func _find_voice_player() -> AudioStreamPlayer3D:
 		return voice
 	var found: Variant = pony.find_child("Voice", true, false)
 	return found as AudioStreamPlayer3D if found is AudioStreamPlayer3D else null
-
 
 ## `mute_ponese_audio`: keep the generated line and text HUD, but silence the Ponese audio
 ## for this act. A generated-voice pony is left alone.
@@ -2214,14 +2080,12 @@ func _apply_voice_policy() -> void:
 	_voice_player.volume_db = -80.0
 	_log("voice text-only pony=%s %s" % [_id, VOICE.describe(_voice_info)])
 
-
 func _restore_voice_volume() -> void:
 	if is_instance_valid(_voice_player):
 		_voice_player.volume_db = _voice_volume_saved
 	_voice_player = null
 	_voice_volume_saved = 0.0
 	_text_only_voice = false
-
 
 ## Hide the quick-slot hotbar for the whole act. `hud_hidden` keeps the inventory's own
 ## `_place_hotbar()` from showing it again.
@@ -2262,7 +2126,6 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 	_log("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s" % [
 		str(_inventory_hud_saved), str(_inventory_hotbar_visible), str(_inventory_hud_layer_visible)])
 
-
 func _thrust_move(amount: float, now: float) -> void:
 	if _thrust_tracker == null:
 		return
@@ -2276,7 +2139,6 @@ func _thrust_move(amount: float, now: float) -> void:
 	for event: Dictionary in events:
 		_on_stroke(event)
 
-
 func _thrust_tick() -> void:
 	if _thrust_tracker == null:
 		return
@@ -2284,7 +2146,6 @@ func _thrust_tick() -> void:
 	depth = _thrust_tracker.depth
 	for event: Dictionary in events:
 		_on_stroke(event)
-
 
 ## Only real thrusts update the pattern window and score. Upward strokes, tiny jitter and
 ## pullbacks are presentation only.
@@ -2312,7 +2173,6 @@ func _on_stroke(event: Dictionary) -> void:
 		_last_intensity, _last_pattern, satisfaction])
 	_on_thrust(_last_stroke)
 	_score_thrust()
-
 
 ## Each real thrust lands as a discrete chunk. Matching both axes is best, one axis still
 ## helps, and a mismatch makes no progress. This is what makes thrusting essential.
@@ -2343,7 +2203,6 @@ func _score_thrust() -> void:
 		_last_intensity, _last_pattern, str(intensity_match and pattern_match),
 		heat, satisfaction])
 
-
 func _on_thrust(result: Dictionary) -> void:
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
@@ -2370,7 +2229,6 @@ func _on_thrust(result: Dictionary) -> void:
 	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
 		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
 
-
 func _play_vocal() -> void:
 	if _vocal_cooldown > 0.0:
 		return
@@ -2382,7 +2240,6 @@ func _play_vocal() -> void:
 		if bool(vocal.call("play", _id, "m", pony, -34.0)):
 			_vocal_cooldown = 3.0
 
-
 func _add_heat(amount: float) -> void:
 	if is_zero_approx(amount):
 		return
@@ -2392,7 +2249,6 @@ func _add_heat(amount: float) -> void:
 		_peak_satisfaction = satisfaction
 	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
 		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
-
 
 ## Readiness never decays on its own. Real thrusts add the chunks in `_score_thrust`; only a
 ## disliked touch/talk subtracts. This tick clears stale thrust memory and updates cues.
@@ -2441,7 +2297,6 @@ func _readiness_tick(delta: float) -> void:
 			_last_demand_text = cue
 			_last_demand_at = now
 
-
 func _mood_for() -> String:
 	if _overwhelmed > 0.0:
 		return "overwhelmed"
@@ -2450,7 +2305,6 @@ func _mood_for() -> String:
 	if satisfaction >= 40.0:
 		return "wanting"
 	return "warming"
-
 
 func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
 	if _overwhelmed > 0.0:
@@ -2475,7 +2329,6 @@ func _base_cue(intensity_match: bool, pattern_match: bool) -> String:
 		return "She likes that."
 	return "She's warming up."
 
-
 ## Demand lines get their own budget so a flapping preference cue cannot turn into a stream of
 ## commands. Non-demand lines only obey the shared utterance gap.
 func _demand_line_blocked(text: String, now: float) -> bool:
@@ -2485,12 +2338,10 @@ func _demand_line_blocked(text: String, now: float) -> bool:
 		return true
 	return text == _last_demand_text and now - _last_demand_at < DEMAND_REPEAT_S
 
-
 func _set_cue_override(text: String, seconds := CUE_OVERRIDE_S) -> void:
 	cue = text
 	_cue_override = text
 	_cue_until = _now_s() + maxf(0.0, seconds)
-
 
 func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:
@@ -2518,7 +2369,6 @@ func _on_touch(kind: String) -> void:
 		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
 	else:
 		_set_cue_override("She notices your touch.")
-
 
 ## The player's own words are a concrete input. The AI still writes her reply; this only
 ## decides whether the line landed with her taste.
@@ -2551,7 +2401,6 @@ func _on_talk(text: String) -> void:
 	else:
 		_set_cue_override("She listens.")
 
-
 ## Watch the director for a new player turn. No new control: the game's T key already
 ## produces the text/mic turn. Talk is scored when it actually happens.
 func _talk_tick(_delta: float) -> void:
@@ -2567,14 +2416,12 @@ func _talk_tick(_delta: float) -> void:
 				_last_player_talk = text.strip_edges()
 				_on_talk(text)
 
-
 func _remember_talk_turn() -> void:
 	var director := _director()
 	if director == null:
 		_last_talk_turn = -1
 		return
 	_last_talk_turn = int(director.get("_turn_id"))
-
 
 ## True while the director or the pony is actually speaking. Unlike
 ## `_utterance_channel_free`, this ignores our own pending key, so a queued line can tell the
@@ -2587,14 +2434,12 @@ func _speech_busy() -> bool:
 		return true
 	return false
 
-
 ## True when no mod line is pending and the director/pony are not already speaking. This
 ## keeps a new intent from being queued while the previous reply is still finishing its voice.
 func _utterance_channel_free() -> bool:
 	if not _utterance_pending_key.is_empty() or not _utterance_done_key.is_empty():
 		return false
 	return not _speech_busy()
-
 
 func _utterance_tick() -> void:
 	if state != State.ACTIVE:
@@ -2605,7 +2450,6 @@ func _utterance_tick() -> void:
 	if _now_s() > _utterance_pending_until and not _speech_busy():
 		_log("utterance timeout key=%s" % _utterance_pending_key)
 		_cancel_pending_utterance()
-
 
 func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> bool:
 	if state != State.ACTIVE or not is_instance_valid(main) or not is_instance_valid(main.game):
@@ -2665,13 +2509,11 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> b
 	_log("utterance kind=%s key=%s" % [kind, key])
 	return true
 
-
 func _utterance_done(key: String) -> void:
 	if _utterance_pending_key == key:
 		_utterance_done_key = key
 		_utterance_done_at = _now_s()
 		_release_finished_utterance()
-
 
 ## The director can report a line finished before its final voice chunk has stopped. Keep the
 ## slot reserved until `_speech_busy()` is false, otherwise the next line can cut it off.
@@ -2685,7 +2527,6 @@ func _release_finished_utterance() -> void:
 	_utterance_done_key = ""
 	_utterance_done_at = 0.0
 
-
 func _cancel_pending_utterance() -> void:
 	_utterance_done_key = ""
 	_utterance_done_at = 0.0
@@ -2696,7 +2537,6 @@ func _cancel_pending_utterance() -> void:
 	_utterance_pending_until = 0.0
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		MEMORY.cancel_generated(main.game, _event_id, key)
-
 
 ## Drop all act lines that have not started speaking. A line that is already speaking may
 ## finish; one that is only queued or still being generated is cancelled. This runs at every
@@ -2710,7 +2550,6 @@ func _end_act_lines(keep_speaking := true) -> void:
 	_utterance_pending_until = 0.0
 	_utterance_done_key = ""
 	_utterance_done_at = 0.0
-
 
 func _recent_lines() -> String:
 	var director := _director()
@@ -2731,14 +2570,12 @@ func _recent_lines() -> String:
 		recent.append(str((spoken as Array)[index]))
 	return " | ".join(recent)
 
-
 func _last_spoken_line() -> String:
 	var recent := _recent_lines()
 	if recent.is_empty():
 		return ""
 	var parts := recent.split(" | ")
 	return parts[parts.size() - 1].strip_edges() if not parts.is_empty() else ""
-
 
 ## Store the strongest clean act per mare. The exchange is the useful part: a later cue can
 ## infer that she liked it without any name-specific instruction.
@@ -2764,7 +2601,6 @@ func _record_peak_memory() -> void:
 	var score := RELATIONSHIP_CUE.peak_score(_peak_satisfaction, _act_both_matches,
 		_act_liked_touch, _act_liked_talk, _act_dislikes)
 	MEMORY.record_peak_memory(_id, _event_id, text, score)
-
 
 func _thrust_jiggle(strength: float) -> void:
 	if not is_instance_valid(pony):
@@ -2821,7 +2657,6 @@ func _thrust_jiggle(strength: float) -> void:
 			str(at), str(pony.global_position), str(normal),
 			(targets as Array).size() if targets is Array else -1])
 
-
 ## Add the rigid dock and merged near-dock surface to the rump's shader wobble. The hair tail
 ## bones are already driven by tail_pose; this is the missing dock piece.
 func _include_dock_jiggle() -> void:
@@ -2850,7 +2685,6 @@ func _include_dock_jiggle() -> void:
 	if targets is Array:
 		(targets as Array).append([_dock_jiggle_material, dock])
 	_include_dock_near_masks()
-
 
 ## The near mesh merges the dock into the body palette with a zero jiggle_entry mask. Raise
 ## the dock's palette entries so the merged surface follows the same wobble.
@@ -2917,14 +2751,12 @@ func _include_dock_near_masks() -> void:
 			if changed:
 				mat.set_shader_parameter("jiggle_entry", mask)
 
-
 func _restore_dock_jiggle_material() -> void:
 	if is_instance_valid(_dock_jiggle_mesh):
 		_dock_jiggle_mesh.set_surface_override_material(0, _dock_jiggle_original)
 	_dock_jiggle_mesh = null
 	_dock_jiggle_material = null
 	_dock_jiggle_original = null
-
 
 func _ensure_rump_decal() -> void:
 	if is_instance_valid(_rump_decal):
@@ -2950,7 +2782,6 @@ func _ensure_rump_decal() -> void:
 	pony.add_child(decal)
 	_rump_decal = decal
 
-
 func _rump_point() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
@@ -2966,7 +2797,6 @@ func _rump_point() -> Vector3:
 			var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
 			point = (a + b) * 0.5 + Vector3.UP * 0.08 + back * 0.10
 	return point
-
 
 func _rump_blush_tick(delta: float) -> void:
 	if pose_id != CATALOG.STANDING:
@@ -2988,7 +2818,6 @@ func _rump_blush_tick(delta: float) -> void:
 	_rump_decal.albedo_mix = _rump_blush
 	_rump_decal.visible = true
 
-
 func cancel() -> void:
 	_log("cancel state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE]:
@@ -3005,13 +2834,11 @@ func cancel() -> void:
 	elif state == State.AFTERGLOW:
 		end_afterglow()
 
-
 func end_afterglow() -> void:
 	if state == State.AFTERGLOW:
 		_log("afterglow end pony=%s" % str(pony.name))
 		_close_cancel()
 		_restore_begin()
-
 
 func _climax() -> void:
 	if state != State.ACTIVE:
@@ -3036,7 +2863,6 @@ func _climax() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("CLIMAX")
 
-
 ## Three pulses: four bursts at the start, two after at least one second, one after at least
 ## another second. The dock burst is separate and fires from `_climax()`.
 func _schedule_climax_hearts() -> void:
@@ -3054,7 +2880,6 @@ func _schedule_climax_hearts() -> void:
 	_heart_times.append(third)
 	_heart_counts.append(1)
 
-
 func _climax_hearts_tick(delta: float) -> void:
 	if _heart_times.is_empty():
 		return
@@ -3067,14 +2892,12 @@ func _climax_hearts_tick(delta: float) -> void:
 			_climax_hearts_burst()
 		_log("climax hearts pulse t=%.2f count=%d" % [at, count])
 
-
 ## Same effect as a boop (five drifting hearts, her heart colours) without counting a boop or
 ## restarting the blush/squeak reaction.
 func _climax_hearts_burst() -> void:
 	var boop: Variant = pony.get("boop_node") if is_instance_valid(pony) else null
 	if boop != null and boop.has_method("celebrate"):
 		boop.call("celebrate")
-
 
 ## A boop-heart burst moved to `origin` while keeping its random spread and drift.
 func _climax_hearts_burst_at(origin: Vector3) -> void:
@@ -3104,7 +2927,6 @@ func _climax_hearts_burst_at(origin: Vector3) -> void:
 			(sprite as Node3D).global_position = moved
 	_log("climax dock hearts=%d" % (hearts.size() - before))
 
-
 ## Her dock is the tail base on the hair skeleton; fall back to the hips if it is unavailable.
 func _dock_point() -> Vector3:
 	if not is_instance_valid(pony):
@@ -3124,7 +2946,6 @@ func _dock_point() -> Vector3:
 				+ pony.global_basis.z.normalized() * 0.18 + Vector3.UP * 0.05
 	return pony.global_position + Vector3.UP * 0.7
 
-
 func _queue_climax_reaction() -> void:
 	if not is_instance_valid(main):
 		return
@@ -3135,7 +2956,6 @@ func _queue_climax_reaction() -> void:
 	MEMORY.reaction_for(main.game, _id, "climax", climax_id,
 		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Staying quiet is fine. Do not describe anatomy.",
 		valid)
-
 
 ## The pony climax ends on its own. It returns to ACTIVE unless this was the third;
 ## afterglow is the player's choice, not the climax state's automatic exit.
@@ -3159,7 +2979,6 @@ func _finish_climax() -> void:
 	_receptive_until = 0.0
 	_log("pony climax end=%d/%d recovery=%.0f" % [
 		pony_climaxes, MAX_PONY_CLIMAXES, satisfaction])
-
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
@@ -3187,18 +3006,14 @@ func prompt_note() -> String:
 		parts.append("If Anon asks to stay longer, use [stay: 120] to hold the afterglow.")
 	return " ".join(parts)
 
-
 func _player_is_caressing() -> bool:
 	return _caress_controller().any_active()
-
 
 func _player_is_leaning_close() -> bool:
 	return _lean_forward >= 0.35 or _lean_action_active or _kiss_controller().leaning_close()
 
-
 func _player_is_close() -> bool:
 	return _player_is_caressing() or _player_is_leaning_close()
-
 
 ## The game's action executor owns [stay: SECONDS]. A permitted stay during the afterglow is
 ## her agreement to keep the moment going, so pause the self-end roll for that long.
@@ -3223,7 +3038,6 @@ func _bind_action_executor() -> void:
 	if _action_executor.has_signal("outcome") and not _action_executor.is_connected("outcome", callback):
 		_action_executor.connect("outcome", callback)
 
-
 func _on_action_outcome(event: Dictionary) -> void:
 	if state != State.AFTERGLOW:
 		return
@@ -3240,10 +3054,8 @@ func _on_action_outcome(event: Dictionary) -> void:
 	_afterglow_hold_until = maxf(_afterglow_hold_until, _now_s() + duration)
 	_log("afterglow hold extended %.0fs by [stay]" % duration)
 
-
 static func self_end_chance(close: bool) -> float:
 	return AFTERGLOW_SELF_END_CHANCE_CLOSE if close else AFTERGLOW_SELF_END_CHANCE_ALONE
-
 
 func _self_end_tick(delta: float) -> void:
 	if _afterglow_elapsed < AFTERGLOW_SELF_END_SECONDS:
@@ -3263,11 +3075,9 @@ func _self_end_tick(delta: float) -> void:
 	_log("afterglow self end after %.1fs close=%s" % [_afterglow_elapsed, str(close)])
 	end_afterglow()
 
-
 func _enter_afterglow() -> void:
 	_afterglow_begin()
 	_wings_controller().begin_afterglow()
-
 
 func _commit_afterglow() -> void:
 	if not is_instance_valid(main):
@@ -3276,7 +3086,6 @@ func _commit_afterglow() -> void:
 	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
 	MEMORY.afterglow_event(main.game, _id, _display_name, _event_id, pose_id)
 	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
-
 
 ## Both poses share the held afterglow; standing adds the inside event, the close window and
 ## a slightly lifted tail.
@@ -3314,13 +3123,11 @@ func _afterglow_begin() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
 
-
 ## Standing only: tell her Anon came inside her. Normal dialogue resumes from here.
 func _inside_aftermath() -> void:
 	if not is_instance_valid(main):
 		return
 	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
-
 
 ## Standing afterglow only. The HUD and this timer own the stay-close invitation; normal dialogue
 ## resumes instead of a scripted stay-close line.
@@ -3333,7 +3140,6 @@ func _begin_close_window() -> void:
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
-
 
 func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW:
@@ -3350,7 +3156,6 @@ func _afterglow_tick(delta: float) -> void:
 	if _close_left <= 0.0:
 		_close_afterglow()
 
-
 func _close_afterglow() -> void:
 	if _close_rewarded:
 		return
@@ -3365,13 +3170,11 @@ func _close_afterglow() -> void:
 	_log("stay close reward caressed=%s caress_seconds=%.1f" % [
 		str(caressed), _close_caress_seconds])
 
-
 func _close_cancel() -> void:
 	if _close_rewarded:
 		return
 	_close_left = 0.0
 	_close_caress_seconds = 0.0
-
 
 func close_hint() -> String:
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
@@ -3381,7 +3184,6 @@ func close_hint() -> String:
 	if _close_rewarded:
 		return "She seems content."
 	return ""
-
 
 func _restore_begin() -> void:
 	if state == State.IDLE or state == State.RESTORE:
@@ -3403,7 +3205,6 @@ func _restore_begin() -> void:
 	_standing_camera_controller().reset_facing()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.hide_act()
-
 
 func _finish_restore() -> void:
 	if not is_instance_valid(pony):
@@ -3435,12 +3236,9 @@ func _finish_restore() -> void:
 	bed = null
 	_reset_after_act()
 
-
-
 func _stand_after_pose() -> void:
 	if is_instance_valid(pony) and pony.get("posture") != null:
 		pony.request_posture("stand")
-
 
 func force_stop() -> void:
 	# Defensive: every stop path must leave the quick slots in their pre-act state.
@@ -3451,7 +3249,6 @@ func force_stop() -> void:
 		clear_presentation()
 		return
 	_restore_now()
-
 
 func _restore_now() -> void:
 	_end_act_lines(true)
@@ -3481,7 +3278,6 @@ func _restore_now() -> void:
 	bed = null
 	_reset_after_act()
 
-
 func _reset_after_act() -> void:
 	if not is_inside_tree():
 		return
@@ -3492,7 +3288,6 @@ func _reset_after_act() -> void:
 	_satisfaction_tween = create_tween()
 	_satisfaction_tween.tween_method(func(value: float) -> void: satisfaction = clampf(value, 0.0, READINESS_MAX), from, 0.0, 30.0)
 	_begin_aftercare()
-
 
 func _begin_aftercare() -> void:
 	if not is_inside_tree() or not is_instance_valid(pony):
@@ -3506,7 +3301,6 @@ func _begin_aftercare() -> void:
 	add_child(_aftercare)
 	if satisfaction >= _aftercare_min:
 		_start_satisfied()
-
 
 ## The emotional grace after a positive act: relaxed face, light blush and a warm prompt note.
 ## It lasts as long as the game's impression mood stays fresh (satisfied.gd) and never holds
@@ -3522,12 +3316,10 @@ func _start_satisfied() -> void:
 	_satisfied.set("runtime", self)
 	add_child(_satisfied)
 
-
 func _end_satisfied() -> void:
 	if is_instance_valid(_satisfied):
 		_satisfied.queue_free()
 	_satisfied = null
-
 
 # --------------------------------------------------------------------------- checks
 
@@ -3565,20 +3357,17 @@ func _check_running() -> void:
 		_stop("form change")
 		return
 
-
 func _still_willing() -> bool:
 	var runtime: Variant = pony.get_meta("relationship_runtime")
 	if runtime == null or not is_instance_valid(runtime):
 		return false
 	return bool(runtime.bonds.welcomes(_id, "kiss"))
 
-
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE]:
 		MEMORY.stop_event(main.game, _id, _display_name, _event_id, reason)
 	_restore_begin()
-
 
 # --------------------------------------------------------------------------- camera
 
@@ -3589,7 +3378,6 @@ func _size_name() -> String:
 	if settings == null:
 		return ""
 	return str(settings.call("get_value", "ponies/size"))
-
 
 func _size_scale() -> float:
 	var size := _size_name()
@@ -3602,7 +3390,6 @@ func _size_scale() -> float:
 			return 0.66
 	return _same_height_scale()
 
-
 ## Anon's chosen height over the 6 ft rig every offset was tuned on (1.0 at default).
 func _anon_height_scale() -> float:
 	var settings: Node = get_node_or_null("/root/Settings")
@@ -3610,12 +3397,10 @@ func _anon_height_scale() -> float:
 		return clampf(float(settings.call("anon_height_scale")), 0.6, 1.4)
 	return 1.0
 
-
 ## "Same height as Anon" now sizes the pony from Anon's chosen height too. Other presets keep
 ## their authored sizes, so only this preset's camera/gap offsets follow the setting.
 func _same_height_scale() -> float:
 	return _anon_height_scale() if _size_name() == "same height" else 1.0
-
 
 ## Standing presentation only. The accepted Anon rig's hands read a little large beside a Canon
 ## pony; JRHNBR needs a smaller correction. Other presets keep the authored size.
@@ -3627,7 +3412,6 @@ static func standing_palm_scale_for(size_name: String) -> float:
 			return 0.95
 	return 1.0
 
-
 ## Absolute hand scale for the current body preset, from the per-size caress setting.
 func _palm_scale_factor() -> float:
 	var caress: Variant = _presentation_cfg.get("caress", {})
@@ -3636,25 +3420,6 @@ func _palm_scale_factor() -> float:
 		if scales is Dictionary:
 			return float((scales as Dictionary).get(_size_name(), 1.0))
 	return 1.0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 func _apply_eye_override() -> void:
 	_camera_target_eye = 0.0
@@ -3681,7 +3446,6 @@ func _apply_eye_override() -> void:
 		body.call("_set_eye_y", target)
 	_log("eye override standing base=%.2f target=%.2f" % [base, target])
 
-
 func _restore_eye_override() -> void:
 	if not _eye_override:
 		return
@@ -3695,7 +3459,6 @@ func _restore_eye_override() -> void:
 		body.set("_eye_height", _saved_eye_height)
 	if body.has_method("_set_eye_y"):
 		body.call("_set_eye_y", _saved_stand_eye)
-
 
 ## Set up the free shot before the first camera frame. AnonPony and headset/VR keep the stock
 ## camera and do not enter this path.
@@ -3717,12 +3480,10 @@ func _begin_camera_mode() -> void:
 		_standing_anon_controller().install()
 	_apply_free_camera_lock()
 
-
 ## Lean/caress remain live through the standing afterglow; missionary afterglow stays passive.
 func _act_actions_allowed() -> bool:
 	return state in [State.ACTIVE, State.CLIMAX] \
 		or (state == State.AFTERGLOW and pose_id == CATALOG.STANDING)
-
 
 ## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and
 ## also fire a pose reaction once the smoothed side lean crosses MOTION.LEAN_FIRE.
@@ -3783,15 +3544,8 @@ func _lean_tick(delta: float) -> void:
 	if pose_id == CATALOG.STANDING:
 		_standing_camera_controller().apply_lean_look()
 
-
-
-
 func _lean_size_scale() -> float:
 	return MOTION.lean_size_scale_for(_size_scale())
-
-
-
-
 
 ## Canon needs a little less travel in the standing pose than the other presets.
 func _standing_lean_scale() -> float:
@@ -3800,32 +3554,22 @@ func _standing_lean_scale() -> float:
 		scale *= 0.8
 	return scale
 
-
 ## Standing torso angle: hinge Anon's upper body forward over her by moving the head/camera
 ## forward and down by the spine arc, then countering the hip in `apply_anon_lean`.
 func _anon_torso_angle() -> float:
 	return deg_to_rad(float(_presentation_cfg.get("torso_angle_deg", 0.0)))
 
-
 func _anon_torso_forward() -> float:
 	return ANON_TORSO_LEN_M * sin(_anon_torso_angle())
-
 
 func _anon_torso_drop() -> float:
 	return ANON_TORSO_LEN_M * (1.0 - cos(_anon_torso_angle()))
 
-
 func _jiggle_size_scale() -> float:
 	return clampf(_size_scale(), 0.5, 1.2)
 
-
-
-
-
-
 func smack() -> void:
 	_caress_controller().smack()
-
 
 func _lean_action_tick() -> void:
 	if not _act_actions_allowed():
@@ -3841,7 +3585,6 @@ func _lean_action_tick() -> void:
 		if absf(side) >= MOTION.LEAN_FIRE:
 			_start_lean_action(side)
 		return
-
 
 func _start_lean_action(side: float) -> void:
 	_lean_action_active = true
@@ -3859,10 +3602,6 @@ func _start_lean_action(side: float) -> void:
 	_log("action fire pose=%s side=%.2f kind=%s shoulder=%s" % [
 		pose_id, side, _lean_action_kind, shoulder])
 
-
-
-
-
 func _end_lean_action() -> void:
 	_kiss_controller().end_standing()
 	if _lean_action_kind == "kiss":
@@ -3875,7 +3614,6 @@ func _end_lean_action() -> void:
 	_lean_action_side = 0.0
 	_lean_action_kind = ""
 
-
 func _reset_lean_state() -> void:
 	_end_lean_action()
 	_caress_controller().reset()
@@ -3887,18 +3625,11 @@ func _reset_lean_state() -> void:
 	_side_return_armed = false
 	_hold_rock_clock = 0.0
 
-
 func _play_mouth_kiss() -> void:
 	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
 		_act_audio.play_mouth_kiss(_snout())
 		return
 	_sounds_controller().play_mouth_kiss(_snout())
-
-
-
-
-
-
 
 ## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
 ## start couch actions while the shot is active. The previous value is restored at act end.
@@ -3911,7 +3642,6 @@ func _apply_free_camera_lock() -> void:
 		_controls_locked_by_camera = true
 	body.set("controls_locked", true)
 
-
 func _release_free_camera_lock() -> void:
 	if not _controls_locked_by_camera:
 		return
@@ -3919,8 +3649,6 @@ func _release_free_camera_lock() -> void:
 		main.player.set("controls_locked", _controls_locked_saved)
 	_controls_locked_by_camera = false
 	_controls_locked_saved = false
-
-
 
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
 func _neck_midpoint() -> Vector3:
@@ -3940,15 +3668,6 @@ func _neck_midpoint() -> Vector3:
 		return skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
 	return Vector3.INF
 
-
-
-
-
-
-
-
-
-
 func apply_camera_motion() -> void:
 	if state == State.IDLE or not _free_camera_active:
 		return
@@ -3963,24 +3682,18 @@ func apply_camera_motion() -> void:
 		return
 	_standing_camera_controller().tick()
 
-
 ## Shared desktop hand driver for the caress and the standing body wrapper.
 func _desktop_pose_driver() -> Node:
 	return _standing_anon_controller().driver()
 
-
 func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
 	_standing_anon_controller().apply_anon_thrust(hip, facing)
-
 
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	_standing_anon_controller().apply_anon_lean(hip, facing)
 
-
 func _pose_basis_amount() -> float:
 	return float(_pose.get("amount")) if is_instance_valid(_pose) else 0.0
-
-
 
 func _player_eye_height() -> float:
 	var body: Variant = main.player if is_instance_valid(main) else null
@@ -3990,8 +3703,6 @@ func _player_eye_height() -> float:
 		return float(body.get("_stand_eye"))
 	return 1.6
 
-
-
 func _capture_look() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -4000,7 +3711,6 @@ func _capture_look() -> void:
 	_restore_pitch = float(pitch) if pitch != null else 0.0
 	_look_yaw = _restore_yaw
 	_look_pitch = _restore_pitch
-
 
 ## Restore the player's yaw/pitch captured at act start. Free look and the standing look cone can
 ## leave the rig yawed after the act, which makes W/D move relative to a different facing than the
@@ -4025,14 +3735,6 @@ func _restore_look() -> void:
 	_reset_lean_state()
 	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
 
-
-
-
-
-
-
-
-
 func _restore_camera() -> void:
 	_end_lean_action()
 	_caress_controller().reset()
@@ -4051,7 +3753,6 @@ func _restore_camera() -> void:
 	_camera_basis_ready = false
 	_camera = null
 
-
 # --------------------------------------------------------------------------- audio
 
 ## Create the optional audio node on first use, or update its flags if it already exists.
@@ -4068,7 +3769,6 @@ func _ensure_act_audio(foley: bool, vocals: bool, climax: bool, bed_creaks := fa
 	add_child(_act_audio)
 	_act_audio.setup(foley, vocals, climax, bed_creaks)
 
-
 func _start_audio() -> void:
 	_stop_audio()
 	_bed_soft = is_instance_valid(bed) \
@@ -4082,7 +3782,6 @@ func _start_audio() -> void:
 		_ensure_act_audio(foley, vocals, climax, bed_creaks)
 	_sounds_controller().start()
 
-
 func _stop_audio() -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.stop()
@@ -4091,11 +3790,9 @@ func _stop_audio() -> void:
 	if _sounds != null:
 		_sounds.stop()
 
-
 func _stop_breath() -> void:
 	if _sounds != null:
 		_sounds.stop_breath()
-
 
 func _play_kiss() -> void:
 	# With act foley on, the depth-crossing trigger owns the impact. Keeping this silent avoids a
@@ -4106,13 +3803,11 @@ func _play_kiss() -> void:
 	# kiss counter, and pony_awareness then tells the AI "The player kissed your face." during sex.
 	_sounds_controller().play_kiss(_rump_point())
 
-
 func _play_climax() -> void:
 	_sounds_controller().play_climax(_snout())
 	if is_instance_valid(_act_audio):
 		_act_audio.play_climax_wet(_dock_point())
 		_act_audio.play_climax_voice(_snout())
-
 
 func _breath_tick(delta: float) -> void:
 	var phase := ""
@@ -4124,26 +3819,22 @@ func _breath_tick(delta: float) -> void:
 		phase = "afterglow"
 	_sounds_controller().breath_tick(delta, phase, _thrusts_per_second(), _snout())
 
-
 func _thrusts_per_second() -> float:
 	var now := _now_s()
 	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
 		_thrust_times.pop_front()
 	return float(_thrust_times.size())
 
-
 func _bed_audio_point() -> Vector3:
 	if is_instance_valid(bed):
 		return bed.global_position + Vector3.UP * 0.35
 	return _rump_point()
-
 
 func _snout() -> Vector3:
 	var boop: Variant = pony.get("boop_node")
 	if is_instance_valid(boop) and boop.has_method("nose_world"):
 		return boop.call("nose_world")
 	return pony.global_position + Vector3.UP * 1.0
-
 
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
 ## closes or the mod is switched off mid-kiss.

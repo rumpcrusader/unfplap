@@ -5,7 +5,6 @@ extends RefCounted
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
-const ANON_TORSO_LEN_M := 0.65
 const STANDING_HEAD_NECK_HEIGHT_M := 1.0
 const CANON_STANDING_CAMERA_DROP_M := 0.10
 const MOUNTING_STANDING_CAMERA_LIFT_M := 0.10
@@ -51,7 +50,6 @@ func _depth_speed_tick(delta: float) -> void:
 	var alpha := 1.0 - exp(-delta / maxf(CAM_SPEED_SMOOTH_S, 0.001))
 	_depth_speed = lerpf(_depth_speed, raw_speed, alpha)
 
-
 ## Standing yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
 
 func _apply_standing_lean_look() -> void:
@@ -76,7 +74,6 @@ func _apply_standing_lean_look() -> void:
 		if is_instance_valid(view):
 			view.rotation.x = pitch
 
-
 ## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
 ## start couch actions while the shot is active. The previous value is restored at act end.
 
@@ -90,7 +87,6 @@ func _standing_neck_point() -> Vector3:
 	if pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
 	return pony.global_position + Vector3.UP * (STANDING_HEAD_NECK_HEIGHT_M * scale)
-
 
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
 
@@ -127,8 +123,6 @@ func _apply_standing_base_look() -> void:
 		_facing_basis = Basis(Vector3.UP, yaw)
 	_apply_standing_lean_look()
 
-
-
 func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> void:
 	if not is_instance_valid(camera):
 		return
@@ -163,8 +157,6 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 	_applied_lean = forward
 	_applied_side = side
 
-
-
 func _standing_eye_height() -> float:
 	var height: float = float(runtime.call("_player_eye_height"))
 	if runtime.call("_size_name") == "canon":
@@ -172,8 +164,6 @@ func _standing_eye_height() -> float:
 	elif runtime.call("_size_name") == "mounting":
 		height += MOUNTING_STANDING_CAMERA_LIFT_M
 	return height
-
-
 
 func _lock_body_facing() -> void:
 	if not _has_facing or str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(pony):
@@ -193,12 +183,8 @@ func _lock_body_facing() -> void:
 		if nav.has_method("set_conversation_target"):
 			nav.call("set_conversation_target", null, false)
 
-
-
-
 func _glance_back_fade() -> float:
 	return MOTION.glance_back_fade_for(float(_presentation_cfg.get("glance_back_speed", 1.0)))
-
 
 ## Every few seconds she turns her head back toward Anon, then forward again. The game's
 ## secondary gaze owns the turn; standing only adds the optional throw-back rotation (`head_back`),
@@ -260,7 +246,6 @@ func _drive_glance(delta: float) -> void:
 		_glance_sign_set = false
 	secondary.call("look_toward", Vector3.ZERO, 0.4)
 
-
 ## Pupils/eyes follow Anon during a glance. The native eye modifier exposes `target_world` and
 ## `target_weight`; runtime physics priority runs after the pony, so this wins for the frame.
 
@@ -274,8 +259,6 @@ func _aim_eyes_at_player() -> void:
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	eye_motion.set("target_world", target)
 	eye_motion.set("target_weight", 1.0)
-
-
 
 func _glance_angles() -> Vector3:
 	var head: Vector3 = pony.global_position + Vector3.UP
@@ -300,7 +283,6 @@ func _glance_angles() -> Vector3:
 			clampf(yaw, -MOTION.GLANCE_BACK_YAW, MOTION.GLANCE_BACK_YAW), 0.0)
 	var yaw_limit := float(_pose_cfg.get("glance_yaw", GLANCE_YAW))
 	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -yaw_limit, yaw_limit), 0.0)
-
 
 ## Free look, but inside a 45-degree cone around the direction the act began in. Movement stays
 ## held by kiss_hold; this only limits where the camera can turn.
@@ -332,7 +314,6 @@ func _clamp_look() -> void:
 	if form == null and is_instance_valid(view):
 		view.rotation.x = want
 
-
 func _sync() -> void:
 	main = runtime.get("main") if is_instance_valid(runtime) else null
 	pony = runtime.get("pony") if is_instance_valid(runtime) else null
@@ -342,10 +323,8 @@ func _sync() -> void:
 	var pose_cfg: Variant = runtime.get("_pose_cfg") if is_instance_valid(runtime) else null
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 
-
 func _init(runtime_node: Node = null) -> void:
 	runtime = runtime_node
-
 
 func prepare() -> void:
 	_sync()
@@ -354,7 +333,6 @@ func prepare() -> void:
 		_standing_base_saved = true
 		_standing_base_look = _standing_neck_point()
 		_apply_standing_base_look()
-
 
 func begin_facing(transform: Transform3D) -> void:
 	_facing_basis = transform.basis
@@ -366,7 +344,6 @@ func begin_facing(transform: Transform3D) -> void:
 	_glance_wait = randf_range(
 		float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)),
 		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
-
 
 func reset() -> void:
 	_applied_bob = 0.0
@@ -384,45 +361,35 @@ func reset() -> void:
 	_glance_sign_set = false
 	_glance_head_back = 0.0
 
-
 func speed() -> float:
 	return _depth_speed
-
 
 func reset_depth() -> void:
 	_depth_prev = 0.0
 	_depth_speed = 0.0
-
 
 func reset_facing() -> void:
 	_has_facing = false
 	_glance_left = 0.0
 	_glance_back = false
 
-
 func tick_depth(delta: float) -> void:
 	_depth_speed_tick(delta)
-
 
 func apply_lean_look() -> void:
 	_apply_standing_lean_look()
 
-
 func lock_facing() -> void:
 	_lock_body_facing()
-
 
 func drive_glance(delta: float) -> void:
 	_drive_glance(delta)
 
-
 func clamp_look() -> void:
 	_clamp_look()
 
-
 func hold_glance() -> void:
 	_glance_wait = 0.0
-
 
 func clear_glance() -> void:
 	_glance_left = 0.0
@@ -431,12 +398,9 @@ func clear_glance() -> void:
 		float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)),
 		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
 
-
 func tick() -> void:
 	_sync()
 	var kiss: Variant = runtime.call("_kiss_controller")
-
-
 
 	var lean_scale := float(runtime.call("_standing_lean_scale"))
 	_set_camera_offsets(float(runtime.get("_bob")) - kiss.lean_drop() * kiss.lean() - float(runtime.call("_anon_torso_drop")),
@@ -471,7 +435,6 @@ func restore() -> void:
 	_standing_base_saved = false
 	_depth_prev = 0.0
 	_depth_speed = 0.0
-
 
 func _log(text: String) -> void:
 	if is_instance_valid(runtime) and runtime.has_method("_log"):

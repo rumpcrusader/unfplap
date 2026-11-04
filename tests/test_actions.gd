@@ -9,6 +9,7 @@ const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CAESS := preload("res://mods/unfplap/standing_caress.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
+const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 var failures := 0
@@ -191,7 +192,7 @@ func run() -> void:
 
 	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010) and near(MOTION.HOLD_SWAY_SIDE, 0.0084),
 		"idle camera sway amplitude")
-	check(near(RUNTIME.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
+	check(near(STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
 	check(near(MOTION.LEAN_SIDE_M, 0.18), "side lean travel")
 	check(near(MOTION.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
 	check(near(MOTION.LEAN_FIRE, 0.75) and near(MOTION.LEAN_RELEASE, 0.60),

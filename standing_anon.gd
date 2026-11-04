@@ -3,11 +3,11 @@ extends RefCounted
 ## scale. The runtime owns readiness and scoring; this controller only poses the player rig.
 
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
+const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const THRUST_MAX_M := 0.045
-const ANON_THRUST_SWAY_M := 0.02
 
 var runtime: Node
 var main: Variant
@@ -16,6 +16,7 @@ var _hip_phase := 0.0
 var _anon_thrust_driver: Node3D
 var _anon_thrust_original: Node
 var _anon_thrust_avatar: Node3D
+var _hip_thrust: SkeletonModifier3D
 var _palm_scale: SkeletonModifier3D
 var _lower_left := Transform3D.IDENTITY
 var _lower_right := Transform3D.IDENTITY
@@ -34,8 +35,17 @@ func _hip_phase_tick(delta: float) -> void:
 ## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
 ## start couch actions while the shot is active. The previous value is restored at act end.
 
-func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or _hip_phase <= 0.0001 or not is_instance_valid(hip):
+## Initial backset from the fixed rump limit. At phase 0 the hips are back by the full
+## travel; at phase 1 they return to the limit.
+static func hip_backset(phase: float, scale: float, travel: float) -> float:
+	return THRUST_MAX_M * clampf(scale, 0.5, 2.5) * maxf(0.0, travel) \
+		* (1.0 - clampf(phase, 0.0, 1.0))
+
+
+func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
+	if str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(_hip_thrust):
+		return
+	if not facing.is_finite() or facing.z.length_squared() < 0.0001:
 		return
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
@@ -44,7 +54,8 @@ func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
 	var travel_value: Variant = runtime.get("_thrust_travel")
 	if travel_value != null:
 		travel = maxf(0.0, float(travel_value))
-	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _hip_phase * travel)
+	var back := facing.z.normalized()
+	_hip_thrust.set("offset_world", back * hip_backset(_hip_phase, scale, travel))
 
 
 ## Phase-2 Anon body lean: keep the pelvis planted behind her rump. The camera/head moves
@@ -65,8 +76,6 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	hip.global_position -= side * side_shift
 	# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
 	hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(runtime.call("_anon_torso_drop"))
-	# Depth moves the pelvis back; the chest/head stay forward, so the upper body thrusts.
-	hip.global_position -= forward * (_hip_phase * ANON_THRUST_SWAY_M * lean_scale)
 	# The feet are placed from the camera/head before this call. Pin the lower body so a forward
 	# or kiss lean hinges the torso instead of walking his legs into the shot.
 	var body := hip.get_parent()
@@ -109,6 +118,12 @@ func _install_anon_thrust() -> void:
 	_anon_thrust_driver = driver
 	_anon_thrust_original = original
 	_anon_thrust_avatar = avatar
+	var skeleton := avatar.find_child("Skeleton3D", true, false) as Skeleton3D
+	if is_instance_valid(skeleton):
+		_hip_thrust = HIP_THRUST.new()
+		_hip_thrust.name = "UnfplapHipThrust"
+		_hip_thrust.process_priority = 20
+		skeleton.add_child(_hip_thrust)
 	_install_palm_scale(avatar)
 
 
@@ -160,6 +175,9 @@ func _remove_palm_scale() -> void:
 
 func _remove_anon_thrust() -> void:
 	_remove_palm_scale()
+	if is_instance_valid(_hip_thrust):
+		_hip_thrust.queue_free()
+	_hip_thrust = null
 	if is_instance_valid(_anon_thrust_avatar) and is_instance_valid(_anon_thrust_original) \
 			and _anon_thrust_avatar.get("desktop_pose_driver") == _anon_thrust_driver:
 		_anon_thrust_avatar.set("desktop_pose_driver", _anon_thrust_original)

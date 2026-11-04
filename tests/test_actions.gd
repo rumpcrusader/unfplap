@@ -12,6 +12,8 @@ const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
+const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
+const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 
 class FakeTail extends Node:
 	var last_strength := 0.0
@@ -24,6 +26,7 @@ class FakeFlank extends Node3D:
 	var marks: Array = []
 	var ages: Array = []
 	var _jiggle_targets: Array = []
+	var _jiggle_amount := 0.0
 
 var failures := 0
 var checks := 0
@@ -359,22 +362,133 @@ func run() -> void:
 	root.remove_child(mask_runtime)
 	mask_runtime.free()
 
+	check(near(STANDING_ANON.hip_backset(0.0, 1.0, 1.0), 0.045),
+		"hip backset is full at rest")
+	check(near(STANDING_ANON.hip_backset(1.0, 1.0, 1.0), 0.0),
+		"hip backset returns to the rump limit")
+	check(near(STANDING_ANON.hip_backset(0.0, 0.66, 0.5), 0.045 * 0.66 * 0.5),
+		"hip backset scales with size and travel")
+
 	var hip_runtime: Node = RUNTIME.new()
 	hip_runtime.pose_id = CATALOG.STANDING
 	hip_runtime._thrust_travel = 1.5
 	var hip_pony := Node3D.new()
 	root.add_child(hip_pony)
-	var thrust_hip := Node3D.new()
-	root.add_child(thrust_hip)
+	var hip_modifier = HIP_THRUST.new()
+	root.add_child(hip_modifier)
 	var stand := STANDING_ANON.new(hip_runtime)
 	stand.set("pony", hip_pony)
-	stand.set("_hip_phase", 1.0)
-	stand.call("apply_anon_thrust", thrust_hip, Basis.IDENTITY)
-	check(near(thrust_hip.global_position.z, -0.045 * 1.5),
-		"hip travel multiplier scales the thrust")
+	stand.set("_hip_thrust", hip_modifier)
+	stand.set("_hip_phase", 0.0)
+	stand.call("apply_anon_thrust", Node3D.new(), Basis.IDENTITY)
+	var hip_offset: Vector3 = hip_modifier.get("offset_world")
+	check(near(hip_offset.length(), 0.045 * 1.5), "hip travel multiplier sets the backset")
+	check(hip_offset.z > 0.0, "hip backset points backward")
 	hip_runtime.free()
-	thrust_hip.free()
+	hip_modifier.free()
 	hip_pony.free()
+
+	var modifier_skeleton := Skeleton3D.new()
+	root.add_child(modifier_skeleton)
+	modifier_skeleton.add_bone("Hips")
+	modifier_skeleton.add_bone("Spine")
+	modifier_skeleton.add_bone("LeftUpperLeg")
+	modifier_skeleton.add_bone("RightUpperLeg")
+	modifier_skeleton.set_bone_parent(1, 0)
+	modifier_skeleton.set_bone_parent(2, 0)
+	modifier_skeleton.set_bone_parent(3, 0)
+	modifier_skeleton.set_bone_pose_position(0, Vector3.ZERO)
+	modifier_skeleton.set_bone_pose_position(1, Vector3(0.0, 0.2, 0.0))
+	modifier_skeleton.set_bone_pose_position(2, Vector3(0.1, -0.1, 0.0))
+	modifier_skeleton.set_bone_pose_position(3, Vector3(-0.1, -0.1, 0.0))
+	var hips_before := modifier_skeleton.get_bone_global_pose(0).origin
+	var spine_before := modifier_skeleton.get_bone_global_pose(1).origin
+	var left_before := modifier_skeleton.get_bone_global_pose(2).origin
+	var right_before := modifier_skeleton.get_bone_global_pose(3).origin
+	var modifier = HIP_THRUST.new()
+	modifier_skeleton.add_child(modifier)
+	modifier.set("offset_world", Vector3(0.0, 0.0, 0.1))
+	modifier.call("_process_modification_with_delta", 0.0)
+	check(modifier_skeleton.get_bone_global_pose(0).origin.is_equal_approx(
+		hips_before + Vector3(0.0, 0.0, 0.1)), "hip modifier moves the hips")
+	check(modifier_skeleton.get_bone_global_pose(1).origin.is_equal_approx(spine_before),
+		"hip modifier keeps the spine planted")
+	check(modifier_skeleton.get_bone_global_pose(2).origin.is_equal_approx(left_before),
+		"hip modifier keeps the left leg planted")
+	check(modifier_skeleton.get_bone_global_pose(3).origin.is_equal_approx(right_before),
+		"hip modifier keeps the right leg planted")
+	modifier_skeleton.free()
+
+	var smack_flank := FakeFlank.new()
+	root.add_child(smack_flank)
+	var smack_mat := ShaderMaterial.new()
+	var smack_mesh := Node3D.new()
+	smack_flank._jiggle_targets = [[smack_mat, smack_mesh]]
+	smack_flank._jiggle_amount = 0.08
+	var smack_runtime: Node = RUNTIME.new()
+	var smack_pony := Node3D.new()
+	root.add_child(smack_pony)
+	smack_runtime.pony = smack_pony
+	smack_runtime._flank = smack_flank
+	smack_runtime._jiggle_smack_intensity = 0.5
+	smack_runtime._features = {"thrust_tail_dock_jiggle": false}
+	root.add_child(smack_runtime)
+	smack_runtime.call("_on_smack_impact", 0.8)
+	check(near(float(smack_flank._jiggle_amount), 0.04),
+		"smack jiggle intensity scales the amount")
+	root.remove_child(smack_runtime)
+	smack_runtime.free()
+	smack_mesh.free()
+	smack_flank.free()
+	smack_pony.free()
+
+	var hair := Skeleton3D.new()
+	root.add_child(hair)
+	var hair_names := ["mPelvis", "mChest", "mNeck", "mHead",
+		"mTail1", "mTail2", "mTail3", "mTail4", "mTail5", "mTail6"]
+	for name: String in hair_names:
+		hair.add_bone(name)
+	hair.set_bone_parent(1, 0)
+	hair.set_bone_parent(2, 1)
+	hair.set_bone_parent(3, 2)
+	hair.set_bone_parent(4, 0)
+	for i: int in range(5, hair_names.size()):
+		hair.set_bone_parent(i, i - 1)
+	hair.set_bone_pose_position(0, Vector3.ZERO)
+	hair.set_bone_pose_position(1, Vector3(0.0, 0.2, 0.0))
+	hair.set_bone_pose_position(2, Vector3(0.0, 0.1, 0.0))
+	hair.set_bone_pose_position(3, Vector3(0.0, 0.1, 0.0))
+	hair.set_bone_pose_position(4, Vector3(0.0, 0.0, -0.1))
+	for i: int in range(5, hair_names.size()):
+		hair.set_bone_pose_position(i, Vector3(0.0, 0.0, -0.05))
+	var tail_mare := Node3D.new()
+	root.add_child(tail_mare)
+	var tail_runtime: Node = RUNTIME.new()
+	tail_runtime.depth = 0.0
+	root.add_child(tail_runtime)
+	var tail := TAIL.new()
+	tail.mare = tail_mare
+	tail.runtime = tail_runtime
+	tail.amount = 1.0
+	tail.target_amount = 1.0
+	hair.add_child(tail)
+	tail.call("_cache")
+	var pelvis_before := hair.get_bone_global_pose(0).origin
+	var chest_before := hair.get_bone_global_pose(1).origin
+	var neck_before := hair.get_bone_global_pose(2).origin
+	var head_before := hair.get_bone_global_pose(3).origin
+	tail.set("_thrust_strength", 1.0)
+	tail.set("_thrust_clock", 0.0)
+	tail.call("_process_modification_with_delta", 0.05)
+	check(not hair.get_bone_global_pose(0).origin.is_equal_approx(pelvis_before),
+		"tail base pelvis moves with the jiggle")
+	check(hair.get_bone_global_pose(1).origin.is_equal_approx(chest_before)
+		and hair.get_bone_global_pose(2).origin.is_equal_approx(neck_before)
+		and hair.get_bone_global_pose(3).origin.is_equal_approx(head_before),
+		"tail jiggle keeps the mane planted")
+	hair.free()
+	tail_mare.free()
+	tail_runtime.free()
 
 	var gate_runtime: Node = RUNTIME.new()
 	check(not gate_runtime.can_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")

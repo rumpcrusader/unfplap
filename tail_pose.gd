@@ -22,6 +22,16 @@ const JIGGLE_DECAY := 3.6
 const JIGGLE_FREQ := 18.0
 const JIGGLE_PITCH := 0.16
 const JIGGLE_YAW := 0.08
+## The tail base is pinned to the hair pelvis by the game's tail anchor, so the bone wave alone
+## cannot move it. Translate the hair mPelvis with the same wave the dock shader uses, then
+## restore the mane bones.
+const JIGGLE_BASE_M := 0.02
+const JIGGLE_BASE_FREQ := 28.0
+const JIGGLE_BASE_DECAY := 4.2
+const JIGGLE_BASE_BOB_FREQ := 24.0
+const JIGGLE_BASE_BOB_DECAY := 3.6
+const JIGGLE_BASE_BOB_DELAY := 0.035
+const JIGGLE_BASE_NORMAL := 0.8
 
 var mare: Node3D
 var runtime: Node
@@ -38,6 +48,8 @@ var _rock := 0.0
 var _rock_velocity := 0.0
 var _thrust_strength := 0.0
 var _thrust_clock := 0.0
+var _pelvis := -1
+var _mane: Array[int] = []
 
 
 func _ready() -> void:
@@ -54,6 +66,12 @@ func _cache() -> void:
 		var bone := sk.find_bone("mTail%d" % i)
 		if bone >= 0:
 			_bones.append(bone)
+	_pelvis = sk.find_bone("mPelvis")
+	_mane.clear()
+	for name: String in ["mChest", "mNeck", "mHead"]:
+		var mane_bone := sk.find_bone(name)
+		if mane_bone >= 0:
+			_mane.append(mane_bone)
 
 
 ## Pick a fresh side for this act.
@@ -113,6 +131,26 @@ func _process_modification_with_delta(delta: float) -> void:
 	var thrust_envelope := exp(-_thrust_clock * JIGGLE_DECAY)
 	if thrust_envelope < 0.001:
 		_thrust_strength = 0.0
+	var base_offset := Vector3.ZERO
+	if _thrust_strength > 0.001:
+		var t := _thrust_clock
+		var wave := -exp(-JIGGLE_BASE_DECAY * t) * sin(JIGGLE_BASE_FREQ * t)
+		var bob := exp(-JIGGLE_BASE_BOB_DECAY * t) \
+			* sin(JIGGLE_BASE_BOB_FREQ * maxf(t - JIGGLE_BASE_BOB_DELAY, 0.0))
+		var world_back := mare.global_basis.z.normalized()
+		var world_up := mare.global_basis.y.normalized()
+		base_offset = (world_back * (wave * JIGGLE_BASE_NORMAL) + world_up * bob) \
+			* (JIGGLE_BASE_M * _thrust_strength * weight)
+	if base_offset.length_squared() > 0.0000001 and _pelvis >= 0:
+		var mane_poses: Array = []
+		for bone in _mane:
+			mane_poses.append([bone, sk.get_bone_global_pose(bone)])
+		var pelvis_pose := sk.get_bone_global_pose(_pelvis)
+		pelvis_pose.origin += sk.global_transform.affine_inverse().basis * base_offset
+		sk.set_bone_global_pose(_pelvis, pelvis_pose)
+		# The mane is copied from the head link; keep it where that link put it.
+		for entry: Array in mane_poses:
+			sk.set_bone_global_pose(entry[0], entry[1])
 	var flicking := absf(flick) > 0.0001
 	for i: int in _bones.size():
 		var bone := _bones[i]

@@ -198,8 +198,6 @@ these values here if a future pose needs that effect.
   translation on the hip target, so the torso hinges over her instead of the whole body sliding
   into her rump. Pull-back still moves the whole body away. Forward/kiss lean also captures and
   holds both foot targets at their neutral transforms, so his legs stay out of the camera.
-  `ANON_THRUST_SWAY_M = 0.02` also moves the pelvis back on the inward stroke, so his upper body
-  thrusts forward/back with depth.
 - `presentation.standing.torso_angle_deg` (default `15`, experimental/unbounded) hinges his upper
   body forward. The head/camera moves along the spine arc (`forward = 0.65 sin θ`,
   `drop = 0.65 (1 − cos θ)`); `apply_anon_lean()` counters the hip by the same forward amount
@@ -213,11 +211,12 @@ these values here if a future pose needs that effect.
   caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
-- The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`;
-  `apply_anon_thrust()` moves the hip by
-  `THRUST_MAX_M = 0.045 * body_scale * phase * thrust.travel`, and
-  `apply_anon_lean()` counter-moves the pelvis by `ANON_THRUST_SWAY_M * phase * lean_scale`.
-  There is no attack or return spring.
+- The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`.
+  The base HipsTarget is the fixed rump limit; `anon_hip_thrust.gd` moves only the Hips bone
+  backward by `THRUST_MAX_M = 0.045 * body_scale * thrust.travel * (1 - phase)`, so depth 0 is
+  the full backset and depth 1 returns to the limit. The modifier restores the Spine and both
+  UpperLegs to their pre-offset global poses, so the torso, head and legs do not follow. There
+  is no attack or return spring.
 - Standing palms scale absolutely per body preset from
   `presentation.standing.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers `1.0`.
   The settings size selector edits each preset. `palm_scale.gd` runs after BodyIK and restores
@@ -275,9 +274,9 @@ these values here if a future pose needs that effect.
   rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
   pony size; the point offsets are already per size.
 - Anon's hip follows the lightly smoothed mouse `depth` (`HIP_SMOOTH_S = 0.04 s`):
-  `THRUST_MAX_M = 0.045 m` forward at phase 1, times `thrust.travel` (default `1.0`). Depth is
-  the input, so the maximum travel is
-  exactly the mouse travel.
+  the base HipsTarget is the rump limit, and only the Hips bone moves backward by
+  `THRUST_MAX_M = 0.045 m × thrust.travel` at phase 0, returning to the limit at phase 1.
+  The Spine and both UpperLegs are restored, so the torso and legs stay planted.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
   `BODY_SWAY_MAX_M = 0.035`.
@@ -326,12 +325,18 @@ these values here if a future pose needs that effect.
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
   rump shader, strongest at the dock and lagging down the chain. A smack adds the same wave
-  through `_on_smack_impact()` at `1.0 × _jiggle_size_scale()`, gated by
-  `thrust_tail_dock_jiggle`; the same flag also includes the dock in the smack wobble and
-  restores the near-mesh `jiggle_entry` masks at act end. The `jiggle.radius` setting (default
+  through `_on_smack_impact()` at `1.0 × _jiggle_size_scale() × smack_intensity`, gated by
+  `thrust_tail_dock_jiggle`; the thrust wave scales with `jiggle.intensity`. The same flag also
+  includes the dock in the smack wobble and restores the near-mesh `jiggle_entry` masks at act
+  end. The `jiggle.radius` setting (default
   `0.26 m`) is applied to every active wobble material and restored at act end; `jiggle.intensity`
-  (default `0.55×`) scales the thrust amount. Stock marks are hidden and aged at act start, so a
-  mark from an earlier regular smack cannot linger as a stale jiggle point.
+  (default `0.55×`) scales the thrust amount, and `jiggle.smack_intensity` (default `1.0×`)
+  scales the act smack amount. Stock marks are hidden and aged at act start, so a
+  mark from an earlier regular smack cannot linger as a stale jiggle point. The game's tail
+  anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair `mPelvis`, so the
+  `mTail1..6` wave alone cannot move the base; `tail_pose` also translates the hair `mPelvis` by
+  `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave and restores the mane bones, so only the
+  tail base and chain move.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

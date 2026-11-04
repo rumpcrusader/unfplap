@@ -247,6 +247,7 @@ var _thrust_pixels_per_full := 480.0
 var _thrust_travel := 1.0
 var _jiggle_radius_m := 0.26
 var _jiggle_intensity_scale := 0.55
+var _jiggle_smack_intensity := 1.0
 var _jiggle_radius_materials: Array = []
 var _camera_surge := 0.0
 var _camera_bob := 0.0
@@ -469,6 +470,7 @@ func apply_live_settings() -> void:
 	var jiggle_controls := SETTINGS.jiggle_controls()
 	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
 	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.55))
+	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 1.0))
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
 	var camera_thrust := SETTINGS.camera_thrust_controls()
@@ -1358,6 +1360,7 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	var jiggle_controls := SETTINGS.jiggle_controls()
 	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
 	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.55))
+	_jiggle_smack_intensity = float(jiggle_controls.get("smack_intensity", 1.0))
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
 	var camera_thrust := SETTINGS.camera_thrust_controls()
@@ -2189,7 +2192,7 @@ func _on_thrust(result: Dictionary) -> void:
 	_wings_controller().on_thrust(impact)
 	_thrust_jiggle(impact)
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
-		_tail.call("thrust", impact * _jiggle_size_scale())
+		_tail.call("thrust", impact * _jiggle_size_scale() * _jiggle_intensity_scale)
 	if pose_id == CATALOG.STANDING:
 		if impact >= RUMP_BLUSH_MIN_STRENGTH:
 			_rump_blush = minf(RUMP_BLUSH_MAX, _rump_blush + RUMP_BLUSH_STEP)
@@ -2644,6 +2647,10 @@ func _thrust_jiggle(strength: float) -> void:
 func _on_smack_impact(strength: float) -> void:
 	if not is_instance_valid(pony):
 		return
+	if is_instance_valid(_flank):
+		var amount: Variant = _flank.get("_jiggle_amount")
+		if amount != null:
+			_flank.set("_jiggle_amount", float(amount) * _jiggle_smack_intensity)
 	if not _feature("thrust_tail_dock_jiggle"):
 		_restore_dock_jiggle_material()
 		_apply_jiggle_radius()
@@ -2654,9 +2661,10 @@ func _on_smack_impact(strength: float) -> void:
 		_include_dock_jiggle()
 	_apply_jiggle_radius()
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
-		_tail.call("thrust", _jiggle_size_scale())
+		var tail_strength := _jiggle_size_scale() * _jiggle_smack_intensity
+		_tail.call("thrust", tail_strength)
 		_log("smack tail jiggle strength=%.2f impact=%.2f amount=%s target=%s" % [
-			_jiggle_size_scale(), clampf(strength, 0.0, 1.0), str(_tail.get("amount")),
+			tail_strength, clampf(strength, 0.0, 1.0), str(_tail.get("amount")),
 			str(_tail.get("target_amount"))])
 
 

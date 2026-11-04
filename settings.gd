@@ -178,6 +178,7 @@ const CAMERA_THRUST_DEFAULTS := {
 const JIGGLE_DEFAULTS := {
 	"radius": 0.26,
 	"intensity": 0.55,
+	"smack_intensity": 1.0,
 }
 
 ## Pose-specific act presentation. Missionary owns its framing/pitch; standing owns the glance,
@@ -571,8 +572,11 @@ static func jiggle_controls() -> Dictionary:
 	if block is Dictionary:
 		out["radius"] = float((block as Dictionary).get("radius", out["radius"]))
 		out["intensity"] = float((block as Dictionary).get("intensity", out["intensity"]))
+		out["smack_intensity"] = float((block as Dictionary).get(
+			"smack_intensity", out["smack_intensity"]))
 	out["radius"] = maxf(0.02, float(out["radius"]))
 	out["intensity"] = maxf(0.0, float(out["intensity"]))
+	out["smack_intensity"] = maxf(0.0, float(out["smack_intensity"]))
 	return out
 
 
@@ -585,6 +589,9 @@ static func save_jiggle_controls(values: Dictionary) -> void:
 		"radius", controls.get("radius", JIGGLE_DEFAULTS["radius"]))))
 	controls["intensity"] = maxf(0.0, float(values.get(
 		"intensity", controls.get("intensity", JIGGLE_DEFAULTS["intensity"]))))
+	controls["smack_intensity"] = maxf(0.0, float(values.get(
+		"smack_intensity", controls.get("smack_intensity",
+		JIGGLE_DEFAULTS["smack_intensity"]))))
 	data["jiggle"] = controls
 	_write(data)
 

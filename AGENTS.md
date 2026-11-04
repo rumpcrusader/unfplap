@@ -250,14 +250,13 @@ body-relative axes.
   cancels the same translation on the pelvis. The hips stay planted behind her rump while the
   torso hinges over her, instead of the whole body sliding forward and clipping. Pull-back
   still moves the whole body away.
-- `ANON_THRUST_SWAY_M = 0.02` moves the pelvis back on the inward stroke, so Anon's chest and
-  upper body travel forward and back with the thrust.
 - The hip is **depth-driven**. `_hip_phase` is the mouse `depth` low-passed by
-  `HIP_SMOOTH_S = 0.04 s`; `apply_anon_thrust()` moves the hip by
-  `THRUST_MAX_M = 0.045 * body_scale * phase * thrust.travel` (default `1.0`), and
-  `apply_anon_lean()` counter-moves the pelvis
-  by `ANON_THRUST_SWAY_M * phase * lean_scale`. There is no speed/strength attack and no return
-  spring.
+  `HIP_SMOOTH_S = 0.04 s`. The base HipsTarget is the fixed limit at her rump;
+  `anon_hip_thrust.gd` moves only the Hips bone backward by
+  `THRUST_MAX_M = 0.045 * body_scale * thrust.travel * (1 - phase)`, so depth 0 is the full
+  backset and depth 1 returns to the limit. The modifier restores the Spine and both UpperLegs
+  to their pre-offset global poses, so the torso, head and legs do not follow. There is no
+  speed/strength attack and no return spring.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
   speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `_camera_thrust_tick()` follows it with one critically
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
@@ -386,11 +385,18 @@ body-relative axes.
   Every thrust also calls `tail.thrust(strength)`: a short `JIGGLE_DECAY = 3.6` /
   `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the dock
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). A smack
-  calls the same tail impulse through `_on_smack_impact()` at `1.0 × _jiggle_size_scale()`,
-  gated by `thrust_tail_dock_jiggle`; a debug line reports the resulting amount. This is the
-  cheapest way to make rump jiggle and tail read as one motion; the shader itself stays native.
+  calls the same tail impulse through `_on_smack_impact()` at
+  `1.0 × _jiggle_size_scale() × smack_intensity`, gated by `thrust_tail_dock_jiggle`; the
+  thrust tail impulse also scales with `jiggle.intensity`. A debug line reports the resulting
+  amount. This is the cheapest way to make rump jiggle and tail read as one motion; the shader
+  itself stays native.
+  The game's tail anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair
+  `mPelvis`, so rotating `mTail1..6` alone cannot move the base. `tail_pose` also translates the
+  hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave, restoring
+  `mChest`/`mNeck`/`mHead` so only the tail base and chain move.
 - The rump shader wobble is tuned by the `jiggle` block: `radius` (default `0.26 m`) spreads it
-  across the whole flank, and `intensity` (default `0.55×`) scales the thrust amount. The runtime
+  across the whole flank, `intensity` (default `0.55×`) scales the thrust amount, and
+  `smack_intensity` (default `1.0×`) scales the act smack amount. The runtime
   sets `jiggle_radius` on every active `_flank._jiggle_targets` material and restores the override
   at act end, so stock smacks keep the shader default `0.12 m`. `apply_live_settings()` updates
   the radius on an active wobble.
@@ -931,10 +937,11 @@ examples.
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `1000`; `thrust.travel` is the hip travel multiplier,
+  `thrust.pixels_per_full` defaults to `1000`; `thrust.travel` is the hip backset multiplier,
   default `1.0`.
-- `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`) and `intensity`
-  multiplier (default `0.55`). It is read live with the other thrust controls.
+- `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
+  `intensity` multiplier (default `0.55`) and the act-smack `smack_intensity` multiplier
+  (default `1.0`). It is read live with the other thrust controls.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
@@ -954,10 +961,11 @@ rump blush. Unknown settings keys are ignored.
   one. `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
 - The injected settings tab has nested **Settings** and **Debug** sub-tabs. **Settings** holds
   the four player-facing flags (`hud_readouts`, `captions_on_top`, `press_y_starts_sex`,
-  `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`, hip travel
+  `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`, hip backset
   `0.25…2.0×`) and **Character taste**. **Debug** holds every other flag, the **Camera thrust**
-  section (surge and bob, `0…100%`), the **Thrust jiggle** section (radius and intensity), the
-  **Act presentation** section split into **Missionary** and **Standing** (standing includes
+  section (surge and bob, `0…100%`), the **Thrust jiggle** section (radius, thrust intensity
+  and smack intensity), the **Act presentation** section split into **Missionary** and
+  **Standing** (standing includes
   caress palm distance, size-selected palm scale, body-part ignores, and the smack raise height,
   palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There are no Save
   buttons: each control writes its own block and calls `apply_live_settings()` so the active act

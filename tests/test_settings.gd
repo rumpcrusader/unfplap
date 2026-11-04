@@ -150,11 +150,15 @@ func run() -> void:
 		"default jiggle radius")
 	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.55),
 		"default jiggle intensity")
+	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 1.0),
+		"default smack jiggle intensity")
 	var jiggle_controls := SETTINGS.jiggle_controls()
 	check(float(jiggle_controls.get("radius", -1.0)) >= 0.02,
 		"runtime jiggle radius in range")
 	check(float(jiggle_controls.get("intensity", -1.0)) >= 0.0,
 		"runtime jiggle intensity in range")
+	check(float(jiggle_controls.get("smack_intensity", -1.0)) >= 0.0,
+		"runtime smack jiggle intensity in range")
 	var camera_defaults: Dictionary = defaults.get("camera_thrust", {})
 	check(near(float(camera_defaults.get("surge", -1.0)), 1.0), "default camera surge full")
 	check(near(float(camera_defaults.get("bob", -1.0)), 0.35), "default camera bob amount")

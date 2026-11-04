@@ -542,7 +542,7 @@ func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	pixels.value = float(controls.get("pixels_per_full", 480.0))
 
 	var travel_label := Label.new()
-	travel_label.text = "Hip travel"
+	travel_label.text = "Hip back-off"
 	travel_label.add_theme_font_size_override("font_size", font_size)
 	form.add_child(travel_label)
 	var travel := SpinBox.new()
@@ -630,16 +630,22 @@ func _add_jiggle_section(list: VBoxContainer, font_size: int) -> void:
 	var intensity := _settings_spin_free(form, "Intensity", 0.05,
 		float(controls.get("intensity", 0.55)), font_size)
 	intensity.suffix = "×"
+	var smack_intensity := _settings_spin_free(form, "Smack intensity", 0.05,
+		float(controls.get("smack_intensity", 1.0)), font_size)
+	smack_intensity.suffix = "×"
 	var save := func(_value: float) -> void:
-		_save_jiggle_controls(radius, intensity)
+		_save_jiggle_controls(radius, intensity, smack_intensity)
 	radius.value_changed.connect(save)
 	intensity.value_changed.connect(save)
+	smack_intensity.value_changed.connect(save)
 
 
-func _save_jiggle_controls(radius: SpinBox, intensity: SpinBox) -> void:
+func _save_jiggle_controls(radius: SpinBox, intensity: SpinBox,
+		smack_intensity: SpinBox) -> void:
 	SETTINGS.save_jiggle_controls({
 		"radius": radius.value / 100.0,
 		"intensity": intensity.value,
+		"smack_intensity": smack_intensity.value,
 	})
 	_apply_live_settings()
 

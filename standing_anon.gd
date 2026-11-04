@@ -99,7 +99,7 @@ func _install_anon_thrust() -> void:
 	var driver: Node3D = ANON_THRUST.new()
 	driver.name = "UnfplapAnonThrust"
 	driver.set("original", original)
-	driver.set("runtime", self)
+	driver.set("runtime", runtime)
 	main.player.add_child(driver)
 	avatar.set("desktop_pose_driver", driver)
 	_anon_thrust_driver = driver

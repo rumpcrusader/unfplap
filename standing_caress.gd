@@ -86,6 +86,7 @@ var _profile: Dictionary = {}
 var _flank: Node
 
 var _reach_shoulder := ""
+var _reach_holding := false
 var _reach_hand_from := Transform3D.IDENTITY
 var _reach_hand_rest := Transform3D.IDENTITY
 var _reach_hand_rest_valid := false
@@ -891,7 +892,7 @@ func tick(delta: float) -> void:
 	if not is_instance_valid(runtime):
 		return
 	_sync()
-	if not _reach_shoulder.is_empty():
+	if _reach_holding:
 		_set_reach_hand()
 	_caress_tick(delta)
 	_smack_swing_tick()
@@ -906,6 +907,7 @@ func stop_inputs() -> void:
 func start_reach(shoulder: String) -> void:
 	_sync()
 	_reach_shoulder = shoulder
+	_reach_holding = true
 	_reach_hand_returning = false
 	_reach_hand_started = 0
 	_reach_hand_logged = false
@@ -913,6 +915,7 @@ func start_reach(shoulder: String) -> void:
 
 
 func end_reach() -> void:
+	_reach_holding = false
 	_begin_reach_release()
 
 
@@ -921,6 +924,7 @@ func reset() -> void:
 	_end_smack_swing()
 	_clear_reach_hand()
 	_reach_shoulder = ""
+	_reach_holding = false
 	_palm_contacts.clear()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}

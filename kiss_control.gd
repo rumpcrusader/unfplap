@@ -95,7 +95,7 @@ func _start_kiss_leg_pin() -> void:
 	_kiss_leg_pin = KISS_LEGS.new()
 	_kiss_leg_pin.name = "UnfplapKissLegPin"
 	_kiss_leg_pin.set("mare", pony)
-	_kiss_leg_pin.set("runtime", self)
+	_kiss_leg_pin.set("runtime", runtime)
 	skeleton.add_child(_kiss_leg_pin)
 	skeleton.move_child(_kiss_leg_pin, skeleton.get_child_count() - 1)
 	_kiss_leg_pin.call("capture")

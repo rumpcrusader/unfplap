@@ -192,10 +192,10 @@ body-relative axes.
   temporary child of the bed with `soft_support`; using it as the bed leaves the act holding a
   freed node once the cuddle ends, which makes the anchor, camera and pose fall back differently
   on every bed. `real_bed()` walks to the actual `mattress_top` bed (or the support's parent).
-- `pose1_ignore_bed_collision` (Debug, default on) adds collision exceptions between the pony and
-  the bed's real `PhysicsBody3D` children while the missionary act runs. It skips support bodies
-  (`shared_rest_support` ancestors), keeps the bed collider for support rays, `_measure_soft`
-  and Anon's seat, and removes every exception before she stands at restore.
+- Do not disable or ignore the bed's collider while the missionary act runs. The game's posture
+  uses it for `_measure_soft()`, `soft_sink`, support recovery and Anon's seat; collision
+  exceptions let her sink and trigger the fall/re-seat loop. The bed anchor fix above is the
+  supported way to keep the pose stable.
 - Start waits for player rest ≥ 0.99 and the pony's `lie_down` to settle.
 
 ### Pose 2: horse
@@ -876,7 +876,6 @@ examples.
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
-| `pose1_ignore_bed_collision` | `true` | collision exceptions between the missionary pony and the real bed's bodies; support rays and seat stay |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
 `act_audio.gd` applies `SLIDE_GAIN_DB = -3.1` in `play_slide()`, so every slide-in/out cue is

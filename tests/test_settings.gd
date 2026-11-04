@@ -427,12 +427,44 @@ func _check_schema(defaults: Dictionary) -> void:
 	# Unknown paths must read as off, never on.
 	check(not TUNABLES.get_bool("nope"), "unknown tunable reads off")
 	check(near(TUNABLES.get_float("nope"), 0.0), "unknown number reads zero")
+	_check_api_names()
+	_check_write_round_trip()
 	var feature_block := TUNABLES.block("features.")
 	check(feature_block.size() == SETTINGS.feature_keys().size(),
 		"tunable block exposes every feature")
 	check(feature_block.has("act_foley"), "tunable block keys drop the prefix")
 
 	_check_panels()
+
+
+## A script constant resolves a built-in before a same-named static function, so an API name that
+## exists on Script/GDScript would silently call the built-in instead of ours.
+func _check_api_names() -> void:
+	var names := ["get_bool", "get_float", "get_int", "get_string", "get_list", "get_value",
+		"set_value", "reset_value", "block", "reload_settings", "hotkey_action", "run_action",
+		"data", "reload_file", "write_setting", "taste", "pose", "template_for", "features",
+		"feature", "build", "build_actions"]
+	var clashes: Array = []
+	for name: String in names:
+		if ClassDB.class_has_method("GDScript", name):
+			clashes.append(name)
+	check(clashes.is_empty(), "no settings API name shadows a Script built-in: %s" % str(clashes))
+
+
+## A write must never leave the resolved table half-filled: setting one path before any read has
+## to keep every other tunable readable. The original value is restored at the end.
+func _check_write_round_trip() -> void:
+	var original := TUNABLES.get_float("jiggle.intensity")
+	TUNABLES.reload_settings()
+	TUNABLES.set_value("jiggle.intensity", 0.42)
+	check(near(TUNABLES.get_float("jiggle.intensity"), 0.42), "set_value round-trips")
+	check(TUNABLES.get_bool("features.act_foley") == bool(SCHEMA.default_value("features.act_foley")),
+		"a cold write keeps other tunables readable")
+	check(TUNABLES.get_float("jiggle.radius") == float(SCHEMA.default_value("jiggle.radius")) \
+			or TUNABLES.get_float("jiggle.radius") > 0.0,
+		"a cold write keeps a number readable")
+	TUNABLES.set_value("jiggle.intensity", original)
+	check(near(TUNABLES.get_float("jiggle.intensity"), original), "set_value restores the original")
 
 
 ## Every schema entry must render exactly one row in its tab, and every section must have a

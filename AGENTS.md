@@ -947,8 +947,8 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
-  changes. Opening the Unfplap settings tab calls `SETTINGS.reload()`, so a hand-edited file
-  applies when the tab opens; otherwise it needs a restart.
+  changes. Opening the Unfplap settings tab calls `TUNABLES.reload_settings()`, so a hand-edited
+  file applies when the tab opens; otherwise it needs a restart.
 - Top level: `debug_logs`, `features`, `thrust`, `jiggle`, `camera_thrust`, `presentation`,
   `default` template, `characters` overrides.
 - Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read

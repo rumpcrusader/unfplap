@@ -457,7 +457,9 @@ static var generation := 0
 
 ## Drop the in-memory copy so the next read reloads the file. The settings page calls this when
 ## it opens, so a hand-edited settings.json applies without restarting the game.
-static func reload() -> void:
+## Not named `reload`: `Script` already has `reload()`, and a preloaded script constant resolves
+## the built-in instead of a same-named static function.
+static func reload_file() -> void:
 	_loaded = false
 
 
@@ -467,7 +469,9 @@ static func data() -> Dictionary:
 
 
 ## Write one dotted path (`presentation.standing.smack.raise_m`) and save the file.
-static func set_path(path: String, value: Variant) -> void:
+## Not named `set_path`: `Script` already has `set_path(path)`, and a preloaded script constant
+## resolves the built-in instead of a same-named static function.
+static func write_setting(path: String, value: Variant) -> void:
 	var data := _read()
 	var parts := path.split(".", false)
 	if parts.is_empty():

@@ -99,8 +99,11 @@ static func get_value(path: String) -> Variant:
 static func set_value(path: String, value: Variant) -> void:
 	if not SCHEMA.has(path):
 		return
+	# Resolve the whole table first: a write before any read must not leave the cache holding
+	# only this one path, or every other tunable would read as its zero value.
+	_ensure()
 	var coerced: Variant = _coerce(SCHEMA.entry(path), value)
-	SETTINGS.set_path(path, coerced)
+	SETTINGS.write_setting(path, coerced)
 	_values[path] = coerced
 	_generation = SETTINGS.generation
 
@@ -123,9 +126,10 @@ static func block(prefix: String) -> Dictionary:
 	return out
 
 
-## Re-read settings.json and drop the resolved values.
-static func reload() -> void:
-	SETTINGS.reload()
+## Re-read settings.json and drop the resolved values. Not named `reload`: `Script` already has
+## `reload()`, and a preloaded script constant resolves the built-in instead of a static function.
+static func reload_settings() -> void:
+	SETTINGS.reload_file()
 	_generation = -1
 	_values.clear()
 

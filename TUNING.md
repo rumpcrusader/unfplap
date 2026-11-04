@@ -31,7 +31,7 @@ var snapshot := TUNABLES.block("features.")   # {"act_foley": true, ...} nested 
 | `block(prefix)` | nested dictionary of every value under a dotted prefix |
 
 Reads are flat dictionary lookups. Values resolve once per settings generation and rebuild after
-a save or `TUNABLES.reload()`, so a read is cheap enough for a per-frame call.
+a save or `TUNABLES.reload_settings()`, so a read is cheap enough for a per-frame call.
 
 Act code snapshots what it reads every stroke in `runtime._snapshot_settings()` and re-runs it in
 `apply_live_settings()`. Do not add a second settings cache anywhere.
@@ -123,10 +123,12 @@ moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a ho
 
 - The schema key **is** the `settings.json` path, so a new tunable needs no migration.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
-  `TUNABLES.reload()` re-reads it; the settings page reloads when it opens.
+  `TUNABLES.reload_settings()` re-reads it; the settings page reloads when it opens.
 - Defaults for `features`, `thrust`, `jiggle`, `camera_thrust` and `presentation` are generated
   from the schema. Do not create a second defaults table.
 - Unknown keys in the file are ignored on load.
+- Never name a settings function `reload` or `set_path`: `Script` already has both, and a
+  preloaded script constant calls the built-in instead. `tests/test_settings.gd` guards this.
 
 ## Guards
 

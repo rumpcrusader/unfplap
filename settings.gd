@@ -323,12 +323,6 @@ static func load_debug_logs() -> bool:
 	return bool(data.get("debug_logs", false))
 
 
-static func save_debug_logs(on: bool) -> void:
-	var data := _read()
-	data["debug_logs"] = on
-	_write(data)
-
-
 static func act_prompt(id: String, key: String) -> String:
 	var prompts: Variant = template_for(id).get("act_prompts", {})
 	if prompts is Dictionary:
@@ -415,29 +409,6 @@ static func thrust_controls() -> Dictionary:
 	}
 
 
-## Save only the thrust block. Other settings and character overrides are preserved.
-static func save_thrust_controls(up: bool, pixels_per_full: float) -> void:
-	var data := _read()
-	var block: Variant = data.get("thrust", {})
-	if not block is Dictionary:
-		block = {}
-	var controls: Dictionary = block
-	controls["orientation"] = "up" if up else "down"
-	controls["pixels_per_full"] = clampf(pixels_per_full, 240.0, 1200.0)
-	data["thrust"] = controls
-	_write(data)
-
-
-## Save only the hip travel multiplier. The orientation and sensitivity are preserved.
-static func save_thrust_travel(travel: float) -> void:
-	var data := _read()
-	var block: Variant = data.get("thrust", {})
-	var controls: Dictionary = block if block is Dictionary else {}
-	controls["travel"] = clampf(travel, 0.0, 3.0)
-	data["thrust"] = controls
-	_write(data)
-
-
 ## The shared rump wobble radius and thrust intensity. Read live; both are experimental.
 static func jiggle_controls() -> Dictionary:
 	var data := _read()
@@ -454,22 +425,6 @@ static func jiggle_controls() -> Dictionary:
 	return out
 
 
-## Save the jiggle block. Other settings and character overrides are preserved.
-static func save_jiggle_controls(values: Dictionary) -> void:
-	var data := _read()
-	var block: Variant = data.get("jiggle", {})
-	var controls: Dictionary = block if block is Dictionary else {}
-	controls["radius"] = maxf(0.02, float(values.get(
-		"radius", controls.get("radius", SCHEMA.default_value("jiggle.radius")))))
-	controls["intensity"] = maxf(0.0, float(values.get(
-		"intensity", controls.get("intensity", SCHEMA.default_value("jiggle.intensity")))))
-	controls["smack_intensity"] = maxf(0.0, float(values.get(
-		"smack_intensity", controls.get("smack_intensity",
-		SCHEMA.default_value("jiggle.smack_intensity")))))
-	data["jiggle"] = controls
-	_write(data)
-
-
 ## The two camera-thrust amounts. Read live; 0 disables that channel.
 static func camera_thrust_controls() -> Dictionary:
 	var data := _read()
@@ -482,19 +437,6 @@ static func camera_thrust_controls() -> Dictionary:
 	out["surge"] = clampf(float(out["surge"]), 0.0, 1.0)
 	out["bob"] = clampf(float(out["bob"]), 0.0, 1.0)
 	return out
-
-
-## Save only the camera-thrust block. Other settings and character overrides are preserved.
-static func save_camera_thrust_controls(values: Dictionary) -> void:
-	var data := _read()
-	var block: Variant = data.get("camera_thrust", {})
-	var controls: Dictionary = block if block is Dictionary else {}
-	controls["surge"] = clampf(float(values.get(
-		"surge", controls.get("surge", 1.0))), 0.0, 1.0)
-	controls["bob"] = clampf(float(values.get(
-		"bob", controls.get("bob", 0.35))), 0.0, 1.0)
-	data["camera_thrust"] = controls
-	_write(data)
 
 
 ## One pose's presentation block, merged with that pose's defaults and read live.
@@ -554,22 +496,6 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 		kiss["forelegs"] = forelegs if forelegs in ["planted", "base"] else "planted"
 		out["kiss"] = kiss
 	return out
-
-
-## Write one presentation row. `values` may contain a nested `caress` dictionary; the merge
-## preserves every sibling and the other pose's block.
-static func save_presentation_controls(pose_id: String, values: Dictionary) -> void:
-	var data := _read()
-	var block: Variant = data.get("presentation", {})
-	if not block is Dictionary:
-		block = {}
-	var poses: Dictionary = block
-	var current: Variant = poses.get(pose_id, {})
-	if not current is Dictionary:
-		current = {}
-	poses[pose_id] = _merge(current, values)
-	data["presentation"] = poses
-	_write(data)
 
 
 ## Move a settings block written with the legacy pose id onto the current pose id. The new key
@@ -778,18 +704,6 @@ static func feature(name: String) -> bool:
 	if not feature_defaults().has(name):
 		return false
 	return bool(features().get(name, false))
-
-
-static func save_feature(name: String, value: bool) -> void:
-	if not feature_defaults().has(name):
-		return
-	var data := _read()
-	var block: Variant = data.get("features", {})
-	if not block is Dictionary:
-		block = {}
-	(block as Dictionary)[name] = value
-	data["features"] = block
-	_write(data)
 
 
 ## Default template plus catalog pose/taste/prompt defaults. Kept as a function so the

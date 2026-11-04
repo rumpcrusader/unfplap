@@ -103,6 +103,7 @@ mods/unfplap/
   preferences.gd    pure taste profile, intensity/rhythm and talk classification
   tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
   tunables.gd       the one typed API for reading and writing those settings
+  tunables_ui.gd    the only file that builds settings widgets: grouped Settings/Debug panels
   utterance.gd      pure prompt formatting
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
@@ -994,21 +995,16 @@ rump blush. Unknown settings keys are ignored.
     obsolete camera key is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
   (sensitivity, glance speed, percentages, taste). Experimental tuning controls stay unbounded.
-- Feature flags are split: `SETTINGS.FEATURE_USER` is the player-facing **Settings** tab; every
-  other non-hidden flag is in the **Debug** tab. Each row uses `FEATURE_INFO` for a human label
-  and a help line. Edits apply live during an act; `live` flags also apply immediately outside
-  one. `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
-- The injected settings tab has nested **Settings** and **Debug** sub-tabs. **Settings** holds
-  the four player-facing flags (`hud_readouts`, `captions_on_top`, `press_y_starts_sex`,
-  `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`, hip backset
-  `0.25…2.0×`) and **Character taste**. **Debug** holds the **Debug logs** checkbox, every other
-  flag, the **Camera thrust** section (surge and bob, `0…100%`), the **Thrust jiggle** section
-  (radius, thrust intensity and smack intensity), the **Act presentation** section split into
-  **Missionary** and **Standing** (standing includes idle side sway, caress palm distance, oval
-  radii, size-selected palm scale, body-part ignores, and the smack raise height, hind offset,
-  height, palm arc, palm pitch and raise/return speeds), and the offer / ear-pin debug controls.
-  There are no Save buttons: each control writes its own block and calls `apply_live_settings()`
-  so the active act updates immediately.
+- Feature flags are split by the schema's `tab`: entries marked `"settings"` are the
+  player-facing page, every other flag is in the Debug page. Label, help and section all come
+  from the schema entry; there is no separate feature info table.
+- The injected tab has nested **Settings** and **Debug** sub-tabs, both drawn from the schema by
+  `tunables_ui.gd`: one row per entry, grouped into click-to-collapse sections from each entry's
+  `group` (`"Standing › Smack"` is a subheading under `Standing`). **Settings** holds the
+  player-facing flags, **Thrust**, and the hand-built **Character taste** form (a per-mare profile,
+  not a global tunable). **Debug** holds every other entry plus the **Actions** buttons. There are
+  no Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
+  refreshes the flags, the caption position and the active act.
 - `debug_logs` defaults to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

@@ -6,6 +6,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
 
 var failures := 0
 var checks := 0
@@ -443,3 +444,44 @@ func _check_schema(defaults: Dictionary) -> void:
 	check(feature_block.size() == SETTINGS.feature_keys().size(),
 		"tunable block exposes every feature")
 	check(feature_block.has("act_foley"), "tunable block keys drop the prefix")
+
+	_check_panels()
+
+
+## Every schema entry must render exactly one row in its tab, and every section must have a
+## heading. This is the guard that keeps "add a schema line" sufficient for the panel.
+func _check_panels() -> void:
+	for tab: String in [SCHEMA.SETTINGS_TAB, SCHEMA.DEBUG_TAB]:
+		var list := VBoxContainer.new()
+		TUNABLES_UI.build(list, tab, 16, null, Callable())
+		var labels: Array = []
+		_collect_labels(list, labels)
+		var missing: Array = []
+		for path: String in SCHEMA.all():
+			var item := SCHEMA.entry(path)
+			if str(item.get("tab", SCHEMA.DEBUG_TAB)) != tab:
+				continue
+			if not labels.has(str(item.get("label", ""))):
+				missing.append(path)
+		check(missing.is_empty(), "%s tab draws every entry (%s)" % [tab, str(missing)])
+		for group: String in SCHEMA.groups(tab):
+			var heading := group.split("›", true, 1)[0].strip_edges()
+			check(labels.has(heading), "%s tab heading for %s" % [tab, group])
+		list.free()
+	var actions := VBoxContainer.new()
+	TUNABLES_UI.build_actions(actions, 16, null)
+	check(actions.get_child_count() == TUNABLES.ACTIONS.size() + 1,
+		"actions section draws one button per action plus its status")
+	actions.free()
+
+
+func _collect_labels(node: Node, out: Array) -> void:
+	var text := ""
+	if node is Label:
+		text = (node as Label).text
+	elif node is Button:
+		text = (node as Button).text.strip_edges()
+	if not text.is_empty() and not out.has(text):
+		out.append(text)
+	for child: Node in node.get_children():
+		_collect_labels(child, out)

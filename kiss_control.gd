@@ -535,11 +535,8 @@ func end_standing() -> void:
 	# Releasing the kiss must not leave the shoulder reach's forced over-the-shoulder glance
 	# latched while F is still held.
 	runtime.set("_forced_glance", "")
-	runtime.set("_glance_left", 0.0)
-	runtime.set("_glance_back", false)
-	runtime.set("_glance_wait", randf_range(
-		float(_pose_cfg.get("glance_min", 5.0)),
-		float(_pose_cfg.get("glance_max", 9.0))))
+	var cam: Variant = runtime.call("_standing_camera_controller")
+	cam.clear_glance()
 	_log("standing kiss stop")
 
 

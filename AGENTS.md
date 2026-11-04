@@ -115,6 +115,8 @@ mods/unfplap/
   standing_caress.gd  standing caress, shoulder reach, smack and palm-on-coat contact
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  frozen missionary shot, aim, avatar hiding and start snapshot
+  standing_camera.gd  standing look, glance, facing lock and camera offsets
+  standing_anon.gd  standing hip thrust wrapper, torso lean counter and palm scale
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
   palm_scale.gd     standing hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven standing upper-body sway with planted forehooves

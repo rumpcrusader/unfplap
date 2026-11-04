@@ -609,13 +609,13 @@ examples.
   `F` hold kiss in standing, mouse right smacks. They are available in `ACTIVE`, `CLIMAX`, and the
   standing `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's hug/deep-kiss key;
   the act consumes it without binding it so a hug cannot end the act's kiss.
-- `Y` starts an act when idle and is a `0.35 s` hold while active, matching bridal-carry
-  initiation. A tap does nothing. In `ACTIVE`, hold Y cancels with 0 pony climaxes and enters
-  afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends afterglow; Y is ignored
-  in `RESTORE` except for event consumption. `T` remains the game's talk key and is not
-  consumed; the runtime watches player turns as a scoring input. `Q`/`E` are the side lean;
-  during an act the interaction keys are still consumed so the game's stand-up action cannot
-  interrupt the scene.
+- `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
+  bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
+  climaxes and enters afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends
+  afterglow; Y is ignored in `RESTORE` except for event consumption. `T` remains the game's talk
+  key and is not consumed; the runtime watches player turns as a scoring input. `Q`/`E` are the
+  side lean; during an act the interaction keys are still consumed so the game's stand-up action
+  cannot interrupt the scene.
 - States: `IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW → RESTORE` for both poses.
 - Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in afterglow.
 - Aftercare starts only at final readiness ≥ 10; it holds navigator ownership for 10 s and
@@ -772,12 +772,12 @@ examples.
   `#f4f1ff` with a `#1a1624` outline instead of a drop shadow, and muted `#f4f1ff` at 60% for
   modifiers. `hud.gd` exposes `text_label()`, `keycap()`, `button_icon()` and `prompt_row()` as the
   one style source.
-- The offer hint is `OFFER_HINT_LEAD = "Hold:"` plus `OFFER_HINT = "Make love"` in the game's own
-  prompt row: a `button_y` icon at the row's 52 px scale beside 30 px words, placed by
-  `hud.prompt_row()` so it reads like `Hold: Bridal carry`. The lead stays ink; the action uses
-  `ACCENT` (`#ffa8c7`, the same pink as the readiness fill). Without that row (VR or no
-  `InteractionHints`) the same row is built into the HUD's own centered prompt above the caption
-  line.
+- The offer hint is `OFFER_HINT = "Make love"` in the game's own prompt row: a `button_y` icon at
+  the row's 52 px scale beside 30 px words, placed by `hud.prompt_row()` so it sits beside base
+  prompts. A single Y press starts the act (`input.gd` calls `try_start()`), so the hint is a tap
+  prompt like `G · Carry`, not a hold. The action uses `ACCENT` (`#ffa8c7`, the same pink as the
+  readiness fill). Without that row (VR or no `InteractionHints`) the same row is built into the
+  HUD's own centered prompt above the caption line.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
   controller icon, a muted `Hold`/blank modifier column, and one description. Rows list mouse
   thrust, W/S, Q/E, A/D, Z/C caress movement, F (`Hold`), mouse right and Y (`Hold`); the Y

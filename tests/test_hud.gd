@@ -53,18 +53,13 @@ func _check_style() -> void:
 	var icon: TextureRect = HUD.button_icon("key_q", 28.0)
 	check(icon != null and icon.texture != null, "prompt icon resolves")
 	check(HUD.button_icon("no_such_icon", 28.0) == null, "missing prompt icon is null")
-	var label := HUD.text_label("Hold: Make love", 30)
+	var label := HUD.text_label("Make love", 30)
 	check(label.get_theme_constant("outline_size") > 0, "words use the prompt outline")
 	check(label.get_theme_color("font_color") == HUD.INK, "words are ink")
 	check(label.get_theme_color("font_outline_color") == HUD.SHADE, "outline is the prompt shade")
-	var row: HBoxContainer = HUD.prompt_row("button_y", "Hold:", "Make love")
+	var row: HBoxContainer = HUD.prompt_row("button_y", "Make love")
 	check(row.get_child_count() == 2, "prompt row is icon plus words")
-	var words := row.get_child(1) as HBoxContainer
-	check(words != null and words.get_child_count() == 2, "prompt words are lead plus action")
-	var lead := words.get_child(0) as Label
-	check(lead != null and lead.text == "Hold:" and lead.get_theme_color("font_color") == HUD.INK,
-		"prompt lead stays ink")
-	var action := words.get_child(1) as Label
+	var action := row.get_child(1) as Label
 	check(action != null and action.text == "Make love", "prompt row reads the offer action")
 	check(action.get_theme_color("font_color") == HUD.ACCENT, "offer action is the pink accent")
 	check(row.get_child(0) is TextureRect, "prompt row starts with the game icon")
@@ -109,7 +104,7 @@ func _check_controls() -> void:
 	stub.pose_id = "missionary"
 	hud.call("update_from", stub, true)
 	check((rows.get("forward") as Control).visible == false, "missionary afterglow keeps only Y")
-	hud.call("show_prompt", "Hold:", "Make love")
+	hud.call("show_prompt", "Make love")
 	check((hud.get("_prompt") as Control).visible, "fallback prompt shows")
 	check((hud.get("_prompt_row") as HBoxContainer).get_child_count() == 2, "fallback prompt is a row")
 	hud.call("hide_prompt")

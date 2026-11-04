@@ -48,7 +48,7 @@ Requires Godot 4.5.x and `python3`.
 
 ```sh
 ./build.sh
-# -> dist/unfplap.pck
+# -> dist/unfplap-<version>.pck
 
 ./build.sh --no-extends   # release pack for games that ship compiled .gdc scripts
 ./build.sh --out /tmp/unfplap.pck
@@ -65,4 +65,4 @@ packed `mod.json`; source runs keep it. The official
 `tools/modding/build_mod.gd` command still works for quick builds, but packs the whole folder.
 
 On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests, and on a `v*` tag it
-builds with `--no-extends` and attaches `dist/unfplap.pck` to a GitHub release.
+builds with `--no-extends` and attaches `dist/unfplap-<version>.pck` to a GitHub release.

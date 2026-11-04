@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build one standalone mod pack from this repository.
 #
-#   ./build.sh                     -> dist/unfplap.pck
+#   ./build.sh                     -> dist/unfplap-<version>.pck
 #   ./build.sh --out FILE.pck      -> FILE.pck
 #   ./build.sh --no-extends        -> release pack for compiled game builds
 #   GODOT=/path/to/godot ./build.sh
@@ -58,12 +58,17 @@ if [ ! -f "$ROOT/mod.json" ] || [ ! -f "$ROOT/.pckignore" ]; then
 fi
 
 ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1], encoding="utf-8"))["id"])' "$ROOT/mod.json")"
+VERSION="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$ROOT/mod.json")"
 if ! [[ "$ID" =~ ^[a-z0-9_]{1,40}$ ]]; then
 	echo "mod.json id is not a valid mod id: $ID" >&2
 	exit 1
 fi
+if [ -z "$VERSION" ]; then
+	echo "mod.json version is empty." >&2
+	exit 1
+fi
 
-if [ -z "$OUT" ]; then OUT="$ROOT/dist/$ID.pck"; fi
+if [ -z "$OUT" ]; then OUT="$ROOT/dist/$ID-$VERSION.pck"; fi
 mkdir -p "$(dirname "$OUT")"
 
 STAGE="$(mktemp -d)"

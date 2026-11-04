@@ -899,7 +899,7 @@ examples.
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
-| `act_foley` | `true` | pack thrust, slide, bed/fabric and mouth-kiss foley |
+| `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |

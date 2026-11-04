@@ -139,7 +139,7 @@ const FEATURE_INFO := {
 	},
 	"act_foley": {
 		"label": "Act foley",
-		"help": "Use the pack's thrust, slide, bed/fabric and mouth-kiss sounds. Off restores the current kiss-sample plap.",
+		"help": "Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
 		"live": true,
 	},
 	"act_vocals": {

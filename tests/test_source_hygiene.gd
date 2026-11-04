@@ -3,6 +3,11 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_source_hygiene.gd
 
 const ROOT := "res://mods/unfplap"
+const SCHEMA_PATH := "res://mods/unfplap/tunables_schema.gd"
+## Files allowed to create settings widgets. The schema panel is tunables_ui.gd; the character
+## taste form in main.gd is the one hand-built exception. Everything else must be a schema line.
+const WIDGET_FILES := ["res://mods/unfplap/tunables_ui.gd", "res://mods/unfplap/main.gd"]
+const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new("]
 var failures := 0
 var checks := 0
 
@@ -32,10 +37,40 @@ func run() -> void:
 		check(not FileAccess.get_file_as_string(ROOT.path_join(path)).contains("--no-extends"),
 			"no obsolete extension flag in %s" % path)
 	_check_preloads(files)
+	_check_tunables(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## Every literal tunable path must exist in the schema, and settings widgets may only live in
+## the schema panel and the taste form.
+func _check_tunables(files: Array[String]) -> void:
+	var schema := FileAccess.get_file_as_string(SCHEMA_PATH)
+	check(schema.contains("static func all() -> Dictionary"), "tunable schema present")
+	var paths := 0
+	var missing: Array = []
+	var widget_ok := true
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		if not WIDGET_FILES.has(path):
+			for widget: String in WIDGETS:
+				if text.contains(widget):
+					widget_ok = false
+					print("settings widget %s outside tunables_ui.gd: %s" % [widget, path])
+		var regex := RegEx.new()
+		regex.compile("TUNABLES\\.(?:get_bool|get_float|get_int|get_string|get_list|get_value|set_value|reset_value|info)\\(\\s*\"([^\"\\n]+)\"")
+		for match: RegExMatch in regex.search_all(text):
+			var used := match.get_string(1)
+			paths += 1
+			if not schema.contains("\"" + used + "\""):
+				missing.append("%s in %s" % [used, path])
+	check(widget_ok, "only tunables_ui.gd (and the taste form) create settings widgets")
+	check(paths > 5, "tunable paths are read through the schema API")
+	check(missing.is_empty(), "every literal tunable path exists in the schema: %s" % str(missing))
 
 
 func _collect(dir_path: String, out: Array[String]) -> void:

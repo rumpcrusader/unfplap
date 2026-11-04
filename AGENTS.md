@@ -14,7 +14,8 @@ Do not start implementation until you have read the required files for the area 
 | ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `preferences.gd`, `utterance.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
-| Settings or character profiles | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
+| Any setting, flag or debug control | `TUNING.md`, `tunables_schema.gd`, `tunables.gd` |
+| Character profiles or taste | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md` |
 
 ## Identity and scope
@@ -938,6 +939,11 @@ examples.
 
 ## Settings and persistence
 
+**Every global setting is a tunable.** Add, read and edit them only through `tunables_schema.gd`
+(one line per entry) and `tunables.gd` (typed API); `tunables_ui.gd` draws the panels. Never add a
+widget, a defaults constant or a save function for a setting anywhere else, and never clamp a
+debug value. The full contract, including the three-step recipe, is `TUNING.md`.
+
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
@@ -1038,7 +1044,8 @@ This is mandatory.
   - Features are concise, high-level and one sentence each. No history, implementation detail
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
-- Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md` and `WORKFLOW.md` consistent.
+- Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md`, `TUNING.md` and `WORKFLOW.md`
+  consistent.
 
 ## Known constraints
 

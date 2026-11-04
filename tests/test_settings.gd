@@ -117,6 +117,8 @@ func run() -> void:
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
 	check(bool(feature_block.get("thrust_tail_dock_jiggle", false)),
 		"tail/dock jiggle on by default")
+	check(bool(feature_block.get("standing_plant_feet", false)),
+		"standing feet plant on by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
@@ -211,9 +213,15 @@ func run() -> void:
 		"default kiss lean drop")
 	check(str(kiss_defaults.get("forelegs", "")) == "planted",
 		"default kiss forelegs planted")
+	check(near(float(standing_defaults.get("idle_sway_side", -1.0)), 0.0084),
+		"default idle side sway")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
 		"default caress palm distance")
+	check(near(float(caress_defaults.get("oval_across_m", 0.0)), 0.053625),
+		"default caress oval across")
+	check(near(float(caress_defaults.get("oval_up_m", 0.0)), 0.028875),
+		"default caress oval up")
 	var scale_defaults: Dictionary = caress_defaults.get("palm_scale", {})
 	check(near(float(scale_defaults.get("canon", 0.0)), 0.75),
 		"default Canon palm scale")
@@ -226,6 +234,8 @@ func run() -> void:
 	var smack_defaults: Dictionary = standing_defaults.get("smack", {})
 	check(near(float(smack_defaults.get("raise_m", -1.0)), 0.18),
 		"default smack raise")
+	check(near(float(smack_defaults.get("hind_m", -1.0)), 0.08),
+		"default smack hind offset")
 	check(near(float(smack_defaults.get("pitch_deg", -1.0)), 12.0),
 		"default smack pitch")
 	check(near(float(smack_defaults.get("raise_speed", -1.0)), 1.2),
@@ -328,9 +338,18 @@ func run() -> void:
 	var glance_speed := float(standing.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
+	check(float(standing.get("idle_sway_side", -1.0)) >= 0.0,
+		"runtime idle side sway is non-negative")
+	var caress_controls: Dictionary = standing.get("caress", {})
+	check(float(caress_controls.get("oval_across_m", -1.0)) >= 0.0,
+		"runtime caress oval across is non-negative")
+	check(float(caress_controls.get("oval_up_m", -1.0)) >= 0.0,
+		"runtime caress oval up is non-negative")
 	var smack_controls: Dictionary = standing.get("smack", {})
 	check(float(smack_controls.get("raise_m", -1.0)) >= 0.0,
 		"runtime smack raise is non-negative")
+	check(float(smack_controls.get("hind_m", -1.0)) >= 0.0,
+		"runtime smack hind offset is non-negative")
 	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")
 	check(float(smack_controls.get("raise_speed", 0.0)) >= 0.05,
 		"runtime smack raise speed is positive")

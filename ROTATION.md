@@ -206,8 +206,9 @@ these values here if a future pose needs that effect.
 - A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
   explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default on), a slow `0.010` forward / `0.0084` side rock
-  keeps the camera/upper body from freezing completely; both are clamped inside `-1…1`. A/D
+- With `idle_camera_sway` enabled (default on), a slow `0.010` forward /
+  `presentation.standing.idle_sway_side` (default `0.0084`) side rock keeps the camera/upper
+  body from freezing completely; both are clamped inside `-1…1`. A/D
   caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
@@ -217,6 +218,10 @@ these values here if a future pose needs that effect.
   the full backset and depth 1 returns to the limit. The modifier restores the Spine and both
   UpperLegs to their pre-offset global poses, so the torso, head and legs do not follow. There
   is no attack or return spring.
+- With `standing_plant_feet` on (default), the standing controller captures both foot targets on
+  the first act frame and rewrites them every frame after the body places them. The upper body,
+  camera lean, hands, kiss and hip thrust still move; only the feet stay planted. Off restores
+  the game's stepping and lean foot motion; the capture clears at act end.
 - Standing palms scale absolutely per body preset from
   `presentation.standing.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers `1.0`.
   The settings size selector edits each preset. `palm_scale.gd` runs after BodyIK and restores
@@ -265,7 +270,8 @@ these values here if a future pose needs that effect.
   frame so it cannot rotate into her. The rub centre is lifted
   `CARESS_UP_BIAS_M = 0.05` above the profile point; a 1 Hz log reports the rub/shoulder heights,
   source, misses, switches, normal step/out angle and hand distance. The path is
-  `CARESS_OVAL_ACROSS = 1.30` along the body and `CARESS_OVAL_UP = 0.70` vertically. Point
+  `presentation.standing.caress.oval_across_m` (default `5.36 cm`) along the body and
+  `oval_up_m` (default `2.89 cm`) vertically, both times the pony size scale. Point
   offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
   between hands), Same Height and Hoers step up from there; the contact query snaps those points
   to the coat. Both keys can run simultaneously; a tap latches that hand until the next tap.
@@ -284,10 +290,11 @@ these values here if a future pose needs that effect.
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. Standing targets the flank patch: the live caress point when that hand's contact
   source is `flank`; a free-hand smack uses the chosen cheek just below its mark centre,
-  querying `SMACK_CHEEK_DROP_M = 0.03 m × body scale` below the mark centre and snapping to the
-  nearest `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius`
-  (`0.035 m` by default). That keeps a resting hand from reaching the leg. A forward lean lands
-  on the forward flank instead of reaching back to the cheek. The body hull is never the target and the rump
+  querying `SMACK_CHEEK_DROP_M = 0.03 m × body scale` below the mark centre and
+  `smack.hind_m` (default `0.08 m`) toward her rump, then snapping to the nearest
+  `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius` (`0.035 m` by
+  default). That keeps a resting hand from reaching the leg and puts the contact on the hind of
+  the flank. A forward lean lands on the forward flank instead of reaching back to the cheek. The body hull is never the target and the rump
   centre is not used; `index` only chooses which cheek decal reddens. Missionary keeps the
   mark-centre target shifted `0.08 m` up and `0.08 m` back. If a hand is already caressing, the
   slap uses that hand; if both caress, one is chosen at random. Otherwise a right lean selects

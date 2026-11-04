@@ -25,8 +25,8 @@ const CAPTION_TOP_MARGIN := 26.0
 ## the base game's tap prompts ("G · Carry"), not a hold. Only Y during an act is a hold.
 const OFFER_HINT := "Make love"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
-## Default ON. Toggle in game with Ctrl+Shift+D.
-var debug_logs := true
+## Default OFF. Toggle in the Debug settings tab.
+var debug_logs := false
 ## Cached feature flags read outside act start; SETTINGS.feature() reads the file.
 var press_y_starts_sex := false
 
@@ -371,6 +371,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	_add_thrust_section(user_list, font_size)
 	_add_taste_section(user_list, font_size)
 	var debug_list := _settings_tab_list("Debug", tabs_box)
+	_add_debug_logs_toggle(debug_list)
 	for key: String in SETTINGS.FEATURE_DEFAULTS:
 		if key in SETTINGS.FEATURE_USER or key in SETTINGS.FEATURE_HIDDEN:
 			continue
@@ -802,6 +803,12 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"torso_angle_deg": torso_angle.value})
 		_apply_live_settings())
+	var idle_sway_side := _settings_spin_free(form, "Idle side sway", 0.0005,
+		float(controls.get("idle_sway_side", 0.0084)), font_size)
+	idle_sway_side.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"idle_sway_side": idle_sway_side.value})
+		_apply_live_settings())
 
 	var kiss_heading := Label.new()
 	kiss_heading.text = "Kiss alignment"
@@ -899,6 +906,20 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"caress": {"palm_distance": palm_distance.value / 100.0}})
 		_apply_live_settings())
+	var oval_across := _settings_spin_free(caress_form, "Oval across", 0.5,
+		float(caress.get("oval_across_m", 0.04125 * 1.30)) * 100.0, font_size)
+	oval_across.suffix = " cm"
+	oval_across.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"caress": {"oval_across_m": oval_across.value / 100.0}})
+		_apply_live_settings())
+	var oval_up := _settings_spin_free(caress_form, "Oval up", 0.5,
+		float(caress.get("oval_up_m", 0.04125 * 0.70)) * 100.0, font_size)
+	oval_up.suffix = " cm"
+	oval_up.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"caress": {"oval_up_m": oval_up.value / 100.0}})
+		_apply_live_settings())
 	var scales: Dictionary = caress.get("palm_scale", {})
 	var size_label := Label.new()
 	size_label.text = "Palm size"
@@ -957,6 +978,13 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"raise_m": smack_raise.value / 100.0}})
 		_apply_live_settings())
+	var smack_hind := _settings_spin_free(smack_form, "Hind offset", 0.5,
+		float(smack.get("hind_m", 0.08)) * 100.0, font_size)
+	smack_hind.suffix = " cm"
+	smack_hind.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"hind_m": smack_hind.value / 100.0}})
+		_apply_live_settings())
 	var smack_pitch := _settings_spin_free(smack_form, "Palm pitch", 1.0,
 		float(smack.get("pitch_deg", 12.0)), font_size)
 	smack_pitch.suffix = "°"
@@ -978,6 +1006,17 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"return_speed": smack_return_speed.value}})
 		_apply_live_settings())
+
+
+func _add_debug_logs_toggle(list: VBoxContainer) -> void:
+	var debug_logs_check := CheckButton.new()
+	debug_logs_check.text = "Debug logs"
+	debug_logs_check.button_pressed = SETTINGS.load_debug_logs()
+	debug_logs_check.toggled.connect(func(on: bool) -> void:
+		SETTINGS.save_debug_logs(on)
+		debug_logs = on
+		_debug("debug logs %s" % ("ON" if on else "OFF")))
+	list.add_child(debug_logs_check)
 
 
 func _add_debug_section(list: VBoxContainer, font_size: int) -> void:

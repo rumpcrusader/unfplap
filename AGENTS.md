@@ -257,6 +257,10 @@ body-relative axes.
   backset and depth 1 returns to the limit. The modifier restores the Spine and both UpperLegs
   to their pre-offset global poses, so the torso, head and legs do not follow. There is no
   speed/strength attack and no return spring.
+- With `standing_plant_feet` on (default), the standing controller captures both foot targets on
+  the first act frame and rewrites them every frame after the body places them. The torso,
+  camera lean, hands, kiss and hip thrust still move; only the feet stay planted. Off restores
+  the game's stepping and lean foot motion; the capture clears at act end.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
   speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `_camera_thrust_tick()` follows it with one critically
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
@@ -279,7 +283,8 @@ body-relative axes.
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow rocking offset
-  (`0.010` forward / `0.0084` side, clamped inside `-1…1`). A/D caress always latches: tap once
+  (`0.010` forward / `presentation.standing.idle_sway_side`, default `0.0084`, clamped inside
+  `-1…1`). A/D caress always latches: tap once
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
@@ -512,8 +517,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `CARESS_UP_BIAS_M = 0.05` above each size profile's `up` point, and a 1 Hz log prints the rub
   and shoulder heights, source, misses, switches, normal step/out angle and driven-hand
   distance.
-  The oval is `CARESS_OVAL_ACROSS = 1.30` along the body and
-  `CARESS_OVAL_UP = 0.70` vertically, so it reads as a stroke rather than a perfect circle.
+  The oval radii are `presentation.standing.caress.oval_across_m` (default `5.36 cm`) along the
+  body and `oval_up_m` (default `2.89 cm`) vertically, both times the pony size scale; the old
+  `CARESS_OVAL_ACROSS = 1.30` / `CARESS_OVAL_UP = 0.70` ratios are fallbacks. It reads as a
+  stroke rather than a perfect circle.
   Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
   (both hands 4 cm wider), Same Height and Hoers step up from there; those choose where on the
   body to caress, then the contact query snaps the palm to the coat. Both A and D can run at
@@ -528,9 +535,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `1 = right cheek`. Standing targets the flank patch: if the striking hand is already
   caressing and its contact source is `flank`, that live point is used. A free-hand smack
   targets the chosen cheek just below its mark centre: the mark centre dropped
-  `SMACK_CHEEK_DROP_M = 0.03 m` × body scale, snapped to the nearest `FlankSurface` point and
-  jittered tangentially within `smack_zone_radius` (default `0.035 m`). That keeps a resting
-  hand from reaching the leg.
+  `SMACK_CHEEK_DROP_M = 0.03 m` × body scale and moved `smack.hind_m` (default `0.08 m`) ×
+  body scale toward her rump, snapped to the nearest `FlankSurface` point and jittered
+  tangentially within `smack_zone_radius` (default `0.035 m`). That keeps a resting hand from
+  reaching the leg and puts the contact on the hind of the flank.
   A forward lean therefore lands on the forward flank instead of reaching back to the cheek.
   The body hull is never the smack target and the rump centre is not used. Missionary keeps the
   old decal-centre target: `at` is the mark centre shifted `0.08 m` up and `0.08 m` back,
@@ -864,14 +872,15 @@ examples.
 - `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
-- `debug_logs` is read from settings and defaults OFF. There is no key toggle; it controls
-  logging only. The Debug settings tab is always present.
-- **Settings → Unfplap → Debug** exposes `Trigger bed offer (')`, `Trigger standing offer (\)` and
-  a **Pinned act ears** checkbox. The offers use the aimed mare with the nearest fallback and
-  call the same `initiation.force(runtime, pose)` path as the keys; the status label reports the
-  target or gate rejection. Because the settings page pauses the tree, an offer advances after
-  it closes. `act_ear_pin` defaults off; when off the act skips `expressions.fluster()`, keeping
-  normal ears while the blush, gaze and ear twitch remain.
+- `debug_logs` is read from settings and defaults OFF. Toggle it with the **Debug logs**
+  checkbox at the top of the Debug tab; there is no hotkey. It controls logging only. The Debug
+  settings tab is always present.
+- **Settings → Unfplap → Debug** exposes **Debug logs**, `Trigger bed offer (')`, `Trigger
+  standing offer (\)` and a **Pinned act ears** checkbox. The offers use the aimed mare with the
+  nearest fallback and call the same `initiation.force(runtime, pose)` path as the keys; the
+  status label reports the target or gate rejection. Because the settings page pauses the tree,
+  an offer advances after it closes. `act_ear_pin` defaults off; when off the act skips
+  `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready. Mouse4
   moves a mare farther than `8 m` (or on another floor) to the guest-bed approach before inviting,
   then waits for Anon's recline blend before the snuggle invite. Backtick (`` ` ``) toggles the
@@ -924,6 +933,7 @@ examples.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
+| `standing_plant_feet` | `true` | hold both Anon foot targets at their act-start points; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
@@ -946,11 +956,12 @@ rump blush. Unknown settings keys are ignored.
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
-  - `standing`: `glance_back_speed`, `torso_angle_deg`, `caress` with `palm_distance`,
-    `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`, and `smack`
-    with `raise_m` (default `0.18 m`), `pitch_deg` (default `12°`), `raise_speed` (default
-    `1.2 m/s`) and `return_speed` (default `1.9 m/s`). The smack values are
-    experimental/unbounded.
+  - `standing`: `glance_back_speed`, `torso_angle_deg`, `idle_sway_side` (default `0.0084`),
+    `caress` with `palm_distance`, `oval_across_m` (default `5.36 cm`), `oval_up_m` (default
+    `2.89 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
+    and `smack` with `raise_m` (default `0.18 m`), `hind_m` (default `0.08 m`), `pitch_deg`
+    (default `12°`), `raise_speed` (default `1.2 m/s`) and `return_speed` (default `1.9 m/s`).
+    The smack values are experimental/unbounded.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
@@ -962,11 +973,11 @@ rump blush. Unknown settings keys are ignored.
 - The injected settings tab has nested **Settings** and **Debug** sub-tabs. **Settings** holds
   the four player-facing flags (`hud_readouts`, `captions_on_top`, `press_y_starts_sex`,
   `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`, hip backset
-  `0.25…2.0×`) and **Character taste**. **Debug** holds every other flag, the **Camera thrust**
-  section (surge and bob, `0…100%`), the **Thrust jiggle** section (radius, thrust intensity
-  and smack intensity), the **Act presentation** section split into **Missionary** and
-  **Standing** (standing includes
-  caress palm distance, size-selected palm scale, body-part ignores, and the smack raise height,
+  `0.25…2.0×`) and **Character taste**. **Debug** holds the **Debug logs** checkbox, every other
+  flag, the **Camera thrust** section (surge and bob, `0…100%`), the **Thrust jiggle** section
+  (radius, thrust intensity and smack intensity), the **Act presentation** section split into
+  **Missionary** and **Standing** (standing includes idle side sway, caress palm distance, oval
+  radii, size-selected palm scale, body-part ignores, and the smack raise height, hind offset,
   palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There are no Save
   buttons: each control writes its own block and calls `apply_live_settings()` so the active act
   updates immediately.

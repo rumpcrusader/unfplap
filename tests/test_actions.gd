@@ -28,6 +28,11 @@ class FakeFlank extends Node3D:
 	var _jiggle_targets: Array = []
 	var _jiggle_amount := 0.0
 
+
+class FakeBody extends Node3D:
+	var _left_foot: Node3D
+	var _right_foot: Node3D
+
 var failures := 0
 var checks := 0
 
@@ -489,6 +494,46 @@ func run() -> void:
 	hair.free()
 	tail_mare.free()
 	tail_runtime.free()
+
+	var plant_body := FakeBody.new()
+	root.add_child(plant_body)
+	var plant_left := Node3D.new()
+	var plant_right := Node3D.new()
+	plant_body.add_child(plant_left)
+	plant_body.add_child(plant_right)
+	plant_body._left_foot = plant_left
+	plant_body._right_foot = plant_right
+	plant_left.global_position = Vector3(0.2, 0.0, 0.0)
+	plant_right.global_position = Vector3(-0.2, 0.0, 0.0)
+	var plant_hip := Node3D.new()
+	plant_body.add_child(plant_hip)
+	var plant_runtime: Node = RUNTIME.new()
+	plant_runtime.pose_id = CATALOG.STANDING
+	plant_runtime._free_camera_active = true
+	plant_runtime._features = {"standing_plant_feet": true}
+	plant_runtime.pony = Node3D.new()
+	root.add_child(plant_runtime)
+	var plant_anon := STANDING_ANON.new(plant_runtime)
+	plant_anon.set("pony", plant_runtime.pony)
+	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
+	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
+	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	check(plant_left.global_position.is_equal_approx(Vector3(0.2, 0.0, 0.0)),
+		"planted left foot holds its act-start point")
+	check(plant_right.global_position.is_equal_approx(Vector3(-0.2, 0.0, 0.0)),
+		"planted right foot holds its act-start point")
+	plant_runtime._features = {"standing_plant_feet": false}
+	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
+	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
+	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	check(plant_left.global_position.is_equal_approx(Vector3(5.0, 0.0, 0.0)),
+		"plant flag off releases the feet")
+	plant_runtime.free()
+	plant_hip.free()
+	plant_left.free()
+	plant_right.free()
+	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
 	check(not gate_runtime.can_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")

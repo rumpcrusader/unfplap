@@ -21,6 +21,9 @@ var _palm_scale: SkeletonModifier3D
 var _lower_left := Transform3D.IDENTITY
 var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
+var _plant_left := Transform3D.IDENTITY
+var _plant_right := Transform3D.IDENTITY
+var _plant_captured := false
 
 func _hip_phase_tick(delta: float) -> void:
 	if str(runtime.get("pose_id")) != CATALOG.STANDING or int(runtime.get("state")) not in [2, 3, 4]:
@@ -82,20 +85,32 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	if body != null:
 		var left: Variant = body.get("_left_foot")
 		var right: Variant = body.get("_right_foot")
-		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
-			if not _lower_captured and left is Node3D and right is Node3D:
-				_lower_left = (left as Node3D).global_transform
-				_lower_right = (right as Node3D).global_transform
-				_lower_captured = true
-				_log("standing lower body pinned")
-			if _lower_captured:
-				if left is Node3D:
-					(left as Node3D).global_transform = _lower_left
-				if right is Node3D:
-					(right as Node3D).global_transform = _lower_right
-		elif _lower_captured:
-			_lower_captured = false
-			_log("standing lower body released")
+		var planted := false
+		if left is Node3D and right is Node3D:
+			if not _plant_captured:
+				_plant_left = (left as Node3D).global_transform
+				_plant_right = (right as Node3D).global_transform
+				_plant_captured = true
+				_log("standing feet pinned")
+			if _feature_on("standing_plant_feet"):
+				(left as Node3D).global_transform = _plant_left
+				(right as Node3D).global_transform = _plant_right
+				planted = true
+		if not planted:
+			if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
+				if not _lower_captured and left is Node3D and right is Node3D:
+					_lower_left = (left as Node3D).global_transform
+					_lower_right = (right as Node3D).global_transform
+					_lower_captured = true
+					_log("standing lower body pinned")
+				if _lower_captured:
+					if left is Node3D:
+						(left as Node3D).global_transform = _lower_left
+					if right is Node3D:
+						(right as Node3D).global_transform = _lower_right
+			elif _lower_captured:
+				_lower_captured = false
+				_log("standing lower body released")
 
 
 
@@ -175,6 +190,8 @@ func _remove_palm_scale() -> void:
 
 func _remove_anon_thrust() -> void:
 	_remove_palm_scale()
+	_plant_captured = false
+	_lower_captured = false
 	if is_instance_valid(_hip_thrust):
 		_hip_thrust.queue_free()
 	_hip_thrust = null
@@ -216,6 +233,8 @@ func _init(runtime_node: Node = null) -> void:
 
 func reset_phase() -> void:
 	_hip_phase = 0.0
+	_plant_captured = false
+	_lower_captured = false
 
 
 func tick_phase(delta: float) -> void:
@@ -245,3 +264,9 @@ func refresh_palm() -> void:
 func _log(text: String) -> void:
 	if is_instance_valid(runtime) and runtime.has_method("_log"):
 		runtime.call("_log", text)
+
+
+func _feature_on(name: String) -> bool:
+	if is_instance_valid(runtime) and runtime.has_method("_feature"):
+		return bool(runtime.call("_feature", name))
+	return false

@@ -62,6 +62,7 @@ const SMACK_RAISE_BACK_M := 0.05
 ## Non-caress smack: the query sits this far below the cheek centre, and the wind-up is a
 ## backswing from behind/below rather than an outward lift. All distances scale with the pony.
 const SMACK_CHEEK_DROP_M := 0.03
+const SMACK_HIND_M := 0.08
 const SMACK_SWING_DOWN_RATIO := 0.55
 const SMACK_SWING_OUT_RATIO := 0.15
 const SMACK_CONTACT_HOLD_SECONDS := 0.03
@@ -750,6 +751,23 @@ func _palm_clearance() -> float:
 	return palm_clearance_for(scale, distance)
 
 
+## Oval radii at body scale 1.0. The old radius × ratio constants are the fallback.
+func _caress_oval_across_m() -> float:
+	var value := CARESS_RADIUS_M * CARESS_OVAL_ACROSS
+	var caress: Variant = _presentation_cfg.get("caress", {})
+	if caress is Dictionary:
+		value = float((caress as Dictionary).get("oval_across_m", value))
+	return maxf(0.0, value)
+
+
+func _caress_oval_up_m() -> float:
+	var value := CARESS_RADIUS_M * CARESS_OVAL_UP
+	var caress: Variant = _presentation_cfg.get("caress", {})
+	if caress is Dictionary:
+		value = float((caress as Dictionary).get("oval_up_m", value))
+	return maxf(0.0, value)
+
+
 ## Slow oval palm movement on the chosen flank/side. `apply` false only computes the live
 ## target, which the smack recovery uses to return to the moved oval point.
 func _set_caress_hand(side: String, apply := true) -> Transform3D:
@@ -811,8 +829,10 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	up = up.normalized()
 	var across := up.cross(normal).normalized()
 	var angle := float(_caress_phase[side])
-	var offset := (across * (cos(angle) * CARESS_OVAL_ACROSS)
-		+ up * (sin(angle) * CARESS_OVAL_UP)) * (CARESS_RADIUS_M * size)
+	var across_radius := _caress_oval_across_m() * size
+	var up_radius := _caress_oval_up_m() * size
+	var offset := across * (cos(angle) * across_radius) \
+		+ up * (sin(angle) * up_radius)
 	var hand_side := "left" if side == "L" else "right"
 	var target := _palm_on_coat_frame(hand_side, centre_world + offset, normal,
 		-pony.global_basis.z, true, _caress_ignore())
@@ -1056,7 +1076,12 @@ func _lower_cheek_query(hand_side: String) -> Vector3:
 	if not centre is Vector3:
 		return Vector3.INF
 	var world: Vector3 = _flank_frame() * (centre as Vector3)
-	return world + Vector3.DOWN * (SMACK_CHEEK_DROP_M * _smack_body_scale())
+	var back := Vector3.BACK
+	if is_instance_valid(pony):
+		back = pony.global_basis.z.normalized()
+	var scale := _smack_body_scale()
+	return world + Vector3.DOWN * (SMACK_CHEEK_DROP_M * scale) \
+		+ back * (_smack_hind_m() * scale)
 
 
 func _smack() -> void:
@@ -1302,6 +1327,10 @@ func _smack_setting(name: String, fallback: float) -> float:
 
 func _smack_raise_m() -> float:
 	return maxf(0.0, _smack_setting("raise_m", 0.18)) * _smack_body_scale()
+
+
+func _smack_hind_m() -> float:
+	return maxf(0.0, _smack_setting("hind_m", SMACK_HIND_M))
 
 
 func _smack_pitch_deg() -> float:

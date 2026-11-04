@@ -3614,10 +3614,12 @@ func _lean_tick(delta: float) -> void:
 		# Idle breathing. The feature toggle is the only way to stop the drift when the
 		# player is not leaning.
 		_hold_rock_clock += delta
+		var side_sway := maxf(0.0, float(_presentation_cfg.get(
+			"idle_sway_side", MOTION.HOLD_SWAY_SIDE)))
 		_lean_view_forward = clampf(_lean_view_forward
 			+ sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD, -1.0, 1.0)
 		_lean_view_side = clampf(_lean_view_side
-			+ sin(_hold_rock_clock * 0.57 + 1.1) * MOTION.HOLD_SWAY_SIDE, -1.0, 1.0)
+			+ sin(_hold_rock_clock * 0.57 + 1.1) * side_sway, -1.0, 1.0)
 	_lean_action_tick()
 	_kiss_controller().standing_tick()
 	_caress_controller().tick(delta)

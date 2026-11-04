@@ -76,6 +76,7 @@ const FEATURE_DEFAULTS := {
 	"missionary_body_motion": true,
 	"thrust_ear_twitch": true,
 	"thrust_tail_dock_jiggle": true,
+	"standing_plant_feet": true,
 	"allow_act_during_cuddle": true,
 	"press_y_starts_sex": false,
 	"mute_ponese_audio": true,
@@ -124,6 +125,10 @@ const FEATURE_INFO := {
 	"thrust_tail_dock_jiggle": {
 		"label": "Tail base + dock jiggle",
 		"help": "Add the tail base and dock to the rump's thrust and smack jiggle.",
+	},
+	"standing_plant_feet": {
+		"label": "Plant Anon's feet",
+		"help": "Hold both foot targets at their act-start positions. Off restores the game's stepping and lean foot motion.",
 	},
 	"allow_act_during_cuddle": {
 		"label": "Allow acts during cuddles",
@@ -200,6 +205,7 @@ const PRESENTATION_DEFAULTS := {
 	"standing": {
 		"glance_back_speed": 2.0,
 		"torso_angle_deg": 6.0,
+		"idle_sway_side": 0.0084,
 		"kiss": {
 			"mouth_right": 0.0,
 			"mouth_drop": 0.0,
@@ -212,6 +218,8 @@ const PRESENTATION_DEFAULTS := {
 		},
 		"caress": {
 			"palm_distance": 0.02,
+			"oval_across_m": 0.04125 * 1.30,
+			"oval_up_m": 0.04125 * 0.70,
 			"palm_scale": {
 				"canon": 0.75,
 				"mounting": 0.95,
@@ -222,6 +230,7 @@ const PRESENTATION_DEFAULTS := {
 		},
 		"smack": {
 			"raise_m": 0.18,
+			"hind_m": 0.08,
 			"pitch_deg": 12.0,
 			"raise_speed": 1.2,
 			"return_speed": 1.9,
@@ -455,6 +464,12 @@ static func load_debug_logs() -> bool:
 	return bool(data.get("debug_logs", false))
 
 
+static func save_debug_logs(on: bool) -> void:
+	var data := _read()
+	data["debug_logs"] = on
+	_write(data)
+
+
 static func act_prompt(id: String, key: String) -> String:
 	var prompts: Variant = template_for(id).get("act_prompts", {})
 	if prompts is Dictionary:
@@ -637,9 +652,14 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 	if pose_id == "standing":
 		out["glance_back_speed"] = clampf(float(out.get(
 			"glance_back_speed", 2.0)), 0.25, 3.0)
+		out["idle_sway_side"] = maxf(0.0, float(out.get("idle_sway_side", 0.0084)))
 		var caress: Dictionary = out.get("caress", {})
 		caress["palm_distance"] = clampf(float(caress.get("palm_distance", 0.04)),
 			0.0, 0.2)
+		caress["oval_across_m"] = maxf(0.0, float(caress.get(
+			"oval_across_m", 0.04125 * 1.30)))
+		caress["oval_up_m"] = maxf(0.0, float(caress.get(
+			"oval_up_m", 0.04125 * 0.70)))
 		var scales: Dictionary = caress.get("palm_scale", {})
 		for size: String in CARESS_SIZES:
 			scales[size] = clampf(float(scales.get(size, 1.0)), 0.25, 2.0)
@@ -655,6 +675,7 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 		out["caress"] = caress
 		var smack: Dictionary = out.get("smack", {})
 		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.18)))
+		smack["hind_m"] = maxf(0.0, float(smack.get("hind_m", 0.08)))
 		smack["pitch_deg"] = float(smack.get("pitch_deg", 12.0))
 		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 1.2)))
 		smack["return_speed"] = maxf(0.05, float(smack.get("return_speed", 1.9)))

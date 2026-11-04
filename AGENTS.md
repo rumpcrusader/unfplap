@@ -602,8 +602,10 @@ hand-giftable piece there without editing a game script. The tail bow is therefo
 uses the game's own runtime accessory idiom (`background_pony.gd`, Braeburn's hat and Vinyl's
 glasses).
 
-- `tail_bow.gd` builds the one design (two satin loops, centre knot, two hanging tails and the band
-  that ties it) as a single unskinned `MeshInstance3D` named `TailBow` with satin surfaces.
+- `tail_bow.gd` builds the one design as a single unskinned `MeshInstance3D` named `TailBow` with
+  satin surfaces: two folded satin petals gathered at a knot, and two turns of ribbon wound around
+  the tail itself. Each petal is a solid leaf with a fold ridge down its length and a rolled rim,
+  not a tube, which is what makes it read as a tied bow. There are no hanging tails yet.
 - Attachment: a `BoneAttachment3D` on the hair rig's `mTail1`, the name added to a **duplicated**
   `identity.accessories` (typed `Array[String]`; an untyped array is rejected), then
   `refresh_geometry_variant("…|tail-bow")` so both merged meshes re-gather. The merged near mesh
@@ -614,12 +616,19 @@ glasses).
   therefore computed once from the rest bone and stored as the child's local transform.
 - The hair rig node is already scaled to her size (`body_scale`), so the mesh is built at unit size
   and only `presentation.tail_bow.size` scales it. Never multiply by `body_scale` again.
-- The placement frame comes from her body's back and up axes, never from the tail bones: the hair
-  rig's rest pose holds the tail out behind her and the live tail is spring-driven, so a bone
-  direction is not a stable "down the tail".
-- The bow faces up and back off the rump, its loops spread sideways and its tails hang down her
-  body; `presentation.tail_bow.*` tunes size, outward/down offsets, outward tilt, tilt/yaw/roll,
-  band radius and the dye.
+- The bow is **tied around the tail**, not floated behind it: its origin sits on the tail axis at
+  `along_m` down the tail, its plane is square to the tail bone's own direction, and its loops stay
+  level with her body. The knot sits on the tail's outer surface.
+- The tie radius is **measured from her own tail mesh** (`tail_radius()`): the 62nd percentile of
+  the vertex radii within ±10 mm of the tie point, in the tail bone's rest frame, cached per pony
+  identity. A bushy tail's widest strand is not its body, so a max would oversize the wrap; the
+  `identity.tail_segment_radii` mid value is only the fallback when the mesh cannot be read.
+- The petal size follows that radius (`LOOP_REACH`, `LOOP_WIDTH`), so a thicker tail gets a bigger
+  bow. `presentation.tail_bow.*` tunes `size`, `along_m`, `margin_m` (wrap clearance),
+  `loop_scale`, `splay_deg`, `tilt_deg` and the dye (red by default).
+- `tests/bow_preview.gd` ties the bow on a loaded mare and writes `/tmp/opencode/bow_*.png` from
+  behind, the side and close up. Run it with the real display driver; shape work is verified by
+  looking at those images, never by guessing.
 - Worn state is `Mods.state("unfplap").tail_bows`, keyed by pony id, saved with `Mods.save_changed()`.
   `tail_bow_gift.gd` reconciles once a second: a worn record without a mesh ties one on and a mesh
   without a record takes it off, so a bow survives world loads and late-spawning ponies.

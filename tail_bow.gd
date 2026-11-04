@@ -7,6 +7,11 @@ extends RefCounted
 ## The game's wardrobe (`pony_wardrobe.gd`) owns its own `KINDS` and slots; a mod cannot add one
 ## there without editing a game script, so this file owns the piece and its worn state instead.
 ## The state lives in `Mods.state("unfplap").tail_bows`, keyed by pony id.
+##
+## The design is a tied cheer bow: the ribbon is wound twice around the tail, gathered into a
+## knot on the outside, and two flat loops spiral out of the gather. Each loop is a wide ribbon
+## band wound in a flat spiral, so the face reads as folded satin with a crease and a cut end
+## instead of a ring. The bow hangs in the plane square to her tail, centred on the tail itself.
 
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 
@@ -16,38 +21,24 @@ const TAIL_BONE := "mTail1"
 const NEXT_BONE := "mTail2"
 const VARIANT_TAG := "|tail-bow"
 const STATE_KEY := "tail_bows"
+## Fallback tail radius when the mesh cannot be measured (identity.tail_segment_radii mid value).
+const FALLBACK_RADIUS := 0.065
+const RADIUS_WINDOW := 0.010
+const RADIUS_PERCENTILE := 0.62
 
-## One design: two satin loops, a centre knot, two hanging tails and the band that ties it to
-## the tail. Every length is at body scale 1.0 and multiplied by the wearer's size.
-const LOOP_CX := 0.050
-const LOOP_CY := 0.004
-const LOOP_RX := 0.047
-const LOOP_RY := 0.034
-const LOOP_THICK := 0.0045
-const LOOP_WIDTH := 0.013
-const LOOP_SPLAY := 0.20
-const LOOP_LIFT := 0.10
-const KNOT_RADII := Vector3(0.017, 0.013, 0.012)
-const TAIL_X := 0.013
-const TAIL_Y := -0.013
-const TAIL_Z := 0.004
-const TAIL_LENGTH := 0.095
-const TAIL_WIDTH_TOP := 0.026
-const TAIL_WIDTH_END := 0.018
-const TAIL_SPREAD := 0.024
-const TAIL_DRAPE := 0.014
-const TAIL_TIP_SKEW := 0.020
-const BAND_TUBE := 0.006
-
-## Satin dyes. The key is stored per pony, so a bow keeps its colour across worlds.
+## Satin dyes. The key is stored in settings; the bow keeps its colour for every pony.
 const COLOURS := {
+	"red": Color("c8102e"),
 	"rose": Color("d94b8a"),
 	"pink": Color("ffa8c7"),
 	"cream": Color("f4e8d6"),
 	"purple": Color("8d6bd1"),
 	"midnight": Color("2f3559"),
 }
-const DEFAULT_COLOUR := "rose"
+const DEFAULT_COLOUR := "red"
+
+## Measured tail radii, keyed by pony identity and the point down the tail.
+static var _radii: Dictionary = {}
 
 
 static func feature_on() -> bool:
@@ -56,7 +47,7 @@ static func feature_on() -> bool:
 
 # --- Worn state -----------------------------------------------------------------------------
 
-## Every pony id wearing a bow: `{id: {"colour": String}}`.
+## Every pony id wearing a bow: `{id: {}}`.
 static func worn() -> Dictionary:
 	var mods := _mods()
 	if mods == null or not mods.has_method("state"):
@@ -131,7 +122,7 @@ static func attach(pony: Node3D) -> MeshInstance3D:
 	if sk == null or sk.find_bone(TAIL_BONE) < 0:
 		return null
 	var cfg := config()
-	var node := build(colour(cfg), cfg)
+	var node := build(colour(cfg), cfg, tail_radius(pony, float(cfg.get("along_m", 0.02))))
 	var attachment := BoneAttachment3D.new()
 	attachment.name = ATTACHMENT_NAME
 	attachment.bone_name = TAIL_BONE
@@ -172,57 +163,149 @@ static func hair_skeleton(pony: Node) -> Skeleton3D:
 static func config() -> Dictionary:
 	return {
 		"size": TUNABLES.get_float("presentation.tail_bow.size"),
-		"outward_m": TUNABLES.get_float("presentation.tail_bow.outward_m"),
 		"along_m": TUNABLES.get_float("presentation.tail_bow.along_m"),
-		"outward_up": TUNABLES.get_float("presentation.tail_bow.outward_up"),
+		"margin_m": TUNABLES.get_float("presentation.tail_bow.margin_m"),
+		"loop_scale": TUNABLES.get_float("presentation.tail_bow.loop_scale"),
+		"splay_deg": TUNABLES.get_float("presentation.tail_bow.splay_deg"),
 		"tilt_deg": TUNABLES.get_float("presentation.tail_bow.tilt_deg"),
-		"yaw_deg": TUNABLES.get_float("presentation.tail_bow.yaw_deg"),
-		"roll_deg": TUNABLES.get_float("presentation.tail_bow.roll_deg"),
-		"band_radius": TUNABLES.get_float("presentation.tail_bow.band_radius"),
 		"colour": TUNABLES.get_string("presentation.tail_bow.colour"),
 	}
 
 
-## The mesh transform under `mTail1`. The frame comes from the body's own back and up axes, not
-## from the tail bones: the hair rig's rest pose holds the tail out behind her, while the live
-## tail is spring-driven, so the bones only ever measure the spine of the moment.
+## The tail's radius at `along` metres down the tail, measured from her own tail mesh once and
+## cached per identity. The hair fan is much wider than the physics tube, and it differs a lot
+## between mares, so the wrap is sized from the visible tail rather than a constant.
+static func tail_radius(pony: Node3D, along: float) -> float:
+	var identity: Variant = pony.get("identity")
+	var key := "%s:%.3f" % [str(identity.get("id")) if identity != null else str(pony.name), along]
+	if _radii.has(key):
+		return float(_radii[key])
+	var measured := _measure_radius(pony, along)
+	if measured <= 0.0 and identity != null:
+		var radii: Variant = identity.get("tail_segment_radii")
+		if radii is Array and (radii as Array).size() > 1:
+			measured = float((radii as Array)[1])
+	if measured <= 0.0:
+		measured = FALLBACK_RADIUS
+	_radii[key] = measured
+	return measured
+
+
+## The mesh transform under `mTail1`: centred on the tail axis at `along`, square to the tail,
+## with the loops level with her body. Built from the tail bone's rest frame and her body axes,
+## so it does not depend on how she was posed when the bow was tied on.
 static func local_transform(sk: Skeleton3D, pony: Node3D, cfg: Dictionary) -> Transform3D:
 	var root_index := sk.find_bone(TAIL_BONE)
 	if root_index < 0:
 		return Transform3D.IDENTITY
 	var root := sk.get_bone_global_rest(root_index)
+	var axis := tail_axis(sk, root_index)
 	var frame := sk.global_basis.orthonormalized()
 	var body := pony.global_basis.orthonormalized()
-	return placement(root, frame.inverse() * body.z, frame.inverse() * body.y,
+	return placement(root, axis, frame.inverse() * body.z, frame.inverse() * body.y,
 		cfg.get("size", 1.0), cfg)
 
 
-## Pure placement: the bow's transform relative to the tail root bone. `back`/`up` are the body
-## axes in the skeleton's own space. The bow faces up and back off the rump, its loops spread
-## sideways and its tails hang down her body.
-static func placement(root: Transform3D, back: Vector3, up: Vector3, size: float,
-		cfg: Dictionary) -> Transform3D:
+## The tail bone's own direction (down her tail) in the hair skeleton's space.
+static func tail_axis(sk: Skeleton3D, root_index: int) -> Vector3:
+	var next := sk.find_bone(NEXT_BONE)
+	if next >= 0:
+		var span := sk.get_bone_global_rest(next).origin - sk.get_bone_global_rest(root_index).origin
+		if span.length() > 0.0001:
+			return span.normalized()
+	return Vector3.DOWN
+
+
+## Pure placement: the bow's transform relative to the tail root bone. `axis` is down her tail,
+## `back`/`up` are her body axes in the skeleton's own space.
+static func placement(root: Transform3D, axis: Vector3, back: Vector3, up: Vector3,
+		size: float, cfg: Dictionary) -> Transform3D:
 	var scale := maxf(size, 0.01)
-	var outward := back.normalized() + up.normalized() * float(cfg.get("outward_up", 0.65))
-	if outward.length() < 0.0001:
-		outward = back.normalized()
-	outward = outward.normalized()
-	var z := -outward
+	var z := axis.normalized()
+	if z.length() < 0.0001:
+		z = Vector3.DOWN
 	var y := up.normalized() - z * up.normalized().dot(z)
 	if y.length() < 0.0001:
-		y = Vector3.UP
+		y = back.normalized() - z * back.normalized().dot(z)
 	y = y.normalized()
 	var x := y.cross(z).normalized()
-	z = x.cross(y).normalized()
 	var basis := Basis(x, y, z)
-	basis = basis * Basis.from_euler(Vector3(
-		deg_to_rad(float(cfg.get("tilt_deg", 0.0))),
-		deg_to_rad(float(cfg.get("yaw_deg", 0.0))),
-		deg_to_rad(float(cfg.get("roll_deg", 0.0)))))
+	# The bow hangs in the plane square to the tail; the tilt leans the loops up or back.
+	basis = basis * Basis(Vector3.RIGHT, deg_to_rad(float(cfg.get("tilt_deg", 0.0))))
 	basis = basis.scaled(Vector3.ONE * scale)
-	var origin := root.origin - y * float(cfg.get("along_m", 0.03)) * scale \
-		+ outward * float(cfg.get("outward_m", 0.05)) * scale
+	var origin := root.origin + z * float(cfg.get("along_m", 0.02)) * scale
 	return root.affine_inverse() * Transform3D(basis, origin)
+
+
+static func _measure_radius(pony: Node3D, along: float) -> float:
+	var sk := hair_skeleton(pony)
+	if sk == null:
+		return 0.0
+	var root_index := sk.find_bone(TAIL_BONE)
+	if root_index < 0:
+		return 0.0
+	var tail := _tail_mesh(pony)
+	if tail == null or tail.mesh == null or tail.skin == null:
+		return 0.0
+	var skin := tail.skin
+	# Bind transforms are constant: resolve them once per bind, not once per vertex.
+	var binds: Array[Transform3D] = []
+	for i: int in skin.get_bind_count():
+		var bone := sk.find_bone(skin.get_bind_name(i))
+		if bone < 0:
+			bone = skin.get_bind_bone(i)
+		binds.append(sk.get_bone_global_rest(bone) * skin.get_bind_pose(i))
+	var root_bind := -1
+	for i: int in skin.get_bind_count():
+		var bone := sk.find_bone(skin.get_bind_name(i))
+		if bone < 0:
+			bone = skin.get_bind_bone(i)
+		if bone == root_index:
+			root_bind = i
+			break
+	var root_rest := sk.get_bone_global_rest(root_index)
+	var frame := root_rest.affine_inverse()
+	var axis := tail_axis(sk, root_index)
+	var radii := PackedFloat32Array()
+	for surface: int in tail.mesh.get_surface_count():
+		var arrays: Array = tail.mesh.surface_get_arrays(surface)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var ids: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+		if verts.is_empty() or ids.is_empty():
+			continue
+		var stride := ids.size() / verts.size()
+		for v: int in verts.size():
+			var point := Vector3.ZERO
+			for k: int in stride:
+				var w := weights[v * stride + k]
+				if w > 0.0:
+					point += (binds[ids[v * stride + k]] * verts[v]) * w
+			var local := frame * point
+			var reach := local.dot(axis)
+			if absf(reach - along) > RADIUS_WINDOW:
+				continue
+			radii.append((local - axis * reach).length())
+	if radii.is_empty():
+		return 0.0
+	radii.sort()
+	# The widest strand of a bushy tail is not its body: use the mass of the cross-section.
+	return radii[clampi(int(float(radii.size() - 1) * RADIUS_PERCENTILE), 0, radii.size() - 1)]
+
+
+static func _tail_mesh(pony: Node3D) -> MeshInstance3D:
+	var hair: Variant = pony.get("hair")
+	var identity: Variant = pony.get("identity")
+	if not hair is Node3D or identity == null:
+		return null
+	var found := (hair as Node3D).find_child(str(identity.get("hair_prefix")) + "DevkitTail",
+		true, false)
+	if found is MeshInstance3D:
+		return found as MeshInstance3D
+	for node: Node in (hair as Node3D).find_children("*", "MeshInstance3D", true, false):
+		if str(node.name).contains("Tail") and not str(node.name).ends_with("LOD1"):
+			return node as MeshInstance3D
+	return null
 
 
 static func _register_accessory(pony: Node, on: bool) -> void:
@@ -261,18 +344,30 @@ static func _refresh_variant(pony: Node, on: bool) -> void:
 
 # --- Mesh -----------------------------------------------------------------------------------
 
-## The whole bow as one unskinned MeshInstance3D: loops and knot and band on satin surfaces, the
-## tails on a two-sided one. The rig it hangs from is already scaled to her size, so only the
-## `size` setting applies here.
-static func build(colour: Color, cfg: Dictionary) -> MeshInstance3D:
-	var s := maxf(float(cfg.get("size", 1.0)), 0.01)
+const LOOP_SAMPLES := 16
+const LOOP_CROSS := 8
+const LOOP_REACH := 1.50
+const LOOP_WIDTH := 0.78
+const LOOP_PINCH := 0.16
+const LOOP_THICK := 0.0018
+const WRAP_TURNS := 2
+const WRAP_WIDTH := 0.45
+const WRAP_THICK := 0.0022
+const WRAP_STEP := 0.62
+const KNOT_RADII := Vector3(0.30, 0.24, 0.22)
+
+
+## The whole bow as one unskinned MeshInstance3D. `radius` is the measured tail radius at the
+## tie point; the rig it hangs from is already scaled to her size.
+static func build(colour: Color, cfg: Dictionary, radius: float) -> MeshInstance3D:
+	var r := maxf(radius, 0.01)
 	var mesh := ArrayMesh.new()
-	_commit_loops(mesh, s, colour)
-	_commit_tails(mesh, s, colour)
-	_commit_knot(mesh, s, colour)
-	_commit_band(mesh, s, colour.lightened(0.18),
-		float(cfg.get("along_m", 0.03)) * s, float(cfg.get("outward_m", 0.05)) * s,
-		float(cfg.get("band_radius", 0.042)) * s)
+	var splay := deg_to_rad(float(cfg.get("splay_deg", 14.0)))
+	var loop_scale := maxf(float(cfg.get("loop_scale", 1.0)), 0.05) \
+		* maxf(float(cfg.get("size", 1.0)), 0.05)
+	_commit_wraps(mesh, r, cfg, colour)
+	_commit_loops(mesh, r, loop_scale, splay, colour)
+	_commit_knot(mesh, r, colour)
 	var node := MeshInstance3D.new()
 	node.name = NODE_NAME
 	node.mesh = mesh
@@ -285,45 +380,108 @@ static func build(colour: Color, cfg: Dictionary) -> MeshInstance3D:
 static func satin(colour: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = colour
-	material.roughness = 0.26
-	material.metallic = 0.12
+	material.roughness = 0.3
+	material.metallic = 0.1
 	material.rim_enabled = true
-	material.rim = 0.45
-	material.rim_tint = 0.35
+	material.rim = 0.5
+	material.rim_tint = 0.3
 	# Satin has no wrong side: both faces read as fabric, and winding cannot hide a surface.
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 
 
-static func _commit_loops(mesh: ArrayMesh, s: float, colour: Color) -> void:
+## Two turns of ribbon around the tail, each slightly tilted so they cross like a tied band.
+static func _commit_wraps(mesh: ArrayMesh, r: float, cfg: Dictionary, colour: Color) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_add_loop(st, s, -1.0)
-	_add_loop(st, s, 1.0)
+	var margin := float(cfg.get("margin_m", 0.004))
+	var band := r + margin
+	for turn: int in WRAP_TURNS:
+		var centre := Vector3(0.0, 0.0, (float(turn) - 0.5) * WRAP_STEP * r)
+		var lean := (float(turn) * 2.0 - 1.0) * 0.30
+		_add_ring(st, centre, band, WRAP_WIDTH * r * 0.5, WRAP_THICK * r / 0.05,
+			Basis(Vector3.RIGHT, lean), 32, 6)
+	_commit(mesh, st, satin(colour.darkened(0.08)))
+
+
+## Two folded satin petals, gathered at the knot: each one is a solid leaf with a ridge down its
+## length and a rolled rim where the ribbon folds back, which is what makes it read as a bow.
+static func _commit_loops(mesh: ArrayMesh, r: float, loop_scale: float, splay: float,
+		colour: Color) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var length := r * LOOP_REACH * loop_scale
+	var half_width := r * LOOP_WIDTH * loop_scale
+	var knot := Vector3(0.0, r * 0.86, 0.0)
+	for side: float in [-1.0, 1.0]:
+		_add_petal(st, knot, side, length, half_width, splay, r)
 	_commit(mesh, st, satin(colour))
 
 
-static func _commit_tails(mesh: ArrayMesh, s: float, colour: Color) -> void:
+static func _add_petal(st: SurfaceTool, knot: Vector3, side: float, length: float,
+		half_width: float, splay: float, r: float) -> void:
+	var thick := LOOP_THICK * r / 0.05
+	# Each petal points outward and a little up, then opens away from its twin.
+	var direction := Vector3(side, 0.06, 0.0).normalized()
+	var frame := Basis(Vector3.BACK, atan2(direction.y, direction.x))
+	frame = frame * Basis(Vector3.UP, side * splay) * Basis(Vector3.RIGHT, -0.16)
+	var face: Vector3 = frame * Vector3.BACK
+	var lining: Vector3 = frame * -Vector3.BACK
+	var edge: Vector3 = frame * Vector3.UP
+	var rows: Array[Array] = []
+	for i: int in LOOP_SAMPLES + 1:
+		var u := float(i) / float(LOOP_SAMPLES)
+		var shape := smoothstep(0.0, 0.18, u) * (1.0 - 0.88 * smoothstep(0.55, 1.0, u))
+		var half := half_width * lerpf(LOOP_PINCH, 1.0, shape)
+		var along := length * u
+		var bulge := sin(PI * u) * length * 0.10
+		var front := PackedVector3Array()
+		var back := PackedVector3Array()
+		for v: int in LOOP_CROSS + 1:
+			var t := float(v) / float(LOOP_CROSS) * 2.0 - 1.0
+			# The ribbon folds down the middle of the loop and rolls back at its rim.
+			var ridge := half_width * 0.17 * pow(1.0 - absf(t), 1.6) - half_width * 0.10 \
+				* smoothstep(0.72, 1.0, absf(t))
+			var roll := thick + ridge
+			var offset := Vector3(along - length * 0.16, t * half, bulge)
+			front.append(knot + frame * (offset + Vector3(0.0, 0.0, roll)))
+			back.append(knot + frame * (offset - Vector3(0.0, 0.0, roll)))
+		rows.append([front, back])
+	for i: int in LOOP_SAMPLES:
+		var a: Array = rows[i]
+		var b: Array = rows[i + 1]
+		var front_a: PackedVector3Array = a[0]
+		var front_b: PackedVector3Array = b[0]
+		var back_a: PackedVector3Array = a[1]
+		var back_b: PackedVector3Array = b[1]
+		for v: int in LOOP_CROSS:
+			_quad(st, front_a[v], face, front_a[v + 1], face, front_b[v + 1], face,
+				front_b[v], face)
+			_quad(st, back_a[v], lining, back_b[v], lining, back_b[v + 1], lining,
+				back_a[v + 1], lining)
+		# The rolled rim on both edges.
+		_quad(st, back_a[0], -edge, front_a[0], -edge, front_b[0], -edge, back_b[0], -edge)
+		_quad(st, front_a[LOOP_CROSS], edge, back_a[LOOP_CROSS], edge,
+			back_b[LOOP_CROSS], edge, front_b[LOOP_CROSS], edge)
+	# Close the outer end of the leaf.
+	var last: Array = rows[rows.size() - 1]
+	var front_end: PackedVector3Array = last[0]
+	var back_end: PackedVector3Array = last[1]
+	for v: int in LOOP_CROSS:
+		_quad(st, front_end[v], edge, back_end[v], edge, back_end[v + 1], edge,
+			front_end[v + 1], edge)
+
+
+## The gathered knot: a pinched satin bundle with a ribbon crossing over it.
+static func _commit_knot(mesh: ArrayMesh, r: float, colour: Color) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_add_tail(st, s, -1.0)
-	_add_tail(st, s, 1.0)
-	_commit(mesh, st, satin(colour.darkened(0.12)))
-
-
-static func _commit_knot(mesh: ArrayMesh, s: float, colour: Color) -> void:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_add_ellipsoid(st, Vector3.ZERO, KNOT_RADII * s, 8, 12)
-	_commit(mesh, st, satin(colour.lightened(0.08)))
-
-
-static func _commit_band(mesh: ArrayMesh, s: float, colour: Color, along: float, outward: float,
-		radius: float) -> void:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_add_ring(st, Vector3(0.0, along, outward), radius, BAND_TUBE * s, 24, 8)
-	_commit(mesh, st, satin(colour))
+	var centre := Vector3(0.0, r * 0.92, 0.0)
+	_add_ellipsoid(st, centre, KNOT_RADII * r, 8, 14)
+	# The band that gathers the loops, crossing the knot on the diagonal like a tied ribbon.
+	_add_ring(st, centre, r * 0.34, r * 0.13, r * 0.08,
+		Basis(Vector3.RIGHT, 0.5) * Basis(Vector3.UP, 0.45), 24, 6)
+	_commit(mesh, st, satin(colour.lightened(0.06)))
 
 
 static func _commit(mesh: ArrayMesh, st: SurfaceTool, material: Material) -> void:
@@ -348,95 +506,7 @@ static func _quad(st: SurfaceTool, a: Vector3, na: Vector3, b: Vector3, nb: Vect
 	_tri(st, a, na, c, nc, d, nd)
 
 
-## One loop: a ribbon swept around an ellipse, pinched where it meets the knot.
-static func _add_loop(st: SurfaceTool, s: float, side: float) -> void:
-	var center := Vector3(LOOP_CX * s * side, LOOP_CY * s, 0.0)
-	var rx := LOOP_RX * s
-	var ry := LOOP_RY * s
-	var thick := LOOP_THICK * s
-	var width := LOOP_WIDTH * s
-	var splay := Basis(Vector3.UP, -LOOP_SPLAY * side) * Basis(Vector3.BACK, LOOP_LIFT * side)
-	var knot_angle := 0.0 if side < 0.0 else PI
-	var steps := 32
-	var cross := 10
-	for i: int in steps:
-		var t0 := TAU * float(i) / float(steps)
-		var t1 := TAU * float(i + 1) / float(steps)
-		for j: int in cross:
-			var u0 := TAU * float(j) / float(cross)
-			var u1 := TAU * float(j + 1) / float(cross)
-			var p00 := _loop_point(center, rx, ry, thick, width, knot_angle, t0, u0)
-			var p10 := _loop_point(center, rx, ry, thick, width, knot_angle, t1, u0)
-			var p11 := _loop_point(center, rx, ry, thick, width, knot_angle, t1, u1)
-			var p01 := _loop_point(center, rx, ry, thick, width, knot_angle, t0, u1)
-			var n00 := _loop_normal(rx, ry, thick, width, knot_angle, t0, u0)
-			var n10 := _loop_normal(rx, ry, thick, width, knot_angle, t1, u0)
-			var n11 := _loop_normal(rx, ry, thick, width, knot_angle, t1, u1)
-			var n01 := _loop_normal(rx, ry, thick, width, knot_angle, t0, u1)
-			_quad(st,
-				center + splay * (p00 - center), splay * n00,
-				center + splay * (p10 - center), splay * n10,
-				center + splay * (p11 - center), splay * n11,
-				center + splay * (p01 - center), splay * n01)
-
-
-static func _loop_point(center: Vector3, rx: float, ry: float, thick: float, width: float,
-		knot_angle: float, t: float, u: float) -> Vector3:
-	var path := center + Vector3(rx * cos(t), ry * sin(t), 0.0)
-	var radial := Vector3(cos(t) * ry, sin(t) * rx, 0.0).normalized()
-	return path + radial * (cos(u) * thick) + Vector3.BACK * (sin(u) * _loop_width(width, knot_angle, t))
-
-
-static func _loop_normal(rx: float, ry: float, thick: float, width: float, knot_angle: float,
-		t: float, u: float) -> Vector3:
-	var radial := Vector3(cos(t) * ry, sin(t) * rx, 0.0).normalized()
-	var half := maxf(_loop_width(width, knot_angle, t), 0.0001)
-	return (radial * (cos(u) / maxf(thick, 0.0001)) + Vector3.BACK * (sin(u) / half)).normalized()
-
-
-## The ribbon narrows where it is gathered at the knot.
-static func _loop_width(width: float, knot_angle: float, t: float) -> float:
-	var gap := absf(angle_difference(knot_angle, t))
-	return width * lerpf(0.55, 1.0, smoothstep(0.0, PI, gap))
-
-
-## One hanging tail: a strip that curves outward and drapes toward the coat, cut at an angle.
-static func _add_tail(st: SurfaceTool, s: float, side: float) -> void:
-	var base := Vector3(TAIL_X * s * side, TAIL_Y * s, TAIL_Z * s)
-	var length := TAIL_LENGTH * s
-	var steps := 8
-	var rows: Array[Array] = []
-	for i: int in steps + 1:
-		var t := float(i) / float(steps)
-		var point := base + Vector3(
-			side * TAIL_SPREAD * s * t * t,
-			-length * t,
-			TAIL_DRAPE * s * t * t)
-		var half := lerpf(TAIL_WIDTH_TOP, TAIL_WIDTH_END, t) * s * 0.5
-		var across := Vector3.RIGHT.rotated(Vector3.UP, side * 0.16)
-		rows.append([point - across * half, point + across * half, t])
-	var last: Array = rows[rows.size() - 1]
-	# Slanted cut: the outer edge hangs a little lower than the inner edge.
-	var outer_low: Vector3 = (last[1] as Vector3) + Vector3.DOWN * TAIL_TIP_SKEW * s * side
-	var inner_low: Vector3 = (last[0] as Vector3) + Vector3.DOWN * TAIL_TIP_SKEW * s * 0.35
-	for i: int in steps:
-		var a := rows[i]
-		var b := rows[i + 1]
-		var normal := _tail_normal(a[0] as Vector3, a[1] as Vector3, b[1] as Vector3)
-		_quad(st, a[0] as Vector3, normal, a[1] as Vector3, normal,
-			b[1] as Vector3, normal, b[0] as Vector3, normal)
-	var tip_normal := _tail_normal(last[0] as Vector3, last[1] as Vector3, outer_low)
-	_tri(st, last[0] as Vector3, tip_normal, outer_low, tip_normal, inner_low, tip_normal)
-
-
-static func _tail_normal(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
-	var normal := (b - a).cross(c - a).normalized()
-	if normal.dot(Vector3.BACK) < 0.0:
-		normal = -normal
-	return normal
-
-
-static func _add_ellipsoid(st: SurfaceTool, center: Vector3, radii: Vector3, rings: int,
+static func _add_ellipsoid(st: SurfaceTool, centre: Vector3, radii: Vector3, rings: int,
 		segments: int) -> void:
 	for i: int in rings:
 		var phi0 := PI * float(i) / float(rings) - PI * 0.5
@@ -444,28 +514,30 @@ static func _add_ellipsoid(st: SurfaceTool, center: Vector3, radii: Vector3, rin
 		for j: int in segments:
 			var th0 := TAU * float(j) / float(segments)
 			var th1 := TAU * float(j + 1) / float(segments)
-			var p00 := _sphere_point(center, radii, phi0, th0)
-			var p10 := _sphere_point(center, radii, phi1, th0)
-			var p11 := _sphere_point(center, radii, phi1, th1)
-			var p01 := _sphere_point(center, radii, phi0, th1)
-			_quad(st, p00, _sphere_normal(radii, phi0, th0), p10, _sphere_normal(radii, phi1, th0),
-				p11, _sphere_normal(radii, phi1, th1), p01, _sphere_normal(radii, phi0, th1))
+			_quad(st,
+				_ellipsoid_point(centre, radii, phi0, th0),
+				_ellipsoid_normal(radii, phi0, th0),
+				_ellipsoid_point(centre, radii, phi1, th0),
+				_ellipsoid_normal(radii, phi1, th0),
+				_ellipsoid_point(centre, radii, phi1, th1),
+				_ellipsoid_normal(radii, phi1, th1),
+				_ellipsoid_point(centre, radii, phi0, th1),
+				_ellipsoid_normal(radii, phi0, th1))
 
 
-static func _sphere_point(center: Vector3, radii: Vector3, phi: float, theta: float) -> Vector3:
-	return center + Vector3(cos(phi) * cos(theta) * radii.x, sin(phi) * radii.y,
+static func _ellipsoid_point(centre: Vector3, radii: Vector3, phi: float, theta: float) -> Vector3:
+	return centre + Vector3(cos(phi) * cos(theta) * radii.x, sin(phi) * radii.y,
 		cos(phi) * sin(theta) * radii.z)
 
 
-static func _sphere_normal(radii: Vector3, phi: float, theta: float) -> Vector3:
-	var normal := Vector3(cos(phi) * cos(theta) / radii.x, sin(phi) / radii.y,
-		cos(phi) * sin(theta) / radii.z)
-	return normal.normalized()
+static func _ellipsoid_normal(radii: Vector3, phi: float, theta: float) -> Vector3:
+	return Vector3(cos(phi) * cos(theta) / radii.x, sin(phi) / radii.y,
+		cos(phi) * sin(theta) / radii.z).normalized()
 
 
-## The band that ties the bow around the tail, its axis along the tail.
-static func _add_ring(st: SurfaceTool, center: Vector3, radius: float, tube: float,
-		steps: int, cross: int) -> void:
+## A band of ribbon around the tail: an open flat ring, its width along the tail axis.
+static func _add_ring(st: SurfaceTool, centre: Vector3, radius: float, half_width: float,
+		half_thick: float, lean: Basis, steps: int, cross: int) -> void:
 	for i: int in steps:
 		var u0 := TAU * float(i) / float(steps)
 		var u1 := TAU * float(i + 1) / float(steps)
@@ -473,19 +545,25 @@ static func _add_ring(st: SurfaceTool, center: Vector3, radius: float, tube: flo
 			var v0 := TAU * float(j) / float(cross)
 			var v1 := TAU * float(j + 1) / float(cross)
 			_quad(st,
-				_ring_point(center, radius, tube, u0, v0), _ring_normal(u0, v0),
-				_ring_point(center, radius, tube, u1, v0), _ring_normal(u1, v0),
-				_ring_point(center, radius, tube, u1, v1), _ring_normal(u1, v1),
-				_ring_point(center, radius, tube, u0, v1), _ring_normal(u0, v1))
+				centre + lean * _ring_point(radius, half_width, half_thick, u0, v0),
+				lean * _ring_normal(u0, v0),
+				centre + lean * _ring_point(radius, half_width, half_thick, u1, v0),
+				lean * _ring_normal(u1, v0),
+				centre + lean * _ring_point(radius, half_width, half_thick, u1, v1),
+				lean * _ring_normal(u1, v1),
+				centre + lean * _ring_point(radius, half_width, half_thick, u0, v1),
+				lean * _ring_normal(u0, v1))
 
 
-static func _ring_point(center: Vector3, radius: float, tube: float, u: float, v: float) -> Vector3:
-	var reach := radius + tube * cos(v)
-	return center + Vector3(cos(u) * reach, tube * sin(v), sin(u) * reach)
+## Ring point in the XY plane with the ribbon's width along Z and its thickness radial.
+static func _ring_point(radius: float, half_width: float, half_thick: float, u: float,
+		v: float) -> Vector3:
+	var reach := radius + half_thick * cos(v)
+	return Vector3(cos(u) * reach, sin(u) * reach, half_width * sin(v))
 
 
 static func _ring_normal(u: float, v: float) -> Vector3:
-	return Vector3(cos(u) * cos(v), sin(v), sin(u) * cos(v))
+	return Vector3(cos(u) * cos(v), sin(u) * cos(v), sin(v))
 
 
 static func _mods() -> Node:

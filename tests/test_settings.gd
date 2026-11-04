@@ -443,7 +443,9 @@ func _check_api_names() -> void:
 	var names := ["get_bool", "get_float", "get_int", "get_string", "get_list", "get_value",
 		"set_value", "reset_value", "block", "reload_settings", "hotkey_action", "run_action",
 		"data", "reload_file", "write_setting", "taste", "pose", "template_for", "features",
-		"feature", "build", "build_actions"]
+		"feature", "build", "build_actions", "all", "has", "entry",
+		"default_value", "default_block", "groups", "flag", "num", "user_num", "choice", "list",
+		"write_path"]
 	var clashes: Array = []
 	for name: String in names:
 		if ClassDB.class_has_method("GDScript", name):
@@ -463,6 +465,9 @@ func _check_write_round_trip() -> void:
 	check(TUNABLES.get_float("jiggle.radius") == float(SCHEMA.default_value("jiggle.radius")) \
 			or TUNABLES.get_float("jiggle.radius") > 0.0,
 		"a cold write keeps a number readable")
+	# The panel writes through tunables_ui._store, so cover that path too, not just set_value.
+	TUNABLES_UI._store("jiggle.intensity", 0.33, null, Callable())
+	check(near(TUNABLES.get_float("jiggle.intensity"), 0.33), "the panel write path persists")
 	TUNABLES.set_value("jiggle.intensity", original)
 	check(near(TUNABLES.get_float("jiggle.intensity"), original), "set_value restores the original")
 

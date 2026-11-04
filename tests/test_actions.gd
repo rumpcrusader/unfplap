@@ -6,7 +6,6 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 
 var failures := 0
 var checks := 0
@@ -136,11 +135,6 @@ func run() -> void:
 		"full kiss uses one lateral offset")
 	check(near(RUNTIME.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
 		"kiss lateral crossfades instead of stacking")
-	check(near(AFFECTION_POSE.resolve_kiss_side(1.0, 0.0), 1.0),
-		"scripted kiss keeps a pinned side")
-	check(near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.0), 1.0)
-		and near(AFFECTION_POSE.resolve_kiss_side(0.0, 0.9), -1.0),
-		"unpinned kiss still chooses a side")
 	check(near(RUNTIME.pose2_palm_scale_for("canon"), 0.85), "Canon pose-2 palm scale")
 	check(near(RUNTIME.pose2_palm_scale_for("mounting"), 0.95), "JRHNBR pose-2 palm scale")
 	check(near(RUNTIME.pose2_palm_scale_for("hoers"), 1.0), "Hoers pose-2 palm scale unchanged")

@@ -154,9 +154,10 @@ these values here if a future pose needs that effect.
   camera and pelvis counter-lean and yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her,
   pose 1 to the framing view and virtual mouth. The kiss side is latched from the input lean at
   start (`_lean_side`, falling back to `_lean_action_side`, not the lagging camera view), and
-  `AffectionPose.set_kiss_side()` pins her tilt to the complementary side in pose 2
+  `_pin_base_kiss_side()` pins her tilt to the complementary side in pose 2
   (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
-  switch is disabled for the act. The lateral travel crossfades from the lean's `0.18 m` to the
+  switch is disabled for the act. The pin writes AffectionPose's private
+  `_side`/`_side_now`/`_side_wait` each tick and skips quietly if they are unavailable. The lateral travel crossfades from the lean's `0.18 m` to the
   kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
 - Camera thrust is speed-driven, not impulse-driven. `_process` filters the signed depth speed
   (`CAM_SPEED_SMOOTH_S = 0.06 s`); `_camera_thrust_tick()` follows it with one critically damped
@@ -222,8 +223,8 @@ these values here if a future pose needs that effect.
   the cached scales in `_remove_anon_thrust()` on every act exit.
 - Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
   pose 1; releasing `F` or dropping the lean ends it. The side is latched from the input lean
-  and passed to `AffectionPose.set_kiss_side()`, so she takes the complementary head tilt and
-  the deep-kiss side switch is disabled for the act. During the `Affection` release the camera
+  and `_pin_base_kiss_side()` keeps her on the complementary head tilt; the deep-kiss side
+  switch is disabled for the act. During the `Affection` release the camera
   lean and glance suppression are held until the head has retracted, then ease out. A completed
   kiss has a `500 ms` restart cooldown.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
@@ -258,9 +259,8 @@ these values here if a future pose needs that effect.
   the pony's actual `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is
   cached per hand with source hysteresis and short position/normal
   smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite
-  normal (dot < -0.5) is rejected under the same source. `FlankSurface` precomputes a two-ring,
-  area-weighted average of the patch rest normals and skins those, removing triangle/seam
-  jitter before the query. The final normal turns toward each new contact normal at
+  normal (dot < -0.5) is rejected under the same source. The final normal turns from the stock
+  FlankSurface normal toward each new contact normal at
   `PALM_NORMAL_MAX_DEG_S = 120°/s`, and the palm basis is rebuilt from that final normal each
   frame so it cannot rotate into her. The rub centre is lifted
   `CARESS_UP_BIAS_M = 0.05` above the profile point; a 1 Hz log reports the rub/shoulder heights,

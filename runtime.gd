@@ -1115,6 +1115,7 @@ func _physics_process(delta: float) -> void:
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_act_presentation(delta)
 	_kiss_tick(delta)
+	_pin_base_kiss_side()
 	if state in [State.ACTIVE, State.CLIMAX]:
 		_thrust_tick()
 		if state == State.ACTIVE:
@@ -5145,14 +5146,13 @@ func _start_base_kiss() -> bool:
 	_suppress_base_kiss_excitement()
 	var pose_node: Variant = affection.get("pose")
 	var sk: Variant = pony.get("skeleton")
-	if pose_node != null and pose_node.has_method("set_kiss_side"):
-		pose_node.call("set_kiss_side", _kiss_pony_side)
 	if pose_node is SkeletonModifier3D and sk is Skeleton3D:
 		var index := (sk as Skeleton3D).get_children().find(pose_node)
 		if index >= 0:
 			_base_kiss_pose = pose_node as SkeletonModifier3D
 			_base_kiss_pose_index = index
 			(sk as Skeleton3D).move_child(_base_kiss_pose, (sk as Skeleton3D).get_child_count() - 1)
+			_pin_base_kiss_side()
 	_start_kiss_leg_pin()
 	_log("base kiss start pony=%s" % _id)
 	return true
@@ -5189,8 +5189,8 @@ func _end_base_kiss() -> void:
 func _restore_base_kiss_pose() -> void:
 	_restore_kiss_forelegs()
 	_stop_kiss_leg_pin()
-	if is_instance_valid(_base_kiss_pose) and _base_kiss_pose.has_method("set_kiss_side"):
-		_base_kiss_pose.call("set_kiss_side", 0.0)
+	if is_instance_valid(_base_kiss_pose) and _base_kiss_pose.get("_side_wait") != null:
+		_base_kiss_pose.set("_side_wait", 0.0)
 	_base_kiss_releasing = false
 	if is_instance_valid(_base_kiss_pose) and is_instance_valid(pony):
 		var sk: Variant = pony.get("skeleton")
@@ -5341,6 +5341,22 @@ func _clear_kiss_side() -> void:
 	_kiss_camera_side = 0.0
 	_kiss_pony_side = 0.0
 	_kiss_diag_clock = 0.0
+
+
+## Pin the game's AffectionPose to the side Anon leaned to. The stock kiss picks and switches
+## sides on its own; the act keeps her on the complementary side so their heads interlock.
+## Private AffectionPose fields are the only side switch the script exposes, so this is done
+## from the mod and quietly skipped if a future game update renames them.
+func _pin_base_kiss_side() -> void:
+	if not _base_kiss_active or not is_instance_valid(_base_kiss_pose):
+		return
+	if absf(_kiss_pony_side) <= 0.5:
+		return
+	if _base_kiss_pose.get("_side") == null:
+		return
+	_base_kiss_pose.set("_side", _kiss_pony_side)
+	_base_kiss_pose.set("_side_now", _kiss_pony_side)
+	_base_kiss_pose.set("_side_wait", 9999.0)
 
 
 func _kiss_side_distance() -> float:

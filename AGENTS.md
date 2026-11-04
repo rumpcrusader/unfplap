@@ -19,7 +19,7 @@ Do not start implementation until you have read the required files for the area 
 
 ## Identity and scope
 
-- Mod id `unfplap`; current public version `0.2.0`; target game `0.3.0-maredev`.
+- Mod id `unfplap`; current public version `0.1.1`; target game `0.3.0-maredev`.
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `horse` standing.
@@ -444,9 +444,11 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   lower over `0.35 s`; the pose-2 camera also yaws by `camera_yaw_deg` (default `7°`) toward her.
   Pose 1 keeps `KISS_LEAN_M = 0.27`, side `0.18`, drop `0.035` and camera `10°`. The kiss side is latched at
   the start from the input lean (`_lean_side`, falling back to `_lean_action_side`), not the
-  lagging camera view, and `AffectionPose.set_kiss_side()` pins her head tilt to the
+  lagging camera view, and `_pin_base_kiss_side()` pins her head tilt to the
   complementary side (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding;
-  the deep-kiss side switch is disabled for the act. The lateral offset crossfades from the
+  the deep-kiss side switch is disabled for the act. The pin writes AffectionPose's private
+  `_side`/`_side_now`/`_side_wait` each tick and is skipped if those fields disappear. The
+  lateral offset crossfades from the
   lean's `0.18 m` to the kiss's `0.18 m` instead of adding both.
   Pose 2 applies it to the act camera and pelvis counter-lean, so the hips stay planted; pose 1
   applies it to the framing view and offsets the virtual mouth by the kiss distance. During the
@@ -480,9 +482,8 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   Contact is cached per hand with
   source hysteresis and short position/normal smoothing: a miss holds the last valid point, a
   flank↔body source change needs two hits, and a near-opposite normal (dot < -0.5) is rejected
-  under the same source. `FlankSurface` precomputes a two-ring, area-weighted average of the
-  patch's rest normals and skins those, so triangle and seam jitter is gone before the hand
-  query. The final normal turns toward each new contact normal at
+  under the same source. The final normal turns from the stock FlankSurface normal toward each
+  new contact normal at
   `PALM_NORMAL_MAX_DEG_S = 120°/s` instead of snapping, and the palm basis is rebuilt from that
   final normal every frame. The torso-radial fallback only applies to a degenerate or inward
   normal. The rub centre is lifted
@@ -946,6 +947,9 @@ This is mandatory.
   and caress offsets follow the same multiplier; other size presets keep their authored values.
 - Pose-2 kiss offsets, the pose-1 virtual mouth and kiss lean distances scale with Anon's chosen
   height (`Settings.anon_height_scale()`), matching `player/player_mouth.gd`.
+- `captions_on_top` is mod-owned: `main.gd` finds `SpeechCaption` through `Mods.on_node`, then
+  moves its private `_card` to the top margin after the caption's own layout pass. It skips the
+  settings-page preview and quietly does nothing if the card fields disappear.
 - The stock bed captures a snuggle guest's rest transform at invite time from the player's
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying

@@ -19,6 +19,9 @@ const CURRENCY := preload("res://world/ui/currency.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
+const CAPTION_PATH := "res://world/ui/speech_caption.gd"
+## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
+const CAPTION_TOP_MARGIN := 26.0
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default ON. Toggle in game with Ctrl+Shift+D.
 var debug_logs := true
@@ -48,6 +51,10 @@ var _native_hint_label: Control
 var _debug_skeleton: Node3D
 var _injected_settings: Array = []
 var _settings_switch_guard := false
+## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
+var _captions: Dictionary = {}
+## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
+var _captions_on_top := false
 
 
 func debug(text: String) -> void:
@@ -86,6 +93,7 @@ func _ready() -> void:
 	add_to_group("pony_prompt_notes")
 	debug_logs = SETTINGS.load_debug_logs()
 	press_y_starts_sex = SETTINGS.feature("press_y_starts_sex")
+	_captions_on_top = SETTINGS.feature("captions_on_top")
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
@@ -116,12 +124,11 @@ func _ready() -> void:
 	Mods.player_ready.connect(_on_player)
 	Mods.on_node(PONY_PATH, _on_pony)
 	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
+	Mods.on_node(CAPTION_PATH, _on_caption)
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null and settings.has_signal("changed") \
 			and not settings.changed.is_connected(_on_game_setting_changed):
 		settings.changed.connect(_on_game_setting_changed)
-	if not get_tree().node_added.is_connected(_on_node_added):
-		get_tree().node_added.connect(_on_node_added)
 	_apply_caption_top.call_deferred()
 	# Switched on mid-game: the world and player already exist.
 	if is_instance_valid(Mods.game):
@@ -172,7 +179,7 @@ func _on_world_closed(_host: Node) -> void:
 ## Move the game's bottom dialogue caption to the top only when the player chose the explicit
 ## bottom-caption mode. "Over the pony's head" and "auto" are left untouched.
 func _caption_top_enabled() -> bool:
-	if not SETTINGS.feature("captions_on_top"):
+	if not _captions_on_top:
 		return false
 	var settings := get_node_or_null("/root/Settings")
 	if settings == null:
@@ -180,18 +187,40 @@ func _caption_top_enabled() -> bool:
 	return str(settings.call("get_value", "access/speech_text")) == "caption"
 
 
+func _on_caption(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	_captions[node.get_instance_id()] = weakref(node)
+	_caption_top_tick()
+
+
 func _apply_caption_top() -> void:
 	if not is_inside_tree():
 		return
-	var enabled := _caption_top_enabled()
-	for node: Node in get_tree().get_nodes_in_group("speech_caption"):
-		if node is Control:
-			node.set("caption_top", enabled)
+	_captions_on_top = SETTINGS.feature("captions_on_top")
+	_caption_top_tick()
 
 
-func _on_node_added(node: Node) -> void:
-	if node.is_in_group("speech_caption"):
-		node.set("caption_top", _caption_top_enabled())
+## Move the game's caption card after its own layout pass. The stock caption keeps its text,
+## wrapping, roll and fade; only its y position changes. Runs at process priority 100, after
+## the caption's own _process, and skips the settings-page preview.
+func _caption_top_tick() -> void:
+	if not _caption_top_enabled():
+		return
+	for id: int in _captions.keys():
+		var ref: Variant = _captions[id]
+		var node: Variant = ref.get_ref() if ref is WeakRef else null
+		if not is_instance_valid(node):
+			_captions.erase(id)
+			continue
+		if bool(node.get("preview")):
+			continue
+		var card: Variant = node.get("_card")
+		if not card is Control:
+			continue
+		var scale_value: Variant = node.get("_scale")
+		var scale := float(scale_value) if scale_value != null else 1.0
+		(card as Control).position.y = roundf(CAPTION_TOP_MARGIN * maxf(scale, 0.01))
 
 
 func _on_game_setting_changed(key: String) -> void:
@@ -1147,6 +1176,7 @@ func _clear_injected_settings() -> void:
 
 
 func _process(delta: float) -> void:
+	_caption_top_tick()
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
 		if is_instance_valid(body):

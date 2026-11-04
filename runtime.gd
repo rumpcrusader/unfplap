@@ -24,6 +24,7 @@ const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
+const SOUND := preload("res://mods/unfplap/act_sound.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
@@ -88,13 +89,6 @@ const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_Y_SECONDS := 0.35
-const BREATH_BASE_INTERVAL_S := 0.9
-const BREATH_MIN_INTERVAL_S := 0.2
-const BREATH_CLIMAX_INTERVAL_S := 0.85
-const BREATH_RATE_CAP := 10.0
-## Breath gain easing. Active: follows the plap rate; afterglow: fades over this many seconds.
-const BREATH_FADE_S := 2.5
-const AFTERGLOW_BREATH_FADE_S := 5.0
 ## After this long the mare may choose to end the afterglow herself. Being held or caressed
 ## lowers the chance; an accepted [stay] pauses the roll entirely.
 const AFTERGLOW_SELF_END_SECONDS := 16.0
@@ -584,22 +578,13 @@ var _heart_times: Array[float] = []
 var _heart_counts: Array[int] = []
 ## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
 var _debug_chin_deg := 0.0
-var _breath: AudioStreamPlayer3D
-var _breath_streams: Array[AudioStream] = []
-var _breath_clock := 0.0
-var _breath_gain := 0.0
-var _kiss_sound: AudioStreamPlayer3D
-var _mouth_kiss_sound: AudioStreamPlayer3D
-var _plap_streams: Array[AudioStream] = []
+var _sounds
 var _flank: Node
 var _palm_contacts: Dictionary = {}
 var _jiggle_logged := false
 var _dock_jiggle_mesh: MeshInstance3D
 var _dock_jiggle_material: ShaderMaterial
 var _dock_jiggle_original: Material
-var _climax_sound: AudioStreamPlayer3D
-var _kiss_stream: AudioStream
-var _climax_streams: Array[AudioStream] = []
 var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
@@ -627,6 +612,15 @@ func _wings_controller():
 	if _wings == null:
 		_wings = WING.new(self)
 	return _wings
+
+
+## Lazily create the base-game act sound controller, including outside the tree in tests.
+func _sounds_controller():
+	if _sounds == null:
+		_sounds = SOUND.new(self)
+		_sounds.name = "UnfplapActSound"
+		add_child(_sounds)
+	return _sounds
 
 
 func _feature(name: String) -> bool:
@@ -5293,16 +5287,7 @@ func _play_mouth_kiss() -> void:
 	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
 		_act_audio.play_mouth_kiss(_snout())
 		return
-	if not is_instance_valid(_mouth_kiss_sound):
-		return
-	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
-	if stream == null:
-		return
-	_mouth_kiss_sound.stream = stream
-	_mouth_kiss_sound.global_position = _snout()
-	_mouth_kiss_sound.volume_db = -22.0
-	_mouth_kiss_sound.pitch_scale = randf_range(0.97, 1.03)
-	_mouth_kiss_sound.play()
+	_sounds_controller().play_mouth_kiss(_snout())
 
 
 func _release_kiss_face() -> void:
@@ -6799,59 +6784,7 @@ func _start_audio() -> void:
 	var bed_creaks := bool(_features.get("bed_creaks", false))
 	if foley or vocals or climax:
 		_ensure_act_audio(foley, vocals, climax, bed_creaks)
-	_breath_streams.clear()
-	for i: int in range(1, 15):
-		var path := "res://world/audio/pony/breath_%02d.wav" % i
-		if ResourceLoader.exists(path):
-			var stream: Resource = load(path)
-			if stream is AudioStream:
-				_breath_streams.append(stream)
-	_breath = AudioStreamPlayer3D.new()
-	_breath.name = "UnfplapBreath"
-	_breath.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
-	_breath.unit_size = 1.0
-	_breath.max_distance = 8.0
-	add_child(_breath)
-	_breath_clock = 0.0
-	_breath_gain = 0.0
-
-	_kiss_stream = load("res://world/audio/pony/kiss.wav") if ResourceLoader.exists("res://world/audio/pony/kiss.wav") else null
-	# The boop kiss uses the `kiss_soft_*` pool; use the same streams for the missionary rump plap.
-	_plap_streams.clear()
-	for i: int in range(1, 41):
-		var path := "res://world/audio/pony/kiss_soft_%02d.wav" % i
-		if ResourceLoader.exists(path):
-			var stream: Resource = load(path)
-			if stream is AudioStream:
-				_plap_streams.append(stream)
-	if _plap_streams.is_empty() and _kiss_stream != null:
-		_plap_streams.append(_kiss_stream)
-	_kiss_sound = AudioStreamPlayer3D.new()
-	_kiss_sound.name = "UnfplapKiss"
-	_kiss_sound.bus = _breath.bus
-	_kiss_sound.unit_size = 1.0
-	_kiss_sound.max_distance = 6.0
-	add_child(_kiss_sound)
-
-	_mouth_kiss_sound = AudioStreamPlayer3D.new()
-	_mouth_kiss_sound.name = "UnfplapMouthKiss"
-	_mouth_kiss_sound.bus = _breath.bus
-	_mouth_kiss_sound.unit_size = 1.0
-	_mouth_kiss_sound.max_distance = 4.0
-	add_child(_mouth_kiss_sound)
-
-	_climax_streams.clear()
-	for path: String in ["res://world/audio/pony/squee_1.ogg", "res://world/audio/pony/squee_2.ogg"]:
-		if ResourceLoader.exists(path):
-			var stream: Resource = load(path)
-			if stream is AudioStream:
-				_climax_streams.append(stream)
-	_climax_sound = AudioStreamPlayer3D.new()
-	_climax_sound.name = "UnfplapClimax"
-	_climax_sound.bus = _breath.bus
-	_climax_sound.unit_size = 1.0
-	_climax_sound.max_distance = 10.0
-	add_child(_climax_sound)
+	_sounds_controller().start()
 
 
 func _stop_audio() -> void:
@@ -6859,27 +6792,13 @@ func _stop_audio() -> void:
 		_act_audio.stop()
 		_act_audio.queue_free()
 		_act_audio = null
-	if is_instance_valid(_breath):
-		_breath.stop()
-		_breath.queue_free()
-		_breath = null
-	if is_instance_valid(_kiss_sound):
-		_kiss_sound.stop()
-		_kiss_sound.queue_free()
-		_kiss_sound = null
-	if is_instance_valid(_mouth_kiss_sound):
-		_mouth_kiss_sound.stop()
-		_mouth_kiss_sound.queue_free()
-		_mouth_kiss_sound = null
-	if is_instance_valid(_climax_sound):
-		_climax_sound.stop()
-		_climax_sound.queue_free()
-		_climax_sound = null
+	if _sounds != null:
+		_sounds.stop()
 
 
 func _stop_breath() -> void:
-	if is_instance_valid(_breath):
-		_breath.stop()
+	if _sounds != null:
+		_sounds.stop_breath()
 
 
 func _play_kiss() -> void:
@@ -6889,69 +6808,25 @@ func _play_kiss() -> void:
 		return
 	# Use the mod-owned player in both poses. Calling the game's boop `play_kiss()` increments her
 	# kiss counter, and pony_awareness then tells the AI "The player kissed your face." during sex.
-	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
-	if stream == null or not is_instance_valid(_kiss_sound):
-		return
-	_kiss_sound.stream = stream
-	_kiss_sound.global_position = _rump_point()
-	_kiss_sound.unit_size = 1.0
-	_kiss_sound.max_distance = 6.0
-	_kiss_sound.volume_db = -22.0
-	_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
-	_kiss_sound.play()
+	_sounds_controller().play_kiss(_rump_point())
 
 
 func _play_climax() -> void:
-	if not _climax_streams.is_empty() and is_instance_valid(_climax_sound):
-		_climax_sound.stream = _climax_streams[randi() % _climax_streams.size()]
-		_climax_sound.global_position = _snout()
-		_climax_sound.pitch_scale = randf_range(0.95, 1.05)
-		_climax_sound.play()
+	_sounds_controller().play_climax(_snout())
 	if is_instance_valid(_act_audio):
 		_act_audio.play_climax_wet(_dock_point())
 		_act_audio.play_climax_voice(_snout())
 
 
 func _breath_tick(delta: float) -> void:
-	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		return
-	if _breath_streams.is_empty() or not is_instance_valid(_breath):
-		return
-	var rate := clampf(_thrusts_per_second() / BREATH_RATE_CAP, 0.0, 1.0)
-	# Gain follows the plap rate, jumps loud at climax, and fades out over 5 s in afterglow.
-	var target := 0.0
-	var fade := BREATH_FADE_S
+	var phase := ""
 	if state == State.ACTIVE:
-		target = rate
+		phase = "active"
 	elif state == State.CLIMAX:
-		target = 1.0
-		fade = 0.25
-	else:
-		target = 0.0
-		fade = AFTERGLOW_BREATH_FADE_S
-	_breath_gain = move_toward(_breath_gain, target, delta / fade)
-	# Climax volume matches the kiss/plap level, not a shout.
-	var max_db := -22.0 if state == State.CLIMAX else -18.0
-	var db := lerpf(-42.0, max_db, _breath_gain)
-	if _breath.playing:
-		_breath.volume_db = db
-	_breath_clock -= delta
-	if _breath_clock > 0.0:
-		return
-	if _breath_gain < 0.02:
-		_breath_clock = 0.4
-		return
-	var interval := lerpf(BREATH_BASE_INTERVAL_S, BREATH_MIN_INTERVAL_S, rate)
-	if state == State.CLIMAX:
-		interval = BREATH_CLIMAX_INTERVAL_S
+		phase = "climax"
 	elif state == State.AFTERGLOW:
-		interval = 1.4
-	_breath_clock = interval
-	_breath.stream = _breath_streams[randi() % _breath_streams.size()]
-	_breath.global_position = _snout()
-	_breath.volume_db = db
-	_breath.pitch_scale = 1.0 + rate * 0.2
-	_breath.play()
+		phase = "afterglow"
+	_sounds_controller().breath_tick(delta, phase, _thrusts_per_second(), _snout())
 
 
 func _thrusts_per_second() -> float:

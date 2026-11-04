@@ -15,7 +15,7 @@ Do not start implementation until you have read the required files for the area 
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Settings or character profiles | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
-| Act audio or sound assets | `act_audio.gd`, `audio/act/catalogue.gd`, `AUDIO_CREDITS.md` |
+| Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `AUDIO_CREDITS.md` |
 
 ## Identity and scope
 
@@ -122,6 +122,8 @@ mods/unfplap/
   chin_debug.gd     debug head-pitch skeleton modifier
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
+  act_sound.gd      base-game breath, plap, mouth-kiss and climax players
+  act_audio.gd      optional pack foley/vocal/wet layers
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness meter and close cue
   readiness_bar.gd  pure short 0–100 readiness fill; no ticks

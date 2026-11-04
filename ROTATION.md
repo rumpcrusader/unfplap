@@ -323,8 +323,9 @@ these values here if a future pose needs that effect.
   `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the hidden-hand
   `SMACK_SWING_SECONDS = 0.20` swing at `SMACK_CONTACT_PHASE = 0.45`. A `SMACK_COOLDOWN_MS = 200`
   gate remains, and a new smack waits for the current recovery. With `act_foley` on the native
-  sound player gets a peak-normalised OpenNSFW hand-smack variant for that impact; off keeps the
-  stock `flank_slap.wav`. The native impact still supplies the decal, blush, jiggle and
+  sound player gets the selected `presentation.standing.smack.sound` OpenNSFW variant for that
+  impact (the original mix by default, dry alternatives for auditioning); off keeps the stock
+  `flank_slap.wav`. The native impact still supplies the decal, blush, jiggle and
   `flank_smack`.
 - `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes

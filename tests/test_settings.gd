@@ -4,6 +4,7 @@ extends SceneTree
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 var failures := 0
 var checks := 0
@@ -248,6 +249,8 @@ func run() -> void:
 		"default smack raise speed")
 	check(near(float(smack_defaults.get("return_speed", -1.0)), 6.0),
 		"default smack return speed")
+	check(str(smack_defaults.get("sound", "")) == "pack",
+		"default smack sound")
 
 	var old_presentation := {
 		"presentation": {
@@ -359,6 +362,13 @@ func run() -> void:
 	check(float(smack_controls.get("hind_m", -1.0)) >= 0.0,
 		"runtime smack hind offset is non-negative")
 	check(smack_controls.has("height_m"), "runtime smack height is present")
+	var sound_id := str(smack_controls.get("sound", ""))
+	check(SMACK_AUDIO.valid_id(sound_id), "runtime smack sound is a catalogue id")
+	check((SMACK_AUDIO.OPTIONS as Array).size() >= 2, "smack sound alternatives exist")
+	for option_v: Variant in SMACK_AUDIO.OPTIONS:
+		var option: Dictionary = option_v
+		for path: String in option.get("paths", []):
+			check(ResourceLoader.exists(path), "smack sound path exists: " + path)
 	check(float(smack_controls.get("arc_m", -1.0)) >= 0.0,
 		"runtime smack arc is non-negative")
 	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")

@@ -581,12 +581,14 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the old
   hidden-hand `SMACK_SWING_SECONDS = 0.20` swing, impacting at `SMACK_CONTACT_PHASE = 0.45`. A
   `SMACK_COOLDOWN_MS = 200` gate remains; a new smack waits for the current recovery.
-- It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs one
-  peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` on the native sound
-  player immediately before the impact; `act_foley` off keeps the stock `flank_slap.wav`. The
-  stock stream, level and pitch are restored at act end. The pony's `physical_reaction`
-  connections are temporarily disconnected around the call, so `flank_smack` cannot trigger
-  the game's buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
+- It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs the
+  selected `presentation.standing.smack.sound` variant from `audio/act/smack/` on the native
+  sound player immediately before the impact; the original three-file mix is the default and the
+  dry OpenNSFW alternatives exist for auditioning. `act_foley` off keeps the stock
+  `flank_slap.wav`. The stock stream, level and pitch are restored at act end. The pony's
+  `physical_reaction` connections are temporarily disconnected around the call, so
+  `flank_smack` cannot trigger the game's buck/fidget/hoof shuffle or a
+  bond/context/memory/satisfaction event.
 - A right lean (`side > 0`) selects the left cheek index; a left lean selects the right; exactly
   centered picks one at random. The index chooses which cheek decal reddens; standing's contact
   point is the live caress point or the bottom of that cheek. There is no rump target.
@@ -980,8 +982,9 @@ rump blush. Unknown settings keys are ignored.
     `2.89 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
     and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.10 m`), `height_m`
     (default `-0.03 m`, signed), `arc_m` (default `0.06 m`), `pitch_deg` (default `12°`),
-    `raise_speed` (default `2.0 m/s`) and `return_speed` (default `6.0 m/s`). The smack values
-    are experimental/unbounded.
+    `raise_speed` (default `2.0 m/s`), `return_speed` (default `6.0 m/s`) and `sound` (default
+    `"pack"`; one of the ids in `audio/act/smack/catalogue.gd`). The smack values are
+    experimental/unbounded.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
@@ -998,7 +1001,8 @@ rump blush. Unknown settings keys are ignored.
   (radius, thrust intensity and smack intensity), the **Act presentation** section split into
   **Missionary** and **Standing** (standing includes idle side sway, caress palm distance, oval
   radii, size-selected palm scale, body-part ignores, and the smack raise height, hind offset,
-  height, palm arc, palm pitch and raise/return speeds), and the offer / ear-pin debug controls.
+  height, palm arc, palm pitch, raise/return speeds and sound), and the offer / ear-pin debug
+  controls.
   There are no Save buttons: each control writes its own block and calls `apply_live_settings()`
   so the active act updates immediately.
 - `debug_logs` defaults to `false`.

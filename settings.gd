@@ -8,6 +8,7 @@ extends RefCounted
 ## `presentation` is split into `missionary` and `standing` blocks.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
@@ -241,6 +242,7 @@ const PRESENTATION_DEFAULTS := {
 			"pitch_deg": 12.0,
 			"raise_speed": 2.0,
 			"return_speed": 6.0,
+			"sound": "pack",
 		},
 	},
 }
@@ -690,6 +692,8 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 		smack["pitch_deg"] = float(smack.get("pitch_deg", 12.0))
 		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 2.0)))
 		smack["return_speed"] = maxf(0.05, float(smack.get("return_speed", 6.0)))
+		var sound := str(smack.get("sound", SMACK_AUDIO.DEFAULT_ID))
+		smack["sound"] = sound if SMACK_AUDIO.valid_id(sound) else SMACK_AUDIO.DEFAULT_ID
 		out["smack"] = smack
 		var kiss: Dictionary = out.get("kiss", {})
 		kiss["mouth_right"] = clampf(float(kiss.get("mouth_right", 0.0)), -0.5, 0.5)

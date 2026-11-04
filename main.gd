@@ -13,6 +13,7 @@ const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TASTE := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
@@ -1021,6 +1022,26 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"return_speed": smack_return_speed.value}})
 		_apply_live_settings())
+	var sound_label := Label.new()
+	sound_label.text = "Sound"
+	sound_label.add_theme_font_size_override("font_size", font_size)
+	smack_form.add_child(sound_label)
+	var sound_pick := OptionButton.new()
+	var sound_ids: Array[String] = []
+	for option_v: Variant in SMACK_AUDIO.OPTIONS:
+		var option: Dictionary = option_v
+		sound_pick.add_item(str(option.get("label", option.get("id", ""))))
+		sound_ids.append(str(option.get("id", "")))
+	var current_sound := str(smack.get("sound", SMACK_AUDIO.DEFAULT_ID))
+	sound_pick.selected = maxi(0, sound_ids.find(current_sound))
+	sound_pick.add_theme_font_size_override("font_size", font_size - 2)
+	sound_pick.item_selected.connect(func(index: int) -> void:
+		if index < 0 or index >= sound_ids.size():
+			return
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"sound": sound_ids[index]}})
+		_apply_live_settings())
+	smack_form.add_child(sound_pick)
 
 
 func _add_debug_logs_toggle(list: VBoxContainer) -> void:

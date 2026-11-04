@@ -5,14 +5,16 @@ Pack**.
 
 ```text
 SFX: OpenNSFW Sound Pack | @OpenNSFWSP
-Contributors used: @SquishSuccubus, @lehornysfx3d, @pixelcarnagee,
-@NyaughtyMeow, @That1LewdDude
+Contributors used: @SquishSuccubus, @JimmySpaceDean, @DrDabblur, @lehornysfx3d,
+@pixelcarnagee, @NyaughtyMeow, @That1LewdDude
 Cloth Pillow Impacts: F.M.Audio (freesound.org/s/561141), CC BY 4.0
 License: CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
 ```
 
 The selected files were trimmed, mono-downmixed, resampled to 48 kHz and peak-normalised for
 this mod. The flank-smack variants are layered from the pack's flesh-impact and spank sources.
+The selectable dry alternatives come from the Spanks (SquishSuccubus), Skin Slaps solid
+(JimmySpaceDean) and SpankSlap (DrDabblur) folders.
 The full source path for every shipped file is in `audio/act/sources.json`.
 
 The pack is credited as a SFX pack. Do not contact the pack's contributors directly, and do not

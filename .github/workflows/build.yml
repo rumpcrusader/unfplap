@@ -29,12 +29,7 @@ jobs:
           test "$tag" = "$ver" || { echo "tag $tag != mod.json version $ver"; exit 1; }
 
       - name: Build
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            ./build.sh --no-extends
-          else
-            ./build.sh
-          fi
+        run: ./build.sh
 
       - uses: actions/upload-artifact@v4
         with:

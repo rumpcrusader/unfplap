@@ -3,10 +3,10 @@ extends SceneTree
 ##
 ## build.sh stages the runtime tree selected by .pckignore, runs --import, then copies this
 ## script into the staging project and calls it. This packer adds the staged tree as-is:
-## mod.json (optionally without its "extends" array), scripts, assets, poses and merge data.
-## Each .import is packed with the data Godot generated for it; raw imported assets are not.
+## mod.json, scripts, assets, poses and merge data. Each .import is packed with the data Godot
+## generated for it; raw imported assets are not.
 ##
-##   godot --headless --path <stage> --script res://pack.gd -- --out FILE.pck [--no-extends]
+##   godot --headless --path <stage> --script res://pack.gd -- --out FILE.pck
 
 const ID_PATTERN := "^[a-z0-9_]{1,40}$"
 
@@ -20,13 +20,10 @@ func _initialize() -> void:
 
 func run() -> void:
 	var out := ""
-	var strip_extends := false
 	var args := OS.get_cmdline_user_args()
 	for i in args.size():
 		if args[i] == "--out" and i + 1 < args.size():
 			out = args[i + 1]
-		elif args[i] == "--no-extends":
-			strip_extends = true
 	if out.is_empty():
 		fail("missing --out <file.pck>")
 		return
@@ -53,26 +50,12 @@ func run() -> void:
 	var out_path := ProjectSettings.globalize_path(out) if out.begins_with("res://") else out
 	DirAccess.make_dir_recursive_absolute(out_path.get_base_dir())
 
-	var packed_manifest := manifest_path
-	var temp_manifest := ""
-	if strip_extends and (manifest as Dictionary).has("extends"):
-		var release: Dictionary = (manifest as Dictionary).duplicate(true)
-		release.erase("extends")
-		temp_manifest = OS.get_temp_dir().path_join("mod_manifest_%s.json" % id)
-		var file := FileAccess.open(temp_manifest, FileAccess.WRITE)
-		if file == null:
-			fail("cannot write %s" % temp_manifest)
-			return
-		file.store_string(JSON.stringify(release, "\t") + "\n")
-		file.close()
-		packed_manifest = temp_manifest
-
 	var packer := PCKPacker.new()
 	if packer.pck_start(out_path) != OK:
 		fail("cannot write %s" % out_path)
 		return
 
-	_add(packer, manifest_path, ProjectSettings.globalize_path(packed_manifest))
+	_add(packer, manifest_path, ProjectSettings.globalize_path(manifest_path))
 	if _failed: return
 	var absolute_root := ProjectSettings.globalize_path(root)
 	for name: String in DirAccess.get_files_at(absolute_root):
@@ -108,8 +91,6 @@ func run() -> void:
 		fail("cannot finish %s" % out_path)
 		return
 	DirAccess.remove_absolute(stamp)
-	if not temp_manifest.is_empty():
-		DirAccess.remove_absolute(temp_manifest)
 
 	print("[%s] %d files" % [id, _count])
 	print("MOD_BUILT ", out_path)

@@ -28,6 +28,9 @@ func run() -> void:
 	check(manifest.contains("\"game_version\": \"0.3.0\""), "target game version")
 	check(not manifest.contains("\"extends\""), "entry script only")
 	check(manifest.contains("res://mods/unfplap/"), "entry/extension paths")
+	for path: String in ["build.sh", "tools/pack.gd", ".github/workflows/build.yml"]:
+		check(not FileAccess.get_file_as_string(ROOT.path_join(path)).contains("--no-extends"),
+			"no obsolete extension flag in %s" % path)
 	_check_preloads(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:

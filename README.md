@@ -50,7 +50,6 @@ Requires Godot 4.5.x and `python3`.
 ./build.sh
 # -> dist/unfplap-<version>.pck
 
-./build.sh --no-extends   # release pack for games that ship compiled .gdc scripts
 ./build.sh --out /tmp/unfplap.pck
 GODOT=/path/to/godot ./build.sh
 ```
@@ -60,9 +59,8 @@ the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported
 docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
 does, for credit.
 
-The mod has no script extension; `--no-extends` remains accepted for older release flows and
-produces the same pack. The official `tools/modding/build_mod.gd` command still works for quick
-builds, but packs the whole folder.
+The official `tools/modding/build_mod.gd` command still works for quick builds, but packs the
+whole folder.
 
 On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests, and on a `v*` tag it
-builds with `--no-extends` and attaches `dist/unfplap-<version>.pck` to a GitHub release.
+attaches `dist/unfplap-<version>.pck` to a GitHub release.

@@ -3,7 +3,6 @@
 #
 #   ./build.sh                     -> dist/unfplap-<version>.pck
 #   ./build.sh --out FILE.pck      -> FILE.pck
-#   ./build.sh --no-extends        -> release pack for compiled game builds
 #   GODOT=/path/to/godot ./build.sh
 #
 # The pack contains only the runtime tree selected by .pckignore, imported asset data and the
@@ -14,7 +13,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GODOT="${GODOT:-godot}"
 OUT=""
-STRIP_EXTENDS=false
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -23,12 +21,8 @@ while [ "$#" -gt 0 ]; do
 			OUT="$2"
 			shift 2
 			;;
-		--no-extends)
-			STRIP_EXTENDS=true
-			shift
-			;;
 		-h|--help)
-			sed -n '2,12p' "$0"
+			sed -n '2,10p' "$0"
 			exit 0
 			;;
 		*)
@@ -79,12 +73,6 @@ MOD="$STAGE/mods/$ID"
 mkdir -p "$MOD"
 tar -C "$ROOT" --exclude-from="$ROOT/.pckignore" -cf - . | tar -C "$MOD" -xf -
 
-# A release pack for a game that ships compiled .gdc scripts drops the parked extension both
-# from mod.json (pack.gd) and from the pack itself.
-if [ "$STRIP_EXTENDS" = true ]; then
-	rm -rf "$MOD/ext"
-fi
-
 cat > "$STAGE/project.godot" <<EOF
 config_version=5
 
@@ -97,8 +85,6 @@ echo "Importing resources..."
 "$GODOT_BIN" --headless --path "$STAGE" --import
 
 cp "$ROOT/tools/pack.gd" "$STAGE/pack.gd"
-PACK_ARGS=(--out "$OUT")
-if [ "$STRIP_EXTENDS" = true ]; then PACK_ARGS+=(--no-extends); fi
-"$GODOT_BIN" --headless --path "$STAGE" --script res://pack.gd -- "${PACK_ARGS[@]}"
+"$GODOT_BIN" --headless --path "$STAGE" --script res://pack.gd -- --out "$OUT"
 
 echo "Copy $OUT into the game's mods folder and enable it in Settings -> Mods."

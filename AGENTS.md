@@ -83,15 +83,14 @@ scripts/smoke.sh
   The printed output is the current state; do not copy counts into docs.
 - Build only when the user asks:
   ```bash
-  ./build.sh [--no-extends] [--out <file.pck>]
+  ./build.sh [--out <file.pck>]
   ```
-  Success prints `MOD_BUILT <path>`. The mod has no script extension; `--no-extends` is still
-  accepted for older release flows and produces the same pack.
+  Success prints `MOD_BUILT <path>`. The mod has no script extension.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
   `AUDIO_CREDITS.md` does.
-- `.github/workflows/build.yml` builds on pushes and pull requests; a `v*` tag builds with
-  `--no-extends` and publishes `dist/unfplap-<version>.pck` as a GitHub release asset.
+- `.github/workflows/build.yml` builds on pushes and pull requests; a `v*` tag publishes
+  `dist/unfplap-<version>.pck` as a GitHub release asset.
 - The official `tools/modding/build_mod.gd` command remains a fallback when the full game
   project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it

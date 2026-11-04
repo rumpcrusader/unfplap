@@ -23,6 +23,7 @@ TESTS=(
 	test_afterglow
 	test_voice
 	test_actions
+	test_hud
 	test_initiation
 	test_act_audio
 )

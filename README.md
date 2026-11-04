@@ -14,7 +14,7 @@ Desktop only for now
 
 | Input       | Action                                                            |
 | ----------- | ----------------------------------------------------------------- |
-| `Y`         | Start an available encounter (standing: aim at her flank)            |
+| `Y`         | Make love with an available pony (standing: aim at her flank)       |
 | Mouse ↕     | Thrust during the act                                               |
 | `W` / `S`   | Lean the act camera forward / back                                |
 | `Q` / `E`   | Lean diagonally; also cue a kiss or shoulder reach                |

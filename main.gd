@@ -15,13 +15,15 @@ const TASTE := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const CURRENCY := preload("res://world/ui/currency.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 const CAPTION_PATH := "res://world/ui/speech_caption.gd"
 ## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
 const CAPTION_TOP_MARGIN := 26.0
+## The offer hint beside the game's prompt row. Y is a 0.35 s hold, so the base-game phrasing
+## ("Hold G · Bridal carry") gives "Hold: Make love".
+const OFFER_HINT := "Hold: Make love"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default ON. Toggle in game with Ctrl+Shift+D.
 var debug_logs := true
@@ -1315,29 +1317,10 @@ func _native_row() -> HBoxContainer:
 	return null
 
 
+## The offer hint is one more unit in the game's own prompt row, in that row's style and phrasing
+## ("Hold G · Bridal carry" reads as "Hold: ..."), so it sits beside base prompts unnoticed.
 func _make_native_hint_label() -> Control:
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 8)
-	var icon_path := "res://world/ui/prompts/button_y.png"
-	if ResourceLoader.exists(icon_path):
-		var icon := TextureRect.new()
-		icon.texture = load(icon_path)
-		icon.custom_minimum_size = Vector2(40, 40)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(icon)
-	var label := Label.new()
-	label.text = "sex" if row.get_child_count() > 0 else "Y · sex"
-	CURRENCY.apply(label)
-	label.add_theme_font_size_override("font_size", 30)
-	label.add_theme_color_override("font_color", Color("f4f1ff"))
-	label.add_theme_color_override("font_outline_color", Color("1a1624"))
-	label.add_theme_constant_override("outline_size", 10)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(label)
-	return row
+	return HUD.prompt_row("button_y", OFFER_HINT)
 
 
 func _remove_native_hint(row: HBoxContainer = null) -> void:
@@ -1362,7 +1345,7 @@ func _sync_native_hint(show_hint: bool) -> void:
 	if row == null:
 		if is_instance_valid(hud):
 			if show_hint:
-				hud.show_prompt("Y · sex")
+				hud.show_prompt(OFFER_HINT)
 			else:
 				hud.hide_prompt()
 		return

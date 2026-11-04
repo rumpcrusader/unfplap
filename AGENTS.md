@@ -766,22 +766,30 @@ examples.
 
 ## HUD and rewards
 
-- The native offer hint uses the game's `button_y` icon plus `sex` (no leading dot); without the
-  icon it falls back to `Y · sex`.
+- Buttons and words copy the game's own prompt row (`world/ui/interaction_hints.gd`) and carry card
+  (`player/cradle_controls.gd`): the game's `prompts/<name>.png` icons where it has one, a dark
+  drawn key cap (`CAP_BG`/`CAP_EDGE`) for keys it does not (W/S/A/D/Z, `↕`), ink words in
+  `#f4f1ff` with a `#1a1624` outline instead of a drop shadow, and muted `#f4f1ff` at 60% for
+  modifiers. `hud.gd` exposes `text_label()`, `keycap()`, `button_icon()` and `prompt_row()` as the
+  one style source.
+- The offer hint is `OFFER_HINT = "Hold: Make love"` in the game's own prompt row: a `button_y`
+  icon at the row's 52 px scale beside 30 px words, placed by `hud.prompt_row()` so it reads like
+  `Hold: Bridal carry`. Without that row (VR or no `InteractionHints`) the same row is built into
+  the HUD's own centered prompt above the caption line.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
-  controller icon. Rows list mouse thrust, W/S, Q/E, A/D, Z/C caress movement, F, mouse right
-  and Y; `Y` text
-  changes by state.
+  controller icon, a muted `Hold`/blank modifier column, and one description. Rows list mouse
+  thrust, W/S, Q/E, A/D, Z/C caress movement, F (`Hold`), mouse right and Y (`Hold`); the Y
+  description is `Afterglow`, `Stop` or `Exit` by state. A muted `MAKE LOVE` title names the card,
+  like the carry card's title.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; the previous state is restored on every exit path:
   `_abort_start()`, `_restore_now()`, `_finish_restore()` (including the invalid-pony branch),
   and `force_stop()`. `_physics_process` also restores it if `IDLE` is ever reached while still
   marked hidden. The inventory's `_place_hotbar()` re-evaluates the state after restoring, so a
   stale pre-act layer flag cannot leave it hidden.
-- The bottom-left controls list is one row per button with a keycap/controller icon. Top to
-  bottom: cue line `❤ N/3 | cue`, readiness line
+- The bottom-left stack reads, top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
-  controls.
+  `MAKE LOVE` title, controls.
 - The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
   (default `true`). The bar has no ticks. The hearts remain when readouts are off.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;

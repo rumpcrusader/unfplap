@@ -24,7 +24,6 @@ class FakeTail extends Node:
 
 
 class FakeMare extends Node3D:
-	var skeleton: Skeleton3D
 	var near_mesh_enabled := true
 	var near_calls: Array = []
 
@@ -532,7 +531,6 @@ func run() -> void:
 	hair.add_child(tail)
 	tail.call("_cache")
 	var pelvis_before := hair.get_bone_global_pose(0).origin
-	var pelvis_basis_before := hair.get_bone_global_pose(0).basis
 	var chest_before := hair.get_bone_global_pose(1).origin
 	var neck_before := hair.get_bone_global_pose(2).origin
 	var head_before := hair.get_bone_global_pose(3).origin
@@ -541,8 +539,6 @@ func run() -> void:
 	tail.call("_process_modification_with_delta", 0.05)
 	check(not hair.get_bone_global_pose(0).origin.is_equal_approx(pelvis_before),
 		"tail base pelvis moves with the jiggle")
-	check(not hair.get_bone_global_pose(0).basis.is_equal_approx(pelvis_basis_before),
-		"tail base share rotates the pelvis")
 	check(hair.get_bone_global_pose(1).origin.is_equal_approx(chest_before)
 		and hair.get_bone_global_pose(2).origin.is_equal_approx(neck_before)
 		and hair.get_bone_global_pose(3).origin.is_equal_approx(head_before),
@@ -552,10 +548,6 @@ func run() -> void:
 	# unmerged rig (the merged near mesh cannot move its dock) and restores it when it stops.
 	var dock_mare := FakeMare.new()
 	root.add_child(dock_mare)
-	var dock_body := Skeleton3D.new()
-	dock_body.add_bone("pony_hips")
-	dock_mare.add_child(dock_body)
-	dock_mare.skeleton = dock_body
 	var dock := MeshInstance3D.new()
 	dock.name = "OpenPonyDock"
 	dock_mare.add_child(dock)
@@ -582,13 +574,12 @@ func run() -> void:
 		"dock follower reveals the unmerged rig")
 	check(dock.transform.is_equal_approx(Transform3D.IDENTITY),
 		"dock follower keeps the baseline frame")
-	# The follower now reads the hair pelvis (the pin target), not the chain root.
-	var pelvis_rotated := hair.get_bone_global_pose(0)
-	pelvis_rotated.basis = Basis(Vector3.UP, 0.5) * pelvis_rotated.basis
-	hair.set_bone_global_pose(0, pelvis_rotated)
+	var tail_rotated := hair.get_bone_global_pose(4)
+	tail_rotated.basis = Basis(Vector3.UP, 0.5) * tail_rotated.basis
+	hair.set_bone_global_pose(4, tail_rotated)
 	follower.call("_process_modification_with_delta", 0.0)
 	check(not dock.transform.is_equal_approx(Transform3D.IDENTITY),
-		"dock follows the pelvis base motion")
+		"dock follows the tail root")
 	follower.call("restore")
 	check(dock.transform.is_equal_approx(Transform3D.IDENTITY),
 		"dock follower restores the dock frame")

@@ -41,7 +41,6 @@ const POSE_DEFAULTS := {
 		"glance_back_chance": 0.5,
 		"tail_aside": 0.55,
 		"tail_lift": 0.42,
-		"tail_base_share": 0.6,
 	},
 }
 

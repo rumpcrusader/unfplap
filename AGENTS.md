@@ -404,10 +404,8 @@ body-relative axes.
   amount. This is the cheapest way to make rump jiggle and tail read as one motion; the shader
   itself stays native.
   The game's tail anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair
-  `mPelvis`, so rotating `mTail1..6` alone cannot move the base. `tail_pose` applies
-  `tail_base_share` (default `0.6`, per-pose overridable) of the aside/lift to `mPelvis` itself,
-  reduces the root bone's own share by the same amount so the total sweep is unchanged, and
-  translates `mPelvis` by `JIGGLE_BASE_M = 0.02 m` on the dock shader's wave. It restores
+  `mPelvis`, so rotating `mTail1..6` alone cannot move the base. `tail_pose` also translates the
+  hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave, restoring
   `mChest`/`mNeck`/`mHead` so only the tail base and chain move.
 - The rump shader wobble is tuned by the `jiggle` block: `radius` (default `0.26 m`) spreads it
   across the whole flank, `intensity` (default `0.25×`) scales the thrust amount, and
@@ -424,11 +422,10 @@ body-relative axes.
   hair tail. With the flag off, a smack skips both the tail wave and the dock. The hair tail
   base jiggles through `tail_pose`.
 - With `dock_tail_follow` enabled (default on), `dock_tail_follow.gd` runs on the hair skeleton
-  after `tail_pose` and carries `OpenPonyDock` with the hair `mPelvis`. It measures the pelvis
-  relative to the body `pony_hips` so body motion is not applied twice, baselines that at the
-  act start, and applies the change to the dock. The dock therefore follows the base share of
-  the aside/lift and the thrust base bob, while the chain keeps its curl. The rump shader jiggle
-  from `thrust_tail_dock_jiggle` still applies on top.
+  after `tail_pose` and rotates `OpenPonyDock` about the tail root by the change in `mTail1`
+  since the act started. It follows the aside, lift, flick, rock and thrust wave, but not the
+  `mPelvis` base bob (that would detach the dock's rump end). The rump shader jiggle from
+  `thrust_tail_dock_jiggle` still applies on top.
   The merged near mesh draws its own dock copy that cannot move, so the acting pony shows her
   unmerged rig while the follower runs (`set_near_mesh(false)`) and gets the merged mesh back at
   act end. The standing invitation attaches the same follower to its presentation tail.

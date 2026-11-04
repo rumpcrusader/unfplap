@@ -120,7 +120,6 @@ func _attach_present_pose() -> void:
 		_present_tail.runtime = self
 		_present_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
 		_present_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
-		_present_tail.base_share = float(_pose_cfg.get("tail_base_share", 0.6))
 		_present_tail.amount = 0.0
 		_present_tail.target_amount = 1.0
 		_present_tail.call("choose_side")

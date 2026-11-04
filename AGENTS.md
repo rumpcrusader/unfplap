@@ -280,7 +280,7 @@ body-relative axes.
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
 - Standing palms are scaled absolutely per body preset from
   `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.9`, same height/hoers
-  `1.0`. The settings tab edits the selected size. `palm_scale.gd` runs after BodyIK and
+  `1.0`. The Caress section edits one row per preset. `palm_scale.gd` runs after BodyIK and
   restores the cached bone scales in `_remove_anon_thrust()` on every act exit. Marker scaling
   would be discarded by the IK solver.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
@@ -780,8 +780,9 @@ examples.
   initial-ask failure sets a short 30 s retry instead; an ask, presentation, invite or give-up
   sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
   bed rest so `runtime.start()` still sees her lying.
-- `'` forces a missionary ask; `\` forces a standing ask. Both bypass quiet, cooldown and AI-usage
-  checks for lab testing, but not relationship, consent, pose or free-bed gates.
+- The **Debug → Actions** offer buttons force a missionary or standing ask; they bypass quiet,
+  cooldown and AI-usage checks for lab testing, but not relationship, consent, pose or free-bed
+  gates.
 
 ### Y start gate and aim zone
 
@@ -967,7 +968,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
 | `dock_tail_follow` | `true` | show the pony's rig and move her dock with the tail root during a standing act or invitation |
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
-| `act_ear_pin` | `false` | hidden Debug control: pin act ears |
+| `act_ear_pin` | `false` | Act flow section: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
@@ -980,8 +981,8 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `1000`; `thrust.travel` is the hip backset multiplier,
-  default `2.0`.
+  `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
+  hip backset multiplier, default `2.0`, clamped to `0.25…2.0×` as a player-facing contract.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
   (default `0.55`). It is read live with the other thrust controls.

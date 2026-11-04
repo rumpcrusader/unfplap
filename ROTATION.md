@@ -226,7 +226,7 @@ these values here if a future pose needs that effect.
   the capture clears at act end.
 - Standing palms scale absolutely per body preset from
   `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.9`, same height/hoers `1.0`.
-  The settings size selector edits each preset. `palm_scale.gd` runs after BodyIK and restores
+  The Caress section edits one row per preset. `palm_scale.gd` runs after BodyIK and restores
   the cached scales in `_remove_anon_thrust()` on every act exit.
 - Holding `F` at `abs(side) >= STANDING_KISS_LEAN = 0.90` starts the same base-game kiss used by
   missionary; releasing `F` or dropping the lean ends it. The side is latched from the input lean

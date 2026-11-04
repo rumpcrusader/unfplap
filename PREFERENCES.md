@@ -48,36 +48,37 @@ choice. Camera/pose mechanics and aftercare are outside it.
 
 ## Settings editor
 
-The feature flags are one ungrouped list. Each row has a human label and a help line. Changes
-apply live during an act.
+`Settings → Unfplap` is drawn from the tunable schema (`tunables_schema.gd`); every row has a
+label and a help line, sits in a named section, and applies live during an act. Adding or
+reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
-`Settings → Unfplap` has a **Thrust** section:
+**Settings tab**
 
-- mouse-up direction;
-- sensitivity in pixels per full thrust (`240…1200`, default `800`).
+- **Controls**: HUD readouts, captions on top, press Y starts sex, mute Ponese audio.
+- **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
+  `1000`), hip back-off (`0.25…2.0×`, default `2.0×`).
+- **Character taste**: the per-mare form described below.
 
-It also has a **Camera thrust** section with two `0…100%` amounts, defaulting to Surge `100%`
-and Bob `35%`:
+**Debug tab**
 
-- **Surge** — forward camera travel;
-- **Bob** — vertical camera dip.
+- **Audio**: act foley, act vocals, wet climax layer, bed creaks.
+- **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
+  `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
+  filtered thrust **speed**, not depth, with one smooth critically damped response.
+- **Missionary**: forward, height, side, pullback, side-lean forward (`side_lean`, default
+  `0.10 m`), pitch (`pitch_deg`, default `-15°`; positive looks up) and the five neck angles
+  (neck 1/2, neck roll, head pitch, head roll).
+- **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean, idle side sway.
+- **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean, forelegs.
+- **Standing → Caress**: palm distance (`0.04 m`), oval across/up (`5.36 cm` / `2.89 cm`), palm
+  scale per body-size preset (Canon `0.75`, mounting `0.9`, same height `1.0`, Hoers `1.0`), and
+  ignored body parts (tail and wing by default).
+- **Standing → Smack**: max raise (`0.30 m`), hind offset (`0.10 m`), height (`-0.03 m`), palm
+  arc (`0.06 m`), palm pitch (`12°`), raise speed (`2.0 m/s`) and return speed (`6.0 m/s`).
 
-Both follow the filtered thrust **speed**, not depth, with one smooth critically damped
-response. There are no Save buttons. Thrust and camera-thrust controls write their own blocks
-immediately and apply live during an act.
-
-The **Act presentation** section is split per pose:
-
-- **Missionary**: forward, height, side, pullback, pitch (`pitch_deg`, default `0`;
-  positive looks up) and the side-lean head-forward amount (`side_lean`, default `0.20`).
-- **Standing**: glance-back speed (`0.25…3.0×`) and Anon torso lean (`torso_angle_deg`).
-- **Standing → Caress**: palm distance in cm (`palm_distance`, default `0.04 m`), palm size
-  and palm scale. Palm scale is absolute per body-size preset (Canon `0.85`, mounting
-  `0.95`, same height/hoers `1.0`) and is edited through the size selector. Caress can
-  ignore tail, mane, wings and legs; tail is ignored by default.
-
-All controls apply live during an act. The framing, pitch and torso controls remain
-experimental and unbounded where noted.
+There are no Save buttons: each edit writes its value and applies to the active act immediately.
+Debug numbers are never clamped; only the player-facing contract bounds listed above are
+enforced. The framing, pitch and torso controls remain experimental and unbounded.
 
 The **Character taste** section exposes one pony selector and one form:
 

@@ -175,8 +175,9 @@ body-relative axes.
   `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both run
   **before** the gaze solve, so they change head position without biasing the final face
   direction. After the gaze solve, `_head_pitch(head_pitch_deg)` tilts the head about the body
-  right axis, and `_roll_head(head_roll)` stays last. These are live presentation controls under
-  Missionary → Neck angles.
+  right axis, and `_roll_head(head_roll)` stays last. This last one is a **degrees** value and
+  must convert with `deg_to_rad()`; using it as radians turns a 1° control into ~57°. These are
+  live presentation controls under Missionary → Neck angles.
 - `_aim_gaze()` is a true shortest-arc solve from her current face direction to Anon, using the
   current `pony_head` frame plus `HybridNeckLink`'s fixed `pony_head → mHead` offset. Do not
   replace it with absolute yaw/pitch from the body axis: that assumed a standing rest
@@ -187,6 +188,14 @@ body-relative axes.
 - Bed context is not optional: the lie pose, mattress surface and shared-bed transform all
   affect the result. The floating pose preview has no lie pose, so use the lab bed for the real
   check.
+- The act bed is resolved through `main.real_bed()`. A cuddling `SharedTorsoSupport` is a
+  temporary child of the bed with `soft_support`; using it as the bed leaves the act holding a
+  freed node once the cuddle ends, which makes the anchor, camera and pose fall back differently
+  on every bed. `real_bed()` walks to the actual `mattress_top` bed (or the support's parent).
+- `pose1_ignore_bed_collision` (Debug, default on) adds collision exceptions between the pony and
+  the bed's real `PhysicsBody3D` children while the missionary act runs. It skips support bodies
+  (`shared_rest_support` ancestors), keeps the bed collider for support rays, `_measure_soft`
+  and Anon's seat, and removes every exception before she stands at restore.
 - Start waits for player rest ≥ 0.99 and the pony's `lie_down` to settle.
 
 ### Pose 2: horse
@@ -867,7 +876,11 @@ examples.
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
+| `pose1_ignore_bed_collision` | `true` | collision exceptions between the missionary pony and the real bed's bodies; support rays and seat stay |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
+
+`act_audio.gd` applies `SLIDE_GAIN_DB = -3.1` in `play_slide()`, so every slide-in/out cue is
+30% lower in linear amplitude. Plaps and bed/fabric cues are unchanged.
 
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.

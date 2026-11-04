@@ -67,6 +67,7 @@ const FEATURE_DEFAULTS := {
 	"act_vocals": false,
 	"act_climax": false,
 	"bed_creaks": false,
+	"pose1_ignore_bed_collision": true,
 	"settings_tab": true,
 	"act_ear_pin": false,
 }
@@ -139,6 +140,11 @@ const FEATURE_INFO := {
 	"bed_creaks": {
 		"label": "Bed creaks",
 		"help": "Play the pack's wooden bed creak on missionary thrusts. Off keeps plaps, slides and soft-bed fabric.",
+		"live": true,
+	},
+	"pose1_ignore_bed_collision": {
+		"label": "Ignore bed collision in missionary",
+		"help": "Keep the bed's physics bodies out of her body while the missionary act runs. The bed still supports her, seats Anon and feeds the soft-bed height.",
 		"live": true,
 	},
 	"settings_tab": {

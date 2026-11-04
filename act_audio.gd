@@ -15,6 +15,8 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
+## 30% linear amplitude reduction (20 * log10(0.7)).
+const SLIDE_GAIN_DB := -3.1
 
 var _foley := false
 var _vocals := false
@@ -207,7 +209,11 @@ func play_bed(direction: String, strength: float, at: Vector3, soft := false) ->
 
 func play_slide(direction: String, strength: float, at: Vector3, extra_db := -6.0) -> bool:
 	var cue := "slide_in" if direction == "in" else "slide_out"
-	return play(cue, at, strength, extra_db)
+	return play(cue, at, strength, slide_gain_db(extra_db))
+
+
+static func slide_gain_db(extra_db: float) -> float:
+	return extra_db + SLIDE_GAIN_DB
 
 
 func play_mouth_kiss(at: Vector3) -> bool:

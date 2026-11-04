@@ -364,12 +364,12 @@ func _value(key: String, fallback: float) -> float:
 	return float(value) if value != null else fallback
 
 
-func _roll_head(rig, sk: Skeleton3D, weight: float, head_roll: float) -> void:
-	if absf(head_roll) < 0.0001 or rig.neck.is_empty():
+func _roll_head(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
+	if absf(degrees) < 0.0001 or rig.neck.is_empty():
 		return
 	var head: int = rig.neck[rig.neck.size() - 1]
 	if head < 0:
 		return
 	var pose := sk.get_bone_global_pose(head)
-	pose.basis = Basis(rig.forward_axis(sk), head_roll * weight) * pose.basis
+	pose.basis = Basis(rig.forward_axis(sk), deg_to_rad(degrees) * weight) * pose.basis
 	sk.set_bone_global_pose(head, pose)

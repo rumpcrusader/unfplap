@@ -1657,7 +1657,29 @@ func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D:
 			continue
 		var bed: Node3D = MATTRESS.bed_of(hit.get("collider"))
 		if bed != null:
-			return bed
+			var real := real_bed(bed)
+			if real != null:
+				return real
+	return null
+
+
+## The actual bed/couch behind a physics hit. A `SharedTorsoSupport` is a temporary child of the
+## bed that also carries `soft_support`; using it as the bed leaves the act with a freed node
+## once the cuddle support is removed.
+func real_bed(node: Node) -> Node3D:
+	if not is_instance_valid(node):
+		return null
+	if node.has_meta("shared_rest_support"):
+		var parent := node.get_parent() as Node3D
+		if is_instance_valid(parent):
+			return parent
+	var walk: Node = node
+	while walk != null:
+		if walk is Node3D and walk.has_meta("mattress_top"):
+			return walk as Node3D
+		walk = walk.get_parent()
+	if node is Node3D and node.has_meta("soft_support"):
+		return node as Node3D
 	return null
 
 
@@ -1682,7 +1704,7 @@ func bed_for_cradle(pony: Node3D) -> Node3D:
 	var hit: Dictionary = space.intersect_ray(query)
 	if hit.is_empty():
 		return null
-	return MATTRESS.bed_of(hit.get("collider"))
+	return real_bed(MATTRESS.bed_of(hit.get("collider")))
 
 
 func bed_occupied(bed: Node3D, target: Node) -> bool:

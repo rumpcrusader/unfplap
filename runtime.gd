@@ -645,6 +645,9 @@ var _climax_streams: Array[AudioStream] = []
 var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
+## Physics bodies on the act bed temporarily ignored by the pony's body (collision exceptions).
+var _bed_collision_ignored: Array[PhysicsBody3D] = []
+var _bed_collision_on := false
 
 
 func _ready() -> void:
@@ -779,6 +782,8 @@ func apply_live_settings() -> void:
 		_ensure_act_audio(foley, vocals, climax, bed_creaks)
 	elif is_instance_valid(_act_audio):
 		_act_audio.set_enabled(false, false, false)
+	if pose_id == CATALOG.MISSIONARY:
+		_set_bed_collision_ignored(_feature("pose1_ignore_bed_collision"))
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
@@ -1715,7 +1720,9 @@ func _resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
 	if pose != CATALOG.MISSIONARY:
 		return null
 	if bed_in is Node3D and is_instance_valid(bed_in):
-		return bed_in
+		var real: Variant = main.call("real_bed", bed_in) if main.has_method("real_bed") else bed_in
+		if real is Node3D and is_instance_valid(real):
+			return real
 	if act_source == "cradle":
 		return main.bed_for_cradle(pony)
 	return find_bed_under()
@@ -1881,6 +1888,9 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	pony.sleeping = false
 	pony.set_sim_tier(pony.SimTier.HERO)
 	pony.set_meta("sex_active", true)
+
+	if pose == CATALOG.MISSIONARY and _feature("pose1_ignore_bed_collision"):
+		_set_bed_collision_ignored(true)
 
 	if pose == CATALOG.MISSIONARY:
 		if source == "cradle":
@@ -2390,6 +2400,7 @@ func _abort_start() -> void:
 	_restore_face_turn()
 	_release_nav()
 	_unlock_player()
+	_set_bed_collision_ignored(false)
 	_free_pose()
 	if is_instance_valid(pony) and pony.has_meta("sex_active"):
 		pony.remove_meta("sex_active")
@@ -2458,6 +2469,42 @@ func _bed_anchor() -> Transform3D:
 	var at: Vector3 = center + across
 	at.y = top + 0.02
 	return Transform3D(Basis.looking_at(along, Vector3.UP), at)
+
+
+## Keep the act bed out of her body's physics without disabling its collider. Support rays,
+## `_measure_soft()` and Anon's seat still use the bed; only body-to-body pushing stops.
+func _set_bed_collision_ignored(on: bool) -> void:
+	if on == _bed_collision_on:
+		return
+	if not on:
+		for body: PhysicsBody3D in _bed_collision_ignored:
+			if is_instance_valid(pony) and is_instance_valid(body):
+				pony.remove_collision_exception_with(body)
+		_bed_collision_ignored.clear()
+		_bed_collision_on = false
+		_log("pose1 bed collision restored")
+		return
+	if not is_instance_valid(pony) or not is_instance_valid(bed):
+		return
+	_bed_collision_ignored.clear()
+	for node: Node in bed.find_children("*", "PhysicsBody3D", true, false):
+		if not is_instance_valid(node) or node == pony or _has_support_ancestor(node):
+			continue
+		pony.add_collision_exception_with(node as PhysicsBody3D)
+		_bed_collision_ignored.append(node as PhysicsBody3D)
+	_bed_collision_on = true
+	_log("pose1 bed collision ignored bed=%s bodies=%d root=%s soft_sink=%.3f" % [
+		str(bed.name), _bed_collision_ignored.size(), str(pony.global_position),
+		float(pony.posture.soft_sink) if pony.get("posture") != null else 0.0])
+
+
+func _has_support_ancestor(node: Node) -> bool:
+	var walk: Node = node
+	while walk != null:
+		if walk.has_meta("shared_rest_support"):
+			return true
+		walk = walk.get_parent()
+	return false
 
 
 ## The game's own bed-rest place for a pony lying beside Anon. Using it keeps her along the
@@ -4086,6 +4133,7 @@ func _finish_restore() -> void:
 	_set_inventory_hud_hidden(false)
 	_unlock_player()
 	_restore_camera()
+	_set_bed_collision_ignored(false)
 	pony.remove_meta("sex_active")
 	_release_nav()
 	_restore_look()
@@ -4150,6 +4198,7 @@ func force_stop() -> void:
 	# Defensive: every stop path must leave the quick slots in their pre-act state.
 	_set_inventory_hud_hidden(false)
 	if state == State.IDLE:
+		_set_bed_collision_ignored(false)
 		set_request_face(false)
 		_restore_kiss_forelegs()
 		_stop_kiss_leg_pin()
@@ -4170,6 +4219,7 @@ func _restore_now() -> void:
 		_release_wing_hold()
 		_unlock_player()
 		_restore_camera()
+		_set_bed_collision_ignored(false)
 		pony.remove_meta("sex_active")
 		if pony.get("posture") != null:
 			pony.request_posture("stand")

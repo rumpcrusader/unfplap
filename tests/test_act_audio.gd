@@ -42,6 +42,7 @@ func run() -> void:
 	check(ACT.pitch_for(0.0) >= 0.9 and ACT.pitch_for(1.0) <= 1.1, "pitch stays bounded")
 	check(ACT.gain_db(0.0) < ACT.gain_db(0.5) and ACT.gain_db(0.5) < ACT.gain_db(1.0),
 		"gain rises with strength")
+	check(near(ACT.slide_gain_db(-6.0), -9.1), "slides are 30% quieter")
 	check(near(ACT.gain_db(0.0), -10.0), "soft gain floor")
 	check(near(ACT.gain_db(1.0), 0.0), "full-strength gain")
 	check(ACT.plap_volume_db(0.2) == -80.0, "soft emits no plap")

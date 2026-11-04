@@ -878,9 +878,6 @@ examples.
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
-`act_audio.gd` applies `SLIDE_GAIN_DB = -3.1` in `play_slide()`, so every slide-in/out cue is
-30% lower in linear amplitude. Plaps and bed/fabric cues are unchanged.
-
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.

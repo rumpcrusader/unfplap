@@ -51,6 +51,11 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 
 ## The Actions section: one button per `TUNABLES.ACTIONS` entry, plus its last result.
 static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Actions"
+	heading.add_theme_font_size_override("font_size", font_size + SECTION_EXTRA)
+	list.add_child(heading)
 	var status := Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", font_size - 4)

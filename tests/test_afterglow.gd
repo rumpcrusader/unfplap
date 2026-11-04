@@ -5,6 +5,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
+const WING := preload("res://mods/unfplap/wing_control.gd")
 const PREF := preload("res://mods/unfplap/preferences.gd")
 var failures := 0
 var checks := 0
@@ -126,24 +127,23 @@ func run() -> void:
 
 	var wings := FakeWings.new()
 	root.add_child(wings)
-	var winged: Node = _runtime("standing")
+	var winged = WING.new()
 	winged._winged = true
 	winged._wing_hold = true
 	winged._wings_node = wings
-	winged._begin_wing_afterglow()
+	winged.begin_afterglow()
 	check(winged._wing_returning, "afterglow starts the slow wing return")
 	check(wings.released, "afterglow releases the wing hold")
 	check(not wings.opened, "afterglow targets folded wings")
-	winged._wing_return_tick(RUNTIME.WING_AFTERGLOW_RETURN_SECONDS * 0.5)
+	winged._wing_return_tick(WING.WING_AFTERGLOW_RETURN_SECONDS * 0.5)
 	check(wings.tuck > 0.0 and wings.tuck < 1.0, "wings fold through the midpoint")
-	winged._wing_return_tick(RUNTIME.WING_AFTERGLOW_RETURN_SECONDS)
+	winged._wing_return_tick(WING.WING_AFTERGLOW_RETURN_SECONDS)
 	check(near(wings.tuck, 1.0), "wings reach the folded tuck")
 	check(near(wings.half, 0.0), "wing half-open blend returns to zero")
 	check(winged._wing_return_done, "wing return completes")
-	winged._release_wing_hold()
+	winged.release()
 	check(not winged._wing_returning and winged._wings_node == null,
 		"wing return state clears on release")
-	winged.free()
 	wings.free()
 
 	print("AFTERGLOW_RESULT checks=%d failures=%d" % [checks, failures])

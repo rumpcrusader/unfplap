@@ -117,6 +117,7 @@ mods/unfplap/
   kiss_legs.gd      standing kiss hoof-tip pin after AffectionPose's chest flex
   prone_sway.gd     missionary lying torso slide and head nod on the thrust
   ear_twitch.gd     eased random thrust ear twitch on the head skeleton
+  wing_control.gd   wing hold/spread/flutter, afterglow fold and wing-sweep lifetime
   wing_sweep.gd     standing wing root sweep after the game's WingTuck modifier
   chin_debug.gd     debug head-pitch skeleton modifier
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection

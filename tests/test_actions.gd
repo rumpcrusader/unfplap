@@ -5,6 +5,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
+const WING := preload("res://mods/unfplap/wing_control.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 var failures := 0
@@ -114,7 +115,7 @@ func run() -> void:
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
 	check(RUNTIME.caress_profile_for("") == RUNTIME.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
-	check(near(RUNTIME.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
+	check(near(WING.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
 	check(near(RUNTIME.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
 	check(RUNTIME.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
 	check(not RUNTIME.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")

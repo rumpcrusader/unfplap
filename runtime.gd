@@ -24,7 +24,7 @@ const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
-const WING_SWEEP := preload("res://mods/unfplap/wing_sweep.gd")
+const WING := preload("res://mods/unfplap/wing_control.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
@@ -246,29 +246,6 @@ const RESTORE_BACK_SPEED := 0.6
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 
-## Wing spread/droop and jitter. All mod-owned wing timing is deliberately slow: the wings
-## spread over four seconds, lower over twenty, and the flutter cannot restart mid-cycle.
-const WING_FADE_SECONDS := 2.20
-const WING_FLICK_DECAY := 1.80
-const WING_FLICK_MIN := 0.10
-const WING_FLICK_MAX := 0.24
-const WING_SPREAD_SECONDS := 8.0
-const WING_DROOP_SECONDS := 40.0
-const WING_DROOP_AMOUNT := 0.35
-const WING_JITTER_AMOUNT := 0.04
-const WING_JITTER_MIN := 1.6
-const WING_JITTER_MAX := 4.0
-const WING_JITTER_FADE := 0.8
-## Standing starts at a relaxed ~60° spread instead of the half-open pose's ~75°. Lower values
-## blend further toward fully open; readiness gradually opens them from here.
-const WING_STANDING_HOLD := 0.65
-const WING_STANDING_SPREAD := 0.25
-## Afterglow eases the open wings all the way down to the folded resting pose. The game's
-## release_hold() folds in about 0.3 s; this drives the same WingTuck blend slowly instead.
-const WING_AFTERGLOW_RETURN_SECONDS := 6.0
-## The game's flutter cycle is 3 × (0.16 + 0.13) = 0.87 s. A thrust may not restart it before
-## it finishes or the wings snap back open mid-motion.
-const WING_FLUTTER_COOLDOWN_S := 1.80
 ## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
 const GLANCE_MIN_INTERVAL := 5.0
 const GLANCE_MAX_INTERVAL := 9.0
@@ -581,27 +558,8 @@ var _eye_override := false
 var _saved_stand_eye := 0.0
 var _saved_eye_height := 0.0
 var _camera_target_eye := 0.0
-var _winged := false
-var _wing_clock := 0.0
-var _flutter_clock := 0.0
-var _wing_hold := false
-var _wing_flick := 0.0
-var _wing_hold_value := 1.0
-var _wing_hold_started := false
-var _wing_jitter := 0.0
-var _wing_jitter_goal := 0.0
-var _wing_jitter_clock := 0.0
-var _last_wing_flutter := -1000.0
+var _wings
 var _act_seconds := 0.0
-var _wings_node: Node
-var _wing_sweep: SkeletonModifier3D
-var _wing_returning := false
-var _wing_return_done := false
-var _wing_return_node: Node
-var _wing_return_progress := 0.0
-var _wing_return_from_tuck := 0.0
-var _wing_return_from_half := 0.0
-const WING_SWEEP_DEG := 10.0
 var _aftercare: Node
 var _satisfied: Node
 var _satisfaction_tween: Tween
@@ -659,105 +617,16 @@ func _ready() -> void:
 	add_child(_face_timer)
 
 
-func _release_wing_hold() -> void:
-	if _wing_returning:
-		if is_instance_valid(_wing_return_node):
-			_wing_return_node.set_process(true)
-		_wing_returning = false
-		_wing_return_done = false
-		_wing_return_node = null
-		_wing_return_progress = 0.0
-		_clear_wing_sweep()
-		_wing_hold = false
-		_wing_hold_started = false
-		_wings_node = null
-		return
-	if _wing_hold and is_instance_valid(_wings_node) and _wings_node.has_method("release_hold"):
-		_wings_node.call("release_hold", "unfplap")
-	_clear_wing_sweep()
-	_wing_hold = false
-	_wing_hold_started = false
-	_wings_node = null
-
-
-## Afterglow: clear the act's wing hold, then drive the same WingTuck blend to a full fold
-## over WING_AFTERGLOW_RETURN_SECONDS. The game's own release path only takes 0.3 s.
-func _begin_wing_afterglow() -> void:
-	if not _winged or not is_instance_valid(_wings_node) \
-			or not _wings_node.has_method("release_hold"):
-		return
-	var wings: Node = _wings_node
-	_clear_wing_sweep()
-	wings.call("release_hold", "unfplap")
-	wings.call("set_open", false)
-	var tuck_value: Variant = wings.get("tuck")
-	var half_value: Variant = wings.get("half")
-	_wing_return_from_tuck = float(tuck_value) if tuck_value != null else 0.0
-	_wing_return_from_half = float(half_value) if half_value != null else 0.0
-	_wing_return_node = wings
-	_wing_return_progress = 0.0
-	_wing_return_done = false
-	_wing_returning = true
-	wings.set("opened", false)
-	wings.set_process(false)
-	_wing_hold = false
-	_wing_hold_started = false
-	_log("wing afterglow return %.1fs from tuck=%.2f half=%.2f" % [
-		WING_AFTERGLOW_RETURN_SECONDS, _wing_return_from_tuck, _wing_return_from_half])
-
-
-func _wing_return_tick(delta: float) -> void:
-	if not is_instance_valid(_wing_return_node):
-		_wing_returning = false
-		_wing_return_done = false
-		_wing_return_node = null
-		return
-	if _wing_return_done:
-		return
-	_wing_return_progress = minf(1.0,
-		_wing_return_progress + delta / maxf(WING_AFTERGLOW_RETURN_SECONDS, 0.001))
-	var eased := smoothstep(0.0, 1.0, _wing_return_progress)
-	_wing_return_node.set("tuck", lerpf(_wing_return_from_tuck, 1.0, eased))
-	_wing_return_node.set("half", lerpf(_wing_return_from_half, 0.0, eased))
-	_wing_return_node.set("opened", false)
-	_wing_return_node.set_process(false)
-	if _wing_return_progress >= 1.0:
-		_wing_return_done = true
-		# The wing node's own process finalizes the fold: hides the open meshes, shows folded.
-		_wing_return_node.set_process(true)
-		_log("wing afterglow return complete")
-
-
-func _ensure_wing_sweep() -> void:
-	if pose_id != CATALOG.STANDING or not _wing_hold or not is_instance_valid(pony):
-		_clear_wing_sweep()
-		return
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
-		return
-	var skeleton := sk as Skeleton3D
-	if not is_instance_valid(_wing_sweep):
-		var sweep: Node3D = WING_SWEEP.new()
-		sweep.name = "UnfplapWingSweep"
-		skeleton.add_child(sweep)
-		sweep.call("setup", skeleton, WING_SWEEP_DEG)
-		_wing_sweep = sweep as SkeletonModifier3D
-		_log("wing sweep %.0f deg" % WING_SWEEP_DEG)
-	var last := skeleton.get_child_count() - 1
-	if _wing_sweep.get_index() != last:
-		skeleton.move_child(_wing_sweep, last)
-	_wing_sweep.set("amount", 1.0)
-
-
-func _clear_wing_sweep() -> void:
-	if is_instance_valid(_wing_sweep):
-		_wing_sweep.queue_free()
-	_wing_sweep = null
-
-
 func _log(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
 		main.call("debug", text)
+
+
+## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
+func _wings_controller():
+	if _wings == null:
+		_wings = WING.new(self)
+	return _wings
 
 
 func _feature(name: String) -> bool:
@@ -904,54 +773,7 @@ func _act_presentation(delta: float) -> void:
 	var expressions: Variant = pony.get("expressions")
 	if expressions != null and expressions.has_method("fluster") and _feature("act_ear_pin"):
 		expressions.call("fluster", 1.2)
-	if not _winged:
-		return
-	if _wing_returning:
-		_wing_return_tick(delta)
-		return
-	var excitement: Variant = pony.get("excitement")
-	if excitement == null:
-		return
-	_wing_flick = move_toward(_wing_flick, 0.0, delta / WING_FLICK_DECAY)
-	if not _wing_hold:
-		var wings: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
-		if wings is Node and (wings as Node).has_method("hold_at"):
-			_wings_node = wings as Node
-			_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 1.0))
-	if _wing_hold and is_instance_valid(_wings_node):
-		var level := sqrt(clampf(float(satisfaction) / READINESS_MAX, 0.0, 1.0))
-		var spread_t := smoothstep(0.0, 1.0, clampf(_act_seconds / WING_SPREAD_SECONDS, 0.0, 1.0))
-		var base_target := 1.0 - spread_t
-		if pose_id != CATALOG.MISSIONARY:
-			base_target = clampf(WING_STANDING_HOLD - level * spread_t * WING_STANDING_SPREAD, 0.0, 1.0)
-		var droop := clampf(_act_seconds / WING_DROOP_SECONDS, 0.0, 1.0) * WING_DROOP_AMOUNT
-		_wing_jitter_clock -= delta
-		if _wing_jitter_clock <= 0.0:
-			_wing_jitter_goal = randf_range(-WING_JITTER_AMOUNT, WING_JITTER_AMOUNT)
-			_wing_jitter_clock = randf_range(WING_JITTER_MIN, WING_JITTER_MAX)
-		_wing_jitter = move_toward(_wing_jitter, _wing_jitter_goal, delta / WING_JITTER_FADE)
-		var target_hold := clampf(base_target + droop + _wing_flick + _wing_jitter, 0.0, 1.0)
-		if not _wing_hold_started:
-			_wing_hold_value = 1.0
-			_wing_hold_started = true
-		_wing_hold_value = move_toward(_wing_hold_value, target_hold, delta / WING_FADE_SECONDS)
-		_wings_node.call("hold_at", "unfplap", _wing_hold_value)
-		_ensure_wing_sweep()
-		return
-	# Fallback when the half-open wing pose is unavailable.
-	if satisfaction >= READINESS_MAX * 0.75:
-		_wing_clock -= delta
-		if _wing_clock <= 0.0:
-			_wing_clock = 2.0
-			excitement.call("spread", 4.0)
-		return
-	_flutter_clock -= delta
-	if _flutter_clock <= 0.0 and excitement.has_method("flutter"):
-		var now := _now_s()
-		if now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
-			excitement.call("flutter")
-			_last_wing_flutter = now
-		_flutter_clock = randf_range(4.8, 9.2)
+	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
 
 
 func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
@@ -1841,23 +1663,10 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	_depth_speed = 0.0
 	_back = 0.0
 	_back_target = 0.0
-	var identity: Variant = pony.get("identity")
-	_winged = identity != null and identity.has_method("has_wings") and bool(identity.call("has_wings"))
 	_apply_eye_override()
-	_wing_clock = 0.0
-	_wing_flick = 0.0
-	_wing_hold_started = false
-	_wing_jitter = 0.0
-	_wing_jitter_goal = 0.0
-	_wing_jitter_clock = 0.0
-	_last_wing_flutter = -1000.0
-	_wing_returning = false
-	_wing_return_done = false
-	_wing_return_node = null
-	_wing_return_progress = 0.0
+	_wings_controller().reset()
 	_jiggle_logged = false
 	_act_seconds = 0.0
-	_flutter_clock = randf_range(1.0, 3.0)
 	_heart_elapsed = 0.0
 	_heart_index = 0
 	_heart_times.clear()
@@ -3013,12 +2822,7 @@ func _on_thrust(result: Dictionary) -> void:
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var now := _now_s()
-	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, impact)
-	if _winged and not _wing_hold and now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
-		var excitement: Variant = pony.get("excitement")
-		if excitement != null and excitement.has_method("flutter"):
-			excitement.call("flutter")
-			_last_wing_flutter = now
+	_wings_controller().on_thrust(impact)
 	_thrust_jiggle(impact)
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
 		_tail.call("thrust", impact * _jiggle_size_scale())
@@ -3937,7 +3741,7 @@ func _self_end_tick(delta: float) -> void:
 
 func _enter_afterglow() -> void:
 	_afterglow_begin()
-	_begin_wing_afterglow()
+	_wings_controller().begin_afterglow()
 
 
 func _commit_afterglow() -> void:
@@ -4064,7 +3868,7 @@ func _restore_begin() -> void:
 	state = State.RESTORE
 	_restore_left = RESTORE_SECONDS
 	_clear_face()
-	_release_wing_hold()
+	_wings_controller().release()
 	if is_instance_valid(_pose):
 		_pose.target_amount = 0.0
 	if is_instance_valid(_tail):
@@ -4169,7 +3973,7 @@ func _restore_now() -> void:
 	_restore_face_turn()
 	if is_instance_valid(pony):
 		_clear_face()
-		_release_wing_hold()
+		_wings_controller().release()
 		_unlock_player()
 		_restore_camera()
 		pony.remove_meta("sex_active")

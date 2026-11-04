@@ -779,133 +779,93 @@ func _eyes_tick() -> void:
 # --------------------------------------------------------------------------- gates
 
 func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
-		return false
-	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
-		return false
-	if not _relationship_ok():
-		return false
-	if not _player_form_ok():
-		return false
-	if get_tree().paused:
-		return false
-	if not _conversation_ok():
-		return false
-	if pony.sleeping:
-		return false
-	if bool(pony.get_meta("sex_active", false)):
-		return false
-	if pony.has_meta("sex_aftercare"):
-		return false
-	if _cuddle_active() and not _cuddle_start_override(pose, act_source):
-		return false
-	if not _free_of_affection():
-		return false
-	if not _player_ready_for(pose, act_source, bed_in):
-		return false
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav == null or str(nav.get("reserved_by")) != "":
-		return false
-	if not _nav_owner_allows(pose, act_source):
-		return false
-	if not _nav_pose_gate(pose, act_source):
-		return false
-	if pose == CATALOG.MISSIONARY:
-		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
-		if found == null:
-			return false
-		if main.bed_occupied(found, pony):
-			return false
-		if not _bed_gate(pose, act_source, found):
-			return false
-	return true
+	return _report_ok(_gate_report(pose, act_source, bed_in, "start"))
+
 
 ## Offer eligibility before she is in position. Unlike can_start(), this does not require the
 ## pony to be lying or the player to be ready; those stay in the final Y gate.
 func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
-		return false
-	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
-		return false
-	if not _relationship_ok() or not _player_form_ok():
-		return false
-	if get_tree().paused or not _conversation_ok():
-		return false
-	if pony.sleeping:
-		return false
-	if bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
-		return false
-	if _cuddle_active() and not _cuddle_start_override(pose, act_source):
-		return false
-	if not _free_of_affection():
-		return false
-	if not _nav_owner_allows(pose, act_source):
-		return false
-	if pose == CATALOG.MISSIONARY:
-		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
-		if found == null or main.bed_occupied(found, pony):
-			return false
-		return true
-	if pose == CATALOG.STANDING:
-		return not pony.is_held() and not pony.has_meta("seated")
-	return false
+	return _report_ok(_gate_report(pose, act_source, bed_in, "offer"))
+
 
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
-	var reasons: PackedStringArray = []
+	return _report_reasons(_gate_report(pose, act_source, bed_in, "start"))
+
+
+## Ordered gate report shared by the start and offer paths. Start adds player readiness,
+## navigator reservation and the full bed gate; offer keeps only the offer-safe subset.
+func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: String) -> Array:
+	var rows: Array = []
+	_gate_row(rows, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
-		reasons.append("invalid_pony")
-		return reasons
+		return rows
+	_gate_row(rows, "no_main", is_instance_valid(main), "no_main")
 	if not is_instance_valid(main):
-		reasons.append("no_main")
-		return reasons
+		return rows
+	_gate_row(rows, "no_player", is_instance_valid(main.player), "no_player")
 	if not is_instance_valid(main.player):
-		reasons.append("no_player")
-		return reasons
+		return rows
+	_gate_row(rows, "no_game", is_instance_valid(main.game), "no_game")
 	if not is_instance_valid(main.game):
-		reasons.append("no_game")
-		return reasons
-	if state != State.IDLE:
-		reasons.append("state=%d" % state)
-	if not _relationship_ok():
-		reasons.append("relation")
-	if not _player_form_ok():
-		reasons.append("form")
-	if get_tree().paused:
-		reasons.append("paused")
-	if not _conversation_ok():
-		reasons.append("conversation")
-	if pony.sleeping:
-		reasons.append("sleeping")
-	if bool(pony.get_meta("sex_active", false)):
-		reasons.append("sex_active")
-	if pony.has_meta("sex_aftercare"):
-		reasons.append("aftercare")
-	if _cuddle_active() and not _cuddle_start_override(pose, act_source):
-		reasons.append("cuddle")
-	if not _free_of_affection():
-		reasons.append("affection")
-	if not _player_ready_for(pose, act_source, bed_in):
-		reasons.append("player")
+		return rows
+	_gate_row(rows, "state", state == State.IDLE, "state=%d" % state)
+	_gate_row(rows, "relation", _relationship_ok(), "relation")
+	_gate_row(rows, "form", _player_form_ok(), "form")
+	_gate_row(rows, "paused", not get_tree().paused, "paused")
+	_gate_row(rows, "conversation", _conversation_ok(), "conversation")
+	_gate_row(rows, "sleeping", not pony.sleeping, "sleeping")
+	_gate_row(rows, "sex_active", not bool(pony.get_meta("sex_active", false)), "sex_active")
+	_gate_row(rows, "aftercare", not pony.has_meta("sex_aftercare"), "aftercare")
+	_gate_row(rows, "cuddle",
+		not _cuddle_active() or _cuddle_start_override(pose, act_source), "cuddle")
+	_gate_row(rows, "affection", _free_of_affection(), "affection")
+	if mode == "start":
+		_gate_row(rows, "player", _player_ready_for(pose, act_source, bed_in), "player")
 	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav == null:
-		reasons.append("no_navigator")
+	if mode == "start":
+		_gate_row(rows, "navigator", nav != null, "no_navigator")
+		if nav != null:
+			_gate_row(rows, "navigator_reserved",
+				str(nav.get("reserved_by")) == "", "navigator_reserved")
+			_gate_row(rows, "nav_owner", _nav_owner_allows(pose, act_source), "nav_owner")
+		_gate_row(rows, "nav_pose", _nav_pose_gate(pose, act_source), "nav_pose")
 	else:
-		if str(nav.get("reserved_by")) != "":
-			reasons.append("navigator_reserved")
-		if not _nav_owner_allows(pose, act_source):
-			reasons.append("nav_owner")
-	if not _nav_pose_gate(pose, act_source):
-		reasons.append("nav_pose")
+		_gate_row(rows, "nav_owner",
+			nav != null and _nav_owner_allows(pose, act_source), "nav_owner")
 	if pose == CATALOG.MISSIONARY:
 		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
-		if found == null:
-			reasons.append("no_bed")
+		_gate_row(rows, "bed", found != null, "no_bed")
+		if found != null:
+			_gate_row(rows, "bed_occupied", not main.bed_occupied(found, pony), "bed_occupied")
+			if mode == "start":
+				_gate_row(rows, "bed_gate", _bed_gate(pose, act_source, found), "bed_gate")
+	elif mode == "offer":
+		if pose == CATALOG.STANDING:
+			_gate_row(rows, "standing_free",
+				not pony.is_held() and not pony.has_meta("seated"), "standing_free")
 		else:
-			if main.bed_occupied(found, pony):
-				reasons.append("bed_occupied")
-			if not _bed_gate(pose, act_source, found):
-				reasons.append("bed_gate")
+			_gate_row(rows, "pose", false, "pose")
+	return rows
+
+
+func _gate_row(rows: Array, key: String, ok: bool, reason := "") -> void:
+	rows.append({"key": key, "ok": ok, "reason": reason if not reason.is_empty() else key})
+
+
+func _report_ok(rows: Array) -> bool:
+	for row: Dictionary in rows:
+		if not bool(row.get("ok", false)):
+			return false
+	return true
+
+
+func _report_reasons(rows: Array) -> PackedStringArray:
+	var reasons: PackedStringArray = []
+	for row: Dictionary in rows:
+		if not bool(row.get("ok", false)):
+			reasons.append(str(row.get("reason", "")))
 	return reasons
+
 
 func debug_line(pose: String, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null

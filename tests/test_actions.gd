@@ -190,6 +190,13 @@ func run() -> void:
 		"live settings refresh camera thrust")
 	live_runtime.free()
 
+	var gate_runtime: Node = RUNTIME.new()
+	check(not gate_runtime.can_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")
+	check(not gate_runtime.can_offer(CATALOG.STANDING, ""), "missing pony blocks offer")
+	check(gate_runtime._start_reasons(CATALOG.MISSIONARY, "bed_side") == PackedStringArray(["invalid_pony"]),
+		"gate report keeps the invalid-pony reason")
+	gate_runtime.free()
+
 	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010) and near(MOTION.HOLD_SWAY_SIDE, 0.0084),
 		"idle camera sway amplitude")
 	check(near(STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")

@@ -8,6 +8,7 @@ const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CAESS := preload("res://mods/unfplap/standing_caress.gd")
+const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 var failures := 0
@@ -118,25 +119,25 @@ func run() -> void:
 	check(CAESS.caress_profile_for("") == CAESS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
 	check(near(WING.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
-	check(near(RUNTIME.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
-	check(RUNTIME.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
-	check(not RUNTIME.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
+	check(near(KISS.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
+	check(KISS.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
+	check(not KISS.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
 	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
 	check(near(RUNTIME.CAM_SURGE_M, 0.06), "camera surge amplitude")
 	check(near(RUNTIME.CAM_BOB_M, 0.02), "camera bob amplitude")
-	check(near(RUNTIME.KISS_LEAN_M, 0.27) and near(RUNTIME.KISS_LEAN_SIDE_M, 0.18)
-		and near(RUNTIME.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
-	check(near(RUNTIME.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
-	check(near(RUNTIME.KISS_PONY_SIDE_SIGN, 1.0), "pony kiss side matches the input side sign")
-	check(near(RUNTIME.kiss_pony_side(-1.0), -1.0), "left lean gives her the opposite head tilt")
-	check(near(RUNTIME.kiss_pony_side(1.0), 1.0), "right lean gives her the opposite head tilt")
-	check(near(RUNTIME.kiss_pony_side(0.0), 0.0), "centered kiss leaves the side to her")
-	check(near(RUNTIME.kiss_lateral_offset(-1.0, -1.0, 0.0), -0.18),
+	check(near(KISS.KISS_LEAN_M, 0.27) and near(KISS.KISS_LEAN_SIDE_M, 0.18)
+		and near(KISS.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
+	check(near(KISS.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
+	check(near(KISS.KISS_PONY_SIDE_SIGN, 1.0), "pony kiss side matches the input side sign")
+	check(near(KISS.kiss_pony_side(-1.0), -1.0), "left lean gives her the opposite head tilt")
+	check(near(KISS.kiss_pony_side(1.0), 1.0), "right lean gives her the opposite head tilt")
+	check(near(KISS.kiss_pony_side(0.0), 0.0), "centered kiss leaves the side to her")
+	check(near(KISS.kiss_lateral_offset(-1.0, -1.0, 0.0), -0.18),
 		"kiss starts at the lean lateral offset")
-	check(near(RUNTIME.kiss_lateral_offset(-0.5, -1.0, 1.0), -0.18),
+	check(near(KISS.kiss_lateral_offset(-0.5, -1.0, 1.0), -0.18),
 		"full kiss uses one lateral offset")
-	check(near(RUNTIME.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
+	check(near(KISS.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
 		"kiss lateral crossfades instead of stacking")
 	check(near(RUNTIME.standing_palm_scale_for("canon"), 0.85), "Canon standing palm scale")
 	check(near(RUNTIME.standing_palm_scale_for("mounting"), 0.95), "JRHNBR standing palm scale")

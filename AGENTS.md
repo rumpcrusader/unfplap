@@ -113,6 +113,7 @@ mods/unfplap/
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  standing caress, shoulder reach, smack and palm-on-coat contact
+  kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
   palm_scale.gd     standing hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven standing upper-body sway with planted forehooves

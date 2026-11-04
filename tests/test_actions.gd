@@ -71,6 +71,28 @@ func run() -> void:
 		smack_raised.origin), "smack recovery reaches its target")
 	check(near(CAESS.SMACK_STRIKE_SECONDS, 0.10)
 		and near(CAESS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack phase timings")
+	var quad_faces := PackedVector3Array([
+		Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0),
+		Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0),
+	])
+	var quad_normals := PackedVector3Array([
+		Vector3.BACK, Vector3.BACK, Vector3.BACK,
+		Vector3.BACK, Vector3.BACK, Vector3.BACK,
+	])
+	var flank_hit: Dictionary = CAESS.closest_flank_hit(
+		quad_faces, quad_normals, Vector3(0.5, 0.5, 1.0))
+	var flank_point: Vector3 = flank_hit.get("point", Vector3.INF)
+	var flank_normal: Vector3 = flank_hit.get("normal", Vector3.ZERO)
+	check(near(float(flank_hit.get("distance", -1.0)), 1.0), "closest flank distance")
+	check(flank_point.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "closest flank point")
+	check(flank_normal.dot(Vector3.BACK) > 0.99, "closest flank normal")
+	var edge_hit: Dictionary = CAESS.closest_flank_hit(
+		quad_faces, quad_normals, Vector3(-1.0, 0.5, 0.0))
+	var edge_point: Vector3 = edge_hit.get("point", Vector3.INF)
+	check(edge_point.is_equal_approx(Vector3(0.0, 0.5, 0.0)),
+		"closest flank clamps outside the patch")
+	check(CAESS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
+		Vector3.ZERO).is_empty(), "empty flank patch has no hit")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(MOTION.lean_distance(-1.0), -0.08), "backward lean distance is halved")

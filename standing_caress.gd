@@ -135,6 +135,88 @@ static func smack_recover_blend(from: Transform3D, to: Transform3D, t: float) ->
 	return from.interpolate_with(to, smoothstep(0.0, 1.0, clampf(t, 0.0, 1.0)))
 
 
+## Closest point on the posed FlankSurface triangle soup. `faces` holds three vertices per
+## triangle and `normals` the matching vertex normals, both in the space of `point`. The
+## returned normal is the interpolated surface normal at that point.
+static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3Array,
+		point: Vector3) -> Dictionary:
+	if faces.size() < 3:
+		return {}
+	var best := INF
+	var best_point := Vector3.ZERO
+	var best_normal := Vector3.ZERO
+	var triangles := int(faces.size() / 3.0)
+	for triangle: int in triangles:
+		var i := triangle * 3
+		var a := faces[i]
+		var b := faces[i + 1]
+		var c := faces[i + 2]
+		var closest := _closest_on_triangle(a, b, c, point)
+		var distance := closest.distance_squared_to(point)
+		if distance >= best:
+			continue
+		best = distance
+		best_point = closest
+		var barycentric := _triangle_barycentric(a, b, c, closest)
+		var normal := Vector3.ZERO
+		if normals.size() >= i + 3:
+			normal = normals[i] * barycentric.x + normals[i + 1] * barycentric.y \
+				+ normals[i + 2] * barycentric.z
+		if normal.length_squared() < 0.0001:
+			normal = (b - a).cross(c - a)
+		best_normal = normal.normalized()
+	return {"point": best_point, "normal": best_normal, "distance": sqrt(best)}
+
+
+## Closest point on triangle ABC to P, from Real-Time Collision Detection (Ericson).
+static func _closest_on_triangle(a: Vector3, b: Vector3, c: Vector3, p: Vector3) -> Vector3:
+	var ab := b - a
+	var ac := c - a
+	var ap := p - a
+	var d1 := ab.dot(ap)
+	var d2 := ac.dot(ap)
+	if d1 <= 0.0 and d2 <= 0.0:
+		return a
+	var bp := p - b
+	var d3 := ab.dot(bp)
+	var d4 := ac.dot(bp)
+	if d3 >= 0.0 and d4 <= d3:
+		return b
+	var vc := d1 * d4 - d3 * d2
+	if vc <= 0.0 and d1 >= 0.0 and d3 <= 0.0:
+		return a + ab * (d1 / (d1 - d3))
+	var cp := p - c
+	var d5 := ab.dot(cp)
+	var d6 := ac.dot(cp)
+	if d6 >= 0.0 and d5 <= d6:
+		return c
+	var vb := d5 * d2 - d1 * d6
+	if vb <= 0.0 and d2 >= 0.0 and d6 <= 0.0:
+		return a + ac * (d2 / (d2 - d6))
+	var va := d3 * d6 - d5 * d4
+	if va <= 0.0 and (d4 - d3) >= 0.0 and (d5 - d6) >= 0.0:
+		return b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)))
+	var denominator := 1.0 / (va + vb + vc)
+	return a + ab * (vb * denominator) + ac * (vc * denominator)
+
+
+static func _triangle_barycentric(a: Vector3, b: Vector3, c: Vector3, p: Vector3) -> Vector3:
+	var v0 := b - a
+	var v1 := c - a
+	var v2 := p - a
+	var d00 := v0.dot(v0)
+	var d01 := v0.dot(v1)
+	var d11 := v1.dot(v1)
+	var d20 := v2.dot(v0)
+	var d21 := v2.dot(v1)
+	var denominator := d00 * d11 - d01 * d01
+	if absf(denominator) < 0.0000001:
+		return Vector3(1.0, 0.0, 0.0)
+	var v := (d11 * d20 - d01 * d21) / denominator
+	var w := (d00 * d21 - d01 * d20) / denominator
+	return Vector3(1.0 - v - w, v, w)
+
+
 var runtime: Node
 var main: Variant
 var pony: Variant
@@ -785,6 +867,108 @@ func _clear_reach_hand() -> void:
 		driver.call("clear_hold_target", side)
 
 
+func _smack_zone_radius() -> float:
+	return maxf(0.0, float(_profile.get("smack_zone_radius", SMACK_ZONE_RADIUS_M)))
+
+
+## Nearest point on the posed FlankSurface patch to a world point. The patch is the cheek
+## region of her flank; the body hull is deliberately not consulted, so a shoulder or belly
+## caress still smacks the flank.
+func _closest_flank_contact(point_world: Vector3) -> Dictionary:
+	if not is_instance_valid(_flank):
+		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
+	if not is_instance_valid(_flank):
+		return {}
+	var surface: Variant = _flank.get("surface")
+	var frame_value: Variant = _flank.get("frame")
+	if surface == null or not frame_value is Transform3D:
+		return {}
+	var frame: Transform3D = frame_value
+	if not frame.is_finite():
+		return {}
+	var sk: Variant = pony.get("skeleton")
+	if sk is Skeleton3D and surface.has_method("update_pose"):
+		surface.call("update_pose", sk, frame)
+	var faces_value: Variant = surface.get("faces")
+	var normals_value: Variant = surface.get("vertex_normals")
+	if not faces_value is PackedVector3Array or not normals_value is PackedVector3Array:
+		return {}
+	var faces: PackedVector3Array = faces_value
+	var normals: PackedVector3Array = normals_value
+	var local := frame.affine_inverse() * point_world
+	var hit := closest_flank_hit(faces, normals, local)
+	if hit.is_empty():
+		return {}
+	var local_point: Vector3 = hit["point"]
+	var local_normal: Vector3 = hit["normal"]
+	if local_normal.length_squared() < 0.5:
+		local_normal = Vector3.UP
+	# Refine onto the real triangle so the palm normal matches the coat at that point.
+	if surface.has_method("contact"):
+		var radii: Variant = _flank.get("radii")
+		var reach := 0.10
+		if radii is Vector3:
+			reach = float((radii as Vector3).z)
+		var raw: Variant = surface.call("contact", local_point, local_point,
+			-local_normal, reach)
+		if raw is Dictionary and not (raw as Dictionary).is_empty():
+			var raw_point: Variant = (raw as Dictionary).get("position")
+			var raw_normal: Variant = (raw as Dictionary).get("normal")
+			if raw_point is Vector3 and raw_normal is Vector3:
+				var point_v: Vector3 = raw_point
+				var normal_v: Vector3 = raw_normal
+				local_point = point_v
+				local_normal = normal_v.normalized()
+	var world_point := frame * local_point
+	var world_normal := (frame.basis.inverse().transposed() * local_normal).normalized()
+	var toward_hand := point_world - world_point
+	if toward_hand.length_squared() > 0.0001 and world_normal.dot(toward_hand) < 0.0:
+		world_normal = -world_normal
+	return {"point": world_point, "normal": world_normal, "local": local_point}
+
+
+## Standing smack target: the live caress point when that hand is already on the flank patch,
+## otherwise the closest flank point to the striking palm, jittered within the character's
+## smack zone. Empty only when the flank patch is unavailable.
+func _standing_smack_target(hand_side: String, hand_world: Vector3) -> Dictionary:
+	var caress_side := "L" if hand_side == "left" else "R"
+	var state: Dictionary = _palm_contact_state(hand_side)
+	if bool(_caress_active[caress_side]) and str(state.get("source", "")) == "flank":
+		var point_v: Variant = state.get("point", Vector3.INF)
+		var normal_v: Variant = state.get("normal", Vector3.UP)
+		if point_v is Vector3 and normal_v is Vector3:
+			var point: Vector3 = point_v
+			var normal: Vector3 = normal_v
+			if point.is_finite() and normal.length_squared() > 0.5:
+				var frame: Transform3D = _flank.global_transform
+				return {"local": frame.affine_inverse() * point,
+					"normal": normal.normalized()}
+	var hit := _closest_flank_contact(hand_world)
+	if hit.is_empty():
+		return {}
+	var point_world: Vector3 = hit["point"]
+	var normal: Vector3 = hit["normal"]
+	var local: Vector3 = hit["local"]
+	var radius := _smack_zone_radius()
+	if radius > 0.0:
+		var up := Vector3.UP.slide(normal)
+		if up.length_squared() < 0.001:
+			up = -pony.global_basis.z.slide(normal)
+		up = up.normalized()
+		var across := up.cross(normal).normalized()
+		var angle := randf() * TAU
+		var shift := (up * cos(angle) + across * sin(angle)) * (sqrt(randf()) * radius)
+		var jittered := _coat_contact(point_world + shift, normal, _caress_ignore())
+		if str(jittered.get("source", "")) == "flank":
+			point_world = jittered.get("point", point_world)
+			var jittered_normal: Variant = jittered.get("normal", normal)
+			if jittered_normal is Vector3:
+				var jn: Vector3 = jittered_normal
+				normal = jn.normalized()
+			local = _flank.global_transform.affine_inverse() * point_world
+	return {"local": local, "normal": normal}
+
+
 func _smack() -> void:
 	if int(runtime.get("state")) not in [STATE_ACTIVE, STATE_CLIMAX]:
 		return
@@ -811,6 +995,12 @@ func _smack() -> void:
 	elif hand_side.is_empty():
 		hand_side = "left" if index == 0 else "right"
 	var source := "caress" if _caress_active["L"] or _caress_active["R"] else "lean"
+	var driver: Node = runtime.call("_desktop_pose_driver")
+	var from_frame := Transform3D.IDENTITY
+	if is_instance_valid(driver) and driver.has_method("hand_frame"):
+		var current: Variant = driver.call("hand_frame", hand_side)
+		if current is Transform3D and (current as Transform3D).is_finite():
+			from_frame = current
 	var at := Vector3.INF
 	var normal := Vector3.UP
 	var centers: Variant = _flank.get("centers")
@@ -825,8 +1015,7 @@ func _smack() -> void:
 			var back_local: Vector3 = (_flank.global_basis.inverse() * pony.global_basis.z).normalized()
 			var up_local: Vector3 = (_flank.global_basis.inverse() * Vector3.UP).normalized()
 			var angle := randf() * TAU
-			var zone_radius := float(_profile.get("smack_zone_radius", SMACK_ZONE_RADIUS_M))
-			var radius := sqrt(randf()) * maxf(0.0, zone_radius)
+			var radius := sqrt(randf()) * _smack_zone_radius()
 			at = (centre as Vector3) + back_local * (SMACK_BACK_M + cos(angle) * radius) \
 				+ up_local * (SMACK_UP_M + sin(angle) * radius)
 			var frame: Transform3D = _flank.global_transform
@@ -835,14 +1024,15 @@ func _smack() -> void:
 			outward.y = 0.0
 			if outward.length_squared() > 0.001 and normal.dot(outward.normalized()) < 0.0:
 				normal = -normal
+	# Standing targets the closest point on the flank patch, not the decal centre. The
+	# cheek-centre target above remains the fallback when the patch is unavailable.
+	if str(runtime.get("pose_id")) == CATALOG.STANDING and from_frame.is_finite():
+		var standing_target := _standing_smack_target(hand_side, from_frame.origin)
+		if not standing_target.is_empty():
+			at = standing_target.get("local", at)
+			normal = standing_target.get("normal", normal)
 	_last_smack_ms = now
 	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
-		var driver: Node = runtime.call("_desktop_pose_driver")
-		var from_frame := Transform3D.IDENTITY
-		if is_instance_valid(driver) and driver.has_method("hand_frame"):
-			var current: Variant = driver.call("hand_frame", hand_side)
-			if current is Transform3D and (current as Transform3D).is_finite():
-				from_frame = current
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank.global_transform * at
 			var target := _palm_on_coat_frame(hand_side, world_centre, normal, Vector3.UP, false)

@@ -505,12 +505,17 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
-  `1 = right cheek`. `at` shifts the mark centre `0.08 m` up and `0.08 m` back, then jitters
-  within `SMACK_ZONE_RADIUS_M = 0.035` around that point. The contact palm uses the same
-  `palm_surface_basis()` and caress palm distance above. If a hand is already caressing,
-  the smack uses that hand and its same-side cheek; if both are caressing, one is chosen at
-  random. The caress oval keeps moving through the smack, so the hand returns to the live
-  point instead of the one it left.
+  `1 = right cheek`. Standing targets the flank patch: if the striking hand is already
+  caressing and its contact source is `flank`, that live point is used; otherwise the closest
+  point on the posed `FlankSurface` to the palm is taken and jittered tangentially within
+  `smack_zone_radius` (default `0.035 m`). A forward lean therefore lands on the forward flank
+  instead of reaching back to the cheek. The body hull is never the smack target and the rump
+  centre is not used. Missionary keeps the old decal-centre target: `at` is the mark centre
+  shifted `0.08 m` up and `0.08 m` back, jittered within the same zone. The contact palm uses
+  the same `palm_surface_basis()` and caress palm distance above. If a hand is already
+  caressing, the smack uses that hand; if both are caressing, one is chosen at random. The
+  caress oval keeps moving through the smack, so the hand returns to the live point instead of
+  the one it left.
 - Standing plays four phases. RAISE lifts the palm from its current frame to the contact plus
   `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal
   and `SMACK_RAISE_BACK_M = 0.05 m` toward her rump, over `0.12–0.30 s`. STRIKE travels
@@ -527,8 +532,9 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   stock stream, level and pitch are restored at act end. The pony's `physical_reaction`
   connections are temporarily disconnected around the call, so `flank_smack` cannot trigger
   the game's buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
-- A right lean (`side > 0`) selects the left cheek; a left lean selects the right cheek; exactly
-  centered picks one of the two real cheek points at random. There is no rump target.
+- A right lean (`side > 0`) selects the left cheek index; a left lean selects the right; exactly
+  centered picks one at random. The index chooses which cheek decal reddens; standing's contact
+  point is still the closest point on the flank patch. There is no rump target.
 
 ### Thrust camera and restore
 

@@ -281,11 +281,15 @@ these values here if a future pose needs that effect.
   `BODY_SWAY_MAX_M = 0.035`.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
-  right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
-  `SMACK_ZONE_RADIUS_M = 0.035`. If a hand is already caressing, the slap uses that hand and its
-  same-side cheek; if both caress, one is chosen at random. Otherwise a right lean selects the
-  left cheek, a left lean the right, and centered picks randomly. The caress oval keeps moving
-  through the smack, so the hand returns to the live point.
+  right. Standing targets the flank patch: the live caress point when that hand's contact
+  source is `flank`, otherwise the closest point on the posed `FlankSurface` to the palm,
+  jittered tangentially within `smack_zone_radius` (`0.035 m` by default). A forward lean lands
+  on the forward flank instead of reaching back to the cheek. The body hull is never the target
+  and the rump centre is not used; `index` only chooses which cheek decal reddens. Missionary
+  keeps the mark-centre target shifted `0.08 m` up and `0.08 m` back. If a hand is already
+  caressing, the slap uses that hand; if both caress, one is chosen at random. Otherwise a right
+  lean selects the left index, a left lean the right, and centered picks randomly. The caress
+  oval keeps moving through the smack, so the hand returns to the live point.
 - Standing smacks play four phases. RAISE lifts from the current hand frame to the contact plus
   `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal
   and `SMACK_RAISE_BACK_M = 0.05 m` toward her rump over `0.12–0.30 s`. STRIKE travels straight

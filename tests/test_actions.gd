@@ -7,6 +7,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
+const CAESS := preload("res://mods/unfplap/standing_caress.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 var failures := 0
@@ -47,9 +48,9 @@ func run() -> void:
 	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
 
-	check(RUNTIME.smack_side_index(0.4) == 0, "right lean smacks left cheek")
-	check(RUNTIME.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
-	check(RUNTIME.smack_side_index(0.0) == -1, "centered smack is random")
+	check(CAESS.smack_side_index(0.4) == 0, "right lean smacks left cheek")
+	check(CAESS.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
+	check(CAESS.smack_side_index(0.0) == -1, "centered smack is random")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(MOTION.lean_distance(-1.0), -0.08), "backward lean distance is halved")
@@ -81,40 +82,40 @@ func run() -> void:
 	side_hip.free()
 	lean_runtime.free()
 
-	check(near(RUNTIME.CARESS_SPEED_RAD_S, 3.6), "caress speed")
-	check(near(RUNTIME.CARESS_RADIUS_M, 0.04125), "caress radius")
-	var right_palm: Basis = RUNTIME.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
-	var left_palm: Basis = RUNTIME.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
+	check(near(CAESS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
+	check(near(CAESS.CARESS_RADIUS_M, 0.04125), "caress radius")
+	var right_palm: Basis = CAESS.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
+	var left_palm: Basis = CAESS.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
 		"right palm faces the coat with fingers forward")
 	check(left_palm.x.dot(Vector3.LEFT) > 0.99 and (-left_palm.z).dot(Vector3.FORWARD) > 0.99,
 		"left palm faces the coat with fingers forward")
 	check(right_palm.determinant() > 0.99 and left_palm.determinant() > 0.99,
 		"palm surface bases stay orthonormal")
-	check(near(RUNTIME.CARESS_OVAL_ACROSS, 1.30) and near(RUNTIME.CARESS_OVAL_UP, 0.70),
+	check(near(CAESS.CARESS_OVAL_ACROSS, 1.30) and near(CAESS.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
-	check(near(RUNTIME.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
-	check(near(RUNTIME.caress_phase_step(0.5, true, 0.25),
-		RUNTIME.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
-	check(near(RUNTIME.caress_phase_step(0.5, false, 0.25), 0.5),
+	check(near(CAESS.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
+	check(near(CAESS.caress_phase_step(0.5, true, 0.25),
+		CAESS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
+	check(near(CAESS.caress_phase_step(0.5, false, 0.25), 0.5),
 		"caress phase holds while movement is off")
-	check(near(RUNTIME.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat at 1.0 scale")
-	check(near(RUNTIME.palm_clearance_for(0.66), 0.0264), "Canon palm clearance scales down")
-	check(near(RUNTIME.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")
-	check(near(RUNTIME.palm_clearance_for(1.0, 0.07), 0.07),
+	check(near(CAESS.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat at 1.0 scale")
+	check(near(CAESS.palm_clearance_for(0.66), 0.0264), "Canon palm clearance scales down")
+	check(near(CAESS.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")
+	check(near(CAESS.palm_clearance_for(1.0, 0.07), 0.07),
 		"caress palm distance overrides the default")
-	check(RUNTIME._region_ignored("tail", ["tail"]), "caress ignores the tail hull")
-	check(not RUNTIME._region_ignored("flank", ["tail"]), "caress keeps the flank hull")
-	check(near(RUNTIME.PALM_NORMAL_MAX_DEG_S, 120.0), "palm normal turns at a bounded rate")
-	var capped: Vector3 = RUNTIME.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
+	check(CAESS._region_ignored("tail", ["tail"]), "caress ignores the tail hull")
+	check(not CAESS._region_ignored("flank", ["tail"]), "caress keeps the flank hull")
+	check(near(CAESS.PALM_NORMAL_MAX_DEG_S, 120.0), "palm normal turns at a bounded rate")
+	var capped: Vector3 = CAESS.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
-	check(RUNTIME.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
+	check(CAESS.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
 		"normal rate reaches the target")
-	var canon_caress: Dictionary = RUNTIME.caress_profile_for("canon")
-	var mounting_caress: Dictionary = RUNTIME.caress_profile_for("mounting")
+	var canon_caress: Dictionary = CAESS.caress_profile_for("canon")
+	var mounting_caress: Dictionary = CAESS.caress_profile_for("mounting")
 	check(float(canon_caress["up"]) < float(mounting_caress["up"]), "Canon caress sits lower")
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
-	check(RUNTIME.caress_profile_for("") == RUNTIME.caress_profile_for("mounting"),
+	check(CAESS.caress_profile_for("") == CAESS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
 	check(near(WING.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
 	check(near(RUNTIME.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")

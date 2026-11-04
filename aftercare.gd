@@ -3,6 +3,8 @@ extends Node
 ## Created by the runtime after restore. Runs independently of the act state.
 
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
+const DOCK_TAIL := preload("res://mods/unfplap/dock_tail_follow.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const DURATION := 10.0
 const FADE := 0.6
 const OWNER := "unfplap:aftercare"
@@ -23,6 +25,7 @@ var _nav: Node
 var _nav_owner := ""
 var _nav_wander := true
 var _tail: Node
+var _dock: Node
 var _flick_clock := 0.0
 
 
@@ -44,6 +47,15 @@ func _ready() -> void:
 			_tail.set("amount", 0.0)
 			_tail.set("target_amount", 1.0)
 			(hair as Skeleton3D).add_child(_tail)
+			# The post-act tail lift and flicks are the same tail motion; carry the dock with
+			# them too instead of dropping back to the rump-only dock.
+			if TUNABLES.get_bool("features.dock_tail_follow"):
+				_dock = DOCK_TAIL.new()
+				_dock.name = "UnfplapAftercareDock"
+				_dock.set("mare", pony)
+				_dock.set("runtime", runtime)
+				_dock.set("process_priority", 40)
+				(hair as Skeleton3D).add_child(_dock)
 			_flick_clock = randf_range(FLICK_MIN, FLICK_MAX)
 	_nav = pony.get_node_or_null("Navigator")
 	if _nav != null:
@@ -97,9 +109,13 @@ func _finish() -> void:
 			_nav.set("command_owner", _nav_owner)
 			_nav.set("wander_enabled", _nav_wander)
 	_nav = null
+	if is_instance_valid(_dock):
+		_dock.call("restore")
+		_dock.queue_free()
+	_dock = null
 	if is_instance_valid(_tail):
 		_tail.queue_free()
-		_tail = null
+	_tail = null
 	queue_free()
 
 

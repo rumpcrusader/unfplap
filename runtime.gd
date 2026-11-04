@@ -3,6 +3,7 @@ extends Node
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
+const DOCK_TAIL_COAT := preload("res://mods/unfplap/dock_tail_coat_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
@@ -208,6 +209,7 @@ var thrust_up := true
 
 var _pose
 var _tail
+var _dock_tail
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _debug_pose: Node
@@ -1866,6 +1868,12 @@ func _build_pose() -> void:
 		_tail.target_amount = 1.0
 		_tail.call("choose_side")
 		(hair as Skeleton3D).add_child(_tail)
+		_dock_tail = DOCK_TAIL_COAT.new()
+		_dock_tail.name = "UnfplapDockTailCoat"
+		_dock_tail.mare = pony
+		_dock_tail.runtime = self
+		_dock_tail.process_priority = 40
+		(hair as Skeleton3D).add_child(_dock_tail)
 
 func _free_pose() -> void:
 	clear_presentation()
@@ -1883,6 +1891,10 @@ func _free_pose() -> void:
 	if is_instance_valid(_pose):
 		_pose.queue_free()
 	_pose = null
+	if is_instance_valid(_dock_tail):
+		_dock_tail.call("restore")
+		_dock_tail.queue_free()
+	_dock_tail = null
 	if is_instance_valid(_tail):
 		_tail.queue_free()
 	_tail = null

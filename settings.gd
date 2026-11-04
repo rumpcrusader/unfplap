@@ -129,7 +129,7 @@ const FEATURE_INFO := {
 	},
 	"dock_tail_follow": {
 		"label": "Dock follows tail",
-		"help": "Show the acting pony's unmerged rig and move her dock with the tail root during a standing act. Off keeps the merged dock on the rump.",
+		"help": "Show the pony's unmerged rig and move her dock with the tail root during a standing act or invitation. Off keeps the merged dock on the rump.",
 	},
 	"standing_plant_feet": {
 		"label": "Plant Anon's lower body",

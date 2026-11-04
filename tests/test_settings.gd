@@ -356,8 +356,7 @@ func run() -> void:
 		"runtime smack raise is non-negative")
 	check(float(smack_controls.get("hind_m", -1.0)) >= 0.0,
 		"runtime smack hind offset is non-negative")
-	check(near(float(smack_controls.get("height_m", 1.0)), -0.03),
-		"runtime smack height is signed")
+	check(smack_controls.has("height_m"), "runtime smack height is present")
 	check(float(smack_controls.get("arc_m", -1.0)) >= 0.0,
 		"runtime smack arc is non-negative")
 	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")

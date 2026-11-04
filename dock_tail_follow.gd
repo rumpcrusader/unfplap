@@ -116,4 +116,40 @@ func _stop() -> void:
 	if _near_disabled:
 		_near_disabled = false
 		if is_instance_valid(mare) and mare.is_inside_tree() and mare.has_method("set_near_mesh"):
+			# The base-game wobble swaps the cutie-mark material to its mark shader; the
+			# near-mesh plan expects the original material and would reject the whole body
+			# group. End the wobble and drop its cached twin metadata first so the reattach
+			# succeeds.
+			_end_rump_jiggle()
+			_clear_mark_twins()
 			mare.call("set_near_mesh", _near_was_enabled)
+
+
+func _end_rump_jiggle() -> void:
+	if not is_instance_valid(mare):
+		return
+	var flank: Variant = mare.get_node_or_null("FlankTouch")
+	if flank == null or not flank.has_method("_end_jiggle"):
+		return
+	var index: Variant = flank.get("_jiggle_index")
+	if index != null and int(index) >= 0:
+		flank.call("_end_jiggle")
+
+
+## `pony_flank_touch._mark_twin()` caches its shader twin on the source material's metadata.
+## `hybrid_near_mesh._same_material()` compares storage properties, metadata included, so one
+## marked cutie material no longer matches its pair and the body group is refused on reattach.
+## Dropping the cache is safe: the next wobble rebuilds the twin.
+func _clear_mark_twins() -> void:
+	if not is_instance_valid(mare):
+		return
+	for mi_v: Variant in mare.find_children("*", "MeshInstance3D", true, false):
+		if not mi_v is MeshInstance3D:
+			continue
+		var mi := mi_v as MeshInstance3D
+		if mi.mesh == null or not String(mi.name).begins_with("Cutie mark"):
+			continue
+		for si in mi.mesh.get_surface_count():
+			var mat: Variant = mi.get_active_material(si)
+			if mat is Material and (mat as Material).has_meta("jiggle_twin"):
+				(mat as Material).remove_meta("jiggle_twin")

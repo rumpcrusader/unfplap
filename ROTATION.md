@@ -282,19 +282,24 @@ these values here if a future pose needs that effect.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. Standing targets the flank patch: the live caress point when that hand's contact
-  source is `flank`, otherwise the closest point on the posed `FlankSurface` to the palm,
-  jittered tangentially within `smack_zone_radius` (`0.035 m` by default). A forward lean lands
-  on the forward flank instead of reaching back to the cheek. The body hull is never the target
-  and the rump centre is not used; `index` only chooses which cheek decal reddens. Missionary
-  keeps the mark-centre target shifted `0.08 m` up and `0.08 m` back. If a hand is already
-  caressing, the slap uses that hand; if both caress, one is chosen at random. Otherwise a right
-  lean selects the left index, a left lean the right, and centered picks randomly. The caress
-  oval keeps moving through the smack, so the hand returns to the live point.
-- Standing smacks play four phases. The contact palm uses the same forward finger hint as the
-  caress (`-pony.global_basis.z`). RAISE lifts from the current hand frame to the contact plus
-  `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal and
-  `SMACK_RAISE_BACK_M = 0.05 m` toward her rump at `smack.raise_speed` (default `1.2 m/s`,
-  clamped to `0.12–0.30 s`). The raised basis is the straight contact basis pitched down by
+  source is `flank`; a free-hand smack uses the bottom of the chosen cheek, querying
+  `SMACK_CHEEK_DROP_M = 0.10 m × body scale` below the mark centre and snapping to the nearest
+  `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius` (`0.035 m` by
+  default). That keeps a resting hand from reaching the leg. A forward lean lands on the forward
+  flank instead of reaching back to the cheek. The body hull is never the target and the rump
+  centre is not used; `index` only chooses which cheek decal reddens. Missionary keeps the
+  mark-centre target shifted `0.08 m` up and `0.08 m` back. If a hand is already caressing, the
+  slap uses that hand; if both caress, one is chosen at random. Otherwise a right lean selects
+  the left index, a left lean the right, and centered picks randomly. The caress oval keeps
+  moving through the smack, so the hand returns to the live point.
+- Standing smacks play four phases. The contact palm uses the caress forward finger hint
+  (`-pony.global_basis.z`) when caressing, and `Vector3.DOWN` for a free-hand smack. A caress
+  RAISE lifts from the current hand frame to the contact plus `presentation.standing.smack.raise_m`
+  (default `0.18 m`, body-scaled) along the coat normal and `SMACK_RAISE_BACK_M = 0.05 m` toward
+  her rump at `smack.raise_speed` (default `1.2 m/s`, clamped to `0.12–0.30 s`). A free-hand RAISE
+  is a backswing from behind and below: `back × raise_m`, `down × (raise_m ×
+  SMACK_SWING_DOWN_RATIO = 0.55)` and a small `outward × (raise_m × SMACK_SWING_OUT_RATIO =
+  0.15)` clearance. Both raised bases are the straight contact basis pitched down by
   `smack.pitch_deg` (default `12°`) about the palm normal, so the wind-up is a pitch, not a roll
   around the arm. STRIKE travels straight to the contact with cubic acceleration at
   `smack.return_speed` (default `1.9 m/s`, clamped to `0.06–0.20 s`), pitching back to the

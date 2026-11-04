@@ -75,6 +75,18 @@ func run() -> void:
 		"left palm pitch keeps the palm normal")
 	check(CAESS.smack_pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
 		"zero palm pitch keeps the basis")
+	check(CAESS.smack_finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
+		"non-caress smack points the fingers down")
+	check(CAESS.smack_finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
+		"caress smack keeps the fingers forward")
+	var swing_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
+	var swing := CAESS.smack_swing_raise_frame(
+		swing_contact, Vector3.RIGHT, Vector3.BACK, 0.20, 15.0)
+	check(swing.origin.z > swing_contact.origin.z, "non-caress swing starts behind")
+	check(swing.origin.y < swing_contact.origin.y, "non-caress swing starts below")
+	check(swing.origin.x > swing_contact.origin.x, "non-caress swing clears outward")
+	check((-swing.basis.z).y < (-swing_contact.basis.z).y,
+		"non-caress swing points the fingers down")
 	var raise_mid: Transform3D = CAESS.smack_raise_blend(
 		smack_contact, smack_raised, Vector3.BACK * 0.02, 0.5)
 	check(raise_mid.origin.x > smack_contact.origin.x

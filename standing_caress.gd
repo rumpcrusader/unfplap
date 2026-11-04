@@ -59,6 +59,11 @@ const SMACK_STRIKE_MIN_S := 0.06
 const SMACK_STRIKE_MAX_S := 0.20
 const SMACK_PITCH_DEG := 12.0
 const SMACK_RAISE_BACK_M := 0.05
+## Non-caress smack: the query sits this far below the cheek centre, and the wind-up is a
+## backswing from behind/below rather than an outward lift. All distances scale with the pony.
+const SMACK_CHEEK_DROP_M := 0.10
+const SMACK_SWING_DOWN_RATIO := 0.55
+const SMACK_SWING_OUT_RATIO := 0.15
 const SMACK_CONTACT_HOLD_SECONDS := 0.03
 const SMACK_REST_RETURN_SECONDS := 0.20
 const SMACK_PHASE_NONE := 0
@@ -135,6 +140,33 @@ static func smack_raise_frame(contact: Transform3D, outward: Vector3, raise_m: f
 		rear = contact.basis.z
 	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg),
 		contact.origin + normal * maxf(0.0, raise_m) + rear * maxf(0.0, back_m))
+
+
+## Caressing keeps the palm in the caress plane (fingers forward). A free-hand smack comes
+## from behind/below, so the fingers point down along the coat.
+static func smack_finger_hint(caressing: bool, forward: Vector3) -> Vector3:
+	if caressing:
+		var hint := forward.normalized()
+		if hint.length_squared() > 0.5:
+			return hint
+		return Vector3.FORWARD
+	return Vector3.DOWN
+
+
+## Non-caress wind-up: a backswing from behind and below the contact, with the fingers down.
+static func smack_swing_raise_frame(contact: Transform3D, outward: Vector3, back: Vector3,
+		raise_m: float, pitch_deg: float) -> Transform3D:
+	var distance := maxf(0.0, raise_m)
+	var rear := back.normalized()
+	if rear.length_squared() < 0.5:
+		rear = contact.basis.z
+	var normal := outward.normalized()
+	if normal.length_squared() < 0.5:
+		normal = contact.basis.x
+	var origin := contact.origin + rear * distance \
+		+ Vector3.DOWN * (distance * SMACK_SWING_DOWN_RATIO) \
+		+ normal * (distance * SMACK_SWING_OUT_RATIO)
+	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg), origin)
 
 
 ## Medium-speed lift with a small backward bow. `back` is the tangent toward her rump.
@@ -962,12 +994,13 @@ func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 
 
 ## Standing smack target: the live caress point when that hand is already on the flank patch,
-## otherwise the closest flank point to the striking palm, jittered within the character's
-## smack zone. Empty only when the flank patch is unavailable.
-func _standing_smack_target(hand_side: String, hand_world: Vector3) -> Dictionary:
+## otherwise the bottom of the chosen cheek for a free-hand smack, jittered within the
+## character's smack zone. Empty only when the flank patch is unavailable.
+func _standing_smack_target(hand_side: String, hand_world: Vector3,
+		caressing: bool) -> Dictionary:
 	var caress_side := "L" if hand_side == "left" else "R"
 	var state: Dictionary = _palm_contact_state(hand_side)
-	if bool(_caress_active[caress_side]) and str(state.get("source", "")) == "flank":
+	if caressing and str(state.get("source", "")) == "flank":
 		var point_v: Variant = state.get("point", Vector3.INF)
 		var normal_v: Variant = state.get("normal", Vector3.UP)
 		if point_v is Vector3 and normal_v is Vector3:
@@ -977,7 +1010,12 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3) -> Dictionar
 				var frame := _flank_frame()
 				return {"local": frame.affine_inverse() * point,
 					"normal": normal.normalized()}
-	var hit := _closest_flank_contact(hand_world)
+	var focus := hand_world
+	if not caressing:
+		var cheek := _lower_cheek_query(hand_side)
+		if cheek.is_finite():
+			focus = cheek
+	var hit := _closest_flank_contact(focus)
 	if hit.is_empty():
 		return {}
 	var point_world: Vector3 = hit["point"]
@@ -1001,6 +1039,22 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3) -> Dictionar
 				normal = jn.normalized()
 			local = _flank_frame().affine_inverse() * point_world
 	return {"local": local, "normal": normal}
+
+
+## World query point for a free-hand smack: the chosen cheek centre dropped to the bottom of
+## the flank patch, so the nearest surface point is a cheek rather than the leg.
+func _lower_cheek_query(hand_side: String) -> Vector3:
+	if not is_instance_valid(_flank):
+		return Vector3.INF
+	var centers: Variant = _flank.get("centers")
+	var index := 0 if hand_side == "left" else 1
+	if not centers is Array or index >= (centers as Array).size():
+		return Vector3.INF
+	var centre: Variant = (centers as Array)[index]
+	if not centre is Vector3:
+		return Vector3.INF
+	var world: Vector3 = _flank_frame() * (centre as Vector3)
+	return world + Vector3.DOWN * (SMACK_CHEEK_DROP_M * _smack_body_scale())
 
 
 func _smack() -> void:
@@ -1028,6 +1082,8 @@ func _smack() -> void:
 		hand_side = "left" if index == 0 else "right"
 	elif hand_side.is_empty():
 		hand_side = "left" if index == 0 else "right"
+	var caress_side := "L" if hand_side == "left" else "R"
+	var caressing := bool(_caress_active[caress_side])
 	var source := "caress" if _caress_active["L"] or _caress_active["R"] else "lean"
 	var driver: Node = runtime.call("_desktop_pose_driver")
 	var from_frame := Transform3D.IDENTITY
@@ -1058,10 +1114,10 @@ func _smack() -> void:
 			outward.y = 0.0
 			if outward.length_squared() > 0.001 and normal.dot(outward.normalized()) < 0.0:
 				normal = -normal
-	# Standing targets the closest point on the flank patch, not the decal centre. The
-	# cheek-centre target above remains the fallback when the patch is unavailable.
+	# Standing targets the live caress point or the bottom of the chosen cheek, not the decal
+	# centre. The cheek-centre target above remains the fallback when the patch is unavailable.
 	if str(runtime.get("pose_id")) == CATALOG.STANDING and from_frame.is_finite():
-		var standing_target := _standing_smack_target(hand_side, from_frame.origin)
+		var standing_target := _standing_smack_target(hand_side, from_frame.origin, caressing)
 		if not standing_target.is_empty():
 			at = standing_target.get("local", at)
 			normal = standing_target.get("normal", normal)
@@ -1070,7 +1126,7 @@ func _smack() -> void:
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank_frame() * at
 			var target := _palm_on_coat_frame(hand_side, world_centre, normal,
-				_smack_finger_hint(), false)
+				_smack_finger_hint(caressing), false)
 			_smack_index = index
 			_smack_at = at
 			_smack_side = hand_side
@@ -1167,9 +1223,13 @@ func _start_standing_smack(hand_side: String, from_frame: Transform3D, contact: 
 	_smack_outward = outward.normalized()
 	_smack_rest = from_frame
 	_smack_caress = bool(_caress_active["L" if hand_side == "left" else "R"])
-	var scale := _smack_body_scale()
-	_smack_raised = smack_raise_frame(contact, _smack_outward, _smack_raise_m(),
-		SMACK_RAISE_BACK_M * scale, _smack_back_dir(), _smack_pitch_deg())
+	if _smack_caress:
+		var scale := _smack_body_scale()
+		_smack_raised = smack_raise_frame(contact, _smack_outward, _smack_raise_m(),
+			SMACK_RAISE_BACK_M * scale, _smack_back_dir(), _smack_pitch_deg())
+	else:
+		_smack_raised = smack_swing_raise_frame(contact, _smack_outward,
+			_smack_back_dir(), _smack_raise_m(), _smack_pitch_deg())
 	var distance := from_frame.origin.distance_to(_smack_raised.origin)
 	_smack_raise_seconds = clampf(distance / _smack_raise_speed(),
 		SMACK_RAISE_MIN_S, SMACK_RAISE_MAX_S)
@@ -1224,10 +1284,11 @@ func _smack_body_scale() -> float:
 	return 1.0
 
 
-func _smack_finger_hint() -> Vector3:
+func _smack_finger_hint(caressing: bool) -> Vector3:
+	var forward := Vector3.FORWARD
 	if is_instance_valid(pony):
-		return -pony.global_basis.z.normalized()
-	return Vector3.FORWARD
+		forward = -pony.global_basis.z.normalized()
+	return smack_finger_hint(caressing, forward)
 
 
 func _smack_setting(name: String, fallback: float) -> float:

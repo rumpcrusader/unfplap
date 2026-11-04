@@ -193,12 +193,6 @@ static func all() -> Dictionary:
 		"presentation.standing.smack.return_speed": num(6.0, "Return speed",
 			"Strike speed in metres per second.", "Standing › Smack", "m/s", 0.1),
 
-		# Debug: rig and dock.
-		"features.thrust_tail_dock_jiggle": flag(true, "Tail base + dock jiggle",
-			"Add the tail base and dock to the rump's thrust and smack jiggle.", "Pony rig"),
-		"features.dock_tail_follow": flag(true, "Dock follows tail",
-			"Show the pony's unmerged rig and move her dock with the tail root during a standing act or invitation. Off keeps the merged dock on the rump.",
-			"Pony rig"),
 	}
 	return _cache
 

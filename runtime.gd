@@ -3,7 +3,6 @@ extends Node
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
-const DOCK_TAIL := preload("res://mods/unfplap/dock_tail_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
@@ -209,7 +208,6 @@ var thrust_up := true
 
 var _pose
 var _tail
-var _dock_tail
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _debug_pose: Node
@@ -375,10 +373,6 @@ var _standing_anon_ctl
 var _standing_presentation_ctl
 var _flank: Node
 var _jiggle_logged := false
-var _dock_jiggle_mesh: MeshInstance3D
-var _dock_jiggle_material: ShaderMaterial
-var _dock_jiggle_original: Material
-var _dock_near_mask_originals: Array = []
 var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
@@ -511,8 +505,6 @@ func _refresh_live_modifiers() -> void:
 	if not skeleton_value is Skeleton3D:
 		return
 	var skeleton := skeleton_value as Skeleton3D
-	if not _feature("thrust_tail_dock_jiggle"):
-		_restore_dock_jiggle_material()
 	if pose_id == CATALOG.STANDING:
 		if _feature("standing_body_sway") and not is_instance_valid(_body_sway):
 			_install_body_sway(skeleton)
@@ -1874,15 +1866,6 @@ func _build_pose() -> void:
 		_tail.target_amount = 1.0
 		_tail.call("choose_side")
 		(hair as Skeleton3D).add_child(_tail)
-		# Runs after the tail pose so the dock can follow the same root. It self-gates on
-		# `dock_tail_follow` and swaps the merged near mesh for the rig while it runs.
-		_dock_tail = DOCK_TAIL.new()
-		_dock_tail.name = "UnfplapDockTail"
-		_dock_tail.mare = pony
-		_dock_tail.runtime = self
-		_dock_tail.process_priority = 40
-		(hair as Skeleton3D).add_child(_dock_tail)
-		_log("dock tail controller created")
 
 func _free_pose() -> void:
 	clear_presentation()
@@ -1900,10 +1883,6 @@ func _free_pose() -> void:
 	if is_instance_valid(_pose):
 		_pose.queue_free()
 	_pose = null
-	if is_instance_valid(_dock_tail):
-		_dock_tail.call("restore")
-		_dock_tail.queue_free()
-	_dock_tail = null
 	if is_instance_valid(_tail):
 		_tail.queue_free()
 	_tail = null
@@ -1937,7 +1916,6 @@ func _install_ear_twitch() -> void:
 	(head as Skeleton3D).add_child(_ear_twitch)
 
 func _remove_extra_modifiers() -> void:
-	_restore_dock_jiggle_material()
 	_restore_jiggle_radius()
 	if is_instance_valid(_body_sway):
 		_body_sway.queue_free()
@@ -2641,10 +2619,6 @@ func _thrust_jiggle(strength: float) -> void:
 	if amount != null:
 		_flank.set("_jiggle_amount", float(amount) * JIGGLE_RUMP_SCALE
 			* _jiggle_size_scale() * _jiggle_intensity_scale)
-	if _feature("thrust_tail_dock_jiggle"):
-		_include_dock_jiggle()
-	else:
-		_restore_dock_jiggle_material()
 	_apply_jiggle_radius()
 	if not _jiggle_logged:
 		_jiggle_logged = true
@@ -2654,8 +2628,8 @@ func _thrust_jiggle(strength: float) -> void:
 			(targets as Array).size() if targets is Array else -1,
 			int(_flank.get("_jiggle_index")), str(decal.global_position)])
 
-## A smack has already started the native cheek jiggle. Carry it into the same tail base/dock
-## propagation as a thrust, gated by the same feature flag.
+## A smack has already started the native cheek jiggle. Carry it into the same tail-base
+## propagation as a thrust.
 func _on_smack_impact(strength: float) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -2663,14 +2637,6 @@ func _on_smack_impact(strength: float) -> void:
 		var amount: Variant = _flank.get("_jiggle_amount")
 		if amount != null:
 			_flank.set("_jiggle_amount", float(amount) * _jiggle_smack_intensity)
-	if not _feature("thrust_tail_dock_jiggle"):
-		_restore_dock_jiggle_material()
-		_apply_jiggle_radius()
-		return
-	if not is_instance_valid(_flank):
-		_flank = pony.get_node_or_null("FlankTouch")
-	if is_instance_valid(_flank):
-		_include_dock_jiggle()
 	_apply_jiggle_radius()
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
 		var tail_strength := _jiggle_size_scale() * _jiggle_smack_intensity
@@ -2708,126 +2674,6 @@ func _restore_jiggle_radius() -> void:
 	_jiggle_radius_materials.clear()
 
 
-## Add the rigid dock and merged near-dock surface to the rump's shader wobble. The hair tail
-## bones are already driven by tail_pose; this is the missing dock piece.
-func _include_dock_jiggle() -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(_flank):
-		return
-	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
-	if not is_instance_valid(dock):
-		return
-	var body: Variant = _flank.get("_body")
-	var source: Material = null
-	if body is MeshInstance3D:
-		source = (body as MeshInstance3D).get_active_material(0)
-	if not source is ShaderMaterial:
-		return
-	if not is_instance_valid(_dock_jiggle_mesh) or _dock_jiggle_mesh != dock:
-		_restore_dock_jiggle_material()
-		_dock_jiggle_mesh = dock
-		_dock_jiggle_original = dock.get_surface_override_material(0)
-		_dock_jiggle_material = (source as ShaderMaterial).duplicate() as ShaderMaterial
-		if not is_instance_valid(_dock_jiggle_material):
-			_dock_jiggle_mesh = null
-			_dock_jiggle_original = null
-			return
-		dock.set_surface_override_material(0, _dock_jiggle_material)
-	var targets: Variant = _flank.get("_jiggle_targets")
-	if targets is Array:
-		(targets as Array).append([_dock_jiggle_material, dock])
-	_include_dock_near_masks()
-
-## The near mesh merges the dock into the body palette with a zero jiggle_entry mask. Raise
-## the dock's palette entries so the merged surface follows the same wobble.
-func _include_dock_near_masks() -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(_flank):
-		return
-	var near: Variant = pony.get("_near")
-	if not near is Dictionary:
-		return
-	var groups: Variant = (near as Dictionary).get("groups", [])
-	if not groups is Array:
-		return
-	var targets: Variant = _flank.get("_jiggle_targets")
-	if not targets is Array:
-		return
-	for entry_v: Variant in groups:
-		if not entry_v is Dictionary:
-			continue
-		var entry: Dictionary = entry_v
-		var mi_v: Variant = entry.get("mi")
-		if not mi_v is MeshInstance3D:
-			continue
-		var group_v: Variant = entry.get("group")
-		if not group_v is Dictionary:
-			continue
-		var variants_v: Variant = (group_v as Dictionary).get("variants", {})
-		if not variants_v is Dictionary:
-			continue
-		var variant_v: Variant = (variants_v as Dictionary).get(entry.get("variant"))
-		if not variant_v is Dictionary:
-			continue
-		var outputs_v: Variant = (variant_v as Dictionary).get("outputs", [])
-		if not outputs_v is Array:
-			continue
-		for target_v: Variant in targets:
-			if not target_v is Array or (target_v as Array).size() < 2:
-				continue
-			var mat_v: Variant = (target_v as Array)[0]
-			var target_mi_v: Variant = (target_v as Array)[1]
-			if target_mi_v != mi_v or not mat_v is ShaderMaterial:
-				continue
-			var mat := mat_v as ShaderMaterial
-			var mask_v: Variant = mat.get_shader_parameter("jiggle_entry")
-			if not mask_v is PackedFloat32Array:
-				continue
-			var mask: PackedFloat32Array = mask_v
-			var original: PackedFloat32Array = mask.duplicate()
-			var changed := false
-			for si: int in (outputs_v as Array).size():
-				var output_v: Variant = (outputs_v as Array)[si]
-				if not output_v is Dictionary:
-					continue
-				var sources_v: Variant = (output_v as Dictionary).get("entries", [])
-				if not sources_v is Array:
-					continue
-				for i: int in mini((sources_v as Array).size(), mask.size()):
-					var source_v: Variant = (sources_v as Array)[i]
-					if not source_v is Array:
-						continue
-					var path_v: Variant = (source_v as Array)[0]
-					var src_node: Node = pony.get_node_or_null(NodePath(str(path_v)))
-					if src_node is Node and String(src_node.name).begins_with("OpenPonyDock"):
-						mask[i] = 1.0
-						changed = true
-			if changed:
-				if not _has_dock_mask_original(mat):
-					_dock_near_mask_originals.append([mat, original])
-				mat.set_shader_parameter("jiggle_entry", mask)
-
-
-func _has_dock_mask_original(mat: ShaderMaterial) -> bool:
-	for entry: Variant in _dock_near_mask_originals:
-		if entry is Array and not (entry as Array).is_empty() \
-				and (entry as Array)[0] == mat:
-			return true
-	return false
-
-func _restore_dock_jiggle_material() -> void:
-	if is_instance_valid(_dock_jiggle_mesh):
-		_dock_jiggle_mesh.set_surface_override_material(0, _dock_jiggle_original)
-	for entry: Variant in _dock_near_mask_originals:
-		if not entry is Array or (entry as Array).size() < 2:
-			continue
-		var mat_v: Variant = (entry as Array)[0]
-		var original_v: Variant = (entry as Array)[1]
-		if mat_v is ShaderMaterial and is_instance_valid(mat_v) \
-				and original_v is PackedFloat32Array:
-			(mat_v as ShaderMaterial).set_shader_parameter("jiggle_entry", original_v)
-	_dock_near_mask_originals.clear()
-	_dock_jiggle_mesh = null
-	_dock_jiggle_material = null
-	_dock_jiggle_original = null
 
 ## The base game leaves a redness mark for 18 s after a regular smack. The act has its own
 ## rump blush and act-smack mark, so clear the stock marks when the act starts. Regular smacks

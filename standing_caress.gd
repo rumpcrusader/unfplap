@@ -69,7 +69,7 @@ const SMACK_SWING_DOWN_RATIO := 0.55
 const SMACK_SWING_OUT_RATIO := 0.15
 const SMACK_CONTACT_HOLD_SECONDS := 0.03
 const SMACK_REST_RETURN_SECONDS := 0.20
-## Native impact strength for the smack; also drives the tail/dock jiggle propagation.
+## Native impact strength for the smack; also drives the tail jiggle propagation.
 const SMACK_IMPACT_STRENGTH := 0.8
 const SMACK_PHASE_NONE := 0
 const SMACK_PHASE_RAISE := 1
@@ -1506,8 +1506,7 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 	_notify_smack_jiggle()
 
 
-## Carry the native cheek jiggle into the same tail base/dock propagation as a thrust. The
-## runtime owns the feature flag and restores the dock material when it is off.
+## Carry the native cheek jiggle into the same tail-base propagation as a thrust.
 func _notify_smack_jiggle() -> void:
 	if is_instance_valid(runtime) and runtime.has_method("_on_smack_impact"):
 		runtime.call("_on_smack_impact", SMACK_IMPACT_STRENGTH)

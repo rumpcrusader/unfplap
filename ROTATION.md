@@ -337,24 +337,17 @@ these values here if a future pose needs that effect.
   raw `depth` also rocks the tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
-  rump shader, strongest at the dock and lagging down the chain. A smack adds the same wave
-  through `_on_smack_impact()` at `1.0 × _jiggle_size_scale() × smack_intensity`, gated by
-  `thrust_tail_dock_jiggle`; the thrust wave scales with `jiggle.intensity`. The same flag also
-  includes the dock in the smack wobble and restores the near-mesh `jiggle_entry` masks at act
-  end. The `jiggle.radius` setting (default
+  rump shader, strongest at the tail root and lagging down the chain. A smack adds the same wave
+  through `_on_smack_impact()` at `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust
+  wave scales with `jiggle.intensity`. The `jiggle.radius` setting (default
   `0.26 m`) is applied to every active wobble material and restored at act end; `jiggle.intensity`
   (default `0.25×`) scales the thrust amount, and `jiggle.smack_intensity` (default `0.55×`)
   scales the act smack amount. Stock marks are hidden and aged at act start, so a
   mark from an earlier regular smack cannot linger as a stale jiggle point. The game's tail
   anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair `mPelvis`, so the
   `mTail1..6` wave alone cannot move the base; `tail_pose` also translates the hair `mPelvis` by
-  `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave and restores the mane bones, so only the
-  tail base and chain move.
-- `dock_tail_follow.gd` (default on) rotates the dock with the tail root during the standing act:
-  the change in `mTail1` relative to `mPelvis` since the act started, applied about the tail root.
-  It follows aside/lift/flick/rock/thrust, but not the `mPelvis` base bob, and the rump shader
-  jiggle still applies. The acting pony's merged near mesh draws its own dock copy, so it is
-  swapped for the rig (`set_near_mesh(false)`) while this runs and restored at act end.
+  `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave and restores the mane bones, so
+  only the tail base and chain move.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

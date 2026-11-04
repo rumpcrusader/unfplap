@@ -14,22 +14,12 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
-const DOCK_TAIL := preload("res://mods/unfplap/dock_tail_follow.gd")
 
 class FakeTail extends Node:
 	var last_strength := 0.0
 
 	func thrust(strength: float) -> void:
 		last_strength = strength
-
-
-class FakeMare extends Node3D:
-	var near_mesh_enabled := true
-	var near_calls: Array = []
-
-	func set_near_mesh(on: bool) -> void:
-		near_mesh_enabled = on
-		near_calls.append(on)
 
 
 class FakeFlank extends Node3D:
@@ -323,20 +313,12 @@ func run() -> void:
 	jiggle_runtime.pony = jiggle_pony
 	jiggle_runtime.pose_id = CATALOG.STANDING
 	jiggle_runtime._tail = fake_tail
-	jiggle_runtime._features = {"thrust_tail_dock_jiggle": false}
 	root.add_child(jiggle_runtime)
-	jiggle_runtime.call("_on_smack_impact", 0.8)
-	check(near(fake_tail.last_strength, 0.0), "smack tail jiggle is gated off")
-	jiggle_runtime._features = {"thrust_tail_dock_jiggle": true}
 	jiggle_runtime.call("_on_smack_impact", 0.8)
 	var expected_jiggle := float(jiggle_runtime.call("_jiggle_size_scale")) \
 		* float(jiggle_runtime._jiggle_smack_intensity)
 	check(near(fake_tail.last_strength, expected_jiggle),
-		"smack tail jiggle follows the flag")
-	jiggle_runtime._features = {"thrust_tail_dock_jiggle": false}
-	jiggle_runtime.call("_on_smack_impact", 0.8)
-	check(near(fake_tail.last_strength, expected_jiggle),
-		"live flag off stops new smack tail jiggle")
+		"smack carries the tail jiggle in standing")
 	root.remove_child(jiggle_runtime)
 	jiggle_runtime.free()
 	fake_tail.free()
@@ -392,19 +374,6 @@ func run() -> void:
 	radius_runtime.free()
 	radius_mesh.free()
 	radius_flank.free()
-
-	var mask_mat := ShaderMaterial.new()
-	var mask_runtime: Node = RUNTIME.new()
-	root.add_child(mask_runtime)
-	mask_mat.set_shader_parameter("jiggle_entry", PackedFloat32Array([1.0, 0.0]))
-	mask_runtime._dock_near_mask_originals = [[mask_mat, PackedFloat32Array([0.0, 0.0])]]
-	mask_runtime.call("_restore_dock_jiggle_material")
-	var restored_mask: Variant = mask_mat.get_shader_parameter("jiggle_entry")
-	check(restored_mask is PackedFloat32Array
-		and (restored_mask as PackedFloat32Array) == PackedFloat32Array([0.0, 0.0]),
-		"dock restore puts the near-mesh mask back")
-	root.remove_child(mask_runtime)
-	mask_runtime.free()
 
 	check(near(STANDING_ANON.hip_offset(0.0, 1.0, 2.0), -0.045),
 		"hip rests one reach behind the rump limit")
@@ -482,7 +451,6 @@ func run() -> void:
 	smack_runtime.pony = smack_pony
 	smack_runtime._flank = smack_flank
 	smack_runtime._jiggle_smack_intensity = 0.5
-	smack_runtime._features = {"thrust_tail_dock_jiggle": false}
 	root.add_child(smack_runtime)
 	smack_runtime.call("_on_smack_impact", 0.8)
 	check(near(float(smack_flank._jiggle_amount), 0.04),
@@ -538,44 +506,6 @@ func run() -> void:
 		and hair.get_bone_global_pose(3).origin.is_equal_approx(head_before),
 		"tail jiggle keeps the mane planted")
 
-	# Dock follows the tail root instead of the rump. The follower reveals the acting pony's
-	# unmerged rig (the merged near mesh cannot move its dock) and restores it when it stops.
-	var dock_mare := FakeMare.new()
-	root.add_child(dock_mare)
-	var dock := MeshInstance3D.new()
-	dock.name = "OpenPonyDock"
-	dock_mare.add_child(dock)
-	var dock_runtime: Node = RUNTIME.new()
-	dock_runtime._features = {"dock_tail_follow": true}
-	root.add_child(dock_runtime)
-	var follower := DOCK_TAIL.new()
-	follower.mare = dock_mare
-	follower.runtime = dock_runtime
-	hair.add_child(follower)
-	follower.call("_process_modification_with_delta", 0.0)
-	check(dock_mare.near_calls == [false],
-		"dock follower reveals the unmerged rig")
-	check(dock.transform.is_equal_approx(Transform3D.IDENTITY),
-		"dock follower keeps the baseline frame")
-	var tail_rotated := hair.get_bone_global_pose(4)
-	tail_rotated.basis = Basis(Vector3.UP, 0.5) * tail_rotated.basis
-	hair.set_bone_global_pose(4, tail_rotated)
-	follower.call("_process_modification_with_delta", 0.0)
-	check(not dock.transform.is_equal_approx(Transform3D.IDENTITY),
-		"dock follows the tail root")
-	follower.call("restore")
-	check(dock.transform.is_equal_approx(Transform3D.IDENTITY),
-		"dock follower restores the dock frame")
-	check(dock_mare.near_calls == [false, true],
-		"dock follower restores the near mesh")
-	dock_runtime._features = {"dock_tail_follow": false}
-	follower.call("_process_modification_with_delta", 0.0)
-	check(dock_mare.near_calls == [false, true],
-		"dock follower stays off with the flag off")
-	hair.remove_child(follower)
-	follower.free()
-	dock_mare.free()
-	dock_runtime.free()
 
 	hair.free()
 	tail_mare.free()

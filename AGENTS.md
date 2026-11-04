@@ -138,7 +138,6 @@ mods/unfplap/
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
-  dock_tail_follow.gd  moves the dock with the tail root and swaps in the rig for the act
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
   consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
@@ -396,16 +395,15 @@ body-relative axes.
   `_standing_lean_scale()` multiplied by `0.8`; JRHNBR gets a
   `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10` higher eye line.
   Every thrust also calls `tail.thrust(strength)`: a short `JIGGLE_DECAY = 3.6` /
-  `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the dock
+  `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the tail root
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). A smack
   calls the same tail impulse through `_on_smack_impact()` at
-  `1.0 × _jiggle_size_scale() × smack_intensity`, gated by `thrust_tail_dock_jiggle`; the
-  thrust tail impulse also scales with `jiggle.intensity`. A debug line reports the resulting
-  amount. This is the cheapest way to make rump jiggle and tail read as one motion; the shader
-  itself stays native.
+  `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust tail impulse also scales with
+  `jiggle.intensity`. A debug line reports the resulting amount. This is the cheapest way to
+  make rump jiggle and tail read as one motion; the shader itself stays native.
   The game's tail anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair
   `mPelvis`, so rotating `mTail1..6` alone cannot move the base. `tail_pose` also translates the
-  hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave, restoring
+  hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave, restoring
   `mChest`/`mNeck`/`mHead` so only the tail base and chain move.
 - The rump shader wobble is tuned by the `jiggle` block: `radius` (default `0.26 m`) spreads it
   across the whole flank, `intensity` (default `0.25×`) scales the thrust amount, and
@@ -413,22 +411,6 @@ body-relative axes.
   sets `jiggle_radius` on every active `_flank._jiggle_targets` material and restores the override
   at act end, so stock smacks keep the shader default `0.12 m`. `apply_live_settings()` updates
   the radius on an active wobble.
-- With `thrust_tail_dock_jiggle` enabled (default on), the rigid `OpenPonyDock` mesh and the
-  merged near-mesh dock palette entries join the same rump shader wobble for both thrusts and
-  smacks. The runtime duplicates the body coat jiggle material onto the dock, appends it to
-  `_flank._jiggle_targets`, and raises the dock's near-mesh `jiggle_entry` mask. The original
-  masks are cached and restored with the dock material at act end or when the flag is turned
-  off; without that restore a regular smack after an act jiggled the merged dock but not the
-  hair tail. With the flag off, a smack skips both the tail wave and the dock. The hair tail
-  base jiggles through `tail_pose`.
-- With `dock_tail_follow` enabled (default on), `dock_tail_follow.gd` runs on the hair skeleton
-  after `tail_pose` and rotates `OpenPonyDock` about the tail root by the change in `mTail1`
-  since the act started. It follows the aside, lift, flick, rock and thrust wave, but not the
-  `mPelvis` base bob (that would detach the dock's rump end). The rump shader jiggle from
-  `thrust_tail_dock_jiggle` still applies on top.
-  The merged near mesh draws its own dock copy that cannot move, so the acting pony shows her
-  unmerged rig while the follower runs (`set_near_mesh(false)`) and gets the merged mesh back at
-  act end. Only the acting pony is affected. Off restores the current rump-only dock.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -958,8 +940,6 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `standing_body_sway` | `true` | standing upper-body sway modifier |
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
-| `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
-| `dock_tail_follow` | `true` | show the acting pony's rig and move her dock with the tail root during a standing act |
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |

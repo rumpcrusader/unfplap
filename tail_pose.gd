@@ -17,13 +17,13 @@ const ROCK_DAMPING := 16.0
 const ROCK_PITCH := 0.12
 const ROCK_YAW := 0.08
 ## Thrust impulse: a short decaying wave down the tail so the rump jiggle is carried into the
-## dock and tail instead of leaving the tail rigid.
+## tail instead of leaving it rigid.
 const JIGGLE_DECAY := 3.6
 const JIGGLE_FREQ := 18.0
 const JIGGLE_PITCH := 0.16
 const JIGGLE_YAW := 0.08
 ## The tail base is pinned to the hair pelvis by the game's tail anchor, so the bone wave alone
-## cannot move it. Translate the hair mPelvis with the same wave the dock shader uses, then
+## cannot move it. Translate the hair mPelvis with the same wave the rump shader uses, then
 ## restore the mane bones.
 const JIGGLE_BASE_M := 0.02
 const JIGGLE_BASE_FREQ := 28.0
@@ -168,7 +168,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		pose.basis = Basis(right, lift_sign * _rock * ROCK_PITCH * weight * falloff) * pose.basis
 		pose.basis = Basis(up, _rock * ROCK_YAW * weight * falloff) * pose.basis
 		if _thrust_strength > 0.001 and thrust_envelope > 0.001:
-			# The dock (mTail1) takes the strongest impulse; the wave lags slightly down the chain.
+			# The tail root (mTail1) takes the strongest impulse; the wave lags slightly down the chain.
 			var wave := sin(_thrust_clock * JIGGLE_FREQ - float(i) * 0.55)
 			var impulse := _thrust_strength * thrust_envelope * wave * weight * falloff
 			pose.basis = Basis(right, lift_sign * impulse * JIGGLE_PITCH) * pose.basis

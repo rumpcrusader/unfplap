@@ -213,6 +213,9 @@ const PRESENTATION_DEFAULTS := {
 			},
 			"ignore": ["tail", "wing"],
 		},
+		"smack": {
+			"raise_m": 0.18,
+		},
 	},
 }
 
@@ -595,6 +598,9 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 					ignore.append(name)
 		caress["ignore"] = ignore
 		out["caress"] = caress
+		var smack: Dictionary = out.get("smack", {})
+		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.18)))
+		out["smack"] = smack
 		var kiss: Dictionary = out.get("kiss", {})
 		kiss["mouth_right"] = clampf(float(kiss.get("mouth_right", 0.0)), -0.5, 0.5)
 		kiss["mouth_drop"] = clampf(float(kiss.get("mouth_drop", 0.07)), -0.5, 0.5)

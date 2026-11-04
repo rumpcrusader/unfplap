@@ -284,13 +284,20 @@ these values here if a future pose needs that effect.
   right. `at` is the mark centre shifted `0.08 m` up and `0.08 m` back, jittered within
   `SMACK_ZONE_RADIUS_M = 0.035`. If a hand is already caressing, the slap uses that hand and its
   same-side cheek; if both caress, one is chosen at random. Otherwise a right lean selects the
-  left cheek, a left lean the right, and centered picks randomly. The caress oval is frozen for
-  the slapping hand during the swing. At the end the palm cache is reset, the contact is
-  reacquired with the caress ignore list, and the hand returns over `CARESS_RETURN_SECONDS =
-  0.12`. Anon's hand swings in/out over `0.20 s` (`SMACK_CONTACT_PHASE = 0.45`) with a `200 ms`
-  cooldown. With `act_foley` on the native sound player gets a peak-normalised OpenNSFW
-  hand-smack variant for that impact; off keeps the stock `flank_slap.wav`. The native impact
-  still supplies the decal, blush, jiggle and `flank_smack`.
+  left cheek, a left lean the right, and centered picks randomly. The caress oval keeps moving
+  through the smack, so the hand returns to the live point.
+- Standing smacks play four phases. RAISE lifts from the current hand frame to the contact plus
+  `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal
+  and `SMACK_RAISE_BACK_M = 0.05 m` toward her rump over `0.12–0.30 s`. STRIKE travels straight
+  to the contact with cubic acceleration over `SMACK_STRIKE_SECONDS = 0.10 s`. CONTACT holds the
+  exact contact frame for `SMACK_CONTACT_HOLD_SECONDS = 0.03 s` and fires the native impact.
+  RECOVER blends to the live caress oval over `CARESS_RETURN_SECONDS = 0.12 s` or to the
+  captured rest hand over `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary
+  keeps the hidden-hand `SMACK_SWING_SECONDS = 0.20` swing at `SMACK_CONTACT_PHASE = 0.45`. A
+  `SMACK_COOLDOWN_MS = 200` gate remains, and a new smack waits for the current recovery. With
+  `act_foley` on the native sound player gets a peak-normalised OpenNSFW hand-smack variant for
+  that impact; off keeps the stock `flank_slap.wav`. The native impact still supplies the decal,
+  blush, jiggle and `flank_smack`.
 - `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.

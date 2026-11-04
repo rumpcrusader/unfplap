@@ -879,6 +879,24 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 				{"caress": {"ignore": values}})
 			_apply_live_settings())
 
+	var smack_heading := Label.new()
+	smack_heading.text = "Smack"
+	smack_heading.add_theme_font_size_override("font_size", font_size)
+	list.add_child(smack_heading)
+	var smack_form := GridContainer.new()
+	smack_form.columns = 2
+	smack_form.add_theme_constant_override("h_separation", 16)
+	smack_form.add_theme_constant_override("v_separation", 8)
+	list.add_child(smack_form)
+	var smack: Dictionary = controls.get("smack", {})
+	var smack_raise := _settings_spin_free(smack_form, "Max raise", 0.5,
+		float(smack.get("raise_m", 0.18)) * 100.0, font_size)
+	smack_raise.suffix = " cm"
+	smack_raise.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"raise_m": smack_raise.value / 100.0}})
+		_apply_live_settings())
+
 
 func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
 	list.add_child(HSeparator.new())

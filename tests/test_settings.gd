@@ -205,6 +205,9 @@ func run() -> void:
 		"default caress ignores tail")
 	check((caress_defaults.get("ignore", []) as Array).has("wing"),
 		"default caress ignores wing")
+	var smack_defaults: Dictionary = standing_defaults.get("smack", {})
+	check(near(float(smack_defaults.get("raise_m", -1.0)), 0.18),
+		"default smack raise")
 
 	var old_presentation := {
 		"presentation": {
@@ -301,6 +304,9 @@ func run() -> void:
 	var glance_speed := float(standing.get("glance_back_speed", 0.0))
 	check(glance_speed >= 0.25 and glance_speed <= 3.0,
 		"runtime glance-back speed in range")
+	var smack_controls: Dictionary = standing.get("smack", {})
+	check(float(smack_controls.get("raise_m", -1.0)) >= 0.0,
+		"runtime smack raise is non-negative")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("climax") and event_prompts.has("end_early"),
 		"remaining event prompts exist")

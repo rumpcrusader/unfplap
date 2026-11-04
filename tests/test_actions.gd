@@ -53,6 +53,24 @@ func run() -> void:
 	check(CAESS.smack_side_index(0.4) == 0, "right lean smacks left cheek")
 	check(CAESS.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
 	check(CAESS.smack_side_index(0.0) == -1, "centered smack is random")
+	var smack_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
+	var smack_raised: Transform3D = CAESS.smack_raise_frame(
+		smack_contact, Vector3.RIGHT, 0.18, 0.05, Vector3.BACK)
+	check(near(smack_raised.origin.x, 0.18) and near(smack_raised.origin.z, 0.05)
+		and near(smack_raised.origin.y, 1.0), "smack raise lifts along the normal and back")
+	var raise_mid: Transform3D = CAESS.smack_raise_blend(
+		smack_contact, smack_raised, Vector3.BACK * 0.02, 0.5)
+	check(raise_mid.origin.x > smack_contact.origin.x
+		and raise_mid.origin.x < smack_raised.origin.x, "smack raise blends between frames")
+	var strike_mid: Transform3D = CAESS.smack_strike_blend(smack_raised, smack_contact, 0.5)
+	check(strike_mid.origin.distance_to(smack_raised.origin)
+		< strike_mid.origin.distance_to(smack_contact.origin), "smack strike accelerates")
+	check(CAESS.smack_strike_blend(smack_raised, smack_contact, 1.0).origin.is_equal_approx(
+		smack_contact.origin), "smack strike reaches the contact")
+	check(CAESS.smack_recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
+		smack_raised.origin), "smack recovery reaches its target")
+	check(near(CAESS.SMACK_STRIKE_SECONDS, 0.10)
+		and near(CAESS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack phase timings")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(MOTION.lean_distance(-1.0), -0.08), "backward lean distance is halved")

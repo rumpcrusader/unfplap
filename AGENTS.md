@@ -509,11 +509,18 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   within `SMACK_ZONE_RADIUS_M = 0.035` around that point. The contact palm uses the same
   `palm_surface_basis()` and caress palm distance above. If a hand is already caressing,
   the smack uses that hand and its same-side cheek; if both are caressing, one is chosen at
-  random. The caress oval is frozen for that hand during the swing. At the end the palm cache
-  is reset, the current contact is reacquired (with caress ignore rules), and the hand returns
-  over `CARESS_RETURN_SECONDS = 0.12` instead of clearing to rest. The hand swings in/out over
-  `SMACK_SWING_SECONDS = 0.20`, impacts at `SMACK_CONTACT_PHASE = 0.45`, and has a
-  `SMACK_COOLDOWN_MS = 200` gate.
+  random. The caress oval keeps moving through the smack, so the hand returns to the live
+  point instead of the one it left.
+- Standing plays four phases. RAISE lifts the palm from its current frame to the contact plus
+  `presentation.standing.smack.raise_m` (default `0.18 m`, body-scaled) along the coat normal
+  and `SMACK_RAISE_BACK_M = 0.05 m` toward her rump, over `0.12–0.30 s`. STRIKE travels
+  straight to the contact with cubic acceleration over `SMACK_STRIKE_SECONDS = 0.10 s`.
+  CONTACT holds for `SMACK_CONTACT_HOLD_SECONDS = 0.03 s` and fires `impact` and
+  `_on_touch("smack")`. RECOVER blends to the live caress oval over `CARESS_RETURN_SECONDS =
+  0.12 s`, or to the captured rest hand over `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears
+  the hold. Missionary keeps the old hidden-hand `SMACK_SWING_SECONDS = 0.20` swing, impacting
+  at `SMACK_CONTACT_PHASE = 0.45`. A `SMACK_COOLDOWN_MS = 200` gate remains; a new smack waits
+  for the current recovery.
 - It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs one
   peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` on the native sound
   player immediately before the impact; `act_foley` off keeps the stock `flank_slap.wav`. The
@@ -900,8 +907,9 @@ rump blush. Unknown settings keys are ignored.
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
-  - `standing`: `glance_back_speed`, `torso_angle_deg`, and `caress` with `palm_distance`,
-    `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`.
+  - `standing`: `glance_back_speed`, `torso_angle_deg`, `caress` with `palm_distance`,
+    `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`, and `smack`
+    with `raise_m` (default `0.18 m`, experimental/unbounded).
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
@@ -915,9 +923,9 @@ rump blush. Unknown settings keys are ignored.
   `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`) and
   **Character taste**. **Debug** holds every other flag, the **Camera thrust** section (surge and
   bob, `0…100%`), the **Act presentation** section split into **Missionary** and **Standing** (standing
-  includes caress palm distance, size-selected palm scale and body-part ignores), and the offer /
-  ear-pin debug controls. There are no Save buttons: each control writes its own block and calls
-  `apply_live_settings()` so the active act updates immediately.
+  includes caress palm distance, size-selected palm scale, body-part ignores and the smack raise
+  height), and the offer / ear-pin debug controls. There are no Save buttons: each control writes
+  its own block and calls `apply_live_settings()` so the active act updates immediately.
 - `debug_logs` defaults to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

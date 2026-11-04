@@ -59,7 +59,7 @@ const FEATURE_DEFAULTS := {
 	"pose2_body_sway": true,
 	"pose1_body_motion": true,
 	"thrust_ear_twitch": true,
-	"thrust_tail_dock_jiggle": false,
+	"thrust_tail_dock_jiggle": true,
 	"allow_act_during_cuddle": true,
 	"press_y_starts_sex": false,
 	"mute_ponese_audio": true,
@@ -168,40 +168,40 @@ const CAMERA_THRUST_DEFAULTS := {
 ## torso lean and caress controls. All values are read live during an act.
 const PRESENTATION_DEFAULTS := {
 	"missionary": {
-		"forward": 0.26,
-		"height": -0.21,
+		"forward": 0.30,
+		"height": 0.25,
 		"side": 0.0,
 		"pullback": 0.22,
-		"side_lean": 0.20,
-		"pitch_deg": 0.0,
-		"neck1_deg": 7.5,
-		"neck2_deg": 7.5,
+		"side_lean": 0.10,
+		"pitch_deg": -15.0,
+		"neck1_deg": 0.0,
+		"neck2_deg": 0.0,
 		"neck_roll_deg": 0.0,
 		"head_pitch_deg": 0.0,
-		"head_roll_deg": 0.0,
+		"head_roll_deg": 13.0,
 	},
 	"horse": {
 		"glance_back_speed": 2.0,
-		"torso_angle_deg": 15.0,
+		"torso_angle_deg": 6.0,
 		"kiss": {
 			"mouth_right": 0.0,
-			"mouth_drop": 0.07,
-			"mouth_forward": 0.02,
-			"camera_yaw_deg": 10.0,
-			"lean_side": 0.18,
-			"lean_forward": 0.27,
-			"lean_drop": 0.035,
+			"mouth_drop": 0.0,
+			"mouth_forward": 0.0,
+			"camera_yaw_deg": 7.0,
+			"lean_side": 0.46,
+			"lean_forward": 0.03,
+			"lean_drop": 0.09,
 			"forelegs": "planted",
 		},
 		"caress": {
-			"palm_distance": 0.04,
+			"palm_distance": 0.02,
 			"palm_scale": {
-				"canon": 0.85,
+				"canon": 0.75,
 				"mounting": 0.95,
 				"same height": 1.0,
 				"hoers": 1.0,
 			},
-			"ignore": ["tail"],
+			"ignore": ["tail", "wing"],
 		},
 	},
 }
@@ -429,7 +429,7 @@ static func _path() -> String:
 
 static func load_debug_logs() -> bool:
 	var data := _read()
-	return bool(data.get("debug_logs", true))
+	return bool(data.get("debug_logs", false))
 
 
 static func act_prompt(id: String, key: String) -> String:
@@ -502,10 +502,10 @@ static func thrust_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
-	var pixels := 800.0
+	var pixels := 1000.0
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
-		pixels = float((block as Dictionary).get("pixels_per_full", 800.0))
+		pixels = float((block as Dictionary).get("pixels_per_full", 1000.0))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
@@ -708,11 +708,11 @@ static func _read() -> Dictionary:
 
 static func _defaults() -> Dictionary:
 	return {
-		"debug_logs": true,
+		"debug_logs": false,
 		"features": FEATURE_DEFAULTS.duplicate(true),
 		"thrust": {
 			"orientation": "up",
-			"pixels_per_full": 800.0,
+			"pixels_per_full": 1000.0,
 		},
 		"camera_thrust": CAMERA_THRUST_DEFAULTS.duplicate(true),
 		"presentation": PRESENTATION_DEFAULTS.duplicate(true),

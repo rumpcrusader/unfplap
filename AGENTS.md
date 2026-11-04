@@ -171,7 +171,7 @@ body-relative axes.
   roll her belly-down.
 - `POSE1_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
 - `_neck_bend(neck1_deg, neck2_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis.
-  Presentation defaults are `7.5°` each (the old `15°` split); zero straightens the neck.
+  Presentation defaults are `0°` each; zero straightens the neck.
   `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both run
   **before** the gaze solve, so they change head position without biasing the final face
   direction. After the gaze solve, `_head_pitch(head_pitch_deg)` tilts the head about the body
@@ -262,12 +262,12 @@ body-relative axes.
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
-- `presentation.horse.torso_angle_deg` (default `15`, experimental/unbounded) hinges Anon's
+- `presentation.horse.torso_angle_deg` (default `6`, experimental/unbounded) hinges Anon's
   upper body forward over her. `apply_anon_lean()` counters the hip and pins the feet;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
 - Pose-2 palms are scaled absolutely per body preset from
-  `presentation.horse.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers
+  `presentation.horse.caress.palm_scale`: Canon `0.75`, JRHNBR `0.95`, same height/hoers
   `1.0`. The settings tab edits the selected size. `palm_scale.gd` runs after BodyIK and
   restores the cached bone scales in `_remove_anon_thrust()` on every act exit. Marker scaling
   would be discarded by the IK solver.
@@ -299,9 +299,9 @@ body-relative axes.
   higher, farther-back shot so the camera is not inside her neck. The anchor stays behind her
   neck, toward her rump, so the frozen aim looks forward along her body at her face. Anchoring
   ahead of the neck put the camera over her head and aimed back down her torso.
-  The fine axes are `presentation.missionary.forward` (default `0.26`),
-  `presentation.missionary.height` (default `-0.21`) and `presentation.missionary.side`
-  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `0`;
+  The fine axes are `presentation.missionary.forward` (default `0.30`),
+  `presentation.missionary.height` (default `0.25`) and `presentation.missionary.side`
+  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `-15`;
   positive looks up) tilts the frozen view about its local right axis after the aim. They are
   experimental/unbounded and applied live. The base view then adds
   `POSE1_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot
@@ -329,7 +329,7 @@ body-relative axes.
   mattress toward her head, while the bob moves the view up at her face on the inward stroke.
   The base already includes one full forward lean (`POSE1_START_LEAN`). Forward lean is clamped
   to stop `0.12 m` short of the neck target. A side lean also travels
-  `presentation.missionary.side_lean` (default `0.20 m`, experimental/unbounded) along the
+  `presentation.missionary.side_lean` (default `0.10 m`, experimental/unbounded) along the
   mattress toward her head, outside the view-axis clamp; the side-lean roll remains separate.
   `presentation.missionary.pitch_deg` is applied as a local right-axis rotation after the base
   aim, before the lean basis.
@@ -387,7 +387,7 @@ body-relative axes.
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). This is
   the cheapest way to make rump jiggle and tail read as one motion; the shader itself stays
   native.
-- With `thrust_tail_dock_jiggle` enabled (default off), the rigid `OpenPonyDock` mesh and the
+- With `thrust_tail_dock_jiggle` enabled (default on), the rigid `OpenPonyDock` mesh and the
   merged near-mesh dock palette entries join the same rump shader wobble. The runtime duplicates
   the body coat jiggle material onto the dock, appends it to `_flank._jiggle_targets`, and
   raises the dock's near-mesh `jiggle_entry` mask. The material override is restored at act end
@@ -441,10 +441,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   and runs last to CCD them back to those positions, because the base kiss's chest flex would
   otherwise drag the legs after `body_sway`'s upper-arm pin. `"base"` keeps the stock both-up
   kiss animation.
-- While a kiss is active, Anon leans in by the pose-2 `lean_forward` (pose 1 `KISS_LEAN_M = 0.27`),
-  shifts to the shoulder side by `lean_side` (pose 1 `0.18`) and drops by `lean_drop` (pose 1
-  `0.035`) lower over `0.35 s`; the
-  pose-2 camera also yaws by the pose-2 `camera_yaw_deg` (pose 1 `10°`) toward her. The kiss side is latched at
+- While a kiss is active, Anon leans in by the pose-2 `lean_forward` (default `0.03`), shifts to
+  the shoulder side by `lean_side` (default `0.46`) and drops by `lean_drop` (default `0.09`)
+  lower over `0.35 s`; the pose-2 camera also yaws by `camera_yaw_deg` (default `7°`) toward her.
+  Pose 1 keeps `KISS_LEAN_M = 0.27`, side `0.18`, drop `0.035` and camera `10°`. The kiss side is latched at
   the start from the input lean (`_lean_side`, falling back to `_lean_action_side`), not the
   lagging camera view, and `AffectionPose.set_kiss_side()` pins her head tilt to the
   complementary side (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding;
@@ -474,9 +474,9 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
   orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
   The fallback uses `_nearest_touch()`, which skips
-  `presentation.horse.caress.ignore` regions (default `tail`; UI also exposes mane, wings and
+  `presentation.horse.caress.ignore` regions (default `tail` and `wing`; UI also exposes mane and
   legs). This prevents a tail flick after a smack from stealing the caress contact.
-  The palm centre sits at `presentation.horse.caress.palm_distance` (default `0.04 m`) at body
+  The palm centre sits at `presentation.horse.caress.palm_distance` (default `0.02 m`) at body
   scale `1.0`, multiplied by the pony's actual `body_scale` (clamped `0.5…2.0`); the normal
   smoothing adds no extra lift.
   Contact is cached per hand with
@@ -808,7 +808,7 @@ examples.
 - `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
-- `debug_logs` is read from settings and defaults ON. There is no key toggle; it controls
+- `debug_logs` is read from settings and defaults OFF. There is no key toggle; it controls
   logging only. The Debug settings tab is always present.
 - **Settings → Unfplap → Debug** exposes `Trigger bed offer (')`, `Trigger horse offer (\)` and
   a **Pinned act ears** checkbox. The offers use the aimed mare with the nearest fallback and
@@ -867,7 +867,7 @@ examples.
 | `pose2_body_sway` | `true` | pose-2 upper-body sway modifier |
 | `pose1_body_motion` | `true` | pose-1 torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | pose-2 thrust ear-twitch modifier |
-| `thrust_tail_dock_jiggle` | `false` | add the dock and merged dock surface to the rump thrust jiggle |
+| `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust jiggle |
 | `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
@@ -885,7 +885,7 @@ examples.
 Always on: horse afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `800`.
+  `thrust.pixels_per_full` defaults to `1000`.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
@@ -908,7 +908,7 @@ rump blush. Unknown settings keys are ignored.
   includes caress palm distance, size-selected palm scale and body-part ignores), and the offer /
   ear-pin debug controls. There are no Save buttons: each control writes its own block and calls
   `apply_live_settings()` so the active act updates immediately.
-- `debug_logs` defaults to `true`.
+- `debug_logs` defaults to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),
   `act_prompts`, `event_prompts` (`climax`, `end_early`),

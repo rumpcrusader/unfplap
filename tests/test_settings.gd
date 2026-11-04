@@ -115,8 +115,8 @@ func run() -> void:
 	check(bool(feature_block.get("pose2_body_sway", false)), "pose 2 body sway feature on")
 	check(bool(feature_block.get("pose1_body_motion", false)), "pose 1 body motion feature on")
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
-	check(not bool(feature_block.get("thrust_tail_dock_jiggle", true)),
-		"tail/dock jiggle off by default")
+	check(bool(feature_block.get("thrust_tail_dock_jiggle", false)),
+		"tail/dock jiggle on by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
@@ -134,9 +134,10 @@ func run() -> void:
 		check(not str(info.get("help", "")).is_empty(), "feature help for " + key)
 	check(SETTINGS.FEATURE_INFO.size() == SETTINGS.FEATURE_DEFAULTS.size(),
 		"feature info matches the flag set")
+	check(not bool(defaults.get("debug_logs", true)), "debug logs off by default")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
-	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 800.0), "default thrust pixels")
+	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 1000.0), "default thrust pixels")
 	var controls := SETTINGS.thrust_controls()
 	check(bool(controls.get("up", false)), "runtime thrust controls up")
 	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
@@ -153,57 +154,59 @@ func run() -> void:
 	var presentation_defaults: Dictionary = defaults.get("presentation", {})
 	var missionary_defaults: Dictionary = presentation_defaults.get("missionary", {})
 	var horse_defaults: Dictionary = presentation_defaults.get("horse", {})
-	check(near(float(missionary_defaults.get("forward", 0.0)), 0.26),
+	check(near(float(missionary_defaults.get("forward", 0.0)), 0.30),
 		"default missionary forward")
-	check(near(float(missionary_defaults.get("height", 0.0)), -0.21),
+	check(near(float(missionary_defaults.get("height", 0.0)), 0.25),
 		"default missionary height")
 	check(near(float(missionary_defaults.get("side", -1.0)), 0.0),
 		"default missionary side")
 	check(near(float(missionary_defaults.get("pullback", 0.0)), 0.22),
 		"default missionary pullback")
-	check(near(float(missionary_defaults.get("side_lean", 0.0)), 0.20),
+	check(near(float(missionary_defaults.get("side_lean", 0.0)), 0.10),
 		"default missionary side-lean forward")
-	check(near(float(missionary_defaults.get("pitch_deg", -1.0)), 0.0),
+	check(near(float(missionary_defaults.get("pitch_deg", 0.0)), -15.0),
 		"default missionary pitch")
-	check(near(float(missionary_defaults.get("neck1_deg", 0.0)), 7.5),
+	check(near(float(missionary_defaults.get("neck1_deg", -1.0)), 0.0),
 		"default missionary neck1")
-	check(near(float(missionary_defaults.get("neck2_deg", 0.0)), 7.5),
+	check(near(float(missionary_defaults.get("neck2_deg", -1.0)), 0.0),
 		"default missionary neck2")
 	check(near(float(missionary_defaults.get("neck_roll_deg", -1.0)), 0.0),
 		"default missionary neck roll")
 	check(near(float(missionary_defaults.get("head_pitch_deg", -1.0)), 0.0),
 		"default missionary head pitch")
-	check(near(float(missionary_defaults.get("head_roll_deg", -1.0)), 0.0),
+	check(near(float(missionary_defaults.get("head_roll_deg", -1.0)), 13.0),
 		"default missionary head roll")
 	check(near(float(horse_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
-	check(near(float(horse_defaults.get("torso_angle_deg", -1.0)), 15.0),
+	check(near(float(horse_defaults.get("torso_angle_deg", -1.0)), 6.0),
 		"default Anon torso lean")
 	var kiss_defaults: Dictionary = horse_defaults.get("kiss", {})
-	check(near(float(kiss_defaults.get("mouth_drop", 0.0)), 0.07),
+	check(near(float(kiss_defaults.get("mouth_drop", -1.0)), 0.0),
 		"default kiss mouth drop")
-	check(near(float(kiss_defaults.get("mouth_forward", 0.0)), 0.02),
+	check(near(float(kiss_defaults.get("mouth_forward", -1.0)), 0.0),
 		"default kiss mouth forward")
-	check(near(float(kiss_defaults.get("camera_yaw_deg", 0.0)), 10.0),
+	check(near(float(kiss_defaults.get("camera_yaw_deg", 0.0)), 7.0),
 		"default kiss camera yaw")
-	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.18),
+	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),
 		"default kiss side lean")
-	check(near(float(kiss_defaults.get("lean_forward", 0.0)), 0.27),
+	check(near(float(kiss_defaults.get("lean_forward", 0.0)), 0.03),
 		"default kiss forward lean")
-	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.035),
+	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.09),
 		"default kiss lean drop")
 	check(str(kiss_defaults.get("forelegs", "")) == "planted",
 		"default kiss forelegs planted")
 	var caress_defaults: Dictionary = horse_defaults.get("caress", {})
-	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.04),
+	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
 		"default caress palm distance")
 	var scale_defaults: Dictionary = caress_defaults.get("palm_scale", {})
-	check(near(float(scale_defaults.get("canon", 0.0)), 0.85),
+	check(near(float(scale_defaults.get("canon", 0.0)), 0.75),
 		"default Canon palm scale")
 	check(near(float(scale_defaults.get("mounting", 0.0)), 0.95),
 		"default mounting palm scale")
 	check((caress_defaults.get("ignore", []) as Array).has("tail"),
 		"default caress ignores tail")
+	check((caress_defaults.get("ignore", []) as Array).has("wing"),
+		"default caress ignores wing")
 
 	var old_presentation := {
 		"presentation": {

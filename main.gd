@@ -376,6 +376,7 @@ func _inject_settings_page_now(page: Node) -> void:
 			continue
 		_add_feature_toggle(debug_list, key, font_size, page)
 	_add_camera_thrust_section(debug_list, font_size)
+	_add_jiggle_section(debug_list, font_size)
 	_add_presentation_section(debug_list, font_size)
 	_add_debug_section(debug_list, font_size)
 	for tab: Variant in tabs:
@@ -540,10 +541,26 @@ func _add_thrust_section(list: VBoxContainer, font_size: int) -> void:
 	orientation.selected = 0 if bool(controls.get("up", true)) else 1
 	pixels.value = float(controls.get("pixels_per_full", 480.0))
 
+	var travel_label := Label.new()
+	travel_label.text = "Hip travel"
+	travel_label.add_theme_font_size_override("font_size", font_size)
+	form.add_child(travel_label)
+	var travel := SpinBox.new()
+	travel.min_value = 0.25
+	travel.max_value = 2.0
+	travel.step = 0.05
+	travel.suffix = "×"
+	travel.value = float(controls.get("travel", 1.0))
+	travel.add_theme_font_size_override("font_size", font_size - 2)
+	form.add_child(travel)
+
 	orientation.item_selected.connect(func(_index: int) -> void:
 		_save_thrust_controls(orientation, pixels))
 	pixels.value_changed.connect(func(_value: float) -> void:
 		_save_thrust_controls(orientation, pixels))
+	travel.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_thrust_travel(travel.value)
+		_apply_live_settings())
 
 
 func _save_thrust_controls(orientation: OptionButton, pixels: SpinBox) -> void:
@@ -585,6 +602,44 @@ func _save_camera_thrust_controls(surge: SpinBox, bob: SpinBox) -> void:
 	SETTINGS.save_camera_thrust_controls({
 		"surge": surge.value / 100.0,
 		"bob": bob.value / 100.0,
+	})
+	_apply_live_settings()
+
+
+func _add_jiggle_section(list: VBoxContainer, font_size: int) -> void:
+	list.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "Thrust jiggle"
+	heading.add_theme_font_size_override("font_size", font_size + 2)
+	list.add_child(heading)
+	var note := Label.new()
+	note.text = "Shared rump wobble. Radius spreads it across the flank; intensity scales the thrust amount. Changes apply live."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", font_size - 4)
+	list.add_child(note)
+
+	var form := GridContainer.new()
+	form.columns = 2
+	form.add_theme_constant_override("h_separation", 16)
+	form.add_theme_constant_override("v_separation", 8)
+	list.add_child(form)
+	var controls := SETTINGS.jiggle_controls()
+	var radius := _settings_spin_free(form, "Radius", 1.0,
+		float(controls.get("radius", 0.26)) * 100.0, font_size)
+	radius.suffix = " cm"
+	var intensity := _settings_spin_free(form, "Intensity", 0.05,
+		float(controls.get("intensity", 0.55)), font_size)
+	intensity.suffix = "×"
+	var save := func(_value: float) -> void:
+		_save_jiggle_controls(radius, intensity)
+	radius.value_changed.connect(save)
+	intensity.value_changed.connect(save)
+
+
+func _save_jiggle_controls(radius: SpinBox, intensity: SpinBox) -> void:
+	SETTINGS.save_jiggle_controls({
+		"radius": radius.value / 100.0,
+		"intensity": intensity.value,
 	})
 	_apply_live_settings()
 

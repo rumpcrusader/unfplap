@@ -61,7 +61,7 @@ const SMACK_PITCH_DEG := 12.0
 const SMACK_RAISE_BACK_M := 0.05
 ## Non-caress smack: the query sits this far below the cheek centre, and the wind-up is a
 ## backswing from behind/below rather than an outward lift. All distances scale with the pony.
-const SMACK_CHEEK_DROP_M := 0.10
+const SMACK_CHEEK_DROP_M := 0.03
 const SMACK_SWING_DOWN_RATIO := 0.55
 const SMACK_SWING_OUT_RATIO := 0.15
 const SMACK_CONTACT_HOLD_SECONDS := 0.03

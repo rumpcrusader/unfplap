@@ -40,7 +40,11 @@ func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
-	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _hip_phase)
+	var travel := 1.0
+	var travel_value: Variant = runtime.get("_thrust_travel")
+	if travel_value != null:
+		travel = maxf(0.0, float(travel_value))
+	hip.global_position += -facing.z.normalized() * (THRUST_MAX_M * scale * _hip_phase * travel)
 
 
 ## Phase-2 Anon body lean: keep the pelvis planted behind her rump. The camera/head moves

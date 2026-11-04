@@ -174,6 +174,12 @@ const CAMERA_THRUST_DEFAULTS := {
 	"bob": 0.35,
 }
 
+## Shared rump wobble tuning. `radius` is metres; `intensity` scales the thrust amount.
+const JIGGLE_DEFAULTS := {
+	"radius": 0.26,
+	"intensity": 0.55,
+}
+
 ## Pose-specific act presentation. Missionary owns its framing/pitch; standing owns the glance,
 ## torso lean and caress controls. All values are read live during an act.
 const PRESENTATION_DEFAULTS := {
@@ -519,15 +525,18 @@ static func thrust_controls() -> Dictionary:
 	var block: Variant = data.get("thrust", {})
 	var orientation := "up"
 	var pixels := 1000.0
+	var travel := 1.0
 	if block is Dictionary:
 		orientation = str((block as Dictionary).get("orientation", "up")).to_lower()
 		pixels = float((block as Dictionary).get("pixels_per_full", 1000.0))
+		travel = float((block as Dictionary).get("travel", 1.0))
 	if orientation not in ["up", "down"]:
 		orientation = "up"
 	return {
 		"orientation": orientation,
 		"up": orientation == "up",
 		"pixels_per_full": clampf(pixels, 240.0, 1200.0),
+		"travel": clampf(travel, 0.0, 3.0),
 	}
 
 
@@ -541,6 +550,42 @@ static func save_thrust_controls(up: bool, pixels_per_full: float) -> void:
 	controls["orientation"] = "up" if up else "down"
 	controls["pixels_per_full"] = clampf(pixels_per_full, 240.0, 1200.0)
 	data["thrust"] = controls
+	_write(data)
+
+
+## Save only the hip travel multiplier. The orientation and sensitivity are preserved.
+static func save_thrust_travel(travel: float) -> void:
+	var data := _read()
+	var block: Variant = data.get("thrust", {})
+	var controls: Dictionary = block if block is Dictionary else {}
+	controls["travel"] = clampf(travel, 0.0, 3.0)
+	data["thrust"] = controls
+	_write(data)
+
+
+## The shared rump wobble radius and thrust intensity. Read live; both are experimental.
+static func jiggle_controls() -> Dictionary:
+	var data := _read()
+	var block: Variant = data.get("jiggle", {})
+	var out: Dictionary = JIGGLE_DEFAULTS.duplicate(true)
+	if block is Dictionary:
+		out["radius"] = float((block as Dictionary).get("radius", out["radius"]))
+		out["intensity"] = float((block as Dictionary).get("intensity", out["intensity"]))
+	out["radius"] = maxf(0.02, float(out["radius"]))
+	out["intensity"] = maxf(0.0, float(out["intensity"]))
+	return out
+
+
+## Save the jiggle block. Other settings and character overrides are preserved.
+static func save_jiggle_controls(values: Dictionary) -> void:
+	var data := _read()
+	var block: Variant = data.get("jiggle", {})
+	var controls: Dictionary = block if block is Dictionary else {}
+	controls["radius"] = maxf(0.02, float(values.get(
+		"radius", controls.get("radius", JIGGLE_DEFAULTS["radius"]))))
+	controls["intensity"] = maxf(0.0, float(values.get(
+		"intensity", controls.get("intensity", JIGGLE_DEFAULTS["intensity"]))))
+	data["jiggle"] = controls
 	_write(data)
 
 
@@ -772,7 +817,9 @@ static func _defaults() -> Dictionary:
 		"thrust": {
 			"orientation": "up",
 			"pixels_per_full": 1000.0,
+			"travel": 1.0,
 		},
+		"jiggle": JIGGLE_DEFAULTS.duplicate(true),
 		"camera_thrust": CAMERA_THRUST_DEFAULTS.duplicate(true),
 		"presentation": PRESENTATION_DEFAULTS.duplicate(true),
 		"default": _filled_default(),

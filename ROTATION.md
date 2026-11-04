@@ -214,7 +214,8 @@ these values here if a future pose needs that effect.
   return so the shoulder roll decays to neutral.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
 - The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`;
-  `apply_anon_thrust()` moves the hip by `THRUST_MAX_M = 0.045 * body_scale * phase`, and
+  `apply_anon_thrust()` moves the hip by
+  `THRUST_MAX_M = 0.045 * body_scale * phase * thrust.travel`, and
   `apply_anon_lean()` counter-moves the pelvis by `ANON_THRUST_SWAY_M * phase * lean_scale`.
   There is no attack or return spring.
 - Standing palms scale absolutely per body preset from
@@ -274,7 +275,8 @@ these values here if a future pose needs that effect.
   rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
   pony size; the point offsets are already per size.
 - Anon's hip follows the lightly smoothed mouse `depth` (`HIP_SMOOTH_S = 0.04 s`):
-  `THRUST_MAX_M = 0.045 m` forward at phase 1. Depth is the input, so the maximum travel is
+  `THRUST_MAX_M = 0.045 m` forward at phase 1, times `thrust.travel` (default `1.0`). Depth is
+  the input, so the maximum travel is
   exactly the mouse travel.
 - `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
   forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
@@ -282,11 +284,11 @@ these values here if a future pose needs that effect.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. Standing targets the flank patch: the live caress point when that hand's contact
-  source is `flank`; a free-hand smack uses the bottom of the chosen cheek, querying
-  `SMACK_CHEEK_DROP_M = 0.10 m × body scale` below the mark centre and snapping to the nearest
-  `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius` (`0.035 m` by
-  default). That keeps a resting hand from reaching the leg. A forward lean lands on the forward
-  flank instead of reaching back to the cheek. The body hull is never the target and the rump
+  source is `flank`; a free-hand smack uses the chosen cheek just below its mark centre,
+  querying `SMACK_CHEEK_DROP_M = 0.03 m × body scale` below the mark centre and snapping to the
+  nearest `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius`
+  (`0.035 m` by default). That keeps a resting hand from reaching the leg. A forward lean lands
+  on the forward flank instead of reaching back to the cheek. The body hull is never the target and the rump
   centre is not used; `index` only chooses which cheek decal reddens. Missionary keeps the
   mark-centre target shifted `0.08 m` up and `0.08 m` back. If a hand is already caressing, the
   slap uses that hand; if both caress, one is chosen at random. Otherwise a right lean selects
@@ -324,8 +326,12 @@ these values here if a future pose needs that effect.
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
   rump shader, strongest at the dock and lagging down the chain. A smack adds the same wave
-  through `_on_smack_impact()` at the native impact strength, gated by
-  `thrust_tail_dock_jiggle`; the same flag also includes the dock in the smack wobble.
+  through `_on_smack_impact()` at `1.0 × _jiggle_size_scale()`, gated by
+  `thrust_tail_dock_jiggle`; the same flag also includes the dock in the smack wobble and
+  restores the near-mesh `jiggle_entry` masks at act end. The `jiggle.radius` setting (default
+  `0.26 m`) is applied to every active wobble material and restored at act end; `jiggle.intensity`
+  (default `0.55×`) scales the thrust amount. Stock marks are hidden and aged at act start, so a
+  mark from an earlier regular smack cannot linger as a stale jiggle point.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

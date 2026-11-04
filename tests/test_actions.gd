@@ -11,12 +11,19 @@ const CAESS := preload("res://mods/unfplap/standing_caress.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
 
 class FakeTail extends Node:
 	var last_strength := 0.0
 
 	func thrust(strength: float) -> void:
 		last_strength = strength
+
+
+class FakeFlank extends Node3D:
+	var marks: Array = []
+	var ages: Array = []
+	var _jiggle_targets: Array = []
 
 var failures := 0
 var checks := 0
@@ -280,7 +287,7 @@ func run() -> void:
 	check(near(fake_tail.last_strength, 0.0), "smack tail jiggle is gated off")
 	jiggle_runtime._features = {"thrust_tail_dock_jiggle": true}
 	jiggle_runtime.call("_on_smack_impact", 0.8)
-	var expected_jiggle := 0.8 * float(jiggle_runtime.call("_jiggle_size_scale"))
+	var expected_jiggle := float(jiggle_runtime.call("_jiggle_size_scale"))
 	check(near(fake_tail.last_strength, expected_jiggle),
 		"smack tail jiggle follows the flag")
 	jiggle_runtime._features = {"thrust_tail_dock_jiggle": false}
@@ -291,6 +298,83 @@ func run() -> void:
 	jiggle_runtime.free()
 	fake_tail.free()
 	jiggle_pony.free()
+
+	var mark_flank := FakeFlank.new()
+	mark_flank.name = "FlankTouch"
+	var mark_a := Decal.new()
+	var mark_b := Decal.new()
+	mark_a.visible = true
+	mark_b.visible = true
+	mark_flank.marks = [mark_a, mark_b]
+	mark_flank.ages = [0.0, 0.0]
+	var mark_runtime: Node = RUNTIME.new()
+	var mark_pony := Node3D.new()
+	root.add_child(mark_pony)
+	mark_pony.add_child(mark_flank)
+	mark_runtime.pony = mark_pony
+	root.add_child(mark_runtime)
+	mark_runtime.call("_clear_stock_flank_marks")
+	check(not mark_a.visible and not mark_b.visible,
+		"act start hides stock flank marks")
+	check(near(float(mark_flank.ages[0]), 1000.0)
+		and near(float(mark_flank.ages[1]), 1000.0),
+		"act start ages the stock flank marks")
+	root.remove_child(mark_runtime)
+	mark_runtime.free()
+	mark_a.free()
+	mark_b.free()
+	mark_pony.free()
+
+	var radius_flank := FakeFlank.new()
+	root.add_child(radius_flank)
+	var radius_mat := ShaderMaterial.new()
+	var radius_mesh := Node3D.new()
+	root.add_child(radius_mesh)
+	radius_flank._jiggle_targets = [[radius_mat, radius_mesh]]
+	var radius_runtime: Node = RUNTIME.new()
+	radius_runtime._flank = radius_flank
+	radius_runtime._jiggle_radius_m = 0.30
+	root.add_child(radius_runtime)
+	radius_runtime.call("_apply_jiggle_radius")
+	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), 0.30),
+		"jiggle radius applies to the targets")
+	radius_runtime.call("_restore_jiggle_radius")
+	check(radius_mat.get_shader_parameter("jiggle_radius") == null,
+		"jiggle radius override restores")
+	root.remove_child(radius_runtime)
+	radius_runtime.free()
+	radius_mesh.free()
+	radius_flank.free()
+
+	var mask_mat := ShaderMaterial.new()
+	var mask_runtime: Node = RUNTIME.new()
+	root.add_child(mask_runtime)
+	mask_mat.set_shader_parameter("jiggle_entry", PackedFloat32Array([1.0, 0.0]))
+	mask_runtime._dock_near_mask_originals = [[mask_mat, PackedFloat32Array([0.0, 0.0])]]
+	mask_runtime.call("_restore_dock_jiggle_material")
+	var restored_mask: Variant = mask_mat.get_shader_parameter("jiggle_entry")
+	check(restored_mask is PackedFloat32Array
+		and (restored_mask as PackedFloat32Array) == PackedFloat32Array([0.0, 0.0]),
+		"dock restore puts the near-mesh mask back")
+	root.remove_child(mask_runtime)
+	mask_runtime.free()
+
+	var hip_runtime: Node = RUNTIME.new()
+	hip_runtime.pose_id = CATALOG.STANDING
+	hip_runtime._thrust_travel = 1.5
+	var hip_pony := Node3D.new()
+	root.add_child(hip_pony)
+	var thrust_hip := Node3D.new()
+	root.add_child(thrust_hip)
+	var stand := STANDING_ANON.new(hip_runtime)
+	stand.set("pony", hip_pony)
+	stand.set("_hip_phase", 1.0)
+	stand.call("apply_anon_thrust", thrust_hip, Basis.IDENTITY)
+	check(near(thrust_hip.global_position.z, -0.045 * 1.5),
+		"hip travel multiplier scales the thrust")
+	hip_runtime.free()
+	thrust_hip.free()
+	hip_pony.free()
 
 	var gate_runtime: Node = RUNTIME.new()
 	check(not gate_runtime.can_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")

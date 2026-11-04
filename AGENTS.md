@@ -254,7 +254,8 @@ body-relative axes.
   upper body travel forward and back with the thrust.
 - The hip is **depth-driven**. `_hip_phase` is the mouse `depth` low-passed by
   `HIP_SMOOTH_S = 0.04 s`; `apply_anon_thrust()` moves the hip by
-  `THRUST_MAX_M = 0.045 * body_scale * phase`, and `apply_anon_lean()` counter-moves the pelvis
+  `THRUST_MAX_M = 0.045 * body_scale * phase * thrust.travel` (default `1.0`), and
+  `apply_anon_lean()` counter-moves the pelvis
   by `ANON_THRUST_SWAY_M * phase * lean_scale`. There is no speed/strength attack and no return
   spring.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
@@ -385,16 +386,26 @@ body-relative axes.
   Every thrust also calls `tail.thrust(strength)`: a short `JIGGLE_DECAY = 3.6` /
   `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the dock
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). A smack
-  calls the same tail impulse through `_on_smack_impact()` at its native impact strength, gated
-  by `thrust_tail_dock_jiggle`. This is the cheapest way to make rump jiggle and tail read as
-  one motion; the shader itself stays native.
+  calls the same tail impulse through `_on_smack_impact()` at `1.0 × _jiggle_size_scale()`,
+  gated by `thrust_tail_dock_jiggle`; a debug line reports the resulting amount. This is the
+  cheapest way to make rump jiggle and tail read as one motion; the shader itself stays native.
+- The rump shader wobble is tuned by the `jiggle` block: `radius` (default `0.26 m`) spreads it
+  across the whole flank, and `intensity` (default `0.55×`) scales the thrust amount. The runtime
+  sets `jiggle_radius` on every active `_flank._jiggle_targets` material and restores the override
+  at act end, so stock smacks keep the shader default `0.12 m`. `apply_live_settings()` updates
+  the radius on an active wobble.
 - With `thrust_tail_dock_jiggle` enabled (default on), the rigid `OpenPonyDock` mesh and the
   merged near-mesh dock palette entries join the same rump shader wobble for both thrusts and
   smacks. The runtime duplicates the body coat jiggle material onto the dock, appends it to
-  `_flank._jiggle_targets`, and raises the dock's near-mesh `jiggle_entry` mask. With the flag
-  off, a smack skips both the tail wave and the dock and restores the dock material. The
-  material override is restored at act end or when the flag is turned off. The hair tail base
-  jiggles through `tail_pose`.
+  `_flank._jiggle_targets`, and raises the dock's near-mesh `jiggle_entry` mask. The original
+  masks are cached and restored with the dock material at act end or when the flag is turned
+  off; without that restore a regular smack after an act jiggled the merged dock but not the
+  hair tail. With the flag off, a smack skips both the tail wave and the dock. The hair tail
+  base jiggles through `tail_pose`.
+- At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
+  a regular smack before the act cannot linger and look like a stale jiggle point. The act's
+  own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
+  marks, blush and decal duration.
 - A mod-owned `wing_sweep.gd` modifier runs last on the skeleton while standing holds the wings,
   yawing `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°` in opposite directions to sweep the spread
   wings slightly backwards. It is removed with the wing hold.
@@ -510,9 +521,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
   `1 = right cheek`. Standing targets the flank patch: if the striking hand is already
   caressing and its contact source is `flank`, that live point is used. A free-hand smack
-  targets the bottom of the chosen cheek: its mark centre dropped `SMACK_CHEEK_DROP_M = 0.10 m`
-  × body scale, snapped to the nearest `FlankSurface` point and jittered tangentially within
-  `smack_zone_radius` (default `0.035 m`). That keeps a resting hand from reaching the leg.
+  targets the chosen cheek just below its mark centre: the mark centre dropped
+  `SMACK_CHEEK_DROP_M = 0.03 m` × body scale, snapped to the nearest `FlankSurface` point and
+  jittered tangentially within `smack_zone_radius` (default `0.035 m`). That keeps a resting
+  hand from reaching the leg.
   A forward lean therefore lands on the forward flank instead of reaching back to the cheek.
   The body hull is never the smack target and the rump centre is not used. Missionary keeps the
   old decal-centre target: `at` is the mark centre shifted `0.08 m` up and `0.08 m` back,
@@ -891,8 +903,8 @@ examples.
 
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
-- Top level: `debug_logs`, `features`, `thrust`, `camera_thrust`, `presentation`, `default`
-  template, `characters` overrides.
+- Top level: `debug_logs`, `features`, `thrust`, `jiggle`, `camera_thrust`, `presentation`,
+  `default` template, `characters` overrides.
 - Feature flags live in `SETTINGS.FEATURE_DEFAULTS`; the runtime caches them at act start and
   `apply_live_settings()` refreshes them after any settings-tab edit. Keep these documented here
   when adding one:
@@ -919,7 +931,10 @@ examples.
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `1000`.
+  `thrust.pixels_per_full` defaults to `1000`; `thrust.travel` is the hip travel multiplier,
+  default `1.0`.
+- `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`) and `intensity`
+  multiplier (default `0.55`). It is read live with the other thrust controls.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
@@ -939,13 +954,14 @@ rump blush. Unknown settings keys are ignored.
   one. `FEATURE_INFO` must stay in sync with `FEATURE_DEFAULTS`.
 - The injected settings tab has nested **Settings** and **Debug** sub-tabs. **Settings** holds
   the four player-facing flags (`hud_readouts`, `captions_on_top`, `press_y_starts_sex`,
-  `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`) and
-  **Character taste**. **Debug** holds every other flag, the **Camera thrust** section (surge and
-  bob, `0…100%`), the **Act presentation** section split into **Missionary** and **Standing** (standing
-  includes caress palm distance, size-selected palm scale, body-part ignores, and the smack raise
-  height, palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There are no
-  Save buttons: each control writes its own block and calls `apply_live_settings()` so the active
-  act updates immediately.
+  `mute_ponese_audio`), the **Thrust** section (orientation, sensitivity `240…1200`, hip travel
+  `0.25…2.0×`) and **Character taste**. **Debug** holds every other flag, the **Camera thrust**
+  section (surge and bob, `0…100%`), the **Thrust jiggle** section (radius and intensity), the
+  **Act presentation** section split into **Missionary** and **Standing** (standing includes
+  caress palm distance, size-selected palm scale, body-part ignores, and the smack raise height,
+  palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There are no Save
+  buttons: each control writes its own block and calls `apply_live_settings()` so the active act
+  updates immediately.
 - `debug_logs` defaults to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

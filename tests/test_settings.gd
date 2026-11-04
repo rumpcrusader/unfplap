@@ -136,11 +136,25 @@ func run() -> void:
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 1000.0), "default thrust pixels")
+	check(near(float(thrust_defaults.get("travel", 0.0)), 1.0), "default hip travel")
 	var controls := SETTINGS.thrust_controls()
 	check(bool(controls.get("up", false)), "runtime thrust controls up")
 	var runtime_pixels := float(controls.get("pixels_per_full", 0.0))
 	check(runtime_pixels >= 240.0 and runtime_pixels <= 1200.0,
 		"runtime thrust controls pixels in range")
+	var runtime_travel := float(controls.get("travel", -1.0))
+	check(runtime_travel >= 0.0 and runtime_travel <= 3.0,
+		"runtime hip travel in range")
+	var jiggle_defaults: Dictionary = defaults.get("jiggle", {})
+	check(near(float(jiggle_defaults.get("radius", -1.0)), 0.26),
+		"default jiggle radius")
+	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.55),
+		"default jiggle intensity")
+	var jiggle_controls := SETTINGS.jiggle_controls()
+	check(float(jiggle_controls.get("radius", -1.0)) >= 0.02,
+		"runtime jiggle radius in range")
+	check(float(jiggle_controls.get("intensity", -1.0)) >= 0.0,
+		"runtime jiggle intensity in range")
 	var camera_defaults: Dictionary = defaults.get("camera_thrust", {})
 	check(near(float(camera_defaults.get("surge", -1.0)), 1.0), "default camera surge full")
 	check(near(float(camera_defaults.get("bob", -1.0)), 0.35), "default camera bob amount")

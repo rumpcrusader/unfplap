@@ -244,6 +244,10 @@ var _taste: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 var _thrust_pixels_per_full := 480.0
+var _thrust_travel := 1.0
+var _jiggle_radius_m := 0.26
+var _jiggle_intensity_scale := 0.55
+var _jiggle_radius_materials: Array = []
 var _camera_surge := 0.0
 var _camera_bob := 0.0
 ## Last closed inward thrust; the pattern window is the last three to four thrusts.
@@ -370,6 +374,7 @@ var _jiggle_logged := false
 var _dock_jiggle_mesh: MeshInstance3D
 var _dock_jiggle_material: ShaderMaterial
 var _dock_jiggle_original: Material
+var _dock_near_mask_originals: Array = []
 var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
@@ -460,6 +465,12 @@ func apply_live_settings() -> void:
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
+	_thrust_travel = float(thrust_controls.get("travel", 1.0))
+	var jiggle_controls := SETTINGS.jiggle_controls()
+	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
+	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.55))
+	if is_instance_valid(_flank):
+		_apply_jiggle_radius()
 	var camera_thrust := SETTINGS.camera_thrust_controls()
 	_camera_surge = float(camera_thrust.get("surge", 0.0))
 	_camera_bob = float(camera_thrust.get("bob", 0.0))
@@ -1343,6 +1354,12 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	var thrust_controls := SETTINGS.thrust_controls()
 	thrust_up = bool(thrust_controls.get("up", true))
 	_thrust_pixels_per_full = float(thrust_controls.get("pixels_per_full", 480.0))
+	_thrust_travel = float(thrust_controls.get("travel", 1.0))
+	var jiggle_controls := SETTINGS.jiggle_controls()
+	_jiggle_radius_m = float(jiggle_controls.get("radius", 0.26))
+	_jiggle_intensity_scale = float(jiggle_controls.get("intensity", 0.55))
+	if is_instance_valid(_flank):
+		_apply_jiggle_radius()
 	var camera_thrust := SETTINGS.camera_thrust_controls()
 	_camera_surge = float(camera_thrust.get("surge", 0.0))
 	_camera_bob = float(camera_thrust.get("bob", 0.0))
@@ -1424,6 +1441,7 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 		_standing_camera_controller().begin_facing(standing)
 
 	_build_pose()
+	_clear_stock_flank_marks()
 	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	if pose == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
@@ -1905,6 +1923,7 @@ func _install_ear_twitch() -> void:
 
 func _remove_extra_modifiers() -> void:
 	_restore_dock_jiggle_material()
+	_restore_jiggle_radius()
 	if is_instance_valid(_body_sway):
 		_body_sway.queue_free()
 	_body_sway = null
@@ -2605,17 +2624,20 @@ func _thrust_jiggle(strength: float) -> void:
 	# get less shader travel from the same thrust impulse.
 	var amount: Variant = _flank.get("_jiggle_amount")
 	if amount != null:
-		_flank.set("_jiggle_amount", float(amount) * JIGGLE_RUMP_SCALE * _jiggle_size_scale())
+		_flank.set("_jiggle_amount", float(amount) * JIGGLE_RUMP_SCALE
+			* _jiggle_size_scale() * _jiggle_intensity_scale)
 	if _feature("thrust_tail_dock_jiggle"):
 		_include_dock_jiggle()
 	else:
 		_restore_dock_jiggle_material()
+	_apply_jiggle_radius()
 	if not _jiggle_logged:
 		_jiggle_logged = true
 		var targets: Variant = _flank.get("_jiggle_targets")
-		_log("jiggle rump at=%s root=%s normal=%s targets=%d" % [
+		_log("jiggle rump at=%s root=%s normal=%s targets=%d index=%d mark=%s" % [
 			str(at), str(pony.global_position), str(normal),
-			(targets as Array).size() if targets is Array else -1])
+			(targets as Array).size() if targets is Array else -1,
+			int(_flank.get("_jiggle_index")), str(decal.global_position)])
 
 ## A smack has already started the native cheek jiggle. Carry it into the same tail base/dock
 ## propagation as a thrust, gated by the same feature flag.
@@ -2624,13 +2646,46 @@ func _on_smack_impact(strength: float) -> void:
 		return
 	if not _feature("thrust_tail_dock_jiggle"):
 		_restore_dock_jiggle_material()
+		_apply_jiggle_radius()
 		return
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch")
 	if is_instance_valid(_flank):
 		_include_dock_jiggle()
+	_apply_jiggle_radius()
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
-		_tail.call("thrust", clampf(strength, 0.0, 1.0) * _jiggle_size_scale())
+		_tail.call("thrust", _jiggle_size_scale())
+		_log("smack tail jiggle strength=%.2f impact=%.2f amount=%s target=%s" % [
+			_jiggle_size_scale(), clampf(strength, 0.0, 1.0), str(_tail.get("amount")),
+			str(_tail.get("target_amount"))])
+
+
+## Set the shared rump wobble radius on every active jiggle target material.
+func _apply_jiggle_radius() -> void:
+	if not is_instance_valid(_flank):
+		return
+	var targets: Variant = _flank.get("_jiggle_targets")
+	if not targets is Array:
+		return
+	var radius := maxf(0.02, _jiggle_radius_m)
+	for target_v: Variant in targets:
+		if not target_v is Array or (target_v as Array).is_empty():
+			continue
+		var mat_v: Variant = (target_v as Array)[0]
+		if not mat_v is ShaderMaterial:
+			continue
+		var mat := mat_v as ShaderMaterial
+		mat.set_shader_parameter("jiggle_radius", radius)
+		if not _jiggle_radius_materials.has(mat):
+			_jiggle_radius_materials.append(mat)
+
+
+## Remove the radius override so stock/base-game jiggles use the shader default again.
+func _restore_jiggle_radius() -> void:
+	for mat_v: Variant in _jiggle_radius_materials:
+		if mat_v is ShaderMaterial and is_instance_valid(mat_v):
+			(mat_v as ShaderMaterial).set_shader_parameter("jiggle_radius", null)
+	_jiggle_radius_materials.clear()
 
 
 ## Add the rigid dock and merged near-dock surface to the rump's shader wobble. The hair tail
@@ -2707,6 +2762,7 @@ func _include_dock_near_masks() -> void:
 			if not mask_v is PackedFloat32Array:
 				continue
 			var mask: PackedFloat32Array = mask_v
+			var original: PackedFloat32Array = mask.duplicate()
 			var changed := false
 			for si: int in (outputs_v as Array).size():
 				var output_v: Variant = (outputs_v as Array)[si]
@@ -2725,14 +2781,55 @@ func _include_dock_near_masks() -> void:
 						mask[i] = 1.0
 						changed = true
 			if changed:
+				if not _has_dock_mask_original(mat):
+					_dock_near_mask_originals.append([mat, original])
 				mat.set_shader_parameter("jiggle_entry", mask)
+
+
+func _has_dock_mask_original(mat: ShaderMaterial) -> bool:
+	for entry: Variant in _dock_near_mask_originals:
+		if entry is Array and not (entry as Array).is_empty() \
+				and (entry as Array)[0] == mat:
+			return true
+	return false
 
 func _restore_dock_jiggle_material() -> void:
 	if is_instance_valid(_dock_jiggle_mesh):
 		_dock_jiggle_mesh.set_surface_override_material(0, _dock_jiggle_original)
+	for entry: Variant in _dock_near_mask_originals:
+		if not entry is Array or (entry as Array).size() < 2:
+			continue
+		var mat_v: Variant = (entry as Array)[0]
+		var original_v: Variant = (entry as Array)[1]
+		if mat_v is ShaderMaterial and is_instance_valid(mat_v) \
+				and original_v is PackedFloat32Array:
+			(mat_v as ShaderMaterial).set_shader_parameter("jiggle_entry", original_v)
+	_dock_near_mask_originals.clear()
 	_dock_jiggle_mesh = null
 	_dock_jiggle_material = null
 	_dock_jiggle_original = null
+
+## The base game leaves a redness mark for 18 s after a regular smack. The act has its own
+## rump blush and act-smack mark, so clear the stock marks when the act starts. Regular smacks
+## outside the act keep their native marks.
+func _clear_stock_flank_marks() -> void:
+	if not is_instance_valid(pony):
+		return
+	_flank = pony.get_node_or_null("FlankTouch")
+	if not is_instance_valid(_flank):
+		return
+	var marks: Variant = _flank.get("marks")
+	if not marks is Array:
+		return
+	var ages: Variant = _flank.get("ages")
+	for i: int in (marks as Array).size():
+		var mark: Variant = (marks as Array)[i]
+		if mark is Decal:
+			(mark as Decal).visible = false
+		if ages is Array and i < (ages as Array).size():
+			ages[i] = 1000.0
+	_log("stock flank marks cleared count=%d" % (marks as Array).size())
+
 
 func _ensure_rump_decal() -> void:
 	if is_instance_valid(_rump_decal):

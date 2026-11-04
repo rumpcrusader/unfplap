@@ -3936,10 +3936,7 @@ func _self_end_tick(delta: float) -> void:
 
 
 func _enter_afterglow() -> void:
-	if pose_id == CATALOG.STANDING:
-		_standing_afterglow_begin()
-	else:
-		_afterglow_begin()
+	_afterglow_begin()
 	_begin_wing_afterglow()
 
 
@@ -3952,34 +3949,8 @@ func _commit_afterglow() -> void:
 	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
 
 
-## Standing also gets a held afterglow now that there are things to do in it.
-func _standing_afterglow_begin() -> void:
-	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
-	_end_act_lines(true)
-	_commit_afterglow()
-	state = State.AFTERGLOW
-	_afterglow_pose = pose_id
-	_afterglow_elapsed = 0.0
-	_afterglow_hold_until = 0.0
-	_self_end_clock = 0.0
-	_bind_action_executor()
-	cue = ""
-	_cue_override = ""
-	_cue_until = 0.0
-	_set_face(0.85, AFTERGLOW_LIDS)
-	if is_instance_valid(_pose):
-		_pose.mode = "standing"
-		_pose.target_amount = 1.0
-		_pose.amount = 1.0
-	if is_instance_valid(_tail):
-		_tail.target_amount = 0.55
-		_tail.call("flick", 2)
-	_inside_aftermath()
-	_begin_close_window()
-	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.set_state("AFTERGLOW")
-
-
+## Both poses share the held afterglow; standing adds the inside event, the close window and
+## a slightly lifted tail.
 func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_end_act_lines(true)
@@ -3995,12 +3966,22 @@ func _afterglow_begin() -> void:
 	_cue_until = 0.0
 	_set_face(0.85, AFTERGLOW_LIDS)
 	if is_instance_valid(_pose):
-		_pose.mode = "afterglow"
-		_pose.afterglow_pose = pose_id
+		if pose_id == CATALOG.STANDING:
+			_pose.mode = "standing"
+		else:
+			_pose.mode = "afterglow"
+			_pose.afterglow_pose = pose_id
 		_pose.target_amount = 1.0
 		_pose.amount = 1.0
 	if is_instance_valid(_tail):
-		_tail.target_amount = 0.35
+		if pose_id == CATALOG.STANDING:
+			_tail.target_amount = 0.55
+			_tail.call("flick", 2)
+		else:
+			_tail.target_amount = 0.35
+	if pose_id == CATALOG.STANDING:
+		_inside_aftermath()
+		_begin_close_window()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
 
@@ -7170,16 +7151,10 @@ func _breath_tick(delta: float) -> void:
 
 
 func _thrusts_per_second() -> float:
-	var now := Time.get_ticks_msec() * 0.001
+	var now := _now_s()
 	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
 		_thrust_times.pop_front()
 	return float(_thrust_times.size())
-
-
-func _camera_position() -> Vector3:
-	if is_instance_valid(_camera):
-		return _camera.global_position
-	return _snout()
 
 
 func _bed_audio_point() -> Vector3:

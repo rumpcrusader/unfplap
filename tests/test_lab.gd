@@ -1,7 +1,7 @@
 extends Node
 ## Unfplap manual test lab. Run with:
-##   godot --xr-mode off --path <project> -- --mod-src unfplap --skip-title \
-##       --lab res://mods/unfplap/tests/test_lab.gd
+##   ./lab.sh
+## The session is written to last-run.log beside the script.
 ##
 ## Loads only Twilight, Fluttershy, Rarity and Derpy and pauses population/living-world/time
 ## plus background AI. At setup they are moved to the path in front of Golden Oak Library.

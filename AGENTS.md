@@ -42,19 +42,11 @@ godot --xr-mode off --path <project> -- --mod-src unfplap
 Manual lab:
 
 ```bash
-godot --xr-mode off --path <project> -- \
-  --mod-src unfplap --skip-title \
-  --lab res://mods/unfplap/tests/test_lab.gd
+./lab.sh
 ```
 
-Isolated test world:
-
-```bash
-godot --xr-mode off --path <project> -- \
-  --mod-src unfplap --skip-title \
-  --world-id unfplap-test \
-  --lab res://mods/unfplap/tests/test_lab.gd
-```
+It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
+script. Set `GODOT=~/path/to/godot` if the binary is not at `~/Downloads/godot`.
 
 - The lab loads only Twilight, Fluttershy, Rarity and Derpy, pauses world scheduling and
   background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.

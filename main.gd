@@ -1000,14 +1000,9 @@ func try_start() -> bool:
 	return started
 
 
-## Debug helper: force a proactive request for the aimed (or nearest) mare. It bypasses the
-## quiet/cooldown/AI-usage checks so the lab can test requests with ai_usage=talk. An empty
-## `pose` lets the mare choose; `missionary` and `standing` force that invite.
-func debug_request(pose := "") -> void:
-	_debug_offer_request(pose)
-
-
-## Debug Actions panel entries (`TUNABLES.ACTIONS`).
+## Debug Actions entries (`TUNABLES.ACTIONS`). The offer helper forces a proactive request for
+## the aimed (or nearest) mare, bypassing the quiet/cooldown/AI-usage checks so the lab can test
+## requests with ai_usage=talk.
 func action_bed_offer() -> String:
 	return _debug_offer_request(CATALOG.MISSIONARY)
 
@@ -1016,7 +1011,7 @@ func action_standing_offer() -> String:
 	return _debug_offer_request(CATALOG.STANDING)
 
 
-## Shared by the debug keys and the hidden settings buttons.
+## Shared by the Debug tab actions.
 func _debug_offer_request(pose := "") -> String:
 	if not is_instance_valid(initiation) or not is_instance_valid(player):
 		return "Act system not ready."

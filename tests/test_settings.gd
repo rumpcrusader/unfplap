@@ -457,8 +457,16 @@ func _check_panels() -> void:
 		list.free()
 	var actions := VBoxContainer.new()
 	TUNABLES_UI.build_actions(actions, 16, null)
-	check(actions.get_child_count() == TUNABLES.ACTIONS.size() + 1,
-		"actions section draws one button per action plus its status")
+	var buttons := 0
+	for name: String in TUNABLES.ACTIONS:
+		if bool(TUNABLES.ACTIONS[name].get("panel", true)):
+			buttons += 1
+	check(actions.get_child_count() == buttons + 1,
+		"actions section draws one button per panel action plus its status")
+	check(TUNABLES.hotkey_action(KEY_F10) == "skeleton_overlay",
+		"the skeleton overlay is the only hotkey action")
+	check(TUNABLES.hotkey_action(KEY_APOSTROPHE).is_empty(),
+		"no offer hotkey is bound")
 	actions.free()
 
 

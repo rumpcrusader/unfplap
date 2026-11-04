@@ -56,16 +56,13 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> vo
 	status.add_theme_font_size_override("font_size", font_size - 4)
 	for name: String in TUNABLES.ACTIONS:
 		var action: Dictionary = TUNABLES.ACTIONS[name]
+		if not bool(action.get("panel", true)):
+			continue
 		var button := Button.new()
 		button.text = str(action.get("label", name))
 		button.tooltip_text = str(action.get("help", ""))
 		button.pressed.connect(func() -> void:
-			var method := str(action.get("method", ""))
-			if not is_instance_valid(main) or not main.has_method(method):
-				status.text = "Action %s is not available." % name
-				return
-			var result: Variant = main.call(method)
-			status.text = str(result) if result is String else ""
+			status.text = TUNABLES.run_action(name, main)
 			_debug(main, "action %s" % name))
 		list.add_child(button)
 	list.add_child(status)

@@ -3,6 +3,8 @@ extends Node
 ## While an act is active it consumes the act keys and the interaction keys, and keeps the
 ## game's own stand_up poll from force-standing a seated player.
 
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+
 var main: Node
 
 var _suppress_q := false
@@ -71,22 +73,16 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey:
 		var debug_key := event as InputEventKey
-		# Backslash asks for the standing invite; apostrophe asks for the bed invite. Do not claim
-		# them in a text field, and leave Shift+\ alone for the game's dev noclip toggle.
-		if debug_key.pressed and not debug_key.echo \
-				and debug_key.physical_keycode in [KEY_BACKSLASH, KEY_APOSTROPHE] \
-				and not debug_key.ctrl_pressed and not debug_key.shift_pressed \
-				and not debug_key.alt_pressed and not get_tree().paused:
+		# Debug actions declare their own hotkey in TUNABLES.ACTIONS. Do not claim one in a text
+		# field; leave modified keys (Shift+\ is the game's dev noclip) to the game.
+		if debug_key.pressed and not debug_key.echo and not debug_key.ctrl_pressed \
+				and not debug_key.shift_pressed and not debug_key.alt_pressed:
 			var focus := get_viewport().gui_get_focus_owner()
-			if not (focus is LineEdit or focus is TextEdit):
-				var pose := "standing" if debug_key.physical_keycode == KEY_BACKSLASH else "missionary"
-				main.call("debug_request", pose)
+			var action := TUNABLES.hotkey_action(debug_key.physical_keycode)
+			if not action.is_empty() and not (focus is LineEdit or focus is TextEdit):
+				TUNABLES.run_action(action, main)
 				get_viewport().set_input_as_handled()
 				return
-		if debug_key.pressed and not debug_key.echo and debug_key.physical_keycode == KEY_F10:
-			main.call("toggle_skeleton_debug")
-			get_viewport().set_input_as_handled()
-			return
 	if get_tree().paused:
 		return
 	var runtime: Variant = main.get("active_runtime")

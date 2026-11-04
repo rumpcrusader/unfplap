@@ -19,24 +19,49 @@ static var _values: Dictionary = {}
 static var _generation := -1
 
 
-## Debug actions for the Actions panel section. `method` is called on the entry node.
-## Add an action here; it becomes a button automatically. A hotkey is the exception, not the
-## default: only add one when the action must fire while the world is unpaused and you are
-## looking at the scene (the skeleton overlay is the example).
+## Debug actions. `method` is called on the entry node.
+## Add an action here; it becomes a button in the Debug tab automatically. A hotkey is the
+## exception, not the default: only add one when the action must fire while the world is unpaused
+## and you are looking at the scene (the skeleton overlay is the example). `panel: false` keeps a
+## hotkey-only action out of the button list.
 const ACTIONS := {
 	"bed_offer": {
 		"label": "Trigger bed offer",
 		"help": "Force a missionary offer for the aimed or nearest mare.",
 		"method": "action_bed_offer",
-		"hotkey": "",
 	},
 	"standing_offer": {
 		"label": "Trigger standing offer",
 		"help": "Force a standing offer for the aimed or nearest mare.",
 		"method": "action_standing_offer",
-		"hotkey": "",
+	},
+	"skeleton_overlay": {
+		"label": "Skeleton overlay",
+		"help": "Toggle the F10 skeleton overlay.",
+		"method": "toggle_skeleton_debug",
+		"hotkey": KEY_F10,
+		"panel": false,
 	},
 }
+
+
+## The action bound to a physical key code, or "" when none is.
+static func hotkey_action(keycode: int) -> String:
+	for name: String in ACTIONS:
+		if int(ACTIONS[name].get("hotkey", 0)) == keycode:
+			return name
+	return ""
+
+
+## Run one action on `target`. Returns its message, or "" when it cannot run.
+static func run_action(name: String, target: Node) -> String:
+	if not ACTIONS.has(name):
+		return ""
+	var method := str(ACTIONS[name].get("method", ""))
+	if not is_instance_valid(target) or not target.has_method(method):
+		return ""
+	var result: Variant = target.call(method)
+	return str(result) if result is String else ""
 
 
 static func get_bool(path: String) -> bool:

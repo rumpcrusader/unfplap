@@ -94,8 +94,8 @@ scripts/smoke.sh
 mods/unfplap/
   mod.json          id, version, game_version, entry
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
-                    DEBUG LOGS toggle, settings-tab injection with guard, thrust/camera-rock and
-                    taste editors, F10 skeleton debug helper
+                    settings-tab injection with guard, character taste editor, debug actions,
+                    skeleton debug helper
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
@@ -130,8 +130,8 @@ mods/unfplap/
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness meter and close cue
   readiness_bar.gd  pure short 0–100 readiness fill; no ticks
-  input.gd          Y start/end, right-click smack routing, key consumption, debug keys
-  settings.gd       persisted DEBUG LOGS, thrust/camera-rock controls and per-character taste
+  input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
+  settings.gd       settings.json IO and cache, legacy migration, per-character templates and taste
   memory.gd         world_context events, climax impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
@@ -717,7 +717,7 @@ examples.
 
 - One request episode at a time. Automatic requests require AI usage Full
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
-  character chat within 45 s. The lab runs in Talk, so use `'` or `\`.
+  character chat within 45 s. The lab runs in Talk, so trigger offers from **Debug → Actions**.
 - Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
   exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
   gate.
@@ -888,22 +888,20 @@ examples.
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
   player build unlocks it with **Settings → Updates** pressed five times. Acts own
   `controls_locked`, so the console is not available while an act is running.
-- `'`: force a missionary ask for the aimed/nearest test mare. `\`: force a standing ask. Both
-  bypass the quiet, cooldown and AI-usage checks, but not relationship, consent, pose or free-bed
-  gates; use them in the lab, which runs with `ai_usage=talk`. They do not fire while a text
-  field has focus or while the tree is paused. `Shift+\` is left to the game's dev noclip.
-  (F7 is the game settings menu.)
-- `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
+- Debug actions live in `TUNABLES.ACTIONS` and render as **Debug → Actions** buttons. Adding an
+  action is one entry; give it a `hotkey` only when it must fire while the world is unpaused and
+  you are looking at the scene. A hotkey-less action is the default.
+- **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
+  nearest) test mare. They bypass the quiet, cooldown and AI-usage checks, but not relationship,
+  consent, pose or free-bed gates; use them in the lab, which runs with `ai_usage=talk`. The
+  status label reports the target or gate rejection. Because the settings page pauses the tree,
+  an offer advances after it closes.
+- `F10` (the only hotkey action): toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - `debug_logs` is read from settings and defaults OFF. Toggle it with the **Debug logs**
-  checkbox at the top of the Debug tab; there is no hotkey. It controls logging only. The Debug
-  settings tab is always present.
-- **Settings → Unfplap → Debug** exposes **Debug logs**, `Trigger bed offer (')`, `Trigger
-  standing offer (\)` and a **Pinned act ears** checkbox. The offers use the aimed mare with the
-  nearest fallback and call the same `initiation.force(runtime, pose)` path as the keys; the
-  status label reports the target or gate rejection. Because the settings page pauses the tree,
-  an offer advances after it closes. `act_ear_pin` defaults off; when off the act skips
+  checkbox in **Debug → General**; there is no hotkey. It controls logging only.
+- `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready. Mouse4
   moves a mare farther than `8 m` (or on another floor) to the guest-bed approach before inviting,

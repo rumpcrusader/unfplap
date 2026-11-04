@@ -939,6 +939,9 @@ examples.
 
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
+- The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
+  changes. Opening the Unfplap settings tab calls `SETTINGS.reload()`, so a hand-edited file
+  applies when the tab opens; otherwise it needs a restart.
 - Top level: `debug_logs`, `features`, `thrust`, `jiggle`, `camera_thrust`, `presentation`,
   `default` template, `characters` overrides.
 - Feature flags live in `SETTINGS.FEATURE_DEFAULTS`; the runtime caches them at act start and

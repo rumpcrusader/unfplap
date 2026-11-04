@@ -272,6 +272,8 @@ func _on_pony(pony: Node) -> void:
 ## this returns before touching the page. The title and pause hosts add the page to the tree
 ## before calling setup(), so the actual injection is deferred and retries for a few frames.
 func _on_settings_page(page: Node) -> void:
+	# Opening the page re-reads settings.json, so hand-edited values apply without a restart.
+	SETTINGS.reload()
 	if not SETTINGS.feature("settings_tab"):
 		return
 	if not is_instance_valid(page) or page.has_meta("unfplap_tab") or page.has_meta("unfplap_pending"):

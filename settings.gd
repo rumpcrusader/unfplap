@@ -789,6 +789,18 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 	return data
 
 
+## One parse per process. Reads are cheap copies of this merged view; the file is written only
+## when a value changes or when the merged defaults differ from what is on disk.
+static var _cache: Dictionary = {}
+static var _loaded := false
+
+
+## Drop the in-memory copy so the next read reloads the file. The settings page calls this when
+## it opens, so a hand-edited settings.json applies without restarting the game.
+static func reload() -> void:
+	_loaded = false
+
+
 static func aftercare_min(id: String) -> int:
 	return clampi(int(template_for(id).get("aftercare_min", 10)), 0, 100)
 
@@ -834,7 +846,16 @@ static func pose(id: String, pose_id: String) -> Dictionary:
 	return CATALOG.defaults(pose_id)
 
 
+## The merged settings view. The first call parses the file, migrates it and writes the merged
+## result back once; later calls return a copy so a caller can stage edits for `_write`.
 static func _read() -> Dictionary:
+	if not _loaded:
+		_load()
+	return _cache.duplicate(true)
+
+
+static func _load() -> void:
+	_loaded = true
 	var path := _path()
 	var data: Dictionary = {}
 	if FileAccess.file_exists(path):
@@ -845,8 +866,8 @@ static func _read() -> Dictionary:
 	data = _normalize_feature_names(data)
 	data = _normalize_presentation(data)
 	data = _merge(_defaults(), data)
-	_write(data)
-	return data
+	_cache = data
+	_write_file(data)
 
 
 static func _defaults() -> Dictionary:
@@ -943,6 +964,11 @@ static func _merge(base: Dictionary, over: Dictionary) -> Dictionary:
 
 
 static func _write(data: Dictionary) -> void:
+	_cache = data
+	_write_file(_cache)
+
+
+static func _write_file(data: Dictionary) -> void:
 	var path := _path()
 	var folder := path.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))

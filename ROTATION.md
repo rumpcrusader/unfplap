@@ -269,7 +269,9 @@ these values here if a future pose needs that effect.
   normal (dot < -0.5) is rejected under the same source. The final normal turns from the stock
   FlankSurface normal toward each new contact normal at
   `PALM_NORMAL_MAX_DEG_S = 120°/s`, and the palm basis is rebuilt from that final normal each
-  frame so it cannot rotate into her. The rub centre is lifted
+  frame so it cannot rotate into her. A stale normal is corrected toward the resolved contact
+  normal, not the input hint, so a hull fallback at the shoulder cannot leave the palm edge-on.
+  The rub centre is lifted
   `CARESS_UP_BIAS_M = 0.05` above the profile point; a 1 Hz log reports the rub/shoulder heights,
   source, misses, switches, normal step/out angle and hand distance. The path is
   `presentation.standing.caress.oval_across_m` (default `5.36 cm`) along the body and

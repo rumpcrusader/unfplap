@@ -222,7 +222,7 @@ const PRESENTATION_DEFAULTS := {
 			"forelegs": "planted",
 		},
 		"caress": {
-			"palm_distance": 0.02,
+			"palm_distance": 0.04,
 			"oval_across_m": 0.04125 * 1.30,
 			"oval_up_m": 0.04125 * 0.70,
 			"palm_scale": {
@@ -661,8 +661,10 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 			"glance_back_speed", 2.0)), 0.25, 3.0)
 		out["idle_sway_side"] = maxf(0.0, float(out.get("idle_sway_side", 0.0)))
 		var caress: Dictionary = out.get("caress", {})
+		# The palm ball's radius is 4 cm; a smaller centre distance sinks the visible palm
+		# into the coat.
 		caress["palm_distance"] = clampf(float(caress.get("palm_distance", 0.04)),
-			0.0, 0.2)
+			0.04, 0.2)
 		caress["oval_across_m"] = maxf(0.0, float(caress.get(
 			"oval_across_m", 0.04125 * 1.30)))
 		caress["oval_up_m"] = maxf(0.0, float(caress.get(

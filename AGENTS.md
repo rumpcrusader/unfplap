@@ -519,7 +519,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   The fallback uses `_nearest_touch()`, which skips
   `presentation.standing.caress.ignore` regions (default `tail` and `wing`; UI also exposes mane and
   legs). This prevents a tail flick after a smack from stealing the caress contact.
-  The palm centre sits at `presentation.standing.caress.palm_distance` (default `0.02 m`) at body
+  The palm centre sits at `presentation.standing.caress.palm_distance` (default `0.04 m`) at body
   scale `1.0`, multiplied by the pony's actual `body_scale` (clamped `0.5…2.0`); the normal
   smoothing adds no extra lift.
   Contact is cached per hand with
@@ -528,8 +528,9 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   under the same source. The final normal turns from the stock FlankSurface normal toward each
   new contact normal at
   `PALM_NORMAL_MAX_DEG_S = 120°/s` instead of snapping, and the palm basis is rebuilt from that
-  final normal every frame. The torso-radial fallback only applies to a degenerate or inward
-  normal. The rub centre is lifted
+  final normal every frame. A stale normal is corrected toward the resolved contact normal, not
+  the input hint, so a hull fallback at the shoulder cannot turn the palm edge-on. The
+  torso-radial fallback only applies to a degenerate or inward normal. The rub centre is lifted
   `CARESS_UP_BIAS_M = 0.05` above each size profile's `up` point, and a 1 Hz log prints the rub
   and shoulder heights, source, misses, switches, normal step/out angle and driven-hand
   distance.

@@ -717,8 +717,11 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		var max_step := deg_to_rad(PALM_NORMAL_MAX_DEG_S) * frame_delta
 		smooth_normal = rotate_normal_toward(last_normal, blended, max_step)
 		# A stale normal must never tuck the palm into the coat. Rotate back toward the
-		# outward hint at the bounded rate; only a frame that is already bad snaps out.
-		var outward := outward_hint.normalized()
+		# resolved contact normal at the bounded rate; using the input hint here turned the
+		# palm edge-on whenever the hull fallback supplied a different coat direction.
+		var outward := hit_normal.normalized()
+		if outward.length_squared() < 0.5:
+			outward = outward_hint.normalized()
 		if outward.length_squared() < 0.5:
 			outward = last_normal
 		if outward.length_squared() > 0.5:

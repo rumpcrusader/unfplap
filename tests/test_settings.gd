@@ -218,7 +218,7 @@ func run() -> void:
 	check(near(float(standing_defaults.get("idle_sway_side", -1.0)), 0.0),
 		"default idle side sway")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
-	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
+	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.04),
 		"default caress palm distance")
 	check(near(float(caress_defaults.get("oval_across_m", 0.0)), 0.053625),
 		"default caress oval across")
@@ -347,6 +347,8 @@ func run() -> void:
 	check(float(standing.get("idle_sway_side", -1.0)) >= 0.0,
 		"runtime idle side sway is non-negative")
 	var caress_controls: Dictionary = standing.get("caress", {})
+	check(float(caress_controls.get("palm_distance", -1.0)) >= 0.04,
+		"runtime caress palm distance clears the palm radius")
 	check(float(caress_controls.get("oval_across_m", -1.0)) >= 0.0,
 		"runtime caress oval across is non-negative")
 	check(float(caress_controls.get("oval_up_m", -1.0)) >= 0.0,

@@ -900,7 +900,7 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 	caress_form.add_theme_constant_override("v_separation", 8)
 	list.add_child(caress_form)
 	var caress: Dictionary = controls.get("caress", {})
-	var palm_distance := _settings_spin(caress_form, "Palm distance", 0.0, 20.0, 0.5,
+	var palm_distance := _settings_spin(caress_form, "Palm distance", 4.0, 20.0, 0.5,
 		float(caress.get("palm_distance", 0.04)) * 100.0, font_size)
 	palm_distance.suffix = " cm"
 	palm_distance.value_changed.connect(func(_value: float) -> void:

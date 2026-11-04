@@ -97,6 +97,9 @@ func _attach_present_pose() -> void:
 	if not is_instance_valid(pony):
 		return
 	_pose_cfg = SETTINGS.pose(str(runtime.get("_id")), CATALOG.STANDING)
+	var presentation_cfg: Dictionary = TUNABLES.block("presentation.standing.")
+	_pose_cfg["chin_up_deg"] = float(presentation_cfg.get("chin_up_deg", 30.0))
+	_pose_cfg["neck_down_deg"] = float(presentation_cfg.get("neck_down_deg", 15.0))
 	runtime.set("_pose_cfg", _pose_cfg)
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
@@ -104,7 +107,7 @@ func _attach_present_pose() -> void:
 		_present_pose.name = "UnfplapPresentPose"
 		_present_pose.mare = pony
 		_present_pose.mode = "standing"
-		_present_pose.pose_config = SETTINGS.pose(str(runtime.get("_id")), CATALOG.STANDING)
+		_present_pose.pose_config = _pose_cfg
 		_present_pose.look_point = _present_look_point
 		_present_pose.amount = 0.0
 		_present_pose.target_amount = 1.0
@@ -120,7 +123,13 @@ func _attach_present_pose() -> void:
 		_present_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
 		_present_tail.amount = 0.0
 		_present_tail.target_amount = 1.0
-		_present_tail.call("choose_side")
+		var side_anchor := Vector3.INF
+		var main_v: Variant = runtime.get("main") if is_instance_valid(runtime) else null
+		if main_v != null and main_v.has_method("camera"):
+			var view: Variant = main_v.call("camera")
+			if view is Camera3D:
+				side_anchor = (view as Camera3D).global_position
+		_present_tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(_present_tail)
 	_presenting = true
 	_present_glance_back = true

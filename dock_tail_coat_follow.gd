@@ -8,7 +8,6 @@ const TAIL_COAT_POINT := preload("res://mods/unfplap/tail_coat_point.gd")
 const HIPS := "pony_hips"
 const TAIL1 := "mTail1"
 const TAIL2 := "mTail2"
-const POINT_INTERVAL := 0.05
 
 var mare: Node3D
 var runtime: Node
@@ -21,9 +20,11 @@ var _hips := -1
 var _hips_bind := Transform3D.IDENTITY
 var _tail1 := -1
 var _tail2 := -1
+var _pelvis := -1
+var _root_local := Vector3.INF
 var _tail_dir0 := Vector3.ZERO
 var _point := Vector3.INF
-var _point_at := -1.0
+var _last_triangle: Array = []
 var _active := false
 var _near_was_enabled := false
 var _near_disabled := false
@@ -44,15 +45,18 @@ func _process_modification_with_delta(delta: float) -> void:
 		return
 	if not _start():
 		return
-	var now := Time.get_ticks_msec() / 1000.0
-	if now - _point_at >= POINT_INTERVAL or not _point.is_finite():
-		_point_at = now
-		var result := TAIL_COAT_POINT.point(mare)
-		var hit: Variant = result.get("position", Vector3.INF)
-		if hit is Vector3 and (hit as Vector3).is_finite():
-			_point = hit
+	var result: Dictionary = TAIL_COAT_POINT.point_triangle(mare, _last_triangle) \
+		if not _last_triangle.is_empty() else {}
+	if result.is_empty():
+		result = TAIL_COAT_POINT.point(mare)
+	var hit: Variant = result.get("position", Vector3.INF)
+	if hit is Vector3 and (hit as Vector3).is_finite():
+		_point = hit
+		_last_triangle = result.get("triangle", [])
 	if not _point.is_finite():
 		return
+	if _tail_dir0.length_squared() < 0.0001:
+		_tail_dir0 = _tail_direction_from(_point)
 	var direction := _tail_direction_from(_point)
 	if direction.length_squared() < 0.0001 or _tail_dir0.length_squared() < 0.0001:
 		return
@@ -60,6 +64,12 @@ func _process_modification_with_delta(delta: float) -> void:
 	var axis := _tail_dir0.cross(direction)
 	if axis.length_squared() > 0.000001:
 		rotation = Basis(axis.normalized(), _tail_dir0.angle_to(direction))
+	var hair := get_skeleton()
+	if hair == null or _pelvis < 0:
+		return
+	var pelvis_pose := hair.get_bone_global_pose(_pelvis)
+	var tip_target: Vector3 = hair.global_transform \
+		* (pelvis_pose.origin + pelvis_pose.basis * _root_local)
 	var parent := _dock.get_parent()
 	if not parent is Node3D:
 		return
@@ -67,11 +77,12 @@ func _process_modification_with_delta(delta: float) -> void:
 	var hips_pose := _body_sk.get_bone_global_pose(_hips)
 	var local_anchor: Vector3 = hips_pose * _hips_bind * _anchor_local
 	var basis := rotation * base_world.basis
-	_dock.global_transform = Transform3D(basis, _point - basis * local_anchor)
+	_dock.global_transform = Transform3D(basis, tip_target - basis * local_anchor)
 	if Time.get_ticks_msec() >= _log_at:
 		_log_at = Time.get_ticks_msec() + 1000
-		_log("dock tail-coat P=%s dir=%s angle=%.3f" % [
-			str(_point), str(direction), rad_to_deg(rotation.get_rotation_quaternion().get_angle())])
+		_log("dock tail-coat P=%s tip=%s dir=%s angle=%.3f" % [
+			str(_point), str(tip_target), str(direction),
+			rad_to_deg(rotation.get_rotation_quaternion().get_angle())])
 
 
 func _start() -> bool:
@@ -80,7 +91,8 @@ func _start() -> bool:
 	_active = false
 	_cache()
 	if not is_instance_valid(_dock) or not is_instance_valid(_body_sk) \
-			or _hips < 0 or _tail1 < 0 or _tail2 < 0 or not _anchor_local.is_finite():
+			or _hips < 0 or _tail1 < 0 or _tail2 < 0 or _pelvis < 0 \
+			or not _root_local.is_finite() or not _anchor_local.is_finite():
 		if not _start_logged:
 			_start_logged = true
 			_log("dock tail-coat start failed dock=%s body=%s hips=%d tail=%d/%d tip=%s" % [
@@ -89,12 +101,12 @@ func _start() -> bool:
 		return false
 	_dock_base = _dock.transform
 	_point = Vector3.INF
-	_point_at = -1.0
+	_last_triangle = []
 	var result := TAIL_COAT_POINT.point(mare)
 	var hit: Variant = result.get("position", Vector3.INF)
 	if hit is Vector3 and (hit as Vector3).is_finite():
 		_point = hit
-		_point_at = Time.get_ticks_msec() / 1000.0
+		_last_triangle = result.get("triangle", [])
 	_tail_dir0 = _tail_direction_from(_point) if _point.is_finite() else Vector3.ZERO
 	_near_was_enabled = bool(mare.get("near_mesh_enabled"))
 	if _near_was_enabled and mare.has_method("set_near_mesh"):
@@ -115,6 +127,8 @@ func _cache() -> void:
 	_hips_bind = Transform3D.IDENTITY
 	_tail1 = -1
 	_tail2 = -1
+	_pelvis = -1
+	_root_local = Vector3.INF
 	_anchor_local = Vector3.INF
 	if not is_instance_valid(mare):
 		return
@@ -131,6 +145,8 @@ func _cache() -> void:
 	if hair != null:
 		_tail1 = hair.find_bone(TAIL1)
 		_tail2 = hair.find_bone(TAIL2)
+		_pelvis = hair.find_bone("mPelvis")
+		_root_local = _tail_root_local(hair)
 
 
 func _body_bind() -> Transform3D:
@@ -146,6 +162,49 @@ func _body_bind() -> Transform3D:
 		if bone == _hips:
 			return body.skin.get_bind_pose(i)
 	return Transform3D.IDENTITY
+
+
+## The pinned tail root cap centre in the hair `mPelvis` bone's local space.
+func _tail_root_local(hair: Skeleton3D) -> Vector3:
+	var hair_node: Variant = mare.get("hair")
+	var identity: Variant = mare.get("identity")
+	if not hair_node is Node or identity == null:
+		return Vector3.INF
+	var prefix := String(identity.get("hair_prefix"))
+	var tail := (hair_node as Node).find_child(prefix + "DevkitTail", true, false) as MeshInstance3D
+	if not is_instance_valid(tail) or tail.mesh == null or tail.skin == null:
+		return Vector3.INF
+	var pelvis := hair.find_bone("mPelvis")
+	if pelvis < 0:
+		return Vector3.INF
+	var bind := -1
+	for i in tail.skin.get_bind_count():
+		var name := String(tail.skin.get_bind_name(i))
+		var bone := hair.find_bone(name) if not name.is_empty() else tail.skin.get_bind_bone(i)
+		if bone == pelvis:
+			bind = i
+			break
+	if bind < 0:
+		return Vector3.INF
+	var bind_pose := tail.skin.get_bind_pose(bind)
+	var centre := Vector3.ZERO
+	var count := 0
+	for surface in tail.mesh.get_surface_count():
+		var pinned: Variant = tail.mesh.get_meta("pinned_" + str(surface), PackedInt32Array())
+		if not pinned is PackedInt32Array:
+			continue
+		var indices: PackedInt32Array = pinned
+		if indices.is_empty():
+			continue
+		var arrays: Array = tail.mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for index: int in indices:
+			if index >= 0 and index < vertices.size():
+				centre += bind_pose * vertices[index]
+				count += 1
+	if count == 0:
+		return Vector3.INF
+	return centre / float(count)
 
 
 func _tail_direction_from(point: Vector3) -> Vector3:

@@ -1,7 +1,7 @@
 extends RefCounted
 ## Prototype: find the first intersection of the hair segment `mTail1 -> mPelvis` with the
-## pony's coat. The coat is CPU-skinned for a small patch around the hips, so the result follows
-## the current pose instead of the rest mesh.
+## pony's coat. The coat is CPU-skinned for a small patch around the segment, so the result
+## follows the current pose instead of the rest mesh.
 
 const BODY_MESH := "MareBody"
 ## Rest-space radius around the `mTail1 -> mPelvis` segment that is skinned and tested.
@@ -13,6 +13,65 @@ static var _cache: Dictionary = {}
 
 
 static func point(pony: Node) -> Dictionary:
+	var setup := _setup(pony)
+	if setup.is_empty():
+		return {}
+	var skeleton: Skeleton3D = setup["skeleton"]
+	var transforms: Array[Transform3D] = []
+	transforms.resize(skeleton.get_bone_count())
+	for i in skeleton.get_bone_count():
+		transforms[i] = skeleton.get_bone_global_pose(i)
+	var base := skeleton.global_transform
+	var hit := _intersect(
+		_triangles(setup["body"], skeleton, setup["hair"], setup["tail1_bone"],
+			setup["pelvis_bone"], PATCH_RADIUS),
+		transforms, base, setup["tail1"], setup["direction"], setup["length"])
+	if hit.is_empty():
+		hit = _intersect(
+			_triangles(setup["body"], skeleton, setup["hair"], setup["tail1_bone"],
+				setup["pelvis_bone"], FALLBACK_RADIUS),
+			transforms, base, setup["tail1"], setup["direction"], setup["length"])
+	if hit.is_empty():
+		return {"ok": false, "position": Vector3.INF}
+	return {
+		"ok": true,
+		"position": hit["position"],
+		"triangle": hit["triangle"],
+		"tail1": setup["tail1"],
+		"pelvis": setup["pelvis"],
+		"distance": setup["tail1"].distance_to(hit["position"]),
+	}
+
+
+## Fast path: test only the triangle that produced the previous hit. The follower calls this
+## every frame and falls back to `point()` when the intersection leaves that triangle.
+static func point_triangle(pony: Node, triangle: Array) -> Dictionary:
+	if triangle.size() != 3:
+		return {}
+	var setup := _setup(pony)
+	if setup.is_empty():
+		return {}
+	var skeleton: Skeleton3D = setup["skeleton"]
+	var a := _skinned_single(skeleton, triangle[0])
+	var b := _skinned_single(skeleton, triangle[1])
+	var c := _skinned_single(skeleton, triangle[2])
+	var result: Variant = Geometry3D.ray_intersects_triangle(
+		setup["tail1"], setup["direction"], a, b, c)
+	if result is Vector3:
+		var distance := (setup["tail1"] as Vector3).distance_to(result)
+		if distance <= float(setup["length"]):
+			return {
+				"ok": true,
+				"position": result,
+				"triangle": triangle,
+				"tail1": setup["tail1"],
+				"pelvis": setup["pelvis"],
+				"distance": distance,
+			}
+	return {}
+
+
+static func _setup(pony: Node) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {}
 	var hair: Variant = pony.get("hair_skeleton")
@@ -30,37 +89,32 @@ static func point(pony: Node) -> Dictionary:
 	var pelvis_bone := hair_sk.find_bone("mPelvis")
 	if tail1_bone < 0 or pelvis_bone < 0:
 		return {}
-	var tail1: Vector3 = hair_sk.global_transform * hair_sk.get_bone_global_pose(tail1_bone).origin
-	var pelvis: Vector3 = hair_sk.global_transform * hair_sk.get_bone_global_pose(pelvis_bone).origin
+	var tail1: Vector3 = hair_sk.global_transform \
+		* hair_sk.get_bone_global_pose(tail1_bone).origin
+	var pelvis: Vector3 = hair_sk.global_transform \
+		* hair_sk.get_bone_global_pose(pelvis_bone).origin
 	var direction := pelvis - tail1
 	var length := direction.length()
 	if length < 0.0001:
 		return {}
-	var transforms: Array[Transform3D] = []
-	transforms.resize(skeleton.get_bone_count())
-	for i in skeleton.get_bone_count():
-		transforms[i] = skeleton.get_bone_global_pose(i)
-	var base := skeleton.global_transform
-	var hit := _intersect(
-		_triangles(body, skeleton, hair_sk, tail1_bone, pelvis_bone, PATCH_RADIUS),
-		transforms, base, tail1, direction, length)
-	if not hit.is_finite():
-		hit = _intersect(
-			_triangles(body, skeleton, hair_sk, tail1_bone, pelvis_bone, FALLBACK_RADIUS),
-			transforms, base, tail1, direction, length)
 	return {
-		"ok": hit.is_finite(),
-		"position": hit,
+		"hair": hair_sk,
+		"body": body,
+		"skeleton": skeleton,
+		"tail1_bone": tail1_bone,
+		"pelvis_bone": pelvis_bone,
 		"tail1": tail1,
 		"pelvis": pelvis,
-		"distance": tail1.distance_to(hit) if hit.is_finite() else INF,
+		"direction": direction,
+		"length": length,
 	}
 
 
 static func _intersect(triangles: Array, transforms: Array[Transform3D], base: Transform3D,
-		tail1: Vector3, direction: Vector3, length: float) -> Vector3:
+		tail1: Vector3, direction: Vector3, length: float) -> Dictionary:
 	var best := INF
 	var hit := Vector3.INF
+	var best_triangle: Array = []
 	for triangle: Array in triangles:
 		var a := _skinned(transforms, base, triangle[0])
 		var b := _skinned(transforms, base, triangle[1])
@@ -71,7 +125,10 @@ static func _intersect(triangles: Array, transforms: Array[Transform3D], base: T
 			if distance <= length and distance < best:
 				best = distance
 				hit = result
-	return hit
+				best_triangle = triangle
+	if not hit.is_finite():
+		return {}
+	return {"position": hit, "triangle": best_triangle}
 
 
 static func _triangles(body: MeshInstance3D, skeleton: Skeleton3D, hair: Skeleton3D,
@@ -166,3 +223,17 @@ static func _skinned(transforms: Array[Transform3D], base: Transform3D, vertex: 
 			* (vertex.get("position", Vector3.ZERO) as Vector3)) \
 			* float(influence.get("weight", 0.0))
 	return base * point
+
+
+static func _skinned_single(skeleton: Skeleton3D, vertex: Dictionary) -> Vector3:
+	var point := Vector3.ZERO
+	for influence_v: Variant in vertex.get("influences", []):
+		var influence: Dictionary = influence_v
+		var bone := int(influence.get("bone", -1))
+		if bone < 0:
+			continue
+		point += (skeleton.get_bone_global_pose(bone)
+			* (influence.get("bind", Transform3D.IDENTITY) as Transform3D)
+			* (vertex.get("position", Vector3.ZERO) as Vector3)) \
+			* float(influence.get("weight", 0.0))
+	return skeleton.global_transform * point

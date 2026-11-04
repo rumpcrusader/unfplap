@@ -485,6 +485,7 @@ func apply_live_settings() -> void:
 		_apply_jiggle_radius()
 	if pose_id == CATALOG.STANDING:
 		_kiss_controller().apply_live_settings()
+		_sync_standing_pose_config()
 	elif pose_id == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
 	# Nudge the frozen missionary anchor only when the framing control actually changed, so a taste
@@ -1815,6 +1816,18 @@ func debug_float_missionary(seconds: float) -> void:
 	_debug_pose = null
 	_debug_pose_active = false
 
+## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
+## first keeps the other pose overrides, then the presentation neck/head controls win.
+func _sync_standing_pose_config() -> void:
+	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
+		return
+	_pose_cfg = SETTINGS.pose(_id, CATALOG.STANDING)
+	_pose_cfg["chin_up_deg"] = float(_presentation_cfg.get("chin_up_deg", 30.0))
+	_pose_cfg["neck_down_deg"] = float(_presentation_cfg.get("neck_down_deg", 15.0))
+	if is_instance_valid(_pose):
+		_pose.pose_config = _pose_cfg
+
+
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
 ## pose first keeps hind spread/rump drop overrides, then the presentation neck controls win.
 func _sync_missionary_pose_config() -> void:
@@ -1856,6 +1869,7 @@ func _build_pose() -> void:
 		_keep_chin_last()
 	if pose_id != CATALOG.STANDING:
 		return
+	_sync_standing_pose_config()
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		_tail = TAIL.new()
@@ -1866,7 +1880,12 @@ func _build_pose() -> void:
 		_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
 		_tail.amount = 0.0
 		_tail.target_amount = 1.0
-		_tail.call("choose_side")
+		var side_anchor := Vector3.INF
+		if is_instance_valid(main) and main.has_method("camera"):
+			var view: Variant = main.call("camera")
+			if view is Camera3D:
+				side_anchor = (view as Camera3D).global_position
+		_tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(_tail)
 		_dock_tail = DOCK_TAIL_COAT.new()
 		_dock_tail.name = "UnfplapDockTailCoat"

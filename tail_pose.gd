@@ -74,8 +74,14 @@ func _cache() -> void:
 			_mane.append(mane_bone)
 
 
-## Pick a fresh side for this act.
-func choose_side() -> void:
+## Pick a fresh side for this act. With an Anon position, sweep the tail away from him:
+## he on her left -> tail right, he on her right -> tail left. No clear side falls back to random.
+func choose_side(anchor := Vector3.INF) -> void:
+	if anchor.is_finite() and is_instance_valid(mare):
+		var side := (anchor - mare.global_position).dot(mare.global_basis.x)
+		if absf(side) > 0.05:
+			aside_sign = 1.0 if side > 0.0 else -1.0
+			return
 	aside_sign = 1.0 if randf() < 0.5 else -1.0
 
 

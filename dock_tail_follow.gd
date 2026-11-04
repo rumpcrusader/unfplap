@@ -25,6 +25,7 @@ var _near_was_enabled := false
 var _near_disabled := false
 var _active := false
 var _log_at := 0
+var _start_logged := false
 
 
 func _ready() -> void:
@@ -109,9 +110,16 @@ func _start() -> bool:
 	if not is_instance_valid(_body_sk) or _pelvis < 0 or _hips < 0:
 		_cache()
 	if not is_instance_valid(_body_sk) or _pelvis < 0 or _hips < 0:
+		if not _start_logged:
+			_start_logged = true
+			_log("dock tail start failed body=%s pelvis=%d hips=%d" % [
+				str(is_instance_valid(_body_sk)), _pelvis, _hips])
 		return false
 	_dock = mare.find_child("OpenPonyDock", true, false) as MeshInstance3D
 	if not is_instance_valid(_dock):
+		if not _start_logged:
+			_start_logged = true
+			_log("dock tail start failed: no OpenPonyDock")
 		return false
 	_dock_base = _dock.transform
 	_has_baseline = false
@@ -120,7 +128,17 @@ func _start() -> bool:
 	if _near_was_enabled and mare.has_method("set_near_mesh"):
 		mare.call("set_near_mesh", false)
 		_near_disabled = true
+	if not _start_logged:
+		_start_logged = true
+		_log("dock tail start body=%s pelvis=%d hips=%d near=%s dock=%s" % [
+			str(is_instance_valid(_body_sk)), _pelvis, _hips, str(not _near_disabled),
+			str(_dock_base.origin)])
 	return true
+
+
+func _log(text: String) -> void:
+	if is_instance_valid(runtime) and runtime.has_method("_log"):
+		runtime.call("_log", text)
 
 
 func _stop() -> void:

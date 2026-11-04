@@ -772,10 +772,12 @@ examples.
   `#f4f1ff` with a `#1a1624` outline instead of a drop shadow, and muted `#f4f1ff` at 60% for
   modifiers. `hud.gd` exposes `text_label()`, `keycap()`, `button_icon()` and `prompt_row()` as the
   one style source.
-- The offer hint is `OFFER_HINT = "Hold: Make love"` in the game's own prompt row: a `button_y`
-  icon at the row's 52 px scale beside 30 px words, placed by `hud.prompt_row()` so it reads like
-  `Hold: Bridal carry`. Without that row (VR or no `InteractionHints`) the same row is built into
-  the HUD's own centered prompt above the caption line.
+- The offer hint is `OFFER_HINT_LEAD = "Hold:"` plus `OFFER_HINT = "Make love"` in the game's own
+  prompt row: a `button_y` icon at the row's 52 px scale beside 30 px words, placed by
+  `hud.prompt_row()` so it reads like `Hold: Bridal carry`. The lead stays ink; the action uses
+  `ACCENT` (`#ffa8c7`, the same pink as the readiness fill). Without that row (VR or no
+  `InteractionHints`) the same row is built into the HUD's own centered prompt above the caption
+  line.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
   controller icon, a muted `Hold`/blank modifier column, and one description. Rows list mouse
   thrust, W/S, Q/E, A/D, Z/C caress movement, F (`Hold`), mouse right and Y (`Hold`); the Y

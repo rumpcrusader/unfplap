@@ -9,6 +9,8 @@ const STATE_AFTERGLOW := 4
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const READINESS_BAR := preload("res://mods/unfplap/readiness_bar.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
+## The offer words are the mod's pink accent, like the readiness fill.
+const ACCENT := Color("ffa8c7")
 ## Prompt-row colours: ink words, a near-black outline, and muted words for modifiers.
 const INK := Color("f4f1ff")
 const SHADE := Color("1a1624")
@@ -160,16 +162,25 @@ static func button_icon(icon_name: String, edge: float) -> TextureRect:
 
 
 ## One "icon + words" unit at the game's prompt-row scale, for the row under the crosshair.
-static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
+## `lead` stays ink and `text` takes the mod's pink accent, so the action reads first.
+static func prompt_row(icon_name: String, lead: String, text: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := button_icon(icon_name, PROMPT_ICON_EDGE)
 	if icon != null:
 		row.add_child(icon)
-	var label := text_label(text, PROMPT_FONT, INK, PROMPT_OUTLINE)
+	var words := HBoxContainer.new()
+	words.add_theme_constant_override("separation", 6)
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not lead.is_empty():
+		var prefix := text_label(lead, PROMPT_FONT, INK, PROMPT_OUTLINE)
+		prefix.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		words.add_child(prefix)
+	var label := text_label(text, PROMPT_FONT, ACCENT, PROMPT_OUTLINE)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(label)
+	words.add_child(label)
+	row.add_child(words)
 	return row
 
 
@@ -211,16 +222,16 @@ func _add_hint_row(key: String, icon_name: String, key_text: String, mode: Strin
 	return label
 
 
-func show_prompt(text: String, icon_name := "button_y") -> void:
+func show_prompt(lead: String, text: String, icon_name := "button_y") -> void:
 	if _prompt == null:
 		return
-	var key := icon_name + "\u0000" + text
+	var key := icon_name + "\u0000" + lead + "\u0000" + text
 	if key != _prompt_key:
 		_prompt_key = key
 		if is_instance_valid(_prompt_row):
 			_prompt.remove_child(_prompt_row)
 			_prompt_row.queue_free()
-		_prompt_row = prompt_row(icon_name, text)
+		_prompt_row = prompt_row(icon_name, lead, text)
 		_prompt.add_child(_prompt_row)
 	_prompt.visible = true
 

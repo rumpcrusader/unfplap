@@ -22,8 +22,9 @@ const CAPTION_PATH := "res://world/ui/speech_caption.gd"
 ## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
 const CAPTION_TOP_MARGIN := 26.0
 ## The offer hint beside the game's prompt row. Y is a 0.35 s hold, so the base-game phrasing
-## ("Hold G · Bridal carry") gives "Hold: Make love".
-const OFFER_HINT := "Hold: Make love"
+## ("Hold G · Bridal carry") gives "Hold: Make love"; the action itself is the pink accent.
+const OFFER_HINT_LEAD := "Hold:"
+const OFFER_HINT := "Make love"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default ON. Toggle in game with Ctrl+Shift+D.
 var debug_logs := true
@@ -1320,7 +1321,7 @@ func _native_row() -> HBoxContainer:
 ## The offer hint is one more unit in the game's own prompt row, in that row's style and phrasing
 ## ("Hold G · Bridal carry" reads as "Hold: ..."), so it sits beside base prompts unnoticed.
 func _make_native_hint_label() -> Control:
-	return HUD.prompt_row("button_y", OFFER_HINT)
+	return HUD.prompt_row("button_y", OFFER_HINT_LEAD, OFFER_HINT)
 
 
 func _remove_native_hint(row: HBoxContainer = null) -> void:
@@ -1345,7 +1346,7 @@ func _sync_native_hint(show_hint: bool) -> void:
 	if row == null:
 		if is_instance_valid(hud):
 			if show_hint:
-				hud.show_prompt(OFFER_HINT)
+				hud.show_prompt(OFFER_HINT_LEAD, OFFER_HINT)
 			else:
 				hud.hide_prompt()
 		return

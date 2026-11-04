@@ -123,7 +123,7 @@ const FEATURE_INFO := {
 	},
 	"thrust_tail_dock_jiggle": {
 		"label": "Tail base + dock jiggle",
-		"help": "Add the tail base and dock to the rump's thrust jiggle.",
+		"help": "Add the tail base and dock to the rump's thrust and smack jiggle.",
 	},
 	"allow_act_during_cuddle": {
 		"label": "Allow acts during cuddles",

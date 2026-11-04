@@ -323,7 +323,9 @@ these values here if a future pose needs that effect.
   raw `depth` also rocks the tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
-  rump shader, strongest at the dock and lagging down the chain.
+  rump shader, strongest at the dock and lagging down the chain. A smack adds the same wave
+  through `_on_smack_impact()` at the native impact strength, gated by
+  `thrust_tail_dock_jiggle`; the same flag also includes the dock in the smack wobble.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

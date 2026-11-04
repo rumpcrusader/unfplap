@@ -66,6 +66,8 @@ const SMACK_SWING_DOWN_RATIO := 0.55
 const SMACK_SWING_OUT_RATIO := 0.15
 const SMACK_CONTACT_HOLD_SECONDS := 0.03
 const SMACK_REST_RETURN_SECONDS := 0.20
+## Native impact strength for the smack; also drives the tail/dock jiggle propagation.
+const SMACK_IMPACT_STRENGTH := 0.8
 const SMACK_PHASE_NONE := 0
 const SMACK_PHASE_RAISE := 1
 const SMACK_PHASE_STRIKE := 2
@@ -1440,7 +1442,8 @@ func _restore_smack_sound() -> void:
 func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 	_install_smack_sound()
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
-		_flank.call("impact", index, at)
+		_flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
+		_notify_smack_jiggle()
 		return
 	var sig: Signal = pony.physical_reaction
 	var links: Array = sig.get_connections()
@@ -1450,12 +1453,20 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and sig.is_connected(callable):
 			sig.disconnect(callable)
-	_flank.call("impact", index, at)
+	_flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and not sig.is_connected(callable):
 			sig.connect(callable)
+	_notify_smack_jiggle()
+
+
+## Carry the native cheek jiggle into the same tail base/dock propagation as a thrust. The
+## runtime owns the feature flag and restores the dock material when it is off.
+func _notify_smack_jiggle() -> void:
+	if is_instance_valid(runtime) and runtime.has_method("_on_smack_impact"):
+		runtime.call("_on_smack_impact", SMACK_IMPACT_STRENGTH)
 
 
 ## Refresh cached scene references once per public call. Pony and settings can change between

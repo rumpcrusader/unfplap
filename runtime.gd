@@ -2617,6 +2617,22 @@ func _thrust_jiggle(strength: float) -> void:
 			str(at), str(pony.global_position), str(normal),
 			(targets as Array).size() if targets is Array else -1])
 
+## A smack has already started the native cheek jiggle. Carry it into the same tail base/dock
+## propagation as a thrust, gated by the same feature flag.
+func _on_smack_impact(strength: float) -> void:
+	if not is_instance_valid(pony):
+		return
+	if not _feature("thrust_tail_dock_jiggle"):
+		_restore_dock_jiggle_material()
+		return
+	if not is_instance_valid(_flank):
+		_flank = pony.get_node_or_null("FlankTouch")
+	if is_instance_valid(_flank):
+		_include_dock_jiggle()
+	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
+		_tail.call("thrust", clampf(strength, 0.0, 1.0) * _jiggle_size_scale())
+
+
 ## Add the rigid dock and merged near-dock surface to the rump's shader wobble. The hair tail
 ## bones are already driven by tail_pose; this is the missing dock piece.
 func _include_dock_jiggle() -> void:

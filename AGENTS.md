@@ -384,14 +384,17 @@ body-relative axes.
   `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10` higher eye line.
   Every thrust also calls `tail.thrust(strength)`: a short `JIGGLE_DECAY = 3.6` /
   `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the dock
-  (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). This is
-  the cheapest way to make rump jiggle and tail read as one motion; the shader itself stays
-  native.
+  (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). A smack
+  calls the same tail impulse through `_on_smack_impact()` at its native impact strength, gated
+  by `thrust_tail_dock_jiggle`. This is the cheapest way to make rump jiggle and tail read as
+  one motion; the shader itself stays native.
 - With `thrust_tail_dock_jiggle` enabled (default on), the rigid `OpenPonyDock` mesh and the
-  merged near-mesh dock palette entries join the same rump shader wobble. The runtime duplicates
-  the body coat jiggle material onto the dock, appends it to `_flank._jiggle_targets`, and
-  raises the dock's near-mesh `jiggle_entry` mask. The material override is restored at act end
-  or when the flag is turned off. The hair tail base already jiggles through `tail_pose`.
+  merged near-mesh dock palette entries join the same rump shader wobble for both thrusts and
+  smacks. The runtime duplicates the body coat jiggle material onto the dock, appends it to
+  `_flank._jiggle_targets`, and raises the dock's near-mesh `jiggle_entry` mask. With the flag
+  off, a smack skips both the tail wave and the dock and restores the dock material. The
+  material override is restored at act end or when the flag is turned off. The hair tail base
+  jiggles through `tail_pose`.
 - A mod-owned `wing_sweep.gd` modifier runs last on the skeleton while standing holds the wings,
   yawing `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°` in opposite directions to sweep the spread
   wings slightly backwards. It is removed with the wing hold.
@@ -902,7 +905,7 @@ examples.
 | `standing_body_sway` | `true` | standing upper-body sway modifier |
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
-| `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust jiggle |
+| `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
 | `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |

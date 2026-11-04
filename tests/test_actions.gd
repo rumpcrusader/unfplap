@@ -12,6 +12,12 @@ const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
+class FakeTail extends Node:
+	var last_strength := 0.0
+
+	func thrust(strength: float) -> void:
+		last_strength = strength
+
 var failures := 0
 var checks := 0
 
@@ -259,6 +265,32 @@ func run() -> void:
 	check(live_runtime._camera_surge >= 0.0 and live_runtime._camera_surge <= 1.0,
 		"live settings refresh camera thrust")
 	live_runtime.free()
+
+	var jiggle_runtime: Node = RUNTIME.new()
+	var jiggle_pony := Node3D.new()
+	root.add_child(jiggle_pony)
+	var fake_tail := FakeTail.new()
+	root.add_child(fake_tail)
+	jiggle_runtime.pony = jiggle_pony
+	jiggle_runtime.pose_id = CATALOG.STANDING
+	jiggle_runtime._tail = fake_tail
+	jiggle_runtime._features = {"thrust_tail_dock_jiggle": false}
+	root.add_child(jiggle_runtime)
+	jiggle_runtime.call("_on_smack_impact", 0.8)
+	check(near(fake_tail.last_strength, 0.0), "smack tail jiggle is gated off")
+	jiggle_runtime._features = {"thrust_tail_dock_jiggle": true}
+	jiggle_runtime.call("_on_smack_impact", 0.8)
+	var expected_jiggle := 0.8 * float(jiggle_runtime.call("_jiggle_size_scale"))
+	check(near(fake_tail.last_strength, expected_jiggle),
+		"smack tail jiggle follows the flag")
+	jiggle_runtime._features = {"thrust_tail_dock_jiggle": false}
+	jiggle_runtime.call("_on_smack_impact", 0.8)
+	check(near(fake_tail.last_strength, expected_jiggle),
+		"live flag off stops new smack tail jiggle")
+	root.remove_child(jiggle_runtime)
+	jiggle_runtime.free()
+	fake_tail.free()
+	jiggle_pony.free()
 
 	var gate_runtime: Node = RUNTIME.new()
 	check(not gate_runtime.can_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")

@@ -4,9 +4,11 @@ extends SceneTree
 
 const ACT := preload("res://mods/unfplap/act_audio.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
+const SMACK := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const CAESS := preload("res://mods/unfplap/standing_caress.gd")
 var failures := 0
 var checks := 0
 
@@ -134,7 +136,15 @@ func run() -> void:
 	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
-	check(not CATALOGUE.CUES.has("smack"), "flank smack is not a pack cue")
+	check(not CATALOGUE.CUES.has("smack"), "flank smack stays out of the optional cue table")
+	check(SMACK.PATHS.size() >= 3, "flank smack has multiple pack variants")
+	for path: String in SMACK.PATHS:
+		check(ResourceLoader.exists(path), "smack stream exists: " + path)
+		var smack_stream: Resource = load(path)
+		check(smack_stream is AudioStream, "smack stream type: " + path)
+		if smack_stream is AudioStream:
+			var seconds := (smack_stream as AudioStream).get_length()
+			check(seconds > 0.05 and seconds < 1.0, "smack stream length: " + path)
 	act.set_enabled(false, true, false)
 	act.play_climax_voice(Vector3.ZERO)
 	check(act.vocals_enabled(), "climax voice accepted after a live toggle")
@@ -169,6 +179,49 @@ func run() -> void:
 	runtime._stop_audio()
 	root.remove_child(runtime)
 	runtime.free()
+
+	# The native FlankTouch player is the smack voice: act_foley on swaps in a pack variant at
+	# impact time, off restores the stock stream, level and pitch.
+	var smack_pony := Node3D.new()
+	root.add_child(smack_pony)
+	var flank := Node3D.new()
+	flank.name = "FlankTouch"
+	smack_pony.add_child(flank)
+	var smack_player := AudioStreamPlayer3D.new()
+	smack_player.name = "sound"
+	var stock_stream := AudioStreamWAV.new()
+	smack_player.stream = stock_stream
+	smack_player.volume_db = -10.0
+	smack_player.pitch_scale = 1.2
+	flank.add_child(smack_player)
+	var smack_runtime: Node = RUNTIME.new()
+	smack_runtime.pony = smack_pony
+	smack_runtime._features = {"act_foley": false}
+	root.add_child(smack_runtime)
+	var caress: RefCounted = CAESS.new(smack_runtime)
+	caress.set("pony", smack_pony)
+	caress.call("_install_smack_sound")
+	check(smack_player.stream == stock_stream, "act_foley off keeps the stock smack")
+	smack_runtime._features = {"act_foley": true}
+	caress.call("_install_smack_sound")
+	check(smack_player.stream != stock_stream and smack_player.stream is AudioStream,
+		"act_foley installs a pack smack")
+	check(near(smack_player.volume_db, CAESS.SMACK_VOLUME_DB), "pack smack uses its own level")
+	check(smack_player.pitch_scale >= CAESS.SMACK_PITCH_MIN
+		and smack_player.pitch_scale <= CAESS.SMACK_PITCH_MAX, "pack smack varies its pitch")
+	caress.call("_restore_smack_sound")
+	check(smack_player.stream == stock_stream, "smack restore puts the stock stream back")
+	check(near(smack_player.volume_db, -10.0) and near(smack_player.pitch_scale, 1.2),
+		"smack restore puts the stock level and pitch back")
+	caress.call("_install_smack_sound")
+	smack_runtime._features = {"act_foley": false}
+	caress.call("_sync")
+	check(smack_player.stream == stock_stream, "live foley off restores the stock smack")
+	caress = null
+	root.remove_child(smack_runtime)
+	smack_runtime.free()
+	root.remove_child(smack_pony)
+	smack_pony.free()
 
 	print("_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(1 if failures > 0 else 0)

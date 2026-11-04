@@ -288,8 +288,9 @@ these values here if a future pose needs that effect.
   the slapping hand during the swing. At the end the palm cache is reset, the contact is
   reacquired with the caress ignore list, and the hand returns over `CARESS_RETURN_SECONDS =
   0.12`. Anon's hand swings in/out over `0.20 s` (`SMACK_CONTACT_PHASE = 0.45`) with a `200 ms`
-  cooldown. The
-  native impact supplies sound, decal, blush, jiggle and `flank_smack`.
+  cooldown. With `act_foley` on the native sound player gets a peak-normalised OpenNSFW
+  hand-smack variant for that impact; off keeps the stock `flank_slap.wav`. The native impact
+  still supplies the decal, blush, jiggle and `flank_smack`.
 - `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.

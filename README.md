@@ -38,7 +38,7 @@ Desktop only for now
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, Z/C pause or resume each caress oval, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
 - **Presentation** — Adds blush, eyes, ears, tail, rump jiggle, audio and wing motion; an optional flag adds the dock and tail base to the thrust wobble.
-- **Act audio** — `Act foley` adds pack thrust, slide, bed/fabric and kiss sounds; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default. Wooden bed creaks are off by default and can be re-enabled separately. All off restore the original kiss-sample plap.
+- **Act audio** — `Act foley` adds pack thrust, slide, bed/fabric, kiss and flank-smack sounds; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default. Wooden bed creaks are off by default and can be re-enabled separately. All off restore the original kiss-sample plap and stock flank slap.
 - **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In standing afterglow, staying close and caressing earns a small extra reward, then short aftercare. A warm, relaxed "satisfied" mood and expression last for five minutes afterward.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake adults can witness it.
 

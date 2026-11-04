@@ -4,6 +4,7 @@ extends RefCounted
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
@@ -46,6 +47,12 @@ const SMACK_ZONE_RADIUS_M := 0.035
 const SMACK_COOLDOWN_MS := 200
 const SMACK_SWING_SECONDS := 0.20
 const SMACK_CONTACT_PHASE := 0.45
+## The stock flank slap is bright and compressed. With act_foley on, install a peak-normalised
+## OpenNSFW hand-smack variant on the native FlankTouch player; the stock stream, level and
+## pitch are restored at act end.
+const SMACK_VOLUME_DB := -7.0
+const SMACK_PITCH_MIN := 0.97
+const SMACK_PITCH_MAX := 1.03
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
@@ -116,6 +123,10 @@ var _smack_to := Transform3D.IDENTITY
 var _smack_started := 0
 var _smack_impact_done := false
 var _palm_contacts: Dictionary = {}
+var _smack_streams: Array[AudioStream] = []
+var _smack_stream_last := -1
+var _smack_sound_restore: Dictionary = {}
+var _smack_sound_installed := false
 
 func _shoulder_hand_point(side: String) -> Dictionary:
 	if side.is_empty() or not is_instance_valid(pony):
@@ -839,9 +850,96 @@ func _end_smack_swing() -> void:
 	_smack_impact_done = false
 
 
+## True while the active act has the optional pack foley layer on. The runtime caches the
+## feature flags at act start and refreshes them from the settings tab, so this is the live
+## value and can turn the pack smack off during an act.
+func _act_foley_on() -> bool:
+	if not is_instance_valid(runtime):
+		return false
+	var features: Variant = runtime.get("_features")
+	return features is Dictionary and bool((features as Dictionary).get("act_foley", false))
+
+
+func _smack_sound_player() -> AudioStreamPlayer3D:
+	if not is_instance_valid(_flank):
+		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
+	if not is_instance_valid(_flank):
+		return null
+	var player: Variant = _flank.get("sound")
+	if not player is AudioStreamPlayer3D:
+		player = _flank.get_node_or_null("sound")
+	return player if player is AudioStreamPlayer3D else null
+
+
+func _load_smack_streams() -> void:
+	if not _smack_streams.is_empty():
+		return
+	for path: String in SMACK_AUDIO.PATHS:
+		if ResourceLoader.exists(path):
+			var stream: Resource = load(path)
+			if stream is AudioStream:
+				_smack_streams.append(stream)
+
+
+func _next_smack_stream(count: int) -> int:
+	if count <= 1:
+		return 0
+	var index := randi() % count
+	if index == _smack_stream_last:
+		index = (index + 1) % count
+	_smack_stream_last = index
+	return index
+
+
+## Install one pack smack variant on the native player immediately before `impact()`, so the
+## sound lands on the same frame as the decal and blush. With pack foley off the stock
+## `flank_slap.wav` stays in place and plays instead.
+func _install_smack_sound() -> void:
+	if not _act_foley_on():
+		_restore_smack_sound()
+		return
+	var player := _smack_sound_player()
+	if player == null:
+		return
+	_load_smack_streams()
+	if _smack_streams.is_empty():
+		_restore_smack_sound()
+		return
+	if not _smack_sound_installed:
+		_smack_sound_restore = {
+			"stream": player.stream,
+			"volume_db": player.volume_db,
+			"pitch_scale": player.pitch_scale,
+		}
+		_smack_sound_installed = true
+	var index := _next_smack_stream(_smack_streams.size())
+	player.stream = _smack_streams[index]
+	player.volume_db = SMACK_VOLUME_DB
+	player.pitch_scale = randf_range(SMACK_PITCH_MIN, SMACK_PITCH_MAX)
+
+
+## Put the stock slap stream, level and pitch back. Called at every act exit and whenever
+## act_foley is switched off live.
+func _restore_smack_sound() -> void:
+	if not _smack_sound_installed:
+		return
+	_smack_sound_installed = false
+	var player := _smack_sound_player()
+	if player != null and not _smack_sound_restore.is_empty():
+		var stock: Variant = _smack_sound_restore.get("stream")
+		if stock is AudioStream:
+			player.stream = stock
+		else:
+			player.stream = null
+		player.volume_db = float(_smack_sound_restore.get("volume_db", player.volume_db))
+		player.pitch_scale = float(_smack_sound_restore.get("pitch_scale", player.pitch_scale))
+	_smack_sound_restore.clear()
+
+
 ## Native impact, but with the pony's game reaction signals silenced. During an act those
 ## reactions can trigger a buck/fidget or hoof shuffle, which is not wanted for a sex smack.
 func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
+	_install_smack_sound()
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
 		_flank.call("impact", index, at)
 		return
@@ -872,6 +970,8 @@ func _sync() -> void:
 	_profile = profile if profile is Dictionary else {}
 	if not is_instance_valid(_flank) and is_instance_valid(pony):
 		_flank = pony.get_node_or_null("FlankTouch")
+	if _smack_sound_installed and not _act_foley_on():
+		_restore_smack_sound()
 
 
 func _init(runtime_node: Node = null) -> void:
@@ -922,6 +1022,7 @@ func end_reach() -> void:
 func reset() -> void:
 	_end_caress()
 	_end_smack_swing()
+	_restore_smack_sound()
 	_clear_reach_hand()
 	_reach_shoulder = ""
 	_reach_holding = false

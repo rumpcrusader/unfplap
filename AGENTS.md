@@ -15,7 +15,7 @@ Do not start implementation until you have read the required files for the area 
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Settings or character profiles | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
-| Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `AUDIO_CREDITS.md` |
+| Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md` |
 
 ## Identity and scope
 
@@ -123,6 +123,7 @@ mods/unfplap/
   voice_status.gd   pure character-voice/Ponese classification
   act_sound.gd      base-game breath, plap, mouth-kiss and climax players
   act_audio.gd      optional pack foley/vocal/wet layers
+  audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness meter and close cue
   readiness_bar.gd  pure short 0–100 readiness fill; no ticks
@@ -513,9 +514,12 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   over `CARESS_RETURN_SECONDS = 0.12` instead of clearing to rest. The hand swings in/out over
   `SMACK_SWING_SECONDS = 0.20`, impacts at `SMACK_CONTACT_PHASE = 0.45`, and has a
   `SMACK_COOLDOWN_MS = 200` gate.
-- It reuses the slap sound/decal/blush/jiggle. The pony's `physical_reaction` connections are
-  temporarily disconnected around the call, so `flank_smack` cannot trigger the game's
-  buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
+- It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs one
+  peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` on the native sound
+  player immediately before the impact; `act_foley` off keeps the stock `flank_slap.wav`. The
+  stock stream, level and pitch are restored at act end. The pony's `physical_reaction`
+  connections are temporarily disconnected around the call, so `flank_smack` cannot trigger
+  the game's buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
 - A right lean (`side > 0`) selects the left cheek; a left lean selects the right cheek; exactly
   centered picks one of the two real cheek points at random. There is no rump target.
 

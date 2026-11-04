@@ -6,6 +6,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
+const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 var failures := 0
@@ -28,34 +29,34 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
-	var forward: Vector2 = RUNTIME.lean_targets(0.0, -1.0)
+	var forward: Vector2 = MOTION.lean_targets(0.0, -1.0)
 	check(near(forward.x, 1.0) and near(forward.y, 0.0), "W leans forward")
-	var back: Vector2 = RUNTIME.lean_targets(0.0, 1.0)
+	var back: Vector2 = MOTION.lean_targets(0.0, 1.0)
 	check(near(back.x, -1.0) and near(back.y, 0.0), "S leans back")
-	var left: Vector2 = RUNTIME.lean_targets(-1.0, 0.0)
+	var left: Vector2 = MOTION.lean_targets(-1.0, 0.0)
 	check(near(left.x, 1.0) and near(left.y, -1.0), "Q is forward plus left")
-	var right: Vector2 = RUNTIME.lean_targets(1.0, 0.0)
+	var right: Vector2 = MOTION.lean_targets(1.0, 0.0)
 	check(near(right.x, 1.0) and near(right.y, 1.0), "E is forward plus right")
-	var both: Vector2 = RUNTIME.lean_targets(1.0, 1.0)
+	var both: Vector2 = MOTION.lean_targets(1.0, 1.0)
 	check(near(both.x, 0.0) and near(both.y, 1.0), "S plus E cancels forward")
-	var clamped: Vector2 = RUNTIME.lean_targets(1.0, -1.0)
+	var clamped: Vector2 = MOTION.lean_targets(1.0, -1.0)
 	check(near(clamped.x, 1.0) and near(clamped.y, 1.0), "combined lean clamps forward")
 
-	check(RUNTIME.lean_action_kind(CATALOG.MISSIONARY, -1.0) == "kiss", "Q fires kiss in missionary")
-	check(RUNTIME.lean_action_kind(CATALOG.MISSIONARY, 1.0) == "", "E has no missionary action")
-	check(RUNTIME.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
-	check(RUNTIME.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
+	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, -1.0) == "kiss", "Q fires kiss in missionary")
+	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, 1.0) == "", "E has no missionary action")
+	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
+	check(MOTION.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
 
 	check(RUNTIME.smack_side_index(0.4) == 0, "right lean smacks left cheek")
 	check(RUNTIME.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
 	check(RUNTIME.smack_side_index(0.0) == -1, "centered smack is random")
 
-	check(near(RUNTIME.lean_distance(1.0), 0.24), "forward lean distance")
-	check(near(RUNTIME.lean_distance(-1.0), -0.08), "backward lean distance is halved")
-	check(near(RUNTIME.lean_size_scale_for(1.0), 1.0), "JRHNBR lean scale is reference")
-	check(near(RUNTIME.lean_size_scale_for(0.66), 1.34), "Canon lean scale is +34 percent")
-	check(near(RUNTIME.lean_distance(1.0, 1.34), 0.3216), "Canon forward lean scales")
-	check(near(RUNTIME.lean_distance(-1.0, 1.34), -0.1072), "Canon back lean scales")
+	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
+	check(near(MOTION.lean_distance(-1.0), -0.08), "backward lean distance is halved")
+	check(near(MOTION.lean_size_scale_for(1.0), 1.0), "JRHNBR lean scale is reference")
+	check(near(MOTION.lean_size_scale_for(0.66), 1.34), "Canon lean scale is +34 percent")
+	check(near(MOTION.lean_distance(1.0, 1.34), 0.3216), "Canon forward lean scales")
+	check(near(MOTION.lean_distance(-1.0, 1.34), -0.1072), "Canon back lean scales")
 
 	var hip := Node3D.new()
 	root.add_child(hip)
@@ -67,14 +68,14 @@ func run() -> void:
 	lean_runtime.depth = 0.0
 	var lean_scale: float = lean_runtime._standing_lean_scale()
 	lean_runtime.apply_anon_lean(hip, Basis.IDENTITY)
-	check(near(hip.global_position.z, RUNTIME.lean_distance(1.0, lean_scale)),
+	check(near(hip.global_position.z, MOTION.lean_distance(1.0, lean_scale)),
 		"forward lean keeps the pelvis behind the rump")
 	var side_hip := Node3D.new()
 	root.add_child(side_hip)
 	lean_runtime._lean_view_forward = 0.0
 	lean_runtime._lean_view_side = 1.0
 	lean_runtime.apply_anon_lean(side_hip, Basis.IDENTITY)
-	check(near(side_hip.global_position.x, -RUNTIME.LEAN_SIDE_M * lean_scale),
+	check(near(side_hip.global_position.x, -MOTION.LEAN_SIDE_M * lean_scale),
 		"side lean keeps the pelvis centred")
 	hip.free()
 	side_hip.free()
@@ -160,21 +161,21 @@ func run() -> void:
 	palm.free()
 	sk.free()
 
-	check(near(RUNTIME.glance_back_fade_for(1.0), RUNTIME.GLANCE_BACK_FADE),
+	check(near(MOTION.glance_back_fade_for(1.0), MOTION.GLANCE_BACK_FADE),
 		"default glance-back fade")
-	check(near(RUNTIME.glance_back_fade_for(2.0), RUNTIME.GLANCE_BACK_FADE * 0.5),
+	check(near(MOTION.glance_back_fade_for(2.0), MOTION.GLANCE_BACK_FADE * 0.5),
 		"faster glance-back speed shortens the fade")
-	check(near(RUNTIME.glance_back_fade_for(0.1), RUNTIME.GLANCE_BACK_FADE / 0.25),
+	check(near(MOTION.glance_back_fade_for(0.1), MOTION.GLANCE_BACK_FADE / 0.25),
 		"glance-back speed clamps slow")
-	check(near(RUNTIME.glance_back_fade_for(9.0), RUNTIME.GLANCE_BACK_FADE / 3.0),
+	check(near(MOTION.glance_back_fade_for(9.0), MOTION.GLANCE_BACK_FADE / 3.0),
 		"glance-back speed clamps fast")
 
-	var phase := RUNTIME.hip_phase_step(0.0, 1.0, 1.0 / 60.0)
+	var phase := MOTION.hip_phase_step(0.0, 1.0, 1.0 / 60.0)
 	check(phase > 0.0 and phase < 1.0, "hip phase eases toward the mouse depth")
 	for _step: int in 120:
-		phase = RUNTIME.hip_phase_step(phase, 1.0, 1.0 / 60.0)
+		phase = MOTION.hip_phase_step(phase, 1.0, 1.0 / 60.0)
 	check(near(phase, 1.0, 0.01), "hip phase settles at full depth")
-	check(near(RUNTIME.hip_phase_step(0.0, -10.0, 1.0 / 60.0), 0.0),
+	check(near(MOTION.hip_phase_step(0.0, -10.0, 1.0 / 60.0), 0.0),
 		"hip phase clamps depth to zero")
 
 	var live_runtime: Node = RUNTIME.new()
@@ -186,18 +187,18 @@ func run() -> void:
 		"live settings refresh camera thrust")
 	live_runtime.free()
 
-	check(near(RUNTIME.HOLD_SWAY_FORWARD, 0.010) and near(RUNTIME.HOLD_SWAY_SIDE, 0.0084),
+	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010) and near(MOTION.HOLD_SWAY_SIDE, 0.0084),
 		"idle camera sway amplitude")
 	check(near(RUNTIME.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
-	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel")
-	check(near(RUNTIME.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
-	check(near(RUNTIME.LEAN_FIRE, 0.75) and near(RUNTIME.LEAN_RELEASE, 0.60),
+	check(near(MOTION.LEAN_SIDE_M, 0.18), "side lean travel")
+	check(near(MOTION.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
+	check(near(MOTION.LEAN_FIRE, 0.75) and near(MOTION.LEAN_RELEASE, 0.60),
 		"lean threshold uses 75/60 hysteresis")
 
-	check(near(RUNTIME._lean_step(0.0, 1.0, 0.25), 0.5), "lean ramps in over half a second")
-	check(near(RUNTIME._lean_step(1.0, 0.0, 0.8), 1.0),
+	check(near(MOTION.lean_step(0.0, 1.0, 0.25), 0.5), "lean ramps in over half a second")
+	check(near(MOTION.lean_step(1.0, 0.0, 0.8), 1.0),
 		"released lean holds its position")
-	check(near(RUNTIME._lean_step(1.0, 0.0, 0.8, true), 0.5),
+	check(near(MOTION.lean_step(1.0, 0.0, 0.8, true), 0.5),
 		"shoulder recentre returns over 1.6 seconds")
 
 	var runtime: Node = RUNTIME.new()

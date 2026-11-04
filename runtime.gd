@@ -25,6 +25,7 @@ const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
 const SOUND := preload("res://mods/unfplap/act_sound.gd")
+const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
@@ -104,7 +105,7 @@ const MISSIONARY_CAMERA_PULLBACK_M := 0.22
 ## Extra height requested after the first visual pass.
 const MISSIONARY_CAMERA_LIFT_M := 0.10
 ## The missionary shot starts at the old maximum forward lean, so W pushes further up her torso
-## instead of starting from the wide position. 1.0 is one full `LEAN_FORWARD_M` lean.
+## instead of starting from the wide position. 1.0 is one full `MOTION.LEAN_FORWARD_M` lean.
 const MISSIONARY_START_LEAN := 1.0
 ## Presentation: how close the pony stands in front of the player for standing.
 const STANDING_GAP_M := 0.55
@@ -121,7 +122,7 @@ const PRESENT_TURN_STALL_S := 0.75
 ## The request's face: the act's half-lidded gaze and a full blush while she asks and presents.
 const REQUEST_LIDS := 0.45
 const REQUEST_BLUSH := 1.0
-## Per-size standing standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
+## Per-size standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
 const STANDING_GAPS := {
 	"same height": 0.55,
 	"mounting": 0.45,
@@ -145,33 +146,19 @@ const CAM_CLIMAX_BOB_M := 0.008
 const CAM_CLIMAX_SURGE_M := 0.02
 ## Hip phase low-pass on mouse depth. Depth is the input; this only removes single-frame
 ## mouse steps, it is not a speed attack.
-const HIP_SMOOTH_S := 0.04
 ## Standing F kiss: hold F at a full side lean (the shoulder reach) to use the same base kiss.
 const STANDING_KISS_LEAN := 0.90
 ## Act camera lean. Q/E drive one controlled lean vector: W/S forward/back, Q/E a
 ## forward-plus-side diagonal. The channel ramps in, then returns slowly when released.
 ## Backward travel is halved so pulling away cannot open an extreme gap.
-const LEAN_RAMP_SECONDS := 0.5
-const LEAN_RETURN_SECONDS := 1.6
-const LEAN_FORWARD_M := 0.24
 ## Backing off is half the forward travel so Anon cannot pull too far from her.
-const LEAN_BACK_M := 0.08
-const LEAN_SIDE_M := 0.18
 ## Phase-2 Anon body lean: the pelvis stays planted while the camera/head leans.
 ## Experiment: Anon's chest/head follow the thrust; the pelvis counter-moves so his upper body
 ## travels forward on the inward stroke and back on the outward stroke.
 const ANON_THRUST_SWAY_M := 0.02
-const LEAN_PITCH_DEG := 6.0
-const LEAN_ROLL_DEG := 1.5
-const LEAN_SIDE_ROLL_DEG := 8.0
-const LEAN_SIDE_YAW_DEG := 3.0
 ## Hold-mode breathing amplitude in lean units, reduced 33% from the first pass
 ## (forward 0.015, side 0.0125).
-const HOLD_SWAY_FORWARD := 0.010
-const HOLD_SWAY_SIDE := 0.0084
 ## Q/E fire their pose reaction when the smoothed side lean crosses these values.
-const LEAN_FIRE := 0.75
-const LEAN_RELEASE := 0.60
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
 const REACH_HAND_RELEASE_S := 0.35
@@ -248,9 +235,7 @@ const GLANCE_YAW := 3.0
 const GLANCE_BACK_PITCH := 1.2
 const GLANCE_BACK_CHANCE := 0.5
 ## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
-const GLANCE_BACK_FADE := 0.45
 ## Yaw limit for a look-back glance. Raised 20% from 1.35 so she turns farther over her shoulder.
-const GLANCE_BACK_YAW := 1.62
 ## Jiggle placement on the flank. The thrust scale is reduced 20% from the review pass; the
 ## native smack keeps its own strength.
 const JIGGLE_HEIGHT := 0.78
@@ -4520,15 +4505,15 @@ func _act_actions_allowed() -> bool:
 
 
 ## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and
-## also fire a pose reaction once the smoothed side lean crosses LEAN_FIRE.
+## also fire a pose reaction once the smoothed side lean crosses MOTION.LEAN_FIRE.
 func _lean_tick(delta: float) -> void:
 	_reach_hand_return_tick()
 	if not _act_actions_allowed():
 		_end_caress()
 		_end_smack_swing()
 		_end_lean_action()
-		_lean_forward = move_toward(_lean_forward, 0.0, delta / LEAN_RETURN_SECONDS)
-		_lean_side = move_toward(_lean_side, 0.0, delta / LEAN_RETURN_SECONDS)
+		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
+		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 		_lean_view_forward = _lean_forward
 		_lean_view_side = _lean_side
 		return
@@ -4536,8 +4521,8 @@ func _lean_tick(delta: float) -> void:
 			or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		_end_caress()
 		_end_lean_action()
-		_lean_forward = move_toward(_lean_forward, 0.0, delta / LEAN_RETURN_SECONDS)
-		_lean_side = move_toward(_lean_side, 0.0, delta / LEAN_RETURN_SECONDS)
+		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
+		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 		_lean_view_forward = _lean_forward
 		_lean_view_side = _lean_side
 		return
@@ -4551,15 +4536,15 @@ func _lean_tick(delta: float) -> void:
 		forward -= 1.0
 	if Input.is_action_pressed("move_back"):
 		forward += 1.0
-	var targets := lean_targets(side, forward)
+	var targets := MOTION.lean_targets(side, forward)
 	if targets.y != 0.0:
 		_side_return_armed = false
 	elif targets.x < 0.0:
 		# Pulling back also recentres the shoulder roll instead of leaving it locked until a
 		# lean to the other side.
 		_side_return_armed = true
-	_lean_forward = _lean_step(_lean_forward, targets.x, delta)
-	_lean_side = _lean_step(_lean_side, targets.y, delta, _side_return_armed)
+	_lean_forward = MOTION.lean_step(_lean_forward, targets.x, delta)
+	_lean_side = MOTION.lean_step(_lean_side, targets.y, delta, _side_return_armed)
 	if _side_return_armed and is_zero_approx(targets.y) and absf(_lean_side) <= 0.001:
 		_side_return_armed = false
 	var alpha := 1.0 - exp(-CAMERA_INERTIA_SMOOTH * delta)
@@ -4570,9 +4555,9 @@ func _lean_tick(delta: float) -> void:
 		# player is not leaning.
 		_hold_rock_clock += delta
 		_lean_view_forward = clampf(_lean_view_forward
-			+ sin(_hold_rock_clock * 0.80) * HOLD_SWAY_FORWARD, -1.0, 1.0)
+			+ sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD, -1.0, 1.0)
 		_lean_view_side = clampf(_lean_view_side
-			+ sin(_hold_rock_clock * 0.57 + 1.1) * HOLD_SWAY_SIDE, -1.0, 1.0)
+			+ sin(_hold_rock_clock * 0.57 + 1.1) * MOTION.HOLD_SWAY_SIDE, -1.0, 1.0)
 	_lean_action_tick()
 	_standing_kiss_tick()
 	_caress_tick(delta)
@@ -4581,21 +4566,10 @@ func _lean_tick(delta: float) -> void:
 		_apply_standing_lean_look()
 
 
-## Pure mapping for tests: vector x is side, y is forward. Q/E contribute both.
-static func lean_targets(move_x: float, move_y: float) -> Vector2:
-	var side := clampf(move_x, -1.0, 1.0)
-	var forward := clampf(-move_y + absf(side), -1.0, 1.0)
-	return Vector2(forward, side)
-
-
-## Forward and backward leans use different distances. JRHNBR (`1.0`) is the reference size;
-## smaller ponies need a longer lean to reach the same place. Canon (`0.66`) is +34%.
-static func lean_size_scale_for(size_scale: float) -> float:
-	return clampf(2.0 - size_scale, 0.75, 1.5)
 
 
 func _lean_size_scale() -> float:
-	return lean_size_scale_for(_size_scale())
+	return MOTION.lean_size_scale_for(_size_scale())
 
 
 ## Per-size caress-point offsets. Unknown presets use the JRHNBR reference.
@@ -4647,30 +4621,7 @@ func _jiggle_size_scale() -> float:
 	return clampf(_size_scale(), 0.5, 1.2)
 
 
-## Forward and backward leans use different distances. JRHNBR (`1.0`) is the reference size.
-static func lean_distance(forward: float, size_scale := 1.0) -> float:
-	var metres := LEAN_FORWARD_M if forward >= 0.0 else LEAN_BACK_M
-	return metres * forward * size_scale
 
-
-## The lean always holds a released position. `return_to_zero` is only used by the explicit
-## S shoulder recentre; forced end-of-act returns bypass this helper.
-static func _lean_step(current: float, target: float, delta: float,
-		return_to_zero := false) -> float:
-	if is_zero_approx(target):
-		if not return_to_zero:
-			return current
-		return move_toward(current, 0.0, delta / maxf(LEAN_RETURN_SECONDS, 0.001))
-	return move_toward(current, target, delta / maxf(LEAN_RAMP_SECONDS, 0.001))
-
-
-## Pose support for the threshold-triggered side action.
-static func lean_action_kind(pose: String, side: float) -> String:
-	if pose == CATALOG.MISSIONARY and side < 0.0:
-		return "kiss"
-	if pose == CATALOG.STANDING:
-		return "reach"
-	return ""
 
 
 ## 0 = left cheek, 1 = right cheek, -1 = centered (caller picks at random).
@@ -4688,12 +4639,12 @@ func _lean_action_tick() -> void:
 		return
 	var side := _lean_side
 	if not _lean_action_active:
-		if absf(side) >= LEAN_FIRE:
+		if absf(side) >= MOTION.LEAN_FIRE:
 			_start_lean_action(side)
 		return
-	if absf(side) <= LEAN_RELEASE or signf(side) != signf(_lean_action_side):
+	if absf(side) <= MOTION.LEAN_RELEASE or signf(side) != signf(_lean_action_side):
 		_end_lean_action()
-		if absf(side) >= LEAN_FIRE:
+		if absf(side) >= MOTION.LEAN_FIRE:
 			_start_lean_action(side)
 		return
 	if _lean_action_kind == "reach":
@@ -4703,7 +4654,7 @@ func _lean_action_tick() -> void:
 func _start_lean_action(side: float) -> void:
 	_lean_action_active = true
 	_lean_action_side = side
-	_lean_action_kind = lean_action_kind(pose_id, side)
+	_lean_action_kind = MOTION.lean_action_kind(pose_id, side)
 	_lean_action_shoulder = ""
 	if _lean_action_kind == "kiss":
 		_latch_kiss_side()
@@ -5082,7 +5033,7 @@ static func kiss_pony_side(lean_side: float) -> float:
 static func kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
 		size_scale := 1.0) -> float:
 	var blend := clampf(kiss_lean, 0.0, 1.0)
-	var lean := LEAN_SIDE_M * lean_side * size_scale
+	var lean := MOTION.LEAN_SIDE_M * lean_side * size_scale
 	var kiss := KISS_LEAN_SIDE_M * kiss_side
 	return lerpf(lean, kiss, blend)
 
@@ -5090,7 +5041,7 @@ static func kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: f
 func _kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
 		size_scale := 1.0) -> float:
 	var blend := clampf(kiss_lean, 0.0, 1.0)
-	var lean := LEAN_SIDE_M * lean_side * size_scale
+	var lean := MOTION.LEAN_SIDE_M * lean_side * size_scale
 	var kiss := _kiss_lean_side() * kiss_side
 	return lerpf(lean, kiss, blend)
 
@@ -6069,13 +6020,8 @@ func _hip_phase_tick(delta: float) -> void:
 	if pose_id != CATALOG.STANDING or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_hip_phase = 0.0
 		return
-	_hip_phase = hip_phase_step(_hip_phase, depth, delta)
+	_hip_phase = MOTION.hip_phase_step(_hip_phase, depth, delta)
 
-
-## Pure hip smoothing for tests: depth is the input, this only removes single-frame steps.
-static func hip_phase_step(current: float, depth_value: float, delta: float) -> float:
-	var alpha := 1.0 - exp(-delta / maxf(HIP_SMOOTH_S, 0.001))
-	return lerpf(current, clampf(depth_value, 0.0, 1.0), alpha)
 
 
 ## Signed mouse-depth speed for the camera. Update it on the physics tick where `depth`
@@ -6096,11 +6042,11 @@ func _apply_standing_lean_look() -> void:
 		return
 	var body: Node = main.player
 	var lean_scale := _standing_lean_scale()
-	var yaw := _look_yaw + deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale
+	var yaw := _look_yaw + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale
 	# Turn a little further toward her while kissing, over the shoulder.
 	yaw += deg_to_rad(_kiss_camera_yaw_deg()) * _kiss_lean * _kiss_side()
 	var pitch := clampf(
-		_look_pitch - deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
+		_look_pitch - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
 		-1.5, 1.5)
 	body.rotation.y = yaw
 	if body.get("_pitch") != null:
@@ -6294,7 +6240,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
 	var lean_scale := _standing_lean_scale()
-	var forward_shift := lean_distance(maxf(_lean_view_forward, 0.0), lean_scale) \
+	var forward_shift := MOTION.lean_distance(maxf(_lean_view_forward, 0.0), lean_scale) \
 		+ _kiss_lean_distance() + _anon_torso_forward()
 	hip.global_position -= forward * forward_shift
 	var side_shift := _lateral_lean_shift(lean_scale)
@@ -6367,8 +6313,8 @@ func apply_camera_motion() -> void:
 		# Pull the whole shot back along its own view axis; the frozen aim still points at her neck.
 		_missionary_view.global_position += _missionary_view_basis.z * _missionary_pullback()
 		var lean_scale := _lean_size_scale()
-		var lean_forward := lean_distance(_lean_view_forward, lean_scale) \
-			+ lean_distance(MISSIONARY_START_LEAN, lean_scale)
+		var lean_forward := MOTION.lean_distance(_lean_view_forward, lean_scale) \
+			+ MOTION.lean_distance(MISSIONARY_START_LEAN, lean_scale)
 		var to_target := _missionary_look_target() - _missionary_camera
 		if lean_forward < 0.0:
 			# Never let the shot cross its own neck target and flip the view backwards.
@@ -6406,10 +6352,10 @@ func apply_camera_motion() -> void:
 				_missionary_look_point = neck
 			_missionary_view_basis = _missionary_aim_basis(_missionary_camera)
 		var lean := Basis.from_euler(Vector3(
-			-deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
-			-deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale,
-			(-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side
-				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale))
+			-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
+			-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale,
+			(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * _lean_view_side
+				+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale))
 		_missionary_view.global_basis = _missionary_view_basis * _missionary_pitch_basis() * lean
 		var look_dir := _missionary_look_target() - _missionary_view.global_position
 		var look_dot := (-_missionary_view.global_basis.z).dot(look_dir.normalized()) \
@@ -6455,13 +6401,13 @@ func apply_camera_motion() -> void:
 		return
 	var lean_scale := _standing_lean_scale()
 	_set_camera_offsets(_bob - _kiss_lean_drop() * _kiss_lean - _anon_torso_drop(),
-		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
+		_lean - _back + MOTION.lean_distance(_lean_view_forward, lean_scale)
 		+ _kiss_lean_distance() + _anon_torso_forward(), _lateral_lean_shift(lean_scale))
 	if pose_id == CATALOG.STANDING and _free_camera_active and is_instance_valid(_camera):
-		_camera.rotation.z = (-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side \
-			+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale
+		_camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * _lean_view_side \
+			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale
 		_camera.rotation.x = clampf(
-			_look_pitch - deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
+			_look_pitch - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
 			-1.5, 1.5)
 
 
@@ -6577,13 +6523,9 @@ func _lock_body_facing() -> void:
 			nav.call("set_conversation_target", null, false)
 
 
-## Multiplier-based glance-back speed. Higher speed means a shorter fade.
-static func glance_back_fade_for(speed: float) -> float:
-	return GLANCE_BACK_FADE / clampf(speed, 0.25, 3.0)
-
 
 func _glance_back_fade() -> float:
-	return glance_back_fade_for(float(_presentation_cfg.get("glance_back_speed", 1.0)))
+	return MOTION.glance_back_fade_for(float(_presentation_cfg.get("glance_back_speed", 1.0)))
 
 
 ## Every few seconds she turns her head back toward Anon, then forward again. The game's
@@ -6679,7 +6621,7 @@ func _glance_angles() -> Vector3:
 	if _glance_back:
 		var back_pitch := float(_pose_cfg.get("glance_back_pitch", GLANCE_BACK_PITCH)) * 1.2
 		return Vector3(clampf(pitch + back_pitch, -0.25, 1.44),
-			clampf(yaw, -GLANCE_BACK_YAW, GLANCE_BACK_YAW), 0.0)
+			clampf(yaw, -MOTION.GLANCE_BACK_YAW, MOTION.GLANCE_BACK_YAW), 0.0)
 	var yaw_limit := float(_pose_cfg.get("glance_yaw", GLANCE_YAW))
 	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -yaw_limit, yaw_limit), 0.0)
 

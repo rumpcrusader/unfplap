@@ -76,6 +76,7 @@ const FEATURE_DEFAULTS := {
 	"missionary_body_motion": true,
 	"thrust_ear_twitch": true,
 	"thrust_tail_dock_jiggle": true,
+	"dock_tail_follow": true,
 	"standing_plant_feet": true,
 	"allow_act_during_cuddle": true,
 	"press_y_starts_sex": false,
@@ -125,6 +126,10 @@ const FEATURE_INFO := {
 	"thrust_tail_dock_jiggle": {
 		"label": "Tail base + dock jiggle",
 		"help": "Add the tail base and dock to the rump's thrust and smack jiggle.",
+	},
+	"dock_tail_follow": {
+		"label": "Dock follows tail",
+		"help": "Show the acting pony's unmerged rig and move her dock with the tail root during a standing act. Off keeps the merged dock on the rump.",
 	},
 	"standing_plant_feet": {
 		"label": "Plant Anon's lower body",
@@ -231,6 +236,7 @@ const PRESENTATION_DEFAULTS := {
 		"smack": {
 			"raise_m": 0.30,
 			"hind_m": 0.10,
+			"height_m": -0.03,
 			"arc_m": 0.06,
 			"pitch_deg": 12.0,
 			"raise_speed": 2.0,
@@ -677,6 +683,7 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 		var smack: Dictionary = out.get("smack", {})
 		smack["raise_m"] = maxf(0.0, float(smack.get("raise_m", 0.30)))
 		smack["hind_m"] = maxf(0.0, float(smack.get("hind_m", 0.10)))
+		smack["height_m"] = float(smack.get("height_m", -0.03))
 		smack["arc_m"] = maxf(0.0, float(smack.get("arc_m", 0.06)))
 		smack["pitch_deg"] = float(smack.get("pitch_deg", 12.0))
 		smack["raise_speed"] = maxf(0.05, float(smack.get("raise_speed", 2.0)))

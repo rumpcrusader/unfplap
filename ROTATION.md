@@ -292,8 +292,8 @@ these values here if a future pose needs that effect.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. Standing targets the flank patch: the live caress point when that hand's contact
-  source is `flank`; a free-hand smack uses the chosen cheek just below its mark centre,
-  querying `SMACK_CHEEK_DROP_M = 0.03 m × body scale` below the mark centre and
+  source is `flank`; a free-hand smack uses the chosen cheek, querying the mark centre offset by
+  `smack.height_m` (default `-0.03 m`, signed: positive is up) × body scale and
   `smack.hind_m` (default `0.10 m`) toward her rump, then snapping to the nearest
   `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius` (`0.035 m` by
   default). That keeps a resting hand from reaching the leg and puts the contact on the hind of
@@ -348,6 +348,11 @@ these values here if a future pose needs that effect.
   `mTail1..6` wave alone cannot move the base; `tail_pose` also translates the hair `mPelvis` by
   `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave and restores the mane bones, so only the
   tail base and chain move.
+- `dock_tail_follow.gd` (default on) rotates the dock with the tail root during the standing act:
+  the change in `mTail1` relative to `mPelvis` since the act started, applied about the tail root.
+  It follows aside/lift/flick/rock/thrust, but not the `mPelvis` base bob, and the rump shader
+  jiggle still applies. The acting pony's merged near mesh draws its own dock copy, so it is
+  swapped for the rig (`set_near_mesh(false)`) while this runs and restored at act end.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

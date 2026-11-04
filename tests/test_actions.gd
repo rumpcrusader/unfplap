@@ -14,12 +14,22 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
+const DOCK_TAIL := preload("res://mods/unfplap/dock_tail_follow.gd")
 
 class FakeTail extends Node:
 	var last_strength := 0.0
 
 	func thrust(strength: float) -> void:
 		last_strength = strength
+
+
+class FakeMare extends Node3D:
+	var near_mesh_enabled := true
+	var near_calls: Array = []
+
+	func set_near_mesh(on: bool) -> void:
+		near_mesh_enabled = on
+		near_calls.append(on)
 
 
 class FakeFlank extends Node3D:
@@ -74,6 +84,21 @@ func run() -> void:
 	check(CAESS.smack_side_index(0.4) == 0, "right lean smacks left cheek")
 	check(CAESS.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
 	check(CAESS.smack_side_index(0.0) == -1, "centered smack is random")
+	var up_offset: Vector3 = CAESS.smack_query_offset(0.05, 0.02, 1.0,
+		Vector3.UP, Vector3.BACK)
+	check(near(up_offset.y, 0.05) and near(up_offset.z, 0.02),
+		"smack height and hind offsets use signed up and back")
+	var down_offset: Vector3 = CAESS.smack_query_offset(-0.03, 0.10, 2.0,
+		Vector3.UP, Vector3.BACK)
+	check(near(down_offset.y, -0.06) and near(down_offset.z, 0.20),
+		"smack query offset scales with the pony")
+	var height_controller := CAESS.new()
+	height_controller.set("_presentation_cfg", {"smack": {"height_m": 0.12}})
+	check(near(float(height_controller.call("_smack_height_m")), 0.12),
+		"smack height reads the presentation setting")
+	var default_height := CAESS.new()
+	check(near(float(default_height.call("_smack_height_m")), -0.03),
+		"smack height falls back to 3 cm below the mark")
 	var smack_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
 	var smack_raised: Transform3D = CAESS.smack_raise_frame(
 		smack_contact, Vector3.RIGHT, 0.18, 0.05, Vector3.BACK, 15.0)
@@ -504,6 +529,46 @@ func run() -> void:
 		and hair.get_bone_global_pose(2).origin.is_equal_approx(neck_before)
 		and hair.get_bone_global_pose(3).origin.is_equal_approx(head_before),
 		"tail jiggle keeps the mane planted")
+
+	# Dock follows the tail root instead of the rump. The follower reveals the acting pony's
+	# unmerged rig (the merged near mesh cannot move its dock) and restores it when it stops.
+	var dock_mare := FakeMare.new()
+	root.add_child(dock_mare)
+	var dock := MeshInstance3D.new()
+	dock.name = "OpenPonyDock"
+	dock_mare.add_child(dock)
+	var dock_runtime: Node = RUNTIME.new()
+	dock_runtime._features = {"dock_tail_follow": true}
+	root.add_child(dock_runtime)
+	var follower := DOCK_TAIL.new()
+	follower.mare = dock_mare
+	follower.runtime = dock_runtime
+	hair.add_child(follower)
+	follower.call("_process_modification_with_delta", 0.0)
+	check(dock_mare.near_calls == [false],
+		"dock follower reveals the unmerged rig")
+	check(dock.transform.is_equal_approx(Transform3D.IDENTITY),
+		"dock follower keeps the baseline frame")
+	var tail_rotated := hair.get_bone_global_pose(4)
+	tail_rotated.basis = Basis(Vector3.UP, 0.5) * tail_rotated.basis
+	hair.set_bone_global_pose(4, tail_rotated)
+	follower.call("_process_modification_with_delta", 0.0)
+	check(not dock.transform.is_equal_approx(Transform3D.IDENTITY),
+		"dock follows the tail root")
+	follower.call("restore")
+	check(dock.transform.is_equal_approx(Transform3D.IDENTITY),
+		"dock follower restores the dock frame")
+	check(dock_mare.near_calls == [false, true],
+		"dock follower restores the near mesh")
+	dock_runtime._features = {"dock_tail_follow": false}
+	follower.call("_process_modification_with_delta", 0.0)
+	check(dock_mare.near_calls == [false, true],
+		"dock follower stays off with the flag off")
+	hair.remove_child(follower)
+	follower.free()
+	dock_mare.free()
+	dock_runtime.free()
+
 	hair.free()
 	tail_mare.free()
 	tail_runtime.free()

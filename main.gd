@@ -986,6 +986,13 @@ func _add_standing_presentation(list: VBoxContainer, font_size: int) -> void:
 		SETTINGS.save_presentation_controls("standing",
 			{"smack": {"hind_m": smack_hind.value / 100.0}})
 		_apply_live_settings())
+	var smack_height := _settings_spin_free(smack_form, "Height", 0.5,
+		float(smack.get("height_m", -0.03)) * 100.0, font_size)
+	smack_height.suffix = " cm"
+	smack_height.value_changed.connect(func(_value: float) -> void:
+		SETTINGS.save_presentation_controls("standing",
+			{"smack": {"height_m": smack_height.value / 100.0}})
+		_apply_live_settings())
 	var smack_arc := _settings_spin_free(smack_form, "Palm arc", 0.5,
 		float(smack.get("arc_m", 0.06)) * 100.0, font_size)
 	smack_arc.suffix = " cm"

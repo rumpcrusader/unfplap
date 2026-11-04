@@ -119,6 +119,8 @@ func run() -> void:
 		"tail/dock jiggle on by default")
 	check(bool(feature_block.get("standing_plant_feet", false)),
 		"standing feet plant on by default")
+	check(bool(feature_block.get("dock_tail_follow", false)),
+		"dock follows the tail on by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
@@ -236,6 +238,8 @@ func run() -> void:
 		"default smack raise")
 	check(near(float(smack_defaults.get("hind_m", -1.0)), 0.10),
 		"default smack hind offset")
+	check(near(float(smack_defaults.get("height_m", 1.0)), -0.03),
+		"default smack height offset")
 	check(near(float(smack_defaults.get("arc_m", -1.0)), 0.06),
 		"default smack arc")
 	check(near(float(smack_defaults.get("pitch_deg", -1.0)), 12.0),
@@ -352,6 +356,8 @@ func run() -> void:
 		"runtime smack raise is non-negative")
 	check(float(smack_controls.get("hind_m", -1.0)) >= 0.0,
 		"runtime smack hind offset is non-negative")
+	check(near(float(smack_controls.get("height_m", 1.0)), -0.03),
+		"runtime smack height is signed")
 	check(float(smack_controls.get("arc_m", -1.0)) >= 0.0,
 		"runtime smack arc is non-negative")
 	check(smack_controls.has("pitch_deg"), "runtime smack pitch is present")

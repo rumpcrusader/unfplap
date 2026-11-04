@@ -59,9 +59,11 @@ const SMACK_STRIKE_MIN_S := 0.06
 const SMACK_STRIKE_MAX_S := 0.20
 const SMACK_PITCH_DEG := 12.0
 const SMACK_RAISE_BACK_M := 0.05
-## Non-caress smack: the query sits this far below the cheek centre, and the wind-up is a
-## backswing from behind/below rather than an outward lift. All distances scale with the pony.
-const SMACK_CHEEK_DROP_M := 0.03
+## Non-caress smack: the query is offset vertically from the cheek centre by
+## `presentation.standing.smack.height_m` (positive up, default -0.03 = 3 cm below), and the
+## wind-up is a backswing from behind/below rather than an outward lift. All distances scale
+## with the pony.
+const SMACK_HEIGHT_M := -0.03
 const SMACK_HIND_M := 0.10
 const SMACK_ARC_M := 0.06
 const SMACK_SWING_DOWN_RATIO := 0.55
@@ -1065,8 +1067,15 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3,
 	return {"local": local, "normal": normal}
 
 
-## World query point for a free-hand smack: the chosen cheek centre dropped to the bottom of
-## the flank patch, so the nearest surface point is a cheek rather than the leg.
+## Free-hand query offset from the cheek mark centre: `height_m` is signed (positive up) and
+## `hind_m` moves toward her rump. Both scale with the pony.
+static func smack_query_offset(height_m: float, hind_m: float, scale: float,
+		up: Vector3, back: Vector3) -> Vector3:
+	return up.normalized() * (height_m * scale) + back.normalized() * (hind_m * scale)
+
+
+## World query point for a free-hand smack: the chosen cheek centre offset by the act's height
+## and hind settings, so the nearest surface point is a cheek rather than the leg.
 func _lower_cheek_query(hand_side: String) -> Vector3:
 	if not is_instance_valid(_flank):
 		return Vector3.INF
@@ -1082,8 +1091,8 @@ func _lower_cheek_query(hand_side: String) -> Vector3:
 	if is_instance_valid(pony):
 		back = pony.global_basis.z.normalized()
 	var scale := _smack_body_scale()
-	return world + Vector3.DOWN * (SMACK_CHEEK_DROP_M * scale) \
-		+ back * (_smack_hind_m() * scale)
+	return world + smack_query_offset(_smack_height_m(), _smack_hind_m(), scale,
+		Vector3.UP, back)
 
 
 func _smack() -> void:
@@ -1333,6 +1342,10 @@ func _smack_raise_m() -> float:
 
 func _smack_hind_m() -> float:
 	return maxf(0.0, _smack_setting("hind_m", SMACK_HIND_M))
+
+
+func _smack_height_m() -> float:
+	return _smack_setting("height_m", SMACK_HEIGHT_M)
 
 
 func _smack_arc_m() -> float:

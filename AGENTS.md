@@ -134,6 +134,7 @@ mods/unfplap/
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
+  dock_tail_follow.gd  moves the dock with the tail root and swaps in the rig for the act
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
   consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
@@ -416,6 +417,14 @@ body-relative axes.
   off; without that restore a regular smack after an act jiggled the merged dock but not the
   hair tail. With the flag off, a smack skips both the tail wave and the dock. The hair tail
   base jiggles through `tail_pose`.
+- With `dock_tail_follow` enabled (default on), `dock_tail_follow.gd` runs on the hair skeleton
+  after `tail_pose` and rotates `OpenPonyDock` about the tail root by the change in `mTail1`
+  since the act started. It follows the aside, lift, flick, rock and thrust wave, but not the
+  `mPelvis` base bob (that would detach the dock's rump end). The rump shader jiggle from
+  `thrust_tail_dock_jiggle` still applies on top.
+  The merged near mesh draws its own dock copy that cannot move, so the acting pony shows her
+  unmerged rig while the follower runs (`set_near_mesh(false)`) and gets the merged mesh back at
+  act end. Only the acting pony is affected. Off restores the current rump-only dock.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -537,10 +546,10 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
   `1 = right cheek`. Standing targets the flank patch: if the striking hand is already
   caressing and its contact source is `flank`, that live point is used. A free-hand smack
-  targets the chosen cheek just below its mark centre: the mark centre dropped
-  `SMACK_CHEEK_DROP_M = 0.03 m` × body scale and moved `smack.hind_m` (default `0.10 m`) ×
-  body scale toward her rump, snapped to the nearest `FlankSurface` point and jittered
-  tangentially within `smack_zone_radius` (default `0.035 m`). That keeps a resting hand from
+  targets the chosen cheek: the mark centre offset vertically by `smack.height_m` (default
+  `-0.03 m`, positive up) × body scale and moved `smack.hind_m` (default `0.10 m`) × body scale
+  toward her rump, snapped to the nearest `FlankSurface` point and jittered tangentially within
+  `smack_zone_radius` (default `0.035 m`). That keeps a resting hand from
   reaching the leg and puts the contact on the hind of the flank.
   A forward lean therefore lands on the forward flank instead of reaching back to the cheek.
   The body hull is never the smack target and the rump centre is not used. Missionary keeps the
@@ -937,6 +946,7 @@ examples.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
+| `dock_tail_follow` | `true` | show the acting pony's rig and move her dock with the tail root during a standing act |
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | hidden Debug control: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
@@ -963,9 +973,10 @@ rump blush. Unknown settings keys are ignored.
   - `standing`: `glance_back_speed`, `torso_angle_deg`, `idle_sway_side` (default `0.0`),
     `caress` with `palm_distance`, `oval_across_m` (default `5.36 cm`), `oval_up_m` (default
     `2.89 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
-    and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.10 m`), `arc_m`
-    (default `0.06 m`), `pitch_deg` (default `12°`), `raise_speed` (default `2.0 m/s`) and
-    `return_speed` (default `6.0 m/s`). The smack values are experimental/unbounded.
+    and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.10 m`), `height_m`
+    (default `-0.03 m`, signed), `arc_m` (default `0.06 m`), `pitch_deg` (default `12°`),
+    `raise_speed` (default `2.0 m/s`) and `return_speed` (default `6.0 m/s`). The smack values
+    are experimental/unbounded.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - Only bound a settings control when the bound is part of the explicit user-facing contract
@@ -982,9 +993,9 @@ rump blush. Unknown settings keys are ignored.
   (radius, thrust intensity and smack intensity), the **Act presentation** section split into
   **Missionary** and **Standing** (standing includes idle side sway, caress palm distance, oval
   radii, size-selected palm scale, body-part ignores, and the smack raise height, hind offset,
-  palm arc, palm pitch and raise/return speeds), and the offer / ear-pin debug controls. There
-  are no Save buttons: each control writes its own block and calls `apply_live_settings()` so the
-  active act updates immediately.
+  height, palm arc, palm pitch and raise/return speeds), and the offer / ear-pin debug controls.
+  There are no Save buttons: each control writes its own block and calls `apply_live_settings()`
+  so the active act updates immediately.
 - `debug_logs` defaults to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),

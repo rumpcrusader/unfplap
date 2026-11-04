@@ -225,7 +225,7 @@ static func default_block(prefix: String) -> Dictionary:
 	var out: Dictionary = {}
 	for path: String in all():
 		if path.begins_with(prefix):
-			_write_path(out, path.substr(prefix.length()), default_value(path))
+			write_path(out, path.substr(prefix.length()), default_value(path))
 	return out
 
 
@@ -280,7 +280,7 @@ static func list(value: Array, options: Array, label: String, help: String,
 
 
 ## Write one dotted path into a nested dictionary, creating intermediate dictionaries.
-static func _write_path(root: Dictionary, path: String, value: Variant) -> void:
+static func write_path(root: Dictionary, path: String, value: Variant) -> void:
 	var parts := path.split(".", false)
 	if parts.is_empty():
 		return

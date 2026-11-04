@@ -119,16 +119,8 @@ static func block(prefix: String) -> Dictionary:
 	var out: Dictionary = {}
 	for path: String in SCHEMA.all():
 		if path.begins_with(prefix):
-			SCHEMA._write_path(out, path.substr(prefix.length()), _values.get(path))
+			SCHEMA.write_path(out, path.substr(prefix.length()), _values.get(path))
 	return out
-
-
-static func info(path: String) -> Dictionary:
-	return SCHEMA.entry(path)
-
-
-static func paths() -> Array:
-	return SCHEMA.all().keys()
 
 
 ## Re-read settings.json and drop the resolved values.
@@ -136,12 +128,6 @@ static func reload() -> void:
 	SETTINGS.reload()
 	_generation = -1
 	_values.clear()
-
-
-## Resolved defaults for a prefix, independent of the saved file. Used by settings.gd to build
-## the settings file defaults.
-static func default_block(prefix: String) -> Dictionary:
-	return SCHEMA.default_block(prefix)
 
 
 static func _ensure() -> void:

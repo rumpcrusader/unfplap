@@ -1873,6 +1873,7 @@ func _build_pose() -> void:
 		_tail.runtime = self
 		_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
 		_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
+		_tail.base_share = float(_pose_cfg.get("tail_base_share", 0.6))
 		_tail.amount = 0.0
 		_tail.target_amount = 1.0
 		_tail.call("choose_side")

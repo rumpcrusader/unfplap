@@ -347,15 +347,17 @@ these values here if a future pose needs that effect.
   scales the act smack amount. Stock marks are hidden and aged at act start, so a
   mark from an earlier regular smack cannot linger as a stale jiggle point. The game's tail
   anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair `mPelvis`, so the
-  `mTail1..6` wave alone cannot move the base; `tail_pose` also translates the hair `mPelvis` by
-  `JIGGLE_BASE_M = 0.02 m` using the dock shader's wave and restores the mane bones, so only the
-  tail base and chain move.
-- `dock_tail_follow.gd` (default on) rotates the dock with the tail root during the standing act:
-  the change in `mTail1` relative to `mPelvis` since the act started, applied about the tail root.
-  It follows aside/lift/flick/rock/thrust, but not the `mPelvis` base bob, and the rump shader
-  jiggle still applies. The acting pony's merged near mesh draws its own dock copy, so it is
-  swapped for the rig (`set_near_mesh(false)`) while this runs and restored at act end. The
-  standing invitation attaches the same follower to its presentation tail. The restore ends the
+  `mTail1..6` wave alone cannot move the base. `tail_pose` moves `mPelvis` itself: it applies
+  `tail_base_share` (default `0.6`, per-pose overridable) of the aside/lift there, reduces the
+  root bone's own share to keep the total sweep, translates it by `JIGGLE_BASE_M = 0.02 m` on
+  the dock wave, and restores the mane bones, so the pinned tail base moves with the chain.
+- `dock_tail_follow.gd` (default on) carries the dock with the hair `mPelvis` during the
+  standing act. It measures the pelvis in the body `pony_hips` frame, baselines that at the act
+  start and applies the change to `OpenPonyDock`, so the dock follows the base share of the
+  aside/lift and the thrust base bob while the chain keeps its curl. The rump shader jiggle
+  still applies. The acting pony's merged near mesh draws its own dock copy, so it is swapped
+  for the rig (`set_near_mesh(false)`) while this runs and restored at act end. The standing
+  invitation attaches the same follower to its presentation tail. The restore ends the
   base-game rump wobble and clears its cached `jiggle_twin` metadata first, since the near-mesh
   material comparison includes metadata and would otherwise reject the body group.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by

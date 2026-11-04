@@ -1,13 +1,19 @@
 extends SkeletonModifier3D
 ## Moves the tail aside and slightly up for the standing presentation, and can flick it.
-## Runs on the hair skeleton after hybrid_tail_motion; only rotates bones.
+## Runs on the hair skeleton after hybrid_tail_motion. A share of the base motion is applied to
+## the hair pelvis (the anchor's pin target and the dock's follow target), the rest to the chain.
 ##
 ## The side is chosen per act by `choose_side()` so the tail does not always sweep the same way.
 
 const ASIDE_ANGLE := 0.55
 const LIFT_ANGLE := 0.42
+## Share of the aside/lift applied to the hair pelvis instead of only the chain. The pelvis is
+## what the game's tail anchor pins the hair root to and what the dock follows, so moving it is
+## what keeps the dock and the tail base together.
+const BASE_SHARE := 0.6
 var aside_angle := ASIDE_ANGLE
 var lift_angle := LIFT_ANGLE
+var base_share := BASE_SHARE
 var flick_amplitude := FLICK_AMPLITUDE
 const FLICK_SECONDS := 0.9
 const FLICK_AMPLITUDE := 1.10
@@ -141,20 +147,38 @@ func _process_modification_with_delta(delta: float) -> void:
 		var world_up := mare.global_basis.y.normalized()
 		base_offset = (world_back * (wave * JIGGLE_BASE_NORMAL) + world_up * bob) \
 			* (JIGGLE_BASE_M * _thrust_strength * weight)
-	if base_offset.length_squared() > 0.0000001 and _pelvis >= 0:
+	var flicking := absf(flick) > 0.0001
+	var lift_total := lift_angle * weight + (flick * weight if flicking else 0.0)
+	# Share of the base motion moves the pelvis the game's anchor pins the hair root to. The
+	# dock follows this same pelvis motion, so the dock and the visible tail base stay one piece.
+	var base_lift_sign := 1.0
+	if _bones.size() >= 2:
+		var root_origin := sk.get_bone_global_pose(_bones[0]).origin
+		var next_origin := sk.get_bone_global_pose(_bones[1]).origin
+		if right.cross((next_origin - root_origin).normalized()).dot(up) < 0.0:
+			base_lift_sign = -1.0
+	var base_aside := aside_angle * weight * aside_sign * base_share
+	var base_lift := lift_total * base_lift_sign * base_share
+	var base_motion := absf(base_aside) > 0.0001 or absf(base_lift) > 0.0001
+	if (base_offset.length_squared() > 0.0000001 or base_motion) and _pelvis >= 0:
 		var mane_poses: Array = []
 		for bone in _mane:
 			mane_poses.append([bone, sk.get_bone_global_pose(bone)])
 		var pelvis_pose := sk.get_bone_global_pose(_pelvis)
-		pelvis_pose.origin += sk.global_transform.affine_inverse().basis * base_offset
+		if base_motion:
+			pelvis_pose.basis = Basis(up, base_aside) * Basis(right, base_lift) * pelvis_pose.basis
+		if base_offset.length_squared() > 0.0000001:
+			pelvis_pose.origin += sk.global_transform.affine_inverse().basis * base_offset
 		sk.set_bone_global_pose(_pelvis, pelvis_pose)
 		# The mane is copied from the head link; keep it where that link put it.
 		for entry: Array in mane_poses:
 			sk.set_bone_global_pose(entry[0], entry[1])
-	var flicking := absf(flick) > 0.0001
 	for i: int in _bones.size():
 		var bone := _bones[i]
 		var falloff := 1.0 - float(i) * 0.10
+		# The pelvis already carries the base share; the root bone only contributes the rest,
+		# so the total tail sweep stays the same as before the split.
+		var share := (1.0 - base_share) if i == 0 else 1.0
 		var pose := sk.get_bone_global_pose(bone)
 		var direction := pose.basis.z
 		if i + 1 < _bones.size():
@@ -162,9 +186,8 @@ func _process_modification_with_delta(delta: float) -> void:
 		# Rotating about `right` by a positive angle raises the tail when (right x direction)
 		# already points up; derive the sign so the lift always goes up.
 		var lift_sign := 1.0 if right.cross(direction).dot(up) >= 0.0 else -1.0
-		pose.basis = Basis(up, aside_angle * weight * aside_sign * falloff) * pose.basis
-		var lift := lift_angle * weight + (flick * weight if flicking else 0.0)
-		pose.basis = Basis(right, lift_sign * lift * falloff) * pose.basis
+		pose.basis = Basis(up, aside_angle * weight * aside_sign * falloff * share) * pose.basis
+		pose.basis = Basis(right, lift_sign * lift_total * falloff * share) * pose.basis
 		pose.basis = Basis(right, lift_sign * _rock * ROCK_PITCH * weight * falloff) * pose.basis
 		pose.basis = Basis(up, _rock * ROCK_YAW * weight * falloff) * pose.basis
 		if _thrust_strength > 0.001 and thrust_envelope > 0.001:

@@ -555,8 +555,8 @@ func _report_line(pony: Node3D, label: String) -> void:
 		dist = delta.length()
 		if dist > 0.001:
 			dot = (-view.global_basis.z).dot(delta.normalized())
-	# Match F8's pose choice: a standing mare reports the horse gate; one already lying reports
-	# the bed path so the report explains the pose the player would actually get.
+	# Match the runtime debug_line pose choice: a standing mare reports the horse gate; one
+	# already lying reports the bed path so the report explains the pose the player would get.
 	var pose := CATALOG.HORSE
 	var source := ""
 	var bed: Variant = null
@@ -896,7 +896,8 @@ func _target_under_aim() -> Node3D:
 	return _aim_cone_target(view)
 
 
-## Fallback when the ray misses a thin limb: the same forward cone F8 uses, limited to test mares.
+## Fallback when the ray misses a thin limb: the same forward cone the debug target picker uses,
+## limited to test mares.
 func _aim_cone_target(view: Camera3D) -> Node3D:
 	var forward := -view.global_basis.z
 	var best: Node3D = null

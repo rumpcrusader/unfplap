@@ -417,12 +417,6 @@ static func load_debug_logs() -> bool:
 	return bool(data.get("debug_logs", true))
 
 
-static func save_debug_logs(value: bool) -> void:
-	var data := _read()
-	data["debug_logs"] = value
-	_write(data)
-
-
 static func act_prompt(id: String, key: String) -> String:
 	var prompts: Variant = template_for(id).get("act_prompts", {})
 	if prompts is Dictionary:

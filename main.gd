@@ -80,17 +80,6 @@ func _debug_block(title: String, rows: Array) -> void:
 	debug(text)
 
 
-func toggle_debug_logs() -> void:
-	debug_logs = not debug_logs
-	SETTINGS.save_debug_logs(debug_logs)
-	if not debug_logs and is_instance_valid(_debug_skeleton):
-		_debug_skeleton.set("enabled", false)
-	if debug_logs:
-		print("[unfplap] debug logs ON")
-	else:
-		print("[unfplap] debug logs OFF")
-
-
 func _ready() -> void:
 	process_priority = 100
 	set_process(true)
@@ -865,7 +854,7 @@ func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", font_size - 4)
 	var button := Button.new()
-	button.text = "Trigger sex offer (F4)"
+	button.text = "Trigger sex offer (\\)"
 	button.pressed.connect(func() -> void:
 		status.text = _debug_offer_request())
 	list.add_child(button)
@@ -1390,73 +1379,6 @@ func _debug_target(view: Camera3D) -> Node:
 	return best
 
 
-func _debug_bed_state() -> String:
-	if not is_instance_valid(player):
-		return ""
-	var seat: Variant = player.get("seat")
-	if not is_instance_valid(seat):
-		return "bed: seat=null"
-	var couch: Variant = seat.get_meta("couch") if seat.has_meta("couch") else null
-	if not is_instance_valid(couch):
-		return "bed: seat=%s couch=null" % str(seat.name)
-	var guest: Variant = couch.get("_guest")
-	var sleeper: Variant = couch.get("_sleeper")
-	return "bed: seat=%s couch=%s fits=%s side=%.2f guest=%s sleeper=%s mare_front=%s mare_rest=%s" % [
-		str(seat.name), str(couch.name), str(couch.get("_mare_fits")), float(couch.get("_side")),
-		str((guest as Dictionary).get("state", "?")) if guest is Dictionary and not (guest as Dictionary).is_empty() else "none",
-		str(sleeper.name) if is_instance_valid(sleeper) else "null",
-		str(couch.get("_mare_front")), str(couch.get("_mare_rest"))]
-
-
-func _debug_offer() -> void:
-	if not debug_logs:
-		return
-	if not is_instance_valid(player) or not is_instance_valid(game):
-		return
-	var rows: Array[String] = []
-	var bed_line := _debug_bed_state()
-	if not bed_line.is_empty():
-		rows.append(bed_line)
-	var view: Camera3D = camera()
-	if view == null:
-		rows.append("camera=null")
-		_debug_block("DEBUG nearest", rows)
-		return
-	var target = _debug_target(view)
-	if target == null:
-		rows.append("nearest=none locked=%s mouse=%s paused=%s menu=%s" % [
-			str(player.get("controls_locked")), str(Input.mouse_mode), str(get_tree().paused),
-			str(menu_open())])
-		_debug_block("DEBUG nearest", rows)
-		return
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime):
-		rows.append("nearest=%s no runtime" % str(target.name))
-		_debug_block("DEBUG nearest", rows)
-		return
-	var pony_form := PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	var pose := CATALOG.HORSE
-	var source := ""
-	var bed: Variant = null
-	var reach: Node = interactor()
-	if not pony_form and is_instance_valid(reach) and reach.get("held") == target and reach.get("cradled") == true:
-		pose = CATALOG.MISSIONARY
-		source = "cradle"
-		bed = bed_for_cradle(target)
-	elif str(target.call("posture_status").get("requested")) == "lie_down":
-		pose = CATALOG.MISSIONARY
-		source = "already_lying"
-		bed = runtime.call("find_bed_under")
-	var delta: Vector3 = target.global_position + Vector3.UP * 0.9 - view.global_position
-	var dist: float = delta.length()
-	var dot: float = (-view.global_basis.z).dot(delta.normalized()) if dist > 0.001 else 0.0
-	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot))
-	for part: String in line.split(" | "):
-		if not part.is_empty():
-			rows.append(part)
-	_debug_block("DEBUG nearest", rows)
-
-
 func try_start() -> bool:
 	if is_instance_valid(active_runtime):
 		return false
@@ -1492,10 +1414,8 @@ func debug_request() -> void:
 	_debug_offer_request()
 
 
-## Shared by F4 and the hidden settings button, so both paths report the same status.
+## Shared by `\` and the hidden settings button, so both paths report the same status.
 func _debug_offer_request() -> String:
-	if not debug_logs:
-		return "Debug logs are off."
 	if not is_instance_valid(initiation) or not is_instance_valid(player):
 		return "Act system not ready."
 	var view: Camera3D = camera()
@@ -1516,47 +1436,8 @@ func _debug_offer_request() -> String:
 	return "Gates rejected %s (relationship, consent or pose)." % str(target.name)
 
 
-func debug_chin(step_deg: float) -> void:
-	if not debug_logs:
-		return
-	var runtime: Variant = active_runtime
-	if not is_instance_valid(runtime):
-		var view: Camera3D = camera()
-		if not is_instance_valid(view):
-			_debug("chin: no camera")
-			return
-		var target: Node = _debug_target(view)
-		if not is_instance_valid(target):
-			target = _nearest_pony(view)
-		runtime = runtime_for(target)
-	if not is_instance_valid(runtime):
-		_debug("chin: no pony target")
-		return
-	runtime.call("debug_chin", step_deg)
-
-
-func debug_voices() -> void:
-	if not debug_logs:
-		return
-	var rows: Array[String] = []
-	for node: Variant in mares():
-		if not is_instance_valid(node):
-			continue
-		var id := str((node as Node).get_meta("relationship_id", ""))
-		if id.is_empty():
-			var identity: Variant = (node as Node).get("identity")
-			if identity != null:
-				id = str(identity.get("id"))
-		var runtime: Variant = runtime_for(node)
-		if is_instance_valid(runtime):
-			rows.append("%s %s" % [id, str(runtime.call("voice_status_line"))])
-		else:
-			rows.append("%s no runtime" % id)
-	_debug_block("VOICES", rows)
-
-
-## Chin debugging is not aim-gated: if the crosshair is not on a mare, use the nearest loaded
-## one within 8 m so Alt+7 / Alt+8 works while walking around idle.
+## The request helper is not aim-gated: if the crosshair is not on a mare, use the nearest
+## loaded one within 8 m so it works while walking around idle.
 func _nearest_pony(view: Camera3D) -> Node:
 	if not is_instance_valid(view):
 		return null
@@ -1574,10 +1455,6 @@ func _nearest_pony(view: Camera3D) -> Node:
 
 
 func toggle_skeleton_debug() -> void:
-	if not debug_logs:
-		if is_instance_valid(_debug_skeleton):
-			_debug_skeleton.set("enabled", false)
-		return
 	if not is_instance_valid(_debug_skeleton):
 		_debug_skeleton = DEBUG_SKELETON.new()
 		_debug_skeleton.name = "UnfplapSkeleton"
@@ -1592,20 +1469,6 @@ func skeleton_click() -> bool:
 	if not is_instance_valid(_debug_skeleton) or not bool(_debug_skeleton.get("enabled")):
 		return false
 	return bool(_debug_skeleton.call("handle_click"))
-
-
-func debug_pose1_float() -> void:
-	if not debug_logs:
-		return
-	var target: Node = _debug_target(camera())
-	if not is_instance_valid(target):
-		_debug("float pose1: no pony target")
-		return
-	var runtime: Node = runtime_for(target)
-	if not is_instance_valid(runtime):
-		_debug("float pose1: no runtime")
-		return
-	runtime.call("debug_float_pose1", 3.0)
 
 
 func _try_refusal() -> bool:

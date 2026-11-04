@@ -105,7 +105,7 @@ mods/unfplap/
   mod.json          id, version, game_version, entry
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
                     DEBUG LOGS toggle, settings-tab injection with guard, thrust/camera-rock and
-                    taste editors, F8/F9/F10 debug helpers
+                    taste editors, F10 skeleton debug helper
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
@@ -120,7 +120,7 @@ mods/unfplap/
   prone_sway.gd     pose-1 lying torso slide and head nod on the thrust
   ear_twitch.gd     eased random thrust ear twitch on the head skeleton
   wing_sweep.gd     pose-2 wing root sweep after the game's WingTuck modifier
-  chin_debug.gd     always-on debug head pitch for Alt+7 / Alt+8
+  chin_debug.gd     debug head-pitch skeleton modifier
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
@@ -185,7 +185,8 @@ body-relative axes.
 - `POSE1_RUMP_DROP_DEG` pitches the whole body about the shoulders; `POSE1_HIND_SPREAD` sets
   hind-leg spread.
 - Bed context is not optional: the lie pose, mattress surface and shared-bed transform all
-  affect the result. F9 has no lie pose, so use the lab bed for the real check.
+  affect the result. The floating pose preview has no lie pose, so use the lab bed for the real
+  check.
 - Start waits for player rest ≥ 0.99 and the pony's `lie_down` to settle.
 
 ### Pose 2: horse
@@ -629,7 +630,7 @@ examples.
 
 - One request episode at a time. Automatic requests require AI usage Full
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
-  character chat within 45 s. The lab runs in Talk, so use `F4`.
+  character chat within 45 s. The lab runs in Talk, so use `\`.
 - Eligibility is the existing relationship/social gate (`can_start` for the pose), not the
   act-time readiness value. No anger bypass.
 - Cuddle: requires an active cuddle and `can_start(MISSIONARY, "bed_side")` or
@@ -676,7 +677,7 @@ examples.
 - Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach or initial-ask
   failure sets a short 30 s retry instead; an ask, presentation or give-up sets the full
   cooldown. `Y` cancels the episode before `start()`.
-- `F4` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
+- `\` force-request bypasses quiet, cooldown and AI-usage checks for lab testing.
 
 ### Y start gate and aim zone
 
@@ -773,28 +774,21 @@ examples.
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
   player build unlocks it with **Settings → Updates** pressed five times. Acts own
   `controls_locked`, so the console is not available while an act is running.
-- `Ctrl+Shift+D`: master DEBUG LOGS toggle; default ON; persists in
-  `user://mods/data/unfplap/settings.json`.
-- `F4`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
+- `\`: force a proactive request for the aimed/nearest test mare. It bypasses the quiet,
   cooldown and AI-usage checks, but not relationship, consent or pose gates; use it in the lab,
-  which runs with `ai_usage=talk`. F4 is otherwise the dev-only performance-capture key; the
-  mod consumes it while DEBUG LOGS is on. (F7 is the game settings menu.)
-- `F8`: offer/gate/bed report plus target thrust data.
-- `F9`: pose-1 floating preview and one-shot `POSE1` dump.
+  which runs with `ai_usage=talk`. It does not fire while a text field has focus or while the
+  tree is paused. `Shift+\` is left to the game's dev noclip. (F7 is the game settings menu.)
 - `F10`: toggle the skeleton overlay for nearby ponies. Lines are thin
-  (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible;
-  hover a joint to turn it red, then click to print its bone name, parent, world/local origin,
-  rotation, scale and rest.
+  (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
+  then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
+- `debug_logs` is read from settings and defaults ON. There is no key toggle; it controls
+  logging and whether the hidden Debug settings section appears.
 - While `debug_logs` is on, **Settings → Unfplap → Debug** exposes a hidden
-  **Trigger sex offer (F4)** button and a **Pinned act ears** checkbox. The offer uses the
-  aimed mare with the nearest fallback and calls the same `initiation.force()` path as F4; the
+  `Trigger sex offer (\)` button and a **Pinned act ears** checkbox. The offer uses the
+  aimed mare with the nearest fallback and calls the same `initiation.force()` path as `\`; the
   status label reports the target or gate rejection. Because the settings page pauses the tree,
   the offer advances after it closes. `act_ear_pin` defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
-- `Alt+7` / `Alt+8`: raise/lower the debug chin pitch by `5°` and log head/chin/snout world
-  positions. The `chin_debug.gd` modifier works while idle, lying, standing or during an act;
-  when nothing is under the crosshair it targets the nearest mare within `8 m`.
-- `Ctrl+Shift+V`: log a `VOICES` block for loaded ponies (generated vs effective Ponese).
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready. Mouse4
   moves a mare farther than `8 m` (or on another floor) to the guest-bed approach before inviting,
   then waits for Anon's recline blend before the snuggle invite. Backtick (`` ` ``) toggles the
@@ -813,7 +807,7 @@ examples.
   voice exists) separately from `effective_ponese` (what will actually play now). A character
   voice still counts as effective Ponese when the global mode is `ponese`, TTS is off, or no
   server is configured.
-- `Ctrl+Shift+V` logs a `VOICES` block for loaded ponies; `F8` includes the target's voice line.
+- `runtime.debug_line()` includes the target's voice line.
 - `mute_ponese_audio` mutes only the partner's `Voice` audio player for an act while keeping
   the generated text/HUD flow. It does not suppress dialogue.
 - The Unfplap settings tab is **runtime-injected** with

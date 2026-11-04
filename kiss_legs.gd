@@ -1,5 +1,5 @@
 extends SkeletonModifier3D
-## Keep the two foreleg tips where they were when the pose-2 base kiss started. The base kiss
+## Keep the two foreleg tips where they were when the standing base kiss started. The base kiss
 ## bends the chest to reach Anon, and its chest carriers run after body_sway's upper-arm pin, so
 ## the hooves would otherwise slide. This modifier runs last and CCDs the real foreleg chains
 ## back to the captured hoof positions.

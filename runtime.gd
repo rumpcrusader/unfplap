@@ -101,19 +101,19 @@ const AFTERGLOW_SELF_END_SECONDS := 16.0
 const AFTERGLOW_SELF_END_CHECK_S := 1.0
 const AFTERGLOW_SELF_END_CHANCE_CLOSE := 0.12
 const AFTERGLOW_SELF_END_CHANCE_ALONE := 0.30
-## Pose 1 camera: above and behind her neck so the shot looks forward along her body at her
+## Missionary camera: above and behind her neck so the shot looks forward along her body at her
 ## face. `pony.global_basis.z` is her backward direction.
-const POSE1_CAMERA_HEIGHT_M := 0.45
-const POSE1_CAMERA_BACK_M := 0.22
-## Default room between the pose-1 shot and the pony; the presentation setting overrides it.
-const POSE1_CAMERA_PULLBACK_M := 0.22
+const MISSIONARY_CAMERA_HEIGHT_M := 0.45
+const MISSIONARY_CAMERA_BACK_M := 0.22
+## Default room between the missionary shot and the pony; the presentation setting overrides it.
+const MISSIONARY_CAMERA_PULLBACK_M := 0.22
 ## Extra height requested after the first visual pass.
-const POSE1_CAMERA_LIFT_M := 0.10
-## The pose-1 shot starts at the old maximum forward lean, so W pushes further up her torso
+const MISSIONARY_CAMERA_LIFT_M := 0.10
+## The missionary shot starts at the old maximum forward lean, so W pushes further up her torso
 ## instead of starting from the wide position. 1.0 is one full `LEAN_FORWARD_M` lean.
-const POSE1_START_LEAN := 1.0
-## Presentation: how close the pony stands in front of the player for pose 2.
-const POSE2_GAP_M := 0.55
+const MISSIONARY_START_LEAN := 1.0
+## Presentation: how close the pony stands in front of the player for standing.
+const STANDING_GAP_M := 0.55
 ## Idle standing invitation: turn away from Anon at this rate before she settles into the stance.
 const PRESENT_TURN_RATE := 2.4
 ## The game's supported standing turn steps the hooves. Its default 0.45 rad/s half-turn would
@@ -127,8 +127,8 @@ const PRESENT_TURN_STALL_S := 0.75
 ## The request's face: the act's half-lidded gaze and a full blush while she asks and presents.
 const REQUEST_LIDS := 0.45
 const REQUEST_BLUSH := 1.0
-## Per-size pose-2 standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
-const POSE2_GAPS := {
+## Per-size standing standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
+const STANDING_GAPS := {
 	"same height": 0.55,
 	"mounting": 0.45,
 	"canon": 0.25,
@@ -152,8 +152,8 @@ const CAM_CLIMAX_SURGE_M := 0.02
 ## Hip phase low-pass on mouse depth. Depth is the input; this only removes single-frame
 ## mouse steps, it is not a speed attack.
 const HIP_SMOOTH_S := 0.04
-## Pose-2 F kiss: hold F at a full side lean (the shoulder reach) to use the same base kiss.
-const POSE2_KISS_LEAN := 0.90
+## Standing F kiss: hold F at a full side lean (the shoulder reach) to use the same base kiss.
+const STANDING_KISS_LEAN := 0.90
 ## Act camera lean. Q/E drive one controlled lean vector: W/S forward/back, Q/E a
 ## forward-plus-side diagonal. The channel ramps in, then returns slowly when released.
 ## Backward travel is halved so pulling away cannot open an extreme gap.
@@ -181,7 +181,7 @@ const LEAN_RELEASE := 0.60
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
 const REACH_HAND_RELEASE_S := 0.35
-## Pose-2 A/D caress: an oval rub on the flank surface. The oval is wider along the body
+## Standing A/D caress: an oval rub on the flank surface. The oval is wider along the body
 ## than up/down, so the hand reads as stroking instead of drawing a perfect circle.
 const CARESS_RADIUS_M := 0.04125
 const CARESS_SPEED_RAD_S := 3.6
@@ -225,23 +225,23 @@ const RUMP_BLUSH_MIN_STRENGTH := 0.55
 const RUMP_BLUSH_STEP := 0.0525
 const RUMP_BLUSH_MAX := 0.375
 const RUMP_BLUSH_DECAY := 0.006
-const POSE2_HEAD_NECK_HEIGHT_M := 1.0
+const STANDING_HEAD_NECK_HEIGHT_M := 1.0
 ## Canon is small enough that the standing shot needs a lower eye line.
-const CANON_POSE2_CAMERA_DROP_M := 0.10
+const CANON_STANDING_CAMERA_DROP_M := 0.10
 ## JRHNBR is tall enough that the standing shot needs a higher eye line.
-const MOUNTING_POSE2_CAMERA_LIFT_M := 0.10
-## Anon's spine length, used to turn the pose-2 torso angle into head/camera travel.
+const MOUNTING_STANDING_CAMERA_LIFT_M := 0.10
+## Anon's spine length, used to turn the standing torso angle into head/camera travel.
 const ANON_TORSO_LEN_M := 0.65
-## Pose-2 Anon thrust: mouse depth (only lightly smoothed) moves the hip. This is position, not
+## Standing Anon thrust: mouse depth (only lightly smoothed) moves the hip. This is position, not
 ## speed; the camera's speed-driven thrust is separate.
 const THRUST_MAX_M := 0.045
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
-## Pose 2 after the climax: Anon eases back before the act restores.
+## Standing after the climax: Anon eases back before the act restores.
 const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
-## Pose 2 after the climax: held afterglow; Anon stays put.
+## Standing after the climax: held afterglow; Anon stays put.
 ## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
@@ -259,17 +259,17 @@ const WING_JITTER_AMOUNT := 0.04
 const WING_JITTER_MIN := 1.6
 const WING_JITTER_MAX := 4.0
 const WING_JITTER_FADE := 0.8
-## Pose 2 starts at a relaxed ~60° spread instead of the half-open pose's ~75°. Lower values
+## Standing starts at a relaxed ~60° spread instead of the half-open pose's ~75°. Lower values
 ## blend further toward fully open; readiness gradually opens them from here.
-const WING_POSE2_HOLD := 0.65
-const WING_POSE2_SPREAD := 0.25
+const WING_STANDING_HOLD := 0.65
+const WING_STANDING_SPREAD := 0.25
 ## Afterglow eases the open wings all the way down to the folded resting pose. The game's
 ## release_hold() folds in about 0.3 s; this drives the same WingTuck blend slowly instead.
 const WING_AFTERGLOW_RETURN_SECONDS := 6.0
 ## The game's flutter cycle is 3 × (0.16 + 0.13) = 0.87 s. A thrust may not restart it before
 ## it finishes or the wings snap back open mid-motion.
 const WING_FLUTTER_COOLDOWN_S := 1.80
-## Pose 2 keeps her body facing away but lets her glance back over a shoulder now and then.
+## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
 const GLANCE_MIN_INTERVAL := 5.0
 const GLANCE_MAX_INTERVAL := 9.0
 const GLANCE_HOLD := 1.8
@@ -299,8 +299,8 @@ const KISS_FADE_IN := 0.35
 const KISS_FADE_OUT := 0.45
 const KISS_SOUND_MIN := 2.0
 const KISS_SOUND_MAX := 3.4
-## Anon leans in while kissing. Pose 2 moves the act camera (and the hip counter keeps his
-## pelvis planted); pose 1 moves the framing view and offsets the virtual mouth by the same
+## Anon leans in while kissing. Standing moves the act camera (and the hip counter keeps his
+## pelvis planted); missionary moves the framing view and offsets the virtual mouth by the same
 ## amount, because its player camera is not the rendered shot.
 const KISS_LEAN_M := 0.27
 const KISS_LEAN_SIDE_M := 0.18
@@ -438,10 +438,10 @@ var _applied_lean := 0.0
 var _applied_side := 0.0
 var _free_camera_active := false
 var _camera_basis_ready := false
-var _pose1_look_point := Vector3.INF
-var _pose2_base_look := Vector3.INF
-var _pose2_base_local := Vector3.ZERO
-var _pose2_base_saved := false
+var _missionary_look_point := Vector3.INF
+var _standing_base_look := Vector3.INF
+var _standing_base_local := Vector3.ZERO
+var _standing_base_saved := false
 var _restore_yaw := 0.0
 var _restore_pitch := 0.0
 var _controls_locked_saved := false
@@ -498,9 +498,9 @@ var _kiss_sound_clock := 0.0
 var _custom_kiss_active := false
 var _base_kiss_active := false
 var _base_kiss_releasing := false
-var _pose2_kiss_active := false
-var _pose2_kiss_used := false
-var _pose2_kiss_ready_at := 0
+var _standing_kiss_active := false
+var _standing_kiss_used := false
+var _standing_kiss_ready_at := 0
 const KISS_RESTART_COOLDOWN_MS := 500
 ## Latched for the whole kiss (including the Affection release) so rock noise cannot flip sides.
 var _kiss_camera_side := 0.0
@@ -527,33 +527,33 @@ var _inventory_hud_hidden := false
 var _inventory_hud_saved := false
 var _inventory_hotbar_visible := true
 var _inventory_hud_layer_visible := true
-var _pose1_camera := Vector3.INF
-var _pose1_camera_applied := Vector3.INF
-var _pose1_head_roll := 0.0
-var _pose1_start_camera: Camera3D
-var _pose1_start_camera_transform := Transform3D.IDENTITY
-var _pose1_start_player_transform := Transform3D.IDENTITY
-var _pose1_start_pony_transform := Transform3D.IDENTITY
-var _pose1_start_pony_posture := ""
-var _pose1_start_saved := false
-var _pose1_basis_logged := false
-var _pose1_camera_log_until := 0
-var _pose1_camera_log_next := 0
-var _pose1_view: Camera3D
-var _pose1_source_fov := 75.0
-var _pose1_source_near := 0.05
-var _pose1_source_far := 4000.0
-var _pose1_source_cull := 0xFFFFFFFF
-var _pose1_view_basis := Basis.IDENTITY
-var _pose1_last_view_basis := Basis.IDENTITY
-var _pose1_last_view_pos := Vector3.INF
-var _pose1_last_head := Transform3D.IDENTITY
-var _pose1_camera_rebuilds := 0
-var _pose1_snap_ready := false
-var _pose1_aim_until := 0
-var _pose1_prev_camera: Camera3D
-var _pose1_player_rotation := Vector3.ZERO
-var _pose1_player_rot_saved := false
+var _missionary_camera := Vector3.INF
+var _missionary_camera_applied := Vector3.INF
+var _missionary_head_roll := 0.0
+var _missionary_start_camera: Camera3D
+var _missionary_start_camera_transform := Transform3D.IDENTITY
+var _missionary_start_player_transform := Transform3D.IDENTITY
+var _missionary_start_pony_transform := Transform3D.IDENTITY
+var _missionary_start_pony_posture := ""
+var _missionary_start_saved := false
+var _missionary_basis_logged := false
+var _missionary_camera_log_until := 0
+var _missionary_camera_log_next := 0
+var _missionary_view: Camera3D
+var _missionary_source_fov := 75.0
+var _missionary_source_near := 0.05
+var _missionary_source_far := 4000.0
+var _missionary_source_cull := 0xFFFFFFFF
+var _missionary_view_basis := Basis.IDENTITY
+var _missionary_last_view_basis := Basis.IDENTITY
+var _missionary_last_view_pos := Vector3.INF
+var _missionary_last_head := Transform3D.IDENTITY
+var _missionary_camera_rebuilds := 0
+var _missionary_snap_ready := false
+var _missionary_aim_until := 0
+var _missionary_prev_camera: Camera3D
+var _missionary_player_rotation := Vector3.ZERO
+var _missionary_player_rot_saved := false
 var _anon_avatars: Array[Node3D] = []
 var _anon_avatar_states: Array[bool] = []
 var _desktop_presentation: Node
@@ -796,20 +796,20 @@ func apply_live_settings() -> void:
 			_stop_kiss_leg_pin()
 	elif pose_id == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
-	# Nudge the frozen pose-1 anchor only when the framing control actually changed, so a taste
+	# Nudge the frozen missionary anchor only when the framing control actually changed, so a taste
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
-	var pose1_offsets := _pose1_camera_offsets()
+	var missionary_offsets := _missionary_camera_offsets()
 	if pose_id == CATALOG.MISSIONARY and state != State.IDLE and is_instance_valid(pony) \
-			and _pose1_camera.is_finite() \
-			and not pose1_offsets.is_equal_approx(_pose1_camera_applied):
-		var delta := pose1_offsets - _pose1_camera_applied
-		_pose1_camera += -pony.global_basis.z.normalized() * delta.x
-		_pose1_camera.y += delta.y
-		_pose1_camera += pony.global_basis.x.normalized() * delta.z
-		_pose1_camera_applied = pose1_offsets
-		if _pose1_look_point.is_finite():
-			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
+			and _missionary_camera.is_finite() \
+			and not missionary_offsets.is_equal_approx(_missionary_camera_applied):
+		var delta := missionary_offsets - _missionary_camera_applied
+		_missionary_camera += -pony.global_basis.z.normalized() * delta.x
+		_missionary_camera.y += delta.y
+		_missionary_camera += pony.global_basis.x.normalized() * delta.z
+		_missionary_camera_applied = missionary_offsets
+		if _missionary_look_point.is_finite():
+			_missionary_view_basis = _missionary_aim_basis(_missionary_camera)
 	if not _id.is_empty():
 		_taste = SETTINGS.taste(_id)
 	_refresh_live_modifiers()
@@ -829,9 +829,9 @@ func _refresh_live_modifiers() -> void:
 	if not _feature("thrust_tail_dock_jiggle"):
 		_restore_dock_jiggle_material()
 	if pose_id == CATALOG.STANDING:
-		if _feature("pose2_body_sway") and not is_instance_valid(_body_sway):
+		if _feature("standing_body_sway") and not is_instance_valid(_body_sway):
 			_install_body_sway(skeleton)
-		elif not _feature("pose2_body_sway") and is_instance_valid(_body_sway):
+		elif not _feature("standing_body_sway") and is_instance_valid(_body_sway):
 			_body_sway.queue_free()
 			_body_sway = null
 		if _feature("thrust_ear_twitch") and not is_instance_valid(_ear_twitch):
@@ -841,9 +841,9 @@ func _refresh_live_modifiers() -> void:
 			_ear_twitch = null
 		_refresh_palm_scale()
 	elif pose_id == CATALOG.MISSIONARY:
-		if _feature("pose1_body_motion") and not is_instance_valid(_prone_sway):
+		if _feature("missionary_body_motion") and not is_instance_valid(_prone_sway):
 			_install_prone_sway(skeleton)
-		elif not _feature("pose1_body_motion") and is_instance_valid(_prone_sway):
+		elif not _feature("missionary_body_motion") and is_instance_valid(_prone_sway):
 			_prone_sway.queue_free()
 			_prone_sway = null
 
@@ -895,7 +895,7 @@ func _act_presentation(delta: float) -> void:
 		return
 	_act_seconds += delta
 	if pose_id == CATALOG.MISSIONARY:
-		_hide_anon_avatar_for_pose1()
+		_hide_anon_avatar_for_missionary()
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
 		boop.call("sustain_blush", 1.0)
@@ -923,7 +923,7 @@ func _act_presentation(delta: float) -> void:
 		var spread_t := smoothstep(0.0, 1.0, clampf(_act_seconds / WING_SPREAD_SECONDS, 0.0, 1.0))
 		var base_target := 1.0 - spread_t
 		if pose_id != CATALOG.MISSIONARY:
-			base_target = clampf(WING_POSE2_HOLD - level * spread_t * WING_POSE2_SPREAD, 0.0, 1.0)
+			base_target = clampf(WING_STANDING_HOLD - level * spread_t * WING_STANDING_SPREAD, 0.0, 1.0)
 		var droop := clampf(_act_seconds / WING_DROOP_SECONDS, 0.0, 1.0) * WING_DROOP_AMOUNT
 		_wing_jitter_clock -= delta
 		if _wing_jitter_clock <= 0.0:
@@ -994,8 +994,8 @@ func _process(delta: float) -> void:
 	_clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
 		var view: Camera3D = main.camera()
-		if pose_id == CATALOG.MISSIONARY and is_instance_valid(_pose1_view):
-			view = _pose1_view
+		if pose_id == CATALOG.MISSIONARY and is_instance_valid(_missionary_view):
+			view = _missionary_view
 		var custom_kiss := _kiss_amount > 0.001 and not _base_kiss_active
 		var kiss_view := _kiss_mouth_view()
 		if is_instance_valid(view):
@@ -1005,7 +1005,7 @@ func _process(delta: float) -> void:
 				# Look at Anon, not at the framing view: the shot now sits behind her neck and a
 				# camera there would demand a half-turn and flip her head side to side.
 				var head_view: Camera3D = kiss_view if is_instance_valid(kiss_view) else view
-				_pose.look_point = _pose1_head_look_point(head_view)
+				_pose.look_point = _missionary_head_look_point(head_view)
 			else:
 				_pose.look_point = view.global_position
 		_pose.kiss = _kiss_amount if custom_kiss else 0.0
@@ -1156,7 +1156,7 @@ func _physics_process(delta: float) -> void:
 ## A kiss runs the game's own Affection/fluster eyelids. The act's stare is an override, so
 ## release it once when a kiss starts and stop touching the eyes until the kiss ends.
 func _kiss_eyes_active() -> bool:
-	return _base_kiss_active or _base_kiss_releasing or _pose2_kiss_active \
+	return _base_kiss_active or _base_kiss_releasing or _standing_kiss_active \
 		or (_lean_action_active and _lean_action_kind == "kiss" and _custom_kiss_active) \
 		or _kiss_amount > 0.05
 
@@ -1574,7 +1574,7 @@ func _suppress_auto_cuddle() -> void:
 	if not is_instance_valid(pony):
 		return
 	# The stock bed marks a lying companion with couch_cuddle; cuddle/player_input then
-	# automatically begins a CuddleSession. That interrupts pose 1, so keep it off while active.
+	# automatically begins a CuddleSession. That interrupts missionary, so keep it off while active.
 	if pony.has_meta("couch_cuddle"):
 		pony.remove_meta("couch_cuddle")
 	var session: Node = pony.get_node_or_null("CuddleSession")
@@ -1644,7 +1644,7 @@ func _nav_owner_allows(pose: String, act_source: String) -> bool:
 		return false
 	if owner.begins_with("cuddle:"):
 		return pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]
-	# A managed bed/couch rest is valid for pose 1; every other leisure seat is not.
+	# A managed bed/couch rest is valid for missionary; every other leisure seat is not.
 	if owner.begins_with("leisure:"):
 		return pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]
 	# Player conversation is free; another pony's conversation is not.
@@ -1924,21 +1924,21 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 		_glance_wait = randf_range(float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)), float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
 
 	_build_pose()
-	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
+	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	if pose == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
 	_reset_lean_state()
-	_pose1_basis_logged = false
-	_pose1_camera = _pose1_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
-	_pose1_camera_applied = _pose1_camera_offsets() if pose == CATALOG.MISSIONARY else Vector3.INF
+	_missionary_basis_logged = false
+	_missionary_camera = _missionary_camera_target() if pose == CATALOG.MISSIONARY else Vector3.INF
+	_missionary_camera_applied = _missionary_camera_offsets() if pose == CATALOG.MISSIONARY else Vector3.INF
 	if pose == CATALOG.MISSIONARY:
-		_snapshot_pose1_start()
-		_make_pose1_view()
+		_snapshot_missionary_start()
+		_make_missionary_view()
 	_capture_look()
 	_lock_player()
 	_pause_face_turn()
 	_begin_camera_mode()
-	_hide_anon_avatar_for_pose1()
+	_hide_anon_avatar_for_missionary()
 	_bind_action_executor()
 	_start_audio()
 	_apply_voice_policy()
@@ -2003,7 +2003,7 @@ func _claim_nav() -> bool:
 	return str(_nav.get("command_owner")) == _token
 
 
-## Pose 2 keeps her body turned away and planted. Stop the standing face-turn response so a
+## Standing keeps her body turned away and planted. Stop the standing face-turn response so a
 ## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
 func _pause_face_turn(force := false) -> void:
 	if (not force and pose_id != CATALOG.STANDING) or not is_instance_valid(pony):
@@ -2089,7 +2089,7 @@ func _attach_present_pose() -> void:
 		_present_pose = POSE.new()
 		_present_pose.name = "UnfplapPresentPose"
 		_present_pose.mare = pony
-		_present_pose.mode = "pose2"
+		_present_pose.mode = "standing"
 		_present_pose.pose_config = SETTINGS.pose(_id, CATALOG.STANDING)
 		_present_pose.look_point = _present_look_point
 		_present_pose.amount = 0.0
@@ -2512,20 +2512,20 @@ func _standing_transform() -> Transform3D:
 	if forward.length_squared() < 0.0001:
 		forward = -main.player.global_basis.z
 	forward = forward.normalized()
-	var at: Vector3 = main.player.global_position + forward * _pose2_gap()
+	var at: Vector3 = main.player.global_position + forward * _standing_gap()
 	at.y = main.player.global_position.y
 	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
 
 
-func _pose2_gap() -> float:
+func _standing_gap() -> float:
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings == null:
-		return POSE2_GAP_M
+		return STANDING_GAP_M
 	var size := str(settings.call("get_value", "ponies/size"))
-	var gaps: Variant = _pose_cfg.get("gaps", POSE2_GAPS)
-	var gap := float((gaps as Dictionary).get(size, POSE2_GAP_M)) if gaps is Dictionary else POSE2_GAP_M
+	var gaps: Variant = _pose_cfg.get("gaps", STANDING_GAPS)
+	var gap := float((gaps as Dictionary).get(size, STANDING_GAP_M)) if gaps is Dictionary else STANDING_GAP_M
 	gap *= _same_height_scale()
-	_log("pose2 size=%s gap=%.2f" % [size, gap])
+	_log("standing size=%s gap=%.2f" % [size, gap])
 	return gap
 
 
@@ -2589,9 +2589,9 @@ func _log_chin() -> void:
 		main.call("_debug_block", "CHIN", rows)
 
 
-func debug_float_pose1(seconds: float) -> void:
+func debug_float_missionary(seconds: float) -> void:
 	if state != State.IDLE or not is_instance_valid(pony) or _debug_pose_active:
-		_log("float pose1: busy")
+		_log("float missionary: busy")
 		return
 	var skeleton: Variant = pony.get("skeleton")
 	if not skeleton is Skeleton3D:
@@ -2601,15 +2601,15 @@ func debug_float_pose1(seconds: float) -> void:
 	pony.global_position.y += 0.45
 	pony.reset_physics_interpolation()
 	_debug_pose = POSE.new()
-	_debug_pose.name = "UnfplapDebugPose1"
+	_debug_pose.name = "UnfplapMissionaryDebugPose"
 	_debug_pose.set("mare", pony)
-	_debug_pose.set("mode", "pose1")
+	_debug_pose.set("mode", "missionary")
 	_debug_pose.set("amount", 0.0)
 	_debug_pose.set("target_amount", 1.0)
 	_debug_pose.set("look_point", main.camera().global_position if main.camera() != null else pony.global_position)
 	(skeleton as Skeleton3D).add_child(_debug_pose)
 	_keep_chin_last()
-	_log("float pose1 pony=%s seconds=%.1f" % [str(pony.name), seconds])
+	_log("float missionary pony=%s seconds=%.1f" % [str(pony.name), seconds])
 	await get_tree().create_timer(seconds).timeout
 	if is_instance_valid(pony) and _debug_pose_active:
 		pony.global_transform = _debug_pose_saved
@@ -2633,9 +2633,9 @@ func _sync_missionary_pose_config() -> void:
 	_pose_cfg["head_roll"] = float(_presentation_cfg.get("head_roll_deg", 0.0))
 	if is_instance_valid(_pose):
 		_pose.pose_config = _pose_cfg
-	_pose1_head_roll = float(_pose_cfg.get("head_roll", 0.0))
+	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	if is_instance_valid(_pose):
-		_pose.head_roll = _pose1_head_roll
+		_pose.head_roll = _missionary_head_roll
 
 
 func _build_pose() -> void:
@@ -2645,19 +2645,19 @@ func _build_pose() -> void:
 		_pose = POSE.new()
 		_pose.name = "UnfplapPose"
 		_pose.mare = pony
-		_pose.mode = "pose2" if pose_id == CATALOG.STANDING else "pose1"
+		_pose.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
 		_pose.pose_config = SETTINGS.pose(_id, pose_id)
-		_pose.head_roll = _pose1_head_roll
+		_pose.head_roll = _missionary_head_roll
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
 		_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_pose)
 		if pose_id == CATALOG.STANDING:
-			if _feature("pose2_body_sway"):
+			if _feature("standing_body_sway"):
 				_install_body_sway(skeleton)
 			if _feature("thrust_ear_twitch"):
 				_install_ear_twitch()
-		elif _feature("pose1_body_motion"):
+		elif _feature("missionary_body_motion"):
 			_install_prone_sway(skeleton)
 		_keep_chin_last()
 	if pose_id != CATALOG.STANDING:
@@ -2700,7 +2700,7 @@ func _free_pose() -> void:
 
 
 func _install_body_sway(skeleton: Skeleton3D) -> void:
-	if not _feature("pose2_body_sway"):
+	if not _feature("standing_body_sway"):
 		return
 	_body_sway = BODY_SWAY.new()
 	_body_sway.name = "UnfplapBodySway"
@@ -3864,7 +3864,7 @@ func _player_is_caressing() -> bool:
 
 func _player_is_leaning_close() -> bool:
 	return _lean_forward >= 0.35 or _lean_action_active or _kiss_amount > 0.05 \
-		or _base_kiss_active or _base_kiss_releasing or _pose2_kiss_active
+		or _base_kiss_active or _base_kiss_releasing or _standing_kiss_active
 
 
 func _player_is_close() -> bool:
@@ -3937,7 +3937,7 @@ func _self_end_tick(delta: float) -> void:
 
 func _enter_afterglow() -> void:
 	if pose_id == CATALOG.STANDING:
-		_pose2_afterglow_begin()
+		_standing_afterglow_begin()
 	else:
 		_afterglow_begin()
 	_begin_wing_afterglow()
@@ -3952,8 +3952,8 @@ func _commit_afterglow() -> void:
 	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
 
 
-## Pose 2 also gets a held afterglow now that there are things to do in it.
-func _pose2_afterglow_begin() -> void:
+## Standing also gets a held afterglow now that there are things to do in it.
+func _standing_afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_end_act_lines(true)
 	_commit_afterglow()
@@ -3968,7 +3968,7 @@ func _pose2_afterglow_begin() -> void:
 	_cue_until = 0.0
 	_set_face(0.85, AFTERGLOW_LIDS)
 	if is_instance_valid(_pose):
-		_pose.mode = "pose2"
+		_pose.mode = "standing"
 		_pose.target_amount = 1.0
 		_pose.amount = 1.0
 	if is_instance_valid(_tail):
@@ -4005,7 +4005,7 @@ func _afterglow_begin() -> void:
 		main.hud.set_state("AFTERGLOW")
 
 
-## Pose 2 only: tell her Anon came inside her. Normal dialogue resumes from here.
+## Standing only: tell her Anon came inside her. Normal dialogue resumes from here.
 func _inside_aftermath() -> void:
 	if not is_instance_valid(main):
 		return
@@ -4111,7 +4111,7 @@ func _finish_restore() -> void:
 	_release_nav()
 	_restore_look()
 	if was_pose == CATALOG.MISSIONARY:
-		_resume_pose1_cuddle()
+		_resume_missionary_cuddle()
 	elif pony.get("posture") != null:
 		pony.request_posture("stand")
 	_free_pose()
@@ -4127,37 +4127,37 @@ func _finish_restore() -> void:
 	_reset_after_act()
 
 
-## Pose 1 ended early (Q): hand her back to the stock bed cuddle instead of leaving Anon posed
+## Missionary ended early (Q): hand her back to the stock bed cuddle instead of leaving Anon posed
 ## over her. Re-invites her onto the couch/bed through the seat's couch so cuddle/player_input
 ## can start its session again.
-func _resume_pose1_cuddle() -> void:
+func _resume_missionary_cuddle() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
 		_stand_after_pose()
 		return
 	# Revert the exact scene captured at start: camera, player and pony transforms.
-	if _pose1_start_saved:
+	if _missionary_start_saved:
 		# Player/pony first, camera last: setting the player yaw rotates a child camera, so the
 		# snapshot camera transform must be applied after the rig is back in place.
-		main.player.global_transform = _pose1_start_player_transform
-		pony.global_transform = _pose1_start_pony_transform
+		main.player.global_transform = _missionary_start_player_transform
+		pony.global_transform = _missionary_start_pony_transform
 		pony.reset_physics_interpolation()
-		if is_instance_valid(_pose1_start_camera):
-			_pose1_start_camera.global_transform = _pose1_start_camera_transform
-			_pose1_start_camera.make_current()
-		_log("pose1 restore: snapshot camera=%s player=%s pony=%s player_yaw=%.3f" % [
-			str(_pose1_start_camera_transform.origin), str(_pose1_start_player_transform.origin),
-			str(_pose1_start_pony_transform.origin),
+		if is_instance_valid(_missionary_start_camera):
+			_missionary_start_camera.global_transform = _missionary_start_camera_transform
+			_missionary_start_camera.make_current()
+		_log("missionary restore: snapshot camera=%s player=%s pony=%s player_yaw=%.3f" % [
+			str(_missionary_start_camera_transform.origin), str(_missionary_start_player_transform.origin),
+			str(_missionary_start_pony_transform.origin),
 			float(main.player.rotation.y)])
 	var seat: Variant = main.player.get("seat")
 	var couch: Variant = null
 	if is_instance_valid(seat) and seat.has_meta("couch"):
 		couch = seat.get_meta("couch")
 	if is_instance_valid(couch) and couch.has_method("accept") and bool(couch.call("accept", pony)):
-		_log("pose1 restore: cuddle resumed")
+		_log("missionary restore: cuddle resumed")
 		return
-	_log("pose1 restore: cuddle resume failed; restoring posture")
-	if _pose1_start_saved and _pose1_start_pony_posture != "":
-		pony.request_posture(_pose1_start_pony_posture)
+	_log("missionary restore: cuddle resume failed; restoring posture")
+	if _missionary_start_saved and _missionary_start_pony_posture != "":
+		pony.request_posture(_missionary_start_pony_posture)
 	else:
 		_stand_after_pose()
 
@@ -4344,9 +4344,9 @@ func _same_height_scale() -> float:
 	return _anon_height_scale() if _size_name() == "same height" else 1.0
 
 
-## Pose-2 presentation only. The accepted Anon rig's hands read a little large beside a Canon
+## Standing presentation only. The accepted Anon rig's hands read a little large beside a Canon
 ## pony; JRHNBR needs a smaller correction. Other presets keep the authored size.
-static func pose2_palm_scale_for(size_name: String) -> float:
+static func standing_palm_scale_for(size_name: String) -> float:
 	match size_name:
 		"canon":
 			return 0.85
@@ -4375,7 +4375,7 @@ func _bed_surface_top() -> float:
 
 ## Change the player's own eye height for the act instead of writing camera.position.y. That keeps
 ## `desktop_player._set_eye_y` as the single owner of the camera height and avoids drift/teleports.
-func _hide_anon_avatar_for_pose1() -> void:
+func _hide_anon_avatar_for_missionary() -> void:
 	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	# Collect every presentation body once and save its visible state before disabling anything:
@@ -4415,121 +4415,121 @@ func _restore_anon_avatar() -> void:
 	_desktop_presentation_enabled = true
 
 
-## Remember the exact scene at pose-1 start so ending early can revert to it.
-func _snapshot_pose1_start() -> void:
-	_pose1_start_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
-	if is_instance_valid(_pose1_start_camera):
-		_pose1_start_camera_transform = _pose1_start_camera.global_transform
+## Remember the exact scene at missionary start so ending early can revert to it.
+func _snapshot_missionary_start() -> void:
+	_missionary_start_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
+	if is_instance_valid(_missionary_start_camera):
+		_missionary_start_camera_transform = _missionary_start_camera.global_transform
 	if is_instance_valid(main) and is_instance_valid(main.player):
-		_pose1_start_player_transform = main.player.global_transform
+		_missionary_start_player_transform = main.player.global_transform
 	if is_instance_valid(pony):
-		_pose1_start_pony_transform = pony.global_transform
+		_missionary_start_pony_transform = pony.global_transform
 		if pony.has_method("posture_status"):
 			var status: Variant = pony.call("posture_status")
 			if status is Dictionary:
-				_pose1_start_pony_posture = str((status as Dictionary).get("requested", ""))
-	_pose1_start_saved = true
-	_log("pose1 snapshot camera=%s player=%s pony=%s posture=%s player_yaw=%.3f" % [
-		str(_pose1_start_camera_transform.origin), str(_pose1_start_player_transform.origin),
-		str(_pose1_start_pony_transform.origin), _pose1_start_pony_posture,
-		_pose1_start_player_transform.basis.get_euler().y])
+				_missionary_start_pony_posture = str((status as Dictionary).get("requested", ""))
+	_missionary_start_saved = true
+	_log("missionary snapshot camera=%s player=%s pony=%s posture=%s player_yaw=%.3f" % [
+		str(_missionary_start_camera_transform.origin), str(_missionary_start_player_transform.origin),
+		str(_missionary_start_pony_transform.origin), _missionary_start_pony_posture,
+		_missionary_start_player_transform.basis.get_euler().y])
 
 
-func _make_pose1_view() -> void:
+func _make_missionary_view() -> void:
 	if _player_pony or not is_instance_valid(pony):
 		return
 	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
 		return
-	_pose1_prev_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
-	_pose1_view = Camera3D.new()
-	_pose1_view.name = "UnfplapPose1View"
-	_pose1_view.top_level = true
-	_pose1_view.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_missionary_prev_camera = get_viewport().get_camera_3d() if get_viewport() != null else null
+	_missionary_view = Camera3D.new()
+	_missionary_view.name = "UnfplapMissionaryView"
+	_missionary_view.top_level = true
+	_missionary_view.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	var source: Camera3D = main.camera() if is_instance_valid(main) else null
 	if is_instance_valid(source):
-		if not _pose1_player_rot_saved:
-			_pose1_player_rotation = source.rotation
-			_pose1_player_rot_saved = true
-		_pose1_source_fov = source.fov
-		_pose1_source_near = source.near
-		_pose1_source_far = source.far
-		_pose1_source_cull = source.cull_mask
-		_pose1_view.fov = _pose1_source_fov
-		_pose1_view.near = _pose1_source_near
-		_pose1_view.far = _pose1_source_far
-		_pose1_view.cull_mask = _pose1_source_cull
-		_log("pose1 view setup source_fov=%.1f near=%.3f far=%.0f" % [
+		if not _missionary_player_rot_saved:
+			_missionary_player_rotation = source.rotation
+			_missionary_player_rot_saved = true
+		_missionary_source_fov = source.fov
+		_missionary_source_near = source.near
+		_missionary_source_far = source.far
+		_missionary_source_cull = source.cull_mask
+		_missionary_view.fov = _missionary_source_fov
+		_missionary_view.near = _missionary_source_near
+		_missionary_view.far = _missionary_source_far
+		_missionary_view.cull_mask = _missionary_source_cull
+		_log("missionary view setup source_fov=%.1f near=%.3f far=%.0f" % [
 			source.fov, source.near, source.far])
-	# The pose-1 view settles its aim on her neck (`apply_camera_motion`); the player look controls
+	# The missionary view settles its aim on her neck (`apply_camera_motion`); the player look controls
 	# are left alone so the bed/seated camera is not disturbed.
-	_pose1_look_point = _neck_midpoint()
+	_missionary_look_point = _neck_midpoint()
 	var forward: Vector3 = -pony.global_basis.z.normalized() if is_instance_valid(pony) else Vector3.FORWARD
-	if not _pose1_look_point.is_finite() or not is_instance_valid(pony) \
-			or (_pose1_look_point - _pose1_camera).dot(forward) < -0.05:
-		_pose1_look_point = (pony.global_position if is_instance_valid(pony) else _pose1_camera) \
+	if not _missionary_look_point.is_finite() or not is_instance_valid(pony) \
+			or (_missionary_look_point - _missionary_camera).dot(forward) < -0.05:
+		_missionary_look_point = (pony.global_position if is_instance_valid(pony) else _missionary_camera) \
 			+ forward * 0.20 + Vector3.UP * 0.10
-	_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
-	_pose1_aim_until = Time.get_ticks_msec() + 1000
-	_pose1_camera_log_until = Time.get_ticks_msec() + 10000
-	_pose1_camera_log_next = 0
-	_pose1_snap_ready = false
-	_pose1_camera_rebuilds = 0
-	pony.add_child(_pose1_view)
-	_pose1_view.current = true
-	_pose1_log_setup()
+	_missionary_view_basis = _missionary_aim_basis(_missionary_camera)
+	_missionary_aim_until = Time.get_ticks_msec() + 1000
+	_missionary_camera_log_until = Time.get_ticks_msec() + 10000
+	_missionary_camera_log_next = 0
+	_missionary_snap_ready = false
+	_missionary_camera_rebuilds = 0
+	pony.add_child(_missionary_view)
+	_missionary_view.current = true
+	_missionary_log_setup()
 
 
-func _pose1_log_setup() -> void:
+func _missionary_log_setup() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) or not bool(main.get("debug_logs")):
 		return
 	var seat: Variant = main.player.get("seat") if is_instance_valid(main.player) else null
 	var rest: Variant = main.player.get("_couch_rest") if is_instance_valid(main.player) else null
-	_log("pose1 setup pony=%s pos=%s anchor=%s camera=%s bed=%s bed_top=%.2f seat=%s rest=%.2f" % [
-		str(pony.name), str(pony.global_position), str(_pose1_camera),
+	_log("missionary setup pony=%s pos=%s anchor=%s camera=%s bed=%s bed_top=%.2f seat=%s rest=%.2f" % [
+		str(pony.name), str(pony.global_position), str(_missionary_camera),
 		source,
 		str(bed.name) if is_instance_valid(bed) else "null", _bed_surface_top(),
 		str(seat.name) if is_instance_valid(seat) else "null",
 		float(rest.get("amount")) if is_instance_valid(rest) else -1.0])
 
 
-func _free_pose1_view() -> void:
-	if is_instance_valid(_pose1_view):
-		_pose1_view.current = false
-		_pose1_view.queue_free()
-	_pose1_view = null
-	if is_instance_valid(_pose1_prev_camera):
+func _free_missionary_view() -> void:
+	if is_instance_valid(_missionary_view):
+		_missionary_view.current = false
+		_missionary_view.queue_free()
+	_missionary_view = null
+	if is_instance_valid(_missionary_prev_camera):
 		# The game may have changed the player camera's projection during the act; restore the
 		# exact projection captured before the mod-owned view took over.
-		_pose1_prev_camera.fov = _pose1_source_fov
-		_pose1_prev_camera.near = _pose1_source_near
-		_pose1_prev_camera.far = _pose1_source_far
-		_pose1_prev_camera.cull_mask = _pose1_source_cull
-		_pose1_prev_camera.make_current()
-		_log("pose1 view restore fov=%.1f near=%.3f far=%.0f" % [
-			_pose1_prev_camera.fov, _pose1_prev_camera.near, _pose1_prev_camera.far])
-	_pose1_prev_camera = null
+		_missionary_prev_camera.fov = _missionary_source_fov
+		_missionary_prev_camera.near = _missionary_source_near
+		_missionary_prev_camera.far = _missionary_source_far
+		_missionary_prev_camera.cull_mask = _missionary_source_cull
+		_missionary_prev_camera.make_current()
+		_log("missionary view restore fov=%.1f near=%.3f far=%.0f" % [
+			_missionary_prev_camera.fov, _missionary_prev_camera.near, _missionary_prev_camera.far])
+	_missionary_prev_camera = null
 	if is_instance_valid(main) and is_instance_valid(main.player):
 		var source: Camera3D = main.camera() if is_instance_valid(main) else null
-		if _pose1_player_rot_saved and is_instance_valid(source):
-			source.rotation = _pose1_player_rotation
-	_pose1_player_rot_saved = false
+		if _missionary_player_rot_saved and is_instance_valid(source):
+			source.rotation = _missionary_player_rotation
+	_missionary_player_rot_saved = false
 
 
-## Stable pose-1 camera target: the middle of her neck. The live nose (`listen_point`) moves as
+## Stable missionary camera target: the middle of her neck. The live nose (`listen_point`) moves as
 ## she aims/nuzzles and could end up behind the camera, which made the camera look backwards.
-func _pose1_look_target() -> Vector3:
-	if _pose1_look_point.is_finite():
-		return _pose1_look_point
+func _missionary_look_target() -> Vector3:
+	if _missionary_look_point.is_finite():
+		return _missionary_look_point
 	if not is_instance_valid(pony):
 		return Vector3.INF
 	var forward: Vector3 = -pony.global_basis.z.normalized()
 	return pony.global_position + forward * 0.20 + Vector3.UP * 0.10
 
 
-## The fixed pose-1 view orientation: from the camera anchor toward her neck. Computed once so the
+## The fixed missionary view orientation: from the camera anchor toward her neck. Computed once so the
 ## camera does not track the snout while she nuzzles; bob only moves its position.
-func _pose1_aim_basis(from_position: Vector3) -> Basis:
-	var look := _pose1_look_target()
+func _missionary_aim_basis(from_position: Vector3) -> Basis:
+	var look := _missionary_look_target()
 	var dir := look - from_position
 	if dir.length_squared() < 0.000001:
 		return Basis.IDENTITY
@@ -4542,25 +4542,25 @@ func _pose1_aim_basis(from_position: Vector3) -> Basis:
 	return Basis.looking_at(dir, Vector3.UP)
 
 
-func _pose1_body_scale() -> float:
+func _missionary_body_scale() -> float:
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		return clampf(float(pony.get("body_scale")), 0.8, 1.6)
 	return 1.0
 
 
-func _pose1_pullback() -> float:
-	var value := float(_presentation_cfg.get("pullback", POSE1_CAMERA_PULLBACK_M))
-	return value * _pose1_body_scale()
+func _missionary_pullback() -> float:
+	var value := float(_presentation_cfg.get("pullback", MISSIONARY_CAMERA_PULLBACK_M))
+	return value * _missionary_body_scale()
 
 
 ## Framing pitch after the frozen neck aim. Positive looks up; the anchor and settle target do
 ## not move, so this only tilts the shot and applies live.
-func _pose1_pitch_basis() -> Basis:
+func _missionary_pitch_basis() -> Basis:
 	var degrees := float(_presentation_cfg.get("pitch_deg", 0.0))
 	return Basis(Vector3.RIGHT, deg_to_rad(degrees))
 
 
-func _pose1_camera_offsets() -> Vector3:
+func _missionary_camera_offsets() -> Vector3:
 	return Vector3(
 		float(_presentation_cfg.get("forward",
 			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["forward"])),
@@ -4572,34 +4572,34 @@ func _pose1_camera_offsets() -> Vector3:
 
 ## Side lean also travels along the mattress toward her head, outside the view-axis clamp. The
 ## amount is metres at full Q/E and is live.
-func _pose1_side_lean_forward() -> float:
+func _missionary_side_lean_forward() -> float:
 	var amount := float(_presentation_cfg.get("side_lean",
 		SETTINGS.PRESENTATION_DEFAULTS["missionary"]["side_lean"]))
 	return amount * absf(_lean_view_side) * _lean_size_scale()
 
 
-func _pose1_camera_target() -> Vector3:
+func _missionary_camera_target() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
 	var root: Vector3 = pony.global_position
 	var back: Vector3 = pony.global_basis.z.normalized()
-	var body_scale := _pose1_body_scale()
+	var body_scale := _missionary_body_scale()
 	# Stay behind her neck, toward her rump. Anchoring ahead of the neck put the camera over her
 	# head and aimed the shot back down her torso, away from her face. Larger ponies need a
 	# proportionally higher and farther-back anchor so the shot does not sit inside her neck.
-	var height := (float(_pose_cfg.get("camera_height", POSE1_CAMERA_HEIGHT_M)) + POSE1_CAMERA_LIFT_M) \
+	var height := (float(_pose_cfg.get("camera_height", MISSIONARY_CAMERA_HEIGHT_M)) + MISSIONARY_CAMERA_LIFT_M) \
 		* body_scale
 	if _size_name() == "canon":
 		height *= 0.9
 	var target := root + Vector3.UP * height \
-		+ back * float(_pose_cfg.get("camera_back", POSE1_CAMERA_BACK_M)) * body_scale
+		+ back * float(_pose_cfg.get("camera_back", MISSIONARY_CAMERA_BACK_M)) * body_scale
 	var bed_top := _bed_surface_top()
 	if is_finite(bed_top) and bed_top <= root.y + 2.0:
 		target.y = maxf(target.y, bed_top + 0.30 * body_scale)
 	target.y = clampf(target.y, root.y + 0.30 * body_scale, root.y + 1.50 * body_scale)
 	# Fine missionary framing: forward along her body, vertical, and her lateral axis. The
 	# base anchor would otherwise sit behind her neck and too high for the close shot.
-	var offsets := _pose1_camera_offsets()
+	var offsets := _missionary_camera_offsets()
 	target += -back * offsets.x
 	target.y += offsets.y
 	target += pony.global_basis.x.normalized() * offsets.z
@@ -4608,7 +4608,7 @@ func _pose1_camera_target() -> Vector3:
 	return target
 
 
-func _pose1_head_transform() -> Transform3D:
+func _missionary_head_transform() -> Transform3D:
 	if not is_instance_valid(pony):
 		return Transform3D.IDENTITY
 	var sk: Variant = pony.get("skeleton")
@@ -4621,26 +4621,26 @@ func _pose1_head_transform() -> Transform3D:
 	return skeleton.global_transform * skeleton.get_bone_global_pose(head)
 
 
-## The pose-1 head aim uses the camera as Anon's face. Keep a minimum distance so a large pony's
+## The missionary head aim uses the camera as Anon's face. Keep a minimum distance so a large pony's
 ## camera anchor can be near her head without producing near-zero direction flips.
-func _pose1_head_look_point(view: Camera3D) -> Vector3:
+func _missionary_head_look_point(view: Camera3D) -> Vector3:
 	if not is_instance_valid(view):
 		return Vector3.INF
 	var point := view.global_position
 	# Move the virtual partner with the displayed lean. Otherwise the framing camera slides
 	# sideways while her head stays on the fixed player camera and appears to turn the other way.
-	if is_instance_valid(_pose1_view) and view != _pose1_view:
-		point += _pose1_view_basis.x * _lateral_lean_shift(_lean_size_scale())
+	if is_instance_valid(_missionary_view) and view != _missionary_view:
+		point += _missionary_view_basis.x * _lateral_lean_shift(_lean_size_scale())
 		if is_instance_valid(pony):
 			var bed_forward: Vector3 = -pony.global_basis.z
 			bed_forward.y = 0.0
 			if bed_forward.length_squared() > 0.0001:
-				point += bed_forward.normalized() * _pose1_side_lean_forward()
-	var head := _pose1_head_transform()
+				point += bed_forward.normalized() * _missionary_side_lean_forward()
+	var head := _missionary_head_transform()
 	if not head.origin.is_finite():
 		return point
 	var offset := point - head.origin
-	var minimum := 0.45 * _pose1_body_scale()
+	var minimum := 0.45 * _missionary_body_scale()
 	if offset.length() >= minimum:
 		return point
 	var direction: Vector3 = offset.normalized() if offset.length_squared() > 0.000001 \
@@ -4650,7 +4650,7 @@ func _pose1_head_look_point(view: Camera3D) -> Vector3:
 
 ## Debug readout of how far her actual face points from the act look target. The link updates
 ## the OpenPony head after the pose modifier, so this is the previous frame's settled frame.
-func _pose1_gaze_error() -> float:
+func _missionary_gaze_error() -> float:
 	if not is_instance_valid(pony) or not is_instance_valid(_pose) or not _pose.look_point.is_finite():
 		return -1.0
 	if not pony.has_method("awareness_forward"):
@@ -4670,7 +4670,7 @@ func _pose1_gaze_error() -> float:
 
 func _apply_eye_override() -> void:
 	_camera_target_eye = 0.0
-	# Pose 1 is owned by the game's bed rest/seat camera. Do not fight it with eye-height edits.
+	# Missionary is owned by the game's bed rest/seat camera. Do not fight it with eye-height edits.
 	if pose_id == CATALOG.MISSIONARY or _player_pony:
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -4716,9 +4716,9 @@ func _begin_camera_mode() -> void:
 	_camera_basis_ready = false
 	_reset_lean_state()
 	_hip_phase = 0.0
-	_pose1_look_point = Vector3.INF
-	_pose2_base_look = Vector3.INF
-	_pose2_base_saved = false
+	_missionary_look_point = Vector3.INF
+	_standing_base_look = Vector3.INF
+	_standing_base_saved = false
 	if _player_pony or _headset_view():
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -4726,15 +4726,15 @@ func _begin_camera_mode() -> void:
 	_free_camera_active = true
 	_camera = main.camera()
 	if pose_id == CATALOG.STANDING and is_instance_valid(_camera):
-		_pose2_base_local = _camera.position
-		_pose2_base_saved = true
-		_pose2_base_look = _pose2_neck_point()
-		_apply_pose2_base_look()
+		_standing_base_local = _camera.position
+		_standing_base_saved = true
+		_standing_base_look = _standing_neck_point()
+		_apply_standing_base_look()
 		_install_anon_thrust()
 	_apply_free_camera_lock()
 
 
-## Lean/caress remain live through the pose-2 afterglow; pose 1 afterglow stays passive.
+## Lean/caress remain live through the standing afterglow; missionary afterglow stays passive.
 func _act_actions_allowed() -> bool:
 	return state in [State.ACTIVE, State.CLIMAX] \
 		or (state == State.AFTERGLOW and pose_id == CATALOG.STANDING)
@@ -4795,11 +4795,11 @@ func _lean_tick(delta: float) -> void:
 		_lean_view_side = clampf(_lean_view_side
 			+ sin(_hold_rock_clock * 0.57 + 1.1) * HOLD_SWAY_SIDE, -1.0, 1.0)
 	_lean_action_tick()
-	_pose2_kiss_tick()
+	_standing_kiss_tick()
 	_caress_tick(delta)
 	_smack_swing_tick()
 	if pose_id == CATALOG.STANDING:
-		_apply_pose2_lean_look()
+		_apply_standing_lean_look()
 
 
 ## Pure mapping for tests: vector x is side, y is forward. Q/E contribute both.
@@ -4843,14 +4843,14 @@ static func caress_phase_step(phase: float, moving: bool, delta: float) -> float
 
 
 ## Canon needs a little less travel in the standing pose than the other presets.
-func _pose2_lean_scale() -> float:
+func _standing_lean_scale() -> float:
 	var scale := _lean_size_scale()
 	if _size_name() == "canon":
 		scale *= 0.8
 	return scale
 
 
-## Pose-2 torso angle: hinge Anon's upper body forward over her by moving the head/camera
+## Standing torso angle: hinge Anon's upper body forward over her by moving the head/camera
 ## forward and down by the spine arc, then countering the hip in `apply_anon_lean`.
 func _anon_torso_angle() -> float:
 	return deg_to_rad(float(_presentation_cfg.get("torso_angle_deg", 0.0)))
@@ -4947,33 +4947,33 @@ func _start_lean_action(side: float) -> void:
 		pose_id, side, _lean_action_kind, _lean_action_shoulder])
 
 
-static func pose2_kiss_wanted(key_down: bool, lean: float) -> bool:
-	return key_down and absf(lean) >= POSE2_KISS_LEAN
+static func standing_kiss_wanted(key_down: bool, lean: float) -> bool:
+	return key_down and absf(lean) >= STANDING_KISS_LEAN
 
 
-func _pose2_kiss_tick() -> void:
+func _standing_kiss_tick() -> void:
 	if pose_id != CATALOG.STANDING or not _act_actions_allowed():
-		_pose2_kiss_used = false
-		_end_pose2_kiss()
+		_standing_kiss_used = false
+		_end_standing_kiss()
 		return
-	var want := pose2_kiss_wanted(Input.is_physical_key_pressed(KEY_F), _lean_side)
+	var want := standing_kiss_wanted(Input.is_physical_key_pressed(KEY_F), _lean_side)
 	if not want:
-		_pose2_kiss_used = false
-		_end_pose2_kiss()
+		_standing_kiss_used = false
+		_end_standing_kiss()
 		return
-	if _pose2_kiss_active:
+	if _standing_kiss_active:
 		# The base kiss can finish on its own (deep-kiss timeout); stop holding the pose with it.
 		if _base_kiss_active:
 			var affection: Variant = _base_kiss_affection
 			if not is_instance_valid(affection) or str(affection.get("kind")) != "kiss":
-				_end_pose2_kiss()
+				_end_standing_kiss()
 		elif not _custom_kiss_active:
-			_end_pose2_kiss()
+			_end_standing_kiss()
 		return
-	if _pose2_kiss_used or Time.get_ticks_msec() < _pose2_kiss_ready_at:
+	if _standing_kiss_used or Time.get_ticks_msec() < _standing_kiss_ready_at:
 		return
-	_pose2_kiss_used = true
-	_pose2_kiss_active = true
+	_standing_kiss_used = true
+	_standing_kiss_active = true
 	_forced_glance = ""
 	_latch_kiss_side()
 	_custom_kiss_active = not _start_base_kiss()
@@ -4981,17 +4981,17 @@ func _pose2_kiss_tick() -> void:
 		_play_mouth_kiss()
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 	_on_touch("kiss")
-	_log("pose2 kiss start lean=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
+	_log("standing kiss start lean=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
 		_lean_side, _kiss_camera_side, _kiss_pony_side,
-		_lateral_lean_shift(_pose2_lean_scale()), str(_base_kiss_active)])
+		_lateral_lean_shift(_standing_lean_scale()), str(_base_kiss_active)])
 
 
-func _end_pose2_kiss() -> void:
-	if not _pose2_kiss_active:
+func _end_standing_kiss() -> void:
+	if not _standing_kiss_active:
 		return
-	_pose2_kiss_active = false
-	_pose2_kiss_used = false
-	_pose2_kiss_ready_at = Time.get_ticks_msec() + KISS_RESTART_COOLDOWN_MS
+	_standing_kiss_active = false
+	_standing_kiss_used = false
+	_standing_kiss_ready_at = Time.get_ticks_msec() + KISS_RESTART_COOLDOWN_MS
 	_end_base_kiss()
 	_custom_kiss_active = false
 	_release_kiss_face()
@@ -5003,11 +5003,11 @@ func _end_pose2_kiss() -> void:
 	_glance_wait = randf_range(
 		float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)),
 		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
-	_log("pose2 kiss stop")
+	_log("standing kiss stop")
 
 
 func _end_lean_action() -> void:
-	_end_pose2_kiss()
+	_end_standing_kiss()
 	if _lean_action_kind == "kiss":
 		var was_base := _base_kiss_active
 		_end_base_kiss()
@@ -5045,8 +5045,8 @@ func _reset_lean_state() -> void:
 	_side_return_armed = false
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
-	_pose2_kiss_used = false
-	_pose2_kiss_ready_at = 0
+	_standing_kiss_used = false
+	_standing_kiss_ready_at = 0
 	_hold_rock_clock = 0.0
 	_kiss_amount = 0.0
 	_kiss_lean = 0.0
@@ -5113,13 +5113,13 @@ func _stop_kiss_leg_pin() -> void:
 	_kiss_leg_pin = null
 
 
-## Reuse the game's own kiss in pose 2. `pony_kisser.begin_from_pony()` runs the same eligibility
+## Reuse the game's own kiss in standing. `pony_kisser.begin_from_pony()` runs the same eligibility
 ## checks as a normal Ponese kiss, including `controls_locked`, so unlock for that one call only.
 ## The AffectionPose modifier is moved to the end of the skeleton chain so its kiss IK layers on
-## top of the act pose instead of being overwritten by it. Pose 1 always returns false here.
+## top of the act pose instead of being overwritten by it. Missionary always returns false here.
 func _start_base_kiss() -> bool:
 	# The stock kiss pose is authored for a standing pony. On the bed its chest/neck give lifts
-	# the lying body off the mattress and turns her head across it, so pose 1 uses the act's own
+	# the lying body off the mattress and turns her head across it, so missionary uses the act's own
 	# head aim instead.
 	if pose_id == CATALOG.MISSIONARY:
 		return false
@@ -5233,12 +5233,12 @@ func _restore_base_kiss_excitement() -> void:
 func _kiss_visible() -> bool:
 	if _base_kiss_active:
 		return true
-	if _pose2_kiss_active and _custom_kiss_active:
+	if _standing_kiss_active and _custom_kiss_active:
 		return true
 	return _lean_action_active and _lean_action_kind == "kiss" and _custom_kiss_active
 
 
-## Pose-2 kiss controls. Pose 1 keeps the fixed constants.
+## Standing kiss controls. Missionary keeps the fixed constants.
 func _kiss_controls() -> Dictionary:
 	if pose_id != CATALOG.STANDING:
 		return {}
@@ -5386,7 +5386,7 @@ func _kiss_tick(delta: float) -> void:
 		_kiss_amount = move_toward(_kiss_amount, 0.0, delta / KISS_FADE_OUT)
 		return
 	var active := (_lean_action_active and _lean_action_kind == "kiss" and _custom_kiss_active) \
-		or (_pose2_kiss_active and _custom_kiss_active)
+		or (_standing_kiss_active and _custom_kiss_active)
 	var target := 1.0 if active else 0.0
 	var seconds := KISS_FADE_IN if target > _kiss_amount else KISS_FADE_OUT
 	_kiss_amount = move_toward(_kiss_amount, target, delta / maxf(seconds, 0.001))
@@ -5476,7 +5476,7 @@ func _kiss_diag() -> void:
 		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
 		pose_side, cam_roll, head_roll, skull_lateral, mouth_gap,
 		limited, miss, cleared,
-		_lateral_lean_shift(_pose2_lean_scale()) if pose_id == CATALOG.STANDING else 0.0])
+		_lateral_lean_shift(_standing_lean_scale()) if pose_id == CATALOG.STANDING else 0.0])
 
 
 func _kiss_target(view: Camera3D) -> Vector3:
@@ -5486,7 +5486,7 @@ func _kiss_target(view: Camera3D) -> Vector3:
 		* (Vector3(0.0, -0.07, -0.02) * _anon_height_scale())
 	if pose_id == CATALOG.STANDING:
 		point = view.global_position + view.global_basis * _kiss_mouth_offset()
-	# Pose 1's player camera is not the rendered shot; move the virtual mouth with the view.
+	# Missionary's player camera is not the rendered shot; move the virtual mouth with the view.
 	if pose_id == CATALOG.MISSIONARY:
 		point += -view.global_basis.z.normalized() * _kiss_lean_distance()
 		point += view.global_basis.x.normalized() * _kiss_side_distance()
@@ -5494,7 +5494,7 @@ func _kiss_target(view: Camera3D) -> Vector3:
 	return point
 
 
-## Anon's actual mouth camera. Pose 1 frames the shot through a separate view, so using that as
+## Anon's actual mouth camera. Missionary frames the shot through a separate view, so using that as
 ## the kiss target aimed her at the camera instead of at him.
 func _kiss_mouth_view() -> Camera3D:
 	if is_instance_valid(main):
@@ -6293,7 +6293,7 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 			sig.connect(callable)
 
 
-## Pose-2 hip phase follows the mouse depth directly, with a short low-pass so a single-frame
+## Standing hip phase follows the mouse depth directly, with a short low-pass so a single-frame
 ## mouse step does not snap the body. Depth is the input; this is not a speed attack.
 func _hip_phase_tick(delta: float) -> void:
 	if pose_id != CATALOG.STANDING or state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
@@ -6318,14 +6318,14 @@ func _depth_speed_tick(delta: float) -> void:
 	_depth_speed = lerpf(_depth_speed, raw_speed, alpha)
 
 
-## Pose-2 yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
-func _apply_pose2_lean_look() -> void:
+## Standing yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
+func _apply_standing_lean_look() -> void:
 	if not _free_camera_active or pose_id != CATALOG.STANDING or _player_pony or _headset_view():
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var body: Node = main.player
-	var lean_scale := _pose2_lean_scale()
+	var lean_scale := _standing_lean_scale()
 	var yaw := _look_yaw + deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale
 	# Turn a little further toward her while kissing, over the shoulder.
 	yaw += deg_to_rad(_kiss_camera_yaw_deg()) * _kiss_lean * _kiss_side()
@@ -6362,7 +6362,7 @@ func _release_free_camera_lock() -> void:
 	_controls_locked_saved = false
 
 
-func _pose2_neck_point() -> Vector3:
+func _standing_neck_point() -> Vector3:
 	var neck := _neck_midpoint()
 	if neck.is_finite():
 		return neck
@@ -6371,7 +6371,7 @@ func _pose2_neck_point() -> Vector3:
 	var scale := 1.0
 	if pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
-	return pony.global_position + Vector3.UP * (POSE2_HEAD_NECK_HEIGHT_M * scale)
+	return pony.global_position + Vector3.UP * (STANDING_HEAD_NECK_HEIGHT_M * scale)
 
 
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
@@ -6394,7 +6394,7 @@ func _neck_midpoint() -> Vector3:
 
 
 ## Point the player's own camera at the middle of her neck. This is the fixed free shot.
-func _apply_pose2_base_look() -> void:
+func _apply_standing_base_look() -> void:
 	if _player_pony or _headset_view():
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -6403,9 +6403,9 @@ func _apply_pose2_base_look() -> void:
 	var view: Camera3D = main.camera()
 	if not is_instance_valid(view):
 		return
-	var target := _pose2_base_look
+	var target := _standing_base_look
 	if not target.is_finite():
-		target = _pose2_neck_point()
+		target = _standing_neck_point()
 	if not target.is_finite():
 		return
 	var direction := target - view.global_position
@@ -6422,10 +6422,10 @@ func _apply_pose2_base_look() -> void:
 	_look_yaw = yaw
 	_look_pitch = pitch
 	_camera_basis_ready = true
-	_pose2_base_look = target
+	_standing_base_look = target
 	if pose_id == CATALOG.STANDING and _has_facing:
 		_facing_basis = Basis(Vector3.UP, yaw)
-	_apply_pose2_lean_look()
+	_apply_standing_lean_look()
 
 
 func _install_anon_thrust() -> void:
@@ -6459,7 +6459,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 		return
 	var skeleton := avatar.find_child("Skeleton3D", true, false) as Skeleton3D
 	if not is_instance_valid(skeleton):
-		_log("pose2 palm scale skipped: no skeleton")
+		_log("standing palm scale skipped: no skeleton")
 		return
 	_palm_scale = PALM_SCALE.new()
 	_palm_scale.name = "UnfplapPalmScale"
@@ -6467,7 +6467,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 	_palm_scale.set("factor", factor)
 	_palm_scale.process_priority = 10
 	skeleton.add_child(_palm_scale)
-	_log("pose2 palm scale=%.2f size=%s" % [factor, _size_name()])
+	_log("standing palm scale=%.2f size=%s" % [factor, _size_name()])
 
 
 func _refresh_palm_scale() -> void:
@@ -6523,7 +6523,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		return
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
-	var lean_scale := _pose2_lean_scale()
+	var lean_scale := _standing_lean_scale()
 	var forward_shift := lean_distance(maxf(_lean_view_forward, 0.0), lean_scale) \
 		+ _kiss_lean_distance() + _anon_torso_forward()
 	hip.global_position -= forward * forward_shift
@@ -6544,7 +6544,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				_lower_left = (left as Node3D).global_transform
 				_lower_right = (right as Node3D).global_transform
 				_lower_captured = true
-				_log("pose2 lower body pinned")
+				_log("standing lower body pinned")
 			if _lower_captured:
 				if left is Node3D:
 					(left as Node3D).global_transform = _lower_left
@@ -6552,7 +6552,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 					(right as Node3D).global_transform = _lower_right
 		elif _lower_captured:
 			_lower_captured = false
-			_log("pose2 lower body released")
+			_log("standing lower body released")
 
 
 func apply_camera_motion() -> void:
@@ -6567,123 +6567,123 @@ func apply_camera_motion() -> void:
 	if pose_id == CATALOG.MISSIONARY:
 		if not is_instance_valid(pony):
 			return
-		var body_scale := _pose1_body_scale()
+		var body_scale := _missionary_body_scale()
 		var bed_top := _bed_surface_top()
 		var rebuild := ""
-		if not _pose1_camera.is_finite():
+		if not _missionary_camera.is_finite():
 			rebuild = "invalid"
-		elif _pose1_camera.distance_to(pony.global_position) > 3.0:
+		elif _missionary_camera.distance_to(pony.global_position) > 3.0:
 			rebuild = "distance"
-		elif is_finite(bed_top) and _pose1_camera.y < bed_top - 0.05:
+		elif is_finite(bed_top) and _missionary_camera.y < bed_top - 0.05:
 			rebuild = "below-bed"
 		if not rebuild.is_empty():
-			_pose1_camera = _pose1_camera_target()
-			_pose1_camera_rebuilds += 1
-			_log("pose1 CAMERA REBUILD #%d reason=%s size=%s scale=%.2f pony=%s anchor=%s bed_top=%.2f" % [
-				_pose1_camera_rebuilds, rebuild, _size_name(), body_scale,
-				str(pony.global_position), str(_pose1_camera), bed_top])
-		if not _pose1_camera.is_finite():
+			_missionary_camera = _missionary_camera_target()
+			_missionary_camera_rebuilds += 1
+			_log("missionary CAMERA REBUILD #%d reason=%s size=%s scale=%.2f pony=%s anchor=%s bed_top=%.2f" % [
+				_missionary_camera_rebuilds, rebuild, _size_name(), body_scale,
+				str(pony.global_position), str(_missionary_camera), bed_top])
+		if not _missionary_camera.is_finite():
 			return
 		if is_finite(bed_top) and bed_top <= pony.global_position.y + 2.0 \
-				and _pose1_camera.y < bed_top + 0.15 * body_scale:
-			_pose1_camera.y = bed_top + 0.30 * body_scale
-		_pose1_camera.y = clampf(_pose1_camera.y, pony.global_position.y + 0.30 * body_scale,
+				and _missionary_camera.y < bed_top + 0.15 * body_scale:
+			_missionary_camera.y = bed_top + 0.30 * body_scale
+		_missionary_camera.y = clampf(_missionary_camera.y, pony.global_position.y + 0.30 * body_scale,
 			pony.global_position.y + 1.50 * body_scale)
-		if not is_instance_valid(_pose1_view):
-			_make_pose1_view()
-		if not is_instance_valid(_pose1_view):
+		if not is_instance_valid(_missionary_view):
+			_make_missionary_view()
+		if not is_instance_valid(_missionary_view):
 			return
-		_pose1_view.global_position = _pose1_camera + Vector3.UP * _bob
+		_missionary_view.global_position = _missionary_camera + Vector3.UP * _bob
 		# Pull the whole shot back along its own view axis; the frozen aim still points at her neck.
-		_pose1_view.global_position += _pose1_view_basis.z * _pose1_pullback()
+		_missionary_view.global_position += _missionary_view_basis.z * _missionary_pullback()
 		var lean_scale := _lean_size_scale()
 		var lean_forward := lean_distance(_lean_view_forward, lean_scale) \
-			+ lean_distance(POSE1_START_LEAN, lean_scale)
-		var to_target := _pose1_look_target() - _pose1_camera
+			+ lean_distance(MISSIONARY_START_LEAN, lean_scale)
+		var to_target := _missionary_look_target() - _missionary_camera
 		if lean_forward < 0.0:
 			# Never let the shot cross its own neck target and flip the view backwards.
-			var room := maxf(0.0, to_target.dot(-_pose1_view_basis.z) - 0.12)
+			var room := maxf(0.0, to_target.dot(-_missionary_view_basis.z) - 0.12)
 			lean_forward = -minf(-lean_forward, room)
 		# Stop 0.12 m before the neck instead of crossing it when the start offset is added.
-		var forward_room := maxf(0.0, to_target.dot(-_pose1_view_basis.z)
-			+ _pose1_pullback() - 0.12)
+		var forward_room := maxf(0.0, to_target.dot(-_missionary_view_basis.z)
+			+ _missionary_pullback() - 0.12)
 		lean_forward = minf(lean_forward, forward_room)
 		var kiss_lean := _kiss_lean_distance()
 		if kiss_lean > 0.0:
-			var view_room := maxf(0.0, to_target.dot(-_pose1_view_basis.z)
-				+ _pose1_pullback() - 0.12 - maxf(lean_forward, 0.0))
+			var view_room := maxf(0.0, to_target.dot(-_missionary_view_basis.z)
+				+ _missionary_pullback() - 0.12 - maxf(lean_forward, 0.0))
 			kiss_lean = minf(kiss_lean, view_room)
-		_pose1_view.global_position -= _pose1_view_basis.z \
+		_missionary_view.global_position -= _missionary_view_basis.z \
 			* (-_back + lean_forward + kiss_lean)
 		# The speed-driven surge runs along the mattress toward her head, not down the view axis.
 		var bed_forward: Vector3 = -pony.global_basis.z
 		bed_forward.y = 0.0
 		if bed_forward.length_squared() > 0.0001:
-			_pose1_view.global_position += bed_forward.normalized() \
-				* (_lean + _pose1_side_lean_forward())
-		_pose1_view.global_position.y -= _kiss_lean_drop() * _kiss_lean
-		_pose1_view.global_position += _pose1_view_basis.x \
+			_missionary_view.global_position += bed_forward.normalized() \
+				* (_lean + _missionary_side_lean_forward())
+		_missionary_view.global_position.y -= _kiss_lean_drop() * _kiss_lean
+		_missionary_view.global_position += _missionary_view_basis.x \
 			* _lateral_lean_shift(lean_scale)
 		_camera_basis_ready = true
 		# Settle the aim on her neck while the act pose blends in. The target is her neck, not
 		# the moving view, and the basis comes from the fixed anchor; no feedback loop.
-		if Time.get_ticks_msec() < _pose1_aim_until:
+		if Time.get_ticks_msec() < _missionary_aim_until:
 			var neck := _neck_midpoint()
 			var forward: Vector3 = -pony.global_basis.z.normalized()
 			# Never re-aim at a neck point behind the anchor; that flips the shot back down her
 			# torso. Keep the previous target when the pose puts the neck behind the camera.
-			if neck.is_finite() and (neck - _pose1_camera).dot(forward) > 0.02:
-				_pose1_look_point = neck
-			_pose1_view_basis = _pose1_aim_basis(_pose1_camera)
+			if neck.is_finite() and (neck - _missionary_camera).dot(forward) > 0.02:
+				_missionary_look_point = neck
+			_missionary_view_basis = _missionary_aim_basis(_missionary_camera)
 		var lean := Basis.from_euler(Vector3(
 			-deg_to_rad(LEAN_PITCH_DEG) * absf(_lean_view_forward) * lean_scale,
 			-deg_to_rad(LEAN_SIDE_YAW_DEG) * _lean_view_side * lean_scale,
 			(-deg_to_rad(LEAN_SIDE_ROLL_DEG) * _lean_view_side
 				+ deg_to_rad(LEAN_ROLL_DEG) * _lean_view_forward) * lean_scale))
-		_pose1_view.global_basis = _pose1_view_basis * _pose1_pitch_basis() * lean
-		var look_dir := _pose1_look_target() - _pose1_view.global_position
-		var look_dot := (-_pose1_view.global_basis.z).dot(look_dir.normalized()) \
+		_missionary_view.global_basis = _missionary_view_basis * _missionary_pitch_basis() * lean
+		var look_dir := _missionary_look_target() - _missionary_view.global_position
+		var look_dot := (-_missionary_view.global_basis.z).dot(look_dir.normalized()) \
 			if look_dir.length_squared() > 0.000001 else 1.0
-		if not _pose1_basis_logged:
-			_pose1_basis_logged = true
-			_log("pose1 camera base_euler=%s applied_basis=%s" % [
-				str(_pose1_view_basis.get_euler()), str(_pose1_view.global_basis)])
+		if not _missionary_basis_logged:
+			_missionary_basis_logged = true
+			_log("missionary camera base_euler=%s applied_basis=%s" % [
+				str(_missionary_view_basis.get_euler()), str(_missionary_view.global_basis)])
 		var now := Time.get_ticks_msec()
-		if now < _pose1_camera_log_until and now >= _pose1_camera_log_next:
-			_pose1_camera_log_next = now + 100
-			var dot := (-_pose1_view.global_basis.z).dot(look_dir.normalized()) \
+		if now < _missionary_camera_log_until and now >= _missionary_camera_log_next:
+			_missionary_camera_log_next = now + 100
+			var dot := (-_missionary_view.global_basis.z).dot(look_dir.normalized()) \
 				if look_dir.length_squared() > 0.000001 else 0.0
-			_log("pose1 cam anchor=%s view=%s base_euler=%s target=%s dot=%.3f gaze=%.1f bed=%.2f pose=%.2f lean=%.2f/%.2f size=%s%.2f" % [
-				str(_pose1_camera), str(_pose1_view.global_position),
-				str(_pose1_view_basis.get_euler()), str(_pose1_look_target()), dot,
-				_pose1_gaze_error(), bed_top, _pose_basis_amount(),
+			_log("missionary cam anchor=%s view=%s base_euler=%s target=%s dot=%.3f gaze=%.1f bed=%.2f pose=%.2f lean=%.2f/%.2f size=%s%.2f" % [
+				str(_missionary_camera), str(_missionary_view.global_position),
+				str(_missionary_view_basis.get_euler()), str(_missionary_look_target()), dot,
+				_missionary_gaze_error(), bed_top, _pose_basis_amount(),
 				_lean_view_forward, _lean_view_side, _size_name(), _size_scale()])
 		if is_instance_valid(main) and bool(main.get("debug_logs")):
-			var view_basis := _pose1_view.global_basis
-			if _pose1_snap_ready:
-				var basis_delta := rad_to_deg(_pose1_last_view_basis.get_rotation_quaternion() \
+			var view_basis := _missionary_view.global_basis
+			if _missionary_snap_ready:
+				var basis_delta := rad_to_deg(_missionary_last_view_basis.get_rotation_quaternion() \
 					.angle_to(view_basis.get_rotation_quaternion()))
-				var pos_delta := _pose1_last_view_pos.distance_to(_pose1_view.global_position)
+				var pos_delta := _missionary_last_view_pos.distance_to(_missionary_view.global_position)
 				if basis_delta > 15.0 or pos_delta > 0.12:
-					_log("pose1 CAMERA SNAP basis=%.1fdeg pos=%.3fm view=%s anchor=%s target=%s dot=%.3f lean=%.2f/%.2f kiss=%.2f size=%s scale=%.2f" % [
-						basis_delta, pos_delta, str(_pose1_view.global_position), str(_pose1_camera),
-						str(_pose1_look_target()), look_dot, _lean_view_forward, _lean_view_side,
+					_log("missionary CAMERA SNAP basis=%.1fdeg pos=%.3fm view=%s anchor=%s target=%s dot=%.3f lean=%.2f/%.2f kiss=%.2f size=%s scale=%.2f" % [
+						basis_delta, pos_delta, str(_missionary_view.global_position), str(_missionary_camera),
+						str(_missionary_look_target()), look_dot, _lean_view_forward, _lean_view_side,
 						_kiss_lean, _size_name(), body_scale])
-				var head := _pose1_head_transform()
+				var head := _missionary_head_transform()
 				if head.origin.is_finite():
-					var head_angle := rad_to_deg(_pose1_last_head.basis.get_rotation_quaternion() \
+					var head_angle := rad_to_deg(_missionary_last_head.basis.get_rotation_quaternion() \
 						.angle_to(head.basis.get_rotation_quaternion()))
-					var head_move := _pose1_last_head.origin.distance_to(head.origin)
+					var head_move := _missionary_last_head.origin.distance_to(head.origin)
 					if head_angle > 18.0 or head_move > 0.05:
-						_log("pose1 HEAD SNAP angle=%.1fdeg move=%.3fm head=%s look=%s view=%s dot=%.3f size=%s scale=%.2f" % [
+						_log("missionary HEAD SNAP angle=%.1fdeg move=%.3fm head=%s look=%s view=%s dot=%.3f size=%s scale=%.2f" % [
 							head_angle, head_move, str(head.origin), str(_pose.look_point if is_instance_valid(_pose) else Vector3.INF),
-							str(_pose1_view.global_position), look_dot, _size_name(), body_scale])
-					_pose1_last_head = head
-			_pose1_last_view_basis = view_basis
-			_pose1_last_view_pos = _pose1_view.global_position
-			_pose1_snap_ready = true
+							str(_missionary_view.global_position), look_dot, _size_name(), body_scale])
+					_missionary_last_head = head
+			_missionary_last_view_basis = view_basis
+			_missionary_last_view_pos = _missionary_view.global_position
+			_missionary_snap_ready = true
 		return
-	var lean_scale := _pose2_lean_scale()
+	var lean_scale := _standing_lean_scale()
 	_set_camera_offsets(_bob - _kiss_lean_drop() * _kiss_lean - _anon_torso_drop(),
 		_lean - _back + lean_distance(_lean_view_forward, lean_scale)
 		+ _kiss_lean_distance() + _anon_torso_forward(), _lateral_lean_shift(lean_scale))
@@ -6699,12 +6699,12 @@ func _pose_basis_amount() -> float:
 	return float(_pose.get("amount")) if is_instance_valid(_pose) else 0.0
 
 
-func _pose2_eye_height() -> float:
+func _standing_eye_height() -> float:
 	var height := _player_eye_height()
 	if _size_name() == "canon":
-		height -= CANON_POSE2_CAMERA_DROP_M
+		height -= CANON_STANDING_CAMERA_DROP_M
 	elif _size_name() == "mounting":
-		height += MOUNTING_POSE2_CAMERA_LIFT_M
+		height += MOUNTING_STANDING_CAMERA_LIFT_M
 	return height
 
 
@@ -6723,12 +6723,12 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 	if not is_instance_valid(_camera):
 		return
 	var seated := is_instance_valid(main) and is_instance_valid(main.player) and main.player.get("seat") != null
-	var eye_height := _pose2_eye_height()
-	if _pose2_base_saved and not _camera.top_level and not seated:
+	var eye_height := _standing_eye_height()
+	if _standing_base_saved and not _camera.top_level and not seated:
 		_camera.position = Vector3(
-			_pose2_base_local.x + side,
+			_standing_base_local.x + side,
 			eye_height + vertical,
-			_pose2_base_local.z - forward)
+			_standing_base_local.z - forward)
 		_applied_bob = vertical
 		_applied_lean = forward
 		_applied_side = side
@@ -6764,16 +6764,16 @@ func _capture_look() -> void:
 	_look_pitch = _restore_pitch
 
 
-## Restore the player's yaw/pitch captured at act start. Free look and the pose-2 look cone can
+## Restore the player's yaw/pitch captured at act start. Free look and the standing look cone can
 ## leave the rig yawed after the act, which makes W/D move relative to a different facing than the
 ## camera. Restoring the captured look keeps movement and view aligned.
 func _restore_look() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var yaw := _restore_yaw
-	# Pose 1 restores the exact start snapshot; use its rig yaw rather than the later capture.
-	if pose_id == CATALOG.MISSIONARY and _pose1_start_saved:
-		yaw = _pose1_start_player_transform.basis.get_euler().y
+	# Missionary restores the exact start snapshot; use its rig yaw rather than the later capture.
+	if pose_id == CATALOG.MISSIONARY and _missionary_start_saved:
+		yaw = _missionary_start_player_transform.basis.get_euler().y
 	main.player.rotation.y = yaw
 	if main.player.get("_pitch") != null:
 		main.player.set("_pitch", _restore_pitch)
@@ -6786,7 +6786,7 @@ func _restore_look() -> void:
 	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
 
 
-## Pose 2 must keep her rump toward Anon. The navigator tries to face a conversation partner
+## Standing must keep her rump toward Anon. The navigator tries to face a conversation partner
 ## and idle motion can add turns; this runs late and restores the start basis every tick.
 func _lock_body_facing() -> void:
 	if not _has_facing or pose_id != CATALOG.STANDING or not is_instance_valid(pony):
@@ -6817,14 +6817,14 @@ func _glance_back_fade() -> float:
 
 
 ## Every few seconds she turns her head back toward Anon, then forward again. The game's
-## secondary gaze owns the turn; pose 2 only adds the optional throw-back rotation (`head_back`),
+## secondary gaze owns the turn; standing only adds the optional throw-back rotation (`head_back`),
 ## eased so it does not snap.
 func _drive_glance(delta: float) -> void:
 	if not _has_facing or pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return
 	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
 	# forced over-the-shoulder look so the two head poses do not fight and clip.
-	if _pose2_kiss_active or _base_kiss_releasing:
+	if _standing_kiss_active or _base_kiss_releasing:
 		if is_instance_valid(_pose):
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
 			_pose.set("head_back", _glance_head_back)
@@ -6834,7 +6834,7 @@ func _drive_glance(delta: float) -> void:
 		return
 	# A full forward W lean (no side lean, no kiss) makes her throw her head fully back and
 	# look up at Anon instead of waiting for a random glance.
-	var lean_up := _lean_forward >= 0.95 and absf(_lean_side) <= 0.2 and not _pose2_kiss_active
+	var lean_up := _lean_forward >= 0.95 and absf(_lean_side) <= 0.2 and not _standing_kiss_active
 	if is_instance_valid(_pose):
 		var back_target := 1.0 if (not _forced_glance.is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
@@ -6918,7 +6918,7 @@ func _glance_angles() -> Vector3:
 ## held by kiss_hold; this only limits where the camera can turn.
 func _clamp_look() -> void:
 	if pose_id == CATALOG.MISSIONARY:
-		# Pose 1 uses the mod-owned view; the player's body look is left alone.
+		# Missionary uses the mod-owned view; the player's body look is left alone.
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -6953,10 +6953,10 @@ func _restore_camera() -> void:
 	_remove_anon_thrust()
 	_restore_eye_override()
 	_restore_anon_avatar()
-	_free_pose1_view()
+	_free_missionary_view()
 	if is_instance_valid(_camera):
-		if _pose2_base_saved:
-			_camera.position = Vector3(_pose2_base_local.x, _player_eye_height(), _pose2_base_local.z)
+		if _standing_base_saved:
+			_camera.position = Vector3(_standing_base_local.x, _player_eye_height(), _standing_base_local.z)
 		elif _camera.top_level:
 			if absf(_applied_bob) > 0.00001:
 				_camera.global_position -= Vector3.UP * _applied_bob
@@ -6980,9 +6980,9 @@ func _restore_camera() -> void:
 	_hip_phase = 0.0
 	_back = 0.0
 	_back_target = 0.0
-	_pose1_camera = Vector3.INF
+	_missionary_camera = Vector3.INF
 	_camera_basis_ready = false
-	_pose2_base_saved = false
+	_standing_base_saved = false
 	_camera = null
 
 
@@ -7031,7 +7031,7 @@ func _start_audio() -> void:
 	_breath_gain = 0.0
 
 	_kiss_stream = load("res://world/audio/pony/kiss.wav") if ResourceLoader.exists("res://world/audio/pony/kiss.wav") else null
-	# The boop kiss uses the `kiss_soft_*` pool; use the same streams for the pose-1 rump plap.
+	# The boop kiss uses the `kiss_soft_*` pool; use the same streams for the missionary rump plap.
 	_plap_streams.clear()
 	for i: int in range(1, 41):
 		var path := "res://world/audio/pony/kiss_soft_%02d.wav" % i

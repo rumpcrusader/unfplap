@@ -67,7 +67,7 @@ func thrust(strength: float) -> void:
 	_thrust_clock = 0.0
 
 
-## Two quick up/down swings. Called when the pose 2 afterglow starts.
+## Two quick up/down swings. Called when the standing afterglow starts.
 func flick(times := 2) -> void:
 	_flick_cycles = float(maxi(1, times))
 	_flick_time = 0.0

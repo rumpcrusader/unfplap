@@ -1,5 +1,5 @@
 extends SkeletonModifier3D
-## Pose-1 lying-body response. The standing body_sway modifier is intentionally not reused:
+## Missionary lying-body response. The standing body_sway modifier is intentionally not reused:
 ## a pony on a bed slides a little along the mattress on each thrust and nods her head, instead
 ## of rocking her chest forward and back over planted hooves.
 

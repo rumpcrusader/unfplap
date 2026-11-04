@@ -112,8 +112,8 @@ func run() -> void:
 	check(bool(feature_block.get("settings_tab", false)), "settings tab feature on")
 	check(bool(feature_block.get("idle_camera_sway", false)), "idle camera sway on by default")
 	check(bool(feature_block.get("captions_on_top", false)), "captions on top feature on")
-	check(bool(feature_block.get("pose2_body_sway", false)), "pose 2 body sway feature on")
-	check(bool(feature_block.get("pose1_body_motion", false)), "pose 1 body motion feature on")
+	check(bool(feature_block.get("standing_body_sway", false)), "standing body sway feature on")
+	check(bool(feature_block.get("missionary_body_motion", false)), "missionary body motion feature on")
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
 	check(bool(feature_block.get("thrust_tail_dock_jiggle", false)),
 		"tail/dock jiggle on by default")
@@ -230,6 +230,33 @@ func run() -> void:
 		"migrates old torso lean")
 	check(not migrated_block.has("pose1_forward"), "drops old flat presentation keys")
 	check(not migrated_block.has("pose1_camera"), "drops obsolete camera key")
+
+	var legacy_features := {
+		"features": {
+			"pose2_body_sway": false,
+			"pose1_body_motion": false,
+		},
+	}
+	var renamed_features: Dictionary = SETTINGS._normalize_feature_names(legacy_features)
+	var renamed_feature_block: Dictionary = renamed_features.get("features", {})
+	check(renamed_feature_block.has("standing_body_sway")
+		and not renamed_feature_block.has("pose2_body_sway"),
+		"migrates the legacy standing feature key")
+	check(renamed_feature_block.has("missionary_body_motion")
+		and not renamed_feature_block.has("pose1_body_motion"),
+		"migrates the legacy missionary feature key")
+	check(not bool(renamed_feature_block.get("standing_body_sway", true)),
+		"keeps the legacy standing feature value")
+	var current_features := {
+		"features": {
+			"standing_body_sway": true,
+			"pose2_body_sway": false,
+		},
+	}
+	var current_renamed: Dictionary = SETTINGS._normalize_feature_names(current_features)
+	var current_block: Dictionary = current_renamed.get("features", {})
+	check(bool(current_block.get("standing_body_sway", false)),
+		"current feature value wins over legacy")
 
 	var legacy_pose := {
 		"presentation": {

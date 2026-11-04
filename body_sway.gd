@@ -1,5 +1,5 @@
 extends SkeletonModifier3D
-## Pose-2 upper-body sway on the thrust stroke (feature: pose2_body_sway). The chest, neck
+## Standing upper-body sway on the thrust stroke (feature: standing_body_sway). The chest, neck
 ## and head move fore/aft with raw depth while the foreleg chains are pinned back to their original
 ## origins, so the hooves stay planted.
 ##

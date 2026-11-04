@@ -14,7 +14,7 @@ Desktop only for now
 
 | Input       | Action                                                            |
 | ----------- | ----------------------------------------------------------------- |
-| `Y`         | Start an available encounter (pose 2: aim at her flank)            |
+| `Y`         | Start an available encounter (standing: aim at her flank)            |
 | Mouse ↕     | Thrust during the act                                               |
 | `W` / `S`   | Lean the act camera forward / back                                |
 | `Q` / `E`   | Lean diagonally; also cue a kiss or shoulder reach                |
@@ -28,7 +28,7 @@ Desktop only for now
 - **Relationship-gated encounters** — Adult mares and stallions only, with consent and refusals
   for both player forms.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. You can also ask her in dialogue: a clear “yes, now, here” leaves the encounter available. Pose-2 `Y` appears when you aim at her flank; the feature flag can restrict `Y` to asks, verbal agreements and bed contexts.
+- **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. You can also ask her in dialogue: a clear “yes, now, here” leaves the encounter available. Standing `Y` appears when you aim at her flank; the feature flag can restrict `Y` to asks, verbal agreements and bed contexts.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
 - **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, per-mare taste) from pose tuning and feature flags in a Debug tab.

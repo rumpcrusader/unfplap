@@ -11,9 +11,22 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
-## One-release migration for settings written before the pose was renamed. This is the only
-## place the legacy id is kept; remove it after the migration window.
+## One-release migration for settings written before the poses were renamed. These tables are
+## the only place the legacy ids and keys are kept; remove them after the migration window.
 const LEGACY_POSE_ID := "horse"
+const LEGACY_FEATURE_KEYS := {
+	"pose1_body_motion": "missionary_body_motion",
+	"pose2_body_sway": "standing_body_sway",
+}
+const LEGACY_PRESENTATION_KEYS := {
+	"pose1_forward": "forward",
+	"pose1_height": "height",
+	"pose1_side": "side",
+	"pose1_pullback": "pullback",
+	"pose1_side_lean": "side_lean",
+	"pose1_pitch_deg": "pitch_deg",
+}
+const LEGACY_DROPPED_KEYS := ["pose1_camera"]
 
 ## Stable order for the settings-tab pony selector.
 const CHARACTER_ORDER := [
@@ -59,8 +72,8 @@ const FEATURE_DEFAULTS := {
 	"hud_readouts": true,
 	"idle_camera_sway": true,
 	"captions_on_top": true,
-	"pose2_body_sway": true,
-	"pose1_body_motion": true,
+	"standing_body_sway": true,
+	"missionary_body_motion": true,
 	"thrust_ear_twitch": true,
 	"thrust_tail_dock_jiggle": true,
 	"allow_act_during_cuddle": true,
@@ -96,12 +109,12 @@ const FEATURE_INFO := {
 		"help": "Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.",
 		"live": true,
 	},
-	"pose2_body_sway": {
-		"label": "Pose 2 body sway",
+	"standing_body_sway": {
+		"label": "Standing body sway",
 		"help": "Move her upper body with the thrust while the forehooves stay planted.",
 	},
-	"pose1_body_motion": {
-		"label": "Pose 1 body motion",
+	"missionary_body_motion": {
+		"label": "Missionary body motion",
 		"help": "Slide her body along the bed and nod her head on the thrust.",
 	},
 	"thrust_ear_twitch": {
@@ -118,7 +131,7 @@ const FEATURE_INFO := {
 	},
 	"press_y_starts_sex": {
 		"label": "Press Y starts sex",
-		"help": "On: Y starts with any valid pose-2 offer inside the smack-flank aim zone, and with bed offers. Off: only a proactive ask, a clear verbal agreement, or already resting together in bed.",
+		"help": "On: Y starts with any valid standing offer inside the smack-flank aim zone, and with bed offers. Off: only a proactive ask, a clear verbal agreement, or already resting together in bed.",
 	},
 	"mute_ponese_audio": {
 		"label": "Mute Ponese audio",
@@ -636,29 +649,40 @@ static func _normalize_pose_names(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Move the pre-split flat presentation block into pose sections. Old unknown keys (such as
-## `pose1_camera`) are dropped instead of being written back forever.
+## Move a feature block written with the legacy pose keys onto the current keys.
+static func _normalize_feature_names(data: Dictionary) -> Dictionary:
+	var features: Variant = data.get("features")
+	if not features is Dictionary:
+		return data
+	for old_key: String in LEGACY_FEATURE_KEYS:
+		var new_key: String = LEGACY_FEATURE_KEYS[old_key]
+		if (features as Dictionary).has(old_key):
+			if not (features as Dictionary).has(new_key):
+				(features as Dictionary)[new_key] = (features as Dictionary)[old_key]
+			(features as Dictionary).erase(old_key)
+	return data
+
+
+## Move the pre-split flat presentation block into pose sections. Old unknown keys are dropped
+## instead of being written back forever.
 static func _normalize_presentation(data: Dictionary) -> Dictionary:
 	var raw: Variant = data.get("presentation")
 	if not raw is Dictionary:
 		return data
 	var block: Dictionary = raw
 	if block.has("missionary") or block.has("standing"):
-		for key: String in ["pose1_forward", "pose1_height", "pose1_side",
-				"pose1_pullback", "pose1_side_lean", "pose1_pitch_deg",
-				"glance_back_speed", "torso_angle_deg", "pose1_camera"]:
+		for key: String in LEGACY_PRESENTATION_KEYS:
+			block.erase(key)
+		for key: String in LEGACY_DROPPED_KEYS:
 			block.erase(key)
 		data["presentation"] = block
 		return data
 	var out: Dictionary = PRESENTATION_DEFAULTS.duplicate(true)
 	var missionary: Dictionary = out["missionary"]
 	var standing: Dictionary = out["standing"]
-	missionary["forward"] = float(block.get("pose1_forward", missionary["forward"]))
-	missionary["height"] = float(block.get("pose1_height", missionary["height"]))
-	missionary["side"] = float(block.get("pose1_side", missionary["side"]))
-	missionary["pullback"] = float(block.get("pose1_pullback", missionary["pullback"]))
-	missionary["side_lean"] = float(block.get("pose1_side_lean", missionary["side_lean"]))
-	missionary["pitch_deg"] = float(block.get("pose1_pitch_deg", missionary["pitch_deg"]))
+	for old_key: String in LEGACY_PRESENTATION_KEYS:
+		var new_key: String = LEGACY_PRESENTATION_KEYS[old_key]
+		missionary[new_key] = float(block.get(old_key, missionary[new_key]))
 	standing["glance_back_speed"] = float(block.get(
 		"glance_back_speed", standing["glance_back_speed"]))
 	standing["torso_angle_deg"] = float(block.get(
@@ -722,6 +746,7 @@ static func _read() -> Dictionary:
 		if parsed is Dictionary:
 			data = parsed
 	data = _normalize_pose_names(data)
+	data = _normalize_feature_names(data)
 	data = _normalize_presentation(data)
 	data = _merge(_defaults(), data)
 	_write(data)

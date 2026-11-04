@@ -7,10 +7,10 @@ const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 
-const DEBUG_POSE1_DUMP := true
+const DEBUG_MISSIONARY_DUMP := true
 
 var mare: Node3D
-var mode := "pose1"
+var mode := "missionary"
 var afterglow_pose := CATALOG.MISSIONARY
 var look_point := Vector3.ZERO
 var head_back := 0.0
@@ -61,7 +61,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		"clock": _clock,
 		"config": pose_config,
 	}
-	if mode == "pose2":
+	if mode == "standing":
 		_standing.apply(_rig, sk, weight, state)
 	elif mode == "afterglow" and afterglow_pose == CATALOG.MISSIONARY:
 		_missionary.apply(_rig, sk, weight, state)
@@ -72,7 +72,7 @@ func _process_modification_with_delta(delta: float) -> void:
 
 
 func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
-	if not DEBUG_POSE1_DUMP or _debug_dumped or weight <= 0.9:
+	if not DEBUG_MISSIONARY_DUMP or _debug_dumped or weight <= 0.9:
 		return
 	_debug_dumped = true
 	var body := _rig.forward_axis(sk)
@@ -114,7 +114,7 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 			rows.append("head mHead missing")
 	else:
 		rows.append("head_skeleton unavailable")
-	var text := "[unfplap] POSE1"
+	var text := "[unfplap] MISSIONARY"
 	for row: String in rows:
 		text += "\n\t" + row
 	print(text)

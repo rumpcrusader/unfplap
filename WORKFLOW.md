@@ -42,7 +42,7 @@ Tests:
 <headless suite result; smoke; lab path if verified manually>
 ```
 
-Scopes: `camera`, `pose1`, `pose2`, `thrust`, `hips`, `settings`, `hud`, `dialogue`,
+Scopes: `camera`, `missionary`, `standing`, `thrust`, `hips`, `settings`, `hud`, `dialogue`,
 `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`.
 
 Subject at most 72 characters, no trailing period. Body lines at most 100 characters. Never use
@@ -51,14 +51,14 @@ Subject at most 72 characters, no trailing period. Body lines at most 100 charac
 Example:
 
 ```text
-pose1: start the shot at the old max lean point
+missionary: start the shot at the old max lean point
 
 Why:
 The base shot stayed wide after the speed-driven camera rework, so W only
 reached the framing that used to be the maximum lean point.
 
 Behavior:
-- POSE1_START_LEAN = 1.0 adds one full forward lean to the frozen base view.
+- MISSIONARY_START_LEAN = 1.0 adds one full forward lean to the frozen base view.
 - Forward lean clamps 0.12 m before the neck target, so W pushes toward the
   neck instead of crossing it.
 - The kiss camera room accounts for the start offset.

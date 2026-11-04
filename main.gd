@@ -1220,8 +1220,8 @@ func _refresh_offer() -> void:
 	var pony_form: bool = PLAYER_FORM.is_pony(form)
 	var flag := press_y_starts_sex
 
-	# Pose 1 now requires Anon to be seated/lying on the bed with a pony lying there. A
-	# standing or cradling Anon has no valid pose-1 camera, so that entry is not offered.
+	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
+	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
 	if not pony_form and is_instance_valid(player) and player.get("seat") != null:
 		var lying: Node = _bedside_pony(view)
 		if is_instance_valid(lying):
@@ -1236,7 +1236,7 @@ func _refresh_offer() -> void:
 						_log_offer()
 						return
 
-	# Pose 1, AnonPony: an awake pony already lying on a bed.
+	# Missionary, AnonPony: an awake pony already lying on a bed.
 	if pony_form:
 		var lying: Node = nearest_lying(view)
 		if is_instance_valid(lying):
@@ -1251,7 +1251,7 @@ func _refresh_offer() -> void:
 						_log_offer()
 						return
 
-	# Pose 2: only the base-game smack-flank aim zone, regardless of the feature flag.
+	# Standing: only the base-game smack-flank aim zone, regardless of the feature flag.
 	var standing: Node = _smack_flank_target(view)
 	if is_instance_valid(standing) and str(standing.call("posture_status").get("requested", "")) == "stand":
 		var runtime: Node = runtime_for(standing)

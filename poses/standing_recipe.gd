@@ -1,5 +1,5 @@
 extends RefCounted
-## Standing (Pose 2) skeleton recipe.
+## Standing (Standing) skeleton recipe.
 
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0
@@ -86,7 +86,7 @@ func _spread_fore(rig, sk: Skeleton3D, weight: float, target: float) -> void:
 		rig.rotate(sk, upper, forward, sign * delta * weight)
 
 
-## Pose-2 S-curve: neck reaches down/forward while the chin lifts, so she follows the thrust
+## Standing S-curve: neck reaches down/forward while the chin lifts, so she follows the thrust
 ## with her snoot instead of standing rigidly upright.
 func _chin_neck(rig, sk: Skeleton3D, weight: float, chin_deg: float, neck_deg: float) -> void:
 	if rig.neck.is_empty():

@@ -64,7 +64,7 @@ func run() -> void:
 	lean_runtime._lean_view_forward = 1.0
 	lean_runtime._lean_view_side = 0.0
 	lean_runtime.depth = 0.0
-	var lean_scale: float = lean_runtime._pose2_lean_scale()
+	var lean_scale: float = lean_runtime._standing_lean_scale()
 	lean_runtime.apply_anon_lean(hip, Basis.IDENTITY)
 	check(near(hip.global_position.z, RUNTIME.lean_distance(1.0, lean_scale)),
 		"forward lean keeps the pelvis behind the rump")
@@ -114,10 +114,10 @@ func run() -> void:
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
 	check(RUNTIME.caress_profile_for("") == RUNTIME.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
-	check(near(RUNTIME.WING_POSE2_HOLD, 0.65), "pose-2 wings start at 60 degrees")
-	check(near(RUNTIME.POSE2_KISS_LEAN, 0.90), "pose-2 F kiss needs a full shoulder lean")
-	check(RUNTIME.pose2_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
-	check(not RUNTIME.pose2_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
+	check(near(RUNTIME.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
+	check(near(RUNTIME.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
+	check(RUNTIME.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
+	check(not RUNTIME.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
 	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
 	check(near(RUNTIME.CAM_SURGE_M, 0.06), "camera surge amplitude")
@@ -135,9 +135,9 @@ func run() -> void:
 		"full kiss uses one lateral offset")
 	check(near(RUNTIME.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
 		"kiss lateral crossfades instead of stacking")
-	check(near(RUNTIME.pose2_palm_scale_for("canon"), 0.85), "Canon pose-2 palm scale")
-	check(near(RUNTIME.pose2_palm_scale_for("mounting"), 0.95), "JRHNBR pose-2 palm scale")
-	check(near(RUNTIME.pose2_palm_scale_for("hoers"), 1.0), "Hoers pose-2 palm scale unchanged")
+	check(near(RUNTIME.standing_palm_scale_for("canon"), 0.85), "Canon standing palm scale")
+	check(near(RUNTIME.standing_palm_scale_for("mounting"), 0.95), "JRHNBR standing palm scale")
+	check(near(RUNTIME.standing_palm_scale_for("hoers"), 1.0), "Hoers standing palm scale unchanged")
 
 	var sk := Skeleton3D.new()
 	root.add_child(sk)
@@ -187,7 +187,7 @@ func run() -> void:
 
 	check(near(RUNTIME.HOLD_SWAY_FORWARD, 0.010) and near(RUNTIME.HOLD_SWAY_SIDE, 0.0084),
 		"idle camera sway amplitude")
-	check(near(RUNTIME.MOUNTING_POSE2_CAMERA_LIFT_M, 0.10), "JRHNBR pose-2 camera raised 10 cm")
+	check(near(RUNTIME.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
 	check(near(RUNTIME.LEAN_SIDE_M, 0.18), "side lean travel")
 	check(near(RUNTIME.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
 	check(near(RUNTIME.LEAN_FIRE, 0.75) and near(RUNTIME.LEAN_RELEASE, 0.60),

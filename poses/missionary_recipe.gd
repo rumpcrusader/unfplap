@@ -1,17 +1,17 @@
 extends RefCounted
-## Missionary (Pose 1) skeleton recipe. Order is load-bearing; see ROTATION.md.
+## Missionary (Missionary) skeleton recipe. Order is load-bearing; see ROTATION.md.
 
 const ROT := preload("res://mods/unfplap/poses/rotation.gd")
 
-const POSE1_HIND_SPREAD := 0.42
-const POSE1_RUMP_DROP_DEG := 35.0
-const POSE1_NUZZLE_SCALE := 0.45
+const MISSIONARY_HIND_SPREAD := 0.42
+const MISSIONARY_RUMP_DROP_DEG := 35.0
+const MISSIONARY_NUZZLE_SCALE := 0.45
 const NUZZLE_PERIOD := 7.0
 const NUZZLE_DURATION := 2.4
-const POSE1_ROLL_TWEAK := 0.0
+const MISSIONARY_ROLL_TWEAK := 0.0
 ## Extra neck lift off the mattress before the gaze solve. In the standing model this is the
 ## chin-down direction; the supine body turns it into an upward head lift.
-const POSE1_NECK_LIFT_DEG := 15.0
+const MISSIONARY_NECK_LIFT_DEG := 15.0
 
 var last_roll := 0.0
 var last_chest_roll := 0.0
@@ -26,11 +26,11 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_align_chain_straight(rig, sk, weight)
 	_level_body_roll(rig, sk, weight)
 	_level_chest_roll(rig, sk, weight)
-	_pitch_body_about_shoulders(rig, sk, weight, _value("rump_drop_deg", POSE1_RUMP_DROP_DEG))
+	_pitch_body_about_shoulders(rig, sk, weight, _value("rump_drop_deg", MISSIONARY_RUMP_DROP_DEG))
 	_bend_forelegs(rig, sk, weight, 0.3)
 	_raise_hind_legs(rig, sk, weight)
 	_hug_forelegs(rig, sk, weight)
-	var lift := _value("neck_lift_deg", POSE1_NECK_LIFT_DEG)
+	var lift := _value("neck_lift_deg", MISSIONARY_NECK_LIFT_DEG)
 	_neck_bend(rig, sk, weight,
 		_value("neck1_deg", lift * 0.5), _value("neck2_deg", lift * 0.5))
 	_neck_roll(rig, sk, weight, _value("neck_roll_deg", 0.0))
@@ -135,7 +135,7 @@ func _level_body_roll(rig, sk: Skeleton3D, weight: float) -> void:
 		return
 	var left := sk.get_bone_global_pose(int(rig.hind[0].femur)).origin
 	var right := sk.get_bone_global_pose(int(rig.hind[1].femur)).origin
-	var angle := (_line_roll(rig, sk, left, right) + _value("roll_tweak", POSE1_ROLL_TWEAK)) * weight
+	var angle := (_line_roll(rig, sk, left, right) + _value("roll_tweak", MISSIONARY_ROLL_TWEAK)) * weight
 	last_roll = angle
 	if absf(angle) < 0.0001:
 		return
@@ -195,7 +195,7 @@ func _raise_hind_legs(rig, sk: Skeleton3D, weight: float) -> void:
 		var outward := pose.origin - sk.get_bone_global_pose(rig.hips).origin
 		outward.y = 0.0
 		var sign := 1.0 if forward.cross(direction).dot(outward) >= 0.0 else -1.0
-		rig.rotate(sk, bone, forward, sign * _value("hind_spread", POSE1_HIND_SPREAD) * weight)
+		rig.rotate(sk, bone, forward, sign * _value("hind_spread", MISSIONARY_HIND_SPREAD) * weight)
 		if lower >= 0:
 			rig.rotate(sk, lower, right, -0.55 * weight)
 
@@ -306,7 +306,7 @@ func _nuzzle_look_point(rig, sk: Skeleton3D, look_point: Vector3, pulse: float) 
 	var distance := origin.distance_to(look_point)
 	if distance < 0.01:
 		return look_point
-	var degrees := _value("nuzzle_scale", POSE1_NUZZLE_SCALE) * 8.0 * clampf(pulse, 0.0, 1.0)
+	var degrees := _value("nuzzle_scale", MISSIONARY_NUZZLE_SCALE) * 8.0 * clampf(pulse, 0.0, 1.0)
 	if absf(degrees) < 0.01:
 		return look_point
 	var right: Vector3 = (sk.global_basis * rig.right_axis(sk)).normalized()

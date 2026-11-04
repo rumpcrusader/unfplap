@@ -221,7 +221,7 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 
 - **Per pony climax:** a unique world-context event and a generated reaction.
 - **Once at afterglow:** `MEMORY.commit_climax`, `MEMORY.afterglow_event` and `WITNESS.commit`.
-- **Pose-2 inside event:** at afterglow only, as the player's finish. It records context but no
+- **Standing inside event:** at afterglow only, as the player's finish. It records context but no
   longer queues a line.
 - **Standing close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
   caressing adds a happy mood, a private thought and a small `romance` gain; staying alone

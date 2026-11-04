@@ -1,5 +1,5 @@
 extends SkeletonModifier3D
-## Pose-2 presentation: shrink the visible hands by scaling the hand bones themselves.
+## Standing presentation: shrink the visible hands by scaling the hand bones themselves.
 ## Scaling a presentation marker would be discarded by `valve_body_ik.gd`, which orthonormalizes
 ## the hand target before writing the bone. The hand bone includes the palm and every finger.
 ##

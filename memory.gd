@@ -34,7 +34,7 @@ static func climax_event(game: Node, id: String, name: String, event_id: String,
 		"%s:pony_climax:%d" % [event_id, count])
 
 
-## Pose 2 after the climax. Direct: she is told he came inside her.
+## Standing after the climax. Direct: she is told he came inside her.
 static func inside_event(game: Node, id: String, name: String, event_id: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:

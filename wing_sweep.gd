@@ -1,5 +1,5 @@
 extends SkeletonModifier3D
-## Sweep the spread pose-2 wings slightly backwards around the pony's up axis. Runs after the
+## Sweep the spread standing wings slightly backwards around the pony's up axis. Runs after the
 ## game's WingTuck modifier, which owns the base wing pose.
 
 var amount := 0.0

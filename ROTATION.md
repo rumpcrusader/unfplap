@@ -17,7 +17,7 @@ whenever a pose value or order changes.
   straight-chain alignment; keep it in the bone list only as a direction target for
   `pony_neck2`. The head follows neck2 through its rest offset.
 
-## Missionary (Pose 1)
+## Missionary
 
 Exact order:
 
@@ -38,12 +38,12 @@ Exact order:
 5. `_level_body_roll()`
    - left/right hind-femur origins.
    - `_line_roll()` measures the lateral line; wrap the result into ±90°.
-   - adds `POSE1_ROLL_TWEAK`.
+   - adds `MISSIONARY_ROLL_TWEAK`.
    - rotates the root around `forward` at the hips pivot.
 6. `_level_chest_roll()`
    - left/right upper-arm origins.
    - `_line_roll()`; rotates only `pony_spine1` around `forward`.
-7. `_pitch_body_about_shoulders(POSE1_RUMP_DROP_DEG)`
+7. `_pitch_body_about_shoulders(MISSIONARY_RUMP_DROP_DEG)`
    - pivot: midpoint of the two upper-arm origins.
    - rotates root origin and basis about `right`.
    - positive angle moves the pelvis/rump behind the pivot downward.
@@ -88,9 +88,9 @@ Positive `_lift_neck()` angles were `0.10 / 0.08 / 0.06` around the body's right
 They throw the neck/head back and were intentionally not applied in missionary. Keep
 these values here if a future pose needs that effect.
 
-## Pose-1 camera
+## Missionary camera
 
-- Anchor: `root + up * (0.45 + POSE1_CAMERA_LIFT_M 0.10) * body_scale + back * 0.22 * body_scale`,
+- Anchor: `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M 0.10) * body_scale + back * 0.22 * body_scale`,
   where `back = +pony.global_basis.z`. The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
@@ -102,8 +102,8 @@ these values here if a future pose needs that effect.
   anchor and neck settle target do not move. All are experimental and unbounded. The
   **Missionary pullback** setting (`presentation.missionary.pullback`, default `0.22 m`, times
   body scale) then
-  pulls the shot back along `_pose1_view_basis.z` (its own view axis), and
-  `POSE1_START_LEAN = 1.0` (one full
+  pulls the shot back along `_missionary_view_basis.z` (its own view axis), and
+  `MISSIONARY_START_LEAN = 1.0` (one full
   `LEAN_FORWARD_M` lean) advances it along the same axis. The shot therefore starts at the old
   maximum W-lean point, and W pushes further up her torso toward the neck. The aim basis is
   computed once from the stable anchor, not the moved view, to prevent start-up flicker.
@@ -119,12 +119,12 @@ these values here if a future pose needs that effect.
   `presentation.missionary.side_lean` travel, so a side lean turns her toward the lean. Aiming
   at the framing view (now behind her neck) demanded
   a half-turn and snapped her head side to side.
-- Pose 1 hides every `*AnonBody*` presentation node and disables the desktop presentation for
+- Missionary hides every `*AnonBody*` presentation node and disables the desktop presentation for
   the act, re-applying each tick; both are restored at end. The stock bed body must never appear
   inside the shot with a different orientation.
-- Pose-1 body motion is `prone_sway` (`pose1_body_motion`): the spine slides along the bed with
+- Missionary body motion is `prone_sway` (`missionary_body_motion`): the spine slides along the bed with
   raw thrust depth, and the neck/head nod about `3°`. It is separate from the standing
-  `body_sway` (`pose2_body_sway`) and does not pin hooves like the standing pose.
+  `body_sway` (`standing_body_sway`) and does not pin hooves like the standing pose.
 - Eyes: `ACT_LIDS = 0.45` in `POSING_IN`/`ACTIVE`, `CLIMAX_LIDS = 0.0` in `CLIMAX`, sleepier
   `0.90`/`0.95` in afterglow. `_eyes_tick()` reasserts the stare late each tick.
 - Lean is clamped to stop `0.12 m` short of the neck target in both directions, so the camera
@@ -139,22 +139,22 @@ these values here if a future pose needs that effect.
   smoothed at
   `CAMERA_INERTIA_SMOOTH = 5.0`.
 - All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
-  is the reference; Canon (`0.66`) is `1.34`. The pose-1 Canon camera height is also `0.9×`.
+  is the reference; Canon (`0.66`) is `1.34`. The missionary Canon camera height is also `0.9×`.
 - The lean camera locks `player.controls_locked` for both poses and restores the previous value
   at act end.
 - `Q` also starts the act kiss at `LEAN_FIRE = 0.75` and releases at `LEAN_RELEASE = 0.60`.
   The kiss aims her neck/head at Anon's mouth through the recipe `kiss` weight; `E` only leans.
-  Pose 1 always uses that custom head aim: the stock kiss pose is authored for standing and its
-  chest/neck give lifts the lying body and turns her head across the mattress. Pose 2 uses the
+  Missionary always uses that custom head aim: the stock kiss pose is authored for standing and its
+  chest/neck give lifts the lying body and turns her head across the mattress. Standing uses the
   base kiss, with the runtime writing its live mouth/eye/face targets from Anon's real mouth
   camera and repeating the mouth kiss sound because the player kisser's physics is paused for
   the act. The excitement Beat timer is paused so unicorn horns do not
   sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.27`, shifts to the shoulder side by
-  `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035`; pose 2 applies it to the
+  `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035`; standing applies it to the
   camera and pelvis counter-lean and yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her,
-  pose 1 to the framing view and virtual mouth. The kiss side is latched from the input lean at
+  missionary to the framing view and virtual mouth. The kiss side is latched from the input lean at
   start (`_lean_side`, falling back to `_lean_action_side`, not the lagging camera view), and
-  `_pin_base_kiss_side()` pins her tilt to the complementary side in pose 2
+  `_pin_base_kiss_side()` pins her tilt to the complementary side in standing
   (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
   switch is disabled for the act. The pin writes AffectionPose's private
   `_side`/`_side_now`/`_side_wait` each tick and skips quietly if they are unavailable. The lateral travel crossfades from the lean's `0.18 m` to the
@@ -167,7 +167,7 @@ these values here if a future pose needs that effect.
   `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
 - The bob target is negative: an inward stroke dips the camera toward her, so the frozen aim
   moves up her body. The outward stroke rises back.
-- Pose 1 sends the surge along the mattress toward her head; pose 2 sends it along the camera
+- Missionary sends the surge along the mattress toward her head; standing sends it along the camera
   forward. Both use the same bob.
 - Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
 - Restore order is load-bearing:
@@ -175,12 +175,12 @@ these values here if a future pose needs that effect.
   2. pony transform and posture,
   3. camera transform + `make_current()`.
 - Do not reorder: setting player yaw rotates a child camera.
-- Pose-1 setup saves the source camera `fov`, `near`, `far` and `cull_mask`; freeing the
+- Missionary setup saves the source camera `fov`, `near`, `far` and `cull_mask`; freeing the
   mod-owned view restores those exact values and logs them before making the source current.
 - After restore, re-invite the pony through the seat's couch; if that fails, restore
   the captured posture.
 
-## Standing (Pose 2)
+## Standing
 
 - Facing lock every physics tick at priority 100:
   `pony.global_transform.basis = _facing_basis.scaled(scale)`. `stay()` alone does not stop
@@ -192,7 +192,7 @@ these values here if a future pose needs that effect.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose
   start, then freezes. The same lean vector is applied on top: forward `0.24 m` /
   `-6°` pitch / `1.5°` roll; backward `0.08 m` with the same downward pitch; side `0.18 m` /
-  `8°` outward roll / `3°` yaw. All scale with pony size. Canon lowers the pose-2 eye line by
+  `8°` outward roll / `3°` yaw. All scale with pony size. Canon lowers the standing eye line by
   `0.20 m` and uses a `0.66×` thrust-jiggle scale.
 - Anon's pelvis stays planted: `apply_anon_lean()` cancels the camera's forward/side lean
   translation on the hip target, so the torso hinges over her instead of the whole body sliding
@@ -212,17 +212,17 @@ these values here if a future pose needs that effect.
   keeps the camera/upper body from freezing completely; both are clamped inside `-1…1`. A/D
   caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
-- Pose 2 has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
+- Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
 - The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`;
   `apply_anon_thrust()` moves the hip by `THRUST_MAX_M = 0.045 * body_scale * phase`, and
   `apply_anon_lean()` counter-moves the pelvis by `ANON_THRUST_SWAY_M * phase * lean_scale`.
   There is no attack or return spring.
-- Pose-2 palms scale absolutely per body preset from
+- Standing palms scale absolutely per body preset from
   `presentation.standing.caress.palm_scale`: Canon `0.85`, JRHNBR `0.95`, same height/hoers `1.0`.
   The settings size selector edits each preset. `palm_scale.gd` runs after BodyIK and restores
   the cached scales in `_remove_anon_thrust()` on every act exit.
-- Holding `F` at `abs(side) >= POSE2_KISS_LEAN = 0.90` starts the same base-game kiss used by
-  pose 1; releasing `F` or dropping the lean ends it. The side is latched from the input lean
+- Holding `F` at `abs(side) >= STANDING_KISS_LEAN = 0.90` starts the same base-game kiss used by
+  missionary; releasing `F` or dropping the lean ends it. The side is latched from the input lean
   and `_pin_base_kiss_side()` keeps her on the complementary head tilt; the deep-kiss side
   switch is disabled for the act. During the `Affection` release the camera
   lean and glance suppression are held until the head has retracted, then ease out. A completed
@@ -231,10 +231,10 @@ these values here if a future pose needs that effect.
   Same Height preset now follows Anon's `player/height_cm`, so that gap, the lean scale and the
   same-height caress offsets are multiplied by `Settings.anon_height_scale()`; the other presets
   keep their authored values.
-- Pose-2 kiss mouth offsets, kiss lean distances and the pose-1 virtual mouth scale with
+- Standing kiss mouth offsets, kiss lean distances and the missionary virtual mouth scale with
   `Settings.anon_height_scale()`, matching `player/player_mouth.gd`.
-- Canon lowers the pose-2 eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR
-  raises the pose-2 eye line by `MOUNTING_POSE2_CAMERA_LIFT_M = 0.10 m`.
+- Canon lowers the standing eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR
+  raises the standing eye line by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via
   `eye_motion.target_world` / `target_weight`. Look-back yaw clamps at
   `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted
@@ -302,13 +302,13 @@ these values here if a future pose needs that effect.
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
   rump shader, strongest at the dock and lagging down the chain.
-- Pose 2 wings start at `WING_POSE2_HOLD = 0.65` (about `60°` above the ground), then open by
-  `WING_POSE2_SPREAD = 0.25` as satisfaction rises. Pose 1 keeps the stock spread progression.
+- Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
+  `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
   in opposite directions, sweeping the spread wings slightly backwards. Entering afterglow
   releases the hold and drives the same `WingTuck` blend to a full fold over
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
-- Pose 2 enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
+- Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
   recorded on entry. Lean and A/D caress remain live; hold Y ends it. For the first 8 s the
   HUD shows `Stay close · 8s · caress`; 2.5 s of active caress completes the close reward.
   Missionary afterglow stays passive.

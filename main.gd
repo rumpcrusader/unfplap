@@ -236,6 +236,14 @@ func _apply_live_settings() -> void:
 		active_runtime.call("apply_live_settings")
 
 
+## One path for every control edit: refresh the cached flags, the caption position and the live
+## act. Every tunable change goes through here, so a control never needs its own handler.
+func _apply_settings_changed() -> void:
+	debug_logs = SETTINGS.load_debug_logs()
+	_apply_caption_top()
+	_apply_live_settings()
+
+
 func _on_player(body: Node) -> void:
 	player = body
 	_debug("player ready")
@@ -368,14 +376,14 @@ func _inject_settings_page_now(page: Node) -> void:
 	tabs_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	ui.add_child(tabs_box)
 	var user_list := _settings_tab_list("Settings", tabs_box)
-	for key: String in SETTINGS.FEATURE_USER:
+	for key: String in SETTINGS.feature_user():
 		_add_feature_toggle(user_list, key, font_size, page)
 	_add_thrust_section(user_list, font_size)
 	_add_taste_section(user_list, font_size)
 	var debug_list := _settings_tab_list("Debug", tabs_box)
 	_add_debug_logs_toggle(debug_list)
-	for key: String in SETTINGS.FEATURE_DEFAULTS:
-		if key in SETTINGS.FEATURE_USER or key in SETTINGS.FEATURE_HIDDEN:
+	for key: String in SETTINGS.feature_keys():
+		if key in SETTINGS.feature_user():
 			continue
 		_add_feature_toggle(debug_list, key, font_size, page)
 	_add_camera_thrust_section(debug_list, font_size)
@@ -411,7 +419,7 @@ func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
 
 
 func _add_feature_toggle(list: VBoxContainer, key: String, font_size: int, page: Node) -> void:
-	var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
+	var info: Dictionary = SETTINGS.feature_info(key)
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	list.add_child(block)
@@ -434,13 +442,10 @@ func _add_feature_toggle(list: VBoxContainer, key: String, font_size: int, page:
 	help.add_theme_font_size_override("font_size", font_size - 5)
 	help.modulate = Color(1.0, 1.0, 1.0, 0.72)
 	block.add_child(help)
-	var live := bool(info.get("live", false))
 	toggle.toggled.connect(func(on: bool) -> void:
 		SETTINGS.save_feature(key, on)
 		_debug("feature %s=%s" % [key, str(on)])
-		if live:
-			_apply_caption_top()
-		_apply_live_settings()
+		_apply_settings_changed()
 		page.call("_redraw"))
 
 
@@ -1047,13 +1052,6 @@ func _add_debug_section(list: VBoxContainer, font_size: int) -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", font_size - 4)
 	list.add_child(note)
-	var ear_pin := CheckButton.new()
-	ear_pin.text = "Pinned act ears"
-	ear_pin.button_pressed = SETTINGS.feature("act_ear_pin")
-	ear_pin.toggled.connect(func(on: bool) -> void:
-		SETTINGS.save_feature("act_ear_pin", on)
-		_apply_live_settings())
-	list.add_child(ear_pin)
 	var status := Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", font_size - 4)

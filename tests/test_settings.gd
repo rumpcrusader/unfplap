@@ -4,6 +4,8 @@ extends SceneTree
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 
 var failures := 0
 var checks := 0
@@ -130,11 +132,11 @@ func run() -> void:
 	check(not bool(feature_block.get("bed_creaks", true)), "bed creaks off by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
 	check(not SETTINGS.feature("unknown_feature"), "unknown feature off")
-	for key: String in SETTINGS.FEATURE_DEFAULTS:
-		var info: Dictionary = SETTINGS.FEATURE_INFO.get(key, {})
+	for key: String in SETTINGS.feature_keys():
+		var info: Dictionary = SETTINGS.feature_info(key)
 		check(not str(info.get("label", "")).is_empty(), "feature label for " + key)
 		check(not str(info.get("help", "")).is_empty(), "feature help for " + key)
-	check(SETTINGS.FEATURE_INFO.size() == SETTINGS.FEATURE_DEFAULTS.size(),
+	check(SETTINGS.feature_keys().size() == SETTINGS.feature_defaults().size(),
 		"feature info matches the flag set")
 	check(not bool(defaults.get("debug_logs", true)), "debug logs off by default")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
@@ -379,7 +381,65 @@ func run() -> void:
 	check(not SETTINGS.act_prompt("fluttershy", "cue").is_empty(), "live cue prompt")
 	check(not SETTINGS.taste("rarity").is_empty(), "live Rarity taste")
 
+	_check_schema(defaults)
+
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## The tunable schema is the single source of truth for defaults, labels, groups and storage
+## paths. These checks keep it honest as entries are added.
+func _check_schema(defaults: Dictionary) -> void:
+	var paths: Array = SCHEMA.all().keys()
+	check(paths.size() > 50, "schema has every tunable")
+	var kinds := ["bool", "num", "choice", "list"]
+	var complete := true
+	var groups_ok := true
+	for path: String in paths:
+		var item := SCHEMA.entry(path)
+		if not kinds.has(str(item.get("kind", ""))) or not item.has("default"):
+			complete = false
+		if str(item.get("label", "")).is_empty() or str(item.get("help", "")).is_empty():
+			complete = false
+		if str(item.get("group", "")).is_empty():
+			groups_ok = false
+		if str(item.get("tab", "")) not in [SCHEMA.SETTINGS_TAB, SCHEMA.DEBUG_TAB]:
+			complete = false
+	check(complete, "every schema entry has a kind, default, label, help and tab")
+	check(groups_ok, "every schema entry names its panel section")
+	check(SCHEMA.groups(SCHEMA.DEBUG_TAB).size() > 5, "debug tab is split into sections")
+	check(SCHEMA.groups(SCHEMA.SETTINGS_TAB).size() >= 2, "settings tab is split into sections")
+
+	# The schema path is the settings.json path, so the defaults must land in the same blocks.
+	check(near(float(SCHEMA.default_value("thrust.travel")), 2.0), "schema thrust travel default")
+	check(bool(SCHEMA.default_value("features.act_foley")), "schema act foley default")
+	var kiss_defaults := SCHEMA.default_block("presentation.standing.kiss.")
+	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),
+		"schema block keeps the nested kiss shape")
+	check(str(kiss_defaults.get("forelegs", "")) == "planted", "schema kiss forelegs default")
+	var saved_features: Dictionary = defaults.get("features", {})
+	check(saved_features.size() == SCHEMA.default_block("features.").size(),
+		"saved feature block comes from the schema")
+
+	# Debug numbers are stored and returned verbatim; only user-facing contract bounds clamp.
+	var radius := SCHEMA.entry("jiggle.radius")
+	check(near(float(TUNABLES._coerce(radius, -5.0)), -5.0), "debug numbers are never clamped")
+	var sensitivity := SCHEMA.entry("thrust.pixels_per_full")
+	check(near(float(TUNABLES._coerce(sensitivity, 5000.0)), 1200.0),
+		"player sensitivity keeps its contract bound")
+	var orientation := SCHEMA.entry("thrust.orientation")
+	check(str(TUNABLES._coerce(orientation, "sideways")) == "up",
+		"unknown choices fall back to the default")
+	var ignore := SCHEMA.entry("presentation.standing.caress.ignore")
+	check((TUNABLES._coerce(ignore, ["tail", "nonsense"]) as Array) == ["tail"],
+		"list values keep only known options")
+
+	# Unknown paths must read as off, never on.
+	check(not TUNABLES.get_bool("nope"), "unknown tunable reads off")
+	check(near(TUNABLES.get_float("nope"), 0.0), "unknown number reads zero")
+	var feature_block := TUNABLES.block("features.")
+	check(feature_block.size() == SETTINGS.feature_keys().size(),
+		"tunable block exposes every feature")
+	check(feature_block.has("act_foley"), "tunable block keys drop the prefix")

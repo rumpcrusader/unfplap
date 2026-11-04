@@ -101,6 +101,8 @@ mods/unfplap/
                     restore, aftercare
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   preferences.gd    pure taste profile, intensity/rhythm and talk classification
+  tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
+  tunables.gd       the one typed API for reading and writing those settings
   utterance.gd      pure prompt formatting
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
@@ -944,9 +946,9 @@ examples.
   applies when the tab opens; otherwise it needs a restart.
 - Top level: `debug_logs`, `features`, `thrust`, `jiggle`, `camera_thrust`, `presentation`,
   `default` template, `characters` overrides.
-- Feature flags live in `SETTINGS.FEATURE_DEFAULTS`; the runtime caches them at act start and
-  `apply_live_settings()` refreshes them after any settings-tab edit. Keep these documented here
-  when adding one:
+- Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read
+  through `tunables.gd`; the runtime caches them at act start and `apply_live_settings()` refreshes
+  them after any settings-tab edit. Keep these documented here when adding one:
 
 | Flag | Default | Gates |
 |---|---|---|

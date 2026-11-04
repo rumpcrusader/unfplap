@@ -283,19 +283,15 @@ func _missionary_pitch_basis() -> Basis:
 
 func _missionary_camera_offsets() -> Vector3:
 	return Vector3(
-		float(_presentation_cfg.get("forward",
-			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["forward"])),
-		float(_presentation_cfg.get("height",
-			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["height"])),
-		float(_presentation_cfg.get("side",
-			SETTINGS.PRESENTATION_DEFAULTS["missionary"]["side"])))
+		float(_presentation_cfg.get("forward", 0.0)),
+		float(_presentation_cfg.get("height", 0.0)),
+		float(_presentation_cfg.get("side", 0.0)))
 
 
 ## Side lean also travels along the mattress toward her head, outside the view-axis clamp. The
 ## amount is metres at full Q/E and is live.
 func _missionary_side_lean_forward() -> float:
-	var amount := float(_presentation_cfg.get("side_lean",
-		SETTINGS.PRESENTATION_DEFAULTS["missionary"]["side_lean"]))
+	var amount := float(_presentation_cfg.get("side_lean", 0.0))
 	return amount * absf(float(runtime.get("_lean_view_side"))) * float(runtime.call("_lean_size_scale"))
 
 

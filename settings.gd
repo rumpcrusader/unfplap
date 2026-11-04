@@ -9,6 +9,7 @@ extends RefCounted
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -67,183 +68,34 @@ const CHARACTER_NAMES := {
 	"spitfire": "Spitfire",
 }
 
-## Feature switches. Keep this as the single list; runtime reads it once per act.
-const FEATURE_DEFAULTS := {
-	"hud_readouts": true,
-	"idle_camera_sway": true,
-	"captions_on_top": true,
-	"standing_body_sway": true,
-	"missionary_body_motion": true,
-	"thrust_ear_twitch": true,
-	"thrust_tail_dock_jiggle": true,
-	"dock_tail_follow": true,
-	"standing_plant_feet": true,
-	"allow_act_during_cuddle": true,
-	"press_y_starts_sex": false,
-	"mute_ponese_audio": true,
-	"act_foley": true,
-	"act_vocals": false,
-	"act_climax": false,
-	"bed_creaks": false,
-	"settings_tab": true,
-	"act_ear_pin": false,
-}
+## Feature switches live in the tunable schema under `features.`. These helpers expose the
+## feature-key view the runtime and the settings tab use.
+static func feature_keys() -> Array:
+	var out: Array = []
+	for path: String in SCHEMA.all():
+		if path.begins_with("features."):
+			out.append(path.substr("features.".length()))
+	return out
 
-## Debug-only flags live in FEATURE_DEFAULTS for persistence but are not listed in the normal
-## feature block; the hidden Debug section owns their controls.
-const FEATURE_HIDDEN := ["act_ear_pin"]
 
-## Player-facing flags. Everything else lives in the Debug tab.
-const FEATURE_USER := ["hud_readouts", "captions_on_top", "press_y_starts_sex", "mute_ponese_audio"]
+## Every feature switch with its schema default.
+static func feature_defaults() -> Dictionary:
+	return SCHEMA.default_block("features.")
 
-## Human labels and help for the injected settings tab. `live` flags apply without a new act.
-const FEATURE_INFO := {
-	"hud_readouts": {
-		"label": "HUD readouts",
-		"help": "Show the mood cue, readiness bar and Wants/You line. Hearts and the afterglow close prompt stay visible.",
-	},
-	"idle_camera_sway": {
-		"label": "Idle camera sway",
-		"help": "Add a slow sway when you are not leaning.",
-	},
-	"captions_on_top": {
-		"label": "Captions on top",
-		"help": "Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.",
-		"live": true,
-	},
-	"standing_body_sway": {
-		"label": "Standing body sway",
-		"help": "Move her upper body with the thrust while the forehooves stay planted.",
-	},
-	"missionary_body_motion": {
-		"label": "Missionary body motion",
-		"help": "Slide her body along the bed and nod her head on the thrust.",
-	},
-	"thrust_ear_twitch": {
-		"label": "Thrust ear twitch",
-		"help": "Flick both ears on some thrusts.",
-	},
-	"thrust_tail_dock_jiggle": {
-		"label": "Tail base + dock jiggle",
-		"help": "Add the tail base and dock to the rump's thrust and smack jiggle.",
-	},
-	"dock_tail_follow": {
-		"label": "Dock follows tail",
-		"help": "Show the pony's unmerged rig and move her dock with the tail root during a standing act or invitation. Off keeps the merged dock on the rump.",
-	},
-	"standing_plant_feet": {
-		"label": "Plant Anon's lower body",
-		"help": "Hold Anon's hips and both feet at their act-start positions, 15 cm behind him. Off restores the game's stepping and lean foot motion.",
-	},
-	"allow_act_during_cuddle": {
-		"label": "Allow acts during cuddles",
-		"help": "End an active cuddle when an act starts instead of blocking it.",
-	},
-	"press_y_starts_sex": {
-		"label": "Press Y starts sex",
-		"help": "On: Y starts with any valid standing offer inside the smack-flank aim zone, and with bed offers. Off: only a proactive ask, a clear verbal agreement, or already resting together in bed.",
-	},
-	"mute_ponese_audio": {
-		"label": "Mute Ponese audio",
-		"help": "Keep the act's generated text but silence the Ponese voice for that act.",
-	},
-	"act_foley": {
-		"label": "Act foley",
-		"help": "Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
-		"live": true,
-	},
-	"act_vocals": {
-		"label": "Act vocals",
-		"help": "Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
-		"live": true,
-	},
-	"act_climax": {
-		"label": "Wet climax layer",
-		"help": "Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
-		"live": true,
-	},
-	"bed_creaks": {
-		"label": "Bed creaks",
-		"help": "Play the pack's wooden bed creak on missionary thrusts. Off keeps plaps, slides and soft-bed fabric.",
-		"live": true,
-	},
-	"settings_tab": {
-		"label": "Unfplap settings tab",
-		"help": "Show the Unfplap settings page. Turning this off hides it on the next settings open; edit settings.json to restore it.",
-	},
-	"act_ear_pin": {
-		"label": "Pinned act ears",
-		"help": "Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.",
-	},
-}
 
-## Camera-thrust amounts, 0..1. `surge` is the forward speed-driven travel; `bob` is the
-## vertical speed-driven travel. Both are read live and scale the runtime amplitudes.
-const CAMERA_THRUST_DEFAULTS := {
-	"surge": 1.0,
-	"bob": 0.35,
-}
+## Player-facing flags: the Controls section of the Settings tab.
+static func feature_user() -> Array:
+	var out: Array = []
+	for key: String in feature_keys():
+		if str(SCHEMA.entry("features." + key).get("tab", "")) == SCHEMA.SETTINGS_TAB:
+			out.append(key)
+	return out
 
-## Shared rump wobble tuning. `radius` is metres; `intensity` scales the thrust amount.
-const JIGGLE_DEFAULTS := {
-	"radius": 0.26,
-	"intensity": 0.25,
-	"smack_intensity": 0.55,
-}
 
-## Pose-specific act presentation. Missionary owns its framing/pitch; standing owns the glance,
-## torso lean and caress controls. All values are read live during an act.
-const PRESENTATION_DEFAULTS := {
-	"missionary": {
-		"forward": 0.30,
-		"height": 0.25,
-		"side": 0.0,
-		"pullback": 0.22,
-		"side_lean": 0.10,
-		"pitch_deg": -15.0,
-		"neck1_deg": 0.0,
-		"neck2_deg": 0.0,
-		"neck_roll_deg": 0.0,
-		"head_pitch_deg": 0.0,
-		"head_roll_deg": 13.0,
-	},
-	"standing": {
-		"glance_back_speed": 2.0,
-		"torso_angle_deg": 6.0,
-		"idle_sway_side": 0.0,
-		"kiss": {
-			"mouth_right": 0.0,
-			"mouth_drop": 0.0,
-			"mouth_forward": 0.0,
-			"camera_yaw_deg": 7.0,
-			"lean_side": 0.46,
-			"lean_forward": 0.03,
-			"lean_drop": 0.09,
-			"forelegs": "planted",
-		},
-		"caress": {
-			"palm_distance": 0.04,
-			"oval_across_m": 0.04125 * 1.30,
-			"oval_up_m": 0.04125 * 0.70,
-			"palm_scale": {
-				"canon": 0.75,
-				"mounting": 0.9,
-				"same height": 1.0,
-				"hoers": 1.0,
-			},
-			"ignore": ["tail", "wing"],
-		},
-		"smack": {
-			"raise_m": 0.30,
-			"hind_m": 0.10,
-			"height_m": -0.03,
-			"arc_m": 0.06,
-			"pitch_deg": 12.0,
-			"raise_speed": 2.0,
-			"return_speed": 6.0,
-		},
-	},
-}
+## One feature's schema entry, with label and help for a control row.
+static func feature_info(name: String) -> Dictionary:
+	return SCHEMA.entry("features." + name)
+
 
 ## Body-size presets exposed by the caress palm-scale selector.
 const CARESS_SIZES := ["canon", "mounting", "same height", "hoers"]
@@ -590,7 +442,7 @@ static func save_thrust_travel(travel: float) -> void:
 static func jiggle_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("jiggle", {})
-	var out: Dictionary = JIGGLE_DEFAULTS.duplicate(true)
+	var out: Dictionary = SCHEMA.default_block("jiggle.")
 	if block is Dictionary:
 		out["radius"] = float((block as Dictionary).get("radius", out["radius"]))
 		out["intensity"] = float((block as Dictionary).get("intensity", out["intensity"]))
@@ -608,12 +460,12 @@ static func save_jiggle_controls(values: Dictionary) -> void:
 	var block: Variant = data.get("jiggle", {})
 	var controls: Dictionary = block if block is Dictionary else {}
 	controls["radius"] = maxf(0.02, float(values.get(
-		"radius", controls.get("radius", JIGGLE_DEFAULTS["radius"]))))
+		"radius", controls.get("radius", SCHEMA.default_value("jiggle.radius")))))
 	controls["intensity"] = maxf(0.0, float(values.get(
-		"intensity", controls.get("intensity", JIGGLE_DEFAULTS["intensity"]))))
+		"intensity", controls.get("intensity", SCHEMA.default_value("jiggle.intensity")))))
 	controls["smack_intensity"] = maxf(0.0, float(values.get(
 		"smack_intensity", controls.get("smack_intensity",
-		JIGGLE_DEFAULTS["smack_intensity"]))))
+		SCHEMA.default_value("jiggle.smack_intensity")))))
 	data["jiggle"] = controls
 	_write(data)
 
@@ -622,7 +474,7 @@ static func save_jiggle_controls(values: Dictionary) -> void:
 static func camera_thrust_controls() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("camera_thrust", {})
-	var out: Dictionary = CAMERA_THRUST_DEFAULTS.duplicate(true)
+	var out: Dictionary = SCHEMA.default_block("camera_thrust.")
 	if block is Dictionary:
 		for key: String in out:
 			if (block as Dictionary).has(key):
@@ -638,9 +490,9 @@ static func save_camera_thrust_controls(values: Dictionary) -> void:
 	var block: Variant = data.get("camera_thrust", {})
 	var controls: Dictionary = block if block is Dictionary else {}
 	controls["surge"] = clampf(float(values.get(
-		"surge", controls.get("surge", CAMERA_THRUST_DEFAULTS["surge"]))), 0.0, 1.0)
+		"surge", controls.get("surge", 1.0))), 0.0, 1.0)
 	controls["bob"] = clampf(float(values.get(
-		"bob", controls.get("bob", CAMERA_THRUST_DEFAULTS["bob"]))), 0.0, 1.0)
+		"bob", controls.get("bob", 0.35))), 0.0, 1.0)
 	data["camera_thrust"] = controls
 	_write(data)
 
@@ -652,9 +504,8 @@ static func presentation_controls(pose_id: String) -> Dictionary:
 	var pose_block: Variant = {}
 	if block is Dictionary:
 		pose_block = (block as Dictionary).get(pose_id, {})
-	var defaults: Variant = PRESENTATION_DEFAULTS.get(pose_id, {})
-	var out: Dictionary = _merge(
-		(defaults as Dictionary).duplicate(true) if defaults is Dictionary else {},
+	var defaults: Dictionary = SCHEMA.default_block("presentation." + pose_id + ".")
+	var out: Dictionary = _merge(defaults,
 		pose_block if pose_block is Dictionary else {})
 	if pose_id == "standing":
 		out["glance_back_speed"] = clampf(float(out.get(
@@ -773,7 +624,7 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 			block.erase(key)
 		data["presentation"] = block
 		return data
-	var out: Dictionary = PRESENTATION_DEFAULTS.duplicate(true)
+	var out: Dictionary = SCHEMA.default_block("presentation.")
 	var missionary: Dictionary = out["missionary"]
 	var standing: Dictionary = out["standing"]
 	for old_key: String in LEGACY_PRESENTATION_KEYS:
@@ -793,12 +644,38 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 ## when a value changes or when the merged defaults differ from what is on disk.
 static var _cache: Dictionary = {}
 static var _loaded := false
+## Bumped on every load and every write. `tunables.gd` rebuilds its flat value table when it
+## changes, so a save anywhere invalidates the cached tunable reads.
+static var generation := 0
 
 
 ## Drop the in-memory copy so the next read reloads the file. The settings page calls this when
 ## it opens, so a hand-edited settings.json applies without restarting the game.
 static func reload() -> void:
 	_loaded = false
+
+
+## The merged settings view.
+static func data() -> Dictionary:
+	return _read()
+
+
+## Write one dotted path (`presentation.standing.smack.raise_m`) and save the file.
+static func set_path(path: String, value: Variant) -> void:
+	var data := _read()
+	var parts := path.split(".", false)
+	if parts.is_empty():
+		return
+	var node: Dictionary = data
+	for index: int in parts.size() - 1:
+		var key := parts[index]
+		var child: Variant = node.get(key)
+		if not child is Dictionary:
+			child = {}
+			node[key] = child
+		node = child
+	node[parts[parts.size() - 1]] = value
+	_write(data)
 
 
 static func aftercare_min(id: String) -> int:
@@ -856,6 +733,7 @@ static func _read() -> Dictionary:
 
 static func _load() -> void:
 	_loaded = true
+	generation += 1
 	var path := _path()
 	var data: Dictionary = {}
 	if FileAccess.file_exists(path):
@@ -872,16 +750,12 @@ static func _load() -> void:
 
 static func _defaults() -> Dictionary:
 	return {
-		"debug_logs": false,
-		"features": FEATURE_DEFAULTS.duplicate(true),
-		"thrust": {
-			"orientation": "up",
-			"pixels_per_full": 1000.0,
-			"travel": 2.0,
-		},
-		"jiggle": JIGGLE_DEFAULTS.duplicate(true),
-		"camera_thrust": CAMERA_THRUST_DEFAULTS.duplicate(true),
-		"presentation": PRESENTATION_DEFAULTS.duplicate(true),
+		"debug_logs": SCHEMA.default_value("debug_logs"),
+		"features": SCHEMA.default_block("features."),
+		"thrust": SCHEMA.default_block("thrust."),
+		"jiggle": SCHEMA.default_block("jiggle."),
+		"camera_thrust": SCHEMA.default_block("camera_thrust."),
+		"presentation": SCHEMA.default_block("presentation."),
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}
@@ -891,22 +765,23 @@ static func _defaults() -> Dictionary:
 static func features() -> Dictionary:
 	var data := _read()
 	var block: Variant = data.get("features", {})
-	var out: Dictionary = FEATURE_DEFAULTS.duplicate(true)
+	var out: Dictionary = feature_defaults()
 	if block is Dictionary:
-		for key: String in FEATURE_DEFAULTS:
+		for key: String in out:
 			if (block as Dictionary).has(key):
 				out[key] = bool((block as Dictionary)[key])
 	return out
 
 
+## Unknown switches read as off everywhere; the runtime must not disagree with this.
 static func feature(name: String) -> bool:
-	if not FEATURE_DEFAULTS.has(name):
+	if not feature_defaults().has(name):
 		return false
 	return bool(features().get(name, false))
 
 
 static func save_feature(name: String, value: bool) -> void:
-	if not FEATURE_DEFAULTS.has(name):
+	if not feature_defaults().has(name):
 		return
 	var data := _read()
 	var block: Variant = data.get("features", {})
@@ -965,6 +840,7 @@ static func _merge(base: Dictionary, over: Dictionary) -> Dictionary:
 
 static func _write(data: Dictionary) -> void:
 	_cache = data
+	generation += 1
 	_write_file(_cache)
 
 

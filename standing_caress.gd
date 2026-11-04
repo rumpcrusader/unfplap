@@ -871,6 +871,17 @@ func _smack_zone_radius() -> float:
 	return maxf(0.0, float(_profile.get("smack_zone_radius", SMACK_ZONE_RADIUS_M)))
 
 
+## The posed FlankTouch frame. `frame` is the current hip frame even while the decal/sound
+## node is parked; `global_transform` can lag there, so prefer the stored frame.
+func _flank_frame() -> Transform3D:
+	if not is_instance_valid(_flank):
+		return Transform3D.IDENTITY
+	var value: Variant = _flank.get("frame")
+	if value is Transform3D and (value as Transform3D).is_finite():
+		return value
+	return _flank.global_transform
+
+
 ## Nearest point on the posed FlankSurface patch to a world point. The patch is the cheek
 ## region of her flank; the body hull is deliberately not consulted, so a shoulder or belly
 ## caress still smacks the flank.
@@ -880,10 +891,9 @@ func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 	if not is_instance_valid(_flank):
 		return {}
 	var surface: Variant = _flank.get("surface")
-	var frame_value: Variant = _flank.get("frame")
-	if surface == null or not frame_value is Transform3D:
+	if surface == null:
 		return {}
-	var frame: Transform3D = frame_value
+	var frame := _flank_frame()
 	if not frame.is_finite():
 		return {}
 	var sk: Variant = pony.get("skeleton")
@@ -940,7 +950,7 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3) -> Dictionar
 			var point: Vector3 = point_v
 			var normal: Vector3 = normal_v
 			if point.is_finite() and normal.length_squared() > 0.5:
-				var frame: Transform3D = _flank.global_transform
+				var frame := _flank_frame()
 				return {"local": frame.affine_inverse() * point,
 					"normal": normal.normalized()}
 	var hit := _closest_flank_contact(hand_world)
@@ -965,7 +975,7 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3) -> Dictionar
 			if jittered_normal is Vector3:
 				var jn: Vector3 = jittered_normal
 				normal = jn.normalized()
-			local = _flank.global_transform.affine_inverse() * point_world
+			local = _flank_frame().affine_inverse() * point_world
 	return {"local": local, "normal": normal}
 
 
@@ -1018,7 +1028,7 @@ func _smack() -> void:
 			var radius := sqrt(randf()) * _smack_zone_radius()
 			at = (centre as Vector3) + back_local * (SMACK_BACK_M + cos(angle) * radius) \
 				+ up_local * (SMACK_UP_M + sin(angle) * radius)
-			var frame: Transform3D = _flank.global_transform
+			var frame := _flank_frame()
 			normal = (frame.basis.inverse().transposed() * (normal_local as Vector3)).normalized()
 			var outward: Vector3 = (frame * (centre as Vector3)) - pony.global_position
 			outward.y = 0.0
@@ -1034,7 +1044,7 @@ func _smack() -> void:
 	_last_smack_ms = now
 	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
 		if is_instance_valid(driver) and from_frame.is_finite():
-			var world_centre: Vector3 = _flank.global_transform * at
+			var world_centre: Vector3 = _flank_frame() * at
 			var target := _palm_on_coat_frame(hand_side, world_centre, normal, Vector3.UP, false)
 			_smack_index = index
 			_smack_at = at

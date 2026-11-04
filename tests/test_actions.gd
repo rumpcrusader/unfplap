@@ -37,12 +37,6 @@ class FakeFlank extends Node3D:
 	var ages: Array = []
 	var _jiggle_targets: Array = []
 	var _jiggle_amount := 0.0
-	var _jiggle_index := -1
-	var jiggle_ended := false
-
-	func _end_jiggle() -> void:
-		jiggle_ended = true
-		_jiggle_index = -1
 
 
 class FakeBody extends Node3D:
@@ -551,17 +545,6 @@ func run() -> void:
 	var dock := MeshInstance3D.new()
 	dock.name = "OpenPonyDock"
 	dock_mare.add_child(dock)
-	var dock_flank := FakeFlank.new()
-	dock_flank.name = "FlankTouch"
-	dock_flank._jiggle_index = 0
-	dock_mare.add_child(dock_flank)
-	var cutie := MeshInstance3D.new()
-	cutie.name = "Cutie mark_L"
-	cutie.mesh = PlaneMesh.new()
-	var cutie_mat := StandardMaterial3D.new()
-	cutie_mat.set_meta("jiggle_twin", ShaderMaterial.new())
-	cutie.set_surface_override_material(0, cutie_mat)
-	dock_mare.add_child(cutie)
 	var dock_runtime: Node = RUNTIME.new()
 	dock_runtime._features = {"dock_tail_follow": true}
 	root.add_child(dock_runtime)
@@ -585,10 +568,6 @@ func run() -> void:
 		"dock follower restores the dock frame")
 	check(dock_mare.near_calls == [false, true],
 		"dock follower restores the near mesh")
-	check(dock_flank.jiggle_ended,
-		"dock follower ends the rump jiggle before restoring the near mesh")
-	check(not cutie_mat.has_meta("jiggle_twin"),
-		"dock follower clears the mark twin cache for the near mesh")
 	dock_runtime._features = {"dock_tail_follow": false}
 	follower.call("_process_modification_with_delta", 0.0)
 	check(dock_mare.near_calls == [false, true],

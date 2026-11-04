@@ -8,7 +8,6 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
-const DOCK_TAIL := preload("res://mods/unfplap/dock_tail_follow.gd")
 
 const PRESENT_TURN_RATE := 2.4
 const PRESENT_FACE_TURN_RATE := 1.5
@@ -36,7 +35,6 @@ var _present_glance_back := false
 var _present_glance_sign := 1.0
 var _present_glance_sign_set := false
 var _present_tail
-var _present_dock
 var _present_yaw := 0.0
 var _present_target_yaw := 0.0
 var _present_look_point := Vector3.ZERO
@@ -124,15 +122,6 @@ func _attach_present_pose() -> void:
 		_present_tail.target_amount = 1.0
 		_present_tail.call("choose_side")
 		(hair as Skeleton3D).add_child(_present_tail)
-		# The offer presentation lifts and sweeps the tail too; the dock must follow it the
-		# same way it does in the act. This also reveals the rig so the rig dock is visible.
-		if TUNABLES.get_bool("features.dock_tail_follow"):
-			_present_dock = DOCK_TAIL.new()
-			_present_dock.name = "UnfplapPresentDock"
-			_present_dock.mare = pony
-			_present_dock.runtime = runtime
-			_present_dock.process_priority = 40
-			(hair as Skeleton3D).add_child(_present_dock)
 	_presenting = true
 	_present_glance_back = true
 	_present_glance_sign_set = false
@@ -209,10 +198,6 @@ func clear_presentation() -> void:
 	if is_instance_valid(_present_pose):
 		_present_pose.queue_free()
 	_present_pose = null
-	if is_instance_valid(_present_dock):
-		_present_dock.call("restore")
-		_present_dock.queue_free()
-	_present_dock = null
 	if is_instance_valid(_present_tail):
 		_present_tail.queue_free()
 	_present_tail = null

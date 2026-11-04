@@ -113,7 +113,7 @@ mods/unfplap/
   missionary_camera.gd  frozen missionary shot, aim, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
   standing_anon.gd  standing hip thrust wrapper, planted lower body and palm scale
-  standing_presentation.gd  idle standing invitation, turn, request face and dock follow
+  standing_presentation.gd  idle standing invitation, turn and request face
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
   palm_scale.gd     standing hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven standing upper-body sway with planted forehooves
@@ -428,11 +428,7 @@ body-relative axes.
   `thrust_tail_dock_jiggle` still applies on top.
   The merged near mesh draws its own dock copy that cannot move, so the acting pony shows her
   unmerged rig while the follower runs (`set_near_mesh(false)`) and gets the merged mesh back at
-  act end. The standing invitation attaches the same follower to its presentation tail.
-  Before re-enabling the near mesh the follower ends the base game's rump wobble and clears the
-  cached `jiggle_twin` metadata it leaves on the cutie-mark materials; the near-mesh material
-  comparison includes metadata, so a marked material no longer matches its pair and the body
-  group is refused. Only the acting pony is affected. Off restores the current rump-only dock.
+  act end. Only the acting pony is affected. Off restores the current rump-only dock.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -963,7 +959,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `thrust_tail_dock_jiggle` | `true` | add the dock and merged dock surface to the rump thrust and smack jiggle |
-| `dock_tail_follow` | `true` | show the pony's rig and move her dock with the tail root during a standing act or invitation |
+| `dock_tail_follow` | `true` | show the acting pony's rig and move her dock with the tail root during a standing act |
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |

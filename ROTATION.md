@@ -354,10 +354,7 @@ these values here if a future pose needs that effect.
   the change in `mTail1` relative to `mPelvis` since the act started, applied about the tail root.
   It follows aside/lift/flick/rock/thrust, but not the `mPelvis` base bob, and the rump shader
   jiggle still applies. The acting pony's merged near mesh draws its own dock copy, so it is
-  swapped for the rig (`set_near_mesh(false)`) while this runs and restored at act end. The
-  standing invitation attaches the same follower to its presentation tail. The restore ends the
-  base-game rump wobble and clears its cached `jiggle_twin` metadata first, since the near-mesh
-  material comparison includes metadata and would otherwise reject the body group.
+  swapped for the rig (`set_near_mesh(false)`) while this runs and restored at act end.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

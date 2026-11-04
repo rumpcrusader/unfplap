@@ -24,7 +24,7 @@ func run() -> void:
 	check(files.size() > 10, "source files found")
 	var manifest := FileAccess.get_file_as_string(ROOT.path_join("mod.json"))
 	check(manifest.contains("\"id\": \"unfplap\""), "mod id")
-	check(manifest.contains("\"version\": \"0.0.3\""), "mod version")
+	check(manifest.contains("\"version\": \"0.1.0\""), "mod version")
 	check(manifest.contains("res://mods/unfplap/"), "entry/extension paths")
 	_check_preloads(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])

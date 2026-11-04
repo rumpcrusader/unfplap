@@ -19,7 +19,7 @@ Do not start implementation until you have read the required files for the area 
 
 ## Identity and scope
 
-- Mod id `unfplap`; current public version `0.0.3`; target game `0.1.1-maredev`
+- Mod id `unfplap`; current public version `0.1.0`; target game `0.1.1-maredev`
   (`project.godot` reports `0.1.0-maredev`).
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.

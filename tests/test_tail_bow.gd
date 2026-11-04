@@ -1,8 +1,9 @@
 extends SceneTree
-## Tail bow geometry and placement.
+## Tail bow geometry, placement and the spoken gift rail.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_tail_bow.gd
 
 const BOW := preload("res://mods/unfplap/tail_bow.gd")
+const GIFT := preload("res://mods/unfplap/tail_bow_gift.gd")
 var failures := 0
 var checks := 0
 
@@ -23,12 +24,33 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
+	_test_offer_kind()
+	_test_answers()
 	_test_placement()
 	_test_mesh()
 	print("TAIL_BOW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("TAIL_BOW_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+func _test_offer_kind() -> void:
+	check(GIFT.offer_kind("I got you a tail bow.") == "give", "got you a bow is an offer")
+	check(GIFT.offer_kind("Here, this satin bow is for you") == "give", "here for you is an offer")
+	check(GIFT.offer_kind("want to wear this bow for me?") == "give", "wear this is an offer")
+	check(GIFT.offer_kind("take that bow off, please") == "take", "take it off is a removal")
+	check(GIFT.offer_kind("let me slip the ribbon off") == "take", "slip it off is a removal")
+	check(GIFT.offer_kind("I like your bow") == "", "a comment is not an offer")
+	check(GIFT.offer_kind("how are you today?") == "", "unrelated line is not an offer")
+	check(GIFT.offer_kind("") == "", "empty line is not an offer")
+
+
+func _test_answers() -> void:
+	check(GIFT.local_answer("Oh, it's lovely!") == "accept", "compliment accepts")
+	check(GIFT.local_answer("Yes please") == "accept", "yes please accepts")
+	check(GIFT.local_answer("No thank you") == "decline", "no thank you declines")
+	check(GIFT.local_answer("Why would I wear that?") == "decline", "why declines")
+	check(GIFT.local_answer("What is it?") == "unclear", "a question is unclear")
 
 
 func _test_placement() -> void:

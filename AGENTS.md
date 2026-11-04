@@ -138,6 +138,8 @@ mods/unfplap/
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
+  tail_bow.gd       satin tail bow: mesh, worn record and the mTail1 accessory attachment
+  tail_bow_gift.gd  tail bow in conversation (give/take), reconcile pass and prompt note
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
   consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
@@ -592,6 +594,46 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Missionary snapshots camera + current camera, player transform and pony transform/posture. Keep
   that snapshot exact; the bed cuddle re-invite depends on it.
 
+## Critical: worn accessories (the tail bow)
+
+The game's wardrobe (`pony_wardrobe.gd`, `pony_fitted_accessories.gd`, `shop_items.gd`) keeps its
+`KINDS`, `WORN_NAMES`, slots and stock as script constants, so a mod cannot add a purchasable or
+hand-giftable piece there without editing a game script. The tail bow is therefore mod-owned and
+uses the game's own runtime accessory idiom (`background_pony.gd`, Braeburn's hat and Vinyl's
+glasses).
+
+- `tail_bow.gd` builds the one design (two satin loops, centre knot, two hanging tails and the band
+  that ties it) as a single unskinned `MeshInstance3D` named `TailBow` with satin surfaces.
+- Attachment: a `BoneAttachment3D` on the hair rig's `mTail1`, the name added to a **duplicated**
+  `identity.accessories` (typed `Array[String]`; an untyped array is rejected), then
+  `refresh_geometry_variant("…|tail-bow")` so both merged meshes re-gather. The merged near mesh
+  keeps unskinned BoneAttachment3D meshes apart, the far mesh welds them to the bone, so the bow
+  survives every LOD and rides the tail springs and the act's `tail_pose`.
+- A `BoneAttachment3D` follows `SkeletonModifier3D` output (verified headless), but
+  `get_bone_global_pose()` **outside** a modifier pass returns the base pose. The placement is
+  therefore computed once from the rest bone and stored as the child's local transform.
+- The hair rig node is already scaled to her size (`body_scale`), so the mesh is built at unit size
+  and only `presentation.tail_bow.size` scales it. Never multiply by `body_scale` again.
+- The placement frame comes from her body's back and up axes, never from the tail bones: the hair
+  rig's rest pose holds the tail out behind her and the live tail is spring-driven, so a bone
+  direction is not a stable "down the tail".
+- The bow faces up and back off the rump, its loops spread sideways and its tails hang down her
+  body; `presentation.tail_bow.*` tunes size, outward/down offsets, outward tilt, tilt/yaw/roll,
+  band radius and the dye.
+- Worn state is `Mods.state("unfplap").tail_bows`, keyed by pony id, saved with `Mods.save_changed()`.
+  `tail_bow_gift.gd` reconciles once a second: a worn record without a mesh ties one on and a mesh
+  without a record takes it off, so a bow survives world loads and late-spawning ponies.
+- The gift is verbal: `offer_kind()` matches Anon's line locally ("I got you a tail bow", "take that
+  bow off"), her answer goes through the shared classifier (`classify_agreement`, kind
+  `agreement`, one queued job) with a local yes/no fallback, and the game's own gift willingness
+  (anger ≥ 35 or an asked-for boundary) can refuse. An accepted gift flusters her, records a
+  `gift` bond experience and a `gift` world-context line, then saves.
+- `main.prompt_note()` reports the worn bow to her own dialogue prompt; the stock wardrobe line
+  only knows its own kinds. `_exit_tree()` takes every bow off so a mid-game switch-off leaves no
+  orphaned accessory.
+- **Debug → Actions** has "Tie on a tail bow" and "Untie the tail bow" for the aimed or nearest
+  mare, bypassing the conversation.
+
 ## Critical: ACTIVE readiness and strength
 
 `thrust.gd` is pure and has no scene access. It tracks raw depth and closes a stroke on a real
@@ -949,6 +991,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
+| `tail_bow` | `true` | satin tail bow accessory and its conversation gift; off hides worn bows and keeps the record |
 | `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust

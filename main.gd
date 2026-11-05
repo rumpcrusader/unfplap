@@ -99,11 +99,6 @@ func _ready() -> void:
 	debug_logs = TUNABLES.get_bool("debug_logs")
 	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
-	# Retired feature: drop its worn record so old saves carry no dead key.
-	var state: Dictionary = Mods.state("unfplap")
-	if state.has("tail_bows"):
-		state.erase("tail_bows")
-		Mods.save_changed()
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)

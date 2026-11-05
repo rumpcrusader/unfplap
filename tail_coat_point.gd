@@ -115,10 +115,14 @@ static func _intersect(triangles: Array, transforms: Array[Transform3D], base: T
 	var best := INF
 	var hit := Vector3.INF
 	var best_triangle: Array = []
+	# Each patch vertex record is shared by every triangle that uses it, so skinning it once per
+	# query instead of once per triangle keeps the dock follower's fallback in the low
+	# milliseconds instead of the tens.
+	var skinned: Dictionary = {}
 	for triangle: Array in triangles:
-		var a := _skinned(transforms, base, triangle[0])
-		var b := _skinned(transforms, base, triangle[1])
-		var c := _skinned(transforms, base, triangle[2])
+		var a := _skinned_shared(skinned, transforms, base, triangle[0])
+		var b := _skinned_shared(skinned, transforms, base, triangle[1])
+		var c := _skinned_shared(skinned, transforms, base, triangle[2])
 		var result: Variant = Geometry3D.ray_intersects_triangle(tail1, direction, a, b, c)
 		if result is Vector3:
 			var distance := tail1.distance_to(result)
@@ -129,6 +133,17 @@ static func _intersect(triangles: Array, transforms: Array[Transform3D], base: T
 	if not hit.is_finite():
 		return {}
 	return {"position": hit, "triangle": best_triangle}
+
+
+static func _skinned_shared(cache: Dictionary, transforms: Array[Transform3D], base: Transform3D,
+		vertex: Dictionary) -> Vector3:
+	var key := int(vertex.get("index", -1))
+	if key >= 0 and cache.has(key):
+		return cache[key] as Vector3
+	var point := _skinned(transforms, base, vertex)
+	if key >= 0:
+		cache[key] = point
+	return point
 
 
 static func _triangles(body: MeshInstance3D, skeleton: Skeleton3D, hair: Skeleton3D,
@@ -202,7 +217,7 @@ static func _vertex(position: Vector3, ids: PackedInt32Array, weights: PackedFlo
 			"bind": body.skin.get_bind_pose(bind),
 			"weight": weight,
 		})
-	return {"position": position, "influences": influences}
+	return {"index": index, "position": position, "influences": influences}
 
 
 static func _distance_to_segment(point: Vector3, a: Vector3, b: Vector3) -> float:

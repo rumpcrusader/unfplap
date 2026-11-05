@@ -333,6 +333,12 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	_set_controls_faded(_kiss_fade(runtime))
 
 
+## The act setting that shows or hides the control card. The cue and readiness readouts are
+## separate.
+func _controls_hints_on(runtime: Node) -> bool:
+	return not runtime.has_method("hud_controls") or bool(runtime.call("hud_controls"))
+
+
 ## Anon leaning in for a kiss gets the control card out of the shot.
 func _kiss_fade(runtime: Node) -> bool:
 	return runtime.has_method("hud_kiss_fade") and bool(runtime.call("hud_kiss_fade"))
@@ -354,10 +360,11 @@ func _set_controls_faded(faded: bool) -> void:
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
 ## afterglow keeps only Y; standing afterglow keeps lean, reach, caress, kiss and Y.
 func _apply_control_visibility(state: int, runtime: Node) -> void:
+	var hints_on := _controls_hints_on(runtime)
 	if _controls != null:
-		_controls.visible = _hint.visible
+		_controls.visible = hints_on and _hint.visible
 	if _hint_gap != null:
-		_hint_gap.visible = _hint.visible
+		_hint_gap.visible = hints_on and _hint.visible
 	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
 	var afterglow := state == STATE_AFTERGLOW
 	for key: String in _control_rows:

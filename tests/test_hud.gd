@@ -15,6 +15,7 @@ class Stub extends Node:
 	var satisfaction := 40.0
 	var auto_on := false
 	var kiss_fade := false
+	var controls_on := true
 
 	func hud_cue_line(_readouts := true) -> String:
 		return "❤ 1/3 | She's close."
@@ -30,6 +31,9 @@ class Stub extends Node:
 
 	func hud_kiss_fade() -> bool:
 		return kiss_fade
+
+	func hud_controls() -> bool:
+		return controls_on
 
 
 func _initialize() -> void:
@@ -91,6 +95,15 @@ func _check_controls() -> void:
 	var readiness := hud.get("_hint_readiness") as Label
 	check(readiness.text.begins_with("Wants:"), "readiness line reaches the HUD")
 	check((hud.get("_readiness_bar") as Control).visible, "readiness bar shows while active")
+	var controls := hud.get("_controls") as Control
+	check(controls != null and controls.visible, "control card shows while active")
+	stub.controls_on = false
+	hud.call("update_from", stub, true)
+	check(not controls.visible, "control hints switch hides the card")
+	check((hud.get("_hint_readiness") as Control).visible, "readouts stay when hints are off")
+	stub.controls_on = true
+	hud.call("update_from", stub, true)
+	check(controls.visible, "control hints switch shows the card")
 	var rows: Dictionary = hud.get("_control_rows")
 	var kiss := rows.get("kiss") as Control
 	check(kiss != null and kiss.visible, "kiss row shows while active")

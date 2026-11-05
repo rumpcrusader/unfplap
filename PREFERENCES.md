@@ -60,7 +60,8 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 **Settings tab**
 
-- **Controls**: HUD readouts, captions on top, Promiscuity, Starting Sex, mute Ponese audio.
+- **Controls**: HUD readouts, control hints, captions on top, Promiscuity, Starting Sex, mute
+  Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`0.5…5/s`, default
   `1.5/s`, quarter steps) and peak depth (`0.32…1`, default `0.9`). The auto values are act-start
@@ -256,6 +257,8 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 
 - `hud_readouts` (default `true`) shows the cue, a short 0–100 bar with no ticks, and the
   separate `Wants`/`You` line.
+- `act_controls` (default `true`) shows the control card. Off hides only the card; the cue,
+  readiness line, bar and close prompt remain.
 - Top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, auto readout
   `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator,

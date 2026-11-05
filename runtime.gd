@@ -624,6 +624,10 @@ func _refresh_live_voice() -> void:
 func hud_readouts() -> bool:
 	return bool(_features.get("hud_readouts", true))
 
+## Optional act control card, separate from the pony state readouts.
+func hud_controls() -> bool:
+	return bool(_features.get("act_controls", true))
+
 ## The control card fades out of the way while Anon leans in for a kiss.
 func hud_kiss_fade() -> bool:
 	return _kiss_controller().leaning_close()

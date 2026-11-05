@@ -902,6 +902,8 @@ examples.
 - While Anon leans in for a kiss the control card eases to `0.2` alpha over `0.25 s` and back.
   The cue, readiness line and bar stay at full opacity. `runtime.hud_kiss_fade()` wraps
   `kiss_control.leaning_close()`, so both poses and the base-kiss release are covered.
+- `act_controls` (default on) hides the whole control card without touching the cue, readiness
+  line, bar or close prompt, so the pony state readouts can stay while the hints are off.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; `_end_session()` restores it on every exit path, and
   `_physics_process` also restores it if `IDLE` is ever reached while still marked hidden. The
@@ -1010,6 +1012,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | Flag | Default | Gates |
 |---|---|---|
 | `hud_readouts` | `true` | mood cue, readiness bar and `Wants`/`You` segments; hearts and the close prompt stay |
+| `act_controls` | `true` | act control card; the cue, readiness bar and close prompt stay |
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `idle_camera_sway` | `false` | slow idle breathing when not leaning; true adds the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |

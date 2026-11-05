@@ -14,7 +14,7 @@ Desktop only for now
 
 | Input       | Action                                                            |
 | ----------- | ----------------------------------------------------------------- |
-| `Y`         | Make love with an available pony (standing: aim at her flank)       |
+| `Y`         | Make love with an available pony (standing: stand behind her rump)  |
 | Mouse ↕     | Thrust during the act; sets auto-thrust depth while auto is on     |
 | Mouse wheel | Auto-thrust pace while auto is on                                  |
 | `X`         | Toggle auto thrust during the act                                  |
@@ -32,7 +32,7 @@ Desktop only for now
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you aim at her flank.
+- **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace and the mouse sets how deep each stroke goes.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.

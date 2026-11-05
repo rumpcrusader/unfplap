@@ -31,6 +31,7 @@ TESTS=(
 	test_actions
 	test_hud
 	test_initiation
+	test_rump_cone
 	test_act_audio
 )
 

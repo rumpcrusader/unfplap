@@ -16,6 +16,7 @@ const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
 const TASTE := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const RUMP_CONE := preload("res://mods/unfplap/rump_cone.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
@@ -812,9 +813,9 @@ func _refresh_offer() -> void:
 					_log_offer()
 					return
 
-	# Standing: only the base-game smack-flank aim zone.
-	var standing: Node = _smack_flank_target(view)
-	if is_instance_valid(standing) and str(standing.call("posture_status").get("requested", "")) == "stand":
+	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed.
+	var standing: Node = _rump_cone_target(view)
+	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime) and runtime.can_start(CATALOG.STANDING, "", null):
 			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
@@ -822,27 +823,38 @@ func _refresh_offer() -> void:
 			_log_offer()
 
 
-## The base game's right-click smack selection: crosshair on the flank, TOUCH_REACH. This is
-## also the only standing Y sex zone.
-func _smack_flank_target(view: Camera3D) -> Node:
-	if not is_instance_valid(game) or view == null:
+## The standing Y zone: the nearest standing mare whose rear cone holds Anon. The cone alone
+## decides, so the crosshair can point anywhere as long as he stands behind her rump.
+func _rump_cone_target(view: Camera3D) -> Node:
+	if not is_instance_valid(view):
 		return null
-	var interactions: Variant = game.get("desktop_interactions")
-	if is_instance_valid(interactions) and interactions.has_method("_select"):
-		var hit: Variant = interactions.call("_select", true)
-		if hit is Dictionary and hit.get("target") is Node:
-			return hit.get("target") as Node
-	# Headless/VR fallback: keep the same reach and a tight crosshair cone.
-	var standing: Node = nearest_standing(view)
-	if not is_instance_valid(standing):
-		return null
-	var at: Vector3 = (standing as Node3D).global_position + Vector3.UP * 0.9
-	var delta := at - view.global_position
-	if delta.length() > 1.6:
-		return null
-	if (-view.global_basis.z).dot(delta.normalized()) < 0.96:
-		return null
-	return standing
+	var eye: Vector3 = view.global_position
+	var best: Node = null
+	var best_distance := RUMP_CONE.REACH_M
+	for node: Variant in mares():
+		if not is_instance_valid(node):
+			continue
+		var actor: Node3D = node as Node3D
+		if actor == null or not actor.has_method("posture_status"):
+			continue
+		if str(actor.posture_status().get("requested", "")) != "stand":
+			continue
+		var runtime: Node = runtime_for(actor)
+		if not is_instance_valid(runtime):
+			continue
+		var anchor: Variant = runtime.call("rump_anchor")
+		if not anchor is Vector3:
+			continue
+		var rump: Vector3 = anchor
+		if not rump.is_finite():
+			continue
+		if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
+			continue
+		var flat := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
+		if flat.length() < best_distance:
+			best_distance = flat.length()
+			best = actor
+	return best
 
 
 func _native_row() -> HBoxContainer:
@@ -1122,7 +1134,7 @@ func _try_refusal() -> bool:
 				if bed is Node3D and bool(runtime.call("refuse_available", CATALOG.MISSIONARY, "already_lying", bed)):
 					runtime.call("refuse", CATALOG.MISSIONARY, "already_lying", bed)
 					return true
-	var standing: Node = _smack_flank_target(view)
+	var standing: Node = _rump_cone_target(view)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", CATALOG.STANDING, "", null)):
@@ -1379,32 +1391,6 @@ func _bedside_pony(view: Camera3D) -> Node:
 				if partner is Node and is_instance_valid(partner):
 					return partner
 	return null
-
-
-func nearest_standing(view: Camera3D) -> Node:
-	if view == null:
-		return null
-	var best: Node
-	var best_dot := 0.82
-	var forward := -view.global_basis.z
-	for node: Variant in mares():
-		if not is_instance_valid(node):
-			continue
-		var actor: Node3D = node as Node3D
-		if actor == null or not actor.has_method("posture_status"):
-			continue
-		var status: Dictionary = actor.posture_status()
-		if str(status.get("requested", "")) != "stand":
-			continue
-		var at := actor.global_position + Vector3.UP * 0.9
-		var delta := at - view.global_position
-		if delta.length() > 2.5:
-			continue
-		var dot := forward.dot(delta.normalized())
-		if dot > best_dot:
-			best_dot = dot
-			best = actor
-	return best
 
 
 func nearest_lying(view: Camera3D) -> Node:

@@ -2954,6 +2954,11 @@ func _rump_point() -> Vector3:
 			point = (a + b) * 0.5 + Vector3.UP * 0.08 + back * 0.10
 	return point
 
+
+## Public rump anchor for the standing offer's rear cone.
+func rump_anchor() -> Vector3:
+	return _rump_point()
+
 func _rump_blush_tick(delta: float) -> void:
 	if pose_id != CATALOG.STANDING:
 		return

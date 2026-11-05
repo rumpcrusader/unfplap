@@ -753,8 +753,8 @@ examples.
   cannot choose missionary.
 - Standing: requires `can_offer(STANDING)`. She walks to a spot 2 m in front of Anon's view (same
   navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The ask is decoupled
-  from the Y aim zone: it starts when she is still present and eligible, not only while the
-  player aims at her flank.
+  from the Y zone: it starts when she is still present and eligible, not only while the player
+  stands in the rear cone.
 - Private means alone in the house or nobody within 30 m. Private asks directly and makes the
   invitation available; with others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
@@ -813,8 +813,9 @@ examples.
   Y still refuses when she does not.
 - `can_offer()` always requires `relation`; a mare never proactively offers while unwilling.
   Try Your Luck lifts only the bond requirement for offers.
-- Standing offers use the base game’s smack-flank selection: crosshair on the flank and
-  `TOUCH_REACH = 1.6 m`. Missionary bed offers stay contextual.
+- Standing Y uses `rump_cone.gd`: Anon must stand within 22.5° of her backward axis (45° total)
+  and 1.6 m of her rump anchor. The crosshair is not used, so looking away does not hide the
+  hint. Missionary bed offers stay contextual.
 - `dialogue_consent.gd` classifies every player line with a pony reply through the shared
   classifier. `lover_accept` grants the mod bond, `lover_decline` does nothing and `lover_end`
   clears it. It never arms an act and never starts one.

@@ -588,13 +588,25 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
 - Missionary and standing use the same surge/bob. Missionary sends the surge along the mattress toward her
   head; standing sends it along the camera forward.
-- Restore order is load-bearing:
-  1. release the free-camera control lock;
-  2. remove the Anon thrust wrapper and restore any standing palm scale;
-  3. restore eye override and hidden avatar;
-  4. free the missionary view;
-  5. restore the standing camera position;
-  6. restore player look, then the missionary snapshot/cuddle.
+- Teardown is one function. `_end_session(rejoin_cuddle)` gives back, in order: the inventory HUD,
+  request face, kiss forelegs, face-turn rate, eye override, face and wings, player lock, camera,
+  `sex_active`, navigator, player look, posture/cuddle, pose, audio, HUD and the active runtime.
+  Every step checks the ownership flag it restores (`_camera_owned`, `_look_captured`,
+  `_posture_owned`, `_locked_player`, `_eye_override`, `_face_turn_rate_owned`,
+  `_inventory_hud_hidden`, `_nav`, the controller flags), so a failed start runs the same
+  function and restores only what it took. `_finalize_session(real_act)` runs the post-act
+  bookkeeping (`_reset_after_act`: thrust reset, satisfaction fade, aftercare) once and is
+  idempotent. Never add a second exit sequence; add a step and a flag.
+- `_end_act_lines()` is deliberately outside the teardown. `cancel()` queues the early-stop
+  reaction after `_restore_begin()`, so `_finish_restore()` must not cancel director rows. It runs
+  from `cancel`, `_climax`, `_afterglow_begin`, `_restore_begin`, `_restore_now`, `_abort_start`
+  and `apply_live_settings` when `act_lines` is switched off. The utterance scheduler is reset by
+  `_reset_thrust_state()`, not by the session.
+- Order inside the camera step stays load-bearing: free-camera lock, Anon wrapper and palm scale,
+  eye override and avatar, missionary view, standing camera, then player look. `_restore_look()`
+  only runs when it captured the player (`_look_captured`), so a forced stop at `IDLE` cannot
+  reset the player's facing.
+- A forced stop never rejoins the missionary bed cuddle; a normal end does (`_restore_posture`).
 - Missionary snapshots camera + current camera, player transform and pony transform/posture. Keep
   that snapshot exact; the bed cuddle re-invite depends on it.
 
@@ -830,9 +842,10 @@ examples.
   climax reaction through the same slot. The standing afterglow records its inside event without
   queuing a line. Only the cached “Mm.” is used; generated moans are parked.
 - `_end_act_lines()` cancels every mod-owned line for the act except one that is already
-  **speaking**. Queued and still-thinking lines are dropped. It runs at climax, afterglow and
-  every act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`). The intentional
-  early-stop line is queued after the restore begins.
+  **speaking**. Queued and still-thinking lines are dropped. It runs at climax, afterglow, every
+  act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`) and when
+  `features.act_lines` is switched off mid-act. The intentional early-stop line is queued after
+  the restore begins, and `_finish_restore()` never calls it.
 - `features.act_lines` (default on) gates cue lines and climax/early-end reactions. Off keeps
   normal dialogue and the HUD cue.
 - The standing afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
@@ -860,11 +873,10 @@ examples.
   description is `Afterglow`, `Stop` or `Exit` by state. A muted `MAKE LOVE` title names the card,
   like the carry card's title.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
-  hotbar's `set_hud_visible(false)`; the previous state is restored on every exit path:
-  `_abort_start()`, `_restore_now()`, `_finish_restore()` (including the invalid-pony branch),
-  and `force_stop()`. `_physics_process` also restores it if `IDLE` is ever reached while still
-  marked hidden. The inventory's `_place_hotbar()` re-evaluates the state after restoring, so a
-  stale pre-act layer flag cannot leave it hidden.
+  hotbar's `set_hud_visible(false)`; `_end_session()` restores it on every exit path, and
+  `_physics_process` also restores it if `IDLE` is ever reached while still marked hidden. The
+  inventory's `_place_hotbar()` re-evaluates the state after restoring, so a stale pre-act layer
+  flag cannot leave it hidden.
 - The bottom-left stack reads, top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
   `MAKE LOVE` title, controls.

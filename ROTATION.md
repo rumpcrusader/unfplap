@@ -170,7 +170,7 @@ these values here if a future pose needs that effect.
 - Missionary sends the surge along the mattress toward her head; standing sends it along the camera
   forward. Both use the same bob.
 - Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
-- Restore order is load-bearing:
+- The act end runs through `runtime._end_session()`; the missionary re-invite restores:
   1. player transform and yaw,
   2. pony transform and posture,
   3. camera transform + `make_current()`.

@@ -649,7 +649,9 @@ glasses).
   is a visible hitch. Settings edits must never detach and re-attach the piece for the same reason.
 - The imported material is replaced with `satin()`, a matte cloth `StandardMaterial3D` whose albedo
   is the dye, so one mesh covers every colour. `presentation.tail_bow.*` tunes `size`, `along_m`,
-  `tilt_deg` and the dye (red by default). `size` defaults to `1.5` and `along_m` to `0`, which
+  `lift_m`, `tilt_deg` and the dye (red by default). `lift_m` raises the bow along her up axis
+  (negative drops it) and is the knob for how far the bow sits above the attach point; `along_m`
+  slides it down the tail. `size` defaults to `1.5` and `along_m` to `0`, which
   ties it at `mTail2`'s origin: `mTail1` sits up on the croup, so a bow on it reads as pasted on
   her back rather than tied at the base of the tail.
 - `tests/bow_preview.gd` ties the bow on a loaded mare and writes `/tmp/opencode/bow_*.png` from

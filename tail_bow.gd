@@ -26,9 +26,9 @@ const STATE_KEY := "tail_bows"
 const AUTHORED_RADIUS := 0.060
 ## Clearance between the fur surface and the knot, in metres.
 const TIE_MARGIN := 0.002
-## The fur drawn around her tail springs is thicker than the springs themselves
-## (`identity.tail_segment_radii`), so the knot stands off by this share of the tail radius.
-const FUR_SCALE := 1.9
+## Distance from the tail bone to the knot, as a share of her tail radius. Zero ties the knot on
+## the bone itself; raise it to push the bow out clear of the fur.
+const FUR_SCALE := 0.0
 
 ## Satin dyes. The key is stored in settings; the bow keeps its colour for every pony.
 const COLOURS := {
@@ -177,6 +177,7 @@ static func config() -> Dictionary:
 	return {
 		"size": TUNABLES.get_float("presentation.tail_bow.size"),
 		"along_m": TUNABLES.get_float("presentation.tail_bow.along_m"),
+		"lift_m": TUNABLES.get_float("presentation.tail_bow.lift_m"),
 		"tilt_deg": TUNABLES.get_float("presentation.tail_bow.tilt_deg"),
 		"colour": TUNABLES.get_string("presentation.tail_bow.colour"),
 	}
@@ -210,11 +211,12 @@ static func local_transform(sk: Skeleton3D, pony: Node3D, cfg: Dictionary) -> Tr
 	var root := sk.get_bone_global_rest(root_index)
 	var rest := root.basis.orthonormalized()
 	# The tail bone's Y runs up her tail, so down the tail is the reverse.
-	var local := placement(root, -rest.y, rest.z, rest.x, tail_radius(pony), standoff(pony), cfg)
-	# Spin the whole piece 180 degrees about the vertical through the knot: tied on the dock, the
-	# bow's own up has to point up her body, and its face away from her.
 	var frame := sk.global_basis.orthonormalized().inverse()
 	var body := pony.global_basis.orthonormalized()
+	var local := placement(root, -rest.y, rest.z, frame * body.y, tail_radius(pony),
+		standoff(pony), cfg)
+	# Spin the whole piece 180 degrees about the vertical through the knot: tied on the dock, the
+	# bow's own up has to point up her body, and its face away from her.
 	var world := root * local
 	var up := (frame * body.y).normalized()
 	world = Transform3D(Basis(up, PI) * world.basis, world.origin)
@@ -241,7 +243,8 @@ static func placement(root: Transform3D, axis: Vector3, out: Vector3, up: Vector
 		* Basis(Vector3.RIGHT, deg_to_rad(float(cfg.get("tilt_deg", 0.0))))
 	basis = basis.scaled(Vector3.ONE * scale)
 	var origin := root.origin + z * (offset + TIE_MARGIN) \
-		+ axis * float(cfg.get("along_m", 0.03)) * scale
+		+ axis * float(cfg.get("along_m", 0.03)) * scale \
+		+ up.normalized() * float(cfg.get("lift_m", 0.0)) * scale
 	return root.affine_inverse() * Transform3D(basis, origin)
 
 

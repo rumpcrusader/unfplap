@@ -75,6 +75,13 @@ func _test_placement() -> void:
 	check(near(big.basis.get_scale().x, 2.0, 0.001), "size scales the bow")
 	var fatter := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, 0.09, 0.075, cfg)
 	check(near(fatter.basis.get_scale().x, 1.5, 0.001), "a thicker tail gets a bigger bow")
+	var base := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, radius, 0.075,
+		{"size": 1.0, "along_m": 0.0})
+	var lifted := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, radius, 0.075,
+		{"size": 1.0, "along_m": 0.0, "lift_m": 0.10})
+	var lift_vec := (root * lifted).origin - (root * base).origin
+	check(near(lift_vec.length(), 0.10, 0.001), "lift raises the bow by its value")
+	check(lift_vec.normalized().dot(Vector3.UP) > 0.999, "lift runs along her up axis")
 	var tilted := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, radius, 0.075,
 		{"size": 1.0, "along_m": 0.03, "tilt_deg": 30.0})
 	check(not (root * tilted).basis.z.is_equal_approx(world.basis.z), "tilt leans the bow")

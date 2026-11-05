@@ -248,7 +248,7 @@ var _auto_thrust
 var _auto_on := false
 var _auto_default_pace := 1.5
 var _auto_default_depth := 0.9
-var _auto_pace_step := 0.1
+var _auto_pace_step := 0.25
 var _thrust_pixels_per_full := 480.0
 var _thrust_travel := 0.5
 var _jiggle_radius_m := 0.26
@@ -540,7 +540,7 @@ func _snapshot_settings() -> void:
 	var auto_block := TUNABLES.block("auto_thrust.")
 	_auto_default_pace = float(auto_block.get("pace", 1.5))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.9))
-	_auto_pace_step = float(auto_block.get("pace_step", 0.1))
+	_auto_pace_step = float(auto_block.get("pace_step", 0.25))
 	var jiggle_block := TUNABLES.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.25))
@@ -660,7 +660,7 @@ func auto_hud_text() -> String:
 	if not auto_active():
 		return ""
 	var auto = _auto_controller()
-	return "Auto · wheel pace %.1f/s · depth %d%%" % [
+	return "Auto · wheel pace %.2f/s · depth %d%%" % [
 		float(auto.get("pace")), roundi(float(auto.get("max_depth")) * 100.0)]
 
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.

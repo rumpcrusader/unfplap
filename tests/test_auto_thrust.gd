@@ -84,7 +84,7 @@ func run() -> void:
 	# Pace and depth together reach every intensity class.
 	check(_intensity(1.0, 0.5, 3.0) == "soft", "slow full auto reads soft")
 	check(_intensity(1.0, 2.0, 2.0) == "firm", "normal full auto reads firm")
-	check(_intensity(1.0, 5.0, 1.0) == "rough", "fast full auto reads rough")
+	check(_intensity(1.0, 4.5, 1.1) == "rough", "fast full auto reads rough")
 
 	# The same pace range reaches every pattern class at a shallow depth, which is what the
 	# pattern classifier requires for travel.

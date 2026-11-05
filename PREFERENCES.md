@@ -63,7 +63,7 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 - **Controls**: HUD readouts, control hints, captions on top, Promiscuity, Starting Sex, mute
   Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
-  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`0.5…5/s`, default
+  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`0.5…4.5/s`, default
   `1.5/s`, quarter steps) and peak depth (`0.32…1`, default `0.9`). The auto values are act-start
   defaults; the wheel and mouse adjust them for one act.
 - **Character taste**: the per-mare form described below.

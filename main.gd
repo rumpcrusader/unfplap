@@ -50,8 +50,6 @@ var _interactor: Node
 var _desktop: Node
 var _camera_cache: Camera3D
 var _camera_cache_at := 0.0
-## -1 = nothing pending; 0/1 = the controls_locked value to restore once menus close.
-var pending_unlock := -1
 var _last_offer_key := ""
 var _native_hint_label: Control
 var _debug_skeleton: Node3D
@@ -1352,10 +1350,11 @@ func player_beside_bed(bed: Node3D) -> bool:
 	return false
 
 
-func menu_open() -> bool:
+## True while a menu or panel owns the mouse: the tree is paused or a known UI panel is open.
+## Deliberately excludes "the mouse is visible" so a menu that leaves the cursor visible cannot
+## keep offers and act input dead after it closes. Use menu_open() for "can he interact now".
+func menu_panel_open() -> bool:
 	if get_tree().paused:
-		return true
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return true
 	if not is_instance_valid(game):
 		return false
@@ -1378,6 +1377,14 @@ func menu_open() -> bool:
 	if is_instance_valid(inspector) and bool(inspector.get("active")):
 		return true
 	return false
+
+
+## True when the player should not interact with the world right now. Adds the mouse state to
+## menu_panel_open(): the base game leaves the cursor visible while a menu owns the mouse.
+func menu_open() -> bool:
+	if menu_panel_open():
+		return true
+	return Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
 
 
 func _bedside_pony(view: Camera3D) -> Node:

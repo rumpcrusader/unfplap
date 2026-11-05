@@ -25,13 +25,30 @@ func _physics_process(_delta: float) -> void:
 		# tree is paused and resumes when the menu closes.
 		_suppress_seated_q()
 		_hold_movement()
+		# A menu, map, inventory or alt-tab that leaves the cursor visible must not keep the
+		# act's mouse input dead. The base game's own click-to-recapture is skipped while
+		# controls_locked owns the act, so the mod keeps the mouse captured itself.
+		_keep_mouse_captured()
 	else:
 		_restore_seated_q()
-	if int(main.get("pending_unlock")) >= 0 and not bool(main.call("menu_open")):
-		if is_instance_valid(main.get("player")):
-			var body: Node = main.get("player")
-			body.set("controls_locked", int(main.get("pending_unlock")) == 1)
-		main.set("pending_unlock", -1)
+
+
+## Recapture the cursor during an act unless a menu panel still owns it. The base game's own
+## click-to-recapture is skipped while controls_locked owns the act. menu_panel_open() leaves a
+## paused tree or an open panel in charge, so this only fires when the cursor is loose.
+func _keep_mouse_captured() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	if not DisplayServer.window_is_focused():
+		return false
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		return false
+	if main.has_method("menu_panel_open") and bool(main.call("menu_panel_open")):
+		return false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if main.has_method("debug"):
+		main.call("debug", "recaptured mouse during act")
+	return true
 
 
 func _suppress_seated_q() -> void:
@@ -90,6 +107,12 @@ func _input(event: InputEvent) -> void:
 		var mouse := event as InputEventMouseButton
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT \
 				and bool(main.call("skeleton_click")):
+			get_viewport().set_input_as_handled()
+			return
+		# A click takes the mouse back when a menu left it visible during an act. The base game's
+		# own click-to-recapture is skipped while controls_locked owns the act.
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT \
+				and is_instance_valid(runtime) and _keep_mouse_captured():
 			get_viewport().set_input_as_handled()
 			return
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_RIGHT and is_instance_valid(runtime):

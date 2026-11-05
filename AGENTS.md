@@ -693,6 +693,12 @@ examples.
   cuddle still works when no act is running.
 - During the act the quick-slot inventory HUD is hidden and restored at end.
 - `kiss_hold` owns movement hold; `pony_kisser` physics is paused so it cannot remove it.
+- The mod keeps the mouse captured during an act: `input.gd` recaptures it every physics frame while
+  an act is active, the window is focused and `menu_panel_open()` is false. The base game's own
+  click-to-recapture is skipped while `controls_locked` owns the act, so a pause menu, map,
+  inventory or alt-tab that leaves the cursor visible cannot kill thrust or the offer. `menu_open()`
+  remains "paused, a panel is open, or the mouse is visible"; `menu_panel_open()` is the panel-only
+  check the recapture uses.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
   `Z`/`C` toggle caress movement,
   `F` hold kiss in standing, mouse right smacks. `X` toggles auto thrust; while it is on the mouse

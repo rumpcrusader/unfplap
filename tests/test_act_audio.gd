@@ -137,14 +137,12 @@ func run() -> void:
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
 	check(not CATALOGUE.CUES.has("smack"), "flank smack stays out of the optional cue table")
-	check(SMACK.PATHS.size() >= 3, "flank smack has multiple pack variants")
-	for path: String in SMACK.PATHS:
-		check(ResourceLoader.exists(path), "smack stream exists: " + path)
-		var smack_stream: Resource = load(path)
-		check(smack_stream is AudioStream, "smack stream type: " + path)
-		if smack_stream is AudioStream:
-			var seconds := (smack_stream as AudioStream).get_length()
-			check(seconds > 0.05 and seconds < 1.0, "smack stream length: " + path)
+	check(ResourceLoader.exists(SMACK.PATH), "smack stream exists: " + SMACK.PATH)
+	var smack_stream: Resource = load(SMACK.PATH)
+	check(smack_stream is AudioStream, "smack stream type")
+	if smack_stream is AudioStream:
+		var seconds := (smack_stream as AudioStream).get_length()
+		check(seconds > 0.05 and seconds < 1.0, "smack stream length")
 	act.set_enabled(false, true, false)
 	act.play_climax_voice(Vector3.ZERO)
 	check(act.vocals_enabled(), "climax voice accepted after a live toggle")

@@ -3,15 +3,14 @@
 #
 #   ./build.sh                     -> dist/unfplap-<version>.pck
 #   ./build.sh --out FILE.pck      -> FILE.pck
-#   GODOT=/path/to/godot ./build.sh
 #
-# The pack contains only the runtime tree selected by .pckignore, imported asset data and the
-# generated mod.built.json. The build stages that tree in a throwaway minimal Godot project at
-# the same res://mods/<id>/ paths the game uses, imports assets there, and packs the staging tree.
+# Godot 4.5 must be on PATH. The pack contains only the runtime tree selected by .pckignore,
+# imported asset data and the generated mod.built.json. The build stages that tree in a
+# throwaway minimal Godot project at the same res://mods/<id>/ paths the game uses, imports
+# assets there, and packs the staging tree.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GODOT="${GODOT:-godot}"
 OUT=""
 
 while [ "$#" -gt 0 ]; do
@@ -32,12 +31,8 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-if [ -x "$GODOT" ]; then
-	GODOT_BIN="$GODOT"
-elif command -v "$GODOT" >/dev/null 2>&1; then
-	GODOT_BIN="$(command -v "$GODOT")"
-else
-	echo "Godot not found: set GODOT to the Godot 4.5 executable." >&2
+if ! command -v godot >/dev/null 2>&1; then
+	echo "Godot not found on PATH (need the Godot 4.5 executable)." >&2
 	exit 1
 fi
 
@@ -82,9 +77,9 @@ config/name="$ID build"
 EOF
 
 echo "Importing resources..."
-"$GODOT_BIN" --headless --path "$STAGE" --import
+godot --headless --path "$STAGE" --import
 
 cp "$ROOT/tools/pack.gd" "$STAGE/pack.gd"
-"$GODOT_BIN" --headless --path "$STAGE" --script res://pack.gd -- --out "$OUT"
+godot --headless --path "$STAGE" --script res://pack.gd -- --out "$OUT"
 
 echo "Copy $OUT into the game's mods folder and enable it in Settings -> Mods."

@@ -50,7 +50,7 @@ Manual lab:
 ```
 
 It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
-script. Set `GODOT=~/path/to/godot` if the binary is not at `~/Downloads/godot`.
+script. `godot` must be on `PATH`.
 
 - The lab loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara, pauses world
   scheduling and background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.

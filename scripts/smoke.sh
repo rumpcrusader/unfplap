@@ -2,20 +2,24 @@
 # Start the game from the mod source and fail on script/parse errors.
 # The game keeps running, so the timeout exit (124) is the expected success status.
 # Usage: scripts/smoke.sh
-#        GODOT=/path/to/godot scripts/smoke.sh
+# Godot 4.5 must be on PATH.
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
-GODOT="${GODOT:-godot}"
 SMOKE_SECONDS="${SMOKE_SECONDS:-20}"
+
+if ! command -v godot >/dev/null 2>&1; then
+	printf 'Godot not found on PATH (need the Godot 4.5 executable).\n' >&2
+	exit 1
+fi
 
 log_file="$(mktemp "${TMPDIR:-/tmp}/unfplap-smoke.XXXXXX")"
 trap 'rm -f "$log_file"' EXIT
 
-timeout "$SMOKE_SECONDS" "$GODOT" --headless --xr-mode off --path "$PROJECT_ROOT" \
+timeout "$SMOKE_SECONDS" godot --headless --xr-mode off --path "$PROJECT_ROOT" \
 	-- --mod-src unfplap --skip-title >"$log_file" 2>&1
 status=$?
 

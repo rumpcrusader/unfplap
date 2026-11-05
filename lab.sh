@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
 # Run the manual unfplap lab and tee the session to ./last-run.log.
 # Usage: ./lab.sh
-#        GODOT=~/path/to/godot ./lab.sh
+# Godot 4.5 must be on PATH.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$ROOT/../.." && pwd)"
-GODOT="${GODOT:-$HOME/Downloads/godot}"
 
-if [ ! -x "$GODOT" ]; then
-	printf 'Godot not found at %s. Set GODOT to the executable path.\n' "$GODOT" >&2
+if ! command -v godot >/dev/null 2>&1; then
+	printf 'Godot not found on PATH. Install Godot 4.5 or add it to PATH.\n' >&2
 	exit 1
 fi
 
 printf 'Lab log: %s\n' "$ROOT/last-run.log"
 
-"$GODOT" --xr-mode off \
+godot --xr-mode off \
 	--display-driver wayland \
 	--path "$PROJECT_ROOT" \
 	-- --mod-src unfplap --skip-title \

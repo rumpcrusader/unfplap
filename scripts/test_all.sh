@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Run every headless test suite. Prints each RESULT line and a final pass/fail line.
 # Usage: scripts/test_all.sh
-#        GODOT=/path/to/godot scripts/test_all.sh
+# Godot 4.5 must be on PATH.
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
-GODOT="${GODOT:-godot}"
+
+if ! command -v godot >/dev/null 2>&1; then
+	printf 'Godot not found on PATH (need the Godot 4.5 executable).\n' >&2
+	exit 1
+fi
 
 TESTS=(
 	test_catalog
@@ -44,7 +48,7 @@ for test_name in "${TESTS[@]}"; do
 		continue
 	fi
 	output="$(
-		timeout 90 "$GODOT" --headless --xr-mode off --path "$PROJECT_ROOT" \
+		timeout 90 godot --headless --xr-mode off --path "$PROJECT_ROOT" \
 			--script "res://mods/unfplap/tests/$test_name.gd" 2>&1
 	)"
 	result="$(printf '%s\n' "$output" | grep -E '_RESULT checks=' | tail -n 1)"

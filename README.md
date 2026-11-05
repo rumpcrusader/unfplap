@@ -49,14 +49,13 @@ Desktop only for now
 
 ## Build
 
-Requires Godot 4.5.x and `python3`.
+Requires Godot 4.5.x on `PATH` and `python3`.
 
 ```sh
 ./build.sh
 # -> dist/unfplap-<version>.pck
 
 ./build.sh --out /tmp/unfplap.pck
-GODOT=/path/to/godot ./build.sh
 ```
 
 `build.sh` stages the runtime tree selected by `.pckignore` in a temporary Godot project, imports

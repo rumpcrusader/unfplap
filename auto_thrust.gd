@@ -10,8 +10,10 @@ extends RefCounted
 ## waveform actually uses, so scrolling depth does not inject a depth-speed spike.
 
 ## Wheel bounds. Keep these equal to `tunables_schema.gd`'s `auto_thrust.*` `user_num` bounds.
-const PACE_MIN := 0.5
+const PACE_MIN := 1.0
 const PACE_MAX := 4.5
+## One mouse-wheel notch while auto owns the stroke. Fixed: it is not a setting.
+const PACE_STEP := 0.25
 ## `thrust.gd` closes a reversal only after `REVERSAL_HYSTERESIS` (0.06), so every automatic
 ## stroke after the first starts 0.06 above the bottom. The minimum peak keeps that stroke at
 ## or above `THRUST_MIN_TRAVEL` (0.12): 0.20 - 0.06 = 0.14.

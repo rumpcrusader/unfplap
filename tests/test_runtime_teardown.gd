@@ -234,11 +234,15 @@ func run() -> void:
 	behind6.y = player_start.origin.y
 	check(player6.global_position.is_equal_approx(behind6),
 		"standing start places Anon behind her at the act gap")
-	check(runtime6._player_placed, "standing start owns the placement")
+	var placed6: Transform3D = player6.global_transform
+	var placed_yaw6 := player6.rotation.y
+	runtime6._look_captured = true
+	runtime6._look_restore_yaw = false
 	runtime6.call("_restore_look")
-	check(player6.global_transform.is_equal_approx(player_start),
-		"standing end restores Anon's pre-act placement")
-	check(not runtime6._player_placed, "standing end clears the placement")
+	check(player6.global_position.is_equal_approx(placed6.origin),
+		"standing end leaves Anon in place")
+	check(is_equal_approx(player6.rotation.y, placed_yaw6),
+		"standing end leaves Anon's yaw alone")
 
 	for item: Dictionary in [f, f2, f3, f4, f5, f6]:
 		(item["runtime"] as Node).free()

@@ -51,22 +51,6 @@ const SLIDE_OUT := [
 	preload("res://mods/unfplap/audio/act/slide/out_06.wav"),
 ]
 
-const BED_IN := [
-	preload("res://mods/unfplap/audio/act/bed/wood_in_01.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_in_02.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_in_03.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_in_04.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_in_05.wav"),
-]
-
-const BED_OUT := [
-	preload("res://mods/unfplap/audio/act/bed/wood_out_01.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_out_02.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_out_03.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_out_04.wav"),
-	preload("res://mods/unfplap/audio/act/bed/wood_out_05.wav"),
-]
-
 const FABRIC := [
 	preload("res://mods/unfplap/audio/act/fabric/01.wav"),
 	preload("res://mods/unfplap/audio/act/fabric/02.wav"),
@@ -128,16 +112,6 @@ const CUES := {
 	"slide_out": {
 		"group": "foley", "streams": SLIDE_OUT, "voices": 3,
 		"volume_db": -28.0, "cooldown": 0.08, "distance": 6.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
-	"bed_wood_in": {
-		"group": "foley", "streams": BED_IN, "voices": 3,
-		"volume_db": -23.0, "cooldown": 0.1, "distance": 8.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
-	"bed_wood_out": {
-		"group": "foley", "streams": BED_OUT, "voices": 3,
-		"volume_db": -23.0, "cooldown": 0.1, "distance": 8.0,
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},
 	"fabric": {

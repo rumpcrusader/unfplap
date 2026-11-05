@@ -90,25 +90,25 @@ func run() -> void:
 		"the shallowest auto peak counts as soft")
 
 	# Pace and depth together reach every intensity class.
-	check(_intensity(1.0, 0.5, 3.0) == "soft", "slow full auto reads soft")
+	check(_intensity(1.0, AUTO.PACE_MIN, 3.0) == "soft", "slow full auto reads soft")
 	check(_intensity(1.0, 2.0, 2.0) == "firm", "normal full auto reads firm")
 	check(_intensity(1.0, 4.5, 1.1) == "rough", "fast full auto reads rough")
 	check(_intensity(AUTO.DEPTH_MIN, AUTO.PACE_MAX, 1.0) == "soft",
 		"fast shallow auto stays soft")
 
-	# The same pace range reaches every pattern class. Depth no longer decides the rhythm.
-	check(_pattern(0.32, 0.5, 16.0) == "teasing", "slow shallow auto reads teasing")
-	check(_pattern(0.32, 1.0, 4.0) == "steady", "normal shallow auto reads steady")
+	# The pace range reaches every pattern class. Depth does not decide the rhythm.
+	check(_pattern(0.32, AUTO.PACE_MIN, 16.0) == "teasing", "slow shallow auto reads teasing")
+	check(_pattern(0.32, 1.5, 4.0) == "steady", "normal shallow auto reads steady")
 	check(_pattern(0.32, 2.5, 2.0) == "quick", "fast shallow auto reads quick")
-	check(_pattern(1.0, 0.5, 12.0) == "teasing", "slow full auto reads teasing")
-	check(_pattern(1.0, 1.0, 4.0) == "steady", "normal full auto reads steady")
+	check(_pattern(1.0, AUTO.PACE_MIN, 12.0) == "teasing", "slow full auto reads teasing")
+	check(_pattern(1.0, 1.5, 4.0) == "steady", "normal full auto reads steady")
 	check(_pattern(1.0, 2.5, 2.0) == "quick", "fast full auto reads quick")
 
 	# Every class is inside the slider range, so no setting hangs outside the model.
 	var intensities: Dictionary = {}
 	var patterns: Dictionary = {}
 	for depth: float in [AUTO.DEPTH_MIN, 0.5, 0.9, 1.0]:
-		for pace: float in [AUTO.PACE_MIN, 1.0, 1.5, 2.5, 3.5, AUTO.PACE_MAX]:
+		for pace: float in [AUTO.PACE_MIN, 1.25, 1.5, 2.5, 3.5, AUTO.PACE_MAX]:
 			intensities[_intensity(depth, pace, 4.0)] = true
 			patterns[_pattern(depth, pace, 8.0)] = true
 	for name: String in PREF.INTENSITIES:
@@ -156,6 +156,8 @@ func run() -> void:
 		"schema auto depth low matches")
 	check(near(float(SCHEMA.entry("auto_thrust.max_depth").get("high", 0.0)), AUTO.DEPTH_MAX),
 		"schema auto depth high matches")
+	check(near(AUTO.PACE_STEP, 0.25), "wheel pace step is fixed")
+	check(not SCHEMA.has("auto_thrust.pace_step"), "the wheel pace step is not a setting")
 
 	print("AUTO_THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

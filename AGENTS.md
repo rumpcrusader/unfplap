@@ -109,7 +109,7 @@ mods/unfplap/
   preferences.gd    pure taste profile, intensity/rhythm and talk classification
   tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
   tunables.gd       the one typed API for reading and writing those settings
-  tunables_ui.gd    the only file that builds settings widgets: grouped Settings/Debug panels
+  tunables_ui.gd    the only file that builds settings widgets: schema rows as the page's menu rows
   utterance.gd      pure prompt formatting
   utterance_scheduler.gd  pure cue selection and line admission: stability, gaps, demand
                     budget, one slot for cues and reactions
@@ -298,9 +298,8 @@ body-relative axes.
 - The lean always holds a released position. `_lean_step()` only ramps toward a pressed target;
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default off) the camera lean gets a small, slow rocking offset
-  (`0.010` forward / `presentation.standing.idle_sway_side`, default `0.0`, clamped inside
-  `-1…1`). A/D caress always latches: tap once
+- With `idle_camera_sway` enabled (default off) the camera lean gets a small, slow forward rock
+  (`0.010`, clamped inside `-1…1`). There is no side sway. A/D caress always latches: tap once
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
@@ -372,17 +371,17 @@ body-relative axes.
   `_stand_eye`/`_eye_height`; do not set the eye line by teleporting the rig.
 - Act start keeps her where she stands. `_begin_standing_placement()` builds the act transform
   from her current facing and, for desktop human Anon, places him at
-  `pony_position - forward * _standing_gap()` with the pre-act look captured first. The 0.8 m Y
-  cone means the correction is small. His pre-act position and yaw/pitch are restored at act end.
-  AnonPony and headset/VR keep the old `_standing_transform()` placement (she moves in front of
-  the camera rig), because their rig is the camera or another body.
+  `pony_position - forward * _standing_gap()`. The 0.8 m Y cone means the correction is small.
+  The act end leaves him there and leaves his yaw/pitch at the last act aim instead of snapping
+  the pre-act view back. AnonPony and headset/VR keep the old `_standing_transform()` placement
+  (she moves in front of the camera rig), because their rig is the camera or another body.
 - Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start,
   then freeze. Lean yaw/pitch are applied on top.
 - Standing has no separate thrust rock spring. The shared speed-driven surge/bob handles the
   thrust camera; lean yaw/pitch stays on top.
 - Lean owns `controls_locked` for standing too, so Anon does not walk while the camera moves.
-- On restore, restore the player yaw/pitch to the **captured start values**, not the act base
-  aim, reset `camera.rotation.x` and `.z`, and give back the standing start's player placement.
+- On restore, missionary restores the captured player yaw/pitch and resets `camera.rotation.x`
+  and `.z`; standing leaves Anon facing where the act ended.
 
 ### Standing body language
 
@@ -477,12 +476,11 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   Anon's mouth target; `camera_yaw_deg` is the over-the-shoulder kiss yaw; `lean_side`,
   `lean_forward` and `lean_drop` are his kiss lean. Missionary keeps the `KISS_LEAN_*` /
   `KISS_CAMERA_YAW_DEG` constants. All standing values apply live from the settings tab.
-- `presentation.standing.kiss.forelegs = "planted"` saves the game's `AffectionPose.kiss_settings()`
-  `rear` and `hooves` values, sets both to zero before the base kiss and restores them when the
-  release pose is removed. `kiss_legs.gd` then captures both foreleg tips before the base kiss
-  and runs last to CCD them back to those positions, because the base kiss's chest flex would
-  otherwise drag the legs after `body_sway`'s upper-arm pin. `"base"` keeps the stock both-up
-  kiss animation.
+- `presentation.standing.kiss` has no foreleg choice: the act always saves the game's
+  `AffectionPose.kiss_settings()` `rear` and `hooves` values, sets both to zero before the base
+  kiss and restores them when the release pose is removed. `kiss_legs.gd` then captures both
+  foreleg tips before the base kiss and runs last to CCD them back to those positions, because
+  the base kiss's chest flex would otherwise drag the legs after `body_sway`'s upper-arm pin.
 - While a kiss is active, Anon leans in by the standing `lean_forward` (default `0.03`), shifts to
   the shoulder side by `lean_side` (default `0.46`) and drops by `lean_drop` (default `0.09`)
   lower over `0.35 s`; the standing camera also yaws by `camera_yaw_deg` (default `7°`) toward her.
@@ -650,7 +648,7 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   presentation only.
 - The ACTIVE stage reads two axes from the last real thrusts:
   - **intensity**: `soft` (< 0.33), `firm` (< 0.60), `rough`;
-  - **pattern**: `steady`, `teasing` (`mean duration > 0.60 s`) or `quick`
+  - **pattern**: `steady`, `teasing` (`mean duration > 0.45 s`) or `quick`
     (`mean duration < 0.30 s`), classified over the last 3–4 real thrusts. Fewer than 3 has no
     pattern yet. Pattern is tempo only: depth does not decide the rhythm.
 - Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances a raised
@@ -916,8 +914,8 @@ examples.
   keycaps/controller icons and one description; only a row with a modifier renders the muted
   `Hold` column. Rows list `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to
   manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
-  `Kiss`), mouse right (`Smack flank`) and Y (`Hold`; `End early 💔` before her first climax,
-  then `End`).
+  `Kiss`), mouse right (`RMB`, `Smack flank`) and Y (`Hold`; `End early` before her first
+  climax, then `End`). Every card row uses the drawn dark key cap, including Q/E/C/F/Y and RMB.
   The card has no separate title. The `End` label is shaded from ink toward `ACCENT` by
   `runtime.hud_y_pink()`: one step per pony climax, capped at `Y_END_TINT_MAX = 0.75`, and fully
   pink only after the standing afterglow close window earned its caress reward.
@@ -1048,14 +1046,14 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
-| `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `relationship.promiscuity` is a `choice`, default `marefriend`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
-- `relationship.sex_start` is a `choice`, default `default`; `try_luck` (label `Try Your Luck`)
+- `relationship.sex_start` is a `choice`, default `when_available` (label `When Available`);
+  `try_luck` (label `Try Your Luck`)
   makes the lover bond optional and omits the `relation` row from the start attempt. It never
   skips the actual `bonds.welcomes(id, "kiss")` check: `runtime.start()` calls `refuse()` when it
   fails.
@@ -1066,9 +1064,9 @@ rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
   hip backset multiplier, default `0.5`, clamped to `0.25…2.0×` as a player-facing contract.
-- `auto_thrust` stores `pace` (thrusts/s, default `1.5`, clamped `0.5…4.5`), `max_depth` (peak
-  depth, default `0.9`, clamped `0.20…1`) and `pace_step` (one wheel notch, default `0.25`,
-  debug). They are act-start defaults; the wheel and mouse changes are per-act.
+- `auto_thrust` stores `pace` (thrusts/s, default `1.5`, clamped `1.0…4.5`) and `max_depth`
+  (peak depth, default `0.9`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
+  changes are per-act. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
   (default `0.45`). It is read live with the other thrust controls.
@@ -1076,7 +1074,7 @@ rump blush. Unknown settings keys are ignored.
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
-  - `standing`: `glance_back_speed`, `torso_angle_deg`, `idle_sway_side` (default `0.0`),
+  - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `31.5°`) and `pitch_deg` (default `24.1°`), `caress` with `palm_distance`,
     `oval_across_m` (default `1.0 cm`), `oval_up_m` (default
@@ -1090,11 +1088,11 @@ rump blush. Unknown settings keys are ignored.
 - **Never clamp a debug setting.** A schema `num` entry is stored and returned verbatim; its
   `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
   Only a `user_num` entry clamps, and only because its bound is part of the player-facing
-  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `0.5…4.5/s`, auto depth
+  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `1.0…4.5/s`, auto depth
   `0.20…1`, camera surge/bob `0…1`, glance speed `0.25…3×`). Do not add a clamp in a consumer
   "to be safe": if a value must be bounded to stay playable, make it a `user_num` and say so in
   the help text.
-  No consumer clamps a tunable-derived value today; the jiggle radius, idle sway, smack raise,
+  No consumer clamps a tunable-derived value today; the jiggle radius, smack raise,
   smack arc and caress oval radii are applied as stored. The only other bounds are the smack
   animation duration (`0.12–0.30 s` raise, `0.06–0.20 s` return), which bound the slide, not the
   setting.
@@ -1103,9 +1101,21 @@ rump blush. Unknown settings keys are ignored.
   from the schema entry; there is no separate feature info table.
 - The injected tab has nested **Settings** and **Debug** sub-tabs, both drawn from the schema by
   `tunables_ui.gd`: one row per entry, grouped into click-to-collapse sections from each entry's
-  `group` (`"Standing › Smack"` is a subheading under `Standing`). **Settings** holds the
+  `group` (`"Standing › Smack"` is a subheading under `Standing`). The panel is built from the
+  game's own menu pieces, so it reads as part of the page rather than beside it: `main.gd` imports
+  `world/ui/menu_style.gd` and `menu_icon.gd`, the intro line is the page's info card, the sub-tabs
+  are Segment-look pills set on the `TabContainer`'s inner **TabBar** (an override on the container
+  does not reach the bar) with the container's own `panel` and `tabbar_background` emptied, and a
+  section heading is the `Tab` variation, whose pink accent shows the section is open.
+  `tunables_ui.gd` draws each entry as the page's own `_row_idle`/`_row_hover` card (falling back to
+  the same `menu_style` box), keeps the help text on a `Faint` label, shows a boolean as a switch
+  with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
+  choices keep the themed dropdown. Number rows get a double-width spin box so large values and
+  units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
+  has no second title. **Settings** holds the
   player-facing flags, **Thrust**, and the hand-built **Character taste** form (a per-mare profile,
-  not a global tunable). **Debug** holds every other entry plus the **Actions** buttons. There are
+  not a global tunable). **Debug** holds every other entry plus the **Actions** buttons, with the
+  Actions block placed directly below **General** rather than at the bottom. There are
   no Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
   refreshes the flags, the caption position and the active act.
 - `debug_logs` defaults to `false`.

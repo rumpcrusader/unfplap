@@ -119,7 +119,6 @@ func run() -> void:
 	runtime.state = 2
 	runtime._auto_default_pace = 1.5
 	runtime._auto_default_depth = 0.9
-	runtime._auto_pace_step = 0.25
 	runtime._reset_thrust_state()
 	runtime.toggle_auto_thrust()
 	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")

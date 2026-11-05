@@ -623,8 +623,7 @@ func run() -> void:
 		"gate report keeps the invalid-pony reason")
 	gate_runtime.free()
 
-	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010) and near(MOTION.HOLD_SWAY_SIDE, 0.0),
-		"idle camera sway amplitude")
+	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010), "idle camera sway amplitude")
 	check(near(STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
 	check(near(MOTION.LEAN_SIDE_M, 0.18), "side lean travel")
 	check(near(MOTION.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")

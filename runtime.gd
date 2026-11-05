@@ -229,10 +229,9 @@ var _face_turn_rate_owned := false
 ## `_end_session()` checks them, so a start that failed early restores only what it took.
 var _camera_owned := false
 var _look_captured := false
-## Standing start keeps the pony in place and puts Anon behind her; the pre-act placement is
-## given back at act end.
-var _player_placed := false
-var _saved_player_transform := Transform3D.IDENTITY
+## Standing leaves Anon facing where the act left him; only missionary snaps the pre-act
+## yaw/pitch back.
+var _look_restore_yaw := true
 var _posture_owned := false
 var _session_finalized := false
 var _y_hold := 0.0
@@ -255,7 +254,6 @@ var _auto_thrust
 var _auto_on := false
 var _auto_default_pace := 1.5
 var _auto_default_depth := 0.9
-var _auto_pace_step := 0.25
 var _thrust_pixels_per_full := 480.0
 var _thrust_travel := 0.5
 var _jiggle_radius_m := 0.26
@@ -350,8 +348,8 @@ var _act_seconds := 0.0
 var _aftercare: Node
 var _satisfied: Node
 var _satisfaction_tween: Tween
-## The act's base kiss normally rears and lifts both forelegs; "planted" zeroes those two
-## shared settings for the kiss and restores them when it ends.
+## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
+## settings keeps her forehooves planted for the kiss and restores them when it ends.
 ## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
 var _act_eyes_released := false
 var _face_timer: Timer
@@ -547,7 +545,6 @@ func _snapshot_settings() -> void:
 	var auto_block := TUNABLES.block("auto_thrust.")
 	_auto_default_pace = float(auto_block.get("pace", 1.5))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.9))
-	_auto_pace_step = float(auto_block.get("pace_step", 0.25))
 	var jiggle_block := TUNABLES.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.25))
@@ -570,9 +567,8 @@ func apply_live_settings() -> void:
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
-	var bed_creaks := _feature("bed_creaks")
 	if foley or vocals or climax:
-		_ensure_act_audio(foley, vocals, climax, bed_creaks)
+		_ensure_act_audio(foley, vocals, climax)
 	elif is_instance_valid(_act_audio):
 		_act_audio.set_enabled(false, false, false)
 	if is_instance_valid(_flank):
@@ -1530,8 +1526,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		return false
 	_camera_owned = false
 	_look_captured = false
-	_player_placed = false
-	_saved_player_transform = Transform3D.IDENTITY
+	_look_restore_yaw = pose != CATALOG.STANDING
 	_posture_owned = false
 	_session_finalized = false
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
@@ -1640,8 +1635,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_lean_state()
 	if pose == CATALOG.MISSIONARY:
 		_missionary_camera_controller().prepare()
-	if not _look_captured:
-		_capture_look()
+	_capture_look()
 	_lock_player()
 	_pause_face_turn()
 	_begin_camera_mode()
@@ -1908,18 +1902,15 @@ func _begin_standing_placement() -> Transform3D:
 		pony.reset_motion(standing)
 		pony.reset_physics_interpolation()
 		return standing
-	# Capture the pre-act look before the body moves; `_restore_look()` gives both back.
-	_capture_look()
+	# The offer cone already requires him within 0.8 m of her rump, so the correction is small.
+	# The act end leaves him there instead of snapping him back.
 	var body: Variant = main.player
-	_saved_player_transform = body.global_transform
 	var target: Vector3 = pony.global_position - forward * _standing_gap()
 	target.y = body.global_position.y
-	_player_placed = true
 	body.global_position = target
 	body.reset_physics_interpolation()
-	_log("standing keeps pony at=%s and places Anon at=%s delta=%.2f" % [
-		str(pony.global_position), str(target),
-		target.distance_to(_saved_player_transform.origin)])
+	_log("standing keeps pony at=%s and places Anon at=%s" % [
+		str(pony.global_position), str(target)])
 	return standing
 
 func _standing_transform() -> Transform3D:
@@ -2256,7 +2247,7 @@ func toggle_auto_thrust() -> void:
 func auto_thrust_wheel(direction: int) -> void:
 	if not _auto_on or state not in [State.ACTIVE, State.CLIMAX]:
 		return
-	_auto_controller().call("nudge_pace", float(direction) * _auto_pace_step)
+	_auto_controller().call("nudge_pace", float(direction) * AUTO_THRUST.PACE_STEP)
 
 ## Idempotent stop for every state exit. It never moves the depth.
 func _stop_auto_thrust() -> void:
@@ -3882,12 +3873,8 @@ func _lean_tick(delta: float) -> void:
 		# Idle breathing. The feature toggle is the only way to stop the drift when the
 		# player is not leaning.
 		_hold_rock_clock += delta
-		var side_sway := float(_presentation_cfg.get(
-			"idle_sway_side", MOTION.HOLD_SWAY_SIDE))
 		_lean_view_forward = clampf(_lean_view_forward
 			+ sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD, -1.0, 1.0)
-		_lean_view_side = clampf(_lean_view_side
-			+ sin(_hold_rock_clock * 0.57 + 1.1) * side_sway, -1.0, 1.0)
 	_lean_action_tick()
 	_kiss_controller().standing_tick()
 	var caress_started := Time.get_ticks_usec()
@@ -4065,9 +4052,9 @@ func _capture_look() -> void:
 	_look_pitch = _restore_pitch
 	_look_captured = true
 
-## Restore the player's yaw/pitch captured at act start. Free look and the standing look cone can
-## leave the rig yawed after the act, which makes W/D move relative to a different facing than the
-## camera. Restoring the captured look keeps movement and view aligned.
+## Restore the player's yaw/pitch captured at act start. Missionary restores exactly; standing
+## leaves Anon facing where the act left him, because snapping the pre-act view back looks worse.
+## The lean/caress/kiss state is reset either way.
 func _restore_look() -> void:
 	if not _look_captured:
 		return
@@ -4075,33 +4062,24 @@ func _restore_look() -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var yaw := _restore_yaw
-	# Missionary restores the exact start snapshot; use its rig yaw rather than the later capture.
-	if pose_id == CATALOG.MISSIONARY:
-		var saved_yaw: float = _missionary_camera_controller().snapshot_yaw()
-		if not is_nan(saved_yaw):
-			yaw = saved_yaw
-	main.player.rotation.y = yaw
-	if main.player.get("_pitch") != null:
-		main.player.set("_pitch", _restore_pitch)
-	if main.player.get("form_driver") == null:
-		var view: Camera3D = main.camera()
-		if is_instance_valid(view):
-			view.rotation.x = _restore_pitch
-			view.rotation.z = 0.0
+	if _look_restore_yaw:
+		# Missionary restores the exact start snapshot; use its rig yaw rather than the later
+		# capture.
+		if pose_id == CATALOG.MISSIONARY:
+			var saved_yaw: float = _missionary_camera_controller().snapshot_yaw()
+			if not is_nan(saved_yaw):
+				yaw = saved_yaw
+		main.player.rotation.y = yaw
+		if main.player.get("_pitch") != null:
+			main.player.set("_pitch", _restore_pitch)
+		if main.player.get("form_driver") == null:
+			var view: Camera3D = main.camera()
+			if is_instance_valid(view):
+				view.rotation.x = _restore_pitch
+				view.rotation.z = 0.0
 	_reset_lean_state()
-	_restore_player_placement()
-	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
-
-## Give back the standing start's placement of Anon, if the act moved him.
-func _restore_player_placement() -> void:
-	if not _player_placed:
-		return
-	_player_placed = false
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	main.player.global_position = _saved_player_transform.origin
-	main.player.reset_physics_interpolation()
-	_log("player placement restored at=%s" % str(_saved_player_transform.origin))
+	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f restore=%s" % [
+		yaw, _restore_yaw, _restore_pitch, str(_look_restore_yaw)])
 
 func _restore_camera() -> void:
 	if not _camera_owned:
@@ -4128,9 +4106,9 @@ func _restore_camera() -> void:
 
 ## Create the optional audio node on first use, or update its flags if it already exists.
 ## This keeps act_audio.gd and its pack streams out of a both-flags-off act.
-func _ensure_act_audio(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -> void:
+func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(foley, vocals, climax, bed_creaks)
+		_act_audio.set_enabled(foley, vocals, climax)
 		return
 	var audio_script: Script = load(ACT_AUDIO_PATH)
 	if audio_script == null:
@@ -4138,7 +4116,7 @@ func _ensure_act_audio(foley: bool, vocals: bool, climax: bool, bed_creaks := fa
 	_act_audio = audio_script.new()
 	_act_audio.name = "UnfplapActAudio"
 	add_child(_act_audio)
-	_act_audio.setup(foley, vocals, climax, bed_creaks)
+	_act_audio.setup(foley, vocals, climax)
 
 func _start_audio() -> void:
 	_stop_audio()
@@ -4148,9 +4126,8 @@ func _start_audio() -> void:
 	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
-	var bed_creaks := bool(_features.get("bed_creaks", false))
 	if foley or vocals or climax:
-		_ensure_act_audio(foley, vocals, climax, bed_creaks)
+		_ensure_act_audio(foley, vocals, climax)
 	_sounds_controller().start()
 
 func _stop_audio() -> void:

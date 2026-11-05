@@ -193,9 +193,10 @@ these values here if a future pose needs that effect.
 - Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by
   teleporting the rig. Act start keeps her where she stands: for desktop human Anon,
   `_begin_standing_placement()` builds the act transform from her current facing and places him
-  at `pony_position - forward * _standing_gap()`; his pre-act position and yaw/pitch are restored
-  at act end. The 0.8 m Y cone keeps that correction small. AnonPony and headset/VR still move
-  her in front of the camera rig with `_standing_transform()`.
+  at `pony_position - forward * _standing_gap()`. The 0.8 m Y cone keeps that correction small.
+  The act end leaves him there and leaves his yaw/pitch at the last act aim; it does not snap the
+  pre-act view back. AnonPony and headset/VR still move her in front of the camera rig with
+  `_standing_transform()`.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose
   start, then freezes. The same lean vector is applied on top: forward `0.24 m` /
   `-6°` pitch / `1.5°` roll; backward `0.08 m` with the same downward pitch; side `0.18 m` /
@@ -212,9 +213,8 @@ these values here if a future pose needs that effect.
 - A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
   explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default off), a slow `0.010` forward /
-  `presentation.standing.idle_sway_side` (default `0.0`) side rock keeps the camera/upper
-  body from freezing completely; both are clamped inside `-1…1`. A/D
+- With `idle_camera_sway` enabled (default off), a slow `0.010` forward rock keeps the
+  camera/upper body from freezing completely; it is clamped inside `-1…1`. There is no side sway. A/D
   caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.

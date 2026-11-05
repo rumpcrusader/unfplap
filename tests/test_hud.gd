@@ -65,6 +65,9 @@ func _check_style() -> void:
 	var letter := cap.get_child(0) as Label
 	check(letter != null and letter.text == "W", "drawn key cap keeps its key")
 	check(letter.get_theme_color("font_color") == HUD.INK, "key cap letter is ink")
+	var wide_cap: PanelContainer = HUD.keycap("RMB")
+	check(wide_cap.custom_minimum_size.x > cap.custom_minimum_size.x,
+		"a multi-character cap is wider")
 	var painter := cap.get_theme_stylebox("panel") as StyleBoxFlat
 	check(painter != null and painter.bg_color == HUD.CAP_BG, "key cap uses the prompt cap colour")
 	check(painter.border_width_bottom > painter.border_width_top, "key cap has the prompt bottom lip")
@@ -93,7 +96,7 @@ func _check_controls() -> void:
 	check(y_label != null and y_label.text.is_empty(), "Y description starts empty")
 	var stub := Stub.new()
 	hud.call("update_from", stub, true)
-	check(y_label.text == "End early 💔", "Y offers an early end before the first climax")
+	check(y_label.text == "End early", "Y offers an early end before the first climax")
 	check(y_label.get_theme_color("font_color") == HUD.INK, "early end is ink")
 	var status := hud.get("_hint_status") as Label
 	check(status.text.begins_with("❤ 1/3"), "cue line reaches the HUD")

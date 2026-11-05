@@ -2,7 +2,10 @@
 
 Every global setting in the mod is a **tunable**: one line in `tunables_schema.gd`, keyed by its
 `settings.json` path. Read and write tunables only through `tunables.gd`. The Settings and Debug
-panels are drawn from the schema by `tunables_ui.gd`.
+panels are drawn from the schema by `tunables_ui.gd`, in the settings page's own menu style: row
+cards, `Faint` help, switch plus state, Segment pills for a few short choices and the `Tab` look for
+a collapsible section heading. The tab pills, info card and sidebar row are added by the injection
+in `main.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalize function or a save function for a setting, stop. Add a schema line instead.

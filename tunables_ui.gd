@@ -5,14 +5,20 @@ extends RefCounted
 ## OptionButton control for a setting anywhere else: add a schema line instead and it appears here.
 ## See TUNING.md.
 ##
-## Every section heading is a click-to-collapse button. Entries render in schema order, so the
-## schema file doubles as the panel layout.
+## Every section heading is a click-to-collapse button wearing the menu's open sidebar row (the
+## `Tab` look: a pink accent while the section is open). Every entry is one of the settings page's
+## own row cards (`world/ui/menu_style.gd` and `settings_page.gd`): the name with a Faint note, the
+## control on the right, a switch beside its Off/On state, and a few short choices as Segment pills
+## in a track. Entries render in schema order, so the schema file doubles as the panel layout.
 
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const STYLE := preload("res://world/ui/menu_style.gd")
 
-const SECTION_EXTRA := 2
-const SUBSECTION_EXTRA := 1
+## Choices at most in a pill track, and the longest label one may hold: past either, the row keeps
+## a dropdown, which cannot overflow the card.
+const MOST_PILLS := 4
+const PILL_LABEL_CHARS := 14
 
 
 ## Fill `list` with one tab's sections. `changed` runs after every edit; `page` is redrawn when it
@@ -29,7 +35,7 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 			section_rows = []
 			if list.get_child_count() > 0:
 				list.add_child(HSeparator.new())
-			var header := _heading(section_name, font_size + SECTION_EXTRA)
+			var header := _heading(section_name, font_size, false)
 			header.toggled.connect(func(on: bool) -> void:
 				for box: Variant in section_rows:
 					if is_instance_valid(box):
@@ -40,7 +46,7 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 		rows.add_theme_constant_override("separation", 6)
 		section_rows.append(rows)
 		if split.size() > 1:
-			var sub_header := _heading("      " + split[1].strip_edges(), font_size + SUBSECTION_EXTRA)
+			var sub_header := _heading(split[1].strip_edges(), font_size, true)
 			sub_header.toggled.connect(func(on: bool) -> void:
 				rows.visible = on)
 			list.add_child(sub_header)
@@ -49,16 +55,19 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 			_add_row(rows, path, font_size, page, changed)
 
 
-## The Actions section: one button per `TUNABLES.ACTIONS` entry, plus its last result.
-static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> void:
-	list.add_child(HSeparator.new())
-	var heading := Label.new()
-	heading.text = "Actions"
-	heading.add_theme_font_size_override("font_size", font_size + SECTION_EXTRA)
-	list.add_child(heading)
-	var status := Label.new()
+## The Actions section: one button per `TUNABLES.ACTIONS` entry, plus its last result. It is
+## inserted right after the `General` section's rows instead of at the bottom of the Debug list.
+static func build_actions(list: VBoxContainer, font_size: int, main: Node,
+		after_section := "General") -> void:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 6)
+	box.add_child(HSeparator.new())
+	var heading := STYLE.label("ACTIONS", "Faint", maxi(12, font_size - 7))
+	heading.add_theme_constant_override("line_spacing", 0)
+	box.add_child(heading)
+	var status := STYLE.label("", "Faint", font_size - 6)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size", font_size - 4)
 	for name: String in TUNABLES.ACTIONS:
 		var action: Dictionary = TUNABLES.ACTIONS[name]
 		if not bool(action.get("panel", true)):
@@ -66,11 +75,32 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> vo
 		var button := Button.new()
 		button.text = str(action.get("label", name))
 		button.tooltip_text = str(action.get("help", ""))
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", font_size - 2)
 		button.pressed.connect(func() -> void:
 			status.text = TUNABLES.run_action(name, main)
 			_debug(main, "action %s" % name))
-		list.add_child(button)
-	list.add_child(status)
+		box.add_child(button)
+	box.add_child(status)
+	list.add_child(box)
+	var at := _section_end_index(list, after_section)
+	if at >= 0:
+		list.move_child(box, at)
+
+
+## Index just past the named section's rows, or -1 when the section is missing.
+static func _section_end_index(list: VBoxContainer, section: String) -> int:
+	var children := list.get_children()
+	for index: int in children.size():
+		var child: Variant = children[index]
+		if not child is Button:
+			continue
+		var button := child as Button
+		if button.text != section or button.theme_type_variation != "Tab":
+			continue
+		return mini(index + 2, children.size())
+	return -1
 
 
 static func _paths(tab: String, group: String) -> Array:
@@ -83,14 +113,19 @@ static func _paths(tab: String, group: String) -> Array:
 	return out
 
 
-static func _heading(text: String, font_size: int) -> Button:
+## A collapsible section heading in the menu's own open-row look: the `Tab` variation draws the
+## pink accent and tint while the section is open, and a quiet row while it is closed. A section
+## keeps its schema wording (like the page's own sidebar rows); a subheading is smaller and
+## indented under it.
+static func _heading(text: String, font_size: int, sub: bool) -> Button:
 	var button := Button.new()
-	button.text = text
+	button.text = ("        " + text) if sub else text
 	button.toggle_mode = true
 	button.button_pressed = true
-	button.flat = true
+	button.theme_type_variation = "Tab"
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.add_theme_font_size_override("font_size", font_size)
+	button.clip_text = true
+	button.add_theme_font_size_override("font_size", maxi(12, font_size - (5 if sub else 2)))
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return button
 
@@ -98,18 +133,37 @@ static func _heading(text: String, font_size: int) -> Button:
 static func _add_row(parent: VBoxContainer, path: String, font_size: int, page: Node,
 		changed: Callable) -> void:
 	var item := SCHEMA.entry(path)
+	var card := PanelContainer.new()
+	var idle := _row_box(page, false)
+	var hover := _row_box(page, true)
+	card.add_theme_stylebox_override("panel", idle)
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.mouse_entered.connect(func() -> void:
+		card.add_theme_stylebox_override("panel", hover)
+		_redraw(page))
+	card.mouse_exited.connect(func() -> void:
+		card.add_theme_stylebox_override("panel", idle)
+		_redraw(page))
+	parent.add_child(card)
 	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 2)
-	parent.add_child(block)
+	block.add_theme_constant_override("separation", 4)
+	card.add_child(block)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	block.add_child(row)
-	var label := Label.new()
-	label.text = str(item.get("label", path))
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var texts := VBoxContainer.new()
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 1)
+	row.add_child(texts)
+	var label := STYLE.label(str(item.get("label", path)), "", font_size)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	row.add_child(label)
+	texts.add_child(label)
+	var help_text := str(item.get("help", ""))
+	if not help_text.is_empty():
+		var help := STYLE.label(help_text, "Faint", font_size - 5)
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		texts.add_child(help)
 	match str(item.get("kind", "")):
 		"bool":
 			row.add_child(_check(path, font_size, page, changed))
@@ -119,23 +173,39 @@ static func _add_row(parent: VBoxContainer, path: String, font_size: int, page: 
 			row.add_child(_choice(path, item, font_size, page, changed))
 		"list":
 			_add_list(block, path, item, font_size, page, changed)
-	var help_text := str(item.get("help", ""))
-	if not help_text.is_empty():
-		var help := Label.new()
-		help.text = help_text
-		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		help.add_theme_font_size_override("font_size", font_size - 5)
-		help.modulate = Color(1.0, 1.0, 1.0, 0.72)
-		block.add_child(help)
 
 
-static func _check(path: String, font_size: int, page: Node, changed: Callable) -> CheckButton:
+## A row's card: the page's own idle/hover box when it exposes them (it stores both at setup),
+## else the same box built from the menu style.
+static func _row_box(page: Node, hover: bool) -> StyleBox:
+	var stored: Variant = null
+	if is_instance_valid(page):
+		stored = page.get("_row_hover" if hover else "_row_idle")
+	if stored is StyleBox:
+		return stored as StyleBox
+	if hover:
+		return STYLE.rounded(STYLE.box(Color(1, 1, 1, 0.085), Color(STYLE.PINK, 0.45), 1, 16, 16, 9))
+	return STYLE.rounded(STYLE.box(Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.07), 1, 16, 16, 9))
+
+
+## A switch and its Off/On state, as the page's boolean rows show them.
+static func _check(path: String, font_size: int, page: Node, changed: Callable) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var state := STYLE.label("", "Muted", font_size - 2)
+	state.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(state)
 	var check := CheckButton.new()
 	check.button_pressed = TUNABLES.get_bool(path)
 	check.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	check.add_theme_font_size_override("font_size", font_size - 2)
-	check.toggled.connect(func(on: bool) -> void: _store(path, on, page, changed))
-	return check
+	check.set_meta("no_lift", true)
+	check.toggled.connect(func(on: bool) -> void:
+		state.text = "On" if on else "Off"
+		_store(path, on, page, changed))
+	state.text = "On" if check.button_pressed else "Off"
+	box.add_child(check)
+	return box
 
 
 static func _spin(path: String, item: Dictionary, font_size: int, page: Node,
@@ -150,20 +220,27 @@ static func _spin(path: String, item: Dictionary, font_size: int, page: Node,
 	spin.step = step if step > 0.0 else 0.01 * scale
 	spin.suffix = str(item.get("unit", ""))
 	spin.add_theme_font_size_override("font_size", font_size - 2)
+	spin.custom_minimum_size.x = float(font_size) * 10.0
 	spin.value = TUNABLES.get_float(path) * scale
 	spin.value_changed.connect(func(value: float) -> void:
 		_store(path, value / scale, page, changed))
 	return spin
 
 
+## A choice: a few short values as the page's Segment pills in one track, otherwise the themed
+## dropdown, which cannot overflow the row.
 static func _choice(path: String, item: Dictionary, font_size: int, page: Node,
-		changed: Callable) -> OptionButton:
+		changed: Callable) -> Control:
 	var options: Array = item.get("options", [])
 	var labels: Array = item.get("labels", [])
+	var texts: Array = []
+	for index: int in options.size():
+		texts.append(str(labels[index]) if index < labels.size() else str(options[index]))
+	if _pills_fit(texts, font_size, page):
+		return _pills(path, options, texts, font_size, page, changed)
 	var option := OptionButton.new()
 	for index: int in options.size():
-		var text := str(labels[index]) if index < labels.size() else str(options[index])
-		option.add_item(text)
+		option.add_item(str(texts[index]))
 		option.set_item_metadata(index, options[index])
 	var current := TUNABLES.get_string(path)
 	for index: int in option.item_count:
@@ -174,6 +251,58 @@ static func _choice(path: String, item: Dictionary, font_size: int, page: Node,
 	option.item_selected.connect(func(index: int) -> void:
 		_store(path, str(option.get_item_metadata(index)), page, changed))
 	return option
+
+
+## A few short choices fit side by side, measured as the page measures them: the pills, their
+## padding and the track's, against the room a row's control has.
+static func _pills_fit(texts: Array, font_size: int, page: Node) -> bool:
+	if texts.size() < 2 or texts.size() > MOST_PILLS:
+		return false
+	for text: Variant in texts:
+		if str(text).length() > PILL_LABEL_CHARS:
+			return false
+	var room := 0.0
+	if is_instance_valid(page) and typeof(page.get("_room")) == TYPE_FLOAT:
+		room = float(page.get("_room"))
+	if room <= 0.0:
+		return true
+	var width := 10.0 + 4.0 * (texts.size() - 1)
+	for text: Variant in texts:
+		width += STYLE.BOLD.get_string_size(str(text), HORIZONTAL_ALIGNMENT_LEFT, -1,
+			font_size - 3).x + 30.0
+	return width <= room
+
+
+## Every value a pill in one track, the chosen one lit, one press picks another.
+static func _pills(path: String, options: Array, texts: Array, font_size: int, page: Node,
+		changed: Callable) -> Control:
+	var track := PanelContainer.new()
+	track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	track.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
+		Color(0.05, 0.02, 0.09, 0.4), Color(1, 1, 1, 0.1), 1, 99, 4, 4)))
+	var pills := HBoxContainer.new()
+	pills.add_theme_constant_override("separation", 4)
+	track.add_child(pills)
+	var current := TUNABLES.get_string(path)
+	for index: int in options.size():
+		var pill := Button.new()
+		pill.text = str(texts[index])
+		pill.theme_type_variation = "Segment"
+		pill.toggle_mode = true
+		pill.custom_minimum_size = Vector2(0, font_size * 1.75)
+		pill.add_theme_font_size_override("font_size", font_size - 3)
+		pill.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		pill.button_pressed = str(options[index]) == current
+		pill.pressed.connect(_choose_pill.bind(pills, index, path, options, page, changed))
+		pills.add_child(pill)
+	return track
+
+
+static func _choose_pill(pills: HBoxContainer, index: int, path: String, options: Array,
+		page: Node, changed: Callable) -> void:
+	for at: int in pills.get_child_count():
+		(pills.get_child(at) as Button).set_pressed_no_signal(at == index)
+	_store(path, str(options[index]), page, changed)
 
 
 ## A set of options stored as an array: one check per option, saved as the checked list.
@@ -206,6 +335,11 @@ static func _store(path: String, value: Variant, page: Node, changed: Callable) 
 	TUNABLES.set_value(path, value)
 	if changed.is_valid():
 		changed.call()
+	_redraw(page)
+
+
+## Canvas hosts (the title screen, the pause menu) draw on demand, so an edit asks for a repaint.
+static func _redraw(page: Node) -> void:
 	if is_instance_valid(page) and page.has_method("_redraw"):
 		page.call("_redraw")
 

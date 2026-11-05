@@ -129,7 +129,8 @@ static func text_label(text: String, size: int, colour := INK, outline := 5) -> 
 ## A drawn key cap for a key the game has no icon for, like the G of "G · Carry".
 static func keycap(key: String) -> PanelContainer:
 	var cap := PanelContainer.new()
-	cap.custom_minimum_size = KEYCAP_SIZE
+	cap.custom_minimum_size = Vector2(
+		maxf(KEYCAP_SIZE.x, 20.0 + 8.0 * float(key.length())), KEYCAP_SIZE.y)
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = CAP_BG
@@ -189,14 +190,13 @@ func _build_controls() -> void:
 	_thrust_label = _add_hint_row("thrust", [{"cap": "↕"}], "", "Thrust")
 	_auto_label = _add_hint_row("auto", [{"cap": "X"}], "", "Switch to auto")
 	_add_hint_row("lean", [{"cap": "W"}, {"cap": "S"}], "", "Lean")
-	_add_hint_row("reach", [{"icon": "key_q", "cap": "Q"}, {"icon": "key_e", "cap": "E"}],
-		"", "Reach")
+	_add_hint_row("reach", [{"cap": "Q"}, {"cap": "E"}], "", "Reach")
 	_add_hint_row("caress", [{"cap": "A"}, {"cap": "D"}], "", "Caress")
-	_add_hint_row("caress_move", [{"cap": "Z"}, {"icon": "key_c", "cap": "C"}], "",
+	_add_hint_row("caress_move", [{"cap": "Z"}, {"cap": "C"}], "",
 		"Caress movement")
-	_add_hint_row("kiss", [{"icon": "key_f", "cap": "F"}], "Hold", "Kiss")
-	_add_hint_row("smack", [{"icon": "mouse_right", "cap": ""}], "", "Smack flank")
-	_y_label = _add_hint_row("y", [{"icon": "button_y", "cap": "Y"}], "Hold", "")
+	_add_hint_row("kiss", [{"cap": "F"}], "Hold", "Kiss")
+	_add_hint_row("smack", [{"cap": "RMB"}], "", "Smack flank")
+	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
 
 
 func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Label:
@@ -286,7 +286,7 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	if _y_label != null:
 		var y_text := ""
 		if state == STATE_ACTIVE:
-			y_text = "End" if climaxes > 0 else "End early 💔"
+			y_text = "End" if climaxes > 0 else "End early"
 		elif state in [STATE_CLIMAX, STATE_AFTERGLOW]:
 			y_text = "End"
 		_y_label.text = y_text

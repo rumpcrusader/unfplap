@@ -16,7 +16,6 @@ const LEAN_ROLL_DEG := 1.5
 const LEAN_SIDE_ROLL_DEG := 8.0
 const LEAN_SIDE_YAW_DEG := 3.0
 const HOLD_SWAY_FORWARD := 0.010
-const HOLD_SWAY_SIDE := 0.0
 const LEAN_FIRE := 0.75
 const LEAN_RELEASE := 0.60
 const HIP_SMOOTH_S := 0.04

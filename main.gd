@@ -23,6 +23,10 @@ const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 const CAPTION_PATH := "res://world/ui/speech_caption.gd"
+## The game's one menu look (type variations, boxes, palette) and its drawn icon set, so the
+## injected settings page is built from the same pieces as the page that hosts it.
+const STYLE := preload("res://world/ui/menu_style.gd")
+const MENU_ICON := preload("res://world/ui/menu_icon.gd")
 ## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
 const CAPTION_TOP_MARGIN := 26.0
 ## The offer hint beside the game's prompt row: a single Y press starts the act, so it reads like
@@ -343,6 +347,14 @@ func _inject_settings_page_now(page: Node) -> void:
 	var font_size := int(page.get("font_size"))
 	if font_size <= 0:
 		font_size = 20
+	# The page captions its GROUPS sections; the injected row gets one too, so it does not float
+	# under the last sidebar group.
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	(side as VBoxContainer).add_child(gap)
+	var caption := STYLE.label("Add-ons".to_upper(), "Faint", maxi(12, font_size - 7))
+	caption.add_theme_constant_override("line_spacing", 0)
+	(side as VBoxContainer).add_child(caption)
 	var button: Button = page.call("_button", side, "Unfplap",
 		Callable(self, "_show_settings_tab").bind(page))
 	button.theme_type_variation = "Tab"
@@ -360,19 +372,14 @@ func _inject_settings_page_now(page: Node) -> void:
 	ui.add_theme_constant_override("separation", 10)
 	ui.visible = false
 	(content as VBoxContainer).add_child(ui)
-	var heading := Label.new()
-	heading.text = "Unfplap"
-	heading.add_theme_font_size_override("font_size", font_size + 6)
-	ui.add_child(heading)
-	var note := Label.new()
-	note.text = "Player settings and character taste in Settings; pose tuning, feature flags and test controls in Debug. Changes apply live during an act."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.add_theme_font_size_override("font_size", font_size - 4)
-	ui.add_child(note)
+	# The page's title row already reads "Unfplap" with its gem icon, so the panel starts with the
+	# page's own info card instead of a second heading.
+	_info_card(ui, "Player settings and character taste in Settings; pose tuning, feature flags and test controls in Debug. Changes apply live during an act.", font_size)
 	var tabs_box := TabContainer.new()
 	tabs_box.name = "UnfplapTabs"
 	tabs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_style_tabs(tabs_box, font_size)
 	ui.add_child(tabs_box)
 	var changed := Callable(self, "_apply_settings_changed")
 	var user_list := _settings_tab_list("Settings", tabs_box)
@@ -392,7 +399,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	page.set_meta("unfplap_tab", true)
 	page.set_meta("unfplap_ui", ui)
 	page.set_meta("unfplap_button", button)
-	_injected_settings.append({"page": page, "button": button, "ui": ui})
+	_injected_settings.append({"page": page, "button": button, "ui": ui, "sidebar": [gap, caption]})
 	_debug("settings tab injected")
 
 
@@ -400,14 +407,72 @@ func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = title
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs_box.add_child(scroll)
+	# Room for a hovered row card's border inside the scroll's clip, as the page does for its rows.
+	var holder := MarginContainer.new()
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.add_theme_constant_override("margin_left", 6)
+	holder.add_theme_constant_override("margin_top", 4)
+	holder.add_theme_constant_override("margin_bottom", 4)
+	holder.add_theme_constant_override("margin_right", 14)
+	scroll.add_child(holder)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
-	scroll.add_child(list)
-	tabs_box.add_child(scroll)
+	list.add_theme_constant_override("separation", 6)
+	holder.add_child(list)
 	return list
+
+
+## The page's muted info card (a tinted panel with an icon), used for the panel's intro line.
+func _info_card(parent: Node, text: String, font_size: int) -> void:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
+		Color(STYLE.SKY, 0.07), Color(STYLE.SKY, 0.25), 1, 14, 14, 10)))
+	parent.add_child(card)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 10)
+	card.add_child(line)
+	var mark := MENU_ICON.make("info", font_size - 2, STYLE.SKY)
+	mark.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	line.add_child(mark)
+	var label := STYLE.label(text, "Muted", font_size - 4)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(label)
+
+
+## The Settings/Debug switch wears the page's "Segment" look: the chosen tab is a lit pill, the
+## other a quiet one, and there is no tab strip or default panel behind either. The internal TabBar
+## is a separate control, so its tab items are set on it directly (a theme resource would be
+## inherited, but per-node overrides on the TabContainer are not).
+func _style_tabs(tabs: TabContainer, font_size: int) -> void:
+	var empty := STYLE.rounded(StyleBoxEmpty.new())
+	tabs.add_theme_stylebox_override("panel", empty)
+	tabs.add_theme_stylebox_override("tabbar_background", empty)
+	tabs.add_theme_constant_override("side_margin", 0)
+	var bar := tabs.get_tab_bar()
+	var quiet := STYLE.rounded(STYLE.box(Color.TRANSPARENT, Color.TRANSPARENT, 0, 99, 14, 5))
+	bar.add_theme_stylebox_override("tab_unselected", quiet)
+	bar.add_theme_stylebox_override("tab_disabled", quiet)
+	bar.add_theme_stylebox_override("tab_hovered", STYLE.rounded(STYLE.box(
+		Color(1, 1, 1, 0.1), Color(STYLE.PINK, 0.5), 1, 99, 14, 5)))
+	var lit := STYLE.box(STYLE.ROSE, Color(1, 1, 1, 0.55), 1, 99, 14, 5)
+	lit.shadow_color = Color(STYLE.ROSE, 0.35)
+	lit.shadow_size = 10
+	lit.shadow_offset = Vector2(0, 2)
+	bar.add_theme_stylebox_override("tab_selected", STYLE.rounded(lit))
+	var ring := STYLE.box(Color.TRANSPARENT, Color(STYLE.PINK, 0.8), 2, 101)
+	ring.set_expand_margin_all(2)
+	bar.add_theme_stylebox_override("tab_focus", STYLE.rounded(ring))
+	bar.add_theme_font_override("font", STYLE.BOLD)
+	bar.add_theme_font_size_override("font_size", font_size - 3)
+	bar.add_theme_color_override("font_selected_color", Color.WHITE)
+	bar.add_theme_color_override("font_unselected_color", STYLE.MUTED)
+	bar.add_theme_color_override("font_hovered_color", STYLE.CREAM)
+	bar.add_theme_constant_override("tab_separation", 4)
 
 
 func _show_settings_tab(page: Node) -> void:
@@ -467,31 +532,38 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 			(native_page as CanvasItem).visible = value
 
 
+## The per-mare taste profile is the one hand-built form; it borrows the schema rows' card,
+## heading, switch and pill pieces so it does not read as a different panel.
 func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	list.add_child(HSeparator.new())
-	var heading := Label.new()
-	heading.text = "Character taste"
-	heading.add_theme_font_size_override("font_size", font_size + 2)
+	var heading := STYLE.label("CHARACTER TASTE", "Faint", maxi(12, font_size - 7))
+	heading.add_theme_constant_override("line_spacing", 0)
 	list.add_child(heading)
-	var note := Label.new()
-	note.text = "Taste changes apply live during an act."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.add_theme_font_size_override("font_size", font_size - 4)
-	list.add_child(note)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
+		Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.07), 1, 16, 16, 9)))
+	list.add_child(card)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 10)
+	card.add_child(stack)
+	var intro := STYLE.label("Taste changes apply live during an act.", "Faint", font_size - 5)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(intro)
 	var selector := OptionButton.new()
 	for id: String in SETTINGS.CHARACTER_ORDER:
 		selector.add_item(SETTINGS.character_name(id))
 		selector.set_item_metadata(selector.get_item_count() - 1, id)
-	list.add_child(selector)
+	selector.add_theme_font_size_override("font_size", font_size - 2)
+	stack.add_child(selector)
 
 	var form := GridContainer.new()
 	form.columns = 2
 	form.add_theme_constant_override("h_separation", 16)
 	form.add_theme_constant_override("v_separation", 8)
-	list.add_child(form)
-	var intensity := _taste_option(form, "Intensity", TASTE.INTENSITIES, font_size)
-	var pattern := _taste_option(form, "Pattern", TASTE.PATTERNS, font_size)
-	var warmth := _taste_option(form, "Warmth", TASTE.WARMTHS, font_size)
+	stack.add_child(form)
+	var intensity := _taste_pills(form, "Intensity", TASTE.INTENSITIES, font_size)
+	var pattern := _taste_pills(form, "Pattern", TASTE.PATTERNS, font_size)
+	var warmth := _taste_pills(form, "Warmth", TASTE.WARMTHS, font_size)
 	var recovery := _taste_spin(form, "Recovery (0–80)", font_size)
 	var touch_likes := _taste_checks(form, "Likes touch", TASTE.TOUCHES, font_size)
 	var talk_likes := _taste_checks(form, "Likes talk", TASTE.TALKS, font_size)
@@ -501,19 +573,19 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	notes.custom_minimum_size = Vector2(0.0, 76.0)
 	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	notes.add_theme_font_size_override("font_size", font_size - 2)
-	var notes_label := Label.new()
-	notes_label.text = "Notes"
-	notes_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var notes_label := _form_label("Notes", font_size)
 	form.add_child(notes_label)
 	form.add_child(notes)
 
 	var reset := Button.new()
 	reset.text = "Reset to default"
-	list.add_child(reset)
-	var status := Label.new()
+	reset.theme_type_variation = "Danger"
+	reset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset.add_theme_font_size_override("font_size", font_size - 2)
+	stack.add_child(reset)
+	var status := STYLE.label("", "Faint", font_size - 6)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size", font_size - 4)
-	list.add_child(status)
+	stack.add_child(status)
 
 	var refs := {
 		"selector": selector,
@@ -530,9 +602,10 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 		"refreshing": false,
 	}
 	selector.item_selected.connect(func(_index: int) -> void: _refresh_taste_form(refs))
-	for control: OptionButton in [intensity, pattern, warmth]:
-		control.item_selected.connect(func(_index: int) -> void:
-			_save_taste_form(refs))
+	for pills: HBoxContainer in [intensity, pattern, warmth]:
+		for pill: Node in pills.get_children():
+			(pill as Button).pressed.connect(_choose_taste_pill.bind(
+				pills, str(pill.get_meta("value")), refs))
 	recovery.value_changed.connect(func(_value: float) -> void:
 		_save_taste_form(refs))
 	for checks: Dictionary in [touch_likes, talk_likes, touch_dislikes, talk_dislikes]:
@@ -542,7 +615,7 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	var notes_timer := Timer.new()
 	notes_timer.one_shot = true
 	notes_timer.wait_time = 0.4
-	list.add_child(notes_timer)
+	stack.add_child(notes_timer)
 	notes.text_changed.connect(func() -> void:
 		if not bool(refs.get("refreshing", false)):
 			notes_timer.start())
@@ -554,24 +627,51 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	_refresh_taste_form(refs)
 
 
-func _taste_option(parent: GridContainer, label_text: String, values: Array, font_size: int) -> OptionButton:
-	var label := Label.new()
-	label.text = label_text
-	label.add_theme_font_size_override("font_size", font_size)
-	parent.add_child(label)
-	var option := OptionButton.new()
+## A form row's name, in the same type as a setting row's name. It takes the row's spare width so
+## the control sits at the right edge, as a schema row does. It must not autowrap: in a
+## GridContainer an autowrap label reports a one-character minimum, which collapses its column.
+func _form_label(text: String, font_size: int) -> Label:
+	var label := STYLE.label(text, "", font_size)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return label
+
+
+## A few short values as the page's Segment pills in one track; the chosen one is lit.
+func _taste_pills(parent: GridContainer, label_text: String, values: Array,
+		font_size: int) -> HBoxContainer:
+	parent.add_child(_form_label(label_text, font_size))
+	var track := PanelContainer.new()
+	track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	track.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	track.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
+		Color(0.05, 0.02, 0.09, 0.4), Color(1, 1, 1, 0.1), 1, 99, 4, 4)))
+	parent.add_child(track)
+	var pills := HBoxContainer.new()
+	pills.add_theme_constant_override("separation", 4)
+	track.add_child(pills)
 	for value: Variant in values:
-		option.add_item(str(value))
-	option.add_theme_font_size_override("font_size", font_size - 2)
-	parent.add_child(option)
-	return option
+		var pill := Button.new()
+		pill.text = str(value).capitalize()
+		pill.theme_type_variation = "Segment"
+		pill.toggle_mode = true
+		pill.custom_minimum_size = Vector2(0, font_size * 1.75)
+		pill.add_theme_font_size_override("font_size", font_size - 3)
+		pill.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		pill.set_meta("value", str(value))
+		pills.add_child(pill)
+	return pills
+
+
+## One pill of a taste row picks the value for the whole row, then the profile saves.
+func _choose_taste_pill(pills: HBoxContainer, value: String, refs: Dictionary) -> void:
+	for pill: Node in pills.get_children():
+		(pill as Button).set_pressed_no_signal(str(pill.get_meta("value")) == value)
+	_save_taste_form(refs)
 
 
 func _taste_spin(parent: GridContainer, label_text: String, font_size: int) -> SpinBox:
-	var label := Label.new()
-	label.text = label_text
-	label.add_theme_font_size_override("font_size", font_size)
-	parent.add_child(label)
+	parent.add_child(_form_label(label_text, font_size))
 	var spin := SpinBox.new()
 	spin.min_value = float(TASTE.RECOVERY_MIN)
 	spin.max_value = float(TASTE.RECOVERY_MAX)
@@ -582,10 +682,7 @@ func _taste_spin(parent: GridContainer, label_text: String, font_size: int) -> S
 
 
 func _taste_checks(parent: GridContainer, label_text: String, values: Array, font_size: int) -> Dictionary:
-	var label := Label.new()
-	label.text = label_text
-	label.add_theme_font_size_override("font_size", font_size)
-	parent.add_child(label)
+	parent.add_child(_form_label(label_text, font_size))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
@@ -613,9 +710,9 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 		return
 	refs["refreshing"] = true
 	var taste := SETTINGS.taste(id)
-	_select_taste_value(refs.get("intensity"), TASTE.INTENSITIES, str(taste.get("intensity", "firm")))
-	_select_taste_value(refs.get("pattern"), TASTE.PATTERNS, str(taste.get("pattern", "steady")))
-	_select_taste_value(refs.get("warmth"), TASTE.WARMTHS, str(taste.get("warmth", "normal")))
+	_select_taste_value(refs.get("intensity"), str(taste.get("intensity", "firm")))
+	_select_taste_value(refs.get("pattern"), str(taste.get("pattern", "steady")))
+	_select_taste_value(refs.get("warmth"), str(taste.get("warmth", "normal")))
 	var recovery: Variant = refs.get("recovery")
 	if recovery is SpinBox:
 		(recovery as SpinBox).value = float(taste.get("recovery", TASTE.RECOVERY_DEFAULT))
@@ -632,15 +729,11 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	refs["refreshing"] = false
 
 
-func _select_taste_value(control: Variant, values: Array, selected_value: String) -> void:
-	if not control is OptionButton:
+func _select_taste_value(control: Variant, selected_value: String) -> void:
+	if not control is HBoxContainer:
 		return
-	var option := control as OptionButton
-	for index in values.size():
-		if str(values[index]) == selected_value:
-			option.selected = index
-			return
-	option.selected = 0
+	for pill: Node in (control as HBoxContainer).get_children():
+		(pill as Button).set_pressed_no_signal(str(pill.get_meta("value")) == selected_value)
 
 
 func _set_taste_checks(control: Variant, values: Array, selected: Variant) -> void:
@@ -676,12 +769,12 @@ func _save_taste_form(refs: Dictionary) -> void:
 	var dislikes := _checked_taste_values(refs.get("touch_dislikes"), TASTE.TOUCHES)
 	dislikes.append_array(_checked_taste_values(refs.get("talk_dislikes"), TASTE.TALKS))
 	var taste := {
-		"intensity": _option_taste_value(refs.get("intensity"), TASTE.INTENSITIES, "firm"),
-		"pattern": _option_taste_value(refs.get("pattern"), TASTE.PATTERNS, "steady"),
+		"intensity": _picked_taste_value(refs.get("intensity"), "firm"),
+		"pattern": _picked_taste_value(refs.get("pattern"), "steady"),
 		"touch": _checked_taste_values(refs.get("touch_likes"), TASTE.TOUCHES),
 		"dislikes": dislikes,
 		"talk": _checked_taste_values(refs.get("talk_likes"), TASTE.TALKS),
-		"warmth": _option_taste_value(refs.get("warmth"), TASTE.WARMTHS, "normal"),
+		"warmth": _picked_taste_value(refs.get("warmth"), "normal"),
 		"recovery": int((refs.get("recovery") as SpinBox).value) if refs.get("recovery") is SpinBox else TASTE.RECOVERY_DEFAULT,
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
@@ -705,13 +798,14 @@ func _reset_taste_form(refs: Dictionary) -> void:
 	_debug("taste reset id=%s" % id)
 
 
-func _option_taste_value(control: Variant, values: Array, fallback: String) -> String:
-	if not control is OptionButton:
+## The lit pill of a taste choice row, or the fallback when the row is not built yet.
+func _picked_taste_value(control: Variant, fallback: String) -> String:
+	if not control is HBoxContainer:
 		return fallback
-	var option := control as OptionButton
-	if option.selected < 0 or option.selected >= values.size():
-		return fallback
-	return str(values[option.selected])
+	for pill: Node in (control as HBoxContainer).get_children():
+		if (pill as Button).button_pressed:
+			return str(pill.get_meta("value"))
+	return fallback
 
 
 func _clear_injected_settings() -> void:
@@ -723,6 +817,11 @@ func _clear_injected_settings() -> void:
 			(ui as Node).queue_free()
 		if is_instance_valid(button) and (button as Node).get_parent() != null:
 			(button as Node).queue_free()
+		var sidebar: Variant = entry.get("sidebar", [])
+		if sidebar is Array:
+			for node: Variant in sidebar:
+				if is_instance_valid(node) and (node as Node).get_parent() != null:
+					(node as Node).queue_free()
 		if is_instance_valid(page):
 			(page as Node).remove_meta("unfplap_tab")
 			(page as Node).remove_meta("unfplap_ui")

@@ -19,7 +19,6 @@ const STRENGTH_GAIN_DB := 10.0
 var _foley := false
 var _vocals := false
 var _climax := false
-var _bed_creaks := false
 var _pools: Dictionary = {}
 var _next: Dictionary = {}
 var _last: Dictionary = {}
@@ -27,9 +26,9 @@ var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 
-func setup(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -> void:
+func setup(foley: bool, vocals: bool, climax: bool) -> void:
 	_rng.randomize()
-	set_enabled(foley, vocals, climax, bed_creaks)
+	set_enabled(foley, vocals, climax)
 
 
 func foley_enabled() -> bool:
@@ -44,14 +43,9 @@ func climax_enabled() -> bool:
 	return _climax
 
 
-func bed_creaks_enabled() -> bool:
-	return _bed_creaks
-
-
 ## Rebuild only the layer that changed. Called at start and from apply_live_settings().
-func set_enabled(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -> void:
-	if foley == _foley and vocals == _vocals and climax == _climax \
-			and bed_creaks == _bed_creaks and not _pools.is_empty():
+func set_enabled(foley: bool, vocals: bool, climax: bool) -> void:
+	if foley == _foley and vocals == _vocals and climax == _climax and not _pools.is_empty():
 		return
 	if _foley and not foley:
 		_clear_group("foley")
@@ -62,7 +56,6 @@ func set_enabled(foley: bool, vocals: bool, climax: bool, bed_creaks := false) -
 	_foley = foley
 	_vocals = vocals
 	_climax = climax
-	_bed_creaks = bed_creaks
 	if _foley:
 		_build_group("foley")
 	if _vocals:
@@ -192,17 +185,15 @@ func play_impact(pose: String, strength: float, rump: Vector3,
 	if intensity != "soft":
 		play_plap(pose, intensity, level, rump, plap_volume_db(level))
 	if uses_bed(pose):
-		play_bed("in", level, bed_at, soft_bed)
+		play_bed(level, bed_at, soft_bed)
 	play_slide("in", level, rump, -12.0)
 
 
-func play_bed(direction: String, strength: float, at: Vector3, soft := false) -> bool:
+## Soft beds get the fabric layer; wooden creaks are gone.
+func play_bed(strength: float, at: Vector3, soft := false) -> bool:
 	if soft:
 		return play("fabric", at, strength)
-	if not _bed_creaks:
-		return false
-	var cue := "bed_wood_in" if direction == "in" else "bed_wood_out"
-	return play(cue, at, strength)
+	return false
 
 
 func play_slide(direction: String, strength: float, at: Vector3, extra_db := -6.0) -> bool:
@@ -238,7 +229,7 @@ func withdraw_crossed(before: float, after: float, strength: float, pose: String
 	var level := clampf(strength, 0.0, 1.0)
 	play_slide("out", level, rump, -4.0)
 	if uses_bed(pose):
-		play_bed("out", level, bed_at, soft_bed)
+		play_bed(level, bed_at, soft_bed)
 
 
 func stop() -> void:
@@ -261,8 +252,7 @@ static func cue_for_plap(pose: String, intensity: String) -> String:
 	return "plap_" + intensity
 
 
-## Bed and fabric only belong to the missionary shot. The standing pose has no bed under
-## her; its bed sounds would be a floating wooden creak.
+## Bed and fabric only belong to the missionary shot. The standing pose has no bed under her.
 static func uses_bed(pose: String) -> bool:
 	return pose != CATALOG.STANDING
 

@@ -67,23 +67,23 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 - **Controls**: HUD readouts, control hints, captions on top, Promiscuity, Starting Sex, mute
   Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
-  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`0.5…4.5/s`, default
+  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`1.0…4.5/s`, default
   `1.5/s`, quarter steps) and peak depth (`0.20…1`, default `0.9`). The auto values are act-start
   defaults; the wheel and mouse adjust them for one act.
 - **Character taste**: the per-mare form described below.
 
 **Debug tab**
 
-- **Audio**: act foley, act vocals, wet climax layer, bed creaks.
+- **Audio**: act foley, act vocals, wet climax layer.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
 - **Missionary**: forward, height, side, pullback, side-lean forward (`side_lean`, default
   `0.10 m`), pitch (`pitch_deg`, default `-15°`; positive looks up) and the five neck angles
   (neck 1/2, neck roll, head pitch, head roll).
-- **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean, idle side sway.
-- **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean, forelegs.
-- **Standing → Caress**: palm distance (`0.04 m`), oval across/up (`5.36 cm` / `2.89 cm`), palm
+- **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
+- **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
+- **Standing → Caress**: palm distance (`0.02 m`), oval across/up (`1.0 cm` / `2.0 cm`), palm
   scale per body-size preset (Canon `0.75`, mounting `0.9`, same height `1.0`, Hoers `1.0`), and
   ignored body parts (tail and wing by default).
 - **Standing → Smack**: max raise (`0.30 m`), hind offset (`0.10 m`), height (`-0.03 m`), palm
@@ -123,7 +123,7 @@ Classified over the last 3–4 real inward thrusts. Fewer than 3 means “no pat
 the intensity axis can match. Pattern is tempo only; depth does not decide the rhythm.
 
 ```text
-teasing  mean duration > 0.60 s
+teasing  mean duration > 0.45 s
 quick    mean duration < 0.30 s
 steady   otherwise
 ```
@@ -268,7 +268,7 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - When readouts are off, the hearts remain; the cue and readiness line are hidden.
 - There is no penetration/depth bar; the thrust mechanic, `thrust.orientation` and auto thrust
   still apply.
-- The controls list keeps its Y row dynamic: `End early 💔` at 0 climaxes, then `End` in `ACTIVE`
+- The controls list keeps its Y row dynamic: `End early` at 0 climaxes, then `End` in `ACTIVE`
   with 1+, `CLIMAX` and `AFTERGLOW`. `End` shades from ink toward the pink accent one step per
   climax, capped at 75%; only the earned standing afterglow caress reward makes it fully pink.
   The thrust row reads `Thrust` or `Max depth`, and the X row reads `Switch to auto` or

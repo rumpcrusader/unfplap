@@ -55,21 +55,15 @@ var _kiss_leg_pin: Node
 func _apply_kiss_forelegs() -> void:
 	if str(runtime.get("pose_id")) != CATALOG.STANDING:
 		return
-	var planted := _kiss_forelegs_mode() != "base"
-	if planted == _kiss_forelegs_planted:
+	if _kiss_forelegs_planted:
 		return
 	var settings := AFFECTION_POSE.kiss_settings()
-	if planted:
-		_kiss_saved_rear = float(settings.get("rear", 1.0))
-		_kiss_saved_hooves = float(settings.get("hooves", 1.0))
-		settings["rear"] = 0.0
-		settings["hooves"] = 0.0
-		_kiss_forelegs_planted = true
-	else:
-		settings["rear"] = _kiss_saved_rear
-		settings["hooves"] = _kiss_saved_hooves
-		_kiss_forelegs_planted = false
-	_log("kiss forelegs %s" % ("planted" if planted else "base"))
+	_kiss_saved_rear = float(settings.get("rear", 1.0))
+	_kiss_saved_hooves = float(settings.get("hooves", 1.0))
+	settings["rear"] = 0.0
+	settings["hooves"] = 0.0
+	_kiss_forelegs_planted = true
+	_log("kiss forelegs planted")
 
 
 func _restore_kiss_forelegs() -> void:
@@ -84,7 +78,7 @@ func _restore_kiss_forelegs() -> void:
 ## The base kiss's chest flex runs after body_sway's upper-arm pin. This extra modifier runs
 ## last and brings the visible hoof tips back to where they were before the kiss.
 func _start_kiss_leg_pin() -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or _kiss_forelegs_mode() == "base":
+	if str(runtime.get("pose_id")) != CATALOG.STANDING:
 		return
 	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
 		return
@@ -265,10 +259,6 @@ func _kiss_lean_forward() -> float:
 
 func _kiss_lean_drop() -> float:
 	return float(_kiss_controls().get("lean_drop", KISS_LEAN_DROP_M)) * runtime.call("_anon_height_scale")
-
-
-func _kiss_forelegs_mode() -> String:
-	return str(_kiss_controls().get("forelegs", "planted"))
 
 
 func _kiss_lean_distance() -> float:
@@ -649,8 +639,6 @@ func apply_live_settings() -> void:
 	_sync()
 	if _base_kiss_active:
 		_apply_kiss_forelegs()
-		if _kiss_forelegs_mode() == "base":
-			_stop_kiss_leg_pin()
 	elif _kiss_forelegs_planted:
 		_restore_kiss_forelegs()
 		_stop_kiss_leg_pin()

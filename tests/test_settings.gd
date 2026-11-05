@@ -125,7 +125,6 @@ func run() -> void:
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")
 	check(not bool(feature_block.get("act_climax", true)), "wet climax off by default")
-	check(not bool(feature_block.get("bed_creaks", true)), "bed creaks off by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
 	check(not TUNABLES.get_bool("features.unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.feature_keys():
@@ -137,8 +136,8 @@ func run() -> void:
 	var relationship_defaults: Dictionary = defaults.get("relationship", {})
 	check(str(relationship_defaults.get("promiscuity", "")) == "marefriend",
 		"default Promiscuity is Marefriend")
-	check(str(relationship_defaults.get("sex_start", "")) == "default",
-		"default Starting Sex is Default")
+	check(str(relationship_defaults.get("sex_start", "")) == "when_available",
+		"default Starting Sex is When Available")
 	var promiscuity := SCHEMA.entry("relationship.promiscuity")
 	check((promiscuity.get("options", []) as Array).has("any"),
 		"Promiscuity exposes Any Adult")
@@ -149,6 +148,8 @@ func run() -> void:
 		"Starting Sex exposes Try Your Luck")
 	check((sex_start.get("labels", []) as Array).has("Try Your Luck"),
 		"Try Your Luck label is present")
+	check((sex_start.get("labels", []) as Array).has("When Available"),
+		"When Available label is present")
 	check(not bool(defaults.get("debug_logs", true)), "debug logs off by default")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
@@ -221,10 +222,6 @@ func run() -> void:
 		"default kiss forward lean")
 	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.09),
 		"default kiss lean drop")
-	check(str(kiss_defaults.get("forelegs", "")) == "planted",
-		"default kiss forelegs planted")
-	check(near(float(standing_defaults.get("idle_sway_side", -1.0)), 0.0),
-		"default idle side sway")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
 		"default caress palm distance")
@@ -416,7 +413,6 @@ func _check_schema(defaults: Dictionary) -> void:
 	var kiss_defaults := SCHEMA.default_block("presentation.standing.kiss.")
 	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),
 		"schema block keeps the nested kiss shape")
-	check(str(kiss_defaults.get("forelegs", "")) == "planted", "schema kiss forelegs default")
 	var saved_features: Dictionary = defaults.get("features", {})
 	check(saved_features.size() == SCHEMA.default_block("features.").size(),
 		"saved feature block comes from the schema")
@@ -508,7 +504,9 @@ func _check_panels() -> void:
 	for name: String in TUNABLES.ACTIONS:
 		if bool(TUNABLES.ACTIONS[name].get("panel", true)):
 			buttons += 1
-	check(actions.get_child_count() == buttons + 3,
+	check(actions.get_child_count() == 1, "actions section is one inserted block")
+	var action_box := actions.get_child(0) as VBoxContainer
+	check(action_box != null and action_box.get_child_count() == buttons + 3,
 		"actions section draws one button per panel action plus its heading and status")
 	check(TUNABLES.hotkey_action(KEY_F10) == "skeleton_overlay",
 		"the skeleton overlay is the only hotkey action")

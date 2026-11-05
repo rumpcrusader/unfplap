@@ -33,7 +33,7 @@ func run() -> void:
 	check(PREF.intensity_for(0.85) == "rough", "rough intensity band")
 
 	check(PREF.pattern_for([]) == "", "no pattern without strokes")
-	check(PREF.pattern_for(_strokes(0.60, 0.60, 3)) == "steady", "steady pattern")
+	check(PREF.pattern_for(_strokes(0.60, 0.40, 3)) == "steady", "steady pattern")
 	check(PREF.pattern_for(_strokes(0.30, 0.90, 3)) == "teasing", "teasing pattern")
 	check(PREF.pattern_for(_strokes(0.50, 0.20, 3)) == "quick", "quick pattern")
 	check(PREF.pattern_for(_strokes(0.90, 0.20, 3)) == "quick",

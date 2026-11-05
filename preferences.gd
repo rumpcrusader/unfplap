@@ -33,7 +33,7 @@ const FIRM_MAX := 0.60
 ## tempo axis: depth must not decide the rhythm, or a full-depth fast stroke could never read
 ## quick and a full-depth slow stroke could never read teasing.
 const PATTERN_MIN_STROKES := 3
-const TEASE_DURATION := 0.60
+const TEASE_DURATION := 0.45
 const QUICK_DURATION := 0.30
 
 

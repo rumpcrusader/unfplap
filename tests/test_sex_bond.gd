@@ -36,7 +36,7 @@ func run() -> void:
 	check(not SEX_BOND.level_ok("", 1), "fallback still has a floor")
 
 	check(SEX_BOND.bypasses_bond("try_luck"), "Try Your Luck bypasses the bond")
-	check(not SEX_BOND.bypasses_bond("default"), "Default requires the bond")
+	check(not SEX_BOND.bypasses_bond("when_available"), "When Available requires the bond")
 	check(not SEX_BOND.bypasses_bond(""), "unknown Starting Sex is not a bypass")
 
 	check(SEX_BOND.romantic_stage("dating"), "dating is romantic")

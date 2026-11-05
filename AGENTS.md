@@ -141,7 +141,7 @@ mods/unfplap/
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
-  tail_bow.gd       satin tail bow: mesh, worn record and the mTail1 accessory attachment
+  tail_bow.gd       satin tail bow: mesh, worn record and the mTail2 accessory attachment
   tail_bow_gift.gd  tail bow in conversation (give/take), reconcile pass and prompt note
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
@@ -638,6 +638,9 @@ glasses).
   fur is much thicker than them, so a bow placed on the spring radius disappears inside the tail.
   A constant share is deliberate: measuring her visible tail mesh needed per-vertex skinning,
   cost ~150 ms per pony and produced unstable results.
+- `local_transform()` finishes with a 180 deg spin about her body-up axis through the knot: tied
+  on the dock, the bow has to sit with its loops up her body and its tails hanging down the tail,
+  which is the opposite of the roll the tail's rest frame gives it.
 - The bow's scale is her spring radius over `AUTHORED_RADIUS` (`0.06 m`) times `size`, so a thicker
   tail gets a bigger bow without re-authoring the mesh.
 - `refresh()` re-applies the transform and the dye in place; the geometry never changes at runtime.
@@ -646,8 +649,9 @@ glasses).
   is a visible hitch. Settings edits must never detach and re-attach the piece for the same reason.
 - The imported material is replaced with `satin()`, a matte cloth `StandardMaterial3D` whose albedo
   is the dye, so one mesh covers every colour. `presentation.tail_bow.*` tunes `size`, `along_m`,
-  `tilt_deg` and the dye (red by default). `size` defaults to `1.5` and `along_m` to `0.06 m`,
-  which puts the bow on the dock rather than up on her croup.
+  `tilt_deg` and the dye (red by default). `size` defaults to `1.5` and `along_m` to `0`, which
+  ties it at `mTail2`'s origin: `mTail1` sits up on the croup, so a bow on it reads as pasted on
+  her back rather than tied at the base of the tail.
 - `tests/bow_preview.gd` ties the bow on a loaded mare and writes `/tmp/opencode/bow_*.png` from
   behind, the side and close up. Run it with the real display driver; shape work is verified by
   looking at those images, never by guessing.

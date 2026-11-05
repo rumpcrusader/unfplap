@@ -1,7 +1,7 @@
 extends RefCounted
 ## A satin tail bow worn at the base of a mare's tail. The piece is a modelled mesh
 ## (`assets/tail_bow/tail_bow.glb`, built by `tools/tail_bow/build_bow.py`), attached to the hair
-## rig's `mTail1` through a BoneAttachment3D and registered in her `identity.accessories` like the
+## rig's `mTail2` through a BoneAttachment3D and registered in her `identity.accessories` like the
 ## game's own show pieces (Braeburn's hat, Vinyl's glasses).
 ##
 ## The bow is authored facing +Z with +Y up her tail, sitting on the tail's outer surface: the
@@ -18,7 +18,7 @@ const BOW_SCENE := preload("res://mods/unfplap/assets/tail_bow/tail_bow.glb")
 
 const NODE_NAME := "TailBow"
 const ATTACHMENT_NAME := "TailBowAttachment"
-const TAIL_BONE := "mTail1"
+const TAIL_BONE := "mTail2"
 const NEXT_BONE := "mTail2"
 const VARIANT_TAG := "|tail-bow"
 const STATE_KEY := "tail_bows"
@@ -200,18 +200,25 @@ static func standoff(pony: Node) -> float:
 	return tail_radius(pony) * FUR_SCALE
 
 
-## The mesh transform under `mTail1`: on the tail's dorsal surface at the tie point, square to
-## the tail, with the loops level with her body. Built from the tail bone's rest frame only, so it
-## does not depend on how she was posed when the bow was tied on: the bow rides the bone and ends
-## up facing away from her once the tail hangs.
+## The mesh transform under `mTail2`: on the tail's outer surface at the tie point, with the loops
+## spread to her left and right and the tails hanging down the tail. Built from the tail bone's
+## rest frame only, so it does not depend on how she was posed when the bow was tied on.
 static func local_transform(sk: Skeleton3D, pony: Node3D, cfg: Dictionary) -> Transform3D:
 	var root_index := sk.find_bone(TAIL_BONE)
 	if root_index < 0:
 		return Transform3D.IDENTITY
 	var root := sk.get_bone_global_rest(root_index)
 	var rest := root.basis.orthonormalized()
-	# The tail bone's Y runs down her tail, so the bow's own up axis is the reverse.
-	return placement(root, -rest.y, rest.z, rest.x, tail_radius(pony), standoff(pony), cfg)
+	# The tail bone's Y runs up her tail, so down the tail is the reverse.
+	var local := placement(root, -rest.y, rest.z, rest.x, tail_radius(pony), standoff(pony), cfg)
+	# Spin the whole piece 180 degrees about the vertical through the knot: tied on the dock, the
+	# bow's own up has to point up her body, and its face away from her.
+	var frame := sk.global_basis.orthonormalized().inverse()
+	var body := pony.global_basis.orthonormalized()
+	var world := root * local
+	var up := (frame * body.y).normalized()
+	world = Transform3D(Basis(up, PI) * world.basis, world.origin)
+	return root.affine_inverse() * world
 
 
 ## Pure placement: the bow's transform relative to the tail root bone. `axis` is down her tail,

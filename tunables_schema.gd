@@ -209,7 +209,7 @@ static func all() -> Dictionary:
 			"Tail bow"),
 		"presentation.tail_bow.size": num(1.5, "Bow size",
 			"Scale of the modelled bow, on top of her own tail size.", "Tail bow", "×", 0.01),
-		"presentation.tail_bow.along_m": num(0.06, "Tie point",
+		"presentation.tail_bow.along_m": num(0.0, "Tie point",
 			"Distance from the tail root toward her tail tip.", "Tail bow", "cm", 0.5, 100.0),
 		"presentation.tail_bow.tilt_deg": num(-15.0, "Tilt",
 			"Lean the whole bow up or back on the tail.", "Tail bow", "°", 1.0),

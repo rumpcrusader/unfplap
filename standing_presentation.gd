@@ -100,6 +100,10 @@ func _attach_present_pose() -> void:
 	var presentation_cfg: Dictionary = TUNABLES.block("presentation.standing.")
 	_pose_cfg["chin_up_deg"] = float(presentation_cfg.get("chin_up_deg", 30.0))
 	_pose_cfg["neck_down_deg"] = float(presentation_cfg.get("neck_down_deg", 15.0))
+	var tail_cfg: Variant = presentation_cfg.get("tail", {})
+	if tail_cfg is Dictionary:
+		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg", 31.5)))
+		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg", 24.1)))
 	runtime.set("_pose_cfg", _pose_cfg)
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:

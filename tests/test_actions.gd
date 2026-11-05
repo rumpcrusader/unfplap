@@ -42,6 +42,26 @@ class FakeMain extends Node:
 		lines.append(text)
 
 
+func _check_tail_tuning() -> void:
+	var tail_runtime: Node = RUNTIME.new()
+	var tail_pony := Node3D.new()
+	tail_runtime.set("pony", tail_pony)
+	tail_runtime.set("_id", "twilight_sparkle")
+	tail_runtime.set("pose_id", CATALOG.STANDING)
+	tail_runtime.set("_presentation_cfg", {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}})
+	tail_runtime.call("_sync_standing_pose_config")
+	var cfg: Dictionary = tail_runtime.get("_pose_cfg")
+	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
+	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
+	tail_runtime.set("_presentation_cfg", {})
+	tail_runtime.call("_sync_standing_pose_config")
+	cfg = tail_runtime.get("_pose_cfg")
+	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(31.5)), "tail yaw default")
+	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(24.1)), "tail pitch default")
+	tail_pony.free()
+	tail_runtime.free()
+
+
 func _check_perf_probe() -> void:
 	var fake_main := FakeMain.new()
 	var probe: Node = RUNTIME.new()
@@ -648,6 +668,7 @@ func run() -> void:
 	cuddle_pony.free()
 	cuddle_runtime.free()
 
+	_check_tail_tuning()
 	_check_perf_probe()
 
 	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])

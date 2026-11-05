@@ -18,7 +18,6 @@ const POSE_DEFAULTS := {
 		"nuzzle_scale": 0.45,
 		"nuzzle_period": 7.0,
 		"nuzzle_duration": 2.4,
-		"tail_lift": 0.42,
 	},
 	STANDING: {
 		"bow": 2.4,
@@ -39,8 +38,6 @@ const POSE_DEFAULTS := {
 		"glance_yaw": 3.0,
 		"glance_back_pitch": 1.2,
 		"glance_back_chance": 0.5,
-		"tail_aside": 0.55,
-		"tail_lift": 0.42,
 	},
 }
 

@@ -222,7 +222,9 @@ body-relative axes.
   `eye_motion.target_world`. A full forward `W` lean with no side lean forces `head_back = 1.0`
   and the upward look toward Anon instead of waiting for the random glance scheduler.
 - Tail aside/lift/flick is applied down the hair chain; the side is randomized per act.
-  `poses.<pose>.tail_lift` defaults to `0.42` and is inherited/overridable per mare.
+  `presentation.standing.tail.yaw_deg` (default `31.5°`) and `pitch_deg` (default `24.1°`) set
+  how far it sweeps aside and lifts, in degrees, and apply live through
+  `_sync_standing_pose_config()`; the tail modifier is created from that pose config.
 - Standing enters the same held `AFTERGLOW` state when the player chooses it or the third pony
   climax forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
   flicks twice, and the inside event is recorded on entry. Normal dialogue resumes; a
@@ -1033,7 +1035,9 @@ rump blush. Unknown settings keys are ignored.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`, `idle_sway_side` (default `0.0`),
-    `caress` with `palm_distance`, `oval_across_m` (default `5.36 cm`), `oval_up_m` (default
+    `neck_down_deg` (default `15°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
+    (default `31.5°`) and `pitch_deg` (default `24.1°`), `caress` with `palm_distance`,
+    `oval_across_m` (default `5.36 cm`), `oval_up_m` (default
     `2.89 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
     and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.10 m`), `height_m`
     (default `-0.03 m`, signed), `arc_m` (default `0.06 m`), `pitch_deg` (default `12°`),

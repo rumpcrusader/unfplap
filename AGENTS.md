@@ -55,6 +55,9 @@ script. Set `GODOT=~/path/to/godot` if the binary is not at `~/Downloads/godot`.
 - The lab loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara, pauses world
   scheduling and background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.
   Diamond Tiara is the filly witness fixture: no romance tier, no dating record, no bed invite.
+- Before the loading screen's furnishing wait the lab sets `furnish = false` on every generated
+  house. Authored homes (the library) keep their furniture and bed, so the 200 ms-per-house
+  furnishing stagger never runs.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
 - The lab re-seeds its five ponies on every startup (friendship and mood, idle posture; romance

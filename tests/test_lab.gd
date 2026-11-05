@@ -6,9 +6,10 @@ extends Node
 ## Loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara and pauses population/living-world/time
 ## plus background AI. At setup they are moved to the path in front of Golden Oak Library.
 ## Diamond Tiara is the filly witness fixture: no romance tier or dating record, never invited to bed.
-## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. The dialogue director
-## stays running, because it serializes replies and a stopped director leaves ponies stuck
-## "thinking".
+## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. Generated town houses
+## skip furnishing before the loading wait; the authored library keeps its room and bed. The
+## dialogue director stays running, because it serializes replies and a stopped director leaves
+## ponies stuck "thinking".
 ##
 ## Lab hotkeys (mouse must be captured, like normal play):
 ##   - / =       lower / raise the pointed mare's romance tier (all test mares when not aiming)
@@ -43,6 +44,7 @@ const SETUP_ACTIONS := [
 	"pause population, life and needs",
 	"pause PrincessVisits, TrixieShow, DayRunner, NightRest and StuckRescue",
 	"pause TimeOfDay",
+	"skip generated house furnishing; the authored library keeps its room and bed",
 	"set friendship >= 500, neutral mood and idle for every test pony",
 	"set romance tier and dating record only for the four adult test mares",
 	"leave lover bonds unset; Mouse5 grants one",
@@ -53,6 +55,7 @@ var game: Node
 var _done := false
 var _old_opening := ""
 var _settings: Node
+var _furnishing_trimmed := false
 
 
 func _ready() -> void:
@@ -103,6 +106,7 @@ func _wait_for_world() -> bool:
 			if scene != null and scene.get("world_context") != null:
 				game = scene
 		if is_instance_valid(game):
+			_trim_generated_furnishing()
 			_restrict_population()
 			var loading: bool = game.get("title_active") == true \
 				or game.get_node_or_null("LoadingCover") != null
@@ -157,6 +161,42 @@ func _restrict_population() -> void:
 	if not removed.is_empty():
 		print("[unfplap test] population restricted to %s (removed %d)" % [
 			", ".join(PackedStringArray(TEST_IDS)), removed.size()])
+
+
+## The loading screen waits for every generated town house to finish furnishing, and they start
+## 200 ms apart (house_interior._furnish_when_ready). That was the whole 16-20 s of lab startup.
+## The lab only uses the authored Golden Oak library, which has its own room and guest bed, so
+## stop the generated houses before their furnisher starts. Authored homes keep their furniture.
+func _trim_generated_furnishing() -> void:
+	if _furnishing_trimmed or not is_instance_valid(game):
+		return
+	var houses := get_tree().get_nodes_in_group("house_interiors")
+	if houses.is_empty():
+		return
+	_furnishing_trimmed = true
+	var stopped := 0
+	for node: Variant in houses:
+		var house: Node = node as Node
+		if not is_instance_valid(house):
+			continue
+		# Authored homes (the library, boutique, cottage, ...) carry `home_kind` on themselves or
+		# on an ancestor. Their interiors are not part of the generated-house wait.
+		var authored := false
+		var ancestor: Node = house
+		while is_instance_valid(ancestor):
+			if ancestor.get("home_kind") != null:
+				authored = true
+				break
+			ancestor = ancestor.get_parent()
+		if authored or not bool(house.get("furnish")):
+			continue
+		house.set("furnish", false)
+		# A scheduled _do_furnish checks its generation, so bumping this stops the timer from
+		# starting a furnisher after this point. One already running may finish, but the loading
+		# wait no longer counts it because `furnish` is false.
+		house.set("furnish_gen", int(house.get("furnish_gen")) + 1)
+		stopped += 1
+	print("[unfplap test] skipped generated house furnishing for %d houses; authored homes keep theirs" % stopped)
 
 
 ## A late filter can still leave a non-test pony already out. Retire those through the game's

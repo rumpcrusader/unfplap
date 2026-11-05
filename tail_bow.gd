@@ -147,9 +147,20 @@ static func detach(pony: Node) -> void:
 	_register_accessory(pony, false)
 
 
+## Rebuild in place after a settings edit. The accessory registration and the merged meshes are
+## left alone: they only depend on the piece existing, not on its size or dye.
 static func refresh(pony: Node) -> void:
-	detach(pony)
-	attach(pony)
+	var node := piece(pony)
+	if not is_instance_valid(node):
+		attach(pony)
+		return
+	var sk := hair_skeleton(pony)
+	if sk == null:
+		return
+	var cfg := config()
+	node.mesh = build(colour(cfg), cfg,
+		tail_radius(pony, float(cfg.get("along_m", 0.005)))).mesh
+	node.transform = local_transform(sk, pony, cfg)
 
 
 static func hair_skeleton(pony: Node) -> Skeleton3D:
@@ -276,6 +287,8 @@ static func _measure_radius(pony: Node3D, along: float) -> float:
 			continue
 		var stride := ids.size() / verts.size()
 		for v: int in verts.size():
+			if v % 2 == 1:
+				continue
 			var point := Vector3.ZERO
 			for k: int in stride:
 				var w := weights[v * stride + k]
@@ -339,7 +352,9 @@ static func _refresh_variant(pony: Node, on: bool) -> void:
 	var variant := str(pony.get_meta("geometry_variant", "")).replace(VARIANT_TAG, "")
 	if on:
 		variant += VARIANT_TAG
-	pony.call("refresh_geometry_variant", variant)
+	# Rebuilding both merged meshes costs a hitch; never do it inside the frame that ties the bow
+	# on, which is where the player would feel it (an act start or a settings edit).
+	pony.call_deferred("refresh_geometry_variant", variant)
 
 
 # --- Mesh -----------------------------------------------------------------------------------
@@ -350,6 +365,8 @@ const LOOP_REACH := 1.72
 const LOOP_WIDTH := 0.92
 const LOOP_PINCH := 0.16
 const LOOP_THICK := 0.0018
+## How far each loop swells out of the bow plane, as a share of its half width.
+const LOOP_PUFF := 0.42
 ## One tight band around the dock and tail base: the knot and the two loops sit on it, and there
 ## are no extra winding turns.
 const WRAP_TURNS := 1
@@ -379,15 +396,16 @@ static func build(colour: Color, cfg: Dictionary, radius: float) -> MeshInstance
 	return node
 
 
+## Matte fabric: no sheen, no metal, no rim highlight. It reads as cloth next to the game's cel
+## shading instead of a glossy plastic.
 static func satin(colour: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = colour
-	material.roughness = 0.3
-	material.metallic = 0.1
-	material.rim_enabled = true
-	material.rim = 0.5
-	material.rim_tint = 0.3
-	# Satin has no wrong side: both faces read as fabric, and winding cannot hide a surface.
+	material.roughness = 0.92
+	material.metallic = 0.0
+	material.metallic_specular = 0.12
+	material.rim_enabled = false
+	# Fabric has no wrong side: both faces read as cloth, and winding cannot hide a surface.
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 
@@ -443,10 +461,11 @@ static func _add_petal(st: SurfaceTool, knot: Vector3, side: float, length: floa
 		var back := PackedVector3Array()
 		for v: int in LOOP_CROSS + 1:
 			var t := float(v) / float(LOOP_CROSS) * 2.0 - 1.0
-			# The ribbon folds down the middle of the loop and rolls back at its rim.
-			var ridge := half_width * 0.17 * pow(1.0 - absf(t), 1.6) - half_width * 0.10 \
-				* smoothstep(0.72, 1.0, absf(t))
-			var roll := thick + ridge
+			# The loop is a puffed lens: it swells toward its middle and rolls back at the rim,
+			# with a soft crease along the fold so the satin catches the light.
+			var cup := pow(cos(t * PI * 0.5), 0.62)
+			var roll := thick + half_width * LOOP_PUFF * cup \
+				+ half_width * 0.05 * pow(1.0 - absf(t), 3.0)
 			var offset := Vector3(along - length * 0.16, t * half, bulge)
 			front.append(knot + frame * (offset + Vector3(0.0, 0.0, roll)))
 			back.append(knot + frame * (offset - Vector3(0.0, 0.0, roll)))

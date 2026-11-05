@@ -606,7 +606,9 @@ glasses).
   satin surfaces: one tight band cinched around the dock and tail base, a gathered knot on its
   outer side, and two folded satin petals out to the sides. Each petal is a solid leaf with a fold
   ridge down its length and a rolled rim, not a tube, which is what makes it read as a tied bow.
-  There are no extra winding turns and no hanging tails.
+  There are no extra winding turns and no hanging tails. Each loop is a puffed lens in cross
+  section (`LOOP_PUFF`) so it reads round, and the material is matte cloth: no metal, no rim, no
+  sheen.
 - Attachment: a `BoneAttachment3D` on the hair rig's `mTail1`, the name added to a **duplicated**
   `identity.accessories` (typed `Array[String]`; an untyped array is rejected), then
   `refresh_geometry_variant("…|tail-bow")` so both merged meshes re-gather. The merged near mesh
@@ -625,6 +627,12 @@ glasses).
   the vertex radii within ±10 mm of the tie point, in the tail bone's rest frame, cached per pony
   identity. A bushy tail's widest strand is not its body, so a max would oversize the wrap; the
   `identity.tail_segment_radii` mid value is only the fallback when the mesh cannot be read.
+- The measurement samples every second vertex (a percentile does not need all of them) and is
+  cached per identity, so it is one ~10 ms pass per pony type per process.
+- `refresh()` rebuilds only the mesh and its transform in place. Tying the bow on defers the
+  `refresh_geometry_variant()` call (`call_deferred`) because that rebuilds both merged meshes;
+  doing it inside the frame that ties the bow on, or inside an act, is a visible hitch. Settings
+  edits must never detach and re-attach the piece for the same reason.
 - The petal size follows that radius (`LOOP_REACH`, `LOOP_WIDTH`), so a thicker tail gets a bigger
   bow. `presentation.tail_bow.*` tunes `size`, `along_m`, `margin_m` (wrap clearance),
   `loop_scale`, `splay_deg`, `tilt_deg` and the dye (red by default).

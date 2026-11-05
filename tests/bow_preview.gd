@@ -55,7 +55,13 @@ func run() -> void:
 func _shoot(pony: Node3D) -> void:
 	await get_tree().create_timer(1.0).timeout
 	BOW.set_worn(BOW.worn_id(pony), true)
+	var measure_at := Time.get_ticks_usec()
+	var radius_probe := BOW.tail_radius(pony, 0.005)
+	print("[bow shot] radius measure ms=", (Time.get_ticks_usec() - measure_at) / 1000.0,
+		" radius=", radius_probe)
+	var attach_at := Time.get_ticks_usec()
 	var node := BOW.attach(pony)
+	print("[bow shot] attach ms=", (Time.get_ticks_usec() - attach_at) / 1000.0)
 	if node == null:
 		print("[bow shot] attach failed")
 		return
@@ -90,4 +96,34 @@ func _shoot(pony: Node3D) -> void:
 		var path := OUT + "bow_" + name + ".png"
 		image.save_png(path)
 		print("[bow shot] wrote ", path, " size=", image.get_size())
-	await get_tree().create_timer(0.2).timeout
+	# Cost check: frames per second with the bow on, then with it off.
+	for i: int in 90:
+		await get_tree().process_frame
+	var with_bow := Engine.get_frames_per_second()
+	var process_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	BOW.set_worn(BOW.worn_id(pony), false)
+	BOW.detach(pony)
+	for i: int in 90:
+		await get_tree().process_frame
+	print("[bow shot] fps with bow=", with_bow, " process_ms=", process_ms,
+		" fps without=", Engine.get_frames_per_second())
+	# The same comparison while the tail is being animated like the standing act.
+	var tail_script: Script = load("res://mods/unfplap/tail_pose.gd")
+	var tail: Node = tail_script.new()
+	tail.set("mare", pony)
+	tail.set("target_amount", 1.0)
+	tail.set("aside_goal", 0.4)
+	tail.set("amount", 1.0)
+	sk.add_child(tail)
+	for i: int in 90:
+		await get_tree().process_frame
+	var tail_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	var tail_fps := Engine.get_frames_per_second()
+	BOW.attach(pony)
+	for i: int in 90:
+		await get_tree().process_frame
+	print("[bow shot] tail animating: fps without=", tail_fps, " process_ms=", tail_ms,
+		" fps with bow=", Engine.get_frames_per_second(),
+		" process_ms=", Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
+	tail.queue_free()
+	BOW.detach(pony)

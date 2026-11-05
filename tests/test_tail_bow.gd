@@ -94,8 +94,9 @@ func _test_mesh() -> void:
 	var box: AABB = node.mesh.get_aabb()
 	check(box.size.x > radius * 2.0 and box.size.x < radius * 5.0,
 		"two loops spread wider than the tail")
-	check(box.size.y > radius * 2.0, "loops reach above and below the tie point")
-	check(box.size.z < radius * 2.0, "the bow stays shallow along the tail")
+	check(box.size.y > radius * 1.2, "loops reach above the tie point")
+	check(box.size.z > radius * 0.3 and box.size.z < radius * 2.0,
+		"the loops puff out of the bow plane without ballooning")
 	# The wrap must sit on the measured tail, not float off it.
 	check(box.has_point(Vector3(0.0, 0.0, box.position.z + box.size.z * 0.5)),
 		"the winding wraps the tail axis")

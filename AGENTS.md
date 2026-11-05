@@ -964,9 +964,9 @@ examples.
 - `mute_ponese_audio` mutes only the partner's `Voice` audio player for an act while keeping
   the generated text/HUD flow. It does not suppress dialogue.
 - The Unfplap settings tab is **runtime-injected** with
-  `Mods.on_node("res://world/ui/settings_page.gd", ...)`, not a `mod.json` extension. If
-  `settings_tab` is false it returns before touching the page. If the page's private fields are
-  unavailable it logs and skips, so the settings page is never required for the mod to load.
+  `Mods.on_node("res://world/ui/settings_page.gd", ...)`, not a `mod.json` extension. If the
+  page's private fields are unavailable it logs and skips, so the settings page is never
+  required for the mod to load.
 - The injected tab also owns the **Character taste** editor: one pony selector from
   `SETTINGS.CHARACTER_ORDER`, enum controls from `preferences.gd`, recovery `0…80`, touch/talk
   like and dislike checkboxes, and editable private notes. Taste edits save automatically and
@@ -1012,7 +1012,6 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `act_climax` | `false` | pack wet finish layer |
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
 | `tail_bow` | `false` | satin tail bow accessory and its conversation gift; off by default, off hides worn bows and keeps the record |
-| `settings_tab` | `true` | runtime-injected Unfplap settings tab; false = no page mutation |
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.

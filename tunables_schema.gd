@@ -57,9 +57,6 @@ static func all() -> Dictionary:
 			0.05, 1.0, 0.25, 2.0, SETTINGS_TAB),
 
 		# Debug: features.
-		"features.settings_tab": flag(true, "Unfplap settings tab",
-			"Show the Unfplap settings page. Turning this off hides it on the next settings open; edit settings.json to restore it.",
-			"General"),
 		"features.act_foley": flag(true, "Act foley",
 			"Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
 			"Audio"),

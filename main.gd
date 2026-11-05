@@ -295,14 +295,12 @@ func _on_pony(pony: Node) -> void:
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
 
 
-## Runtime-injected Unfplap tab. No game-script extension is used: if `settings_tab` is false,
-## this returns before touching the page. The title and pause hosts add the page to the tree
-## before calling setup(), so the actual injection is deferred and retries for a few frames.
+## Runtime-injected Unfplap tab. No game-script extension is used. The title and pause hosts add
+## the page to the tree before calling setup(), so the actual injection is deferred and retries
+## for a few frames.
 func _on_settings_page(page: Node) -> void:
 	# Opening the page re-reads settings.json, so hand-edited values apply without a restart.
 	TUNABLES.reload_settings()
-	if not TUNABLES.get_bool("features.settings_tab"):
-		return
 	if not is_instance_valid(page) or page.has_meta("unfplap_tab") or page.has_meta("unfplap_pending"):
 		return
 	page.set_meta("unfplap_pending", true)
@@ -333,11 +331,9 @@ func _inject_settings_page(page: Node) -> void:
 	_debug("settings tab: page internals unavailable; skipped")
 
 
-## No game-script extension is used. If `settings_tab` is false this never runs; if the page's
-## internals are unavailable it skips rather than risking a release-breaking extension.
+## No game-script extension is used. If the page's internals are unavailable it skips rather
+## than risking a release-breaking extension.
 func _inject_settings_page_now(page: Node) -> void:
-	if not TUNABLES.get_bool("features.settings_tab"):
-		return
 	if not is_instance_valid(page) or page.has_meta("unfplap_tab"):
 		return
 	var side_scroll: Variant = page.get("_side_scroll")

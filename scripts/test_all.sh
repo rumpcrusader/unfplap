@@ -23,6 +23,9 @@ TESTS=(
 	test_auto_thrust
 	test_preferences
 	test_memory
+	test_act_summary
+	test_act_history
+	test_act_flow
 	test_utterance
 	test_utterance_scheduler
 	test_utterance_lines

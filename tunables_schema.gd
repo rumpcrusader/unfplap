@@ -198,8 +198,8 @@ static func all() -> Dictionary:
 			"Strike speed in metres per second.", "Standing › Smack", "m/s", 0.1),
 
 		# Debug: the satin tail bow.
-		"features.tail_bow": flag(true, "Tail bow gifts",
-			"Let a mare accept a satin tail bow when Anon offers one in conversation. Off hides the whole accessory.",
+		"features.tail_bow": flag(false, "Tail bow gifts",
+			"Off by default. On: a mare can accept a satin tail bow when Anon offers one in conversation. Off hides the whole accessory and keeps who already owns one.",
 			"Tail bow"),
 		"presentation.tail_bow.size": num(1.0, "Bow size",
 			"Scale of the whole bow, on top of the tail it is tied around.", "Tail bow", "×", 0.01),

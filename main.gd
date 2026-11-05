@@ -1029,6 +1029,8 @@ func action_standing_offer() -> String:
 
 ## Debug Actions: tie or untie the satin tail bow without the conversation.
 func action_tail_bow_give() -> String:
+	if not TAIL_BOW.feature_on():
+		return "Tail bow gifts are off; turn them on in Debug -> Tail bow."
 	var target := _tail_bow_target()
 	if not is_instance_valid(target):
 		return "No mare under the crosshair or nearby."

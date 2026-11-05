@@ -22,6 +22,7 @@ TESTS=(
 	test_utterance_lines
 	test_relationship_cue
 	test_runtime_thrust
+	test_runtime_teardown
 	test_afterglow
 	test_voice
 	test_actions

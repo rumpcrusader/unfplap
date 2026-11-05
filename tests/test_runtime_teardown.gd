@@ -1,0 +1,217 @@
+extends SceneTree
+## Act exit paths: one teardown, every borrowed value restored, safe to call twice.
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
+
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const CATALOG_STANDING := "standing"
+var failures := 0
+var checks := 0
+
+
+class FakePony extends Node3D:
+	var face_turn_rate := 0.45
+	var sleeping := false
+	var body_scale := 1.0
+	var posture: Variant = null
+	var expressions: Variant = null
+	var posture_requests: Array[String] = []
+
+	func posture_status() -> Dictionary:
+		return {"requested": "stand", "settled": true}
+
+	func request_posture(name: String) -> bool:
+		posture_requests.append(name)
+		return true
+
+
+class FakeNav extends Node:
+	var reserved_by := ""
+	var command_owner := ""
+	var wander_enabled := true
+
+	func stay() -> void:
+		pass
+
+
+class FakePlayer extends Node3D:
+	var _pitch := 0.0
+	var _stand_eye := 1.6
+	var _eye_height := 1.6
+	var controls_locked := false
+	var form_driver: Variant = null
+	var seat: Variant = null
+	var eye_pushes: Array[float] = []
+
+	func eye_height() -> float:
+		return _stand_eye
+
+	func _set_eye_y(value: float) -> void:
+		eye_pushes.append(value)
+
+
+class FakeInventory extends RefCounted:
+	var hud_hidden := false
+	var hotbar: Variant = null
+	var placed := 0
+
+	func _place_hotbar() -> void:
+		placed += 1
+
+
+class FakeGame extends Node:
+	var inventory: Variant = null
+
+
+class FakeMain extends Node:
+	var player: Variant = null
+	var hud: Variant = null
+	var game: Variant = null
+	var cleared: Array = []
+
+	func clear_active(runtime: Node) -> void:
+		cleared.append(runtime)
+
+	func camera() -> Camera3D:
+		return null
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func _fixture() -> Dictionary:
+	var runtime: Node = RUNTIME.new()
+	var pony: FakePony = FakePony.new()
+	pony.posture = Node.new()
+	pony.add_child(pony.posture)
+	var nav: FakeNav = FakeNav.new()
+	var player: FakePlayer = FakePlayer.new()
+	var main: FakeMain = FakeMain.new()
+	var game: FakeGame = FakeGame.new()
+	game.inventory = FakeInventory.new()
+	main.player = player
+	main.game = game
+	runtime.add_child(pony)
+	runtime.add_child(nav)
+	runtime.add_child(main)
+	main.add_child(player)
+	main.add_child(game)
+	runtime.pony = pony
+	runtime.main = main
+	runtime._id = "test_mare"
+	runtime._face_turn_rate_saved = 0.45
+	runtime._face_turn_rate_owned = true
+	pony.face_turn_rate = 0.0
+	runtime._locked_player = true
+	runtime._had_kiss_hold = false
+	player.set_meta("kiss_hold", true)
+	pony.set_meta("sex_active", true)
+	runtime._posture_owned = true
+	runtime.pose_id = CATALOG_STANDING
+	runtime.source = "test"
+	runtime.state = 2
+	runtime._nav = nav
+	nav.command_owner = "unfplap:test_mare"
+	nav.wander_enabled = false
+	runtime._nav_old_wander = false
+	runtime._token = "unfplap:test_mare"
+	runtime._inventory_hud_hidden = true
+	runtime._inventory_hud_saved = false
+	game.inventory.hud_hidden = true
+	return {"runtime": runtime, "pony": pony, "player": player, "main": main}
+
+
+func run() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var pony: FakePony = f["pony"]
+	var player: FakePlayer = f["player"]
+	var main: FakeMain = f["main"]
+	var nav: FakeNav = runtime._nav
+	var inventory: FakeInventory = main.game.inventory
+
+	runtime._end_session(false)
+	check(pony.face_turn_rate == 0.45, "face-turn rate restored")
+	check(not runtime._face_turn_rate_owned, "face-turn ownership cleared")
+	check(nav.command_owner == "", "navigator ownership released")
+	check(nav.wander_enabled == false, "navigator gives back the saved wander flag")
+	check(not runtime._locked_player, "player lock released")
+	check(not player.has_meta("kiss_hold"), "kiss hold removed when the act set it")
+	check(not pony.has_meta("sex_active"), "sex_active cleared")
+	check(not runtime._inventory_hud_hidden, "inventory HUD restored")
+	check(not inventory.hud_hidden, "inventory hud_hidden restored")
+	check(inventory.placed == 1, "inventory re-places the hotbar")
+	check(pony.posture_requests.size() == 1 and pony.posture_requests[0] == "stand",
+		"standing posture requested once")
+	check(not runtime._posture_owned, "posture ownership cleared")
+	check(int(runtime.state) == 0, "state returns to IDLE")
+	check(runtime.pose_id == "" and runtime.source == "" and runtime.bed == null,
+		"act ids cleared")
+	check(main.cleared.size() == 1 and main.cleared[0] == runtime, "main clears the active runtime")
+
+	# A second teardown is a no-op, not a second restore.
+	runtime._end_session(false)
+	check(pony.face_turn_rate == 0.45, "double teardown keeps the saved face-turn rate")
+	check(not pony.has_meta("sex_active"), "double teardown is safe")
+	check(inventory.placed == 1, "double teardown does not re-place the hotbar")
+
+	# A forced stop at IDLE must not touch the player's captured look.
+	var f2 := _fixture()
+	var runtime2: Node = f2["runtime"]
+	var player2: FakePlayer = f2["player"]
+	runtime2.state = 0
+	runtime2._look_captured = false
+	player2.rotation.y = 0.7
+	runtime2.force_stop()
+	check(absf(player2.rotation.y - 0.7) < 0.0001,
+		"IDLE force_stop leaves the player yaw alone")
+
+	# A failed standing start restores the player eye height without a camera step.
+	var f3 := _fixture()
+	var runtime3: Node = f3["runtime"]
+	var player3: FakePlayer = f3["player"]
+	runtime3._camera_owned = false
+	runtime3._look_captured = false
+	runtime3._eye_override = true
+	runtime3._saved_stand_eye = 1.6
+	runtime3._saved_eye_height = 1.6
+	player3._stand_eye = 2.1
+	player3._eye_height = 2.1
+	runtime3._end_session(false)
+	check(absf(player3._stand_eye - 1.6) < 0.0001, "aborted start restores the eye override")
+	check(absf(player3._eye_height - 1.6) < 0.0001, "aborted start restores the eye height")
+
+	# An invalid pony still releases the player, navigator and active runtime.
+	var f4 := _fixture()
+	var runtime4: Node = f4["runtime"]
+	var main4: FakeMain = f4["main"]
+	var nav4: FakeNav = runtime4._nav
+	runtime4.pony = null
+	runtime4.state = 4
+	runtime4._finish_restore()
+	check(not runtime4._locked_player, "invalid pony still unlocks the player")
+	check(nav4.command_owner == "", "invalid pony still releases the navigator")
+	check(int(runtime4.state) == 0, "invalid pony ends in IDLE")
+	check(main4.cleared.size() == 1, "invalid pony still clears the active runtime")
+
+	# Finalize is idempotent.
+	var f5 := _fixture()
+	var runtime5: Node = f5["runtime"]
+	runtime5._finalize_session(false)
+	check(runtime5._session_finalized, "finalize marks the session done")
+	runtime5._finalize_session(false)
+	check(runtime5._session_finalized, "double finalize is a no-op")
+
+	for item: Dictionary in [f, f2, f3, f4, f5]:
+		(item["runtime"] as Node).free()
+	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
+	if failures == 0:
+		print("RUNTIME_TEARDOWN_PASS")
+	quit(0 if failures == 0 else 1)

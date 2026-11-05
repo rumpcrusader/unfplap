@@ -35,16 +35,6 @@ const ACTIONS := {
 		"help": "Force a standing offer for the aimed or nearest mare.",
 		"method": "action_standing_offer",
 	},
-	"tail_bow_give": {
-		"label": "Tie on a tail bow",
-		"help": "Tie the satin tail bow on the aimed or nearest mare.",
-		"method": "action_tail_bow_give",
-	},
-	"tail_bow_take": {
-		"label": "Untie the tail bow",
-		"help": "Take the satin tail bow off the aimed or nearest mare.",
-		"method": "action_tail_bow_take",
-	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
 		"help": "Toggle the F10 skeleton overlay.",

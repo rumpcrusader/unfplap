@@ -25,8 +25,8 @@ Do not start implementation until you have read the required files for the area 
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, heat, estrus, conception, content warning, toggle, new character or body models,
-  genitals or anatomy. The act stays off-camera by framing. Modelled accessories are allowed (the
-  tail bow is one); they are accessories, never a replacement for a pony's body or rig.
+  genitals or anatomy. The act stays off-camera by framing. Modelled accessories are allowed; they
+  are accessories, never a replacement for a pony's body or rig.
 - Desktop first. VR and seated VR are deferred; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md` and
   `ROTATION.md`.
@@ -141,8 +141,6 @@ mods/unfplap/
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
-  tail_bow.gd       satin tail bow: mesh, worn record and the mTail2 accessory attachment
-  tail_bow_gift.gd  tail bow in conversation (give/take), reconcile pass and prompt note
   witness.gd        witness pass
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
   consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
@@ -600,77 +598,6 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 - Missionary snapshots camera + current camera, player transform and pony transform/posture. Keep
   that snapshot exact; the bed cuddle re-invite depends on it.
 
-## Critical: worn accessories (the tail bow)
-
-The game's wardrobe (`pony_wardrobe.gd`, `pony_fitted_accessories.gd`, `shop_items.gd`) keeps its
-`KINDS`, `WORN_NAMES`, slots and stock as script constants, so a mod cannot add a purchasable or
-hand-giftable piece there without editing a game script. The tail bow is therefore mod-owned and
-uses the game's own runtime accessory idiom (`background_pony.gd`, Braeburn's hat and Vinyl's
-glasses).
-
-- `tail_bow.gd` loads one modelled mesh, `assets/tail_bow/tail_bow.glb` (~3.8k triangles, one
-  material, no textures): a gift bow with two dished ribbon loops, a rounded knot and two
-  swallowtail tails hanging below it. `tools/tail_bow/build_bow.py` generates it parametrically
-  and exports the `.glb`; that tool is never packed, and shape changes belong there, not in a
-  hand-edit of the exported mesh.
-- The mesh is authored with `+Y` up her tail and `+Z` out of its face, sitting on the tail's
-  outer surface: the knot rests against the fur, the loops spread to her left and right, and the
-  tails hang down the tail. The build tool's `orient()` turns Blender's `+Z`-up frame into that
-  one, so the glTF export is already in the frame the runtime places.
-- Attachment: a `BoneAttachment3D` on the hair rig's `mTail1`, the name added to a **duplicated**
-  `identity.accessories` (typed `Array[String]`; an untyped array is rejected), then
-  `refresh_geometry_variant("…|tail-bow")` so both merged meshes re-gather. The merged near mesh
-  keeps unskinned BoneAttachment3D meshes apart, the far mesh welds them to the bone, so the bow
-  survives every LOD and rides the tail springs and the act's `tail_pose`.
-- A `BoneAttachment3D` follows `SkeletonModifier3D` output (verified headless), but
-  `get_bone_global_pose()` **outside** a modifier pass returns the base pose. The placement is
-  therefore computed once from the rest bone and stored as the child's local transform.
-- The hair rig node is already scaled to her size (`body_scale`), so the mesh is modelled at unit
-  size and only `presentation.tail_bow.size` and her tail radius scale it. Never multiply by
-  `body_scale` again.
-- Placement is entirely in the tail bone's rest frame, so the bow rides the tail and follows every
-  swing: the origin sits on the bone's dorsal side at `along_m` down the tail, `+Z` is the bone's
-  own `z` axis, `+Y` is `+y` (which runs up her tail in the rest pose) and `+X` closes the frame.
-  The knot is therefore against the fur, not threaded on the tail, and the tails hang down it. No
-  world-space body axes are involved.
-- The knot stands off her tail by `tail_radius(pony) * FUR_SCALE` (`1.9`), and that radius is
-  `identity.tail_segment_radii[1]`. Those are the springs the hair fan is drawn around, and the
-  fur is much thicker than them, so a bow placed on the spring radius disappears inside the tail.
-  A constant share is deliberate: measuring her visible tail mesh needed per-vertex skinning,
-  cost ~150 ms per pony and produced unstable results.
-- `local_transform()` finishes with a 180 deg spin about her body-up axis through the knot: tied
-  on the dock, the bow has to sit with its loops up her body and its tails hanging down the tail,
-  which is the opposite of the roll the tail's rest frame gives it.
-- The bow's scale is her spring radius over `AUTHORED_RADIUS` (`0.06 m`) times `size`, so a thicker
-  tail gets a bigger bow without re-authoring the mesh.
-- `refresh()` re-applies the transform and the dye in place; the geometry never changes at runtime.
-  Tying the bow on defers the `refresh_geometry_variant()` call (`call_deferred`) because that
-  rebuilds both merged meshes; doing it inside the frame that ties the bow on, or inside an act,
-  is a visible hitch. Settings edits must never detach and re-attach the piece for the same reason.
-- The imported material is replaced with `satin()`, a matte cloth `StandardMaterial3D` whose albedo
-  is the dye, so one mesh covers every colour. `presentation.tail_bow.*` tunes `size`, `along_m`,
-  `lift_m`, `tilt_deg` and the dye (red by default). `lift_m` raises the bow along her up axis
-  (negative drops it) and is the knob for how far the bow sits above the attach point; `along_m`
-  slides it down the tail. `size` defaults to `1.5` and `along_m` to `0`, which
-  ties it at `mTail2`'s origin: `mTail1` sits up on the croup, so a bow on it reads as pasted on
-  her back rather than tied at the base of the tail.
-- `tests/bow_preview.gd` ties the bow on a loaded mare and writes `/tmp/opencode/bow_*.png` from
-  behind, the side and close up. Run it with the real display driver; shape work is verified by
-  looking at those images, never by guessing.
-- Worn state is `Mods.state("unfplap").tail_bows`, keyed by pony id, saved with `Mods.save_changed()`.
-  `tail_bow_gift.gd` reconciles once a second: a worn record without a mesh ties one on and a mesh
-  without a record takes it off, so a bow survives world loads and late-spawning ponies.
-- The gift is verbal: `offer_kind()` matches Anon's line locally ("I got you a tail bow", "take that
-  bow off"), her answer goes through the shared classifier (`classify_agreement`, kind
-  `agreement`, one queued job) with a local yes/no fallback, and the game's own gift willingness
-  (anger ≥ 35 or an asked-for boundary) can refuse. An accepted gift flusters her, records a
-  `gift` bond experience and a `gift` world-context line, then saves.
-- `main.prompt_note()` reports the worn bow to her own dialogue prompt; the stock wardrobe line
-  only knows its own kinds. `_exit_tree()` takes every bow off so a mid-game switch-off leaves no
-  orphaned accessory.
-- **Debug → Actions** has "Tie on a tail bow" and "Untie the tail bow" for the aimed or nearest
-  mare, bypassing the conversation.
-
 ## Critical: ACTIVE readiness and strength
 
 `thrust.gd` is pure and has no scene access. It tracks raw depth and closes a stroke on a real
@@ -1051,7 +978,6 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 | `bed_creaks` | `false` | wooden `bed_wood_in` / `bed_wood_out` cues; plaps, slides and fabric stay |
-| `tail_bow` | `false` | satin tail bow accessory and its conversation gift; off by default, off hides worn bows and keeps the record |
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.

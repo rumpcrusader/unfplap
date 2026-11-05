@@ -9,8 +9,6 @@ const INPUT := preload("res://mods/unfplap/input.gd")
 const INITIATION := preload("res://mods/unfplap/initiation.gd")
 const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
-const TAIL_BOW := preload("res://mods/unfplap/tail_bow.gd")
-const TAIL_BOW_GIFT := preload("res://mods/unfplap/tail_bow_gift.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
@@ -42,7 +40,6 @@ var input
 var initiation
 var classifier
 var dialogue_consent
-var tail_bow
 var active_runtime
 
 var _runtimes: Dictionary = {}
@@ -77,9 +74,6 @@ func prompt_note(pony: String) -> String:
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime) and str(runtime.get("_id")) == pony:
 			return str(runtime.call("prompt_note"))
-	# The stock wardrobe line only knows its own kinds; a mod-owned bow has to say so itself.
-	if TAIL_BOW.feature_on() and TAIL_BOW.wears_id(pony):
-		return "- You are wearing the satin tail bow Anon gave you, tied at the base of your tail."
 	return ""
 
 
@@ -105,6 +99,11 @@ func _ready() -> void:
 	debug_logs = TUNABLES.get_bool("debug_logs")
 	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
+	# Retired feature: drop its worn record so old saves carry no dead key.
+	var state: Dictionary = Mods.state("unfplap")
+	if state.has("tail_bows"):
+		state.erase("tail_bows")
+		Mods.save_changed()
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
@@ -112,13 +111,6 @@ func _ready() -> void:
 	dialogue_consent.name = "UnfplapDialogueConsent"
 	dialogue_consent.main = self
 	add_child(dialogue_consent)
-	tail_bow = TAIL_BOW_GIFT.new()
-	tail_bow.name = "UnfplapTailBow"
-	tail_bow.main = self
-	add_child(tail_bow)
-	# Read the modelled bow once at load: the first tie-on must not pay the mesh import.
-	if TAIL_BOW.feature_on():
-		TAIL_BOW.bow_mesh()
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.main = self
@@ -171,8 +163,6 @@ func _on_world(host: Node) -> void:
 		classifier.call("cancel_all")
 	if is_instance_valid(dialogue_consent):
 		dialogue_consent.call("reset")
-	if is_instance_valid(tail_bow):
-		tail_bow.call("reset")
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -186,8 +176,6 @@ func _on_world_closed(_host: Node) -> void:
 		classifier.call("cancel_all")
 	if is_instance_valid(dialogue_consent):
 		dialogue_consent.call("reset")
-	if is_instance_valid(tail_bow):
-		tail_bow.call("reset")
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
@@ -252,8 +240,6 @@ func _on_game_setting_changed(key: String) -> void:
 
 func _apply_live_settings() -> void:
 	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
-	if is_instance_valid(tail_bow) and tail_bow.has_method("refresh"):
-		tail_bow.call("refresh")
 	if is_instance_valid(active_runtime) and active_runtime.has_method("apply_live_settings"):
 		active_runtime.call("apply_live_settings")
 
@@ -1030,42 +1016,6 @@ func action_standing_offer() -> String:
 	return _debug_offer_request(CATALOG.STANDING)
 
 
-## Debug Actions: tie or untie the satin tail bow without the conversation.
-func action_tail_bow_give() -> String:
-	if not TAIL_BOW.feature_on():
-		return "Tail bow gifts are off; turn them on in Debug -> Tail bow."
-	var target := _tail_bow_target()
-	if not is_instance_valid(target):
-		return "No mare under the crosshair or nearby."
-	var id := TAIL_BOW.worn_id(target)
-	if id.is_empty():
-		return "No pony id for %s." % str(target.name)
-	TAIL_BOW.set_worn(id, true)
-	if not is_instance_valid(TAIL_BOW.attach(target)):
-		return "%s's tail rig is not ready yet; the bow appears when it is." % str(target.name)
-	_debug("tail bow: %s tied on" % id)
-	return "%s is wearing the tail bow." % str(target.name).capitalize()
-
-
-func action_tail_bow_take() -> String:
-	var target := _tail_bow_target()
-	if not is_instance_valid(target):
-		return "No mare under the crosshair or nearby."
-	var id := TAIL_BOW.worn_id(target)
-	TAIL_BOW.set_worn(id, false)
-	TAIL_BOW.detach(target)
-	_debug("tail bow: %s taken off" % id)
-	return "%s is no longer wearing the tail bow." % str(target.name).capitalize()
-
-
-func _tail_bow_target() -> Node:
-	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	return target
-
-
 ## Shared by the Debug tab actions.
 func _debug_offer_request(pose := "") -> String:
 	if not is_instance_valid(initiation) or not is_instance_valid(player):
@@ -1475,13 +1425,6 @@ func nearest_lying(view: Camera3D) -> Node:
 func _exit_tree() -> void:
 	_clear_injected_settings()
 	_clear_native_hint()
-	# Switched off mid-game: take every bow off so no pony keeps an orphaned accessory.
-	if is_instance_valid(tail_bow):
-		for pony: Variant in mares():
-			if is_instance_valid(pony):
-				TAIL_BOW.detach(pony)
-		tail_bow.call("reset")
-		tail_bow.queue_free()
 	if is_instance_valid(initiation):
 		initiation.reset()
 		initiation.queue_free()

@@ -203,23 +203,6 @@ static func all() -> Dictionary:
 		"presentation.standing.smack.return_speed": num(3.0, "Return speed",
 			"Strike speed in metres per second.", "Standing › Smack", "m/s", 0.1),
 
-		# Debug: the satin tail bow.
-		"features.tail_bow": flag(false, "Tail bow gifts",
-			"Off by default. On: a mare can accept a satin tail bow when Anon offers one in conversation. Off hides the whole accessory and keeps who already owns one.",
-			"Tail bow"),
-		"presentation.tail_bow.size": num(1.5, "Bow size",
-			"Scale of the modelled bow, on top of her own tail size.", "Tail bow", "×", 0.01),
-		"presentation.tail_bow.along_m": num(0.0, "Tie point",
-			"Distance from the tail root toward her tail tip.", "Tail bow", "cm", 0.5, 100.0),
-		"presentation.tail_bow.lift_m": num(0.0, "Lift",
-			"How far above the attach point the bow sits, along her up axis. Negative drops it.",
-			"Tail bow", "cm", 0.5, 100.0),
-		"presentation.tail_bow.tilt_deg": num(-15.0, "Tilt",
-			"Lean the whole bow up or back on the tail.", "Tail bow", "°", 1.0),
-		"presentation.tail_bow.colour": choice("red", ["red", "rose", "pink", "cream", "purple", "midnight"],
-			["Red", "Rose", "Pink", "Cream", "Purple", "Midnight"], "Dye",
-			"Satin colour of the bow.", "Tail bow"),
-
 	}
 	return _cache
 

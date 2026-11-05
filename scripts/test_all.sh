@@ -28,7 +28,6 @@ TESTS=(
 	test_hud
 	test_initiation
 	test_act_audio
-	test_tail_bow
 )
 
 failed=0

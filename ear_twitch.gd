@@ -15,6 +15,7 @@ const TWITCH_GAIN_MIN := 0.75
 const TWITCH_GAIN_MAX := 1.15
 
 var mare: Node3D
+var runtime: Node
 
 var _left := -1
 var _right := -1
@@ -48,6 +49,13 @@ func try_trigger(strength: float) -> void:
 
 
 func _process_modification_with_delta(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_apply(delta)
+	if is_instance_valid(runtime):
+		runtime.call("perf_note", "ear_twitch", Time.get_ticks_usec() - started)
+
+
+func _apply(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
 	if _time < 0.0:
 		return

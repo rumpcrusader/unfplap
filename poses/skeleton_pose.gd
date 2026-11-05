@@ -10,6 +10,7 @@ const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 const DEBUG_MISSIONARY_DUMP := true
 
 var mare: Node3D
+var runtime: Node
 var mode := "missionary"
 var afterglow_pose := CATALOG.MISSIONARY
 var look_point := Vector3.ZERO
@@ -41,6 +42,13 @@ func _cache() -> void:
 
 
 func _process_modification_with_delta(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_apply(delta)
+	if is_instance_valid(runtime):
+		runtime.call("perf_note", "pose_recipe", Time.get_ticks_usec() - started)
+
+
+func _apply(delta: float) -> void:
 	var sk := get_skeleton()
 	if sk == null or not is_instance_valid(mare):
 		return

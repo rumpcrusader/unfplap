@@ -94,6 +94,8 @@ const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_Y_SECONDS := 0.35
+## Debug perf probe window (one `[unfplap] perf` block per second, DEBUG LOGS only).
+const PERF_WINDOW_S := 1.0
 ## After this long the mare may choose to end the afterglow herself. Being held or caressed
 ## lowers the chance; an accepted [stay] pauses the roll entirely.
 const AFTERGLOW_SELF_END_SECONDS := 16.0
@@ -394,6 +396,81 @@ func _log(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
 		main.call("debug", text)
 
+
+## Debug perf probe. Timed chunks report microseconds here; `_perf_tick()` prints one summary a
+## second so a pony-specific stall can be attributed to a modifier without a live profiler.
+var _perf: Dictionary = {}
+var _perf_clock := 0.0
+var _perf_frames := 0
+
+
+func _perf_on() -> bool:
+	return is_instance_valid(main) and bool(main.get("debug_logs"))
+
+
+## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with logs off.
+func perf_note(key: String, usec: int) -> void:
+	if not _perf_on():
+		return
+	var row: Array = _perf.get(key, [0, 0, 0])
+	row[0] = int(row[0]) + 1
+	row[1] = int(row[1]) + usec
+	row[2] = maxi(int(row[2]), usec)
+	_perf[key] = row
+
+
+## Time one call site for the perf probe (callers take the start stamp themselves).
+func _timed(key: String, started: int) -> void:
+	if _perf_on():
+		perf_note(key, Time.get_ticks_usec() - started)
+
+
+func _perf_tick(delta: float) -> void:
+	if not _perf_on() or state == State.IDLE:
+		_perf_clock = 0.0
+		_perf_frames = 0
+		_perf.clear()
+		return
+	_perf_frames += 1
+	_perf_clock += delta
+	if _perf_clock < PERF_WINDOW_S:
+		return
+	var frames := maxi(1, _perf_frames)
+	_perf_clock = 0.0
+	_perf_frames = 0
+	var rows: Array = []
+	for key: String in _perf:
+		var row: Array = _perf[key]
+		rows.append([key, int(row[0]), float(row[1]) / 1000.0, int(row[2])])
+	_perf.clear()
+	rows.sort_custom(func(a: Array, b: Array) -> bool: return float(a[2]) > float(b[2]))
+	var near_mesh := "?"
+	var tier := "?"
+	if is_instance_valid(pony):
+		var value: Variant = pony.get("near_mesh_enabled")
+		near_mesh = str(value) if value != null else "?"
+		value = pony.get("sim_tier")
+		tier = str(value) if value != null else "?"
+	var wings: Variant = _wings_controller()
+	var wing_state := "no"
+	if wings != null:
+		if bool(wings.get("_wing_hold")):
+			wing_state = "held"
+		elif bool(wings.get("_winged")):
+			wing_state = "winged"
+	var dock := "no"
+	if is_instance_valid(_dock_tail):
+		dock = "on" if bool(_dock_tail.get("_active")) else "off"
+	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms near_mesh=%s tier=%s wings=%s dock=%s" % [
+		_id, pose_id, state, Engine.get_frames_per_second(),
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		near_mesh, tier, wing_state, dock]
+	for row: Array in rows:
+		text += "\n\t%-16s %7.2fms/s avg %6.3fms max %6.2fms calls %d" % [
+			str(row[0]), float(row[2]), float(row[2]) / frames, float(row[3]) / 1000.0, int(row[1])]
+	_log(text)
+
+
 ## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
 func _wings_controller():
 	if _wings == null:
@@ -579,7 +656,9 @@ func _act_presentation(delta: float) -> void:
 	var expressions: Variant = pony.get("expressions")
 	if expressions != null and expressions.has_method("fluster") and _feature("act_ear_pin"):
 		expressions.call("fluster", 1.2)
+	var wings_started := Time.get_ticks_usec()
 	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
+	_timed("wings_tick", wings_started)
 
 func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
 	if not is_instance_valid(pony):
@@ -608,6 +687,14 @@ func _clear_face() -> void:
 		expressions.call("release_touch", "unfplap_state")
 
 func _process(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_process_tick(delta)
+	if _perf_on():
+		perf_note("runtime_process", Time.get_ticks_usec() - started)
+		_perf_tick(delta)
+
+
+func _process_tick(delta: float) -> void:
 	if state == State.IDLE:
 		_standing_presentation_controller().process()
 		return
@@ -710,6 +797,13 @@ func _hold_y_tick(delta: float) -> void:
 		cancel()
 
 func _physics_process(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_physics_tick(delta)
+	if _perf_on():
+		perf_note("runtime_physics", Time.get_ticks_usec() - started)
+
+
+func _physics_tick(delta: float) -> void:
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		if _inventory_hud_hidden:
@@ -729,7 +823,9 @@ func _physics_process(delta: float) -> void:
 	_lean_tick(delta)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_act_presentation(delta)
+	var kiss_started := Time.get_ticks_usec()
 	_kiss_controller().tick(delta)
+	_timed("kiss_tick", kiss_started)
 	if state in [State.ACTIVE, State.CLIMAX]:
 		_thrust_tick()
 		if state == State.ACTIVE:
@@ -1852,6 +1948,7 @@ func _build_pose() -> void:
 		_pose = POSE.new()
 		_pose.name = "UnfplapPose"
 		_pose.mare = pony
+		_pose.set("runtime", self)
 		_pose.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
 		_pose.pose_config = SETTINGS.pose(_id, pose_id)
 		_pose.head_roll = _missionary_head_roll
@@ -1944,6 +2041,7 @@ func _install_ear_twitch() -> void:
 	_ear_twitch = EAR_TWITCH.new()
 	_ear_twitch.name = "UnfplapEarTwitch"
 	_ear_twitch.set("mare", pony)
+	_ear_twitch.set("runtime", self)
 	(head as Skeleton3D).add_child(_ear_twitch)
 
 func _remove_extra_modifiers() -> void:
@@ -3502,7 +3600,9 @@ func _lean_tick(delta: float) -> void:
 			+ sin(_hold_rock_clock * 0.57 + 1.1) * side_sway, -1.0, 1.0)
 	_lean_action_tick()
 	_kiss_controller().standing_tick()
+	var caress_started := Time.get_ticks_usec()
 	_caress_controller().tick(delta)
+	_timed("caress_tick", caress_started)
 	if pose_id == CATALOG.STANDING:
 		_standing_camera_controller().apply_lean_look()
 

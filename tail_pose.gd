@@ -109,6 +109,13 @@ func _flick_angle(delta: float) -> float:
 
 
 func _process_modification_with_delta(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_apply(delta)
+	if is_instance_valid(runtime):
+		runtime.call("perf_note", "tail_pose", Time.get_ticks_usec() - started)
+
+
+func _apply(delta: float) -> void:
 	var sk := get_skeleton()
 	if sk == null or not is_instance_valid(mare):
 		return

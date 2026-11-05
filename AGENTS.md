@@ -940,6 +940,13 @@ examples.
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - `debug_logs` is read from settings and defaults OFF. Toggle it with the **Debug logs**
   checkbox in **Debug → General**; there is no hotkey. It controls logging only.
+- With `debug_logs` on, an act prints one `perf` block a second: pony, pose, state, fps, frame
+  time, `near_mesh`, sim tier, wing hold, dock-follower state, then the per-second cost of every
+  timed chunk (runtime process/physics, pose recipe, tail pose, body sway, ear twitch, dock
+  fast/full/start, caress, wings, kiss, camera motion, HUD). A chunk calls
+  `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
+  instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
+  outside an act.
 - `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready. Mouse4

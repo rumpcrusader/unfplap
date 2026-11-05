@@ -40,15 +40,25 @@ func restore() -> void:
 	_stop()
 
 
-func _process_modification_with_delta(delta: float) -> void:
+func _process_modification_with_delta(_delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_follow()
+	_note("dock_follow", started)
+
+
+func _follow() -> void:
 	if not is_instance_valid(mare) or not is_instance_valid(runtime):
 		return
 	if not _start():
 		return
+	var query_started := Time.get_ticks_usec()
 	var result: Dictionary = TAIL_COAT_POINT.point_triangle(mare, _last_triangle) \
 		if not _last_triangle.is_empty() else {}
+	_note("dock_fast", query_started)
 	if result.is_empty():
+		query_started = Time.get_ticks_usec()
 		result = TAIL_COAT_POINT.point(mare)
+		_note("dock_full", query_started)
 	var hit: Variant = result.get("position", Vector3.INF)
 	if hit is Vector3 and (hit as Vector3).is_finite():
 		_point = hit
@@ -98,6 +108,7 @@ func _start() -> bool:
 			_log("dock tail-coat start failed dock=%s body=%s hips=%d tail=%d/%d tip=%s" % [
 				str(is_instance_valid(_dock)), str(is_instance_valid(_body_sk)), _hips,
 				_tail1, _tail2, str(_anchor_local)])
+		_note("dock_start_fail", Time.get_ticks_usec())
 		return false
 	_dock_base = _dock.transform
 	_point = Vector3.INF
@@ -285,6 +296,11 @@ func _clear_mark_twins() -> void:
 			var mat: Variant = mi.get_active_material(si)
 			if mat is Material and (mat as Material).has_meta("jiggle_twin"):
 				(mat as Material).remove_meta("jiggle_twin")
+
+
+func _note(key: String, started: int) -> void:
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", key, Time.get_ticks_usec() - started)
 
 
 func _log(text: String) -> void:

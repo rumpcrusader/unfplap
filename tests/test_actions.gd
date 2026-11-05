@@ -33,6 +33,41 @@ class FakeBody extends Node3D:
 	var _left_foot: Node3D
 	var _right_foot: Node3D
 
+
+class FakeMain extends Node:
+	var debug_logs := true
+	var lines: Array[String] = []
+
+	func debug(text: String) -> void:
+		lines.append(text)
+
+
+func _check_perf_probe() -> void:
+	var fake_main := FakeMain.new()
+	var probe: Node = RUNTIME.new()
+	probe.set("main", fake_main)
+	probe.set("_id", "twilight_sparkle")
+	probe.set("pose_id", CATALOG.STANDING)
+	probe.set("state", 2)
+	probe.call("perf_note", "probe_chunk", 1200)
+	probe.call("perf_note", "probe_chunk", 800)
+	probe.call("_perf_tick", 0.4)
+	check(fake_main.lines.is_empty(), "perf window waits for a full second")
+	probe.call("_perf_tick", 0.7)
+	check(fake_main.lines.size() == 1, "perf prints one block a second")
+	if not fake_main.lines.is_empty():
+		var line := fake_main.lines[0]
+		check(line.begins_with("perf pony=twilight_sparkle pose=standing state=2"),
+			"perf block names the pony and pose")
+		check(line.contains("\n\tprobe_chunk"), "perf block lists a timed chunk")
+		check(line.contains("2.00ms/s"), "perf block totals the window")
+	fake_main.debug_logs = false
+	probe.call("perf_note", "hidden_chunk", 500)
+	probe.call("_perf_tick", 1.1)
+	check(fake_main.lines.size() == 1, "perf is silent with debug logs off")
+	probe.free()
+	fake_main.free()
+
 var failures := 0
 var checks := 0
 
@@ -612,6 +647,8 @@ func run() -> void:
 	check(not cuddle_pony.has_meta("couch_cuddle"), "active runtime suppresses auto cuddle")
 	cuddle_pony.free()
 	cuddle_runtime.free()
+
+	_check_perf_probe()
 
 	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

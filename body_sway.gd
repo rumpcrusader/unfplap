@@ -20,6 +20,13 @@ var _velocity := 0.0
 
 
 func _process_modification_with_delta(delta: float) -> void:
+	var started := Time.get_ticks_usec()
+	_apply(delta)
+	if is_instance_valid(runtime):
+		runtime.call("perf_note", "body_sway", Time.get_ticks_usec() - started)
+
+
+func _apply(delta: float) -> void:
 	if not is_instance_valid(mare) or not is_instance_valid(runtime):
 		return
 	var depth_value: Variant = runtime.get("depth")

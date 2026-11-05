@@ -753,12 +753,16 @@ func _process(delta: float) -> void:
 		if is_instance_valid(body):
 			_on_player(body)
 	if is_instance_valid(active_runtime):
+		var camera_started := Time.get_ticks_usec()
 		active_runtime.apply_camera_motion()
+		active_runtime.call("perf_note", "camera_motion", Time.get_ticks_usec() - camera_started)
 		if is_instance_valid(hud):
 			var show_readouts := true
 			if active_runtime.has_method("hud_readouts"):
 				show_readouts = bool(active_runtime.call("hud_readouts"))
+			var hud_started := Time.get_ticks_usec()
 			hud.update_from(active_runtime, show_readouts)
+			active_runtime.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
 		_offer = {}
 		_sync_native_hint(false)
 		return

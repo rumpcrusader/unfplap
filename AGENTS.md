@@ -568,7 +568,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   hidden-hand `SMACK_SWING_SECONDS = 0.20` swing, impacting at `SMACK_CONTACT_PHASE = 0.45`. A
   `SMACK_COOLDOWN_MS = 200` gate remains; a new smack waits for the current recovery.
 - It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs one
-  peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` (three samples, never the
+  peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` (two samples, never the
   same one twice in a row) on the native sound player immediately before the impact, with a
   small pitch jitter; `act_foley` off keeps the stock `flank_slap.wav`. The stock stream, level
   and pitch are restored at act end. The pony's `physical_reaction` connections are temporarily

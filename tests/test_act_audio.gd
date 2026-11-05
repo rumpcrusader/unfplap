@@ -137,7 +137,7 @@ func run() -> void:
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
 	check(not CATALOGUE.CUES.has("smack"), "flank smack stays out of the optional cue table")
-	check(SMACK.PATHS.size() >= 3, "flank smack has multiple pack variants")
+	check(SMACK.PATHS.size() >= 2, "flank smack has multiple pack variants")
 	for path: String in SMACK.PATHS:
 		check(ResourceLoader.exists(path), "smack stream exists: " + path)
 		var smack_stream: Resource = load(path)

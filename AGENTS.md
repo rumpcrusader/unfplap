@@ -899,6 +899,9 @@ examples.
   manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
   `Kiss`), mouse right (`Smack flank`) and Y (`Hold`; `Stop`, `Afterglow` or `Exit` by state).
   The card has no separate title.
+- While Anon leans in for a kiss the control card eases to `0.2` alpha over `0.25 s` and back.
+  The cue, readiness line and bar stay at full opacity. `runtime.hud_kiss_fade()` wraps
+  `kiss_control.leaning_close()`, so both poses and the base-kiss release are covered.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; `_end_session()` restores it on every exit path, and
   `_physics_process` also restores it if `IDLE` is ever reached while still marked hidden. The

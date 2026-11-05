@@ -269,6 +269,8 @@ caressing her or leaning in; leaning counts as staying close/hugging.
   `Lean`, `Reach`, `Caress` and `Caress movement`; they do not spell out both directions.
   Only the two `Hold` rows carry the modifier column, so an icon is followed by its words with
   no reserved blank space.
+- The control card fades to 20% while Anon leans in for a kiss and returns after it; the cue and
+  readiness readouts stay at full opacity.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
   standing keeps lean, reach, caress, caress movement, kiss and Y; thrust, auto and smack are
   hidden.

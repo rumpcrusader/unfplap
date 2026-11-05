@@ -22,6 +22,9 @@ const KEYCAP_SIZE := Vector2(32.0, 28.0)
 const ICON_EDGE := 28.0
 ## The game's carry card puts "Tap"/"Hold" in its own muted column.
 const MODE_WIDTH := 38.0
+## The control card fades out of the way while Anon leans in for a kiss.
+const CONTROLS_KISS_ALPHA := 0.2
+const CONTROLS_FADE_S := 0.25
 ## Center prompt: the game's prompt-row scale (52 px icon, 30 px words, 10 px outline).
 const PROMPT_ICON_EDGE := 52.0
 const PROMPT_FONT := 30
@@ -35,6 +38,9 @@ var _hint_status: Label
 var _hint_readiness: Label
 var _hint_auto: Label
 var _hint_gap: Control
+var _controls: VBoxContainer
+var _controls_tween: Tween
+var _controls_alpha := 1.0
 var _readiness_bar: Control
 var _y_label: Label
 var _thrust_label: Label
@@ -100,6 +106,12 @@ func _ready() -> void:
 	_readiness_bar.name = "Readiness"
 	_readiness_bar.visible = false
 	_hint.add_child(_readiness_bar)
+	_controls = VBoxContainer.new()
+	_controls.name = "Controls"
+	_controls.add_theme_constant_override("separation", 6)
+	_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controls.visible = false
+	_hint.add_child(_controls)
 	_build_controls()
 	# Cue line, readiness text, auto readout, bar, then the separator, then the control rows.
 	_hint.move_child(_hint_status, 0)
@@ -212,7 +224,7 @@ func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Labe
 	var label := text_label(text, 17)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
-	_hint.add_child(row)
+	_controls.add_child(row)
 	_control_rows[key] = row
 	return label
 
@@ -254,6 +266,13 @@ func hide_act() -> void:
 		_hint_gap.visible = false
 	if _readiness_bar != null:
 		_readiness_bar.visible = false
+	if _controls != null:
+		_controls.visible = false
+		_controls.modulate.a = 1.0
+	_controls_alpha = 1.0
+	if is_instance_valid(_controls_tween):
+		_controls_tween.kill()
+		_controls_tween = null
 
 
 func hide_all() -> void:
@@ -311,13 +330,34 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		_thrust_label.text = "Max depth" if auto_on else "Thrust"
 	if _auto_label != null:
 		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
-	if _hint_gap != null:
-		_hint_gap.visible = _hint.visible
+	_set_controls_faded(_kiss_fade(runtime))
+
+
+## Anon leaning in for a kiss gets the control card out of the shot.
+func _kiss_fade(runtime: Node) -> bool:
+	return runtime.has_method("hud_kiss_fade") and bool(runtime.call("hud_kiss_fade"))
+
+
+func _set_controls_faded(faded: bool) -> void:
+	var target := CONTROLS_KISS_ALPHA if faded else 1.0
+	if is_equal_approx(target, _controls_alpha):
+		return
+	_controls_alpha = target
+	if not is_instance_valid(_controls):
+		return
+	if is_instance_valid(_controls_tween):
+		_controls_tween.kill()
+	_controls_tween = create_tween()
+	_controls_tween.tween_property(_controls, "modulate:a", target, CONTROLS_FADE_S)
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
 ## afterglow keeps only Y; standing afterglow keeps lean, reach, caress, kiss and Y.
 func _apply_control_visibility(state: int, runtime: Node) -> void:
+	if _controls != null:
+		_controls.visible = _hint.visible
+	if _hint_gap != null:
+		_hint_gap.visible = _hint.visible
 	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
 	var afterglow := state == STATE_AFTERGLOW
 	for key: String in _control_rows:

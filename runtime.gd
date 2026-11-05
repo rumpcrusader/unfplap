@@ -624,6 +624,10 @@ func _refresh_live_voice() -> void:
 func hud_readouts() -> bool:
 	return bool(_features.get("hud_readouts", true))
 
+## The control card fades out of the way while Anon leans in for a kiss.
+func hud_kiss_fade() -> bool:
+	return _kiss_controller().leaning_close()
+
 ## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
 ## always kept in afterglow even when the optional readouts are off.
 func hud_cue_line(show_readouts := true) -> String:

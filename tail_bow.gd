@@ -24,7 +24,7 @@ const STATE_KEY := "tail_bows"
 ## Fallback tail radius when the mesh cannot be measured (identity.tail_segment_radii mid value).
 const FALLBACK_RADIUS := 0.065
 const RADIUS_WINDOW := 0.010
-const RADIUS_PERCENTILE := 0.62
+const RADIUS_PERCENTILE := 0.45
 
 ## Satin dyes. The key is stored in settings; the bow keeps its colour for every pony.
 const COLOURS := {
@@ -346,14 +346,16 @@ static func _refresh_variant(pony: Node, on: bool) -> void:
 
 const LOOP_SAMPLES := 16
 const LOOP_CROSS := 8
-const LOOP_REACH := 1.50
-const LOOP_WIDTH := 0.78
+const LOOP_REACH := 1.72
+const LOOP_WIDTH := 0.92
 const LOOP_PINCH := 0.16
 const LOOP_THICK := 0.0018
-const WRAP_TURNS := 2
-const WRAP_WIDTH := 0.45
+## One tight band around the dock and tail base: the knot and the two loops sit on it, and there
+## are no extra winding turns.
+const WRAP_TURNS := 1
+const WRAP_WIDTH := 0.34
 const WRAP_THICK := 0.0022
-const WRAP_STEP := 0.62
+const WRAP_STEP := 0.0
 const KNOT_RADII := Vector3(0.30, 0.24, 0.22)
 
 
@@ -390,17 +392,17 @@ static func satin(colour: Color) -> StandardMaterial3D:
 	return material
 
 
-## Two turns of ribbon around the tail, each slightly tilted so they cross like a tied band.
+## The band cinched around the dock and tail base. It hugs the measured surface with a few
+## millimetres of clearance, so it reads as pulled tight rather than resting on the fur.
 static func _commit_wraps(mesh: ArrayMesh, r: float, cfg: Dictionary, colour: Color) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var margin := float(cfg.get("margin_m", 0.004))
+	var margin := float(cfg.get("margin_m", 0.002))
 	var band := r + margin
 	for turn: int in WRAP_TURNS:
 		var centre := Vector3(0.0, 0.0, (float(turn) - 0.5) * WRAP_STEP * r)
-		var lean := (float(turn) * 2.0 - 1.0) * 0.30
 		_add_ring(st, centre, band, WRAP_WIDTH * r * 0.5, WRAP_THICK * r / 0.05,
-			Basis(Vector3.RIGHT, lean), 32, 6)
+			Basis.IDENTITY, 40, 6)
 	_commit(mesh, st, satin(colour.darkened(0.08)))
 
 
@@ -412,9 +414,11 @@ static func _commit_loops(mesh: ArrayMesh, r: float, loop_scale: float, splay: f
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var length := r * LOOP_REACH * loop_scale
 	var half_width := r * LOOP_WIDTH * loop_scale
-	var knot := Vector3(0.0, r * 0.86, 0.0)
+	var knot := Vector3(0.0, r * 0.80, 0.0)
 	for side: float in [-1.0, 1.0]:
-		_add_petal(st, knot, side, length, half_width, splay, r)
+		# Each loop starts outboard of the knot, so the two read as separate wings.
+		var base := knot + Vector3(side * r * 0.52, 0.0, 0.0)
+		_add_petal(st, base, side, length, half_width, splay, r)
 	_commit(mesh, st, satin(colour))
 
 
@@ -422,7 +426,7 @@ static func _add_petal(st: SurfaceTool, knot: Vector3, side: float, length: floa
 		half_width: float, splay: float, r: float) -> void:
 	var thick := LOOP_THICK * r / 0.05
 	# Each petal points outward and a little up, then opens away from its twin.
-	var direction := Vector3(side, 0.06, 0.0).normalized()
+	var direction := Vector3(side, 0.16, 0.0).normalized()
 	var frame := Basis(Vector3.BACK, atan2(direction.y, direction.x))
 	frame = frame * Basis(Vector3.UP, side * splay) * Basis(Vector3.RIGHT, -0.16)
 	var face: Vector3 = frame * Vector3.BACK

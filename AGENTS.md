@@ -603,9 +603,10 @@ uses the game's own runtime accessory idiom (`background_pony.gd`, Braeburn's ha
 glasses).
 
 - `tail_bow.gd` builds the one design as a single unskinned `MeshInstance3D` named `TailBow` with
-  satin surfaces: two folded satin petals gathered at a knot, and two turns of ribbon wound around
-  the tail itself. Each petal is a solid leaf with a fold ridge down its length and a rolled rim,
-  not a tube, which is what makes it read as a tied bow. There are no hanging tails yet.
+  satin surfaces: one tight band cinched around the dock and tail base, a gathered knot on its
+  outer side, and two folded satin petals out to the sides. Each petal is a solid leaf with a fold
+  ridge down its length and a rolled rim, not a tube, which is what makes it read as a tied bow.
+  There are no extra winding turns and no hanging tails.
 - Attachment: a `BoneAttachment3D` on the hair rig's `mTail1`, the name added to a **duplicated**
   `identity.accessories` (typed `Array[String]`; an untyped array is rejected), then
   `refresh_geometry_variant("…|tail-bow")` so both merged meshes re-gather. The merged near mesh
@@ -618,8 +619,9 @@ glasses).
   and only `presentation.tail_bow.size` scales it. Never multiply by `body_scale` again.
 - The bow is **tied around the tail**, not floated behind it: its origin sits on the tail axis at
   `along_m` down the tail, its plane is square to the tail bone's own direction, and its loops stay
-  level with her body. The knot sits on the tail's outer surface.
-- The tie radius is **measured from her own tail mesh** (`tail_radius()`): the 62nd percentile of
+  level with her body. The knot sits on the tail's outer surface and each loop starts outboard of
+  it, so the band reads as cinched rather than resting on the fur.
+- The tie radius is **measured from her own tail mesh** (`tail_radius()`): the 45th percentile of
   the vertex radii within ±10 mm of the tie point, in the tail bone's rest frame, cached per pony
   identity. A bushy tail's widest strand is not its body, so a max would oversize the wrap; the
   `identity.tail_segment_radii` mid value is only the fallback when the mesh cannot be read.

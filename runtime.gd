@@ -230,6 +230,8 @@ var _y_hold := 0.0
 var _y_hold_ready := false
 var _y_hold_fired := false
 var _nav: Node
+## Wander flag found when the act claimed the navigator. Other systems can hold it off, so the
+## act gives back what it found instead of forcing it on.
 var _nav_old_wander := true
 var _token := ""
 var _id := ""
@@ -1680,7 +1682,7 @@ func _release_nav() -> void:
 		return
 	if str(_nav.get("command_owner")) == _token:
 		_nav.set("command_owner", "")
-	_nav.set("wander_enabled", true)
+	_nav.set("wander_enabled", _nav_old_wander)
 	_nav = null
 
 func _lock_player() -> void:

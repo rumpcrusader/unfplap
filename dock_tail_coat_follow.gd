@@ -8,6 +8,8 @@ const TAIL_COAT_POINT := preload("res://mods/unfplap/tail_coat_point.gd")
 const HIPS := "pony_hips"
 const TAIL1 := "mTail1"
 const TAIL2 := "mTail2"
+## Minimum gap between full coat queries; the cached-triangle fast path runs every frame.
+const RECHECK_S := 0.25
 
 var mare: Node3D
 var runtime: Node
@@ -25,6 +27,7 @@ var _root_local := Vector3.INF
 var _tail_dir0 := Vector3.ZERO
 var _point := Vector3.INF
 var _last_triangle: Array = []
+var _recheck_at := 0
 var _active := false
 var _near_was_enabled := false
 var _near_disabled := false
@@ -51,18 +54,20 @@ func _follow() -> void:
 		return
 	if not _start():
 		return
-	var query_started := Time.get_ticks_usec()
-	var result: Dictionary = TAIL_COAT_POINT.point_triangle(mare, _last_triangle) \
-		if not _last_triangle.is_empty() else {}
-	_note("dock_fast", query_started)
-	if result.is_empty():
-		query_started = Time.get_ticks_usec()
-		result = TAIL_COAT_POINT.point(mare)
-		_note("dock_full", query_started)
-	var hit: Variant = result.get("position", Vector3.INF)
-	if hit is Vector3 and (hit as Vector3).is_finite():
-		_point = hit
-		_last_triangle = result.get("triangle", [])
+	var matched := false
+	if not _last_triangle.is_empty():
+		var fast_started := Time.get_ticks_usec()
+		matched = _take(TAIL_COAT_POINT.point_triangle(mare, _last_triangle))
+		_note("dock_fast", fast_started)
+	# The full query skins the cached coat patch and costs milliseconds, so it only runs when
+	# the cached triangle missed and RECHECK_S has passed. Between queries the previous point
+	# stands; the tail axis feeds rotation only, and the rotation itself still reads the live
+	# bones every frame, so the dock never freezes.
+	if not matched and Time.get_ticks_msec() >= _recheck_at:
+		_recheck_at = Time.get_ticks_msec() + int(RECHECK_S * 1000.0)
+		var full_started := Time.get_ticks_usec()
+		_take(TAIL_COAT_POINT.point(mare))
+		_note("dock_full", full_started)
 	if not _point.is_finite():
 		return
 	if _tail_dir0.length_squared() < 0.0001:
@@ -95,6 +100,15 @@ func _follow() -> void:
 			rad_to_deg(rotation.get_rotation_quaternion().get_angle())])
 
 
+func _take(result: Dictionary) -> bool:
+	var hit: Variant = result.get("position", Vector3.INF)
+	if not (hit is Vector3) or not (hit as Vector3).is_finite():
+		return false
+	_point = hit
+	_last_triangle = result.get("triangle", [])
+	return true
+
+
 func _start() -> bool:
 	if _active and is_instance_valid(_dock):
 		return true
@@ -124,6 +138,7 @@ func _start() -> bool:
 		mare.call("set_near_mesh", false)
 		_near_disabled = true
 	_active = true
+	_recheck_at = Time.get_ticks_msec() + int(RECHECK_S * 1000.0)
 	if not _start_logged:
 		_start_logged = true
 		_log("dock tail-coat start tip=%s dir=%s near=%s" % [

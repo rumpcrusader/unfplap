@@ -466,7 +466,7 @@ func _perf_tick(delta: float) -> void:
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		near_mesh, tier, wing_state, dock]
 	for row: Array in rows:
-		text += "\n\t%-16s %7.2fms/s avg %6.3fms max %6.2fms calls %d" % [
+		text += "\n\t%-16s %7.2fms/s per-frame %6.3fms max %6.2fms calls %d" % [
 			str(row[0]), float(row[2]), float(row[2]) / frames, float(row[3]) / 1000.0, int(row[1])]
 	_log(text)
 

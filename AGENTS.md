@@ -1081,7 +1081,7 @@ rump blush. Unknown settings keys are ignored.
 This is mandatory.
 
 - Update the contract in the same commit as behavior, settings or controls. Put rationale,
-  measurements and tuning history in the commit body.
+  measurements and tuning history in the code comment or the contract doc; commits are one line.
 - Never leave stale paths, removed controls, obsolete constants or incorrect claims. Remove
   obsolete documentation instead of keeping historical notes.
 - Keep camera, pose, thrust and strength details here and in `PREFERENCES.md`/`ROTATION.md`.

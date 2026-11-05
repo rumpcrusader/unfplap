@@ -23,49 +23,31 @@ is a separate repository; never commit game-source changes from the mod repo.
    - `scripts/test_all.sh` for any code change;
    - `scripts/smoke.sh` for entry/runtime changes;
    - `./lab.sh` for camera/pose changes; the session is in `last-run.log`, and say it was manual.
-6. Commit with a scoped imperative subject and a body covering why, behavior and tests.
+6. Commit with one scoped, imperative subject line and no body.
 7. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
    CI builds and releases from the remote, but the agent never pushes.
 
 ## Commit messages
 
 ```text
-<scope>: <short imperative subject>
-
-Why:
-<the problem, request or bug this addresses>
-
-Behavior:
-<what changed, including invariants and user-visible effects>
-
-Tests:
-<headless suite result; smoke; lab path if verified manually>
+<scope>: <short imperative summary>
 ```
+
+One line, at most 72 characters, no trailing period. Reverts use
+`revert: <scope>: <summary>` without the quoted original subject. Do not add a body: the reason
+belongs in the code comment or the contract doc, not in git.
 
 Scopes: `camera`, `missionary`, `standing`, `thrust`, `hips`, `settings`, `hud`, `dialogue`,
 `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`.
 
-Subject at most 72 characters, no trailing period. Body lines at most 100 characters. Never use
-`WIP`, `fixes`, `stuff`, `misc` or `cleanup` as the whole message.
+Never use `WIP`, `fixes`, `stuff`, `misc` or `cleanup` as the whole message: say what changed.
 
-Example:
+Examples:
 
 ```text
 missionary: start the shot at the old max lean point
-
-Why:
-The base shot stayed wide after the speed-driven camera rework, so W only
-reached the framing that used to be the maximum lean point.
-
-Behavior:
-- MISSIONARY_START_LEAN = 1.0 adds one full forward lean to the frozen base view.
-- Forward lean clamps 0.12 m before the neck target, so W pushes toward the
-  neck instead of crossing it.
-- The kiss camera room accounts for the start offset.
-
-Tests:
-- scripts/test_all.sh: all 12 suites pass.
-- scripts/smoke.sh: source startup clean.
+settings: stop clamping tuning values in the consumers
+revert: standing: follow the dock in the offer
 ```
 
 ## Bisect
@@ -123,4 +105,4 @@ git blame <file>
 git show <commit>
 ```
 
-Use commit messages for intent; code comments state invariants, not history.
+Use commit subjects for intent; code comments state invariants, not history.

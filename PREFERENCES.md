@@ -265,7 +265,10 @@ caressing her or leaning in; leaning counts as staying close/hugging.
   still apply.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow. The thrust row reads `Thrust` or
-  `Max depth`, and the X row reads `Switch to auto` or `Switch to manual`.
+  `Max depth`, and the X row reads `Switch to auto` or `Switch to manual`. The pose rows read
+  `Lean`, `Reach`, `Caress` and `Caress movement`; they do not spell out both directions.
+  Only the two `Hold` rows carry the modifier column, so an icon is followed by its words with
+  no reserved blank space.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
   standing keeps lean, reach, caress, caress movement, kiss and Y; thrust, auto and smack are
   hidden.

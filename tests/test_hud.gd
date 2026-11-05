@@ -98,9 +98,12 @@ func _check_controls() -> void:
 	var lean := rows.get("lean") as Control
 	check(lean != null and lean.visible, "lean row shows while active")
 	var lean_box := lean as HBoxContainer
-	check(lean_box.get_child_count() == 4, "a key-pair row is two keys, modifier and words")
-	check((lean_box.get_child(3) as Label).text == "Lean forward / back",
-		"lean row names both directions")
+	check(lean_box.get_child_count() == 3, "a key-pair row is two keys and words")
+	check((lean_box.get_child(2) as Label).text == "Lean",
+		"lean row does not spell out both directions")
+	var smack := rows.get("smack") as HBoxContainer
+	check(smack != null and smack.get_child_count() == 2,
+		"a row without a modifier has no empty column")
 	var auto_row := rows.get("auto") as Control
 	check(auto_row != null and auto_row.visible, "auto thrust row shows while active")
 	check(not (hud.get("_hint_auto") as Control).visible, "auto readout hides while manual")

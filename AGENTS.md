@@ -894,11 +894,11 @@ examples.
   readiness fill). Without that row (VR or no `InteractionHints`) the same row is built into the
   HUD's own centered prompt above the caption line.
 - The act controls are a bottom-left, top-down list: one row per key or key pair, each with
-  keycaps/controller icons, a muted `Hold`/blank modifier column, and one description. Rows list
-  `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to manual`), W S
-  (`Lean forward / back`), Q E (`Reach left / right`), A D (`Caress left / right`), Z C
-  (`Caress movement left / right`), F (`Hold`, `Kiss`), mouse right (`Smack flank`) and Y (`Hold`;
-  `Stop`, `Afterglow` or `Exit` by state). The card has no separate title.
+  keycaps/controller icons and one description; only a row with a modifier renders the muted
+  `Hold` column. Rows list `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to
+  manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
+  `Kiss`), mouse right (`Smack flank`) and Y (`Hold`; `Stop`, `Afterglow` or `Exit` by state).
+  The card has no separate title.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; `_end_session()` restores it on every exit path, and
   `_physics_process` also restores it if `IDLE` is ever reached while still marked hidden. The

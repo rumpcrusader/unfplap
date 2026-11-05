@@ -183,12 +183,12 @@ static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
 func _build_controls() -> void:
 	_thrust_label = _add_hint_row("thrust", [{"cap": "↕"}], "", "Thrust")
 	_auto_label = _add_hint_row("auto", [{"cap": "X"}], "", "Switch to auto")
-	_add_hint_row("lean", [{"cap": "W"}, {"cap": "S"}], "", "Lean forward / back")
+	_add_hint_row("lean", [{"cap": "W"}, {"cap": "S"}], "", "Lean")
 	_add_hint_row("reach", [{"icon": "key_q", "cap": "Q"}, {"icon": "key_e", "cap": "E"}],
-		"", "Reach left / right")
-	_add_hint_row("caress", [{"cap": "A"}, {"cap": "D"}], "", "Caress left / right")
+		"", "Reach")
+	_add_hint_row("caress", [{"cap": "A"}, {"cap": "D"}], "", "Caress")
 	_add_hint_row("caress_move", [{"cap": "Z"}, {"icon": "key_c", "cap": "C"}], "",
-		"Caress movement left / right")
+		"Caress movement")
 	_add_hint_row("kiss", [{"icon": "key_f", "cap": "F"}], "Hold", "Kiss")
 	_add_hint_row("smack", [{"icon": "mouse_right", "cap": ""}], "", "Smack flank")
 	_y_label = _add_hint_row("y", [{"icon": "button_y", "cap": "Y"}], "Hold", "")
@@ -205,9 +205,10 @@ func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Labe
 		else:
 			row.add_child(keycap(str(entry.get("cap", ""))))
 	var modifier := text_label(mode, 13, MUTED, 4)
-	modifier.custom_minimum_size.x = MODE_WIDTH
-	modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(modifier)
+	if not mode.is_empty():
+		modifier.custom_minimum_size.x = MODE_WIDTH
+		modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(modifier)
 	var label := text_label(text, 17)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)

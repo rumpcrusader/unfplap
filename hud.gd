@@ -34,9 +34,12 @@ var _hint: VBoxContainer
 var _hint_title: Label
 var _hint_status: Label
 var _hint_readiness: Label
+var _hint_auto: Label
 var _hint_gap: Control
 var _readiness_bar: Control
 var _y_label: Label
+var _thrust_label: Label
+var _auto_label: Label
 var _control_rows := {}
 
 
@@ -85,6 +88,11 @@ func _ready() -> void:
 	_hint_readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_readiness.visible = false
 	_hint.add_child(_hint_readiness)
+	_hint_auto = text_label("", 14, MUTED, 4)
+	_hint_auto.name = "HintAuto"
+	_hint_auto.custom_minimum_size = Vector2(580.0, 0.0)
+	_hint_auto.visible = false
+	_hint.add_child(_hint_auto)
 	_hint_gap = Control.new()
 	_hint_gap.custom_minimum_size.y = 10.0
 	_hint_gap.visible = false
@@ -99,12 +107,13 @@ func _ready() -> void:
 	_hint_title.visible = false
 	_hint.add_child(_hint_title)
 	_build_controls()
-	# Cue line, readiness text, bar, then the separator, then the control card.
+	# Cue line, readiness text, auto readout, bar, then the separator, then the control card.
 	_hint.move_child(_hint_status, 0)
 	_hint.move_child(_hint_readiness, 1)
-	_hint.move_child(_readiness_bar, 2)
-	_hint.move_child(_hint_gap, 3)
-	_hint.move_child(_hint_title, 4)
+	_hint.move_child(_hint_auto, 2)
+	_hint.move_child(_readiness_bar, 3)
+	_hint.move_child(_hint_gap, 4)
+	_hint.move_child(_hint_title, 5)
 
 
 ## Words in the game's prompt style: light ink, dark outline, no shadow.
@@ -177,9 +186,10 @@ static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
 
 
 ## One row per control: a key cap/controller icon, a muted modifier column, and one description.
-## Built once; only the Y row and the status line change with act state.
+## Built once; the Y, thrust and X rows and the status/auto lines change with act state.
 func _build_controls() -> void:
-	_add_hint_row("thrust", "", "↕", "", "Thrust")
+	_thrust_label = _add_hint_row("thrust", "", "↕", "", "Thrust")
+	_auto_label = _add_hint_row("auto", "", "X", "", "Auto thrust")
 	_add_hint_row("forward", "", "W", "", "Lean forward")
 	_add_hint_row("back", "", "S", "", "Lean back")
 	_add_hint_row("left", "key_q", "Q", "", "Lean left · kiss / reach")
@@ -247,6 +257,8 @@ func hide_act() -> void:
 		_hint_status.visible = false
 	if _hint_readiness != null:
 		_hint_readiness.visible = false
+	if _hint_auto != null:
+		_hint_auto.visible = false
 	if _hint_gap != null:
 		_hint_gap.visible = false
 	if _readiness_bar != null:
@@ -298,6 +310,18 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		readiness_line = str(runtime.call("hud_readiness_line", show_readouts))
 	_hint_readiness.text = readiness_line
 	_hint_readiness.visible = not readiness_line.is_empty()
+	var auto_text := ""
+	if _hint.visible and runtime.has_method("auto_hud_text"):
+		auto_text = str(runtime.call("auto_hud_text"))
+	_hint_auto.text = auto_text
+	_hint_auto.visible = not auto_text.is_empty()
+	var auto_on := false
+	if runtime.has_method("auto_active"):
+		auto_on = bool(runtime.call("auto_active"))
+	if _thrust_label != null:
+		_thrust_label.text = "Max depth" if auto_on else "Thrust"
+	if _auto_label != null:
+		_auto_label.text = "Manual thrust" if auto_on else "Auto thrust"
 	if _hint_gap != null:
 		_hint_gap.visible = _hint.visible
 

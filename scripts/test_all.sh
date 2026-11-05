@@ -16,13 +16,16 @@ TESTS=(
 	test_source_hygiene
 	test_rotation
 	test_thrust
+	test_auto_thrust
 	test_preferences
+	test_memory
 	test_utterance
 	test_utterance_scheduler
 	test_utterance_lines
 	test_relationship_cue
 	test_runtime_thrust
 	test_runtime_teardown
+	test_sex_bond
 	test_afterglow
 	test_voice
 	test_actions

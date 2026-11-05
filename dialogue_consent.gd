@@ -1,18 +1,17 @@
 extends Node
-## A verbal agreement to sex. Every player line that receives a pony reply is classified by the
-## shared classifier; a clear "yes, now, here" leaves a standing offer for that mare until she
-## moves or refuses. The Y action still appears only in the smack-flank aim zone.
+## Lover-bond dialogue. Every player line that receives a pony reply is classified by the
+## shared classifier: a clear agreement grants the mod-owned lover bond, a clear refusal does
+## nothing, and a clear withdrawal ends it. This controller never starts an act; the act gate
+## still checks runtime._relationship_ok() and the normal act gates.
 
 const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
 const PENDING_AGE_S := 20.0
-const MOVE_CLEAR_M := 0.75
 
 var main
 
 var _director: Node
 var _pending: Dictionary = {}
 var _serial := 0
-var _agreements: Dictionary = {}
 
 
 func _ready() -> void:
@@ -22,36 +21,14 @@ func _ready() -> void:
 func reset() -> void:
 	_disconnect_director()
 	_pending = {}
-	_agreements.clear()
 	_serial = 0
 
 
 func _process(_delta: float) -> void:
 	_ensure_director()
-	_tick_agreements()
-
-
-func scenario_for(pony: Node) -> String:
-	if not is_instance_valid(pony):
-		return ""
-	var id := _pony_id(pony)
-	if id.is_empty() or not _agreements.has(id):
-		return ""
-	if not _valid_agreement(pony, _agreements[id]):
-		_clear(id, "moved")
-		return ""
-	return "dialogue"
-
-
-func clear_for(pony: Node) -> void:
-	if is_instance_valid(pony):
-		_clear(_pony_id(pony), "act")
-	_pending = {}
-	_serial += 1
 
 
 func clear_all() -> void:
-	_agreements.clear()
 	_pending = {}
 	_serial += 1
 
@@ -107,92 +84,75 @@ func _on_reply(id: String, text: String) -> void:
 	var request := str(_pending.get("text", ""))
 	var serial := int(_pending.get("serial", -1))
 	var classifier: Variant = main.get("classifier") if is_instance_valid(main) else null
-	if is_instance_valid(classifier) and classifier.has_method("classify_dialogue"):
+	if is_instance_valid(classifier) and classifier.has_method("classify_lover"):
 		var key := "dialogue:%d" % serial
-		var started: bool = bool(classifier.call("classify_dialogue", request, text, key,
-			Callable(self, "_on_dialogue_result").bind(id, request, text, serial)))
+		var started: bool = bool(classifier.call("classify_lover", request, text, key,
+			Callable(self, "_on_lover_result").bind(id, request, text, serial)))
 		if started:
-			_debug("dialogue consent request=\"%s\" reply=\"%s\"" % [
+			_debug("lover dialogue request=\"%s\" reply=\"%s\"" % [
 				request.left(120), text.left(120)])
 			return
-	var local := CONSENT.local_dialogue_intent(request, text)
-	_debug("dialogue consent request=\"%s\" reply=\"%s\" result=%s source=local" % [
+	var local := CONSENT.local_lover_intent(request, text)
+	_debug("lover dialogue request=\"%s\" reply=\"%s\" result=%s source=local" % [
 		request.left(120), text.left(120), local])
-	_apply_result(local, "local", id, request, text, serial)
+	_apply_result(local, "local", id, text, serial)
 
 
-func _on_dialogue_result(intent: String, detail: String, id: String, request: String,
+func _on_lover_result(intent: String, detail: String, id: String, request: String,
 		reply: String, serial: int) -> void:
 	if serial != _serial:
 		return
 	var source := "llm"
 	if intent == "unclear" and not detail.is_empty():
-		intent = CONSENT.local_dialogue_intent(request, reply)
+		intent = CONSENT.local_lover_intent(request, reply)
 		source = "local"
-	_debug("dialogue consent request=\"%s\" reply=\"%s\" result=%s detail=%s source=%s" % [
+	_debug("lover dialogue request=\"%s\" reply=\"%s\" result=%s detail=%s source=%s" % [
 		request.left(120), reply.left(120), intent, detail, source])
-	_apply_result(intent, source, id, request, reply, serial)
+	_apply_result(intent, source, id, reply, serial)
 
 
-func _apply_result(intent: String, source: String, id: String, _request: String,
-		_reply: String, serial: int) -> void:
+func _apply_result(intent: String, source: String, id: String, reply: String, serial: int) -> void:
 	if serial != _serial:
 		return
-	if intent == "sex_accept":
-		_agree(id)
-	elif intent == "decline":
-		_clear(id, "refused")
-	else:
-		_debug("dialogue agreement kept %s result=%s source=%s" % [id, intent, source])
+	match intent:
+		"lover_accept":
+			_grant(id, reply)
+		"lover_end":
+			_end(id, reply)
+		"lover_decline":
+			_debug("lover offer declined %s" % id)
+		_:
+			_debug("lover dialogue no change %s result=%s source=%s" % [id, intent, source])
 
 
-func _agree(id: String) -> void:
+func _grant(id: String, reply: String) -> void:
+	var runtime := _runtime(id)
+	if not is_instance_valid(runtime) or not runtime.has_method("grant_sex_bond"):
+		return
+	var granted: bool = bool(runtime.call("grant_sex_bond", "dialogue", reply))
+	_debug("lover bond dialogue %s granted=%s" % [id, str(granted)])
+
+
+func _end(id: String, reply: String) -> void:
+	var runtime := _runtime(id)
+	if not is_instance_valid(runtime) or not runtime.has_method("end_sex_bond"):
+		return
+	var ended: bool = bool(runtime.call("end_sex_bond", "dialogue", reply))
+	_debug("lover bond dialogue %s ended=%s" % [id, str(ended)])
+
+
+func _runtime(id: String) -> Node:
+	if id.is_empty() or not is_instance_valid(main):
+		return null
 	var pony := _pony(id)
 	if not is_instance_valid(pony):
-		return
-	var status: Dictionary = pony.call("posture_status") if pony.has_method("posture_status") else {}
-	if str(status.get("requested", "")) != "stand":
-		return
-	_agreements[id] = {
-		"position": pony.global_position,
-		"region": _region_of(pony.global_position),
-		"posture": str(status.get("requested", "")),
-	}
-	_debug("dialogue agreement %s pos=%s region=%s" % [
-		id, str(pony.global_position), str(_agreements[id].get("region", ""))])
-
-
-func _tick_agreements() -> void:
-	if _agreements.is_empty():
-		return
-	for id: String in _agreements.keys():
-		var pony := _pony(id)
-		if not is_instance_valid(pony):
-			_clear(id, "gone")
-			continue
-		if not _valid_agreement(pony, _agreements[id]):
-			_clear(id, "moved")
-
-
-func _valid_agreement(pony: Node3D, row: Dictionary) -> bool:
-	if not is_instance_valid(pony):
-		return false
-	if pony.global_position.distance_to(row.get("position", pony.global_position)) > MOVE_CLEAR_M:
-		return false
-	if _region_of(pony.global_position) != str(row.get("region", "")):
-		return false
-	if pony.has_method("posture_status"):
-		var status: Dictionary = pony.call("posture_status")
-		if str(status.get("requested", "")) != "stand":
-			return false
-	return true
-
-
-func _clear(id: String, reason: String) -> void:
-	if id.is_empty() or not _agreements.has(id):
-		return
-	_agreements.erase(id)
-	_debug("dialogue agreement cleared %s reason=%s" % [id, reason])
+		return null
+	if not main.has_method("runtime_for"):
+		return null
+	var runtime: Variant = main.call("runtime_for", pony)
+	if is_instance_valid(runtime):
+		return runtime
+	return null
 
 
 func _pony(id: String) -> Node3D:
@@ -219,10 +179,6 @@ func _pony_id(pony: Node) -> String:
 		if identity != null:
 			id = str(identity.get("id"))
 	return id
-
-
-func _region_of(at: Vector3) -> String:
-	return str(WorldLayout.nearest(at).get("id", ""))
 
 
 func _debug(text: String) -> void:

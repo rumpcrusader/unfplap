@@ -6,7 +6,13 @@ choice. Camera/pose mechanics and aftercare are outside it.
 ## What the player does
 
 - Mouse vertical motion feeds raw depth. `thrust.orientation` flips the direction; `"up"`
-  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `800`.
+  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `1000`.
+- `X` toggles auto thrust in `ACTIVE`/`CLIMAX`. `auto_thrust.gd` drives a raised cosine at
+  `pace` thrusts per second from 0 to `max_depth`, and the runtime feeds the same depth tracker
+  the mouse feeds. It adds no separate score or heat path: intensity, pattern, readiness, audio
+  and presentation are the manual ones. The wheel sets pace; mouse ↕ sets the peak depth.
+  `max_depth` is the peak, so after the first stroke the tracker travel is `max_depth - 0.06`
+  (`REVERSAL_HYSTERESIS`); the minimum peak is `0.32`.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
   (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
@@ -54,9 +60,11 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 **Settings tab**
 
-- **Controls**: HUD readouts, captions on top, press Y starts sex, mute Ponese audio.
+- **Controls**: HUD readouts, captions on top, Promiscuity, Starting Sex, mute Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
-  `1000`), hip back-off (`0.25…2.0×`, default `2.0×`).
+  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`0.2…4/s`, default
+  `1.5/s`) and peak depth (`0.32…1`, default `0.9`). The auto values are act-start defaults; the
+  wheel and mouse adjust them for one act.
 - **Character taste**: the per-mare form described below.
 
 **Debug tab**
@@ -249,14 +257,18 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - `hud_readouts` (default `true`) shows the cue, a short 0–100 bar with no ticks, and the
   separate `Wants`/`You` line.
 - Top to bottom: cue line `❤ N/3 | cue`, readiness line
-  `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
+  `Wants: intensity & pattern | You: intensity & pattern`, auto readout
+  `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator,
   controls.
 - When readouts are off, the hearts remain; the cue, readiness line and bar are hidden.
-- There is no penetration/depth bar; the thrust mechanic and `thrust.orientation` still apply.
+- There is no penetration/depth bar; the thrust mechanic, `thrust.orientation` and auto thrust
+  still apply.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
-  at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow.
+  at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow. The thrust row reads `Thrust` or
+  `Max depth`, and the X row reads `Auto thrust` or `Manual thrust`.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y.
+  standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y; thrust,
+  auto and smack are hidden.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
 - `debug_logs` gates the detailed overlay, not the HUD.

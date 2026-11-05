@@ -97,6 +97,12 @@ func _input(event: InputEvent) -> void:
 				runtime.call("smack")
 			get_viewport().set_input_as_handled()
 			return
+		if mouse.pressed and mouse.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] \
+				and is_instance_valid(runtime):
+			runtime.call("auto_thrust_wheel",
+				1 if mouse.button_index == MOUSE_BUTTON_WHEEL_UP else -1)
+			get_viewport().set_input_as_handled()
+			return
 		if is_instance_valid(runtime):
 			get_viewport().set_input_as_handled()
 		return
@@ -107,6 +113,13 @@ func _input(event: InputEvent) -> void:
 		return
 	if is_instance_valid(runtime):
 		var state := int(runtime.get("state"))
+		# X toggles auto thrust. Consume it in every act state: AnonPony uses X to lie down,
+		# and that must not fire while the act owns the body.
+		if key.physical_keycode == KEY_X:
+			if state in [2, 3]: # ACTIVE / CLIMAX
+				runtime.call("toggle_auto_thrust")
+			get_viewport().set_input_as_handled()
+			return
 		# Space must not jump or start a couch sleep while the act holds the player.
 		if key.is_action("move_jump") or key.physical_keycode == KEY_SPACE:
 			get_viewport().set_input_as_handled()

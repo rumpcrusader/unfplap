@@ -137,22 +137,24 @@ func run() -> void:
 	check(CONSENT.parse_reply("yes", "") == "unclear", "non-JSON reply is unclear")
 	check(CONSENT.parse_reply('{"intent":"accept"}', "boom") == "unclear", "provider error is unclear")
 	check(CONSENT.parse_reply('{"intent":"accept","why":"x"}', "") == "unclear", "extra keys are rejected")
-	check(CONSENT.local_dialogue_intent("let's have sex", "yes, now") == "sex_accept",
-		"clear dialogue agreement is accepted locally")
-	check(CONSENT.local_dialogue_intent("let's have sex", "not now") == "decline",
-		"clear dialogue refusal is declined locally")
-	check(CONSENT.local_dialogue_intent("hello there", "yes") == "other",
-		"an ordinary line is not a sex request")
-	check(CONSENT.parse_dialogue_reply('{"intent":"sex_accept"}', "") == "sex_accept",
-		"strict dialogue accept reply")
-	check(CONSENT.parse_dialogue_reply('{"intent":"maybe"}', "") == "unclear",
-		"unknown dialogue intent is unclear")
-	check(INIT.y_start_allowed(true, "", ""), "flag on allows any scenario")
-	check(INIT.y_start_allowed(false, "bed_side", ""), "bed-side is allowed with flag off")
-	check(INIT.y_start_allowed(false, "already_lying", ""), "already-lying is allowed with flag off")
-	check(INIT.y_start_allowed(false, "", "request"), "a proactive request is allowed with flag off")
-	check(INIT.y_start_allowed(false, "", "dialogue"), "a dialogue agreement is allowed with flag off")
-	check(not INIT.y_start_allowed(false, "", ""), "arbitrary standing Y is blocked with flag off")
+	check(CONSENT.local_lover_intent("will you be my lover?", "yes, I'd like that") == "lover_accept",
+		"clear lover agreement is accepted locally")
+	check(CONSENT.local_lover_intent("will you be my lover?", "not yet") == "lover_decline",
+		"clear lover refusal is declined locally")
+	check(CONSENT.local_lover_intent("will you be my lover?", "maybe") == "unclear",
+		"an unclear lover answer is unclear")
+	check(CONSENT.local_lover_intent("hello there", "yes") == "other",
+		"an ordinary line is not a lover proposal")
+	check(CONSENT.local_lover_intent("I don't want to be your lover anymore", "I understand") == "lover_end",
+		"a clear withdrawal ends the bond")
+	check(CONSENT.local_lover_intent("hello there", "I don't want to be your lover anymore") == "lover_end",
+		"her own withdrawal ends the bond")
+	check(CONSENT.parse_lover_reply('{"intent":"lover_accept"}', "") == "lover_accept",
+		"strict lover accept reply")
+	check(CONSENT.parse_lover_reply('{"intent":"lover_end"}', "") == "lover_end",
+		"strict lover end reply")
+	check(CONSENT.parse_lover_reply('{"intent":"maybe"}', "") == "unclear",
+		"unknown lover intent is unclear")
 	check(INIT.pick_offer_pose(true, true, 0.1) == "missionary", "bed wins the low coin flip")
 	check(INIT.pick_offer_pose(true, true, 0.9) == "standing", "standing wins the high coin flip")
 	check(INIT.pick_offer_pose(true, false, 0.9) == "missionary", "bed is used when standing is unavailable")

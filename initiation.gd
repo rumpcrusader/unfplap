@@ -1357,23 +1357,6 @@ func _classifier() -> Node:
 	return classifier if is_instance_valid(classifier) else null
 
 
-## The scenario that allows Y while the feature flag is off. An active request is enough;
-## the later present/invite phases keep the same scenario.
-func press_y_scenario(pony: Node) -> String:
-	if _episode.is_empty() or not is_instance_valid(pony) or _episode.get("pony") != pony:
-		return ""
-	var phase := str(_episode.get("phase", ""))
-	return "request" if phase in ["ask", "present", "invite", "bed_lead", "bed_wait"] else ""
-
-
-static func y_start_allowed(flag: bool, source: String, scenario: String) -> bool:
-	if flag:
-		return true
-	if source in ["bed_side", "already_lying"]:
-		return true
-	return not scenario.is_empty()
-
-
 func _player_name() -> String:
 	var director: Node = _director()
 	if director == null:

@@ -3,8 +3,9 @@ extends Node
 ##   ./lab.sh
 ## The session is written to last-run.log beside the script.
 ##
-## Loads only Twilight, Fluttershy, Rarity and Derpy and pauses population/living-world/time
+## Loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara and pauses population/living-world/time
 ## plus background AI. At setup they are moved to the path in front of Golden Oak Library.
+## Diamond Tiara is the filly witness fixture: no romance tier or dating record, never invited to bed.
 ## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. The dialogue director
 ## stays running, because it serializes replies and a stopped director leaves ponies stuck
 ## "thinking".
@@ -14,13 +15,15 @@ extends Node
 ##   9 / 0       lower / raise the pointed mare's anger mood (all test mares when not aiming)
 ##   Mouse 4     invite a test mare to the treebrary bed; a far mare is moved to the bed approach
 ##               first, and the log says why cuddling cannot start
-##   Mouse 5     make the pointed mare idle and qualify for sex without changing her romance tier
+##   Mouse 5     make the pointed adult mare idle, grant the lover bond and qualify for sex
+##               without changing her romance tier
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves"]
+const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "diamond_tiara"]
 ## Starting love XP: 0 = New Couple and below the sex gate, 150 = Marefriend, 400 = Head Over
 ## Hooves, 900 = the dating maximum (Soulmates still needs marriage). The -/= keys step these.
+## Diamond Tiara is young and never gets entries here.
 const TEST_ROMANCE := {
 	"twilight_sparkle": 150,
 	"fluttershy": 400,
@@ -34,14 +37,15 @@ const SETUP_ACTIONS := [
 	"wait for the game's world loading screen to finish",
 	"temporarily set world/opening=skip, then restore the stored value",
 	"skip the arrival tutorial when it is active",
-	"restrict population to Twilight, Fluttershy, Rarity and Derpy (memory only)",
+	"restrict population to Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara (memory only)",
 	"despawn any other resident already live in the world",
 	"keep the dialogue director alive with ai_usage=talk",
 	"pause population, life and needs",
 	"pause PrincessVisits, TrixieShow, DayRunner, NightRest and StuckRescue",
 	"pause TimeOfDay",
-	"set friendship >= 500, romance tier, dating record and neutral mood",
-	"make each test mare idle and standing where she already is",
+	"set friendship >= 500, neutral mood and idle for every test pony",
+	"set romance tier and dating record only for the four adult test mares",
+	"leave lover bonds unset; Mouse5 grants one",
 	"spawn no bed; use the Golden Oak guest bed",
 ]
 
@@ -76,15 +80,15 @@ func run() -> void:
 		_settings.set_value("world/opening", _old_opening)
 	var ponies := _test_ponies()
 	if ponies.is_empty():
-		print("[unfplap test] no test mares loaded")
+		print("[unfplap test] no test ponies loaded")
 		return
 	_setup_ponies(ponies)
 	_done = true
 	var bed := _treebrary_bed()
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
-	print("[unfplap test] E sit, Ctrl lie back; test mares teleported in front of the library")
-	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 invite to bed, Mouse5 sex-ready")
+	print("[unfplap test] E sit, Ctrl lie back; test ponies teleported in front of the library")
+	print("[unfplap test] -/= romance tier (adults), 9/0 anger mood, Mouse4 bed (adults) or witness spot (filly), Mouse5 sex-ready (grants lover bond)")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -132,7 +136,7 @@ func _skip_arrival_tutorial() -> void:
 		arrival.call("_finish")
 
 
-## Keep only the four test residents in this session's population config, before the loading
+## Keep only the five test ponies in this session's population config, before the loading
 ## screen starts spawning the rest. The edit is in memory only; population.json is not saved.
 func _restrict_population() -> void:
 	if not is_instance_valid(game):
@@ -196,7 +200,7 @@ func _stop_standard_systems() -> void:
 		game.get("life").set_physics_process(false)
 	if is_instance_valid(game.get("needs")):
 		game.get("needs").set_physics_process(false)
-	# Story visitors and Trixie's show can add their own characters; keep the town to the four.
+	# Story visitors and Trixie's show can add their own characters; keep the town to the five.
 	# Day/night schedulers and the stuck rescue can still move or teleport them, so pause those too.
 	for name: String in ["PrincessVisits", "TrixieShow", "DayRunner", "NightRest", "StuckRescue"]:
 		var extra: Node = game.get_node_or_null(name)
@@ -227,21 +231,30 @@ func _setup_ponies(ponies: Array) -> void:
 		var id := _pony_id(pony)
 		if id.is_empty():
 			continue
+		var young := _is_young(pony)
+		var friendship_xp := 0
 		if is_instance_valid(impressions):
 			var row: Dictionary = xp.get(id, impressions.call("xp_for", id))
 			row["friendship"] = maxi(int(row.get("friendship", 0)), 500)
-			row["romance"] = int(TEST_ROMANCE.get(id, 150))
+			friendship_xp = int(row["friendship"])
+			if not young:
+				row["romance"] = int(TEST_ROMANCE.get(id, 150))
 			xp[id] = row
-		_set_dating_record(pony)
+		if not young:
+			_set_dating_record(pony)
 		_set_mood(pony, "neutral")
 		_make_idle(pony, true)
 		var placed := _place_front(pony, home, index, ponies.size())
 		index += 1
-		rows.append("%s romance_xp=%d level=%s pos=%s front=%s" % [
-			id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id),
-			str(pony.global_position), str(placed)])
+		if young:
+			rows.append("%s young friendship_xp=%d pos=%s front=%s" % [
+				id, friendship_xp, str(pony.global_position), str(placed)])
+		else:
+			rows.append("%s romance_xp=%d level=%s pos=%s front=%s" % [
+				id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id),
+				str(pony.global_position), str(placed)])
 	if not rows.is_empty():
-		_log_action("test mares", rows)
+		_log_action("test ponies", rows)
 	if is_instance_valid(impressions):
 		impressions.set("xp", xp)
 	var context: Variant = game.get("world_context")
@@ -337,9 +350,12 @@ func _toggle_console() -> void:
 ## whole batch can be prepared without walking the crosshair over each one.
 func _adjust_romance(step: int) -> void:
 	var target := _target_under_aim()
-	var targets: Array = [target] if is_instance_valid(target) else _test_ponies()
+	if is_instance_valid(target) and _is_young(target):
+		_log_action("romance", PackedStringArray(["%s is young; no romance tier" % _pony_id(target)]))
+		return
+	var targets: Array = [target] if is_instance_valid(target) else _adult_test_ponies()
 	if targets.is_empty():
-		_log_action("romance", PackedStringArray(["no test mares loaded"]))
+		_log_action("romance", PackedStringArray(["no adult test mares loaded"]))
 		return
 	var rows := PackedStringArray()
 	for pony: Variant in targets:
@@ -383,7 +399,7 @@ func _adjust_anger(step: int) -> void:
 	var target := _target_under_aim()
 	var targets: Array = [target] if is_instance_valid(target) else _test_ponies()
 	if targets.is_empty():
-		_log_action("anger", PackedStringArray(["no test mares loaded"]))
+		_log_action("anger", PackedStringArray(["no test ponies loaded"]))
 		return
 	var rows := PackedStringArray()
 	for pony: Variant in targets:
@@ -433,9 +449,25 @@ func _invite_target_to_bed() -> void:
 		target = _nearest_test_pony(bed)
 		note = "no mare under the crosshair; nearest test mare"
 	if not is_instance_valid(target):
-		print("[unfplap test] Mouse4: no test mare loaded")
+		print("[unfplap test] Mouse4: no test pony loaded")
 		return
 	var id := _pony_id(target)
+	if _is_young(target):
+		# A young pony is never a bed guest. Bring her to the bed front so she can witness an act
+		# there, and stop before the invite.
+		var rows := PackedStringArray()
+		if _needs_bed_transport(target, bed):
+			rows.append("transport=" + _bring_to_bed(target, rest))
+			await get_tree().create_timer(0.7).timeout
+			if not is_instance_valid(target) or not is_instance_valid(rest) or not is_inside_tree():
+				return
+			rows.append("grounded=" + _make_idle(target, true))
+			rows.append("front=" + _bring_to_bed(target, rest))
+		else:
+			rows.append("idle=" + _make_idle(target, true))
+		rows.append("young: witness position only, no invite")
+		_log_action("Mouse4 " + id, rows)
+		return
 	var idle := _make_idle(target, true)
 	var rows := PackedStringArray()
 	if not note.is_empty():
@@ -480,7 +512,7 @@ func _needs_bed_transport(pony: Node3D, bed: Node3D) -> bool:
 func _nearest_test_pony(bed: Node3D) -> Node3D:
 	var best: Node3D = null
 	var best_distance := INF
-	for node: Variant in _test_ponies():
+	for node: Variant in _adult_test_ponies():
 		var pony: Node3D = node as Node3D
 		if not is_instance_valid(pony):
 			continue
@@ -520,14 +552,22 @@ func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 func _qualify_target() -> void:
 	var target := _target_under_aim()
 	if not is_instance_valid(target):
-		print("[unfplap test] Mouse5: no test mare under the crosshair")
+		print("[unfplap test] Mouse5: no test pony under the crosshair")
 		return
 	var id := _pony_id(target)
+	if _is_young(target):
+		print("[unfplap test] Mouse5: %s is the filly witness; no romance or sex-ready" % id)
+		return
 	var rows := PackedStringArray()
 	rows.append("idle=" + _make_idle(target, true))
 	rows.append("cleared=" + _clear_busy(target))
 	rows.append("record=" + _set_dating_record(target))
 	rows.append("mood=" + _set_mood(target, "neutral"))
+	var runtime: Node = target.get_node_or_null("UnfplapRuntime")
+	if runtime != null and runtime.has_method("grant_sex_bond"):
+		rows.append("bond=" + str(runtime.call("grant_sex_bond", "lab", "")))
+	else:
+		rows.append("bond=no runtime")
 	rows.append("romance untouched")
 	_log_action("Mouse5 " + id, rows)
 	_report_after_delay(target, "Mouse5 " + id)
@@ -660,6 +700,19 @@ func _pony_id(pony: Variant) -> String:
 	return id
 
 
+## The game's young flag: true for fillies and colts alike. Young test ponies never get a
+## romance tier, a dating record, a romance hotkey or a bed invite.
+func _is_young(pony: Variant) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	var identity: Variant = (pony as Node).get("identity")
+	return identity != null and bool(identity.get("filly"))
+
+
+func _adult_test_ponies() -> Array:
+	return _test_ponies().filter(func(node: Variant) -> bool: return not _is_young(node))
+
+
 func _impressions() -> Node:
 	if not is_instance_valid(game):
 		return null
@@ -679,6 +732,8 @@ func _love_name(pony: Node3D, id: String) -> String:
 
 
 func _set_dating_record(pony: Node3D) -> String:
+	if _is_young(pony):
+		return "young; no dating record"
 	var id := _pony_id(pony)
 	var rel: Variant = pony.get_meta("relationship_runtime")
 	if rel == null or not is_instance_valid(rel):
@@ -827,7 +882,7 @@ func _library_home() -> Node3D:
 	return null
 
 
-## Put the four test mares in a loose row on the path outside the library door.
+## Put the test ponies in a loose row on the path outside the library door.
 func _place_front(pony: Node3D, home: Node3D, index: int, count: int) -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(home):
 		return false

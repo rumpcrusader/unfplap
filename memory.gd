@@ -1,12 +1,13 @@
 extends RefCounted
-## AI context and impression writes. Every text is short and non-graphic; the event id makes
-## both world_context.record and impressions.commit idempotent.
+## AI context and impression writes. Every text is short and non-graphic. A witness text is a
+## perception, never a conclusion: the game's per-pony story summary forms her memory from it.
+## The event id makes both world_context.record and impressions.commit idempotent.
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
+const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const WITNESS_RADIUS_M := 8.0
 
 
 static func start_event(game: Node, id: String, name: String, event_id: String) -> void:
@@ -229,53 +230,112 @@ static func commit_climax(game: Node, id: String, name: String, event_id: String
 	}, event_id + ":gain")
 
 
-static func witnesses(game: Node, partner_id: String, partner_name: String, serial: int, partner: Node3D) -> void:
+## One event per observer, private to her (`witnesses = [observer_id]`). Adults are told what it
+## was; fillies and colts get a perception with the place they saw it from, and the game's story
+## summary infers a memory they could actually hold. Returns one debug row per recorded witness.
+static func witnesses(game: Node, partner_id: String, partner_name: String, serial: int, partner: Node3D) -> Array:
 	var ctx = _context(game)
 	if ctx == null or not is_instance_valid(partner) or not is_instance_valid(game):
-		return
+		return []
+	if not partner.is_inside_tree():
+		return []
 	var list: Variant = game.get("mares")
 	if not list is Array:
-		return
-	var here: Node3D = HOUSE.at(partner.get_tree(), partner.global_position)
+		return []
 	var young_player: bool = PLAYER_FORM.is_young(PLAYER_FORM.active(partner.get_tree()))
 	if young_player:
-		return
+		return []
+	var rows: Array = []
+	var awareness := AWARENESS.new()
 	for node: Variant in list:
 		if not is_instance_valid(node):
 			continue
 		var observer: Node3D = node as Node3D
-		if observer == null or observer == partner:
-			continue
-		if observer.global_position.distance_to(partner.global_position) > WITNESS_RADIUS_M:
+		if observer == null or observer == partner or not observer.is_inside_tree():
 			continue
 		if bool(observer.get("sleeping")):
 			continue
 		var identity: Variant = observer.get("identity")
-		if identity == null or bool(identity.get("filly")):
+		if identity == null:
 			continue
 		var observer_id := str(observer.get_meta("relationship_id", ""))
 		if observer_id.is_empty():
 			observer_id = str(identity.get("id"))
 		if observer_id.is_empty():
 			continue
-		var runtime: Variant = observer.get_meta("relationship_runtime")
-		if runtime == null or not is_instance_valid(runtime):
+		var young := bool(identity.get("filly"))
+		if not young:
+			var runtime: Variant = observer.get_meta("relationship_runtime")
+			if runtime == null or not is_instance_valid(runtime):
+				continue
+			if not bool(runtime.bonds.adults.get(observer_id, false)):
+				continue
+		var seen := awareness.visible(observer, partner)
+		var heard := false
+		if not seen:
+			heard = awareness.can_hear(observer, partner, AWARENESS.HEARING_RANGE)
+		if not seen and not heard:
 			continue
-		if not bool(runtime.bonds.adults.get(observer_id, false)):
-			continue
-		var their_house: Node3D = HOUSE.at(observer.get_tree(), observer.global_position)
-		var same_house := here != null and their_house == here
-		if not same_house and observer.global_position.distance_to(partner.global_position) > WITNESS_RADIUS_M:
-			continue
+		var indoors: bool = HOUSE.at(observer.get_tree(), observer.global_position) != null
+		var place := str(AWARENESS.place_at(observer.global_position).get("id", ""))
+		var text := witness_text(partner_name, young, indoors, serial)
 		var event_id := "witness_%s_%s_%d" % [observer_id, partner_id, serial]
-		ctx.record("witnessed_intimacy", "You saw Anon and %s having sex." % partner_name,
-			[observer_id, "player", partner_id], [partner_id, "player"], event_id)
+		ctx.record(witness_kind(young), text, [observer_id], [partner_id, "player"], event_id, place)
 		var impressions: Variant = ctx.get("impressions")
 		if impressions != null and is_instance_valid(impressions):
-			impressions.commit(observer_id, {
-				"mood": "surprised",
-				"thought": "I walked in on Anon and %s." % partner_name
-			}, event_id + ":gain")
+			impressions.commit(observer_id, witness_impression(partner_name, young, indoors), event_id + ":gain")
+		rows.append({
+			"id": observer_id,
+			"young": young,
+			"sense": "sight" if seen else "sound",
+			"indoors": indoors,
+			"distance": observer.global_position.distance_to(partner.global_position),
+			"place": place,
+			"text": text,
+		})
+	return rows
+
+
+static func witness_kind(young: bool) -> String:
+	return "witnessed_scene" if young else "witnessed_intimacy"
+
+
+static func witness_scene_prefix(partner_name: String, indoors: bool) -> String:
+	if indoors:
+		return "You walked in on Anon and %s." % partner_name
+	return "You saw Anon and %s out in the open." % partner_name
+
+
+## Perception plus uncertainty, never a conclusion. Each act picks a different one so repeated
+## memories and retold gossip do not read the same.
+const WITNESS_TAILS := [
+	" They were moving about together and making happy sounds, and you could not tell what they were doing.",
+	" They seemed to be playing some game, and you were not sure what the game was.",
+	" They were busy together and giggling, and you could not tell what it was about.",
+]
+
+
+static func witness_text(partner_name: String, young: bool, indoors: bool, serial: int) -> String:
+	if not young:
+		return "You saw Anon and %s having sex." % partner_name
+	var index := posmod(serial, WITNESS_TAILS.size())
+	return witness_scene_prefix(partner_name, indoors) + str(WITNESS_TAILS[index])
+
+
+static func witness_thought(partner_name: String, young: bool, indoors: bool) -> String:
+	if young:
+		return ""
+	if indoors:
+		return "I walked in on Anon and %s having sex." % partner_name
+	return "I saw Anon and %s having sex out in the open." % partner_name
+
+
+static func witness_impression(partner_name: String, young: bool, indoors: bool) -> Dictionary:
+	var out: Dictionary = {"mood": "amused"} if young else {"mood": "surprised"}
+	var thought := witness_thought(partner_name, young, indoors)
+	if not thought.is_empty():
+		out["thought"] = thought
+	return out
 
 
 ## Private facts for the cue prompt. No raw scores or counts leave this function.

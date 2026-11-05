@@ -9,10 +9,12 @@ const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
+const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
@@ -241,8 +243,14 @@ var _pose_cfg: Dictionary = {}
 var _taste: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
+## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
+var _auto_thrust
+var _auto_on := false
+var _auto_default_pace := 1.5
+var _auto_default_depth := 0.9
+var _auto_pace_step := 0.1
 var _thrust_pixels_per_full := 480.0
-var _thrust_travel := 2.0
+var _thrust_travel := 0.5
 var _jiggle_radius_m := 0.26
 var _jiggle_intensity_scale := 0.25
 var _jiggle_smack_intensity := 0.55
@@ -528,7 +536,11 @@ func _snapshot_settings() -> void:
 	var thrust_block := TUNABLES.block("thrust.")
 	thrust_up = str(thrust_block.get("orientation", "up")).to_lower() == "up"
 	_thrust_pixels_per_full = float(thrust_block.get("pixels_per_full", 1000.0))
-	_thrust_travel = float(thrust_block.get("travel", 2.0))
+	_thrust_travel = float(thrust_block.get("travel", 0.5))
+	var auto_block := TUNABLES.block("auto_thrust.")
+	_auto_default_pace = float(auto_block.get("pace", 1.5))
+	_auto_default_depth = float(auto_block.get("max_depth", 0.9))
+	_auto_pace_step = float(auto_block.get("pace_step", 0.1))
 	var jiggle_block := TUNABLES.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.25))
@@ -638,6 +650,18 @@ func hud_readiness_line(show_readouts := true) -> String:
 	var want_pattern := str(_taste.get("pattern", "steady"))
 	return "Wants: %s & %s | You: %s & %s" % [
 		want_intensity, want_pattern, have_intensity, have_pattern]
+
+## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
+func auto_active() -> bool:
+	return _auto_on and state in [State.ACTIVE, State.CLIMAX]
+
+## HUD control readout under the Wants/You line. Empty while manual.
+func auto_hud_text() -> String:
+	if not auto_active():
+		return ""
+	var auto = _auto_controller()
+	return "Auto · wheel pace %.1f/s · depth %d%%" % [
+		float(auto.get("pace")), roundi(float(auto.get("max_depth")) * 100.0)]
 
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
 func _act_presentation(delta: float) -> void:
@@ -754,8 +778,11 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
-		if _thrust_tracker != null:
-			var amount: float = THRUST.mouse_to_depth(motion.relative.y, _thrust_pixels_per_full, thrust_up)
+		var amount: float = THRUST.mouse_to_depth(motion.relative.y, _thrust_pixels_per_full, thrust_up)
+		if _auto_on:
+			# Auto owns the stroke; vertical mouse motion only sets how deep it goes.
+			_auto_controller().call("nudge_depth", amount)
+		elif _thrust_tracker != null:
 			_thrust_move(amount, _now_s())
 		get_viewport().set_input_as_handled()
 
@@ -825,6 +852,7 @@ func _physics_tick(delta: float) -> void:
 	_kiss_controller().tick(delta)
 	_timed("kiss_tick", kiss_started)
 	if state in [State.ACTIVE, State.CLIMAX]:
+		_auto_thrust_tick(delta)
 		_thrust_tick()
 		if state == State.ACTIVE:
 			_readiness_tick(delta)
@@ -922,7 +950,11 @@ func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: Strin
 	if not is_instance_valid(main.game):
 		return rows
 	_gate_row(rows, "state", state == State.IDLE, "state=%d" % state)
-	_gate_row(rows, "relation", _relationship_ok(), "relation")
+	# Try Your Luck lets the attempt reach the refusal path before she welcomes the kiss.
+	# Her proactive offers still require willingness (mode == "offer").
+	if mode == "offer" or not _try_luck():
+		_gate_row(rows, "relation", _relationship_ok(), "relation")
+	_gate_row(rows, "sex_bond", _sex_bond_ok(), "sex_bond")
 	_gate_row(rows, "form", _player_form_ok(), "form")
 	_gate_row(rows, "paused", not get_tree().paused, "paused")
 	_gate_row(rows, "conversation", _conversation_ok(), "conversation")
@@ -1003,6 +1035,8 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	var welcomes := false
 	if bonds != null and is_instance_valid(bonds) and bonds.has_method("welcomes"):
 		welcomes = bool(bonds.call("welcomes", id, "kiss"))
+	var sex_bond := _sex_bond_ok()
+	var sex_start := TUNABLES.get_string("relationship.sex_start")
 	var mood := "?"
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		var ctx: Variant = main.game.get("world_context")
@@ -1028,8 +1062,8 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	var bed_gate := "n/a"
 	if pose == CATALOG.MISSIONARY:
 		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
-	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s mood=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
-		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), mood,
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s bond=%s start=%s mood=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), str(sex_bond), sex_start, mood,
 		state, str(_standing_presentation_controller().presentation_active()), str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.has_meta("seated")),
 		str(_cuddle_active()), str(pony.get("motion_paused")), float(pony.get("actual_speed")), str(status.get("requested")),
 		str(pony.action_interruption_reason()), owner, str(target), reserved,
@@ -1167,16 +1201,23 @@ func _buck_or_push() -> void:
 		direction = -body.global_basis.z
 	knockdown.call("start", body, direction.normalized() * 3.0)
 
-func _stage_ok() -> bool:
-	var runtime: Variant = pony.get_meta("relationship_runtime")
-	if runtime == null or not is_instance_valid(runtime):
+func _read_id() -> bool:
+	if not is_instance_valid(pony):
 		return false
+	if not _id.is_empty():
+		return true
 	_id = str(pony.get_meta("relationship_id", ""))
 	if _id.is_empty():
 		var identity_id: Variant = pony.get("identity")
 		if identity_id != null:
 			_id = str(identity_id.get("id"))
-	if _id.is_empty():
+	return not _id.is_empty()
+
+func _stage_ok() -> bool:
+	var runtime: Variant = pony.get_meta("relationship_runtime")
+	if runtime == null or not is_instance_valid(runtime):
+		return false
+	if not _read_id():
 		return false
 	var identity: Variant = pony.get("identity")
 	if identity == null or bool(identity.get("filly")):
@@ -1185,7 +1226,8 @@ func _stage_ok() -> bool:
 		return false
 	var ladder: Dictionary = runtime.ladder(_id)
 	var love: Dictionary = ladder.get("love", {})
-	if int(love.get("level", -1)) < 2:
+	if not SEX_BOND.level_ok(TUNABLES.get_string("relationship.promiscuity"),
+			int(love.get("level", -1))):
 		return false
 	if not bool(runtime.bonds.eligible_for_romance(_id)):
 		return false
@@ -1199,6 +1241,25 @@ func _relationship_ok() -> bool:
 	if runtime == null or not is_instance_valid(runtime):
 		return false
 	return bool(runtime.bonds.welcomes(_id, "kiss"))
+
+## Starting Sex: Try Your Luck lets Anon attempt before she welcomes the kiss. The actual start
+## still checks _relationship_ok() and refuses when it is false.
+func _try_luck() -> bool:
+	return TUNABLES.get_string("relationship.sex_start") == "try_luck"
+
+## The stored bond, without the Starting Sex bypass. Promiscuity and the base kiss willingness
+## are separate gates, so a bond made at Crush or Any Adult is valid outside a dating stage.
+func _stored_sex_bond() -> bool:
+	return SEX_BOND.bonded(SEX_BOND.section(), _id)
+
+## Gate row: the mod lover bond, or true when Starting Sex is Try Your Luck. The base kiss
+## willingness remains the separate relation row.
+func _sex_bond_ok() -> bool:
+	if not _stage_ok():
+		return false
+	if _try_luck():
+		return true
+	return _stored_sex_bond()
 
 func _player_form_ok() -> bool:
 	return not PLAYER_FORM.is_young(PLAYER_FORM.active(get_tree()))
@@ -1435,12 +1496,15 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 
 # --------------------------------------------------------------------------- start
 
-func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false) -> bool:
-	if not y_allowed:
-		_log("start blocked by Y scenario gate pose=%s source=%s" % [pose, act_source])
-		return false
+func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if not can_start(pose, act_source, bed_in):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		return false
+	# Try Your Luck can reach this point before she welcomes the kiss. Starting still needs her
+	# current willingness; refusal is a real buck/push, not a silent no-op.
+	if not _relationship_ok():
+		_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		refuse(pose, act_source, bed_in)
 		return false
 	_camera_owned = false
 	_look_captured = false
@@ -2074,6 +2138,8 @@ func _now_s() -> float:
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
+	_auto_on = false
+	_auto_controller().reset(_auto_default_pace, _auto_default_depth)
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
 	_last_stroke.clear()
@@ -2111,6 +2177,46 @@ func _reset_thrust_state() -> void:
 	if _thrust_tracker == null:
 		_thrust_tracker = THRUST.new()
 	_thrust_tracker.reset()
+
+func _auto_controller():
+	if _auto_thrust == null:
+		_auto_thrust = AUTO_THRUST.new()
+	return _auto_thrust
+
+## Switch the automatic stroke on or off. X is the only caller. Turning it on starts from the
+## hand's current depth, so the shot does not snap; turning it off leaves the depth where it is.
+func toggle_auto_thrust() -> void:
+	if state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	_auto_on = not _auto_on
+	var auto = _auto_controller()
+	if _auto_on:
+		auto.call("begin", depth)
+	else:
+		auto.call("stop")
+	_log("auto thrust %s pace=%.2f/s depth=%.0f%%" % [
+		"on" if _auto_on else "off", float(auto.get("pace")),
+		float(auto.get("max_depth")) * 100.0])
+
+## One wheel notch while auto owns the stroke. A static controller makes this a no-op.
+func auto_thrust_wheel(direction: int) -> void:
+	if not _auto_on or state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	_auto_controller().call("nudge_pace", float(direction) * _auto_pace_step)
+
+## Idempotent stop for every state exit. It never moves the depth.
+func _stop_auto_thrust() -> void:
+	_auto_on = false
+	if _auto_thrust != null:
+		_auto_thrust.call("stop")
+
+## Feed the generated depth through the same tracker as the mouse. Strength, readiness,
+## intensity, pattern, audio, camera and presentation therefore need no auto-specific path.
+func _auto_thrust_tick(delta: float) -> void:
+	if not _auto_on or _thrust_tracker == null:
+		return
+	var next_depth: float = _auto_controller().call("step", delta)
+	_thrust_move(next_depth - depth, _now_s())
 
 func _prepare_vocal() -> void:
 	var director := _director()
@@ -3081,6 +3187,102 @@ func prompt_note() -> String:
 		parts.append("If Anon asks to stay longer, use [stay: 120] to hold the afterglow.")
 	return " ".join(parts)
 
+## Lover-bond context for the normal dialogue prompt. Empty during an act, where prompt_note
+## owns the line.
+func lover_prompt_note() -> String:
+	if not is_instance_valid(pony) or pony.sleeping:
+		return ""
+	if not _stage_ok():
+		return ""
+	var bonded := _stored_sex_bond()
+	if _try_luck():
+		if bonded:
+			return "- You and Anon are lovers; the lover agreement is optional. Your willingness still decides."
+		return "- Anon does not need a lover agreement for sex. Your normal willingness still decides."
+	if bonded:
+		return "- You and Anon are lovers."
+	if _relationship_ok():
+		return "- You are not yet Anon's lover; sex is not open until you both agree."
+	return ""
+
+## Grant the mod lover bond. Dialogue_consent calls this after a clear spoken agreement; the
+## Debug action calls it for the aimed mare. Every gate is re-checked here because the classifier
+## can answer while the world has moved on.
+func grant_sex_bond(source := "dialogue", line := "") -> bool:
+	if state != State.IDLE or not is_instance_valid(pony) or pony.sleeping:
+		return false
+	if not _stage_ok() or not _player_form_ok() or not _relationship_ok():
+		return false
+	var runtime: Variant = pony.get_meta("relationship_runtime")
+	if runtime == null or not is_instance_valid(runtime):
+		return false
+	var record: Dictionary = runtime.bonds.record_for(_id)
+	var stage := str(record.get("stage", ""))
+	if _stored_sex_bond():
+		return true
+	var ladder: Dictionary = runtime.ladder(_id)
+	var love: Dictionary = ladder.get("love", {})
+	var section: Dictionary = SEX_BOND.section()
+	if not SEX_BOND.grant(section, _id, stage, int(love.get("level", -1)), source, line):
+		return false
+	SEX_BOND.save()
+	_record_sex_bond_event("You and Anon became lovers.")
+	_log("lover bond granted id=%s stage=%s source=%s" % [_id, stage, source])
+	return true
+
+## Clear the mod lover bond after a spoken withdrawal or from the Debug action. A break-up is
+## handled by refresh_sex_bond().
+func end_sex_bond(source := "dialogue", _line := "") -> bool:
+	if not _read_id():
+		return false
+	var section: Dictionary = SEX_BOND.section()
+	if not SEX_BOND.bonded(section, _id):
+		return false
+	if not SEX_BOND.clear(section, _id, source):
+		return false
+	SEX_BOND.save()
+	_record_sex_bond_event("You and Anon are no longer lovers.")
+	_log("lover bond ended id=%s source=%s" % [_id, source])
+	return true
+
+## Clear a stored bond once the base relationship has left the romantic stages. The gate already
+## rejects it; this prevents it from reviving if they date again later.
+func refresh_sex_bond() -> void:
+	if not _read_id():
+		return
+	var section: Dictionary = SEX_BOND.section()
+	if not SEX_BOND.bonded(section, _id):
+		return
+	var runtime: Variant = pony.get_meta("relationship_runtime")
+	if runtime == null or not is_instance_valid(runtime):
+		return
+	var row: Dictionary = SEX_BOND.row(section, _id)
+	var stored_stage := str(row.get("stage", ""))
+	var record: Dictionary = runtime.bonds.record_for(_id)
+	var live_stage := str(record.get("stage", ""))
+	if SEX_BOND.romantic_stage(live_stage):
+		# A Crush bond can become a dating bond later; keep the stored stage current so a
+		# break-up still clears it.
+		if stored_stage != live_stage and SEX_BOND.set_stage(section, _id, live_stage):
+			SEX_BOND.save()
+		return
+	# A bond made at Crush or Any Adult has no romantic stage to leave. A bond made while
+	# dating/engaged/married is cleared by a break-up.
+	if not SEX_BOND.romantic_stage(stored_stage):
+		return
+	if SEX_BOND.clear(section, _id, "stage=" + live_stage):
+		SEX_BOND.save()
+		_log("lover bond cleared id=%s stage=%s" % [_id, live_stage])
+
+func _record_sex_bond_event(text: String) -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return
+	var ctx: Variant = main.game.get("world_context")
+	if ctx == null or not is_instance_valid(ctx) or not ctx.has_method("record"):
+		return
+	ctx.call("record", "relationship", text, [_id, "player"], [_id, "player"],
+		"unfplap:sex_bond:%s:%d" % [_id, Time.get_ticks_usec()])
+
 func _player_is_caressing() -> bool:
 	return _caress_controller().any_active()
 
@@ -3160,12 +3362,14 @@ func _commit_afterglow() -> void:
 	_record_peak_memory()
 	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
 	MEMORY.afterglow_event(main.game, _id, _display_name, _event_id, pose_id)
-	WITNESS.commit(main.game, _id, _display_name, _serial, pony)
+	for row: Variant in WITNESS.commit(main.game, _id, _display_name, _serial, pony):
+		_log("witness " + str(row))
 
 ## Both poses share the held afterglow; standing adds the inside event, the close window and
 ## a slightly lifted tail.
 func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
+	_stop_auto_thrust()
 	_end_act_lines(true)
 	_commit_afterglow()
 	state = State.AFTERGLOW
@@ -3265,6 +3469,7 @@ func _restore_begin() -> void:
 		return
 	_record_peak_memory()
 	_close_cancel()
+	_stop_auto_thrust()
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	state = State.RESTORE
@@ -3287,6 +3492,7 @@ func _restore_begin() -> void:
 ## `cancel()` queues the early-stop reaction after `_restore_begin()`, and `_finish_restore()` must
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
+	_stop_auto_thrust()
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_kiss_controller().restore_forelegs()

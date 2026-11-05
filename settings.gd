@@ -1,11 +1,12 @@
 extends RefCounted
-## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, thrust
-## controls, camera-thrust amounts, presentation tuning and the default/per-character templates.
-## A character inherits every field it does not override.
+## Persisted mod settings outside any world save: global DEBUG LOGS, feature flags, relationship
+## rules, thrust controls, camera-thrust amounts, presentation tuning and the default/per-character
+## templates. A character inherits every field it does not override.
 ##
 ## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
-## `thrust` holds the mouse-control settings, `camera_thrust` holds the two camera amounts and
-## `presentation` is split into `missionary` and `standing` blocks.
+## `relationship` holds Promiscuity and Starting Sex, `thrust` holds the mouse-control settings,
+## `camera_thrust` holds the two camera amounts and `presentation` is split into `missionary` and
+## `standing` blocks.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -562,6 +563,7 @@ static func _defaults() -> Dictionary:
 	return {
 		"debug_logs": SCHEMA.default_value("debug_logs"),
 		"features": SCHEMA.default_block("features."),
+		"relationship": SCHEMA.default_block("relationship."),
 		"thrust": SCHEMA.default_block("thrust."),
 		"jiggle": SCHEMA.default_block("jiggle."),
 		"camera_thrust": SCHEMA.default_block("camera_thrust."),

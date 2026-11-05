@@ -30,8 +30,6 @@ const OFFER_HINT := "Make love"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default OFF. Toggle in the Debug settings tab.
 var debug_logs := false
-## Cached feature flags read outside an act; a settings edit refreshes them.
-var press_y_starts_sex := false
 
 var game
 var player
@@ -45,6 +43,8 @@ var active_runtime
 var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
 var _offer_clock := 0.0
+## Lover-bond maintenance: clear a stored bond once the loaded mare is no longer romantic.
+var _sex_bond_clock := 0.0
 var _interactor: Node
 var _desktop: Node
 var _camera_cache: Camera3D
@@ -73,7 +73,10 @@ func prompt_note(pony: String) -> String:
 		return ""
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime) and str(runtime.get("_id")) == pony:
-			return str(runtime.call("prompt_note"))
+			var note := str(runtime.call("prompt_note"))
+			if not note.is_empty():
+				return note
+			return str(runtime.call("lover_prompt_note"))
 	return ""
 
 
@@ -97,7 +100,6 @@ func _ready() -> void:
 	set_process(true)
 	add_to_group("pony_prompt_notes")
 	debug_logs = TUNABLES.get_bool("debug_logs")
-	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
@@ -145,13 +147,13 @@ func _ready() -> void:
 
 func _on_world(host: Node) -> void:
 	_clear_native_hint()
-	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	game = host
 	_interactor = null
 	_desktop = null
 	_camera_cache = null
 	_camera_cache_at = 0.0
 	_offer = {}
+	_sex_bond_clock = 0.0
 	if is_instance_valid(initiation):
 		initiation.reset()
 	if is_instance_valid(classifier):
@@ -234,7 +236,6 @@ func _on_game_setting_changed(key: String) -> void:
 
 
 func _apply_live_settings() -> void:
-	press_y_starts_sex = TUNABLES.get_bool("features.press_y_starts_sex")
 	if is_instance_valid(active_runtime) and active_runtime.has_method("apply_live_settings"):
 		active_runtime.call("apply_live_settings")
 
@@ -732,6 +733,12 @@ func _clear_injected_settings() -> void:
 
 func _process(delta: float) -> void:
 	_caption_top_tick()
+	_sex_bond_clock += delta
+	if _sex_bond_clock >= 2.0:
+		_sex_bond_clock = 0.0
+		for runtime: Variant in _runtimes.values():
+			if is_instance_valid(runtime) and runtime.has_method("refresh_sex_bond"):
+				runtime.call("refresh_sex_bond")
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
 		if is_instance_valid(body):
@@ -777,7 +784,6 @@ func _refresh_offer() -> void:
 		return
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var pony_form: bool = PLAYER_FORM.is_pony(form)
-	var flag := press_y_starts_sex
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
@@ -788,12 +794,10 @@ func _refresh_offer() -> void:
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "bed_side", bed):
-					var scenario := _scenario_for(lying)
-					if INITIATION.y_start_allowed(flag, "bed_side", scenario):
-						_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
-							"source": "bed_side", "bed": bed, "scenario": scenario}
-						_log_offer()
-						return
+					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
+						"source": "bed_side", "bed": bed}
+					_log_offer()
+					return
 
 	# Missionary, AnonPony: an awake pony already lying on a bed.
 	if pony_form:
@@ -803,37 +807,19 @@ func _refresh_offer() -> void:
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "already_lying", bed):
-					var scenario := _scenario_for(lying)
-					if INITIATION.y_start_allowed(flag, "already_lying", scenario):
-						_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
-							"source": "already_lying", "bed": bed, "scenario": scenario}
-						_log_offer()
-						return
+					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
+						"source": "already_lying", "bed": bed}
+					_log_offer()
+					return
 
-	# Standing: only the base-game smack-flank aim zone, regardless of the feature flag.
+	# Standing: only the base-game smack-flank aim zone.
 	var standing: Node = _smack_flank_target(view)
 	if is_instance_valid(standing) and str(standing.call("posture_status").get("requested", "")) == "stand":
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime) and runtime.can_start(CATALOG.STANDING, "", null):
-			var scenario := _scenario_for(standing)
-			if INITIATION.y_start_allowed(flag, "", scenario):
-				_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
-					"source": "", "bed": null, "scenario": scenario}
-				_log_offer()
-
-
-## The Y scenario for a pony: a proactive request or a verbal agreement. Bed contexts are
-## allowed by source without this.
-func _scenario_for(pony: Node) -> String:
-	if not is_instance_valid(pony):
-		return ""
-	if is_instance_valid(initiation) and initiation.has_method("press_y_scenario"):
-		var scenario := str(initiation.call("press_y_scenario", pony))
-		if not scenario.is_empty():
-			return scenario
-	if is_instance_valid(dialogue_consent) and dialogue_consent.has_method("scenario_for"):
-		return str(dialogue_consent.call("scenario_for", pony))
-	return ""
+			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
+				"source": "", "bed": null}
+			_log_offer()
 
 
 ## The base game's right-click smack selection: crosshair on the flank, TOUCH_REACH. This is
@@ -982,18 +968,14 @@ func try_start() -> bool:
 		return false
 	var target: Variant = _offer.get("pony")
 	var source := str(_offer.get("source", ""))
-	var scenario := str(_offer.get("scenario", _scenario_for(target)))
-	var allowed := INITIATION.y_start_allowed(press_y_starts_sex, source, scenario)
-	if not allowed:
-		return false
 	if is_instance_valid(initiation) and is_instance_valid(target):
 		initiation.cancel_for(target)
-	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), source, allowed)
+	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), source)
 	if started:
 		if is_instance_valid(classifier):
 			classifier.call("cancel_scope", "dialogue:")
-		if is_instance_valid(dialogue_consent) and is_instance_valid(target):
-			dialogue_consent.call("clear_for", target)
+		if is_instance_valid(dialogue_consent):
+			dialogue_consent.call("clear_all")
 		_offer = {}
 		if is_instance_valid(hud):
 			hud.hide_prompt()
@@ -1036,8 +1018,42 @@ func _debug_offer_request(pose := "") -> String:
 		_debug("request button: %s%s" % [str(target.name), label])
 		return "Offer started for %s%s. Close settings to let her approach." % [
 			str(target.name), label]
-	return "Gates rejected %s%s (relationship, consent, pose or no free bed)." % [
+	return "Gates rejected %s%s (lover bond, relationship, consent, pose or no free bed)." % [
 		str(target.name), label]
+
+
+func action_grant_lover_bond() -> String:
+	return _debug_bond_request(true)
+
+
+func action_clear_lover_bond() -> String:
+	return _debug_bond_request(false)
+
+
+## Shared by the Debug tab: grant or clear the mod lover bond on the aimed or nearest mare.
+func _debug_bond_request(grant: bool) -> String:
+	if not is_instance_valid(player):
+		return "Act system not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime):
+		return "No runtime for %s." % str(target.name)
+	var ok := false
+	if grant:
+		ok = bool(runtime.call("grant_sex_bond", "debug", ""))
+	else:
+		ok = bool(runtime.call("end_sex_bond", "debug", ""))
+	var verb := "granted" if grant else "cleared"
+	if ok:
+		_debug("lover bond %s for %s" % [verb, str(target.name)])
+		return "Lover bond %s for %s." % [verb, str(target.name)]
+	return "Could not %s the lover bond for %s (relationship, consent or no bond)." % [
+		"grant" if grant else "clear", str(target.name)]
 
 
 ## The request helper is not aim-gated: if the crosshair is not on a mare, use the nearest

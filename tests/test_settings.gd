@@ -121,7 +121,6 @@ func run() -> void:
 	check(bool(feature_block.get("standing_plant_feet", false)),
 		"standing feet plant on by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
-	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")
@@ -135,6 +134,21 @@ func run() -> void:
 		check(not str(info.get("help", "")).is_empty(), "feature help for " + key)
 	check(SETTINGS.feature_keys().size() == SETTINGS.feature_defaults().size(),
 		"feature info matches the flag set")
+	var relationship_defaults: Dictionary = defaults.get("relationship", {})
+	check(str(relationship_defaults.get("promiscuity", "")) == "marefriend",
+		"default Promiscuity is Marefriend")
+	check(str(relationship_defaults.get("sex_start", "")) == "default",
+		"default Starting Sex is Default")
+	var promiscuity := SCHEMA.entry("relationship.promiscuity")
+	check((promiscuity.get("options", []) as Array).has("any"),
+		"Promiscuity exposes Any Adult")
+	check((promiscuity.get("labels", []) as Array).has("Any Adult"),
+		"Any Adult label is present")
+	var sex_start := SCHEMA.entry("relationship.sex_start")
+	check((sex_start.get("options", []) as Array).has("try_luck"),
+		"Starting Sex exposes Try Your Luck")
+	check((sex_start.get("labels", []) as Array).has("Try Your Luck"),
+		"Try Your Luck label is present")
 	check(not bool(defaults.get("debug_logs", true)), "debug logs off by default")
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")

@@ -93,7 +93,7 @@ section. A flag that gates a modifier belongs in that modifier's section.
 
 - `num` is stored and returned **verbatim**. `low`/`high` only shape the spin box.
 - `user_num` clamps to `low`/`high`, and only because that bound is part of the player-facing
-  contract: sensitivity, hip back-off, camera surge/bob, glance-back speed.
+  contract: sensitivity, hip back-off, auto pace/depth, camera surge/bob, glance-back speed.
 - Do not add a clamp in a consumer "to be safe". If a value must stay playable, make it a
   `user_num` and say why in its help text.
 - `choice` falls back to the default for an unknown string; `list` drops unknown options. That is
@@ -124,8 +124,8 @@ moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a ho
 - The schema key **is** the `settings.json` path, so a new tunable needs no migration.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `TUNABLES.reload_settings()` re-reads it; the settings page reloads when it opens.
-- Defaults for `features`, `thrust`, `jiggle`, `camera_thrust` and `presentation` are generated
-  from the schema. Do not create a second defaults table.
+- Defaults for `features`, `relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`
+  and `presentation` are generated from the schema. Do not create a second defaults table.
 - Unknown keys in the file are ignored on load.
 - Never name a settings function `reload` or `set_path`: `Script` already has both, and a
   preloaded script constant calls the built-in instead. `tests/test_settings.gd` guards this.

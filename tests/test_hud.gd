@@ -13,12 +13,19 @@ class Stub extends Node:
 	var pony_climaxes := 0
 	var pose_id := "standing"
 	var satisfaction := 40.0
+	var auto_on := false
 
 	func hud_cue_line(_readouts := true) -> String:
 		return "❤ 1/3 | She's close."
 
 	func hud_readiness_line(_readouts := true) -> String:
 		return "Wants: soft & steady | You: firm"
+
+	func auto_active() -> bool:
+		return auto_on
+
+	func auto_hud_text() -> String:
+		return "Auto · wheel pace 1.5/s · depth 90%" if auto_on else ""
 
 
 func _initialize() -> void:
@@ -90,6 +97,20 @@ func _check_controls() -> void:
 	var modifier := row_box.get_child(1) as Label
 	check(modifier.text == "Hold", "hold controls say so in their own column")
 	check((row_box.get_child(2) as Label).text == "Kiss at full lean", "kiss row reads its action")
+	var auto_row := rows.get("auto") as Control
+	check(auto_row != null and auto_row.visible, "auto thrust row shows while active")
+	check(not (hud.get("_hint_auto") as Control).visible, "auto readout hides while manual")
+	stub.auto_on = true
+	hud.call("update_from", stub, true)
+	check((hud.get("_hint_auto") as Control).visible, "auto readout shows while auto is on")
+	check((hud.get("_thrust_label") as Label).text == "Max depth",
+		"thrust row sets depth in auto")
+	stub.auto_on = false
+	stub.state = 4
+	hud.call("update_from", stub, true)
+	check(auto_row.visible == false, "afterglow hides auto thrust")
+	stub.state = 2
+	hud.call("update_from", stub, true)
 	stub.pony_climaxes = 1
 	hud.call("update_from", stub, true)
 	check(y_label.text == "Afterglow", "Y offers afterglow after a climax")

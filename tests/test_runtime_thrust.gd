@@ -114,6 +114,22 @@ func run() -> void:
 	runtime._climax()
 	runtime._finish_climax()
 	check(int(runtime.state) == 4, "third climax auto-enters AFTERGLOW")
+
+	# Auto thrust feeds the same tracker and scores through it.
+	runtime.state = 2
+	runtime._auto_default_pace = 1.5
+	runtime._auto_default_depth = 0.9
+	runtime._auto_pace_step = 0.1
+	runtime._reset_thrust_state()
+	runtime.toggle_auto_thrust()
+	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
+	for _i: int in 240:
+		runtime._auto_thrust_tick(1.0 / 60.0)
+	check(runtime.satisfaction > 0.0, "auto thrust scores through the same tracker")
+	runtime._stop_auto_thrust()
+	check(not runtime.auto_active(), "stopping auto clears the mode")
+	runtime._reset_thrust_state()
+	check(not runtime.auto_active(), "thrust reset clears auto for the next act")
 	runtime.free()
 
 	print("RUNTIME_THRUST_RESULT checks=%d failures=%d" % [checks, failures])

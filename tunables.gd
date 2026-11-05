@@ -35,6 +35,16 @@ const ACTIONS := {
 		"help": "Force a standing offer for the aimed or nearest mare.",
 		"method": "action_standing_offer",
 	},
+	"grant_lover_bond": {
+		"label": "Grant lover bond",
+		"help": "Give the aimed or nearest eligible mare the mod lover bond.",
+		"method": "action_grant_lover_bond",
+	},
+	"clear_lover_bond": {
+		"label": "Clear lover bond",
+		"help": "Clear the aimed or nearest mare's mod lover bond.",
+		"method": "action_clear_lover_bond",
+	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
 		"help": "Toggle the F10 skeleton overlay.",

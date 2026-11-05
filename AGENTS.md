@@ -11,7 +11,7 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
-| ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
+| ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `tunables_schema.gd`, `tunables.gd` |
@@ -22,7 +22,9 @@ Do not start implementation until you have read the required files for the area 
 
 - Mod id `unfplap`; current public version `0.1.2`; target game `0.3.0-maredev`.
 - Adult mares and stallions only. Human Anon and AnonPony.
-- Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
+- Romance level per `relationship.promiscuity` (default Marefriend/Coltfriend). Sex also needs the
+  mod lover bond unless `relationship.sex_start` is Try Your Luck. `bonds.welcomes(id, "kiss")`
+  still decides the actual start; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, heat, estrus, conception, content warning, toggle, new character or body models,
   genitals or anatomy. The act stays off-camera by framing. Modelled accessories are allowed; they
@@ -50,13 +52,14 @@ Manual lab:
 It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
 script. Set `GODOT=~/path/to/godot` if the binary is not at `~/Downloads/godot`.
 
-- The lab loads only Twilight, Fluttershy, Rarity and Derpy, pauses world scheduling and
-  background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.
+- The lab loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara, pauses world
+  scheduling and background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.
+  Diamond Tiara is the filly witness fixture: no romance tier, no dating record, no bed invite.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
-- The lab re-seeds its four mares on every startup (romance tier, dating record, mood, idle
-  posture) and moves them to a row on the path in front of Golden Oak Library. The rest of the
-  world's context and inventory persist.
+- The lab re-seeds its five ponies on every startup (friendship and mood, idle posture; romance
+  tier and dating record only for the four adults) and moves them to a row on the path in front of
+  Golden Oak Library. The rest of the world's context and inventory persist.
 - The lab normalizes a mare's saved actor rotation to yaw-only in `_upright()` during setup and
   after bed transport. A tilted saved transform otherwise makes support recovery fight the
   collider every frame and print endless `re-seated on the floor` lines.
@@ -102,6 +105,7 @@ mods/unfplap/
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
+  auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
   preferences.gd    pure taste profile, intensity/rhythm and talk classification
   tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
   tunables.gd       the one typed API for reading and writing those settings
@@ -141,10 +145,11 @@ mods/unfplap/
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
-  witness.gd        witness pass
+  witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation
-  consent_classifier.gd  one shared classifier client/queue for offer and dialogue consent
-  dialogue_consent.gd    verbal yes/now/here agreement from player dialogue
+  consent_classifier.gd  one shared classifier client/queue for offer and lover dialogue
+  dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
+  sex_bond.gd       pure Promiscuity levels + per-world lover-bond state and validity
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    taste/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
@@ -636,6 +641,17 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   - **intensity**: `soft` (< 0.33), `firm` (< 0.66), `rough`;
   - **pattern**: `steady`, `teasing` or `quick`, classified over the last 3–4 real thrusts.
     Fewer than 3 has no pattern yet.
+- Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances a raised
+  cosine at `pace` thrusts per second from 0 to `max_depth`; `_auto_thrust_tick()` sends the
+  per-frame depth delta through `_thrust_move()`, so readiness, intensity, pattern, audio, camera,
+  jiggle and presentation keep their existing paths. The wheel nudges pace, mouse ↕ nudges peak
+  depth through the same `thrust.orientation`/`pixels_per_full` mapping; the peak is smoothed over
+  `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the tracker travel: after the first
+  stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum peak is `0.32`.
+  Pace alone does not choose a pattern; `pattern_for` still gates on both travel and duration.
+  `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
+  stop it, and `_reset_thrust_state()` restores the act-start defaults (off, configured pace and
+  depth) for the next act. Tunables are starting values, not live edits to the current cycle.
 - `satisfaction` is **readiness 0–100**, not a stroke score. Each real thrust adds
   `THRUST_HEAT_BOTH = 1.4`, `THRUST_HEAT_ONE = 0.7` or `THRUST_HEAT_NONE = 0`, times warmth;
   scoring is limited to one thrust every `THRUST_SCORE_MIN_INTERVAL = 0.2 s`. There is no
@@ -664,8 +680,9 @@ examples.
 
 ## Act flow, gates and controls
 
-- Eligibility: adult, not filly/colt, player not young, love level ≥ 2, and
-  `bonds.welcomes(id, "kiss")`.
+- Eligibility: adult, not filly/colt, player not young, love level per
+  `relationship.promiscuity`, and `bonds.welcomes(id, "kiss")`. The mod lover bond is also
+  required unless `relationship.sex_start` is Try Your Luck.
 - Missionary: Human Anon uses the seated/lying bed path; AnonPony uses the already-lying path. Standing:
   standing/settled.
 - Start only when free/idle; another pony's conversation, active task or conflicting navigator
@@ -678,9 +695,10 @@ examples.
 - `kiss_hold` owns movement hold; `pony_kisser` physics is paused so it cannot remove it.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
   `Z`/`C` toggle caress movement,
-  `F` hold kiss in standing, mouse right smacks. They are available in `ACTIVE`, `CLIMAX`, and the
-  standing `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's hug/deep-kiss key;
-  the act consumes it without binding it so a hug cannot end the act's kiss.
+  `F` hold kiss in standing, mouse right smacks. `X` toggles auto thrust; while it is on the mouse
+  wheel sets its pace and mouse ↕ sets its peak depth. They are available in `ACTIVE`, `CLIMAX`,
+  and the standing `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's
+  hug/deep-kiss key; the act consumes it without binding it so a hug cannot end the act's kiss.
 - `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
   bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
   climaxes and enters afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends
@@ -702,8 +720,14 @@ examples.
   It is written only with no disliked touch/talk and either peak satisfaction >= 90 or six
   both-axis thrust matches; a higher score replaces it. The stored text is the last player
   exchange, or a generic warm beat when he did not speak. The cue prompt prefers this memory.
-- Memory uses the game's second-person phrasing. Witnesses are nearby awake adults; sleeping
-  ponies and fillies/colts are skipped.
+- Memory uses the game's second-person phrasing. A witness must actually perceive the act:
+  `pony_awareness.visible()` (24 m, facing, clear line) or `can_hear()` (12 m, clear line);
+  sleeping ponies are skipped. Each observer gets her own event (`witnesses = [observer]`, place =
+  the region id from `place_at`), never a shared one. Adults get `witnessed_intimacy` with the
+  explicit text and thought; fillies and colts get `witnessed_scene`, a perception with an
+  indoors/outdoors prefix and no conclusion, and mood only, so the game's per-pony story summary
+  forms a memory they could hold. Young witnesses can retell it; the game propagates that through
+  speech and town rumours.
 - Proactive requests are a separate controller (`initiation.gd`), not an action tag. They never
   start the act; `Y` remains the only act-start path.
 
@@ -714,7 +738,8 @@ examples.
   character chat within 45 s. The lab runs in Talk, so trigger offers from **Debug → Actions**.
 - Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
   exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
-  gate.
+  gate. `can_offer` always requires `relation`; Try Your Luck lifts only the lover-bond row, so
+  she never proactively offers while unwilling.
 - The mare chooses the pose. With both a usable bed and a standing offer, she picks one at
   random (`pick_offer_pose`); with one, she uses it. An active cuddle always offers missionary.
 - Cuddle: requires an active cuddle and `can_offer(MISSIONARY, "bed_side")` or
@@ -777,22 +802,22 @@ examples.
   cooldown and AI-usage checks for lab testing, but not relationship, consent, pose or free-bed
   gates.
 
-### Y start gate and aim zone
+### Act start and aim zone
 
-- `features.press_y_starts_sex` defaults **off**. `main.try_start()` is the only act-start
-  path; `runtime.start()` now takes an explicit `y_allowed` gate and refuses without it.
-- `INITIATION.y_start_allowed(flag, source, scenario)`:
-  - flag on: any valid offer;
-  - flag off: `bed_side`, `already_lying`, an active proactive request, or a dialogue
-    agreement. `ask`, `present`, `invite`, `bed_lead` and `bed_wait` all keep the request
-    scenario.
+- `main.try_start()` is the only act-start path. It offers Y when `runtime.can_start()` passes.
+  `runtime.start()` re-checks `can_start()` and then `_relationship_ok()`. If she does not
+  welcome the kiss, it calls `refuse()` and returns false; no act starts.
+- `can_start()` requires the `sex_bond` row. In Default, the `relation` row is required too, so
+  the Y hint appears only when she welcomes the kiss and the bond exists. In Try Your Luck, the
+  `relation` row is omitted for the start attempt, so Y can appear before she welcomes; pressing
+  Y still refuses when she does not.
+- `can_offer()` always requires `relation`; a mare never proactively offers while unwilling.
+  Try Your Luck lifts only the bond requirement for offers.
 - Standing offers use the base game’s smack-flank selection: crosshair on the flank and
-  `TOUCH_REACH = 1.6 m`. This applies with the flag on or off. Missionary bed offers stay
-  contextual.
-- `dialogue_consent.gd` checks every player line with a pony reply through the shared
-  classifier. `sex_accept` leaves a per-mare agreement until she moves, changes region or
-  posture, refuses, the act starts, or the world closes. The Y hint still only appears in the
-  smack-flank zone.
+  `TOUCH_REACH = 1.6 m`. Missionary bed offers stay contextual.
+- `dialogue_consent.gd` classifies every player line with a pony reply through the shared
+  classifier. `lover_accept` grants the mod bond, `lover_decline` does nothing and `lover_end`
+  clears it. It never arms an act and never starts one.
 - `consent_classifier.gd` is one shared service: one LLM client, one queue and scoped
   cancellation for `offer:` and `dialogue:` jobs. It never runs two mod classifier requests at
   the same time.
@@ -869,7 +894,8 @@ examples.
   HUD's own centered prompt above the caption line.
 - The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
   controller icon, a muted `Hold`/blank modifier column, and one description. Rows list mouse
-  thrust, W/S, Q/E, A/D, Z/C caress movement, F (`Hold`), mouse right and Y (`Hold`); the Y
+  thrust, X (`Auto thrust` / `Manual thrust`), W/S, Q/E, A/D, Z/C caress movement, F (`Hold`),
+  mouse right and Y (`Hold`); the thrust row reads `Thrust` or `Max depth` with auto, and the Y
   description is `Afterglow`, `Stop` or `Exit` by state. A muted `MAKE LOVE` title names the card,
   like the carry card's title.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
@@ -878,13 +904,14 @@ examples.
   inventory's `_place_hotbar()` re-evaluates the state after restoring, so a stale pre-act layer
   flag cannot leave it hidden.
 - The bottom-left stack reads, top to bottom: cue line `❤ N/3 | cue`, readiness line
-  `Wants: intensity & pattern | You: intensity & pattern`, readiness bar, blank separator,
+  `Wants: intensity & pattern | You: intensity & pattern`, auto readout
+  `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator,
   `MAKE LOVE` title, controls.
 - The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
   (default `true`). The bar has no ticks. The hearts remain when readouts are off.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
   standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y, while
-  thrust, smack and talk
+  thrust, auto, smack and talk
   are hidden. The standing close hint is independent of `hud_readouts`.
 - Love XP and happy mood are granted once by `MEMORY.commit_climax()` at afterglow.
   `MEMORY.stay_close_reward()` may add a small extra romance, happy mood and private thought
@@ -906,6 +933,9 @@ examples.
   consent, pose or free-bed gates; use them in the lab, which runs with `ai_usage=talk`. The
   status label reports the target or gate rejection. Because the settings page pauses the tree,
   an offer advances after it closes.
+- **Grant lover bond** / **Clear lover bond**: grant or clear the mod bond for the aimed (or
+  nearest) mare. Grant uses the real Promiscuity, adulthood and kiss-willingness checks, so it
+  fails outside them; clear always works.
 - `F10` (the only hotkey action): toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
@@ -920,13 +950,16 @@ examples.
   outside an act.
 - `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
-- Lab: `-`/`=` romance tier, `9`/`0` anger mood, Mouse4 invite to bed, Mouse5 sex-ready. Mouse4
-  moves a mare farther than `8 m` (or on another floor) to the guest-bed approach before inviting,
-  then waits for Anon's recline blend before the snuggle invite. Backtick (`` ` ``) toggles the
-  debug console with a temporary control-lock release, so it also opens while Anon is lying down.
-- The lab teleports the four mares in front of Golden Oak Library at startup. Its startup log lists
-  every setup action (opening/tutorial handling, population restriction/prune, AI/time pauses,
-  per-mare friendship/romance/dating/mood/idle setup, no spawned bed).
+- Lab: `-`/`=` romance tier (adults only), `9`/`0` anger mood, Mouse4 bed invite, Mouse5
+  sex-ready. Mouse5 grants the lover bond after the neutral mood reset, so the default gate is
+  satisfied; startup leaves bonds unset. Mouse4 moves a mare farther than `8 m` (or on another
+  floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the
+  snuggle invite. On Diamond Tiara both Mouse4 and Mouse5 stop as the filly witness: no romance,
+  no dating record and no bond. Backtick (`` ` ``) toggles the debug console with a temporary
+  control-lock release, so it also opens while Anon is lying down.
+- The lab teleports the five ponies in front of Golden Oak Library at startup. Its startup log
+  lists every setup action (opening/tutorial handling, population restriction/prune, AI/time
+  pauses, per-pony friendship/mood/idle, adult romance/dating, no spawned bed).
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
 - Test every pose start, climax, afterglow, restore, hold-Y and cuddle path in the lab
   after changing camera, pose or scoring code.
@@ -965,8 +998,8 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
   changes. Opening the Unfplap settings tab calls `TUNABLES.reload_settings()`, so a hand-edited
   file applies when the tab opens; otherwise it needs a restart.
-- Top level: `debug_logs`, `features`, `thrust`, `jiggle`, `camera_thrust`, `presentation`,
-  `default` template, `characters` overrides.
+- Top level: `debug_logs`, `features`, `relationship`, `thrust`, `auto_thrust`, `jiggle`,
+  `camera_thrust`, `presentation`, `default` template, `characters` overrides.
 - Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read
   through `tunables.gd`; the runtime snapshots them with every other act value in
   `_snapshot_settings()` at act start, and `apply_live_settings()` re-runs that snapshot after any
@@ -984,7 +1017,6 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
-| `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |
 | `act_vocals` | `false` | pack climax moan only |
@@ -993,9 +1025,23 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
+- `relationship.promiscuity` is a `choice`, default `marefriend`; values `soulmates`,
+  `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
+  the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
+- `relationship.sex_start` is a `choice`, default `default`; `try_luck` (label `Try Your Luck`)
+  makes the lover bond optional and omits the `relation` row from the start attempt. It never
+  skips the actual `bonds.welcomes(id, "kiss")` check: `runtime.start()` calls `refuse()` when it
+  fails.
+- The lover bond is stored in `Mods.state("unfplap").sex_bonds`. It never expires.
+  `lover_accept` grants it; `lover_end` clears it. A bond is cleared when the stage it reached
+  leaves dating/engaged/married; a bond that never reached a romantic stage stays until
+  withdrawn. `main.gd` runs the stale-bond check every 2 s while idle.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
   hip backset multiplier, default `0.5`, clamped to `0.25…2.0×` as a player-facing contract.
+- `auto_thrust` stores `pace` (thrusts/s, default `1.5`, clamped `0.2…4`), `max_depth` (peak
+  depth, default `0.9`, clamped `0.32…1`) and `pace_step` (one wheel notch, default `0.1`,
+  debug). They are act-start defaults; the wheel and mouse changes are per-act.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
   (default `0.45`). It is read live with the other thrust controls.
@@ -1017,9 +1063,10 @@ rump blush. Unknown settings keys are ignored.
 - **Never clamp a debug setting.** A schema `num` entry is stored and returned verbatim; its
   `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
   Only a `user_num` entry clamps, and only because its bound is part of the player-facing
-  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, camera surge/bob `0…1`, glance
-  speed `0.25…3×`). Do not add a clamp in a consumer "to be safe": if a value must be bounded to
-  stay playable, make it a `user_num` and say so in the help text.
+  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `0.2…4/s`, auto depth
+  `0.32…1`, camera surge/bob `0…1`, glance speed `0.25…3×`). Do not add a clamp in a consumer
+  "to be safe": if a value must be bounded to stay playable, make it a `user_num` and say so in
+  the help text.
   No consumer clamps a tunable-derived value today; the jiggle radius, idle sway, smack raise,
   smack arc and caress oval radii are applied as stored. The only other bounds are the smack
   animation duration (`0.12–0.30 s` raise, `0.06–0.20 s` return), which bound the slide, not the

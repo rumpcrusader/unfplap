@@ -169,6 +169,8 @@ these values here if a future pose needs that effect.
   moves up her body. The outward stroke rises back.
 - Missionary sends the surge along the mattress toward her head; standing sends it along the camera
   forward. Both use the same bob.
+- Auto thrust feeds the same `depth`: `auto_thrust.gd` generates the raised cosine and the runtime
+  feeds it as mouse movement, so the surge/bob and the standing hip need no separate path.
 - Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
 - The act end runs through `runtime._end_session()`; the missionary re-invite restores:
   1. player transform and yaw,
@@ -215,7 +217,7 @@ these values here if a future pose needs that effect.
   The fixed rump point is the base HipsTarget plus `THRUST_MAX_M = 0.045 × body_scale` toward
   her; `anon_hip_thrust.gd` moves only the Hips bone by
   `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so depth 0 is the full backset and depth 1
-  reaches the rump point. `thrust.travel` defaults to `2.0`. The modifier restores the Spine
+  reaches the rump point. `thrust.travel` defaults to `0.5`. The modifier restores the Spine
   and both UpperLegs to their pre-offset global poses, so the torso, head and legs do not
   follow. There is no attack or return spring.
 - With `standing_plant_feet` on (default), the standing controller captures both foot targets on

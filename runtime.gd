@@ -5,6 +5,8 @@ const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 const DOCK_TAIL_COAT := preload("res://mods/unfplap/dock_tail_coat_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
+const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -291,6 +293,22 @@ var _act_dislikes := 0
 var _act_liked_touch := 0
 var _act_liked_talk := 0
 var _last_player_talk := ""
+var _act_touch_counts := {}
+var _act_touch_dislikes := {}
+var _act_talk_dislikes := 0
+var _act_player_lines := 0
+var _act_thrusts := 0
+var _act_intensity_total := 0
+var _act_intensity_right := 0
+var _act_pattern_total := 0
+var _act_pattern_right := 0
+var _act_ended_early := false
+var _summary: Dictionary = {}
+var _summary_done := false
+var _history_refusal_at := -1000.0
+var _history_reminder_at := -1000.0
+var _history_scan_clock := 0.0
+var _history_turn := -1
 var _peak_recorded := false
 var _aftercare_min := 10
 var _display_name := "the pony"
@@ -647,12 +665,19 @@ func hud_cue_line(show_readouts := true) -> String:
 		var close_text := close_hint()
 		if not close_text.is_empty():
 			cue_text = close_text
+		elif not _summary.is_empty():
+			cue_text = str(_summary.get("hud", ""))
 	if show_readouts or closing:
 		parts.append(cue_text if not cue_text.is_empty() else "—")
 	return " | ".join(parts)
 
-## Separate readiness/taste line under the cue. Empty outside ACTIVE/CLIMAX or when readouts off.
+## Separate readiness/taste line under the cue. In the afterglow it carries the act summary when
+## the cue already shows the standing close prompt. Empty elsewhere when readouts are off.
 func hud_readiness_line(show_readouts := true) -> String:
+	if state == State.AFTERGLOW:
+		if _summary.is_empty() or close_hint().is_empty():
+			return ""
+		return str(_summary.get("hud", ""))
 	if not show_readouts or state not in [State.ACTIVE, State.CLIMAX]:
 		return ""
 	var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
@@ -852,6 +877,7 @@ func _physics_tick(delta: float) -> void:
 		if _inventory_hud_hidden:
 			_set_inventory_hud_hidden(false)
 		_standing_presentation_controller().physics(delta)
+		_history_tick(delta)
 		return
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		force_stop()
@@ -1583,6 +1609,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_y_hold_ready = false
 	_y_hold_fired = false
 	_reset_thrust_state()
+	_summary = {}
+	_summary_done = false
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
@@ -2218,6 +2246,16 @@ func _reset_thrust_state() -> void:
 	_act_liked_touch = 0
 	_act_liked_talk = 0
 	_last_player_talk = ""
+	_act_touch_counts.clear()
+	_act_touch_dislikes.clear()
+	_act_talk_dislikes = 0
+	_act_player_lines = 0
+	_act_thrusts = 0
+	_act_intensity_total = 0
+	_act_intensity_right = 0
+	_act_pattern_total = 0
+	_act_pattern_right = 0
+	_act_ended_early = false
 	_peak_recorded = false
 	if _thrust_tracker == null:
 		_thrust_tracker = THRUST.new()
@@ -2410,6 +2448,7 @@ func _on_stroke(event: Dictionary) -> void:
 		return
 	if not bool(event.get("thrust", false)):
 		return
+	_act_thrusts += 1
 	if state == State.CLIMAX:
 		# The player can keep thrusting through her climax; it is presentation only.
 		_on_thrust(event)
@@ -2441,6 +2480,13 @@ func _score_thrust() -> void:
 	var wanted_pattern := str(_taste.get("pattern", "steady"))
 	var intensity_match := not _last_intensity.is_empty() and _last_intensity == wanted_intensity
 	var pattern_match := not _last_pattern.is_empty() and _last_pattern == wanted_pattern
+	_act_intensity_total += 1
+	if intensity_match:
+		_act_intensity_right += 1
+	if not _last_pattern.is_empty():
+		_act_pattern_total += 1
+		if pattern_match:
+			_act_pattern_right += 1
 	if intensity_match and pattern_match:
 		_act_both_matches += 1
 	var heat := THRUST_HEAT_NONE
@@ -2555,6 +2601,9 @@ func _set_cue_override(text: String, seconds := CUE_OVERRIDE_S) -> void:
 func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:
 		return
+	_act_touch_counts[kind] = int(_act_touch_counts.get(kind, 0)) + 1
+	if kind in _taste.get("dislikes", []):
+		_act_touch_dislikes[kind] = int(_act_touch_dislikes.get(kind, 0)) + 1
 	var now := _now_s()
 	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
 	if now - _last_touch_at < TOUCH_COOLDOWN_S:
@@ -2587,6 +2636,8 @@ func _on_talk(text: String) -> void:
 	var category := PREFERENCES.classify_talk(text)
 	if category.is_empty():
 		return
+	if category in _taste.get("dislikes", []):
+		_act_talk_dislikes += 1
 	var now := _now_s()
 	if now - _last_talk_at < TALK_COOLDOWN_S:
 		return
@@ -2623,6 +2674,7 @@ func _talk_tick(_delta: float) -> void:
 			_last_talk_turn = turn
 			if not text.strip_edges().is_empty():
 				_last_player_talk = text.strip_edges()
+				_act_player_lines += 1
 				_on_talk(text)
 
 func _remember_talk_turn() -> void:
@@ -2811,12 +2863,174 @@ func _last_spoken_at() -> float:
 		return -1e9
 	return float((entry as Dictionary).get("last_spoken_at", -1e9))
 
+## One summary per act. It is scored from the action counters, stored in the world's module
+## state, and written to the game's impression once. Forced stops never call it.
+func _commit_summary(real_act: bool) -> void:
+	if _summary_done:
+		return
+	_summary_done = true
+	if not _history_enabled() or not is_instance_valid(main) or not is_instance_valid(main.game):
+		return
+	var outcome: Dictionary = ACT_SUMMARY.evaluate(_summary_inputs(), ACT_SUMMARY.rules())
+	if bool(outcome.get("skip", false)):
+		_log("summary skip reasons=%s seconds=%.1f thrusts=%d" % [
+			_summary_reasons(outcome), _act_seconds, _act_thrusts])
+		return
+	_summary = outcome
+	var result: Dictionary = ACT_HISTORY.commit(ACT_HISTORY.section(), _id, outcome,
+		ACT_HISTORY.day_now())
+	ACT_HISTORY.save()
+	MEMORY.commit_act(main.game, _id, _display_name, _event_id, outcome, not real_act)
+	var row: Dictionary = result.get("row", {})
+	var events: PackedStringArray = []
+	var raw_events: Variant = result.get("events", [])
+	if raw_events is Array:
+		for item: Variant in raw_events:
+			events.append(str(item))
+	_log("summary grade=%s quality=%.2f checks=%d/%d reasons=%s tier=%s hurt=%d comfort=%d events=%s" % [
+		str(outcome.get("grade", "neutral")), float(outcome.get("quality", 0.0)),
+		int(outcome.get("right", 0)), int(outcome.get("total", 0)),
+		_summary_reasons(outcome), ACT_HISTORY.tier_name(row),
+		int(row.get("hurt", 0)), int(row.get("comfort", 0)), ",".join(events)])
+
+
+func _summary_inputs() -> Dictionary:
+	return {
+		"taste": _taste,
+		"seconds": _act_seconds,
+		"thrusts": _act_thrusts,
+		"pony_climaxes": pony_climaxes,
+		"talk_liked": _act_liked_talk,
+		"talk_dislikes": _act_talk_dislikes,
+		"touches_liked": _act_liked_touch,
+		"touch_dislikes": _act_touch_dislikes.duplicate(true),
+		"player_lines": _act_player_lines,
+		"intensity_total": _act_intensity_total,
+		"intensity_right": _act_intensity_right,
+		"pattern_total": _act_pattern_total,
+		"pattern_right": _act_pattern_right,
+		"ended_early": _act_ended_early,
+		"forced": false,
+	}
+
+
+func _summary_reasons(outcome: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	var raw: Variant = outcome.get("reasons", [])
+	if raw is Array:
+		for item: Variant in raw:
+			parts.append(str(item))
+	return ",".join(parts)
+
+
+func _history_enabled() -> bool:
+	return ACT_HISTORY.enabled()
+
+
+func _history_row() -> Dictionary:
+	return ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id, ACT_HISTORY.day_now())
+
+
+func _history_note() -> String:
+	if not _history_enabled():
+		return ""
+	return ACT_HISTORY.prompt_note(_history_row())
+
+
+## Called by main before a normal Y start. A withdrawn mare still shows the offer; pressing Y
+## gives one gentle refusal instead of a silent no.
+func history_blocks_start() -> bool:
+	if state != State.IDLE or not _history_enabled():
+		return false
+	return ACT_HISTORY.blocks_start(_history_row())
+
+
+func refuse_from_history(_pose: String, source: String, _bed: Variant = null) -> bool:
+	if not history_blocks_start():
+		return false
+	if _now_s() - _history_refusal_at < 4.0:
+		return true
+	_history_refusal_at = _now_s()
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		var row := _history_row()
+		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
+		var valid := func() -> bool:
+			return is_instance_valid(pony) and state == State.IDLE
+		MEMORY.reaction_for(main.game, _id, "history_refusal", event_id,
+			ACT_HISTORY.refusal_purpose(row), valid)
+		_log("history refusal id=%s tier=%s hurt=%d" % [
+			_id, ACT_HISTORY.tier_name(row), int(row.get("hurt", 0))])
+	if source == "cradle":
+		_release_carry()
+		if is_instance_valid(pony) and pony.get("posture") != null:
+			pony.request_posture("stand")
+	return true
+
+
+## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
+## complaint becomes one short line in a quiet moment.
+func _history_tick(_delta: float) -> void:
+	if not _history_enabled() or not is_instance_valid(pony) or not is_instance_valid(main):
+		return
+	if not is_instance_valid(main.player) or get_tree().paused:
+		return
+	var director := _director()
+	if director == null:
+		return
+	var now := _now_s()
+	var turn := int(director.get("_turn_id"))
+	var text := str(director.get("_player_text")).strip_edges()
+	if _history_turn < 0:
+		_history_turn = turn
+	elif turn != _history_turn:
+		_history_turn = turn
+		if not text.is_empty() and PREFERENCES.apology_intent(text):
+			var target: Variant = pony.get("conversation_target")
+			var body: Variant = main.player_body()
+			if target == main.player or target == body:
+				if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), _id,
+						ACT_HISTORY.day_now()):
+					ACT_HISTORY.save()
+					if is_instance_valid(main.game):
+						MEMORY.history_apology(main.game, _id, text)
+					_log("history apology id=%s" % _id)
+	_history_scan_clock += _delta
+	if _history_scan_clock < 1.0:
+		return
+	_history_scan_clock = 0.0
+	if now - _history_reminder_at < 15.0 or _speech_busy():
+		return
+	if str(director.get("state")) != "idle":
+		return
+	if main.player.global_position.distance_to(pony.global_position) > 5.0:
+		return
+	var row := _history_row()
+	var kind := ACT_HISTORY.pending_line(row)
+	if kind.is_empty():
+		return
+	if Time.get_unix_time_from_system() - float(row.get("last_at", 0.0)) < 45.0:
+		return
+	var event_id := "history_%s_%d" % [_id, Time.get_ticks_usec()]
+	var valid := func() -> bool:
+		return is_instance_valid(pony) and state == State.IDLE
+	var key := MEMORY.reaction_for(main.game, _id, "history_" + kind, event_id,
+		ACT_HISTORY.line_purpose(row, kind), valid)
+	if key.is_empty():
+		return
+	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), _id, kind)
+	ACT_HISTORY.save()
+	_history_reminder_at = now
+	_log("history line kind=%s key=%s" % [kind, key])
+
+
 ## Store the strongest clean act per mare. The exchange is the useful part: a later cue can
 ## infer that she liked it without any name-specific instruction.
 func _record_peak_memory() -> void:
 	if _peak_recorded:
 		return
 	_peak_recorded = true
+	if not _summary.is_empty() and not bool(_summary.get("positive", false)):
+		return
 	if not RELATIONSHIP_CUE.peak_eligible(_peak_satisfaction, _act_both_matches, _act_dislikes):
 		return
 	var player := _last_player_talk.strip_edges()
@@ -3036,6 +3250,8 @@ func cancel() -> void:
 	_log("cancel state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE]:
 		MEMORY.cancel_event(main.game, _id, _display_name, _event_id)
+		_act_ended_early = true
+		_commit_summary(false)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()
@@ -3049,8 +3265,10 @@ func cancel() -> void:
 				if _now_s() <= expires:
 					return true
 				return MEMORY.line_state(main.game, reaction_key) == "speaking"
+			var wants := str(_summary.get("wants", "")).strip_edges()
+			var extra := (" Next time you want to " + wants + ".") if not wants.is_empty() else ""
 			var key := MEMORY.reaction_for(main.game, _id, "end_early", act_id,
-				"Anon stopped before you reached climax. Say one short sentence, at most 12 words, in your own voice. Saying nothing is fine.",
+				"Anon stopped before you reached climax. Say one short sentence, at most 12 words, in your own voice. Saying nothing is fine." + extra,
 				valid)
 			if not key.is_empty():
 				var now := _now_s()
@@ -3222,15 +3440,22 @@ func _finish_climax() -> void:
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
+	var history := _history_note()
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		if is_instance_valid(_satisfied):
-			return "- You are still warm and satisfied after sex with Anon. Keep a relaxed, affectionate tone; do not act stiff or businesslike."
-		return ""
+			var warm := "- You are still warm and satisfied after sex with Anon. Keep a relaxed, affectionate tone; do not act stiff or businesslike."
+			return warm + (" " + history if not history.is_empty() else "")
+		return history
 	var parts: PackedStringArray = []
 	if state == State.AFTERGLOW:
 		parts.append("- You are still in the afterglow with Anon; the act has ended, but the moment is not finished yet.")
+		var summary_note := str(_summary.get("note", "")).strip_edges()
+		if not summary_note.is_empty():
+			parts.append("- This act: " + summary_note)
 	else:
 		parts.append("- You are in the middle of sex with Anon.")
+		if not history.is_empty():
+			parts.append(history)
 	var caressing := _player_is_caressing()
 	var leaning := _player_is_leaning_close()
 	if caressing and leaning:
@@ -3244,6 +3469,7 @@ func prompt_note() -> String:
 	if state == State.AFTERGLOW:
 		parts.append("If Anon asks to stay longer, use [stay: 120] to hold the afterglow.")
 	return " ".join(parts)
+
 
 ## Lover-bond context for the normal dialogue prompt. Empty during an act, where prompt_note
 ## owns the line.
@@ -3417,8 +3643,8 @@ func _enter_afterglow() -> void:
 func _commit_afterglow() -> void:
 	if not is_instance_valid(main):
 		return
+	_commit_summary(true)
 	_record_peak_memory()
-	MEMORY.commit_climax(main.game, _id, _display_name, _event_id)
 	MEMORY.afterglow_event(main.game, _id, _display_name, _event_id, pose_id)
 	for row: Variant in WITNESS.commit(main.game, _id, _display_name, _serial, pony):
 		_log("witness " + str(row))
@@ -3501,8 +3727,12 @@ func _close_afterglow() -> void:
 	_close_left = 0.0
 	var caressed := _close_caress_seconds >= STAY_CLOSE_CARESS_SECONDS
 	_close_caress_earned = caressed
+	var reward := bool(_summary.get("reward", false))
 	if is_instance_valid(main):
-		MEMORY.stay_close_reward(main.game, _id, _event_id, caressed)
+		MEMORY.stay_close_reward(main.game, _id, _event_id, caressed, reward)
+	if not reward and caressed:
+		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
+			ACT_HISTORY.save()
 	_set_face(0.9, AFTERGLOW_CLOSE_LIDS)
 	_climax_hearts_burst()
 	cue = ""
@@ -3642,12 +3872,17 @@ func _begin_aftercare() -> void:
 		return
 	if is_instance_valid(_aftercare):
 		return
+	var has_summary := not _summary.is_empty()
+	var healthy := bool(_summary.get("positive", false)) if has_summary \
+		else satisfaction >= _aftercare_min
+	var reward := bool(_summary.get("reward", false)) if has_summary \
+		else satisfaction >= _aftercare_min
 	_aftercare = AFTERCARE.new()
 	_aftercare.set("pony", pony)
 	_aftercare.set("runtime", self)
-	_aftercare.set("body_language", satisfaction >= _aftercare_min)
+	_aftercare.set("body_language", healthy and satisfaction >= _aftercare_min)
 	add_child(_aftercare)
-	if satisfaction >= _aftercare_min:
+	if reward and satisfaction >= _aftercare_min:
 		_start_satisfied()
 
 ## The emotional grace after a positive act: relaxed face, light blush and a warm prompt note.

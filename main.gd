@@ -7,6 +7,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HUD := preload("res://mods/unfplap/hud.gd")
 const INPUT := preload("res://mods/unfplap/input.gd")
 const INITIATION := preload("res://mods/unfplap/initiation.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
@@ -1077,9 +1078,17 @@ func try_start() -> bool:
 		return false
 	var target: Variant = _offer.get("pony")
 	var source := str(_offer.get("source", ""))
+	var pose := str(_offer.get("pose", ""))
+	var bed = _offer.get("bed")
 	if is_instance_valid(initiation) and is_instance_valid(target):
 		initiation.cancel_for(target)
-	var started: bool = runtime.start(str(_offer.get("pose", "")), _offer.get("bed"), source)
+	if runtime.has_method("history_blocks_start") and bool(runtime.call("history_blocks_start")):
+		runtime.call("refuse_from_history", pose, source, bed)
+		_offer = {}
+		if is_instance_valid(hud):
+			hud.hide_prompt()
+		return true
+	var started: bool = runtime.start(pose, bed, source)
 	if started:
 		if is_instance_valid(classifier):
 			classifier.call("cancel_scope", "dialogue:")
@@ -1137,6 +1146,31 @@ func action_grant_lover_bond() -> String:
 
 func action_clear_lover_bond() -> String:
 	return _debug_bond_request(false)
+
+
+## Debug: clear the aimed or nearest mare's long-term act history.
+func action_reset_act_history() -> String:
+	if not is_instance_valid(player):
+		return "Act system not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	var id := str(target.get_meta("relationship_id", ""))
+	if id.is_empty():
+		var identity: Variant = target.get("identity")
+		if identity != null:
+			id = str(identity.get("id"))
+	if id.is_empty():
+		return "No relationship id for %s." % str(target.name)
+	var section: Dictionary = ACT_HISTORY.section()
+	if not ACT_HISTORY.reset(section, id):
+		return "No act history for %s." % str(target.name)
+	ACT_HISTORY.save()
+	_debug("act history reset for %s" % id)
+	return "Act history cleared for %s." % str(target.name)
 
 
 ## Shared by the Debug tab: grant or clear the mod lover bond on the aimed or nearest mare.

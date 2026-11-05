@@ -21,6 +21,7 @@ extends Node
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "diamond_tiara"]
 ## Starting love XP: 0 = New Couple and below the sex gate, 150 = Marefriend, 400 = Head Over
 ## Hooves, 900 = the dating maximum (Soulmates still needs marriage). The -/= keys step these.
@@ -47,6 +48,7 @@ const SETUP_ACTIONS := [
 	"skip generated house furnishing; the authored library keeps its room and bed",
 	"set friendship >= 500, neutral mood and idle for every test pony",
 	"set romance tier and dating record only for the four adult test mares",
+	"clear the adult test mares' long-term act history",
 	"leave lover bonds unset; Mouse5 grants one",
 	"spawn no bed; use the Golden Oak guest bed",
 ]
@@ -297,6 +299,14 @@ func _setup_ponies(ponies: Array) -> void:
 		_log_action("test ponies", rows)
 	if is_instance_valid(impressions):
 		impressions.set("xp", xp)
+	var history_section: Dictionary = ACT_HISTORY.section()
+	var history_rows := PackedStringArray()
+	for id: String in TEST_IDS:
+		if ACT_HISTORY.reset(history_section, id):
+			history_rows.append(id)
+	if not history_rows.is_empty():
+		ACT_HISTORY.save()
+		_log_action("act history cleared", history_rows)
 	var context: Variant = game.get("world_context")
 	if is_instance_valid(context):
 		context.call("_changed")

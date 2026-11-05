@@ -118,6 +118,30 @@ static func classify_talk(text: String) -> String:
 	return ""
 
 
+## A mare who lists any talk category actively seeks it, so silence counts for her. A mare with
+## an empty talk list is not punished for a quiet act.
+static func seeks_talk(taste: Dictionary) -> bool:
+	return not (taste.get("talk", []) as Array).is_empty()
+
+
+## True when touch matters at all: she likes something or dislikes something. A mare with no
+## touch preference only needs the act to avoid disliked handling.
+static func seeks_touch(taste: Dictionary) -> bool:
+	if not (taste.get("touch", []) as Array).is_empty():
+		return true
+	for item: Variant in taste.get("dislikes", []):
+		if str(item) in TOUCHES:
+			return true
+	return false
+
+
+## A local apology check for the long-term act history. The game still generates her reply; this
+## only decides whether the player's line counts as an apology.
+static func apology_intent(text: String) -> bool:
+	return _has_any(text.to_lower(), ["sorry", "apologize", "apologise", "my fault",
+		"forgive me", "i was wrong", "didn't mean", "did not mean", "i messed up"])
+
+
 ## Human-readable private taste for the utterance prompt. No numbers, no units.
 static func describe(taste: Dictionary) -> String:
 	var parts: PackedStringArray = []

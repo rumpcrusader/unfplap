@@ -9,6 +9,27 @@ var failures := 0
 var checks := 0
 
 
+class FakeGame extends Node:
+	var world_context: Node
+
+
+class FakeContext extends Node:
+	var impressions: Node
+	var events: Array = []
+
+	func record(kind: String, text: String, witnesses: Array, subjects: Array,
+			event_id: String) -> void:
+		events.append({"kind": kind, "text": text, "witnesses": witnesses,
+			"subjects": subjects, "id": event_id})
+
+
+class FakeImpressions extends Node:
+	var calls: Array = []
+
+	func commit(id: String, data: Dictionary, event_id: String) -> void:
+		calls.append({"id": id, "data": data.duplicate(true), "event_id": event_id})
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -61,6 +82,59 @@ func run() -> void:
 	check(str(grown.get("thought", "")) == "I saw Anon and Fluttershy having sex out in the open.",
 		"adult outdoors thought")
 	check(not grown.has("romance") and not grown.has("friendship"), "adult impression carries no score")
+
+	var game := FakeGame.new()
+	var context := FakeContext.new()
+	var impressions := FakeImpressions.new()
+	context.impressions = impressions
+	game.world_context = context
+	root.add_child(game)
+	root.add_child(context)
+	root.add_child(impressions)
+
+	MEMORY.commit_act(game, "rarity", "Rarity", "intimacy_1", {
+		"mood": "happy", "romance": 2, "thought": "He gave me what I needed.",
+		"text": "You and Anon made love. You felt wanted.",
+	}, false)
+	check(impressions.calls.size() == 1, "a good act writes one impression")
+	var good: Dictionary = impressions.calls[0]
+	check(int((good["data"] as Dictionary).get("romance", 0)) == 2, "a good act gives romance +2")
+	check(str((good["data"] as Dictionary).get("mood", "")) == "happy", "a good act is happy")
+	check(str(good.get("event_id", "")).ends_with(":gain"), "an afterglow summary uses the act gain id")
+	check(context.events.size() == 1 and str(context.events[0].kind) == "relationship",
+		"the summary is recorded as a relationship event")
+
+	MEMORY.commit_act(game, "rarity", "Rarity", "intimacy_1", {
+		"mood": "sad", "romance": -1, "thought": "He did not give me what I need.",
+		"text": "You felt used.",
+	}, false)
+	var bad: Dictionary = impressions.calls[1]
+	check(int((bad["data"] as Dictionary).get("romance", 0)) == -1, "a bad act gives romance -1")
+	check(str((bad["data"] as Dictionary).get("mood", "")) == "sad", "a bad act is sad")
+
+	MEMORY.commit_act(game, "rarity", "Rarity", "intimacy_2", {
+		"mood": "relaxed", "romance": 1, "thought": "It was nice.",
+		"text": "It was nice, but something was missing.",
+	}, false)
+	check(int((impressions.calls[2]["data"] as Dictionary).get("romance", 0)) == 1,
+		"a neutral act gives romance +1")
+
+	MEMORY.stay_close_reward(game, "rarity", "intimacy_1", true, true)
+	var stay: Dictionary = impressions.calls[3]
+	check(int((stay["data"] as Dictionary).get("romance", 0)) == 1,
+		"a positive stay-close caress gives its extra romance")
+	MEMORY.stay_close_reward(game, "rarity", "intimacy_2", true, false)
+	var hurt_stay: Dictionary = impressions.calls[4]
+	check(not (hurt_stay["data"] as Dictionary).has("romance"),
+		"staying close after a bad act gives no romance")
+
+	MEMORY.history_apology(game, "rarity", "I am sorry.")
+	check(str(context.events[-1].kind) == "relationship", "an apology is recorded as a relationship event")
+	check(str(context.events[-1].text).contains("apologized"), "the apology event says what happened")
+
+	game.queue_free()
+	context.queue_free()
+	impressions.queue_free()
 
 	print("MEMORY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

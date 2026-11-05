@@ -48,6 +48,19 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	check(INIT.cooldown_ready(1000.0, 399.0), "cooldown is over at ten minutes")
 	check(not INIT.cooldown_ready(1000.0, 401.0), "cooldown blocks inside ten minutes")
+	check(INIT.cooldown_ready(1000.0, 949.0, 50.0), "cooldown accepts an explicit duration")
+	check(not INIT.cooldown_ready(1000.0, 951.0, 50.0), "explicit cooldown still blocks")
+
+	var weighted := [
+		{"id": "a", "weight": 0.7},
+		{"id": "b", "weight": 0.3},
+	]
+	check(str(INIT.weighted_pick(weighted, 0.0).get("id", "")) == "a",
+		"a low roll picks the first weighted candidate")
+	check(str(INIT.weighted_pick(weighted, 0.8).get("id", "")) == "b",
+		"a high roll picks the second weighted candidate")
+	check(INIT.weighted_pick([{"id": "a", "weight": 0.0}], 0.5).is_empty(),
+		"zero total weight picks nothing")
 
 	check(INIT.cuddle_private(true, true, false), "indoor cuddle needs house solitude")
 	check(not INIT.cuddle_private(true, false, false), "indoor cuddle rejects another pony in the house")

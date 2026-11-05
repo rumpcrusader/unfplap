@@ -45,6 +45,11 @@ const ACTIONS := {
 		"help": "Clear the aimed or nearest mare's mod lover bond.",
 		"method": "action_clear_lover_bond",
 	},
+	"reset_act_history": {
+		"label": "Reset act history",
+		"help": "Clear the aimed or nearest mare's long-term act history and hurt.",
+		"method": "action_reset_act_history",
+	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
 		"help": "Toggle the F10 skeleton overlay.",

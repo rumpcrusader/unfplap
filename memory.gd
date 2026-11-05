@@ -176,25 +176,34 @@ static func cancel_act_lines(game: Node, event_id: String, keep_speaking := true
 	return cancelled
 
 
-## The standing afterglow close reward. Staying and caressing gets a small romance gain and a
-## private thought; staying alone is a warm beat without the extra romance.
-static func stay_close_reward(game: Node, id: String, event_id: String, caressed: bool) -> void:
+## The standing afterglow close reward. A positive act gets a small romance gain and a happy
+## mood; after a bad act, staying close is a repair beat with a private thought but no romance.
+static func stay_close_reward(game: Node, id: String, event_id: String, caressed: bool,
+		positive := true) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
 	var text := "After sex, Anon stayed close and held you for a while."
-	if caressed:
+	if caressed and positive:
 		text = "After sex, Anon stayed close, held you and caressed you for a while. You felt cared for."
+	elif caressed:
+		text = "After sex, Anon stayed close and caressed you. You were still a little hurt, but it helped."
+	elif not positive:
+		text = "After sex, Anon stayed close. You were still a little hurt."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stay_close")
 	var impressions: Variant = ctx.get("impressions")
 	if impressions == null or not is_instance_valid(impressions):
 		return
 	var thought := "He stayed close after; I felt cared for."
-	if caressed:
-		thought = "He stayed close and caressed me after; I felt cared for."
-	var data := {"mood": "happy", "thought": thought}
-	if caressed:
-		data["romance"] = 1
+	var data: Dictionary = {}
+	if positive:
+		data["mood"] = "happy"
+		if caressed:
+			thought = "He stayed close and caressed me after; I felt cared for."
+			data["romance"] = 1
+	else:
+		thought = "He stayed close after, even though I was hurt; it helped a little."
+	data["thought"] = thought
 	impressions.commit(id, data, event_id + ":stay_close_gain")
 
 
@@ -217,17 +226,37 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stop:" + reason)
 
 
-static func commit_climax(game: Node, id: String, name: String, event_id: String) -> void:
+## Grade-aware act impression. A good act gives romance +2 and a happy mood, a neutral one +1,
+## and a bad one -1 with a sad or annoyed mood. The summary text is also kept as a relationship
+## event so a later prompt can recall the specific act.
+static func commit_act(game: Node, id: String, name: String, event_id: String,
+		outcome: Dictionary, early := false) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
 	var impressions: Variant = ctx.get("impressions")
-	if impressions == null or not is_instance_valid(impressions):
+	if impressions != null and is_instance_valid(impressions):
+		var data: Dictionary = {"mood": str(outcome.get("mood", "relaxed"))}
+		var romance := int(outcome.get("romance", 0))
+		if romance != 0:
+			data["romance"] = romance
+		var thought := str(outcome.get("thought", "")).strip_edges()
+		if not thought.is_empty():
+			data["thought"] = thought.left(240)
+		impressions.commit(id, data, event_id + (":summary" if early else ":gain"))
+	var text := str(outcome.get("text", "")).strip_edges()
+	if not text.is_empty():
+		ctx.record("relationship", text, [id, "player"], [id, "player"], event_id + ":summary")
+
+
+## A sincere apology outside an act. The repair itself lives in act_history; this only keeps the
+## moment in her story memory.
+static func history_apology(game: Node, id: String, _text: String) -> void:
+	var ctx = _context(game)
+	if ctx == null:
 		return
-	impressions.commit(id, {
-		"romance": 2,
-		"mood": "happy"
-	}, event_id + ":gain")
+	ctx.record("relationship", "Anon apologized for how he treated you during sex.",
+		[id, "player"], [id, "player"], "apology:%s:%d" % [id, Time.get_ticks_usec()])
 
 
 ## One event per observer, private to her (`witnesses = [observer_id]`). Adults are told what it

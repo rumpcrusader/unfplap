@@ -14,6 +14,7 @@ const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const REST_CONTROL := preload("res://mods/unfplap/rest_control.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 
 const COOLDOWN_S := 600.0
 const SCAN_INTERVAL_S := 0.5
@@ -160,7 +161,9 @@ func _cooldown_ok(id: String) -> bool:
 	if not times is Dictionary:
 		times = {}
 	var last: float = float((times as Dictionary).get(id, -100000.0))
-	return cooldown_ready(Time.get_unix_time_from_system(), last)
+	var history: Dictionary = ACT_HISTORY.effective_row(section, id, ACT_HISTORY.day_now())
+	return cooldown_ready(Time.get_unix_time_from_system(), last,
+		ACT_HISTORY.offer_cooldown(history))
 
 
 func _set_cooldown(id: String) -> void:
@@ -224,9 +227,9 @@ func _consider_start() -> void:
 			offers.append(candidate)
 	var chosen: Dictionary = {}
 	if not cuddles.is_empty():
-		chosen = cuddles.pick_random()
+		chosen = weighted_pick(cuddles, randf())
 	elif not offers.is_empty():
-		chosen = offers.pick_random()
+		chosen = weighted_pick(offers, randf())
 	if chosen.is_empty():
 		return
 	_serial += 1
@@ -256,25 +259,38 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "") -> Dictiona
 		return {}
 	if not forced and _now() < float(_retry_at.get(id, -100000.0)):
 		return {}
+	var history: Dictionary = _history_row(id)
+	if not forced and ACT_HISTORY.blocks_offers(history):
+		return {}
 	var cuddle: bool = bool(runtime.call("_cuddle_active")) if runtime.has_method("_cuddle_active") else false
 	if pose_request == CATALOG.MISSIONARY or (pose_request.is_empty() and cuddle):
 		var bed_candidate := _cuddle_candidate(runtime, forced) if cuddle \
 			else _bed_candidate(runtime, forced)
 		if not bed_candidate.is_empty() or not pose_request.is_empty():
-			return bed_candidate
+			return _with_weight(bed_candidate, history)
 	var standing_candidate := _standing_candidate(runtime, forced)
 	if pose_request == CATALOG.STANDING:
-		return standing_candidate
+		return _with_weight(standing_candidate, history)
 	if cuddle:
 		return {}
 	var bed_candidate := _bed_candidate(runtime, forced)
 	var pose := pick_offer_pose(not bed_candidate.is_empty(),
 		not standing_candidate.is_empty(), randf())
 	if pose == CATALOG.MISSIONARY:
-		return bed_candidate
+		return _with_weight(bed_candidate, history)
 	if pose == CATALOG.STANDING:
-		return standing_candidate
+		return _with_weight(standing_candidate, history)
 	return {}
+
+
+func _history_row(id: String) -> Dictionary:
+	return ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+
+
+func _with_weight(candidate: Dictionary, history: Dictionary) -> Dictionary:
+	if not candidate.is_empty():
+		candidate["weight"] = ACT_HISTORY.offer_weight(history)
+	return candidate
 
 
 func _cuddle_candidate(runtime: Node, forced: bool) -> Dictionary:
@@ -1513,6 +1529,9 @@ func _ask_context() -> String:
 	else:
 		text += "You are alone together. You may ask directly and bluntly or hint indirectly, whichever fits you; phrase it as a question to him. "
 	text += "Say one or two short sentences in your own voice. Do not describe your body or narrate actions, and do not use action tags."
+	var note := _history_ask_note()
+	if not note.is_empty():
+		text += " " + note
 	return text
 
 
@@ -1536,7 +1555,17 @@ func _ask_purpose() -> String:
 	else:
 		text += " You may ask directly and bluntly or hint indirectly, in your own voice; phrase it as a question."
 	text += " Say one or two short sentences. Do not narrate actions. End with a question mark."
+	var note := _history_ask_note()
+	if not note.is_empty():
+		text += " " + note
 	return text
+
+
+func _history_ask_note() -> String:
+	var id := str(_episode.get("id", ""))
+	if id.is_empty():
+		return ""
+	return ACT_HISTORY.ask_note(_history_row(id))
 
 
 func _invite_purpose() -> String:
@@ -1771,8 +1800,8 @@ func _debug(text: String) -> void:
 
 # --------------------------------------------------------------------------- pure rules (tested headless)
 
-static func cooldown_ready(now: float, last: float) -> bool:
-	return now - last >= COOLDOWN_S
+static func cooldown_ready(now: float, last: float, seconds := COOLDOWN_S) -> bool:
+	return now - last >= seconds
 
 
 static func cuddle_private(indoor: bool, house_alone: bool, others_near: bool) -> bool:
@@ -1804,3 +1833,23 @@ static func pick_offer_pose(bed_ok: bool, standing_ok: bool, roll: float) -> Str
 	if standing_ok:
 		return CATALOG.STANDING
 	return ""
+
+
+## Weighted candidate choice. The roll is 0..1; a zero total picks nothing. Tested headless.
+static func weighted_pick(items: Array, roll: float) -> Dictionary:
+	var total := 0.0
+	for item: Variant in items:
+		if item is Dictionary:
+			total += maxf(0.0, float((item as Dictionary).get("weight", 1.0)))
+	if total <= 0.0:
+		return {}
+	var target := clampf(roll, 0.0, 0.999999) * total
+	var walked := 0.0
+	for item: Variant in items:
+		if not item is Dictionary:
+			continue
+		var candidate: Dictionary = item
+		walked += maxf(0.0, float(candidate.get("weight", 1.0)))
+		if target < walked:
+			return candidate
+	return items[-1] if not items.is_empty() and items[-1] is Dictionary else {}

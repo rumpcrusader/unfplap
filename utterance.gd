@@ -1,11 +1,6 @@
 extends RefCounted
-## Pure prompt formatting for the runtime. Scheduling now belongs to readiness cues and
-## touch/talk events, not to a satisfaction-threshold timeline.
-
-## A cue line may be queued when the per-mare gap since the last one has elapsed.
-static func ready(now: float, last: float, gap: float) -> bool:
-	return now - last >= gap
-
+## Pure prompt formatting for act lines. Admission and pacing belong to
+## `utterance_scheduler.gd`; this file only turns values into prompt text.
 
 ## A demand cue asks Anon to change something. These get the longer repeat budget.
 static func is_demand(text: String) -> bool:
@@ -15,10 +10,13 @@ static func is_demand(text: String) -> bool:
 static func format(template: String, values: Dictionary) -> String:
 	var regex := RegEx.new()
 	regex.compile("\\{([a-z_]+)\\}")
-	var out := template
+	var out := ""
+	var cursor := 0
 	for found: RegExMatch in regex.search_all(template):
-		var key := found.get_string(1)
-		out = out.replace(found.get_string(0), str(values.get(key, "")))
+		out += template.substr(cursor, found.get_start() - cursor)
+		out += str(values.get(found.get_string(1), ""))
+		cursor = found.get_end()
+	out += template.substr(cursor)
 	return out
 
 

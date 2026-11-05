@@ -112,6 +112,7 @@ func run() -> void:
 	var defaults := SETTINGS._defaults()
 	var feature_block: Dictionary = defaults.get("features", {})
 	check(bool(feature_block.get("hud_readouts", false)), "HUD readouts feature on")
+	check(bool(feature_block.get("act_lines", false)), "act lines feature on")
 	check(not bool(feature_block.get("idle_camera_sway", true)), "idle camera sway off by default")
 	check(bool(feature_block.get("captions_on_top", false)), "captions on top feature on")
 	check(bool(feature_block.get("standing_body_sway", false)), "standing body sway feature on")

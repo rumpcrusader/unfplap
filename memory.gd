@@ -58,37 +58,84 @@ static func afterglow_event(game: Node, id: String, name: String, event_id: Stri
 
 ## One spoken reaction to a named act event. Custom prompts override the fallback; there is no
 ## probability gate any more. Every mod-owned director key is prefixed so the act owns its lines.
-static func reaction_for(game: Node, id: String, event: String, event_id: String, fallback: String, valid: Callable) -> void:
+## Returns the director key on acceptance, or "" when nothing was queued.
+static func reaction_for(game: Node, id: String, event: String, event_id: String, fallback: String, valid: Callable) -> String:
 	var custom := SETTINGS.event_prompt(id, event)
 	if not is_instance_valid(game) or not game.is_inside_tree():
-		return
+		return ""
 	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("queue_generated_intent"):
-		return
+		return ""
 	var purpose := custom if not custom.is_empty() else fallback
 	if event == "climax":
 		purpose += " Include a private first-person [thought: ...] impression of this moment in your reply."
-	director.call("queue_generated_intent", id, purpose, mod_key(event_id, "reply", event), valid, Callable(), true)
+	var key := mod_key(event_id, "reply", event)
+	var queued := bool(director.call("queue_generated_intent", id, purpose, key, valid, Callable(), true))
+	return key if queued else ""
 
 
 ## One on-demand act utterance. The caller supplies the already-formatted private purpose and a
 ## `valid` guard tied to the act/event. Delivery is asynchronous, so a pending line is the
-## runtime's responsibility.
-static func utterance_for(game: Node, id: String, event_id: String, key: String, purpose: String, valid: Callable, finished: Callable) -> bool:
+## runtime's responsibility. Returns the full director key on acceptance.
+static func utterance_for(game: Node, id: String, event_id: String, key: String, purpose: String, valid: Callable, finished: Callable) -> String:
 	if not is_instance_valid(game) or not game.is_inside_tree():
-		return false
+		return ""
 	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("queue_generated_intent"):
-		return false
-	return bool(director.call("queue_generated_intent", id, purpose, mod_key(event_id, "line", key), valid, finished, true, false))
+		return ""
+	var director_key := mod_key(event_id, "line", key)
+	var queued := bool(director.call("queue_generated_intent", id, purpose, director_key, valid, finished, true, false))
+	return director_key if queued else ""
 
 
-static func cancel_generated(game: Node, event_id: String, key: String) -> void:
-	if not is_instance_valid(game) or not game.is_inside_tree():
+## Cancel one mod-owned authored line by its full director key. A queued row is erased; an active
+## row is also interrupted by the director, so the caller must only use this on queued or
+## generating rows and must not cut a speaking line.
+static func cancel_line(game: Node, key: String) -> void:
+	if key.is_empty() or not is_instance_valid(game) or not game.is_inside_tree():
 		return
 	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
 	if director != null and director.has_method("cancel_authored_line"):
-		director.call("cancel_authored_line", mod_key(event_id, "line", key))
+		director.call("cancel_authored_line", key)
+
+
+## What the director currently holds for one mod-owned key.
+##   absent     the row was erased (cancelled or never accepted)
+##   queued     accepted, not claimed yet; safe to erase
+##   generating claimed and thinking/rendering; safe to erase, no audio yet
+##   speaking   audio is playing or a sentence of a multi-sentence line was already heard
+##   delivered  the final sentence was delivered; the slot may release
+##   unknown    the director or its queue is not readable; fall back to the age
+static func line_state(game: Node, key: String) -> String:
+	if key.is_empty() or not is_instance_valid(game) or not game.is_inside_tree():
+		return "unknown"
+	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	if director == null or not director.has_method("cancel_authored_line"):
+		return "unknown"
+	var raw: Variant = director.get("_authored_lines")
+	if not raw is Dictionary:
+		return "unknown"
+	var lines: Dictionary = raw
+	if not lines.has(key):
+		return "absent"
+	var value: Variant = lines[key]
+	if not value is Dictionary:
+		return "absent"
+	var row: Dictionary = value
+	if bool(row.get("delivered", false)):
+		return "delivered"
+	if not bool(row.get("started", false)):
+		return "queued"
+	if str(director.get("_authored_active")) != key:
+		return "queued"
+	if str(director.get("state")) == "speaking":
+		return "speaking"
+	var heard: Variant = row.get("heard", [])
+	if heard is Array and not (heard as Array).is_empty() \
+			and str(director.get("state")) == "rendering":
+		# A multi-sentence line between beats: it already played audio, so do not cut the rest.
+		return "speaking"
+	return "generating"
 
 
 static func mod_key(event_id: String, kind: String, key: String) -> String:

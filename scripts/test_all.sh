@@ -19,6 +19,7 @@ TESTS=(
 	test_preferences
 	test_utterance
 	test_utterance_scheduler
+	test_utterance_lines
 	test_relationship_cue
 	test_runtime_thrust
 	test_afterglow

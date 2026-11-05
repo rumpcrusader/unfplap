@@ -11,7 +11,7 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
-| ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `preferences.gd`, `utterance.gd` |
+| ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `tunables_schema.gd`, `tunables.gd` |
@@ -888,9 +888,10 @@ examples.
   `queued` or `generating` is cancelled; a `speaking` row is never cut by age. The runtime observes
   `MEMORY.line_state()` (`absent`, `queued`, `generating`, `speaking`, `delivered`, `unknown`) and
   frees the slot when the director drops or delivers the row. The old 60 s watchdog is gone.
-- `valid` remains tied to the pony/event id, not `State.ACTIVE`: cancelling the act must not
+- Cue `valid` remains tied to the pony/event id, not `State.ACTIVE`: cancelling the act must not
   invalidate a line that is already generating or speaking. Act boundaries still cancel queued and
-  generating rows through `_end_act_lines()`.
+  generating rows through `_end_act_lines()`. Reaction lines additionally carry their 30 s expiry,
+  because they can outlive the act slot; a speaking reaction is kept past that expiry.
 - The repeat hint contains the last four generated lines. There is no talk-cue line.
 - Each pony climax drops queued act lines but keeps an in-progress one, then queues a unique
   climax reaction through the same slot. The standing afterglow records its inside event without

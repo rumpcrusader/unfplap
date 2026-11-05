@@ -150,20 +150,28 @@ overwhelmed   a disliked touch/talk landed recently
 
 - `CLOSE_AT = 65` is only the “she's close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
-- Cue lines are event-driven, not a timer. When the displayed cue changes, it must stay
-  unchanged for `CUE_STABLE_S = 2 s`; then a new line can be generated after `cue_gap` seconds
-  (default `12`, per character, clamped `8..30`) and the shared 18 s utterance gap. Demand
-  cues get a 28 s demand budget and a 45 s same-text repeat lock. A quiet or unchanged act may
-  produce no cue line.
+- Cue lines are event-driven, not a timer. `utterance_scheduler.gd` owns admission:
+  - a base cue must stay unchanged for `CUE_STABLE_S = 2 s`;
+  - a live touch/talk override only needs `CUE_OVERRIDE_STABLE_S = 0.5 s`, so an event cue can
+    speak inside its 2.5 s HUD lifetime; if the override ends first, the queued line is dropped;
+  - the per-mare `cue_gap` (default `12`, clamped `8..30`) and the shared 18 s utterance gap must
+    both have elapsed;
+  - demand cues get a 28 s demand budget and a 45 s same-text repeat lock;
+  - the same text as the last queued cue is not repeated, but may return after another cue;
+  - a cue or reaction owns one slot at a time. Reactions bypass the cue gates but reset the 18 s
+    gap. A queued or generating row is dropped at 20 s (cue) or 30 s (reaction); a row already
+    speaking is never cut. A quiet or unchanged act may produce no cue line.
 - Every cue line gets a private relationship note and tone: friendship/love level, stage,
   first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
   text is unchanged, and the model is not told to repeat specific names.
 - One unused shared memory may ride with a cue. A stored peak memory is preferred; otherwise
   the story journal (a cue-word match, then the most recent player exchange), then older
   world-context events. Intimacy events and private brain notes are skipped. The memory is
-  colour, not a script.
+  colour, not a script. A peak memory quotes her answer only when she spoke during the act.
 - Talk is scored when the player actually uses the game's talk turn. There is no act
   talk-invitation line or HUD hint.
+- `features.act_lines` (default on) gates unprompted cue and reaction lines. Off keeps normal
+  dialogue and the HUD cue.
 
 ## Pony climax
 

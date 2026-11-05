@@ -32,7 +32,7 @@ Desktop only for now
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
 - **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, per-mare taste) from pose tuning and feature flags in a Debug tab.
-- **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her.
+- **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.
 - **HUD** — Shows the act controls list, readiness meter, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, Z/C pause or resume each caress oval, F kisses at a full shoulder lean, and right-click smacks one.

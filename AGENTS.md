@@ -107,6 +107,8 @@ mods/unfplap/
   tunables.gd       the one typed API for reading and writing those settings
   tunables_ui.gd    the only file that builds settings widgets: grouped Settings/Debug panels
   utterance.gd      pure prompt formatting
+  utterance_scheduler.gd  pure cue selection and line admission: stability, gaps, demand
+                    budget, one slot for cues and reactions
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  standing caress, shoulder reach, smack and palm-on-coat contact
@@ -631,7 +633,7 @@ glasses).
   own `z` axis, `+Y` is `+y` (which runs up her tail in the rest pose) and `+X` closes the frame.
   The knot is therefore against the fur, not threaded on the tail, and the tails hang down it. No
   world-space body axes are involved.
-- The knot stands off her tail by `tail_radius(pony) * FUR_SCALE` (`2.4`), and that radius is
+- The knot stands off her tail by `tail_radius(pony) * FUR_SCALE` (`1.9`), and that radius is
   `identity.tail_segment_radii[1]`. Those are the springs the hair fan is drawn around, and the
   fur is much thicker than them, so a bow placed on the spring radius disappears inside the tail.
   A constant share is deliberate: measuring her visible tail mesh needed per-vertex skinning,
@@ -644,7 +646,8 @@ glasses).
   is a visible hitch. Settings edits must never detach and re-attach the piece for the same reason.
 - The imported material is replaced with `satin()`, a matte cloth `StandardMaterial3D` whose albedo
   is the dye, so one mesh covers every colour. `presentation.tail_bow.*` tunes `size`, `along_m`,
-  `tilt_deg` and the dye (red by default).
+  `tilt_deg` and the dye (red by default). `size` defaults to `1.5` and `along_m` to `0.06 m`,
+  which puts the bow on the dock rather than up on her croup.
 - `tests/bow_preview.gd` ties the bow on a loaded mare and writes `/tmp/opencode/bow_*.png` from
   behind, the side and close up. Run it with the real display driver; shape work is verified by
   looking at those images, never by guessing.
@@ -852,16 +855,21 @@ examples.
 ## Dialogue utterances
 
 - Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
-- A cue line is generated at most once per `cue_gap` (default `12 s`, clamped `8..30`,
-  per character) after the previous cue line was queued, and the cue must have stayed unchanged
-  for `CUE_STABLE_S = 2 s`. The 18 s global utterance gap and a free director are still needed.
+- `utterance_scheduler.gd` is the pure admission policy: it owns `mood_for`, `base_cue`, the
+  stability clock, `cue_gap` (default `12 s`, clamped `8..30`, per character), the shared 18 s
+  utterance gap, the demand budget and the single pending slot. `runtime.gd` builds the prompt and
+  calls the director.
+- A base cue must stay unchanged for `CUE_STABLE_S = 2 s`. A live touch/talk override only needs
+  `CUE_OVERRIDE_STABLE_S = 0.5 s`, so an event cue can speak inside its 2.5 s HUD lifetime; if the
+  override ends while the row is still queued, it is dropped. It is fine if the line is lost.
 - Demand cues ("She wants…"/"She needs…") have a separate `DEMAND_LINE_GAP_S = 28 s` budget
   and a `DEMAND_REPEAT_S = 45 s` lock for the same text, so a flapping preference cannot become
-  a stream of commands.
+  a stream of commands. The same text as the last queued cue is not repeated; it can return after
+  a different cue has been queued.
 - A cue line uses the `cue` prompt. The state line contains pose, mood, taste-axis motion, last
   touch, last talk, pony climax count and act time; it contains no speed or depth units. The
   cue prompt gets `CUE_REACTION_NOTE`, which tells the model to phrase the cue as a reaction or
-  preference rather than a repeated command.
+  preference rather than a repeated command. Custom prompts may use `{state}`.
 - Every cue line carries a private relationship note and tone. The note uses the friendship/love
   level names, relationship stage, first-time/repeat and current mood; the tone is `tender`,
   `warm`, `ardent`, `open` or `careful`. The functional cue text is unchanged. The prompt tells
@@ -869,21 +877,30 @@ examples.
 - The cue prompt may include one unused shared memory. `MEMORY.shared_memory()` prefers the
   stored peak memory, then the story journal: a cue-word match, then the most recent player
   exchange. It falls back to the world-context events. Intimacy events and private brain notes
-  are not used as the hint. The memory is marked used only after the line is queued.
-- One mod line may be pending at a time. A new line needs an idle director and pony, plus
-  `UTTERANCE_MIN_GAP_S = 18 s` since the previous line started.
-- The pending slot stays reserved until speech actually stops and a 1 s release hold passes.
-  A queued line has a 60 s safety timeout only if it never starts; in-progress speech is never
-  invalidated.
+  are not used as the hint. The memory is marked used only after the line is queued. The peak
+  memory quotes her answer only when she actually spoke during the act (a start-of-act
+  `last_spoken_at` baseline).
+- One mod line owns the slot at a time, cue or reaction. A new line needs an idle director and
+  pony and `UTTERANCE_MIN_GAP_S = 18 s` since the last line was accepted. Reactions take the slot
+  without the cue-stability/gap gates but reset the 18 s clock, so a cue cannot follow immediately.
+- The pending slot stays reserved until speech stops and a 1 s release hold passes. A row that
+  reaches `CUE_MAX_AGE_S = 20 s` (cue) or `REACTION_MAX_AGE_S = 30 s` (reaction) while still
+  `queued` or `generating` is cancelled; a `speaking` row is never cut by age. The runtime observes
+  `MEMORY.line_state()` (`absent`, `queued`, `generating`, `speaking`, `delivered`, `unknown`) and
+  frees the slot when the director drops or delivers the row. The old 60 s watchdog is gone.
+- `valid` remains tied to the pony/event id, not `State.ACTIVE`: cancelling the act must not
+  invalidate a line that is already generating or speaking. Act boundaries still cancel queued and
+  generating rows through `_end_act_lines()`.
 - The repeat hint contains the last four generated lines. There is no talk-cue line.
 - Each pony climax drops queued act lines but keeps an in-progress one, then queues a unique
-  climax reaction. End and inside reactions always queue. Only the cached “Mm.” is used;
-  generated moans are parked.
+  climax reaction through the same slot. The standing afterglow records its inside event without
+  queuing a line. Only the cached “Mm.” is used; generated moans are parked.
 - `_end_act_lines()` cancels every mod-owned line for the act except one that is already
   **speaking**. Queued and still-thinking lines are dropped. It runs at climax, afterglow and
   every act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`). The intentional
-  early-stop line is queued after the restore begins. Act-line validity is tied to the
-  pony/event id, not `State.ACTIVE`.
+  early-stop line is queued after the restore begins.
+- `features.act_lines` (default on) gates cue lines and climax/early-end reactions. Off keeps
+  normal dialogue and the HUD cue.
 - The standing afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
   with the afterglow context event; the HUD close timer owns the invitation. The prompt note
   provider (`main.gd` → runtime) reports caressing/leaning, and `[stay: SECONDS]` extends the
@@ -1012,6 +1029,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | Flag | Default | Gates |
 |---|---|---|
 | `hud_readouts` | `true` | mood cue, readiness bar and `Wants`/`You` segments; hearts and the close prompt stay |
+| `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `idle_camera_sway` | `false` | slow idle breathing when not leaning; true adds the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing upper-body sway modifier |

@@ -28,7 +28,7 @@ const AUTHORED_RADIUS := 0.060
 const TIE_MARGIN := 0.002
 ## The fur drawn around her tail springs is thicker than the springs themselves
 ## (`identity.tail_segment_radii`), so the knot stands off by this share of the tail radius.
-const FUR_SCALE := 2.4
+const FUR_SCALE := 1.9
 
 ## Satin dyes. The key is stored in settings; the bow keeps its colour for every pony.
 const COLOURS := {

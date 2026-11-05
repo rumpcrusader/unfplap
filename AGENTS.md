@@ -825,7 +825,7 @@ examples.
 
 ### Y start gate and aim zone
 
-- `features.press_y_starts_sex` defaults **on**. `main.try_start()` is the only act-start
+- `features.press_y_starts_sex` defaults **off**. `main.try_start()` is the only act-start
   path; `runtime.start()` now takes an explicit `y_allowed` gate and refuses without it.
 - `INITIATION.y_start_allowed(flag, source, scenario)`:
   - flag on: any valid offer;
@@ -1014,7 +1014,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
-| `press_y_starts_sex` | `true` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
+| `press_y_starts_sex` | `false` | Y start gate: off restricts starts to requests, dialogue agreements and bed contexts |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |
 | `act_vocals` | `false` | pack climax moan only |

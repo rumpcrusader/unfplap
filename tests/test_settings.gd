@@ -120,7 +120,7 @@ func run() -> void:
 	check(bool(feature_block.get("standing_plant_feet", false)),
 		"standing feet plant on by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
-	check(bool(feature_block.get("press_y_starts_sex", false)), "press-Y sex is on by default")
+	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")

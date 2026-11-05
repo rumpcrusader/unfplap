@@ -41,7 +41,7 @@ static func all() -> Dictionary:
 		"features.captions_on_top": flag(true, "Captions on top",
 			"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.",
 			"Controls", SETTINGS_TAB),
-		"features.press_y_starts_sex": flag(true, "Press Y starts sex",
+		"features.press_y_starts_sex": flag(false, "Press Y starts sex",
 			"On: Y starts with any valid standing offer inside the smack-flank aim zone, and with bed offers. Off: only a proactive ask, a clear verbal agreement, or already resting together in bed.",
 			"Controls", SETTINGS_TAB),
 		"features.mute_ponese_audio": flag(true, "Mute Ponese audio",

@@ -205,7 +205,7 @@ these values here if a future pose needs that effect.
 - A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
   explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default on), a slow `0.010` forward /
+- With `idle_camera_sway` enabled (default off), a slow `0.010` forward /
   `presentation.standing.idle_sway_side` (default `0.0`) side rock keeps the camera/upper
   body from freezing completely; both are clamped inside `-1…1`. A/D
   caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
@@ -262,7 +262,7 @@ these values here if a future pose needs that effect.
   `palm_surface_basis()` makes the palm plane perpendicular to the coat normal. The fallback
   skips `presentation.standing.caress.ignore` regions (default `tail`; UI also exposes mane, wings
   and legs), so a tail flick cannot steal the contact. Its centre sits at
-  `presentation.standing.caress.palm_distance` (default `0.04 m`) at body scale `1.0`, scaled by
+  `presentation.standing.caress.palm_distance` (default `0.02 m`) at body scale `1.0`, scaled by
   the pony's actual `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is
   cached per hand with source hysteresis and short position/normal
   smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite
@@ -274,8 +274,8 @@ these values here if a future pose needs that effect.
   The rub centre is lifted
   `CARESS_UP_BIAS_M = 0.05` above the profile point; a 1 Hz log reports the rub/shoulder heights,
   source, misses, switches, normal step/out angle and hand distance. The path is
-  `presentation.standing.caress.oval_across_m` (default `5.36 cm`) along the body and
-  `oval_up_m` (default `2.89 cm`) vertically, both times the pony size scale. Point
+  `presentation.standing.caress.oval_across_m` (default `1.0 cm`) along the body and
+  `oval_up_m` (default `2.0 cm`) vertically, both times the pony size scale. Point
   offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
   between hands), Same Height and Hoers step up from there; the contact query snaps those points
   to the coat. Both keys can run simultaneously; a tap latches that hand until the next tap.
@@ -295,8 +295,8 @@ these values here if a future pose needs that effect.
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her
   right. Standing targets the flank patch: the live caress point when that hand's contact
   source is `flank`; a free-hand smack uses the chosen cheek, querying the mark centre offset by
-  `smack.height_m` (default `-0.03 m`, signed: positive is up) × body scale and
-  `smack.hind_m` (default `0.10 m`) toward her rump, then snapping to the nearest
+  `smack.height_m` (default `0.05 m`, signed: positive is up) × body scale and
+  `smack.hind_m` (default `0.09 m`) toward her rump, then snapping to the nearest
   `FlankSurface` point. Both are jittered tangentially within `smack_zone_radius` (`0.035 m` by
   default). That keeps a resting hand from reaching the leg and puts the contact on the hind of
   the flank. A forward lean lands on the forward flank instead of reaching back to the cheek. The body hull is never the target and the rump
@@ -309,14 +309,14 @@ these values here if a future pose needs that effect.
   (`-pony.global_basis.z`) when caressing, and `Vector3.DOWN` for a free-hand smack. A caress
   RAISE lifts from the current hand frame to the contact plus `presentation.standing.smack.raise_m`
   (default `0.30 m`, body-scaled) along the coat normal and `SMACK_RAISE_BACK_M = 0.05 m` toward
-  her rump at `smack.raise_speed` (default `2.0 m/s`, clamped to `0.12–0.30 s`). The lift path
-  bows toward her rump by `smack.arc_m` (default `0.06 m`, body-scaled) at mid-raise. A free-hand RAISE
+  her rump at `smack.raise_speed` (default `1.5 m/s`, clamped to `0.12–0.30 s`). The lift path
+  bows toward her rump by `smack.arc_m` (default `0.10 m`, body-scaled) at mid-raise. A free-hand RAISE
   is a backswing from behind and below: `back × raise_m`, `down × (raise_m ×
   SMACK_SWING_DOWN_RATIO = 0.55)` and a small `outward × (raise_m × SMACK_SWING_OUT_RATIO =
   0.15)` clearance. Both raised bases are the straight contact basis pitched down by
-  `smack.pitch_deg` (default `12°`) about the palm normal, so the wind-up is a pitch, not a roll
+  `smack.pitch_deg` (default `0°`) about the palm normal, so the wind-up is a pitch, not a roll
   around the arm. STRIKE travels straight to the contact with cubic acceleration at
-  `smack.return_speed` (default `6.0 m/s`, clamped to `0.06–0.20 s`), pitching back to the
+  `smack.return_speed` (default `3.0 m/s`, clamped to `0.06–0.20 s`), pitching back to the
   straight contact basis. CONTACT holds the exact contact frame for
   `SMACK_CONTACT_HOLD_SECONDS = 0.03 s` and fires the native impact. RECOVER blends to the live
   caress oval over `CARESS_RETURN_SECONDS = 0.12 s` or to the captured rest hand over
@@ -342,7 +342,7 @@ these values here if a future pose needs that effect.
   through `_on_smack_impact()` at `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust
   wave scales with `jiggle.intensity`. The `jiggle.radius` setting (default
   `0.26 m`) is applied to every active wobble material and restored at act end; `jiggle.intensity`
-  (default `0.25×`) scales the thrust amount, and `jiggle.smack_intensity` (default `0.55×`)
+  (default `0.25×`) scales the thrust amount, and `jiggle.smack_intensity` (default `0.45×`)
   scales the act smack amount. Stock marks are hidden and aged at act start, so a
   mark from an earlier regular smack cannot linger as a stale jiggle point. The game's tail
   anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair `mPelvis`, so the

@@ -112,7 +112,7 @@ func run() -> void:
 	var defaults := SETTINGS._defaults()
 	var feature_block: Dictionary = defaults.get("features", {})
 	check(bool(feature_block.get("hud_readouts", false)), "HUD readouts feature on")
-	check(bool(feature_block.get("idle_camera_sway", false)), "idle camera sway on by default")
+	check(not bool(feature_block.get("idle_camera_sway", true)), "idle camera sway off by default")
 	check(bool(feature_block.get("captions_on_top", false)), "captions on top feature on")
 	check(bool(feature_block.get("standing_body_sway", false)), "standing body sway feature on")
 	check(bool(feature_block.get("missionary_body_motion", false)), "missionary body motion feature on")
@@ -120,7 +120,7 @@ func run() -> void:
 	check(bool(feature_block.get("standing_plant_feet", false)),
 		"standing feet plant on by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
-	check(not bool(feature_block.get("press_y_starts_sex", true)), "press-Y sex is off by default")
+	check(bool(feature_block.get("press_y_starts_sex", false)), "press-Y sex is on by default")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")
@@ -138,7 +138,7 @@ func run() -> void:
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 1000.0), "default thrust pixels")
-	check(near(float(thrust_defaults.get("travel", 0.0)), 2.0), "default hip travel")
+	check(near(float(thrust_defaults.get("travel", 0.0)), 0.5), "default hip travel")
 	var controls := TUNABLES.block("thrust.")
 	check(str(controls.get("orientation", "")) == "up", "runtime thrust controls up")
 	check(float(controls.get("pixels_per_full", 0.0)) >= 240.0,
@@ -149,7 +149,7 @@ func run() -> void:
 		"default jiggle radius")
 	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.25),
 		"default jiggle intensity")
-	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.55),
+	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.45),
 		"default smack jiggle intensity")
 	var jiggle_controls := TUNABLES.block("jiggle.")
 	check(near(float(jiggle_controls.get("radius", -1.0)), 0.26),
@@ -211,11 +211,11 @@ func run() -> void:
 	check(near(float(standing_defaults.get("idle_sway_side", -1.0)), 0.0),
 		"default idle side sway")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
-	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.04),
+	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
 		"default caress palm distance")
-	check(near(float(caress_defaults.get("oval_across_m", 0.0)), 0.053625),
+	check(near(float(caress_defaults.get("oval_across_m", 0.0)), 0.01),
 		"default caress oval across")
-	check(near(float(caress_defaults.get("oval_up_m", 0.0)), 0.028875),
+	check(near(float(caress_defaults.get("oval_up_m", 0.0)), 0.02),
 		"default caress oval up")
 	var scale_defaults: Dictionary = caress_defaults.get("palm_scale", {})
 	check(near(float(scale_defaults.get("canon", 0.0)), 0.75),
@@ -229,17 +229,17 @@ func run() -> void:
 	var smack_defaults: Dictionary = standing_defaults.get("smack", {})
 	check(near(float(smack_defaults.get("raise_m", -1.0)), 0.30),
 		"default smack raise")
-	check(near(float(smack_defaults.get("hind_m", -1.0)), 0.10),
+	check(near(float(smack_defaults.get("hind_m", -1.0)), 0.09),
 		"default smack hind offset")
-	check(near(float(smack_defaults.get("height_m", 1.0)), -0.03),
+	check(near(float(smack_defaults.get("height_m", 1.0)), 0.05),
 		"default smack height offset")
-	check(near(float(smack_defaults.get("arc_m", -1.0)), 0.06),
+	check(near(float(smack_defaults.get("arc_m", -1.0)), 0.1),
 		"default smack arc")
-	check(near(float(smack_defaults.get("pitch_deg", -1.0)), 12.0),
+	check(near(float(smack_defaults.get("pitch_deg", -1.0)), 0.0),
 		"default smack pitch")
-	check(near(float(smack_defaults.get("raise_speed", -1.0)), 2.0),
+	check(near(float(smack_defaults.get("raise_speed", -1.0)), 1.5),
 		"default smack raise speed")
-	check(near(float(smack_defaults.get("return_speed", -1.0)), 6.0),
+	check(near(float(smack_defaults.get("return_speed", -1.0)), 3.0),
 		"default smack return speed")
 
 	var old_presentation := {
@@ -341,7 +341,7 @@ func run() -> void:
 	var caress_controls: Dictionary = standing.get("caress", {})
 	var caress_saved: Dictionary = standing_schema.get("caress", {})
 	check(caress_controls.has("palm_distance"), "runtime presentation snapshot has the caress")
-	check(near(float(caress_saved.get("palm_distance", -1.0)), 0.04),
+	check(near(float(caress_saved.get("palm_distance", -1.0)), 0.02),
 		"default caress palm distance")
 	check((caress_saved.get("ignore", []) as Array).has("tail"),
 		"default caress ignore list keeps tail")
@@ -349,8 +349,8 @@ func run() -> void:
 	var smack_saved: Dictionary = standing_schema.get("smack", {})
 	check(smack_controls.has("raise_m"), "runtime presentation snapshot has the smack")
 	check(near(float(smack_saved.get("raise_m", -1.0)), 0.30), "default smack raise")
-	check(near(float(smack_saved.get("height_m", 1.0)), -0.03), "default smack height")
-	check(near(float(smack_saved.get("return_speed", 0.0)), 6.0), "default smack return speed")
+	check(near(float(smack_saved.get("height_m", 1.0)), 0.05), "default smack height")
+	check(near(float(smack_saved.get("return_speed", 0.0)), 3.0), "default smack return speed")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("climax") and event_prompts.has("end_early"),
 		"remaining event prompts exist")
@@ -396,7 +396,7 @@ func _check_schema(defaults: Dictionary) -> void:
 	check(SCHEMA.groups(SCHEMA.SETTINGS_TAB).size() >= 2, "settings tab is split into sections")
 
 	# The schema path is the settings.json path, so the defaults must land in the same blocks.
-	check(near(float(SCHEMA.default_value("thrust.travel")), 2.0), "schema thrust travel default")
+	check(near(float(SCHEMA.default_value("thrust.travel")), 0.5), "schema thrust travel default")
 	check(bool(SCHEMA.default_value("features.act_foley")), "schema act foley default")
 	var kiss_defaults := SCHEMA.default_block("presentation.standing.kiss.")
 	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),

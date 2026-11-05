@@ -38,6 +38,7 @@ func run() -> void:
 			"no obsolete extension flag in %s" % path)
 	_check_preloads(files)
 	_check_tunables(files)
+	_check_teardown()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -71,6 +72,49 @@ func _check_tunables(files: Array[String]) -> void:
 	check(widget_ok, "only tunables_ui.gd (and the taste form) create settings widgets")
 	check(paths > 5, "tunable paths are read through the schema API")
 	check(missing.is_empty(), "every literal tunable path exists in the schema: %s" % str(missing))
+
+
+## One ordered teardown owns act exit. If a new exit path or a copied restore sequence appears,
+## this fails before a leak reaches a save.
+func _check_teardown() -> void:
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(_count(runtime, "func _end_session(") == 1, "one act teardown")
+	for name: String in ["_abort_start", "_finish_restore", "_restore_now"]:
+		check(_func_body(runtime, name).contains("_end_session("),
+			"%s ends through _end_session" % name)
+	var force := _func_body(runtime, "force_stop")
+	check(force.contains("_end_session(") and force.contains("_restore_now()"),
+		"force_stop ends through the same teardown")
+	for name: String in ["_abort_start", "_finish_restore", "_restore_now", "force_stop"]:
+		var body := _func_body(runtime, name)
+		for call: String in ["_restore_camera(", "_restore_look(", "_release_nav(",
+				"_free_pose(", "_unlock_player("]:
+			check(not body.contains(call), "%s does not call %s directly" % [name, call])
+	# `cancel()` queues the early-stop reaction after `_restore_begin()`; the timed finish must
+	# not cancel director rows or that line never speaks.
+	var finish := _func_body(runtime, "_finish_restore")
+	check(not finish.contains("_end_act_lines"), "normal restore keeps the early-stop line")
+	check(not finish.contains("MEMORY.cancel_act_lines"), "normal restore cancels no director rows")
+
+
+func _func_body(text: String, name: String) -> String:
+	var needle := "func " + name + "("
+	var start := text.find(needle)
+	if start < 0:
+		return ""
+	var next := text.find("\nfunc ", start + needle.length())
+	if next < 0:
+		next = text.length()
+	return text.substr(start, next - start)
+
+
+func _count(text: String, needle: String) -> int:
+	var total := 0
+	var at := text.find(needle)
+	while at >= 0:
+		total += 1
+		at = text.find(needle, at + needle.length())
+	return total
 
 
 func _collect(dir_path: String, out: Array[String]) -> void:

@@ -1,4 +1,4 @@
-# Taste, readiness and climax contract (`unfplap` 0.1.1)
+# Taste, readiness and climax contract (`unfplap` 0.1.2)
 
 This file covers the ACTIVE-stage scoring, the pony's climaxes, and the player's afterglow
 choice. Camera/pose mechanics and aftercare are outside it.

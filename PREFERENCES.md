@@ -1,7 +1,8 @@
 # Taste, readiness and climax contract (`unfplap` 0.1.2)
 
 This file covers the ACTIVE-stage scoring, the pony's climaxes, and the player's afterglow
-choice. Camera/pose mechanics and aftercare are outside it.
+choice. Post-act scoring and the long-term history are `HISTORY.md`. Camera/pose mechanics and
+aftercare are outside it.
 
 ## What the player does
 
@@ -242,17 +243,20 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 ## Memory and rewards
 
 - **Per pony climax:** a unique world-context event and a generated reaction.
-- **Once at afterglow:** `MEMORY.commit_climax`, `MEMORY.afterglow_event` and `WITNESS.commit`.
+- **Once at afterglow:** `_commit_summary()` scores the act, `MEMORY.commit_act()` writes the
+  grade-aware romance and mood, and `MEMORY.afterglow_event` and `WITNESS.commit` follow. See
+  `HISTORY.md`.
 - **Standing inside event:** at afterglow only, as the player's finish. It records context but no
   longer queues a line.
-- **Standing close reward:** `MEMORY.stay_close_reward` records a private memory. Staying and
-  caressing adds a happy mood, a private thought and a small `romance` gain; staying alone
-  records the warm beat without the extra romance.
+- **Standing close reward:** `MEMORY.stay_close_reward` records a private memory. On a good or
+  non-early neutral act, staying and caressing adds a happy mood, a private thought and a small
+  `romance` gain. After a bad act, staying and caressing repairs one point of history hurt instead.
 - **Peak act:** one strongest memory per mare is kept in
-  `Mods.state("unfplap").peak_memories`. It requires no disliked touch/talk and either peak
-  readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces it. The
-  text is the last player exchange, or a generic warm beat if he did not speak.
-- **Zero-climax Y:** the existing early-stop/cancel path; no romance commit.
+  `Mods.state("unfplap").peak_memories`. It requires a positive summary, no disliked touch/talk and
+  either peak readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces
+  it. The text is the last player exchange, or a generic warm beat if he did not speak.
+- **Zero-climax Y:** the early-stop/cancel path commits an early summary but no romance. The
+  summary can add hurt through `HISTORY.md`; the early-stop reaction includes what she wanted.
 - Act lines that have not started speaking are cancelled at every climax/afterglow boundary and
   at every act end. A line already speaking may finish. The intentional early-stop line is
   queued after the act-line cancel.
@@ -266,6 +270,8 @@ caressing her or leaning in; leaning counts as staying close/hugging.
   `Wants: intensity & pattern | You: intensity & pattern`, auto readout
   `Auto · wheel pace N/s · depth N%` while auto is on, blank separator, controls.
 - When readouts are off, the hearts remain; the cue and readiness line are hidden.
+- In afterglow the summary is always shown: missionary puts it in the cue line, standing keeps its
+  close prompt in the cue and puts the summary on the readiness line. Early end shows no summary.
 - There is no penetration/depth bar; the thrust mechanic, `thrust.orientation` and auto thrust
   still apply.
 - The controls list keeps its Y row dynamic: `End early` at 0 climaxes, then `End` in `ACTIVE`

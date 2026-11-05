@@ -46,6 +46,7 @@ Desktop only for now
 - **Act audio** — `Act foley` adds pack thrust, slide, bed/fabric, kiss and flank-smack sounds; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default. All off restore the original kiss-sample plap and stock flank slap.
 - **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In standing afterglow, staying close and caressing earns a small extra reward, then short aftercare. A warm, relaxed "satisfied" mood and expression last for five minutes afterward.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake ponies can witness it and talk about it later.
+- **Long-term history** — Good sex builds trust and desire, while repeated neglect or disliked handling makes a mare reluctant; she may stop asking, complain, or gently refuse until things improve. No break-up.
 
 ## Build
 

@@ -116,6 +116,9 @@ func _ready() -> void:
 	tail_bow.name = "UnfplapTailBow"
 	tail_bow.main = self
 	add_child(tail_bow)
+	# Read the modelled bow once at load: the first tie-on must not pay the mesh import.
+	if TAIL_BOW.feature_on():
+		TAIL_BOW.bow_mesh()
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.main = self

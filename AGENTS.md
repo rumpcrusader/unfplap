@@ -24,8 +24,9 @@ Do not start implementation until you have read the required files for the area 
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Marefriend/Coltfriend or later. Consent is `bonds.welcomes(id, "kiss")`; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
-- No pregnancy, heat, estrus, conception, content warning, toggle, new models, genitals or
-  anatomy. The act stays off-camera by framing.
+- No pregnancy, heat, estrus, conception, content warning, toggle, new character or body models,
+  genitals or anatomy. The act stays off-camera by framing. Modelled accessories are allowed (the
+  tail bow is one); they are accessories, never a replacement for a pony's body or rig.
 - Desktop first. VR and seated VR are deferred; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md` and
   `ROTATION.md`.
@@ -605,13 +606,15 @@ hand-giftable piece there without editing a game script. The tail bow is therefo
 uses the game's own runtime accessory idiom (`background_pony.gd`, Braeburn's hat and Vinyl's
 glasses).
 
-- `tail_bow.gd` builds the one design as a single unskinned `MeshInstance3D` named `TailBow` with
-  satin surfaces: one tight band cinched around the dock and tail base, a gathered knot on its
-  outer side, and two folded satin petals out to the sides. Each petal is a solid leaf with a fold
-  ridge down its length and a rolled rim, not a tube, which is what makes it read as a tied bow.
-  There are no extra winding turns and no hanging tails. Each loop is a puffed lens in cross
-  section (`LOOP_PUFF`) so it reads round, and the material is matte cloth: no metal, no rim, no
-  sheen.
+- `tail_bow.gd` loads one modelled mesh, `assets/tail_bow/tail_bow.glb` (~3.8k triangles, one
+  material, no textures): a gift bow with two dished ribbon loops, a rounded knot and two
+  swallowtail tails hanging below it. `tools/tail_bow/build_bow.py` generates it parametrically
+  and exports the `.glb`; that tool is never packed, and shape changes belong there, not in a
+  hand-edit of the exported mesh.
+- The mesh is authored with `+Y` up her tail and `+Z` out of its face, sitting on the tail's
+  outer surface: the knot rests against the fur, the loops spread to her left and right, and the
+  tails hang down the tail. The build tool's `orient()` turns Blender's `+Z`-up frame into that
+  one, so the glTF export is already in the frame the runtime places.
 - Attachment: a `BoneAttachment3D` on the hair rig's `mTail1`, the name added to a **duplicated**
   `identity.accessories` (typed `Array[String]`; an untyped array is rejected), then
   `refresh_geometry_variant("…|tail-bow")` so both merged meshes re-gather. The merged near mesh
@@ -620,25 +623,28 @@ glasses).
 - A `BoneAttachment3D` follows `SkeletonModifier3D` output (verified headless), but
   `get_bone_global_pose()` **outside** a modifier pass returns the base pose. The placement is
   therefore computed once from the rest bone and stored as the child's local transform.
-- The hair rig node is already scaled to her size (`body_scale`), so the mesh is built at unit size
-  and only `presentation.tail_bow.size` scales it. Never multiply by `body_scale` again.
-- The bow is **tied around the tail**, not floated behind it: its origin sits on the tail axis at
-  `along_m` down the tail, its plane is square to the tail bone's own direction, and its loops stay
-  level with her body. The knot sits on the tail's outer surface and each loop starts outboard of
-  it, so the band reads as cinched rather than resting on the fur.
-- The tie radius is **measured from her own tail mesh** (`tail_radius()`): the 45th percentile of
-  the vertex radii within ±10 mm of the tie point, in the tail bone's rest frame, cached per pony
-  identity. A bushy tail's widest strand is not its body, so a max would oversize the wrap; the
-  `identity.tail_segment_radii` mid value is only the fallback when the mesh cannot be read.
-- The measurement samples every second vertex (a percentile does not need all of them) and is
-  cached per identity, so it is one ~10 ms pass per pony type per process.
-- `refresh()` rebuilds only the mesh and its transform in place. Tying the bow on defers the
-  `refresh_geometry_variant()` call (`call_deferred`) because that rebuilds both merged meshes;
-  doing it inside the frame that ties the bow on, or inside an act, is a visible hitch. Settings
-  edits must never detach and re-attach the piece for the same reason.
-- The petal size follows that radius (`LOOP_REACH`, `LOOP_WIDTH`), so a thicker tail gets a bigger
-  bow. `presentation.tail_bow.*` tunes `size`, `along_m`, `margin_m` (wrap clearance),
-  `loop_scale`, `splay_deg`, `tilt_deg` and the dye (red by default).
+- The hair rig node is already scaled to her size (`body_scale`), so the mesh is modelled at unit
+  size and only `presentation.tail_bow.size` and her tail radius scale it. Never multiply by
+  `body_scale` again.
+- Placement is entirely in the tail bone's rest frame, so the bow rides the tail and follows every
+  swing: the origin sits on the bone's dorsal side at `along_m` down the tail, `+Z` is the bone's
+  own `z` axis, `+Y` is `+y` (which runs up her tail in the rest pose) and `+X` closes the frame.
+  The knot is therefore against the fur, not threaded on the tail, and the tails hang down it. No
+  world-space body axes are involved.
+- The knot stands off her tail by `tail_radius(pony) * FUR_SCALE` (`2.4`), and that radius is
+  `identity.tail_segment_radii[1]`. Those are the springs the hair fan is drawn around, and the
+  fur is much thicker than them, so a bow placed on the spring radius disappears inside the tail.
+  A constant share is deliberate: measuring her visible tail mesh needed per-vertex skinning,
+  cost ~150 ms per pony and produced unstable results.
+- The bow's scale is her spring radius over `AUTHORED_RADIUS` (`0.06 m`) times `size`, so a thicker
+  tail gets a bigger bow without re-authoring the mesh.
+- `refresh()` re-applies the transform and the dye in place; the geometry never changes at runtime.
+  Tying the bow on defers the `refresh_geometry_variant()` call (`call_deferred`) because that
+  rebuilds both merged meshes; doing it inside the frame that ties the bow on, or inside an act,
+  is a visible hitch. Settings edits must never detach and re-attach the piece for the same reason.
+- The imported material is replaced with `satin()`, a matte cloth `StandardMaterial3D` whose albedo
+  is the dye, so one mesh covers every colour. `presentation.tail_bow.*` tunes `size`, `along_m`,
+  `tilt_deg` and the dye (red by default).
 - `tests/bow_preview.gd` ties the bow on a loaded mare and writes `/tmp/opencode/bow_*.png` from
   behind, the side and close up. Run it with the real display driver; shape work is verified by
   looking at those images, never by guessing.

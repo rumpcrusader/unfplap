@@ -55,56 +55,50 @@ func _test_answers() -> void:
 
 func _test_placement() -> void:
 	var cfg := {
-		"size": 1.0, "along_m": 0.02, "margin_m": 0.004, "loop_scale": 1.0,
-		"splay_deg": 14.0, "tilt_deg": 0.0, "colour": "red",
+		"size": 1.0, "along_m": 0.03, "tilt_deg": 0.0, "colour": "red",
 	}
 	var root := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, -0.2))
 	var axis := Vector3(0.0, -0.6, 0.8).normalized()
-	var local := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, 1.0, cfg)
+	var radius := 0.06
+	var local := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, radius, 0.075, cfg)
 	var world := root * local
-	# Square to the tail: the bow's own normal runs down her tail, so the loops hang around it.
-	check(world.basis.z.dot(axis) > 0.999, "bow plane is square to the tail")
-	check(absf(world.basis.y.dot(axis)) < 0.001 and world.basis.y.y > 0.3,
-		"loops stay upright and square to the tail")
-	check(world.origin.distance_to(root.origin + axis * 0.02) < 0.0001,
-		"tie point moves down the tail")
+	var out := (Vector3.BACK - axis * Vector3.BACK.dot(axis)).normalized()
+	# The bow sits on the tail's outer surface: face away from her body, loops level with it.
+	check(world.basis.z.dot(out) > 0.999, "bow faces away from her body")
+	check(world.basis.y.dot(-axis) > 0.999, "loops sit level, up her tail")
+	check(absf(world.basis.y.dot(world.basis.z)) < 0.001, "bow frame is square")
+	check(world.origin.distance_to(root.origin + out * (0.075 + BOW.TIE_MARGIN)
+		+ axis * 0.03) < 0.0001, "the tie point sits on the tail surface")
 	check(near(local.basis.determinant(), 1.0, 0.001), "placement basis has no shear")
-	var big := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, 1.5, cfg)
-	check(near(big.basis.get_scale().x, 1.5, 0.001), "size scales the bow")
-	check((root * big).origin.distance_to(root.origin + axis * 0.03) < 0.001,
-		"the tie point scales with the bow")
-	var tilted := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, 1.0,
-		{"size": 1.0, "along_m": 0.02, "tilt_deg": 30.0})
+	var big := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, radius, 0.075,
+		{"size": 2.0, "along_m": 0.03})
+	check(near(big.basis.get_scale().x, 2.0, 0.001), "size scales the bow")
+	var fatter := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, 0.09, 0.075, cfg)
+	check(near(fatter.basis.get_scale().x, 1.5, 0.001), "a thicker tail gets a bigger bow")
+	var tilted := BOW.placement(root, axis, Vector3.BACK, Vector3.UP, radius, 0.075,
+		{"size": 1.0, "along_m": 0.03, "tilt_deg": 30.0})
 	check(not (root * tilted).basis.z.is_equal_approx(world.basis.z), "tilt leans the bow")
 	# A raised or sideways tail must not flip the loops.
-	var sideways := BOW.placement(root, Vector3.BACK, Vector3.BACK, Vector3.UP, 1.0, cfg)
-	check(absf((root * sideways).basis.z.dot(Vector3.BACK)) > 0.999, "tail along her back")
-	check(absf((root * sideways).basis.y.dot(Vector3.UP)) > 0.5, "loops stay upright")
+	var sideways := BOW.placement(root, Vector3.BACK, Vector3.RIGHT, Vector3.UP, radius, 0.075,
+		cfg)
+	check(absf((root * sideways).basis.z.dot(Vector3.RIGHT)) > 0.999, "tail along her back")
+	check(absf((root * sideways).basis.y.dot(Vector3.BACK)) > 0.999, "loops stay upright")
 
 
 func _test_mesh() -> void:
 	var cfg := BOW.config()
 	check(BOW.DEFAULT_COLOUR == "red" and BOW.COLOURS.has("red"), "the bow is red")
 	check(str(cfg.get("colour", "")) in BOW.COLOURS, "the dye is a known satin colour")
-	var radius := 0.045
-	var node := BOW.build(BOW.colour(cfg), cfg, radius)
+	var mesh := BOW.bow_mesh()
+	check(mesh != null and mesh.get_surface_count() >= 1, "the modelled mesh loads")
+	var box: AABB = mesh.get_aabb()
+	check(box.size.x > 0.10 and box.size.x < 0.25, "the bow is about a hand wide")
+	check(box.size.y > 0.12, "the tails hang below the knot")
+	check(box.size.z < box.size.x * 0.6, "the bow is a flat piece, not a ball")
+	var node := BOW.build(BOW.colour(cfg))
 	check(node.name == BOW.NODE_NAME, "bow node name")
-	check(node.mesh != null and node.mesh.get_surface_count() >= 3,
-		"bow carries the loops, the wrap and the knot")
-	var box: AABB = node.mesh.get_aabb()
-	check(box.size.x > radius * 2.0 and box.size.x < radius * 5.0,
-		"two loops spread wider than the tail")
-	check(box.size.y > radius * 1.2, "loops reach above the tie point")
-	check(box.size.z > radius * 0.3 and box.size.z < radius * 2.0,
-		"the loops puff out of the bow plane without ballooning")
-	# The wrap must sit on the measured tail, not float off it.
-	check(box.has_point(Vector3(0.0, 0.0, box.position.z + box.size.z * 0.5)),
-		"the winding wraps the tail axis")
-	var thicker := BOW.build(BOW.colour(cfg), cfg, 0.09).mesh.get_aabb()
-	check(thicker.size.x > box.size.x * 1.6, "a thicker tail gets a bigger bow")
-	var small := BOW.build(BOW.colour(cfg), {"size": 1.0, "along_m": 0.02, "margin_m": 0.004,
-		"loop_scale": 0.5}, radius).mesh.get_aabb()
-	check(small.size.x < box.size.x, "loop size shrinks the bow")
+	check(node.mesh == mesh, "the bow uses the modelled mesh")
+	check(node.material_override is StandardMaterial3D, "the dye overrides the imported material")
 	check(node.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
 		"accessory casts no shadow")
 	node.free()

@@ -29,34 +29,27 @@ func run() -> void:
 		var mares: Variant = game.get("mares")
 		if not mares is Array:
 			continue
-		var pony: Node3D = null
-		var first: Node3D = null
+		var ponies: Array = []
 		for node: Variant in mares:
-			if not node is Node3D or BOW.hair_skeleton(node) == null:
-				continue
-			if first == null:
-				first = node as Node3D
-			if str((node as Node3D).name).to_lower().begins_with("flutter"):
-				pony = node as Node3D
-				break
-		if pony == null:
-			pony = first
-		if pony == null:
+			if node is Node3D and BOW.hair_skeleton(node) != null:
+				ponies.append(node)
+		if ponies.is_empty():
 			continue
-		print("[bow shot] mares=", (mares as Array).size(), " picked=", pony.name)
+		print("[bow shot] mares=", (mares as Array).size(), " fitted=", ponies.size())
 		await get_tree().create_timer(2.0).timeout
-		await _shoot(pony)
+		for k: int in ponies.size():
+			await _shoot(ponies[k] as Node3D, k == 0)
 		get_tree().quit()
 		return
 	print("[bow shot] no mare")
 	get_tree().quit()
 
 
-func _shoot(pony: Node3D) -> void:
+func _shoot(pony: Node3D, measure_cost: bool) -> void:
 	await get_tree().create_timer(1.0).timeout
 	BOW.set_worn(BOW.worn_id(pony), true)
 	var measure_at := Time.get_ticks_usec()
-	var radius_probe := BOW.tail_radius(pony, 0.005)
+	var radius_probe := BOW.tail_radius(pony)
 	print("[bow shot] radius measure ms=", (Time.get_ticks_usec() - measure_at) / 1000.0,
 		" radius=", radius_probe)
 	var attach_at := Time.get_ticks_usec()
@@ -67,36 +60,45 @@ func _shoot(pony: Node3D) -> void:
 		return
 	var sk := BOW.hair_skeleton(pony)
 	var root := sk.find_bone("mTail1")
-	var at: Vector3 = sk.global_transform * sk.get_bone_global_pose(root).origin
-	var radius := BOW.tail_radius(pony, 0.02)
+	var at: Vector3 = node.global_position
+	var radius := BOW.tail_radius(pony)
+	var cfg := BOW.config()
 	print("[bow shot] pony=", pony.name, " tail=", at, " radius=", radius,
-		" scale=", sk.global_basis.get_scale().x, " bow=", node.global_position,
+		" standoff=", BOW.standoff(pony), " cfg=", cfg,
+		" scale=", sk.global_basis.get_scale().x, " bow_scale=", node.global_basis.get_scale(),
 		" aabb=", node.mesh.get_aabb())
 	DirAccess.make_dir_recursive_absolute(OUT)
-	var back := pony.global_basis.z.normalized()
-	var side := pony.global_basis.x.normalized()
+	# Frame the bow from its own face, so the shot does not depend on which way she is turned.
+	var face := node.global_basis.z.normalized()
+	var side := node.global_basis.x.normalized()
+	var up := node.global_basis.y.normalized()
 	var camera := Camera3D.new()
 	camera.fov = 45.0
 	camera.near = 0.01
 	camera.far = 40.0
 	get_tree().root.add_child(camera)
 	camera.make_current()
-	var reach := maxf(0.75, radius * 9.0)
+	var reach := maxf(0.95, node.mesh.get_aabb().size.length() * 3.2 \
+		* node.global_basis.get_scale().x)
 	var shots := {
-		"back": at + back * reach + Vector3.UP * reach * 0.45,
-		"side": at + (back * 0.35 + side * 1.0) * reach + Vector3.UP * reach * 0.25,
-		"close": at + (back * 0.55 + side * 0.25) * reach * 0.55 + Vector3.UP * reach * 0.2,
+		"back": at + face * reach + up * reach * 0.25,
+		"side": at + (face * 0.55 + side * 0.9) * reach + up * reach * 0.15,
+		"close": at + (face * 0.9 + side * 0.25) * reach * 0.55 + up * reach * 0.1,
 	}
 	for name: String in shots:
 		camera.global_position = shots[name]
-		camera.look_at(at + Vector3.UP * radius * 0.2, Vector3.UP)
+		camera.look_at(at, up)
 		for frame: int in 8:
 			await get_tree().process_frame
 		var image := get_viewport().get_texture().get_image()
-		var path := OUT + "bow_" + name + ".png"
+		var path := OUT + "bow_" + str(pony.name).to_lower() + "_" + name + ".png"
 		image.save_png(path)
 		print("[bow shot] wrote ", path, " size=", image.get_size())
-	# Cost check: frames per second with the bow on, then with it off.
+	# Cost check on the first pony only: frames per second with the bow on, then with it off.
+	if not measure_cost:
+		BOW.set_worn(BOW.worn_id(pony), false)
+		BOW.detach(pony)
+		return
 	for i: int in 90:
 		await get_tree().process_frame
 	var with_bow := Engine.get_frames_per_second()

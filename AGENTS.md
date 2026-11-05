@@ -127,7 +127,7 @@ mods/unfplap/
   voice_status.gd   pure character-voice/Ponese classification
   act_sound.gd      base-game breath, plap, mouth-kiss and climax players
   act_audio.gd      optional pack foley/vocal/wet layers
-  audio/act/smack/  the one OpenNSFW hand-smack sample installed on FlankTouch
+  audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness meter and close cue
   readiness_bar.gd  pure short 0–100 readiness fill; no ticks
@@ -567,13 +567,13 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the old
   hidden-hand `SMACK_SWING_SECONDS = 0.20` swing, impacting at `SMACK_CONTACT_PHASE = 0.45`. A
   `SMACK_COOLDOWN_MS = 200` gate remains; a new smack waits for the current recovery.
-- It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs the
-  one peak-normalised OpenNSFW hand-smack sample (`audio/act/smack/hand_03.wav`) on the native
-  sound player immediately before the impact, with a small pitch jitter; `act_foley` off keeps
-  the stock `flank_slap.wav`. The stock stream, level and pitch are restored at act end. The
-  pony's `physical_reaction` connections are temporarily disconnected around the call, so
-  `flank_smack` cannot trigger the game's buck/fidget/hoof shuffle or a
-  bond/context/memory/satisfaction event.
+- It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs one
+  peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` (three samples, never the
+  same one twice in a row) on the native sound player immediately before the impact, with a
+  small pitch jitter; `act_foley` off keeps the stock `flank_slap.wav`. The stock stream, level
+  and pitch are restored at act end. The pony's `physical_reaction` connections are temporarily
+  disconnected around the call, so `flank_smack` cannot trigger the game's buck/fidget/hoof
+  shuffle or a bond/context/memory/satisfaction event.
 - A right lean (`side > 0`) selects the left cheek index; a left lean selects the right; exactly
   centered picks one at random. The index chooses which cheek decal reddens; standing's contact
   point is the live caress point or the bottom of that cheek. There is no rump target.

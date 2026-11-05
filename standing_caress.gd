@@ -325,7 +325,8 @@ var _smack_outward := Vector3.UP
 var _smack_raise_seconds := SMACK_RAISE_MIN_S
 var _smack_strike_seconds := 0.10
 var _smack_caress := false
-var _smack_stream: AudioStream
+var _smack_streams: Array[AudioStream] = []
+var _smack_stream_last := -1
 var _smack_sound_restore: Dictionary = {}
 var _smack_sound_installed := false
 
@@ -1415,17 +1416,29 @@ func _smack_sound_player() -> AudioStreamPlayer3D:
 	return player if player is AudioStreamPlayer3D else null
 
 
-func _load_smack_stream() -> void:
-	if _smack_stream != null:
+func _load_smack_streams() -> void:
+	if not _smack_streams.is_empty():
 		return
-	if ResourceLoader.exists(SMACK_AUDIO.PATH):
-		var stream: Resource = load(SMACK_AUDIO.PATH)
-		if stream is AudioStream:
-			_smack_stream = stream
+	for path: String in SMACK_AUDIO.PATHS:
+		if ResourceLoader.exists(path):
+			var stream: Resource = load(path)
+			if stream is AudioStream:
+				_smack_streams.append(stream)
 
 
-## Install the pack smack on the native player immediately before `impact()`, so the sound
-## lands on the same frame as the decal and blush. With pack foley off the stock
+## Pick a variant without repeating the previous one, so two fast smacks never sound alike.
+func _next_smack_stream(count: int) -> int:
+	if count <= 1:
+		return 0
+	var index := randi() % count
+	if index == _smack_stream_last:
+		index = (index + 1) % count
+	_smack_stream_last = index
+	return index
+
+
+## Install one pack smack variant on the native player immediately before `impact()`, so the
+## sound lands on the same frame as the decal and blush. With pack foley off the stock
 ## `flank_slap.wav` stays in place and plays instead.
 func _install_smack_sound() -> void:
 	if not _act_foley_on():
@@ -1434,8 +1447,8 @@ func _install_smack_sound() -> void:
 	var player := _smack_sound_player()
 	if player == null:
 		return
-	_load_smack_stream()
-	if _smack_stream == null:
+	_load_smack_streams()
+	if _smack_streams.is_empty():
 		_restore_smack_sound()
 		return
 	if not _smack_sound_installed:
@@ -1445,7 +1458,8 @@ func _install_smack_sound() -> void:
 			"pitch_scale": player.pitch_scale,
 		}
 		_smack_sound_installed = true
-	player.stream = _smack_stream
+	var index := _next_smack_stream(_smack_streams.size())
+	player.stream = _smack_streams[index]
 	player.volume_db = SMACK_VOLUME_DB
 	player.pitch_scale = randf_range(SMACK_PITCH_MIN, SMACK_PITCH_MAX)
 

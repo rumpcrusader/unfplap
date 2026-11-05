@@ -1,7 +1,12 @@
 extends RefCounted
-## The one curated OpenNSFW hand-on-flank smack sample. It stays out of the optional act cue
-## table: the act installs it on the native `FlankTouch` sound player so the decal, blush,
+## Curated OpenNSFW hand-on-flank smack variants. These stay out of the optional act cue
+## table: the act installs one on the native `FlankTouch` sound player so the decal, blush,
 ## jiggle and reaction suppression stay on the stock impact. `standing_caress.gd` lazy-loads
-## the path only when `act_foley` is on, so an act with pack foley off loads no pack stream.
+## the paths only when `act_foley` is on, so an act with pack foley off loads no pack stream.
+## A smack picks a variant at random and never repeats the previous one.
 
-const PATH := "res://mods/unfplap/audio/act/smack/hand_03.wav"
+const PATHS := [
+	"res://mods/unfplap/audio/act/smack/hand_01.wav",
+	"res://mods/unfplap/audio/act/smack/hand_02.wav",
+	"res://mods/unfplap/audio/act/smack/hand_03.wav",
+]

@@ -220,6 +220,12 @@ var _had_kiss_hold := false
 var _locked_player := false
 var _face_turn_rate_saved := -1.0
 var _face_turn_rate_owned := false
+## Act-session ownership: each flag marks external state this act took and must give back.
+## `_end_session()` checks them, so a start that failed early restores only what it took.
+var _camera_owned := false
+var _look_captured := false
+var _posture_owned := false
+var _session_finalized := false
 var _y_hold := 0.0
 var _y_hold_ready := false
 var _y_hold_fired := false
@@ -1434,6 +1440,10 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	if not can_start(pose, act_source, bed_in):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
+	_camera_owned = false
+	_look_captured = false
+	_posture_owned = false
+	_session_finalized = false
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
 	set_request_face(false)
 	clear_presentation()
@@ -1453,6 +1463,11 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	_standing_camera_controller().reset()
 	bed = _resolve_bed(pose, act_source, bed_in)
 	if pose == CATALOG.MISSIONARY and bed == null:
+		# Nothing else is borrowed yet, but the jiggle radius was just applied.
+		_restore_jiggle_radius()
+		pose_id = ""
+		source = ""
+		bed = null
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
 	_bob = 0.0
@@ -1490,13 +1505,16 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 	_act_spoken_at = _last_spoken_at()
 	if source == "cradle":
 		if not _release_carry():
+			_abort_start()
 			return false
 	elif source == "already_lying":
 		if not REST.release_managed(pony):
+			_abort_start()
 			return false
 	elif source == "bed_side":
 		_end_cuddle_session()
 		if not REST.release_managed(pony):
+			_abort_start()
 			return false
 	if _cuddle_active() and _feature("allow_act_during_cuddle") \
 			and source not in ["bed_side", "already_lying"]:
@@ -1506,6 +1524,7 @@ func start(pose: String, bed_in: Variant, act_source: String, y_allowed := false
 		_abort_start()
 		return false
 
+	_posture_owned = true
 	pony.sleeping = false
 	pony.set_sim_tier(pony.SimTier.HERO)
 	pony.set_meta("sex_active", true)
@@ -1699,18 +1718,8 @@ func _unlock_player() -> void:
 
 func _abort_start() -> void:
 	_end_act_lines(true)
-	_set_inventory_hud_hidden(false)
-	set_request_face(false)
-	_kiss_controller().restore_forelegs()
-	_restore_face_turn()
-	_release_nav()
-	_unlock_player()
-	_free_pose()
-	if is_instance_valid(pony) and pony.has_meta("sex_active"):
-		pony.remove_meta("sex_active")
-	state = State.IDLE
-	if is_instance_valid(main):
-		main.clear_active(self)
+	_end_session(false)
+	_finalize_session(false)
 
 ## Put her in the game's own lie-down state after the teleport. Waiting one physics frame lets
 ## `grounded()` see the mattress; the native lie animation then settles her into the bedding
@@ -3270,35 +3279,68 @@ func _restore_begin() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.hide_act()
 
-func _finish_restore() -> void:
-	if not is_instance_valid(pony):
-		_log("restore finished with invalid pony")
-		_set_inventory_hud_hidden(false)
-		state = State.IDLE
-		return
-	var was_pose := pose_id
-	_log("restore finished pony=%s" % str(pony.name))
+## Give back everything the act borrowed, in the order the pose and camera were built. Every step
+## checks its own ownership flag, so a start that failed early runs the same function and restores
+## only what it took. Keep this the only exit path. `_end_act_lines()` is deliberately outside:
+## `cancel()` queues the early-stop reaction after `_restore_begin()`, and `_finish_restore()` must
+## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
+func _end_session(rejoin_cuddle: bool) -> void:
 	_set_inventory_hud_hidden(false)
+	set_request_face(false)
+	_kiss_controller().restore_forelegs()
+	_restore_face_turn()
+	_restore_eye_override()
+	if is_instance_valid(pony):
+		_clear_face()
+		_wings_controller().release()
 	_unlock_player()
-	_restore_camera()
-	pony.remove_meta("sex_active")
+	if _camera_owned:
+		_restore_camera()
+	if is_instance_valid(pony):
+		pony.remove_meta("sex_active")
 	_release_nav()
-	_restore_look()
-	if was_pose == CATALOG.MISSIONARY:
-		_missionary_camera_controller().resume_cuddle()
-	elif pony.get("posture") != null:
-		pony.request_posture("stand")
+	if _look_captured:
+		_restore_look()
+	if _posture_owned:
+		_restore_posture(pose_id, rejoin_cuddle)
 	_free_pose()
 	_stop_audio()
-	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.hide_all()
 	if is_instance_valid(main):
+		if is_instance_valid(main.hud):
+			main.hud.hide_all()
 		main.clear_active(self)
 	state = State.IDLE
 	pose_id = ""
 	source = ""
 	bed = null
-	_reset_after_act()
+
+## One-time bookkeeping after the borrowed state is back. Idempotent: a failed start has no act
+## to reset and must not start aftercare.
+func _finalize_session(real_act: bool) -> void:
+	if _session_finalized:
+		return
+	_session_finalized = true
+	if real_act:
+		_reset_after_act()
+
+## Give her back to the game: the missionary bed cuddle on a normal end, or a standing posture.
+## A forced stop never rejoins the cuddle; the world is going away or the pony is already invalid.
+func _restore_posture(restore_pose: String, rejoin_cuddle: bool) -> void:
+	_posture_owned = false
+	if not is_instance_valid(pony):
+		return
+	if rejoin_cuddle and restore_pose == CATALOG.MISSIONARY:
+		_missionary_camera_controller().resume_cuddle()
+	elif pony.get("posture") != null:
+		pony.request_posture("stand")
+
+func _finish_restore() -> void:
+	if is_instance_valid(pony):
+		_log("restore finished pony=%s" % str(pony.name))
+	else:
+		_log("restore finished with invalid pony")
+	_end_session(true)
+	_finalize_session(true)
 
 func _stand_after_pose() -> void:
 	if is_instance_valid(pony) and pony.get("posture") != null:
@@ -3306,41 +3348,15 @@ func _stand_after_pose() -> void:
 
 func force_stop() -> void:
 	# Defensive: every stop path must leave the quick slots in their pre-act state.
-	_set_inventory_hud_hidden(false)
 	if state == State.IDLE:
-		set_request_face(false)
-		_kiss_controller().restore_forelegs()
-		clear_presentation()
+		_end_session(false)
 		return
 	_restore_now()
 
 func _restore_now() -> void:
 	_end_act_lines(true)
-	_set_inventory_hud_hidden(false)
-	set_request_face(false)
-	_kiss_controller().restore_forelegs()
-	_restore_face_turn()
-	if is_instance_valid(pony):
-		_clear_face()
-		_wings_controller().release()
-		_unlock_player()
-		_restore_camera()
-		pony.remove_meta("sex_active")
-		if pony.get("posture") != null:
-			pony.request_posture("stand")
-		_restore_look()
-		_release_nav()
-	_free_pose()
-	_stop_audio()
-	if is_instance_valid(main):
-		main.clear_active(self)
-		if is_instance_valid(main) and is_instance_valid(main.hud):
-			main.hud.hide_all()
-	state = State.IDLE
-	pose_id = ""
-	source = ""
-	bed = null
-	_reset_after_act()
+	_end_session(false)
+	_finalize_session(true)
 
 func _reset_after_act() -> void:
 	if not is_inside_tree():
@@ -3519,6 +3535,7 @@ func _restore_eye_override() -> void:
 ## camera and do not enter this path.
 func _begin_camera_mode() -> void:
 	_free_camera_active = false
+	_camera_owned = true
 	_camera_basis_ready = false
 	_reset_lean_state()
 	_standing_anon_controller().reset_phase()
@@ -3769,11 +3786,15 @@ func _capture_look() -> void:
 	_restore_pitch = float(pitch) if pitch != null else 0.0
 	_look_yaw = _restore_yaw
 	_look_pitch = _restore_pitch
+	_look_captured = true
 
 ## Restore the player's yaw/pitch captured at act start. Free look and the standing look cone can
 ## leave the rig yawed after the act, which makes W/D move relative to a different facing than the
 ## camera. Restoring the captured look keeps movement and view aligned.
 func _restore_look() -> void:
+	if not _look_captured:
+		return
+	_look_captured = false
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var yaw := _restore_yaw
@@ -3794,6 +3815,9 @@ func _restore_look() -> void:
 	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
 
 func _restore_camera() -> void:
+	if not _camera_owned:
+		return
+	_camera_owned = false
 	_end_lean_action()
 	_caress_controller().reset()
 	_release_free_camera_lock()

@@ -31,7 +31,6 @@ var _prompt: CenterContainer
 var _prompt_row: HBoxContainer
 var _prompt_key := ""
 var _hint: VBoxContainer
-var _hint_title: Label
 var _hint_status: Label
 var _hint_readiness: Label
 var _hint_auto: Label
@@ -101,19 +100,13 @@ func _ready() -> void:
 	_readiness_bar.name = "Readiness"
 	_readiness_bar.visible = false
 	_hint.add_child(_readiness_bar)
-	# The carry card names its mode above the rows.
-	_hint_title = text_label("MAKE LOVE", 14, MUTED, 4)
-	_hint_title.name = "HintTitle"
-	_hint_title.visible = false
-	_hint.add_child(_hint_title)
 	_build_controls()
-	# Cue line, readiness text, auto readout, bar, then the separator, then the control card.
+	# Cue line, readiness text, auto readout, bar, then the separator, then the control rows.
 	_hint.move_child(_hint_status, 0)
 	_hint.move_child(_hint_readiness, 1)
 	_hint.move_child(_hint_auto, 2)
 	_hint.move_child(_readiness_bar, 3)
 	_hint.move_child(_hint_gap, 4)
-	_hint.move_child(_hint_title, 5)
 
 
 ## Words in the game's prompt style: light ink, dark outline, no shadow.
@@ -185,33 +178,32 @@ static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
 	return row
 
 
-## One row per control: a key cap/controller icon, a muted modifier column, and one description.
-## Built once; the Y, thrust and X rows and the status/auto lines change with act state.
+## One row per control: its key caps/icons, a muted modifier column, and one description.
+## Built once; the thrust, auto and Y rows change with act state.
 func _build_controls() -> void:
-	_thrust_label = _add_hint_row("thrust", "", "↕", "", "Thrust")
-	_auto_label = _add_hint_row("auto", "", "X", "", "Auto thrust")
-	_add_hint_row("forward", "", "W", "", "Lean forward")
-	_add_hint_row("back", "", "S", "", "Lean back")
-	_add_hint_row("left", "key_q", "Q", "", "Lean left · kiss / reach")
-	_add_hint_row("right", "key_e", "E", "", "Lean right · reach")
-	_add_hint_row("caress_left", "", "A", "", "Caress left")
-	_add_hint_row("caress_right", "", "D", "", "Caress right")
-	_add_hint_row("caress_move_left", "", "Z", "", "Caress movement left")
-	_add_hint_row("caress_move_right", "key_c", "C", "", "Caress movement right")
-	_add_hint_row("kiss", "key_f", "F", "Hold", "Kiss at full lean")
-	_add_hint_row("smack", "mouse_right", "", "", "Smack flank")
-	_y_label = _add_hint_row("y", "button_y", "Y", "Hold", "")
+	_thrust_label = _add_hint_row("thrust", [{"cap": "↕"}], "", "Thrust")
+	_auto_label = _add_hint_row("auto", [{"cap": "X"}], "", "Switch to auto")
+	_add_hint_row("lean", [{"cap": "W"}, {"cap": "S"}], "", "Lean forward / back")
+	_add_hint_row("reach", [{"icon": "key_q", "cap": "Q"}, {"icon": "key_e", "cap": "E"}],
+		"", "Reach left / right")
+	_add_hint_row("caress", [{"cap": "A"}, {"cap": "D"}], "", "Caress left / right")
+	_add_hint_row("caress_move", [{"cap": "Z"}, {"icon": "key_c", "cap": "C"}], "",
+		"Caress movement left / right")
+	_add_hint_row("kiss", [{"icon": "key_f", "cap": "F"}], "Hold", "Kiss")
+	_add_hint_row("smack", [{"icon": "mouse_right", "cap": ""}], "", "Smack flank")
+	_y_label = _add_hint_row("y", [{"icon": "button_y", "cap": "Y"}], "Hold", "")
 
 
-func _add_hint_row(key: String, icon_name: String, key_text: String, mode: String, text: String) -> Label:
+func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Label:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := button_icon(icon_name, ICON_EDGE)
-	if icon != null:
-		row.add_child(icon)
-	else:
-		row.add_child(keycap(key_text))
+	for entry: Dictionary in keys:
+		var icon := button_icon(str(entry.get("icon", "")), ICON_EDGE)
+		if icon != null:
+			row.add_child(icon)
+		else:
+			row.add_child(keycap(str(entry.get("cap", ""))))
 	var modifier := text_label(mode, 13, MUTED, 4)
 	modifier.custom_minimum_size.x = MODE_WIDTH
 	modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -251,8 +243,6 @@ func show_act(runtime: Node, show_readouts := true) -> void:
 func hide_act() -> void:
 	if _hint != null:
 		_hint.visible = false
-	if _hint_title != null:
-		_hint_title.visible = false
 	if _hint_status != null:
 		_hint_status.visible = false
 	if _hint_readiness != null:
@@ -282,8 +272,6 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	var climaxes := int(runtime.get("pony_climaxes"))
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 	_apply_control_visibility(state, runtime)
-	if _hint_title != null:
-		_hint_title.visible = _hint.visible
 	if _y_label != null:
 		var y_text := ""
 		if state == STATE_ACTIVE:
@@ -321,7 +309,7 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	if _thrust_label != null:
 		_thrust_label.text = "Max depth" if auto_on else "Thrust"
 	if _auto_label != null:
-		_auto_label.text = "Manual thrust" if auto_on else "Auto thrust"
+		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
 	if _hint_gap != null:
 		_hint_gap.visible = _hint.visible
 
@@ -338,8 +326,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		var show := true
 		if afterglow:
 			if standing:
-				show = key in ["forward", "back", "left", "right", "caress_left",
-					"caress_right", "caress_move_left", "caress_move_right", "kiss", "y"]
+				show = key in ["lean", "reach", "caress", "caress_move", "kiss", "y"]
 			else:
 				show = key == "y"
 		elif state == STATE_CLIMAX:

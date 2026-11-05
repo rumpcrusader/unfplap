@@ -76,14 +76,12 @@ func _check_controls() -> void:
 	var hud: CanvasLayer = HUD.new()
 	root.add_child(hud)
 	check(hud.get("_hint") != null, "HUD builds its hint stack")
-	var title := hud.get("_hint_title") as Label
-	check(title != null and title.text == "MAKE LOVE", "act card names the mode")
+	check(hud.get("_hint_title") == null, "act card has no separate title")
 	var y_label := hud.get("_y_label") as Label
 	check(y_label != null and y_label.text.is_empty(), "Y description starts empty")
 	var stub := Stub.new()
 	hud.call("update_from", stub, true)
 	check(y_label.text == "Stop", "Y stops before the first climax")
-	check(title.visible, "title shows during the act")
 	var status := hud.get("_hint_status") as Label
 	check(status.text.begins_with("❤ 1/3"), "cue line reaches the HUD")
 	var readiness := hud.get("_hint_readiness") as Label
@@ -93,10 +91,16 @@ func _check_controls() -> void:
 	var kiss := rows.get("kiss") as Control
 	check(kiss != null and kiss.visible, "kiss row shows while active")
 	var row_box := kiss as HBoxContainer
-	check(row_box.get_child_count() == 3, "a control row is icon, modifier and words")
+	check(row_box.get_child_count() == 3, "a single-key row is icon, modifier and words")
 	var modifier := row_box.get_child(1) as Label
 	check(modifier.text == "Hold", "hold controls say so in their own column")
-	check((row_box.get_child(2) as Label).text == "Kiss at full lean", "kiss row reads its action")
+	check((row_box.get_child(2) as Label).text == "Kiss", "kiss row reads its action")
+	var lean := rows.get("lean") as Control
+	check(lean != null and lean.visible, "lean row shows while active")
+	var lean_box := lean as HBoxContainer
+	check(lean_box.get_child_count() == 4, "a key-pair row is two keys, modifier and words")
+	check((lean_box.get_child(3) as Label).text == "Lean forward / back",
+		"lean row names both directions")
 	var auto_row := rows.get("auto") as Control
 	check(auto_row != null and auto_row.visible, "auto thrust row shows while active")
 	check(not (hud.get("_hint_auto") as Control).visible, "auto readout hides while manual")
@@ -105,12 +109,16 @@ func _check_controls() -> void:
 	check((hud.get("_hint_auto") as Control).visible, "auto readout shows while auto is on")
 	check((hud.get("_thrust_label") as Label).text == "Max depth",
 		"thrust row sets depth in auto")
+	check((hud.get("_auto_label") as Label).text == "Switch to manual",
+		"X offers manual while auto runs")
 	stub.auto_on = false
 	stub.state = 4
 	hud.call("update_from", stub, true)
 	check(auto_row.visible == false, "afterglow hides auto thrust")
 	stub.state = 2
 	hud.call("update_from", stub, true)
+	check((hud.get("_auto_label") as Label).text == "Switch to auto",
+		"X offers auto while manual")
 	stub.pony_climaxes = 1
 	hud.call("update_from", stub, true)
 	check(y_label.text == "Afterglow", "Y offers afterglow after a climax")
@@ -124,7 +132,7 @@ func _check_controls() -> void:
 	check((rows.get("y") as Control).visible, "afterglow keeps Y")
 	stub.pose_id = "missionary"
 	hud.call("update_from", stub, true)
-	check((rows.get("forward") as Control).visible == false, "missionary afterglow keeps only Y")
+	check((rows.get("lean") as Control).visible == false, "missionary afterglow keeps only Y")
 	hud.call("show_prompt", "Make love")
 	check((hud.get("_prompt") as Control).visible, "fallback prompt shows")
 	check((hud.get("_prompt_row") as HBoxContainer).get_child_count() == 2, "fallback prompt is a row")

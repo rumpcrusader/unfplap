@@ -892,12 +892,12 @@ examples.
   prompt like `G · Carry`, not a hold. The action uses `ACCENT` (`#ffa8c7`, the same pink as the
   readiness fill). Without that row (VR or no `InteractionHints`) the same row is built into the
   HUD's own centered prompt above the caption line.
-- The act controls are a bottom-left, top-down list: one row per button, each with a keycap or
-  controller icon, a muted `Hold`/blank modifier column, and one description. Rows list mouse
-  thrust, X (`Auto thrust` / `Manual thrust`), W/S, Q/E, A/D, Z/C caress movement, F (`Hold`),
-  mouse right and Y (`Hold`); the thrust row reads `Thrust` or `Max depth` with auto, and the Y
-  description is `Afterglow`, `Stop` or `Exit` by state. A muted `MAKE LOVE` title names the card,
-  like the carry card's title.
+- The act controls are a bottom-left, top-down list: one row per key or key pair, each with
+  keycaps/controller icons, a muted `Hold`/blank modifier column, and one description. Rows list
+  `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to manual`), W S
+  (`Lean forward / back`), Q E (`Reach left / right`), A D (`Caress left / right`), Z C
+  (`Caress movement left / right`), F (`Hold`, `Kiss`), mouse right (`Smack flank`) and Y (`Hold`;
+  `Stop`, `Afterglow` or `Exit` by state). The card has no separate title.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; `_end_session()` restores it on every exit path, and
   `_physics_process` also restores it if `IDLE` is ever reached while still marked hidden. The
@@ -905,14 +905,12 @@ examples.
   flag cannot leave it hidden.
 - The bottom-left stack reads, top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, auto readout
-  `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator,
-  `MAKE LOVE` title, controls.
+  `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator, controls.
 - The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
   (default `true`). The bar has no ticks. The hearts remain when readouts are off.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y, while
-  thrust, auto, smack and talk
-  are hidden. The standing close hint is independent of `hud_readouts`.
+  standing keeps lean, reach, caress, caress movement, kiss and Y, while thrust, auto, smack and
+  talk are hidden. The standing close hint is independent of `hud_readouts`.
 - Love XP and happy mood are granted once by `MEMORY.commit_climax()` at afterglow.
   `MEMORY.stay_close_reward()` may add a small extra romance, happy mood and private thought
   when the standing close window is completed; staying alone records the memory without the extra

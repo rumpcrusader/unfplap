@@ -265,10 +265,10 @@ caressing her or leaning in; leaning counts as staying close/hugging.
   still apply.
 - The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
   at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow. The thrust row reads `Thrust` or
-  `Max depth`, and the X row reads `Auto thrust` or `Manual thrust`.
+  `Max depth`, and the X row reads `Switch to auto` or `Switch to manual`.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  standing keeps forward/back, Q/E reach, A/D caress, Z/C caress movement, F kiss and Y; thrust,
-  auto and smack are hidden.
+  standing keeps lean, reach, caress, caress movement, kiss and Y; thrust, auto and smack are
+  hidden.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
 - `debug_logs` gates the detailed overlay, not the HUD.

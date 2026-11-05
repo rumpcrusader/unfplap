@@ -158,6 +158,9 @@ const RESTORE_BACK_SPEED := 0.6
 ## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
+## The Y hint's `End` shade: one step per climax, capped below full so only the earned
+## afterglow caress turns it fully pink.
+const Y_END_TINT_MAX := 0.75
 
 ## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
 ## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
@@ -166,8 +169,6 @@ const STAY_CLOSE_CARESS_SECONDS := 2.5
 ## native smack keeps its own strength.
 const JIGGLE_HEIGHT := 0.78
 const JIGGLE_BACK := 0.12
-## `_start_jiggle` clamps strength to 0.3..1, so weak thrusts still move a little.
-const JIGGLE_MIN_STRENGTH := 0.30
 const JIGGLE_RUMP_SCALE := 2.8
 ## Act kiss timing. The sound repeats softly while her mouth is held to Anon's.
 ## Anon leans in while kissing. Standing moves the act camera (and the hip counter keeps his
@@ -216,6 +217,8 @@ var _action_executor: Node
 var _close_left := 0.0
 var _close_caress_seconds := 0.0
 var _close_rewarded := false
+## True only when the standing close window earned its caress reward.
+var _close_caress_earned := false
 
 var _player_pony := false
 var _had_kiss_hold := false
@@ -226,6 +229,10 @@ var _face_turn_rate_owned := false
 ## `_end_session()` checks them, so a start that failed early restores only what it took.
 var _camera_owned := false
 var _look_captured := false
+## Standing start keeps the pony in place and puts Anon behind her; the pre-act placement is
+## given back at act end.
+var _player_placed := false
+var _saved_player_transform := Transform3D.IDENTITY
 var _posture_owned := false
 var _session_finalized := false
 var _y_hold := 0.0
@@ -662,6 +669,13 @@ func hud_readiness_line(show_readouts := true) -> String:
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
 func auto_active() -> bool:
 	return _auto_on and state in [State.ACTIVE, State.CLIMAX]
+
+## Pink shade for the control card's `End`: one step per climax, capped below full so only the
+## earned standing afterglow caress turns it fully pink.
+func hud_y_pink() -> float:
+	if pose_id == CATALOG.STANDING and state == State.AFTERGLOW and _close_caress_earned:
+		return 1.0
+	return clampf(float(pony_climaxes) / float(MAX_PONY_CLIMAXES), 0.0, 1.0) * Y_END_TINT_MAX
 
 ## HUD control readout under the Wants/You line. Empty while manual.
 func auto_hud_text() -> String:
@@ -1516,6 +1530,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		return false
 	_camera_owned = false
 	_look_captured = false
+	_player_placed = false
+	_saved_player_transform = Transform3D.IDENTITY
 	_posture_owned = false
 	_session_finalized = false
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
@@ -1612,9 +1628,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 					pony.posture.impact_flop()
 			pony.reset_physics_interpolation()
 	else:
-		var standing := _standing_transform()
-		pony.reset_motion(standing)
-		pony.reset_physics_interpolation()
+		var standing := _begin_standing_placement()
 		pony.request_posture("stand")
 		_standing_camera_controller().begin_facing(standing)
 
@@ -1626,7 +1640,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_lean_state()
 	if pose == CATALOG.MISSIONARY:
 		_missionary_camera_controller().prepare()
-	_capture_look()
+	if not _look_captured:
+		_capture_look()
 	_lock_player()
 	_pause_face_turn()
 	_begin_camera_mode()
@@ -1876,6 +1891,36 @@ func _shared_bed_rest(bed_node: Node3D) -> Variant:
 			continue
 		return t
 	return null
+
+## Standing start keeps her where she is and puts Anon behind her. The offer cone already
+## requires him within 0.8 m of her rump, so the correction is small; the old path moved her in
+## front of him instead. AnonPony and headset/VR keep the old placement because their rig is
+## the camera or another body.
+func _begin_standing_placement() -> Transform3D:
+	var forward: Vector3 = -pony.global_basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		forward = -main.player.global_basis.z
+	forward = forward.normalized()
+	var standing := Transform3D(Basis.looking_at(forward, Vector3.UP), pony.global_position)
+	if _player_pony or _headset_view() or not is_instance_valid(main) \
+			or not is_instance_valid(main.player):
+		pony.reset_motion(standing)
+		pony.reset_physics_interpolation()
+		return standing
+	# Capture the pre-act look before the body moves; `_restore_look()` gives both back.
+	_capture_look()
+	var body: Variant = main.player
+	_saved_player_transform = body.global_transform
+	var target: Vector3 = pony.global_position - forward * _standing_gap()
+	target.y = body.global_position.y
+	_player_placed = true
+	body.global_position = target
+	body.reset_physics_interpolation()
+	_log("standing keeps pony at=%s and places Anon at=%s delta=%.2f" % [
+		str(pony.global_position), str(target),
+		target.distance_to(_saved_player_transform.origin)])
+	return standing
 
 func _standing_transform() -> Transform3D:
 	var view: Camera3D = main.camera()
@@ -2160,6 +2205,7 @@ func _reset_thrust_state() -> void:
 	_close_left = 0.0
 	_close_caress_seconds = 0.0
 	_close_rewarded = false
+	_close_caress_earned = false
 	_utterance_serial = 0
 	_utterance_scheduler().reset(_now_s(), _cue_gap)
 	_vocal_cooldown = 0.0
@@ -2423,11 +2469,12 @@ func _score_thrust() -> void:
 func _on_thrust(result: Dictionary) -> void:
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
+	var jiggle := THRUST.jiggle_amount(float(result.get("travel", 0.0)), strength)
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
-	_thrust_jiggle(impact)
+	_thrust_jiggle(jiggle)
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
-		_tail.call("thrust", impact * _jiggle_size_scale() * _jiggle_intensity_scale)
+		_tail.call("thrust", jiggle * _jiggle_size_scale() * _jiggle_intensity_scale)
 	if pose_id == CATALOG.STANDING:
 		if impact >= RUMP_BLUSH_MIN_STRENGTH:
 			_rump_blush = minf(RUMP_BLUSH_MAX, _rump_blush + RUMP_BLUSH_STEP)
@@ -2443,8 +2490,9 @@ func _on_thrust(result: Dictionary) -> void:
 		if _act_audio.foley_enabled():
 			_act_audio.play_impact(pose_id, strength, _rump_point(),
 				_bed_audio_point(), _bed_soft)
-	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f intensity=%s pattern=%s" % [
-		satisfaction, _thrusts_per_second(), strength, impact, _last_intensity, _last_pattern])
+	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+		satisfaction, _thrusts_per_second(), strength, impact, jiggle,
+		_last_intensity, _last_pattern])
 
 func _play_vocal() -> void:
 	if _vocal_cooldown > 0.0:
@@ -2799,7 +2847,7 @@ func _record_peak_memory() -> void:
 		_act_liked_touch, _act_liked_talk, _act_dislikes)
 	MEMORY.record_peak_memory(_id, _event_id, text, score)
 
-func _thrust_jiggle(strength: float) -> void:
+func _thrust_jiggle(weight: float) -> void:
 	if not is_instance_valid(pony):
 		return
 	if not is_instance_valid(_flank):
@@ -2836,14 +2884,20 @@ func _thrust_jiggle(strength: float) -> void:
 	var decal := mark as Decal
 	decal.global_transform = Transform3D(Basis(across, normal, across.cross(normal)).orthonormalized(), at + normal * 0.015)
 	decal.visible = false
-	var jiggle := clampf(strength, JIGGLE_MIN_STRENGTH, 1.0)
-	_flank.call("_start_jiggle", 0, jiggle)
+	# The stock jiggle clamps its own impulse to 0.3..1. Pass a full stroke and scale the
+	# resolved amount here, so a soft stroke can wobble almost not at all.
+	var wobble := clampf(weight, 0.0, 1.0)
+	_flank.call("_start_jiggle", 0, 1.0)
 	# One shader center now covers both flanks, so scale the resolved amount up. Smaller ponies
 	# get less shader travel from the same thrust impulse.
 	var amount: Variant = _flank.get("_jiggle_amount")
 	if amount != null:
-		_flank.set("_jiggle_amount", float(amount) * JIGGLE_RUMP_SCALE
+		_flank.set("_jiggle_amount", float(amount) * wobble * JIGGLE_RUMP_SCALE
 			* _jiggle_size_scale() * _jiggle_intensity_scale)
+		# `_start_jiggle()` already ran one frame at the stock full amount; refresh it now so
+		# the first frame of a soft thrust does not pop.
+		if _flank.has_method("_process"):
+			_flank.call("_process", 0.0)
 	_apply_jiggle_radius()
 	if not _jiggle_logged:
 		_jiggle_logged = true
@@ -3429,6 +3483,7 @@ func _begin_close_window() -> void:
 	_close_left = STAY_CLOSE_SECONDS
 	_close_caress_seconds = 0.0
 	_close_rewarded = false
+	_close_caress_earned = false
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
@@ -3454,6 +3509,7 @@ func _close_afterglow() -> void:
 	_close_rewarded = true
 	_close_left = 0.0
 	var caressed := _close_caress_seconds >= STAY_CLOSE_CARESS_SECONDS
+	_close_caress_earned = caressed
 	if is_instance_valid(main):
 		MEMORY.stay_close_reward(main.game, _id, _event_id, caressed)
 	_set_face(0.9, AFTERGLOW_CLOSE_LIDS)
@@ -4033,7 +4089,19 @@ func _restore_look() -> void:
 			view.rotation.x = _restore_pitch
 			view.rotation.z = 0.0
 	_reset_lean_state()
+	_restore_player_placement()
 	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f" % [yaw, _restore_yaw, _restore_pitch])
+
+## Give back the standing start's placement of Anon, if the act moved him.
+func _restore_player_placement() -> void:
+	if not _player_placed:
+		return
+	_player_placed = false
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	main.player.global_position = _saved_player_transform.origin
+	main.player.reset_physics_interpolation()
+	_log("player placement restored at=%s" % str(_saved_player_transform.origin))
 
 func _restore_camera() -> void:
 	if not _camera_owned:

@@ -9,7 +9,9 @@ extends RefCounted
 ## times out. The caller classifies intensity and rhythm from the event; there is no score here.
 
 const STROKE_TIMEOUT_S := 0.18
-const THRUST_MIN_TRAVEL := 0.25
+## A thrust must travel this far inward. `REVERSAL_HYSTERESIS` (0.06) is subtracted from every
+## auto stroke after the first, so the 20% auto peak reaches 0.14 travel and still counts.
+const THRUST_MIN_TRAVEL := 0.12
 const MIN_THRUST_DURATION := 0.04
 ## A small pullback is hand jitter, not a new stroke. The reversal must travel this far from
 ## the stroke's peak before the stroke closes.
@@ -24,6 +26,12 @@ const STRENGTH_SPEED_REF := 8.0
 const STRENGTH_SPEED_MIN := 0.15
 const STRENGTH_SPEED_MAX := 1.5
 const PEAK_SPEED_CAP := 2.0
+## Rump/tail wobble: a closed full stroke moves the flank the same at any speed. The soft band
+## fades the gentlest strokes almost out instead of letting the 0.3 stock floor keep them alive.
+const JIGGLE_TRAVEL_REF := 0.9
+const JIGGLE_SOFT_FLOOR := 0.04
+const JIGGLE_SOFT_LOW := 0.18
+const JIGGLE_SOFT_HIGH := 0.42
 
 var depth := 0.0
 
@@ -38,6 +46,14 @@ var _samples: Array[Vector2] = []
 static func mouse_to_depth(dy_pixels: float, pixels_per_full: float, up_is_deep: bool) -> float:
 	var sign := -1.0 if up_is_deep else 1.0
 	return sign * dy_pixels / maxf(1.0, pixels_per_full)
+
+
+## Wobble amount 0..1 from a closed stroke. Travel sets the amount, so a full stroke moves the
+## flank the same at any speed; the soft band fades the gentlest thrusts to almost nothing.
+static func jiggle_amount(travel: float, strength: float) -> float:
+	var depth_factor := clampf(travel / JIGGLE_TRAVEL_REF, 0.0, 1.0)
+	var soft := smoothstep(JIGGLE_SOFT_LOW, JIGGLE_SOFT_HIGH, clampf(strength, 0.0, 1.0))
+	return depth_factor * lerpf(JIGGLE_SOFT_FLOOR, 1.0, soft)
 
 
 func reset() -> void:

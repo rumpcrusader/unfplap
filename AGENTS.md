@@ -136,8 +136,7 @@ mods/unfplap/
   act_audio.gd      optional pack foley/vocal/wet layers
   audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
-  hud.gd            bottom-left controls list, combined status line, readiness meter and close cue
-  readiness_bar.gd  pure short 0–100 readiness fill; no ticks
+  hud.gd            bottom-left controls list, combined status line, readiness line and close cue
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
   settings.gd       settings.json IO and cache, legacy migration, per-character templates and taste
   memory.gd         world_context events, climax impression, witnesses, reactions
@@ -370,14 +369,20 @@ body-relative axes.
 ### Standing shot
 
 - Uses the player's eye camera. Standing height still comes through
-  `_stand_eye`/`_eye_height`; do not teleport the rig.
+  `_stand_eye`/`_eye_height`; do not set the eye line by teleporting the rig.
+- Act start keeps her where she stands. `_begin_standing_placement()` builds the act transform
+  from her current facing and, for desktop human Anon, places him at
+  `pony_position - forward * _standing_gap()` with the pre-act look captured first. The 0.8 m Y
+  cone means the correction is small. His pre-act position and yaw/pitch are restored at act end.
+  AnonPony and headset/VR keep the old `_standing_transform()` placement (she moves in front of
+  the camera rig), because their rig is the camera or another body.
 - Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start,
   then freeze. Lean yaw/pitch are applied on top.
 - Standing has no separate thrust rock spring. The shared speed-driven surge/bob handles the
   thrust camera; lean yaw/pitch stays on top.
 - Lean owns `controls_locked` for standing too, so Anon does not walk while the camera moves.
 - On restore, restore the player yaw/pitch to the **captured start values**, not the act base
-  aim, and reset `camera.rotation.x` and `.z`.
+  aim, reset `camera.rotation.x` and `.z`, and give back the standing start's player placement.
 
 ### Standing body language
 
@@ -404,13 +409,17 @@ body-relative axes.
   `_jiggle_size_scale() = 0.66`, a `CANON_STANDING_CAMERA_DROP_M = 0.10` lower eye line, and
   `_standing_lean_scale()` multiplied by `0.8`; JRHNBR gets a
   `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10` higher eye line.
-  Every thrust also calls `tail.thrust(strength)`: a short `JIGGLE_DECAY = 3.6` /
-  `JIGGLE_FREQ = 18` wave with the same strength as the rump shader, strongest at the tail root
+  Every thrust calls `tail.thrust(jiggle)` with the same `jiggle_amount` as the rump shader: a
+  short `JIGGLE_DECAY = 3.6` / `JIGGLE_FREQ = 18` wave, strongest at the tail root
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). A smack
   calls the same tail impulse through `_on_smack_impact()` at
   `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust tail impulse also scales with
   `jiggle.intensity`. A debug line reports the resulting amount. This is the cheapest way to
   make rump jiggle and tail read as one motion; the shader itself stays native.
+  `FlankTouch._start_jiggle()` clamps its own impulse to `0.3…1.0`, so `_thrust_jiggle()` passes
+  `1.0`, scales the resolved `_jiggle_amount` by the travel-led `jiggle_amount ×
+  JIGGLE_RUMP_SCALE = 2.8 × size × jiggle.intensity`, and re-runs `_process(0.0)` once so a soft
+  stroke cannot flash at full amplitude.
   The game's tail anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair
   `mPelvis`, so rotating `mTail1..6` alone cannot move the base. `tail_pose` also translates the
   hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave, restoring
@@ -621,7 +630,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 
 - A **stroke** is continuous movement in one direction.
-- A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
+- A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`.
 - A reversal must travel `REVERSAL_HYSTERESIS = 0.06` from the stroke peak before it closes.
   Tiny pullbacks stay inside the same stroke.
@@ -633,22 +642,26 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   the score.
 - Visual impact is `min(1, strength × THRUST_IMPACT_GAIN)` with `THRUST_IMPACT_GAIN = 2.0`,
   preserving the tuned normal/fast response while slow and shallow strokes stay lighter. It
-  drives jiggle (`_start_jiggle` clamp `0.30–1.0`, then `JIGGLE_RUMP_SCALE = 2.8`) and wing
-  flick (`0.10→0.24`). Jiggle is also scaled by `_jiggle_size_scale()`.
+  drives wings, ear twitch and rump blush; the foley scales from `strength` directly. The
+  rump/tail wobble uses `THRUST.jiggle_amount(travel, strength)` instead: travel sets the
+  amount, so a full stroke wobbles the same at any speed, and the soft band fades the gentlest
+  strokes to `0.04`.
 - Only real thrusts update the axes and score. Outward strokes, tiny jitter and pullbacks are
   presentation only.
 - The ACTIVE stage reads two axes from the last real thrusts:
-  - **intensity**: `soft` (< 0.33), `firm` (< 0.66), `rough`;
-  - **pattern**: `steady`, `teasing` or `quick`, classified over the last 3–4 real thrusts.
-    Fewer than 3 has no pattern yet.
+  - **intensity**: `soft` (< 0.33), `firm` (< 0.60), `rough`;
+  - **pattern**: `steady`, `teasing` (`mean duration > 0.60 s`) or `quick`
+    (`mean duration < 0.30 s`), classified over the last 3–4 real thrusts. Fewer than 3 has no
+    pattern yet. Pattern is tempo only: depth does not decide the rhythm.
 - Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances a raised
   cosine at `pace` thrusts per second from 0 to `max_depth`; `_auto_thrust_tick()` sends the
   per-frame depth delta through `_thrust_move()`, so readiness, intensity, pattern, audio, camera,
   jiggle and presentation keep their existing paths. The wheel nudges pace, mouse ↕ nudges peak
   depth through the same `thrust.orientation`/`pixels_per_full` mapping; the peak is smoothed over
   `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the tracker travel: after the first
-  stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum peak is `0.32`.
-  Pace alone does not choose a pattern; `pattern_for` still gates on both travel and duration.
+  stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum peak is `0.20`
+  and its `0.14` travel still counts as a real soft thrust. The pace range reaches every pattern
+  at any depth, and the depth range reaches every intensity at any pace.
   `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
   stop it, and `_reset_thrust_state()` restores the act-start defaults (off, configured pace and
   depth) for the next act. Tunables are starting values, not live edits to the current cycle.
@@ -667,7 +680,7 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - Hold `Y` in `ACTIVE` with 0 climaxes cancels; with 1+ it enters afterglow. Hold `Y` in
   `CLIMAX` enters afterglow. `Y` in `AFTERGLOW` ends it.
 - `mood` is `warming`, `wanting`, `close`, `climax` or `overwhelmed`; `cue` is the short HUD
-  line. `hud_readouts` gates the cue segment, readiness bar and the `Wants`/`You` segments.
+  line. `hud_readouts` gates the cue segment and the `Wants`/`You` segment.
 - Readiness never decays passively. Only a disliked touch or talk subtracts; neutral and quiet
   input leave it unchanged.
 - Talk is scored when the player actually speaks. The game's `T` text/mic turn is detected
@@ -820,7 +833,7 @@ examples.
 - `can_offer()` always requires `relation`; a mare never proactively offers while unwilling.
   Try Your Luck lifts only the bond requirement for offers.
 - Standing Y uses `rump_cone.gd`: Anon must stand within 22.5° of her backward axis (45° total)
-  and 1.6 m of her rump anchor. The crosshair is not used, so looking away does not hide the
+  and 0.8 m of her rump anchor. The crosshair is not used, so looking away does not hide the
   hint. Missionary bed offers stay contextual.
 - `dialogue_consent.gd` classifies every player line with a pony reply through the shared
   classifier. `lover_accept` grants the mod bond, `lover_decline` does nothing and `lover_end`
@@ -903,13 +916,16 @@ examples.
   keycaps/controller icons and one description; only a row with a modifier renders the muted
   `Hold` column. Rows list `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to
   manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
-  `Kiss`), mouse right (`Smack flank`) and Y (`Hold`; `Stop`, `Afterglow` or `Exit` by state).
-  The card has no separate title.
+  `Kiss`), mouse right (`Smack flank`) and Y (`Hold`; `End early 💔` before her first climax,
+  then `End`).
+  The card has no separate title. The `End` label is shaded from ink toward `ACCENT` by
+  `runtime.hud_y_pink()`: one step per pony climax, capped at `Y_END_TINT_MAX = 0.75`, and fully
+  pink only after the standing afterglow close window earned its caress reward.
 - While Anon leans in for a kiss the control card eases to `0.2` alpha over `0.25 s` and back.
-  The cue, readiness line and bar stay at full opacity. `runtime.hud_kiss_fade()` wraps
+  The cue and readiness line stay at full opacity. `runtime.hud_kiss_fade()` wraps
   `kiss_control.leaning_close()`, so both poses and the base-kiss release are covered.
 - `act_controls` (default on) hides the whole control card without touching the cue, readiness
-  line, bar or close prompt, so the pony state readouts can stay while the hints are off.
+  line or close prompt, so the pony state readouts can stay while the hints are off.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; `_end_session()` restores it on every exit path, and
   `_physics_process` also restores it if `IDLE` is ever reached while still marked hidden. The
@@ -917,9 +933,9 @@ examples.
   flag cannot leave it hidden.
 - The bottom-left stack reads, top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, auto readout
-  `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator, controls.
-- The `Wants`/`You` line, short readiness bar and cue segment are all gated by `hud_readouts`
-  (default `true`). The bar has no ticks. The hearts remain when readouts are off.
+  `Auto · wheel pace N/s · depth N%` while auto is on, blank separator, controls.
+- The `Wants`/`You` line and cue segment are gated by `hud_readouts`
+  (default `true`). The hearts remain when readouts are off.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
   standing keeps lean, reach, caress, caress movement, kiss and Y, while thrust, auto, smack and
   talk are hidden. The standing close hint is independent of `hud_readouts`.
@@ -1017,8 +1033,8 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 
 | Flag | Default | Gates |
 |---|---|---|
-| `hud_readouts` | `true` | mood cue, readiness bar and `Wants`/`You` segments; hearts and the close prompt stay |
-| `act_controls` | `true` | act control card; the cue, readiness bar and close prompt stay |
+| `hud_readouts` | `true` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
+| `act_controls` | `true` | act control card; the cue and close prompt stay |
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `idle_camera_sway` | `false` | slow idle breathing when not leaning; true adds the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
@@ -1051,7 +1067,7 @@ rump blush. Unknown settings keys are ignored.
   `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
   hip backset multiplier, default `0.5`, clamped to `0.25…2.0×` as a player-facing contract.
 - `auto_thrust` stores `pace` (thrusts/s, default `1.5`, clamped `0.5…4.5`), `max_depth` (peak
-  depth, default `0.9`, clamped `0.32…1`) and `pace_step` (one wheel notch, default `0.25`,
+  depth, default `0.9`, clamped `0.20…1`) and `pace_step` (one wheel notch, default `0.25`,
   debug). They are act-start defaults; the wheel and mouse changes are per-act.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
@@ -1075,7 +1091,7 @@ rump blush. Unknown settings keys are ignored.
   `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
   Only a `user_num` entry clamps, and only because its bound is part of the player-facing
   contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `0.5…4.5/s`, auto depth
-  `0.32…1`, camera surge/bob `0…1`, glance speed `0.25…3×`). Do not add a clamp in a consumer
+  `0.20…1`, camera surge/bob `0…1`, glance speed `0.25…3×`). Do not add a clamp in a consumer
   "to be safe": if a value must be bounded to stay playable, make it a `user_num` and say so in
   the help text.
   No consumer clamps a tunable-derived value today; the jiggle radius, idle sway, smack raise,

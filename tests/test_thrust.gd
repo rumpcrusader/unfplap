@@ -63,10 +63,21 @@ func run() -> void:
 		"jitter does not split stroke travel")
 
 	var tiny: RefCounted = THRUST.new()
-	tiny.move(0.20, 0.0)
-	events = tiny.move(-0.30, 0.1)
+	tiny.move(0.08, 0.0)
+	events = tiny.move(-0.12, 0.1)
 	check(events.size() == 1, "reversal closes a tiny stroke")
 	check(not bool((events[0] as Dictionary).get("thrust", false)), "tiny stroke is not a thrust")
+
+	# A 20% peak counts as a soft thrust. Auto strokes after the first start 0.06 above the
+	# bottom, so their travel is 0.14; a hand stroke from the bottom reaches the full 0.20.
+	var hand_shallow: RefCounted = THRUST.new()
+	hand_shallow.move(0.20, 0.0)
+	events = hand_shallow.move(-0.30, 0.1)
+	check(events.size() == 1, "shallow hand stroke closes")
+	var hand_event: Dictionary = events[0]
+	check(bool(hand_event.get("thrust", false)), "a 20% hand stroke is a thrust")
+	check(PREF.intensity_for(float(hand_event.get("strength", 0.0))) == "soft",
+		"a 20% hand stroke reads soft")
 
 	var hold: RefCounted = THRUST.new()
 	hold.move(0.5, 0.0)
@@ -112,6 +123,15 @@ func run() -> void:
 	reset.reset()
 	check(near(reset.depth, 0.0), "reset clears depth")
 	check(reset.tick(10.0).is_empty(), "reset clears the open stroke")
+
+	# The wobble follows travel, so a full stroke is uniform across speed; only the soft band
+	# fades out, and a soft slow stroke is almost still.
+	check(near(THRUST.jiggle_amount(0.94, 0.50), 1.0), "firm full stroke wobbles fully")
+	check(near(THRUST.jiggle_amount(0.94, 0.90), 1.0), "rough full stroke wobbles fully")
+	check(near(THRUST.jiggle_amount(0.94, 0.14), 0.04), "soft slow full stroke is almost still")
+	check(THRUST.jiggle_amount(0.20, 0.60) < 0.30, "a shallow stroke wobbles less")
+	check(THRUST.jiggle_amount(0.45, 0.30) > 0.20 and THRUST.jiggle_amount(0.45, 0.30) < 0.40,
+		"the soft band fades the wobble in between")
 
 	print("THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

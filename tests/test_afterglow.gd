@@ -56,6 +56,21 @@ func run() -> void:
 	check(note_runtime.prompt_note().contains("middle of sex"), "active prompt note")
 	note_runtime.free()
 
+	# The Y hint's End shade follows climaxes but only the earned caress reaches full pink.
+	var pink_runtime: Node = _runtime("standing")
+	check(near(pink_runtime.hud_y_pink(), 0.0), "End starts ink")
+	pink_runtime.pony_climaxes = 2
+	check(near(pink_runtime.hud_y_pink(), 0.5), "two climaxes shade End halfway")
+	pink_runtime.pony_climaxes = 3
+	check(near(pink_runtime.hud_y_pink(), RUNTIME.Y_END_TINT_MAX),
+		"three climaxes stop short of full pink")
+	pink_runtime._close_caress_earned = true
+	check(near(pink_runtime.hud_y_pink(), 1.0), "the earned caress turns End fully pink")
+	pink_runtime.pose_id = "missionary"
+	check(near(pink_runtime.hud_y_pink(), RUNTIME.Y_END_TINT_MAX),
+		"missionary keeps the capped climax shade")
+	pink_runtime.free()
+
 	check(RUNTIME.self_end_chance(true) < RUNTIME.self_end_chance(false),
 		"holding her lowers the self-end chance")
 	var held: Node = _runtime("standing")

@@ -23,7 +23,7 @@ Desktop only for now
 | `A` / `D`   | Caress her left / right flank in standing pose, including afterglow   |
 | `F` (hold)  | Kiss while fully shoulder-leaning in standing pose                   |
 | Mouse right | Smack her flank during the act                                    |
-| Hold `Y`    | Afterglow after her first climax / stop early / end afterglow     |
+| Hold `Y`    | End early 💔 before her first climax, or end the act/afterglow     |
 
 ## Features
 
@@ -38,7 +38,7 @@ Desktop only for now
 - **Per-mare taste** — Each mare has intensity, rhythm, touch, talk, warmth and recovery.
 - **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, relationship rules, per-mare taste) from pose tuning and feature flags in a Debug tab.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.
-- **HUD** — Shows the act controls list, readiness meter, optional mood cues and climax count.
+- **HUD** — Shows the act controls list, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank, Z/C pause or resume each caress oval, F kisses at a full shoulder lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.

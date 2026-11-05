@@ -14,8 +14,8 @@ const PACE_MIN := 0.5
 const PACE_MAX := 4.5
 ## `thrust.gd` closes a reversal only after `REVERSAL_HYSTERESIS` (0.06), so every automatic
 ## stroke after the first starts 0.06 above the bottom. The minimum peak keeps that stroke at
-## or above `THRUST_MIN_TRAVEL` (0.25): 0.32 - 0.06 = 0.26.
-const DEPTH_MIN := 0.32
+## or above `THRUST_MIN_TRAVEL` (0.12): 0.20 - 0.06 = 0.14.
+const DEPTH_MIN := 0.20
 const DEPTH_MAX := 1.0
 ## Low-pass on the requested peak depth. The cosine already eases the ends of a stroke; this
 ## only keeps a mouse depth change from stepping the current depth in one frame.

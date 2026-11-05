@@ -28,13 +28,13 @@ const DEFAULTS := {
 
 ## Strength is travel x peak-speed factor from thrust.gd, clamped 0..1.
 const SOFT_MAX := 0.33
-const FIRM_MAX := 0.66
-## The pattern classifier is intentionally a small, readable window, not a curve fit.
+const FIRM_MAX := 0.60
+## The pattern classifier is intentionally a small, readable window, not a curve fit. It is a
+## tempo axis: depth must not decide the rhythm, or a full-depth fast stroke could never read
+## quick and a full-depth slow stroke could never read teasing.
 const PATTERN_MIN_STROKES := 3
-const TEASE_TRAVEL := 0.38
-const TEASE_DURATION := 0.75
-const QUICK_DURATION := 0.42
-const QUICK_TRAVEL := 0.62
+const TEASE_DURATION := 0.60
+const QUICK_DURATION := 0.30
 
 
 static func defaults() -> Dictionary:
@@ -79,22 +79,16 @@ static func intensity_for(strength: float) -> String:
 static func pattern_for(strokes: Array) -> String:
 	if strokes.size() < PATTERN_MIN_STROKES:
 		return ""
-	var travel_total := 0.0
 	var duration_total := 0.0
 	for index in strokes.size():
 		var stroke: Variant = strokes[index]
 		if not stroke is Dictionary:
 			return ""
-		var travel := float((stroke as Dictionary).get("travel", 0.0))
-		var duration := maxf(0.001, float((stroke as Dictionary).get("duration", 0.001)))
-		travel_total += travel
-		duration_total += duration
-	var count := float(strokes.size())
-	var mean_travel := travel_total / count
-	var mean_duration := duration_total / count
-	if mean_travel < TEASE_TRAVEL and mean_duration > TEASE_DURATION:
+		duration_total += maxf(0.001, float((stroke as Dictionary).get("duration", 0.001)))
+	var mean_duration := duration_total / float(strokes.size())
+	if mean_duration > TEASE_DURATION:
 		return "teasing"
-	if mean_duration < QUICK_DURATION and mean_travel < QUICK_TRAVEL:
+	if mean_duration < QUICK_DURATION:
 		return "quick"
 	return "steady"
 

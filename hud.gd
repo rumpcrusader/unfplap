@@ -7,9 +7,8 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const READINESS_BAR := preload("res://mods/unfplap/readiness_bar.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
-## The offer words are the mod's pink accent, like the readiness fill.
+## The offer words are the mod's pink accent, like the control card's earned-caress `End`.
 const ACCENT := Color("ffa8c7")
 ## Prompt-row colours: ink words, a near-black outline, and muted words for modifiers.
 const INK := Color("f4f1ff")
@@ -41,7 +40,6 @@ var _hint_gap: Control
 var _controls: VBoxContainer
 var _controls_tween: Tween
 var _controls_alpha := 1.0
-var _readiness_bar: Control
 var _y_label: Label
 var _thrust_label: Label
 var _auto_label: Label
@@ -102,10 +100,6 @@ func _ready() -> void:
 	_hint_gap.custom_minimum_size.y = 10.0
 	_hint_gap.visible = false
 	_hint.add_child(_hint_gap)
-	_readiness_bar = READINESS_BAR.new()
-	_readiness_bar.name = "Readiness"
-	_readiness_bar.visible = false
-	_hint.add_child(_readiness_bar)
 	_controls = VBoxContainer.new()
 	_controls.name = "Controls"
 	_controls.add_theme_constant_override("separation", 6)
@@ -113,12 +107,11 @@ func _ready() -> void:
 	_controls.visible = false
 	_hint.add_child(_controls)
 	_build_controls()
-	# Cue line, readiness text, auto readout, bar, then the separator, then the control rows.
+	# Cue line, readiness text, auto readout, then the separator, then the control rows.
 	_hint.move_child(_hint_status, 0)
 	_hint.move_child(_hint_readiness, 1)
 	_hint.move_child(_hint_auto, 2)
-	_hint.move_child(_readiness_bar, 3)
-	_hint.move_child(_hint_gap, 4)
+	_hint.move_child(_hint_gap, 3)
 
 
 ## Words in the game's prompt style: light ink, dark outline, no shadow.
@@ -264,8 +257,6 @@ func hide_act() -> void:
 		_hint_auto.visible = false
 	if _hint_gap != null:
 		_hint_gap.visible = false
-	if _readiness_bar != null:
-		_readiness_bar.visible = false
 	if _controls != null:
 		_controls.visible = false
 		_controls.modulate.a = 1.0
@@ -295,18 +286,14 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	if _y_label != null:
 		var y_text := ""
 		if state == STATE_ACTIVE:
-			y_text = "Afterglow" if climaxes > 0 else "Stop"
-		elif state == STATE_CLIMAX:
-			y_text = "Afterglow"
-		elif state == STATE_AFTERGLOW:
-			y_text = "Exit"
+			y_text = "End" if climaxes > 0 else "End early 💔"
+		elif state in [STATE_CLIMAX, STATE_AFTERGLOW]:
+			y_text = "End"
 		_y_label.text = y_text
-
-	var show_readout := show_readouts and state in [STATE_ACTIVE, STATE_CLIMAX]
-	if _readiness_bar != null:
-		_readiness_bar.visible = show_readout
-		if show_readout and _readiness_bar.has_method("set_value"):
-			_readiness_bar.call("set_value", float(runtime.get("satisfaction")))
+		var pink := 0.0
+		if y_text == "End" and runtime.has_method("hud_y_pink"):
+			pink = clampf(float(runtime.call("hud_y_pink")), 0.0, 1.0)
+		_y_label.add_theme_color_override("font_color", INK.lerp(ACCENT, pink))
 
 	var line := ""
 	if _hint.visible and runtime.has_method("hud_cue_line"):
@@ -333,7 +320,7 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	_set_controls_faded(_kiss_fade(runtime))
 
 
-## The act setting that shows or hides the control card. The cue and readiness readouts are
+## The act setting that shows or hides the control card. The cue and readiness line are
 ## separate.
 func _controls_hints_on(runtime: Node) -> bool:
 	return not runtime.has_method("hud_controls") or bool(runtime.call("hud_controls"))

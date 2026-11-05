@@ -12,18 +12,22 @@ choice. Camera/pose mechanics and aftercare are outside it.
   the mouse feeds. It adds no separate score or heat path: intensity, pattern, readiness, audio
   and presentation are the manual ones. The wheel sets pace; mouse ↕ sets the peak depth.
   `max_depth` is the peak, so after the first stroke the tracker travel is `max_depth - 0.06`
-  (`REVERSAL_HYSTERESIS`); the minimum peak is `0.32`.
+  (`REVERSAL_HYSTERESIS`); the minimum peak is `0.20`.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
   (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement.
-- A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.25` and
-  `duration >= MIN_THRUST_DURATION = 0.04 s`. Tiny jitter, pullbacks and outward strokes are
-  presentation only: they do not update the axes or score readiness.
+- A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
+  `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
+  counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:
+  they do not update the axes or score readiness.
 - `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)` is the intensity value.
   The `0.15` floor lets a slow full-depth stroke read as soft. Average speed drives intensity;
   peak speed is logged and capped at `2 × average speed`, but one fast sample cannot saturate
   the score by itself.
-- Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned jiggle
-  and wing response while slow or shallow strokes stay lighter. The camera is on its own
+- Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned wing,
+  ear and blush response while slow or shallow strokes stay lighter; the foley scales from
+  `strength` directly. The rump/tail wobble is separate:
+  `THRUST.jiggle_amount(travel, strength)` follows travel, so a full stroke wobbles the same at
+  any speed, and the soft band fades the gentlest strokes to `0.04`. The camera is on its own
   speed-driven channel, not this impact value.
 - `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses
   afterglow separately. Readiness now rises in discrete chunks from real thrusts, not on a
@@ -64,7 +68,7 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
   Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`0.5…4.5/s`, default
-  `1.5/s`, quarter steps) and peak depth (`0.32…1`, default `0.9`). The auto values are act-start
+  `1.5/s`, quarter steps) and peak depth (`0.20…1`, default `0.9`). The auto values are act-start
   defaults; the wheel and mouse adjust them for one act.
 - **Character taste**: the per-mare form described below.
 
@@ -109,25 +113,25 @@ From the last real inward thrust's strength:
 
 ```text
 soft   strength < 0.33
-firm   0.33 <= strength < 0.66
-rough  strength >= 0.66
+firm   0.33 <= strength < 0.60
+rough  strength >= 0.60
 ```
 
 ### Pattern
 
 Classified over the last 3–4 real inward thrusts. Fewer than 3 means “no pattern yet”; only
-the intensity axis can match.
+the intensity axis can match. Pattern is tempo only; depth does not decide the rhythm.
 
 ```text
-teasing  mean travel < 0.38 and mean duration > 0.75 s
-quick    mean duration < 0.42 s and mean travel < 0.62
+teasing  mean duration > 0.60 s
+quick    mean duration < 0.30 s
 steady   otherwise
 ```
 
 ## Readiness
 
 `satisfaction` is readiness. It starts at 0 and caps at 100. The optional HUD readouts
-(`hud_readouts`, default `true`) show a short bar plus `Wants: firm & steady | You: …`.
+(`hud_readouts`, default `true`) show `Wants: firm & steady | You: …`.
 
 ```text
 both axes match       +1.4 per real thrust × warmth
@@ -255,23 +259,22 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 
 ## HUD
 
-- `hud_readouts` (default `true`) shows the cue, a short 0–100 bar with no ticks, and the
-  separate `Wants`/`You` line.
+- `hud_readouts` (default `true`) shows the cue and the separate `Wants`/`You` line.
 - `act_controls` (default `true`) shows the control card. Off hides only the card; the cue,
-  readiness line, bar and close prompt remain.
+  readiness line and close prompt remain.
 - Top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, auto readout
-  `Auto · wheel pace N/s · depth N%` while auto is on, readiness bar, blank separator,
-  controls.
-- When readouts are off, the hearts remain; the cue, readiness line and bar are hidden.
+  `Auto · wheel pace N/s · depth N%` while auto is on, blank separator, controls.
+- When readouts are off, the hearts remain; the cue and readiness line are hidden.
 - There is no penetration/depth bar; the thrust mechanic, `thrust.orientation` and auto thrust
   still apply.
-- The controls list keeps its Y row dynamic: `Hold: stop` at 0 climaxes, `Hold: afterglow`
-  at 1+ and in `CLIMAX`, and `Hold: exit` in afterglow. The thrust row reads `Thrust` or
-  `Max depth`, and the X row reads `Switch to auto` or `Switch to manual`. The pose rows read
-  `Lean`, `Reach`, `Caress` and `Caress movement`; they do not spell out both directions.
-  Only the two `Hold` rows carry the modifier column, so an icon is followed by its words with
-  no reserved blank space.
+- The controls list keeps its Y row dynamic: `End early 💔` at 0 climaxes, then `End` in `ACTIVE`
+  with 1+, `CLIMAX` and `AFTERGLOW`. `End` shades from ink toward the pink accent one step per
+  climax, capped at 75%; only the earned standing afterglow caress reward makes it fully pink.
+  The thrust row reads `Thrust` or `Max depth`, and the X row reads `Switch to auto` or
+  `Switch to manual`. The pose rows read `Lean`, `Reach`, `Caress` and `Caress movement`; they do
+  not spell out both directions. Only the two `Hold` rows carry the modifier column, so an icon
+  is followed by its words with no reserved blank space.
 - The control card fades to 20% while Anon leans in for a kiss and returns after it; the cue and
   readiness readouts stay at full opacity.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;

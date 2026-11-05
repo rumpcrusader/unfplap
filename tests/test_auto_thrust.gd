@@ -80,17 +80,41 @@ func run() -> void:
 		check(travel > 0.8 and travel <= 0.9, "auto travel follows the peak depth")
 	check(_thrusts(_simulate(AUTO.DEPTH_MIN, 1.0, 4.0)).size() >= 3,
 		"the shallowest auto peak still registers every thrust")
+	var shallow_strokes := _thrusts(_simulate(AUTO.DEPTH_MIN, 1.0, 4.0))
+	if not shallow_strokes.is_empty():
+		var shallow_travel := float(
+			(shallow_strokes[shallow_strokes.size() - 1] as Dictionary).get("travel", 0.0))
+		check(near(shallow_travel, 0.14, 0.01),
+			"auto shallow travel keeps the reversal hysteresis offset")
+	check(_intensity(AUTO.DEPTH_MIN, 2.0, 3.0) == "soft",
+		"the shallowest auto peak counts as soft")
 
 	# Pace and depth together reach every intensity class.
 	check(_intensity(1.0, 0.5, 3.0) == "soft", "slow full auto reads soft")
 	check(_intensity(1.0, 2.0, 2.0) == "firm", "normal full auto reads firm")
 	check(_intensity(1.0, 4.5, 1.1) == "rough", "fast full auto reads rough")
+	check(_intensity(AUTO.DEPTH_MIN, AUTO.PACE_MAX, 1.0) == "soft",
+		"fast shallow auto stays soft")
 
-	# The same pace range reaches every pattern class at a shallow depth, which is what the
-	# pattern classifier requires for travel.
+	# The same pace range reaches every pattern class. Depth no longer decides the rhythm.
 	check(_pattern(0.32, 0.5, 16.0) == "teasing", "slow shallow auto reads teasing")
 	check(_pattern(0.32, 1.0, 4.0) == "steady", "normal shallow auto reads steady")
 	check(_pattern(0.32, 2.5, 2.0) == "quick", "fast shallow auto reads quick")
+	check(_pattern(1.0, 0.5, 12.0) == "teasing", "slow full auto reads teasing")
+	check(_pattern(1.0, 1.0, 4.0) == "steady", "normal full auto reads steady")
+	check(_pattern(1.0, 2.5, 2.0) == "quick", "fast full auto reads quick")
+
+	# Every class is inside the slider range, so no setting hangs outside the model.
+	var intensities: Dictionary = {}
+	var patterns: Dictionary = {}
+	for depth: float in [AUTO.DEPTH_MIN, 0.5, 0.9, 1.0]:
+		for pace: float in [AUTO.PACE_MIN, 1.0, 1.5, 2.5, 3.5, AUTO.PACE_MAX]:
+			intensities[_intensity(depth, pace, 4.0)] = true
+			patterns[_pattern(depth, pace, 8.0)] = true
+	for name: String in PREF.INTENSITIES:
+		check(intensities.has(name), "auto range reaches intensity " + name)
+	for name: String in PREF.PATTERNS:
+		check(patterns.has(name), "auto range reaches pattern " + name)
 
 	# Enabling from the hand's depth must not snap backwards.
 	var auto: RefCounted = AUTO.new()
@@ -104,7 +128,7 @@ func run() -> void:
 
 	# A peak shallower than the current depth is raised instead of pulling him back.
 	var raised: RefCounted = AUTO.new()
-	raised.call("reset", 1.5, 0.32)
+	raised.call("reset", 1.5, AUTO.DEPTH_MIN)
 	raised.call("begin", 0.8)
 	check(near(float(raised.get("max_depth")), 0.8), "begin raises the peak to the current depth")
 	check(near(float(raised.call("current_depth")), 0.8), "raised begin keeps the current depth")

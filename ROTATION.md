@@ -190,7 +190,12 @@ these values here if a future pose needs that effect.
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
   Conversation attention is not a stop condition: another character addressing Anon can talk
   while `_keep_act_attention()` clears her listener each tick.
-- Camera height through player `_stand_eye` / `_eye_height`; never teleport the rig.
+- Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by
+  teleporting the rig. Act start keeps her where she stands: for desktop human Anon,
+  `_begin_standing_placement()` builds the act transform from her current facing and places him
+  at `pony_position - forward * _standing_gap()`; his pre-act position and yaw/pitch are restored
+  at act end. The 0.8 m Y cone keeps that correction small. AnonPony and headset/VR still move
+  her in front of the camera rig with `_standing_transform()`.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose
   start, then freezes. The same lean vector is applied on top: forward `0.24 m` /
   `-6°` pitch / `1.5°` roll; backward `0.08 m` with the same downward pitch; side `0.18 m` /
@@ -239,7 +244,8 @@ these values here if a future pose needs that effect.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
   Same Height preset now follows Anon's `player/height_cm`, so that gap, the lean scale and the
   same-height caress offsets are multiplied by `Settings.anon_height_scale()`; the other presets
-  keep their authored values.
+  keep their authored values. For desktop human Anon the gap is measured from her root along her
+  backward axis after he is placed behind her.
 - Standing kiss mouth offsets, kiss lean distances and the missionary virtual mouth scale with
   `Settings.anon_height_scale()`, matching `player/player_mouth.gd`.
 - Canon lowers the standing eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR

@@ -48,8 +48,12 @@ func run() -> void:
 	check(near(ACT.gain_db(1.0), 0.0), "full-strength gain")
 	check(ACT.plap_volume_db(0.2) == -80.0, "soft emits no plap")
 	check(ACT.plap_volume_db(0.33) < ACT.plap_volume_db(0.5), "firm plap fades in")
-	check(ACT.plap_volume_db(0.5) < ACT.plap_volume_db(0.66), "firm plap keeps rising")
-	check(ACT.plap_volume_db(0.66) == 0.0, "rough starts at full plap volume")
+	check(ACT.plap_volume_db(0.5) < ACT.plap_volume_db(PREFERENCES.FIRM_MAX - 0.01),
+		"firm plap keeps rising")
+	check(ACT.plap_volume_db(PREFERENCES.FIRM_MAX) == 0.0,
+		"rough starts at full plap volume")
+	check(ACT.plap_volume_db(PREFERENCES.FIRM_MAX - 0.01) < 0.0,
+		"the top of firm is still below full plap volume")
 	check(ACT.plap_volume_db(1.0) == 0.0, "rough stays at full plap volume")
 
 	check(ACT.next_index(1, 0, 0) == 0, "single variant index")

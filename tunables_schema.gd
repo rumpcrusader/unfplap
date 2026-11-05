@@ -36,10 +36,10 @@ static func all() -> Dictionary:
 
 		# Player-facing controls (Settings tab).
 		"features.hud_readouts": flag(true, "HUD readouts",
-			"Show the mood cue, readiness bar and Wants/You line. Hearts and the afterglow close prompt stay visible.",
+			"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.",
 			"Controls", SETTINGS_TAB),
 		"features.act_controls": flag(true, "Control hints",
-			"Show the act's control list. Off keeps the cue, readiness bar and climax readouts.",
+			"Show the act's control list. Off keeps the cue and climax readouts.",
 			"Controls", SETTINGS_TAB),
 		"features.act_lines": flag(true, "Act lines",
 			"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.",
@@ -72,7 +72,7 @@ static func all() -> Dictionary:
 			"Thrust", "/s", 0.25, 1.0, 0.5, 4.5, SETTINGS_TAB),
 		"auto_thrust.max_depth": user_num(0.9, "Auto depth",
 			"Starting auto-thrust peak depth. Mouse up/down sets it during an act.",
-			"Thrust", "%", 5.0, 100.0, 0.32, 1.0, SETTINGS_TAB),
+			"Thrust", "%", 5.0, 100.0, 0.20, 1.0, SETTINGS_TAB),
 		"auto_thrust.pace_step": num(0.25, "Auto pace step",
 			"Mouse-wheel step for the auto-thrust pace.", "Thrust", "/s", 0.05, 1.0, 0.01, 0.5),
 

@@ -29,12 +29,17 @@ func run() -> void:
 
 	check(PREF.intensity_for(0.10) == "soft", "soft intensity band")
 	check(PREF.intensity_for(0.50) == "firm", "firm intensity band")
+	check(PREF.intensity_for(0.60) == "rough", "rough starts at the retuned threshold")
 	check(PREF.intensity_for(0.85) == "rough", "rough intensity band")
 
 	check(PREF.pattern_for([]) == "", "no pattern without strokes")
 	check(PREF.pattern_for(_strokes(0.60, 0.60, 3)) == "steady", "steady pattern")
 	check(PREF.pattern_for(_strokes(0.30, 0.90, 3)) == "teasing", "teasing pattern")
-	check(PREF.pattern_for(_strokes(0.50, 0.30, 3)) == "quick", "quick pattern")
+	check(PREF.pattern_for(_strokes(0.50, 0.20, 3)) == "quick", "quick pattern")
+	check(PREF.pattern_for(_strokes(0.90, 0.20, 3)) == "quick",
+		"a deep fast stroke reads quick")
+	check(PREF.pattern_for(_strokes(0.90, 0.90, 3)) == "teasing",
+		"a deep slow stroke reads teasing")
 
 	check(PREF.classify_talk("you are so beautiful") == "praise", "praise classification")
 	check(PREF.classify_talk("are you okay?") == "reassurance", "reassurance classification")

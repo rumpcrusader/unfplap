@@ -60,6 +60,7 @@ class FakeInventory extends RefCounted:
 
 class FakeGame extends Node:
 	var inventory: Variant = null
+	var headset_view := false
 
 
 class FakeMain extends Node:
@@ -211,7 +212,35 @@ func run() -> void:
 	runtime5._finalize_session(false)
 	check(runtime5._session_finalized, "double finalize is a no-op")
 
-	for item: Dictionary in [f, f2, f3, f4, f5]:
+	# Desktop standing start keeps her in place and places Anon behind her; act end restores him.
+	var f6 := _fixture()
+	var runtime6: Node = f6["runtime"]
+	root.add_child(runtime6)
+	var pony6: FakePony = f6["pony"]
+	var player6: FakePlayer = f6["player"]
+	pony6.global_position = Vector3(3.0, 0.0, 4.0)
+	pony6.rotation.y = 0.7
+	player6.global_position = Vector3(3.0, 0.0, 5.0)
+	player6.rotation.y = 0.1
+	var pony_start: Transform3D = pony6.global_transform
+	var player_start: Transform3D = player6.global_transform
+	var standing6: Transform3D = runtime6.call("_begin_standing_placement")
+	check(pony6.global_transform.is_equal_approx(pony_start),
+		"standing start keeps her in place")
+	check(standing6.origin.is_equal_approx(pony6.global_position),
+		"standing act transform uses her position")
+	var gap6: float = float(runtime6.call("_standing_gap"))
+	var behind6: Vector3 = pony6.global_position + pony6.global_basis.z.normalized() * gap6
+	behind6.y = player_start.origin.y
+	check(player6.global_position.is_equal_approx(behind6),
+		"standing start places Anon behind her at the act gap")
+	check(runtime6._player_placed, "standing start owns the placement")
+	runtime6.call("_restore_look")
+	check(player6.global_transform.is_equal_approx(player_start),
+		"standing end restores Anon's pre-act placement")
+	check(not runtime6._player_placed, "standing end clears the placement")
+
+	for item: Dictionary in [f, f2, f3, f4, f5, f6]:
 		(item["runtime"] as Node).free()
 	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

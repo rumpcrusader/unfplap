@@ -16,6 +16,7 @@ class Stub extends Node:
 	var auto_on := false
 	var kiss_fade := false
 	var controls_on := true
+	var y_pink := 0.0
 
 	func hud_cue_line(_readouts := true) -> String:
 		return "❤ 1/3 | She's close."
@@ -31,6 +32,9 @@ class Stub extends Node:
 
 	func hud_kiss_fade() -> bool:
 		return kiss_fade
+
+	func hud_y_pink() -> float:
+		return y_pink
 
 	func hud_controls() -> bool:
 		return controls_on
@@ -89,12 +93,12 @@ func _check_controls() -> void:
 	check(y_label != null and y_label.text.is_empty(), "Y description starts empty")
 	var stub := Stub.new()
 	hud.call("update_from", stub, true)
-	check(y_label.text == "Stop", "Y stops before the first climax")
+	check(y_label.text == "End early 💔", "Y offers an early end before the first climax")
+	check(y_label.get_theme_color("font_color") == HUD.INK, "early end is ink")
 	var status := hud.get("_hint_status") as Label
 	check(status.text.begins_with("❤ 1/3"), "cue line reaches the HUD")
 	var readiness := hud.get("_hint_readiness") as Label
 	check(readiness.text.begins_with("Wants:"), "readiness line reaches the HUD")
-	check((hud.get("_readiness_bar") as Control).visible, "readiness bar shows while active")
 	var controls := hud.get("_controls") as Control
 	check(controls != null and controls.visible, "control card shows while active")
 	stub.controls_on = false
@@ -148,14 +152,21 @@ func _check_controls() -> void:
 	check(is_equal_approx(float(hud.get("_controls_alpha")), 1.0),
 		"controls come back after the kiss")
 	stub.pony_climaxes = 1
+	stub.y_pink = 0.25
 	hud.call("update_from", stub, true)
-	check(y_label.text == "Afterglow", "Y offers afterglow after a climax")
+	check(y_label.text == "End", "Y offers the end after a climax")
+	check(not y_label.get_theme_color("font_color").is_equal_approx(HUD.INK),
+		"End warms after a climax")
+	stub.y_pink = 1.0
+	hud.call("update_from", stub, true)
+	check(y_label.get_theme_color("font_color").is_equal_approx(HUD.ACCENT),
+		"an earned caress turns End fully pink")
 	stub.state = 3
 	hud.call("update_from", stub, true)
-	check(y_label.text == "Afterglow", "Y offers afterglow during a climax")
+	check(y_label.text == "End", "Y ends during a climax")
 	stub.state = 4
 	hud.call("update_from", stub, true)
-	check(y_label.text == "Exit", "Y ends the afterglow")
+	check(y_label.text == "End", "Y ends the afterglow")
 	check((rows.get("smack") as Control).visible == false, "standing afterglow hides the smack")
 	check((rows.get("y") as Control).visible, "afterglow keeps Y")
 	stub.pose_id = "missionary"

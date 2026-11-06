@@ -127,10 +127,11 @@ Only good and bad acts move the points. Neutral acts change no history.
 There is **no break-up path**. The highest tier closes sex, not the relationship. The base
 `player_bonds.break_up()` is never called.
 
-## Tolerance and the mid-act stop
+## Neglect tolerance and the mid-act stop
 
-`taste.tolerance` is per mare: `timid`, `neutral` or `strict`. The Characters sub-tab edits it.
-The default is neutral; Rarity is strict and Fluttershy is timid.
+`taste.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab edits it
+as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is forgiving. The
+old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 
 A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
 
@@ -144,8 +145,8 @@ A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
 
 | Tier | Warnings | Stop |
 |---|---|---|
-| Timid | one at 4 | never |
-| Neutral | at 1, then 4 | 10 |
+| Forgiving | one at 4 | never |
+| Normal | at 1, then 4 | 10 |
 | Strict | at 1 | 3 |
 
 A warning sets a HUD cue and queues one short spoken warning. Warnings and the stop line speak
@@ -156,14 +157,14 @@ A stop is a dedicated path, not `cancel()`:
 - it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
 - it records `MEMORY.stop_event(..., "withdrew")`;
 - it ends through the forced path with no afterglow and no cuddle rejoin;
-- Neutral: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
+- Normal: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
 - Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
 - the history `stop_until` field blocks `blocks_start()`, `blocks_offers()` and offer weight;
 - no aftercare or satisfied face. A 20 s tucked-tail effect hinged at the tail base follows her,
   owns no navigator, and is removed if a new act starts.
 
-The debug tunables live under **Tolerance**. Debug actions **Force tolerance warning** and
-**Force tolerance stop** drive the live act for testing.
+The debug tunables live under **Neglect tolerance**. Debug actions **Force neglect warning** and
+**Force neglect stop** drive the live act for testing.
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
@@ -186,7 +187,7 @@ The mod writes or keeps that note on the moments the base game does not see:
 - a refused act attempt (`runtime.refuse()`) commits `annoyed`, or `angry` when the refusal also
   bucked or knocked Anon down (`MEMORY.refusal_event`);
 - the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
-- a neutral tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
+- a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
 
 `upset.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s, yields
 to any spoken line face, and ends early when her AI commits a different mood. It owns no navigator
@@ -208,13 +209,14 @@ and blocks nothing; the gates above do that.
 
 `features.act_history` is the master switch (Settings tab, default on). With it off, no summary is
 stored, no history note or refusal is used, and the existing satisfied/aftercare behaviour falls
-back to the readiness threshold. It does not disable the per-mare mid-act tolerance stop.
+back to the readiness threshold. It does not disable the per-mare mid-act neglect stop.
 
 The debug thresholds and weights live under `History` in the Debug tab. They are `num` entries, so
 stored values are never clamped by the consumer. See `TUNING.md`.
 
-The per-mare tolerance tier is a taste field, not a global setting: edit it in **Characters**. The
-thresholds, like relief, decay and stop cooldowns are the `tolerance.*` debug tunables.
+The per-mare neglect-tolerance tier is a taste field, not a global setting: edit it in
+**Characters**. The thresholds, like relief, decay and stop cooldowns are the `tolerance.*` debug
+tunables.
 
 ## Tests
 

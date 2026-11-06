@@ -38,7 +38,7 @@ const DEFAULT_RULES := {
 	"offer_weight_base": 0.70,
 	"offer_weight_comfort": 0.05,
 	"offer_weight_hurt": 0.12,
-	"neutral_cooldown_s": 300.0,
+	"normal_cooldown_s": 300.0,
 	"strict_cooldown_s": 600.0,
 }
 
@@ -137,9 +137,9 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 	if now_day > 0.0:
 		row["last_day"] = now_day
 	if bool(outcome.get("stopped_by_her", false)):
-		var tolerance := str(outcome.get("tolerance", "neutral"))
+		var tolerance := str(outcome.get("tolerance", "normal"))
 		var cooldown := float(regular.get("strict_cooldown_s", 600.0)) \
-			if tolerance == "strict" else float(regular.get("neutral_cooldown_s", 300.0))
+			if tolerance == "strict" else float(regular.get("normal_cooldown_s", 300.0))
 		row["stop_until"] = Time.get_unix_time_from_system() + cooldown
 		row["last_stop_kind"] = tolerance
 		row["last_stop_at"] = Time.get_unix_time_from_system()

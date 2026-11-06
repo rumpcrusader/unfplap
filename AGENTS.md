@@ -844,30 +844,31 @@ examples.
 - The afterglow HUD shows the summary. The debug log prints the grade, quality, checks, reasons,
   hurt and comfort. See `HISTORY.md`.
 
-### Mid-act tolerance stop
+### Mid-act neglect-tolerance stop
 
-- `taste.tolerance` is per mare: `timid`, `neutral` or `strict`; the Characters sub-tab edits it.
-  Default neutral; Rarity is strict and Fluttershy is timid.
+- `taste.tolerance` is per mare: `forgiving`, `normal` or `strict`; the Characters sub-tab edits
+  **Neglect tolerance**. Default normal; Rarity is strict and Fluttershy is forgiving. The old
+  `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 - A pure `act_tolerance.gd` meter runs in `POSING_IN`/`ACTIVE`. Every actual disliked touch/talk
   adds 1, every actual liked touch/talk subtracts 1, and passive decay removes 1 every 25 s.
   A held caress is one action per `CAESS_TOUCH_SECONDS` (5 s) of contact, never one per physics
   tick, so it cannot erase distress every frame.
-- Warnings are one-shot per act: timid at 4, neutral at 1 and 4, strict at 1. They set a HUD cue
+- Warnings are one-shot per act: forgiving at 4, normal at 1 and 4, strict at 1. They set a HUD cue
   and queue one short spoken warning even when `features.act_lines` is off.
-- Stop thresholds: timid never; neutral 10; strict 3. A stop is not `cancel()`. It forces a severe
+- Stop thresholds: forgiving never; normal 10; strict 3. A stop is not `cancel()`. It forces a severe
   bad summary (`stopped_by_her`, no romance, `+2` hurt), records `MEMORY.stop_event(..., "withdrew")`,
   ends with no afterglow/cuddle rejoin and no aftercare, and starts a 20 s `tail_tuck.gd` that owns
   no navigator. The tuck hinges the tail at `mTail1` (the rest of the chain follows rigidly), not
   down the middle of the chain.
-- Neutral stops with a stern line, no buck and a `300 s` sex-only cooldown. Strict stops with a
+- Normal stops with a stern line, no buck and a `300 s` sex-only cooldown. Strict stops with a
   stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
   `stop_until` blocks `blocks_start()`, proactive offers and offer weight; pressing Y gets the
   spoken refusal. A new stop replaces the old cooldown.
-- A stop also holds the refusal mood face: `annoyed` for neutral, `angry` for strict
+- A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
   (`upset.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
   `features.act_history` off, or a skipped summary, there is no impression and no face.
-- Debug tunables live under **Tolerance**; Debug → Actions has **Force tolerance warning** and
-  **Force tolerance stop**. See `HISTORY.md`.
+- Debug tunables live under **Neglect tolerance**; Debug → Actions has **Force neglect warning**
+  and **Force neglect stop**. See `HISTORY.md`.
 
 ### Proactive requests
 
@@ -1120,10 +1121,10 @@ examples.
 - **Show act history**: print the aimed or nearest mare's stored row to the debug log, including
   tier, hurt/comfort, streaks, last grade and reasons, last text/wants, any stop cooldown, pending
   reminder/complaint and the recent entries. It does not modify the row.
-- **Force tolerance warning** / **Force tolerance stop**: act on the live act. The request is
+- **Force neglect warning** / **Force neglect stop**: act on the live act. The request is
   consumed on the next unpaused frame, so close the settings panel to apply it.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
-  comfort=...` line per act when `debug_logs` is on. Tolerance events log their warning/stop,
+  comfort=...` line per act when `debug_logs` is on. Neglect events log their warning/stop,
   tier, distress and dislike.
 - `F10` (the only hotkey action): toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
@@ -1170,8 +1171,8 @@ examples.
   page's private fields are unavailable it logs and skips, so the settings page is never
   required for the mod to load.
 - The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
-  `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, tolerance
-  (`timid`/`neutral`/`strict`), touch/talk like and dislike checkboxes, and editable private
+  `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, neglect
+  tolerance (`forgiving`/`normal`/`strict`), touch/talk like and dislike checkboxes, and editable
   notes. Taste edits save automatically and apply live; `Reset to default`
   removes only that taste override. Custom `event_prompts` and `poses` on the character entry
   must survive both actions.

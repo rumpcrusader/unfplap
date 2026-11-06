@@ -44,13 +44,13 @@ aftercare are outside it.
     "dislikes": [],               # touch or talk dislike
     "talk": ["reassurance"],      # empty = talk does not score for her
     "warmth": "normal",           # quick | normal | slow
-    "tolerance": "neutral",       # timid | neutral | strict
+    "tolerance": "normal",        # forgiving | normal | strict
     "notes": "private attitude for the AI"
 }
 ```
 
 - `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
-- `tolerance` sets mid-act warnings and the stop threshold; see `HISTORY.md`.
+- `tolerance` (Neglect tolerance) sets mid-act warnings and the stop threshold; see `HISTORY.md`.
 - `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 
 ## Settings editor
@@ -80,7 +80,7 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
-- **History** and **Tolerance**: the act summary/history scoring and threshold values.
+- **History** and **Neglect tolerance**: the act summary/history scoring and threshold values.
 - **Audio**: act foley, act vocals, wet climax layer.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
@@ -103,7 +103,7 @@ enforced. The framing, pitch and torso controls remain experimental and unbounde
 The **Characters** tab exposes one name-filtered pony selector and one form:
 
 - intensity, pattern, warmth;
-- tolerance (timid, neutral, strict);
+- neglect tolerance (forgiving, normal, strict);
 - liked touch and talk;
 - disliked touch and talk;
 - public, anal and oral consent;

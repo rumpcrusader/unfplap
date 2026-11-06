@@ -23,7 +23,7 @@ func run() -> void:
 	check(str(neutral.get("intensity", "")) == "firm", "default intensity firm")
 	check(str(neutral.get("pattern", "")) == "steady", "default pattern steady")
 	check(str(neutral.get("warmth", "")) == "normal", "default warmth normal")
-	check(str(neutral.get("tolerance", "")) == "neutral", "default tolerance neutral")
+	check(str(neutral.get("tolerance", "")) == "normal", "default tolerance normal")
 	check((neutral.get("touch", []) as Array).is_empty(), "default touch empty")
 	check((neutral.get("talk", []) as Array).is_empty(), "default talk empty")
 
@@ -77,6 +77,8 @@ func run() -> void:
 	check(described.contains("tolerance: strict"), "describe tolerance")
 	check(PREF.warmth_scale(taste) > 1.0, "quick warmth scales up")
 	check(PREF.warmth_scale(PREF.resolve({"warmth": "slow"})) < 1.0, "slow warmth scales down")
+	check(PREF.tolerance_tier("timid") == "forgiving", "old timid maps to forgiving")
+	check(PREF.tolerance_tier("neutral") == "normal", "old neutral maps to normal")
 	check(str(PREF.resolve({"intensity": "nonsense"}).get("intensity", "")) == "firm",
 		"unknown intensity falls back")
 

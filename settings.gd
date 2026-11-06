@@ -30,6 +30,14 @@ const LEGACY_PRESENTATION_KEYS := {
 	"pose1_pitch_deg": "pitch_deg",
 }
 const LEGACY_DROPPED_KEYS := ["pose1_camera"]
+## One-release migration for the tolerance tier names and their tunable paths.
+const LEGACY_TOLERANCE_KEYS := {
+	"timid_warning": "forgiving_warning",
+	"neutral_warning_1": "normal_warning_1",
+	"neutral_warning_2": "normal_warning_2",
+	"neutral_stop": "normal_stop",
+	"neutral_cooldown_s": "normal_cooldown_s",
+}
 
 ## Character names, order and taste templates live in `character_tastes.gd`; the settings view
 ## and the runtime merge read them through these aliases.
@@ -222,6 +230,22 @@ static func _normalize_feature_names(data: Dictionary) -> Dictionary:
 	return data
 
 
+## Move the tolerance block's old tier keys onto the renamed paths.
+static func _normalize_tolerance(data: Dictionary) -> Dictionary:
+	var raw: Variant = data.get("tolerance")
+	if not raw is Dictionary:
+		return data
+	var block: Dictionary = raw
+	for old_key: String in LEGACY_TOLERANCE_KEYS:
+		var new_key: String = LEGACY_TOLERANCE_KEYS[old_key]
+		if block.has(old_key):
+			if not block.has(new_key):
+				block[new_key] = block[old_key]
+			block.erase(old_key)
+	data["tolerance"] = block
+	return data
+
+
 ## Move the pre-split flat presentation block into pose sections. Old unknown keys are dropped
 ## instead of being written back forever.
 static func _normalize_presentation(data: Dictionary) -> Dictionary:
@@ -359,6 +383,7 @@ static func _load() -> void:
 	data = _normalize_pose_names(data)
 	data = _normalize_feature_names(data)
 	data = _normalize_presentation(data)
+	data = _normalize_tolerance(data)
 	data = _merge(_defaults(), data)
 	_cache = data
 	_write_file(data)

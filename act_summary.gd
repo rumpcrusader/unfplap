@@ -277,7 +277,7 @@ static func _stopped(taste: Dictionary, snapshot: Dictionary) -> Dictionary:
 	if int(snapshot.get("talk_dislikes", 0)) > 0:
 		reasons.append("talk_miss")
 	var wants := _wants(taste, reasons)
-	var tolerance := str(snapshot.get("tolerance", "neutral"))
+	var tolerance := str(snapshot.get("tolerance", "normal"))
 	var mood := "angry" if tolerance == "strict" else "annoyed"
 	return {
 		"skip": false,

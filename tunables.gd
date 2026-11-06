@@ -56,13 +56,13 @@ const ACTIONS := {
 		"method": "action_show_act_history",
 	},
 	"force_tolerance_warning": {
-		"label": "Force tolerance warning",
-		"help": "Trigger the active act's next tolerance warning.",
+		"label": "Force neglect warning",
+		"help": "Trigger the active act's next neglect warning.",
 		"method": "action_force_tolerance_warning",
 	},
 	"force_tolerance_stop": {
-		"label": "Force tolerance stop",
-		"help": "Make the active mare stop the act through the tolerance path.",
+		"label": "Force neglect stop",
+		"help": "Make the active mare stop the act through the neglect path.",
 		"method": "action_force_tolerance_stop",
 	},
 	"skeleton_overlay": {

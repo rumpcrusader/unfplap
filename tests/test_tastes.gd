@@ -76,7 +76,7 @@ func run() -> void:
 		var talk: Array = taste.get("talk", [])
 		var dislikes: Array = taste.get("dislikes", [])
 		var warmth_value := str(taste.get("warmth", ""))
-		var tolerance := str(taste.get("tolerance", "neutral"))
+		var tolerance := str(taste.get("tolerance", "normal"))
 		var notes := str(taste.get("notes", ""))
 
 		check(intensity in PREFERENCES.INTENSITIES, id + " intensity")
@@ -128,8 +128,8 @@ func run() -> void:
 	var maud := SETTINGS.profile_for(base, TASTES.TEMPLATES, "maud_pie")
 	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
 	var fluttershy := SETTINGS.profile_for(base, TASTES.TEMPLATES, "fluttershy")
-	check(str((fluttershy["taste"] as Dictionary).get("tolerance", "")) == "timid",
-		"Fluttershy is timid")
+	check(str((fluttershy["taste"] as Dictionary).get("tolerance", "")) == "forgiving",
+		"Fluttershy is forgiving")
 	var poses: Dictionary = fluttershy.get("poses", {})
 	check(is_equal_approx(float((poses.get(CATALOG.MISSIONARY, {}) as Dictionary).get(
 		"hind_spread", 0.0)), 0.45), "Fluttershy's pose override survives")

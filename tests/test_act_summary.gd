@@ -98,8 +98,8 @@ func run() -> void:
 	check(not str(stopped.text).contains(" you "),
 		"a partner stop event has no second-person body")
 
-	var stopped_neutral := evaluate({"stopped_by_her": true, "tolerance": "neutral"})
-	check(str(stopped_neutral.mood) == "annoyed", "a neutral stop is annoyed")
+	var stopped_normal := evaluate({"stopped_by_her": true, "tolerance": "normal"})
+	check(str(stopped_normal.mood) == "annoyed", "a normal stop is annoyed")
 
 	var one_dislike := evaluate({"touch_dislikes": {"smack": 1}})
 	check(one_dislike.grade == "neutral", "one dislike only is neutral")

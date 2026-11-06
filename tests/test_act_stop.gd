@@ -231,30 +231,30 @@ func fixture(kind: String) -> Dictionary:
 
 
 func run() -> void:
-	var neutral := fixture("neutral")
-	var neutral_runtime: Node = neutral["runtime"]
-	neutral_runtime.call("_stop_with_her", "smack")
-	check(int(neutral_runtime.state) == 0, "a neutral stop ends the act")
-	check(bool(neutral_runtime.get("_stopped_by_her")), "a neutral stop is flagged")
-	var neutral_summary: Dictionary = neutral_runtime.get("_summary")
-	check(str(neutral_summary.get("grade", "")) == "bad", "a neutral stop commits a bad summary")
-	check(int(neutral["bonds"].requests) == 0, "a neutral stop does not request space")
-	check(int(neutral["affection"].bucks) == 0, "a neutral stop does not buck")
-	var neutral_row: Dictionary = (neutral["mods"].data["unfplap"].get("act_history", {}) as Dictionary).get("rarity", {})
-	check(float(neutral_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
-		"a neutral stop writes a cooldown")
-	check(str(neutral_summary.get("mood", "")) == "annoyed", "a neutral stop is annoyed")
-	var neutral_events: Array = neutral["context"].events
-	check(neutral_events.size() == 1, "a partner stop writes one world event")
-	check(str((neutral_events[0] as Dictionary).get("kind", "")) == "relationship",
+	var normal := fixture("normal")
+	var normal_runtime: Node = normal["runtime"]
+	normal_runtime.call("_stop_with_her", "smack")
+	check(int(normal_runtime.state) == 0, "a normal stop ends the act")
+	check(bool(normal_runtime.get("_stopped_by_her")), "a normal stop is flagged")
+	var normal_summary: Dictionary = normal_runtime.get("_summary")
+	check(str(normal_summary.get("grade", "")) == "bad", "a normal stop commits a bad summary")
+	check(int(normal["bonds"].requests) == 0, "a normal stop does not request space")
+	check(int(normal["affection"].bucks) == 0, "a normal stop does not buck")
+	var normal_row: Dictionary = (normal["mods"].data["unfplap"].get("act_history", {}) as Dictionary).get("rarity", {})
+	check(float(normal_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
+		"a normal stop writes a cooldown")
+	check(str(normal_summary.get("mood", "")) == "annoyed", "a normal stop is annoyed")
+	var normal_events: Array = normal["context"].events
+	check(normal_events.size() == 1, "a partner stop writes one world event")
+	check(str((normal_events[0] as Dictionary).get("kind", "")) == "relationship",
 		"the one partner-stop event is the summary")
-	neutral_runtime.queue_free()
-	neutral["main"].queue_free()
-	neutral["context"].queue_free()
-	neutral["impressions"].queue_free()
-	neutral["mods"].free()
-	if neutral["existing"] != null and is_instance_valid(neutral["existing"]):
-		neutral["existing"].name = "Mods"
+	normal_runtime.queue_free()
+	normal["main"].queue_free()
+	normal["context"].queue_free()
+	normal["impressions"].queue_free()
+	normal["mods"].free()
+	if normal["existing"] != null and is_instance_valid(normal["existing"]):
+		normal["existing"].name = "Mods"
 
 	var strict := fixture("strict")
 	var strict_runtime: Node = strict["runtime"]
@@ -267,8 +267,8 @@ func run() -> void:
 	check(int(strict["bonds"].requests) == 1, "a strict stop requests space")
 	check(int(strict["affection"].bucks) == 1, "a strict stop bucks")
 	var strict_row: Dictionary = (strict["mods"].data["unfplap"].get("act_history", {}) as Dictionary).get("rarity", {})
-	check(float(strict_row.get("stop_until", 0.0)) > float(neutral_row.get("stop_until", 0.0)),
-		"the strict cooldown is longer than neutral")
+	check(float(strict_row.get("stop_until", 0.0)) > float(normal_row.get("stop_until", 0.0)),
+		"the strict cooldown is longer than normal")
 	strict_runtime.queue_free()
 	strict["main"].queue_free()
 	strict["context"].queue_free()
@@ -277,7 +277,7 @@ func run() -> void:
 	if strict["existing"] != null and is_instance_valid(strict["existing"]):
 		strict["existing"].name = "Mods"
 
-	var refused := fixture("neutral")
+	var refused := fixture("normal")
 	var refused_runtime: Node = refused["runtime"]
 	refused_runtime.call("_note_refusal", false)
 	var turned: Dictionary = (refused["impressions"] as Node).calls[-1]

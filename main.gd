@@ -565,7 +565,7 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	var intensity := _taste_pills(form, "Intensity", TASTE.INTENSITIES, font_size)
 	var pattern := _taste_pills(form, "Pattern", TASTE.PATTERNS, font_size)
 	var warmth := _taste_pills(form, "Warmth", TASTE.WARMTHS, font_size)
-	var tolerance := _taste_pills(form, "Tolerance", TASTE.TOLERANCES, font_size)
+	var tolerance := _taste_pills(form, "Neglect tolerance", TASTE.TOLERANCES, font_size)
 	var touch_likes := _taste_checks(form, "Likes touch", TASTE.TOUCHES, font_size)
 	var talk_likes := _taste_checks(form, "Likes talk", TASTE.TALKS, font_size)
 	var touch_dislikes := _taste_checks(form, "Dislikes touch", TASTE.TOUCHES, font_size)
@@ -588,7 +588,7 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	form.add_child(_form_label("Okay with oral", font_size))
 	form.add_child(consent_oral)
 	var tolerance_help := STYLE.label(
-		"Timid: one warning at 4, never stops. Neutral: warnings at 1 and 4, stops at 10. Strict: warning at 1, stops at 3.",
+		"Forgiving: one warning at 4, never stops. Normal: warnings at 1 and 4, stops at 10. Strict: warning at 1, stops at 3.",
 		"Faint", font_size - 6)
 	tolerance_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(tolerance_help)
@@ -745,7 +745,7 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	_select_taste_value(refs.get("intensity"), str(taste.get("intensity", "firm")))
 	_select_taste_value(refs.get("pattern"), str(taste.get("pattern", "steady")))
 	_select_taste_value(refs.get("warmth"), str(taste.get("warmth", "normal")))
-	_select_taste_value(refs.get("tolerance"), str(taste.get("tolerance", "neutral")))
+	_select_taste_value(refs.get("tolerance"), str(taste.get("tolerance", "normal")))
 	_set_taste_checks(refs.get("touch_likes"), TASTE.TOUCHES, taste.get("touch", []))
 	_set_taste_checks(refs.get("talk_likes"), TASTE.TALKS, taste.get("talk", []))
 	_set_taste_checks(refs.get("touch_dislikes"), TASTE.TOUCHES, taste.get("dislikes", []))
@@ -812,7 +812,7 @@ func _save_taste_form(refs: Dictionary) -> void:
 		"dislikes": dislikes,
 		"talk": _checked_taste_values(refs.get("talk_likes"), TASTE.TALKS),
 		"warmth": _picked_taste_value(refs.get("warmth"), "normal"),
-		"tolerance": _picked_taste_value(refs.get("tolerance"), "neutral"),
+		"tolerance": _picked_taste_value(refs.get("tolerance"), "normal"),
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
 	SETTINGS.save_taste(id, taste)
@@ -1293,10 +1293,10 @@ func _debug_force_tolerance(kind: String) -> String:
 	if not is_instance_valid(active_runtime):
 		return "No act is active."
 	if not active_runtime.has_method("debug_force_tolerance"):
-		return "The act cannot force tolerance."
+		return "The act cannot force a neglect warning."
 	if not bool(active_runtime.call("debug_force_tolerance", kind)):
-		return "Tolerance forcing is only available during a live act."
-	return "Tolerance %s queued. Close this panel to let the act apply it." % kind
+		return "Neglect forcing is only available during a live act."
+	return "Neglect %s queued. Close this panel to let the act apply it." % kind
 
 
 ## Shared by the Debug tab: grant or clear the mod lover bond on the aimed or nearest mare.

@@ -3419,7 +3419,7 @@ func _summary_inputs() -> Dictionary:
 		"pattern_right": _act_pattern_right,
 		"ended_early": _act_ended_early,
 		"stopped_by_her": _stopped_by_her,
-		"tolerance": str(_taste.get("tolerance", "neutral")),
+		"tolerance": str(_taste.get("tolerance", "normal")),
 		"forced": false,
 	}
 
@@ -3570,8 +3570,8 @@ func _tolerance_warn(level: int) -> void:
 	var cue := "She doesn't like that." if level <= 1 else "She is warning you."
 	_set_cue_override(cue, 4.0)
 	_queue_tolerance_warning(level)
-	_log("tolerance warning=%d tier=%s distress=%.1f kind=%s" % [
-		level, str(_taste.get("tolerance", "neutral")),
+	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
+		level, str(_taste.get("tolerance", "normal")),
 		float(_tolerance_controller().distress), _tolerance_controller().last_dislike])
 
 
@@ -3602,7 +3602,7 @@ func _stop_with_her(reason: String) -> void:
 	if _stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
 		return
 	_stopped_by_her = true
-	var strict := str(_taste.get("tolerance", "neutral")) == "strict"
+	var strict := str(_taste.get("tolerance", "normal")) == "strict"
 	_cancel_tolerance_warning()
 	_commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when no summary was
@@ -3622,7 +3622,7 @@ func _stop_with_her(reason: String) -> void:
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_taste.get("tolerance", "neutral")), float(_tolerance_controller().distress),
+		str(_taste.get("tolerance", "normal")), float(_tolerance_controller().distress),
 		reason, str(strict)])
 
 

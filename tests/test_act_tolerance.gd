@@ -47,31 +47,31 @@ func is_stop(events: Array, index: int) -> bool:
 
 
 func run() -> void:
-	var neutral = make("neutral")
-	var neutral_events := push(neutral, 10)
-	check(warning_of(neutral_events, 0) == 1, "neutral warns at 1")
-	check(warning_of(neutral_events, 1) == 0 and warning_of(neutral_events, 2) == 0,
-		"neutral stays quiet between warnings")
-	check(warning_of(neutral_events, 3) == 2, "neutral warns a second time at 4")
-	check(not is_stop(neutral_events, 8), "neutral does not stop before 10")
-	check(is_stop(neutral_events, 9), "neutral stops at 10")
-	check(bool(neutral.stopped), "neutral records the stop")
-	check(neutral.cooldown_seconds() > 0.0, "neutral has a stop cooldown")
+	var normal = make("normal")
+	var normal_events := push(normal, 10)
+	check(warning_of(normal_events, 0) == 1, "normal warns at 1")
+	check(warning_of(normal_events, 1) == 0 and warning_of(normal_events, 2) == 0,
+		"normal stays quiet between warnings")
+	check(warning_of(normal_events, 3) == 2, "normal warns a second time at 4")
+	check(not is_stop(normal_events, 8), "normal does not stop before 10")
+	check(is_stop(normal_events, 9), "normal stops at 10")
+	check(bool(normal.stopped), "normal records the stop")
+	check(normal.cooldown_seconds() > 0.0, "normal has a stop cooldown")
 
 	var strict = make("strict")
 	var strict_events := push(strict, 3)
 	check(warning_of(strict_events, 0) == 1, "strict warns at 1")
 	check(not is_stop(strict_events, 1), "strict does not stop at 2")
 	check(is_stop(strict_events, 2), "strict stops at 3")
-	check(strict.cooldown_seconds() > neutral.cooldown_seconds(),
-		"the strict cooldown is longer than neutral")
+	check(strict.cooldown_seconds() > normal.cooldown_seconds(),
+		"the strict cooldown is longer than a normal mare")
 
-	var timid = make("timid")
-	var timid_events := push(timid, 20)
-	check(warning_of(timid_events, 2) == 0, "timid does not warn before 4")
-	check(warning_of(timid_events, 3) == 1, "timid warns once at 4")
-	check(not timid.stopped, "timid never stops")
-	check(timid.cooldown_seconds() == 0.0, "timid has no stop cooldown")
+	var forgiving = make("forgiving")
+	var forgiving_events := push(forgiving, 20)
+	check(warning_of(forgiving_events, 2) == 0, "forgiving does not warn before 4")
+	check(warning_of(forgiving_events, 3) == 1, "forgiving warns once at 4")
+	check(not forgiving.stopped, "forgiving never stops")
+	check(forgiving.cooldown_seconds() == 0.0, "forgiving has no stop cooldown")
 
 	var relief = make("strict")
 	push(relief, 2)
@@ -81,7 +81,7 @@ func run() -> void:
 	var after_like := push(relief, 2)
 	check(is_stop(after_like, after_like.size() - 1), "compensation only delays the stop")
 
-	var decay = make("neutral")
+	var decay = make("normal")
 	push(decay, 2)
 	var decay_before := float(decay.distress)
 	decay.tick(24.0)
@@ -89,7 +89,7 @@ func run() -> void:
 	decay.tick(1.0)
 	check(float(decay.distress) == decay_before - 1.0, "decay removes one point after 25 s")
 
-	var repeats = make("neutral")
+	var repeats = make("normal")
 	push(repeats, 1)
 	check(repeats.warning_stage == 1, "the first warning stage is remembered")
 	repeats.observe_like("caress")
@@ -98,10 +98,13 @@ func run() -> void:
 
 	var reset = make("strict")
 	push(reset, 2)
-	reset.reset({"tolerance": "neutral"})
+	reset.reset({"tolerance": "normal"})
 	check(reset.distress == 0.0 and reset.warning_stage == 0 and not reset.stopped,
 		"a new act resets the meter")
-	check(reset.tier == "neutral", "a new act reads the new tier")
+	check(reset.tier == "normal", "a new act reads the new tier")
+
+	check(make("timid").tier == "forgiving", "the old timid tier maps to forgiving")
+	check(make("neutral").tier == "normal", "the old neutral tier maps to normal")
 
 	print("ACT_TOLERANCE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

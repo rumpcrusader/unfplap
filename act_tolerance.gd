@@ -8,21 +8,21 @@ const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 
 const DEFAULT_RULES := {
-	"timid_warning": 4.0,
-	"neutral_warning_1": 1.0,
-	"neutral_warning_2": 4.0,
-	"neutral_stop": 10.0,
+	"forgiving_warning": 4.0,
+	"normal_warning_1": 1.0,
+	"normal_warning_2": 4.0,
+	"normal_stop": 10.0,
 	"strict_warning": 1.0,
 	"strict_stop": 3.0,
 	"dislike_amount": 1.0,
 	"like_relief": 1.0,
 	"decay_seconds": 25.0,
 	"decay_amount": 1.0,
-	"neutral_cooldown_s": 300.0,
+	"normal_cooldown_s": 300.0,
 	"strict_cooldown_s": 600.0,
 }
 
-var tier := "neutral"
+var tier := "normal"
 var distress := 0.0
 var warning_stage := 0
 var stopped := false
@@ -40,9 +40,7 @@ static func rules() -> Dictionary:
 
 
 func reset(taste: Dictionary) -> void:
-	tier = str(taste.get("tolerance", "neutral")).to_lower()
-	if tier not in PREFERENCES.TOLERANCES:
-		tier = "neutral"
+	tier = PREFERENCES.tolerance_tier(str(taste.get("tolerance", "normal")))
 	distress = 0.0
 	warning_stage = 0
 	stopped = false
@@ -85,8 +83,8 @@ func event() -> Dictionary:
 		return {}
 	var limits := rules()
 	match tier:
-		"timid":
-			if warning_stage < 1 and distress >= float(limits.get("timid_warning", 4.0)):
+		"forgiving":
+			if warning_stage < 1 and distress >= float(limits.get("forgiving_warning", 4.0)):
 				warning_stage = 1
 				return {"warning": 1, "distress": distress}
 		"strict":
@@ -97,25 +95,25 @@ func event() -> Dictionary:
 				stopped = true
 				return {"stop": true, "distress": distress, "kind": last_dislike}
 		_:
-			if warning_stage < 1 and distress >= float(limits.get("neutral_warning_1", 1.0)):
+			if warning_stage < 1 and distress >= float(limits.get("normal_warning_1", 1.0)):
 				warning_stage = 1
 				return {"warning": 1, "distress": distress}
-			if warning_stage < 2 and distress >= float(limits.get("neutral_warning_2", 4.0)):
+			if warning_stage < 2 and distress >= float(limits.get("normal_warning_2", 4.0)):
 				warning_stage = 2
 				return {"warning": 2, "distress": distress}
-			if distress >= float(limits.get("neutral_stop", 10.0)):
+			if distress >= float(limits.get("normal_stop", 10.0)):
 				stopped = true
 				return {"stop": true, "distress": distress, "kind": last_dislike}
 	return {}
 
 
-## Sex-only cooldown after a stop. Timid never stops, so it has none.
+## Sex-only cooldown after a stop. Forgiving never stops, so it has none.
 func cooldown_seconds() -> float:
 	var limits := rules()
 	match tier:
 		"strict":
 			return float(limits.get("strict_cooldown_s", 600.0))
-		"neutral":
-			return float(limits.get("neutral_cooldown_s", 300.0))
+		"normal":
+			return float(limits.get("normal_cooldown_s", 300.0))
 		_:
 			return 0.0

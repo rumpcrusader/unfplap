@@ -11,7 +11,7 @@ const PATTERNS := ["steady", "teasing", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "curious", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
-const TOLERANCES := ["timid", "neutral", "strict"]
+const TOLERANCES := ["forgiving", "normal", "strict"]
 
 const DEFAULTS := {
 	"intensity": "firm",
@@ -20,7 +20,7 @@ const DEFAULTS := {
 	"dislikes": [],
 	"talk": [],
 	"warmth": "normal",
-	"tolerance": "neutral",
+	"tolerance": "normal",
 	"notes": "",
 }
 
@@ -51,7 +51,7 @@ static func resolve(raw: Variant) -> Dictionary:
 	out["dislikes"] = _clean_list(out.get("dislikes"), TOUCHES + TALKS)
 	out["talk"] = _clean_list(out.get("talk"), TALKS)
 	out["warmth"] = _enum(str(out.get("warmth", "normal")).to_lower(), WARMTHS, "normal")
-	out["tolerance"] = _enum(str(out.get("tolerance", "neutral")).to_lower(), TOLERANCES, "neutral")
+	out["tolerance"] = tolerance_tier(str(out.get("tolerance", "normal")))
 	out["notes"] = str(out.get("notes", "")).strip_edges()
 	# A liked item cannot also be disliked.
 	var dislikes: Array = []
@@ -157,8 +157,8 @@ static func describe(taste: Dictionary) -> String:
 	var warmth := str(taste.get("warmth", "normal"))
 	if warmth != "normal":
 		parts.append("warmth: %s" % warmth)
-	var tolerance := str(taste.get("tolerance", "neutral"))
-	if tolerance != "neutral":
+	var tolerance := str(taste.get("tolerance", "normal"))
+	if tolerance != "normal":
 		parts.append("tolerance: %s" % tolerance)
 	var notes := str(taste.get("notes", "")).strip_edges()
 	if not notes.is_empty():
@@ -173,6 +173,17 @@ static func warmth_scale(taste: Dictionary) -> float:
 		"slow":
 			return 0.8
 	return 1.0
+
+
+## Canonical neglect-tolerance tier. Old `timid`/`neutral` values are accepted so a saved
+## profile or a hand-edited file keeps its tier after the rename.
+static func tolerance_tier(value: String) -> String:
+	var key := value.to_lower()
+	if key == "timid":
+		key = "forgiving"
+	elif key == "neutral":
+		key = "normal"
+	return key if key in TOLERANCES else "normal"
 
 
 static func _enum(value: String, allowed: Array, fallback: String) -> String:

@@ -58,7 +58,7 @@ func run() -> void:
 	var taste: Dictionary = base.get("taste", {})
 	check(str(taste.get("intensity", "")) == "firm", "neutral intensity default")
 	check(str(taste.get("pattern", "")) == "steady", "neutral pattern default")
-	check(str(taste.get("tolerance", "")) == "neutral", "neutral tolerance default")
+	check(str(taste.get("tolerance", "")) == "normal", "normal tolerance default")
 	check((taste.get("touch", []) as Array).is_empty(), "neutral touch default")
 	var prompts: Dictionary = base.get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
@@ -97,7 +97,7 @@ func run() -> void:
 	var fluttershy_taste: Dictionary = built_in["taste"]
 	check(str(fluttershy_taste.get("intensity", "")) == "firm", "Fluttershy intensity")
 	check(str(fluttershy_taste.get("pattern", "")) == "steady", "Fluttershy pattern")
-	check(str(fluttershy_taste.get("tolerance", "")) == "timid", "Fluttershy is timid")
+	check(str(fluttershy_taste.get("tolerance", "")) == "forgiving", "Fluttershy is forgiving")
 	check((fluttershy_taste.get("talk", []) as Array).has("reassurance"), "Fluttershy talk")
 	var rarity := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "rarity")
 	var rarity_taste: Dictionary = rarity["taste"]

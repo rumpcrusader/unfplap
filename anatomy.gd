@@ -33,6 +33,10 @@ const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.2265, 1.095]}
+## integration: global placement calibrated on Fluttershy. A per-mare saved row still wins.
+const DEFAULT_PLACE := Vector3(-0.005, 0.525, 0.281)
+const DEFAULT_PITCH := -6.0
+const DEFAULT_SCALE := 0.662
 
 var pony: Node3D
 var runtime: Node
@@ -46,9 +50,9 @@ var _teats_jiggle: Node
 var _fluid: Node3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
-var _pos := Vector3(-0.005, 0.52, 0.291)
-var _pitch := 12.0
-var _scale := 0.722
+var _pos := DEFAULT_PLACE
+var _pitch := DEFAULT_PITCH
+var _scale := DEFAULT_SCALE
 var _body: Array = []
 var _lift := 0.0
 var _dock_bottom := INF
@@ -637,9 +641,9 @@ func save_place() -> void:
 
 
 func reset_place() -> void:
-	_pos = Vector3(-0.005, 0.52, 0.291)
-	_pitch = 12.0
-	_scale = 0.722
+	_pos = DEFAULT_PLACE
+	_pitch = DEFAULT_PITCH
+	_scale = DEFAULT_SCALE
 	_apply_place()
 
 

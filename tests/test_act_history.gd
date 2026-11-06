@@ -120,6 +120,24 @@ func run() -> void:
 		outcome("bad", true), 10.0).get("row", {})
 	check(int(severe_row.get("hurt", 0)) == severe_hurt, "a severe bad act adds extra hurt")
 
+	var stop_row_data: Dictionary = {
+		"grade": "bad", "quality": 0.0, "stopped_by_her": true, "tolerance": "strict",
+		"severe": true, "reasons": ["stopped_by_her"], "text": "You stopped him.",
+		"wants": "be gentle", "romance": -1, "mood": "angry",
+	}
+	var stop_section: Dictionary = {}
+	var stop_row: Dictionary = HISTORY.commit(stop_section, "rarity", stop_row_data, 10.0).get("row", {})
+	check(int(stop_row.get("hurt", 0)) == severe_hurt, "a stop adds severe hurt")
+	check(float(stop_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
+		"a stop writes a future cooldown")
+	check(HISTORY.blocks_start(stop_row), "a stop blocks the next start")
+	check(HISTORY.blocks_offers(stop_row), "a stop blocks proactive offers")
+	check(HISTORY.offer_weight(stop_row) == 0.0, "a stopped mare has no offer weight")
+	check(str(HISTORY.prompt_note(stop_row)).contains("space"), "the stop note asks for space")
+	var past_stop: Dictionary = stop_row.duplicate(true)
+	past_stop["stop_until"] = Time.get_unix_time_from_system() - 1.0
+	check(not HISTORY.blocks_start(past_stop), "an expired stop cooldown no longer blocks")
+
 	var early_section: Dictionary = {}
 	var early_row: Dictionary = HISTORY.commit(early_section, "rarity", {
 		"grade": "neutral", "quality": 0.55, "severe": false, "early": true,

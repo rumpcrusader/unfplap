@@ -6,6 +6,8 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
 
 var failures := 0
 var checks := 0
@@ -63,6 +65,7 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
+	check(TAIL_TUCK.DURATION == 20.0, "the stop tail tuck lasts twenty seconds")
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._taste = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
@@ -179,6 +182,24 @@ func _check_commit() -> void:
 	check(int((rows.get("rarity", {}) as Dictionary).get("acts", 0)) == 1,
 		"a second commit is a no-op")
 	check(impressions.calls.size() == 1, "a second commit writes no second impression")
+
+	# A partner stop forces a severe bad summary and a history cooldown.
+	runtime._stopped_by_her = true
+	runtime._summary = {}
+	runtime._summary_done = false
+	runtime._act_touch_dislikes = {"smack": 2}
+	runtime._act_talk_dislikes = 0
+	runtime._taste = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
+		"talk": [], "touch": [], "dislikes": ["smack"]}
+	runtime.call("_commit_summary", false)
+	var stopped_summary: Dictionary = runtime.get("_summary")
+	check(str(stopped_summary.get("grade", "")) == "bad", "a partner stop is a bad summary")
+	check(bool(stopped_summary.get("severe", false)), "a partner stop is severe")
+	check(int(stopped_summary.get("romance", 0)) == -1, "a partner stop gives no romance")
+	var stopped_row: Dictionary = (rows.get("rarity", {}) as Dictionary)
+	check(float(stopped_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
+		"a partner stop writes a future sex cooldown")
+	check(ACT_HISTORY.blocks_start(stopped_row), "a partner stop blocks the next start")
 	runtime.free()
 	main.free()
 	game.free()

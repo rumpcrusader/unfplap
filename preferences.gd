@@ -11,6 +11,7 @@ const PATTERNS := ["steady", "teasing", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "curious", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
+const TOLERANCES := ["timid", "neutral", "strict"]
 const RECOVERY_MIN := 0
 const RECOVERY_MAX := 80
 const RECOVERY_DEFAULT := 20
@@ -22,6 +23,7 @@ const DEFAULTS := {
 	"dislikes": [],
 	"talk": [],
 	"warmth": "normal",
+	"tolerance": "neutral",
 	"recovery": RECOVERY_DEFAULT,
 	"notes": "",
 }
@@ -53,6 +55,7 @@ static func resolve(raw: Variant) -> Dictionary:
 	out["dislikes"] = _clean_list(out.get("dislikes"), TOUCHES + TALKS)
 	out["talk"] = _clean_list(out.get("talk"), TALKS)
 	out["warmth"] = _enum(str(out.get("warmth", "normal")).to_lower(), WARMTHS, "normal")
+	out["tolerance"] = _enum(str(out.get("tolerance", "neutral")).to_lower(), TOLERANCES, "neutral")
 	out["recovery"] = clampi(int(out.get("recovery", RECOVERY_DEFAULT)), RECOVERY_MIN, RECOVERY_MAX)
 	out["notes"] = str(out.get("notes", "")).strip_edges()
 	# A liked item cannot also be disliked.
@@ -159,6 +162,9 @@ static func describe(taste: Dictionary) -> String:
 	var warmth := str(taste.get("warmth", "normal"))
 	if warmth != "normal":
 		parts.append("warmth: %s" % warmth)
+	var tolerance := str(taste.get("tolerance", "neutral"))
+	if tolerance != "neutral":
+		parts.append("tolerance: %s" % tolerance)
 	var recovery := int(taste.get("recovery", RECOVERY_DEFAULT))
 	if recovery >= 30:
 		parts.append("recovers quickly after climax")

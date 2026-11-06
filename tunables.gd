@@ -50,6 +50,16 @@ const ACTIONS := {
 		"help": "Clear the aimed or nearest mare's long-term act history and hurt.",
 		"method": "action_reset_act_history",
 	},
+	"force_tolerance_warning": {
+		"label": "Force tolerance warning",
+		"help": "Trigger the active act's next tolerance warning.",
+		"method": "action_force_tolerance_warning",
+	},
+	"force_tolerance_stop": {
+		"label": "Force tolerance stop",
+		"help": "Make the active mare stop the act through the tolerance path.",
+		"method": "action_force_tolerance_stop",
+	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
 		"help": "Toggle the F10 skeleton overlay.",

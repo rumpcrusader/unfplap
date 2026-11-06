@@ -49,16 +49,18 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		rules[key] = rule_set[key]
 	if bool(snapshot.get("forced", false)):
 		return _skipped("forced")
+	var taste: Dictionary = {}
+	var taste_value: Variant = snapshot.get("taste", {})
+	if taste_value is Dictionary:
+		taste = taste_value
+	if bool(snapshot.get("stopped_by_her", false)):
+		return _stopped(taste, snapshot)
 	var seconds := float(snapshot.get("seconds", 0.0))
 	var thrusts := int(snapshot.get("thrusts", 0))
 	if seconds < float(rules.get("early_grace_s", 20.0)) \
 			and thrusts < int(rules.get("min_thrusts", 2)):
 		return _skipped("short_act")
 
-	var taste: Dictionary = {}
-	var taste_value: Variant = snapshot.get("taste", {})
-	if taste_value is Dictionary:
-		taste = taste_value
 	var seeks_talk := PREFERENCES.seeks_talk(taste)
 	var seeks_touch := PREFERENCES.seeks_touch(taste)
 	var has_touch_likes := not (taste.get("touch", []) as Array).is_empty()
@@ -201,6 +203,7 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		"mood": mood,
 		"severe": severe,
 		"early": ended_early,
+		"stopped": false,
 		"reasons": reasons,
 		"checks": checks,
 		"right": right,
@@ -224,6 +227,7 @@ static func _skipped(reason: String) -> Dictionary:
 		"mood": "neutral",
 		"severe": false,
 		"early": false,
+		"stopped": false,
 		"reasons": [reason],
 		"checks": {},
 		"right": 0,
@@ -233,6 +237,50 @@ static func _skipped(reason: String) -> Dictionary:
 		"wants": "",
 		"hud": "",
 		"note": "",
+	}
+
+
+## A stop is always a severe bad act, even if the surrounding action checklist would be clean.
+static func _stopped(taste: Dictionary, snapshot: Dictionary) -> Dictionary:
+	var reasons: Array[String] = ["stopped_by_her"]
+	var touch_dislikes: Dictionary = {}
+	var touch_value: Variant = snapshot.get("touch_dislikes", {})
+	if touch_value is Dictionary:
+		touch_dislikes = touch_value
+	for kind: Variant in touch_dislikes:
+		var count := int(touch_dislikes[kind])
+		if count <= 0:
+			continue
+		reasons.append("disliked_" + str(kind))
+		if count >= 2:
+			reasons.append("severe_" + str(kind))
+	if int(snapshot.get("talk_dislikes", 0)) > 0:
+		reasons.append("talk_miss")
+	var wants := _wants(taste, reasons)
+	var tolerance := str(snapshot.get("tolerance", "neutral"))
+	var mood := "angry" if tolerance == "strict" else "annoyed"
+	return {
+		"skip": false,
+		"quality": 0.0,
+		"grade": "bad",
+		"positive": false,
+		"reward": false,
+		"romance": -1,
+		"mood": mood,
+		"severe": true,
+		"early": false,
+		"stopped": true,
+		"stopped_by_her": true,
+		"tolerance": tolerance,
+		"reasons": reasons,
+		"checks": {},
+		"right": 0,
+		"total": 0,
+		"text": "You stopped having sex with Anon because he kept doing something you do not like.",
+		"thought": "He kept doing something I do not like; I stopped him.",
+		"wants": wants,
+		"hud": "",
+		"note": "You stopped Anon because he kept doing something you do not like.",
 	}
 
 

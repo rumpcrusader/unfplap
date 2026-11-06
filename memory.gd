@@ -223,6 +223,8 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 			text = "The player changed form, so the sex stopped."
 		"world close":
 			text = "The world closed during sex with the player."
+		"withdrew":
+			text = "You stopped having sex with the player because he kept doing something you do not like."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stop:" + reason)
 
 

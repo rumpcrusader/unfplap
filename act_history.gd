@@ -38,6 +38,8 @@ const DEFAULT_RULES := {
 	"offer_weight_base": 0.70,
 	"offer_weight_comfort": 0.05,
 	"offer_weight_hurt": 0.12,
+	"neutral_cooldown_s": 300.0,
+	"strict_cooldown_s": 600.0,
 }
 
 
@@ -134,6 +136,13 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 	row["last_at"] = Time.get_unix_time_from_system()
 	if now_day > 0.0:
 		row["last_day"] = now_day
+	if bool(outcome.get("stopped_by_her", false)):
+		var tolerance := str(outcome.get("tolerance", "neutral"))
+		var cooldown := float(regular.get("strict_cooldown_s", 600.0)) \
+			if tolerance == "strict" else float(regular.get("neutral_cooldown_s", 300.0))
+		row["stop_until"] = Time.get_unix_time_from_system() + cooldown
+		row["last_stop_kind"] = tolerance
+		row["last_stop_at"] = Time.get_unix_time_from_system()
 	_append_recent(row, outcome, now_day)
 
 	var current := tier_index(row)
@@ -239,17 +248,27 @@ static func tier_name(row: Dictionary) -> String:
 
 ## No proactive offers from the hurt tier onward.
 static func blocks_offers(row: Dictionary) -> bool:
-	return enabled() and tier_index(row) >= 2
+	if not enabled():
+		return false
+	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
+		return true
+	return tier_index(row) >= 2
 
 
 ## A hard spoken refusal at the withdrawn tier. The player may still ask; she says no.
 static func blocks_start(row: Dictionary) -> bool:
-	return enabled() and tier_index(row) >= 3
+	if not enabled():
+		return false
+	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
+		return true
+	return tier_index(row) >= 3
 
 
 static func offer_weight(row: Dictionary) -> float:
 	if not enabled():
 		return 1.0
+	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
+		return 0.0
 	if blocks_offers(row):
 		return 0.0
 	var regular := rules()
@@ -272,6 +291,8 @@ static func offer_cooldown(row: Dictionary, base_seconds := -1.0) -> float:
 static func prompt_note(row: Dictionary) -> String:
 	if not enabled():
 		return ""
+	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
+		return "- You stopped Anon and need a little space. You are not ready to try again yet."
 	var tier := tier_index(row)
 	if tier <= 0:
 		return ""
@@ -293,7 +314,11 @@ static func prompt_note(row: Dictionary) -> String:
 
 
 static func ask_note(row: Dictionary) -> String:
-	if not enabled() or tier_index(row) <= 0:
+	if not enabled():
+		return ""
+	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
+		return "You stopped Anon and are not ready to ask for sex again yet."
+	if tier_index(row) <= 0:
 		return ""
 	var text := str(row.get("last_text", "")).strip_edges()
 	var wants := str(row.get("last_wants", "")).strip_edges()
@@ -320,6 +345,10 @@ static func line_purpose(row: Dictionary, kind: String) -> String:
 static func refusal_purpose(row: Dictionary) -> String:
 	var text := str(row.get("last_text", "")).strip_edges()
 	var wants := str(row.get("last_wants", "")).strip_edges()
+	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
+		return "Anon wants sex again. You stopped him and are not ready to try again yet. " \
+			+ "Refuse gently in your own voice, one short sentence, at most 14 words. " \
+			+ "Do not narrate actions."
 	return "Anon wants sex again. You love him, but you are very reluctant: " + text \
 		+ (" You want " + wants + "." if not wants.is_empty() else "") \
 		+ " Refuse gently in your own voice. One short sentence, at most 14 words. " \
@@ -376,6 +405,9 @@ static func sanitize(raw: Variant) -> Dictionary:
 	out["last_at"] = maxf(0.0, float(value.get("last_at", 0.0)))
 	out["last_day"] = maxf(0.0, float(value.get("last_day", 0.0)))
 	out["last_apology_day"] = float(value.get("last_apology_day", -1.0))
+	out["stop_until"] = maxf(0.0, float(value.get("stop_until", 0.0)))
+	out["last_stop_kind"] = str(value.get("last_stop_kind", "")).left(16)
+	out["last_stop_at"] = maxf(0.0, float(value.get("last_stop_at", 0.0)))
 	out["reminder_pending"] = bool(value.get("reminder_pending", false))
 	out["complaint_pending"] = bool(value.get("complaint_pending", false))
 	var recent: Variant = value.get("recent", [])
@@ -431,6 +463,9 @@ static func _fresh() -> Dictionary:
 		"last_at": 0.0,
 		"last_day": 0.0,
 		"last_apology_day": -1.0,
+		"stop_until": 0.0,
+		"last_stop_kind": "",
+		"last_stop_at": 0.0,
 		"reminder_pending": false,
 		"complaint_pending": false,
 		"announced_tier": 0,

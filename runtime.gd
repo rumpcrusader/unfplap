@@ -7,6 +7,8 @@ const DOCK_TAIL_COAT := preload("res://mods/unfplap/dock_tail_coat_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const ACT_TOLERANCE := preload("res://mods/unfplap/act_tolerance.gd")
+const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -305,6 +307,11 @@ var _act_pattern_right := 0
 var _act_ended_early := false
 var _summary: Dictionary = {}
 var _summary_done := false
+var _stopped_by_her := false
+var _tolerance
+var _tolerance_warning_key := ""
+var _debug_forced_tolerance := ""
+var _tail_tuck: Node
 var _history_refusal_at := -1000.0
 var _history_reminder_at := -1000.0
 var _history_scan_clock := 0.0
@@ -892,6 +899,8 @@ func _physics_tick(delta: float) -> void:
 	_lean_tick(delta)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_act_presentation(delta)
+	if state in [State.POSING_IN, State.ACTIVE]:
+		_tolerance_tick(delta)
 	var kiss_started := Time.get_ticks_usec()
 	_kiss_controller().tick(delta)
 	_timed("kiss_tick", kiss_started)
@@ -1611,6 +1620,11 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_thrust_state()
 	_summary = {}
 	_summary_done = false
+	_stopped_by_her = false
+	_debug_forced_tolerance = ""
+	_tolerance_warning_key = ""
+	_end_tail_tuck()
+	_tolerance_controller().reset(_taste)
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
@@ -2602,11 +2616,16 @@ func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:
 		return
 	_act_touch_counts[kind] = int(_act_touch_counts.get(kind, 0)) + 1
+	var tolerance_event: Dictionary = {}
 	if kind in _taste.get("dislikes", []):
 		_act_touch_dislikes[kind] = int(_act_touch_dislikes.get(kind, 0)) + 1
+		tolerance_event = _tolerance_controller().observe_dislike(kind)
+	elif kind in _taste.get("touch", []):
+		_tolerance_controller().observe_like(kind)
 	var now := _now_s()
 	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
 	if now - _last_touch_at < TOUCH_COOLDOWN_S:
+		_tolerance_event(tolerance_event)
 		return
 	_last_touch_at = now
 	_last_touch = kind
@@ -2627,6 +2646,7 @@ func _on_touch(kind: String) -> void:
 		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
 	else:
 		_set_cue_override("She notices your touch.")
+	_tolerance_event(tolerance_event)
 
 ## The player's own words are a concrete input. The AI still writes her reply; this only
 ## decides whether the line landed with her taste.
@@ -2636,10 +2656,15 @@ func _on_talk(text: String) -> void:
 	var category := PREFERENCES.classify_talk(text)
 	if category.is_empty():
 		return
+	var tolerance_event: Dictionary = {}
 	if category in _taste.get("dislikes", []):
 		_act_talk_dislikes += 1
+		tolerance_event = _tolerance_controller().observe_dislike(category)
+	elif category in _taste.get("talk", []):
+		_tolerance_controller().observe_like(category)
 	var now := _now_s()
 	if now - _last_talk_at < TALK_COOLDOWN_S:
+		_tolerance_event(tolerance_event)
 		return
 	_last_talk_at = now
 	_last_talk = category
@@ -2660,6 +2685,7 @@ func _on_talk(text: String) -> void:
 		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
 	else:
 		_set_cue_override("She listens.")
+	_tolerance_event(tolerance_event)
 
 ## Watch the director for a new player turn. No new control: the game's T key already
 ## produces the text/mic turn. Talk is scored when it actually happens.
@@ -2910,6 +2936,8 @@ func _summary_inputs() -> Dictionary:
 		"pattern_total": _act_pattern_total,
 		"pattern_right": _act_pattern_right,
 		"ended_early": _act_ended_early,
+		"stopped_by_her": _stopped_by_her,
+		"tolerance": str(_taste.get("tolerance", "neutral")),
 		"forced": false,
 	}
 
@@ -3021,6 +3049,143 @@ func _history_tick(_delta: float) -> void:
 	ACT_HISTORY.save()
 	_history_reminder_at = now
 	_log("history line kind=%s key=%s" % [kind, key])
+
+
+func _tolerance_controller():
+	if _tolerance == null:
+		_tolerance = ACT_TOLERANCE.new()
+	return _tolerance
+
+
+## The meter only advances during an act. A forced debug warning or stop runs here so it lands
+## on the next frame after the Debug panel is closed.
+func _tolerance_tick(_delta: float) -> void:
+	if state not in [State.POSING_IN, State.ACTIVE]:
+		return
+	if not _debug_forced_tolerance.is_empty():
+		var action := _debug_forced_tolerance
+		_debug_forced_tolerance = ""
+		if action == "warning":
+			_tolerance_warn(1)
+		elif action == "stop":
+			_stop_with_her("debug")
+		return
+	_tolerance_controller().tick(_delta)
+
+
+func _tolerance_event(event: Dictionary) -> void:
+	if event.is_empty() or _stopped_by_her:
+		return
+	var warning := int(event.get("warning", 0))
+	if warning > 0:
+		_tolerance_warn(warning)
+		return
+	if bool(event.get("stopped", false)) or bool(event.get("stop", false)):
+		_stop_with_her(str(event.get("kind", "")))
+
+
+func _tolerance_warn(level: int) -> void:
+	var cue := "She doesn't like that." if level <= 1 else "She is warning you."
+	_set_cue_override(cue, 4.0)
+	_queue_tolerance_warning(level)
+	_log("tolerance warning=%d tier=%s distress=%.1f kind=%s" % [
+		level, str(_taste.get("tolerance", "neutral")),
+		float(_tolerance_controller().distress), _tolerance_controller().last_dislike])
+
+
+func _queue_tolerance_warning(level: int) -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return
+	if not _tolerance_warning_key.is_empty():
+		MEMORY.cancel_line(main.game, _tolerance_warning_key)
+	var act_id := _event_id
+	var event_id := "%s:tolerance_warning:%d" % [_event_id, Time.get_ticks_usec()]
+	var valid := func() -> bool:
+		return is_instance_valid(pony) and state in [State.POSING_IN, State.ACTIVE] \
+			and _event_id == act_id
+	var fallback := "Don't do that." if level <= 1 else "I said stop that."
+	_tolerance_warning_key = MEMORY.reaction_for(main.game, _id, "tolerance_warning",
+		event_id, fallback, valid)
+
+
+func _cancel_tolerance_warning() -> void:
+	if not _tolerance_warning_key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
+		MEMORY.cancel_line(main.game, _tolerance_warning_key)
+	_tolerance_warning_key = ""
+
+
+## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
+## severe bad summary, and only Strict additionally bucks and requests space.
+func _stop_with_her(reason: String) -> void:
+	if _stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
+		return
+	_stopped_by_her = true
+	_cancel_tolerance_warning()
+	_commit_summary(false)
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		MEMORY.stop_event(main.game, _id, _display_name, _event_id, "withdrew")
+	if pose_id == CATALOG.MISSIONARY:
+		REST.release_managed(pony)
+	_end_act_lines(true)
+	_end_session(false)
+	_finalize_session(true)
+	var strict := str(_taste.get("tolerance", "neutral")) == "strict"
+	if strict:
+		_request_space()
+		_buck_or_push()
+	_queue_stop_line(strict)
+	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
+		str(_taste.get("tolerance", "neutral")), float(_tolerance_controller().distress),
+		reason, str(strict)])
+
+
+func _request_space() -> void:
+	if not is_instance_valid(pony):
+		return
+	var rel: Variant = pony.get_meta("relationship_runtime")
+	if rel == null or not is_instance_valid(rel):
+		return
+	var bonds: Variant = rel.get("bonds")
+	if bonds != null and is_instance_valid(bonds) and bonds.has_method("request_space"):
+		bonds.call("request_space", _id)
+
+
+func _queue_stop_line(strict: bool) -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return
+	var fallback := "Stop. I don't want to continue. Not now."
+	if strict:
+		fallback = "I told you to stop. Get off me and give me space."
+	var event_id := "tolerance_stop_%s_%d" % [_id, Time.get_ticks_usec()]
+	var valid := func() -> bool:
+		return is_instance_valid(pony) and state == State.IDLE
+	MEMORY.reaction_for(main.game, _id, "tolerance_stop", event_id, fallback, valid)
+
+
+func _start_tail_tuck() -> void:
+	_end_tail_tuck()
+	if not is_inside_tree() or not is_instance_valid(pony):
+		return
+	var tuck: Node = TAIL_TUCK.new()
+	tuck.name = "UnfplapTailTuck"
+	tuck.set("pony", pony)
+	tuck.set("runtime", self)
+	add_child(tuck)
+	_tail_tuck = tuck
+
+
+func _end_tail_tuck() -> void:
+	if is_instance_valid(_tail_tuck):
+		_tail_tuck.queue_free()
+	_tail_tuck = null
+
+
+## Debug actions run from the paused settings page; the request is consumed on the next frame.
+func debug_force_tolerance(kind: String) -> bool:
+	if state not in [State.POSING_IN, State.ACTIVE]:
+		return false
+	_debug_forced_tolerance = kind
+	return true
 
 
 ## Store the strongest clean act per mare. The exchange is the useful part: a later cue can
@@ -3865,7 +4030,10 @@ func _reset_after_act() -> void:
 	var from := float(satisfaction)
 	_satisfaction_tween = create_tween()
 	_satisfaction_tween.tween_method(func(value: float) -> void: satisfaction = clampf(value, 0.0, READINESS_MAX), from, 0.0, 30.0)
-	_begin_aftercare()
+	if _stopped_by_her:
+		_start_tail_tuck()
+	else:
+		_begin_aftercare()
 
 func _begin_aftercare() -> void:
 	if not is_inside_tree() or not is_instance_valid(pony):
@@ -4423,6 +4591,7 @@ func _snout() -> Vector3:
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
 	_kiss_controller().restore_forelegs()
+	_end_tail_tuck()
 	if is_instance_valid(_satisfied):
 		_satisfied.queue_free()
 		_satisfied = null

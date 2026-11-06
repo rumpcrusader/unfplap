@@ -375,7 +375,7 @@ func _inject_settings_page_now(page: Node) -> void:
 	(content as VBoxContainer).add_child(ui)
 	# The page's title row already reads "Unfplap" with its gem icon, so the panel starts with the
 	# page's own info card instead of a second heading.
-	_info_card(ui, "Player settings and character taste in Settings; pose tuning, feature flags and test controls in Debug. Changes apply live during an act.", font_size)
+	_info_card(ui, "Player settings in Settings, per-mare taste in Characters; pose tuning, feature flags and test controls in Debug. Changes apply live during an act.", font_size)
 	var tabs_box := TabContainer.new()
 	tabs_box.name = "UnfplapTabs"
 	tabs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -385,8 +385,10 @@ func _inject_settings_page_now(page: Node) -> void:
 	var changed := Callable(self, "_apply_settings_changed")
 	var user_list := _settings_tab_list("Settings", tabs_box)
 	TUNABLES_UI.build(user_list, SCHEMA.SETTINGS_TAB, font_size, page, changed)
-	# Character taste is a per-mare profile form, not a global tunable, so it stays hand-built.
-	_add_taste_section(user_list, font_size)
+	# Character taste is a per-mare profile form, not a global tunable, so it keeps its own
+	# hand-built Characters tab instead of a schema section.
+	var char_list := _settings_tab_list("Characters", tabs_box)
+	_add_taste_form(char_list, font_size)
 	var debug_list := _settings_tab_list("Debug", tabs_box)
 	TUNABLES_UI.build(debug_list, SCHEMA.DEBUG_TAB, font_size, page, changed)
 	TUNABLES_UI.build_actions(debug_list, font_size, self)
@@ -534,12 +536,9 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 
 
 ## The per-mare taste profile is the one hand-built form; it borrows the schema rows' card,
-## heading, switch and pill pieces so it does not read as a different panel.
-func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
-	list.add_child(HSeparator.new())
-	var heading := STYLE.label("CHARACTER TASTE", "Faint", maxi(12, font_size - 7))
-	heading.add_theme_constant_override("line_spacing", 0)
-	list.add_child(heading)
+## switch and pill pieces so it does not read as a different panel. It fills its own Characters
+## sub-tab, so the tab bar supplies the heading and the form starts with the card.
+func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
 		Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.07), 1, 16, 16, 9)))
@@ -565,6 +564,7 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	var intensity := _taste_pills(form, "Intensity", TASTE.INTENSITIES, font_size)
 	var pattern := _taste_pills(form, "Pattern", TASTE.PATTERNS, font_size)
 	var warmth := _taste_pills(form, "Warmth", TASTE.WARMTHS, font_size)
+	var tolerance := _taste_pills(form, "Tolerance", TASTE.TOLERANCES, font_size)
 	var recovery := _taste_spin(form, "Recovery (0–80)", font_size)
 	var touch_likes := _taste_checks(form, "Likes touch", TASTE.TOUCHES, font_size)
 	var talk_likes := _taste_checks(form, "Likes talk", TASTE.TALKS, font_size)
@@ -577,6 +577,11 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 	var notes_label := _form_label("Notes", font_size)
 	form.add_child(notes_label)
 	form.add_child(notes)
+	var tolerance_help := STYLE.label(
+		"Timid: one warning at 4, never stops. Neutral: warnings at 1 and 4, stops at 10. Strict: warning at 1, stops at 3.",
+		"Faint", font_size - 6)
+	tolerance_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(tolerance_help)
 
 	var reset := Button.new()
 	reset.text = "Reset to default"
@@ -593,6 +598,7 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 		"intensity": intensity,
 		"pattern": pattern,
 		"warmth": warmth,
+		"tolerance": tolerance,
 		"recovery": recovery,
 		"touch_likes": touch_likes,
 		"talk_likes": talk_likes,
@@ -603,7 +609,7 @@ func _add_taste_section(list: VBoxContainer, font_size: int) -> void:
 		"refreshing": false,
 	}
 	selector.item_selected.connect(func(_index: int) -> void: _refresh_taste_form(refs))
-	for pills: HBoxContainer in [intensity, pattern, warmth]:
+	for pills: HBoxContainer in [intensity, pattern, warmth, tolerance]:
 		for pill: Node in pills.get_children():
 			(pill as Button).pressed.connect(_choose_taste_pill.bind(
 				pills, str(pill.get_meta("value")), refs))
@@ -714,6 +720,7 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	_select_taste_value(refs.get("intensity"), str(taste.get("intensity", "firm")))
 	_select_taste_value(refs.get("pattern"), str(taste.get("pattern", "steady")))
 	_select_taste_value(refs.get("warmth"), str(taste.get("warmth", "normal")))
+	_select_taste_value(refs.get("tolerance"), str(taste.get("tolerance", "neutral")))
 	var recovery: Variant = refs.get("recovery")
 	if recovery is SpinBox:
 		(recovery as SpinBox).value = float(taste.get("recovery", TASTE.RECOVERY_DEFAULT))
@@ -776,6 +783,7 @@ func _save_taste_form(refs: Dictionary) -> void:
 		"dislikes": dislikes,
 		"talk": _checked_taste_values(refs.get("talk_likes"), TASTE.TALKS),
 		"warmth": _picked_taste_value(refs.get("warmth"), "normal"),
+		"tolerance": _picked_taste_value(refs.get("tolerance"), "neutral"),
 		"recovery": int((refs.get("recovery") as SpinBox).value) if refs.get("recovery") is SpinBox else TASTE.RECOVERY_DEFAULT,
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
@@ -1171,6 +1179,24 @@ func action_reset_act_history() -> String:
 	ACT_HISTORY.save()
 	_debug("act history reset for %s" % id)
 	return "Act history cleared for %s." % str(target.name)
+
+
+func action_force_tolerance_warning() -> String:
+	return _debug_force_tolerance("warning")
+
+
+func action_force_tolerance_stop() -> String:
+	return _debug_force_tolerance("stop")
+
+
+func _debug_force_tolerance(kind: String) -> String:
+	if not is_instance_valid(active_runtime):
+		return "No act is active."
+	if not active_runtime.has_method("debug_force_tolerance"):
+		return "The act cannot force tolerance."
+	if not bool(active_runtime.call("debug_force_tolerance", kind)):
+		return "Tolerance forcing is only available during a live act."
+	return "Tolerance %s queued. Close this panel to let the act apply it." % kind
 
 
 ## Shared by the Debug tab: grant or clear the mod lover bond on the aimed or nearest mare.

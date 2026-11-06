@@ -87,6 +87,18 @@ func run() -> void:
 	check(int(bad.romance) == -1, "a bad act gives romance -1")
 	check(str(bad.mood) == "annoyed", "a severe bad act is annoyed")
 
+	var stopped := evaluate({"stopped_by_her": true, "tolerance": "strict",
+		"touch_dislikes": {"smack": 1}})
+	check(stopped.grade == "bad", "a partner stop is always bad")
+	check(bool(stopped.severe), "a stopped act is severe")
+	check(int(stopped.romance) == -1, "a stopped act gives no romance")
+	check(str(stopped.mood) == "angry", "a strict stop uses angry")
+	check(str(stopped.hud).is_empty(), "a stopped act has no HUD summary")
+	check("stopped_by_her" in (stopped.reasons as Array), "the stop reason is recorded")
+
+	var stopped_neutral := evaluate({"stopped_by_her": true, "tolerance": "neutral"})
+	check(str(stopped_neutral.mood) == "annoyed", "a neutral stop is annoyed")
+
 	var one_dislike := evaluate({"touch_dislikes": {"smack": 1}})
 	check(one_dislike.grade == "neutral", "one dislike only is neutral")
 	check(int(one_dislike.romance) == 1, "a neutral act still gives romance +1")

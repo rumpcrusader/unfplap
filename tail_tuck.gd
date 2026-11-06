@@ -28,6 +28,7 @@ func _ready() -> void:
 		_tail.set("aside_angle", 0.0)
 		_tail.set("lift_angle", TUCK_LIFT)
 		_tail.set("flick_amplitude", 0.0)
+		_tail.set("base_pivot", true)
 		_tail.set("amount", 0.0)
 		_tail.set("target_amount", 1.0)
 		(hair as Skeleton3D).add_child(_tail)

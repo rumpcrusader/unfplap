@@ -37,6 +37,10 @@ var mare: Node3D
 var runtime: Node
 var amount := 0.0
 var target_amount := 0.0
+## Hinge the whole tail at `mTail1` and leave the rest of the chain rigid, instead of spreading
+## the rotation down it with a falloff. The post-refusal tuck uses this so the base pivots rather
+## than the middle of the tail.
+var base_pivot := false
 ## +1 or -1: which way the tail sweeps. Randomized per act.
 var aside_sign := 1.0
 
@@ -166,8 +170,11 @@ func _apply(delta: float) -> void:
 			sk.set_bone_global_pose(entry[0], entry[1])
 	var flicking := absf(flick) > 0.0001
 	for i: int in _bones.size():
+		if base_pivot and i > 0:
+			# The children keep their unchanged local transforms; rotating mTail1 moves them.
+			break
 		var bone := _bones[i]
-		var falloff := 1.0 - float(i) * 0.10
+		var falloff := 1.0 if base_pivot else 1.0 - float(i) * 0.10
 		var pose := sk.get_bone_global_pose(bone)
 		var direction := pose.basis.z
 		if i + 1 < _bones.size():

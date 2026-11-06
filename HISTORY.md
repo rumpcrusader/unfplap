@@ -147,8 +147,8 @@ A stop is a dedicated path, not `cancel()`:
 - Neutral: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
 - Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
 - the history `stop_until` field blocks `blocks_start()`, `blocks_offers()` and offer weight;
-- no aftercare or satisfied face. A 20 s tucked-tail effect follows her, owns no navigator, and is
-  removed if a new act starts.
+- no aftercare or satisfied face. A 20 s tucked-tail effect hinged at the tail base follows her,
+  owns no navigator, and is removed if a new act starts.
 
 The debug tunables live under **Tolerance**. Debug actions **Force tolerance warning** and
 **Force tolerance stop** drive the live act for testing.

@@ -151,7 +151,7 @@ mods/unfplap/
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
-  tail_tuck.gd      20 s tucked-tail posture after a partner stop; no navigator hold
+  tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
   audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
@@ -809,7 +809,8 @@ examples.
 - Stop thresholds: timid never; neutral 10; strict 3. A stop is not `cancel()`. It forces a severe
   bad summary (`stopped_by_her`, no romance, `+2` hurt), records `MEMORY.stop_event(..., "withdrew")`,
   ends with no afterglow/cuddle rejoin and no aftercare, and starts a 20 s `tail_tuck.gd` that owns
-  no navigator.
+  no navigator. The tuck hinges the tail at `mTail1` (the rest of the chain follows rigidly), not
+  down the middle of the chain.
 - Neutral stops with a stern line, no buck and a `300 s` sex-only cooldown. Strict stops with a
   stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
   `stop_until` blocks `blocks_start()`, proactive offers and offer weight; pressing Y gets the

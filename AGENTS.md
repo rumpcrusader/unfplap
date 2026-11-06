@@ -53,17 +53,20 @@ Manual lab:
 It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
 script. `godot` must be on `PATH`.
 
-- The lab loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara, pauses world
-  scheduling and background AI, and uses the Golden Oak guest bed. It does not spawn a test bed.
-  Diamond Tiara is the filly witness fixture: no romance tier, no dating record, no bed invite.
+- The lab loads only Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack, pauses
+  world scheduling and background AI, and uses the Golden Oak guest bed. It does not spawn a test
+  bed. Diamond Tiara is the filly witness fixture: no romance tier, no dating record, no bed
+  invite. Applejack and Diamond Tiara start as strangers: friendship 0, no romance tier and no
+  dating record.
 - Before the loading screen's furnishing wait the lab sets `furnish = false` on every generated
   house. Authored homes (the library) keep their furniture and bed, so the 200 ms-per-house
   furnishing stagger never runs.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
-- The lab re-seeds its five ponies on every startup (friendship and mood, idle posture; romance
-  tier and dating record only for the four adults) and moves them to a row on the path in front of
-  Golden Oak Library. The rest of the world's context and inventory persist.
+- The lab re-seeds its six ponies on every startup (friendship and mood, idle posture; romance
+  tier and dating record only for the adults that are not strangers). Four ponies are moved to a
+  row on the path in front of Golden Oak Library; Applejack and Diamond Tiara are spawned nearby
+  to the side of the library instead. The rest of the world's context and inventory persist.
 - The lab normalizes a mare's saved actor rotation to yaw-only in `_upright()` during setup and
   after bed transport. A tilted saved transform otherwise makes support recovery fight the
   collider every frame and print endless `re-seated on the floor` lines.

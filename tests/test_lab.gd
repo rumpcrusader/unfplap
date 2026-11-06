@@ -3,9 +3,11 @@ extends Node
 ##   ./lab.sh
 ## The session is written to last-run.log beside the script.
 ##
-## Loads only Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara and pauses population/living-world/time
-## plus background AI. At setup they are moved to the path in front of Golden Oak Library.
-## Diamond Tiara is the filly witness fixture: no romance tier or dating record, never invited to bed.
+## Loads only Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack and pauses
+## population/living-world/time plus background AI. At setup they are moved to the path in front of
+## Golden Oak Library. Diamond Tiara is the filly witness fixture: no romance tier or dating record,
+## never invited to bed. Applejack and Diamond Tiara start as strangers: friendship 0, no romance
+## tier and no dating record.
 ## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. Generated town houses
 ## skip furnishing before the loading wait; the authored library keeps its room and bed. The
 ## dialogue director stays running, because it serializes replies and a stopped director leaves
@@ -22,7 +24,9 @@ extends Node
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "diamond_tiara"]
+const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "diamond_tiara", "applejack"]
+## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.
+const TEST_STRANGERS := ["applejack", "diamond_tiara"]
 ## Starting love XP: 0 = New Couple and below the sex gate, 150 = Marefriend, 400 = Head Over
 ## Hooves, 900 = the dating maximum (Soulmates still needs marriage). The -/= keys step these.
 ## Diamond Tiara is young and never gets entries here.
@@ -39,15 +43,15 @@ const SETUP_ACTIONS := [
 	"wait for the game's world loading screen to finish",
 	"temporarily set world/opening=skip, then restore the stored value",
 	"skip the arrival tutorial when it is active",
-	"restrict population to Twilight, Fluttershy, Rarity, Derpy and Diamond Tiara (memory only)",
+	"restrict population to Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack (memory only)",
 	"despawn any other resident already live in the world",
 	"keep the dialogue director alive with ai_usage=talk",
 	"pause population, life and needs",
 	"pause PrincessVisits, TrixieShow, DayRunner, NightRest and StuckRescue",
 	"pause TimeOfDay",
 	"skip generated house furnishing; the authored library keeps its room and bed",
-	"set friendship >= 500, neutral mood and idle for every test pony",
-	"set romance tier and dating record only for the four adult test mares",
+	"set friendship >= 500, neutral mood and idle for every test pony except the strangers",
+	"set romance tier and dating record only for the adult test mares that are not strangers",
 	"clear the adult test mares' long-term act history",
 	"leave lover bonds unset; Mouse5 grants one",
 	"spawn no bed; use the Golden Oak guest bed",
@@ -266,6 +270,15 @@ func _setup_ponies(ponies: Array) -> void:
 	var rows := PackedStringArray()
 	var home := _library_home()
 	var index := 0
+	var stranger_index := 0
+	# Strangers spawn away from the library row so the path stays uncrowded.
+	var row_count := 0
+	for pony_node: Variant in ponies:
+		var pony: Node3D = pony_node as Node3D
+		if not is_instance_valid(pony):
+			continue
+		if not TEST_STRANGERS.has(_pony_id(pony)):
+			row_count += 1
 	for pony_node: Variant in ponies:
 		var pony: Node3D = pony_node as Node3D
 		if not is_instance_valid(pony):
@@ -274,22 +287,38 @@ func _setup_ponies(ponies: Array) -> void:
 		if id.is_empty():
 			continue
 		var young := _is_young(pony)
+		var stranger := TEST_STRANGERS.has(id)
 		var friendship_xp := 0
 		if is_instance_valid(impressions):
 			var row: Dictionary = xp.get(id, impressions.call("xp_for", id))
-			row["friendship"] = maxi(int(row.get("friendship", 0)), 500)
+			if stranger:
+				row["friendship"] = 0
+				if not young:
+					row["romance"] = 0
+			else:
+				row["friendship"] = maxi(int(row.get("friendship", 0)), 500)
+				if not young:
+					row["romance"] = int(TEST_ROMANCE.get(id, 150))
 			friendship_xp = int(row["friendship"])
-			if not young:
-				row["romance"] = int(TEST_ROMANCE.get(id, 150))
 			xp[id] = row
-		if not young:
+		if not young and not stranger:
 			_set_dating_record(pony)
+		if stranger:
+			_forget_meeting(pony)
 		_set_mood(pony, "neutral")
 		_make_idle(pony, true)
-		var placed := _place_front(pony, home, index, ponies.size())
-		index += 1
+		var placed: bool = false
+		if stranger:
+			placed = _place_stranger(pony, home, stranger_index)
+			stranger_index += 1
+		else:
+			placed = _place_front(pony, home, index, row_count)
+			index += 1
 		if young:
 			rows.append("%s young friendship_xp=%d pos=%s front=%s" % [
+				id, friendship_xp, str(pony.global_position), str(placed)])
+		elif stranger:
+			rows.append("%s stranger friendship_xp=%d pos=%s front=%s" % [
 				id, friendship_xp, str(pony.global_position), str(placed)])
 		else:
 			rows.append("%s romance_xp=%d level=%s pos=%s front=%s" % [
@@ -310,6 +339,31 @@ func _setup_ponies(ponies: Array) -> void:
 	var context: Variant = game.get("world_context")
 	if is_instance_valid(context):
 		context.call("_changed")
+
+
+## Place a stranger at a separate nearby point, away from the row in front of the door.
+func _place_stranger(pony: Node3D, home: Node3D, stranger_index: int) -> bool:
+	if not is_instance_valid(pony) or not is_instance_valid(home):
+		return false
+	if not home.has_method("outside"):
+		return false
+	var front: Vector3 = home.call("outside")
+	var right: Vector3 = home.global_basis.x.normalized()
+	var back: Vector3 = home.global_basis.z.normalized()
+	# Side of the library, stepping each stranger apart so they do not overlap.
+	var at := front + right * (4.0 + float(stranger_index) * 0.60) + back * (1.0 + float(stranger_index) * 0.40)
+	var space := pony.get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 4.0, 1)
+	query.exclude = [pony.get_rid()]
+	var hit: Dictionary = space.intersect_ray(query)
+	if not hit.is_empty():
+		at = hit.get("position", at)
+	pony.global_position = at
+	if pony.get("velocity") != null:
+		pony.set("velocity", Vector3.ZERO)
+	_upright(pony)
+	pony.reset_physics_interpolation()
+	return true
 
 
 # --------------------------------------------------------------------------- hotkeys
@@ -810,6 +864,35 @@ func _set_dating_record(pony: Node3D) -> String:
 	if bonds.has_method("mark_met"):
 		bonds.call("mark_met", id)
 	return "stage %s -> dating" % before
+
+
+## Clear "met" knowledge so the pony reads as Stranger (friendship level 0). The lab reuses a
+## saved test world, so a prior session's meeting receipt would otherwise keep her at Acquaintance.
+func _forget_meeting(pony: Node3D) -> String:
+	var id := _pony_id(pony)
+	var rel: Variant = pony.get_meta("relationship_runtime")
+	if rel == null or not is_instance_valid(rel):
+		return "no relationship runtime"
+	var bonds: Variant = rel.get("bonds")
+	if bonds == null or not is_instance_valid(bonds):
+		return "no bonds"
+	var data: Variant = bonds.get("data")
+	if not data is Dictionary:
+		return "no bonds data"
+	var knowledge: Variant = (data as Dictionary).get("knowledge", {})
+	if not knowledge is Dictionary:
+		return "no knowledge"
+	var known: Dictionary = knowledge as Dictionary
+	if not known.has(id):
+		return "already unknown"
+	known.erase(id)
+	(data as Dictionary)["knowledge"] = known
+	var context: Node = game.get("world_context") if is_instance_valid(game) else null
+	if context == null:
+		return "no world context"
+	context.state.player_bonds = (data as Dictionary).duplicate(true)
+	context.call("_changed")
+	return "forgot meeting"
 
 
 func _set_mood(pony: Node3D, mood: String) -> String:

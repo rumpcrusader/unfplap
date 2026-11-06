@@ -579,6 +579,9 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	var notes_label := _form_label("Notes", font_size)
 	form.add_child(notes_label)
 	form.add_child(notes)
+	var warmth_help := STYLE.label("How fast arousal builds.", "Faint", font_size - 6)
+	warmth_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(warmth_help)
 	# integration: per-mare consent for the optional anatomy actions.
 	var consent_public := CheckButton.new()
 	form.add_child(_form_label("Okay with public", font_size))

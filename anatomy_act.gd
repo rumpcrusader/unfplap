@@ -1,0 +1,431 @@
+extends Node
+## integration: per-act anatomy behaviour ported from PonyPussyParadise runtime.gd. It reads the
+## current act depth and drives the anatomy meshes, the Anon part, the oral turn, the finish state
+## and the fluid. It never touches thrust scoring, auto thrust or the camera.
+
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
+const MATTRESS := preload("res://world/life/couch/mattress.gd")
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+
+const WINKING_REST_OPEN := 0.6
+const WINKING_OPEN_AT := 0.3
+const WINKING_HUG_RATE := 45.0
+const WINKING_FILL_RATE := 16.0
+const WINKING_STRETCH_RADIUS := 0.05
+const WINKING_STRETCH_MAX := 1.4
+const HOLE_SWAP_S := 0.9
+const ANAL_READY := 0.55
+const MARE_HOLD_PHASE := 0.45
+const PULLED_OUT_PHASE := 0.35
+const ORAL_TURN_S := 1.6
+const ORAL_DEPTH := 0.5
+const ORAL_DIP_DEG := 8.0
+const ORAL_CHIN_DEG := 6.0
+const ORAL_NECK_DEG := -14.0
+const ORAL_MOUTH := "D"
+const ORAL_LEAN_M := 0.14
+const ORAL_STYLE_MIN_S := 3.5
+const ORAL_STYLE_MAX_S := 8.0
+const ORAL_STYLE_BLEND := 2.0
+const ORAL_ANCHOR_RATE := 0.8
+const ORAL_BELOW_NOSE_M := 0.03
+const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
+const ANON_FLUID_COLOR := Color(0.98, 0.97, 0.93, 0.96)
+const ORAL_STYLES := [
+	[Vector3(0.085, 0.16, 0.04), 1.0],
+	[Vector3(0.05, 0.14, 0.26), 0.85],
+	[Vector3(0.06, 0.08, 0.34), 0.75],
+	[Vector3(0.03, 0.08, 0.12), 1.6],
+	[Vector3(0.1, 0.22, 0.1), 0.6],
+]
+
+var runtime: Node
+var pony: Node3D
+var anatomy: Node
+var main: Node
+var pose := ""
+var _id := ""
+var _display_name := ""
+var _anal := false
+var _hole_mix := 0.0
+var _oral := false
+var _oral_mix := 0.0
+var _oral_style: Array = ORAL_STYLES[0]
+var _oral_style_left := 0.0
+var _oral_now := Vector3.ZERO
+var _oral_speed := 1.0
+var _oral_clock := 0.0
+var _oral_side := 1.0
+var _oral_anchor := Vector3.INF
+var _oral_hold := Vector3.ZERO
+var _oral_rear := Vector3.BACK
+var _oral_from := Vector3.ZERO
+var _oral_to := Vector3.ZERO
+var _oral_from_basis := Basis.IDENTITY
+var _fill := 0.0
+var _wide := 0.0
+var _pull_out := false
+var _finish_out := false
+var _finished_inside := false
+var _fluid: Node3D
+
+
+func setup(runtime_node: Node, anatomy_node: Node, pose_id: String) -> void:
+	runtime = runtime_node
+	anatomy = anatomy_node
+	main = runtime.get("main")
+	pony = runtime.get("pony")
+	pose = pose_id
+	_id = str(runtime.get("_id"))
+	_display_name = str(runtime.get("_display_name"))
+	reset()
+
+
+func reset() -> void:
+	_anal = false
+	_hole_mix = 0.0
+	_oral = false
+	_oral_mix = 0.0
+	_oral_style = ORAL_STYLES[0]
+	_oral_style_left = 0.0
+	_oral_now = Vector3.ZERO
+	_oral_speed = 1.0
+	_oral_clock = 0.0
+	_oral_side = 1.0
+	_oral_anchor = Vector3.INF
+	_oral_from = Vector3.ZERO
+	_oral_to = Vector3.ZERO
+	_oral_from_basis = Basis.IDENTITY
+	_fill = 0.0
+	_wide = 0.0
+	_pull_out = false
+	_finish_out = false
+	_finished_inside = false
+	if is_instance_valid(anatomy):
+		anatomy.call("animate", 0.0, 1.0)
+
+
+func _enabled(feature: String) -> bool:
+	return bool(TUNABLES.block("features.").get(feature, false))
+
+
+func _state() -> int:
+	return int(runtime.get("state"))
+
+
+func _depth() -> float:
+	return clampf(float(runtime.get("depth")), 0.0, 1.0)
+
+
+func hole_point() -> Vector3:
+	if not is_instance_valid(anatomy):
+		return Vector3.ZERO
+	return anatomy.call("hole_point", _hole_mix)
+
+
+func hole_rear() -> Vector3:
+	if not is_instance_valid(anatomy):
+		return Vector3.BACK
+	return anatomy.call("hole_rear")
+
+
+func oral_active() -> bool:
+	return _oral or _oral_mix > 0.0
+
+
+func finish_out() -> bool:
+	return _finish_out
+
+
+func finished_inside() -> bool:
+	return _finished_inside
+
+
+func toggle_hole() -> void:
+	if not _enabled("anatomy_holes") or _state() not in [2, 3] or _oral:
+		return
+	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("anal_mesh")):
+		return
+	if not _anal and not _consent("anal"):
+		_status("%s is not into that" % _display_name)
+		return
+	_anal = not _anal
+
+
+func toggle_oral() -> void:
+	if not _enabled("anatomy_oral") or _state() != 2 or pose != CATALOG.STANDING:
+		return
+	if not _consent("oral"):
+		_status("%s is not into that" % _display_name)
+		return
+	var ends := _head_ends()
+	if ends.is_empty():
+		return
+	if not _oral and _oral_mix <= 0.0:
+		_anal = false
+		_hole_mix = 0.0
+		var mouth: Vector3 = pony.global_transform.affine_inverse() * _mouth_point()
+		var scale: Vector3 = pony.global_transform.basis.get_scale()
+		var turned := Basis(Vector3.UP, PI) * pony.global_transform.basis.orthonormalized()
+		var opening: Vector3 = hole_point()
+		var to: Vector3 = opening - turned * (mouth * scale)
+		_oral_from = pony.global_position
+		_oral_to = Vector3(to.x, pony.global_position.y, to.z)
+		_oral_from_basis = pony.global_transform.basis.orthonormalized()
+		_oral_hold = opening
+		var back: Vector3 = anatomy.call("hole_rear")
+		_oral_rear = Vector3(back.x, 0.0, back.z).normalized()
+	_oral = not _oral
+	var mouth_rig: Variant = _pony_mouth()
+	if mouth_rig != null:
+		if _oral and mouth_rig.has_method("set_viseme"):
+			mouth_rig.call("set_viseme", ORAL_MOUTH)
+		elif not _oral and mouth_rig.has_method("clear"):
+			mouth_rig.call("clear")
+
+
+func toggle_finish() -> void:
+	if not _enabled("anatomy_finish") or _state() not in [2, 3]:
+		return
+	_pull_out = not _pull_out
+	_status("Finish: %s" % ("pull out" if _pull_out else "stay in"))
+
+
+func _consent(key: String) -> bool:
+	return bool(SETTINGS.consent(_id).get(key, false))
+
+
+func _status(text: String) -> void:
+	if is_instance_valid(main) and main.has_method("anatomy_status"):
+		main.call("anatomy_status", text, 2.0)
+
+
+func _head_ends() -> Array:
+	var boop: Variant = pony.get("boop_node")
+	var head: Variant = boop.get("head_skeleton") if boop != null else null
+	if not head is Skeleton3D:
+		return []
+	var skeleton := head as Skeleton3D
+	var bone := skeleton.find_bone("mHead")
+	if bone < 0:
+		return []
+	return [skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin,
+		boop.call("nose_world")]
+
+
+func _pony_mouth() -> Variant:
+	var head: Variant = pony.get("head")
+	return head.get("mouth") if head != null else null
+
+
+func _mouth_point() -> Vector3:
+	var ends := _head_ends()
+	if ends.is_empty():
+		return hole_point()
+	return (ends[1] as Vector3) + Vector3.DOWN * ORAL_BELOW_NOSE_M * _size_scale()
+
+
+func _size_scale() -> float:
+	return float(runtime.call("_size_scale"))
+
+
+func tick(delta: float) -> void:
+	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
+		return
+	var mesh: Variant = anatomy.call("winking_mesh")
+	if not is_instance_valid(mesh):
+		return
+	var frame: Transform3D = (mesh as Node3D).global_transform
+	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	var width: float = -1.0
+	if is_instance_valid(part):
+		width = float(part.call("girth_at", hole_point()))
+	if width < 0.0:
+		width = _depth() * WINKING_STRETCH_RADIUS
+	else:
+		width /= maxf(frame.basis.get_scale().x, 0.001)
+	var wide := minf(width / WINKING_STRETCH_RADIUS, WINKING_STRETCH_MAX)
+	_wide = lerpf(_wide, wide, 1.0 - exp(-delta * WINKING_HUG_RATE))
+	_fill = lerpf(_fill, smoothstep(0.0, WINKING_OPEN_AT, wide),
+		1.0 - exp(-delta * WINKING_FILL_RATE))
+	_hole_mix = move_toward(_hole_mix, 1.0 if _anal else 0.0, delta / HOLE_SWAP_S)
+	_oral_tick(delta)
+	if _oral_mix > 0.0:
+		_oral_motion_tick(delta)
+	var rearward := 1.0 - _oral_mix
+	var front := (1.0 - _hole_mix) * rearward
+	anatomy.call("drive", 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front)
+	anatomy.call("set_stretch", _wide * front)
+	anatomy.call("set_anal_shape", maxf(_fill, ANAL_READY) * _hole_mix * rearward,
+		_wide * _hole_mix * rearward)
+	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
+	var shown := _depth()
+	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
+		shown, delta, (mesh as Node3D).get_parent())
+
+
+func pose_config(config: Dictionary) -> void:
+	if not is_instance_valid(anatomy):
+		return
+	if pose == CATALOG.MISSIONARY:
+		config["pelvis_curl_deg"] = 25.0
+		config["legs_wrap"] = 1.0
+		config["bed_lift_m"] = 0.05
+	elif _oral_mix > 0.0:
+		config["oral_pitch"] = _oral_now.y * 0.5 * _oral_mix
+		config["oral_yaw"] = _oral_now.z * _oral_mix
+		config["oral_roll"] = _oral_now.z * 0.3 * _oral_mix
+
+
+func _oral_motion_tick(delta: float) -> void:
+	_oral_style_left -= delta
+	if _oral_style_left <= 0.0:
+		_oral_style_left = randf_range(ORAL_STYLE_MIN_S, ORAL_STYLE_MAX_S)
+		_oral_style = ORAL_STYLES.pick_random()
+		_oral_side = -_oral_side
+	var blend := 1.0 - exp(-delta * ORAL_STYLE_BLEND)
+	_oral_now = _oral_now.lerp(_oral_style[0], blend)
+	_oral_speed = lerpf(_oral_speed, float(_oral_style[1]), blend)
+	var pace := 0.8
+	var auto: Variant = runtime.get("_auto_thrust")
+	if auto != null:
+		pace = maxf(pace, float(auto.get("pace")))
+	_oral_clock = fposmod(_oral_clock + delta * pace * _oral_speed, 16.0)
+	var turn := TAU * _oral_clock
+	var stroke := sin(turn)
+	var mix := smoothstep(0.0, 1.0, _oral_mix)
+	var mouth := _mouth_point()
+	_oral_anchor = mouth if _oral_anchor == Vector3.INF \
+		else _oral_anchor.lerp(mouth, 1.0 - exp(-delta * ORAL_ANCHOR_RATE))
+	var config: Dictionary = runtime.get("_pose_cfg") if runtime.get("_pose_cfg") is Dictionary else {}
+	config["oral_pitch"] = cos(turn) * _oral_now.y * mix
+	config["oral_yaw"] = (sin(turn * 0.5) * _oral_now.z + _oral_side * _oral_now.z * 0.5) * mix
+	config["oral_roll"] = sin(turn * 0.5 + 1.1) * _oral_now.z * 0.6 * mix
+	if is_instance_valid(runtime.get("_pose")) and runtime.get("_pose").get("pose_config") is Dictionary:
+		var live: Dictionary = runtime.get("_pose").get("pose_config")
+		live["oral_pitch"] = config["oral_pitch"]
+		live["oral_yaw"] = config["oral_yaw"]
+		live["oral_roll"] = config["oral_roll"]
+
+
+func _oral_tick(delta: float) -> void:
+	var mix := move_toward(_oral_mix, 1.0 if _oral else 0.0, delta / ORAL_TURN_S)
+	if mix == _oral_mix:
+		return
+	_oral_mix = mix
+	if mix <= 0.0 and is_instance_valid(runtime.get("_pose")) \
+			and runtime.get("_pose").get("pose_config") is Dictionary:
+		for key: String in ["oral_pitch", "oral_yaw", "oral_roll"]:
+			(runtime.get("_pose").get("pose_config") as Dictionary).erase(key)
+	if not _oral:
+		_oral_anchor = Vector3.INF
+	var eased := smoothstep(0.0, 1.0, mix)
+	var basis: Basis = Basis(Vector3.UP, PI * eased) * _oral_from_basis
+	if is_instance_valid(runtime) and runtime.has_method("anatomy_facing"):
+		runtime.call("anatomy_facing", basis, eased)
+	pony.global_position = _oral_from.lerp(_oral_to, eased)
+
+
+## integration: shape and fluid hooks called by the runtime.
+func on_climax() -> void:
+	if not _enabled("anatomy_fluid") or not _fluid_ready():
+		return
+	_fluid.call("spray", hole_point(), _hole_out(), 26, 1.0, 0.0075, PONY_FLUID_COLOR)
+	_fluid.call("drip", Callable(self, "hole_point"), 2.5, 7.0, 0.007, PONY_FLUID_COLOR)
+
+
+func on_finish() -> void:
+	if not _enabled("anatomy_finish") and not _enabled("anatomy_fluid"):
+		return
+	_finish_out = _pull_out or _depth() < PULLED_OUT_PHASE
+	if _finish_out:
+		_spurts_on_her(0)
+	elif not _oral:
+		_finished_inside = true
+		if _fluid_ready():
+			get_tree().create_timer(0.7).timeout.connect(_inside_leak)
+
+
+func withdraw() -> void:
+	if _finished_inside and is_instance_valid(_fluid):
+		_fluid.call("spray", hole_point(), _hole_out(), 34, 0.55, 0.0105, ANON_FLUID_COLOR)
+		_fluid.call("drip", Callable(self, "hole_point"), 5.0, 11.0, 0.009, ANON_FLUID_COLOR)
+	_finished_inside = false
+
+
+func end() -> void:
+	if is_instance_valid(anatomy):
+		anatomy.call("animate", 1.0, 1.5)
+		anatomy.call("_clear_part")
+	if _oral_mix > 0.0:
+		_oral = false
+		_oral_mix = 0.0
+		if is_instance_valid(runtime) and runtime.has_method("anatomy_facing"):
+			runtime.call("anatomy_facing", Basis.IDENTITY, 0.0)
+	var mouth_rig: Variant = _pony_mouth()
+	if mouth_rig != null and mouth_rig.has_method("clear"):
+		mouth_rig.call("clear")
+
+
+func teardown() -> void:
+	_oral = false
+	_oral_mix = 0.0
+	_anal = false
+	_hole_mix = 0.0
+	_finished_inside = false
+	_finish_out = false
+	_pull_out = false
+
+
+func _hole_out() -> Vector3:
+	var rear := hole_rear()
+	return rear + Vector3.DOWN * 0.3
+
+
+func _fluid_ready() -> bool:
+	if not _enabled("anatomy_fluid"):
+		return false
+	if not is_instance_valid(_fluid):
+		_fluid = CLIMAX_FLUID.new()
+		_fluid.name = "UnfplapAnatomyFluid"
+		_fluid.set("skeleton", pony.get("skeleton"))
+		_fluid.set("body_scale", float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)
+		pony.add_child(_fluid)
+	var ground := pony.global_position.y
+	if pose == CATALOG.MISSIONARY:
+		var camera: Variant = runtime.call("_missionary_camera_controller")
+		if camera != null and camera.has_method("_bed_surface_top"):
+			var top: Variant = camera.call("_bed_surface_top")
+			if top is float and is_finite(top):
+				ground = top
+	_fluid.set("ground_y", ground)
+	return true
+
+
+func _spurts_on_her(pulse: int) -> void:
+	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	if pulse >= 4 or not is_instance_valid(part) or not bool(part.call("showing")) \
+			or not is_instance_valid(_fluid):
+		return
+	if pulse == 0:
+		get_tree().create_timer(0.55).timeout.connect(_spurts_on_her.bind(1))
+		return
+	var rear := hole_rear()
+	var up_and_over := -Vector3(rear.x, 0.0, rear.z).normalized() + Vector3.UP * 0.55
+	if pose == CATALOG.MISSIONARY:
+		var mesh: Variant = anatomy.call("winking_mesh")
+		if is_instance_valid(mesh):
+			up_and_over = (mesh as Node3D).global_basis.y.normalized() + Vector3.UP * 0.45
+	_fluid.call("spray", part.call("tip_world"), up_and_over, 20 - pulse * 3, 2.3 - pulse * 0.35,
+		0.0095, ANON_FLUID_COLOR)
+	get_tree().create_timer(0.38).timeout.connect(_spurts_on_her.bind(pulse + 1))
+
+
+func _inside_leak() -> void:
+	if not _enabled("anatomy_fluid"):
+		return
+	if is_instance_valid(_fluid) and is_instance_valid(anatomy):
+		_fluid.call("drip", Callable(self, "hole_point"), 9.0, 8.0, 0.009, ANON_FLUID_COLOR)

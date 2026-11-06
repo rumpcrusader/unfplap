@@ -11,6 +11,7 @@ extends RefCounted
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
+const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -114,6 +115,30 @@ static func taste(id: String) -> Dictionary:
 	if value is Dictionary:
 		return PREFERENCES.resolve(value)
 	return PREFERENCES.defaults()
+
+
+## integration: her consent for the optional anatomy actions. A per-character override wins;
+## otherwise the deterministic id defaults apply.
+static func consent(id: String) -> Dictionary:
+	var template := template_for(id)
+	return CONSENT.resolve(id, template.get("consent", {}))
+
+
+## integration: save only the consent block. Taste, prompts and poses are preserved.
+static func save_consent(id: String, values: Dictionary) -> void:
+	var data := _read()
+	var characters: Variant = data.get("characters", {})
+	if not characters is Dictionary:
+		characters = {}
+	var roster: Dictionary = characters
+	var entry: Variant = roster.get(id, {})
+	if not entry is Dictionary:
+		entry = {}
+	var character: Dictionary = entry
+	character["consent"] = CONSENT.clean(values)
+	roster[id] = character
+	data["characters"] = roster
+	_write(data)
 
 
 static func character_name(id: String) -> String:
@@ -348,6 +373,8 @@ static func _defaults() -> Dictionary:
 		"jiggle": SCHEMA.default_block("jiggle."),
 		"camera_thrust": SCHEMA.default_block("camera_thrust."),
 		"presentation": SCHEMA.default_block("presentation."),
+		# integration: non-feature anatomy switches.
+		"anatomy": SCHEMA.default_block("anatomy."),
 		"default": _filled_default(),
 		"characters": CHARACTER_TEMPLATES.duplicate(true),
 	}

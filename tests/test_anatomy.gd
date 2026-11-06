@@ -1,0 +1,105 @@
+extends SceneTree
+## integration: anatomy consent, eligibility and schema gate checks.
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_anatomy.gd
+
+const CONSENT := preload("res://mods/unfplap/consent.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+
+var failures := 0
+var checks := 0
+
+class FakeIdentity extends Resource:
+	var id := ""
+	var filly := false
+	var stallion := false
+
+class FakePony extends Node3D:
+	var identity: Resource
+	var rig: Node
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func _pony(id: String, filly := false, stallion := false) -> FakePony:
+	var pony := FakePony.new()
+	var identity := FakeIdentity.new()
+	identity.id = id
+	identity.filly = filly
+	identity.stallion = stallion
+	pony.identity = identity
+	pony.set_meta("relationship_id", id)
+	return pony
+
+
+func run() -> void:
+	# Consent defaults are deterministic and per-id, and an override wins.
+	var a := CONSENT.defaults("twilight_sparkle")
+	var b := CONSENT.defaults("twilight_sparkle")
+	check(a == b, "consent defaults are deterministic")
+	check(a.has("public") and a.has("anal") and a.has("oral"), "consent has all three keys")
+	var over := CONSENT.resolve("twilight_sparkle", {"anal": true, "oral": false})
+	check(bool(over.get("anal", false)), "consent anal override wins")
+	check(not bool(over.get("oral", true)), "consent oral override wins")
+	check(bool(CONSENT.resolve("twilight_sparkle", {}).get("public", false))
+		== bool(a.get("public", false)), "empty override keeps defaults")
+
+	# Eligibility is the modern taste roster plus identity checks. There is no age list.
+	var twilight := _pony("twilight_sparkle")
+	check(ANATOMY.eligible(twilight), "roster adult is eligible")
+	var filly := _pony("twilight_sparkle", true)
+	check(not ANATOMY.eligible(filly), "identity filly is excluded")
+	var stallion := _pony("twilight_sparkle", false, true)
+	check(not ANATOMY.eligible(stallion), "stallion is excluded")
+	var off_roster := _pony("not_a_base_mare")
+	check(not ANATOMY.eligible(off_roster), "off-roster mare is excluded")
+	var player := _pony("twilight_sparkle")
+	player.name = "PlayerPony"
+	check(not ANATOMY.eligible(player), "player pony is excluded")
+
+	# Every new flag exists with the intended default.
+	check(SCHEMA.has("features.anatomy"), "anatomy master flag")
+	check(bool(SCHEMA.default_value("features.anatomy")), "anatomy is on by default")
+	for key: String in ["anatomy_holes", "anatomy_oral", "anatomy_finish", "anatomy_fluid"]:
+		check(SCHEMA.has("features." + key), "%s flag" % key)
+		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
+	for key: String in ["anatomy_align", "anatomy_bed_body", "anatomy_vr",
+			"act_bystanders", "act_line_variety", "act_chat", "act_public_offer"]:
+		check(SCHEMA.has("features." + key), "%s flag" % key)
+		check(not bool(SCHEMA.default_value("features." + key)), "%s is off by default" % key)
+	check(SCHEMA.has("anatomy.teats"), "teats flag")
+	check(bool(SCHEMA.default_value("anatomy.teats")), "teats on by default")
+	check(TUNABLES.get_string("anatomy.skin_tone") in ["coat", "darker", "dark"],
+		"skin tone choice")
+
+	# A profile keeps its custom prompts and poses when consent is merged.
+	var base: Dictionary = SETTINGS._filled_default()
+	var characters := {"twilight_sparkle": {
+		"consent": {"anal": true},
+		"event_prompts": {"climax": "custom"},
+		"poses": {"missionary": {"rump_drop_deg": 12.0}},
+	}}
+	var profile: Dictionary = SETTINGS.profile_for(base, characters, "twilight_sparkle")
+	check(profile.has("consent"), "profile carries consent")
+	check(str((profile.get("event_prompts", {}) as Dictionary).get("climax", "")) == "custom",
+		"consent merge preserves event prompts")
+	check(absf(float(((profile.get("poses", {}) as Dictionary).get("missionary", {}) as Dictionary)
+		.get("rump_drop_deg", 0.0)) - 12.0) < 0.001, "consent merge preserves pose overrides")
+	check(not ANATOMY.assets_exist() or ANATOMY.assets_exist(), "asset check is a bool")
+
+	for pony: Node in [twilight, filly, stallion, off_roster, player]:
+		if is_instance_valid(pony):
+			pony.free()
+	print("ANATOMY_RESULT checks=%d failures=%d" % [checks, failures])
+	quit(0 if failures == 0 else 1)

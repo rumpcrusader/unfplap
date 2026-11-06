@@ -21,7 +21,7 @@ Do not start implementation until you have read the required files for the area 
 
 ## Identity and scope
 
-- Mod id `unfplap`; current public version `0.1.2`; target game `0.3.0-maredev`.
+- Mod id `unfplap`; current public version `0.1.3`; target game `0.3.0-maredev`.
 - Adult mares and stallions only. Human Anon and AnonPony.
 - Romance level per `relationship.promiscuity` (default Marefriend/Coltfriend). Sex also needs the
   mod lover bond unless `relationship.sex_start` is Try Your Luck. `bonds.welcomes(id, "kiss")`

@@ -1,3 +1,22 @@
+v0.1.3
+- Lover bond: she can agree to be lovers in conversation; Promiscuity and Starting Sex decide
+  who may try and whether that bond is required.
+- Auto thrust: press X to take over the rhythm, the mouse wheel sets the pace and the mouse sets
+  how deep each stroke goes.
+- Every adult mare in the base game has her own taste, tolerance and private notes in the new
+  Characters tab.
+- A mare now warns you when she dislikes something, and she can stop the act and pull away if you
+  keep pushing.
+- Every act is scored and remembered: good sex builds trust, repeated neglect makes her
+  reluctant, and she may refuse until it improves.
+- Rebuilt HUD: one row per act control, climax hearts and a mood line, without the separate
+  readiness bar.
+- Standing Y now appears when you stand behind her rump instead of aiming at her.
+- Removed: the tail bow, the readiness bar and the wooden bed creak layer.
+- Fixed: the mouse stays captured during an act, so menus and alt-tab no longer kill thrust.
+- Fixed: act time no longer runs while the game is paused or the settings page is open.
+- Fixed: her act lines are spaced, never repeat back to back, and stop when the act ends.
+
 v0.1.2
 - Settings rebuilt from one schema; every tuning value now lives in settings.json and applies live.
 - Standing caress and smack reworked: reliable coat contact, exposed smack height, an animated wind-up/strike/return, and a nearest-flank target.

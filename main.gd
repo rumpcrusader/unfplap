@@ -400,11 +400,13 @@ func _inject_settings_page_now(page: Node) -> void:
 	ui.add_child(tabs_box)
 	var changed := Callable(self, "_apply_settings_changed")
 	var user_list := _settings_tab_list("Settings", tabs_box)
-	TUNABLES_UI.build(user_list, SCHEMA.SETTINGS_TAB, font_size, page, changed)
+	TUNABLES_UI.build(user_list, SCHEMA.GENERAL_TAB, font_size, page, changed)
 	# Character preference is a per-mare profile form, not a global tunable, so it keeps its own
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
 	_add_preference_form(char_list, font_size)
+	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
+	TUNABLES_UI.build(anatomy_list, SCHEMA.ANATOMY_TAB, font_size, page, changed)
 	var debug_list := _settings_tab_list("Debug", tabs_box)
 	TUNABLES_UI.build(debug_list, SCHEMA.DEBUG_TAB, font_size, page, changed)
 	TUNABLES_UI.build_actions(debug_list, font_size, self)

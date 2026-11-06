@@ -59,7 +59,7 @@ aftercare are outside it.
 label and a help line, sits in a named section, and applies live during an act. Adding or
 reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
-**Settings tab**
+**General tab**
 
 - **Controls**: HUD readouts, control hints, captions on top, Promiscuity, Starting Sex, mute
   Ponese audio.
@@ -73,6 +73,14 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 - The hand-built per-mare preference form described below, with one pony selector (filtered by name)
   shared by every field.
+
+**Anatomy tab**
+
+- **Anatomy**: the master switch, teats, skin tone, only during acts and the coat depth bias.
+- **Anon part**: size, pitch, yaw and roll.
+- **Actions**: hole switch, oral and finish control.
+- **Effects**: climax and finish fluid.
+- **Experimental**: hip alignment, the Anon bed body and the VR act.
 
 **Debug tab**
 
@@ -117,7 +125,7 @@ does not clear those overrides.
   `features.act_public_offer` is on; it lets her offer with others around.
 - Anal consent gates `V`; oral consent gates `N`. A refusal gives a short status toast and leaves
   the act in its current state.
-`hud_readouts` is a normal feature toggle in the Settings tab; the standing close window is always
+`hud_readouts` is a normal feature toggle in the General tab; the standing close window is always
 on.
 
 ## The two continuous axes

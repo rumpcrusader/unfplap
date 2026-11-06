@@ -431,12 +431,13 @@ func _check_schema(defaults: Dictionary) -> void:
 			complete = false
 		if str(item.get("group", "")).is_empty():
 			groups_ok = false
-		if str(item.get("tab", "")) not in [SCHEMA.SETTINGS_TAB, SCHEMA.DEBUG_TAB]:
+		if str(item.get("tab", "")) not in [SCHEMA.GENERAL_TAB, SCHEMA.ANATOMY_TAB, SCHEMA.DEBUG_TAB]:
 			complete = false
 	check(complete, "every schema entry has a kind, default, label, help and tab")
 	check(groups_ok, "every schema entry names its panel section")
 	check(SCHEMA.groups(SCHEMA.DEBUG_TAB).size() > 5, "debug tab is split into sections")
-	check(SCHEMA.groups(SCHEMA.SETTINGS_TAB).size() >= 2, "settings tab is split into sections")
+	check(SCHEMA.groups(SCHEMA.GENERAL_TAB).size() >= 2, "general tab is split into sections")
+	check(SCHEMA.groups(SCHEMA.ANATOMY_TAB).size() >= 3, "anatomy tab is split into sections")
 
 	# The schema path is the settings.json path, so the defaults must land in the same blocks.
 	check(near(float(SCHEMA.default_value("thrust.travel")), 0.5), "schema thrust travel default")
@@ -512,7 +513,7 @@ func _check_write_round_trip() -> void:
 ## Every schema entry must render exactly one row in its tab, and every section must have a
 ## heading. This is the guard that keeps "add a schema line" sufficient for the panel.
 func _check_panels() -> void:
-	for tab: String in [SCHEMA.SETTINGS_TAB, SCHEMA.DEBUG_TAB]:
+	for tab: String in [SCHEMA.GENERAL_TAB, SCHEMA.ANATOMY_TAB, SCHEMA.DEBUG_TAB]:
 		var list := VBoxContainer.new()
 		TUNABLES_UI.build(list, tab, 16, null, Callable())
 		var labels: Array = []

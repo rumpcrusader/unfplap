@@ -1290,11 +1290,12 @@ rump blush. Unknown settings keys are ignored.
   smack arc and caress oval radii are applied as stored. The only other bounds are the smack
   animation duration (`0.12–0.30 s` raise, `0.06–0.20 s` return), which bound the slide, not the
   setting.
-- Feature flags are split by the schema's `tab`: entries marked `"settings"` are the
-  player-facing page, every other flag is in the Debug page. Label, help and section all come
-  from the schema entry; there is no separate feature info table.
-- The injected tab has nested **Settings**, **Characters** and **Debug** sub-tabs. Settings and
-  Debug are drawn from the schema by `tunables_ui.gd`: one row per entry, grouped into
+- Feature flags are split by the schema's `tab`: entries marked `"general"` are the player-facing
+  page, `"anatomy"` is the Anatomy page, and every other flag is in the Debug page. Label, help
+  and section all come from the schema entry; there is no separate feature info table.
+- The injected tab has nested **General**, **Characters**, **Anatomy** and **Debug** sub-tabs.
+  General, Anatomy and Debug are drawn from the schema by `tunables_ui.gd`: one row per entry,
+  grouped into
   click-to-collapse sections from each entry's
   `group` (`"Standing › Smack"` is a subheading under `Standing`). The panel is built from the
   game's own menu pieces, so it reads as part of the page rather than beside it: `main.gd` imports
@@ -1307,13 +1308,14 @@ rump blush. Unknown settings keys are ignored.
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
   units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
-  has no second title. **Settings** holds the player-facing flags, **Thrust** (including the
+  has no second title. **General** holds the player-facing flags, **Thrust** (including the
   climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
-  preference** form (a per-mare profile, not a global tunable). **Debug** holds every other entry,
-  including **Talk & cues**, plus the **Actions** buttons, with the
-  Actions block placed directly below **General** rather than at the bottom. There are
-  no Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
-  refreshes the flags, the caption position and the active act.
+  preference** form (a per-mare profile, not a global tunable). **Anatomy** holds every anatomy
+  entry: display, Anon part, actions, effects and experimental. **Debug** holds every other
+  entry, including **Talk & cues**, plus the **Actions** buttons, with the Actions block placed
+  directly below its **General** section rather than at the bottom. There are no Save buttons:
+  each edit writes its path and calls `main._apply_settings_changed()`, which refreshes the
+  flags, the caption position and the active act.
 - `debug_logs` and `debug_perf` default to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `preferences`,

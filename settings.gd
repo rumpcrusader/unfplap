@@ -60,11 +60,11 @@ static func feature_defaults() -> Dictionary:
 	return SCHEMA.default_block("features.")
 
 
-## Player-facing flags: the Controls section of the Settings tab.
+## Player-facing flags: the Controls section of the General tab.
 static func feature_user() -> Array:
 	var out: Array = []
 	for key: String in feature_keys():
-		if str(SCHEMA.entry("features." + key).get("tab", "")) == SCHEMA.SETTINGS_TAB:
+		if str(SCHEMA.entry("features." + key).get("tab", "")) == SCHEMA.GENERAL_TAB:
 			out.append(key)
 	return out
 

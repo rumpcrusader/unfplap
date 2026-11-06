@@ -1,8 +1,8 @@
 # Tunables: the only correct way to add a setting
 
 Every global setting in the mod is a **tunable**: one line in `tunables_schema.gd`, keyed by its
-`settings.json` path. Read and write tunables only through `tunables.gd`. The Settings and Debug
-panels are drawn from the schema by `tunables_ui.gd`, in the settings page's own menu style: row
+`settings.json` path. Read and write tunables only through `tunables.gd`. The General, Anatomy
+and Debug panels are drawn from the schema by `tunables_ui.gd`, in the settings page's own menu style: row
 cards, `Faint` help, switch plus state, Segment pills for a few short choices and the `Tab` look for
 a collapsible section heading. The tab pills, sidebar row and the hand-built Characters preference
 tab are added by the injection in `main.gd`.
@@ -88,7 +88,7 @@ placement all come from the schema entry. Adding a flag is shorter still —
 | `default` | the stored default; also what `reset_value` restores |
 | `label`, `help` | the row text and the help line under it |
 | `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing` |
-| `tab` | `"settings"` for the player-facing page, `"debug"` (the default) otherwise |
+| `tab` | `"general"` for the player page, `"anatomy"` for the Anatomy page, `"debug"` (the default) otherwise |
 | `unit`, `step`, `scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
 | `low`, `high` | spin-box arrows only, unless the entry is a `user_num` |
 | `options`, `labels` | `choice` values and their display text; `list` allowed values |

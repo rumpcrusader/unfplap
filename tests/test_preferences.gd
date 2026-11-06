@@ -20,6 +20,7 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	var neutral := PREF.resolve({})
+	check(not ("curious" in PREF.TALKS), "curious talk is removed")
 	check(str(neutral.get("intensity", "")) == "firm", "default intensity firm")
 	check(str(neutral.get("pattern", "")) == "steady", "default pattern steady")
 	check(str(neutral.get("warmth", "")) == "normal", "default warmth normal")
@@ -44,7 +45,7 @@ func run() -> void:
 	check(PREF.classify_talk("you are so beautiful") == "praise", "praise classification")
 	check(PREF.classify_talk("are you okay?") == "reassurance", "reassurance classification")
 	check(PREF.classify_talk("i want you") == "dirty", "dirty classification")
-	check(PREF.classify_talk("how do you feel?") == "curious", "curious classification")
+	check(PREF.classify_talk("how do you feel?") == "", "questions are no longer a talk category")
 	check(PREF.classify_talk("good girl") == "playful", "playful classification")
 	check(PREF.classify_talk("hello") == "", "unrelated talk is neutral")
 	check(PREF.classify_talk("") == "", "empty talk is neutral")

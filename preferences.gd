@@ -9,7 +9,7 @@ extends RefCounted
 const INTENSITIES := ["soft", "firm", "rough"]
 const PATTERNS := ["steady", "teasing", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
-const TALKS := ["praise", "reassurance", "dirty", "curious", "playful"]
+const TALKS := ["praise", "reassurance", "dirty", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
 const TOLERANCES := ["forgiving", "normal", "strict"]
 
@@ -106,13 +106,8 @@ static func classify_talk(text: String) -> String:
 	if _has_any(lower, ["love you", "beautiful", "perfect", "amazing", "pretty", "gorgeous",
 			"best", "proud", "wonderful", "good girl", "so good"]):
 		return "praise"
-	if _has_any(lower, ["how ", "what ", "tell me", "do you", "feel", "like it", "want me",
-			"what do you"]):
-		return "curious"
 	if _has_any(lower, ["want", "more", "harder", "please", "inside", "take", "mine", "need"]):
 		return "dirty"
-	if lower.contains("?"):
-		return "curious"
 	return ""
 
 

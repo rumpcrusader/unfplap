@@ -335,21 +335,21 @@ their character profiles.
 
 | Character | Intensity | Pattern | Touch | Talk | Warmth |
 |---|---|---|---|---|---|
-| Twilight | firm | steady | kiss | curious, praise | normal |
+| Twilight | firm | steady | kiss | praise | normal |
 | Fluttershy | firm | steady | caress | reassurance | slow |
 | Rarity | soft | steady | caress | praise | normal |
 | Pinkie | firm | quick | smack | playful | quick |
 | Applejack | firm | steady | caress, smack | praise, reassurance | normal |
 | Rainbow | rough | quick | smack | praise, playful | quick |
 | Derpy | rough | quick | smack | playful | quick |
-| Lyra | firm | steady | caress, kiss | curious, playful | normal |
+| Lyra | firm | steady | caress, kiss | playful | normal |
 | Octavia | soft | steady | caress | praise | slow |
 | Vinyl | rough | quick | smack, kiss | playful | quick |
 | Berry | rough | quick | smack | playful, dirty | quick |
 | Cheerilee | firm | steady | caress | praise, reassurance | normal |
 | Maud | soft | steady | caress | none (quiet) | slow |
 | Trixie | firm | steady | kiss | praise, playful | quick |
-| Zecora | firm | steady | caress | curious, reassurance | slow |
+| Zecora | firm | steady | caress | reassurance | slow |
 | Spitfire | rough | quick | smack | praise, playful | normal |
 | Default | firm | steady | none | none | normal |
 

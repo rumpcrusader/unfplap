@@ -71,8 +71,8 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
   Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), climax limit (`0…20`, default `3`; `0` is
-  unlimited), and auto-thrust pace (`1.0…4.5/s`, default `1.5/s`, quarter steps) and peak depth
-  (`0.20…1`, default `0.9`). The auto values are act-start defaults; the wheel and mouse adjust
+  unlimited), and auto-thrust pace (`1.0…4.5/s`, default `1.0/s`, quarter steps) and peak depth
+  (`0.20…1`, default `0.5`). The auto values are act-start defaults; the wheel and mouse adjust
   them for one act.
 
 **Characters tab**

@@ -23,7 +23,7 @@ Do not start implementation until you have read the required files for the area 
 
 - Mod id `unfplap`; current public version `0.1.3`; target game `0.3.0-maredev`.
 - Adult mares and stallions only. Human Anon and AnonPony.
-- Romance level per `relationship.promiscuity` (default Marefriend/Coltfriend). Sex also needs the
+- Romance level per `relationship.promiscuity` (default Any Adult). Sex also needs the
   mod lover bond unless `relationship.sex_start` is Try Your Luck. `bonds.welcomes(id, "kiss")`
   still decides the actual start; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
@@ -250,7 +250,7 @@ body-relative axes.
   `eye_motion.target_world`. A full forward `W` lean with no side lean forces `head_back = 1.0`
   and the upward look toward Anon instead of waiting for the random glance scheduler.
 - Tail aside/lift/flick is applied down the hair chain; the side is randomized per act.
-  `presentation.standing.tail.yaw_deg` (default `31.5°`) and `pitch_deg` (default `24.1°`) set
+  `presentation.standing.tail.yaw_deg` (default `32°`) and `pitch_deg` (default `24°`) set
   how far it sweeps aside and lifts, in degrees, and apply live through
   `_sync_standing_pose_config()`; the tail modifier is created from that pose config.
 - Standing enters the same held `AFTERGLOW` state when the player chooses it or the configured
@@ -505,8 +505,8 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   foreleg tips before the base kiss and runs last to CCD them back to those positions, because
   the base kiss's chest flex would otherwise drag the legs after `body_sway`'s upper-arm pin.
 - While a kiss is active, Anon leans in by the standing `lean_forward` (default `0.03`), shifts to
-  the shoulder side by `lean_side` (default `0.46`) and drops by `lean_drop` (default `0.09`)
-  lower over `0.35 s`; the standing camera also yaws by `camera_yaw_deg` (default `7°`) toward her.
+  the shoulder side by `lean_side` (default `0.46`) and drops by `lean_drop` (default `0.08`)
+  lower over `0.35 s`; the standing camera also yaws by `camera_yaw_deg` (default `12°`) toward her.
   Missionary keeps `KISS_LEAN_M = 0.27`, side `0.18`, drop `0.035` and camera `10°`. The kiss side is latched at
   the start from the input lean (`_lean_side`, falling back to `_lean_action_side`), not the
   lagging camera view, and `_pin_base_kiss_side()` pins her head tilt to the
@@ -1179,12 +1179,11 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
-- `relationship.promiscuity` is a `choice`, default `marefriend`; values `soulmates`,
+- `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
-- `relationship.sex_start` is a `choice`, default `when_available` (label `When Available`);
-  `try_luck` (label `Try Your Luck`)
-  makes the lover bond optional and omits the `relation` row from the start attempt. It never
+- `relationship.sex_start` is a `choice`, default `try_luck` (label `Try Your Luck`);
+  `try_luck` makes the lover bond optional and omits the `relation` row from the start attempt. It never
   skips the actual `bonds.welcomes(id, "kiss")` check: `runtime.start()` calls `refuse()` when it
   fails.
 - The lover bond is stored in `Mods.state("unfplap").sex_bonds`. It never expires.
@@ -1197,8 +1196,8 @@ rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
   hip backset multiplier, default `0.5`, clamped to `0.25…2.0×` as a player-facing contract.
-- `auto_thrust` stores `pace` (thrusts/s, default `1.5`, clamped `1.0…4.5`) and `max_depth`
-  (peak depth, default `0.9`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
+- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…4.5`) and `max_depth`
+  (peak depth, default `0.5`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
   changes are per-act. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
@@ -1208,8 +1207,8 @@ rump blush. Unknown settings keys are ignored.
 - `presentation` is split per pose:
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
-    `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
-    (default `31.5°`) and `pitch_deg` (default `24.1°`), `caress` with `palm_distance`,
+    `neck_down_deg` (default `15°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
+    (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
     `oval_across_m` (default `1.0 cm`), `oval_up_m` (default
     `2.0 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
     and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.09 m`), `height_m`

@@ -117,6 +117,13 @@ static func get_list(path: String) -> Array:
 	return value if value is Array else []
 
 
+## The stored schema default for a number path. Use it where a settings block can be empty, so
+## the fallback cannot drift from the schema.
+static func default_number(path: String) -> float:
+	var value: Variant = SCHEMA.default_value(path)
+	return float(value) if value is float or value is int else 0.0
+
+
 ## The typed value for a path. Unknown paths return false, because an unknown switch must never
 ## read as on.
 static func get_value(path: String) -> Variant:

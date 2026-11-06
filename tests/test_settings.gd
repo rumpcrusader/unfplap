@@ -145,10 +145,10 @@ func run() -> void:
 	check(SETTINGS.feature_keys().size() == SETTINGS.feature_defaults().size(),
 		"feature info matches the flag set")
 	var relationship_defaults: Dictionary = defaults.get("relationship", {})
-	check(str(relationship_defaults.get("promiscuity", "")) == "marefriend",
-		"default Promiscuity is Marefriend")
-	check(str(relationship_defaults.get("sex_start", "")) == "when_available",
-		"default Starting Sex is When Available")
+	check(str(relationship_defaults.get("promiscuity", "")) == "any",
+		"default Promiscuity is Any Adult")
+	check(str(relationship_defaults.get("sex_start", "")) == "try_luck",
+		"default Starting Sex is Try Your Luck")
 	var promiscuity := SCHEMA.entry("relationship.promiscuity")
 	check((promiscuity.get("options", []) as Array).has("any"),
 		"Promiscuity exposes Any Adult")
@@ -225,13 +225,13 @@ func run() -> void:
 		"default kiss mouth drop")
 	check(near(float(kiss_defaults.get("mouth_forward", -1.0)), 0.0),
 		"default kiss mouth forward")
-	check(near(float(kiss_defaults.get("camera_yaw_deg", 0.0)), 7.0),
+	check(near(float(kiss_defaults.get("camera_yaw_deg", 0.0)), 12.0),
 		"default kiss camera yaw")
 	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),
 		"default kiss side lean")
 	check(near(float(kiss_defaults.get("lean_forward", 0.0)), 0.03),
 		"default kiss forward lean")
-	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.09),
+	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.08),
 		"default kiss lean drop")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),

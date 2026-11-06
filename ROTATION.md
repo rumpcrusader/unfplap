@@ -341,8 +341,8 @@ these values here if a future pose needs that effect.
 - `foreleg_spread = 0.172 rad` is the absolute outward half-angle; the recipe measures the
   current hoof line and rotates the upper arms only by the difference.
 - Tail aside/lift/flick on the hair skeleton; side randomized per act.
-  `presentation.standing.tail.yaw_deg` (aside, default `31.5°`) and `pitch_deg` (lift, default
-  `24.1°`) are the live amounts, in degrees. A damped spring driven by
+  `presentation.standing.tail.yaw_deg` (aside, default `32°`) and `pitch_deg` (lift, default
+  `24°`) are the live amounts, in degrees. A damped spring driven by
   raw `depth` also rocks the tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the

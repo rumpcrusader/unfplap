@@ -2157,12 +2157,16 @@ func _sync_standing_pose_config() -> void:
 	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return
 	_pose_cfg = SETTINGS.pose(_id, CATALOG.STANDING)
-	_pose_cfg["chin_up_deg"] = float(_presentation_cfg.get("chin_up_deg", 30.0))
-	_pose_cfg["neck_down_deg"] = float(_presentation_cfg.get("neck_down_deg", 15.0))
+	_pose_cfg["chin_up_deg"] = float(_presentation_cfg.get("chin_up_deg",
+		TUNABLES.default_number("presentation.standing.chin_up_deg")))
+	_pose_cfg["neck_down_deg"] = float(_presentation_cfg.get("neck_down_deg",
+		TUNABLES.default_number("presentation.standing.neck_down_deg")))
 	var tail_cfg: Variant = _presentation_cfg.get("tail", {})
 	if tail_cfg is Dictionary:
-		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg", 31.5)))
-		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg", 24.1)))
+		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
+			TUNABLES.default_number("presentation.standing.tail.yaw_deg"))))
+		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
+			TUNABLES.default_number("presentation.standing.tail.pitch_deg"))))
 	if is_instance_valid(_pose):
 		_pose.pose_config = _pose_cfg
 	# The tail reads its angles once when the modifier is built, so a live edit updates it here.

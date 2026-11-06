@@ -29,8 +29,10 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 func run() -> void:
 	var base: Dictionary = SETTINGS._filled_default()
-	check(SETTINGS.CHARACTER_ORDER.size() == 16, "sixteen editable ponies")
+	check(SETTINGS.CHARACTER_ORDER.size() == 102, "every spawnable adult mare is editable")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_NAMES.size(), "every pony has a display name")
+	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_TEMPLATES.size(),
+		"every editable pony has a taste template")
 	check(SETTINGS.character_name("pinkie_pie") == "Pinkie Pie", "display name lookup")
 	var catalog_ok := true
 	var taste_ok := true

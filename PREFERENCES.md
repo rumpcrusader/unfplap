@@ -77,8 +77,8 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 **Characters tab**
 
-- The hand-built per-mare taste form described below, with one pony selector shared by every
-  field.
+- The hand-built per-mare taste form described below, with one pony selector (filtered by name)
+  shared by every field.
 
 **Debug tab**
 
@@ -106,7 +106,7 @@ There are no Save buttons: each edit writes its value and applies to the active 
 Debug numbers are never clamped; only the player-facing contract bounds listed above are
 enforced. The framing, pitch and torso controls remain experimental and unbounded.
 
-The **Characters** tab exposes one pony selector and one form:
+The **Characters** tab exposes one name-filtered pony selector and one form:
 
 - intensity, pattern, warmth;
 - tolerance (timid, neutral, strict);
@@ -329,6 +329,12 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 
 ## Character examples
 
+Every spawnable adult mare in the base game has an explicit profile in `character_tastes.gd`:
+102 mares, the original sixteen first in the selector and the rest alphabetical. This table is
+the main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
+`fiddly_twang` (written as a stallion) are left out because their identity flags do not match
+their character profiles.
+
 | Character | Intensity | Pattern | Touch | Talk | Warmth | Recovery |
 |---|---|---|---|---|---|---|
 | Twilight | firm | steady | kiss | curious, praise | normal | 20 |
@@ -349,8 +355,9 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 | Spitfire | rough | quick | smack | praise, playful | normal | 26 |
 | Default | firm | steady | none | none | normal | 20 |
 
-Dislikes are shown in the settings editor and stay in the `taste` block. The current
-templates use `smack` and/or `dirty` as dislikes for Rarity, Octavia, Maud and Zecora.
+Dislikes are shown in the settings editor and stay in the `taste` block. They are used only where
+the character's temperament supports them; the main cast uses `smack` and/or `dirty` for Rarity,
+Octavia, Maud and Zecora, and the wider roster follows the same rule.
 
 The `notes` field carries the private attitude; the AI prompt receives the mood, the taste
 summary and the last concrete input, never a speed or depth dump.

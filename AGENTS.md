@@ -16,7 +16,7 @@ Do not start implementation until you have read the required files for the area 
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `tunables_schema.gd`, `tunables.gd` |
-| Character profiles or taste | `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
+| Character profiles or taste | `character_tastes.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md` |
 
 ## Identity and scope
@@ -157,7 +157,8 @@ mods/unfplap/
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
                     and afterglow summary
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
-  settings.gd       settings.json IO and cache, legacy migration, per-character templates and taste
+  settings.gd       settings.json IO and cache, legacy migration, per-character merge
+  character_tastes.gd  display names, selector order and every spawnable adult mare's taste
   memory.gd         world_context events, grade-aware act impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
@@ -1127,7 +1128,7 @@ examples.
   page's private fields are unavailable it logs and skips, so the settings page is never
   required for the mod to load.
 - The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
-  `SETTINGS.CHARACTER_ORDER`, enum controls from `preferences.gd`, tolerance
+  `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, tolerance
   (`timid`/`neutral`/`strict`), recovery `0…80`, touch/talk like and dislike checkboxes, and
   editable private notes. Taste edits save automatically and apply live; `Reset to default`
   removes only that taste override. Custom `event_prompts` and `poses` on the character entry
@@ -1256,10 +1257,11 @@ rump blush. Unknown settings keys are ignored.
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
   control.
-- The settings editor lists `SETTINGS.CHARACTER_ORDER` (16 IDs) and uses `CHARACTER_NAMES` for
-  display labels. Add a pony to both and to `CHARACTER_TEMPLATES` when expanding the roster.
+- The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable adult mare in
+  the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
+  ID has a taste template in `character_tastes.gd`; add a pony there when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in
-  `preferences.gd`/`settings.gd`.
+  `character_tastes.gd`, `preferences.gd` and `settings.gd`.
 
 ## Documentation discipline
 

@@ -532,12 +532,15 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	var intro := STYLE.label("Taste changes apply live during an act.", "Faint", font_size - 5)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(intro)
+	var filter := LineEdit.new()
+	filter.placeholder_text = "Find a pony"
+	filter.clear_button_enabled = true
+	filter.add_theme_font_size_override("font_size", font_size - 2)
+	stack.add_child(filter)
 	var selector := OptionButton.new()
-	for id: String in SETTINGS.CHARACTER_ORDER:
-		selector.add_item(SETTINGS.character_name(id))
-		selector.set_item_metadata(selector.get_item_count() - 1, id)
 	selector.add_theme_font_size_override("font_size", font_size - 2)
 	stack.add_child(selector)
+	var last_id := ""
 
 	var form := GridContainer.new()
 	form.columns = 2
@@ -591,7 +594,9 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 		"status": status,
 		"refreshing": false,
 	}
-	selector.item_selected.connect(func(_index: int) -> void: _refresh_taste_form(refs))
+	selector.item_selected.connect(func(index: int) -> void:
+		last_id = str(selector.get_item_metadata(index))
+		_refresh_taste_form(refs))
 	for pills: HBoxContainer in [intensity, pattern, warmth, tolerance]:
 		for pill: Node in pills.get_children():
 			(pill as Button).pressed.connect(_choose_taste_pill.bind(
@@ -614,7 +619,28 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 		_save_taste_form(refs))
 	notes_timer.timeout.connect(func() -> void: _save_taste_form(refs))
 	reset.pressed.connect(func() -> void: _reset_taste_form(refs))
-	_refresh_taste_form(refs)
+	var fill_selector := func(query: String) -> void:
+		var current := _selected_taste_id(refs)
+		if current.is_empty():
+			current = last_id
+		selector.clear()
+		for id: String in SETTINGS.CHARACTER_ORDER:
+			var display := SETTINGS.character_name(id)
+			if query.is_empty() or display.to_lower().contains(query) or id.contains(query):
+				selector.add_item(display)
+				selector.set_item_metadata(selector.get_item_count() - 1, id)
+				if id == current:
+					selector.select(selector.get_item_count() - 1)
+		if selector.selected < 0 and selector.get_item_count() > 0:
+			selector.select(0)
+		if selector.get_item_count() == 0:
+			if status is Label:
+				(status as Label).text = "No pony matches that name."
+		else:
+			_refresh_taste_form(refs)
+	filter.text_changed.connect(func(text: String) -> void:
+		fill_selector.call(text.to_lower().strip_edges()))
+	fill_selector.call("")
 
 
 ## A form row's name, in the same type as a setting row's name. It takes the row's spare width so

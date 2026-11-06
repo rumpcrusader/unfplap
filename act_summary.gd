@@ -29,21 +29,22 @@ const DEFAULT_RULES := {
 }
 
 
-## Reason sentences for the private note: [world event voice, private thought voice]. The event
-## text speaks to her (Anon/you); the thought is her own (He/I).
+## Reason sentences for the private note: [profile-safe world event, private thought]. The event
+## text must read correctly after the profile's "You and Anon " -> "You and <name>" rewrite, so it
+## uses no second-person pronouns; the thought is her own voice (He/I).
 const REASON_LINES := {
-	"no_climax": ["You did not get there.", "I did not get there."],
-	"silent_talk": ["Anon did not speak to you when you needed to hear him.",
+	"no_climax": ["She did not get there.", "I did not get there."],
+	"silent_talk": ["Anon did not speak when she needed to hear him.",
 		"He did not speak to me when I needed to hear him."],
-	"talk_miss": ["Anon did not say the kind of thing you need to hear.",
+	"talk_miss": ["Anon did not say the kind of thing she needs to hear.",
 		"He did not say the kind of thing I need to hear."],
-	"no_liked_touch": ["Anon did not touch you the way you like.",
+	"no_liked_touch": ["Anon did not touch the way she likes.",
 		"He did not touch me the way I like."],
-	"intensity_mismatch": ["Anon did not use the pressure you wanted.",
+	"intensity_mismatch": ["Anon did not use the pressure she wanted.",
 		"He did not use the pressure I wanted."],
-	"pattern_mismatch": ["Anon did not keep the rhythm you wanted.",
+	"pattern_mismatch": ["Anon did not keep the rhythm she wanted.",
 		"He did not keep the rhythm I wanted."],
-	"too_many_dislikes": ["Anon kept doing things you do not like.",
+	"too_many_dislikes": ["Anon kept doing things she does not like.",
 		"He kept doing things I do not like."],
 }
 
@@ -295,7 +296,7 @@ static func _stopped(taste: Dictionary, snapshot: Dictionary) -> Dictionary:
 		"checks": {},
 		"right": 0,
 		"total": 0,
-		"text": "You stopped having sex with Anon because he kept doing something you do not like.",
+		"text": "Anon kept doing something she does not like, so the act stopped.",
 		"thought": "He kept doing something I do not like; I stopped him.",
 		"wants": wants,
 		"hud": "",
@@ -318,13 +319,13 @@ static func _hud(grade: String, severe: bool) -> String:
 static func _text(grade: String, ended_early: bool, reasons: Array[String]) -> String:
 	var text := "You and Anon were together. It was nice, but something was missing."
 	if ended_early:
-		text = "Anon stopped before you finished. You were left wanting."
+		text = "Anon stopped before the act finished, and she was left wanting."
 	elif grade == "bad":
-		text = "You and Anon had sex, but he did not give you what you need. You felt used."
+		text = "You and Anon had sex, but it did not give what was needed, and she felt used."
 	elif grade == "great":
-		text = "You and Anon made love, and you came more than once. You felt completely wanted."
+		text = "You and Anon made love more than once, and she was ecstatic about it."
 	elif grade == "good":
-		text = "You and Anon made love, and you came. You felt wanted."
+		text = "You and Anon made love, and she loved every moment."
 	var reason := _reason_sentence(reasons, false)
 	if not reason.is_empty():
 		text += " " + reason
@@ -337,7 +338,9 @@ static func _thought(grade: String, ended_early: bool, reasons: Array[String]) -
 		thought = "He stopped before I finished; I was left wanting."
 	elif grade == "bad":
 		thought = "He did not give me what I need; I felt used."
-	elif grade == "good" or grade == "great":
+	elif grade == "great":
+		thought = "He gave me everything I needed; I felt adored."
+	elif grade == "good":
 		thought = "He gave me what I needed; I felt wanted."
 	var reason := _reason_sentence(reasons, true)
 	if not reason.is_empty():
@@ -356,7 +359,7 @@ static func _reason_sentence(reasons: Array[String], first_person: bool) -> Stri
 			parts.append(str((pair as Array)[1 if first_person else 0]))
 		elif reason.begins_with("severe_") or reason.begins_with("disliked_"):
 			parts.append("He kept doing things I do not like." if first_person
-				else "Anon kept doing things you do not like.")
+				else "Anon kept doing things she does not like.")
 	if parts.is_empty():
 		return ""
 	# Keep the note short and non-repetitive; one or two facts is enough.

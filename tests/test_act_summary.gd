@@ -95,6 +95,8 @@ func run() -> void:
 	check(str(stopped.mood) == "angry", "a strict stop uses angry")
 	check(str(stopped.hud).is_empty(), "a stopped act has no HUD summary")
 	check("stopped_by_her" in (stopped.reasons as Array), "the stop reason is recorded")
+	check(not str(stopped.text).contains(" you "),
+		"a partner stop event has no second-person body")
 
 	var stopped_neutral := evaluate({"stopped_by_her": true, "tolerance": "neutral"})
 	check(str(stopped_neutral.mood) == "annoyed", "a neutral stop is annoyed")
@@ -116,14 +118,20 @@ func run() -> void:
 	check(not early_text.contains("ended it before you finished"),
 		"the early event does not repeat its opening sentence")
 	check(not early_thought.contains(" you "), "the early thought stays in first person")
-	check(early_text.contains("Anon did not speak to you"),
-		"the event says Anon did not speak to her")
-	check(early_thought.contains("He did not speak to me"),
+	check(early_text.contains("Anon did not speak when she needed to hear him"),
+		"the event says Anon did not speak")
+	check(early_thought.contains("He did not speak to me when I needed to hear him"),
 		"the thought says He did not speak to her")
 	var bad_silent := evaluate({"talk_liked": 0, "player_lines": 0,
 		"touch_dislikes": {"smack": 2}})
 	check(not str(bad_silent.thought).contains(" you "),
 		"a bad thought stays in first person")
+	check(not str(clean.text).contains(" you "),
+		"a good event text has no second-person body")
+	check(not str(early_text).contains(" you "),
+		"an early event text has no second-person body")
+	check(not str(bad.text).contains(" you "),
+		"a bad event text has no second-person body")
 
 	var forced := evaluate({"forced": true})
 	check(bool(forced.skip), "a forced stop is skipped")

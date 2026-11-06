@@ -56,11 +56,17 @@ The summary carries the once-per-act impression:
 | Early end, neutral | `0` | `relaxed` |
 | Early end, bad | `-1` | `sad` |
 
+An event line starts with the pair, `You and Anon `, so the profile can replace that prefix with
+`You and <name>`; after that prefix it uses no second-person pronouns for the pony, so the
+**Recent activities** line stays correct. The event text is what the AI reads as context; the
+reason sentences in each voice keep that same rule.
+
 `MEMORY.commit_act` writes this to the game's impressions once. It also records the summary text as
 a `relationship` world-context event. The two lines have separate voices: the recorded `text` is the
-world event told to her (`Anon`/`you`), while `thought` is her private first-person impression
-(`He`/`I`) and is what the profile shows as **Last impression**. The reason sentences in each keep
-that voice, and an early end is stated once, not repeated as a reason.
+profile-safe world event, while `thought` is her private first-person impression (`He`/`I`) and is
+what the profile shows as **Last impression**. An early end is stated once, not repeated as a
+reason. Witness text follows the same rule (`Anon and <name> were seen...`), because it can appear
+in the observer's Recent activities too.
 
 An intentional early end and a partner stop each record **one** event: the summary when history is
 on and the summary is not skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old

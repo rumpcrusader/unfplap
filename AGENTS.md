@@ -788,9 +788,11 @@ examples.
 - Every act commits one summary through `_commit_summary()` at afterglow or intentional early
   end; forced stops never commit. `act_summary.gd` scores the weighted action checklist and
   `ACT_HISTORY.commit()` stores hurt/comfort.
-- The summary has two voices: `text` is the second-person world event (Anon/you) recorded in
-  world context, and `thought` is the first-person private impression shown as Last impression.
-  Reason sentences keep the same voice, and an early end is stated once.
+- The summary has two voices: `text` is the profile-safe world event recorded in world context,
+  and `thought` is the first-person private impression shown as Last impression. Event text may
+  start with `You and Anon ` (the profile rewrites that prefix to the pony's name) but uses no
+  second-person pronouns for the pony after it; the thought does not go through that rewrite.
+  Reason sentences keep the same rule, and an early end is stated once.
 - An intentional early end or a partner stop records one event: the summary, or the basic
   `cancel`/`stop` event when history is off or the summary was skipped.
 - A summary is good at `>= 0.80`, bad at `<= 0.20`, neutral between. A neutral early end adds

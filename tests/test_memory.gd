@@ -46,7 +46,7 @@ func run() -> void:
 	check(MEMORY.witness_kind(true) == "witnessed_scene", "young event kind")
 
 	var adult := MEMORY.witness_text("Fluttershy", false, true, 0)
-	check(adult == "You saw Anon and Fluttershy having sex.", "adult text is unchanged indoors")
+	check(adult == "She saw Anon and Fluttershy having sex.", "adult text is unchanged indoors")
 	check(MEMORY.witness_text("Fluttershy", false, false, 7) == adult, "adult text ignores place and serial")
 
 	for indoors: bool in [true, false]:

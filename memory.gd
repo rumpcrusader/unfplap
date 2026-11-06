@@ -2,6 +2,10 @@ extends RefCounted
 ## AI context and impression writes. Every text is short and non-graphic. A witness text is a
 ## perception, never a conclusion: the game's per-pony story summary forms her memory from it.
 ## The event id makes both world_context.record and impressions.commit idempotent.
+##
+## Event text also appears in the profile's Recent activities. The profile rewrites only a
+## leading "You and Anon " into "You and <name>", so the rest of an event line must not use
+## second-person pronouns for the pony. The private impression thought stays first-person.
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
@@ -14,23 +18,23 @@ static func start_event(game: Node, id: String, name: String, event_id: String) 
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "The player just started having sex with you.", [id, "player"], [id, "player"], event_id)
+	ctx.record("intimacy", "You and Anon started having sex.", [id, "player"], [id, "player"], event_id)
 
 
 static func cancel_event(game: Node, id: String, name: String, event_id: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "The player stopped having sex with you before you reached climax.", [id, "player"], [id, "player"], event_id + ":cancel")
+	ctx.record("intimacy", "Anon stopped before the act reached a climax.", [id, "player"], [id, "player"], event_id + ":cancel")
 
 
 static func climax_event(game: Node, id: String, name: String, event_id: String, count := 1) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "The player just had sex with you. You reached climax."
+	var text := "You and Anon made love, and she came."
 	if count > 1:
-		text = "The player just had sex with you. You reached climax again."
+		text = "You and Anon made love, and she came again."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"],
 		"%s:pony_climax:%d" % [event_id, count])
 
@@ -40,14 +44,14 @@ static func inside_event(game: Node, id: String, name: String, event_id: String)
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("intimacy", "The player just came inside you.", [id, "player"], [id, "player"], event_id + ":inside")
+	ctx.record("intimacy", "Anon finished inside.", [id, "player"], [id, "player"], event_id + ":inside")
 
 
 ## Normal dialogue resumes in the afterglow, but the moment is not socially over yet. This
 ## world-context event keeps that in view without queuing a scripted line.
 static func afterglow_text(pose: String) -> String:
 	var closeness := "lying close together" if pose != CATALOG.STANDING else "standing close together"
-	return "You and Anon just had sex. You are still in the afterglow, %s; the act has ended, but the moment is not finished yet." % closeness
+	return "You and Anon just had sex and are still in the afterglow, %s; the act has ended, but the moment is not finished yet." % closeness
 
 
 static func afterglow_event(game: Node, id: String, name: String, event_id: String, pose: String) -> void:
@@ -183,13 +187,13 @@ static func stay_close_reward(game: Node, id: String, event_id: String, caressed
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "After sex, Anon stayed close and held you for a while."
+	var text := "After sex, Anon stayed close for a while."
 	if caressed and positive:
-		text = "After sex, Anon stayed close, held you and caressed you for a while. You felt cared for."
+		text = "After sex, Anon stayed close and caressed for a while."
 	elif caressed:
-		text = "After sex, Anon stayed close and caressed you. You were still a little hurt, but it helped."
+		text = "After sex, Anon stayed close and caressed. Her hurt eased a little."
 	elif not positive:
-		text = "After sex, Anon stayed close. You were still a little hurt."
+		text = "After sex, Anon stayed close. Her hurt was still there."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stay_close")
 	var impressions: Variant = ctx.get("impressions")
 	if impressions == null or not is_instance_valid(impressions):
@@ -211,20 +215,20 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "The player stopped having sex with you."
+	var text := "The act stopped."
 	match reason:
 		"unwilling":
-			text = "You stopped having sex with the player because you no longer wanted to."
+			text = "The act stopped because she no longer wanted it."
 		"picked up":
-			text = "The player picked you up, so you stopped having sex."
+			text = "Anon picked up, so the act stopped."
 		"interrupted":
-			text = "Your sex with the player was interrupted."
+			text = "The act was interrupted."
 		"form change":
-			text = "The player changed form, so the sex stopped."
+			text = "Anon changed form, so the act stopped."
 		"world close":
-			text = "The world closed during sex with the player."
+			text = "The world closed during the act."
 		"withdrew":
-			text = "You stopped having sex with the player because he kept doing something you do not like."
+			text = "Anon kept doing something she does not like, so the act stopped."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stop:" + reason)
 
 
@@ -237,10 +241,10 @@ static func refusal_event(game: Node, id: String, name: String, event_id: String
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "You turned Anon away when he wanted more than you did."
+	var text := "She turned Anon away when he wanted more."
 	var thought := "He wanted more than I did. I said no and turned him away."
 	if bucked:
-		text = "You turned Anon away and bucked him when he would not stop."
+		text = "She turned Anon away and bucked him when he would not stop."
 		thought = "He kept pushing after I said no, so I bucked him off. I need space."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id)
 	var impressions: Variant = ctx.get("impressions")
@@ -279,7 +283,7 @@ static func history_apology(game: Node, id: String, _text: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("relationship", "Anon apologized for how he treated you during sex.",
+	ctx.record("relationship", "Anon apologized for how he behaved during sex.",
 		[id, "player"], [id, "player"], "apology:%s:%d" % [id, Time.get_ticks_usec()])
 
 
@@ -355,22 +359,22 @@ static func witness_kind(young: bool) -> String:
 
 static func witness_scene_prefix(partner_name: String, indoors: bool) -> String:
 	if indoors:
-		return "You walked in on Anon and %s." % partner_name
-	return "You saw Anon and %s out in the open." % partner_name
+		return "She walked in on Anon and %s." % partner_name
+	return "She saw Anon and %s out in the open." % partner_name
 
 
 ## Perception plus uncertainty, never a conclusion. Each act picks a different one so repeated
 ## memories and retold gossip do not read the same.
 const WITNESS_TAILS := [
-	" They were moving about together and making happy sounds, and you could not tell what they were doing.",
-	" They seemed to be playing some game, and you were not sure what the game was.",
-	" They were busy together and giggling, and you could not tell what it was about.",
+	" They were moving about together and making happy sounds, and she could not tell what they were doing.",
+	" They seemed to be playing some game, and she was not sure what the game was.",
+	" They were busy together and giggling, and she could not tell what it was about.",
 ]
 
 
 static func witness_text(partner_name: String, young: bool, indoors: bool, serial: int) -> String:
 	if not young:
-		return "You saw Anon and %s having sex." % partner_name
+		return "She saw Anon and %s having sex." % partner_name
 	var index := posmod(serial, WITNESS_TAILS.size())
 	return witness_scene_prefix(partner_name, indoors) + str(WITNESS_TAILS[index])
 

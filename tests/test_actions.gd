@@ -485,29 +485,44 @@ func run() -> void:
 	modifier_skeleton.add_bone("Spine")
 	modifier_skeleton.add_bone("LeftUpperLeg")
 	modifier_skeleton.add_bone("RightUpperLeg")
+	modifier_skeleton.add_bone("LeftLowerLeg")
+	modifier_skeleton.add_bone("RightLowerLeg")
 	modifier_skeleton.set_bone_parent(1, 0)
 	modifier_skeleton.set_bone_parent(2, 0)
 	modifier_skeleton.set_bone_parent(3, 0)
+	modifier_skeleton.set_bone_parent(4, 2)
+	modifier_skeleton.set_bone_parent(5, 3)
 	modifier_skeleton.set_bone_pose_position(0, Vector3.ZERO)
 	modifier_skeleton.set_bone_pose_position(1, Vector3(0.0, 0.2, 0.0))
 	modifier_skeleton.set_bone_pose_position(2, Vector3(0.1, -0.1, 0.0))
 	modifier_skeleton.set_bone_pose_position(3, Vector3(-0.1, -0.1, 0.0))
+	modifier_skeleton.set_bone_pose_position(4, Vector3(0.1, -0.3, 0.0))
+	modifier_skeleton.set_bone_pose_position(5, Vector3(-0.1, -0.3, 0.0))
 	var hips_before := modifier_skeleton.get_bone_global_pose(0).origin
 	var spine_before := modifier_skeleton.get_bone_global_pose(1).origin
 	var left_before := modifier_skeleton.get_bone_global_pose(2).origin
 	var right_before := modifier_skeleton.get_bone_global_pose(3).origin
+	var left_shin_before := modifier_skeleton.get_bone_global_pose(4).origin
+	var right_shin_before := modifier_skeleton.get_bone_global_pose(5).origin
 	var modifier = HIP_THRUST.new()
 	modifier_skeleton.add_child(modifier)
 	modifier.set("offset_world", Vector3(0.0, 0.0, 0.1))
 	modifier.call("_process_modification_with_delta", 0.0)
 	check(modifier_skeleton.get_bone_global_pose(0).origin.is_equal_approx(
 		hips_before + Vector3(0.0, 0.0, 0.1)), "hip modifier moves the hips")
-	check(modifier_skeleton.get_bone_global_pose(1).origin.is_equal_approx(spine_before),
-		"hip modifier keeps the spine planted")
-	check(modifier_skeleton.get_bone_global_pose(2).origin.is_equal_approx(left_before),
-		"hip modifier keeps the left leg planted")
-	check(modifier_skeleton.get_bone_global_pose(3).origin.is_equal_approx(right_before),
-		"hip modifier keeps the right leg planted")
+	check(modifier_skeleton.get_bone_global_pose(1).origin.is_equal_approx(
+		spine_before + Vector3(0.0, 0.0, 0.1) * 0.55),
+		"hip modifier grades the spine with the pelvis")
+	check(modifier_skeleton.get_bone_global_pose(2).origin.is_equal_approx(
+		left_before + Vector3(0.0, 0.0, 0.1) * 0.35),
+		"hip modifier grades the thighs with the pelvis")
+	check(modifier_skeleton.get_bone_global_pose(3).origin.is_equal_approx(
+		right_before + Vector3(0.0, 0.0, 0.1) * 0.35),
+		"hip modifier grades the right thigh with the pelvis")
+	check(modifier_skeleton.get_bone_global_pose(4).origin.is_equal_approx(left_shin_before),
+		"hip modifier keeps the left shin planted")
+	check(modifier_skeleton.get_bone_global_pose(5).origin.is_equal_approx(right_shin_before),
+		"hip modifier keeps the right shin planted")
 	modifier_skeleton.free()
 
 	var smack_flank := FakeFlank.new()
@@ -608,12 +623,13 @@ func run() -> void:
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	var planted_left := plant_left.global_position
 	var planted_right := plant_right.global_position
+	var stance := TUNABLES.get_float("presentation.standing.plant_spread_m") * 0.5
 	# `Hip drop` lowers the pinned pelvis, and it is on by default.
 	var plant_drop := Vector3.DOWN * TUNABLES.get_float("presentation.standing.hip_drop_m")
-	check(planted_left.is_equal_approx(Vector3(0.2, 0.0, 0.15)),
-		"planted left foot sits 15 cm behind its act-start point")
-	check(planted_right.is_equal_approx(Vector3(-0.2, 0.0, 0.15)),
-		"planted right foot sits 15 cm behind its act-start point")
+	check(planted_left.is_equal_approx(Vector3(0.2 + stance, 0.0, 0.15)),
+		"planted left foot sits 15 cm behind and half a stance out")
+	check(planted_right.is_equal_approx(Vector3(-0.2 - stance, 0.0, 0.15)),
+		"planted right foot sits 15 cm behind and half a stance out")
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
 	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)

@@ -111,13 +111,13 @@ func run() -> void:
 	check(bool(feature_block.get("hud_readouts", false)), "HUD readouts feature on")
 	check(bool(feature_block.get("act_lines", false)), "act lines feature on")
 	check(bool(feature_block.get("act_history", false)), "long-term act history on by default")
-	check(not bool(feature_block.get("idle_camera_sway", true)), "idle camera sway off by default")
+	check(bool(feature_block.get("idle_camera_sway", false)), "idle camera sway on by default")
 	check(bool(feature_block.get("captions_on_top", false)), "captions on top feature on")
 	check(bool(feature_block.get("standing_body_sway", false)), "standing body sway feature on")
 	check(bool(feature_block.get("missionary_body_motion", false)), "missionary body motion feature on")
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
-	check(bool(feature_block.get("standing_plant_feet", false)),
-		"standing feet plant on by default")
+	check(not bool(feature_block.get("standing_plant_feet", true)),
+		"standing feet plant off by default")
 	check(not bool(feature_block.get("standing_play_bow", true)),
 		"play-bow standing stance off by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
@@ -213,7 +213,7 @@ func run() -> void:
 		"default missionary head roll")
 	check(near(float(standing_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
-	check(near(float(standing_defaults.get("torso_angle_deg", -1.0)), -12.0),
+	check(near(float(standing_defaults.get("torso_angle_deg", -1.0)), 0.0),
 		"default Anon torso lean")
 	var kiss_defaults: Dictionary = standing_defaults.get("kiss", {})
 	check(near(float(kiss_defaults.get("mouth_drop", -1.0)), 0.0),
@@ -257,7 +257,7 @@ func run() -> void:
 		"default smack pitch")
 	check(near(float(smack_defaults.get("raise_speed", -1.0)), 1.5),
 		"default smack raise speed")
-	check(near(float(smack_defaults.get("return_speed", -1.0)), 3.0),
+	check(near(float(smack_defaults.get("return_speed", -1.0)), 4.0),
 		"default smack return speed")
 
 	var old_presentation := {
@@ -394,7 +394,7 @@ func run() -> void:
 	check(smack_controls.has("raise_m"), "runtime presentation snapshot has the smack")
 	check(near(float(smack_saved.get("raise_m", -1.0)), 0.30), "default smack raise")
 	check(near(float(smack_saved.get("height_m", 1.0)), 0.05), "default smack height")
-	check(near(float(smack_saved.get("return_speed", 0.0)), 3.0), "default smack return speed")
+	check(near(float(smack_saved.get("return_speed", 0.0)), 4.0), "default smack return speed")
 	var event_prompts: Dictionary = SETTINGS.DEFAULT_TEMPLATE.get("event_prompts", {})
 	check(event_prompts.has("climax") and event_prompts.has("end_early"),
 		"remaining event prompts exist")

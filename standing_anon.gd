@@ -101,8 +101,10 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			_plant_left = (left as Node3D).global_transform
 			_plant_right = (right as Node3D).global_transform
 			var back := facing.z.normalized()
-			_plant_left.origin += back * PLANT_FEET_BACK_M
-			_plant_right.origin += back * PLANT_FEET_BACK_M
+			var spread := Vector3(facing.x.x, 0.0, facing.x.z).normalized() \
+				* (TUNABLES.get_float("presentation.standing.plant_spread_m") * 0.5)
+			_plant_left.origin += back * PLANT_FEET_BACK_M + spread
+			_plant_right.origin += back * PLANT_FEET_BACK_M - spread
 			_plant_hip = hip.global_transform
 			_plant_captured = true
 			_log("standing feet pinned")

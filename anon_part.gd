@@ -4,12 +4,13 @@ extends Node
 
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const HIPS_REST := Vector3(0.0, 0.978635, 0.013361)
 const PLACE_PATH := "user://mods/data/unfplap/anon_place.json"
-const SKIN := Color(0.34, 0.66, 0.34)
-const SKIN_SHADE := Color(0.27, 0.54, 0.28)
-const TIP := Color(0.62, 0.74, 0.42)
-const TIP_SHADE := Color(0.46, 0.57, 0.3)
+const SKIN := Color(0.76, 0.58, 0.52)
+const SKIN_SHADE := Color(0.62, 0.45, 0.41)
+const TIP := Color(0.82, 0.60, 0.58)
+const TIP_SHADE := Color(0.68, 0.46, 0.45)
 
 const PIVOT := Vector3(0.0, 0.8226, 0.122)
 const TIP_POINT := Vector3(0.0, 0.974, 0.76)
@@ -46,6 +47,10 @@ var _bone_inverse := Transform3D.IDENTITY
 var _pos := Vector3(0.0, 0.74, 0.085)
 var _pitch := 0.0
 var _scale := 0.2
+var _setting_scale := 1.0
+var _setting_pitch := 0.0
+var _setting_yaw := 0.0
+var _setting_roll := 0.0
 var _ready_amount := 0.0
 var _tween: Tween
 var _in_encounter := false
@@ -113,6 +118,7 @@ func _ensure() -> bool:
 	_skeleton.add_child(anchor)
 	anchor.add_child(_mesh)
 	_bone_inverse = _skeleton.get_bone_global_rest(bone).affine_inverse()
+	_read_settings()
 	_load_place()
 	_apply_place()
 	_apply_material()
@@ -145,13 +151,35 @@ func _apply_ready() -> void:
 		_mesh.set_blend_shape_value(shape, _ready_amount)
 
 
+func _read_settings() -> void:
+	_setting_scale = TUNABLES.get_float("anatomy.player_scale")
+	_setting_pitch = TUNABLES.get_float("anatomy.player_pitch_deg")
+	_setting_yaw = TUNABLES.get_float("anatomy.player_yaw_deg")
+	_setting_roll = TUNABLES.get_float("anatomy.player_roll_deg")
+
+
+## integration: the user-facing scale and rotation sit on top of the saved placement.
+func _rotation_basis() -> Basis:
+	return Basis.from_euler(Vector3(
+		deg_to_rad(_pitch + _setting_pitch),
+		deg_to_rad(_setting_yaw),
+		deg_to_rad(_setting_roll)))
+
+
 func _placed() -> Transform3D:
-	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)).scaled(Vector3.ONE * _scale)
+	var basis := _rotation_basis().scaled(Vector3.ONE * _scale * _setting_scale)
 	return _bone_inverse * Transform3D(basis, _pos)
 
 
 func _apply_place() -> void:
 	_mesh.transform = _placed()
+
+
+## integration: live user-facing size/rotation update.
+func apply_live() -> void:
+	_read_settings()
+	if is_instance_valid(_mesh):
+		_apply_place()
 
 
 ## integration: standing: the part stays fixed to his hips. Bed: it rides her hips instead.
@@ -209,9 +237,11 @@ func _track_bed(target: Vector3, rear: Vector3, up: Vector3, depth: float,
 		_home = _mesh.get_parent()
 		_mesh.reparent(_bed_holder, false)
 		_set_bend(Vector3.ZERO)
-		var straight := _straighten().scaled(Vector3.ONE * _scale)
+		var straight := (_rotation_basis() * _straighten()).scaled(
+			Vector3.ONE * _scale * _setting_scale)
 		_mesh.transform = Transform3D(straight, -(straight * PIVOT))
-	var reach := PART_LENGTH * _scale * (1.0 - clampf(depth, 0.0, 1.0) * FULL_DEPTH)
+	var reach := PART_LENGTH * _scale * _setting_scale \
+		* (1.0 - clampf(depth, 0.0, 1.0) * FULL_DEPTH)
 	_bed_holder.global_transform = Transform3D(Basis.looking_at(rear, up), target + rear * reach)
 
 
@@ -281,13 +311,11 @@ func spine_length() -> float:
 
 
 func axis() -> Vector3:
-	return Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
-		* (TIP_POINT - PIVOT).normalized()
+	return _rotation_basis() * (TIP_POINT - PIVOT).normalized()
 
 
 func hip_for(root: Vector3, hips: Basis) -> Vector3:
-	var local_root := _pos + Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
-		* (PIVOT * _scale)
+	var local_root := _pos + _rotation_basis() * (PIVOT * _scale * _setting_scale)
 	return root - hips * ((local_root - HIPS_REST) * _skeleton.global_basis.get_scale().x)
 
 

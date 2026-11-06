@@ -1384,6 +1384,8 @@ func refresh_anatomy() -> void:
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime) and runtime.has_method("apply_live_settings"):
 			runtime.call("apply_live_settings")
+	if is_instance_valid(anon_part) and anon_part.has_method("apply_live"):
+		anon_part.call("apply_live")
 
 
 ## integration: the chat box refuses while the act holds the controls; open it past that lock.

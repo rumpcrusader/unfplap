@@ -1231,6 +1231,10 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
+- `anatomy` stores `teats`, `skin_tone`, `act_only`, `cover_depth_m` (default `0.02 m`), and the
+  player-part controls `player_scale` (`1.0×`), `player_pitch_deg`, `player_yaw_deg` and
+  `player_roll_deg`. The player-part values are applied on top of the saved placement and update
+  live.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.

@@ -269,6 +269,9 @@ func _apply_material() -> void:
 	material.set_shader_parameter("skin_shadow", tones[1])
 	material.set_shader_parameter("inner_color", WINKING_PINK)
 	material.set_shader_parameter("inner_shadow", WINKING_PINK_SHADE)
+	var world_scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.001)
+	material.set_shader_parameter("cover_depth",
+		TUNABLES.get_float("anatomy.cover_depth_m") / world_scale)
 	_mesh.set_surface_override_material(0, material)
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	OUTLINE_EXCLUSION.apply_to(_mesh)

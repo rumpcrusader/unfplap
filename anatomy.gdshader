@@ -19,6 +19,8 @@ varying float gloss_strength;
 
 // integration: how far the pink interior draws in front of its true depth, in metres.
 uniform float cut_depth = 0.0;
+// integration: a small depth bias for the outer anatomy, so the jiggling coat cannot cover it.
+uniform float cover_depth = 0.0;
 
 // integration: the teats mesh fades to her coat at the rim and gets its sway uniforms.
 uniform vec4 coat_color: source_color;
@@ -51,7 +53,8 @@ void fragment() {
 
 	// integration: only from behind her, so the pink never shows through from the side.
 	vec3 rear = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
-	vec3 pulled = VERTEX + VIEW * cut_depth * inside * smoothstep(0.3, 0.65, dot(rear, VIEW));
+	float rear_face = smoothstep(0.3, 0.65, dot(rear, VIEW));
+	vec3 pulled = VERTEX + VIEW * (cut_depth * inside + cover_depth) * rear_face;
 	vec4 clip = PROJECTION_MATRIX * vec4(pulled, 1.0);
 	DEPTH = clip.z / clip.w;
 

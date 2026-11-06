@@ -26,6 +26,7 @@ TESTS=(
 	test_act_summary
 	test_act_history
 	test_act_flow
+	test_act_tolerance
 	test_utterance
 	test_utterance_scheduler
 	test_utterance_lines

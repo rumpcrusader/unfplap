@@ -286,6 +286,32 @@ static func all() -> Dictionary:
 		"history.offer_weight_hurt": num(0.12, "Hurt weight",
 			"Offer weight removed per hurt point.", "History › Offers", "", 0.01),
 
+		# Debug: tolerance (the per-mare tier is in Characters).
+		"tolerance.timid_warning": num(4.0, "Timid warning",
+			"Distress at which a timid mare gives her one warning.", "Tolerance", "", 1.0),
+		"tolerance.neutral_warning_1": num(1.0, "Neutral warning 1",
+			"First warning for a neutral mare.", "Tolerance", "", 1.0),
+		"tolerance.neutral_warning_2": num(4.0, "Neutral warning 2",
+			"Second warning for a neutral mare.", "Tolerance", "", 1.0),
+		"tolerance.neutral_stop": num(10.0, "Neutral stop",
+			"Distress at which a neutral mare stops the act.", "Tolerance", "", 1.0),
+		"tolerance.strict_warning": num(1.0, "Strict warning",
+			"Warning threshold for a strict mare.", "Tolerance", "", 1.0),
+		"tolerance.strict_stop": num(3.0, "Strict stop",
+			"Distress at which a strict mare stops the act.", "Tolerance", "", 1.0),
+		"tolerance.dislike_amount": num(1.0, "Dislike amount",
+			"Distress added by each actual disliked touch or talk.", "Tolerance", "", 0.1),
+		"tolerance.like_relief": num(1.0, "Like relief",
+			"Distress removed by each actual liked touch or talk.", "Tolerance", "", 0.1),
+		"tolerance.decay_seconds": num(25.0, "Decay interval",
+			"Seconds per passive distress decay step.", "Tolerance", "s", 1.0),
+		"tolerance.decay_amount": num(1.0, "Decay amount",
+			"Distress removed per decay step.", "Tolerance", "", 0.1),
+		"tolerance.neutral_cooldown_s": num(300.0, "Neutral cooldown",
+			"Sex-only cooldown after a neutral mare stops.", "Tolerance", "s", 10.0),
+		"tolerance.strict_cooldown_s": num(600.0, "Strict cooldown",
+			"Sex-only cooldown after a strict mare stops.", "Tolerance", "s", 10.0),
+
 	}
 	return _cache
 

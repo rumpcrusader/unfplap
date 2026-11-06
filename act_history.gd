@@ -301,15 +301,15 @@ static func prompt_note(row: Dictionary) -> String:
 	if tier >= 3:
 		return "- You love Anon, but you are very reluctant to have sex with him again. " \
 			+ ("You remember: " + text + " " if not text.is_empty() else "") \
-			+ ("You want " + wants + ". " if not wants.is_empty() else "") \
+			+ ("You want to " + wants + ". " if not wants.is_empty() else "") \
 			+ "If he asks, say so gently and refuse."
 	if tier == 2:
 		return "- You are still hurt about the last time. " \
 			+ ("You remember: " + text + " " if not text.is_empty() else "") \
-			+ ("You want " + wants + ". " if not wants.is_empty() else "") \
+			+ ("You want to " + wants + ". " if not wants.is_empty() else "") \
 			+ "You do not want to ask him for sex; if he starts, tell him what you need."
-	return "- You remember the last time. " \
-		+ ("You remember: " + text + " " if not text.is_empty() else "") \
+	return "- You remember the last time: " \
+		+ (text + " " if not text.is_empty() else "") \
 		+ ("Next time you want to " + wants + "." if not wants.is_empty() else "")
 
 
@@ -324,7 +324,7 @@ static func ask_note(row: Dictionary) -> String:
 	var wants := str(row.get("last_wants", "")).strip_edges()
 	var note := "You still feel a little hurt from last time: " + text
 	if not wants.is_empty():
-		note += " You want " + wants + "."
+		note += " You want to " + wants + "."
 	return note + " Ask him gently for what you need."
 
 
@@ -333,11 +333,11 @@ static func line_purpose(row: Dictionary, kind: String) -> String:
 	var wants := str(row.get("last_wants", "")).strip_edges()
 	if kind == "complaint":
 		return "You are still hurt about the last time with Anon. " + text \
-			+ (" You want " + wants + "." if not wants.is_empty() else "") \
+			+ (" You want to " + wants + "." if not wants.is_empty() else "") \
 			+ " Tell him gently but plainly what he did and what you need next time. " \
 			+ "One short sentence, at most 14 words, in your own voice. Do not narrate actions."
 	return "Anon is close. You remember the last time: " + text \
-		+ (" You want " + wants + "." if not wants.is_empty() else "") \
+		+ (" You want to " + wants + "." if not wants.is_empty() else "") \
 		+ " Remind him gently what you need next time. One short sentence, at most 14 words, " \
 		+ "in your own voice. Do not narrate actions."
 
@@ -350,7 +350,7 @@ static func refusal_purpose(row: Dictionary) -> String:
 			+ "Refuse gently in your own voice, one short sentence, at most 14 words. " \
 			+ "Do not narrate actions."
 	return "Anon wants sex again. You love him, but you are very reluctant: " + text \
-		+ (" You want " + wants + "." if not wants.is_empty() else "") \
+		+ (" You want to " + wants + "." if not wants.is_empty() else "") \
 		+ " Refuse gently in your own voice. One short sentence, at most 14 words. " \
 		+ "Do not narrate actions."
 

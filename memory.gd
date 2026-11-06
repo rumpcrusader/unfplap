@@ -47,7 +47,7 @@ static func inside_event(game: Node, id: String, name: String, event_id: String)
 ## world-context event keeps that in view without queuing a scripted line.
 static func afterglow_text(pose: String) -> String:
 	var closeness := "lying close together" if pose != CATALOG.STANDING else "standing close together"
-	return "You and Anon just had sex. You are still in the afterglow together, %s; the act has ended, but the moment is not finished yet." % closeness
+	return "You and Anon just had sex. You are still in the afterglow, %s; the act has ended, but the moment is not finished yet." % closeness
 
 
 static func afterglow_event(game: Node, id: String, name: String, event_id: String, pose: String) -> void:

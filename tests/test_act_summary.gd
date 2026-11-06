@@ -109,6 +109,22 @@ func run() -> void:
 	check(int(early.romance) == 0, "early end gives no romance")
 	check("ended_early" in (early.reasons as Array), "early end reason is named")
 
+	var early_silent := evaluate({"pony_climaxes": 0, "ended_early": true,
+		"talk_liked": 0, "player_lines": 0})
+	var early_text := str(early_silent.text)
+	var early_thought := str(early_silent.thought)
+	check(not early_text.contains("ended it before you finished"),
+		"the early event does not repeat its opening sentence")
+	check(not early_thought.contains(" you "), "the early thought stays in first person")
+	check(early_text.contains("Anon did not speak to you"),
+		"the event says Anon did not speak to her")
+	check(early_thought.contains("He did not speak to me"),
+		"the thought says He did not speak to her")
+	var bad_silent := evaluate({"talk_liked": 0, "player_lines": 0,
+		"touch_dislikes": {"smack": 2}})
+	check(not str(bad_silent.thought).contains(" you "),
+		"a bad thought stays in first person")
+
 	var forced := evaluate({"forced": true})
 	check(bool(forced.skip), "a forced stop is skipped")
 	check(not forced.positive, "a forced stop is not positive")

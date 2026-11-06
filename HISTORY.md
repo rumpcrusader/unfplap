@@ -57,8 +57,14 @@ The summary carries the once-per-act impression:
 | Early end, bad | `-1` | `sad` |
 
 `MEMORY.commit_act` writes this to the game's impressions once. It also records the summary text as
-a `relationship` world-context event. The old flat `commit_climax` path is gone, so a bad act can no
-longer give `+2` romance.
+a `relationship` world-context event. The two lines have separate voices: the recorded `text` is the
+world event told to her (`Anon`/`you`), while `thought` is her private first-person impression
+(`He`/`I`) and is what the profile shows as **Last impression**. The reason sentences in each keep
+that voice, and an early end is stated once, not repeated as a reason.
+
+An intentional early end and a partner stop each record **one** event: the summary when history is
+on and the summary is not skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old
+flat `commit_climax` path is gone, so a bad act can no longer give `+2` romance.
 
 `satisfied.gd` starts on a good or non-early neutral act; a bad act gets no satisfied face. The
 10 s aftercare hold always runs, but its positive tail-up body language is only used after a good

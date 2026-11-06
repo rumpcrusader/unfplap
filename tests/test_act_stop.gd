@@ -32,10 +32,11 @@ class FakeGame extends Node:
 
 class FakeContext extends Node:
 	var impressions: Node
+	var events: Array = []
 
-	func record(_kind: String, _text: String, _witnesses: Array, _subjects: Array,
-			_event_id: String) -> void:
-		pass
+	func record(kind: String, text: String, _witnesses: Array, _subjects: Array,
+			event_id: String) -> void:
+		events.append({"kind": kind, "text": text, "id": event_id})
 
 
 class FakeImpressions extends Node:
@@ -243,6 +244,10 @@ func run() -> void:
 	check(float(neutral_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
 		"a neutral stop writes a cooldown")
 	check(str(neutral_summary.get("mood", "")) == "annoyed", "a neutral stop is annoyed")
+	var neutral_events: Array = neutral["context"].events
+	check(neutral_events.size() == 1, "a partner stop writes one world event")
+	check(str((neutral_events[0] as Dictionary).get("kind", "")) == "relationship",
+		"the one partner-stop event is the summary")
 	neutral_runtime.queue_free()
 	neutral["main"].queue_free()
 	neutral["context"].queue_free()
@@ -257,6 +262,8 @@ func run() -> void:
 	check(bool(strict_runtime.get("_stopped_by_her")), "a strict stop is flagged")
 	var strict_summary: Dictionary = strict_runtime.get("_summary")
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")
+	var strict_events: Array = strict["context"].events
+	check(strict_events.size() == 1, "a strict partner stop also writes one world event")
 	check(int(strict["bonds"].requests) == 1, "a strict stop requests space")
 	check(int(strict["affection"].bucks) == 1, "a strict stop bucks")
 	var strict_row: Dictionary = (strict["mods"].data["unfplap"].get("act_history", {}) as Dictionary).get("rarity", {})

@@ -3242,7 +3242,9 @@ func _stop_with_her(reason: String) -> void:
 	var strict := str(_taste.get("tolerance", "neutral")) == "strict"
 	_cancel_tolerance_warning()
 	_commit_summary(false)
-	if is_instance_valid(main) and is_instance_valid(main.game):
+	# The stopped summary already says why. The basic event is the fallback when no summary was
+	# written (features.act_history off), so one partner stop is never two memories.
+	if _summary.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
 		MEMORY.stop_event(main.game, _id, _display_name, _event_id, "withdrew")
 	if pose_id == CATALOG.MISSIONARY:
 		REST.release_managed(pony)
@@ -3533,9 +3535,12 @@ func _rump_blush_tick(delta: float) -> void:
 func cancel() -> void:
 	_log("cancel state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE]:
-		MEMORY.cancel_event(main.game, _id, _display_name, _event_id)
 		_act_ended_early = true
 		_commit_summary(false)
+		# The early summary already records this end. Keep the basic event only when history is
+		# off or the summary was skipped, so the story never holds the same end twice.
+		if _summary.is_empty():
+			MEMORY.cancel_event(main.game, _id, _display_name, _event_id)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()

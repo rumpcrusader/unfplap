@@ -29,6 +29,25 @@ const DEFAULT_RULES := {
 }
 
 
+## Reason sentences for the private note: [world event voice, private thought voice]. The event
+## text speaks to her (Anon/you); the thought is her own (He/I).
+const REASON_LINES := {
+	"no_climax": ["You did not get there.", "I did not get there."],
+	"silent_talk": ["Anon did not speak to you when you needed to hear him.",
+		"He did not speak to me when I needed to hear him."],
+	"talk_miss": ["Anon did not say the kind of thing you need to hear.",
+		"He did not say the kind of thing I need to hear."],
+	"no_liked_touch": ["Anon did not touch you the way you like.",
+		"He did not touch me the way I like."],
+	"intensity_mismatch": ["Anon did not use the pressure you wanted.",
+		"He did not use the pressure I wanted."],
+	"pattern_mismatch": ["Anon did not keep the rhythm you wanted.",
+		"He did not keep the rhythm I wanted."],
+	"too_many_dislikes": ["Anon kept doing things you do not like.",
+		"He kept doing things I do not like."],
+}
+
+
 ## The live debug rules. Missing schema paths fall back to the module defaults.
 static func rules() -> Dictionary:
 	var out := DEFAULT_RULES.duplicate(true)
@@ -306,7 +325,7 @@ static func _text(grade: String, ended_early: bool, reasons: Array[String]) -> S
 		text = "You and Anon made love, and you came more than once. You felt completely wanted."
 	elif grade == "good":
 		text = "You and Anon made love, and you came. You felt wanted."
-	var reason := _reason_sentence(reasons)
+	var reason := _reason_sentence(reasons, false)
 	if not reason.is_empty():
 		text += " " + reason
 	return text
@@ -320,38 +339,27 @@ static func _thought(grade: String, ended_early: bool, reasons: Array[String]) -
 		thought = "He did not give me what I need; I felt used."
 	elif grade == "good" or grade == "great":
 		thought = "He gave me what I needed; I felt wanted."
-	var reason := _reason_sentence(reasons)
+	var reason := _reason_sentence(reasons, true)
 	if not reason.is_empty():
 		thought += " " + reason
 	return thought.left(240)
 
 
-static func _reason_sentence(reasons: Array[String]) -> String:
+static func _reason_sentence(reasons: Array[String], first_person: bool) -> String:
 	var parts: PackedStringArray = []
 	for reason: String in reasons:
-		match reason:
-			"ended_early":
-				parts.append("He ended it before you finished.")
-			"no_climax":
-				parts.append("You did not get there.")
-			"silent_talk":
-				parts.append("He did not speak to you when you needed to hear him.")
-			"talk_miss":
-				parts.append("He did not say the kind of thing you need to hear.")
-			"no_liked_touch":
-				parts.append("He did not touch you the way you like.")
-			"intensity_mismatch":
-				parts.append("He did not use the pressure you wanted.")
-			"pattern_mismatch":
-				parts.append("He did not keep the rhythm you wanted.")
-			"too_many_dislikes":
-				parts.append("He kept doing things you do not like.")
-			_:
-				if reason.begins_with("severe_") or reason.begins_with("disliked_"):
-					parts.append("He kept doing something you do not like.")
+		# The opening sentence already states an early end; repeating it here was the bug.
+		if reason == "ended_early":
+			continue
+		var pair: Variant = REASON_LINES.get(reason)
+		if pair is Array:
+			parts.append(str((pair as Array)[1 if first_person else 0]))
+		elif reason.begins_with("severe_") or reason.begins_with("disliked_"):
+			parts.append("He kept doing things I do not like." if first_person
+				else "Anon kept doing things you do not like.")
 	if parts.is_empty():
 		return ""
-	# Keep the private note short and non-repetitive; one or two facts is enough.
+	# Keep the note short and non-repetitive; one or two facts is enough.
 	var unique: PackedStringArray = []
 	for part: String in parts:
 		if not part in unique:

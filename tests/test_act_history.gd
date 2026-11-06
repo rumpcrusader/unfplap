@@ -220,6 +220,18 @@ func run() -> void:
 	var text := HISTORY.prompt_note(pending)
 	check(not text.is_empty(), "a hurt mare has a prompt note")
 	check(not text.contains("0."), "the prompt note carries no raw score")
+	check(not text.contains("You want be "), "a prompt note joins wants with to")
+	var tier_one := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
+		"last_wants": "be gentle"})
+	var tier_one_note := str(HISTORY.prompt_note(tier_one))
+	check(tier_one_note.count("remember") == 1,
+		"the first tier remembers the last time once")
+	check(tier_one_note.contains("Next time you want to be gentle"),
+		"the first tier uses a forward-looking want")
+	check(str(HISTORY.ask_note(tier_one)).contains("You want to be gentle"),
+		"the ask note joins wants with to")
+	check(str(HISTORY.line_purpose(tier_one, "complaint")).contains("You want to be gentle"),
+		"the complaint line joins wants with to")
 	check(str(HISTORY.ask_note(HISTORY.sanitize({}))).is_empty(),
 		"a steady mare has no ask note")
 

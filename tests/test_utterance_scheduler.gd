@@ -27,7 +27,7 @@ func fresh() -> RefCounted:
 
 func run() -> void:
 	var base: RefCounted = fresh()
-	var cue := "She's warming up."
+	var cue := "She wants you to keep going."
 	base.observe_cue(0.0, cue)
 	check(not base.admit_cue(1.9, cue, false), "base cue needs 2 s of stability")
 	check(base.admit_cue(2.0, cue, false), "base cue admits at 2 s")
@@ -35,18 +35,18 @@ func run() -> void:
 	check(not base.channel_free(), "queued line owns the slot")
 	check(base.pending_key() == "cue:1", "pending key is stored")
 	check(base.pending_kind() == "cue", "pending kind is stored")
-	check(not base.admit_cue(3.0, "She's close.", false), "a second line cannot take the slot")
+	check(not base.admit_cue(3.0, "She is close.", false), "a second line cannot take the slot")
 	base.note_finished(10.0, "cue:1")
 	check(not base.release_ready(10.9), "release waits 1 s after speech stops")
 	check(base.release_ready(11.0), "release is ready after the hold")
 	base.release()
 	check(base.channel_free(), "release frees the slot")
 
-	base.observe_cue(11.0, "She's close.")
-	check(not base.admit_cue(13.0, "She's close.", false), "cue gap blocks before 12 s")
-	check(not base.admit_cue(19.9, "She's close.", false), "shared gap blocks before 18 s")
-	check(base.admit_cue(20.0, "She's close.", false), "cue admits when both gaps clear")
-	base.note_cue_queued(20.0, "cue:2", "She's close.", false)
+	base.observe_cue(11.0, "She is close.")
+	check(not base.admit_cue(13.0, "She is close.", false), "cue gap blocks before 12 s")
+	check(not base.admit_cue(19.9, "She is close.", false), "shared gap blocks before 18 s")
+	check(base.admit_cue(20.0, "She is close.", false), "cue admits when both gaps clear")
+	base.note_cue_queued(20.0, "cue:2", "She is close.", false)
 	check(base.pending_until() == 40.0, "cue stores its 20 s max age")
 	check(base.expired_key(40.0) == "", "not expired at the boundary")
 	check(base.expired_key(40.1) == "cue:2", "expiry reports the pending key")
@@ -64,7 +64,7 @@ func run() -> void:
 	demand.note_cue_queued(2.0, "cue:1", want, true)
 	demand.note_finished(2.5, "cue:1")
 	demand.release()
-	check(not demand.demand_blocked("She's close.", 3.0), "non-demand is outside the budget")
+	check(not demand.demand_blocked("She is close.", 3.0), "non-demand is outside the budget")
 	check(demand.demand_blocked(want, 10.0), "demand budget blocks inside 28 s")
 	check(demand.demand_blocked(want, 40.0), "same demand text repeats only after 45 s")
 	check(not demand.demand_blocked(want, 47.1), "same demand text clears after 45 s")
@@ -126,9 +126,9 @@ func run() -> void:
 		== "She wants to be teased.", "teasing pattern cue")
 	check(SCHED.base_cue(taste, 0.0, 10.0, "firm", "steady") == "She likes that.",
 		"both axes match")
-	check(SCHED.base_cue(taste, 0.0, 10.0, "", "") == "She's warming up.",
+	check(SCHED.base_cue(taste, 0.0, 10.0, "", "") == "She wants you to keep going.",
 		"no axes is warming up")
-	check(SCHED.base_cue(taste, 0.0, 65.0, "soft", "quick") == "She's close.",
+	check(SCHED.base_cue(taste, 0.0, 65.0, "soft", "quick") == "She is close.",
 		"close beats the axes")
 	check(SCHED.base_cue(taste, 1.0, 10.0, "firm", "steady") == "She's overwhelmed.",
 		"overwhelmed beats everything")

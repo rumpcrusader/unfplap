@@ -25,12 +25,21 @@ const DEMAND_LINE_GAP_S := 28.0
 const DEMAND_REPEAT_S := 45.0
 ## A queued line that has not reached audio by this age is stale. The runtime drops it.
 const CUE_MAX_AGE_S := 20.0
-## A climax or early-end reaction is allowed a little longer.
-const REACTION_MAX_AGE_S := 30.0
 ## Keep the slot reserved briefly after speech stops, so a split TTS reply cannot be interrupted.
 const RELEASE_HOLD_S := 1.0
 
 var cue_gap := 12.0
+## Debug-overridable pacing. The constants above are the defaults; runtime.gd pushes the
+## `cues.*` tunables into these fields at act start and on a live settings edit.
+var base_stable_s := CUE_STABLE_S
+var override_stable_s := CUE_OVERRIDE_STABLE_S
+var utterance_gap_s := UTTERANCE_MIN_GAP_S
+var demand_gap_s := DEMAND_LINE_GAP_S
+var demand_repeat_s := DEMAND_REPEAT_S
+var max_age_s := CUE_MAX_AGE_S
+var release_hold_s := RELEASE_HOLD_S
+## Why the last `admit_cue()` call returned false, for the runtime's debug log.
+var last_reason := ""
 
 var _last_cue_seen := ""
 var _cue_changed_at := -1000.0
@@ -43,6 +52,7 @@ var _pending_key := ""
 var _pending_kind := ""
 var _pending_cue := ""
 var _pending_until := 0.0
+var _pending_at := 0.0
 var _pending_override := false
 var _done_key := ""
 var _done_at := 0.0
@@ -57,6 +67,7 @@ func reset(now: float, gap: float) -> void:
 	_last_utterance_at = -1000.0
 	_last_demand_text = ""
 	_last_demand_at = -1000.0
+	last_reason = ""
 	_clear_slot()
 
 
@@ -77,7 +88,7 @@ static func base_cue(taste: Dictionary, overwhelmed: float, readiness: float,
 	if overwhelmed > 0.0:
 		return "She's overwhelmed."
 	if readiness >= CLOSE_AT:
-		return "She's close."
+		return "She is close."
 	var wanted_intensity := str(taste.get("intensity", "firm"))
 	var intensity_match := not intensity.is_empty() and intensity == wanted_intensity
 	if not intensity.is_empty() and not intensity_match:
@@ -97,7 +108,7 @@ static func base_cue(taste: Dictionary, overwhelmed: float, readiness: float,
 		return "She wants a steadier rhythm."
 	if intensity_match and pattern_match:
 		return "She likes that."
-	return "She's warming up."
+	return "She wants you to keep going."
 
 
 static func is_demand(text: String) -> bool:
@@ -122,25 +133,35 @@ func observe_cue(now: float, cue: String) -> void:
 func demand_blocked(cue: String, now: float) -> bool:
 	if not is_demand(cue):
 		return false
-	if now - _last_demand_at < DEMAND_LINE_GAP_S:
+	if now - _last_demand_at < demand_gap_s:
 		return true
-	return cue == _last_demand_text and now - _last_demand_at < DEMAND_REPEAT_S
+	return cue == _last_demand_text and now - _last_demand_at < demand_repeat_s
 
 
 ## Whether a cue may become a line. Pure: call `note_cue_queued` only after the director accepts.
+## `last_reason` holds the blocking gate for the runtime's debug log.
 func admit_cue(now: float, cue: String, is_override: bool) -> bool:
+	last_reason = ""
 	if not channel_free():
+		last_reason = "channel"
 		return false
 	if cue == _last_cue_text:
+		last_reason = "repeat"
 		return false
-	var stable := CUE_OVERRIDE_STABLE_S if is_override else CUE_STABLE_S
+	var stable := override_stable_s if is_override else base_stable_s
 	if now - _cue_changed_at < stable:
+		last_reason = "stable"
 		return false
 	if now - _last_cue_line_at < cue_gap:
+		last_reason = "cue_gap"
 		return false
-	if now - _last_utterance_at < UTTERANCE_MIN_GAP_S:
+	if now - _last_utterance_at < utterance_gap_s:
+		last_reason = "utterance_gap"
 		return false
-	return not demand_blocked(cue, now)
+	if demand_blocked(cue, now):
+		last_reason = "demand"
+		return false
+	return true
 
 
 func note_cue_queued(now: float, key: String, cue: String, demand: bool, is_override := false) -> void:
@@ -150,8 +171,9 @@ func note_cue_queued(now: float, key: String, cue: String, demand: bool, is_over
 	if demand:
 		_last_demand_text = cue
 		_last_demand_at = now
-	_begin_slot(key, "cue", cue, now + CUE_MAX_AGE_S)
+	_begin_slot(key, "cue", cue, now + max_age_s)
 	_pending_override = is_override
+	_pending_at = now
 
 
 ## Reactions always take the slot; they are not paced like cues, but they reset the shared gap so
@@ -160,6 +182,7 @@ func note_reaction_queued(now: float, key: String, cue: String, until: float) ->
 	_last_utterance_at = now
 	_begin_slot(key, "reaction", cue, until)
 	_pending_override = false
+	_pending_at = now
 
 
 func pending_key() -> String:
@@ -172,6 +195,10 @@ func pending_kind() -> String:
 
 func pending_until() -> float:
 	return _pending_until
+
+
+func pending_since() -> float:
+	return _pending_at
 
 
 func pending_cue() -> String:
@@ -191,7 +218,7 @@ func note_finished(now: float, key: String) -> void:
 
 
 func release_ready(now: float) -> bool:
-	return not _done_key.is_empty() and now - _done_at >= RELEASE_HOLD_S
+	return not _done_key.is_empty() and now - _done_at >= release_hold_s
 
 
 func release() -> void:
@@ -224,6 +251,7 @@ func _clear_slot() -> void:
 	_pending_kind = ""
 	_pending_cue = ""
 	_pending_until = 0.0
+	_pending_at = 0.0
 	_pending_override = false
 	_done_key = ""
 	_done_at = 0.0

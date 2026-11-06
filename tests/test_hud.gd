@@ -19,7 +19,7 @@ class Stub extends Node:
 	var y_pink := 0.0
 
 	func hud_cue_line(_readouts := true) -> String:
-		return "❤ 1/3 | She's close."
+		return "❤ 1/3 | She is close."
 
 	func hud_readiness_line(_readouts := true) -> String:
 		return "Wants: soft & steady | You: firm"
@@ -30,7 +30,7 @@ class Stub extends Node:
 	func auto_hud_text() -> String:
 		return "Auto · wheel pace 1.5/s · depth 90%" if auto_on else ""
 
-	func hud_kiss_fade() -> bool:
+	func hud_controls_fade() -> bool:
 		return kiss_fade
 
 	func hud_y_pink() -> float:
@@ -148,8 +148,8 @@ func _check_controls() -> void:
 		"X offers auto while manual")
 	stub.kiss_fade = true
 	hud.call("update_from", stub, true)
-	check(is_equal_approx(float(hud.get("_controls_alpha")), hud.CONTROLS_KISS_ALPHA),
-		"controls fade while leaning in for a kiss")
+	check(is_equal_approx(float(hud.get("_controls_alpha")), hud.CONTROLS_FADE_ALPHA),
+		"controls fade while leaning")
 	stub.kiss_fade = false
 	hud.call("update_from", stub, true)
 	check(is_equal_approx(float(hud.get("_controls_alpha")), 1.0),

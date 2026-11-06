@@ -50,6 +50,11 @@ const ACTIONS := {
 		"help": "Clear the aimed or nearest mare's long-term act history and hurt.",
 		"method": "action_reset_act_history",
 	},
+	"show_act_history": {
+		"label": "Show act history",
+		"help": "Print the aimed or nearest mare's act history to the debug log.",
+		"method": "action_show_act_history",
+	},
 	"force_tolerance_warning": {
 		"label": "Force tolerance warning",
 		"help": "Trigger the active act's next tolerance warning.",

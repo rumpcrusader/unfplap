@@ -28,6 +28,32 @@ jobs:
           ver="$(python3 -c 'import json;print(json.load(open("mod.json"))["version"])')"
           test "$tag" = "$ver" || { echo "tag $tag != mod.json version $ver"; exit 1; }
 
+      - name: Extract release changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python3 - "$GITHUB_REF_NAME" <<'PY'
+          import pathlib
+          import sys
+
+          tag = sys.argv[1]
+          lines = pathlib.Path("changelog.txt").read_text(encoding="utf-8").splitlines()
+          out = []
+          inside = False
+          for line in lines:
+              stripped = line.strip()
+              if stripped == tag:
+                  inside = True
+                  continue
+              if inside and stripped.startswith("v") and stripped[1:2].isdigit():
+                  break
+              if inside:
+                  out.append(line)
+          body = "\n".join(out).strip()
+          if not body:
+              raise SystemExit(f"changelog.txt has no section for {tag}")
+          pathlib.Path("release_notes.md").write_text(body + "\n", encoding="utf-8")
+          PY
+
       - name: Build
         run: ./build.sh
 
@@ -42,4 +68,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.pck
-          generate_release_notes: true
+          body_path: release_notes.md

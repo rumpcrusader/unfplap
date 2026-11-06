@@ -20,8 +20,11 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	check(UTTER.is_demand("She wants it firmer."), "demand cue classified")
+	check(UTTER.is_demand("She wants a steadier rhythm."), "rhythm demand classified")
+	check(UTTER.is_demand("She wants to be teased."), "tease demand classified")
 	check(UTTER.is_demand("She needs you to move."), "need cue classified")
 	check(not UTTER.is_demand("She likes that."), "positive cue is not a demand")
+	check(not UTTER.is_demand("She wants you to keep going."), "trend fallback is not a demand")
 
 	var text := UTTER.format("a {state} b {taste} c {cue} d {recent} e {missing}", {
 		"state": "S", "taste": "T", "cue": "C", "recent": "R",

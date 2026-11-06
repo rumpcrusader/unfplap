@@ -115,6 +115,22 @@ func run() -> void:
 	runtime._finish_climax()
 	check(int(runtime.state) == 4, "third climax auto-enters AFTERGLOW")
 
+	runtime._max_pony_climaxes = 0
+	runtime.state = 2
+	runtime.pony_climaxes = 5
+	check(runtime.hud_cue_line(true).begins_with("❤ 5/∞"),
+		"unlimited climax limit uses the infinity display")
+	runtime._finish_climax()
+	check(int(runtime.state) == 2, "zero climax limit keeps the act going")
+	runtime._max_pony_climaxes = 2
+	runtime.state = 2
+	runtime.pony_climaxes = 2
+	check(runtime.hud_cue_line(true).begins_with("❤ 2/2"),
+		"configured climax limit shows the denominator")
+	runtime._finish_climax()
+	check(int(runtime.state) == 4, "configured climax limit enters AFTERGLOW")
+	runtime._max_pony_climaxes = 3
+
 	# Auto thrust feeds the same tracker and scores through it.
 	runtime.state = 2
 	runtime._auto_default_pace = 1.5

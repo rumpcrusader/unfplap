@@ -31,8 +31,6 @@ var _recheck_at := 0
 var _active := false
 var _near_was_enabled := false
 var _near_disabled := false
-var _start_logged := false
-var _log_at := 0
 
 
 func _exit_tree() -> void:
@@ -93,11 +91,6 @@ func _follow() -> void:
 	var local_anchor: Vector3 = hips_pose * _hips_bind * _anchor_local
 	var basis := rotation * base_world.basis
 	_dock.global_transform = Transform3D(basis, tip_target - basis * local_anchor)
-	if Time.get_ticks_msec() >= _log_at:
-		_log_at = Time.get_ticks_msec() + 1000
-		_log("dock tail-coat P=%s tip=%s dir=%s angle=%.3f" % [
-			str(_point), str(tip_target), str(direction),
-			rad_to_deg(rotation.get_rotation_quaternion().get_angle())])
 
 
 func _take(result: Dictionary) -> bool:
@@ -117,11 +110,6 @@ func _start() -> bool:
 	if not is_instance_valid(_dock) or not is_instance_valid(_body_sk) \
 			or _hips < 0 or _tail1 < 0 or _tail2 < 0 or _pelvis < 0 \
 			or not _root_local.is_finite() or not _anchor_local.is_finite():
-		if not _start_logged:
-			_start_logged = true
-			_log("dock tail-coat start failed dock=%s body=%s hips=%d tail=%d/%d tip=%s" % [
-				str(is_instance_valid(_dock)), str(is_instance_valid(_body_sk)), _hips,
-				_tail1, _tail2, str(_anchor_local)])
 		_note("dock_start_fail", Time.get_ticks_usec())
 		return false
 	_dock_base = _dock.transform
@@ -139,10 +127,6 @@ func _start() -> bool:
 		_near_disabled = true
 	_active = true
 	_recheck_at = Time.get_ticks_msec() + int(RECHECK_S * 1000.0)
-	if not _start_logged:
-		_start_logged = true
-		_log("dock tail-coat start tip=%s dir=%s near=%s" % [
-			str(_anchor_local), str(_tail_dir0), str(_near_disabled)])
 	return true
 
 
@@ -316,8 +300,3 @@ func _clear_mark_twins() -> void:
 func _note(key: String, started: int) -> void:
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", key, Time.get_ticks_usec() - started)
-
-
-func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)

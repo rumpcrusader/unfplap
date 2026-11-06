@@ -2,9 +2,12 @@ extends RefCounted
 ## Pure prompt formatting for act lines. Admission and pacing belong to
 ## `utterance_scheduler.gd`; this file only turns values into prompt text.
 
-## A demand cue asks Anon to change something. These get the longer repeat budget.
+## A demand cue asks Anon to change something. These get the longer repeat budget. The base
+## fallback ("She wants you to keep going.") is a trend cue, not a demand, so it stays on the
+## normal cue gap.
 static func is_demand(text: String) -> bool:
-	return text.begins_with("She wants") or text.begins_with("She needs")
+	return text.begins_with("She wants it") or text.begins_with("She wants a ") \
+		or text.begins_with("She wants to be teased") or text.begins_with("She needs")
 
 
 static func format(template: String, values: Dictionary) -> String:

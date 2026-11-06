@@ -24,10 +24,9 @@ const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 const CAPTION_PATH := "res://world/ui/speech_caption.gd"
-## The game's one menu look (type variations, boxes, palette) and its drawn icon set, so the
-## injected settings page is built from the same pieces as the page that hosts it.
+## The game's one menu look (type variations, boxes, palette), so the injected settings page is
+## built from the same pieces as the page that hosts it.
 const STYLE := preload("res://world/ui/menu_style.gd")
-const MENU_ICON := preload("res://world/ui/menu_icon.gd")
 ## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
 const CAPTION_TOP_MARGIN := 26.0
 ## The offer hint beside the game's prompt row: a single Y press starts the act, so it reads like
@@ -36,6 +35,7 @@ const OFFER_HINT := "Make love"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default OFF. Toggle in the Debug settings tab.
 var debug_logs := false
+var debug_perf := false
 
 var game
 var player
@@ -104,6 +104,7 @@ func _ready() -> void:
 	set_process(true)
 	add_to_group("pony_prompt_notes")
 	debug_logs = TUNABLES.get_bool("debug_logs")
+	debug_perf = TUNABLES.get_bool("debug_perf")
 	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
@@ -248,6 +249,7 @@ func _apply_live_settings() -> void:
 ## act. Every tunable change goes through here, so a control never needs its own handler.
 func _apply_settings_changed() -> void:
 	debug_logs = TUNABLES.get_bool("debug_logs")
+	debug_perf = TUNABLES.get_bool("debug_perf")
 	_apply_caption_top()
 	_apply_live_settings()
 
@@ -373,9 +375,8 @@ func _inject_settings_page_now(page: Node) -> void:
 	ui.add_theme_constant_override("separation", 10)
 	ui.visible = false
 	(content as VBoxContainer).add_child(ui)
-	# The page's title row already reads "Unfplap" with its gem icon, so the panel starts with the
-	# page's own info card instead of a second heading.
-	_info_card(ui, "Player settings in Settings, per-mare taste in Characters; pose tuning, feature flags and test controls in Debug. Changes apply live during an act.", font_size)
+	# The page's title row already reads "Unfplap" with its gem icon, so the panel starts with
+	# the sub-tabs instead of a second heading or intro card.
 	var tabs_box := TabContainer.new()
 	tabs_box.name = "UnfplapTabs"
 	tabs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -427,24 +428,6 @@ func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
 	list.add_theme_constant_override("separation", 6)
 	holder.add_child(list)
 	return list
-
-
-## The page's muted info card (a tinted panel with an icon), used for the panel's intro line.
-func _info_card(parent: Node, text: String, font_size: int) -> void:
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
-		Color(STYLE.SKY, 0.07), Color(STYLE.SKY, 0.25), 1, 14, 14, 10)))
-	parent.add_child(card)
-	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", 10)
-	card.add_child(line)
-	var mark := MENU_ICON.make("info", font_size - 2, STYLE.SKY)
-	mark.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	line.add_child(mark)
-	var label := STYLE.label(text, "Muted", font_size - 4)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(label)
 
 
 ## The Settings/Debug switch wears the page's "Segment" look: the chosen tab is a lit pill, the
@@ -1144,8 +1127,11 @@ func _debug_offer_request(pose := "") -> String:
 		_debug("request button: %s%s" % [str(target.name), label])
 		return "Offer started for %s%s. Close settings to let her approach." % [
 			str(target.name), label]
-	return "Gates rejected %s%s (lover bond, relationship, consent, pose or no free bed)." % [
-		str(target.name), label]
+	var reason := str(initiation.call("last_reject_reason"))
+	if reason.is_empty():
+		reason = "unknown"
+	_debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
+	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
 
 
 func action_grant_lover_bond() -> String:
@@ -1160,17 +1146,10 @@ func action_clear_lover_bond() -> String:
 func action_reset_act_history() -> String:
 	if not is_instance_valid(player):
 		return "Act system not ready."
-	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
+	var target := _debug_history_target()
 	if not is_instance_valid(target):
 		return "No pony under the crosshair or nearby."
-	var id := str(target.get_meta("relationship_id", ""))
-	if id.is_empty():
-		var identity: Variant = target.get("identity")
-		if identity != null:
-			id = str(identity.get("id"))
+	var id := _debug_pony_id(target)
 	if id.is_empty():
 		return "No relationship id for %s." % str(target.name)
 	var section: Dictionary = ACT_HISTORY.section()
@@ -1179,6 +1158,76 @@ func action_reset_act_history() -> String:
 	ACT_HISTORY.save()
 	_debug("act history reset for %s" % id)
 	return "Act history cleared for %s." % str(target.name)
+
+
+## Debug: print the aimed or nearest mare's stored act history.
+func action_show_act_history() -> String:
+	if not is_instance_valid(player):
+		return "Act system not ready."
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	var id := _debug_pony_id(target)
+	if id.is_empty():
+		return "No relationship id for %s." % str(target.name)
+	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+	var rows: Array[String] = ["pony=%s id=%s" % [str(target.name), id]]
+	var acts := int(row.get("acts", 0))
+	if acts <= 0 and int(row.get("hurt", 0)) <= 0 and int(row.get("comfort", 0)) <= 0:
+		rows.append("no history stored")
+		_debug_block("ACT HISTORY", rows)
+		return "No act history for %s." % str(target.name)
+	rows.append("tier=%s hurt=%d comfort=%d acts=%d good=%d bad=%d neutral=%d" % [
+		ACT_HISTORY.tier_name(row), int(row.get("hurt", 0)), int(row.get("comfort", 0)),
+		acts, int(row.get("good", 0)), int(row.get("bad", 0)), int(row.get("neutral", 0))])
+	rows.append("streaks good=%d bad=%d announced=%d" % [
+		int(row.get("streak_good", 0)), int(row.get("streak_bad", 0)),
+		int(row.get("announced_tier", 0))])
+	var reason_values: Array = row.get("last_reasons", [])
+	var reason_text := ",".join(PackedStringArray(reason_values))
+	rows.append("last grade=%s quality=%.2f reasons=%s" % [
+		str(row.get("last_grade", "")), float(row.get("last_quality", 0.0)), reason_text])
+	var text := str(row.get("last_text", "")).strip_edges()
+	var wants := str(row.get("last_wants", "")).strip_edges()
+	rows.append("last text=%s" % (text if not text.is_empty() else "none"))
+	rows.append("wants=%s" % (wants if not wants.is_empty() else "none"))
+	var stop_until := float(row.get("stop_until", 0.0))
+	var now := Time.get_unix_time_from_system()
+	if stop_until > now:
+		rows.append("stop_until=%.0fs left (%s)" % [
+			stop_until - now, str(row.get("last_stop_kind", ""))])
+	var pending := ACT_HISTORY.pending_line(row)
+	rows.append("pending=%s" % (pending if not pending.is_empty() else "none"))
+	var recent: Variant = row.get("recent", [])
+	if recent is Array and not (recent as Array).is_empty():
+		rows.append("recent:")
+		for entry: Variant in recent:
+			if not entry is Dictionary:
+				continue
+			var item: Dictionary = entry
+			var stamp := Time.get_datetime_string_from_unix_time(int(item.get("at", 0.0)), true)
+			rows.append("- %s %.2f %s %s" % [
+				str(item.get("grade", "")), float(item.get("quality", 0.0)), stamp,
+				str(item.get("text", "")).strip_edges()])
+	_debug_block("ACT HISTORY", rows)
+	return "Act history printed for %s." % str(target.name)
+
+
+func _debug_history_target() -> Node:
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	return target
+
+
+func _debug_pony_id(target: Node) -> String:
+	var id := str(target.get_meta("relationship_id", ""))
+	if id.is_empty():
+		var identity: Variant = target.get("identity")
+		if identity != null:
+			id = str(identity.get("id"))
+	return id
 
 
 func action_force_tolerance_warning() -> String:

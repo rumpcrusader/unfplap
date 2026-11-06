@@ -130,6 +130,11 @@ func run() -> void:
 	check(not bool(feature_block.get("act_vocals", true)), "act vocals off by default")
 	check(not bool(feature_block.get("act_climax", true)), "wet climax off by default")
 	check(not bool(feature_block.get("act_ear_pin", true)), "pinned act ears off by default")
+	check(near(TUNABLES.get_float("thrust.max_pony_climaxes"), 3.0),
+		"climax limit defaults to three")
+	check(near(TUNABLES.get_float("cues.override_seconds"), 10.0),
+		"cue override defaults to ten seconds")
+	check(not TUNABLES.get_bool("debug_perf"), "perf logging off by default")
 	check(not TUNABLES.get_bool("features.unknown_feature"), "unknown feature off")
 	for key: String in SETTINGS.feature_keys():
 		var info: Dictionary = SETTINGS.feature_info(key)

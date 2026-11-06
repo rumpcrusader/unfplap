@@ -55,6 +55,7 @@ var _serial := 0
 var _cuddle_seen: Dictionary = {}
 var _cuddle_asked: Dictionary = {}
 var _retry_at: Dictionary = {}
+var _force_reject := ""
 
 
 func _ready() -> void:
@@ -92,15 +93,20 @@ func reset() -> void:
 ## Manual lab/debug entry point: bypass the quiet, cooldown and AI-usage checks, but keep the
 ## relationship, consent and pose gates. An empty `pose` lets the mare choose.
 func force(runtime: Node, pose := "") -> bool:
+	_force_reject = ""
 	if not is_instance_valid(main) or not is_instance_valid(runtime):
+		_force_reject = "no_runtime"
 		return false
 	if not _episode.is_empty():
 		_cancel_episode(false)
-	var candidate: Dictionary = _candidate_for(runtime, true, pose)
+	var reasons: Array = []
+	var candidate: Dictionary = _candidate_for(runtime, true, pose, reasons)
+	_force_reject = ",".join(PackedStringArray(reasons))
 	if candidate.is_empty():
-		_debug("request force: gates reject %s pose=%s" % [
-			_runtime_name(runtime), "any" if pose.is_empty() else pose])
+		_debug("request force reject %s pose=%s reasons=%s" % [
+			_runtime_name(runtime), "any" if pose.is_empty() else pose, _force_reject])
 		return false
+	_force_reject = ""
 	candidate["forced"] = true
 	_serial += 1
 	var player: Variant = main.get("player")
@@ -115,6 +121,11 @@ func force(runtime: Node, pose := "") -> bool:
 		_start_approach(candidate)
 	_debug("request force %s pose=%s" % [str(candidate.get("id", "?")), str(candidate.get("pose", ""))])
 	return not _episode.is_empty()
+
+
+## Why the last `force()` call produced no candidate. Empty after a success.
+func last_reject_reason() -> String:
+	return _force_reject
 
 
 ## Called before a normal Y start. The act owns the pony now.
@@ -244,36 +255,44 @@ func _consider_start() -> void:
 		_start_approach(chosen)
 
 
-func _candidate_for(runtime: Node, forced: bool, pose_request := "") -> Dictionary:
+func _candidate_for(runtime: Node, forced: bool, pose_request := "",
+		reasons: Array = []) -> Dictionary:
 	if not is_instance_valid(main) or not is_instance_valid(runtime):
+		reasons.append("no_main")
 		return {}
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
+		reasons.append("no_pony")
 		return {}
 	if int(runtime.get("state")) != 0:
+		reasons.append("state=%d" % int(runtime.get("state")))
 		return {}
 	var id := _pony_id(pony)
 	if id.is_empty():
+		reasons.append("no_id")
 		return {}
 	if not forced and not _cooldown_ok(id):
+		reasons.append("cooldown")
 		return {}
 	if not forced and _now() < float(_retry_at.get(id, -100000.0)):
+		reasons.append("retry")
 		return {}
 	var history: Dictionary = _history_row(id)
 	if not forced and ACT_HISTORY.blocks_offers(history):
+		reasons.append("history")
 		return {}
 	var cuddle: bool = bool(runtime.call("_cuddle_active")) if runtime.has_method("_cuddle_active") else false
 	if pose_request == CATALOG.MISSIONARY or (pose_request.is_empty() and cuddle):
-		var bed_candidate := _cuddle_candidate(runtime, forced) if cuddle \
-			else _bed_candidate(runtime, forced)
+		var bed_candidate := _cuddle_candidate(runtime, forced, reasons) if cuddle \
+			else _bed_candidate(runtime, forced, reasons)
 		if not bed_candidate.is_empty() or not pose_request.is_empty():
 			return _with_weight(bed_candidate, history)
-	var standing_candidate := _standing_candidate(runtime, forced)
+	var standing_candidate := _standing_candidate(runtime, forced, reasons)
 	if pose_request == CATALOG.STANDING:
 		return _with_weight(standing_candidate, history)
 	if cuddle:
 		return {}
-	var bed_candidate := _bed_candidate(runtime, forced)
+	var bed_candidate := _bed_candidate(runtime, forced, reasons)
 	var pose := pick_offer_pose(not bed_candidate.is_empty(),
 		not standing_candidate.is_empty(), randf())
 	if pose == CATALOG.MISSIONARY:
@@ -293,25 +312,32 @@ func _with_weight(candidate: Dictionary, history: Dictionary) -> Dictionary:
 	return candidate
 
 
-func _cuddle_candidate(runtime: Node, forced: bool) -> Dictionary:
+func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
+		reasons.append("cuddle:no_pony")
 		return {}
 	var id := _pony_id(pony)
 	if id.is_empty():
+		reasons.append("cuddle:no_id")
 		return {}
 	if not forced and bool(_cuddle_asked.get(id, false)):
+		reasons.append("cuddle:asked")
 		return {}
 	if not _cuddle_privacy_ok(pony):
+		reasons.append("cuddle:privacy")
 		return {}
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
 	var bed: Variant = runtime.call("find_bed_under")
 	if not is_instance_valid(bed):
+		reasons.append("cuddle:no_bed_under")
 		return {}
 	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed)):
+		_append_offer_reasons(reasons, "cuddle", runtime, CATALOG.MISSIONARY, source, bed)
 		return {}
 	if not _offer_targets_pony(pony):
+		reasons.append("cuddle:target")
 		return {}
 	return {
 		"pony": pony, "runtime": runtime, "id": id,
@@ -320,17 +346,20 @@ func _cuddle_candidate(runtime: Node, forced: bool) -> Dictionary:
 	}
 
 
-func _bed_candidate(runtime: Node, _forced: bool) -> Dictionary:
+func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictionary:
 	var pony: Node3D = runtime.get("pony") if is_instance_valid(runtime) else null
 	if not is_instance_valid(pony):
+		reasons.append("bed:no_pony")
 		return {}
 	var found := _find_bed_for(pony)
 	if found.is_empty():
+		reasons.append("bed:no_free_bed")
 		return {}
 	var bed: Node3D = found.get("bed")
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
 	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed)):
+		_append_offer_reasons(reasons, "bed", runtime, CATALOG.MISSIONARY, source, bed)
 		return {}
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
@@ -340,13 +369,15 @@ func _bed_candidate(runtime: Node, _forced: bool) -> Dictionary:
 	}
 
 
-func _standing_candidate(runtime: Node, _forced: bool) -> Dictionary:
+func _standing_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
+		reasons.append("standing:no_pony")
 		return {}
 	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null)):
+		_append_offer_reasons(reasons, "standing", runtime, CATALOG.STANDING, "", null)
 		return {}
-	if not _can_approach(pony):
+	if not _can_approach(pony, reasons):
 		return {}
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
@@ -355,21 +386,41 @@ func _standing_candidate(runtime: Node, _forced: bool) -> Dictionary:
 	}
 
 
-func _can_approach(pony: Node3D) -> bool:
+func _can_approach(pony: Node3D, reasons: Array = []) -> bool:
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
+		reasons.append("standing:no_player")
 		return false
 	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav == null or str(nav.get("reserved_by")) != "":
+	if nav == null:
+		reasons.append("standing:no_navigator")
+		return false
+	if str(nav.get("reserved_by")) != "":
+		reasons.append("standing:reserved")
 		return false
 	var owner := str(nav.get("command_owner"))
 	if not (owner.is_empty() or owner.begins_with("life:")):
+		reasons.append("standing:owner")
 		return false
 	if bool(nav.get("_has_target")):
+		reasons.append("standing:busy")
 		return false
 	if _region_of(player.global_position) != _region_of(pony.global_position):
+		reasons.append("standing:region")
 		return false
-	return player.global_position.distance_to(pony.global_position) <= APPROACH_RADIUS_M
+	if player.global_position.distance_to(pony.global_position) > APPROACH_RADIUS_M:
+		reasons.append("standing:too_far")
+		return false
+	return true
+
+
+func _append_offer_reasons(reasons: Array, label: String, runtime: Node, pose: String,
+		source: String, bed: Variant) -> void:
+	if not runtime.has_method("offer_reasons"):
+		reasons.append(label + ":can_offer")
+		return
+	var failed: PackedStringArray = runtime.call("offer_reasons", pose, source, bed)
+	reasons.append("%s:%s" % [label, ",".join(failed)])
 
 
 # --------------------------------------------------------------------------- privacy

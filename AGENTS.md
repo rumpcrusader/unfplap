@@ -89,9 +89,11 @@ scripts/smoke.sh
   Success prints `MOD_BUILT <path>`. The mod has no script extension.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
-  `AUDIO_CREDITS.md` does.
+  `AUDIO_CREDITS.md` and `changelog.txt` do.
 - `.github/workflows/build.yml` builds on pushes and pull requests; a `v*` tag publishes
-  `dist/unfplap-<version>.pck` as a GitHub release asset.
+  `dist/unfplap-<version>.pck` as a GitHub release asset. Before tagging, append the release
+  changelog section (format and rules in `WORKFLOW.md`); the release step reads that section
+  from `changelog.txt` as the release body and fails when it is missing.
 - The official `tools/modding/build_mod.gd` command remains a fallback when the full game
   project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
@@ -102,6 +104,7 @@ scripts/smoke.sh
 ```text
 mods/unfplap/
   mod.json          id, version, game_version, entry
+  changelog.txt     player-facing release history; ships in the pack
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
                     settings-tab injection with guard, Characters taste editor, debug actions,
                     skeleton debug helper
@@ -241,8 +244,8 @@ body-relative axes.
   `presentation.standing.tail.yaw_deg` (default `31.5°`) and `pitch_deg` (default `24.1°`) set
   how far it sweeps aside and lifts, in degrees, and apply live through
   `_sync_standing_pose_config()`; the tail modifier is created from that pose config.
-- Standing enters the same held `AFTERGLOW` state when the player chooses it or the third pony
-  climax forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
+- Standing enters the same held `AFTERGLOW` state when the player chooses it or the configured
+  pony climax limit forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
   flicks twice, and the inside event is recorded on entry. Normal dialogue resumes; a
   world-context afterglow event keeps the just-intimate moment present, and a live
   `pony_prompt_notes` line reports caressing/leaning. After 16 s she may choose to end the
@@ -541,9 +544,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   final normal every frame. A stale normal is corrected toward the resolved contact normal, not
   the input hint, so a hull fallback at the shoulder cannot turn the palm edge-on. The
   torso-radial fallback only applies to a degenerate or inward normal. The rub centre is lifted
-  `CARESS_UP_BIAS_M = 0.05` above each size profile's `up` point, and a 1 Hz log prints the rub
-  and shoulder heights, source, misses, switches, normal step/out angle and driven-hand
-  distance.
+  `CARESS_UP_BIAS_M = 0.05` above each size profile's `up` point.
   The oval radii are `presentation.standing.caress.oval_across_m` (default `1.0 cm`) along the
   body and `oval_up_m` (default `2.0 cm`) vertically, both times the pony size scale; the old
   `CARESS_OVAL_ACROSS = 1.30` / `CARESS_OVAL_UP = 0.70` ratios are fallbacks. It reads as a
@@ -678,14 +679,17 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   `THRUST_HEAT_BOTH = 1.4`, `THRUST_HEAT_ONE = 0.7` or `THRUST_HEAT_NONE = 0`, times warmth;
   scoring is limited to one thrust every `THRUST_SCORE_MIN_INTERVAL = 0.2 s`. There is no
   passive match rate.
-- Touch/talk are assist only: one chunk up to `ASSIST_CAP = 60`; touch shares a 4 s cooldown,
-  talk has 8 s. A liked touch/talk opens an 8 s receptive window (`RECEPTIVE_BOOST = 1.25`).
-  A disliked one subtracts and briefly sets `overwhelmed`.
-- `CLOSE_AT = 65` is only the “she's close” cue. `PONY_CLIMAX_AT = 100` triggers a pony
+- Touch/talk are assist only: one chunk up to `ASSIST_CAP = 60`; touch and talk use the
+  **Talk & cues** cooldowns (`talk.touch_cooldown_seconds` default `4 s`,
+  `talk.talk_cooldown_seconds` default `8 s`). A liked touch/talk opens
+  `talk.receptive_seconds` (default `8 s`) of `RECEPTIVE_BOOST = 1.25`. A disliked one subtracts
+  and briefly sets `overwhelmed` for `cues.overwhelmed_seconds` (default `1.2 s`).
+- `CLOSE_AT = 65` is only the “she is close” cue. `PONY_CLIMAX_AT = 100` triggers a pony
   climax. `satisfaction` is still the public HUD value.
 - Each pony climax lasts `CLIMAX_SECONDS = 5`; the player can keep thrusting, but those thrusts
-  do not score. After it, readiness resets to `taste.recovery`; the 3rd climax auto-enters
-  afterglow. `MAX_PONY_CLIMAXES = 3`.
+  do not score. After it, readiness resets to `taste.recovery`. The user-facing
+  `thrust.max_pony_climaxes` setting (default `3`, `0` unlimited) decides when the act
+  auto-enters afterglow.
 - Hold `Y` in `ACTIVE` with 0 climaxes cancels; with 1+ it enters afterglow. Hold `Y` in
   `CLIMAX` enters afterglow. `Y` in `AFTERGLOW` ends it.
 - `mood` is `warming`, `wanting`, `close`, `climax` or `overwhelmed`; `cue` is the short HUD
@@ -907,16 +911,25 @@ examples.
 
 - Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
 - `utterance_scheduler.gd` is the pure admission policy: it owns `mood_for`, `base_cue`, the
-  stability clock, `cue_gap` (default `12 s`, clamped `8..30`, per character), the shared 18 s
+  stability clock, `cue_gap` (default `12 s`, clamped `8..30`, per character), the shared
   utterance gap, the demand budget and the single pending slot. `runtime.gd` builds the prompt and
   calls the director.
-- A base cue must stay unchanged for `CUE_STABLE_S = 2 s`. A live touch/talk override only needs
-  `CUE_OVERRIDE_STABLE_S = 0.5 s`, so an event cue can speak inside its 2.5 s HUD lifetime; if the
-  override ends while the row is still queued, it is dropped. It is fine if the line is lost.
-- Demand cues ("She wants…"/"She needs…") have a separate `DEMAND_LINE_GAP_S = 28 s` budget
-  and a `DEMAND_REPEAT_S = 45 s` lock for the same text, so a flapping preference cannot become
-  a stream of commands. The same text as the last queued cue is not repeated; it can return after
-  a different cue has been queued.
+- The debug **Talk & cues** tunables push the pacing values into the scheduler: override lifetime
+  (`cues.override_seconds`, default `10 s`), base and override stability, shared line gap, demand
+  gap/repeat, cue/reaction max age and the release hold. `runtime._snapshot_settings()` and
+  `apply_live_settings()` re-read them.
+- A base cue must stay unchanged for `cues.base_stable_seconds` (default `2 s`). A live
+  touch/talk override only needs `cues.override_stable_seconds` (default `0.5 s`), so an event
+  cue can speak inside its 10 s HUD lifetime; if the override ends while the row is still queued,
+  it is dropped. It is fine if the line is lost.
+- Demand cues (`She wants it…`, `She wants a…`, `She wants to be teased…`, `She needs…`) have
+  their own `cues.demand_gap_seconds` budget and `cues.demand_repeat_seconds` lock for the same
+  text, so a flapping preference cannot become a stream of commands. The trend fallback
+  `She wants you to keep going.` is not a demand. The same text as the last queued cue is not
+  repeated; it can return after a different cue has been queued.
+- The runtime logs the cue text and the admission decision on a change, adds the cue text to
+  `utterance kind=...`, and logs cancel age/line/director state plus delivered/absent rows. Use
+  these when a cue seems lost; there is no per-tick cue log.
 - A cue line uses the `cue` prompt. The state line contains pose, mood, taste-axis motion, last
   touch, last talk, pony climax count and act time; it contains no speed or depth units. The
   cue prompt gets `CUE_REACTION_NOTE`, which tells the model to phrase the cue as a reaction or
@@ -932,10 +945,12 @@ examples.
   memory quotes her answer only when she actually spoke during the act (a start-of-act
   `last_spoken_at` baseline).
 - One mod line owns the slot at a time, cue or reaction. A new line needs an idle director and
-  pony and `UTTERANCE_MIN_GAP_S = 18 s` since the last line was accepted. Reactions take the slot
-  without the cue-stability/gap gates but reset the 18 s clock, so a cue cannot follow immediately.
-- The pending slot stays reserved until speech stops and a 1 s release hold passes. A row that
-  reaches `CUE_MAX_AGE_S = 20 s` (cue) or `REACTION_MAX_AGE_S = 30 s` (reaction) while still
+  pony and `cues.utterance_gap_seconds` (default `18 s`) since the last line was accepted.
+  Reactions take the slot without the cue-stability/gap gates but reset the shared clock, so a
+  cue cannot follow immediately.
+- The pending slot stays reserved until speech stops and `cues.release_hold_seconds` (default
+  `1 s`) passes. A row that reaches `cues.max_age_seconds` (default `20 s`, cue) or
+  `cues.reaction_max_age_seconds` (default `30 s`, reaction) while still
   `queued` or `generating` is cancelled; a `speaking` row is never cut by age. The runtime observes
   `MEMORY.line_state()` (`absent`, `queued`, `generating`, `speaking`, `delivered`, `unknown`) and
   frees the slot when the director drops or delivers the row. The old 60 s watchdog is gone.
@@ -977,14 +992,16 @@ examples.
   keycaps/controller icons and one description; only a row with a modifier renders the muted
   `Hold` column. Rows list `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to
   manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
-  `Kiss`), mouse right (`RMB`, `Smack flank`) and Y (`Hold`; `End early` before her first
+  `Kiss`), mouse right (`RMB`, `Smack`) and Y (`Hold`; `End early` before her first
   climax, then `End`). Every card row uses the drawn dark key cap, including Q/E/C/F/Y and RMB.
   The card has no separate title. The `End` label is shaded from ink toward `ACCENT` by
   `runtime.hud_y_pink()`: one step per pony climax, capped at `Y_END_TINT_MAX = 0.75`, and fully
-  pink only after the standing afterglow close window earned its caress reward.
-- While Anon leans in for a kiss the control card eases to `0.2` alpha over `0.25 s` and back.
-  The cue and readiness line stay at full opacity. `runtime.hud_kiss_fade()` wraps
-  `kiss_control.leaning_close()`, so both poses and the base-kiss release are covered.
+  pink only after the standing afterglow close window earned its caress reward. The cue line's
+  hearts read `❤ N/limit`, or `❤ N/∞` when the climax limit is 0.
+- While Anon leans (W/S/Q/E above `HUD_LEAN_FADE_AT = 0.15`) or leans in for a kiss the control
+  card eases to `0.2` alpha over `0.25 s` and back. The cue and readiness line stay at full
+  opacity. `runtime.hud_controls_fade()` combines the smoothed lean and
+  `kiss_control.leaning_close()`, so both poses, leaning and the base-kiss release are covered.
 - `act_controls` (default on) hides the whole control card without touching the cue, readiness
   line or close prompt, so the pony state readouts can stay while the hints are off.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
@@ -1021,13 +1038,17 @@ examples.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
   nearest) test mare. They bypass the quiet, cooldown, AI-usage and history offer checks, but not
   relationship, consent, pose or free-bed gates; use them in the lab, which runs with
-  `ai_usage=talk`. The status label reports the target or gate rejection. Because the settings page
+  `ai_usage=talk`. A rejected offer reports the failing gate (`relation`, `sex_bond`, `no_free_bed`,
+  `standing:region`, and so on) in the status label and the debug log. Because the settings page
   pauses the tree, an offer advances after it closes.
 - **Grant lover bond** / **Clear lover bond**: grant or clear the mod bond for the aimed (or
   nearest) mare. Grant uses the real Promiscuity, adulthood and kiss-willingness checks, so it
   fails outside them; clear always works.
 - **Reset act history**: clear the aimed or nearest mare's `act_history` row, including hurt and
   comfort. Use it in the lab between escalation runs.
+- **Show act history**: print the aimed or nearest mare's stored row to the debug log, including
+  tier, hurt/comfort, streaks, last grade and reasons, last text/wants, any stop cooldown, pending
+  reminder/complaint and the recent entries. It does not modify the row.
 - **Force tolerance warning** / **Force tolerance stop**: act on the live act. The request is
   consumed on the next unpaused frame, so close the settings panel to apply it.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
@@ -1038,7 +1059,8 @@ examples.
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - `debug_logs` is read from settings and defaults OFF. Toggle it with the **Debug logs**
   checkbox in **Debug → General**; there is no hotkey. It controls logging only.
-- With `debug_logs` on, an act prints one `perf` block a second: pony, pose, state, fps, frame
+- `debug_perf` is a separate Debug → General toggle, also OFF by default. With both `debug_logs`
+  and `debug_perf` on, an act prints one `perf` block a second: pony, pose, state, fps, frame
   time, `near_mesh`, sim tier, wing hold, dock-follower state, then the per-second cost of every
   timed chunk (runtime process/physics, pose recipe, tail pose, body sway, ear twitch, dock
   fast/full/start, caress, wings, kiss, camera motion, HUD). A chunk calls
@@ -1096,8 +1118,9 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
   changes. Opening the Unfplap settings tab calls `TUNABLES.reload_settings()`, so a hand-edited
   file applies when the tab opens; otherwise it needs a restart.
-- Top level: `debug_logs`, `features`, `relationship`, `thrust`, `auto_thrust`, `jiggle`,
-  `camera_thrust`, `presentation`, `history`, `default` template, `characters` overrides.
+- Top level: `debug_logs`, `debug_perf`, `features`, `relationship`, `thrust`, `auto_thrust`,
+  `jiggle`, `camera_thrust`, `presentation`, `history`, `tolerance`, `cues`, `talk`, `default`
+  template, `characters` overrides.
 - Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read
   through `tunables.gd`; the runtime snapshots them with every other act value in
   `_snapshot_settings()` at act start, and `apply_live_settings()` re-runs that snapshot after any
@@ -1182,8 +1205,8 @@ rump blush. Unknown settings keys are ignored.
   click-to-collapse sections from each entry's
   `group` (`"Standing › Smack"` is a subheading under `Standing`). The panel is built from the
   game's own menu pieces, so it reads as part of the page rather than beside it: `main.gd` imports
-  `world/ui/menu_style.gd` and `menu_icon.gd`, the intro line is the page's info card, the sub-tabs
-  are Segment-look pills set on the `TabContainer`'s inner **TabBar** (an override on the container
+  `world/ui/menu_style.gd`, the sub-tabs are Segment-look pills set on the `TabContainer`'s inner
+  **TabBar** (an override on the container
   does not reach the bar) with the container's own `panel` and `tabbar_background` emptied, and a
   section heading is the `Tab` variation, whose pink accent shows the section is open.
   `tunables_ui.gd` draws each entry as the page's own `_row_idle`/`_row_hover` card (falling back to
@@ -1191,13 +1214,14 @@ rump blush. Unknown settings keys are ignored.
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
   units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
-  has no second title. **Settings** holds the player-facing flags, **Thrust** and the **History**
-  toggle. **Characters** holds the hand-built **Character taste** form (a per-mare profile, not a
-  global tunable). **Debug** holds every other entry plus the **Actions** buttons, with the
+  has no second title. **Settings** holds the player-facing flags, **Thrust** (including the
+  climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
+  taste** form (a per-mare profile, not a global tunable). **Debug** holds every other entry,
+  including **Talk & cues**, plus the **Actions** buttons, with the
   Actions block placed directly below **General** rather than at the bottom. There are
   no Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
   refreshes the flags, the caption position and the active act.
-- `debug_logs` defaults to `false`.
+- `debug_logs` and `debug_perf` default to `false`.
 - Character entries inherit unspecified fields from `default`.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),
   `act_prompts`, `event_prompts` (`climax`, `end_early`),

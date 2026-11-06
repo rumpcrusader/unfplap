@@ -4,8 +4,8 @@ Every global setting in the mod is a **tunable**: one line in `tunables_schema.g
 `settings.json` path. Read and write tunables only through `tunables.gd`. The Settings and Debug
 panels are drawn from the schema by `tunables_ui.gd`, in the settings page's own menu style: row
 cards, `Faint` help, switch plus state, Segment pills for a few short choices and the `Tab` look for
-a collapsible section heading. The tab pills, info card, sidebar row and the hand-built Characters
-taste tab are added by the injection in `main.gd`.
+a collapsible section heading. The tab pills, sidebar row and the hand-built Characters taste
+tab are added by the injection in `main.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalize function or a save function for a setting, stop. Add a schema line instead.
@@ -128,8 +128,8 @@ moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a ho
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `TUNABLES.reload_settings()` re-reads it; the settings page reloads when it opens.
 - Defaults for `features`, `relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`,
-  `presentation`, `history` and `tolerance` are generated from the schema. Do not create a second
-  defaults table.
+  `presentation`, `history`, `tolerance`, `cues` and `talk` are generated from the schema. Do not
+  create a second defaults table.
 - `history.*` holds the act-history score weights, point thresholds, decay and offer weighting.
   It is debug-only unless a player-facing threshold is added deliberately; the contract is
   `HISTORY.md`. The `num` entries are never clamped, so a hand-edited value applies.

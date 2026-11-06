@@ -70,9 +70,10 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 - **Controls**: HUD readouts, control hints, captions on top, Promiscuity, Starting Sex, mute
   Ponese audio.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
-  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`1.0…4.5/s`, default
-  `1.5/s`, quarter steps) and peak depth (`0.20…1`, default `0.9`). The auto values are act-start
-  defaults; the wheel and mouse adjust them for one act.
+  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), climax limit (`0…20`, default `3`; `0` is
+  unlimited), and auto-thrust pace (`1.0…4.5/s`, default `1.5/s`, quarter steps) and peak depth
+  (`0.20…1`, default `0.9`). The auto values are act-start defaults; the wheel and mouse adjust
+  them for one act.
 
 **Characters tab**
 
@@ -81,6 +82,11 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 **Debug tab**
 
+- **General**: debug logs and the separate perf-log toggle (both off by default).
+- **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
+  demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
+  cooldowns plus receptive window.
+- **History** and **Tolerance**: the act summary/history scoring and threshold values.
 - **Audio**: act foley, act vocals, wet climax layer.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
@@ -170,19 +176,27 @@ climax        the pony is in her 5 s climax
 overwhelmed   a disliked touch/talk landed recently
 ```
 
-- `CLOSE_AT = 65` is only the “she's close” cue.
+- `CLOSE_AT = 65` is only the “she is close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
-- Cue lines are event-driven, not a timer. `utterance_scheduler.gd` owns admission:
-  - a base cue must stay unchanged for `CUE_STABLE_S = 2 s`;
-  - a live touch/talk override only needs `CUE_OVERRIDE_STABLE_S = 0.5 s`, so an event cue can
-    speak inside its 2.5 s HUD lifetime; if the override ends first, the queued line is dropped;
-  - the per-mare `cue_gap` (default `12`, clamped `8..30`) and the shared 18 s utterance gap must
-    both have elapsed;
-  - demand cues get a 28 s demand budget and a 45 s same-text repeat lock;
+- Cue lines are event-driven, not a timer. `utterance_scheduler.gd` owns admission, with the
+  **Debug → Talk & cues** tunables as its pacing:
+  - a base cue must stay unchanged for `cues.base_stable_seconds` (default `2 s`);
+  - a live touch/talk override only needs `cues.override_stable_seconds` (default `0.5 s`), so
+    an event cue can speak inside its `cues.override_seconds` lifetime (default `10 s`); if the
+    override ends first, the queued line is dropped;
+  - the per-mare `cue_gap` (default `12`, clamped `8..30`) and `cues.utterance_gap_seconds`
+    (default `18 s`) must both have elapsed;
+  - demand cues (`She wants it…`, `She wants a…`, `She wants to be teased…`, `She needs…`) get
+    `cues.demand_gap_seconds` (default `28 s`) and `cues.demand_repeat_seconds` (default `45 s`)
+    for the same text;
   - the same text as the last queued cue is not repeated, but may return after another cue;
-  - a cue or reaction owns one slot at a time. Reactions bypass the cue gates but reset the 18 s
-    gap. A queued or generating row is dropped at 20 s (cue) or 30 s (reaction); a row already
-    speaking is never cut. A quiet or unchanged act may produce no cue line.
+  - a cue or reaction owns one slot at a time. Reactions bypass the cue gates but reset the shared
+    gap. A queued or generating row is dropped at `cues.max_age_seconds` (default `20 s`, cue) or
+    `cues.reaction_max_age_seconds` (default `30 s`, reaction); a row already speaking is never
+    cut. A quiet or unchanged act may produce no cue line.
+- The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
+  neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
+  at `ASSIST_CAP = 60` and only real thrusting can add more.
 - Every cue line gets a private relationship note and tone: friendship/love level, stage,
   first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
   text is unchanged, and the model is not told to repeat specific names.
@@ -197,14 +211,16 @@ overwhelmed   a disliked touch/talk landed recently
 
 ## Pony climax
 
-- At 100 readiness she climaxes. `MAX_PONY_CLIMAXES = 3`.
+- At 100 readiness she climaxes. The user-facing `thrust.max_pony_climaxes` setting (default
+  `3`) sets the limit; `0` is unlimited.
 - The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`.
 - The player can keep thrusting during those 5 s. The thrust is presentation only: it does not
   update intensity, pattern or readiness.
 - Each climax sends a unique world-context event and a unique generated reaction.
 - When the 5 s ends:
-  - fewer than 3 climaxes: return to `ACTIVE`, set readiness to `recovery`, clear pattern;
-  - 3rd climax: enter `AFTERGLOW` automatically.
+  - below the configured limit, or unlimited: return to `ACTIVE`, set readiness to `recovery`,
+    clear pattern;
+  - at a non-zero configured limit: enter `AFTERGLOW` automatically.
 - The pony's `recovery` is per-mare, so a slow/low-recovery mare needs a thorough approach
   and a quick/high-recovery mare reaches the next climax faster.
 
@@ -222,7 +238,7 @@ Hold `Y`:
 
 - The player cannot enter afterglow before the first pony climax.
 - One or more climaxes allows afterglow at any time.
-- The 3rd climax forces afterglow after its 5 s effect.
+- A non-zero configured climax limit forces afterglow after that climax's 5 s effect.
 - Pegasi and alicorns slowly fold their wings back to rest during afterglow over 6 s rather
   than holding the spread pose until the act ends.
 
@@ -274,8 +290,8 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - `hud_readouts` (default `true`) shows the cue and the separate `Wants`/`You` line.
 - `act_controls` (default `true`) shows the control card. Off hides only the card; the cue,
   readiness line and close prompt remain.
-- Top to bottom: cue line `❤ N/3 | cue`, readiness line
-  `Wants: intensity & pattern | You: intensity & pattern`, auto readout
+- Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
+  readiness line `Wants: intensity & pattern | You: intensity & pattern`, auto readout
   `Auto · wheel pace N/s · depth N%` while auto is on, blank separator, controls.
 - When readouts are off, the hearts remain; the cue and readiness line are hidden.
 - In afterglow the summary is always shown: missionary puts it in the cue line, standing keeps its
@@ -289,14 +305,15 @@ caressing her or leaning in; leaning counts as staying close/hugging.
   `Switch to manual`. The pose rows read `Lean`, `Reach`, `Caress` and `Caress movement`; they do
   not spell out both directions. Only the two `Hold` rows carry the modifier column, so an icon
   is followed by its words with no reserved blank space.
-- The control card fades to 20% while Anon leans in for a kiss and returns after it; the cue and
-  readiness readouts stay at full opacity.
-- Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
+- The control card fades to 20% while Anon leans or leans in for a kiss and returns after it;
+  the cue and readiness readouts stay at full opacity.
+- Afterglow shows `❤ N/limit | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
   standing keeps lean, reach, caress, caress movement, kiss and Y; thrust, auto and smack are
   hidden.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
-- `debug_logs` gates the detailed overlay, not the HUD.
+- `debug_logs` gates the detailed overlay, not the HUD. `debug_perf` separately gates the
+  per-second performance block and requires `debug_logs` too.
 
 ## Touch and talk classification
 

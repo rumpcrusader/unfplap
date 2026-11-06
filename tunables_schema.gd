@@ -33,6 +33,8 @@ static func all() -> Dictionary:
 		# General
 		"debug_logs": flag(false, "Debug logs",
 			"Print the mod's diagnostics to the console.", "General"),
+		"debug_perf": flag(false, "Perf logs",
+			"Print the per-second performance block. Requires Debug logs.", "General"),
 
 		# Player-facing controls (Settings tab).
 		"features.hud_readouts": flag(true, "HUD readouts",
@@ -70,6 +72,9 @@ static func all() -> Dictionary:
 		"thrust.travel": user_num(0.5, "Hip back-off",
 			"How far the hips retreat between thrusts.", "Thrust", "×",
 			0.05, 1.0, 0.25, 2.0, SETTINGS_TAB),
+		"thrust.max_pony_climaxes": user_num(3.0, "Climax limit",
+			"How many times she can climax in one act. 0 is unlimited.",
+			"Thrust", "", 1.0, 1.0, 0.0, 20.0, SETTINGS_TAB),
 		"auto_thrust.pace": user_num(1.5, "Auto pace",
 			"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
 			"Thrust", "/s", 0.25, 1.0, 1.0, 4.5, SETTINGS_TAB),
@@ -93,6 +98,34 @@ static func all() -> Dictionary:
 		"features.act_ear_pin": flag(false, "Pinned act ears",
 			"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.",
 			"Act flow"),
+
+		# Debug: talk and cues.
+		"cues.override_seconds": num(10.0, "Override lifetime",
+			"How long a touch or talk cue replaces the base cue.", "Talk & cues", "s", 0.5),
+		"cues.base_stable_seconds": num(2.0, "Base stability",
+			"How long a base cue must hold before it can be spoken.", "Talk & cues", "s", 0.1),
+		"cues.override_stable_seconds": num(0.5, "Override stability",
+			"How long a touch or talk cue must hold before it can be spoken.", "Talk & cues", "s", 0.1),
+		"cues.utterance_gap_seconds": num(18.0, "Line gap",
+			"Minimum time between any two generated act lines.", "Talk & cues", "s", 0.5),
+		"cues.demand_gap_seconds": num(28.0, "Demand gap",
+			"Minimum time between demand lines.", "Talk & cues", "s", 0.5),
+		"cues.demand_repeat_seconds": num(45.0, "Demand repeat",
+			"How long the same demand text is locked out.", "Talk & cues", "s", 0.5),
+		"cues.max_age_seconds": num(20.0, "Cue max age",
+			"Drop a queued cue that has not reached audio by this age.", "Talk & cues", "s", 0.5),
+		"cues.reaction_max_age_seconds": num(30.0, "Reaction max age",
+			"Drop a queued reaction that has not reached audio by this age.", "Talk & cues", "s", 0.5),
+		"cues.release_hold_seconds": num(1.0, "Release hold",
+			"Keep the line slot reserved after speech stops.", "Talk & cues", "s", 0.1),
+		"cues.overwhelmed_seconds": num(1.2, "Overwhelmed cue",
+			"How long a disliked input keeps the overwhelmed cue.", "Talk & cues", "s", 0.1),
+		"talk.touch_cooldown_seconds": num(4.0, "Touch cooldown",
+			"Minimum time between touch readiness chunks.", "Talk & cues", "s", 0.1),
+		"talk.talk_cooldown_seconds": num(8.0, "Talk cooldown",
+			"Minimum time between talk readiness chunks.", "Talk & cues", "s", 0.1),
+		"talk.receptive_seconds": num(8.0, "Receptive window",
+			"How long a liked touch or talk makes thrusts land harder.", "Talk & cues", "s", 0.5),
 
 		# Debug: camera and wobble.
 		"features.idle_camera_sway": flag(false, "Idle camera sway",

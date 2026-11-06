@@ -21,8 +21,8 @@ const KEYCAP_SIZE := Vector2(32.0, 28.0)
 const ICON_EDGE := 28.0
 ## The game's carry card puts "Tap"/"Hold" in its own muted column.
 const MODE_WIDTH := 38.0
-## The control card fades out of the way while Anon leans in for a kiss.
-const CONTROLS_KISS_ALPHA := 0.2
+## The control card fades out of the way while Anon leans or leans in for a kiss.
+const CONTROLS_FADE_ALPHA := 0.2
 const CONTROLS_FADE_S := 0.25
 ## Center prompt: the game's prompt-row scale (52 px icon, 30 px words, 10 px outline).
 const PROMPT_ICON_EDGE := 52.0
@@ -195,7 +195,7 @@ func _build_controls() -> void:
 	_add_hint_row("caress_move", [{"cap": "Z"}, {"cap": "C"}], "",
 		"Caress movement")
 	_add_hint_row("kiss", [{"cap": "F"}], "Hold", "Kiss")
-	_add_hint_row("smack", [{"cap": "RMB"}], "", "Smack flank")
+	_add_hint_row("smack", [{"cap": "RMB"}], "", "Smack")
 	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
 
 
@@ -317,7 +317,7 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		_thrust_label.text = "Max depth" if auto_on else "Thrust"
 	if _auto_label != null:
 		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
-	_set_controls_faded(_kiss_fade(runtime))
+	_set_controls_faded(_controls_fade(runtime))
 
 
 ## The act setting that shows or hides the control card. The cue and readiness line are
@@ -326,13 +326,13 @@ func _controls_hints_on(runtime: Node) -> bool:
 	return not runtime.has_method("hud_controls") or bool(runtime.call("hud_controls"))
 
 
-## Anon leaning in for a kiss gets the control card out of the shot.
-func _kiss_fade(runtime: Node) -> bool:
-	return runtime.has_method("hud_kiss_fade") and bool(runtime.call("hud_kiss_fade"))
+## A lean or kiss gets the control card out of the shot.
+func _controls_fade(runtime: Node) -> bool:
+	return runtime.has_method("hud_controls_fade") and bool(runtime.call("hud_controls_fade"))
 
 
 func _set_controls_faded(faded: bool) -> void:
-	var target := CONTROLS_KISS_ALPHA if faded else 1.0
+	var target := CONTROLS_FADE_ALPHA if faded else 1.0
 	if is_equal_approx(target, _controls_alpha):
 		return
 	_controls_alpha = target

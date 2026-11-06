@@ -305,7 +305,6 @@ var _caress_phase := {"L": 0.0, "R": 0.0}
 var _caress_logged := {"L": false, "R": false}
 var _caress_return_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_return_started := {"L": 0, "R": 0}
-var _caress_diag_at := 0
 var _last_smack_ms := -10000
 var _smack_active := false
 var _smack_index := 0
@@ -461,7 +460,6 @@ func _end_caress() -> void:
 	_caress_moving = {"L": true, "R": true}
 	_caress_move_key_down = {"L": false, "R": false}
 	_caress_phase = {"L": 0.0, "R": 0.0}
-	_caress_diag_at = 0
 
 
 ## Hand-marker basis with the palm flat on the coat: local -Z is the fingers, and the palm
@@ -601,8 +599,7 @@ func _palm_contact_state(side: String) -> Dictionary:
 	if not _palm_contacts.has(side):
 		_palm_contacts[side] = {
 			"point": Vector3.INF, "normal": Vector3.UP, "basis": Basis.IDENTITY,
-			"source": "", "switches": 0, "miss": 0, "logged": "",
-			"normal_step": 0.0, "normal_out": 0.0,
+			"source": "", "switches": 0, "miss": 0,
 		}
 	return _palm_contacts[side]
 
@@ -693,8 +690,6 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		state.source = source
 	var smooth_point := hit_point
 	var smooth_normal := hit_normal
-	var normal_step := 0.0
-	var normal_out := 0.0
 	if have:
 		var step := smooth_point - last_point
 		if step.length() > PALM_CONTACT_MAX_STEP_M:
@@ -718,24 +713,16 @@ func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		if outward.length_squared() < 0.5:
 			outward = last_normal
 		if outward.length_squared() > 0.5:
-			normal_out = rad_to_deg(smooth_normal.angle_to(outward))
 			if smooth_normal.dot(outward) < 0.1:
 				smooth_normal = rotate_normal_toward(last_normal, outward, max_step)
 				if smooth_normal.dot(outward) < 0.1:
 					smooth_normal = outward
-		normal_step = rad_to_deg(last_normal.angle_to(smooth_normal))
 	# The palm plane is rebuilt from the final normal every frame, not slerped on its own,
 	# so it cannot lag around and rotate into her between contact updates.
 	var smooth_basis := palm_surface_basis(side, smooth_normal, finger_hint)
 	state.point = smooth_point
 	state.normal = smooth_normal
 	state.basis = smooth_basis
-	state.normal_step = normal_step
-	state.normal_out = normal_out
-	if str(state.logged) != source:
-		state.logged = source
-		_log("palm contact side=%s source=%s point=%s normal=%s" % [
-			side, source, str(smooth_point), str(smooth_normal)])
 	var palm := smooth_point + smooth_normal * clearance
 	return Transform3D(smooth_basis, palm)
 
@@ -853,33 +840,10 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 			hand_side, str(target.origin), str(normal), str(target.basis.x),
 			str(target.basis.y), str(target.basis.z),
 			(centre_world + offset).y - pony.global_position.y])
-	if Time.get_ticks_msec() >= _caress_diag_at:
-		_caress_diag_at = Time.get_ticks_msec() + 1000
-		_caress_diag(hand_side, target, centre_world + offset, shoulder_world, side)
 	var driver: Node = runtime.call("_desktop_pose_driver")
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
 	return target
-
-
-## Once a second while a hand caresses: where the rub sits relative to her root/shoulder, how
-## far the driven hand is from its target, and whether the contact is missing or switching.
-func _caress_diag(hand_side: String, target: Transform3D, rub_point: Vector3,
-		shoulder_point: Vector3, side: String) -> void:
-	if not is_instance_valid(pony):
-		return
-	var root_y: float = pony.global_position.y
-	var state := _palm_contact_state(hand_side)
-	var hand_dist := -1.0
-	var driver: Node = runtime.call("_desktop_pose_driver")
-	if is_instance_valid(driver) and driver.has_method("hand_frame"):
-		var frame_v: Variant = driver.call("hand_frame", hand_side)
-		if frame_v is Transform3D and (frame_v as Transform3D).is_finite():
-			hand_dist = (frame_v as Transform3D).origin.distance_to(target.origin)
-	_log("caress diag side=%s rub_h=%.3f shoulder_h=%.3f hand_dist=%.3f source=%s miss=%d switches=%d normal_step=%.1f normal_out=%.1f" % [
-		side, rub_point.y - root_y, shoulder_point.y - root_y, hand_dist,
-		str(state.source), int(state.miss), int(state.switches),
-		float(state.get("normal_step", 0.0)), float(state.get("normal_out", 0.0))])
 
 
 ## Release from the shoulder smoothly rather than teleporting back.
@@ -1118,7 +1082,6 @@ func _smack() -> void:
 		hand_side = "left" if index == 0 else "right"
 	var caress_side := "L" if hand_side == "left" else "R"
 	var caressing := bool(_caress_active[caress_side])
-	var source := "caress" if _caress_active["L"] or _caress_active["R"] else "lean"
 	var driver: Node = runtime.call("_desktop_pose_driver")
 	var from_frame := Transform3D.IDENTITY
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
@@ -1172,13 +1135,9 @@ func _smack() -> void:
 			else:
 				_smack_from = from_frame
 				_smack_to = target
-			_log("smack swing side=%.2f cheek=%s at=%s hand=%s source=%s" % [
-				float(runtime.get("_lean_side")), "L" if index == 0 else "R", str(at), hand_side, source])
 			return
 	_flank_impact_without_reaction(index, at)
 	runtime.call("_on_touch", "smack")
-	_log("smack side=%.2f cheek=%s at=%s (instant)" % [
-		float(runtime.get("_lean_side")), "L" if index == 0 else "R", str(at)])
 
 
 func _smack_swing_tick() -> void:
@@ -1378,9 +1337,6 @@ func _end_smack_swing() -> void:
 			_caress_return_from[caress_side] = from
 			_caress_return_started[caress_side] = Time.get_ticks_msec()
 			_set_caress_hand(caress_side)
-			_log("smack return side=%s caress=%s target=%s" % [
-				_smack_side, caress_side,
-				str(_palm_contact_state(_smack_side).get("point", Vector3.INF))])
 		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 			driver.call("clear_hold_target", _smack_side)
 	_smack_active = false
@@ -1492,7 +1448,6 @@ func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
 		return
 	var sig: Signal = pony.physical_reaction
 	var links: Array = sig.get_connections()
-	_log("smack reaction suppressed links=%d" % links.size())
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
@@ -1586,7 +1541,6 @@ func reset() -> void:
 	_caress_moving = {"L": true, "R": true}
 	_caress_move_key_down = {"L": false, "R": false}
 	_caress_phase = {"L": 0.0, "R": 0.0}
-	_caress_diag_at = 0
 
 
 func any_active() -> bool:

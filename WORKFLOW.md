@@ -88,6 +88,26 @@ Docs-only commits do not need bisecting; use `git bisect skip` if one is picked.
 - `git describe --tags --dirty` identifies the source of a build.
 - Record the game version in the tag, because the mod repo cannot bisect game changes.
 
+### Release changelog
+
+`changelog.txt` beside `mod.json` is the player-facing release history and ships in the pack.
+Before tagging, add the new version section at the top, using the tag as the separator:
+
+```text
+v0.1.3
+- One high-level feature.
+- Another feature.
+- Fixed: ...
+- Performance: ...
+```
+
+Build the section from `git log <previous-tag>..HEAD`. Ignore commits that are only tests, build,
+docs or internal debug work. Group multi-commit feature work into one item. Do not add an item for
+a feature that was added in an earlier release and only reworked here, and do not advertise a
+feature that was added and later removed or reworked away. Put bugfixes and performance work at
+the end. The release workflow extracts the section matching the tag as the GitHub release body and
+fails when it is missing.
+
 ## What not to do
 
 - No `git add -A` or `git commit -a` while another task is in the tree.

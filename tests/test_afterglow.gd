@@ -75,7 +75,7 @@ func run() -> void:
 		"holding her lowers the self-end chance")
 	var held: Node = _runtime("standing")
 	held._afterglow_elapsed = 100.0
-	held._afterglow_hold_until = Time.get_ticks_msec() * 0.001 + 60.0
+	held._afterglow_hold_until = held._now_s() + 60.0
 	held._self_end_tick(1.0)
 	check(held.state == 4, "an accepted stay pauses the self-end roll")
 	held.free()
@@ -88,7 +88,7 @@ func run() -> void:
 	stayed._afterglow_elapsed = 100.0
 	stayed._action_executor = FakeExecutor.new()
 	stayed._on_action_outcome({"type": "stay", "status": "accepted"})
-	check(stayed._afterglow_hold_until > Time.get_ticks_msec() * 0.001 + 50.0,
+	check(stayed._afterglow_hold_until > stayed._now_s() + 50.0,
 		"an accepted stay extends the afterglow hold")
 	stayed._action_executor.free()
 	stayed.free()
@@ -100,10 +100,10 @@ func run() -> void:
 
 	var active: Node = _runtime("standing")
 	active.state = 2 # ACTIVE
-	active.cue = "She's close."
+	active.cue = "She is close."
 	active._last_intensity = "firm"
 	active._last_pattern = "steady"
-	check(active.hud_cue_line(true) == "❤ 0/3 | She's close.", "HUD cue line")
+	check(active.hud_cue_line(true) == "❤ 0/3 | She is close.", "HUD cue line")
 	check(active.hud_cue_line(false) == "❤ 0/3", "HUD cue line without optional segments")
 	check(active.hud_readiness_line(true) ==
 		"Wants: firm & steady | You: firm & steady", "separate HUD readiness line")

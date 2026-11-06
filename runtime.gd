@@ -53,7 +53,6 @@ const AFTERGLOW_LIDS := 0.9
 const AFTERGLOW_CLOSE_LIDS := 0.95
 ## Readiness that triggers one pony climax. The player's afterglow is separate.
 const PONY_CLIMAX_AT := READINESS_MAX
-const MAX_PONY_CLIMAXES := 3
 ## Readiness per real thrust. Both taste axes match, one axis matches, or neither matches.
 const THRUST_HEAT_BOTH := 1.4
 const THRUST_HEAT_ONE := 0.7
@@ -68,15 +67,12 @@ const THRUST_SCORE_MIN_INTERVAL := 0.2
 const ASSIST_CAP := 60.0
 const TOUCH_HEAT := 6.0
 const TALK_HEAT := 6.0
-const TOUCH_COOLDOWN_S := 4.0
-const TALK_COOLDOWN_S := 8.0
 ## A liked touch/talk briefly makes real thrusts land harder.
-const RECEPTIVE_S := 8.0
 const RECEPTIVE_BOOST := 1.25
-const CUE_OVERRIDE_S := 2.5
-const OVERWHELM_S := 1.2
 ## Readiness text clears after this long without an inward thrust.
 const STROKE_MEMORY_S := 1.2
+## Fade the act control card once a lean is visibly off centre.
+const HUD_LEAN_FADE_AT := 0.15
 ## Appended to cue prompts to stop the model turning every cue into a command.
 const CUE_REACTION_NOTE := "\nDo not turn the cue into a repeated command; say it as your own reaction or preference."
 const CLIMAX_SECONDS := 5.0
@@ -260,6 +256,7 @@ var _auto_default_pace := 1.5
 var _auto_default_depth := 0.9
 var _thrust_pixels_per_full := 480.0
 var _thrust_travel := 0.5
+var _max_pony_climaxes := 3
 var _jiggle_radius_m := 0.26
 var _jiggle_intensity_scale := 0.25
 var _jiggle_smack_intensity := 0.55
@@ -285,8 +282,22 @@ var _last_thrust_score_at := -1000.0
 var _receptive_until := 0.0
 var _last_talk_at := -1000.0
 var _last_talk_turn := -1
-var _last_blocked_cue := ""
+var _last_cue_log_text := ""
+var _last_cue_log_reason := ""
 var _cue_gap := 12.0
+var _cue_override_seconds := 10.0
+var _cue_base_stable_s := 2.0
+var _cue_override_stable_s := 0.5
+var _cue_utterance_gap_s := 18.0
+var _cue_demand_gap_s := 28.0
+var _cue_demand_repeat_s := 45.0
+var _cue_max_age_s := 20.0
+var _cue_reaction_max_age_s := 30.0
+var _cue_release_hold_s := 1.0
+var _cue_overwhelmed_s := 1.2
+var _touch_cooldown_s := 4.0
+var _talk_cooldown_s := 8.0
+var _receptive_seconds := 8.0
 var _used_memory_ids: Array[String] = []
 var _act_spoken_at := -1e9
 var _peak_satisfaction := 0.0
@@ -370,6 +381,9 @@ var _saved_eye_height := 0.0
 var _camera_target_eye := 0.0
 var _wings
 var _act_seconds := 0.0
+## Processed-time clock. It only advances while the runtime ticks, so a paused tree freezes
+## act timing and stroke memory instead of aging them by the pause length.
+var _clock_s := 0.0
 var _aftercare: Node
 var _satisfied: Node
 var _satisfaction_tween: Tween
@@ -427,7 +441,8 @@ var _perf_frames := 0
 
 
 func _perf_on() -> bool:
-	return is_instance_valid(main) and bool(main.get("debug_logs"))
+	return is_instance_valid(main) and bool(main.get("debug_logs")) \
+		and bool(main.get("debug_perf"))
 
 
 ## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with logs off.
@@ -559,6 +574,19 @@ func _utterance_scheduler():
 	return _lines
 
 
+## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
+## fields, so `_reset_thrust_state()` only has to reset the act's timing state.
+func _configure_utterance_scheduler() -> void:
+	var lines = _utterance_scheduler()
+	lines.base_stable_s = _cue_base_stable_s
+	lines.override_stable_s = _cue_override_stable_s
+	lines.utterance_gap_s = _cue_utterance_gap_s
+	lines.demand_gap_s = _cue_demand_gap_s
+	lines.demand_repeat_s = _cue_demand_repeat_s
+	lines.max_age_s = _cue_max_age_s
+	lines.release_hold_s = _cue_release_hold_s
+
+
 ## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
 ## it so a settings edit applies without a new act.
 func _snapshot_settings() -> void:
@@ -567,6 +595,7 @@ func _snapshot_settings() -> void:
 	thrust_up = str(thrust_block.get("orientation", "up")).to_lower() == "up"
 	_thrust_pixels_per_full = float(thrust_block.get("pixels_per_full", 1000.0))
 	_thrust_travel = float(thrust_block.get("travel", 0.5))
+	_max_pony_climaxes = int(thrust_block.get("max_pony_climaxes", 3))
 	var auto_block := TUNABLES.block("auto_thrust.")
 	_auto_default_pace = float(auto_block.get("pace", 1.5))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.9))
@@ -577,7 +606,23 @@ func _snapshot_settings() -> void:
 	var camera_block := TUNABLES.block("camera_thrust.")
 	_camera_surge = float(camera_block.get("surge", 1.0))
 	_camera_bob = float(camera_block.get("bob", 0.35))
+	var cue_block := TUNABLES.block("cues.")
+	_cue_override_seconds = float(cue_block.get("override_seconds", 10.0))
+	_cue_base_stable_s = float(cue_block.get("base_stable_seconds", 2.0))
+	_cue_override_stable_s = float(cue_block.get("override_stable_seconds", 0.5))
+	_cue_utterance_gap_s = float(cue_block.get("utterance_gap_seconds", 18.0))
+	_cue_demand_gap_s = float(cue_block.get("demand_gap_seconds", 28.0))
+	_cue_demand_repeat_s = float(cue_block.get("demand_repeat_seconds", 45.0))
+	_cue_max_age_s = float(cue_block.get("max_age_seconds", 20.0))
+	_cue_reaction_max_age_s = float(cue_block.get("reaction_max_age_seconds", 30.0))
+	_cue_release_hold_s = float(cue_block.get("release_hold_seconds", 1.0))
+	_cue_overwhelmed_s = float(cue_block.get("overwhelmed_seconds", 1.2))
+	var talk_block := TUNABLES.block("talk.")
+	_touch_cooldown_s = float(talk_block.get("touch_cooldown_seconds", 4.0))
+	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
+	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
 	_presentation_cfg = TUNABLES.block("presentation." + pose_id + ".")
+	_configure_utterance_scheduler()
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
 ## idempotent so repeated edits do not stack modifiers.
@@ -656,16 +701,20 @@ func hud_readouts() -> bool:
 func hud_controls() -> bool:
 	return bool(_features.get("act_controls", true))
 
-## The control card fades out of the way while Anon leans in for a kiss.
-func hud_kiss_fade() -> bool:
-	return _kiss_controller().leaning_close()
+## The control card fades out of the way while Anon leans or leans in for a kiss.
+func hud_controls_fade() -> bool:
+	return absf(_lean_view_forward) >= HUD_LEAN_FADE_AT \
+		or absf(_lean_view_side) >= HUD_LEAN_FADE_AT \
+		or _kiss_controller().leaning_close()
 
 ## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
 ## always kept in afterglow even when the optional readouts are off.
 func hud_cue_line(show_readouts := true) -> String:
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return ""
-	var parts: PackedStringArray = ["❤ %d/%d" % [pony_climaxes, MAX_PONY_CLIMAXES]]
+	var hearts := "❤ %d/∞" % pony_climaxes if _max_pony_climaxes <= 0 \
+		else "❤ %d/%d" % [pony_climaxes, _max_pony_climaxes]
+	var parts: PackedStringArray = [hearts]
 	var cue_text := cue.strip_edges()
 	var closing := state == State.AFTERGLOW
 	if closing:
@@ -703,7 +752,8 @@ func auto_active() -> bool:
 func hud_y_pink() -> float:
 	if pose_id == CATALOG.STANDING and state == State.AFTERGLOW and _close_caress_earned:
 		return 1.0
-	return clampf(float(pony_climaxes) / float(MAX_PONY_CLIMAXES), 0.0, 1.0) * Y_END_TINT_MAX
+	var reference := float(_max_pony_climaxes) if _max_pony_climaxes > 0 else 3.0
+	return clampf(float(pony_climaxes) / reference, 0.0, 1.0) * Y_END_TINT_MAX
 
 ## HUD control readout under the Wants/You line. Empty while manual.
 func auto_hud_text() -> String:
@@ -879,6 +929,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _physics_tick(delta: float) -> void:
+	_clock_s += maxf(0.0, delta)
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		if _inventory_hud_hidden:
@@ -980,6 +1031,11 @@ func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool
 ## pony to be lying or the player to be ready; those stay in the final Y gate.
 func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	return _report_ok(_gate_report(pose, act_source, bed_in, "offer"))
+
+
+## The failed offer gates, for the debug request buttons and their logs.
+func offer_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
+	return _report_reasons(_gate_report(pose, act_source, bed_in, "offer"))
 
 
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
@@ -1128,8 +1184,9 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
 	if state != State.IDLE:
-		text += " | readiness=%.0f mood=%s climaxes=%d/%d intensity=%s pattern=%s cue=%s up=%s | %s" % [
-			satisfaction, mood, pony_climaxes, MAX_PONY_CLIMAXES,
+		var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
+		text += " | readiness=%.0f mood=%s climaxes=%d/%s intensity=%s pattern=%s cue=%s up=%s | %s" % [
+			satisfaction, mood, pony_climaxes, limit_text,
 			_last_intensity, _last_pattern, cue, str(thrust_up),
 			PREFERENCES.describe(_taste).replace("\n", "; ")]
 	text += " | " + voice_status_line()
@@ -2220,7 +2277,7 @@ func _remove_extra_modifiers() -> void:
 # --------------------------------------------------------------------------- thrust
 
 func _now_s() -> float:
-	return Time.get_ticks_msec() * 0.001
+	return _clock_s
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
@@ -2241,17 +2298,19 @@ func _reset_thrust_state() -> void:
 	_close_caress_earned = false
 	_utterance_serial = 0
 	_utterance_scheduler().reset(_now_s(), _cue_gap)
+	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
 	_overwhelmed = 0.0
 	_cue_override = ""
 	_cue_until = 0.0
+	_last_cue_log_text = ""
+	_last_cue_log_reason = ""
 	_last_touch = ""
 	_last_talk = ""
 	_last_touch_at = -1000.0
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
 	_last_talk_at = -1000.0
-	_last_blocked_cue = ""
 	_used_memory_ids.clear()
 	_act_spoken_at = -1e9
 	_peak_satisfaction = 0.0
@@ -2594,20 +2653,33 @@ func _readiness_tick(delta: float) -> void:
 			_last_intensity, _last_pattern)
 	lines.observe_cue(now, cue)
 	var demand := UTTERANCE.is_demand(cue)
-	var blocked: bool = demand and lines.demand_blocked(cue, now)
 	var is_override := not _cue_override.is_empty()
-	if blocked and _last_blocked_cue != cue:
-		_last_blocked_cue = cue
-		_log("cue blocked demand=%s gap=%.1f repeat=%.1f" % [
-			cue, UTTERANCE_SCHEDULER.DEMAND_LINE_GAP_S,
-			UTTERANCE_SCHEDULER.DEMAND_REPEAT_S])
-	if not blocked and _act_lines_enabled() and _utterance_channel_free() \
-			and lines.admit_cue(now, cue, is_override):
+	var admit := false
+	var reason := ""
+	if not _act_lines_enabled():
+		reason = "act_lines_off"
+	elif demand and lines.demand_blocked(cue, now):
+		reason = "demand"
+	elif not _utterance_channel_free():
+		reason = "channel" if not lines.channel_free() else "speech"
+	else:
+		admit = lines.admit_cue(now, cue, is_override)
+		if not admit:
+			reason = lines.last_reason
+	var decision := reason if not admit else "admit"
+	if cue != _last_cue_log_text or decision != _last_cue_log_reason:
+		_last_cue_log_text = cue
+		_last_cue_log_reason = decision
+		_log("cue text=\"%s\" admit=%s reason=%s override=%s" % [
+			cue, "yes" if admit else "no", decision, str(is_override)])
+	if admit:
 		var key := _queue_utterance("cue", "cue", "cue")
 		if not key.is_empty():
 			lines.note_cue_queued(now, key, cue, demand, is_override)
 
-func _set_cue_override(text: String, seconds := CUE_OVERRIDE_S) -> void:
+func _set_cue_override(text: String, seconds := -1.0) -> void:
+	if seconds < 0.0:
+		seconds = _cue_override_seconds
 	cue = text
 	_cue_override = text
 	_cue_until = _now_s() + maxf(0.0, seconds)
@@ -2624,7 +2696,7 @@ func _on_touch(kind: String) -> void:
 		_tolerance_controller().observe_like(kind)
 	var now := _now_s()
 	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
-	if now - _last_touch_at < TOUCH_COOLDOWN_S:
+	if now - _last_touch_at < _touch_cooldown_s:
 		_tolerance_event(tolerance_event)
 		return
 	_last_touch_at = now
@@ -2636,16 +2708,15 @@ func _on_touch(kind: String) -> void:
 			_set_cue_override("She likes that.")
 		else:
 			_set_cue_override("She needs more than your hands.")
-		_receptive_until = now + RECEPTIVE_S
+		_receptive_until = now + _receptive_seconds
 		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
 	elif kind in _taste.get("dislikes", []):
 		_act_dislikes += 1
 		_add_heat(-TOUCH_HEAT)
-		_overwhelmed = OVERWHELM_S
+		_overwhelmed = _cue_overwhelmed_s
 		_set_cue_override("She doesn't like that.")
 		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
-	else:
-		_set_cue_override("She notices your touch.")
+	# A neutral touch sets no override; the live base cue stays on screen.
 	_tolerance_event(tolerance_event)
 
 ## The player's own words are a concrete input. The AI still writes her reply; this only
@@ -2663,7 +2734,7 @@ func _on_talk(text: String) -> void:
 	elif category in _taste.get("talk", []):
 		_tolerance_controller().observe_like(category)
 	var now := _now_s()
-	if now - _last_talk_at < TALK_COOLDOWN_S:
+	if now - _last_talk_at < _talk_cooldown_s:
 		_tolerance_event(tolerance_event)
 		return
 	_last_talk_at = now
@@ -2675,12 +2746,12 @@ func _on_talk(text: String) -> void:
 			_set_cue_override("She likes that.")
 		else:
 			_set_cue_override("She needs you to move.")
-		_receptive_until = now + RECEPTIVE_S
+		_receptive_until = now + _receptive_seconds
 		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
 	elif category in _taste.get("dislikes", []):
 		_act_dislikes += 1
 		_add_heat(-TALK_HEAT)
-		_overwhelmed = OVERWHELM_S
+		_overwhelmed = _cue_overwhelmed_s
 		_set_cue_override("She didn't like that.")
 		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
 	else:
@@ -2741,9 +2812,12 @@ func _utterance_tick() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		line = MEMORY.line_state(main.game, key)
 	if line == "absent":
+		_log("utterance absent key=%s" % key)
 		lines.drop_pending()
 		return
 	if line == "delivered":
+		_log("utterance delivered key=%s age=%.1f" % [
+			key, maxf(0.0, now - lines.pending_since())])
 		lines.note_finished(now, key)
 		_release_finished_utterance()
 		return
@@ -2803,11 +2877,11 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		_utterance_done(line_key)
 	var queued := MEMORY.utterance_for(main.game, _id, act_id, suffix, purpose, valid, finished)
 	if queued.is_empty():
-		_log("utterance queue failed kind=%s" % kind)
+		_log("utterance queue failed kind=%s text=\"%s\"" % [kind, cue])
 		return ""
 	if not memory_id.is_empty():
 		_used_memory_ids.append(memory_id)
-	_log("utterance kind=%s key=%s" % [kind, queued])
+	_log("utterance kind=%s text=\"%s\" key=%s" % [kind, cue, queued])
 	return queued
 
 
@@ -2830,11 +2904,19 @@ func _release_finished_utterance() -> void:
 func _cancel_pending_utterance(reason := "") -> void:
 	var lines = _utterance_scheduler()
 	var key = lines.pending_key()
+	var pending_cue: String = str(lines.pending_cue())
+	var age: float = maxf(0.0, _now_s() - float(lines.pending_since()))
+	var line := "unknown"
+	if not key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
+		line = MEMORY.line_state(main.game, key)
+	var director := _director()
+	var director_state := str(director.get("state")) if director != null else "?"
 	lines.drop_pending()
 	if key.is_empty():
 		return
-	_log("utterance cancel reason=%s key=%s" % [
-		reason if not reason.is_empty() else "manual", key])
+	_log("utterance cancel reason=%s key=%s text=\"%s\" age=%.1f line=%s director=%s speech=%s" % [
+		reason if not reason.is_empty() else "manual", key, pending_cue, age, line,
+		director_state, str(_speech_busy())])
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		MEMORY.cancel_line(main.game, key)
 
@@ -3290,9 +3372,6 @@ func _on_smack_impact(strength: float) -> void:
 	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
 		var tail_strength := _jiggle_size_scale() * _jiggle_smack_intensity
 		_tail.call("thrust", tail_strength)
-		_log("smack tail jiggle strength=%.2f impact=%.2f amount=%s target=%s" % [
-			tail_strength, clampf(strength, 0.0, 1.0), str(_tail.get("amount")),
-			str(_tail.get("target_amount"))])
 
 
 ## Set the shared rump wobble radius on every active jiggle target material.
@@ -3422,7 +3501,7 @@ func cancel() -> void:
 		_restore_begin()
 		if _act_lines_enabled():
 			var act_id := _event_id
-			var expires := _now_s() + UTTERANCE_SCHEDULER.REACTION_MAX_AGE_S
+			var expires := _now_s() + _cue_reaction_max_age_s
 			var reaction_key := MEMORY.mod_key(act_id, "reply", "end_early")
 			var valid := func() -> bool:
 				if not is_instance_valid(pony) or _event_id != act_id:
@@ -3438,7 +3517,7 @@ func cancel() -> void:
 			if not key.is_empty():
 				var now := _now_s()
 				_utterance_scheduler().note_reaction_queued(now, key, "",
-					now + UTTERANCE_SCHEDULER.REACTION_MAX_AGE_S)
+					now + _cue_reaction_max_age_s)
 				_log("utterance kind=reaction key=%s" % key)
 	elif state == State.AFTERGLOW:
 		end_afterglow()
@@ -3459,8 +3538,8 @@ func _climax() -> void:
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
 	mood = "climax"
-	cue = "She's coming."
-	_set_cue_override("She's coming.", CLIMAX_SECONDS)
+	cue = "She is climaxing."
+	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
 	_schedule_climax_hearts()
 	_climax_hearts_burst_at(_dock_point())
 	_set_face(0.3, CLIMAX_LIDS)
@@ -3561,7 +3640,7 @@ func _queue_climax_reaction() -> void:
 	var act_id := _event_id
 	var count := pony_climaxes
 	var climax_id := "%s:pony_climax:%d" % [act_id, count]
-	var expires := _now_s() + UTTERANCE_SCHEDULER.REACTION_MAX_AGE_S
+	var expires := _now_s() + _cue_reaction_max_age_s
 	var reaction_key := MEMORY.mod_key(climax_id, "reply", "climax")
 	var valid := func() -> bool:
 		if not is_instance_valid(pony) or _event_id != act_id or pony_climaxes != count:
@@ -3576,13 +3655,13 @@ func _queue_climax_reaction() -> void:
 		return
 	var now := _now_s()
 	_utterance_scheduler().note_reaction_queued(now, key, cue,
-		now + UTTERANCE_SCHEDULER.REACTION_MAX_AGE_S)
+		now + _cue_reaction_max_age_s)
 	_log("utterance kind=reaction key=%s" % key)
 
-## The pony climax ends on its own. It returns to ACTIVE unless this was the third;
-## afterglow is the player's choice, not the climax state's automatic exit.
+## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was
+## reached; afterglow is the player's choice, not the climax state's automatic exit.
 func _finish_climax() -> void:
-	if pony_climaxes >= MAX_PONY_CLIMAXES:
+	if _max_pony_climaxes > 0 and pony_climaxes >= _max_pony_climaxes:
 		_enter_afterglow()
 		return
 	state = State.ACTIVE
@@ -3599,8 +3678,9 @@ func _finish_climax() -> void:
 	_last_stroke_at = -1000.0
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
-	_log("pony climax end=%d/%d recovery=%.0f" % [
-		pony_climaxes, MAX_PONY_CLIMAXES, satisfaction])
+	var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
+	_log("pony climax end=%d/%s recovery=%.0f" % [
+		pony_climaxes, limit_text, satisfaction])
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.

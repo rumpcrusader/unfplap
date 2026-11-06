@@ -1,0 +1,25 @@
+v0.1.2
+- Settings rebuilt from one schema; every tuning value now lives in settings.json and applies live.
+- Standing caress and smack reworked: reliable coat contact, exposed smack height, an animated wind-up/strike/return, and a nearest-flank target.
+- New OpenNSFW flank-smack sounds replace the stock slap.
+- Standing thrust plants Anon's lower body, adds hip travel and carries the jiggle into the tail.
+- The offer hint now uses the game's prompt-row style and no longer shows a hold.
+- Tail aside and lift are now tunable per act.
+- Adopted the played-in tuning as the defaults; the Unfplap settings tab is always visible.
+- Fixed: settings writes now reach the settings file, and tuning values are no longer clamped in the act.
+- Fixed: the standing facing lock and Anon's hinge now restore correctly.
+
+v0.1.1
+- Updated the mod for Home: Equestria 0.3.0.
+- The mod now ships as a standalone pack without game-source hooks.
+
+v0.1.0
+- Initial release: missionary and standing poses with an act camera and framing controls.
+- Mouse-driven thrust tracking with per-mare taste for intensity and rhythm.
+- Readiness meter: touch and talk warm her, but only thrusting finishes her.
+- Hand caress, flank smack and kiss interactions.
+- Wing, tail and breath motion during the act.
+- Unprompted act lines driven by her mood, taste and relationship.
+- Proactive offers: a mare can ask for privacy and invite you to bed or while standing.
+- Missionary bed support and a live afterglow she can end herself.
+- Act HUD with readiness and cue readouts, plus in-game presentation and thrust settings.

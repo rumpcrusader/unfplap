@@ -1,8 +1,8 @@
 # integration: local anatomy assets
 
 This folder holds the optional adult meshes and textures used by the anatomy feature. They are
-**local-only** and are ignored by `.gitignore`; do not commit them and do not include them in a
-repository release.
+**kept out of git** by `.gitignore`; never commit them. A local `build.sh` packs them into the
+`.pck` when they are present in the working tree.
 
 Expected files:
 

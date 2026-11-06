@@ -29,8 +29,8 @@ Do not start implementation until you have read the required files for the area 
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, heat, estrus, conception, content warning, new character or body models. Adult
   anatomy is an optional, feature-gated addition; it never replaces a pony's body or rig and its
-  meshes/textures are local-only (`assets/anatomy/` is gitignored and never packed for a release).
-  The act stays off-camera by framing. Modelled accessories are allowed.
+  meshes/textures are kept out of git (`assets/anatomy/` is gitignored) while a local build may
+  pack them when present. The act stays off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional, off-by-default standing
   VR act; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,

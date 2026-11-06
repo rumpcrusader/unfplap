@@ -42,7 +42,6 @@ const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
-const ANATOMY_ALIGN := preload("res://mods/unfplap/anatomy_align.gd")
 const MISSIONARY_BED := preload("res://mods/unfplap/missionary_bed.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
@@ -407,8 +406,6 @@ var _lean_forward := 0.0
 var _lean_side := 0.0
 var _lean_view_forward := 0.0
 var _lean_view_side := 0.0
-## integration: user-facing back-lean distance, metres.
-var _lean_back_m := 0.08
 var _side_return_armed := false
 var _hold_rock_clock := 0.0
 var _lean_action_active := false
@@ -728,7 +725,6 @@ func _snapshot_settings() -> void:
 	_touch_cooldown_s = float(talk_block.get("touch_cooldown_seconds", 4.0))
 	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
 	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
-	_lean_back_m = TUNABLES.get_float("presentation.lean_back_m")
 	_presentation_cfg = TUNABLES.block("presentation." + pose_id + ".")
 	_configure_utterance_scheduler()
 
@@ -2185,6 +2181,7 @@ func _standing_gap() -> float:
 	var gaps: Variant = _pose_cfg.get("gaps", STANDING_GAPS)
 	var gap := float((gaps as Dictionary).get(size, STANDING_GAP_M)) if gaps is Dictionary else STANDING_GAP_M
 	gap *= _same_height_scale()
+	gap += TUNABLES.get_float("presentation.standing.gap_offset_m")
 	_log("standing size=%s gap=%.2f" % [size, gap])
 	return gap
 
@@ -2545,9 +2542,8 @@ func anatomy_oral_active() -> bool:
 	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("oral_active"))
 
 
-## integration: live back-lean distance in metres, shared by both cameras and the hip pin.
-func lean_back_distance() -> float:
-	return _lean_back_m
+func anatomy_finish_pull_out() -> bool:
+	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("pull_out_selected"))
 
 
 ## integration: precise action gates. With no act controller (assets missing, feature off) the
@@ -2570,11 +2566,6 @@ func anatomy_finish_ready() -> bool:
 
 func anatomy_actions_ready() -> bool:
 	return anatomy_hole_ready() or anatomy_oral_ready() or anatomy_finish_ready()
-
-
-func anatomy_align_active() -> bool:
-	return is_instance_valid(_anatomy_act) and pose_id == CATALOG.STANDING \
-		and TUNABLES.get_bool("features.anatomy_align")
 
 
 func anatomy_bed_active() -> bool:
@@ -2640,23 +2631,11 @@ func anatomy_facing(basis: Basis, amount: float) -> void:
 		camera.call("set_facing_override", basis, amount)
 
 
-## integration: optional standing alignment reads the current act depth and part.
-func anatomy_align(hip: Node3D, facing: Basis) -> bool:
-	if not anatomy_align_active():
-		return false
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
-	if not is_instance_valid(part) or not is_instance_valid(_anatomy_act):
-		return false
-	return bool(ANATOMY_ALIGN.apply_rotation(hip, _pose_basis_amount(), facing, part,
-		_anatomy_act.call("hole_point"), _anatomy_act.call("hole_rear")))
-
-
-## integration: the wrapper calls this name; it is a no-op with the alignment flag off.
+## integration: the standing part aims itself in `anon_part.track`; only the optional bed body
+## still needs the wrapper hook.
 func apply_anon_align(hip: Node3D, facing: Basis) -> void:
 	if is_instance_valid(_missionary_bed) and bool(_missionary_bed.call("active")):
 		_missionary_bed.call("apply", hip, facing)
-		return
-	anatomy_align(hip, facing)
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:

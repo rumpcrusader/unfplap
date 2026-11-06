@@ -29,9 +29,6 @@ class FakeAnatomy extends Node:
 	func _clear_part() -> void:
 		calls.append("clear")
 
-	func wink(count := 1, _seconds := 0.45) -> void:
-		calls.append("wink:%d" % count)
-
 	func fluid() -> Node3D:
 		return null
 
@@ -90,7 +87,7 @@ func run() -> void:
 	for key: String in ["anatomy_holes", "anatomy_oral", "anatomy_finish", "anatomy_fluid"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
-	for key: String in ["anatomy_align", "anatomy_bed_body", "anatomy_vr",
+	for key: String in ["anatomy_bed_body", "anatomy_vr",
 			"act_bystanders", "act_line_variety", "act_public_offer"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(not bool(SCHEMA.default_value("features." + key)), "%s is off by default" % key)
@@ -106,9 +103,7 @@ func run() -> void:
 	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.281), "global anatomy placement")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
-	check(SCHEMA.has("presentation.lean_back_m"), "back lean setting")
-	check(is_equal_approx(float(SCHEMA.default_value("presentation.lean_back_m")), 0.08),
-		"back lean default")
+	check(not SCHEMA.has("presentation.lean_back_m"), "back lean setting removed")
 	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),
 		"VR body tracker API")
 	check(not ClassDB.class_has_method("XRBodyTracker", "get_have_tracking_data"),
@@ -138,13 +133,16 @@ func run() -> void:
 	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
 	runtime.free()
 
-	# Climax clears the winking shape and runs the three-pulse wink.
+	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
+	# the lips stay on the shaft through the climax instead of closing on nothing.
 	var anatomy_act: Node = ANATOMY_ACT.new()
 	var fake_anatomy := FakeAnatomy.new()
 	anatomy_act.anatomy = fake_anatomy
 	anatomy_act.on_climax()
-	check(fake_anatomy.calls.size() == 2 and fake_anatomy.calls[0] == "clear" \
-		and fake_anatomy.calls[1] == "wink:3", "climax clears and winks three times")
+	check(fake_anatomy.calls.size() == 1 and fake_anatomy.calls[0] == "clear",
+		"climax clears the shape once")
+	check(absf(float(anatomy_act.get("_wink_left")) - ANATOMY_ACT.CLIMAX_WINK_S) < 0.001,
+		"climax arms the wink pulses")
 	anatomy_act.free()
 	fake_anatomy.free()
 

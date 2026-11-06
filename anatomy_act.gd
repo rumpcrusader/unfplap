@@ -15,8 +15,11 @@ const WINKING_HUG_RATE := 45.0
 const WINKING_FILL_RATE := 16.0
 const WINKING_STRETCH_RADIUS := 0.05
 const WINKING_STRETCH_MAX := 1.4
+## Climax wink: three open/close beats, applied on top of the live hug instead of a tween.
+const CLIMAX_WINKS := 3.0
+const CLIMAX_WINK_S := 1.35
+const WINK_OPEN := 0.25
 const HOLE_SWAP_S := 0.9
-const ANAL_READY := 0.55
 const MARE_HOLD_PHASE := 0.45
 const PULLED_OUT_PHASE := 0.35
 const ORAL_TURN_S := 1.6
@@ -70,6 +73,12 @@ var _pull_out := false
 var _finish_out := false
 var _finished_inside := false
 var _bed_rest := 0.8
+## Climax wink: the shapes stay driven around the shaft, and this adds the open/close pulses
+## on top instead of a tween that the per-frame drive would cancel.
+var _wink_left := 0.0
+var _debug_vulva: MeshInstance3D
+var _debug_anus: MeshInstance3D
+var _debug_tip: MeshInstance3D
 
 
 func setup(runtime_node: Node, anatomy_node: Node, pose_id: String) -> void:
@@ -81,6 +90,7 @@ func setup(runtime_node: Node, anatomy_node: Node, pose_id: String) -> void:
 	_id = str(runtime.get("_id"))
 	_display_name = str(runtime.get("_display_name"))
 	reset()
+	_debug_setup()
 
 
 func reset() -> void:
@@ -104,6 +114,7 @@ func reset() -> void:
 	_finish_out = false
 	_finished_inside = false
 	_bed_rest = 0.8
+	_wink_left = 0.0
 	if is_instance_valid(anatomy):
 		anatomy.call("animate", 0.0, 1.0)
 
@@ -138,6 +149,10 @@ func oral_active() -> bool:
 
 func finish_out() -> bool:
 	return _finish_out
+
+
+func pull_out_selected() -> bool:
+	return _pull_out
 
 
 func finished_inside() -> bool:
@@ -258,17 +273,29 @@ func tick(delta: float) -> void:
 		_oral_motion_tick(delta)
 	var rearward := 1.0 - _oral_mix
 	var front := (1.0 - _hole_mix) * rearward
-	# The closed-shape drive owns the vulva during ACTIVE. During CLIMAX it would kill the climactic
-	# wink tween, so the shape waits for the return to ACTIVE, as it does in PPP.
-	if _state() == 2:
-		anatomy.call("drive", 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front)
-		anatomy.call("set_stretch", _wide * front)
-		anatomy.call("set_anal_shape", maxf(_fill, ANAL_READY) * _hole_mix * rearward,
-			_wide * _hole_mix * rearward)
+	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
+	# instead of snapping closed; the climax wink is applied on top as a pulse.
+	if _state() in [2, 3]:
+		var hug := maxf(TUNABLES.get_float("anatomy.hug"), 0.0)
+		var closed := 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front
+		if _wink_left > 0.0:
+			_wink_left = maxf(_wink_left - delta, 0.0)
+			var beat: float = absf(sin((1.0 - _wink_left / CLIMAX_WINK_S) * PI * CLIMAX_WINKS))
+			closed = lerpf(closed, WINK_OPEN if closed > 0.5 else 0.85, beat)
+		# The fill closes the shader's cut over the shaft; without it the hole stays fully open
+		# and the lips cannot read as gripping it.
+		anatomy.call("set_fill", _fill)
+		anatomy.call("drive", closed)
+		anatomy.call("set_stretch", _wide * front * hug)
+		# The ring follows the shaft itself: stretch and open both use the shaft's girth, so the
+		# "open" blend cannot leave a gap around it.
+		var anal := _wide * _hole_mix * rearward * hug
+		anatomy.call("set_anal_shape", anal, anal)
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
 		shown, delta, (mesh as Node3D).get_parent())
+	_debug_tick(part)
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "anatomy_tick", Time.get_ticks_usec() - started)
 
@@ -339,7 +366,7 @@ func _oral_tick(delta: float) -> void:
 func on_climax() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("_clear_part")
-		anatomy.call("wink", 3)
+		_wink_left = CLIMAX_WINK_S
 	if not _enabled("anatomy_fluid"):
 		return
 	var fluid := _fluid_node()
@@ -410,6 +437,7 @@ func end() -> void:
 
 
 func teardown() -> void:
+	_debug_free()
 	_oral = false
 	_oral_mix = 0.0
 	_anal = false
@@ -418,6 +446,63 @@ func teardown() -> void:
 	_finish_out = false
 	_pull_out = false
 	_bed_rest = 0.8
+
+
+## Debug markers: always visible through geometry, no debug flag and no feature gate. They show
+## the vaginal entrance, the anal entrance and the current cock tip for the act partner.
+func _debug_setup() -> void:
+	if not is_instance_valid(main):
+		return
+	_debug_vulva = _debug_sphere(Color(1.0, 0.1, 0.75))
+	_debug_anus = _debug_sphere(Color(1.0, 0.35, 0.05))
+	_debug_tip = _debug_sphere(Color(0.1, 1.0, 0.4))
+	for point: MeshInstance3D in [_debug_vulva, _debug_anus, _debug_tip]:
+		main.add_child(point)
+
+
+func _debug_sphere(color: Color) -> MeshInstance3D:
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.008
+	sphere.height = 0.016
+	sphere.radial_segments = 8
+	sphere.rings = 4
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = sphere
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = color
+	material.no_depth_test = true
+	material.disable_receive_shadows = true
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh.material_override = material
+	mesh.visible = false
+	return mesh
+
+
+func _debug_tick(part: Variant) -> void:
+	if not is_instance_valid(_debug_vulva):
+		return
+	var shown := is_instance_valid(anatomy) and is_instance_valid(anatomy.call("winking_mesh"))
+	for point: MeshInstance3D in [_debug_vulva, _debug_anus]:
+		point.visible = shown
+	if shown:
+		_debug_vulva.global_position = anatomy.call("hole_point", 0.0)
+		_debug_anus.global_position = anatomy.call("hole_point", 1.0)
+	var tip_shown: bool = is_instance_valid(part) and bool(part.call("showing"))
+	if is_instance_valid(_debug_tip):
+		_debug_tip.visible = tip_shown
+		if tip_shown:
+			_debug_tip.global_position = part.call("tip_world")
+
+
+func _debug_free() -> void:
+	for point: MeshInstance3D in [_debug_vulva, _debug_anus, _debug_tip]:
+		if is_instance_valid(point):
+			point.queue_free()
+	_debug_vulva = null
+	_debug_anus = null
+	_debug_tip = null
 
 
 func _hole_out() -> Vector3:

@@ -14,6 +14,8 @@ const TIP_SHADE := Color(0.46, 0.57, 0.3)
 
 const PIVOT := Vector3(0.0, 0.8226, 0.122)
 const TIP_POINT := Vector3(0.0, 0.974, 0.76)
+## The visible glans tip sits slightly above the centre-line tip point; aim the debug point there.
+const TIP_LIFT_M := 0.02
 const PART_LENGTH := 0.655
 const WIDTHS := [0.156, 0.133, 0.127, 0.14, 0.15, 0.151, 0.157, 0.159, 0.149, 0.13, 0.104, 0.091, 0.056]
 const ENTRY_LEAD_M := 0.03
@@ -65,6 +67,7 @@ var _last_root := Vector3.INF
 var _last_velocity := Vector3.ZERO
 var _bed_holder: Node3D
 var _home: Node
+var _depth_smooth := 0.0
 
 
 static func assets_exist() -> bool:
@@ -191,6 +194,7 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 		_track_bed(target, rear, up, depth, mare_anchor)
 		return
 	_end_bed()
+	_aim_part(target, depth, delta)
 	if delta <= 0.0:
 		return
 	var root := root_now()
@@ -220,6 +224,37 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 		material.set_shader_parameter("squish", near
 			* clampf((PART_LENGTH - at) / (PART_LENGTH * 0.12), 0.0, 1.0))
 		material.set_shader_parameter("compress", _squash)
+
+
+## Standings aim only the visible part at the entrance. The hip target, crotch and legs stay
+## under the standing controller, so Anon's body does not rotate with the correction.
+func _aim_part(target: Vector3, depth: float, delta: float) -> void:
+	if not is_instance_valid(_mesh) or not target.is_finite():
+		return
+	_apply_place()
+	var pivot := _mesh.global_transform * PIVOT
+	var tip := _mesh.global_transform * TIP_POINT
+	var to_tip := tip - pivot
+	var to_open := target - pivot
+	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
+		return
+	var aim := Quaternion(to_tip.normalized(), to_open.normalized())
+	var placed := _mesh.global_transform
+	var turned := Basis(aim) * placed.basis
+	# Rotate onto the line through the entrance, then clamp the back-out: the tip may sit at
+	# most `Max back-out` behind the entrance between strokes. Forward stroke travel is untouched.
+	var direction := to_open.normalized()
+	var max_back := maxf(TUNABLES.get_float("anatomy.max_back_m"), 0.0)
+	var max_depth := maxf(TUNABLES.get_float("anatomy.max_depth_m"), 0.0)
+	# Smooth the depth like the hip phase so the visible stroke cannot teleport.
+	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
+		1.0 - exp(-maxf(delta, 0.0) / 0.04))
+	# The visible tip follows the thrust depth continuously: max_back behind the entrance at 0,
+	# max_depth past it at full depth. No per-frame re-clamp and no teleport.
+	var desired := to_open.length() - max_back \
+		+ _depth_smooth * (max_depth + max_back)
+	var slide := desired - to_tip.length()
+	_mesh.global_transform = Transform3D(turned, pivot - turned * PIVOT + direction * slide)
 
 
 func _set_bend(turn: Vector3) -> void:
@@ -286,7 +321,8 @@ func showing() -> bool:
 
 
 func tip_world() -> Vector3:
-	return _mesh.global_transform * TIP_POINT
+	return _mesh.global_transform * (TIP_POINT + Vector3(0.0, TIP_LIFT_M, 0.0))
+
 
 
 func depth_for(metres: float) -> float:
@@ -373,6 +409,7 @@ func _hide() -> void:
 func encounter(on: bool) -> void:
 	_in_encounter = on
 	if on:
+		_depth_smooth = 0.0
 		if not _ensure():
 			return
 		_mesh.visible = true

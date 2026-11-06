@@ -38,6 +38,7 @@ var _hint_gap: Control
 var _controls: VBoxContainer
 var _y_label: Label
 var _thrust_label: Label
+var _finish_label: Label
 var _auto_label: Label
 var _control_rows := {}
 var _toast_label: Label
@@ -202,11 +203,10 @@ func _build_controls() -> void:
 	_add_hint_row("kiss", [{"cap": "F"}], "Hold", "Kiss")
 	_add_hint_row("smack", [{"cap": "RMB"}], "", "Smack")
 	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
-	# integration: anatomy and chat rows; hidden unless their feature and state allow them.
+	# integration: anatomy rows; hidden unless their feature and state allow them.
 	_add_hint_row("anatomy_hole", [{"cap": "V"}], "", "Switch hole")
 	_add_hint_row("anatomy_oral", [{"cap": "N"}], "", "Oral")
-	_add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish in or out")
-	_add_hint_row("act_chat", [{"cap": "Enter"}], "", "Say something")
+	_finish_label = _add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish: in")
 
 
 func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Label:
@@ -341,6 +341,11 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		_thrust_label.text = "Max depth" if auto_on else "Thrust"
 	if _auto_label != null:
 		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
+	var finish_out := false
+	if runtime.has_method("anatomy_finish_pull_out"):
+		finish_out = bool(runtime.call("anatomy_finish_pull_out"))
+	if _finish_label != null:
+		_finish_label.text = "Finish: out" if finish_out else "Finish: in"
 
 
 ## The act setting that shows or hides the control card. The cue and readiness line are
@@ -371,8 +376,8 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 				show = key == "y"
 		elif state == STATE_CLIMAX:
 			show = true
-		# integration: anatomy rows exist only while their feature is live; chat is always live.
-		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish", "act_chat"]:
+		# integration: anatomy rows exist only while their feature is live.
+		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish"]:
 			show = _extra_row_visible(key, state, standing, runtime)
 		control.visible = show
 
@@ -380,8 +385,6 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 func _extra_row_visible(key: String, state: int, standing: bool, runtime: Node) -> bool:
 	if state == STATE_AFTERGLOW:
 		return false
-	if key == "act_chat":
-		return state in [STATE_ACTIVE, STATE_CLIMAX]
 	# integration: use the runtime's precise readiness so missing anatomy assets hide the rows.
 	match key:
 		"anatomy_hole":

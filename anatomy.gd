@@ -579,7 +579,9 @@ func _apply_winking_shape() -> void:
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
 		var open := smoothstep(0.0, 0.4, 1.0 - _closed)
-		var filled := lerpf(1.0, WINKING_CUT_FILLED, smoothstep(0.5, 1.0, _fill))
+		# `Hole hug` scales how far the cut closes over the shaft once it is filled.
+		var hug := maxf(TUNABLES.get_float("anatomy.hug"), 0.01)
+		var filled := lerpf(1.0, WINKING_CUT_FILLED / hug, smoothstep(0.5, 1.0, _fill))
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled
 			* _mesh.global_transform.basis.get_scale().x)
 

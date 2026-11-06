@@ -67,7 +67,8 @@ func _apply_standing_lean_look() -> void:
 	# Turn a little further toward her while kissing, over the shoulder.
 	yaw += deg_to_rad(kiss.camera_yaw_deg()) * kiss.lean() * kiss.side()
 	var pitch := clampf(
-		float(runtime.get("_look_pitch")) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(runtime.get("_lean_view_forward"))) * lean_scale,
+		float(runtime.get("_look_pitch")) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(runtime.get("_lean_view_forward"))) * lean_scale
+		+ deg_to_rad(float(_presentation_cfg.get("camera_pitch_deg", 0.0))),
 		-1.5, 1.5)
 	body.rotation.y = yaw
 	if body.get("_pitch") != null:
@@ -425,14 +426,14 @@ func tick() -> void:
 	var lean_scale := float(runtime.call("_standing_lean_scale"))
 	_set_camera_offsets(float(runtime.get("_bob")) - kiss.lean_drop() * kiss.lean() - float(runtime.call("_anon_torso_drop")),
 		float(runtime.get("_lean")) - float(runtime.get("_back")) + MOTION.lean_distance(
-			float(runtime.get("_lean_view_forward")), lean_scale,
-			float(runtime.call("lean_back_distance")))
+			float(runtime.get("_lean_view_forward")), lean_scale)
 		+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward")), kiss.lateral_offset(lean_scale))
 	if str(runtime.get("pose_id")) == CATALOG.STANDING and bool(runtime.get("_free_camera_active")) and is_instance_valid(camera):
 		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(runtime.get("_lean_view_side")) \
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(runtime.get("_lean_view_forward"))) * lean_scale
 		camera.rotation.x = clampf(
-			float(runtime.get("_look_pitch")) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(runtime.get("_lean_view_forward"))) * lean_scale,
+			float(runtime.get("_look_pitch")) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(runtime.get("_lean_view_forward"))) * lean_scale
+			+ deg_to_rad(float(_presentation_cfg.get("camera_pitch_deg", 0.0))),
 			-1.5, 1.5)
 
 func restore() -> void:

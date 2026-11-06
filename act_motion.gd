@@ -8,8 +8,6 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const LEAN_RAMP_SECONDS := 0.5
 const LEAN_RETURN_SECONDS := 1.6
 const LEAN_FORWARD_M := 0.24
-## Backing off is half the forward travel so Anon cannot pull too far from her.
-const LEAN_BACK_M := 0.08
 const LEAN_SIDE_M := 0.18
 const LEAN_PITCH_DEG := 6.0
 const LEAN_ROLL_DEG := 1.5
@@ -37,11 +35,9 @@ static func lean_size_scale_for(size_scale: float) -> float:
 	return clampf(2.0 - size_scale, 0.75, 1.5)
 
 
-## Forward and backward leans use different distances. JRHNBR (`1.0`) is the reference size.
-## `back_m` is the player-facing back-lean distance; the default keeps the old 8 cm.
-static func lean_distance(forward: float, size_scale := 1.0, back_m := LEAN_BACK_M) -> float:
-	var metres := LEAN_FORWARD_M if forward >= 0.0 else back_m
-	return metres * forward * size_scale
+## Only a forward lean travels. Backing off is a shoulder recentre, not camera travel.
+static func lean_distance(forward: float, size_scale := 1.0) -> float:
+	return LEAN_FORWARD_M * maxf(forward, 0.0) * size_scale
 
 
 ## The lean always holds a released position. `return_to_zero` is only used by the explicit

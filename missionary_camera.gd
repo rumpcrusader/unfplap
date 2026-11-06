@@ -496,8 +496,7 @@ func tick() -> void:
 	_missionary_view.global_position += _missionary_view_basis.z * _missionary_pullback()
 	var lean_scale: float = float(runtime.call("_lean_size_scale"))
 	var lean_forward := MOTION.lean_distance(
-		float(runtime.get("_lean_view_forward")), lean_scale,
-		float(runtime.call("lean_back_distance"))) \
+		float(runtime.get("_lean_view_forward")), lean_scale) \
 		+ MOTION.lean_distance(MISSIONARY_START_LEAN, lean_scale)
 	var to_target := _missionary_look_target() - _missionary_camera
 	if lean_forward < 0.0:

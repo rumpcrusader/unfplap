@@ -5,6 +5,8 @@ extends RefCounted
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
+const CHEST_BACK := preload("res://mods/unfplap/chest_back.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const THRUST_MAX_M := 0.045
@@ -21,6 +23,7 @@ var _anon_thrust_original: Node
 var _anon_thrust_avatar: Node3D
 var _hip_thrust: SkeletonModifier3D
 var _palm_scale: SkeletonModifier3D
+var _chest_back: SkeletonModifier3D
 var _lower_left := Transform3D.IDENTITY
 var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
@@ -79,37 +82,6 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	# A rig without the body's foot targets (tests, odd overrides) still gets the unplanted lean.
 	if body == null:
 		body = hip.get_parent()
-	# integration: optional alignment turns his pelvis but keeps the old pinned lower-body
-	# position. Moving the hip target forward was what clipped his crotch into her.
-	if runtime.has_method("anatomy_align_active") and bool(runtime.call("anatomy_align_active")):
-		if body != null:
-			var left: Variant = body.get("_left_foot")
-			var right: Variant = body.get("_right_foot")
-			if not _plant_captured and left is Node3D and right is Node3D:
-				_plant_left = (left as Node3D).global_transform
-				_plant_right = (right as Node3D).global_transform
-				var back := facing.z.normalized()
-				_plant_left.origin += back * PLANT_FEET_BACK_M
-				_plant_right.origin += back * PLANT_FEET_BACK_M
-				_plant_hip = hip.global_transform
-				_plant_captured = true
-			if _plant_captured:
-				var lean_scale: float = float(runtime.call("_standing_lean_scale"))
-				var back_m := float(runtime.call("lean_back_distance"))
-				var pull := -MOTION.lean_distance(
-					minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale, back_m)
-				var shift := -forward * pull
-				var sway := _sway_offset()
-				if left is Node3D:
-					(left as Node3D).global_transform = Transform3D(
-						_plant_left.basis, _plant_left.origin + shift)
-				if right is Node3D:
-					(right as Node3D).global_transform = Transform3D(
-						_plant_right.basis, _plant_right.origin + shift)
-				hip.global_transform = Transform3D(
-					_plant_hip.basis, _plant_hip.origin + shift + sway)
-		runtime.call("anatomy_align", hip, facing)
-		return
 	if body != null:
 		var left: Variant = body.get("_left_foot")
 		var right: Variant = body.get("_right_foot")
@@ -125,21 +97,15 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			_plant_captured = true
 			_log("standing feet pinned")
 		if _feature_on("standing_plant_feet") and _plant_captured:
-			# S pulls the whole lower body back; every other lean only moves the upper body.
-			var lean_scale: float = float(runtime.call("_standing_lean_scale"))
-			var pull := -MOTION.lean_distance(
-				minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale,
-				float(runtime.call("lean_back_distance")))
-			var shift := -forward * pull
+			# Every lean moves only the upper body; the captured lower body never travels.
 			var sway := _sway_offset()
+			var drop := Vector3.DOWN * _hip_drop()
 			if left is Node3D:
-				(left as Node3D).global_transform = Transform3D(
-					_plant_left.basis, _plant_left.origin + shift)
+				(left as Node3D).global_transform = _plant_left
 			if right is Node3D:
-				(right as Node3D).global_transform = Transform3D(
-					_plant_right.basis, _plant_right.origin + shift)
+				(right as Node3D).global_transform = _plant_right
 			hip.global_transform = Transform3D(
-				_plant_hip.basis, _plant_hip.origin + shift + sway)
+				_plant_hip.basis, _plant_hip.origin + sway + drop)
 			return
 		var lean_scale: float = float(runtime.call("_standing_lean_scale"))
 		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale) \
@@ -149,6 +115,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		hip.global_position -= side * side_shift
 		# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
 		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(runtime.call("_anon_torso_drop"))
+		hip.global_position.y -= _hip_drop()
 		# Flag off: keep the game's stepping feet and only pin the lower body while leaning.
 		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
 			if not _lower_captured and left is Node3D and right is Node3D:
@@ -166,7 +133,10 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			_log("standing lower body released")
 
 
-## World-space sway from `body_sway.gd`, so the pelvis and Anon's pinned hip move together.
+func _hip_drop() -> float:
+	return TUNABLES.get_float("presentation.standing.hip_drop_m")
+
+
 func _sway_offset() -> Vector3:
 	if not is_instance_valid(runtime):
 		return Vector3.ZERO
@@ -218,6 +188,11 @@ func _install_anon_thrust() -> void:
 		_hip_thrust.name = "UnfplapHipThrust"
 		_hip_thrust.process_priority = 20
 		skeleton.add_child(_hip_thrust)
+		_chest_back = CHEST_BACK.new()
+		_chest_back.name = "UnfplapChestBack"
+		_chest_back.set("player", main.player)
+		_chest_back.process_priority = 30
+		skeleton.add_child(_chest_back)
 	_install_palm_scale(avatar)
 
 
@@ -275,6 +250,9 @@ func _remove_anon_thrust() -> void:
 	if is_instance_valid(_hip_thrust):
 		_hip_thrust.queue_free()
 	_hip_thrust = null
+	if is_instance_valid(_chest_back):
+		_chest_back.queue_free()
+	_chest_back = null
 	if is_instance_valid(_anon_thrust_avatar) and is_instance_valid(_anon_thrust_original) \
 			and _anon_thrust_avatar.get("desktop_pose_driver") == _anon_thrust_driver:
 		_anon_thrust_avatar.set("desktop_pose_driver", _anon_thrust_original)

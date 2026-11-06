@@ -71,6 +71,16 @@ func _pattern(depth: float, pace: float, seconds: float) -> String:
 	return PREF.pattern_for(_last_four(_thrusts(_simulate(depth, pace, seconds))))
 
 
+## Strongest inward stroke in the last four. A window can end on a partial or timed-out stroke,
+## so the fastest pace is read from the best stroke it produced, not from whichever closed last.
+func _strongest_intensity(depth: float, pace: float, seconds: float) -> String:
+	var strokes := _last_four(_thrusts(_simulate(depth, pace, seconds)))
+	var best := 0.0
+	for stroke: Dictionary in strokes:
+		best = maxf(best, float(stroke.get("strength", 0.0)))
+	return PREF.intensity_for(best)
+
+
 func run() -> void:
 	# A cycle is a real thrust with the requested travel.
 	var strokes := _thrusts(_simulate(0.9, 1.5, 3.0))
@@ -92,7 +102,8 @@ func run() -> void:
 	# Pace and depth together reach every intensity class.
 	check(_intensity(1.0, AUTO.PACE_MIN, 3.0) == "soft", "slow full auto reads soft")
 	check(_intensity(1.0, 2.0, 2.0) == "firm", "normal full auto reads firm")
-	check(_intensity(1.0, 4.5, 1.1) == "rough", "fast full auto reads rough")
+	check(_strongest_intensity(1.0, AUTO.PACE_MAX, 1.4) == "rough",
+		"fastest full auto reads rough")
 	check(_intensity(AUTO.DEPTH_MIN, AUTO.PACE_MAX, 1.0) == "soft",
 		"fast shallow auto stays soft")
 

@@ -77,7 +77,7 @@ static func all() -> Dictionary:
 			"Thrust", "", 1.0, 1.0, 0.0, 20.0, SETTINGS_TAB),
 		"auto_thrust.pace": user_num(1.0, "Auto pace",
 			"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
-			"Thrust", "/s", 0.25, 1.0, 1.0, 4.5, SETTINGS_TAB),
+			"Thrust", "/s", 0.25, 1.0, 1.0, 3.75, SETTINGS_TAB),
 		"auto_thrust.max_depth": user_num(0.5, "Auto depth",
 			"Starting auto-thrust peak depth. Mouse up/down sets it during an act.",
 			"Thrust", "%", 5.0, 100.0, 0.20, 1.0, SETTINGS_TAB),

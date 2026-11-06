@@ -1196,7 +1196,7 @@ rump blush. Unknown settings keys are ignored.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
   hip backset multiplier, default `0.5`, clamped to `0.25…2.0×` as a player-facing contract.
-- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…4.5`) and `max_depth`
+- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`) and `max_depth`
   (peak depth, default `0.5`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
   changes are per-act. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
@@ -1220,7 +1220,7 @@ rump blush. Unknown settings keys are ignored.
 - **Never clamp a debug setting.** A schema `num` entry is stored and returned verbatim; its
   `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
   Only a `user_num` entry clamps, and only because its bound is part of the player-facing
-  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `1.0…4.5/s`, auto depth
+  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `1.0…3.75/s`, auto depth
   `0.20…1`, camera surge/bob `0…1`, glance speed `0.25…3×`). Do not add a clamp in a consumer
   "to be safe": if a value must be bounded to stay playable, make it a `user_num` and say so in
   the help text.

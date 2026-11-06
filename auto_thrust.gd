@@ -11,7 +11,7 @@ extends RefCounted
 
 ## Wheel bounds. Keep these equal to `tunables_schema.gd`'s `auto_thrust.*` `user_num` bounds.
 const PACE_MIN := 1.0
-const PACE_MAX := 4.5
+const PACE_MAX := 3.75
 ## One mouse-wheel notch while auto owns the stroke. Fixed: it is not a setting.
 const PACE_STEP := 0.25
 ## `thrust.gd` closes a reversal only after `REVERSAL_HYSTERESIS` (0.06), so every automatic
@@ -24,10 +24,11 @@ const DEPTH_MAX := 1.0
 const DEPTH_SMOOTH_S := 0.18
 
 var active := false
-## Thrusts per second. One cycle is one inward stroke.
-var pace := 1.5
+## Thrusts per second. One cycle is one inward stroke. Matches the schema default; `reset()`
+## overwrites it with the configured act-start value.
+var pace := 1.0
 ## Requested peak depth, 0..1 of the full tracker range.
-var max_depth := 0.9
+var max_depth := 0.5
 
 var _amplitude := 0.9
 var _phase := 0.0

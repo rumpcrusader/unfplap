@@ -251,8 +251,8 @@ var _thrust_tracker
 ## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
 var _auto_thrust
 var _auto_on := false
-var _auto_default_pace := 1.5
-var _auto_default_depth := 0.9
+var _auto_default_pace := 1.0
+var _auto_default_depth := 0.5
 var _thrust_pixels_per_full := 480.0
 var _thrust_travel := 0.5
 var _max_pony_climaxes := 3
@@ -600,8 +600,8 @@ func _snapshot_settings() -> void:
 	_thrust_travel = float(thrust_block.get("travel", 0.5))
 	_max_pony_climaxes = int(thrust_block.get("max_pony_climaxes", 3))
 	var auto_block := TUNABLES.block("auto_thrust.")
-	_auto_default_pace = float(auto_block.get("pace", 1.5))
-	_auto_default_depth = float(auto_block.get("max_depth", 0.9))
+	_auto_default_pace = float(auto_block.get("pace", 1.0))
+	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
 	var jiggle_block := TUNABLES.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.25))

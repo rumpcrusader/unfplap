@@ -1,4 +1,4 @@
-v0.1.3
+v0.2.0
 - Lover bond: she can agree to be lovers in conversation; Promiscuity and Starting Sex decide
   who may try and whether that bond is required.
 - Auto thrust: press X to take over the rhythm, the mouse wheel sets the pace and the mouse sets

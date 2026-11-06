@@ -55,6 +55,7 @@ func run() -> void:
 	check(not bool(over.get("oral", true)), "consent oral override wins")
 	check(bool(CONSENT.resolve("twilight_sparkle", {}).get("public", false))
 		== bool(a.get("public", false)), "empty override keeps defaults")
+	check(not bool(a.get("public", true)), "no mare is public by default")
 
 	# Eligibility is the modern preference roster plus identity checks. There is no age list.
 	var twilight := _pony("twilight_sparkle")

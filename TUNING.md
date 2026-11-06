@@ -15,6 +15,7 @@ Two file kinds are not tunables and keep their own editors: the per-character pr
 (`poses.*`). Everything global — feature flags, numbers, choices — is a tunable.
 Per-mare anatomy consent (`consent.public`, `consent.anal`, `consent.oral`) lives in the character
 profile, not in the tunable schema, and is saved by `settings.gd` from the Characters form.
+`public` is opt-in and off by default; `anal` and `oral` stay deterministic from her id.
 `anatomy.act_only` is a normal user-facing flag in the Anatomy section; it only changes visibility,
 not attachment.
 `presentation.lean_back_m` is the player-facing back-lean distance; it is read live with the other

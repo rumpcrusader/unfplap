@@ -103,7 +103,7 @@ scripts/smoke.sh
 mods/unfplap/
   mod.json          id, version, game_version, entry
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
-                    settings-tab injection with guard, character taste editor, debug actions,
+                    settings-tab injection with guard, Characters taste editor, debug actions,
                     skeleton debug helper
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
@@ -140,6 +140,8 @@ mods/unfplap/
   act_audio.gd      optional pack foley/vocal/wet layers
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
+  act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
+  tail_tuck.gd      20 s tucked-tail posture after a partner stop; no navigator hold
   audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
@@ -765,6 +767,39 @@ examples.
 - Proactive requests are a separate controller (`initiation.gd`), not an action tag. They never
   start the act; `Y` remains the only act-start path.
 
+### Act summary and long-term history
+
+- Every act commits one summary through `_commit_summary()` at afterglow or intentional early
+  end; forced stops never commit. `act_summary.gd` scores the weighted action checklist and
+  `ACT_HISTORY.commit()` stores hurt/comfort.
+- A summary is good at `>= 0.80`, bad at `<= 0.20`, neutral between. A neutral early end adds
+  one mild hurt. A partner stop is always severe. The grade decides romance, mood, satisfied and
+  aftercare; there is no flat `commit_climax()` reward.
+- The history tiers are hurt `2` reminder, `4` no proactive offers, `6+` spoken refusal. Good
+  acts repair hurt, time decays it and an apology repairs it once per in-game day. There is no
+  break-up path.
+- The afterglow HUD shows the summary. The debug log prints the grade, quality, checks, reasons,
+  hurt and comfort. See `HISTORY.md`.
+
+### Mid-act tolerance stop
+
+- `taste.tolerance` is per mare: `timid`, `neutral` or `strict`; the Characters sub-tab edits it.
+  Default neutral; Rarity is strict and Fluttershy is timid.
+- A pure `act_tolerance.gd` meter runs in `POSING_IN`/`ACTIVE`. Every actual disliked touch/talk
+  adds 1, every actual liked touch/talk subtracts 1, and passive decay removes 1 every 25 s.
+- Warnings are one-shot per act: timid at 4, neutral at 1 and 4, strict at 1. They set a HUD cue
+  and queue one short spoken warning even when `features.act_lines` is off.
+- Stop thresholds: timid never; neutral 10; strict 3. A stop is not `cancel()`. It forces a severe
+  bad summary (`stopped_by_her`, no romance, `+2` hurt), records `MEMORY.stop_event(..., "withdrew")`,
+  ends with no afterglow/cuddle rejoin and no aftercare, and starts a 20 s `tail_tuck.gd` that owns
+  no navigator.
+- Neutral stops with a stern line, no buck and a `300 s` sex-only cooldown. Strict stops with a
+  stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
+  `stop_until` blocks `blocks_start()`, proactive offers and offer weight; pressing Y gets the
+  spoken refusal. A new stop replaces the old cooldown.
+- Debug tunables live under **Tolerance**; Debug → Actions has **Force tolerance warning** and
+  **Force tolerance stop**. See `HISTORY.md`.
+
 ### Proactive requests
 
 - One request episode at a time. Automatic requests require AI usage Full
@@ -993,8 +1028,11 @@ examples.
   fails outside them; clear always works.
 - **Reset act history**: clear the aimed or nearest mare's `act_history` row, including hurt and
   comfort. Use it in the lab between escalation runs.
+- **Force tolerance warning** / **Force tolerance stop**: act on the live act. The request is
+  consumed on the next unpaused frame, so close the settings panel to apply it.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
-  comfort=...` line per act when `debug_logs` is on.
+  comfort=...` line per act when `debug_logs` is on. Tolerance events log their warning/stop,
+  tier, distress and dislike.
 - `F10` (the only hotkey action): toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
@@ -1037,11 +1075,12 @@ examples.
   `Mods.on_node("res://world/ui/settings_page.gd", ...)`, not a `mod.json` extension. If the
   page's private fields are unavailable it logs and skips, so the settings page is never
   required for the mod to load.
-- The injected tab also owns the **Character taste** editor: one pony selector from
-  `SETTINGS.CHARACTER_ORDER`, enum controls from `preferences.gd`, recovery `0…80`, touch/talk
-  like and dislike checkboxes, and editable private notes. Taste edits save automatically and
-  apply live; `Reset to default` removes only that taste override. Custom `event_prompts` and
-  `poses` on the character entry must survive both actions.
+- The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
+  `SETTINGS.CHARACTER_ORDER`, enum controls from `preferences.gd`, tolerance
+  (`timid`/`neutral`/`strict`), recovery `0…80`, touch/talk like and dislike checkboxes, and
+  editable private notes. Taste edits save automatically and apply live; `Reset to default`
+  removes only that taste override. Custom `event_prompts` and `poses` on the character entry
+  must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
 
@@ -1138,8 +1177,9 @@ rump blush. Unknown settings keys are ignored.
 - Feature flags are split by the schema's `tab`: entries marked `"settings"` are the
   player-facing page, every other flag is in the Debug page. Label, help and section all come
   from the schema entry; there is no separate feature info table.
-- The injected tab has nested **Settings** and **Debug** sub-tabs, both drawn from the schema by
-  `tunables_ui.gd`: one row per entry, grouped into click-to-collapse sections from each entry's
+- The injected tab has nested **Settings**, **Characters** and **Debug** sub-tabs. Settings and
+  Debug are drawn from the schema by `tunables_ui.gd`: one row per entry, grouped into
+  click-to-collapse sections from each entry's
   `group` (`"Standing › Smack"` is a subheading under `Standing`). The panel is built from the
   game's own menu pieces, so it reads as part of the page rather than beside it: `main.gd` imports
   `world/ui/menu_style.gd` and `menu_icon.gd`, the intro line is the page's info card, the sub-tabs
@@ -1151,9 +1191,9 @@ rump blush. Unknown settings keys are ignored.
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
   units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
-  has no second title. **Settings** holds the
-  player-facing flags, **Thrust**, and the hand-built **Character taste** form (a per-mare profile,
-  not a global tunable). **Debug** holds every other entry plus the **Actions** buttons, with the
+  has no second title. **Settings** holds the player-facing flags, **Thrust** and the **History**
+  toggle. **Characters** holds the hand-built **Character taste** form (a per-mare profile, not a
+  global tunable). **Debug** holds every other entry plus the **Actions** buttons, with the
   Actions block placed directly below **General** rather than at the bottom. There are
   no Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
   refreshes the flags, the caption position and the active act.

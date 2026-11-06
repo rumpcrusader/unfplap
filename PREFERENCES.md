@@ -44,12 +44,14 @@ aftercare are outside it.
     "dislikes": [],               # touch or talk dislike
     "talk": ["reassurance"],      # empty = talk does not score for her
     "warmth": "normal",           # quick | normal | slow
+    "tolerance": "neutral",       # timid | neutral | strict
     "recovery": 20,               # readiness after a climax, 0..80
     "notes": "private attitude for the AI"
 }
 ```
 
 - `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
+- `tolerance` sets mid-act warnings and the stop threshold; see `HISTORY.md`.
 - `recovery` is where readiness restarts after each pony climax:
   - `0` means she must be built up from nothing;
   - `20` is the baseline;
@@ -71,7 +73,11 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), and auto-thrust pace (`1.0…4.5/s`, default
   `1.5/s`, quarter steps) and peak depth (`0.20…1`, default `0.9`). The auto values are act-start
   defaults; the wheel and mouse adjust them for one act.
-- **Character taste**: the per-mare form described below.
+
+**Characters tab**
+
+- The hand-built per-mare taste form described below, with one pony selector shared by every
+  field.
 
 **Debug tab**
 
@@ -94,9 +100,10 @@ There are no Save buttons: each edit writes its value and applies to the active 
 Debug numbers are never clamped; only the player-facing contract bounds listed above are
 enforced. The framing, pitch and torso controls remain experimental and unbounded.
 
-The **Character taste** section exposes one pony selector and one form:
+The **Characters** tab exposes one pony selector and one form:
 
 - intensity, pattern, warmth;
+- tolerance (timid, neutral, strict);
 - recovery `0…80`;
 - liked touch and talk;
 - disliked touch and talk;
@@ -104,7 +111,8 @@ The **Character taste** section exposes one pony selector and one form:
 
 Taste edits save automatically and apply live during an act. `Reset to default` removes only the
 taste override and preserves that character's custom `event_prompts` and pose settings.
-`hud_readouts` is a normal feature toggle in the same tab; the standing close window is always on.
+`hud_readouts` is a normal feature toggle in the Settings tab; the standing close window is always
+on.
 
 ## The two continuous axes
 

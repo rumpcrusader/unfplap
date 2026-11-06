@@ -81,6 +81,7 @@ bad act, staying close and caressing is a one-point hurt repair instead.
   "last_wants": "talk to me while we move",
   "last_at": 0.0, "last_day": 0.0,
   "last_apology_day": -1.0,
+  "stop_until": 0.0, "last_stop_kind": "", "last_stop_at": 0.0,
   "reminder_pending": false, "complaint_pending": false,
   "announced_tier": 2,
   "recent": [],
@@ -114,6 +115,42 @@ Only good and bad acts move the points. Neutral acts change no history.
 There is **no break-up path**. The highest tier closes sex, not the relationship. The base
 `player_bonds.break_up()` is never called.
 
+## Tolerance and the mid-act stop
+
+`taste.tolerance` is per mare: `timid`, `neutral` or `strict`. The Characters sub-tab edits it.
+The default is neutral; Rarity is strict and Fluttershy is timid.
+
+A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
+
+- every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
+- every actual liked touch/talk subtracts `tolerance.like_relief` (1);
+- passive decay subtracts 1 every 25 s;
+- warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
+  not replay a warning.
+
+| Tier | Warnings | Stop |
+|---|---|---|
+| Timid | one at 4 | never |
+| Neutral | at 1, then 4 | 10 |
+| Strict | at 1 | 3 |
+
+A warning sets a HUD cue and queues one short spoken warning. Warnings and the stop line speak
+even when `features.act_lines` is off.
+
+A stop is a dedicated path, not `cancel()`:
+
+- it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
+- it records `MEMORY.stop_event(..., "withdrew")`;
+- it ends through the forced path with no afterglow and no cuddle rejoin;
+- Neutral: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
+- Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
+- the history `stop_until` field blocks `blocks_start()`, `blocks_offers()` and offer weight;
+- no aftercare or satisfied face. A 20 s tucked-tail effect follows her, owns no navigator, and is
+  removed if a new act starts.
+
+The debug tunables live under **Tolerance**. Debug actions **Force tolerance warning** and
+**Force tolerance stop** drive the live act for testing.
+
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
 `initiation.gd` uses the weight in its candidate pick and the cooldown in its gate.
@@ -139,15 +176,23 @@ good acts, time and an apology.
 
 `features.act_history` is the master switch (Settings tab, default on). With it off, no summary is
 stored, no history note or refusal is used, and the existing satisfied/aftercare behaviour falls
-back to the readiness threshold.
+back to the readiness threshold. It does not disable the per-mare mid-act tolerance stop.
 
 The debug thresholds and weights live under `History` in the Debug tab. They are `num` entries, so
 stored values are never clamped by the consumer. See `TUNING.md`.
 
+The per-mare tolerance tier is a taste field, not a global setting: edit it in **Characters**. The
+thresholds, like relief, decay and stop cooldowns are the `tolerance.*` debug tunables.
+
 ## Tests
 
+- `tests/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief, 25 s decay,
+  warning monotonicity and stop cooldowns.
+- `tests/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck and
+  request space.
 - `tests/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike neutrality,
-  severe handling, early end, forced stop, short act, motion and touch misses.
+  severe handling, early end, stopped-by-her severe outcome, forced stop, short act, motion and
+  touch misses.
 - `tests/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology, sanitising,
   pending lines, reset.
 - `tests/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.

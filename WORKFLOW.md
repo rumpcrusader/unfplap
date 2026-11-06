@@ -105,8 +105,9 @@ Build the section from `git log <previous-tag>..HEAD`. Ignore commits that are o
 docs or internal debug work. Group multi-commit feature work into one item. Do not add an item for
 a feature that was added in an earlier release and only reworked here, and do not advertise a
 feature that was added and later removed or reworked away. Put bugfixes and performance work at
-the end. The release workflow extracts the section matching the tag as the GitHub release body and
-fails when it is missing.
+the end. One item is one line: never wrap a bullet onto a second line, however long it gets. The
+release workflow extracts the section matching the tag as the GitHub release body and fails when
+it is missing.
 
 ## What not to do
 

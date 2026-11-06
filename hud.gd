@@ -21,9 +21,6 @@ const KEYCAP_SIZE := Vector2(32.0, 28.0)
 const ICON_EDGE := 28.0
 ## The game's carry card puts "Tap"/"Hold" in its own muted column.
 const MODE_WIDTH := 38.0
-## The control card fades out of the way while Anon leans or leans in for a kiss.
-const CONTROLS_FADE_ALPHA := 0.2
-const CONTROLS_FADE_S := 0.25
 ## Center prompt: the game's prompt-row scale (52 px icon, 30 px words, 10 px outline).
 const PROMPT_ICON_EDGE := 52.0
 const PROMPT_FONT := 30
@@ -38,8 +35,6 @@ var _hint_readiness: Label
 var _hint_auto: Label
 var _hint_gap: Control
 var _controls: VBoxContainer
-var _controls_tween: Tween
-var _controls_alpha := 1.0
 var _y_label: Label
 var _thrust_label: Label
 var _auto_label: Label
@@ -260,10 +255,6 @@ func hide_act() -> void:
 	if _controls != null:
 		_controls.visible = false
 		_controls.modulate.a = 1.0
-	_controls_alpha = 1.0
-	if is_instance_valid(_controls_tween):
-		_controls_tween.kill()
-		_controls_tween = null
 
 
 func hide_all() -> void:
@@ -317,31 +308,12 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		_thrust_label.text = "Max depth" if auto_on else "Thrust"
 	if _auto_label != null:
 		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
-	_set_controls_faded(_controls_fade(runtime))
 
 
 ## The act setting that shows or hides the control card. The cue and readiness line are
 ## separate.
 func _controls_hints_on(runtime: Node) -> bool:
 	return not runtime.has_method("hud_controls") or bool(runtime.call("hud_controls"))
-
-
-## A lean or kiss gets the control card out of the shot.
-func _controls_fade(runtime: Node) -> bool:
-	return runtime.has_method("hud_controls_fade") and bool(runtime.call("hud_controls_fade"))
-
-
-func _set_controls_faded(faded: bool) -> void:
-	var target := CONTROLS_FADE_ALPHA if faded else 1.0
-	if is_equal_approx(target, _controls_alpha):
-		return
-	_controls_alpha = target
-	if not is_instance_valid(_controls):
-		return
-	if is_instance_valid(_controls_tween):
-		_controls_tween.kill()
-	_controls_tween = create_tween()
-	_controls_tween.tween_property(_controls, "modulate:a", target, CONTROLS_FADE_S)
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary

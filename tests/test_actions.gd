@@ -127,16 +127,6 @@ func run() -> void:
 	var clamped: Vector2 = MOTION.lean_targets(1.0, -1.0)
 	check(near(clamped.x, 1.0) and near(clamped.y, 1.0), "combined lean clamps forward")
 
-	var fade_runtime: Node = RUNTIME.new()
-	fade_runtime._lean_view_forward = 0.2
-	check(fade_runtime.hud_controls_fade(), "controls fade while leaning")
-	fade_runtime._lean_view_forward = 0.0
-	fade_runtime._lean_view_side = -0.2
-	check(fade_runtime.hud_controls_fade(), "controls fade while side leaning")
-	fade_runtime._lean_view_side = 0.0
-	check(not fade_runtime.hud_controls_fade(), "controls return when upright")
-	fade_runtime.free()
-
 	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, -1.0) == "kiss", "Q fires kiss in missionary")
 	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, 1.0) == "", "E has no missionary action")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")

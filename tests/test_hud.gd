@@ -14,7 +14,6 @@ class Stub extends Node:
 	var pose_id := "standing"
 	var satisfaction := 40.0
 	var auto_on := false
-	var kiss_fade := false
 	var controls_on := true
 	var y_pink := 0.0
 
@@ -29,9 +28,6 @@ class Stub extends Node:
 
 	func auto_hud_text() -> String:
 		return "Auto · wheel pace 1.5/s · depth 90%" if auto_on else ""
-
-	func hud_controls_fade() -> bool:
-		return kiss_fade
 
 	func hud_y_pink() -> float:
 		return y_pink
@@ -146,14 +142,6 @@ func _check_controls() -> void:
 	hud.call("update_from", stub, true)
 	check((hud.get("_auto_label") as Label).text == "Switch to auto",
 		"X offers auto while manual")
-	stub.kiss_fade = true
-	hud.call("update_from", stub, true)
-	check(is_equal_approx(float(hud.get("_controls_alpha")), hud.CONTROLS_FADE_ALPHA),
-		"controls fade while leaning")
-	stub.kiss_fade = false
-	hud.call("update_from", stub, true)
-	check(is_equal_approx(float(hud.get("_controls_alpha")), 1.0),
-		"controls come back after the kiss")
 	stub.pony_climaxes = 1
 	stub.y_pink = 0.25
 	hud.call("update_from", stub, true)

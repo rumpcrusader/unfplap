@@ -333,8 +333,8 @@ func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dict
 	if not is_instance_valid(bed):
 		reasons.append("cuddle:no_bed_under")
 		return {}
-	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed)):
-		_append_offer_reasons(reasons, "cuddle", runtime, CATALOG.MISSIONARY, source, bed)
+	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed, forced)):
+		_append_offer_reasons(reasons, "cuddle", runtime, CATALOG.MISSIONARY, source, bed, forced)
 		return {}
 	if not _offer_targets_pony(pony):
 		reasons.append("cuddle:target")
@@ -358,8 +358,8 @@ func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictio
 	var bed: Node3D = found.get("bed")
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
-	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed)):
-		_append_offer_reasons(reasons, "bed", runtime, CATALOG.MISSIONARY, source, bed)
+	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed, _forced)):
+		_append_offer_reasons(reasons, "bed", runtime, CATALOG.MISSIONARY, source, bed, _forced)
 		return {}
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
@@ -374,8 +374,8 @@ func _standing_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> D
 	if not is_instance_valid(pony):
 		reasons.append("standing:no_pony")
 		return {}
-	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null)):
-		_append_offer_reasons(reasons, "standing", runtime, CATALOG.STANDING, "", null)
+	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null, _forced)):
+		_append_offer_reasons(reasons, "standing", runtime, CATALOG.STANDING, "", null, _forced)
 		return {}
 	if not _can_approach(pony, reasons):
 		return {}
@@ -415,11 +415,11 @@ func _can_approach(pony: Node3D, reasons: Array = []) -> bool:
 
 
 func _append_offer_reasons(reasons: Array, label: String, runtime: Node, pose: String,
-		source: String, bed: Variant) -> void:
+		source: String, bed: Variant, forced := false) -> void:
 	if not runtime.has_method("offer_reasons"):
 		reasons.append(label + ":can_offer")
 		return
-	var failed: PackedStringArray = runtime.call("offer_reasons", pose, source, bed)
+	var failed: PackedStringArray = runtime.call("offer_reasons", pose, source, bed, forced)
 	reasons.append("%s:%s" % [label, ",".join(failed)])
 
 

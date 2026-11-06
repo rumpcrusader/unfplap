@@ -4,10 +4,12 @@ extends RefCounted
 ## The cone is horizontal: eye height does not matter, and the reach is the ground distance from
 ## her rump anchor. `HALF_ANGLE_DEG` is a half-angle, so the full fan is twice this value.
 
-## 45 degrees total, 22.5 to each side of her backward axis.
-const HALF_ANGLE_DEG := 22.5
-## Ground distance from her rump anchor, matching the old flank touch reach.
-const REACH_M := 0.8
+## 90 degrees total, 45 to each side of her backward axis. The fan covers the whole rear half,
+## so a player who steps behind her at a normal shoulder offset still gets the prompt.
+const HALF_ANGLE_DEG := 45.0
+## Ground distance from her rump anchor. Large enough to offer from a comfortable step back,
+## still close enough that the act-start placement only nudges Anon forward.
+const REACH_M := 1.2
 
 
 ## `back` is her backward axis (`global_basis.z`), `rump` the anchor and `point` the player.

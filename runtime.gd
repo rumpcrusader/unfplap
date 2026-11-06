@@ -72,8 +72,6 @@ const TALK_HEAT := 6.0
 const RECEPTIVE_BOOST := 1.25
 ## Readiness text clears after this long without an inward thrust.
 const STROKE_MEMORY_S := 1.2
-## Fade the act control card once a lean is visibly off centre.
-const HUD_LEAN_FADE_AT := 0.15
 ## Appended to cue prompts to stop the model turning every cue into a command.
 const CUE_REACTION_NOTE := "\nDo not turn the cue into a repeated command; say it as your own reaction or preference."
 const CLIMAX_SECONDS := 5.0
@@ -706,12 +704,6 @@ func hud_readouts() -> bool:
 func hud_controls() -> bool:
 	return bool(_features.get("act_controls", true))
 
-## The control card fades out of the way while Anon leans or leans in for a kiss.
-func hud_controls_fade() -> bool:
-	return absf(_lean_view_forward) >= HUD_LEAN_FADE_AT \
-		or absf(_lean_view_side) >= HUD_LEAN_FADE_AT \
-		or _kiss_controller().leaning_close()
-
 ## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
 ## always kept in afterglow even when the optional readouts are off.
 func hud_cue_line(show_readouts := true) -> String:
@@ -1033,14 +1025,17 @@ func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool
 
 
 ## Offer eligibility before she is in position. Unlike can_start(), this does not require the
-## pony to be lying or the player to be ready; those stay in the final Y gate.
-func can_offer(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	return _report_ok(_gate_report(pose, act_source, bed_in, "offer"))
+## pony to be lying or the player to be ready; those stay in the final Y gate. `forced` is the
+## Debug -> Actions bypass: the settings page pauses the tree, and the episode advances after it
+## closes, so the paused row must not reject a forced offer.
+func can_offer(pose: String, act_source: String, bed_in: Variant = null, forced := false) -> bool:
+	return _report_ok(_gate_report(pose, act_source, bed_in, "offer", forced))
 
 
 ## The failed offer gates, for the debug request buttons and their logs.
-func offer_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
-	return _report_reasons(_gate_report(pose, act_source, bed_in, "offer"))
+func offer_reasons(pose: String, act_source: String, bed_in: Variant = null,
+		forced := false) -> PackedStringArray:
+	return _report_reasons(_gate_report(pose, act_source, bed_in, "offer", forced))
 
 
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
@@ -1049,7 +1044,8 @@ func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) ->
 
 ## Ordered gate report shared by the start and offer paths. Start adds player readiness,
 ## navigator reservation and the full bed gate; offer keeps only the offer-safe subset.
-func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: String) -> Array:
+func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: String,
+		forced := false) -> Array:
 	var rows: Array = []
 	_gate_row(rows, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
@@ -1070,7 +1066,8 @@ func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: Strin
 		_gate_row(rows, "relation", _relationship_ok(), "relation")
 	_gate_row(rows, "sex_bond", _sex_bond_ok(), "sex_bond")
 	_gate_row(rows, "form", _player_form_ok(), "form")
-	_gate_row(rows, "paused", not get_tree().paused, "paused")
+	var tree := get_tree()
+	_gate_row(rows, "paused", forced or tree == null or not tree.paused, "paused")
 	_gate_row(rows, "conversation", _conversation_ok(), "conversation")
 	_gate_row(rows, "sleeping", not pony.sleeping, "sleeping")
 	_gate_row(rows, "sex_active", not bool(pony.get_meta("sex_active", false)), "sex_active")

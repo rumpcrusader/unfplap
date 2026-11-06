@@ -22,13 +22,13 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	var back := Vector3(0.0, 0.0, 1.0)
 	var rump := Vector3.ZERO
-	check(CONE.contains(back, rump, Vector3(0.0, 0.0, 0.6)), "directly behind is offered")
+	check(CONE.contains(back, rump, Vector3(0.0, 0.0, 1.1)), "directly behind is offered")
 	check(not CONE.contains(back, rump, Vector3(0.0, 0.0, -0.6)), "in front is refused")
-	check(CONE.contains(back, rump, Vector3(0.25, 0.0, 0.65)), "just inside the cone is offered")
-	check(not CONE.contains(back, rump, Vector3(0.32, 0.0, 0.60)), "outside the cone is refused")
-	check(CONE.contains(back, rump, Vector3(0.0, 2.0, 0.6)), "eye height does not matter")
-	check(not CONE.contains(back, rump, Vector3(0.0, 0.0, 1.0)), "beyond reach is refused")
-	check(CONE.contains(Vector3(1.0, 0.0, 0.0), rump, Vector3(0.6, 0.0, 0.0)),
+	check(CONE.contains(back, rump, Vector3(0.75, 0.0, 0.80)), "just inside the wider cone is offered")
+	check(not CONE.contains(back, rump, Vector3(0.90, 0.0, 0.70)), "outside the wider cone is refused")
+	check(CONE.contains(back, rump, Vector3(0.0, 2.0, 1.0)), "eye height does not matter")
+	check(not CONE.contains(back, rump, Vector3(0.0, 0.0, 1.3)), "beyond reach is refused")
+	check(CONE.contains(Vector3(1.0, 0.0, 0.0), rump, Vector3(0.9, 0.0, 0.0)),
 		"uses her own backward axis")
 	check(not CONE.contains(Vector3(1.0, 0.0, 0.0), rump, Vector3(-0.6, 0.0, 0.0)),
 		"the opposite side of her axis is refused")

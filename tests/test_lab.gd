@@ -44,6 +44,9 @@ const SETUP_ACTIONS := [
 	"temporarily set world/opening=skip, then restore the stored value",
 	"skip the arrival tutorial when it is active",
 	"restrict population to Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack (memory only)",
+	"assign any missing test pony to Ponyville before spawning",
+	"lift Max nearby ponies to Unlimited for the loading screen, then restore it",
+	"place any far-off test pony's spawn at the library front",
 	"despawn any other resident already live in the world",
 	"keep the dialogue director alive with ai_usage=talk",
 	"pause population, life and needs",
@@ -62,6 +65,8 @@ var _done := false
 var _old_opening := ""
 var _settings: Node
 var _furnishing_trimmed := false
+## The player's Max nearby ponies cap; -1 when the lab has not lifted it.
+var _old_nearby := -1
 
 
 func _ready() -> void:
@@ -72,6 +77,7 @@ func _ready() -> void:
 	if _settings != null:
 		_old_opening = str(_settings.get_value("world/opening"))
 		_settings.set_value("world/opening", "skip")
+		_lift_nearby_cap()
 	print("[unfplap test] ready game=%s" % str(game))
 	run.call_deferred()
 
@@ -84,6 +90,7 @@ func run() -> void:
 	await _skip_arrival_tutorial()
 	_restrict_population()
 	_stop_standard_systems()
+	_restore_nearby_cap()
 	_prune_population()
 	if _settings != null:
 		_settings.set_value("world/opening", _old_opening)
@@ -146,8 +153,34 @@ func _skip_arrival_tutorial() -> void:
 		arrival.call("_finish")
 
 
-## Keep only the five test ponies in this session's population config, before the loading
-## screen starts spawning the rest. The edit is in memory only; population.json is not saved.
+## The player's "Max nearby ponies" setting caps the loading screen too, so a value of four leaves
+## two test ponies unspawned. Lift it in memory for the session only; settings.cfg is not written,
+## and `_restore_nearby_cap()` puts the player's value back once the population is paused.
+func _lift_nearby_cap() -> void:
+	if _old_nearby >= 0 or not is_instance_valid(_settings):
+		return
+	_old_nearby = int(_settings.get_value("ponies/max_nearby"))
+	if _old_nearby == 0:
+		return
+	var values: Variant = _settings.get("_values")
+	if values is Dictionary:
+		(values as Dictionary)["ponies/max_nearby"] = 0
+		print("[unfplap test] nearby cap lifted from %d to unlimited for the loading screen" % _old_nearby)
+
+
+func _restore_nearby_cap() -> void:
+	if _old_nearby < 0 or not is_instance_valid(_settings):
+		return
+	var values: Variant = _settings.get("_values")
+	if values is Dictionary:
+		(values as Dictionary)["ponies/max_nearby"] = _old_nearby
+	_old_nearby = -1
+
+
+## Keep only the six test ponies in this session's population config, before the loading screen
+## starts spawning the rest. A test pony that the world's config does not list is assigned to
+## Ponyville here, because membership in TEST_IDS alone never spawns anybody. The edit is in
+## memory only; population.json is not saved.
 func _restrict_population() -> void:
 	if not is_instance_valid(game):
 		return
@@ -158,6 +191,14 @@ func _restrict_population() -> void:
 	var assignments: Variant = config.get("assignments") if config != null else null
 	if not assignments is Dictionary:
 		return
+	var added: Array[String] = []
+	for id: String in TEST_IDS:
+		if (assignments as Dictionary).has(id):
+			continue
+		(assignments as Dictionary)[id] = "ponyville"
+		added.append(id)
+	if not added.is_empty():
+		print("[unfplap test] population assigned %s to ponyville" % ", ".join(PackedStringArray(added)))
 	var removed: Array[String] = []
 	for id: Variant in (assignments as Dictionary).keys():
 		if TEST_IDS.has(str(id)):
@@ -167,6 +208,55 @@ func _restrict_population() -> void:
 	if not removed.is_empty():
 		print("[unfplap test] population restricted to %s (removed %d)" % [
 			", ".join(PackedStringArray(TEST_IDS)), removed.size()])
+	_place_missing_test_spawns(population)
+
+
+## A test pony whose home point sits outside the 240 m activation radius never spawns, because
+## the loading screen only brings out nearby candidates. Put her saved row at the library front
+## with a fresh resume marker so the game's own spawn path places her there; the lab moves her
+## into the row afterwards.
+func _place_missing_test_spawns(population: Variant) -> void:
+	if not is_instance_valid(population):
+		return
+	var anchor: Variant = population.get("anchor")
+	if not anchor is Node3D:
+		return
+	var saved: Variant = population.get("saved")
+	if not saved is Dictionary:
+		return
+	var live: Variant = population.get("live")
+	var at := _test_spawn_point()
+	if not at.is_finite():
+		return
+	var origin: Vector3 = (anchor as Node3D).global_position
+	for id: String in TEST_IDS:
+		if live is Dictionary and (live as Dictionary).has(id):
+			continue
+		if (saved as Dictionary).has(id) and (saved as Dictionary)[id] is Dictionary \
+				and ((saved as Dictionary)[id] as Dictionary).has("resume"):
+			continue
+		var where: Vector3 = population.call("candidate_position", id)
+		var reach := float(population.call("activate_distance", id))
+		var distance := _flat_distance(where, origin) if where.is_finite() else INF
+		if distance < reach - 5.0:
+			continue
+		(saved as Dictionary)[id] = {"region": "ponyville", "position": at,
+			"rotation": Vector3.ZERO, "resume": {}}
+		print("[unfplap test] %s spawn placed at the library; her home was %.0f m away" % [
+			id, distance])
+
+
+func _test_spawn_point() -> Vector3:
+	var home := _library_home()
+	if is_instance_valid(home) and home.has_method("outside"):
+		return home.call("outside")
+	if is_instance_valid(game) and is_instance_valid(game.get("player")):
+		return (game.get("player") as Node3D).global_position
+	return Vector3.INF
+
+
+static func _flat_distance(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
 ## The loading screen waits for every generated town house to finish furnishing, and they start
@@ -324,6 +414,33 @@ func _setup_ponies(ponies: Array) -> void:
 			rows.append("%s romance_xp=%d level=%s pos=%s front=%s" % [
 				id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id),
 				str(pony.global_position), str(placed)])
+	var found := {}
+	for pony_node: Variant in ponies:
+		var pony: Node3D = pony_node as Node3D
+		if is_instance_valid(pony):
+			found[_pony_id(pony)] = true
+	var missing := PackedStringArray()
+	for id: String in TEST_IDS:
+		if not found.has(id):
+			missing.append(id)
+	if not missing.is_empty():
+		print("[unfplap test] missing test ponies: %s" % ", ".join(missing))
+		# Why a requested pony never came out: assignment, spawn point and distance from the
+		# player. A missing assignment or a point beyond the 240 m activation radius explains it.
+		var population: Variant = game.get("population") if is_instance_valid(game) else null
+		if is_instance_valid(population):
+			var cfg: Variant = population.get("config")
+			var assigned: Variant = cfg.get("assignments") if cfg != null else null
+			var anchor: Variant = population.get("anchor")
+			for id: String in missing:
+				var where: Vector3 = population.call("candidate_position", id)
+				var distance := -1.0
+				if where.is_finite() and anchor is Node3D:
+					distance = Vector2(where.x - (anchor as Node3D).global_position.x,
+						where.z - (anchor as Node3D).global_position.z).length()
+				print("	%s assigned=%s candidate=%s distance=%.1f" % [
+					id, str((assigned as Dictionary).get(id, "")) if assigned is Dictionary else "?",
+					str(where), distance])
 	if not rows.is_empty():
 		_log_action("test ponies", rows)
 	if is_instance_valid(impressions):

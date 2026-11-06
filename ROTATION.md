@@ -193,7 +193,7 @@ these values here if a future pose needs that effect.
 - Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by
   teleporting the rig. Act start keeps her where she stands: for desktop human Anon,
   `_begin_standing_placement()` builds the act transform from her current facing and places him
-  at `pony_position - forward * _standing_gap()`. The 0.8 m Y cone keeps that correction small.
+  at `pony_position - forward * _standing_gap()`. The 1.2 m Y cone keeps that correction small.
   The act end leaves him there and leaves his yaw/pitch at the last act aim; it does not snap the
   pre-act view back. AnonPony and headset/VR still move her in front of the camera rig with
   `_standing_transform()`.

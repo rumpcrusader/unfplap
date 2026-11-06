@@ -289,6 +289,14 @@ func run() -> void:
 	check(str(UPSET.MOOD_FACES.get("annoyed", "")) == "annoyed"
 		and str(UPSET.MOOD_FACES.get("angry", "")) == "angry",
 		"the mood face uses the game's expression names")
+	root.add_child(refused_runtime)
+	paused = true
+	var blocked: PackedStringArray = refused_runtime.call("offer_reasons", "standing", "", null)
+	check("paused" in blocked, "a paused tree rejects a normal offer")
+	var forced: PackedStringArray = refused_runtime.call("offer_reasons", "standing", "", null, true)
+	check(not ("paused" in forced), "the debug offer bypasses the paused gate")
+	paused = false
+	root.remove_child(refused_runtime)
 	refused_runtime.queue_free()
 	refused["main"].queue_free()
 	refused["context"].queue_free()

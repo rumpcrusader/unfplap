@@ -66,7 +66,13 @@ script. `godot` must be on `PATH`.
 - The lab re-seeds its six ponies on every startup (friendship and mood, idle posture; romance
   tier and dating record only for the adults that are not strangers). Four ponies are moved to a
   row on the path in front of Golden Oak Library; Applejack and Diamond Tiara are spawned nearby
-  to the side of the library instead. The rest of the world's context and inventory persist.
+  to the side of the library instead. Before the loading screen spawns the town, the in-memory
+  population config assigns every missing test pony to Ponyville, then removes all other
+  residents; `population.json` is not saved. It also lifts the player's Max nearby ponies cap in
+  memory for the loading screen (a value of four would leave two test ponies out) and restores it
+  once population is paused. A test pony whose home sits beyond the 240 m activation radius gets a
+  session-only saved spawn at the library front. The rest of the world's context and inventory
+  persist.
 - The lab normalizes a mare's saved actor rotation to yaw-only in `_upright()` during setup and
   after bed transport. A tilted saved transform otherwise makes support recovery fight the
   collider every frame and print endless `re-seated on the floor` lines.
@@ -389,7 +395,7 @@ body-relative axes.
   `_stand_eye`/`_eye_height`; do not set the eye line by teleporting the rig.
 - Act start keeps her where she stands. `_begin_standing_placement()` builds the act transform
   from her current facing and, for desktop human Anon, places him at
-  `pony_position - forward * _standing_gap()`. The 0.8 m Y cone means the correction is small.
+  `pony_position - forward * _standing_gap()`. The 1.2 m Y cone means the correction is small.
   The act end leaves him there and leaves his yaw/pitch at the last act aim instead of snapping
   the pre-act view back. AnonPony and headset/VR keep the old `_standing_transform()` placement
   (she moves in front of the camera rig), because their rig is the camera or another body.
@@ -892,8 +898,8 @@ examples.
   sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
   bed rest so `runtime.start()` still sees her lying.
 - The **Debug → Actions** offer buttons force a missionary or standing ask; they bypass quiet,
-  cooldown and AI-usage checks for lab testing, but not relationship, consent, pose or free-bed
-  gates.
+  cooldown, AI-usage and the paused-tree gate, but not relationship, consent, pose or free-bed
+  gates. The settings page pauses the tree, so the episode advances after the page closes.
 
 ### Act start and aim zone
 
@@ -914,8 +920,8 @@ examples.
 - History is not a `can_start` row. A withdrawn mare still shows the Y hint; `try_start()` checks
   `history_blocks_start()` and calls `refuse_from_history()` for a spoken refusal instead of
   starting.
-- Standing Y uses `rump_cone.gd`: Anon must stand within 22.5° of her backward axis (45° total)
-  and 0.8 m of her rump anchor. The crosshair is not used, so looking away does not hide the
+- Standing Y uses `rump_cone.gd`: Anon must stand within 45° of her backward axis (90° total)
+  and 1.2 m of her rump anchor. The crosshair is not used, so looking away does not hide the
   hint. Missionary bed offers stay contextual.
 - `dialogue_consent.gd` classifies every player line with a pony reply through the shared
   classifier. `lover_accept` grants the mod bond, `lover_decline` does nothing and `lover_end`
@@ -1015,10 +1021,8 @@ examples.
   `runtime.hud_y_pink()`: one step per pony climax, capped at `Y_END_TINT_MAX = 0.75`, and fully
   pink only after the standing afterglow close window earned its caress reward. The cue line's
   hearts read `❤ N/limit`, or `❤ N/∞` when the climax limit is 0.
-- While Anon leans (W/S/Q/E above `HUD_LEAN_FADE_AT = 0.15`) or leans in for a kiss the control
-  card eases to `0.2` alpha over `0.25 s` and back. The cue and readiness line stay at full
-  opacity. `runtime.hud_controls_fade()` combines the smoothed lean and
-  `kiss_control.leaning_close()`, so both poses, leaning and the base-kiss release are covered.
+- The control card stays at full opacity while Anon leans or kisses; only `act_controls` hides
+  it.
 - `act_controls` (default on) hides the whole control card without touching the cue, readiness
   line or close prompt, so the pony state readouts can stay while the hints are off.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the

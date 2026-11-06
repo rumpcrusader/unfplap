@@ -303,6 +303,8 @@ var _thrust_pixels_per_full := 480.0
 var _thrust_travel := 0.5
 var _max_pony_climaxes := 3
 var _jiggle_radius_m := 0.26
+var _jiggle_center_height_m := 0.08
+var _jiggle_center_back_m := 0.10
 var _jiggle_intensity_scale := 0.25
 var _jiggle_smack_intensity := 0.55
 var _jiggle_radius_materials: Array = []
@@ -696,6 +698,8 @@ func _snapshot_settings() -> void:
 	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
 	var jiggle_block := TUNABLES.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
+	_jiggle_center_height_m = float(jiggle_block.get("center_height_m", 0.08))
+	_jiggle_center_back_m = float(jiggle_block.get("center_back_m", 0.10))
 	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.25))
 	_jiggle_smack_intensity = float(jiggle_block.get("smack_intensity", 0.55))
 	var camera_block := TUNABLES.block("camera_thrust.")
@@ -3726,7 +3730,8 @@ func _thrust_jiggle(weight: float) -> void:
 		if left >= 0 and right >= 0:
 			var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
 			var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
-			at = (a + b) * 0.5 + Vector3.UP * 0.08 + back * 0.10
+			at = (a + b) * 0.5 + Vector3.UP * _jiggle_center_height_m \
+				+ back * _jiggle_center_back_m
 	var across := Vector3.UP.cross(normal).normalized()
 	if across.length_squared() < 0.5:
 		across = Vector3.RIGHT

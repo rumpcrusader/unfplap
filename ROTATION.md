@@ -368,6 +368,34 @@ these values here if a future pose needs that effect.
   HUD shows `Stay close · 8s · caress`; 2.5 s of active caress completes the close reward.
   Missionary afterglow stays passive.
 
+### Play-bow stance
+
+`features.standing_play_bow` is off by default. When on, `standing_recipe.gd` runs
+`_apply_play_bow()` instead of the base `_bow`/`_bend_forelegs`/`_chin_neck` chain. It is one
+normal recipe pass, so every write still goes through `rig.rotate()` and the native joint
+limits clamp it.
+
+1. Rotate `pony_hips` by `-PLAY_BOW_PITCH_DEG` (`8°`) about the body right axis and both
+   `pony_femur_L/R` by the same amount back, so the rump pitches down at the front while the
+   hind legs stay under her.
+2. `_spine_bow(PLAY_BOW_BOW = 3.0)` — the same per-bone spine angles as the standard bow, at a
+   stronger scale.
+3. Per foreleg: `pony_shoulder_*` `+35°`, `pony_upperArm_*` `+35°`, `pony_lowerArm_*` `+55°`,
+   `pony_wrist_*` `+10°`, `pony_hand_*` `+10°` about the body right axis. The shoulder and upper
+   arm sit on their `+35°` limits; the result is the chest down and both front hooves forward
+   under her chin rather than tucked under the chest.
+4. `_spread_fore(0.14)` and `_spread_hind(0.10)`.
+5. `pony_neck1` `-30°`, `pony_neck2` `-22°`, `pony_head` `+10°`, hanging the snout near the
+   ground. The neck values sit on the native `±30°` limit.
+6. `_raise_head()` still runs on `head_back`, so a forward lean or a look-back lifts her face.
+
+The recipe reads every value from the pose config first (`play_bow_bow`,
+`play_bow_shoulder_deg`, `play_bow_upper_deg`, `play_bow_lower_deg`, `play_bow_wrist_deg`,
+`play_bow_hand_deg`, `play_bow_neck1_deg`, `play_bow_neck2_deg`, `play_bow_head_deg`,
+`play_bow_pitch_deg`, `play_bow_foreleg_spread`, `play_bow_hind_spread`), so a character pose
+override can tune it without a new flag. The runtime writes only `play_bow` itself from
+`_feature("standing_play_bow")` in `_sync_standing_pose_config()`.
+
 ## Aftercare
 
 - No head lowering.

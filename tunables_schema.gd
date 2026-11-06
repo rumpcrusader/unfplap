@@ -173,6 +173,9 @@ static func all() -> Dictionary:
 			"Missionary › Motion"),
 
 		# Debug: standing.
+		"features.standing_play_bow": flag(false, "Play-bow stance",
+			"Standing: stretch the front legs forward with the chest down and head low instead of the tucked act stance.",
+			"Standing › Pose"),
 		"presentation.standing.glance_back_speed": user_num(2.0, "Glance-back speed",
 			"How fast a look-back glance eases in and out.",
 			"Standing › Motion", "×", 0.05, 1.0, 0.25, 3.0),

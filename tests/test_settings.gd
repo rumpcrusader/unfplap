@@ -126,6 +126,8 @@ func run() -> void:
 	check(bool(feature_block.get("thrust_ear_twitch", false)), "thrust ear twitch feature on")
 	check(bool(feature_block.get("standing_plant_feet", false)),
 		"standing feet plant on by default")
+	check(not bool(feature_block.get("standing_play_bow", true)),
+		"play-bow standing stance off by default")
 	check(bool(feature_block.get("allow_act_during_cuddle", false)), "cuddle override feature on")
 	check(bool(feature_block.get("mute_ponese_audio", false)), "mute Ponese audio on by default")
 	check(bool(feature_block.get("act_foley", false)), "act foley on by default")

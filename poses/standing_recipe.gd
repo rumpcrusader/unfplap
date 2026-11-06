@@ -7,11 +7,30 @@ const STANDING_FORELEG_SPREAD := 0.172
 const STANDING_HIND_SPREAD := 0.32
 const STANDING_CHIN_UP_DEG := 30.0
 const STANDING_NECK_DOWN_DEG := 15.0
+
+## Play-bow stance (`features.standing_play_bow`): the rump stays up, the chest drops and the
+## front legs stretch out ahead instead of tucking under the chest. The hips pitch nose-down and
+## the hind femurs counter it, so the hind legs stay planted under her.
+const PLAY_BOW_BOW := 3.0
+const PLAY_BOW_PITCH_DEG := 8.0
+const PLAY_BOW_SHOULDER_DEG := 35.0
+const PLAY_BOW_FORELEG_DEG := 35.0
+const PLAY_BOW_LOWER_DEG := 55.0
+const PLAY_BOW_WRIST_DEG := 10.0
+const PLAY_BOW_HAND_DEG := 10.0
+const PLAY_BOW_FORELEG_SPREAD := 0.14
+const PLAY_BOW_HIND_SPREAD := 0.10
+const PLAY_BOW_NECK1_DEG := -30.0
+const PLAY_BOW_NECK2_DEG := -22.0
+const PLAY_BOW_HEAD_DEG := 10.0
 var _config: Dictionary = {}
 
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
+	if bool(_config.get("play_bow", false)):
+		_apply_play_bow(rig, sk, weight, state)
+		return
 	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
 	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
 	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))
@@ -24,19 +43,63 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 		_raise_head(rig, sk, weight * head_back)
 
 
+## Deep stretch: body pitched down over the shoulder, front legs reaching forward with the
+## elbows open, and the neck hanging so the snout is near the ground. Head-back still lifts her
+## face while she looks at Anon.
+func _apply_play_bow(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	var axis: Vector3 = rig.right_axis(sk)
+	var pitch := deg_to_rad(_value("play_bow_pitch_deg", PLAY_BOW_PITCH_DEG)) * weight
+	if rig.hips >= 0:
+		rig.rotate(sk, rig.hips, axis, -pitch)
+	for leg: Dictionary in rig.hind:
+		rig.rotate(sk, int(leg.femur), axis, pitch)
+	_spine_bow(rig, sk, weight, _value("play_bow_bow", PLAY_BOW_BOW))
+	var shoulder := deg_to_rad(_value("play_bow_shoulder_deg", PLAY_BOW_SHOULDER_DEG)) * weight
+	var upper := deg_to_rad(_value("play_bow_upper_deg", PLAY_BOW_FORELEG_DEG)) * weight
+	var lower := deg_to_rad(_value("play_bow_lower_deg", PLAY_BOW_LOWER_DEG)) * weight
+	var wrist := deg_to_rad(_value("play_bow_wrist_deg", PLAY_BOW_WRIST_DEG)) * weight
+	var hand := deg_to_rad(_value("play_bow_hand_deg", PLAY_BOW_HAND_DEG)) * weight
+	for leg: Dictionary in rig.fore:
+		var side := str(leg.get("side", ""))
+		rig.rotate(sk, sk.find_bone("pony_shoulder_" + side), axis, shoulder)
+		rig.rotate(sk, int(leg.upper), axis, upper)
+		rig.rotate(sk, int(leg.lower), axis, lower)
+		rig.rotate(sk, sk.find_bone("pony_wrist_" + side), axis, wrist)
+		rig.rotate(sk, sk.find_bone("pony_hand_" + side), axis, hand)
+	_spread_fore(rig, sk, weight, _value("play_bow_foreleg_spread", PLAY_BOW_FORELEG_SPREAD))
+	_spread_hind(rig, sk, weight, _value("play_bow_hind_spread", PLAY_BOW_HIND_SPREAD))
+	var neck1 := deg_to_rad(_value("play_bow_neck1_deg", PLAY_BOW_NECK1_DEG)) * weight
+	var neck2 := deg_to_rad(_value("play_bow_neck2_deg", PLAY_BOW_NECK2_DEG)) * weight
+	var head := deg_to_rad(_value("play_bow_head_deg", PLAY_BOW_HEAD_DEG)) * weight
+	if not rig.neck.is_empty():
+		rig.rotate(sk, rig.neck[0], axis, neck1)
+	if rig.neck.size() > 1:
+		rig.rotate(sk, rig.neck[1], axis, neck2)
+	if rig.neck.size() > 2:
+		rig.rotate(sk, rig.neck[2], axis, head)
+	var head_back := float(state.get("head_back", 0.0))
+	if head_back > 0.001:
+		_raise_head(rig, sk, weight * head_back)
+
+
 func _value(key: String, fallback: float) -> float:
 	var value: Variant = _config.get(key)
 	return float(value) if value != null else fallback
 
 
 func _bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
+	_spine_bow(rig, sk, weight, scale)
+	var axis: Vector3 = rig.right_axis(sk)
+	var neck_angles: Array[float] = [-0.08, -0.06, -0.04]
+	for i: int in rig.neck.size():
+		rig.rotate(sk, rig.neck[i], axis, neck_angles[mini(i, neck_angles.size() - 1)] * weight * scale)
+
+
+func _spine_bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
 	var axis: Vector3 = rig.right_axis(sk)
 	var spine_angles: Array[float] = [-0.05, -0.06, -0.04]
 	for i: int in rig.spine.size():
 		rig.rotate(sk, rig.spine[i], axis, spine_angles[mini(i, spine_angles.size() - 1)] * weight * scale)
-	var neck_angles: Array[float] = [-0.08, -0.06, -0.04]
-	for i: int in rig.neck.size():
-		rig.rotate(sk, rig.neck[i], axis, neck_angles[mini(i, neck_angles.size() - 1)] * weight * scale)
 
 
 func _bend_forelegs(rig, sk: Skeleton3D, weight: float, scale: float) -> void:

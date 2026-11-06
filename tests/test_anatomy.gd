@@ -8,6 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 
 var failures := 0
 var checks := 0
@@ -20,6 +21,19 @@ class FakeIdentity extends Resource:
 class FakePony extends Node3D:
 	var identity: Resource
 	var rig: Node
+
+
+class FakeAnatomy extends Node:
+	var calls: Array[String] = []
+
+	func _clear_part() -> void:
+		calls.append("clear")
+
+	func wink(count := 1, _seconds := 0.45) -> void:
+		calls.append("wink:%d" % count)
+
+	func fluid() -> Node3D:
+		return null
 
 
 func _initialize() -> void:
@@ -123,6 +137,16 @@ func run() -> void:
 	check(not bool(runtime.call("anatomy_finish_ready")), "finish gate closed without an act")
 	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
 	runtime.free()
+
+	# Climax clears the winking shape and runs the three-pulse wink.
+	var anatomy_act: Node = ANATOMY_ACT.new()
+	var fake_anatomy := FakeAnatomy.new()
+	anatomy_act.anatomy = fake_anatomy
+	anatomy_act.on_climax()
+	check(fake_anatomy.calls.size() == 2 and fake_anatomy.calls[0] == "clear" \
+		and fake_anatomy.calls[1] == "wink:3", "climax clears and winks three times")
+	anatomy_act.free()
+	fake_anatomy.free()
 
 	for pony: Node in [twilight, filly, stallion, off_roster, player]:
 		if is_instance_valid(pony):

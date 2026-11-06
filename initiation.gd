@@ -15,9 +15,12 @@ const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const REST_CONTROL := preload("res://mods/unfplap/rest_control.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const COOLDOWN_S := 600.0
+## Heat shortens the offer cooldown to this share of the usual wait.
+const HEAT_COOLDOWN := 0.25
 const SCAN_INTERVAL_S := 0.5
 const QUIET_CHAT_GAP_S := 45.0
 const APPROACH_RADIUS_M := 24.0
@@ -164,7 +167,7 @@ func _tick_cuddle_edges() -> void:
 			_cuddle_asked[id] = false
 
 
-func _cooldown_ok(id: String) -> bool:
+func _cooldown_ok(id: String, in_heat := false) -> bool:
 	var mods := _mods()
 	if mods == null:
 		return true
@@ -174,8 +177,15 @@ func _cooldown_ok(id: String) -> bool:
 		times = {}
 	var last: float = float((times as Dictionary).get(id, -100000.0))
 	var history: Dictionary = ACT_HISTORY.effective_row(section, id, ACT_HISTORY.day_now())
-	return cooldown_ready(Time.get_unix_time_from_system(), last,
-		ACT_HISTORY.offer_cooldown(history))
+	var wait := ACT_HISTORY.offer_cooldown(history)
+	if in_heat:
+		wait = heat_cooldown(wait)
+	return cooldown_ready(Time.get_unix_time_from_system(), last, wait)
+
+
+## How long an offer cooldown lasts in heat.
+static func heat_cooldown(seconds: float) -> float:
+	return seconds * HEAT_COOLDOWN
 
 
 func _set_cooldown(id: String) -> void:
@@ -272,7 +282,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if id.is_empty():
 		reasons.append("no_id")
 		return {}
-	if not forced and not _cooldown_ok(id):
+	if not forced and not _cooldown_ok(id, _in_heat(runtime)):
 		reasons.append("cooldown")
 		return {}
 	if not forced and _now() < float(_retry_at.get(id, -100000.0)):
@@ -432,6 +442,9 @@ func _private_at_player(except: Node = null) -> bool:
 		return false
 	# integration: a mare who is comfortable with others around still offers.
 	if is_instance_valid(except):
+		if is_instance_valid(main) and main.has_method("runtime_for") \
+				and _in_heat(main.call("runtime_for", except)):
+			return true
 		var id := _pony_id(except)
 		if not id.is_empty() and bool(SETTINGS.consent(id).get("public", false)) \
 				and main.has_method("public_offers_enabled") and bool(main.call("public_offers_enabled")):
@@ -1587,6 +1600,7 @@ func _ask_context() -> String:
 	else:
 		text += "You are alone together. You may ask directly and bluntly or hint indirectly, whichever fits you; phrase it as a question to him. "
 	text += "Say one or two short sentences in your own voice. Do not describe your body or narrate actions, and do not use action tags."
+	text += _heat_ask_line()
 	var note := _history_ask_note()
 	if not note.is_empty():
 		text += " " + note
@@ -1613,10 +1627,23 @@ func _ask_purpose() -> String:
 	else:
 		text += " You may ask directly and bluntly or hint indirectly, in your own voice; phrase it as a question."
 	text += " Say one or two short sentences. Do not narrate actions. End with a question mark."
+	text += _heat_ask_line()
 	var note := _history_ask_note()
 	if not note.is_empty():
 		text += " " + note
 	return text
+
+
+func _heat_ask_line() -> String:
+	if _in_heat(_episode.get("runtime")):
+		return " You are in heat, and you are not being subtle about what you need."
+	return ""
+
+
+## True when the runtime reports the mare's heat phase.
+func _in_heat(runtime: Variant) -> bool:
+	return is_instance_valid(runtime) and runtime.has_method("cycle_phase") \
+		and str(runtime.call("cycle_phase")) == CYCLE.HEAT
 
 
 func _history_ask_note() -> String:

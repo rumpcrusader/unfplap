@@ -27,10 +27,12 @@ Do not start implementation until you have read the required files for the area 
   mod lover bond unless `relationship.sex_start` is Try Your Luck. `bonds.welcomes(id, "kiss")`
   still decides the actual start; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
-- No pregnancy, heat, estrus, conception, content warning, new character or body models. Adult
-  anatomy is an optional, feature-gated addition; it never replaces a pony's body or rig and its
-  meshes/textures are kept out of git (`assets/anatomy/` is gitignored) while a local build may
-  pack them when present. The act stays off-camera by framing. Modelled accessories are allowed.
+- No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
+  off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
+  only; it never adds pregnancy or a body model. Adult anatomy is an optional, feature-gated
+  addition; it never replaces a pony's body or rig and its meshes/textures are kept out of git
+  (`assets/anatomy/` is gitignored) while a local build may pack them when present. The act stays
+  off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional, off-by-default standing
   VR act; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -135,7 +137,7 @@ mods/unfplap/
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
   anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD
-  anatomy_act.gd    per-act hole/oral/finish, shape driving, fluid and pose keys
+  anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anatomy_align.gd  optional standing pelvic alignment; hip stays pinned, camera unchanged
   anon_part.gd      player anatomy mesh and placement
   missionary_bed.gd optional Anon bed body and eye view; off by default
@@ -146,6 +148,7 @@ mods/unfplap/
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
+  cycle.gd          pure per-mare estrus phase: heat, diestrus, normal
   tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
   tunables.gd       the one typed API for reading and writing those settings
   tunables_ui.gd    the only file that builds settings widgets: schema rows as the page's menu rows
@@ -783,6 +786,9 @@ examples.
   round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
   opens the game chat during an act. With every anatomy flag off these
   keys are not consumed and the act is exactly the master act.
+- `anatomy_act.on_climax()` clears the winking shape and calls `wink(3)` before the fluid hook;
+  `tick()` drives the closed/stretch/anal shapes only in `ACTIVE`, so the climax wink tween is not
+  overwritten during `CLIMAX`.
 - `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
   bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
   climaxes and enters afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends
@@ -952,6 +958,23 @@ examples.
   cooldown, AI-usage and the paused-tree gate, but not relationship, consent, pose or free-bed
   gates. The settings page pauses the tree, so the episode advances after the page closes.
 
+### Estrus cycle
+
+- `features.estrus_cycle` (default off) gives adult mares a derived 30-day cycle. `cycle.gd` is
+  pure: `MONTH_DAYS = 30`, `HEAT_DAYS = 7`, `DIESTRUS_DAYS = 2`; the mare's id hash sets her
+  offset, so the town is not in step. The phase is recomputed from `relationship.bonds.day()` and
+  `_id`, never saved.
+- `runtime.cycle_phase()` returns `normal` when the flag is off or no relationship runtime is
+  present. A debug override wins over both, so the lab can force a phase.
+- In diestrus the `cycle` gate row blocks both `can_start` and `can_offer`; there is no separate
+  refusal line, so the Y hint simply does not appear.
+- In heat each real thrust chunk is multiplied by `HEAT_READINESS = 1.6`, the readiness line appends
+  `| In heat`, and `cycle_note()` adds the heat text to `main.prompt_note()` outside and during acts.
+- Heat also quarters the offer cooldown (`HEAT_COOLDOWN = 0.25`), lets her offer in public, and adds
+  the heat sentence to the ask prompt.
+- The debug Actions **Force heat**, **Force diestrus** and **Clear forced cycle** set a session-only
+  `_cycle_override` on the aimed or nearest mare.
+
 ### Act start and aim zone
 
 - `main.try_start()` is the only act-start path. It offers Y when `runtime.can_start()` passes.
@@ -1109,7 +1132,7 @@ examples.
   you are looking at the scene. A hotkey-less action is the default.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
   nearest) test mare. They bypass the quiet, cooldown, AI-usage and history offer checks, but not
-  relationship, consent, pose or free-bed gates; use them in the lab, which runs with
+  relationship, consent, pose, cycle or free-bed gates; use them in the lab, which runs with
   `ai_usage=talk`. A rejected offer reports the failing gate (`relation`, `sex_bond`, `no_free_bed`,
   `standing:region`, and so on) in the status label and the debug log. Because the settings page
   pauses the tree, an offer advances after it closes.
@@ -1123,6 +1146,9 @@ examples.
   reminder/complaint and the recent entries. It does not modify the row.
 - **Force neglect warning** / **Force neglect stop**: act on the live act. The request is
   consumed on the next unpaused frame, so close the settings panel to apply it.
+- **Force heat** / **Force diestrus** / **Clear forced cycle**: set the aimed or nearest mare's
+  session-only estrus override. They work even when `features.estrus_cycle` is off, so the lab can
+  test both phases without waiting in-game days.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act when `debug_logs` is on. Neglect events log their warning/stop,
   tier, distress and dislike.
@@ -1213,6 +1239,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
+| `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
 | `anatomy` | `true` | adult anatomy meshes, teats, strip, reactions and anatomy pose keys |
 | `anatomy_holes` | `true` | `V` hole switch and the anal cup |
 | `anatomy_oral` | `true` | `N` standing oral and its neck motion |
@@ -1308,8 +1335,8 @@ rump blush. Unknown settings keys are ignored.
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
   units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
-  has no second title. **General** holds the player-facing flags, **Thrust** (including the
-  climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
+  has no second title. **General** holds the player-facing flags, **Cycle**, **Thrust** (including
+  the climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
   preference** form (a per-mare profile, not a global tunable). **Anatomy** holds every anatomy
   entry: display, Anon part, actions, effects and experimental. **Debug** holds every other
   entry, including **Talk & cues**, plus the **Actions** buttons, with the Actions block placed

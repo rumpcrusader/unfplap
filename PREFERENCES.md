@@ -50,6 +50,9 @@ aftercare are outside it.
 ```
 
 - `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
+- `features.estrus_cycle` (default off) multiplies each real thrust chunk by `×1.6` while she is in
+  heat; `cycle.gd` derives the phase from the world day and her id. Diestrus blocks starting and
+  offers. `warmth` and the receptive window still stack on top.
 - `tolerance` (Neglect tolerance) sets mid-act warnings and the stop threshold; see `HISTORY.md`.
 - `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 

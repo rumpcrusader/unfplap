@@ -1,0 +1,58 @@
+extends SceneTree
+## Pure estrus-cycle rules and the feature flag.
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_cycle.gd
+
+const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
+
+var failures := 0
+var checks := 0
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func run() -> void:
+	check(CYCLE.phase_at(0.0) == CYCLE.HEAT, "cycle starts in heat")
+	check(CYCLE.phase_at(6.999) == CYCLE.HEAT, "heat lasts through day six")
+	check(CYCLE.phase_at(7.0) == CYCLE.DIESTRUS, "diestrus starts on day seven")
+	check(CYCLE.phase_at(8.999) == CYCLE.DIESTRUS, "diestrus lasts two days")
+	check(CYCLE.phase_at(9.0) == CYCLE.NORMAL, "normal starts on day nine")
+	check(CYCLE.phase_at(29.999) == CYCLE.NORMAL, "normal runs to the end of the month")
+	check(CYCLE.phase_at(30.0) == CYCLE.HEAT, "the cycle wraps after thirty days")
+	check(CYCLE.phase_at(-1.0) == CYCLE.NORMAL, "negative days wrap into the month")
+
+	check(CYCLE.offset("rarity") == CYCLE.offset("rarity"), "a mare's offset is stable")
+	check(CYCLE.phase(12.0, "rarity") == CYCLE.phase(12.0, "rarity"),
+		"a mare's phase is stable for the same day")
+	check(CYCLE.phase(42.0, "rarity") == CYCLE.phase(12.0, "rarity"),
+		"a mare repeats on a thirty-day month")
+	check(CYCLE.phase(12.0, "rarity") == CYCLE.phase_at(12.0 + CYCLE.offset("rarity")),
+		"phase uses the mare offset")
+	check(CYCLE.offset("rarity") >= 0.0 and CYCLE.offset("rarity") < CYCLE.MONTH_DAYS,
+		"an offset stays inside the month")
+
+	check(CYCLE.allows_sex(CYCLE.HEAT), "heat allows sex")
+	check(CYCLE.allows_sex(CYCLE.NORMAL), "normal allows sex")
+	check(not CYCLE.allows_sex(CYCLE.DIESTRUS), "diestrus blocks sex")
+
+	check(CYCLE.prompt_note(CYCLE.HEAT).contains("heat"), "heat has a prompt note")
+	check(CYCLE.prompt_note(CYCLE.DIESTRUS).contains("turned off"),
+		"diestrus has a prompt note")
+	check(CYCLE.prompt_note(CYCLE.NORMAL).is_empty(), "normal has no prompt note")
+
+	check(SCHEMA.has("features.estrus_cycle"), "estrus flag exists")
+	check(not bool(SCHEMA.default_value("features.estrus_cycle")), "estrus is off by default")
+
+	print("CYCLE_RESULT checks=%d failures=%d" % [checks, failures])
+	if failures == 0:
+		print("CYCLE_PASS")
+	quit(0 if failures == 0 else 1)

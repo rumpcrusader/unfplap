@@ -17,6 +17,7 @@ const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RUMP_CONE := preload("res://mods/unfplap/rump_cone.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -82,9 +83,12 @@ func prompt_note(pony: String) -> String:
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime) and str(runtime.get("_id")) == pony:
 			var note := str(runtime.call("prompt_note"))
-			if not note.is_empty():
-				return note
-			return str(runtime.call("lover_prompt_note"))
+			if note.is_empty():
+				note = str(runtime.call("lover_prompt_note"))
+			var cycle := str(runtime.call("cycle_note"))
+			if not cycle.is_empty():
+				note = cycle if note.is_empty() else note + " " + cycle
+			return note
 	return ""
 
 
@@ -1156,6 +1160,38 @@ func action_bed_offer() -> String:
 
 func action_standing_offer() -> String:
 	return _debug_offer_request(CATALOG.STANDING)
+
+
+## Debug-only estrus phase controls. The override is session-only and per pony; passing "" resumes
+## the automatic day/id cycle.
+func action_force_heat() -> String:
+	return _debug_cycle_request(CYCLE.HEAT)
+
+
+func action_force_diestrus() -> String:
+	return _debug_cycle_request(CYCLE.DIESTRUS)
+
+
+func action_clear_cycle_override() -> String:
+	return _debug_cycle_request("")
+
+
+func _debug_cycle_request(phase_name: String) -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	if not is_instance_valid(target):
+		return "No mare under the crosshair or nearby."
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
+		return "No runtime for %s." % str(target.name)
+	runtime.call("set_cycle_override", phase_name)
+	var label := "automatic" if phase_name.is_empty() else phase_name
+	_debug("cycle override %s=%s" % [str(target.name), label])
+	return "Cycle for %s: %s." % [str(target.name), label]
 
 
 ## Shared by the Debug tab actions.

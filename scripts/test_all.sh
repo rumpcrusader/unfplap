@@ -19,6 +19,7 @@ TESTS=(
 	test_settings
 	test_character_preferences
 	test_source_hygiene
+	test_cycle
 	test_rotation
 	test_thrust
 	test_auto_thrust

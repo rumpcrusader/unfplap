@@ -16,6 +16,11 @@ func _initialize() -> void:
 class FakeMain extends Node:
 	var player: Node3D
 	var game: Node
+	var runtimes: Dictionary = {}
+
+	func runtime_for(pony: Node) -> Node:
+		var runtime: Variant = runtimes.get(pony)
+		return runtime if is_instance_valid(runtime) else null
 
 
 class FakeGame extends Node:
@@ -32,10 +37,14 @@ class FakeWorldContext extends Node:
 
 class FakeRuntime extends Node:
 	var presented := false
+	var phase := "normal"
 
 	func present_standing() -> bool:
 		presented = true
 		return true
+
+	func cycle_phase() -> String:
+		return phase
 
 
 func check(ok: bool, text: String) -> void:
@@ -50,6 +59,7 @@ func run() -> void:
 	check(not INIT.cooldown_ready(1000.0, 401.0), "cooldown blocks inside ten minutes")
 	check(INIT.cooldown_ready(1000.0, 949.0, 50.0), "cooldown accepts an explicit duration")
 	check(not INIT.cooldown_ready(1000.0, 951.0, 50.0), "explicit cooldown still blocks")
+	check(INIT.heat_cooldown(600.0) == 150.0, "heat cuts the offer cooldown to a quarter")
 
 	var weighted := [
 		{"id": "a", "weight": 0.7},
@@ -102,6 +112,16 @@ func run() -> void:
 	fake_game.world_context = context
 	fake_game.mares = [target]
 	var fake_runtime := FakeRuntime.new()
+	fake_main.runtimes[target] = fake_runtime
+	fake_game.mares = [target, other]
+	fake_runtime.phase = "heat"
+	check(initiation._private_at_player(target), "heat overrides the privacy reserve")
+	initiation._episode = {"runtime": fake_runtime}
+	check(initiation._heat_ask_line().contains("in heat"), "heat adds an ask line")
+	fake_runtime.phase = "normal"
+	check(not initiation._private_at_player(target), "normal phase restores the privacy reserve")
+	check(initiation._heat_ask_line().is_empty(), "normal phase has no heat ask line")
+	fake_game.mares = [target]
 	initiation._episode = {
 		"serial": 7, "pony": target, "runtime": fake_runtime, "id": "rarity",
 		"pose": "standing", "source": "", "bed": null, "private": true, "cuddle": false,

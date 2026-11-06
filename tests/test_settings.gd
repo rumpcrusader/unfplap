@@ -173,12 +173,13 @@ func run() -> void:
 	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.45),
 		"default smack jiggle intensity")
 	var jiggle_controls := TUNABLES.block("jiggle.")
-	check(near(float(jiggle_controls.get("radius", -1.0)), 0.26),
+	check(near(float(jiggle_controls.get("radius", -1.0)), TUNABLES.get_float("jiggle.radius")),
 		"runtime jiggle radius is the stored value")
-	check(near(float(jiggle_controls.get("intensity", -1.0)), 0.25),
+	check(near(float(jiggle_controls.get("intensity", -1.0)), TUNABLES.get_float("jiggle.intensity")),
 		"runtime jiggle intensity is the stored value")
-	check(jiggle_controls.has("smack_intensity"),
-		"runtime smack jiggle intensity is exposed")
+	check(near(float(jiggle_controls.get("smack_intensity", -1.0)),
+		TUNABLES.get_float("jiggle.smack_intensity")),
+		"runtime smack jiggle intensity is the stored value")
 	var camera_defaults: Dictionary = defaults.get("camera_thrust", {})
 	check(near(float(camera_defaults.get("surge", -1.0)), 1.0), "default camera surge full")
 	check(near(float(camera_defaults.get("bob", -1.0)), 0.35), "default camera bob amount")

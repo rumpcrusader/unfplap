@@ -21,6 +21,7 @@ const UPSET := preload("res://mods/unfplap/upset.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
@@ -68,6 +69,8 @@ const THRUST_HEAT_ONE := 0.7
 ## lighter.
 const THRUST_IMPACT_GAIN := 2.0
 const THRUST_HEAT_NONE := 0.0
+## Heat multiplies every real thrust chunk while the estrus cycle is enabled and she is in heat.
+const HEAT_READINESS := 1.6
 ## Never let a macro score faster than this.
 const THRUST_SCORE_MIN_INTERVAL := 0.2
 ## Touch and talk can warm her to this point; only real thrusts can finish her.
@@ -288,6 +291,8 @@ var _nav: Node
 var _nav_old_wander := true
 var _token := ""
 var _id := ""
+## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
+var _cycle_override := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
 var _pose_cfg: Dictionary = {}
@@ -840,8 +845,9 @@ func hud_readiness_line(show_readouts := true) -> String:
 	var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
 	var want_intensity := str(_preferences.get("intensity", "firm"))
 	var want_pattern := str(_preferences.get("pattern", "steady"))
-	return "Wants: %s & %s | You: %s & %s" % [
+	var line := "Wants: %s & %s | You: %s & %s" % [
 		want_intensity, want_pattern, have_intensity, have_pattern]
+	return line + " | In heat" if cycle_phase() == CYCLE.HEAT else line
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
 func auto_active() -> bool:
@@ -1167,6 +1173,7 @@ func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: Strin
 	if not is_instance_valid(main.game):
 		return rows
 	_gate_row(rows, "state", state == State.IDLE, "state=%d" % state)
+	_gate_row(rows, "cycle", CYCLE.allows_sex(cycle_phase()), "diestrus")
 	# Try Your Luck lets the attempt reach the refusal path before she welcomes the kiss.
 	# Her proactive offers still require willingness (mode == "offer").
 	if mode == "offer" or not _try_luck():
@@ -2883,6 +2890,8 @@ func _score_thrust() -> void:
 		heat *= PREFERENCES.warmth_scale(_preferences)
 		if now < _receptive_until:
 			heat *= RECEPTIVE_BOOST
+		if cycle_phase() == CYCLE.HEAT:
+			heat *= HEAT_READINESS
 		_add_heat(heat)
 	_log("thrust score intensity=%s pattern=%s both=%s heat=%.2f readiness=%.0f" % [
 		_last_intensity, _last_pattern, str(intensity_match and pattern_match),
@@ -4096,6 +4105,39 @@ func _finish_climax() -> void:
 	_receptive_until = 0.0
 	var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
 	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
+
+## Estrus phase. Derived from the world day and her id; the debug override wins even when the
+## feature is off so the lab can test heat and diestrus without waiting in-game days.
+func cycle_phase() -> String:
+	if not _cycle_override.is_empty():
+		return _cycle_override
+	if not TUNABLES.get_bool("features.estrus_cycle"):
+		return CYCLE.NORMAL
+	if not is_instance_valid(pony) or not _read_id():
+		return CYCLE.NORMAL
+	var relationship: Variant = pony.get_meta("relationship_runtime")
+	if relationship == null or not is_instance_valid(relationship):
+		return CYCLE.NORMAL
+	var bonds: Variant = relationship.get("bonds")
+	if bonds == null or not is_instance_valid(bonds) or not bonds.has_method("day"):
+		return CYCLE.NORMAL
+	return CYCLE.phase(float(bonds.call("day")), _id)
+
+
+## Debug-only session override: heat, diestrus, normal, or "" to resume the automatic cycle.
+func set_cycle_override(phase_name: String) -> void:
+	if phase_name in [CYCLE.HEAT, CYCLE.DIESTRUS, CYCLE.NORMAL]:
+		_cycle_override = phase_name
+	elif phase_name.is_empty():
+		_cycle_override = ""
+
+
+## Private heat/diestrus note for the normal dialogue prompt, outside and during acts.
+func cycle_note() -> String:
+	if not is_instance_valid(pony) or not _stage_ok():
+		return ""
+	return CYCLE.prompt_note(cycle_phase())
+
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.

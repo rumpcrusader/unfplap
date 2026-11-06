@@ -39,11 +39,12 @@ Desktop first. The optional VR standing act is experimental and off by default.
 - **Optional anatomy** — Adds hole, oral, finish and fluid controls, plus optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository, but a local build packs them when they are present.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
+- **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster and ask sooner, two days of diestrus turn her off, then normal. Off by default.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Climax limit** — `Climax limit` sets how many times she can climax in one act; `0` is unlimited.
 - **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace and the mouse sets how deep each stroke goes.
 - **Per-mare preference** — Each mare has intensity, rhythm, touch, talk, warmth, and how much she tolerates before she warns or stops.
-- **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, climax limit, relationship rules, long-term history) into a General tab, per-mare preference into a Characters tab, anatomy controls into an Anatomy tab, and pose tuning, talk/cue pacing and feature flags into a Debug tab.
+- **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, climax limit, relationship rules, estrus, long-term history) into a General tab, per-mare preference into a Characters tab, anatomy controls into an Anatomy tab, and pose tuning, talk/cue pacing and feature flags into a Debug tab.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.
 - **HUD** — Shows the act controls list, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.

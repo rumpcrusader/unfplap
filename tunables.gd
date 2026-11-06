@@ -35,6 +35,21 @@ const ACTIONS := {
 		"help": "Force a standing offer for the aimed or nearest mare.",
 		"method": "action_standing_offer",
 	},
+	"force_heat": {
+		"label": "Force heat",
+		"help": "Put the aimed or nearest mare in heat for this session.",
+		"method": "action_force_heat",
+	},
+	"force_diestrus": {
+		"label": "Force diestrus",
+		"help": "Turn the aimed or nearest mare off for this session.",
+		"method": "action_force_diestrus",
+	},
+	"clear_cycle_override": {
+		"label": "Clear forced cycle",
+		"help": "Resume the aimed or nearest mare's automatic estrus cycle.",
+		"method": "action_clear_cycle_override",
+	},
 	"grant_lover_bond": {
 		"label": "Grant lover bond",
 		"help": "Give the aimed or nearest eligible mare the mod lover bond.",

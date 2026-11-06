@@ -58,6 +58,18 @@ func run() -> void:
 	runtime._last_thrust_score_at = -1000.0
 	runtime._score_thrust()
 	check(runtime.satisfaction > 1.0, "matching both axes adds readiness")
+	# Heat multiplies the same matching chunk; the debug override bypasses the world day.
+	runtime._cycle_override = "heat"
+	runtime.satisfaction = 0.0
+	runtime._last_intensity = "firm"
+	runtime._last_pattern = "steady"
+	runtime._last_thrust_score_at = -1000.0
+	runtime._receptive_until = 0.0
+	runtime._score_thrust()
+	check(near(runtime.satisfaction, 1.4 * 1.6), "heat multiplies the thrust chunk")
+	check(runtime.hud_readiness_line(true).contains("In heat"), "heat shows on the readiness line")
+	check(runtime.hud_readiness_line(false).is_empty(), "readouts off hide the heat line")
+	runtime._cycle_override = ""
 	var before: float = runtime.satisfaction
 	runtime._readiness_tick(10.0)
 	check(near(runtime.satisfaction, before), "readiness does not decay on its own")

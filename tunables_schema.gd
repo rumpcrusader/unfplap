@@ -69,6 +69,9 @@ static func all() -> Dictionary:
 		"features.mute_ponese_audio": flag(true, "Mute Ponese audio",
 			"Keep the act's generated text but silence the Ponese voice for that act.",
 			"Controls", GENERAL_TAB),
+		"features.estrus_cycle": flag(false, "Estrus cycle",
+			"Give adult mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.",
+			"Cycle", GENERAL_TAB),
 		# integration: anatomy player-facing switches.
 		"features.anatomy": flag(true, "Anatomy",
 			"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.",

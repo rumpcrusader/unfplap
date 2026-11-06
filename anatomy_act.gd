@@ -258,10 +258,13 @@ func tick(delta: float) -> void:
 		_oral_motion_tick(delta)
 	var rearward := 1.0 - _oral_mix
 	var front := (1.0 - _hole_mix) * rearward
-	anatomy.call("drive", 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front)
-	anatomy.call("set_stretch", _wide * front)
-	anatomy.call("set_anal_shape", maxf(_fill, ANAL_READY) * _hole_mix * rearward,
-		_wide * _hole_mix * rearward)
+	# The closed-shape drive owns the vulva during ACTIVE. During CLIMAX it would kill the climactic
+	# wink tween, so the shape waits for the return to ACTIVE, as it does in PPP.
+	if _state() == 2:
+		anatomy.call("drive", 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front)
+		anatomy.call("set_stretch", _wide * front)
+		anatomy.call("set_anal_shape", maxf(_fill, ANAL_READY) * _hole_mix * rearward,
+			_wide * _hole_mix * rearward)
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
@@ -334,6 +337,9 @@ func _oral_tick(delta: float) -> void:
 
 ## integration: shape and fluid hooks called by the runtime.
 func on_climax() -> void:
+	if is_instance_valid(anatomy):
+		anatomy.call("_clear_part")
+		anatomy.call("wink", 3)
 	if not _enabled("anatomy_fluid"):
 		return
 	var fluid := _fluid_node()

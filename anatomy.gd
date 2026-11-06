@@ -33,6 +33,8 @@ const WINKING_DOCK_REF := -0.0311
 const WINKING_CUT_DEPTH := 0.07
 ## Shader widening applied to the vulva per unit of stretch, so the anal bulb never scales with it.
 const VULVA_WIDEN := 1.0
+## The anal cup's back rim widens less than its front, so it keeps its shape around the shaft.
+const ANAL_TAPER := 0.75
 const WINKING_CUT_FILLED := 0.4
 const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
@@ -308,6 +310,10 @@ func _apply_material() -> void:
 	OUTLINE_EXCLUSION.apply_to(_mesh)
 	if is_instance_valid(_anal_mesh):
 		var anal_material := material.duplicate() as ShaderMaterial
+		# The same local widening, aimed at the anal opening instead of the vulva.
+		anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
+		anal_material.set_shader_parameter("vulva_radius", 0.045)
+		anal_material.set_shader_parameter("vulva_taper", ANAL_TAPER)
 		anal_material.set_shader_parameter("vulva_open", 0.0)
 		_anal_mesh.set_surface_override_material(0, anal_material)
 	_apply_winking_shape()
@@ -355,8 +361,13 @@ func _attach_anal() -> void:
 	OUTLINE_EXCLUSION.apply_to(mesh)
 	_anal_mesh = mesh
 	if _mesh.get_surface_override_material(0) is ShaderMaterial:
-		mesh.set_surface_override_material(0,
-			(_mesh.get_surface_override_material(0) as ShaderMaterial).duplicate())
+		var anal_material := (_mesh.get_surface_override_material(0) as ShaderMaterial).duplicate() \
+			as ShaderMaterial
+		anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
+		anal_material.set_shader_parameter("vulva_radius", 0.045)
+		anal_material.set_shader_parameter("vulva_taper", ANAL_TAPER)
+		anal_material.set_shader_parameter("vulva_open", 0.0)
+		mesh.set_surface_override_material(0, anal_material)
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -631,6 +642,7 @@ func set_anal_shape(fill: float, wide := 0.0) -> void:
 	if material != null:
 		var scale := _mesh.global_transform.basis.get_scale().x
 		var hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.01)
+		material.set_shader_parameter("vulva_open", wide * VULVA_WIDEN)
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
 			* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(fill, 1.0)))
 

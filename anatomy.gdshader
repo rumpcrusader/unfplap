@@ -27,6 +27,8 @@ uniform float cover_depth = 0.0;
 uniform vec3 vulva_centre = vec3(0.0, -0.012, 0.02);
 uniform float vulva_open = 0.0;
 uniform float vulva_radius = 0.055;
+// integration: 1 widens the whole rim, lower leaves the back of a ring quieter than its front.
+uniform float vulva_taper = 1.0;
 
 // integration: the teats mesh fades to her coat at the rim and gets its sway uniforms.
 uniform vec4 coat_color: source_color;
@@ -48,7 +50,9 @@ void vertex() {
 		vec3 spread = VERTEX - vulva_centre;
 		vec3 flat_offset = vec3(spread.x, spread.y, 0.0);
 		float near_hole = 1.0 - smoothstep(vulva_radius * 0.25, vulva_radius, length(flat_offset));
-		float widen = 1.0 + vulva_open * near_hole;
+		float facing = smoothstep(-0.02, 0.02, spread.z);
+		float amount = mix(vulva_taper, 1.0, facing);
+		float widen = 1.0 + vulva_open * near_hole * amount;
 		spread.x *= widen;
 		spread.y *= widen;
 		VERTEX = vulva_centre + spread;

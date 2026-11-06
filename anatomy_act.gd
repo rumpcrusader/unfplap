@@ -292,6 +292,11 @@ func tick(delta: float) -> void:
 		# only one of them leaves it half closed.
 		var anal := _wide * _hole_mix * rearward * anal_hug
 		anatomy.call("set_anal_shape", anal * 1.4, anal)
+	if is_instance_valid(part):
+		var pitch := 0.0
+		if _anal:
+			pitch = TUNABLES.get_float("anatomy.anal_pitch_deg")
+		part.set("aim_pitch_deg", pitch)
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,

@@ -2625,6 +2625,26 @@ func anatomy_bed_avatar() -> Variant:
 
 
 ## integration: drives the standing camera's facing override for the oral turn.
+## integration: her entrance point during an anatomy act, in world space.
+func anatomy_opening() -> Vector3:
+	if not is_instance_valid(_anatomy_act):
+		return Vector3.ZERO
+	var point: Variant = _anatomy_act.call("hole_point")
+	if point is Vector3 and (point as Vector3).is_finite():
+		return point
+	return Vector3.ZERO
+
+
+## integration: her exit axis during an anatomy act, in world space; `Vector3.ZERO` otherwise.
+func anatomy_rear() -> Vector3:
+	if not is_instance_valid(_anatomy_act):
+		return Vector3.ZERO
+	var rear: Variant = _anatomy_act.call("hole_rear")
+	if rear is Vector3 and (rear as Vector3).is_finite():
+		return rear
+	return Vector3.ZERO
+
+
 func anatomy_facing(basis: Basis, amount: float) -> void:
 	var camera: Variant = _standing_camera_controller()
 	if camera != null and camera.has_method("set_facing_override"):

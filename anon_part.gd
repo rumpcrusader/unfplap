@@ -74,6 +74,8 @@ var _depth_smooth := 0.0
 ## frame asks for. The pelvis carries the part, so the two always move as one body.
 var hip_offset_applied := Vector3.ZERO
 var _hip_offset_wanted := Vector3.ZERO
+## Downward aim tilt for the anal hole, degrees; set by the act each frame.
+var aim_pitch_deg := 0.0
 
 
 static func assets_exist() -> bool:
@@ -293,16 +295,24 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
 		return
 	var turn := Basis(Quaternion(to_tip.normalized(), to_open.normalized()))
+	if not is_zero_approx(aim_pitch_deg):
+		var right := Vector3.UP.cross(to_open)
+		if right.length_squared() > 0.000001:
+			turn = Basis(right.normalized(), deg_to_rad(aim_pitch_deg)) * turn
 	var pivot := posed * PIVOT
 	var turned := Transform3D(turn * posed.basis, pivot + turn * (posed.origin - pivot))
 	_mesh.transform = parent.global_transform.affine_inverse() * turned
 	# The tip should sit `Max back-out` behind the entrance at depth 0 and `Max depth` past it at
 	# full depth, so move the pelvis by exactly the distance the base is short.
 	var along := -max_back + _depth_smooth * (max_back + max_depth)
-	# The shaft cannot push its own base through the entrance; keep the pivot outside her.
-	along = minf(along, maxf(to_tip.length() - 0.02, 0.0))
-	_hip_offset_wanted = to_open.normalized() \
-		* (to_open.length() - to_tip.length() + along)
+	# Keep his pelvis at least `Pelvis gap` behind her rear surface: if the shaft is too short to
+	# reach the depth asked for, the depth is what gives way, not his body.
+	var gap := maxf(TUNABLES.get_float("anatomy.pelvis_gap_m"), 0.0)
+	along = minf(along, maxf(to_tip.length() - gap, 0.0))
+	# Place the pelvis so the *tilted* shaft still lands the tip on the entrance. Using the true
+	# direction here would drop the tip below the hole whenever the anal aim is angled down.
+	var aim_dir := (turn * to_tip.normalized()).normalized()
+	_hip_offset_wanted = to_open - aim_dir * (to_tip.length() - along)
 
 
 ## The Hips-bone offset, in world space, that puts the part at the entrance for this depth.

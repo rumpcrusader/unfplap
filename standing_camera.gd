@@ -427,7 +427,8 @@ func tick() -> void:
 	_set_camera_offsets(float(runtime.get("_bob")) - kiss.lean_drop() * kiss.lean() - float(runtime.call("_anon_torso_drop")),
 		float(runtime.get("_lean")) - float(runtime.get("_back")) + MOTION.lean_distance(
 			float(runtime.get("_lean_view_forward")), lean_scale)
-		+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward")), kiss.lateral_offset(lean_scale))
+		+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward"))
+		+ float(_presentation_cfg.get("camera_forward_m", 0.0)), kiss.lateral_offset(lean_scale))
 	if str(runtime.get("pose_id")) == CATALOG.STANDING and bool(runtime.get("_free_camera_active")) and is_instance_valid(camera):
 		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(runtime.get("_lean_view_side")) \
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(runtime.get("_lean_view_forward"))) * lean_scale

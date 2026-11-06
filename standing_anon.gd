@@ -65,8 +65,8 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	if travel_value != null:
 		travel = maxf(0.0, float(travel_value))
 	var forward := -facing.z.normalized()
-	# With the anatomy part showing, the part asks for the pelvis to move to her entrance, so his
-	# crotch and the shaft always travel together.
+	# With the anatomy part showing, the part asks for the pelvis to move to her entrance; the
+	# Hips-bone offset carries the pelvis and the part together.
 	var part: Variant = _anon_part()
 	if part != null:
 		var wanted: Variant = part.call("hip_offset_wanted")
@@ -91,6 +91,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	# A rig without the body's foot targets (tests, odd overrides) still gets the unplanted lean.
 	if body == null:
 		body = hip.get_parent()
+	var plant_basis := _rump_facing(_plant_hip.basis, forward)
 	if body != null:
 		var left: Variant = body.get("_left_foot")
 		var right: Variant = body.get("_right_foot")
@@ -114,7 +115,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			if right is Node3D:
 				(right as Node3D).global_transform = _plant_right
 			hip.global_transform = Transform3D(
-				_plant_hip.basis, _plant_hip.origin + sway + drop)
+				plant_basis, _plant_hip.origin + sway + drop)
 			return
 		var lean_scale: float = float(runtime.call("_standing_lean_scale"))
 		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale) \
@@ -152,6 +153,27 @@ func _anon_part() -> Variant:
 	if is_instance_valid(part) and bool(part.call("showing")):
 		return part
 	return null
+
+
+## Square his hips to her entrance every frame: his forward turns to face the opening, so the
+## shaft leaves his pelvis normal to her vulva instead of arriving at an angle. Using the opening
+## itself avoids depending on which way her mesh's rear axis happens to point.
+func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
+	var part: Variant = _anon_part()
+	if part == null or not runtime.has_method("anatomy_opening"):
+		return plant
+	var opening: Vector3 = runtime.call("anatomy_opening")
+	var pivot: Vector3 = part.call("root_now")
+	var toward := Vector3(opening.x - pivot.x, 0.0, opening.z - pivot.z)
+	if toward.length_squared() < 0.0004:
+		return plant
+	var flat_forward := Vector3(forward.x, 0.0, forward.z)
+	if flat_forward.length_squared() < 0.0001:
+		return plant
+	var delta := flat_forward.normalized().signed_angle_to(toward.normalized(), Vector3.UP)
+	if is_zero_approx(delta):
+		return plant
+	return Basis(Vector3.UP, delta) * plant
 
 
 func _hip_drop() -> float:

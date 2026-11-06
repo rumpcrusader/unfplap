@@ -15,6 +15,7 @@ const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const REST_CONTROL := preload("res://mods/unfplap/rest_control.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const COOLDOWN_S := 600.0
 const SCAN_INTERVAL_S := 0.5
@@ -429,6 +430,12 @@ func _private_at_player(except: Node = null) -> bool:
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
 		return false
+	# integration: a mare who is comfortable with others around still offers.
+	if is_instance_valid(except):
+		var id := _pony_id(except)
+		if not id.is_empty() and bool(SETTINGS.consent(id).get("public", false)) \
+				and main.has_method("public_offers_enabled") and bool(main.call("public_offers_enabled")):
+			return true
 	var house: Node3D = _house_at(player.global_position)
 	return presentation_allowed(house != null and not _other_in_house(house, except),
 		_other_within(player.global_position, except, PRIVACY_RADIUS_M))

@@ -45,6 +45,9 @@ static func hip_offset(phase: float, scale: float, travel: float) -> float:
 
 
 func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
+	# integration: the optional alignment owns the hip target instead of the backset.
+	if runtime.has_method("anatomy_align_active") and bool(runtime.call("anatomy_align_active")):
+		return
 	if str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(_hip_thrust):
 		return
 	if not facing.is_finite() or facing.z.length_squared() < 0.0001:
@@ -71,6 +74,25 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
 	var body := hip.get_parent()
+	# integration: optional alignment only moves the hip target; the camera never moves.
+	if runtime.has_method("anatomy_align_active") and bool(runtime.call("anatomy_align_active")):
+		if body != null:
+			var left: Variant = body.get("_left_foot")
+			var right: Variant = body.get("_right_foot")
+			if not _plant_captured and left is Node3D and right is Node3D:
+				_plant_left = (left as Node3D).global_transform
+				_plant_right = (right as Node3D).global_transform
+				var back := facing.z.normalized()
+				_plant_left.origin += back * PLANT_FEET_BACK_M
+				_plant_right.origin += back * PLANT_FEET_BACK_M
+				_plant_captured = true
+			if _plant_captured:
+				if left is Node3D:
+					(left as Node3D).global_transform = _plant_left
+				if right is Node3D:
+					(right as Node3D).global_transform = _plant_right
+		runtime.call("anatomy_align", hip, facing)
+		return
 	if body != null:
 		var left: Variant = body.get("_left_foot")
 		var right: Variant = body.get("_right_foot")

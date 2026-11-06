@@ -72,6 +72,27 @@ const ACTIONS := {
 		"hotkey": KEY_F10,
 		"panel": false,
 	},
+	# integration: local anatomy placement calibration.
+	"anatomy_up": {"label": "Anatomy up", "help": "Move the aimed mare's anatomy up 5 mm.",
+		"method": "action_anatomy_up"},
+	"anatomy_down": {"label": "Anatomy down", "help": "Move the aimed mare's anatomy down 5 mm.",
+		"method": "action_anatomy_down"},
+	"anatomy_forward": {"label": "Anatomy forward", "help": "Move the anatomy forward 5 mm.",
+		"method": "action_anatomy_forward"},
+	"anatomy_back": {"label": "Anatomy back", "help": "Move the anatomy back 5 mm.",
+		"method": "action_anatomy_back"},
+	"anatomy_pitch_up": {"label": "Anatomy pitch up", "help": "Pitch the anatomy up 1 degree.",
+		"method": "action_anatomy_pitch_up"},
+	"anatomy_pitch_down": {"label": "Anatomy pitch down", "help": "Pitch down 1 degree.",
+		"method": "action_anatomy_pitch_down"},
+	"anatomy_scale_up": {"label": "Anatomy bigger", "help": "Scale the anatomy up by 0.02.",
+		"method": "action_anatomy_scale_up"},
+	"anatomy_scale_down": {"label": "Anatomy smaller", "help": "Scale the anatomy down by 0.02.",
+		"method": "action_anatomy_scale_down"},
+	"anatomy_save": {"label": "Save anatomy place", "help": "Save this mare's placement.",
+		"method": "action_anatomy_save"},
+	"anatomy_reset": {"label": "Reset anatomy place", "help": "Restore the default placement.",
+		"method": "action_anatomy_reset"},
 }
 
 

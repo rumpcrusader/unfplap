@@ -37,8 +37,9 @@ One line, at most 72 characters, no trailing period. Reverts use
 `revert: <scope>: <summary>` without the quoted original subject. Do not add a body: the reason
 belongs in the code comment or the contract doc, not in git.
 
-Scopes: `camera`, `missionary`, `standing`, `thrust`, `hips`, `settings`, `hud`, `dialogue`,
-`initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`.
+Scopes: `camera`, `missionary`, `standing`, `thrust`, `hips`, `settings`, `hud`,
+`dialogue`, `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`,
+`anatomy`, `vr`.
 
 Never use `WIP`, `fixes`, `stuff`, `misc` or `cleanup` as the whole message: say what changed.
 

@@ -27,10 +27,12 @@ Do not start implementation until you have read the required files for the area 
   mod lover bond unless `relationship.sex_start` is Try Your Luck. `bonds.welcomes(id, "kiss")`
   still decides the actual start; refusal is real.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
-- No pregnancy, heat, estrus, conception, content warning, toggle, new character or body models,
-  genitals or anatomy. The act stays off-camera by framing. Modelled accessories are allowed; they
-  are accessories, never a replacement for a pony's body or rig.
-- Desktop first. VR and seated VR are deferred; desktop human Anon owns the free act camera.
+- No pregnancy, heat, estrus, conception, content warning, new character or body models. Adult
+  anatomy is an optional, feature-gated addition; it never replaces a pony's body or rig and its
+  meshes/textures are local-only (`assets/anatomy/` is gitignored and never packed for a release).
+  The act stays off-camera by framing. Modelled accessories are allowed.
+- Desktop first. VR and seated VR are deferred except the optional, off-by-default standing
+  VR act; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
   `HISTORY.md` and `ROTATION.md`.
 
@@ -118,6 +120,15 @@ mods/unfplap/
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
+  anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD
+  anatomy_act.gd    per-act hole/oral/finish, shape driving, fluid and pose keys
+  anatomy_align.gd  optional standing hip/shaft alignment; no camera change
+  anon_part.gd      player anatomy mesh and placement
+  missionary_bed.gd optional Anon bed body and eye view; off by default
+  consent.gd        per-mare public/anal/oral defaults and merge
+  climax_fluid.gd   optional droplets, sticking, creeping and pools
+  teat_jiggle.gd    teats spring sway
+  vr_act.gd         optional VR standing act; last and off by default
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
   preferences.gd    pure taste profile, intensity/rhythm and talk classification
@@ -752,6 +763,10 @@ examples.
   wheel sets its pace and mouse ↕ sets its peak depth. They are available in `ACTIVE`, `CLIMAX`,
   and the standing `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's
   hug/deep-kiss key; the act consumes it without binding it so a hug cannot end the act's kiss.
+- Anatomy actions are additive and gated: `V` switches the hole in `ACTIVE`/`CLIMAX`, `N` turns her
+  round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
+  opens the game chat during an act only when `act_chat` is on. With every anatomy flag off these
+  keys are not consumed and the act is exactly the master act.
 - `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
   bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
   climaxes and enters afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends
@@ -1181,6 +1196,18 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
+| `anatomy` | `true` | adult anatomy meshes, teats, strip, reactions and anatomy pose keys |
+| `anatomy_holes` | `true` | `V` hole switch and the anal cup |
+| `anatomy_oral` | `true` | `N` standing oral and its neck motion |
+| `anatomy_finish` | `true` | `B` finish in/out and inside/outside afterglow |
+| `anatomy_fluid` | `true` | climax and finish droplets |
+| `anatomy_align` | `false` | experimental standing hip/shaft alignment; camera unchanged |
+| `anatomy_bed_body` | `false` | experimental Anon bed body and eye view |
+| `anatomy_vr` | `false` | experimental VR act |
+| `act_bystanders` | `false` | adult witness lines using the modern perception |
+| `act_line_variety` | `false` | fresh line angles and speech-feel notes |
+| `act_chat` | `false` | Enter opens chat during an act |
+| `act_public_offer` | `false` | per-mare public consent affects offers |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |

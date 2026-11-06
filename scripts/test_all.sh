@@ -43,6 +43,7 @@ TESTS=(
 	test_initiation
 	test_rump_cone
 	test_act_audio
+	test_anatomy
 )
 
 failed=0

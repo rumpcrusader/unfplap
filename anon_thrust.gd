@@ -14,6 +14,9 @@ func apply_torso_pose(hip: Node3D, facing: Basis) -> void:
 			runtime.call("apply_anon_thrust", hip, facing)
 		if runtime.has_method("apply_anon_lean"):
 			runtime.call("apply_anon_lean", hip, facing)
+		# integration: the optional anatomy alignment runs last on the hip target.
+		if runtime.has_method("apply_anon_align"):
+			runtime.call("apply_anon_align", hip, facing)
 
 
 func set_rest_hand_targets(left: Node3D, right: Node3D) -> void:

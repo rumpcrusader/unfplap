@@ -287,6 +287,61 @@ static func history_apology(game: Node, id: String, _text: String) -> void:
 		[id, "player"], [id, "player"], "apology:%s:%d" % [id, Time.get_ticks_usec()])
 
 
+## integration: adult ponies who can perceive the act right now, using the modern witness rules.
+## This is a read-only observer list; it commits no memory. Young ponies are never included.
+static func perceived_adults(game: Node, partner: Node3D) -> Array:
+	var out: Array = []
+	if not is_instance_valid(partner) or not is_instance_valid(game) or not partner.is_inside_tree():
+		return out
+	if PLAYER_FORM.is_young(PLAYER_FORM.active(partner.get_tree())):
+		return out
+	var list: Variant = game.get("mares")
+	if not list is Array:
+		return out
+	var awareness := AWARENESS.new()
+	for node: Variant in list:
+		if not is_instance_valid(node):
+			continue
+		var observer: Node3D = node as Node3D
+		if observer == null or observer == partner or not observer.is_inside_tree():
+			continue
+		if bool(observer.get("sleeping")):
+			continue
+		var identity: Variant = observer.get("identity")
+		if identity == null or bool(identity.get("filly")):
+			continue
+		var observer_id := str(observer.get_meta("relationship_id", ""))
+		if observer_id.is_empty():
+			observer_id = str(identity.get("id"))
+		if observer_id.is_empty():
+			continue
+		var runtime: Variant = observer.get_meta("relationship_runtime")
+		if runtime == null or not is_instance_valid(runtime):
+			continue
+		if not bool(runtime.bonds.adults.get(observer_id, false)):
+			continue
+		var seen := awareness.visible(observer, partner)
+		var heard := false if seen else awareness.can_hear(observer, partner, AWARENESS.HEARING_RANGE)
+		if not seen and not heard:
+			continue
+		out.append({"id": observer_id, "node": observer, "sense": "sight" if seen else "sound",
+			"indoors": HOUSE.at(observer.get_tree(), observer.global_position) != null})
+	return out
+
+
+## integration: one line from a pony watching the act. Owned by the act, so its end cancels it.
+static func bystander_line(game: Node, id: String, event_id: String, purpose: String,
+		valid: Callable) -> bool:
+	if not is_instance_valid(game) or not game.is_inside_tree():
+		return false
+	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	if director == null or not director.has_method("queue_generated_intent"):
+		return false
+	return bool(director.call("queue_generated_intent", id, purpose,
+		mod_key(event_id, "bystander", id), valid, Callable(), true))
+
+
+
 ## One event per observer, private to her (`witnesses = [observer_id]`). Adults are told what it
 ## was; fillies and colts get a perception with the place they saw it from, and the game's story
 ## summary infers a memory they could actually hold. Returns one debug row per recorded witness.

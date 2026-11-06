@@ -48,6 +48,10 @@ func _keep_mouse_captured() -> bool:
 		return false
 	if main.has_method("menu_panel_open") and bool(main.call("menu_panel_open")):
 		return false
+	# integration: the act chat owns the cursor while its field has focus.
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if not _mouse_recapture_logged and main.has_method("debug"):
 		_mouse_recapture_logged = true
@@ -138,7 +142,31 @@ func _input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if not key.pressed or key.echo:
 		return
+	# integration: typed chat text is never an act key.
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return
 	if is_instance_valid(runtime):
+		# integration: optional anatomy actions, only while their schema flag is on.
+		if key.physical_keycode == KEY_V and TUNABLES.get_bool("features.anatomy") \
+				and TUNABLES.get_bool("features.anatomy_holes"):
+			runtime.call("toggle_anatomy_hole")
+			get_viewport().set_input_as_handled()
+			return
+		if key.physical_keycode == KEY_N and TUNABLES.get_bool("features.anatomy") \
+				and TUNABLES.get_bool("features.anatomy_oral"):
+			runtime.call("toggle_anatomy_oral")
+			get_viewport().set_input_as_handled()
+			return
+		if key.physical_keycode == KEY_B and TUNABLES.get_bool("features.anatomy") \
+				and TUNABLES.get_bool("features.anatomy_finish"):
+			runtime.call("toggle_anatomy_finish")
+			get_viewport().set_input_as_handled()
+			return
+		if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] \
+				and TUNABLES.get_bool("features.act_chat") and bool(main.call("open_act_chat")):
+			get_viewport().set_input_as_handled()
+			return
 		var state := int(runtime.get("state"))
 		# X toggles auto thrust. Consume it in every act state: AnonPony uses X to lie down,
 		# and that must not fire while the act owns the body.

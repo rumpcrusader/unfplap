@@ -1,3 +1,5 @@
+# Local-only adult assets: never commit or pack them.
+assets/anatomy
 # Repository files, development tooling and docs are never part of the pack.
 .git
 .github

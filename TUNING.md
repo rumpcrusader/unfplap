@@ -13,6 +13,8 @@ tab are added by the injection in `main.gd`.
 Two file kinds are not tunables and keep their own editors: the per-character profile
 (`default`/`characters` templates, taste, prompts) and the pose catalog per-mare overrides
 (`poses.*`). Everything global — feature flags, numbers, choices — is a tunable.
+Per-mare anatomy consent (`consent.public`, `consent.anal`, `consent.oral`) lives in the character
+profile, not in the tunable schema, and is saved by `settings.gd` from the Characters form.
 
 ## Reading a value
 

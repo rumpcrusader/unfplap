@@ -39,6 +39,12 @@ const STANDING_PRESENTATION := preload("res://mods/unfplap/standing_presentation
 const SOUND := preload("res://mods/unfplap/act_sound.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
+const ANATOMY_ALIGN := preload("res://mods/unfplap/anatomy_align.gd")
+const MISSIONARY_BED := preload("res://mods/unfplap/missionary_bed.gd")
+const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
+const HOUSE := preload("res://world/buildings/house_interior.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
@@ -74,6 +80,40 @@ const RECEPTIVE_BOOST := 1.25
 const STROKE_MEMORY_S := 1.2
 ## Appended to cue prompts to stop the model turning every cue into a command.
 const CUE_REACTION_NOTE := "\nDo not turn the cue into a repeated command; say it as your own reaction or preference."
+## integration: line-variety history and angles, ported from the fork.
+const RECENT_LINES := 8
+const ANGLES_REMEMBERED := 7
+const LINE_ANGLES := [
+	"say something about a thing you two talked about earlier.",
+	"tease him.",
+	"tell him exactly what you want next.",
+	"say his name, and little else.",
+	"mention where you are right now.",
+	"let slip something a little embarrassing that you are thinking.",
+	"boast about how this feels for you.",
+	"give him an order.",
+	"sound surprised at yourself.",
+	"say something tender, in the middle of all this.",
+	"beg a little.",
+	"make a joke, in your usual voice.",
+	"complain playfully about something he is doing.",
+	"barely manage words at all.",
+	"bring up how you feel about him lately.",
+	"say something only you would say, true to your personality.",
+]
+const SPEECH_ROUGHNESS := {"soft": 0.1, "firm": 0.5, "rough": 1.0}
+const SPEECH_FULL_PACE := 3.0
+## integration: optional bystander lines.
+const BYSTANDER_FIRST_S := 12.0
+const BYSTANDER_GAP_S := 20.0
+const BYSTANDER_CHANCE := 0.7
+const BYSTANDER_MAX := 3
+const BYSTANDER_PROMPT := "You can see Anon and %s having sex right in front of you, %s Say ONE short line in your own voice, at most 14 words, aloud to them or to yourself. Ponies have much less shame about this than humans do, so react the way a pony would: amused, teasing, curious, nosy, a little flustered, or mildly put out, but never horrified, panicked or disgusted. Mention where they are doing it if that is what stands out. Do not join in, do not describe anatomy, and do not ask a question that needs an answer."
+const BYSTANDER_OUTDOORS := "out in the open where anypony could walk past."
+const BYSTANDER_INDOORS := "indoors, in a house you are also in."
+var _bystander_event := ""
+var _bystander_spoken: Array[String] = []
+var _bystander_wait := 0.0
 const CLIMAX_SECONDS := 5.0
 const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
@@ -199,6 +239,12 @@ var thrust_up := true
 var _pose
 var _tail
 var _dock_tail
+## integration: persistent anatomy and the current act's anatomy controller.
+var _anatomy: Node
+var _anatomy_act: Node
+var _missionary_bed: Node
+var _vr_act: Node
+var _used_angles: Array[String] = []
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _debug_pose: Node
@@ -430,6 +476,50 @@ func _ready() -> void:
 	_face_timer.one_shot = true
 	_face_timer.timeout.connect(_clear_face)
 	add_child(_face_timer)
+	# integration: anatomy is persistent outside acts and attaches only to the modern taste roster.
+	_anatomy_refresh()
+
+
+## integration: create or drop the persistent anatomy controller. Called at ready and on every
+## settings edit, including while idle.
+func _anatomy_refresh() -> void:
+	if not is_instance_valid(pony):
+		return
+	if not TUNABLES.get_bool("features.anatomy"):
+		if is_instance_valid(_anatomy):
+			_anatomy.call("detach")
+			_anatomy.queue_free()
+		_anatomy = null
+		return
+	if not ANATOMY.eligible(pony) or not ANATOMY.assets_exist():
+		if is_instance_valid(_anatomy):
+			_anatomy.call("detach")
+			_anatomy.queue_free()
+		_anatomy = null
+		return
+	if not is_instance_valid(_anatomy):
+		_anatomy = ANATOMY.new()
+		_anatomy.name = "UnfplapAnatomyController"
+		add_child(_anatomy)
+		_anatomy.call("setup", pony, self)
+	_anatomy.call("refresh")
+
+
+func anatomy_available() -> bool:
+	return is_instance_valid(_anatomy)
+
+
+func _anatomy_act_refresh(pose_id: String) -> void:
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("teardown")
+		_anatomy_act.queue_free()
+		_anatomy_act = null
+	if not is_instance_valid(_anatomy):
+		return
+	_anatomy_act = ANATOMY_ACT.new()
+	_anatomy_act.name = "UnfplapAnatomyAct"
+	add_child(_anatomy_act)
+	_anatomy_act.call("setup", self, _anatomy, pose_id)
 
 func _log(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
@@ -631,10 +721,13 @@ func _snapshot_settings() -> void:
 ## idempotent so repeated edits do not stack modifiers.
 func apply_live_settings() -> void:
 	if state == State.IDLE:
+		# integration: the anatomy feature is live outside acts too.
+		_anatomy_refresh()
 		return
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	var previous_lines := _act_lines_enabled()
 	_snapshot_settings()
+	_anatomy_refresh()
 	if previous_lines and not _act_lines_enabled() and is_instance_valid(main) and is_instance_valid(main.game):
 		_end_act_lines(true)
 	var foley := _feature("act_foley")
@@ -893,7 +986,8 @@ func _hold_y_tick(delta: float) -> void:
 		_y_hold = 0.0
 		_y_hold_fired = false
 		return
-	var held := Input.is_physical_key_pressed(KEY_Y)
+	var held := Input.is_physical_key_pressed(KEY_Y) \
+		or (is_instance_valid(_vr_act) and bool(_vr_act.get("y_held")))
 	if not held:
 		_y_hold = 0.0
 		_y_hold_fired = false
@@ -955,9 +1049,12 @@ func _physics_tick(delta: float) -> void:
 	if state in [State.ACTIVE, State.CLIMAX]:
 		_auto_thrust_tick(delta)
 		_thrust_tick()
+		if is_instance_valid(_anatomy_act):
+			_anatomy_act.call("tick", delta)
 		if state == State.ACTIVE:
 			_readiness_tick(delta)
 			_talk_tick(delta)
+			_bystander_tick(delta)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
 		_utterance_tick()
 	if state == State.POSING_IN:
@@ -1741,6 +1838,9 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	pony.sleeping = false
 	pony.set_sim_tier(pony.SimTier.HERO)
 	pony.set_meta("sex_active", true)
+	# integration: build the per-act anatomy controller before the pose reads its config.
+	_anatomy_refresh()
+	_anatomy_act_refresh(pose)
 
 	if pose == CATALOG.MISSIONARY:
 		if source == "cradle":
@@ -1773,6 +1873,9 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_apply_voice_policy()
 	_set_inventory_hud_hidden(true)
 	MEMORY.start_event(main.game, _id, _display_name, _event_id)
+	# integration: show the player part for the encounter.
+	if is_instance_valid(main) and main.has_method("anon_encounter"):
+		main.call("anon_encounter", true)
 	state = State.POSING_IN
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
@@ -2168,9 +2271,10 @@ func _sync_standing_pose_config() -> void:
 			TUNABLES.default_number("presentation.standing.tail.yaw_deg"))))
 		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
 			TUNABLES.default_number("presentation.standing.tail.pitch_deg"))))
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("pose_config", _pose_cfg)
 	if is_instance_valid(_pose):
 		_pose.pose_config = _pose_cfg
-	# The tail reads its angles once when the modifier is built, so a live edit updates it here.
 	if is_instance_valid(_tail):
 		_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
 		_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
@@ -2187,6 +2291,8 @@ func _sync_missionary_pose_config() -> void:
 	_pose_cfg["neck_roll_deg"] = float(_presentation_cfg.get("neck_roll_deg", 0.0))
 	_pose_cfg["head_pitch_deg"] = float(_presentation_cfg.get("head_pitch_deg", 0.0))
 	_pose_cfg["head_roll"] = float(_presentation_cfg.get("head_roll_deg", 0.0))
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("pose_config", _pose_cfg)
 	if is_instance_valid(_pose):
 		_pose.pose_config = _pose_cfg
 	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
@@ -2347,6 +2453,7 @@ func _reset_thrust_state() -> void:
 	_receptive_until = 0.0
 	_last_talk_at = -1000.0
 	_used_memory_ids.clear()
+	_used_angles.clear()
 	_act_spoken_at = -1e9
 	_peak_satisfaction = 0.0
 	_act_both_matches = 0
@@ -2394,6 +2501,135 @@ func auto_thrust_wheel(direction: int) -> void:
 	if not _auto_on or state not in [State.ACTIVE, State.CLIMAX]:
 		return
 	_auto_controller().call("nudge_pace", float(direction) * AUTO_THRUST.PACE_STEP)
+
+
+## integration: anatomy action entry points for input.gd. They are no-ops when the per-act
+## controller is absent, so the keys behave exactly like master with the feature off.
+func toggle_anatomy_hole() -> void:
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("toggle_hole")
+
+
+func toggle_anatomy_oral() -> void:
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("toggle_oral")
+
+
+func toggle_anatomy_finish() -> void:
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("toggle_finish")
+
+
+func anatomy_oral_active() -> bool:
+	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("oral_active"))
+
+
+func anatomy_align_active() -> bool:
+	return is_instance_valid(_anatomy_act) and pose_id == CATALOG.STANDING \
+		and TUNABLES.get_bool("features.anatomy_align")
+
+
+func anatomy_bed_active() -> bool:
+	return is_instance_valid(_missionary_bed) and bool(_missionary_bed.call("active"))
+
+
+## integration: VR standing hooks. No-op unless the VR flag created the controller.
+func _start_vr_act() -> void:
+	_stop_vr_act()
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return
+	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
+	if not is_instance_valid(avatar):
+		return
+	var cameras: Array = main.player.find_children("*", "XRCamera3D", true, false)
+	var origins: Array = main.player.find_children("*", "XROrigin3D", true, false)
+	if cameras.is_empty() or origins.is_empty():
+		return
+	_vr_act = VR_ACT.new()
+	_vr_act.name = "UnfplapVrAct"
+	_vr_act.set("runtime", self)
+	_vr_act.set("player", main.player)
+	_vr_act.set("hip_target", avatar.get("_hip_target"))
+	_vr_act.set("camera", cameras[0])
+	_vr_act.set("origin", origins[0])
+	add_child(_vr_act)
+
+
+func _stop_vr_act() -> void:
+	if is_instance_valid(_vr_act):
+		_vr_act.queue_free()
+	_vr_act = null
+
+
+func vr_forward() -> Vector3:
+	if is_instance_valid(_anatomy_act):
+		var rear: Vector3 = _anatomy_act.call("hole_rear")
+		var forward := Vector3(-rear.x, 0.0, -rear.z).normalized()
+		if forward.length_squared() > 0.001:
+			return forward
+	if is_instance_valid(pony):
+		return -pony.global_basis.z.normalized()
+	return Vector3.FORWARD
+
+
+func vr_depth(value: float) -> void:
+	if state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	_thrust_move(value - depth, _now_s())
+
+
+## integration: the avatar the bed body drives, so missionary_camera leaves it visible.
+func anatomy_bed_avatar() -> Variant:
+	if is_instance_valid(_missionary_bed):
+		return _missionary_bed.get("avatar")
+	return null
+
+
+## integration: drives the standing camera's facing override for the oral turn.
+func anatomy_facing(basis: Basis, amount: float) -> void:
+	var camera: Variant = _standing_camera_controller()
+	if camera != null and camera.has_method("set_facing_override"):
+		camera.call("set_facing_override", basis, amount)
+
+
+## integration: optional standing alignment reads the current act depth and part.
+func anatomy_align(hip: Node3D, facing: Basis) -> bool:
+	if not anatomy_align_active():
+		return false
+	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	if not is_instance_valid(part) or not is_instance_valid(_anatomy_act):
+		return false
+	return bool(ANATOMY_ALIGN.apply(hip, _pose_basis_amount(), facing, depth,
+		part, _anatomy_act.call("hole_point"), _anatomy_act.call("hole_rear")))
+
+
+## integration: the wrapper calls this name; it is a no-op with the alignment flag off.
+func apply_anon_align(hip: Node3D, facing: Basis) -> void:
+	if is_instance_valid(_missionary_bed) and bool(_missionary_bed.call("active")):
+		_missionary_bed.call("apply", hip, facing)
+		return
+	anatomy_align(hip, facing)
+
+
+func anatomy_status(text: String, seconds := 2.0) -> void:
+	if is_instance_valid(main) and main.has_method("anatomy_status"):
+		main.call("anatomy_status", text, seconds)
+
+
+## integration: debug placement controls for the local anatomy asset.
+func anatomy_place(op: String, value := 0.0) -> String:
+	if not is_instance_valid(_anatomy):
+		return "Anatomy is not attached."
+	match op:
+		"save":
+			_anatomy.call("save_place")
+		"reset":
+			_anatomy.call("reset_place")
+		"text":
+			return str(_anatomy.call("place_text"))
+		_:
+			_anatomy.call("nudge", op, value)
+	return str(_anatomy.call("place_text"))
 
 ## Idempotent stop for every state exit. It never moves the depth.
 func _stop_auto_thrust() -> void:
@@ -2725,6 +2961,9 @@ func _set_cue_override(text: String, seconds := -1.0) -> void:
 func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:
 		return
+	# integration: a kiss or an act smack makes the anatomy mesh react.
+	if is_instance_valid(_anatomy) and kind in ["kiss", "smack"]:
+		_anatomy.call("react")
 	_act_touch_counts[kind] = int(_act_touch_counts.get(kind, 0)) + 1
 	var tolerance_event: Dictionary = {}
 	if kind in _taste.get("dislikes", []):
@@ -2875,8 +3114,44 @@ func _utterance_tick() -> void:
 		_cancel_pending_utterance("age")
 
 
+## integration: one adult observer may say a short line, using the modern witness perception.
+func _bystander_tick(delta: float) -> void:
+	if not TUNABLES.get_bool("features.act_bystanders") or state != State.ACTIVE \
+			or not is_instance_valid(main) or not is_instance_valid(main.game):
+		return
+	if _bystander_event != _event_id:
+		_bystander_event = _event_id
+		_bystander_spoken.clear()
+		_bystander_wait = BYSTANDER_FIRST_S
+	_bystander_wait -= delta
+	if _bystander_wait > 0.0 or _bystander_spoken.size() >= BYSTANDER_MAX:
+		return
+	_bystander_wait = BYSTANDER_GAP_S
+	if randf() > BYSTANDER_CHANCE:
+		return
+	var seen: Array = MEMORY.perceived_adults(main.game, pony).filter(func(row: Dictionary) -> bool:
+		return not str(row.id) in _bystander_spoken and str(row.id) != _id)
+	if seen.is_empty():
+		return
+	var row: Dictionary = seen.pick_random()
+	var observer: Node3D = row.node
+	var event_id := _event_id
+	var valid := func() -> bool:
+		return is_instance_valid(observer) and is_instance_valid(pony) and _event_id == event_id \
+			and state in [State.ACTIVE, State.CLIMAX]
+	var indoors: bool = HOUSE.at(get_tree(), pony.global_position) != null
+	var purpose := BYSTANDER_PROMPT % [_display_name,
+		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
+	if MEMORY.bystander_line(main.game, str(row.id), event_id, purpose, valid):
+		_bystander_spoken.append(str(row.id))
+		_log("bystander line from %s" % row.id)
+
+
 func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> String:
 	if state != State.ACTIVE or not is_instance_valid(main) or not is_instance_valid(main.game):
+		return ""
+	# integration: her mouth is busy during oral.
+	if anatomy_oral_active():
 		return ""
 	if _director() == null:
 		return ""
@@ -2906,6 +3181,9 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	var purpose := UTTERANCE.format(template, values)
 	if kind == "cue":
 		purpose += CUE_REACTION_NOTE
+		# integration: optional line variety and speech feel.
+		if TUNABLES.get_bool("features.act_line_variety"):
+			purpose += _speech_feel_note() + _line_variety(values.recent)
 	_utterance_serial += 1
 	var suffix := "%s:%d" % [key_suffix, _utterance_serial]
 	var act_id := _event_id
@@ -2987,10 +3265,49 @@ func _recent_lines() -> String:
 	if not spoken is Array or (spoken as Array).is_empty():
 		return ""
 	var recent: Array[String] = []
-	var start := maxi(0, (spoken as Array).size() - 4)
+	var limit := RECENT_LINES if TUNABLES.get_bool("features.act_line_variety") else 4
+	var start := maxi(0, (spoken as Array).size() - limit)
 	for index in range(start, (spoken as Array).size()):
 		recent.append(str((spoken as Array)[index]))
 	return " | ".join(recent)
+
+
+## integration: without a fresh angle she answers the same prompt the same way.
+func _line_variety(recent: Variant) -> String:
+	var open: Array = LINE_ANGLES.filter(func(angle: String) -> bool:
+		return not angle in _used_angles)
+	if open.is_empty():
+		_used_angles.clear()
+		open = LINE_ANGLES.duplicate()
+	var angle: String = open.pick_random()
+	_used_angles.append(angle)
+	if _used_angles.size() > ANGLES_REMEMBERED:
+		_used_angles.remove_at(0)
+	var note := " This time, %s Bring in something you two actually said, did or know from today if it fits." % angle
+	if not str(recent).is_empty():
+		note += " Your recent lines were: %s. Do not reuse their wording, their opening word or their idea." % recent
+	return note
+
+
+## integration: tells the line how the current strokes break up her speech.
+func _speech_feel_note() -> String:
+	if _last_intensity.is_empty():
+		return ""
+	var pace := maxf(_thrusts_per_second(), 0.0)
+	var hole := ""
+	if is_instance_valid(_anatomy_act) and bool(_anatomy_act.get("_anal")):
+		hole = " Anon is in your ass right now, not your pussy."
+	var level := 0.5 * float(SPEECH_ROUGHNESS.get(_last_intensity, 0.5)) \
+		+ 0.5 * clampf(pace / SPEECH_FULL_PACE, 0.0, 1.0)
+	var frequency := "Put one after almost every word or two, so your speech keeps breaking apart."
+	if level < 0.25:
+		frequency = "Use only one, quiet and breathy."
+	elif level < 0.5:
+		frequency = "Use one or two."
+	elif level < 0.75:
+		frequency = "Put one after every few words."
+	return hole + " Right now Anon's strokes are %s and %s, about %.1f a second. Break up your speech with exclamations between words, such as \"Ah!\", \"Hah!\", \"FUCK!\", \"Ah...\", \"Buck...\", \"Nngh...\" and similar ones in your own voice. %s They do not count toward your word limit." % [
+		_last_intensity, _last_pattern if not _last_pattern.is_empty() else "steady", pace, frequency]
 
 func _last_spoken_line() -> String:
 	var recent := _recent_lines()
@@ -3575,6 +3892,9 @@ func cancel() -> void:
 func end_afterglow() -> void:
 	if state == State.AFTERGLOW:
 		_log("afterglow end pony=%s" % str(pony.name))
+		# integration: if he stayed in, the withdrawal gush is part of the finish.
+		if is_instance_valid(_anatomy_act):
+			_anatomy_act.call("withdraw")
 		_close_cancel()
 		_restore_begin()
 
@@ -3598,6 +3918,9 @@ func _climax() -> void:
 		MEMORY.climax_event(main.game, _id, _display_name, _event_id, pony_climaxes)
 	_queue_climax_reaction()
 	_play_climax()
+	# integration: her fluid hook.
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("on_climax")
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("CLIMAX")
 
@@ -3950,6 +4273,9 @@ func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_stop_auto_thrust()
 	_end_act_lines(true)
+	# integration: decide and show the finish before the summary and inside event read it.
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("on_finish")
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
@@ -3984,6 +4310,10 @@ func _afterglow_begin() -> void:
 ## Standing only: tell her Anon came inside her. Normal dialogue resumes from here.
 func _inside_aftermath() -> void:
 	if not is_instance_valid(main):
+		return
+	# integration: an explicit pull-out is not an inside finish.
+	if TUNABLES.get_bool("features.anatomy_finish") and is_instance_valid(_anatomy_act) \
+			and not bool(_anatomy_act.call("finished_inside")):
 		return
 	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
 
@@ -4078,6 +4408,17 @@ func _restore_begin() -> void:
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
 	_stop_auto_thrust()
+	# integration: close the anatomy act once, before the pose is freed.
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("end")
+		_anatomy_act.call("teardown")
+		_anatomy_act.queue_free()
+		_anatomy_act = null
+	if is_instance_valid(_missionary_bed):
+		_missionary_bed.call("remove")
+		_missionary_bed.queue_free()
+		_missionary_bed = null
+	_stop_vr_act()
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_kiss_controller().restore_forelegs()
@@ -4091,6 +4432,9 @@ func _end_session(rejoin_cuddle: bool) -> void:
 		_restore_camera()
 	if is_instance_valid(pony):
 		pony.remove_meta("sex_active")
+	# integration: hide the player part when the act ends.
+	if is_instance_valid(main) and main.has_method("anon_encounter"):
+		main.call("anon_encounter", false)
 	_release_nav()
 	if _look_captured:
 		_restore_look()
@@ -4363,6 +4707,19 @@ func _begin_camera_mode() -> void:
 	_reset_lean_state()
 	_standing_anon_controller().reset_phase()
 	_missionary_camera_controller().reset_look()
+	# integration: optional Anon bed body; it is desktop-only and off by default.
+	if pose_id == CATALOG.MISSIONARY and not _player_pony and not _headset_view() \
+			and TUNABLES.get_bool("features.anatomy_bed_body") and is_instance_valid(_anatomy_act):
+		_missionary_bed = MISSIONARY_BED.new()
+		_missionary_bed.name = "UnfplapMissionaryBed"
+		add_child(_missionary_bed)
+		if not bool(_missionary_bed.call("install", self)):
+			_missionary_bed.queue_free()
+			_missionary_bed = null
+	# integration: optional VR standing act; it uses the headset rig and no desktop camera.
+	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING \
+			and TUNABLES.get_bool("features.anatomy_vr"):
+		_start_vr_act()
 	if _player_pony or _headset_view():
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -4573,6 +4930,9 @@ func apply_camera_motion() -> void:
 		return
 	if pose_id == CATALOG.MISSIONARY:
 		_missionary_camera_controller().tick()
+		# integration: the optional bed body adjusts the view after the frozen shot.
+		if is_instance_valid(_missionary_bed):
+			_missionary_bed.call("tick_view")
 		return
 	_standing_camera_controller().tick()
 
@@ -4744,6 +5104,21 @@ func _snout() -> Vector3:
 func _exit_tree() -> void:
 	_kiss_controller().restore_forelegs()
 	_end_tail_tuck()
+	# integration: never leave the anatomy nodes or the per-act controller behind.
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("end")
+		_anatomy_act.call("teardown")
+		_anatomy_act.queue_free()
+		_anatomy_act = null
+	if is_instance_valid(_missionary_bed):
+		_missionary_bed.call("remove")
+		_missionary_bed.queue_free()
+		_missionary_bed = null
+	_stop_vr_act()
+	if is_instance_valid(_anatomy):
+		_anatomy.call("detach")
+		_anatomy.queue_free()
+		_anatomy = null
 	if is_instance_valid(_satisfied):
 		_satisfied.queue_free()
 		_satisfied = null

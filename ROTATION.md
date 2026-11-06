@@ -88,6 +88,14 @@ Positive `_lift_neck()` angles were `0.10 / 0.08 / 0.06` around the body's right
 They throw the neck/head back and were intentionally not applied in missionary. Keep
 these values here if a future pose needs that effect.
 
+### Anatomy additions
+
+With `features.anatomy` on, the recipe also applies `pelvis_curl_deg` (25°), `legs_wrap` and
+`bed_lift_m` (0.05). The curl tips the pelvis toward Anon and shares the turn back up the spine;
+the wrap opens each hind femur around him. `rump_rise_m` is accepted but unused until the
+optional bed body or mare-motion work. These keys are absent with the feature off, so the master
+pose is unchanged. `tail_pose.gd` is not changed.
+
 ## Missionary camera
 
 - Anchor: `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M 0.10) * body_scale + back * 0.22 * body_scale`,
@@ -210,6 +218,10 @@ these values here if a future pose needs that effect.
   body forward. The head/camera moves along the spine arc (`forward = 0.65 sin θ`,
   `drop = 0.65 (1 − cos θ)`); `apply_anon_lean()` keeps the lower body planted.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
+- With `features.anatomy_oral` on and oral active, `oral_pitch`, `oral_yaw` and `oral_roll` swing
+  the two neck bones and counter-rotate the head so her muzzle stays along the shaft. The keys are
+  absent otherwise. `standing_camera.set_facing_override()` owns her turn while oral is active and
+  clears when it ends; the normal facing lock resumes.
 - A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
   explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.

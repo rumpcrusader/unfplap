@@ -23,6 +23,8 @@ const PLAY_BOW_HIND_SPREAD := 0.10
 const PLAY_BOW_NECK1_DEG := -30.0
 const PLAY_BOW_NECK2_DEG := -22.0
 const PLAY_BOW_HEAD_DEG := 10.0
+## integration: oral keeps her muzzle pointed along the shaft while her neck swings.
+const ORAL_HEAD_COUNTER := 0.75
 var _config: Dictionary = {}
 
 
@@ -38,6 +40,7 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_chin_neck(rig, sk, weight,
 		_value("chin_up_deg", STANDING_CHIN_UP_DEG),
 		_value("neck_down_deg", STANDING_NECK_DOWN_DEG))
+	_oral_neck(rig, sk, weight)
 	var head_back := float(state.get("head_back", 0.0))
 	if head_back > 0.001:
 		_raise_head(rig, sk, weight * head_back)
@@ -85,6 +88,28 @@ func _apply_play_bow(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> v
 func _value(key: String, fallback: float) -> float:
 	var value: Variant = _config.get(key)
 	return float(value) if value != null else fallback
+
+
+## integration: swing the neck through the oral bob and counter-rotate the head so her muzzle
+## stays pointed along the shaft. Zero keys leave the normal standing pose untouched.
+func _oral_neck(rig, sk: Skeleton3D, weight: float) -> void:
+	if rig.neck.size() < 3:
+		return
+	var pitch := _value("oral_pitch", 0.0) * weight
+	var yaw := _value("oral_yaw", 0.0) * weight
+	var roll := _value("oral_roll", 0.0) * weight
+	if absf(pitch) + absf(yaw) + absf(roll) < 0.0001:
+		return
+	var right: Vector3 = rig.right_axis(sk)
+	var up: Vector3 = rig.up_axis(sk)
+	var forward: Vector3 = rig.forward_axis(sk)
+	for i: int in 2:
+		rig.rotate(sk, rig.neck[i], right, pitch * 0.5)
+		rig.rotate(sk, rig.neck[i], up, yaw * 0.5)
+	var head: int = rig.neck[2]
+	rig.rotate(sk, head, right, -pitch * ORAL_HEAD_COUNTER)
+	rig.rotate(sk, head, up, -yaw * ORAL_HEAD_COUNTER)
+	rig.rotate(sk, head, forward, roll)
 
 
 func _bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:

@@ -7,6 +7,7 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
 ## The offer words are the mod's pink accent, like the control card's earned-caress `End`.
 const ACCENT := Color("ffa8c7")
@@ -39,6 +40,8 @@ var _y_label: Label
 var _thrust_label: Label
 var _auto_label: Label
 var _control_rows := {}
+var _toast_label: Label
+var _toast_serial := 0
 
 
 func _ready() -> void:
@@ -48,6 +51,13 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+
+	# integration: transient anatomy action feedback.
+	_toast_label = text_label("", 16)
+	_toast_label.name = "Toast"
+	_toast_label.position = Vector2(28.0, 26.0)
+	_toast_label.visible = false
+	root.add_child(_toast_label)
 
 	_prompt = CenterContainer.new()
 	_prompt.name = "Prompt"
@@ -192,6 +202,11 @@ func _build_controls() -> void:
 	_add_hint_row("kiss", [{"cap": "F"}], "Hold", "Kiss")
 	_add_hint_row("smack", [{"cap": "RMB"}], "", "Smack")
 	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
+	# integration: anatomy and chat rows; hidden unless their feature and state allow them.
+	_add_hint_row("anatomy_hole", [{"cap": "V"}], "", "Switch hole")
+	_add_hint_row("anatomy_oral", [{"cap": "N"}], "", "Oral")
+	_add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish in or out")
+	_add_hint_row("act_chat", [{"cap": "Enter"}], "", "Say something")
 
 
 func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Label:
@@ -260,6 +275,24 @@ func hide_act() -> void:
 func hide_all() -> void:
 	hide_prompt()
 	hide_act()
+
+
+## integration: short anatomy status line in the corner.
+func toast(text: String, seconds := 2.0) -> void:
+	if _toast_label == null:
+		return
+	_toast_serial += 1
+	var serial := _toast_serial
+	_toast_label.text = text
+	_toast_label.visible = not text.is_empty()
+	if text.is_empty() or seconds <= 0.0:
+		return
+	await get_tree().create_timer(seconds).timeout
+	if not is_inside_tree():
+		return
+	if is_instance_valid(_toast_label) and serial == _toast_serial:
+		_toast_label.visible = false
+		_toast_label.text = ""
 
 
 func set_state(_kind: String) -> void:
@@ -338,4 +371,26 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 				show = key == "y"
 		elif state == STATE_CLIMAX:
 			show = true
+		# integration: anatomy/chat rows exist only while their feature is live.
+		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish", "act_chat"]:
+			show = _extra_row_visible(key, state, standing)
 		control.visible = show
+
+
+func _extra_row_visible(key: String, state: int, standing: bool) -> bool:
+	if state == STATE_AFTERGLOW:
+		return false
+	if key == "act_chat":
+		return TUNABLES.get_bool("features.act_chat") and state in [STATE_ACTIVE, STATE_CLIMAX]
+	if not TUNABLES.get_bool("features.anatomy"):
+		return false
+	if state not in [STATE_ACTIVE, STATE_CLIMAX]:
+		return false
+	match key:
+		"anatomy_hole":
+			return TUNABLES.get_bool("features.anatomy_holes")
+		"anatomy_oral":
+			return TUNABLES.get_bool("features.anatomy_oral") and standing and state == STATE_ACTIVE
+		"anatomy_finish":
+			return TUNABLES.get_bool("features.anatomy_finish")
+	return false

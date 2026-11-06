@@ -37,6 +37,9 @@ var _depth_prev := 0.0
 var _depth_speed := 0.0
 var _facing_basis := Basis.IDENTITY
 var _has_facing := false
+## integration: the anatomy oral turn owns the facing while it is active.
+var _facing_override := Basis.IDENTITY
+var _facing_override_on := false
 var _glance_wait := 0.0
 var _glance_left := 0.0
 var _glance_back := false
@@ -119,7 +122,8 @@ func _apply_standing_base_look() -> void:
 	runtime.set("_look_pitch", pitch)
 	runtime.set("_camera_basis_ready", true)
 	_standing_base_look = target
-	if str(runtime.get("pose_id")) == CATALOG.STANDING and _has_facing:
+	if str(runtime.get("pose_id")) == CATALOG.STANDING and _has_facing \
+			and not _facing_override_on:
 		_facing_basis = Basis(Vector3.UP, yaw)
 	_apply_standing_lean_look()
 
@@ -172,7 +176,7 @@ func _lock_body_facing() -> void:
 		return
 	var t: Transform3D = pony.global_transform
 	var scale := t.basis.get_scale()
-	t.basis = _facing_basis.scaled(scale)
+	t.basis = (_facing_override if _facing_override_on else _facing_basis).scaled(scale)
 	pony.global_transform = t
 	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav != null:
@@ -338,6 +342,7 @@ func begin_facing(transform: Transform3D) -> void:
 	_sync()
 	_facing_basis = transform.basis
 	_has_facing = true
+	_facing_override_on = false
 	_glance_left = 0.0
 	_glance_back = false
 	_glance_sign_set = false
@@ -345,6 +350,16 @@ func begin_facing(transform: Transform3D) -> void:
 	_glance_wait = randf_range(
 		float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)),
 		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
+
+
+## integration: the oral turn owns the facing while it is active. Amount 0 clears it.
+func set_facing_override(basis: Basis, amount: float) -> void:
+	if amount <= 0.001:
+		_facing_override_on = false
+		_facing_override = Basis.IDENTITY
+		return
+	_facing_override_on = true
+	_facing_override = basis.orthonormalized()
 
 func reset() -> void:
 	_applied_bob = 0.0
@@ -356,6 +371,8 @@ func reset() -> void:
 	_depth_prev = 0.0
 	_depth_speed = 0.0
 	_has_facing = false
+	_facing_override_on = false
+	_facing_override = Basis.IDENTITY
 	_glance_wait = 0.0
 	_glance_left = 0.0
 	_glance_back = false
@@ -371,6 +388,8 @@ func reset_depth() -> void:
 
 func reset_facing() -> void:
 	_has_facing = false
+	_facing_override_on = false
+	_facing_override = Basis.IDENTITY
 	_glance_left = 0.0
 	_glance_back = false
 

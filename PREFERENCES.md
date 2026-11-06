@@ -113,10 +113,17 @@ The **Characters** tab exposes one name-filtered pony selector and one form:
 - recovery `0…80`;
 - liked touch and talk;
 - disliked touch and talk;
+- public, anal and oral consent;
 - private notes.
 
 Taste edits save automatically and apply live during an act. `Reset to default` removes only the
 taste override and preserves that character's custom `event_prompts` and pose settings.
+Consent defaults are deterministic from her id and can be overridden per pony; `Reset to default`
+does not clear those overrides.
+- Public consent only matters while `features.act_public_offer` is on; it lets her offer with
+  others around.
+- Anal consent gates `V`; oral consent gates `N`. A refusal gives a short status toast and leaves
+  the act in its current state.
 `hud_readouts` is a normal feature toggle in the Settings tab; the standing close window is always
 on.
 

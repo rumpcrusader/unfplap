@@ -9,6 +9,13 @@ const MISSIONARY_NUZZLE_SCALE := 0.45
 const NUZZLE_PERIOD := 7.0
 const NUZZLE_DURATION := 2.4
 const MISSIONARY_ROLL_TWEAK := 0.0
+## integration: the bed finish pose, ported from the fork's missionary additions.
+const WRAP_OUT := 0.85
+const WRAP_UP := 0.25
+const WRAP_BACK := 0.35
+const WRAP_KNEE := 0.9
+const CURL_SHARES: Array[float] = [0.5, 0.3, 0.2]
+const RUMP_LEVER_M := 0.45
 ## Extra neck lift off the mattress before the gaze solve. In the standing model this is the
 ## chin-down direction; the supine body turns it into an upward head lift.
 const MISSIONARY_NECK_LIFT_DEG := 15.0
@@ -21,12 +28,16 @@ var _config: Dictionary = {}
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
 	_roll_root(rig, sk, PI * weight)
-	_lift_root(rig, sk, weight, 0.05)
+	_lift_root(rig, sk, weight, _value("bed_lift_m", 0.05))
 	_straighten_spine_neck(rig, sk, weight)
 	_align_chain_straight(rig, sk, weight)
 	_level_body_roll(rig, sk, weight)
 	_level_chest_roll(rig, sk, weight)
-	_pitch_body_about_shoulders(rig, sk, weight, _value("rump_drop_deg", MISSIONARY_RUMP_DROP_DEG))
+	# integration: her rump rises as she moves, and an optional pelvic curl fixes the bed angle.
+	_pitch_body_about_shoulders(rig, sk, weight,
+		_value("rump_drop_deg", MISSIONARY_RUMP_DROP_DEG)
+		- rad_to_deg(_value("rump_rise_m", 0.0) / RUMP_LEVER_M))
+	_curl_pelvis(rig, sk, weight, _value("pelvis_curl_deg", 0.0))
 	_bend_forelegs(rig, sk, weight, 0.3)
 	_raise_hind_legs(rig, sk, weight)
 	_hug_forelegs(rig, sk, weight)
@@ -63,6 +74,22 @@ func _lift_root(rig, sk: Skeleton3D, weight: float, metres: float) -> void:
 	var pose := sk.get_bone_global_pose(rig.root)
 	pose.origin += rig.up_axis(sk) * metres * weight
 	sk.set_bone_global_pose(rig.root, pose)
+
+
+## integration: tips her pelvis up toward him, with the spine taking the turn back.
+func _curl_pelvis(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
+	var angle := deg_to_rad(degrees) * weight
+	if rig.hips < 0 or absf(angle) < 0.0001:
+		return
+	var right: Vector3 = rig.right_axis(sk)
+	var pose := sk.get_bone_global_pose(rig.hips)
+	pose.basis = Basis(right, -angle) * pose.basis
+	sk.set_bone_global_pose(rig.hips, pose)
+	for i: int in mini(rig.spine.size(), CURL_SHARES.size()):
+		var bone: int = rig.spine[i]
+		pose = sk.get_bone_global_pose(bone)
+		pose.basis = Basis(right, angle * CURL_SHARES[i]) * pose.basis
+		sk.set_bone_global_pose(bone, pose)
 
 
 func _straighten_spine_neck(rig, sk: Skeleton3D, weight: float) -> void:
@@ -182,6 +209,10 @@ func _raise_hind_legs(rig, sk: Skeleton3D, weight: float) -> void:
 		var lower := int(leg.get("lower", -1))
 		if bone < 0:
 			continue
+		# integration: the bed finish pose opens her hind legs around him.
+		if _value("legs_wrap", 0.0) > 0.0:
+			_wrap_leg(rig, sk, weight, bone, lower)
+			continue
 		var pose := sk.get_bone_global_pose(bone)
 		var direction := pose.basis.z
 		if lower >= 0:
@@ -198,6 +229,26 @@ func _raise_hind_legs(rig, sk: Skeleton3D, weight: float) -> void:
 		rig.rotate(sk, bone, forward, sign * _value("hind_spread", MISSIONARY_HIND_SPREAD) * weight)
 		if lower >= 0:
 			rig.rotate(sk, lower, right, -0.55 * weight)
+
+
+## integration: opens her hind leg out and back around him. The target is written straight to
+## the femur, like the recipe's other body-relative corrections, then the knee bends.
+func _wrap_leg(rig, sk: Skeleton3D, weight: float, bone: int, lower: int) -> void:
+	var right: Vector3 = rig.right_axis(sk)
+	var pose := sk.get_bone_global_pose(bone)
+	var side: float = signf((pose.origin - sk.get_bone_global_pose(rig.hips).origin).dot(right))
+	var target: Vector3 = (right * side * WRAP_OUT + rig.up_axis(sk) * WRAP_UP
+		- rig.forward_axis(sk) * WRAP_BACK).normalized()
+	var direction := pose.basis.z
+	if lower >= 0:
+		direction = sk.get_bone_global_pose(lower).origin - pose.origin
+	if direction.length_squared() < 0.0001:
+		return
+	pose.basis = Basis(Quaternion(direction.normalized(), target)).slerp(Basis.IDENTITY,
+		1.0 - weight) * pose.basis
+	sk.set_bone_global_pose(bone, pose)
+	if lower >= 0:
+		rig.rotate(sk, lower, right, -WRAP_KNEE * weight)
 
 
 func _hug_forelegs(rig, sk: Skeleton3D, weight: float) -> void:

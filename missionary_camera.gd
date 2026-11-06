@@ -121,6 +121,10 @@ func _hide_anon_avatar_for_missionary() -> void:
 		_desktop_presentation.call("set_enabled", false)
 	for i in _anon_avatars.size():
 		if is_instance_valid(_anon_avatars[i]) and _anon_avatars[i].visible:
+			# integration: the bed body keeps its own driven avatar visible.
+			if runtime.has_method("anatomy_bed_avatar") \
+					and _anon_avatars[i] == runtime.call("anatomy_bed_avatar"):
+				continue
 			_anon_avatars[i].visible = false
 
 
@@ -421,6 +425,7 @@ func head_look_point(viewer: Camera3D) -> Vector3:
 
 
 func hide_avatar() -> void:
+	# integration: the optional bed body keeps its own avatar but hides the second presentation.
 	_hide_anon_avatar_for_missionary()
 
 

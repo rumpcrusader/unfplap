@@ -8,7 +8,7 @@ Copy `.pck` from releases into your mod folder.
 
 Requires Home: Equestria `0.3.0-maredev`.
 
-Desktop only for now
+Desktop first. The optional VR standing act is experimental and off by default.
 
 ## Controls
 
@@ -23,6 +23,10 @@ Desktop only for now
 | `A` / `D`   | Caress her left / right flank in standing pose, including afterglow   |
 | `F` (hold)  | Kiss while fully shoulder-leaning in standing pose                   |
 | Mouse right | Smack her flank during the act                                    |
+| `V`         | Switch hole during the act (optional anatomy)                     |
+| `N`         | Oral in the standing pose (optional anatomy)                      |
+| `B`         | Choose finish in or out (optional anatomy)                        |
+| `Enter`     | Open chat during the act when `Act chat` is on                    |
 | Hold `Y`    | End early before her first climax, or end the act/afterglow     |
 
 ## Features
@@ -32,6 +36,7 @@ Desktop only for now
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
+- **Optional anatomy** — Adds adult anatomy meshes, hole switching, oral and finish control, fluid and optional VR, all behind separate toggles. The local anatomy assets are not included in the repository or a release.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.

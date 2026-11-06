@@ -11,6 +11,7 @@ const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
+const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
@@ -41,6 +42,9 @@ var game
 var player
 var hud
 var input
+## integration: the optional player anatomy part is created once per player.
+var anon_part: Node
+var _anatomy_status_label: Label
 var initiation
 var classifier
 var dialogue_consent
@@ -171,6 +175,8 @@ func _on_world(host: Node) -> void:
 
 func _on_world_closed(_host: Node) -> void:
 	_debug("world closed")
+	if is_instance_valid(anon_part):
+		anon_part.call("encounter", false)
 	_clear_native_hint()
 	if is_instance_valid(initiation):
 		initiation.reset()
@@ -252,6 +258,8 @@ func _apply_settings_changed() -> void:
 	debug_perf = TUNABLES.get_bool("debug_perf")
 	_apply_caption_top()
 	_apply_live_settings()
+	# integration: anatomy switches are live outside acts too.
+	refresh_anatomy()
 
 
 func _on_player(body: Node) -> void:
@@ -261,6 +269,13 @@ func _on_player(body: Node) -> void:
 		hud = HUD.new()
 		hud.name = "UnfplapHUD"
 		add_child(hud)
+	# integration: the Anon part exists only with the anatomy feature and the local assets.
+	if not is_instance_valid(anon_part) and TUNABLES.get_bool("features.anatomy") \
+			and ANON_PART.assets_exist():
+		anon_part = ANON_PART.new()
+		anon_part.name = "UnfplapAnonPart"
+		anon_part.set("main", self)
+		add_child(anon_part)
 	if not is_instance_valid(input):
 		input = INPUT.new()
 		input.name = "UnfplapInput"
@@ -563,6 +578,16 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	var notes_label := _form_label("Notes", font_size)
 	form.add_child(notes_label)
 	form.add_child(notes)
+	# integration: per-mare consent for the optional anatomy actions.
+	var consent_public := CheckButton.new()
+	form.add_child(_form_label("Okay with public", font_size))
+	form.add_child(consent_public)
+	var consent_anal := CheckButton.new()
+	form.add_child(_form_label("Okay with anal", font_size))
+	form.add_child(consent_anal)
+	var consent_oral := CheckButton.new()
+	form.add_child(_form_label("Okay with oral", font_size))
+	form.add_child(consent_oral)
 	var tolerance_help := STYLE.label(
 		"Timid: one warning at 4, never stops. Neutral: warnings at 1 and 4, stops at 10. Strict: warning at 1, stops at 3.",
 		"Faint", font_size - 6)
@@ -591,6 +616,9 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 		"touch_dislikes": touch_dislikes,
 		"talk_dislikes": talk_dislikes,
 		"notes": notes,
+		"consent_public": consent_public,
+		"consent_anal": consent_anal,
+		"consent_oral": consent_oral,
 		"status": status,
 		"refreshing": false,
 	}
@@ -607,6 +635,9 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 		for key: String in checks:
 			(checks[key] as CheckButton).toggled.connect(func(_on: bool) -> void:
 				_save_taste_form(refs))
+	# integration: consent edits save with the same live path.
+	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
+		button.toggled.connect(func(_on: bool) -> void: _save_taste_form(refs))
 	var notes_timer := Timer.new()
 	notes_timer.one_shot = true
 	notes_timer.wait_time = 0.4
@@ -740,6 +771,13 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	var notes: Variant = refs.get("notes")
 	if notes is TextEdit:
 		(notes as TextEdit).text = str(taste.get("notes", ""))
+	var consent := SETTINGS.consent(id)
+	if refs.get("consent_public") is CheckButton:
+		(refs.get("consent_public") as CheckButton).set_pressed_no_signal(bool(consent.get("public", false)))
+	if refs.get("consent_anal") is CheckButton:
+		(refs.get("consent_anal") as CheckButton).set_pressed_no_signal(bool(consent.get("anal", false)))
+	if refs.get("consent_oral") is CheckButton:
+		(refs.get("consent_oral") as CheckButton).set_pressed_no_signal(bool(consent.get("oral", false)))
 	var status: Variant = refs.get("status")
 	if status is Label:
 		(status as Label).text = "Editing %s" % SETTINGS.character_name(id)
@@ -797,7 +835,13 @@ func _save_taste_form(refs: Dictionary) -> void:
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
 	SETTINGS.save_taste(id, taste)
+	SETTINGS.save_consent(id, {
+		"public": (refs.get("consent_public") as CheckButton).button_pressed if refs.get("consent_public") is CheckButton else false,
+		"anal": (refs.get("consent_anal") as CheckButton).button_pressed if refs.get("consent_anal") is CheckButton else false,
+		"oral": (refs.get("consent_oral") as CheckButton).button_pressed if refs.get("consent_oral") is CheckButton else false,
+	})
 	_apply_live_settings()
+	refresh_anatomy()
 	var status: Variant = refs.get("status")
 	if status is Label:
 		(status as Label).text = "Saved %s live." % SETTINGS.character_name(id)
@@ -1300,8 +1344,119 @@ func _debug_bond_request(grant: bool) -> String:
 		"grant" if grant else "clear", str(target.name)]
 
 
-## The request helper is not aim-gated: if the crosshair is not on a mare, use the nearest
-## loaded one within 8 m so it works while walking around idle.
+## integration: anatomy hooks used by the runtime and input.
+func anon_encounter(on: bool) -> void:
+	if is_instance_valid(anon_part):
+		anon_part.call("encounter", on)
+
+
+func anon_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
+		delta: float, mare_anchor: Node3D) -> void:
+	if is_instance_valid(anon_part):
+		anon_part.call("track", target, rear, up, bed, depth, delta, mare_anchor)
+
+
+func anatomy_status(text: String, seconds := 2.0) -> void:
+	if is_instance_valid(hud) and hud.has_method("toast"):
+		hud.call("toast", text, seconds)
+	else:
+		_debug(text)
+
+
+## integration: gate for the per-mare public consent.
+func public_offers_enabled() -> bool:
+	return TUNABLES.get_bool("features.act_public_offer")
+
+
+## integration: keep the anatomy feature live when the player edits a flag.
+func refresh_anatomy() -> void:
+	var enabled := TUNABLES.get_bool("features.anatomy")
+	if enabled and not is_instance_valid(anon_part) and is_instance_valid(player) \
+			and ANON_PART.assets_exist():
+		anon_part = ANON_PART.new()
+		anon_part.name = "UnfplapAnonPart"
+		anon_part.set("main", self)
+		add_child(anon_part)
+	elif not enabled and is_instance_valid(anon_part):
+		anon_part.call("encounter", false)
+		anon_part.queue_free()
+		anon_part = null
+	for runtime: Variant in _runtimes.values():
+		if is_instance_valid(runtime) and runtime.has_method("apply_live_settings"):
+			runtime.call("apply_live_settings")
+
+
+## integration: the chat box refuses while the act holds the controls; open it past that lock.
+func open_act_chat() -> bool:
+	if not is_instance_valid(game) or not is_instance_valid(player):
+		return false
+	var chat: Node = game.get_node_or_null("ChatBox")
+	if chat == null or not chat.has_method("_open"):
+		return false
+	var held: Variant = player.get("controls_locked")
+	player.set("controls_locked", false)
+	var opened := bool(chat.call("_open"))
+	player.set("controls_locked", held)
+	if opened:
+		chat.set("_lock_owned", false)
+	return opened
+
+
+## integration: debug placement controls for the local anatomy assets.
+func _anatomy_debug(op: String, value := 0.0) -> String:
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	var runtime: Variant = runtime_for(target) if is_instance_valid(target) else null
+	if not is_instance_valid(runtime):
+		return "No anatomy pony targeted."
+	var text := str(runtime.call("anatomy_place", op, value))
+	_debug("anatomy %s %s" % [op, text])
+	return text
+
+
+func action_anatomy_up() -> String:
+	return _anatomy_debug("y", 0.005)
+
+
+func action_anatomy_down() -> String:
+	return _anatomy_debug("y", -0.005)
+
+
+func action_anatomy_forward() -> String:
+	return _anatomy_debug("z", 0.005)
+
+
+func action_anatomy_back() -> String:
+	return _anatomy_debug("z", -0.005)
+
+
+func action_anatomy_pitch_up() -> String:
+	return _anatomy_debug("pitch", 1.0)
+
+
+func action_anatomy_pitch_down() -> String:
+	return _anatomy_debug("pitch", -1.0)
+
+
+func action_anatomy_scale_up() -> String:
+	return _anatomy_debug("scale", 0.02)
+
+
+func action_anatomy_scale_down() -> String:
+	return _anatomy_debug("scale", -0.02)
+
+
+func action_anatomy_save() -> String:
+	return _anatomy_debug("save")
+
+
+func action_anatomy_reset() -> String:
+	return _anatomy_debug("reset")
+
+
+
 func _nearest_pony(view: Camera3D) -> Node:
 	if not is_instance_valid(view):
 		return null

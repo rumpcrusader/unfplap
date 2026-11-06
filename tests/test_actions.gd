@@ -290,6 +290,16 @@ func run() -> void:
 		CAESS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
 	check(near(CAESS.caress_phase_step(0.5, false, 0.25), 0.5),
 		"caress phase holds while movement is off")
+	check(near(CAESS.CAESS_TOUCH_SECONDS, 5.0), "a caress action is five seconds of contact")
+	var short := CAESS.caress_touch_step(0.0, true, 4.9)
+	check(near(float(short[0]), 4.9) and int(short[1]) == 0, "a short caress scores nothing")
+	var full := CAESS.caress_touch_step(float(short[0]), true, 0.1)
+	check(near(float(full[0]), 0.0) and int(full[1]) == 1, "five seconds of caress score once")
+	var long := CAESS.caress_touch_step(1.0, true, 10.0)
+	check(int(long[1]) == 2 and near(float(long[0]), 1.0), "ten more seconds score twice")
+	var stopped := CAESS.caress_touch_step(3.0, false, 2.0)
+	check(near(float(stopped[0]), 0.0) and int(stopped[1]) == 0,
+		"a stopped caress keeps no partial credit")
 	check(near(CAESS.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat at 1.0 scale")
 	check(near(CAESS.palm_clearance_for(0.66), 0.0264), "Canon palm clearance scales down")
 	check(near(CAESS.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")

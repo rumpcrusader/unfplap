@@ -12,6 +12,9 @@ const REACH_HAND_RELEASE_S := 0.35
 ## than up/down, so the hand reads as stroking instead of drawing a perfect circle.
 const CARESS_RADIUS_M := 0.04125
 const CARESS_SPEED_RAD_S := 3.6
+## A caress is one continuous action, not a per-frame sample: five seconds of contact count as
+## one liked or disliked touch. The runtime's scoring and tolerance paths see discrete events.
+const CAESS_TOUCH_SECONDS := 5.0
 const CARESS_OVAL_ACROSS := 1.30
 const CARESS_OVAL_UP := 0.70
 ## The rub centre is lifted this far above each size profile's `up` point. The cutie-mark
@@ -103,6 +106,19 @@ static func caress_phase_step(phase: float, moving: bool, delta: float) -> float
 	if not moving:
 		return phase
 	return fmod(phase + CARESS_SPEED_RAD_S * delta, TAU)
+
+
+## One caress tick: accumulate contact time and report `[seconds_left, events]`, where events is
+## how many CAESS_TOUCH_SECONDS actions this tick completed. A stopped caress keeps no credit.
+static func caress_touch_step(seconds: float, active: bool, delta: float) -> Array:
+	if not active:
+		return [0.0, 0]
+	var left := maxf(0.0, seconds) + maxf(0.0, delta)
+	var events := 0
+	while left >= CAESS_TOUCH_SECONDS:
+		left -= CAESS_TOUCH_SECONDS
+		events += 1
+	return [left, events]
 
 
 ## 0 = left cheek, 1 = right cheek, -1 = centered (caller picks at random).
@@ -302,6 +318,7 @@ var _caress_key_down := {"L": false, "R": false}
 var _caress_moving := {"L": true, "R": true}
 var _caress_move_key_down := {"L": false, "R": false}
 var _caress_phase := {"L": 0.0, "R": 0.0}
+var _caress_touch_seconds := 0.0
 var _caress_logged := {"L": false, "R": false}
 var _caress_return_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_return_started := {"L": 0, "R": 0}
@@ -433,9 +450,18 @@ func _caress_tick(delta: float) -> void:
 			_caress_phase[side] = caress_phase_step(
 				float(_caress_phase[side]), bool(_caress_moving[side]), delta)
 			_set_caress_hand(side)
-			runtime.call("_on_touch", "caress")
 		elif bool(_caress_active[side]):
 			_end_caress_side(side)
+	_caress_touch_tick(delta)
+
+
+## Count a held caress as one touch per CAESS_TOUCH_SECONDS of contact instead of one per physics
+## tick. Short taps score nothing; five seconds of rubbing score once.
+func _caress_touch_tick(delta: float) -> void:
+	var step := caress_touch_step(_caress_touch_seconds, any_active(), delta)
+	_caress_touch_seconds = float(step[0])
+	for _index in int(step[1]):
+		runtime.call("_on_touch", "caress")
 
 
 func _end_caress_side(side: String) -> void:
@@ -460,6 +486,7 @@ func _end_caress() -> void:
 	_caress_moving = {"L": true, "R": true}
 	_caress_move_key_down = {"L": false, "R": false}
 	_caress_phase = {"L": 0.0, "R": 0.0}
+	_caress_touch_seconds = 0.0
 
 
 ## Hand-marker basis with the palm flat on the coat: local -Z is the fingers, and the palm
@@ -1541,6 +1568,7 @@ func reset() -> void:
 	_caress_moving = {"L": true, "R": true}
 	_caress_move_key_down = {"L": false, "R": false}
 	_caress_phase = {"L": 0.0, "R": 0.0}
+	_caress_touch_seconds = 0.0
 
 
 func any_active() -> bool:

@@ -124,6 +124,8 @@ A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
 
 - every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
 - every actual liked touch/talk subtracts `tolerance.like_relief` (1);
+- a held caress is one action per 5 s of contact (`CAESS_TOUCH_SECONDS`), not one per frame, so
+  it can neither erase distress every tick nor stop a caress-disliking mare instantly;
 - passive decay subtracts 1 every 25 s;
 - warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
   not replay a warning.
@@ -159,6 +161,24 @@ At the withdrawn tier, the Y hint is still shown. `main.try_start()` checks
 `runtime.history_blocks_start()` and calls `runtime.refuse_from_history()` instead of
 `runtime.start()`; the refusal is a generated line, not a buck or a silent no. Repair comes from
 good acts, time and an apology.
+
+## Mood after a refusal and a buck
+
+A mare's lasting mood in this game is the impression note (`world_context.impressions`), fresh for
+300 s. It is what `bonds.anger()` reads (`angry` 70, `annoyed` 40) and therefore what gates
+`bonds.welcomes()`, relationship offers, resting closeness, hand feeding and her unprompted
+approaches. Her dialogue prompt and the relationship profile also show it.
+
+The mod writes or keeps that note on the moments the base game does not see:
+
+- a refused act attempt (`runtime.refuse()`) commits `annoyed`, or `angry` when the refusal also
+  bucked or knocked Anon down (`MEMORY.refusal_event`);
+- the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
+- a neutral tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
+
+`upset.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s, yields
+to any spoken line face, and ends early when her AI commits a different mood. It owns no navigator
+and blocks nothing; the gates above do that.
 
 ## Feedback
 

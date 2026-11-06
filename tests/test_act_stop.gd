@@ -1,11 +1,13 @@
 extends SceneTree
 ## Runtime stop path: neutral and strict stops end the act, commit a severe summary, and only
-## strict requests space and bucks. No live world is needed.
+## strict requests space and bucks. A refusal writes the game's angry/annoyed impression and
+## holds the matching face. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_act_stop.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const UPSET := preload("res://mods/unfplap/upset.gd")
 
 var checks := 0
 var failures := 0
@@ -45,10 +47,15 @@ class FakeImpressions extends Node:
 
 class FakeBonds extends Node:
 	var requests := 0
+	var unwanted := 0
 
 	func request_space(_id: String) -> bool:
 		requests += 1
 		return true
+
+	func unwanted_contact(_id: String, _kind: String) -> float:
+		unwanted += 1
+		return 40.0
 
 
 class FakeRelation extends Node:
@@ -262,6 +269,33 @@ func run() -> void:
 	strict["mods"].free()
 	if strict["existing"] != null and is_instance_valid(strict["existing"]):
 		strict["existing"].name = "Mods"
+
+	var refused := fixture("neutral")
+	var refused_runtime: Node = refused["runtime"]
+	refused_runtime.call("_note_refusal", false)
+	var turned: Dictionary = (refused["impressions"] as Node).calls[-1]
+	check(str((turned["data"] as Dictionary).get("mood", "")) == "annoyed",
+		"a turn-away refusal is annoyed")
+	check(str(turned.get("event_id", "")).ends_with(":mood"),
+		"the refusal mood uses its own commit id")
+	check(int(refused["bonds"].unwanted) == 1, "a refusal costs a little trust")
+	refused_runtime.call("_note_refusal", true)
+	var bucked: Dictionary = (refused["impressions"] as Node).calls[-1]
+	check(str((bucked["data"] as Dictionary).get("mood", "")) == "angry", "a buck is angry")
+	check(int(refused["bonds"].unwanted) == 2, "each refusal costs trust once")
+	check(refused_runtime.get("_upset") == null,
+		"the face waits for a runtime in the tree")
+	check(UPSET.DURATION == 300.0, "the mood face matches the 300 s impression freshness")
+	check(str(UPSET.MOOD_FACES.get("annoyed", "")) == "annoyed"
+		and str(UPSET.MOOD_FACES.get("angry", "")) == "angry",
+		"the mood face uses the game's expression names")
+	refused_runtime.queue_free()
+	refused["main"].queue_free()
+	refused["context"].queue_free()
+	refused["impressions"].queue_free()
+	refused["mods"].free()
+	if refused["existing"] != null and is_instance_valid(refused["existing"]):
+		refused["existing"].name = "Mods"
 
 	print("ACT_STOP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

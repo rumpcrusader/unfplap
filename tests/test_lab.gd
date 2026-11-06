@@ -531,6 +531,13 @@ func _set_anger(pony: Node3D, step: int) -> String:
 	var mood := str(ANGER_MOODS[next])
 	impressions.call("commit", id, {"mood": mood},
 		"unfplap-lab-mood:%s:%d" % [id, Time.get_ticks_usec()])
+	# Show the same held face the refusal/stop paths use, so the anger keys are a real preview.
+	var runtime: Node = pony.get_node_or_null("UnfplapRuntime")
+	if runtime != null and runtime.has_method("_start_upset"):
+		if next == 0:
+			runtime.call("_end_upset")
+		else:
+			runtime.call("_start_upset", mood)
 	var after := str(impressions.call("profile", id).get("mood", "neutral"))
 	var anger := 0.0
 	var rel: Variant = pony.get_meta("relationship_runtime")

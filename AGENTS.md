@@ -158,6 +158,7 @@ mods/unfplap/
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
+  upset.gd          300 s refused/stopped mood face (annoyed/angry), yields to line faces
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
@@ -552,6 +553,9 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   body and `oval_up_m` (default `2.0 cm`) vertically, both times the pony size scale; the old
   `CARESS_OVAL_ACROSS = 1.30` / `CARESS_OVAL_UP = 0.70` ratios are fallbacks. It reads as a
   stroke rather than a perfect circle.
+  The controller reports one `_on_touch("caress")` per `CAESS_TOUCH_SECONDS` (5 s) of contact,
+  so readiness, the tolerance meter and the summary see discrete actions instead of one per
+  physics tick; a short tap scores nothing.
   Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
   (both hands 4 cm wider), Same Height and Hoers step up from there; those choose where on the
   body to caress, then the contact query snaps the palm to the coat. Both A and D can run at
@@ -794,6 +798,8 @@ examples.
   Default neutral; Rarity is strict and Fluttershy is timid.
 - A pure `act_tolerance.gd` meter runs in `POSING_IN`/`ACTIVE`. Every actual disliked touch/talk
   adds 1, every actual liked touch/talk subtracts 1, and passive decay removes 1 every 25 s.
+  A held caress is one action per `CAESS_TOUCH_SECONDS` (5 s) of contact, never one per physics
+  tick, so it cannot erase distress every frame.
 - Warnings are one-shot per act: timid at 4, neutral at 1 and 4, strict at 1. They set a HUD cue
   and queue one short spoken warning even when `features.act_lines` is off.
 - Stop thresholds: timid never; neutral 10; strict 3. A stop is not `cancel()`. It forces a severe
@@ -804,6 +810,9 @@ examples.
   stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
   `stop_until` blocks `blocks_start()`, proactive offers and offer weight; pressing Y gets the
   spoken refusal. A new stop replaces the old cooldown.
+- A stop also holds the refusal mood face: `annoyed` for neutral, `angry` for strict
+  (`upset.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
+  `features.act_history` off, or a skipped summary, there is no impression and no face.
 - Debug tunables live under **Tolerance**; Debug → Actions has **Force tolerance warning** and
   **Force tolerance stop**. See `HISTORY.md`.
 
@@ -891,6 +900,11 @@ examples.
 - `main.try_start()` is the only act-start path. It offers Y when `runtime.can_start()` passes.
   `runtime.start()` re-checks `can_start()` and then `_relationship_ok()`. If she does not
   welcome the kiss, it calls `refuse()` and returns false; no act starts.
+- A refusal is a real mood beat. `refuse()` tries the buck/push, then `_note_refusal()` writes the
+  game's impression (`MEMORY.refusal_event`): `annoyed` for a turn-away, `angry` when she bucked
+  or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` (trust -2, boundary)
+  and holds the matching face in `upset.gd`. `angry` makes `bonds.welcomes()` false, so she refuses
+  kisses and offers for the note's 300 s freshness.
 - `can_start()` requires the `sex_bond` row. In Default, the `relation` row is required too, so
   the Y hint appears only when she welcomes the kiss and the bond exists. In Try Your Luck, the
   `relation` row is omitted for the start attempt, so Y can appear before she welcomes; pressing
@@ -1072,14 +1086,16 @@ examples.
   outside an act.
 - `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
-- Lab: `-`/`=` romance tier (adults only), `9`/`0` anger mood, Mouse4 bed invite, Mouse5
+- Lab: `-`/`=` romance tier (adults only), `9`/`0` anger mood (the impression and its held
+  face), Mouse4 bed invite, Mouse5
   sex-ready. Mouse5 grants the lover bond after the neutral mood reset, so the default gate is
   satisfied; startup leaves bonds unset. Mouse4 moves a mare farther than `8 m` (or on another
   floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the
   snuggle invite. On Diamond Tiara both Mouse4 and Mouse5 stop as the filly witness: no romance,
   no dating record and no bond. Backtick (`` ` ``) toggles the debug console with a temporary
   control-lock release, so it also opens while Anon is lying down.
-- The lab teleports the five ponies in front of Golden Oak Library at startup. Its startup log
+- The lab places the four settled ponies in a row in front of Golden Oak Library at startup and
+  spawns the two strangers nearby to the side. Its startup log
   lists every setup action (opening/tutorial handling, population restriction/prune, AI/time
   pauses, per-pony friendship/mood/idle, adult romance/dating, no spawned bed).
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.

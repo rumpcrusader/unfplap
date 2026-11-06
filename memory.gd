@@ -228,6 +228,28 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stop:" + reason)
 
 
+## An act attempt she turned down. The game's mood is the impression note, not a scripted feeling:
+## `angry` makes `bonds.welcomes()` false (no kisses) and `bonds.anger()` 70 for the note's 300 s
+## freshness; `annoyed` is 40, which still blocks relationship offers and resting closeness.
+## A buck is the stronger moment, so it commits the stronger mood.
+static func refusal_event(game: Node, id: String, name: String, event_id: String,
+		bucked: bool) -> void:
+	var ctx = _context(game)
+	if ctx == null:
+		return
+	var text := "You turned Anon away when he wanted more than you did."
+	var thought := "He wanted more than I did. I said no and turned him away."
+	if bucked:
+		text = "You turned Anon away and bucked him when he would not stop."
+		thought = "He kept pushing after I said no, so I bucked him off. I need space."
+	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id)
+	var impressions: Variant = ctx.get("impressions")
+	if impressions == null or not is_instance_valid(impressions):
+		return
+	impressions.commit(id, {"mood": "angry" if bucked else "annoyed", "thought": thought},
+		event_id + ":mood")
+
+
 ## Grade-aware act impression. A good act gives romance +2 and a happy mood, a neutral one +1,
 ## and a bad one -1 with a sad or annoyed mood. The summary text is also kept as a relationship
 ## event so a later prompt can recall the specific act.

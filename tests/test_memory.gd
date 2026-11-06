@@ -132,6 +132,27 @@ func run() -> void:
 	check(str(context.events[-1].kind) == "relationship", "an apology is recorded as a relationship event")
 	check(str(context.events[-1].text).contains("apologized"), "the apology event says what happened")
 
+	MEMORY.refusal_event(game, "rarity", "Rarity", "refusal_1", false)
+	var turned_away: Dictionary = impressions.calls[5]
+	check(str((turned_away["data"] as Dictionary).get("mood", "")) == "annoyed",
+		"a plain refusal is annoyed")
+	check(not (turned_away["data"] as Dictionary).has("romance"),
+		"a refusal never changes romance")
+	check(not str((turned_away["data"] as Dictionary).get("thought", "")).is_empty(),
+		"a refusal keeps a private thought")
+	check(str(turned_away.get("event_id", "")).ends_with(":mood"),
+		"the refusal mood uses its own commit id")
+	check(str(context.events[-1].kind) == "intimacy", "a refusal is recorded as an intimacy event")
+	check(str(context.events[-1].text).contains("turned Anon away"),
+		"the refusal event says what happened")
+
+	MEMORY.refusal_event(game, "rarity", "Rarity", "refusal_2", true)
+	var bucked: Dictionary = impressions.calls[6]
+	check(str((bucked["data"] as Dictionary).get("mood", "")) == "angry",
+		"a buck is angry")
+	check(str((bucked["data"] as Dictionary).get("thought", "")).contains("bucked"),
+		"the buck thought names the buck")
+
 	game.queue_free()
 	context.queue_free()
 	impressions.queue_free()

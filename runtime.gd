@@ -17,6 +17,7 @@ const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
+const UPSET := preload("res://mods/unfplap/upset.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -386,6 +387,7 @@ var _act_seconds := 0.0
 var _clock_s := 0.0
 var _aftercare: Node
 var _satisfied: Node
+var _upset: Node
 var _satisfaction_tween: Tween
 ## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
@@ -1248,7 +1250,7 @@ func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
 	if not refuse_available(pose, act_source, bed_in):
 		return
 	if pose == CATALOG.STANDING:
-		_buck_or_push()
+		_note_refusal(_buck_or_push())
 		return
 	if act_source == "cradle":
 		if not _release_carry():
@@ -1263,14 +1265,14 @@ func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
 		pony.reset_physics_interpolation()
 		pony.request_posture("stand")
 		await get_tree().physics_frame
-		_buck_or_push()
+		_note_refusal(_buck_or_push())
 		return
 	if act_source == "already_lying":
 		if not REST.release_managed(pony):
 			return
 		pony.request_posture("stand")
 		await get_tree().physics_frame
-		_buck_or_push()
+		_note_refusal(_buck_or_push())
 
 func _refusal_floor() -> Vector3:
 	var forward: Vector3 = -main.player.global_basis.z
@@ -1292,24 +1294,50 @@ func _refusal_floor() -> Vector3:
 				at = hit.get("position", at)
 	return at
 
-func _buck_or_push() -> void:
+func _buck_or_push() -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
-		return
+		return false
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null and affection.has_method("buck"):
 		if bool(affection.call("buck", main.player_body())):
-			return
+			return true
 	var body = main.player
 	if not is_instance_valid(body):
-		return
+		return false
 	var knockdown: Variant = body.get("knockdown")
 	if knockdown == null or not knockdown.has_method("start"):
-		return
+		return false
 	var direction: Vector3 = pony.global_position - body.global_position
 	direction.y = 0.25
 	if direction.length_squared() < 0.0001:
 		direction = -body.global_basis.z
 	knockdown.call("start", body, direction.normalized() * 3.0)
+	return true
+
+
+## A refusal is a real mood beat, not just a buck animation. The game's lasting feeling is the
+## impression note, which drives `bonds.welcomes()`, anger, offers, approaches and her dialogue;
+## the held face displays it (upset.gd). A buck is the stronger moment, so it is the stronger mood.
+func _note_refusal(bucked: bool) -> void:
+	if is_instance_valid(main) and is_instance_valid(main.game):
+		MEMORY.refusal_event(main.game, _id, _display_name,
+			"unfplap_refusal_%s_%d" % [_id, Time.get_ticks_usec()], bucked)
+	_refuse_trust()
+	_start_upset("angry" if bucked else "annoyed")
+
+
+## The game's own unwelcome-contact hook: a little trust lost and the boundary signal. It never
+## sets a mood itself, so `refusal_event` owns the impression.
+func _refuse_trust() -> void:
+	if not is_instance_valid(pony):
+		return
+	var rel: Variant = pony.get_meta("relationship_runtime")
+	if rel == null or not is_instance_valid(rel):
+		return
+	var bonds: Variant = rel.get("bonds")
+	if bonds != null and is_instance_valid(bonds) and bonds.has_method("unwanted_contact"):
+		bonds.call("unwanted_contact", _id, "kiss")
+
 
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
@@ -1625,6 +1653,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	set_request_face(false)
 	clear_presentation()
 	_end_satisfied()
+	_end_upset()
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
@@ -2684,6 +2713,9 @@ func _set_cue_override(text: String, seconds := -1.0) -> void:
 	_cue_override = text
 	_cue_until = _now_s() + maxf(0.0, seconds)
 
+## One real action per call, including the tolerance meter. Continuous inputs must emit discrete
+## events: a held caress calls this once per CAESS_TOUCH_SECONDS (standing_caress.gd), never once
+## per physics tick, or a liked caress would erase all distress every frame.
 func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:
 		return
@@ -3202,6 +3234,7 @@ func _stop_with_her(reason: String) -> void:
 	if _stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
 		return
 	_stopped_by_her = true
+	var strict := str(_taste.get("tolerance", "neutral")) == "strict"
 	_cancel_tolerance_warning()
 	_commit_summary(false)
 	if is_instance_valid(main) and is_instance_valid(main.game):
@@ -3211,10 +3244,12 @@ func _stop_with_her(reason: String) -> void:
 	_end_act_lines(true)
 	_end_session(false)
 	_finalize_session(true)
-	var strict := str(_taste.get("tolerance", "neutral")) == "strict"
 	if strict:
 		_request_space()
 		_buck_or_push()
+	# The summary owns the impression, including features.act_history off and a skipped summary.
+	if not _summary.is_empty():
+		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
 		str(_taste.get("tolerance", "neutral")), float(_tolerance_controller().distress),
@@ -4152,6 +4187,28 @@ func _end_satisfied() -> void:
 		_satisfied.queue_free()
 	_satisfied = null
 
+
+## A refused advance or a consent stop: hold the hostile face that matches the impression mood.
+## It yields to the director's line faces and ends when a newer mood replaces ours (upset.gd).
+func _start_upset(mood: String) -> void:
+	if not is_inside_tree() or not is_instance_valid(pony):
+		return
+	_end_satisfied()
+	if is_instance_valid(_upset):
+		_upset.queue_free()
+	_upset = UPSET.new()
+	_upset.name = "UnfplapUpset"
+	_upset.set("pony", pony)
+	_upset.set("runtime", self)
+	_upset.set("mood", mood)
+	add_child(_upset)
+
+
+func _end_upset() -> void:
+	if is_instance_valid(_upset):
+		_upset.queue_free()
+	_upset = null
+
 # --------------------------------------------------------------------------- checks
 
 func _check_running() -> void:
@@ -4675,3 +4732,6 @@ func _exit_tree() -> void:
 	if is_instance_valid(_satisfied):
 		_satisfied.queue_free()
 		_satisfied = null
+	if is_instance_valid(_upset):
+		_upset.queue_free()
+		_upset = null

@@ -76,6 +76,8 @@ var _bed_rest := 0.8
 ## Climax wink: the shapes stay driven around the shaft, and this adds the open/close pulses
 ## on top instead of a tween that the per-frame drive would cancel.
 var _wink_left := 0.0
+## Unit normal of the current opening, pointing out of her toward Anon.
+var _normal := Vector3.ZERO
 var _debug_vulva: MeshInstance3D
 var _debug_anus: MeshInstance3D
 var _debug_tip: MeshInstance3D
@@ -135,6 +137,12 @@ func hole_point() -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.ZERO
 	return anatomy.call("hole_point", _hole_mix)
+
+
+## Her opening's outward normal: the mesh's own +Z, flipped if needed so it points at Anon. This
+## avoids every guess about which way the anatomy mesh was authored.
+func opening_normal() -> Vector3:
+	return _normal
 
 
 func hole_rear() -> Vector3:
@@ -292,11 +300,14 @@ func tick(delta: float) -> void:
 		# only one of them leaves it half closed.
 		var anal := _wide * _hole_mix * rearward * anal_hug
 		anatomy.call("set_anal_shape", anal * 1.4, anal)
+	_normal = _compute_normal(part)
 	if is_instance_valid(part):
 		var pitch := 0.0
 		if _anal:
 			pitch = TUNABLES.get_float("anatomy.anal_pitch_deg")
 		part.set("aim_pitch_deg", pitch)
+		part.set("aim_normal", _normal)
+		part.set("aim_opening", hole_point())
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
@@ -317,6 +328,36 @@ func pose_config(config: Dictionary) -> void:
 		config["oral_pitch"] = _oral_now.y * 0.5 * _oral_mix
 		config["oral_yaw"] = _oral_now.z * _oral_mix
 		config["oral_roll"] = _oral_now.z * 0.3 * _oral_mix
+
+
+## The vulva plane's normal, oriented toward Anon. `hole_rear()` is the anatomy mesh's own axis;
+## its sign depends on how the asset was authored, so it is resolved against his pelvis position.
+func _compute_normal(part: Variant) -> Vector3:
+	if not is_instance_valid(anatomy):
+		return Vector3.ZERO
+	var normal: Vector3 = hole_rear()
+	if normal.length_squared() < 0.000001:
+		return Vector3.ZERO
+	normal = normal.normalized()
+	# Resolve the sign against *her own body*, never against Anon: the outward normal points away
+	# from her hip centre, and that reference does not move when his pelvis does.
+	var hips := _hips_point()
+	if hips == Vector3.ZERO:
+		return normal
+	return -normal if normal.dot(hole_point() - hips) < 0.0 else normal
+
+
+## Her pelvis bone in world space, the stable reference for the opening's outward direction.
+func _hips_point() -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.ZERO
+	var skeleton: Skeleton3D = pony.get("skeleton") as Skeleton3D if pony.get("skeleton") != null else null
+	if not is_instance_valid(skeleton):
+		return Vector3.ZERO
+	var hips := skeleton.find_bone("pony_hips")
+	if hips < 0:
+		return Vector3.ZERO
+	return skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
 
 
 func _oral_motion_tick(delta: float) -> void:

@@ -76,6 +76,9 @@ var hip_offset_applied := Vector3.ZERO
 var _hip_offset_wanted := Vector3.ZERO
 ## Downward aim tilt for the anal hole, degrees; set by the act each frame.
 var aim_pitch_deg := 0.0
+## Her opening's outward normal and the point itself, set by the act each frame.
+var aim_normal := Vector3.ZERO
+var aim_opening := Vector3.ZERO
 
 
 static func assets_exist() -> bool:
@@ -294,9 +297,14 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	var to_open := target - pivot_natural
 	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
 		return
-	var turn := Basis(Quaternion(to_tip.normalized(), to_open.normalized()))
+	# The shaft must run along her opening's normal, not any line that happens to reach the hole:
+	# that is what keeps it out of her rump when she sways. `aim_normal` points at Anon, so into
+	# her is its negation.
+	var on_normal: bool = aim_normal.length_squared() > 0.0001
+	var shaft_dir: Vector3 = (-aim_normal.normalized()) if on_normal else to_open.normalized()
+	var turn := Basis(Quaternion(to_tip.normalized(), shaft_dir))
 	if not is_zero_approx(aim_pitch_deg):
-		var right := Vector3.UP.cross(to_open)
+		var right := Vector3.UP.cross(shaft_dir)
 		if right.length_squared() > 0.000001:
 			turn = Basis(right.normalized(), deg_to_rad(aim_pitch_deg)) * turn
 	var pivot := posed * PIVOT
@@ -309,10 +317,16 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	# reach the depth asked for, the depth is what gives way, not his body.
 	var gap := maxf(TUNABLES.get_float("anatomy.pelvis_gap_m"), 0.0)
 	along = minf(along, maxf(to_tip.length() - gap, 0.0))
-	# Place the pelvis so the *tilted* shaft still lands the tip on the entrance. Using the true
-	# direction here would drop the tip below the hole whenever the anal aim is angled down.
+	# Put his pelvis on the normal line through the opening. This is the whole alignment: the base
+	# sits at `shaft length - depth` behind the hole, straight out along her normal, so the shaft,
+	# his crotch and her entrance are colinear and rotation is minimal.
 	var aim_dir := (turn * to_tip.normalized()).normalized()
-	_hip_offset_wanted = to_open - aim_dir * (to_tip.length() - along)
+	if on_normal and aim_opening != Vector3.ZERO:
+		# `aim_dir` points into her, so step *back* from the opening by the remaining shaft.
+		var pivot_target: Vector3 = aim_opening - aim_dir * (to_tip.length() - along)
+		_hip_offset_wanted = pivot_target - pivot_natural
+	else:
+		_hip_offset_wanted = to_open - aim_dir * (to_tip.length() - along)
 
 
 ## The Hips-bone offset, in world space, that puts the part at the entrance for this depth.

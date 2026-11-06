@@ -2625,6 +2625,16 @@ func anatomy_bed_avatar() -> Variant:
 
 
 ## integration: drives the standing camera's facing override for the oral turn.
+## integration: her opening's outward normal, in world space.
+func anatomy_normal() -> Vector3:
+	if not is_instance_valid(_anatomy_act):
+		return Vector3.ZERO
+	var normal: Variant = _anatomy_act.call("opening_normal")
+	if normal is Vector3 and (normal as Vector3).is_finite():
+		return normal
+	return Vector3.ZERO
+
+
 ## integration: her entrance point during an anatomy act, in world space.
 func anatomy_opening() -> Vector3:
 	if not is_instance_valid(_anatomy_act):

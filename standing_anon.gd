@@ -164,9 +164,15 @@ func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
 	var part: Variant = _anon_part()
 	if part == null or not runtime.has_method("anatomy_opening"):
 		return plant
-	var opening: Vector3 = runtime.call("anatomy_opening")
-	var pivot: Vector3 = part.call("root_now")
-	var toward := Vector3(opening.x - pivot.x, 0.0, opening.z - pivot.z)
+	var toward := Vector3.ZERO
+	var normal: Vector3 = runtime.call("anatomy_normal") if runtime.has_method("anatomy_normal") else Vector3.ZERO
+	if normal.length_squared() > 0.0001:
+		# Face straight into her opening, so his pelvis plane is parallel to her vulva.
+		toward = -Vector3(normal.x, 0.0, normal.z)
+	if toward.length_squared() < 0.0004:
+		var opening: Vector3 = runtime.call("anatomy_opening")
+		var pivot: Vector3 = part.call("root_now")
+		toward = Vector3(opening.x - pivot.x, 0.0, opening.z - pivot.z)
 	if toward.length_squared() < 0.0004:
 		return plant
 	var flat_forward := Vector3(forward.x, 0.0, forward.z)

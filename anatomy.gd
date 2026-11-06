@@ -4,6 +4,7 @@ extends Node
 ## controller stays empty and every public method is a no-op.
 
 const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")
+const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
 const DOCK := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -42,6 +43,7 @@ var _anal_mesh: MeshInstance3D
 var _teats_mesh: MeshInstance3D
 var _skin_strip: MeshInstance3D
 var _teats_jiggle: Node
+var _fluid: Node3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
 var _pos := Vector3(-0.005, 0.52, 0.291)
@@ -59,6 +61,12 @@ var _strip_span := Vector2(0.0, 1.0)
 var _strip_gap := Vector2(2.0, 2.0)
 var _missing_logged := false
 var _attached := false
+## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
+const VISIBILITY_POLL_S := 0.2
+var _visibility_clock := 0.0
+var _visibility_init := false
+var _last_shown := false
+var _last_teats_shown := false
 
 
 static func assets_exist() -> bool:
@@ -154,13 +162,31 @@ func _attach() -> void:
 	_attach_anal()
 	_attach_teats()
 	_attached = true
+	_visibility_init = false
 	set_process(true)
 	_apply_visibility()
 	_log("anatomy attached lift=%.3f dock_bottom=%.3f" % [_lift, _dock_bottom])
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_visibility_clock -= delta
+	if _visibility_clock > 0.0:
+		return
+	_visibility_clock = VISIBILITY_POLL_S
+	var started := Time.get_ticks_usec()
 	_apply_visibility()
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "anatomy_visibility", Time.get_ticks_usec() - started)
+
+
+## integration: act-only visibility. POSING_IN, ACTIVE, CLIMAX and AFTERGLOW are the act.
+func _act_visible() -> bool:
+	if not TUNABLES.get_bool("anatomy.act_only"):
+		return true
+	if not is_instance_valid(runtime):
+		return true
+	var state := int(runtime.get("state"))
+	return state in [1, 2, 3, 4]
 
 
 func _apply_visibility() -> void:
@@ -168,14 +194,23 @@ func _apply_visibility() -> void:
 		return
 	var far := bool(pony.get("_far_mesh_shown")) if pony.get("_far_mesh_shown") != null else false
 	var teats_on := TUNABLES.get_bool("anatomy.teats")
+	var show := not far and _act_visible()
+	var teats_show := show and teats_on
+	if _visibility_init and show == _last_shown and teats_show == _last_teats_shown:
+		return
+	_visibility_init = true
+	_last_shown = show
+	_last_teats_shown = teats_show
 	if is_instance_valid(_mesh):
-		_mesh.visible = not far
+		_mesh.visible = show
 	if is_instance_valid(_anal_mesh):
-		_anal_mesh.visible = not far
+		_anal_mesh.visible = show
 	if is_instance_valid(_teats_mesh):
-		_teats_mesh.visible = not far and teats_on
+		_teats_mesh.visible = teats_show
 	if is_instance_valid(_skin_strip):
-		_skin_strip.visible = not far and teats_on
+		_skin_strip.visible = teats_show
+	if is_instance_valid(_teats_jiggle):
+		_teats_jiggle.set_physics_process(teats_show)
 
 
 func _tail_lift() -> float:
@@ -332,6 +367,7 @@ func _attach_teats() -> void:
 	_teats_jiggle = TEAT_JIGGLE.new()
 	_teats_jiggle.name = "UnfplapAnatomyTeatJiggle"
 	_teats_jiggle.set("skeleton", _skeleton)
+	_teats_jiggle.set("runtime", runtime)
 	_teats_mesh.add_child(_teats_jiggle)
 	var size := _teat_size()
 	_teats_mesh.set_blend_shape_value(_teats_mesh.find_blend_shape_by_name("mid"),
@@ -412,7 +448,11 @@ func apply_live() -> void:
 
 func detach() -> void:
 	_attached = false
+	_visibility_init = false
 	set_process(false)
+	if is_instance_valid(_fluid):
+		_fluid.queue_free()
+	_fluid = null
 	if is_instance_valid(_skin_strip):
 		_skin_strip.queue_free()
 	_skin_strip = null
@@ -434,6 +474,22 @@ func detach() -> void:
 
 func winking_mesh() -> MeshInstance3D:
 	return _mesh
+
+
+## integration: one persistent fluid node per pony, reused by every act.
+func fluid() -> Node3D:
+	if not _enabled() or not is_instance_valid(pony):
+		return null
+	if not is_instance_valid(_fluid):
+		_fluid = CLIMAX_FLUID.new()
+		_fluid.name = "UnfplapAnatomyFluid"
+		_fluid.set("runtime", runtime)
+		pony.add_child(_fluid)
+	_fluid.set("runtime", runtime)
+	_fluid.set("skeleton", pony.get("skeleton"))
+	_fluid.set("body_scale",
+		float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)
+	return _fluid
 
 
 func anal_mesh() -> MeshInstance3D:

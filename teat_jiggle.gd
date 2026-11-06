@@ -12,6 +12,7 @@ const MAX_SWAY_M := 0.014
 
 var material: ShaderMaterial
 var skeleton: Skeleton3D
+var runtime: Node
 ## integration: bigger ones swing further.
 var swing := 1.0
 
@@ -32,6 +33,7 @@ func kick(direction: Vector3, strength: float) -> void:
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(skeleton) or not is_instance_valid(material) or delta <= 0.0:
 		return
+	var started := Time.get_ticks_usec()
 	if _hips < 0:
 		_hips = skeleton.find_bone("pony_hips")
 		if _hips < 0:
@@ -52,3 +54,5 @@ func _physics_process(delta: float) -> void:
 		side.lag = lag
 		side.speed = speed
 		material.set_shader_parameter(side.uniform, to_local * lag)
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "teat_jiggle", Time.get_ticks_usec() - started)

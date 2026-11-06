@@ -16,12 +16,16 @@ var _hip: Node3D
 var _head: Node3D
 var _left_foot: Node3D
 var _right_foot: Node3D
+var _legs: SkeletonModifier3D
+var _leg_influence := 0.0
+var _avatar_visible := true
 var _eye := Vector3.ZERO
 var _look := Vector3.ZERO
 var _body := Basis.IDENTITY
 
 
 func install(runtime_node: Node) -> bool:
+	remove()
 	runtime = runtime_node
 	main = runtime.get("main")
 	pony = runtime.get("pony")
@@ -34,6 +38,7 @@ func install(runtime_node: Node) -> bool:
 	_original = avatar.get("desktop_pose_driver")
 	if not is_instance_valid(_original):
 		return false
+	_avatar_visible = avatar.visible
 	_driver = ANON_THRUST.new()
 	_driver.name = "UnfplapBedAnonThrust"
 	_driver.set("original", _original)
@@ -46,7 +51,9 @@ func install(runtime_node: Node) -> bool:
 	_right_foot = avatar.get("_right_foot") as Node3D
 	var legs: Variant = avatar.get("_leg_hide")
 	if legs is SkeletonModifier3D:
-		(legs as SkeletonModifier3D).influence = 0.0
+		_legs = legs as SkeletonModifier3D
+		_leg_influence = _legs.influence
+		_legs.influence = 0.0
 	avatar.visible = true
 	return is_instance_valid(_hip)
 
@@ -120,9 +127,17 @@ func remove() -> void:
 	if is_instance_valid(avatar) and is_instance_valid(_original) \
 			and avatar.get("desktop_pose_driver") == _driver:
 		avatar.set("desktop_pose_driver", _original)
+	if is_instance_valid(_legs):
+		_legs.influence = _leg_influence
+	if is_instance_valid(avatar):
+		avatar.visible = _avatar_visible
 	if is_instance_valid(_driver):
 		_driver.queue_free()
 	_driver = null
 	_original = null
 	_hip = null
 	_head = null
+	_legs = null
+	_eye = Vector3.ZERO
+	_look = Vector3.ZERO
+	_body = Basis.IDENTITY

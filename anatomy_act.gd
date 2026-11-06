@@ -6,7 +6,6 @@ extends Node
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
@@ -70,7 +69,7 @@ var _wide := 0.0
 var _pull_out := false
 var _finish_out := false
 var _finished_inside := false
-var _fluid: Node3D
+var _bed_rest := 0.8
 
 
 func setup(runtime_node: Node, anatomy_node: Node, pose_id: String) -> void:
@@ -104,6 +103,7 @@ func reset() -> void:
 	_pull_out = false
 	_finish_out = false
 	_finished_inside = false
+	_bed_rest = 0.8
 	if is_instance_valid(anatomy):
 		anatomy.call("animate", 0.0, 1.0)
 
@@ -235,6 +235,7 @@ func _size_scale() -> float:
 func tick(delta: float) -> void:
 	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
+	var started := Time.get_ticks_usec()
 	var mesh: Variant = anatomy.call("winking_mesh")
 	if not is_instance_valid(mesh):
 		return
@@ -265,6 +266,8 @@ func tick(delta: float) -> void:
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
 		shown, delta, (mesh as Node3D).get_parent())
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "anatomy_tick", Time.get_ticks_usec() - started)
 
 
 func pose_config(config: Dictionary) -> void:
@@ -331,28 +334,58 @@ func _oral_tick(delta: float) -> void:
 
 ## integration: shape and fluid hooks called by the runtime.
 func on_climax() -> void:
-	if not _enabled("anatomy_fluid") or not _fluid_ready():
+	if not _enabled("anatomy_fluid"):
 		return
-	_fluid.call("spray", hole_point(), _hole_out(), 26, 1.0, 0.0075, PONY_FLUID_COLOR)
-	_fluid.call("drip", Callable(self, "hole_point"), 2.5, 7.0, 0.007, PONY_FLUID_COLOR)
+	var fluid := _fluid_node()
+	if not is_instance_valid(fluid):
+		return
+	fluid.call("spray", hole_point(), _hole_out(), 26, 1.0, 0.0075, PONY_FLUID_COLOR)
+	fluid.call("drip", Callable(self, "hole_point"), 2.5, 7.0, 0.007, PONY_FLUID_COLOR)
 
 
 func on_finish() -> void:
-	if not _enabled("anatomy_finish") and not _enabled("anatomy_fluid"):
+	# integration: with the finish control off, keep the master inside semantics and do not
+	# create an outside finish spray.
+	if not _enabled("anatomy_finish"):
+		_finish_out = false
+		_finished_inside = false
 		return
 	_finish_out = _pull_out or _depth() < PULLED_OUT_PHASE
 	if _finish_out:
-		_spurts_on_her(0)
+		if _enabled("anatomy_fluid"):
+			_spurts_on_her(0)
 	elif not _oral:
 		_finished_inside = true
 		if _fluid_ready():
 			get_tree().create_timer(0.7).timeout.connect(_inside_leak)
 
 
+## integration: afterglow part tracking for the optional bed body.
+func afterglow_tick(delta: float) -> void:
+	if not _enabled("anatomy_bed_body") or not is_instance_valid(anatomy) \
+			or not is_instance_valid(pony) or not is_instance_valid(main):
+		return
+	var started := Time.get_ticks_usec()
+	var mesh: Variant = anatomy.call("winking_mesh")
+	var part: Variant = main.get("anon_part")
+	if not is_instance_valid(mesh) or not is_instance_valid(part) or not bool(part.call("showing")):
+		return
+	_bed_rest = move_toward(_bed_rest, 0.0 if _finish_out else 0.8, delta * 1.6)
+	main.call("anon_track", hole_point(), hole_rear(),
+		(mesh as Node3D).global_transform.basis.y.normalized(), true, _bed_rest, delta,
+		(mesh as Node3D).get_parent())
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "anatomy_afterglow", Time.get_ticks_usec() - started)
+
+
 func withdraw() -> void:
-	if _finished_inside and is_instance_valid(_fluid):
-		_fluid.call("spray", hole_point(), _hole_out(), 34, 0.55, 0.0105, ANON_FLUID_COLOR)
-		_fluid.call("drip", Callable(self, "hole_point"), 5.0, 11.0, 0.009, ANON_FLUID_COLOR)
+	if not _enabled("anatomy_fluid"):
+		_finished_inside = false
+		return
+	var fluid := _fluid_node()
+	if _finished_inside and is_instance_valid(fluid):
+		fluid.call("spray", hole_point(), _hole_out(), 34, 0.55, 0.0105, ANON_FLUID_COLOR)
+		fluid.call("drip", Callable(self, "hole_point"), 5.0, 11.0, 0.009, ANON_FLUID_COLOR)
 	_finished_inside = false
 
 
@@ -378,6 +411,7 @@ func teardown() -> void:
 	_finished_inside = false
 	_finish_out = false
 	_pull_out = false
+	_bed_rest = 0.8
 
 
 func _hole_out() -> Vector3:
@@ -385,15 +419,18 @@ func _hole_out() -> Vector3:
 	return rear + Vector3.DOWN * 0.3
 
 
+func _fluid_node() -> Node3D:
+	if not is_instance_valid(anatomy):
+		return null
+	return anatomy.call("fluid") as Node3D
+
+
 func _fluid_ready() -> bool:
 	if not _enabled("anatomy_fluid"):
 		return false
-	if not is_instance_valid(_fluid):
-		_fluid = CLIMAX_FLUID.new()
-		_fluid.name = "UnfplapAnatomyFluid"
-		_fluid.set("skeleton", pony.get("skeleton"))
-		_fluid.set("body_scale", float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)
-		pony.add_child(_fluid)
+	var fluid := _fluid_node()
+	if not is_instance_valid(fluid):
+		return false
 	var ground := pony.global_position.y
 	if pose == CATALOG.MISSIONARY:
 		var camera: Variant = runtime.call("_missionary_camera_controller")
@@ -401,14 +438,15 @@ func _fluid_ready() -> bool:
 			var top: Variant = camera.call("_bed_surface_top")
 			if top is float and is_finite(top):
 				ground = top
-	_fluid.set("ground_y", ground)
+	fluid.set("ground_y", ground)
 	return true
 
 
 func _spurts_on_her(pulse: int) -> void:
 	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	var fluid := _fluid_node()
 	if pulse >= 4 or not is_instance_valid(part) or not bool(part.call("showing")) \
-			or not is_instance_valid(_fluid):
+			or not is_instance_valid(fluid):
 		return
 	if pulse == 0:
 		get_tree().create_timer(0.55).timeout.connect(_spurts_on_her.bind(1))
@@ -419,13 +457,15 @@ func _spurts_on_her(pulse: int) -> void:
 		var mesh: Variant = anatomy.call("winking_mesh")
 		if is_instance_valid(mesh):
 			up_and_over = (mesh as Node3D).global_basis.y.normalized() + Vector3.UP * 0.45
-	_fluid.call("spray", part.call("tip_world"), up_and_over, 20 - pulse * 3, 2.3 - pulse * 0.35,
-		0.0095, ANON_FLUID_COLOR)
+	fluid.call("spray", part.call("tip_world"), up_and_over, 20 - pulse * 3,
+		2.3 - pulse * 0.35, 0.0095, ANON_FLUID_COLOR)
 	get_tree().create_timer(0.38).timeout.connect(_spurts_on_her.bind(pulse + 1))
 
 
 func _inside_leak() -> void:
 	if not _enabled("anatomy_fluid"):
 		return
-	if is_instance_valid(_fluid) and is_instance_valid(anatomy):
-		_fluid.call("drip", Callable(self, "hole_point"), 9.0, 8.0, 0.009, ANON_FLUID_COLOR)
+	var fluid := _fluid_node()
+	if not is_instance_valid(fluid):
+		return
+	fluid.call("drip", Callable(self, "hole_point"), 9.0, 8.0, 0.009, ANON_FLUID_COLOR)

@@ -7,6 +7,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
 var failures := 0
 var checks := 0
@@ -80,8 +81,16 @@ func run() -> void:
 		check(not bool(SCHEMA.default_value("features." + key)), "%s is off by default" % key)
 	check(SCHEMA.has("anatomy.teats"), "teats flag")
 	check(bool(SCHEMA.default_value("anatomy.teats")), "teats on by default")
+	check(SCHEMA.has("anatomy.act_only"), "act-only flag")
+	check(not bool(SCHEMA.default_value("anatomy.act_only")), "act-only off by default")
 	check(TUNABLES.get_string("anatomy.skin_tone") in ["coat", "darker", "dark"],
 		"skin tone choice")
+	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),
+		"VR body tracker API")
+	check(not ClassDB.class_has_method("XRBodyTracker", "get_have_tracking_data"),
+		"old VR tracker API absent")
+	check(not FileAccess.get_file_as_string("res://mods/unfplap/vr_act.gd").contains(
+		"get_have_tracking_data"), "VR source uses the engine method")
 
 	# A profile keeps its custom prompts and poses when consent is merged.
 	var base: Dictionary = SETTINGS._filled_default()
@@ -97,6 +106,13 @@ func run() -> void:
 	check(absf(float(((profile.get("poses", {}) as Dictionary).get("missionary", {}) as Dictionary)
 		.get("rump_drop_deg", 0.0)) - 12.0) < 0.001, "consent merge preserves pose overrides")
 	check(not ANATOMY.assets_exist() or ANATOMY.assets_exist(), "asset check is a bool")
+	# integration: no act controller means all anatomy action gates are closed.
+	var runtime: Node = RUNTIME.new()
+	check(not bool(runtime.call("anatomy_hole_ready")), "hole gate closed without an act")
+	check(not bool(runtime.call("anatomy_oral_ready")), "oral gate closed without an act")
+	check(not bool(runtime.call("anatomy_finish_ready")), "finish gate closed without an act")
+	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
+	runtime.free()
 
 	for pony: Node in [twilight, filly, stallion, off_roster, player]:
 		if is_instance_valid(pony):

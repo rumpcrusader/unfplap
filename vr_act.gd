@@ -63,9 +63,11 @@ func _tracked_hips() -> Vector3:
 	var trackers: Dictionary = XRServer.get_trackers(XRServer.TRACKER_ANY)
 	for key: Variant in trackers:
 		var tracker: Variant = trackers[key]
-		if tracker is XRBodyTracker and (tracker as XRBodyTracker).get_have_tracking_data():
-			return origin.global_transform * (tracker as XRBodyTracker).get_joint_transform(
-				XRBodyTracker.JOINT_HIPS).origin
+		if tracker is XRBodyTracker:
+			var body := tracker as XRBodyTracker
+			if body.has_method("get_has_tracking_data") and body.get_has_tracking_data():
+				return origin.global_transform * body.get_joint_transform(
+					XRBodyTracker.JOINT_HIPS).origin
 		if tracker is XRPositionalTracker:
 			var label := str(key).to_lower()
 			if label.contains("waist") or label.contains("hip"):

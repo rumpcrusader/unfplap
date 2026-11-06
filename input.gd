@@ -147,19 +147,16 @@ func _input(event: InputEvent) -> void:
 	if focus is LineEdit or focus is TextEdit:
 		return
 	if is_instance_valid(runtime):
-		# integration: optional anatomy actions, only while their schema flag is on.
-		if key.physical_keycode == KEY_V and TUNABLES.get_bool("features.anatomy") \
-				and TUNABLES.get_bool("features.anatomy_holes"):
+		# integration: optional anatomy actions, only when their act is live.
+		if key.physical_keycode == KEY_V and bool(runtime.call("anatomy_hole_ready")):
 			runtime.call("toggle_anatomy_hole")
 			get_viewport().set_input_as_handled()
 			return
-		if key.physical_keycode == KEY_N and TUNABLES.get_bool("features.anatomy") \
-				and TUNABLES.get_bool("features.anatomy_oral"):
+		if key.physical_keycode == KEY_N and bool(runtime.call("anatomy_oral_ready")):
 			runtime.call("toggle_anatomy_oral")
 			get_viewport().set_input_as_handled()
 			return
-		if key.physical_keycode == KEY_B and TUNABLES.get_bool("features.anatomy") \
-				and TUNABLES.get_bool("features.anatomy_finish"):
+		if key.physical_keycode == KEY_B and bool(runtime.call("anatomy_finish_ready")):
 			runtime.call("toggle_anatomy_finish")
 			get_viewport().set_input_as_handled()
 			return

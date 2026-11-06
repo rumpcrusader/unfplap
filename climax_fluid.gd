@@ -21,6 +21,7 @@ var skeleton: Skeleton3D
 var ground_y := 0.0
 ## integration: the shared body ellipsoid is authored at scale 1.
 var body_scale := 1.0
+var runtime: Node
 
 var _hips := -1
 var _drops: Array[Dictionary] = []
@@ -104,6 +105,7 @@ func _body_frame() -> Transform3D:
 
 
 func _physics_process(delta: float) -> void:
+	var started := Time.get_ticks_usec()
 	for leak: Dictionary in _leaks:
 		leak.left -= delta
 		leak.due += delta * float(leak.rate)
@@ -128,6 +130,8 @@ func _physics_process(delta: float) -> void:
 			kept.append(drop)
 	_drops = kept
 	_draw_drops()
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "climax_fluid", Time.get_ticks_usec() - started)
 
 
 func _fly(drop: Dictionary, frame: Transform3D, inverse: Transform3D, delta: float) -> void:

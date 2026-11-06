@@ -373,24 +373,21 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 			show = true
 		# integration: anatomy/chat rows exist only while their feature is live.
 		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish", "act_chat"]:
-			show = _extra_row_visible(key, state, standing)
+			show = _extra_row_visible(key, state, standing, runtime)
 		control.visible = show
 
 
-func _extra_row_visible(key: String, state: int, standing: bool) -> bool:
+func _extra_row_visible(key: String, state: int, standing: bool, runtime: Node) -> bool:
 	if state == STATE_AFTERGLOW:
 		return false
 	if key == "act_chat":
 		return TUNABLES.get_bool("features.act_chat") and state in [STATE_ACTIVE, STATE_CLIMAX]
-	if not TUNABLES.get_bool("features.anatomy"):
-		return false
-	if state not in [STATE_ACTIVE, STATE_CLIMAX]:
-		return false
+	# integration: use the runtime's precise readiness so missing anatomy assets hide the rows.
 	match key:
 		"anatomy_hole":
-			return TUNABLES.get_bool("features.anatomy_holes")
+			return runtime.has_method("anatomy_hole_ready") and bool(runtime.call("anatomy_hole_ready"))
 		"anatomy_oral":
-			return TUNABLES.get_bool("features.anatomy_oral") and standing and state == STATE_ACTIVE
+			return runtime.has_method("anatomy_oral_ready") and bool(runtime.call("anatomy_oral_ready"))
 		"anatomy_finish":
-			return TUNABLES.get_bool("features.anatomy_finish")
+			return runtime.has_method("anatomy_finish_ready") and bool(runtime.call("anatomy_finish_ready"))
 	return false

@@ -1877,6 +1877,9 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if is_instance_valid(main) and main.has_method("anon_encounter"):
 		main.call("anon_encounter", true)
 	state = State.POSING_IN
+	# integration: act-only visibility updates at the state change, not on the next poll.
+	if is_instance_valid(_anatomy):
+		_anatomy.call("apply_live")
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
@@ -2522,6 +2525,28 @@ func toggle_anatomy_finish() -> void:
 
 func anatomy_oral_active() -> bool:
 	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("oral_active"))
+
+
+## integration: precise action gates. With no act controller (assets missing, feature off) the
+## keys pass through and the HUD rows stay hidden.
+func anatomy_hole_ready() -> bool:
+	return is_instance_valid(_anatomy_act) and state in [State.ACTIVE, State.CLIMAX] \
+		and TUNABLES.get_bool("features.anatomy_holes") \
+		and not bool(_anatomy_act.call("oral_active"))
+
+
+func anatomy_oral_ready() -> bool:
+	return is_instance_valid(_anatomy_act) and state == State.ACTIVE \
+		and pose_id == CATALOG.STANDING and TUNABLES.get_bool("features.anatomy_oral")
+
+
+func anatomy_finish_ready() -> bool:
+	return is_instance_valid(_anatomy_act) and state in [State.ACTIVE, State.CLIMAX] \
+		and TUNABLES.get_bool("features.anatomy_finish")
+
+
+func anatomy_actions_ready() -> bool:
+	return anatomy_hole_ready() or anatomy_oral_ready() or anatomy_finish_ready()
 
 
 func anatomy_align_active() -> bool:
@@ -4334,6 +4359,9 @@ func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW:
 		return
 	_afterglow_elapsed += delta
+	# integration: keep the optional bed-body part tracking through afterglow.
+	if is_instance_valid(_anatomy_act):
+		_anatomy_act.call("afterglow_tick", delta)
 	_self_end_tick(delta)
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return
@@ -4388,6 +4416,9 @@ func _restore_begin() -> void:
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	state = State.RESTORE
+	# integration: act-only anatomy hides as soon as the act starts restoring.
+	if is_instance_valid(_anatomy):
+		_anatomy.call("apply_live")
 	_restore_left = RESTORE_SECONDS
 	_clear_face()
 	_wings_controller().release()
@@ -4450,6 +4481,9 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	pose_id = ""
 	source = ""
 	bed = null
+	# integration: act-only anatomy hides immediately when the act ends.
+	if is_instance_valid(_anatomy):
+		_anatomy.call("apply_live")
 
 ## One-time bookkeeping after the borrowed state is back. Idempotent: a failed start has no act
 ## to reset and must not start aftercare.

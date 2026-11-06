@@ -284,7 +284,6 @@ func tick(delta: float) -> void:
 	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
 	# instead of snapping closed; the climax wink is applied on top as a pulse.
 	if _state() in [2, 3]:
-		var vulva_hug := maxf(TUNABLES.get_float("anatomy.vulva_hug"), 0.0)
 		var anal_hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.0)
 		var closed := 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front
 		if _wink_left > 0.0:
@@ -295,7 +294,8 @@ func tick(delta: float) -> void:
 		# and the lips cannot read as gripping it.
 		anatomy.call("set_fill", _fill)
 		anatomy.call("drive", closed)
-		anatomy.call("set_stretch", _wide * front * vulva_hug)
+		# Solve the lips against the real shaft radius instead of a fixed stretch constant.
+		anatomy.call("set_grip", _wide * WINKING_STRETCH_RADIUS * front)
 		# The ring opens and stretches: `stretch` widens it, `open` rolls the rim outward. Driving
 		# only one of them leaves it half closed.
 		var anal := _wide * _hole_mix * rearward * anal_hug

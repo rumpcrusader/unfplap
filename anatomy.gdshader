@@ -14,6 +14,8 @@ uniform vec4 inner_shadow: source_color;
 uniform vec4 fresnel: source_color = vec4(0.1, 0.1, 0.1, 0.1);
 
 varying vec3 lit_fill;
+// integration: local position, so the pink interior can be clipped to the solved hole radius.
+varying vec3 hole_pos;
 varying vec3 gloss_color;
 varying float gloss_strength;
 
@@ -22,13 +24,17 @@ uniform float cut_depth = 0.0;
 // integration: a small depth bias for the outer anatomy, so the jiggling coat cannot cover it.
 uniform float cover_depth = 0.0;
 
-// integration: the vulva widens locally around its own opening, so the anal bulb above it never
-// scales with the insertion.
+// integration: the opening's rim and the radius where the mound must stay put. The band between
+// them is remapped radially, so the hole grows to the shaft while the outer silhouette keeps its
+// size and the lips thin out.
 uniform vec3 vulva_centre = vec3(0.0, -0.012, 0.02);
-uniform float vulva_open = 0.0;
-uniform float vulva_radius = 0.055;
-// integration: 1 widens the whole rim, lower leaves the back of a ring quieter than its front.
-uniform float vulva_taper = 1.0;
+uniform float lip_radius = 0.03;
+uniform float lip_outer = 0.066;
+// integration: mesh-local radius the opening must reach (Anon's shaft at the contact plane).
+uniform float hole_target = 0.0;
+// integration: how much of the opening happens vertically. The lips part sideways around the
+// shaft; the top and bottom of the opening barely move, which keeps them tight on the shaft.
+uniform float lip_vertical = 0.5;
 
 // integration: the teats mesh fades to her coat at the rim and gets its sway uniforms.
 uniform vec4 coat_color: source_color;
@@ -46,21 +52,37 @@ uniform float contour_amount = 1.0;
 void vertex() {
 	VERTEX += flank_jiggle(VERTEX);
 	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
-	if (vulva_open > 0.0001) {
+	if (hole_target > lip_radius) {
 		vec3 spread = VERTEX - vulva_centre;
-		vec3 flat_offset = vec3(spread.x, spread.y, 0.0);
-		float near_hole = 1.0 - smoothstep(vulva_radius * 0.25, vulva_radius, length(flat_offset));
-		float facing = smoothstep(-0.02, 0.02, spread.z);
-		float amount = mix(vulva_taper, 1.0, facing);
-		float widen = 1.0 + vulva_open * near_hole * amount;
-		spread.x *= widen;
-		spread.y *= widen;
-		VERTEX = vulva_centre + spread;
+		float radius = length(spread.xy);
+		// Scale the band multiplicatively, like the build that wrapped well, but solved so the rim
+		// lands exactly on the shaft radius and the falloff extends past the shaft so there is
+		// still lip material around it. Scaling (rather than translating) is what gives the mound
+		// enough area to surround a large shaft.
+		float reach = max(lip_outer, hole_target * 1.15);
+		float weight = 1.0 - smoothstep(lip_radius, reach, radius);
+		float amount = (hole_target / lip_radius - 1.0) * weight;
+		if (radius > 0.0001 && weight > 0.0) {
+			// Anisotropic: the lips part sideways (full), the top and bottom only partly, so the
+			// opening becomes a wide oval whose ends stay wrapped on the shaft.
+			spread.x *= 1.0 + amount;
+			spread.y *= 1.0 + amount * lip_vertical;
+			VERTEX = vulva_centre + spread;
+		}
 	}
+	hole_pos = VERTEX;
 }
 
 void fragment() {
 	float inside = smoothstep(0.42, 0.58, COLOR.r);
+	// The pink interior must fill the opening exactly: everything within the solved hole radius is
+	// interior, so the shaft is covered right up to the lips instead of showing through.
+	if (hole_target > 0.0) {
+		// The interior is only interior inside the opening. Painting (and depth-pulling) the inner
+		// wall beyond the lip ring is what showed as pink folds around the shaft.
+		float hole_r = length((hole_pos - vulva_centre).xy);
+		inside *= 1.0 - smoothstep(hole_target * 0.9, hole_target * 1.05, hole_r);
+	}
 	float skin = smoothstep(0.58, 0.63, COLOR.g);
 	float lip = smoothstep(0.84, 0.88, COLOR.g);
 	if (UV.x < span_from || UV.x > span_to || (UV.x > gap_from && UV.x < gap_to)) {

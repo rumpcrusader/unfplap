@@ -10,11 +10,11 @@ extends SkeletonModifier3D
 var offset_world := Vector3.ZERO
 
 ## How much of the offset each bone above the hips receives.
-const GRADES := {"Spine": 0.55, "Chest": 0.25,
+const GRADES := {"Spine": 0.55, "Chest": 0.25, "UpperChest": 0.1,
 	"LeftUpperLeg": 0.35, "RightUpperLeg": 0.35}
 ## Bones that must not follow at all: everything above the chest and the lower legs, so the knees
 ## and planted feet stay exactly where BodyIK put them.
-const PINNED := ["UpperChest", "Neck", "Head",
+const PINNED := ["Neck", "Head",
 	"LeftLowerLeg", "LeftFoot", "LeftToes", "RightLowerLeg", "RightFoot", "RightToes"]
 
 

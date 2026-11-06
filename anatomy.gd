@@ -32,10 +32,13 @@ const WINKING_TOUCH_Y := 0.52
 const WINKING_DOCK_REF := -0.0311
 const WINKING_CUT_DEPTH := 0.07
 ## Shader widening applied to the vulva per unit of stretch, so the anal bulb never scales with it.
-const VULVA_WIDEN := 1.0
-## The anal cup's back rim widens less than its front, so it keeps its shape around the shaft.
-const ANAL_TAPER := 0.75
-const WINKING_CUT_FILLED := 0.4
+## How far outside the rim the widening fades out. The measured mound ends ~4.5 cm from the
+## opening and the anal bulb starts ~8 cm out, so this keeps the bulb out of the deformation.
+const LIP_OUTER_FACTOR := 3.0
+## Anal cup rim and outer radius, in its own mesh units.
+const ANAL_LIP := 0.022
+const ANAL_OUTER_FACTOR := 2.2
+const WINKING_CUT_FILLED := 0.9
 const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
@@ -64,6 +67,12 @@ var _scale := DEFAULT_SCALE
 var _body: Array = []
 var _lift := 0.0
 var _dock_bottom := INF
+## The tail dock mesh; with genitals attached it reads as a stray blob above the ponut.
+var _dock: MeshInstance3D
+var _dock_was_visible := true
+## Mean radius of the lip band in mesh-local units, measured once so the opening can be solved
+## exactly against the shaft's radius instead of scaled by a constant.
+var _lip_radius := 0.03
 var _closed := 1.0
 var _rest := 1.0
 var _fill := 0.0
@@ -167,9 +176,13 @@ func _attach() -> void:
 	var identity: Variant = pony.get("identity")
 	_body = WINKING_BODIES.get(str(identity.get("id")) if identity != null else "", [])
 	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
+	_dock = dock
+	if is_instance_valid(dock):
+		_dock_was_visible = dock.visible
 	if _body.is_empty() and is_instance_valid(dock) and dock.mesh != null:
 		_dock_bottom = dock.mesh.get_aabb().position.y
 	_apply_place()
+	_lip_radius = _measure_lip_radius()
 	_apply_material()
 	_attach_anal()
 	_attach_teats()
@@ -217,12 +230,24 @@ func _apply_visibility() -> void:
 		_mesh.visible = show
 	if is_instance_valid(_anal_mesh):
 		_anal_mesh.visible = show
+	_apply_dock(show)
 	if is_instance_valid(_teats_mesh):
 		_teats_mesh.visible = teats_show
 	if is_instance_valid(_skin_strip):
 		_skin_strip.visible = teats_show
 	if is_instance_valid(_teats_jiggle):
 		_teats_jiggle.set_physics_process(teats_show)
+
+
+## The dock is a skinned mesh, so hiding it is the only reliable way to stop it reading as a
+## stray blob above the ponut once the anatomy is visible.
+func _apply_dock(anatomy_shown: bool) -> void:
+	if not is_instance_valid(_dock):
+		return
+	if not anatomy_shown:
+		_dock.visible = _dock_was_visible
+		return
+	_dock.visible = not TUNABLES.get_bool("anatomy.hide_dock")
 
 
 func _tail_lift() -> float:
@@ -304,7 +329,11 @@ func _apply_material() -> void:
 	material.set_shader_parameter("cover_depth",
 		TUNABLES.get_float("anatomy.cover_depth_m") / world_scale)
 	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
-	material.set_shader_parameter("vulva_open", _wide * VULVA_WIDEN)
+	material.set_shader_parameter("lip_radius", _lip_radius)
+	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
+	material.set_shader_parameter("lip_vertical",
+		clampf(TUNABLES.get_float("anatomy.lip_vertical"), 0.0, 1.0))
+	material.set_shader_parameter("hole_target", _wide)
 	_mesh.set_surface_override_material(0, material)
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	OUTLINE_EXCLUSION.apply_to(_mesh)
@@ -312,9 +341,9 @@ func _apply_material() -> void:
 		var anal_material := material.duplicate() as ShaderMaterial
 		# The same local widening, aimed at the anal opening instead of the vulva.
 		anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
-		anal_material.set_shader_parameter("vulva_radius", 0.045)
-		anal_material.set_shader_parameter("vulva_taper", ANAL_TAPER)
-		anal_material.set_shader_parameter("vulva_open", 0.0)
+		anal_material.set_shader_parameter("lip_radius", ANAL_LIP)
+		anal_material.set_shader_parameter("lip_outer", ANAL_LIP * ANAL_OUTER_FACTOR)
+		anal_material.set_shader_parameter("hole_target", 0.0)
 		_anal_mesh.set_surface_override_material(0, anal_material)
 	_apply_winking_shape()
 	_apply_teats_material(material)
@@ -364,9 +393,9 @@ func _attach_anal() -> void:
 		var anal_material := (_mesh.get_surface_override_material(0) as ShaderMaterial).duplicate() \
 			as ShaderMaterial
 		anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
-		anal_material.set_shader_parameter("vulva_radius", 0.045)
-		anal_material.set_shader_parameter("vulva_taper", ANAL_TAPER)
-		anal_material.set_shader_parameter("vulva_open", 0.0)
+		anal_material.set_shader_parameter("lip_radius", ANAL_LIP)
+		anal_material.set_shader_parameter("lip_outer", ANAL_LIP * ANAL_OUTER_FACTOR)
+		anal_material.set_shader_parameter("hole_target", 0.0)
 		mesh.set_surface_override_material(0, anal_material)
 
 
@@ -601,14 +630,67 @@ func wink(count := 1, seconds := 0.45) -> void:
 		from = _rest
 
 
-## Widen the vulva around its own opening. This is a local shader deformation: the `stretch`
-## blend shape scales the whole mesh, anus bulb included, so it is deliberately left at zero.
-func set_stretch(wide: float) -> void:
-	_wide = clampf(wide, 0.0, 1.4)
-	if is_instance_valid(_mesh):
-		var material := _mesh.get_surface_override_material(0) as ShaderMaterial
-		if material != null:
-			material.set_shader_parameter("vulva_open", _wide * VULVA_WIDEN)
+## Open the lips to the shaft's actual radius. `shaft_radius` is world metres; the mesh works in
+## local units, so it is converted with the mesh scale and solved against the measured lip radius:
+## the lip band is remapped from the rim out to `lip_outer`, so the opening reaches exactly that
+## radius while the outer silhouette keeps its shape.
+func set_grip(shaft_radius: float) -> void:
+	_wide = maxf(shaft_radius, 0.0)
+	if not is_instance_valid(_mesh):
+		return
+	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
+	var scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.0001)
+	var local := shaft_radius / scale
+	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
+	# the rim band outward to the measured shaft radius.
+	var shape := _mesh.find_blend_shape_by_name("stretch")
+	if shape >= 0:
+		_mesh.set_blend_shape_value(shape, 0.0)
+	material.set_shader_parameter("hole_target", local)
+
+
+## The lip band's mean radius in local units, used by the grip solve and by tuning readouts.
+func lip_radius() -> float:
+	return _lip_radius
+
+
+## Measure the inner lip ring from the mesh geometry. The vertex colours cannot be used: 90 % of
+## the mesh carries the lip flag. The rim is the first radius whose vertex density is high, found
+## by binning the planar distance from the opening.
+func _measure_lip_radius() -> float:
+	if not is_instance_valid(_mesh) or _mesh.mesh == null:
+		return 0.03
+	var arrays := _mesh.mesh.surface_get_arrays(0)
+	if arrays.is_empty():
+		return 0.03
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+	if verts.is_empty() or colors.size() < verts.size():
+		return 0.03
+	const STEP := 0.002
+	const BINS := 40
+	var bin_counts := PackedInt32Array()
+	bin_counts.resize(BINS)
+	for v: Vector3 in verts:
+		var radius := Vector2(v.x - WINKING_OPENING.x, v.y - WINKING_OPENING.y).length()
+		var bin := int(radius / STEP)
+		if bin >= 0 and bin < BINS:
+			bin_counts[bin] += 1
+	var peak := 0
+	for bin: int in BINS:
+		peak = maxi(peak, bin_counts[bin])
+	if peak == 0:
+		return 0.03
+	# Walk inward from the densest band until the density collapses: that edge is the rim.
+	var dense := int(float(peak) * 0.25)
+	var rim_bin := 0
+	for bin: int in BINS:
+		if bin_counts[bin] >= dense:
+			rim_bin = bin
+			break
+	return maxf(float(rim_bin) * STEP, 0.004)
 
 
 func set_fill(fill: float) -> void:
@@ -625,10 +707,9 @@ func _apply_winking_shape() -> void:
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
 		var open := smoothstep(0.0, 0.4, 1.0 - _closed)
-		# `Vulva hug` scales how far the cut closes over the shaft once it is filled.
-		var hug := maxf(TUNABLES.get_float("anatomy.vulva_hug"), 0.01)
-		var filled := lerpf(1.0, WINKING_CUT_FILLED / hug, smoothstep(0.5, 1.0, _fill))
+		var filled := lerpf(1.0, WINKING_CUT_FILLED, smoothstep(0.5, 1.0, _fill))
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled
+			* TUNABLES.get_float("anatomy.hole_depth")
 			* _mesh.global_transform.basis.get_scale().x)
 
 
@@ -642,7 +723,7 @@ func set_anal_shape(fill: float, wide := 0.0) -> void:
 	if material != null:
 		var scale := _mesh.global_transform.basis.get_scale().x
 		var hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.01)
-		material.set_shader_parameter("vulva_open", wide * VULVA_WIDEN)
+		material.set_shader_parameter("hole_target", wide * ANAL_LIP * 1.6)
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
 			* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(fill, 1.0)))
 
@@ -654,7 +735,7 @@ func react() -> void:
 
 func _clear_part() -> void:
 	set_fill(0.0)
-	set_stretch(0.0)
+	set_grip(0.0)
 	set_anal_shape(0.0)
 	_apply_winking_shape()
 

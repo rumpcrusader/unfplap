@@ -9,6 +9,8 @@ var main: Node
 
 var _suppress_q := false
 var _old_q := false
+## One recapture log per act. The cursor can take more than one physics tick to report captured.
+var _mouse_recapture_logged := false
 
 
 func _ready() -> void:
@@ -30,6 +32,7 @@ func _physics_process(_delta: float) -> void:
 		# controls_locked owns the act, so the mod keeps the mouse captured itself.
 		_keep_mouse_captured()
 	else:
+		_mouse_recapture_logged = false
 		_restore_seated_q()
 
 
@@ -46,7 +49,8 @@ func _keep_mouse_captured() -> bool:
 	if main.has_method("menu_panel_open") and bool(main.call("menu_panel_open")):
 		return false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	if main.has_method("debug"):
+	if not _mouse_recapture_logged and main.has_method("debug"):
+		_mouse_recapture_logged = true
 		main.call("debug", "recaptured mouse during act")
 	return true
 

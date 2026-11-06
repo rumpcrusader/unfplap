@@ -271,6 +271,9 @@ var _last_pattern := ""
 var _stroke_window: Array[Dictionary] = []
 var _last_stroke_at := -1000.0
 var _utterance_serial := 0
+## One `utterance delivered` log per line: the pending key stays until speech stops and the release
+## hold passes, so the delivered state is seen every frame.
+var _utterance_delivered_key := ""
 var _lines
 var _vocal_cooldown := 0.0
 var _overwhelmed := 0.0
@@ -2326,6 +2329,7 @@ func _reset_thrust_state() -> void:
 	_close_rewarded = false
 	_close_caress_earned = false
 	_utterance_serial = 0
+	_utterance_delivered_key = ""
 	_utterance_scheduler().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
@@ -2838,6 +2842,7 @@ func _utterance_tick() -> void:
 	var lines = _utterance_scheduler()
 	var key = lines.pending_key()
 	if key.is_empty():
+		_utterance_delivered_key = ""
 		return
 	var now := _now_s()
 	var line := "unknown"
@@ -2848,8 +2853,11 @@ func _utterance_tick() -> void:
 		lines.drop_pending()
 		return
 	if line == "delivered":
-		_log("utterance delivered key=%s age=%.1f" % [
-			key, maxf(0.0, now - lines.pending_since())])
+		# A released line keeps this state until speech stops and the hold passes. Log it once.
+		if key != _utterance_delivered_key:
+			_utterance_delivered_key = key
+			_log("utterance delivered key=%s age=%.1f" % [
+				key, maxf(0.0, now - lines.pending_since())])
 		lines.note_finished(now, key)
 		_release_finished_utterance()
 		return

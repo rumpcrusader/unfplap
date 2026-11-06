@@ -210,8 +210,12 @@ func pending_override() -> bool:
 
 
 ## The director reports the final sentence delivered. Keep the slot until speech actually stops.
+## The delivered row is observed every frame, so only the first report sets the finish clock; a
+## later repeat must not restart the release hold.
 func note_finished(now: float, key: String) -> void:
 	if key.is_empty() or key != _pending_key:
+		return
+	if _done_key == key:
 		return
 	_done_key = key
 	_done_at = now

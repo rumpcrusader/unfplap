@@ -39,6 +39,8 @@ func run() -> void:
 	base.note_finished(10.0, "cue:1")
 	check(not base.release_ready(10.9), "release waits 1 s after speech stops")
 	check(base.release_ready(11.0), "release is ready after the hold")
+	base.note_finished(12.0, "cue:1")
+	check(base.release_ready(12.5), "a repeated delivered tick keeps the first finish time")
 	base.release()
 	check(base.channel_free(), "release frees the slot")
 

@@ -77,6 +77,20 @@ script. `godot` must be on `PATH`.
   after bed transport. A tilted saved transform otherwise makes support recovery fight the
   collider every frame and print endless `re-seated on the floor` lines.
 
+Stress lab:
+
+```bash
+./lab-stress.sh
+```
+
+- Uses the separate `unfplap-stress` world and writes `last-run-stress.log`.
+- Spawns every adult mare the population catalogue can create, excluding fillies, stallions and
+  Spike, in a 15-column grid in front of Golden Oak Library.
+- Reuses the normal lab's world loading, pause and idle setup; it does not use the five-mare
+  roster or the library bed.
+- It logs the target count, the anatomy/action flags, missing mares and each placement. Use it
+  with `debug_logs` and `debug_perf` on for the anatomy stress pass.
+
 Tests (manual, before every commit):
 
 ```bash
@@ -1204,6 +1218,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `anatomy_align` | `false` | experimental standing hip/shaft alignment; camera unchanged |
 | `anatomy_bed_body` | `false` | experimental Anon bed body and eye view |
 | `anatomy_vr` | `false` | experimental VR act |
+| `anatomy.act_only` | `false` | show mare anatomy only while an act is running |
 | `act_bystanders` | `false` | adult witness lines using the modern perception |
 | `act_line_variety` | `false` | fresh line angles and speech-feel notes |
 | `act_chat` | `false` | Enter opens chat during an act |

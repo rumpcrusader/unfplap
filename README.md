@@ -36,7 +36,7 @@ Desktop first. The optional VR standing act is experimental and off by default.
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Optional anatomy** — Adds hole, oral, finish and fluid controls, plus optional VR, each behind its own toggle. The anatomy assets are not kept in the repository, but a local build packs them when they are present.
+- **Optional anatomy** — Adds hole, oral, finish and fluid controls, plus optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository, but a local build packs them when they are present.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.

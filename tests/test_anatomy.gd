@@ -77,7 +77,7 @@ func run() -> void:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
 	for key: String in ["anatomy_align", "anatomy_bed_body", "anatomy_vr",
-			"act_bystanders", "act_line_variety", "act_chat", "act_public_offer"]:
+			"act_bystanders", "act_line_variety", "act_public_offer"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(not bool(SCHEMA.default_value("features." + key)), "%s is off by default" % key)
 	check(SCHEMA.has("anatomy.teats"), "teats flag")

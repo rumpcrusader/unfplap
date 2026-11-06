@@ -161,7 +161,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] \
-				and TUNABLES.get_bool("features.act_chat") and bool(main.call("open_act_chat")):
+				and bool(main.call("open_act_chat")):
 			get_viewport().set_input_as_handled()
 			return
 		var state := int(runtime.get("state"))

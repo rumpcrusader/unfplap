@@ -26,7 +26,7 @@ Desktop first. The optional VR standing act is experimental and off by default.
 | `V`         | Switch hole during the act (optional anatomy)                     |
 | `N`         | Oral in the standing pose (optional anatomy)                      |
 | `B`         | Choose finish in or out (optional anatomy)                        |
-| `Enter`     | Open chat during the act when `Act chat` is on                    |
+| `Enter`     | Open chat during the act                                          |
 | Hold `Y`    | End early before her first climax, or end the act/afterglow     |
 
 ## Features

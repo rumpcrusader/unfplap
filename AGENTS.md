@@ -781,7 +781,7 @@ examples.
   hug/deep-kiss key; the act consumes it without binding it so a hug cannot end the act's kiss.
 - Anatomy actions are additive and gated: `V` switches the hole in `ACTIVE`/`CLIMAX`, `N` turns her
   round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
-  opens the game chat during an act only when `act_chat` is on. With every anatomy flag off these
+  opens the game chat during an act. With every anatomy flag off these
   keys are not consumed and the act is exactly the master act.
 - `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
   bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
@@ -1224,7 +1224,6 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `anatomy.act_only` | `false` | show mare anatomy only while an act is running |
 | `act_bystanders` | `false` | adult witness lines using the modern perception |
 | `act_line_variety` | `false` | fresh line angles and speech-feel notes |
-| `act_chat` | `false` | Enter opens chat during an act |
 | `act_public_offer` | `false` | per-mare public consent affects offers |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |

@@ -371,7 +371,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 				show = key == "y"
 		elif state == STATE_CLIMAX:
 			show = true
-		# integration: anatomy/chat rows exist only while their feature is live.
+		# integration: anatomy rows exist only while their feature is live; chat is always live.
 		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish", "act_chat"]:
 			show = _extra_row_visible(key, state, standing, runtime)
 		control.visible = show
@@ -381,7 +381,7 @@ func _extra_row_visible(key: String, state: int, standing: bool, runtime: Node) 
 	if state == STATE_AFTERGLOW:
 		return false
 	if key == "act_chat":
-		return TUNABLES.get_bool("features.act_chat") and state in [STATE_ACTIVE, STATE_CLIMAX]
+		return state in [STATE_ACTIVE, STATE_CLIMAX]
 	# integration: use the runtime's precise readiness so missing anatomy assets hide the rows.
 	match key:
 		"anatomy_hole":

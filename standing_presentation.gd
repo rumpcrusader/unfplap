@@ -14,6 +14,9 @@ const PRESENT_FACE_TURN_RATE := 1.5
 const PRESENT_TURN_SETTLE_RAD := 0.06
 const PRESENT_TURN_TIMEOUT_S := 4.0
 const PRESENT_TURN_STALL_S := 0.75
+## Safety cap: the invitation owns her body, so no missed end path may leave the pose on forever.
+## Longer than the invite wait plus the turn.
+const PRESENT_MAX_SECONDS := 75.0
 const REQUEST_LIDS := 0.45
 const REQUEST_BLUSH := 1.0
 const STATE_IDLE := 0
@@ -35,6 +38,7 @@ var _present_glance_back := false
 var _present_glance_sign := 1.0
 var _present_glance_sign_set := false
 var _present_tail
+var _present_started := 0.0
 var _present_yaw := 0.0
 var _present_target_yaw := 0.0
 var _present_look_point := Vector3.ZERO
@@ -75,6 +79,7 @@ func present_standing() -> bool:
 	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
 		pony.request_posture("stand")
 	_present_turn_started = float(runtime.call("_now_s"))
+	_present_started = _present_turn_started
 	_present_turn_last_yaw = pony.rotation.y
 	_present_turn_still = 0.0
 	if pony.has_method("face_direction") and pony.get("face_turn_rate") != null:
@@ -97,6 +102,13 @@ func _attach_present_pose() -> void:
 	if not is_instance_valid(pony):
 		return
 	_pose_cfg = SETTINGS.pose(str(runtime.get("_id")), CATALOG.STANDING)
+	# The act stance bows and bends the forelegs for the thrust; seen from behind it reads as her
+	# front legs tucked between her hind. The invitation is a natural stand with the rump
+	# presented, so the act-only bow, foreleg bend and wide hind stance are removed.
+	_pose_cfg["bow"] = 0.0
+	_pose_cfg["foreleg"] = 0.0
+	_pose_cfg["foreleg_spread"] = 0.172
+	_pose_cfg["hind_spread"] = 0.0
 	var presentation_cfg: Dictionary = TUNABLES.block("presentation.standing.")
 	_pose_cfg["chin_up_deg"] = float(presentation_cfg.get("chin_up_deg", 30.0))
 	_pose_cfg["neck_down_deg"] = float(presentation_cfg.get("neck_down_deg", 15.0))
@@ -444,8 +456,14 @@ func process() -> void:
 
 func physics(delta: float) -> void:
 	_sync()
-	if _present_turning or _presenting:
-		_presentation_physics(delta)
+	if not (_present_turning or _presenting):
+		return
+	if float(runtime.call("_now_s")) - _present_started >= PRESENT_MAX_SECONDS:
+		_log("present standing expired after %.0f s" % PRESENT_MAX_SECONDS)
+		set_request_face(false)
+		clear_presentation()
+		return
+	_presentation_physics(delta)
 
 
 func _log(text: String) -> void:

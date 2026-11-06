@@ -3,11 +3,10 @@ extends Node
 ##   ./lab.sh
 ## The session is written to last-run.log beside the script.
 ##
-## Loads only Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack and pauses
+## Loads only Twilight, Fluttershy, Rarity, Derpy and Applejack and pauses
 ## population/living-world/time plus background AI. At setup they are moved to the path in front of
-## Golden Oak Library. Diamond Tiara is the filly witness fixture: no romance tier or dating record,
-## never invited to bed. Applejack and Diamond Tiara start as strangers: friendship 0, no romance
-## tier and no dating record.
+## Golden Oak Library. Applejack starts as a stranger: friendship 0, no romance tier and no dating
+## record.
 ## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. Generated town houses
 ## skip furnishing before the loading wait; the authored library keeps its room and bed. The
 ## dialogue director stays running, because it serializes replies and a stopped director leaves
@@ -24,12 +23,11 @@ extends Node
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "diamond_tiara", "applejack"]
+const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.
-const TEST_STRANGERS := ["applejack", "diamond_tiara"]
+const TEST_STRANGERS := ["applejack"]
 ## Starting love XP: 0 = New Couple and below the sex gate, 150 = Marefriend, 400 = Head Over
 ## Hooves, 900 = the dating maximum (Soulmates still needs marriage). The -/= keys step these.
-## Diamond Tiara is young and never gets entries here.
 const TEST_ROMANCE := {
 	"twilight_sparkle": 150,
 	"fluttershy": 400,
@@ -43,7 +41,7 @@ const SETUP_ACTIONS := [
 	"wait for the game's world loading screen to finish",
 	"temporarily set world/opening=skip, then restore the stored value",
 	"skip the arrival tutorial when it is active",
-	"restrict population to Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack (memory only)",
+	"restrict population to Twilight, Fluttershy, Rarity, Derpy and Applejack (memory only)",
 	"assign any missing test pony to Ponyville before spawning",
 	"lift Max nearby ponies to Unlimited for the loading screen, then restore it",
 	"place any far-off test pony's spawn at the library front",
@@ -103,8 +101,8 @@ func run() -> void:
 	var bed := _treebrary_bed()
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
-	print("[unfplap test] E sit, Ctrl lie back; test ponies teleported in front of the library")
-	print("[unfplap test] -/= romance tier (adults), 9/0 anger mood, Mouse4 bed (adults) or witness spot (filly), Mouse5 sex-ready (grants lover bond)")
+	print("[unfplap test] E sit, Ctrl lie back; test ponies placed around the library")
+	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond)")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -177,7 +175,7 @@ func _restore_nearby_cap() -> void:
 	_old_nearby = -1
 
 
-## Keep only the six test ponies in this session's population config, before the loading screen
+## Keep only the five test ponies in this session's population config, before the loading screen
 ## starts spawning the rest. A test pony that the world's config does not list is assigned to
 ## Ponyville here, because membership in TEST_IDS alone never spawns anybody. The edit is in
 ## memory only; population.json is not saved.

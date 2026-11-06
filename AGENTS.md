@@ -53,23 +53,21 @@ Manual lab:
 It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
 script. `godot` must be on `PATH`.
 
-- The lab loads only Twilight, Fluttershy, Rarity, Derpy, Diamond Tiara and Applejack, pauses
-  world scheduling and background AI, and uses the Golden Oak guest bed. It does not spawn a test
-  bed. Diamond Tiara is the filly witness fixture: no romance tier, no dating record, no bed
-  invite. Applejack and Diamond Tiara start as strangers: friendship 0, no romance tier and no
-  dating record.
+- The lab loads only Twilight, Fluttershy, Rarity, Derpy and Applejack, pauses world scheduling
+  and background AI, and uses the Golden Oak guest bed. It does not spawn a test bed. Applejack
+  starts as a stranger: friendship 0, no romance tier and no dating record.
 - Before the loading screen's furnishing wait the lab sets `furnish = false` on every generated
   house. Authored homes (the library) keep their furniture and bed, so the 200 ms-per-house
   furnishing stagger never runs.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
-- The lab re-seeds its six ponies on every startup (friendship and mood, idle posture; romance
+- The lab re-seeds its five ponies on every startup (friendship and mood, idle posture; romance
   tier and dating record only for the adults that are not strangers). Four ponies are moved to a
-  row on the path in front of Golden Oak Library; Applejack and Diamond Tiara are spawned nearby
-  to the side of the library instead. Before the loading screen spawns the town, the in-memory
+  row on the path in front of Golden Oak Library; Applejack is spawned nearby to the side of the
+  library instead. Before the loading screen spawns the town, the in-memory
   population config assigns every missing test pony to Ponyville, then removes all other
   residents; `population.json` is not saved. It also lifts the player's Max nearby ponies cap in
-  memory for the loading screen (a value of four would leave two test ponies out) and restores it
+  memory for the loading screen (a value of four would leave a test pony out) and restores it
   once population is paused. A test pony whose home sits beyond the 240 m activation radius gets a
   session-only saved spawn at the library front. The rest of the world's context and inventory
   persist.
@@ -883,9 +881,12 @@ examples.
   `PRESENT_FACE_TURN_RATE = 1.5`, clear navigator `face_point` and conversation target late each
   physics tick, then attach the standing modifier and tail-aside once the turn settles. Do not
   write the transform directly during the turn: that rotated the body under planted hooves and
-  twisted her legs. After settling, hold `face_turn_rate = 0` and lock the body facing. It is not
-  the act: no camera, lock, HUD or `sex_active`. `unfplap:request:` navigator ownership keeps
-  `Y` valid until the episode ends.
+  twisted her legs. The idle stance is a natural stand: the act's `bow`, `foreleg` bend and wide
+  `hind_spread` are zeroed so her front legs do not read as tucked between her hind. After
+  settling, hold `face_turn_rate = 0` and lock the body facing. It is not the act: no camera,
+  lock, HUD or `sex_active`. `unfplap:request:` navigator ownership keeps `Y` valid until the
+  episode ends. A `PRESENT_MAX_SECONDS = 75 s` safety clears the pose and request face if no end
+  path fires.
 - Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
   as `situation`. The ask must be phrased as a question. Reminders are generated at 12 s and
   24 s. A no-reply offer gives up at 60 s; after any answer the deadline is 45 s, and after a
@@ -1090,16 +1091,15 @@ examples.
   outside an act.
 - `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
-- Lab: `-`/`=` romance tier (adults only), `9`/`0` anger mood (the impression and its held
-  face), Mouse4 bed invite, Mouse5
+- Lab: `-`/`=` romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed
+  invite, Mouse5
   sex-ready. Mouse5 grants the lover bond after the neutral mood reset, so the default gate is
   satisfied; startup leaves bonds unset. Mouse4 moves a mare farther than `8 m` (or on another
   floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the
-  snuggle invite. On Diamond Tiara both Mouse4 and Mouse5 stop as the filly witness: no romance,
-  no dating record and no bond. Backtick (`` ` ``) toggles the debug console with a temporary
-  control-lock release, so it also opens while Anon is lying down.
+  snuggle invite. Backtick (`` ` ``) toggles the debug console with a temporary control-lock
+  release, so it also opens while Anon is lying down.
 - The lab places the four settled ponies in a row in front of Golden Oak Library at startup and
-  spawns the two strangers nearby to the side. Its startup log
+  spawns Applejack nearby to the side. Its startup log
   lists every setup action (opening/tutorial handling, population restriction/prune, AI/time
   pauses, per-pony friendship/mood/idle, adult romance/dating, no spawned bed).
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.

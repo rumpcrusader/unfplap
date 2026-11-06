@@ -23,7 +23,7 @@ static func format(template: String, values: Dictionary) -> String:
 	return out
 
 
-## Short private state line for the AI. No speed/depth units: the mood, the two taste axes
+## Short private state line for the AI. No speed/depth units: the mood, the two preference axes
 ## and the last concrete input are what a partner would actually notice.
 static func state_line(pose_id: String, mood: String, intensity: String, pattern: String,
 		last_touch: String, last_talk: String, seconds: float, climaxes := 0) -> String:

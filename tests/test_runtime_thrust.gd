@@ -27,7 +27,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func _runtime() -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._taste = PREF.resolve({
+	runtime._preferences = PREF.resolve({
 		"intensity": "firm",
 		"pattern": "steady",
 		"touch": ["caress"],

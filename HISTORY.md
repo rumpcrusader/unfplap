@@ -10,7 +10,7 @@ only place that decides whether an act was good, neutral or bad, and what that c
 | Component | Weight | Passes when | Applies |
 |---|---:|---|---|
 | Climax | `0.30` | she reached at least one climax | always |
-| Talk | `0.20` | at least one liked talk category and no disliked talk | only if `taste.talk` is non-empty |
+| Talk | `0.20` | at least one liked talk category and no disliked talk | only if `preferences.talk` is non-empty |
 | Touch | `0.20` | at least one liked touch and no disliked touch | only if she has touch likes or dislikes |
 | Motion | `0.15` | a majority of scored real thrusts match both her intensity and pattern | only after the pattern window has at least three strokes |
 | Not early | `0.15` | not an intentional 0-climax early end | always |
@@ -41,7 +41,7 @@ Minimum evidence: an act shorter than `history.early_grace_s` (20 s) **and** wit
 intentional early-end path commits an early summary, and only after the grace period or the first
 real thrust. A neutral early end adds `history.mild_hurt` (1) instead of a full bad-act penalty.
 
-`talk-seeker` means a non-empty `taste.talk` list. Touch applies when she has a touch like or a
+`talk-seeker` means a non-empty `preferences.talk` list. Touch applies when she has a touch like or a
 touch dislike. A mare with an empty talk list is never punished for a quiet act.
 
 ## Rewards
@@ -129,7 +129,7 @@ There is **no break-up path**. The highest tier closes sex, not the relationship
 
 ## Neglect tolerance and the mid-act stop
 
-`taste.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab edits it
+`preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab edits it
 as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is forgiving. The
 old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 
@@ -214,7 +214,7 @@ back to the readiness threshold. It does not disable the per-mare mid-act neglec
 The debug thresholds and weights live under `History` in the Debug tab. They are `num` entries, so
 stored values are never clamped by the consumer. See `TUNING.md`.
 
-The per-mare neglect-tolerance tier is a taste field, not a global setting: edit it in
+The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
 **Characters**. The thresholds, like relief, decay and stop cooldowns are the `tolerance.*` debug
 tunables.
 

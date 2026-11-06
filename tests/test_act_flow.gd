@@ -68,7 +68,7 @@ func run() -> void:
 	check(TAIL_TUCK.DURATION == 20.0, "the stop tail tuck lasts twenty seconds")
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._taste = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
+	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
 	runtime.state = 4 # AFTERGLOW
 	runtime.pose_id = CATALOG.MISSIONARY
 	runtime.pony_climaxes = 2
@@ -149,7 +149,7 @@ func _check_commit() -> void:
 	runtime._id = "rarity"
 	runtime._display_name = "Rarity"
 	runtime._event_id = "intimacy_test"
-	runtime._taste = {"intensity": "firm", "pattern": "steady", "talk": [],
+	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
 		"touch": [], "dislikes": []}
 	runtime._act_seconds = 90.0
 	runtime._act_thrusts = 10
@@ -189,7 +189,7 @@ func _check_commit() -> void:
 	runtime._summary_done = false
 	runtime._act_touch_dislikes = {"smack": 2}
 	runtime._act_talk_dislikes = 0
-	runtime._taste = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
+	runtime._preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime.call("_commit_summary", false)
 	var stopped_summary: Dictionary = runtime.get("_summary")

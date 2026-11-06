@@ -1,6 +1,6 @@
 extends RefCounted
 ## Every spawnable adult mare in the base game 0.3.0: display name, settings order and a
-## private taste profile. `settings.gd` merges these as the character defaults; a player's
+## private preference profile. `settings.gd` merges these as the character defaults; a player's
 ## settings file overrides them per pony.
 ##
 ## The first sixteen keep their original tuned profiles and selector order; the rest follow by
@@ -222,7 +222,7 @@ const TEMPLATES := {
 		"event_prompts": {
 			"climax": "You have just climaxed during intimacy with Anon. Say ONE short sentence, at most 12 words, in your own voice. Something like \"Oh goodness, oh goodness...\" fits, but keep the flustered baseline. Do not describe anatomy.",
 		},
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -235,7 +235,7 @@ const TEMPLATES := {
 		"poses": {"missionary": {"hind_spread": 0.45}},
 	},
 	"rarity": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -247,7 +247,7 @@ const TEMPLATES := {
 		},
 	},
 	"twilight_sparkle": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss"],
@@ -257,7 +257,7 @@ const TEMPLATES := {
 		},
 	},
 	"derpy_hooves": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -267,7 +267,7 @@ const TEMPLATES := {
 		},
 	},
 	"pinkie_pie": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -277,7 +277,7 @@ const TEMPLATES := {
 		},
 	},
 	"applejack": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress", "smack"],
@@ -287,7 +287,7 @@ const TEMPLATES := {
 		},
 	},
 	"rainbow_dash": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -297,7 +297,7 @@ const TEMPLATES := {
 		},
 	},
 	"lyra_heartstrings": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress", "kiss"],
@@ -307,7 +307,7 @@ const TEMPLATES := {
 		},
 	},
 	"octavia_melody": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -318,7 +318,7 @@ const TEMPLATES := {
 		},
 	},
 	"vinyl_scratch": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack", "kiss"],
@@ -328,7 +328,7 @@ const TEMPLATES := {
 		},
 	},
 	"berry_punch": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -338,7 +338,7 @@ const TEMPLATES := {
 		},
 	},
 	"cheerilee": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -348,7 +348,7 @@ const TEMPLATES := {
 		},
 	},
 	"maud_pie": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -359,7 +359,7 @@ const TEMPLATES := {
 		},
 	},
 	"trixie": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss"],
@@ -369,7 +369,7 @@ const TEMPLATES := {
 		},
 	},
 	"zecora": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -380,7 +380,7 @@ const TEMPLATES := {
 		},
 	},
 	"spitfire": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -390,7 +390,7 @@ const TEMPLATES := {
 		},
 	},
 	"aloe": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -402,7 +402,7 @@ const TEMPLATES := {
 		},
 	},
 	"amethyst_star": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -413,7 +413,7 @@ const TEMPLATES := {
 		},
 	},
 	"angel_wings": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["caress", "kiss"],
@@ -424,7 +424,7 @@ const TEMPLATES := {
 		},
 	},
 	"apple_bumpkin": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -435,7 +435,7 @@ const TEMPLATES := {
 		},
 	},
 	"banana_fluff": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["caress"],
@@ -446,7 +446,7 @@ const TEMPLATES := {
 		},
 	},
 	"beauty_brass": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -457,7 +457,7 @@ const TEMPLATES := {
 		},
 	},
 	"blossomforth": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress"],
@@ -468,7 +468,7 @@ const TEMPLATES := {
 		},
 	},
 	"blue_bobbin": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -479,7 +479,7 @@ const TEMPLATES := {
 		},
 	},
 	"sweetie_drops": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress", "kiss"],
@@ -490,7 +490,7 @@ const TEMPLATES := {
 		},
 	},
 	"caramel_apple": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -501,7 +501,7 @@ const TEMPLATES := {
 		},
 	},
 	"cherry_berry": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["kiss"],
@@ -512,7 +512,7 @@ const TEMPLATES := {
 		},
 	},
 	"cherry_spices": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -524,7 +524,7 @@ const TEMPLATES := {
 		},
 	},
 	"clear_skies": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -535,7 +535,7 @@ const TEMPLATES := {
 		},
 	},
 	"clear_sky": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -546,7 +546,7 @@ const TEMPLATES := {
 		},
 	},
 	"cloud_kicker": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "teasing",
 			"touch": ["smack", "kiss"],
@@ -557,7 +557,7 @@ const TEMPLATES := {
 		},
 	},
 	"cloudchaser": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -568,7 +568,7 @@ const TEMPLATES := {
 		},
 	},
 	"cloudy_quartz": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -580,7 +580,7 @@ const TEMPLATES := {
 		},
 	},
 	"minuette": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["kiss", "caress"],
@@ -591,7 +591,7 @@ const TEMPLATES := {
 		},
 	},
 	"coloratura": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["kiss", "caress"],
@@ -602,7 +602,7 @@ const TEMPLATES := {
 		},
 	},
 	"daisy": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -613,7 +613,7 @@ const TEMPLATES := {
 		},
 	},
 	"daring_do": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["kiss"],
@@ -624,7 +624,7 @@ const TEMPLATES := {
 		},
 	},
 	"diamond_mint": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["caress"],
@@ -635,7 +635,7 @@ const TEMPLATES := {
 		},
 	},
 	"dr_fauna": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -646,7 +646,7 @@ const TEMPLATES := {
 		},
 	},
 	"fleetfoot": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -657,7 +657,7 @@ const TEMPLATES := {
 		},
 	},
 	"flitter": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress", "kiss"],
@@ -668,7 +668,7 @@ const TEMPLATES := {
 		},
 	},
 	"florina_tart": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -679,7 +679,7 @@ const TEMPLATES := {
 		},
 	},
 	"golden_harvest": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -690,7 +690,7 @@ const TEMPLATES := {
 		},
 	},
 	"helia": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -701,7 +701,7 @@ const TEMPLATES := {
 		},
 	},
 	"janine_manewitz": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -713,7 +713,7 @@ const TEMPLATES := {
 		},
 	},
 	"lemon_hearts": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["kiss"],
@@ -724,7 +724,7 @@ const TEMPLATES := {
 		},
 	},
 	"lemony_gem": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -735,7 +735,7 @@ const TEMPLATES := {
 		},
 	},
 	"lighthoof": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -746,7 +746,7 @@ const TEMPLATES := {
 		},
 	},
 	"lightning_dust": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -757,7 +757,7 @@ const TEMPLATES := {
 		},
 	},
 	"lilac_links": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -768,7 +768,7 @@ const TEMPLATES := {
 		},
 	},
 	"lily_lace": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["kiss"],
@@ -780,7 +780,7 @@ const TEMPLATES := {
 		},
 	},
 	"lily_valley": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -791,7 +791,7 @@ const TEMPLATES := {
 		},
 	},
 	"limestone_pie": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -803,7 +803,7 @@ const TEMPLATES := {
 		},
 	},
 	"shoeshine": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -814,7 +814,7 @@ const TEMPLATES := {
 		},
 	},
 	"lotus_blossom": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -825,7 +825,7 @@ const TEMPLATES := {
 		},
 	},
 	"luster_dawn": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss", "caress"],
@@ -836,7 +836,7 @@ const TEMPLATES := {
 		},
 	},
 	"lyrica_lilac": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "teasing",
 			"touch": ["caress", "kiss"],
@@ -847,7 +847,7 @@ const TEMPLATES := {
 		},
 	},
 	"mayor_mare": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -859,7 +859,7 @@ const TEMPLATES := {
 		},
 	},
 	"meadow_flower": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["caress"],
@@ -870,7 +870,7 @@ const TEMPLATES := {
 		},
 	},
 	"merry_may": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress", "kiss"],
@@ -881,7 +881,7 @@ const TEMPLATES := {
 		},
 	},
 	"misty_fly": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -892,7 +892,7 @@ const TEMPLATES := {
 		},
 	},
 	"moon_dancer": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -904,7 +904,7 @@ const TEMPLATES := {
 		},
 	},
 	"mrs_shy": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -915,7 +915,7 @@ const TEMPLATES := {
 		},
 	},
 	"ms_harshwhinny": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -927,7 +927,7 @@ const TEMPLATES := {
 		},
 	},
 	"night_glider": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss", "caress"],
@@ -938,7 +938,7 @@ const TEMPLATES := {
 		},
 	},
 	"nurse_redheart": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -949,7 +949,7 @@ const TEMPLATES := {
 		},
 	},
 	"orange_swirl": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "quick",
 			"touch": ["caress"],
@@ -960,7 +960,7 @@ const TEMPLATES := {
 		},
 	},
 	"peachy_sweet": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -971,7 +971,7 @@ const TEMPLATES := {
 		},
 	},
 	"perfect_pie": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -982,7 +982,7 @@ const TEMPLATES := {
 		},
 	},
 	"photo_finish": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["kiss"],
@@ -993,7 +993,7 @@ const TEMPLATES := {
 		},
 	},
 	"pinny_lane": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -1004,7 +1004,7 @@ const TEMPLATES := {
 		},
 	},
 	"prim_hemline": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1015,7 +1015,7 @@ const TEMPLATES := {
 		},
 	},
 	"celestia": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss", "caress"],
@@ -1026,7 +1026,7 @@ const TEMPLATES := {
 		},
 	},
 	"luna": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["kiss"],
@@ -1037,7 +1037,7 @@ const TEMPLATES := {
 		},
 	},
 	"rainbowshine": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress", "kiss"],
@@ -1048,7 +1048,7 @@ const TEMPLATES := {
 		},
 	},
 	"raven_inkwell": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1060,7 +1060,7 @@ const TEMPLATES := {
 		},
 	},
 	"red_gala": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress", "kiss"],
@@ -1071,7 +1071,7 @@ const TEMPLATES := {
 		},
 	},
 	"roseluck": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1082,7 +1082,7 @@ const TEMPLATES := {
 		},
 	},
 	"royal_ribbon": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["kiss"],
@@ -1093,7 +1093,7 @@ const TEMPLATES := {
 		},
 	},
 	"saffron_masala": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1104,7 +1104,7 @@ const TEMPLATES := {
 		},
 	},
 	"sassaflash": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -1115,7 +1115,7 @@ const TEMPLATES := {
 		},
 	},
 	"sea_swirl": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["caress"],
@@ -1126,7 +1126,7 @@ const TEMPLATES := {
 		},
 	},
 	"shimmy_shake": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -1137,7 +1137,7 @@ const TEMPLATES := {
 		},
 	},
 	"silver_spanner": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1148,7 +1148,7 @@ const TEMPLATES := {
 		},
 	},
 	"somnambula": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["kiss", "caress"],
@@ -1159,7 +1159,7 @@ const TEMPLATES := {
 		},
 	},
 	"sprinkle_medley": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "quick",
 			"touch": ["caress"],
@@ -1170,7 +1170,7 @@ const TEMPLATES := {
 		},
 	},
 	"starlight_glimmer": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["kiss"],
@@ -1181,7 +1181,7 @@ const TEMPLATES := {
 		},
 	},
 	"stellar_flare": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1192,7 +1192,7 @@ const TEMPLATES := {
 		},
 	},
 	"strawberry_sunrise": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress", "kiss"],
@@ -1203,7 +1203,7 @@ const TEMPLATES := {
 		},
 	},
 	"sugar_belle": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1214,7 +1214,7 @@ const TEMPLATES := {
 		},
 	},
 	"sunny_rays": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1225,7 +1225,7 @@ const TEMPLATES := {
 		},
 	},
 	"sunshower": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1236,7 +1236,7 @@ const TEMPLATES := {
 		},
 	},
 	"sunshower_raindrops": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1248,7 +1248,7 @@ const TEMPLATES := {
 		},
 	},
 	"suri_polomare": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "teasing",
 			"touch": ["kiss"],
@@ -1260,7 +1260,7 @@ const TEMPLATES := {
 		},
 	},
 	"surprise": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack", "kiss"],
@@ -1271,7 +1271,7 @@ const TEMPLATES := {
 		},
 	},
 	"tempest_shadow": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["kiss"],
@@ -1283,7 +1283,7 @@ const TEMPLATES := {
 		},
 	},
 	"twilight_velvet": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "steady",
 			"touch": ["caress", "kiss"],
@@ -1294,7 +1294,7 @@ const TEMPLATES := {
 		},
 	},
 	"twinkleshine": {
-		"taste": {
+		"preferences": {
 			"intensity": "soft",
 			"pattern": "steady",
 			"touch": ["caress"],
@@ -1305,7 +1305,7 @@ const TEMPLATES := {
 		},
 	},
 	"vapor_trail": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -1316,7 +1316,7 @@ const TEMPLATES := {
 		},
 	},
 	"white_lightning": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -1327,7 +1327,7 @@ const TEMPLATES := {
 		},
 	},
 	"wild_fire": {
-		"taste": {
+		"preferences": {
 			"intensity": "rough",
 			"pattern": "quick",
 			"touch": ["smack"],
@@ -1338,7 +1338,7 @@ const TEMPLATES := {
 		},
 	},
 	"windy_whistles": {
-		"taste": {
+		"preferences": {
 			"intensity": "firm",
 			"pattern": "quick",
 			"touch": ["caress", "kiss"],

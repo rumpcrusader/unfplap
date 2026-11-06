@@ -1,4 +1,4 @@
-# Taste, readiness and climax contract (`unfplap` 0.2.0)
+# Preference, readiness and climax contract (`unfplap` 0.2.0)
 
 This file covers the ACTIVE-stage scoring, the pony's climaxes, and the player's afterglow
 choice. Post-act scoring and the long-term history are `HISTORY.md`. Camera/pose mechanics and
@@ -34,7 +34,7 @@ aftercare are outside it.
   afterglow separately. Readiness now rises in discrete chunks from real thrusts, not on a
   passive timer.
 
-## Taste profile
+## Preference profile
 
 ```gdscript
 {
@@ -71,7 +71,7 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 **Characters tab**
 
-- The hand-built per-mare taste form described below, with one pony selector (filtered by name)
+- The hand-built per-mare preference form described below, with one pony selector (filtered by name)
   shared by every field.
 
 **Debug tab**
@@ -109,8 +109,8 @@ The **Characters** tab exposes one name-filtered pony selector and one form:
 - public, anal and oral consent;
 - private notes.
 
-Taste edits save automatically and apply live during an act. `Reset to default` removes only the
-taste override and preserves that character's custom `event_prompts` and pose settings.
+Preference edits save automatically and apply live during an act. `Reset to default` removes only the
+preference override and preserves that character's custom `event_prompts` and pose settings.
 Consent defaults are deterministic from her id and can be overridden per pony; `Reset to default`
 does not clear those overrides.
 - Public consent only matters while `features.act_public_offer` is on; it lets her offer with
@@ -327,7 +327,7 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 
 ## Character examples
 
-Every spawnable adult mare in the base game has an explicit profile in `character_tastes.gd`:
+Every spawnable adult mare in the base game has an explicit profile in `character_preferences.gd`:
 102 mares, the original sixteen first in the selector and the rest alphabetical. This table is
 the main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match
@@ -353,9 +353,9 @@ their character profiles.
 | Spitfire | rough | quick | smack | praise, playful | normal |
 | Default | firm | steady | none | none | normal |
 
-Dislikes are shown in the settings editor and stay in the `taste` block. They are used only where
+Dislikes are shown in the settings editor and stay in the `preferences` block. They are used only where
 the character's temperament supports them; the main cast uses `smack` and/or `dirty` for Rarity,
 Octavia, Maud and Zecora, and the wider roster follows the same rule.
 
-The `notes` field carries the private attitude; the AI prompt receives the mood, the taste
+The `notes` field carries the private attitude; the AI prompt receives the mood, the preference
 summary and the last concrete input, never a speed or depth dump.

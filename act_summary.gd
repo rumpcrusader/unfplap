@@ -60,7 +60,7 @@ static func rules() -> Dictionary:
 
 
 ## Score one act. The snapshot keys are produced by runtime._summary_snapshot():
-##   taste, seconds, thrusts, pony_climaxes, talk_liked, talk_dislikes,
+##   preferences, seconds, thrusts, pony_climaxes, talk_liked, talk_dislikes,
 ##   touches_liked, touch_dislikes, player_lines, intensity_total, intensity_right,
 ##   pattern_total, pattern_right, ended_early, forced.
 static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
@@ -69,21 +69,21 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		rules[key] = rule_set[key]
 	if bool(snapshot.get("forced", false)):
 		return _skipped("forced")
-	var taste: Dictionary = {}
-	var taste_value: Variant = snapshot.get("taste", {})
-	if taste_value is Dictionary:
-		taste = taste_value
+	var preferences: Dictionary = {}
+	var preference_value: Variant = snapshot.get("preferences", {})
+	if preference_value is Dictionary:
+		preferences = preference_value
 	if bool(snapshot.get("stopped_by_her", false)):
-		return _stopped(taste, snapshot)
+		return _stopped(preferences, snapshot)
 	var seconds := float(snapshot.get("seconds", 0.0))
 	var thrusts := int(snapshot.get("thrusts", 0))
 	if seconds < float(rules.get("early_grace_s", 20.0)) \
 			and thrusts < int(rules.get("min_thrusts", 2)):
 		return _skipped("short_act")
 
-	var seeks_talk := PREFERENCES.seeks_talk(taste)
-	var seeks_touch := PREFERENCES.seeks_touch(taste)
-	var has_touch_likes := not (taste.get("touch", []) as Array).is_empty()
+	var seeks_talk := PREFERENCES.seeks_talk(preferences)
+	var seeks_touch := PREFERENCES.seeks_touch(preferences)
+	var has_touch_likes := not (preferences.get("touch", []) as Array).is_empty()
 	var pony_climaxes := int(snapshot.get("pony_climaxes", 0))
 	var ended_early := bool(snapshot.get("ended_early", false))
 	var talk_liked := int(snapshot.get("talk_liked", 0))
@@ -210,7 +210,7 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		mood = "annoyed" if severe else "sad"
 	elif grade == "good" or grade == "great":
 		mood = "happy"
-	var wants := _wants(taste, reasons)
+	var wants := _wants(preferences, reasons)
 	var text := _text(grade, ended_early, reasons)
 	var thought := _thought(grade, ended_early, reasons)
 	return {
@@ -261,7 +261,7 @@ static func _skipped(reason: String) -> Dictionary:
 
 
 ## A stop is always a severe bad act, even if the surrounding action checklist would be clean.
-static func _stopped(taste: Dictionary, snapshot: Dictionary) -> Dictionary:
+static func _stopped(preferences: Dictionary, snapshot: Dictionary) -> Dictionary:
 	var reasons: Array[String] = ["stopped_by_her"]
 	var touch_dislikes: Dictionary = {}
 	var touch_value: Variant = snapshot.get("touch_dislikes", {})
@@ -276,7 +276,7 @@ static func _stopped(taste: Dictionary, snapshot: Dictionary) -> Dictionary:
 			reasons.append("severe_" + str(kind))
 	if int(snapshot.get("talk_dislikes", 0)) > 0:
 		reasons.append("talk_miss")
-	var wants := _wants(taste, reasons)
+	var wants := _wants(preferences, reasons)
 	var tolerance := str(snapshot.get("tolerance", "normal"))
 	var mood := "angry" if tolerance == "strict" else "annoyed"
 	return {
@@ -370,7 +370,7 @@ static func _reason_sentence(reasons: Array[String], first_person: bool) -> Stri
 	return " ".join(unique.slice(0, 2))
 
 
-static func _wants(taste: Dictionary, reasons: Array[String]) -> String:
+static func _wants(preferences: Dictionary, reasons: Array[String]) -> String:
 	var wants: PackedStringArray = []
 	if "silent_talk" in reasons or "talk_miss" in reasons:
 		wants.append("talk to me while we move")
@@ -379,7 +379,7 @@ static func _wants(taste: Dictionary, reasons: Array[String]) -> String:
 	if "no_liked_touch" in reasons:
 		wants.append("touch me the way I like")
 	if "intensity_mismatch" in reasons:
-		var intensity := str(taste.get("intensity", "firm"))
+		var intensity := str(preferences.get("intensity", "firm"))
 		match intensity:
 			"soft":
 				wants.append("take me softer")
@@ -388,7 +388,7 @@ static func _wants(taste: Dictionary, reasons: Array[String]) -> String:
 			_:
 				wants.append("take me firmer")
 	if "pattern_mismatch" in reasons:
-		var pattern := str(taste.get("pattern", "steady"))
+		var pattern := str(preferences.get("pattern", "steady"))
 		match pattern:
 			"teasing":
 				wants.append("tease me more")

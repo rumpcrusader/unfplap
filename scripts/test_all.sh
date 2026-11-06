@@ -17,7 +17,7 @@ fi
 TESTS=(
 	test_catalog
 	test_settings
-	test_tastes
+	test_character_preferences
 	test_source_hygiene
 	test_rotation
 	test_thrust

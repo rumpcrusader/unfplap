@@ -56,7 +56,7 @@ func run() -> void:
 	check(bool(CONSENT.resolve("twilight_sparkle", {}).get("public", false))
 		== bool(a.get("public", false)), "empty override keeps defaults")
 
-	# Eligibility is the modern taste roster plus identity checks. There is no age list.
+	# Eligibility is the modern preference roster plus identity checks. There is no age list.
 	var twilight := _pony("twilight_sparkle")
 	check(ANATOMY.eligible(twilight), "roster adult is eligible")
 	var filly := _pony("twilight_sparkle", true)

@@ -32,20 +32,20 @@ func run() -> void:
 	check(SETTINGS.CHARACTER_ORDER.size() == 102, "every spawnable adult mare is editable")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_NAMES.size(), "every pony has a display name")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_TEMPLATES.size(),
-		"every editable pony has a taste template")
+		"every editable pony has a preference template")
 	check(SETTINGS.character_name("pinkie_pie") == "Pinkie Pie", "display name lookup")
 	var catalog_ok := true
-	var taste_ok := true
+	var preferences_ok := true
 	for id: String in SETTINGS.CHARACTER_ORDER:
 		if not SETTINGS.CHARACTER_TEMPLATES.has(id):
 			catalog_ok = false
-		var built_taste: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, id).get("taste", {})
-		if built_taste.has("pose"):
-			taste_ok = false
-	check(catalog_ok, "every pony has a taste template")
-	check(taste_ok, "generated tastes are valid and pose-free")
+		var built_preferences: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, id).get("preferences", {})
+		if built_preferences.has("pose"):
+			preferences_ok = false
+	check(catalog_ok, "every pony has a preference template")
+	check(preferences_ok, "generated preferences are valid and pose-free")
 	var maud := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "maud_pie")
-	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
+	check(((maud["preferences"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
 
 	check(int(base.get("aftercare_min", 0)) == 10, "default aftercare_min is 10")
 	check(near(float(base.get("cue_gap", 0.0)), 12.0), "default cue_gap is 12")
@@ -55,11 +55,11 @@ func run() -> void:
 	check(near(float(cue_override.get("cue_gap", 0.0)), 15.0), "character cue_gap override wins")
 	var poses: Dictionary = base.get("poses", {})
 	check(poses.has(CATALOG.MISSIONARY) and poses.has(CATALOG.STANDING), "pose defaults present")
-	var taste: Dictionary = base.get("taste", {})
-	check(str(taste.get("intensity", "")) == "firm", "neutral intensity default")
-	check(str(taste.get("pattern", "")) == "steady", "neutral pattern default")
-	check(str(taste.get("tolerance", "")) == "normal", "normal tolerance default")
-	check((taste.get("touch", []) as Array).is_empty(), "neutral touch default")
+	var preference: Dictionary = base.get("preferences", {})
+	check(str(preference.get("intensity", "")) == "firm", "neutral intensity default")
+	check(str(preference.get("pattern", "")) == "steady", "neutral pattern default")
+	check(str(preference.get("tolerance", "")) == "normal", "normal tolerance default")
+	check((preference.get("touch", []) as Array).is_empty(), "neutral touch default")
 	var prompts: Dictionary = base.get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
 	check(not str(prompts.get("cue", "")).is_empty(), "cue prompt present")
@@ -71,7 +71,7 @@ func run() -> void:
 	var characters := {
 		"fluttershy": {
 			"poses": {CATALOG.MISSIONARY: {"hind_spread": 0.5}},
-			"taste": {"intensity": "rough", "touch": ["smack"]},
+			"preferences": {"intensity": "rough", "touch": ["smack"]},
 		},
 	}
 	var profile := SETTINGS.profile_for(base, characters, "fluttershy")
@@ -80,30 +80,30 @@ func run() -> void:
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["camera_height"]) == 0.45, "missionary camera default")
 	check(float((profile["poses"] as Dictionary)[CATALOG.MISSIONARY]["neck_lift_deg"]) == 15.0, "missionary neck lift default")
 	check(float((profile["poses"] as Dictionary)[CATALOG.STANDING]["hind_spread"]) == 0.32, "unrelated pose inherits defaults")
-	var profile_taste: Dictionary = profile["taste"]
-	check(str(profile_taste.get("intensity", "")) == "rough", "character taste override")
-	check((profile_taste.get("touch", []) as Array).has("smack"), "character touch override")
-	check(str(profile_taste.get("pattern", "")) == "steady", "character pattern inherits default")
+	var profile_preferences: Dictionary = profile["preferences"]
+	check(str(profile_preferences.get("intensity", "")) == "rough", "character preference override")
+	check((profile_preferences.get("touch", []) as Array).has("smack"), "character touch override")
+	check(str(profile_preferences.get("pattern", "")) == "steady", "character pattern inherits default")
 
 	var other := SETTINGS.profile_for(base, characters, "rainbow_dash")
 	check(float((other["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.42, "other character keeps pose default")
-	check(str((other["taste"] as Dictionary).get("intensity", "")) == "firm", "other character keeps taste default")
+	check(str((other["preferences"] as Dictionary).get("intensity", "")) == "firm", "other character keeps preference default")
 
 	var with_unknown := SETTINGS.profile_for(base, {"x": {"poses": {"unknown": {"a": 1}}}}, "x")
 	check((with_unknown["poses"] as Dictionary).has(CATALOG.MISSIONARY), "unknown pose does not remove known poses")
 	check(not (with_unknown["poses"] as Dictionary).has("unknown"), "unknown pose is ignored")
 
 	var built_in := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "fluttershy")
-	var fluttershy_taste: Dictionary = built_in["taste"]
-	check(str(fluttershy_taste.get("intensity", "")) == "firm", "Fluttershy intensity")
-	check(str(fluttershy_taste.get("pattern", "")) == "steady", "Fluttershy pattern")
-	check(str(fluttershy_taste.get("tolerance", "")) == "forgiving", "Fluttershy is forgiving")
-	check((fluttershy_taste.get("talk", []) as Array).has("reassurance"), "Fluttershy talk")
+	var fluttershy_preferences: Dictionary = built_in["preferences"]
+	check(str(fluttershy_preferences.get("intensity", "")) == "firm", "Fluttershy intensity")
+	check(str(fluttershy_preferences.get("pattern", "")) == "steady", "Fluttershy pattern")
+	check(str(fluttershy_preferences.get("tolerance", "")) == "forgiving", "Fluttershy is forgiving")
+	check((fluttershy_preferences.get("talk", []) as Array).has("reassurance"), "Fluttershy talk")
 	var rarity := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "rarity")
-	var rarity_taste: Dictionary = rarity["taste"]
-	check(str(rarity_taste.get("intensity", "")) == "soft", "Rarity intensity")
-	check(str(rarity_taste.get("tolerance", "")) == "strict", "Rarity is strict")
-	check((rarity_taste.get("talk", []) as Array).has("praise"), "Rarity talk")
+	var rarity_preferences: Dictionary = rarity["preferences"]
+	check(str(rarity_preferences.get("intensity", "")) == "soft", "Rarity intensity")
+	check(str(rarity_preferences.get("tolerance", "")) == "strict", "Rarity is strict")
+	check((rarity_preferences.get("talk", []) as Array).has("praise"), "Rarity talk")
 	var twilight := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "twilight_sparkle")
 
 	var defaults := SETTINGS._defaults()
@@ -284,6 +284,32 @@ func run() -> void:
 	check(not migrated_block.has("pose1_forward"), "drops old flat presentation keys")
 	check(not migrated_block.has("pose1_camera"), "drops obsolete camera key")
 
+	var legacy_profile := {
+		"default": {"taste": {"intensity": "rough"}},
+		"characters": {"fluttershy": {"taste": {"intensity": "soft"}}},
+	}
+	var renamed_profile: Dictionary = SETTINGS._normalize_character_preferences(legacy_profile)
+	var renamed_profile_default: Dictionary = renamed_profile.get("default", {})
+	var renamed_character: Dictionary = (renamed_profile.get("characters", {}) as Dictionary).get("fluttershy", {})
+	check(str((renamed_profile_default.get("preferences", {}) as Dictionary).get("intensity", "")) == "rough",
+		"migrates the default taste block to preferences")
+	check(str((renamed_character.get("preferences", {}) as Dictionary).get("intensity", "")) == "soft",
+		"migrates a character taste block to preferences")
+	check(not renamed_profile_default.has("taste") and not renamed_character.has("taste"),
+		"removes the old taste key")
+
+	var legacy_tolerance := {
+		"tolerance": {"timid_warning": 5.0, "neutral_stop": 9.0},
+	}
+	var renamed_tolerance: Dictionary = SETTINGS._normalize_tolerance(legacy_tolerance)
+	var tolerance_block: Dictionary = renamed_tolerance.get("tolerance", {})
+	check(near(float(tolerance_block.get("forgiving_warning", 0.0)), 5.0),
+		"migrates the forgiving warning path")
+	check(near(float(tolerance_block.get("normal_stop", 0.0)), 9.0),
+		"migrates the normal stop path")
+	check(not tolerance_block.has("timid_warning") and not tolerance_block.has("neutral_stop"),
+		"removes the old tolerance paths")
+
 	var legacy_features := {
 		"features": {
 			"pose2_body_sway": false,
@@ -376,10 +402,10 @@ func run() -> void:
 
 	var live := SETTINGS.template_for("fluttershy")
 	check(not live.is_empty(), "live template")
-	check(str((live.get("taste", {}) as Dictionary).get("intensity", "")) == "firm", "live Fluttershy taste")
+	check(str((live.get("preferences", {}) as Dictionary).get("intensity", "")) == "firm", "live Fluttershy preference")
 	check(not SETTINGS.act_prompt("fluttershy", "utterance").is_empty(), "live utterance prompt")
 	check(not SETTINGS.act_prompt("fluttershy", "cue").is_empty(), "live cue prompt")
-	check(not SETTINGS.taste("rarity").is_empty(), "live Rarity taste")
+	check(not SETTINGS.preferences("rarity").is_empty(), "live Rarity preference")
 
 	_check_schema(defaults)
 
@@ -453,7 +479,7 @@ func _check_schema(defaults: Dictionary) -> void:
 func _check_api_names() -> void:
 	var names := ["get_bool", "get_float", "get_int", "get_string", "get_list", "get_value",
 		"set_value", "reset_value", "block", "reload_settings", "hotkey_action", "run_action",
-		"data", "reload_file", "write_setting", "taste", "pose", "template_for", "features",
+		"data", "reload_file", "write_setting", "preferences", "pose", "template_for", "features",
 		"feature", "build", "build_actions", "all", "has", "entry",
 		"default_value", "default_block", "groups", "flag", "num", "user_num", "choice", "list",
 		"write_path"]

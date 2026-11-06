@@ -111,28 +111,28 @@ func run() -> void:
 	check(SCHED.mood_for(65.0, 0.0) == "close", "mood close")
 	check(SCHED.mood_for(100.0, 1.0) == "overwhelmed", "overwhelmed overrides the band")
 
-	var taste := {"intensity": "firm", "pattern": "steady"}
-	check(SCHED.base_cue(taste, 0.0, 10.0, "soft", "") == "She wants it firmer.",
+	var preference := {"intensity": "firm", "pattern": "steady"}
+	check(SCHED.base_cue(preference, 0.0, 10.0, "soft", "") == "She wants it firmer.",
 		"soft gives firmer")
-	check(SCHED.base_cue(taste, 0.0, 10.0, "rough", "") == "She wants it softer.",
+	check(SCHED.base_cue(preference, 0.0, 10.0, "rough", "") == "She wants it softer.",
 		"rough gives softer")
-	var rough_taste := {"intensity": "rough", "pattern": "steady"}
-	check(SCHED.base_cue(rough_taste, 0.0, 10.0, "firm", "") == "She wants it harder.",
-		"rough taste gives harder")
-	var soft_taste := {"intensity": "soft", "pattern": "steady"}
-	check(SCHED.base_cue(soft_taste, 0.0, 10.0, "firm", "") == "She wants it softer.",
-		"soft taste gives softer")
+	var rough_preferences := {"intensity": "rough", "pattern": "steady"}
+	check(SCHED.base_cue(rough_preferences, 0.0, 10.0, "firm", "") == "She wants it harder.",
+		"rough preference gives harder")
+	var soft_preferences := {"intensity": "soft", "pattern": "steady"}
+	check(SCHED.base_cue(soft_preferences, 0.0, 10.0, "firm", "") == "She wants it softer.",
+		"soft preference gives softer")
 	check(SCHED.base_cue({"intensity": "firm", "pattern": "quick"}, 0.0, 10.0, "", "steady")
 		== "She wants it quicker.", "quick pattern cue")
 	check(SCHED.base_cue({"intensity": "firm", "pattern": "teasing"}, 0.0, 10.0, "", "steady")
 		== "She wants to be teased.", "teasing pattern cue")
-	check(SCHED.base_cue(taste, 0.0, 10.0, "firm", "steady") == "She likes that.",
+	check(SCHED.base_cue(preference, 0.0, 10.0, "firm", "steady") == "She likes that.",
 		"both axes match")
-	check(SCHED.base_cue(taste, 0.0, 10.0, "", "") == "She wants you to keep going.",
+	check(SCHED.base_cue(preference, 0.0, 10.0, "", "") == "She wants you to keep going.",
 		"no axes is warming up")
-	check(SCHED.base_cue(taste, 0.0, 65.0, "soft", "quick") == "She is close.",
+	check(SCHED.base_cue(preference, 0.0, 65.0, "soft", "quick") == "She is close.",
 		"close beats the axes")
-	check(SCHED.base_cue(taste, 1.0, 10.0, "firm", "steady") == "She's overwhelmed.",
+	check(SCHED.base_cue(preference, 1.0, 10.0, "firm", "steady") == "She's overwhelmed.",
 		"overwhelmed beats everything")
 
 	print("UTTERANCE_SCHEDULER_RESULT checks=%d failures=%d" % [checks, failures])

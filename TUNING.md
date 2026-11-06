@@ -4,14 +4,14 @@ Every global setting in the mod is a **tunable**: one line in `tunables_schema.g
 `settings.json` path. Read and write tunables only through `tunables.gd`. The Settings and Debug
 panels are drawn from the schema by `tunables_ui.gd`, in the settings page's own menu style: row
 cards, `Faint` help, switch plus state, Segment pills for a few short choices and the `Tab` look for
-a collapsible section heading. The tab pills, sidebar row and the hand-built Characters taste
+a collapsible section heading. The tab pills, sidebar row and the hand-built Characters preference
 tab are added by the injection in `main.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalize function or a save function for a setting, stop. Add a schema line instead.
 
 Two file kinds are not tunables and keep their own editors: the per-character profile
-(`default`/`characters` templates, taste, prompts) and the pose catalog per-mare overrides
+(`default`/`characters` templates, preference, prompts) and the pose catalog per-mare overrides
 (`poses.*`). Everything global — feature flags, numbers, choices — is a tunable.
 Per-mare anatomy consent (`consent.public`, `consent.anal`, `consent.oral`) lives in the character
 profile, not in the tunable schema, and is saved by `settings.gd` from the Characters form.
@@ -140,7 +140,7 @@ moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a ho
   It is debug-only unless a player-facing threshold is added deliberately; the contract is
   `HISTORY.md`. The `num` entries are never clamped, so a hand-edited value applies.
 - `tolerance.*` holds the mid-act warning/stop thresholds, like relief, decay and stop cooldowns.
-  The tier itself is a per-mare `taste.tolerance` value in the Characters sub-tab, not a tunable.
+  The tier itself is a per-mare `preferences.tolerance` value in the Characters sub-tab, not a tunable.
 - Unknown keys in the file are ignored on load.
 - Never name a settings function `reload` or `set_path`: `Script` already has both, and a
   preloaded script constant calls the built-in instead. `tests/test_settings.gd` guards this.
@@ -150,7 +150,7 @@ moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a ho
 - `tests/test_settings.gd` checks that every entry has a kind, default, label, help, group and
   tab, that both schema tabs render every entry, and that debug numbers are not clamped.
 - `tests/test_source_hygiene.gd` checks that every literal path used with `TUNABLES` exists in the
-  schema, and that no settings widget is created outside `tunables_ui.gd` (the Characters taste
+  schema, and that no settings widget is created outside `tunables_ui.gd` (the Characters preference
   form in `main.gd` is the one allowed exception).
 - Keep `AGENTS.md`'s flag table current when adding a feature flag, and update `README.md`
   CONTROLS or FEATURES only for player-facing changes.

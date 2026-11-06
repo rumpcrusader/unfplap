@@ -3,7 +3,7 @@ extends RefCounted
 ## rules, thrust controls, camera-thrust amounts, presentation tuning and the default/per-character
 ## templates. A character inherits every field it does not override.
 ##
-## Pre-release: the schema is intentionally breaking. `taste` is the ACTIVE-stage profile,
+## Pre-release: the schema is intentionally breaking. `preferences` is the ACTIVE-stage profile,
 ## `relationship` holds Promiscuity and Starting Sex, `thrust` holds the mouse-control settings,
 ## `camera_thrust` holds the two camera amounts and `presentation` is split into `missionary` and
 ## `standing` blocks.
@@ -39,9 +39,9 @@ const LEGACY_TOLERANCE_KEYS := {
 	"neutral_cooldown_s": "normal_cooldown_s",
 }
 
-## Character names, order and taste templates live in `character_tastes.gd`; the settings view
+## Character names, order and preference templates live in `character_preferences.gd`; the settings view
 ## and the runtime merge read them through these aliases.
-const CHARACTERS := preload("res://mods/unfplap/character_tastes.gd")
+const CHARACTERS := preload("res://mods/unfplap/character_preferences.gd")
 const CHARACTER_ORDER := CHARACTERS.ORDER
 const CHARACTER_NAMES := CHARACTERS.NAMES
 
@@ -75,8 +75,8 @@ static func feature_info(name: String) -> Dictionary:
 
 
 const DEFAULT_ACT_PROMPTS := {
-	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
-	"cue": "During sex with Anon, your body and voice show: {cue}. Private relationship note: {relationship}. Tone: {tone}. {memory} Let the relationship and memory color the line, but keep the cue's meaning. Do not mention relationship labels, levels, numbers, or that you are following a note. Do not invent a memory beyond the one given. Say ONE short line in your own voice, at most 14 words. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your taste: {taste}. Do not repeat: {recent}.",
+	"utterance": "You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Current moment: {state}. Your preferences: {preferences}. Do not repeat: {recent}.",
+	"cue": "During sex with Anon, your body and voice show: {cue}. Private relationship note: {relationship}. Tone: {tone}. {memory} Let the relationship and memory color the line, but keep the cue's meaning. Do not mention relationship labels, levels, numbers, or that you are following a note. Do not invent a memory beyond the one given. Say ONE short line in your own voice, at most 14 words. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your preferences: {preferences}. Do not repeat: {recent}.",
 }
 
 const DEFAULT_TEMPLATE := {
@@ -88,10 +88,10 @@ const DEFAULT_TEMPLATE := {
 		"end_early": "",
 	},
 	"act_prompts": {},
-	"taste": {},
+	"preferences": {},
 }
 
-## Every spawnable adult mare's taste template lives in the same catalog.
+## Every spawnable adult mare's preference template lives in the same catalog.
 const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 static func _path() -> String:
@@ -117,9 +117,9 @@ static func event_prompt(id: String, event: String) -> String:
 	return ""
 
 
-static func taste(id: String) -> Dictionary:
+static func preferences(id: String) -> Dictionary:
 	var template := template_for(id)
-	var value: Variant = template.get("taste", {})
+	var value: Variant = template.get("preferences", {})
 	if value is Dictionary:
 		return PREFERENCES.resolve(value)
 	return PREFERENCES.defaults()
@@ -132,7 +132,7 @@ static func consent(id: String) -> Dictionary:
 	return CONSENT.resolve(id, template.get("consent", {}))
 
 
-## integration: save only the consent block. Taste, prompts and poses are preserved.
+## integration: save only the consent block. Preferences, prompts and poses are preserved.
 static func save_consent(id: String, values: Dictionary) -> void:
 	var data := _read()
 	var characters: Variant = data.get("characters", {})
@@ -155,8 +155,8 @@ static func character_name(id: String) -> String:
 	return id.replace("_", " ").capitalize()
 
 
-## Save only the taste block. Character prompts and pose settings are preserved.
-static func save_taste(id: String, taste: Dictionary) -> void:
+## Save only the preference block. Character prompts and pose settings are preserved.
+static func save_preferences(id: String, preferences: Dictionary) -> void:
 	var data := _read()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
@@ -166,14 +166,14 @@ static func save_taste(id: String, taste: Dictionary) -> void:
 	if not entry is Dictionary:
 		entry = {}
 	var character: Dictionary = entry
-	character["taste"] = PREFERENCES.resolve(taste)
+	character["preferences"] = PREFERENCES.resolve(preferences)
 	roster[id] = character
 	data["characters"] = roster
 	_write(data)
 
 
-## Remove only the taste override; the generated/default taste returns. Prompts and poses stay.
-static func reset_taste(id: String) -> void:
+## Remove only the preference override; the generated/default preference returns. Prompts and poses stay.
+static func reset_preferences(id: String) -> void:
 	var data := _read()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
@@ -181,7 +181,7 @@ static func reset_taste(id: String) -> void:
 	var roster: Dictionary = characters
 	var entry: Variant = roster.get(id, {})
 	if entry is Dictionary:
-		(entry as Dictionary).erase("taste")
+		(entry as Dictionary).erase("preferences")
 		if (entry as Dictionary).is_empty():
 			roster.erase(id)
 		else:
@@ -227,6 +227,23 @@ static func _normalize_feature_names(data: Dictionary) -> Dictionary:
 			if not (features as Dictionary).has(new_key):
 				(features as Dictionary)[new_key] = (features as Dictionary)[old_key]
 			(features as Dictionary).erase(old_key)
+	return data
+
+
+## Move the old `taste` block onto `preferences` for the default template and every character.
+static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
+	var blocks: Array = []
+	if data.get("default") is Dictionary:
+		blocks.append(data["default"])
+	if data.get("characters") is Dictionary:
+		for entry: Variant in (data["characters"] as Dictionary).values():
+			if entry is Dictionary:
+				blocks.append(entry)
+	for block: Dictionary in blocks:
+		if block.has("taste"):
+			if not block.has("preferences"):
+				block["preferences"] = block["taste"]
+			block.erase("taste")
 	return data
 
 
@@ -332,7 +349,7 @@ static func cue_gap(id: String) -> float:
 	return cue_gap_value(float(template_for(id).get("cue_gap", 12.0)))
 
 
-## The merged default + per-character template actually used at runtime, with pose and taste
+## The merged default + per-character template actually used at runtime, with pose and preference
 ## blocks filled from their catalogs.
 static func template_for(id: String) -> Dictionary:
 	var data := _read()
@@ -349,7 +366,7 @@ static func profile_for(base: Dictionary, characters: Variant, id: String) -> Di
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:
 			selected = _merge(selected, over)
-	selected["taste"] = PREFERENCES.resolve(selected.get("taste", {}))
+	selected["preferences"] = PREFERENCES.resolve(selected.get("preferences", {}))
 	selected = _fill_prompts(selected)
 	return _fill_pose_defaults(selected)
 
@@ -384,6 +401,7 @@ static func _load() -> void:
 	data = _normalize_feature_names(data)
 	data = _normalize_presentation(data)
 	data = _normalize_tolerance(data)
+	data = _normalize_character_preferences(data)
 	data = _merge(_defaults(), data)
 	_cache = data
 	_write_file(data)
@@ -405,12 +423,12 @@ static func _defaults() -> Dictionary:
 	}
 
 
-## Default template plus catalog pose/taste/prompt defaults. Kept as a function so the
+## Default template plus catalog pose/preference/prompt defaults. Kept as a function so the
 ## catalogs are read at run time instead of baked into a const expression.
 static func _filled_default() -> Dictionary:
 	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
 	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
-	out["taste"] = PREFERENCES.defaults()
+	out["preferences"] = PREFERENCES.defaults()
 	out["act_prompts"] = DEFAULT_ACT_PROMPTS.duplicate(true)
 	return out
 

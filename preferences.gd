@@ -1,8 +1,8 @@
 extends RefCounted
-## Pure act-taste profile and ACTIVE-stage classifiers. No scene access.
+## Pure act-preference profile and ACTIVE-stage classifiers. No scene access.
 ##
-## A mare's taste has two continuous axes (intensity and pattern), concrete touch/talk
-## likes, how quickly she warms, and how much readiness she recovers after a climax.
+## A mare's preference profile has two continuous axes (intensity and pattern), concrete touch/talk
+## likes, how quickly she warms, and how much neglect she tolerates before a warning or a stop.
 ## Readiness is accumulated by the runtime; this file only validates the profile and
 ## classifies the player's input.
 
@@ -39,7 +39,7 @@ static func defaults() -> Dictionary:
 	return DEFAULTS.duplicate(true)
 
 
-## Merge an arbitrary taste block with the defaults and validate it. Unknown values fall back
+## Merge an arbitrary preferences block with the defaults and validate it. Unknown values fall back
 ## to the neutral default rather than failing an act.
 static func resolve(raw: Variant) -> Dictionary:
 	var out: Dictionary = DEFAULTS.duplicate(true)
@@ -93,7 +93,7 @@ static func pattern_for(strokes: Array) -> String:
 
 ## One short category for the player's words. Returns "" when nothing matches. This is a
 ## classifier, not a parser: the AI still writes her reply, and the category only decides
-## whether the line landed with her taste.
+## whether the line landed with her preferences.
 static func classify_talk(text: String) -> String:
 	var lower := text.to_lower().strip_edges()
 	if lower.is_empty():
@@ -118,16 +118,16 @@ static func classify_talk(text: String) -> String:
 
 ## A mare who lists any talk category actively seeks it, so silence counts for her. A mare with
 ## an empty talk list is not punished for a quiet act.
-static func seeks_talk(taste: Dictionary) -> bool:
-	return not (taste.get("talk", []) as Array).is_empty()
+static func seeks_talk(preferences: Dictionary) -> bool:
+	return not (preferences.get("talk", []) as Array).is_empty()
 
 
 ## True when touch matters at all: she likes something or dislikes something. A mare with no
 ## touch preference only needs the act to avoid disliked handling.
-static func seeks_touch(taste: Dictionary) -> bool:
-	if not (taste.get("touch", []) as Array).is_empty():
+static func seeks_touch(preferences: Dictionary) -> bool:
+	if not (preferences.get("touch", []) as Array).is_empty():
 		return true
-	for item: Variant in taste.get("dislikes", []):
+	for item: Variant in preferences.get("dislikes", []):
 		if str(item) in TOUCHES:
 			return true
 	return false
@@ -140,34 +140,34 @@ static func apology_intent(text: String) -> bool:
 		"forgive me", "i was wrong", "didn't mean", "did not mean", "i messed up"])
 
 
-## Human-readable private taste for the utterance prompt. No numbers, no units.
-static func describe(taste: Dictionary) -> String:
+## Human-readable private preferences for the utterance prompt. No numbers, no units.
+static func describe(preferences: Dictionary) -> String:
 	var parts: PackedStringArray = []
-	parts.append("intensity: %s" % str(taste.get("intensity", "firm")))
-	parts.append("rhythm: %s" % str(taste.get("pattern", "steady")))
-	var touch := _names(taste.get("touch", []))
+	parts.append("intensity: %s" % str(preferences.get("intensity", "firm")))
+	parts.append("rhythm: %s" % str(preferences.get("pattern", "steady")))
+	var touch := _names(preferences.get("touch", []))
 	if not touch.is_empty():
 		parts.append("likes touch: %s" % touch)
-	var dislikes := _names(taste.get("dislikes", []))
+	var dislikes := _names(preferences.get("dislikes", []))
 	if not dislikes.is_empty():
 		parts.append("dislikes: %s" % dislikes)
-	var talk := _names(taste.get("talk", []))
+	var talk := _names(preferences.get("talk", []))
 	if not talk.is_empty():
 		parts.append("likes talk: %s" % talk)
-	var warmth := str(taste.get("warmth", "normal"))
+	var warmth := str(preferences.get("warmth", "normal"))
 	if warmth != "normal":
 		parts.append("warmth: %s" % warmth)
-	var tolerance := str(taste.get("tolerance", "normal"))
+	var tolerance := str(preferences.get("tolerance", "normal"))
 	if tolerance != "normal":
 		parts.append("tolerance: %s" % tolerance)
-	var notes := str(taste.get("notes", "")).strip_edges()
+	var notes := str(preferences.get("notes", "")).strip_edges()
 	if not notes.is_empty():
 		parts.append("attitude: " + notes)
 	return "\n".join(parts)
 
 
-static func warmth_scale(taste: Dictionary) -> float:
-	match str(taste.get("warmth", "normal")):
+static func warmth_scale(preferences: Dictionary) -> float:
+	match str(preferences.get("warmth", "normal")):
 		"quick":
 			return 1.25
 		"slow":

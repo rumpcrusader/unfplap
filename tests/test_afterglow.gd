@@ -27,7 +27,7 @@ func _runtime(pose: String) -> Node:
 	runtime.pony = Node3D.new()
 	runtime.pose_id = pose
 	runtime.state = 4 # AFTERGLOW
-	runtime._taste = PREF.resolve({})
+	runtime._preferences = PREF.resolve({})
 	runtime._thrust_tracker = THRUST.new()
 	return runtime
 

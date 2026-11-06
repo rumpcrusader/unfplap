@@ -78,7 +78,7 @@ static func assets_exist() -> bool:
 		and ResourceLoader.exists(TEATS_PATH) and ResourceLoader.exists(STRIP_PATH)
 
 
-## integration: only the modern taste roster gets anatomy. Identity filly/stallion checks stay,
+## integration: only the modern preference roster gets anatomy. Identity filly/stallion checks stay,
 ## and the player's own pony never gets it. There is no separate age list.
 static func eligible(pony_node: Node3D) -> bool:
 	if not is_instance_valid(pony_node):

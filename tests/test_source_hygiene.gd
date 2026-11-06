@@ -5,7 +5,7 @@ extends SceneTree
 const ROOT := "res://mods/unfplap"
 const SCHEMA_PATH := "res://mods/unfplap/tunables_schema.gd"
 ## Files allowed to create settings widgets. The schema panel is tunables_ui.gd; the character
-## taste form in main.gd is the one hand-built exception. Everything else must be a schema line.
+## preference form in main.gd is the one hand-built exception. Everything else must be a schema line.
 const WIDGET_FILES := ["res://mods/unfplap/tunables_ui.gd", "res://mods/unfplap/main.gd"]
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new("]
 var failures := 0
@@ -46,7 +46,7 @@ func run() -> void:
 
 
 ## Every literal tunable path must exist in the schema, and settings widgets may only live in
-## the schema panel and the taste form.
+## the schema panel and the preference form.
 func _check_tunables(files: Array[String]) -> void:
 	var schema := FileAccess.get_file_as_string(SCHEMA_PATH)
 	check(schema.contains("static func all() -> Dictionary"), "tunable schema present")
@@ -69,7 +69,7 @@ func _check_tunables(files: Array[String]) -> void:
 			paths += 1
 			if not schema.contains("\"" + used + "\""):
 				missing.append("%s in %s" % [used, path])
-	check(widget_ok, "only tunables_ui.gd (and the taste form) create settings widgets")
+	check(widget_ok, "only tunables_ui.gd (and the preference form) create settings widgets")
 	check(paths > 5, "tunable paths are read through the schema API")
 	check(missing.is_empty(), "every literal tunable path exists in the schema: %s" % str(missing))
 

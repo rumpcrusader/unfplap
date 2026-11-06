@@ -16,7 +16,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
-const TASTE := preload("res://mods/unfplap/preferences.gd")
+const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RUMP_CONE := preload("res://mods/unfplap/rump_cone.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -401,10 +401,10 @@ func _inject_settings_page_now(page: Node) -> void:
 	var changed := Callable(self, "_apply_settings_changed")
 	var user_list := _settings_tab_list("Settings", tabs_box)
 	TUNABLES_UI.build(user_list, SCHEMA.SETTINGS_TAB, font_size, page, changed)
-	# Character taste is a per-mare profile form, not a global tunable, so it keeps its own
+	# Character preference is a per-mare profile form, not a global tunable, so it keeps its own
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
-	_add_taste_form(char_list, font_size)
+	_add_preference_form(char_list, font_size)
 	var debug_list := _settings_tab_list("Debug", tabs_box)
 	TUNABLES_UI.build(debug_list, SCHEMA.DEBUG_TAB, font_size, page, changed)
 	TUNABLES_UI.build_actions(debug_list, font_size, self)
@@ -533,10 +533,10 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 			(native_page as CanvasItem).visible = value
 
 
-## The per-mare taste profile is the one hand-built form; it borrows the schema rows' card,
+## The per-mare preference profile is the one hand-built form; it borrows the schema rows' card,
 ## switch and pill pieces so it does not read as a different panel. It fills its own Characters
 ## sub-tab, so the tab bar supplies the heading and the form starts with the card.
-func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
+func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
 		Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.07), 1, 16, 16, 9)))
@@ -544,7 +544,7 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 10)
 	card.add_child(stack)
-	var intro := STYLE.label("Taste changes apply live during an act.", "Faint", font_size - 5)
+	var intro := STYLE.label("Preference changes apply live during an act.", "Faint", font_size - 5)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(intro)
 	var filter := LineEdit.new()
@@ -562,14 +562,14 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	form.add_theme_constant_override("h_separation", 16)
 	form.add_theme_constant_override("v_separation", 8)
 	stack.add_child(form)
-	var intensity := _taste_pills(form, "Intensity", TASTE.INTENSITIES, font_size)
-	var pattern := _taste_pills(form, "Pattern", TASTE.PATTERNS, font_size)
-	var warmth := _taste_pills(form, "Warmth", TASTE.WARMTHS, font_size)
-	var tolerance := _taste_pills(form, "Neglect tolerance", TASTE.TOLERANCES, font_size)
-	var touch_likes := _taste_checks(form, "Likes touch", TASTE.TOUCHES, font_size)
-	var talk_likes := _taste_checks(form, "Likes talk", TASTE.TALKS, font_size)
-	var touch_dislikes := _taste_checks(form, "Dislikes touch", TASTE.TOUCHES, font_size)
-	var talk_dislikes := _taste_checks(form, "Dislikes talk", TASTE.TALKS, font_size)
+	var intensity := _preference_pills(form, "Intensity", PREFERENCES.INTENSITIES, font_size)
+	var pattern := _preference_pills(form, "Pattern", PREFERENCES.PATTERNS, font_size)
+	var warmth := _preference_pills(form, "Warmth", PREFERENCES.WARMTHS, font_size)
+	var tolerance := _preference_pills(form, "Neglect tolerance", PREFERENCES.TOLERANCES, font_size)
+	var touch_likes := _preference_checks(form, "Likes touch", PREFERENCES.TOUCHES, font_size)
+	var talk_likes := _preference_checks(form, "Likes talk", PREFERENCES.TALKS, font_size)
+	var touch_dislikes := _preference_checks(form, "Dislikes touch", PREFERENCES.TOUCHES, font_size)
+	var talk_dislikes := _preference_checks(form, "Dislikes talk", PREFERENCES.TALKS, font_size)
 	var notes := TextEdit.new()
 	notes.custom_minimum_size = Vector2(0.0, 76.0)
 	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -622,18 +622,18 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	}
 	selector.item_selected.connect(func(index: int) -> void:
 		last_id = str(selector.get_item_metadata(index))
-		_refresh_taste_form(refs))
+		_refresh_preference_form(refs))
 	for pills: HBoxContainer in [intensity, pattern, warmth, tolerance]:
 		for pill: Node in pills.get_children():
-			(pill as Button).pressed.connect(_choose_taste_pill.bind(
+			(pill as Button).pressed.connect(_choose_preference_pill.bind(
 				pills, str(pill.get_meta("value")), refs))
 	for checks: Dictionary in [touch_likes, talk_likes, touch_dislikes, talk_dislikes]:
 		for key: String in checks:
 			(checks[key] as CheckButton).toggled.connect(func(_on: bool) -> void:
-				_save_taste_form(refs))
+				_save_preference_form(refs))
 	# integration: consent edits save with the same live path.
 	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
-		button.toggled.connect(func(_on: bool) -> void: _save_taste_form(refs))
+		button.toggled.connect(func(_on: bool) -> void: _save_preference_form(refs))
 	var notes_timer := Timer.new()
 	notes_timer.one_shot = true
 	notes_timer.wait_time = 0.4
@@ -643,11 +643,11 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 			notes_timer.start())
 	notes.focus_exited.connect(func() -> void:
 		notes_timer.stop()
-		_save_taste_form(refs))
-	notes_timer.timeout.connect(func() -> void: _save_taste_form(refs))
-	reset.pressed.connect(func() -> void: _reset_taste_form(refs))
+		_save_preference_form(refs))
+	notes_timer.timeout.connect(func() -> void: _save_preference_form(refs))
+	reset.pressed.connect(func() -> void: _reset_preference_form(refs))
 	var fill_selector := func(query: String) -> void:
-		var current := _selected_taste_id(refs)
+		var current := _selected_preference_id(refs)
 		if current.is_empty():
 			current = last_id
 		selector.clear()
@@ -664,7 +664,7 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 			if status is Label:
 				(status as Label).text = "No pony matches that name."
 		else:
-			_refresh_taste_form(refs)
+			_refresh_preference_form(refs)
 	filter.text_changed.connect(func(text: String) -> void:
 		fill_selector.call(text.to_lower().strip_edges()))
 	fill_selector.call("")
@@ -681,7 +681,7 @@ func _form_label(text: String, font_size: int) -> Label:
 
 
 ## A few short values as the page's Segment pills in one track; the chosen one is lit.
-func _taste_pills(parent: GridContainer, label_text: String, values: Array,
+func _preference_pills(parent: GridContainer, label_text: String, values: Array,
 		font_size: int) -> HBoxContainer:
 	parent.add_child(_form_label(label_text, font_size))
 	var track := PanelContainer.new()
@@ -706,14 +706,14 @@ func _taste_pills(parent: GridContainer, label_text: String, values: Array,
 	return pills
 
 
-## One pill of a taste row picks the value for the whole row, then the profile saves.
-func _choose_taste_pill(pills: HBoxContainer, value: String, refs: Dictionary) -> void:
+## One pill of a preference row picks the value for the whole row, then the profile saves.
+func _choose_preference_pill(pills: HBoxContainer, value: String, refs: Dictionary) -> void:
 	for pill: Node in pills.get_children():
 		(pill as Button).set_pressed_no_signal(str(pill.get_meta("value")) == value)
-	_save_taste_form(refs)
+	_save_preference_form(refs)
 
 
-func _taste_checks(parent: GridContainer, label_text: String, values: Array, font_size: int) -> Dictionary:
+func _preference_checks(parent: GridContainer, label_text: String, values: Array, font_size: int) -> Dictionary:
 	parent.add_child(_form_label(label_text, font_size))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -728,31 +728,31 @@ func _taste_checks(parent: GridContainer, label_text: String, values: Array, fon
 	return checks
 
 
-func _selected_taste_id(refs: Dictionary) -> String:
+func _selected_preference_id(refs: Dictionary) -> String:
 	var selector: Variant = refs.get("selector")
 	if not selector is OptionButton or (selector as OptionButton).selected < 0:
 		return ""
 	return str((selector as OptionButton).get_item_metadata((selector as OptionButton).selected))
 
 
-func _refresh_taste_form(refs: Dictionary) -> void:
-	var id := _selected_taste_id(refs)
+func _refresh_preference_form(refs: Dictionary) -> void:
+	var id := _selected_preference_id(refs)
 	if id.is_empty():
 		refs["refreshing"] = false
 		return
 	refs["refreshing"] = true
-	var taste := SETTINGS.taste(id)
-	_select_taste_value(refs.get("intensity"), str(taste.get("intensity", "firm")))
-	_select_taste_value(refs.get("pattern"), str(taste.get("pattern", "steady")))
-	_select_taste_value(refs.get("warmth"), str(taste.get("warmth", "normal")))
-	_select_taste_value(refs.get("tolerance"), str(taste.get("tolerance", "normal")))
-	_set_taste_checks(refs.get("touch_likes"), TASTE.TOUCHES, taste.get("touch", []))
-	_set_taste_checks(refs.get("talk_likes"), TASTE.TALKS, taste.get("talk", []))
-	_set_taste_checks(refs.get("touch_dislikes"), TASTE.TOUCHES, taste.get("dislikes", []))
-	_set_taste_checks(refs.get("talk_dislikes"), TASTE.TALKS, taste.get("dislikes", []))
+	var preferences := SETTINGS.preferences(id)
+	_select_preference_value(refs.get("intensity"), str(preferences.get("intensity", "firm")))
+	_select_preference_value(refs.get("pattern"), str(preferences.get("pattern", "steady")))
+	_select_preference_value(refs.get("warmth"), str(preferences.get("warmth", "normal")))
+	_select_preference_value(refs.get("tolerance"), str(preferences.get("tolerance", "normal")))
+	_set_preference_checks(refs.get("touch_likes"), PREFERENCES.TOUCHES, preferences.get("touch", []))
+	_set_preference_checks(refs.get("talk_likes"), PREFERENCES.TALKS, preferences.get("talk", []))
+	_set_preference_checks(refs.get("touch_dislikes"), PREFERENCES.TOUCHES, preferences.get("dislikes", []))
+	_set_preference_checks(refs.get("talk_dislikes"), PREFERENCES.TALKS, preferences.get("dislikes", []))
 	var notes: Variant = refs.get("notes")
 	if notes is TextEdit:
-		(notes as TextEdit).text = str(taste.get("notes", ""))
+		(notes as TextEdit).text = str(preferences.get("notes", ""))
 	var consent := SETTINGS.consent(id)
 	if refs.get("consent_public") is CheckButton:
 		(refs.get("consent_public") as CheckButton).set_pressed_no_signal(bool(consent.get("public", false)))
@@ -766,14 +766,14 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	refs["refreshing"] = false
 
 
-func _select_taste_value(control: Variant, selected_value: String) -> void:
+func _select_preference_value(control: Variant, selected_value: String) -> void:
 	if not control is HBoxContainer:
 		return
 	for pill: Node in (control as HBoxContainer).get_children():
 		(pill as Button).set_pressed_no_signal(str(pill.get_meta("value")) == selected_value)
 
 
-func _set_taste_checks(control: Variant, values: Array, selected: Variant) -> void:
+func _set_preference_checks(control: Variant, values: Array, selected: Variant) -> void:
 	if not control is Dictionary:
 		return
 	var checks: Dictionary = control
@@ -785,7 +785,7 @@ func _set_taste_checks(control: Variant, values: Array, selected: Variant) -> vo
 			(check as CheckButton).set_pressed_no_signal(key in selected_list)
 
 
-func _checked_taste_values(control: Variant, values: Array) -> Array:
+func _checked_preference_values(control: Variant, values: Array) -> Array:
 	var out: Array = []
 	if not control is Dictionary:
 		return out
@@ -797,25 +797,25 @@ func _checked_taste_values(control: Variant, values: Array) -> Array:
 	return out
 
 
-func _save_taste_form(refs: Dictionary) -> void:
+func _save_preference_form(refs: Dictionary) -> void:
 	if bool(refs.get("refreshing", false)):
 		return
-	var id := _selected_taste_id(refs)
+	var id := _selected_preference_id(refs)
 	if id.is_empty():
 		return
-	var dislikes := _checked_taste_values(refs.get("touch_dislikes"), TASTE.TOUCHES)
-	dislikes.append_array(_checked_taste_values(refs.get("talk_dislikes"), TASTE.TALKS))
-	var taste := {
-		"intensity": _picked_taste_value(refs.get("intensity"), "firm"),
-		"pattern": _picked_taste_value(refs.get("pattern"), "steady"),
-		"touch": _checked_taste_values(refs.get("touch_likes"), TASTE.TOUCHES),
+	var dislikes := _checked_preference_values(refs.get("touch_dislikes"), PREFERENCES.TOUCHES)
+	dislikes.append_array(_checked_preference_values(refs.get("talk_dislikes"), PREFERENCES.TALKS))
+	var preferences := {
+		"intensity": _picked_preference_value(refs.get("intensity"), "firm"),
+		"pattern": _picked_preference_value(refs.get("pattern"), "steady"),
+		"touch": _checked_preference_values(refs.get("touch_likes"), PREFERENCES.TOUCHES),
 		"dislikes": dislikes,
-		"talk": _checked_taste_values(refs.get("talk_likes"), TASTE.TALKS),
-		"warmth": _picked_taste_value(refs.get("warmth"), "normal"),
-		"tolerance": _picked_taste_value(refs.get("tolerance"), "normal"),
+		"talk": _checked_preference_values(refs.get("talk_likes"), PREFERENCES.TALKS),
+		"warmth": _picked_preference_value(refs.get("warmth"), "normal"),
+		"tolerance": _picked_preference_value(refs.get("tolerance"), "normal"),
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
-	SETTINGS.save_taste(id, taste)
+	SETTINGS.save_preferences(id, preferences)
 	SETTINGS.save_consent(id, {
 		"public": (refs.get("consent_public") as CheckButton).button_pressed if refs.get("consent_public") is CheckButton else false,
 		"anal": (refs.get("consent_anal") as CheckButton).button_pressed if refs.get("consent_anal") is CheckButton else false,
@@ -828,21 +828,21 @@ func _save_taste_form(refs: Dictionary) -> void:
 		(status as Label).text = "Saved %s live." % SETTINGS.character_name(id)
 
 
-func _reset_taste_form(refs: Dictionary) -> void:
-	var id := _selected_taste_id(refs)
+func _reset_preference_form(refs: Dictionary) -> void:
+	var id := _selected_preference_id(refs)
 	if id.is_empty():
 		return
-	SETTINGS.reset_taste(id)
-	_refresh_taste_form(refs)
+	SETTINGS.reset_preferences(id)
+	_refresh_preference_form(refs)
 	_apply_live_settings()
 	var status: Variant = refs.get("status")
 	if status is Label:
-		(status as Label).text = "Reset %s to its default taste." % SETTINGS.character_name(id)
-	_debug("taste reset id=%s" % id)
+		(status as Label).text = "Reset %s to its default preference." % SETTINGS.character_name(id)
+	_debug("preference reset id=%s" % id)
 
 
-## The lit pill of a taste choice row, or the fallback when the row is not built yet.
-func _picked_taste_value(control: Variant, fallback: String) -> String:
+## The lit pill of a preference choice row, or the fallback when the row is not built yet.
+func _picked_preference_value(control: Variant, fallback: String) -> String:
 	if not control is HBoxContainer:
 		return fallback
 	for pill: Node in (control as HBoxContainer).get_children():

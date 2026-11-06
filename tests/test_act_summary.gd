@@ -20,7 +20,7 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
-func base_taste() -> Dictionary:
+func base_preferences() -> Dictionary:
 	return {
 		"intensity": "firm",
 		"pattern": "steady",
@@ -32,7 +32,7 @@ func base_taste() -> Dictionary:
 
 func snapshot(overrides := {}) -> Dictionary:
 	var out := {
-		"taste": base_taste(),
+		"preferences": base_preferences(),
 		"seconds": 120.0,
 		"thrusts": 20,
 		"pony_climaxes": 1,
@@ -75,9 +75,9 @@ func run() -> void:
 	check(not silent.positive, "silence with a talk-seeker is not a good act")
 	check("silent_talk" in (silent.reasons as Array), "silence reason is named")
 
-	var quiet_taste := base_taste()
-	quiet_taste["talk"] = []
-	var non_seeker := evaluate({"taste": quiet_taste, "talk_liked": 0, "player_lines": 0})
+	var quiet_preferences := base_preferences()
+	quiet_preferences["talk"] = []
+	var non_seeker := evaluate({"preferences": quiet_preferences, "talk_liked": 0, "player_lines": 0})
 	check(non_seeker.grade == "good", "silence is not counted for a mare with no talk preference")
 
 	var bad := evaluate({"talk_liked": 0, "player_lines": 0, "touch_dislikes": {"smack": 2}})
@@ -140,10 +140,10 @@ func run() -> void:
 	var short := evaluate({"seconds": 5.0, "thrusts": 0})
 	check(bool(short.skip), "a very short act is skipped")
 
-	var no_touch := base_taste()
+	var no_touch := base_preferences()
 	no_touch["touch"] = []
 	no_touch["dislikes"] = []
-	var bare := evaluate({"taste": no_touch, "touches_liked": 0})
+	var bare := evaluate({"preferences": no_touch, "touches_liked": 0})
 	check(bare.grade == "good", "no touch preference omits the touch check")
 
 	var mismatch := evaluate({"intensity_right": 1, "pattern_right": 1})

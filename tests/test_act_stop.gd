@@ -207,7 +207,7 @@ func fixture(kind: String) -> Dictionary:
 	runtime._id = "rarity"
 	runtime._display_name = "Rarity"
 	runtime._event_id = "intimacy_stop_test"
-	runtime._taste = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
+	runtime._preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime._summary_done = false
 	runtime.state = 2 # ACTIVE

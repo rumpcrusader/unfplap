@@ -1,5 +1,5 @@
 extends SceneTree
-## Pure taste/pattern/talk-classifier tests.
+## Pure preference/pattern/talk-classifier tests.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_preferences.gd
 
 const PREF := preload("res://mods/unfplap/preferences.gd")
@@ -49,7 +49,7 @@ func run() -> void:
 	check(PREF.classify_talk("hello") == "", "unrelated talk is neutral")
 	check(PREF.classify_talk("") == "", "empty talk is neutral")
 
-	var taste := PREF.resolve({
+	var preference := PREF.resolve({
 		"intensity": "rough",
 		"pattern": "teasing",
 		"touch": ["smack", "nonsense"],
@@ -59,23 +59,23 @@ func run() -> void:
 		"tolerance": "strict",
 		"notes": "  private  ",
 	})
-	check(str(taste.get("intensity", "")) == "rough", "valid intensity kept")
-	check(str(taste.get("pattern", "")) == "teasing", "valid pattern kept")
-	check(str(taste.get("warmth", "")) == "quick", "valid warmth kept")
-	check(str(taste.get("tolerance", "")) == "strict", "valid tolerance kept")
-	check((taste["touch"] as Array).has("smack"), "liked touch kept")
-	check(not (taste["touch"] as Array).has("nonsense"), "unknown touch dropped")
-	check(not (taste["dislikes"] as Array).has("smack"), "liked/disliked overlap removed")
-	check((taste["dislikes"] as Array).has("kiss"), "valid dislike kept")
-	check(str(taste.get("notes", "")) == "private", "notes trimmed")
+	check(str(preference.get("intensity", "")) == "rough", "valid intensity kept")
+	check(str(preference.get("pattern", "")) == "teasing", "valid pattern kept")
+	check(str(preference.get("warmth", "")) == "quick", "valid warmth kept")
+	check(str(preference.get("tolerance", "")) == "strict", "valid tolerance kept")
+	check((preference["touch"] as Array).has("smack"), "liked touch kept")
+	check(not (preference["touch"] as Array).has("nonsense"), "unknown touch dropped")
+	check(not (preference["dislikes"] as Array).has("smack"), "liked/disliked overlap removed")
+	check((preference["dislikes"] as Array).has("kiss"), "valid dislike kept")
+	check(str(preference.get("notes", "")) == "private", "notes trimmed")
 
-	var described := PREF.describe(taste)
+	var described := PREF.describe(preference)
 	check(described.contains("intensity: rough"), "describe intensity")
 	check(described.contains("likes touch: smack"), "describe touch")
 	check(described.contains("likes talk: praise"), "describe talk")
 	check(described.contains("warmth: quick"), "describe warmth")
 	check(described.contains("tolerance: strict"), "describe tolerance")
-	check(PREF.warmth_scale(taste) > 1.0, "quick warmth scales up")
+	check(PREF.warmth_scale(preference) > 1.0, "quick warmth scales up")
 	check(PREF.warmth_scale(PREF.resolve({"warmth": "slow"})) < 1.0, "slow warmth scales down")
 	check(PREF.tolerance_tier("timid") == "forgiving", "old timid maps to forgiving")
 	check(PREF.tolerance_tier("neutral") == "normal", "old neutral maps to normal")

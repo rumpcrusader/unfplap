@@ -60,7 +60,7 @@ const AFTERGLOW_LIDS := 0.9
 const AFTERGLOW_CLOSE_LIDS := 0.95
 ## Readiness that triggers one pony climax. The player's afterglow is separate.
 const PONY_CLIMAX_AT := READINESS_MAX
-## Readiness per real thrust. Both taste axes match, one axis matches, or neither matches.
+## Readiness per real thrust. Both preference axes match, one axis matches, or neither matches.
 const THRUST_HEAT_BOTH := 1.4
 const THRUST_HEAT_ONE := 0.7
 ## Perceived intensity is scored from average stroke speed. Visual impact uses a separate
@@ -291,7 +291,7 @@ var _id := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
 var _pose_cfg: Dictionary = {}
-var _taste: Dictionary = {}
+var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 ## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
@@ -483,7 +483,7 @@ func _ready() -> void:
 	_face_timer.one_shot = true
 	_face_timer.timeout.connect(_clear_face)
 	add_child(_face_timer)
-	# integration: anatomy is persistent outside acts and attaches only to the modern taste roster.
+	# integration: anatomy is persistent outside acts and attaches only to the modern preference roster.
 	_anatomy_refresh()
 
 
@@ -754,13 +754,13 @@ func apply_live_settings() -> void:
 		_sync_standing_pose_config()
 	elif pose_id == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
-	# Nudge the frozen missionary anchor only when the framing control actually changed, so a taste
+	# Nudge the frozen missionary anchor only when the framing control actually changed, so a preference
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
 	if pose_id == CATALOG.MISSIONARY and state != State.IDLE:
 		_missionary_camera_controller().apply_framing()
 	if not _id.is_empty():
-		_taste = SETTINGS.taste(_id)
+		_preferences = SETTINGS.preferences(_id)
 	_refresh_live_modifiers()
 	if previous_mute != _feature("mute_ponese_audio"):
 		_refresh_live_voice()
@@ -827,7 +827,7 @@ func hud_cue_line(show_readouts := true) -> String:
 		parts.append(cue_text if not cue_text.is_empty() else "—")
 	return " | ".join(parts)
 
-## Separate readiness/taste line under the cue. In the afterglow it carries the act summary when
+## Separate readiness/preference line under the cue. In the afterglow it carries the act summary when
 ## the cue already shows the standing close prompt. Empty elsewhere when readouts are off.
 func hud_readiness_line(show_readouts := true) -> String:
 	if state == State.AFTERGLOW:
@@ -838,8 +838,8 @@ func hud_readiness_line(show_readouts := true) -> String:
 		return ""
 	var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
 	var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
-	var want_intensity := str(_taste.get("intensity", "firm"))
-	var want_pattern := str(_taste.get("pattern", "steady"))
+	var want_intensity := str(_preferences.get("intensity", "firm"))
+	var want_pattern := str(_preferences.get("pattern", "steady"))
 	return "Wants: %s & %s | You: %s & %s" % [
 		want_intensity, want_pattern, have_intensity, have_pattern]
 
@@ -1297,7 +1297,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		text += " | readiness=%.0f mood=%s climaxes=%d/%s intensity=%s pattern=%s cue=%s up=%s | %s" % [
 			satisfaction, mood, pony_climaxes, limit_text,
 			_last_intensity, _last_pattern, cue, str(thrust_up),
-			PREFERENCES.describe(_taste).replace("\n", "; ")]
+			PREFERENCES.describe(_preferences).replace("\n", "; ")]
 	text += " | " + voice_status_line()
 	return text
 
@@ -1765,7 +1765,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
 	_pose_cfg = SETTINGS.pose(_id, pose_id)
-	_taste = SETTINGS.taste(_id)
+	_preferences = SETTINGS.preferences(_id)
 	_act_prompts = _profile.get("act_prompts", {})
 	_snapshot_settings()
 	if is_instance_valid(_flank):
@@ -1817,7 +1817,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_debug_forced_tolerance = ""
 	_tolerance_warning_key = ""
 	_end_tail_tuck()
-	_tolerance_controller().reset(_taste)
+	_tolerance_controller().reset(_preferences)
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
@@ -2861,8 +2861,8 @@ func _score_thrust() -> void:
 	if now - _last_thrust_score_at < THRUST_SCORE_MIN_INTERVAL:
 		return
 	_last_thrust_score_at = now
-	var wanted_intensity := str(_taste.get("intensity", "firm"))
-	var wanted_pattern := str(_taste.get("pattern", "steady"))
+	var wanted_intensity := str(_preferences.get("intensity", "firm"))
+	var wanted_pattern := str(_preferences.get("pattern", "steady"))
 	var intensity_match := not _last_intensity.is_empty() and _last_intensity == wanted_intensity
 	var pattern_match := not _last_pattern.is_empty() and _last_pattern == wanted_pattern
 	_act_intensity_total += 1
@@ -2880,7 +2880,7 @@ func _score_thrust() -> void:
 	elif intensity_match or pattern_match:
 		heat = THRUST_HEAT_ONE
 	if heat > 0.0:
-		heat *= PREFERENCES.warmth_scale(_taste)
+		heat *= PREFERENCES.warmth_scale(_preferences)
 		if now < _receptive_until:
 			heat *= RECEPTIVE_BOOST
 		_add_heat(heat)
@@ -2961,7 +2961,7 @@ func _readiness_tick(delta: float) -> void:
 		cue = _cue_override
 	else:
 		_cue_override = ""
-		cue = UTTERANCE_SCHEDULER.base_cue(_taste, _overwhelmed, satisfaction,
+		cue = UTTERANCE_SCHEDULER.base_cue(_preferences, _overwhelmed, satisfaction,
 			_last_intensity, _last_pattern)
 	lines.observe_cue(now, cue)
 	var demand := UTTERANCE.is_demand(cue)
@@ -3007,10 +3007,10 @@ func _on_touch(kind: String) -> void:
 		_anatomy.call("react")
 	_act_touch_counts[kind] = int(_act_touch_counts.get(kind, 0)) + 1
 	var tolerance_event: Dictionary = {}
-	if kind in _taste.get("dislikes", []):
+	if kind in _preferences.get("dislikes", []):
 		_act_touch_dislikes[kind] = int(_act_touch_dislikes.get(kind, 0)) + 1
 		tolerance_event = _tolerance_controller().observe_dislike(kind)
-	elif kind in _taste.get("touch", []):
+	elif kind in _preferences.get("touch", []):
 		_tolerance_controller().observe_like(kind)
 	var now := _now_s()
 	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
@@ -3019,7 +3019,7 @@ func _on_touch(kind: String) -> void:
 		return
 	_last_touch_at = now
 	_last_touch = kind
-	if kind in _taste.get("touch", []):
+	if kind in _preferences.get("touch", []):
 		_act_liked_touch += 1
 		if satisfaction < ASSIST_CAP:
 			_add_heat(minf(TOUCH_HEAT, ASSIST_CAP - satisfaction))
@@ -3028,7 +3028,7 @@ func _on_touch(kind: String) -> void:
 			_set_cue_override("She needs more than your hands.")
 		_receptive_until = now + _receptive_seconds
 		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
-	elif kind in _taste.get("dislikes", []):
+	elif kind in _preferences.get("dislikes", []):
 		_act_dislikes += 1
 		_add_heat(-TOUCH_HEAT)
 		_overwhelmed = _cue_overwhelmed_s
@@ -3038,7 +3038,7 @@ func _on_touch(kind: String) -> void:
 	_tolerance_event(tolerance_event)
 
 ## The player's own words are a concrete input. The AI still writes her reply; this only
-## decides whether the line landed with her taste.
+## decides whether the line landed with her preference.
 func _on_talk(text: String) -> void:
 	if state != State.ACTIVE:
 		return
@@ -3046,10 +3046,10 @@ func _on_talk(text: String) -> void:
 	if category.is_empty():
 		return
 	var tolerance_event: Dictionary = {}
-	if category in _taste.get("dislikes", []):
+	if category in _preferences.get("dislikes", []):
 		_act_talk_dislikes += 1
 		tolerance_event = _tolerance_controller().observe_dislike(category)
-	elif category in _taste.get("talk", []):
+	elif category in _preferences.get("talk", []):
 		_tolerance_controller().observe_like(category)
 	var now := _now_s()
 	if now - _last_talk_at < _talk_cooldown_s:
@@ -3057,7 +3057,7 @@ func _on_talk(text: String) -> void:
 		return
 	_last_talk_at = now
 	_last_talk = category
-	if category in _taste.get("talk", []):
+	if category in _preferences.get("talk", []):
 		_act_liked_talk += 1
 		if satisfaction < ASSIST_CAP:
 			_add_heat(minf(TALK_HEAT, ASSIST_CAP - satisfaction))
@@ -3066,7 +3066,7 @@ func _on_talk(text: String) -> void:
 			_set_cue_override("She needs you to move.")
 		_receptive_until = now + _receptive_seconds
 		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
-	elif category in _taste.get("dislikes", []):
+	elif category in _preferences.get("dislikes", []):
 		_act_dislikes += 1
 		_add_heat(-TALK_HEAT)
 		_overwhelmed = _cue_overwhelmed_s
@@ -3206,7 +3206,8 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		"state": UTTERANCE.state_line(
 			pose_id, mood, _last_intensity, _last_pattern,
 			_last_touch, _last_talk, _act_seconds, pony_climaxes),
-		"taste": PREFERENCES.describe(_taste),
+		"preferences": PREFERENCES.describe(_preferences),
+		"taste": PREFERENCES.describe(_preferences),
 		"cue": cue,
 		"recent": _recent_lines(),
 	}
@@ -3404,7 +3405,7 @@ func _commit_summary(real_act: bool) -> void:
 
 func _summary_inputs() -> Dictionary:
 	return {
-		"taste": _taste,
+		"preferences": _preferences,
 		"seconds": _act_seconds,
 		"thrusts": _act_thrusts,
 		"pony_climaxes": pony_climaxes,
@@ -3419,7 +3420,7 @@ func _summary_inputs() -> Dictionary:
 		"pattern_right": _act_pattern_right,
 		"ended_early": _act_ended_early,
 		"stopped_by_her": _stopped_by_her,
-		"tolerance": str(_taste.get("tolerance", "normal")),
+		"tolerance": str(_preferences.get("tolerance", "normal")),
 		"forced": false,
 	}
 
@@ -3571,7 +3572,7 @@ func _tolerance_warn(level: int) -> void:
 	_set_cue_override(cue, 4.0)
 	_queue_tolerance_warning(level)
 	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
-		level, str(_taste.get("tolerance", "normal")),
+		level, str(_preferences.get("tolerance", "normal")),
 		float(_tolerance_controller().distress), _tolerance_controller().last_dislike])
 
 
@@ -3602,7 +3603,7 @@ func _stop_with_her(reason: String) -> void:
 	if _stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
 		return
 	_stopped_by_her = true
-	var strict := str(_taste.get("tolerance", "normal")) == "strict"
+	var strict := str(_preferences.get("tolerance", "normal")) == "strict"
 	_cancel_tolerance_warning()
 	_commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when no summary was
@@ -3622,7 +3623,7 @@ func _stop_with_her(reason: String) -> void:
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_taste.get("tolerance", "normal")), float(_tolerance_controller().distress),
+		str(_preferences.get("tolerance", "normal")), float(_tolerance_controller().distress),
 		reason, str(strict)])
 
 

@@ -333,7 +333,7 @@ static func all() -> Dictionary:
 			"Score weight for a talk-seeking mare hearing what she likes.",
 			"History › Score", "", 0.01, 1.0, 0.0, 1.0),
 		"history.w_touch": num(0.20, "Touch weight",
-			"Score component for touch that matches her taste.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
+			"Score component for touch that matches her preference.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
 		"history.w_motion": num(0.15, "Motion weight",
 			"Weight for matching both of her motion preferences.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
 		"history.w_not_early": num(0.15, "Not-early weight",

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Auto thrust: the generated depth must be real tracker strokes, and the pace range must
-## reach every intensity and pattern class the taste system uses.
+## reach every intensity and pattern class the preference system uses.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_auto_thrust.gd
 
 const AUTO := preload("res://mods/unfplap/auto_thrust.gd")

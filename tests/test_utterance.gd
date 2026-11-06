@@ -26,8 +26,8 @@ func run() -> void:
 	check(not UTTER.is_demand("She likes that."), "positive cue is not a demand")
 	check(not UTTER.is_demand("She wants you to keep going."), "trend fallback is not a demand")
 
-	var text := UTTER.format("a {state} b {taste} c {cue} d {recent} e {missing}", {
-		"state": "S", "taste": "T", "cue": "C", "recent": "R",
+	var text := UTTER.format("a {state} b {preferences} c {cue} d {recent} e {missing}", {
+		"state": "S", "preferences": "T", "cue": "C", "recent": "R",
 	})
 	check(text == "a S b T c C d R e ", "format placeholders")
 	var nested := UTTER.format("{a} {b}", {"a": "{b}", "b": "X"})

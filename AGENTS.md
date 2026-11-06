@@ -11,12 +11,12 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
-| ACTIVE readiness, taste, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
+| ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `tunables_schema.gd`, `tunables.gd` |
-| Character profiles or taste | `character_tastes.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
+| Character profiles or preference | `character_preferences.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md` |
 
 ## Identity and scope
@@ -129,7 +129,7 @@ mods/unfplap/
   mod.json          id, version, game_version, entry
   changelog.txt     player-facing release history; ships in the pack
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
-                    settings-tab injection with guard, Characters taste editor, debug actions,
+                    settings-tab injection with guard, Characters preference editor, debug actions,
                     skeleton debug helper
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
@@ -145,7 +145,7 @@ mods/unfplap/
   vr_act.gd         optional VR standing act; last and off by default
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
-  preferences.gd    pure taste profile, intensity/rhythm and talk classification
+  preferences.gd    pure preference profile, intensity/rhythm and talk classification
   tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
   tunables.gd       the one typed API for reading and writing those settings
   tunables_ui.gd    the only file that builds settings widgets: schema rows as the page's menu rows
@@ -183,7 +183,7 @@ mods/unfplap/
                     and afterglow summary
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
   settings.gd       settings.json IO and cache, legacy migration, per-character merge
-  character_tastes.gd  display names, selector order and every spawnable adult mare's taste
+  character_preferences.gd  display names, selector order and every spawnable adult mare's preference
   memory.gd         world_context events, grade-aware act impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
@@ -198,7 +198,7 @@ mods/unfplap/
   sex_bond.gd       pure Promiscuity levels + per-world lover-bond state and validity
   HISTORY.md        act score, history points, tiers, offer weighting and repair contract
   tests/            unit/source-hygiene tests + manual test_lab.gd
-  PREFERENCES.md    taste/readiness/strength contract
+  PREFERENCES.md    preference/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
 ```
 
@@ -749,7 +749,7 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   There is no act talk-invitation line or HUD hint.
 - Do **not** add a thrust debug sub-gate. The per-thrust log is the scoring view.
 
-Read `PREFERENCES.md` for the exact taste schema, readiness rates, cue rules and character
+Read `PREFERENCES.md` for the exact preference schema, readiness rates, cue rules and character
 examples.
 
 ## Act flow, gates and controls
@@ -846,7 +846,7 @@ examples.
 
 ### Mid-act neglect-tolerance stop
 
-- `taste.tolerance` is per mare: `forgiving`, `normal` or `strict`; the Characters sub-tab edits
+- `preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`; the Characters sub-tab edits
   **Neglect tolerance**. Default normal; Rarity is strict and Fluttershy is forgiving. The old
   `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 - A pure `act_tolerance.gd` meter runs in `POSING_IN`/`ACTIVE`. Every actual disliked touch/talk
@@ -1004,7 +1004,7 @@ examples.
 - The runtime logs the cue text and the admission decision on a change, adds the cue text to
   `utterance kind=...`, and logs cancel age/line/director state plus delivered/absent rows. Use
   these when a cue seems lost; there is no per-tick cue log.
-- A cue line uses the `cue` prompt. The state line contains pose, mood, taste-axis motion, last
+- A cue line uses the `cue` prompt. The state line contains pose, mood, preference-axis motion, last
   touch, last talk, pony climax count and act time; it contains no speed or depth units. The
   cue prompt gets `CUE_REACTION_NOTE`, which tells the model to phrase the cue as a reaction or
   preference rather than a repeated command. Custom prompts may use `{state}`.
@@ -1173,8 +1173,8 @@ examples.
 - The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
   `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, neglect
   tolerance (`forgiving`/`normal`/`strict`), touch/talk like and dislike checkboxes, and editable
-  notes. Taste edits save automatically and apply live; `Reset to default`
-  removes only that taste override. Custom `event_prompts` and `poses` on the character entry
+  notes. Preference edits save automatically and apply live; `Reset to default`
+  removes only that preference override. Custom `event_prompts` and `poses` on the character entry
   must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
@@ -1310,22 +1310,22 @@ rump blush. Unknown settings keys are ignored.
   units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
   has no second title. **Settings** holds the player-facing flags, **Thrust** (including the
   climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
-  taste** form (a per-mare profile, not a global tunable). **Debug** holds every other entry,
+  preference** form (a per-mare profile, not a global tunable). **Debug** holds every other entry,
   including **Talk & cues**, plus the **Actions** buttons, with the
   Actions block placed directly below **General** rather than at the bottom. There are
   no Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
   refreshes the flags, the caption position and the active act.
 - `debug_logs` and `debug_perf` default to `false`.
 - Character entries inherit unspecified fields from `default`.
-- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste`,
+- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `preferences`,
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
   control.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable adult mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
-  ID has a taste template in `character_tastes.gd`; add a pony there when expanding the roster.
-- Pose defaults live in `poses/catalog.gd`; taste defaults and validation live in
-  `character_tastes.gd`, `preferences.gd` and `settings.gd`.
+  ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.
+- Pose defaults live in `poses/catalog.gd`; preference defaults and validation live in
+  `character_preferences.gd`, `preferences.gd` and `settings.gd`.
 
 ## Documentation discipline
 

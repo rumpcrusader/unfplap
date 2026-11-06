@@ -82,14 +82,14 @@ static func mood_for(readiness: float, overwhelmed: float) -> String:
 	return "warming"
 
 
-## The base cue text from the taste axes. No units, no numbers, third person like the HUD.
-static func base_cue(taste: Dictionary, overwhelmed: float, readiness: float,
+## The base cue text from the preference axes. No units, no numbers, third person like the HUD.
+static func base_cue(preferences: Dictionary, overwhelmed: float, readiness: float,
 		intensity: String, pattern: String) -> String:
 	if overwhelmed > 0.0:
 		return "She's overwhelmed."
 	if readiness >= CLOSE_AT:
 		return "She is close."
-	var wanted_intensity := str(taste.get("intensity", "firm"))
+	var wanted_intensity := str(preferences.get("intensity", "firm"))
 	var intensity_match := not intensity.is_empty() and intensity == wanted_intensity
 	if not intensity.is_empty() and not intensity_match:
 		if wanted_intensity == "soft":
@@ -97,7 +97,7 @@ static func base_cue(taste: Dictionary, overwhelmed: float, readiness: float,
 		if wanted_intensity == "rough":
 			return "She wants it harder."
 		return "She wants it firmer." if intensity == "soft" else "She wants it softer."
-	var wanted_pattern := str(taste.get("pattern", "steady"))
+	var wanted_pattern := str(preferences.get("pattern", "steady"))
 	var pattern_match := not pattern.is_empty() and pattern == wanted_pattern
 	if not pattern.is_empty() and not pattern_match:
 		match wanted_pattern:

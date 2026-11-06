@@ -39,8 +39,8 @@ static func rules() -> Dictionary:
 	return out
 
 
-func reset(taste: Dictionary) -> void:
-	tier = PREFERENCES.tolerance_tier(str(taste.get("tolerance", "normal")))
+func reset(preferences: Dictionary) -> void:
+	tier = PREFERENCES.tolerance_tier(str(preferences.get("tolerance", "normal")))
 	distress = 0.0
 	warning_stage = 0
 	stopped = false

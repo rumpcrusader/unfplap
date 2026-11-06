@@ -68,6 +68,10 @@ var _last_velocity := Vector3.ZERO
 var _bed_holder: Node3D
 var _home: Node
 var _depth_smooth := 0.0
+## The total Hips-bone offset the standing controller applied last frame, and the offset this
+## frame asks for. The pelvis carries the part, so the two always move as one body.
+var hip_offset_applied := Vector3.ZERO
+var _hip_offset_wanted := Vector3.ZERO
 
 
 static func assets_exist() -> bool:
@@ -171,7 +175,11 @@ func _rotation_basis() -> Basis:
 
 func _placed() -> Transform3D:
 	var basis := _rotation_basis().scaled(Vector3.ONE * _scale * _setting_scale)
-	return _bone_inverse * Transform3D(basis, _pos)
+	# `Cock forward` slides the base out along the shaft, so it can sit on the front of the hips
+	# instead of inside the pelvis.
+	var front := TUNABLES.get_float("anatomy.part_front_m")
+	var axis := (TIP_POINT - PIVOT).normalized()
+	return _bone_inverse * Transform3D(basis, _pos + (_rotation_basis() * axis) * front)
 
 
 func _apply_place() -> void:
@@ -187,14 +195,14 @@ func apply_live() -> void:
 
 ## integration: standing: the part stays fixed to his hips. Bed: it rides her hips instead.
 func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float, delta: float,
-		mare_anchor: Node3D) -> void:
+		mare_anchor: Node3D, attached := true) -> void:
 	if not is_instance_valid(_mesh) or not _mesh.visible or placing:
 		return
 	if bed:
 		_track_bed(target, rear, up, depth, mare_anchor)
 		return
 	_end_bed()
-	_aim_part(target, depth, delta)
+	_aim_part(target, depth, delta, attached)
 	if delta <= 0.0:
 		return
 	var root := root_now()
@@ -226,35 +234,64 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 		material.set_shader_parameter("compress", _squash)
 
 
-## Standings aim only the visible part at the entrance. The hip target, crotch and legs stay
-## under the standing controller, so Anon's body does not rotate with the correction.
-func _aim_part(target: Vector3, depth: float, delta: float) -> void:
+## Aim the visible part at the entrance. In the standing act the part stays a rigid child of the
+## hips and the controller moves the pelvis instead (`hip_offset_wanted`), so his crotch and the
+## part travel together; the other poses keep the older aim-and-slide placement.
+func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> void:
 	if not is_instance_valid(_mesh) or not target.is_finite():
 		return
 	_apply_place()
+	var max_back := maxf(TUNABLES.get_float("anatomy.max_back_m"), 0.0)
+	var max_depth := maxf(TUNABLES.get_float("anatomy.max_depth_m"), 0.0)
+	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
+		1.0 - exp(-maxf(delta, 0.0) / 0.04))
+	if attached:
+		_aim_attached(target, max_back, max_depth)
+		return
+	_hip_offset_wanted = Vector3.ZERO
 	var pivot := _mesh.global_transform * PIVOT
 	var tip := _mesh.global_transform * TIP_POINT
 	var to_tip := tip - pivot
 	var to_open := target - pivot
 	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
 		return
-	var aim := Quaternion(to_tip.normalized(), to_open.normalized())
-	var placed := _mesh.global_transform
-	var turned := Basis(aim) * placed.basis
-	# Rotate onto the line through the entrance, then clamp the back-out: the tip may sit at
-	# most `Max back-out` behind the entrance between strokes. Forward stroke travel is untouched.
+	var turned := Basis(Quaternion(to_tip.normalized(), to_open.normalized())) * _mesh.global_transform.basis
 	var direction := to_open.normalized()
-	var max_back := maxf(TUNABLES.get_float("anatomy.max_back_m"), 0.0)
-	var max_depth := maxf(TUNABLES.get_float("anatomy.max_depth_m"), 0.0)
-	# Smooth the depth like the hip phase so the visible stroke cannot teleport.
-	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
-		1.0 - exp(-maxf(delta, 0.0) / 0.04))
-	# The visible tip follows the thrust depth continuously: max_back behind the entrance at 0,
-	# max_depth past it at full depth. No per-frame re-clamp and no teleport.
-	var desired := to_open.length() - max_back \
-		+ _depth_smooth * (max_depth + max_back)
+	var desired := to_open.length() - max_back + _depth_smooth * (max_depth + max_back)
 	var slide := desired - to_tip.length()
 	_mesh.global_transform = Transform3D(turned, pivot - turned * PIVOT + direction * slide)
+
+
+## Standing: rotate the part about its base in the hips' frame and ask the controller to move the
+## pelvis by the distance the entrance needs, so the base never leaves his crotch.
+func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
+	var parent := _mesh.get_parent() as Node3D
+	if not is_instance_valid(parent):
+		return
+	var local := _mesh.transform
+	var posed := parent.global_transform * local
+	var pivot_natural := posed * PIVOT - hip_offset_applied
+	var tip_natural := posed * TIP_POINT - hip_offset_applied
+	var to_tip := tip_natural - pivot_natural
+	var to_open := target - pivot_natural
+	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
+		return
+	var turn := Basis(Quaternion(to_tip.normalized(), to_open.normalized()))
+	var pivot := posed * PIVOT
+	var turned := Transform3D(turn * posed.basis, pivot + turn * (posed.origin - pivot))
+	_mesh.transform = parent.global_transform.affine_inverse() * turned
+	# The tip should sit `Max back-out` behind the entrance at depth 0 and `Max depth` past it at
+	# full depth, so move the pelvis by exactly the distance the base is short.
+	var along := -max_back + _depth_smooth * (max_back + max_depth)
+	# The shaft cannot push its own base through the entrance; keep the pivot outside her.
+	along = minf(along, maxf(to_tip.length() - 0.02, 0.0))
+	_hip_offset_wanted = to_open.normalized() \
+		* (to_open.length() - to_tip.length() + along)
+
+
+## The Hips-bone offset, in world space, that puts the part at the entrance for this depth.
+func hip_offset_wanted() -> Vector3:
+	return _hip_offset_wanted
 
 
 func _set_bend(turn: Vector3) -> void:
@@ -408,6 +445,8 @@ func _hide() -> void:
 
 func encounter(on: bool) -> void:
 	_in_encounter = on
+	hip_offset_applied = Vector3.ZERO
+	_hip_offset_wanted = Vector3.ZERO
 	if on:
 		_depth_smooth = 0.0
 		if not _ensure():

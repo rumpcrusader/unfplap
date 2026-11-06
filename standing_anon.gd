@@ -65,6 +65,15 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	if travel_value != null:
 		travel = maxf(0.0, float(travel_value))
 	var forward := -facing.z.normalized()
+	# With the anatomy part showing, the part asks for the pelvis to move to her entrance, so his
+	# crotch and the shaft always travel together.
+	var part: Variant = _anon_part()
+	if part != null:
+		var wanted: Variant = part.call("hip_offset_wanted")
+		if wanted is Vector3 and (wanted as Vector3).is_finite():
+			_hip_thrust.set("offset_world", wanted)
+			part.set("hip_offset_applied", wanted)
+			return
 	_hip_thrust.set("offset_world", forward * hip_offset(_hip_phase, scale, travel))
 
 
@@ -131,6 +140,18 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		elif _lower_captured:
 			_lower_captured = false
 			_log("standing lower body released")
+
+
+func _anon_part() -> Variant:
+	if not is_instance_valid(runtime):
+		return null
+	var main: Variant = runtime.get("main")
+	if not is_instance_valid(main):
+		return null
+	var part: Variant = main.get("anon_part")
+	if is_instance_valid(part) and bool(part.call("showing")):
+		return part
+	return null
 
 
 func _hip_drop() -> float:

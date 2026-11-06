@@ -4,6 +4,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
@@ -57,8 +58,8 @@ func _check_tail_tuning() -> void:
 	tail_runtime.set("_presentation_cfg", {})
 	tail_runtime.call("_sync_standing_pose_config")
 	cfg = tail_runtime.get("_pose_cfg")
-	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(32.0)), "tail yaw default")
-	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(24.0)), "tail pitch default")
+	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(45.0)), "tail yaw default")
+	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(32.0)), "tail pitch default")
 	tail_pony.free()
 	tail_runtime.free()
 
@@ -607,6 +608,8 @@ func run() -> void:
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	var planted_left := plant_left.global_position
 	var planted_right := plant_right.global_position
+	# `Hip drop` lowers the pinned pelvis, and it is on by default.
+	var plant_drop := Vector3.DOWN * TUNABLES.get_float("presentation.standing.hip_drop_m")
 	check(planted_left.is_equal_approx(Vector3(0.2, 0.0, 0.15)),
 		"planted left foot sits 15 cm behind its act-start point")
 	check(planted_right.is_equal_approx(Vector3(-0.2, 0.0, 0.15)),
@@ -619,7 +622,7 @@ func run() -> void:
 		"planted left foot holds its act-start point")
 	check(plant_right.global_position.is_equal_approx(planted_right),
 		"planted right foot holds its act-start point")
-	check(plant_hip.global_position.is_equal_approx(Vector3.ZERO),
+	check(plant_hip.global_position.is_equal_approx(plant_drop),
 		"planted hips hold their act-start point")
 	# A forward lean must not move the pinned lower body; the head/camera is what travels.
 	plant_runtime._lean_view_forward = 1.0
@@ -627,7 +630,7 @@ func run() -> void:
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
 	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_hip.global_position.is_equal_approx(Vector3.ZERO),
+	check(plant_hip.global_position.is_equal_approx(plant_drop),
 		"a forward lean keeps the planted hips at the act-start point")
 	check(plant_left.global_position.is_equal_approx(planted_left)
 		and plant_right.global_position.is_equal_approx(planted_right),
@@ -637,7 +640,7 @@ func run() -> void:
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
 	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_hip.global_position.is_equal_approx(Vector3(0.02, 0.0, 0.0)),
+	check(plant_hip.global_position.is_equal_approx(Vector3(0.02, 0.0, 0.0) + plant_drop),
 		"the body sway moves the pinned hip with her")
 	check(plant_left.global_position.is_equal_approx(planted_left)
 		and plant_right.global_position.is_equal_approx(planted_right),

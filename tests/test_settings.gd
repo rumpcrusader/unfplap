@@ -159,7 +159,7 @@ func run() -> void:
 	var thrust_defaults: Dictionary = defaults.get("thrust", {})
 	check(str(thrust_defaults.get("orientation", "")) == "up", "default thrust orientation")
 	check(near(float(thrust_defaults.get("pixels_per_full", 0.0)), 1000.0), "default thrust pixels")
-	check(near(float(thrust_defaults.get("travel", 0.0)), 0.5), "default hip travel")
+	check(near(float(thrust_defaults.get("travel", 0.0)), 1.0), "default hip travel")
 	var controls := TUNABLES.block("thrust.")
 	check(str(controls.get("orientation", "")) == "up", "runtime thrust controls up")
 	check(float(controls.get("pixels_per_full", 0.0)) >= 240.0,
@@ -168,7 +168,7 @@ func run() -> void:
 	var jiggle_defaults: Dictionary = defaults.get("jiggle", {})
 	check(near(float(jiggle_defaults.get("radius", -1.0)), 0.26),
 		"default jiggle radius")
-	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.25),
+	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.15),
 		"default jiggle intensity")
 	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.45),
 		"default smack jiggle intensity")
@@ -213,7 +213,7 @@ func run() -> void:
 		"default missionary head roll")
 	check(near(float(standing_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
-	check(near(float(standing_defaults.get("torso_angle_deg", -1.0)), 6.0),
+	check(near(float(standing_defaults.get("torso_angle_deg", -1.0)), -12.0),
 		"default Anon torso lean")
 	var kiss_defaults: Dictionary = standing_defaults.get("kiss", {})
 	check(near(float(kiss_defaults.get("mouth_drop", -1.0)), 0.0),
@@ -224,9 +224,9 @@ func run() -> void:
 		"default kiss camera yaw")
 	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),
 		"default kiss side lean")
-	check(near(float(kiss_defaults.get("lean_forward", 0.0)), 0.03),
+	check(near(float(kiss_defaults.get("lean_forward", 0.0)), 0.25),
 		"default kiss forward lean")
-	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.08),
+	check(near(float(kiss_defaults.get("lean_drop", 0.0)), 0.04),
 		"default kiss lean drop")
 	var caress_defaults: Dictionary = standing_defaults.get("caress", {})
 	check(near(float(caress_defaults.get("palm_distance", 0.0)), 0.02),
@@ -441,7 +441,7 @@ func _check_schema(defaults: Dictionary) -> void:
 	check(SCHEMA.groups(SCHEMA.ANATOMY_TAB).size() >= 3, "anatomy tab is split into sections")
 
 	# The schema path is the settings.json path, so the defaults must land in the same blocks.
-	check(near(float(SCHEMA.default_value("thrust.travel")), 0.5), "schema thrust travel default")
+	check(near(float(SCHEMA.default_value("thrust.travel")), 1.0), "schema thrust travel default")
 	check(bool(SCHEMA.default_value("features.act_foley")), "schema act foley default")
 	var kiss_defaults := SCHEMA.default_block("presentation.standing.kiss.")
 	check(near(float(kiss_defaults.get("lean_side", 0.0)), 0.46),

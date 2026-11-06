@@ -84,13 +84,15 @@ func run() -> void:
 	# Every new flag exists with the intended default.
 	check(SCHEMA.has("features.anatomy"), "anatomy master flag")
 	check(bool(SCHEMA.default_value("features.anatomy")), "anatomy is on by default")
-	for key: String in ["anatomy_holes", "anatomy_oral", "anatomy_finish", "anatomy_fluid"]:
+	for key: String in ["anatomy_holes", "anatomy_finish", "anatomy_fluid"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
-	for key: String in ["anatomy_bed_body", "anatomy_vr",
-			"act_bystanders", "act_line_variety", "act_public_offer"]:
+	check(not bool(SCHEMA.default_value("features.anatomy_oral")), "oral is off by default")
+	for key: String in ["anatomy_bed_body", "anatomy_vr", "act_bystanders", "act_public_offer"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
-		check(not bool(SCHEMA.default_value("features." + key)), "%s is off by default" % key)
+		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
+	check(not bool(SCHEMA.default_value("features.act_line_variety")),
+		"line variety is off by default")
 	check(SCHEMA.has("anatomy.teats"), "teats flag")
 	check(bool(SCHEMA.default_value("anatomy.teats")), "teats on by default")
 	check(SCHEMA.has("anatomy.act_only"), "act-only flag")
@@ -100,7 +102,7 @@ func run() -> void:
 	check(SCHEMA.has("anatomy.player_pitch_deg"), "player part pitch")
 	check(TUNABLES.get_string("anatomy.skin_tone") in ["coat", "darker", "dark"],
 		"skin tone choice")
-	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.281), "global anatomy placement")
+	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.286), "global anatomy placement")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
 	check(not SCHEMA.has("presentation.lean_back_m"), "back lean setting removed")

@@ -1373,9 +1373,9 @@ func anon_encounter(on: bool) -> void:
 
 
 func anon_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
-		delta: float, mare_anchor: Node3D) -> void:
+		delta: float, mare_anchor: Node3D, attached := true) -> void:
 	if is_instance_valid(anon_part):
-		anon_part.call("track", target, rear, up, bed, depth, delta, mare_anchor)
+		anon_part.call("track", target, rear, up, bed, depth, delta, mare_anchor, attached)
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:

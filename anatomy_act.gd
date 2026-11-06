@@ -294,7 +294,7 @@ func tick(delta: float) -> void:
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
-		shown, delta, (mesh as Node3D).get_parent())
+		shown, delta, (mesh as Node3D).get_parent(), pose == CATALOG.STANDING)
 	_debug_tick(part)
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "anatomy_tick", Time.get_ticks_usec() - started)

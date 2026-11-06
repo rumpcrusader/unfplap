@@ -593,8 +593,11 @@ func run() -> void:
 	plant_body._right_foot = plant_right
 	plant_left.global_position = Vector3(0.2, 0.0, 0.0)
 	plant_right.global_position = Vector3(-0.2, 0.0, 0.0)
+	# The real HipsTarget is parented to the skeleton, not to AnonBody; the body owns the feet.
+	var plant_skeleton := Node3D.new()
+	plant_body.add_child(plant_skeleton)
 	var plant_hip := Node3D.new()
-	plant_body.add_child(plant_hip)
+	plant_skeleton.add_child(plant_hip)
 	var plant_runtime: Node = RUNTIME.new()
 	plant_runtime.pose_id = CATALOG.STANDING
 	plant_runtime._free_camera_active = true
@@ -620,6 +623,18 @@ func run() -> void:
 		"planted right foot holds its act-start point")
 	check(plant_hip.global_position.is_equal_approx(Vector3.ZERO),
 		"planted hips hold their act-start point")
+	# A forward lean must not move the pinned lower body; the head/camera is what travels.
+	plant_runtime._lean_view_forward = 1.0
+	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
+	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
+	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
+	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	check(plant_hip.global_position.is_equal_approx(Vector3.ZERO),
+		"a forward lean keeps the planted hips at the act-start point")
+	check(plant_left.global_position.is_equal_approx(planted_left)
+		and plant_right.global_position.is_equal_approx(planted_right),
+		"a forward lean keeps the planted feet")
+	plant_runtime._lean_view_forward = 0.0
 	plant_runtime._features = {"standing_plant_feet": false}
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
@@ -627,8 +642,13 @@ func run() -> void:
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	check(plant_left.global_position.is_equal_approx(Vector3(5.0, 0.0, 0.0)),
 		"plant flag off releases the feet")
+	plant_runtime._lean_view_forward = 1.0
+	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	check(not plant_hip.global_position.is_zero_approx(),
+		"plant flag off lets the forward lean move the pelvis")
 	plant_runtime.free()
 	plant_hip.free()
+	plant_skeleton.free()
 	plant_left.free()
 	plant_right.free()
 	plant_body.free()

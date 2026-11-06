@@ -28,6 +28,9 @@ var _plant_left := Transform3D.IDENTITY
 var _plant_right := Transform3D.IDENTITY
 var _plant_hip := Transform3D.IDENTITY
 var _plant_captured := false
+## The AnonBody that owns `_left_foot`/`_right_foot`. The HipsTarget sits under the skeleton,
+## so walking up from the hip target must skip the skeleton and find the body node.
+var _lower_body: Node
 
 func _hip_phase_tick(delta: float) -> void:
 	if str(runtime.get("pose_id")) != CATALOG.STANDING or int(runtime.get("state")) not in [2, 3, 4]:
@@ -72,7 +75,10 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		return
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
-	var body := hip.get_parent()
+	var body := _lower_body_of(hip)
+	# A rig without the body's foot targets (tests, odd overrides) still gets the unplanted lean.
+	if body == null:
+		body = hip.get_parent()
 	# integration: optional alignment turns his pelvis but keeps the old pinned lower-body
 	# position. Moving the hip target forward was what clipped his crotch into her.
 	if runtime.has_method("anatomy_align_active") and bool(runtime.call("anatomy_align_active")):
@@ -158,6 +164,23 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			_log("standing lower body released")
 
 
+## The AnonBody above the hip target that owns both foot targets. `HipsTarget` is parented to the
+## skeleton, not the body, so `hip.get_parent()` never sees `_left_foot`/`_right_foot`; walk up
+## until the body node is found and cache it for the act.
+func _lower_body_of(hip: Node3D) -> Node:
+	if is_instance_valid(_lower_body) and _lower_body.get("_left_foot") != null:
+		return _lower_body
+	var node: Node = hip.get_parent()
+	for _step: int in 8:
+		if not is_instance_valid(node):
+			break
+		if node.get("_left_foot") != null and node.get("_right_foot") != null:
+			_lower_body = node
+			return node
+		node = node.get_parent()
+	return null
+
+
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
 	if str(runtime.get("pose_id")) != CATALOG.STANDING or bool(runtime.get("_player_pony")) or not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -236,6 +259,7 @@ func _remove_anon_thrust() -> void:
 	_remove_palm_scale()
 	_plant_captured = false
 	_lower_captured = false
+	_lower_body = null
 	if is_instance_valid(_hip_thrust):
 		_hip_thrust.queue_free()
 	_hip_thrust = null

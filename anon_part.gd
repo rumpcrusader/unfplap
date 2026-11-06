@@ -53,6 +53,8 @@ var _setting_scale := 1.0
 var _setting_pitch := 0.0
 var _setting_yaw := 0.0
 var _setting_roll := 0.0
+var _girth_base := 1.0
+var _girth_mid := 1.0
 var _ready_amount := 0.0
 var _tween: Tween
 var _in_encounter := false
@@ -144,6 +146,8 @@ func _apply_material() -> void:
 	mat.set_shader_parameter("shaft_root", PIVOT)
 	mat.set_shader_parameter("shaft_axis", (TIP_POINT - PIVOT).normalized())
 	mat.set_shader_parameter("shaft_length", PART_LENGTH)
+	mat.set_shader_parameter("girth_base", _girth_base)
+	mat.set_shader_parameter("girth_mid", _girth_mid)
 	mat.set_shader_parameter("base_texture", load(ALBEDO_PATH))
 	mat.set_shader_parameter("ao_texture", load(AO_PATH))
 	mat.set_shader_parameter("normal_texture", load(NRM_PATH))
@@ -163,6 +167,8 @@ func _read_settings() -> void:
 	_setting_pitch = TUNABLES.get_float("anatomy.player_pitch_deg")
 	_setting_yaw = TUNABLES.get_float("anatomy.player_yaw_deg")
 	_setting_roll = TUNABLES.get_float("anatomy.player_roll_deg")
+	_girth_base = maxf(TUNABLES.get_float("anatomy.part_base_scale"), 0.01)
+	_girth_mid = maxf(TUNABLES.get_float("anatomy.part_mid_scale"), 0.01)
 
 
 ## integration: the user-facing scale and rotation sit on top of the saved placement.
@@ -186,11 +192,21 @@ func _apply_place() -> void:
 	_mesh.transform = _placed()
 
 
+## The shader multiplies each cross-section; keep the reported girth in step with it so the holes
+## stretch to the visible size.
+func _apply_girth() -> void:
+	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+	if material != null:
+		material.set_shader_parameter("girth_base", _girth_base)
+		material.set_shader_parameter("girth_mid", _girth_mid)
+
+
 ## integration: live user-facing size/rotation update.
 func apply_live() -> void:
 	_read_settings()
 	if is_instance_valid(_mesh):
 		_apply_place()
+		_apply_girth()
 
 
 ## integration: standing: the part stays fixed to his hips. Bed: it rides her hips instead.
@@ -345,8 +361,9 @@ func girth_at(opening: Vector3) -> float:
 		return 0.0
 	var at := clampf(along, 0.0, 1.0) * (WIDTHS.size() - 1)
 	var below := floori(at)
+	var profile := lerpf(_girth_base, _girth_mid, smoothstep(0.0, 0.35, clampf(along, 0.0, 1.0)))
 	return lerpf(WIDTHS[below], WIDTHS[mini(below + 1, WIDTHS.size() - 1)], at - below) \
-		* _world_scale()
+		* _world_scale() * profile
 
 
 func _straighten() -> Basis:

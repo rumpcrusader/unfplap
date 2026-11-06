@@ -276,7 +276,8 @@ func tick(delta: float) -> void:
 	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
 	# instead of snapping closed; the climax wink is applied on top as a pulse.
 	if _state() in [2, 3]:
-		var hug := maxf(TUNABLES.get_float("anatomy.hug"), 0.0)
+		var vulva_hug := maxf(TUNABLES.get_float("anatomy.vulva_hug"), 0.0)
+		var anal_hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.0)
 		var closed := 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front
 		if _wink_left > 0.0:
 			_wink_left = maxf(_wink_left - delta, 0.0)
@@ -286,11 +287,11 @@ func tick(delta: float) -> void:
 		# and the lips cannot read as gripping it.
 		anatomy.call("set_fill", _fill)
 		anatomy.call("drive", closed)
-		anatomy.call("set_stretch", _wide * front * hug)
-		# The ring follows the shaft itself: stretch and open both use the shaft's girth, so the
-		# "open" blend cannot leave a gap around it.
-		var anal := _wide * _hole_mix * rearward * hug
-		anatomy.call("set_anal_shape", anal, anal)
+		anatomy.call("set_stretch", _wide * front * vulva_hug)
+		# The ring opens and stretches: `stretch` widens it, `open` rolls the rim outward. Driving
+		# only one of them leaves it half closed.
+		var anal := _wide * _hole_mix * rearward * anal_hug
+		anatomy.call("set_anal_shape", anal * 1.4, anal)
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
@@ -453,6 +454,8 @@ func teardown() -> void:
 func _debug_setup() -> void:
 	if not is_instance_valid(main):
 		return
+	if not TUNABLES.get_bool("features.debug_aim_points"):
+		return
 	_debug_vulva = _debug_sphere(Color(1.0, 0.1, 0.75))
 	_debug_anus = _debug_sphere(Color(1.0, 0.35, 0.05))
 	_debug_tip = _debug_sphere(Color(0.1, 1.0, 0.4))
@@ -481,8 +484,12 @@ func _debug_sphere(color: Color) -> MeshInstance3D:
 
 
 func _debug_tick(part: Variant) -> void:
-	if not is_instance_valid(_debug_vulva):
+	if not TUNABLES.get_bool("features.debug_aim_points"):
+		if is_instance_valid(_debug_vulva):
+			_debug_free()
 		return
+	if not is_instance_valid(_debug_vulva):
+		_debug_setup()
 	var shown := is_instance_valid(anatomy) and is_instance_valid(anatomy.call("winking_mesh"))
 	for point: MeshInstance3D in [_debug_vulva, _debug_anus]:
 		point.visible = shown

@@ -881,8 +881,44 @@ func _clear_injected_settings() -> void:
 	_injected_settings.clear()
 
 
+var _yaw_skeleton: Skeleton3D
+var _yaw_base := 0.0
+var _yaw_base_taken := false
+var _yaw_applied := 0.0
+
+
+## Debug: yaw Anon's whole body around its own vertical axis. The skeleton node pose turns the
+## visible body; the camera, the IK targets and the bone poses are untouched.
+func _body_yaw_tick() -> void:
+	var deg := TUNABLES.get_float("player.body_yaw_deg")
+	if is_zero_approx(deg) and is_zero_approx(_yaw_applied):
+		return
+	if not is_instance_valid(_yaw_skeleton):
+		_yaw_skeleton = _body_skeleton()
+		_yaw_base_taken = false
+		if not is_instance_valid(_yaw_skeleton):
+			return
+	if not _yaw_base_taken:
+		_yaw_base = _yaw_skeleton.rotation.y
+		_yaw_base_taken = true
+	if is_equal_approx(deg, _yaw_applied):
+		return
+	_yaw_applied = deg
+	_yaw_skeleton.rotation.y = _yaw_base + deg_to_rad(deg)
+
+
+func _body_skeleton() -> Skeleton3D:
+	if not is_instance_valid(player):
+		return null
+	var body := player.find_child("AnonBody", true, false) as Node3D
+	if not is_instance_valid(body):
+		return null
+	return body.find_child("Skeleton3D", true, false) as Skeleton3D
+
+
 func _process(delta: float) -> void:
 	_caption_top_tick()
+	_body_yaw_tick()
 	_sex_bond_clock += delta
 	if _sex_bond_clock >= 2.0:
 		_sex_bond_clock = 0.0

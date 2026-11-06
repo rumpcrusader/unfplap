@@ -22,6 +22,12 @@ uniform float cut_depth = 0.0;
 // integration: a small depth bias for the outer anatomy, so the jiggling coat cannot cover it.
 uniform float cover_depth = 0.0;
 
+// integration: the vulva widens locally around its own opening, so the anal bulb above it never
+// scales with the insertion.
+uniform vec3 vulva_centre = vec3(0.0, -0.012, 0.02);
+uniform float vulva_open = 0.0;
+uniform float vulva_radius = 0.055;
+
 // integration: the teats mesh fades to her coat at the rim and gets its sway uniforms.
 uniform vec4 coat_color: source_color;
 uniform vec4 coat_shadow: source_color;
@@ -38,6 +44,15 @@ uniform float contour_amount = 1.0;
 void vertex() {
 	VERTEX += flank_jiggle(VERTEX);
 	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
+	if (vulva_open > 0.0001) {
+		vec3 spread = VERTEX - vulva_centre;
+		vec3 flat_offset = vec3(spread.x, spread.y, 0.0);
+		float near_hole = 1.0 - smoothstep(vulva_radius * 0.25, vulva_radius, length(flat_offset));
+		float widen = 1.0 + vulva_open * near_hole;
+		spread.x *= widen;
+		spread.y *= widen;
+		VERTEX = vulva_centre + spread;
+	}
 }
 
 void fragment() {

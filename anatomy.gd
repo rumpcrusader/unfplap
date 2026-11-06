@@ -31,7 +31,9 @@ const WINKING_REAR_Z := 0.2961
 const WINKING_TOUCH_Y := 0.52
 const WINKING_DOCK_REF := -0.0311
 const WINKING_CUT_DEPTH := 0.07
-const WINKING_CUT_FILLED := 0.12
+## Shader widening applied to the vulva per unit of stretch, so the anal bulb never scales with it.
+const VULVA_WIDEN := 1.0
+const WINKING_CUT_FILLED := 0.4
 const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
@@ -299,11 +301,15 @@ func _apply_material() -> void:
 	var world_scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.001)
 	material.set_shader_parameter("cover_depth",
 		TUNABLES.get_float("anatomy.cover_depth_m") / world_scale)
+	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
+	material.set_shader_parameter("vulva_open", _wide * VULVA_WIDEN)
 	_mesh.set_surface_override_material(0, material)
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	OUTLINE_EXCLUSION.apply_to(_mesh)
 	if is_instance_valid(_anal_mesh):
-		_anal_mesh.set_surface_override_material(0, material.duplicate())
+		var anal_material := material.duplicate() as ShaderMaterial
+		anal_material.set_shader_parameter("vulva_open", 0.0)
+		_anal_mesh.set_surface_override_material(0, anal_material)
 	_apply_winking_shape()
 	_apply_teats_material(material)
 
@@ -584,12 +590,14 @@ func wink(count := 1, seconds := 0.45) -> void:
 		from = _rest
 
 
+## Widen the vulva around its own opening. This is a local shader deformation: the `stretch`
+## blend shape scales the whole mesh, anus bulb included, so it is deliberately left at zero.
 func set_stretch(wide: float) -> void:
 	_wide = clampf(wide, 0.0, 1.4)
 	if is_instance_valid(_mesh):
-		var shape := _mesh.find_blend_shape_by_name("stretch")
-		if shape >= 0:
-			_mesh.set_blend_shape_value(shape, _wide)
+		var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+		if material != null:
+			material.set_shader_parameter("vulva_open", _wide * VULVA_WIDEN)
 
 
 func set_fill(fill: float) -> void:
@@ -606,8 +614,8 @@ func _apply_winking_shape() -> void:
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
 		var open := smoothstep(0.0, 0.4, 1.0 - _closed)
-		# `Hole hug` scales how far the cut closes over the shaft once it is filled.
-		var hug := maxf(TUNABLES.get_float("anatomy.hug"), 0.01)
+		# `Vulva hug` scales how far the cut closes over the shaft once it is filled.
+		var hug := maxf(TUNABLES.get_float("anatomy.vulva_hug"), 0.01)
 		var filled := lerpf(1.0, WINKING_CUT_FILLED / hug, smoothstep(0.5, 1.0, _fill))
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled
 			* _mesh.global_transform.basis.get_scale().x)
@@ -622,8 +630,9 @@ func set_anal_shape(fill: float, wide := 0.0) -> void:
 	var material := _anal_mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
 		var scale := _mesh.global_transform.basis.get_scale().x
+		var hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.01)
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
-			* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED, fill))
+			* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(fill, 1.0)))
 
 
 func react() -> void:

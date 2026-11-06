@@ -23,6 +23,9 @@ uniform vec3 bend_turn = vec3(0.0);
 uniform float squish_at = 0.0;
 uniform float squish = 0.0;
 uniform float compress = 0.0;
+// integration: thickness multipliers, ramped from the base to the middle of the shaft.
+uniform float girth_base = 1.0;
+uniform float girth_mid = 1.0;
 
 varying vec3 lit_fill;
 
@@ -40,6 +43,8 @@ void vertex() {
 		float pinch = exp(-near_pinch * near_pinch);
 		float bulge = exp(-near_bulge * near_bulge);
 		ring *= 1.0 + squish * (0.07 * bulge - 0.11 * pinch) + compress * 0.8;
+		float length_t = clamp(along / max(shaft_length, 0.001), 0.0, 1.0);
+		ring *= mix(girth_base, girth_mid, smoothstep(0.0, 0.35, length_t));
 		float stem = along * (1.0 - compress);
 		vec3 centre = shaft_root + shaft_axis * stem;
 		float angle = length(bend_turn);

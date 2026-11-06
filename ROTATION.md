@@ -310,8 +310,9 @@ pose is unchanged. `tail_pose.gd` is not changed.
   only the Hips bone moves by `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so phase 0 is
   the backset and phase 1 reaches the rump point. The Spine and both UpperLegs are restored, so
   the torso and legs stay planted.
-- `body_sway.gd` translates `pony_spine1` with an inverted damped spring: back on inward depth,
-  forward on outward depth. Upper-arm origins are preserved so the forehooves stay planted.
+- `body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
+  forward on outward depth. All four limb-root origins are preserved so the hooves stay planted.
+  The same world offset is added to Anon's pinned hip so the contact rocks together.
   `BODY_SWAY_MAX_M = 0.035`.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
 - Mouse right calls `FlankTouch.impact(0, at)` for her left cheek or `impact(1, at)` for her

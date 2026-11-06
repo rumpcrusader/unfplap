@@ -99,6 +99,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				var pull := -MOTION.lean_distance(
 					minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale, back_m)
 				var shift := -forward * pull
+				var sway := _sway_offset()
 				if left is Node3D:
 					(left as Node3D).global_transform = Transform3D(
 						_plant_left.basis, _plant_left.origin + shift)
@@ -106,7 +107,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 					(right as Node3D).global_transform = Transform3D(
 						_plant_right.basis, _plant_right.origin + shift)
 				hip.global_transform = Transform3D(
-					_plant_hip.basis, _plant_hip.origin + shift)
+					_plant_hip.basis, _plant_hip.origin + shift + sway)
 		runtime.call("anatomy_align", hip, facing)
 		return
 	if body != null:
@@ -130,6 +131,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale,
 				float(runtime.call("lean_back_distance")))
 			var shift := -forward * pull
+			var sway := _sway_offset()
 			if left is Node3D:
 				(left as Node3D).global_transform = Transform3D(
 					_plant_left.basis, _plant_left.origin + shift)
@@ -137,7 +139,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				(right as Node3D).global_transform = Transform3D(
 					_plant_right.basis, _plant_right.origin + shift)
 			hip.global_transform = Transform3D(
-				_plant_hip.basis, _plant_hip.origin + shift)
+				_plant_hip.basis, _plant_hip.origin + shift + sway)
 			return
 		var lean_scale: float = float(runtime.call("_standing_lean_scale"))
 		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale) \
@@ -162,6 +164,16 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		elif _lower_captured:
 			_lower_captured = false
 			_log("standing lower body released")
+
+
+## World-space sway from `body_sway.gd`, so the pelvis and Anon's pinned hip move together.
+func _sway_offset() -> Vector3:
+	if not is_instance_valid(runtime):
+		return Vector3.ZERO
+	var raw: Variant = runtime.get("_standing_sway_offset")
+	if raw is Vector3 and (raw as Vector3).is_finite():
+		return raw
+	return Vector3.ZERO
 
 
 ## The AnonBody above the hip target that owns both foot targets. `HipsTarget` is parented to the

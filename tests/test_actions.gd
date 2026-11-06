@@ -634,6 +634,17 @@ func run() -> void:
 	check(plant_left.global_position.is_equal_approx(planted_left)
 		and plant_right.global_position.is_equal_approx(planted_right),
 		"a forward lean keeps the planted feet")
+	plant_runtime.set("_standing_sway_offset", Vector3(0.02, 0.0, 0.0))
+	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
+	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
+	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
+	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
+	check(plant_hip.global_position.is_equal_approx(Vector3(0.02, 0.0, 0.0)),
+		"the body sway moves the pinned hip with her")
+	check(plant_left.global_position.is_equal_approx(planted_left)
+		and plant_right.global_position.is_equal_approx(planted_right),
+		"the body sway leaves the planted feet")
+	plant_runtime.set("_standing_sway_offset", Vector3.ZERO)
 	plant_runtime._lean_view_forward = 0.0
 	plant_runtime._features = {"standing_plant_feet": false}
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)

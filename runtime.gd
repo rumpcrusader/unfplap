@@ -395,6 +395,9 @@ var _chin_modifier: SkeletonModifier3D
 var _body_sway: SkeletonModifier3D
 var _prone_sway: SkeletonModifier3D
 var _ear_twitch: SkeletonModifier3D
+## World-space hip sway published by `body_sway.gd`; the standing Anon controller adds it to its
+## pinned hip so the two bodies rock together.
+var _standing_sway_offset := Vector3.ZERO
 var _lean_forward := 0.0
 var _lean_side := 0.0
 var _lean_view_forward := 0.0
@@ -2435,6 +2438,7 @@ func _reset_thrust_state() -> void:
 	_auto_controller().reset(_auto_default_pace, _auto_default_depth)
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
+	_standing_sway_offset = Vector3.ZERO
 	_last_stroke.clear()
 	_last_intensity = ""
 	_last_pattern = ""

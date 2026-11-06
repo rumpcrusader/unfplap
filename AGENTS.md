@@ -162,7 +162,7 @@ mods/unfplap/
   standing_presentation.gd  idle standing invitation, turn and request face
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
   palm_scale.gd     standing hand-bone scale, restored when the act ends
-  body_sway.gd      depth-driven standing upper-body sway with planted forehooves
+  body_sway.gd      depth-driven standing body sway with planted hooves and Anon follow
   kiss_legs.gd      standing kiss hoof-tip pin after AffectionPose's chest flex
   prone_sway.gd     missionary lying torso slide and head nod on the thrust
   ear_twitch.gd     eased random thrust ear twitch on the head skeleton
@@ -442,11 +442,13 @@ body-relative axes.
 
 ### Standing body language
 
-- `body_sway.gd` translates `pony_spine1` with a damped spring driven by raw `depth`. It is
-  inverted for this pass: the upper body rocks **back** on the inward stroke and **forward** on
-  the outward stroke. The chest, neck and head follow; `pony_upperArm_L/R` origins are restored
-  afterward so the forehooves stay planted. `BODY_SWAY_MAX_M = 0.035` is deliberately exaggerated
-  for review; park it near `0.012`.
+- `body_sway.gd` translates `pony_hips` with a damped spring driven by raw `depth`, so her rump,
+  chest, neck and head all follow. It is inverted for this pass: her body rocks **back** on the
+  inward stroke and **forward** on the outward stroke. Both hind-femur and fore upper-arm origins
+  are restored afterward so the hooves stay planted. The modifier also publishes the world-space
+  offset; the standing Anon controller adds it to the pinned hip, so his part rocks with her and
+  the aligned contact stays together. `BODY_SWAY_MAX_M = 0.035` is deliberately exaggerated for
+  review; park it near `0.012`.
 - Strong thrusts (`strength >= 0.55`) build a subtle rump blush decal by `0.0525` per thrust,
   capped at `0.375` (the smack decal uses `0.8`). It decays at `0.006`/s and is removed at act
   end.
@@ -1204,7 +1206,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old satisfied/aftercare behaviour |
 | `idle_camera_sway` | `false` | slow idle breathing when not leaning; true adds the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
-| `standing_body_sway` | `true` | standing upper-body sway modifier |
+| `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
 | `standing_play_bow` | `false` | standing play-bow stance: front legs forward, chest down, head low |
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |

@@ -265,7 +265,7 @@ static func all() -> Dictionary:
 			"How far the standing tail lifts up. Pairs with Tail aside.", "Standing › Tail",
 			"°", 1.0, 1.0, 0.0, 90.0),
 		"features.standing_body_sway": flag(true, "Standing body sway",
-			"Move her upper body with the thrust while the forehooves stay planted.",
+			"Move her body with the thrust while the hooves stay planted; Anon's hips follow so the contact rocks with her.",
 			"Standing › Motion"),
 		"features.thrust_ear_twitch": flag(true, "Thrust ear twitch",
 			"Flick both ears on some thrusts.", "Standing › Motion"),

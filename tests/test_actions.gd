@@ -235,6 +235,7 @@ func run() -> void:
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(MOTION.lean_distance(-1.0), -0.08), "backward lean distance is halved")
+	check(near(MOTION.lean_distance(-1.0, 1.0, 0.16), -0.16), "custom back lean distance")
 	check(near(MOTION.lean_size_scale_for(1.0), 1.0), "JRHNBR lean scale is reference")
 	check(near(MOTION.lean_size_scale_for(0.66), 1.34), "Canon lean scale is +34 percent")
 	check(near(MOTION.lean_distance(1.0, 1.34), 0.3216), "Canon forward lean scales")

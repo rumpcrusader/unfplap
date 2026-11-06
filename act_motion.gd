@@ -38,8 +38,9 @@ static func lean_size_scale_for(size_scale: float) -> float:
 
 
 ## Forward and backward leans use different distances. JRHNBR (`1.0`) is the reference size.
-static func lean_distance(forward: float, size_scale := 1.0) -> float:
-	var metres := LEAN_FORWARD_M if forward >= 0.0 else LEAN_BACK_M
+## `back_m` is the player-facing back-lean distance; the default keeps the old 8 cm.
+static func lean_distance(forward: float, size_scale := 1.0, back_m := LEAN_BACK_M) -> float:
+	var metres := LEAN_FORWARD_M if forward >= 0.0 else back_m
 	return metres * forward * size_scale
 
 

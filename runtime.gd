@@ -397,6 +397,8 @@ var _lean_forward := 0.0
 var _lean_side := 0.0
 var _lean_view_forward := 0.0
 var _lean_view_side := 0.0
+## integration: user-facing back-lean distance, metres.
+var _lean_back_m := 0.08
 var _side_return_armed := false
 var _hold_rock_clock := 0.0
 var _lean_action_active := false
@@ -714,6 +716,7 @@ func _snapshot_settings() -> void:
 	_touch_cooldown_s = float(talk_block.get("touch_cooldown_seconds", 4.0))
 	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
 	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
+	_lean_back_m = TUNABLES.get_float("presentation.lean_back_m")
 	_presentation_cfg = TUNABLES.block("presentation." + pose_id + ".")
 	_configure_utterance_scheduler()
 
@@ -2527,6 +2530,11 @@ func anatomy_oral_active() -> bool:
 	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("oral_active"))
 
 
+## integration: live back-lean distance in metres, shared by both cameras and the hip pin.
+func lean_back_distance() -> float:
+	return _lean_back_m
+
+
 ## integration: precise action gates. With no act controller (assets missing, feature off) the
 ## keys pass through and the HUD rows stay hidden.
 func anatomy_hole_ready() -> bool:
@@ -2624,8 +2632,8 @@ func anatomy_align(hip: Node3D, facing: Basis) -> bool:
 	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
 	if not is_instance_valid(part) or not is_instance_valid(_anatomy_act):
 		return false
-	return bool(ANATOMY_ALIGN.apply(hip, _pose_basis_amount(), facing, depth,
-		part, _anatomy_act.call("hole_point"), _anatomy_act.call("hole_rear")))
+	return bool(ANATOMY_ALIGN.apply_rotation(hip, _pose_basis_amount(), facing, part,
+		_anatomy_act.call("hole_point"), _anatomy_act.call("hole_rear")))
 
 
 ## integration: the wrapper calls this name; it is a no-op with the alignment flag off.

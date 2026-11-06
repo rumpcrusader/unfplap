@@ -88,6 +88,9 @@ func run() -> void:
 	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.281), "global anatomy placement")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
+	check(SCHEMA.has("presentation.lean_back_m"), "back lean setting")
+	check(is_equal_approx(float(SCHEMA.default_value("presentation.lean_back_m")), 0.08),
+		"back lean default")
 	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),
 		"VR body tracker API")
 	check(not ClassDB.class_has_method("XRBodyTracker", "get_have_tracking_data"),

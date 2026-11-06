@@ -45,9 +45,8 @@ static func hip_offset(phase: float, scale: float, travel: float) -> float:
 
 
 func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
-	# integration: the optional alignment owns the hip target instead of the backset.
-	if runtime.has_method("anatomy_align_active") and bool(runtime.call("anatomy_align_active")):
-		return
+	# integration: the optional alignment pins the hip target but keeps this old hip-bone
+	# backset, so large depths cannot drive his crotch into her.
 	if str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(_hip_thrust):
 		return
 	if not facing.is_finite() or facing.z.length_squared() < 0.0001:
@@ -74,7 +73,8 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
 	var body := hip.get_parent()
-	# integration: optional alignment only moves the hip target; the camera never moves.
+	# integration: optional alignment turns his pelvis but keeps the old pinned lower-body
+	# position. Moving the hip target forward was what clipped his crotch into her.
 	if runtime.has_method("anatomy_align_active") and bool(runtime.call("anatomy_align_active")):
 		if body != null:
 			var left: Variant = body.get("_left_foot")
@@ -85,12 +85,22 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				var back := facing.z.normalized()
 				_plant_left.origin += back * PLANT_FEET_BACK_M
 				_plant_right.origin += back * PLANT_FEET_BACK_M
+				_plant_hip = hip.global_transform
 				_plant_captured = true
 			if _plant_captured:
+				var lean_scale: float = float(runtime.call("_standing_lean_scale"))
+				var back_m := float(runtime.call("lean_back_distance"))
+				var pull := -MOTION.lean_distance(
+					minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale, back_m)
+				var shift := -forward * pull
 				if left is Node3D:
-					(left as Node3D).global_transform = _plant_left
+					(left as Node3D).global_transform = Transform3D(
+						_plant_left.basis, _plant_left.origin + shift)
 				if right is Node3D:
-					(right as Node3D).global_transform = _plant_right
+					(right as Node3D).global_transform = Transform3D(
+						_plant_right.basis, _plant_right.origin + shift)
+				hip.global_transform = Transform3D(
+					_plant_hip.basis, _plant_hip.origin + shift)
 		runtime.call("anatomy_align", hip, facing)
 		return
 	if body != null:
@@ -111,7 +121,8 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			# S pulls the whole lower body back; every other lean only moves the upper body.
 			var lean_scale: float = float(runtime.call("_standing_lean_scale"))
 			var pull := -MOTION.lean_distance(
-				minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale)
+				minf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale,
+				float(runtime.call("lean_back_distance")))
 			var shift := -forward * pull
 			if left is Node3D:
 				(left as Node3D).global_transform = Transform3D(

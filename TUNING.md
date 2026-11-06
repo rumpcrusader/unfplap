@@ -17,6 +17,8 @@ Per-mare anatomy consent (`consent.public`, `consent.anal`, `consent.oral`) live
 profile, not in the tunable schema, and is saved by `settings.gd` from the Characters form.
 `anatomy.act_only` is a normal user-facing flag in the Anatomy section; it only changes visibility,
 not attachment.
+`presentation.lean_back_m` is the player-facing back-lean distance; it is read live with the other
+presentation values.
 
 ## Reading a value
 

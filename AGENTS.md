@@ -136,7 +136,7 @@ mods/unfplap/
                     restore, aftercare
   anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD
   anatomy_act.gd    per-act hole/oral/finish, shape driving, fluid and pose keys
-  anatomy_align.gd  optional standing hip/shaft alignment; no camera change
+  anatomy_align.gd  optional standing pelvic alignment; hip stays pinned, camera unchanged
   anon_part.gd      player anatomy mesh and placement
   missionary_bed.gd optional Anon bed body and eye view; off by default
   consent.gd        per-mare public/anal/oral defaults and merge
@@ -1215,7 +1215,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `anatomy_oral` | `true` | `N` standing oral and its neck motion |
 | `anatomy_finish` | `true` | `B` finish in/out and inside/outside afterglow |
 | `anatomy_fluid` | `true` | climax and finish droplets |
-| `anatomy_align` | `false` | experimental standing hip/shaft alignment; camera unchanged |
+| `anatomy_align` | `false` | experimental standing pelvic alignment; hip stays pinned, camera unchanged |
 | `anatomy_bed_body` | `false` | experimental Anon bed body and eye view |
 | `anatomy_vr` | `false` | experimental VR act |
 | `anatomy.act_only` | `false` | show mare anatomy only while an act is running |
@@ -1257,6 +1257,8 @@ rump blush. Unknown settings keys are ignored.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
 - `presentation` is split per pose:
+  - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
+    distance used by both cameras and the planted lower body.
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `15°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`

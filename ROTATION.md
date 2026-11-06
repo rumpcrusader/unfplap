@@ -140,7 +140,8 @@ pose is unchanged. `tail_pose.gd` is not changed.
 - The camera has no mouse look. `W`/`S` lean forward/back and `Q`/`E` lean sideways:
   `side = E - Q`, `forward = W - S + abs(side)`.
 - Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
-  lean is halved to `0.08 m`; side lean translates `0.18 m`. Both directions pitch `6°` down,
+  lean is `presentation.lean_back_m` (default `0.08 m`); side lean translates `0.18 m`. Both
+  directions pitch `6°` down,
   and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. A side lean also
   travels `presentation.missionary.side_lean` (default `0.20 m`, experimental/unbounded) along
   the mattress toward her head, outside the view-axis clamp. The displayed lean is always
@@ -207,7 +208,8 @@ pose is unchanged. `tail_pose.gd` is not changed.
   `_standing_transform()`.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose
   start, then freezes. The same lean vector is applied on top: forward `0.24 m` /
-  `-6°` pitch / `1.5°` roll; backward `0.08 m` with the same downward pitch; side `0.18 m` /
+  `-6°` pitch / `1.5°` roll; backward `presentation.lean_back_m` (default `0.08 m`) with the
+  same downward pitch; side `0.18 m` /
   `8°` outward roll / `3°` yaw. All scale with pony size. Canon lowers the standing eye line by
   `0.10 m` and uses a `0.66×` thrust-jiggle scale.
 - Anon's lower body stays planted: `apply_anon_lean()` freezes the hip target and both foot

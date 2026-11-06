@@ -735,7 +735,7 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - `CLOSE_AT = 65` is only the “she is close” cue. `PONY_CLIMAX_AT = 100` triggers a pony
   climax. `satisfaction` is still the public HUD value.
 - Each pony climax lasts `CLIMAX_SECONDS = 5`; the player can keep thrusting, but those thrusts
-  do not score. After it, readiness resets to `taste.recovery`. The user-facing
+  do not score. After it, readiness resets to `0`. The user-facing
   `thrust.max_pony_climaxes` setting (default `3`, `0` unlimited) decides when the act
   auto-enters afterglow.
 - Hold `Y` in `ACTIVE` with 0 climaxes cancels; with 1+ it enters afterglow. Hold `Y` in
@@ -1171,8 +1171,8 @@ examples.
   required for the mod to load.
 - The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
   `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, tolerance
-  (`timid`/`neutral`/`strict`), recovery `0…80`, touch/talk like and dislike checkboxes, and
-  editable private notes. Taste edits save automatically and apply live; `Reset to default`
+  (`timid`/`neutral`/`strict`), touch/talk like and dislike checkboxes, and editable private
+  notes. Taste edits save automatically and apply live; `Reset to default`
   removes only that taste override. Custom `event_prompts` and `poses` on the character entry
   must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
@@ -1316,7 +1316,7 @@ rump blush. Unknown settings keys are ignored.
   refreshes the flags, the caption position and the active act.
 - `debug_logs` and `debug_perf` default to `false`.
 - Character entries inherit unspecified fields from `default`.
-- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste` (`recovery` included),
+- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `taste`,
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
   control.

@@ -34,7 +34,6 @@ func _runtime() -> Node:
 		"dislikes": ["smack"],
 		"talk": ["praise"],
 		"warmth": "normal",
-		"recovery": 25,
 	})
 	runtime._thrust_tracker = THRUST.new()
 	runtime.state = 2 # ACTIVE
@@ -106,7 +105,7 @@ func run() -> void:
 
 	runtime._finish_climax()
 	check(int(runtime.state) == 2, "first climax returns to ACTIVE")
-	check(near(runtime.satisfaction, 25.0), "recovery resets readiness to the mare's value")
+	check(near(runtime.satisfaction, 0.0), "a climax resets readiness to zero")
 	check(runtime.pony_climaxes == 1, "climax count survives the return to ACTIVE")
 
 	runtime.pony_climaxes = 2
@@ -136,11 +135,14 @@ func run() -> void:
 	runtime._auto_default_pace = 1.5
 	runtime._auto_default_depth = 0.9
 	runtime._reset_thrust_state()
+	var auto_thrusts := int(runtime._act_intensity_total)
 	runtime.toggle_auto_thrust()
 	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
 	for _i: int in 240:
+		runtime._clock_s += 1.0 / 60.0
 		runtime._auto_thrust_tick(1.0 / 60.0)
-	check(runtime.satisfaction > 0.0, "auto thrust scores through the same tracker")
+	check(int(runtime._act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
+	check(not str(runtime._last_intensity).is_empty(), "auto thrust classifies intensity")
 	runtime._stop_auto_thrust()
 	check(not runtime.auto_active(), "stopping auto clears the mode")
 	runtime._reset_thrust_state()

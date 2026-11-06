@@ -4081,7 +4081,7 @@ func _finish_climax() -> void:
 		return
 	state = State.ACTIVE
 	_set_face(0.45, ACT_LIDS)
-	satisfaction = float(_taste.get("recovery", PREFERENCES.RECOVERY_DEFAULT))
+	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
 	_cue_override = ""
@@ -4094,8 +4094,7 @@ func _finish_climax() -> void:
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
 	var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
-	_log("pony climax end=%d/%s recovery=%.0f" % [
-		pony_climaxes, limit_text, satisfaction])
+	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.

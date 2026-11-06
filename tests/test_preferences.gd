@@ -24,7 +24,6 @@ func run() -> void:
 	check(str(neutral.get("pattern", "")) == "steady", "default pattern steady")
 	check(str(neutral.get("warmth", "")) == "normal", "default warmth normal")
 	check(str(neutral.get("tolerance", "")) == "neutral", "default tolerance neutral")
-	check(int(neutral.get("recovery", 0)) == 20, "default recovery 20")
 	check((neutral.get("touch", []) as Array).is_empty(), "default touch empty")
 	check((neutral.get("talk", []) as Array).is_empty(), "default talk empty")
 
@@ -58,14 +57,12 @@ func run() -> void:
 		"talk": ["praise", "nonsense"],
 		"warmth": "quick",
 		"tolerance": "strict",
-		"recovery": 35,
 		"notes": "  private  ",
 	})
 	check(str(taste.get("intensity", "")) == "rough", "valid intensity kept")
 	check(str(taste.get("pattern", "")) == "teasing", "valid pattern kept")
 	check(str(taste.get("warmth", "")) == "quick", "valid warmth kept")
 	check(str(taste.get("tolerance", "")) == "strict", "valid tolerance kept")
-	check(int(taste.get("recovery", 0)) == 35, "valid recovery kept")
 	check((taste["touch"] as Array).has("smack"), "liked touch kept")
 	check(not (taste["touch"] as Array).has("nonsense"), "unknown touch dropped")
 	check(not (taste["dislikes"] as Array).has("smack"), "liked/disliked overlap removed")
@@ -78,10 +75,8 @@ func run() -> void:
 	check(described.contains("likes talk: praise"), "describe talk")
 	check(described.contains("warmth: quick"), "describe warmth")
 	check(described.contains("tolerance: strict"), "describe tolerance")
-	check(described.contains("recovers quickly after climax"), "describe recovery")
 	check(PREF.warmth_scale(taste) > 1.0, "quick warmth scales up")
 	check(PREF.warmth_scale(PREF.resolve({"warmth": "slow"})) < 1.0, "slow warmth scales down")
-	check(int(PREF.resolve({"recovery": 999}).get("recovery", 0)) == 80, "recovery clamps")
 	check(str(PREF.resolve({"intensity": "nonsense"}).get("intensity", "")) == "firm",
 		"unknown intensity falls back")
 

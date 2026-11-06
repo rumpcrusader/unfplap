@@ -42,13 +42,9 @@ func run() -> void:
 		var built_taste: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, id).get("taste", {})
 		if built_taste.has("pose"):
 			taste_ok = false
-		var recovery := int((built_taste as Dictionary).get("recovery", -1))
-		if recovery < 0 or recovery > 80:
-			taste_ok = false
 	check(catalog_ok, "every pony has a taste template")
 	check(taste_ok, "generated tastes are valid and pose-free")
 	var maud := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "maud_pie")
-	check(int((maud["taste"] as Dictionary).get("recovery", -1)) == 10, "Maud is slow to recover")
 	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
 
 	check(int(base.get("aftercare_min", 0)) == 10, "default aftercare_min is 10")
@@ -63,7 +59,6 @@ func run() -> void:
 	check(str(taste.get("intensity", "")) == "firm", "neutral intensity default")
 	check(str(taste.get("pattern", "")) == "steady", "neutral pattern default")
 	check(str(taste.get("tolerance", "")) == "neutral", "neutral tolerance default")
-	check(int(taste.get("recovery", 0)) == 20, "neutral recovery default")
 	check((taste.get("touch", []) as Array).is_empty(), "neutral touch default")
 	var prompts: Dictionary = base.get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
@@ -76,7 +71,7 @@ func run() -> void:
 	var characters := {
 		"fluttershy": {
 			"poses": {CATALOG.MISSIONARY: {"hind_spread": 0.5}},
-			"taste": {"intensity": "rough", "touch": ["smack"], "recovery": 30},
+			"taste": {"intensity": "rough", "touch": ["smack"]},
 		},
 	}
 	var profile := SETTINGS.profile_for(base, characters, "fluttershy")
@@ -89,7 +84,6 @@ func run() -> void:
 	check(str(profile_taste.get("intensity", "")) == "rough", "character taste override")
 	check((profile_taste.get("touch", []) as Array).has("smack"), "character touch override")
 	check(str(profile_taste.get("pattern", "")) == "steady", "character pattern inherits default")
-	check(int(profile_taste.get("recovery", 0)) == 30, "character recovery override")
 
 	var other := SETTINGS.profile_for(base, characters, "rainbow_dash")
 	check(float((other["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.42, "other character keeps pose default")
@@ -103,7 +97,6 @@ func run() -> void:
 	var fluttershy_taste: Dictionary = built_in["taste"]
 	check(str(fluttershy_taste.get("intensity", "")) == "firm", "Fluttershy intensity")
 	check(str(fluttershy_taste.get("pattern", "")) == "steady", "Fluttershy pattern")
-	check(int(fluttershy_taste.get("recovery", 0)) == 12, "Fluttershy recovery")
 	check(str(fluttershy_taste.get("tolerance", "")) == "timid", "Fluttershy is timid")
 	check((fluttershy_taste.get("talk", []) as Array).has("reassurance"), "Fluttershy talk")
 	var rarity := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "rarity")
@@ -112,7 +105,6 @@ func run() -> void:
 	check(str(rarity_taste.get("tolerance", "")) == "strict", "Rarity is strict")
 	check((rarity_taste.get("talk", []) as Array).has("praise"), "Rarity talk")
 	var twilight := SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "twilight_sparkle")
-	check(int((twilight["taste"] as Dictionary).get("recovery", 0)) == 20, "Twilight recovery")
 
 	var defaults := SETTINGS._defaults()
 	var feature_block: Dictionary = defaults.get("features", {})

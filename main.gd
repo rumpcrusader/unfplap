@@ -566,7 +566,6 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 	var pattern := _taste_pills(form, "Pattern", TASTE.PATTERNS, font_size)
 	var warmth := _taste_pills(form, "Warmth", TASTE.WARMTHS, font_size)
 	var tolerance := _taste_pills(form, "Tolerance", TASTE.TOLERANCES, font_size)
-	var recovery := _taste_spin(form, "Recovery (0–80)", font_size)
 	var touch_likes := _taste_checks(form, "Likes touch", TASTE.TOUCHES, font_size)
 	var talk_likes := _taste_checks(form, "Likes talk", TASTE.TALKS, font_size)
 	var touch_dislikes := _taste_checks(form, "Dislikes touch", TASTE.TOUCHES, font_size)
@@ -610,7 +609,6 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 		"pattern": pattern,
 		"warmth": warmth,
 		"tolerance": tolerance,
-		"recovery": recovery,
 		"touch_likes": touch_likes,
 		"talk_likes": talk_likes,
 		"touch_dislikes": touch_dislikes,
@@ -629,8 +627,6 @@ func _add_taste_form(list: VBoxContainer, font_size: int) -> void:
 		for pill: Node in pills.get_children():
 			(pill as Button).pressed.connect(_choose_taste_pill.bind(
 				pills, str(pill.get_meta("value")), refs))
-	recovery.value_changed.connect(func(_value: float) -> void:
-		_save_taste_form(refs))
 	for checks: Dictionary in [touch_likes, talk_likes, touch_dislikes, talk_dislikes]:
 		for key: String in checks:
 			(checks[key] as CheckButton).toggled.connect(func(_on: bool) -> void:
@@ -717,17 +713,6 @@ func _choose_taste_pill(pills: HBoxContainer, value: String, refs: Dictionary) -
 	_save_taste_form(refs)
 
 
-func _taste_spin(parent: GridContainer, label_text: String, font_size: int) -> SpinBox:
-	parent.add_child(_form_label(label_text, font_size))
-	var spin := SpinBox.new()
-	spin.min_value = float(TASTE.RECOVERY_MIN)
-	spin.max_value = float(TASTE.RECOVERY_MAX)
-	spin.step = 1.0
-	spin.add_theme_font_size_override("font_size", font_size - 2)
-	parent.add_child(spin)
-	return spin
-
-
 func _taste_checks(parent: GridContainer, label_text: String, values: Array, font_size: int) -> Dictionary:
 	parent.add_child(_form_label(label_text, font_size))
 	var row := HBoxContainer.new()
@@ -761,9 +746,6 @@ func _refresh_taste_form(refs: Dictionary) -> void:
 	_select_taste_value(refs.get("pattern"), str(taste.get("pattern", "steady")))
 	_select_taste_value(refs.get("warmth"), str(taste.get("warmth", "normal")))
 	_select_taste_value(refs.get("tolerance"), str(taste.get("tolerance", "neutral")))
-	var recovery: Variant = refs.get("recovery")
-	if recovery is SpinBox:
-		(recovery as SpinBox).value = float(taste.get("recovery", TASTE.RECOVERY_DEFAULT))
 	_set_taste_checks(refs.get("touch_likes"), TASTE.TOUCHES, taste.get("touch", []))
 	_set_taste_checks(refs.get("talk_likes"), TASTE.TALKS, taste.get("talk", []))
 	_set_taste_checks(refs.get("touch_dislikes"), TASTE.TOUCHES, taste.get("dislikes", []))
@@ -831,7 +813,6 @@ func _save_taste_form(refs: Dictionary) -> void:
 		"talk": _checked_taste_values(refs.get("talk_likes"), TASTE.TALKS),
 		"warmth": _picked_taste_value(refs.get("warmth"), "normal"),
 		"tolerance": _picked_taste_value(refs.get("tolerance"), "neutral"),
-		"recovery": int((refs.get("recovery") as SpinBox).value) if refs.get("recovery") is SpinBox else TASTE.RECOVERY_DEFAULT,
 		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
 	}
 	SETTINGS.save_taste(id, taste)

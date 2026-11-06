@@ -22,7 +22,7 @@ const STALLIONS := [
 ]
 const TASTE_KEYS := [
 	"intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance",
-	"recovery", "notes",
+	"notes",
 ]
 
 var failures := 0
@@ -78,14 +78,11 @@ func run() -> void:
 		var warmth_value := str(taste.get("warmth", ""))
 		var tolerance := str(taste.get("tolerance", "neutral"))
 		var notes := str(taste.get("notes", ""))
-		var recovery := int(taste.get("recovery", -1))
 
 		check(intensity in PREFERENCES.INTENSITIES, id + " intensity")
 		check(pattern in PREFERENCES.PATTERNS, id + " pattern")
 		check(warmth_value in PREFERENCES.WARMTHS, id + " warmth")
 		check(tolerance in PREFERENCES.TOLERANCES, id + " tolerance")
-		check(recovery >= PREFERENCES.RECOVERY_MIN and recovery <= PREFERENCES.RECOVERY_MAX,
-			id + " recovery range")
 		check(not touch.is_empty(), id + " likes at least one touch")
 		check(notes.begins_with("You "), id + " notes are second person")
 		check(notes.length() <= 260, id + " notes stay short")
@@ -107,8 +104,8 @@ func run() -> void:
 			mares_with_talk += 1
 		if not dislikes.is_empty():
 			mares_with_dislikes += 1
-		signatures["%s/%s/%s/%s/%s/%s/%d" % [intensity, pattern, warmth_value, tolerance,
-			",".join(touch), ",".join(talk), recovery]] = true
+		signatures["%s/%s/%s/%s/%s/%s" % [intensity, pattern, warmth_value, tolerance,
+			",".join(touch), ",".join(talk)]] = true
 		intensities[intensity] = true
 		patterns[pattern] = true
 		warmth[warmth_value] = true
@@ -129,7 +126,6 @@ func run() -> void:
 
 	var base: Dictionary = SETTINGS._filled_default()
 	var maud := SETTINGS.profile_for(base, TASTES.TEMPLATES, "maud_pie")
-	check(int((maud["taste"] as Dictionary).get("recovery", -1)) == 10, "Maud is slow to recover")
 	check(((maud["taste"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
 	var fluttershy := SETTINGS.profile_for(base, TASTES.TEMPLATES, "fluttershy")
 	check(str((fluttershy["taste"] as Dictionary).get("tolerance", "")) == "timid",

@@ -45,18 +45,12 @@ aftercare are outside it.
     "talk": ["reassurance"],      # empty = talk does not score for her
     "warmth": "normal",           # quick | normal | slow
     "tolerance": "neutral",       # timid | neutral | strict
-    "recovery": 20,               # readiness after a climax, 0..80
     "notes": "private attitude for the AI"
 }
 ```
 
 - `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
 - `tolerance` sets mid-act warnings and the stop threshold; see `HISTORY.md`.
-- `recovery` is where readiness restarts after each pony climax:
-  - `0` means she must be built up from nothing;
-  - `20` is the baseline;
-  - `35` means she starts the next cycle already warm;
-  - cap is `80` so nobody instantly re-climaxes.
 - `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 
 ## Settings editor
@@ -110,7 +104,6 @@ The **Characters** tab exposes one name-filtered pony selector and one form:
 
 - intensity, pattern, warmth;
 - tolerance (timid, neutral, strict);
-- recovery `0…80`;
 - liked touch and talk;
 - disliked touch and talk;
 - public, anal and oral consent;
@@ -225,11 +218,9 @@ overwhelmed   a disliked touch/talk landed recently
   update intensity, pattern or readiness.
 - Each climax sends a unique world-context event and a unique generated reaction.
 - When the 5 s ends:
-  - below the configured limit, or unlimited: return to `ACTIVE`, set readiness to `recovery`,
+  - below the configured limit, or unlimited: return to `ACTIVE`, set readiness to `0`,
     clear pattern;
   - at a non-zero configured limit: enter `AFTERGLOW` automatically.
-- The pony's `recovery` is per-mare, so a slow/low-recovery mare needs a thorough approach
-  and a quick/high-recovery mare reaches the next climax faster.
 
 ## Player afterglow
 
@@ -342,25 +333,25 @@ the main cast sample; the catalog carries the full roster. `twist` (written as a
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match
 their character profiles.
 
-| Character | Intensity | Pattern | Touch | Talk | Warmth | Recovery |
-|---|---|---|---|---|---|---|
-| Twilight | firm | steady | kiss | curious, praise | normal | 20 |
-| Fluttershy | firm | steady | caress | reassurance | slow | 12 |
-| Rarity | soft | steady | caress | praise | normal | 18 |
-| Pinkie | firm | quick | smack | playful | quick | 35 |
-| Applejack | firm | steady | caress, smack | praise, reassurance | normal | 24 |
-| Rainbow | rough | quick | smack | praise, playful | quick | 30 |
-| Derpy | rough | quick | smack | playful | quick | 35 |
-| Lyra | firm | steady | caress, kiss | curious, playful | normal | 22 |
-| Octavia | soft | steady | caress | praise | slow | 15 |
-| Vinyl | rough | quick | smack, kiss | playful | quick | 32 |
-| Berry | rough | quick | smack | playful, dirty | quick | 30 |
-| Cheerilee | firm | steady | caress | praise, reassurance | normal | 20 |
-| Maud | soft | steady | caress | none (quiet) | slow | 10 |
-| Trixie | firm | steady | kiss | praise, playful | quick | 28 |
-| Zecora | firm | steady | caress | curious, reassurance | slow | 18 |
-| Spitfire | rough | quick | smack | praise, playful | normal | 26 |
-| Default | firm | steady | none | none | normal | 20 |
+| Character | Intensity | Pattern | Touch | Talk | Warmth |
+|---|---|---|---|---|---|
+| Twilight | firm | steady | kiss | curious, praise | normal |
+| Fluttershy | firm | steady | caress | reassurance | slow |
+| Rarity | soft | steady | caress | praise | normal |
+| Pinkie | firm | quick | smack | playful | quick |
+| Applejack | firm | steady | caress, smack | praise, reassurance | normal |
+| Rainbow | rough | quick | smack | praise, playful | quick |
+| Derpy | rough | quick | smack | playful | quick |
+| Lyra | firm | steady | caress, kiss | curious, playful | normal |
+| Octavia | soft | steady | caress | praise | slow |
+| Vinyl | rough | quick | smack, kiss | playful | quick |
+| Berry | rough | quick | smack | playful, dirty | quick |
+| Cheerilee | firm | steady | caress | praise, reassurance | normal |
+| Maud | soft | steady | caress | none (quiet) | slow |
+| Trixie | firm | steady | kiss | praise, playful | quick |
+| Zecora | firm | steady | caress | curious, reassurance | slow |
+| Spitfire | rough | quick | smack | praise, playful | normal |
+| Default | firm | steady | none | none | normal |
 
 Dislikes are shown in the settings editor and stay in the `taste` block. They are used only where
 the character's temperament supports them; the main cast uses `smack` and/or `dirty` for Rarity,

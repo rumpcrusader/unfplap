@@ -596,9 +596,7 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	var warmth := _preference_pills(form, "Warmth", PREFERENCES.WARMTHS, font_size, {},
 		"How fast arousal builds.")
 	var tolerance := _preference_pills(form, "Neglect tolerance", PREFERENCES.TOLERANCES, font_size, {},
-		"Forgiving: a gentle warning and she will not stop the act. Normal: an early warning and " \
-		+ "another before she stops. Strict: a warning at the first sign of neglect, and she stops " \
-		+ "sooner.")
+		"How she responds to things she dislikes.")
 	var touch: Dictionary = {}
 	for action: String in PREFERENCES.TOUCHES:
 		touch[action] = _preference_pills(form, action.capitalize(), PREFERENCE_STATES, font_size,
@@ -608,13 +606,6 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		var label := "Dirty talk" if action == "dirty" else action.capitalize()
 		talk[action] = _preference_pills(form, label, PREFERENCE_STATES, font_size,
 			PREFERENCE_STATE_LABELS)
-	var notes := TextEdit.new()
-	notes.custom_minimum_size = Vector2(0.0, 76.0)
-	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	notes.add_theme_font_size_override("font_size", font_size - 2)
-	var notes_label := _form_label("Notes", font_size)
-	form.add_child(notes_label)
-	form.add_child(notes)
 	# integration: per-mare consent for the optional anatomy actions.
 	var consent_public := CheckButton.new()
 	form.add_child(_form_label("Okay with public", font_size))
@@ -625,6 +616,13 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	var consent_oral := CheckButton.new()
 	form.add_child(_form_label("Okay with oral", font_size))
 	form.add_child(consent_oral)
+	var notes := TextEdit.new()
+	notes.custom_minimum_size = Vector2(0.0, 76.0)
+	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	notes.add_theme_font_size_override("font_size", font_size - 2)
+	notes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_child(_form_label("Notes", font_size))
+	stack.add_child(notes)
 
 	var refs := {
 		"selector": selector,

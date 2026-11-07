@@ -28,6 +28,30 @@ class FakeFlank extends Node3D:
 	var _jiggle_targets: Array = []
 	var _jiggle_amount := 0.0
 
+	func _coat_entries(_mesh: MeshInstance3D, _surface: int) -> PackedFloat32Array:
+		var mask := PackedFloat32Array()
+		mask.resize(32)
+		mask[0] = 1.0
+		return mask
+
+
+class FakeAnatomy extends Node:
+	var mesh: MeshInstance3D
+	var material: ShaderMaterial
+	var outline: ShaderMaterial
+
+	func body_coat_mesh() -> MeshInstance3D:
+		return mesh
+
+	func body_coat_material() -> ShaderMaterial:
+		return material
+
+	func body_outline_material() -> ShaderMaterial:
+		return outline
+
+	func detach() -> void:
+		pass
+
 
 class FakeBody extends Node3D:
 	var _left_foot: Node3D
@@ -41,6 +65,41 @@ class FakeMain extends Node:
 
 	func debug(text: String) -> void:
 		lines.append(text)
+
+
+func _check_body_anal_jiggle_target() -> void:
+	var flank := FakeFlank.new()
+	var body := MeshInstance3D.new()
+	var material := ShaderMaterial.new()
+	var outline := ShaderMaterial.new()
+	var anatomy := FakeAnatomy.new()
+	anatomy.mesh = body
+	anatomy.material = material
+	anatomy.outline = outline
+	flank._jiggle_targets = []
+	var runtime: Node = RUNTIME.new()
+	runtime._flank = flank
+	runtime._anatomy = anatomy
+	root.add_child(runtime)
+	root.add_child(flank)
+	root.add_child(anatomy)
+	root.add_child(body)
+	runtime.call("_attach_body_anal_jiggle_target")
+	check(flank._jiggle_targets.size() == 2, "body and outline join the jiggle targets")
+	var mask: Variant = material.get_shader_parameter("jiggle_entry")
+	check(mask is PackedFloat32Array and not (mask as PackedFloat32Array).is_empty()
+		and near(float((mask as PackedFloat32Array)[0]), 1.0),
+		"body coat palette mask is set")
+	runtime.call("_attach_body_anal_jiggle_target")
+	check(flank._jiggle_targets.size() == 2, "body target is not duplicated")
+	root.remove_child(runtime)
+	runtime.free()
+	root.remove_child(anatomy)
+	anatomy.free()
+	root.remove_child(body)
+	body.free()
+	root.remove_child(flank)
+	flank.free()
 
 
 func _check_tail_tuning() -> void:
@@ -731,6 +790,7 @@ func run() -> void:
 	cuddle_pony.free()
 	cuddle_runtime.free()
 
+	_check_body_anal_jiggle_target()
 	_check_tail_tuning()
 	_check_perf_probe()
 

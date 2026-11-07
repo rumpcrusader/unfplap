@@ -63,12 +63,20 @@ const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.22
 ## Mod-owned near-body shader: near_pony.gdshader plus the anal mound uniforms. Keeping the copy
 ## in the mod avoids a game-side shader edit.
 const BODY_ANAL_SHADER_PATH := "res://mods/unfplap/body_anal.gdshader"
+const BODY_ANAL_OUTLINE_SHADER_PATH := "res://mods/unfplap/body_anal_outline.gdshader"
 ## The visible ponut is the pony body, not the genitals overlay. These are body-local: the
 ## Blender body.glb anus centre (0, -0.299, 0.572) maps to Godot (0, 0.572, 0.299).
 const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
 const BODY_ANAL_REACH := 0.09
 const BODY_ANAL_BIG := 1.5
 const BODY_ANAL_SMALL := 0.5
+## The body coat gives under the stretched vulva rim by this much per unit of lip opening.
+const VULVA_RELIEF_M := 0.002
+## The no-jiggle zone never goes below this body-local radius, so a small vulva still has a
+## stable still patch instead of a pinprick.
+const JIGGLE_STILL_MIN_M := 0.05
+## The still zone sits slightly under the opening, where the anatomy meets the body coat.
+const JIGGLE_STILL_DROP_M := 0.011
 ## integration: global placement calibrated on Fluttershy. The rump crease is the body's x = 0
 ## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
 const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.286)
@@ -82,6 +90,10 @@ var main: Node
 var _mesh: MeshInstance3D
 var _body_mesh: MeshInstance3D
 var _body_material: ShaderMaterial
+var _body_outline: ShaderMaterial
+## pony_hips bind pose from the body skin: anatomy-local -> body-local (NearBody) space.
+var _hips_bind := Transform3D.IDENTITY
+var _hips_bind_ready := false
 var _mare_bits_path_loaded := ""
 var _anal_mesh: MeshInstance3D
 var _teats_mesh: MeshInstance3D
@@ -118,6 +130,9 @@ var _rest := 1.0
 var _wink_amount := 0.0
 var _fill := 0.0
 var _wide := 0.0
+## The solved anatomy-local opening radius last pushed by set_grip; the body coat spread uses
+## the same value so the hug setting stays consistent between the lips and the coat.
+var _hole_target := 0.0
 var _tween: Tween
 var _strip_span := Vector2(0.0, 1.0)
 var _strip_gap := Vector2(2.0, 2.0)
@@ -302,9 +317,22 @@ func _attach() -> void:
 		_apply_teats_material(_mesh.get_surface_override_material(0) as ShaderMaterial)
 	_attached = true
 	_visibility_init = false
+	if pony.has_signal("physical_reaction") \
+			and not pony.physical_reaction.is_connected(_on_physical_reaction):
+		pony.physical_reaction.connect(_on_physical_reaction)
 	set_process(true)
 	_apply_visibility()
 	_log("anatomy attached lift=%.3f dock_bottom=%.3f" % [_lift, _dock_bottom])
+
+
+## A stock flank smack (outside the act) never reaches the runtime's thrust/smack path, and
+## FlankTouch does not recognise the mod-owned near-body shader. Re-add the targets when she is
+## slapped so the near body and its outline wobble too.
+func _on_physical_reaction(kind: String) -> void:
+	if kind != "flank_smack":
+		return
+	if is_instance_valid(runtime) and runtime.has_method("_attach_body_anal_jiggle_target"):
+		runtime.call("_attach_body_anal_jiggle_target")
 
 
 func _process(delta: float) -> void:
@@ -656,6 +684,77 @@ func _apply_anal_place() -> void:
 	_anal_mesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, height, 0.0))
 
 
+## The near-body mesh and material the anatomy owns. The runtime uses these to put the
+## mod-owned near body back into FlankTouch's jiggle target list.
+func body_coat_mesh() -> MeshInstance3D:
+	return _body_mesh
+
+func body_coat_material() -> ShaderMaterial:
+	return _body_material
+
+func body_outline_material() -> ShaderMaterial:
+	return _body_outline
+
+
+## pony_hips bind pose from the body skin. `body_local_point` maps a point from the anatomy's
+## bone-local space (the mesh's own transform) into the NearBody vertex space, which is the space
+## `body_anal.gdshader` writes in. The bind pose is cached because the skin is immutable.
+func _hips_bind_pose() -> Transform3D:
+	if _hips_bind_ready:
+		return _hips_bind
+	var model: Variant = pony.get("_model") if is_instance_valid(pony) else null
+	if not model is Node:
+		return _hips_bind
+	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
+	if not is_instance_valid(body) or body.skin == null:
+		return _hips_bind
+	for i in body.skin.get_bind_count():
+		if String(body.skin.get_bind_name(i)) == "pony_hips":
+			_hips_bind = body.skin.get_bind_pose(i)
+			_hips_bind_ready = true
+			break
+	return _hips_bind
+
+
+static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
+		point: Vector3) -> Vector3:
+	return bind.affine_inverse() * (mesh_transform * point)
+
+
+static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
+		direction: Vector3) -> Vector3:
+	return (bind.basis.inverse() * (mesh_transform.basis * direction)).normalized()
+
+
+## Push the vulva centre, spread and no-jiggle zone into the near-body coat and its outline.
+## `_wide` is the world shaft radius; `_lip_radius` is anatomy-local, so the scale converts it.
+func _apply_body_coat_uniforms() -> void:
+	if _body_material == null or not is_instance_valid(_mesh) or not _hips_bind_ready:
+		return
+	var scale := maxf(_mesh.transform.basis.get_scale().x, 0.0001)
+	var centre := body_local_point(_hips_bind, _mesh.transform, WINKING_OPENING)
+	var out_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.BACK)
+	var up_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.UP)
+	var spread := maxf(_hole_target / maxf(_lip_radius, 0.004), 1.0)
+	spread = 1.0 + (spread - 1.0) * SETTINGS.coat_spread.get_num()
+	var reach := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.1, 0.02)
+	var depth := (spread - 1.0) * VULVA_RELIEF_M
+	var still_centre := centre - up_axis * JIGGLE_STILL_DROP_M
+	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
+			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
+	for material in [_body_material, _body_outline]:
+		if material == null:
+			continue
+		var mat := material as ShaderMaterial
+		mat.set_shader_parameter("vulva_centre", centre)
+		mat.set_shader_parameter("vulva_out", out_axis)
+		mat.set_shader_parameter("vulva_scale", spread)
+		mat.set_shader_parameter("vulva_reach", reach)
+		mat.set_shader_parameter("vulva_depth", depth)
+		mat.set_shader_parameter("jiggle_still_centre", still_centre)
+		mat.set_shader_parameter("jiggle_still_radius", still_radius)
+
+
 ## integration: the ponut is the pony's own body; the mare bits mesh is only the small
 ## genitals overlay. Add the Blender-authored anal_big/anal_small shapes to the visible NearBody
 ## and drive them from the same Anal scale setting. The source body.glb stays untouched, because
@@ -674,16 +773,38 @@ func _apply_body_anal_scale() -> void:
 			_body_mesh.set_surface_override_material(0, null)
 		_body_mesh = body
 		_body_material = null
+		_body_outline = null
 	if _body_material == null:
 		var source: Variant = body.get_active_material(0)
 		if not source is ShaderMaterial:
 			return
 		_body_material = (source as ShaderMaterial).duplicate() as ShaderMaterial
 		_body_material.shader = load(BODY_ANAL_SHADER_PATH) as Shader
+		var hull := _body_material.next_pass
+		if hull is ShaderMaterial:
+			_body_outline = (hull as ShaderMaterial).duplicate() as ShaderMaterial
+			_body_outline.shader = load(BODY_ANAL_OUTLINE_SHADER_PATH) as Shader
+			_body_material.next_pass = _body_outline
 		body.set_surface_override_material(0, _body_material)
-	_body_material.set_shader_parameter("anal_scale", SETTINGS.anal_scale.get_num())
-	_body_material.set_shader_parameter("anal_centre", BODY_ANAL_CENTRE)
-	_body_material.set_shader_parameter("anal_reach", BODY_ANAL_REACH)
+	if not _hips_bind_ready:
+		_hips_bind_pose()
+	var anal_scale := SETTINGS.anal_scale.get_num()
+	for material in [_body_material, _body_outline]:
+		if material == null:
+			continue
+		var mat := material as ShaderMaterial
+		mat.set_shader_parameter("anal_scale", anal_scale)
+		mat.set_shader_parameter("anal_centre", BODY_ANAL_CENTRE)
+		mat.set_shader_parameter("anal_reach", BODY_ANAL_REACH)
+	# The mod-owned body shader is not in FlankTouch.JIGGLE_SHADERS; the act runtime puts it back
+	# into the target list, but the palette mask has to be ready here so a stock smack still reads.
+	var flank := pony.get_node_or_null("FlankTouch")
+	if flank != null and flank.has_method("_coat_entries"):
+		var entries: Variant = flank.call("_coat_entries", body, 0)
+		for material in [_body_material, _body_outline]:
+			if material != null:
+				(material as ShaderMaterial).set_shader_parameter("jiggle_entry", entries)
+	_apply_body_coat_uniforms()
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -855,9 +976,14 @@ func _reload_mare_bits_mesh() -> void:
 
 func detach() -> void:
 	_attached = false
+	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
+			and pony.physical_reaction.is_connected(_on_physical_reaction):
+		pony.physical_reaction.disconnect(_on_physical_reaction)
 	if is_instance_valid(_body_mesh) and _body_material != null:
 		_body_mesh.set_surface_override_material(0, null)
 	_body_material = null
+	_body_outline = null
+	_hips_bind_ready = false
 	_mare_bits_path_loaded = ""
 	_visibility_init = false
 	set_process(false)
@@ -1043,12 +1169,14 @@ func set_grip(shaft_radius: float) -> void:
 	# The hug pads the lip radius away from the shaft: positive leaves a gap, negative grips.
 	var hug := SETTINGS.vulva_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
 	var local := maxf(shaft_radius + hug, 0.0) / scale
+	_hole_target = local
 	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
 	# the rim band outward to the measured shaft radius.
 	var shape := _mesh.find_blend_shape_by_name("stretch")
 	if shape >= 0:
 		_mesh.set_blend_shape_value(shape, 0.0)
 	material.set_shader_parameter("hole_target", local)
+	_apply_body_coat_uniforms()
 
 
 ## Publish Anon's shaft so the shader can project any vertex that ends up inside it back onto the

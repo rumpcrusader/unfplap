@@ -3905,6 +3905,46 @@ func _record_peak_memory() -> void:
 		_act_liked_touch, _act_liked_talk, _act_dislikes)
 	MEMORY.record_peak_memory(_id, _event_id, text, score)
 
+## The mod-owned near-body material is not in FlankTouch.JIGGLE_SHADERS, so the native driver
+## skips it and only its outline would wobble. Put it back into the active target list and give
+## it the same palette mask the game would have set. `_start_jiggle()` rebuilds the list on every
+## slap, so this runs for each thrust and act smack.
+func _attach_body_anal_jiggle_target() -> void:
+	if not is_instance_valid(_flank) and is_instance_valid(pony):
+		_flank = pony.get_node_or_null("FlankTouch")
+	if not is_instance_valid(_flank) or not is_instance_valid(_anatomy):
+		return
+	var body: Variant = _anatomy.call("body_coat_mesh")
+	var mat: Variant = _anatomy.call("body_coat_material")
+	if not body is MeshInstance3D or not mat is ShaderMaterial:
+		return
+	var targets: Variant = _flank.get("_jiggle_targets")
+	if not targets is Array:
+		return
+	var entries: Variant = null
+	if _flank.has_method("_coat_entries"):
+		entries = _flank.call("_coat_entries", body, 0)
+	var materials: Array = [mat]
+	var outline: Variant = _anatomy.call("body_outline_material")
+	if outline is ShaderMaterial:
+		materials.append(outline)
+	for material: Variant in materials:
+		var target_mat := material as ShaderMaterial
+		if target_mat == null:
+			continue
+		var present := false
+		for target: Variant in targets:
+			if target is Array and not (target as Array).is_empty() \
+					and (target as Array)[0] == target_mat:
+				present = true
+				break
+		if present:
+			continue
+		if entries != null:
+			target_mat.set_shader_parameter("jiggle_entry", entries)
+		(targets as Array).append([target_mat, body])
+
+
 func _thrust_jiggle(weight: float) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -3947,6 +3987,7 @@ func _thrust_jiggle(weight: float) -> void:
 	# resolved amount here, so a soft stroke can wobble almost not at all.
 	var wobble := clampf(weight, 0.0, 1.0)
 	_flank.call("_start_jiggle", 0, 1.0)
+	_attach_body_anal_jiggle_target()
 	# One shader center now covers both flanks, so scale the resolved amount up. Smaller ponies
 	# get less shader travel from the same thrust impulse.
 	var amount: Variant = _flank.get("_jiggle_amount")
@@ -3972,6 +4013,7 @@ func _on_smack_impact(strength: float) -> void:
 	if not is_instance_valid(pony):
 		return
 	if is_instance_valid(_flank):
+		_attach_body_anal_jiggle_target()
 		var amount: Variant = _flank.get("_jiggle_amount")
 		if amount != null:
 			_flank.set("_jiggle_amount", float(amount) * _jiggle_smack_intensity)

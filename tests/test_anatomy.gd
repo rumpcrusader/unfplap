@@ -271,6 +271,16 @@ func run() -> void:
 	check(is_zero_approx(float(wink_act.get("_wink_left"))), "reset clears the act wink")
 	wink_act.free()
 
+	# The body coat shader works in NearBody vertex space; the anatomy pose is in bone space.
+	var bind := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0.1, 0.2, 0.3))
+	var mesh_xf := Transform3D(Basis(Vector3.RIGHT, -0.3), Vector3(0.0, 0.55, 0.29))
+	var point := Vector3(0.01, -0.02, 0.03)
+	var local := ANATOMY.body_local_point(bind, mesh_xf, point)
+	check((mesh_xf.affine_inverse() * (bind * local)).is_equal_approx(point),
+		"body-local point round-trips through the bind pose")
+	var local_dir := ANATOMY.body_local_direction(bind, mesh_xf, Vector3.BACK)
+	check(absf(local_dir.length() - 1.0) < 0.0001, "body-local direction stays unit length")
+
 	for pony: Node in [twilight, filly, stallion, off_roster, player]:
 		if is_instance_valid(pony):
 			pony.free()

@@ -925,6 +925,16 @@ static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
 	"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 1.0) \
 	.as_debug()
+static var coat_spread := num("coat_spread", "anatomy.coat_spread", 1.0,
+	"Coat spread",
+	"Multiplier for the body coat stretching around the vulva as the opening widens.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
+	.as_debug()
+static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.0,
+	"Jiggle still zone",
+	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
+	.as_debug()
 
 # ======================================================== World
 

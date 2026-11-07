@@ -40,15 +40,40 @@ uniform vec3 anal_centre = vec3(0.0, 0.572, 0.299);
 uniform float anal_scale = 1.0;
 uniform float anal_reach = 0.09;
 
+// integration: the body coat around the vulva. anatomy.gd sets these in body-local (NearBody)
+// space from the anatomy's rest frame, so the coat spreads with the solved lip opening and the
+// area under the genitals can be held still against the rump wobble.
+uniform vec3 vulva_centre = vec3(0.0, 0.548, 0.292);
+uniform vec3 vulva_out = vec3(0.0, 0.0, 1.0);
+uniform float vulva_scale = 1.0;
+uniform float vulva_reach = 0.04;
+uniform float vulva_depth = 0.0;
+uniform vec3 jiggle_still_centre = vec3(0.0);
+uniform float jiggle_still_radius = 0.0;
+
 void vertex() {
 	pal = int(CUSTOM1.x + 0.5);
+	vec3 rest = VERTEX;
 	if (abs(anal_scale - 1.0) > 0.000001) {
 		vec3 spread = VERTEX - anal_centre;
 		float weight = 1.0 - smoothstep(0.0, anal_reach, length(spread));
 		spread *= 1.0 + (anal_scale - 1.0) * weight;
 		VERTEX = anal_centre + spread;
 	}
-	VERTEX += flank_jiggle(VERTEX) * jiggle_entry[pal];
+	float still = 1.0;
+	if (jiggle_still_radius > 0.0) {
+		still = smoothstep(jiggle_still_radius * 0.8, jiggle_still_radius,
+			distance(rest, jiggle_still_centre));
+	}
+	VERTEX += flank_jiggle(rest) * jiggle_entry[pal] * still;
+	if (abs(vulva_scale - 1.0) > 0.000001 || abs(vulva_depth) > 0.000001) {
+		vec3 spread = VERTEX - vulva_centre;
+		float weight = 1.0 - smoothstep(0.0, vulva_reach, length(spread));
+		vec3 out_axis = normalize(vulva_out);
+		vec3 tangent = spread - out_axis * dot(spread, out_axis);
+		VERTEX += tangent * ((vulva_scale - 1.0) * weight)
+			- out_axis * (vulva_depth * weight);
+	}
 	base_uv = UV;
 }
 

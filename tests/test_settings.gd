@@ -374,6 +374,28 @@ func run() -> void:
 	check(bool(current_block.get("standing_body_sway", false)),
 		"current feature value wins over legacy")
 
+	var split_off := {"features": {"act_line_variety": false}}
+	var split_off_block: Dictionary = SETTINGS._normalize_line_variety(split_off).get("features", {})
+	check(not bool(split_off_block.get("act_speech_feel", true)),
+		"old line variety off keeps speech feel off")
+	check(not split_off_block.has("act_line_variety"), "old line variety is erased")
+	check(not split_off_block.has("act_line_angles"),
+		"lines angles are left to the new default")
+	var split_on := {"features": {"act_line_variety": true}}
+	var split_on_block: Dictionary = SETTINGS._normalize_line_variety(split_on).get("features", {})
+	check(bool(split_on_block.get("act_speech_feel", false)),
+		"old line variety on keeps speech feel on")
+	check(not split_on_block.has("act_line_variety"), "old line variety is erased when on")
+	var split_current := {"features": {"act_line_variety": true, "act_speech_feel": false}}
+	var split_current_block: Dictionary = SETTINGS._normalize_line_variety(
+		split_current).get("features", {})
+	check(not bool(split_current_block.get("act_speech_feel", true)),
+		"a saved speech-feel value wins over the legacy flag")
+	check(bool(SCHEMA.default_value("features.act_line_angles")),
+		"line angles default on")
+	check(not bool(SCHEMA.default_value("features.act_speech_feel")),
+		"speech feel default off")
+
 	var legacy_pose := {
 		"presentation": {
 			"missionary": {"forward": 0.31},

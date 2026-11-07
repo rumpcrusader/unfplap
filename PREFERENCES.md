@@ -223,6 +223,9 @@ overwhelmed   a disliked touch/talk landed recently
   talk-invitation line or HUD hint.
 - `features.act_lines` (default on) gates unprompted cue and reaction lines. Off keeps normal
   dialogue and the HUD cue.
+- `features.act_line_angles` (default on) adds one fresh angle and the shared-day/history hint to
+  a cue line, and widens the recent-line anti-repeat window to eight. `features.act_speech_feel`
+  (default off) adds the thrust-paced interjection instruction. They are independent.
 
 ## Pony climax
 

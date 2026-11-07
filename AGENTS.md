@@ -1259,7 +1259,8 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `anatomy_vr` | `false` | experimental VR act |
 | `anatomy.act_only` | `false` | show mare anatomy only while an act is running |
 | `act_bystanders` | `false` | adult witness lines using the modern perception |
-| `act_line_variety` | `false` | fresh line angles and speech-feel notes |
+| `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |
+| `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
 | `act_public_offer` | `false` | per-mare public consent affects offers |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |

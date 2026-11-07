@@ -91,8 +91,12 @@ func run() -> void:
 	for key: String in ["anatomy_bed_body", "anatomy_vr", "act_bystanders", "act_public_offer"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
-	check(not bool(SCHEMA.default_value("features.act_line_variety")),
-		"line variety is off by default")
+	check(SCHEMA.has("features.act_line_angles")
+		and bool(SCHEMA.default_value("features.act_line_angles")),
+		"line angles are on by default")
+	check(SCHEMA.has("features.act_speech_feel")
+		and not bool(SCHEMA.default_value("features.act_speech_feel")),
+		"speech feel is off by default")
 	check(SCHEMA.has("anatomy.teats"), "teats flag")
 	check(bool(SCHEMA.default_value("anatomy.teats")), "teats on by default")
 	check(SCHEMA.has("anatomy.act_only"), "act-only flag")

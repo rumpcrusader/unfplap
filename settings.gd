@@ -282,6 +282,22 @@ static func _normalize_feature_names(data: Dictionary) -> Dictionary:
 	return data
 
 
+## Split the old line-variety flag. Its speech-feel choice is preserved; the angle half follows the
+## new default. The old key is erased so it cannot linger in settings.json.
+static func _normalize_line_variety(data: Dictionary) -> Dictionary:
+	var features: Variant = data.get("features")
+	if not features is Dictionary:
+		return data
+	var block: Dictionary = features
+	if not block.has("act_line_variety"):
+		return data
+	var old_value := bool(block["act_line_variety"])
+	if not block.has("act_speech_feel"):
+		block["act_speech_feel"] = old_value
+	block.erase("act_line_variety")
+	return data
+
+
 ## Move the old `taste` block onto `preferences` for the default template and every character.
 static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 	var blocks: Array = []
@@ -465,6 +481,7 @@ static func _load() -> void:
 			data = parsed
 	data = _normalize_pose_names(data)
 	data = _normalize_feature_names(data)
+	data = _normalize_line_variety(data)
 	data = _normalize_presentation(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)

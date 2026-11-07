@@ -93,10 +93,10 @@ const LINE_ANGLES := [
 	"mention where you are right now.",
 	"let slip something a little embarrassing that you are thinking.",
 	"boast about how this feels for you.",
-	"give him an order.",
+	"tell him something you have never said out loud.",
 	"sound surprised at yourself.",
 	"say something tender, in the middle of all this.",
-	"beg a little.",
+	"let him see how much you trust him.",
 	"make a joke, in your usual voice.",
 	"complain playfully about something he is doing.",
 	"barely manage words at all.",
@@ -3241,9 +3241,11 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	var purpose := UTTERANCE.format(template, values)
 	if kind == "cue":
 		purpose += CUE_REACTION_NOTE
-		# integration: optional line variety and speech feel.
-		if TUNABLES.get_bool("features.act_line_variety"):
-			purpose += _speech_feel_note() + _line_variety(values.recent)
+		# integration: optional line angles and speech feel, independent of each other.
+		if TUNABLES.get_bool("features.act_speech_feel"):
+			purpose += _speech_feel_note()
+		if TUNABLES.get_bool("features.act_line_angles"):
+			purpose += _line_variety(values.recent)
 	_utterance_serial += 1
 	var suffix := "%s:%d" % [key_suffix, _utterance_serial]
 	var act_id := _event_id
@@ -3325,7 +3327,7 @@ func _recent_lines() -> String:
 	if not spoken is Array or (spoken as Array).is_empty():
 		return ""
 	var recent: Array[String] = []
-	var limit := RECENT_LINES if TUNABLES.get_bool("features.act_line_variety") else 4
+	var limit := RECENT_LINES if TUNABLES.get_bool("features.act_line_angles") else 4
 	var start := maxi(0, (spoken as Array).size() - limit)
 	for index in range(start, (spoken as Array).size()):
 		recent.append(str((spoken as Array)[index]))

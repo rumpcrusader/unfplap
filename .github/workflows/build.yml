@@ -21,6 +21,19 @@ jobs:
           version: 4.5.2
           use-dotnet: false
 
+      - name: Fetch anatomy assets
+        if: github.event_name != 'pull_request'
+        env:
+          ANATOMY_URL: ${{ vars.ANATOMY_URL }}
+        run: |
+          if [ -z "$ANATOMY_URL" ]; then
+            echo "Repository variable ANATOMY_URL is not set; it must point at the anatomy zip." >&2
+            exit 1
+          fi
+          echo "::add-mask::$ANATOMY_URL"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/anatomy.zip" "$ANATOMY_URL"
+
       - name: Check tag matches mod.json
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -55,13 +68,12 @@ jobs:
           PY
 
       - name: Build
-        run: ./build.sh
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: unfplap-pck
-          path: dist/*.pck
-          if-no-files-found: error
+        run: |
+          if [ -f "$RUNNER_TEMP/anatomy.zip" ]; then
+            ./build.sh --anatomy-zip "$RUNNER_TEMP/anatomy.zip"
+          else
+            ./build.sh --no-anatomy
+          fi
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')

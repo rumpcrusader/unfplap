@@ -210,6 +210,17 @@ class ListSetting extends Setting:
 		return self
 
 
+class ColorSetting extends Setting:
+	func get_color() -> Color:
+		var value: Variant = get_value()
+		if value is Color:
+			return value
+		return Color.from_string(str(value), Color.from_string(str(default), Color.WHITE))
+
+	func set_color(value: Color) -> void:
+		set_value(value)
+
+
 static var _registry: Array = []
 static var _by_path: Dictionary = {}
 static var _by_name: Dictionary = {}
@@ -246,6 +257,13 @@ static func list(n: String, path: String, value: Array, options: Array, label: S
 	var s := ListSetting.new()
 	s.options = options
 	_bind(s, n, path, label, help, tab, group, value)
+	return s
+
+
+static func color(n: String, path: String, value: Color, label: String, help: String,
+		tab: String, group: String) -> ColorSetting:
+	var s := ColorSetting.new()
+	_bind(s, n, path, label, help, tab, group, value.to_html())
 	return s
 
 
@@ -356,6 +374,9 @@ static func _coerce(s: Setting, value: Variant) -> Variant:
 		var text := str(value)
 		var c := s as ChoiceSetting
 		return text if c.options.has(text) else c.default
+	if s is ColorSetting:
+		var color_value: Color = value if value is Color else Color.from_string(str(value), Color.WHITE)
+		return color_value.to_html()
 	if s is ListSetting:
 		var l := s as ListSetting
 		var out: Array = []
@@ -805,6 +826,12 @@ static var vulva_height := num("vulva_height", "anatomy.vulva_height", 1.0,
 	"Vulva height",
 	"Scale the vulva vertically around its opening. Below 1 shortens it; above 1 lengthens it.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
+static var vulva_inner_color := color("vulva_inner_color", "anatomy.vulva_inner_color",
+	Color.from_string("#f7a8bd", Color.WHITE), "Vulva inner colour",
+	"Colour of the inner folds. The shader derives its shadow.", ANATOMY, "")
+static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color",
+	Color.from_string("#d67891", Color.WHITE), "Clitoris colour",
+	"Colour of the clitoris. The shader derives its shadow.", ANATOMY, "")
 
 # -- Anon
 static var player_scale := num("player_scale", "anatomy.player_scale", 1.5, "Size",
@@ -1551,7 +1578,7 @@ static func _defaults() -> Dictionary:
 static func entry_view(s: Setting) -> Dictionary:
 	var out: Dictionary = {
 		"kind": "bool" if s is FlagSetting else "num" if s is NumSetting else
-			"choice" if s is ChoiceSetting else "list",
+			"choice" if s is ChoiceSetting else "color" if s is ColorSetting else "list",
 		"default": s.default, "label": s.label, "help": s.help, "group": s.group,
 		"tab": s.tab, "debug": s.debug,
 	}

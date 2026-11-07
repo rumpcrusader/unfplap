@@ -11,6 +11,8 @@ uniform vec4 skin_color: source_color;
 uniform vec4 skin_shadow: source_color;
 uniform vec4 inner_color: source_color;
 uniform vec4 inner_shadow: source_color;
+uniform vec4 clitoris_color: source_color;
+uniform vec4 clitoris_shadow: source_color;
 uniform vec4 fresnel: source_color = vec4(0.1, 0.1, 0.1, 0.1);
 
 varying vec3 lit_fill;
@@ -127,9 +129,12 @@ void vertex() {
 
 void fragment() {
 	float inside = smoothstep(0.42, 0.58, COLOR.r);
+	// Vertex alpha marks the inner folds (1.0) and the clitoris (0.5); 0 is the outer skin.
+	float inner_fold = step(0.75, COLOR.a);
+	float clit = step(0.25, COLOR.a) * (1.0 - inner_fold);
 	// The pink interior must fill the opening exactly: everything within the solved hole radius is
 	// interior, so the shaft is covered right up to the lips instead of showing through.
-	if (hole_target > 0.0 && hole_clip > 0.5) {
+	if (hole_target > 0.0 && hole_clip > 0.5 && inner_fold < 0.5) {
 		// The interior is only interior inside the opening. Painting (and depth-pulling) the inner
 		// wall beyond the lip ring is what showed as pink folds around the shaft.
 		// Keep the pulled pink well inside the lip ring: it must never reach the rim, or it shows
@@ -157,10 +162,13 @@ void fragment() {
 	vec3 shade = mix(skin_shadow.rgb, skin_shadow.rgb * 0.82, lip);
 	fill = mix(fill, inner_color.rgb, inside);
 	shade = mix(shade, inner_shadow.rgb, inside);
+	fill = mix(fill, clitoris_color.rgb, clit);
+	shade = mix(shade, clitoris_shadow.rgb, clit);
 	fill = mix(fill, coat_color.rgb, to_coat);
 	shade = mix(shade, coat_shadow.rgb, to_coat);
 
 	vec3 line = mix(skin_shadow.rgb * 0.7, inner_shadow.rgb, inside);
+	line = mix(line, clitoris_shadow.rgb, clit);
 	lit_fill = mix(fill, line, contour);
 	ALBEDO = mix(shade, line * 0.8, contour);
 	gloss_color = mix(vec3(0.1), vec3(0.75), inside);

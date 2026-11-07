@@ -258,6 +258,8 @@ static func _add_row(parent: VBoxContainer, path: String, font_size: int, page: 
 				row.add_child(_spin(path, item, font_size, page, changed))
 		"choice":
 			row.add_child(_choice(path, item, font_size, page, changed))
+		"color":
+			row.add_child(_color(path, font_size, page, changed))
 		"list":
 			_add_list(block, path, item, font_size, page, changed)
 
@@ -293,6 +295,20 @@ static func _check(path: String, font_size: int, page: Node, changed: Callable) 
 	state.text = "On" if check.button_pressed else "Off"
 	box.add_child(check)
 	return box
+
+
+## A colour swatch; its popup is Godot's ColorPicker with HSV/RGB sliders and the hex field.
+static func _color(path: String, font_size: int, page: Node, changed: Callable) -> ColorPickerButton:
+	var button := ColorPickerButton.new()
+	button.custom_minimum_size = Vector2(float(font_size) * 5.0, float(font_size) * 1.6)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.edit_alpha = false
+	var setting: Variant = _setting(path)
+	if setting is SETTINGS.ColorSetting:
+		button.color = (setting as SETTINGS.ColorSetting).get_color()
+	button.color_changed.connect(func(color: Color) -> void:
+		_store(path, color, page, changed))
+	return button
 
 
 static func _spin(path: String, item: Dictionary, font_size: int, page: Node,

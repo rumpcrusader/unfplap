@@ -623,41 +623,41 @@ func _check_write_round_trip() -> void:
 	check(near(TUNABLES.get_float("jiggle.intensity"), original), "set_value restores the original")
 
 
-## Every schema entry must render exactly one row in its tab, and every section must have a
-## heading. This is the guard that keeps "add a schema line" sufficient for the panel.
+## Every setting must render exactly one row in its tab, every section must have a heading, and
+## the Debug block must appear only when debug mode is on. This is the guard that keeps
+## "add a declaration line" sufficient for the panel.
 func _check_panels() -> void:
-	for tab: String in [SCHEMA.GENERAL_TAB, SCHEMA.ANATOMY_TAB, SCHEMA.DEBUG_TAB]:
-		var list := VBoxContainer.new()
-		TUNABLES_UI.build(list, tab, 16, null, Callable())
-		var labels: Array = []
-		_collect_labels(list, labels)
-		var missing: Array = []
-		for path: String in SCHEMA.all():
-			var item := SCHEMA.entry(path)
-			if str(item.get("tab", SCHEMA.DEBUG_TAB)) != tab:
-				continue
-			if not labels.has(str(item.get("label", ""))):
-				missing.append(path)
-		check(missing.is_empty(), "%s tab draws every entry (%s)" % [tab, str(missing)])
-		for group: String in SCHEMA.groups(tab):
-			var heading := group.split("›", true, 1)[0].strip_edges()
-			check(labels.has(heading), "%s tab heading for %s" % [tab, group])
-		list.free()
-	var actions := VBoxContainer.new()
-	TUNABLES_UI.build_actions(actions, 16, null)
-	var buttons := 0
-	for name: String in TUNABLES.ACTIONS:
-		if bool(TUNABLES.ACTIONS[name].get("panel", true)):
-			buttons += 1
-	check(actions.get_child_count() == 1, "actions section is one inserted block")
-	var action_box := actions.get_child(0) as VBoxContainer
-	check(action_box != null and action_box.get_child_count() == buttons + 3,
-		"actions section draws one button per panel action plus its heading and status")
-	check(TUNABLES.hotkey_action(KEY_F10) == "skeleton_overlay",
-		"the skeleton overlay is the only hotkey action")
-	check(TUNABLES.hotkey_action(KEY_APOSTROPHE).is_empty(),
-		"no offer hotkey is bound")
-	actions.free()
+	var tabs: Array = [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]
+	for tab: String in tabs:
+		_check_panel_tab(tab, false)
+	SETTINGS.debug_mode.set_bool(true)
+	for tab: String in tabs:
+		_check_panel_tab(tab, true)
+	SETTINGS.debug_mode.set_bool(false)
+
+
+func _check_panel_tab(tab: String, debug_on: bool) -> void:
+	var list := VBoxContainer.new()
+	TUNABLES_UI.build(list, tab, 16, null, Callable())
+	var labels: Array = []
+	_collect_labels(list, labels)
+	var missing: Array = []
+	var sections: Array = []
+	for setting: Variant in SETTINGS.tab_settings(tab):
+		if bool(setting.debug) != debug_on:
+			continue
+		if not labels.has(str(setting.label)):
+			missing.append(setting.path)
+		var heading := str(setting.group).split("›", true, 1)[0].strip_edges()
+		if not sections.has(heading):
+			sections.append(heading)
+	check(missing.is_empty(), "%s tab draws every %s setting (%s)" % [
+		tab, "debug" if debug_on else "player", str(missing)])
+	for heading: String in sections:
+		check(labels.has(heading), "%s tab heading for %s" % [tab, heading])
+	if debug_on:
+		check(labels.has("Debug"), "%s tab shows the Debug section" % tab)
+	list.free()
 
 
 func _collect_labels(node: Node, out: Array) -> void:

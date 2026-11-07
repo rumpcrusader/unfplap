@@ -448,6 +448,11 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 
 # ======================================================== General
 
+# -- General
+static var debug_mode := flag("debug_mode", "debug_mode", false, "Debug mode",
+	"Show the Debug section at the bottom of every tab. Hiding it keeps its settings as they are.",
+	GENERAL, "General")
+
 # -- Thrust
 static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
 	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "Thrust") \

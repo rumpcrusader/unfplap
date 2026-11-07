@@ -12,6 +12,7 @@ extends RefCounted
 ## in a track. Entries render in schema order, so the schema file doubles as the panel layout.
 
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
 
@@ -21,22 +22,53 @@ const MOST_PILLS := 4
 const PILL_LABEL_CHARS := 14
 
 
-## Fill `list` with one tab's sections. `changed` runs after every edit; `page` is redrawn when it
-## has the settings page's `_redraw`.
+## Fill `list` with one tab's sections: the player-facing settings first, then, when debug mode is
+## on, one Debug section at the bottom holding that tab's debug settings under their own group
+## names. Every section remembers whether it is open, per tab, in the user settings.
 static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 		changed: Callable) -> void:
+	var player: Array = []
+	var debug: Array = []
+	for setting: Variant in SETTINGS.tab_settings(tab):
+		(debug if bool(setting.debug) else player).append(setting.path)
+	_build_sections(list, tab, "", player, font_size, page, changed)
+	if debug.is_empty() or not SETTINGS.debug_mode.get_bool():
+		return
+	if list.get_child_count() > 0:
+		list.add_child(HSeparator.new())
+	var open := SETTINGS.section_open(tab, "Debug")
+	var header := _heading("Debug", font_size, false, open)
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 6)
+	body.visible = open
+	header.toggled.connect(func(on: bool) -> void:
+		SETTINGS.set_section_open(tab, "Debug", on)
+		body.visible = on)
+	list.add_child(header)
+	list.add_child(body)
+	_build_sections(body, tab, "Debug/", debug, font_size, page, changed)
+
+
+## One section pass. `prefix` separates the Debug block's section state from the player sections.
+static func _build_sections(list: VBoxContainer, tab: String, prefix: String, paths: Array,
+		font_size: int, page: Node, changed: Callable) -> void:
 	var section := ""
+	var section_key := ""
 	var section_rows: Array = []
-	for group: String in SCHEMA.groups(tab):
+	for group: String in _groups_of(paths):
 		var split := group.split("›", true, 1)
 		var section_name := split[0].strip_edges()
 		if section_name != section:
 			section = section_name
+			section_key = prefix + section_name
 			section_rows = []
 			if list.get_child_count() > 0:
 				list.add_child(HSeparator.new())
-			var header := _heading(section_name, font_size, false)
+			var open := SETTINGS.section_open(tab, section_key)
+			var header := _heading(section_name, font_size, false, open)
 			header.toggled.connect(func(on: bool) -> void:
+				SETTINGS.set_section_open(tab, section_key, on)
 				for box: Variant in section_rows:
 					if is_instance_valid(box):
 						(box as CanvasItem).visible = on)
@@ -44,14 +76,18 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 		var rows := VBoxContainer.new()
 		rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		rows.add_theme_constant_override("separation", 6)
+		rows.visible = SETTINGS.section_open(tab, section_key)
 		section_rows.append(rows)
 		if split.size() > 1:
-			var sub_header := _heading(split[1].strip_edges(), font_size, true)
+			var sub_key := prefix + group
+			var sub_open := SETTINGS.section_open(tab, sub_key)
+			var sub_header := _heading(split[1].strip_edges(), font_size, true, sub_open)
 			sub_header.toggled.connect(func(on: bool) -> void:
+				SETTINGS.set_section_open(tab, sub_key, on)
 				rows.visible = on)
 			list.add_child(sub_header)
 		list.add_child(rows)
-		for path: String in _paths(tab, group):
+		for path: String in _paths_in(paths, group):
 			_add_row(rows, path, font_size, page, changed)
 
 
@@ -103,12 +139,20 @@ static func _section_end_index(list: VBoxContainer, section: String) -> int:
 	return -1
 
 
-static func _paths(tab: String, group: String) -> Array:
+static func _groups_of(paths: Array) -> Array:
 	var out: Array = []
-	for path: String in SCHEMA.all():
-		var item := SCHEMA.entry(path)
-		if str(item.get("tab", SCHEMA.DEBUG_TAB)) == tab \
-				and str(item.get("group", "")) == group:
+	for path: String in paths:
+		var setting: Variant = SETTINGS.by_path(path)
+		if setting != null and not out.has(setting.group):
+			out.append(setting.group)
+	return out
+
+
+static func _paths_in(paths: Array, group: String) -> Array:
+	var out: Array = []
+	for path: String in paths:
+		var setting: Variant = SETTINGS.by_path(path)
+		if setting != null and str(setting.group) == group:
 			out.append(path)
 	return out
 
@@ -117,11 +161,11 @@ static func _paths(tab: String, group: String) -> Array:
 ## pink accent and tint while the section is open, and a quiet row while it is closed. A section
 ## keeps its schema wording (like the page's own sidebar rows); a subheading is smaller and
 ## indented under it.
-static func _heading(text: String, font_size: int, sub: bool) -> Button:
+static func _heading(text: String, font_size: int, sub: bool, open := true) -> Button:
 	var button := Button.new()
 	button.text = ("        " + text) if sub else text
 	button.toggle_mode = true
-	button.button_pressed = true
+	button.button_pressed = open
 	button.theme_type_variation = "Tab"
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.clip_text = true

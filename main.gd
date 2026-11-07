@@ -14,7 +14,6 @@ const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -416,17 +415,17 @@ func _inject_settings_page_now(page: Node) -> void:
 	_style_tabs(tabs_box, font_size)
 	ui.add_child(tabs_box)
 	var changed := Callable(self, "_apply_settings_changed")
-	var user_list := _settings_tab_list("Settings", tabs_box)
-	TUNABLES_UI.build(user_list, SCHEMA.GENERAL_TAB, font_size, page, changed)
-	# Character preference is a per-mare profile form, not a global tunable, so it keeps its own
+	var general_list := _settings_tab_list("General", tabs_box)
+	TUNABLES_UI.build(general_list, SETTINGS.GENERAL, font_size, page, changed)
+	TUNABLES_UI.build_actions(general_list, font_size, self, "")
+	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
+	TUNABLES_UI.build(anatomy_list, SETTINGS.ANATOMY, font_size, page, changed)
+	var world_list := _settings_tab_list("World", tabs_box)
+	TUNABLES_UI.build(world_list, SETTINGS.WORLD, font_size, page, changed)
+	# Character preference is a per-mare profile form, not a global setting, so it keeps its own
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
 	_add_preference_form(char_list, font_size)
-	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
-	TUNABLES_UI.build(anatomy_list, SCHEMA.ANATOMY_TAB, font_size, page, changed)
-	var debug_list := _settings_tab_list("Debug", tabs_box)
-	TUNABLES_UI.build(debug_list, SCHEMA.DEBUG_TAB, font_size, page, changed)
-	TUNABLES_UI.build_actions(debug_list, font_size, self)
 	for tab: Variant in tabs:
 		if tab is Button:
 			(tab as Button).pressed.connect(_hide_settings_tab.bind(page))

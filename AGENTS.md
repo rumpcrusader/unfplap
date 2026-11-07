@@ -1260,10 +1260,18 @@ examples.
 
 ## Settings and persistence
 
-**Every global setting is a tunable.** Add, read and edit them only through `tunables_schema.gd`
-(one line per entry) and `tunables.gd` (typed API); `tunables_ui.gd` draws the panels. Never add a
-widget, a defaults constant or a save function for a setting anywhere else, and never clamp a
-debug value. The full contract, including the three-step recipe, is `TUNING.md`.
+**Every global setting is declared once, in `settings.gd`.** One declaration line names it, its JSON
+path, label, help, tab, group, default and bounds; call sites use the typed accessor on the named
+setting (`SETTINGS.act_foley.get_bool()`, `SETTINGS.raise_m.set(0.2)`) and never a string path.
+`tunables_ui.gd` draws the panels from the declarations. Never add a widget, a defaults constant or
+a save function for a setting anywhere else. A setting becomes a debug setting with `.as_debug()`,
+which also removes its clamp. The full contract is `TUNING.md`.
+
+- **Naming.** A declaration's identifier is its JSON path's last segment (`thrust.travel` →
+  `travel`). Only on a collision with another setting does it gain the parent segment as a prefix
+  (`jiggle.intensity` → `intensity`, but a second `intensity` would become `jiggle_intensity`). Keep
+  names short; the group in the panel carries the context. Agents must not add group prefixes
+  pre-emptively.
 
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
@@ -1391,34 +1399,36 @@ rump blush. Unknown settings keys are ignored.
   a math floor, not a user-facing bound. The only other bounds are the smack
   animation duration (`0.12–0.30 s` raise, `0.06–0.20 s` return), which bound the slide, not the
   setting.
-- Feature flags are split by the schema's `tab`: entries marked `"general"` are the player-facing
-  page, `"anatomy"` is the Anatomy page, and every other flag is in the Debug page. Label, help
-  and section all come from the schema entry; there is no separate feature info table.
-- The injected tab has nested **General**, **Characters**, **Anatomy** and **Debug** sub-tabs.
-  General, Anatomy and Debug are drawn from the schema by `tunables_ui.gd`: one row per entry,
-  grouped into
-  click-to-collapse sections from each entry's
-  `group` (`"Standing › Smack"` is a subheading under `Standing`). The panel is built from the
-  game's own menu pieces, so it reads as part of the page rather than beside it: `main.gd` imports
-  `world/ui/menu_style.gd`, the sub-tabs are Segment-look pills set on the `TabContainer`'s inner
-  **TabBar** (an override on the container
-  does not reach the bar) with the container's own `panel` and `tabbar_background` emptied, and a
-  section heading is the `Tab` variation, whose pink accent shows the section is open.
-  `tunables_ui.gd` draws each entry as the page's own `_row_idle`/`_row_hover` card (falling back to
-  the same `menu_style` box), keeps the help text on a `Faint` label, shows a boolean as a switch
+- Feature flags are ordinary settings under `features.`; their tab and `.as_debug()` decide where
+  they appear. Label, help and section all come from the declaration; there is no separate feature
+  info table.
+- The injected tab has nested **General**, **Anatomy**, **World** and **Characters** sub-tabs, in
+  that order. General, Anatomy and World are drawn from the declarations by `tunables_ui.gd`: one
+  row per setting, grouped into click-to-collapse sections from its `group` (`"Standing › Smack"`
+  is a subheading under `Standing`). Player-facing settings come first; when the **Debug mode**
+  setting (General › General) is on, the tab ends with one **Debug** section holding that tab's debug
+  settings under the same group names, with its own `Debug/<group>` collapse state. Every section
+  remembers whether it is open in `settings.json` under `ui.sections`, keyed `tab/group`. The panel
+  is built from the game's own menu pieces, so it reads as part of the page rather than beside it:
+  `main.gd` imports `world/ui/menu_style.gd`, the sub-tabs are Segment-look pills set on the
+  `TabContainer`'s inner **TabBar** (an override on the container does not reach the bar) with the
+  container's own `panel` and `tabbar_background` emptied, and a section heading is the `Tab`
+  variation, whose pink accent shows the section is open.
+  `tunables_ui.gd` draws each setting as the page's own `_row_idle`/`_row_hover` card (falling back
+  to the same `menu_style` box), keeps the help text on a `Faint` label, shows a boolean as a switch
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
-  units are not clipped; an entry with `slider: true` draws a themed HSlider with its value beside
-  it instead. The sidebar row sits under an **Add-ons** caption, and the injected page
-  has no second title. **General** holds the player-facing flags, **Cycle**, **Thrust** (including
-  the climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
-  preference** form (a per-mare profile, not a global tunable). **Anatomy** holds every anatomy
-  entry: display, Anon part, actions, effects and experimental. **Debug** holds every other
-  entry, including **Talk & cues**, plus the **Actions** buttons, with the Actions block placed
-  directly below its **General** section rather than at the bottom. The schema-drawn pages have no
-  Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
-  refreshes the flags, the caption position and the active act. The hand-built Characters form is
-  the exception: it stages edits and writes them only when **Save preset** is pressed.
+  units are not clipped; a declaration with `.with_slider()` draws a themed HSlider with its value
+  beside it instead. The sidebar row sits under an **Add-ons** caption, and the injected page has no
+  second title. **General** holds the interface, audio, cycle, thrust and act tuning (including
+  **Thrust**, **Missionary**, **Standing**, **History**, **Neglect tolerance** and **Talk & cues**
+  as debug sections). **Anatomy** holds every anatomy setting. **World** holds relationships, cycle,
+  witnesses and pony behaviour. **Characters** holds the hand-built **Character preference** form (a
+  per-mare profile, not a global setting). The **Actions** buttons sit at the bottom of General's
+  **Debug** section. The schema-drawn pages have no Save buttons: each edit writes its setting and
+  calls `main._apply_settings_changed()`, which refreshes the flags, the caption position and the
+  active act. The hand-built Characters form is the exception: it stages edits and writes them only
+  when **Save preset** is pressed.
 - `debug_logs` and `debug_perf` default to `false`.
 - Character entries inherit unspecified fields from `default`; a known mare's preference block seeds
   from her own template in `character_preferences.gd`, so removing her saved preference override

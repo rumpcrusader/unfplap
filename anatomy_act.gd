@@ -334,7 +334,7 @@ func tick(delta: float) -> void:
 		part.set("aim_normal", _normal)
 		part.set("aim_opening", hole_point())
 	var bed := pose == CATALOG.MISSIONARY and SETTINGS.anatomy_bed_body.get_bool()
-	var shown := _depth()
+	var shown := float(runtime.get("penetration_m"))
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
 		shown, delta, (mesh as Node3D).get_parent(), pose == CATALOG.STANDING)
 	_debug_tick(part)
@@ -523,8 +523,10 @@ func afterglow_tick(delta: float) -> void:
 	if not is_instance_valid(mesh) or not is_instance_valid(part) or not bool(part.call("showing")):
 		return
 	_bed_rest = move_toward(_bed_rest, 0.0 if _finish_out else 0.8, delta * 1.6)
+	# `_bed_rest` is a depth share; the part is placed by measured penetration now.
+	var rest_m := _bed_rest * float(runtime.call("penetration_reach"))
 	main.call("anon_track", hole_point(), hole_rear(),
-		(mesh as Node3D).global_transform.basis.y.normalized(), true, _bed_rest, delta,
+		(mesh as Node3D).global_transform.basis.y.normalized(), true, rest_m, delta,
 		(mesh as Node3D).get_parent())
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "anatomy_afterglow", Time.get_ticks_usec() - started)

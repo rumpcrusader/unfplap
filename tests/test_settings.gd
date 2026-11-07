@@ -98,12 +98,12 @@ func _check_write_round_trip() -> void:
 
 ## Bounds, choices and lists are enforced at the setter, and debug numbers are not clamped.
 func _check_coercion() -> void:
-	original["pixels"] = SETTINGS.pixels_per_full.get_num()
-	SETTINGS.pixels_per_full.set_num(5000.0)
-	check(near(SETTINGS.pixels_per_full.get_num(), 1200.0), "a player number clamps high")
-	SETTINGS.pixels_per_full.set_num(-5.0)
-	check(near(SETTINGS.pixels_per_full.get_num(), 240.0), "a player number clamps low")
-	SETTINGS.pixels_per_full.set_num(float(original["pixels"]))
+	original["pixels"] = SETTINGS.pixels_per_cm.get_num()
+	SETTINGS.pixels_per_cm.set_num(5000.0)
+	check(near(SETTINGS.pixels_per_cm.get_num(), 400.0), "a player number clamps high")
+	SETTINGS.pixels_per_cm.set_num(-5.0)
+	check(near(SETTINGS.pixels_per_cm.get_num(), 20.0), "a player number clamps low")
+	SETTINGS.pixels_per_cm.set_num(float(original["pixels"]))
 
 	original["radius"] = SETTINGS.radius.get_num()
 	SETTINGS.radius.set_num(-5.0)

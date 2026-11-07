@@ -119,6 +119,9 @@ const CLIMAX_SECONDS := 5.0
 const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
+## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
+## feel is the same with the anatomy off. Close to the default part's visible length.
+const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_Y_SECONDS := 0.35
 ## Debug perf probe window (one `[unfplap] perf` block per second, DEBUG LOGS only).
@@ -235,6 +238,9 @@ var cue := ""
 var pony_climaxes := 0
 ## Public: penetration 0..1 and the same orientation flag used by mouse input.
 var depth := 0.0
+## Public: how far the tip has passed her lips, in metres. Negative is the `back_out` standoff
+## behind them, and the depth stays at zero for all of it.
+var penetration_m := 0.0
 var thrust_up := true
 
 var _pose
@@ -304,7 +310,7 @@ var _auto_thrust
 var _auto_on := false
 var _auto_default_pace := 1.0
 var _auto_default_depth := 0.5
-var _thrust_pixels_per_full := 1000.0
+var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
 var _jiggle_radius_m := 0.26
@@ -696,7 +702,7 @@ func _snapshot_settings() -> void:
 	_features = SETTINGS.block("features.")
 	var thrust_block := SETTINGS.block("thrust.")
 	thrust_up = str(thrust_block.get("orientation", "up")).to_lower() == "up"
-	_thrust_pixels_per_full = float(thrust_block.get("pixels_per_full", 1000.0))
+	_thrust_pixels_per_cm = float(thrust_block.get("pixels_per_cm", 100.0))
 	_thrust_travel = float(thrust_block.get("travel", 0.5))
 	_max_pony_climaxes = int(thrust_block.get("max_pony_climaxes", 3))
 	var auto_block := SETTINGS.block("auto_thrust.")
@@ -983,12 +989,13 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
-		var amount: float = THRUST.mouse_to_depth(motion.relative.y, _thrust_pixels_per_full, thrust_up)
+		var travel: float = THRUST.pixels_to_metres(motion.relative.y, _thrust_pixels_per_cm,
+			thrust_up)
 		if _auto_on:
 			# Auto owns the stroke; vertical mouse motion only sets how deep it goes.
-			_auto_controller().call("nudge_depth", amount)
+			_auto_controller().call("nudge_depth", travel / maxf(penetration_reach(), 0.001))
 		elif _thrust_tracker != null:
-			_thrust_move(amount, _now_s())
+			_set_penetration(penetration_m + travel, _now_s())
 		get_viewport().set_input_as_handled()
 
 func _headset_view() -> bool:
@@ -1300,9 +1307,10 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
 	if state != State.IDLE:
 		var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
-		text += " | readiness=%.0f mood=%s climaxes=%d/%s intensity=%s pattern=%s cue=%s up=%s | %s" % [
+		text += " | readiness=%.0f mood=%s climaxes=%d/%s intensity=%s pattern=%s cue=%s up=%s penetration=%.1f/%.1fcm | %s" % [
 			satisfaction, mood, pony_climaxes, limit_text,
 			_last_intensity, _last_pattern, cue, str(thrust_up),
+			penetration_m * 100.0, penetration_reach() * 100.0,
 			PREFERENCES.describe(_preferences).replace("\n", "; ")]
 	text += " | " + voice_status_line()
 	return text
@@ -2442,6 +2450,7 @@ func _now_s() -> float:
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
+	penetration_m = -_back_out_m()
 	_auto_on = false
 	_auto_controller().reset(_auto_default_pace, _auto_default_depth)
 	_standing_anon_controller().reset_phase()
@@ -2619,6 +2628,7 @@ func vr_depth(value: float) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
 	_thrust_move(value - depth, _now_s())
+	penetration_m = depth * penetration_reach()
 
 
 ## integration: the avatar the bed body drives, so missionary_camera leaves it visible.
@@ -2705,6 +2715,7 @@ func _auto_thrust_tick(delta: float) -> void:
 		return
 	var next_depth: float = _auto_controller().call("step", delta)
 	_thrust_move(next_depth - depth, _now_s())
+	penetration_m = depth * penetration_reach()
 
 func _prepare_vocal() -> void:
 	var director := _director()
@@ -2822,6 +2833,39 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 	_inventory_hud_hidden = false
 	_log("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s" % [
 		str(_inventory_hud_saved), str(_inventory_hotbar_visible), str(_inventory_hud_layer_visible)])
+
+## Anon's visible shaft length in metres, measured from the placed part. With the anatomy off the
+## nominal length keeps the mouse feel identical.
+func _shaft_length_m() -> float:
+	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	if is_instance_valid(part) and bool(part.call("showing")):
+		var length: Variant = part.call("shaft_length_m")
+		if length is float and (length as float) > 0.001:
+			return length as float
+	return NOMINAL_SHAFT_M
+
+
+## The deepest the tip can reach, in metres. With the part on his hips (standing and oral) his body
+## stops on `Pelvis gap`; the bed and sliding placements are limited by the shaft alone.
+func penetration_reach() -> float:
+	var length := _shaft_length_m()
+	if pose_id == CATALOG.STANDING:
+		return maxf(length - SETTINGS.pelvis_gap_m.get_num(), 0.02)
+	return maxf(length, 0.02)
+
+
+## How far the tip rests behind her lips when pulled all the way out.
+func _back_out_m() -> float:
+	return maxf(SETTINGS.back_out_m.get_num(), 0.0)
+
+
+## Move the physical penetration and mirror it into the public 0..1 depth. Travel behind the lips
+## moves the cock but leaves the depth at zero, so the standoff never eats a stroke.
+func _set_penetration(target_m: float, now: float) -> void:
+	var reach := penetration_reach()
+	penetration_m = clampf(target_m, -_back_out_m(), reach)
+	_thrust_move(THRUST.penetration_to_depth(penetration_m, reach) - depth, now)
+
 
 func _thrust_move(amount: float, now: float) -> void:
 	if _thrust_tracker == null:

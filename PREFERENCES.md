@@ -6,8 +6,10 @@ aftercare are outside it.
 
 ## What the player does
 
-- Mouse vertical motion feeds raw depth. `thrust.orientation` flips the direction; `"up"`
-  (the default) means mouse up deepens. `thrust.pixels_per_full` defaults to `1000`.
+- Mouse vertical motion feeds the measured penetration in metres. `thrust.orientation` flips the
+  direction; `"up"` (the default) means mouse up deepens. `thrust.pixels_per_cm` is the
+  sensitivity, default `100` (20–400), so a full stroke is his shaft length and the `Back-out gap`
+  sits below zero depth.
 - `X` toggles auto thrust in `ACTIVE`/`CLIMAX`. `auto_thrust.gd` drives a raised cosine at
   `pace` thrusts per second from 0 to `max_depth`, and the runtime feeds the same depth tracker
   the mouse feeds. It adds no separate score or heat path: intensity, pattern, readiness, audio
@@ -66,8 +68,8 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 One ungrouped list, in this order: **Starting Sex**, **Show controls**, **Show HUD readouts**,
 **Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Remember acts**, **Climax
-limit** (`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per full thrust
-(`240…1200`, default `1000`), **Thrust direction** (which mouse direction deepens the stroke),
+limit** (`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per centimetre of hip
+travel (`20…400`, default `100`), **Thrust direction** (which mouse direction deepens the stroke),
 **Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
 control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 

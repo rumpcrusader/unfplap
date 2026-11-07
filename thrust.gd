@@ -43,9 +43,19 @@ var _last_move := 0.0
 var _samples: Array[Vector2] = []
 
 
-static func mouse_to_depth(dy_pixels: float, pixels_per_full: float, up_is_deep: bool) -> float:
+## Vertical mouse motion as hip travel in metres. `pixels_per_cm` is the player's sensitivity, so
+## a full stroke is the shaft's length in centimetres, not a fixed pixel count.
+static func pixels_to_metres(dy_pixels: float, pixels_per_cm: float, up_is_deep: bool) -> float:
 	var sign := -1.0 if up_is_deep else 1.0
-	return sign * dy_pixels / maxf(1.0, pixels_per_full)
+	return sign * dy_pixels / (maxf(1.0, pixels_per_cm) * 100.0)
+
+
+## The public 0..1 depth from the measured penetration. Anything behind her lips — the `back_out`
+## standoff included — is zero depth, so the standoff never dilutes the stroke scale.
+static func penetration_to_depth(penetration_m: float, reach_m: float) -> float:
+	if reach_m <= 0.0:
+		return 0.0
+	return clampf(penetration_m / reach_m, 0.0, 1.0)
 
 
 ## Wobble amount 0..1 from a closed stroke. Travel sets the amount, so a full stroke moves the

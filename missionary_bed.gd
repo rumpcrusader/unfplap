@@ -78,8 +78,8 @@ func apply(hip: Node3D, _facing: Basis) -> void:
 	var level := Basis.looking_at(forward, Vector3.UP, true)
 	var aim := Quaternion(level * (part.call("axis") as Vector3), -unit_rear)
 	var square := Basis(Quaternion.IDENTITY.slerp(aim, 1.0)) * level
-	var depth := clampf(float(runtime.get("depth")), 0.0, 1.0)
-	var root: Vector3 = part.call("root_for", opening, unit_rear, depth)
+	var penetration: float = float(runtime.get("penetration_m"))
+	var root: Vector3 = part.call("root_for", opening, unit_rear, penetration)
 	var wanted: Vector3 = part.call("hip_for", root, square)
 	var amount := clampf(float(runtime.call("_pose_basis_amount")), 0.0, 1.0)
 	hip.global_position = hip.global_position.lerp(wanted, amount)

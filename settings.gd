@@ -475,9 +475,11 @@ static var act_history := flag("act_history", "features.act_history", true, "Rem
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
 	"Climax limit", "How many times a mare can climax in one act. 0 is unlimited.", GENERAL, "") \
 	.with_step(1.0).with_range(0.0, 20.0)
-static var pixels_per_full := num("pixels_per_full", "thrust.pixels_per_full", 1000.0,
-	"Sensitivity", "Mouse travel for one full thrust.", GENERAL, "") \
-	.with_unit("px per full thrust").with_step(20.0).with_range(240.0, 1200.0)
+static var pixels_per_cm := num("pixels_per_cm", "thrust.pixels_per_cm", 100.0,
+	"Sensitivity",
+	"Mouse travel for each centimetre the cock moves. A full stroke is his shaft length, so a "
+	+ "longer part needs proportionally more travel.", GENERAL, "") \
+	.with_unit("px per cm").with_step(10.0).with_range(20.0, 400.0)
 static var orientation := choice("orientation", "thrust.orientation", "up", ["up", "down"],
 	["Mouse Up", "Mouse Down"], "Thrust direction",
 	"Which mouse direction deepens the thrust.", GENERAL, "")
@@ -1118,6 +1120,10 @@ static var _deprecated := [
 		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),
 	# The separate log switch folded into the debug switch.
 	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
+	# Thrust sensitivity is now a physical scale: pixels per centimetre of hip travel. The old
+	# value was pixels for one full stroke; 20 cm is the reference shaft, so its feel is kept.
+	deprecated("thrust.pixels_per_full",
+		func(value: Variant) -> Dictionary: return {"thrust.pixels_per_cm": float(value) / 20.0}),
 ]
 
 

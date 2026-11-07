@@ -159,6 +159,18 @@ func run() -> void:
 	check(not runtime.auto_active(), "stopping auto clears the mode")
 	runtime._reset_thrust_state()
 	check(not runtime.auto_active(), "thrust reset clears auto for the next act")
+	# The depth scale is physical: his shaft length decides a full stroke, and the back-out
+	# standoff sits below zero depth so it can never eat into the stroke.
+	check(near(runtime.penetration_reach(), runtime.NOMINAL_SHAFT_M),
+		"the nominal shaft sets the depth scale with no part")
+	check(near(runtime.penetration_m, -float(runtime.call("_back_out_m"))),
+		"the reset rests at the back-out standoff")
+	runtime._set_penetration(-1.0, 0.0)
+	check(near(runtime.depth, 0.0), "pulling through the standoff leaves depth at zero")
+	runtime._set_penetration(0.1, 0.2)
+	check(near(runtime.depth, 0.5), "half the reach reads as half depth")
+	runtime._set_penetration(1.0, 0.4)
+	check(near(runtime.penetration_m, runtime.NOMINAL_SHAFT_M), "full depth stops at the reach")
 	runtime.free()
 
 	print("RUNTIME_THRUST_RESULT checks=%d failures=%d" % [checks, failures])

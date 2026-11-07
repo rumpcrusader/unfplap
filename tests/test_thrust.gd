@@ -24,9 +24,18 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
-	check(near(THRUST.mouse_to_depth(-100.0, 400.0, true), 0.25), "mouse up deepens")
-	check(near(THRUST.mouse_to_depth(-100.0, 400.0, false), -0.25), "mouse up shallows when inverted")
-	check(near(THRUST.mouse_to_depth(100.0, 400.0, false), 0.25), "mouse down deepens when inverted")
+	check(near(THRUST.pixels_to_metres(-100.0, 100.0, true), 0.01), "mouse up pushes in")
+	check(near(THRUST.pixels_to_metres(-100.0, 100.0, false), -0.01),
+		"mouse up pulls out when inverted")
+	check(near(THRUST.pixels_to_metres(100.0, 100.0, false), 0.01),
+		"mouse down pushes in when inverted")
+	check(near(THRUST.pixels_to_metres(-200.0, 200.0, true), 0.01),
+		"sensitivity sets the travel per pixel")
+	# Depth is measured insertion: anything behind her lips, the back-out included, is zero.
+	check(near(THRUST.penetration_to_depth(-0.05, 0.17), 0.0), "the standoff is zero depth")
+	check(near(THRUST.penetration_to_depth(0.0, 0.17), 0.0), "the tip at her lips is zero depth")
+	check(near(THRUST.penetration_to_depth(0.085, 0.17), 0.5), "half the reach is half depth")
+	check(near(THRUST.penetration_to_depth(0.2, 0.17), 1.0), "depth clamps at the reach")
 
 	var tracker: RefCounted = THRUST.new()
 	var events: Array = tracker.move(2.0, 0.0)

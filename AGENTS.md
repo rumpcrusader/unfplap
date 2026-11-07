@@ -448,10 +448,13 @@ body-relative axes.
   `_stand_eye`/`_eye_height`; do not set the eye line by teleporting the rig.
 - Act start keeps her where she stands. `_begin_standing_placement()` builds the act transform
   from her current facing and, for desktop human Anon, places him at
-  `pony_position - forward * _standing_gap()`. The 1.2 m Y cone means the correction is small.
-  The act end leaves him there and leaves his yaw/pitch at the last act aim instead of snapping
-  the pre-act view back. AnonPony and headset/VR keep the old `_standing_transform()` placement
-  (she moves in front of the camera rig), because their rig is the camera or another body.
+  `pony_position - forward * _standing_gap()`. That stance is only the starting point: with the
+  anatomy part showing, the measured aim pulls his pelvis to `opening - normal × (shaft - depth)`,
+  so `gap_offset_m` sets the pre-act view rather than the contacting distance. The 1.2 m Y cone
+  means the correction is small, and `_smooth_penetration()` blends the pull-in through
+  `POSING_IN`. The act end leaves him there and leaves his yaw/pitch at the last act aim instead of
+  snapping the pre-act view back. AnonPony and headset/VR keep the old `_standing_transform()`
+  placement (she moves in front of the camera rig), because their rig is the camera or another body.
 - Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start,
   then freeze. Lean yaw/pitch are applied on top.
 - Standing has no separate thrust rock spring. The shared speed-driven surge/bob handles the
@@ -704,9 +707,22 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 
 ## Critical: ACTIVE readiness and strength
 
-`thrust.gd` is pure and has no scene access. It tracks raw depth and closes a stroke on a real
-direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
+`thrust.gd` is pure and has no scene access. It tracks the public 0..1 depth and closes a stroke on
+a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 
+- **Depth is measured penetration.** The runtime keeps `penetration_m`, how far the tip has passed
+  her lips, and `depth = clamp(penetration_m, 0, reach) / reach`. Mouse motion is hip travel in
+  metres (`THRUST.pixels_to_metres`, `thrust.pixels_per_cm`), not a percentage, and the back-out
+  standoff is negative penetration, so it never counts towards depth.
+- `penetration_reach()` is the deepest the tip can reach: `shaft length - Pelvis gap` when the part
+  rides his hips (standing and oral), the shaft length in the missionary bed and slide placements.
+  `shaft_length_m()` comes from the placed part, so `Size`, `Length` and the body preset move the
+  stroke length with it; `NOMINAL_SHAFT_M = 0.20` is used while the part is not showing.
+- `anon_part.track()` takes the penetration in metres and places the tip exactly that far past her
+  lips in every path: the attached aim moves his pelvis to `opening - normal × (shaft - penetration)`,
+  the sliding aim puts the tip there, and the bed holder sits `shaft - penetration` behind her.
+  `_smooth_penetration()` eases the applied value (0.06 s) and starts from the stance's own
+  penetration, so the act-start contact pull-in blends instead of snapping.
 - A **stroke** is continuous movement in one direction.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`.
@@ -734,8 +750,8 @@ direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances a raised
   cosine at `pace` thrusts per second from 0 to `max_depth`; `_auto_thrust_tick()` sends the
   per-frame depth delta through `_thrust_move()`, so readiness, intensity, pattern, audio, camera,
-  jiggle and presentation keep their existing paths. The wheel nudges pace, mouse ↕ nudges peak
-  depth through the same `thrust.orientation`/`pixels_per_full` mapping; the peak is smoothed over
+  jiggle and presentation keep their existing paths. The wheel nudges pace, and mouse ↕ nudge the
+  peak depth at the same `thrust.pixels_per_cm` scale; the peak is smoothed over
   `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the tracker travel: after the first
   stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum peak is `0.20`
   and its `0.14` travel still counts as a real soft thrust. The pace range reaches every pattern
@@ -1349,13 +1365,12 @@ rump blush. Unknown settings keys are ignored.
   `lip_vertical`, and the player-part
   controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
-  player-facing `back_out_m` (Back-out gap, `0 cm`; hold the tip up to 5 cm behind her lips at
-  depth 0 and give the distance back over the stroke), plus the debug
-  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.03 m`). There is no depth cap: full depth
-  reaches as far as the shaft goes and the pelvis gap limits his body, so a long
-  `part_length_scale` can drive the tip deeper than her body depth. `pelvis_gap_m` is a separate
-  clamp: it keeps his pelvis off her rear surface when the shaft is too short, and never sets the
-  depth-0 standoff.
+  player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
+  pulled all the way out, up to 5 cm), plus the debug
+  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.03 m`). The pelvis gap is not a depth cap: it
+  sets `penetration_reach()` (`shaft length - gap`) when the part rides his hips, so 100 % depth is
+  his body stopped against her and a long `part_length_scale` moves the reach with it. The back-out
+  gap is negative penetration, so it is travel the depth scale never counts.
   Player-part values are applied on top of the saved placement and update live. `part_head_scale`
   widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
   its axis; `part_throb` scales the slight depth-driven heartbeat (0 off), which also lifts the
@@ -1387,8 +1402,11 @@ rump blush. Unknown settings keys are ignored.
   tiers and repair rules are `HISTORY.md`. It never changes the base relationship stage and never
   calls `break_up`; the worst tier is a spoken refusal.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_full` defaults to `1000` and clamps to `240…1200`; `thrust.travel` is the
-  hip backset multiplier, default `0.5`, clamped to `0.25…2.0×` as a player-facing contract.
+  `thrust.pixels_per_cm` is the player's sensitivity, default `100` and clamped to `20…400`: mouse
+  travel per centimetre of hip movement, so his shaft length sets one full stroke and a longer part
+  needs proportionally more travel. `thrust.travel` is the non-anatomy hip backset multiplier,
+  default `0.5`, clamped to `0.25…2.0×`. The old `pixels_per_full` is retired and mapped as
+  `value / 20`.
 - `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`) and `max_depth`
   (peak depth, default `0.5`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
   changes are per-act. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.

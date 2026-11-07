@@ -33,7 +33,8 @@ const ACCELERATION_MAX := 60.0
 const BEND_NEAR := 0.45
 const BEND_FAR := 0.75
 const AIM_DEPTH := 0.3
-const FULL_DEPTH := 1.0
+## The applied penetration's low-pass, so the act-start contact pull-in and live size edits glide.
+const PENETRATION_SMOOTH_S := 0.06
 ## The glans band: the head multiplier is fully applied from HEAD_FULL to the tip.
 const HEAD_START := 0.72
 const HEAD_FULL := 0.86
@@ -71,8 +72,6 @@ var _throb_depth := 0.0
 var _throb_amount := 0.0
 ## The beat's upward rise, in local units before the ready blend; only while the shaft is out.
 var _throb_lift := 0.0
-## `Back-out gap`: how far the tip rests behind her lips at depth 0.
-var _back_out := 0.0
 var _ready_amount := 0.0
 var _tween: Tween
 var _in_encounter := false
@@ -87,7 +86,9 @@ var _last_root := Vector3.INF
 var _last_velocity := Vector3.ZERO
 var _bed_holder: Node3D
 var _home: Node
-var _depth_smooth := 0.0
+## The applied penetration in metres and whether it has been seeded from the act's stance yet.
+var _p_smooth := 0.0
+var _p_started := false
 ## The total Hips-bone offset the standing controller applied last frame, and the offset this
 ## frame asks for. The pelvis carries the part, so the two always move as one body.
 var hip_offset_applied := Vector3.ZERO
@@ -199,7 +200,6 @@ func _read_settings() -> void:
 	_girth_head = maxf(SETTINGS.part_head_scale.get_num(), 0.01)
 	_part_length_scale = maxf(SETTINGS.part_length_scale.get_num(), 0.01)
 	_throb_gain = maxf(SETTINGS.part_throb.get_num(), 0.0)
-	_back_out = maxf(SETTINGS.back_out_m.get_num(), 0.0)
 
 
 ## integration: the user-facing scale sits on top of the saved placement.
@@ -273,6 +273,28 @@ func _head_scale_at(u: float) -> float:
 	return lerpf(1.0, _girth_head, smoothstep(HEAD_START, HEAD_FULL, u))
 
 
+## The placed shaft's visible length in metres, from the pelvis pivot to the tip on its axis. The
+## act's depth scale and every placement are built on it, so a size or length change is physical.
+func shaft_length_m() -> float:
+	if not is_instance_valid(_mesh):
+		return 0.0
+	return _part_length() * _world_scale()
+
+
+## The applied penetration, eased: in the standing pose the first frame pulls his pelvis in from
+## wherever the stance left it, so it blends through `POSING_IN` instead of snapping; the other
+## placements start where the depth already is. A live size change stays smooth in every path.
+func _smooth_penetration(penetration_m: float, delta: float, target: Vector3,
+		seed: bool) -> float:
+	if not _p_started:
+		_p_started = true
+		_p_smooth = (shaft_length_m() - root_now().distance_to(target)) if seed else penetration_m
+	if delta <= 0.0:
+		return _p_smooth
+	_p_smooth = lerpf(_p_smooth, penetration_m, 1.0 - exp(-delta / PENETRATION_SMOOTH_S))
+	return _p_smooth
+
+
 ## integration: live user-facing size/rotation update.
 func apply_live() -> void:
 	_read_settings()
@@ -282,16 +304,19 @@ func apply_live() -> void:
 
 
 ## integration: standing: the part stays fixed to his hips. Bed: it rides her hips instead.
-func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float, delta: float,
-		mare_anchor: Node3D, attached := true) -> void:
+## `penetration_m` is how far the tip has passed her lips, measured in metres; negative is the
+## `Back-out gap` standoff, so the placement never needs a separate depth fraction.
+func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, penetration_m: float,
+		delta: float, mare_anchor: Node3D, attached := true) -> void:
 	if not is_instance_valid(_mesh) or not _mesh.visible or placing:
 		return
-	_throb_tick(delta, depth)
+	_throb_tick(delta, penetration_m / maxf(shaft_length_m(), 0.001))
+	var shown := _smooth_penetration(penetration_m, delta, target, attached and not bed)
 	if bed:
-		_track_bed(target, rear, up, depth, mare_anchor)
+		_track_bed(target, rear, up, shown, mare_anchor)
 		return
 	_end_bed()
-	_aim_part(target, depth, delta, attached)
+	_aim_part(target, shown, attached)
 	if delta <= 0.0:
 		return
 	var root := root_now()
@@ -345,21 +370,13 @@ func _throb_tick(delta: float, depth: float) -> void:
 
 ## Aim the visible part at the entrance. In the standing act the part stays a rigid child of the
 ## hips and the controller moves the pelvis instead (`hip_offset_wanted`), so his crotch and the
-## part travel together; the other poses keep the older aim-and-slide placement.
-func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> void:
+## part travel together; the other poses keep the aim-and-slide placement.
+func _aim_part(target: Vector3, penetration_m: float, attached: bool) -> void:
 	if not is_instance_valid(_mesh) or not target.is_finite():
 		return
 	_apply_place()
-	# `Back-out gap` holds the tip that far behind her lips at depth 0 and gives the distance back
-	# over the stroke, so the deepest point does not move.
-	var max_back := _back_out
-	# No fixed depth cap: full depth reaches as far as the shaft goes, and the pelvis gap below
-	# keeps his body out of her rump.
-	var max_depth := (_visible_tip_local() - PIVOT).length()
-	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
-		1.0 - exp(-maxf(delta, 0.0) / 0.04))
 	if attached:
-		_aim_attached(target, max_back, max_depth)
+		_aim_attached(target, penetration_m)
 		return
 	_hip_offset_wanted = Vector3.ZERO
 	var pivot := _mesh.global_transform * PIVOT
@@ -370,14 +387,16 @@ func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> v
 		return
 	var turned := Basis(Quaternion(to_tip.normalized(), to_open.normalized())) * _mesh.global_transform.basis
 	var direction := to_open.normalized()
-	var desired := to_open.length() - max_back + _depth_smooth * (max_depth + max_back)
+	# Put the tip exactly `penetration_m` past her lips; a negative value is the back-out standoff,
+	# so the whole part pulls back instead of eating into the depth range.
+	var desired := to_open.length() + penetration_m
 	var slide := desired - to_tip.length()
 	_mesh.global_transform = Transform3D(turned, pivot - turned * PIVOT + direction * slide)
 
 
 ## Standing: rotate the part about its base in the hips' frame and ask the controller to move the
 ## pelvis by the distance the entrance needs, so the base never leaves his crotch.
-func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
+func _aim_attached(target: Vector3, penetration_m: float) -> void:
 	var parent := _mesh.get_parent() as Node3D
 	if not is_instance_valid(parent):
 		return
@@ -402,23 +421,16 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	var pivot := posed * PIVOT
 	var turned := Transform3D(turn * posed.basis, pivot + turn * (posed.origin - pivot))
 	_mesh.transform = parent.global_transform.affine_inverse() * turned
-	# The tip should sit `Back-out gap` behind the entrance at depth 0 and `Max depth` past it at
-	# full depth, so move the pelvis by exactly the distance the base is short.
-	var along := -max_back + _depth_smooth * (max_back + max_depth)
-	# Keep his pelvis at least `Pelvis gap` behind her rear surface: if the shaft is too short to
-	# reach the depth asked for, the depth is what gives way, not his body.
-	var gap := maxf(SETTINGS.pelvis_gap_m.get_num(), 0.0)
-	along = minf(along, maxf(to_tip.length() - gap, 0.0))
-	# Put his pelvis on the normal line through the opening. This is the whole alignment: the base
-	# sits at `shaft length - depth` behind the hole, straight out along her normal, so the shaft,
-	# his crotch and her entrance are colinear and rotation is minimal.
+	# Place his pelvis so the tip is exactly `penetration_m` past her lips along her opening's
+	# normal, or the back-out standoff behind them when it is negative. `penetration_reach()` in
+	# the runtime already stops his body on `Pelvis gap`, so there is no second clamp here.
 	var aim_dir := (turn * to_tip.normalized()).normalized()
 	if on_normal and aim_opening != Vector3.ZERO:
 		# `aim_dir` points into her, so step *back* from the opening by the remaining shaft.
-		var pivot_target: Vector3 = aim_opening - aim_dir * (to_tip.length() - along)
+		var pivot_target: Vector3 = aim_opening - aim_dir * (to_tip.length() - penetration_m)
 		_hip_offset_wanted = pivot_target - pivot_natural
 	else:
-		_hip_offset_wanted = to_open - aim_dir * (to_tip.length() - along)
+		_hip_offset_wanted = to_open - aim_dir * (to_tip.length() - penetration_m)
 
 
 ## The Hips-bone offset, in world space, that puts the part at the entrance for this depth.
@@ -432,7 +444,9 @@ func _set_bend(turn: Vector3) -> void:
 		material.set_shader_parameter("bend_turn", turn)
 
 
-func _track_bed(target: Vector3, rear: Vector3, up: Vector3, depth: float,
+## Missionary on the bed body: the part rides her hips, so the holder sits `shaft - penetration`
+## behind her lips and the tip lands exactly that deep. A negative penetration is the standoff.
+func _track_bed(target: Vector3, rear: Vector3, up: Vector3, penetration_m: float,
 		mare_anchor: Node3D) -> void:
 	if not is_instance_valid(_bed_holder):
 		_bed_holder = Node3D.new()
@@ -444,9 +458,7 @@ func _track_bed(target: Vector3, rear: Vector3, up: Vector3, depth: float,
 		var straight := (_rotation_basis() * _straighten()).scaled(
 			Vector3.ONE * _scale * _setting_scale)
 		_mesh.transform = Transform3D(straight, -(straight * PIVOT))
-	var clamped := clampf(depth, 0.0, 1.0)
-	var reach := _part_length() * _scale * _setting_scale * (1.0 - clamped * FULL_DEPTH) \
-		+ _back_out * (1.0 - clamped)
+	var reach := shaft_length_m() - penetration_m
 	_bed_holder.global_transform = Transform3D(Basis.looking_at(rear, up), target + rear * reach)
 
 
@@ -529,9 +541,10 @@ func root_now() -> Vector3:
 	return _mesh.global_transform * PIVOT
 
 
-func root_for(target: Vector3, rear: Vector3, depth: float) -> Vector3:
-	return target + rear * _part_length() * _world_scale() \
-		* (1.0 - clampf(depth, 0.0, 1.0) * FULL_DEPTH)
+## Where his pelvis pivot sits for a given penetration: `shaft - penetration` behind her lips, so
+## the bed body follows the same physical model as the placed part.
+func root_for(target: Vector3, rear: Vector3, penetration_m: float) -> Vector3:
+	return target + rear * (shaft_length_m() - penetration_m)
 
 
 func spine_length() -> float:
@@ -611,7 +624,7 @@ func encounter(on: bool) -> void:
 	_throb_depth = 0.0
 	_throb_lift = 0.0
 	if on:
-		_depth_smooth = 0.0
+		_p_started = false
 		if not _ensure():
 			return
 		_mesh.visible = true

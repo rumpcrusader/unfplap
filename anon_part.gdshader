@@ -32,6 +32,10 @@ uniform float length_scale = 1.0;
 uniform float head_start = 0.72;
 uniform float head_full = 0.86;
 uniform float throb = 0.0;
+// integration: the heartbeat also lifts the shaft, most at the tip and none at the base. `throb_up`
+// is world up in mesh-local space; the rise reads as the cock bobbing while it is out of her.
+uniform float throb_lift = 0.0;
+uniform vec3 throb_up = vec3(0.0, 1.0, 0.0);
 
 varying vec3 lit_fill;
 
@@ -71,6 +75,15 @@ void vertex() {
 			NORMAL = spin(NORMAL, k, turn);
 		}
 		VERTEX = centre + ring;
+		if (throb_lift > 0.0) {
+			// Up perpendicular to the shaft, so the lift is a bow and never a length pulse.
+			vec3 up = throb_up - shaft_axis * dot(shaft_axis, throb_up);
+			float up_len = length(up);
+			if (up_len > 0.001) {
+				float lift_t = clamp(along / max(shaft_length, 0.001), 0.0, 1.0);
+				VERTEX += up * (throb_lift * lift_t * lift_t / up_len);
+			}
+		}
 	}
 }
 

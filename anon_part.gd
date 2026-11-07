@@ -42,6 +42,9 @@ const THROB_HZ := 1.1
 const THROB_DEPTH_RATE := 0.15
 const THROB_REST := 0.012
 const THROB_DEPTH := 0.018
+## How far the tip rises on a beat while the shaft is out of her, as a fraction of its visible
+## length. Full thrust fades the rise to nothing.
+const THROB_LIFT := 0.02
 
 const MESH_PATH := "res://mods/unfplap/assets/anatomy/anon_part.scn"
 const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon_part_albedo.png"
@@ -66,6 +69,10 @@ var _throb_gain := 1.0
 var _throb_clock := 0.0
 var _throb_depth := 0.0
 var _throb_amount := 0.0
+## The beat's upward rise, in local units before the ready blend; only while the shaft is out.
+var _throb_lift := 0.0
+## `Back-out gap`: how far the tip rests behind her lips at depth 0.
+var _back_out := 0.0
 var _ready_amount := 0.0
 var _tween: Tween
 var _in_encounter := false
@@ -169,6 +176,8 @@ func _apply_material() -> void:
 	mat.set_shader_parameter("girth_mid", _girth_mid)
 	mat.set_shader_parameter("girth_head", _girth_head)
 	mat.set_shader_parameter("throb", _throb_amount)
+	mat.set_shader_parameter("throb_lift", _throb_lift * _ready_amount)
+	mat.set_shader_parameter("throb_up", _throb_up())
 	mat.set_shader_parameter("base_texture", load(ALBEDO_PATH))
 	mat.set_shader_parameter("ao_texture", load(AO_PATH))
 	mat.set_shader_parameter("normal_texture", load(NRM_PATH))
@@ -190,6 +199,7 @@ func _read_settings() -> void:
 	_girth_head = maxf(SETTINGS.part_head_scale.get_num(), 0.01)
 	_part_length_scale = maxf(SETTINGS.part_length_scale.get_num(), 0.01)
 	_throb_gain = maxf(SETTINGS.part_throb.get_num(), 0.0)
+	_back_out = maxf(SETTINGS.back_out_m.get_num(), 0.0)
 
 
 ## integration: the user-facing scale sits on top of the saved placement.
@@ -220,7 +230,29 @@ func _apply_girth() -> void:
 		material.set_shader_parameter("girth_base", _girth_base)
 		material.set_shader_parameter("girth_mid", _girth_mid)
 		material.set_shader_parameter("girth_head", _girth_head)
-		material.set_shader_parameter("throb", _throb_amount)
+	_apply_throb()
+
+
+## The heartbeat uniforms, together: the girth pulse, the upward rise and the axis it lifts along.
+## The rise is scaled by the ready blend so it folds away with the mesh.
+func _apply_throb() -> void:
+	if not is_instance_valid(_mesh):
+		return
+	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("throb", _throb_amount)
+	material.set_shader_parameter("throb_lift", _throb_lift * _ready_amount)
+	material.set_shader_parameter("throb_up", _throb_up())
+
+
+## World up expressed in the mesh's own frame. The bed placement turns the shaft flat onto the
+## mattress, so a fixed local axis would lift it sideways there.
+func _throb_up() -> Vector3:
+	if not is_instance_valid(_mesh):
+		return Vector3.UP
+	var up := _mesh.global_basis.inverse() * Vector3.UP
+	return up.normalized() if up.length_squared() > 0.000001 else Vector3.UP
 
 
 ## The shaped shaft length, in the mesh's local units. Every placement and report uses it so the
@@ -292,7 +324,8 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 
 
 ## A slight heartbeat that rises with depth. The waveform has two lobes so it reads as a pulse
-## rather than a clean sine. `part_throb` is an intensity counter; zero stops it.
+## rather than a clean sine. `part_throb` is an intensity counter; zero stops it. While the shaft
+## is out of her the beat also lifts it, fading to nothing as the thrust reaches full depth.
 func _throb_tick(delta: float, depth: float) -> void:
 	if delta <= 0.0:
 		return
@@ -305,10 +338,9 @@ func _throb_tick(delta: float, depth: float) -> void:
 	var beat := clampf(first + second, 0.0, 1.0)
 	_throb_amount = _ready_amount * _throb_gain \
 		* (THROB_REST + THROB_DEPTH * _throb_depth) * beat
-	if is_instance_valid(_mesh):
-		var material := _mesh.get_surface_override_material(0) as ShaderMaterial
-		if material != null:
-			material.set_shader_parameter("throb", _throb_amount)
+	_throb_lift = _throb_gain * THROB_LIFT * _part_length() * beat \
+		* (1.0 - smoothstep(0.0, 1.0, _throb_depth))
+	_apply_throb()
 
 
 ## Aim the visible part at the entrance. In the standing act the part stays a rigid child of the
@@ -318,8 +350,9 @@ func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> v
 	if not is_instance_valid(_mesh) or not target.is_finite():
 		return
 	_apply_place()
-	# `Max back-out` was removed; the tip now stays at the entrance.
-	var max_back := 0.0
+	# `Back-out gap` holds the tip that far behind her lips at depth 0 and gives the distance back
+	# over the stroke, so the deepest point does not move.
+	var max_back := _back_out
 	# No fixed depth cap: full depth reaches as far as the shaft goes, and the pelvis gap below
 	# keeps his body out of her rump.
 	var max_depth := (_visible_tip_local() - PIVOT).length()
@@ -369,7 +402,7 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	var pivot := posed * PIVOT
 	var turned := Transform3D(turn * posed.basis, pivot + turn * (posed.origin - pivot))
 	_mesh.transform = parent.global_transform.affine_inverse() * turned
-	# The tip should sit `Max back-out` behind the entrance at depth 0 and `Max depth` past it at
+	# The tip should sit `Back-out gap` behind the entrance at depth 0 and `Max depth` past it at
 	# full depth, so move the pelvis by exactly the distance the base is short.
 	var along := -max_back + _depth_smooth * (max_back + max_depth)
 	# Keep his pelvis at least `Pelvis gap` behind her rear surface: if the shaft is too short to
@@ -411,8 +444,9 @@ func _track_bed(target: Vector3, rear: Vector3, up: Vector3, depth: float,
 		var straight := (_rotation_basis() * _straighten()).scaled(
 			Vector3.ONE * _scale * _setting_scale)
 		_mesh.transform = Transform3D(straight, -(straight * PIVOT))
-	var reach := _part_length() * _scale * _setting_scale \
-		* (1.0 - clampf(depth, 0.0, 1.0) * FULL_DEPTH)
+	var clamped := clampf(depth, 0.0, 1.0)
+	var reach := _part_length() * _scale * _setting_scale * (1.0 - clamped * FULL_DEPTH) \
+		+ _back_out * (1.0 - clamped)
 	_bed_holder.global_transform = Transform3D(Basis.looking_at(rear, up), target + rear * reach)
 
 
@@ -461,6 +495,13 @@ func showing() -> bool:
 func tip_world() -> Vector3:
 	return _mesh.global_transform * (_visible_tip_local() + Vector3(0.0, TIP_LIFT_M, 0.0))
 
+
+## The modelled tip on the shaft axis, without the debug aim lift `tip_world()` carries. The act
+## measures the tip against her lips with this, so a tuning offset cannot make a touch look far.
+func tip_center() -> Vector3:
+	if not is_instance_valid(_mesh):
+		return Vector3.INF
+	return _mesh.global_transform * _visible_tip_local()
 
 
 ## Radius profile along the shaft, world metres, sampled evenly from base to tip. The anatomy
@@ -518,6 +559,7 @@ func _set_ready(value: float) -> void:
 	_ready_amount = value
 	if is_instance_valid(_mesh):
 		_apply_ready()
+		_apply_throb()
 
 
 func _animate(target: float, seconds: float, hide_after := false) -> void:
@@ -567,6 +609,7 @@ func encounter(on: bool) -> void:
 	_hip_offset_wanted = Vector3.ZERO
 	_throb_amount = 0.0
 	_throb_depth = 0.0
+	_throb_lift = 0.0
 	if on:
 		_depth_smooth = 0.0
 		if not _ensure():

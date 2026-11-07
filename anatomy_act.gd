@@ -18,6 +18,14 @@ const WINKING_STRETCH_MAX := 1.4
 const CLIMAX_WINKS := 3.0
 const CLIMAX_WINK_S := 1.35
 const WINK_OPEN := 0.25
+## Her own wink during the act: one quiet beat while the tip rests at her lips, and a frequent
+## beat once a climax has been pulled out of her. The tip counts as touching within this margin.
+const ACT_WINK_S := 0.5
+const TOUCH_WINK_MIN_S := 4.0
+const TOUCH_WINK_MAX_S := 7.0
+const OUT_WINK_MIN_S := 1.0
+const OUT_WINK_MAX_S := 2.0
+const TOUCH_MARGIN_M := 0.02
 const HOLE_SWAP_S := 0.9
 const MARE_HOLD_PHASE := 0.45
 const PULLED_OUT_PHASE := 0.35
@@ -75,6 +83,12 @@ var _bed_rest := 0.8
 ## Climax wink: the shapes stay driven around the shaft, and this adds the open/close pulses
 ## on top instead of a tween that the per-frame drive would cancel.
 var _wink_left := 0.0
+## The beat's own length and count, so the climax pulse and her act wink share one countdown.
+var _wink_total := 0.0
+var _wink_beats := 0.0
+## Her act wink scheduler: seconds to the next beat, and the mode those seconds were measured in.
+var _act_wink_next := 0.0
+var _act_wink_mode := 0
 ## Unit normal of the current opening, pointing out of her toward Anon.
 var _normal := Vector3.ZERO
 var _debug_vulva: MeshInstance3D
@@ -116,6 +130,10 @@ func reset() -> void:
 	_finished_inside = false
 	_bed_rest = 0.8
 	_wink_left = 0.0
+	_wink_total = 0.0
+	_wink_beats = 0.0
+	_act_wink_next = 0.0
+	_act_wink_mode = 0
 	if is_instance_valid(anatomy):
 		anatomy.call("animate", 0.0, 1.0)
 
@@ -277,13 +295,14 @@ func tick(delta: float) -> void:
 		_oral_motion_tick(delta)
 	var rearward := 1.0 - _oral_mix
 	var front := (1.0 - _hole_mix) * rearward
+	_act_wink_tick(delta, part)
 	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
 	# instead of snapping closed; the climax wink is applied on top as a pulse.
 	if _state() in [2, 3]:
 		var closed := 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front
 		if _wink_left > 0.0:
 			_wink_left = maxf(_wink_left - delta, 0.0)
-			var beat: float = absf(sin((1.0 - _wink_left / CLIMAX_WINK_S) * PI * CLIMAX_WINKS))
+			var beat: float = absf(sin((1.0 - _wink_left / _wink_total) * PI * _wink_beats))
 			closed = lerpf(closed, WINK_OPEN if closed > 0.5 else 0.85, beat)
 		# The fill closes the shader's cut over the shaft; without it the hole stays fully open
 		# and the lips cannot read as gripping it.
@@ -334,6 +353,53 @@ func pose_config(config: Dictionary) -> void:
 		config["oral_pitch"] = _oral_now.y * 0.5 * _oral_mix
 		config["oral_yaw"] = _oral_now.z * _oral_mix
 		config["oral_roll"] = _oral_now.z * 0.3 * _oral_mix
+
+
+## Her own wink while the act runs: one quiet beat while the tip rests at her lips, and a
+## frequent beat once a climax has been pulled out of her. Only the vulva, and never on top of a
+## climax pulse, because both share the one countdown.
+func _act_wink_tick(delta: float, part: Variant) -> void:
+	if _state() != 2 or _hole_mix >= 0.5 or _oral_mix > 0.0 or _wink_left > 0.0:
+		return
+	var touching := false
+	if is_instance_valid(part) and bool(part.call("showing")):
+		var reach := TOUCH_MARGIN_M + maxf(SETTINGS.back_out_m.get_num(), 0.0)
+		var tip: Vector3 = part.call("tip_center")
+		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
+	var mode := wink_mode(_depth(), touching, int(runtime.get("pony_climaxes")))
+	if mode != _act_wink_mode:
+		_act_wink_mode = mode
+		_act_wink_next = _wink_interval(mode)
+	if mode == 0:
+		return
+	_act_wink_next -= delta
+	if _act_wink_next > 0.0:
+		return
+	_act_wink_next = _wink_interval(mode)
+	_start_wink(ACT_WINK_S, 1.0)
+
+
+## 0: nothing. 1: the tip is at her lips. 2: she has climaxed and he has pulled out of her.
+static func wink_mode(depth: float, touching: bool, climaxes: int) -> int:
+	if depth >= PULLED_OUT_PHASE:
+		return 0
+	if touching:
+		return 1
+	return 2 if climaxes >= 1 else 0
+
+
+func _wink_interval(mode: int) -> float:
+	if mode == 2:
+		return randf_range(OUT_WINK_MIN_S, OUT_WINK_MAX_S)
+	return randf_range(TOUCH_WINK_MIN_S, TOUCH_WINK_MAX_S)
+
+
+## One open/close pulse layered on the live shape drive. The drive rewrites `closed` every tick,
+## so a tween would be cancelled; a countdown is what survives.
+func _start_wink(seconds: float, beats: float) -> void:
+	_wink_left = seconds
+	_wink_total = maxf(seconds, 0.001)
+	_wink_beats = beats
 
 
 ## The vulva plane's normal, oriented toward Anon. `hole_rear()` is the anatomy mesh's own axis;
@@ -419,7 +485,7 @@ func _oral_tick(delta: float) -> void:
 func on_climax() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("_clear_part")
-		_wink_left = CLIMAX_WINK_S
+		_start_wink(CLIMAX_WINK_S, CLIMAX_WINKS)
 	if not SETTINGS.anatomy_fluid.get_bool():
 		return
 	var fluid := _fluid_node()

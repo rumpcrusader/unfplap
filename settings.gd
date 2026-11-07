@@ -824,8 +824,13 @@ static var part_head_scale := num("part_head_scale", "anatomy.part_head_scale", 
 	"Head radius", "Thickness of the glans at the end of the shaft.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
 static var part_throb := num("part_throb", "anatomy.part_throb", 1.0, "Throb",
-	"Heartbeat-like pulse of the shaft. 1 is subtle; 0 turns it off.", ANATOMY, "Anon") \
+	"Heartbeat-like pulse of the shaft, with a slight upward beat while it is outside her. "
+	+ "1 is subtle; 0 turns it off.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0)
+static var back_out_m := num("back_out_m", "anatomy.back_out_m", 0.0, "Back-out gap",
+	"How far the tip rests behind her lips before the first thrust. 0 keeps it at her entrance.",
+	ANATOMY, "Anon") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 5.0)
 
 # -- (ungrouped)  (debug)
 static var part_front_m := num("part_front_m", "anatomy.part_front_m", 0.02, "Cock forward",

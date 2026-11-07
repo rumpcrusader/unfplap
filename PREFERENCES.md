@@ -85,7 +85,7 @@ The first rows have no heading: the **Anatomy** pill (**Never** / **During act o
 **Show tail docks**, **Show skin strip**, **Show teats**, **Show fluids**, **Skin tone** and
 **Mare bits** (Original PPP or V2).
 
-- **Anon**: size, length, base/mid/head radius and throb.
+- **Anon**: size, length, base/mid/head radius, throb and the back-out gap.
 
 **World**
 

@@ -803,9 +803,12 @@ examples.
   round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
   opens the game chat during an act. With every anatomy flag off these
   keys are not consumed and the act is exactly the master act.
-- `anatomy_act.on_climax()` clears the winking shape and calls `wink(3)` before the fluid hook;
-  `tick()` drives the closed/stretch/anal shapes only in `ACTIVE`, so the climax wink tween is not
-  overwritten during `CLIMAX`.
+- `anatomy_act.on_climax()` clears the winking shape and starts the three-beat climax pulse before
+  the fluid hook. `tick()` drives the closed/stretch/anal shapes only in `ACTIVE`/`CLIMAX`, and the
+  pulse is layered on that drive because a tween would be cancelled by it. While the act runs she
+  also winks on her own: one 0.5 s beat every 4–7 s while the tip rests at her lips, and every
+  1–2 s once he has pulled out after at least one climax. Both share one countdown, the vulva
+  only, and never on top of a climax pulse.
 - `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
   bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
   climaxes and enters afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends
@@ -1345,13 +1348,18 @@ rump blush. Unknown settings keys are ignored.
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips) and
   `lip_vertical`, and the player-part
   controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
-  `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`), plus the debug
+  `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
+  player-facing `back_out_m` (Back-out gap, `0 cm`; hold the tip up to 5 cm behind her lips at
+  depth 0 and give the distance back over the stroke), plus the debug
   `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.03 m`). There is no depth cap: full depth
   reaches as far as the shaft goes and the pelvis gap limits his body, so a long
-  `part_length_scale` can drive the tip deeper than her body depth.
+  `part_length_scale` can drive the tip deeper than her body depth. `pelvis_gap_m` is a separate
+  clamp: it keeps his pelvis off her rear surface when the shaft is too short, and never sets the
+  depth-0 standoff.
   Player-part values are applied on top of the saved placement and update live. `part_head_scale`
   widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
-  its axis; `part_throb` is a debug intensity counter for a slight depth-driven heartbeat (0 off).
+  its axis; `part_throb` scales the slight depth-driven heartbeat (0 off), which also lifts the
+  visible shaft upward on each beat while it is outside her, fading to nothing at full depth.
   The shaped length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole
   grip, so the geometry and the collision stay together. The anal placement applies to both
   models, is read on the next visibility poll, and the ring toggle swaps the asset live.

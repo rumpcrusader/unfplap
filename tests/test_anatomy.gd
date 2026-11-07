@@ -248,7 +248,28 @@ func run() -> void:
 	part.set("_throb_clock", 0.099)
 	part.call("_throb_tick", 0.001, 1.0)
 	check(float(part.get("_throb_amount")) > 0.0, "the heartbeat produces a pulse at its peak")
+	# The same beat lifts the visible shaft while it is out of her, and the rise dies at full depth.
+	part.set("_throb_depth", 0.0)
+	part.call("_throb_tick", 0.001, 0.0)
+	check(float(part.get("_throb_lift")) > 0.0, "the heartbeat lifts the shaft while it is outside")
+	part.set("_throb_depth", 1.0)
+	part.call("_throb_tick", 0.001, 1.0)
+	check(is_zero_approx(float(part.get("_throb_lift"))), "the upward beat fades at full thrust")
 	part.free()
+
+	# Her act wink: quiet at her lips, frequent once a climax has been pulled out of her.
+	check(ANATOMY_ACT.wink_mode(0.6, true, 2) == 0, "a thrusting shaft raises no wink")
+	check(ANATOMY_ACT.wink_mode(0.0, true, 0) == 1, "the tip at her lips winks on its own")
+	check(ANATOMY_ACT.wink_mode(0.0, false, 0) == 0, "a pulled-out shaft waits before any climax")
+	check(ANATOMY_ACT.wink_mode(0.1, false, 1) == 2, "a pulled-out shaft after a climax winks often")
+	var wink_act: Node = ANATOMY_ACT.new()
+	wink_act.call("_start_wink", ANATOMY_ACT.ACT_WINK_S, 1.0)
+	check(absf(float(wink_act.get("_wink_left")) - ANATOMY_ACT.ACT_WINK_S) < 0.001,
+		"an act wink arms its countdown")
+	check(is_equal_approx(float(wink_act.get("_wink_beats")), 1.0), "an act wink is one beat")
+	wink_act.call("reset")
+	check(is_zero_approx(float(wink_act.get("_wink_left"))), "reset clears the act wink")
+	wink_act.free()
 
 	for pony: Node in [twilight, filly, stallion, off_roster, player]:
 		if is_instance_valid(pony):

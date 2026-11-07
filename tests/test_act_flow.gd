@@ -74,10 +74,14 @@ func run() -> void:
 	runtime.pony_climaxes = 2
 	runtime._summary = {
 		"hud": "Great · she felt adored",
-		"note": "You and Anon made love. You felt completely wanted.",
+		"thought": "He gave me what I needed; I felt wanted.",
 		"positive": true, "reward": true, "grade": "great",
 	}
 	check(str(runtime.call("hud_cue_line", true)).contains("Great"), "missionary afterglow cue shows the summary")
+	var afterglow_note := str(runtime.call("prompt_note"))
+	check(afterglow_note.contains("I felt wanted"), "afterglow uses her first-person thought")
+	check(not afterglow_note.contains("Next time you want"),
+		"afterglow drops the mechanical next-time line")
 	check(str(runtime.call("hud_readiness_line", true)).is_empty(),
 		"missionary afterglow does not duplicate the summary")
 	runtime.pose_id = CATALOG.STANDING

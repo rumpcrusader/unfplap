@@ -232,7 +232,6 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		"thought": thought,
 		"wants": wants,
 		"hud": _hud(grade, severe),
-		"note": _note(text, wants),
 	}
 
 
@@ -256,7 +255,6 @@ static func _skipped(reason: String) -> Dictionary:
 		"thought": "",
 		"wants": "",
 		"hud": "",
-		"note": "",
 	}
 
 
@@ -300,7 +298,6 @@ static func _stopped(preferences: Dictionary, snapshot: Dictionary) -> Dictionar
 		"thought": "He kept doing something I do not like; I stopped him.",
 		"wants": wants,
 		"hud": "",
-		"note": "You stopped Anon because he kept doing something you do not like.",
 	}
 
 
@@ -401,10 +398,3 @@ static func _wants(preferences: Dictionary, reasons: Array[String]) -> String:
 	if wants.is_empty():
 		return "keep doing what you did"
 	return " and ".join(wants.slice(0, 2))
-
-
-static func _note(text: String, wants: String) -> String:
-	var note := text
-	if not wants.is_empty() and wants != "keep doing what you did":
-		note += " Next time you want to " + wants + "."
-	return note

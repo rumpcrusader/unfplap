@@ -128,6 +128,10 @@ func run() -> void:
 		"phase": "ask", "ask_started": 0.0, "keys": [],
 	}
 	initiation._serial = 7
+	var standing_ask := str(initiation._ask_purpose())
+	check(standing_ask.contains("Ask clearly enough"), "a private ask is clear, not scripted")
+	check(not standing_ask.contains("directly and unmistakably"),
+		"a private ask is not forced into a blunt demand")
 	initiation._on_player_transcript("yes")
 	check(fake_runtime.presented, "a private yes presents")
 	check(str(initiation._episode.get("phase", "")) == "present",

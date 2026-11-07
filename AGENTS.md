@@ -825,8 +825,9 @@ examples.
   is the last player exchange, or a generic warm beat when he did not speak. The cue prompt
   prefers this memory.
 - The afterglow HUD shows the summary: missionary in the cue line, standing on the readiness line
-  under its close prompt. Early end shows no HUD summary. `prompt_note()` carries the private
-  summary in afterglow and the history note while idle.
+  under its close prompt. Early end shows no HUD summary. `prompt_note()` carries her first-person
+  `thought` and a private relationship note in afterglow, the relationship note during the act and
+  the history note while idle. It does not append “Next time you want…” stroke mechanics.
 - Memory uses the game's second-person phrasing. A witness must actually perceive the act:
   `pony_awareness.visible()` (24 m, facing, clear line) or `can_hear()` (12 m, clear line);
   sleeping ponies are skipped. Each observer gets her own event (`witnesses = [observer]`, place =
@@ -917,8 +918,9 @@ examples.
   navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The ask is decoupled
   from the Y zone: it starts when she is still present and eligible, not only while the player
   stands in the rear cone.
-- Private means alone in the house or nobody within 30 m. Private asks directly and makes the
-  invitation available; with others around she only hints.
+- Private means alone in the house or nobody within 30 m. Private asks clearly enough that he can
+  answer, in the way that fits her and the relationship, with a private relationship note and
+  tone; it is not forced into a scripted demand. With others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
   house, every mare within 30 m separately labelled with the target, and the computed result.
   The offering mare is excluded from the other-pony checks, so the target label in the log is
@@ -953,8 +955,8 @@ examples.
   episode ends. A `PRESENT_MAX_SECONDS = 75 s` safety clears the pose and request face if no end
   path fires.
 - Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
-  as `situation`. The ask must be phrased as a question. Reminders are generated at 12 s and
-  24 s. A no-reply offer gives up at 60 s; after any answer the deadline is 45 s, and after a
+  as `situation`. The ask carries `MEMORY.cue_facts()` through `_relationship_ask_note()` and must
+  be phrased as a question. Reminders are generated at 12 s and 24 s. A no-reply offer gives up at 60 s; after any answer the deadline is 45 s, and after a
   clarification 30 s. A pending classifier or a busy director extends the deadline instead of
   cancelling the line. An unclear answer gets one clarification. A give-up records an "offer is
   over" situation, queues a short give-up line even when he answered, and logs

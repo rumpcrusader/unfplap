@@ -15,6 +15,10 @@ const VERSION := 1
 const MAX_RECENT := 6
 const MAX_TEXT := 180
 const MAX_WANTS := 120
+## Stroke mechanics are not a comfort need. They are kept in the stored row for the summary, but
+## never repeated in a hurt, repair, offer or refusal line.
+const DROP_WANTS := ["take me softer", "take me harder", "take me firmer", "tease me more",
+	"keep it quicker", "keep a steadier rhythm", "keep doing what you did"]
 
 const DEFAULT_RULES := {
 	"reminder_hurt": 2,
@@ -301,6 +305,17 @@ static func offer_cooldown(row: Dictionary, base_seconds := -1.0) -> float:
 	return maxf(floor_s, base * (1.0 - float(int(row.get("comfort", 0))) * scale))
 
 
+## Keep a hurt/repair or offer line about comfort, not stroke mechanics.
+static func repair_wants(text: String) -> String:
+	var kept: PackedStringArray = []
+	for part: String in text.split(" and ", false):
+		var want := part.strip_edges()
+		if want.is_empty() or want in DROP_WANTS:
+			continue
+		kept.append(want)
+	return " and ".join(kept.slice(0, 2))
+
+
 static func prompt_note(row: Dictionary) -> String:
 	if not enabled():
 		return ""
@@ -310,7 +325,7 @@ static func prompt_note(row: Dictionary) -> String:
 	if tier <= 0:
 		return ""
 	var text := str(row.get("last_text", "")).strip_edges()
-	var wants := str(row.get("last_wants", "")).strip_edges()
+	var wants := repair_wants(str(row.get("last_wants", "")))
 	if tier >= 3:
 		return "- You love Anon, but you are very reluctant to have sex with him again. " \
 			+ ("You remember: " + text + " " if not text.is_empty() else "") \
@@ -334,7 +349,7 @@ static func ask_note(row: Dictionary) -> String:
 	if tier_index(row) <= 0:
 		return ""
 	var text := str(row.get("last_text", "")).strip_edges()
-	var wants := str(row.get("last_wants", "")).strip_edges()
+	var wants := repair_wants(str(row.get("last_wants", "")))
 	var note := "You still feel a little hurt from last time: " + text
 	if not wants.is_empty():
 		note += " You want to " + wants + "."
@@ -343,7 +358,7 @@ static func ask_note(row: Dictionary) -> String:
 
 static func line_purpose(row: Dictionary, kind: String) -> String:
 	var text := str(row.get("last_text", "")).strip_edges()
-	var wants := str(row.get("last_wants", "")).strip_edges()
+	var wants := repair_wants(str(row.get("last_wants", "")))
 	if kind == "complaint":
 		return "You are still hurt about the last time with Anon. " + text \
 			+ (" You want to " + wants + "." if not wants.is_empty() else "") \
@@ -357,7 +372,7 @@ static func line_purpose(row: Dictionary, kind: String) -> String:
 
 static func refusal_purpose(row: Dictionary) -> String:
 	var text := str(row.get("last_text", "")).strip_edges()
-	var wants := str(row.get("last_wants", "")).strip_edges()
+	var wants := repair_wants(str(row.get("last_wants", "")))
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return "Anon wants sex again. You stopped him and are not ready to try again yet. " \
 			+ "Refuse gently in your own voice, one short sentence, at most 14 words. " \

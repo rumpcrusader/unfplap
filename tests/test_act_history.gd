@@ -238,6 +238,15 @@ func run() -> void:
 		"the complaint line joins wants with to")
 	check(str(HISTORY.ask_note(HISTORY.sanitize({}))).is_empty(),
 		"a steady mare has no ask note")
+	check(HISTORY.repair_wants("take me firmer and be gentle with me") == "be gentle with me",
+		"repair wants keep the comfort need")
+	check(HISTORY.repair_wants("take me firmer") == "", "repair wants drop stroke mechanics")
+	check(HISTORY.repair_wants("keep doing what you did") == "",
+		"repair wants drop the no-change fallback")
+	var mechanical := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
+		"last_wants": "take me firmer"})
+	check(not str(HISTORY.ask_note(mechanical)).contains("take me firmer"),
+		"an offer note does not repeat stroke mechanics")
 
 	var reset_section: Dictionary = {}
 	HISTORY.commit(reset_section, "rarity", outcome("good"), 10.0)

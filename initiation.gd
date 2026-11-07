@@ -17,6 +17,8 @@ const REST_CONTROL := preload("res://mods/unfplap/rest_control.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const MEMORY := preload("res://mods/unfplap/memory.gd")
+const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 
 const COOLDOWN_S := 600.0
 ## Heat shortens the offer cooldown to this share of the usual wait.
@@ -1591,15 +1593,18 @@ func _ask_context() -> String:
 		text += "You want Anon in bed with you. You have decided to invite him to come to bed and have sex. "
 	else:
 		text += "You want Anon to take you from behind. You have decided to ask him to come and have sex with you. "
+	var relation := _relationship_ask_note()
+	if not relation.is_empty():
+		text += relation + " "
 	if not private:
 		text += "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. Phrase it as a question to him. "
 	elif pose == CATALOG.STANDING:
-		text += "You are alone together. Ask him directly, in your own voice, and make it an unmistakable sexual invitation; do not hint. Phrase it as a direct question ending with a question mark. "
+		text += "You are alone together. Ask clearly enough that he can answer, in your own voice, and in the way that fits you and this relationship; do not sound like a script or a demand. Phrase it as a direct question ending with a question mark. "
 	elif pose == CATALOG.MISSIONARY:
-		text += "You are alone together. Ask him directly to come to bed with you, in your own voice, and make it an unmistakable invitation; do not hint. Phrase it as a direct question ending with a question mark. "
+		text += "You are alone together. Ask him to come to bed with you, in your own voice, clearly enough that he can answer; do not sound like a script or a demand. Phrase it as a direct question ending with a question mark. "
 	else:
-		text += "You are alone together. You may ask directly and bluntly or hint indirectly, whichever fits you; phrase it as a question to him. "
-	text += "Say one or two short sentences in your own voice. Do not describe your body or narrate actions, and do not use action tags."
+		text += "You are alone together. You may ask directly or hint, whichever fits you and this relationship; make it clear enough that he can answer. Phrase it as a question to him. "
+	text += "Say one or two short sentences in your own voice. Let it sound like you want him, not just the act. Do not describe your body or narrate actions, and do not use action tags."
 	text += _heat_ask_line()
 	var note := _history_ask_note()
 	if not note.is_empty():
@@ -1618,15 +1623,18 @@ func _ask_purpose() -> String:
 		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
 	elif pose == CATALOG.STANDING:
 		text = "You want Anon to take you from behind and have decided to ask him for sex."
+	var relation := _relationship_ask_note()
+	if not relation.is_empty():
+		text += " " + relation
 	if not private:
 		text += " Other ponies are around, so hint indirectly and do not say it plainly; phrase it as a question."
 	elif pose == CATALOG.STANDING:
-		text += " You are alone together. Ask him directly and unmistakably in your own voice; do not hint. You are asking him a question."
+		text += " You are alone together. Ask clearly enough that he can answer, in your own voice, in the way that fits you and this relationship; do not sound like a script or a demand. You are asking him a question."
 	elif pose == CATALOG.MISSIONARY:
-		text += " You are alone together. Ask him directly to come to bed with you; do not hint. You are asking him a question."
+		text += " You are alone together. Ask him to come to bed with you, clearly enough that he can answer, in your own voice; do not sound like a script or a demand. You are asking him a question."
 	else:
-		text += " You may ask directly and bluntly or hint indirectly, in your own voice; phrase it as a question."
-	text += " Say one or two short sentences. Do not narrate actions. End with a question mark."
+		text += " You may ask directly or hint, in your own voice, in the way that fits you and this relationship; make it clear enough that he can answer. Phrase it as a question."
+	text += " Say one or two short sentences. Let it sound like you want him, not just the act. Do not narrate actions. End with a question mark."
 	text += _heat_ask_line()
 	var note := _history_ask_note()
 	if not note.is_empty():
@@ -1636,7 +1644,7 @@ func _ask_purpose() -> String:
 
 func _heat_ask_line() -> String:
 	if _in_heat(_episode.get("runtime")):
-		return " You are in heat, and you are not being subtle about what you need."
+		return " You are in heat, and you want him; let the urgency show without turning it into a demand."
 	return ""
 
 
@@ -1653,10 +1661,25 @@ func _history_ask_note() -> String:
 	return ACT_HISTORY.ask_note(_history_row(id))
 
 
+## Private relationship facts for a proactive ask. Empty when the world or bond is unavailable.
+func _relationship_ask_note() -> String:
+	var id := str(_episode.get("id", ""))
+	if id.is_empty() or not is_instance_valid(main):
+		return ""
+	var game: Variant = main.get("game")
+	if not is_instance_valid(game):
+		return ""
+	var facts := MEMORY.cue_facts(game, id, "")
+	var note := RELATIONSHIP_CUE.note(facts)
+	if note.is_empty():
+		return ""
+	return note + " " + RELATIONSHIP_CUE.tone_line(RELATIONSHIP_CUE.tone(facts))
+
+
 func _invite_purpose() -> String:
 	if str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
-		return "You are lying beside Anon on the bed, ready for him. Comment on taking the bed position and invite him in your own voice. One short sentence. Do not narrate actions."
-	return "You have just turned your back to Anon and lifted your tail aside, ready for him. Comment on taking the position and invite him in your own voice. One short sentence. Do not narrate actions."
+		return "You are lying beside Anon on the bed, ready for him. Comment on taking the bed position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Do not narrate actions."
+	return "You have just turned your back to Anon and lifted your tail aside, ready for him. Comment on taking the position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Do not narrate actions."
 
 
 func _clarify_purpose() -> String:
@@ -1670,7 +1693,7 @@ func _invite_give_up_purpose() -> String:
 func _reminder_purpose() -> String:
 	if not bool(_episode.get("private", false)):
 		return "Anon has not reacted to your hint. Ask once more, indirectly and in character, as a question in one short sentence. Other ponies are around. Do not repeat your first line."
-	return "Anon has not answered your offer. Ask the question once more, short and in character; playful or blunt is fine (\"come on, don't you want me?\"). Do not repeat your first line."
+	return "Anon has not answered your offer. Ask the question once more, short and in character; playful or plain is fine, but do not turn it into a demand. Do not repeat your first line."
 
 
 func _give_up_purpose() -> String:

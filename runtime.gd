@@ -3954,7 +3954,7 @@ func cancel() -> void:
 				if _now_s() <= expires:
 					return true
 				return MEMORY.line_state(main.game, reaction_key) == "speaking"
-			var wants := str(_summary.get("wants", "")).strip_edges()
+			var wants := ACT_HISTORY.repair_wants(str(_summary.get("wants", "")))
 			var extra := (" Next time you want to " + wants + ".") if not wants.is_empty() else ""
 			var key := MEMORY.reaction_for(main.game, _id, "end_early", act_id,
 				"Anon stopped before you reached climax. Say one short sentence, at most 12 words, in your own voice. Saying nothing is fine." + extra,
@@ -4165,6 +4165,13 @@ func cycle_note() -> String:
 	return CYCLE.prompt_note(cycle_phase())
 
 
+## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
+func _relationship_note() -> String:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return ""
+	return RELATIONSHIP_CUE.note(MEMORY.cue_facts(main.game, _id, _event_id))
+
+
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
@@ -4172,18 +4179,24 @@ func prompt_note() -> String:
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		if is_instance_valid(_satisfied):
 			var warm := "- You are still warm and satisfied after sex with Anon. Keep a relaxed, affectionate tone; do not act stiff or businesslike."
+			var relation := _relationship_note()
+			if not relation.is_empty():
+				warm += " " + relation
 			return warm + (" " + history if not history.is_empty() else "")
 		return history
 	var parts: PackedStringArray = []
 	if state == State.AFTERGLOW:
 		parts.append("- You are still in the afterglow with Anon; the act has ended, but the moment is not finished yet.")
-		var summary_note := str(_summary.get("note", "")).strip_edges()
+		var summary_note := str(_summary.get("thought", "")).strip_edges()
 		if not summary_note.is_empty():
 			parts.append("- This act: " + summary_note)
 	else:
 		parts.append("- You are in the middle of sex with Anon.")
 		if not history.is_empty():
 			parts.append(history)
+	var relation := _relationship_note()
+	if not relation.is_empty():
+		parts.append("- " + relation)
 	var caressing := _player_is_caressing()
 	var leaning := _player_is_leaning_close()
 	if caressing and leaning:

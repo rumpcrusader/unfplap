@@ -129,7 +129,7 @@ func run() -> void:
 		check(patterns.has(name), "auto range reaches pattern " + name)
 
 	# Every stroke shape is a valid generator: it starts and ends at the bottom and stays in range,
-	# so the tracker can only ever see a real stroke. `double` makes two per cycle.
+	# so the tracker can only ever see a real stroke.
 	for shape: String in AUTO.SHAPES:
 		var low := INF
 		var high := -INF
@@ -145,16 +145,15 @@ func run() -> void:
 	for shape: String in ["thrust", "tease", "saw", "hold"]:
 		check(_thrusts(_simulate(0.9, 1.0, 3.0, shape)).size() >= 2,
 			"shape %s produces real strokes" % shape)
-	var doubles := _thrusts(_simulate(0.9, 1.0, 4.0, "double"))
-	check(doubles.size() >= 6, "double shape makes two strokes per cycle")
-	var doubled: RefCounted = AUTO.new()
-	doubled.call("reset", 1.0, 0.9, "double")
-	check(str(doubled.get("shape")) == "double", "the configured shape is stored")
-	doubled.call("set_shape", "hold")
-	check(str(doubled.get("shape")) == "hold", "a live shape change applies")
-	doubled.call("set_shape", "nonsense")
-	check(str(doubled.get("shape")) == "hold", "an unknown shape is ignored")
-	check(AUTO.next_shape("double") == "cosine", "the shape cycle wraps")
+	var shaped: RefCounted = AUTO.new()
+	shaped.call("reset", 1.0, 0.9, "hold")
+	check(str(shaped.get("shape")) == "hold", "the configured shape is stored")
+	shaped.call("set_shape", "thrust")
+	check(str(shaped.get("shape")) == "thrust", "a live shape change applies")
+	shaped.call("set_shape", "nonsense")
+	check(str(shaped.get("shape")) == "thrust", "an unknown shape is ignored")
+	check(AUTO.next_shape("hold") == "cosine", "the shape cycle wraps")
+	check(not AUTO.SHAPES.has("double"), "the retired double shape is gone")
 	check(AUTO.next_shape("cosine") == "thrust", "the shape cycle advances")
 	check(AUTO.next_shape("nonsense") == "cosine", "an unknown shape cycles from the start")
 

@@ -28,7 +28,7 @@ const DEPTH_SMOOTH_S := 0.18
 ## Phase samples used to enter a running shape at the hand's depth without a jump.
 const PHASE_SAMPLES := 64
 ## Every supported stroke waveform.
-const SHAPES := ["cosine", "thrust", "tease", "saw", "hold", "double"]
+const SHAPES := ["cosine", "thrust", "tease", "saw", "hold"]
 ## The narrowest depth band that still produces a real thrust: `THRUST_MIN_TRAVEL` (0.12) plus
 ## the reversal hysteresis (0.06) that the next stroke loses at the bottom. A narrower band would
 ## silently stop scoring.
@@ -143,8 +143,6 @@ static func wave(name: String, phase: float) -> float:
 			return _saw(p)
 		"hold":
 			return _hold(p)
-		"double":
-			return _stroke(fposmod(p * 2.0, 1.0), 0.5) * (1.0 if p < 0.5 else 0.6)
 	return 0.5 - 0.5 * cos(TAU * p)
 
 
@@ -173,9 +171,8 @@ static func _hold(phase: float) -> float:
 	return 0.5 + 0.5 * cos(PI * (phase - 0.50) / 0.50)
 
 
-## The cycle phase whose depth is closest to `ratio`. Numeric, so every shape — including the
-## two-peak `double` — can be entered at the hand's depth without a jump. The first match wins,
-## so it enters on the inward half.
+## The cycle phase whose depth is closest to `ratio`. Numeric, so every shape can be entered at
+## the hand's depth without a jump. The first match wins, so it enters on the inward half.
 static func phase_for(name: String, ratio: float) -> float:
 	var wanted := clampf(ratio, 0.0, 1.0)
 	var best_distance := INF

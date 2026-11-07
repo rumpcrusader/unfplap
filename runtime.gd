@@ -713,7 +713,8 @@ func _snapshot_settings() -> void:
 	_auto_default_pace = float(auto_block.get("pace", 1.0))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
 	_auto_default_min = float(auto_block.get("min_depth", 0.0))
-	_auto_default_shape = str(auto_block.get("curve", "cosine"))
+	var shape_setting := str(auto_block.get("curve", "cosine"))
+	_auto_default_shape = shape_setting if AUTO_THRUST.SHAPES.has(shape_setting) else "cosine"
 	var jiggle_block := SETTINGS.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_center_height_m = float(jiggle_block.get("center_height_m", 0.1))

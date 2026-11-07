@@ -516,12 +516,11 @@ static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
 	GENERAL, "") \
 	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75).as_debug()
 static var curve := choice("curve", "auto_thrust.curve", "cosine",
-	["cosine", "thrust", "tease", "saw", "hold", "double"],
-	["Normal", "Thrust", "Tease", "Saw", "Hold", "Double"],
+	["cosine", "thrust", "tease", "saw", "hold"],
+	["Normal", "Thrust", "Tease", "Saw", "Hold"],
 	"Auto shape",
 	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
-	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth; Double makes two "
-	+ "strokes per cycle (deep, then short).", GENERAL, "") \
+	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth.", GENERAL, "") \
 	.as_debug()
 static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.05, "Contact gap",
 	"How close a stroke must come to its deepest point before his skin meets her coat and the body "

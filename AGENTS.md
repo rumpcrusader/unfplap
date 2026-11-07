@@ -787,9 +787,9 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (the `Normal`
   panel value, a symmetric ease and the default), `thrust` (35 % duty, fast in and slow out),
   `tease` (65 % duty), `saw` (constant speed, no easing), `hold` (quick in, a dwell at full depth,
-  quick out) and `double` (two strokes per cycle, the second at 60 % depth). Every shape starts at
-  the bottom and returns to it, so the tracker only ever sees depth deltas; `phase_for()` is a
-  numeric inverse so turning auto on never snaps. The stroke travels
+  quick out). Every shape starts at the bottom and returns to it, so the tracker only ever sees
+  depth deltas; `phase_for()` is a numeric inverse so turning auto on never snaps. The stroke
+  travels
   `max_depth - min_depth`, and the band stays at least `MIN_BAND = 0.18` wide (0.12 travel plus
   the 0.06 hysteresis) because a narrower one silently stops scoring; `nudge_min` and
   `nudge_depth` push the other end instead of closing it. `X` is live in `ACTIVE`/`CLIMAX`;
@@ -1463,7 +1463,7 @@ rump blush. Unknown settings keys are ignored.
   `value / 20`.
 - `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`), `min_depth`
   (bottom, default `0`, clamped `0…0.82`) and `max_depth` (peak, default `0.5`, clamped
-  `0.20…1`), plus `curve` (`Auto shape`, default `cosine`, one of the six waveforms). They are
+  `0.20…1`), plus `curve` (`Auto shape`, default `cosine`, one of the five waveforms). They are
   act-start defaults; the wheel, mouse and hold-X layer changes are per-act, except `curve`, which
   applies live and is written by the layer's `Z`. The wheel and `E`/`D` step is the fixed
   `0.25/s`; the depth step is a fixed 5 %. `thrust.contact_gap_m` (Contact gap, default `5 cm`,

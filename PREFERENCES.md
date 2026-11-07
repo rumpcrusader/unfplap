@@ -17,7 +17,7 @@ aftercare are outside it.
   mouse ↕ sets the peak depth. The band keeps the tracker travel at `max_depth - min_depth - 0.06`
   (`REVERSAL_HYSTERESIS`) and is never narrower than `0.18`, so every stroke still counts; the
   peak is at least `0.20`. `Auto shape` (debug) picks the stroke waveform: `Normal`, `Thrust`,
-  `Tease`, `Saw`, `Hold` or `Double`; it applies live and every shape returns to the bottom, so the
+  `Tease`, `Saw` or `Hold`; it applies live and every shape returns to the bottom, so the
   tracker only ever sees depth.
 - **Hold `X`** while auto is on and the control card swaps to the auto settings: `Q`/`A` min depth
   ±5 %, `W`/`S` max depth ±5 %, `E`/`D` pace ±0.25/s, `Z` cycles `Auto shape` (written to
@@ -89,7 +89,7 @@ travel (`20…400`, default `100`), **Thrust direction** (which mouse direction 
 **Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
 control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 
-The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, six
+The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
 waveforms), the body-slap **Contact gap** (`0…12 cm`, default `5 cm`), the hip
 back-off (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 

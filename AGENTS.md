@@ -31,8 +31,9 @@ Do not start implementation until you have read the required files for the area 
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. Adult anatomy is an optional, feature-gated
   addition; it never replaces a pony's body or rig and its meshes/textures are kept out of git
-  (`assets/anatomy/` is gitignored) while a local build may pack them when present. The act stays
-  off-camera by framing. Modelled accessories are allowed.
+  (`assets/anatomy/` is ignored) and fetched from `ANATOMY_URL` for every release build, so a
+  shipped pack always carries them. The act stays off-camera by framing. Modelled accessories are
+  allowed.
 - Desktop first. VR and seated VR are deferred except the optional, off-by-default standing
   VR act; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -109,16 +110,24 @@ scripts/smoke.sh
   The printed output is the current state; do not copy counts into docs.
 - Build only when the user asks:
   ```bash
-  ./build.sh [--out <file.pck>]
+  ./build.sh [--out <file.pck>] [--anatomy-zip <file.zip> | --no-anatomy]
   ```
   Success prints `MOD_BUILT <path>`. The mod has no script extension.
+- The anatomy meshes and textures are never committed. `build.sh` requires all eight, prints
+  `ANATOMY ok 8/8`, and fails with `ANATOMY_FAIL` and the missing names unless they are present
+  under `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by
+  `scripts/pack_anatomy.sh` first; `--no-anatomy` builds a code-only pack and drops the assets
+  even when they are in the working tree.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
   `AUDIO_CREDITS.md` and `changelog.txt` do.
-- `.github/workflows/build.yml` builds on pushes and pull requests; a `v*` tag publishes
-  `dist/unfplap-<version>.pck` as a GitHub release asset. Before tagging, append the release
-  changelog section (format and rules in `WORKFLOW.md`); the release step reads that section
-  from `changelog.txt` as the release body and fails when it is missing.
+- `.github/workflows/build.yml` builds on pushes and pull requests. A push or tag downloads the
+  anatomy archive from the repository variable `ANATOMY_URL` and builds with it; a pull request
+  builds with `--no-anatomy`. A `v*` tag publishes `dist/unfplap-<version>.pck` as the only
+  artifact, so the tag release is the one place the anatomy content is hosted. Before tagging,
+  re-upload the archive after any asset change and append the release changelog section (format
+  and rules in `WORKFLOW.md`); the release step reads that section from `changelog.txt` as the
+  release body and fails when it is missing.
 - The official `tools/modding/build_mod.gd` command remains a fallback when the full game
   project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it

@@ -36,7 +36,7 @@ Desktop first. The optional VR standing act is experimental and off by default.
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Optional anatomy** — Adds hole, oral, finish and fluid controls, plus optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository, but a local build packs them when they are present.
+- **Optional anatomy** — Adds hole, oral, finish and fluid controls, plus optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository; release builds fetch and pack them.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster and ask sooner, two days of diestrus turn her off, then normal. Off by default.
@@ -65,6 +65,8 @@ Requires Godot 4.5.x on `PATH` and `python3`.
 # -> dist/unfplap-<version>.pck
 
 ./build.sh --out /tmp/unfplap.pck
+./build.sh --anatomy-zip dist/unfplap-anatomy.zip
+./build.sh --no-anatomy
 ```
 
 `build.sh` stages the runtime tree selected by `.pckignore` in a temporary Godot project, imports
@@ -72,8 +74,13 @@ the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported
 docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
 does, for credit.
 
+The anatomy meshes and textures are not in the repository. A build requires all of them under
+`assets/anatomy/` and fails when any are missing. `scripts/pack_anatomy.sh` writes the archive
+that `--anatomy-zip` unpacks, and `--no-anatomy` builds without the feature.
+
 The official `tools/modding/build_mod.gd` command still works for quick builds, but packs the
 whole folder.
 
-On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests, and on a `v*` tag it
-attaches `dist/unfplap-<version>.pck` to a GitHub release.
+On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests. A `v*` tag downloads
+the anatomy archive from the `ANATOMY_URL` repository variable and attaches
+`dist/unfplap-<version>.pck` to a GitHub release; pull requests build without the anatomy assets.

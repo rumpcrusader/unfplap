@@ -1,8 +1,12 @@
 # integration: local anatomy assets
 
 This folder holds the optional adult meshes and textures used by the anatomy feature. They are
-**kept out of git** by `.gitignore`; never commit them. A local `build.sh` packs them into the
-`.pck` when they are present in the working tree.
+**never committed**; the `.gitignore` here excludes them. A pack always ships them:
+`scripts/pack_anatomy.sh` writes `dist/unfplap-anatomy.zip`, that archive is uploaded to a plain
+URL recorded in the repository variable `ANATOMY_URL`, and `.github/workflows/build.yml`
+downloads and unpacks it before a release build.
+
+Redistribution is by permission of the PonyPussyParadise author; `mod.json` credits them.
 
 Expected files:
 
@@ -16,6 +20,23 @@ anon_part_ao.png     2048^2 baked AO
 anon_part_nrm.png    2048^2 normal map
 anon_part_albedo.png 2048^2 albedo/detail
 ```
+
+## Building
+
+```bash
+scripts/pack_anatomy.sh                       # -> dist/unfplap-anatomy.zip
+./build.sh --anatomy-zip dist/unfplap-anatomy.zip
+./build.sh                                    # requires the files to be in this folder
+./build.sh --no-anatomy                       # code-only pack, assets left out
+```
+
+`build.sh` prints `ANATOMY ok 8/8`, `ANATOMY skipped (--no-anatomy)`, or `ANATOMY_FAIL` with the
+missing names. `--no-anatomy` excludes the folder from the pack even when the files are present.
+
+The archive holds exactly the eight files above at its root; the extractor matches them by name
+and ignores everything else, so a stray path inside the zip cannot reach the pack.
+
+## Recovering the files
 
 `tools/recover_anatomy_assets.gd` regenerates these from a PonyPussyParadise `.pck`:
 

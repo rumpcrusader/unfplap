@@ -86,6 +86,8 @@ Docs-only commits do not need bisecting; use `git bisect skip` if one is picked.
 - Use an annotated release tag such as `v0.0.4`. The annotation records the target game version,
   build command, commit hash and pck hash.
 - Never commit `.pck`, `.godot/`, `*.uid`, logs or user settings (already ignored).
+- Re-upload the anatomy archive and update the `ANATOMY_URL` repository variable whenever an
+  anatomy asset changes; a release build fails when any of the eight files is missing.
 - `git describe --tags --dirty` identifies the source of a build.
 - Record the game version in the tag, because the mod repo cannot bisect game changes.
 

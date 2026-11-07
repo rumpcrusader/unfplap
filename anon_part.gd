@@ -403,6 +403,22 @@ func tip_world() -> Vector3:
 
 
 
+## Radius profile along the shaft, world metres, sampled evenly from base to tip. The anatomy
+## shader projects any vulva vertex inside this swept circle onto its surface.
+func shaft_radii(count := 8) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(count)
+	var scale := _world_scale()
+	for i: int in count:
+		var u: float = float(i) / float(maxi(count - 1, 1))
+		var at: float = u * (WIDTHS.size() - 1)
+		var below := floori(at)
+		var width := lerpf(WIDTHS[below], WIDTHS[mini(below + 1, WIDTHS.size() - 1)], at - below)
+		var profile := lerpf(_girth_base, _girth_mid, smoothstep(0.0, 0.35, u))
+		out[i] = width * scale * profile
+	return out
+
+
 func depth_for(metres: float) -> float:
 	return metres / (PART_LENGTH * _world_scale())
 

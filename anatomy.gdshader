@@ -32,6 +32,13 @@ uniform float lip_radius = 0.03;
 uniform float lip_outer = 0.066;
 // integration: mesh-local radius the opening must reach (Anon's shaft at the contact plane).
 uniform float hole_target = 0.0;
+// integration: Anon's shaft as a swept circle in world space. Any vulva vertex that ends up
+// inside it is projected onto its surface, so the lips cannot intersect the cock.
+uniform vec3 shaft_pivot = vec3(0.0);
+uniform vec3 shaft_axis = vec3(0.0);
+uniform float shaft_length = 0.0;
+uniform float shaft_radii[8];
+
 // integration: how much of the opening happens vertically. The lips part sideways around the
 // shaft; the top and bottom of the opening barely move, which keeps them tight on the shaft.
 uniform float lip_vertical = 0.5;
@@ -70,6 +77,23 @@ void vertex() {
 			VERTEX = vulva_centre + spread;
 		}
 	}
+	// Only the outside surface is projected onto the shaft. The inner wall sits behind the rim and
+	// stays there: pushing both layers onto the same cylinder made the pink poke through the lips.
+	if (shaft_length > 0.0001 && vulva_centre.z - VERTEX.z < 0.004) {
+		vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		float t = clamp(dot(world - shaft_pivot, shaft_axis), 0.0, shaft_length);
+		vec3 centre = shaft_pivot + shaft_axis * t;
+		vec3 offset = world - centre;
+		float dist = length(offset);
+		float sample = t / shaft_length * 7.0;
+		int low = int(floor(sample));
+		float radius = mix(shaft_radii[low], shaft_radii[min(low + 1, 7)], fract(sample));
+		if (dist < radius) {
+			vec3 dir = dist > 0.00001 ? offset / dist : vec3(0.0, 1.0, 0.0);
+			world = centre + dir * (radius + 0.0005);
+			VERTEX = (inverse(MODEL_MATRIX) * vec4(world, 1.0)).xyz;
+		}
+	}
 	hole_pos = VERTEX;
 }
 
@@ -80,8 +104,10 @@ void fragment() {
 	if (hole_target > 0.0) {
 		// The interior is only interior inside the opening. Painting (and depth-pulling) the inner
 		// wall beyond the lip ring is what showed as pink folds around the shaft.
+		// Keep the pulled pink well inside the lip ring: it must never reach the rim, or it shows
+		// past the lips as a fold.
 		float hole_r = length((hole_pos - vulva_centre).xy);
-		inside *= 1.0 - smoothstep(hole_target * 0.9, hole_target * 1.05, hole_r);
+		inside *= 1.0 - smoothstep(hole_target * 0.55, hole_target * 0.8, hole_r);
 	}
 	float skin = smoothstep(0.58, 0.63, COLOR.g);
 	float lip = smoothstep(0.84, 0.88, COLOR.g);

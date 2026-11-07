@@ -306,6 +306,16 @@ func tick(delta: float) -> void:
 		if _anal:
 			pitch = TUNABLES.get_float("anatomy.anal_pitch_deg")
 		part.set("aim_pitch_deg", pitch)
+		if bool(part.call("showing")):
+			var pivot: Vector3 = part.call("root_now")
+			var tip: Vector3 = part.call("tip_world")
+			var span := tip - pivot
+			var length := span.length()
+			if length > 0.0001:
+				anatomy.call("set_shaft", pivot, span / length, length,
+					part.call("shaft_radii", 8))
+		else:
+			anatomy.call("clear_shaft")
 		part.set("aim_normal", _normal)
 		part.set("aim_opening", hole_point())
 	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")

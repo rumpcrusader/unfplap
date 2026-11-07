@@ -73,6 +73,11 @@ var _dock_was_visible := true
 ## Mean radius of the lip band in mesh-local units, measured once so the opening can be solved
 ## exactly against the shaft's radius instead of scaled by a constant.
 var _lip_radius := 0.03
+## Anon's shaft, published every frame for the collision projection.
+var _shaft_pivot := Vector3.ZERO
+var _shaft_axis := Vector3.ZERO
+var _shaft_length := 0.0
+var _shaft_radii := PackedFloat32Array()
 var _closed := 1.0
 var _rest := 1.0
 var _fill := 0.0
@@ -649,6 +654,35 @@ func set_grip(shaft_radius: float) -> void:
 	if shape >= 0:
 		_mesh.set_blend_shape_value(shape, 0.0)
 	material.set_shader_parameter("hole_target", local)
+
+
+## Publish Anon's shaft so the shader can project any vertex that ends up inside it back onto the
+## surface. `radii` are world metres, sampled evenly from base to tip.
+func set_shaft(pivot: Vector3, axis: Vector3, length: float, radii: PackedFloat32Array) -> void:
+	_shaft_pivot = pivot
+	_shaft_axis = axis
+	_shaft_length = length
+	_shaft_radii = radii
+	_push_shaft(_mesh)
+	_push_shaft(_anal_mesh)
+
+
+func _push_shaft(target: MeshInstance3D) -> void:
+	if not is_instance_valid(target):
+		return
+	var material := target.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("shaft_pivot", _shaft_pivot)
+	material.set_shader_parameter("shaft_axis", _shaft_axis)
+	material.set_shader_parameter("shaft_length", _shaft_length)
+	material.set_shader_parameter("shaft_radii", _shaft_radii)
+
+
+func clear_shaft() -> void:
+	var zeros := PackedFloat32Array()
+	zeros.resize(8)
+	set_shaft(Vector3.ZERO, Vector3.ZERO, 0.0, zeros)
 
 
 ## The lip band's mean radius in local units, used by the grip solve and by tuning readouts.

@@ -409,6 +409,9 @@ func _caress_tick(delta: float) -> void:
 	if str(runtime.get("pose_id")) != CATALOG.STANDING:
 		_end_caress()
 		return
+	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open. The
+	# hands keep their current state and the caress keeps scoring; only the input is ignored.
+	var frozen := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
 	var keys := {
 		"L": Input.is_physical_key_pressed(KEY_A),
 		"R": Input.is_physical_key_pressed(KEY_D),
@@ -418,18 +421,19 @@ func _caress_tick(delta: float) -> void:
 		"R": KEY_C,
 	}
 	for side: String in ["L", "R"]:
-		var held := bool(keys[side])
-		var pressed := held and not bool(_caress_key_down[side])
-		_caress_key_down[side] = held
-		if pressed:
-			_caress_latched[side] = not bool(_caress_latched[side])
-		var move_held := Input.is_physical_key_pressed(motion_keys[side])
-		var move_pressed := move_held and not bool(_caress_move_key_down[side])
-		_caress_move_key_down[side] = move_held
-		if move_pressed:
-			_caress_moving[side] = not bool(_caress_moving[side])
-			_log("caress movement side=%s %s" % [
-				side, "on" if bool(_caress_moving[side]) else "off"])
+		if not frozen:
+			var held := bool(keys[side])
+			var pressed := held and not bool(_caress_key_down[side])
+			_caress_key_down[side] = held
+			if pressed:
+				_caress_latched[side] = not bool(_caress_latched[side])
+			var move_held := Input.is_physical_key_pressed(motion_keys[side])
+			var move_pressed := move_held and not bool(_caress_move_key_down[side])
+			_caress_move_key_down[side] = move_held
+			if move_pressed:
+				_caress_moving[side] = not bool(_caress_moving[side])
+				_log("caress movement side=%s %s" % [
+					side, "on" if bool(_caress_moving[side]) else "off"])
 		var hand_side := "left" if side == "L" else "right"
 		# The slapping hand owns the hold target during its swing. Keep the oval phase moving
 		# so the hand can return to the current caress point instead of the one it left.

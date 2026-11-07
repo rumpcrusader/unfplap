@@ -165,11 +165,15 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		var state := int(runtime.get("state"))
-		# X toggles auto thrust. Consume it in every act state: AnonPony uses X to lie down,
-		# and that must not fire while the act owns the body.
+		# X is consumed in every act state: AnonPony uses X to lie down, and the runtime polls it
+		# for the tap toggle and the hold-X auto settings layer. Consume it here and do not act.
 		if key.physical_keycode == KEY_X:
-			if state in [2, 3]: # ACTIVE / CLIMAX
-				runtime.call("toggle_auto_thrust")
+			get_viewport().set_input_as_handled()
+			return
+		# G is the keyboard smack. RMB does the same; the act owns both.
+		if key.physical_keycode == KEY_G:
+			if state != 4: # AFTERGLOW keeps only close actions
+				runtime.call("smack")
 			get_viewport().set_input_as_handled()
 			return
 		# Space must not jump or start a couch sleep while the act holds the player.

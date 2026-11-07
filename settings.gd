@@ -507,6 +507,10 @@ static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pi
 static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
 	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0).as_debug()
+static var min_depth := num("min_depth", "auto_thrust.min_depth", 0.0, "Auto min depth",
+	"Starting auto-thrust bottom depth. Hold X then Q/A sets it during an act; the band stays at "
+	+ "least 18 % wide so every stroke still counts.", GENERAL, "") \
+	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 0.82).as_debug()
 static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
 	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
 	GENERAL, "") \
@@ -519,6 +523,10 @@ static var curve := choice("curve", "auto_thrust.curve", "cosine",
 	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth; Double makes two "
 	+ "strokes per cycle (deep, then short).", GENERAL, "") \
 	.as_debug()
+static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.05, "Contact gap",
+	"How close a stroke must come to its deepest point before his skin meets her coat and the body "
+	+ "slap plays. Raise it to hear plaps on shorter strokes.", GENERAL, "") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 0.12).as_debug()
 static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",
 	"How far the hips retreat between thrusts.", GENERAL, "") \
 	.with_unit("\u00d7").with_step(0.05).with_range(0.25, 2.0).as_debug()

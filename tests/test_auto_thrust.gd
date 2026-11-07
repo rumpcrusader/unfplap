@@ -27,9 +27,10 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 ## Drive the real tracker with the generated depth. Returns every tracker event.
-func _simulate(depth: float, pace: float, seconds: float, shape := "cosine") -> Array:
+func _simulate(depth: float, pace: float, seconds: float, shape := "cosine",
+		low := 0.0) -> Array:
 	var auto: RefCounted = AUTO.new()
-	auto.call("reset", pace, depth, shape)
+	auto.call("reset", pace, depth, shape, low)
 	auto.call("begin", 0.0)
 	var tracker: RefCounted = THRUST.new()
 	var events: Array = []
@@ -153,6 +154,34 @@ func run() -> void:
 	check(str(doubled.get("shape")) == "hold", "a live shape change applies")
 	doubled.call("set_shape", "nonsense")
 	check(str(doubled.get("shape")) == "hold", "an unknown shape is ignored")
+	check(AUTO.next_shape("double") == "cosine", "the shape cycle wraps")
+	check(AUTO.next_shape("cosine") == "thrust", "the shape cycle advances")
+	check(AUTO.next_shape("nonsense") == "cosine", "an unknown shape cycles from the start")
+
+	# The depth band: the bottom is a real setting, and the narrowest allowed band still thrusts.
+	var band := _thrusts(_simulate(0.7, 1.5, 3.0, "cosine", 0.5))
+	check(band.size() >= 2, "a raised bottom still produces real thrusts")
+	if not band.is_empty():
+		check(near(float((band[band.size() - 1] as Dictionary).get("travel", 0.0)), 0.14, 0.02),
+			"the band sets the stroke travel")
+	var banded: RefCounted = AUTO.new()
+	banded.call("reset", 1.5, 0.5, "cosine", 0.9)
+	check(near(float(banded.get("min_depth")), AUTO.DEPTH_MAX - AUTO.MIN_BAND, 0.001),
+		"a bottom above the peak raises the peak")
+	check(near(float(banded.get("max_depth")), AUTO.DEPTH_MAX),
+		"the raised peak reaches full depth")
+	banded.call("reset", 1.5, 0.5)
+	banded.call("nudge_min", 0.1)
+	check(near(float(banded.get("min_depth")), 0.1), "the bottom nudges up")
+	check(near(float(banded.get("max_depth")), 0.5), "a nudge keeps the peak")
+	banded.call("nudge_min", 9.0)
+	check(near(float(banded.get("min_depth")), AUTO.DEPTH_MAX - AUTO.MIN_BAND, 0.001),
+		"the bottom stops at the widest band")
+	check(float(banded.get("max_depth")) >= float(banded.get("min_depth")) + AUTO.MIN_BAND - 0.001,
+		"pushing the bottom raises the peak with it")
+	banded.call("nudge_depth", -9.0)
+	check(float(banded.get("max_depth")) >= float(banded.get("min_depth")) + AUTO.MIN_BAND - 0.001,
+		"the peak cannot close the band")
 
 	# Enabling from the hand's depth must not snap backwards.
 	var auto: RefCounted = AUTO.new()

@@ -40,6 +40,9 @@ var _thrust_label: Label
 var _finish_label: Label
 var _auto_label: Label
 var _control_rows := {}
+## Hold-X layer rows, shown instead of the normal card while the auto settings are open.
+var _layer_rows := {}
+var _layer_labels := {}
 var _toast_label: Label
 var _toast_serial := 0
 
@@ -200,12 +203,36 @@ func _build_controls() -> void:
 	_add_hint_row("caress_move", [{"cap": "Z"}, {"cap": "C"}], "",
 		"Caress movement")
 	_add_hint_row("kiss", [{"cap": "F"}], "Hold", "Kiss")
-	_add_hint_row("smack", [{"cap": "RMB"}], "", "Smack")
+	_add_hint_row("smack", [{"cap": "RMB"}, {"cap": "G"}], "", "Smack")
 	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
 	# integration: anatomy rows; hidden unless their feature and state allow them.
 	_add_hint_row("anatomy_hole", [{"cap": "V"}], "", "Switch hole")
 	_add_hint_row("anatomy_oral", [{"cap": "N"}], "", "Oral")
 	_finish_label = _add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish: in")
+	# Hold-X auto settings. Built here so the card swaps in place; hidden until the layer opens.
+	var layer_text := {
+		"layer_head": "Auto settings",
+		"min": "Min depth",
+		"max": "Max depth",
+		"pace": "Pace",
+		"shape": "Shape",
+	}
+	var layer_keys := {
+		"layer_head": [{"cap": "X"}],
+		"min": [{"cap": "Q"}, {"cap": "A"}],
+		"max": [{"cap": "W"}, {"cap": "S"}],
+		"pace": [{"cap": "E"}, {"cap": "D"}],
+		"shape": [{"cap": "Z"}],
+	}
+	for key: String in ["layer_head", "min", "max", "pace", "shape"]:
+		var mode := "Hold" if key == "layer_head" else ""
+		var label := _add_hint_row("layer_" + key, layer_keys[key], mode, str(layer_text[key]))
+		_layer_labels[key] = label
+		var row := _control_rows.get("layer_" + key) as Control
+		_control_rows.erase("layer_" + key)
+		_layer_rows[key] = row
+		if row != null:
+			row.visible = false
 
 
 func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Label:
@@ -345,6 +372,12 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 		finish_out = bool(runtime.call("anatomy_finish_pull_out"))
 	if _finish_label != null:
 		_finish_label.text = "Finish: out" if finish_out else "Finish: in"
+	var layer := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
+	if layer and runtime.has_method("auto_panel_label"):
+		for kind: String in ["min", "max", "pace", "shape"]:
+			var label := _layer_labels.get(kind) as Label
+			if label != null:
+				label.text = str(runtime.call("auto_panel_label", kind))
 
 
 ## The act setting that shows or hides the control card. The cue and readiness line are
@@ -363,6 +396,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		_hint_gap.visible = hints_on and _hint.visible
 	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
 	var afterglow := state == STATE_AFTERGLOW
+	var layer := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
 	for key: String in _control_rows:
 		var control := _control_rows[key] as Control
 		if control == null:
@@ -378,7 +412,12 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		# integration: anatomy rows exist only while their feature is live.
 		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish"]:
 			show = _extra_row_visible(key, state, standing, runtime)
-		control.visible = show
+		# The hold-X layer replaces the whole card: its keys mean something else while it is open.
+		control.visible = show and not layer
+	for key: String in _layer_rows:
+		var row := _layer_rows[key] as Control
+		if row != null:
+			row.visible = layer and hints_on and _hint.visible
 
 
 func _extra_row_visible(key: String, state: int, standing: bool, runtime: Node) -> bool:

@@ -26,6 +26,7 @@ TESTS=(
 	test_rotation
 	test_thrust
 	test_auto_thrust
+	test_auto_panel
 	test_preferences
 	test_memory
 	test_act_summary

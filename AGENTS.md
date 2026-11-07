@@ -161,7 +161,8 @@ mods/unfplap/
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength,
                     and the bottom-of-stroke impact event
-  auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, stroke shape
+  auto_thrust.gd    pure auto-thrust depth generator: pace, band, stroke shape
+  auto_panel.gd     pure hold-X auto settings layer: tap toggle, hold, grace, key repeats
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
   cycle.gd          pure per-mare estrus phase: heat, diestrus, normal; idle wink burst roll
   settings.gd       every global setting declared once, the typed accessors, the settings file and
@@ -777,13 +778,16 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (the `Normal`
   panel value, a symmetric ease and the default), `thrust` (35 % duty, fast in and slow out),
   `tease` (65 % duty), `saw` (constant speed, no easing), `hold` (quick in, a dwell at full depth,
-  quick out) and `double` (two strokes per cycle, the second at 60 % depth). Every shape starts and
-  ends at the bottom and stays in 0..1, so the tracker only ever sees depth deltas; `phase_for()`
-  is a numeric inverse so turning auto on never snaps. `X` is live in `ACTIVE`/`CLIMAX`;
+  quick out) and `double` (two strokes per cycle, the second at 60 % depth). Every shape starts at
+  the bottom and returns to it, so the tracker only ever sees depth deltas; `phase_for()` is a
+  numeric inverse so turning auto on never snaps. The stroke travels
+  `max_depth - min_depth`, and the band stays at least `MIN_BAND = 0.18` wide (0.12 travel plus
+  the 0.06 hysteresis) because a narrower one silently stops scoring; `nudge_min` and
+  `nudge_depth` push the other end instead of closing it. `X` is live in `ACTIVE`/`CLIMAX`;
   `_afterglow_begin()`, `_restore_begin()` and `_end_session()` stop it, and
-  `_reset_thrust_state()` restores the act-start defaults (off, configured pace, depth and shape)
-  for the next act. Tunables are starting values, not live edits to the current cycle, except
-  `Auto shape`, which applies mid-cycle.
+  `_reset_thrust_state()` restores the act-start defaults (off, configured pace, depth, min and
+  shape) for the next act. Pace, depth and min are per-act starting values; `Auto shape` applies
+  live and the hold-X `Z` writes it to settings.
 - `satisfaction` is **readiness 0–100**, not a stroke score. Each real thrust adds
   `THRUST_HEAT_BOTH = 1.4`, `THRUST_HEAT_ONE = 0.7` or `THRUST_HEAT_NONE = 0`, times warmth;
   scoring is limited to one thrust every `THRUST_SCORE_MIN_INTERVAL = 0.2 s`. There is no
@@ -836,10 +840,20 @@ examples.
   check the recapture uses.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
   `Z`/`C` toggle caress movement,
-  `F` hold kiss in standing, mouse right smacks. `X` toggles auto thrust; while it is on the mouse
-  wheel sets its pace and mouse ↕ sets its peak depth. They are available in `ACTIVE`, `CLIMAX`,
-  and the standing `AFTERGLOW`; `Y` is the context start/end control. `H` is the game's
-  hug/deep-kiss key; the act consumes it without binding it so a hug cannot end the act's kiss.
+  `F` hold kiss in standing, mouse right **or `G`** smacks. `X` taps to toggle auto thrust; while
+  it is on the mouse wheel sets its pace and mouse ↕ sets its peak depth. They are available in
+  `ACTIVE`, `CLIMAX`, and the standing `AFTERGLOW`; `Y` is the context start/end control. `H` is
+  the game's hug/deep-kiss key; the act consumes it without binding it so a hug cannot end the
+  act's kiss.
+- **Hold `X`** (`auto_panel.gd`, pure) while auto is on opens the auto settings layer: it stays
+  open while X is pressed, survives a re-press inside `GRACE_S = 0.28 s` after release, and closes
+  otherwise. `Q`/`A` min depth ±5 %, `W`/`S` max depth ±5 %, `E`/`D` pace ±0.25/s, `Z` cycles
+  `Auto shape` and writes the setting; keys step on press then repeat after 0.4 s at 0.08 s.
+  `R`/`F` are reserved for a future tail control. A press that ever opened the layer can never
+  toggle, so a short tap remains the only toggle. While the layer is open the lean is frozen
+  (rather than returning to centre), the caress ignores A/D and Z/C, the kiss ignores F, and the
+  HUD card swaps to the four live rows. The layer only exists while auto is on (tap X to enable
+  it). X is consumed in every act state, so AnonPony's X lie-down still cannot fire.
 - Anatomy actions are additive and gated: `V` switches the hole in `ACTIVE`/`CLIMAX`, `N` turns her
   round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
   opens the game chat during an act. With every anatomy flag off these
@@ -1192,8 +1206,11 @@ examples.
   keycaps/controller icons and one description; only a row with a modifier renders the muted
   `Hold` column. Rows list `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to
   manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
-  `Kiss`), mouse right (`RMB`, `Smack`) and Y (`Hold`; `End early` before her first
-  climax, then `End`). Every card row uses the drawn dark key cap, including Q/E/C/F/Y and RMB.
+  `Kiss`), `RMB` and `G` (`Smack`) and Y (`Hold`; `End early` before her first
+  climax, then `End`). Every card row uses the drawn dark key cap, including Q/E/C/F/Y, RMB and G.
+  While the hold-X layer is open the card is replaced by `X` (`Hold`, `Auto settings`), Q A
+  (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`), so the live values
+  are visible while adjusting.
   The card has no separate title. The `End` label is shaded from ink toward `ACCENT` by
   `runtime.hud_y_pink()`: one step per pony climax, capped at `Y_END_TINT_MAX = 0.75`, and fully
   pink only after the standing afterglow close window earned its caress reward. The cue line's
@@ -1209,7 +1226,7 @@ examples.
   flag cannot leave it hidden.
 - The bottom-left stack reads, top to bottom: cue line `❤ N/3 | cue`, readiness line
   `Wants: intensity & pattern | You: intensity & pattern`, auto readout
-  `Auto · wheel pace N/s · depth N%` while auto is on, blank separator, controls.
+  `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
 - The `Wants`/`You` line and cue segment are gated by `hud_readouts`
   (default `true`). The hearts remain when readouts are off.
 - Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
@@ -1432,10 +1449,13 @@ rump blush. Unknown settings keys are ignored.
   needs proportionally more travel. `thrust.travel` is the non-anatomy hip backset multiplier,
   default `0.5`, clamped to `0.25…2.0×`. The old `pixels_per_full` is retired and mapped as
   `value / 20`.
-- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`), `max_depth`
-  (peak depth, default `0.5`, clamped `0.20…1`) and `curve` (`Auto shape`, default `cosine`, one
-  of the six waveforms). They are act-start defaults; the wheel and mouse changes are per-act.
-  `curve` applies live. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
+- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`), `min_depth`
+  (bottom, default `0`, clamped `0…0.82`) and `max_depth` (peak, default `0.5`, clamped
+  `0.20…1`), plus `curve` (`Auto shape`, default `cosine`, one of the six waveforms). They are
+  act-start defaults; the wheel, mouse and hold-X layer changes are per-act, except `curve`, which
+  applies live and is written by the layer's `Z`. The wheel and `E`/`D` step is the fixed
+  `0.25/s`; the depth step is a fixed 5 %. `thrust.contact_gap_m` (Contact gap, default `5 cm`,
+  `0…12 cm`) is how close the stroke must get to its deepest point for the body slap.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.2`) and the act-smack `smack_intensity` multiplier
   (default `0.45`). The center is the hind-femur midpoint plus `center_height_m` (default
@@ -1499,7 +1519,8 @@ rump blush. Unknown settings keys are ignored.
   order: Starting Sex, Show controls, Show HUD readouts, Show captions on top, Mute Ponese audio,
   Allow act lines, Remember acts, Climax limit, Sensitivity, Thrust direction, Use Anon bed body,
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
-  Its Debug block holds the perf-log and act-ear switches, auto thrust, the hip back-off and acts
+  Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
+  shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Audio**, **Camera**, **Talk & cues**, **Missionary** (with a
   **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
   subheadings) and **Thrust jiggle** sections. **Anatomy**

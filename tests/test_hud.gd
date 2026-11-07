@@ -27,13 +27,21 @@ class Stub extends Node:
 		return auto_on
 
 	func auto_hud_text() -> String:
-		return "Auto · wheel pace 1.5/s · depth 90%" if auto_on else ""
+		return "Auto · 20–90% · 1.5/s · Normal" if auto_on else ""
 
 	func hud_y_pink() -> float:
 		return y_pink
 
 	func hud_controls() -> bool:
 		return controls_on
+
+	var layer_open := false
+
+	func auto_panel_open() -> bool:
+		return layer_open
+
+	func auto_panel_label(kind: String) -> String:
+		return "Min depth 20%" if kind == "min" else kind.capitalize()
 
 
 func _initialize() -> void:
@@ -122,8 +130,9 @@ func _check_controls() -> void:
 	check((lean_box.get_child(2) as Label).text == "Lean",
 		"lean row does not spell out both directions")
 	var smack := rows.get("smack") as HBoxContainer
-	check(smack != null and smack.get_child_count() == 2,
-		"a row without a modifier has no empty column")
+	check(smack != null and smack.get_child_count() == 3,
+		"a two-key row has both caps and the words")
+	check((smack.get_child(2) as Label).text == "Smack", "G and RMB both read Smack")
 	var auto_row := rows.get("auto") as Control
 	check(auto_row != null and auto_row.visible, "auto thrust row shows while active")
 	check(not (hud.get("_hint_auto") as Control).visible, "auto readout hides while manual")
@@ -142,6 +151,27 @@ func _check_controls() -> void:
 	hud.call("update_from", stub, true)
 	check((hud.get("_auto_label") as Label).text == "Switch to auto",
 		"X offers auto while manual")
+	# The hold-X layer swaps the whole card for its four live rows.
+	var layer_rows: Dictionary = hud.get("_layer_rows")
+	check(not (layer_rows.get("min") as Control).visible,
+		"the auto settings layer is hidden while closed")
+	stub.auto_on = true
+	stub.layer_open = true
+	hud.call("update_from", stub, true)
+	check((layer_rows.get("min") as Control).visible,
+		"the layer replaces the card while X is held")
+	check(not (rows.get("lean") as Control).visible,
+		"normal rows hide while the layer is open")
+	var layer_labels: Dictionary = hud.get("_layer_labels")
+	check((layer_labels.get("min") as Label).text == "Min depth 20%",
+		"the layer row shows its live value")
+	check((layer_labels.get("shape") as Label).text == "Shape", "the shape row shows its value")
+	stub.layer_open = false
+	stub.auto_on = false
+	hud.call("update_from", stub, true)
+	check(not (layer_rows.get("min") as Control).visible,
+		"closing the layer hides its rows")
+	check((rows.get("lean") as Control).visible, "the normal card returns")
 	stub.pony_climaxes = 1
 	stub.y_pink = 0.25
 	hud.call("update_from", stub, true)

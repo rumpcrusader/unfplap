@@ -656,8 +656,9 @@ func standing_tick() -> void:
 		_standing_kiss_used = false
 		end_standing()
 		return
-	var want := standing_kiss_wanted(Input.is_physical_key_pressed(KEY_F),
-		float(runtime.get("_lean_side")))
+	var f_held := Input.is_physical_key_pressed(KEY_F) \
+		and not (runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open")))
+	var want := standing_kiss_wanted(f_held, float(runtime.get("_lean_side")))
 	if not want:
 		_standing_kiss_used = false
 		end_standing()

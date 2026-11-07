@@ -23,6 +23,8 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 | `A` / `D`   | Caress her left / right flank in standing pose, including afterglow   |
 | `F` (hold)  | Kiss while fully shoulder-leaning in standing pose                   |
 | Mouse right | Smack her flank during the act                                    |
+| `G`         | Smack her flank during the act                                    |
+| Hold `X`    | Auto settings: `Q`/`A` min depth, `W`/`S` max depth, `E`/`D` pace, `Z` stroke shape |
 | `V`         | Switch hole during the act (optional anatomy)                     |
 | `N`         | Oral in the standing pose (optional anatomy)                      |
 | `B`         | Choose finish in or out (optional anatomy)                        |
@@ -43,7 +45,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster, ask sooner, and wink and drip while she idles, two days of diestrus turn her off, then normal. Off by default.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Climax limit** — `Climax limit` sets how many times she can climax in one act; `0` is unlimited.
-- **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace and the mouse sets how deep each stroke goes.
+- **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace and the mouse sets how deep each stroke goes. Hold `X` to set the bottom, peak, pace and stroke shape by hand.
 - **Per-mare preference** — Each mare has intensity, rhythm, touch, talk, warmth, and how much she tolerates before she warns or stops.
 - **Act settings** — `Settings → Unfplap` has General, Anatomy, World and Characters tabs; an **Enable debug** switch adds an extra Debug section at the bottom of General, Anatomy and World for pose, camera, cue and history tuning.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.

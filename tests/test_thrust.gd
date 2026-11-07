@@ -185,6 +185,10 @@ func run() -> void:
 	check(THRUST.contact_amount(0.17, 0.17) > THRUST.contact_amount(0.17, 0.19),
 		"a shorter reach moves the contact point with it")
 	check(near(THRUST.contact_amount(-0.05, reach), 0.0), "the back-out standoff has no contact")
+	check(THRUST.contact_amount(reach - 0.03, reach, 0.05) > 0.0,
+		"a wider contact gap catches a shorter stroke")
+	check(near(THRUST.contact_amount(reach - 0.03, reach, 0.01), 0.0),
+		"a narrow contact gap needs a deeper stroke")
 
 	print("THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

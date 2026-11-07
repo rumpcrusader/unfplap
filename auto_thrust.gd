@@ -29,30 +29,42 @@ const DEPTH_SMOOTH_S := 0.18
 const PHASE_SAMPLES := 64
 ## Every supported stroke waveform.
 const SHAPES := ["cosine", "thrust", "tease", "saw", "hold", "double"]
+## The narrowest depth band that still produces a real thrust: `THRUST_MIN_TRAVEL` (0.12) plus
+## the reversal hysteresis (0.06) that the next stroke loses at the bottom. A narrower band would
+## silently stop scoring.
+const MIN_BAND := 0.18
 
 var active := false
 ## Thrusts per second. One cycle is one inward stroke. Matches the declared default; `reset()`
 ## overwrites it with the configured act-start value.
 var pace := 1.0
-## Requested peak depth, 0..1 of the full tracker range.
+## Requested bottom and peak depth, 0..1 of the full tracker range. The stroke travels
+## `max_depth - min_depth`, so the band must stay at least `MIN_BAND` wide.
+var min_depth := 0.0
 var max_depth := 0.5
 ## Stroke waveform id, one of `SHAPES`.
 var shape := "cosine"
 
+## Smoothed band the waveform actually uses, so a depth nudge does not step the stroke.
+var _low := 0.0
 var _amplitude := 0.9
 var _phase := 0.0
 var _depth := 0.0
 
 
 ## Back to the act-start defaults. Called by `runtime._reset_thrust_state()`.
-func reset(default_pace: float, default_depth: float, default_shape := "cosine") -> void:
+func reset(default_pace: float, default_depth: float, default_shape := "cosine",
+		default_min := 0.0) -> void:
 	active = false
 	pace = clampf(default_pace, PACE_MIN, PACE_MAX)
-	max_depth = clampf(default_depth, DEPTH_MIN, DEPTH_MAX)
 	shape = default_shape if SHAPES.has(default_shape) else "cosine"
-	_amplitude = max_depth
+	min_depth = clampf(default_min, 0.0, DEPTH_MAX - MIN_BAND)
+	max_depth = clampf(maxf(default_depth, min_depth + MIN_BAND), DEPTH_MIN, DEPTH_MAX)
+	min_depth = clampf(min_depth, 0.0, max_depth - MIN_BAND)
+	_low = min_depth
+	_amplitude = max_depth - min_depth
 	_phase = 0.0
-	_depth = 0.0
+	_depth = min_depth
 
 
 ## Turn auto on from the hand's current depth instead of snapping to the cycle bottom. A peak
@@ -60,10 +72,13 @@ func reset(default_pace: float, default_depth: float, default_shape := "cosine")
 func begin(current_depth: float) -> void:
 	active = true
 	max_depth = clampf(maxf(max_depth, current_depth), DEPTH_MIN, DEPTH_MAX)
-	_amplitude = max_depth
-	var ratio := clampf(current_depth / maxf(max_depth, 0.0001), 0.0, 1.0)
+	min_depth = clampf(min_depth, 0.0, max_depth - MIN_BAND)
+	var band := maxf(max_depth - min_depth, 0.001)
+	var ratio := clampf((current_depth - min_depth) / band, 0.0, 1.0)
+	_low = min_depth
+	_amplitude = band
 	_phase = phase_for(shape, ratio)
-	_depth = clampf(current_depth, 0.0, max_depth)
+	_depth = clampf(current_depth, min_depth, max_depth)
 
 
 ## Advance one frame and return the absolute depth to feed the tracker.
@@ -71,9 +86,10 @@ func step(delta: float) -> float:
 	if not active:
 		return _depth
 	var alpha := 1.0 - exp(-delta / maxf(DEPTH_SMOOTH_S, 0.001))
-	_amplitude = lerpf(_amplitude, max_depth, alpha)
+	_low = lerpf(_low, min_depth, alpha)
+	_amplitude = lerpf(_amplitude, max_depth - min_depth, alpha)
 	_phase = fposmod(_phase + pace * delta, 1.0)
-	_depth = _amplitude * wave(shape, _phase)
+	_depth = _low + maxf(_amplitude, 0.0) * wave(shape, _phase)
 	return _depth
 
 
@@ -90,8 +106,22 @@ func nudge_pace(amount: float) -> void:
 	pace = clampf(pace + amount, PACE_MIN, PACE_MAX)
 
 
+## Raise or lower the peak. The band stays at least `MIN_BAND` wide by pushing the bottom down.
 func nudge_depth(amount: float) -> void:
-	max_depth = clampf(max_depth + amount, DEPTH_MIN, DEPTH_MAX)
+	max_depth = clampf(max_depth + amount, maxf(DEPTH_MIN, min_depth + MIN_BAND), DEPTH_MAX)
+	min_depth = minf(min_depth, max_depth - MIN_BAND)
+
+
+## Raise or lower the bottom. The band stays at least `MIN_BAND` wide by pushing the peak up.
+func nudge_min(amount: float) -> void:
+	min_depth = clampf(min_depth + amount, 0.0, DEPTH_MAX - MIN_BAND)
+	max_depth = maxf(max_depth, min_depth + MIN_BAND)
+
+
+## Next shape in `SHAPES`, wrapping. Used by the hold-X `Z` key.
+static func next_shape(name: String) -> String:
+	var index := SHAPES.find(name)
+	return SHAPES[(index + 1) % SHAPES.size()] if index >= 0 else SHAPES[0]
 
 
 ## Live `Auto shape` change; the current cycle keeps its phase and continues in the new shape.

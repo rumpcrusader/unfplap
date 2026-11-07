@@ -19,6 +19,7 @@ const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
 const UPSET := preload("res://mods/unfplap/upset.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
+const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
@@ -307,9 +308,11 @@ var _act_prompts: Dictionary = {}
 var _thrust_tracker
 ## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
 var _auto_thrust
+var _auto_panel
 var _auto_on := false
 var _auto_default_pace := 1.0
 var _auto_default_depth := 0.5
+var _auto_default_min := 0.0
 var _auto_default_shape := "cosine"
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
@@ -709,6 +712,7 @@ func _snapshot_settings() -> void:
 	var auto_block := SETTINGS.block("auto_thrust.")
 	_auto_default_pace = float(auto_block.get("pace", 1.0))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
+	_auto_default_min = float(auto_block.get("min_depth", 0.0))
 	_auto_default_shape = str(auto_block.get("curve", "cosine"))
 	var jiggle_block := SETTINGS.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
@@ -875,8 +879,10 @@ func auto_hud_text() -> String:
 	if not auto_active():
 		return ""
 	var auto = _auto_controller()
-	return "Auto · wheel pace %.2f/s · depth %d%%" % [
-		float(auto.get("pace")), roundi(float(auto.get("max_depth")) * 100.0)]
+	return "Auto · %d–%d%% · %.2f/s · %s" % [
+		roundi(float(auto.get("min_depth")) * 100.0),
+		roundi(float(auto.get("max_depth")) * 100.0),
+		float(auto.get("pace")), auto_shape_name()]
 
 ## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
 func _act_presentation(delta: float) -> void:
@@ -1064,6 +1070,7 @@ func _physics_tick(delta: float) -> void:
 	_keep_act_attention()
 	_pause_face_turn()
 	_hold_y_tick(delta)
+	_auto_panel_tick(delta)
 	_lean_tick(delta)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_act_presentation(delta)
@@ -2456,7 +2463,9 @@ func _reset_thrust_state() -> void:
 	depth = 0.0
 	penetration_m = -_back_out_m()
 	_auto_on = false
-	_auto_controller().reset(_auto_default_pace, _auto_default_depth, _auto_default_shape)
+	_auto_controller().reset(_auto_default_pace, _auto_default_depth, _auto_default_shape,
+		_auto_default_min)
+	_auto_panel_controller().reset()
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
 	_standing_sway_offset = Vector3.ZERO
@@ -2536,6 +2545,91 @@ func auto_thrust_wheel(direction: int) -> void:
 	if not _auto_on or state not in [State.ACTIVE, State.CLIMAX]:
 		return
 	_auto_controller().call("nudge_pace", float(direction) * AUTO_THRUST.PACE_STEP)
+
+
+func _auto_panel_controller():
+	if _auto_panel == null:
+		_auto_panel = AUTO_PANEL.new()
+	return _auto_panel
+
+
+## True while the hold-X auto settings layer is open. The lean, the caress input and the kiss
+## read this so W/S/Q/E/A/D/Z/F belong to the layer instead of the act.
+func auto_panel_open() -> bool:
+	return _auto_panel != null and bool(_auto_panel.get("open"))
+
+
+## Hold X for the auto settings layer: a tap still toggles auto, a hold opens the four rows while
+## auto runs. Every action comes from the pure `auto_panel.gd`.
+func _auto_panel_tick(delta: float) -> void:
+	if state not in [State.ACTIVE, State.CLIMAX]:
+		_auto_panel_controller().reset()
+		return
+	var keys := [
+		Input.is_physical_key_pressed(KEY_Q), Input.is_physical_key_pressed(KEY_A),
+		Input.is_physical_key_pressed(KEY_W), Input.is_physical_key_pressed(KEY_S),
+		Input.is_physical_key_pressed(KEY_E), Input.is_physical_key_pressed(KEY_D),
+		Input.is_physical_key_pressed(KEY_Z),
+	]
+	var actions: Array = _auto_panel_controller().tick(delta,
+		Input.is_physical_key_pressed(KEY_X), keys, _auto_on)
+	for action: String in actions:
+		_auto_panel_action(action)
+
+
+func _auto_panel_action(action: String) -> void:
+	var auto = _auto_controller()
+	match action:
+		"toggle":
+			toggle_auto_thrust()
+		"min_up", "min_down":
+			auto.call("nudge_min", AUTO_PANEL.DEPTH_STEP if action == "min_up"
+				else -AUTO_PANEL.DEPTH_STEP)
+		"max_up", "max_down":
+			auto.call("nudge_depth", AUTO_PANEL.DEPTH_STEP if action == "max_up"
+				else -AUTO_PANEL.DEPTH_STEP)
+		"pace_up", "pace_down":
+			auto.call("nudge_pace", AUTO_PANEL.PACE_STEP if action == "pace_up"
+				else -AUTO_PANEL.PACE_STEP)
+		"shape_next":
+			auto_cycle_shape()
+		_:
+			return
+	_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s shape=%s" % [
+		action, float(auto.get("min_depth")) * 100.0, float(auto.get("max_depth")) * 100.0,
+		float(auto.get("pace")), str(auto.get("shape"))])
+
+
+## `Z` in the layer: next stroke shape, written to settings so an experiment survives the act.
+func auto_cycle_shape() -> void:
+	var next: String = AUTO_THRUST.next_shape(str(_auto_controller().get("shape")))
+	SETTINGS.curve.set_choice(next)
+	_auto_default_shape = next
+	_auto_controller().call("set_shape", next)
+
+
+## The `Auto shape` label for the current generator value, matching the settings row.
+func auto_shape_name() -> String:
+	var value := str(_auto_controller().get("shape"))
+	var index := SETTINGS.curve.options.find(value)
+	if index >= 0 and index < SETTINGS.curve.labels.size():
+		return str(SETTINGS.curve.labels[index])
+	return value
+
+
+## Live text for one hold-X control row.
+func auto_panel_label(kind: String) -> String:
+	var auto = _auto_controller()
+	match kind:
+		"min":
+			return "Min depth %d%%" % roundi(float(auto.get("min_depth")) * 100.0)
+		"max":
+			return "Max depth %d%%" % roundi(float(auto.get("max_depth")) * 100.0)
+		"pace":
+			return "Pace %.2f/s" % float(auto.get("pace"))
+		"shape":
+			return "Shape: %s" % auto_shape_name()
+	return ""
 
 
 ## integration: anatomy action entry points for input.gd. They are no-ops when the per-act
@@ -2711,6 +2805,8 @@ func _stop_auto_thrust() -> void:
 	_auto_on = false
 	if _auto_thrust != null:
 		_auto_thrust.call("stop")
+	if _auto_panel != null:
+		_auto_panel.call("close")
 
 ## Feed the generated depth through the same tracker as the mouse. Strength, readiness,
 ## intensity, pattern, audio, camera and presentation therefore need no auto-specific path.
@@ -2976,7 +3072,9 @@ func _on_impact(result: Dictionary) -> void:
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var jiggle := THRUST.jiggle_amount(float(result.get("travel", 0.0)), strength)
 	var reach := penetration_reach()
-	var contact := THRUST.contact_amount(float(result.get("end_depth", 0.0)) * reach, reach)
+	var contact := THRUST.contact_amount(float(result.get("end_depth", 0.0)) * reach, reach,
+		maxf(SETTINGS.contact_gap_m.get_num(), 0.0))
+	var plap := PREFERENCES.intensity_for(strength) != "soft" and contact > 0.001
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
 	_thrust_jiggle(jiggle)
@@ -2997,8 +3095,8 @@ func _on_impact(result: Dictionary) -> void:
 		if _act_audio.foley_enabled():
 			_act_audio.play_impact(pose_id, strength, _rump_point(),
 				_bed_audio_point(), _bed_soft, contact)
-	_log("thrust impact contact=%.2f readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
-		contact, satisfaction, _thrusts_per_second(), strength, impact, jiggle,
+	_log("thrust impact contact=%.2f plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+		contact, 1 if plap else 0, satisfaction, _thrusts_per_second(), strength, impact, jiggle,
 		_last_intensity, _last_pattern])
 
 func _play_vocal() -> void:
@@ -4961,6 +5059,20 @@ func _lean_tick(delta: float) -> void:
 		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 		_lean_view_forward = _lean_forward
 		_lean_view_side = _lean_side
+		return
+	if auto_panel_open():
+		# Hold-X auto settings: hold the current lean so the shot does not drift while W/S/Q/E
+		# adjust the stroke, and keep the hand controllers running so a smack can finish.
+		_side_return_armed = false
+		_end_lean_action()
+		_lean_view_forward = _lean_forward
+		_lean_view_side = _lean_side
+		_kiss_controller().standing_tick()
+		var frozen_caress := Time.get_ticks_usec()
+		_caress_controller().tick(delta)
+		_timed("caress_tick", frozen_caress)
+		if pose_id == CATALOG.STANDING:
+			_standing_camera_controller().apply_lean_look()
 		return
 	var side := 0.0
 	if Input.is_physical_key_pressed(KEY_Q):

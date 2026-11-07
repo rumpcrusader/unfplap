@@ -684,16 +684,21 @@ func _apply_anal_place() -> void:
 	_anal_mesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, height, 0.0))
 
 
+## True while the anatomy owns the near-body material. A detached anatomy must not re-apply it.
+func is_attached() -> bool:
+	return _attached
+
+
 ## The near-body mesh and material the anatomy owns. The runtime uses these to put the
 ## mod-owned near body back into FlankTouch's jiggle target list.
 func body_coat_mesh() -> MeshInstance3D:
-	return _body_mesh
+	return _body_mesh if is_instance_valid(_body_mesh) else null
 
 func body_coat_material() -> ShaderMaterial:
-	return _body_material
+	return _body_material if is_instance_valid(_body_material) else null
 
 func body_outline_material() -> ShaderMaterial:
-	return _body_outline
+	return _body_outline if is_instance_valid(_body_outline) else null
 
 
 ## pony_hips bind pose from the body skin. `body_local_point` maps a point from the anatomy's
@@ -729,7 +734,7 @@ static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 ## Push the vulva centre, spread and no-jiggle zone into the near-body coat and its outline.
 ## `_wide` is the world shaft radius; `_lip_radius` is anatomy-local, so the scale converts it.
 func _apply_body_coat_uniforms() -> void:
-	if _body_material == null or not is_instance_valid(_mesh) or not _hips_bind_ready:
+	if not is_instance_valid(_body_material) or not is_instance_valid(_mesh) or not _hips_bind_ready:
 		return
 	var scale := maxf(_mesh.transform.basis.get_scale().x, 0.0001)
 	var centre := body_local_point(_hips_bind, _mesh.transform, WINKING_OPENING)
@@ -743,7 +748,7 @@ func _apply_body_coat_uniforms() -> void:
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
 	for material in [_body_material, _body_outline]:
-		if material == null:
+		if not is_instance_valid(material):
 			continue
 		var mat := material as ShaderMaterial
 		mat.set_shader_parameter("vulva_centre", centre)
@@ -768,13 +773,17 @@ func _apply_body_anal_scale() -> void:
 	var body := (model as Node).find_child("NearBody", true, false) as MeshInstance3D
 	if not is_instance_valid(body) or body.mesh == null:
 		return
+	if not is_instance_valid(_body_mesh):
+		_body_mesh = null
+		_body_material = null
+		_body_outline = null
 	if _body_mesh != body:
-		if is_instance_valid(_body_mesh) and _body_material != null:
+		if is_instance_valid(_body_mesh) and is_instance_valid(_body_material):
 			_body_mesh.set_surface_override_material(0, null)
 		_body_mesh = body
 		_body_material = null
 		_body_outline = null
-	if _body_material == null:
+	if not is_instance_valid(_body_material):
 		var source: Variant = body.get_active_material(0)
 		if not source is ShaderMaterial:
 			return
@@ -790,7 +799,7 @@ func _apply_body_anal_scale() -> void:
 		_hips_bind_pose()
 	var anal_scale := SETTINGS.anal_scale.get_num()
 	for material in [_body_material, _body_outline]:
-		if material == null:
+		if not is_instance_valid(material):
 			continue
 		var mat := material as ShaderMaterial
 		mat.set_shader_parameter("anal_scale", anal_scale)
@@ -802,7 +811,7 @@ func _apply_body_anal_scale() -> void:
 	if flank != null and flank.has_method("_coat_entries"):
 		var entries: Variant = flank.call("_coat_entries", body, 0)
 		for material in [_body_material, _body_outline]:
-			if material != null:
+			if is_instance_valid(material):
 				(material as ShaderMaterial).set_shader_parameter("jiggle_entry", entries)
 	_apply_body_coat_uniforms()
 
@@ -979,7 +988,7 @@ func detach() -> void:
 	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
 			and pony.physical_reaction.is_connected(_on_physical_reaction):
 		pony.physical_reaction.disconnect(_on_physical_reaction)
-	if is_instance_valid(_body_mesh) and _body_material != null:
+	if is_instance_valid(_body_mesh) and is_instance_valid(_body_material):
 		_body_mesh.set_surface_override_material(0, null)
 	_body_material = null
 	_body_outline = null

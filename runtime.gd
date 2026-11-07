@@ -3914,9 +3914,20 @@ func _attach_body_anal_jiggle_target() -> void:
 		_flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(_flank) or not is_instance_valid(_anatomy):
 		return
+	if _anatomy.has_method("is_attached") and not bool(_anatomy.call("is_attached")):
+		return
 	var body: Variant = _anatomy.call("body_coat_mesh")
 	var mat: Variant = _anatomy.call("body_coat_material")
-	if not body is MeshInstance3D or not mat is ShaderMaterial:
+	if not is_instance_valid(body) or not body is MeshInstance3D \
+			or not is_instance_valid(mat) or not mat is ShaderMaterial:
+		# The near mesh can be rebuilt between the anatomy's visibility polls. Catch up now
+		# instead of waiting for the next poll and losing a few thrusts of body wobble.
+		if _anatomy.has_method("_apply_body_anal_scale"):
+			_anatomy.call("_apply_body_anal_scale")
+		body = _anatomy.call("body_coat_mesh")
+		mat = _anatomy.call("body_coat_material")
+	if not is_instance_valid(body) or not body is MeshInstance3D \
+			or not is_instance_valid(mat) or not mat is ShaderMaterial:
 		return
 	var targets: Variant = _flank.get("_jiggle_targets")
 	if not targets is Array:
@@ -3926,7 +3937,7 @@ func _attach_body_anal_jiggle_target() -> void:
 		entries = _flank.call("_coat_entries", body, 0)
 	var materials: Array = [mat]
 	var outline: Variant = _anatomy.call("body_outline_material")
-	if outline is ShaderMaterial:
+	if is_instance_valid(outline) and outline is ShaderMaterial:
 		materials.append(outline)
 	for material: Variant in materials:
 		var target_mat := material as ShaderMaterial

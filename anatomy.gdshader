@@ -27,6 +27,9 @@ uniform float cut_depth = 0.0;
 // size and the lips thin out.
 uniform vec3 vulva_centre = vec3(0.0, -0.012, 0.02);
 uniform float lip_radius = 0.03;
+// integration: vertical scale of the vulva around its opening. The mesh's local Y is the
+// slit's vertical; the falloff keeps the surrounding mound and the anus in place.
+uniform float vulva_height = 1.0;
 uniform float lip_outer = 0.066;
 // integration: the anal cup is scaled around its own opening, like the vulva's band solve.
 uniform vec3 anal_centre = vec3(0.0, 0.071, 0.019);
@@ -72,6 +75,12 @@ void vertex() {
 		float weight = 1.0 - smoothstep(0.045, 0.065, radius);
 		spread.xy *= 1.0 + (anal_scale - 1.0) * weight;
 		VERTEX = anal_centre + spread;
+	}
+	if (abs(vulva_height - 1.0) > 0.000001) {
+		vec3 spread = VERTEX - vulva_centre;
+		float weight = 1.0 - smoothstep(0.0, 0.06, length(spread.xy));
+		spread.y *= 1.0 + (vulva_height - 1.0) * weight;
+		VERTEX = vulva_centre + spread;
 	}
 	if (strip_trim > 0.5 && abs(strip_scale - 1.0) > 0.000001) {
 		VERTEX.x *= strip_scale;

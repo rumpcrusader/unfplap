@@ -801,6 +801,10 @@ static var mare_bits := choice("mare_bits", "anatomy.mare_bits", "original",
 	["original", "v2"], ["Original PPP", "V2"],
 	"Mare bits",
 	"Choose the full mare genitals mesh. V2 uses the smoothed model when its asset is present; otherwise the original PPP mesh is used.", ANATOMY, "")
+static var vulva_height := num("vulva_height", "anatomy.vulva_height", 1.0,
+	"Vulva height",
+	"Scale the vulva vertically around its opening. Below 1 shortens it; above 1 lengthens it.", ANATOMY, "") \
+	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
 
 # -- Anon
 static var player_scale := num("player_scale", "anatomy.player_scale", 1.5, "Size",

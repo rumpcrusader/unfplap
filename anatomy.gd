@@ -60,6 +60,12 @@ const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.2265, 1.095]}
+## The visible ponut is the pony body, not the genitals overlay. These are body-local: the
+## Blender body.glb anus centre (0, -0.299, 0.572) maps to Godot (0, 0.572, 0.299).
+const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
+const BODY_ANAL_REACH := 0.09
+const BODY_ANAL_BIG := 1.5
+const BODY_ANAL_SMALL := 0.5
 ## integration: global placement calibrated on Fluttershy. The rump crease is the body's x = 0
 ## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
 const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.286)
@@ -71,6 +77,8 @@ var runtime: Node
 var main: Node
 
 var _mesh: MeshInstance3D
+var _body_mesh: MeshInstance3D
+var _body_material: ShaderMaterial
 var _mare_bits_path_loaded := ""
 var _anal_mesh: MeshInstance3D
 var _teats_mesh: MeshInstance3D
@@ -304,6 +312,7 @@ func _process(delta: float) -> void:
 	_visibility_clock = VISIBILITY_POLL_S
 	_refresh_anal_ring()
 	_apply_place()
+	_apply_body_anal_scale()
 	_apply_anal_place()
 	_apply_strip_scale()
 	var started := Time.get_ticks_usec()
@@ -508,6 +517,7 @@ func _apply_material() -> void:
 	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
 		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
+	material.set_shader_parameter("vulva_height", SETTINGS.vulva_height.get_num())
 	# `_wide` is the world shaft radius; the shader works in mesh units.
 	material.set_shader_parameter("hole_target", _wide / world_scale)
 	_mesh.set_surface_override_material(0, material)
@@ -593,6 +603,7 @@ func _configure_anal_material(base: ShaderMaterial) -> void:
 		return
 	var anal_material := base.duplicate() as ShaderMaterial
 	anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
+	anal_material.set_shader_parameter("vulva_height", 1.0)
 	anal_material.set_shader_parameter("anal_centre", ANAL_OPENING)
 	anal_material.set_shader_parameter("anal_scale", SETTINGS.anal_scale.get_num())
 	anal_material.set_shader_parameter("hole_clip", 0.0)
@@ -636,6 +647,35 @@ func _apply_anal_place() -> void:
 		return
 	var height := SETTINGS.anal_height_mm.get_num() / 1000.0
 	_anal_mesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, height, 0.0))
+
+
+## integration: the ponut is the pony's own body; the mare bits mesh is only the small
+## genitals overlay. Add the Blender-authored anal_big/anal_small shapes to the visible NearBody
+## and drive them from the same Anal scale setting. The source body.glb stays untouched, because
+## hybrid_near_mesh skips source meshes that already carry blend shapes.
+func _apply_body_anal_scale() -> void:
+	if not is_instance_valid(pony):
+		return
+	var model: Variant = pony.get("_model")
+	if not model is Node:
+		return
+	var body := (model as Node).find_child("NearBody", true, false) as MeshInstance3D
+	if not is_instance_valid(body) or body.mesh == null:
+		return
+	if _body_mesh != body:
+		if is_instance_valid(_body_mesh) and _body_material != null:
+			_body_mesh.set_surface_override_material(0, null)
+		_body_mesh = body
+		_body_material = null
+	if _body_material == null:
+		var source: Variant = body.get_active_material(0)
+		if not source is ShaderMaterial:
+			return
+		_body_material = (source as ShaderMaterial).duplicate() as ShaderMaterial
+		body.set_surface_override_material(0, _body_material)
+	_body_material.set_shader_parameter("anal_scale", SETTINGS.anal_scale.get_num())
+	_body_material.set_shader_parameter("anal_centre", BODY_ANAL_CENTRE)
+	_body_material.set_shader_parameter("anal_reach", BODY_ANAL_REACH)
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -768,6 +808,7 @@ func apply_live() -> void:
 		_reload_mare_bits_mesh()
 	_apply_material()
 	_apply_place()
+	_apply_body_anal_scale()
 	_refresh_anal_ring()
 	_apply_anal_place()
 	_apply_visibility()
@@ -806,6 +847,9 @@ func _reload_mare_bits_mesh() -> void:
 
 func detach() -> void:
 	_attached = false
+	if is_instance_valid(_body_mesh) and _body_material != null:
+		_body_mesh.set_surface_override_material(0, null)
+	_body_material = null
 	_mare_bits_path_loaded = ""
 	_visibility_init = false
 	set_process(false)

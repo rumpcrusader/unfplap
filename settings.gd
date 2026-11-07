@@ -421,77 +421,88 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 
 
 
+
+
+
 # ======================================================== General
 
 # -- (ungrouped)
 static var debug_mode := flag("debug_mode", "debug_mode", false, "Debug mode",
 	"Show the Debug section at the bottom of every tab. Hiding it keeps its settings as they are.", GENERAL, "")
-
-# -- Thrust
-static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
-	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "Thrust") \
-	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0)
-static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
-	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
-	GENERAL, "Thrust") \
-	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75)
-
-# -- Audio
-static var act_climax := flag("act_climax", "features.act_climax", false, "Wet climax layer",
-	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
-	GENERAL, "Audio")
-
-# -- (ungrouped)
-static var act_controls := flag("act_controls", "features.act_controls", true, "Control hints",
-	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
-
-# -- Audio
-static var act_foley := flag("act_foley", "features.act_foley", true, "Act foley",
-	"Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
-	GENERAL, "Audio")
-
-# -- (ungrouped)
-static var act_history := flag("act_history", "features.act_history", true, "Long-term history",
-	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.", GENERAL, "")
-static var act_lines := flag("act_lines", "features.act_lines", true, "Act lines",
-	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
-
-# -- Audio
-static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Act vocals",
-	"Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
-	GENERAL, "Audio")
-
-# -- (ungrouped)
-static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
-	"features.allow_act_during_cuddle", true, "Allow acts during cuddles",
-	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "")
-static var captions_on_top := flag("captions_on_top", "features.captions_on_top", true,
-	"Captions on top",
-	"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.", GENERAL, "")
-static var hud_readouts := flag("hud_readouts", "features.hud_readouts", true, "HUD readouts",
-	"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.", GENERAL, "")
-static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_audio", true,
-	"Mute Ponese audio",
-	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
-
-# -- Thrust
-static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
-	"Climax limit", "How many times she can climax in one act. 0 is unlimited.", GENERAL,
-	"Thrust") \
-	.with_step(1.0).with_range(0.0, 20.0)
-static var orientation := choice("orientation", "thrust.orientation", "up", ["up", "down"],
-	["Deepens", "Shallows"], "Mouse up", "Mouse up deepens the thrust.", GENERAL, "Thrust")
-static var pixels_per_full := num("pixels_per_full", "thrust.pixels_per_full", 1000.0,
-	"Sensitivity", "Mouse travel for one full thrust.", GENERAL, "Thrust") \
-	.with_unit("px per full thrust").with_step(20.0).with_range(240.0, 1200.0)
-static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",
-	"How far the hips retreat between thrusts.", GENERAL, "Thrust") \
-	.with_unit("×").with_step(0.05).with_range(0.25, 2.0)
-
-# -- (ungrouped)
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"], "Starting Sex",
 	"When Anon can start sex.", GENERAL, "")
+static var act_controls := flag("act_controls", "features.act_controls", true, "Control hints",
+	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
+static var hud_readouts := flag("hud_readouts", "features.hud_readouts", true, "HUD readouts",
+	"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.", GENERAL, "")
+static var captions_on_top := flag("captions_on_top", "features.captions_on_top", true,
+	"Captions on top",
+	"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.", GENERAL, "")
+static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_audio", true,
+	"Mute Ponese audio",
+	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
+static var act_lines := flag("act_lines", "features.act_lines", true, "Act lines",
+	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
+static var act_history := flag("act_history", "features.act_history", true, "Long-term history",
+	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.", GENERAL, "")
+static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
+	"Climax limit", "How many times she can climax in one act. 0 is unlimited.", GENERAL, "") \
+	.with_step(1.0).with_range(0.0, 20.0)
+static var pixels_per_full := num("pixels_per_full", "thrust.pixels_per_full", 1000.0,
+	"Sensitivity", "Mouse travel for one full thrust.", GENERAL, "") \
+	.with_unit("px per full thrust").with_step(20.0).with_range(240.0, 1200.0)
+static var orientation := choice("orientation", "thrust.orientation", "up", ["up", "down"],
+	["Deepens", "Shallows"], "Thrust direction", "Which mouse direction deepens the thrust.", GENERAL, "")
+
+# -- (ungrouped)  (debug)
+static var debug_logs := flag("debug_logs", "debug_logs", false, "Debug logs",
+	"Print the mod's diagnostics to the console.", GENERAL, "") \
+	.as_debug()
+static var debug_perf := flag("debug_perf", "debug_perf", false, "Perf logs",
+	"Print the per-second performance block. Requires Debug logs.", GENERAL, "") \
+	.as_debug()
+static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pinned act ears",
+	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.", GENERAL, "") \
+	.as_debug()
+static var act_line_angles := flag("act_line_angles", "features.act_line_angles", true,
+	"Line angles",
+	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.", GENERAL, "") \
+	.as_debug()
+static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel", false,
+	"Speech feel",
+	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", GENERAL, "") \
+	.as_debug()
+static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
+	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "") \
+	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0) \
+	.as_debug()
+static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
+	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.", GENERAL, "") \
+	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75) \
+	.as_debug()
+static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",
+	"How far the hips retreat between thrusts.", GENERAL, "") \
+	.with_unit("×").with_step(0.05).with_range(0.25, 2.0) \
+	.as_debug()
+static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
+	"features.allow_act_during_cuddle", true, "Allow acts during cuddles",
+	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "") \
+	.as_debug()
+
+# -- Audio  (debug)
+static var act_climax := flag("act_climax", "features.act_climax", false, "Wet climax layer",
+	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
+	GENERAL, "Audio") \
+	.as_debug()
+static var act_foley := flag("act_foley", "features.act_foley", true, "Act foley",
+	"Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
+	GENERAL, "Audio") \
+	.as_debug()
+static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Act vocals",
+	"Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
+	GENERAL, "Audio") \
+	.as_debug()
 
 # -- Camera  (debug)
 static var bob := num("bob", "camera_thrust.bob", 0.35, "Bob",
@@ -500,6 +511,9 @@ static var bob := num("bob", "camera_thrust.bob", 0.35, "Bob",
 static var surge := num("surge", "camera_thrust.surge", 1.0, "Surge",
 	"Forward camera travel on the inward stroke.", GENERAL, "Camera") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+static var idle_camera_sway := flag("idle_camera_sway", "features.idle_camera_sway", true,
+	"Idle camera sway", "Add a slow sway when you are not leaning.", GENERAL, "Camera") \
+	.as_debug()
 
 # -- Talk & cues  (debug)
 static var base_stable_seconds := num("base_stable_seconds", "cues.base_stable_seconds", 2.0,
@@ -538,36 +552,41 @@ static var release_hold_seconds := num("release_hold_seconds", "cues.release_hol
 static var utterance_gap_seconds := num("utterance_gap_seconds", "cues.utterance_gap_seconds",
 	18.0, "Line gap", "Minimum time between any two generated act lines.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
-
-# -- (ungrouped)  (debug)
-static var debug_logs := flag("debug_logs", "debug_logs", false, "Debug logs",
-	"Print the mod's diagnostics to the console.", GENERAL, "") \
-	.as_debug()
-static var debug_perf := flag("debug_perf", "debug_perf", false, "Perf logs",
-	"Print the per-second performance block. Requires Debug logs.", GENERAL, "") \
-	.as_debug()
-static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pinned act ears",
-	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.", GENERAL, "") \
-	.as_debug()
-static var act_line_angles := flag("act_line_angles", "features.act_line_angles", true,
-	"Line angles",
-	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.", GENERAL, "") \
-	.as_debug()
-static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel", false,
-	"Speech feel",
-	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", GENERAL, "") \
-	.as_debug()
-
-# -- Camera  (debug)
-static var idle_camera_sway := flag("idle_camera_sway", "features.idle_camera_sway", true,
-	"Idle camera sway", "Add a slow sway when you are not leaning.", GENERAL, "Camera") \
-	.as_debug()
+static var receptive_seconds := num("receptive_seconds", "talk.receptive_seconds", 8.0,
+	"Receptive window", "How long a liked touch or talk makes thrusts land harder.", GENERAL,
+	"Talk & cues") \
+	.with_unit("s").with_step(0.5).as_debug()
+static var talk_cooldown_seconds := num("talk_cooldown_seconds", "talk.talk_cooldown_seconds",
+	8.0, "Talk cooldown", "Minimum time between talk readiness chunks.", GENERAL, "Talk & cues") \
+	.with_unit("s").with_step(0.1).as_debug()
+static var touch_cooldown_seconds := num("touch_cooldown_seconds",
+	"talk.touch_cooldown_seconds", 4.0, "Touch cooldown",
+	"Minimum time between touch readiness chunks.", GENERAL, "Talk & cues") \
+	.with_unit("s").with_step(0.1).as_debug()
 
 # -- Missionary  (debug)
 static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
+static var forward := num("forward", "presentation.missionary.forward", 0.3,
+	"Missionary forward", "Shift the frozen shot forward along her body.", GENERAL, "Missionary") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var height := num("height", "presentation.missionary.height", 0.25, "Missionary height",
+	"Raise the frozen shot.", GENERAL, "Missionary") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var pitch_deg := num("pitch_deg", "presentation.missionary.pitch_deg", -15.0,
+	"Missionary pitch", "Tilt the frozen view; positive looks up.", GENERAL, "Missionary") \
+	.with_unit("°").with_step(0.5).as_debug()
+static var pullback := num("pullback", "presentation.missionary.pullback", 0.22,
+	"Missionary pullback", "Pull the shot back along its own view axis.", GENERAL, "Missionary") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var side := num("side", "presentation.missionary.side", 0.0, "Missionary side",
+	"Shift the frozen shot sideways; positive is her right.", GENERAL, "Missionary") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var side_lean := num("side_lean", "presentation.missionary.side_lean", 0.1,
+	"Side lean forward", "Extra travel toward her head on a side lean.", GENERAL, "Missionary") \
+	.with_unit("m").with_step(0.01).as_debug()
 
 # -- Standing › Motion  (debug)
 static var standing_body_sway := flag("standing_body_sway", "features.standing_body_sway", true,
@@ -580,17 +599,61 @@ static var standing_plant_feet := flag("standing_plant_feet", "features.standing
 	"Hold Anon's hips and both feet at their act-start positions, 15 cm behind him. Off restores the game's stepping and lean foot motion.",
 	GENERAL, "Standing › Motion") \
 	.as_debug()
+static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_twitch", true,
+	"Thrust ear twitch", "Flick both ears on some thrusts.", GENERAL, "Standing › Motion") \
+	.as_debug()
+static var camera_forward_m := num("camera_forward_m", "presentation.standing.camera_forward_m",
+	0.0, "Camera forward",
+	"Slide Anon's view forward relative to his chest so his own body sits behind the camera.",
+	GENERAL, "Standing › Motion") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var camera_pitch_deg := num("camera_pitch_deg", "presentation.standing.camera_pitch_deg",
+	-6.0, "Camera pitch", "Tilt Anon's standing view up or down; positive looks up.", GENERAL,
+	"Standing › Motion") \
+	.with_unit("°").with_step(0.5).as_debug()
+static var chest_back_m := num("chest_back_m", "presentation.standing.chest_back_m", 0.0,
+	"Chest back", "Push Anon's chest back from the camera in the standing act. 0 is off.",
+	GENERAL, "Standing › Motion") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset_m", 0.15,
+	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
+	GENERAL, "Standing › Motion") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var glance_back_speed := num("glance_back_speed",
+	"presentation.standing.glance_back_speed", 2.0, "Glance-back speed",
+	"How fast a look-back glance eases in and out.", GENERAL, "Standing › Motion") \
+	.with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
+static var hip_drop_m := num("hip_drop_m", "presentation.standing.hip_drop_m", 0.0, "Hip drop",
+	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", GENERAL,
+	"Standing › Motion") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var plant_spread_m := num("plant_spread_m", "presentation.standing.plant_spread_m", 0.4,
+	"Planted stance width", "How far apart Anon's planted feet are held during a standing act.",
+	GENERAL, "Standing › Motion") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg",
+	0.0, "Anon torso lean",
+	"Hinge Anon's upper body forward over her; the lower body stays planted.", GENERAL,
+	"Standing › Motion") \
+	.with_unit("°").with_step(1.0).as_debug()
 
 # -- Standing  (debug)
 static var standing_play_bow := flag("standing_play_bow", "features.standing_play_bow", false,
 	"Play-bow stance",
 	"Standing: stretch the front legs forward with the chest down and head low instead of the tucked act stance.", GENERAL, "Standing") \
 	.as_debug()
-
-# -- Standing › Motion  (debug)
-static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_twitch", true,
-	"Thrust ear twitch", "Flick both ears on some thrusts.", GENERAL, "Standing › Motion") \
-	.as_debug()
+static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg", 30.0,
+	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing") \
+	.with_unit("°").with_step(1.0).as_debug()
+static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg", 15.0,
+	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing") \
+	.with_unit("°").with_step(1.0).as_debug()
+static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg", 32.0,
+	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", GENERAL, "Standing") \
+	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
+static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg", 45.0,
+	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", GENERAL, "Standing") \
+	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 
 # -- Thrust jiggle  (debug)
 static var center_back_m := num("center_back_m", "jiggle.center_back_m", 0.15, "Center back",
@@ -612,11 +675,6 @@ static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity", 0
 	"Smack intensity", "Act-smack amount of the rump wobble.", GENERAL, "Thrust jiggle") \
 	.with_unit("×").with_step(0.05).as_debug()
 
-# -- Missionary  (debug)
-static var forward := num("forward", "presentation.missionary.forward", 0.3,
-	"Missionary forward", "Shift the frozen shot forward along her body.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-
 # -- Missionary › Neck angles  (debug)
 static var head_pitch_deg := num("head_pitch_deg", "presentation.missionary.head_pitch_deg",
 	90.0, "Head pitch", "Tilt the head about the body right axis after the gaze solve.", GENERAL,
@@ -625,13 +683,6 @@ static var head_pitch_deg := num("head_pitch_deg", "presentation.missionary.head
 static var head_roll_deg := num("head_roll_deg", "presentation.missionary.head_roll_deg", 90.0,
 	"Head roll", "Roll the head last, in degrees.", GENERAL, "Missionary › Neck angles") \
 	.with_unit("°").with_step(1.0).as_debug()
-
-# -- Missionary  (debug)
-static var height := num("height", "presentation.missionary.height", 0.25, "Missionary height",
-	"Raise the frozen shot.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-
-# -- Missionary › Neck angles  (debug)
 static var neck1_deg := num("neck1_deg", "presentation.missionary.neck1_deg", 0.0,
 	"Neck 1 angle", "Bend pony_neck1 about the body right axis.", GENERAL,
 	"Missionary › Neck angles") \
@@ -644,31 +695,6 @@ static var neck_roll_deg := num("neck_roll_deg", "presentation.missionary.neck_r
 	"Neck roll", "Roll both neck bones about the body forward axis.", GENERAL,
 	"Missionary › Neck angles") \
 	.with_unit("°").with_step(1.0).as_debug()
-
-# -- Missionary  (debug)
-static var pitch_deg := num("pitch_deg", "presentation.missionary.pitch_deg", -15.0,
-	"Missionary pitch", "Tilt the frozen view; positive looks up.", GENERAL, "Missionary") \
-	.with_unit("°").with_step(0.5).as_debug()
-static var pullback := num("pullback", "presentation.missionary.pullback", 0.22,
-	"Missionary pullback", "Pull the shot back along its own view axis.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var side := num("side", "presentation.missionary.side", 0.0, "Missionary side",
-	"Shift the frozen shot sideways; positive is her right.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var side_lean := num("side_lean", "presentation.missionary.side_lean", 0.1,
-	"Side lean forward", "Extra travel toward her head on a side lean.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-
-# -- Standing › Motion  (debug)
-static var camera_forward_m := num("camera_forward_m", "presentation.standing.camera_forward_m",
-	0.0, "Camera forward",
-	"Slide Anon's view forward relative to his chest so his own body sits behind the camera.",
-	GENERAL, "Standing › Motion") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var camera_pitch_deg := num("camera_pitch_deg", "presentation.standing.camera_pitch_deg",
-	-6.0, "Camera pitch", "Tilt Anon's standing view up or down; positive looks up.", GENERAL,
-	"Standing › Motion") \
-	.with_unit("°").with_step(0.5).as_debug()
 
 # -- Standing › Caress  (debug)
 static var ignore := list("ignore", "presentation.standing.caress.ignore", ["tail", "wing"],
@@ -700,31 +726,6 @@ static var same_height := num("same_height",
 	"Standing hand scale at Anon's own height.", GENERAL, "Standing › Caress") \
 	.with_unit("×").with_step(0.01).as_debug()
 
-# -- Standing › Motion  (debug)
-static var chest_back_m := num("chest_back_m", "presentation.standing.chest_back_m", 0.0,
-	"Chest back", "Push Anon's chest back from the camera in the standing act. 0 is off.",
-	GENERAL, "Standing › Motion") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-
-# -- Standing  (debug)
-static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg", 30.0,
-	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing") \
-	.with_unit("°").with_step(1.0).as_debug()
-
-# -- Standing › Motion  (debug)
-static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset_m", 0.15,
-	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
-	GENERAL, "Standing › Motion") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var glance_back_speed := num("glance_back_speed",
-	"presentation.standing.glance_back_speed", 2.0, "Glance-back speed",
-	"How fast a look-back glance eases in and out.", GENERAL, "Standing › Motion") \
-	.with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
-static var hip_drop_m := num("hip_drop_m", "presentation.standing.hip_drop_m", 0.0, "Hip drop",
-	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", GENERAL,
-	"Standing › Motion") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-
 # -- Standing › Kiss  (debug)
 static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg",
 	12.0, "Kiss camera yaw", "Over-the-shoulder yaw toward her at the kiss.", GENERAL,
@@ -748,17 +749,6 @@ static var mouth_forward := num("mouth_forward", "presentation.standing.kiss.mou
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var mouth_right := num("mouth_right", "presentation.standing.kiss.mouth_right", 0.0,
 	"Kiss mouth right", "Anon's mouth target sideways at the kiss.", GENERAL, "Standing › Kiss") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-
-# -- Standing  (debug)
-static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg", 15.0,
-	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing") \
-	.with_unit("°").with_step(1.0).as_debug()
-
-# -- Standing › Motion  (debug)
-static var plant_spread_m := num("plant_spread_m", "presentation.standing.plant_spread_m", 0.4,
-	"Planted stance width", "How far apart Anon's planted feet are held during a standing act.",
-	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Standing › Smack  (debug)
@@ -785,39 +775,28 @@ static var return_speed := num("return_speed", "presentation.standing.smack.retu
 	"Return speed", "Strike speed in metres per second.", GENERAL, "Standing › Smack") \
 	.with_unit("m/s").with_step(0.1).as_debug()
 
-# -- Standing  (debug)
-static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg", 32.0,
-	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", GENERAL, "Standing") \
-	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
-static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg", 45.0,
-	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", GENERAL, "Standing") \
-	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
-
-# -- Standing › Motion  (debug)
-static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg",
-	0.0, "Anon torso lean",
-	"Hinge Anon's upper body forward over her; the lower body stays planted.", GENERAL,
-	"Standing › Motion") \
-	.with_unit("°").with_step(1.0).as_debug()
-
-# -- Talk & cues  (debug)
-static var receptive_seconds := num("receptive_seconds", "talk.receptive_seconds", 8.0,
-	"Receptive window", "How long a liked touch or talk makes thrusts land harder.", GENERAL,
-	"Talk & cues") \
-	.with_unit("s").with_step(0.5).as_debug()
-static var talk_cooldown_seconds := num("talk_cooldown_seconds", "talk.talk_cooldown_seconds",
-	8.0, "Talk cooldown", "Minimum time between talk readiness chunks.", GENERAL, "Talk & cues") \
-	.with_unit("s").with_step(0.1).as_debug()
-static var touch_cooldown_seconds := num("touch_cooldown_seconds",
-	"talk.touch_cooldown_seconds", 4.0, "Touch cooldown",
-	"Minimum time between touch readiness chunks.", GENERAL, "Talk & cues") \
-	.with_unit("s").with_step(0.1).as_debug()
-
 # ======================================================== Anatomy
 
 # -- (ungrouped)
 static var act_only := flag("act_only", "anatomy.act_only", false, "Only during acts",
 	"Show the mare anatomy only while an act is running; hide it in the world.", ANATOMY, "")
+static var hide_dock := flag("hide_dock", "anatomy.hide_dock", true, "Hide tail dock",
+	"Hide the tail dock while the anatomy is shown; it otherwise reads as a stray blob above the ponut.", ANATOMY, "")
+static var skin_strip := flag("skin_strip", "anatomy.skin_strip", true, "Skin strip",
+	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
+static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.5, "Genital tone",
+	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
+	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
+static var teats := flag("teats", "anatomy.teats", false, "Teats", "Show the optional teats.", ANATOMY, "")
+static var anatomy := flag("anatomy", "features.anatomy", false, "Anatomy",
+	"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.", ANATOMY, "")
+static var anatomy_bed_body := flag("anatomy_bed_body", "features.anatomy_bed_body", true,
+	"Anon bed body",
+	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", ANATOMY, "")
+static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Fluid",
+	"Show the optional climax and finish droplets.", ANATOMY, "")
+static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "VR act",
+	"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", ANATOMY, "")
 
 # -- Anatomy › Holes
 static var anal_height_mm := num("anal_height_mm", "anatomy.anal_height_mm", -15.0,
@@ -828,12 +807,6 @@ static var anal_height_mm := num("anal_height_mm", "anatomy.anal_height_mm", -15
 static var anal_ring := flag("anal_ring", "anatomy.anal_ring", false,
 	"Ring model (experimental)", "Use the re-modelled anal ring instead of the original cup.",
 	ANATOMY, "Anatomy › Holes")
-
-# -- (ungrouped)
-static var hide_dock := flag("hide_dock", "anatomy.hide_dock", true, "Hide tail dock",
-	"Hide the tail dock while the anatomy is shown; it otherwise reads as a stray blob above the ponut.", ANATOMY, "")
-
-# -- Anatomy › Holes
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
 	"Lip vertical share",
 	"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.",
@@ -876,39 +849,16 @@ static var player_scale := num("player_scale", "anatomy.player_scale", 1.5, "Ano
 	"Scale the player part relative to its default size.", ANATOMY, "Anatomy › Anon part") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0)
 
-# -- (ungrouped)
-static var skin_strip := flag("skin_strip", "anatomy.skin_strip", true, "Skin strip",
-	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
-static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.5, "Genital tone",
-	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
-	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
-static var teats := flag("teats", "anatomy.teats", false, "Teats", "Show the optional teats.", ANATOMY, "")
-static var anatomy := flag("anatomy", "features.anatomy", false, "Anatomy",
-	"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.", ANATOMY, "")
-static var anatomy_bed_body := flag("anatomy_bed_body", "features.anatomy_bed_body", true,
-	"Anon bed body",
-	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", ANATOMY, "")
-
 # -- Anatomy › Actions
 static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish", true,
 	"Finish control", "Let B choose whether Anon finishes inside or pulls out.", ANATOMY,
 	"Anatomy › Actions")
-
-# -- (ungrouped)
-static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Fluid",
-	"Show the optional climax and finish droplets.", ANATOMY, "")
-
-# -- Anatomy › Actions
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Hole switch",
 	"Let V switch between the front and the anal cup if she is willing.", ANATOMY,
 	"Anatomy › Actions")
 static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", true, "Oral",
 	"Let N turn her round for oral in the standing pose if she is willing.", ANATOMY,
 	"Anatomy › Actions")
-
-# -- (ungrouped)
-static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "VR act",
-	"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", ANATOMY, "")
 
 # -- (ungrouped)  (debug)
 static var debug_aim_points := flag("debug_aim_points", "features.debug_aim_points", false,
@@ -928,6 +878,22 @@ static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
 	"Promiscuity", "Lowest relationship level for a lover bond and sex.", WORLD, "")
 
+# -- (ungrouped)  (debug)
+static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", false, "Hide tails",
+	"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.", WORLD, "") \
+	.as_debug()
+static var act_bystanders := flag("act_bystanders", "features.act_bystanders", true,
+	"Bystander lines",
+	"Let an adult pony who can perceive the act say one short line. Uses the modern witness rules; young ponies never speak.", WORLD, "") \
+	.as_debug()
+static var act_public_offer := flag("act_public_offer", "features.act_public_offer", true,
+	"Public offers",
+	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "") \
+	.as_debug()
+static var body_yaw_deg := num("body_yaw_deg", "player.body_yaw_deg", 0.0, "Body yaw",
+	"Rotate Anon's body left or right for testing; the camera and pose are unchanged.", WORLD, "") \
+	.with_unit("°").with_step(1.0).as_debug()
+
 # -- History › Points  (debug)
 static var apology_repair := num("apology_repair", "history.apology_repair", 1.0,
 	"Apology repair", "Hurt removed by one sincere apology per day.", WORLD, "History › Points") \
@@ -935,36 +901,15 @@ static var apology_repair := num("apology_repair", "history.apology_repair", 1.0
 static var bad_hurt := num("bad_hurt", "history.bad_hurt", 1.0, "Bad hurt",
 	"Hurt added by a bad act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var bad_max := num("bad_max", "history.bad_max", 0.2, "Bad threshold",
-	"Fraction of the applicable actions at or below which an act is bad.", WORLD, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
 static var decay_amount := num("decay_amount", "history.decay_amount", 1.0, "Decay amount",
 	"Hurt removed by one decay step.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
 static var decay_days := num("decay_days", "history.decay_days", 2.0, "Decay days",
 	"In-game days per hurt decay step.", WORLD, "History › Points") \
 	.with_unit("days").with_step(0.5).as_debug()
-
-# -- History › Score  (debug)
-static var early_grace_s := num("early_grace_s", "history.early_grace_s", 20.0, "Early grace",
-	"Seconds before an intentional early end counts as a summary.", WORLD, "History › Score") \
-	.with_unit("s").with_step(1.0).as_debug()
-
-# -- History › Points  (debug)
 static var good_comfort := num("good_comfort", "history.good_comfort", 1.0, "Good comfort",
 	"Comfort added by a good act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var good_min := num("good_min", "history.good_min", 0.8, "Good threshold",
-	"Fraction of the applicable actions that must go right for a good act.", WORLD, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
 static var good_repair := num("good_repair", "history.good_repair", 1.0, "Good repair",
 	"Hurt removed by a good act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
@@ -983,40 +928,32 @@ static var max_hurt := num("max_hurt", "history.max_hurt", 8.0, "Hurt cap",
 static var mild_hurt := num("mild_hurt", "history.mild_hurt", 1.0, "Early-end hurt",
 	"Hurt added by a neutral early end.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var min_thrusts := num("min_thrusts", "history.min_thrusts", 2.0, "Minimum thrusts",
-	"Real thrusts that make a very short act scoreable.", WORLD, "History › Score") \
-	.with_step(1.0).as_debug()
-
-# -- History › Offers  (debug)
-static var offer_base_s := num("offer_base_s", "history.offer_base_s", 600.0, "Offer cooldown",
-	"Base seconds between proactive offers.", WORLD, "History › Offers") \
-	.with_unit("s").with_step(10.0).as_debug()
-
-# -- History › Points  (debug)
 static var offer_block_hurt := num("offer_block_hurt", "history.offer_block_hurt", 4.0,
 	"No offers at", "Hurt points at which she stops asking for sex.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
-
-# -- History › Offers  (debug)
-static var offer_comfort_scale := num("offer_comfort_scale", "history.offer_comfort_scale",
-	0.05, "Comfort cooldown", "Cooldown reduction per comfort point.", WORLD, "History › Offers") \
-	.with_step(0.01).as_debug()
-static var offer_min_s := num("offer_min_s", "history.offer_min_s", 300.0, "Cooldown floor",
-	"Shortest cooldown at high comfort.", WORLD, "History › Offers") \
-	.with_unit("s").with_step(10.0).as_debug()
-static var offer_weight_base := num("offer_weight_base", "history.offer_weight_base", 0.7,
-	"Offer weight", "Base chance weight for a proactive offer.", WORLD, "History › Offers") \
-	.with_step(0.01).as_debug()
-static var offer_weight_comfort := num("offer_weight_comfort", "history.offer_weight_comfort",
-	0.05, "Comfort weight", "Offer weight added per comfort point.", WORLD, "History › Offers") \
-	.with_step(0.01).as_debug()
-static var offer_weight_hurt := num("offer_weight_hurt", "history.offer_weight_hurt", 0.12,
-	"Hurt weight", "Offer weight removed per hurt point.", WORLD, "History › Offers") \
-	.with_step(0.01).as_debug()
+static var reminder_hurt := num("reminder_hurt", "history.reminder_hurt", 2.0, "Reminder at",
+	"Hurt points at which she starts reminding Anon.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var severe_hurt := num("severe_hurt", "history.severe_hurt", 2.0, "Severe hurt",
+	"Hurt added by a severe act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var withdraw_hurt := num("withdraw_hurt", "history.withdraw_hurt", 6.0, "Not tonight at",
+	"Hurt points at which she gently refuses an act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
 
 # -- History › Score  (debug)
+static var bad_max := num("bad_max", "history.bad_max", 0.2, "Bad threshold",
+	"Fraction of the applicable actions at or below which an act is bad.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var early_grace_s := num("early_grace_s", "history.early_grace_s", 20.0, "Early grace",
+	"Seconds before an intentional early end counts as a summary.", WORLD, "History › Score") \
+	.with_unit("s").with_step(1.0).as_debug()
+static var good_min := num("good_min", "history.good_min", 0.8, "Good threshold",
+	"Fraction of the applicable actions that must go right for a good act.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var min_thrusts := num("min_thrusts", "history.min_thrusts", 2.0, "Minimum thrusts",
+	"Real thrusts that make a very short act scoreable.", WORLD, "History › Score") \
+	.with_step(1.0).as_debug()
 static var p_dislike := num("p_dislike", "history.p_dislike", 0.1, "Dislike penalty",
 	"Subtract per scored disliked touch or talk.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
@@ -1029,16 +966,6 @@ static var p_severe := num("p_severe", "history.p_severe", 0.15, "Severe penalty
 static var p_silence := num("p_silence", "history.p_silence", 0.15, "Silence penalty",
 	"Extra penalty for silent sex with a mare who likes to talk.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
-static var reminder_hurt := num("reminder_hurt", "history.reminder_hurt", 2.0, "Reminder at",
-	"Hurt points at which she starts reminding Anon.", WORLD, "History › Points") \
-	.with_step(1.0).as_debug()
-static var severe_hurt := num("severe_hurt", "history.severe_hurt", 2.0, "Severe hurt",
-	"Hurt added by a severe act.", WORLD, "History › Points") \
-	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
 static var w_climax := num("w_climax", "history.w_climax", 0.3, "Climax weight",
 	"Score weight for her reaching climax.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
@@ -1055,10 +982,25 @@ static var w_touch := num("w_touch", "history.w_touch", 0.2, "Touch weight",
 	"Score component for touch that matches her preference.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
 
-# -- History › Points  (debug)
-static var withdraw_hurt := num("withdraw_hurt", "history.withdraw_hurt", 6.0, "Not tonight at",
-	"Hurt points at which she gently refuses an act.", WORLD, "History › Points") \
-	.with_step(1.0).as_debug()
+# -- History › Offers  (debug)
+static var offer_base_s := num("offer_base_s", "history.offer_base_s", 600.0, "Offer cooldown",
+	"Base seconds between proactive offers.", WORLD, "History › Offers") \
+	.with_unit("s").with_step(10.0).as_debug()
+static var offer_comfort_scale := num("offer_comfort_scale", "history.offer_comfort_scale",
+	0.05, "Comfort cooldown", "Cooldown reduction per comfort point.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+static var offer_min_s := num("offer_min_s", "history.offer_min_s", 300.0, "Cooldown floor",
+	"Shortest cooldown at high comfort.", WORLD, "History › Offers") \
+	.with_unit("s").with_step(10.0).as_debug()
+static var offer_weight_base := num("offer_weight_base", "history.offer_weight_base", 0.7,
+	"Offer weight", "Base chance weight for a proactive offer.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+static var offer_weight_comfort := num("offer_weight_comfort", "history.offer_weight_comfort",
+	0.05, "Comfort weight", "Offer weight added per comfort point.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+static var offer_weight_hurt := num("offer_weight_hurt", "history.offer_weight_hurt", 0.12,
+	"Hurt weight", "Offer weight removed per hurt point.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
 
 # -- Neglect tolerance  (debug)
 static var tolerance_decay_amount := num("tolerance_decay_amount", "tolerance.decay_amount",
@@ -1097,22 +1039,6 @@ static var strict_stop := num("strict_stop", "tolerance.strict_stop", 3.0, "Stri
 static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1.0,
 	"Strict warning", "Warning threshold for a strict mare.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
-
-# -- (ungrouped)  (debug)
-static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", false, "Hide tails",
-	"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.", WORLD, "") \
-	.as_debug()
-static var act_bystanders := flag("act_bystanders", "features.act_bystanders", true,
-	"Bystander lines",
-	"Let an adult pony who can perceive the act say one short line. Uses the modern witness rules; young ponies never speak.", WORLD, "") \
-	.as_debug()
-static var act_public_offer := flag("act_public_offer", "features.act_public_offer", true,
-	"Public offers",
-	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "") \
-	.as_debug()
-static var body_yaw_deg := num("body_yaw_deg", "player.body_yaw_deg", 0.0, "Body yaw",
-	"Rotate Anon's body left or right for testing; the camera and pose are unchanged.", WORLD, "") \
-	.with_unit("°").with_step(1.0).as_debug()
 
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",

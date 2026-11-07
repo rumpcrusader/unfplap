@@ -1425,10 +1425,12 @@ rump blush. Unknown settings keys are ignored.
   units are not clipped; a declaration with `.with_slider()` draws a themed HSlider with its value
   beside it instead. The sidebar row sits under an **Add-ons** caption, and the injected page has no
   second title. Settings with no group render at the top of the tab without a heading; a group
-  needs at least three related settings to earn one. **General** opens with its ungrouped interface
-  rows (HUD readouts, control hints, act lines, history, captions, Ponese mute, Debug mode, acts
-  during cuddles, Starting Sex), then **Audio** and **Thrust**, with the act tuning (**Missionary**,
-  **Standing**, **Talk & cues**, **Camera**, **Thrust jiggle**) as debug sections. **Anatomy**
+  needs at least three related settings to earn one. **General** is one ungrouped list in this
+  order: Debug mode, Starting Sex, Control hints, HUD readouts, Captions on top, Mute Ponese audio,
+  Act lines, Long-term history, Climax limit, Sensitivity, Thrust direction. Its Debug block holds
+  the logs and act-line switches, auto thrust, the hip back-off and acts during cuddles, then the
+  **Audio**, **Camera**, **Missionary**, **Standing**, **Talk & cues** and **Thrust jiggle**
+  sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Anon part** and **Actions**. **World** opens
   with Promiscuity and the estrus switch, and its Debug block holds the witnesses, ponies, per-mare
   **History** and **Neglect tolerance**. **Characters** holds

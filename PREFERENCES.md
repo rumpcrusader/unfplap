@@ -64,16 +64,14 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 **General**
 
-The first rows have no heading: HUD readouts, control hints, act lines, long-term history, captions
-on top, mute Ponese audio, **Debug mode** (the switch that reveals the Debug sections), **Allow acts
-during cuddles** and **Starting Sex**.
+One ungrouped list, in this order: **Debug mode** (the switch that reveals the Debug sections),
+**Starting Sex**, **Control hints**, **HUD readouts**, **Captions on top**, **Mute Ponese audio**,
+**Act lines**, **Long-term history**, **Climax limit** (`0…20`, default `3`; `0` is unlimited),
+**Sensitivity** in pixels per full thrust (`240…1200`, default `1000`) and **Thrust direction**
+(which mouse direction deepens the stroke).
 
-- **Audio**: act foley, act vocals and the wet climax layer.
-- **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
-  `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), climax limit (`0…20`, default `3`; `0` is
-  unlimited), and auto-thrust pace (`1.0…3.75/s`, default `1.0/s`, quarter steps) and peak depth
-  (`0.20…1`, default `0.5`). The auto values are act-start defaults; the wheel and mouse adjust
-  them for one act.
+The audio switches, auto-thrust pace/depth (`1.0…3.75/s`, `0.20…1`), the hip back-off
+(`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 
 **Anatomy**
 

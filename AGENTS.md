@@ -1036,10 +1036,13 @@ examples.
 - The runtime logs the cue text and the admission decision on a change, adds the cue text to
   `utterance kind=...`, and logs cancel age/line/director state plus delivered/absent rows. Use
   these when a cue seems lost; there is no per-tick cue log.
-- A cue line uses the `cue` prompt. The state line contains pose, mood, preference-axis motion, last
-  touch, last talk, pony climax count and act time; it contains no speed or depth units. The
-  cue prompt gets `CUE_REACTION_NOTE`, which tells the model to phrase the cue as a reaction or
-  preference rather than a repeated command. Custom prompts may use `{state}`.
+- The HUD cue is third-person shorthand (`She wants it firmer.`). The prompt does not use it as the
+  line's content: `UTTERANCE.line_seed()` turns the same facts into a private second-person seed
+  (“You would rather he be firmer.”), says it is not a script, and the default templates use
+  `{seed}`. The state line contains pose, mood, preference-axis motion, last touch, last talk,
+  pony climax count and act time; it contains no speed or depth units. The cue prompt gets
+  `CUE_REACTION_NOTE`, which tells the model to phrase the private moment as a reaction or
+  preference rather than a repeated command. Custom prompts may use `{state}` or `{cue}`.
 - Mandatory cue context is code-owned: `UTTERANCE.context_note()` appends the state,
   relationship, tone and memory blocks that a saved prompt does not reference, plus the privacy
   guard. A legacy or custom template therefore cannot silently drop the relationship note.

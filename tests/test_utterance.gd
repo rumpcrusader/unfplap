@@ -55,6 +55,36 @@ func run() -> void:
 	var memory_only := UTTER.context_note("plain", {"relationship": "R", "memory": ""})
 	check(not memory_only.contains("shared memory"), "empty memory adds nothing")
 
+	var mismatch := UTTER.line_seed({
+		"mood": "wanting", "intensity": "soft", "pattern": "steady",
+		"wanted_intensity": "firm", "wanted_pattern": "steady",
+	})
+	check(mismatch.contains("rather he be firmer"), "a soft stroke asks for firm")
+	check(not mismatch.contains("She wants"), "a seed is second person, not a HUD cue")
+	check(mismatch.contains("private, not a script"), "a seed is explicitly private")
+	var match := UTTER.line_seed({
+		"mood": "wanting", "intensity": "firm", "pattern": "steady",
+		"wanted_intensity": "firm", "wanted_pattern": "steady",
+	})
+	check(match.contains("what you wanted"), "a matching stroke is affirmed")
+	var rhythm := UTTER.line_seed({
+		"mood": "wanting", "intensity": "firm", "pattern": "steady",
+		"wanted_intensity": "firm", "wanted_pattern": "quick",
+	})
+	check(rhythm.contains("quicker"), "a rhythm mismatch asks for the wanted tempo")
+	var close := UTTER.line_seed({
+		"mood": "close", "intensity": "soft", "wanted_intensity": "firm",
+	})
+	check(close.contains("You are close"), "closeness outranks a preference mismatch")
+	var overwhelmed := UTTER.line_seed({"mood": "overwhelmed"})
+	check(overwhelmed.contains("need a breath"), "overwhelmed outranks closeness")
+	var touch := UTTER.line_seed({
+		"mood": "wanting", "last_touch": "caress", "touch_likes": ["caress"],
+	})
+	check(touch.contains("liked his touch"), "a liked touch colors a quiet moment")
+	var quiet := UTTER.line_seed({"mood": "warming"})
+	check(quiet.contains("nothing needs fixing"), "a quiet moment does not invent a demand")
+
 	var line := UTTER.state_line("missionary", "wanting", "firm", "teasing", "caress", "praise", 18.0, 2)
 	check(line.contains("pose=missionary"), "state line pose")
 	check(line.contains("mood=wanting"), "state line mood")

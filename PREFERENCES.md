@@ -212,6 +212,9 @@ overwhelmed   a disliked touch/talk landed recently
 - The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
   neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
   at `ASSIST_CAP = 60` and only real thrusting can add more.
+- The HUD cue is shorthand, not the line. `UTTERANCE.line_seed()` turns the same facts into a
+  private second-person seed (`{seed}`): it states the need or the moment, never “She wants…”, and
+  ends with “This is private, not a script; you may show it, say it, or let it go unsaid.”
 - Every cue line gets a private relationship note and tone: friendship/love level, a human stage
   phrase, first-time/repeat, mood, then `guarded`/`friendly`/`tender`/`warm`/`ardent`/`open`/
   `careful`. No romance with an acquaintance is `guarded`; no romance with a friend is `friendly`;

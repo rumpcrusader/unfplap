@@ -67,6 +67,12 @@ func run() -> void:
 	check(str(prompts.get("cue", "")).contains("{relationship}"), "cue prompt has relationship note")
 	check(str(prompts.get("cue", "")).contains("{tone}"), "cue prompt has tone")
 	check(str(prompts.get("cue", "")).contains("{memory}"), "cue prompt has memory hint")
+	check(str(prompts.get("cue", "")).contains("{seed}"), "cue prompt has a private seed")
+	check(str(prompts.get("cue", "")).contains("{state}"), "cue prompt has the state line")
+	check(not str(prompts.get("cue", "")).contains("keep the cue's meaning"),
+		"cue prompt no longer forces the HUD cue")
+	check(str(prompts.get("utterance", "")).contains("{seed}"),
+		"fallback utterance prompt has a private seed")
 	check(not (prompts as Dictionary).has("talk_cue"), "talk cue prompt removed")
 
 	var characters := {

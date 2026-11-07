@@ -81,7 +81,7 @@ const RECEPTIVE_BOOST := 1.25
 ## Readiness text clears after this long without an inward thrust.
 const STROKE_MEMORY_S := 1.2
 ## Appended to cue prompts to stop the model turning every cue into a command.
-const CUE_REACTION_NOTE := "\nDo not turn the cue into a repeated command; say it as your own reaction or preference."
+const CUE_REACTION_NOTE := "\nDo not turn the private moment into a repeated command; say it as your own reaction or preference."
 ## integration: line-variety history and angles, ported from the fork.
 const RECENT_LINES := 8
 const ANGLES_REMEMBERED := 7
@@ -3233,8 +3233,22 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	if kind == "cue":
 		var facts := MEMORY.cue_facts(main.game, _id, _event_id)
 		var tone_name := RELATIONSHIP_CUE.tone(facts)
-		values["relationship"] = RELATIONSHIP_CUE.note(facts)
-		values["tone"] = RELATIONSHIP_CUE.tone_line(tone_name)
+		var relationship_note := RELATIONSHIP_CUE.note(facts)
+		values["relationship"] = relationship_note
+		values["tone"] = RELATIONSHIP_CUE.tone_line(tone_name) \
+			if not relationship_note.is_empty() else ""
+		values["seed"] = UTTERANCE.line_seed({
+			"mood": mood,
+			"intensity": _last_intensity,
+			"pattern": _last_pattern,
+			"wanted_intensity": str(_preferences.get("intensity", "firm")),
+			"wanted_pattern": str(_preferences.get("pattern", "steady")),
+			"last_touch": _last_touch,
+			"last_talk": _last_talk,
+			"touch_likes": _preferences.get("touch", []),
+			"touch_dislikes": _preferences.get("dislikes", []),
+			"talk_likes": _preferences.get("talk", []),
+		})
 		var memory := MEMORY.shared_memory(main.game, _id, cue, _event_id, _used_memory_ids)
 		values["memory"] = RELATIONSHIP_CUE.memory_line(str(memory.get("text", "")))
 		memory_id = str(memory.get("id", ""))

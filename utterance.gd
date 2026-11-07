@@ -50,6 +50,58 @@ static func context_note(template: String, blocks: Dictionary) -> String:
 	return "" if parts.is_empty() else "\n" + "\n".join(parts)
 
 
+## A private line seed. The HUD cue is shorthand; this says what the moment means to her, in
+## second person, so the line is not a status report or an order.
+static func line_seed(facts: Dictionary) -> String:
+	var need := ""
+	match str(facts.get("mood", "")):
+		"overwhelmed":
+			need = "That was too much; you need a breath before more."
+		"close":
+			need = "You are close, and it is hard to think about anything else."
+	if need.is_empty():
+		var intensity := str(facts.get("intensity", ""))
+		var wanted_intensity := str(facts.get("wanted_intensity", "firm"))
+		if not intensity.is_empty() and intensity != wanted_intensity:
+			match wanted_intensity:
+				"soft":
+					need = "You would rather he be softer."
+				"rough":
+					need = "You would rather he be harder."
+				_:
+					need = "You would rather he be firmer."
+		else:
+			var pattern := str(facts.get("pattern", ""))
+			var wanted_pattern := str(facts.get("wanted_pattern", "steady"))
+			if not pattern.is_empty() and pattern != wanted_pattern:
+				match wanted_pattern:
+					"teasing":
+						need = "You want a slower, teasing rhythm."
+					"quick":
+						need = "You want it quicker."
+					_:
+						need = "You want a steadier rhythm."
+			elif not intensity.is_empty() and not pattern.is_empty() \
+					and intensity == wanted_intensity and pattern == wanted_pattern:
+				need = "This is what you wanted; let yourself feel it."
+	if need.is_empty():
+		var last_touch := str(facts.get("last_touch", ""))
+		var touch_likes: Array = facts.get("touch_likes", []) if facts.get("touch_likes", []) is Array else []
+		var touch_dislikes: Array = facts.get("touch_dislikes", []) if facts.get("touch_dislikes", []) is Array else []
+		if not last_touch.is_empty() and last_touch in touch_likes:
+			need = "You liked his touch."
+		elif not last_touch.is_empty() and last_touch in touch_dislikes:
+			need = "That did not sit right."
+	if need.is_empty():
+		var last_talk := str(facts.get("last_talk", ""))
+		var talk_likes: Array = facts.get("talk_likes", []) if facts.get("talk_likes", []) is Array else []
+		if not last_talk.is_empty() and last_talk in talk_likes:
+			need = "What he said landed."
+	if need.is_empty():
+		need = "You are here with him; nothing needs fixing."
+	return need + " This is private, not a script; you may show it, say it, or let it go unsaid."
+
+
 ## Short private state line for the AI. No speed/depth units: the mood, the two preference axes
 ## and the last concrete input are what a partner would actually notice.
 static func state_line(pose_id: String, mood: String, intensity: String, pattern: String,

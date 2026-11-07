@@ -155,6 +155,23 @@ func run() -> void:
 	check(no_liked_touch.grade != "good", "a touch preference that was never met is not good")
 	check("no_liked_touch" in (no_liked_touch.reasons as Array), "missing liked touch is named")
 
+	check(SUMMARY.afterglow_beat({}, 0.9) == "", "an empty summary has no afterglow beat")
+	var good_summary := {"grade": "good"}
+	check(SUMMARY.afterglow_beat(good_summary, 0.39) == "",
+		"the afterglow beat can be silent")
+	check(SUMMARY.afterglow_beat(good_summary, 0.4) == "You are warm and quiet.",
+		"the first afterglow beat is chosen")
+	check(SUMMARY.afterglow_beat(good_summary, 0.99) ==
+		"You are a little pleased with yourself.", "the last afterglow beat is chosen")
+	check(SUMMARY.afterglow_beat({"grade": "bad"}, 0.4) ==
+		"You are quiet and a little raw.", "a bad act gets a raw beat")
+	var early_prompt := SUMMARY.early_end_prompt({})
+	check(early_prompt.contains("Do not review the act"), "the early end asks for a moment")
+	check(not early_prompt.contains("Next time"), "the early end asks for no next-time list")
+	var severe_prompt := SUMMARY.early_end_prompt({"severe": true})
+	check(severe_prompt.contains("you are hurt"), "a severe early end is quieter")
+	check(not severe_prompt.contains("Next time"), "a severe early end asks for no list")
+
 	print("ACT_SUMMARY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_SUMMARY_PASS")

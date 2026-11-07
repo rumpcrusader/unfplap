@@ -282,9 +282,10 @@ The standing afterglow always starts an 8 s close window:
 Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
 removed; the HUD timer and active caress time own the standing close invitation. A world-context
 event records that the act has ended while the two are still in the afterglow together, so a
-normal reply keeps the moment present without a scripted line. The live note carries her
-first-person `thought` and the private relationship note; it does not append a mechanical
-“next time” wish.
+normal reply keeps the moment present without a scripted line. The live note carries one short
+random afterglow beat (`ACT_SUMMARY.afterglow_beat()`, 40% silence) and the private relationship
+note; the HUD and the impression keep the full summary. The note does not recite the summary or
+append a mechanical “next time” wish.
 
 After 16 s the mare may choose to end the afterglow herself. The roll is once per second;
 caressing or leaning close lowers the chance. An accepted `[stay: SECONDS]` action from normal

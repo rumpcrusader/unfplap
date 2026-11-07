@@ -120,7 +120,7 @@ Only good and bad acts move the points. Neutral acts change no history.
 | Tier | Trigger | Proactive offers | Player-initiated act |
 |---|---|---|---|
 | Steady | hurt 0–1 | normal | normal |
-| Uneasy | hurt 2–3 | normal, but offer weight drops and she adds a gentle reminder | normal |
+| Uneasy | hurt 2–3 | normal, but offer weight drops and she may give a rare vague hint | normal |
 | Hurt | hurt 4–5 | no offers | allowed, with a cold reminder |
 | Withdrawn | hurt 6+ | none | a gentle spoken refusal until repair |
 
@@ -198,11 +198,15 @@ and blocks nothing; the gates above do that.
 - The afterglow HUD shows the summary. Missionary puts it in the cue line; standing keeps the
   close prompt in the cue and puts the summary on the readiness line. Early end shows no HUD.
 - `prompt_note()` carries the private history note while idle, the relationship note during the
-  act and afterglow, and her first-person `thought` in afterglow. The afterglow note no longer
-  appends the mechanical `last_wants`; hurt/repair and offer prompts filter them through
-  `ACT_HISTORY.repair_wants()`, which keeps comfort needs and drops stroke mechanics.
-- A pending reminder or complaint is queued as one short line after a 45 s delay, when the player
-  is within 5 m and the director is idle. One line per tier rise.
+  act and afterglow, and one short random afterglow beat (or none). It does not recite the summary
+  or her first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer
+  prompts filter `last_wants` through `ACT_HISTORY.repair_wants()`, which keeps comfort needs and
+  drops stroke mechanics.
+- An intentional early end gives one short reaction 50% of the time and marks its pending history
+  line announced, so the same act does not speak twice.
+- A pending complaint (tier 2/3) is queued as one short line after a 45 s delay, when the player is
+  within 5 m and the director is idle. Tier 1 uses a deterministic rare hint (about one act in
+  four) and a vague line with no wants list. One line per tier rise.
 - A sincere apology is detected locally by `preferences.apology_intent()`; only the pony currently
   in conversation with the player repairs.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...

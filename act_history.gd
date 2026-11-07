@@ -168,11 +168,19 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 		row["reminder_pending"] = false
 		row["complaint_pending"] = false
 	elif current > previous:
-		row["reminder_pending"] = true
-		row["complaint_pending"] = current >= 2
-		events.append("complaint" if current >= 2 else "reminder")
-		if current >= 3:
-			events.append("withdrawn")
+		if current >= 2:
+			row["reminder_pending"] = true
+			row["complaint_pending"] = true
+			events.append("complaint")
+			if current >= 3:
+				events.append("withdrawn")
+		else:
+			# Tier 1 is a rare, vague hint, not a post-act reminder list.
+			var hint := tier_one_hint(row)
+			row["reminder_pending"] = hint
+			row["complaint_pending"] = false
+			if hint:
+				events.append("reminder")
 	elif current < previous:
 		row["reminder_pending"] = false
 		row["complaint_pending"] = false
@@ -249,6 +257,14 @@ static func tier_index(row: Dictionary) -> int:
 	if hurt >= int(regular.get("reminder_hurt", 2)):
 		return 1
 	return 0
+
+
+## A tier-1 hint is deliberately rare and vague. The choice is deterministic for one act.
+static func tier_one_hint(row: Dictionary) -> bool:
+	if tier_index(row) != 1:
+		return false
+	var seed := int(float(row.get("last_at", 0.0))) + int(row.get("hurt", 0)) * 17
+	return posmod(seed, 4) == 0
 
 
 static func tier_name(row: Dictionary) -> String:
@@ -336,9 +352,9 @@ static func prompt_note(row: Dictionary) -> String:
 			+ ("You remember: " + text + " " if not text.is_empty() else "") \
 			+ ("You want to " + wants + ". " if not wants.is_empty() else "") \
 			+ "You do not want to ask him for sex; if he starts, tell him what you need."
-	return "- You remember the last time: " \
-		+ (text + " " if not text.is_empty() else "") \
-		+ ("Next time you want to " + wants + "." if not wants.is_empty() else "")
+	if not tier_one_hint(row):
+		return ""
+	return "- Something about last time is still sitting with you. You are not ready to spell it out."
 
 
 static func ask_note(row: Dictionary) -> String:
@@ -364,10 +380,9 @@ static func line_purpose(row: Dictionary, kind: String) -> String:
 			+ (" You want to " + wants + "." if not wants.is_empty() else "") \
 			+ " Tell him gently but plainly what he did and what you need next time. " \
 			+ "One short sentence, at most 14 words, in your own voice. Do not narrate actions."
-	return "Anon is close. You remember the last time: " + text \
-		+ (" You want to " + wants + "." if not wants.is_empty() else "") \
-		+ " Remind him gently what you need next time. One short sentence, at most 14 words, " \
-		+ "in your own voice. Do not narrate actions."
+	return "Anon is close. Something about last time is still sitting with you. Say one short, " \
+		+ "in-character line that hints at it; do not summarize the act or list requests. " \
+		+ "One short sentence, at most 14 words. Do not narrate actions."
 
 
 static func refusal_purpose(row: Dictionary) -> String:

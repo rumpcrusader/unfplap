@@ -32,6 +32,19 @@ const DEFAULT_RULES := {
 ## Reason sentences for the private note: [profile-safe world event, private thought]. The event
 ## text must read correctly after the profile's "You and Anon " -> "You and <name>" rewrite, so it
 ## uses no second-person pronouns; the thought is her own voice (He/I).
+## Short private beats for afterglow. The HUD and the impression keep the full summary; these
+## only give the model a mood, never a review or a request list. 40% of rolls return nothing.
+const AFTERGLOW_BEATS := {
+	"great": ["You are warm and quiet.", "You feel close to him.",
+		"You are sleepy and comfortable.", "You are a little pleased with yourself."],
+	"good": ["You are warm and quiet.", "You feel close to him.",
+		"You are sleepy and comfortable.", "You are a little pleased with yourself."],
+	"neutral": ["You are still catching your breath.", "You are quiet, not sure what to say.",
+		"You are comfortable but thoughtful."],
+	"bad": ["You are quiet and a little raw.", "You need a moment before you talk.",
+		"You are hurt but not ready to explain."],
+}
+
 const REASON_LINES := {
 	"no_climax": ["She did not get there.", "I did not get there."],
 	"silent_talk": ["Anon did not speak when she needed to hear him.",
@@ -233,6 +246,27 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		"wants": wants,
 		"hud": _hud(grade, severe),
 	}
+
+
+## One short private afterglow beat, or "" when the roll asks for silence. The summary stays in
+## the HUD and the impression; this is never a review.
+static func afterglow_beat(summary: Dictionary, roll: float) -> String:
+	if summary.is_empty() or roll < 0.4:
+		return ""
+	var grade := str(summary.get("grade", "neutral"))
+	var pool: Variant = AFTERGLOW_BEATS.get(grade, AFTERGLOW_BEATS["neutral"])
+	if not pool is Array or (pool as Array).is_empty():
+		return ""
+	var beats: Array = pool
+	var pick := int(((clampf(roll, 0.4, 0.9999) - 0.4) / 0.6) * float(beats.size()))
+	return str(beats[clampi(pick, 0, beats.size() - 1)])
+
+
+## The early-end reaction asks for a moment, not a summary or a next-time list.
+static func early_end_prompt(summary: Dictionary) -> String:
+	if bool(summary.get("severe", false)):
+		return "Anon stopped early and you are hurt. Say one short, quiet sentence. Do not explain or negotiate. Saying nothing is fine."
+	return "Anon stopped before the act finished. Say one short sentence about how you feel right now, in your own voice. Do not review the act, do not list what you want next time, and do not lecture. One sentence, at most 10 words. Saying nothing is fine."
 
 
 static func _skipped(reason: String) -> Dictionary:

@@ -258,6 +258,8 @@ var _restore_left := 0.0
 var _check_clock := 0.0
 var _afterglow_pose := ""
 var _afterglow_elapsed := 0.0
+## One short private afterglow beat, rolled once when afterglow begins. Empty means silence.
+var _afterglow_beat := ""
 var _afterglow_hold_until := 0.0
 var _self_end_clock := 0.0
 var _action_executor: Node
@@ -1816,6 +1818,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_thrust_state()
 	_summary = {}
 	_summary_done = false
+	_afterglow_beat = ""
 	_stopped_by_her = false
 	_debug_forced_tolerance = ""
 	_tolerance_warning_key = ""
@@ -3945,25 +3948,31 @@ func cancel() -> void:
 		_end_act_lines(true)
 		_restore_begin()
 		if _act_lines_enabled():
-			var act_id := _event_id
-			var expires := _now_s() + _cue_reaction_max_age_s
-			var reaction_key := MEMORY.mod_key(act_id, "reply", "end_early")
-			var valid := func() -> bool:
-				if not is_instance_valid(pony) or _event_id != act_id:
-					return false
-				if _now_s() <= expires:
-					return true
-				return MEMORY.line_state(main.game, reaction_key) == "speaking"
-			var wants := ACT_HISTORY.repair_wants(str(_summary.get("wants", "")))
-			var extra := (" Next time you want to " + wants + ".") if not wants.is_empty() else ""
-			var key := MEMORY.reaction_for(main.game, _id, "end_early", act_id,
-				"Anon stopped before you reached climax. Say one short sentence, at most 12 words, in your own voice. Saying nothing is fine." + extra,
-				valid)
-			if not key.is_empty():
-				var now := _now_s()
-				_utterance_scheduler().note_reaction_queued(now, key, "",
-					now + _cue_reaction_max_age_s)
-				_log("utterance kind=reaction key=%s" % key)
+			# Half the time she says nothing at all. When she does speak, it is a moment, not a
+			# review or a next-time list.
+			if randf() >= 0.5:
+				var act_id := _event_id
+				var expires := _now_s() + _cue_reaction_max_age_s
+				var reaction_key := MEMORY.mod_key(act_id, "reply", "end_early")
+				var valid := func() -> bool:
+					if not is_instance_valid(pony) or _event_id != act_id:
+						return false
+					if _now_s() <= expires:
+						return true
+					return MEMORY.line_state(main.game, reaction_key) == "speaking"
+				var key := MEMORY.reaction_for(main.game, _id, "end_early", act_id,
+					ACT_SUMMARY.early_end_prompt(_summary), valid)
+				if not key.is_empty():
+					var now := _now_s()
+					_utterance_scheduler().note_reaction_queued(now, key, "",
+						now + _cue_reaction_max_age_s)
+					_log("utterance kind=reaction key=%s" % key)
+			# The stopped act gets one post-act beat at most: suppress the later history line
+			# for the same act, even when the roll chose silence. A skipped summary must not
+			# clear an older act's pending reminder.
+			if not _summary.is_empty() \
+					and ACT_HISTORY.mark_announced(ACT_HISTORY.section(), _id, "complaint"):
+				ACT_HISTORY.save()
 	elif state == State.AFTERGLOW:
 		end_afterglow()
 
@@ -4182,14 +4191,13 @@ func prompt_note() -> String:
 			var relation := _relationship_note()
 			if not relation.is_empty():
 				warm += " " + relation
-			return warm + (" " + history if not history.is_empty() else "")
+			return warm
 		return history
 	var parts: PackedStringArray = []
 	if state == State.AFTERGLOW:
 		parts.append("- You are still in the afterglow with Anon; the act has ended, but the moment is not finished yet.")
-		var summary_note := str(_summary.get("thought", "")).strip_edges()
-		if not summary_note.is_empty():
-			parts.append("- This act: " + summary_note)
+		if not _afterglow_beat.is_empty():
+			parts.append("- " + _afterglow_beat)
 	else:
 		parts.append("- You are in the middle of sex with Anon.")
 		if not history.is_empty():
@@ -4400,6 +4408,7 @@ func _afterglow_begin() -> void:
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("on_finish")
 	_commit_afterglow()
+	_afterglow_beat = ACT_SUMMARY.afterglow_beat(_summary, randf())
 	state = State.AFTERGLOW
 	_afterglow_pose = pose_id
 	_afterglow_elapsed = 0.0

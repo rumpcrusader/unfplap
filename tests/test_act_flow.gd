@@ -78,8 +78,11 @@ func run() -> void:
 		"positive": true, "reward": true, "grade": "great",
 	}
 	check(str(runtime.call("hud_cue_line", true)).contains("Great"), "missionary afterglow cue shows the summary")
+	runtime._afterglow_beat = "You are warm and quiet."
 	var afterglow_note := str(runtime.call("prompt_note"))
-	check(afterglow_note.contains("I felt wanted"), "afterglow uses her first-person thought")
+	check(afterglow_note.contains("You are warm and quiet"), "afterglow uses its private beat")
+	check(not afterglow_note.contains("I felt wanted") and not afterglow_note.contains("This act"),
+		"afterglow does not recite the act summary")
 	check(not afterglow_note.contains("Next time you want"),
 		"afterglow drops the mechanical next-time line")
 	check(str(runtime.call("hud_readiness_line", true)).is_empty(),

@@ -825,9 +825,10 @@ examples.
   is the last player exchange, or a generic warm beat when he did not speak. The cue prompt
   prefers this memory.
 - The afterglow HUD shows the summary: missionary in the cue line, standing on the readiness line
-  under its close prompt. Early end shows no HUD summary. `prompt_note()` carries her first-person
-  `thought` and a private relationship note in afterglow, the relationship note during the act and
-  the history note while idle. It does not append “Next time you want…” stroke mechanics.
+  under its close prompt. Early end shows no HUD summary. `prompt_note()` carries one short random
+  afterglow beat (`ACT_SUMMARY.afterglow_beat()`, 40% silence) and a private relationship note in
+  afterglow, the relationship note during the act and the history note while idle. It does not
+  recite the summary or append “Next time you want…” stroke mechanics.
 - Memory uses the game's second-person phrasing. A witness must actually perceive the act:
   `pony_awareness.visible()` (24 m, facing, clear line) or `can_hear()` (12 m, clear line);
   sleeping ponies are skipped. Each observer gets her own event (`witnesses = [observer]`, place =
@@ -854,9 +855,11 @@ examples.
 - A summary is good at `>= 0.80`, bad at `<= 0.20`, neutral between. A neutral early end adds
   one mild hurt. A partner stop is always severe. The grade decides romance, mood, satisfied and
   aftercare; there is no flat `commit_climax()` reward.
-- The history tiers are hurt `2` reminder, `4` no proactive offers, `6+` spoken refusal. Good
-  acts repair hurt, time decays it and an apology repairs it once per in-game day. There is no
-  break-up path.
+- The history tiers are hurt `2` rare vague hint, `4` no proactive offers, `6+` spoken refusal.
+  Good acts repair hurt, time decays it and an apology repairs it once per in-game day. There is no
+  break-up path. A tier-1 hint is deterministic per act and appears only about one time in four;
+  tier 2/3 keep the clear hurt/space line, and an early-end act suppresses the later history line
+  for that act.
 - The afterglow HUD shows the summary. The debug log prints the grade, quality, checks, reasons,
   hurt and comfort. See `HISTORY.md`.
 
@@ -1086,6 +1089,10 @@ examples.
   act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`) and when
   `features.act_lines` is switched off mid-act. The intentional early-stop line is queued after
   the restore begins, and `_finish_restore()` never calls it.
+- The early-stop line is a 50% chance, not a guaranteed summary. When it fires, it asks for one
+  short feeling or a quiet hurt line, never a review or a next-time list. The early-end act then
+  marks its pending history reminder/complaint announced, so the same act cannot produce a second
+  post-act speech.
 - `features.act_lines` (default on) gates cue lines and climax/early-end reactions. Off keeps
   normal dialogue and the HUD cue.
 - The standing afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes

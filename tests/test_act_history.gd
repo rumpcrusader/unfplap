@@ -87,7 +87,11 @@ func run() -> void:
 		tries += 1
 	check(HISTORY.tier_index(row) == 1, "hurt reaches the uneasy tier")
 	check(HISTORY.blocks_offers(row) == false, "an uneasy mare still offers")
-	check(bool(row.get("reminder_pending", false)), "an uneasy tier arms a reminder")
+	var uneasy_hint := HISTORY.tier_one_hint(row)
+	check(bool(row.get("reminder_pending", false)) == uneasy_hint,
+		"an uneasy tier arms its reminder only through the rare hint")
+	check(str(HISTORY.pending_line(row)) == ("reminder" if uneasy_hint else ""),
+		"the uneasy pending line follows the rare hint")
 
 	while int(row.get("hurt", 0)) < block and tries < 20:
 		row = HISTORY.commit(section, "rarity", bad, 10.0).get("row", {})
@@ -214,6 +218,7 @@ func run() -> void:
 	check(str(HISTORY.pending_line(HISTORY.sanitize({}))).is_empty(),
 		"a steady row has no pending line")
 	var pending := line_row.duplicate(true)
+	pending["hurt"] = block
 	pending["complaint_pending"] = true
 	pending["reminder_pending"] = true
 	check(str(HISTORY.pending_line(pending)) == "complaint", "a complaint wins over a reminder")
@@ -225,17 +230,22 @@ func run() -> void:
 	check(not text.is_empty(), "a hurt mare has a prompt note")
 	check(not text.contains("0."), "the prompt note carries no raw score")
 	check(not text.contains("You want be "), "a prompt note joins wants with to")
+	var quiet_one := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
+		"last_wants": "be gentle", "last_at": 0.0})
+	check(str(HISTORY.prompt_note(quiet_one)) == "", "the tier-1 hint is rare")
 	var tier_one := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
-		"last_wants": "be gentle"})
+		"last_wants": "be gentle", "last_at": 2.0})
+	check(HISTORY.tier_one_hint(tier_one), "the tier-1 hint is deterministic")
 	var tier_one_note := str(HISTORY.prompt_note(tier_one))
-	check(tier_one_note.count("remember") == 1,
-		"the first tier remembers the last time once")
-	check(tier_one_note.contains("Next time you want to be gentle"),
-		"the first tier uses a forward-looking want")
+	check(tier_one_note.contains("still sitting with you"), "the tier-1 hint is vague")
+	check(not tier_one_note.contains("Next time"),
+		"the tier-1 hint carries no next-time list")
 	check(str(HISTORY.ask_note(tier_one)).contains("You want to be gentle"),
 		"the ask note joins wants with to")
 	check(str(HISTORY.line_purpose(tier_one, "complaint")).contains("You want to be gentle"),
 		"the complaint line joins wants with to")
+	check(not str(HISTORY.line_purpose(tier_one, "reminder")).contains("Next time you want"),
+		"the reminder line carries no next-time list")
 	check(str(HISTORY.ask_note(HISTORY.sanitize({}))).is_empty(),
 		"a steady mare has no ask note")
 	check(HISTORY.repair_wants("take me firmer and be gentle with me") == "be gentle with me",

@@ -4,6 +4,7 @@ extends SceneTree
 
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
@@ -32,6 +33,13 @@ class FakeAnatomy extends Node:
 
 	func fluid() -> Node3D:
 		return null
+
+
+class FakeHeatRuntime extends Node:
+	var state := 0
+
+	func cycle_phase() -> String:
+		return "heat"
 
 
 func _initialize() -> void:
@@ -174,6 +182,76 @@ func run() -> void:
 	check(not bool(runtime.call("anatomy_finish_ready")), "finish gate closed without an act")
 	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
 	runtime.free()
+
+	# Idle heat: active act states suppress the display, idle allows it, and a due timer winks.
+	var heat_runtime := FakeHeatRuntime.new()
+	var heat_anatomy: Node = ANATOMY.new()
+	var heat_pony := Node3D.new()
+	var wink_mesh := MeshInstance3D.new()
+	wink_mesh.mesh = BoxMesh.new()
+	heat_anatomy.add_child(wink_mesh)
+	get_root().add_child(heat_anatomy)
+	heat_anatomy.set_process(false)
+	heat_anatomy.set("pony", heat_pony)
+	heat_anatomy.set("runtime", heat_runtime)
+	heat_anatomy.set("_attached", true)
+	heat_anatomy.set("_mesh", wink_mesh)
+	heat_anatomy.set("_last_shown", true)
+	heat_runtime.state = 2
+	heat_anatomy.call("_heat_idle_tick", 0.1)
+	check(bool(heat_anatomy.get("_heat_suppressed")), "active act suppresses idle heat")
+	heat_runtime.state = 0
+	heat_anatomy.set("_heat_phase", CYCLE.HEAT)
+	heat_anatomy.set("_heat_phase_clock", 999.0)
+	heat_anatomy.set("_heat_wink_clock", 0.001)
+	heat_anatomy.call("_heat_idle_tick", 0.01)
+	check(float(heat_anatomy.get("_heat_wink_clock")) >= CYCLE.WINK_MIN_S,
+		"an idle heat wink resets the interval")
+	check(heat_anatomy.get("_tween") != null, "an idle heat wink builds its tween")
+	heat_anatomy.set_idle_wink(0.0)
+	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), 0.0),
+		"the default rest clears the wink shape")
+	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0),
+		"the default rest is the authored closed shape")
+	heat_anatomy.set_idle_wink(ANATOMY.HEAT_REST_OPEN)
+	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), ANATOMY.HEAT_REST_OPEN),
+		"heat rests at the configured share of the wink shape")
+	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0),
+		"the heat rest leaves the closed shape alone")
+	heat_anatomy.drive(0.5)
+	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), 0.0),
+		"acts clear the idle wink shape")
+	heat_anatomy.free()
+	heat_pony.free()
+	heat_runtime.free()
+
+	# The refined winking mesh leaves the default closed shape alone and masks only the anal rim.
+	if ANATOMY.assets_exist():
+		var wink_scene: PackedScene = load(ANATOMY.WINKING_PATH)
+		var wink_root: Node = wink_scene.instantiate()
+		var wink_mi := wink_root as MeshInstance3D
+		var source_mesh := wink_mi.mesh as ArrayMesh
+		var refined_mesh := ANATOMY.refined_winking_mesh(source_mesh)
+		check(refined_mesh != null, "the winking mesh rebuilds")
+		if refined_mesh != null:
+			check(refined_mesh.get_blend_shape_count() >= 2, "the wink keeps its shape keys")
+			check(str(refined_mesh.get_blend_shape_name(0)) == "closed",
+				"the closed shape keeps its name")
+			var src_base: PackedVector3Array = source_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var src_closed: PackedVector3Array = source_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
+			var ref_base: PackedVector3Array = refined_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var ref_closed: PackedVector3Array = refined_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
+			check(ref_base == src_base, "the default resting mesh is unchanged")
+			var anal_index := -1
+			for i in src_base.size():
+				if src_base[i].y > 0.06 and (src_closed[i] - src_base[i]).length() > 0.001:
+					anal_index = i
+					break
+			check(anal_index >= 0, "an anal rim vertex moves in the source shape")
+			if anal_index >= 0:
+				check((ref_closed[anal_index] - ref_base[anal_index]).length() < 0.0001,
+					"the anal rim no longer winks")
+		wink_root.free()
 
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
 	# the lips stay on the shaft through the climax instead of closing on nothing.

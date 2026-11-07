@@ -56,6 +56,7 @@ func _ready() -> void:
 	view.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	view.custom_aabb = AABB(Vector3.ONE * -2000.0, Vector3.ONE * 4000.0)
 	add_child(view)
+	set_physics_process(false)
 
 
 func _centre() -> Vector3:
@@ -67,6 +68,7 @@ func _radii() -> Vector3:
 
 
 func spray(at: Vector3, direction: Vector3, count: int, speed: float, size: float, color: Color) -> void:
+	set_physics_process(true)
 	for i in count:
 		var spread := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.2
 		var along := (direction.normalized() + spread).normalized()
@@ -76,6 +78,7 @@ func spray(at: Vector3, direction: Vector3, count: int, speed: float, size: floa
 func drip(source: Callable, seconds: float, per_second: float, size: float, color: Color) -> void:
 	_leaks.append({"source": source, "left": seconds, "rate": per_second, "due": 0.0,
 		"size": size, "color": color})
+	set_physics_process(true)
 
 
 func clear() -> void:
@@ -83,6 +86,7 @@ func clear() -> void:
 	_leaks.clear()
 	if is_instance_valid(_multi):
 		_multi.visible_instance_count = 0
+	set_physics_process(false)
 
 
 func _add(at: Vector3, velocity: Vector3, size: float, color: Color) -> void:
@@ -105,6 +109,9 @@ func _body_frame() -> Transform3D:
 
 
 func _physics_process(delta: float) -> void:
+	if _drops.is_empty() and _leaks.is_empty():
+		set_physics_process(false)
+		return
 	var started := Time.get_ticks_usec()
 	for leak: Dictionary in _leaks:
 		leak.left -= delta
@@ -130,6 +137,8 @@ func _physics_process(delta: float) -> void:
 			kept.append(drop)
 	_drops = kept
 	_draw_drops()
+	if _drops.is_empty() and _leaks.is_empty():
+		set_physics_process(false)
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "climax_fluid", Time.get_ticks_usec() - started)
 

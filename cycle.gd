@@ -11,6 +11,13 @@ const MONTH_DAYS := 30.0
 const HEAT_DAYS := 7.0
 const DIESTRUS_DAYS := 2.0
 
+## Idle heat display: one wink every 15-20 seconds, sometimes in a burst. The roll is 5%
+## triple, 25% double and 70% single.
+const WINK_MIN_S := 15.0
+const WINK_MAX_S := 20.0
+const WINK_TRIPLE_BELOW := 0.05
+const WINK_DOUBLE_BELOW := 0.30
+
 
 ## Stable per-mare offset in days, so the whole town does not cycle together.
 static func offset(id: String) -> float:
@@ -35,6 +42,20 @@ static func phase(day: float, id: String) -> String:
 ## She starts and offers sex in heat and normal, but not in diestrus.
 static func allows_sex(phase_name: String) -> bool:
 	return phase_name != DIESTRUS
+
+
+## Seconds until the next idle heat wink.
+static func wink_interval() -> float:
+	return randf_range(WINK_MIN_S, WINK_MAX_S)
+
+
+## Wink count for one idle burst. `roll` is a 0..1 random value.
+static func wink_burst_count(roll: float) -> int:
+	if roll < WINK_TRIPLE_BELOW:
+		return 3
+	if roll < WINK_DOUBLE_BELOW:
+		return 2
+	return 1
 
 
 ## Private note for the normal dialogue prompt. Empty in normal.

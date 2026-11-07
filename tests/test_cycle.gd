@@ -49,6 +49,19 @@ func run() -> void:
 		"diestrus has a prompt note")
 	check(CYCLE.prompt_note(CYCLE.NORMAL).is_empty(), "normal has no prompt note")
 
+	var interval_ok := true
+	for _i in 200:
+		var interval := CYCLE.wink_interval()
+		if interval < CYCLE.WINK_MIN_S or interval > CYCLE.WINK_MAX_S:
+			interval_ok = false
+	check(interval_ok, "idle wink interval stays inside 15-20 seconds")
+	check(CYCLE.wink_burst_count(0.0) == 3, "the bottom roll is a triple")
+	check(CYCLE.wink_burst_count(0.0499) == 3, "triples stop below five percent")
+	check(CYCLE.wink_burst_count(0.05) == 2, "doubles start at five percent")
+	check(CYCLE.wink_burst_count(0.2999) == 2, "doubles stop below thirty percent")
+	check(CYCLE.wink_burst_count(0.30) == 1, "singles start at thirty percent")
+	check(CYCLE.wink_burst_count(0.999) == 1, "the top roll is a single")
+
 	check(SCHEMA.has("features.estrus_cycle"), "estrus flag exists")
 	check(not bool(SCHEMA.default_value("features.estrus_cycle")), "estrus is off by default")
 

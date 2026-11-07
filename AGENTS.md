@@ -146,7 +146,8 @@ mods/unfplap/
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
-  anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD
+  anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD,
+                    winking mesh refinement, idle heat wink/drip
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
   missionary_bed.gd optional Anon bed body and eye view; gated by the anatomy master
@@ -157,7 +158,7 @@ mods/unfplap/
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
-  cycle.gd          pure per-mare estrus phase: heat, diestrus, normal
+  cycle.gd          pure per-mare estrus phase: heat, diestrus, normal; idle wink burst roll
   tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
   tunables.gd       the one typed API for reading and writing those settings
   tunables_ui.gd    the only file that builds settings widgets: schema rows as the page's menu rows
@@ -987,8 +988,25 @@ examples.
   refusal line, so the Y hint simply does not appear.
 - In heat each real thrust chunk is multiplied by `HEAT_READINESS = 1.6`, the readiness line appends
   `| In heat`, and `cycle_note()` adds the heat text to `main.prompt_note()` outside and during acts.
-- Heat also quarters the offer cooldown (`HEAT_COOLDOWN = 0.25`), lets her offer in public, and adds
-  the heat sentence to the ask prompt.
+- Heat also quarters the offer cooldown (`HEAT_COOLDOWN = 0.25`), overrides the privacy reserve, and
+  adds the heat sentence to the ask prompt.
+- Outside an active act, a heat mare with the anatomy shown idles: `anatomy.gd` winks every
+  `WINK_MIN_S..WINK_MAX_S` (15-20 s), rolling 70% single, 25% double, 5% triple from
+  `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a short
+  hold and an accelerated close. Each burst also starts one short `climax_fluid.drip()` leak when
+  `anatomy_fluid` is on. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
+  POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
+  mesh is far or hidden by `anatomy.act_only`.
+- `anatomy.gd` rebuilds the winking mesh once at attach and masks the anal rim out of both the
+  authored `closed` and `wink` shapes, so only the vulva moves. The resting pose is `closed = 1`
+  and `wink = 0` (almost closed, clitoris hidden). A heat mare rests at `HEAT_REST_OPEN = 0.20`
+  of the `wink` shape and each idle wink crossfades toward it and back; `closed` stays 1, so the
+  idle rest never opens the resting lips. The shader depth cut is the act's shaft solve only: it
+  pulls the pink interior toward the camera, and the clitoris sits in that mask, so any partial
+  cut at idle drags it out through the lips. The
+  `wink` shape is hand-authored in Blender; `tools/winking_glb.gd` round-trips it through the
+  anatomy `.scn` (and keeps `winking_before_wink.scn` on the first import). Acts drive `closed`
+  only, so the wink shape never fights the penetration grip.
 - The debug Actions **Force heat**, **Force diestrus** and **Clear forced cycle** set a session-only
   `_cycle_override` on the aimed or nearest mare.
 

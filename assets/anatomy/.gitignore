@@ -9,3 +9,9 @@ anon_part_ao.png
 anon_part_nrm.png
 anon_part_albedo.png
 *.import
+
+# Blender working files for the winking mesh round-trip (tools/winking_glb.gd).
+winking_before_wink.scn
+*.blend
+*.blend1
+backups/

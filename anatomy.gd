@@ -9,6 +9,7 @@ const DOCK := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const CYCLE := preload("res://mods/unfplap/cycle.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
@@ -28,6 +29,11 @@ const PLACE_VERSION := 2
 const WINKING_PINK := Color(0.97, 0.66, 0.74)
 const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
 const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
+## The authored `closed` shape also pulls the anal rim. The runtime rebuild masks that out.
+const WINK_ANAL_FROM_Y := 0.020
+const WINK_ANAL_TO_Y := 0.050
+## How open a heat mare rests between winks, as a share of the authored wink shape.
+const HEAT_REST_OPEN := 0.20
 const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
 const WINKING_HALF_HEIGHT := 0.0854
 const WINKING_REAR_Y := 0.541
@@ -93,6 +99,8 @@ var _shaft_length := 0.0
 var _shaft_radii := PackedFloat32Array()
 var _closed := 1.0
 var _rest := 1.0
+## 0 = the authored closed shape, 1 = the authored `wink` shape. Idle heat crossfades these.
+var _wink_amount := 0.0
 var _fill := 0.0
 var _wide := 0.0
 var _tween: Tween
@@ -102,16 +110,71 @@ var _missing_logged := false
 var _attached := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
 const VISIBILITY_POLL_S := 0.2
+## How often the idle heat tick re-reads the estrus phase.
+const HEAT_PHASE_POLL_S := 2.0
+const IDLE_FLUID_SIZE := 0.0055
+const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 var _visibility_clock := 0.0
 var _visibility_init := false
 var _last_shown := false
 var _last_teats_shown := false
 var _last_strip_shown := false
+## integration: idle heat display. POSING_IN, ACTIVE and CLIMAX suppress it because the act
+## controller owns the mesh then; IDLE, AFTERGLOW, RESTORE and sleeping allow it.
+var _heat_phase := ""
+var _heat_phase_clock := 0.0
+var _heat_wink_clock := 0.0
+var _heat_suppressed := false
 
 
 static func assets_exist() -> bool:
 	return ResourceLoader.exists(WINKING_PATH) and ResourceLoader.exists(ANAL_PATH) \
 		and ResourceLoader.exists(TEATS_PATH) and ResourceLoader.exists(STRIP_PATH)
+
+
+static var _refined_winking_mesh: ArrayMesh
+
+
+## integration: rebuild the winking mesh once and share it across mares. The authored `closed`
+## and `wink` shapes both pull the anal rim; the rebuild masks that out so only the vulva moves.
+static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
+	if _refined_winking_mesh != null:
+		return _refined_winking_mesh
+	if source == null:
+		return null
+	var rebuilt := ArrayMesh.new()
+	rebuilt.blend_shape_mode = source.blend_shape_mode
+	var closed_index := -1
+	var wink_index := -1
+	for i in source.get_blend_shape_count():
+		var shape_name := source.get_blend_shape_name(i)
+		rebuilt.add_blend_shape(shape_name)
+		if shape_name == &"closed":
+			closed_index = i
+		elif shape_name == &"wink":
+			wink_index = i
+	for surface in source.get_surface_count():
+		var arrays: Array = source.surface_get_arrays(surface)
+		var shapes: Array = source.surface_get_blend_shape_arrays(surface)
+		var base: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var typed_shapes: Array[Array] = []
+		for s in shapes.size():
+			var shape: Array = shapes[s]
+			var shape_verts: PackedVector3Array = shape[Mesh.ARRAY_VERTEX]
+			if (s == closed_index or s == wink_index) and shape_verts.size() == base.size():
+				for i in shape_verts.size():
+					var p := base[i]
+					var anal := 1.0 - smoothstep(WINK_ANAL_FROM_Y, WINK_ANAL_TO_Y, p.y)
+					var delta := shape_verts[i] - p
+					shape_verts[i] = p + delta * anal
+				shape[Mesh.ARRAY_VERTEX] = shape_verts
+			typed_shapes.append(shape)
+		rebuilt.add_surface_from_arrays(source.surface_get_primitive_type(surface),
+			arrays, typed_shapes, {}, 0)
+		rebuilt.surface_set_material(surface, source.surface_get_material(surface))
+		rebuilt.surface_set_name(surface, source.surface_get_name(surface))
+	_refined_winking_mesh = rebuilt
+	return rebuilt
 
 
 ## integration: only the modern preference roster gets anatomy. Identity filly/stallion checks stay,
@@ -190,6 +253,9 @@ func _attach() -> void:
 	anchor.add_child(mesh)
 	_bone_inverse = _skeleton.get_bone_global_rest(bone).affine_inverse()
 	_mesh = mesh
+	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
+	if refined != null:
+		mesh.mesh = refined
 	_load_place()
 	_lift = _tail_lift()
 	var identity: Variant = pony.get("identity")
@@ -216,6 +282,7 @@ func _attach() -> void:
 
 
 func _process(delta: float) -> void:
+	_heat_idle_tick(delta)
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
@@ -267,6 +334,54 @@ func _apply_visibility() -> void:
 		_skin_strip.visible = strip_show
 	if is_instance_valid(_teats_jiggle):
 		_teats_jiggle.set_physics_process(teats_show)
+
+
+func _heat_idle_tick(delta: float) -> void:
+	if not _attached or not is_instance_valid(runtime) or not is_instance_valid(pony):
+		return
+	# POSING_IN, ACTIVE and CLIMAX are the act; it owns the mesh. AFTERGLOW and RESTORE are free.
+	var state := int(runtime.get("state"))
+	if state in [1, 2, 3]:
+		if not _heat_suppressed:
+			_heat_suppressed = true
+			_heat_phase = ""
+			_heat_phase_clock = 0.0
+			_heat_wink_clock = CYCLE.wink_interval()
+		return
+	_heat_suppressed = false
+	if not _heat_visible():
+		return
+
+	_heat_phase_clock -= delta
+	if _heat_phase_clock <= 0.0:
+		_heat_phase_clock = HEAT_PHASE_POLL_S
+		var phase := str(runtime.call("cycle_phase"))
+		if phase != _heat_phase:
+			_heat_phase = phase
+			_heat_wink_clock = CYCLE.wink_interval() if phase == CYCLE.HEAT else 0.0
+
+	# Heat rests slightly open; normal and diestrus rest closed. Do not fight a wink tween.
+	if _tween == null or not _tween.is_running():
+		var idle_rest := HEAT_REST_OPEN if _heat_phase == CYCLE.HEAT else 0.0
+		if not is_equal_approx(_wink_amount, idle_rest):
+			set_idle_wink(idle_rest)
+
+	if _heat_phase != CYCLE.HEAT:
+		return
+
+	_heat_wink_clock -= delta
+	if _heat_wink_clock > 0.0:
+		return
+	_heat_wink_clock = CYCLE.wink_interval()
+	var count := CYCLE.wink_burst_count(randf())
+	wink_burst(count)
+	idle_drip(count)
+
+
+## True when the mesh is actually shown. Far meshes and act-only hiding both skip idle display.
+func _heat_visible() -> bool:
+	return _last_shown and is_instance_valid(_mesh) and not bool(
+		pony.get("_far_mesh_shown") if pony.get("_far_mesh_shown") != null else false)
 
 
 ## The dock is a skinned mesh, so hiding it is the only reliable way to stop it reading as a
@@ -695,6 +810,22 @@ func fluid() -> Node3D:
 	return _fluid
 
 
+## Idle heat drip: one leak per wink burst, scaled a little by the burst size. The fluid node is
+## persistent, so the drops keep their motion and pool on the ground under her.
+func idle_drip(count: int) -> void:
+	if not TUNABLES.get_bool("features.anatomy_fluid"):
+		return
+	if not is_instance_valid(pony) or not pony.is_inside_tree() or not is_instance_valid(_mesh):
+		return
+	var node := fluid()
+	if not is_instance_valid(node):
+		return
+	node.set("ground_y", pony.global_position.y)
+	node.call("drip", Callable(self, "hole_point").bind(0.0),
+		1.5 + 0.7 * float(count), 1.0 + 0.2 * float(count),
+		IDLE_FLUID_SIZE, IDLE_FLUID_COLOR)
+
+
 func anal_mesh() -> MeshInstance3D:
 	return _anal_mesh
 
@@ -730,7 +861,19 @@ func set_closed(value: float) -> void:
 	_apply_winking_shape()
 
 
+## Idle heat crossfade: 0 is resting, 1 is the authored `wink` shape. Only the authored shape
+## moves. The depth cut stays out of the idle rest: it pulls the pink interior toward the camera,
+## and the clitoris sits in that mask, so a partial cut drags it out through the lips.
+func set_idle_wink(amount: float) -> void:
+	_wink_amount = clampf(amount, 0.0, 1.0)
+	# The idle rest always sits on the fully closed shape, which also repairs a closed value the
+	# act left behind; the authored `wink` shape carries the opening.
+	_closed = 1.0
+	_apply_winking_shape()
+
+
 func drive(closed: float) -> void:
+	_wink_amount = 0.0
 	_rest = clampf(closed, 0.0, 1.0)
 	if _tween != null:
 		_tween.kill()
@@ -740,9 +883,11 @@ func drive(closed: float) -> void:
 func animate(target: float, seconds: float) -> void:
 	if not is_instance_valid(_mesh):
 		return
+	_wink_amount = 0.0
 	_rest = clampf(target, 0.0, 1.0)
 	if _tween != null:
 		_tween.kill()
+	_apply_winking_shape()
 	_tween = create_tween()
 	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_method(set_closed, _closed, _rest, seconds)
@@ -761,6 +906,33 @@ func wink(count := 1, seconds := 0.45) -> void:
 		_tween.tween_method(set_closed, from, peak, seconds * 0.5)
 		_tween.tween_method(set_closed, peak, _rest, seconds * 0.5)
 		from = _rest
+
+
+## Idle heat wink. Each beat gets its own depth and timing, so a double or triple never reads as
+## one repeated motion. The act's `wink()` stays tuned for its reaction and climax beats.
+func wink_burst(count: int) -> void:
+	if not is_instance_valid(_mesh):
+		return
+	if _tween != null:
+		_tween.kill()
+	# AFTERGLOW/RESTORE can still hold the act's grip. Clear it so the idle wink reads as a wink.
+	if _fill > 0.0 or _wide > 0.0:
+		_clear_part()
+	var rest := clampf(HEAT_REST_OPEN, 0.0, 1.0)
+	_tween = create_tween()
+	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var from := _wink_amount
+	for i in count:
+		var peak := randf_range(0.45, 0.88)
+		# Accelerated expansion, a short hold, then an accelerated retraction.
+		var opening := _tween.tween_method(set_idle_wink, from, peak, randf_range(0.18, 0.38))
+		opening.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		_tween.tween_interval(randf_range(0.08, 0.18))
+		var closing := _tween.tween_method(set_idle_wink, peak, rest, randf_range(0.22, 0.45))
+		closing.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		if i < count - 1:
+			_tween.tween_interval(randf_range(0.08, 0.18))
+		from = rest
 
 
 ## Open the lips to the shaft's actual radius. `shaft_radius` is world metres; the mesh works in
@@ -869,8 +1041,13 @@ func _apply_winking_shape() -> void:
 	var shape := _mesh.find_blend_shape_by_name("closed")
 	if shape >= 0:
 		_mesh.set_blend_shape_value(shape, _closed)
+	var wink_shape := _mesh.find_blend_shape_by_name("wink")
+	if wink_shape >= 0:
+		_mesh.set_blend_shape_value(wink_shape, _wink_amount)
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
+		# The depth cut is the act's shaft opening only. `closed` is what the act drives; the idle
+		# wink shape must not pull the interior (and the clitoris) out through the resting lips.
 		var open := smoothstep(0.0, 0.4, 1.0 - _closed)
 		var filled := lerpf(1.0, WINKING_CUT_FILLED, smoothstep(0.5, 1.0, _fill))
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled

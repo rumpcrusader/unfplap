@@ -513,10 +513,10 @@ static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
 	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75).as_debug()
 static var curve := choice("curve", "auto_thrust.curve", "cosine",
 	["cosine", "thrust", "tease", "saw", "hold", "double"],
-	["Cosine", "Thrust", "Tease", "Saw", "Hold", "Double"],
+	["Normal", "Thrust", "Tease", "Saw", "Hold", "Double"],
 	"Auto shape",
-	"Shape of every automatic stroke. Cosine is symmetric; Thrust drives in fast and out slow, "
-	+ "Tease the other way; Saw has no easing; Hold pauses at full depth; Double makes two "
+	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
+	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth; Double makes two "
 	+ "strokes per cycle (deep, then short).", GENERAL, "") \
 	.as_debug()
 static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",

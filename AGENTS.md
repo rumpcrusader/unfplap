@@ -774,15 +774,16 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   after the first stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum
   peak is `0.20` and its `0.14` travel still counts as a real soft thrust. The pace range reaches
   every pattern at any depth, and the depth range reaches every intensity at any pace.
-  `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (symmetric ease,
-  the default), `thrust` (35 % duty, fast in and slow out), `tease` (65 % duty), `saw` (constant
-  speed, no easing), `hold` (quick in, a dwell at full depth, quick out) and `double` (two strokes
-  per cycle, the second at 60 % depth). Every shape starts and ends at the bottom and stays in
-  0..1, so the tracker only ever sees depth deltas; `phase_for()` is a numeric inverse so turning
-  auto on never snaps. `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()`
-  and `_end_session()` stop it, and `_reset_thrust_state()` restores the act-start defaults (off,
-  configured pace, depth and shape) for the next act. Tunables are starting values, not live edits
-  to the current cycle, except `Auto shape`, which applies mid-cycle.
+  `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (the `Normal`
+  panel value, a symmetric ease and the default), `thrust` (35 % duty, fast in and slow out),
+  `tease` (65 % duty), `saw` (constant speed, no easing), `hold` (quick in, a dwell at full depth,
+  quick out) and `double` (two strokes per cycle, the second at 60 % depth). Every shape starts and
+  ends at the bottom and stays in 0..1, so the tracker only ever sees depth deltas; `phase_for()`
+  is a numeric inverse so turning auto on never snaps. `X` is live in `ACTIVE`/`CLIMAX`;
+  `_afterglow_begin()`, `_restore_begin()` and `_end_session()` stop it, and
+  `_reset_thrust_state()` restores the act-start defaults (off, configured pace, depth and shape)
+  for the next act. Tunables are starting values, not live edits to the current cycle, except
+  `Auto shape`, which applies mid-cycle.
 - `satisfaction` is **readiness 0–100**, not a stroke score. Each real thrust adds
   `THRUST_HEAT_BOTH = 1.4`, `THRUST_HEAT_ONE = 0.7` or `THRUST_HEAT_NONE = 0`, times warmth;
   scoring is limited to one thrust every `THRUST_SCORE_MIN_INTERVAL = 0.2 s`. There is no

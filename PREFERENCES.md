@@ -16,8 +16,8 @@ aftercare are outside it.
   and presentation are the manual ones. The wheel sets pace; mouse ↕ sets the peak depth.
   `max_depth` is the peak, so after the first stroke the tracker travel is `max_depth - 0.06`
   (`REVERSAL_HYSTERESIS`); the minimum peak is `0.20`. `Auto shape` (debug) picks the stroke
-  waveform: `cosine`, `thrust`, `tease`, `saw`, `hold` or `double`; it applies live and every shape
-  returns to the bottom, so the tracker only ever sees depth.
+  waveform: `Normal`, `Thrust`, `Tease`, `Saw`, `Hold` or `Double`; it applies live and every
+  shape returns to the bottom, so the tracker only ever sees depth.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
   (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement. Its **bottom**
   is a separate `impact` event: it fires on the reversal or after `IMPACT_STALL_S = 0.04 s` of no

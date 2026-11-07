@@ -12,6 +12,7 @@
 ANATOMY_FILES=(
 	winking.scn
 	anal.scn
+	anal_ring.scn
 	teats.scn
 	skin_bridge.scn
 	anon_part.scn

@@ -13,6 +13,7 @@ const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
 const ANAL_PATH := ASSET_DIR + "anal.scn"
+const ANAL_RING_PATH := ASSET_DIR + "anal_ring.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 const PLACE_PATH := "user://mods/data/unfplap/anatomy_place.json"
@@ -35,8 +36,9 @@ const WINKING_CUT_DEPTH := 0.07
 ## How far outside the rim the widening fades out. The measured mound ends ~4.5 cm from the
 ## opening and the anal bulb starts ~8 cm out, so this keeps the bulb out of the deformation.
 const LIP_OUTER_FACTOR := 3.0
-## Anal cup rim and outer radius, in its own mesh units.
+## Anal cup rim fallback, in its own mesh units, replaced by the measured value at attach.
 const ANAL_LIP := 0.022
+## Outer-radius factor for the original cup model.
 const ANAL_OUTER_FACTOR := 2.2
 const WINKING_CUT_FILLED := 0.9
 const WINKING_SLIT_HALF := 0.06
@@ -73,6 +75,11 @@ var _dock_was_visible := true
 ## Mean radius of the lip band in mesh-local units, measured once so the opening can be solved
 ## exactly against the shaft's radius instead of scaled by a constant.
 var _lip_radius := 0.03
+## The anal cup's ring radius, measured the same way, so its opening is solved against the shaft
+## instead of a constant.
+var _anal_lip_radius := ANAL_LIP
+## True when the experimental ring model is loaded instead of the original cup.
+var _anal_ring := false
 ## Anon's shaft, published every frame for the collision projection.
 var _shaft_pivot := Vector3.ZERO
 var _shaft_axis := Vector3.ZERO
@@ -203,6 +210,8 @@ func _process(delta: float) -> void:
 	if _visibility_clock > 0.0:
 		return
 	_visibility_clock = VISIBILITY_POLL_S
+	_refresh_anal_ring()
+	_apply_anal_place()
 	var started := Time.get_ticks_usec()
 	_apply_visibility()
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
@@ -338,18 +347,15 @@ func _apply_material() -> void:
 	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
 		clampf(TUNABLES.get_float("anatomy.lip_vertical"), 0.0, 1.0))
-	material.set_shader_parameter("hole_target", _wide)
+	material.set_shader_parameter("anal_swell_centre", ANAL_OPENING)
+	material.set_shader_parameter("anal_swell", 0.0)
+	# `_wide` is the world shaft radius; the shader works in mesh units.
+	material.set_shader_parameter("hole_target", _wide / world_scale)
 	_mesh.set_surface_override_material(0, material)
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	OUTLINE_EXCLUSION.apply_to(_mesh)
 	if is_instance_valid(_anal_mesh):
-		var anal_material := material.duplicate() as ShaderMaterial
-		# The same local widening, aimed at the anal opening instead of the vulva.
-		anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
-		anal_material.set_shader_parameter("lip_radius", ANAL_LIP)
-		anal_material.set_shader_parameter("lip_outer", ANAL_LIP * ANAL_OUTER_FACTOR)
-		anal_material.set_shader_parameter("hole_target", 0.0)
-		_anal_mesh.set_surface_override_material(0, anal_material)
+		_configure_anal_material(material)
 	_apply_winking_shape()
 	_apply_teats_material(material)
 
@@ -371,7 +377,10 @@ func _skin_tones() -> Array:
 func _attach_anal() -> void:
 	if not is_instance_valid(_mesh) or is_instance_valid(_anal_mesh):
 		return
-	var scene: PackedScene = load(ANAL_PATH)
+	_anal_ring = TUNABLES.get_bool("anatomy.anal_ring")
+	if _anal_ring and not ResourceLoader.exists(ANAL_RING_PATH):
+		_anal_ring = false
+	var scene: PackedScene = load(ANAL_RING_PATH if _anal_ring else ANAL_PATH)
 	if scene == null:
 		return
 	var root: Node = scene.instantiate()
@@ -394,14 +403,68 @@ func _attach_anal() -> void:
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	OUTLINE_EXCLUSION.apply_to(mesh)
 	_anal_mesh = mesh
+	if _anal_ring:
+		_anal_lip_radius = _measure_ring_radius(mesh, ANAL_OPENING, ANAL_LIP)
+	_apply_anal_place()
 	if _mesh.get_surface_override_material(0) is ShaderMaterial:
-		var anal_material := (_mesh.get_surface_override_material(0) as ShaderMaterial).duplicate() \
-			as ShaderMaterial
-		anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
+		_configure_anal_material(_mesh.get_surface_override_material(0) as ShaderMaterial)
+
+
+## Swap the anal asset when the ring toggle changes (the model is picked at attach, so a live
+## toggle detaches and re-attaches it). Falls back to the cup when the ring asset is missing.
+func _refresh_anal_ring() -> void:
+	var want := TUNABLES.get_bool("anatomy.anal_ring") and ResourceLoader.exists(ANAL_RING_PATH)
+	if want == _anal_ring:
+		return
+	if is_instance_valid(_anal_mesh):
+		_anal_mesh.queue_free()
+		_anal_mesh = null
+	_attach_anal()
+
+
+## Share one anal material setup between attach and later re-applies. The original cup keeps its
+## authored rim and outer factor; the ring solves against its measured rim.
+func _configure_anal_material(base: ShaderMaterial) -> void:
+	if not is_instance_valid(_anal_mesh) or base == null:
+		return
+	var anal_material := base.duplicate() as ShaderMaterial
+	anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
+	if _anal_ring:
+		anal_material.set_shader_parameter("lip_radius", _anal_lip_radius)
+		anal_material.set_shader_parameter("lip_outer", _anal_lip_radius * LIP_OUTER_FACTOR)
+		_fade_anal_rim(anal_material)
+	else:
 		anal_material.set_shader_parameter("lip_radius", ANAL_LIP)
 		anal_material.set_shader_parameter("lip_outer", ANAL_LIP * ANAL_OUTER_FACTOR)
-		anal_material.set_shader_parameter("hole_target", 0.0)
-		mesh.set_surface_override_material(0, anal_material)
+	anal_material.set_shader_parameter("hole_target", 0.0)
+	_anal_mesh.set_surface_override_material(0, anal_material)
+
+
+## The anal overlay fades its outer rim to `coat_color`. Point that at the anatomy skin rather
+## than her coat, so the rim disappears into the vulva mesh behind it; the shader also scales its
+## silhouette contour by `1 - to_coat`, so this stops the overlay edge drawing a ring.
+func _fade_anal_rim(material: ShaderMaterial) -> void:
+	var skin: Variant = material.get_shader_parameter("skin_color")
+	if skin is Color:
+		material.set_shader_parameter("coat_color", skin)
+	var shade: Variant = material.get_shader_parameter("skin_shadow")
+	if shade is Color:
+		material.set_shader_parameter("coat_shadow", shade)
+
+
+## Place the anal mesh from its live controls: height, side offset and a tilt about the opening.
+## They move the node, so the mesh's own space (and the shader's `vulva_centre`) stays on
+## ANAL_OPENING. Positive height is up, and positive `anal_tilt_deg` turns the outward normal
+## toward local -Y (down). Applies to both the cup and the ring.
+func _apply_anal_place() -> void:
+	if not is_instance_valid(_anal_mesh):
+		return
+	var height := TUNABLES.get_float("anatomy.anal_height_mm") / 1000.0
+	var side := TUNABLES.get_float("anatomy.anal_side_mm") / 1000.0
+	var tilt := deg_to_rad(TUNABLES.get_float("anatomy.anal_tilt_deg"))
+	var basis := Basis(Vector3.RIGHT, tilt)
+	var offset := Vector3(side, height, 0.0)
+	_anal_mesh.transform = Transform3D(basis, ANAL_OPENING - basis * ANAL_OPENING + offset)
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -528,6 +591,8 @@ func apply_live() -> void:
 		return
 	_apply_material()
 	_apply_place()
+	_refresh_anal_ring()
+	_apply_anal_place()
 	_apply_visibility()
 
 
@@ -588,13 +653,23 @@ func hole_local(mix: float) -> Vector3:
 func hole_point(mix: float) -> Vector3:
 	if not is_instance_valid(_mesh):
 		return Vector3.ZERO
-	return _mesh.global_transform * hole_local(mix)
+	var point := _mesh.global_transform * WINKING_OPENING
+	if not is_instance_valid(_anal_mesh):
+		return point
+	# The anal mesh can be moved and tilted on its own, so its opening is not the vulva mesh's
+	# transform applied to ANAL_OPENING.
+	return point.lerp(_anal_mesh.global_transform * ANAL_OPENING, clampf(mix, 0.0, 1.0))
 
 
-func hole_rear() -> Vector3:
+func hole_rear(mix := 0.0) -> Vector3:
 	if not is_instance_valid(_mesh):
 		return Vector3.BACK
-	return _mesh.global_basis.z.normalized()
+	var rear := _mesh.global_basis.z.normalized()
+	if not is_instance_valid(_anal_mesh):
+		return rear
+	var anal := _anal_mesh.global_basis.z.normalized()
+	var blended := rear.lerp(anal, clampf(mix, 0.0, 1.0))
+	return blended.normalized() if blended.length_squared() > 0.000001 else rear
 
 
 func set_closed(value: float) -> void:
@@ -694,21 +769,24 @@ func lip_radius() -> float:
 ## the mesh carries the lip flag. The rim is the first radius whose vertex density is high, found
 ## by binning the planar distance from the opening.
 func _measure_lip_radius() -> float:
-	if not is_instance_valid(_mesh) or _mesh.mesh == null:
-		return 0.03
-	var arrays := _mesh.mesh.surface_get_arrays(0)
+	return _measure_ring_radius(_mesh, WINKING_OPENING, 0.03)
+
+
+func _measure_ring_radius(target: MeshInstance3D, centre: Vector3, fallback: float) -> float:
+	if not is_instance_valid(target) or target.mesh == null:
+		return fallback
+	var arrays := target.mesh.surface_get_arrays(0)
 	if arrays.is_empty():
-		return 0.03
+		return fallback
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
-	if verts.is_empty() or colors.size() < verts.size():
-		return 0.03
+	if verts.is_empty():
+		return fallback
 	const STEP := 0.002
 	const BINS := 40
 	var bin_counts := PackedInt32Array()
 	bin_counts.resize(BINS)
 	for v: Vector3 in verts:
-		var radius := Vector2(v.x - WINKING_OPENING.x, v.y - WINKING_OPENING.y).length()
+		var radius := Vector2(v.x - centre.x, v.y - centre.y).length()
 		var bin := int(radius / STEP)
 		if bin >= 0 and bin < BINS:
 			bin_counts[bin] += 1
@@ -716,7 +794,7 @@ func _measure_lip_radius() -> float:
 	for bin: int in BINS:
 		peak = maxi(peak, bin_counts[bin])
 	if peak == 0:
-		return 0.03
+		return fallback
 	# Walk inward from the densest band until the density collapses: that edge is the rim.
 	var dense := int(float(peak) * 0.25)
 	var rim_bin := 0
@@ -747,19 +825,58 @@ func _apply_winking_shape() -> void:
 			* _mesh.global_transform.basis.get_scale().x)
 
 
+## Scale the whole vulva model about the anal opening while the anal is in use, so the ponut
+## swells with the shaft. Called by the act with the live `_hole_mix`; 0 restores the vulva.
+func set_anal_swell(amount: float) -> void:
+	if not is_instance_valid(_mesh):
+		return
+	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("anal_swell", clampf(amount, 0.0, 1.0))
+
+
+## The cup's ring is opened by the same shader solve as the vulva's lips: `shaft_radius` is world
+## metres, converted to mesh units and solved against the measured rim. No blend shape is used;
+## the authored `open`/`stretch` shapes are left at zero.
+func set_anal_grip(shaft_radius: float) -> void:
+	if not is_instance_valid(_anal_mesh) or not _anal_ring:
+		return
+	var material := _anal_mesh.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
+	var scale := maxf(_anal_mesh.global_transform.basis.get_scale().x, 0.0001)
+	material.set_shader_parameter("hole_target", maxf(shaft_radius, 0.0) / scale)
+	# Also grow the pucker's depth with the widening, so the ring scales as a mound around the
+	# shaft instead of staying a flat sheet. Live, like the grip.
+	material.set_shader_parameter("hole_depth_scale",
+		maxf(TUNABLES.get_float("anatomy.anal_depth"), 0.0))
+
+
+## `fill` is the old `anal * 1.4` cut amount; `wide` is the old `anal` stretch amount. The ring
+## model uses `wide` for the cut depth and is opened by `set_anal_grip()`; the original cup keeps
+## its authored `open`/`stretch` blend shapes and local widening.
 func set_anal_shape(fill: float, wide := 0.0) -> void:
 	if not is_instance_valid(_anal_mesh):
 		return
-	_anal_mesh.set_blend_shape_value(_anal_mesh.find_blend_shape_by_name("stretch"), wide)
-	_anal_mesh.set_blend_shape_value(_anal_mesh.find_blend_shape_by_name("open"),
-		maxf(fill - wide, 0.0))
 	var material := _anal_mesh.get_surface_override_material(0) as ShaderMaterial
-	if material != null:
-		var scale := _mesh.global_transform.basis.get_scale().x
-		var hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.01)
-		material.set_shader_parameter("hole_target", wide * ANAL_LIP * 1.6)
+	if material == null:
+		return
+	var scale := _mesh.global_transform.basis.get_scale().x
+	var hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.01)
+	if _anal_ring:
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
-			* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(fill, 1.0)))
+			* minf(wide * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(wide, 1.0)))
+		return
+	var stretch := _anal_mesh.find_blend_shape_by_name("stretch")
+	if stretch >= 0:
+		_anal_mesh.set_blend_shape_value(stretch, wide)
+	var open := _anal_mesh.find_blend_shape_by_name("open")
+	if open >= 0:
+		_anal_mesh.set_blend_shape_value(open, maxf(fill - wide, 0.0))
+	material.set_shader_parameter("hole_target", wide * ANAL_LIP * 1.6)
+	material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
+		* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(fill, 1.0)))
 
 
 func react() -> void:

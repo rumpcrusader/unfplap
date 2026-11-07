@@ -148,7 +148,7 @@ func opening_normal() -> Vector3:
 func hole_rear() -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.BACK
-	return anatomy.call("hole_rear")
+	return anatomy.call("hole_rear", _hole_mix)
 
 
 func oral_active() -> bool:
@@ -199,7 +199,7 @@ func toggle_oral() -> void:
 		_oral_to = Vector3(to.x, pony.global_position.y, to.z)
 		_oral_from_basis = pony.global_transform.basis.orthonormalized()
 		_oral_hold = opening
-		var back: Vector3 = anatomy.call("hole_rear")
+		var back: Vector3 = anatomy.call("hole_rear", _hole_mix)
 		_oral_rear = Vector3(back.x, 0.0, back.z).normalized()
 	_oral = not _oral
 	var mouth_rig: Variant = _pony_mouth()
@@ -263,6 +263,7 @@ func tick(delta: float) -> void:
 	if not is_instance_valid(mesh):
 		return
 	var frame: Transform3D = (mesh as Node3D).global_transform
+	var mesh_scale := maxf(frame.basis.get_scale().x, 0.001)
 	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
 	var width: float = -1.0
 	if is_instance_valid(part):
@@ -270,7 +271,7 @@ func tick(delta: float) -> void:
 	if width < 0.0:
 		width = _depth() * WINKING_STRETCH_RADIUS
 	else:
-		width /= maxf(frame.basis.get_scale().x, 0.001)
+		width /= mesh_scale
 	var wide := minf(width / WINKING_STRETCH_RADIUS, WINKING_STRETCH_MAX)
 	_wide = lerpf(_wide, wide, 1.0 - exp(-delta * WINKING_HUG_RATE))
 	_fill = lerpf(_fill, smoothstep(0.0, WINKING_OPEN_AT, wide),
@@ -284,7 +285,6 @@ func tick(delta: float) -> void:
 	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
 	# instead of snapping closed; the climax wink is applied on top as a pulse.
 	if _state() in [2, 3]:
-		var anal_hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.0)
 		var closed := 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front
 		if _wink_left > 0.0:
 			_wink_left = maxf(_wink_left - delta, 0.0)
@@ -294,12 +294,18 @@ func tick(delta: float) -> void:
 		# and the lips cannot read as gripping it.
 		anatomy.call("set_fill", _fill)
 		anatomy.call("drive", closed)
-		# Solve the lips against the real shaft radius instead of a fixed stretch constant.
-		anatomy.call("set_grip", _wide * WINKING_STRETCH_RADIUS * front)
-		# The ring opens and stretches: `stretch` widens it, `open` rolls the rim outward. Driving
-		# only one of them leaves it half closed.
-		var anal := _wide * _hole_mix * rearward * anal_hug
+		# Solve the lips against the real shaft radius instead of a fixed stretch constant. `_wide`
+		# is the local girth ratio, so convert back to world metres here: `set_grip()` converts to
+		# mesh units itself. Passing the local value made the hole ~1/scale (12 %) too large.
+		var grip_world := _wide * WINKING_STRETCH_RADIUS * mesh_scale
+		anatomy.call("set_grip", grip_world * front)
+		# The anal ring is solved against the same real shaft radius as the vulva, so it opens to
+		# exactly his girth instead of scaling a blend shape by a constant.
+		var anal := _wide * _hole_mix * rearward
 		anatomy.call("set_anal_shape", anal * 1.4, anal)
+		anatomy.call("set_anal_grip", grip_world * _hole_mix * rearward)
+		anatomy.call("set_anal_swell",
+			_hole_mix * rearward * maxf(TUNABLES.get_float("anatomy.anal_swell"), 0.0))
 	_normal = _compute_normal(part)
 	if is_instance_valid(part):
 		var pitch := 0.0

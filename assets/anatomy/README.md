@@ -13,6 +13,7 @@ Expected files:
 ```text
 winking.scn          mare anatomy mesh (closed/stretch blend shapes)
 anal.scn             anal cup (open/stretch blend shapes)
+anal_ring.scn        experimental anal ring (feature-gated by anatomy.anal_ring)
 teats.scn            skinned teats (mid/full blend shapes, 191 binds)
 skin_bridge.scn      skinned midline strip
 anon_part.scn        player anatomy mesh (ready blend shape)

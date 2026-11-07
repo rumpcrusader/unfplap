@@ -544,6 +544,7 @@ static func _load() -> void:
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
+	data = _normalize_anal_height(data)
 	data = _merge(_defaults(), data)
 	_cache = data
 	_write_file(data)
@@ -574,6 +575,21 @@ static func _filled_default() -> Dictionary:
 	# Act prompts are code defaults; settings.json stores only overrides. `_fill_prompts()`
 	# supplies the current built-ins at read time so a release can update them.
 	return out
+
+
+## One-off: the vertical anal placement was first stored as a downward drop. Convert it to the
+## signed height control (positive is higher) and drop the old key.
+static func _normalize_anal_height(data: Dictionary) -> Dictionary:
+	var anatomy: Variant = data.get("anatomy", {})
+	if not anatomy is Dictionary:
+		return data
+	var block := anatomy as Dictionary
+	if block.has("anal_drop_mm"):
+		if not block.has("anal_height_mm"):
+			block["anal_height_mm"] = -float(block["anal_drop_mm"])
+		block.erase("anal_drop_mm")
+	data["anatomy"] = block
+	return data
 
 
 ## Keep only current prompt keys.

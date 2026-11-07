@@ -66,6 +66,20 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 ## One section pass. `prefix` separates the Debug block's section state from the player sections.
 static func _build_sections(list: VBoxContainer, tab: String, prefix: String, paths: Array,
 		font_size: int, page: Node, changed: Callable) -> void:
+	# Settings with no group are not a section: they sit at the top of the tab (or Debug block)
+	# without a heading. A group needs at least three related settings to earn one.
+	var loose: Array = []
+	for path: String in paths:
+		var setting: Variant = SETTINGS.by_path(path)
+		if setting != null and str(setting.group).is_empty():
+			loose.append(path)
+	if not loose.is_empty():
+		var loose_rows := VBoxContainer.new()
+		loose_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		loose_rows.add_theme_constant_override("separation", 6)
+		list.add_child(loose_rows)
+		for path: String in loose:
+			_add_row(loose_rows, path, font_size, page, changed)
 	var section := ""
 	var section_key := ""
 	var section_rows: Array = []
@@ -104,7 +118,8 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, pa
 			_add_row(rows, path, font_size, page, changed)
 
 
-## The Debug block's action buttons, one per `DEBUG_ACTIONS.ACTIONS` entry, plus the last result.
+## The Debug block's action buttons, plus the last result. Actions that share a `row` are drawn
+## compactly on one line under the row's caption, so the block stays short.
 static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> void:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -115,29 +130,55 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> vo
 	box.add_child(heading)
 	var status := STYLE.label("", "Faint", font_size - 6)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var row_name := ""
+	var row_box: HBoxContainer = null
 	for name: String in DEBUG_ACTIONS.ACTIONS:
 		var action: Dictionary = DEBUG_ACTIONS.ACTIONS[name]
 		if not bool(action.get("panel", true)):
 			continue
-		var button := Button.new()
-		button.text = str(action.get("label", name))
-		button.tooltip_text = str(action.get("help", ""))
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_size_override("font_size", font_size - 2)
-		button.pressed.connect(func() -> void:
-			status.text = DEBUG_ACTIONS.run_action(name, main)
-			_debug(main, "action %s" % name))
-		box.add_child(button)
+		var row := str(action.get("row", ""))
+		if row.is_empty():
+			row_name = ""
+			row_box = null
+			box.add_child(_action_button(name, action, font_size, main, status, false))
+			continue
+		if row != row_name or row_box == null:
+			row_name = row
+			row_box = HBoxContainer.new()
+			row_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row_box.add_theme_constant_override("separation", 6)
+			var caption := STYLE.label(row, "Faint", maxi(12, font_size - 8))
+			caption.custom_minimum_size = Vector2(112, 0)
+			caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row_box.add_child(caption)
+			box.add_child(row_box)
+		row_box.add_child(_action_button(name, action, font_size, main, status, true))
 	box.add_child(status)
 	list.add_child(box)
+
+
+static func _action_button(name: String, action: Dictionary, font_size: int, main: Node,
+		status: Label, compact: bool) -> Button:
+	var button := Button.new()
+	button.text = str(action.get("short", action.get("label", name))) if compact \
+		else str(action.get("label", name))
+	button.tooltip_text = str(action.get("help", ""))
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", font_size - 2)
+	button.pressed.connect(func() -> void:
+		status.text = DEBUG_ACTIONS.run_action(name, main)
+		_debug(main, "action %s" % name))
+	return button
 
 
 static func _groups_of(paths: Array) -> Array:
 	var out: Array = []
 	for path: String in paths:
 		var setting: Variant = SETTINGS.by_path(path)
-		if setting != null and not out.has(setting.group):
+		if setting == null or str(setting.group).is_empty():
+			continue
+		if not out.has(setting.group):
 			out.append(setting.group)
 	return out
 

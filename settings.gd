@@ -419,12 +419,12 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 ## Every setting, declared once. Order here is the panel order. `debug` entries are shown in the
 ## tab's Debug block only; see TUNING.md.
 
+
 # ======================================================== General
 
-# -- General
+# -- (ungrouped)
 static var debug_mode := flag("debug_mode", "debug_mode", false, "Debug mode",
-	"Show the Debug section at the bottom of every tab. Hiding it keeps its settings as they are.",
-	GENERAL, "General")
+	"Show the Debug section at the bottom of every tab. Hiding it keeps its settings as they are.", GENERAL, "")
 
 # -- Thrust
 static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
@@ -462,10 +462,10 @@ static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Act v
 	"Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
 	GENERAL, "Audio")
 
-# -- Act flow
+# -- (ungrouped)
 static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 	"features.allow_act_during_cuddle", true, "Allow acts during cuddles",
-	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "Act flow")
+	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "")
 
 # -- Controls
 static var captions_on_top := flag("captions_on_top", "features.captions_on_top", true,
@@ -540,30 +540,23 @@ static var utterance_gap_seconds := num("utterance_gap_seconds", "cues.utterance
 	18.0, "Line gap", "Minimum time between any two generated act lines.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
 
-# -- General  (debug)
+# -- (ungrouped)  (debug)
 static var debug_logs := flag("debug_logs", "debug_logs", false, "Debug logs",
-	"Print the mod's diagnostics to the console.", GENERAL, "General") \
+	"Print the mod's diagnostics to the console.", GENERAL, "") \
 	.as_debug()
 static var debug_perf := flag("debug_perf", "debug_perf", false, "Perf logs",
-	"Print the per-second performance block. Requires Debug logs.", GENERAL, "General") \
+	"Print the per-second performance block. Requires Debug logs.", GENERAL, "") \
 	.as_debug()
-
-# -- Act flow  (debug)
 static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pinned act ears",
-	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.",
-	GENERAL, "Act flow") \
+	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.", GENERAL, "") \
 	.as_debug()
-
-# -- Dialogue  (debug)
 static var act_line_angles := flag("act_line_angles", "features.act_line_angles", true,
 	"Line angles",
-	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.",
-	GENERAL, "Dialogue") \
+	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.", GENERAL, "") \
 	.as_debug()
 static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel", false,
 	"Speech feel",
-	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.",
-	GENERAL, "Dialogue") \
+	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", GENERAL, "") \
 	.as_debug()
 
 # -- Camera  (debug)
@@ -571,11 +564,10 @@ static var idle_camera_sway := flag("idle_camera_sway", "features.idle_camera_sw
 	"Idle camera sway", "Add a slow sway when you are not leaning.", GENERAL, "Camera") \
 	.as_debug()
 
-# -- Missionary › Motion  (debug)
+# -- Missionary  (debug)
 static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
-	"Slide her body along the bed and nod her head on the thrust.", GENERAL,
-	"Missionary › Motion") \
+	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
 
 # -- Standing › Motion  (debug)
@@ -590,152 +582,16 @@ static var standing_plant_feet := flag("standing_plant_feet", "features.standing
 	GENERAL, "Standing › Motion") \
 	.as_debug()
 
-# -- Standing › Pose  (debug)
+# -- Standing  (debug)
 static var standing_play_bow := flag("standing_play_bow", "features.standing_play_bow", false,
 	"Play-bow stance",
-	"Standing: stretch the front legs forward with the chest down and head low instead of the tucked act stance.",
-	GENERAL, "Standing › Pose") \
+	"Standing: stretch the front legs forward with the chest down and head low instead of the tucked act stance.", GENERAL, "Standing") \
 	.as_debug()
 
 # -- Standing › Motion  (debug)
 static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_twitch", true,
 	"Thrust ear twitch", "Flick both ears on some thrusts.", GENERAL, "Standing › Motion") \
 	.as_debug()
-
-# -- History › Points  (debug)
-static var apology_repair := num("apology_repair", "history.apology_repair", 1.0,
-	"Apology repair", "Hurt removed by one sincere apology per day.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var bad_hurt := num("bad_hurt", "history.bad_hurt", 1.0, "Bad hurt",
-	"Hurt added by a bad act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var bad_max := num("bad_max", "history.bad_max", 0.2, "Bad threshold",
-	"Fraction of the applicable actions at or below which an act is bad.", GENERAL,
-	"History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
-static var decay_amount := num("decay_amount", "history.decay_amount", 1.0, "Decay amount",
-	"Hurt removed by one decay step.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var decay_days := num("decay_days", "history.decay_days", 2.0, "Decay days",
-	"In-game days per hurt decay step.", GENERAL, "History › Points") \
-	.with_unit("days").with_step(0.5).as_debug()
-
-# -- History › Score  (debug)
-static var early_grace_s := num("early_grace_s", "history.early_grace_s", 20.0, "Early grace",
-	"Seconds before an intentional early end counts as a summary.", GENERAL, "History › Score") \
-	.with_unit("s").with_step(1.0).as_debug()
-
-# -- History › Points  (debug)
-static var good_comfort := num("good_comfort", "history.good_comfort", 1.0, "Good comfort",
-	"Comfort added by a good act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var good_min := num("good_min", "history.good_min", 0.8, "Good threshold",
-	"Fraction of the applicable actions that must go right for a good act.", GENERAL,
-	"History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
-static var good_repair := num("good_repair", "history.good_repair", 1.0, "Good repair",
-	"Hurt removed by a good act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var great_comfort := num("great_comfort", "history.great_comfort", 2.0, "Great comfort",
-	"Comfort added by a great act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var great_repair := num("great_repair", "history.great_repair", 2.0, "Great repair",
-	"Hurt removed by a great act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var max_comfort := num("max_comfort", "history.max_comfort", 8.0, "Comfort cap",
-	"Maximum stored comfort points.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var max_hurt := num("max_hurt", "history.max_hurt", 8.0, "Hurt cap",
-	"Maximum stored hurt points.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var mild_hurt := num("mild_hurt", "history.mild_hurt", 1.0, "Early-end hurt",
-	"Hurt added by a neutral early end.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var min_thrusts := num("min_thrusts", "history.min_thrusts", 2.0, "Minimum thrusts",
-	"Real thrusts that make a very short act scoreable.", GENERAL, "History › Score") \
-	.with_step(1.0).as_debug()
-
-# -- History › Offers  (debug)
-static var offer_base_s := num("offer_base_s", "history.offer_base_s", 600.0, "Offer cooldown",
-	"Base seconds between proactive offers.", GENERAL, "History › Offers") \
-	.with_unit("s").with_step(10.0).as_debug()
-
-# -- History › Points  (debug)
-static var offer_block_hurt := num("offer_block_hurt", "history.offer_block_hurt", 4.0,
-	"No offers at", "Hurt points at which she stops asking for sex.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-
-# -- History › Offers  (debug)
-static var offer_comfort_scale := num("offer_comfort_scale", "history.offer_comfort_scale",
-	0.05, "Comfort cooldown", "Cooldown reduction per comfort point.", GENERAL,
-	"History › Offers") \
-	.with_step(0.01).as_debug()
-static var offer_min_s := num("offer_min_s", "history.offer_min_s", 300.0, "Cooldown floor",
-	"Shortest cooldown at high comfort.", GENERAL, "History › Offers") \
-	.with_unit("s").with_step(10.0).as_debug()
-static var offer_weight_base := num("offer_weight_base", "history.offer_weight_base", 0.7,
-	"Offer weight", "Base chance weight for a proactive offer.", GENERAL, "History › Offers") \
-	.with_step(0.01).as_debug()
-static var offer_weight_comfort := num("offer_weight_comfort", "history.offer_weight_comfort",
-	0.05, "Comfort weight", "Offer weight added per comfort point.", GENERAL, "History › Offers") \
-	.with_step(0.01).as_debug()
-static var offer_weight_hurt := num("offer_weight_hurt", "history.offer_weight_hurt", 0.12,
-	"Hurt weight", "Offer weight removed per hurt point.", GENERAL, "History › Offers") \
-	.with_step(0.01).as_debug()
-
-# -- History › Score  (debug)
-static var p_dislike := num("p_dislike", "history.p_dislike", 0.1, "Dislike penalty",
-	"Subtract per scored disliked touch or talk.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var p_miss := num("p_miss", "history.p_miss", 0.1, "Missed-preference penalty",
-	"Extra penalty for a missed touch or movement preference.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var p_severe := num("p_severe", "history.p_severe", 0.15, "Severe penalty",
-	"Extra penalty for repeated disliked handling.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var p_silence := num("p_silence", "history.p_silence", 0.15, "Silence penalty",
-	"Extra penalty for silent sex with a mare who likes to talk.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
-static var reminder_hurt := num("reminder_hurt", "history.reminder_hurt", 2.0, "Reminder at",
-	"Hurt points at which she starts reminding Anon.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-static var severe_hurt := num("severe_hurt", "history.severe_hurt", 2.0, "Severe hurt",
-	"Hurt added by a severe act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
-
-# -- History › Score  (debug)
-static var w_climax := num("w_climax", "history.w_climax", 0.3, "Climax weight",
-	"Score weight for her reaching climax.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var w_motion := num("w_motion", "history.w_motion", 0.15, "Motion weight",
-	"Weight for matching both of her motion preferences.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var w_not_early := num("w_not_early", "history.w_not_early", 0.15, "Not-early weight",
-	"Weight for not ending before she finishes.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var w_talk := num("w_talk", "history.w_talk", 0.2, "Talk weight",
-	"Score weight for a talk-seeking mare hearing what she likes.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-static var w_touch := num("w_touch", "history.w_touch", 0.2, "Touch weight",
-	"Score component for touch that matches her preference.", GENERAL, "History › Score") \
-	.with_step(0.01).with_range(0.0, 1.0).as_debug()
-
-# -- History › Points  (debug)
-static var withdraw_hurt := num("withdraw_hurt", "history.withdraw_hurt", 6.0, "Not tonight at",
-	"Hurt points at which she gently refuses an act.", GENERAL, "History › Points") \
-	.with_step(1.0).as_debug()
 
 # -- Thrust jiggle  (debug)
 static var center_back_m := num("center_back_m", "jiggle.center_back_m", 0.15, "Center back",
@@ -851,9 +707,9 @@ static var chest_back_m := num("chest_back_m", "presentation.standing.chest_back
 	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
-# -- Standing › Neck  (debug)
+# -- Standing  (debug)
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg", 30.0,
-	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing › Neck") \
+	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
 
 # -- Standing › Motion  (debug)
@@ -895,9 +751,9 @@ static var mouth_right := num("mouth_right", "presentation.standing.kiss.mouth_r
 	"Kiss mouth right", "Anon's mouth target sideways at the kiss.", GENERAL, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
-# -- Standing › Neck  (debug)
+# -- Standing  (debug)
 static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg", 15.0,
-	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing › Neck") \
+	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
 
 # -- Standing › Motion  (debug)
@@ -930,14 +786,12 @@ static var return_speed := num("return_speed", "presentation.standing.smack.retu
 	"Return speed", "Strike speed in metres per second.", GENERAL, "Standing › Smack") \
 	.with_unit("m/s").with_step(0.1).as_debug()
 
-# -- Standing › Tail  (debug)
+# -- Standing  (debug)
 static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg", 32.0,
-	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", GENERAL,
-	"Standing › Tail") \
+	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg", 45.0,
-	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", GENERAL,
-	"Standing › Tail") \
+	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 
 # -- Standing › Motion  (debug)
@@ -959,48 +813,6 @@ static var touch_cooldown_seconds := num("touch_cooldown_seconds",
 	"talk.touch_cooldown_seconds", 4.0, "Touch cooldown",
 	"Minimum time between touch readiness chunks.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
-
-# -- Neglect tolerance  (debug)
-static var tolerance_decay_amount := num("tolerance_decay_amount", "tolerance.decay_amount",
-	1.0, "Decay amount", "Distress removed per decay step.", GENERAL, "Neglect tolerance") \
-	.with_step(0.1).as_debug()
-static var decay_seconds := num("decay_seconds", "tolerance.decay_seconds", 25.0,
-	"Decay interval", "Seconds per passive distress decay step.", GENERAL, "Neglect tolerance") \
-	.with_unit("s").with_step(1.0).as_debug()
-static var dislike_amount := num("dislike_amount", "tolerance.dislike_amount", 1.0,
-	"Dislike amount", "Distress added by each actual disliked touch or talk.", GENERAL,
-	"Neglect tolerance") \
-	.with_step(0.1).as_debug()
-static var forgiving_warning := num("forgiving_warning", "tolerance.forgiving_warning", 4.0,
-	"Forgiving warning", "Distress at which a forgiving mare gives her one warning.", GENERAL,
-	"Neglect tolerance") \
-	.with_step(1.0).as_debug()
-static var like_relief := num("like_relief", "tolerance.like_relief", 1.0, "Like relief",
-	"Distress removed by each actual liked touch or talk.", GENERAL, "Neglect tolerance") \
-	.with_step(0.1).as_debug()
-static var normal_cooldown_s := num("normal_cooldown_s", "tolerance.normal_cooldown_s", 300.0,
-	"Normal cooldown", "Sex-only cooldown after a normal mare stops.", GENERAL,
-	"Neglect tolerance") \
-	.with_unit("s").with_step(10.0).as_debug()
-static var normal_stop := num("normal_stop", "tolerance.normal_stop", 10.0, "Normal stop",
-	"Distress at which a normal mare stops the act.", GENERAL, "Neglect tolerance") \
-	.with_step(1.0).as_debug()
-static var normal_warning_1 := num("normal_warning_1", "tolerance.normal_warning_1", 1.0,
-	"Normal warning 1", "First warning for a normal mare.", GENERAL, "Neglect tolerance") \
-	.with_step(1.0).as_debug()
-static var normal_warning_2 := num("normal_warning_2", "tolerance.normal_warning_2", 4.0,
-	"Normal warning 2", "Second warning for a normal mare.", GENERAL, "Neglect tolerance") \
-	.with_step(1.0).as_debug()
-static var strict_cooldown_s := num("strict_cooldown_s", "tolerance.strict_cooldown_s", 600.0,
-	"Strict cooldown", "Sex-only cooldown after a strict mare stops.", GENERAL,
-	"Neglect tolerance") \
-	.with_unit("s").with_step(10.0).as_debug()
-static var strict_stop := num("strict_stop", "tolerance.strict_stop", 3.0, "Strict stop",
-	"Distress at which a strict mare stops the act.", GENERAL, "Neglect tolerance") \
-	.with_step(1.0).as_debug()
-static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1.0,
-	"Strict warning", "Warning threshold for a strict mare.", GENERAL, "Neglect tolerance") \
-	.with_step(1.0).as_debug()
 
 # ======================================================== Anatomy
 
@@ -1079,21 +891,18 @@ static var teats := flag("teats", "anatomy.teats", false, "Teats", "Show the opt
 static var anatomy := flag("anatomy", "features.anatomy", false, "Anatomy",
 	"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.", ANATOMY,
 	"Anatomy")
-
-# -- Anatomy › Experimental
 static var anatomy_bed_body := flag("anatomy_bed_body", "features.anatomy_bed_body", true,
 	"Anon bed body",
-	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.",
-	ANATOMY, "Anatomy › Experimental")
+	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", ANATOMY, "Anatomy")
 
 # -- Anatomy › Actions
 static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish", true,
 	"Finish control", "Let B choose whether Anon finishes inside or pulls out.", ANATOMY,
 	"Anatomy › Actions")
 
-# -- Anatomy › Effects
+# -- Anatomy
 static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Fluid",
-	"Show the optional climax and finish droplets.", ANATOMY, "Anatomy › Effects")
+	"Show the optional climax and finish droplets.", ANATOMY, "Anatomy")
 
 # -- Anatomy › Actions
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Hole switch",
@@ -1103,62 +912,218 @@ static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", true, "
 	"Let N turn her round for oral in the standing pose if she is willing.", ANATOMY,
 	"Anatomy › Actions")
 
-# -- Anatomy › Experimental
+# -- Anatomy
 static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "VR act",
-	"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.",
-	ANATOMY, "Anatomy › Experimental")
-
-# -- Anatomy › Effects
-static var debug_aim_points := flag("debug_aim_points", "features.debug_aim_points", false,
-	"Aim points", "Show the vulva, anus and cock-tip markers during an act.", ANATOMY,
-	"Anatomy › Effects")
+	"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", ANATOMY, "Anatomy")
 
 # -- Anatomy  (debug)
+static var debug_aim_points := flag("debug_aim_points", "features.debug_aim_points", false,
+	"Aim points", "Show the vulva, anus and cock-tip markers during an act.", ANATOMY, "") \
+	.as_debug()
+
+# -- (ungrouped)  (debug)
 static var strip_scale := num("strip_scale", "anatomy.strip_scale", 1.0, "Skin strip scale",
-	"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.",
-	ANATOMY, "Anatomy") \
+	"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).as_debug()
 
 # ======================================================== World
 
-# -- Cycle
+# -- (ungrouped)
 static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle", false, "Estrus cycle",
-	"Give adult mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.",
-	WORLD, "Cycle")
-
-# -- Relationships
+	"Give adult mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
 static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any",
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
-	"Promiscuity", "Lowest relationship level for a lover bond and sex.", WORLD, "Relationships")
+	"Promiscuity", "Lowest relationship level for a lover bond and sex.", WORLD, "")
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"], "Starting Sex",
-	"When Anon can start sex.", WORLD, "Relationships")
+	"When Anon can start sex.", WORLD, "")
 
-# -- Ponies  (debug)
+# -- History › Points  (debug)
+static var apology_repair := num("apology_repair", "history.apology_repair", 1.0,
+	"Apology repair", "Hurt removed by one sincere apology per day.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var bad_hurt := num("bad_hurt", "history.bad_hurt", 1.0, "Bad hurt",
+	"Hurt added by a bad act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+
+# -- History › Score  (debug)
+static var bad_max := num("bad_max", "history.bad_max", 0.2, "Bad threshold",
+	"Fraction of the applicable actions at or below which an act is bad.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+
+# -- History › Points  (debug)
+static var decay_amount := num("decay_amount", "history.decay_amount", 1.0, "Decay amount",
+	"Hurt removed by one decay step.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var decay_days := num("decay_days", "history.decay_days", 2.0, "Decay days",
+	"In-game days per hurt decay step.", WORLD, "History › Points") \
+	.with_unit("days").with_step(0.5).as_debug()
+
+# -- History › Score  (debug)
+static var early_grace_s := num("early_grace_s", "history.early_grace_s", 20.0, "Early grace",
+	"Seconds before an intentional early end counts as a summary.", WORLD, "History › Score") \
+	.with_unit("s").with_step(1.0).as_debug()
+
+# -- History › Points  (debug)
+static var good_comfort := num("good_comfort", "history.good_comfort", 1.0, "Good comfort",
+	"Comfort added by a good act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+
+# -- History › Score  (debug)
+static var good_min := num("good_min", "history.good_min", 0.8, "Good threshold",
+	"Fraction of the applicable actions that must go right for a good act.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+
+# -- History › Points  (debug)
+static var good_repair := num("good_repair", "history.good_repair", 1.0, "Good repair",
+	"Hurt removed by a good act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var great_comfort := num("great_comfort", "history.great_comfort", 2.0, "Great comfort",
+	"Comfort added by a great act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var great_repair := num("great_repair", "history.great_repair", 2.0, "Great repair",
+	"Hurt removed by a great act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var max_comfort := num("max_comfort", "history.max_comfort", 8.0, "Comfort cap",
+	"Maximum stored comfort points.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var max_hurt := num("max_hurt", "history.max_hurt", 8.0, "Hurt cap",
+	"Maximum stored hurt points.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var mild_hurt := num("mild_hurt", "history.mild_hurt", 1.0, "Early-end hurt",
+	"Hurt added by a neutral early end.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+
+# -- History › Score  (debug)
+static var min_thrusts := num("min_thrusts", "history.min_thrusts", 2.0, "Minimum thrusts",
+	"Real thrusts that make a very short act scoreable.", WORLD, "History › Score") \
+	.with_step(1.0).as_debug()
+
+# -- History › Offers  (debug)
+static var offer_base_s := num("offer_base_s", "history.offer_base_s", 600.0, "Offer cooldown",
+	"Base seconds between proactive offers.", WORLD, "History › Offers") \
+	.with_unit("s").with_step(10.0).as_debug()
+
+# -- History › Points  (debug)
+static var offer_block_hurt := num("offer_block_hurt", "history.offer_block_hurt", 4.0,
+	"No offers at", "Hurt points at which she stops asking for sex.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+
+# -- History › Offers  (debug)
+static var offer_comfort_scale := num("offer_comfort_scale", "history.offer_comfort_scale",
+	0.05, "Comfort cooldown", "Cooldown reduction per comfort point.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+static var offer_min_s := num("offer_min_s", "history.offer_min_s", 300.0, "Cooldown floor",
+	"Shortest cooldown at high comfort.", WORLD, "History › Offers") \
+	.with_unit("s").with_step(10.0).as_debug()
+static var offer_weight_base := num("offer_weight_base", "history.offer_weight_base", 0.7,
+	"Offer weight", "Base chance weight for a proactive offer.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+static var offer_weight_comfort := num("offer_weight_comfort", "history.offer_weight_comfort",
+	0.05, "Comfort weight", "Offer weight added per comfort point.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+static var offer_weight_hurt := num("offer_weight_hurt", "history.offer_weight_hurt", 0.12,
+	"Hurt weight", "Offer weight removed per hurt point.", WORLD, "History › Offers") \
+	.with_step(0.01).as_debug()
+
+# -- History › Score  (debug)
+static var p_dislike := num("p_dislike", "history.p_dislike", 0.1, "Dislike penalty",
+	"Subtract per scored disliked touch or talk.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var p_miss := num("p_miss", "history.p_miss", 0.1, "Missed-preference penalty",
+	"Extra penalty for a missed touch or movement preference.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var p_severe := num("p_severe", "history.p_severe", 0.15, "Severe penalty",
+	"Extra penalty for repeated disliked handling.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var p_silence := num("p_silence", "history.p_silence", 0.15, "Silence penalty",
+	"Extra penalty for silent sex with a mare who likes to talk.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+
+# -- History › Points  (debug)
+static var reminder_hurt := num("reminder_hurt", "history.reminder_hurt", 2.0, "Reminder at",
+	"Hurt points at which she starts reminding Anon.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+static var severe_hurt := num("severe_hurt", "history.severe_hurt", 2.0, "Severe hurt",
+	"Hurt added by a severe act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+
+# -- History › Score  (debug)
+static var w_climax := num("w_climax", "history.w_climax", 0.3, "Climax weight",
+	"Score weight for her reaching climax.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var w_motion := num("w_motion", "history.w_motion", 0.15, "Motion weight",
+	"Weight for matching both of her motion preferences.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var w_not_early := num("w_not_early", "history.w_not_early", 0.15, "Not-early weight",
+	"Weight for not ending before she finishes.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var w_talk := num("w_talk", "history.w_talk", 0.2, "Talk weight",
+	"Score weight for a talk-seeking mare hearing what she likes.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+static var w_touch := num("w_touch", "history.w_touch", 0.2, "Touch weight",
+	"Score component for touch that matches her preference.", WORLD, "History › Score") \
+	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+
+# -- History › Points  (debug)
+static var withdraw_hurt := num("withdraw_hurt", "history.withdraw_hurt", 6.0, "Not tonight at",
+	"Hurt points at which she gently refuses an act.", WORLD, "History › Points") \
+	.with_step(1.0).as_debug()
+
+# -- Neglect tolerance  (debug)
+static var tolerance_decay_amount := num("tolerance_decay_amount", "tolerance.decay_amount",
+	1.0, "Decay amount", "Distress removed per decay step.", WORLD, "Neglect tolerance") \
+	.with_step(0.1).as_debug()
+static var decay_seconds := num("decay_seconds", "tolerance.decay_seconds", 25.0,
+	"Decay interval", "Seconds per passive distress decay step.", WORLD, "Neglect tolerance") \
+	.with_unit("s").with_step(1.0).as_debug()
+static var dislike_amount := num("dislike_amount", "tolerance.dislike_amount", 1.0,
+	"Dislike amount", "Distress added by each actual disliked touch or talk.", WORLD, "Neglect tolerance") \
+	.with_step(0.1).as_debug()
+static var forgiving_warning := num("forgiving_warning", "tolerance.forgiving_warning", 4.0,
+	"Forgiving warning", "Distress at which a forgiving mare gives her one warning.", WORLD, "Neglect tolerance") \
+	.with_step(1.0).as_debug()
+static var like_relief := num("like_relief", "tolerance.like_relief", 1.0, "Like relief",
+	"Distress removed by each actual liked touch or talk.", WORLD, "Neglect tolerance") \
+	.with_step(0.1).as_debug()
+static var normal_cooldown_s := num("normal_cooldown_s", "tolerance.normal_cooldown_s", 300.0,
+	"Normal cooldown", "Sex-only cooldown after a normal mare stops.", WORLD, "Neglect tolerance") \
+	.with_unit("s").with_step(10.0).as_debug()
+static var normal_stop := num("normal_stop", "tolerance.normal_stop", 10.0, "Normal stop",
+	"Distress at which a normal mare stops the act.", WORLD, "Neglect tolerance") \
+	.with_step(1.0).as_debug()
+static var normal_warning_1 := num("normal_warning_1", "tolerance.normal_warning_1", 1.0,
+	"Normal warning 1", "First warning for a normal mare.", WORLD, "Neglect tolerance") \
+	.with_step(1.0).as_debug()
+static var normal_warning_2 := num("normal_warning_2", "tolerance.normal_warning_2", 4.0,
+	"Normal warning 2", "Second warning for a normal mare.", WORLD, "Neglect tolerance") \
+	.with_step(1.0).as_debug()
+static var strict_cooldown_s := num("strict_cooldown_s", "tolerance.strict_cooldown_s", 600.0,
+	"Strict cooldown", "Sex-only cooldown after a strict mare stops.", WORLD, "Neglect tolerance") \
+	.with_unit("s").with_step(10.0).as_debug()
+static var strict_stop := num("strict_stop", "tolerance.strict_stop", 3.0, "Strict stop",
+	"Distress at which a strict mare stops the act.", WORLD, "Neglect tolerance") \
+	.with_step(1.0).as_debug()
+static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1.0,
+	"Strict warning", "Warning threshold for a strict mare.", WORLD, "Neglect tolerance") \
+	.with_step(1.0).as_debug()
+
+# -- (ungrouped)  (debug)
 static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", false, "Hide tails",
-	"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.",
-	WORLD, "Ponies") \
+	"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.", WORLD, "") \
 	.as_debug()
-
-# -- Witnesses  (debug)
 static var act_bystanders := flag("act_bystanders", "features.act_bystanders", true,
 	"Bystander lines",
-	"Let an adult pony who can perceive the act say one short line. Uses the modern witness rules; young ponies never speak.",
-	WORLD, "Witnesses") \
+	"Let an adult pony who can perceive the act say one short line. Uses the modern witness rules; young ponies never speak.", WORLD, "") \
 	.as_debug()
 static var act_public_offer := flag("act_public_offer", "features.act_public_offer", true,
 	"Public offers",
-	"Let a mare who is comfortable with others around still offer sex in public.", WORLD,
-	"Witnesses") \
+	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "") \
 	.as_debug()
-
-# -- Ponies  (debug)
 static var body_yaw_deg := num("body_yaw_deg", "player.body_yaw_deg", 0.0, "Body yaw",
-	"Rotate Anon's body left or right for testing; the camera and pose are unchanged.", WORLD,
-	"Ponies") \
+	"Rotate Anon's body left or right for testing; the camera and pose are unchanged.", WORLD, "") \
 	.with_unit("°").with_step(1.0).as_debug()
-
 
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",

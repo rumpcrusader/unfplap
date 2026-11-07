@@ -890,7 +890,7 @@ examples.
 - A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
   (`upset.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
   `features.act_history` off, or a skipped summary, there is no impression and no face.
-- The **Neglect tolerance** debug settings sit in General's Debug block; the Debug actions have **Force neglect warning**
+- The **Neglect tolerance** debug settings sit in World's Debug block; the Debug actions have **Force neglect warning**
   and **Force neglect stop**. See `HISTORY.md`.
 
 ### Proactive requests
@@ -1424,12 +1424,13 @@ rump blush. Unknown settings keys are ignored.
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
   units are not clipped; a declaration with `.with_slider()` draws a themed HSlider with its value
   beside it instead. The sidebar row sits under an **Add-ons** caption, and the injected page has no
-  second title. **General** holds the interface, audio, cycle, thrust and act tuning (including
-  **Thrust**, **Missionary**, **Standing**, **History**, **Neglect tolerance** and **Talk & cues**
-  as debug sections). **Anatomy** holds every anatomy setting. **World** holds relationships, cycle,
-  witnesses and pony behaviour. **Characters** holds the hand-built **Character preference** form (a
-  per-mare profile, not a global setting). The **Actions** buttons sit at the bottom of General's
-  **Debug** section. The declaration-drawn pages have no Save buttons: each edit writes its setting and
+  second title. Settings with no group render at the top of the tab without a heading; a group
+  needs at least three related settings to earn one. **General** holds the interface, audio, thrust
+  and act tuning (**Thrust**, **Missionary**, **Standing**, **Talk & cues**, plus **Camera** and
+  **Thrust jiggle**). **Anatomy** holds every anatomy setting. **World** holds relationships, cycle,
+  witnesses, pony behaviour, the per-mare **History** and **Neglect tolerance**. **Characters** holds
+  the hand-built **Character preference** form (a per-mare profile, not a global setting). The
+  **Actions** buttons sit at the bottom of General's **Debug** section, in compact rows. The declaration-drawn pages have no Save buttons: each edit writes its setting and
   calls `main._apply_settings_changed()`, which refreshes the flags, the caption position and the
   active act. The hand-built Characters form is the exception: it stages edits and writes them only
   when **Save preset** is pressed.
@@ -1462,9 +1463,14 @@ rump blush. Unknown settings keys are ignored.
   declaration, migration and the per-mare merge. Extend that file only for new API behaviour.
 - A retired setting is one `deprecated()` entry in `settings.gd` with its mapping; bump
   `SCHEMA_VERSION` only for a structural change in `_migrate()`. Neither needs a manual file edit.
+- **A group needs at least three related settings.** Fewer, and the setting goes directly in the
+  tab (or its Debug block) with `group` empty and no heading; a subgroup that small merges into its
+  parent section. `tests/test_settings.gd` enforces the rule.
 - The Debug block is gated by `debug_mode` and toggles live: `settings_ui.build()` returns the
   block and `main.gd` keeps it to show or hide. Put new debug-only settings behind `.as_debug()`;
   the Actions buttons live inside General's block.
+- A debug action that belongs with others shares a `row` caption and a `short` label in
+  `debug_actions.gd`; consecutive entries with the same row render on one line.
 
 ## Documentation discipline
 

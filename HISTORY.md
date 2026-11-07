@@ -163,7 +163,7 @@ A stop is a dedicated path, not `cancel()`:
 - no aftercare or satisfied face. A 20 s tucked-tail effect hinged at the tail base follows her,
   owns no navigator, and is removed if a new act starts.
 
-The neglect settings live under **Neglect tolerance** in General's Debug block (turn on **Debug mode**).
+The neglect settings live under **Neglect tolerance** in World's Debug block (turn on **Debug mode**).
 The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for testing.
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
@@ -218,7 +218,7 @@ and blocks nothing; the gates above do that.
 stored, no history note or refusal is used, and the existing satisfied/aftercare behaviour falls
 back to the readiness threshold. It does not disable the per-mare mid-act neglect stop.
 
-The thresholds and weights live under `History` in General's Debug block. They are debug numbers,
+The thresholds and weights live under `History` in World's Debug block. They are debug numbers,
 so stored values are never clamped. See `TUNING.md`.
 
 The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in

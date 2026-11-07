@@ -87,7 +87,7 @@ list(n, path, default, options, label, help, tab, group)
 | `path` | the `settings.json` path; the only string, and it lives here |
 | `label`, `help` | the row text and the line under it |
 | `tab` | `GENERAL`, `ANATOMY` or `WORLD` |
-| `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing` |
+| `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing`. A group needs at least 3 related settings: fewer, and pass `""` so the setting sits in the tab with no heading (a small subgroup merges into its parent) |
 | `with_unit`, `with_step`, `with_scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
 | `with_range` | the contract bounds; only applied when the setting is not debug |
 | `with_slider` | draw a themed HSlider instead of a spin box |
@@ -173,8 +173,9 @@ Debug commands are entries in `debug_actions.gd`:
 ```
 
 General's **Debug** block (with **Debug mode** on) draws a button per entry and calls `method`
-on the entry node. Adding an
-action is one entry plus one method. A hotkey (`"hotkey": KEY_X`) is the exception, only for an
+on the entry node. Entries that share `"row"` are drawn compactly on one line under that caption
+(`"short"` is the button text), so related actions stay together; adding an action is one entry
+plus one method. A hotkey (`"hotkey": KEY_X`) is the exception, only for an
 action that must fire while the world is unpaused and you are looking at the scene (the F10
 skeleton overlay is the only one); use `"panel": false` for hotkey-only. `input.gd` routes declared
 hotkeys only.

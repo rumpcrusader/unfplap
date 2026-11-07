@@ -36,6 +36,7 @@ func run() -> void:
 	_check_write_round_trip()
 	_check_coercion()
 	_check_sections()
+	_check_groups()
 	_check_panels()
 	_check_migration()
 	_check_api_names()
@@ -59,13 +60,13 @@ func _check_registry() -> void:
 			complete = false
 		names[setting.name] = true
 		paths[setting.path] = true
-		if str(setting.label).is_empty() or str(setting.help).is_empty() \
-				or str(setting.group).is_empty():
+		# An empty group is legal: the setting then has no section heading.
+		if str(setting.label).is_empty() or str(setting.help).is_empty():
 			complete = false
 		if str(setting.tab) not in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
 			complete = false
 		tabs[setting.tab] = int(tabs.get(setting.tab, 0)) + 1
-	check(complete, "every setting has a unique name and path, a label, help, group and tab")
+	check(complete, "every setting has a unique name and path, a label, help and tab")
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
 		check(int(tabs.get(tab, 0)) > 0, "%s tab has settings" % tab)
 	check(SETTINGS.by_name("hud_readouts") != null, "a setting is reachable by name")
@@ -137,6 +138,34 @@ func _check_sections() -> void:
 	check(SETTINGS.section_open(SETTINGS.GENERAL, "Controls") == before, "section state restores")
 
 
+## A group needs at least three related settings. Fewer, and the setting belongs directly in the
+## tab (or its Debug block) with no heading; a subgroup that small merges into its parent.
+func _check_groups() -> void:
+	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
+		for debug: bool in [false, true]:
+			var sections := {}
+			var subs := {}
+			for setting: Variant in SETTINGS.tab_settings(tab):
+				if bool(setting.debug) != debug:
+					continue
+				var group := str(setting.group)
+				if group.is_empty():
+					continue
+				var parts := group.split("›", true, 1)
+				var top := parts[0].strip_edges()
+				sections[top] = int(sections.get(top, 0)) + 1
+				if parts.size() > 1:
+					subs[group] = int(subs.get(group, 0)) + 1
+			for name: String in sections:
+				check(int(sections[name]) >= 3,
+					"%s %s section %s has at least 3 settings (%d)" % [
+						tab, "debug" if debug else "player", name, int(sections[name])])
+			for name: String in subs:
+				check(int(subs[name]) >= 3,
+					"%s %s subgroup %s has at least 3 settings (%d)" % [
+						tab, "debug" if debug else "player", name, int(subs[name])])
+
+
 ## The panel draws every declaration in its tab, and the Debug block follows debug mode.
 func _check_panels() -> void:
 	var debug_before := SETTINGS.debug_mode.get_bool()
@@ -161,7 +190,7 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 		if not labels.has(str(setting.label)):
 			missing.append(setting.path)
 		var heading := str(setting.group).split("›", true, 1)[0].strip_edges()
-		if not sections.has(heading):
+		if not heading.is_empty() and not sections.has(heading):
 			sections.append(heading)
 	check(missing.is_empty(), "%s tab draws every setting (%s)" % [tab, str(missing)])
 	for heading: String in sections:

@@ -64,10 +64,12 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 **General**
 
+The first rows have no heading: **Debug mode** (the switch that reveals the Debug sections) and
+**Allow acts during cuddles**.
+
 - **Controls**: HUD readouts, control hints, act lines, long-term history, captions on top, mute
-  Ponese audio, and **Debug mode** (the switch that reveals the Debug sections).
+  Ponese audio.
 - **Audio**: act foley, act vocals and the wet climax layer.
-- **Cycle**: the estrus cycle switch.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), climax limit (`0…20`, default `3`; `0` is
   unlimited), and auto-thrust pace (`1.0…3.75/s`, default `1.0/s`, quarter steps) and peak depth
@@ -77,19 +79,14 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 **Anatomy**
 
 - **Anatomy**: the master switch, teats and the separate skin strip, the genital tone slider, only
-  during acts and the tail-dock hide.
-- **Anon part**: size, girth, head, length, throb and placement.
+  during acts, the tail-dock hide, the fluid layer, the Anon bed body and the VR act.
 - **Holes**: anal ring, anal height, lip vertical share.
+- **Anon part**: size, girth, head, length, throb and placement.
 - **Actions**: hole switch, oral and finish control.
-- **Effects**: climax and finish fluid.
-- **Experimental**: hip alignment, the Anon bed body and the VR act.
 
 **World**
 
-- **Relationships**: Promiscuity and Starting Sex.
-- **Cycle**: the estrus cycle switch.
-- **Witnesses**: bystander lines and public offers.
-- **Ponies**: tail hiding and the debug body yaw.
+No headings: **Promiscuity**, **Starting Sex** and the **Estrus cycle** switch.
 
 **Characters**
 
@@ -98,14 +95,15 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 **Debug sections**
 
-Turning on **Debug mode** (General › Controls) adds one collapsed **Debug** section at the bottom
-of General, Anatomy and World; each section keeps the groups it belongs to, plus the **Actions**
-buttons at the end of General's. Its settings are mostly act tuning:
+Turning on **Debug mode** (the first row of General) adds one collapsed **Debug** section at the
+bottom of General, Anatomy and World; each section keeps the groups it belongs to, plus the
+**Actions** buttons at the end of General's, in compact rows. Its settings are mostly act tuning:
 
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
-- **History** and **Neglect tolerance**: the act summary/history scoring and threshold values.
+- **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**, plus the
+  ungrouped witness, tail and body-yaw switches.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.

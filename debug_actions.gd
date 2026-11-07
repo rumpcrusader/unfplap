@@ -4,10 +4,11 @@ extends RefCounted
 ## Add a hotkey only when the action must fire while the world is unpaused.
 
 ## Debug actions. `method` is called on the entry node.
-## Add an action here; it becomes a button in every tab's Debug block automatically. A hotkey is the
-## exception, not the default: only add one when the action must fire while the world is unpaused
-## and you are looking at the scene (the skeleton overlay is the example). `panel: false` keeps a
-## hotkey-only action out of the button list.
+## Add an action here; it becomes a button in the Debug block automatically. Actions that share a
+## `row` are drawn compactly on one line, captioned with `short`; consecutive entries with the same
+## row must stay adjacent. A hotkey is the exception, not the default: only add one when the action
+## must fire while the world is unpaused and you are looking at the scene (the skeleton overlay is
+## the example). `panel: false` keeps a hotkey-only action out of the button list.
 const ACTIONS := {
 	"bed_offer": {
 		"label": "Trigger bed offer",
@@ -23,36 +24,50 @@ const ACTIONS := {
 		"label": "Force heat",
 		"help": "Put the aimed or nearest mare in heat for this session.",
 		"method": "action_force_heat",
+		"row": "Cycle",
+		"short": "Heat",
 	},
 	"force_diestrus": {
 		"label": "Force diestrus",
 		"help": "Turn the aimed or nearest mare off for this session.",
 		"method": "action_force_diestrus",
+		"row": "Cycle",
+		"short": "Diestrus",
 	},
 	"clear_cycle_override": {
 		"label": "Clear forced cycle",
 		"help": "Resume the aimed or nearest mare's automatic estrus cycle.",
 		"method": "action_clear_cycle_override",
+		"row": "Cycle",
+		"short": "Clear",
 	},
 	"grant_lover_bond": {
 		"label": "Grant lover bond",
 		"help": "Give the aimed or nearest eligible mare the mod lover bond.",
 		"method": "action_grant_lover_bond",
+		"row": "Lover bond",
+		"short": "Grant",
 	},
 	"clear_lover_bond": {
 		"label": "Clear lover bond",
 		"help": "Clear the aimed or nearest mare's mod lover bond.",
 		"method": "action_clear_lover_bond",
+		"row": "Lover bond",
+		"short": "Clear",
 	},
 	"reset_act_history": {
 		"label": "Reset act history",
 		"help": "Clear the aimed or nearest mare's long-term act history and hurt.",
 		"method": "action_reset_act_history",
+		"row": "Act history",
+		"short": "Reset",
 	},
 	"show_act_history": {
 		"label": "Show act history",
 		"help": "Print the aimed or nearest mare's act history to the debug log.",
 		"method": "action_show_act_history",
+		"row": "Act history",
+		"short": "Show",
 	},
 	"reset_act_prompts": {
 		"label": "Reset act prompts",
@@ -63,11 +78,15 @@ const ACTIONS := {
 		"label": "Force neglect warning",
 		"help": "Trigger the active act's next neglect warning.",
 		"method": "action_force_tolerance_warning",
+		"row": "Neglect",
+		"short": "Warning",
 	},
 	"force_tolerance_stop": {
 		"label": "Force neglect stop",
 		"help": "Make the active mare stop the act through the neglect path.",
 		"method": "action_force_tolerance_stop",
+		"row": "Neglect",
+		"short": "Stop",
 	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
@@ -78,25 +97,35 @@ const ACTIONS := {
 	},
 	# integration: local anatomy placement calibration.
 	"anatomy_up": {"label": "Anatomy up", "help": "Move the aimed mare's anatomy up 5 mm.",
-		"method": "action_anatomy_up"},
+		"method": "action_anatomy_up",
+		"row": "Anatomy place", "short": "Up"},
 	"anatomy_down": {"label": "Anatomy down", "help": "Move the aimed mare's anatomy down 5 mm.",
-		"method": "action_anatomy_down"},
+		"method": "action_anatomy_down",
+		"row": "Anatomy place", "short": "Down"},
 	"anatomy_forward": {"label": "Anatomy forward", "help": "Move the anatomy forward 5 mm.",
-		"method": "action_anatomy_forward"},
+		"method": "action_anatomy_forward",
+		"row": "Anatomy place", "short": "Forward"},
 	"anatomy_back": {"label": "Anatomy back", "help": "Move the anatomy back 5 mm.",
-		"method": "action_anatomy_back"},
+		"method": "action_anatomy_back",
+		"row": "Anatomy place", "short": "Back"},
 	"anatomy_pitch_up": {"label": "Anatomy pitch up", "help": "Pitch the anatomy up 1 degree.",
-		"method": "action_anatomy_pitch_up"},
+		"method": "action_anatomy_pitch_up",
+		"row": "Pitch and size", "short": "Pitch +"},
 	"anatomy_pitch_down": {"label": "Anatomy pitch down", "help": "Pitch down 1 degree.",
-		"method": "action_anatomy_pitch_down"},
+		"method": "action_anatomy_pitch_down",
+		"row": "Pitch and size", "short": "Pitch −"},
 	"anatomy_scale_up": {"label": "Anatomy bigger", "help": "Scale the anatomy up by 0.02.",
-		"method": "action_anatomy_scale_up"},
+		"method": "action_anatomy_scale_up",
+		"row": "Pitch and size", "short": "Bigger"},
 	"anatomy_scale_down": {"label": "Anatomy smaller", "help": "Scale the anatomy down by 0.02.",
-		"method": "action_anatomy_scale_down"},
+		"method": "action_anatomy_scale_down",
+		"row": "Pitch and size", "short": "Smaller"},
 	"anatomy_save": {"label": "Save anatomy place", "help": "Save this mare's placement.",
-		"method": "action_anatomy_save"},
+		"method": "action_anatomy_save",
+		"row": "Anatomy file", "short": "Save"},
 	"anatomy_reset": {"label": "Reset anatomy place", "help": "Restore the default placement.",
-		"method": "action_anatomy_reset"},
+		"method": "action_anatomy_reset",
+		"row": "Anatomy file", "short": "Reset"},
 }
 
 

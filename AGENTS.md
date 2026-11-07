@@ -1314,8 +1314,7 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - `anatomy` stores `teats` (off by default), `skin_strip` (on by default), `skin_tone` (0–1
-  genital tone; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `genital_yaw_deg`
-  (debug: yaw every anatomy mesh about the world vertical through its opening; unbounded),
+  genital tone; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone),
   `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded), `act_only`,
   `hide_dock`, the experimental `anal_ring`

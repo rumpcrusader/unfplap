@@ -606,7 +606,7 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 	for key: String in ["anal_swell", "anal_depth", "anal_pitch_deg", "anal_side_mm",
 			"anal_tilt_deg", "cover_depth_m", "max_back_m", "player_pitch_deg",
 			"player_yaw_deg", "player_roll_deg", "hole_depth", "anal_hug", "hug",
-			"vulva_hug", "pair_limit"]:
+			"vulva_hug", "pair_limit", "genital_yaw_deg"]:
 		block.erase(key)
 	data["anatomy"] = block
 	return data

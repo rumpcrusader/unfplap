@@ -420,22 +420,6 @@ func _apply_place() -> void:
 			_body[1] + (place.z - WINKING_REAR_Z) * size)
 		basis = basis.scaled(Vector3.ONE * size)
 	_mesh.transform = _bone_inverse * Transform3D(basis, place)
-	_apply_genital_yaw()
-
-
-## Debug: yaw every anatomy mesh around the world vertical through its vulva opening, so the
-## genitals' facing can be corrected globally without moving the opening. The anal mesh is a
-## child, so it follows.
-func _apply_genital_yaw() -> void:
-	var yaw := deg_to_rad(TUNABLES.get_float("anatomy.genital_yaw_deg"))
-	if is_zero_approx(yaw) or not is_instance_valid(_mesh):
-		return
-	var world := _mesh.global_transform
-	var opening := world * WINKING_OPENING
-	var pivot := Vector3(opening.x, 0.0, opening.z)
-	var turn := Basis(Vector3.UP, yaw)
-	_mesh.global_transform = Transform3D(turn * world.basis,
-		pivot + turn * (world.origin - pivot))
 
 
 func _load_place() -> void:

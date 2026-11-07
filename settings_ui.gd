@@ -19,7 +19,7 @@ const STYLE := preload("res://world/ui/menu_style.gd")
 ## Choices at most in a pill track, and the longest label one may hold: past either, the row keeps
 ## a dropdown, which cannot overflow the card.
 const MOST_PILLS := 4
-const PILL_LABEL_CHARS := 14
+const PILL_LABEL_CHARS := 18
 
 
 ## Fill `list` with one tab's settings: the player-facing sections first, then one Debug section at
@@ -59,7 +59,7 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 	list.add_child(debug_section)
 	_build_sections(body, tab, "Debug/", debug, font_size, page, changed)
 	if is_instance_valid(actions_owner):
-		build_actions(body, font_size, actions_owner)
+		build_actions(body, font_size, actions_owner, tab)
 	return debug_section
 
 
@@ -80,16 +80,19 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, pa
 		list.add_child(loose_rows)
 		for path: String in loose:
 			_add_row(loose_rows, path, font_size, page, changed)
-	var section := ""
-	var section_key := ""
-	var section_rows: Array = []
+	# One heading per section name. A section whose declarations are interleaved with another
+	# group folds its rows back into the first heading instead of drawing a duplicate.
+	var sections: Dictionary = {}
 	for group: String in _groups_of(paths):
 		var split := group.split("›", true, 1)
 		var section_name := split[0].strip_edges()
-		if section_name != section:
-			section = section_name
-			section_key = prefix + section_name
+		var section_key := prefix + section_name
+		var section_rows: Array
+		if sections.has(section_name):
+			section_rows = sections[section_name]
+		else:
 			section_rows = []
+			sections[section_name] = section_rows
 			if list.get_child_count() > 0:
 				list.add_child(HSeparator.new())
 			var open := SETTINGS.section_open(tab, section_key)
@@ -120,7 +123,7 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, pa
 
 ## The Debug block's action buttons, plus the last result. Actions that share a `row` are drawn
 ## compactly on one line under the row's caption, so the block stays short.
-static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> void:
+static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab := "general") -> void:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 6)
@@ -135,6 +138,8 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> vo
 	for name: String in DEBUG_ACTIONS.ACTIONS:
 		var action: Dictionary = DEBUG_ACTIONS.ACTIONS[name]
 		if not bool(action.get("panel", true)):
+			continue
+		if str(action.get("tab", "general")) != tab:
 			continue
 		var row := str(action.get("row", ""))
 		if row.is_empty():
@@ -391,7 +396,7 @@ static func _pills_fit(texts: Array, font_size: int, page: Node) -> bool:
 	var width := 10.0 + 4.0 * (texts.size() - 1)
 	for text: Variant in texts:
 		width += STYLE.BOLD.get_string_size(str(text), HORIZONTAL_ALIGNMENT_LEFT, -1,
-			font_size - 3).x + 30.0
+			font_size - 4).x + 30.0
 	return width <= room
 
 
@@ -412,7 +417,7 @@ static func _pills(path: String, options: Array, texts: Array, font_size: int, p
 		pill.theme_type_variation = "Segment"
 		pill.toggle_mode = true
 		pill.custom_minimum_size = Vector2(0, font_size * 1.75)
-		pill.add_theme_font_size_override("font_size", font_size - 3)
+		pill.add_theme_font_size_override("font_size", font_size - 4)
 		pill.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		pill.button_pressed = str(options[index]) == current
 		pill.pressed.connect(_choose_pill.bind(pills, index, path, options, page, changed))

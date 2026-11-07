@@ -4,9 +4,10 @@ extends Node
 ## The session is written to last-run.log beside the script.
 ##
 ## Loads only Twilight, Fluttershy, Rarity, Derpy, Applejack, Tempest Shadow, Lily Valley and
-## Colgate, and pauses population/living-world/time plus background AI. At setup they are moved to
-## the path in front of Golden Oak Library. Applejack starts as a stranger: friendship 0, no romance tier and no dating
-## record.
+## Colgate, and pauses population/living-world/time plus background AI. At setup each one is moved
+## to the spot she stood on in the world save (TEST_SPAWNS); a pony with no snapshot row falls back
+## to the path in front of Golden Oak Library. Applejack starts as a stranger: friendship 0, no
+## romance tier and no dating record.
 ## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. Generated town houses
 ## skip furnishing before the loading wait; the authored library keeps its room and bed. The
 ## dialogue director stays running, because it serializes replies and a stopped director leaves
@@ -27,6 +28,27 @@ const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "
 	"tempest_shadow", "lily_valley", "minuette"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.
 const TEST_STRANGERS := ["applejack"]
+## Where each test pony stands at lab start: the transform she had in the world save of
+## 2026-11-07 20:53 (save_20261107-205358). Position and yaw only; the ground raycast and
+## `_upright()` still run on top.
+const TEST_SPAWNS := {
+	"twilight_sparkle": [Vector3(-42.32326889038086, -12.62147331237793, -261.1934509277344),
+		0.772023618221283],
+	"fluttershy": [Vector3(-39.58679962158203, -13.043929100036621, -253.56686401367188),
+		2.0684242248535156],
+	"rarity": [Vector3(-39.45050811767578, -13.06634521484375, -252.7421112060547),
+		1.9742286205291748],
+	"derpy_hooves": [Vector3(-25.958627700805664, -12.776995658874512, -254.7842559814453),
+		-0.8870112299919128],
+	"applejack": [Vector3(-30.345932006835938, -12.755083084106445, -259.98870849609375),
+		0.09786661714315414],
+	"tempest_shadow": [Vector3(-29.946136474609375, -13.015596389770508, -246.27793884277344),
+		-2.327993392944336],
+	"lily_valley": [Vector3(-36.51396560668945, -13.163646697998047, -244.48155212402344),
+		2.682124614715576],
+	"minuette": [Vector3(-35.94418716430664, -12.89651870727539, -255.7242431640625),
+		2.76523756980896],
+}
 ## Starting love XP: 0 = New Couple and below the sex gate, 150 = Marefriend, 400 = Head Over
 ## Hooves, 900 = the dating maximum (Soulmates still needs marriage). The -/= keys step these.
 const TEST_ROMANCE := {
@@ -46,6 +68,7 @@ const SETUP_ACTIONS := [
 	"assign any missing test pony to Ponyville before spawning",
 	"lift Max nearby ponies to Unlimited for the loading screen, then restore it",
 	"place any far-off test pony's spawn at the library front",
+	"move every test pony to her saved standing spot; the library row is only a fallback",
 	"despawn any other resident already live in the world",
 	"keep the dialogue director alive with ai_usage=talk",
 	"pause population, life and needs",
@@ -102,7 +125,7 @@ func run() -> void:
 	var bed := _treebrary_bed()
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
-	print("[unfplap test] E sit, Ctrl lie back; test ponies placed around the library")
+	print("[unfplap test] E sit, Ctrl lie back; test ponies placed on their saved standing spots")
 	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond)")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
@@ -360,7 +383,7 @@ func _setup_ponies(ponies: Array) -> void:
 	var home := _library_home()
 	var index := 0
 	var stranger_index := 0
-	# Strangers spawn away from the library row so the path stays uncrowded.
+	# Fallback placement only: a stranger without a snapshot row spawns away from the library row.
 	var row_count := 0
 	for pony_node: Variant in ponies:
 		var pony: Node3D = pony_node as Node3D
@@ -396,23 +419,27 @@ func _setup_ponies(ponies: Array) -> void:
 			_forget_meeting(pony)
 		_set_mood(pony, "neutral")
 		_make_idle(pony, true)
-		var placed: bool = false
+		var spawn := "saved"
+		if not _place_saved(pony, id):
+			spawn = "row"
+			if stranger:
+				_place_stranger(pony, home, stranger_index)
+			else:
+				_place_front(pony, home, index, row_count)
 		if stranger:
-			placed = _place_stranger(pony, home, stranger_index)
 			stranger_index += 1
 		else:
-			placed = _place_front(pony, home, index, row_count)
 			index += 1
 		if young:
-			rows.append("%s young friendship_xp=%d pos=%s front=%s" % [
-				id, friendship_xp, str(pony.global_position), str(placed)])
+			rows.append("%s young friendship_xp=%d pos=%s spawn=%s" % [
+				id, friendship_xp, str(pony.global_position), spawn])
 		elif stranger:
-			rows.append("%s stranger friendship_xp=%d pos=%s front=%s" % [
-				id, friendship_xp, str(pony.global_position), str(placed)])
+			rows.append("%s stranger friendship_xp=%d pos=%s spawn=%s" % [
+				id, friendship_xp, str(pony.global_position), spawn])
 		else:
-			rows.append("%s romance_xp=%d level=%s pos=%s front=%s" % [
+			rows.append("%s romance_xp=%d level=%s pos=%s spawn=%s" % [
 				id, int(TEST_ROMANCE.get(id, 150)), _love_name(pony, id),
-				str(pony.global_position), str(placed)])
+				str(pony.global_position), spawn])
 	var found := {}
 	for pony_node: Variant in ponies:
 		var pony: Node3D = pony_node as Node3D
@@ -457,7 +484,8 @@ func _setup_ponies(ponies: Array) -> void:
 		context.call("_changed")
 
 
-## Place a stranger at a separate nearby point, away from the row in front of the door.
+## Fallback for a stranger with no snapshot row: a separate nearby point, away from the row in
+## front of the door.
 func _place_stranger(pony: Node3D, home: Node3D, stranger_index: int) -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(home):
 		return false
@@ -1138,7 +1166,35 @@ func _library_home() -> Node3D:
 	return null
 
 
-## Put the test ponies in a loose row on the path outside the library door.
+## Put her back on the spot she stood on in the save (TEST_SPAWNS): stored position and yaw, with
+## a floor snap only when the hit is close to the saved height so a roof above her cannot pull her
+## up. Returns false when she has no snapshot row, so the caller falls back to the library row.
+func _place_saved(pony: Node3D, id: String) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	var row: Variant = TEST_SPAWNS.get(id)
+	if not row is Array or (row as Array).size() != 2:
+		return false
+	var at: Vector3 = (row as Array)[0]
+	var yaw := float((row as Array)[1])
+	var space := pony.get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 1.5, at + Vector3.DOWN * 3.0, 1)
+	query.exclude = [pony.get_rid()]
+	var hit: Dictionary = space.intersect_ray(query)
+	if not hit.is_empty():
+		var floor_at: Vector3 = hit.get("position", at)
+		if absf(floor_at.y - at.y) <= 0.6:
+			at.y = floor_at.y
+	var scale := pony.global_basis.get_scale()
+	pony.global_transform = Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(scale), at)
+	if pony.get("velocity") != null:
+		pony.set("velocity", Vector3.ZERO)
+	_upright(pony)
+	pony.reset_physics_interpolation()
+	return true
+
+
+## Put the test ponies in a loose row on the path outside the library door (fallback only).
 func _place_front(pony: Node3D, home: Node3D, index: int, count: int) -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(home):
 		return false

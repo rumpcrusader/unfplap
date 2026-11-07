@@ -12,7 +12,7 @@ const CYCLE := preload("res://mods/unfplap/cycle.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
-const WINKING_SCULPTED_PATH := ASSET_DIR + "winking_fixed.scn"
+const MARE_BITS_V2_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const ANAL_PATH := ASSET_DIR + "anal.scn"
 const ANAL_RING_PATH := ASSET_DIR + "anal_ring.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
@@ -29,6 +29,9 @@ const PLACE_VERSION := 2
 const WINKING_PINK := Color(0.97, 0.66, 0.74)
 const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
 const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
+## Authored lip band radius. The density walk is unreliable on the denser V2 mesh, which
+## can collapse the measured value to the 4 mm floor and make the shader open a huge ring.
+const WINKING_LIP_RADIUS := 0.018
 ## The authored `closed` shape also pulls the anal rim. The runtime rebuild masks that out.
 const WINK_ANAL_FROM_Y := 0.020
 const WINK_ANAL_TO_Y := 0.050
@@ -61,14 +64,14 @@ const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.22
 ## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
 const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.286)
 const DEFAULT_PITCH := -6.0
-const DEFAULT_SCALE := 0.662
+const DEFAULT_SCALE := 0.742
 
 var pony: Node3D
 var runtime: Node
 var main: Node
 
 var _mesh: MeshInstance3D
-var _winking_path_loaded := ""
+var _mare_bits_path_loaded := ""
 var _anal_mesh: MeshInstance3D
 var _teats_mesh: MeshInstance3D
 var _skin_strip: MeshInstance3D
@@ -133,11 +136,11 @@ static func assets_exist() -> bool:
 		and ResourceLoader.exists(TEATS_PATH) and ResourceLoader.exists(STRIP_PATH)
 
 
-## integration: the sculpted model is optional; fall back to the original PPP mesh when absent.
-static func selected_winking_path() -> String:
-	if SETTINGS.winking_model.get_choice() == "sculpted" \
-			and ResourceLoader.exists(WINKING_SCULPTED_PATH):
-		return WINKING_SCULPTED_PATH
+## integration: the V2 model is optional; fall back to the original PPP mesh when absent.
+static func selected_mare_bits_path() -> String:
+	if SETTINGS.mare_bits.get_choice() == "v2" \
+			and ResourceLoader.exists(MARE_BITS_V2_PATH):
+		return MARE_BITS_V2_PATH
 	return WINKING_PATH
 
 
@@ -146,7 +149,7 @@ static var _refined_winking_meshes := {}
 
 ## integration: rebuild each winking source mesh once and share it across mares. The authored
 ## `closed` and `wink` shapes both pull the anal rim; the rebuild masks that out so only the
-## vulva moves. Keyed by source so the original and sculpted models can coexist.
+## vulva moves. Keyed by source so the original and V2 models can coexist.
 static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 	if source == null:
 		return null
@@ -222,7 +225,7 @@ func refresh() -> void:
 
 
 func _enabled() -> bool:
-	return SETTINGS.anatomy.get_bool()
+	return SETTINGS.anatomy_on()
 
 
 func _attach() -> void:
@@ -238,7 +241,7 @@ func _attach() -> void:
 	var bone := _skeleton.find_bone("pony_hips")
 	if bone < 0:
 		return
-	var selected := selected_winking_path()
+	var selected := selected_mare_bits_path()
 	var scene: PackedScene = load(selected)
 	if scene == null:
 		return
@@ -264,7 +267,7 @@ func _attach() -> void:
 	anchor.add_child(mesh)
 	_bone_inverse = _skeleton.get_bone_global_rest(bone).affine_inverse()
 	_mesh = mesh
-	_winking_path_loaded = selected
+	_mare_bits_path_loaded = selected
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
@@ -309,14 +312,17 @@ func _process(delta: float) -> void:
 		runtime.call("perf_note", "anatomy_visibility", Time.get_ticks_usec() - started)
 
 
-## integration: act-only visibility. POSING_IN, ACTIVE, CLIMAX and AFTERGLOW are the act.
+## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,
+## ACTIVE, CLIMAX and AFTERGLOW.
 func _act_visible() -> bool:
-	if not SETTINGS.act_only.get_bool():
-		return true
-	if not is_instance_valid(runtime):
-		return true
-	var state := int(runtime.get("state"))
-	return state in [1, 2, 3, 4]
+	match SETTINGS.anatomy_mode.get_choice():
+		"always":
+			return true
+		"act":
+			if not is_instance_valid(runtime):
+				return true
+			return int(runtime.get("state")) in [1, 2, 3, 4]
+	return false
 
 
 func _apply_visibility() -> void:
@@ -404,7 +410,7 @@ func _apply_dock(anatomy_shown: bool) -> void:
 	if not anatomy_shown:
 		_dock.visible = _dock_was_visible
 		return
-	_dock.visible = not SETTINGS.hide_dock.get_bool()
+	_dock.visible = SETTINGS.show_dock.get_bool()
 
 
 ## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
@@ -422,7 +428,7 @@ func _apply_place() -> void:
 	# The dock-bottom alignment only matters while the dock is drawn. With `hide_dock` on it
 	# would pull the anatomy down for a dock nobody sees, and Derpy's dock sits lower than the
 	# others', which buried her anatomy.
-	if _dock_bottom < INF and not SETTINGS.hide_dock.get_bool():
+	if _dock_bottom < INF and SETTINGS.show_dock.get_bool():
 		var top := WINKING_TOUCH_Y + WINKING_HALF_HEIGHT * _scale * cos(deg_to_rad(_pitch))
 		lift = clampf(_dock_bottom - top, -0.1, 0.06)
 	var place := _pos + Vector3(0.0, lift, minf(lift, 0.0) * 0.2)
@@ -496,6 +502,8 @@ func _apply_material() -> void:
 	material.set_shader_parameter("inner_shadow", WINKING_PINK_SHADE)
 	var world_scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.001)
 	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
+	material.set_shader_parameter("anal_centre", ANAL_OPENING)
+	material.set_shader_parameter("anal_scale", SETTINGS.anal_scale.get_num())
 	material.set_shader_parameter("lip_radius", _lip_radius)
 	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
@@ -585,6 +593,9 @@ func _configure_anal_material(base: ShaderMaterial) -> void:
 		return
 	var anal_material := base.duplicate() as ShaderMaterial
 	anal_material.set_shader_parameter("vulva_centre", ANAL_OPENING)
+	anal_material.set_shader_parameter("anal_centre", ANAL_OPENING)
+	anal_material.set_shader_parameter("anal_scale", SETTINGS.anal_scale.get_num())
+	anal_material.set_shader_parameter("hole_clip", 0.0)
 	if _anal_ring:
 		anal_material.set_shader_parameter("lip_radius", _anal_lip_radius)
 		anal_material.set_shader_parameter("lip_outer", _anal_lip_radius * LIP_OUTER_FACTOR)
@@ -753,8 +764,8 @@ func _apply_teats_material(base: ShaderMaterial) -> void:
 func apply_live() -> void:
 	if not _attached:
 		return
-	if selected_winking_path() != _winking_path_loaded:
-		_reload_winking_mesh()
+	if selected_mare_bits_path() != _mare_bits_path_loaded:
+		_reload_mare_bits_mesh()
 	_apply_material()
 	_apply_place()
 	_refresh_anal_ring()
@@ -764,11 +775,11 @@ func apply_live() -> void:
 
 ## integration: swap the winking mesh in place when the model choice changes. The anchor,
 ## material override, placement and current shape values stay with the existing mesh node.
-func _reload_winking_mesh() -> void:
+func _reload_mare_bits_mesh() -> void:
 	if not is_instance_valid(_mesh):
 		return
-	var selected := selected_winking_path()
-	if selected == _winking_path_loaded:
+	var selected := selected_mare_bits_path()
+	if selected == _mare_bits_path_loaded:
 		return
 	var scene: PackedScene = load(selected)
 	if scene == null:
@@ -787,7 +798,7 @@ func _reload_winking_mesh() -> void:
 		instance.queue_free()
 		return
 	_mesh.mesh = refined
-	_winking_path_loaded = selected
+	_mare_bits_path_loaded = selected
 	_lip_radius = _measure_lip_radius()
 	_apply_winking_shape()
 	instance.queue_free()
@@ -795,7 +806,7 @@ func _reload_winking_mesh() -> void:
 
 func detach() -> void:
 	_attached = false
-	_winking_path_loaded = ""
+	_mare_bits_path_loaded = ""
 	_visibility_init = false
 	set_process(false)
 	if is_instance_valid(_fluid):
@@ -977,7 +988,9 @@ func set_grip(shaft_radius: float) -> void:
 	if material == null:
 		return
 	var scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.0001)
-	var local := shaft_radius / scale
+	# The hug pads the lip radius away from the shaft: positive leaves a gap, negative grips.
+	var hug := SETTINGS.vulva_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
+	var local := maxf(shaft_radius + hug, 0.0) / scale
 	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
 	# the rim band outward to the measured shaft radius.
 	var shape := _mesh.find_blend_shape_by_name("stretch")
@@ -1024,7 +1037,17 @@ func lip_radius() -> float:
 ## the mesh carries the lip flag. The rim is the first radius whose vertex density is high, found
 ## by binning the planar distance from the opening.
 func _measure_lip_radius() -> float:
-	return _measure_ring_radius(_mesh, WINKING_OPENING, 0.03)
+	return stable_lip_radius(_measure_ring_radius(_mesh, WINKING_OPENING, WINKING_LIP_RADIUS))
+
+
+## The V2 mesh's inner folds/high-res patch can make the density walk pick the wrong
+## inner bin. Keep the authored band unless the measurement lands near it.
+static func stable_lip_radius(measured: float) -> float:
+	if not is_finite(measured):
+		return WINKING_LIP_RADIUS
+	if measured < WINKING_LIP_RADIUS * 0.65 or measured > WINKING_LIP_RADIUS * 1.8:
+		return WINKING_LIP_RADIUS
+	return measured
 
 
 func _measure_ring_radius(target: MeshInstance3D, centre: Vector3, fallback: float) -> float:
@@ -1094,7 +1117,8 @@ func set_anal_grip(shaft_radius: float) -> void:
 	if material == null:
 		return
 	var scale := maxf(_anal_mesh.global_transform.basis.get_scale().x, 0.0001)
-	material.set_shader_parameter("hole_target", maxf(shaft_radius, 0.0) / scale)
+	var hug := SETTINGS.anal_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
+	material.set_shader_parameter("hole_target", maxf(shaft_radius + hug, 0.0) / scale)
 
 
 ## `fill` is the old `anal * 1.4` cut amount; `wide` is the old `anal` stretch amount. The ring
@@ -1118,7 +1142,9 @@ func set_anal_shape(fill: float, wide := 0.0) -> void:
 	var open := _anal_mesh.find_blend_shape_by_name("open")
 	if open >= 0:
 		_anal_mesh.set_blend_shape_value(open, maxf(fill - wide, 0.0))
-	material.set_shader_parameter("hole_target", wide * ANAL_LIP * 1.6)
+	var anal_hug := SETTINGS.anal_hug_mm.get_num() / 1000.0 if wide > 0.0 else 0.0
+	material.set_shader_parameter("hole_target",
+		wide * ANAL_LIP * 1.6 + anal_hug / maxf(scale, 0.0001))
 	material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
 		* minf(fill * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(fill, 1.0)))
 

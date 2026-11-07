@@ -320,7 +320,9 @@ func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> v
 	_apply_place()
 	# `Max back-out` was removed; the tip now stays at the entrance.
 	var max_back := 0.0
-	var max_depth := maxf(SETTINGS.max_depth_m.get_num(), 0.0)
+	# No fixed depth cap: full depth reaches as far as the shaft goes, and the pelvis gap below
+	# keeps his body out of her rump.
+	var max_depth := (_visible_tip_local() - PIVOT).length()
 	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
 		1.0 - exp(-maxf(delta, 0.0) / 0.04))
 	if attached:

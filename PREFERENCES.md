@@ -64,23 +64,28 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 **General**
 
-One ungrouped list, in this order: **Starting Sex**, **Control hints**, **HUD readouts**,
-**Captions on top**, **Mute Ponese audio**, **Act lines**, **Long-term history**, **Climax limit**
-(`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per full thrust (`240…1200`,
-default `1000`), **Thrust direction** (which mouse direction deepens the stroke) and **Debug mode**
-(the switch that reveals the Debug sections) at the bottom.
+One ungrouped list, in this order: **Starting Sex**, **Show controls**, **Show HUD readouts**,
+**Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Remember acts**, **Climax
+limit** (`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per full thrust
+(`240…1200`, default `1000`), **Thrust direction** (which mouse direction deepens the stroke),
+**Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
+control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 
 The audio switches, auto-thrust pace/depth (`1.0…3.75/s`, `0.20…1`), the hip back-off
 (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 
+**Starting Sex** sets when the Make love hint appears. **When Available** keeps every gate: the
+Promiscuity love stage, her welcomed kiss and a stored lover bond, so the hint only shows when all
+three pass. **Try Your Luck** drops the stage and bond gates for the attempt, but she still refuses
+when she does not welcome a kiss.
+
 **Anatomy**
 
-The first rows have no heading: the anatomy master switch, teats, the skin strip, the genital tone
-slider, only during acts, the tail-dock hide, the fluid layer, the Anon bed body and the VR act.
+The first rows have no heading: the **Anatomy** pill (**Never** / **During act only** / **Always**),
+**Show tail docks**, **Show skin strip**, **Show teats**, **Show fluids**, **Skin tone** and
+**Mare bits** (Original PPP or V2).
 
-- **Holes**: anal ring, anal height, lip vertical share.
-- **Anon part**: size, girth, head, length, throb and placement.
-- **Actions**: hole switch, oral and finish control.
+- **Anon**: size, length, base/mid/head radius and throb.
 
 **World**
 
@@ -93,21 +98,25 @@ No headings: **Promiscuity** and the **Estrus cycle** switch.
 
 **Debug sections**
 
-Turning on **Debug mode** (the first row of General) adds one collapsed **Debug** section at the
+Turning on **Enable debug** (General's last row) adds one collapsed **Debug** section at the
 bottom of General, Anatomy and World; each section keeps the groups it belongs to, plus the
-**Actions** buttons at the end of General's, in compact rows. Its settings are mostly act tuning:
+**Actions** buttons at the end of the tab's own, in compact rows. Its settings are mostly act
+tuning:
 
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**, plus the
-  ungrouped witness, tail and body-yaw switches.
+  ungrouped witness, public-offer and body-yaw switches and **Use line angles** /
+  **Add speech interjections**.
+- **Anatomy › Debug**: **Holes** (anal ring, anal height, lip vertical share), plus the ungrouped
+  cock forward, pelvis gap, skin-strip scale, aim points and **Hide tails**.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
 - **Missionary**: forward, height, side, pullback, side-lean forward (`side_lean`, default
-  `0.10 m`), pitch (`pitch_deg`, default `-15°`; positive looks up) and the five neck angles
-  (neck 1/2, neck roll, head pitch, head roll).
+  `0.10 m`) and pitch (`pitch_deg`, default `-15°`; positive looks up), plus a **Neck angles**
+  subheading with neck 1/2, neck roll, head pitch and head roll.
 - **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
 - **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
 - **Standing → Caress**: palm distance (`0.02 m`), oval across/up (`1.0 cm` / `2.0 cm`), palm
@@ -351,8 +360,8 @@ caressing her or leaning in; leaning counts as staying close/hugging.
   hidden.
 - Captions can move to the top of the screen when the game's speech setting is the explicit
   bottom caption; `captions_on_top` defaults to `true`.
-- `debug_logs` gates the detailed overlay, not the HUD. `debug_perf` separately gates the
-  per-second performance block and requires `debug_logs` too.
+- **Enable debug** gates the detailed overlay and the mod's logging, not the HUD.
+  **Print perf logs** separately gates the per-second performance block and needs it on too.
 
 ## Touch and talk classification
 
@@ -368,7 +377,7 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 
 ## Character examples
 
-Every spawnable adult mare in the base game has an explicit profile in `character_preferences.gd`:
+Every spawnable mare in the base game has an explicit profile in `character_preferences.gd`:
 102 mares, the original sixteen first in the selector and the rest alphabetical. This table is
 the main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match

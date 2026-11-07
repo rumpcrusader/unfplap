@@ -38,6 +38,7 @@ func run() -> void:
 	_check_sections()
 	_check_groups()
 	_check_panels()
+	_check_section_folding()
 	_check_migration()
 	_check_api_names()
 	_check_profiles()
@@ -178,9 +179,24 @@ func _check_panels() -> void:
 	SETTINGS.debug_mode.set_bool(debug_before)
 
 
+## A section heading is drawn once, even when its declarations interleave another group.
+func _check_section_folding() -> void:
+	var list := VBoxContainer.new()
+	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", [
+		"presentation.missionary.forward", "camera_thrust.bob",
+		"presentation.missionary.height"], 16, null, Callable())
+	var labels: Array = []
+	_collect_labels(list, labels)
+	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
+	check(labels.has("Missionary forward") and labels.has("Missionary height"),
+		"an interleaved section keeps every row")
+	check(labels.has("Bob"), "the interleaved section still draws the other group")
+	list.free()
+
+
 func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	var list := VBoxContainer.new()
-	var owner := Node.new() if tab == SETTINGS.GENERAL else null
+	var owner := Node.new()
 	var debug_section: Control = SETTINGS_UI.build(list, tab, 16, null, Callable(), owner)
 	var labels: Array = []
 	_collect_labels(list, labels)
@@ -195,12 +211,28 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	check(missing.is_empty(), "%s tab draws every setting (%s)" % [tab, str(missing)])
 	for heading: String in sections:
 		check(labels.has(heading), "%s tab heading for %s" % [tab, heading])
+		check(labels.count(heading) == 1, "%s draws the %s heading once" % [tab, heading])
 	if debug_section == null:
 		check(SETTINGS.tab_settings(tab).is_empty(), "%s has no Debug block without debug settings" % tab)
 	else:
 		check(debug_section.visible == debug_on, "%s Debug block follows debug mode" % tab)
-		if tab == SETTINGS.GENERAL:
-			check(labels.has("ACTIONS"), "the actions are drawn inside General's Debug block")
+		if debug_on:
+			check(labels.has("ACTIONS"), "%s Debug block lists the actions" % tab)
+			var expected: Array = []
+			match tab:
+				SETTINGS.GENERAL:
+					expected = ["Trigger bed offer", "Reset act prompts"]
+				SETTINGS.ANATOMY:
+					expected = ["Pitch +", "Up"]
+				SETTINGS.WORLD:
+					expected = ["Heat", "Warning"]
+			for action: String in expected:
+				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
+	# An action lives in exactly one tab's block.
+	if tab != SETTINGS.ANATOMY:
+		check(not labels.has("Pitch +"), "%s does not carry the anatomy actions" % tab)
+	if tab != SETTINGS.WORLD:
+		check(not labels.has("Heat"), "%s does not carry the world actions" % tab)
 	list.free()
 	if is_instance_valid(owner):
 		owner.free()
@@ -225,6 +257,23 @@ func _check_migration() -> void:
 		"a deprecated key maps to its replacement")
 	check(not (moved.get("old", {}) as Dictionary).has("radius"),
 		"the deprecated key is erased")
+
+	# The anatomy master switch and the act-only switch fold into one pill.
+	var off: Dictionary = SETTINGS._normalize_anatomy_visibility({
+		"features": {"anatomy": false}, "anatomy": {"act_only": true}})
+	check(str(off["anatomy"].get("anatomy_mode", "")) == "never", "anatomy off maps to never")
+	check(not (off["features"] as Dictionary).has("anatomy"), "the old master switch is erased")
+	check(not (off["anatomy"] as Dictionary).has("act_only"), "the old act-only switch is erased")
+	var during: Dictionary = SETTINGS._normalize_anatomy_visibility({
+		"features": {"anatomy": true}, "anatomy": {"act_only": true}})
+	check(str(during["anatomy"].get("anatomy_mode", "")) == "act", "act-only maps to act")
+	var always: Dictionary = SETTINGS._normalize_anatomy_visibility({
+		"features": {"anatomy": true}, "anatomy": {"act_only": false}})
+	check(str(always["anatomy"].get("anatomy_mode", "")) == "always", "on maps to always")
+	# The dock switch is inverted by the deprecation mapper.
+	var dock: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"anatomy": {"hide_dock": true}}, SETTINGS.SCHEMA_VERSION)
+	check(not bool(dock["anatomy"].get("show_dock", true)), "hide_dock true maps to show_dock false")
 
 
 ## A script constant resolves a built-in before a same-named static function, so an API name that

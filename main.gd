@@ -121,7 +121,7 @@ func _ready() -> void:
 	process_priority = 100
 	set_process(true)
 	add_to_group("pony_prompt_notes")
-	debug_logs = SETTINGS.debug_logs.get_bool()
+	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	classifier = CLASSIFIER.new()
@@ -271,7 +271,7 @@ func _apply_live_settings() -> void:
 ## One path for every control edit: refresh the cached flags, the caption position and the live
 ## act. Every tunable change goes through here, so a control never needs its own handler.
 func _apply_settings_changed() -> void:
-	debug_logs = SETTINGS.debug_logs.get_bool()
+	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
 	var debug_on := SETTINGS.debug_mode.get_bool()
 	for section: Variant in _debug_sections:
@@ -291,7 +291,7 @@ func _on_player(body: Node) -> void:
 		hud.name = "UnfplapHUD"
 		add_child(hud)
 	# integration: the Anon part exists only with the anatomy feature and the local assets.
-	if not is_instance_valid(anon_part) and SETTINGS.anatomy.get_bool() \
+	if not is_instance_valid(anon_part) and SETTINGS.anatomy_on() \
 			and ANON_PART.assets_exist():
 		anon_part = ANON_PART.new()
 		anon_part.name = "UnfplapAnonPart"
@@ -424,10 +424,10 @@ func _inject_settings_page_now(page: Node) -> void:
 		changed, self))
 	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
 	_collect_debug_section(SETTINGS_UI.build(anatomy_list, SETTINGS.ANATOMY, font_size, page,
-		changed))
+		changed, self))
 	var world_list := _settings_tab_list("World", tabs_box)
 	_collect_debug_section(SETTINGS_UI.build(world_list, SETTINGS.WORLD, font_size, page,
-		changed))
+		changed, self))
 	# Character preference is a per-mare profile form, not a global setting, so it keeps its own
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
@@ -628,15 +628,21 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		talk[action] = _preference_pills(form, label, PREFERENCE_STATES, font_size,
 			PREFERENCE_STATE_LABELS)
 	# integration: per-mare consent for the optional anatomy actions.
+	# One row of checks, the same widget the list settings (Ignore body parts) use.
 	var consent_public := CheckButton.new()
-	form.add_child(_form_label("Okay with public", font_size))
-	form.add_child(consent_public)
+	consent_public.text = "Public"
 	var consent_anal := CheckButton.new()
-	form.add_child(_form_label("Okay with anal", font_size))
-	form.add_child(consent_anal)
+	consent_anal.text = "Anal"
 	var consent_oral := CheckButton.new()
-	form.add_child(_form_label("Okay with oral", font_size))
-	form.add_child(consent_oral)
+	consent_oral.text = "Oral"
+	var consent_row := HBoxContainer.new()
+	consent_row.add_theme_constant_override("separation", 10)
+	consent_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
+		button.add_theme_font_size_override("font_size", font_size - 3)
+		consent_row.add_child(button)
+	form.add_child(_form_label("Okay with", font_size))
+	form.add_child(consent_row)
 	var notes := TextEdit.new()
 	notes.custom_minimum_size = Vector2(0.0, 76.0)
 	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -1513,7 +1519,7 @@ func public_offers_enabled() -> bool:
 
 ## integration: keep the anatomy feature live when the player edits a flag.
 func refresh_anatomy() -> void:
-	var enabled := SETTINGS.anatomy.get_bool()
+	var enabled := SETTINGS.anatomy_on()
 	if enabled and not is_instance_valid(anon_part) and is_instance_valid(player) \
 			and ANON_PART.assets_exist():
 		anon_part = ANON_PART.new()

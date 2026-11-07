@@ -304,8 +304,8 @@ var _auto_thrust
 var _auto_on := false
 var _auto_default_pace := 1.0
 var _auto_default_depth := 0.5
-var _thrust_pixels_per_full := 480.0
-var _thrust_travel := 0.5
+var _thrust_pixels_per_full := 1000.0
+var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
 var _jiggle_radius_m := 0.26
 var _jiggle_center_height_m := 0.1
@@ -495,7 +495,7 @@ func _ready() -> void:
 func _anatomy_refresh() -> void:
 	if not is_instance_valid(pony):
 		return
-	if not SETTINGS.anatomy.get_bool():
+	if not SETTINGS.anatomy_on():
 		if is_instance_valid(_anatomy):
 			_anatomy.call("detach")
 			_anatomy.queue_free()
@@ -732,13 +732,15 @@ func _snapshot_settings() -> void:
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
 ## idempotent so repeated edits do not stack modifiers.
 func apply_live_settings() -> void:
+	# Snapshot before the IDLE early return too, so mouse sensitivity and the other act tunables
+	# apply as soon as they are edited rather than only at the next act start.
+	_snapshot_settings()
 	if state == State.IDLE:
 		# integration: the anatomy feature is live outside acts too.
 		_anatomy_refresh()
 		return
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	var previous_lines := _act_lines_enabled()
-	_snapshot_settings()
 	_anatomy_refresh()
 	if previous_lines and not _act_lines_enabled() and is_instance_valid(main) and is_instance_valid(main.game):
 		_end_act_lines(true)

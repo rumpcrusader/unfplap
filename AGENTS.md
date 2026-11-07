@@ -29,10 +29,10 @@ Do not start implementation until you have read the required files for the area 
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
-  only; it never adds pregnancy or a body model. Adult anatomy is an optional, feature-gated
+  only; it never adds pregnancy or a body model. The anatomy is an optional, feature-gated
   addition; it never replaces a pony's body or rig. The original PPP meshes/textures are kept out
   of git (`assets/anatomy/` is ignored for them) and fetched from `ANATOMY_URL` for every release
-  build; the sculpted `winking_fixed.scn` variant is tracked and packed with the archive. The act
+  build; the V2 `mare_bits_v2.scn` variant is tracked and packed with the archive. The act
   stays off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
@@ -68,15 +68,18 @@ script. `godot` must be on `PATH`.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
 - The lab re-seeds its eight test ponies on every startup (friendship and mood, idle posture;
-  romance tier and dating record only for the adults that are not strangers). The non-stranger
-  ponies are moved to a row on the path in front of Golden Oak Library; Applejack is spawned
-  nearby to the side of the library instead. Before the loading screen spawns the town, the in-memory
-  population config assigns every missing test pony to Ponyville, then removes all other
-  residents; `population.json` is not saved. It also lifts the player's Max nearby ponies cap in
-  memory for the loading screen (a value of four would leave a test pony out) and restores it
-  once population is paused. A test pony whose home sits beyond the 240 m activation radius gets a
-  session-only saved spawn at the library front. The rest of the world's context and inventory
-  persist.
+  romance tier and dating record only for the adults that are not strangers). Each pony is moved
+  to the position and yaw in `TEST_SPAWNS` (`tests/test_lab.gd`), a snapshot of the world save
+  from 2026-11-07 20:53, so she stands where the last session left her; a pony with no snapshot
+  row falls back to the library row (`_place_front`, or `_place_stranger` for a stranger). A
+  downward raycast snaps her to the floor only when the hit is within `0.6 m` of the saved
+  height, so a roof above the spot cannot lift her. Before the loading screen spawns the town,
+  the in-memory population config assigns every missing test pony to Ponyville, then removes all
+  other residents; `population.json` is not saved. It also lifts the player's Max nearby ponies
+  cap in memory for the loading screen (a value of four would leave a test pony out) and restores
+  it once population is paused. A test pony whose home sits beyond the 240 m activation radius
+  gets a session-only saved spawn at the library front. The rest of the world's context and
+  inventory persist.
 - The lab normalizes a mare's saved actor rotation to yaw-only in `_upright()` during setup and
   after bed transport. A tilted saved transform otherwise makes support recovery fight the
   collider every frame and print endless `re-seated on the floor` lines.
@@ -88,12 +91,12 @@ Stress lab:
 ```
 
 - Uses the separate `unfplap-stress` world and writes `last-run-stress.log`.
-- Spawns every adult mare the population catalogue can create, excluding fillies, stallions and
+- Spawns every mare the population catalogue can create, excluding fillies, stallions and
   Spike, in a 15-column grid in front of Golden Oak Library.
 - Reuses the normal lab's world loading, pause and idle setup; it does not use the five-mare
   roster or the library bed.
 - It logs the target count, the anatomy/action flags, missing mares and each placement. Use it
-  with `debug_logs` and `debug_perf` on for the anatomy stress pass.
+  with **Enable debug** and **Print perf logs** on for the anatomy stress pass.
 
 Tests (manual, before every commit):
 
@@ -114,8 +117,8 @@ scripts/smoke.sh
   ./build.sh [--out <file.pck>] [--anatomy-zip <file.zip> | --no-anatomy]
   ```
   Success prints `MOD_BUILT <path>`. The mod has no script extension.
-- The original PPP anatomy meshes and textures are never committed; the sculpted
-  `winking_fixed.scn` variant is tracked. `build.sh` requires all ten, prints `ANATOMY ok 10/10`,
+- The original PPP anatomy meshes and textures are never committed; the V2
+  `mare_bits_v2.scn` variant is tracked. `build.sh` requires all ten, prints `ANATOMY ok 10/10`,
   and fails with `ANATOMY_FAIL` and the missing names unless they are present under
   `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by `scripts/pack_anatomy.sh`
   first; `--no-anatomy` builds a code-only pack and drops the assets even when they are in the
@@ -147,7 +150,7 @@ mods/unfplap/
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
-  anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD,
+  anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
@@ -197,7 +200,7 @@ mods/unfplap/
                     and afterglow summary
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
   settings.gd       settings.json IO and cache, legacy migration, per-character merge
-  character_preferences.gd  display names, selector order and every spawnable adult mare's preference
+  character_preferences.gd  display names, selector order and every spawnable mare's preference
   memory.gd         world_context events, grade-aware act impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
@@ -899,7 +902,7 @@ examples.
 - One request episode at a time. Automatic requests require AI usage Full
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
   character chat within 45 s. The lab runs in Talk, so trigger offers from the **Actions** block
-  (General › **Debug mode** on › **Debug** › **Actions**).
+  (General › **Enable debug** on › **Debug** › **Actions**).
 - Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
   exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
   gate. `can_offer` always requires `relation`; Try Your Luck lifts only the lover-bond row, so
@@ -982,7 +985,7 @@ examples.
 
 ### Estrus cycle
 
-- `features.estrus_cycle` (default off) gives adult mares a derived 30-day cycle. `cycle.gd` is
+- `features.estrus_cycle` (default off) gives mares a derived 30-day cycle. `cycle.gd` is
   pure: `MONTH_DAYS = 30`, `HEAT_DAYS = 7`, `DIESTRUS_DAYS = 2`; the mare's id hash sets her
   offset, so the town is not in step. The phase is recomputed from `relationship.bonds.day()` and
   `_id`, never saved.
@@ -1000,12 +1003,12 @@ examples.
   hold and an accelerated close. Each burst also starts one short `climax_fluid.drip()` leak when
   `anatomy_fluid` is on. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
-  mesh is far or hidden by `anatomy.act_only`.
+  mesh is far or `anatomy.anatomy_mode` hides it.
 - `anatomy.gd` rebuilds each winking source mesh once and caches it per source, then masks the
   anal rim out of both the authored `closed` and `wink` shapes, so only the vulva moves.
-  `anatomy.winking_model` (`original`/`sculpted`) selects `winking.scn` or
-  `winking_fixed.scn`; the sculpted choice falls back to the original when the file is absent,
-  and a live change swaps the mesh in place. The resting pose is `closed = 1`
+  `anatomy.mare_bits` (`original`/`v2`) selects `winking.scn` or `mare_bits_v2.scn`; the V2
+  choice falls back to the original when the file is absent, and a live change swaps the mesh in
+  place. The resting pose is `closed = 1`
   and `wink = 0` (almost closed, clitoris hidden). A heat mare rests at `HEAT_REST_OPEN = 0.20`
   of the `wink` shape and each idle wink crossfades toward it and back; `closed` stays 1, so the
   idle rest never opens the resting lips. The shader depth cut is the act's shaft solve only: it
@@ -1183,7 +1186,8 @@ examples.
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
   player build unlocks it with **Settings → Updates** pressed five times. Acts own
   `controls_locked`, so the console is not available while an act is running.
-- Debug actions live in `debug_actions.gd` and render as buttons in General's **Debug** block. Adding an
+- Debug actions live in `debug_actions.gd` and render as buttons in the **Debug** block of the tab
+  their `tab` names (`general` by default, `anatomy` or `world`). Adding an
   action is one entry; give it a `hotkey` only when it must fire while the world is unpaused and
   you are looking at the scene. A hotkey-less action is the default.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
@@ -1206,27 +1210,26 @@ examples.
   session-only estrus override. They work even when `features.estrus_cycle` is off, so the lab can
   test both phases without waiting in-game days.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
-  comfort=...` line per act when `debug_logs` is on. Neglect events log their warning/stop,
+  comfort=...` line per act while **Enable debug** is on. Neglect events log their warning/stop,
   tier, distress and dislike.
 - `F10` (the only hotkey action): toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
-- `debug_logs` is read from settings and defaults OFF. Toggle it with the **Debug logs**
-  checkbox in General's **Debug** block (turn on **Debug mode**); there is no hotkey. It controls
-  logging only.
-- `debug_perf` is a separate debug toggle, also OFF by default. With both `debug_logs`
-  and `debug_perf` on, an act prints one `perf` block a second: pony, pose, state, fps, frame
+- Logging follows **Enable debug** (General's last row); there is no separate log switch
+  and no hotkey. It controls logging only.
+- **Print perf logs** is a separate debug toggle, OFF by default. With **Enable debug** and
+  **Print perf logs** on, an act prints one `perf` block a second: pony, pose, state, fps, frame
   time, `near_mesh`, sim tier, wing hold, dock-follower state, then the per-second cost of every
   timed chunk (runtime process/physics, pose recipe, tail pose, body sway, ear twitch, dock
   fast/full/start, caress, wings, kiss, camera motion, HUD). A chunk calls
   `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
   instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
   outside an act.
-- **Hide tails** is a persisted debug toggle (World › Debug › Ponies). While on, it collapses the hair
+- **Hide tails** is a persisted debug toggle (Anatomy › Debug). While on, it collapses the hair
   `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
   near and far tail geometry all disappear while the mane stays. The small root cap pinned to the
   pelvis may remain under the dock. It touches no other body part.
-- `act_ear_pin` sits in General's **Act flow** debug group and defaults off; when off the act skips
+- `act_ear_pin` is one of General's ungrouped debug rows and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed
   invite, Mouse5
@@ -1235,10 +1238,11 @@ examples.
   floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the
   snuggle invite. Backtick (`` ` ``) toggles the debug console with a temporary control-lock
   release, so it also opens while Anon is lying down.
-- The lab places the four settled ponies in a row in front of Golden Oak Library at startup and
-  spawns Applejack nearby to the side. Its startup log
-  lists every setup action (opening/tutorial handling, population restriction/prune, AI/time
-  pauses, per-pony friendship/mood/idle, adult romance/dating, no spawned bed).
+- The lab moves every test pony to her snapshot spot (`TEST_SPAWNS`) at startup, so they stand
+  where the save left them; the library row is only a fallback. Its startup log lists every setup
+  action (opening/tutorial handling, population restriction/prune, AI/time pauses, per-pony
+  friendship/mood/idle, romance/dating, no spawned bed) and each pony's resulting position with
+  `spawn=saved` or `spawn=row`.
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
 - Test every pose start, climax, afterglow, restore, hold-Y and cuddle path in the lab
   after changing camera, pose or scoring code.
@@ -1286,7 +1290,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
   changes. Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, so a hand-edited
   file applies when the tab opens; otherwise it needs a restart.
-- Top level: `version`, `debug_mode`, `debug_logs`, `debug_perf`, `debug_hide_tails`, `features`,
+- Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `features`,
   `relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`,
   `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open state), `default` template,
   `characters` overrides.
@@ -1308,16 +1312,15 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
-| `act_ear_pin` | `false` | Act flow section: pin act ears |
+| `act_ear_pin` | `false` | General debug rows: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
-| `anatomy` | `false` | adult anatomy meshes, teats, strip, reactions and anatomy pose keys |
-| `anatomy_holes` | `true` | `V` hole switch and the anal cup |
-| `anatomy_oral` | `true` | `N` standing oral and its neck motion |
-| `anatomy_finish` | `true` | `B` finish in/out and inside/outside afterglow |
+| `anatomy.anatomy_mode` | `never` | pill: `never`, `act` (only while an act runs) or `always`; anything but `never` attaches the anatomy and its pose keys |
+| `anatomy_holes` | `true` | `V` hole switch and the anal cup (General) |
+| `anatomy_oral` | `true` | `N` standing oral and its neck motion (General) |
+| `anatomy_finish` | `true` | `B` finish in/out and inside/outside afterglow (General) |
 | `anatomy_fluid` | `true` | climax and finish droplets |
-| `anatomy_bed_body` | `true` | experimental Anon bed body and eye view |
-| `anatomy_vr` | `true` | experimental VR act |
-| `anatomy.act_only` | `false` | show mare anatomy only while an act is running |
+| `anatomy_bed_body` | `true` | Anon bed body and eye view (General) |
+| `anatomy_vr` | `true` | VR act (General) |
 | `act_bystanders` | `true` | adult witness lines using the modern perception |
 | `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
@@ -1330,16 +1333,22 @@ which also removes its clamp. The full contract is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
-- `anatomy` stores `teats` (off by default), `skin_strip` (on by default), `skin_tone` (0–1
-  genital tone; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone),
-  `strip_scale`
-  (debug: scale the midline strip's model-space X around the midline; unbounded), `act_only`,
-  `hide_dock`, the experimental `anal_ring`
-  (use the re-modelled ring instead of the original cup; off by default), the anal placement
-  `anal_height_mm` (positive is higher), and the player-part controls `player_scale` (`1.5×`),
-  `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`), `part_head_scale` (`1.3`),
-  `part_length_scale` (`1.0`), `part_throb` (`1.0`), `part_front_m` (`0.02 m`), `max_depth_m`
-  (`0.18 m`) and `pelvis_gap_m` (`0.03 m`).
+- `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
+  the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
+  off), `skin_strip` (Show skin strip, on), `anatomy_fluid` (Show fluids, on), `skin_tone` (Skin
+  tone, 0–1; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `show_dock` (Show tail
+  docks, on), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
+  (debug: scale the midline strip's model-space X around the midline; unbounded), the debug-only
+  `anal_ring` (use the re-modelled ring instead of the original cup; off by default),
+  `anal_scale` (debug: scale the anal cup around its opening; 1 is authored),
+  `anal_height_mm` (anal placement, positive is higher), `vulva_hug_mm` and `anal_hug_mm`
+  (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips) and
+  `lip_vertical`, and the player-part
+  controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
+  `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`), plus the debug
+  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.03 m`). There is no depth cap: full depth
+  reaches as far as the shaft goes and the pelvis gap limits his body, so a long
+  `part_length_scale` can drive the tip deeper than her body depth.
   Player-part values are applied on top of the saved placement and update live. `part_head_scale`
   widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
   its axis; `part_throb` is a debug intensity counter for a slight depth-driven heartbeat (0 off).
@@ -1355,7 +1364,10 @@ rump blush. Unknown settings keys are ignored.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
-- `relationship.sex_start` is a `choice`, default `try_luck` (label `Try Your Luck`);
+- `relationship.sex_start` is a `choice`, default `try_luck` (label `Try Your Luck`).
+  `when_available` (label `When Available`) keeps every gate: the Promiscuity love stage, her
+  welcomed kiss (`bonds.welcomes`) and a stored lover bond, so the Make love hint only appears when
+  all three pass. The rest of the bullet describes the other value:
   `try_luck` makes the lover bond optional and omits the `relation` row from the start attempt. It never
   skips the actual `bonds.welcomes(id, "kiss")` check: `runtime.start()` calls `refuse()` when it
   fails.
@@ -1413,8 +1425,10 @@ rump blush. Unknown settings keys are ignored.
 - The injected tab has nested **General**, **Anatomy**, **World** and **Characters** sub-tabs, in
   that order. General, Anatomy and World are drawn from the declarations by `settings_ui.gd`: one
   row per setting, grouped into click-to-collapse sections from its `group` (`"Standing › Smack"`
-  is a subheading under `Standing`). Player-facing settings come first; when the **Debug mode**
-  setting (General › General) is on, the tab ends with one **Debug** section holding that tab's debug
+  is a subheading under `Standing`). A section name draws exactly one heading; declarations that
+  interleave another group fold back into their first heading. Player-facing settings come first;
+  when **Enable debug** (General's last row) is on, the tab ends with one **Debug** section holding
+  that tab's debug
   settings under the same group names, with its own `Debug/<group>` collapse state. Every section
   remembers whether it is open in `settings.json` under `ui.sections`, keyed `tab/group`. The panel
   is built from the game's own menu pieces, so it reads as part of the page rather than beside it:
@@ -1430,20 +1444,24 @@ rump blush. Unknown settings keys are ignored.
   beside it instead. The sidebar row sits under an **Add-ons** caption, and the injected page has no
   second title. Settings with no group render at the top of the tab without a heading; a group
   needs at least three related settings to earn one. **General** is one ungrouped list in this
-  order: Starting Sex, Control hints, HUD readouts, Captions on top, Mute Ponese audio, Act lines,
-  Long-term history, Climax limit, Sensitivity, Thrust direction, then the Debug mode switch. Its Debug block holds
-  the logs and act-line switches, auto thrust, the hip back-off and acts during cuddles, then the
-  **Audio**, **Camera**, **Missionary**, **Standing**, **Talk & cues** and **Thrust jiggle**
-  sections. **Anatomy**
+  order: Starting Sex, Show controls, Show HUD readouts, Show captions on top, Mute Ponese audio,
+  Allow act lines, Remember acts, Climax limit, Sensitivity, Thrust direction, Use Anon bed body,
+  Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
+  Its Debug block holds the perf-log and act-ear switches, auto thrust, the hip back-off and acts
+  during cuddles, then the **Audio**, **Camera**, **Talk & cues**, **Missionary** (with a
+  **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
+  subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Anon part** and **Actions**. **World** opens
-  with Promiscuity and the estrus switch, and its Debug block holds the witnesses, ponies, per-mare
-  **History** and **Neglect tolerance**. **Characters** holds
+  with Promiscuity and the estrus switch, and its Debug block holds the witnesses, ponies, the two
+  cue-line switches, per-mare **History** and **Neglect tolerance**. **Characters** holds
   the hand-built **Character preference** form (a per-mare profile, not a global setting). The
-  **Actions** buttons sit at the bottom of General's **Debug** section, in compact rows. The declaration-drawn pages have no Save buttons: each edit writes its setting and
+  **Actions** buttons sit at the bottom of each tab's **Debug** section, in compact rows; an action
+  appears only in its own tab. The declaration-drawn pages have no Save buttons: each edit writes
+  its setting and
   calls `main._apply_settings_changed()`, which refreshes the flags, the caption position and the
   active act. The hand-built Characters form is the exception: it stages edits and writes them only
   when **Save preset** is pressed.
-- `debug_logs` and `debug_perf` default to `false`.
+- `debug_mode` and `debug_perf` default to `false`.
 - Character entries inherit unspecified fields from `default`; a known mare's preference block seeds
   from her own template in `character_preferences.gd`, so removing her saved preference override
   restores that template rather than the global default.
@@ -1454,7 +1472,7 @@ rump blush. Unknown settings keys are ignored.
   carries its own note. `act_prompts` stores only overrides: the built-ins live in
   `DEFAULT_ACT_PROMPTS` and `_fill_prompts()` supplies them at read time. Known legacy values and
   obsolete keys are removed on load; the **Reset act prompts** debug action clears overrides.
-- The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable adult mare in
+- The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
   ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; preference defaults and validation live in
@@ -1477,9 +1495,14 @@ rump blush. Unknown settings keys are ignored.
   parent section. `tests/test_settings.gd` enforces the rule.
 - The Debug block is gated by `debug_mode` and toggles live: `settings_ui.build()` returns the
   block and `main.gd` keeps it to show or hide. Put new debug-only settings behind `.as_debug()`;
-  the Actions buttons live inside General's block.
+  the Actions buttons live inside the Debug block of the action's tab.
 - A debug action that belongs with others shares a `row` caption and a `short` label in
   `debug_actions.gd`; consecutive entries with the same row render on one line.
+- **A boolean label starts with a verb**: Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch,
+  Remember, Mute. Label the action the switch performs, not the noun it controls
+  (“Show controls”, “Allow act lines”, “Remember acts”, “Use VR act”). Choices and numbers keep
+  their noun label. Push back if a verb label reads worse than the noun; say so in the review
+  rather than forcing it.
 
 ## Documentation discipline
 

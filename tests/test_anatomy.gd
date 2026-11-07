@@ -94,7 +94,7 @@ func run() -> void:
 
 	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.286), "global anatomy placement is on the crease")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
-	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
+	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.742), "global anatomy scale")
 	# Saved placements migrate once onto the current default: v0 rows get both shifts, v1 the
 	# lateral one, and a current row is left alone.
 	var v0 := ANATOMY.migrate_place({"version": 0, "fluttershy": {
@@ -183,6 +183,14 @@ func run() -> void:
 	heat_anatomy.free()
 	heat_pony.free()
 	heat_runtime.free()
+
+	# The V2 mesh's density walk can collapse to the 4 mm floor; keep the authored band.
+	check(is_equal_approx(ANATOMY.stable_lip_radius(0.004), ANATOMY.WINKING_LIP_RADIUS),
+		"a collapsed lip radius falls back to the authored band")
+	check(is_equal_approx(ANATOMY.stable_lip_radius(ANATOMY.WINKING_LIP_RADIUS),
+		ANATOMY.WINKING_LIP_RADIUS), "the authored lip radius is kept")
+	check(is_equal_approx(ANATOMY.stable_lip_radius(0.030), 0.030),
+		"a nearby measured lip radius is kept")
 
 	# The refined winking mesh leaves the default closed shape alone and masks only the anal rim.
 	if ANATOMY.assets_exist():

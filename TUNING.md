@@ -85,7 +85,7 @@ list(n, path, default, options, label, help, tab, group)
 |---|---|
 | `n` | the identifier, `SETTINGS.<n>` |
 | `path` | the `settings.json` path; the only string, and it lives here |
-| `label`, `help` | the row text and the line under it |
+| `label`, `help` | the row text and the line under it. A boolean label starts with a verb (Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch, Remember, Mute); a choice or number keeps its noun |
 | `tab` | `GENERAL`, `ANATOMY` or `WORLD` |
 | `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing`. A group needs at least 3 related settings: fewer, and pass `""` so the setting sits in the tab with no heading (a small subgroup merges into its parent) |
 | `with_unit`, `with_step`, `with_scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
@@ -122,9 +122,9 @@ prefixes pre-emptively.
 
 - Tabs, in panel order: **General** (interface, audio, cycle, thrust, act tuning), **Anatomy**,
   **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form).
-- Player-facing settings come first in their tab. When the **Debug mode** setting (General ›
-  General) is on, the tab ends with one **Debug** section holding that tab's debug settings under
-  the same group names.
+- Player-facing settings come first in their tab. When **Enable debug** (General's last row) is
+  on, the tab ends with one **Debug** section holding that tab's debug settings under the same
+  group names. A section name draws one heading; interleaved declarations fold back into it.
 - Every section remembers whether it is open in `settings.json` under `ui.sections`, keyed
   `tab/group`; the Debug block and its subsections use the `Debug/` prefix. Read and write that
   state through `SETTINGS.section_open(tab, group)` and `SETTINGS.set_section_open(tab, group, open)`.
@@ -154,7 +154,7 @@ prefixes pre-emptively.
   contract is `HISTORY.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier itself
   is a per-mare `preferences.tolerance`, not a global setting.
 - Built-in act prompts live in `SETTINGS.DEFAULT_ACT_PROMPTS`; `act_prompts` stores only overrides.
-  **Reset act prompts** (General › Debug mode › Debug › Actions) clears them.
+  **Reset act prompts** (General › Enable debug › Debug › Actions) clears them.
 - Unknown keys are ignored on load.
 - Never name a settings API function after a `Script`/`Object` built-in (`reload`, `set_path`,
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`
@@ -172,8 +172,8 @@ Debug commands are entries in `debug_actions.gd`:
 },
 ```
 
-General's **Debug** block (with **Debug mode** on) draws a button per entry and calls `method`
-on the entry node. Entries that share `"row"` are drawn compactly on one line under that caption
+The **Debug** block of the tab named by the entry's `tab` (`general` by default, or `anatomy`/
+`world`) draws a button for it and calls `method` on the entry node. Entries that share `"row"` are drawn compactly on one line under that caption
 (`"short"` is the button text), so related actions stay together; adding an action is one entry
 plus one method. A hotkey (`"hotkey": KEY_X`) is the exception, only for an
 action that must fire while the world is unpaused and you are looking at the scene (the F10

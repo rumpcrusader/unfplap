@@ -90,7 +90,7 @@ these values here if a future pose needs that effect.
 
 ### Anatomy additions
 
-With `features.anatomy` on, the recipe also applies `pelvis_curl_deg` (25°), `legs_wrap` and
+With the anatomy shown (`anatomy_mode` not `never`), the recipe also applies `pelvis_curl_deg` (25°), `legs_wrap` and
 `bed_lift_m` (0.05). The curl tips the pelvis toward Anon and shares the turn back up the spine;
 the wrap opens each hind femur around him. `rump_rise_m` is accepted but unused until the
 optional bed body or mare-motion work. These keys are absent with the feature off, so the master

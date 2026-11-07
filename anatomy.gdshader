@@ -28,8 +28,13 @@ uniform float cut_depth = 0.0;
 uniform vec3 vulva_centre = vec3(0.0, -0.012, 0.02);
 uniform float lip_radius = 0.03;
 uniform float lip_outer = 0.066;
+// integration: the anal cup is scaled around its own opening, like the vulva's band solve.
+uniform vec3 anal_centre = vec3(0.0, 0.071, 0.019);
+uniform float anal_scale = 1.0;
 // integration: mesh-local radius the opening must reach (Anon's shaft at the contact plane).
 uniform float hole_target = 0.0;
+// integration: the pink clip belongs to the vulva; the anal cup keeps its folds.
+uniform float hole_clip = 1.0;
 
 // integration: Anon's shaft as a swept circle in world space. Any vulva vertex that ends up
 // inside it is projected onto its surface, so the lips cannot intersect the cock.
@@ -60,6 +65,14 @@ uniform float strip_scale = 1.0;
 uniform float contour_amount = 1.0;
 
 void vertex() {
+	if (abs(anal_scale - 1.0) > 0.000001) {
+		vec3 spread = VERTEX - anal_centre;
+		float radius = length(spread.xy);
+		// Full scale across the anus mound, tapering into the body before the vulva.
+		float weight = 1.0 - smoothstep(0.045, 0.065, radius);
+		spread.xy *= 1.0 + (anal_scale - 1.0) * weight;
+		VERTEX = anal_centre + spread;
+	}
 	if (strip_trim > 0.5 && abs(strip_scale - 1.0) > 0.000001) {
 		VERTEX.x *= strip_scale;
 	}
@@ -107,7 +120,7 @@ void fragment() {
 	float inside = smoothstep(0.42, 0.58, COLOR.r);
 	// The pink interior must fill the opening exactly: everything within the solved hole radius is
 	// interior, so the shaft is covered right up to the lips instead of showing through.
-	if (hole_target > 0.0) {
+	if (hole_target > 0.0 && hole_clip > 0.5) {
 		// The interior is only interior inside the opening. Painting (and depth-pulling) the inner
 		// wall beyond the lip ring is what showed as pink folds around the shaft.
 		// Keep the pulled pink well inside the lip ring: it must never reach the rim, or it shows

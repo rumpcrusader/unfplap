@@ -159,7 +159,8 @@ mods/unfplap/
   climax_fluid.gd   optional droplets, sticking, creeping and pools
   teat_jiggle.gd    teats spring sway
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
-  thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
+  thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength,
+                    and the bottom-of-stroke impact event
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, stroke shape
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
   cycle.gd          pure per-mare estrus phase: heat, diestrus, normal; idle wink burst roll

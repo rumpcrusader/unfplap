@@ -222,7 +222,7 @@ func crossed(before: float, after: float) -> bool:
 	return before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH
 
 
-## Withdraw only. The impact layer is fired from play_impact() on the closed-stroke event.
+## Withdraw only. The impact layer is fired from play_impact() on the tracker's impact event.
 func withdraw_crossed(before: float, after: float, strength: float, pose: String,
 		rump: Vector3, bed_at: Vector3, soft_bed: bool) -> void:
 	if not _foley or not (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH):

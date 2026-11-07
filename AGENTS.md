@@ -956,8 +956,9 @@ examples.
   path fires.
 - Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
   as `situation`. The ask carries `MEMORY.cue_facts()` through `_relationship_ask_note()` and must
-  be phrased as a question. Reminders are generated at 12 s and 24 s. A no-reply offer gives up at 60 s; after any answer the deadline is 45 s, and after a
-  clarification 30 s. A pending classifier or a busy director extends the deadline instead of
+  be phrased as a question. Reminders are generated at 12 s and 24 s. A no-reply offer gives up at
+  60 s; after any answer the deadline is 45 s, and after a clarification 30 s. A pending
+  classifier or a busy director extends the deadline instead of
   cancelling the line. An unclear answer gets one clarification. A give-up records an "offer is
   over" situation, queues a short give-up line even when he answered, and logs
   `request end ... reason=...`; the invite phase waits up to 60 s after the comment.

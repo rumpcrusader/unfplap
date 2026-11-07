@@ -26,6 +26,12 @@ uniform float compress = 0.0;
 // integration: thickness multipliers, ramped from the base to the middle of the shaft.
 uniform float girth_base = 1.0;
 uniform float girth_mid = 1.0;
+// integration: the glans thickness band, the axial length stretch and the heartbeat pulse.
+uniform float girth_head = 1.0;
+uniform float length_scale = 1.0;
+uniform float head_start = 0.72;
+uniform float head_full = 0.86;
+uniform float throb = 0.0;
 
 varying vec3 lit_fill;
 
@@ -34,9 +40,10 @@ vec3 spin(vec3 v, vec3 k, float angle) {
 }
 
 void vertex() {
-	float along = dot(VERTEX - shaft_root, shaft_axis);
-	if (along > 0.0) {
-		vec3 ring = VERTEX - shaft_root - shaft_axis * along;
+	float raw = dot(VERTEX - shaft_root, shaft_axis);
+	float along = raw * length_scale;
+	if (raw > 0.0) {
+		vec3 ring = VERTEX - shaft_root - shaft_axis * raw;
 		float span = shaft_length * 0.11;
 		float near_pinch = (along - squish_at) / span;
 		float near_bulge = (along - squish_at + span * 1.8) / (span * 1.2);
@@ -45,6 +52,12 @@ void vertex() {
 		ring *= 1.0 + squish * (0.07 * bulge - 0.11 * pinch) + compress * 0.8;
 		float length_t = clamp(along / max(shaft_length, 0.001), 0.0, 1.0);
 		ring *= mix(girth_base, girth_mid, smoothstep(0.0, 0.35, length_t));
+		ring *= mix(1.0, girth_head, smoothstep(head_start, head_full, length_t));
+		ring *= 1.0 + throb;
+		// Stretching along the axis changes the normal's axial share.
+		float axial = dot(NORMAL, shaft_axis);
+		NORMAL = normalize(NORMAL - shaft_axis * axial
+			+ shaft_axis * axial / max(length_scale, 0.001));
 		float stem = along * (1.0 - compress);
 		vec3 centre = shaft_root + shaft_axis * stem;
 		float angle = length(bend_turn);

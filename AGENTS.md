@@ -34,8 +34,8 @@ Do not start implementation until you have read the required files for the area 
   (`assets/anatomy/` is ignored) and fetched from `ANATOMY_URL` for every release build, so a
   shipped pack always carries them. The act stays off-camera by framing. Modelled accessories are
   allowed.
-- Desktop first. VR and seated VR are deferred except the optional, off-by-default standing
-  VR act; desktop human Anon owns the free act camera.
+- Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
+  anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
   `HISTORY.md` and `ROTATION.md`.
 
@@ -58,18 +58,19 @@ Manual lab:
 It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
 script. `godot` must be on `PATH`.
 
-- The lab loads only Twilight, Fluttershy, Rarity, Derpy and Applejack, pauses world scheduling
-  and background AI, and uses the Golden Oak guest bed. It does not spawn a test bed. Applejack
-  starts as a stranger: friendship 0, no romance tier and no dating record.
+- The lab loads only Twilight, Fluttershy, Rarity, Derpy, Applejack, Tempest Shadow, Lily Valley
+  and Colgate, pauses world scheduling and background AI, and uses the Golden Oak guest bed. It
+  does not spawn a test bed. Applejack starts as a stranger: friendship 0, no romance tier and no
+  dating record.
 - Before the loading screen's furnishing wait the lab sets `furnish = false` on every generated
   house. Authored homes (the library) keep their furniture and bed, so the 200 ms-per-house
   furnishing stagger never runs.
 - `worlds/unfplap-test/` is the isolated lab world; `worlds/default/` is untouched. Delete only
   the test world to reset it.
-- The lab re-seeds its five ponies on every startup (friendship and mood, idle posture; romance
-  tier and dating record only for the adults that are not strangers). Four ponies are moved to a
-  row on the path in front of Golden Oak Library; Applejack is spawned nearby to the side of the
-  library instead. Before the loading screen spawns the town, the in-memory
+- The lab re-seeds its eight test ponies on every startup (friendship and mood, idle posture;
+  romance tier and dating record only for the adults that are not strangers). The non-stranger
+  ponies are moved to a row on the path in front of Golden Oak Library; Applejack is spawned
+  nearby to the side of the library instead. Before the loading screen spawns the town, the in-memory
   population config assigns every missing test pony to Ponyville, then removes all other
   residents; `population.json` is not saved. It also lifts the player's Max nearby ponies cap in
   memory for the loading screen (a value of four would leave a test pony out) and restores it
@@ -147,13 +148,12 @@ mods/unfplap/
                     restore, aftercare
   anatomy.gd        persistent adult anatomy: attach, tone, teats, strip, placement, LOD
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
-  anatomy_align.gd  optional standing pelvic alignment; hip stays pinned, camera unchanged
-  anon_part.gd      player anatomy mesh and placement
-  missionary_bed.gd optional Anon bed body and eye view; off by default
+  anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
+  missionary_bed.gd optional Anon bed body and eye view; gated by the anatomy master
   consent.gd        per-mare public/anal/oral defaults and merge
   climax_fluid.gd   optional droplets, sticking, creeping and pools
   teat_jiggle.gd    teats spring sway
-  vr_act.gd         optional VR standing act; last and off by default
+  vr_act.gd         optional VR standing act; last and gated by the anatomy master
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
@@ -188,7 +188,6 @@ mods/unfplap/
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
-  tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
   audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
@@ -202,6 +201,9 @@ mods/unfplap/
   satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
   upset.gd          300 s refused/stopped mood face (annoyed/angry), yields to line faces
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
+  tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
+  tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
+  tail_visibility.gd  debug controller: installs tail_hide on loaded AI characters
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
                     offer weighting and history reminders
@@ -242,7 +244,7 @@ body-relative axes.
   roll her belly-down.
 - `MISSIONARY_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
 - `_neck_bend(neck1_deg, neck2_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis.
-  Presentation defaults are `0°` each; zero straightens the neck.
+  Presentation defaults are neck1 `0°` and neck2 `45°`; zero straightens the neck.
   `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both run
   **before** the gaze solve, so they change head position without biasing the final face
   direction. After the gaze solve, `_head_pitch(head_pitch_deg)` tilts the head about the body
@@ -367,7 +369,7 @@ body-relative axes.
 - The lean always holds a released position. `_lean_step()` only ramps toward a pressed target;
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default off) the camera lean gets a small, slow forward rock
+- With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow forward rock
   (`0.010`, clamped inside `-1…1`). There is no side sway. A/D caress always latches: tap once
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
@@ -1194,6 +1196,10 @@ examples.
   `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
   instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
   outside an act.
+- **Hide tails** is a persisted Debug → General toggle. While on, it collapses the hair
+  `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
+  near and far tail geometry all disappear while the mane stays. The small root cap pinned to the
+  pelvis may remain under the dock. It touches no other body part.
 - `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed
@@ -1246,9 +1252,9 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
   changes. Opening the Unfplap settings tab calls `TUNABLES.reload_settings()`, so a hand-edited
   file applies when the tab opens; otherwise it needs a restart.
-- Top level: `debug_logs`, `debug_perf`, `features`, `relationship`, `thrust`, `auto_thrust`,
-  `jiggle`, `camera_thrust`, `presentation`, `history`, `tolerance`, `cues`, `talk`, `default`
-  template, `characters` overrides.
+- Top level: `debug_logs`, `debug_perf`, `debug_hide_tails`, `features`, `relationship`, `thrust`,
+  `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`, `tolerance`, `cues`, `talk`,
+  `default` template, `characters` overrides.
 - Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read
   through `tunables.gd`; the runtime snapshots them with every other act value in
   `_snapshot_settings()` at act start, and `apply_live_settings()` re-runs that snapshot after any
@@ -1260,28 +1266,27 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 | `act_controls` | `true` | act control card; the cue and close prompt stay |
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old satisfied/aftercare behaviour |
-| `idle_camera_sway` | `false` | slow idle breathing when not leaning; true adds the drift |
+| `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
 | `standing_play_bow` | `false` | standing play-bow stance: front legs forward, chest down, head low |
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
-| `standing_plant_feet` | `true` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; off restores the game's stepping/lean foot motion |
+| `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
 | `act_ear_pin` | `false` | Act flow section: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
-| `anatomy` | `true` | adult anatomy meshes, teats, strip, reactions and anatomy pose keys |
+| `anatomy` | `false` | adult anatomy meshes, teats, strip, reactions and anatomy pose keys |
 | `anatomy_holes` | `true` | `V` hole switch and the anal cup |
 | `anatomy_oral` | `true` | `N` standing oral and its neck motion |
 | `anatomy_finish` | `true` | `B` finish in/out and inside/outside afterglow |
 | `anatomy_fluid` | `true` | climax and finish droplets |
-| `anatomy_align` | `false` | experimental standing pelvic alignment; hip stays pinned, camera unchanged |
-| `anatomy_bed_body` | `false` | experimental Anon bed body and eye view |
-| `anatomy_vr` | `false` | experimental VR act |
+| `anatomy_bed_body` | `true` | experimental Anon bed body and eye view |
+| `anatomy_vr` | `true` | experimental VR act |
 | `anatomy.act_only` | `false` | show mare anatomy only while an act is running |
-| `act_bystanders` | `false` | adult witness lines using the modern perception |
+| `act_bystanders` | `true` | adult witness lines using the modern perception |
 | `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
-| `act_public_offer` | `false` | per-mare public consent affects offers |
+| `act_public_offer` | `true` | per-mare public consent affects offers |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |
@@ -1290,14 +1295,26 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
-- `anatomy` stores `teats`, `skin_tone`, `act_only`, `hide_dock`, the experimental `anal_ring`
+- `anatomy` stores `teats` (off by default), `skin_strip` (on by default), `skin_tone` (0–1
+  genital tone; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `genital_yaw_deg`
+  (debug: yaw every anatomy mesh about the world vertical through its opening; unbounded),
+  `strip_scale`
+  (debug: scale the midline strip's model-space X around the midline; unbounded), `act_only`,
+  `hide_dock`, the experimental `anal_ring`
   (use the re-modelled ring instead of the original cup; off by default), the anal placement
-  `anal_height_mm` (positive is higher), and the player-part controls `player_scale` (`1.0×`),
-  `part_base_scale`, `part_mid_scale`, `part_front_m`, `max_depth_m` and `pelvis_gap_m`.
-  Player-part values are applied on top of the saved placement and update live. The anal placement
-  applies to both models, is read on the next visibility poll, and the ring toggle swaps the asset
-  live. `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on load; removed anatomy keys
-  are erased on load.
+  `anal_height_mm` (positive is higher), and the player-part controls `player_scale` (`1.5×`),
+  `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`), `part_head_scale` (`1.3`),
+  `part_length_scale` (`1.0`), `part_throb` (`1.0`), `part_front_m` (`0.02 m`), `max_depth_m`
+  (`0.18 m`) and `pelvis_gap_m` (`0.03 m`).
+  Player-part values are applied on top of the saved placement and update live. `part_head_scale`
+  widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
+  its axis; `part_throb` is a debug intensity counter for a slight depth-driven heartbeat (0 off).
+  The shaped length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole
+  grip, so the geometry and the collision stay together. The anal placement applies to both
+  models, is read on the next visibility poll, and the ring toggle swaps the asset live.
+  `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on load; old skin tones map to the
+  slider anchors and an old teats-off file keeps the strip off once. Removed anatomy keys are
+  erased on load.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
@@ -1342,13 +1359,16 @@ rump blush. Unknown settings keys are ignored.
     obsolete camera key is dropped.
 - **Never clamp a debug setting.** A schema `num` entry is stored and returned verbatim; its
   `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
-  Only a `user_num` entry clamps, and only because its bound is part of the player-facing
-  contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace `1.0…3.75/s`, auto depth
-  `0.20…1`, camera surge/bob `0…1`, glance speed `0.25…3×`). Do not add a clamp in a consumer
+  Only a `user_num` entry (and a `slider`, which is a `user_num` drawn as a track) clamps, and only
+  because its bound is part of the player-facing contract (sensitivity `240…1200`, hip back-off
+  `0.25…2.0×`, auto pace `1.0…3.75/s`, auto depth `0.20…1`, camera surge/bob `0…1`, glance speed
+  `0.25…3×`, genital tone `0…1`). Do not add a clamp in a consumer
   "to be safe": if a value must be bounded to stay playable, make it a `user_num` and say so in
   the help text.
   No consumer clamps a tunable-derived value today; the jiggle radius, smack raise,
-  smack arc and caress oval radii are applied as stored. The only other bounds are the smack
+  smack arc and caress oval radii are applied as stored. A consumer may only guard a value that
+  would otherwise divide by zero (the anon part base/mid/head/length/girth scales); that guard is
+  a math floor, not a user-facing bound. The only other bounds are the smack
   animation duration (`0.12–0.30 s` raise, `0.06–0.20 s` return), which bound the slide, not the
   setting.
 - Feature flags are split by the schema's `tab`: entries marked `"general"` are the player-facing
@@ -1368,7 +1388,8 @@ rump blush. Unknown settings keys are ignored.
   the same `menu_style` box), keeps the help text on a `Faint` label, shows a boolean as a switch
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and
-  units are not clipped. The sidebar row sits under an **Add-ons** caption, and the injected page
+  units are not clipped; an entry with `slider: true` draws a themed HSlider with its value beside
+  it instead. The sidebar row sits under an **Add-ons** caption, and the injected page
   has no second title. **General** holds the player-facing flags, **Cycle**, **Thrust** (including
   the climax limit) and the **History** toggle. **Characters** holds the hand-built **Character
   preference** form (a per-mare profile, not a global tunable). **Anatomy** holds every anatomy

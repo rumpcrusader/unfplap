@@ -85,6 +85,7 @@ placement all come from the schema entry. Adding a flag is shorter still —
 |---|---|
 | key | the `settings.json` path, e.g. `presentation.standing.kiss.lean_side` |
 | `kind` | `bool`, `num`, `choice`, `list` |
+| `slider` | set by `slider()`: the `num` row draws as a themed HSlider instead of a spin box |
 | `default` | the stored default; also what `reset_value` restores |
 | `label`, `help` | the row text and the help line under it |
 | `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing` |
@@ -93,7 +94,8 @@ placement all come from the schema entry. Adding a flag is shorter still —
 | `low`, `high` | spin-box arrows only, unless the entry is a `user_num` |
 | `options`, `labels` | `choice` values and their display text; `list` allowed values |
 
-Constructors: `flag`, `num`, `user_num`, `choice`, `list`.
+Constructors: `flag`, `num`, `user_num`, `slider`, `choice`, `list`. `slider` is a clamped
+`user_num` with `slider: true`; its `low`/`high` bound is part of the setting's contract.
 
 Entries render **in file order**, and a section is created where it first appears. Put a line
 where a player would look for it, next to the flag or numbers it belongs to; do not add a "misc"
@@ -104,6 +106,7 @@ section. A flag that gates a modifier belongs in that modifier's section.
 - `num` is stored and returned **verbatim**. `low`/`high` only shape the spin box.
 - `user_num` clamps to `low`/`high`, and only because that bound is part of the player-facing
   contract: sensitivity, hip back-off, auto pace/depth, camera surge/bob, glance-back speed.
+- A `slider` is a `user_num`; the same bound contract applies because the track itself is 0–100%.
 - Do not add a clamp in a consumer "to be safe". If a value must stay playable, make it a
   `user_num` and say why in its help text.
 - `choice` falls back to the default for an unknown string; `list` drops unknown options. That is

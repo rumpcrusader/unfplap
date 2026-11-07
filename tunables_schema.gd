@@ -40,6 +40,9 @@ static func all() -> Dictionary:
 			"Player", "°", 1.0),
 		"debug_perf": flag(false, "Perf logs",
 			"Print the per-second performance block. Requires Debug logs.", "General"),
+		"debug_hide_tails": flag(false, "Hide tails",
+			"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.",
+			"General"),
 
 		# Player-facing controls (Settings tab).
 		"features.hud_readouts": flag(true, "HUD readouts",
@@ -73,16 +76,18 @@ static func all() -> Dictionary:
 			"Give adult mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.",
 			"Cycle", GENERAL_TAB),
 		# integration: anatomy player-facing switches.
-		"features.anatomy": flag(true, "Anatomy",
+		"features.anatomy": flag(false, "Anatomy",
 			"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.",
 			"Anatomy", ANATOMY_TAB),
-		"anatomy.teats": flag(true, "Teats",
-			"Show the optional teats and the skin strip that joins them to the rest.",
+		"anatomy.teats": flag(false, "Teats",
+			"Show the optional teats.",
 			"Anatomy", ANATOMY_TAB),
-		"anatomy.skin_tone": choice("darker", ["coat", "darker", "dark"],
-			["Coat", "Darker", "Dark"],
-			"Skin tone", "Tint the anatomy mesh against her coat.",
+		"anatomy.skin_strip": flag(true, "Skin strip",
+			"Show the midline skin strip that joins the teats toward the vulva.",
 			"Anatomy", ANATOMY_TAB),
+		"anatomy.skin_tone": slider(0.5, "Genital tone",
+			"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.",
+			"Anatomy", "%", 1.0, 100.0, 0.0, 1.0, ANATOMY_TAB),
 		"anatomy.act_only": flag(false, "Only during acts",
 			"Show the mare anatomy only while an act is running; hide it in the world.",
 			"Anatomy", ANATOMY_TAB),
@@ -98,6 +103,12 @@ static func all() -> Dictionary:
 		"anatomy.anal_ring": flag(false, "Ring model (experimental)",
 			"Use the re-modelled anal ring instead of the original cup.",
 			"Anatomy › Holes", ANATOMY_TAB),
+		"anatomy.genital_yaw_deg": num(0.0, "Genital yaw",
+			"Rotate every anatomy mesh around the world vertical through its opening. Debug, unbounded.",
+			"Anatomy", "°", 1.0, 1.0, -1000000.0, 1000000.0, DEBUG_TAB),
+		"anatomy.strip_scale": num(1.0, "Skin strip scale",
+			"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.",
+			"Anatomy", "×", 0.05, 1.0, -1000000.0, 1000000.0, DEBUG_TAB),
 		"anatomy.anal_height_mm": num(-15.0, "Anal opening height",
 			"Vertical placement of the anal mesh and its opening; positive is higher, negative lower.",
 			"Anatomy › Holes", "mm", 0.5, 1.0, -20.0, 20.0, ANATOMY_TAB),
@@ -107,9 +118,18 @@ static func all() -> Dictionary:
 		"anatomy.part_base_scale": num(1.3, "Cock base radius",
 			"Thickness of the cock where it leaves his body.",
 			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
-		"anatomy.part_mid_scale": num(0.7, "Cock mid radius",
+		"anatomy.part_mid_scale": num(0.8, "Cock mid radius",
 			"Thickness of the cock around its middle.",
 			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
+		"anatomy.part_head_scale": num(1.3, "Cock head radius",
+			"Thickness of the glans at the end of the shaft.",
+			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
+		"anatomy.part_length_scale": num(1.0, "Cock length",
+			"Stretch the shaft along its length. The head, hole grip and fluid point follow it.",
+			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
+		"anatomy.part_throb": num(1.0, "Cock throb",
+			"Heartbeat-like pulse of the shaft. 1 is subtle; 0 turns it off.",
+			"Anatomy › Anon part", "×", 0.05, 1.0, 0.0, 3.0, ANATOMY_TAB),
 		"anatomy.part_front_m": num(0.02, "Cock forward",
 			"Slide the cock's base forward from the hips so it sits on the front of the pelvis.",
 			"Anatomy › Anon part", "cm", 0.5, 100.0, -20.0, 20.0, ANATOMY_TAB),
@@ -154,7 +174,7 @@ static func all() -> Dictionary:
 		"features.anatomy_holes": flag(true, "Hole switch",
 			"Let V switch between the front and the anal cup if she is willing.",
 			"Anatomy › Actions", ANATOMY_TAB),
-		"features.anatomy_oral": flag(false, "Oral",
+		"features.anatomy_oral": flag(true, "Oral",
 			"Let N turn her round for oral in the standing pose if she is willing.",
 			"Anatomy › Actions", ANATOMY_TAB),
 		"features.anatomy_finish": flag(true, "Finish control",
@@ -250,15 +270,15 @@ static func all() -> Dictionary:
 			"Tilt the frozen view; positive looks up.", "Missionary", "°", 0.5),
 		"presentation.missionary.neck1_deg": num(0.0, "Neck 1 angle",
 			"Bend pony_neck1 about the body right axis.", "Missionary › Neck angles", "°", 1.0),
-		"presentation.missionary.neck2_deg": num(0.0, "Neck 2 angle",
+		"presentation.missionary.neck2_deg": num(45.0, "Neck 2 angle",
 			"Bend pony_neck2 about the body right axis.", "Missionary › Neck angles", "°", 1.0),
 		"presentation.missionary.neck_roll_deg": num(0.0, "Neck roll",
 			"Roll both neck bones about the body forward axis.", "Missionary › Neck angles", "°",
 			1.0),
-		"presentation.missionary.head_pitch_deg": num(0.0, "Head pitch",
+		"presentation.missionary.head_pitch_deg": num(90.0, "Head pitch",
 			"Tilt the head about the body right axis after the gaze solve.",
 			"Missionary › Neck angles", "°", 1.0),
-		"presentation.missionary.head_roll_deg": num(13.0, "Head roll",
+		"presentation.missionary.head_roll_deg": num(90.0, "Head roll",
 			"Roll the head last, in degrees.", "Missionary › Neck angles", "°", 1.0),
 		"features.missionary_body_motion": flag(true, "Missionary body motion",
 			"Slide her body along the bed and nod her head on the thrust.",
@@ -523,6 +543,16 @@ static func user_num(value: float, label: String, help: String, group: String,
 		tab := DEBUG_TAB) -> Dictionary:
 	var out := num(value, label, help, group, unit, step, scale, low, high, tab)
 	out["clamp"] = true
+	return out
+
+
+## A player-facing number drawn as a themed HSlider. The bound is part of the setting's
+## contract, so it clamps exactly like `user_num`.
+static func slider(value: float, label: String, help: String, group: String,
+		unit := "", step := 0.0, scale := 1.0, low := 0.0, high := 1.0,
+		tab := DEBUG_TAB) -> Dictionary:
+	var out := user_num(value, label, help, group, unit, step, scale, low, high, tab)
+	out["slider"] = true
 	return out
 
 

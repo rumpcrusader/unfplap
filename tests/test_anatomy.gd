@@ -9,6 +9,7 @@ const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
+const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 
 var failures := 0
 var checks := 0
@@ -42,6 +43,10 @@ func check(ok: bool, text: String) -> void:
 	if not ok:
 		failures += 1
 		print("FAIL ", text)
+
+
+func near(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
 
 
 func _pony(id: String, filly := false, stallion := false) -> FakePony:
@@ -83,11 +88,11 @@ func run() -> void:
 
 	# Every new flag exists with the intended default.
 	check(SCHEMA.has("features.anatomy"), "anatomy master flag")
-	check(bool(SCHEMA.default_value("features.anatomy")), "anatomy is on by default")
+	check(not bool(SCHEMA.default_value("features.anatomy")), "anatomy is off by default")
 	for key: String in ["anatomy_holes", "anatomy_finish", "anatomy_fluid"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
-	check(not bool(SCHEMA.default_value("features.anatomy_oral")), "oral is off by default")
+	check(bool(SCHEMA.default_value("features.anatomy_oral")), "oral is on by default")
 	for key: String in ["anatomy_bed_body", "anatomy_vr", "act_bystanders", "act_public_offer"]:
 		check(SCHEMA.has("features." + key), "%s flag" % key)
 		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
@@ -98,16 +103,28 @@ func run() -> void:
 		and not bool(SCHEMA.default_value("features.act_speech_feel")),
 		"speech feel is off by default")
 	check(SCHEMA.has("anatomy.teats"), "teats flag")
-	check(bool(SCHEMA.default_value("anatomy.teats")), "teats on by default")
+	check(not bool(SCHEMA.default_value("anatomy.teats")), "teats off by default")
+	check(SCHEMA.has("anatomy.skin_strip"), "skin strip flag")
+	check(bool(SCHEMA.default_value("anatomy.skin_strip")), "skin strip on by default")
 	check(SCHEMA.has("anatomy.act_only"), "act-only flag")
 	check(not bool(SCHEMA.default_value("anatomy.act_only")), "act-only off by default")
 	check(SCHEMA.has("anatomy.player_scale"), "player part scale")
+	check(SCHEMA.has("anatomy.part_head_scale"), "player part head scale")
+	check(SCHEMA.has("anatomy.part_length_scale"), "player part length scale")
+	check(SCHEMA.has("anatomy.part_throb"), "player part throb")
+	check(near(float(SCHEMA.default_value("anatomy.part_head_scale")), 1.3),
+		"head scale uses the tuned default")
+	check(near(float(SCHEMA.default_value("anatomy.part_length_scale")), 1.0),
+		"length scale defaults to one")
 	check(SCHEMA.has("anatomy.anal_ring"), "anal ring toggle")
 	check(SCHEMA.has("anatomy.anal_height_mm"), "anal placement height")
 	check(not SCHEMA.has("anatomy.cover_depth_m"), "coat depth bias removed")
 	check(not SCHEMA.has("anatomy.player_pitch_deg"), "player part pitch removed")
-	check(TUNABLES.get_string("anatomy.skin_tone") in ["coat", "darker", "dark"],
-		"skin tone choice")
+	var tone := SCHEMA.entry("anatomy.skin_tone")
+	check(str(tone.get("kind", "")) == "num", "skin tone is a number")
+	check(bool(tone.get("slider", false)), "skin tone uses the slider row")
+	check(near(float(tone.get("default", -1.0)), 0.5), "skin tone default is the old darker")
+	check(near(float(TUNABLES._coerce(tone, 2.0)), 1.0), "skin tone clamps to the slider range")
 	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.286), "global anatomy placement")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
@@ -153,6 +170,23 @@ func run() -> void:
 		"climax arms the wink pulses")
 	anatomy_act.free()
 	fake_anatomy.free()
+
+	# The shaped length and head profile are reported from the same values the shader uses.
+	var part: Node = ANON_PART.new()
+	part.set("_part_length_scale", 1.5)
+	part.set("_girth_head", 1.5)
+	check(absf(float(part.call("_part_length")) - ANON_PART.PART_LENGTH * 1.5) < 0.0001,
+		"part length scales")
+	check(absf(float(part.call("_head_scale_at", 0.0)) - 1.0) < 0.0001,
+		"head scale leaves the base alone")
+	check(absf(float(part.call("_head_scale_at", 1.0)) - 1.5) < 0.0001,
+		"head scale reaches the full glans value")
+	part.set("_ready_amount", 1.0)
+	part.set("_throb_gain", 1.0)
+	part.set("_throb_clock", 0.099)
+	part.call("_throb_tick", 0.001, 1.0)
+	check(float(part.get("_throb_amount")) > 0.0, "the heartbeat produces a pulse at its peak")
+	part.free()
 
 	for pony: Node in [twilight, filly, stallion, off_roster, player]:
 		if is_instance_valid(pony):

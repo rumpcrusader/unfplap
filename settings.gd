@@ -38,6 +38,13 @@ const LEGACY_TOLERANCE_KEYS := {
 	"neutral_stop": "normal_stop",
 	"neutral_cooldown_s": "normal_cooldown_s",
 }
+## One-release migration for the old three-value genital tone. The slider keeps those exact
+## values as its anchors: Coat at 0, Darker at 0.5 and Dark at 1.
+const LEGACY_SKIN_TONES := {
+	"coat": 0.0,
+	"darker": 0.5,
+	"dark": 1.0,
+}
 ## One-release migration for act prompts that used to be written into settings.json. A saved value
 ## that exactly matches one of these is removed so the current DEFAULT_ACT_PROMPTS applies.
 const LEGACY_ACT_PROMPTS := {
@@ -588,6 +595,14 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 		if not block.has("anal_height_mm"):
 			block["anal_height_mm"] = -float(block["anal_drop_mm"])
 		block.erase("anal_drop_mm")
+	var tone: Variant = block.get("skin_tone")
+	if tone is String:
+		block["skin_tone"] = float(LEGACY_SKIN_TONES.get(str(tone),
+			SCHEMA.default_value("anatomy.skin_tone")))
+	# The strip used to follow the teats switch. Keep an existing teats-off file fully off once;
+	# from then on the two switches are independent.
+	if block.has("teats") and not bool(block["teats"]) and not block.has("skin_strip"):
+		block["skin_strip"] = false
 	for key: String in ["anal_swell", "anal_depth", "anal_pitch_deg", "anal_side_mm",
 			"anal_tilt_deg", "cover_depth_m", "max_back_m", "player_pitch_deg",
 			"player_yaw_deg", "player_roll_deg", "hole_depth", "anal_hug", "hug",

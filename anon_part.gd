@@ -34,6 +34,14 @@ const BEND_NEAR := 0.45
 const BEND_FAR := 0.75
 const AIM_DEPTH := 0.3
 const FULL_DEPTH := 1.0
+## The glans band: the head multiplier is fully applied from HEAD_FULL to the tip.
+const HEAD_START := 0.72
+const HEAD_FULL := 0.86
+## A two-lobe heartbeat. The amplitude is a fraction of the shaft radius.
+const THROB_HZ := 1.1
+const THROB_DEPTH_RATE := 0.15
+const THROB_REST := 0.012
+const THROB_DEPTH := 0.018
 
 const MESH_PATH := "res://mods/unfplap/assets/anatomy/anon_part.scn"
 const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon_part_albedo.png"
@@ -52,6 +60,12 @@ var _scale := 0.2
 var _setting_scale := 1.0
 var _girth_base := 1.0
 var _girth_mid := 1.0
+var _girth_head := 1.0
+var _part_length_scale := 1.0
+var _throb_gain := 1.0
+var _throb_clock := 0.0
+var _throb_depth := 0.0
+var _throb_amount := 0.0
 var _ready_amount := 0.0
 var _tween: Tween
 var _in_encounter := false
@@ -147,9 +161,14 @@ func _apply_material() -> void:
 	mat.set_shader_parameter("tip_shadow", TIP_SHADE)
 	mat.set_shader_parameter("shaft_root", PIVOT)
 	mat.set_shader_parameter("shaft_axis", (TIP_POINT - PIVOT).normalized())
-	mat.set_shader_parameter("shaft_length", PART_LENGTH)
+	mat.set_shader_parameter("shaft_length", _part_length())
+	mat.set_shader_parameter("length_scale", _part_length_scale)
+	mat.set_shader_parameter("head_start", HEAD_START)
+	mat.set_shader_parameter("head_full", HEAD_FULL)
 	mat.set_shader_parameter("girth_base", _girth_base)
 	mat.set_shader_parameter("girth_mid", _girth_mid)
+	mat.set_shader_parameter("girth_head", _girth_head)
+	mat.set_shader_parameter("throb", _throb_amount)
 	mat.set_shader_parameter("base_texture", load(ALBEDO_PATH))
 	mat.set_shader_parameter("ao_texture", load(AO_PATH))
 	mat.set_shader_parameter("normal_texture", load(NRM_PATH))
@@ -168,6 +187,9 @@ func _read_settings() -> void:
 	_setting_scale = TUNABLES.get_float("anatomy.player_scale")
 	_girth_base = maxf(TUNABLES.get_float("anatomy.part_base_scale"), 0.01)
 	_girth_mid = maxf(TUNABLES.get_float("anatomy.part_mid_scale"), 0.01)
+	_girth_head = maxf(TUNABLES.get_float("anatomy.part_head_scale"), 0.01)
+	_part_length_scale = maxf(TUNABLES.get_float("anatomy.part_length_scale"), 0.01)
+	_throb_gain = maxf(TUNABLES.get_float("anatomy.part_throb"), 0.0)
 
 
 ## integration: the user-facing scale sits on top of the saved placement.
@@ -193,8 +215,30 @@ func _apply_place() -> void:
 func _apply_girth() -> void:
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
+		material.set_shader_parameter("shaft_length", _part_length())
+		material.set_shader_parameter("length_scale", _part_length_scale)
 		material.set_shader_parameter("girth_base", _girth_base)
 		material.set_shader_parameter("girth_mid", _girth_mid)
+		material.set_shader_parameter("girth_head", _girth_head)
+		material.set_shader_parameter("throb", _throb_amount)
+
+
+## The shaped shaft length, in the mesh's local units. Every placement and report uses it so the
+## visible part, the hole grip and the fluid point can never drift apart.
+func _part_length() -> float:
+	return PART_LENGTH * _part_length_scale
+
+
+## The visible tip on the local shaft axis. The shader stretches positive axial geometry by the
+## same factor.
+func _visible_tip_local() -> Vector3:
+	var axis := (TIP_POINT - PIVOT).normalized()
+	return PIVOT + axis * ((TIP_POINT - PIVOT).length() * _part_length_scale)
+
+
+## The head multiplier's share at normalized length `u`, matching the shader.
+func _head_scale_at(u: float) -> float:
+	return lerpf(1.0, _girth_head, smoothstep(HEAD_START, HEAD_FULL, u))
 
 
 ## integration: live user-facing size/rotation update.
@@ -210,6 +254,7 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 		mare_anchor: Node3D, attached := true) -> void:
 	if not is_instance_valid(_mesh) or not _mesh.visible or placing:
 		return
+	_throb_tick(delta, depth)
 	if bed:
 		_track_bed(target, rear, up, depth, mare_anchor)
 		return
@@ -224,7 +269,7 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 	_last_velocity = velocity
 	var to_mesh := _mesh.global_basis.inverse().orthonormalized()
 	var axis := (TIP_POINT - PIVOT).normalized()
-	var reach := PART_LENGTH * _world_scale()
+	var reach := _part_length() * _world_scale()
 	var aim := (to_mesh * (target - rear * reach * AIM_DEPTH - root)).normalized()
 	var near := 1.0 - smoothstep(BEND_NEAR, BEND_FAR, root.distance_to(target))
 	var wanted := axis.cross(aim).normalized() * minf(axis.angle_to(aim) * 2.0, BEND_MAX) * near
@@ -242,8 +287,28 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, depth: float,
 		var at := root.distance_to(target) / _world_scale()
 		material.set_shader_parameter("squish_at", at)
 		material.set_shader_parameter("squish", near
-			* clampf((PART_LENGTH - at) / (PART_LENGTH * 0.12), 0.0, 1.0))
+			* clampf((_part_length() - at) / (_part_length() * 0.12), 0.0, 1.0))
 		material.set_shader_parameter("compress", _squash)
+
+
+## A slight heartbeat that rises with depth. The waveform has two lobes so it reads as a pulse
+## rather than a clean sine. `part_throb` is an intensity counter; zero stops it.
+func _throb_tick(delta: float, depth: float) -> void:
+	if delta <= 0.0:
+		return
+	_throb_depth = lerpf(_throb_depth, clampf(depth, 0.0, 1.0), 1.0 - exp(-delta / 0.15))
+	_throb_clock = fposmod(_throb_clock
+		+ delta * THROB_HZ * lerpf(1.0, 1.0 + THROB_DEPTH_RATE, _throb_depth), 1.0)
+	var t := _throb_clock
+	var first := exp(-pow((t - 0.10) / 0.075, 2.0))
+	var second := 0.55 * exp(-pow((t - 0.30) / 0.09, 2.0))
+	var beat := clampf(first + second, 0.0, 1.0)
+	_throb_amount = _ready_amount * _throb_gain \
+		* (THROB_REST + THROB_DEPTH * _throb_depth) * beat
+	if is_instance_valid(_mesh):
+		var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+		if material != null:
+			material.set_shader_parameter("throb", _throb_amount)
 
 
 ## Aim the visible part at the entrance. In the standing act the part stays a rigid child of the
@@ -263,7 +328,7 @@ func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> v
 		return
 	_hip_offset_wanted = Vector3.ZERO
 	var pivot := _mesh.global_transform * PIVOT
-	var tip := _mesh.global_transform * TIP_POINT
+	var tip := _mesh.global_transform * _visible_tip_local()
 	var to_tip := tip - pivot
 	var to_open := target - pivot
 	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
@@ -284,7 +349,7 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	var local := _mesh.transform
 	var posed := parent.global_transform * local
 	var pivot_natural := posed * PIVOT - hip_offset_applied
-	var tip_natural := posed * TIP_POINT - hip_offset_applied
+	var tip_natural := posed * _visible_tip_local() - hip_offset_applied
 	var to_tip := tip_natural - pivot_natural
 	var to_open := target - pivot_natural
 	if to_tip.length_squared() < 0.000001 or to_open.length_squared() < 0.000001:
@@ -344,7 +409,7 @@ func _track_bed(target: Vector3, rear: Vector3, up: Vector3, depth: float,
 		var straight := (_rotation_basis() * _straighten()).scaled(
 			Vector3.ONE * _scale * _setting_scale)
 		_mesh.transform = Transform3D(straight, -(straight * PIVOT))
-	var reach := PART_LENGTH * _scale * _setting_scale \
+	var reach := _part_length() * _scale * _setting_scale \
 		* (1.0 - clampf(depth, 0.0, 1.0) * FULL_DEPTH)
 	_bed_holder.global_transform = Transform3D(Basis.looking_at(rear, up), target + rear * reach)
 
@@ -363,7 +428,7 @@ func _end_bed() -> void:
 func entry(opening: Vector3, rear: Vector3) -> float:
 	if not is_instance_valid(_mesh) or not _mesh.visible:
 		return -1.0
-	var length := PART_LENGTH * _mesh.global_transform.basis.get_scale().x
+	var length := _part_length() * _mesh.global_transform.basis.get_scale().x
 	return clampf((length - (_mesh.global_transform * PIVOT).distance_to(opening)
 		+ ENTRY_LEAD_M) / length, 0.0, 1.0)
 
@@ -372,12 +437,13 @@ func entry(opening: Vector3, rear: Vector3) -> float:
 func girth_at(opening: Vector3) -> float:
 	if not is_instance_valid(_mesh) or not _mesh.visible:
 		return -1.0
-	var along := root_now().distance_to(opening) / (PART_LENGTH * _world_scale())
+	var along := root_now().distance_to(opening) / (_part_length() * _world_scale())
 	if along >= 1.0:
 		return 0.0
 	var at := clampf(along, 0.0, 1.0) * (WIDTHS.size() - 1)
 	var below := floori(at)
 	var profile := lerpf(_girth_base, _girth_mid, smoothstep(0.0, 0.35, clampf(along, 0.0, 1.0)))
+	profile *= _head_scale_at(clampf(along, 0.0, 1.0)) * (1.0 + _throb_amount)
 	return lerpf(WIDTHS[below], WIDTHS[mini(below + 1, WIDTHS.size() - 1)], at - below) \
 		* _world_scale() * profile
 
@@ -391,7 +457,7 @@ func showing() -> bool:
 
 
 func tip_world() -> Vector3:
-	return _mesh.global_transform * (TIP_POINT + Vector3(0.0, TIP_LIFT_M, 0.0))
+	return _mesh.global_transform * (_visible_tip_local() + Vector3(0.0, TIP_LIFT_M, 0.0))
 
 
 
@@ -407,12 +473,13 @@ func shaft_radii(count := 8) -> PackedFloat32Array:
 		var below := floori(at)
 		var width := lerpf(WIDTHS[below], WIDTHS[mini(below + 1, WIDTHS.size() - 1)], at - below)
 		var profile := lerpf(_girth_base, _girth_mid, smoothstep(0.0, 0.35, u))
+		profile *= _head_scale_at(u) * (1.0 + _throb_amount)
 		out[i] = width * scale * profile
 	return out
 
 
 func depth_for(metres: float) -> float:
-	return metres / (PART_LENGTH * _world_scale())
+	return metres / (_part_length() * _world_scale())
 
 
 func root_now() -> Vector3:
@@ -420,7 +487,7 @@ func root_now() -> Vector3:
 
 
 func root_for(target: Vector3, rear: Vector3, depth: float) -> Vector3:
-	return target + rear * PART_LENGTH * _world_scale() \
+	return target + rear * _part_length() * _world_scale() \
 		* (1.0 - clampf(depth, 0.0, 1.0) * FULL_DEPTH)
 
 
@@ -496,6 +563,8 @@ func encounter(on: bool) -> void:
 	_in_encounter = on
 	hip_offset_applied = Vector3.ZERO
 	_hip_offset_wanted = Vector3.ZERO
+	_throb_amount = 0.0
+	_throb_depth = 0.0
 	if on:
 		_depth_smooth = 0.0
 		if not _ensure():

@@ -48,6 +48,7 @@ TESTS=(
 	test_rump_cone
 	test_act_audio
 	test_anatomy
+	test_tail_hide
 )
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/unfplap-tests.XXXXXX")"

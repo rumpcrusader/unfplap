@@ -8,7 +8,7 @@ Copy `.pck` from releases into your mod folder.
 
 Requires Home: Equestria `0.3.0-maredev`.
 
-Desktop first. The optional VR standing act is experimental and off by default.
+Desktop first. The optional VR standing act is experimental and gated by the anatomy master.
 
 ## Controls
 
@@ -36,7 +36,7 @@ Desktop first. The optional VR standing act is experimental and off by default.
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Optional anatomy** — Adds hole, oral, finish and fluid controls, plus optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository; release builds fetch and pack them.
+- **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository; release builds fetch and pack them.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster and ask sooner, two days of diestrus turn her off, then normal. Off by default.

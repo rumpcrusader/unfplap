@@ -79,8 +79,9 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 
 **Anatomy tab**
 
-- **Anatomy**: the master switch, teats, skin tone, only during acts and the coat depth bias.
-- **Anon part**: size, pitch, yaw and roll.
+- **Anatomy**: the master switch, teats and the separate skin strip, the genital tone slider, only
+  during acts and the tail-dock hide.
+- **Anon part**: size, girth, head, length, throb and placement.
 - **Actions**: hole switch, oral and finish control.
 - **Effects**: climax and finish fluid.
 - **Experimental**: hip alignment, the Anon bed body and the VR act.

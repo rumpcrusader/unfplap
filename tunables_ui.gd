@@ -168,7 +168,10 @@ static func _add_row(parent: VBoxContainer, path: String, font_size: int, page: 
 		"bool":
 			row.add_child(_check(path, font_size, page, changed))
 		"num":
-			row.add_child(_spin(path, item, font_size, page, changed))
+			if bool(item.get("slider", false)):
+				row.add_child(_slider(path, item, font_size, page, changed))
+			else:
+				row.add_child(_spin(path, item, font_size, page, changed))
 		"choice":
 			row.add_child(_choice(path, item, font_size, page, changed))
 		"list":
@@ -225,6 +228,46 @@ static func _spin(path: String, item: Dictionary, font_size: int, page: Node,
 	spin.value_changed.connect(func(value: float) -> void:
 		_store(path, value / scale, page, changed))
 	return spin
+
+
+## A number as the page's own slider row: the track, then its value beside it. The stored value
+## keeps the schema units; `scale` only changes what the player sees.
+static func _slider(path: String, item: Dictionary, font_size: int, page: Node,
+		changed: Callable) -> HBoxContainer:
+	var scale := float(item.get("scale", 1.0))
+	if is_zero_approx(scale):
+		scale = 1.0
+	var unit := str(item.get("unit", ""))
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var slider := HSlider.new()
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.scrollable = false
+	slider.focus_mode = Control.FOCUS_ALL
+	slider.min_value = float(item.get("low", 0.0)) * scale
+	slider.max_value = float(item.get("high", 1.0)) * scale
+	var step := float(item.get("step", 0.0))
+	slider.step = step if step > 0.0 else 0.01 * scale
+	slider.custom_minimum_size = Vector2(float(font_size) * 9.0, font_size * 1.6)
+	slider.value = TUNABLES.get_float(path) * scale
+	var value := STYLE.label("", "Muted", font_size - 2)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	value.custom_minimum_size.x = float(font_size) * 3.0
+	value.text = _slider_text(slider.value, unit)
+	slider.value_changed.connect(func(at: float) -> void:
+		value.text = _slider_text(at, unit)
+		_store(path, at / scale, page, changed))
+	box.add_child(slider)
+	box.add_child(value)
+	return box
+
+
+static func _slider_text(value: float, unit: String) -> String:
+	var rounded := roundf(value)
+	var text := String.num(rounded, 0) if absf(value - rounded) < 0.001 else String.num(value, 1)
+	return text + unit
 
 
 ## A choice: a few short values as the page's Segment pills in one track, otherwise the themed

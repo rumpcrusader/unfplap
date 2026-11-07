@@ -53,9 +53,16 @@ uniform float span_to = 2.0;
 uniform float span_fade = 0.01;
 uniform float gap_from = 2.0;
 uniform float gap_to = 2.0;
+// integration: the midline skin strip only. `strip_trim` marks it; `strip_scale` widens (or
+// narrows) its model-space X around the midline before skinning.
+uniform float strip_trim = 0.0;
+uniform float strip_scale = 1.0;
 uniform float contour_amount = 1.0;
 
 void vertex() {
+	if (strip_trim > 0.5 && abs(strip_scale - 1.0) > 0.000001) {
+		VERTEX.x *= strip_scale;
+	}
 	VERTEX += flank_jiggle(VERTEX);
 	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
 	if (hole_target > lip_radius) {

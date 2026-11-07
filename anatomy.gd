@@ -102,6 +102,7 @@ var _visibility_clock := 0.0
 var _visibility_init := false
 var _last_shown := false
 var _last_teats_shown := false
+var _last_strip_shown := false
 
 
 static func assets_exist() -> bool:
@@ -200,6 +201,9 @@ func _attach() -> void:
 	_apply_material()
 	_attach_anal()
 	_attach_teats()
+	_attach_skin_strip(_teat_size())
+	if _mesh.get_surface_override_material(0) is ShaderMaterial:
+		_apply_teats_material(_mesh.get_surface_override_material(0) as ShaderMaterial)
 	_attached = true
 	_visibility_init = false
 	set_process(true)
@@ -213,7 +217,9 @@ func _process(delta: float) -> void:
 		return
 	_visibility_clock = VISIBILITY_POLL_S
 	_refresh_anal_ring()
+	_apply_place()
 	_apply_anal_place()
+	_apply_strip_scale()
 	var started := Time.get_ticks_usec()
 	_apply_visibility()
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
@@ -235,13 +241,17 @@ func _apply_visibility() -> void:
 		return
 	var far := bool(pony.get("_far_mesh_shown")) if pony.get("_far_mesh_shown") != null else false
 	var teats_on := TUNABLES.get_bool("anatomy.teats")
+	var strip_on := TUNABLES.get_bool("anatomy.skin_strip")
 	var show := not far and _act_visible()
 	var teats_show := show and teats_on
-	if _visibility_init and show == _last_shown and teats_show == _last_teats_shown:
+	var strip_show := show and strip_on
+	if _visibility_init and show == _last_shown and teats_show == _last_teats_shown \
+			and strip_show == _last_strip_shown:
 		return
 	_visibility_init = true
 	_last_shown = show
 	_last_teats_shown = teats_show
+	_last_strip_shown = strip_show
 	if is_instance_valid(_mesh):
 		_mesh.visible = show
 	if is_instance_valid(_anal_mesh):
@@ -250,7 +260,7 @@ func _apply_visibility() -> void:
 	if is_instance_valid(_teats_mesh):
 		_teats_mesh.visible = teats_show
 	if is_instance_valid(_skin_strip):
-		_skin_strip.visible = teats_show
+		_skin_strip.visible = strip_show
 	if is_instance_valid(_teats_jiggle):
 		_teats_jiggle.set_physics_process(teats_show)
 
@@ -266,11 +276,11 @@ func _apply_dock(anatomy_shown: bool) -> void:
 	_dock.visible = not TUNABLES.get_bool("anatomy.hide_dock")
 
 
+## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
+## tails (Derpy's) sit lower and pulled the whole anatomy into the rump. Keep one value so the
+## anatomy's size and position are identical across mares.
 func _tail_lift() -> float:
-	var at: Vector3 = DOCK.offset(pony)
-	if at == Vector3.ZERO:
-		return 0.0
-	return clampf(at.y - WINKING_DOCK_REF, -0.05, 0.03)
+	return 0.03
 
 
 func _apply_place() -> void:
@@ -278,7 +288,10 @@ func _apply_place() -> void:
 		return
 	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)).scaled(Vector3.ONE * _scale)
 	var lift := _lift
-	if _dock_bottom < INF:
+	# The dock-bottom alignment only matters while the dock is drawn. With `hide_dock` on it
+	# would pull the anatomy down for a dock nobody sees, and Derpy's dock sits lower than the
+	# others', which buried her anatomy.
+	if _dock_bottom < INF and not TUNABLES.get_bool("anatomy.hide_dock"):
 		var top := WINKING_TOUCH_Y + WINKING_HALF_HEIGHT * _scale * cos(deg_to_rad(_pitch))
 		lift = clampf(_dock_bottom - top, -0.1, 0.06)
 	var place := _pos + Vector3(0.0, lift, minf(lift, 0.0) * 0.2)
@@ -288,6 +301,22 @@ func _apply_place() -> void:
 			_body[1] + (place.z - WINKING_REAR_Z) * size)
 		basis = basis.scaled(Vector3.ONE * size)
 	_mesh.transform = _bone_inverse * Transform3D(basis, place)
+	_apply_genital_yaw()
+
+
+## Debug: yaw every anatomy mesh around the world vertical through its vulva opening, so the
+## genitals' facing can be corrected globally without moving the opening. The anal mesh is a
+## child, so it follows.
+func _apply_genital_yaw() -> void:
+	var yaw := deg_to_rad(TUNABLES.get_float("anatomy.genital_yaw_deg"))
+	if is_zero_approx(yaw) or not is_instance_valid(_mesh):
+		return
+	var world := _mesh.global_transform
+	var opening := world * WINKING_OPENING
+	var pivot := Vector3(opening.x, 0.0, opening.z)
+	var turn := Basis(Vector3.UP, yaw)
+	_mesh.global_transform = Transform3D(turn * world.basis,
+		pivot + turn * (world.origin - pivot))
 
 
 func _load_place() -> void:
@@ -364,12 +393,17 @@ func _skin_tones() -> Array:
 	var shade: Variant = identity.get("coat_shade") if identity != null else null
 	var base: Color = fill if fill is Color else Color(0.8, 0.8, 0.8)
 	var dark: Color = shade if shade is Color else Color(0.68, 0.68, 0.68)
-	match TUNABLES.get_string("anatomy.skin_tone"):
-		"coat":
-			return [base, dark]
-		"dark":
-			return [Color(0.26, 0.22, 0.26), Color(0.17, 0.14, 0.18)]
-	return [base.darkened(0.1), dark.darkened(0.16)]
+	# The old Coat / Darker / Dark values are the three anchors of one 0…1 slider, with every
+	# point between them interpolated.
+	var tone := TUNABLES.get_float("anatomy.skin_tone")
+	var darker_fill := base.darkened(0.1)
+	var darker_shade := dark.darkened(0.16)
+	if tone <= 0.5:
+		var k := tone / 0.5
+		return [base.lerp(darker_fill, k), dark.lerp(darker_shade, k)]
+	var k := (tone - 0.5) / 0.5
+	return [darker_fill.lerp(Color(0.26, 0.22, 0.26), k),
+		darker_shade.lerp(Color(0.17, 0.14, 0.18), k)]
 
 
 func _attach_anal() -> void:
@@ -450,6 +484,16 @@ func _fade_anal_rim(material: ShaderMaterial) -> void:
 		material.set_shader_parameter("coat_shadow", shade)
 
 
+## The strip scale is a live debug control, so re-read it on the visibility poll.
+func _apply_strip_scale() -> void:
+	if not is_instance_valid(_skin_strip):
+		return
+	var material := _skin_strip.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("strip_scale", TUNABLES.get_float("anatomy.strip_scale"))
+
+
 ## Place the anal mesh from its live height control. It moves the node, so the mesh's own space
 ## (and the shader's `vulva_centre`) stays on ANAL_OPENING. Applies to both the cup and the ring.
 func _apply_anal_place() -> void:
@@ -515,12 +559,11 @@ func _attach_teats() -> void:
 	_teats_mesh.set_blend_shape_value(_teats_mesh.find_blend_shape_by_name("full"),
 		maxf(size * 2.0 - 1.0, 0.0))
 	_teats_jiggle.set("swing", 1.0 + 2.0 * size)
-	_attach_skin_strip(size)
-	if _mesh.get_surface_override_material(0) is ShaderMaterial:
-		_apply_teats_material(_mesh.get_surface_override_material(0) as ShaderMaterial)
 
 
 func _attach_skin_strip(size: float) -> void:
+	if not _body.is_empty() or is_instance_valid(_skin_strip):
+		return
 	_skin_strip = _skinned_part(STRIP_PATH, "UnfplapAnatomySkinStrip")
 	if not is_instance_valid(_skin_strip) or not is_instance_valid(_mesh):
 		return
@@ -556,7 +599,9 @@ func _teat_size() -> float:
 
 
 func _apply_teats_material(base: ShaderMaterial) -> void:
-	if not is_instance_valid(_teats_mesh) or not is_instance_valid(base):
+	if not is_instance_valid(base):
+		return
+	if not is_instance_valid(_teats_mesh) and not is_instance_valid(_skin_strip):
 		return
 	var material := base.duplicate() as ShaderMaterial
 	var identity: Variant = pony.get("identity")
@@ -565,7 +610,8 @@ func _apply_teats_material(base: ShaderMaterial) -> void:
 	material.set_shader_parameter("coat_color", fill if fill is Color else Color(0.8, 0.8, 0.8))
 	material.set_shader_parameter("coat_shadow", shade if shade is Color else Color(0.68, 0.68, 0.68))
 	material.set_shader_parameter("contour_amount", 0.0)
-	_teats_mesh.set_surface_override_material(0, material)
+	if is_instance_valid(_teats_mesh):
+		_teats_mesh.set_surface_override_material(0, material)
 	if is_instance_valid(_teats_jiggle):
 		_teats_jiggle.set("material", material)
 	if is_instance_valid(_skin_strip):
@@ -575,6 +621,8 @@ func _apply_teats_material(base: ShaderMaterial) -> void:
 		strip.set_shader_parameter("span_fade", STRIP_END_FADE)
 		strip.set_shader_parameter("gap_from", _strip_gap.x)
 		strip.set_shader_parameter("gap_to", _strip_gap.y)
+		strip.set_shader_parameter("strip_trim", 1.0)
+		strip.set_shader_parameter("strip_scale", TUNABLES.get_float("anatomy.strip_scale"))
 		_skin_strip.set_surface_override_material(0, strip)
 
 

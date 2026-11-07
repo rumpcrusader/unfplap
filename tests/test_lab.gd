@@ -3,9 +3,9 @@ extends Node
 ##   ./lab.sh
 ## The session is written to last-run.log beside the script.
 ##
-## Loads only Twilight, Fluttershy, Rarity, Derpy and Applejack and pauses
-## population/living-world/time plus background AI. At setup they are moved to the path in front of
-## Golden Oak Library. Applejack starts as a stranger: friendship 0, no romance tier and no dating
+## Loads only Twilight, Fluttershy, Rarity, Derpy, Applejack, Tempest Shadow, Lily Valley and
+## Colgate, and pauses population/living-world/time plus background AI. At setup they are moved to
+## the path in front of Golden Oak Library. Applejack starts as a stranger: friendship 0, no romance tier and no dating
 ## record.
 ## No extra bed is spawned: use the Golden Oak guest bed in the treebrary. Generated town houses
 ## skip furnishing before the loading wait; the authored library keeps its room and bed. The
@@ -23,7 +23,8 @@ extends Node
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack"]
+const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack",
+	"tempest_shadow", "lily_valley", "minuette"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.
 const TEST_STRANGERS := ["applejack"]
 ## Starting love XP: 0 = New Couple and below the sex gate, 150 = Marefriend, 400 = Head Over
@@ -41,7 +42,7 @@ const SETUP_ACTIONS := [
 	"wait for the game's world loading screen to finish",
 	"temporarily set world/opening=skip, then restore the stored value",
 	"skip the arrival tutorial when it is active",
-	"restrict population to Twilight, Fluttershy, Rarity, Derpy and Applejack (memory only)",
+	"restrict population to the eight test ponies (memory only)",
 	"assign any missing test pony to Ponyville before spawning",
 	"lift Max nearby ponies to Unlimited for the loading screen, then restore it",
 	"place any far-off test pony's spawn at the library front",
@@ -175,7 +176,7 @@ func _restore_nearby_cap() -> void:
 	_old_nearby = -1
 
 
-## Keep only the five test ponies in this session's population config, before the loading screen
+## Keep only the test ponies in this session's population config, before the loading screen
 ## starts spawning the rest. A test pony that the world's config does not list is assigned to
 ## Ponyville here, because membership in TEST_IDS alone never spawns anybody. The edit is in
 ## memory only; population.json is not saved.
@@ -334,7 +335,7 @@ func _stop_standard_systems() -> void:
 		game.get("life").set_physics_process(false)
 	if is_instance_valid(game.get("needs")):
 		game.get("needs").set_physics_process(false)
-	# Story visitors and Trixie's show can add their own characters; keep the town to the five.
+	# Story visitors and Trixie's show can add their own characters; keep the town to the test set.
 	# Day/night schedulers and the stuck rescue can still move or teleport them, so pause those too.
 	for name: String in ["PrincessVisits", "TrixieShow", "DayRunner", "NightRest", "StuckRescue"]:
 		var extra: Node = game.get_node_or_null(name)

@@ -12,6 +12,7 @@ const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
+const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const TUNABLES := preload("res://mods/unfplap/tunables.gd")
@@ -52,6 +53,8 @@ var hud
 var input
 ## integration: the optional player anatomy part is created once per player.
 var anon_part: Node
+## Debug: the global hide-tails toggle lives outside every pony runtime.
+var tail_visibility: Node
 var _anatomy_status_label: Label
 var initiation
 var classifier
@@ -132,6 +135,9 @@ func _ready() -> void:
 	initiation.name = "UnfplapInitiation"
 	initiation.main = self
 	add_child(initiation)
+	tail_visibility = TAIL_VISIBILITY.new()
+	tail_visibility.name = "UnfplapTailVisibility"
+	add_child(tail_visibility)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [

@@ -273,13 +273,13 @@ func run() -> void:
 		"default missionary pitch")
 	check(near(float(missionary_defaults.get("neck1_deg", -1.0)), 0.0),
 		"default missionary neck1")
-	check(near(float(missionary_defaults.get("neck2_deg", -1.0)), 0.0),
+	check(near(float(missionary_defaults.get("neck2_deg", -1.0)), 45.0),
 		"default missionary neck2")
 	check(near(float(missionary_defaults.get("neck_roll_deg", -1.0)), 0.0),
 		"default missionary neck roll")
-	check(near(float(missionary_defaults.get("head_pitch_deg", -1.0)), 0.0),
+	check(near(float(missionary_defaults.get("head_pitch_deg", -1.0)), 90.0),
 		"default missionary head pitch")
-	check(near(float(missionary_defaults.get("head_roll_deg", -1.0)), 13.0),
+	check(near(float(missionary_defaults.get("head_roll_deg", -1.0)), 90.0),
 		"default missionary head roll")
 	check(near(float(standing_defaults.get("glance_back_speed", 0.0)), 2.0),
 		"default glance-back speed")
@@ -380,6 +380,22 @@ func run() -> void:
 		"migrates the normal stop path")
 	check(not tolerance_block.has("timid_warning") and not tolerance_block.has("neutral_stop"),
 		"removes the old tolerance paths")
+
+	# The old three-value genital tone becomes the slider's three anchors.
+	for pair: Array in [["coat", 0.0], ["darker", 0.5], ["dark", 1.0]]:
+		var legacy_tone := {"anatomy": {"skin_tone": pair[0]}}
+		var migrated_tone: Dictionary = SETTINGS._normalize_anatomy(legacy_tone)
+		var tone_block: Dictionary = migrated_tone.get("anatomy", {})
+		check(near(float(tone_block.get("skin_tone", -1.0)), float(pair[1])),
+			"migrates skin tone %s" % str(pair[0]))
+	var strip_legacy := {"anatomy": {"teats": false}}
+	var strip_migrated: Dictionary = SETTINGS._normalize_anatomy(strip_legacy)
+	check(not bool((strip_migrated.get("anatomy", {}) as Dictionary).get("skin_strip", true)),
+		"teats off keeps the strip off once")
+	var strip_explicit := {"anatomy": {"teats": false, "skin_strip": true}}
+	var strip_kept: Dictionary = SETTINGS._normalize_anatomy(strip_explicit)
+	check(bool((strip_kept.get("anatomy", {}) as Dictionary).get("skin_strip", false)),
+		"an explicit strip switch survives migration")
 
 	var legacy_features := {
 		"features": {
@@ -554,6 +570,10 @@ func _check_schema(defaults: Dictionary) -> void:
 	var ignore := SCHEMA.entry("presentation.standing.caress.ignore")
 	check((TUNABLES._coerce(ignore, ["tail", "nonsense"]) as Array) == ["tail"],
 		"list values keep only known options")
+	var slider_row := TUNABLES_UI._slider("anatomy.skin_tone",
+		SCHEMA.entry("anatomy.skin_tone"), 16, null, Callable())
+	check(slider_row.get_child(0) is HSlider, "slider rows draw an HSlider")
+	slider_row.free()
 
 	# Unknown paths must read as off, never on.
 	check(not TUNABLES.get_bool("nope"), "unknown tunable reads off")
@@ -575,8 +595,8 @@ func _check_api_names() -> void:
 		"set_value", "reset_value", "block", "reload_settings", "hotkey_action", "run_action",
 		"data", "reload_file", "write_setting", "preferences", "pose", "template_for", "features",
 		"feature", "build", "build_actions", "all", "has", "entry",
-		"default_value", "default_block", "groups", "flag", "num", "user_num", "choice", "list",
-		"write_path"]
+		"default_value", "default_block", "groups", "flag", "num", "user_num", "slider", "choice",
+		"list", "write_path"]
 	var clashes: Array = []
 	for name: String in names:
 		if ClassDB.class_has_method("GDScript", name):

@@ -53,7 +53,7 @@ Exact order:
    - knee bend `-0.55` around `right`.
 10. `_hug_forelegs()`.
 11. `_neck_bend(neck1_deg, neck2_deg)` about the body right axis on `pony_neck1`/`pony_neck2`.
-    The presentation defaults are `7.5°` each (the old 15° split); zero straightens the neck.
+    The presentation defaults are neck1 `0°` and neck2 `45°`; zero straightens the neck.
     `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both are
     posture offsets and run before the gaze solve, so they move her head off the mattress
     without tilting her final gaze.
@@ -103,9 +103,9 @@ pose is unchanged. `tail_pose.gd` is not changed.
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
   farther-back anchor. The **Act presentation → Missionary** axes move the frozen anchor:
-  `presentation.missionary.forward` (default `0.26`),
-  `presentation.missionary.height` (default `-0.21`) and `presentation.missionary.side`
-  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `0`;
+  `presentation.missionary.forward` (default `0.30`),
+  `presentation.missionary.height` (default `0.25`) and `presentation.missionary.side`
+  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `-15`;
   positive looks up) tilts the view about its local right axis after the frozen neck aim; the
   anchor and neck settle target do not move. All are experimental and unbounded. The
   **Missionary pullback** setting (`presentation.missionary.pullback`, default `0.22 m`, times
@@ -227,7 +227,7 @@ pose is unchanged. `tail_pose.gd` is not changed.
 - A released lean always holds its position. `_lean_step()` ramps toward a pressed target; the
   explicit `S` shoulder recentre returns to zero. Act-end and paused paths still return over
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default off), a slow `0.010` forward rock keeps the
+- With `idle_camera_sway` enabled (default on), a slow `0.010` forward rock keeps the
   camera/upper body from freezing completely; it is clamped inside `-1…1`. There is no side sway. A/D
   caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
@@ -239,7 +239,7 @@ pose is unchanged. `tail_pose.gd` is not changed.
   reaches the rump point. `thrust.travel` defaults to `0.5`. The modifier restores the Spine
   and both UpperLegs to their pre-offset global poses, so the torso, head and legs do not
   follow. There is no attack or return spring.
-- With `standing_plant_feet` on (default), the standing controller captures both foot targets on
+- With `standing_plant_feet` on (off by default), the standing controller captures both foot targets on
   the first act frame, moves them `PLANT_FEET_BACK_M = 0.15 m` behind him so they are not
   between her hind legs, and captures the hip target. Every frame after the body places them it
   rewrites all three to that capture. The upper body, camera lean, hands, kiss and hip thrust

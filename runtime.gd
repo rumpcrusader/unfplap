@@ -991,6 +991,7 @@ func _camera_thrust_tick(delta: float, surge_target: float, bob_target: float) -
 	_bob += _bob_velocity * delta
 
 ## Mouse input. Vertical motion thrusts; the act camera intentionally ignores it for look.
+## Auto thrust owns the stroke, so the mouse does nothing there: depth is set from the hold-X layer.
 func _input(event: InputEvent) -> void:
 	if state == State.IDLE:
 		return
@@ -1000,12 +1001,9 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
-		var travel: float = THRUST.pixels_to_metres(motion.relative.y, _thrust_pixels_per_cm,
-			thrust_up)
-		if _auto_on:
-			# Auto owns the stroke; vertical mouse motion only sets how deep it goes.
-			_auto_controller().call("nudge_depth", travel / maxf(penetration_reach(), 0.001))
-		elif _thrust_tracker != null:
+		if not _auto_on and _thrust_tracker != null:
+			var travel: float = THRUST.pixels_to_metres(motion.relative.y, _thrust_pixels_per_cm,
+				thrust_up)
 			_set_penetration(penetration_m + travel, _now_s())
 		get_viewport().set_input_as_handled()
 

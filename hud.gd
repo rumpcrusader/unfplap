@@ -36,7 +36,6 @@ var _hint_auto: Label
 var _hint_gap: Control
 var _controls: VBoxContainer
 var _y_label: Label
-var _thrust_label: Label
 var _finish_label: Label
 var _auto_label: Label
 var _control_rows := {}
@@ -195,8 +194,10 @@ static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
 ## One row per control: its key caps/icons, a muted modifier column, and one description.
 ## Built once; the thrust, auto and Y rows change with act state.
 func _build_controls() -> void:
-	_thrust_label = _add_hint_row("thrust", [{"cap": "↕"}], "", "Thrust")
+	_add_hint_row("thrust", [{"cap": "↕"}], "", "Thrust")
 	_auto_label = _add_hint_row("auto", [{"cap": "X"}], "", "Switch to auto")
+	# The hold layer is auto-only, so this hint sits right under the toggle and hides with it.
+	_add_hint_row("auto_settings", [{"cap": "X"}], "Hold", "Auto settings")
 	_add_hint_row("lean", [{"cap": "W"}, {"cap": "S"}], "", "Lean")
 	_add_hint_row("reach", [{"cap": "Q"}, {"cap": "E"}], "", "Reach")
 	_add_hint_row("caress", [{"cap": "A"}, {"cap": "D"}], "", "Caress")
@@ -204,11 +205,14 @@ func _build_controls() -> void:
 		"Caress movement")
 	_add_hint_row("kiss", [{"cap": "F"}], "Hold", "Kiss")
 	_add_hint_row("smack", [{"cap": "RMB"}, {"cap": "G"}], "", "Smack")
-	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
 	# integration: anatomy rows; hidden unless their feature and state allow them.
 	_add_hint_row("anatomy_hole", [{"cap": "V"}], "", "Switch hole")
 	_add_hint_row("anatomy_oral", [{"cap": "N"}], "", "Oral")
+	# Finish control is hidden for now: it changes nothing the player can see yet. The B key still
+	# toggles the runtime state (`anatomy_finish_ready`), so re-showing this row is all it needs.
 	_finish_label = _add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish: in")
+	# Y is the context control, so it stays at the bottom of the card.
+	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
 	# Hold-X auto settings. Built here so the card swaps in place; hidden until the layer opens.
 	var layer_text := {
 		"layer_head": "Auto settings",
@@ -363,8 +367,6 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 	var auto_on := false
 	if runtime.has_method("auto_active"):
 		auto_on = bool(runtime.call("auto_active"))
-	if _thrust_label != null:
-		_thrust_label.text = "Max depth" if auto_on else "Thrust"
 	if _auto_label != null:
 		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
 	var finish_out := false
@@ -397,6 +399,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
 	var afterglow := state == STATE_AFTERGLOW
 	var layer := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
+	var auto_on := runtime.has_method("auto_active") and bool(runtime.call("auto_active"))
 	for key: String in _control_rows:
 		var control := _control_rows[key] as Control
 		if control == null:
@@ -412,6 +415,18 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		# integration: anatomy rows exist only while their feature is live.
 		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish"]:
 			show = _extra_row_visible(key, state, standing, runtime)
+		# Auto owns the stroke, so the mouse no longer sets its depth: hide the thrust row there.
+		if key == "thrust" and auto_on:
+			show = false
+		# The hold layer only exists while auto runs.
+		if key == "auto_settings" and not auto_on:
+			show = false
+		# The kiss is a standing-only control; do not offer it in the missionary shot.
+		if key == "kiss" and not standing:
+			show = false
+		# Finish control is hidden for now (see `_build_controls`); the B key still works.
+		if key == "anatomy_finish":
+			show = false
 		# The hold-X layer replaces the whole card: its keys mean something else while it is open.
 		control.visible = show and not layer
 	for key: String in _layer_rows:

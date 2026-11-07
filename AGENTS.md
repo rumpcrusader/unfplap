@@ -776,14 +776,15 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
     (`mean duration < 0.30 s`), classified over the last 3–4 real thrusts. Fewer than 3 has no
     pattern yet. Pattern is tempo only: depth does not decide the rhythm.
 - Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances
-  `wave(shape, phase)` at `pace` thrusts per second from 0 to `max_depth`;
+  `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`;
   `_auto_thrust_tick()` sends the per-frame depth delta through `_thrust_move()`, so readiness,
   intensity, pattern, audio, camera, jiggle and presentation keep their existing paths. The wheel
-  nudges pace, and mouse ↕ nudge the peak depth at the same `thrust.pixels_per_cm` scale; the peak
-  is smoothed over `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the tracker travel:
-  after the first stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum
-  peak is `0.20` and its `0.14` travel still counts as a real soft thrust. The pace range reaches
-  every pattern at any depth, and the depth range reaches every intensity at any pace.
+  nudges pace; the band and shape come from the hold-X layer, and the mouse does nothing while
+  auto runs. The band is smoothed over `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the
+  tracker travel: after the first stroke `REVERSAL_HYSTERESIS` makes travel
+  `max_depth - min_depth - 0.06`, so the minimum band is `0.20` and its `0.14` travel still counts
+  as a real soft thrust. The pace range reaches every pattern at any depth, and the depth range
+  reaches every intensity at any pace.
   `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (the `Normal`
   panel value, a symmetric ease and the default), `thrust` (35 % duty, fast in and slow out),
   `tease` (65 % duty), `saw` (constant speed, no easing), `hold` (quick in, a dwell at full depth,
@@ -850,10 +851,10 @@ examples.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
   `Z`/`C` toggle caress movement,
   `F` hold kiss in standing, mouse right **or `G`** smacks. `X` taps to toggle auto thrust; while
-  it is on the mouse wheel sets its pace and mouse ↕ sets its peak depth. They are available in
-  `ACTIVE`, `CLIMAX`, and the standing `AFTERGLOW`; `Y` is the context start/end control. `H` is
-  the game's hug/deep-kiss key; the act consumes it without binding it so a hug cannot end the
-  act's kiss.
+  it is on **the mouse no longer sets the depth** (only the wheel sets pace; the hold-X layer sets
+  the band and shape). They are available in `ACTIVE`, `CLIMAX`, and the standing `AFTERGLOW`;
+  `Y` is the context start/end control. `H` is the game's hug/deep-kiss key; the act consumes it
+  without binding it so a hug cannot end the act's kiss.
 - **Hold `X`** (`auto_panel.gd`, pure) while auto is on opens the auto settings layer: it stays
   open while X is pressed, survives a re-press inside `GRACE_S = 0.28 s` after release, and closes
   otherwise. `Q`/`A` min depth ±5 %, `W`/`S` max depth ±5 %, `E`/`D` pace ±0.25/s, `Z` cycles
@@ -1213,10 +1214,13 @@ examples.
   HUD's own centered prompt above the caption line.
 - The act controls are a bottom-left, top-down list: one row per key or key pair, each with
   keycaps/controller icons and one description; only a row with a modifier renders the muted
-  `Hold` column. Rows list `↕` (`Thrust` / `Max depth`), X (`Switch to auto` / `Switch to
-  manual`), W S (`Lean`), Q E (`Reach`), A D (`Caress`), Z C (`Caress movement`), F (`Hold`,
-  `Kiss`), `RMB` and `G` (`Smack`) and Y (`Hold`; `End early` before her first
-  climax, then `End`). Every card row uses the drawn dark key cap, including Q/E/C/F/Y, RMB and G.
+  `Hold` column. Rows list `↕` (`Thrust`, manual only), X (`Switch to auto` / `Switch to
+  manual`), X (`Hold`, `Auto settings`, auto only), W S (`Lean`), Q E (`Reach`), A D (`Caress`),
+  Z C (`Caress movement`), F (`Hold`, `Kiss`, standing only), `RMB` and `G` (`Smack`), the anatomy
+  rows, and Y (`Hold`; `End early` before her first climax, then `End`) at the bottom. Every card
+  row uses the drawn dark key cap, including Q/E/C/F/Y, RMB and G. The `Finish: in/out` row is
+  built but hidden: the `B` key still toggles the runtime state, and re-showing the row is all it
+  needs once the finish has a visible effect.
   While the hold-X layer is open the card is replaced by `X` (`Hold`, `Auto settings`), Q A
   (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`), so the live values
   are visible while adjusting.

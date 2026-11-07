@@ -14,11 +14,11 @@ aftercare are outside it.
   `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`, and the
   runtime feeds the same depth tracker the mouse feeds. It adds no separate score or heat path:
   intensity, pattern, readiness, audio and presentation are the manual ones. The wheel sets pace;
-  mouse ↕ sets the peak depth. The band keeps the tracker travel at `max_depth - min_depth - 0.06`
-  (`REVERSAL_HYSTERESIS`) and is never narrower than `0.18`, so every stroke still counts; the
-  peak is at least `0.20`. `Auto shape` (debug) picks the stroke waveform: `Normal`, `Thrust`,
-  `Tease`, `Saw` or `Hold`; it applies live and every shape returns to the bottom, so the
-  tracker only ever sees depth.
+  the hold-X layer sets the band and shape, and the mouse does nothing while auto runs. The band
+  keeps the tracker travel at `max_depth - min_depth - 0.06` (`REVERSAL_HYSTERESIS`) and is never
+  narrower than `0.18`, so every stroke still counts; the peak is at least `0.20`. `Auto shape`
+  (debug) picks the stroke waveform: `Normal`, `Thrust`, `Tease`, `Saw` or `Hold`; it applies live
+  and every shape returns to the bottom, so the tracker only ever sees depth.
 - **Hold `X`** while auto is on and the control card swaps to the auto settings: `Q`/`A` min depth
   ±5 %, `W`/`S` max depth ±5 %, `E`/`D` pace ±0.25/s, `Z` cycles `Auto shape` (written to
   settings). The layer stays open while X is held, survives a re-press within `0.28 s` of release,
@@ -370,10 +370,13 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - The controls list keeps its Y row dynamic: `End early` at 0 climaxes, then `End` in `ACTIVE`
   with 1+, `CLIMAX` and `AFTERGLOW`. `End` shades from ink toward the pink accent one step per
   climax, capped at 75%; only the earned standing afterglow caress reward makes it fully pink.
-  The thrust row reads `Thrust` or `Max depth`, and the X row reads `Switch to auto` or
-  `Switch to manual`. The pose rows read `Lean`, `Reach`, `Caress` and `Caress movement`; they do
-  not spell out both directions. Only the two `Hold` rows carry the modifier column, so an icon
-  is followed by its words with no reserved blank space.
+  The thrust row reads `Thrust` (manual only), the X row reads `Switch to auto` or
+  `Switch to manual`, and a second X row (`Hold`, `Auto settings`) shows while auto is on. The
+  pose rows read `Lean`, `Reach`, `Caress` and `Caress movement`; they do not spell out both
+  directions. `Kiss` only shows in the standing pose, and the `Finish: in/out` row is built but
+  hidden until the finish control has a visible effect (the `B` key still works). Only the `Hold`
+  rows carry the modifier column, so an icon is followed by its words with no reserved blank
+  space.
 - The control card fades to 20% while Anon leans or leans in for a kiss and returns after it;
   the cue and readiness readouts stay at full opacity.
 - Afterglow shows `❤ N/limit | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;

@@ -139,8 +139,10 @@ func _check_controls() -> void:
 	stub.auto_on = true
 	hud.call("update_from", stub, true)
 	check((hud.get("_hint_auto") as Control).visible, "auto readout shows while auto is on")
-	check((hud.get("_thrust_label") as Label).text == "Max depth",
-		"thrust row sets depth in auto")
+	check(not (rows.get("thrust") as Control).visible,
+		"auto hides the mouse thrust row, which no longer sets depth")
+	check((rows.get("auto_settings") as Control).visible,
+		"the hold-X hint shows while auto runs")
 	check((hud.get("_auto_label") as Label).text == "Switch to manual",
 		"X offers manual while auto runs")
 	stub.auto_on = false
@@ -151,6 +153,9 @@ func _check_controls() -> void:
 	hud.call("update_from", stub, true)
 	check((hud.get("_auto_label") as Label).text == "Switch to auto",
 		"X offers auto while manual")
+	check(not (rows.get("auto_settings") as Control).visible,
+		"manual mode hides the hold-X hint")
+	check((rows.get("thrust") as Control).visible, "manual mode shows the mouse thrust row")
 	# The hold-X layer swaps the whole card for its four live rows.
 	var layer_rows: Dictionary = hud.get("_layer_rows")
 	check(not (layer_rows.get("min") as Control).visible,
@@ -193,6 +198,15 @@ func _check_controls() -> void:
 	stub.pose_id = "missionary"
 	hud.call("update_from", stub, true)
 	check((rows.get("lean") as Control).visible == false, "missionary afterglow keeps only Y")
+	stub.state = 2
+	hud.call("update_from", stub, true)
+	check((rows.get("kiss") as Control).visible == false,
+		"the kiss is standing-only, so the missionary shot hides it")
+	check((rows.get("anatomy_finish") as Control).visible == false,
+		"the finish control is hidden for now")
+	stub.pose_id = "standing"
+	hud.call("update_from", stub, true)
+	check((rows.get("kiss") as Control).visible, "standing shows the kiss")
 	hud.call("show_prompt", "Make love")
 	check((hud.get("_prompt") as Control).visible, "fallback prompt shows")
 	check((hud.get("_prompt_row") as HBoxContainer).get_child_count() == 2, "fallback prompt is a row")

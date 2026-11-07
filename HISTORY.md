@@ -163,8 +163,8 @@ A stop is a dedicated path, not `cancel()`:
 - no aftercare or satisfied face. A 20 s tucked-tail effect hinged at the tail base follows her,
   owns no navigator, and is removed if a new act starts.
 
-The debug tunables live under **Neglect tolerance**. Debug actions **Force neglect warning** and
-**Force neglect stop** drive the live act for testing.
+The neglect settings live under **Neglect tolerance** in General's Debug block (turn on **Debug mode**).
+The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for testing.
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
@@ -210,20 +210,19 @@ and blocks nothing; the gates above do that.
 - A sincere apology is detected locally by `preferences.apology_intent()`; only the pony currently
   in conversation with the player repairs.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
-  comfort=...` line per act. Debug → Actions has **Reset act history**.
+  comfort=...` line per act. The **Reset act history** debug action clears the row.
 
 ## Settings
 
-`features.act_history` is the master switch (Settings tab, default on). With it off, no summary is
+`features.act_history` is the master switch (General › Controls, default on). With it off, no summary is
 stored, no history note or refusal is used, and the existing satisfied/aftercare behaviour falls
 back to the readiness threshold. It does not disable the per-mare mid-act neglect stop.
 
-The debug thresholds and weights live under `History` in the Debug tab. They are `num` entries, so
-stored values are never clamped by the consumer. See `TUNING.md`.
+The thresholds and weights live under `History` in General's Debug block. They are debug numbers,
+so stored values are never clamped. See `TUNING.md`.
 
 The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
-**Characters**. The thresholds, like relief, decay and stop cooldowns are the `tolerance.*` debug
-tunables.
+**Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug settings.
 
 ## Tests
 

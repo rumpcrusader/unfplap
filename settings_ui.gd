@@ -2,14 +2,15 @@ extends RefCounted
 ## Draws the Unfplap settings tabs from the declarations in `settings.gd`.
 ##
 ## This is the only file allowed to create settings widgets. Do not add a SpinBox, CheckButton or
-## OptionButton control for a setting anywhere else: add a schema line instead and it appears here.
-## See TUNING.md.
+## OptionButton control for a setting anywhere else: declare the setting instead and it appears
+## here. See TUNING.md.
 ##
 ## Every section heading is a click-to-collapse button wearing the menu's open sidebar row (the
-## `Tab` look: a pink accent while the section is open). Every entry is one of the settings page's
-## own row cards (`world/ui/menu_style.gd` and `settings_page.gd`): the name with a Faint note, the
-## control on the right, a switch beside its Off/On state, and a few short choices as Segment pills
-## in a track. Entries render in schema order, so the schema file doubles as the panel layout.
+## `Tab` look: a pink accent while the section is open). Every setting is one of the settings
+## page's own row cards (`world/ui/menu_style.gd` and `settings_page.gd`): the name with a Faint
+## note, the control on the right, a switch beside its Off/On state, and a few short choices as
+## Segment pills in a track. Settings render in declaration order, so the declarations double as
+## the panel layout.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug_actions.gd")
@@ -21,20 +22,29 @@ const MOST_PILLS := 4
 const PILL_LABEL_CHARS := 14
 
 
-## Fill `list` with one tab's sections: the player-facing settings first, then, when debug mode is
-## on, one Debug section at the bottom holding that tab's debug settings under their own group
-## names. Every section remembers whether it is open, per tab, in the user settings.
+## Fill `list` with one tab's settings: the player-facing sections first, then one Debug section at
+## the bottom holding that tab's debug settings under their own group names.
+##
+## The Debug section is always built and its visibility follows `debug_mode`, so the toggle takes
+## effect without rebuilding the panel. `actions_owner` adds the Debug action buttons inside the
+## section; pass it only for the General tab. Returns the Debug section, or null when the tab has
+## no debug settings.
 static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
-		changed: Callable) -> void:
+		changed: Callable, actions_owner: Node = null) -> Control:
 	var player: Array = []
 	var debug: Array = []
 	for setting: Variant in SETTINGS.tab_settings(tab):
 		(debug if bool(setting.debug) else player).append(setting.path)
 	_build_sections(list, tab, "", player, font_size, page, changed)
-	if debug.is_empty() or not SETTINGS.debug_mode.get_bool():
-		return
+	if debug.is_empty():
+		return null
 	if list.get_child_count() > 0:
 		list.add_child(HSeparator.new())
+	var debug_section := VBoxContainer.new()
+	debug_section.name = "DebugSection"
+	debug_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	debug_section.add_theme_constant_override("separation", 6)
+	debug_section.visible = SETTINGS.debug_mode.get_bool()
 	var open := SETTINGS.section_open(tab, "Debug")
 	var header := _heading("Debug", font_size, false, open)
 	var body := VBoxContainer.new()
@@ -44,9 +54,13 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 	header.toggled.connect(func(on: bool) -> void:
 		SETTINGS.set_section_open(tab, "Debug", on)
 		body.visible = on)
-	list.add_child(header)
-	list.add_child(body)
+	debug_section.add_child(header)
+	debug_section.add_child(body)
+	list.add_child(debug_section)
 	_build_sections(body, tab, "Debug/", debug, font_size, page, changed)
+	if is_instance_valid(actions_owner):
+		build_actions(body, font_size, actions_owner)
+	return debug_section
 
 
 ## One section pass. `prefix` separates the Debug block's section state from the player sections.
@@ -90,10 +104,8 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, pa
 			_add_row(rows, path, font_size, page, changed)
 
 
-## The Actions section: one button per `DEBUG_ACTIONS.ACTIONS` entry, plus its last result. It is
-## inserted right after the `General` section's rows instead of at the bottom of the Debug list.
-static func build_actions(list: VBoxContainer, font_size: int, main: Node,
-		after_section := "General") -> void:
+## The Debug block's action buttons, one per `DEBUG_ACTIONS.ACTIONS` entry, plus the last result.
+static func build_actions(list: VBoxContainer, font_size: int, main: Node) -> void:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 6)
@@ -119,23 +131,6 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node,
 		box.add_child(button)
 	box.add_child(status)
 	list.add_child(box)
-	var at := _section_end_index(list, after_section)
-	if at >= 0:
-		list.move_child(box, at)
-
-
-## Index just past the named section's rows, or -1 when the section is missing.
-static func _section_end_index(list: VBoxContainer, section: String) -> int:
-	var children := list.get_children()
-	for index: int in children.size():
-		var child: Variant = children[index]
-		if not child is Button:
-			continue
-		var button := child as Button
-		if button.text != section or button.theme_type_variation != "Tab":
-			continue
-		return mini(index + 2, children.size())
-	return -1
 
 
 static func _groups_of(paths: Array) -> Array:
@@ -158,7 +153,7 @@ static func _paths_in(paths: Array, group: String) -> Array:
 
 ## A collapsible section heading in the menu's own open-row look: the `Tab` variation draws the
 ## pink accent and tint while the section is open, and a quiet row while it is closed. A section
-## keeps its schema wording (like the page's own sidebar rows); a subheading is smaller and
+## keeps its declared wording (like the page's own sidebar rows); a subheading is smaller and
 ## indented under it.
 static func _heading(text: String, font_size: int, sub: bool, open := true) -> Button:
 	var button := Button.new()

@@ -514,7 +514,7 @@ func _caress_ignore() -> Array:
 	var caress: Variant = _presentation_cfg.get("caress", {})
 	if not caress is Dictionary:
 		return []
-	# The tunable schema keeps only the known region names, so this needs no filtering.
+	# The ignore list setting keeps only the known region names, so this needs no filtering.
 	var raw: Variant = (caress as Dictionary).get("ignore", [])
 	return raw if raw is Array else []
 

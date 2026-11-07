@@ -5,7 +5,6 @@ extends RefCounted
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const MISSIONARY_CAMERA_HEIGHT_M := 0.45
 const MISSIONARY_CAMERA_BACK_M := 0.22

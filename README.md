@@ -44,7 +44,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Climax limit** — `Climax limit` sets how many times she can climax in one act; `0` is unlimited.
 - **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace and the mouse sets how deep each stroke goes.
 - **Per-mare preference** — Each mare has intensity, rhythm, touch, talk, warmth, and how much she tolerates before she warns or stops.
-- **Act settings** — `Settings → Unfplap` splits player settings (audio toggles, thrust, climax limit, relationship rules, estrus, long-term history) into a General tab, per-mare preference into a Characters tab, anatomy controls into an Anatomy tab, and pose tuning, talk/cue pacing and feature flags into a Debug tab.
+- **Act settings** — `Settings → Unfplap` has General, Anatomy, World and Characters tabs; a **Debug mode** switch adds an extra Debug section at the bottom of General, Anatomy and World for pose, camera, cue and history tuning.
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.
 - **HUD** — Shows the act controls list, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.

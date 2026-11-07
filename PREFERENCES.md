@@ -58,42 +58,54 @@ aftercare are outside it.
 
 ## Settings editor
 
-`Settings → Unfplap` is drawn from the tunable schema (`tunables_schema.gd`); every row has a
-label and a help line, sits in a named section, and applies live during an act. Adding or
-reading a setting goes through `tunables.gd` only — see `TUNING.md`.
+`Settings → Unfplap` has four sub-tabs: **General**, **Anatomy**, **World** and **Characters**.
+Every row comes from one declaration in `settings.gd` — label, help, section, bounds — and applies
+live. Adding or reading a setting goes through its named accessor only; see `TUNING.md`.
 
-**General tab**
+**General**
 
-- **Controls**: HUD readouts, control hints, captions on top, Promiscuity, Starting Sex, mute
-  Ponese audio.
+- **Controls**: HUD readouts, control hints, act lines, long-term history, captions on top, mute
+  Ponese audio, and **Debug mode** (the switch that reveals the Debug sections).
+- **Audio**: act foley, act vocals and the wet climax layer.
+- **Cycle**: the estrus cycle switch.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), climax limit (`0…20`, default `3`; `0` is
   unlimited), and auto-thrust pace (`1.0…3.75/s`, default `1.0/s`, quarter steps) and peak depth
   (`0.20…1`, default `0.5`). The auto values are act-start defaults; the wheel and mouse adjust
   them for one act.
 
-**Characters tab**
-
-- The hand-built per-mare preference form described below, with one pony selector (filtered by name)
-  shared by every field.
-
-**Anatomy tab**
+**Anatomy**
 
 - **Anatomy**: the master switch, teats and the separate skin strip, the genital tone slider, only
   during acts and the tail-dock hide.
 - **Anon part**: size, girth, head, length, throb and placement.
+- **Holes**: anal ring, anal height, lip vertical share.
 - **Actions**: hole switch, oral and finish control.
 - **Effects**: climax and finish fluid.
 - **Experimental**: hip alignment, the Anon bed body and the VR act.
 
-**Debug tab**
+**World**
 
-- **General**: debug logs and the separate perf-log toggle (both off by default).
+- **Relationships**: Promiscuity and Starting Sex.
+- **Cycle**: the estrus cycle switch.
+- **Witnesses**: bystander lines and public offers.
+- **Ponies**: tail hiding and the debug body yaw.
+
+**Characters**
+
+- The hand-built per-mare preference form described below, with one pony selector (filtered by name)
+  shared by every field.
+
+**Debug sections**
+
+Turning on **Debug mode** (General › Controls) adds one collapsed **Debug** section at the bottom
+of General, Anatomy and World; each section keeps the groups it belongs to, plus the **Actions**
+buttons at the end of General's. Its settings are mostly act tuning:
+
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
 - **History** and **Neglect tolerance**: the act summary/history scoring and threshold values.
-- **Audio**: act foley, act vocals, wet climax layer.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
@@ -107,11 +119,13 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
   ignored body parts (tail and wing by default).
 - **Standing → Smack**: max raise (`0.30 m`), hind offset (`0.10 m`), height (`-0.03 m`), palm
   arc (`0.06 m`), palm pitch (`12°`), raise speed (`2.0 m/s`) and return speed (`6.0 m/s`).
+- **Thrust jiggle**: radius, center height/back, thrust and smack intensity.
 
-The schema-drawn pages have no Save buttons: each edit writes its value and applies to the active
-act immediately. The hand-built Characters form is the exception; its preset changes are written by
-**Save preset**. Debug numbers are never clamped; only the player-facing contract bounds listed above
-are enforced. The framing, pitch and torso controls remain experimental and unbounded.
+The declaration-drawn pages have no Save buttons: each edit writes its value and applies to the
+active act immediately. The hand-built Characters form is the exception; its preset changes are
+written by **Save preset**. Debug settings are never clamped; only the player-facing contract
+bounds listed above are enforced. The framing, pitch and torso controls remain experimental and
+unbounded.
 
 The **Characters** tab exposes one name-filtered pony selector, a **Save preset** button and a
 **Reset to default** button in one row under the selector, and one form:
@@ -195,7 +209,7 @@ overwhelmed   a disliked touch/talk landed recently
 - `CLOSE_AT = 65` is only the “she is close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
 - Cue lines are event-driven, not a timer. `utterance_scheduler.gd` owns admission, with the
-  **Debug → Talk & cues** tunables as its pacing:
+  **Talk & cues** debug settings as its pacing:
   - a base cue must stay unchanged for `cues.base_stable_seconds` (default `2 s`);
   - a live touch/talk override only needs `cues.override_stable_seconds` (default `0.5 s`), so
     an event cue can speak inside its `cues.override_seconds` lifetime (default `10 s`); if the

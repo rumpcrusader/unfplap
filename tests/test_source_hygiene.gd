@@ -3,9 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_source_hygiene.gd
 
 const ROOT := "res://mods/unfplap"
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-## Files allowed to create settings widgets. The schema panel is settings_ui.gd; the character
-## preference form in main.gd is the one hand-built exception. Everything else must be a schema line.
+## Files allowed to create settings widgets. The declaration panel is settings_ui.gd; the
+## character preference form in main.gd is the one hand-built exception.
 const WIDGET_FILES := ["res://mods/unfplap/settings_ui.gd", "res://mods/unfplap/main.gd"]
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new("]
 var failures := 0
@@ -45,8 +44,8 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
-## Every literal tunable path must exist in the schema, and settings widgets may only live in
-## the schema panel and the preference form.
+## The settings live in one module with one declaration per setting; settings widgets may only
+## live in the declaration panel and the preference form.
 func _check_settings_module(files: Array[String]) -> void:
 	# The settings live in one module. These checks keep that true as the mod grows.
 	var module := FileAccess.get_file_as_string(ROOT.path_join("settings.gd"))

@@ -34,7 +34,7 @@ const LEGACY_PRESENTATION_KEYS := {
 	"pose1_pitch_deg": "pitch_deg",
 }
 const LEGACY_DROPPED_KEYS := ["pose1_camera"]
-## One-release migration for the tolerance tier names and their tunable paths.
+## One-release migration for the tolerance tier names and their setting paths.
 const LEGACY_TOLERANCE_KEYS := {
 	"timid_warning": "forgiving_warning",
 	"neutral_warning_1": "normal_warning_1",
@@ -68,7 +68,7 @@ const CHARACTERS := preload("res://mods/unfplap/character_preferences.gd")
 const CHARACTER_ORDER := CHARACTERS.ORDER
 const CHARACTER_NAMES := CHARACTERS.NAMES
 
-## Tabs, in panel order. Characters is the hand-built per-mare form, not a schema tab.
+## Tabs, in panel order. Characters is the hand-built per-mare form, not a settings tab.
 const GENERAL := "general"
 const ANATOMY := "anatomy"
 const WORLD := "world"
@@ -94,6 +94,10 @@ class Setting:
 
 	func set_value(value: Variant) -> void:
 		_set.call(value)
+
+	## Back to the declared default.
+	func reset() -> void:
+		set_value(default)
 
 	## A debug setting is shown only behind debug mode and never clamps its own value.
 	func as_debug() -> Setting:
@@ -258,6 +262,8 @@ static func _bind(s: Setting, n: String, path: String, label: String, help: Stri
 	# so each setting carries the two calls it needs.
 	s._get = func() -> Variant: return _setting_value(s)
 	s._set = func(value: Variant) -> void: _setting_write(s, value)
+	if _by_path.has(path):
+		push_error("unfplap settings: duplicate path %s" % path)
 	_registry.append(s)
 	_by_path[path] = s
 	_by_name[n] = s
@@ -266,11 +272,6 @@ static func _bind(s: Setting, n: String, path: String, label: String, help: Stri
 ## Every setting in declaration order.
 static func all_settings() -> Array:
 	return _registry
-
-
-## Every JSON path. Only the compatibility layer and migrations use paths.
-static func paths() -> Array:
-	return _by_path.keys()
 
 
 ## The setting at a JSON path, or null. Never use this from gameplay code.
@@ -282,25 +283,7 @@ static func by_name(n: String) -> Variant:
 	return _by_name.get(n)
 
 
-## The coerced value at a JSON path. Only the compatibility layer uses it: gameplay code calls
-## the named accessor.
-static func get_value_at(path: String) -> Variant:
-	var s: Variant = _by_path.get(path)
-	if s == null:
-		return false
-	_ensure_flat()
-	return _flat.get(path, s.default)
-
-
-## Write one JSON path through the same validation the named setter uses.
-static func set_value_at(path: String, value: Variant) -> void:
-	var s: Variant = _by_path.get(path)
-	if s == null:
-		return
-	_setting_write(s, value)
-
-
-static func default_at(path: String) -> Variant:
+static func _default_at(path: String) -> Variant:
 	var s: Variant = _by_path.get(path)
 	return null if s == null else s.default
 
@@ -332,19 +315,6 @@ static func tab_settings(tab: String) -> Array:
 		if s.tab == tab:
 			out.append(s)
 	return out
-
-
-static func groups(tab: String) -> Array:
-	var seen: Array = []
-	for s: Setting in _registry:
-		if s.tab == tab and not seen.has(s.group):
-			seen.append(s.group)
-	return seen
-
-
-## Nested value at a dotted path.
-static func value_path(data: Dictionary, path: String) -> Variant:
-	return _read_path(data, path, null)
 
 
 ## Read one dotted path out of a settings dictionary, or `fallback` when it is absent.
@@ -422,7 +392,10 @@ static func _write_path(root: Dictionary, path: String, value: Variant) -> void:
 ## A section's open state, remembered in the user settings under `ui.sections`. The Debug block
 ## starts collapsed; every other section starts open.
 static func section_open(tab: String, group: String) -> bool:
-	var sections: Variant = data().get("ui", {}).get("sections", {})
+	if not _loaded:
+		_load()
+	var ui: Variant = _cache.get("ui")
+	var sections: Variant = (ui as Dictionary).get("sections") if ui is Dictionary else null
 	if not sections is Dictionary:
 		return group != "Debug"
 	return bool((sections as Dictionary).get(tab + "/" + group, group != "Debug"))
@@ -1187,40 +1160,6 @@ static var body_yaw_deg := num("body_yaw_deg", "player.body_yaw_deg", 0.0, "Body
 	.with_unit("°").with_step(1.0).as_debug()
 
 
-## Feature switches live under `features.`. These helpers expose the feature-key view the runtime
-## and the settings tab use.
-static func feature_keys() -> Array:
-	var out: Array = []
-	for s: Setting in _registry:
-		if s.path.begins_with("features."):
-			out.append(s.path.substr("features.".length()))
-	return out
-
-
-## Every feature switch with its default.
-static func feature_defaults() -> Dictionary:
-	var out: Dictionary = {}
-	for s: Setting in _registry:
-		if s.path.begins_with("features."):
-			_write_path(out, s.path.substr("features.".length()), s.default)
-	return out
-
-
-## Player-facing flags: the Controls section of the General tab.
-static func feature_user() -> Array:
-	var out: Array = []
-	for s: Setting in _registry:
-		if s.path.begins_with("features.") and s.tab == GENERAL and not s.debug:
-			out.append(s.path.substr("features.".length()))
-	return out
-
-
-## One feature's entry view, with label and help for a control row.
-static func feature_info(name: String) -> Dictionary:
-	var s: Variant = _by_path.get("features." + name)
-	return {} if s == null else entry_view(s)
-
-
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
 	"cue": "During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory color it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your preferences: {preferences}. Do not repeat: {recent}.",
@@ -1584,7 +1523,7 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 static var _cache: Dictionary = {}
 static var _loaded := false
 ## Bumped on every load and every write. The flat value table rebuilds when it
-## changes, so a save anywhere invalidates the cached tunable reads.
+## changes, so a save anywhere invalidates the cached setting reads.
 static var generation := 0
 
 
@@ -1688,7 +1627,7 @@ static func _load() -> void:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
-	data = _migrate(data)
+	data = _migrate(data, int(data.get("version", 0)))
 	data = _merge(_defaults(), data)
 	data["version"] = SCHEMA_VERSION
 	_cache = data
@@ -1743,10 +1682,10 @@ static func _filled_default() -> Dictionary:
 	return out
 
 
-## One-time migrations, then the idempotent normalisers. Add a step here for a renamed key and
-## bump `SCHEMA_VERSION`; a current file skips the whole chain. Retired settings are declared with
-## `deprecated()` and applied for every version, so their data can never linger.
-static func _migrate(data: Dictionary) -> Dictionary:
+## Retired settings, then the one-time structural steps. Add a step here for a renamed key and bump
+## `SCHEMA_VERSION`; a current file skips the structural chain. `deprecated()` entries always run,
+## whatever the version, so a retired key can never linger in the file.
+static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	for entry: Variant in _deprecated:
 		var path := str((entry as Dictionary).get("path", ""))
 		var value: Variant = _read_path(data, path, null)
@@ -1755,7 +1694,10 @@ static func _migrate(data: Dictionary) -> Dictionary:
 		var mapped: Variant = ((entry as Dictionary).get("map") as Callable).call(value)
 		_erase_path(data, path)
 		if mapped is Dictionary:
-			data = _merge(data, mapped)
+			for key: Variant in (mapped as Dictionary).keys():
+				_write_path(data, str(key), (mapped as Dictionary)[key])
+	if version >= SCHEMA_VERSION:
+		return data
 	data = _normalize_pose_names(data)
 	data = _normalize_feature_names(data)
 	data = _normalize_line_variety(data)
@@ -1796,7 +1738,7 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 	var tone: Variant = block.get("skin_tone")
 	if tone is String:
 		block["skin_tone"] = float(LEGACY_SKIN_TONES.get(str(tone),
-			default_at("anatomy.skin_tone")))
+			_default_at("anatomy.skin_tone")))
 	# The strip used to follow the teats switch. Keep an existing teats-off file fully off once;
 	# from then on the two switches are independent.
 	if block.has("teats") and not bool(block["teats"]) and not block.has("skin_strip"):

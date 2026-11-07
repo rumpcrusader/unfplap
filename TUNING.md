@@ -154,7 +154,7 @@ prefixes pre-emptively.
   contract is `HISTORY.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier itself
   is a per-mare `preferences.tolerance`, not a global setting.
 - Built-in act prompts live in `SETTINGS.DEFAULT_ACT_PROMPTS`; `act_prompts` stores only overrides.
-  **Debug → Actions → Reset act prompts** clears them.
+  **Reset act prompts** (General › Debug mode › Debug › Actions) clears them.
 - Unknown keys are ignored on load.
 - Never name a settings API function after a `Script`/`Object` built-in (`reload`, `set_path`,
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`
@@ -172,7 +172,8 @@ Debug commands are entries in `debug_actions.gd`:
 },
 ```
 
-General's **Debug** block draws a button per entry and calls `method` on the entry node. Adding an
+General's **Debug** block (with **Debug mode** on) draws a button per entry and calls `method`
+on the entry node. Adding an
 action is one entry plus one method. A hotkey (`"hotkey": KEY_X`) is the exception, only for an
 action that must fire while the world is unpaused and you are looking at the scene (the F10
 skeleton overlay is the only one); use `"panel": false` for hotkey-only. `input.gd` routes declared

@@ -1,10 +1,10 @@
 extends RefCounted
-## The Debug tab's action buttons and their hotkeys. An action is one entry in `ACTIONS`; `method`
+## The Debug block's action buttons and their hotkeys. An action is one entry in `ACTIONS`; `method`
 ## is called on the entry node. Actions are not settings: they run a one-off debug operation.
 ## Add a hotkey only when the action must fire while the world is unpaused.
 
 ## Debug actions. `method` is called on the entry node.
-## Add an action here; it becomes a button in the Debug tab automatically. A hotkey is the
+## Add an action here; it becomes a button in every tab's Debug block automatically. A hotkey is the
 ## exception, not the default: only add one when the action must fire while the world is unpaused
 ## and you are looking at the scene (the skeleton overlay is the example). `panel: false` keeps a
 ## hotkey-only action out of the button list.

@@ -897,7 +897,8 @@ examples.
 
 - One request episode at a time. Automatic requests require AI usage Full
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
-  character chat within 45 s. The lab runs in Talk, so trigger offers from **Debug → Actions**.
+  character chat within 45 s. The lab runs in Talk, so trigger offers from the **Actions** block
+  (General › **Debug mode** on › **Debug** › **Actions**).
 - Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
   exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
   gate. `can_offer` always requires `relation`; Try Your Luck lifts only the lover-bond row, so
@@ -973,7 +974,8 @@ examples.
   initial-ask failure sets a short 30 s retry instead; an ask, presentation, invite or give-up
   sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
   bed rest so `runtime.start()` still sees her lying.
-- The **Debug → Actions** offer buttons force a missionary or standing ask; they bypass quiet,
+- The **Trigger bed offer** / **Trigger standing offer** debug actions force a missionary or
+  standing ask; they bypass quiet,
   cooldown, AI-usage and the paused-tree gate, but not relationship, consent, pose or free-bed
   gates. The settings page pauses the tree, so the episode advances after the page closes.
 
@@ -1206,8 +1208,9 @@ examples.
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - `debug_logs` is read from settings and defaults OFF. Toggle it with the **Debug logs**
-  checkbox in **Debug → General**; there is no hotkey. It controls logging only.
-- `debug_perf` is a separate Debug → General toggle, also OFF by default. With both `debug_logs`
+  checkbox in General's **Debug** block (turn on **Debug mode**); there is no hotkey. It controls
+  logging only.
+- `debug_perf` is a separate debug toggle, also OFF by default. With both `debug_logs`
   and `debug_perf` on, an act prints one `perf` block a second: pony, pose, state, fps, frame
   time, `near_mesh`, sim tier, wing hold, dock-follower state, then the per-second cost of every
   timed chunk (runtime process/physics, pose recipe, tail pose, body sway, ear twitch, dock
@@ -1215,11 +1218,11 @@ examples.
   `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
   instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
   outside an act.
-- **Hide tails** is a persisted Debug → General toggle. While on, it collapses the hair
+- **Hide tails** is a persisted debug toggle (World › Debug › Ponies). While on, it collapses the hair
   `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
   near and far tail geometry all disappear while the mane stays. The small root cap pinned to the
   pelvis may remain under the dock. It touches no other body part.
-- `act_ear_pin` sits in **Debug → Act flow** and defaults off; when off the act skips
+- `act_ear_pin` sits in General's **Act flow** debug group and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
 - Lab: `-`/`=` romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed
   invite, Mouse5
@@ -1279,9 +1282,10 @@ which also removes its clamp. The full contract is `TUNING.md`.
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
   changes. Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, so a hand-edited
   file applies when the tab opens; otherwise it needs a restart.
-- Top level: `debug_logs`, `debug_perf`, `debug_hide_tails`, `features`, `relationship`, `thrust`,
-  `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`, `tolerance`, `cues`, `talk`,
-  `default` template, `characters` overrides.
+- Top level: `version`, `debug_mode`, `debug_logs`, `debug_perf`, `debug_hide_tails`, `features`,
+  `relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`,
+  `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open state), `default` template,
+  `characters` overrides.
 - Feature flags are declared under `features.*` in `settings.gd` and read through their typed
   accessor; the runtime snapshots them with every other act value in
   `_snapshot_settings()` at act start, and `apply_live_settings()` re-runs that snapshot after any
@@ -1386,15 +1390,14 @@ rump blush. Unknown settings keys are ignored.
     are experimental/unbounded.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
-- **Never clamp a debug setting.** A schema `num` entry is stored and returned verbatim; its
-  `low`/`high` only limit the spin box arrows, so a hand-edited out-of-range value still applies.
-  Only a `user_num` entry (and a `slider`, which is a `user_num` drawn as a track) clamps, and only
-  because its bound is part of the player-facing contract (sensitivity `240…1200`, hip back-off
-  `0.25…2.0×`, auto pace `1.0…3.75/s`, auto depth `0.20…1`, camera surge/bob `0…1`, glance speed
-  `0.25…3×`, genital tone `0…1`). Do not add a clamp in a consumer
-  "to be safe": if a value must be bounded to stay playable, make it a `user_num` and say so in
-  the help text.
-  No consumer clamps a tunable-derived value today; the jiggle radius, smack raise,
+- **Never clamp a debug setting.** A debug `num` (`.as_debug()`) is stored and returned verbatim;
+  its `with_range` bounds only limit the spin box arrows, so a hand-edited out-of-range value still
+  applies. A player-facing `num` clamps to its `with_range` bounds, and only because that bound is
+  part of the contract (sensitivity `240…1200`, hip back-off `0.25…2.0×`, auto pace
+  `1.0…3.75/s`, auto depth `0.20…1`, camera surge/bob `0…1`, glance speed `0.25…3×`, genital tone
+  `0…1`). Do not add a clamp in a consumer "to be safe": if a value must be bounded to stay
+  playable, give it `with_range` and say so in the help text.
+  No consumer clamps a setting-derived value today; the jiggle radius, smack raise,
   smack arc and caress oval radii are applied as stored. A consumer may only guard a value that
   would otherwise divide by zero (the anon part base/mid/head/length/girth scales); that guard is
   a math floor, not a user-facing bound. The only other bounds are the smack
@@ -1426,7 +1429,7 @@ rump blush. Unknown settings keys are ignored.
   as debug sections). **Anatomy** holds every anatomy setting. **World** holds relationships, cycle,
   witnesses and pony behaviour. **Characters** holds the hand-built **Character preference** form (a
   per-mare profile, not a global setting). The **Actions** buttons sit at the bottom of General's
-  **Debug** section. The schema-drawn pages have no Save buttons: each edit writes its setting and
+  **Debug** section. The declaration-drawn pages have no Save buttons: each edit writes its setting and
   calls `main._apply_settings_changed()`, which refreshes the flags, the caption position and the
   active act. The hand-built Characters form is the exception: it stages edits and writes them only
   when **Save preset** is pressed.
@@ -1440,12 +1443,28 @@ rump blush. Unknown settings keys are ignored.
   control. The global default preference note is `Open to affection.`; every character template
   carries its own note. `act_prompts` stores only overrides: the built-ins live in
   `DEFAULT_ACT_PROMPTS` and `_fill_prompts()` supplies them at read time. Known legacy values and
-  obsolete keys are removed on load; **Debug → Actions → Reset act prompts** clears overrides.
+  obsolete keys are removed on load; the **Reset act prompts** debug action clears overrides.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable adult mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
   ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; preference defaults and validation live in
   `character_preferences.gd`, `preferences.gd` and `settings.gd`.
+
+## Settings authoring rules for agents
+
+- Add a setting with one declaration line in `settings.gd` and read it with its typed accessor;
+  never add a widget, a default constant, a path-keyed read or a save function anywhere else.
+- `SETTINGS.block(prefix)` is the only bulk read. Per-act snapshots stay in
+  `runtime._snapshot_settings()`; do not add another cache.
+- **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
+  the only assertions are the ones in `tests/test_settings.gd`: registry integrity, defaults, the
+  file round-trip, clamping versus debug bypass, validation, section state, the panel drawing every
+  declaration, migration and the per-mare merge. Extend that file only for new API behaviour.
+- A retired setting is one `deprecated()` entry in `settings.gd` with its mapping; bump
+  `SCHEMA_VERSION` only for a structural change in `_migrate()`. Neither needs a manual file edit.
+- The Debug block is gated by `debug_mode` and toggles live: `settings_ui.build()` returns the
+  block and `main.gd` keeps it to show or hide. Put new debug-only settings behind `.as_debug()`;
+  the Actions buttons live inside General's block.
 
 ## Documentation discipline
 

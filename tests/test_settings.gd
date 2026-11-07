@@ -37,6 +37,7 @@ func run() -> void:
 	_check_coercion()
 	_check_sections()
 	_check_panels()
+	_check_migration()
 	_check_api_names()
 	_check_profiles()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
@@ -136,11 +137,12 @@ func _check_sections() -> void:
 	check(SETTINGS.section_open(SETTINGS.GENERAL, "Controls") == before, "section state restores")
 
 
-## The panel draws every declaration in its tab, and the Debug block only in debug mode.
+## The panel draws every declaration in its tab, and the Debug block follows debug mode.
 func _check_panels() -> void:
+	var debug_before := SETTINGS.debug_mode.get_bool()
+	SETTINGS.debug_mode.set_bool(false)
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
 		_check_panel_tab(tab, false)
-	var debug_before := SETTINGS.debug_mode.get_bool()
 	SETTINGS.debug_mode.set_bool(true)
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
 		_check_panel_tab(tab, true)
@@ -149,26 +151,51 @@ func _check_panels() -> void:
 
 func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	var list := VBoxContainer.new()
-	SETTINGS_UI.build(list, tab, 16, null, Callable())
+	var owner := Node.new() if tab == SETTINGS.GENERAL else null
+	var debug_section: Control = SETTINGS_UI.build(list, tab, 16, null, Callable(), owner)
 	var labels: Array = []
 	_collect_labels(list, labels)
 	var missing: Array = []
 	var sections: Array = []
 	for setting: Variant in SETTINGS.tab_settings(tab):
-		if bool(setting.debug) != debug_on:
-			continue
 		if not labels.has(str(setting.label)):
 			missing.append(setting.path)
 		var heading := str(setting.group).split("›", true, 1)[0].strip_edges()
 		if not sections.has(heading):
 			sections.append(heading)
-	check(missing.is_empty(), "%s tab draws every %s setting (%s)" % [
-		tab, "debug" if debug_on else "player", str(missing)])
+	check(missing.is_empty(), "%s tab draws every setting (%s)" % [tab, str(missing)])
 	for heading: String in sections:
 		check(labels.has(heading), "%s tab heading for %s" % [tab, heading])
-	if debug_on:
-		check(labels.has("Debug"), "%s tab shows the Debug block" % tab)
+	if debug_section == null:
+		check(SETTINGS.tab_settings(tab).is_empty(), "%s has no Debug block without debug settings" % tab)
+	else:
+		check(debug_section.visible == debug_on, "%s Debug block follows debug mode" % tab)
+		if tab == SETTINGS.GENERAL:
+			check(labels.has("ACTIONS"), "the actions are drawn inside General's Debug block")
 	list.free()
+	if is_instance_valid(owner):
+		owner.free()
+
+
+## A save from an older build migrates once; a retired key maps or is erased.
+func _check_migration() -> void:
+	var old: Dictionary = SETTINGS._migrate({"version": 0, "anatomy": {
+		"genital_yaw_deg": 1.0, "skin_tone": "dark"}}, 0)
+	var anatomy: Dictionary = old.get("anatomy", {})
+	check(not anatomy.has("genital_yaw_deg"), "a removed anatomy key is erased")
+	check(near(float(anatomy.get("skin_tone", -1.0)), 1.0), "a legacy skin tone maps to its anchor")
+	var current: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"pose1_forward": 0.3}, SETTINGS.SCHEMA_VERSION)
+	check(current.has("pose1_forward"), "a current file skips the structural chain")
+	SETTINGS._deprecated.append(SETTINGS.deprecated("old.radius",
+		func(value: Variant) -> Dictionary: return {"jiggle.radius": value}))
+	var moved: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"old": {"radius": 0.4}}, SETTINGS.SCHEMA_VERSION)
+	SETTINGS._deprecated.pop_back()
+	check(near(float((moved.get("jiggle", {}) as Dictionary).get("radius", 0.0)), 0.4),
+		"a deprecated key maps to its replacement")
+	check(not (moved.get("old", {}) as Dictionary).has("radius"),
+		"the deprecated key is erased")
 
 
 ## A script constant resolves a built-in before a same-named static function, so an API name that

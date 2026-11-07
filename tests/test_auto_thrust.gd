@@ -158,15 +158,15 @@ func run() -> void:
 
 	# Schema bounds are the player contract, so they must match the generator.
 	check(near(SETTINGS.pace.low, AUTO.PACE_MIN),
-		"schema auto pace low matches")
+		"auto pace low matches")
 	check(near(SETTINGS.pace.high, AUTO.PACE_MAX),
-		"schema auto pace high matches")
+		"auto pace high matches")
 	check(near(SETTINGS.pace.step, 0.25),
-		"schema auto pace steps by a quarter")
+		"auto pace steps by a quarter")
 	check(near(SETTINGS.max_depth.low, AUTO.DEPTH_MIN),
-		"schema auto depth low matches")
+		"auto depth low matches")
 	check(near(SETTINGS.max_depth.high, AUTO.DEPTH_MAX),
-		"schema auto depth high matches")
+		"auto depth high matches")
 	check(near(AUTO.PACE_STEP, 0.25), "wheel pace step is fixed")
 	check(SETTINGS.by_path("auto_thrust.pace_step") == null, "the wheel pace step is not a setting")
 

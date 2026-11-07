@@ -72,6 +72,8 @@ var _last_offer_key := ""
 var _native_hint_label: Control
 var _debug_skeleton: Node3D
 var _injected_settings: Array = []
+## The Debug block of each injected settings tab, toggled live by `debug_mode`.
+var _debug_sections: Array = []
 var _settings_switch_guard := false
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
@@ -271,6 +273,10 @@ func _apply_live_settings() -> void:
 func _apply_settings_changed() -> void:
 	debug_logs = SETTINGS.debug_logs.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
+	var debug_on := SETTINGS.debug_mode.get_bool()
+	for section: Variant in _debug_sections:
+		if is_instance_valid(section):
+			(section as Control).visible = debug_on
 	_apply_caption_top()
 	_apply_live_settings()
 	# integration: anatomy switches are live outside acts too.
@@ -411,20 +417,24 @@ func _inject_settings_page_now(page: Node) -> void:
 	tabs_box.name = "UnfplapTabs"
 	tabs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_style_tabs(tabs_box, font_size)
 	ui.add_child(tabs_box)
 	var changed := Callable(self, "_apply_settings_changed")
 	var general_list := _settings_tab_list("General", tabs_box)
-	SETTINGS_UI.build(general_list, SETTINGS.GENERAL, font_size, page, changed)
-	SETTINGS_UI.build_actions(general_list, font_size, self, "")
+	_collect_debug_section(SETTINGS_UI.build(general_list, SETTINGS.GENERAL, font_size, page,
+		changed, self))
 	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
-	SETTINGS_UI.build(anatomy_list, SETTINGS.ANATOMY, font_size, page, changed)
+	_collect_debug_section(SETTINGS_UI.build(anatomy_list, SETTINGS.ANATOMY, font_size, page,
+		changed))
 	var world_list := _settings_tab_list("World", tabs_box)
-	SETTINGS_UI.build(world_list, SETTINGS.WORLD, font_size, page, changed)
+	_collect_debug_section(SETTINGS_UI.build(world_list, SETTINGS.WORLD, font_size, page,
+		changed))
 	# Character preference is a per-mare profile form, not a global setting, so it keeps its own
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
 	_add_preference_form(char_list, font_size)
+	# Style the bar after it exists with its tabs: the container re-applies its theme to the
+	# internal TabBar when the tree changes, which would shadow overrides set before that.
+	_style_tabs(tabs_box, font_size)
 	for tab: Variant in tabs:
 		if tab is Button:
 			(tab as Button).pressed.connect(_hide_settings_tab.bind(page))
@@ -437,6 +447,12 @@ func _inject_settings_page_now(page: Node) -> void:
 	page.set_meta("unfplap_button", button)
 	_injected_settings.append({"page": page, "button": button, "ui": ui, "sidebar": [gap, caption]})
 	_debug("settings tab injected")
+
+
+## Keep the Debug block a build returned, so `debug_mode` can show or hide it live.
+func _collect_debug_section(control: Variant) -> void:
+	if control is Control:
+		_debug_sections.append(control)
 
 
 func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
@@ -462,7 +478,7 @@ func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
 	return list
 
 
-## The Settings/Debug switch wears the page's "Segment" look: the chosen tab is a lit pill, the
+## The sub-tabs wear the page's "Segment" look: the chosen tab is a lit pill, the
 ## other a quiet one, and there is no tab strip or default panel behind either. The internal TabBar
 ## is a separate control, so its tab items are set on it directly (a theme resource would be
 ## inherited, but per-node overrides on the TabContainer are not).
@@ -551,7 +567,7 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 			(native_page as CanvasItem).visible = value
 
 
-## The per-mare preference profile is the one hand-built form; it borrows the schema rows' card,
+## The per-mare preference profile is the one hand-built form; it borrows the setting rows' card,
 ## switch and pill pieces so it does not read as a different panel. It fills its own Characters
 ## sub-tab, so the tab bar supplies the heading. Edits are staged in the form and written only by
 ## Save preset; Reset to default restores the character's own preference template.
@@ -691,7 +707,7 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 
 
 ## A form row's name, in the same type as a setting row's name. It takes the row's spare width so
-## the control sits at the right edge, as a schema row does. It must not autowrap: in a
+## the control sits at the right edge, as a setting row does. It must not autowrap: in a
 ## GridContainer an autowrap label reports a one-character minimum, which collapses its column.
 func _form_label(text: String, font_size: int) -> Label:
 	var label := STYLE.label(text, "", font_size)
@@ -942,6 +958,7 @@ func _clear_injected_settings() -> void:
 			(page as Node).remove_meta("unfplap_ui")
 			(page as Node).remove_meta("unfplap_button")
 	_injected_settings.clear()
+	_debug_sections.clear()
 
 
 var _yaw_skeleton: Skeleton3D
@@ -1293,7 +1310,7 @@ func _debug_cycle_request(phase_name: String) -> String:
 	return "Cycle for %s: %s." % [str(target.name), label]
 
 
-## Shared by the Debug tab actions.
+## Shared by the Debug actions.
 func _debug_offer_request(pose := "") -> String:
 	if not is_instance_valid(initiation) or not is_instance_valid(player):
 		return "Act system not ready."
@@ -1444,7 +1461,7 @@ func _debug_force_tolerance(kind: String) -> String:
 	return "Neglect %s queued. Close this panel to let the act apply it." % kind
 
 
-## Shared by the Debug tab: grant or clear the mod lover bond on the aimed or nearest mare.
+## Shared by the Debug actions: grant or clear the mod lover bond on the aimed or nearest mare.
 func _debug_bond_request(grant: bool) -> String:
 	if not is_instance_valid(player):
 		return "Act system not ready."

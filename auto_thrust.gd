@@ -24,7 +24,7 @@ const DEPTH_MAX := 1.0
 const DEPTH_SMOOTH_S := 0.18
 
 var active := false
-## Thrusts per second. One cycle is one inward stroke. Matches the schema default; `reset()`
+## Thrusts per second. One cycle is one inward stroke. Matches the declared default; `reset()`
 ## overwrites it with the configured act-start value.
 var pace := 1.0
 ## Requested peak depth, 0..1 of the full tracker range.

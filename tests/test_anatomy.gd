@@ -101,9 +101,11 @@ func run() -> void:
 	check(bool(SCHEMA.default_value("anatomy.teats")), "teats on by default")
 	check(SCHEMA.has("anatomy.act_only"), "act-only flag")
 	check(not bool(SCHEMA.default_value("anatomy.act_only")), "act-only off by default")
-	check(SCHEMA.has("anatomy.cover_depth_m"), "coat depth bias")
 	check(SCHEMA.has("anatomy.player_scale"), "player part scale")
-	check(SCHEMA.has("anatomy.player_pitch_deg"), "player part pitch")
+	check(SCHEMA.has("anatomy.anal_ring"), "anal ring toggle")
+	check(SCHEMA.has("anatomy.anal_height_mm"), "anal placement height")
+	check(not SCHEMA.has("anatomy.cover_depth_m"), "coat depth bias removed")
+	check(not SCHEMA.has("anatomy.player_pitch_deg"), "player part pitch removed")
 	check(TUNABLES.get_string("anatomy.skin_tone") in ["coat", "darker", "dark"],
 		"skin tone choice")
 	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.286), "global anatomy placement")

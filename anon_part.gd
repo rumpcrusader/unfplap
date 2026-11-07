@@ -50,9 +50,6 @@ var _pos := Vector3(0.0, 0.74, 0.085)
 var _pitch := 0.0
 var _scale := 0.2
 var _setting_scale := 1.0
-var _setting_pitch := 0.0
-var _setting_yaw := 0.0
-var _setting_roll := 0.0
 var _girth_base := 1.0
 var _girth_mid := 1.0
 var _ready_amount := 0.0
@@ -169,19 +166,13 @@ func _apply_ready() -> void:
 
 func _read_settings() -> void:
 	_setting_scale = TUNABLES.get_float("anatomy.player_scale")
-	_setting_pitch = TUNABLES.get_float("anatomy.player_pitch_deg")
-	_setting_yaw = TUNABLES.get_float("anatomy.player_yaw_deg")
-	_setting_roll = TUNABLES.get_float("anatomy.player_roll_deg")
 	_girth_base = maxf(TUNABLES.get_float("anatomy.part_base_scale"), 0.01)
 	_girth_mid = maxf(TUNABLES.get_float("anatomy.part_mid_scale"), 0.01)
 
 
-## integration: the user-facing scale and rotation sit on top of the saved placement.
+## integration: the user-facing scale sits on top of the saved placement.
 func _rotation_basis() -> Basis:
-	return Basis.from_euler(Vector3(
-		deg_to_rad(_pitch + _setting_pitch),
-		deg_to_rad(_setting_yaw),
-		deg_to_rad(_setting_roll)))
+	return Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0))
 
 
 func _placed() -> Transform3D:
@@ -262,7 +253,8 @@ func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> v
 	if not is_instance_valid(_mesh) or not target.is_finite():
 		return
 	_apply_place()
-	var max_back := maxf(TUNABLES.get_float("anatomy.max_back_m"), 0.0)
+	# `Max back-out` was removed; the tip now stays at the entrance.
+	var max_back := 0.0
 	var max_depth := maxf(TUNABLES.get_float("anatomy.max_depth_m"), 0.0)
 	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
 		1.0 - exp(-maxf(delta, 0.0) / 0.04))

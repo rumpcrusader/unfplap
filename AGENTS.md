@@ -1283,15 +1283,14 @@ debug value. The full contract, including the three-step recipe, is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
-- `anatomy` stores `teats`, `skin_tone`, `act_only`, `cover_depth_m` (default `0.02 m`), the
-  experimental `anal_ring` (use the re-modelled ring instead of the original cup; off by
-  default), the anal placement `anal_height_mm` (positive is higher), `anal_side_mm` (sideways,
-  positive is the viewer's right from behind) and `anal_tilt_deg` (positive points the opening
-  down), and the player-part controls `player_scale` (`1.0×`), `player_pitch_deg`,
-  `player_yaw_deg` and `player_roll_deg`. Player-part values are applied on
-  top of the saved placement and update live. The anal placement applies to both models, is read
-  on the next visibility poll, and the ring toggle swaps the asset live. `anal_drop_mm` migrates
-  to `anal_height_mm` (sign flipped) on load.
+- `anatomy` stores `teats`, `skin_tone`, `act_only`, `hide_dock`, the experimental `anal_ring`
+  (use the re-modelled ring instead of the original cup; off by default), the anal placement
+  `anal_height_mm` (positive is higher), and the player-part controls `player_scale` (`1.0×`),
+  `part_base_scale`, `part_mid_scale`, `part_front_m`, `max_depth_m` and `pelvis_gap_m`.
+  Player-part values are applied on top of the saved placement and update live. The anal placement
+  applies to both models, is read on the next visibility poll, and the ring toggle swaps the asset
+  live. `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on load; removed anatomy keys
+  are erased on load.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.

@@ -40,6 +40,8 @@ const LIP_OUTER_FACTOR := 3.0
 const ANAL_LIP := 0.022
 ## Outer-radius factor for the original cup model.
 const ANAL_OUTER_FACTOR := 2.2
+## Old `anal_hug` default; it only scales the pink cut depth now.
+const ANAL_CUT_HUG := 2.0
 const WINKING_CUT_FILLED := 0.9
 const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
@@ -340,8 +342,6 @@ func _apply_material() -> void:
 	material.set_shader_parameter("inner_color", WINKING_PINK)
 	material.set_shader_parameter("inner_shadow", WINKING_PINK_SHADE)
 	var world_scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.001)
-	material.set_shader_parameter("cover_depth",
-		TUNABLES.get_float("anatomy.cover_depth_m") / world_scale)
 	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
 	material.set_shader_parameter("lip_radius", _lip_radius)
 	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
@@ -450,19 +450,13 @@ func _fade_anal_rim(material: ShaderMaterial) -> void:
 		material.set_shader_parameter("coat_shadow", shade)
 
 
-## Place the anal mesh from its live controls: height, side offset and a tilt about the opening.
-## They move the node, so the mesh's own space (and the shader's `vulva_centre`) stays on
-## ANAL_OPENING. Positive height is up, and positive `anal_tilt_deg` turns the outward normal
-## toward local -Y (down). Applies to both the cup and the ring.
+## Place the anal mesh from its live height control. It moves the node, so the mesh's own space
+## (and the shader's `vulva_centre`) stays on ANAL_OPENING. Applies to both the cup and the ring.
 func _apply_anal_place() -> void:
 	if not is_instance_valid(_anal_mesh):
 		return
 	var height := TUNABLES.get_float("anatomy.anal_height_mm") / 1000.0
-	var side := TUNABLES.get_float("anatomy.anal_side_mm") / 1000.0
-	var tilt := deg_to_rad(TUNABLES.get_float("anatomy.anal_tilt_deg"))
-	var basis := Basis(Vector3.RIGHT, tilt)
-	var offset := Vector3(side, height, 0.0)
-	_anal_mesh.transform = Transform3D(basis, ANAL_OPENING - basis * ANAL_OPENING + offset)
+	_anal_mesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, height, 0.0))
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -819,7 +813,6 @@ func _apply_winking_shape() -> void:
 		var open := smoothstep(0.0, 0.4, 1.0 - _closed)
 		var filled := lerpf(1.0, WINKING_CUT_FILLED, smoothstep(0.5, 1.0, _fill))
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled
-			* TUNABLES.get_float("anatomy.hole_depth")
 			* _mesh.global_transform.basis.get_scale().x)
 
 
@@ -846,7 +839,7 @@ func set_anal_shape(fill: float, wide := 0.0) -> void:
 	if material == null:
 		return
 	var scale := _mesh.global_transform.basis.get_scale().x
-	var hug := maxf(TUNABLES.get_float("anatomy.anal_hug"), 0.01)
+	var hug := maxf(ANAL_CUT_HUG, 0.01)
 	if _anal_ring:
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * scale
 			* minf(wide * 4.0, 1.0) * lerpf(0.5, WINKING_CUT_FILLED / hug, minf(wide, 1.0)))

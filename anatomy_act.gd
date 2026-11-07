@@ -306,10 +306,7 @@ func tick(delta: float) -> void:
 		anatomy.call("set_anal_grip", grip_world * _hole_mix * rearward)
 	_normal = _compute_normal(part)
 	if is_instance_valid(part):
-		var pitch := 0.0
-		if _anal:
-			pitch = TUNABLES.get_float("anatomy.anal_pitch_deg")
-		part.set("aim_pitch_deg", pitch)
+		part.set("aim_pitch_deg", 0.0)
 		if bool(part.call("showing")):
 			var pivot: Vector3 = part.call("root_now")
 			var tip: Vector3 = part.call("tip_world")

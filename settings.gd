@@ -544,7 +544,7 @@ static func _load() -> void:
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
-	data = _normalize_anal_height(data)
+	data = _normalize_anatomy(data)
 	data = _merge(_defaults(), data)
 	_cache = data
 	_write_file(data)
@@ -577,9 +577,9 @@ static func _filled_default() -> Dictionary:
 	return out
 
 
-## One-off: the vertical anal placement was first stored as a downward drop. Convert it to the
-## signed height control (positive is higher) and drop the old key.
-static func _normalize_anal_height(data: Dictionary) -> Dictionary:
+## One-off migrations for anatomy keys: the vertical placement was first a downward drop, and a
+## batch of controls was later removed. Unknown keys are inert, but keep the file clean.
+static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 	var anatomy: Variant = data.get("anatomy", {})
 	if not anatomy is Dictionary:
 		return data
@@ -588,9 +588,11 @@ static func _normalize_anal_height(data: Dictionary) -> Dictionary:
 		if not block.has("anal_height_mm"):
 			block["anal_height_mm"] = -float(block["anal_drop_mm"])
 		block.erase("anal_drop_mm")
-	# Removed experiments: the lobe swell and the ring's depth scale.
-	block.erase("anal_swell")
-	block.erase("anal_depth")
+	for key: String in ["anal_swell", "anal_depth", "anal_pitch_deg", "anal_side_mm",
+			"anal_tilt_deg", "cover_depth_m", "max_back_m", "player_pitch_deg",
+			"player_yaw_deg", "player_roll_deg", "hole_depth", "anal_hug", "hug",
+			"vulva_hug", "pair_limit"]:
+		block.erase(key)
 	data["anatomy"] = block
 	return data
 

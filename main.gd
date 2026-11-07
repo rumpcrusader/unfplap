@@ -1399,6 +1399,11 @@ func action_show_act_history() -> String:
 	return "Act history printed for %s." % str(target.name)
 
 
+func action_reset_act_prompts() -> String:
+	SETTINGS.reset_act_prompts()
+	return "Act prompts reset to defaults."
+
+
 func _debug_history_target() -> Node:
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null

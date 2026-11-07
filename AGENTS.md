@@ -1372,7 +1372,9 @@ rump blush. Unknown settings keys are ignored.
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
   control. The global default preference note is `Open to affection.`; every character template
-  carries its own note.
+  carries its own note. `act_prompts` stores only overrides: the built-ins live in
+  `DEFAULT_ACT_PROMPTS` and `_fill_prompts()` supplies them at read time. Known legacy values and
+  obsolete keys are removed on load; **Debug → Actions → Reset act prompts** clears overrides.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable adult mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
   ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.

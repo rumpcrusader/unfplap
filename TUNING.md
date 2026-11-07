@@ -142,6 +142,10 @@ moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a ho
   `HISTORY.md`. The `num` entries are never clamped, so a hand-edited value applies.
 - `tolerance.*` holds the mid-act warning/stop thresholds, like relief, decay and stop cooldowns.
   The tier itself is a per-mare `preferences.tolerance` value in the Characters sub-tab, not a tunable.
+- Built-in act prompts live in `settings.DEFAULT_ACT_PROMPTS`; `act_prompts` in the file stores
+  only overrides. `_fill_prompts()` supplies the current built-ins at read time. Known legacy
+  values and obsolete keys are removed on load, and **Debug → Actions → Reset act prompts**
+  clears the overrides.
 - Unknown keys in the file are ignored on load.
 - Never name a settings function `reload` or `set_path`: `Script` already has both, and a
   preloaded script constant calls the built-in instead. `tests/test_settings.gd` guards this.

@@ -70,6 +70,11 @@ const ACTIONS := {
 		"help": "Print the aimed or nearest mare's act history to the debug log.",
 		"method": "action_show_act_history",
 	},
+	"reset_act_prompts": {
+		"label": "Reset act prompts",
+		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",
+		"method": "action_reset_act_prompts",
+	},
 	"force_tolerance_warning": {
 		"label": "Force neglect warning",
 		"help": "Trigger the active act's next neglect warning.",

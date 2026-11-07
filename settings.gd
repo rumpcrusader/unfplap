@@ -38,6 +38,18 @@ const LEGACY_TOLERANCE_KEYS := {
 	"neutral_stop": "normal_stop",
 	"neutral_cooldown_s": "normal_cooldown_s",
 }
+## One-release migration for act prompts that used to be written into settings.json. A saved value
+## that exactly matches one of these is removed so the current DEFAULT_ACT_PROMPTS applies.
+const LEGACY_ACT_PROMPTS := {
+	"cue": [
+		"During sex with Anon, your body and voice show: {cue} Say ONE short line in your own voice, at most 12 words. Begin with [whispering], [happy], [annoyed] or [surprised]. No narration, no stage directions, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
+		"During sex with Anon, your body and voice show that you {cue}. Say ONE short line in your own voice, at most 12 words. Begin with [whispering], [happy], [annoyed] or [surprised]. No narration, no stage directions, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
+	],
+	"utterance": [
+		"You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
+		"You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. These preferences are private feelings, not a list to say. Current moment: {state}. Your preferences: {preferences}. Do not repeat: {recent}.",
+	],
+}
 
 ## Character names, order and preference templates live in `character_preferences.gd`; the settings view
 ## and the runtime merge read them through these aliases.
@@ -298,6 +310,52 @@ static func _normalize_line_variety(data: Dictionary) -> Dictionary:
 	return data
 
 
+## Drop obsolete prompt keys and known old built-ins so the current defaults apply. A custom value
+## for a current key is preserved.
+static func _normalize_act_prompts(data: Dictionary) -> Dictionary:
+	var blocks: Array = []
+	if data.get("default") is Dictionary:
+		blocks.append(data["default"])
+	if data.get("characters") is Dictionary:
+		for entry: Variant in (data["characters"] as Dictionary).values():
+			if entry is Dictionary:
+				blocks.append(entry)
+	for block: Dictionary in blocks:
+		var raw: Variant = block.get("act_prompts")
+		if not raw is Dictionary:
+			continue
+		var prompts: Dictionary = raw
+		for key: Variant in prompts.keys():
+			var name := str(key)
+			if not DEFAULT_ACT_PROMPTS.has(name):
+				prompts.erase(key)
+				continue
+			var legacy: Variant = LEGACY_ACT_PROMPTS.get(name, [])
+			if str(prompts[key]) in legacy:
+				prompts.erase(key)
+		if prompts.is_empty():
+			block.erase("act_prompts")
+	return data
+
+
+## Remove saved prompt overrides and return to the built-in prompts. Preferences, poses, consent
+## and event prompts are untouched.
+static func reset_act_prompts() -> bool:
+	var data := _read()
+	var changed := false
+	if data.get("default") is Dictionary and (data["default"] as Dictionary).has("act_prompts"):
+		(data["default"] as Dictionary).erase("act_prompts")
+		changed = true
+	if data.get("characters") is Dictionary:
+		for entry: Variant in (data["characters"] as Dictionary).values():
+			if entry is Dictionary and (entry as Dictionary).has("act_prompts"):
+				(entry as Dictionary).erase("act_prompts")
+				changed = true
+	if changed:
+		_write(data)
+	return changed
+
+
 ## Move the old `taste` block onto `preferences` for the default template and every character.
 static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 	var blocks: Array = []
@@ -485,6 +543,7 @@ static func _load() -> void:
 	data = _normalize_presentation(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
+	data = _normalize_act_prompts(data)
 	data = _merge(_defaults(), data)
 	_cache = data
 	_write_file(data)
@@ -512,7 +571,8 @@ static func _filled_default() -> Dictionary:
 	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
 	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
 	out["preferences"] = PREFERENCES.defaults()
-	out["act_prompts"] = DEFAULT_ACT_PROMPTS.duplicate(true)
+	# Act prompts are code defaults; settings.json stores only overrides. `_fill_prompts()`
+	# supplies the current built-ins at read time so a release can update them.
 	return out
 
 

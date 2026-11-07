@@ -61,7 +61,9 @@ func run() -> void:
 	check(str(preference.get("tolerance", "")) == "normal", "normal tolerance default")
 	check((preference.get("touch", []) as Array).is_empty(), "neutral touch default")
 	check(str(preference.get("notes", "")) == "Open to affection.", "default preference note")
-	var prompts: Dictionary = base.get("act_prompts", {})
+	check((base.get("act_prompts", {}) as Dictionary).is_empty(),
+		"built-in act prompts are not stored as saved state")
+	var prompts: Dictionary = SETTINGS._fill_prompts(base).get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
 	check(not str(prompts.get("cue", "")).is_empty(), "cue prompt present")
 	check(str(prompts.get("cue", "")).contains("{relationship}"), "cue prompt has relationship note")
@@ -74,6 +76,30 @@ func run() -> void:
 	check(str(prompts.get("utterance", "")).contains("{seed}"),
 		"fallback utterance prompt has a private seed")
 	check(not (prompts as Dictionary).has("talk_cue"), "talk cue prompt removed")
+
+	var legacy_prompts := {
+		"default": {
+			"act_prompts": {
+				"cue": SETTINGS.LEGACY_ACT_PROMPTS["cue"][0],
+				"utterance": "a custom utterance",
+				"talk_cue": "an obsolete prompt",
+			},
+		},
+		"characters": {
+			"fluttershy": {"act_prompts": {"cue": SETTINGS.LEGACY_ACT_PROMPTS["cue"][1]}},
+		},
+	}
+	var normalized_prompts: Dictionary = SETTINGS._normalize_act_prompts(legacy_prompts)
+	var normalized_default: Dictionary = (normalized_prompts.get("default", {}) as Dictionary).get(
+		"act_prompts", {})
+	check(not normalized_default.has("cue"), "a known legacy cue prompt is removed")
+	check(str(normalized_default.get("utterance", "")) == "a custom utterance",
+		"a custom current-key prompt survives")
+	check(not normalized_default.has("talk_cue"), "an obsolete prompt key is dropped")
+	var normalized_characters: Dictionary = normalized_prompts.get("characters", {})
+	var normalized_fluttershy: Dictionary = (normalized_characters.get("fluttershy", {}) as Dictionary)
+	check(normalized_fluttershy.is_empty(),
+		"a character block with only a legacy prompt is cleaned")
 
 	var characters := {
 		"fluttershy": {

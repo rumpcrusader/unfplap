@@ -238,7 +238,7 @@ func run() -> void:
 	var jiggle_defaults: Dictionary = defaults.get("jiggle", {})
 	check(near(float(jiggle_defaults.get("radius", -1.0)), 0.26),
 		"default jiggle radius")
-	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.15),
+	check(near(float(jiggle_defaults.get("intensity", -1.0)), 0.2),
 		"default jiggle intensity")
 	check(near(float(jiggle_defaults.get("smack_intensity", -1.0)), 0.45),
 		"default smack jiggle intensity")

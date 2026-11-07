@@ -1339,9 +1339,9 @@ rump blush. Unknown settings keys are ignored.
   (peak depth, default `0.5`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
   changes are per-act. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
-  `intensity` multiplier (default `0.25`) and the act-smack `smack_intensity` multiplier
+  `intensity` multiplier (default `0.2`) and the act-smack `smack_intensity` multiplier
   (default `0.45`). The center is the hind-femur midpoint plus `center_height_m` (default
-  `0.08 m`) and `center_back_m` (default `0.10 m`). It is read live with the other thrust
+  `0.10 m`) and `center_back_m` (default `0.15 m`). It is read live with the other thrust
   controls.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.

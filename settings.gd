@@ -427,8 +427,6 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 # ======================================================== General
 
 # -- (ungrouped)
-static var debug_mode := flag("debug_mode", "debug_mode", false, "Debug mode",
-	"Show the Debug section at the bottom of every tab. Hiding it keeps its settings as they are.", GENERAL, "")
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"], "Starting Sex",
 	"When Anon can start sex.", GENERAL, "")
@@ -454,6 +452,8 @@ static var pixels_per_full := num("pixels_per_full", "thrust.pixels_per_full", 1
 	.with_unit("px per full thrust").with_step(20.0).with_range(240.0, 1200.0)
 static var orientation := choice("orientation", "thrust.orientation", "up", ["up", "down"],
 	["Deepens", "Shallows"], "Thrust direction", "Which mouse direction deepens the thrust.", GENERAL, "")
+static var debug_mode := flag("debug_mode", "debug_mode", false, "Debug mode",
+	"Show the Debug section at the bottom of every tab. Hiding it keeps its settings as they are.", GENERAL, "")
 
 # -- (ungrouped)  (debug)
 static var debug_logs := flag("debug_logs", "debug_logs", false, "Debug logs",

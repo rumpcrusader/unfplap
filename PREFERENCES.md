@@ -64,11 +64,11 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 **General**
 
-One ungrouped list, in this order: **Debug mode** (the switch that reveals the Debug sections),
-**Starting Sex**, **Control hints**, **HUD readouts**, **Captions on top**, **Mute Ponese audio**,
-**Act lines**, **Long-term history**, **Climax limit** (`0…20`, default `3`; `0` is unlimited),
-**Sensitivity** in pixels per full thrust (`240…1200`, default `1000`) and **Thrust direction**
-(which mouse direction deepens the stroke).
+One ungrouped list, in this order: **Starting Sex**, **Control hints**, **HUD readouts**,
+**Captions on top**, **Mute Ponese audio**, **Act lines**, **Long-term history**, **Climax limit**
+(`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per full thrust (`240…1200`,
+default `1000`), **Thrust direction** (which mouse direction deepens the stroke) and **Debug mode**
+(the switch that reveals the Debug sections) at the bottom.
 
 The audio switches, auto-thrust pace/depth (`1.0…3.75/s`, `0.20…1`), the hip back-off
 (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.

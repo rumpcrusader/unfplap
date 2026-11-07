@@ -1426,8 +1426,8 @@ rump blush. Unknown settings keys are ignored.
   beside it instead. The sidebar row sits under an **Add-ons** caption, and the injected page has no
   second title. Settings with no group render at the top of the tab without a heading; a group
   needs at least three related settings to earn one. **General** is one ungrouped list in this
-  order: Debug mode, Starting Sex, Control hints, HUD readouts, Captions on top, Mute Ponese audio,
-  Act lines, Long-term history, Climax limit, Sensitivity, Thrust direction. Its Debug block holds
+  order: Starting Sex, Control hints, HUD readouts, Captions on top, Mute Ponese audio, Act lines,
+  Long-term history, Climax limit, Sensitivity, Thrust direction, then the Debug mode switch. Its Debug block holds
   the logs and act-line switches, auto thrust, the hip back-off and acts during cuddles, then the
   **Audio**, **Camera**, **Missionary**, **Standing**, **Talk & cues** and **Thrust jiggle**
   sections. **Anatomy**

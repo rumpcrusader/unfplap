@@ -12,6 +12,7 @@ const CYCLE := preload("res://mods/unfplap/cycle.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
+const WINKING_SCULPTED_PATH := ASSET_DIR + "winking_fixed.scn"
 const ANAL_PATH := ASSET_DIR + "anal.scn"
 const ANAL_RING_PATH := ASSET_DIR + "anal_ring.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
@@ -67,6 +68,7 @@ var runtime: Node
 var main: Node
 
 var _mesh: MeshInstance3D
+var _winking_path_loaded := ""
 var _anal_mesh: MeshInstance3D
 var _teats_mesh: MeshInstance3D
 var _skin_strip: MeshInstance3D
@@ -131,16 +133,25 @@ static func assets_exist() -> bool:
 		and ResourceLoader.exists(TEATS_PATH) and ResourceLoader.exists(STRIP_PATH)
 
 
-static var _refined_winking_mesh: ArrayMesh
+## integration: the sculpted model is optional; fall back to the original PPP mesh when absent.
+static func selected_winking_path() -> String:
+	if SETTINGS.winking_model.get_choice() == "sculpted" \
+			and ResourceLoader.exists(WINKING_SCULPTED_PATH):
+		return WINKING_SCULPTED_PATH
+	return WINKING_PATH
 
 
-## integration: rebuild the winking mesh once and share it across mares. The authored `closed`
-## and `wink` shapes both pull the anal rim; the rebuild masks that out so only the vulva moves.
+static var _refined_winking_meshes := {}
+
+
+## integration: rebuild each winking source mesh once and share it across mares. The authored
+## `closed` and `wink` shapes both pull the anal rim; the rebuild masks that out so only the
+## vulva moves. Keyed by source so the original and sculpted models can coexist.
 static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
-	if _refined_winking_mesh != null:
-		return _refined_winking_mesh
 	if source == null:
 		return null
+	if _refined_winking_meshes.has(source):
+		return _refined_winking_meshes[source] as ArrayMesh
 	var rebuilt := ArrayMesh.new()
 	rebuilt.blend_shape_mode = source.blend_shape_mode
 	var closed_index := -1
@@ -172,7 +183,7 @@ static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 			arrays, typed_shapes, {}, 0)
 		rebuilt.surface_set_material(surface, source.surface_get_material(surface))
 		rebuilt.surface_set_name(surface, source.surface_get_name(surface))
-	_refined_winking_mesh = rebuilt
+	_refined_winking_meshes[source] = rebuilt
 	return rebuilt
 
 
@@ -227,7 +238,8 @@ func _attach() -> void:
 	var bone := _skeleton.find_bone("pony_hips")
 	if bone < 0:
 		return
-	var scene: PackedScene = load(WINKING_PATH)
+	var selected := selected_winking_path()
+	var scene: PackedScene = load(selected)
 	if scene == null:
 		return
 	var instance: Node = scene.instantiate()
@@ -252,6 +264,7 @@ func _attach() -> void:
 	anchor.add_child(mesh)
 	_bone_inverse = _skeleton.get_bone_global_rest(bone).affine_inverse()
 	_mesh = mesh
+	_winking_path_loaded = selected
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
@@ -740,6 +753,8 @@ func _apply_teats_material(base: ShaderMaterial) -> void:
 func apply_live() -> void:
 	if not _attached:
 		return
+	if selected_winking_path() != _winking_path_loaded:
+		_reload_winking_mesh()
 	_apply_material()
 	_apply_place()
 	_refresh_anal_ring()
@@ -747,8 +762,40 @@ func apply_live() -> void:
 	_apply_visibility()
 
 
+## integration: swap the winking mesh in place when the model choice changes. The anchor,
+## material override, placement and current shape values stay with the existing mesh node.
+func _reload_winking_mesh() -> void:
+	if not is_instance_valid(_mesh):
+		return
+	var selected := selected_winking_path()
+	if selected == _winking_path_loaded:
+		return
+	var scene: PackedScene = load(selected)
+	if scene == null:
+		return
+	var instance: Node = scene.instantiate()
+	var source: MeshInstance3D = instance as MeshInstance3D
+	if source == null:
+		for child: Node in instance.find_children("*", "MeshInstance3D", true, false):
+			source = child as MeshInstance3D
+			break
+	if source == null or source.mesh == null:
+		instance.queue_free()
+		return
+	var refined := refined_winking_mesh(source.mesh as ArrayMesh)
+	if refined == null:
+		instance.queue_free()
+		return
+	_mesh.mesh = refined
+	_winking_path_loaded = selected
+	_lip_radius = _measure_lip_radius()
+	_apply_winking_shape()
+	instance.queue_free()
+
+
 func detach() -> void:
 	_attached = false
+	_winking_path_loaded = ""
 	_visibility_init = false
 	set_process(false)
 	if is_instance_valid(_fluid):

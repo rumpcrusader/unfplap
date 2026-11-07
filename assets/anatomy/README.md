@@ -1,7 +1,8 @@
 # integration: local anatomy assets
 
-This folder holds the optional adult meshes and textures used by the anatomy feature. They are
-**never committed**; the `.gitignore` here excludes them. A pack always ships them:
+This folder holds the optional adult meshes and textures used by the anatomy feature. The
+PonyPussyParadise source files are **never committed**; the `.gitignore` here excludes them.
+`winking_fixed.scn` is the sculpted variant and is tracked. A pack always ships the required set:
 `scripts/pack_anatomy.sh` writes `dist/unfplap-anatomy.zip`, that archive is uploaded to a plain
 URL recorded in the repository variable `ANATOMY_URL`, and `.github/workflows/build.yml`
 downloads and unpacks it before a release build.
@@ -11,7 +12,8 @@ Redistribution is by permission of the PonyPussyParadise author; `mod.json` cred
 Expected files:
 
 ```text
-winking.scn          mare anatomy mesh (closed/stretch blend shapes)
+winking.scn          original PPP mare anatomy mesh (closed/stretch blend shapes)
+winking_fixed.scn    sculpted mare anatomy variant (closed/stretch/wink blend shapes)
 anal.scn             anal cup (open/stretch blend shapes)
 anal_ring.scn        experimental anal ring (feature-gated by anatomy.anal_ring)
 teats.scn            skinned teats (mid/full blend shapes, 191 binds)
@@ -31,11 +33,13 @@ scripts/pack_anatomy.sh                       # -> dist/unfplap-anatomy.zip
 ./build.sh --no-anatomy                       # code-only pack, assets left out
 ```
 
-`build.sh` prints `ANATOMY ok 8/8`, `ANATOMY skipped (--no-anatomy)`, or `ANATOMY_FAIL` with the
+`build.sh` prints `ANATOMY ok 10/10`, `ANATOMY skipped (--no-anatomy)`, or `ANATOMY_FAIL` with the
 missing names. `--no-anatomy` excludes the folder from the pack even when the files are present.
 
-The archive holds exactly the eight files above at its root; the extractor matches them by name
-and ignores everything else, so a stray path inside the zip cannot reach the pack.
+The archive holds exactly the ten files above at its root; the extractor matches them by name
+and ignores everything else, so a stray path inside the zip cannot reach the pack. At runtime the
+sculpted mesh is optional: the Winking model setting falls back to `winking.scn` when it is
+absent.
 
 ## Recovering the files
 

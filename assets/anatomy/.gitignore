@@ -1,4 +1,5 @@
-# integration: local-only adult assets. Never commit these.
+# integration: original PPP adult assets are local-only. Never commit these.
+# The sculpted winking_fixed.scn variant is tracked separately.
 winking.scn
 anal.scn
 anal_ring.scn

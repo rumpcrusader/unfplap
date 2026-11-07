@@ -11,6 +11,7 @@
 
 ANATOMY_FILES=(
 	winking.scn
+	winking_fixed.scn
 	anal.scn
 	anal_ring.scn
 	teats.scn

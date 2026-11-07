@@ -790,6 +790,11 @@ static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.5, "Genital tone
 static var teats := flag("teats", "anatomy.teats", false, "Teats", "Show the optional teats.", ANATOMY, "")
 static var anatomy := flag("anatomy", "features.anatomy", false, "Anatomy",
 	"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.", ANATOMY, "")
+static var winking_model := choice("winking_model", "anatomy.winking_model", "original",
+	["original", "sculpted"], ["Original PPP", "Sculpted"],
+	"Winking model",
+	"Choose the vulva mesh. Sculpted uses the smoothed model when its asset is present; otherwise the original PPP mesh is used.",
+	ANATOMY, "")
 static var anatomy_bed_body := flag("anatomy_bed_body", "features.anatomy_bed_body", true,
 	"Anon bed body",
 	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", ANATOMY, "")

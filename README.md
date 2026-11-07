@@ -36,7 +36,8 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The anatomy assets are not kept in the repository; release builds fetch and pack them.
+- **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. There is also a user-facing “Only during acts” switch that hides the mare anatomy in the world. The original PPP anatomy assets are not kept in the repository; the sculpted winking variant is tracked and both are packed for release.
+- **Winking model** — Choose the original PPP vulva or the sculpted variant in the Anatomy settings; the sculpted choice falls back to the original when its asset is absent.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster, ask sooner, and wink and drip while she idles, two days of diestrus turn her off, then normal. Off by default.
@@ -74,9 +75,10 @@ the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported
 docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
 does, for credit.
 
-The anatomy meshes and textures are not in the repository. A build requires all of them under
-`assets/anatomy/` and fails when any are missing. `scripts/pack_anatomy.sh` writes the archive
-that `--anatomy-zip` unpacks, and `--no-anatomy` builds without the feature.
+The original PPP anatomy meshes and textures are not in the repository; the sculpted
+`winking_fixed.scn` variant is tracked. A build requires all ten files under `assets/anatomy/`
+and fails when any are missing. `scripts/pack_anatomy.sh` writes the archive that
+`--anatomy-zip` unpacks, and `--no-anatomy` builds without the feature.
 
 The official `tools/modding/build_mod.gd` command still works for quick builds, but packs the
 whole folder.

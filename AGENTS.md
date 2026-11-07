@@ -30,10 +30,10 @@ Do not start implementation until you have read the required files for the area 
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. Adult anatomy is an optional, feature-gated
-  addition; it never replaces a pony's body or rig and its meshes/textures are kept out of git
-  (`assets/anatomy/` is ignored) and fetched from `ANATOMY_URL` for every release build, so a
-  shipped pack always carries them. The act stays off-camera by framing. Modelled accessories are
-  allowed.
+  addition; it never replaces a pony's body or rig. The original PPP meshes/textures are kept out
+  of git (`assets/anatomy/` is ignored for them) and fetched from `ANATOMY_URL` for every release
+  build; the sculpted `winking_fixed.scn` variant is tracked and packed with the archive. The act
+  stays off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -114,11 +114,12 @@ scripts/smoke.sh
   ./build.sh [--out <file.pck>] [--anatomy-zip <file.zip> | --no-anatomy]
   ```
   Success prints `MOD_BUILT <path>`. The mod has no script extension.
-- The anatomy meshes and textures are never committed. `build.sh` requires all nine, prints
-  `ANATOMY ok 9/9`, and fails with `ANATOMY_FAIL` and the missing names unless they are present
-  under `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by
-  `scripts/pack_anatomy.sh` first; `--no-anatomy` builds a code-only pack and drops the assets
-  even when they are in the working tree.
+- The original PPP anatomy meshes and textures are never committed; the sculpted
+  `winking_fixed.scn` variant is tracked. `build.sh` requires all ten, prints `ANATOMY ok 10/10`,
+  and fails with `ANATOMY_FAIL` and the missing names unless they are present under
+  `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by `scripts/pack_anatomy.sh`
+  first; `--no-anatomy` builds a code-only pack and drops the assets even when they are in the
+  working tree.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
   `AUDIO_CREDITS.md` and `changelog.txt` do.
@@ -1000,8 +1001,11 @@ examples.
   `anatomy_fluid` is on. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
   mesh is far or hidden by `anatomy.act_only`.
-- `anatomy.gd` rebuilds the winking mesh once at attach and masks the anal rim out of both the
-  authored `closed` and `wink` shapes, so only the vulva moves. The resting pose is `closed = 1`
+- `anatomy.gd` rebuilds each winking source mesh once and caches it per source, then masks the
+  anal rim out of both the authored `closed` and `wink` shapes, so only the vulva moves.
+  `anatomy.winking_model` (`original`/`sculpted`) selects `winking.scn` or
+  `winking_fixed.scn`; the sculpted choice falls back to the original when the file is absent,
+  and a live change swaps the mesh in place. The resting pose is `closed = 1`
   and `wink = 0` (almost closed, clitoris hidden). A heat mare rests at `HEAT_REST_OPEN = 0.20`
   of the `wink` shape and each idle wink crossfades toward it and back; `closed` stays 1, so the
   idle rest never opens the resting lips. The shader depth cut is the act's shaft solve only: it

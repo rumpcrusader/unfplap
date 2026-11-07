@@ -22,6 +22,7 @@ func check(ok: bool, text: String) -> void:
 func facts(overrides := {}) -> Dictionary:
 	var out := {
 		"friendship": "Good Friend",
+		"friendship_level": 3,
 		"love": "Marefriend",
 		"love_level": 2,
 		"stage": "dating",
@@ -52,7 +53,23 @@ func run() -> void:
 	check(REL.tone(facts({"love_level": 3})) == "ardent", "head over hooves is ardent")
 	check(REL.tone(facts({"love_level": 4})) == "open", "soulmates is open")
 	check(REL.tone(facts({"careful": true})) == "careful", "hurt overrides depth")
+	check(REL.tone(facts({"love_level": -1, "friendship_level": 1,
+		"stage": "acquaintance"})) == "guarded", "an acquaintance is guarded")
+	check(REL.tone(facts({"love_level": -1, "friendship_level": 3,
+		"stage": "close_friend"})) == "friendly", "a friend is friendly, not warm")
+	check(REL.tone(facts({"love_level": -1, "friendship_level": 0,
+		"stage": ""})) == "guarded", "a stranger is guarded")
+	check(REL.note(facts({"stage": "acquaintance"})).contains("you barely know each other"),
+		"the acquaintance stage is phrased")
+	check(REL.note(facts({"stage": "close_friend"})).contains("you are close friends"),
+		"the close-friend stage is phrased")
+	check(not REL.note(facts({"stage": "acquaintance"})).contains("acquaintance"),
+		"the raw stage id is not sent")
 	check(not REL.tone_line("warm").is_empty(), "tone line is present")
+	check(REL.tone_line("guarded").contains("do not know him well"),
+		"guarded tone line is present")
+	check(REL.tone_line("friendly").contains("not romantic partners"),
+		"friendly tone line is present")
 
 	check(REL.memory_line("").is_empty(), "empty memory is dropped")
 	check(REL.memory_line("a walk").contains("a walk"), "memory line carries text")

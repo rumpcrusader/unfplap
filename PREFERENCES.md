@@ -212,9 +212,12 @@ overwhelmed   a disliked touch/talk landed recently
 - The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
   neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
   at `ASSIST_CAP = 60` and only real thrusting can add more.
-- Every cue line gets a private relationship note and tone: friendship/love level, stage,
-  first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
-  text is unchanged, and the model is not told to repeat specific names.
+- Every cue line gets a private relationship note and tone: friendship/love level, a human stage
+  phrase, first-time/repeat, mood, then `guarded`/`friendly`/`tender`/`warm`/`ardent`/`open`/
+  `careful`. No romance with an acquaintance is `guarded`; no romance with a friend is `friendly`;
+  a first time with romance or a crush/new couple is `tender`; a marefriend is `warm`.
+  `first_time` uses durable act history plus the world context. The functional cue text is unchanged, and the model is not told to
+  repeat specific names.
 - `UTTERANCE.context_note()` owns the mandatory context. If a saved prompt omits `{state}`,
   `{relationship}`, `{tone}` or `{memory}`, the runtime appends that block and the privacy guard
   after formatting. A legacy template cannot drop the relationship note.

@@ -45,6 +45,9 @@ func run() -> void:
 	var good_repair := int(rules.get("good_repair", 1))
 
 	var section: Dictionary = {}
+	var read_only: Dictionary = {}
+	check(HISTORY.stored_acts(read_only, "rarity") == 0, "stored acts start at zero")
+	check(not read_only.has(HISTORY.KEY), "stored acts never creates the history block")
 	var fresh: Dictionary = HISTORY.row(section, "rarity")
 	check(int(fresh.get("acts", -1)) == 0, "a new mare starts with no acts")
 	check(HISTORY.tier_index(fresh) == 0, "a new mare is steady")
@@ -54,6 +57,7 @@ func run() -> void:
 
 	var first: Dictionary = HISTORY.commit(section, "rarity", outcome("good"), 10.0)
 	var row: Dictionary = first.get("row", {})
+	check(HISTORY.stored_acts(section, "rarity") == 1, "stored acts counts a committed act")
 	check(int(row.get("comfort", 0)) == good_comfort, "a good act adds comfort")
 	check(int(row.get("hurt", 0)) == 0, "a good act does not add hurt")
 	check(int(row.get("good", 0)) == 1, "good acts are counted")

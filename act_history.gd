@@ -83,6 +83,19 @@ static func row(section: Dictionary, id: String) -> Dictionary:
 	return sanitize(found) if found is Dictionary else _fresh()
 
 
+## Read-only act count. Unlike `row()`, this never creates the history block.
+static func stored_acts(section: Dictionary, id: String) -> int:
+	if id.is_empty():
+		return 0
+	var rows: Variant = section.get(KEY, {})
+	if not rows is Dictionary:
+		return 0
+	var found: Variant = (rows as Dictionary).get(id, {})
+	if not found is Dictionary:
+		return 0
+	return int((found as Dictionary).get("acts", 0))
+
+
 ## The stored row with time decay applied to a copy. Reads never write.
 static func effective_row(section: Dictionary, id: String, now_day: float) -> Dictionary:
 	var out := row(section, id)

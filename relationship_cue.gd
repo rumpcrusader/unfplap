@@ -14,9 +14,9 @@ static func note(facts: Dictionary) -> String:
 		parts.append("friendship " + friendship)
 	if not love.is_empty():
 		parts.append("love " + love)
-	var stage := str(facts.get("stage", "")).strip_edges()
+	var stage := _stage_phrase(str(facts.get("stage", "")).strip_edges())
 	if not stage.is_empty():
-		parts.append("you are " + stage)
+		parts.append(stage)
 	if bool(facts.get("first_time", false)):
 		parts.append("first time together")
 	else:
@@ -29,28 +29,60 @@ static func note(facts: Dictionary) -> String:
 	return "You and Anon: " + ", ".join(parts) + "."
 
 
+## A human stage phrase. The raw bond id is never sent to the model.
+static func _stage_phrase(stage: String) -> String:
+	match stage:
+		"acquaintance":
+			return "you barely know each other"
+		"friend":
+			return "you are friends"
+		"close_friend":
+			return "you are close friends"
+		"dating":
+			return "you are dating"
+		"engaged":
+			return "you are engaged"
+		"married":
+			return "you are married"
+	return ""
+
+
 ## Relationship depth chooses how openly warm the line can be. A strained moment overrides
 ## depth; this is a tone instruction, not a status label the pony may say aloud.
 static func tone(facts: Dictionary) -> String:
 	if bool(facts.get("careful", false)):
 		return "careful"
-	if bool(facts.get("first_time", false)):
+	var love_level := int(facts.get("love_level", -1))
+	var stage := str(facts.get("stage", ""))
+	var romance := love_level >= 0 or stage in ["dating", "engaged", "married"]
+	if bool(facts.get("first_time", false)) and romance:
 		return "tender"
-	match int(facts.get("love_level", 0)):
-		3:
-			return "ardent"
+	match love_level:
 		4:
 			return "open"
-		_:
+		3:
+			return "ardent"
+		2:
 			return "warm"
+		1, 0:
+			return "tender"
+	if stage in ["dating", "engaged", "married"]:
+		return "warm"
+	if int(facts.get("friendship_level", -1)) >= 2:
+		return "friendly"
+	return "guarded"
 
 
 static func tone_line(tone_name: String) -> String:
 	match tone_name:
+		"guarded":
+			return "Guarded: you do not know him well; keep some distance and let trust be earned."
+		"friendly":
+			return "Friendly: you are friends, not romantic partners; let the affection be easy and unromantic."
 		"tender":
-			return "Tender: this is new and a little overwhelming; keep the warmth careful."
+			return "Tender: this is new or uncertain; let the warmth be careful and do not assume more than you have."
 		"warm":
-			return "Warm: you are his marefriend; let the fondness show."
+			return "Warm: you are together; let the fondness show without turning it into a performance."
 		"ardent":
 			return "Ardent: you are deeply in love; let your want and affection be plain."
 		"open":

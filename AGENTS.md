@@ -1044,9 +1044,13 @@ examples.
   relationship, tone and memory blocks that a saved prompt does not reference, plus the privacy
   guard. A legacy or custom template therefore cannot silently drop the relationship note.
 - Every cue line carries a private relationship note and tone. The note uses the friendship/love
-  level names, relationship stage, first-time/repeat and current mood; the tone is `tender`,
-  `warm`, `ardent`, `open` or `careful`. The functional cue text is unchanged. The prompt tells
-  her not to say the labels, levels or numbers.
+  level names, a human stage phrase, first-time/repeat (durable act history plus world context)
+  and current mood. The tone is `guarded`, `friendly`, `tender`, `warm`, `ardent`, `open` or
+  `careful`: no romance with an acquaintance is guarded, no romance with a friend is friendly,
+  a first time with romance or a crush/new couple is tender, a marefriend is warm, and the higher
+  love levels are ardent/open.
+  The functional cue text is unchanged. The prompt tells her not to say the labels, levels or
+  numbers.
 - The cue prompt may include one unused shared memory. `MEMORY.shared_memory()` prefers the
   stored peak memory, then the story journal: a cue-word match, then the most recent player
   exchange. It falls back to the world-context events. Intimacy events and private brain notes

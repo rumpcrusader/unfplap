@@ -9,7 +9,7 @@ extends RefCounted
 ## `max_depth` is the requested peak, set by the mouse. `_amplitude` is the smoothed peak the
 ## waveform actually uses, so scrolling depth does not inject a depth-speed spike.
 
-## Wheel bounds. Keep these equal to `tunables_schema.gd`'s `auto_thrust.*` `user_num` bounds.
+## Wheel bounds. Keep these equal to `settings.gd`'s `auto_thrust.*` bounds.
 const PACE_MIN := 1.0
 const PACE_MAX := 3.75
 ## One mouse-wheel notch while auto owns the stroke. Fixed: it is not a setting.

@@ -12,7 +12,6 @@ const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
@@ -496,7 +495,7 @@ func _ready() -> void:
 func _anatomy_refresh() -> void:
 	if not is_instance_valid(pony):
 		return
-	if not TUNABLES.get_bool("features.anatomy"):
+	if not SETTINGS.anatomy.get_bool():
 		if is_instance_valid(_anatomy):
 			_anatomy.call("detach")
 			_anatomy.queue_free()
@@ -662,7 +661,7 @@ func _standing_presentation_controller():
 		_standing_presentation_ctl = STANDING_PRESENTATION.new(self)
 	return _standing_presentation_ctl
 
-## Feature flag from the act snapshot. Unknown flags read as off, matching TUNABLES.
+## Feature flag from the act snapshot. Unknown flags read as off.
 func _feature(name: String) -> bool:
 	return bool(_features.get(name, false))
 
@@ -694,25 +693,25 @@ func _configure_utterance_scheduler() -> void:
 ## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
 ## it so a settings edit applies without a new act.
 func _snapshot_settings() -> void:
-	_features = TUNABLES.block("features.")
-	var thrust_block := TUNABLES.block("thrust.")
+	_features = SETTINGS.block("features.")
+	var thrust_block := SETTINGS.block("thrust.")
 	thrust_up = str(thrust_block.get("orientation", "up")).to_lower() == "up"
 	_thrust_pixels_per_full = float(thrust_block.get("pixels_per_full", 1000.0))
 	_thrust_travel = float(thrust_block.get("travel", 0.5))
 	_max_pony_climaxes = int(thrust_block.get("max_pony_climaxes", 3))
-	var auto_block := TUNABLES.block("auto_thrust.")
+	var auto_block := SETTINGS.block("auto_thrust.")
 	_auto_default_pace = float(auto_block.get("pace", 1.0))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
-	var jiggle_block := TUNABLES.block("jiggle.")
+	var jiggle_block := SETTINGS.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_center_height_m = float(jiggle_block.get("center_height_m", 0.1))
 	_jiggle_center_back_m = float(jiggle_block.get("center_back_m", 0.15))
 	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.2))
 	_jiggle_smack_intensity = float(jiggle_block.get("smack_intensity", 0.55))
-	var camera_block := TUNABLES.block("camera_thrust.")
+	var camera_block := SETTINGS.block("camera_thrust.")
 	_camera_surge = float(camera_block.get("surge", 1.0))
 	_camera_bob = float(camera_block.get("bob", 0.35))
-	var cue_block := TUNABLES.block("cues.")
+	var cue_block := SETTINGS.block("cues.")
 	_cue_override_seconds = float(cue_block.get("override_seconds", 10.0))
 	_cue_base_stable_s = float(cue_block.get("base_stable_seconds", 2.0))
 	_cue_override_stable_s = float(cue_block.get("override_stable_seconds", 0.5))
@@ -723,11 +722,11 @@ func _snapshot_settings() -> void:
 	_cue_reaction_max_age_s = float(cue_block.get("reaction_max_age_seconds", 30.0))
 	_cue_release_hold_s = float(cue_block.get("release_hold_seconds", 1.0))
 	_cue_overwhelmed_s = float(cue_block.get("overwhelmed_seconds", 1.2))
-	var talk_block := TUNABLES.block("talk.")
+	var talk_block := SETTINGS.block("talk.")
 	_touch_cooldown_s = float(talk_block.get("touch_cooldown_seconds", 4.0))
 	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
 	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
-	_presentation_cfg = TUNABLES.block("presentation." + pose_id + ".")
+	_presentation_cfg = SETTINGS.block("presentation." + pose_id + ".")
 	_configure_utterance_scheduler()
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
@@ -1259,7 +1258,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	if bonds != null and is_instance_valid(bonds) and bonds.has_method("welcomes"):
 		welcomes = bool(bonds.call("welcomes", id, "kiss"))
 	var sex_bond := _sex_bond_ok()
-	var sex_start := TUNABLES.get_string("relationship.sex_start")
+	var sex_start := SETTINGS.sex_start.get_choice()
 	var mood := "?"
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		var ctx: Variant = main.game.get("world_context")
@@ -1476,7 +1475,7 @@ func _stage_ok() -> bool:
 		return false
 	var ladder: Dictionary = runtime.ladder(_id)
 	var love: Dictionary = ladder.get("love", {})
-	if not SEX_BOND.level_ok(TUNABLES.get_string("relationship.promiscuity"),
+	if not SEX_BOND.level_ok(SETTINGS.promiscuity.get_choice(),
 			int(love.get("level", -1))):
 		return false
 	if not bool(runtime.bonds.eligible_for_romance(_id)):
@@ -1495,7 +1494,7 @@ func _relationship_ok() -> bool:
 ## Starting Sex: Try Your Luck lets Anon attempt before she welcomes the kiss. The actual start
 ## still checks _relationship_ok() and refuses when it is false.
 func _try_luck() -> bool:
-	return TUNABLES.get_string("relationship.sex_start") == "try_luck"
+	return SETTINGS.sex_start.get_choice() == "try_luck"
 
 ## The stored bond, without the Starting Sex bypass. Promiscuity and the base kiss willingness
 ## are separate gates, so a bond made at Crush or Any Adult is valid outside a dating stage.
@@ -1547,7 +1546,7 @@ func _cuddle_start_override(pose: String, act_source: String) -> bool:
 	if pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]:
 		return true
 	if _features.is_empty():
-		return TUNABLES.get_bool("features.allow_act_during_cuddle")
+		return SETTINGS.allow_act_during_cuddle.get_bool()
 	return _feature("allow_act_during_cuddle")
 
 
@@ -2184,7 +2183,7 @@ func _standing_gap() -> float:
 	var gaps: Variant = _pose_cfg.get("gaps", STANDING_GAPS)
 	var gap := float((gaps as Dictionary).get(size, STANDING_GAP_M)) if gaps is Dictionary else STANDING_GAP_M
 	gap *= _same_height_scale()
-	gap += TUNABLES.get_float("presentation.standing.gap_offset_m")
+	gap += SETTINGS.gap_offset_m.get_num()
 	_log("standing size=%s gap=%.2f" % [size, gap])
 	return gap
 
@@ -2282,15 +2281,15 @@ func _sync_standing_pose_config() -> void:
 	_pose_cfg = SETTINGS.pose(_id, CATALOG.STANDING)
 	_pose_cfg["play_bow"] = _feature("standing_play_bow")
 	_pose_cfg["chin_up_deg"] = float(_presentation_cfg.get("chin_up_deg",
-		TUNABLES.default_number("presentation.standing.chin_up_deg")))
+		SETTINGS.chin_up_deg.default))
 	_pose_cfg["neck_down_deg"] = float(_presentation_cfg.get("neck_down_deg",
-		TUNABLES.default_number("presentation.standing.neck_down_deg")))
+		SETTINGS.neck_down_deg.default))
 	var tail_cfg: Variant = _presentation_cfg.get("tail", {})
 	if tail_cfg is Dictionary:
 		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
-			TUNABLES.default_number("presentation.standing.tail.yaw_deg"))))
+			SETTINGS.yaw_deg.default)))
 		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
-			TUNABLES.default_number("presentation.standing.tail.pitch_deg"))))
+			SETTINGS.tail_pitch_deg.default)))
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("pose_config", _pose_cfg)
 	if is_instance_valid(_pose):
@@ -2553,18 +2552,18 @@ func anatomy_finish_pull_out() -> bool:
 ## keys pass through and the HUD rows stay hidden.
 func anatomy_hole_ready() -> bool:
 	return is_instance_valid(_anatomy_act) and state in [State.ACTIVE, State.CLIMAX] \
-		and TUNABLES.get_bool("features.anatomy_holes") \
+		and SETTINGS.anatomy_holes.get_bool() \
 		and not bool(_anatomy_act.call("oral_active"))
 
 
 func anatomy_oral_ready() -> bool:
 	return is_instance_valid(_anatomy_act) and state == State.ACTIVE \
-		and pose_id == CATALOG.STANDING and TUNABLES.get_bool("features.anatomy_oral")
+		and pose_id == CATALOG.STANDING and SETTINGS.anatomy_oral.get_bool()
 
 
 func anatomy_finish_ready() -> bool:
 	return is_instance_valid(_anatomy_act) and state in [State.ACTIVE, State.CLIMAX] \
-		and TUNABLES.get_bool("features.anatomy_finish")
+		and SETTINGS.anatomy_finish.get_bool()
 
 
 func anatomy_actions_ready() -> bool:
@@ -3178,7 +3177,7 @@ func _utterance_tick() -> void:
 
 ## integration: one adult observer may say a short line, using the modern witness perception.
 func _bystander_tick(delta: float) -> void:
-	if not TUNABLES.get_bool("features.act_bystanders") or state != State.ACTIVE \
+	if not SETTINGS.act_bystanders.get_bool() or state != State.ACTIVE \
 			or not is_instance_valid(main) or not is_instance_valid(main.game):
 		return
 	if _bystander_event != _event_id:
@@ -3260,9 +3259,9 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		purpose += UTTERANCE.context_note(template, values)
 		purpose += CUE_REACTION_NOTE
 		# integration: optional line angles and speech feel, independent of each other.
-		if TUNABLES.get_bool("features.act_speech_feel"):
+		if SETTINGS.act_speech_feel.get_bool():
 			purpose += _speech_feel_note()
-		if TUNABLES.get_bool("features.act_line_angles"):
+		if SETTINGS.act_line_angles.get_bool():
 			purpose += _line_variety(values.recent)
 	_utterance_serial += 1
 	var suffix := "%s:%d" % [key_suffix, _utterance_serial]
@@ -3345,7 +3344,7 @@ func _recent_lines() -> String:
 	if not spoken is Array or (spoken as Array).is_empty():
 		return ""
 	var recent: Array[String] = []
-	var limit := RECENT_LINES if TUNABLES.get_bool("features.act_line_angles") else 4
+	var limit := RECENT_LINES if SETTINGS.act_line_angles.get_bool() else 4
 	var start := maxi(0, (spoken as Array).size() - limit)
 	for index in range(start, (spoken as Array).size()):
 		recent.append(str((spoken as Array)[index]))
@@ -4146,7 +4145,7 @@ func _finish_climax() -> void:
 func cycle_phase() -> String:
 	if not _cycle_override.is_empty():
 		return _cycle_override
-	if not TUNABLES.get_bool("features.estrus_cycle"):
+	if not SETTINGS.estrus_cycle.get_bool():
 		return CYCLE.NORMAL
 	if not is_instance_valid(pony) or not _read_id():
 		return CYCLE.NORMAL
@@ -4444,7 +4443,7 @@ func _inside_aftermath() -> void:
 	if not is_instance_valid(main):
 		return
 	# integration: an explicit pull-out is not an inside finish.
-	if TUNABLES.get_bool("features.anatomy_finish") and is_instance_valid(_anatomy_act) \
+	if SETTINGS.anatomy_finish.get_bool() and is_instance_valid(_anatomy_act) \
 			and not bool(_anatomy_act.call("finished_inside")):
 		return
 	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
@@ -4850,7 +4849,7 @@ func _begin_camera_mode() -> void:
 	_missionary_camera_controller().reset_look()
 	# integration: optional Anon bed body; it is desktop-only and off by default.
 	if pose_id == CATALOG.MISSIONARY and not _player_pony and not _headset_view() \
-			and TUNABLES.get_bool("features.anatomy_bed_body") and is_instance_valid(_anatomy_act):
+			and SETTINGS.anatomy_bed_body.get_bool() and is_instance_valid(_anatomy_act):
 		_missionary_bed = MISSIONARY_BED.new()
 		_missionary_bed.name = "UnfplapMissionaryBed"
 		add_child(_missionary_bed)
@@ -4859,7 +4858,7 @@ func _begin_camera_mode() -> void:
 			_missionary_bed = null
 	# integration: optional VR standing act; it uses the headset rig and no desktop camera.
 	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING \
-			and TUNABLES.get_bool("features.anatomy_vr"):
+			and SETTINGS.anatomy_vr.get_bool():
 		_start_vr_act()
 	if _player_pony or _headset_view():
 		return

@@ -7,7 +7,6 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
 ## The offer words are the mod's pink accent, like the control card's earned-caress `End`.
 const ACCENT := Color("ffa8c7")

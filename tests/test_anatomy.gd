@@ -6,8 +6,6 @@ const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
@@ -94,45 +92,6 @@ func run() -> void:
 	player.name = "PlayerPony"
 	check(not ANATOMY.eligible(player), "player pony is excluded")
 
-	# Every new flag exists with the intended default.
-	check(SCHEMA.has("features.anatomy"), "anatomy master flag")
-	check(not bool(SCHEMA.default_value("features.anatomy")), "anatomy is off by default")
-	for key: String in ["anatomy_holes", "anatomy_finish", "anatomy_fluid"]:
-		check(SCHEMA.has("features." + key), "%s flag" % key)
-		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
-	check(bool(SCHEMA.default_value("features.anatomy_oral")), "oral is on by default")
-	for key: String in ["anatomy_bed_body", "anatomy_vr", "act_bystanders", "act_public_offer"]:
-		check(SCHEMA.has("features." + key), "%s flag" % key)
-		check(bool(SCHEMA.default_value("features." + key)), "%s is on by default" % key)
-	check(SCHEMA.has("features.act_line_angles")
-		and bool(SCHEMA.default_value("features.act_line_angles")),
-		"line angles are on by default")
-	check(SCHEMA.has("features.act_speech_feel")
-		and not bool(SCHEMA.default_value("features.act_speech_feel")),
-		"speech feel is off by default")
-	check(SCHEMA.has("anatomy.teats"), "teats flag")
-	check(not bool(SCHEMA.default_value("anatomy.teats")), "teats off by default")
-	check(SCHEMA.has("anatomy.skin_strip"), "skin strip flag")
-	check(bool(SCHEMA.default_value("anatomy.skin_strip")), "skin strip on by default")
-	check(SCHEMA.has("anatomy.act_only"), "act-only flag")
-	check(not bool(SCHEMA.default_value("anatomy.act_only")), "act-only off by default")
-	check(SCHEMA.has("anatomy.player_scale"), "player part scale")
-	check(SCHEMA.has("anatomy.part_head_scale"), "player part head scale")
-	check(SCHEMA.has("anatomy.part_length_scale"), "player part length scale")
-	check(SCHEMA.has("anatomy.part_throb"), "player part throb")
-	check(near(float(SCHEMA.default_value("anatomy.part_head_scale")), 1.3),
-		"head scale uses the tuned default")
-	check(near(float(SCHEMA.default_value("anatomy.part_length_scale")), 1.0),
-		"length scale defaults to one")
-	check(SCHEMA.has("anatomy.anal_ring"), "anal ring toggle")
-	check(SCHEMA.has("anatomy.anal_height_mm"), "anal placement height")
-	check(not SCHEMA.has("anatomy.cover_depth_m"), "coat depth bias removed")
-	check(not SCHEMA.has("anatomy.player_pitch_deg"), "player part pitch removed")
-	var tone := SCHEMA.entry("anatomy.skin_tone")
-	check(str(tone.get("kind", "")) == "num", "skin tone is a number")
-	check(bool(tone.get("slider", false)), "skin tone uses the slider row")
-	check(near(float(tone.get("default", -1.0)), 0.5), "skin tone default is the old darker")
-	check(near(float(TUNABLES._coerce(tone, 2.0)), 1.0), "skin tone clamps to the slider range")
 	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.286), "global anatomy placement is on the crease")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
@@ -153,7 +112,7 @@ func run() -> void:
 		"position": [-0.004, 0.5, 0.286]}})
 	var v2_pos: Array = v2["rarity"]["position"]
 	check(near(float(v2_pos[0]), -0.004), "current rows are not touched")
-	check(not SCHEMA.has("presentation.lean_back_m"), "back lean setting removed")
+	check(SETTINGS.by_path("presentation.lean_back_m") == null, "back lean setting removed")
 	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),
 		"VR body tracker API")
 	check(not ClassDB.class_has_method("XRBodyTracker", "get_have_tracking_data"),

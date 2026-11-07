@@ -4,7 +4,6 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
@@ -623,9 +622,9 @@ func run() -> void:
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	var planted_left := plant_left.global_position
 	var planted_right := plant_right.global_position
-	var stance := TUNABLES.get_float("presentation.standing.plant_spread_m") * 0.5
+	var stance := SETTINGS.plant_spread_m.get_num() * 0.5
 	# `Hip drop` lowers the pinned pelvis, and it is on by default.
-	var plant_drop := Vector3.DOWN * TUNABLES.get_float("presentation.standing.hip_drop_m")
+	var plant_drop := Vector3.DOWN * SETTINGS.hip_drop_m.get_num()
 	check(planted_left.is_equal_approx(Vector3(0.2 + stance, 0.0, 0.15)),
 		"planted left foot sits 15 cm behind and half a stance out")
 	check(planted_right.is_equal_approx(Vector3(-0.2 - stance, 0.0, 0.15)),

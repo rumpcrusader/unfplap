@@ -6,9 +6,9 @@ const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 const CHEST_BACK := preload("res://mods/unfplap/chest_back.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const THRUST_MAX_M := 0.045
 ## Captured feet sit this far behind their first act frame spot so they are not between her
 ## hind legs. The hips use the same capture, so the whole lower body translates as one.
@@ -102,7 +102,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			_plant_right = (right as Node3D).global_transform
 			var back := facing.z.normalized()
 			var spread := Vector3(facing.x.x, 0.0, facing.x.z).normalized() \
-				* (TUNABLES.get_float("presentation.standing.plant_spread_m") * 0.5)
+				* (SETTINGS.plant_spread_m.get_num() * 0.5)
 			_plant_left.origin += back * PLANT_FEET_BACK_M + spread
 			_plant_right.origin += back * PLANT_FEET_BACK_M - spread
 			_plant_hip = hip.global_transform
@@ -185,7 +185,7 @@ func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
 
 
 func _hip_drop() -> float:
-	return TUNABLES.get_float("presentation.standing.hip_drop_m")
+	return SETTINGS.hip_drop_m.get_num()
 
 
 func _sway_offset() -> Vector3:

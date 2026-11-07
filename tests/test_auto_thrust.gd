@@ -3,10 +3,10 @@ extends SceneTree
 ## reach every intensity and pattern class the preference system uses.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_auto_thrust.gd
 
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const AUTO := preload("res://mods/unfplap/auto_thrust.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const PREF := preload("res://mods/unfplap/preferences.gd")
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 var failures := 0
 var checks := 0
 
@@ -157,18 +157,18 @@ func run() -> void:
 	check(near(float(bounds.get("pace")), AUTO.PACE_MAX), "auto pace clamps at the maximum")
 
 	# Schema bounds are the player contract, so they must match the generator.
-	check(near(float(SCHEMA.entry("auto_thrust.pace").get("low", 0.0)), AUTO.PACE_MIN),
+	check(near(SETTINGS.pace.low, AUTO.PACE_MIN),
 		"schema auto pace low matches")
-	check(near(float(SCHEMA.entry("auto_thrust.pace").get("high", 0.0)), AUTO.PACE_MAX),
+	check(near(SETTINGS.pace.high, AUTO.PACE_MAX),
 		"schema auto pace high matches")
-	check(near(float(SCHEMA.entry("auto_thrust.pace").get("step", 0.0)), 0.25),
+	check(near(SETTINGS.pace.step, 0.25),
 		"schema auto pace steps by a quarter")
-	check(near(float(SCHEMA.entry("auto_thrust.max_depth").get("low", 0.0)), AUTO.DEPTH_MIN),
+	check(near(SETTINGS.max_depth.low, AUTO.DEPTH_MIN),
 		"schema auto depth low matches")
-	check(near(float(SCHEMA.entry("auto_thrust.max_depth").get("high", 0.0)), AUTO.DEPTH_MAX),
+	check(near(SETTINGS.max_depth.high, AUTO.DEPTH_MAX),
 		"schema auto depth high matches")
 	check(near(AUTO.PACE_STEP, 0.25), "wheel pace step is fixed")
-	check(not SCHEMA.has("auto_thrust.pace_step"), "the wheel pace step is not a setting")
+	check(SETTINGS.by_path("auto_thrust.pace_step") == null, "the wheel pace step is not a setting")
 
 	print("AUTO_THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

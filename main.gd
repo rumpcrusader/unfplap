@@ -14,8 +14,7 @@ const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
-const TUNABLES_UI := preload("res://mods/unfplap/tunables_ui.gd")
+const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -120,9 +119,9 @@ func _ready() -> void:
 	process_priority = 100
 	set_process(true)
 	add_to_group("pony_prompt_notes")
-	debug_logs = TUNABLES.get_bool("debug_logs")
-	debug_perf = TUNABLES.get_bool("debug_perf")
-	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
+	debug_logs = SETTINGS.debug_logs.get_bool()
+	debug_perf = SETTINGS.debug_perf.get_bool()
+	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
@@ -231,7 +230,7 @@ func _on_caption(node: Node) -> void:
 func _apply_caption_top() -> void:
 	if not is_inside_tree():
 		return
-	_captions_on_top = TUNABLES.get_bool("features.captions_on_top")
+	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	_caption_top_tick()
 
 
@@ -270,8 +269,8 @@ func _apply_live_settings() -> void:
 ## One path for every control edit: refresh the cached flags, the caption position and the live
 ## act. Every tunable change goes through here, so a control never needs its own handler.
 func _apply_settings_changed() -> void:
-	debug_logs = TUNABLES.get_bool("debug_logs")
-	debug_perf = TUNABLES.get_bool("debug_perf")
+	debug_logs = SETTINGS.debug_logs.get_bool()
+	debug_perf = SETTINGS.debug_perf.get_bool()
 	_apply_caption_top()
 	_apply_live_settings()
 	# integration: anatomy switches are live outside acts too.
@@ -286,7 +285,7 @@ func _on_player(body: Node) -> void:
 		hud.name = "UnfplapHUD"
 		add_child(hud)
 	# integration: the Anon part exists only with the anatomy feature and the local assets.
-	if not is_instance_valid(anon_part) and TUNABLES.get_bool("features.anatomy") \
+	if not is_instance_valid(anon_part) and SETTINGS.anatomy.get_bool() \
 			and ANON_PART.assets_exist():
 		anon_part = ANON_PART.new()
 		anon_part.name = "UnfplapAnonPart"
@@ -322,7 +321,7 @@ func _on_pony(pony: Node) -> void:
 ## for a few frames.
 func _on_settings_page(page: Node) -> void:
 	# Opening the page re-reads settings.json, so hand-edited values apply without a restart.
-	TUNABLES.reload_settings()
+	SETTINGS.reload_file()
 	if not is_instance_valid(page) or page.has_meta("unfplap_tab") or page.has_meta("unfplap_pending"):
 		return
 	page.set_meta("unfplap_pending", true)
@@ -416,12 +415,12 @@ func _inject_settings_page_now(page: Node) -> void:
 	ui.add_child(tabs_box)
 	var changed := Callable(self, "_apply_settings_changed")
 	var general_list := _settings_tab_list("General", tabs_box)
-	TUNABLES_UI.build(general_list, SETTINGS.GENERAL, font_size, page, changed)
-	TUNABLES_UI.build_actions(general_list, font_size, self, "")
+	SETTINGS_UI.build(general_list, SETTINGS.GENERAL, font_size, page, changed)
+	SETTINGS_UI.build_actions(general_list, font_size, self, "")
 	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
-	TUNABLES_UI.build(anatomy_list, SETTINGS.ANATOMY, font_size, page, changed)
+	SETTINGS_UI.build(anatomy_list, SETTINGS.ANATOMY, font_size, page, changed)
 	var world_list := _settings_tab_list("World", tabs_box)
-	TUNABLES_UI.build(world_list, SETTINGS.WORLD, font_size, page, changed)
+	SETTINGS_UI.build(world_list, SETTINGS.WORLD, font_size, page, changed)
 	# Character preference is a per-mare profile form, not a global setting, so it keeps its own
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
@@ -473,6 +472,7 @@ func _style_tabs(tabs: TabContainer, font_size: int) -> void:
 	tabs.add_theme_stylebox_override("tabbar_background", empty)
 	tabs.add_theme_constant_override("side_margin", 0)
 	var bar := tabs.get_tab_bar()
+	bar.add_theme_stylebox_override("tabbar_background", empty)
 	var quiet := STYLE.rounded(STYLE.box(Color.TRANSPARENT, Color.TRANSPARENT, 0, 99, 14, 5))
 	bar.add_theme_stylebox_override("tab_unselected", quiet)
 	bar.add_theme_stylebox_override("tab_disabled", quiet)
@@ -953,7 +953,7 @@ var _yaw_applied := 0.0
 ## Debug: yaw Anon's whole body around its own vertical axis. The skeleton node pose turns the
 ## visible body; the camera, the IK targets and the bone poses are untouched.
 func _body_yaw_tick() -> void:
-	var deg := TUNABLES.get_float("player.body_yaw_deg")
+	var deg := SETTINGS.body_yaw_deg.get_num()
 	if is_zero_approx(deg) and is_zero_approx(_yaw_applied):
 		return
 	if not is_instance_valid(_yaw_skeleton):
@@ -1250,7 +1250,7 @@ func try_start() -> bool:
 	return started
 
 
-## Debug Actions entries (`TUNABLES.ACTIONS`). The offer helper forces a proactive request for
+## Debug Actions entries (`DEBUG_ACTIONS.ACTIONS`). The offer helper forces a proactive request for
 ## the aimed (or nearest) mare, bypassing the quiet/cooldown/AI-usage checks so the lab can test
 ## requests with ai_usage=talk.
 func action_bed_offer() -> String:
@@ -1491,12 +1491,12 @@ func anatomy_status(text: String, seconds := 2.0) -> void:
 
 ## integration: gate for the per-mare public consent.
 func public_offers_enabled() -> bool:
-	return TUNABLES.get_bool("features.act_public_offer")
+	return SETTINGS.act_public_offer.get_bool()
 
 
 ## integration: keep the anatomy feature live when the player edits a flag.
 func refresh_anatomy() -> void:
-	var enabled := TUNABLES.get_bool("features.anatomy")
+	var enabled := SETTINGS.anatomy.get_bool()
 	if enabled and not is_instance_valid(anon_part) and is_instance_valid(player) \
 			and ANON_PART.assets_exist():
 		anon_part = ANON_PART.new()

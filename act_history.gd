@@ -1,4 +1,5 @@
 extends RefCounted
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 ## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
 ## dictionary; no scene access. A good act builds comfort and repairs hurt, a bad act adds hurt
 ## and costs comfort, and the middle of the range changes nothing. Time and apologies repair hurt.
@@ -6,8 +7,6 @@ extends RefCounted
 ## There is deliberately no break-up path. The highest tier is a spoken refusal, not a change to
 ## the base relationship stage.
 
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 
 const MOD_ID := "unfplap"
 const KEY := "act_history"
@@ -47,18 +46,55 @@ const DEFAULT_RULES := {
 }
 
 
+## The live setting behind each rule key, declared once so `rules()` needs no path strings.
+static var _RULES := {
+	"apology_repair": SETTINGS.apology_repair,
+	"bad_hurt": SETTINGS.bad_hurt,
+	"bad_max": SETTINGS.bad_max,
+	"decay_amount": SETTINGS.decay_amount,
+	"decay_days": SETTINGS.decay_days,
+	"early_grace_s": SETTINGS.early_grace_s,
+	"good_comfort": SETTINGS.good_comfort,
+	"good_min": SETTINGS.good_min,
+	"good_repair": SETTINGS.good_repair,
+	"great_comfort": SETTINGS.great_comfort,
+	"great_repair": SETTINGS.great_repair,
+	"max_comfort": SETTINGS.max_comfort,
+	"max_hurt": SETTINGS.max_hurt,
+	"mild_hurt": SETTINGS.mild_hurt,
+	"min_thrusts": SETTINGS.min_thrusts,
+	"offer_base_s": SETTINGS.offer_base_s,
+	"offer_block_hurt": SETTINGS.offer_block_hurt,
+	"offer_comfort_scale": SETTINGS.offer_comfort_scale,
+	"offer_min_s": SETTINGS.offer_min_s,
+	"offer_weight_base": SETTINGS.offer_weight_base,
+	"offer_weight_comfort": SETTINGS.offer_weight_comfort,
+	"offer_weight_hurt": SETTINGS.offer_weight_hurt,
+	"p_dislike": SETTINGS.p_dislike,
+	"p_miss": SETTINGS.p_miss,
+	"p_severe": SETTINGS.p_severe,
+	"p_silence": SETTINGS.p_silence,
+	"reminder_hurt": SETTINGS.reminder_hurt,
+	"severe_hurt": SETTINGS.severe_hurt,
+	"w_climax": SETTINGS.w_climax,
+	"w_motion": SETTINGS.w_motion,
+	"w_not_early": SETTINGS.w_not_early,
+	"w_talk": SETTINGS.w_talk,
+	"w_touch": SETTINGS.w_touch,
+	"withdraw_hurt": SETTINGS.withdraw_hurt,
+	}
+
+
 static func rules() -> Dictionary:
 	var out := DEFAULT_RULES.duplicate(true)
 	for key: String in DEFAULT_RULES:
-		var path := "history." + key
-		if SCHEMA.has(path):
-			out[key] = TUNABLES.get_float(path)
+		if _RULES.has(key):
+			out[key] = _RULES[key].get_num()
 	return out
 
 
 static func enabled() -> bool:
-	return true if not SCHEMA.has("features.act_history") \
-		else TUNABLES.get_bool("features.act_history")
+	return SETTINGS.act_history.get_bool()
 
 
 ## The live mod section for the current world, or an empty dictionary outside one.
@@ -188,7 +224,7 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 	rows[id] = row
 	section[KEY] = rows
 	return {"row": row.duplicate(true), "previous_tier": previous, "tier": current,
-		"events": events}
+	"events": events}
 
 
 ## Repair hurt from a good act, staying close, or another non-sexual kindness.
@@ -489,30 +525,30 @@ static func day_now() -> float:
 
 static func _fresh() -> Dictionary:
 	return {
-		"version": VERSION,
-		"acts": 0,
-		"good": 0,
-		"bad": 0,
-		"neutral": 0,
-		"hurt": 0,
-		"comfort": 0,
-		"streak_good": 0,
-		"streak_bad": 0,
-		"last_grade": "",
-		"last_quality": 0.0,
-		"last_reasons": [],
-		"last_text": "",
-		"last_wants": "",
-		"last_at": 0.0,
-		"last_day": 0.0,
-		"last_apology_day": -1.0,
-		"stop_until": 0.0,
-		"last_stop_kind": "",
-		"last_stop_at": 0.0,
-		"reminder_pending": false,
-		"complaint_pending": false,
-		"announced_tier": 0,
-		"recent": [],
+	"version": VERSION,
+	"acts": 0,
+	"good": 0,
+	"bad": 0,
+	"neutral": 0,
+	"hurt": 0,
+	"comfort": 0,
+	"streak_good": 0,
+	"streak_bad": 0,
+	"last_grade": "",
+	"last_quality": 0.0,
+	"last_reasons": [],
+	"last_text": "",
+	"last_wants": "",
+	"last_at": 0.0,
+	"last_day": 0.0,
+	"last_apology_day": -1.0,
+	"stop_until": 0.0,
+	"last_stop_kind": "",
+	"last_stop_at": 0.0,
+	"reminder_pending": false,
+	"complaint_pending": false,
+	"announced_tier": 0,
+	"recent": [],
 	}
 
 
@@ -547,11 +583,11 @@ static func _append_recent(row: Dictionary, outcome: Dictionary, _now_day: float
 	var recent: Variant = row.get("recent", [])
 	var list: Array = recent if recent is Array else []
 	list.append({
-		"grade": str(outcome.get("grade", "neutral")).left(16),
-		"quality": clampf(float(outcome.get("quality", 0.0)), 0.0, 1.0),
-		"at": Time.get_unix_time_from_system(),
-		"reasons": _clean_reasons(outcome.get("reasons", [])),
-		"text": str(outcome.get("text", "")).strip_edges().left(MAX_TEXT),
+	"grade": str(outcome.get("grade", "neutral")).left(16),
+	"quality": clampf(float(outcome.get("quality", 0.0)), 0.0, 1.0),
+	"at": Time.get_unix_time_from_system(),
+	"reasons": _clean_reasons(outcome.get("reasons", [])),
+	"text": str(outcome.get("text", "")).strip_edges().left(MAX_TEXT),
 	})
 	while list.size() > MAX_RECENT:
 		list.pop_front()

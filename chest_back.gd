@@ -1,8 +1,8 @@
 extends SkeletonModifier3D
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 ## Pushes Anon's chest backward from the camera in the standing act. The head/camera pose is
 ## restored after the move, so the view stays put while the chest clears it. 0 is off.
 
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 
 var player: Node3D
 
@@ -11,7 +11,7 @@ var _head := -1
 
 
 func _process_modification_with_delta(_delta: float) -> void:
-	var back_m := TUNABLES.get_float("presentation.standing.chest_back_m")
+	var back_m := SETTINGS.chest_back_m.get_num()
 	if absf(back_m) < 0.00001:
 		return
 	var sk := get_skeleton()

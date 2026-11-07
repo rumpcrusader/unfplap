@@ -5,8 +5,8 @@ extends Node
 ## larger skinned mesh. Collapsing the hair tail bones hides all of it, and the native tail bones
 ## cover the far bake's skeleton.
 
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const TAIL_HIDE := preload("res://mods/unfplap/tail_hide.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const GROUP := "ai_characters"
 ## Only the chain root is collapsed; every child bone inherits its scale, so the whole tail
 ## shrinks without stacking tiny scales down the chain.
@@ -19,7 +19,7 @@ var _pairs: Dictionary = {}
 
 
 func _process(delta: float) -> void:
-	var on := TUNABLES.get_bool("debug_hide_tails")
+	var on := SETTINGS.debug_hide_tails.get_bool()
 	if not on and _pairs.is_empty():
 		return
 	_clock -= delta

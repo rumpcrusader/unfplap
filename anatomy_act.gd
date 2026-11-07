@@ -4,7 +4,6 @@ extends Node
 ## and the fluid. It never touches thrust scoring, auto thrust or the camera.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -121,10 +120,6 @@ func reset() -> void:
 		anatomy.call("animate", 0.0, 1.0)
 
 
-func _enabled(feature: String) -> bool:
-	return bool(TUNABLES.block("features.").get(feature, false))
-
-
 func _state() -> int:
 	return int(runtime.get("state"))
 
@@ -168,7 +163,7 @@ func finished_inside() -> bool:
 
 
 func toggle_hole() -> void:
-	if not _enabled("anatomy_holes") or _state() not in [2, 3] or _oral:
+	if not SETTINGS.anatomy_holes.get_bool() or _state() not in [2, 3] or _oral:
 		return
 	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("anal_mesh")):
 		return
@@ -179,7 +174,7 @@ func toggle_hole() -> void:
 
 
 func toggle_oral() -> void:
-	if not _enabled("anatomy_oral") or _state() != 2 or pose != CATALOG.STANDING:
+	if not SETTINGS.anatomy_oral.get_bool() or _state() != 2 or pose != CATALOG.STANDING:
 		return
 	if not _consent("oral"):
 		_status("%s is not into that" % _display_name)
@@ -211,7 +206,7 @@ func toggle_oral() -> void:
 
 
 func toggle_finish() -> void:
-	if not _enabled("anatomy_finish") or _state() not in [2, 3]:
+	if not SETTINGS.anatomy_finish.get_bool() or _state() not in [2, 3]:
 		return
 	_pull_out = not _pull_out
 	_status("Finish: %s" % ("pull out" if _pull_out else "stay in"))
@@ -319,7 +314,7 @@ func tick(delta: float) -> void:
 			anatomy.call("clear_shaft")
 		part.set("aim_normal", _normal)
 		part.set("aim_opening", hole_point())
-	var bed := pose == CATALOG.MISSIONARY and _enabled("anatomy_bed_body")
+	var bed := pose == CATALOG.MISSIONARY and SETTINGS.anatomy_bed_body.get_bool()
 	var shown := _depth()
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
 		shown, delta, (mesh as Node3D).get_parent(), pose == CATALOG.STANDING)
@@ -425,7 +420,7 @@ func on_climax() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("_clear_part")
 		_wink_left = CLIMAX_WINK_S
-	if not _enabled("anatomy_fluid"):
+	if not SETTINGS.anatomy_fluid.get_bool():
 		return
 	var fluid := _fluid_node()
 	if not is_instance_valid(fluid):
@@ -437,13 +432,13 @@ func on_climax() -> void:
 func on_finish() -> void:
 	# integration: with the finish control off, keep the master inside semantics and do not
 	# create an outside finish spray.
-	if not _enabled("anatomy_finish"):
+	if not SETTINGS.anatomy_finish.get_bool():
 		_finish_out = false
 		_finished_inside = false
 		return
 	_finish_out = _pull_out or _depth() < PULLED_OUT_PHASE
 	if _finish_out:
-		if _enabled("anatomy_fluid"):
+		if SETTINGS.anatomy_fluid.get_bool():
 			_spurts_on_her(0)
 	elif not _oral:
 		_finished_inside = true
@@ -453,7 +448,7 @@ func on_finish() -> void:
 
 ## integration: afterglow part tracking for the optional bed body.
 func afterglow_tick(delta: float) -> void:
-	if not _enabled("anatomy_bed_body") or not is_instance_valid(anatomy) \
+	if not SETTINGS.anatomy_bed_body.get_bool() or not is_instance_valid(anatomy) \
 			or not is_instance_valid(pony) or not is_instance_valid(main):
 		return
 	var started := Time.get_ticks_usec()
@@ -470,7 +465,7 @@ func afterglow_tick(delta: float) -> void:
 
 
 func withdraw() -> void:
-	if not _enabled("anatomy_fluid"):
+	if not SETTINGS.anatomy_fluid.get_bool():
 		_finished_inside = false
 		return
 	var fluid := _fluid_node()
@@ -511,7 +506,7 @@ func teardown() -> void:
 func _debug_setup() -> void:
 	if not is_instance_valid(main):
 		return
-	if not TUNABLES.get_bool("features.debug_aim_points"):
+	if not SETTINGS.debug_aim_points.get_bool():
 		return
 	_debug_vulva = _debug_sphere(Color(1.0, 0.1, 0.75))
 	_debug_anus = _debug_sphere(Color(1.0, 0.35, 0.05))
@@ -541,7 +536,7 @@ func _debug_sphere(color: Color) -> MeshInstance3D:
 
 
 func _debug_tick(part: Variant) -> void:
-	if not TUNABLES.get_bool("features.debug_aim_points"):
+	if not SETTINGS.debug_aim_points.get_bool():
 		if is_instance_valid(_debug_vulva):
 			_debug_free()
 		return
@@ -581,7 +576,7 @@ func _fluid_node() -> Node3D:
 
 
 func _fluid_ready() -> bool:
-	if not _enabled("anatomy_fluid"):
+	if not SETTINGS.anatomy_fluid.get_bool():
 		return false
 	var fluid := _fluid_node()
 	if not is_instance_valid(fluid):
@@ -618,7 +613,7 @@ func _spurts_on_her(pulse: int) -> void:
 
 
 func _inside_leak() -> void:
-	if not _enabled("anatomy_fluid"):
+	if not SETTINGS.anatomy_fluid.get_bool():
 		return
 	var fluid := _fluid_node()
 	if not is_instance_valid(fluid):

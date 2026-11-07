@@ -1241,6 +1241,22 @@ const DEFAULT_TEMPLATE := {
 ## Every spawnable adult mare's preference template lives in the same catalog.
 const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
+## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
+## file runs the step exactly once.
+const SCHEMA_VERSION := 1
+
+## Retired settings, declared where their replacement lives. `map` receives the stored value and
+## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
+## entry before the defaults merge, so a retired key cannot linger in the file.
+static var _deprecated := [
+	# deprecated("old.path", func(value): return {"new.path": value}),
+]
+
+
+## One retired setting. Add the entry to `_deprecated` above.
+static func deprecated(path: String, map: Callable) -> Dictionary:
+	return {"path": path, "map": map}
+
 static func _path() -> String:
 	var loop := Engine.get_main_loop() as SceneTree
 	if loop != null and loop.root != null:
@@ -1567,7 +1583,7 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 ## when a value changes or when the merged defaults differ from what is on disk.
 static var _cache: Dictionary = {}
 static var _loaded := false
-## Bumped on every load and every write. `tunables.gd` rebuilds its flat value table when it
+## Bumped on every load and every write. The flat value table rebuilds when it
 ## changes, so a save anywhere invalidates the cached tunable reads.
 static var generation := 0
 
@@ -1672,15 +1688,9 @@ static func _load() -> void:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
-	data = _normalize_pose_names(data)
-	data = _normalize_feature_names(data)
-	data = _normalize_line_variety(data)
-	data = _normalize_presentation(data)
-	data = _normalize_tolerance(data)
-	data = _normalize_character_preferences(data)
-	data = _normalize_act_prompts(data)
-	data = _normalize_anatomy(data)
+	data = _migrate(data)
 	data = _merge(_defaults(), data)
+	data["version"] = SCHEMA_VERSION
 	_cache = data
 	_write_file(data)
 
@@ -1731,6 +1741,45 @@ static func _filled_default() -> Dictionary:
 	# Act prompts are code defaults; settings.json stores only overrides. `_fill_prompts()`
 	# supplies the current built-ins at read time so a release can update them.
 	return out
+
+
+## One-time migrations, then the idempotent normalisers. Add a step here for a renamed key and
+## bump `SCHEMA_VERSION`; a current file skips the whole chain. Retired settings are declared with
+## `deprecated()` and applied for every version, so their data can never linger.
+static func _migrate(data: Dictionary) -> Dictionary:
+	for entry: Variant in _deprecated:
+		var path := str((entry as Dictionary).get("path", ""))
+		var value: Variant = _read_path(data, path, null)
+		if value == null:
+			continue
+		var mapped: Variant = ((entry as Dictionary).get("map") as Callable).call(value)
+		_erase_path(data, path)
+		if mapped is Dictionary:
+			data = _merge(data, mapped)
+	data = _normalize_pose_names(data)
+	data = _normalize_feature_names(data)
+	data = _normalize_line_variety(data)
+	data = _normalize_presentation(data)
+	data = _normalize_tolerance(data)
+	data = _normalize_character_preferences(data)
+	data = _normalize_act_prompts(data)
+	data = _normalize_anatomy(data)
+	return data
+
+
+## Remove one dotted path, leaving the rest of its block.
+static func _erase_path(data: Dictionary, path: String) -> void:
+	var parts := path.split(".", false)
+	if parts.is_empty():
+		return
+	var node: Dictionary = data
+	for index: int in parts.size() - 1:
+		var key := parts[index]
+		var child: Variant = node.get(key)
+		if not child is Dictionary:
+			return
+		node = child
+	node.erase(parts[parts.size() - 1])
 
 
 ## One-off migrations for anatomy keys: the vertical placement was first a downward drop, and a

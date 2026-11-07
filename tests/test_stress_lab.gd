@@ -3,7 +3,6 @@ extends "res://mods/unfplap/tests/test_lab.gd"
 ## a grid in front of Golden Oak Library. Run with ./lab-stress.sh. Fillies are excluded.
 
 const POPULATION_CONFIG := preload("res://world/population/pony_population_config.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const GRID_COLUMNS := 15
 const GRID_ACROSS_M := 0.95
 const GRID_BACK_M := 0.95
@@ -36,12 +35,12 @@ func run() -> void:
 	if is_instance_valid(game):
 		print("[unfplap stress] %d adult mares; fillies excluded" % _stress_ids().size())
 		print("[unfplap stress] anatomy flags: anatomy=%s holes=%s oral=%s finish=%s fluid=%s act_only=%s" % [
-			str(TUNABLES.get_bool("features.anatomy")),
-			str(TUNABLES.get_bool("features.anatomy_holes")),
-			str(TUNABLES.get_bool("features.anatomy_oral")),
-			str(TUNABLES.get_bool("features.anatomy_finish")),
-			str(TUNABLES.get_bool("features.anatomy_fluid")),
-			str(TUNABLES.get_bool("anatomy.act_only")),
+			str(SETTINGS.anatomy.get_bool()),
+			str(SETTINGS.anatomy_holes.get_bool()),
+			str(SETTINGS.anatomy_oral.get_bool()),
+			str(SETTINGS.anatomy_finish.get_bool()),
+			str(SETTINGS.anatomy_fluid.get_bool()),
+			str(SETTINGS.act_only.get_bool()),
 		])
 
 

@@ -15,7 +15,7 @@ Do not start implementation until you have read the required files for the area 
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
-| Any setting, flag or debug control | `TUNING.md`, `tunables_schema.gd`, `tunables.gd` |
+| Any setting, flag or debug control | `TUNING.md`, `settings.gd`, `settings_ui.gd` |
 | Character profiles or preference | `character_preferences.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md` |
 
@@ -159,9 +159,10 @@ mods/unfplap/
   auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
   cycle.gd          pure per-mare estrus phase: heat, diestrus, normal; idle wink burst roll
-  tunables_schema.gd  every global setting: one schema entry per line, keyed by its JSON path
-  tunables.gd       the one typed API for reading and writing those settings
-  tunables_ui.gd    the only file that builds settings widgets: schema rows as the page's menu rows
+  settings.gd       every global setting declared once, the typed accessors, the settings file and
+                    the per-mare profiles
+  settings_ui.gd    the only file that builds settings widgets: declaration rows as the page's rows
+  debug_actions.gd  the Debug block's action buttons and their hotkeys
   utterance.gd      pure prompt formatting
   utterance_scheduler.gd  pure cue selection and line admission: stability, gaps, demand
                     budget, one slot for cues and reactions
@@ -889,7 +890,7 @@ examples.
 - A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
   (`upset.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
   `features.act_history` off, or a skipped summary, there is no impression and no face.
-- Debug tunables live under **Neglect tolerance**; Debug → Actions has **Force neglect warning**
+- The **Neglect tolerance** debug settings sit in General's Debug block; the Debug actions have **Force neglect warning**
   and **Force neglect stop**. See `HISTORY.md`.
 
 ### Proactive requests
@@ -1046,7 +1047,7 @@ examples.
   stability clock, `cue_gap` (default `12 s`, clamped `8..30`, per character), the shared
   utterance gap, the demand budget and the single pending slot. `runtime.gd` builds the prompt and
   calls the director.
-- The debug **Talk & cues** tunables push the pacing values into the scheduler: override lifetime
+- The **Talk & cues** debug settings push the pacing values into the scheduler: override lifetime
   (`cues.override_seconds`, default `10 s`), base and override stability, shared line gap, demand
   gap/repeat, cue/reaction max age and the release hold. `runtime._snapshot_settings()` and
   `apply_live_settings()` re-read them.
@@ -1176,7 +1177,7 @@ examples.
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a
   player build unlocks it with **Settings → Updates** pressed five times. Acts own
   `controls_locked`, so the console is not available while an act is running.
-- Debug actions live in `TUNABLES.ACTIONS` and render as **Debug → Actions** buttons. Adding an
+- Debug actions live in `debug_actions.gd` and render as buttons in General's **Debug** block. Adding an
   action is one entry; give it a `hotkey` only when it must fire while the world is unpaused and
   you are looking at the scene. A hotkey-less action is the default.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
@@ -1263,7 +1264,7 @@ examples.
 **Every global setting is declared once, in `settings.gd`.** One declaration line names it, its JSON
 path, label, help, tab, group, default and bounds; call sites use the typed accessor on the named
 setting (`SETTINGS.act_foley.get_bool()`, `SETTINGS.raise_m.set(0.2)`) and never a string path.
-`tunables_ui.gd` draws the panels from the declarations. Never add a widget, a defaults constant or
+`settings_ui.gd` draws the panels from the declarations. Never add a widget, a defaults constant or
 a save function for a setting anywhere else. A setting becomes a debug setting with `.as_debug()`,
 which also removes its clamp. The full contract is `TUNING.md`.
 
@@ -1276,13 +1277,13 @@ which also removes its clamp. The full contract is `TUNING.md`.
 - `settings.json` path: `user://mods/data/unfplap/settings.json`
   (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
 - The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
-  changes. Opening the Unfplap settings tab calls `TUNABLES.reload_settings()`, so a hand-edited
+  changes. Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, so a hand-edited
   file applies when the tab opens; otherwise it needs a restart.
 - Top level: `debug_logs`, `debug_perf`, `debug_hide_tails`, `features`, `relationship`, `thrust`,
   `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`, `tolerance`, `cues`, `talk`,
   `default` template, `characters` overrides.
-- Feature flags live in the tunable schema (`tunables_schema.gd`, paths `features.*`) and are read
-  through `tunables.gd`; the runtime snapshots them with every other act value in
+- Feature flags are declared under `features.*` in `settings.gd` and read through their typed
+  accessor; the runtime snapshots them with every other act value in
   `_snapshot_settings()` at act start, and `apply_live_settings()` re-runs that snapshot after any
   settings edit. Keep these documented here when adding one:
 
@@ -1403,7 +1404,7 @@ rump blush. Unknown settings keys are ignored.
   they appear. Label, help and section all come from the declaration; there is no separate feature
   info table.
 - The injected tab has nested **General**, **Anatomy**, **World** and **Characters** sub-tabs, in
-  that order. General, Anatomy and World are drawn from the declarations by `tunables_ui.gd`: one
+  that order. General, Anatomy and World are drawn from the declarations by `settings_ui.gd`: one
   row per setting, grouped into click-to-collapse sections from its `group` (`"Standing › Smack"`
   is a subheading under `Standing`). Player-facing settings come first; when the **Debug mode**
   setting (General › General) is on, the tab ends with one **Debug** section holding that tab's debug
@@ -1414,7 +1415,7 @@ rump blush. Unknown settings keys are ignored.
   `TabContainer`'s inner **TabBar** (an override on the container does not reach the bar) with the
   container's own `panel` and `tabbar_background` emptied, and a section heading is the `Tab`
   variation, whose pink accent shows the section is open.
-  `tunables_ui.gd` draws each setting as the page's own `_row_idle`/`_row_hover` card (falling back
+  `settings_ui.gd` draws each setting as the page's own `_row_idle`/`_row_hover` card (falling back
   to the same `menu_style` box), keeps the help text on a `Faint` label, shows a boolean as a switch
   with its Off/On state, and renders a choice of at most four short labels as a pill track; longer
   choices keep the themed dropdown. Number rows get a double-width spin box so large values and

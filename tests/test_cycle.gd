@@ -2,8 +2,8 @@ extends SceneTree
 ## Pure estrus-cycle rules and the feature flag.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_cycle.gd
 
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 
 var failures := 0
 var checks := 0
@@ -62,8 +62,7 @@ func run() -> void:
 	check(CYCLE.wink_burst_count(0.30) == 1, "singles start at thirty percent")
 	check(CYCLE.wink_burst_count(0.999) == 1, "the top roll is a single")
 
-	check(SCHEMA.has("features.estrus_cycle"), "estrus flag exists")
-	check(not bool(SCHEMA.default_value("features.estrus_cycle")), "estrus is off by default")
+	check(not bool(SETTINGS.estrus_cycle.default), "estrus is off by default")
 
 	print("CYCLE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

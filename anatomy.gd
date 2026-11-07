@@ -8,7 +8,6 @@ const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
 const DOCK := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
@@ -212,7 +211,7 @@ func refresh() -> void:
 
 
 func _enabled() -> bool:
-	return TUNABLES.get_bool("features.anatomy")
+	return SETTINGS.anatomy.get_bool()
 
 
 func _attach() -> void:
@@ -299,7 +298,7 @@ func _process(delta: float) -> void:
 
 ## integration: act-only visibility. POSING_IN, ACTIVE, CLIMAX and AFTERGLOW are the act.
 func _act_visible() -> bool:
-	if not TUNABLES.get_bool("anatomy.act_only"):
+	if not SETTINGS.act_only.get_bool():
 		return true
 	if not is_instance_valid(runtime):
 		return true
@@ -311,8 +310,8 @@ func _apply_visibility() -> void:
 	if not _attached or not is_instance_valid(pony):
 		return
 	var far := bool(pony.get("_far_mesh_shown")) if pony.get("_far_mesh_shown") != null else false
-	var teats_on := TUNABLES.get_bool("anatomy.teats")
-	var strip_on := TUNABLES.get_bool("anatomy.skin_strip")
+	var teats_on := SETTINGS.teats.get_bool()
+	var strip_on := SETTINGS.skin_strip.get_bool()
 	var show := not far and _act_visible()
 	var teats_show := show and teats_on
 	var strip_show := show and strip_on
@@ -392,7 +391,7 @@ func _apply_dock(anatomy_shown: bool) -> void:
 	if not anatomy_shown:
 		_dock.visible = _dock_was_visible
 		return
-	_dock.visible = not TUNABLES.get_bool("anatomy.hide_dock")
+	_dock.visible = not SETTINGS.hide_dock.get_bool()
 
 
 ## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
@@ -410,7 +409,7 @@ func _apply_place() -> void:
 	# The dock-bottom alignment only matters while the dock is drawn. With `hide_dock` on it
 	# would pull the anatomy down for a dock nobody sees, and Derpy's dock sits lower than the
 	# others', which buried her anatomy.
-	if _dock_bottom < INF and not TUNABLES.get_bool("anatomy.hide_dock"):
+	if _dock_bottom < INF and not SETTINGS.hide_dock.get_bool():
 		var top := WINKING_TOUCH_Y + WINKING_HALF_HEIGHT * _scale * cos(deg_to_rad(_pitch))
 		lift = clampf(_dock_bottom - top, -0.1, 0.06)
 	var place := _pos + Vector3(0.0, lift, minf(lift, 0.0) * 0.2)
@@ -487,7 +486,7 @@ func _apply_material() -> void:
 	material.set_shader_parameter("lip_radius", _lip_radius)
 	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
-		clampf(TUNABLES.get_float("anatomy.lip_vertical"), 0.0, 1.0))
+		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
 	# `_wide` is the world shaft radius; the shader works in mesh units.
 	material.set_shader_parameter("hole_target", _wide / world_scale)
 	_mesh.set_surface_override_material(0, material)
@@ -507,7 +506,7 @@ func _skin_tones() -> Array:
 	var dark: Color = shade if shade is Color else Color(0.68, 0.68, 0.68)
 	# The old Coat / Darker / Dark values are the three anchors of one 0…1 slider, with every
 	# point between them interpolated.
-	var tone := TUNABLES.get_float("anatomy.skin_tone")
+	var tone := SETTINGS.skin_tone.get_num()
 	var darker_fill := base.darkened(0.1)
 	var darker_shade := dark.darkened(0.16)
 	if tone <= 0.5:
@@ -521,7 +520,7 @@ func _skin_tones() -> Array:
 func _attach_anal() -> void:
 	if not is_instance_valid(_mesh) or is_instance_valid(_anal_mesh):
 		return
-	_anal_ring = TUNABLES.get_bool("anatomy.anal_ring")
+	_anal_ring = SETTINGS.anal_ring.get_bool()
 	if _anal_ring and not ResourceLoader.exists(ANAL_RING_PATH):
 		_anal_ring = false
 	var scene: PackedScene = load(ANAL_RING_PATH if _anal_ring else ANAL_PATH)
@@ -557,7 +556,7 @@ func _attach_anal() -> void:
 ## Swap the anal asset when the ring toggle changes (the model is picked at attach, so a live
 ## toggle detaches and re-attaches it). Falls back to the cup when the ring asset is missing.
 func _refresh_anal_ring() -> void:
-	var want := TUNABLES.get_bool("anatomy.anal_ring") and ResourceLoader.exists(ANAL_RING_PATH)
+	var want := SETTINGS.anal_ring.get_bool() and ResourceLoader.exists(ANAL_RING_PATH)
 	if want == _anal_ring:
 		return
 	if is_instance_valid(_anal_mesh):
@@ -603,7 +602,7 @@ func _apply_strip_scale() -> void:
 	var material := _skin_strip.get_surface_override_material(0) as ShaderMaterial
 	if material == null:
 		return
-	material.set_shader_parameter("strip_scale", TUNABLES.get_float("anatomy.strip_scale"))
+	material.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
 
 
 ## Place the anal mesh from its live height control. It moves the node, so the mesh's own space
@@ -611,7 +610,7 @@ func _apply_strip_scale() -> void:
 func _apply_anal_place() -> void:
 	if not is_instance_valid(_anal_mesh):
 		return
-	var height := TUNABLES.get_float("anatomy.anal_height_mm") / 1000.0
+	var height := SETTINGS.anal_height_mm.get_num() / 1000.0
 	_anal_mesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, height, 0.0))
 
 
@@ -734,7 +733,7 @@ func _apply_teats_material(base: ShaderMaterial) -> void:
 		strip.set_shader_parameter("gap_from", _strip_gap.x)
 		strip.set_shader_parameter("gap_to", _strip_gap.y)
 		strip.set_shader_parameter("strip_trim", 1.0)
-		strip.set_shader_parameter("strip_scale", TUNABLES.get_float("anatomy.strip_scale"))
+		strip.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
 		_skin_strip.set_surface_override_material(0, strip)
 
 
@@ -797,7 +796,7 @@ func fluid() -> Node3D:
 ## Idle heat drip: one leak per wink burst, scaled a little by the burst size. The fluid node is
 ## persistent, so the drops keep their motion and pool on the ground under her.
 func idle_drip(count: int) -> void:
-	if not TUNABLES.get_bool("features.anatomy_fluid"):
+	if not SETTINGS.anatomy_fluid.get_bool():
 		return
 	if not is_instance_valid(pony) or not pony.is_inside_tree() or not is_instance_valid(_mesh):
 		return

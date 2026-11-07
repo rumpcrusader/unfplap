@@ -4,8 +4,7 @@ extends RefCounted
 ## No scene access.
 
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const DEFAULT_RULES := {
 	"forgiving_warning": 4.0,
@@ -30,12 +29,28 @@ var last_dislike := ""
 var _decay_left := 0.0
 
 
+## The live setting behind each rule key, declared once so `rules()` needs no path strings.
+static var _RULES := {
+	"decay_amount": SETTINGS.tolerance_decay_amount,
+	"decay_seconds": SETTINGS.decay_seconds,
+	"dislike_amount": SETTINGS.dislike_amount,
+	"forgiving_warning": SETTINGS.forgiving_warning,
+	"like_relief": SETTINGS.like_relief,
+	"normal_cooldown_s": SETTINGS.normal_cooldown_s,
+	"normal_stop": SETTINGS.normal_stop,
+	"normal_warning_1": SETTINGS.normal_warning_1,
+	"normal_warning_2": SETTINGS.normal_warning_2,
+	"strict_cooldown_s": SETTINGS.strict_cooldown_s,
+	"strict_stop": SETTINGS.strict_stop,
+	"strict_warning": SETTINGS.strict_warning,
+}
+
+
 static func rules() -> Dictionary:
 	var out := DEFAULT_RULES.duplicate(true)
 	for key: String in DEFAULT_RULES:
-		var path := "tolerance." + key
-		if SCHEMA.has(path):
-			out[key] = TUNABLES.get_float(path)
+		if _RULES.has(key):
+			out[key] = _RULES[key].get_num()
 	return out
 
 

@@ -4,7 +4,7 @@ extends Node
 
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const HIPS_REST := Vector3(0.0, 0.978635, 0.013361)
 const PLACE_PATH := "user://mods/data/unfplap/anon_place.json"
 const SKIN := Color(0.34, 0.66, 0.34)
@@ -184,12 +184,12 @@ func _apply_ready() -> void:
 
 
 func _read_settings() -> void:
-	_setting_scale = TUNABLES.get_float("anatomy.player_scale")
-	_girth_base = maxf(TUNABLES.get_float("anatomy.part_base_scale"), 0.01)
-	_girth_mid = maxf(TUNABLES.get_float("anatomy.part_mid_scale"), 0.01)
-	_girth_head = maxf(TUNABLES.get_float("anatomy.part_head_scale"), 0.01)
-	_part_length_scale = maxf(TUNABLES.get_float("anatomy.part_length_scale"), 0.01)
-	_throb_gain = maxf(TUNABLES.get_float("anatomy.part_throb"), 0.0)
+	_setting_scale = SETTINGS.player_scale.get_num()
+	_girth_base = maxf(SETTINGS.part_base_scale.get_num(), 0.01)
+	_girth_mid = maxf(SETTINGS.part_mid_scale.get_num(), 0.01)
+	_girth_head = maxf(SETTINGS.part_head_scale.get_num(), 0.01)
+	_part_length_scale = maxf(SETTINGS.part_length_scale.get_num(), 0.01)
+	_throb_gain = maxf(SETTINGS.part_throb.get_num(), 0.0)
 
 
 ## integration: the user-facing scale sits on top of the saved placement.
@@ -201,7 +201,7 @@ func _placed() -> Transform3D:
 	var basis := _rotation_basis().scaled(Vector3.ONE * _scale * _setting_scale)
 	# `Cock forward` slides the base out along the shaft, so it can sit on the front of the hips
 	# instead of inside the pelvis.
-	var front := TUNABLES.get_float("anatomy.part_front_m")
+	var front := SETTINGS.part_front_m.get_num()
 	var axis := (TIP_POINT - PIVOT).normalized()
 	return _bone_inverse * Transform3D(basis, _pos + (_rotation_basis() * axis) * front)
 
@@ -320,7 +320,7 @@ func _aim_part(target: Vector3, depth: float, delta: float, attached: bool) -> v
 	_apply_place()
 	# `Max back-out` was removed; the tip now stays at the entrance.
 	var max_back := 0.0
-	var max_depth := maxf(TUNABLES.get_float("anatomy.max_depth_m"), 0.0)
+	var max_depth := maxf(SETTINGS.max_depth_m.get_num(), 0.0)
 	_depth_smooth = lerpf(_depth_smooth, clampf(depth, 0.0, 1.0),
 		1.0 - exp(-maxf(delta, 0.0) / 0.04))
 	if attached:
@@ -372,7 +372,7 @@ func _aim_attached(target: Vector3, max_back: float, max_depth: float) -> void:
 	var along := -max_back + _depth_smooth * (max_back + max_depth)
 	# Keep his pelvis at least `Pelvis gap` behind her rear surface: if the shaft is too short to
 	# reach the depth asked for, the depth is what gives way, not his body.
-	var gap := maxf(TUNABLES.get_float("anatomy.pelvis_gap_m"), 0.0)
+	var gap := maxf(SETTINGS.pelvis_gap_m.get_num(), 0.0)
 	along = minf(along, maxf(to_tip.length() - gap, 0.0))
 	# Put his pelvis on the normal line through the opening. This is the whole alignment: the base
 	# sits at `shaft length - depth` behind the hole, straight out along her normal, so the shaft,

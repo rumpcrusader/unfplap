@@ -1,5 +1,5 @@
 extends RefCounted
-## Draws the Unfplap Settings and Debug panels from `tunables_schema.gd`.
+## Draws the Unfplap settings tabs from the declarations in `settings.gd`.
 ##
 ## This is the only file allowed to create settings widgets. Do not add a SpinBox, CheckButton or
 ## OptionButton control for a setting anywhere else: add a schema line instead and it appears here.
@@ -11,9 +11,8 @@ extends RefCounted
 ## control on the right, a switch beside its Off/On state, and a few short choices as Segment pills
 ## in a track. Entries render in schema order, so the schema file doubles as the panel layout.
 
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug_actions.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
 
 ## Choices at most in a pill track, and the longest label one may hold: past either, the row keeps
@@ -91,7 +90,7 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, pa
 			_add_row(rows, path, font_size, page, changed)
 
 
-## The Actions section: one button per `TUNABLES.ACTIONS` entry, plus its last result. It is
+## The Actions section: one button per `DEBUG_ACTIONS.ACTIONS` entry, plus its last result. It is
 ## inserted right after the `General` section's rows instead of at the bottom of the Debug list.
 static func build_actions(list: VBoxContainer, font_size: int, main: Node,
 		after_section := "General") -> void:
@@ -104,8 +103,8 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node,
 	box.add_child(heading)
 	var status := STYLE.label("", "Faint", font_size - 6)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	for name: String in TUNABLES.ACTIONS:
-		var action: Dictionary = TUNABLES.ACTIONS[name]
+	for name: String in DEBUG_ACTIONS.ACTIONS:
+		var action: Dictionary = DEBUG_ACTIONS.ACTIONS[name]
 		if not bool(action.get("panel", true)):
 			continue
 		var button := Button.new()
@@ -115,7 +114,7 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node,
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", font_size - 2)
 		button.pressed.connect(func() -> void:
-			status.text = TUNABLES.run_action(name, main)
+			status.text = DEBUG_ACTIONS.run_action(name, main)
 			_debug(main, "action %s" % name))
 		box.add_child(button)
 	box.add_child(status)
@@ -176,7 +175,7 @@ static func _heading(text: String, font_size: int, sub: bool, open := true) -> B
 
 static func _add_row(parent: VBoxContainer, path: String, font_size: int, page: Node,
 		changed: Callable) -> void:
-	var item := SCHEMA.entry(path)
+	var item: Dictionary = SETTINGS.entry_view(SETTINGS.by_path(path))
 	var card := PanelContainer.new()
 	var idle := _row_box(page, false)
 	var hover := _row_box(page, true)
@@ -244,7 +243,7 @@ static func _check(path: String, font_size: int, page: Node, changed: Callable) 
 	state.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.add_child(state)
 	var check := CheckButton.new()
-	check.button_pressed = TUNABLES.get_bool(path)
+	check.button_pressed = _setting(path).get_bool()
 	check.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	check.set_meta("no_lift", true)
 	check.toggled.connect(func(on: bool) -> void:
@@ -268,7 +267,7 @@ static func _spin(path: String, item: Dictionary, font_size: int, page: Node,
 	spin.suffix = str(item.get("unit", ""))
 	spin.add_theme_font_size_override("font_size", font_size - 2)
 	spin.custom_minimum_size.x = float(font_size) * 10.0
-	spin.value = TUNABLES.get_float(path) * scale
+	spin.value = _setting(path).get_num() * scale
 	spin.value_changed.connect(func(value: float) -> void:
 		_store(path, value / scale, page, changed))
 	return spin
@@ -294,7 +293,7 @@ static func _slider(path: String, item: Dictionary, font_size: int, page: Node,
 	var step := float(item.get("step", 0.0))
 	slider.step = step if step > 0.0 else 0.01 * scale
 	slider.custom_minimum_size = Vector2(float(font_size) * 9.0, font_size * 1.6)
-	slider.value = TUNABLES.get_float(path) * scale
+	slider.value = _setting(path).get_num() * scale
 	var value := STYLE.label("", "Muted", font_size - 2)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -329,7 +328,7 @@ static func _choice(path: String, item: Dictionary, font_size: int, page: Node,
 	for index: int in options.size():
 		option.add_item(str(texts[index]))
 		option.set_item_metadata(index, options[index])
-	var current := TUNABLES.get_string(path)
+	var current: String = _setting(path).get_choice()
 	for index: int in option.item_count:
 		if str(option.get_item_metadata(index)) == current:
 			option.select(index)
@@ -370,7 +369,7 @@ static func _pills(path: String, options: Array, texts: Array, font_size: int, p
 	var pills := HBoxContainer.new()
 	pills.add_theme_constant_override("separation", 4)
 	track.add_child(pills)
-	var current := TUNABLES.get_string(path)
+	var current: String = _setting(path).get_choice()
 	for index: int in options.size():
 		var pill := Button.new()
 		pill.text = str(texts[index])
@@ -399,7 +398,7 @@ static func _add_list(parent: VBoxContainer, path: String, item: Dictionary, fon
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
 	var options: Array = item.get("options", [])
-	var selected := TUNABLES.get_list(path)
+	var selected: Array = _setting(path).get_list()
 	var checks: Dictionary = {}
 	for option: Variant in options:
 		var key := str(option)
@@ -418,8 +417,13 @@ static func _add_list(parent: VBoxContainer, path: String, item: Dictionary, fon
 			_store(path, values, page, changed))
 
 
+## The declaration behind a row. The panel is generic, so it resolves the setting once here.
+static func _setting(path: String) -> Variant:
+	return SETTINGS.by_path(path)
+
+
 static func _store(path: String, value: Variant, page: Node, changed: Callable) -> void:
-	TUNABLES.set_value(path, value)
+	_setting(path).set_value(value)
 	if changed.is_valid():
 		changed.call()
 	_redraw(page)

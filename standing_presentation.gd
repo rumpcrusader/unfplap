@@ -5,7 +5,6 @@ extends RefCounted
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 
@@ -109,7 +108,7 @@ func _attach_present_pose() -> void:
 	_pose_cfg["foreleg"] = 0.0
 	_pose_cfg["foreleg_spread"] = 0.172
 	_pose_cfg["hind_spread"] = 0.0
-	var presentation_cfg: Dictionary = TUNABLES.block("presentation.standing.")
+	var presentation_cfg: Dictionary = SETTINGS.block("presentation.standing.")
 	_pose_cfg["chin_up_deg"] = float(presentation_cfg.get("chin_up_deg", 30.0))
 	_pose_cfg["neck_down_deg"] = float(presentation_cfg.get("neck_down_deg", 15.0))
 	var tail_cfg: Variant = presentation_cfg.get("tail", {})

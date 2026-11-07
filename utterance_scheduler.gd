@@ -30,7 +30,7 @@ const RELEASE_HOLD_S := 1.0
 
 var cue_gap := 12.0
 ## Debug-overridable pacing. The constants above are the defaults; runtime.gd pushes the
-## `cues.*` tunables into these fields at act start and on a live settings edit.
+## `cues.*` settings into these fields at act start and on a live settings edit.
 var base_stable_s := CUE_STABLE_S
 var override_stable_s := CUE_OVERRIDE_STABLE_S
 var utterance_gap_s := UTTERANCE_MIN_GAP_S

@@ -1,9 +1,7 @@
 extends RefCounted
-## Compatibility layer over `settings.gd`: path-keyed reads for call sites that have not been
-## converted to the named accessors yet, plus the debug action table. Do not add settings here.
-
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-
+## The Debug tab's action buttons and their hotkeys. An action is one entry in `ACTIONS`; `method`
+## is called on the entry node. Actions are not settings: they run a one-off debug operation.
+## Add a hotkey only when the action must fire while the world is unpaused.
 
 ## Debug actions. `method` is called on the entry node.
 ## Add an action here; it becomes a button in the Debug tab automatically. A hotkey is the
@@ -119,91 +117,3 @@ static func run_action(name: String, target: Node) -> String:
 		return ""
 	var result: Variant = target.call(method)
 	return str(result) if result is String else ""
-
-
-static func get_bool(path: String) -> bool:
-	return bool(SETTINGS.get_value_at(path))
-
-
-static func get_float(path: String) -> float:
-	var value: Variant = SETTINGS.get_value_at(path)
-	return float(value) if value is float or value is int else 0.0
-
-
-static func get_int(path: String) -> int:
-	return int(get_float(path))
-
-
-static func get_string(path: String) -> String:
-	var value: Variant = SETTINGS.get_value_at(path)
-	return str(value) if value is String else ""
-
-
-static func get_list(path: String) -> Array:
-	var value: Variant = SETTINGS.get_value_at(path)
-	return value if value is Array else []
-
-
-## The declared default for a number path. Use it where a settings block can be empty, so the
-## fallback cannot drift from the declaration.
-static func default_number(path: String) -> float:
-	var value: Variant = SETTINGS.default_at(path)
-	return float(value) if value is float or value is int else 0.0
-
-
-## The coerced value for a path. Compatibility only: gameplay code uses the named accessor.
-static func get_value(path: String) -> Variant:
-	return SETTINGS.get_value_at(path)
-
-
-static func set_value(path: String, value: Variant) -> void:
-	SETTINGS.set_value_at(path, value)
-
-
-## Put one path back to its declared default.
-static func reset_value(path: String) -> void:
-	SETTINGS.set_value_at(path, SETTINGS.default_at(path))
-
-
-## Nested dictionary of the values under a dotted prefix, e.g. `block("features.")` or
-## `block("presentation.standing.")` for a per-act snapshot.
-static func block(prefix: String) -> Dictionary:
-	return SETTINGS.block(prefix)
-
-
-## Re-read settings.json and drop the resolved values.
-static func reload_settings() -> void:
-	SETTINGS.reload_file()
-
-
-## Coerce one value against a schema entry. Compatibility only: kept for the tests and for callers
-## that still hold an entry dictionary.
-static func _coerce(item: Dictionary, value: Variant) -> Variant:
-	var fallback: Variant = item.get("default")
-	if value == null:
-		return fallback
-	match str(item.get("kind", "")):
-		"bool":
-			return bool(value)
-		"num":
-			var number := float(value)
-			if not is_finite(number):
-				return fallback
-			if bool(item.get("clamp", false)):
-				return clampf(number, float(item.get("low", -1000000.0)),
-					float(item.get("high", 1000000.0)))
-			return number
-		"choice":
-			var text := str(value)
-			var options: Array = item.get("options", [])
-			return text if options.has(text) else fallback
-		"list":
-			var out: Array = []
-			var allowed: Array = item.get("options", [])
-			if value is Array:
-				for raw: Variant in value:
-					var name := str(raw).to_lower()
-					if allowed.has(name) and not out.has(name):
-						out.append(name)
-			return out
-	return value

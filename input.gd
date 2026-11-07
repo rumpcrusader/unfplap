@@ -3,7 +3,7 @@ extends Node
 ## While an act is active it consumes the act keys and the interaction keys, and keeps the
 ## game's own stand_up poll from force-standing a seated player.
 
-const TUNABLES := preload("res://mods/unfplap/tunables.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug_actions.gd")
 
 var main: Node
 
@@ -98,14 +98,14 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey:
 		var debug_key := event as InputEventKey
-		# Debug actions declare their own hotkey in TUNABLES.ACTIONS. Do not claim one in a text
+		# Debug actions declare their own hotkey in DEBUG_ACTIONS.ACTIONS. Do not claim one in a text
 		# field; leave modified keys (Shift+\ is the game's dev noclip) to the game.
 		if debug_key.pressed and not debug_key.echo and not debug_key.ctrl_pressed \
 				and not debug_key.shift_pressed and not debug_key.alt_pressed:
 			var focus := get_viewport().gui_get_focus_owner()
-			var action := TUNABLES.hotkey_action(debug_key.physical_keycode)
+			var action := DEBUG_ACTIONS.hotkey_action(debug_key.physical_keycode)
 			if not action.is_empty() and not (focus is LineEdit or focus is TextEdit):
-				TUNABLES.run_action(action, main)
+				DEBUG_ACTIONS.run_action(action, main)
 				get_viewport().set_input_as_handled()
 				return
 	if get_tree().paused:

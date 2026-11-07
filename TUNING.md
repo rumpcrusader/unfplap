@@ -1,120 +1,168 @@
-# Tunables: the only correct way to add a setting
+# Settings: one declaration, one accessor
 
-Every global setting in the mod is a **tunable**: one line in `tunables_schema.gd`, keyed by its
-`settings.json` path. Read and write tunables only through `tunables.gd`. The General, Anatomy
-and Debug panels are drawn from the schema by `tunables_ui.gd`, in the settings page's own menu style: row
-cards, `Faint` help, switch plus state, Segment pills for a few short choices and the `Tab` look for
-a collapsible section heading. The tab pills, sidebar row and the hand-built Characters preference
-tab are added by the injection in `main.gd`.
+Every global setting in the mod is declared **once**, in `settings.gd`, and read through a typed
+accessor on that setting. There is no second schema, no path-keyed read and no default constant
+anywhere else. The General, Anatomy and World panels are drawn from the declarations by
+`settings_ui.gd` in the settings page's own menu style: row cards, `Faint` help, switch plus state,
+Segment pills for a few short choices and the `Tab` look for a collapsible section heading. The tab
+pills, sidebar row and the hand-built Characters preference tab are added by the injection in
+`main.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
-> restore/normalize function or a save function for a setting, stop. Add a schema line instead.
+> restore/normalise function or a save function for a setting, stop. Declare the setting instead.
 
-Two file kinds are not tunables and keep their own editors: the per-character profile
-(`default`/`characters` templates, preference, prompts) and the pose catalog per-mare overrides
-(`poses.*`). Everything global — feature flags, numbers, choices — is a tunable.
-Per-mare anatomy consent (`consent.public`, `consent.anal`, `consent.oral`) lives in the character
-profile, not in the tunable schema, and is saved by `settings.gd` from the Characters form.
-`public` is opt-in and off by default; `anal` and `oral` stay deterministic from her id.
-`anatomy.act_only` is a normal user-facing flag in the Anatomy section; it only changes visibility,
-not attachment.
-`presentation.lean_back_m` is the player-facing back-lean distance; it is read live with the other
-presentation values.
+Per-character profiles (`default`/`characters` templates, preferences, prompts, consent) and the
+pose catalog overrides (`poses.*`) are not global settings: they live in the same file but are read
+through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other profile functions.
 
-## Reading a value
+## Reading and writing
 
 ```gdscript
-var raise_m := TUNABLES.get_float("presentation.standing.smack.raise_m")
-if TUNABLES.get_bool("features.act_foley"): ...
-var orientation := TUNABLES.get_string("thrust.orientation")
-var ignored := TUNABLES.get_list("presentation.standing.caress.ignore")
-var snapshot := TUNABLES.block("features.")   # {"act_foley": true, ...} nested by path
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+
+if SETTINGS.act_foley.get_bool(): ...
+var raise_m: float = SETTINGS.raise_m.get_num()
+var orientation: String = SETTINGS.orientation.get_choice()
+var ignored: Array = SETTINGS.ignore.get_list()
+var snapshot: Dictionary = SETTINGS.block("features.")   # per-act snapshot, see below
+
+SETTINGS.raise_m.set_num(0.25)
+SETTINGS.orientation.set_choice("down")
+SETTINGS.radius.reset()
 ```
 
-| Function | Returns |
-|---|---|
-| `get_bool(path)` | `bool`; an unknown path is `false`, never `true` |
-| `get_float(path)` / `get_int(path)` | number; unknown path is `0` |
-| `get_string(path)` | string; unknown path is `""` |
-| `get_list(path)` | filtered array of allowed options |
-| `get_value(path)` | the typed value for the entry kind |
-| `block(prefix)` | nested dictionary of every value under a dotted prefix |
+| Kind | Declaration | Accessors |
+|---|---|---|
+| flag | `flag(...)` | `get_bool()`, `set_bool(v)` |
+| number | `num(...)` | `get_num()`, `set_num(v)` |
+| choice | `choice(...)` | `get_choice()`, `set_choice(v)` |
+| list | `list(...)` | `get_list()`, `set_list(v)`, `toggle(item)` |
 
-Reads are flat dictionary lookups. Values resolve once per settings generation and rebuild after
-a save or `TUNABLES.reload_settings()`, so a read is cheap enough for a per-frame call.
+Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`, `label`, `help`,
+`tab`, `group`, `default` and `debug`.
 
-Act code snapshots what it reads every stroke in `runtime._snapshot_settings()` and re-runs it in
-`apply_live_settings()`. Do not add a second settings cache anywhere.
+A wrong accessor does not compile: `SETTINGS.act_foley.get_num()` is a parse error, and so is a
+mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 
-## Writing a value
+**Bulk snapshots.** `SETTINGS.block(prefix)` returns the nested dictionary under a dotted prefix and
+is the one place a path prefix is still used. Act code snapshots once per act in
+`runtime._snapshot_settings()` and re-runs it in `apply_live_settings()`; do not add a second cache.
+
+## Adding a setting: one line, then one read
+
+1. **One declaration, where it should appear in the panel.**
+
+   ```gdscript
+   static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", 0.3, "Max raise",
+       "Hand lift at the top of the wind-up.", GENERAL, "Standing › Smack") \
+       .with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+   ```
+
+2. **One typed read at the use site.**
+
+   ```gdscript
+   var raise_m: float = SETTINGS.raise_m.get_num()
+   ```
+
+3. **Run `scripts/test_all.sh`.** It checks the registry, the file round-trip, coercion and that the
+   panel draws every declaration.
+
+Nothing else exists to update: the widget, unit, save, default, persistence and placement all come
+from the declaration.
+
+## Declaration reference
 
 ```gdscript
-TUNABLES.set_value("camera_thrust.surge", 0.5)
-TUNABLES.reset_value("camera_thrust.surge")   # back to the schema default
+flag(n, path, default_on, label, help, tab, group)
+num(n, path, default, label, help, tab, group)
+    .with_unit("cm") .with_step(0.5) .with_scale(100.0) .with_range(low, high) .with_slider()
+choice(n, path, default, options, labels, label, help, tab, group)
+list(n, path, default, options, label, help, tab, group)
+    .as_debug() on any kind
 ```
 
-`set_value` coerces to the entry kind, saves the file and refreshes the cached values. Every
-settings-tab edit calls `main._apply_settings_changed()`, which refreshes the cached flags, the
-caption position and the active act. A new control does not need its own handler.
-
-## Adding a parameter: three steps
-
-1. **One schema line in `tunables_schema.gd`, where it should appear in the panel.**
-
-   ```gdscript
-   "presentation.standing.smack.raise_m": num(0.30, "Max raise",
-       "Hand lift at the top of the wind-up.", "Standing › Smack", "cm", 0.5, 100.0),
-   ```
-
-2. **One read at the use site.**
-
-   ```gdscript
-   var raise_m := TUNABLES.get_float("presentation.standing.smack.raise_m")
-   ```
-
-3. **Check it.** `scripts/test_all.sh` asserts that every path is reachable and rendered; then
-   open **Settings → Unfplap → Debug** and confirm the row sits in the right section.
-
-Nothing else is needed: the widget, its unit, its save, its default, its persistence and its
-placement all come from the schema entry. Adding a flag is shorter still —
-`flag(true, "Label", "Help.", "Section")`.
-
-## Schema entry fields
-
-| Field | Meaning |
+| Argument | Meaning |
 |---|---|
-| key | the `settings.json` path, e.g. `presentation.standing.kiss.lean_side` |
-| `kind` | `bool`, `num`, `choice`, `list` |
-| `slider` | set by `slider()`: the `num` row draws as a themed HSlider instead of a spin box |
-| `default` | the stored default; also what `reset_value` restores |
-| `label`, `help` | the row text and the help line under it |
+| `n` | the identifier, `SETTINGS.<n>` |
+| `path` | the `settings.json` path; the only string, and it lives here |
+| `label`, `help` | the row text and the line under it |
+| `tab` | `GENERAL`, `ANATOMY` or `WORLD` |
 | `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing` |
-| `tab` | `"general"` for the player page, `"anatomy"` for the Anatomy page, `"debug"` (the default) otherwise |
-| `unit`, `step`, `scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
-| `low`, `high` | spin-box arrows only, unless the entry is a `user_num` |
-| `options`, `labels` | `choice` values and their display text; `list` allowed values |
+| `with_unit`, `with_step`, `with_scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
+| `with_range` | the contract bounds; only applied when the setting is not debug |
+| `with_slider` | draw a themed HSlider instead of a spin box |
+| `as_debug` | show it in the tab's Debug block only, and never clamp it |
 
-Constructors: `flag`, `num`, `user_num`, `slider`, `choice`, `list`. `slider` is a clamped
-`user_num` with `slider: true`; its `low`/`high` bound is part of the setting's contract.
+Declarations render **in file order**, and a section is created where it first appears. Put a line
+where a player would look for it, next to the setting it belongs to; do not add a "misc" section.
 
-Entries render **in file order**, and a section is created where it first appears. Put a line
-where a player would look for it, next to the flag or numbers it belongs to; do not add a "misc"
-section. A flag that gates a modifier belongs in that modifier's section.
+## Naming
 
-## Never clamp a debug setting
+The identifier is the JSON path's last segment: `thrust.travel` → `travel`,
+`features.act_foley` → `act_foley`. Only on a collision with another setting does it gain the parent
+segment as a prefix (`jiggle.intensity` → `intensity`; a second `intensity` would become
+`jiggle_intensity`). Keep names short; the panel group carries the context. Do not add group
+prefixes pre-emptively.
 
-- `num` is stored and returned **verbatim**. `low`/`high` only shape the spin box.
-- `user_num` clamps to `low`/`high`, and only because that bound is part of the player-facing
-  contract: sensitivity, hip back-off, auto pace/depth, camera surge/bob, glance-back speed.
-- A `slider` is a `user_num`; the same bound contract applies because the track itself is 0–100%.
-- Do not add a clamp in a consumer "to be safe". If a value must stay playable, make it a
-  `user_num` and say why in its help text.
-- `choice` falls back to the default for an unknown string; `list` drops unknown options. That is
-  validation, not clamping.
+## Clamping
+
+- A player-facing `num` clamps to `with_range(low, high)`. That bound is part of the contract, so it
+  is the only clamp a consumer may rely on: sensitivity, hip back-off, auto pace/depth, camera
+  surge/bob, glance-back speed, genital tone.
+- A debug number (`.as_debug()`) is stored and returned **verbatim**; `with_range` only shapes the
+  spin box. Moving a setting to or from debug is the `as_debug()` call alone.
+- Moving a debug setting to player-facing starts clamping its stored value. Check the saved range
+  when you do it.
+- Do not add a clamp in a consumer "to be safe". If a value must stay playable, give it
+  `with_range` and say why in its help text.
+- `choice` ignores an unknown string and `list` drops unknown options. That is validation, not
+  clamping. A non-finite number falls back to the default.
+
+## Tabs, groups and debug
+
+- Tabs, in panel order: **General** (interface, audio, cycle, thrust, act tuning), **Anatomy**,
+  **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form).
+- Player-facing settings come first in their tab. When the **Debug mode** setting (General ›
+  General) is on, the tab ends with one **Debug** section holding that tab's debug settings under
+  the same group names.
+- Every section remembers whether it is open in `settings.json` under `ui.sections`, keyed
+  `tab/group`; the Debug block and its subsections use the `Debug/` prefix. Read and write that
+  state through `SETTINGS.section_open(tab, group)` and `SETTINGS.set_section_open(tab, group, open)`.
+
+## Persistence, defaults and migration
+
+- The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
+  Defaults are generated from the registry, so there is no second defaults table.
+- `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
+  `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
+  cached per generation, so a per-frame read is cheap.
+- **Migrations.** The file carries `version`. Add a step to `_migrate()` for a structural change
+  and bump `SCHEMA_VERSION`; a current file skips the chain. The old normalisers (pose ids, feature
+  names, presentation split, tolerance tiers, prompts, anatomy keys) run inside it.
+- **Deprecations.** Declare a retired setting next to its replacement:
+
+  ```gdscript
+  static var _deprecated := [
+      deprecated("anatomy.genital_yaw_deg", func(_value): return {}),
+      deprecated("cues.old_override_seconds", func(value): return {"cues.override_seconds": value}),
+  ]
+  ```
+
+  The loader reads the old path once, merges the returned dictionary and erases the old key, so a
+  retired setting cannot linger in the file.
+- `history.*` holds the act-history score weights, thresholds, decay and offer weighting; the
+  contract is `HISTORY.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier itself
+  is a per-mare `preferences.tolerance`, not a global setting.
+- Built-in act prompts live in `SETTINGS.DEFAULT_ACT_PROMPTS`; `act_prompts` stores only overrides.
+  **Debug → Actions → Reset act prompts** clears them.
+- Unknown keys are ignored on load.
+- Never name a settings API function after a `Script`/`Object` built-in (`reload`, `set_path`,
+  `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`
+  guards this.
 
 ## Debug actions and hotkeys
 
-Debug commands are entries in `TUNABLES.ACTIONS`:
+Debug commands are entries in `debug_actions.gd`:
 
 ```gdscript
 "bed_offer": {
@@ -124,41 +172,20 @@ Debug commands are entries in `TUNABLES.ACTIONS`:
 },
 ```
 
-The Debug tab draws a button per entry and calls `method` on the entry node. Adding an action is
-one entry plus one method.
-
-**A hotkey is the exception.** Add `"hotkey": KEY_X` only when the action must fire while the
-world is unpaused and you are looking at the scene, where opening the settings page would end the
-moment (the F10 skeleton overlay is the only one). Use `"panel": false` for a hotkey-only action.
-`input.gd` routes declared hotkeys only; never add an ad-hoc key handler for a debug action.
-
-## Persistence, cache and defaults
-
-- The schema key **is** the `settings.json` path, so a new tunable needs no migration.
-- `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
-  `TUNABLES.reload_settings()` re-reads it; the settings page reloads when it opens.
-- Defaults for `features`, `relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`,
-  `presentation`, `history`, `tolerance`, `cues` and `talk` are generated from the schema. Do not
-  create a second defaults table.
-- `history.*` holds the act-history score weights, point thresholds, decay and offer weighting.
-  It is debug-only unless a player-facing threshold is added deliberately; the contract is
-  `HISTORY.md`. The `num` entries are never clamped, so a hand-edited value applies.
-- `tolerance.*` holds the mid-act warning/stop thresholds, like relief, decay and stop cooldowns.
-  The tier itself is a per-mare `preferences.tolerance` value in the Characters sub-tab, not a tunable.
-- Built-in act prompts live in `settings.DEFAULT_ACT_PROMPTS`; `act_prompts` in the file stores
-  only overrides. `_fill_prompts()` supplies the current built-ins at read time. Known legacy
-  values and obsolete keys are removed on load, and **Debug → Actions → Reset act prompts**
-  clears the overrides.
-- Unknown keys in the file are ignored on load.
-- Never name a settings function `reload` or `set_path`: `Script` already has both, and a
-  preloaded script constant calls the built-in instead. `tests/test_settings.gd` guards this.
+General's **Debug** block draws a button per entry and calls `method` on the entry node. Adding an
+action is one entry plus one method. A hotkey (`"hotkey": KEY_X`) is the exception, only for an
+action that must fire while the world is unpaused and you are looking at the scene (the F10
+skeleton overlay is the only one); use `"panel": false` for hotkey-only. `input.gd` routes declared
+hotkeys only.
 
 ## Guards
 
-- `tests/test_settings.gd` checks that every entry has a kind, default, label, help, group and
-  tab, that both schema tabs render every entry, and that debug numbers are not clamped.
-- `tests/test_source_hygiene.gd` checks that every literal path used with `TUNABLES` exists in the
-  schema, and that no settings widget is created outside `tunables_ui.gd` (the Characters preference
-  form in `main.gd` is the one allowed exception).
+- `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/
+  label/help on every declaration, defaults, the file round-trip, clamping and debug bypass,
+  choice/list validation, section state, the panel drawing every declaration in its tab (and the
+  Debug block only in debug mode), built-in name clashes, and the per-mare merge.
+- `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
+  settings widget is created outside `settings_ui.gd` (the Characters form in `main.gd` is the one
+  allowed exception).
 - Keep `AGENTS.md`'s flag table current when adding a feature flag, and update `README.md`
   CONTROLS or FEATURES only for player-facing changes.

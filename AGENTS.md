@@ -1312,6 +1312,9 @@ rump blush. Unknown settings keys are ignored.
   The shaped length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole
   grip, so the geometry and the collision stay together. The anal placement applies to both
   models, is read on the next visibility poll, and the ring toggle swaps the asset live.
+  Per-mare placement rows live in `user://mods/data/unfplap/anatomy_place.json`; the default puts
+  the mesh on the body's x = 0 rump crease, and a `PLACE_VERSION` migration shifts rows saved
+  against an older default once on load.
   `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on load; old skin tones map to the
   slider anchors and an old teats-off file keeps the strip off once. Removed anatomy keys are
   erased on load.

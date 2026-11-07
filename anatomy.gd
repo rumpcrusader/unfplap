@@ -20,7 +20,10 @@ const PLACE_PATH := "user://mods/data/unfplap/anatomy_place.json"
 ## Placements saved before the 5 mm forward default are shifted once on load, so every mare keeps
 ## the same calibration without re-tuning each one by hand.
 const PLACE_FORWARD_M := 0.005
-const PLACE_VERSION := 1
+## The old global calibration also carried a 5 mm lateral bias. The rump crease is the model's
+## x = 0 plane, so saved rows are shifted back onto it once.
+const PLACE_RIGHT_M := 0.005
+const PLACE_VERSION := 2
 
 const WINKING_PINK := Color(0.97, 0.66, 0.74)
 const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
@@ -48,8 +51,9 @@ const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.2265, 1.095]}
-## integration: global placement calibrated on Fluttershy. A per-mare saved row still wins.
-const DEFAULT_PLACE := Vector3(-0.005, 0.525, 0.286)
+## integration: global placement calibrated on Fluttershy. The rump crease is the body's x = 0
+## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
+const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.286)
 const DEFAULT_PITCH := -6.0
 const DEFAULT_SCALE := 0.662
 
@@ -325,7 +329,13 @@ func _load_place() -> void:
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(PLACE_PATH))
 	if not data is Dictionary:
 		return
-	data = _migrate_place(data)
+	var version := int((data as Dictionary).get("version", 0))
+	data = migrate_place(data)
+	if int((data as Dictionary).get("version", 0)) != version:
+		var file := FileAccess.open(PLACE_PATH, FileAccess.WRITE)
+		if file != null:
+			file.store_string(JSON.stringify(data, "\t"))
+			file.close()
 	var identity: Variant = pony.get("identity")
 	var id := str(identity.get("id")) if identity != null else ""
 	var row: Variant = (data as Dictionary).get(id, {})
@@ -338,10 +348,17 @@ func _load_place() -> void:
 	_scale = float((row as Dictionary).get("scale", _scale))
 
 
-## One-time shift of the saved per-mare placements onto the current forward default.
-func _migrate_place(data: Dictionary) -> Dictionary:
-	if int(data.get("version", 0)) >= PLACE_VERSION:
+## One-time shift of the saved per-mare placements onto the current global default. Pure: the
+## caller writes the result back when the version changed.
+static func migrate_place(data: Dictionary) -> Dictionary:
+	var version := int(data.get("version", 0))
+	if version >= PLACE_VERSION:
 		return data
+	var shift := Vector3.ZERO
+	if version < 1:
+		shift.z = PLACE_FORWARD_M
+	if version < 2:
+		shift.x = PLACE_RIGHT_M
 	for id: Variant in data.keys():
 		if str(id) == "version":
 			continue
@@ -351,12 +368,8 @@ func _migrate_place(data: Dictionary) -> Dictionary:
 		var pos: Variant = (row as Dictionary).get("position")
 		if pos is Array and (pos as Array).size() == 3:
 			(row as Dictionary)["position"] = [
-				float(pos[0]), float(pos[1]), float(pos[2]) + PLACE_FORWARD_M]
+				float(pos[0]) + shift.x, float(pos[1]) + shift.y, float(pos[2]) + shift.z]
 	data["version"] = PLACE_VERSION
-	var file := FileAccess.open(PLACE_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(data, "\t"))
-		file.close()
 	return data
 
 

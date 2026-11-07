@@ -125,9 +125,26 @@ func run() -> void:
 	check(bool(tone.get("slider", false)), "skin tone uses the slider row")
 	check(near(float(tone.get("default", -1.0)), 0.5), "skin tone default is the old darker")
 	check(near(float(TUNABLES._coerce(tone, 2.0)), 1.0), "skin tone clamps to the slider range")
-	check(ANATOMY.DEFAULT_PLACE == Vector3(-0.005, 0.525, 0.286), "global anatomy placement")
+	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.286), "global anatomy placement is on the crease")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.662), "global anatomy scale")
+	# Saved placements migrate once onto the current default: v0 rows get both shifts, v1 the
+	# lateral one, and a current row is left alone.
+	var v0 := ANATOMY.migrate_place({"version": 0, "fluttershy": {
+		"position": [-0.005, 0.5, 0.281], "pitch": 6.0, "scale": 0.662}})
+	check(int(v0.get("version", 0)) == ANATOMY.PLACE_VERSION, "v0 placements migrate forward")
+	var v0_pos: Array = v0["fluttershy"]["position"]
+	check(near(float(v0_pos[0]), 0.0), "v0 row loses the lateral bias")
+	check(near(float(v0_pos[2]), 0.286), "v0 row keeps the forward shift")
+	var v1 := ANATOMY.migrate_place({"version": 1, "rarity": {
+		"position": [-0.005, 0.5, 0.286], "pitch": 6.0, "scale": 0.662}})
+	var v1_pos: Array = v1["rarity"]["position"]
+	check(near(float(v1_pos[0]), 0.0), "v1 row loses the lateral bias")
+	check(near(float(v1_pos[2]), 0.286), "v1 row is not shifted forward twice")
+	var v2 := ANATOMY.migrate_place({"version": 2, "rarity": {
+		"position": [-0.004, 0.5, 0.286]}})
+	var v2_pos: Array = v2["rarity"]["position"]
+	check(near(float(v2_pos[0]), -0.004), "current rows are not touched")
 	check(not SCHEMA.has("presentation.lean_back_m"), "back lean setting removed")
 	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),
 		"VR body tracker API")

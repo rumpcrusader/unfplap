@@ -33,6 +33,28 @@ func run() -> void:
 	var nested := UTTER.format("{a} {b}", {"a": "{b}", "b": "X"})
 	check(nested == "{b} X", "a substituted value is not expanded again")
 
+	var appended := UTTER.context_note("a {state}", {
+		"state": "pose=missionary", "relationship": "You and Anon: friends.",
+		"tone": "Warm: be fond.", "memory": "",
+	})
+	check(appended.contains("Private relationship note: You and Anon: friends."),
+		"context adds a missing relationship note")
+	check(appended.contains("Tone: Warm: be fond."), "context adds a missing tone")
+	check(appended.contains("Do not mention these labels"), "context adds the privacy guard")
+	check(not appended.contains("Current moment:"), "context does not repeat a used state")
+
+	var reuse := UTTER.context_note("{relationship}. Do not mention relationship labels.", {
+		"relationship": "You and Anon: friends.", "tone": "Warm: be fond.",
+	})
+	check(not reuse.contains("Private relationship note:"),
+		"context does not duplicate a used relationship note")
+	check(reuse.contains("Tone: Warm: be fond."), "context still adds an unused tone")
+	check(not reuse.contains("Do not mention these labels"),
+		"context does not repeat an existing privacy guard")
+
+	var memory_only := UTTER.context_note("plain", {"relationship": "R", "memory": ""})
+	check(not memory_only.contains("shared memory"), "empty memory adds nothing")
+
 	var line := UTTER.state_line("missionary", "wanting", "firm", "teasing", "caress", "praise", 18.0, 2)
 	check(line.contains("pose=missionary"), "state line pose")
 	check(line.contains("mood=wanting"), "state line mood")

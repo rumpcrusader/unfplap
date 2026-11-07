@@ -215,6 +215,9 @@ overwhelmed   a disliked touch/talk landed recently
 - Every cue line gets a private relationship note and tone: friendship/love level, stage,
   first-time/repeat, mood, then `tender`/`warm`/`ardent`/`open`/`careful`. The functional cue
   text is unchanged, and the model is not told to repeat specific names.
+- `UTTERANCE.context_note()` owns the mandatory context. If a saved prompt omits `{state}`,
+  `{relationship}`, `{tone}` or `{memory}`, the runtime appends that block and the privacy guard
+  after formatting. A legacy template cannot drop the relationship note.
 - One unused shared memory may ride with a cue. A stored peak memory is preferred; otherwise
   the story journal (a cue-word match, then the most recent player exchange), then older
   world-context events. Intimacy events and private brain notes are skipped. The memory is

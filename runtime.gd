@@ -3240,6 +3240,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		memory_id = str(memory.get("id", ""))
 	var purpose := UTTERANCE.format(template, values)
 	if kind == "cue":
+		purpose += UTTERANCE.context_note(template, values)
 		purpose += CUE_REACTION_NOTE
 		# integration: optional line angles and speech feel, independent of each other.
 		if TUNABLES.get_bool("features.act_speech_feel"):

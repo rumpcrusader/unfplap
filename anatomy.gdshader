@@ -32,14 +32,7 @@ uniform float lip_radius = 0.03;
 uniform float lip_outer = 0.066;
 // integration: mesh-local radius the opening must reach (Anon's shaft at the contact plane).
 uniform float hole_target = 0.0;
-// integration: how much of the widening also scales depth. 1 is a uniform mesh scale (a mound);
-// 0 keeps the rest relief (the vulva). The anal ring uses a tunable fraction.
-uniform float hole_depth_scale = 0.0;
-// integration: cheat for the anal act only. Scale the whole vulva model about the anal opening so
-// the ponut swells with the shaft. The vulva lips move with it, which is fine because they are out
-// of frame; the anal overlay has its own material and is not scaled.
-uniform float anal_swell = 0.0;
-uniform vec3 anal_swell_centre = vec3(0.0);
+
 // integration: Anon's shaft as a swept circle in world space. Any vulva vertex that ends up
 // inside it is projected onto its surface, so the lips cannot intersect the cock.
 uniform vec3 shaft_pivot = vec3(0.0);
@@ -82,12 +75,8 @@ void vertex() {
 			// opening becomes a wide oval whose ends stay wrapped on the shaft.
 			spread.x *= 1.0 + amount;
 			spread.y *= 1.0 + amount * lip_vertical;
-			spread.z *= 1.0 + amount * hole_depth_scale;
 			VERTEX = vulva_centre + spread;
 		}
-	}
-	if (anal_swell > 0.0001) {
-		VERTEX = anal_swell_centre + (VERTEX - anal_swell_centre) * (1.0 + anal_swell);
 	}
 	// Only the outside surface is projected onto the shaft. The inner wall sits behind the rim and
 	// stays there: pushing both layers onto the same cylinder made the pink poke through the lips.

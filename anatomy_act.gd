@@ -304,8 +304,6 @@ func tick(delta: float) -> void:
 		var anal := _wide * _hole_mix * rearward
 		anatomy.call("set_anal_shape", anal * 1.4, anal)
 		anatomy.call("set_anal_grip", grip_world * _hole_mix * rearward)
-		anatomy.call("set_anal_swell",
-			_hole_mix * rearward * maxf(TUNABLES.get_float("anatomy.anal_swell"), 0.0))
 	_normal = _compute_normal(part)
 	if is_instance_valid(part):
 		var pitch := 0.0

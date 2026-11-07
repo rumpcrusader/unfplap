@@ -588,6 +588,9 @@ static func _normalize_anal_height(data: Dictionary) -> Dictionary:
 		if not block.has("anal_height_mm"):
 			block["anal_height_mm"] = -float(block["anal_drop_mm"])
 		block.erase("anal_drop_mm")
+	# Removed experiments: the lobe swell and the ring's depth scale.
+	block.erase("anal_swell")
+	block.erase("anal_depth")
 	data["anatomy"] = block
 	return data
 

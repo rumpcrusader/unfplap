@@ -347,8 +347,6 @@ func _apply_material() -> void:
 	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
 		clampf(TUNABLES.get_float("anatomy.lip_vertical"), 0.0, 1.0))
-	material.set_shader_parameter("anal_swell_centre", ANAL_OPENING)
-	material.set_shader_parameter("anal_swell", 0.0)
 	# `_wide` is the world shaft radius; the shader works in mesh units.
 	material.set_shader_parameter("hole_target", _wide / world_scale)
 	_mesh.set_surface_override_material(0, material)
@@ -825,17 +823,6 @@ func _apply_winking_shape() -> void:
 			* _mesh.global_transform.basis.get_scale().x)
 
 
-## Scale the whole vulva model about the anal opening while the anal is in use, so the ponut
-## swells with the shaft. Called by the act with the live `_hole_mix`; 0 restores the vulva.
-func set_anal_swell(amount: float) -> void:
-	if not is_instance_valid(_mesh):
-		return
-	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
-	if material == null:
-		return
-	material.set_shader_parameter("anal_swell", clampf(amount, 0.0, 1.0))
-
-
 ## The cup's ring is opened by the same shader solve as the vulva's lips: `shaft_radius` is world
 ## metres, converted to mesh units and solved against the measured rim. No blend shape is used;
 ## the authored `open`/`stretch` shapes are left at zero.
@@ -847,10 +834,6 @@ func set_anal_grip(shaft_radius: float) -> void:
 		return
 	var scale := maxf(_anal_mesh.global_transform.basis.get_scale().x, 0.0001)
 	material.set_shader_parameter("hole_target", maxf(shaft_radius, 0.0) / scale)
-	# Also grow the pucker's depth with the widening, so the ring scales as a mound around the
-	# shaft instead of staying a flat sheet. Live, like the grip.
-	material.set_shader_parameter("hole_depth_scale",
-		maxf(TUNABLES.get_float("anatomy.anal_depth"), 0.0))
 
 
 ## `fill` is the old `anal * 1.4` cut amount; `wide` is the old `anal` stretch amount. The ring

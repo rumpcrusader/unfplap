@@ -1287,11 +1287,8 @@ rump blush. Unknown settings keys are ignored.
   experimental `anal_ring` (use the re-modelled ring instead of the original cup; off by
   default), the anal placement `anal_height_mm` (positive is higher), `anal_side_mm` (sideways,
   positive is the viewer's right from behind) and `anal_tilt_deg` (positive points the opening
-  down), the anal-act `anal_swell` (scale the whole vulva model about the anal opening so the
-  ponut swells with the shaft; the vulva lips move too, which is fine off-camera) and the ring's
-  `anal_depth` (how much the pucker's depth scales with the widening; 0 keeps the rest relief,
-  1 is a uniform mesh scale), and the player-part controls `player_scale` (`1.0×`),
-  `player_pitch_deg`, `player_yaw_deg` and `player_roll_deg`. Player-part values are applied on
+  down), and the player-part controls `player_scale` (`1.0×`), `player_pitch_deg`,
+  `player_yaw_deg` and `player_roll_deg`. Player-part values are applied on
   top of the saved placement and update live. The anal placement applies to both models, is read
   on the next visibility poll, and the ring toggle swaps the asset live. `anal_drop_mm` migrates
   to `anal_height_mm` (sign flipped) on load.

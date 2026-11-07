@@ -861,9 +861,11 @@ examples.
   `Auto shape` and writes the setting; keys step on press then repeat after 0.4 s at 0.08 s.
   `R`/`F` are reserved for a future tail control. A press that ever opened the layer can never
   toggle, so a short tap remains the only toggle. While the layer is open the lean is frozen
-  (rather than returning to centre), the caress ignores A/D and Z/C, the kiss ignores F, and the
-  HUD card swaps to the four live rows. The layer only exists while auto is on (tap X to enable
-  it). X is consumed in every act state, so AnonPony's X lie-down still cannot fire.
+  (rather than returning to centre) and the camera view is frozen with it: never copy
+  `_lean_forward` into `_lean_view_forward` there, because the idle sway leaves the view ahead of
+  the base value and the copy snaps the shot. The caress ignores A/D and Z/C, the kiss ignores F,
+  and the HUD card swaps to the four live rows. The layer only exists while auto is on (tap X to
+  enable it). X is consumed in every act state, so AnonPony's X lie-down still cannot fire.
 - Anatomy actions are additive and gated: `V` switches the hole in `ACTIVE`/`CLIMAX`, `N` turns her
   round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
   opens the game chat during an act. With every anatomy flag off these

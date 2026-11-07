@@ -5109,12 +5109,11 @@ func _lean_tick(delta: float) -> void:
 		_lean_view_side = _lean_side
 		return
 	if auto_panel_open():
-		# Hold-X auto settings: hold the current lean so the shot does not drift while W/S/Q/E
-		# adjust the stroke, and keep the hand controllers running so a smack can finish.
+		# Hold-X auto settings: hold the shot exactly where it is. Do not write `_lean_view_*`
+		# here: the idle sway leaves it ahead of `_lean_forward`, so copying the base value in
+		# snapped the camera by about a sway step. Freezing both values leaves nothing to jump.
 		_side_return_armed = false
 		_end_lean_action()
-		_lean_view_forward = _lean_forward
-		_lean_view_side = _lean_side
 		_kiss_controller().standing_tick()
 		var frozen_caress := Time.get_ticks_usec()
 		_caress_controller().tick(delta)

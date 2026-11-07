@@ -29,6 +29,13 @@ const CAPTION_PATH := "res://world/ui/speech_caption.gd"
 ## The game's one menu look (type variations, boxes, palette), so the injected settings page is
 ## built from the same pieces as the page that hosts it.
 const STYLE := preload("res://world/ui/menu_style.gd")
+## The tri-state preference row: one pill per state.
+const PREFERENCE_STATES := ["dislike", "none", "like"]
+const PREFERENCE_STATE_LABELS := {
+	"dislike": "Dislikes",
+	"none": "No preference",
+	"like": "Likes",
+}
 ## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
 const CAPTION_TOP_MARGIN := 26.0
 ## The offer hint beside the game's prompt row: a single Y press starts the act, so it reads like
@@ -541,16 +548,13 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 
 ## The per-mare preference profile is the one hand-built form; it borrows the schema rows' card,
 ## switch and pill pieces so it does not read as a different panel. It fills its own Characters
-## sub-tab, so the tab bar supplies the heading and the form starts with the card.
+## sub-tab, so the tab bar supplies the heading. Edits are staged in the form and written only by
+## Save preset; Reset to default restores the character's own preference template.
 func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", STYLE.rounded(STYLE.box(
-		Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.07), 1, 16, 16, 9)))
-	list.add_child(card)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 10)
-	card.add_child(stack)
-	var intro := STYLE.label("Preference changes apply live during an act.", "Faint", font_size - 5)
+	list.add_child(stack)
+	var intro := STYLE.label("Saved preset changes apply live during an act.", "Faint", font_size - 5)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(intro)
 	var filter := LineEdit.new()
@@ -563,6 +567,25 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	stack.add_child(selector)
 	var last_id := ""
 
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 8)
+	stack.add_child(buttons)
+	var save := Button.new()
+	save.text = "Save preset"
+	save.theme_type_variation = "Primary"
+	save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	save.add_theme_font_size_override("font_size", font_size - 2)
+	buttons.add_child(save)
+	var reset := Button.new()
+	reset.text = "Reset to default"
+	reset.theme_type_variation = "Danger"
+	reset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset.add_theme_font_size_override("font_size", font_size - 2)
+	buttons.add_child(reset)
+	var status := STYLE.label("", "Faint", font_size - 6)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(status)
+
 	var form := GridContainer.new()
 	form.columns = 2
 	form.add_theme_constant_override("h_separation", 16)
@@ -570,12 +593,21 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	stack.add_child(form)
 	var intensity := _preference_pills(form, "Intensity", PREFERENCES.INTENSITIES, font_size)
 	var pattern := _preference_pills(form, "Pattern", PREFERENCES.PATTERNS, font_size)
-	var warmth := _preference_pills(form, "Warmth", PREFERENCES.WARMTHS, font_size)
-	var tolerance := _preference_pills(form, "Neglect tolerance", PREFERENCES.TOLERANCES, font_size)
-	var touch_likes := _preference_checks(form, "Likes touch", PREFERENCES.TOUCHES, font_size)
-	var talk_likes := _preference_checks(form, "Likes talk", PREFERENCES.TALKS, font_size)
-	var touch_dislikes := _preference_checks(form, "Dislikes touch", PREFERENCES.TOUCHES, font_size)
-	var talk_dislikes := _preference_checks(form, "Dislikes talk", PREFERENCES.TALKS, font_size)
+	var warmth := _preference_pills(form, "Warmth", PREFERENCES.WARMTHS, font_size, {},
+		"How fast arousal builds.")
+	var tolerance := _preference_pills(form, "Neglect tolerance", PREFERENCES.TOLERANCES, font_size, {},
+		"Forgiving: a gentle warning and she will not stop the act. Normal: an early warning and " \
+		+ "another before she stops. Strict: a warning at the first sign of neglect, and she stops " \
+		+ "sooner.")
+	var touch: Dictionary = {}
+	for action: String in PREFERENCES.TOUCHES:
+		touch[action] = _preference_pills(form, action.capitalize(), PREFERENCE_STATES, font_size,
+			PREFERENCE_STATE_LABELS)
+	var talk: Dictionary = {}
+	for action: String in PREFERENCES.TALKS:
+		var label := "Dirty talk" if action == "dirty" else action.capitalize()
+		talk[action] = _preference_pills(form, label, PREFERENCE_STATES, font_size,
+			PREFERENCE_STATE_LABELS)
 	var notes := TextEdit.new()
 	notes.custom_minimum_size = Vector2(0.0, 76.0)
 	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -583,9 +615,6 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	var notes_label := _form_label("Notes", font_size)
 	form.add_child(notes_label)
 	form.add_child(notes)
-	var warmth_help := STYLE.label("How fast arousal builds.", "Faint", font_size - 6)
-	warmth_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(warmth_help)
 	# integration: per-mare consent for the optional anatomy actions.
 	var consent_public := CheckButton.new()
 	form.add_child(_form_label("Okay with public", font_size))
@@ -596,21 +625,6 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 	var consent_oral := CheckButton.new()
 	form.add_child(_form_label("Okay with oral", font_size))
 	form.add_child(consent_oral)
-	var tolerance_help := STYLE.label(
-		"Forgiving: one warning at 4, never stops. Normal: warnings at 1 and 4, stops at 10. Strict: warning at 1, stops at 3.",
-		"Faint", font_size - 6)
-	tolerance_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(tolerance_help)
-
-	var reset := Button.new()
-	reset.text = "Reset to default"
-	reset.theme_type_variation = "Danger"
-	reset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	reset.add_theme_font_size_override("font_size", font_size - 2)
-	stack.add_child(reset)
-	var status := STYLE.label("", "Faint", font_size - 6)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(status)
 
 	var refs := {
 		"selector": selector,
@@ -618,15 +632,14 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		"pattern": pattern,
 		"warmth": warmth,
 		"tolerance": tolerance,
-		"touch_likes": touch_likes,
-		"talk_likes": talk_likes,
-		"touch_dislikes": touch_dislikes,
-		"talk_dislikes": talk_dislikes,
+		"touch": touch,
+		"talk": talk,
 		"notes": notes,
 		"consent_public": consent_public,
 		"consent_anal": consent_anal,
 		"consent_oral": consent_oral,
 		"status": status,
+		"reset": reset,
 		"refreshing": false,
 	}
 	selector.item_selected.connect(func(index: int) -> void:
@@ -636,24 +649,18 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		for pill: Node in pills.get_children():
 			(pill as Button).pressed.connect(_choose_preference_pill.bind(
 				pills, str(pill.get_meta("value")), refs))
-	for checks: Dictionary in [touch_likes, talk_likes, touch_dislikes, talk_dislikes]:
-		for key: String in checks:
-			(checks[key] as CheckButton).toggled.connect(func(_on: bool) -> void:
-				_save_preference_form(refs))
-	# integration: consent edits save with the same live path.
+	for group: Dictionary in [touch, talk]:
+		for action: String in group:
+			var pills: HBoxContainer = group[action]
+			for pill: Node in pills.get_children():
+				(pill as Button).pressed.connect(_choose_preference_pill.bind(
+					pills, str(pill.get_meta("value")), refs))
+	# integration: consent edits stage with the rest of the preset.
 	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
-		button.toggled.connect(func(_on: bool) -> void: _save_preference_form(refs))
-	var notes_timer := Timer.new()
-	notes_timer.one_shot = true
-	notes_timer.wait_time = 0.4
-	stack.add_child(notes_timer)
-	notes.text_changed.connect(func() -> void:
-		if not bool(refs.get("refreshing", false)):
-			notes_timer.start())
-	notes.focus_exited.connect(func() -> void:
-		notes_timer.stop()
-		_save_preference_form(refs))
-	notes_timer.timeout.connect(func() -> void: _save_preference_form(refs))
+		button.toggled.connect(func(_on: bool) -> void: _mark_preference_dirty(refs))
+	notes.text_changed.connect(func() -> void: _mark_preference_dirty(refs))
+	notes.focus_exited.connect(func() -> void: _mark_preference_dirty(refs))
+	save.pressed.connect(func() -> void: _save_preference_form(refs))
 	reset.pressed.connect(func() -> void: _reset_preference_form(refs))
 	var fill_selector := func(query: String) -> void:
 		var current := _selected_preference_id(refs)
@@ -672,6 +679,7 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		if selector.get_item_count() == 0:
 			if status is Label:
 				(status as Label).text = "No pony matches that name."
+			_update_preference_reset(refs)
 		else:
 			_refresh_preference_form(refs)
 	filter.text_changed.connect(func(text: String) -> void:
@@ -689,10 +697,22 @@ func _form_label(text: String, font_size: int) -> Label:
 	return label
 
 
-## A few short values as the page's Segment pills in one track; the chosen one is lit.
+## A few short values as the page's Segment pills in one track; the chosen one is lit. A row label
+## and an optional hint stack in the first grid cell so the help sits under its control's name.
 func _preference_pills(parent: GridContainer, label_text: String, values: Array,
-		font_size: int) -> HBoxContainer:
-	parent.add_child(_form_label(label_text, font_size))
+		font_size: int, pill_labels: Dictionary = {}, hint: String = "") -> HBoxContainer:
+	var label_box := VBoxContainer.new()
+	label_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label_box.add_theme_constant_override("separation", 2)
+	var label := _form_label(label_text, font_size)
+	label_box.add_child(label)
+	if not hint.is_empty():
+		var help := STYLE.label(hint, "Faint", font_size - 6)
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label_box.add_child(help)
+	parent.add_child(label_box)
 	var track := PanelContainer.new()
 	track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	track.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -704,7 +724,7 @@ func _preference_pills(parent: GridContainer, label_text: String, values: Array,
 	track.add_child(pills)
 	for value: Variant in values:
 		var pill := Button.new()
-		pill.text = str(value).capitalize()
+		pill.text = str(pill_labels.get(str(value), str(value).capitalize()))
 		pill.theme_type_variation = "Segment"
 		pill.toggle_mode = true
 		pill.custom_minimum_size = Vector2(0, font_size * 1.75)
@@ -715,26 +735,30 @@ func _preference_pills(parent: GridContainer, label_text: String, values: Array,
 	return pills
 
 
-## One pill of a preference row picks the value for the whole row, then the profile saves.
+## One pill of a preference row picks the value for the whole row and stages the edit.
 func _choose_preference_pill(pills: HBoxContainer, value: String, refs: Dictionary) -> void:
 	for pill: Node in pills.get_children():
 		(pill as Button).set_pressed_no_signal(str(pill.get_meta("value")) == value)
-	_save_preference_form(refs)
+	_mark_preference_dirty(refs)
 
 
-func _preference_checks(parent: GridContainer, label_text: String, values: Array, font_size: int) -> Dictionary:
-	parent.add_child(_form_label(label_text, font_size))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	parent.add_child(row)
-	var checks: Dictionary = {}
+## Set every action row's tri-state pill from the saved likes and dislikes.
+func _set_preference_actions(control: Variant, likes: Variant, values: Array, dislikes: Variant) -> void:
+	if not control is Dictionary:
+		return
+	var groups: Dictionary = control
+	var liked: Array = likes if likes is Array else []
+	var disliked: Array = dislikes if dislikes is Array else []
 	for value: Variant in values:
-		var check := CheckButton.new()
-		check.text = str(value)
-		check.add_theme_font_size_override("font_size", font_size - 3)
-		row.add_child(check)
-		checks[str(value)] = check
-	return checks
+		var key := str(value)
+		var state := "none"
+		if key in liked:
+			state = "like"
+		elif key in disliked:
+			state = "dislike"
+		var pills: Variant = groups.get(key)
+		if pills is HBoxContainer:
+			_select_preference_value(pills, state)
 
 
 func _selected_preference_id(refs: Dictionary) -> String:
@@ -755,10 +779,10 @@ func _refresh_preference_form(refs: Dictionary) -> void:
 	_select_preference_value(refs.get("pattern"), str(preferences.get("pattern", "steady")))
 	_select_preference_value(refs.get("warmth"), str(preferences.get("warmth", "normal")))
 	_select_preference_value(refs.get("tolerance"), str(preferences.get("tolerance", "normal")))
-	_set_preference_checks(refs.get("touch_likes"), PREFERENCES.TOUCHES, preferences.get("touch", []))
-	_set_preference_checks(refs.get("talk_likes"), PREFERENCES.TALKS, preferences.get("talk", []))
-	_set_preference_checks(refs.get("touch_dislikes"), PREFERENCES.TOUCHES, preferences.get("dislikes", []))
-	_set_preference_checks(refs.get("talk_dislikes"), PREFERENCES.TALKS, preferences.get("dislikes", []))
+	_set_preference_actions(refs.get("touch"), preferences.get("touch", []), PREFERENCES.TOUCHES,
+		preferences.get("dislikes", []))
+	_set_preference_actions(refs.get("talk"), preferences.get("talk", []), PREFERENCES.TALKS,
+		preferences.get("dislikes", []))
 	var notes: Variant = refs.get("notes")
 	if notes is TextEdit:
 		(notes as TextEdit).text = str(preferences.get("notes", ""))
@@ -773,6 +797,7 @@ func _refresh_preference_form(refs: Dictionary) -> void:
 	if status is Label:
 		(status as Label).text = "Editing %s" % SETTINGS.character_name(id)
 	refs["refreshing"] = false
+	_update_preference_reset(refs)
 
 
 func _select_preference_value(control: Variant, selected_value: String) -> void:
@@ -782,28 +807,72 @@ func _select_preference_value(control: Variant, selected_value: String) -> void:
 		(pill as Button).set_pressed_no_signal(str(pill.get_meta("value")) == selected_value)
 
 
-func _set_preference_checks(control: Variant, values: Array, selected: Variant) -> void:
-	if not control is Dictionary:
+func _mark_preference_dirty(refs: Dictionary) -> void:
+	if bool(refs.get("refreshing", false)):
 		return
-	var checks: Dictionary = control
-	var selected_list: Array = selected if selected is Array else []
-	for value: Variant in values:
-		var key := str(value)
-		var check: Variant = checks.get(key)
-		if check is CheckButton:
-			(check as CheckButton).set_pressed_no_signal(key in selected_list)
+	var status: Variant = refs.get("status")
+	if status is Label:
+		(status as Label).text = "Unsaved changes"
 
 
-func _checked_preference_values(control: Variant, values: Array) -> Array:
-	var out: Array = []
-	if not control is Dictionary:
-		return out
-	var checks: Dictionary = control
-	for value: Variant in values:
-		var check: Variant = checks.get(str(value))
-		if check is CheckButton and bool((check as CheckButton).button_pressed):
-			out.append(str(value))
-	return out
+## Disable Reset while the saved preset already matches her own character template.
+func _update_preference_reset(refs: Dictionary) -> void:
+	var reset: Variant = refs.get("reset")
+	if not reset is Button:
+		return
+	var id := _selected_preference_id(refs)
+	var disabled := id.is_empty() or SETTINGS.preferences_match(
+		SETTINGS.preferences(id), SETTINGS.default_preferences(id))
+	(reset as Button).disabled = disabled
+
+
+func _preference_form_values(refs: Dictionary) -> Dictionary:
+	var touch: Variant = refs.get("touch")
+	var talk: Variant = refs.get("talk")
+	var touch_groups: Dictionary = touch if touch is Dictionary else {}
+	var talk_groups: Dictionary = talk if talk is Dictionary else {}
+	var touch_likes: Array = []
+	var talk_likes: Array = []
+	var dislikes: Array = []
+	for action: String in PREFERENCES.TOUCHES:
+		var state := _picked_preference_value(touch_groups.get(action), "none")
+		if state == "like":
+			touch_likes.append(action)
+		elif state == "dislike":
+			dislikes.append(action)
+	for action: String in PREFERENCES.TALKS:
+		var state := _picked_preference_value(talk_groups.get(action), "none")
+		if state == "like":
+			talk_likes.append(action)
+		elif state == "dislike":
+			dislikes.append(action)
+	var notes: Variant = refs.get("notes")
+	return {
+		"intensity": _picked_preference_value(refs.get("intensity"), "firm"),
+		"pattern": _picked_preference_value(refs.get("pattern"), "steady"),
+		"touch": touch_likes,
+		"dislikes": dislikes,
+		"talk": talk_likes,
+		"warmth": _picked_preference_value(refs.get("warmth"), "normal"),
+		"tolerance": _picked_preference_value(refs.get("tolerance"), "normal"),
+		"notes": str((notes as TextEdit).text).strip_edges() if notes is TextEdit else "",
+	}
+
+
+func _preference_consent_values(refs: Dictionary) -> Dictionary:
+	var public := false
+	var public_button: Variant = refs.get("consent_public")
+	if public_button is CheckButton:
+		public = (public_button as CheckButton).button_pressed
+	var anal := false
+	var anal_button: Variant = refs.get("consent_anal")
+	if anal_button is CheckButton:
+		anal = (anal_button as CheckButton).button_pressed
+	var oral := false
+	var oral_button: Variant = refs.get("consent_oral")
+	if oral_button is CheckButton:
+		oral = (oral_button as CheckButton).button_pressed
+	return {"public": public, "anal": anal, "oral": oral}
 
 
 func _save_preference_form(refs: Dictionary) -> void:
@@ -812,29 +881,20 @@ func _save_preference_form(refs: Dictionary) -> void:
 	var id := _selected_preference_id(refs)
 	if id.is_empty():
 		return
-	var dislikes := _checked_preference_values(refs.get("touch_dislikes"), PREFERENCES.TOUCHES)
-	dislikes.append_array(_checked_preference_values(refs.get("talk_dislikes"), PREFERENCES.TALKS))
-	var preferences := {
-		"intensity": _picked_preference_value(refs.get("intensity"), "firm"),
-		"pattern": _picked_preference_value(refs.get("pattern"), "steady"),
-		"touch": _checked_preference_values(refs.get("touch_likes"), PREFERENCES.TOUCHES),
-		"dislikes": dislikes,
-		"talk": _checked_preference_values(refs.get("talk_likes"), PREFERENCES.TALKS),
-		"warmth": _picked_preference_value(refs.get("warmth"), "normal"),
-		"tolerance": _picked_preference_value(refs.get("tolerance"), "normal"),
-		"notes": str((refs.get("notes") as TextEdit).text).strip_edges() if refs.get("notes") is TextEdit else "",
-	}
-	SETTINGS.save_preferences(id, preferences)
-	SETTINGS.save_consent(id, {
-		"public": (refs.get("consent_public") as CheckButton).button_pressed if refs.get("consent_public") is CheckButton else false,
-		"anal": (refs.get("consent_anal") as CheckButton).button_pressed if refs.get("consent_anal") is CheckButton else false,
-		"oral": (refs.get("consent_oral") as CheckButton).button_pressed if refs.get("consent_oral") is CheckButton else false,
-	})
+	var preferences := _preference_form_values(refs)
+	# A preset identical to her own character default needs no saved override.
+	if SETTINGS.preferences_match(preferences, SETTINGS.default_preferences(id)):
+		SETTINGS.reset_preferences(id)
+	else:
+		SETTINGS.save_preferences(id, preferences)
+	SETTINGS.save_consent(id, _preference_consent_values(refs))
 	_apply_live_settings()
 	refresh_anatomy()
+	_refresh_preference_form(refs)
 	var status: Variant = refs.get("status")
 	if status is Label:
-		(status as Label).text = "Saved %s live." % SETTINGS.character_name(id)
+		(status as Label).text = "Saved %s" % SETTINGS.character_name(id)
+	_debug("preference saved id=%s" % id)
 
 
 func _reset_preference_form(refs: Dictionary) -> void:
@@ -846,7 +906,7 @@ func _reset_preference_form(refs: Dictionary) -> void:
 	_apply_live_settings()
 	var status: Variant = refs.get("status")
 	if status is Label:
-		(status as Label).text = "Reset %s to its default preference." % SETTINGS.character_name(id)
+		(status as Label).text = "Reset %s to its character default" % SETTINGS.character_name(id)
 	_debug("preference reset id=%s" % id)
 
 

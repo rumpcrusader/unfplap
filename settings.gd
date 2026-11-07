@@ -125,6 +125,58 @@ static func preferences(id: String) -> Dictionary:
 	return PREFERENCES.defaults()
 
 
+## The character's own preference template, before any player override. Empty for an id with no
+## template. Reset to default and the form's comparison both use this.
+static func character_default_preferences(id: String) -> Dictionary:
+	var template: Variant = CHARACTER_TEMPLATES.get(id, {})
+	if template is Dictionary:
+		var raw: Variant = (template as Dictionary).get("preferences", {})
+		if raw is Dictionary:
+			return PREFERENCES.resolve(raw)
+	return {}
+
+
+## The preference profile a character returns to when her saved override is removed: her own
+## template for a known mare, the global default profile otherwise.
+static func default_preferences_for(base: Dictionary, id: String) -> Dictionary:
+	var character := character_default_preferences(id)
+	if not character.is_empty():
+		return character
+	return PREFERENCES.resolve(base.get("preferences", {}))
+
+
+static func default_preferences(id: String) -> Dictionary:
+	var data := _read()
+	return default_preferences_for(data.get("default", _filled_default()), id)
+
+
+## Compare two preference profiles. Arrays are sets, so a reordered saved list still matches.
+static func preferences_match(a: Dictionary, b: Dictionary) -> bool:
+	var left := PREFERENCES.resolve(a)
+	var right := PREFERENCES.resolve(b)
+	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes"]:
+		if str(left.get(key, "")) != str(right.get(key, "")):
+			return false
+	for key: String in ["touch", "talk", "dislikes"]:
+		if not _same_set(left.get(key, []), right.get(key, [])):
+			return false
+	return true
+
+
+static func _same_set(a: Variant, b: Variant) -> bool:
+	var left: Array = a if a is Array else []
+	var right: Array = b if b is Array else []
+	if left.size() != right.size():
+		return false
+	var seen: Dictionary = {}
+	for item: Variant in left:
+		seen[str(item)] = true
+	for item: Variant in right:
+		if not seen.has(str(item)):
+			return false
+	return true
+
+
 ## integration: her consent for the optional anatomy actions. A per-character override wins;
 ## otherwise the deterministic id defaults apply.
 static func consent(id: String) -> Dictionary:
@@ -244,6 +296,15 @@ static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 			if not block.has("preferences"):
 				block["preferences"] = block["taste"]
 			block.erase("taste")
+	# The global default profile carries a generic private note. A settings file written before
+	# the note existed has an empty string, so fill only that empty default note. A saved
+	# character note is never touched, because a player may intentionally clear one.
+	if data.get("default") is Dictionary:
+		var default_block: Dictionary = data["default"]
+		var preferences: Variant = default_block.get("preferences")
+		if preferences is Dictionary \
+				and str((preferences as Dictionary).get("notes", "")).strip_edges().is_empty():
+			(preferences as Dictionary)["notes"] = PREFERENCES.DEFAULTS["notes"]
 	return data
 
 
@@ -362,6 +423,11 @@ static func template_for(id: String) -> Dictionary:
 ## Pure merge for tests and for `template_for`.
 static func profile_for(base: Dictionary, characters: Variant, id: String) -> Dictionary:
 	var selected: Dictionary = base.duplicate(true)
+	# A known mare's preference block starts from her own template, so removing her saved
+	# preference override restores that profile instead of the global default.
+	var character_default := character_default_preferences(id)
+	if not character_default.is_empty():
+		selected["preferences"] = character_default.duplicate(true)
 	if characters is Dictionary and (characters as Dictionary).has(id):
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:

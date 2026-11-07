@@ -107,23 +107,27 @@ reading a setting goes through `tunables.gd` only — see `TUNING.md`.
 - **Standing → Smack**: max raise (`0.30 m`), hind offset (`0.10 m`), height (`-0.03 m`), palm
   arc (`0.06 m`), palm pitch (`12°`), raise speed (`2.0 m/s`) and return speed (`6.0 m/s`).
 
-There are no Save buttons: each edit writes its value and applies to the active act immediately.
-Debug numbers are never clamped; only the player-facing contract bounds listed above are
-enforced. The framing, pitch and torso controls remain experimental and unbounded.
+The schema-drawn pages have no Save buttons: each edit writes its value and applies to the active
+act immediately. The hand-built Characters form is the exception; its preset changes are written by
+**Save preset**. Debug numbers are never clamped; only the player-facing contract bounds listed above
+are enforced. The framing, pitch and torso controls remain experimental and unbounded.
 
-The **Characters** tab exposes one name-filtered pony selector and one form:
+The **Characters** tab exposes one name-filtered pony selector, a **Save preset** button and a
+**Reset to default** button in one row under the selector, and one form:
 
 - intensity, pattern, warmth;
 - neglect tolerance (forgiving, normal, strict);
-- liked touch and talk;
-- disliked touch and talk;
+- one Dislikes / No preference / Likes pill row per touch action (smack, caress, kiss) and per
+  talk action (praise, reassurance, dirty talk, playful);
 - public, anal and oral consent;
 - private notes.
 
-Preference edits save automatically and apply live during an act. `Reset to default` removes only the
-preference override and preserves that character's custom `event_prompts` and pose settings.
-Consent defaults are deterministic from her id and can be overridden per pony; `Reset to default`
-does not clear those overrides.
+Preset changes are staged in the form and written only by **Save preset**, then applied live during
+an act. If the form matches the character's own preference template, Save preset removes the saved
+preference override instead of writing a redundant one. **Reset to default** restores the
+character's own preference template and preserves custom `event_prompts` and pose settings; it does
+not clear consent overrides. The Reset button is disabled while the saved preset already matches the
+character template. Consent defaults are deterministic from her id and can be overridden per pony.
 - Public consent is opt-in and off by default for every mare. It only matters while
   `features.act_public_offer` is on; it lets her offer with others around.
 - Anal consent gates `V`; oral consent gates `N`. A refusal gives a short status toast and leaves

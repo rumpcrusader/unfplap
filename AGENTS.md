@@ -1198,10 +1198,10 @@ examples.
   required for the mod to load.
 - The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
   `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, neglect
-  tolerance (`forgiving`/`normal`/`strict`), touch/talk like and dislike checkboxes, and editable
-  notes. Preference edits save automatically and apply live; `Reset to default`
-  removes only that preference override. Custom `event_prompts` and `poses` on the character entry
-  must survive both actions.
+  tolerance (`forgiving`/`normal`/`strict`), one Dislikes / No preference / Likes pill row per touch
+  and talk action, and editable notes. Preference edits are staged in the form and written only by
+  **Save preset**, which applies live; **Reset to default** restores the character's own preference
+  template. Custom `event_prompts` and `poses` on the character entry must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
 
@@ -1340,15 +1340,19 @@ rump blush. Unknown settings keys are ignored.
   preference** form (a per-mare profile, not a global tunable). **Anatomy** holds every anatomy
   entry: display, Anon part, actions, effects and experimental. **Debug** holds every other
   entry, including **Talk & cues**, plus the **Actions** buttons, with the Actions block placed
-  directly below its **General** section rather than at the bottom. There are no Save buttons:
-  each edit writes its path and calls `main._apply_settings_changed()`, which refreshes the
-  flags, the caption position and the active act.
+  directly below its **General** section rather than at the bottom. The schema-drawn pages have no
+  Save buttons: each edit writes its path and calls `main._apply_settings_changed()`, which
+  refreshes the flags, the caption position and the active act. The hand-built Characters form is
+  the exception: it stages edits and writes them only when **Save preset** is pressed.
 - `debug_logs` and `debug_perf` default to `false`.
-- Character entries inherit unspecified fields from `default`.
+- Character entries inherit unspecified fields from `default`; a known mare's preference block seeds
+  from her own template in `character_preferences.gd`, so removing her saved preference override
+  restores that template rather than the global default.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `preferences`,
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
-  control.
+  control. The global default preference note is `Open to affection.`; every character template
+  carries its own note.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable adult mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
   ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.

@@ -21,7 +21,7 @@ const DEFAULTS := {
 	"talk": [],
 	"warmth": "normal",
 	"tolerance": "normal",
-	"notes": "",
+	"notes": "Open to affection.",
 }
 
 ## Strength is travel x peak-speed factor from thrust.gd, clamped 0..1.

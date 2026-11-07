@@ -60,6 +60,7 @@ func run() -> void:
 	check(str(preference.get("pattern", "")) == "steady", "neutral pattern default")
 	check(str(preference.get("tolerance", "")) == "normal", "normal tolerance default")
 	check((preference.get("touch", []) as Array).is_empty(), "neutral touch default")
+	check(str(preference.get("notes", "")) == "Open to affection.", "default preference note")
 	var prompts: Dictionary = base.get("act_prompts", {})
 	check(not str(prompts.get("utterance", "")).is_empty(), "utterance prompt present")
 	check(not str(prompts.get("cue", "")).is_empty(), "cue prompt present")
@@ -87,7 +88,42 @@ func run() -> void:
 
 	var other := SETTINGS.profile_for(base, characters, "rainbow_dash")
 	check(float((other["poses"] as Dictionary)[CATALOG.MISSIONARY]["hind_spread"]) == 0.42, "other character keeps pose default")
-	check(str((other["preferences"] as Dictionary).get("intensity", "")) == "firm", "other character keeps preference default")
+	check(str((other["preferences"] as Dictionary).get("intensity", "")) == "rough",
+		"other character uses her own preference template")
+	check(str((other["preferences"] as Dictionary).get("pattern", "")) == "quick",
+		"other character keeps her own rhythm")
+	check(((other["preferences"] as Dictionary).get("touch", []) as Array).has("smack"),
+		"other character keeps her own touch")
+
+	var rainbow_default := SETTINGS.character_default_preferences("rainbow_dash")
+	check(str(rainbow_default.get("intensity", "")) == "rough", "Rainbow default intensity")
+	check(str(rainbow_default.get("pattern", "")) == "quick", "Rainbow default pattern")
+	check((rainbow_default.get("touch", []) as Array).has("smack"), "Rainbow default touch")
+	var fallback := SETTINGS.default_preferences_for(base, "unknown_pony")
+	check(str(fallback.get("intensity", "")) == "firm", "unknown pony falls back to the global default")
+	check(SETTINGS.preferences_match(
+		{"touch": ["kiss", "caress"], "talk": [], "dislikes": []},
+		{"touch": ["caress", "kiss"], "talk": [], "dislikes": []}),
+		"preference comparison treats arrays as sets")
+	check(not SETTINGS.preferences_match({"notes": "A"}, {"notes": "B"}),
+		"preference comparison sees different notes")
+	var old_data: Dictionary = {"default": {"preferences": {"notes": ""}}}
+	SETTINGS._normalize_character_preferences(old_data)
+	var old_default: Dictionary = old_data["default"]
+	var old_preferences: Dictionary = old_default["preferences"]
+	check(str(old_preferences.get("notes", "")) == "Open to affection.", "empty default note is filled")
+	var saved_data: Dictionary = {
+		"default": {"preferences": {"notes": "Keep me"}},
+		"characters": {"x": {"preferences": {"notes": ""}}},
+	}
+	SETTINGS._normalize_character_preferences(saved_data)
+	var saved_default: Dictionary = saved_data["default"]
+	var saved_default_preferences: Dictionary = saved_default["preferences"]
+	check(str(saved_default_preferences.get("notes", "")) == "Keep me", "custom default note is kept")
+	var saved_characters: Dictionary = saved_data["characters"]
+	var saved_entry: Dictionary = saved_characters["x"]
+	var saved_preferences: Dictionary = saved_entry["preferences"]
+	check(str(saved_preferences.get("notes", "")) == "", "saved character note is not filled")
 
 	var with_unknown := SETTINGS.profile_for(base, {"x": {"poses": {"unknown": {"a": 1}}}}, "x")
 	check((with_unknown["poses"] as Dictionary).has(CATALOG.MISSIONARY), "unknown pose does not remove known poses")

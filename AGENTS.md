@@ -513,12 +513,15 @@ body-relative axes.
   sets `jiggle_radius` on every active `_flank._jiggle_targets` material and restores the override
   at act end, so stock smacks keep the shader default `0.12 m`. `apply_live_settings()` updates
   the radius on an active wobble.
-- The visible near body wears the mod-owned `body_anal.gdshader`, which is not in
-  `FlankTouch.JIGGLE_SHADERS`. `runtime._attach_body_anal_jiggle_target()` re-adds it and its
-  `body_anal_outline.gdshader` twin after every `_start_jiggle()` and sets their `jiggle_entry`
-  palette mask; the anatomy's `physical_reaction("flank_smack")` hook covers stock smacks
-  outside the act. The body shader also owns the vulva coat spread and the no-jiggle zone, so
-  its outline twin must receive the same uniforms.
+- The visible body coat is the rig `MareBody`, not the `NearBody` merge (which holds only the
+  cutie-mark patches). With `body_coat_deform` on, `anatomy.gd` takes the per-pony body material
+  from `FlankTouch._own_body_materials()`, then `body_coat_patch.gd` duplicates the game
+  `Shader`, swaps the `flank_jiggle.gdshaderinc` include for
+  `body_coat_deform.gdshaderinc` and the `VERTEX += flank_jiggle(VERTEX);` call for the deform
+  call. No game source is edited and no cel shader is copied. The patched material and its
+  outline are no longer in `JIGGLE_SHADERS`, so `runtime._attach_body_coat_jiggle_target()` adds
+  them back after every `_start_jiggle()`; the anatomy's `physical_reaction("flank_smack")` hook
+  covers stock smacks outside the act.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -1402,7 +1405,9 @@ Always on: standing afterglow stay-close window, lean-camera inertia smoothing a
 rump blush. Unknown settings keys are ignored.
 - `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
   the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
-  off), `skin_strip` (Show skin strip, on), `anatomy_fluid` (Show fluids, on), `skin_tone` (Skin
+  off), `skin_strip` (Show skin strip, on), `anatomy_fluid` (Show fluids, on),
+  `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
+  spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `show_dock` (Show tail
   docks, on), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded), the debug-only

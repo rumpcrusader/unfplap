@@ -833,6 +833,10 @@ static var skin_strip := flag("skin_strip", "anatomy.skin_strip", true, "Show sk
 static var teats := flag("teats", "anatomy.teats", false, "Show teats", "Show the optional teats.", ANATOMY, "")
 static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Show fluids",
 	"Show the optional climax and finish droplets.", ANATOMY, "")
+static var body_coat_deform := flag("body_coat_deform", "features.body_coat_deform", false,
+	"Body coat deform",
+	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
+	ANATOMY, "").as_debug()
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.5, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()

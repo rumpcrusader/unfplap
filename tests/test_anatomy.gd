@@ -9,6 +9,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
+const COAT_PATCH := preload("res://mods/unfplap/body_coat_patch.gd")
 
 var failures := 0
 var checks := 0
@@ -280,6 +281,24 @@ func run() -> void:
 		"body-local point round-trips through the bind pose")
 	var local_dir := ANATOMY.body_local_direction(bind, mesh_xf, Vector3.BACK)
 	check(absf(local_dir.length() - 1.0) < 0.0001, "body-local direction stays unit length")
+
+	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
+	# those hooks is left alone instead of being half-patched.
+	check(not SETTINGS.body_coat_deform.get_bool(), "body coat deform is off by default")
+	var patch_source := Shader.new()
+	patch_source.code = "shader_type spatial;\n" \
+		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
+		+ "void vertex() { VERTEX += flank_jiggle(VERTEX); }"
+	var patched := COAT_PATCH.patched(patch_source)
+	check(patched != null, "the coat shader patch finds its two hooks")
+	if patched != null:
+		check(patched.code.contains("body_coat_deform.gdshaderinc"),
+			"the patch swaps the include")
+		check(patched.code.contains("body_coat_deform(VERTEX)"),
+			"the patch swaps the deform call")
+	var unpatched := Shader.new()
+	unpatched.code = "shader_type spatial;"
+	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")
 
 	for pony: Node in [twilight, filly, stallion, off_roster, player]:
 		if is_instance_valid(pony):

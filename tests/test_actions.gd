@@ -28,12 +28,6 @@ class FakeFlank extends Node3D:
 	var _jiggle_targets: Array = []
 	var _jiggle_amount := 0.0
 
-	func _coat_entries(_mesh: MeshInstance3D, _surface: int) -> PackedFloat32Array:
-		var mask := PackedFloat32Array()
-		mask.resize(32)
-		mask[0] = 1.0
-		return mask
-
 
 class FakeAnatomy extends Node:
 	var mesh: MeshInstance3D
@@ -67,7 +61,7 @@ class FakeMain extends Node:
 		lines.append(text)
 
 
-func _check_body_anal_jiggle_target() -> void:
+func _check_body_coat_jiggle_target() -> void:
 	var flank := FakeFlank.new()
 	var body := MeshInstance3D.new()
 	var material := ShaderMaterial.new()
@@ -77,6 +71,8 @@ func _check_body_anal_jiggle_target() -> void:
 	anatomy.material = material
 	anatomy.outline = outline
 	flank._jiggle_targets = []
+	var was_on := SETTINGS.body_coat_deform.get_bool()
+	SETTINGS.body_coat_deform.set_bool(true)
 	var runtime: Node = RUNTIME.new()
 	runtime._flank = flank
 	runtime._anatomy = anatomy
@@ -84,13 +80,9 @@ func _check_body_anal_jiggle_target() -> void:
 	root.add_child(flank)
 	root.add_child(anatomy)
 	root.add_child(body)
-	runtime.call("_attach_body_anal_jiggle_target")
+	runtime.call("_attach_body_coat_jiggle_target")
 	check(flank._jiggle_targets.size() == 2, "body and outline join the jiggle targets")
-	var mask: Variant = material.get_shader_parameter("jiggle_entry")
-	check(mask is PackedFloat32Array and not (mask as PackedFloat32Array).is_empty()
-		and near(float((mask as PackedFloat32Array)[0]), 1.0),
-		"body coat palette mask is set")
-	runtime.call("_attach_body_anal_jiggle_target")
+	runtime.call("_attach_body_coat_jiggle_target")
 	check(flank._jiggle_targets.size() == 2, "body target is not duplicated")
 	root.remove_child(runtime)
 	runtime.free()
@@ -100,6 +92,7 @@ func _check_body_anal_jiggle_target() -> void:
 	body.free()
 	root.remove_child(flank)
 	flank.free()
+	SETTINGS.body_coat_deform.set_bool(was_on)
 
 
 func _check_tail_tuning() -> void:
@@ -790,7 +783,7 @@ func run() -> void:
 	cuddle_pony.free()
 	cuddle_runtime.free()
 
-	_check_body_anal_jiggle_target()
+	_check_body_coat_jiggle_target()
 	_check_tail_tuning()
 	_check_perf_probe()
 

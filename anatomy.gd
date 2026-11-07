@@ -60,16 +60,13 @@ const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.2265, 1.095]}
-## Mod-owned near-body shader: near_pony.gdshader plus the anal mound uniforms. Keeping the copy
-## in the mod avoids a game-side shader edit.
-const BODY_ANAL_SHADER_PATH := "res://mods/unfplap/body_anal.gdshader"
-const BODY_ANAL_OUTLINE_SHADER_PATH := "res://mods/unfplap/body_anal_outline.gdshader"
+## Runtime patch of the rig coat shader. It swaps only the flank_jiggle include and call in a
+## duplicated Shader, so no game source is edited and the cel shader is not copied.
+const BODY_COAT_PATCH := preload("res://mods/unfplap/body_coat_patch.gd")
 ## The visible ponut is the pony body, not the genitals overlay. These are body-local: the
 ## Blender body.glb anus centre (0, -0.299, 0.572) maps to Godot (0, 0.572, 0.299).
 const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
 const BODY_ANAL_REACH := 0.09
-const BODY_ANAL_BIG := 1.5
-const BODY_ANAL_SMALL := 0.5
 ## The body coat gives under the stretched vulva rim by this much per unit of lip opening.
 const VULVA_RELIEF_M := 0.002
 ## The no-jiggle zone never goes below this body-local radius, so a small vulva still has a
@@ -91,6 +88,9 @@ var _mesh: MeshInstance3D
 var _body_mesh: MeshInstance3D
 var _body_material: ShaderMaterial
 var _body_outline: ShaderMaterial
+var _body_original_shader: Shader
+var _body_outline_original_shader: Shader
+var _body_patched := false
 ## pony_hips bind pose from the body skin: anatomy-local -> body-local (NearBody) space.
 var _hips_bind := Transform3D.IDENTITY
 var _hips_bind_ready := false
@@ -331,8 +331,8 @@ func _attach() -> void:
 func _on_physical_reaction(kind: String) -> void:
 	if kind != "flank_smack":
 		return
-	if is_instance_valid(runtime) and runtime.has_method("_attach_body_anal_jiggle_target"):
-		runtime.call("_attach_body_anal_jiggle_target")
+	if is_instance_valid(runtime) and runtime.has_method("_attach_body_coat_jiggle_target"):
+		runtime.call("_attach_body_coat_jiggle_target")
 
 
 func _process(delta: float) -> void:
@@ -343,7 +343,7 @@ func _process(delta: float) -> void:
 	_visibility_clock = VISIBILITY_POLL_S
 	_refresh_anal_ring()
 	_apply_place()
-	_apply_body_anal_scale()
+	_apply_body_coat()
 	_apply_anal_place()
 	_apply_strip_scale()
 	var started := Time.get_ticks_usec()
@@ -689,21 +689,21 @@ func is_attached() -> bool:
 	return _attached
 
 
-## The near-body mesh and material the anatomy owns. The runtime uses these to put the
-## mod-owned near body back into FlankTouch's jiggle target list.
+## The visible rig coat and its outline. The runtime uses these to put the runtime-patched
+## materials back into FlankTouch's jiggle target list.
 func body_coat_mesh() -> MeshInstance3D:
-	return _body_mesh if is_instance_valid(_body_mesh) else null
+	return _body_mesh if _body_patched and is_instance_valid(_body_mesh) else null
 
 func body_coat_material() -> ShaderMaterial:
-	return _body_material if is_instance_valid(_body_material) else null
+	return _body_material if _body_patched and is_instance_valid(_body_material) else null
 
 func body_outline_material() -> ShaderMaterial:
-	return _body_outline if is_instance_valid(_body_outline) else null
+	return _body_outline if _body_patched and is_instance_valid(_body_outline) else null
 
 
 ## pony_hips bind pose from the body skin. `body_local_point` maps a point from the anatomy's
-## bone-local space (the mesh's own transform) into the NearBody vertex space, which is the space
-## `body_anal.gdshader` writes in. The bind pose is cached because the skin is immutable.
+## bone-local space (the mesh's own transform) into the rig coat's vertex space, which is the
+## space the patched cel shader writes in. The bind pose is cached because the skin is immutable.
 func _hips_bind_pose() -> Transform3D:
 	if _hips_bind_ready:
 		return _hips_bind
@@ -731,10 +731,11 @@ static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 	return (bind.basis.inverse() * (mesh_transform.basis * direction)).normalized()
 
 
-## Push the vulva centre, spread and no-jiggle zone into the near-body coat and its outline.
-## `_wide` is the world shaft radius; `_lip_radius` is anatomy-local, so the scale converts it.
+## Push the body coat's anal mound, vulva spread and no-jiggle zone into the rig material and
+## its outline. `_hole_target` is anatomy-local; `_lip_radius` is too, so their ratio is unitless.
 func _apply_body_coat_uniforms() -> void:
-	if not is_instance_valid(_body_material) or not is_instance_valid(_mesh) or not _hips_bind_ready:
+	if not _body_patched or not is_instance_valid(_body_material) \
+			or not is_instance_valid(_mesh) or not _hips_bind_ready:
 		return
 	var scale := maxf(_mesh.transform.basis.get_scale().x, 0.0001)
 	var centre := body_local_point(_hips_bind, _mesh.transform, WINKING_OPENING)
@@ -747,73 +748,94 @@ func _apply_body_coat_uniforms() -> void:
 	var still_centre := centre - up_axis * JIGGLE_STILL_DROP_M
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
-	for material in [_body_material, _body_outline]:
-		if not is_instance_valid(material):
-			continue
-		var mat := material as ShaderMaterial
-		mat.set_shader_parameter("vulva_centre", centre)
-		mat.set_shader_parameter("vulva_out", out_axis)
-		mat.set_shader_parameter("vulva_scale", spread)
-		mat.set_shader_parameter("vulva_reach", reach)
-		mat.set_shader_parameter("vulva_depth", depth)
-		mat.set_shader_parameter("jiggle_still_centre", still_centre)
-		mat.set_shader_parameter("jiggle_still_radius", still_radius)
-
-
-## integration: the ponut is the pony's own body; the mare bits mesh is only the small
-## genitals overlay. Add the Blender-authored anal_big/anal_small shapes to the visible NearBody
-## and drive them from the same Anal scale setting. The source body.glb stays untouched, because
-## hybrid_near_mesh skips source meshes that already carry blend shapes.
-func _apply_body_anal_scale() -> void:
-	if not is_instance_valid(pony):
-		return
-	var model: Variant = pony.get("_model")
-	if not model is Node:
-		return
-	var body := (model as Node).find_child("NearBody", true, false) as MeshInstance3D
-	if not is_instance_valid(body) or body.mesh == null:
-		return
-	if not is_instance_valid(_body_mesh):
-		_body_mesh = null
-		_body_material = null
-		_body_outline = null
-	if _body_mesh != body:
-		if is_instance_valid(_body_mesh) and is_instance_valid(_body_material):
-			_body_mesh.set_surface_override_material(0, null)
-		_body_mesh = body
-		_body_material = null
-		_body_outline = null
-	if not is_instance_valid(_body_material):
-		var source: Variant = body.get_active_material(0)
-		if not source is ShaderMaterial:
-			return
-		_body_material = (source as ShaderMaterial).duplicate() as ShaderMaterial
-		_body_material.shader = load(BODY_ANAL_SHADER_PATH) as Shader
-		var hull := _body_material.next_pass
-		if hull is ShaderMaterial:
-			_body_outline = (hull as ShaderMaterial).duplicate() as ShaderMaterial
-			_body_outline.shader = load(BODY_ANAL_OUTLINE_SHADER_PATH) as Shader
-			_body_material.next_pass = _body_outline
-		body.set_surface_override_material(0, _body_material)
-	if not _hips_bind_ready:
-		_hips_bind_pose()
 	var anal_scale := SETTINGS.anal_scale.get_num()
 	for material in [_body_material, _body_outline]:
 		if not is_instance_valid(material):
 			continue
 		var mat := material as ShaderMaterial
-		mat.set_shader_parameter("anal_scale", anal_scale)
-		mat.set_shader_parameter("anal_centre", BODY_ANAL_CENTRE)
-		mat.set_shader_parameter("anal_reach", BODY_ANAL_REACH)
-	# The mod-owned body shader is not in FlankTouch.JIGGLE_SHADERS; the act runtime puts it back
-	# into the target list, but the palette mask has to be ready here so a stock smack still reads.
-	var flank := pony.get_node_or_null("FlankTouch")
-	if flank != null and flank.has_method("_coat_entries"):
-		var entries: Variant = flank.call("_coat_entries", body, 0)
-		for material in [_body_material, _body_outline]:
-			if is_instance_valid(material):
-				(material as ShaderMaterial).set_shader_parameter("jiggle_entry", entries)
+		mat.set_shader_parameter("body_coat_anal_centre", BODY_ANAL_CENTRE)
+		mat.set_shader_parameter("body_coat_anal_scale", anal_scale)
+		mat.set_shader_parameter("body_coat_anal_reach", BODY_ANAL_REACH)
+		mat.set_shader_parameter("body_coat_vulva_centre", centre)
+		mat.set_shader_parameter("body_coat_vulva_out", out_axis)
+		mat.set_shader_parameter("body_coat_vulva_scale", spread)
+		mat.set_shader_parameter("body_coat_vulva_reach", reach)
+		mat.set_shader_parameter("body_coat_vulva_depth", depth)
+		mat.set_shader_parameter("body_coat_still_centre", still_centre)
+		mat.set_shader_parameter("body_coat_still_radius", still_radius)
+
+
+## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
+## coat (MareBody) is the visible one; NearBody is only the cutie-mark merge. The game shader is
+## patched at runtime by body_coat_patch.gd, so no source is edited and no cel shader is copied.
+func _apply_body_coat() -> void:
+	if not SETTINGS.body_coat_deform.get_bool():
+		_restore_body_coat()
+		return
+	if not is_instance_valid(pony):
+		_restore_body_coat()
+		return
+	var model: Variant = pony.get("_model")
+	if not model is Node:
+		_restore_body_coat()
+		return
+	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
+	if not is_instance_valid(body) or body.mesh == null:
+		_restore_body_coat()
+		return
+	if not _hips_bind_ready:
+		_hips_bind_pose()
+	if _body_mesh != body or not is_instance_valid(_body_material) \
+			or body.get_active_material(0) != _body_material:
+		_restore_body_coat()
+		# The body material is shared between ponies of one identity. FlankTouch owns the
+		# per-pony copies and keeps the outline in the pony's outline list.
+		var flank := pony.get_node_or_null("FlankTouch")
+		if flank != null and flank.has_method("_own_body_materials"):
+			flank.call("_own_body_materials")
+		var source := body.get_active_material(0) as ShaderMaterial
+		if source == null:
+			return
+		if not source.has_meta("jiggle_own"):
+			source = source.duplicate() as ShaderMaterial
+			var own_hull := source.next_pass as ShaderMaterial
+			if own_hull != null:
+				source.next_pass = own_hull.duplicate()
+			source.set_meta("jiggle_own", true)
+			body.set_surface_override_material(0, source)
+		_body_mesh = body
+		_body_material = source
+		_body_original_shader = source.shader
+		var hull := source.next_pass as ShaderMaterial
+		_body_outline = hull
+		_body_outline_original_shader = hull.shader if hull != null else null
+	if not _body_patched:
+		var patched := BODY_COAT_PATCH.patched(_body_original_shader)
+		if patched == null:
+			return
+		_body_material.shader = patched
+		if _body_outline != null and _body_outline_original_shader != null:
+			var hull_patched := BODY_COAT_PATCH.patched(_body_outline_original_shader)
+			if hull_patched != null:
+				_body_outline.shader = hull_patched
+		_body_patched = true
 	_apply_body_coat_uniforms()
+
+
+## Put the game shaders back. The per-pony material copies stay; only the shader resource and
+## the mod uniforms are undone.
+func _restore_body_coat() -> void:
+	if _body_patched:
+		if is_instance_valid(_body_material) and is_instance_valid(_body_original_shader):
+			_body_material.shader = _body_original_shader
+		if is_instance_valid(_body_outline) and is_instance_valid(_body_outline_original_shader):
+			_body_outline.shader = _body_outline_original_shader
+	_body_patched = false
+	_body_material = null
+	_body_outline = null
+	_body_mesh = null
+	_body_original_shader = null
+	_body_outline_original_shader = null
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -946,7 +968,7 @@ func apply_live() -> void:
 		_reload_mare_bits_mesh()
 	_apply_material()
 	_apply_place()
-	_apply_body_anal_scale()
+	_apply_body_coat()
 	_refresh_anal_ring()
 	_apply_anal_place()
 	_apply_visibility()
@@ -988,10 +1010,11 @@ func detach() -> void:
 	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
 			and pony.physical_reaction.is_connected(_on_physical_reaction):
 		pony.physical_reaction.disconnect(_on_physical_reaction)
-	if is_instance_valid(_body_mesh) and is_instance_valid(_body_material):
-		_body_mesh.set_surface_override_material(0, null)
-	_body_material = null
-	_body_outline = null
+	var body_mesh := _body_mesh
+	var body_material := _body_material
+	_restore_body_coat()
+	if is_instance_valid(body_mesh) and is_instance_valid(body_material):
+		body_mesh.set_surface_override_material(0, null)
 	_hips_bind_ready = false
 	_mare_bits_path_loaded = ""
 	_visibility_init = false

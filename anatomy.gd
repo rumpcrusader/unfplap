@@ -60,6 +60,9 @@ const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.2265, 1.095]}
+## Mod-owned near-body shader: near_pony.gdshader plus the anal mound uniforms. Keeping the copy
+## in the mod avoids a game-side shader edit.
+const BODY_ANAL_SHADER_PATH := "res://mods/unfplap/body_anal.gdshader"
 ## The visible ponut is the pony body, not the genitals overlay. These are body-local: the
 ## Blender body.glb anus centre (0, -0.299, 0.572) maps to Godot (0, 0.572, 0.299).
 const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
@@ -672,6 +675,7 @@ func _apply_body_anal_scale() -> void:
 		if not source is ShaderMaterial:
 			return
 		_body_material = (source as ShaderMaterial).duplicate() as ShaderMaterial
+		_body_material.shader = load(BODY_ANAL_SHADER_PATH) as Shader
 		body.set_surface_override_material(0, _body_material)
 	_body_material.set_shader_parameter("anal_scale", SETTINGS.anal_scale.get_num())
 	_body_material.set_shader_parameter("anal_centre", BODY_ANAL_CENTRE)

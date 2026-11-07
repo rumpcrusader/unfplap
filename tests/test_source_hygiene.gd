@@ -130,7 +130,7 @@ func _check_preloads(files: Array[String]) -> void:
 			continue
 		var text := FileAccess.get_file_as_string(path)
 		var regex := RegEx.new()
-		regex.compile("res://mods/unfplap/[A-Za-z0-9_./-]+\\.(gd|json|md)")
+		regex.compile("res://mods/unfplap/[A-Za-z0-9_./-]+\\.(gdshader|gd|json|md)")
 		for match: RegExMatch in regex.search_all(text):
 			var target := match.get_string()
 			if seen.has(target):

@@ -1425,10 +1425,13 @@ rump blush. Unknown settings keys are ignored.
   units are not clipped; a declaration with `.with_slider()` draws a themed HSlider with its value
   beside it instead. The sidebar row sits under an **Add-ons** caption, and the injected page has no
   second title. Settings with no group render at the top of the tab without a heading; a group
-  needs at least three related settings to earn one. **General** holds the interface, audio, thrust
-  and act tuning (**Thrust**, **Missionary**, **Standing**, **Talk & cues**, plus **Camera** and
-  **Thrust jiggle**). **Anatomy** holds every anatomy setting. **World** holds relationships, cycle,
-  witnesses, pony behaviour, the per-mare **History** and **Neglect tolerance**. **Characters** holds
+  needs at least three related settings to earn one. **General** opens with its ungrouped interface
+  rows (HUD readouts, control hints, act lines, history, captions, Ponese mute, Debug mode, acts
+  during cuddles, Starting Sex), then **Audio** and **Thrust**, with the act tuning (**Missionary**,
+  **Standing**, **Talk & cues**, **Camera**, **Thrust jiggle**) as debug sections. **Anatomy**
+  opens with its ungrouped switches, then **Holes**, **Anon part** and **Actions**. **World** opens
+  with Promiscuity and the estrus switch, and its Debug block holds the witnesses, ponies, per-mare
+  **History** and **Neglect tolerance**. **Characters** holds
   the hand-built **Character preference** form (a per-mare profile, not a global setting). The
   **Actions** buttons sit at the bottom of General's **Debug** section, in compact rows. The declaration-drawn pages have no Save buttons: each edit writes its setting and
   calls `main._apply_settings_changed()`, which refreshes the flags, the caption position and the

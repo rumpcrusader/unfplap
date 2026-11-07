@@ -420,6 +420,7 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 ## tab's Debug block only; see TUNING.md.
 
 
+
 # ======================================================== General
 
 # -- (ungrouped)
@@ -440,22 +441,20 @@ static var act_climax := flag("act_climax", "features.act_climax", false, "Wet c
 	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
 	GENERAL, "Audio")
 
-# -- Controls
+# -- (ungrouped)
 static var act_controls := flag("act_controls", "features.act_controls", true, "Control hints",
-	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "Controls")
+	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
 
 # -- Audio
 static var act_foley := flag("act_foley", "features.act_foley", true, "Act foley",
 	"Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
 	GENERAL, "Audio")
 
-# -- Controls
+# -- (ungrouped)
 static var act_history := flag("act_history", "features.act_history", true, "Long-term history",
-	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.",
-	GENERAL, "Controls")
+	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.", GENERAL, "")
 static var act_lines := flag("act_lines", "features.act_lines", true, "Act lines",
-	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.",
-	GENERAL, "Controls")
+	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
 
 # -- Audio
 static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Act vocals",
@@ -466,19 +465,14 @@ static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Act v
 static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 	"features.allow_act_during_cuddle", true, "Allow acts during cuddles",
 	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "")
-
-# -- Controls
 static var captions_on_top := flag("captions_on_top", "features.captions_on_top", true,
 	"Captions on top",
-	"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.",
-	GENERAL, "Controls")
+	"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.", GENERAL, "")
 static var hud_readouts := flag("hud_readouts", "features.hud_readouts", true, "HUD readouts",
-	"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.",
-	GENERAL, "Controls")
+	"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.", GENERAL, "")
 static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_audio", true,
 	"Mute Ponese audio",
-	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL,
-	"Controls")
+	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
 
 # -- Thrust
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
@@ -493,6 +487,11 @@ static var pixels_per_full := num("pixels_per_full", "thrust.pixels_per_full", 1
 static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",
 	"How far the hips retreat between thrusts.", GENERAL, "Thrust") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 2.0)
+
+# -- (ungrouped)
+static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
+	["when_available", "try_luck"], ["When Available", "Try Your Luck"], "Starting Sex",
+	"When Anon can start sex.", GENERAL, "")
 
 # -- Camera  (debug)
 static var bob := num("bob", "camera_thrust.bob", 0.35, "Bob",
@@ -816,10 +815,9 @@ static var touch_cooldown_seconds := num("touch_cooldown_seconds",
 
 # ======================================================== Anatomy
 
-# -- Anatomy
+# -- (ungrouped)
 static var act_only := flag("act_only", "anatomy.act_only", false, "Only during acts",
-	"Show the mare anatomy only while an act is running; hide it in the world.", ANATOMY,
-	"Anatomy")
+	"Show the mare anatomy only while an act is running; hide it in the world.", ANATOMY, "")
 
 # -- Anatomy › Holes
 static var anal_height_mm := num("anal_height_mm", "anatomy.anal_height_mm", -15.0,
@@ -831,10 +829,9 @@ static var anal_ring := flag("anal_ring", "anatomy.anal_ring", false,
 	"Ring model (experimental)", "Use the re-modelled anal ring instead of the original cup.",
 	ANATOMY, "Anatomy › Holes")
 
-# -- Anatomy
+# -- (ungrouped)
 static var hide_dock := flag("hide_dock", "anatomy.hide_dock", true, "Hide tail dock",
-	"Hide the tail dock while the anatomy is shown; it otherwise reads as a stray blob above the ponut.",
-	ANATOMY, "Anatomy")
+	"Hide the tail dock while the anatomy is shown; it otherwise reads as a stray blob above the ponut.", ANATOMY, "")
 
 # -- Anatomy › Holes
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
@@ -879,30 +876,27 @@ static var player_scale := num("player_scale", "anatomy.player_scale", 1.5, "Ano
 	"Scale the player part relative to its default size.", ANATOMY, "Anatomy › Anon part") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0)
 
-# -- Anatomy
+# -- (ungrouped)
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip", true, "Skin strip",
-	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "Anatomy")
+	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.5, "Genital tone",
-	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY,
-	"Anatomy") \
+	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
-static var teats := flag("teats", "anatomy.teats", false, "Teats", "Show the optional teats.",
-	ANATOMY, "Anatomy")
+static var teats := flag("teats", "anatomy.teats", false, "Teats", "Show the optional teats.", ANATOMY, "")
 static var anatomy := flag("anatomy", "features.anatomy", false, "Anatomy",
-	"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.", ANATOMY,
-	"Anatomy")
+	"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.", ANATOMY, "")
 static var anatomy_bed_body := flag("anatomy_bed_body", "features.anatomy_bed_body", true,
 	"Anon bed body",
-	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", ANATOMY, "Anatomy")
+	"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", ANATOMY, "")
 
 # -- Anatomy › Actions
 static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish", true,
 	"Finish control", "Let B choose whether Anon finishes inside or pulls out.", ANATOMY,
 	"Anatomy › Actions")
 
-# -- Anatomy
+# -- (ungrouped)
 static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Fluid",
-	"Show the optional climax and finish droplets.", ANATOMY, "Anatomy")
+	"Show the optional climax and finish droplets.", ANATOMY, "")
 
 # -- Anatomy › Actions
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Hole switch",
@@ -912,16 +906,14 @@ static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", true, "
 	"Let N turn her round for oral in the standing pose if she is willing.", ANATOMY,
 	"Anatomy › Actions")
 
-# -- Anatomy
+# -- (ungrouped)
 static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "VR act",
-	"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", ANATOMY, "Anatomy")
+	"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", ANATOMY, "")
 
-# -- Anatomy  (debug)
+# -- (ungrouped)  (debug)
 static var debug_aim_points := flag("debug_aim_points", "features.debug_aim_points", false,
 	"Aim points", "Show the vulva, anus and cock-tip markers during an act.", ANATOMY, "") \
 	.as_debug()
-
-# -- (ungrouped)  (debug)
 static var strip_scale := num("strip_scale", "anatomy.strip_scale", 1.0, "Skin strip scale",
 	"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).as_debug()
@@ -935,9 +927,6 @@ static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
 	"Promiscuity", "Lowest relationship level for a lover bond and sex.", WORLD, "")
-static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
-	["when_available", "try_luck"], ["When Available", "Try Your Luck"], "Starting Sex",
-	"When Anon can start sex.", WORLD, "")
 
 # -- History › Points  (debug)
 static var apology_repair := num("apology_repair", "history.apology_repair", 1.0,

@@ -64,11 +64,10 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 
 **General**
 
-The first rows have no heading: **Debug mode** (the switch that reveals the Debug sections) and
-**Allow acts during cuddles**.
+The first rows have no heading: HUD readouts, control hints, act lines, long-term history, captions
+on top, mute Ponese audio, **Debug mode** (the switch that reveals the Debug sections), **Allow acts
+during cuddles** and **Starting Sex**.
 
-- **Controls**: HUD readouts, control hints, act lines, long-term history, captions on top, mute
-  Ponese audio.
 - **Audio**: act foley, act vocals and the wet climax layer.
 - **Thrust**: mouse-up direction, sensitivity in pixels per full thrust (`240…1200`, default
   `1000`), hip back-off (`0.25…2.0×`, default `0.5×`), climax limit (`0…20`, default `3`; `0` is
@@ -78,15 +77,16 @@ The first rows have no heading: **Debug mode** (the switch that reveals the Debu
 
 **Anatomy**
 
-- **Anatomy**: the master switch, teats and the separate skin strip, the genital tone slider, only
-  during acts, the tail-dock hide, the fluid layer, the Anon bed body and the VR act.
+The first rows have no heading: the anatomy master switch, teats, the skin strip, the genital tone
+slider, only during acts, the tail-dock hide, the fluid layer, the Anon bed body and the VR act.
+
 - **Holes**: anal ring, anal height, lip vertical share.
 - **Anon part**: size, girth, head, length, throb and placement.
 - **Actions**: hole switch, oral and finish control.
 
 **World**
 
-No headings: **Promiscuity**, **Starting Sex** and the **Estrus cycle** switch.
+No headings: **Promiscuity** and the **Estrus cycle** switch.
 
 **Characters**
 

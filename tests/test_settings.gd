@@ -75,6 +75,8 @@ func run() -> void:
 		"cue prompt no longer forces the HUD cue")
 	check(str(prompts.get("utterance", "")).contains("{seed}"),
 		"fallback utterance prompt has a private seed")
+	check(str(prompts.get("utterance", "")).contains("{preferences}"),
+		"fallback utterance prompt keeps preferences")
 	check(not (prompts as Dictionary).has("talk_cue"), "talk cue prompt removed")
 
 	var legacy_prompts := {

@@ -739,6 +739,13 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   rump blush, ear twitch, thrust rate). `_on_stroke()` owns `_act_thrusts`, the intensity/pattern
   window, the log and `_score_thrust()`. Never move the plap back to the close: that is the
   180 ms delay the deep thrust used to have.
+- The **body slap needs contact**, and only the slap. `THRUST.contact_amount(end_depth × reach,
+  reach)` is 1 at the model's deepest point and 0 once the stroke stopped
+  `CONTACT_COMPRESSION_M = 0.025 m` short of it, so it is derived from the shaft length, the
+  `Pelvis gap` and the pose's reach rather than a fixed depth. `play_impact(..., contact)` skips
+  the plap at zero contact and fades it in by `plap_contact_db` (-14 dB to 0 dB); the base
+  foley-off plap uses the same gate. `slide_in`, the bed fabric, jiggle and every body reaction
+  still fire on every real thrust: they come from the motion, not from skin meeting coat.
 - Every stroke carries `direction`, `start_depth`, `end_depth`, `travel`, `duration`, `speed`,
   `peak_speed`, `thrust` and `strength`. There is no base gain and no per-stroke multiplier.
 - Physical strength is `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)`.

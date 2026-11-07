@@ -174,6 +174,18 @@ func run() -> void:
 	check(THRUST.jiggle_amount(0.45, 0.30) > 0.20 and THRUST.jiggle_amount(0.45, 0.30) < 0.40,
 		"the soft band fades the wobble in between")
 
+	# The body slap follows the model: full contact at the deepest point, none a compression
+	# margin short of it, whatever shaft length and pelvis gap make the reach.
+	var reach := 0.17
+	check(near(THRUST.contact_amount(reach, reach), 1.0), "bottomed out is full body contact")
+	check(near(THRUST.contact_amount(reach - THRUST.CONTACT_COMPRESSION_M, reach), 0.0),
+		"a stroke a margin short has no body contact")
+	var half := THRUST.contact_amount(reach - THRUST.CONTACT_COMPRESSION_M * 0.5, reach)
+	check(half > 0.4 and half < 0.6, "body contact fades in over the compression margin")
+	check(THRUST.contact_amount(0.17, 0.17) > THRUST.contact_amount(0.17, 0.19),
+		"a shorter reach moves the contact point with it")
+	check(near(THRUST.contact_amount(-0.05, reach), 0.0), "the back-out standoff has no contact")
+
 	print("THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("THRUST_PASS")

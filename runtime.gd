@@ -2966,13 +2966,17 @@ func _score_thrust() -> void:
 		heat, satisfaction])
 
 ## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
-## here, with the motion. Fired once per real thrust from the tracker's `impact` event.
+## here, with the motion. Fired once per real thrust from the tracker's `impact` event. Only the
+## body slap checks contact: his skin has to reach her coat, so a shallow thrust stays silent
+## while the slide and the bed still play.
 func _on_impact(result: Dictionary) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var jiggle := THRUST.jiggle_amount(float(result.get("travel", 0.0)), strength)
+	var reach := penetration_reach()
+	var contact := THRUST.contact_amount(float(result.get("end_depth", 0.0)) * reach, reach)
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
 	_thrust_jiggle(jiggle)
@@ -2987,14 +2991,14 @@ func _on_impact(result: Dictionary) -> void:
 	_thrust_times.append(now)
 	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
 		_thrust_times.pop_front()
-	_play_kiss()
+	_play_kiss(contact)
 	_play_vocal()
 	if is_instance_valid(_act_audio):
 		if _act_audio.foley_enabled():
 			_act_audio.play_impact(pose_id, strength, _rump_point(),
-				_bed_audio_point(), _bed_soft)
-	_log("thrust impact readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
-		satisfaction, _thrusts_per_second(), strength, impact, jiggle,
+				_bed_audio_point(), _bed_soft, contact)
+	_log("thrust impact contact=%.2f readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+		contact, satisfaction, _thrusts_per_second(), strength, impact, jiggle,
 		_last_intensity, _last_pattern])
 
 func _play_vocal() -> void:
@@ -5258,14 +5262,14 @@ func _stop_breath() -> void:
 	if _sounds != null:
 		_sounds.stop_breath()
 
-func _play_kiss() -> void:
-	# The impact event owns the plap now, so this only covers the foley-off base sound; keeping it
-	# out of the stroke close avoids a second plap when the stroke ends.
+func _play_kiss(contact := 1.0) -> void:
+	# The impact event owns the plap now, and `contact` gates it: a stroke that stopped short of
+	# her coat has no body slap. Keeping it out of the stroke close avoids a second plap.
 	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
 		return
 	# Use the mod-owned player in both poses. Calling the game's boop `play_kiss()` increments her
 	# kiss counter, and pony_awareness then tells the AI "The player kissed your face." during sex.
-	_sounds_controller().play_kiss(_rump_point())
+	_sounds_controller().play_kiss(_rump_point(), contact)
 
 func _play_climax() -> void:
 	_sounds_controller().play_climax(_snout())

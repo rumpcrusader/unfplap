@@ -99,8 +99,12 @@ func stop_breath() -> void:
 		_breath.stop()
 
 
-## Play the low plap used when pack foley is off. The caller owns the foley-on check.
-func play_kiss(at: Vector3) -> void:
+## Play the low plap used when pack foley is off. The caller owns the foley-on check and the
+## contact gate: `contact` is 0 when his skin never met her coat at the bottom of the stroke.
+func play_kiss(at: Vector3, contact := 1.0) -> void:
+	var touch := clampf(contact, 0.0, 1.0)
+	if touch <= 0.001:
+		return
 	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
 	if stream == null or not is_instance_valid(_kiss_sound):
 		return
@@ -108,7 +112,7 @@ func play_kiss(at: Vector3) -> void:
 	_kiss_sound.global_position = at
 	_kiss_sound.unit_size = 1.0
 	_kiss_sound.max_distance = 6.0
-	_kiss_sound.volume_db = -22.0
+	_kiss_sound.volume_db = -22.0 + lerpf(-10.0, 0.0, touch)
 	_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
 	_kiss_sound.play()
 

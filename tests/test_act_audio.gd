@@ -55,6 +55,10 @@ func run() -> void:
 	check(ACT.plap_volume_db(PREFERENCES.FIRM_MAX - 0.01) < 0.0,
 		"the top of firm is still below full plap volume")
 	check(ACT.plap_volume_db(1.0) == 0.0, "rough stays at full plap volume")
+	check(near(ACT.plap_contact_db(0.0), -14.0), "no body contact is the quiet end")
+	check(near(ACT.plap_contact_db(1.0), 0.0), "full body contact is the loud end")
+	check(ACT.plap_contact_db(0.5) > -14.0 and ACT.plap_contact_db(0.5) < 0.0,
+		"a partial body contact fades in")
 
 	check(ACT.next_index(1, 0, 0) == 0, "single variant index")
 	for last: int in range(4):
@@ -128,6 +132,17 @@ func run() -> void:
 	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "rough impact keeps the slide")
 	check(act.play_bed(0.7, Vector3.ZERO, true), "soft-bed fabric plays")
 	check(not act.play_bed(0.7, Vector3.ZERO, false), "a wood bed has no creak")
+	# The body slap needs his skin to reach her coat; a stroke that stopped short is silent, but
+	# the slide and the bed still play.
+	ready_at["plap_rough"] = 0.0
+	ready_at["plap_firm"] = 0.0
+	ready_at["slide_in"] = 0.0
+	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0)
+	check(float(ready_at.get("plap_rough", 0.0)) == 0.0, "a stroke short of contact has no plap")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a stroke short of contact keeps the slide")
+	ready_at["plap_rough"] = 0.0
+	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.5)
+	check(float(ready_at.get("plap_rough", 0.0)) > 0.0, "a partial contact plays the plap")
 	check(act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
 		"foley plap starts a player")
 	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),

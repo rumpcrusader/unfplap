@@ -176,15 +176,18 @@ func play_plap(pose: String, intensity: String, strength: float, at: Vector3,
 
 
 ## Called from the tracker's impact event: the deepest point of the stroke, so it also catches
-## shallow strokes that never crossed a fixed depth.
+## shallow strokes that never crossed a fixed depth. `contact` is how much of his skin actually
+## meets her coat there; below it only the slide and the bed play, because a stroke that stopped
+## short has no body slap. The bed fabric and the slide are not gated.
 func play_impact(pose: String, strength: float, rump: Vector3,
-		bed_at: Vector3, soft_bed: bool) -> void:
+		bed_at: Vector3, soft_bed: bool, contact := 1.0) -> void:
 	if not _foley:
 		return
 	var level := clampf(strength, 0.0, 1.0)
+	var touch := clampf(contact, 0.0, 1.0)
 	var intensity := PREFERENCES.intensity_for(level)
-	if intensity != "soft":
-		play_plap(pose, intensity, level, rump, plap_volume_db(level))
+	if intensity != "soft" and touch > 0.001:
+		play_plap(pose, intensity, level, rump, plap_volume_db(level) + plap_contact_db(touch))
 	if uses_bed(pose):
 		play_bed(level, bed_at, soft_bed)
 	play_slide("in", level, rump, -12.0)
@@ -271,6 +274,11 @@ static func plap_volume_db(strength: float) -> float:
 		return lerpf(-18.0, 0.0, (level - PREFERENCES.SOFT_MAX)
 			/ (PREFERENCES.FIRM_MAX - PREFERENCES.SOFT_MAX))
 	return 0.0
+
+
+## A body slap that only just reaches her coat sits this many dB under a bottomed-out one.
+static func plap_contact_db(contact: float) -> float:
+	return lerpf(-14.0, 0.0, clampf(contact, 0.0, 1.0))
 
 
 static func pitch_for(strength: float) -> float:

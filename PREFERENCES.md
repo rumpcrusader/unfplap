@@ -21,8 +21,12 @@ aftercare are outside it.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
   (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement. Its **bottom**
   is a separate `impact` event: it fires on the reversal or after `IMPACT_STALL_S = 0.04 s` of no
-  real progress, and it drives the plap, jiggle, wings, blush and ear twitch, so the sound lands
-  with the motion instead of 180 ms late. The close only scores.
+  real progress, and it drives the jiggle, wings, blush, ear twitch and the plap, so the sound
+  lands with the motion instead of 180 ms late. The close only scores.
+- The **body slap is gated on contact**: `THRUST.contact_amount()` compares the stroke's peak
+  penetration with `reach` and fades in over the last `CONTACT_COMPRESSION_M = 2.5 cm`, so only a
+  stroke that actually brings his skin to her coat plaps, quieter the shorter it is. The slide and
+  the bed fabric still play on every real thrust.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
   counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:

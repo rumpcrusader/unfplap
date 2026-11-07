@@ -38,6 +38,10 @@ const JIGGLE_TRAVEL_REF := 0.9
 const JIGGLE_SOFT_FLOOR := 0.04
 const JIGGLE_SOFT_LOW := 0.18
 const JIGGLE_SOFT_HIGH := 0.42
+## His skin meets her coat in the last few centimetres of the reachable stroke. The margin is a
+## distance, so the contact point follows the shaft length, the `Pelvis gap` and the pose's reach
+## instead of being a fixed depth fraction.
+const CONTACT_COMPRESSION_M := 0.025
 
 var depth := 0.0
 
@@ -76,6 +80,14 @@ static func jiggle_amount(travel: float, strength: float) -> float:
 	var depth_factor := clampf(travel / JIGGLE_TRAVEL_REF, 0.0, 1.0)
 	var soft := smoothstep(JIGGLE_SOFT_LOW, JIGGLE_SOFT_HIGH, clampf(strength, 0.0, 1.0))
 	return depth_factor * lerpf(JIGGLE_SOFT_FLOOR, 1.0, soft)
+
+
+## How much of his skin actually meets her coat at a stroke bottom, 0..1. It is 1 at the model's
+## deepest point and 0 once the stroke stopped `CONTACT_COMPRESSION_M` short of it, so a shallow
+## thrust has no body slap while a bottomed-out one does, whatever the shaft length or gap is.
+static func contact_amount(penetration_m: float, reach_m: float) -> float:
+	var remaining := maxf(reach_m - penetration_m, 0.0)
+	return 1.0 - smoothstep(0.0, maxf(CONTACT_COMPRESSION_M, 0.001), remaining)
 
 
 func reset() -> void:

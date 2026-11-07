@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
 # Build one standalone mod pack from this repository.
 #
-#   ./build.sh                     -> dist/unfplap-<version>.pck
-#   ./build.sh --out FILE.pck      -> FILE.pck
+#   ./build.sh                          -> dist/unfplap-<version>.pck
+#   ./build.sh --out FILE.pck            -> FILE.pck
+#   ./build.sh --anatomy-zip FILE.zip    -> unpack the anatomy archive first
+#   ./build.sh --no-anatomy              -> code-only pack, no adult anatomy
 #
 # Godot 4.5 must be on PATH. The pack contains only the runtime tree selected by .pckignore,
 # imported asset data and the generated mod.built.json. The build stages that tree in a
 # throwaway minimal Godot project at the same res://mods/<id>/ paths the game uses, imports
 # assets there, and packs the staging tree.
+#
+# The anatomy meshes and textures are not in the repository. A normal build requires all of them
+# under assets/anatomy/ and fails when any are missing. Pass --anatomy-zip to unpack them from
+# the archive first, or --no-anatomy to build without the feature.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/anatomy_assets.sh
+source "$ROOT/scripts/anatomy_assets.sh"
 OUT=""
+ANATOMY_ZIP=""
+NO_ANATOMY=0
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -20,8 +30,17 @@ while [ "$#" -gt 0 ]; do
 			OUT="$2"
 			shift 2
 			;;
+		--anatomy-zip)
+			if [ "$#" -lt 2 ]; then echo "--anatomy-zip needs a file path." >&2; exit 1; fi
+			ANATOMY_ZIP="$2"
+			shift 2
+			;;
+		--no-anatomy)
+			NO_ANATOMY=1
+			shift
+			;;
 		-h|--help)
-			sed -n '2,10p' "$0"
+			sed -n '2,16p' "$0"
 			exit 0
 			;;
 		*)
@@ -57,6 +76,26 @@ if [ -z "$VERSION" ]; then
 	exit 1
 fi
 
+if [ "$NO_ANATOMY" -eq 1 ] && [ -n "$ANATOMY_ZIP" ]; then
+	echo "--anatomy-zip and --no-anatomy cannot be combined." >&2
+	exit 1
+fi
+
+ANATOMY_DIR="$ROOT/assets/anatomy"
+if [ -n "$ANATOMY_ZIP" ]; then
+	echo "Unpacking anatomy assets from $ANATOMY_ZIP..."
+	anatomy_unpack "$ANATOMY_ZIP" "$ANATOMY_DIR"
+fi
+if [ "$NO_ANATOMY" -eq 1 ]; then
+	echo "ANATOMY skipped (--no-anatomy)"
+elif missing="$(anatomy_missing "$ANATOMY_DIR")"; then
+	echo "ANATOMY ok ${#ANATOMY_FILES[@]}/${#ANATOMY_FILES[@]}"
+else
+	printf 'ANATOMY_FAIL missing in assets/anatomy/:\n%s\n' "$missing" >&2
+	echo "Pack them with scripts/pack_anatomy.sh, unpack the archive there, or pass --no-anatomy." >&2
+	exit 1
+fi
+
 if [ -z "$OUT" ]; then OUT="$ROOT/dist/$ID-$VERSION.pck"; fi
 mkdir -p "$(dirname "$OUT")"
 
@@ -66,7 +105,10 @@ trap cleanup EXIT
 
 MOD="$STAGE/mods/$ID"
 mkdir -p "$MOD"
-tar -C "$ROOT" --exclude-from="$ROOT/.pckignore" -cf - . | tar -C "$MOD" -xf -
+TAR_ARGS=(--exclude-from="$ROOT/.pckignore")
+# --no-anatomy must drop the assets even when they sit in the working tree.
+if [ "$NO_ANATOMY" -eq 1 ]; then TAR_ARGS+=(--exclude="./assets/anatomy"); fi
+tar -C "$ROOT" "${TAR_ARGS[@]}" -cf - . | tar -C "$MOD" -xf -
 
 cat > "$STAGE/project.godot" <<EOF
 config_version=5

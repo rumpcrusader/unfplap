@@ -1,8 +1,8 @@
-// Mod-owned rig-coat deformation. `body_coat_patch.gd` swaps the game shader's
-// flank_jiggle include for this file and its `VERTEX += flank_jiggle(VERTEX);` call for
+// Mod-owned rig-coat deformation. `body_coat_patch.gd` keeps the game shader's flank_jiggle
+// include, adds this file after it, and swaps the `VERTEX += flank_jiggle(VERTEX);` call for
 // `VERTEX += body_coat_deform(VERTEX);`. The game include and the cel material stay untouched.
-
-#include "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
+// No nested #include here: Godot resolves the main shader's includes, and this file uses the
+// flank_jiggle function the game include already defined above it.
 
 // The ponut shape key lives on the pony body, not the genitals overlay. Body-local centre,
 // matching the Blender body.glb anus point mapped to Godot (0, 0.572, 0.299).

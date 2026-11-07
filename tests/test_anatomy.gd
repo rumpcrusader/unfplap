@@ -287,6 +287,7 @@ func run() -> void:
 	check(not SETTINGS.body_coat_deform.get_bool(), "body coat deform is off by default")
 	var patch_source := Shader.new()
 	patch_source.code = "shader_type spatial;\n" \
+		+ "#include \"includes/base-cel-shader.gdshaderinc\"\n" \
 		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
 		+ "void vertex() { VERTEX += flank_jiggle(VERTEX); }"
 	var patched := COAT_PATCH.patched(patch_source)
@@ -296,6 +297,9 @@ func run() -> void:
 			"the patch swaps the include")
 		check(patched.code.contains("body_coat_deform(VERTEX)"),
 			"the patch swaps the deform call")
+		check(patched.code.contains(
+			"res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"),
+			"the patch makes the cel includes absolute")
 	var unpatched := Shader.new()
 	unpatched.code = "shader_type spatial;"
 	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")

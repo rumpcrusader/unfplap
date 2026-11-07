@@ -29,7 +29,14 @@ static func patched(source: Shader) -> Shader:
 			push_warning("[unfplap] body coat patch skipped: unexpected shader %s"
 				% source.resource_path)
 		return null
-	var patched_code := code.replace(GAME_INCLUDE, MOD_INCLUDE).replace(GAME_CALL, PATCHED_CALL)
+	# Keep the game include and add the mod file after it. Nesting `#include` inside the mod
+	# include is not reliable here: Godot's preprocessor tokenised the nested directive.
+	var includes := GAME_INCLUDE + "\"\n#include \"" + MOD_INCLUDE
+	var patched_code := code.replace(GAME_INCLUDE, includes).replace(GAME_CALL, PATCHED_CALL)
+	# The duplicate Shader has no resource_path, so the cel shader's relative includes must
+	# become absolute or they resolve against the wrong directory.
+	patched_code = patched_code.replace("#include \"includes/",
+		"#include \"res://addons/cel-shader/includes/")
 	var shader := Shader.new()
 	shader.code = patched_code
 	_cache[key] = shader

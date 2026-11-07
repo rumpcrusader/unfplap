@@ -26,10 +26,10 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
 
-## Drive the real tracker with the generated depth. Returns every closed stroke event.
-func _simulate(depth: float, pace: float, seconds: float) -> Array:
+## Drive the real tracker with the generated depth. Returns every tracker event.
+func _simulate(depth: float, pace: float, seconds: float, shape := "cosine") -> Array:
 	var auto: RefCounted = AUTO.new()
-	auto.call("reset", pace, depth)
+	auto.call("reset", pace, depth, shape)
 	auto.call("begin", 0.0)
 	var tracker: RefCounted = THRUST.new()
 	var events: Array = []
@@ -126,6 +126,33 @@ func run() -> void:
 		check(intensities.has(name), "auto range reaches intensity " + name)
 	for name: String in PREF.PATTERNS:
 		check(patterns.has(name), "auto range reaches pattern " + name)
+
+	# Every stroke shape is a valid generator: it starts and ends at the bottom and stays in range,
+	# so the tracker can only ever see a real stroke. `double` makes two per cycle.
+	for shape: String in AUTO.SHAPES:
+		var low := INF
+		var high := -INF
+		for i: int in 101:
+			var value := AUTO.wave(shape, float(i) / 100.0)
+			low = minf(low, value)
+			high = maxf(high, value)
+		check(low >= -0.0001 and high <= 1.0001, "shape %s stays in range" % shape)
+		check(near(AUTO.wave(shape, 0.0), 0.0), "shape %s starts at the bottom" % shape)
+		check(near(AUTO.wave(shape, 1.0), 0.0), "shape %s ends at the bottom" % shape)
+		check(near(AUTO.wave(shape, AUTO.phase_for(shape, 0.7)), 0.7, 0.02),
+			"shape %s can be entered at the hand's depth" % shape)
+	for shape: String in ["thrust", "tease", "saw", "hold"]:
+		check(_thrusts(_simulate(0.9, 1.0, 3.0, shape)).size() >= 2,
+			"shape %s produces real strokes" % shape)
+	var doubles := _thrusts(_simulate(0.9, 1.0, 4.0, "double"))
+	check(doubles.size() >= 6, "double shape makes two strokes per cycle")
+	var doubled: RefCounted = AUTO.new()
+	doubled.call("reset", 1.0, 0.9, "double")
+	check(str(doubled.get("shape")) == "double", "the configured shape is stored")
+	doubled.call("set_shape", "hold")
+	check(str(doubled.get("shape")) == "hold", "a live shape change applies")
+	doubled.call("set_shape", "nonsense")
+	check(str(doubled.get("shape")) == "hold", "an unknown shape is ignored")
 
 	# Enabling from the hand's depth must not snap backwards.
 	var auto: RefCounted = AUTO.new()

@@ -5,8 +5,9 @@ extends RefCounted
 ## real direction reversal or after `STROKE_TIMEOUT_S` without movement. A thrust is an inward
 ## stroke (shallow -> deep) that reaches `THRUST_MIN_TRAVEL`.
 ##
-## `move()` returns events for strokes it closed. `tick()` returns an event when an idle stroke
-## times out. The caller classifies intensity and rhythm from the event; there is no score here.
+## `move()` returns events for strokes it closed and for the moment the inward stroke reaches its
+## bottom. `tick()` returns those too when an idle stroke holds or times out. The caller drives
+## the presentation from the `impact` event and the score from the `stroke` event.
 
 const STROKE_TIMEOUT_S := 0.18
 ## A thrust must travel this far inward. `REVERSAL_HYSTERESIS` (0.06) is subtracted from every
@@ -16,6 +17,11 @@ const MIN_THRUST_DURATION := 0.04
 ## A small pullback is hand jitter, not a new stroke. The reversal must travel this far from
 ## the stroke's peak before the stroke closes.
 const REVERSAL_HYSTERESIS := 0.06
+## The impact fires at the bottom of the inward stroke, not when it closes, so the plap and the
+## body react with the motion. The stall clock follows the peak, so a pixel of jitter at the
+## bottom cannot postpone it, and 40 ms covers a deliberate pause without the old 180 ms wait.
+const IMPACT_STALL_S := 0.04
+const IMPACT_STALL_MIN_TRAVEL := 0.001
 const MIN_MOVE := 0.0000001
 const MAX_SAMPLES := 240
 ## Physical thrust strength: travel matters most, average stroke speed scales it. The 8.0
@@ -40,6 +46,12 @@ var _start_depth := 0.0
 var _peak_depth := 0.0
 var _start_time := 0.0
 var _last_move := 0.0
+## The depth at the last meaningful inward progress and when it happened. The impact stall clock
+## measures from here, not from `_last_move`, so jitter that does not deepen the stroke is ignored.
+var _progress_depth := 0.0
+var _progress_time := 0.0
+## True once this stroke's impact has fired (or when it is an outward stroke that needs none).
+var _impact_fired := true
 var _samples: Array[Vector2] = []
 
 
@@ -73,6 +85,9 @@ func reset() -> void:
 	_peak_depth = 0.0
 	_start_time = 0.0
 	_last_move = 0.0
+	_progress_depth = 0.0
+	_progress_time = 0.0
+	_impact_fired = true
 	_samples.clear()
 
 
@@ -88,6 +103,12 @@ func move(amount: float, now: float) -> Array[Dictionary]:
 	var direction := 1 if applied > 0.0 else -1
 
 	if _direction != 0 and direction != _direction:
+		# The bottom is here: fire the impact now, before the hysteresis wait, so the plap and the
+		# body land with the motion instead of when the stroke finally closes.
+		if _direction > 0 and not _impact_fired:
+			var impact := _impact_event()
+			if not impact.is_empty():
+				events.append(impact)
 		# Ignore a small pullback: the hand is still inside the same stroke.
 		if absf(after - _peak_depth) < REVERSAL_HYSTERESIS:
 			depth = after
@@ -103,13 +124,21 @@ func move(amount: float, now: float) -> Array[Dictionary]:
 		_direction = direction
 		_start_depth = before
 		_peak_depth = before
+		_progress_depth = before
 		_start_time = now
+		_progress_time = now
+		_impact_fired = direction < 0
 		_samples.clear()
 		_samples.append(Vector2(now, before))
 
 	depth = after
 	if _direction > 0:
-		_peak_depth = maxf(_peak_depth, depth)
+		if depth > _peak_depth:
+			_peak_depth = depth
+			# Only a real gain counts as progress; pixel jitter at the bottom never resets this.
+			if depth - _progress_depth >= IMPACT_STALL_MIN_TRAVEL:
+				_progress_depth = depth
+				_progress_time = now
 	else:
 		_peak_depth = minf(_peak_depth, depth)
 	_append_sample(now, depth)
@@ -145,6 +174,11 @@ func tick(now: float) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
 	if _direction == 0:
 		return events
+	# A held bottom fires the impact after the short stall, long before the stroke times out.
+	if _direction > 0 and not _impact_fired and now - _progress_time >= IMPACT_STALL_S:
+		var impact := _impact_event()
+		if not impact.is_empty():
+			events.append(impact)
 	if now - _last_move <= STROKE_TIMEOUT_S:
 		return events
 	_append_sample(now, depth)
@@ -152,6 +186,32 @@ func tick(now: float) -> Array[Dictionary]:
 	if not closed.is_empty():
 		events.append(closed)
 	return events
+
+
+## The bottom of the stroke, as a presentation event. Strength and travel come from the peak
+## itself (`_progress_time`), so a dwell before the reversal does not dilute the speed. A stroke
+## that never reached a real thrust leaves `_impact_fired` false and simply gets none.
+func _impact_event() -> Dictionary:
+	var travel := absf(_peak_depth - _start_depth)
+	if travel < THRUST_MIN_TRAVEL:
+		return {}
+	# A stroke that reached the bottom in one event has no peak duration; the floor keeps its
+	# speed factor finite without rejecting a genuinely fast thrust.
+	var duration := maxf(MIN_THRUST_DURATION, _progress_time - _start_time)
+	_impact_fired = true
+	var speed := travel / duration
+	var speed_factor := clampf(speed / STRENGTH_SPEED_REF, STRENGTH_SPEED_MIN, STRENGTH_SPEED_MAX)
+	return {
+		"kind": "impact",
+		"direction": 1,
+		"start_depth": _start_depth,
+		"end_depth": _peak_depth,
+		"travel": travel,
+		"duration": duration,
+		"speed": speed,
+		"peak_speed": speed,
+		"strength": clampf(travel * speed_factor, 0.0, 1.0),
+	}
 
 
 func _append_sample(now: float, value: float) -> void:
@@ -192,6 +252,7 @@ func _close(now: float) -> Dictionary:
 	peak_speed = minf(peak_speed, speed * PEAK_SPEED_CAP)
 	var speed_factor := clampf(speed / STRENGTH_SPEED_REF, STRENGTH_SPEED_MIN, STRENGTH_SPEED_MAX)
 	var event := {
+		"kind": "stroke",
 		"direction": direction,
 		"start_depth": _start_depth,
 		"end_depth": _peak_depth,

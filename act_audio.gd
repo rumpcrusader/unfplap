@@ -11,7 +11,8 @@ const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 ## The withdraw sound fires when the depth crosses back out. The impact itself fires from the
-## closed-stroke event, which is the deepest point and works for shallow thrusts too.
+## tracker's `impact` event, the moment the inward stroke bottoms out, so the plap lands with
+## the motion instead of when the stroke closes.
 const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
@@ -174,8 +175,8 @@ func play_plap(pose: String, intensity: String, strength: float, at: Vector3,
 	return play(cue, at, 1.0, extra_db, pitch)
 
 
-## Called from the closed-stroke event. This is the deepest point of a real thrust, so it also
-## catches shallow strokes that never crossed a fixed depth.
+## Called from the tracker's impact event: the deepest point of the stroke, so it also catches
+## shallow strokes that never crossed a fixed depth.
 func play_impact(pose: String, strength: float, rump: Vector3,
 		bed_at: Vector3, soft_bed: bool) -> void:
 	if not _foley:

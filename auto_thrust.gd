@@ -2,12 +2,15 @@ extends RefCounted
 ## Pure auto-thrust depth generator. No scene access.
 ##
 ## A cycle is one thrust: the phase advances at `pace` cycles per second and the output follows
-## a raised cosine from 0 to `max_depth` and back. The runtime feeds the difference between
-## successive outputs into the same `thrust.gd` tracker the mouse uses, so strength, readiness,
-## intensity, pattern, audio, camera and presentation all stay unchanged.
+## `wave(shape, phase)` from a bottom to `max_depth` and back. The runtime feeds the difference
+## between successive outputs into the same `thrust.gd` tracker the mouse uses, so strength,
+## readiness, intensity, pattern, audio, camera and presentation all stay unchanged.
 ##
 ## `max_depth` is the requested peak, set by the mouse. `_amplitude` is the smoothed peak the
 ## waveform actually uses, so scrolling depth does not inject a depth-speed spike.
+##
+## `shape` is the experiment switch: every shape starts and ends at the bottom and stays in 0..1,
+## so a shape can never look like a jump or an invalid stroke to the tracker.
 
 ## Wheel bounds. Keep these equal to `settings.gd`'s `auto_thrust.*` bounds.
 const PACE_MIN := 1.0
@@ -19,9 +22,13 @@ const PACE_STEP := 0.25
 ## or above `THRUST_MIN_TRAVEL` (0.12): 0.20 - 0.06 = 0.14.
 const DEPTH_MIN := 0.20
 const DEPTH_MAX := 1.0
-## Low-pass on the requested peak depth. The cosine already eases the ends of a stroke; this
-## only keeps a mouse depth change from stepping the current depth in one frame.
+## Low-pass on the requested peak depth. The shape already eases the ends of a stroke; this only
+## keeps a mouse depth change from stepping the current depth in one frame.
 const DEPTH_SMOOTH_S := 0.18
+## Phase samples used to enter a running shape at the hand's depth without a jump.
+const PHASE_SAMPLES := 64
+## Every supported stroke waveform.
+const SHAPES := ["cosine", "thrust", "tease", "saw", "hold", "double"]
 
 var active := false
 ## Thrusts per second. One cycle is one inward stroke. Matches the declared default; `reset()`
@@ -29,6 +36,8 @@ var active := false
 var pace := 1.0
 ## Requested peak depth, 0..1 of the full tracker range.
 var max_depth := 0.5
+## Stroke waveform id, one of `SHAPES`.
+var shape := "cosine"
 
 var _amplitude := 0.9
 var _phase := 0.0
@@ -36,10 +45,11 @@ var _depth := 0.0
 
 
 ## Back to the act-start defaults. Called by `runtime._reset_thrust_state()`.
-func reset(default_pace: float, default_depth: float) -> void:
+func reset(default_pace: float, default_depth: float, default_shape := "cosine") -> void:
 	active = false
 	pace = clampf(default_pace, PACE_MIN, PACE_MAX)
 	max_depth = clampf(default_depth, DEPTH_MIN, DEPTH_MAX)
+	shape = default_shape if SHAPES.has(default_shape) else "cosine"
 	_amplitude = max_depth
 	_phase = 0.0
 	_depth = 0.0
@@ -52,8 +62,7 @@ func begin(current_depth: float) -> void:
 	max_depth = clampf(maxf(max_depth, current_depth), DEPTH_MIN, DEPTH_MAX)
 	_amplitude = max_depth
 	var ratio := clampf(current_depth / maxf(max_depth, 0.0001), 0.0, 1.0)
-	# The raised cosine has two phases for one depth; the 0..0.5 half is the inward stroke.
-	_phase = acos(clampf(1.0 - 2.0 * ratio, -1.0, 1.0)) / TAU
+	_phase = phase_for(shape, ratio)
 	_depth = clampf(current_depth, 0.0, max_depth)
 
 
@@ -64,7 +73,7 @@ func step(delta: float) -> float:
 	var alpha := 1.0 - exp(-delta / maxf(DEPTH_SMOOTH_S, 0.001))
 	_amplitude = lerpf(_amplitude, max_depth, alpha)
 	_phase = fposmod(_phase + pace * delta, 1.0)
-	_depth = _amplitude * (0.5 - 0.5 * cos(TAU * _phase))
+	_depth = _amplitude * wave(shape, _phase)
 	return _depth
 
 
@@ -83,3 +92,68 @@ func nudge_pace(amount: float) -> void:
 
 func nudge_depth(amount: float) -> void:
 	max_depth = clampf(max_depth + amount, DEPTH_MIN, DEPTH_MAX)
+
+
+## Live `Auto shape` change; the current cycle keeps its phase and continues in the new shape.
+func set_shape(name: String) -> void:
+	if SHAPES.has(name):
+		shape = name
+
+
+## The stroke waveform: 0 is the bottom, 0.5 the top, 1 the bottom again. Every shape starts and
+## ends at zero and stays in 0..1, so the tracker only sees a stroke's depth delta.
+static func wave(name: String, phase: float) -> float:
+	var p := fposmod(phase, 1.0)
+	match name:
+		"thrust":
+			return _stroke(p, 0.35)
+		"tease":
+			return _stroke(p, 0.65)
+		"saw":
+			return _saw(p)
+		"hold":
+			return _hold(p)
+		"double":
+			return _stroke(fposmod(p * 2.0, 1.0), 0.5) * (1.0 if p < 0.5 else 0.6)
+	return 0.5 - 0.5 * cos(TAU * p)
+
+
+## One eased stroke. `duty` is the share of the cycle spent going in, so `thrust` drives in fast
+## and out slow, `tease` the other way, and 0.5 is the symmetric cosine.
+static func _stroke(phase: float, duty: float) -> float:
+	var d := clampf(duty, 0.05, 0.95)
+	if phase < d:
+		return 0.5 - 0.5 * cos(PI * phase / d)
+	return 0.5 + 0.5 * cos(PI * (phase - d) / (1.0 - d))
+
+
+## Constant speed in and out, abrupt at both ends. The least natural, the easiest to feel.
+static func _saw(phase: float) -> float:
+	if phase < 0.5:
+		return phase / 0.5
+	return 1.0 - (phase - 0.5) / 0.5
+
+
+## Quick in, a short dwell at full depth, quick out.
+static func _hold(phase: float) -> float:
+	if phase < 0.30:
+		return 0.5 - 0.5 * cos(PI * phase / 0.30)
+	if phase < 0.50:
+		return 1.0
+	return 0.5 + 0.5 * cos(PI * (phase - 0.50) / 0.50)
+
+
+## The cycle phase whose depth is closest to `ratio`. Numeric, so every shape — including the
+## two-peak `double` — can be entered at the hand's depth without a jump. The first match wins,
+## so it enters on the inward half.
+static func phase_for(name: String, ratio: float) -> float:
+	var wanted := clampf(ratio, 0.0, 1.0)
+	var best_distance := INF
+	var best_phase := 0.0
+	for i: int in PHASE_SAMPLES:
+		var p := float(i) / float(PHASE_SAMPLES)
+		var distance := absf(wave(name, p) - wanted)
+		if distance < best_distance:
+			best_distance = distance
+			best_phase = p
+	return best_phase

@@ -310,6 +310,7 @@ var _auto_thrust
 var _auto_on := false
 var _auto_default_pace := 1.0
 var _auto_default_depth := 0.5
+var _auto_default_shape := "cosine"
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
@@ -708,6 +709,7 @@ func _snapshot_settings() -> void:
 	var auto_block := SETTINGS.block("auto_thrust.")
 	_auto_default_pace = float(auto_block.get("pace", 1.0))
 	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
+	_auto_default_shape = str(auto_block.get("curve", "cosine"))
 	var jiggle_block := SETTINGS.block("jiggle.")
 	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
 	_jiggle_center_height_m = float(jiggle_block.get("center_height_m", 0.1))
@@ -759,6 +761,8 @@ func apply_live_settings() -> void:
 		_act_audio.set_enabled(false, false, false)
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
+	if _auto_thrust != null:
+		_auto_thrust.call("set_shape", _auto_default_shape)
 	if pose_id == CATALOG.STANDING:
 		_kiss_controller().apply_live_settings()
 		_sync_standing_pose_config()
@@ -2452,7 +2456,7 @@ func _reset_thrust_state() -> void:
 	depth = 0.0
 	penetration_m = -_back_out_m()
 	_auto_on = false
-	_auto_controller().reset(_auto_default_pace, _auto_default_depth)
+	_auto_controller().reset(_auto_default_pace, _auto_default_depth, _auto_default_shape)
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
 	_standing_sway_offset = Vector3.ZERO
@@ -2878,7 +2882,7 @@ func _thrust_move(amount: float, now: float) -> void:
 		_act_audio.withdraw_crossed(before, depth, _thrust_tracker.live_strength(now),
 			pose_id, _rump_point(), _bed_audio_point(), _bed_soft)
 	for event: Dictionary in events:
-		_on_stroke(event)
+		_dispatch_stroke_event(event)
 
 func _thrust_tick() -> void:
 	if _thrust_tracker == null:
@@ -2886,6 +2890,14 @@ func _thrust_tick() -> void:
 	var events: Array = _thrust_tracker.tick(_now_s())
 	depth = _thrust_tracker.depth
 	for event: Dictionary in events:
+		_dispatch_stroke_event(event)
+
+## The tracker reports the bottom of a stroke and its close. Presentation belongs to the bottom
+## so the plap and the body land with the motion; the score belongs to the close.
+func _dispatch_stroke_event(event: Dictionary) -> void:
+	if str(event.get("kind", "stroke")) == "impact":
+		_on_impact(event)
+	else:
 		_on_stroke(event)
 
 ## Only real thrusts update the pattern window and score. Upward strokes, tiny jitter and
@@ -2899,8 +2911,8 @@ func _on_stroke(event: Dictionary) -> void:
 		return
 	_act_thrusts += 1
 	if state == State.CLIMAX:
-		# The player can keep thrusting through her climax; it is presentation only.
-		_on_thrust(event)
+		# The player can keep thrusting through her climax; presentation already happened at the
+		# bottom and only the score stays off.
 		return
 	_last_stroke = event.duplicate(true)
 	_last_stroke_at = _now_s()
@@ -2913,7 +2925,6 @@ func _on_stroke(event: Dictionary) -> void:
 		float(event.get("travel", 0.0)), float(event.get("speed", 0.0)),
 		float(event.get("peak_speed", 0.0)), float(event.get("strength", 0.0)),
 		_last_intensity, _last_pattern, satisfaction])
-	_on_thrust(_last_stroke)
 	_score_thrust()
 
 ## Each real thrust lands as a discrete chunk. Matching both axes is best, one axis still
@@ -2954,7 +2965,11 @@ func _score_thrust() -> void:
 		_last_intensity, _last_pattern, str(intensity_match and pattern_match),
 		heat, satisfaction])
 
-func _on_thrust(result: Dictionary) -> void:
+## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
+## here, with the motion. Fired once per real thrust from the tracker's `impact` event.
+func _on_impact(result: Dictionary) -> void:
+	if state not in [State.ACTIVE, State.CLIMAX]:
+		return
 	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var jiggle := THRUST.jiggle_amount(float(result.get("travel", 0.0)), strength)
@@ -2978,7 +2993,7 @@ func _on_thrust(result: Dictionary) -> void:
 		if _act_audio.foley_enabled():
 			_act_audio.play_impact(pose_id, strength, _rump_point(),
 				_bed_audio_point(), _bed_soft)
-	_log("thrust readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+	_log("thrust impact readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		satisfaction, _thrusts_per_second(), strength, impact, jiggle,
 		_last_intensity, _last_pattern])
 
@@ -5244,8 +5259,8 @@ func _stop_breath() -> void:
 		_sounds.stop_breath()
 
 func _play_kiss() -> void:
-	# With act foley on, the depth-crossing trigger owns the impact. Keeping this silent avoids a
-	# second plap when the stroke closes on the mouse reversal.
+	# The impact event owns the plap now, so this only covers the foley-off base sound; keeping it
+	# out of the stroke close avoids a second plap when the stroke ends.
 	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
 		return
 	# Use the mod-owned player in both poses. Calling the game's boop `play_kiss()` increments her

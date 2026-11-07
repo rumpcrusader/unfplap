@@ -10,14 +10,19 @@ aftercare are outside it.
   direction; `"up"` (the default) means mouse up deepens. `thrust.pixels_per_cm` is the
   sensitivity, default `100` (20–400), so a full stroke is his shaft length and the `Back-out gap`
   sits below zero depth.
-- `X` toggles auto thrust in `ACTIVE`/`CLIMAX`. `auto_thrust.gd` drives a raised cosine at
+- `X` toggles auto thrust in `ACTIVE`/`CLIMAX`. `auto_thrust.gd` drives `wave(shape, phase)` at
   `pace` thrusts per second from 0 to `max_depth`, and the runtime feeds the same depth tracker
   the mouse feeds. It adds no separate score or heat path: intensity, pattern, readiness, audio
   and presentation are the manual ones. The wheel sets pace; mouse ↕ sets the peak depth.
   `max_depth` is the peak, so after the first stroke the tracker travel is `max_depth - 0.06`
-  (`REVERSAL_HYSTERESIS`); the minimum peak is `0.20`.
+  (`REVERSAL_HYSTERESIS`); the minimum peak is `0.20`. `Auto shape` (debug) picks the stroke
+  waveform: `cosine`, `thrust`, `tease`, `saw`, `hold` or `double`; it applies live and every shape
+  returns to the bottom, so the tracker only ever sees depth.
 - A **stroke** is continuous movement in one direction. It closes on a real reversal
-  (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement.
+  (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement. Its **bottom**
+  is a separate `impact` event: it fires on the reversal or after `IMPACT_STALL_S = 0.04 s` of no
+  real progress, and it drives the plap, jiggle, wings, blush and ear twitch, so the sound lands
+  with the motion instead of 180 ms late. The close only scores.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
   counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:
@@ -73,8 +78,8 @@ travel (`20…400`, default `100`), **Thrust direction** (which mouse direction 
 **Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
 control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 
-The audio switches, auto-thrust pace/depth (`1.0…3.75/s`, `0.20…1`), the hip back-off
-(`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
+The audio switches, auto-thrust pace/depth/shape (`1.0…3.75/s`, `0.20…1`, six waveforms), the hip
+back-off (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 
 **Starting Sex** sets when the Make love hint appears. **When Available** keeps every gate: the
 Promiscuity love stage, her welcomed kiss and a stored lover bond, so the hint only shows when all

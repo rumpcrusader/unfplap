@@ -160,7 +160,7 @@ mods/unfplap/
   teat_jiggle.gd    teats spring sway
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength
-  auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, cosine cycle
+  auto_thrust.gd    pure auto-thrust depth generator: pace, peak depth, stroke shape
   preferences.gd    pure preference profile, intensity/rhythm and talk classification
   cycle.gd          pure per-mare estrus phase: heat, diestrus, normal; idle wink burst roll
   settings.gd       every global setting declared once, the typed accessors, the settings file and
@@ -728,6 +728,16 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   `duration >= MIN_THRUST_DURATION = 0.04 s`.
 - A reversal must travel `REVERSAL_HYSTERESIS = 0.06` from the stroke peak before it closes.
   Tiny pullbacks stay inside the same stroke.
+- The tracker reports two event kinds. `impact` is the **bottom of the inward stroke**: it fires
+  the moment the direction reverses or, when the bottom is held, after `IMPACT_STALL_S = 0.04 s`.
+  Its stall clock follows the peak and only a `IMPACT_STALL_MIN_TRAVEL = 0.001` real gain resets
+  it, so mouse jitter at the bottom cannot postpone it; it is latched once per stroke
+  (`_impact_fired`). `strength` and `duration` come from the peak (`_progress_time`), so a dwell
+  does not dilute the speed. `stroke` is the close, with the full stroke numbers.
+  `runtime._on_impact()` owns all presentation (foley, base plap, vocal, jiggle, wings, tail rock,
+  rump blush, ear twitch, thrust rate). `_on_stroke()` owns `_act_thrusts`, the intensity/pattern
+  window, the log and `_score_thrust()`. Never move the plap back to the close: that is the
+  180 ms delay the deep thrust used to have.
 - Every stroke carries `direction`, `start_depth`, `end_depth`, `travel`, `duration`, `speed`,
   `peak_speed`, `thrust` and `strength`. There is no base gain and no per-stroke multiplier.
 - Physical strength is `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)`.
@@ -747,18 +757,24 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   - **pattern**: `steady`, `teasing` (`mean duration > 0.45 s`) or `quick`
     (`mean duration < 0.30 s`), classified over the last 3–4 real thrusts. Fewer than 3 has no
     pattern yet. Pattern is tempo only: depth does not decide the rhythm.
-- Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances a raised
-  cosine at `pace` thrusts per second from 0 to `max_depth`; `_auto_thrust_tick()` sends the
-  per-frame depth delta through `_thrust_move()`, so readiness, intensity, pattern, audio, camera,
-  jiggle and presentation keep their existing paths. The wheel nudges pace, and mouse ↕ nudge the
-  peak depth at the same `thrust.pixels_per_cm` scale; the peak is smoothed over
-  `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the tracker travel: after the first
-  stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum peak is `0.20`
-  and its `0.14` travel still counts as a real soft thrust. The pace range reaches every pattern
-  at any depth, and the depth range reaches every intensity at any pace.
-  `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
-  stop it, and `_reset_thrust_state()` restores the act-start defaults (off, configured pace and
-  depth) for the next act. Tunables are starting values, not live edits to the current cycle.
+- Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances
+  `wave(shape, phase)` at `pace` thrusts per second from 0 to `max_depth`;
+  `_auto_thrust_tick()` sends the per-frame depth delta through `_thrust_move()`, so readiness,
+  intensity, pattern, audio, camera, jiggle and presentation keep their existing paths. The wheel
+  nudges pace, and mouse ↕ nudge the peak depth at the same `thrust.pixels_per_cm` scale; the peak
+  is smoothed over `DEPTH_SMOOTH_S = 0.18 s`. `max_depth` is the peak, not the tracker travel:
+  after the first stroke `REVERSAL_HYSTERESIS` makes travel `max_depth - 0.06`, so the minimum
+  peak is `0.20` and its `0.14` travel still counts as a real soft thrust. The pace range reaches
+  every pattern at any depth, and the depth range reaches every intensity at any pace.
+  `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (symmetric ease,
+  the default), `thrust` (35 % duty, fast in and slow out), `tease` (65 % duty), `saw` (constant
+  speed, no easing), `hold` (quick in, a dwell at full depth, quick out) and `double` (two strokes
+  per cycle, the second at 60 % depth). Every shape starts and ends at the bottom and stays in
+  0..1, so the tracker only ever sees depth deltas; `phase_for()` is a numeric inverse so turning
+  auto on never snaps. `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()`
+  and `_end_session()` stop it, and `_reset_thrust_state()` restores the act-start defaults (off,
+  configured pace, depth and shape) for the next act. Tunables are starting values, not live edits
+  to the current cycle, except `Auto shape`, which applies mid-cycle.
 - `satisfaction` is **readiness 0–100**, not a stroke score. Each real thrust adds
   `THRUST_HEAT_BOTH = 1.4`, `THRUST_HEAT_ONE = 0.7` or `THRUST_HEAT_NONE = 0`, times warmth;
   scoring is limited to one thrust every `THRUST_SCORE_MIN_INTERVAL = 0.2 s`. There is no
@@ -1407,9 +1423,10 @@ rump blush. Unknown settings keys are ignored.
   needs proportionally more travel. `thrust.travel` is the non-anatomy hip backset multiplier,
   default `0.5`, clamped to `0.25…2.0×`. The old `pixels_per_full` is retired and mapped as
   `value / 20`.
-- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`) and `max_depth`
-  (peak depth, default `0.5`, clamped `0.20…1`). They are act-start defaults; the wheel and mouse
-  changes are per-act. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
+- `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`), `max_depth`
+  (peak depth, default `0.5`, clamped `0.20…1`) and `curve` (`Auto shape`, default `cosine`, one
+  of the six waveforms). They are act-start defaults; the wheel and mouse changes are per-act.
+  `curve` applies live. The wheel step is the fixed `AUTO_THRUST.PACE_STEP = 0.25`, not a setting.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.2`) and the act-smack `smack_intensity` multiplier
   (default `0.45`). The center is the hind-femur midpoint plus `center_height_m` (default

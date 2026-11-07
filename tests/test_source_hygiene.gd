@@ -4,6 +4,7 @@ extends SceneTree
 
 const ROOT := "res://mods/unfplap"
 const SCHEMA_PATH := "res://mods/unfplap/tunables_schema.gd"
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 ## Files allowed to create settings widgets. The schema panel is tunables_ui.gd; the character
 ## preference form in main.gd is the one hand-built exception. Everything else must be a schema line.
 const WIDGET_FILES := ["res://mods/unfplap/tunables_ui.gd", "res://mods/unfplap/main.gd"]
@@ -48,8 +49,8 @@ func run() -> void:
 ## Every literal tunable path must exist in the schema, and settings widgets may only live in
 ## the schema panel and the preference form.
 func _check_tunables(files: Array[String]) -> void:
-	var schema := FileAccess.get_file_as_string(SCHEMA_PATH)
-	check(schema.contains("static func all() -> Dictionary"), "tunable schema present")
+	var module := FileAccess.get_file_as_string(ROOT.path_join("settings.gd"))
+	check(module.contains("static func all_settings() -> Array"), "settings module present")
 	var paths := 0
 	var missing: Array = []
 	var widget_ok := true
@@ -67,11 +68,11 @@ func _check_tunables(files: Array[String]) -> void:
 		for match: RegExMatch in regex.search_all(text):
 			var used := match.get_string(1)
 			paths += 1
-			if not schema.contains("\"" + used + "\""):
+			if SETTINGS.by_path(used) == null:
 				missing.append("%s in %s" % [used, path])
 	check(widget_ok, "only tunables_ui.gd (and the preference form) create settings widgets")
 	check(paths > 5, "tunable paths are read through the schema API")
-	check(missing.is_empty(), "every literal tunable path exists in the schema: %s" % str(missing))
+	check(missing.is_empty(), "every literal tunable path exists in the settings module: %s" % str(missing))
 
 
 ## One ordered teardown owns act exit. If a new exit path or a copied restore sequence appears,

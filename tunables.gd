@@ -1,22 +1,8 @@
 extends RefCounted
-## The one API for reading and writing every global mod setting. See TUNING.md.
-##
-##   TUNABLES.get_bool("features.act_foley")
-##   TUNABLES.get_float("presentation.standing.smack.raise_m")
-##   TUNABLES.set_value("camera_thrust.surge", 0.5)
-##   TUNABLES.block("features.")                    # nested dictionary for a snapshot
-##
-## The path is the settings.json path and must exist in `tunables_schema.gd`. Reads are flat
-## dictionary lookups: the whole settings file is resolved once into `_values` and rebuilt only
-## after a save or a reload. Unknown paths return the kind's zero value and log nothing.
-##
-## Debug numbers are never clamped. Only `user_num` schema entries have contract bounds.
+## Compatibility layer over `settings.gd`: path-keyed reads for call sites that have not been
+## converted to the named accessors yet, plus the debug action table. Do not add settings here.
 
-const SCHEMA := preload("res://mods/unfplap/tunables_schema.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-
-static var _values: Dictionary = {}
-static var _generation := -1
 
 
 ## Debug actions. `method` is called on the entry node.
@@ -136,11 +122,11 @@ static func run_action(name: String, target: Node) -> String:
 
 
 static func get_bool(path: String) -> bool:
-	return bool(get_value(path))
+	return bool(SETTINGS.get_value_at(path))
 
 
 static func get_float(path: String) -> float:
-	var value: Variant = get_value(path)
+	var value: Variant = SETTINGS.get_value_at(path)
 	return float(value) if value is float or value is int else 0.0
 
 
@@ -149,89 +135,49 @@ static func get_int(path: String) -> int:
 
 
 static func get_string(path: String) -> String:
-	var value: Variant = get_value(path)
+	var value: Variant = SETTINGS.get_value_at(path)
 	return str(value) if value is String else ""
 
 
 static func get_list(path: String) -> Array:
-	var value: Variant = get_value(path)
+	var value: Variant = SETTINGS.get_value_at(path)
 	return value if value is Array else []
 
 
-## The stored schema default for a number path. Use it where a settings block can be empty, so
-## the fallback cannot drift from the schema.
+## The declared default for a number path. Use it where a settings block can be empty, so the
+## fallback cannot drift from the declaration.
 static func default_number(path: String) -> float:
-	var value: Variant = SCHEMA.default_value(path)
+	var value: Variant = SETTINGS.default_at(path)
 	return float(value) if value is float or value is int else 0.0
 
 
-## The typed value for a path. Unknown paths return false, because an unknown switch must never
-## read as on.
+## The coerced value for a path. Compatibility only: gameplay code uses the named accessor.
 static func get_value(path: String) -> Variant:
-	_ensure()
-	if not _values.has(path):
-		return false
-	return _values[path]
+	return SETTINGS.get_value_at(path)
 
 
 static func set_value(path: String, value: Variant) -> void:
-	if not SCHEMA.has(path):
-		return
-	# Resolve the whole table first: a write before any read must not leave the cache holding
-	# only this one path, or every other tunable would read as its zero value.
-	_ensure()
-	var coerced: Variant = _coerce(SCHEMA.entry(path), value)
-	SETTINGS.write_setting(path, coerced)
-	_values[path] = coerced
-	_generation = SETTINGS.generation
+	SETTINGS.set_value_at(path, value)
 
 
-## Put one path back to its schema default.
+## Put one path back to its declared default.
 static func reset_value(path: String) -> void:
-	if not SCHEMA.has(path):
-		return
-	set_value(path, SCHEMA.default_value(path))
+	SETTINGS.set_value_at(path, SETTINGS.default_at(path))
 
 
 ## Nested dictionary of the values under a dotted prefix, e.g. `block("features.")` or
 ## `block("presentation.standing.")` for a per-act snapshot.
 static func block(prefix: String) -> Dictionary:
-	_ensure()
-	var out: Dictionary = {}
-	for path: String in SCHEMA.all():
-		if path.begins_with(prefix):
-			SCHEMA.write_path(out, path.substr(prefix.length()), _values.get(path))
-	return out
+	return SETTINGS.block(prefix)
 
 
-## Re-read settings.json and drop the resolved values. Not named `reload`: `Script` already has
-## `reload()`, and a preloaded script constant resolves the built-in instead of a static function.
+## Re-read settings.json and drop the resolved values.
 static func reload_settings() -> void:
 	SETTINGS.reload_file()
-	_generation = -1
-	_values.clear()
 
 
-static func _ensure() -> void:
-	if _generation == SETTINGS.generation and not _values.is_empty():
-		return
-	_generation = SETTINGS.generation
-	var data := SETTINGS.data()
-	_values.clear()
-	for path: String in SCHEMA.all():
-		var item := SCHEMA.entry(path)
-		_values[path] = _coerce(item, _read_path(data, path, item.get("default")))
-
-
-static func _read_path(data: Dictionary, path: String, fallback: Variant) -> Variant:
-	var node: Variant = data
-	for key: String in path.split(".", false):
-		if not node is Dictionary or not (node as Dictionary).has(key):
-			return fallback
-		node = (node as Dictionary)[key]
-	return node
-
-
+## Coerce one value against a schema entry. Compatibility only: kept for the tests and for callers
+## that still hold an entry dictionary.
 static func _coerce(item: Dictionary, value: Variant) -> Variant:
 	var fallback: Variant = item.get("default")
 	if value == null:

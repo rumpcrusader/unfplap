@@ -1,481 +1,32 @@
 extends RefCounted
-## Tunable schema: every global setting the mod stores in settings.json, one entry per line.
+## Compatibility layer for the settings panel. The settings themselves are declared in
+## `settings.gd`; this file only adapts them to the old path-keyed entry dictionaries while the
+## panel is rebuilt to read the named settings directly. Do not add settings here.
 ##
-## The key **is** the settings.json path (`thrust.travel`, `presentation.standing.smack.raise_m`).
-## That is deliberate: no migration, and reading a value is one call in `tunables.gd`.
-##
-## Adding a tunable is one line here:
-##   - `flag`   a boolean switch;
-##   - `num`    an unbounded debug number (never clamped when read);
-##   - `user_num` a player-facing number whose `low`/`high` are part of the contract and clamp;
-##   - `choice` a string from a fixed list;
-##   - `list`   a set of options stored as an array.
-##
-## `group` is the panel section. `"Standing › Smack"` renders as section `Standing` with the
-## subheading `Smack`; entries render in the order they are written here, so put a line where it
-## belongs. `tab` is `"general"` for the player page, `"anatomy"` for everything anatomy, and
-## `"debug"` for the rest.
-##
-## This file only holds data. Read and write through `tunables.gd`, draw through
-## `tunables_ui.gd`; no other file may declare a settings widget.
-## See TUNING.md.
+## Debug settings keep reporting their old `debug` tab so the current panel still separates them.
 
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const GENERAL_TAB := "general"
 const ANATOMY_TAB := "anatomy"
 const DEBUG_TAB := "debug"
 
 static var _cache: Dictionary = {}
+static var _cache_size := -1
 
 
-## The whole schema in render order.
 static func all() -> Dictionary:
-	if not _cache.is_empty():
+	var count := SETTINGS.all_settings().size()
+	if _cache_size == count and not _cache.is_empty():
 		return _cache
-	_cache = {
-		# General
-		"debug_logs": flag(false, "Debug logs",
-			"Print the mod's diagnostics to the console.", "General"),
-		"player.body_yaw_deg": num(0.0, "Body yaw",
-			"Rotate Anon's body left or right for testing; the camera and pose are unchanged.",
-			"Player", "°", 1.0),
-		"debug_perf": flag(false, "Perf logs",
-			"Print the per-second performance block. Requires Debug logs.", "General"),
-		"debug_hide_tails": flag(false, "Hide tails",
-			"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.",
-			"General"),
-
-		# Player-facing controls (Settings tab).
-		"features.hud_readouts": flag(true, "HUD readouts",
-			"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.",
-			"Controls", GENERAL_TAB),
-		"features.act_controls": flag(true, "Control hints",
-			"Show the act's control list. Off keeps the cue and climax readouts.",
-			"Controls", GENERAL_TAB),
-		"features.act_lines": flag(true, "Act lines",
-			"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.",
-			"Controls", GENERAL_TAB),
-		"features.act_history": flag(true, "Long-term history",
-			"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.",
-			"Controls", GENERAL_TAB),
-		"features.captions_on_top": flag(true, "Captions on top",
-			"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.",
-			"Controls", GENERAL_TAB),
-		"relationship.promiscuity": choice("any",
-			["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
-			["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
-			"Promiscuity", "Lowest relationship level for a lover bond and sex.",
-			"Controls", GENERAL_TAB),
-		"relationship.sex_start": choice("try_luck", ["when_available", "try_luck"],
-			["When Available", "Try Your Luck"],
-			"Starting Sex", "When Anon can start sex.",
-			"Controls", GENERAL_TAB),
-		"features.mute_ponese_audio": flag(true, "Mute Ponese audio",
-			"Keep the act's generated text but silence the Ponese voice for that act.",
-			"Controls", GENERAL_TAB),
-		"features.estrus_cycle": flag(false, "Estrus cycle",
-			"Give adult mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.",
-			"Cycle", GENERAL_TAB),
-		# integration: anatomy player-facing switches.
-		"features.anatomy": flag(false, "Anatomy",
-			"Show the optional adult anatomy on adult mares. Requires the local anatomy assets.",
-			"Anatomy", ANATOMY_TAB),
-		"anatomy.teats": flag(false, "Teats",
-			"Show the optional teats.",
-			"Anatomy", ANATOMY_TAB),
-		"anatomy.skin_strip": flag(true, "Skin strip",
-			"Show the midline skin strip that joins the teats toward the vulva.",
-			"Anatomy", ANATOMY_TAB),
-		"anatomy.skin_tone": slider(0.5, "Genital tone",
-			"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.",
-			"Anatomy", "%", 1.0, 100.0, 0.0, 1.0, ANATOMY_TAB),
-		"anatomy.act_only": flag(false, "Only during acts",
-			"Show the mare anatomy only while an act is running; hide it in the world.",
-			"Anatomy", ANATOMY_TAB),
-		"anatomy.hide_dock": flag(true, "Hide tail dock",
-			"Hide the tail dock while the anatomy is shown; it otherwise reads as a stray blob above the ponut.",
-			"Anatomy", ANATOMY_TAB),
-		"anatomy.max_depth_m": num(0.18, "Max depth",
-			"How far the cock tip goes past the entrance at full thrust.",
-			"Anatomy › Anon part", "cm", 0.5, 100.0, 0.0, 20.0, ANATOMY_TAB),
-		"anatomy.pelvis_gap_m": num(0.03, "Pelvis gap",
-			"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.",
-			"Anatomy › Anon part", "cm", 0.5, 100.0, 0.0, 10.0, ANATOMY_TAB),
-		"anatomy.anal_ring": flag(false, "Ring model (experimental)",
-			"Use the re-modelled anal ring instead of the original cup.",
-			"Anatomy › Holes", ANATOMY_TAB),
-		"anatomy.strip_scale": num(1.0, "Skin strip scale",
-			"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.",
-			"Anatomy", "×", 0.05, 1.0, -1000000.0, 1000000.0, DEBUG_TAB),
-		"anatomy.anal_height_mm": num(-15.0, "Anal opening height",
-			"Vertical placement of the anal mesh and its opening; positive is higher, negative lower.",
-			"Anatomy › Holes", "mm", 0.5, 1.0, -20.0, 20.0, ANATOMY_TAB),
-		"anatomy.lip_vertical": num(1.0, "Lip vertical share",
-			"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.",
-			"Anatomy › Holes", "×", 0.05, 1.0, 0.0, 1.0, ANATOMY_TAB),
-		"anatomy.part_base_scale": num(1.3, "Cock base radius",
-			"Thickness of the cock where it leaves his body.",
-			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
-		"anatomy.part_mid_scale": num(0.8, "Cock mid radius",
-			"Thickness of the cock around its middle.",
-			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
-		"anatomy.part_head_scale": num(1.3, "Cock head radius",
-			"Thickness of the glans at the end of the shaft.",
-			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
-		"anatomy.part_length_scale": num(1.0, "Cock length",
-			"Stretch the shaft along its length. The head, hole grip and fluid point follow it.",
-			"Anatomy › Anon part", "×", 0.05, 1.0, 0.1, 3.0, ANATOMY_TAB),
-		"anatomy.part_throb": num(1.0, "Cock throb",
-			"Heartbeat-like pulse of the shaft. 1 is subtle; 0 turns it off.",
-			"Anatomy › Anon part", "×", 0.05, 1.0, 0.0, 3.0, ANATOMY_TAB),
-		"anatomy.part_front_m": num(0.02, "Cock forward",
-			"Slide the cock's base forward from the hips so it sits on the front of the pelvis.",
-			"Anatomy › Anon part", "cm", 0.5, 100.0, -20.0, 20.0, ANATOMY_TAB),
-		"anatomy.player_scale": num(1.5, "Anon part size",
-			"Scale the player part relative to its default size.",
-			"Anatomy › Anon part", "×", 0.05, 1.0, 0.25, 3.0, ANATOMY_TAB),
-		"thrust.orientation": choice("up", ["up", "down"], ["Deepens", "Shallows"],
-			"Mouse up", "Mouse up deepens the thrust.", "Thrust", GENERAL_TAB),
-		"thrust.pixels_per_full": user_num(1000.0, "Sensitivity",
-			"Mouse travel for one full thrust.", "Thrust", "px per full thrust",
-			20.0, 1.0, 240.0, 1200.0, GENERAL_TAB),
-		"thrust.travel": user_num(1.0, "Hip back-off",
-			"How far the hips retreat between thrusts.", "Thrust", "×",
-			0.05, 1.0, 0.25, 2.0, GENERAL_TAB),
-		"thrust.max_pony_climaxes": user_num(3.0, "Climax limit",
-			"How many times she can climax in one act. 0 is unlimited.",
-			"Thrust", "", 1.0, 1.0, 0.0, 20.0, GENERAL_TAB),
-		"auto_thrust.pace": user_num(1.0, "Auto pace",
-			"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
-			"Thrust", "/s", 0.25, 1.0, 1.0, 3.75, GENERAL_TAB),
-		"auto_thrust.max_depth": user_num(0.5, "Auto depth",
-			"Starting auto-thrust peak depth. Mouse up/down sets it during an act.",
-			"Thrust", "%", 5.0, 100.0, 0.20, 1.0, GENERAL_TAB),
-
-		# Debug: features.
-		"features.act_foley": flag(true, "Act foley",
-			"Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
-			"Audio"),
-		"features.act_vocals": flag(false, "Act vocals",
-			"Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
-			"Audio"),
-		"features.act_climax": flag(false, "Wet climax layer",
-			"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
-			"Audio"),
-		"features.allow_act_during_cuddle": flag(true, "Allow acts during cuddles",
-			"End an active cuddle when an act starts instead of blocking it.",
-			"Act flow"),
-		"features.act_ear_pin": flag(false, "Pinned act ears",
-			"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.",
-			"Act flow"),
-		# integration: anatomy mechanics and optional extras.
-		"features.anatomy_holes": flag(true, "Hole switch",
-			"Let V switch between the front and the anal cup if she is willing.",
-			"Anatomy › Actions", ANATOMY_TAB),
-		"features.anatomy_oral": flag(true, "Oral",
-			"Let N turn her round for oral in the standing pose if she is willing.",
-			"Anatomy › Actions", ANATOMY_TAB),
-		"features.anatomy_finish": flag(true, "Finish control",
-			"Let B choose whether Anon finishes inside or pulls out.",
-			"Anatomy › Actions", ANATOMY_TAB),
-		"features.debug_aim_points": flag(false, "Aim points",
-			"Show the vulva, anus and cock-tip markers during an act.",
-			"Anatomy › Effects", ANATOMY_TAB),
-		"features.anatomy_fluid": flag(true, "Fluid",
-			"Show the optional climax and finish droplets.",
-			"Anatomy › Effects", ANATOMY_TAB),
-		"features.anatomy_bed_body": flag(true, "Anon bed body",
-			"Experimental: use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.",
-			"Anatomy › Experimental", ANATOMY_TAB),
-		"features.anatomy_vr": flag(true, "VR act",
-			"Experimental: the standing act in VR, with hip-tracker depth and controller actions. Untested on this build.",
-			"Anatomy › Experimental", ANATOMY_TAB),
-		"features.act_bystanders": flag(true, "Bystander lines",
-			"Let an adult pony who can perceive the act say one short line. Uses the modern witness rules; young ponies never speak.",
-			"Dialogue"),
-		"features.act_line_angles": flag(true, "Line angles",
-			"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.",
-			"Dialogue"),
-		"features.act_speech_feel": flag(false, "Speech feel",
-			"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.",
-			"Dialogue"),
-		"features.act_public_offer": flag(true, "Public offers",
-			"Let a mare who is comfortable with others around still offer sex in public.",
-			"Initiation"),
-
-		# Debug: talk and cues.
-		"cues.override_seconds": num(10.0, "Override lifetime",
-			"How long a touch or talk cue replaces the base cue.", "Talk & cues", "s", 0.5),
-		"cues.base_stable_seconds": num(2.0, "Base stability",
-			"How long a base cue must hold before it can be spoken.", "Talk & cues", "s", 0.1),
-		"cues.override_stable_seconds": num(0.5, "Override stability",
-			"How long a touch or talk cue must hold before it can be spoken.", "Talk & cues", "s", 0.1),
-		"cues.utterance_gap_seconds": num(18.0, "Line gap",
-			"Minimum time between any two generated act lines.", "Talk & cues", "s", 0.5),
-		"cues.demand_gap_seconds": num(28.0, "Demand gap",
-			"Minimum time between demand lines.", "Talk & cues", "s", 0.5),
-		"cues.demand_repeat_seconds": num(45.0, "Demand repeat",
-			"How long the same demand text is locked out.", "Talk & cues", "s", 0.5),
-		"cues.max_age_seconds": num(20.0, "Cue max age",
-			"Drop a queued cue that has not reached audio by this age.", "Talk & cues", "s", 0.5),
-		"cues.reaction_max_age_seconds": num(30.0, "Reaction max age",
-			"Drop a queued reaction that has not reached audio by this age.", "Talk & cues", "s", 0.5),
-		"cues.release_hold_seconds": num(1.0, "Release hold",
-			"Keep the line slot reserved after speech stops.", "Talk & cues", "s", 0.1),
-		"cues.overwhelmed_seconds": num(1.2, "Overwhelmed cue",
-			"How long a disliked input keeps the overwhelmed cue.", "Talk & cues", "s", 0.1),
-		"talk.touch_cooldown_seconds": num(4.0, "Touch cooldown",
-			"Minimum time between touch readiness chunks.", "Talk & cues", "s", 0.1),
-		"talk.talk_cooldown_seconds": num(8.0, "Talk cooldown",
-			"Minimum time between talk readiness chunks.", "Talk & cues", "s", 0.1),
-		"talk.receptive_seconds": num(8.0, "Receptive window",
-			"How long a liked touch or talk makes thrusts land harder.", "Talk & cues", "s", 0.5),
-
-		# Debug: camera and wobble.
-		"features.idle_camera_sway": flag(true, "Idle camera sway",
-			"Add a slow sway when you are not leaning.", "Camera"),
-		"camera_thrust.surge": user_num(1.0, "Surge",
-			"Forward camera travel on the inward stroke.", "Camera", "%",
-			5.0, 100.0, 0.0, 1.0),
-		"camera_thrust.bob": user_num(0.35, "Bob",
-			"Vertical camera dip on the inward stroke.", "Camera", "%",
-			5.0, 100.0, 0.0, 1.0),
-		"jiggle.radius": num(0.26, "Radius",
-			"Spread of the rump wobble across the flank.", "Thrust jiggle", "cm", 1.0, 100.0),
-		"jiggle.center_height_m": num(0.1, "Center height",
-			"Taller center above the hind-femur midpoint; raise it to move the wobble up the rump.",
-			"Thrust jiggle", "cm", 0.5, 100.0),
-		"jiggle.center_back_m": num(0.15, "Center back",
-			"Backward center from the hind-femur midpoint; raise it to move the wobble toward the dock.",
-			"Thrust jiggle", "cm", 0.5, 100.0),
-		"jiggle.intensity": num(0.2, "Intensity",
-			"Thrust amount of the rump wobble.", "Thrust jiggle", "×", 0.05),
-		"jiggle.smack_intensity": num(0.45, "Smack intensity",
-			"Act-smack amount of the rump wobble.", "Thrust jiggle", "×", 0.05),
-
-		# Debug: missionary.
-		"presentation.missionary.forward": num(0.30, "Missionary forward",
-			"Shift the frozen shot forward along her body.", "Missionary", "m", 0.01),
-		"presentation.missionary.height": num(0.25, "Missionary height",
-			"Raise the frozen shot.", "Missionary", "m", 0.01),
-		"presentation.missionary.side": num(0.0, "Missionary side",
-			"Shift the frozen shot sideways; positive is her right.", "Missionary", "m", 0.01),
-		"presentation.missionary.pullback": num(0.22, "Missionary pullback",
-			"Pull the shot back along its own view axis.", "Missionary", "m", 0.01),
-		"presentation.missionary.side_lean": num(0.10, "Side lean forward",
-			"Extra travel toward her head on a side lean.", "Missionary", "m", 0.01),
-		"presentation.missionary.pitch_deg": num(-15.0, "Missionary pitch",
-			"Tilt the frozen view; positive looks up.", "Missionary", "°", 0.5),
-		"presentation.missionary.neck1_deg": num(0.0, "Neck 1 angle",
-			"Bend pony_neck1 about the body right axis.", "Missionary › Neck angles", "°", 1.0),
-		"presentation.missionary.neck2_deg": num(45.0, "Neck 2 angle",
-			"Bend pony_neck2 about the body right axis.", "Missionary › Neck angles", "°", 1.0),
-		"presentation.missionary.neck_roll_deg": num(0.0, "Neck roll",
-			"Roll both neck bones about the body forward axis.", "Missionary › Neck angles", "°",
-			1.0),
-		"presentation.missionary.head_pitch_deg": num(90.0, "Head pitch",
-			"Tilt the head about the body right axis after the gaze solve.",
-			"Missionary › Neck angles", "°", 1.0),
-		"presentation.missionary.head_roll_deg": num(90.0, "Head roll",
-			"Roll the head last, in degrees.", "Missionary › Neck angles", "°", 1.0),
-		"features.missionary_body_motion": flag(true, "Missionary body motion",
-			"Slide her body along the bed and nod her head on the thrust.",
-			"Missionary › Motion"),
-
-		# Debug: standing.
-		"features.standing_play_bow": flag(false, "Play-bow stance",
-			"Standing: stretch the front legs forward with the chest down and head low instead of the tucked act stance.",
-			"Standing › Pose"),
-		"presentation.standing.camera_forward_m": num(0.0, "Camera forward",
-			"Slide Anon's view forward relative to his chest so his own body sits behind the camera.",
-			"Standing › Motion", "cm", 0.5, 100.0),
-		"presentation.standing.camera_pitch_deg": num(-6.0, "Camera pitch",
-			"Tilt Anon's standing view up or down; positive looks up.",
-			"Standing › Motion", "°", 0.5),
-		"presentation.standing.glance_back_speed": user_num(2.0, "Glance-back speed",
-			"How fast a look-back glance eases in and out.",
-			"Standing › Motion", "×", 0.05, 1.0, 0.25, 3.0),
-		"presentation.standing.torso_angle_deg": num(0.0, "Anon torso lean",
-			"Hinge Anon's upper body forward over her; the lower body stays planted.",
-			"Standing › Motion", "°", 1.0),
-		"presentation.standing.plant_spread_m": num(0.4, "Planted stance width",
-			"How far apart Anon's planted feet are held during a standing act.",
-			"Standing › Motion", "cm", 0.5, 100.0),
-		"presentation.standing.chest_back_m": num(0.0, "Chest back",
-			"Push Anon's chest back from the camera in the standing act. 0 is off.",
-			"Standing › Motion", "cm", 0.5, 100.0),
-		"presentation.standing.hip_drop_m": num(0.0, "Hip drop",
-			"Lower Anon's standing hips; use this when his body sits too high. 0 is off.",
-			"Standing › Motion", "cm", 0.5, 100.0),
-		"presentation.standing.gap_offset_m": num(0.15, "Gap offset",
-			"Move Anon closer (negative) or farther (positive) when a standing act starts.",
-			"Standing › Motion", "cm", 0.5, 100.0),
-		"presentation.standing.neck_down_deg": num(15.0, "Neck down",
-			"Standing neck reach down/forward.", "Standing › Neck", "°", 1.0),
-		"presentation.standing.chin_up_deg": num(30.0, "Chin up",
-			"Standing head lift at the chin.", "Standing › Neck", "°", 1.0),
-		"presentation.standing.tail.yaw_deg": num(45.0, "Tail aside (yaw)",
-			"How far the standing tail sweeps aside from her centreline.", "Standing › Tail",
-			"°", 1.0, 1.0, 0.0, 90.0),
-		"presentation.standing.tail.pitch_deg": num(32.0, "Tail lift (pitch)",
-			"How far the standing tail lifts up. Pairs with Tail aside.", "Standing › Tail",
-			"°", 1.0, 1.0, 0.0, 90.0),
-		"features.standing_body_sway": flag(true, "Standing body sway",
-			"Move her body with the thrust while the hooves stay planted; Anon's hips follow so the contact rocks with her.",
-			"Standing › Motion"),
-		"features.thrust_ear_twitch": flag(true, "Thrust ear twitch",
-			"Flick both ears on some thrusts.", "Standing › Motion"),
-		"features.standing_plant_feet": flag(false, "Plant Anon's lower body",
-			"Hold Anon's hips and both feet at their act-start positions, 15 cm behind him. Off restores the game's stepping and lean foot motion.",
-			"Standing › Motion"),
-		"presentation.standing.kiss.mouth_right": num(0.0, "Kiss mouth right",
-			"Anon's mouth target sideways at the kiss.", "Standing › Kiss", "cm", 0.5, 100.0),
-		"presentation.standing.kiss.mouth_drop": num(0.0, "Kiss mouth down",
-			"Anon's mouth target drop at the kiss.", "Standing › Kiss", "cm", 0.5, 100.0),
-		"presentation.standing.kiss.mouth_forward": num(0.0, "Kiss mouth forward",
-			"Anon's mouth target forward at the kiss.", "Standing › Kiss", "cm", 0.5, 100.0),
-		"presentation.standing.kiss.camera_yaw_deg": num(12.0, "Kiss camera yaw",
-			"Over-the-shoulder yaw toward her at the kiss.", "Standing › Kiss", "°", 1.0),
-		"presentation.standing.kiss.lean_side": num(0.46, "Kiss side lean",
-			"Sideways kiss lean toward the shoulder side.", "Standing › Kiss", "cm", 0.5, 100.0),
-		"presentation.standing.kiss.lean_forward": num(0.25, "Kiss forward lean",
-			"Forward kiss lean.", "Standing › Kiss", "cm", 0.5, 100.0),
-		"presentation.standing.kiss.lean_drop": num(0.04, "Kiss lean drop",
-			"How far he drops over her at the kiss.", "Standing › Kiss", "cm", 0.5, 100.0),
-		"presentation.standing.caress.palm_distance": num(0.02, "Palm distance",
-			"Palm centre distance from the coat.", "Standing › Caress", "cm", 0.5, 100.0),
-		"presentation.standing.caress.oval_across_m": num(0.01, "Oval across",
-			"Caress stroke length along the body.", "Standing › Caress", "cm", 0.5, 100.0),
-		"presentation.standing.caress.oval_up_m": num(0.02, "Oval up",
-			"Caress stroke height.", "Standing › Caress", "cm", 0.5, 100.0),
-		"presentation.standing.caress.palm_scale.canon": num(0.75, "Palm scale (Canon)",
-			"Standing hand scale for Canon-size Anon.", "Standing › Caress", "×", 0.01),
-		"presentation.standing.caress.palm_scale.mounting": num(0.9,
-			"Palm scale (Mounting)", "Standing hand scale for mounting size.",
-			"Standing › Caress", "×", 0.01),
-		"presentation.standing.caress.palm_scale.same height": num(1.0,
-			"Palm scale (Same height)", "Standing hand scale at Anon's own height.",
-			"Standing › Caress", "×", 0.01),
-		"presentation.standing.caress.palm_scale.hoers": num(1.0, "Palm scale (Hoers)",
-			"Standing hand scale for the Hoers size.", "Standing › Caress", "×", 0.01),
-		"presentation.standing.caress.ignore": list(["tail", "wing"],
-			["tail", "mane", "wing", "leg"], "Ignore body parts",
-			"Regions the caress contact query skips.", "Standing › Caress"),
-		"presentation.standing.smack.raise_m": num(0.30, "Max raise",
-			"Hand lift at the top of the wind-up.", "Standing › Smack", "cm", 0.5, 100.0),
-		"presentation.standing.smack.hind_m": num(0.09, "Hind offset",
-			"Move the target toward her rump.", "Standing › Smack", "cm", 0.5, 100.0),
-		"presentation.standing.smack.height_m": num(0.05, "Height",
-			"Move the target up or down the cheek.", "Standing › Smack", "cm", 0.5, 100.0),
-		"presentation.standing.smack.arc_m": num(0.1, "Palm arc",
-			"Bow of the lift path toward her rump.", "Standing › Smack", "cm", 0.5, 100.0),
-		"presentation.standing.smack.pitch_deg": num(0.0, "Palm pitch",
-			"Pitch the raised palm down from the contact basis.", "Standing › Smack", "°", 1.0),
-		"presentation.standing.smack.raise_speed": num(1.5, "Raise speed",
-			"Wind-up speed in metres per second.", "Standing › Smack", "m/s", 0.1),
-		"presentation.standing.smack.return_speed": num(4.0, "Return speed",
-			"Strike speed in metres per second.", "Standing › Smack", "m/s", 0.1),
-
-		# Debug: act history.
-		"history.good_min": num(0.80, "Good threshold",
-			"Fraction of the applicable actions that must go right for a good act.",
-			"History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.bad_max": num(0.20, "Bad threshold",
-			"Fraction of the applicable actions at or below which an act is bad.",
-			"History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.w_climax": num(0.30, "Climax weight",
-			"Score weight for her reaching climax.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.w_talk": num(0.20, "Talk weight",
-			"Score weight for a talk-seeking mare hearing what she likes.",
-			"History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.w_touch": num(0.20, "Touch weight",
-			"Score component for touch that matches her preference.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.w_motion": num(0.15, "Motion weight",
-			"Weight for matching both of her motion preferences.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.w_not_early": num(0.15, "Not-early weight",
-			"Weight for not ending before she finishes.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.p_dislike": num(0.10, "Dislike penalty",
-			"Subtract per scored disliked touch or talk.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.p_severe": num(0.15, "Severe penalty",
-			"Extra penalty for repeated disliked handling.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.p_silence": num(0.15, "Silence penalty",
-			"Extra penalty for silent sex with a mare who likes to talk.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.p_miss": num(0.10, "Missed-preference penalty",
-			"Extra penalty for a missed touch or movement preference.", "History › Score", "", 0.01, 1.0, 0.0, 1.0),
-		"history.early_grace_s": num(20.0, "Early grace",
-			"Seconds before an intentional early end counts as a summary.", "History › Score", "s", 1.0),
-		"history.min_thrusts": num(2.0, "Minimum thrusts",
-			"Real thrusts that make a very short act scoreable.", "History › Score", "", 1.0),
-
-		"history.reminder_hurt": num(2.0, "Reminder at",
-			"Hurt points at which she starts reminding Anon.", "History › Points", "", 1.0),
-		"history.offer_block_hurt": num(4.0, "No offers at",
-			"Hurt points at which she stops asking for sex.", "History › Points", "", 1.0),
-		"history.withdraw_hurt": num(6.0, "Not tonight at",
-			"Hurt points at which she gently refuses an act.", "History › Points", "", 1.0),
-		"history.max_hurt": num(8.0, "Hurt cap", "Maximum stored hurt points.",
-			"History › Points", "", 1.0),
-		"history.max_comfort": num(8.0, "Comfort cap", "Maximum stored comfort points.",
-			"History › Points", "", 1.0),
-		"history.bad_hurt": num(1.0, "Bad hurt", "Hurt added by a bad act.",
-			"History › Points", "", 1.0),
-		"history.mild_hurt": num(1.0, "Early-end hurt",
-			"Hurt added by a neutral early end.", "History › Points", "", 1.0),
-		"history.severe_hurt": num(2.0, "Severe hurt", "Hurt added by a severe act.",
-			"History › Points", "", 1.0),
-		"history.good_comfort": num(1.0, "Good comfort", "Comfort added by a good act.",
-			"History › Points", "", 1.0),
-		"history.great_comfort": num(2.0, "Great comfort", "Comfort added by a great act.",
-			"History › Points", "", 1.0),
-		"history.good_repair": num(1.0, "Good repair", "Hurt removed by a good act.",
-			"History › Points", "", 1.0),
-		"history.great_repair": num(2.0, "Great repair", "Hurt removed by a great act.",
-			"History › Points", "", 1.0),
-		"history.apology_repair": num(1.0, "Apology repair",
-			"Hurt removed by one sincere apology per day.", "History › Points", "", 1.0),
-		"history.decay_days": num(2.0, "Decay days", "In-game days per hurt decay step.",
-			"History › Points", "days", 0.5),
-		"history.decay_amount": num(1.0, "Decay amount", "Hurt removed by one decay step.",
-			"History › Points", "", 1.0),
-		"history.offer_base_s": num(600.0, "Offer cooldown",
-			"Base seconds between proactive offers.", "History › Offers", "s", 10.0),
-		"history.offer_min_s": num(300.0, "Cooldown floor",
-			"Shortest cooldown at high comfort.", "History › Offers", "s", 10.0),
-		"history.offer_comfort_scale": num(0.05, "Comfort cooldown",
-			"Cooldown reduction per comfort point.", "History › Offers", "", 0.01),
-		"history.offer_weight_base": num(0.70, "Offer weight",
-			"Base chance weight for a proactive offer.", "History › Offers", "", 0.01),
-		"history.offer_weight_comfort": num(0.05, "Comfort weight",
-			"Offer weight added per comfort point.", "History › Offers", "", 0.01),
-		"history.offer_weight_hurt": num(0.12, "Hurt weight",
-			"Offer weight removed per hurt point.", "History › Offers", "", 0.01),
-
-		# Debug: neglect tolerance (the per-mare tier is in Characters).
-		"tolerance.forgiving_warning": num(4.0, "Forgiving warning",
-			"Distress at which a forgiving mare gives her one warning.", "Neglect tolerance", "", 1.0),
-		"tolerance.normal_warning_1": num(1.0, "Normal warning 1",
-			"First warning for a normal mare.", "Neglect tolerance", "", 1.0),
-		"tolerance.normal_warning_2": num(4.0, "Normal warning 2",
-			"Second warning for a normal mare.", "Neglect tolerance", "", 1.0),
-		"tolerance.normal_stop": num(10.0, "Normal stop",
-			"Distress at which a normal mare stops the act.", "Neglect tolerance", "", 1.0),
-		"tolerance.strict_warning": num(1.0, "Strict warning",
-			"Warning threshold for a strict mare.", "Neglect tolerance", "", 1.0),
-		"tolerance.strict_stop": num(3.0, "Strict stop",
-			"Distress at which a strict mare stops the act.", "Neglect tolerance", "", 1.0),
-		"tolerance.dislike_amount": num(1.0, "Dislike amount",
-			"Distress added by each actual disliked touch or talk.", "Neglect tolerance", "", 0.1),
-		"tolerance.like_relief": num(1.0, "Like relief",
-			"Distress removed by each actual liked touch or talk.", "Neglect tolerance", "", 0.1),
-		"tolerance.decay_seconds": num(25.0, "Decay interval",
-			"Seconds per passive distress decay step.", "Neglect tolerance", "s", 1.0),
-		"tolerance.decay_amount": num(1.0, "Decay amount",
-			"Distress removed per decay step.", "Neglect tolerance", "", 0.1),
-		"tolerance.normal_cooldown_s": num(300.0, "Normal cooldown",
-			"Sex-only cooldown after a normal mare stops.", "Neglect tolerance", "s", 10.0),
-		"tolerance.strict_cooldown_s": num(600.0, "Strict cooldown",
-			"Sex-only cooldown after a strict mare stops.", "Neglect tolerance", "s", 10.0),
-
-	}
+	_cache.clear()
+	for s: Variant in SETTINGS.all_settings():
+		var view: Dictionary = SETTINGS.entry_view(s)
+		# The old panel has no World tab yet: keep its entries in General until the new panel lands.
+		var home := str(view.get("tab", GENERAL_TAB))
+		view["tab"] = DEBUG_TAB if bool(view.get("debug", false)) else (
+			GENERAL_TAB if home == SETTINGS.WORLD else home)
+		_cache[str(s.path)] = view
+	_cache_size = count
 	return _cache
 
 
@@ -488,7 +39,6 @@ static func entry(path: String) -> Dictionary:
 	return value if value is Dictionary else {}
 
 
-## The stored default, or null for an unknown path.
 static func default_value(path: String) -> Variant:
 	if not has(path):
 		return null
@@ -496,7 +46,6 @@ static func default_value(path: String) -> Variant:
 	return (value as Array).duplicate() if value is Array else value
 
 
-## Nested defaults under a dotted prefix, e.g. `default_block("presentation.standing.")`.
 static func default_block(prefix: String) -> Dictionary:
 	var out: Dictionary = {}
 	for path: String in all():
@@ -505,7 +54,6 @@ static func default_block(prefix: String) -> Dictionary:
 	return out
 
 
-## Section names for one tab, in schema order.
 static func groups(tab: String) -> Array:
 	var seen: Array = []
 	for path: String in all():
@@ -518,54 +66,6 @@ static func groups(tab: String) -> Array:
 	return seen
 
 
-static func flag(on: bool, label: String, help: String, group: String,
-		tab := DEBUG_TAB) -> Dictionary:
-	return {"kind": "bool", "default": on, "label": label, "help": help,
-		"group": group, "tab": tab}
-
-
-## A debug number. `low`/`high` only shape the spin box; the stored value is never clamped.
-## `scale` converts the stored value to the shown unit (metres shown as cm = 100).
-static func num(value: float, label: String, help: String, group: String,
-		unit := "", step := 0.0, scale := 1.0, low := -1000000.0, high := 1000000.0,
-		tab := DEBUG_TAB) -> Dictionary:
-	return {"kind": "num", "default": value, "label": label, "help": help, "group": group,
-		"tab": tab, "unit": unit, "step": step, "scale": scale, "low": low, "high": high,
-		"clamp": false}
-
-
-## A player-facing number whose bounds are part of the setting's contract, so they clamp.
-static func user_num(value: float, label: String, help: String, group: String,
-		unit := "", step := 0.0, scale := 1.0, low := -1000000.0, high := 1000000.0,
-		tab := DEBUG_TAB) -> Dictionary:
-	var out := num(value, label, help, group, unit, step, scale, low, high, tab)
-	out["clamp"] = true
-	return out
-
-
-## A player-facing number drawn as a themed HSlider. The bound is part of the setting's
-## contract, so it clamps exactly like `user_num`.
-static func slider(value: float, label: String, help: String, group: String,
-		unit := "", step := 0.0, scale := 1.0, low := 0.0, high := 1.0,
-		tab := DEBUG_TAB) -> Dictionary:
-	var out := user_num(value, label, help, group, unit, step, scale, low, high, tab)
-	out["slider"] = true
-	return out
-
-
-static func choice(value: String, options: Array, labels: Array, label: String,
-		help: String, group: String, tab := DEBUG_TAB) -> Dictionary:
-	return {"kind": "choice", "default": value, "label": label, "help": help,
-		"group": group, "tab": tab, "options": options, "labels": labels}
-
-
-static func list(value: Array, options: Array, label: String, help: String,
-		group: String) -> Dictionary:
-	return {"kind": "list", "default": value, "label": label, "help": help,
-		"group": group, "tab": DEBUG_TAB, "options": options}
-
-
-## Write one dotted path into a nested dictionary, creating intermediate dictionaries.
 static func write_path(root: Dictionary, path: String, value: Variant) -> void:
 	var parts := path.split(".", false)
 	if parts.is_empty():

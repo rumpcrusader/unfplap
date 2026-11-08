@@ -134,6 +134,7 @@ func _adopt_or_build() -> bool:
 	if _built:
 		return false
 	_pony = get_node_or_null("Pony") as Node3D
+	_make_editable(_pony)
 	_bed = get_node_or_null("Bed") as Node3D
 	_camera = get_node_or_null("Camera") as Camera3D
 	_pony_skel = _find_skel(_pony) if _pony != null else null
@@ -146,6 +147,7 @@ func _adopt_or_build() -> bool:
 		var rig := child as Node3D
 		if rig == null or rig.name == "AnonBody":
 			continue
+		_make_editable(rig)
 		_hold_anon(rig)
 	_built = true
 	if _pony != null and _bed != null:
@@ -268,6 +270,24 @@ func _pony_world_aabb() -> AABB:
 ## body → RainbowDashRig_001 → Skeleton3D, so this has to walk the whole tree or
 ## the Skeleton3D stays hidden inside the sub-scene. The sub-scene also needs
 ## "editable children" on or the editor keeps its internals collapsed.
+## The saved rigs are instances of the game scenes, so their skeleton sits inside the sub-scene.
+## The editor only shows it in the Scene dock (and only hands it the bone gizmo) when the instance
+## has "editable children"; that flag is editor scene state, not pose data, so it is applied every
+## time the scene opens. Applying it here preserves young parenting: the internals stay owned by
+## the sub-scene, so saving this scene never writes them out.
+func _make_editable(node: Node) -> void:
+	if not Engine.is_editor_hint() or node == null:
+		return
+	# `set_editable_instance` is called on the parent with the instance as its argument; the flag
+	# lives on the instance node. Every instance root in the subtree needs it (the glb rig root and
+	# anything nested below it), or the editor keeps that part collapsed.
+	var parent := node.get_parent()
+	if not node.scene_file_path.is_empty() and parent != null:
+		parent.set_editable_instance(node, true)
+	for child in node.get_children():
+		_make_editable(child)
+
+
 func _own(node: Node) -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -275,8 +295,8 @@ func _own(node: Node) -> void:
 	if root == null or root == node:
 		return
 	node.owner = root
-	if not node.scene_file_path.is_empty():
-		node.set_editable_instance(node, true)
+	if not node.scene_file_path.is_empty() and node.get_parent() != null:
+		node.get_parent().set_editable_instance(node, true)
 	for child in node.get_children():
 		_own(child)
 

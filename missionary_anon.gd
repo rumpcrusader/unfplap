@@ -171,6 +171,10 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 			var bone := int(_indices[key])
 			skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
 			skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
+			# Own the scale too: the stock hiders multiply/overwrite it each modifier pass and rely
+			# on the animation to reset it. Without this the factor compounds and the body stretches
+			# or collapses. The parts they hide stay hidden by hiding the head mesh, not the bone.
+			skeleton.set_bone_pose_scale(bone, skeleton.get_bone_rest(bone).basis.get_scale())
 	# The attached alignment asks for the pelvis offset that puts the shaft in her; the authored
 	# path adds to it. Both reach the hips first and fade out up the spine, with the neck, head and
 	# planted legs pinned, so his shoulders and the camera move much less than his pelvis.

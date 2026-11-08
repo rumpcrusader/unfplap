@@ -152,6 +152,11 @@ func apply_pony(sk: Skeleton3D, weight: float, bed_frame: Transform3D, body_scal
 		var position: Vector3 = entry["position"]
 		sk.set_bone_pose_rotation(bone, sk.get_bone_pose_rotation(bone).slerp(rotation, weight))
 		sk.set_bone_pose_position(bone, sk.get_bone_pose_position(bone).lerp(position, weight))
+		# Reset the scale to the rig's rest. `FillyProportions` and the part hiders *multiply* the
+		# pose scale every modifier pass and rely on the animation resetting it each frame; the act
+		# replaced the animation with this write, so without this the factor compounds (0.92^N → 0,
+		# or >1^N → inf) and the neck/head stretch or collapse.
+		sk.set_bone_pose_scale(bone, sk.get_bone_rest(bone).basis.get_scale())
 	return true
 
 

@@ -279,6 +279,9 @@ end: `restore_scene()` puts the player, the pony and the camera back and she sta
   holds and never resets the rig, so a missing bone keeps the game's pose and breaks its chain (that
   was the v5 bug; `MIN_VERSION` is 6). The lab reads bed-space transforms for every file from
   `BED_SPACE_VERSION` 4 up, never tied to the current version.
+- **Own the scale too.** `FillyProportions` and the hiders *multiply* the pose scale every pass and
+  rely on the animation to reset it; the act must write the rest scale for every bone it poses, or the
+  factor compounds (0.92^N collapses, >1^N explodes) and the body stretches to `inf`.
 - **Never invert a scaled parent basis.** The stock hiders collapse a bone by scaling it to `0.001`,
   and `set_bone_global_pose()` inverts the parent's full basis on every write — a 1000× multiplier
   that compounds until the pose is `inf` (the body pulled away, then flickering; the anatomy part

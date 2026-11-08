@@ -63,6 +63,12 @@ Missionary is its own state, not the game's bed rest:
 - **Belly down.** `presentation.missionary.belly_down_deg` (debug, default 0) rotates `pony_spine1`
   about the bed's lateral axis before the gaze runs, so a belly that covers the vulva sinks toward
   the mattress and her head still ends up on Anon.
+- **Own the scale too.** `FillyProportions` and the part hiders *multiply* a bone's pose scale every
+  modifier pass (`set_bone_pose_scale(..., get_bone_pose_scale(...) * factor)`) and rely on the
+  animation resetting it to rest each frame. The act replaces the animation, so every bone it writes
+  also gets its rest scale back: without that the factor compounds (0.92^N collapses, >1^N explodes)
+  and the neck, head or whole body stretches to `inf`. Parts the game hides stay hidden by hiding the
+  head mesh, not by leaving the bone collapsed.
 - **Never invert a scaled parent basis.** The stock hiders collapse a bone by scaling it to `0.001`,
   and `set_bone_global_pose()` inverts the parent's *full* basis for every write — a 1000× multiplier
   that compounds each frame until the pose is `inf` (the body pulled away, then flickering) and the

@@ -302,6 +302,11 @@ end: `restore_scene()` puts the player, the pony and the camera back and she sta
   replace it with absolute yaw/pitch from the body axis: that assumed a standing rest
   orientation and left the missionary head aimed at the ceiling. The nuzzle offsets the target
   by a few degrees rather than adding a second absolute aim.
+- After the aim, `_level_head()` rolls the neck chain about its own forward (shares 0.30/0.36/0.34,
+  so no single joint kinks) until her up matches the world's: the aim only sets the face direction,
+  and a pose that rolls the neck otherwise leaves her looking at Anon sideways. The settled dump
+  prints `head aim=…° roll=…°` and `body up=…°` (pelvis up against the world up), so a sideways gaze
+  or a rolled pose is measurable.
 - `MISSIONARY_RUMP_DROP_DEG` pitches the whole body about the shoulders; `MISSIONARY_HIND_SPREAD` sets
   hind-leg spread.
 - Bed context is not optional: the lie pose, mattress surface and shared-bed transform all

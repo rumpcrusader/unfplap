@@ -166,7 +166,8 @@ func run() -> void:
 	heat_anatomy.set("_heat_phase_clock", 999.0)
 	heat_anatomy.set("_heat_wink_clock", 0.001)
 	heat_anatomy.call("_heat_idle_tick", 0.01)
-	check(float(heat_anatomy.get("_heat_wink_clock")) >= CYCLE.WINK_MIN_S,
+	var gap_lo := minf(SETTINGS.wink_min_s.get_num(), SETTINGS.wink_max_s.get_num())
+	check(float(heat_anatomy.get("_heat_wink_clock")) >= gap_lo,
 		"an idle heat wink resets the interval")
 	check(heat_anatomy.get("_tween") != null, "an idle heat wink builds its tween")
 	heat_anatomy.set_idle_wink(0.0)
@@ -174,8 +175,9 @@ func run() -> void:
 		"the default rest clears the wink shape")
 	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0),
 		"the default rest is the authored closed shape")
-	heat_anatomy.set_idle_wink(ANATOMY.HEAT_REST_OPEN)
-	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), ANATOMY.HEAT_REST_OPEN),
+	var rest_open := clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
+	heat_anatomy.set_idle_wink(rest_open)
+	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), rest_open),
 		"heat rests at the configured share of the wink shape")
 	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0),
 		"the heat rest leaves the closed shape alone")

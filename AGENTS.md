@@ -1072,10 +1072,12 @@ examples.
 - Heat also quarters the offer cooldown (`HEAT_COOLDOWN = 0.25`), overrides the privacy reserve, and
   adds the heat sentence to the ask prompt.
 - Outside an active act, a heat mare with the anatomy shown idles: `anatomy.gd` winks every
-  `WINK_MIN_S..WINK_MAX_S` (15-20 s), rolling 70% single, 25% double, 5% triple from
-  `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a short
-  hold and an accelerated close. Each burst also starts one short `climax_fluid.drip()` leak when
-  `anatomy_fluid` is on. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
+  `anatomy.wink_min_s..anatomy.wink_max_s` (default 15-20 s), rolling 70% single, 25% double, 5%
+  triple from `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a
+  short hold and an accelerated close. `anatomy.wink_peak` scales the open depth and
+  `anatomy.wink_timing` scales the three phase times. Each burst also starts one short
+  `climax_fluid.drip()` leak when `anatomy_fluid` is on, scaled by `anatomy.drip` (0 turns it off)
+  and `anatomy.fluid_size`. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
   mesh is far or `anatomy.anatomy_mode` hides it.
 - `anatomy.gd` rebuilds each winking source mesh once and caches it per source, then masks the
@@ -1083,14 +1085,14 @@ examples.
   `anatomy.mare_bits` (`original`/`v2`) selects `winking.scn` or `mare_bits_v2.scn`; the V2
   choice falls back to the original when the file is absent, and a live change swaps the mesh in
   place. The resting pose is `closed = 1`
-  and `wink = 0` (almost closed, clitoris hidden). A heat mare rests at `HEAT_REST_OPEN = 0.20`
-  of the `wink` shape and each idle wink crossfades toward it and back; `closed` stays 1, so the
-  idle rest never opens the resting lips. The shader depth cut is the act's shaft solve only: it
-  pulls the pink interior toward the camera, and the clitoris sits in that mask, so any partial
-  cut at idle drags it out through the lips. The
-  `wink` shape is hand-authored in Blender; `tools/winking_glb.gd` round-trips it through the
-  anatomy `.scn` (and keeps `winking_before_wink.scn` on the first import). Acts drive `closed`
-  only, so the wink shape never fights the penetration grip.
+  and `wink = 0` (almost closed, clitoris hidden). A heat mare rests at `anatomy.heat_rest_open`
+  (default 0.20) of the `wink` shape and each idle wink crossfades toward it and back; `closed`
+  stays 1, so the idle rest never opens the resting lips. The shader depth cut is the act's shaft
+  solve only: it pulls the pink interior toward the camera, and the clitoris sits in that mask, so
+  any partial cut at idle drags it out through the lips. The `wink` shape is hand-authored in
+  Blender; `tools/winking_glb.gd` round-trips it through the anatomy `.scn` (and keeps
+  `winking_before_wink.scn` on the first import). Acts drive `closed` only, so the wink shape never
+  fights the penetration grip.
 - The debug Actions **Force heat**, **Force diestrus** and **Clear forced cycle** set a session-only
   `_cycle_override` on the aimed or nearest mare.
 
@@ -1431,6 +1433,10 @@ rump blush. Unknown settings keys are ignored.
   `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.25),
   `still_height_mm` (debug: vertical placement of the vulva still zone, default −11 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
+  `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 15/20 s), `heat_rest_open` (debug:
+  resting share of the wink shape, 0.20), `wink_peak` (debug: idle wink depth multiplier, 1×),
+  `wink_timing` (debug: idle wink phase-time multiplier, 1×), `fluid_size` (debug: idle heat
+  droplet size, 5.5 mm) and `drip` (debug: idle heat drip multiplier, 1×; 0 turns it off),
   and the player-part
   controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
@@ -1551,8 +1557,9 @@ rump blush. Unknown settings keys are ignored.
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (with a
   **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
   subheadings) and **Thrust jiggle** sections. **Anatomy**
-  opens with its ungrouped switches, then **Holes**, **Anon part** and **Actions**. **World** opens
-  with Promiscuity and the estrus switch, and its Debug block holds the witnesses, ponies, the two
+  opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
+  **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
+  ponies, the two
   cue-line switches, per-mare **History** and **Neglect tolerance**. **Characters** holds
   the hand-built **Character preference** form (a per-mare profile, not a global setting). The
   **Actions** buttons sit at the bottom of each tab's **Debug** section, in compact rows; an action

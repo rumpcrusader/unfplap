@@ -228,11 +228,12 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 					expected = ["Heat", "Warning"]
 			for action: String in expected:
 				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
-	# An action lives in exactly one tab's block.
+	# An action lives in exactly one tab's block. "Heat" is also the Anatomy section heading, so
+	# the World guard uses its row caption "Cycle" instead of the action's short label.
 	if tab != SETTINGS.ANATOMY:
 		check(not labels.has("Pitch +"), "%s does not carry the anatomy actions" % tab)
 	if tab != SETTINGS.WORLD:
-		check(not labels.has("Heat"), "%s does not carry the world actions" % tab)
+		check(not labels.has("Cycle"), "%s does not carry the world actions" % tab)
 	list.free()
 	if is_instance_valid(owner):
 		owner.free()

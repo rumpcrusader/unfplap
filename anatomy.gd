@@ -34,8 +34,6 @@ const WINKING_LIP_RADIUS := 0.018
 ## The authored `closed` shape also pulls the anal rim. The runtime rebuild masks that out.
 const WINK_ANAL_FROM_Y := 0.020
 const WINK_ANAL_TO_Y := 0.050
-## How open a heat mare rests between winks, as a share of the authored wink shape.
-const HEAT_REST_OPEN := 0.20
 const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
 ## The V2 mesh owns the anus, so its ring centre is not the old cup's ANAL_OPENING. These are
 ## the measured outer-ring centres (Godot mesh local) at each additive anal key.
@@ -160,7 +158,6 @@ var _attached := false
 const VISIBILITY_POLL_S := 0.2
 ## How often the idle heat tick re-reads the estrus phase.
 const HEAT_PHASE_POLL_S := 2.0
-const IDLE_FLUID_SIZE := 0.0055
 const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 var _visibility_clock := 0.0
 var _visibility_init := false
@@ -422,7 +419,7 @@ func _heat_idle_tick(delta: float) -> void:
 			_heat_suppressed = true
 			_heat_phase = ""
 			_heat_phase_clock = 0.0
-			_heat_wink_clock = CYCLE.wink_interval()
+			_heat_wink_clock = _wink_interval()
 		return
 	_heat_suppressed = false
 	if not _heat_visible():
@@ -434,11 +431,11 @@ func _heat_idle_tick(delta: float) -> void:
 		var phase := str(runtime.call("cycle_phase"))
 		if phase != _heat_phase:
 			_heat_phase = phase
-			_heat_wink_clock = CYCLE.wink_interval() if phase == CYCLE.HEAT else 0.0
+			_heat_wink_clock = _wink_interval() if phase == CYCLE.HEAT else 0.0
 
 	# Heat rests slightly open; normal and diestrus rest closed. Do not fight a wink tween.
 	if _tween == null or not _tween.is_running():
-		var idle_rest := HEAT_REST_OPEN if _heat_phase == CYCLE.HEAT else 0.0
+		var idle_rest := _heat_rest_open() if _heat_phase == CYCLE.HEAT else 0.0
 		if not is_equal_approx(_wink_amount, idle_rest):
 			set_idle_wink(idle_rest)
 
@@ -448,10 +445,23 @@ func _heat_idle_tick(delta: float) -> void:
 	_heat_wink_clock -= delta
 	if _heat_wink_clock > 0.0:
 		return
-	_heat_wink_clock = CYCLE.wink_interval()
+	_heat_wink_clock = _wink_interval()
 	var count := CYCLE.wink_burst_count(randf())
 	wink_burst(count)
 	idle_drip(count)
+
+
+## Idle heat wink gap from the Heat debug settings. A zero gap is guarded so the idle tick cannot
+## spin on every frame.
+func _wink_interval() -> float:
+	return CYCLE.wink_interval(
+		maxf(SETTINGS.wink_min_s.get_num(), 0.05),
+		maxf(SETTINGS.wink_max_s.get_num(), 0.05))
+
+
+## How open she rests between winks, from the Heat debug settings.
+func _heat_rest_open() -> float:
+	return clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
 
 
 ## True when the mesh is actually shown. Far meshes and act-only hiding both skip idle display.
@@ -1075,13 +1085,16 @@ func idle_drip(count: int) -> void:
 		return
 	if not is_instance_valid(pony) or not pony.is_inside_tree() or not is_instance_valid(_mesh):
 		return
+	var amount := maxf(SETTINGS.drip.get_num(), 0.0)
+	if amount <= 0.0:
+		return
 	var node := fluid()
 	if not is_instance_valid(node):
 		return
 	node.set("ground_y", pony.global_position.y)
 	node.call("drip", Callable(self, "hole_point").bind(0.0),
-		1.5 + 0.7 * float(count), 1.0 + 0.2 * float(count),
-		IDLE_FLUID_SIZE, IDLE_FLUID_COLOR)
+		(1.5 + 0.7 * float(count)) * amount, (1.0 + 0.2 * float(count)) * amount,
+		maxf(SETTINGS.fluid_size.get_num(), 0.0001), IDLE_FLUID_COLOR)
 
 
 func anal_mesh() -> MeshInstance3D:
@@ -1179,20 +1192,24 @@ func wink_burst(count: int) -> void:
 	# AFTERGLOW/RESTORE can still hold the act's grip. Clear it so the idle wink reads as a wink.
 	if _fill > 0.0 or _wide > 0.0:
 		_clear_part()
-	var rest := clampf(HEAT_REST_OPEN, 0.0, 1.0)
+	var rest := _heat_rest_open()
+	var peak_scale := SETTINGS.wink_peak.get_num()
+	var timing := maxf(SETTINGS.wink_timing.get_num(), 0.01)
 	_tween = create_tween()
 	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	var from := _wink_amount
 	for i in count:
-		var peak := randf_range(0.45, 0.88)
+		var peak := clampf(randf_range(0.45, 0.88) * peak_scale, 0.0, 1.0)
 		# Accelerated expansion, a short hold, then an accelerated retraction.
-		var opening := _tween.tween_method(set_idle_wink, from, peak, randf_range(0.18, 0.38))
+		var opening := _tween.tween_method(set_idle_wink, from, peak,
+			randf_range(0.18, 0.38) * timing)
 		opening.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		_tween.tween_interval(randf_range(0.08, 0.18))
-		var closing := _tween.tween_method(set_idle_wink, peak, rest, randf_range(0.22, 0.45))
+		_tween.tween_interval(randf_range(0.08, 0.18) * timing)
+		var closing := _tween.tween_method(set_idle_wink, peak, rest,
+			randf_range(0.22, 0.45) * timing)
 		closing.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 		if i < count - 1:
-			_tween.tween_interval(randf_range(0.08, 0.18))
+			_tween.tween_interval(randf_range(0.08, 0.18) * timing)
 		from = rest
 
 

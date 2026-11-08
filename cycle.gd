@@ -11,10 +11,8 @@ const MONTH_DAYS := 30.0
 const HEAT_DAYS := 7.0
 const DIESTRUS_DAYS := 2.0
 
-## Idle heat display: one wink every 15-20 seconds, sometimes in a burst. The roll is 5%
+## Idle heat display: one wink every configured gap, sometimes in a burst. The roll is 5%
 ## triple, 25% double and 70% single.
-const WINK_MIN_S := 15.0
-const WINK_MAX_S := 20.0
 const WINK_TRIPLE_BELOW := 0.05
 const WINK_DOUBLE_BELOW := 0.30
 
@@ -44,9 +42,10 @@ static func allows_sex(phase_name: String) -> bool:
 	return phase_name != DIESTRUS
 
 
-## Seconds until the next idle heat wink.
-static func wink_interval() -> float:
-	return randf_range(WINK_MIN_S, WINK_MAX_S)
+## Seconds until the next idle heat wink. A reversed pair is sorted, so the two settings cannot
+## produce an invalid range.
+static func wink_interval(min_s: float, max_s: float) -> float:
+	return randf_range(minf(min_s, max_s), maxf(min_s, max_s))
 
 
 ## Wink count for one idle burst. `roll` is a 0..1 random value.

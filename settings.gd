@@ -962,6 +962,33 @@ static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zone
 	"Overlay the vulva and visible-ponut still-zone ellipsoids on the body coat.",
 	ANATOMY, "Holes").as_debug()
 
+# -- Heat  (debug)
+static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", 15.0, "Wink min gap",
+	"Shortest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
+	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
+static var wink_max_s := num("wink_max_s", "anatomy.wink_max_s", 20.0, "Wink max gap",
+	"Longest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
+	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
+static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.20, "Rest open",
+	"How open she rests between winks, as a share of the authored wink shape. 0 is the closed shape.",
+	ANATOMY, "Heat") \
+	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+static var wink_peak := num("wink_peak", "anatomy.wink_peak", 1.0, "Wink peak",
+	"Scale the deepest point of each idle wink. 1 keeps the authored peak; above 1 opens further.",
+	ANATOMY, "Heat") \
+	.with_unit("×").with_step(0.05).with_range(0.1, 1.5).as_debug()
+static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.0, "Wink timing",
+	"Scale the open, hold and close times of each idle wink. Below 1 is quicker; above 1 is slower.",
+	ANATOMY, "Heat") \
+	.with_unit("×").with_step(0.05).with_range(0.25, 4.0).as_debug()
+static var fluid_size := num("fluid_size", "anatomy.fluid_size", 0.0055, "Fluid size",
+	"Size of each idle heat droplet.", ANATOMY, "Heat") \
+	.with_unit("mm").with_step(0.5).with_scale(1000.0).with_range(0.0005, 0.02).as_debug()
+static var drip := num("drip", "anatomy.drip", 1.0, "Drip",
+	"Scale the idle heat drip's leak duration and drop rate. 0 turns the drip off.",
+	ANATOMY, "Heat") \
+	.with_unit("×").with_step(0.05).with_range(0.0, 3.0).as_debug()
+
 # ======================================================== World
 
 # -- (ungrouped)

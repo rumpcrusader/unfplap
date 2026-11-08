@@ -51,10 +51,12 @@ func run() -> void:
 
 	var interval_ok := true
 	for _i in 200:
-		var interval := CYCLE.wink_interval()
-		if interval < CYCLE.WINK_MIN_S or interval > CYCLE.WINK_MAX_S:
+		var interval := CYCLE.wink_interval(10.0, 20.0)
+		if interval < 10.0 or interval > 20.0:
 			interval_ok = false
-	check(interval_ok, "idle wink interval stays inside 15-20 seconds")
+	check(interval_ok, "idle wink interval respects the configured pair")
+	var reversed := CYCLE.wink_interval(20.0, 10.0)
+	check(reversed >= 10.0 and reversed <= 20.0, "a reversed wink pair is sorted")
 	check(CYCLE.wink_burst_count(0.0) == 3, "the bottom roll is a triple")
 	check(CYCLE.wink_burst_count(0.0499) == 3, "triples stop below five percent")
 	check(CYCLE.wink_burst_count(0.05) == 2, "doubles start at five percent")

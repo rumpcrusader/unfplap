@@ -22,6 +22,20 @@ whenever a pose value or order changes.
 The pose is the **hand-authored asset** in `poses/missionary_pose.json`, placed in the real bed's
 space, with the nuzzle and gaze overlays on top. There is no second implementation.
 
+### Act state
+
+Missionary is its own state, not the game's bed rest:
+
+- **Anon stands** before the act owns the camera (`force_stand_up()`, then the start snapshot and the
+  player lock), and the game's desktop presentation is parked. His own `AnonBody` is placed from the
+  asset's `anon` transform in bed space and posed from the `anon` bones by `missionary_anon.gd`, at
+  render time. His body IK and desktop pose driver are switched off for the act.
+- **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
+  tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
+- **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
+- **The end restores the scene** (`restore_scene()`: player, pony and camera snapshot) and stands
+  her. Nothing rejoins the bed or a cuddle.
+
 ### Base pose
 
 - **Asset.** `poses/authored_pose.gd` reads version 6 of the JSON once per process and caches it.
@@ -73,14 +87,18 @@ space, with the nuzzle and gaze overlays on top. There is no second implementati
 
 ### The shot
 
-The shot is a **blend of authored camera positions along her body**:
+The eye blends between the five authored positions and nothing else: `start` neutral, `back` (S, her
+pelvis), `front` (W, her face, where the kiss happens), `left`/`right` (Q/E), each an offset from
+`start`, so diagonals work. A shot the asset does not carry falls back to a **fixed** bed-relative
+point (never her live body) and the log names it; surge, bob and the kiss lean-in are the only extra
+motion. Free look turns this shot where it stands.
 
 - Five camera positions come from the pose lab, bed-relative, in the asset's `shots` block:
   `start` (neutral), `back` (S, her pelvis), `front` (W, her face — where the kiss happens), and
   `left`/`right` (Q/E). Each is an **offset from `start`** scaled by that lean component, so
-  diagonals blend additively. Until a position is authored it is derived from her live body:
-  start `neck + up 0.35 + rump 0.75`; back `vulva + up 0.35 + rump 0.30`; front
-  `face + rump 0.40 + up 0.15`; left/right the start shifted ±0.35 sideways (all × `body_scale`).
+  diagonals blend additively. A missing shot falls back to a fixed bed-relative point — `back`
+  `start + rump 0.45 − up 0.18`, `front` `start + head 1.60 − up 0.10`, `left`/`right`
+  `start ∓ side 0.60` (all × `body_scale`) — and the log names it once per act.
 - The aim is `missionary_face_point()` (the head bone pushed 12 cm along neck2 → head); it slides to
   `missionary_vulva_point()` (the anatomy's `hole_point` when the part shows, otherwise the
   hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face.

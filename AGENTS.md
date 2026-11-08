@@ -154,7 +154,7 @@ mods/unfplap/
                     winking mesh refinement, idle heat wink/drip
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
-  missionary_bed.gd optional Anon bed body and eye view; gated by the anatomy master
+  missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset
   consent.gd        per-mare public/anal/oral defaults and merge
   climax_fluid.gd   optional droplets, sticking, creeping and pools
   teat_jiggle.gd    teats spring sway
@@ -242,6 +242,14 @@ The pose **is** `poses/missionary_pose.json`, placed in the real bed's space, wi
 gaze overlays on top. There is no correction stack and no second pose: the act's `pose_asset` gate
 refuses the start (no Y hint) with `missionary pose unavailable: <reason>` when the asset cannot be
 loaded.
+
+**The act is its own state.** Neither of them is in the game's lying state while it runs: Anon is
+stood up (`force_stand_up()` before the snapshot and the lock), the game's desktop presentation is
+parked, and his own `AnonBody` is placed in bed space and posed from the asset's `anon` block by
+`missionary_anon.gd`. She is released from the bed rest and asked to `stand`, so the solver keeps a
+neutral pose instead of the lie clip; her body is placed and posed by the act. The bed supplies only
+the frame (`bed_frame`) and the offer/eligibility path. Nothing rejoins the bed or a cuddle at the
+end: `restore_scene()` puts the player, the pony and the camera back and she stands.
 
 - The asset is bed-space data: origin at the middle of the mattress top, the bed's axes, `+Z` her
   head direction. `poses/authored_pose.gd` maps it onto the real bed with
@@ -1457,7 +1465,6 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `anatomy_oral` | `false` | `N` standing oral and its neck motion (General) |
 | `anatomy_finish` | `false` | `B` finish in/out (General) |
 | `anatomy_fluid` | `true` | climax and finish droplets |
-| `anatomy_bed_body` | `true` | Anon bed body and eye view (General) |
 | `anatomy_vr` | `true` | VR act (General) |
 | `act_bystanders` | `true` | adult witness lines using the modern perception |
 | `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |

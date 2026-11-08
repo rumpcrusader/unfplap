@@ -29,8 +29,6 @@ var _missionary_start_player_transform := Transform3D.IDENTITY
 var _missionary_start_pony_transform := Transform3D.IDENTITY
 var _missionary_start_pony_posture := ""
 var _missionary_start_saved := false
-var _anon_avatars: Array[Node3D] = []
-var _anon_avatar_states: Array[bool] = []
 var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
 var _shot_offsets_logged := Vector3.INF
@@ -82,9 +80,9 @@ func snapshot_yaw() -> float:
 	return _missionary_start_player_transform.basis.get_euler().y if _missionary_start_saved else NAN
 
 
-func resume_cuddle() -> void:
+func restore_scene() -> void:
 	_sync()
-	_resume_missionary_cuddle()
+	_restore_scene()
 
 
 func tick() -> void:
@@ -391,15 +389,12 @@ func _snapshot_missionary_start() -> void:
 
 
 ## Change the player's own eye height for the act instead of writing camera.position.y.
+## Park the game's desktop presentation, which would otherwise show and drive his body from the
+## player rig. The act's own body (`missionary_anon.gd`) is placed and posed over it after this.
 func _hide_anon_avatar_for_missionary() -> void:
 	if str(runtime.get("pose_id")) != "missionary" or not is_instance_valid(main) \
 			or not is_instance_valid(main.player):
 		return
-	if _anon_avatars.is_empty():
-		for node: Node in main.player.find_children("*AnonBody*", "", true, false):
-			if node is Node3D:
-				_anon_avatars.append(node as Node3D)
-				_anon_avatar_states.append((node as Node3D).visible)
 	if not is_instance_valid(_desktop_presentation) and is_instance_valid(main.game):
 		var presentation: Variant = main.game.get("desktop_presentation")
 		if is_instance_valid(presentation):
@@ -411,55 +406,33 @@ func _hide_anon_avatar_for_missionary() -> void:
 	if is_instance_valid(_desktop_presentation) and _desktop_presentation_enabled \
 			and bool(_desktop_presentation.get("_enabled")) == true:
 		_desktop_presentation.call("set_enabled", false)
-	for i in _anon_avatars.size():
-		if is_instance_valid(_anon_avatars[i]) and _anon_avatars[i].visible:
-			if runtime.has_method("anatomy_bed_avatar") \
-					and _anon_avatars[i] == runtime.call("anatomy_bed_avatar"):
-				continue
-			_anon_avatars[i].visible = false
 
 
 func _restore_anon_avatar() -> void:
 	if is_instance_valid(_desktop_presentation) and _desktop_presentation_enabled:
 		_desktop_presentation.call("set_enabled", true)
-	for i in _anon_avatars.size():
-		if is_instance_valid(_anon_avatars[i]):
-			_anon_avatars[i].visible = _anon_avatar_states[i]
-	_anon_avatars.clear()
-	_anon_avatar_states.clear()
 	_desktop_presentation = null
 	_desktop_presentation_enabled = true
 
 
-func _resume_missionary_cuddle() -> void:
+## Put the player, the pony and the camera back exactly as the act found them. The act never rejoins
+## a bed or a cuddle: both stand, and the caller stands her.
+func _restore_scene() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
-		runtime.call("_stand_after_pose")
 		return
-	# Revert the exact scene captured at start: camera, player and pony transforms.
-	if _missionary_start_saved:
-		# Player/pony first, camera last: setting the player yaw rotates a child camera, so the
-		# snapshot camera transform must be applied after the rig is back in place.
-		main.player.global_transform = _missionary_start_player_transform
-		pony.global_transform = _missionary_start_pony_transform
-		pony.reset_physics_interpolation()
-		if is_instance_valid(_missionary_start_camera):
-			_missionary_start_camera.global_transform = _missionary_start_camera_transform
-			_missionary_start_camera.make_current()
-		_log("missionary restore: snapshot camera=%s player=%s pony=%s player_yaw=%.3f" % [
-			str(_missionary_start_camera_transform.origin), str(_missionary_start_player_transform.origin),
-			str(_missionary_start_pony_transform.origin), float(main.player.rotation.y)])
-	var seat: Variant = main.player.get("seat")
-	var couch: Variant = null
-	if is_instance_valid(seat) and seat.has_meta("couch"):
-		couch = seat.get_meta("couch")
-	if is_instance_valid(couch) and couch.has_method("accept") and bool(couch.call("accept", pony)):
-		_log("missionary restore: cuddle resumed")
+	if not _missionary_start_saved:
 		return
-	_log("missionary restore: cuddle resume failed; restoring posture")
-	if _missionary_start_saved and _missionary_start_pony_posture != "":
-		pony.request_posture(_missionary_start_pony_posture)
-	else:
-		runtime.call("_stand_after_pose")
+	# Player/pony first, camera last: setting the player yaw rotates a child camera, so the snapshot
+	# camera transform must be applied after the rig is back in place.
+	main.player.global_transform = _missionary_start_player_transform
+	pony.global_transform = _missionary_start_pony_transform
+	pony.reset_physics_interpolation()
+	if is_instance_valid(_missionary_start_camera):
+		_missionary_start_camera.global_transform = _missionary_start_camera_transform
+		_missionary_start_camera.make_current()
+	_log("missionary restore: scene restored camera=%s player=%s pony=%s" % [
+		str(_missionary_start_camera_transform.origin), str(_missionary_start_player_transform.origin),
+		str(_missionary_start_pony_transform.origin)])
 
 
 ## One line at act start: the authored shot ends and the live offsets.

@@ -333,7 +333,8 @@ func tick(delta: float) -> void:
 			anatomy.call("clear_shaft")
 		part.set("aim_normal", _normal)
 		part.set("aim_opening", hole_point())
-	var bed := pose == CATALOG.MISSIONARY and SETTINGS.anatomy_bed_body.get_bool()
+	# Missionary always rides the act's own posed body now, so the part tracks the bed path there.
+	var bed := pose == CATALOG.MISSIONARY
 	var shown := float(runtime.get("penetration_m"))
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
 		shown, delta, (mesh as Node3D).get_parent(), pose == CATALOG.STANDING)
@@ -511,7 +512,7 @@ func on_finish() -> void:
 
 ## integration: afterglow part tracking for the optional bed body.
 func afterglow_tick(delta: float) -> void:
-	if not SETTINGS.anatomy_bed_body.get_bool() or not is_instance_valid(anatomy) \
+	if not is_instance_valid(anatomy) \
 			or not is_instance_valid(pony) or not is_instance_valid(main):
 		return
 	var started := Time.get_ticks_usec()

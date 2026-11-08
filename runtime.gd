@@ -43,7 +43,7 @@ const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
-const MISSIONARY_BED := preload("res://mods/unfplap/missionary_bed.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
@@ -247,12 +247,6 @@ var _pose
 var _bed_pose_frame: Variant = null
 ## One settled-pose log line per act.
 var _pose_logged := false
-var _pose_hold_logged := false
-var _pose_hold_log_frame := -1
-## The missionary act owns the rendered pose: the game's clip animation and terrain solver are
-## silenced for the act (see `_pose_hold_tick`), and their state is restored at the end.
-var _pose_hold_terrain_was := true
-var _pose_hold_solver: Node
 ## Frames the render-time placement trace has printed this act (two, then it stops).
 var _pose_trace_frames := 0
 ## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
@@ -264,7 +258,7 @@ var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
 var _anatomy_act: Node
-var _missionary_bed: Node
+var _missionary_anon: Node
 var _vr_act: Node
 var _used_angles: Array[String] = []
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
@@ -1098,7 +1092,6 @@ func _physics_tick(delta: float) -> void:
 	if pony.sleeping:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
-	_pose_hold_tick()
 	_keep_nav()
 	if free_look_active() != _free_look_was:
 		_free_look_was = free_look_active()
@@ -1883,7 +1876,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_reset_thrust_state()
 	_pose_logged = false
 	_pose_trace_frames = 0
-	_pose_hold_logged = false
 	_summary = {}
 	_summary_done = false
 	_afterglow_beat = ""
@@ -1926,14 +1918,19 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_anatomy_refresh()
 	_anatomy_act_refresh(pose)
 
+	# The act is its own state for both of them: Anon stands up before the snapshot and the lock, and
+	# she leaves the game's lying state. The bed only supplies the frame their bodies are placed in.
+	if pose == CATALOG.MISSIONARY and not _player_pony:
+		var body: Variant = main.player
+		if body != null and body.has_method("force_stand_up"):
+			body.call("force_stand_up")
 	if pose == CATALOG.MISSIONARY:
 		if source == "cradle":
-			_place_cradle(_bed_anchor())
+			_place_on_bed(_bed_anchor())
 		else:
-			if str(pony.posture_status().get("requested", "")) != "lie_down":
-				if pony.get("posture") != null:
-					pony.posture.impact_flop()
 			pony.reset_physics_interpolation()
+		if pony.get("posture") != null:
+			pony.request_posture("stand")
 	else:
 		var standing := _begin_standing_placement()
 		pony.request_posture("stand")
@@ -2120,10 +2117,9 @@ func _abort_start() -> void:
 	_end_session(false)
 	_finalize_session(false)
 
-## Put her in the game's own lie-down state after the teleport. Waiting one physics frame lets
-## `grounded()` see the mattress; the native lie animation then settles her into the bedding
-## so she settles onto the mattress instead of hovering.
-func _place_cradle(anchor: Transform3D) -> void:
+## Put her on the bed's anchor. The act poses her body itself, so she only needs to be there; she
+## keeps the neutral standing state the solver maintains without fighting the authored pose.
+func _place_on_bed(anchor: Transform3D) -> void:
 	if not is_instance_valid(pony):
 		return
 	pony.reset_motion(anchor)
@@ -2135,16 +2131,8 @@ func _place_cradle(anchor: Transform3D) -> void:
 		if pony.grounded():
 			break
 	pony.reset_physics_interpolation()
-	if not pony.request_posture("lie_down"):
-		if pony.get("posture") != null:
-			pony.posture.impact_flop()
-	for _i in 240:
-		await get_tree().physics_frame
-		if not is_instance_valid(pony) or state in [State.IDLE, State.RESTORE]:
-			return
-		var status: Dictionary = pony.posture_status()
-		if str(status.get("requested", "")) == "lie_down" and bool(status.get("settled", false)):
-			break
+	if pony.get("posture") != null:
+		pony.request_posture("stand")
 
 func _bed_anchor() -> Transform3D:
 	if bed != null:
@@ -2482,7 +2470,6 @@ func _build_pose() -> void:
 		(hair as Skeleton3D).add_child(_dock_tail)
 
 func _free_pose() -> void:
-	_pose_hold_release()
 	_bed_pose_frame = null
 	clear_presentation()
 	_end_lean_action()
@@ -2774,7 +2761,7 @@ func anatomy_actions_ready() -> bool:
 
 
 func anatomy_bed_active() -> bool:
-	return is_instance_valid(_missionary_bed) and bool(_missionary_bed.call("active"))
+	return is_instance_valid(_missionary_anon) and bool(_missionary_anon.get("active"))
 
 
 ## integration: VR standing hooks. No-op unless the VR flag created the controller.
@@ -2823,10 +2810,10 @@ func vr_depth(value: float) -> void:
 	penetration_m = depth * penetration_reach()
 
 
-## integration: the avatar the bed body drives, so missionary_camera leaves it visible.
+## The Anon body the act poses, so the avatar hiding leaves it visible.
 func anatomy_bed_avatar() -> Variant:
-	if is_instance_valid(_missionary_bed):
-		return _missionary_bed.get("avatar")
+	if is_instance_valid(_missionary_anon):
+		return _missionary_anon.get("avatar")
 	return null
 
 
@@ -2869,9 +2856,9 @@ func anatomy_facing(basis: Basis, amount: float) -> void:
 
 ## integration: the standing part aims itself in `anon_part.track`; only the optional bed body
 ## still needs the wrapper hook.
-func apply_anon_align(hip: Node3D, facing: Basis) -> void:
-	if is_instance_valid(_missionary_bed) and bool(_missionary_bed.call("active")):
-		_missionary_bed.call("apply", hip, facing)
+## The bed pose writes his hip itself, so the marker alignment is only for other rigs (VR).
+func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
+	pass
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:
@@ -4837,10 +4824,10 @@ func _end_session(rejoin_cuddle: bool) -> void:
 		_anatomy_act.call("teardown")
 		_anatomy_act.queue_free()
 		_anatomy_act = null
-	if is_instance_valid(_missionary_bed):
-		_missionary_bed.call("remove")
-		_missionary_bed.queue_free()
-		_missionary_bed = null
+	if is_instance_valid(_missionary_anon):
+		_missionary_anon.call("remove")
+		_missionary_anon.queue_free()
+		_missionary_anon = null
 	_stop_vr_act()
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
@@ -4892,9 +4879,11 @@ func _restore_posture(restore_pose: String, rejoin_cuddle: bool) -> void:
 	_posture_owned = false
 	if not is_instance_valid(pony):
 		return
-	if rejoin_cuddle and restore_pose == CATALOG.MISSIONARY:
-		_missionary_camera_controller().resume_cuddle()
-	elif pony.get("posture") != null:
+	# The missionary act is its own state with its own scene snapshot. It never rejoins a bed: the
+	# snapshot puts the player, the pony and the camera back, and she stands.
+	if restore_pose == CATALOG.MISSIONARY:
+		_missionary_camera_controller().restore_scene()
+	if pony.get("posture") != null:
 		pony.request_posture("stand")
 
 func _finish_restore() -> void:
@@ -5133,15 +5122,14 @@ func _begin_camera_mode() -> void:
 	_reset_lean_state()
 	_standing_anon_controller().reset_phase()
 	_missionary_camera_controller().reset_look()
-	# integration: optional Anon bed body; it is desktop-only and off by default.
-	if pose_id == CATALOG.MISSIONARY and not _player_pony and not _headset_view() \
-			and SETTINGS.anatomy_bed_body.get_bool() and is_instance_valid(_anatomy_act):
-		_missionary_bed = MISSIONARY_BED.new()
-		_missionary_bed.name = "UnfplapMissionaryBed"
-		add_child(_missionary_bed)
-		if not bool(_missionary_bed.call("install", self)):
-			_missionary_bed.queue_free()
-			_missionary_bed = null
+	# The act shows and poses Anon's body itself (desktop human only; AnonPony and VR have their own).
+	if pose_id == CATALOG.MISSIONARY and not _player_pony and not _headset_view():
+		_missionary_anon = MISSIONARY_ANON.new()
+		_missionary_anon.name = "UnfplapMissionaryAnon"
+		add_child(_missionary_anon)
+		if not bool(_missionary_anon.call("install", self)):
+			_missionary_anon.queue_free()
+			_missionary_anon = null
 	# integration: optional VR standing act; it uses the headset rig and no desktop camera.
 	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING \
 			and SETTINGS.anatomy_vr.get_bool():
@@ -5402,65 +5390,21 @@ func _authored_pose_reason() -> String:
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
-## True while the act owns the rendered pose and the game's writers must stay off.
-func _pose_hold() -> bool:
-	return pose_id == CATALOG.MISSIONARY \
-		and state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
-		and SETTINGS.pose_hold.get_bool()
-
-
-## Silence the two writers that put the game's own pose back on the skeleton after our modifier:
-## the clip AnimationPlayer (advanced every physics tick by the locomotion clip tier) and the
-## terrain solver modifier (`pony.modifier`), which writes the whole prepared pose. Restored in
-## `_pose_hold_release`.
-func _pose_hold_tick() -> void:
-	if not _pose_hold() or not is_instance_valid(pony):
-		return
-	if _pose_hold_solver == null:
-		var solver: Variant = pony.get("modifier")
-		if solver is Node:
-			_pose_hold_solver = solver as Node
-			_pose_hold_terrain_was = bool(solver.get("active"))
-	_log_pose_hold_once()
-	if _pose_hold_solver != null and bool(_pose_hold_solver.get("active")):
-		_pose_hold_solver.set("active", false)
-	var animation: Variant = pony.get("animation")
-	# Pause, never stop: `stop()` resets the animated properties, and an empty `current_animation`
-	# makes the clip tier re-play the posture clip on every logic tick.
-	if animation is AnimationPlayer and (animation as AnimationPlayer).is_playing():
-		(animation as AnimationPlayer).pause()
-
-
-func _log_pose_hold_once() -> void:
-	var key := Engine.get_physics_frames()
-	if _pose_hold_log_frame == key:
-		return
-	_pose_hold_log_frame = key
-	if _pose_hold_logged:
-		return
-	_pose_hold_logged = true
-	_log("pose hold on: solver=%s was_active=%s animation_stopped=%s" % [
-		str(_pose_hold_solver), str(_pose_hold_terrain_was),
-		str(pony.get("animation") is AnimationPlayer)])
-
-
-func _pose_hold_release() -> void:
-	if _pose_hold_solver != null and bool(_pose_hold_solver.get("active")) != _pose_hold_terrain_was:
-		_pose_hold_solver.set("active", _pose_hold_terrain_was)
-	_pose_hold_solver = null
-	_pose_hold_logged = false
-
-
 ## One idle-frame sample of what the renderer actually sees, once per act.
 ## The missionary act owns what is rendered: the game re-poses the rig after our modifier pass, so
 ## the authored pose is written once more here, after every physics and process writer of the frame.
 ## See ROTATION.md.
 func _pose_render_write() -> void:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(_pose) \
-			or not is_instance_valid(pony):
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return
+	# Park the game's desktop presentation (it re-enables itself) and then place and pose the act's
+	# own Anon body over it, before her pose writes last.
+	_missionary_camera_controller().hide_avatar()
+	var frame: Variant = _bed_pose_frame
+	if is_instance_valid(_missionary_anon) and frame is Transform3D:
+		_missionary_anon.call("apply", frame, _body_scale_value())
 	var sk: Variant = pony.get("skeleton")
-	if sk is Skeleton3D:
+	if is_instance_valid(_pose) and sk is Skeleton3D:
 		_pose.call("apply_render", sk)
 
 
@@ -5747,9 +5691,6 @@ func apply_camera_motion() -> void:
 		return
 	if pose_id == CATALOG.MISSIONARY:
 		_missionary_camera_controller().tick()
-		# integration: the optional bed body adjusts the view after the frozen shot.
-		if is_instance_valid(_missionary_bed) and not free_look_active():
-			_missionary_bed.call("tick_view")
 		return
 	# Debug free look: the stock player camera is the view, so the act camera leaves it alone.
 	if free_look_active():
@@ -5918,10 +5859,10 @@ func _exit_tree() -> void:
 		_anatomy_act.call("teardown")
 		_anatomy_act.queue_free()
 		_anatomy_act = null
-	if is_instance_valid(_missionary_bed):
-		_missionary_bed.call("remove")
-		_missionary_bed.queue_free()
-		_missionary_bed = null
+	if is_instance_valid(_missionary_anon):
+		_missionary_anon.call("remove")
+		_missionary_anon.queue_free()
+		_missionary_anon = null
 	_stop_vr_act()
 	if is_instance_valid(_anatomy):
 		_anatomy.call("detach")

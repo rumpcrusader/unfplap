@@ -484,9 +484,6 @@ static var pixels_per_cm := num("pixels_per_cm", "thrust.pixels_per_cm", 50.0,
 static var orientation := choice("orientation", "thrust.orientation", "up", ["up", "down"],
 	["Mouse Up", "Mouse Down"], "Thrust direction",
 	"Which mouse direction deepens the thrust.", GENERAL, "")
-static var anatomy_bed_body := flag("anatomy_bed_body", "features.anatomy_bed_body", true,
-	"Use Anon bed body",
-	"Use Anon's own body on the bed and view the missionary act from his eyes instead of the current shot.", GENERAL, "")
 static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "Use VR act",
 	"The standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", GENERAL, "")
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Allow hole switch",
@@ -625,13 +622,9 @@ static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.
 	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
 	"Missionary › Posed base shot") \
 	.with_unit("m").with_step(0.01).as_debug()
-static var pose_hold := flag("pose_hold", "presentation.missionary.pose_hold", true,
-	"Hold posed base",
-	"Stop the game's own pose writers (the clip animation and the terrain solver) during a missionary act so the authored pose is the one rendered.",
-	GENERAL, "Missionary").as_debug()
 static var free_look := flag("free_look", "presentation.missionary.free_look", false,
 	"Use free look",
-	"Copy the player camera during an act instead of the frozen shot, so the pose can be inspected. The mouse stops driving thrust.",
+	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
 	GENERAL, "Missionary").as_debug()
 
 # -- Standing  (debug)
@@ -1210,6 +1203,10 @@ static var _deprecated := [
 	deprecated("presentation.missionary.pullback",
 		func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.side", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.pose_hold",
+		func(_value: Variant) -> Dictionary: return {}),
+	# The act always shows and poses Anon's body, so the anatomy master no longer gates it.
+	deprecated("features.anatomy_bed_body", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.head_pitch_deg",
 		func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.head_roll_deg",

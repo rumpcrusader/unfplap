@@ -8,6 +8,7 @@ scripts
 tests
 tools
 build.sh
+lab-vr.sh
 .pckignore
 .gitignore
 README.md

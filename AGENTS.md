@@ -1340,6 +1340,31 @@ examples.
   friendship/mood/idle, romance/dating, no spawned bed) and each pony's resulting position with
   `spawn=saved` or `spawn=row`.
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
+
+VR lab:
+
+```bash
+./lab-vr.sh [--no-service] [--vr-lab-autostart]
+```
+
+- Runs the same lab in room-scale XR under Monado and writes `last-run-vr.log`;
+  `last-run-vr-monado.log` holds the runtime's log. The script starts `monado-service` with its
+  qwerty driver (virtual HMD plus both hand controllers); `--no-service` uses one you started.
+  The Monado window owns the keyboard while focused, so pose the headset there and keep the game
+  focused for the lab keys. Seated VR cannot run this lab: that rig has no controllers. The
+  cursor stays free for the Monado window; click the game window to capture it if you want the
+  desktop lab's own mouse hotkeys.
+- `tests/test_lab_vr.gd` adds a fake `waist` XRPositionalTracker, which `vr_act._tracked_hips()`
+  accepts as body tracking: `[`/`]` move it 5 mm, `;` toggles a 1.1 Hz stroke, `F9` places Anon
+  behind the aimed (or nearest) adult test mare. `--vr-lab-autostart` qualifies the nearest mare,
+  starts the standing act and turns the stroke on for a scripted smoke run. The log prints state,
+  thrust count, readiness and both preference axes once a second.
+- A headset session has no desktop pointer: `headset_view()` stands in for a captured mouse in
+  the start gate, the offer refresh, refusal and Y. A headset rig also has neither a
+  `controls_locked` nor a `flying` property, so those reads compare against `true` rather than
+  going through `bool()`. Only the standing act is supported in VR; it keeps the mare in place,
+  so it never needs Anon's ground position from the rig root, which stays at the spawn anchor.
+
 - Test every pose start, climax, afterglow, restore, hold-Y and cuddle path in the lab
   after changing camera, pose or scoring code.
 

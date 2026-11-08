@@ -625,6 +625,10 @@ static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.
 	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
 	"Missionary › Posed base shot") \
 	.with_unit("m").with_step(0.01).as_debug()
+static var pose_hold := flag("pose_hold", "presentation.missionary.pose_hold", true,
+	"Hold posed base",
+	"Stop the game's own pose writers (the clip animation and the terrain solver) during a missionary act so the authored pose is the one rendered.",
+	GENERAL, "Missionary").as_debug()
 static var free_look := flag("free_look", "presentation.missionary.free_look", false,
 	"Use free look",
 	"Copy the player camera during an act instead of the frozen shot, so the pose can be inspected. The mouse stops driving thrust.",

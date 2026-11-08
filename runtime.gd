@@ -247,6 +247,13 @@ var _pose
 var _bed_pose_frame: Variant = null
 ## One settled-pose log line per act.
 var _pose_logged := false
+var _pose_hold_logged := false
+var _pose_hold_log_frame := -1
+## The missionary act owns the rendered pose: the game's clip animation and terrain solver are
+## silenced for the act (see `_pose_hold_tick`), and their state is restored at the end.
+var _pose_hold_terrain_was := true
+var _pose_hold_solver: Node
+var _pose_idle_logged := false
 ## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
 var _free_look_yaw := 0.0
 var _free_look_pitch := 0.0
@@ -941,6 +948,7 @@ func _process_tick(delta: float) -> void:
 	if state == State.IDLE:
 		_standing_presentation_controller().process()
 		return
+	_pose_idle_sample()
 	_standing_camera_controller().clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
 		var view: Camera3D = main.camera()
@@ -1086,6 +1094,7 @@ func _physics_tick(delta: float) -> void:
 	if pony.sleeping:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
+	_pose_hold_tick()
 	_keep_nav()
 	if free_look_active() != _free_look_was:
 		_free_look_was = free_look_active()
@@ -1869,6 +1878,8 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_y_hold_fired = false
 	_reset_thrust_state()
 	_pose_logged = false
+	_pose_idle_logged = false
+	_pose_hold_logged = false
 	_summary = {}
 	_summary_done = false
 	_afterglow_beat = ""
@@ -2467,6 +2478,7 @@ func _build_pose() -> void:
 		(hair as Skeleton3D).add_child(_dock_tail)
 
 func _free_pose() -> void:
+	_pose_hold_release()
 	_bed_pose_frame = null
 	clear_presentation()
 	_end_lean_action()
@@ -5378,6 +5390,79 @@ func _authored_pose_reason() -> String:
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
+## True while the act owns the rendered pose and the game's writers must stay off.
+func _pose_hold() -> bool:
+	return pose_id == CATALOG.MISSIONARY \
+		and state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
+		and SETTINGS.pose_hold.get_bool()
+
+
+## Silence the two writers that put the game's own pose back on the skeleton after our modifier:
+## the clip AnimationPlayer (advanced every physics tick by the locomotion clip tier) and the
+## terrain solver modifier (`pony.modifier`), which writes the whole prepared pose. Restored in
+## `_pose_hold_release`.
+func _pose_hold_tick() -> void:
+	if not _pose_hold() or not is_instance_valid(pony):
+		return
+	if _pose_hold_solver == null:
+		var solver: Variant = pony.get("modifier")
+		if solver is Node:
+			_pose_hold_solver = solver as Node
+			_pose_hold_terrain_was = bool(solver.get("active"))
+	_log_pose_hold_once()
+	if _pose_hold_solver != null and bool(_pose_hold_solver.get("active")):
+		_pose_hold_solver.set("active", false)
+	var animation: Variant = pony.get("animation")
+	if animation is AnimationPlayer and (animation as AnimationPlayer).is_playing():
+		(animation as AnimationPlayer).stop()
+
+
+func _log_pose_hold_once() -> void:
+	var key := Engine.get_physics_frames()
+	if _pose_hold_log_frame == key:
+		return
+	_pose_hold_log_frame = key
+	if _pose_hold_logged:
+		return
+	_pose_hold_logged = true
+	_log("pose hold on: solver=%s was_active=%s animation_stopped=%s" % [
+		str(_pose_hold_solver), str(_pose_hold_terrain_was),
+		str(pony.get("animation") is AnimationPlayer)])
+
+
+func _pose_hold_release() -> void:
+	if _pose_hold_solver != null and bool(_pose_hold_solver.get("active")) != _pose_hold_terrain_was:
+		_pose_hold_solver.set("active", _pose_hold_terrain_was)
+	_pose_hold_solver = null
+	_pose_hold_logged = false
+
+
+## One idle-frame sample of what the renderer actually sees, once per act.
+func _pose_idle_sample() -> void:
+	if _pose_idle_logged or not _pose_hold() or not is_instance_valid(pony):
+		return
+	if _pose_basis_amount() < 0.9:
+		return
+	_pose_idle_logged = true
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return
+	var skeleton := sk as Skeleton3D
+	var hips := skeleton.find_bone("pony_hips")
+	var at := Vector3.INF
+	if hips >= 0:
+		at = skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
+	var animation: Variant = pony.get("animation")
+	var clip := ""
+	var playing := false
+	if animation is AnimationPlayer:
+		clip = (animation as AnimationPlayer).current_animation
+		playing = (animation as AnimationPlayer).is_playing()
+	_log("pose idle sample mode=%d hips=%s clip=%s playing=%s solver=%s" % [
+		skeleton.modifier_callback_mode_process, str(at), clip, str(playing),
+		str(_pose_hold_solver)])
+
+
 func _pose_diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
 	var rows: Array = []
 	var pose: Variant = _pose

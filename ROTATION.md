@@ -63,11 +63,13 @@ Missionary is its own state, not the game's bed rest:
 - **Belly down.** `presentation.missionary.belly_down_deg` (debug, default 0) rotates `pony_spine1`
   about the bed's lateral axis before the gaze runs, so a belly that covers the vulva sinks toward
   the mattress and her head still ends up on Anon.
-- **Never write a global pose under a collapsed bone.** The stock rig hides parts by scaling a bone
-  to zero, and a zero scale is a singular basis: `set_bone_global_pose()` divides by the parent's
-  basis, so the pose stretches to infinity (the body pulled to `inf`, then flickering). Both rigs run
-  `repair_scales` before they write (rest scale for any bone at zero), every stock modifier on his
-  skeleton is deactivated for the act, and `rotate`/`rotate_free` skip a degenerate basis.
+- **Never invert a scaled parent basis.** The stock hiders collapse a bone by scaling it to `0.001`,
+  and `set_bone_global_pose()` inverts the parent's *full* basis for every write — a 1000× multiplier
+  that compounds each frame until the pose is `inf` (the body pulled away, then flickering) and the
+  anatomy part follows it. Every act write goes through `pose_rig.set_global()`, which builds the
+  local pose from the parent's **orthonormalized** rotation and origin only, and rejects a
+  non-finite target. The stock hiders stay on: they only hide parts, and `BodyIK` (the standing pose
+  driver, not a hider) is the one modifier parked for the act.
 - **Space rule.** Every act-space rotation is applied to a bone's **global pose** with the axis
   converted once into skeleton space (`pose_rig.rotate_free`). Pre-multiplying a bone's *local*
   pose applies the axis in the parent's frame — his hips are rotated ~90° here, and doing that made

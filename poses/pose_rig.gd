@@ -47,15 +47,29 @@ func cache(mare_node: Node3D, sk: Skeleton3D) -> void:
 			hind.append({"femur": femur, "lower": lower})
 
 
-## Restore the rest scale of every bone the game collapsed. A bone hidden by scaling it to zero has
-## no basis, and a global-pose write under it inverts a singular matrix: the pose then stretches to
-## infinity (`set_bone_global_pose` divides by the parent's basis). Cheap: one scale read per bone.
-static func repair_scales(sk: Skeleton3D) -> void:
-	if sk == null:
+## Write a bone's local pose so its global (skeleton space) pose becomes `target`, without ever
+## inverting a scaled basis. The stock hiders collapse a bone by scaling it to 0.001; Godot's
+## `set_bone_global_pose()` inverts the *parent's* full basis for that, which multiplies the offset
+## by 1000 every write — the pose then grows to `inf`. Only the parent's rotation and origin are
+## needed here, so the collapse cannot compound. The bone's own scale is carried through `target`.
+static func set_global(sk: Skeleton3D, bone: int, target: Transform3D) -> void:
+	if sk == null or bone < 0:
 		return
-	for i in sk.get_bone_count():
-		if sk.get_bone_pose_scale(i).length_squared() < 0.0001:
-			sk.set_bone_pose_scale(i, sk.get_bone_rest(i).basis.get_scale())
+	if not target.origin.is_finite() or not target.basis.x.is_finite() \
+			or not target.basis.y.is_finite() or not target.basis.z.is_finite():
+		return
+	var parent := sk.get_bone_parent(bone)
+	var rotation := Basis.IDENTITY
+	var origin := Vector3.ZERO
+	if parent >= 0:
+		var parent_pose := sk.get_bone_global_pose(parent)
+		rotation = parent_pose.basis.orthonormalized()
+		origin = parent_pose.origin
+	var inverse := rotation.inverse()
+	var local := Transform3D(inverse * target.basis, inverse * (target.origin - origin))
+	if not local.origin.is_finite():
+		return
+	sk.set_bone_pose(bone, local)
 
 
 ## Rotate a bone in skeleton space, then clamp it with the pony's joint limits.
@@ -63,10 +77,8 @@ func rotate(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
 	if bone < 0 or absf(angle) < 0.00001:
 		return
 	var pose := sk.get_bone_global_pose(bone)
-	if absf(pose.basis.determinant()) < 0.0000001:
-		return
 	pose.basis = Basis(axis.normalized(), angle) * pose.basis
-	sk.set_bone_global_pose(bone, pose)
+	set_global(sk, bone, pose)
 	_limit(sk, bone)
 
 
@@ -77,10 +89,8 @@ func rotate_free(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void
 	if bone < 0 or absf(angle) < 0.00001:
 		return
 	var pose := sk.get_bone_global_pose(bone)
-	if absf(pose.basis.determinant()) < 0.0000001:
-		return
 	pose.basis = Basis(axis.normalized(), angle) * pose.basis
-	sk.set_bone_global_pose(bone, pose)
+	set_global(sk, bone, pose)
 
 
 ## Joint-limit clamp for `rotate()`; skipped for direct global-pose corrections.

@@ -9,6 +9,7 @@ extends Node
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
+const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 
 ## The upper-body chain the lean bends, with the share of the lean each bone takes. Everything below
 ## the spine stays with the authored pose.
@@ -25,10 +26,8 @@ var skeleton: Skeleton3D
 ## True once a body was found and is being driven by this controller.
 var active := false
 
-## Every stock modifier on his skeleton, parked for the act: `[node, was_active]`. The IK, the
-## head hide and the body-part hiders all reshape or collapse bones we own, and a collapsed bone
-## (scale 0) has no basis — which is what put NaN into the pose and made the body flicker.
-var _modifiers: Array = []
+var _body_ik: SkeletonModifier3D
+var _body_ik_was_active := true
 var _head_mesh: MeshInstance3D
 var _head_mesh_visible := true
 var _driver: Variant
@@ -66,11 +65,16 @@ func install(runtime_node: Node) -> bool:
 	# parked for the act; the pose we write is the only pose.
 	_driver = avatar.get("desktop_pose_driver")
 	avatar.set("desktop_pose_driver", null)
-	_modifiers.clear()
-	for child: Node in skeleton.get_children():
-		if child is SkeletonModifier3D:
-			_modifiers.append([child, (child as SkeletonModifier3D).active])
-			(child as SkeletonModifier3D).active = false
+	# Only the body IK is parked: it is the *pose driver* (it builds his body from the player camera
+	# markers, i.e. the standing body), and its head step slerps a basis the head hider collapses,
+	# which spams "must be normalized". Every hider stays on: they only hide parts.
+	var ik: Variant = avatar.get("_body_ik")
+	if not is_instance_valid(ik):
+		ik = avatar.find_child("BodyIK", true, false)
+	if ik is SkeletonModifier3D:
+		_body_ik = ik as SkeletonModifier3D
+		_body_ik_was_active = _body_ik.active
+		_body_ik.active = false
 	# The desktop eye relative to the head bone, from the body's own values. `REST_FACING` is a
 	# 180° yaw, so its inverse is itself.
 	var offset: Variant = avatar.get("head_offset")
@@ -115,14 +119,12 @@ func install(runtime_node: Node) -> bool:
 
 func remove() -> void:
 	active = false
-	for entry: Array in _modifiers:
-		var node: Variant = entry[0]
-		if is_instance_valid(node):
-			(node as SkeletonModifier3D).active = bool(entry[1])
-	_modifiers.clear()
 	if is_instance_valid(_head_mesh):
 		_head_mesh.visible = _head_mesh_visible
+	if is_instance_valid(_body_ik):
+		_body_ik.active = _body_ik_was_active
 	_head_mesh = null
+	_body_ik = null
 	if is_instance_valid(avatar):
 		avatar.set("desktop_pose_driver", _driver)
 		avatar.visible = _avatar_visible
@@ -160,9 +162,6 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if avatar.process_mode != Node.PROCESS_MODE_INHERIT:
 		avatar.process_mode = Node.PROCESS_MODE_INHERIT
 	var bones: Dictionary = pose.get("anon_bones")
-	# A collapsed bone (the stock hiders scale one to zero) has no basis; every global-pose write
-	# below it divides by that basis and the body stretches to infinity.
-	_repair_scales()
 	if not bones.is_empty():
 		_cache_indices(bones)
 		for key: Variant in _indices:
@@ -192,7 +191,7 @@ func _apply_hip_motion(offset_world: Vector3) -> void:
 	var hips := skeleton.find_bone("Hips")
 	if hips < 0:
 		return
-	var local := skeleton.global_transform.affine_inverse().basis * offset_world
+	var local := skeleton.global_basis.inverse() * offset_world
 	var before := {}
 	for name: String in HIP.GRADES:
 		var bone := skeleton.find_bone(name)
@@ -205,16 +204,16 @@ func _apply_hip_motion(offset_world: Vector3) -> void:
 			pinned[name] = skeleton.get_bone_global_pose(bone)
 	var hip_pose: Transform3D = skeleton.get_bone_global_pose(hips)
 	hip_pose.origin += local
-	skeleton.set_bone_global_pose(hips, hip_pose)
+	RIG.set_global(skeleton, hips, hip_pose)
 	for name: String in HIP.GRADES:
 		if not before.has(name):
 			continue
 		var pose: Transform3D = before[name]
 		pose.origin += local * float(HIP.GRADES[name])
-		skeleton.set_bone_global_pose(skeleton.find_bone(name), pose)
+		RIG.set_global(skeleton, skeleton.find_bone(name), pose)
 	for name: String in HIP.PINNED:
 		if pinned.has(name):
-			skeleton.set_bone_global_pose(skeleton.find_bone(name), pinned[name])
+			RIG.set_global(skeleton, skeleton.find_bone(name), pinned[name])
 
 
 ## Bend his chest and neck with the act's lean, leaving his hips and legs on the authored pose. The
@@ -250,21 +249,8 @@ func _apply_lean(placed: Transform3D) -> void:
 		# pose instead applies the axis in the parent's frame, and his hips are rotated ~90° here,
 		# so W/S yawed the view sideways instead of nodding it.
 		var pose: Transform3D = skeleton.get_bone_global_pose(bone)
-		if absf(pose.basis.determinant()) < 0.000001:
-			continue
 		pose.basis = Basis(nod, pitch * share) * Basis(turn, yaw * share) * pose.basis
-		skeleton.set_bone_global_pose(bone, pose)
-
-
-## Restore every collapsed bone's rest scale. The stock hiders (and the presentation re-enabling
-## itself) scale a bone to zero; a zero scale is a singular basis, and a global-pose write under one
-## divides by it and stretches the body to infinity.
-func _repair_scales() -> void:
-	if not is_instance_valid(skeleton):
-		return
-	for i in skeleton.get_bone_count():
-		if skeleton.get_bone_pose_scale(i).length_squared() < 0.0001:
-			skeleton.set_bone_pose_scale(i, skeleton.get_bone_rest(i).basis.get_scale())
+		RIG.set_global(skeleton, bone, pose)
 
 
 ## The act camera's transform: his posed head plus the game's own eye offset.

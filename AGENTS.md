@@ -279,11 +279,12 @@ end: `restore_scene()` puts the player, the pony and the camera back and she sta
   holds and never resets the rig, so a missing bone keeps the game's pose and breaks its chain (that
   was the v5 bug; `MIN_VERSION` is 6). The lab reads bed-space transforms for every file from
   `BED_SPACE_VERSION` 4 up, never tied to the current version.
-- **A collapsed bone is a singular basis.** The stock rig hides parts by scaling a bone to zero;
-  `set_bone_global_pose()` then divides by that basis and the pose stretches to `inf` (the body
-  "pulled down", then flickering). Both rigs call `pose_rig.repair_scales()` before writing, every
-  stock `SkeletonModifier3D` on Anon's skeleton is deactivated for the act, and `rotate`/`rotate_free`
-  skip a degenerate basis.
+- **Never invert a scaled parent basis.** The stock hiders collapse a bone by scaling it to `0.001`,
+  and `set_bone_global_pose()` inverts the parent's full basis on every write — a 1000× multiplier
+  that compounds until the pose is `inf` (the body pulled away, then flickering; the anatomy part
+  follows). Every act write goes through `pose_rig.set_global()`, which uses the parent's
+  **orthonormalized** rotation and origin only and rejects non-finite targets. The hiders stay on;
+  only `BodyIK` (the standing pose driver) is parked for the act.
 - **Space rule.** Rotate a bone by writing its **global pose** with the axis converted once into
   skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
   parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the

@@ -1081,18 +1081,19 @@ examples.
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
   mesh is far or `anatomy.anatomy_mode` hides it.
 - `anatomy.gd` rebuilds each winking source mesh once and caches it per source, then masks the
-  anal rim out of both the authored `closed` and `wink` shapes, so only the vulva moves.
+  anal rim out of the authored `closed` and `wink` shapes, so only the vulva moves.
   `anatomy.mare_bits` (`original`/`v2`) selects `winking.scn` or `mare_bits_v2.scn`; the V2
   choice falls back to the original when the file is absent, and a live change swaps the mesh in
-  place. The resting pose is `closed = 1`
-  and `wink = 0` (almost closed, clitoris hidden). A heat mare rests at `anatomy.heat_rest_open`
-  (default 0.20) of the `wink` shape and each idle wink crossfades toward it and back; `closed`
-  stays 1, so the idle rest never opens the resting lips. The shader depth cut is the act's shaft
-  solve only: it pulls the pink interior toward the camera, and the clitoris sits in that mask, so
-  any partial cut at idle drags it out through the lips. The `wink` shape is hand-authored in
-  Blender; `tools/winking_glb.gd` round-trips it through the anatomy `.scn` (and keeps
-  `winking_before_wink.scn` on the first import). Acts drive `closed` only, so the wink shape never
-  fights the penetration grip.
+  place. The resting pose is `closed = 1` and `wink = 0`. The original `winking.scn` carries only
+  the `closed` and `stretch` keys; `wink` is V2-only and moves the clitoris, not the lips. The
+  idle heat wink therefore drives `closed` from 1 toward 0 and `wink` with the same amount: the
+  lips carry the opening on both models, and the V2 clitoris adds its accent. A heat mare rests at
+  `anatomy.heat_rest_open` (default 0.20) of the way from that closed pose toward the open pose,
+  and each idle wink crossfades toward the open shape and back. The shader depth cut is the act's
+  shaft solve only: it pulls the pink interior toward the camera, and the clitoris sits in that
+  mask, so `set_idle_wink` suppresses the cut while it owns the shapes. `tools/winking_glb.gd`
+  round-trips the keys through the anatomy `.scn` (and keeps `winking_before_wink.scn` on the
+  first import). Acts drive `closed` only, so the wink amount never fights the penetration grip.
 - The debug Actions **Force heat**, **Force diestrus** and **Clear forced cycle** set a session-only
   `_cycle_override` on the aimed or nearest mare.
 
@@ -1434,7 +1435,7 @@ rump blush. Unknown settings keys are ignored.
   `still_height_mm` (debug: vertical placement of the vulva still zone, default −11 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
   `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 15/20 s), `heat_rest_open` (debug:
-  resting share of the wink shape, 0.20), `wink_peak` (debug: idle wink depth multiplier, 1×),
+  resting share of the open shape, 0.20), `wink_peak` (debug: idle wink depth multiplier, 1×),
   `wink_timing` (debug: idle wink phase-time multiplier, 1×), `fluid_size` (debug: idle heat
   droplet size, 5.5 mm) and `drip` (debug: idle heat drip multiplier, 1×; 0 turns it off),
   and the player-part

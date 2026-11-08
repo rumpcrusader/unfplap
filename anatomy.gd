@@ -142,8 +142,11 @@ var _shaft_length := 0.0
 var _shaft_radii := PackedFloat32Array()
 var _closed := 1.0
 var _rest := 1.0
-## 0 = the authored closed shape, 1 = the authored `wink` shape. Idle heat crossfades these.
+## 0 = resting closed, 1 = the authored open shape. Idle heat crossfades the `closed` lips and
+## the V2 `wink` clitoris accent together.
 var _wink_amount := 0.0
+## True while the idle heat crossfade owns the shapes. The act's depth cut stays off then.
+var _idle_wink := false
 var _fill := 0.0
 var _wide := 0.0
 ## The solved anatomy-local opening radius last pushed by set_grip; the body coat spread uses
@@ -1131,22 +1134,25 @@ func hole_rear(mix := 0.0) -> Vector3:
 
 
 func set_closed(value: float) -> void:
+	_idle_wink = false
 	_closed = clampf(value, 0.0, 1.0)
 	_apply_winking_shape()
 
 
-## Idle heat crossfade: 0 is resting, 1 is the authored `wink` shape. Only the authored shape
-## moves. The depth cut stays out of the idle rest: it pulls the pink interior toward the camera,
-## and the clitoris sits in that mask, so a partial cut drags it out through the lips.
+## Idle heat crossfade: 0 is resting closed, 1 is the authored open shape. The `closed` shape
+## carries the lips; the V2 `wink` shape adds the clitoral accent. The depth cut stays out of the
+## idle rest: it pulls the pink interior toward the camera, and the clitoris sits in that mask, so
+## a partial cut drags it out through the lips.
 func set_idle_wink(amount: float) -> void:
 	_wink_amount = clampf(amount, 0.0, 1.0)
-	# The idle rest always sits on the fully closed shape, which also repairs a closed value the
-	# act left behind; the authored `wink` shape carries the opening.
-	_closed = 1.0
+	# `closed` is inverted: 1 is the authored closed lips, 0 is open.
+	_idle_wink = true
+	_closed = 1.0 - _wink_amount
 	_apply_winking_shape()
 
 
 func drive(closed: float) -> void:
+	_idle_wink = false
 	_wink_amount = 0.0
 	_rest = clampf(closed, 0.0, 1.0)
 	if _tween != null:
@@ -1157,6 +1163,7 @@ func drive(closed: float) -> void:
 func animate(target: float, seconds: float) -> void:
 	if not is_instance_valid(_mesh):
 		return
+	_idle_wink = false
 	_wink_amount = 0.0
 	_rest = clampf(target, 0.0, 1.0)
 	if _tween != null:
@@ -1170,6 +1177,7 @@ func animate(target: float, seconds: float) -> void:
 func wink(count := 1, seconds := 0.45) -> void:
 	if not is_instance_valid(_mesh):
 		return
+	_idle_wink = false
 	var peak := 0.25 if _rest > 0.5 else 0.85
 	if _tween != null:
 		_tween.kill()
@@ -1337,9 +1345,9 @@ func _apply_winking_shape() -> void:
 		_mesh.set_blend_shape_value(wink_shape, _wink_amount)
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
-		# The depth cut is the act's shaft opening only. `closed` is what the act drives; the idle
-		# wink shape must not pull the interior (and the clitoris) out through the resting lips.
-		var open := smoothstep(0.0, 0.4, 1.0 - _closed)
+		# The depth cut is the act's shaft opening only. The idle wink drives `closed` too, so
+		# keep the cut fully off while the idle crossfade owns the shapes.
+		var open := 0.0 if _idle_wink else smoothstep(0.0, 0.4, 1.0 - _closed)
 		var filled := lerpf(1.0, WINKING_CUT_FILLED, smoothstep(0.5, 1.0, _fill))
 		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled
 			* _mesh.global_transform.basis.get_scale().x)

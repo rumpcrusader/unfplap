@@ -178,12 +178,14 @@ func run() -> void:
 	var rest_open := clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
 	heat_anatomy.set_idle_wink(rest_open)
 	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), rest_open),
-		"heat rests at the configured share of the wink shape")
-	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0),
-		"the heat rest leaves the closed shape alone")
+		"heat rests at the configured share of the open shape")
+	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0 - rest_open),
+		"the heat rest opens the closed lips by the same share")
+	check(bool(heat_anatomy.get("_idle_wink")), "the idle rest owns the shapes")
 	heat_anatomy.drive(0.5)
 	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), 0.0),
 		"acts clear the idle wink shape")
+	check(not bool(heat_anatomy.get("_idle_wink")), "an act clears the idle cut suppression")
 	heat_anatomy.free()
 	heat_pony.free()
 	heat_runtime.free()
@@ -208,6 +210,8 @@ func run() -> void:
 			check(refined_mesh.get_blend_shape_count() >= 2, "the wink keeps its shape keys")
 			check(str(refined_mesh.get_blend_shape_name(0)) == "closed",
 				"the closed shape keeps its name")
+			check(wink_mi.find_blend_shape_by_name("wink") < 0,
+				"the original mesh has no wink key; closed carries the lips")
 			var src_base: PackedVector3Array = source_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
 			var src_closed: PackedVector3Array = source_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
 			var ref_base: PackedVector3Array = refined_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
@@ -231,6 +235,8 @@ func run() -> void:
 		var v2_mi := v2_root as MeshInstance3D
 		var v2_mesh := v2_mi.mesh as ArrayMesh
 		check(v2_mesh.get_blend_shape_count() >= 8, "the V2 mesh keeps its anal keys")
+		check(v2_mi.find_blend_shape_by_name("wink") >= 0,
+			"V2 has the clitoris wink key")
 		for shape_name: String in ["anal_open", "anal_stretch", "anal_overstretch",
 				"anal_extreme", "ponut_scale"]:
 			check(v2_mi.find_blend_shape_by_name(shape_name) >= 0,
@@ -276,8 +282,10 @@ func run() -> void:
 		check(near(mouth.y, ANATOMY.V2_ANAL_RING_EXTREME.y, 0.001),
 			"56 mm puts the anal aim on the extreme ring")
 		var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
-		check(aim.distance_to(v2_mi.global_transform * ANATOMY.V2_ANAL_RING_EXTREME) < 0.0001,
-			"the anal act aims at the deformed V2 ring")
+		var aim_offset: Vector3 = v2_mi.global_transform.basis.y.normalized() \
+			* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
+		check(aim.distance_to(v2_mi.global_transform * ANATOMY.V2_ANAL_RING_EXTREME
+			+ aim_offset) < 0.0001, "the anal act aims at the deformed V2 ring")
 		v2_anatomy.call("_apply_anal_shape", 0.080)
 		check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,
 			"an oversized shaft extrapolates the V2 extreme")
@@ -347,13 +355,15 @@ func run() -> void:
 
 	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
 	# those hooks is left alone instead of being half-patched.
-	check(not SETTINGS.body_coat_deform.get_bool(), "body coat deform is off by default")
-	check(near(SETTINGS.anal_still.get_num(), 1.0), "anal still zone is on by default")
-	check(near(SETTINGS.still_oval.get_num(), 0.7), "still zones are flatter than they are wide")
-	check(near(SETTINGS.still_fade.get_num(), 0.25), "still zones fade over a quarter of their radius")
-	check(near(SETTINGS.still_height_mm.get_num(), -11.0),
+	check(not bool(SETTINGS.body_coat_deform.default), "body coat deform is off by default")
+	check(near(float(SETTINGS.anal_still.default), 1.0), "anal still zone is on by default")
+	check(near(float(SETTINGS.still_oval.default), 0.7),
+		"still zones are flatter than they are wide")
+	check(near(float(SETTINGS.still_fade.default), 0.25),
+		"still zones fade over a quarter of their radius")
+	check(near(float(SETTINGS.still_height_mm.default), -11.0),
 		"the vulva still zone sits 11 mm under the opening by default")
-	check(not SETTINGS.draw_still_zones.get_bool(), "still-zone debug rings are off by default")
+	check(not bool(SETTINGS.draw_still_zones.default), "still-zone debug rings are off by default")
 	var zones := STILL_ZONES.new()
 	root.add_child(zones)
 	zones.call("setup")

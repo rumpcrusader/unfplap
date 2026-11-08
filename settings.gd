@@ -970,11 +970,11 @@ static var wink_max_s := num("wink_max_s", "anatomy.wink_max_s", 20.0, "Wink max
 	"Longest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
 	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
 static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.20, "Rest open",
-	"How open she rests between winks, as a share of the authored wink shape. 0 is the closed shape.",
+	"How open she rests between winks, as a share of the authored open shape. 0 is fully closed.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
 static var wink_peak := num("wink_peak", "anatomy.wink_peak", 1.0, "Wink peak",
-	"Scale the deepest point of each idle wink. 1 keeps the authored peak; above 1 opens further.",
+	"Scale how far each idle wink opens. 1 keeps the authored spread; above 1 opens further.",
 	ANATOMY, "Heat") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 1.5).as_debug()
 static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.0, "Wink timing",

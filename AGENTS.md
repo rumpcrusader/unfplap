@@ -279,6 +279,12 @@ end: `restore_scene()` puts the player, the pony and the camera back and she sta
   holds and never resets the rig, so a missing bone keeps the game's pose and breaks its chain (that
   was the v5 bug; `MIN_VERSION` is 6). The lab reads bed-space transforms for every file from
   `BED_SPACE_VERSION` 4 up, never tied to the current version.
+- **Space rule.** Rotate a bone by writing its **global pose** with the axis converted once into
+  skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
+  parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the
+  view sideways instead of nodding it.
+- `presentation.missionary.belly_down_deg` (debug, default 0) tilts `pony_spine1` about the bed's
+  lateral axis before the gaze, so the belly sinks off the vulva without moving her face off Anon.
 - Body bones carry a rotation **and** a position, and both are applied: a lengthened neck or a
   displaced flank root can be deliberate. Only the root carries the absolute placement.
 - The head bone is reset to rest; the gaze solve owns the face. The pose lab has no head mesh, so
@@ -1527,7 +1533,8 @@ rump blush. Unknown settings keys are ignored.
   `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.4),
   `still_height_mm` (debug: vertical placement of the vulva still zone, default 25 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
-  `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
+  `vulva_out_mm` (debug: push the whole anatomy mesh out along its own normal, so a pose that tucks
+  it into the coat does not clip her), `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
   resting share of the open shape, 0.3), `wink_open_min` and `wink_open_max` (debug: idle wink
   opening range, 90% of the open shape), `wink_timing` (debug: idle wink phase-time multiplier,
   1.2×), `fluid_size` (debug: idle heat droplet size, 10 mm), `fluid_y_speed` (debug: vertical

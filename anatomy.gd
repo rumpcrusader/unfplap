@@ -518,6 +518,11 @@ func _apply_place() -> void:
 		place = Vector3(place.x * size, _body[0] + (place.y - WINKING_REAR_Y) * size,
 			_body[1] + (place.z - WINKING_REAR_Z) * size)
 		basis = basis.scaled(Vector3.ONE * size)
+	# Push the whole mesh out along its own normal. A pose that tucks the anatomy into the coat (a
+	# changed skeleton, a raised belly) then shows the vulva instead of clipping it.
+	var out: float = SETTINGS.vulva_out_mm.get_num() / 1000.0
+	if absf(out) > 0.00001:
+		place += basis.z.normalized() * out
 	_mesh.transform = _bone_inverse * Transform3D(basis, place)
 
 

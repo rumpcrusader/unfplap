@@ -264,10 +264,12 @@ func _apply_lean(placed: Transform3D) -> void:
 		if bone < 0:
 			continue
 		var share := float(entry[1])
-		var rotated := skeleton.get_bone_pose_rotation(bone)
-		rotated = Quaternion(nod, pitch * share) * rotated
-		rotated = Quaternion(turn, yaw * share) * rotated
-		skeleton.set_bone_pose_rotation(bone, rotated.normalized())
+		# Rotate the *global* pose about the skeleton-space axis. Pre-multiplying the bone's local
+		# pose instead applies the axis in the parent's frame, and his hips are rotated ~90° here,
+		# so W/S yawed the view sideways instead of nodding it.
+		var pose: Transform3D = skeleton.get_bone_global_pose(bone)
+		pose.basis = Basis(nod, pitch * share) * Basis(turn, yaw * share) * pose.basis
+		skeleton.set_bone_global_pose(bone, pose)
 
 
 ## The act camera's transform: his posed head plus the game's own eye offset.

@@ -60,6 +60,13 @@ Missionary is its own state, not the game's bed rest:
   game's own pose and breaks the chain it hangs from. Version 5 skipped rest bones; version 6 stores
   them, and `MIN_VERSION` is 6. The lab reads bed-space transforms for every version from
   `BED_SPACE_VERSION` 4 on, so an older file is never applied as lab world.
+- **Belly down.** `presentation.missionary.belly_down_deg` (debug, default 0) rotates `pony_spine1`
+  about the bed's lateral axis before the gaze runs, so a belly that covers the vulva sinks toward
+  the mattress and her head still ends up on Anon.
+- **Space rule.** Every act-space rotation is applied to a bone's **global pose** with the axis
+  converted once into skeleton space (`pose_rig.rotate_free`). Pre-multiplying a bone's *local*
+  pose applies the axis in the parent's frame — his hips are rotated ~90° here, and doing that made
+  the W/S lean yaw the view instead of nodding it.
 - **Positions are authored too.** A body bone stores a position next to its rotation, and it is
   applied: a lengthened neck or a displaced flank root is a deliberate part of the pose. Only the
   skeleton root carries the absolute placement; every other position is relative to its parent.

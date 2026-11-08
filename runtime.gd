@@ -2362,6 +2362,7 @@ func _sync_missionary_pose_config() -> void:
 	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return
 	_pose_cfg = SETTINGS.pose(_id, CATALOG.MISSIONARY)
+	_pose_cfg["belly_down_deg"] = SETTINGS.belly_down_deg.get_num()
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("pose_config", _pose_cfg)
 	if is_instance_valid(_pose):

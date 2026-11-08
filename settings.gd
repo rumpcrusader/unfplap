@@ -622,6 +622,10 @@ static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.
 	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
 	"Missionary › Posed base shot") \
 	.with_unit("m").with_step(0.01).as_debug()
+static var belly_down_deg := num("belly_down_deg", "presentation.missionary.belly_down_deg", 0.0,
+	"Belly down",
+	"Tilt her lower belly toward the mattress, out of the shot. Negative lifts it.",
+	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
 static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "eye",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
 	"Anon eyes: the view is his posed head, and leaning bends his chest and neck over her. Authored shots: the eye follows the pose lab's camera positions.",
@@ -937,6 +941,10 @@ static var still_fade := num("still_fade", "anatomy.still_fade", 0.4,
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \
 	.as_debug()
+static var vulva_out_mm := num("vulva_out_mm", "anatomy.vulva_out_mm", 0.0,
+	"Vulva out",
+	"Push the whole anatomy mesh out of her coat along its own normal, so a pose that tucks it in does not clip her.",
+	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
 static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm", 25.0,
 	"Still zone height",
 	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",

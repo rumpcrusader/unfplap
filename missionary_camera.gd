@@ -48,6 +48,7 @@ var _missionary_snap_ready := false
 var _authored_path := false
 ## Last shot offsets written to the log, so a live edit is reported once.
 var _shot_offsets_logged := Vector3.INF
+var _free_look_log_at := 0
 var _missionary_aim_until := 0
 var _missionary_prev_camera: Camera3D
 var _missionary_player_rotation := Vector3.ZERO
@@ -629,7 +630,16 @@ func _tick_free_look() -> void:
 	var source: Camera3D = main.camera() if is_instance_valid(main) else null
 	if not is_instance_valid(source):
 		return
-	_missionary_view.global_transform = source.global_transform
+	var basis := source.global_basis
+	var look: Variant = runtime.call("free_look_rotation")
+	if look is Vector3:
+		basis = Basis(Vector3.UP, (look as Vector3).y) * basis \
+			* Basis(Vector3.RIGHT, (look as Vector3).x)
+	_missionary_view.global_transform = Transform3D(basis, source.global_position)
+	if Time.get_ticks_msec() >= _free_look_log_at:
+		_free_look_log_at = Time.get_ticks_msec() + 1000
+		_log("free look source=%s view=%s rotation=%s" % [
+			str(source.global_transform), str(_missionary_view.global_transform), str(look)])
 	_missionary_view.fov = source.fov
 	_missionary_view.near = source.near
 	_missionary_view.far = source.far

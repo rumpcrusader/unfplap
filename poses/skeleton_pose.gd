@@ -32,6 +32,16 @@ var _missionary = MISSIONARY.new()
 var _standing = STANDING.new()
 var _debug_dumped := false
 var _clock := 0.0
+## Act diagnostics (Show pose state / the settled log): frames this modifier ran, the last weight
+## and base, and how far the live hips pose drifted from what the previous frame wrote. A readback
+## near zero means our writes survive to the next modification pass; anything else means something
+## overwrote the pose between them.
+var diag_frames := 0
+var diag_readback_deg := 0.0
+var diag_last_weight := 0.0
+var diag_last_base := ""
+var _diag_wrote := false
+var _diag_wrote_hips := Quaternion.IDENTITY
 
 
 func _ready() -> void:
@@ -65,6 +75,10 @@ func _apply(delta: float) -> void:
 		return
 	var weight := smoothstep(0.0, 1.0, amount)
 	_clock += delta
+	diag_frames += 1
+	diag_last_weight = weight
+	if _diag_wrote and _rig.hips >= 0:
+		diag_readback_deg = rad_to_deg(_diag_wrote_hips.angle_to(sk.get_bone_pose_rotation(_rig.hips)))
 	var mare_scale: Variant = mare.get("body_scale")
 	var state := {
 		"look_point": look_point,
@@ -79,6 +93,10 @@ func _apply(delta: float) -> void:
 		"bed_frame": bed_frame,
 		"body_scale": float(mare_scale) if mare_scale != null else 1.0,
 	}
+	diag_last_base = "stack"
+	if authored != null and authored_on and bed_frame is Transform3D \
+			and bool(authored.get("available")):
+		diag_last_base = "authored"
 	if mode == "standing":
 		_standing.apply(_rig, sk, weight, state)
 	elif mode == "afterglow" and afterglow_pose == CATALOG.MISSIONARY:
@@ -87,6 +105,9 @@ func _apply(delta: float) -> void:
 	else:
 		_missionary.apply(_rig, sk, weight, state)
 		_dump_if_needed(sk, weight)
+	if _rig.hips >= 0:
+		_diag_wrote_hips = sk.get_bone_pose_rotation(_rig.hips)
+		_diag_wrote = true
 
 
 func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:

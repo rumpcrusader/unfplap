@@ -247,6 +247,10 @@ var _pose
 var _bed_pose_frame: Variant = null
 ## One settled-pose log line per act.
 var _pose_logged := false
+## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
+var _free_look_yaw := 0.0
+var _free_look_pitch := 0.0
+var _free_look_was := false
 var _tail
 var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
@@ -996,8 +1000,15 @@ func _input(event: InputEvent) -> void:
 	var motion := event as InputEventMouseMotion
 	if motion == null:
 		return
-	# Debug free look: the mouse turns the player camera instead of driving depth.
+	# Debug free look: the mouse looks around instead of driving depth. The act owns
+	# `controls_locked`, so the stock player look is dead and this has to drive it.
 	if free_look_active():
+		var sensitivity := _mouse_sensitivity()
+		_free_look_yaw = wrapf(_free_look_yaw - motion.relative.x * sensitivity, -PI, PI)
+		var sign := -1.0 if _invert_y() else 1.0
+		_free_look_pitch = clampf(_free_look_pitch - motion.relative.y * sensitivity * sign,
+			-1.5, 1.5)
+		get_viewport().set_input_as_handled()
 		return
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
@@ -1007,6 +1018,18 @@ func _input(event: InputEvent) -> void:
 				thrust_up)
 			_set_penetration(penetration_m + travel, _now_s())
 		get_viewport().set_input_as_handled()
+
+func _mouse_sensitivity() -> float:
+	var body: Variant = main.player if is_instance_valid(main) else null
+	var value: Variant = body.get("mouse_sensitivity") if body != null else null
+	return float(value) if value != null else 0.0022
+
+
+func _invert_y() -> bool:
+	var body: Variant = main.player if is_instance_valid(main) else null
+	var value: Variant = body.get("invert_y") if body != null else null
+	return bool(value) if value != null else false
+
 
 func _headset_view() -> bool:
 	return is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view"))
@@ -1067,6 +1090,11 @@ func _physics_tick(delta: float) -> void:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 	_keep_nav()
+	if free_look_active() != _free_look_was:
+		_free_look_was = free_look_active()
+		_free_look_yaw = 0.0
+		_free_look_pitch = 0.0
+		_log("free look %s" % ("on" if _free_look_was else "off"))
 	_keep_act_attention()
 	_pause_face_turn()
 	_hold_y_tick(delta)
@@ -2368,9 +2396,15 @@ func authored_pose_asset() -> Variant:
 
 
 ## Debug: the player camera replaces the act shot so the pose can be inspected. The mouse stops
-## feeding thrust while it is on.
+## feeding thrust while it is on and drives this look instead, because the act holds
+## `controls_locked` (the stock mouse look is dead during an act).
 func free_look_active() -> bool:
 	return state != State.IDLE and SETTINGS.free_look.get_bool()
+
+
+## Accumulated free-look rotation as (pitch, yaw), radians, from the act's starting view.
+func free_look_rotation() -> Vector3:
+	return Vector3(_free_look_pitch, _free_look_yaw, 0.0)
 
 
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
@@ -5336,6 +5370,7 @@ func pose_base_info() -> Dictionary:
 		"switch": SETTINGS.authored_base.get_bool(),
 		"frame": _bed_pose_frame,
 		"shots": bool(authored.get("has_shots")),
+		"asset": authored,
 	}
 	if pose_id != CATALOG.MISSIONARY:
 		info["reason"] = "pose=%s" % pose_id
@@ -5349,6 +5384,82 @@ func pose_base_info() -> Dictionary:
 	else:
 		info["base"] = "authored"
 	return info
+
+
+## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
+## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
+func _pose_diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
+	var rows: Array = []
+	var pose: Variant = _pose
+	var parent: Node = pose.get_parent() if is_instance_valid(pose) else null
+	rows.append("modifier=%s parent=%s match=%s frames=%d weight=%.2f base=%s readback=%.2f°" % [
+		"yes" if is_instance_valid(pose) else "no",
+		"%s@%s" % [str(parent.name), str(parent.get_instance_id())] if parent != null else "none",
+		"yes" if parent == skeleton else "NO", int(pose.get("diag_frames")) if is_instance_valid(pose) else 0,
+		float(pose.get("diag_last_weight")) if is_instance_valid(pose) else 0.0,
+		str(pose.get("diag_last_base")) if is_instance_valid(pose) else "",
+		float(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0])
+	rows.append("pony_skeleton=%s@%s actor=%s posture=%s paused=%s" % [
+		str(skeleton.name), str(skeleton.get_instance_id()), str(pony.global_position),
+		str(pony.call("posture_status")), str(pony.get("motion_paused"))])
+	var posture: Variant = pony.get("posture")
+	if posture != null:
+		rows.append("posture kind=%s phase=%s blend=%.2f requested=%s" % [
+			str(posture.get("kind")), str(posture.get("phase")),
+			float(posture.get("blend")), str(posture.get("requested"))])
+	# Every mesh's own skeleton: a mesh bound elsewhere would follow the game's animation instead of
+	# the pose modifier.
+	var groups: Dictionary = {}
+	for node: Node in pony.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		var target: Node = mesh.get_node_or_null(mesh.skeleton) if not mesh.skeleton.is_empty() else null
+		var id := target.get_instance_id() if target != null else 0
+		if not groups.has(id):
+			groups[id] = {"count": 0, "sample": str(mesh.name), "visible": false, "target": target}
+		var entry: Dictionary = groups[id]
+		entry["count"] = int(entry["count"]) + 1
+		entry["visible"] = bool(entry["visible"]) or mesh.is_visible_in_tree()
+	for id: Variant in groups:
+		var entry: Dictionary = groups[id]
+		var target: Variant = entry["target"]
+		var hips := Vector3.INF
+		if target is Skeleton3D:
+			var bone := (target as Skeleton3D).find_bone("pony_hips")
+			if bone >= 0:
+				hips = (target as Skeleton3D).global_transform * (target as Skeleton3D).get_bone_global_pose(bone).origin
+		rows.append("mesh_skeleton=%s meshes=%d sample=%s visible=%s hips=%s" % [
+			("%s@%s" % [str((target as Node).name), str(id)]) if target is Node else "none",
+			int(entry["count"]), str(entry["sample"]), str(entry["visible"]), str(hips)])
+	# Live hips pose vs the authored quaternion: proves whether the modifier's write is what lives.
+	var authored: Variant = info.get("asset")
+	var hips_bone := skeleton.find_bone("pony_hips")
+	if hips_bone >= 0 and authored != null:
+		var entry: Variant = (authored.get("pony_bones") as Dictionary).get("pony_hips")
+		if entry is Dictionary:
+			var wanted: Quaternion = (entry as Dictionary)["rotation"]
+			var live := skeleton.get_bone_pose_rotation(hips_bone)
+			rows.append("hips_pose live=%s authored=%s delta=%.1f°" % [
+				str(live), str(wanted), rad_to_deg(live.angle_to(wanted))])
+	# Nearby ponies, so a body on the bed can be identified as someone else.
+	var nearest: Array = []
+	for node: Node in get_tree().get_nodes_in_group("ai_characters"):
+		var other := node as Node3D
+		if other == null or other == pony:
+			continue
+		var distance := other.global_position.distance_to(pony.global_position)
+		if distance > 4.0:
+			continue
+		var other_sk: Variant = other.get("skeleton")
+		var hips_at := Vector3.INF
+		if other_sk is Skeleton3D:
+			var b := (other_sk as Skeleton3D).find_bone("pony_hips")
+			if b >= 0:
+				hips_at = (other_sk as Skeleton3D).global_transform * (other_sk as Skeleton3D).get_bone_global_pose(b).origin
+		nearest.append("%s d=%.1f posture=%s hips=%s" % [
+			str(other.name), distance,
+			str(other.call("posture_status").get("requested", "?")), str(hips_at)])
+	rows.append("nearby=%d %s" % [nearest.size(), "; ".join(nearest)])
+	return rows
 
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
@@ -5369,6 +5480,7 @@ func pose_state_rows() -> Array:
 	if not sk is Skeleton3D:
 		return rows
 	var skeleton := sk as Skeleton3D
+	rows.append_array(_pose_diagnostics(skeleton, info))
 	var space := Transform3D.IDENTITY
 	if frame is Transform3D:
 		space = (frame as Transform3D).affine_inverse()
@@ -5426,6 +5538,8 @@ func _log_pose_settled() -> void:
 			str(pair[0]), str(world), bed.x, bed.y, bed.z])
 	_log("missionary settled base=%s weight=%.2f %s" % [
 		str(pose_base_info()["base"]), _pose_basis_amount(), " ".join(parts)])
+	for row: Variant in _pose_diagnostics(skeleton, pose_base_info()):
+		_log("missionary diag %s" % str(row))
 
 
 ## Her face, for the start shot: the head bone pushed a little along the neck → head direction, so

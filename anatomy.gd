@@ -1245,13 +1245,16 @@ func wink_burst(count: int) -> void:
 	if _fill > 0.0 or _wide > 0.0:
 		_clear_part()
 	var rest := _heat_rest_open()
-	var peak_scale := SETTINGS.wink_peak.get_num()
+	var open_a := clampf(SETTINGS.wink_open_min.get_num(), 0.0, 1.0)
+	var open_b := clampf(SETTINGS.wink_open_max.get_num(), 0.0, 1.0)
+	var open_min := minf(open_a, open_b)
+	var open_max := maxf(open_a, open_b)
 	var timing := maxf(SETTINGS.wink_timing.get_num(), 0.01)
 	_tween = create_tween()
 	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	var from := _wink_amount
 	for i in count:
-		var peak := clampf(randf_range(0.45, 0.88) * peak_scale, 0.0, 1.0)
+		var peak := randf_range(open_min, open_max)
 		# Accelerated expansion, a short hold, then an accelerated retraction.
 		var opening := _tween.tween_method(set_idle_wink, from, peak,
 			randf_range(0.18, 0.38) * timing)

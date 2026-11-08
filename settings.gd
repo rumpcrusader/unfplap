@@ -973,10 +973,16 @@ static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.2
 	"How open she rests between winks, as a share of the authored open shape. 0 is fully closed.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
-static var wink_peak := num("wink_peak", "anatomy.wink_peak", 1.0, "Wink peak",
-	"Scale how far each idle wink opens. 1 keeps the authored spread; above 1 opens further.",
+static var wink_open_min := num("wink_open_min", "anatomy.wink_open_min", 0.45,
+	"Wink open min",
+	"Shallowest opening of an idle wink, as a share of the authored open shape.",
 	ANATOMY, "Heat") \
-	.with_unit("×").with_step(0.05).with_range(0.1, 1.5).as_debug()
+	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+static var wink_open_max := num("wink_open_max", "anatomy.wink_open_max", 0.88,
+	"Wink open max",
+	"Deepest opening of an idle wink, as a share of the authored open shape.",
+	ANATOMY, "Heat") \
+	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
 static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.0, "Wink timing",
 	"Scale the open, hold and close times of each idle wink. Below 1 is quicker; above 1 is slower.",
 	ANATOMY, "Heat") \
@@ -1209,6 +1215,14 @@ static var _deprecated := [
 	# value was pixels for one full stroke; 20 cm is the reference shaft, so its feel is kept.
 	deprecated("thrust.pixels_per_full",
 		func(value: Variant) -> Dictionary: return {"thrust.pixels_per_cm": float(value) / 20.0}),
+	# The single wink multiplier became an explicit opening range. Map the old 45-88% authored
+	# spread through the saved multiplier so the same beats are kept.
+	deprecated("anatomy.wink_peak", func(value: Variant) -> Dictionary:
+		var peak := maxf(float(value), 0.0)
+		return {
+			"anatomy.wink_open_min": clampf(0.45 * peak, 0.0, 1.0),
+			"anatomy.wink_open_max": clampf(0.88 * peak, 0.0, 1.0),
+		}),
 ]
 
 

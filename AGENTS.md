@@ -1563,7 +1563,9 @@ rump blush. Unknown settings keys are ignored.
   `still_height_mm` (debug: vertical placement of the vulva still zone, default 25 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
   `vulva_out_mm` (debug: push the whole anatomy mesh out along its own normal, so a pose that tucks
-  it into the coat does not clip her), `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
+  it into the coat does not clip her), `vulva_pose_shift_mm` and `vulva_pose_pitch_deg` (debug,
+  unclamped and signed: move and pitch only the missionary act's vulva mesh — world-vertical shift
+  in millimetres and a pitch about the bed's lateral axis), `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
   resting share of the open shape, 0.3), `wink_open_min` and `wink_open_max` (debug: idle wink
   opening range, 90% of the open shape), `wink_timing` (debug: idle wink phase-time multiplier,
   1.2×), `fluid_size` (debug: idle heat droplet size, 10 mm), `fluid_y_speed` (debug: vertical

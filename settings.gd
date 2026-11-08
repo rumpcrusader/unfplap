@@ -949,6 +949,14 @@ static var vulva_out_mm := num("vulva_out_mm", "anatomy.vulva_out_mm", 0.0,
 	"Vulva out",
 	"Push the whole anatomy mesh out of her coat along its own normal, so a pose that tucks it in does not clip her.",
 	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
+static var vulva_pose_shift_mm := num("vulva_pose_shift_mm", "anatomy.vulva_pose_shift_mm", 0.0,
+	"Missionary vulva shift",
+	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
+	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
+static var vulva_pose_pitch_deg := num("vulva_pose_pitch_deg", "anatomy.vulva_pose_pitch_deg", 0.0,
+	"Missionary vulva pitch",
+	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
+	ANATOMY, "Holes").with_unit("°").with_step(0.5).as_debug()
 static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm", 25.0,
 	"Still zone height",
 	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",

@@ -8,6 +8,7 @@ const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/still_zone_debug.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
@@ -506,10 +507,19 @@ func _tail_lift() -> float:
 	return 0.03
 
 
+## The act-only placement trim. The lying missionary pose tilts her pelvis, so the rigged vulva can
+## sit a little high/low or face the wrong way; these two debug values move only the anatomy mesh
+## while that act runs, without touching the rest pose or the per-mare placement. The shift is world
+## up/down and the pitch turns the mesh about the bed's lateral axis.
+func _missionary_pose() -> bool:
+	return is_instance_valid(runtime) and str(runtime.get("pose_id")) == CATALOG.MISSIONARY
+
+
 func _apply_place() -> void:
 	if not is_instance_valid(_mesh):
 		return
-	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)).scaled(Vector3.ONE * _scale)
+	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
+		.scaled(Vector3.ONE * _scale)
 	# Placement never follows the dock. `show_dock` is a visibility switch; aligning the mesh to
 	# the dock's buried base ring moved it down by up to 9 cm on a low-docked mare.
 	var place := _pos + Vector3(0.0, _lift, minf(_lift, 0.0) * 0.2)
@@ -523,7 +533,37 @@ func _apply_place() -> void:
 	var out: float = SETTINGS.vulva_out_mm.get_num() / 1000.0
 	if absf(out) > 0.00001:
 		place += basis.z.normalized() * out
-	_mesh.transform = _bone_inverse * Transform3D(basis, place)
+	var local := _bone_inverse * Transform3D(basis, place)
+	if _missionary_pose():
+		local = _missionary_place_trim(local)
+	_mesh.transform = local
+
+
+## Move only the anatomy mesh for the lying pose: a world-vertical shift plus a pitch about the
+## bed's lateral axis, both around the mesh origin. Applied after the bone mapping so the values
+## read the way they look on screen (up is up); the mesh still rides her hips like the placement.
+func _missionary_place_trim(local: Transform3D) -> Transform3D:
+	var shift: float = SETTINGS.vulva_pose_shift_mm.get_num() / 1000.0
+	var pitch: float = deg_to_rad(SETTINGS.vulva_pose_pitch_deg.get_num())
+	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
+		return local
+	var parent := _mesh.get_parent() as Node3D
+	if not is_instance_valid(parent) or not _mesh.is_inside_tree():
+		# No live pose yet: apply the same intent in body space so the first frame is consistent.
+		return Transform3D(Basis(Vector3.RIGHT, pitch) * local.basis,
+			local.origin + Vector3.UP * shift)
+	var world := parent.global_transform * local
+	var axis := Vector3.RIGHT
+	var frame: Variant = runtime.get("_bed_pose_frame") if is_instance_valid(runtime) else null
+	if frame is Transform3D:
+		var lateral: Vector3 = (frame as Transform3D).basis.x
+		lateral.y = 0.0
+		if lateral.length_squared() > 0.0001:
+			axis = lateral.normalized()
+	var pivot := world.origin
+	world.basis = Basis(axis, pitch) * world.basis
+	world.origin = pivot + Vector3.UP * shift
+	return parent.global_transform.affine_inverse() * world
 
 
 func _load_place() -> void:

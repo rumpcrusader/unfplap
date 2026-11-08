@@ -192,6 +192,15 @@ func _trace_before(sk: Skeleton3D, state: Dictionary) -> void:
 			Basis((entry as Dictionary)["rotation"]), (entry as Dictionary)["position"])
 
 
+## Degrees between her pelvis up and the world up.
+func sk_body_up(sk: Skeleton3D) -> float:
+	var bone := sk.find_bone("pony_hips")
+	if bone < 0:
+		return 0.0
+	var up := (sk.global_basis * sk.get_bone_global_pose(bone).basis.y).normalized()
+	return rad_to_deg(up.angle_to(Vector3.UP))
+
+
 func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 	if not DEBUG_MISSIONARY_DUMP or _debug_dumped or weight <= 0.9:
 		return
@@ -246,6 +255,8 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 			rows.append("head mHead missing")
 	else:
 		rows.append("head_skeleton unavailable")
+	# Her body's own up against the world's: a rolled pose reads as lying on her side.
+	rows.append("body up=%.0f°" % sk_body_up(sk))
 	var text := "[unfplap] MISSIONARY"
 	for row: String in rows:
 		text += "\n\t" + row

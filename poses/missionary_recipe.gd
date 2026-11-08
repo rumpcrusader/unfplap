@@ -135,9 +135,13 @@ func _level_head(rig, sk: Skeleton3D, weight: float) -> void:
 	var angle: float = up.normalized().signed_angle_to(target_up.normalized(), forward)
 	if absf(angle) < 0.002:
 		return
-	var head: int = rig.neck[rig.neck.size() - 1]
+	# Spread the roll down the neck the same way the aim is spread: rolling the head alone leaves the
+	# neck joint twisted (a crooked neck), and three small turns read as one soft tilt.
+	var shares: Array[float] = [0.30, 0.36, 0.34]
 	var axis := (sk.global_basis.inverse() * forward).normalized()
-	rig.rotate_free(sk, head, axis, angle * clampf(weight, 0.0, 1.0))
+	var total: float = angle * clampf(weight, 0.0, 1.0)
+	for i: int in rig.neck.size():
+		rig.rotate_free(sk, rig.neck[i], axis, total * shares[mini(i, shares.size() - 1)])
 
 
 ## A small off-target look for the nuzzle pulse, expressed as an angle at the target distance.

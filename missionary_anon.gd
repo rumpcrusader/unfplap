@@ -29,6 +29,10 @@ var _body_ik: SkeletonModifier3D
 var _body_ik_influence := 0.0
 var _leg_hide: SkeletonModifier3D
 var _leg_hide_influence := 0.0
+var _head_hide: SkeletonModifier3D
+var _head_hide_was_active := true
+var _head_mesh: MeshInstance3D
+var _head_mesh_visible := true
 var _driver: Variant
 var _avatar_visible := true
 var _avatar_process := Node.PROCESS_MODE_INHERIT
@@ -70,7 +74,9 @@ func install(runtime_node: Node) -> bool:
 	if ik is SkeletonModifier3D:
 		_body_ik = ik as SkeletonModifier3D
 		_body_ik_influence = _body_ik.influence
-		_body_ik.influence = 0.0
+		# Deactivate, not just influence 0: an inactive-by-influence modifier still runs and its
+		# head step slerps the bone basis, which fails once the head bone is collapsed.
+		_body_ik.active = false
 	var legs: Variant = avatar.get("_leg_hide")
 	if not is_instance_valid(legs):
 		legs = avatar.find_child("LegHide", true, false)
@@ -93,16 +99,31 @@ func install(runtime_node: Node) -> bool:
 	var facing := rest.inverse() * Basis(Vector3.UP, PI)
 	_eye_rel = Transform3D(facing, -(facing * head_offset * model_scale))
 	_eye_saved = true
-	# Sanity check with the game still driving him: the body IK mirrors the live camera onto the
-	# head, so the derived relation must reproduce the camera's own basis within a degree or two.
-	var live: Variant = main.camera() if is_instance_valid(main) else null
-	if head >= 0 and live is Camera3D:
+	# Sanity check with the game still driving him: `valve_body_ik` sets the head bone to
+	# `target * rest`, so undoing that with `rest⁻¹` must give the head target's own basis.
+	var marker: Variant = avatar.get("_head_target")
+	if head >= 0 and marker is Node3D:
 		var bone_basis := (skeleton.global_transform
 			* skeleton.get_bone_global_pose(head)).basis.orthonormalized()
-		var predicted := bone_basis * facing
+		var predicted := bone_basis * rest.inverse()
 		_log("anon eye check err=%.1f°" % rad_to_deg(
 			predicted.get_rotation_quaternion().angle_to(
-				(live as Camera3D).global_basis.orthonormalized().get_rotation_quaternion())))
+				(marker as Node3D).global_basis.orthonormalized().get_rotation_quaternion())))
+	# The game hides the first-person head by scaling the head bone to zero. That makes the head
+	# basis singular, and the act camera is built from that bone, so the view loses its pitch. Hide
+	# the head mesh instead and leave the bone intact.
+	var hide: Variant = avatar.get("_head_hide")
+	if not is_instance_valid(hide):
+		hide = avatar.find_child("HeadHide", true, false)
+	if hide is SkeletonModifier3D:
+		_head_hide = hide as SkeletonModifier3D
+		_head_hide_was_active = _head_hide.active
+		_head_hide.active = false
+	var mesh: Variant = avatar.find_child("head_smd", true, false)
+	if mesh is MeshInstance3D:
+		_head_mesh = mesh as MeshInstance3D
+		_head_mesh_visible = _head_mesh.visible
+		_head_mesh.visible = false
 	avatar.visible = true
 	active = true
 	return true
@@ -114,6 +135,13 @@ func remove() -> void:
 		_body_ik.influence = _body_ik_influence
 	if is_instance_valid(_leg_hide):
 		_leg_hide.influence = _leg_hide_influence
+	if is_instance_valid(_head_hide):
+		_head_hide.active = _head_hide_was_active
+	if is_instance_valid(_head_mesh):
+		_head_mesh.visible = _head_mesh_visible
+	_body_ik = null
+	_head_hide = null
+	_head_mesh = null
 	if is_instance_valid(avatar):
 		avatar.set("desktop_pose_driver", _driver)
 		avatar.visible = _avatar_visible

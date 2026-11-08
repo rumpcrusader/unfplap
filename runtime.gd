@@ -253,7 +253,8 @@ var _pose_hold_log_frame := -1
 ## silenced for the act (see `_pose_hold_tick`), and their state is restored at the end.
 var _pose_hold_terrain_was := true
 var _pose_hold_solver: Node
-var _pose_idle_logged := false
+## Frames the render-time placement trace has printed this act (two, then it stops).
+var _pose_trace_frames := 0
 ## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
 var _free_look_yaw := 0.0
 var _free_look_pitch := 0.0
@@ -1878,7 +1879,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_y_hold_fired = false
 	_reset_thrust_state()
 	_pose_logged = false
-	_pose_idle_logged = false
+	_pose_trace_frames = 0
 	_pose_hold_logged = false
 	_summary = {}
 	_summary_done = false
@@ -5438,29 +5439,49 @@ func _pose_hold_release() -> void:
 
 
 ## One idle-frame sample of what the renderer actually sees, once per act.
+## Render-time placement trace, two lines per act: printed from idle, after every physics and process
+## writer, so it reads the pose the renderer is about to use. `root` is the armature bone the authored
+## placement is written to; `wanted` is that pose carried into the live bed frame.
 func _pose_idle_sample() -> void:
-	if _pose_idle_logged or not _pose_hold() or not is_instance_valid(pony):
+	if _pose_trace_frames >= 2 or pose_id != CATALOG.MISSIONARY or state == State.IDLE:
 		return
-	if _pose_basis_amount() < 0.9:
+	if not is_instance_valid(_pose) or _pose_basis_amount() < 0.9:
 		return
-	_pose_idle_logged = true
-	var sk: Variant = pony.get("skeleton")
+	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return
 	var skeleton := sk as Skeleton3D
+	var root := int(_pose.get("diag_root"))
 	var hips := skeleton.find_bone("pony_hips")
-	var at := Vector3.INF
-	if hips >= 0:
-		at = skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
+	var g := skeleton.global_transform
+	var render_root := g * skeleton.get_bone_global_pose(root) if root >= 0 else Transform3D.IDENTITY
+	var render_hips := g * skeleton.get_bone_global_pose(hips) if hips >= 0 else Transform3D.IDENTITY
+	var wanted_root: Transform3D = _pose.get("diag_root_wanted")
+	var wanted_hips: Transform3D = _pose.get("diag_hips_wanted")
 	var animation: Variant = pony.get("animation")
 	var clip := ""
 	var playing := false
 	if animation is AnimationPlayer:
 		clip = (animation as AnimationPlayer).current_animation
 		playing = (animation as AnimationPlayer).is_playing()
-	_log("pose idle sample mode=%d hips=%s clip=%s playing=%s solver=%s" % [
-		skeleton.modifier_callback_mode_process, str(at), clip, str(playing),
-		str(_pose_hold_solver)])
+	_log("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s" % [
+		_pose_trace_frames, root, str(_pose.get("diag_root_name")), int(_pose.get("diag_asset_root")),
+		int(_pose.get("diag_trace")), skeleton.modifier_callback_mode_process, clip, str(playing),
+		str(g)])
+	_log("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f" % [
+		_pose_trace_frames, str(_pose.get("diag_root_start")), str(_pose.get("diag_root_after")),
+		str(render_root), str(wanted_root),
+		render_root.origin.distance_to(wanted_root.origin),
+		_transform_angle(render_root, wanted_root),
+		str(_pose.get("diag_hips_start")), str(render_hips), str(wanted_hips),
+		render_hips.origin.distance_to(wanted_hips.origin)])
+	_pose_trace_frames += 1
+
+
+## Degrees between two transforms' bases, for the trace.
+func _transform_angle(a: Transform3D, b: Transform3D) -> float:
+	return rad_to_deg(a.basis.orthonormalized().get_rotation_quaternion().angle_to(
+		b.basis.orthonormalized().get_rotation_quaternion()))
 
 
 func _pose_diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:

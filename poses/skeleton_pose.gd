@@ -39,6 +39,20 @@ var diag_readback_deg := 0.0
 ## Angle between the authored hips rotation and what the skeleton holds immediately after the
 ## modifier wrote it. Near zero means the write landed; large means the write itself is not taking.
 var diag_after_write_deg := 0.0
+## Placement trace: the armature bone (the pose's skeleton placement) and the hips, in world space,
+## at the start of our pass, right after the write, and - read by the runtime at render time - again
+## after every physics and process writer. The authored targets are carried into the live bed frame
+## here, so the three readings compare directly against `wanted`.
+var diag_root := -1
+var diag_asset_root := -1
+var diag_root_name := ""
+var diag_root_start := Transform3D.IDENTITY
+var diag_root_after := Transform3D.IDENTITY
+var diag_root_wanted := Transform3D.IDENTITY
+var diag_hips_start := Transform3D.IDENTITY
+var diag_hips_after := Transform3D.IDENTITY
+var diag_hips_wanted := Transform3D.IDENTITY
+var diag_trace := 0
 var diag_last_weight := 0.0
 var diag_last_base := ""
 var _diag_wrote := false
@@ -94,6 +108,10 @@ func _apply(delta: float) -> void:
 	}
 	diag_last_base = "authored" if authored != null and bed_frame is Transform3D \
 		and bool(authored.get("available")) else "none"
+	var tracing := diag_trace < 3 and weight > 0.9 and authored != null \
+		and bool(authored.get("available")) and bed_frame is Transform3D
+	if tracing:
+		_trace_before(sk, state)
 	if mode == "standing":
 		_standing.apply(_rig, sk, weight, state)
 	elif mode == "afterglow" and afterglow_pose == CATALOG.MISSIONARY:
@@ -111,6 +129,49 @@ func _apply(delta: float) -> void:
 			if entry is Dictionary:
 				diag_after_write_deg = rad_to_deg(_diag_wrote_hips.angle_to(
 					(entry as Dictionary)["rotation"]))
+	if tracing:
+		var g := sk.global_transform
+		if diag_root >= 0:
+			diag_root_after = g * sk.get_bone_global_pose(diag_root)
+		if _rig.hips >= 0:
+			diag_hips_after = g * sk.get_bone_global_pose(_rig.hips)
+		diag_trace += 1
+
+
+## The armature bone: the top of the chain `pony_hips` hangs from. Worked out here as well as through
+## the asset, so the trace shows whether both agree at runtime.
+func _trace_root(sk: Skeleton3D) -> int:
+	var bone := sk.find_bone("pony_hips")
+	while bone >= 0:
+		var parent := sk.get_bone_parent(bone)
+		if parent < 0:
+			return bone
+		bone = parent
+	return -1
+
+
+func _trace_before(sk: Skeleton3D, state: Dictionary) -> void:
+	var g := sk.global_transform
+	diag_root = _trace_root(sk)
+	diag_asset_root = -1
+	if authored != null and authored.has_method("root_bone"):
+		diag_asset_root = int(authored.call("root_bone", sk))
+	diag_root_name = sk.get_bone_name(diag_root) if diag_root >= 0 else "none"
+	if diag_root >= 0:
+		diag_root_start = g * sk.get_bone_global_pose(diag_root)
+	if _rig.hips >= 0:
+		diag_hips_start = g * sk.get_bone_global_pose(_rig.hips)
+	var frame: Transform3D = bed_frame
+	var placement: Variant = authored.get("pony_frame")
+	if placement is Transform3D:
+		var scaled: Transform3D = placement
+		scaled.origin *= float(state.get("body_scale", 1.0))
+		diag_root_wanted = frame * scaled
+	var entries: Variant = authored.get("pony_bones")
+	var entry: Variant = (entries as Dictionary).get("pony_hips") if entries is Dictionary else null
+	if entry is Dictionary:
+		diag_hips_wanted = diag_root_wanted * Transform3D(
+			Basis((entry as Dictionary)["rotation"]), (entry as Dictionary)["position"])
 
 
 func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:

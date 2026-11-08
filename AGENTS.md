@@ -1304,7 +1304,10 @@ examples.
   version/bone count/shot block, the bed frame, where the live pose put the hips, neck, head and
   hooves in world and bed space, and the rig diagnostics: which skeleton the modifier drives, which
   skeleton every mesh is bound to, whether the pose survives to the next frame (`readback`), the
-  posture state and every pony within 4 m.
+  posture state and every pony within 4 m. At the settled pose the act also prints two `pose trace`
+  lines: the armature bone the placement is written to, and its world pose at the start of the
+  modifier pass, right after the write and again at render time, against the authored target in the
+  live bed frame.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act while **Enable debug** is on. Neglect events log their warning/stop,
   tier, distress and dislike.

@@ -10,6 +10,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 const COAT_PATCH := preload("res://mods/unfplap/body_coat_patch.gd")
+const STILL_ZONES := preload("res://mods/unfplap/still_zone_debug.gd")
 
 var failures := 0
 var checks := 0
@@ -288,6 +289,21 @@ func run() -> void:
 	check(near(SETTINGS.anal_still.get_num(), 1.0), "anal still zone is on by default")
 	check(near(SETTINGS.still_oval.get_num(), 0.7), "still zones are flatter than they are wide")
 	check(near(SETTINGS.still_fade.get_num(), 0.25), "still zones fade over a quarter of their radius")
+	check(not SETTINGS.draw_still_zones.get_bool(), "still-zone debug rings are off by default")
+	var zones := STILL_ZONES.new()
+	root.add_child(zones)
+	zones.call("setup")
+	check(zones.get_child_count() == 4, "four debug rings are built")
+	zones.call("update", Transform3D.IDENTITY, Vector3.ZERO, Basis.IDENTITY, 0.1,
+		Vector3(0.0, 0.1, 0.0), 0.05, 0.7, 0.25, true)
+	check(zones.visible, "debug rings show when asked")
+	var outer: MeshInstance3D = zones.get_child(0)
+	check(outer.global_transform.basis.get_scale().is_equal_approx(Vector3(0.1, 0.07, 0.1)),
+		"the outer ring is the oval ellipsoid")
+	zones.call("update", Transform3D.IDENTITY, Vector3.ZERO, Basis.IDENTITY, 0.1,
+		Vector3(0.0, 0.1, 0.0), 0.05, 0.7, 0.25, false)
+	check(not zones.visible, "debug rings hide when asked")
+	zones.free()
 	var expected_radius := maxf(0.022 * 2.2 * 0.742 * 1.3, 0.045)
 	check(near(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0), expected_radius),
 		"anal still radius follows the cup's outer ring")

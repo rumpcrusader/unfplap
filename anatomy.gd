@@ -9,6 +9,7 @@ const DOCK := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const STILL_ZONE_DEBUG := preload("res://mods/unfplap/still_zone_debug.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
@@ -91,6 +92,15 @@ var _body_outline: ShaderMaterial
 var _body_original_shader: Shader
 var _body_outline_original_shader: Shader
 var _body_patched := false
+## Debug overlay for the two still zones.
+var _zone_debug: Node3D
+var _zone_vulva_centre := Vector3.ZERO
+var _zone_anal_centre := Vector3.ZERO
+var _zone_axes := Basis.IDENTITY
+var _zone_vulva_radius := 0.0
+var _zone_anal_radius := 0.0
+var _zone_oval := 0.7
+var _zone_fade := 0.25
 ## pony_hips bind pose from the body skin: anatomy-local -> body-local (NearBody) space.
 var _hips_bind := Transform3D.IDENTITY
 var _hips_bind_ready := false
@@ -337,6 +347,7 @@ func _on_physical_reaction(kind: String) -> void:
 
 func _process(delta: float) -> void:
 	_heat_idle_tick(delta)
+	_debug_zones_tick()
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
@@ -765,6 +776,13 @@ func _apply_body_coat_uniforms() -> void:
 		var outer := LIP_OUTER_FACTOR if _anal_ring else ANAL_OUTER_FACTOR
 		anal_still_radius = anal_still_radius_for(lip, outer, scale,
 			SETTINGS.anal_still.get_num())
+	_zone_vulva_centre = still_centre
+	_zone_anal_centre = anal_still_centre
+	_zone_vulva_radius = still_radius
+	_zone_anal_radius = anal_still_radius
+	_zone_axes = Basis(right_axis, up_axis, out_axis)
+	_zone_oval = SETTINGS.still_oval.get_num()
+	_zone_fade = SETTINGS.still_fade.get_num()
 	var anal_scale := SETTINGS.anal_scale.get_num()
 	for material in [_body_material, _body_outline]:
 		if not is_instance_valid(material):
@@ -842,6 +860,7 @@ func _apply_body_coat() -> void:
 			if hull_patched != null:
 				_body_outline.shader = hull_patched
 		_body_patched = true
+	_ensure_zone_debug()
 	_apply_body_coat_uniforms()
 
 
@@ -854,11 +873,46 @@ func _restore_body_coat() -> void:
 		if is_instance_valid(_body_outline) and is_instance_valid(_body_outline_original_shader):
 			_body_outline.shader = _body_outline_original_shader
 	_body_patched = false
+	if is_instance_valid(_zone_debug):
+		_zone_debug.visible = false
 	_body_material = null
 	_body_outline = null
 	_body_mesh = null
 	_body_original_shader = null
 	_body_outline_original_shader = null
+
+
+## Debug-only rings for the two still zones. Created lazily once the body coat is patched and
+## hidden whenever the debug toggle or the body coat flag is off.
+func _ensure_zone_debug() -> void:
+	if is_instance_valid(_zone_debug) or not is_instance_valid(pony):
+		return
+	_zone_debug = STILL_ZONE_DEBUG.new()
+	pony.add_child(_zone_debug)
+	_zone_debug.call("setup")
+
+
+func _debug_zones_tick() -> void:
+	if not is_instance_valid(_zone_debug):
+		_zone_debug = null
+		return
+	var show := SETTINGS.draw_still_zones.get_bool() and _body_patched \
+		and SETTINGS.body_coat_deform.get_bool() and _hips_bind_ready \
+		and is_instance_valid(_skeleton) and is_instance_valid(_mesh)
+	if not show:
+		_zone_debug.visible = false
+		return
+	var hip := _skeleton.find_bone("pony_hips")
+	if hip < 0:
+		_zone_debug.visible = false
+		return
+	# The zone centres are body-local; the hips skinning transform puts the rings on the posed
+	# rump. The rump coat is dominated by this bone, so this is the useful debug frame.
+	var body_to_world := _skeleton.global_transform \
+		* _skeleton.get_bone_global_pose(hip) * _hips_bind
+	_zone_debug.call("update", body_to_world, _zone_vulva_centre, _zone_axes,
+		_zone_vulva_radius, _zone_anal_centre, _zone_anal_radius, _zone_oval,
+		_zone_fade, true)
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
@@ -1036,6 +1090,9 @@ func detach() -> void:
 	var body_mesh := _body_mesh
 	var body_material := _body_material
 	_restore_body_coat()
+	if is_instance_valid(_zone_debug):
+		_zone_debug.queue_free()
+	_zone_debug = null
 	if is_instance_valid(body_mesh) and is_instance_valid(body_material):
 		body_mesh.set_surface_override_material(0, null)
 	_hips_bind_ready = false

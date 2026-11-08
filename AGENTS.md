@@ -1426,8 +1426,10 @@ rump blush. Unknown settings keys are ignored.
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 1×) and
   `jiggle_still` (debug: no-jiggle zone around the vulva, 1×; 0 turns it off),
   `anal_still` (debug: the same zone around the visible ponut, 1×; 0 turns it off),
-  `still_oval` (debug: vertical half-axis of both still zones, 0.7× the lateral one) and
-  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.25), and the player-part
+  `still_oval` (debug: vertical half-axis of both still zones, 0.7× the lateral one),
+  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.25) and
+  `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
+  and the player-part
   controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when

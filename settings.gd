@@ -949,6 +949,10 @@ static var still_fade := num("still_fade", "anatomy.still_fade", 0.25,
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \
 	.as_debug()
+static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zones", false,
+	"Draw still zones",
+	"Overlay the vulva and visible-ponut still-zone ellipsoids on the body coat.",
+	ANATOMY, "Holes").as_debug()
 
 # ======================================================== World
 

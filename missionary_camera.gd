@@ -148,7 +148,15 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	var direction := aim - pos
 	if direction.length_squared() < 0.000001:
 		return
-	var basis := Basis.looking_at(direction.normalized(), Vector3.UP)
+	var dir := direction.normalized()
+	# `looking_at` needs a pole that is not parallel to the view. The full S shot looks almost
+	# straight down at her pelvis, and with world up as the pole the basis is degenerate there and
+	# snaps 180°. Hand the roll reference over to the mattress line as the view steepens.
+	var steep := smoothstep(0.55, 0.95, absf(dir.dot(Vector3.UP)))
+	var pole := Vector3.UP.lerp(_bed_head_direction(), steep)
+	if pole.length_squared() < 0.0001:
+		pole = Vector3.UP
+	var basis := Basis.looking_at(dir, pole.normalized())
 	var view_basis := basis
 	var at := pos
 	if SETTINGS.third_person.get_bool():

@@ -5389,6 +5389,25 @@ func _pose_diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
 		_num(pose.get("diag_last_weight")) if is_instance_valid(pose) else 0.0,
 		str(pose.get("diag_last_base")) if is_instance_valid(pose) else "",
 		_num(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0])
+	var modifiers: Array[String] = []
+	for child: Node in skeleton.get_children():
+		if child is SkeletonModifier3D:
+			var active: Variant = child.get("active")
+			var influence: Variant = child.get("influence")
+			modifiers.append("%s%s%s" % [
+				str(child.name),
+				(" active=%s" % str(active)) if active != null else "",
+				(" inf=%.2f" % float(influence)) if influence is float else ""])
+	rows.append("skeleton modifiers=%d [%s]" % [modifiers.size(), ", ".join(modifiers)])
+	rows.append("hips write check: after_write=%.2f° readback=%.2f° (%s)" % [
+		_num(pose.get("diag_after_write_deg")) if is_instance_valid(pose) else 0.0,
+		_num(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0,
+		"write lands, survives" if is_instance_valid(pose)
+			and _num(pose.get("diag_after_write_deg")) < 1.0
+			and _num(pose.get("diag_readback_deg")) < 1.0
+		else "write lands, lost by next frame" if is_instance_valid(pose)
+			and _num(pose.get("diag_after_write_deg")) < 1.0
+		else "write does not land"])
 	rows.append("pony_skeleton=%s@%s actor=%s paused=%s visible=%s" % [
 		str(skeleton.name), str(skeleton.get_instance_id()), str(pony.global_position),
 		str(pony.get("motion_paused")), str(pony.visible)])

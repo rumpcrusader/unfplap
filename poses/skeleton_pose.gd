@@ -36,6 +36,9 @@ var _clock := 0.0
 ## overwrote the pose between them.
 var diag_frames := 0
 var diag_readback_deg := 0.0
+## Angle between the authored hips rotation and what the skeleton holds immediately after the
+## modifier wrote it. Near zero means the write landed; large means the write itself is not taking.
+var diag_after_write_deg := 0.0
 var diag_last_weight := 0.0
 var diag_last_base := ""
 var _diag_wrote := false
@@ -102,6 +105,12 @@ func _apply(delta: float) -> void:
 	if _rig.hips >= 0:
 		_diag_wrote_hips = sk.get_bone_pose_rotation(_rig.hips)
 		_diag_wrote = true
+		if authored != null and bool(authored.get("available")):
+			var entries: Variant = authored.get("pony_bones")
+			var entry: Variant = (entries as Dictionary).get("pony_hips") if entries is Dictionary else null
+			if entry is Dictionary:
+				diag_after_write_deg = rad_to_deg(_diag_wrote_hips.angle_to(
+					(entry as Dictionary)["rotation"]))
 
 
 func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:

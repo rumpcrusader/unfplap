@@ -94,6 +94,24 @@ func _apply(delta: float) -> void:
 	diag_last_weight = weight
 	if _diag_wrote and _rig.hips >= 0:
 		diag_readback_deg = rad_to_deg(_diag_wrote_hips.angle_to(sk.get_bone_pose_rotation(_rig.hips)))
+	_write(sk, weight, true)
+
+
+## Apply the pose once more, outside the modifier pass and after every other writer of the frame.
+## The game re-poses this rig after our modifier pass (the clip tier's `enter`/`leave`, the posture
+## and the solver), so the modifier's write is not what the renderer sees; this is. The blend
+## `amount` is not advanced here: the modifier pass owns the ramp and the clock.
+func apply_render(sk: Skeleton3D) -> void:
+	if sk == null or not is_instance_valid(mare):
+		return
+	if not _rig.cached:
+		_cache()
+	if amount <= 0.001:
+		return
+	_write(sk, smoothstep(0.0, 1.0, amount), false)
+
+
+func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 	var mare_scale: Variant = mare.get("body_scale")
 	var state := {
 		"look_point": look_point,
@@ -108,7 +126,7 @@ func _apply(delta: float) -> void:
 	}
 	diag_last_base = "authored" if authored != null and bed_frame is Transform3D \
 		and bool(authored.get("available")) else "none"
-	var tracing := diag_trace < 3 and weight > 0.9 and authored != null \
+	var tracing := trace and diag_trace < 3 and weight > 0.9 and authored != null \
 		and bool(authored.get("available")) and bed_frame is Transform3D
 	if tracing:
 		_trace_before(sk, state)

@@ -247,6 +247,10 @@ loaded.
   head direction. `poses/authored_pose.gd` maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`
   and places `bed_frame * (pony_frame with its origin × body_scale)`.
+- **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
+  `enter`/`leave`, the posture, the terrain solver), so the runtime runs the same recipe again from
+  `_process` after every other writer: `skeleton_pose.apply_render()`, same weight, no ramp or clock
+  advance. The physics-pass write stays for the game's own contacts and pose layers.
 - Only the body bones in `PONY_BONES` and the skeleton root are written. The actor node is never
   moved, so the capsule, bed support and posture recovery are untouched. The head bone, lids, eyes,
   ears, wings, feathers, mane and tail are never baked; the game and the act own them.

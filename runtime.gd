@@ -949,6 +949,7 @@ func _process_tick(delta: float) -> void:
 	if state == State.IDLE:
 		_standing_presentation_controller().process()
 		return
+	_pose_render_write()
 	_pose_idle_sample()
 	_standing_camera_controller().clamp_look()
 	if is_instance_valid(_pose) and is_instance_valid(main):
@@ -5414,8 +5415,10 @@ func _pose_hold_tick() -> void:
 	if _pose_hold_solver != null and bool(_pose_hold_solver.get("active")):
 		_pose_hold_solver.set("active", false)
 	var animation: Variant = pony.get("animation")
+	# Pause, never stop: `stop()` resets the animated properties, and an empty `current_animation`
+	# makes the clip tier re-play the posture clip on every logic tick.
 	if animation is AnimationPlayer and (animation as AnimationPlayer).is_playing():
-		(animation as AnimationPlayer).stop()
+		(animation as AnimationPlayer).pause()
 
 
 func _log_pose_hold_once() -> void:
@@ -5439,6 +5442,18 @@ func _pose_hold_release() -> void:
 
 
 ## One idle-frame sample of what the renderer actually sees, once per act.
+## The missionary act owns what is rendered: the game re-poses the rig after our modifier pass, so
+## the authored pose is written once more here, after every physics and process writer of the frame.
+## See ROTATION.md.
+func _pose_render_write() -> void:
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(_pose) \
+			or not is_instance_valid(pony):
+		return
+	var sk: Variant = pony.get("skeleton")
+	if sk is Skeleton3D:
+		_pose.call("apply_render", sk)
+
+
 ## Render-time placement trace, two lines per act: printed from idle, after every physics and process
 ## writer, so it reads the pose the renderer is about to use. `root` is the armature bone the authored
 ## placement is written to; `wanted` is that pose carried into the live bed frame.

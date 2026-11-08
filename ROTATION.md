@@ -29,6 +29,12 @@ space, with the nuzzle and gaze overlays on top. There is no second implementati
   axes, `+Z` the direction her head points. The runtime maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
   so the pillow end (the shared bed frame's `-Z`) is where her head points.
+- **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
+  `enter`/`leave`, the posture and the terrain solver), so the modifier's write is not what the
+  renderer sees. The runtime therefore applies the same recipe once more from `_process`, after every
+  physics and process writer of the frame: `skeleton_pose.apply_render()`, same weight, no extra ramp
+  and no clock advance. The physics-pass write stays because the game's own contacts and pose layers
+  read the skeleton during the tick.
 - **What is written.** The 24 body bones in `PONY_BONES` (`tools/pose_lab.gd`) — hips, spine1–3,
   neck1–2, flanks, femurs, tibias, legLowers, tarsals, hooves, shoulders, upper/lower arms, wrists,
   hands and fingers — plus the skeleton **root** (the armature bone) for placement. The actor node

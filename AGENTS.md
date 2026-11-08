@@ -478,9 +478,8 @@ reclined eye height left the camera wrong after the act.
 `missionary_anon.gd`'s `eye_transform()` — his posed `Head` bone with the game's eye offset, read from
 the transform `apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one
 hinge at the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his
-hips, thighs and legs stay on the authored pose and keep the thrust. `presentation.missionary.upper_lean_deg`
-(debug, default `10°`, signed) is the base lean; W tips the hinge forward/down toward her, S back/up,
-and Q/E add the side lean. The camera is
+hips, thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down
+toward her, S back/up, and Q/E add the side lean. The camera is
 written after the pose write in the same frame. Her gaze and the kiss target his authored eye and
 mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig.
 **Authored shots** uses the shot trajectory below.
@@ -494,8 +493,8 @@ happens), `shots.left`/`shots.right` (Q/E). The blend is additive, so diagonals 
 position is authored it is derived from her live body (neck, vulva, face, and the start shifted
 sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
 sides and front keep the face. A kiss leans the eye in toward the aim but never closer than 0.30 m.
-The live offsets are `shot_forward`/`shot_height`/`shot_side` (default 0) and apply every frame.
-There is no frozen anchor, no pullback/pitch knob and no framing nudge.
+There is no live offset, no frozen anchor, no pullback/pitch knob and no framing nudge: the authored
+positions are the shot.
 **Third-person views** (`presentation.missionary.third_person`, debug, off by default) is the only way
 off the trajectory: with it on, the lean tilts the eye and the thrust surge travels along the
 mattress, plus side-lean travel, bob and the kiss lateral/drop. Off, the eye only ever sits on the
@@ -807,8 +806,9 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   her lips, and `depth = clamp(penetration_m, 0, reach) / reach`. Mouse motion is hip travel in
   metres (`THRUST.pixels_to_metres`, `thrust.pixels_per_cm`), not a percentage, and the back-out
   standoff is negative penetration, so it never counts towards depth.
-- `penetration_reach()` is the deepest the tip can reach: `shaft length - Pelvis gap` when the part
-  rides his hips (standing and oral), the shaft length in the missionary bed and slide placements.
+- `penetration_reach()` is the deepest the tip can reach: `shaft length - Pelvis gap`, because both
+  poses carry his body on the stroke and the gap keeps his pelvis behind her rear surface; a detached
+  placement would be limited by the shaft alone.
   `shaft_length_m()` comes from the placed part, so `Size`, `Length` and the body preset move the
   stroke length with it; `NOMINAL_SHAFT_M = 0.20` is used while the part is not showing.
 - `anon_part.track()` takes the penetration in metres and places the tip exactly that far past her
@@ -1564,9 +1564,7 @@ rump blush. Unknown settings keys are ignored.
   `still_height_mm` (debug: vertical placement of the vulva still zone, default 25 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
   `vulva_out_mm` (debug: push the whole anatomy mesh out along its own normal, so a pose that tucks
-  it into the coat does not clip her), `vulva_pose_shift_mm` and `vulva_pose_pitch_deg` (debug,
-  unclamped and signed: move and pitch only the missionary act's vulva mesh — world-vertical shift
-  in millimetres and a pitch about the bed's lateral axis), `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
+  it into the coat does not clip her), `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
   resting share of the open shape, 0.3), `wink_open_min` and `wink_open_max` (debug: idle wink
   opening range, 90% of the open shape), `wink_timing` (debug: idle wink phase-time multiplier,
   1.2×), `fluid_size` (debug: idle heat droplet size, 10 mm), `fluid_y_speed` (debug: vertical
@@ -1577,9 +1575,9 @@ rump blush. Unknown settings keys are ignored.
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.2`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
   pulled all the way out, up to 5 cm), plus the debug
-  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.01 m`). The pelvis gap is not a depth cap: it
-  sets `penetration_reach()` (`shaft length - gap`) when the part rides his hips, so 100 % depth is
-  his body stopped against her and a long `part_length_scale` moves the reach with it. The back-out
+  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.01 m`). The gap is not a depth cap: it sets
+  `penetration_reach()` (`shaft length - gap`) in both poses, so 100 % depth is his body stopped
+  `gap` behind her rear surface and a long `part_length_scale` moves the reach with it. The back-out
   gap is negative penetration, so it is travel the depth scale never counts.
   Player-part values are applied on top of the saved placement and update live. `part_head_scale`
   widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
@@ -1634,7 +1632,8 @@ rump blush. Unknown settings keys are ignored.
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
-  - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
+  - `missionary`: `belly_down_deg`, `vulva_shift_mm`, `vulva_pitch_deg`, `camera_mode`,
+    `third_person`, `free_look`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
@@ -1689,8 +1688,8 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Use free look,
-  then a **Posed base shot** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and
+  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, belly down,
+  vulva shift/pitch, Use free look), **Standing** (with **Motion**, **Caress**, **Kiss** and
   **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,

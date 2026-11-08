@@ -11,7 +11,6 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 ## The lean hinges his whole upper body at this joint: chest, neck, head, shoulders, arms and hands
 ## follow as one, while the hips, thighs and legs keep the authored pose and the stroke, so the
@@ -246,18 +245,15 @@ func _apply_lean(placed: Transform3D) -> void:
 	var lean_side := float(side) if side is float or side is int else 0.0
 	var scale: Variant = runtime.call("_lean_size_scale")
 	var lean_scale := float(scale) if scale is float or scale is int else 1.0
-	# Positive leans him back: the eyes lift off her and the camera clears the belly. The debug
-	# setting is signed and unbounded, so the direction can be flipped live in the lab. W then tips
-	# the same hinge forward/down toward her, S back/up.
-	var base := deg_to_rad(SETTINGS.upper_lean_deg.get_num())
-	var pitch := -base + deg_to_rad(MOTION.LEAN_PITCH_DEG * 3.0) * lean_forward * lean_scale
+	# W tips the hinge forward/down toward her; S back/up.
+	var pitch := deg_to_rad(MOTION.LEAN_PITCH_DEG * 3.0) * lean_forward * lean_scale
 	var yaw := -deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG * 4.0) * lean_side * lean_scale
 	if absf(pitch) < 0.00001 and absf(yaw) < 0.00001:
 		return
 	if not _lean_logged:
 		_lean_logged = true
-		_log("anon lean base=%.1f fwd=%.2f side=%.2f scale=%.2f pitch=%.1f°" % [
-			rad_to_deg(base), lean_forward, lean_side, lean_scale, rad_to_deg(pitch)])
+		_log("anon lean fwd=%.2f side=%.2f scale=%.2f pitch=%.1f°" % [
+			lean_forward, lean_side, lean_scale, rad_to_deg(pitch)])
 	# His body is lying, so the nod and the turn are the bed's own axes: nod along the mattress,
 	# turn about the mattress normal. Both are converted into skeleton space once.
 	var to_sk := skeleton.global_basis.inverse()

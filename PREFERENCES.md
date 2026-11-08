@@ -134,9 +134,8 @@ tuning:
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
-- **Missionary**: forward, height, side, pullback, side-lean forward (`side_lean`, default
-  `0.10 m`) and pitch (`pitch_deg`, default `-15°`; positive looks up), plus a **Neck angles**
-  subheading with neck 1/2, neck roll, head pitch and head roll.
+- **Missionary**: body motion, belly down, the two vulva trims (shift/pitch), camera mode, free
+  look and third-person views.
 - **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
 - **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
 - **Standing → Caress**: palm distance (`0.02 m`), oval across/up (`1.0 cm` / `2.0 cm`), palm

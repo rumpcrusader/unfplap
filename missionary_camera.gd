@@ -37,7 +37,6 @@ var _missionary_start_saved := false
 var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
 var _desktop_presentation_processing := true
-var _shot_offsets_logged := Vector3.INF
 var _free_look_log_at := 0
 ## Shot ids already reported missing from the asset in this act.
 var _missing_shots_logged: Dictionary = {}
@@ -198,10 +197,6 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 		var beside := _shot_position("left" if side < 0.0 else "right", scale)
 		if beside.is_finite():
 			pos += (beside - start) * absf(side)
-	var offsets := _shot_offsets()
-	if offsets.length_squared() > 0.000001:
-		pos += -_bed_back_direction() * offsets.x * scale \
-			+ Vector3.UP * offsets.y * scale + _bed_side_direction() * offsets.z * scale
 	var direction := aim - pos
 	if direction.length_squared() < 0.000001:
 		return
@@ -227,8 +222,7 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 				+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * lean_forward) * lean_scale))
 		view_basis = basis * lean
 		at = pos + Vector3.UP * float(runtime.get("_bob"))
-		at += _bed_head_direction() \
-			* (float(runtime.get("_lean")) + _missionary_side_lean_forward())
+		at += _bed_head_direction() * float(runtime.get("_lean"))
 		at += view_basis.x * kiss.lateral_offset(lean_scale)
 		at.y -= kiss.lean_drop() * kiss.lean()
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
@@ -251,19 +245,6 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	runtime.set("_camera_basis_ready", true)
 
 
-## The shot's live offsets (their own settings).
-func _shot_offsets() -> Vector3:
-	var cfg: Variant = runtime.get("_presentation_cfg") if is_instance_valid(runtime) else null
-	if not cfg is Dictionary:
-		return Vector3.ZERO
-	return Vector3(
-		float((cfg as Dictionary).get("shot_forward", 0.0)),
-		float((cfg as Dictionary).get("shot_height", 0.0)),
-		float((cfg as Dictionary).get("shot_side", 0.0)))
-
-
-## One end of the shot in world space: the lab's bed-relative camera position when the asset
-## carries one for this lean, otherwise a fixed point (never her live body).
 ## One end of the authored shot in world space. A shot that is not authored falls back to a fixed
 ## bed-relative point, never to her live body: the eye then only ever moves between fixed positions,
 ## and the log names what is still missing.
@@ -342,13 +323,6 @@ func _bed_side_direction() -> Vector3:
 	var side: Vector3 = pony.global_basis.x if is_instance_valid(pony) else Vector3.RIGHT
 	side.y = 0.0
 	return side.normalized() if side.length_squared() > 0.0001 else Vector3.RIGHT
-
-
-func _missionary_side_lean_forward() -> float:
-	var cfg: Variant = runtime.get("_presentation_cfg") if is_instance_valid(runtime) else null
-	var amount := float((cfg as Dictionary).get("side_lean", 0.0)) if cfg is Dictionary else 0.0
-	return amount * absf(float(runtime.get("_lean_view_side"))) \
-		* float(runtime.call("_lean_size_scale"))
 
 
 func _missionary_body_scale() -> float:
@@ -523,7 +497,7 @@ func _restore_scene() -> void:
 		str(_missionary_start_pony_transform.origin)])
 
 
-## One line at act start: the authored shot ends and the live offsets.
+## One line at act start: the authored shot ends.
 func _log_shot_setup() -> void:
 	if not is_instance_valid(main) or not bool(main.get("debug_logs")):
 		return
@@ -535,8 +509,7 @@ func _log_shot_setup() -> void:
 	var parts: Array[String] = []
 	for id: String in SHOT_IDS:
 		parts.append("%s=%s" % [id, str(_shot_position(id, scale))])
-	_log("missionary camera shots=%s %s offsets=%s" % [
-		source, " ".join(parts), str(_shot_offsets())])
+	_log("missionary camera shots=%s %s" % [source, " ".join(parts)])
 
 
 func _log(text: String) -> void:

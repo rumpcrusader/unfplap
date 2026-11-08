@@ -30,10 +30,9 @@ const LEGACY_PRESENTATION_KEYS := {
 	"pose1_height": "height",
 	"pose1_side": "side",
 	"pose1_pullback": "pullback",
-	"pose1_side_lean": "side_lean",
 	"pose1_pitch_deg": "pitch_deg",
 }
-const LEGACY_DROPPED_KEYS := ["pose1_camera"]
+const LEGACY_DROPPED_KEYS := ["pose1_camera", "pose1_side_lean"]
 ## One-release migration for the tolerance tier names and their setting paths.
 const LEGACY_TOLERANCE_KEYS := {
 	"timid_warning": "forgiving_warning",
@@ -607,29 +606,18 @@ static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
-static var side_lean := num("side_lean", "presentation.missionary.side_lean", 0.1,
-	"Side lean forward", "Extra travel toward her head on a side lean.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-# -- Missionary › Posed base shot  (debug)
-static var shot_forward := num("shot_forward", "presentation.missionary.shot_forward", 0.0,
-	"Posed shot forward", "Slide the authored shot toward her head.", GENERAL,
-	"Missionary › Posed base shot") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var shot_height := num("shot_height", "presentation.missionary.shot_height", 0.0,
-	"Posed shot height", "Raise the authored shot.", GENERAL, "Missionary › Posed base shot") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.0,
-	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
-	"Missionary › Posed base shot") \
-	.with_unit("m").with_step(0.01).as_debug()
 static var belly_down_deg := num("belly_down_deg", "presentation.missionary.belly_down_deg", 0.0,
 	"Belly down",
 	"Tilt her lower belly toward the mattress, out of the shot. Negative lifts it.",
 	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
-static var upper_lean_deg := num("upper_lean_deg", "presentation.missionary.upper_lean_deg", 10.0,
-	"Upper lean",
-	"Tilt his whole upper body at the Spine joint so his eyes clear her belly. Positive leans him back; negative leans him down over her.",
-	GENERAL, "Missionary").with_unit("°").with_step(1.0).as_debug()
+static var vulva_shift_mm := num("vulva_shift_mm", "presentation.missionary.vulva_shift_mm", 0.0,
+	"Vulva shift",
+	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
+	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
+static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vulva_pitch_deg", 0.0,
+	"Vulva pitch",
+	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
+	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
 static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "eye",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
 	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",
@@ -949,14 +937,6 @@ static var vulva_out_mm := num("vulva_out_mm", "anatomy.vulva_out_mm", 0.0,
 	"Vulva out",
 	"Push the whole anatomy mesh out of her coat along its own normal, so a pose that tucks it in does not clip her.",
 	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
-static var vulva_pose_shift_mm := num("vulva_pose_shift_mm", "anatomy.vulva_pose_shift_mm", 0.0,
-	"Missionary vulva shift",
-	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
-	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
-static var vulva_pose_pitch_deg := num("vulva_pose_pitch_deg", "anatomy.vulva_pose_pitch_deg", 0.0,
-	"Missionary vulva pitch",
-	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
-	ANATOMY, "Holes").with_unit("°").with_step(0.5).as_debug()
 static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm", 25.0,
 	"Still zone height",
 	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",
@@ -1233,6 +1213,25 @@ static var _deprecated := [
 	deprecated("presentation.missionary.side", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.pose_hold",
 		func(_value: Variant) -> Dictionary: return {}),
+	# The authored shots are the whole framing now: the live shot offsets, the side-lean travel and
+	# the upper-body base lean are retired.
+	deprecated("presentation.missionary.side_lean",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.upper_lean_deg",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.shot_forward",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.shot_height",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.shot_side",
+		func(_value: Variant) -> Dictionary: return {}),
+	# The vulva trim moved from Anatomy to the Missionary section; keep a tuned value.
+	deprecated("anatomy.vulva_pose_shift_mm",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.vulva_shift_mm": float(value)}),
+	deprecated("anatomy.vulva_pose_pitch_deg",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.vulva_pitch_deg": float(value)}),
 	# The act always shows and poses Anon's body, so the anatomy master no longer gates it.
 	deprecated("features.anatomy_bed_body", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.head_pitch_deg",

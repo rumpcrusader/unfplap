@@ -3046,11 +3046,12 @@ func _shaft_length_m() -> float:
 	return NOMINAL_SHAFT_M
 
 
-## The deepest the tip can reach, in metres. With the part on his hips (standing and oral) his body
-## stops on `Pelvis gap`; the bed and sliding placements are limited by the shaft alone.
+## The deepest the tip can reach, in metres. Both poses carry his body on the stroke, so
+## `Pelvis gap` keeps his pelvis that far behind her rear surface; a detached placement is limited
+## by the shaft alone.
 func penetration_reach() -> float:
 	var length := _shaft_length_m()
-	if pose_id == CATALOG.STANDING:
+	if pose_id in [CATALOG.STANDING, CATALOG.MISSIONARY]:
 		return maxf(length - SETTINGS.pelvis_gap_m.get_num(), 0.02)
 	return maxf(length, 0.02)
 

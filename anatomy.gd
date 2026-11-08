@@ -543,8 +543,8 @@ func _apply_place() -> void:
 ## bed's lateral axis, both around the mesh origin. Applied after the bone mapping so the values
 ## read the way they look on screen (up is up); the mesh still rides her hips like the placement.
 func _missionary_place_trim(local: Transform3D) -> Transform3D:
-	var shift: float = SETTINGS.vulva_pose_shift_mm.get_num() / 1000.0
-	var pitch: float = deg_to_rad(SETTINGS.vulva_pose_pitch_deg.get_num())
+	var shift: float = SETTINGS.vulva_shift_mm.get_num() / 1000.0
+	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg.get_num())
 	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
 		return local
 	var parent := _mesh.get_parent() as Node3D

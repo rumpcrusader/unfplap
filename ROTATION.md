@@ -136,10 +136,8 @@ Missionary is its own state, not the game's bed rest:
   eye `missionary_anon.apply()` caches for the frame (the offset itself still comes from the rig's
   rest values). The lean is **one hinge at the `Spine` joint** (`LEAN_HINGE`): the whole upper body —
   chest, neck, head, shoulders, arms and hands — tilts as a unit around it, while the hips, thighs and
-  legs stay exactly on the authored pose and keep the stroke. `presentation.missionary.upper_lean_deg`
-  (debug, default `10°`, signed) is the base lean; W tips the hinge forward/down toward her, S back/up,
-  and Q/E add the side lean. Positive `Upper lean` leans him back, lifting his eyes off her; the debug
-  value is unbounded and applies live. The kiss still leans
+  legs stay exactly on the authored pose and keep the stroke. W tips the hinge forward/down toward her,
+  S back/up, and Q/E add the side lean. The kiss still leans
   the eye in toward the aim, never closer than 0.30 m. The camera is written after the pose in the
   same frame, so it never trails his head. Her gaze and the kiss target his authored **eye and
   mouth**, never the game camera on his standing player rig.
@@ -178,8 +176,6 @@ the authored positions.
   applies that offset, so his pelvis follows the entrance and the shaft can never slide out of his
   crotch — the same logic the standing act uses. The detached bed holder (`_track_bed`) is no longer
   used by the act.
-- The live offsets are **`shot_forward` / `shot_height` / `shot_side`** (default 0, applied every
-  frame). There is no pullback or pitch knob: the authored positions are the shot.
 - The lean basis (pitch, side yaw, roll), the speed-driven surge along the mattress toward her
   head, the side-lean travel, `_bob` and the kiss lateral offset/drop are the only extra motion.
   The view is kept at least 0.10 m over the bed surface. There is no frozen anchor and no framing

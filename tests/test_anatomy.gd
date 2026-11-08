@@ -94,26 +94,31 @@ func run() -> void:
 	player.name = "PlayerPony"
 	check(not ANATOMY.eligible(player), "player pony is excluded")
 
-	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.286), "global anatomy placement is on the crease")
+	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.289), "global anatomy placement is on the crease")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.742), "global anatomy scale")
-	# Saved placements migrate once onto the current default: v0 rows get both shifts, v1 the
-	# lateral one, and a current row is left alone.
+	# Saved placements migrate once onto the current default: v0 rows get all three shifts, v1 the
+	# lateral and forward steps, v2 the forward step, and a v3 row is left alone.
 	var v0 := ANATOMY.migrate_place({"version": 0, "fluttershy": {
 		"position": [-0.005, 0.5, 0.281], "pitch": 6.0, "scale": 0.662}})
 	check(int(v0.get("version", 0)) == ANATOMY.PLACE_VERSION, "v0 placements migrate forward")
 	var v0_pos: Array = v0["fluttershy"]["position"]
 	check(near(float(v0_pos[0]), 0.0), "v0 row loses the lateral bias")
-	check(near(float(v0_pos[2]), 0.286), "v0 row keeps the forward shift")
+	check(near(float(v0_pos[2]), 0.289), "v0 row keeps both forward shifts")
 	var v1 := ANATOMY.migrate_place({"version": 1, "rarity": {
 		"position": [-0.005, 0.5, 0.286], "pitch": 6.0, "scale": 0.662}})
 	var v1_pos: Array = v1["rarity"]["position"]
 	check(near(float(v1_pos[0]), 0.0), "v1 row loses the lateral bias")
-	check(near(float(v1_pos[2]), 0.286), "v1 row is not shifted forward twice")
+	check(near(float(v1_pos[2]), 0.289), "v1 row gets the current forward step")
 	var v2 := ANATOMY.migrate_place({"version": 2, "rarity": {
 		"position": [-0.004, 0.5, 0.286]}})
 	var v2_pos: Array = v2["rarity"]["position"]
-	check(near(float(v2_pos[0]), -0.004), "current rows are not touched")
+	check(near(float(v2_pos[0]), -0.004), "v2 row keeps its lateral offset")
+	check(near(float(v2_pos[2]), 0.289), "v2 row gets the current forward step")
+	var v3 := ANATOMY.migrate_place({"version": 3, "rarity": {
+		"position": [-0.004, 0.5, 0.289]}})
+	var v3_pos: Array = v3["rarity"]["position"]
+	check(near(float(v3_pos[2]), 0.289), "current rows are not touched")
 	check(SETTINGS.by_path("presentation.lean_back_m") == null, "back lean setting removed")
 	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),
 		"VR body tracker API")

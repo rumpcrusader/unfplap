@@ -23,7 +23,10 @@ const PLACE_FORWARD_M := 0.005
 ## The old global calibration also carried a 5 mm lateral bias. The rump crease is the model's
 ## x = 0 plane, so saved rows are shifted back onto it once.
 const PLACE_RIGHT_M := 0.005
-const PLACE_VERSION := 2
+## The current default sits 3 mm further forward than the previous one; version 3 shifts every
+## older saved row by the same amount.
+const PLACE_FORWARD_STEP_M := 0.003
+const PLACE_VERSION := 3
 
 const WINKING_PINK := Color(0.97, 0.66, 0.74)
 const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
@@ -83,7 +86,7 @@ const JIGGLE_STILL_MIN_M := 0.05
 
 ## integration: global placement calibrated on Fluttershy. The rump crease is the body's x = 0
 ## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
-const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.286)
+const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.289)
 const DEFAULT_PITCH := -6.0
 const DEFAULT_SCALE := 0.742
 
@@ -166,6 +169,9 @@ const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 ## fluid node's gravity. Speed and count scale with the Discharge debug setting.
 const IDLE_FLUID_SPEED := 0.9
 const IDLE_FLUID_ARC_DOWN := 0.15
+## Ignore the body ellipsoid for this long after a discharge spawn, so a drop leaving the vulva
+## flies instead of sticking to the rump and creeping down to the tail.
+const IDLE_FLUID_CLEAR_S := 0.2
 var _visibility_clock := 0.0
 var _visibility_init := false
 var _last_shown := false
@@ -551,6 +557,8 @@ static func migrate_place(data: Dictionary) -> Dictionary:
 		shift.z = PLACE_FORWARD_M
 	if version < 2:
 		shift.x = PLACE_RIGHT_M
+	if version < 3:
+		shift.z += PLACE_FORWARD_STEP_M
 	for id: Variant in data.keys():
 		if str(id) == "version":
 			continue
@@ -1104,7 +1112,7 @@ func idle_discharge(count: int) -> void:
 	var shots := maxi(1, int(round(float(count) * amount)))
 	node.call("spray", hole_point(0.0), _discharge_direction(), shots,
 		IDLE_FLUID_SPEED * amount, maxf(SETTINGS.fluid_size.get_num(), 0.0001),
-		IDLE_FLUID_COLOR)
+		IDLE_FLUID_COLOR, IDLE_FLUID_CLEAR_S)
 
 
 ## Horizontal direction away from the body, tipped slightly down so the droplets arc to the

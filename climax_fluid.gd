@@ -68,12 +68,16 @@ func _radii() -> Vector3:
 	return BODY_RADII * body_scale
 
 
-func spray(at: Vector3, direction: Vector3, count: int, speed: float, size: float, color: Color) -> void:
+## `clear_seconds` lets a discharge drop ignore the body ellipsoid while it leaves the vulva, so
+## a spawn on the surface cannot stick to the rump and creep down to the tail.
+func spray(at: Vector3, direction: Vector3, count: int, speed: float, size: float, color: Color,
+		clear_seconds := 0.0) -> void:
 	set_physics_process(true)
 	for i in count:
 		var spread := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.2
 		var along := (direction.normalized() + spread).normalized()
-		_add(at, along * speed * randf_range(0.55, 1.0), size * randf_range(0.7, 1.3), color)
+		_add(at, along * speed * randf_range(0.55, 1.0), size * randf_range(0.7, 1.3), color,
+			clear_seconds)
 
 
 func drip(source: Callable, seconds: float, per_second: float, size: float, color: Color) -> void:
@@ -90,14 +94,15 @@ func clear() -> void:
 	set_physics_process(false)
 
 
-func _add(at: Vector3, velocity: Vector3, size: float, color: Color) -> void:
+func _add(at: Vector3, velocity: Vector3, size: float, color: Color,
+		clear_seconds := 0.0) -> void:
 	color.a = clampf(color.a * SETTINGS.fluid_alpha.get_num(), 0.0, 1.0)
 	if color.a <= 0.0:
 		return
 	if _drops.size() >= MAX_DROPS:
 		_drops.remove_at(0)
 	_drops.append({"at": at, "velocity": velocity, "size": size, "color": color, "state": FLYING,
-		"local": Vector3.ZERO, "age": 0.0})
+		"local": Vector3.ZERO, "age": 0.0, "clear": clear_seconds})
 
 
 ## integration: rest space to the world through her hips, as they are posed now.
@@ -157,6 +162,10 @@ func _fly(drop: Dictionary, frame: Transform3D, inverse: Transform3D, delta: flo
 		drop.at = Vector3(at.x, ground_y + 0.002, at.z)
 		drop.state = POOLED
 		drop.age = 0.0
+		return
+	var clear := float(drop.get("clear", 0.0))
+	if clear > 0.0:
+		drop["clear"] = maxf(clear - delta, 0.0)
 		return
 	var local: Vector3 = inverse * at
 	var inside: Vector3 = (local - _centre()) / _radii()

@@ -822,7 +822,8 @@ static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never
 	["never", "act", "always"], ["Never", "During act only", "Always"], "Anatomy",
 	"Show the mare anatomy always, only while an act is running, or never.", ANATOMY, "")
 static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
-	"Show the tail dock above the ponut. Off hides it while the anatomy is shown.", ANATOMY, "")
+	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
+	ANATOMY, "")
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip", true, "Show skin strip",
 	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
 static var teats := flag("teats", "anatomy.teats", false, "Show teats", "Show the optional teats.", ANATOMY, "")

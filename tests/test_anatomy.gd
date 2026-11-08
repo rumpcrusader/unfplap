@@ -97,6 +97,29 @@ func run() -> void:
 	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.289), "global anatomy placement is on the crease")
 	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
 	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.742), "global anatomy scale")
+	# Show tail docks is visibility only. The old placement pinned the mesh top to the dock's
+	# buried base ring, which dropped a low-docked mare's anatomy by up to 9 cm.
+	var place := ANATOMY.new()
+	var place_mesh := MeshInstance3D.new()
+	place_mesh.mesh = BoxMesh.new()
+	place.add_child(place_mesh)
+	place.set("_mesh", place_mesh)
+	place.set("_pos", ANATOMY.DEFAULT_PLACE)
+	place.set("_pitch", ANATOMY.DEFAULT_PITCH)
+	place.set("_scale", ANATOMY.DEFAULT_SCALE)
+	place.set("_lift", float(place.call("_tail_lift")))
+	var dock_before := SETTINGS.show_dock.get_bool()
+	SETTINGS.show_dock.set_bool(true)
+	place.call("_apply_place")
+	var dock_on: Transform3D = place_mesh.transform
+	SETTINGS.show_dock.set_bool(false)
+	place.call("_apply_place")
+	var dock_off: Transform3D = place_mesh.transform
+	check(dock_on.is_equal_approx(dock_off), "the dock switch never moves the anatomy")
+	check(near(dock_on.origin.y, ANATOMY.DEFAULT_PLACE.y + float(place.call("_tail_lift"))),
+		"placement uses the calibrated lift")
+	SETTINGS.show_dock.set_bool(dock_before)
+	place.free()
 	# Saved placements migrate once onto the current default: v0 rows get all three shifts, v1 the
 	# lateral and forward steps, v2 the forward step, and a v3 row is left alone.
 	var v0 := ANATOMY.migrate_place({"version": 0, "fluttershy": {

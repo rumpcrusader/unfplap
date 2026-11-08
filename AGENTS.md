@@ -1424,7 +1424,7 @@ rump blush. Unknown settings keys are ignored.
   `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
   spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `show_dock` (Show tail
-  docks, on), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
+  docks, on; visibility only, it never moves the anatomy), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),
   `anal_scale` (Ponut scale: the V2 ponut interior and body coat; the vulva and opening
   stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point),

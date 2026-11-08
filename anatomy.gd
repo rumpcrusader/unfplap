@@ -5,7 +5,6 @@ extends Node
 
 const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
-const DOCK := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
@@ -46,11 +45,8 @@ const V2_ANAL_RING_STRETCH := Vector3(0.00272, 0.06286, 0.01908)
 const V2_ANAL_RING_OVER := Vector3(0.00279, 0.05955, 0.01908)
 const V2_ANAL_RING_EXTREME := Vector3(0.00303, 0.03996, 0.03310)
 const V2_ANAL_RING_PONUT := Vector3(0.00296, 0.06515, 0.03310)
-const WINKING_HALF_HEIGHT := 0.0854
 const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
-const WINKING_TOUCH_Y := 0.52
-const WINKING_DOCK_REF := -0.0311
 const WINKING_CUT_DEPTH := 0.07
 ## Shader widening applied to the vulva per unit of stretch, so the anal bulb never scales with it.
 ## How far outside the rim the widening fades out. The measured mound ends ~4.5 cm from the
@@ -125,7 +121,6 @@ var _pitch := DEFAULT_PITCH
 var _scale := DEFAULT_SCALE
 var _body: Array = []
 var _lift := 0.0
-var _dock_bottom := INF
 ## The tail dock mesh; with genitals attached it reads as a stray blob above the ponut.
 var _dock: MeshInstance3D
 var _dock_was_visible := true
@@ -335,8 +330,6 @@ func _attach() -> void:
 	_dock = dock
 	if is_instance_valid(dock):
 		_dock_was_visible = dock.visible
-	if _body.is_empty() and is_instance_valid(dock) and dock.mesh != null:
-		_dock_bottom = dock.mesh.get_aabb().position.y
 	_apply_place()
 	_lip_radius = _measure_lip_radius()
 	_apply_material()
@@ -352,7 +345,7 @@ func _attach() -> void:
 		pony.physical_reaction.connect(_on_physical_reaction)
 	set_process(true)
 	_apply_visibility()
-	_log("anatomy attached lift=%.3f dock_bottom=%.3f" % [_lift, _dock_bottom])
+	_log("anatomy attached lift=%.3f" % _lift)
 	if _v2_anal and _mesh.mesh is ArrayMesh:
 		var arrays: Array = (_mesh.mesh as ArrayMesh).surface_get_arrays(0)
 		var cols: Variant = arrays[Mesh.ARRAY_COLOR]
@@ -507,7 +500,8 @@ func _apply_dock(anatomy_shown: bool) -> void:
 
 ## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
 ## tails (Derpy's) sit lower and pulled the whole anatomy into the rump. Keep one value so the
-## anatomy's size and position are identical across mares.
+## anatomy's size and position are identical across mares; the Show tail docks switch only hides or
+## shows the dock and never moves the anatomy.
 func _tail_lift() -> float:
 	return 0.03
 
@@ -516,14 +510,9 @@ func _apply_place() -> void:
 	if not is_instance_valid(_mesh):
 		return
 	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)).scaled(Vector3.ONE * _scale)
-	var lift := _lift
-	# The dock-bottom alignment only matters while the dock is drawn. With `hide_dock` on it
-	# would pull the anatomy down for a dock nobody sees, and Derpy's dock sits lower than the
-	# others', which buried her anatomy.
-	if _dock_bottom < INF and SETTINGS.show_dock.get_bool():
-		var top := WINKING_TOUCH_Y + WINKING_HALF_HEIGHT * _scale * cos(deg_to_rad(_pitch))
-		lift = clampf(_dock_bottom - top, -0.1, 0.06)
-	var place := _pos + Vector3(0.0, lift, minf(lift, 0.0) * 0.2)
+	# Placement never follows the dock. `show_dock` is a visibility switch; aligning the mesh to
+	# the dock's buried base ring moved it down by up to 9 cm on a low-docked mare.
+	var place := _pos + Vector3(0.0, _lift, minf(_lift, 0.0) * 0.2)
 	if not _body.is_empty():
 		var size: float = _body[2]
 		place = Vector3(place.x * size, _body[0] + (place.y - WINKING_REAR_Y) * size,

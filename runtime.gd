@@ -245,6 +245,8 @@ var thrust_up := true
 var _pose
 ## Bed space of the hand-authored missionary base pose for this act (`null` for other poses).
 var _bed_pose_frame: Variant = null
+## One settled-pose log line per act.
+var _pose_logged := false
 var _tail
 var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
@@ -994,6 +996,9 @@ func _input(event: InputEvent) -> void:
 	var motion := event as InputEventMouseMotion
 	if motion == null:
 		return
+	# Debug free look: the mouse turns the player camera instead of driving depth.
+	if free_look_active():
+		return
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
@@ -1071,6 +1076,7 @@ func _physics_tick(delta: float) -> void:
 		_act_presentation(delta)
 	if state in [State.POSING_IN, State.ACTIVE]:
 		_tolerance_tick(delta)
+	_log_pose_settled()
 	var kiss_started := Time.get_ticks_usec()
 	_kiss_controller().tick(delta)
 	_timed("kiss_tick", kiss_started)
@@ -1835,6 +1841,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_y_hold_ready = false
 	_y_hold_fired = false
 	_reset_thrust_state()
+	_pose_logged = false
 	_summary = {}
 	_summary_done = false
 	_afterglow_beat = ""
@@ -2355,6 +2362,17 @@ func authored_base_active() -> bool:
 		and SETTINGS.authored_base.get_bool() and bool(_authored_pose().get("available"))
 
 
+## The parsed authored pose, for the shot camera and the debug action.
+func authored_pose_asset() -> Variant:
+	return _authored_pose()
+
+
+## Debug: the player camera replaces the act shot so the pose can be inspected. The mouse stops
+## feeding thrust while it is on.
+func free_look_active() -> bool:
+	return state != State.IDLE and SETTINGS.free_look.get_bool()
+
+
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
 func missionary_pose_origin() -> Vector3:
 	if _bed_pose_frame is Transform3D:
@@ -2398,6 +2416,7 @@ func _build_pose() -> void:
 			_pose.authored = _authored_pose()
 			_pose.authored_on = SETTINGS.authored_base.get_bool()
 			_pose.bed_frame = _bed_pose_frame
+			_log_pose_base()
 		(skeleton as Skeleton3D).add_child(_pose)
 		if pose_id == CATALOG.STANDING:
 			if _feature("standing_body_sway"):
@@ -5308,6 +5327,161 @@ func _neck_midpoint() -> Vector3:
 		return skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
 	return Vector3.INF
 
+## Which missionary base is in charge and why. One dictionary so the log, the settled line and the
+## debug action cannot drift apart.
+func pose_base_info() -> Dictionary:
+	var authored: Variant = _authored_pose()
+	var bones: Variant = authored.get("pony_bones")
+	var info := {
+		"base": "stack",
+		"reason": "",
+		"version": int(authored.get("version")),
+		"bones": (bones as Dictionary).size() if bones is Dictionary else 0,
+		"available": bool(authored.get("available")),
+		"error": str(authored.get("error")),
+		"switch": SETTINGS.authored_base.get_bool(),
+		"frame": _bed_pose_frame,
+		"shots": bool(authored.get("has_shots")),
+	}
+	if pose_id != CATALOG.MISSIONARY:
+		info["reason"] = "pose=%s" % pose_id
+	elif not bool(info["switch"]):
+		info["reason"] = "switch off"
+	elif not bool(info["available"]):
+		var why := str(info["error"])
+		info["reason"] = "asset: %s" % (why if not why.is_empty() else "not loaded")
+	elif not _bed_pose_frame is Transform3D:
+		info["reason"] = "no bed frame"
+	else:
+		info["base"] = "authored"
+	return info
+
+
+## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
+## the live pose actually put her (world and bed space).
+func pose_state_rows() -> Array:
+	var info := pose_base_info()
+	var frame: Variant = info["frame"]
+	var rows: Array = []
+	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
+		str(pony.name) if is_instance_valid(pony) else "?", pose_id, state, _pose_basis_amount()])
+	rows.append("base=%s reason=%s switch=%s asset=v%d %s bones=%d shots=%s error=%s" % [
+		str(info["base"]), str(info["reason"]), "on" if bool(info["switch"]) else "off",
+		int(info["version"]), "ok" if bool(info["available"]) else "error", int(info["bones"]),
+		"yes" if bool(info["shots"]) else "no", str(info["error"])])
+	rows.append("bed_frame=%s scale=%.2f" % [
+		str(frame) if frame is Transform3D else "null", _body_scale_value()])
+	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+	if not sk is Skeleton3D:
+		return rows
+	var skeleton := sk as Skeleton3D
+	var space := Transform3D.IDENTITY
+	if frame is Transform3D:
+		space = (frame as Transform3D).affine_inverse()
+	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["neck_mid", "pony_neck2"],
+			["head", "pony_head"], ["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
+		var bone := skeleton.find_bone(str(pair[1]))
+		if bone < 0:
+			continue
+		var world := skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
+		var bed := space * world
+		rows.append("%s world=(%.3f,%.3f,%.3f) bed=(%.3f,%.3f,%.3f)" % [
+			str(pair[0]), world.x, world.y, world.z, bed.x, bed.y, bed.z])
+	return rows
+
+
+## The base line written once when the act builds its pose.
+func _log_pose_base() -> void:
+	if pose_id != CATALOG.MISSIONARY:
+		return
+	var info := pose_base_info()
+	var frame: Variant = info["frame"]
+	_log("missionary base=%s reason=%s asset=v%d %s bones=%d shots=%s switch=%s frame=%s scale=%.2f" % [
+		str(info["base"]), str(info["reason"]), int(info["version"]),
+		"ok" if bool(info["available"]) else "error", int(info["bones"]),
+		"yes" if bool(info["shots"]) else "no", "on" if bool(info["switch"]) else "off",
+		str(frame) if frame is Transform3D else "null", _body_scale_value()])
+
+
+## One line with where the pose actually put her, in world and bed space, once the weight settles.
+func _log_pose_settled() -> void:
+	if _pose_logged or pose_id != CATALOG.MISSIONARY or state == State.IDLE:
+		return
+	if _pose_basis_amount() < 0.9:
+		return
+	_pose_logged = true
+	if not is_instance_valid(pony):
+		return
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return
+	var skeleton := sk as Skeleton3D
+	var frame: Variant = _bed_pose_frame
+	var space := Transform3D.IDENTITY
+	if frame is Transform3D:
+		space = (frame as Transform3D).affine_inverse()
+	var parts: Array[String] = []
+	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["head", "pony_head"],
+			["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
+		var bone := skeleton.find_bone(str(pair[1]))
+		if bone < 0:
+			continue
+		var world := skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
+		var bed := space * world
+		parts.append("%s=w%s/b(%.3f,%.3f,%.3f)" % [
+			str(pair[0]), str(world), bed.x, bed.y, bed.z])
+	_log("missionary settled base=%s weight=%.2f %s" % [
+		str(pose_base_info()["base"]), _pose_basis_amount(), " ".join(parts)])
+
+
+## Her face, for the start shot: the head bone pushed a little along the neck → head direction, so
+## the aim lands where the OpenPony face hangs.
+func missionary_face_point() -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return Vector3.INF
+	var skeleton := sk as Skeleton3D
+	var head := skeleton.find_bone("pony_head")
+	if head < 0:
+		return _neck_midpoint()
+	var at := skeleton.global_transform * skeleton.get_bone_global_pose(head).origin
+	var neck := skeleton.find_bone("pony_neck2")
+	if neck < 0:
+		return at
+	var base := skeleton.global_transform * skeleton.get_bone_global_pose(neck).origin
+	var direction := at - base
+	if direction.length_squared() < 0.000001:
+		return at
+	return at + direction.normalized() * 0.12
+
+
+## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between
+## her hind femurs lifted toward her belly.
+func missionary_vulva_point() -> Vector3:
+	if is_instance_valid(_anatomy_act):
+		var point: Variant = _anatomy_act.call("hole_point")
+		if point is Vector3 and (point as Vector3).is_finite():
+			return point
+	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+	if not sk is Skeleton3D:
+		return Vector3.INF
+	var skeleton := sk as Skeleton3D
+	var left := skeleton.find_bone("pony_femur_L")
+	var right := skeleton.find_bone("pony_femur_R")
+	if left < 0 or right < 0:
+		return _neck_midpoint()
+	var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
+	var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
+	return (a + b) * 0.5 + Vector3.UP * 0.10 * _body_scale_value()
+
+
+func _body_scale_value() -> float:
+	var value: Variant = pony.get("body_scale") if is_instance_valid(pony) else null
+	return float(value) if value != null else 1.0
+
+
 func apply_camera_motion() -> void:
 	if state == State.IDLE or not _free_camera_active:
 		return
@@ -5320,8 +5494,11 @@ func apply_camera_motion() -> void:
 	if pose_id == CATALOG.MISSIONARY:
 		_missionary_camera_controller().tick()
 		# integration: the optional bed body adjusts the view after the frozen shot.
-		if is_instance_valid(_missionary_bed):
+		if is_instance_valid(_missionary_bed) and not free_look_active():
 			_missionary_bed.call("tick_view")
+		return
+	# Debug free look: the stock player camera is the view, so the act camera leaves it alone.
+	if free_look_active():
 		return
 	_standing_camera_controller().tick()
 

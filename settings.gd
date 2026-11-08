@@ -632,6 +632,22 @@ static var side := num("side", "presentation.missionary.side", 0.0, "Missionary 
 static var side_lean := num("side_lean", "presentation.missionary.side_lean", 0.1,
 	"Side lean forward", "Extra travel toward her head on a side lean.", GENERAL, "Missionary") \
 	.with_unit("m").with_step(0.01).as_debug()
+# -- Missionary › Posed base shot  (debug)
+static var shot_forward := num("shot_forward", "presentation.missionary.shot_forward", 0.0,
+	"Posed shot forward", "Slide the authored shot toward her head.", GENERAL,
+	"Missionary › Posed base shot") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var shot_height := num("shot_height", "presentation.missionary.shot_height", 0.0,
+	"Posed shot height", "Raise the authored shot.", GENERAL, "Missionary › Posed base shot") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.0,
+	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
+	"Missionary › Posed base shot") \
+	.with_unit("m").with_step(0.01).as_debug()
+static var free_look := flag("free_look", "presentation.missionary.free_look", false,
+	"Use free look",
+	"Copy the player camera during an act instead of the frozen shot, so the pose can be inspected. The mouse stops driving thrust.",
+	GENERAL, "Missionary").as_debug()
 
 # -- Missionary › Neck angles  (debug)
 static var head_pitch_deg := num("head_pitch_deg", "presentation.missionary.head_pitch_deg",

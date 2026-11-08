@@ -98,8 +98,12 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 	if body.length_squared() > 0.0001:
 		body = body.normalized()
 	var rows := PackedStringArray()
-	rows.append("root=%s mare=%s scale=%.2f roll pelvis=%.1f° chest=%.1f°" % [
-		str(sk.global_basis), str(mare.global_basis), float(mare.body_scale),
+	var base := "stack"
+	if authored != null and authored_on and bed_frame is Transform3D \
+			and bool(authored.get("available")):
+		base = "authored"
+	rows.append("base=%s root=%s mare=%s scale=%.2f roll pelvis=%.1f° chest=%.1f°" % [
+		base, str(sk.global_basis), str(mare.global_basis), float(mare.body_scale),
 		rad_to_deg(_missionary.last_roll), rad_to_deg(_missionary.last_chest_roll)])
 	var chain: Array[int] = []
 	if _rig.hips >= 0:

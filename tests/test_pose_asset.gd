@@ -82,6 +82,18 @@ func run() -> void:
 	var bed_size: Vector3 = pose.get("bed_size")
 	check(bed_size.x > 0.5 and bed_size.z > 1.0, "bed reference size %s" % str(bed_size))
 
+	# The two authored shot positions are optional until they are placed in the lab, but when the
+	# block is present both ends must be usable bed-space cameras.
+	if bool(pose.get("has_shots")):
+		var start: Transform3D = pose.get("shot_start")
+		var back: Transform3D = pose.get("shot_back")
+		check(start.origin.is_finite() and back.origin.is_finite(), "shot positions are finite")
+		check(start.origin.y > 0.2 and start.origin.y < 1.6, "shot start height %.3f" % start.origin.y)
+		check(back.origin.y > 0.2 and back.origin.y < 1.6, "shot back height %.3f" % back.origin.y)
+		check(start.origin.distance_to(back.origin) > 0.1, "the two shot ends differ")
+	else:
+		check(true, "no authored shot positions yet (pose-derived shot)")
+
 	# Reloading the file in place is what the debug action does mid-act.
 	check(AUTHORED.reload_file().is_empty(), "reload clears the error")
 	check(bool(pose.get("available")), "available after reload")

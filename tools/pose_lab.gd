@@ -16,7 +16,11 @@ const PONY_MESH := preload("res://world/characters/hybrid_mare/body.glb")
 const ANON_RIG := preload("res://player/anon_body.tscn")
 
 const DEFAULT_POSE_PATH := "res://mods/unfplap/poses/missionary_pose.json"
-const POSE_VERSION := 4
+const POSE_VERSION := 5
+## The two authored camera positions of the act's shot: over her chest (lean 0) and over her
+## pelvis at max S. Only their positions are exported; the runtime aims them at her face and vulva.
+const SHOT_START := "ShotStart"
+const SHOT_BACK := "ShotBack"
 ## The rig exported under the JSON's `anon` key. Anon1 and Anon2 were early floor drafts.
 const ANON_EXPORT_NAME := "Anon3"
 const TARGET_NAMES := ["HipsTarget", "HeadTarget", "LeftHandTarget", "RightHandTarget",
@@ -61,6 +65,7 @@ const PONY_BONES := [
 @export_tool_button("Pose help") var pose_help: Callable = _print_pose_help
 @export_tool_button("Fit pony to bed") var fit_button: Callable = _fit_pony_to_bed
 @export_tool_button("Mirror Anon targets") var mirror_button: Callable = _mirror_anon_targets
+@export_tool_button("Add shot cameras") var shot_cameras_button: Callable = _add_shot_cameras
 
 var _pony: Node3D
 var _pony_skel: Skeleton3D
@@ -332,6 +337,66 @@ func _pose_frame() -> Transform3D:
 	return Transform3D(bed_xform.basis.orthonormalized(), Vector3(at.x, _mattress_y(), at.z))
 
 
+## The two authored shot cameras, in `ShotStart`, `ShotBack` order, or empty when the scene has
+## neither.
+func _shot_cameras() -> Array[Node3D]:
+	var out: Array[Node3D] = []
+	for name: String in [SHOT_START, SHOT_BACK]:
+		var node := get_node_or_null(name) as Node3D
+		if node == null:
+			out.clear()
+			return out
+		out.append(node)
+	return out
+
+
+## Creates the two shot cameras at a first guess worked out from the pose: over her chest for the
+## start, over her pelvis for max S. Drag them where you want and save the scene.
+func _add_shot_cameras() -> void:
+	if _shot_cameras().size() == 2:
+		print("[poselab] %s and %s already exist" % [SHOT_START, SHOT_BACK])
+		return
+	if _pony_skel == null:
+		print("[poselab] no pony skeleton to place the shots from")
+		return
+	var neck := _bone_world(_pony_skel, "pony_neck1", "pony_neck2")
+	var hips := _bone_world(_pony_skel, "pony_hips")
+	if not neck.is_finite() or not hips.is_finite():
+		print("[poselab] cannot read the neck and hips")
+		return
+	# Her rump is the opposite way from the head: in the lab's bed space that is -Z.
+	var rump := Vector3(0.0, 0.0, -1.0)
+	var start := _make_shot(SHOT_START, neck + Vector3.UP * 0.35 + rump * 0.75, neck)
+	var back := _make_shot(SHOT_BACK, hips + Vector3.UP * 0.35 + rump * 0.35, hips + Vector3.UP * 0.10)
+	print("[poselab] added %s at %s and %s at %s; drag them and save the scene" % [
+		start.name, str(_global_of(start).origin), back.name, str(_global_of(back).origin)])
+
+
+func _make_shot(name: String, at: Vector3, look_at: Vector3) -> Node3D:
+	var shot := Camera3D.new()
+	shot.name = name
+	shot.fov = 75.0
+	add_child(shot)
+	_own(shot)
+	var basis := Basis.looking_at((look_at - at).normalized(), Vector3.UP)
+	_set_global(shot, Transform3D(basis, at))
+	return shot
+
+
+## World origin between two bones (or of the first one when the second is missing).
+func _bone_world(sk: Skeleton3D, first: String, second := "") -> Vector3:
+	var a := sk.find_bone(first)
+	if a < 0:
+		return Vector3.INF
+	var at := sk.global_transform * sk.get_bone_global_pose(a).origin
+	if second.is_empty():
+		return at
+	var b := sk.find_bone(second)
+	if b < 0:
+		return at
+	return (at + sk.global_transform * sk.get_bone_global_pose(b).origin) * 0.5
+
+
 func _save_pose() -> void:
 	if _pony == null or _pony_skel == null:
 		push_error("PoseLab: nothing to save")
@@ -361,6 +426,15 @@ func _save_pose() -> void:
 			"transform": _transform_to_str(frame.affine_inverse() * _global_of(rig)),
 			"bones": _save_bones(_anon_skels[index], []),
 		}
+	var shots := _shot_cameras()
+	if shots.size() == 2:
+		data["shots"] = {
+			"start": _transform_to_str(frame.affine_inverse() * _global_of(shots[0])),
+			"back": _transform_to_str(frame.affine_inverse() * _global_of(shots[1])),
+		}
+	else:
+		print("[poselab] no %s/%s in the scene; the act shot stays pose-derived" % [
+			SHOT_START, SHOT_BACK])
 	var text := JSON.stringify(data, "\t")
 	var file := FileAccess.open(pose_path, FileAccess.WRITE)
 	if file == null:
@@ -411,6 +485,11 @@ func _load_pose() -> void:
 			_set_global(rig, space * _str_to_transform(str(block.get("transform", ""))))
 			_load_targets(rig, block.get("targets", {}))
 			_load_bones(_anon_skels[index], block.get("bones", {}))
+	var shots := _shot_cameras()
+	var shot_data: Variant = data.get("shots")
+	if shots.size() == 2 and shot_data is Dictionary:
+		_set_global(shots[0], space * _str_to_transform(str((shot_data as Dictionary).get("start", ""))))
+		_set_global(shots[1], space * _str_to_transform(str((shot_data as Dictionary).get("back", ""))))
 	if _camera != null and data.get("camera") is Dictionary and version < POSE_VERSION:
 		var cam: Dictionary = data["camera"]
 		_set_global(_camera, _str_to_transform(str(cam.get("transform", ""))))

@@ -27,6 +27,11 @@ var anon_rig := ""
 ## Bone name -> {rotation: Quaternion, position: Vector3}, in the bone's parent space.
 var pony_bones: Dictionary = {}
 var anon_bones: Dictionary = {}
+## The two authored shot camera positions in bed space (over her chest, over her pelvis). Only the
+## origins are used: the act aims them at her live face and vulva.
+var shot_start := Transform3D.IDENTITY
+var shot_back := Transform3D.IDENTITY
+var has_shots := false
 
 static var _shared: Variant = null
 var _indices: Dictionary = {}
@@ -50,6 +55,9 @@ static func reload_file() -> String:
 func load_file() -> String:
 	available = false
 	error = ""
+	has_shots = false
+	shot_start = Transform3D.IDENTITY
+	shot_back = Transform3D.IDENTITY
 	pony_bones.clear()
 	anon_bones.clear()
 	_indices.clear()
@@ -83,6 +91,11 @@ func load_file() -> String:
 	var bed: Variant = data.get("bed")
 	if bed is Dictionary:
 		bed_size = _vec((bed as Dictionary).get("size", ""))
+	var shots: Variant = data.get("shots")
+	if shots is Dictionary:
+		shot_start = _transform((shots as Dictionary).get("start", ""))
+		shot_back = _transform((shots as Dictionary).get("back", ""))
+		has_shots = shot_start.origin.is_finite() and shot_back.origin.is_finite()
 	available = true
 	return ""
 

@@ -1371,6 +1371,15 @@ func action_reload_pose() -> String:
 	return "Reloaded the missionary posed base."
 
 
+## Debug: which missionary base pose is in charge, and where it actually put her.
+func action_show_pose_state() -> String:
+	if not is_instance_valid(active_runtime):
+		return "No act running."
+	var rows: Variant = active_runtime.call("pose_state_rows")
+	_debug_block("pose state", rows if rows is Array else [])
+	return "Pose state written to the debug log."
+
+
 ## Debug: clear the aimed or nearest mare's long-term act history.
 func action_reset_act_history() -> String:
 	if not is_instance_valid(player):

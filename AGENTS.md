@@ -263,6 +263,10 @@ neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
 - The JSON is exported, never hand-edited: pose `tools/pose_lab.tscn` in the editor, save the
   scene, then **Save pose** (or run `tools/pose_export.gd` headless). The exporter also checks a
   load round trip and the runtime application path, and `tools/` never ships.
+- The act's two shot positions are authored in the same scene as `ShotStart` (over her chest) and
+  `ShotBack` (over her pelvis, aimed at her vulva). Only their bed-relative **positions** are
+  exported; the runtime aims them at her live face and vulva. The lab's **Add shot cameras** button
+  creates a first guess from the pose. Without them the shot is derived from the live neck/vulva.
 
 ### Correction stack (fallback)
 
@@ -420,6 +424,15 @@ neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
   remains the game's flight key.
 
 ### Missionary shot
+
+With the authored base pose in charge the shot is a **slide along her body**: two bed-relative
+camera positions from the pose lab (`shots.start` over her chest, `shots.back` over her pelvis,
+derived from her live neck and vulva until they are authored), interpolated by the S lean, with the
+aim sliding from `missionary_face_point()` to `missionary_vulva_point()`. W overshoots up to 35 %
+past the start toward her head. The live offsets are `shot_forward`/`shot_height`/`shot_side`
+(default 0); the stack's `forward`/`height`/`side` tuning stays with the stack. `pullback` and
+`pitch_deg` are shared, the start lean is skipped, and `apply_framing` does nothing on this path
+(no frozen anchor, so nothing can accumulate). The rest of the section below is the stack's shot.
 
 - Mod-owned `UnfplapMissionaryView`, top-level, anchored at
   `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
@@ -1339,6 +1352,9 @@ examples.
   test both phases without waiting in-game days.
 - **Reload posed base**: re-read the hand-authored missionary base pose in place. A live act picks
   it up on its next frame; a bad file leaves the previous pose and reports the reason.
+- **Show pose state**: print which missionary base is in charge (authored or stack, with the reason
+  when it is the stack), the asset version/bone count/shot block, the bed frame, and where the live
+  pose put the hips, neck, head and hooves in world and bed space.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act while **Enable debug** is on. Neglect events log their warning/stop,
   tier, distress and dislike.
@@ -1633,8 +1649,8 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (Use posed base, body
-  motion, then a **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss**
-  and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  motion, Use free look, then **Neck angles** and **Posed base shot** subheadings), **Standing**
+  (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

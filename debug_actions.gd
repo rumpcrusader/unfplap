@@ -109,6 +109,11 @@ const ACTIONS := {
 		"row": "Neglect",
 		"short": "Stop",
 	},
+	"pose_state": {
+		"label": "Show pose state",
+		"help": "Print which missionary base pose is in charge and where it put her.",
+		"method": "action_show_pose_state",
+	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
 		"help": "Toggle the F10 skeleton overlay.",

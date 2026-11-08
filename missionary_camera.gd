@@ -43,6 +43,11 @@ var _missionary_last_view_pos := Vector3.INF
 var _missionary_last_head := Transform3D.IDENTITY
 var _missionary_camera_rebuilds := 0
 var _missionary_snap_ready := false
+## True when the hand-authored base pose owns the body; the shot is then built from the authored
+## shot positions and the live face/vulva aims instead of the frozen neck shot.
+var _authored_path := false
+## Last shot offsets written to the log, so a live edit is reported once.
+var _shot_offsets_logged := Vector3.INF
 var _missionary_aim_until := 0
 var _missionary_prev_camera: Camera3D
 var _missionary_player_rotation := Vector3.ZERO
@@ -403,6 +408,8 @@ func _sync() -> void:
 	_presentation_cfg = cfg if cfg is Dictionary else {}
 	var pose_cfg: Variant = runtime.get("_pose_cfg") if is_instance_valid(runtime) else null
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
+	_authored_path = is_instance_valid(runtime) and runtime.has_method("authored_base_active") \
+		and bool(runtime.call("authored_base_active"))
 
 
 func _init(runtime_node: Node = null) -> void:
@@ -416,6 +423,7 @@ func prepare() -> void:
 	_missionary_basis_logged = false
 	_snapshot_missionary_start()
 	_make_missionary_view()
+	_log_shot_setup()
 
 
 func reset_look() -> void:
@@ -437,15 +445,28 @@ func hide_avatar() -> void:
 
 func apply_framing() -> void:
 	_sync()
+	if _authored_path:
+		# The authored shot applies its offsets live every frame from the shot positions, so there
+		# is no frozen anchor to nudge and nothing can accumulate.
+		var shot := _shot_offsets()
+		if not shot.is_equal_approx(_shot_offsets_logged):
+			_shot_offsets_logged = shot
+			_log("missionary shot offsets forward=%.2f height=%.2f side=%.2f" % [
+				shot.x, shot.y, shot.z])
+		return
 	if not is_instance_valid(pony) or not _missionary_camera.is_finite():
 		return
 	var offsets := _missionary_camera_offsets()
 	if offsets.is_equal_approx(_missionary_camera_applied):
 		return
 	var delta := offsets - _missionary_camera_applied
-	_missionary_camera += -pony.global_basis.z.normalized() * delta.x
-	_missionary_camera.y += delta.y
-	_missionary_camera += pony.global_basis.x.normalized() * delta.z
+	if delta.length_squared() > 0.000001:
+		var from := _missionary_camera
+		_missionary_camera += -pony.global_basis.z.normalized() * delta.x
+		_missionary_camera.y += delta.y
+		_missionary_camera += pony.global_basis.x.normalized() * delta.z
+		_log("missionary framing delta=%s from=%s to=%s" % [
+			str(delta), str(from), str(_missionary_camera)])
 	_missionary_camera_applied = offsets
 	if _missionary_look_point.is_finite():
 		_missionary_view_basis = _missionary_aim_basis(_missionary_camera)
@@ -470,6 +491,13 @@ func tick() -> void:
 	var kiss: Variant = runtime.call("_kiss_controller")
 
 	if not is_instance_valid(pony):
+		return
+	if is_instance_valid(runtime) and runtime.has_method("free_look_active") \
+			and bool(runtime.call("free_look_active")):
+		_tick_free_look()
+		return
+	if _authored_path:
+		_tick_authored(kiss)
 		return
 	var body_scale := _missionary_body_scale()
 	var bed_top := _bed_surface_top()
@@ -558,9 +586,10 @@ func tick() -> void:
 		_missionary_camera_log_next = now + 100
 		var dot := (-_missionary_view.global_basis.z).dot(look_dir.normalized()) \
 			if look_dir.length_squared() > 0.000001 else 0.0
-		_log("missionary cam anchor=%s view=%s base_euler=%s target=%s dot=%.3f gaze=%.1f bed=%.2f pose=%.2f lean=%.2f/%.2f size=%s%.2f" % [
+		_log("missionary cam anchor=%s view=%s base_euler=%s target=%s aim=%s dot=%.3f gaze=%.1f bed=%.2f pose=%.2f lean=%.2f/%.2f size=%s%.2f" % [
 			str(_missionary_camera), str(_missionary_view.global_position),
-			str(_missionary_view_basis.get_euler()), str(_missionary_look_target()), dot,
+			str(_missionary_view_basis.get_euler()), str(_missionary_look_target()),
+			str(_missionary_look_target()), dot,
 			_missionary_gaze_error(), bed_top, runtime.call("_pose_basis_amount"),
 			float(runtime.get("_lean_view_forward")), float(runtime.get("_lean_view_side")), runtime.call("_size_name"), float(runtime.call("_size_scale"))])
 	if is_instance_valid(main) and bool(main.get("debug_logs")):
@@ -588,6 +617,172 @@ func tick() -> void:
 		_missionary_last_view_pos = _missionary_view.global_position
 		_missionary_snap_ready = true
 	return
+
+
+## Debug free look: copy the player camera into the act view so the pose can be inspected from
+## where Anon stands. Mouse look still works; the runtime stops feeding mouse motion into thrust.
+func _tick_free_look() -> void:
+	if not is_instance_valid(_missionary_view):
+		_make_missionary_view()
+	if not is_instance_valid(_missionary_view):
+		return
+	var source: Camera3D = main.camera() if is_instance_valid(main) else null
+	if not is_instance_valid(source):
+		return
+	_missionary_view.global_transform = source.global_transform
+	_missionary_view.fov = source.fov
+	_missionary_view.near = source.near
+	_missionary_view.far = source.far
+	_missionary_view.cull_mask = source.cull_mask
+	runtime.set("_camera_basis_ready", true)
+
+
+## The authored missionary shot. The eye slides along her body with the S lean: over her chest at
+## lean 0, over her pelvis at max S. The aim slides with it, from her live face to her vulva, so the
+## two ends are the lab's authored camera positions and only the faces are live. W pushes a little
+## past the start toward her head.
+func _tick_authored(kiss: Variant) -> void:
+	if not is_instance_valid(_missionary_view):
+		_make_missionary_view()
+	if not is_instance_valid(_missionary_view):
+		return
+	var scale := _missionary_body_scale()
+	var start := _shot_position(true, scale)
+	var back := _shot_position(false, scale)
+	if not start.is_finite() or not back.is_finite():
+		return
+	var face: Vector3 = runtime.call("missionary_face_point")
+	if not face.is_finite():
+		face = _missionary_look_target()
+	var vulva: Vector3 = runtime.call("missionary_vulva_point")
+	if not vulva.is_finite():
+		vulva = face
+	var lean_forward := float(runtime.get("_lean_view_forward"))
+	var lean_side := float(runtime.get("_lean_view_side"))
+	var lean_scale: float = float(runtime.call("_lean_size_scale"))
+	var amount := clampf(-lean_forward, -0.35, 1.0)
+	var slide := clampf(amount, 0.0, 1.0)
+	var pos := start.lerp(back, slide)
+	if amount < 0.0:
+		pos += (start - back) * (-amount) * 0.35
+	var aim := face.lerp(vulva, slide)
+	var offsets := _shot_offsets()
+	if offsets.length_squared() > 0.000001:
+		pos += -_bed_back_direction() * offsets.x * scale \
+			+ Vector3.UP * offsets.y * scale + _bed_side_direction() * offsets.z * scale
+	_missionary_camera = pos
+	var direction := aim - pos
+	if direction.length_squared() < 0.000001:
+		return
+	var basis := Basis.looking_at(direction.normalized(), Vector3.UP)
+	var lean := Basis.from_euler(Vector3(
+		-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(lean_forward) * lean_scale,
+		-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * lean_side * lean_scale,
+		(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * lean_side
+			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * lean_forward) * lean_scale))
+	var view_basis := basis * _missionary_pitch_basis() * lean
+	var at := pos + Vector3.UP * float(runtime.get("_bob"))
+	at += view_basis.z * _missionary_pullback()
+	# The speed-driven surge runs along the mattress toward her head; a side lean travels with it.
+	at += _bed_head_direction() * (float(runtime.get("_lean")) + _missionary_side_lean_forward())
+	at += view_basis.x * kiss.lateral_offset(lean_scale)
+	at.y -= kiss.lean_drop() * kiss.lean()
+	var top := _bed_surface_top()
+	if is_finite(top):
+		at.y = maxf(at.y, top + 0.10 * scale)
+	_missionary_view.global_position = at
+	_missionary_view.global_basis = view_basis
+	runtime.set("_camera_basis_ready", true)
+
+
+## The authored shot's live offsets (their own settings, so the stack's tuning is untouched).
+func _shot_offsets() -> Vector3:
+	return Vector3(
+		float(_presentation_cfg.get("shot_forward", 0.0)),
+		float(_presentation_cfg.get("shot_height", 0.0)),
+		float(_presentation_cfg.get("shot_side", 0.0)))
+
+
+## One end of the authored shot in world space: the lab's bed-relative camera position when the
+## asset carries one, otherwise a position worked out from her live neck and vulva.
+func _shot_position(start: bool, scale: float) -> Vector3:
+	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
+	var frame: Variant = _bed_frame()
+	if asset != null and frame is Transform3D and bool(asset.get("has_shots")):
+		var shot: Transform3D = asset.get("shot_start") if start else asset.get("shot_back")
+		shot.origin *= scale
+		return (frame as Transform3D) * shot.origin
+	var rump := _bed_back_direction()
+	if start:
+		var neck: Vector3 = runtime.call("_neck_midpoint")
+		if neck.is_finite():
+			return neck + Vector3.UP * 0.35 * scale + rump * 0.75 * scale
+		return Vector3.INF
+	var vulva: Vector3 = runtime.call("missionary_vulva_point")
+	if vulva.is_finite():
+		return vulva + Vector3.UP * 0.35 * scale + rump * 0.30 * scale
+	return Vector3.INF
+
+
+func _bed_frame() -> Variant:
+	if is_instance_valid(runtime):
+		var frame: Variant = runtime.get("_bed_pose_frame")
+		if frame is Transform3D:
+			return frame
+	return null
+
+
+## Horizontal directions of the pose frame: her head, her rump, her side.
+func _bed_head_direction() -> Vector3:
+	var frame: Variant = _bed_frame()
+	if frame is Transform3D:
+		var dir: Vector3 = (frame as Transform3D).basis.z
+		dir.y = 0.0
+		if dir.length_squared() > 0.0001:
+			return dir.normalized()
+	return -_bed_back_direction()
+
+
+func _bed_back_direction() -> Vector3:
+	var frame: Variant = _bed_frame()
+	if frame is Transform3D:
+		var dir: Vector3 = -((frame as Transform3D).basis.z)
+		dir.y = 0.0
+		if dir.length_squared() > 0.0001:
+			return dir.normalized()
+	var back: Vector3 = pony.global_basis.z if is_instance_valid(pony) else Vector3.BACK
+	back.y = 0.0
+	return back.normalized() if back.length_squared() > 0.0001 else Vector3.BACK
+
+
+func _bed_side_direction() -> Vector3:
+	var frame: Variant = _bed_frame()
+	if frame is Transform3D:
+		var dir: Vector3 = (frame as Transform3D).basis.x
+		dir.y = 0.0
+		if dir.length_squared() > 0.0001:
+			return dir.normalized()
+	var side: Vector3 = pony.global_basis.x if is_instance_valid(pony) else Vector3.RIGHT
+	side.y = 0.0
+	return side.normalized() if side.length_squared() > 0.0001 else Vector3.RIGHT
+
+
+## One line at act start: which camera path is in charge and the authored shot ends.
+func _log_shot_setup() -> void:
+	if not is_instance_valid(main) or not bool(main.get("debug_logs")):
+		return
+	if not _authored_path:
+		_log("missionary camera path=stack anchor=%s offsets=%s" % [
+			str(_missionary_camera), str(_missionary_camera_offsets())])
+		return
+	var scale := _missionary_body_scale()
+	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
+	var source := "derived"
+	if asset != null and bool(asset.get("has_shots")):
+		source = "asset"
+	_log("missionary camera path=authored shots=%s start=%s back=%s offsets=%s" % [
+		source, str(_shot_position(true, scale)), str(_shot_position(false, scale)),
+		str(_shot_offsets())])
 
 
 func _log(text: String) -> void:

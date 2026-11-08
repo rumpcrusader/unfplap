@@ -37,6 +37,14 @@ const WINK_ANAL_TO_Y := 0.050
 ## How open a heat mare rests between winks, as a share of the authored wink shape.
 const HEAT_REST_OPEN := 0.20
 const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
+## The V2 mesh owns the anus, so its ring centre is not the old cup's ANAL_OPENING. These are
+## the measured outer-ring centres (Godot mesh local) at each additive anal key.
+const V2_ANAL_RING_BASE := Vector3(0.00275, 0.06314, 0.01908)
+const V2_ANAL_RING_OPEN := Vector3(0.00262, 0.06183, 0.01908)
+const V2_ANAL_RING_STRETCH := Vector3(0.00272, 0.06286, 0.01908)
+const V2_ANAL_RING_OVER := Vector3(0.00279, 0.05955, 0.01908)
+const V2_ANAL_RING_EXTREME := Vector3(0.00303, 0.03996, 0.03310)
+const V2_ANAL_RING_PONUT := Vector3(0.00296, 0.06515, 0.03310)
 const WINKING_HALF_HEIGHT := 0.0854
 const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
@@ -127,6 +135,8 @@ var _lip_radius := 0.03
 var _v2_anal := false
 ## Last anal opening radius in mesh units; re-applied when the ponut scale changes.
 var _anal_local := 0.0
+## Current V2 ring centre in mesh local, tracked through the additive anal keys.
+var _anal_mouth := V2_ANAL_RING_BASE
 ## Anon's shaft, published every frame for the collision projection.
 var _shaft_pivot := Vector3.ZERO
 var _shaft_axis := Vector3.ZERO
@@ -303,6 +313,7 @@ func _attach() -> void:
 	_mesh = mesh
 	_mare_bits_path_loaded = selected
 	_v2_anal = selected == MARE_BITS_V2_PATH
+	_anal_mouth = V2_ANAL_RING_BASE
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
@@ -352,8 +363,8 @@ func _process(delta: float) -> void:
 		return
 	_visibility_clock = VISIBILITY_POLL_S
 	_apply_place()
-	_apply_body_coat()
 	_apply_anal_shape(_anal_local)
+	_apply_body_coat()
 	_apply_strip_scale()
 	var started := Time.get_ticks_usec()
 	_apply_visibility()
@@ -675,7 +686,10 @@ func _apply_body_coat_uniforms() -> void:
 	var still_centre := centre + up_axis * (SETTINGS.still_height_mm.get_num() / 1000.0)
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
-	var anal_still_centre := BODY_ANAL_CENTRE
+	var anal_centre := BODY_ANAL_CENTRE
+	if _v2_anal:
+		anal_centre = body_local_point(_hips_bind, _mesh.transform, _anal_mouth)
+	var anal_still_centre := anal_centre
 	var anal_still_radius := anal_still_radius_for(ANAL_LIP, ANAL_OUTER_FACTOR, scale,
 		SETTINGS.anal_still.get_num())
 	_zone_vulva_centre = still_centre
@@ -690,7 +704,7 @@ func _apply_body_coat_uniforms() -> void:
 		if not is_instance_valid(material):
 			continue
 		var mat := material as ShaderMaterial
-		mat.set_shader_parameter("body_coat_anal_centre", BODY_ANAL_CENTRE)
+		mat.set_shader_parameter("body_coat_anal_centre", anal_centre)
 		mat.set_shader_parameter("body_coat_anal_scale", anal_scale)
 		mat.set_shader_parameter("body_coat_anal_reach", BODY_ANAL_REACH)
 		mat.set_shader_parameter("body_coat_vulva_centre", centre)
@@ -947,8 +961,8 @@ func apply_live() -> void:
 		_reload_mare_bits_mesh()
 	_apply_material()
 	_apply_place()
-	_apply_body_coat()
 	_apply_anal_shape(_anal_local)
+	_apply_body_coat()
 	_apply_visibility()
 
 
@@ -980,6 +994,7 @@ func _reload_mare_bits_mesh() -> void:
 	_mare_bits_path_loaded = selected
 	_v2_anal = selected == MARE_BITS_V2_PATH
 	_anal_local = 0.0
+	_anal_mouth = V2_ANAL_RING_BASE
 	_lip_radius = _measure_lip_radius()
 	_apply_winking_shape()
 	_apply_anal_shape(0.0)
@@ -1015,6 +1030,7 @@ func detach() -> void:
 	_teats_jiggle = null
 	_v2_anal = false
 	_anal_local = 0.0
+	_anal_mouth = V2_ANAL_RING_BASE
 	if is_instance_valid(_mesh):
 		var anchor := _mesh.get_parent()
 		_mesh.queue_free()
@@ -1065,7 +1081,8 @@ func anal_mesh() -> MeshInstance3D:
 
 
 func hole_local(mix: float) -> Vector3:
-	return WINKING_OPENING.lerp(ANAL_OPENING, mix)
+	var anal := _anal_mouth if _v2_anal else ANAL_OPENING
+	return WINKING_OPENING.lerp(anal, mix)
 
 
 func hole_point(mix: float) -> Vector3:
@@ -1074,7 +1091,7 @@ func hole_point(mix: float) -> Vector3:
 	var point := _mesh.global_transform * WINKING_OPENING
 	if not _v2_anal:
 		return point
-	return point.lerp(_mesh.global_transform * ANAL_OPENING, clampf(mix, 0.0, 1.0))
+	return point.lerp(_mesh.global_transform * _anal_mouth, clampf(mix, 0.0, 1.0))
 
 
 func hole_rear(mix := 0.0) -> Vector3:
@@ -1317,6 +1334,12 @@ func _apply_anal_shape(local: float) -> void:
 	# The ponut key is a 2x scale, so the setting maps 0.5..1.5 to -0.5..0.5 weight.
 	# Negative weights shrink the mound; the extreme key already carries its own 2x scale.
 	var ponut := (SETTINGS.anal_scale.get_num() - 1.0) * (1.0 - extreme)
+	_anal_mouth = V2_ANAL_RING_BASE \
+		+ (V2_ANAL_RING_OPEN - V2_ANAL_RING_BASE) * open \
+		+ (V2_ANAL_RING_STRETCH - V2_ANAL_RING_OPEN) * stretch \
+		+ (V2_ANAL_RING_OVER - V2_ANAL_RING_STRETCH) * over \
+		+ (V2_ANAL_RING_EXTREME - V2_ANAL_RING_OVER) * extreme \
+		+ (V2_ANAL_RING_PONUT - V2_ANAL_RING_BASE) * ponut
 	for pair: Array in [["anal_open", open], ["anal_stretch", stretch],
 			["anal_overstretch", over], ["anal_extreme", extreme],
 			["ponut_scale", ponut]]:

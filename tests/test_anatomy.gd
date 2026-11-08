@@ -248,6 +248,8 @@ func run() -> void:
 					clits += 1
 		check(folds > 500, "the V2 inner folds keep their mask")
 		check(clits > 200, "the V2 clitoris keeps its mask")
+		get_root().add_child(v2_mi)
+		v2_mi.transform = Transform3D.IDENTITY
 		var v2_anatomy: Node = ANATOMY.new()
 		v2_anatomy.set("_mesh", v2_mi)
 		v2_anatomy.set("_v2_anal", true)
@@ -264,6 +266,16 @@ func run() -> void:
 			"30 mm reaches the V2 overstretch")
 		check(near(v2_mi.get_blend_shape_value(extreme_i), 0.0714, 0.002),
 			"30 mm starts the V2 extreme")
+		var mouth: Vector3 = v2_anatomy.get("_anal_mouth")
+		check(mouth.y < 0.062 and mouth.y > 0.041,
+			"30 mm tracks the V2 ring down from the old cup point")
+		v2_anatomy.call("_apply_anal_shape", 0.056)
+		mouth = v2_anatomy.get("_anal_mouth")
+		check(near(mouth.y, ANATOMY.V2_ANAL_RING_EXTREME.y, 0.001),
+			"56 mm puts the anal aim on the extreme ring")
+		var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
+		check(aim.distance_to(v2_mi.global_transform * ANATOMY.V2_ANAL_RING_EXTREME) < 0.0001,
+			"the anal act aims at the deformed V2 ring")
 		v2_anatomy.free()
 		v2_root.free()
 

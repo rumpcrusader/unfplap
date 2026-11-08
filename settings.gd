@@ -939,6 +939,16 @@ static var anal_still := num("anal_still", "anatomy.anal_still", 1.0,
 	"Multiplier for the no-jiggle zone around the visible ponut. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
+static var still_oval := num("still_oval", "anatomy.still_oval", 0.7,
+	"Still zone oval",
+	"Vertical half-axis of both still zones as a share of the lateral one. Lower makes them flatter.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.05).with_range(0.2, 1.5) \
+	.as_debug()
+static var still_fade := num("still_fade", "anatomy.still_fade", 0.25,
+	"Still zone fade",
+	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \
+	.as_debug()
 
 # ======================================================== World
 

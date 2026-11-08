@@ -286,6 +286,8 @@ func run() -> void:
 	# those hooks is left alone instead of being half-patched.
 	check(not SETTINGS.body_coat_deform.get_bool(), "body coat deform is off by default")
 	check(near(SETTINGS.anal_still.get_num(), 1.0), "anal still zone is on by default")
+	check(near(SETTINGS.still_oval.get_num(), 0.7), "still zones are flatter than they are wide")
+	check(near(SETTINGS.still_fade.get_num(), 0.25), "still zones fade over a quarter of their radius")
 	var expected_radius := maxf(0.022 * 2.2 * 0.742 * 1.3, 0.045)
 	check(near(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0), expected_radius),
 		"anal still radius follows the cup's outer ring")

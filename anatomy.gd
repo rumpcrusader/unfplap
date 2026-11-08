@@ -746,6 +746,7 @@ func _apply_body_coat_uniforms() -> void:
 		return
 	var scale := maxf(_mesh.transform.basis.get_scale().x, 0.0001)
 	var centre := body_local_point(_hips_bind, _mesh.transform, WINKING_OPENING)
+	var right_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.RIGHT)
 	var out_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.BACK)
 	var up_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.UP)
 	var spread := maxf(_hole_target / maxf(_lip_radius, 0.004), 1.0)
@@ -781,6 +782,10 @@ func _apply_body_coat_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_still_radius", still_radius)
 		mat.set_shader_parameter("body_coat_anal_still_centre", anal_still_centre)
 		mat.set_shader_parameter("body_coat_anal_still_radius", anal_still_radius)
+		mat.set_shader_parameter("body_coat_still_right", right_axis)
+		mat.set_shader_parameter("body_coat_still_up", up_axis)
+		mat.set_shader_parameter("body_coat_still_oval", SETTINGS.still_oval.get_num())
+		mat.set_shader_parameter("body_coat_still_fade", SETTINGS.still_fade.get_num())
 
 
 ## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig

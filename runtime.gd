@@ -427,6 +427,8 @@ var _lean_view_forward := 0.0
 var _lean_view_side := 0.0
 ## Idle breathing, added on top of the displayed lean by the shot (never folded into it).
 var _lean_sway := 0.0
+## One-shot per act: the lean input was blocked, and why.
+var _lean_block_logged := false
 var _side_return_armed := false
 var _hold_rock_clock := 0.0
 var _lean_action_active := false
@@ -5168,6 +5170,11 @@ func _lean_tick(delta: float) -> void:
 		return
 	if not _free_camera_active or _player_pony or _headset_view() or get_tree().paused \
 			or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		if not _lean_block_logged and state in [State.ACTIVE, State.CLIMAX]:
+			_lean_block_logged = true
+			_log("lean blocked: free=%s pony=%s headset=%s paused=%s mouse=%d" % [
+				str(_free_camera_active), str(_player_pony), str(_headset_view()),
+				str(get_tree().paused), Input.mouse_mode])
 		_caress_controller().stop_inputs()
 		_end_lean_action()
 		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -5217,6 +5224,7 @@ func _lean_tick(delta: float) -> void:
 	# HOLD_SWAY_FORWARD / (1 - exp(-CAMERA_INERTIA_SMOOTH * delta)), about twelve times the
 	# intended amount) so the shot crept when nobody was leaning.
 	_lean_sway = 0.0
+	_lean_block_logged = false
 	if _feature("idle_camera_sway"):
 		_hold_rock_clock += delta
 		_lean_sway = sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD

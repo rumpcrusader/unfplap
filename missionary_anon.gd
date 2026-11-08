@@ -8,11 +8,15 @@ extends Node
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
+const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
 
 ## The upper-body chain the lean bends, with the share of the lean each bone takes. Everything below
 ## the spine stays with the authored pose.
 const LEAN_CHAIN := [["Spine", 0.20], ["Chest", 0.30], ["UpperChest", 0.20], ["Neck", 0.15],
 	["Head", 0.15]]
+## Share of the stroke offset lifted straight up, so the pelvis rides up her body instead of only
+## driving along the mattress.
+const HIP_UP_SHARE := 0.25
 
 var runtime: Node
 var main: Variant
@@ -37,6 +41,7 @@ var _scale := Vector3.ONE
 var _eye_rel := Transform3D.IDENTITY
 var _eye_saved := false
 var _eye_logged := false
+var _lean_logged := false
 var _indices: Dictionary = {}
 var _index_skeleton := 0
 
@@ -121,30 +126,26 @@ func remove() -> void:
 	_index_skeleton = 0
 
 
-## Place and pose him from the asset, once per displayed frame.
+## Place and pose him from the asset, once per displayed frame. The authored bones are written
+## first, then the stroke and the lean on top of them, or the asset would wipe both.
 func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if not active or not is_instance_valid(avatar) or not is_instance_valid(skeleton):
 		return
 	var pose: Variant = AUTHORED.shared()
 	if not bool(pose.get("available")):
 		return
-	# His body's path is authored as two bed-space placements (`anon.travel`): pulled out and fully
-	# in. Without them he sits at the authored neutral placement and the alignment below supplies the
-	# whole stroke on its own.
 	var placement: Transform3D = pose.get("anon_frame")
+	# The authored stroke path (`anon.travel`, pulled out to fully in) moves his *pelvis*, not his
+	# body: his head is the act camera, so sliding the whole body would swing the view on every
+	# thrust. Graded below with the alignment offset.
+	var stroke := Vector3.ZERO
 	if pose.has_method("travel_at"):
 		var travel: Variant = pose.call("travel_at", _depth())
 		if travel is Transform3D:
-			placement = travel
+			stroke = (travel as Transform3D).origin - placement.origin
 	placement.origin *= body_scale
 	var placed: Transform3D = bed_frame * placement
-	# The attached alignment asks for the pelvis offset that puts the shaft in her. The part is a
-	# child of his Hips bone, so moving his body moves the part with it.
-	var offset := _hip_offset()
-	placed.origin += offset
 	avatar.global_transform = Transform3D(placed.basis * Basis.from_scale(_scale), placed.origin)
-	_note_hip_offset(offset)
-	_apply_lean(placed)
 	# The presentation parks the body every tick (invisible, processing off); the act needs it shown
 	# and its skeleton updating, and its own IK/driver are already neutralised.
 	if not avatar.visible:
@@ -152,16 +153,58 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if avatar.process_mode != Node.PROCESS_MODE_INHERIT:
 		avatar.process_mode = Node.PROCESS_MODE_INHERIT
 	var bones: Dictionary = pose.get("anon_bones")
-	if bones.is_empty():
+	if not bones.is_empty():
+		_cache_indices(bones)
+		for key: Variant in _indices:
+			var entry: Variant = bones.get(key)
+			if not (entry is Dictionary):
+				continue
+			var bone := int(_indices[key])
+			skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
+			skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
+	# The attached alignment asks for the pelvis offset that puts the shaft in her; the authored
+	# path adds to it. Both reach the hips first and fade out up the spine, with the neck, head and
+	# planted legs pinned, so his shoulders and the camera move much less than his pelvis.
+	var offset: Vector3 = bed_frame.basis * (stroke * body_scale) + _hip_offset()
+	if offset.length_squared() > 0.0000001:
+		offset += Vector3.UP * (offset.length() * HIP_UP_SHARE)
+	_apply_hip_motion(offset)
+	_note_hip_offset(offset)
+	_apply_lean(placed)
+
+
+## Carry the pelvis on the stroke: the hips take the whole offset, the waist a graded share, and the
+## neck, head and both planted legs are restored so the knees and the view stay put (`anon_hip_thrust`
+## grades). Moving his whole body instead swung the eye on every thrust.
+func _apply_hip_motion(offset_world: Vector3) -> void:
+	if offset_world.length_squared() < 0.0000001 or not is_instance_valid(skeleton):
 		return
-	_cache_indices(bones)
-	for key: Variant in _indices:
-		var entry: Variant = bones.get(key)
-		if not (entry is Dictionary):
+	var hips := skeleton.find_bone("Hips")
+	if hips < 0:
+		return
+	var local := skeleton.global_transform.affine_inverse().basis * offset_world
+	var before := {}
+	for name: String in HIP.GRADES:
+		var bone := skeleton.find_bone(name)
+		if bone >= 0:
+			before[name] = skeleton.get_bone_global_pose(bone)
+	var pinned := {}
+	for name: String in HIP.PINNED:
+		var bone := skeleton.find_bone(name)
+		if bone >= 0:
+			pinned[name] = skeleton.get_bone_global_pose(bone)
+	var hip_pose: Transform3D = skeleton.get_bone_global_pose(hips)
+	hip_pose.origin += local
+	skeleton.set_bone_global_pose(hips, hip_pose)
+	for name: String in HIP.GRADES:
+		if not before.has(name):
 			continue
-		var bone := int(_indices[key])
-		skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
-		skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
+		var pose: Transform3D = before[name]
+		pose.origin += local * float(HIP.GRADES[name])
+		skeleton.set_bone_global_pose(skeleton.find_bone(name), pose)
+	for name: String in HIP.PINNED:
+		if pinned.has(name):
+			skeleton.set_bone_global_pose(skeleton.find_bone(name), pinned[name])
 
 
 ## Bend his chest and neck with the act's lean, leaving his hips and legs on the authored pose. The
@@ -177,6 +220,10 @@ func _apply_lean(placed: Transform3D) -> void:
 		return
 	var scale: Variant = runtime.call("_lean_size_scale")
 	var lean_scale := float(scale) if scale is float or scale is int else 1.0
+	if not _lean_logged:
+		_lean_logged = true
+		_log("anon lean fwd=%.2f side=%.2f scale=%.2f" % [
+			lean_forward, lean_side, lean_scale])
 	# His body is lying, so the nod and the turn are the bed's own axes: nod along the mattress,
 	# turn about the mattress normal. Both are converted into skeleton space once.
 	var to_sk := skeleton.global_basis.inverse()

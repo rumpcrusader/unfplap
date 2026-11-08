@@ -353,6 +353,18 @@ func _attach() -> void:
 	set_process(true)
 	_apply_visibility()
 	_log("anatomy attached lift=%.3f dock_bottom=%.3f" % [_lift, _dock_bottom])
+	if _v2_anal and _mesh.mesh is ArrayMesh:
+		var arrays: Array = (_mesh.mesh as ArrayMesh).surface_get_arrays(0)
+		var cols: Variant = arrays[Mesh.ARRAY_COLOR]
+		var a1 := 0
+		var a05 := 0
+		if cols != null:
+			for c: Color in cols:
+				if c.a > 0.9:
+					a1 += 1
+				elif c.a > 0.4:
+					a05 += 1
+		_log("V2 colour mask a1=%d a05=%d path=%s" % [a1, a05, _mare_bits_path_loaded])
 
 
 ## A stock flank smack (outside the act) never reaches the runtime's thrust/smack path, and
@@ -738,8 +750,9 @@ func _apply_body_coat_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_anal_depth",
 			SETTINGS.anal_body_depth_mm.get_num() / 1000.0 * (1.0 + anal_extreme))
 		# Keep the body under the V2 lip: the indent must not reach past the outer lip.
+		# Slightly wider than the shaft; the extra 3 mm side lip flange covers the wall.
 		mat.set_shader_parameter("body_coat_anal_hole_reach",
-			maxf(_anal_local, ANAL_OPEN_R) * scale)
+			(maxf(_anal_local, ANAL_OPEN_R) + 0.0015) * scale)
 		mat.set_shader_parameter("body_coat_vulva_centre", centre)
 		mat.set_shader_parameter("body_coat_vulva_out", out_axis)
 		mat.set_shader_parameter("body_coat_vulva_scale", spread)

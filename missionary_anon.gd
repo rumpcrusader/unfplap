@@ -29,10 +29,13 @@ var _driver: Variant
 var _avatar_visible := true
 var _avatar_process := Node.PROCESS_MODE_INHERIT
 var _scale := Vector3.ONE
-## The game's own eye offset relative to the head bone, captured before the act poses him, so the
-## act camera sits exactly where the desktop camera does for this body.
+## The game's own eye offset from the head bone: `anon_body.gd` puts the camera at the head joint
+## offset by `head_offset` (less `desktop_body_forward`) and turns it by `REST_FACING`. Built from
+## those values rather than read off the live camera, because the live camera is still the reclined
+## bed view when the act installs and its pitch would be baked into the eye.
 var _eye_rel := Transform3D.IDENTITY
 var _eye_saved := false
+var _eye_logged := false
 var _indices: Dictionary = {}
 var _index_skeleton := 0
 
@@ -69,14 +72,18 @@ func install(runtime_node: Node) -> bool:
 		_leg_hide = legs as SkeletonModifier3D
 		_leg_hide_influence = _leg_hide.influence
 		_leg_hide.influence = 0.0
-	# The desktop camera relative to the head bone, taken from the game's own body before the act
-	# moves anything. The act camera then follows the posed head rigidly.
-	var head := skeleton.find_bone("Head")
-	var camera: Variant = main.camera() if is_instance_valid(main) else null
-	if head >= 0 and camera is Camera3D:
-		_eye_rel = (skeleton.global_transform * skeleton.get_bone_global_pose(head)).affine_inverse() \
-			* (camera as Camera3D).global_transform
-		_eye_saved = true
+	# The desktop eye relative to the head bone, from the body's own values. `REST_FACING` is a
+	# 180° yaw, so its inverse is itself.
+	var offset: Variant = avatar.get("head_offset")
+	var head_offset: Vector3 = offset if offset is Vector3 else Vector3(0, -0.089, 0.083)
+	var forward: Variant = avatar.get("desktop_body_forward")
+	if forward is float or forward is int:
+		head_offset.z -= float(forward)
+	var scale_value: Variant = avatar.get("model_scale")
+	var model_scale := float(scale_value) if scale_value is float or scale_value is int else 1.0
+	var facing := Basis(Vector3.UP, PI)
+	_eye_rel = Transform3D(facing, -(facing * head_offset * model_scale))
+	_eye_saved = true
 	avatar.visible = true
 	active = true
 	return true
@@ -184,7 +191,18 @@ func eye_transform() -> Variant:
 	var head_world := skeleton.global_transform * skeleton.get_bone_global_pose(head)
 	if not _eye_saved:
 		return head_world
-	return head_world * _eye_rel
+	var eye := head_world * _eye_rel
+	if not _eye_logged:
+		_eye_logged = true
+		_log("anon eye head=%s facing=%s offset=%s eye=%s" % [
+			str(head_world), str(head_world.basis * Basis(Vector3.UP, PI)),
+			str(_eye_rel.origin), str(eye)])
+	return eye
+
+
+func _log(text: String) -> void:
+	if is_instance_valid(runtime) and runtime.has_method("_log"):
+		runtime.call("_log", text)
 
 
 ## The act's depth, 0 (pulled out) to 1 (full).

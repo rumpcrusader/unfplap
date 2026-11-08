@@ -289,6 +289,8 @@ func run() -> void:
 	check(near(SETTINGS.anal_still.get_num(), 1.0), "anal still zone is on by default")
 	check(near(SETTINGS.still_oval.get_num(), 0.7), "still zones are flatter than they are wide")
 	check(near(SETTINGS.still_fade.get_num(), 0.25), "still zones fade over a quarter of their radius")
+	check(near(SETTINGS.still_height_mm.get_num(), -11.0),
+		"the vulva still zone sits 11 mm under the opening by default")
 	check(not SETTINGS.draw_still_zones.get_bool(), "still-zone debug rings are off by default")
 	var zones := STILL_ZONES.new()
 	root.add_child(zones)

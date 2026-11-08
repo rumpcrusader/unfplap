@@ -949,6 +949,12 @@ static var still_fade := num("still_fade", "anatomy.still_fade", 0.25,
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \
 	.as_debug()
+static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm", -11.0,
+	"Still zone height",
+	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",
+	ANATOMY, "Holes") \
+	.with_unit("mm").with_step(0.5).with_range(-50.0, 50.0) \
+	.as_debug()
 static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zones", false,
 	"Draw still zones",
 	"Overlay the vulva and visible-ponut still-zone ellipsoids on the body coat.",

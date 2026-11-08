@@ -525,7 +525,8 @@ body-relative axes.
   are separate: the cup centre is `_anal_mesh.transform * ANAL_OPENING` mapped through the hips
   bind, so placement, `anal_height_mm` and the genital yaw carry through. Both zones are
   ellipsoids in the anatomy's body-local frame; `still_oval` flattens them vertically and
-  `still_fade` widens the rim blend.
+  `still_fade` widens the rim blend. `still_height_mm` moves only the vulva zone; the anal zone
+  follows the visible cup.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -1427,7 +1428,8 @@ rump blush. Unknown settings keys are ignored.
   `jiggle_still` (debug: no-jiggle zone around the vulva, 1×; 0 turns it off),
   `anal_still` (debug: the same zone around the visible ponut, 1×; 0 turns it off),
   `still_oval` (debug: vertical half-axis of both still zones, 0.7× the lateral one),
-  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.25) and
+  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.25),
+  `still_height_mm` (debug: vertical placement of the vulva still zone, default −11 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
   and the player-part
   controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),

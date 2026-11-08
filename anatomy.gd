@@ -73,8 +73,7 @@ const VULVA_RELIEF_M := 0.002
 ## The no-jiggle zone never goes below this body-local radius, so a small vulva still has a
 ## stable still patch instead of a pinprick.
 const JIGGLE_STILL_MIN_M := 0.05
-## The still zone sits slightly under the opening, where the anatomy meets the body coat.
-const JIGGLE_STILL_DROP_M := 0.011
+
 ## integration: global placement calibrated on Fluttershy. The rump crease is the body's x = 0
 ## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
 const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.286)
@@ -764,7 +763,7 @@ func _apply_body_coat_uniforms() -> void:
 	spread = 1.0 + (spread - 1.0) * SETTINGS.coat_spread.get_num()
 	var reach := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.1, 0.02)
 	var depth := (spread - 1.0) * VULVA_RELIEF_M
-	var still_centre := centre - up_axis * JIGGLE_STILL_DROP_M
+	var still_centre := centre + up_axis * (SETTINGS.still_height_mm.get_num() / 1000.0)
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
 	var anal_still_centre := BODY_ANAL_CENTRE

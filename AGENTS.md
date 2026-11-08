@@ -477,7 +477,7 @@ body-relative axes.
 - Strong thrusts (`strength >= 0.55`) build a subtle rump blush decal by `0.0525` per thrust,
   capped at `0.375` (the smack decal uses `0.8`). It decays at `0.006`/s and is removed at act
   end.
-- Base posture adds `chin_up_deg = 30` (head) and `neck_down_deg = 15` total (neck1/neck2), giving
+- Base posture adds `chin_up_deg = 30` (head) and `neck_down_deg = 30` total (neck1/neck2), giving
   the chin-up, snout-reaching S-curve. The debug chin modifier remains additive.
 - `foreleg_spread` is the absolute outward half-angle from the body centreline. The default
   `0.172 rad` matches the current rest placement; `_spread_fore()` measures the current hoof line
@@ -1072,14 +1072,14 @@ examples.
 - Heat also quarters the offer cooldown (`HEAT_COOLDOWN = 0.25`), overrides the privacy reserve, and
   adds the heat sentence to the ask prompt.
 - Outside an active act, a heat mare with the anatomy shown idles: `anatomy.gd` winks every
-  `anatomy.wink_min_s..anatomy.wink_max_s` (default 15-20 s), rolling 70% single, 25% double, 5%
+  `anatomy.wink_min_s..anatomy.wink_max_s` (default 17-34 s), rolling 70% single, 25% double, 5%
   triple from `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a
   short hold and an accelerated close. `anatomy.wink_open_min`..`anatomy.wink_open_max` set the
   opening range and `anatomy.wink_timing` scales the three phase times. At the first beat's peak,
   when the clitoris has finished travelling outward, the burst shoots one or more
   `climax_fluid.spray()` droplets from the vulva opening along the ground, under the fluid node's
   gravity, scaled by `anatomy.drip` (0 turns it off), `anatomy.fluid_size` and
-  `anatomy.fluid_alpha`. The vertical launch speed is `anatomy.fluid_y_speed` (default −0.15 m/s,
+  `anatomy.fluid_alpha`. The vertical launch speed is `anatomy.fluid_y_speed` (default −0.03 m/s,
   unbounded). The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
   mesh is far or `anatomy.anatomy_mode` hides it.
@@ -1091,7 +1091,7 @@ examples.
   the `closed` and `stretch` keys; `wink` is V2-only and moves the clitoris, not the lips. The
   idle heat wink therefore drives `closed` from 1 toward 0 and `wink` with the same amount: the
   lips carry the opening on both models, and the V2 clitoris adds its accent. A heat mare rests at
-  `anatomy.heat_rest_open` (default 0.20) of the way from that closed pose toward the open pose,
+  `anatomy.heat_rest_open` (default 0.3) of the way from that closed pose toward the open pose,
   and each idle wink crossfades toward the open shape and back. The shader depth cut is the act's
   shaft solve only: it pulls the pink interior toward the camera, and the clitoris sits in that
   mask, so `set_idle_wink` suppresses the cut while it owns the shapes. `tools/winking_glb.gd`
@@ -1402,8 +1402,8 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
 | `anatomy.anatomy_mode` | `never` | pill: `never`, `act` (only while an act runs) or `always`; anything but `never` attaches the anatomy and its pose keys |
 | `anatomy_holes` | `true` | `V` hole switch and the anal cup (General) |
-| `anatomy_oral` | `true` | `N` standing oral and its neck motion (General) |
-| `anatomy_finish` | `true` | `B` finish in/out and inside/outside afterglow (General) |
+| `anatomy_oral` | `false` | `N` standing oral and its neck motion (General) |
+| `anatomy_finish` | `false` | `B` finish in/out and inside/outside afterglow (General) |
 | `anatomy_fluid` | `true` | climax and finish droplets |
 | `anatomy_bed_body` | `true` | Anon bed body and eye view (General) |
 | `anatomy_vr` | `true` | VR act (General) |
@@ -1420,35 +1420,36 @@ Always on: standing afterglow stay-close window, lean-camera inertia smoothing a
 rump blush. Unknown settings keys are ignored.
 - `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
   the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
-  off), `skin_strip` (Show skin strip, on), `anatomy_fluid` (Show fluids, on),
+  off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
   `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
   spread; off leaves the game shader untouched), `skin_tone` (Skin
-  tone, 0–1; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `show_dock` (Show tail
-  docks, on; visibility only, it never moves the anatomy), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
+  tone, 0–1, default 0.67; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
+  (Show tail docks, off; visibility only, it never moves the anatomy), `mare_bits` (Mare bits,
+  `original`/`v2`; default `v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),
-  `anal_scale` (Ponut scale: the V2 ponut interior and body coat; the vulva and opening
-  stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point),
+  `anal_scale` (Ponut scale, default 0.9: the V2 ponut interior and body coat; the vulva and opening
+  stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point; default −20 mm),
   `vulva_hug_mm` and `anal_hug_mm`
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips),
-  `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 1×) and
-  `jiggle_still` (debug: no-jiggle zone around the vulva, 1×; 0 turns it off),
-  `anal_still` (debug: the same zone around the visible ponut, 1×; 0 turns it off),
-  `still_oval` (debug: vertical half-axis of both still zones, 0.7× the lateral one),
-  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.25),
-  `still_height_mm` (debug: vertical placement of the vulva still zone, default −11 mm) and
+  `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 2×) and
+  `jiggle_still` (debug: no-jiggle zone around the vulva, 1.5×; 0 turns it off),
+  `anal_still` (debug: the same zone around the visible ponut, default 0, off),
+  `still_oval` (debug: vertical half-axis of both still zones, 1.5× the lateral one),
+  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.4),
+  `still_height_mm` (debug: vertical placement of the vulva still zone, default 25 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
-  `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 15/20 s), `heat_rest_open` (debug:
-  resting share of the open shape, 0.20), `wink_open_min` and `wink_open_max` (debug: idle wink
-  opening range, 45–88% of the open shape), `wink_timing` (debug: idle wink phase-time multiplier,
-  1×), `fluid_size` (debug: idle heat droplet size, 5.5 mm), `fluid_y_speed` (debug: vertical
-  droplet launch speed, −0.15 m/s; unbounded), `drip` (debug: idle heat discharge multiplier, 1×;
-  0 turns it off) and `fluid_alpha` (debug: droplet opacity multiplier, 1×), and the player-part
+  `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
+  resting share of the open shape, 0.3), `wink_open_min` and `wink_open_max` (debug: idle wink
+  opening range, 90% of the open shape), `wink_timing` (debug: idle wink phase-time multiplier,
+  1.2×), `fluid_size` (debug: idle heat droplet size, 10 mm), `fluid_y_speed` (debug: vertical
+  droplet launch speed, −0.03 m/s; unbounded), `drip` (debug: idle heat discharge multiplier, 0.1×;
+  0 turns it off) and `fluid_alpha` (debug: droplet opacity multiplier, 0.5×), and the player-part
   controls
-  `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
-  `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
+  `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.75`),
+  `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.2`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
   pulled all the way out, up to 5 cm), plus the debug
-  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.03 m`). The pelvis gap is not a depth cap: it
+  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.01 m`). The pelvis gap is not a depth cap: it
   sets `penetration_reach()` (`shaft length - gap`) when the part rides his hips, so 100 % depth is
   his body stopped against her and a long `part_length_scale` moves the reach with it. The back-out
   gap is negative penetration, so it is travel the depth scale never counts.
@@ -1483,17 +1484,17 @@ rump blush. Unknown settings keys are ignored.
   tiers and repair rules are `HISTORY.md`. It never changes the base relationship stage and never
   calls `break_up`; the worst tier is a spoken refusal.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
-  `thrust.pixels_per_cm` is the player's sensitivity, default `100` and clamped to `20…400`: mouse
+  `thrust.pixels_per_cm` is the player's sensitivity, default `50` and clamped to `20…400`: mouse
   travel per centimetre of hip movement, so his shaft length sets one full stroke and a longer part
   needs proportionally more travel. `thrust.travel` is the non-anatomy hip backset multiplier,
   default `0.5`, clamped to `0.25…2.0×`. The old `pixels_per_full` is retired and mapped as
   `value / 20`.
 - `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`), `min_depth`
   (bottom, default `0`, clamped `0…0.82`) and `max_depth` (peak, default `0.5`, clamped
-  `0.20…1`), plus `curve` (`Auto shape`, default `cosine`, one of the five waveforms). They are
+  `0.20…1`), plus `curve` (`Auto shape`, default `tease`, one of the five waveforms). They are
   act-start defaults; the wheel, mouse and hold-X layer changes are per-act, except `curve`, which
   applies live and is written by the layer's `Z`. The wheel and `E`/`D` step is the fixed
-  `0.25/s`; the depth step is a fixed 5 %. `thrust.contact_gap_m` (Contact gap, default `5 cm`,
+  `0.25/s`; the depth step is a fixed 5 %. `thrust.contact_gap_m` (Contact gap, default `0 cm`,
   `0…12 cm`) is how close the stroke must get to its deepest point for the body slap.
 - `jiggle` stores the shared rump wobble `radius` in metres (default `0.26`), the thrust
   `intensity` multiplier (default `0.2`) and the act-smack `smack_intensity` multiplier
@@ -1507,7 +1508,7 @@ rump blush. Unknown settings keys are ignored.
     distance used by both cameras and the planted lower body.
   - `missionary`: `forward`, `height`, `side`, `pullback`, `side_lean`, `pitch_deg`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
-    `neck_down_deg` (default `15°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
+    `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
     `oval_across_m` (default `1.0 cm`), `oval_up_m` (default
     `2.0 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,

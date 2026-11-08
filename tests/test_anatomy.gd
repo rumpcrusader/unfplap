@@ -383,14 +383,14 @@ func run() -> void:
 
 	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
 	# those hooks is left alone instead of being half-patched.
-	check(not bool(SETTINGS.body_coat_deform.default), "body coat deform is off by default")
-	check(near(float(SETTINGS.anal_still.default), 1.0), "anal still zone is on by default")
-	check(near(float(SETTINGS.still_oval.default), 0.7),
-		"still zones are flatter than they are wide")
-	check(near(float(SETTINGS.still_fade.default), 0.25),
-		"still zones fade over a quarter of their radius")
-	check(near(float(SETTINGS.still_height_mm.default), -11.0),
-		"the vulva still zone sits 11 mm under the opening by default")
+	check(bool(SETTINGS.body_coat_deform.default), "body coat deform is on by default")
+	check(near(float(SETTINGS.anal_still.default), 0.0), "anal still zone is off by default")
+	check(near(float(SETTINGS.still_oval.default), 1.5),
+		"still zones are taller than they are wide")
+	check(near(float(SETTINGS.still_fade.default), 0.4),
+		"still zones fade over 0.4 of their radius")
+	check(near(float(SETTINGS.still_height_mm.default), 25.0),
+		"the vulva still zone sits 25 mm above the opening by default")
 	check(not bool(SETTINGS.draw_still_zones.default), "still-zone debug rings are off by default")
 	var zones := STILL_ZONES.new()
 	root.add_child(zones)

@@ -475,7 +475,7 @@ static var act_history := flag("act_history", "features.act_history", true, "Rem
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
 	"Climax limit", "How many times a mare can climax in one act. 0 is unlimited.", GENERAL, "") \
 	.with_step(1.0).with_range(0.0, 20.0)
-static var pixels_per_cm := num("pixels_per_cm", "thrust.pixels_per_cm", 100.0,
+static var pixels_per_cm := num("pixels_per_cm", "thrust.pixels_per_cm", 50.0,
 	"Sensitivity",
 	"Mouse travel for each centimetre the cock moves. A full stroke is his shaft length, so a "
 	+ "longer part needs proportionally more travel.", GENERAL, "") \
@@ -490,9 +490,9 @@ static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "Use VR
 	"The standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", GENERAL, "")
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Allow hole switch",
 	"Let V switch between the front and the anal cup.", GENERAL, "")
-static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", true, "Allow oral",
+static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", false, "Allow oral",
 	"Let N turn her round for oral in the standing pose.", GENERAL, "")
-static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish", true,
+static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish", false,
 	"Allow finish control", "Let B choose whether Anon finishes inside or pulls out.", GENERAL, "")
 static var debug_mode := flag("debug_mode", "debug_mode", false, "Enable debug",
 	"Enable the Debug section at the bottom of every tab and print the mod's diagnostics. Disabling it keeps the other settings as they are.", GENERAL, "")
@@ -515,14 +515,14 @@ static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
 	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
 	GENERAL, "") \
 	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75).as_debug()
-static var curve := choice("curve", "auto_thrust.curve", "cosine",
+static var curve := choice("curve", "auto_thrust.curve", "tease",
 	["cosine", "thrust", "tease", "saw", "hold"],
 	["Normal", "Thrust", "Tease", "Saw", "Hold"],
 	"Auto shape",
 	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
 	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth.", GENERAL, "") \
 	.as_debug()
-static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.05, "Contact gap",
+static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.0, "Contact gap",
 	"How close a stroke must come to its deepest point before his skin meets her coat and the body "
 	+ "slap plays. Raise it to hear plaps on shorter strokes.", GENERAL, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 0.12).as_debug()
@@ -657,7 +657,7 @@ static var standing_play_bow := flag("standing_play_bow", "features.standing_pla
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg", 30.0,
 	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
-static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg", 15.0,
+static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg", 30.0,
 	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
 static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg", 32.0,
@@ -821,34 +821,34 @@ static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity", 0
 static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never",
 	["never", "act", "always"], ["Never", "During act only", "Always"], "Anatomy",
 	"Show the mare anatomy always, only while an act is running, or never.", ANATOMY, "")
-static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
+static var show_dock := flag("show_dock", "anatomy.show_dock", false, "Show tail docks",
 	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
 	ANATOMY, "")
-static var skin_strip := flag("skin_strip", "anatomy.skin_strip", true, "Show skin strip",
+static var skin_strip := flag("skin_strip", "anatomy.skin_strip", false, "Show skin strip",
 	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
 static var teats := flag("teats", "anatomy.teats", false, "Show teats", "Show the optional teats.", ANATOMY, "")
 static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Show fluids",
 	"Show the optional climax and finish droplets.", ANATOMY, "")
-static var body_coat_deform := flag("body_coat_deform", "features.body_coat_deform", false,
+static var body_coat_deform := flag("body_coat_deform", "features.body_coat_deform", true,
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
-static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.5, "Skin tone",
+static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.67, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
-static var mare_bits := choice("mare_bits", "anatomy.mare_bits", "original",
+static var mare_bits := choice("mare_bits", "anatomy.mare_bits", "v2",
 	["original", "v2"], ["Original PPP", "V2"],
 	"Mare bits",
 	"Choose the full mare genitals mesh. V2 uses the smoothed model when its asset is present; otherwise the original PPP mesh is used.", ANATOMY, "")
-static var vulva_height := num("vulva_height", "anatomy.vulva_height", 1.0,
+static var vulva_height := num("vulva_height", "anatomy.vulva_height", 0.75,
 	"Vulva height",
 	"Scale the vulva vertically around its opening. Below 1 shortens it; above 1 lengthens it.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
 static var vulva_inner_color := color("vulva_inner_color", "anatomy.vulva_inner_color",
-	Color.from_string("#f7a8bd", Color.WHITE), "Vulva inner colour",
+	Color.from_string("#cf577d", Color.WHITE), "Vulva inner colour",
 	"Colour of the inner folds. The shader derives its shadow.", ANATOMY, "")
 static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color",
-	Color.from_string("#d67891", Color.WHITE), "Clitoris colour",
+	Color.from_string("#d87690", Color.WHITE), "Clitoris colour",
 	"Colour of the clitoris. The shader derives its shadow.", ANATOMY, "")
 
 # -- Anon
@@ -862,13 +862,13 @@ static var part_length_scale := num("part_length_scale", "anatomy.part_length_sc
 static var part_base_scale := num("part_base_scale", "anatomy.part_base_scale", 1.3,
 	"Base radius", "Thickness of the cock where it leaves his body.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
-static var part_mid_scale := num("part_mid_scale", "anatomy.part_mid_scale", 0.8,
+static var part_mid_scale := num("part_mid_scale", "anatomy.part_mid_scale", 0.75,
 	"Mid radius", "Thickness of the cock around its middle.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
 static var part_head_scale := num("part_head_scale", "anatomy.part_head_scale", 1.3,
 	"Head radius", "Thickness of the glans at the end of the shaft.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
-static var part_throb := num("part_throb", "anatomy.part_throb", 1.0, "Throb",
+static var part_throb := num("part_throb", "anatomy.part_throb", 1.2, "Throb",
 	"Heartbeat-like pulse of the shaft, with a slight upward beat while it is outside her. "
 	+ "1 is subtle; 0 turns it off.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0)
@@ -882,7 +882,7 @@ static var part_front_m := num("part_front_m", "anatomy.part_front_m", 0.02, "Co
 	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-20.0, 20.0) \
 	.as_debug()
-static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", 0.03, "Pelvis gap",
+static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", 0.01, "Pelvis gap",
 	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 10.0) \
 	.as_debug()
@@ -897,21 +897,21 @@ static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", fals
 	.as_debug()
 
 # -- Holes  (debug)
-static var anal_scale := num("anal_scale", "anatomy.anal_scale", 1.0,
+static var anal_scale := num("anal_scale", "anatomy.anal_scale", 0.9,
 	"Ponut scale",
 	"Scale the visible ponut mound. The vulva and the opening stay put.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
-static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 0.0,
+static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 3.0,
 	"Vulva hug",
 	"Pad the gap between the cock and the vulva lips. Positive opens the lips wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
 	.as_debug()
-static var anal_hug_mm := num("anal_hug_mm", "anatomy.anal_hug_mm", 0.0,
+static var anal_hug_mm := num("anal_hug_mm", "anatomy.anal_hug_mm", 2.0,
 	"Anal hug",
 	"Pad the gap between the cock and the anal opening. Positive opens it wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
 	.as_debug()
-static var anal_aim_mm := num("anal_aim_mm", "anatomy.anal_aim_mm", 0.0,
+static var anal_aim_mm := num("anal_aim_mm", "anatomy.anal_aim_mm", -20.0,
 	"Anal aim height",
 	"Raise or lower the V2 anal penetration point. Negative lowers it; the mesh itself does not move.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-40.0, 40.0) \
@@ -921,37 +921,37 @@ static var anal_body_depth_mm := num("anal_body_depth_mm", "anatomy.anal_body_de
 	"Push the visible body ponut inward around the anal opening so the V2 hole and an oversized shaft stop clipping the body.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(1.0).with_range(0.0, 60.0) \
 	.as_debug()
-static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
+static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 0.7,
 	"Lip vertical share",
 	"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 1.0) \
 	.as_debug()
-static var coat_spread := num("coat_spread", "anatomy.coat_spread", 1.0,
+static var coat_spread := num("coat_spread", "anatomy.coat_spread", 2.0,
 	"Coat spread",
 	"Multiplier for the body coat stretching around the vulva as the opening widens.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
-static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.0,
+static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.5,
 	"Jiggle still zone",
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
-static var anal_still := num("anal_still", "anatomy.anal_still", 1.0,
+static var anal_still := num("anal_still", "anatomy.anal_still", 0.0,
 	"Anal still zone",
 	"Multiplier for the no-jiggle zone around the visible ponut. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
-static var still_oval := num("still_oval", "anatomy.still_oval", 0.7,
+static var still_oval := num("still_oval", "anatomy.still_oval", 1.5,
 	"Still zone oval",
 	"Vertical half-axis of both still zones as a share of the lateral one. Lower makes them flatter.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.2, 1.5) \
 	.as_debug()
-static var still_fade := num("still_fade", "anatomy.still_fade", 0.25,
+static var still_fade := num("still_fade", "anatomy.still_fade", 0.4,
 	"Still zone fade",
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \
 	.as_debug()
-static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm", -11.0,
+static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm", 25.0,
 	"Still zone height",
 	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",
 	ANATOMY, "Holes") \
@@ -963,43 +963,43 @@ static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zone
 	ANATOMY, "Holes").as_debug()
 
 # -- Heat  (debug)
-static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", 15.0, "Wink min gap",
+static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", 17.0, "Wink min gap",
 	"Shortest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
 	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
-static var wink_max_s := num("wink_max_s", "anatomy.wink_max_s", 20.0, "Wink max gap",
+static var wink_max_s := num("wink_max_s", "anatomy.wink_max_s", 34.0, "Wink max gap",
 	"Longest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
 	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
-static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.20, "Rest open",
+static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.3, "Rest open",
 	"How open she rests between winks, as a share of the authored open shape. 0 is fully closed.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
-static var wink_open_min := num("wink_open_min", "anatomy.wink_open_min", 0.45,
+static var wink_open_min := num("wink_open_min", "anatomy.wink_open_min", 0.9,
 	"Wink open min",
 	"Shallowest opening of an idle wink, as a share of the authored open shape.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
-static var wink_open_max := num("wink_open_max", "anatomy.wink_open_max", 0.88,
+static var wink_open_max := num("wink_open_max", "anatomy.wink_open_max", 0.9,
 	"Wink open max",
 	"Deepest opening of an idle wink, as a share of the authored open shape.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
-static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.0, "Wink timing",
+static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.2, "Wink timing",
 	"Scale the open, hold and close times of each idle wink. Below 1 is quicker; above 1 is slower.",
 	ANATOMY, "Heat") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 4.0).as_debug()
-static var fluid_size := num("fluid_size", "anatomy.fluid_size", 0.0055, "Fluid size",
+static var fluid_size := num("fluid_size", "anatomy.fluid_size", 0.01, "Fluid size",
 	"Size of each idle heat droplet.", ANATOMY, "Heat") \
 	.with_unit("mm").with_step(0.5).with_scale(1000.0).with_range(0.0005, 0.02).as_debug()
-static var fluid_y_speed := num("fluid_y_speed", "anatomy.fluid_y_speed", -0.15,
+static var fluid_y_speed := num("fluid_y_speed", "anatomy.fluid_y_speed", -0.03,
 	"Fluid Y speed",
 	"Vertical speed of each idle heat droplet in metres per second. Negative falls, positive rises; not clamped.",
 	ANATOMY, "Heat") \
 	.with_unit("m/s").with_step(0.01).as_debug()
-static var drip := num("drip", "anatomy.drip", 1.0, "Discharge",
+static var drip := num("drip", "anatomy.drip", 0.1, "Discharge",
 	"Scale the idle heat discharge: droplet count and speed. 0 turns it off.",
 	ANATOMY, "Heat") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0).as_debug()
-static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", 1.0, "Fluid opacity",
+static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", 0.5, "Fluid opacity",
 	"Multiply the opacity of every fluid droplet.", ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0) \
 	.with_slider().as_debug()
@@ -1203,7 +1203,7 @@ const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 3
+const SCHEMA_VERSION := 4
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -1745,6 +1745,7 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
+	data = _normalize_retired_keys(data)
 	data = _normalize_anatomy(data)
 	return data
 
@@ -1815,6 +1816,54 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 			"vulva_hug", "pair_limit", "genital_yaw_deg", "max_depth_m"]:
 		block.erase(key)
 	data["anatomy"] = block
+	return data
+
+
+## Keys the mod no longer reads. Erased once on a schema upgrade so a settings file cannot carry
+## them forever; `_load()` writes the merged cache back, so an ignored key would otherwise persist.
+const RETIRED_PATHS := [
+	"features.act_chat",
+	"features.act_text_only_ponese",
+	"features.anatomy_align",
+	"features.bed_creaks",
+	"features.body_sway",
+	"features.camera_inertia",
+	"features.camera_rock",
+	"features.cuddle_override",
+	"features.dock_tail_follow",
+	"features.ear_twitch",
+	"features.hold_sway",
+	"features.lean_return",
+	"features.pose1_ignore_bed_collision",
+	"features.press_y_starts_sex",
+	"features.readiness_hud",
+	"features.rump_blush",
+	"features.settings_tab",
+	"features.thrust_camera_rock",
+	"features.thrust_tail_dock_jiggle",
+	"anatomy.anal_height_mm",
+	"anatomy.anal_ring",
+	"anatomy.strip_width",
+	"presentation.lean_back_m",
+	"presentation.standing.idle_sway_side",
+	"presentation.standing.kiss.forelegs",
+	"presentation.standing.max_shaft_angle_deg",
+	"presentation.standing.rump_follow",
+	"presentation.standing.smack.sound",
+	"thrust.camera_bob",
+	"thrust.camera_motion",
+	"auto_thrust.pace_step",
+]
+
+
+## Erase every retired path and drop the sub-blocks it leaves empty.
+static func _normalize_retired_keys(data: Dictionary) -> Dictionary:
+	for path: String in RETIRED_PATHS:
+		_erase_path(data, path)
+	for parent: String in ["presentation.standing.kiss", "presentation.standing.smack"]:
+		var node: Variant = _read_path(data, parent, null)
+		if node is Dictionary and (node as Dictionary).is_empty():
+			_erase_path(data, parent)
 	return data
 
 

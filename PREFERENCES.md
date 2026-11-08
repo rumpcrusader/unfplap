@@ -8,7 +8,7 @@ aftercare are outside it.
 
 - Mouse vertical motion feeds the measured penetration in metres. `thrust.orientation` flips the
   direction; `"up"` (the default) means mouse up deepens. `thrust.pixels_per_cm` is the
-  sensitivity, default `100` (20–400), so a full stroke is his shaft length and the `Back-out gap`
+  sensitivity, default `50` (20–400), so a full stroke is his shaft length and the `Back-out gap`
   sits below zero depth.
 - `X` toggles auto thrust in `ACTIVE`/`CLIMAX` on a tap. `auto_thrust.gd` drives
   `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`, and the
@@ -31,7 +31,7 @@ aftercare are outside it.
   real progress, and it drives the jiggle, wings, blush, ear twitch and the plap, so the sound
   lands with the motion instead of 180 ms late. The close only scores.
 - The **body slap is gated on contact**: `THRUST.contact_amount()` compares the stroke's peak
-  penetration with `reach` and fades in over `thrust.contact_gap_m` (Contact gap, default `5 cm`),
+  penetration with `reach` and fades in over `thrust.contact_gap_m` (Contact gap, default `0 cm`),
   so only a stroke that actually brings his skin to her coat plaps, quieter the shorter it is. The
   slide and the bed fabric still play on every real thrust.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
@@ -85,12 +85,12 @@ live. Adding or reading a setting goes through its named accessor only; see `TUN
 One ungrouped list, in this order: **Starting Sex**, **Show controls**, **Show HUD readouts**,
 **Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Remember acts**, **Climax
 limit** (`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per centimetre of hip
-travel (`20…400`, default `100`), **Thrust direction** (which mouse direction deepens the stroke),
+travel (`20…400`, default `50`), **Thrust direction** (which mouse direction deepens the stroke),
 **Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
 control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 
 The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
-waveforms), the body-slap **Contact gap** (`0…12 cm`, default `5 cm`), the hip
+waveforms), the body-slap **Contact gap** (`0…12 cm`, default `0 cm`), the hip
 back-off (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 
 **Starting Sex** sets when the Make love hint appears. **When Available** keeps every gate: the

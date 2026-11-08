@@ -6,7 +6,7 @@ const STANDING_FORELEG := 2.0
 const STANDING_FORELEG_SPREAD := 0.172
 const STANDING_HIND_SPREAD := 0.32
 const STANDING_CHIN_UP_DEG := 30.0
-const STANDING_NECK_DOWN_DEG := 15.0
+const STANDING_NECK_DOWN_DEG := 30.0
 
 ## Play-bow stance (`features.standing_play_bow`): the rump stays up, the chest drops and the
 ## front legs stretch out ahead instead of tucking under the chest. The hips pitch nose-down and

@@ -25,7 +25,7 @@ const POSE_DEFAULTS := {
 		"foreleg_spread": 0.172,
 		"hind_spread": 0.32,
 		"chin_up_deg": 30.0,
-		"neck_down_deg": 15.0,
+		"neck_down_deg": 30.0,
 		"gaps": {
 			"same height": 0.55,
 			"mounting": 0.45,

@@ -431,6 +431,8 @@ var _lean_forward := 0.0
 var _lean_side := 0.0
 var _lean_view_forward := 0.0
 var _lean_view_side := 0.0
+## Idle breathing, added on top of the displayed lean by the shot (never folded into it).
+var _lean_sway := 0.0
 var _side_return_armed := false
 var _hold_rock_clock := 0.0
 var _lean_action_active := false
@@ -5218,12 +5220,14 @@ func _lean_tick(delta: float) -> void:
 	var alpha := 1.0 - exp(-CAMERA_INERTIA_SMOOTH * delta)
 	_lean_view_forward = lerpf(_lean_view_forward, _lean_forward, alpha)
 	_lean_view_side = lerpf(_lean_view_side, _lean_side, alpha)
+	# Idle breathing is a true offset on top of the displayed lean. Adding it into
+	# `_lean_view_forward` itself let the smoother amplify it (a forced offset of
+	# HOLD_SWAY_FORWARD / (1 - exp(-CAMERA_INERTIA_SMOOTH * delta)), about twelve times the
+	# intended amount) so the shot crept when nobody was leaning.
+	_lean_sway = 0.0
 	if _feature("idle_camera_sway"):
-		# Idle breathing. The feature toggle is the only way to stop the drift when the
-		# player is not leaning.
 		_hold_rock_clock += delta
-		_lean_view_forward = clampf(_lean_view_forward
-			+ sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD, -1.0, 1.0)
+		_lean_sway = sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD
 	_lean_action_tick()
 	_kiss_controller().lean_kiss_tick()
 	var caress_started := Time.get_ticks_usec()
@@ -5231,6 +5235,11 @@ func _lean_tick(delta: float) -> void:
 	_timed("caress_tick", caress_started)
 	if pose_id == CATALOG.STANDING:
 		_standing_camera_controller().apply_lean_look()
+
+## The shot's forward lean: the displayed lean plus the idle-breathing offset, applied once.
+func shot_lean_forward() -> float:
+	return clampf(_lean_view_forward + _lean_sway, -1.0, 1.0)
+
 
 func _lean_size_scale() -> float:
 	return MOTION.lean_size_scale_for(_size_scale())
@@ -5304,6 +5313,7 @@ func _reset_lean_state() -> void:
 	_lean_side = 0.0
 	_lean_view_forward = 0.0
 	_lean_view_side = 0.0
+	_lean_sway = 0.0
 	_side_return_armed = false
 	_hold_rock_clock = 0.0
 

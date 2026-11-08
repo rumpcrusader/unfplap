@@ -120,7 +120,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				plant_basis, _plant_hip.origin + sway + drop)
 			return
 		var lean_scale: float = float(runtime.call("_standing_lean_scale"))
-		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.get("_lean_view_forward")), 0.0), lean_scale) \
+		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.call("shot_lean_forward")), 0.0), lean_scale) \
 			+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward"))
 		hip.global_position -= forward * forward_shift
 		var side_shift: float = kiss.lateral_offset(lean_scale)

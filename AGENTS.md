@@ -258,9 +258,8 @@ loaded.
   holds and never resets the rig, so a missing bone keeps the game's pose and breaks its chain (that
   was the v5 bug; `MIN_VERSION` is 6). The lab reads bed-space transforms for every file from
   `BED_SPACE_VERSION` 4 up, never tied to the current version.
-- Body bones are **rotated only**: the runtime writes the rig's own rest position for every one of
-  them and the exporter stores rest positions, so no asset can stretch or displace a joint. Only the
-  root carries a placement.
+- Body bones carry a rotation **and** a position, and both are applied: a lengthened neck or a
+  displaced flank root can be deliberate. Only the root carries the absolute placement.
 - The head bone is reset to rest; the gaze solve owns the face. The pose lab has no head mesh, so
   baked head rotations are rejected.
 - The overlays use `rig.rotate_free` on this path: the authored pose can sit outside the joint
@@ -405,7 +404,9 @@ loaded.
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow forward rock
-  (`0.010`, clamped inside `-1…1`). There is no side sway. A/D caress always latches: tap once
+  (`0.010`). It is a **separate offset** (`runtime.shot_lean_forward()`), never added into
+  `_lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
+  crept while nobody was leaning. There is no side sway. A/D caress always latches: tap once
   to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
   the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.

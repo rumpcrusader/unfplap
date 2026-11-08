@@ -35,6 +35,8 @@ var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
 var _shot_offsets_logged := Vector3.INF
 var _free_look_log_at := 0
+## Shot ids already reported missing from the asset in this act.
+var _missing_shots_logged: Dictionary = {}
 
 
 func _sync() -> void:
@@ -49,6 +51,7 @@ func _init(runtime_node: Node = null) -> void:
 
 func prepare() -> void:
 	_sync()
+	_missing_shots_logged.clear()
 	_snapshot_missionary_start()
 	_make_missionary_view()
 	_log_shot_setup()
@@ -88,44 +91,19 @@ func tick() -> void:
 	_sync()
 	if not is_instance_valid(pony):
 		return
+	var look := Vector3.ZERO
 	if is_instance_valid(runtime) and runtime.has_method("free_look_active") \
 			and bool(runtime.call("free_look_active")):
-		_tick_free_look()
-		return
-	_tick_authored(runtime.call("_kiss_controller"))
-
-
-## Debug free look: the player camera plus the runtime's own accumulated look, because the act
-## holds `controls_locked` and the stock mouse look is dead during an act.
-func _tick_free_look() -> void:
-	if not is_instance_valid(_missionary_view):
-		_make_missionary_view()
-	if not is_instance_valid(_missionary_view):
-		return
-	var source: Camera3D = main.camera() if is_instance_valid(main) else null
-	if not is_instance_valid(source):
-		return
-	var basis := source.global_basis
-	var look: Variant = runtime.call("free_look_rotation")
-	if look is Vector3:
-		basis = Basis(Vector3.UP, (look as Vector3).y) * basis \
-			* Basis(Vector3.RIGHT, (look as Vector3).x)
-	_missionary_view.global_transform = Transform3D(basis, source.global_position)
-	if Time.get_ticks_msec() >= _free_look_log_at:
-		_free_look_log_at = Time.get_ticks_msec() + 1000
-		_log("free look source=%s view=%s rotation=%s" % [
-			str(source.global_transform), str(_missionary_view.global_transform), str(look)])
-	_missionary_view.fov = source.fov
-	_missionary_view.near = source.near
-	_missionary_view.far = source.far
-	_missionary_view.cull_mask = source.cull_mask
-	runtime.set("_camera_basis_ready", true)
+		var rotation: Variant = runtime.call("free_look_rotation")
+		if rotation is Vector3:
+			look = rotation
+	_tick_authored(runtime.call("_kiss_controller"), look)
 
 
 ## The authored shot. The eye blends between the five authored positions as offsets from `start`,
 ## selected by the lean (S → her pelvis, W → her face, Q/E → her sides), and the aim slides from her
 ## live face to her vulva as S grows. W is where the kiss lives.
-func _tick_authored(kiss: Variant) -> void:
+func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		_make_missionary_view()
 	if not is_instance_valid(_missionary_view):
@@ -140,7 +118,7 @@ func _tick_authored(kiss: Variant) -> void:
 	var vulva: Vector3 = runtime.call("missionary_vulva_point")
 	if not vulva.is_finite():
 		vulva = face
-	var lean_forward := float(runtime.get("_lean_view_forward"))
+	var lean_forward: float = float(runtime.call("shot_lean_forward"))
 	var lean_side := float(runtime.get("_lean_view_side"))
 	var lean_scale: float = float(runtime.call("_lean_size_scale"))
 	var pos := start
@@ -174,6 +152,10 @@ func _tick_authored(kiss: Variant) -> void:
 		(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * lean_side
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * lean_forward) * lean_scale))
 	var view_basis := basis * lean
+	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
+		# Debug free look: turn this shot where it stands. The act owns `controls_locked`, so the
+		# stock player look is dead, and the player camera is wherever the game left his rig.
+		view_basis = Basis(Vector3.UP, look.y) * view_basis * Basis(Vector3.RIGHT, look.x)
 	var at := pos + Vector3.UP * float(runtime.get("_bob"))
 	# The speed-driven surge runs along the mattress toward her head; a side lean travels with it.
 	at += _bed_head_direction() * (float(runtime.get("_lean")) + _missionary_side_lean_forward())
@@ -188,6 +170,10 @@ func _tick_authored(kiss: Variant) -> void:
 		at.y = maxf(at.y, top + 0.10 * scale)
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = view_basis
+	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
+			and Time.get_ticks_msec() >= _free_look_log_at:
+		_free_look_log_at = Time.get_ticks_msec() + 2000
+		_log("free look base=%s rotation=%s" % [str(at), str(look)])
 	runtime.set("_camera_basis_ready", true)
 
 
@@ -204,6 +190,9 @@ func _shot_offsets() -> Vector3:
 
 ## One end of the authored shot in world space: the lab's bed-relative camera position when the
 ## asset carries one for this lean, otherwise a position worked out from her live body.
+## One end of the authored shot in world space. A shot that is not authored falls back to a fixed
+## bed-relative point, never to her live body: the eye then only ever moves between fixed positions,
+## and the log names what is still missing.
 func _shot_position(id: String, scale: float) -> Vector3:
 	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
 	var frame: Variant = _bed_frame()
@@ -211,25 +200,30 @@ func _shot_position(id: String, scale: float) -> Vector3:
 		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
 		shot.origin *= scale
 		return (frame as Transform3D) * shot.origin
-	var rump := _bed_back_direction()
+	var start := _fallback_start(asset, frame, scale)
+	if id == "start" or not start.is_finite():
+		return start
+	if not _missing_shots_logged.has(id):
+		_missing_shots_logged[id] = true
+		_log("missionary camera: shot '%s' is not authored; using the fixed bed-relative fallback" % id)
+	var back := _bed_back_direction()
+	var side := _bed_side_direction()
 	match id:
-		"start":
-			var neck: Vector3 = runtime.call("_neck_midpoint")
-			if neck.is_finite():
-				return neck + Vector3.UP * 0.35 * scale + rump * 0.75 * scale
 		"back":
-			var vulva: Vector3 = runtime.call("missionary_vulva_point")
-			if vulva.is_finite():
-				return vulva + Vector3.UP * 0.35 * scale + rump * 0.30 * scale
+			return start + back * -0.45 * scale + Vector3.DOWN * 0.18 * scale
 		"front":
-			var face: Vector3 = runtime.call("missionary_face_point")
-			if face.is_finite():
-				return face + rump * 0.40 * scale + Vector3.UP * 0.15 * scale
-		"left", "right":
-			var base := _shot_position("start", scale)
-			if base.is_finite():
-				var dir := _bed_side_direction()
-				return base + dir * (0.35 if id == "right" else -0.35) * scale
+			return start - back * 1.60 * scale + Vector3.DOWN * 0.10 * scale
+		"left":
+			return start - side * 0.60 * scale
+		"right":
+			return start + side * 0.60 * scale
+	return start
+
+
+## The neutral end when the asset has none: a fixed point over the mattress, behind her rump.
+func _fallback_start(_asset: Variant, frame: Variant, scale: float) -> Vector3:
+	if frame is Transform3D:
+		return (frame as Transform3D) * Vector3(0.0, 0.62 * scale, -0.85 * scale)
 	return Vector3.INF
 
 

@@ -42,6 +42,9 @@ func _physics_process(_delta: float) -> void:
 func _keep_mouse_captured() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false
+	# A headset session has no usable cursor; grabbing it would only fight the desktop window.
+	if _headset():
+		return false
 	if not DisplayServer.window_is_focused():
 		return false
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -57,6 +60,13 @@ func _keep_mouse_captured() -> bool:
 		_mouse_recapture_logged = true
 		main.call("debug", "recaptured mouse during act")
 	return true
+
+
+## The eye is in a headset: the stock game leaves the desktop cursor visible, so act input must not
+## require it captured.
+func _headset() -> bool:
+	return is_instance_valid(main) and main.has_method("headset_view") \
+		and bool(main.call("headset_view"))
 
 
 func _suppress_seated_q() -> void:
@@ -207,7 +217,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if key.physical_keycode == KEY_Y:
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not _headset():
 			return
 		if bool(main.call("try_start")):
 			get_viewport().set_input_as_handled()

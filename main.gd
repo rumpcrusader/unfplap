@@ -1049,7 +1049,8 @@ func _refresh_offer() -> void:
 		return
 	if get_tree().paused:
 		return
-	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if DisplayServer.get_name() != "headless" and not headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	var view: Camera3D = camera()
 	if view == null:
@@ -1684,7 +1685,8 @@ func _try_refusal() -> bool:
 		return false
 	if get_tree().paused:
 		return false
-	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if DisplayServer.get_name() != "headless" and not headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return false
 	var view: Camera3D = camera()
 	if view == null:
@@ -1963,6 +1965,12 @@ func menu_open() -> bool:
 	if menu_panel_open():
 		return true
 	return Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
+
+
+## The eye is in a headset. There is no desktop cursor to capture, and the stock game leaves the
+## mouse visible, so the "cursor is visible" gates must not read that as a menu owning the input.
+func headset_view() -> bool:
+	return is_instance_valid(game) and bool(game.get("headset_view"))
 
 
 func _bedside_pony(view: Camera3D) -> Node:

@@ -1823,7 +1823,7 @@ func _quiet() -> bool:
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
 		return false
-	if bool(player.get("controls_locked")) or bool(player.get("flying")):
+	if player.get("controls_locked") == true or player.get("flying") == true:
 		return false
 	if bool(player.get_meta("knocked_down", false)):
 		return false

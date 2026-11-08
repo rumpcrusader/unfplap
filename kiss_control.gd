@@ -122,7 +122,7 @@ func _start_base_kiss() -> bool:
 	if not str(affection.get("kind")).is_empty():
 		return false
 	var body: Node = main.player
-	var was_locked := bool(body.get("controls_locked"))
+	var was_locked: bool = body.get("controls_locked") == true
 	body.set("controls_locked", false)
 	var begun := bool(kisser.call("begin_from_pony", pony))
 	body.set("controls_locked", was_locked)

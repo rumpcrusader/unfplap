@@ -1337,11 +1337,12 @@ func refuse_available(pose: String, act_source: String, bed_in: Variant = null) 
 	if not _nav_owner_allows(pose, act_source):
 		return false
 	var body = main.player
-	if bool(body.get("controls_locked")) or bool(body.get("flying")):
+	if body.get("controls_locked") == true or body.get("flying") == true:
 		return false
 	if bool(body.get_meta("knocked_down", false)):
 		return false
-	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if DisplayServer.get_name() != "headless" and not _headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return false
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection == null or not affection.has_method("buck"):
@@ -1713,9 +1714,11 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 	var body = main.player
 	if not is_instance_valid(body):
 		return false
-	if bool(body.get("controls_locked")):
+	# A headset rig is a plain Node3D: it has neither desktop `controls_locked` nor `flying`, and
+	# `bool(null)` is an error in GDScript, so compare against true instead.
+	if body.get("controls_locked") == true:
 		return false
-	if bool(body.get("flying")):
+	if body.get("flying") == true:
 		return false
 	var wing: Variant = body.get("wing_flight")
 	if wing != null and bool(wing.get("active")):
@@ -1725,7 +1728,8 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 	var swimming: Variant = body.get("swimming")
 	if swimming != null and bool(swimming.get("active")):
 		return false
-	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if DisplayServer.get_name() != "headless" and not _headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return false
 	var inventory: Variant = main.game.get("inventory") if is_instance_valid(main.game) else null
 	if inventory != null:

@@ -143,7 +143,8 @@ Missionary is its own state, not the game's bed rest:
   legs stay exactly on the authored pose and keep the stroke. W tips the hinge forward/down toward her,
   S back/up, and Q/E add the side lean. The camera is written after the pose in the same frame, so it
   never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
-  camera on his standing player rig. A kiss leans the eye in toward the aim but never closer than
+  camera on his standing player rig; the game's eye modifier follows the same target, offset by
+  `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than
   `KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point; her muzzle extends past that
   point.
 - **Authored shots**: the trajectory below, through the pose lab's camera positions.

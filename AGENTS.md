@@ -485,8 +485,9 @@ hinge at the **`Spine`** joint: chest, neck, head, shoulders, arms and hands til
 hips, thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down
 toward her, S back/up, and Q/E add the side lean. The camera is
 written after the pose write in the same frame. Her gaze and the kiss target his authored eye and
-mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig.
-**Authored shots** uses the shot trajectory below.
+mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig; the game's
+eye modifier is pointed at the same target, with `presentation.missionary.gaze_offset_mm` (debug,
+signed, unclamped) raising or lowering it. **Authored shots** uses the shot trajectory below.
 
 ### Missionary shot
 
@@ -1637,8 +1638,8 @@ rump blush. Unknown settings keys are ignored.
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
-  - `missionary`: `belly_down_deg`, `vulva_shift_mm`, `vulva_pitch_deg`, `camera_mode`,
-    `third_person`, `free_look`.
+  - `missionary`: `belly_down_deg`, `vulva_shift_mm`, `vulva_pitch_deg`, `gaze_offset_mm`,
+    `camera_mode`, `third_person`, `free_look`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
@@ -1694,8 +1695,8 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, belly down,
-  vulva shift/pitch, Use free look), **Standing** (with **Motion**, **Caress**, **Kiss** and
-  **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  vulva shift/pitch, gaze height, Use free look), **Standing** (with **Motion**, **Caress**, **Kiss**
+  and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

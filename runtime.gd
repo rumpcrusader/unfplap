@@ -897,6 +897,7 @@ func _act_presentation(delta: float) -> void:
 	_act_seconds += delta
 	if pose_id == CATALOG.MISSIONARY:
 		_missionary_camera_controller().hide_avatar()
+		_aim_missionary_eyes()
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
 		boop.call("sustain_blush", 1.0)
@@ -2776,8 +2777,30 @@ func _missionary_gaze_point() -> Vector3:
 	if is_instance_valid(_missionary_anon) and bool(_missionary_anon.get("active")):
 		var point: Variant = _missionary_anon.call("eye_point")
 		if point is Vector3 and (point as Vector3).is_finite():
-			return _missionary_camera_controller().head_look_point_at(point)
+			var aim: Vector3 = point
+			aim.y += SETTINGS.gaze_offset_mm.get_num() / 1000.0
+			return _missionary_camera_controller().head_look_point_at(aim)
 	return _missionary_camera_controller().head_look_point(_kiss_controller().mouth_view())
+
+
+## The game's eye modifier still points wherever the standing player rig left it; in missionary the
+## pupils follow the same gaze target the head solve uses, so the eyes do not sit above his face.
+func _aim_missionary_eyes() -> void:
+	if not is_instance_valid(pony):
+		return
+	var target := _missionary_gaze_point()
+	if is_instance_valid(_pose):
+		var value: Variant = _pose.get("look_point")
+		if value is Vector3 and (value as Vector3).is_finite() \
+				and (value as Vector3).length_squared() > 0.0001:
+			target = value
+	if not target.is_finite():
+		return
+	var eye_motion: Variant = pony.get("eye_motion")
+	if eye_motion == null or not is_instance_valid(eye_motion):
+		return
+	eye_motion.set("target_world", target)
+	eye_motion.set("target_weight", 1.0)
 
 
 func anatomy_bed_active() -> bool:

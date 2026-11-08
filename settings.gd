@@ -618,6 +618,10 @@ static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vu
 	"Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
+static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", 0.0,
+	"Gaze height",
+	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
+	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
 static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "eye",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
 	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",

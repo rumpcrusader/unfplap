@@ -262,7 +262,9 @@ shaft stays in his crotch (the same `_aim_attached()` logic the standing act use
 from the bed rest and asked to `stand`, so the solver keeps a neutral pose instead of the lie clip;
 her body is placed and posed by the act. The bed supplies only
 the frame (`bed_frame`) and the offer/eligibility path. Nothing rejoins the bed or a cuddle at the
-end: `restore_scene()` puts the player, the pony and the camera back and she stands.
+end: `restore_scene()` puts the player, the pony and the camera back and she stands. The snapshot is
+re-read at ACTIVE (`resnapshot()`): at `prepare()` it catches him mid stand-up, and restoring that
+reclined eye height left the camera wrong after the act.
 
 - The asset is bed-space data: origin at the middle of the mattress top, the bed's axes, `+Z` her
   head direction. `poses/authored_pose.gd` maps it onto the real bed with

@@ -1128,6 +1128,10 @@ func _physics_tick(delta: float) -> void:
 		_pose_in_left -= delta
 		if _pose_in_left <= 0.0:
 			state = State.ACTIVE
+			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one; the
+			# scene is settled now, and restoring to this is what puts the camera back correctly.
+			if pose_id == CATALOG.MISSIONARY:
+				_missionary_camera_controller().resnapshot()
 	elif state == State.CLIMAX:
 		_climax_left -= delta
 		_climax_hearts_tick(delta)

@@ -34,7 +34,10 @@ Missionary is its own state, not the game's bed rest:
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
 - **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
 - **The end restores the scene** (`restore_scene()`: player, pony and camera snapshot) and stands
-  her. Nothing rejoins the bed or a cuddle.
+  her. Nothing rejoins the bed or a cuddle. The snapshot is re-read once the pose settles
+  (`resnapshot()` at ACTIVE): taken at `prepare()` it catches Anon mid stand-up and restores the
+  reclined eye height. `resnapshot()` refreshes only the game camera's transform, never the act's own
+  view.
 
 ### Base pose
 

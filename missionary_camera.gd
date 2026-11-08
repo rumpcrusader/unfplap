@@ -60,6 +60,26 @@ func prepare() -> void:
 	_log_shot_setup()
 
 
+## Re-read the scene once the act is fully posed. `prepare()` snapshots while Anon is still standing
+## up from the bed, so the eye height it catches is the old reclined one; the pose settle is when his
+## eye height and the camera have finished moving, and nothing else changes after it.
+func resnapshot() -> void:
+	_sync()
+	if not is_instance_valid(main) or not is_instance_valid(main.player) \
+			or not is_instance_valid(pony):
+		return
+	# Only the *game* camera's transform is refreshed. `_missionary_start_camera` stays the game camera
+	# captured by `prepare()`; asking the viewport now would return the act's own view, which is freed
+	# at the end.
+	_missionary_start_player_transform = main.player.global_transform
+	if is_instance_valid(main.camera()):
+		_missionary_start_camera = main.camera()
+		_missionary_start_camera_transform = main.camera().global_transform
+	_missionary_start_pony_transform = pony.global_transform
+	_missionary_start_pony_posture = str(pony.call("posture_status").get("requested", ""))
+	_missionary_start_saved = true
+
+
 func reset_look() -> void:
 	pass
 

@@ -42,7 +42,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Mare bits** — Choose the original PPP genitals or the V2 variant in the Anatomy settings; the V2 choice falls back to the original when its asset is absent.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
-- **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster, ask sooner, and wink and drip while she idles, two days of diestrus turn her off, then normal. Off by default.
+- **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster, ask sooner, and wink and discharge while she idles, two days of diestrus turn her off, then normal. Off by default.
 - **Mouse thrust readiness** — Build her arousal with real thrusts; she can climax repeatedly while you keep thrusting.
 - **Climax limit** — `Climax limit` sets how many times she can climax in one act; `0` is unlimited.
 - **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace, and holding `X` sets the bottom, peak, pace and stroke shape by hand.

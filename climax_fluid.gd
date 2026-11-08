@@ -4,6 +4,7 @@ extends Node3D
 ## and pool on the ground before fading. Her body is an ellipsoid that rides her hips, so stuck
 ## drops move with her.
 
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const MAX_DROPS := 220
 const GRAVITY := 3.4
 const DRAG := 0.5
@@ -90,6 +91,9 @@ func clear() -> void:
 
 
 func _add(at: Vector3, velocity: Vector3, size: float, color: Color) -> void:
+	color.a = clampf(color.a * SETTINGS.fluid_alpha.get_num(), 0.0, 1.0)
+	if color.a <= 0.0:
+		return
 	if _drops.size() >= MAX_DROPS:
 		_drops.remove_at(0)
 	_drops.append({"at": at, "velocity": velocity, "size": size, "color": color, "state": FLYING,

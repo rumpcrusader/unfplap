@@ -984,10 +984,14 @@ static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.0, "Wink t
 static var fluid_size := num("fluid_size", "anatomy.fluid_size", 0.0055, "Fluid size",
 	"Size of each idle heat droplet.", ANATOMY, "Heat") \
 	.with_unit("mm").with_step(0.5).with_scale(1000.0).with_range(0.0005, 0.02).as_debug()
-static var drip := num("drip", "anatomy.drip", 1.0, "Drip",
-	"Scale the idle heat drip's leak duration and drop rate. 0 turns the drip off.",
+static var drip := num("drip", "anatomy.drip", 1.0, "Discharge",
+	"Scale the idle heat discharge: droplet count and speed. 0 turns it off.",
 	ANATOMY, "Heat") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0).as_debug()
+static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", 1.0, "Fluid opacity",
+	"Multiply the opacity of every fluid droplet.", ANATOMY, "Heat") \
+	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0) \
+	.with_slider().as_debug()
 
 # ======================================================== World
 

@@ -162,6 +162,10 @@ const VISIBILITY_POLL_S := 0.2
 ## How often the idle heat tick re-reads the estrus phase.
 const HEAT_PHASE_POLL_S := 2.0
 const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
+## Idle heat discharge: droplets leave the vulva opening along the ground and fall under the
+## fluid node's gravity. Speed and count scale with the Discharge debug setting.
+const IDLE_FLUID_SPEED := 0.9
+const IDLE_FLUID_ARC_DOWN := 0.15
 var _visibility_clock := 0.0
 var _visibility_init := false
 var _last_shown := false
@@ -451,7 +455,7 @@ func _heat_idle_tick(delta: float) -> void:
 	_heat_wink_clock = _wink_interval()
 	var count := CYCLE.wink_burst_count(randf())
 	wink_burst(count)
-	idle_drip(count)
+	idle_discharge(count)
 
 
 ## Idle heat wink gap from the Heat debug settings. A zero gap is guarded so the idle tick cannot
@@ -1081,9 +1085,11 @@ func fluid() -> Node3D:
 	return _fluid
 
 
-## Idle heat drip: one leak per wink burst, scaled a little by the burst size. The fluid node is
-## persistent, so the drops keep their motion and pool on the ground under her.
-func idle_drip(count: int) -> void:
+## Idle heat discharge: one or more droplets are shot out of the vulva opening on each wink
+## burst. They leave along the ground and the fluid node's gravity pulls them down, so they read
+## as discharged rather than dripping from under the tail. The fluid node is persistent, so the
+## drops keep their motion and pool on the ground under her.
+func idle_discharge(count: int) -> void:
 	if not SETTINGS.anatomy_fluid.get_bool():
 		return
 	if not is_instance_valid(pony) or not pony.is_inside_tree() or not is_instance_valid(_mesh):
@@ -1095,9 +1101,26 @@ func idle_drip(count: int) -> void:
 	if not is_instance_valid(node):
 		return
 	node.set("ground_y", pony.global_position.y)
-	node.call("drip", Callable(self, "hole_point").bind(0.0),
-		(1.5 + 0.7 * float(count)) * amount, (1.0 + 0.2 * float(count)) * amount,
-		maxf(SETTINGS.fluid_size.get_num(), 0.0001), IDLE_FLUID_COLOR)
+	var shots := maxi(1, int(round(float(count) * amount)))
+	node.call("spray", hole_point(0.0), _discharge_direction(), shots,
+		IDLE_FLUID_SPEED * amount, maxf(SETTINGS.fluid_size.get_num(), 0.0001),
+		IDLE_FLUID_COLOR)
+
+
+## Horizontal direction away from the body, tipped slightly down so the droplets arc to the
+## ground. The anatomy mesh's own rear axis is used unless it points back into the body.
+func _discharge_direction() -> Vector3:
+	var rear := hole_rear()
+	var out := Vector3(rear.x, 0.0, rear.z)
+	if out.length_squared() < 0.000001:
+		out = Vector3.BACK
+	out = out.normalized()
+	if is_instance_valid(pony):
+		var away := hole_point(0.0) - pony.global_position
+		away.y = 0.0
+		if away.length_squared() > 0.000001 and out.dot(away.normalized()) < 0.0:
+			out = -out
+	return (out + Vector3.DOWN * IDLE_FLUID_ARC_DOWN).normalized()
 
 
 func anal_mesh() -> MeshInstance3D:

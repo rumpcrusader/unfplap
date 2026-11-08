@@ -1075,9 +1075,10 @@ examples.
   `anatomy.wink_min_s..anatomy.wink_max_s` (default 15-20 s), rolling 70% single, 25% double, 5%
   triple from `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a
   short hold and an accelerated close. `anatomy.wink_peak` scales the open depth and
-  `anatomy.wink_timing` scales the three phase times. Each burst also starts one short
-  `climax_fluid.drip()` leak when `anatomy_fluid` is on, scaled by `anatomy.drip` (0 turns it off)
-  and `anatomy.fluid_size`. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
+  `anatomy.wink_timing` scales the three phase times. Each burst also shoots one or more
+  `climax_fluid.spray()` droplets from the vulva opening along the ground, under the fluid node's
+  gravity, scaled by `anatomy.drip` (0 turns it off), `anatomy.fluid_size` and
+  `anatomy.fluid_alpha`. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
   mesh is far or `anatomy.anatomy_mode` hides it.
 - `anatomy.gd` rebuilds each winking source mesh once and caches it per source, then masks the
@@ -1437,9 +1438,9 @@ rump blush. Unknown settings keys are ignored.
   `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 15/20 s), `heat_rest_open` (debug:
   resting share of the open shape, 0.20), `wink_peak` (debug: idle wink depth multiplier, 1×),
   `wink_timing` (debug: idle wink phase-time multiplier, 1×), `fluid_size` (debug: idle heat
-  droplet size, 5.5 mm) and `drip` (debug: idle heat drip multiplier, 1×; 0 turns it off),
-  and the player-part
-  controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
+  droplet size, 5.5 mm), `drip` (debug: idle heat discharge multiplier, 1×; 0 turns it off) and
+  `fluid_alpha` (debug: droplet opacity multiplier, 1×), and the player-part controls
+  `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
   pulled all the way out, up to 5 cm), plus the debug

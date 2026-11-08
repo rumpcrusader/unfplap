@@ -56,7 +56,8 @@ func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 			if offsets is Array and (offsets as Array).size() >= 3:
 				var head_offset: Transform3D = (offsets as Array)[2]
 				world = world * head_offset
-				return {"origin": world.origin, "forward": world.basis.z.normalized()}
+				return {"origin": world.origin, "forward": world.basis.z.normalized(),
+					"up": world.basis.y.normalized()}
 		# A headless/test rig may not have the link. Fall back to the head skeleton's own gaze
 		# from the last update, then to the body bone.
 		if mare.has_method("awareness_forward"):
@@ -67,8 +68,10 @@ func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 				origin = boop.call("skull_world")
 			if forward is Vector3 and (forward as Vector3).length_squared() > 0.000001 \
 					and origin is Vector3 and (origin as Vector3).is_finite():
-				return {"origin": origin, "forward": (forward as Vector3).normalized()}
-	return {"origin": world.origin, "forward": world.basis.z.normalized()}
+				return {"origin": origin, "forward": (forward as Vector3).normalized(),
+					"up": Vector3.UP}
+	return {"origin": world.origin, "forward": world.basis.z.normalized(),
+		"up": world.basis.y.normalized()}
 
 
 ## Rotate the neck/head chain by the shortest arc between her current face direction and Anon.
@@ -95,23 +98,46 @@ func _aim_gaze(rig, sk: Skeleton3D, weight: float, look_point: Vector3) -> void:
 	for _step: int in 3:
 		frame = _head_gaze_frame(rig, sk)
 		if frame.is_empty():
-			return
+			break
 		origin = frame["origin"]
 		forward = frame["forward"]
 		to = look_point - origin
 		if to.length_squared() < 0.0001:
-			return
+			break
 		var error := forward.angle_to(to)
 		if error <= desired + 0.0005:
-			return
+			break
 		var axis_world := forward.cross(to)
 		if axis_world.length_squared() < 0.0000001:
-			return
+			break
 		var axis := (sk.global_basis.inverse() * axis_world.normalized()).normalized()
 		var step_angle := error - desired
 		for i: int in rig.neck.size():
 			rig.rotate_free(sk, rig.neck[i], axis,
 				step_angle * shares[mini(i, shares.size() - 1)])
+	_level_head(rig, sk, weight)
+
+
+## Keep her face upright. The aim only sets the face direction; a pose that rolls the neck leaves her
+## staring at Anon sideways. Rolling the head about its own forward axis keeps the aim and puts her
+## up with the world's.
+func _level_head(rig, sk: Skeleton3D, weight: float) -> void:
+	if rig.neck.is_empty() or weight <= 0.0001:
+		return
+	var frame := _head_gaze_frame(rig, sk)
+	if frame.is_empty():
+		return
+	var forward: Vector3 = frame["forward"]
+	var up: Vector3 = frame.get("up", Vector3.UP)
+	var target_up := Vector3.UP - forward * Vector3.UP.dot(forward)
+	if target_up.length_squared() < 0.0001 or up.length_squared() < 0.000001:
+		return
+	var angle: float = up.normalized().signed_angle_to(target_up.normalized(), forward)
+	if absf(angle) < 0.002:
+		return
+	var head: int = rig.neck[rig.neck.size() - 1]
+	var axis := (sk.global_basis.inverse() * forward).normalized()
+	rig.rotate_free(sk, head, axis, angle * clampf(weight, 0.0, 1.0))
 
 
 ## A small off-target look for the nuzzle pulse, expressed as an angle at the target distance.

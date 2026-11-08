@@ -230,6 +230,18 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 			var head_pose := (hs as Skeleton3D).get_bone_global_pose(head_bone)
 			rows.append("head mHead origin=%s dir=%s" % [
 				str(head_pose.origin), str(head_pose.basis.z)])
+			var head_world := (hs as Skeleton3D).global_transform * head_pose
+			var facing := head_world.basis.z.normalized()
+			var to_look := look_point - head_world.origin
+			var aim := 180.0
+			if to_look.length_squared() > 0.0001:
+				aim = rad_to_deg(facing.angle_to(to_look.normalized()))
+			var roll := 0.0
+			var level := Vector3.UP - facing * Vector3.UP.dot(facing)
+			if level.length_squared() > 0.0001:
+				roll = rad_to_deg(head_world.basis.y.normalized().signed_angle_to(
+					level.normalized(), facing))
+			rows.append("head aim=%.1f° roll=%.1f° look=%s" % [aim, roll, str(look_point)])
 		else:
 			rows.append("head mHead missing")
 	else:

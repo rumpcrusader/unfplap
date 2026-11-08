@@ -12,8 +12,9 @@ extends RefCounted
 ## the skeleton, so the act's POSING_IN ramp still eases her into it.
 
 const PATH := "res://mods/unfplap/poses/missionary_pose.json"
-## Version 4 stores bed-relative transforms. Older files are development artifacts.
-const MIN_VERSION := 4
+## Version 4 stores bed-relative transforms; version 6 stores every body bone, including the ones
+## left at rest, because the runtime writes only what the file holds.
+const MIN_VERSION := 6
 
 ## True once a valid asset is parsed and `error` is empty.
 var available := false

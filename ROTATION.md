@@ -24,7 +24,7 @@ space, with the nuzzle and gaze overlays on top. There is no second implementati
 
 ### Base pose
 
-- **Asset.** `poses/authored_pose.gd` reads version 5 of the JSON once per process and caches it.
+- **Asset.** `poses/authored_pose.gd` reads version 6 of the JSON once per process and caches it.
   Every transform is in **bed space**: origin at the middle of the mattress top, the bed's own
   axes, `+Z` the direction her head points. The runtime maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
@@ -35,12 +35,17 @@ space, with the nuzzle and gaze overlays on top. There is no second implementati
   physics and process writer of the frame: `skeleton_pose.apply_render()`, same weight, no extra ramp
   and no clock advance. The physics-pass write stays because the game's own contacts and pose layers
   read the skeleton during the tick.
-- **What is written.** The 24 body bones in `PONY_BONES` (`tools/pose_lab.gd`) — hips, spine1–3,
+- **What is written.** The 30 body bones in `PONY_BONES` (`tools/pose_lab.gd`) — hips, spine1–3,
   neck1–2, flanks, femurs, tibias, legLowers, tarsals, hooves, shoulders, upper/lower arms, wrists,
   hands and fingers — plus the skeleton **root** (the armature bone) for placement. The actor node
   is never moved or rotated, so the capsule, bed support and posture recovery are untouched. The
   head bone, lids, eyes, ears, wings, feathers, mane and tail are never baked: the game and the act
   own them.
+- **The file carries every one of those bones, including the ones left at rest.** The runtime writes
+  only what the file holds and never resets the rig, so a bone missing from the file keeps the
+  game's own pose and breaks the chain it hangs from. Version 5 skipped rest bones; version 6 stores
+  them, and `MIN_VERSION` is 6. The lab reads bed-space transforms for every version from
+  `BED_SPACE_VERSION` 4 on, so an older file is never applied as lab world.
 - **Placement** is `bed_frame * (pony_frame with its origin × body_scale)`. Scaling only the
   distance keeps a larger pony's body on the mattress instead of in it. The pose is authored at
   canon size; other sizes are not tuned yet.

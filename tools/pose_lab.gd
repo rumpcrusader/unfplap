@@ -16,7 +16,12 @@ const PONY_MESH := preload("res://world/characters/hybrid_mare/body.glb")
 const ANON_RIG := preload("res://player/anon_body.tscn")
 
 const DEFAULT_POSE_PATH := "res://mods/unfplap/poses/missionary_pose.json"
-const POSE_VERSION := 5
+## 6 stores every body bone, including those left at rest. A 5 file skipped them, and the runtime
+## only writes what it holds, so those bones stayed on the game's pose.
+const POSE_VERSION := 6
+## 4 is the first bed-space version: transforms are relative to the bed frame. Reading that space is
+## tied to this floor, never to the current version, or an older file would be applied as lab world.
+const BED_SPACE_VERSION := 4
 ## The authored camera positions of the act's shot, node name -> shot key: the neutral start (lean
 ## 0), the pulled-back S end, the forward W end (the kiss), and the two side leans. Only the
 ## positions are exported; the runtime aims them at her live face and vulva.
@@ -479,7 +484,7 @@ func _load_pose() -> void:
 	var version := int(data.get("version", 3))
 	var frame := _pose_frame()
 	# Version 3 stored world transforms; version 4 stores them in the bed frame.
-	var space := frame if version >= POSE_VERSION else Transform3D.IDENTITY
+	var space := frame if version >= BED_SPACE_VERSION else Transform3D.IDENTITY
 	if _pony != null and data.get("pony") is Dictionary:
 		var pony: Dictionary = data["pony"]
 		_set_global(_pony, space * _str_to_transform(str(pony.get("transform", ""))))
@@ -506,7 +511,7 @@ func _load_pose() -> void:
 			if node == null or not (shot_data as Dictionary).has(key):
 				continue
 			_set_global(node, space * _str_to_transform(str((shot_data as Dictionary)[key])))
-	if _camera != null and data.get("camera") is Dictionary and version < POSE_VERSION:
+	if _camera != null and data.get("camera") is Dictionary and version < BED_SPACE_VERSION:
 		var cam: Dictionary = data["camera"]
 		_set_global(_camera, _str_to_transform(str(cam.get("transform", ""))))
 		_camera.fov = float(cam.get("fov", _camera.fov))
@@ -605,9 +610,10 @@ func _select_anon3_skeleton() -> void:
 	_select_anon_by_name("Anon3")
 
 
-## Saves only bones that differ from rest, as a delta pose instead of a dump of all imported rest
-## transforms. `allowed` limits the export to the body bones the runtime bakes; empty means every
-## changed bone (the Anon rig).
+## Saves every allowed bone, including one left at rest. `allowed` limits the export to the body
+## bones the runtime bakes; empty means every bone (the Anon rig). A rest bone must still be stored:
+## the runtime writes only the bones the file holds and never resets the rest, so a skipped bone
+## would keep the game's own pose and break the chain it hangs from.
 func _save_bones(sk: Skeleton3D, allowed: Array) -> Dictionary:
 	var out := {}
 	if sk == null:
@@ -616,17 +622,9 @@ func _save_bones(sk: Skeleton3D, allowed: Array) -> Dictionary:
 		var name := sk.get_bone_name(i)
 		if not allowed.is_empty() and not allowed.has(name):
 			continue
-		var pose_rot := sk.get_bone_pose_rotation(i)
-		var pose_pos := sk.get_bone_pose_position(i)
-		var rest := sk.get_bone_rest(i)
-		# absf(dot) so q and -q count as the same rotation; angle_to would report
-		# a near-full turn for the double cover and save untouched bones.
-		if absf(pose_rot.dot(rest.basis.get_rotation_quaternion())) > 0.99999 \
-				and pose_pos.distance_to(rest.origin) < 0.0001:
-			continue
 		out[name] = {
-			"rotation": _quat_to_str(pose_rot),
-			"position": _vec_to_str(pose_pos),
+			"rotation": _quat_to_str(sk.get_bone_pose_rotation(i)),
+			"position": _vec_to_str(sk.get_bone_pose_position(i)),
 		}
 	return out
 

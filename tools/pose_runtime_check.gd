@@ -13,9 +13,20 @@ const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 ## Bones the overlays never touch, so the recipe's base must match a bare base application exactly.
-const BODY_BONES := ["pony_hips", "pony_spine1", "pony_spine2", "pony_spine3", "pony_flank_L",
-	"pony_femur_L", "pony_tibia_L", "pony_tarsal_L", "pony_hoof_L", "pony_femur_R", "pony_tibia_R",
-	"pony_tarsal_R", "pony_hoof_R", "pony_upperArm_L", "pony_lowerArm_L", "pony_hand_L"]
+## The full body set: a bone left out of the file keeps the game's own pose at runtime.
+const BODY_BONES := ["pony_hips", "pony_spine1", "pony_spine2", "pony_spine3",
+	"pony_neck1", "pony_neck2",
+	"pony_flank_L", "pony_femur_L", "pony_tibia_L", "pony_legLower_L", "pony_tarsal_L",
+	"pony_hoof_L",
+	"pony_flank_R", "pony_femur_R", "pony_tibia_R", "pony_legLower_R", "pony_tarsal_R",
+	"pony_hoof_R",
+	"pony_shoulder_L", "pony_upperArm_L", "pony_lowerArm_L", "pony_wrist_L", "pony_hand_L",
+	"pony_finger_L",
+	"pony_shoulder_R", "pony_upperArm_R", "pony_lowerArm_R", "pony_wrist_R", "pony_hand_R",
+	"pony_finger_R"]
+## The gaze solve and the nuzzle own the neck, so the recipe is compared against the bare asset on
+## everything else.
+const OVERLAY_BONES := ["pony_neck1", "pony_neck2"]
 
 
 class FakeMare:
@@ -75,6 +86,8 @@ func _initialize() -> void:
 	var worst := 0.0
 	var worst_name := ""
 	for name: String in BODY_BONES:
+		if OVERLAY_BONES.has(name):
+			continue
 		if not baked.has(name) or not reference.has(name):
 			print("[pose_runtime] FAIL missing %s" % name)
 			worst = INF
@@ -85,6 +98,32 @@ func _initialize() -> void:
 			worst_name = name
 	print("[pose_runtime] base through recipe worst=%.5f m %s" % [worst, worst_name])
 
+	# The runtime never resets the rig: it writes only the bones the file holds. Perturb every bone
+	# first, apply the bare asset again and require the same joints, which proves the file carries
+	# every body bone instead of leaning on a reset.
+	skeleton.reset_bone_poses()
+	var tilt := Quaternion(Vector3.RIGHT, 0.35)
+	for i in skeleton.get_bone_count():
+		skeleton.set_bone_pose_rotation(i, tilt)
+		skeleton.set_bone_pose_position(i,
+			skeleton.get_bone_pose_position(i) + Vector3(0.01, 0.02, 0.03))
+	skeleton.force_update_all_bone_transforms()
+	pose.call("apply_pony", skeleton, 1.0, frame, 1.0)
+	skeleton.force_update_all_bone_transforms()
+	var resumed := _joints(skeleton)
+	var worst_resume := 0.0
+	var resume_name := ""
+	for name: String in BODY_BONES:
+		if not resumed.has(name) or not reference.has(name):
+			worst_resume = INF
+			resume_name = name
+			continue
+		var delta: float = (resumed[name] as Vector3).distance_to(reference[name])
+		if delta > worst_resume:
+			worst_resume = delta
+			resume_name = name
+	print("[pose_runtime] apply over a posed rig worst=%.5f m %s" % [worst_resume, resume_name])
+
 	# Shape checks in bed space: she rests on the mattress, her head is toward the head end, and
 	# her hind hooves are lifted around him.
 	var hips: Vector3 = frame.affine_inverse() * (baked["pony_hips"] as Vector3)
@@ -94,8 +133,8 @@ func _initialize() -> void:
 	var head_forward := head.z
 	var hoof_up := hoof.y - hips.y
 	print("[pose_runtime] bed space hips=%.3f head=%.3f hoof=%.3f" % [hips_up, head_forward, hoof_up])
-	var ok := worst <= 0.001 and hips_up > 0.0 and hips_up < 0.15 and head_forward > 0.2 \
-		and hoof_up > 0.2
+	var ok := worst <= 0.001 and worst_resume <= 0.001 and hips_up > 0.0 and hips_up < 0.15 \
+		and head_forward > 0.2 and hoof_up > 0.2
 	print("[pose_runtime] %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 

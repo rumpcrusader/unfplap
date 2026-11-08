@@ -252,7 +252,11 @@ loaded.
   `_process` after every other writer: `skeleton_pose.apply_render()`, same weight, no ramp or clock
   advance. The physics-pass write stays for the game's own contacts and pose layers.
 - Only the body bones in `PONY_BONES` and the skeleton root are written. The actor node is never
-  moved, so the capsule, bed support and posture recovery are untouched. The head bone, lids, eyes,
+  moved, so the capsule, bed support and posture recovery are untouched. The file must carry **all
+  30**, rest bones included: the runtime writes only what it holds and never resets the rig, so a
+  missing bone keeps the game's pose and breaks its chain (that was the v5 bug; `MIN_VERSION` is 6).
+- The lab reads bed-space transforms for every file from `BED_SPACE_VERSION` 4 up, never tied to
+  the current version. The head bone, lids, eyes,
   ears, wings, feathers, mane and tail are never baked; the game and the act own them.
 - The head bone is reset to rest; the gaze solve owns the face. The pose lab has no head mesh, so
   baked head rotations are rejected.

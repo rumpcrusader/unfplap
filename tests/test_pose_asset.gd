@@ -4,15 +4,21 @@ extends SceneTree
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
-## Every body bone the base pose must carry. A filter typo in the pose lab shows up here before it
-## reaches a bed. Bones the authored pose leaves at rest are simply not written, so the list holds
-## the joints that carry it: the posed segments of both leg chains and both arm chains.
+## Every body bone the base pose must carry, in the pose lab's `PONY_BONES` order. The runtime
+## writes only the bones the file holds and never resets the rest, so a missing bone keeps the
+## game's own pose and breaks the chain it hangs from. A filter typo in the lab shows up here.
 const REQUIRED := [
-	"pony_hips", "pony_spine1", "pony_spine2", "pony_spine3", "pony_neck1", "pony_neck2",
-	"pony_flank_L", "pony_femur_L", "pony_tibia_L", "pony_tarsal_L", "pony_hoof_L",
-	"pony_flank_R", "pony_femur_R", "pony_tibia_R", "pony_tarsal_R", "pony_hoof_R",
-	"pony_upperArm_L", "pony_lowerArm_L", "pony_wrist_L", "pony_finger_L",
-	"pony_upperArm_R", "pony_lowerArm_R", "pony_wrist_R", "pony_finger_R",
+	"pony_hips",
+	"pony_spine1", "pony_spine2", "pony_spine3",
+	"pony_neck1", "pony_neck2",
+	"pony_flank_L", "pony_femur_L", "pony_tibia_L", "pony_legLower_L", "pony_tarsal_L",
+	"pony_hoof_L",
+	"pony_flank_R", "pony_femur_R", "pony_tibia_R", "pony_legLower_R", "pony_tarsal_R",
+	"pony_hoof_R",
+	"pony_shoulder_L", "pony_upperArm_L", "pony_lowerArm_L", "pony_wrist_L", "pony_hand_L",
+	"pony_finger_L",
+	"pony_shoulder_R", "pony_upperArm_R", "pony_lowerArm_R", "pony_wrist_R", "pony_hand_R",
+	"pony_finger_R",
 ]
 ## Bones the game or the act animates every frame. Baking them would fight the gaze, lids, ears,
 ## wings, mane or tail.
@@ -54,6 +60,8 @@ func run() -> void:
 		if not bones.has(name):
 			missing.append(name)
 	check(missing.is_empty(), "every body bone is authored: %s" % str(missing))
+	check(bones.size() == REQUIRED.size(), "pose carries %d bones, expected %d" % [
+		bones.size(), REQUIRED.size()])
 	var bad_rotation: Array[String] = []
 	var bad_position: Array[String] = []
 	for key: Variant in bones:

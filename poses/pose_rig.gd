@@ -57,6 +57,17 @@ func rotate(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
 	_limit(sk, bone)
 
 
+## Same, without the joint-limit clamp. The hand-authored base pose can sit outside the limits the
+## game derives from its own motion library, and clamping the small gaze/presentation corrections
+## applied on top of it would snap the authored pose back.
+func rotate_free(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
+	if bone < 0 or absf(angle) < 0.00001:
+		return
+	var pose := sk.get_bone_global_pose(bone)
+	pose.basis = Basis(axis.normalized(), angle) * pose.basis
+	sk.set_bone_global_pose(bone, pose)
+
+
 ## Joint-limit clamp for `rotate()`; skipped for direct global-pose corrections.
 func _limit(sk: Skeleton3D, bone: int) -> void:
 	if limits == null or not limits.has_method("constrain"):

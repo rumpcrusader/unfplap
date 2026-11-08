@@ -21,6 +21,11 @@ var target_amount := 0.0
 var head_roll := 0.0
 var climaxing := false
 var pose_config: Dictionary = {}
+## Hand-authored base pose (poses/authored_pose.gd) and the bed space it is placed in. A null
+## asset or a missing frame leaves the recipe's correction stack as the fallback.
+var authored: Variant = null
+var bed_frame: Variant = null
+var authored_on := true
 
 var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
@@ -60,6 +65,7 @@ func _apply(delta: float) -> void:
 		return
 	var weight := smoothstep(0.0, 1.0, amount)
 	_clock += delta
+	var mare_scale: Variant = mare.get("body_scale")
 	var state := {
 		"look_point": look_point,
 		"head_roll": head_roll,
@@ -68,6 +74,10 @@ func _apply(delta: float) -> void:
 		"climaxing": climaxing,
 		"clock": _clock,
 		"config": pose_config,
+		"authored": authored,
+		"authored_on": authored_on,
+		"bed_frame": bed_frame,
+		"body_scale": float(mare_scale) if mare_scale != null else 1.0,
 	}
 	if mode == "standing":
 		_standing.apply(_rig, sk, weight, state)

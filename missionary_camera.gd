@@ -302,6 +302,13 @@ func _missionary_camera_target() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
 	var root: Vector3 = pony.global_position
+	# The hand-authored base pose places her body in the bed frame rather than around the actor,
+	# so the shot is anchored to that frame (the middle of the mattress) to stay centred on her.
+	if is_instance_valid(runtime) and runtime.has_method("authored_base_active") \
+			and bool(runtime.call("authored_base_active")):
+		var origin: Variant = runtime.call("missionary_pose_origin")
+		if origin is Vector3 and (origin as Vector3).is_finite():
+			root = origin
 	var back: Vector3 = pony.global_basis.z.normalized()
 	var body_scale := _missionary_body_scale()
 	# Stay behind her neck, toward her rump. Anchoring ahead of the neck put the camera over her

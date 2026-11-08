@@ -19,31 +19,59 @@ const RUMP_LEVER_M := 0.45
 ## Extra neck lift off the mattress before the gaze solve. In the standing model this is the
 ## chin-down direction; the supine body turns it into an upward head lift.
 const MISSIONARY_NECK_LIFT_DEG := 15.0
+## The retired correction stack needs these presentation offsets to read right. The hand-authored
+## base pose does not, so they are fallback-only and the settings default to zero.
+const FALLBACK_NECK2_DEG := 45.0
+const FALLBACK_HEAD_PITCH_DEG := 90.0
+const FALLBACK_HEAD_ROLL_DEG := 90.0
 
 var last_roll := 0.0
 var last_chest_roll := 0.0
 var _config: Dictionary = {}
+## True while the hand-authored base pose is the base: the gaze and presentation corrections then
+## skip the joint-limit clamp, which would otherwise snap the authored pose to the game's limits.
+var _free_rotate := false
 
 
+## Applies the missionary base pose, then the live overlays (neck offsets, nuzzle, gaze, head
+## pitch and roll). The base is the hand-authored pose when the asset and the act's bed frame are
+## available, and the correction stack below is the fallback.
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
-	_roll_root(rig, sk, PI * weight)
-	_lift_root(rig, sk, weight, _value("bed_lift_m", 0.05))
-	_straighten_spine_neck(rig, sk, weight)
-	_align_chain_straight(rig, sk, weight)
-	_level_body_roll(rig, sk, weight)
-	_level_chest_roll(rig, sk, weight)
-	# integration: her rump rises as she moves, and an optional pelvic curl fixes the bed angle.
-	_pitch_body_about_shoulders(rig, sk, weight,
-		_value("rump_drop_deg", MISSIONARY_RUMP_DROP_DEG)
-		- rad_to_deg(_value("rump_rise_m", 0.0) / RUMP_LEVER_M))
-	_curl_pelvis(rig, sk, weight, _value("pelvis_curl_deg", 0.0))
-	_bend_forelegs(rig, sk, weight, 0.3)
-	_raise_hind_legs(rig, sk, weight)
-	_hug_forelegs(rig, sk, weight)
+	var baked := _apply_authored(sk, weight, state)
+	_free_rotate = baked
+	if baked:
+		# The base pose owns the body; the runtime owns the head. Reset the head bone to rest the
+		# way the correction stack does, so the gaze solve and the pitch/roll offsets shape the
+		# face instead of inheriting whatever the game's lie animation left on it.
+		_neutral_head(sk, weight)
+	if not baked:
+		_roll_root(rig, sk, PI * weight)
+		_lift_root(rig, sk, weight, _value("bed_lift_m", 0.05))
+		_straighten_spine_neck(rig, sk, weight)
+		_align_chain_straight(rig, sk, weight)
+		_level_body_roll(rig, sk, weight)
+		_level_chest_roll(rig, sk, weight)
+		# integration: her rump rises as she moves, and an optional pelvic curl fixes the bed angle.
+		_pitch_body_about_shoulders(rig, sk, weight,
+			_value("rump_drop_deg", MISSIONARY_RUMP_DROP_DEG)
+			- rad_to_deg(_value("rump_rise_m", 0.0) / RUMP_LEVER_M))
+		_curl_pelvis(rig, sk, weight, _value("pelvis_curl_deg", 0.0))
+		_bend_forelegs(rig, sk, weight, 0.3)
+		_raise_hind_legs(rig, sk, weight)
+		_hug_forelegs(rig, sk, weight)
 	var lift := _value("neck_lift_deg", MISSIONARY_NECK_LIFT_DEG)
-	_neck_bend(rig, sk, weight,
-		_value("neck1_deg", lift * 0.5), _value("neck2_deg", lift * 0.5))
+	var neck1 := _value("neck1_deg", lift * 0.5)
+	var neck2 := _value("neck2_deg", lift * 0.5)
+	var pitch := _value("head_pitch_deg", 0.0)
+	var roll := float(state.get("head_roll", 0.0))
+	if not baked:
+		# The correction stack has no authored neck/head angle of its own; these keep its old look
+		# now that the presentation settings default to zero for the authored base.
+		neck2 += FALLBACK_NECK2_DEG
+		pitch += FALLBACK_HEAD_PITCH_DEG
+		roll += FALLBACK_HEAD_ROLL_DEG
+	_neck_bend(rig, sk, weight, neck1, neck2)
 	_neck_roll(rig, sk, weight, _value("neck_roll_deg", 0.0))
 	var pulse := 1.0 if bool(state.get("climaxing", false)) else _nuzzle_pulse(float(state.get("clock", 0.0)))
 	if bool(state.get("climaxing", false)):
@@ -52,8 +80,39 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	if pulse > 0.001 and look_point.is_finite():
 		look_point = _nuzzle_look_point(rig, sk, look_point, pulse)
 	_aim_gaze(rig, sk, weight, look_point)
-	_head_pitch(rig, sk, weight, _value("head_pitch_deg", 0.0))
-	_roll_head(rig, sk, weight, float(state.get("head_roll", 0.0)))
+	_head_pitch(rig, sk, weight, pitch)
+	_roll_head(rig, sk, weight, roll)
+
+
+## The hand-authored base pose, when the asset loaded and the act has a bed frame. Returns false to
+## use the correction stack instead (no asset, an older file, the A/B switch off, or no bed).
+func _apply_authored(sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
+	var authored: Variant = state.get("authored")
+	if authored == null or not bool(state.get("authored_on", true)):
+		return false
+	var frame: Variant = state.get("bed_frame")
+	if not frame is Transform3D:
+		return false
+	if not bool(authored.get("available")):
+		return false
+	return bool(authored.call("apply_pony", sk, weight, frame,
+		float(state.get("body_scale", 1.0))))
+
+
+## Rotate through the limited or free path, depending on which base is in charge.
+func _turn(rig, sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
+	if _free_rotate:
+		rig.rotate_free(sk, bone, axis, angle)
+	else:
+		rig.rotate(sk, bone, axis, angle)
+
+
+func _neutral_head(sk: Skeleton3D, weight: float) -> void:
+	var head := sk.find_bone("pony_head")
+	if head < 0:
+		return
+	var rest := sk.get_bone_rest(head).basis.get_rotation_quaternion()
+	sk.set_bone_pose_rotation(head, sk.get_bone_pose_rotation(head).slerp(rest, weight))
 
 
 func _roll_root(rig, sk: Skeleton3D, angle: float) -> void:
@@ -343,7 +402,7 @@ func _aim_gaze(rig, sk: Skeleton3D, weight: float, look_point: Vector3) -> void:
 		var axis := (sk.global_basis.inverse() * axis_world.normalized()).normalized()
 		var step_angle := error - desired
 		for i: int in rig.neck.size():
-			rig.rotate(sk, rig.neck[i], axis,
+			_turn(rig, sk, rig.neck[i], axis,
 				step_angle * shares[mini(i, shares.size() - 1)])
 
 
@@ -374,9 +433,9 @@ func _neck_bend(rig, sk: Skeleton3D, weight: float, neck1_deg: float, neck2_deg:
 		return
 	var right: Vector3 = rig.right_axis(sk)
 	if absf(neck1_deg) > 0.0001:
-		rig.rotate(sk, rig.neck[0], right, deg_to_rad(neck1_deg) * weight)
+		_turn(rig, sk, rig.neck[0], right, deg_to_rad(neck1_deg) * weight)
 	if absf(neck2_deg) > 0.0001:
-		rig.rotate(sk, rig.neck[1], right, deg_to_rad(neck2_deg) * weight)
+		_turn(rig, sk, rig.neck[1], right, deg_to_rad(neck2_deg) * weight)
 
 
 ## Roll the neck away from the mattress about the body's long axis. The gaze solve runs after
@@ -386,8 +445,8 @@ func _neck_roll(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
 		return
 	var angle := deg_to_rad(degrees) * weight
 	var forward: Vector3 = rig.forward_axis(sk)
-	rig.rotate(sk, rig.neck[0], forward, angle * 0.5)
-	rig.rotate(sk, rig.neck[1], forward, angle * 0.5)
+	_turn(rig, sk, rig.neck[0], forward, angle * 0.5)
+	_turn(rig, sk, rig.neck[1], forward, angle * 0.5)
 
 
 ## Final head pitch after the gaze solve. This intentionally trades a little exact aim for a
@@ -398,7 +457,7 @@ func _head_pitch(rig, sk: Skeleton3D, weight: float, degrees: float) -> void:
 	var head: int = rig.neck[rig.neck.size() - 1]
 	if head < 0:
 		return
-	rig.rotate(sk, head, rig.right_axis(sk), deg_to_rad(degrees) * weight)
+	_turn(rig, sk, head, rig.right_axis(sk), deg_to_rad(degrees) * weight)
 
 
 func _nuzzle_pulse(clock: float) -> float:

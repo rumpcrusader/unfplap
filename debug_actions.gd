@@ -11,6 +11,12 @@ extends RefCounted
 ## must fire while the world is unpaused and you are looking at the scene (the skeleton overlay is
 ## the example). `panel: false` keeps a hotkey-only action out of the button list.
 const ACTIONS := {
+	"reload_pose": {
+		"label": "Reload posed base",
+		"help": "Re-read poses/missionary_pose.json without restarting the game. A running act picks it up.",
+		"method": "action_reload_pose",
+		"hotkey": KEY_F4,
+	},
 	"bed_offer": {
 		"label": "Trigger bed offer",
 		"help": "Force a missionary offer for the aimed or nearest mare.",

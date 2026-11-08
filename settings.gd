@@ -610,6 +610,10 @@ static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
+static var authored_base := flag("authored_base", "presentation.missionary.authored_base", true,
+	"Use posed base",
+	"Build the missionary base from the hand-authored bed pose instead of the runtime correction stack.",
+	GENERAL, "Missionary").as_debug()
 static var forward := num("forward", "presentation.missionary.forward", 0.3,
 	"Missionary forward", "Shift the frozen shot forward along her body.", GENERAL, "Missionary") \
 	.with_unit("m").with_step(0.01).as_debug()
@@ -631,17 +635,17 @@ static var side_lean := num("side_lean", "presentation.missionary.side_lean", 0.
 
 # -- Missionary › Neck angles  (debug)
 static var head_pitch_deg := num("head_pitch_deg", "presentation.missionary.head_pitch_deg",
-	90.0, "Head pitch", "Tilt the head about the body right axis after the gaze solve.", GENERAL,
+	0.0, "Head pitch", "Tilt the head about the body right axis after the gaze solve.", GENERAL,
 	"Missionary › Neck angles") \
 	.with_unit("°").with_step(1.0).as_debug()
-static var head_roll_deg := num("head_roll_deg", "presentation.missionary.head_roll_deg", 90.0,
+static var head_roll_deg := num("head_roll_deg", "presentation.missionary.head_roll_deg", 0.0,
 	"Head roll", "Roll the head last, in degrees.", GENERAL, "Missionary › Neck angles") \
 	.with_unit("°").with_step(1.0).as_debug()
 static var neck1_deg := num("neck1_deg", "presentation.missionary.neck1_deg", 0.0,
 	"Neck 1 angle", "Bend pony_neck1 about the body right axis.", GENERAL,
 	"Missionary › Neck angles") \
 	.with_unit("°").with_step(1.0).as_debug()
-static var neck2_deg := num("neck2_deg", "presentation.missionary.neck2_deg", 45.0,
+static var neck2_deg := num("neck2_deg", "presentation.missionary.neck2_deg", 0.0,
 	"Neck 2 angle", "Bend pony_neck2 about the body right axis.", GENERAL,
 	"Missionary › Neck angles") \
 	.with_unit("°").with_step(1.0).as_debug()

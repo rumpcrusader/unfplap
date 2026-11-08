@@ -198,6 +198,8 @@ mods/unfplap/
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
   audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
+  poses/authored_pose.gd  bed-space loader for the hand-authored missionary base pose
+  poses/missionary_pose.json  the authored pose; exported from the pose lab, never hand-edited
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
                     and afterglow summary
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
@@ -236,6 +238,34 @@ body-relative axes.
 
 ### Missionary
 
+The base pose comes from `poses/missionary_pose.json` when `presentation.missionary.authored_base`
+is on (the default) and the asset loads; the correction stack below is the fallback. The overlays —
+neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
+
+- The asset is bed-space data: origin at the middle of the mattress top, the bed's axes, `+Z` her
+  head direction. `poses/authored_pose.gd` maps it onto the real bed with
+  `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`
+  and places `bed_frame * (pony_frame with its origin × body_scale)`.
+- Only the body bones in `PONY_BONES` and the skeleton root are written. The actor node is never
+  moved, so the capsule, bed support and posture recovery are untouched. The head bone, lids, eyes,
+  ears, wings, feathers, mane and tail are never baked; the game and the act own them.
+- The head bone is reset to rest on this path; the gaze solve and the pitch/roll offsets own the
+  face. The pose lab has no head mesh, so baked head rotations are rejected.
+- The overlays use `rig.rotate_free` on this path: the authored pose can sit outside the joint
+  limits the game derives from its own motion library, and `constrain()` would snap it back.
+- A missing asset, a version below 4, the switch off, or no bed frame (the floating pose preview)
+  falls back to the correction stack. `pelvis_curl_deg`, `legs_wrap` and `bed_lift_m` are
+  stack-only.
+- The framing camera anchors to the bed frame origin (`runtime.authored_base_active()`,
+  `missionary_pose_origin()`) because the body is placed in bed space rather than around the actor.
+- The pose is authored at canon size. Other pony sizes scale only the placement distance; they are
+  not tuned.
+- The JSON is exported, never hand-edited: pose `tools/pose_lab.tscn` in the editor, save the
+  scene, then **Save pose** (or run `tools/pose_export.gd` headless). The exporter also checks a
+  load round trip and the runtime application path, and `tools/` never ships.
+
+### Correction stack (fallback)
+
 - Recipe order is load-bearing:
   1. `_straighten_spine_neck()`
   2. `_align_chain_straight()`
@@ -252,7 +282,9 @@ body-relative axes.
   roll her belly-down.
 - `MISSIONARY_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
 - `_neck_bend(neck1_deg, neck2_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis.
-  Presentation defaults are neck1 `0°` and neck2 `45°`; zero straightens the neck.
+  The live offsets default to zero because the authored base already holds the neck; this stack
+  adds `FALLBACK_NECK2_DEG` (45°) itself, and `FALLBACK_HEAD_PITCH_DEG` / `FALLBACK_HEAD_ROLL_DEG`
+  (90°) keep its old look.
   `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both run
   **before** the gaze solve, so they change head position without biasing the final face
   direction. After the gaze solve, `_head_pitch(head_pitch_deg)` tilts the head about the body
@@ -1305,10 +1337,14 @@ examples.
 - **Force heat** / **Force diestrus** / **Clear forced cycle**: set the aimed or nearest mare's
   session-only estrus override. They work even when `features.estrus_cycle` is off, so the lab can
   test both phases without waiting in-game days.
+- **Reload posed base**: re-read the hand-authored missionary base pose in place. A live act picks
+  it up on its next frame; a bad file leaves the previous pose and reports the reason.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act while **Enable debug** is on. Neglect events log their warning/stop,
   tier, distress and dislike.
-- `F10` (the only hotkey action): toggle the skeleton overlay for nearby ponies. Lines are thin
+- `F4` (**Reload posed base**): re-read `poses/missionary_pose.json` without restarting. It works
+  while an act runs, so export → reload tunes the pose live. Also a button in General's Debug block.
+- `F10` (**Skeleton overlay**): toggle the skeleton overlay for nearby ponies. Lines are thin
   (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red,
   then left-click to print its bone name, parent, world/local origin, rotation, scale and rest.
 - Logging follows **Enable debug** (General's last row); there is no separate log switch
@@ -1596,9 +1632,9 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (with a
-  **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
-  subheadings) and **Thrust jiggle** sections. **Anatomy**
+  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (Use posed base, body
+  motion, then a **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss**
+  and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

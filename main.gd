@@ -18,6 +18,7 @@ const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RUMP_CONE := preload("res://mods/unfplap/rump_cone.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
@@ -1355,6 +1356,19 @@ func action_grant_lover_bond() -> String:
 
 func action_clear_lover_bond() -> String:
 	return _debug_bond_request(false)
+
+
+## Debug: re-read the hand-authored missionary base pose without restarting. A running act picks
+## the new pose up on its next frame, so the lab (export) -> game (reload) loop works while posing.
+func action_reload_pose() -> String:
+	var error: String = AUTHORED.reload_file()
+	if not error.is_empty():
+		_debug("pose reload failed: %s" % error)
+		return "Pose reload failed: %s" % error
+	if is_instance_valid(active_runtime) and active_runtime.has_method("_sync_missionary_pose_config"):
+		active_runtime.call("_sync_missionary_pose_config")
+	_debug("pose reloaded")
+	return "Reloaded the missionary posed base."
 
 
 ## Debug: clear the aimed or nearest mare's long-term act history.

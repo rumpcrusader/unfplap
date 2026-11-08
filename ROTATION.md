@@ -19,6 +19,46 @@ whenever a pose value or order changes.
 
 ## Missionary
 
+The base is the **hand-authored pose** in `poses/missionary_pose.json` when
+`presentation.missionary.authored_base` is on (the default) and the asset loads. The live overlays —
+neck offsets, nuzzle, gaze solve, head pitch and head roll — run on top of either base, so the face
+rules apply in both.
+
+### Authored base (default)
+
+- **Asset.** `poses/authored_pose.gd` reads version 4 of the JSON once per process and caches it.
+  Every transform is in **bed space**: origin at the middle of the mattress top, the bed's own
+  axes, `+Z` the direction her head points. The runtime maps it onto the real bed with
+  `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
+  so the pillow end (the shared bed frame's `-Z`) is where her head points.
+- **What is written.** The 24 body bones in `PONY_BONES` (`tools/pose_lab.gd`) — hips, spine1–3,
+  neck1–2, flanks, femurs, tibias, legLowers, tarsals, hooves, shoulders, upper/lower arms, wrists,
+  hands and fingers — plus the skeleton **root** (the armature bone) for placement. The actor node
+  is never moved or rotated, so the capsule, bed support and posture recovery are untouched. The
+  head bone, lids, eyes, ears, wings, feathers, mane and tail are never baked: the game and the act
+  own them.
+- **Placement** is `bed_frame * (pony_frame with its origin × body_scale)`. Scaling only the
+  distance keeps a larger pony's body on the mattress instead of in it. The pose is authored at
+  canon size; other sizes are not tuned yet.
+- **Weight** comes from the pose modifier's `amount` ramp: each bone slerps from whatever the game's
+  `lie_down` settle left to the authored rotation, and the root blends with `interpolate_with`, so
+  POSING_IN still eases her in.
+- **The head bone is reset to rest** on this path. The runtime owns the face: the gaze solve then
+  aims `pony_head`'s frame (plus `HybridNeckLink`'s offset) at Anon, and the pitch/roll offsets run
+  last. Baked head rotations were rejected because the pose lab has no head mesh.
+- **Overlays skip the joint-limit clamp** (`rig.rotate_free`). The authored pose can sit outside
+  the limits the game derives from its own motion library, and `constrain()` would snap it back on
+  the first gaze correction.
+- **The framing camera anchors to the bed frame origin**, not the actor, because the body is placed
+  in bed space (`runtime.authored_base_active()` / `missionary_pose_origin()`).
+- **Fallback.** A missing asset, a version below 4, the A/B switch off, or no bed frame (the
+  floating pose preview) uses the correction stack below. The anatomy-only `pelvis_curl_deg`,
+  `legs_wrap` and `bed_lift_m` keys are skipped on the authored path: the pose already has them.
+- **Reload.** The asset is shared for the process; the **Reload posed base** debug action (and
+  `F4`) re-reads the file in place, so the lab export → game reload loop works mid-act.
+
+### Correction stack (fallback)
+
 Exact order:
 
 1. `_roll_root(PI * weight)`
@@ -53,10 +93,11 @@ Exact order:
    - knee bend `-0.55` around `right`.
 10. `_hug_forelegs()`.
 11. `_neck_bend(neck1_deg, neck2_deg)` about the body right axis on `pony_neck1`/`pony_neck2`.
-    The presentation defaults are neck1 `0°` and neck2 `45°`; zero straightens the neck.
-    `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both are
-    posture offsets and run before the gaze solve, so they move her head off the mattress
-    without tilting her final gaze.
+    The settings default to zero because the authored base already holds the neck; this stack adds
+    `FALLBACK_NECK2_DEG = 45` itself, and `FALLBACK_HEAD_PITCH_DEG` / `FALLBACK_HEAD_ROLL_DEG = 90`
+    keep its old look. `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward
+    axis. Both are posture offsets and run before the gaze solve, so they move her head off the
+    mattress without tilting her final gaze.
 12. Nuzzle
     - `_nuzzle_pulse()`: 0→1→0 over `NUZZLE_DURATION` every `NUZZLE_PERIOD`.
     - offsets the gaze target by the small angle `nuzzle_scale * 8°`; base gaze remains on Anon.
@@ -67,7 +108,8 @@ Exact order:
     - shortest-arc rotation from her current face direction to Anon; no absolute yaw/pitch and
       no rest-orientation assumption. This is what keeps the lying missionary head off the
       ceiling.
-    - neck shares `[0.30, 0.36, 0.34]`; `rig.rotate()` applies the native joint limits.
+    - neck shares `[0.30, 0.36, 0.34]`; `rig.rotate()` applies the native joint limits (the
+      authored base uses `rotate_free` instead, see above).
     - the kiss target is already the runtime's `look_point`, so the old extra kiss aim is gone.
     - after the solve, `_head_pitch(head_pitch_deg)` rotates the head about the body right axis.
       This intentionally trades a little exact aim for a natural head angle.
@@ -88,18 +130,20 @@ Positive `_lift_neck()` angles were `0.10 / 0.08 / 0.06` around the body's right
 They throw the neck/head back and were intentionally not applied in missionary. Keep
 these values here if a future pose needs that effect.
 
-### Anatomy additions
+### Anatomy additions (correction stack only)
 
-With the anatomy shown (`anatomy_mode` not `never`), the recipe also applies `pelvis_curl_deg` (25°), `legs_wrap` and
-`bed_lift_m` (0.05). The curl tips the pelvis toward Anon and shares the turn back up the spine;
-the wrap opens each hind femur around him. `rump_rise_m` is accepted but unused until the
-optional bed body or mare-motion work. These keys are absent with the feature off, so the master
-pose is unchanged. `tail_pose.gd` is not changed.
+With the anatomy shown (`anatomy_mode` not `never`), the **correction stack** also applies
+`pelvis_curl_deg` (25°), `legs_wrap` and `bed_lift_m` (0.05). The curl tips the pelvis toward Anon
+and shares the turn back up the spine; the wrap opens each hind femur around him. `rump_rise_m` is
+accepted but unused. The authored base already contains its own pelvic curl and leg wrap, so it
+ignores these keys. `tail_pose.gd` is not changed.
 
 ## Missionary camera
 
 - Anchor: `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M 0.10) * body_scale + back * 0.22 * body_scale`,
-  where `back = +pony.global_basis.z`. The anchor stays behind her neck, toward her rump, so the
+  where `back = +pony.global_basis.z` and `root` is the actor's position normally, or the authored
+  pose's bed-frame origin when the authored base is active (the body is placed in bed space then,
+  so an actor-anchored shot would sit off her centreline). The anchor stays behind her neck, toward her rump, so the
   frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
   back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
   farther-back anchor. The **Act presentation → Missionary** axes move the frozen anchor:

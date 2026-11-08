@@ -2,6 +2,7 @@ extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 const DOCK_TAIL_COAT := preload("res://mods/unfplap/dock_tail_coat_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
@@ -242,6 +243,8 @@ var penetration_m := 0.0
 var thrust_up := true
 
 var _pose
+## Bed space of the hand-authored missionary base pose for this act (`null` for other poses).
+var _bed_pose_frame: Variant = null
 var _tail
 var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
@@ -2333,6 +2336,48 @@ func _sync_missionary_pose_config() -> void:
 	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	if is_instance_valid(_pose):
 		_pose.head_roll = _missionary_head_roll
+		# The base pose is switchable mid-act; the asset instance is shared, so a reload reaches
+		# the live act without rebuilding the modifier.
+		_pose.authored_on = SETTINGS.authored_base.get_bool()
+		_pose.authored = _authored_pose()
+
+
+## The hand-authored missionary base pose. Parsed once for the process; the debug action rewrites
+## the same instance in place, so a live act picks the new pose up on its next frame.
+func _authored_pose() -> Variant:
+	return AUTHORED.shared()
+
+
+## True when the missionary base pose is the authored asset rather than the correction stack. The
+## framing camera anchors to the bed frame then, because the body is placed in bed space.
+func authored_base_active() -> bool:
+	return pose_id == CATALOG.MISSIONARY and _bed_pose_frame is Transform3D \
+		and SETTINGS.authored_base.get_bool() and bool(_authored_pose().get("available"))
+
+
+## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
+func missionary_pose_origin() -> Vector3:
+	if _bed_pose_frame is Transform3D:
+		return (_bed_pose_frame as Transform3D).origin
+	return pony.global_position if is_instance_valid(pony) else Vector3.ZERO
+
+
+## Bed space for the authored pose: the middle of the real bed's mattress top, in the bed's axes,
+## with the pillow end at -Z so the authored `+Z` (her head) points at the head of the bed. The
+## pose is stored relative to this frame, so any bed size or yaw works; `null` leaves the
+## correction stack in charge.
+func _missionary_pose_frame() -> Variant:
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(bed):
+		return null
+	var fallback: float = float(bed.get_meta("mattress_top", 0.6)) + float(bed.global_position.y)
+	var points: Array[Vector3] = [bed.global_position]
+	var top: float = MATTRESS.visible_top(bed, points, fallback)
+	if not is_finite(top):
+		return null
+	var at: Vector3 = bed.global_position
+	var basis := bed.global_basis.orthonormalized() * Basis(Vector3.UP, PI)
+	return Transform3D(basis, Vector3(at.x, top, at.z))
+
 
 func _build_pose() -> void:
 	_free_pose()
@@ -2348,6 +2393,11 @@ func _build_pose() -> void:
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
 		_pose.target_amount = 1.0
+		if pose_id == CATALOG.MISSIONARY:
+			_bed_pose_frame = _missionary_pose_frame()
+			_pose.authored = _authored_pose()
+			_pose.authored_on = SETTINGS.authored_base.get_bool()
+			_pose.bed_frame = _bed_pose_frame
 		(skeleton as Skeleton3D).add_child(_pose)
 		if pose_id == CATALOG.STANDING:
 			if _feature("standing_body_sway"):
@@ -2385,6 +2435,7 @@ func _build_pose() -> void:
 		(hair as Skeleton3D).add_child(_dock_tail)
 
 func _free_pose() -> void:
+	_bed_pose_frame = null
 	clear_presentation()
 	_end_lean_action()
 	_caress_controller().reset()

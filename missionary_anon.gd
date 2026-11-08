@@ -247,9 +247,10 @@ func _apply_lean(placed: Transform3D) -> void:
 	var scale: Variant = runtime.call("_lean_size_scale")
 	var lean_scale := float(scale) if scale is float or scale is int else 1.0
 	# Positive leans him back: the eyes lift off her and the camera clears the belly. The debug
-	# setting is signed and unbounded, so the direction can be flipped live in the lab.
+	# setting is signed and unbounded, so the direction can be flipped live in the lab. W then tips
+	# the same hinge forward/down toward her, S back/up.
 	var base := deg_to_rad(SETTINGS.upper_lean_deg.get_num())
-	var pitch := -base - deg_to_rad(MOTION.LEAN_PITCH_DEG * 3.0) * lean_forward * lean_scale
+	var pitch := -base + deg_to_rad(MOTION.LEAN_PITCH_DEG * 3.0) * lean_forward * lean_scale
 	var yaw := -deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG * 4.0) * lean_side * lean_scale
 	if absf(pitch) < 0.00001 and absf(yaw) < 0.00001:
 		return

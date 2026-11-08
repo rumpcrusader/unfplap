@@ -137,8 +137,9 @@ Missionary is its own state, not the game's bed rest:
   rest values). The lean is **one hinge at the `Spine` joint** (`LEAN_HINGE`): the whole upper body —
   chest, neck, head, shoulders, arms and hands — tilts as a unit around it, while the hips, thighs and
   legs stay exactly on the authored pose and keep the stroke. `presentation.missionary.upper_lean_deg`
-  (debug, default `10°`, signed) is the base lean; W/S/Q/E add to the same hinge. Positive leans him
-  back, lifting his eyes off her; the debug value is unbounded and applies live. The kiss still leans
+  (debug, default `10°`, signed) is the base lean; W tips the hinge forward/down toward her, S back/up,
+  and Q/E add the side lean. Positive `Upper lean` leans him back, lifting his eyes off her; the debug
+  value is unbounded and applies live. The kiss still leans
   the eye in toward the aim, never closer than 0.30 m. The camera is written after the pose in the
   same frame, so it never trails his head. Her gaze and the kiss target his authored **eye and
   mouth**, never the game camera on his standing player rig.

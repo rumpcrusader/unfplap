@@ -479,7 +479,8 @@ reclined eye height left the camera wrong after the act.
 the transform `apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one
 hinge at the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his
 hips, thighs and legs stay on the authored pose and keep the thrust. `presentation.missionary.upper_lean_deg`
-(debug, default `10°`, signed) is the base lean, and W/S/Q/E add to the same hinge. The camera is
+(debug, default `10°`, signed) is the base lean; W tips the hinge forward/down toward her, S back/up,
+and Q/E add the side lean. The camera is
 written after the pose write in the same frame. Her gaze and the kiss target his authored eye and
 mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig.
 **Authored shots** uses the shot trajectory below.

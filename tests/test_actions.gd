@@ -179,7 +179,8 @@ func run() -> void:
 	var clamped: Vector2 = MOTION.lean_targets(1.0, -1.0)
 	check(near(clamped.x, 1.0) and near(clamped.y, 1.0), "combined lean clamps forward")
 
-	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, -1.0) == "kiss", "Q fires kiss in missionary")
+	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, -1.0) == "",
+		"missionary Q is a lean only; the kiss is on the front lean")
 	check(MOTION.lean_action_kind(CATALOG.MISSIONARY, 1.0) == "", "E has no missionary action")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
@@ -761,7 +762,8 @@ func run() -> void:
 	runtime._lean_side = -0.75
 	runtime._lean_action_tick()
 	check(bool(runtime._lean_action_active), "75 percent fires")
-	check(str(runtime._lean_action_kind) == "kiss", "missionary Q starts a kiss")
+	check(str(runtime._lean_action_kind) == "",
+		"missionary Q fires no action; the kiss is F at a full forward lean")
 	runtime._lean_side = -0.65
 	runtime._lean_action_tick()
 	check(bool(runtime._lean_action_active), "action stays above 60 percent")

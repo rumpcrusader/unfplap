@@ -263,10 +263,16 @@ neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
 - The JSON is exported, never hand-edited: pose `tools/pose_lab.tscn` in the editor, save the
   scene, then **Save pose** (or run `tools/pose_export.gd` headless). The exporter also checks a
   load round trip and the runtime application path, and `tools/` never ships.
-- The act's two shot positions are authored in the same scene as `ShotStart` (over her chest) and
-  `ShotBack` (over her pelvis, aimed at her vulva). Only their bed-relative **positions** are
-  exported; the runtime aims them at her live face and vulva. The lab's **Add shot cameras** button
-  creates a first guess from the pose. Without them the shot is derived from the live neck/vulva.
+- The act's shot positions are authored in the same scene: `ShotStart` (neutral), `ShotBack` (S,
+  her pelvis), `ShotFront` (W, her face), `ShotLeft` and `ShotRight`. Only their bed-relative
+  **positions** are exported; the runtime aims them at her live face and vulva. The lab's **Add shot
+  cameras** button creates a first guess for any that are missing. Without them the shot is derived
+  from the live body.
+- **The scene stores only the rig roots and the shot cameras.** Godot discards instance-child
+  overrides when it saves a scene, so the pose is never stored in `pose_lab.tscn`; opening it always
+  applies `poses/missionary_pose.json` (pose and shot positions). **Save pose** is what writes the
+  JSON back, and it refuses to write an empty pose. Save the scene only when adding or removing
+  nodes.
 
 ### Correction stack (fallback)
 
@@ -425,14 +431,17 @@ neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
 
 ### Missionary shot
 
-With the authored base pose in charge the shot is a **slide along her body**: two bed-relative
-camera positions from the pose lab (`shots.start` over her chest, `shots.back` over her pelvis,
-derived from her live neck and vulva until they are authored), interpolated by the S lean, with the
-aim sliding from `missionary_face_point()` to `missionary_vulva_point()`. W overshoots up to 35 %
-past the start toward her head. The live offsets are `shot_forward`/`shot_height`/`shot_side`
-(default 0); the stack's `forward`/`height`/`side` tuning stays with the stack. `pullback` and
-`pitch_deg` are shared, the start lean is skipped, and `apply_framing` does nothing on this path
-(no frozen anchor, so nothing can accumulate). The rest of the section below is the stack's shot.
+With the authored base pose in charge the shot is a **blend of five bed-relative camera positions**
+from the pose lab, each an offset from the neutral start and selected by the lean:
+`shots.start` (neutral), `shots.back` (S, her pelvis), `shots.front` (W, her face, where the kiss
+happens), `shots.left`/`shots.right` (Q/E). The blend is additive, so diagonals work. Until a
+position is authored it is derived from her live body (neck, vulva, face, and the start shifted
+sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
+sides and front keep the face. A kiss leans the eye in toward the aim but never closer than 0.30 m.
+The live offsets are `shot_forward`/`shot_height`/`shot_side` (default 0); the stack's
+`forward`/`height`/`side` tuning stays with the stack. `pullback` and `pitch_deg` are shared, the
+start lean is skipped, and `apply_framing` does nothing on this path (no frozen anchor, so nothing
+can accumulate). The rest of the section below is the stack's shot.
 
 - Mod-owned `UnfplapMissionaryView`, top-level, anchored at
   `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
@@ -594,12 +603,19 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 
 | Input | Missionary | Standing |
 |---|---|---|
-| `Q` | kiss | left-hand reach to her left shoulder |
-| `E` | none (lean only) | right-hand reach to her right shoulder |
+| `Q` | lean only | left-hand reach to her left shoulder |
+| `E` | lean only | right-hand reach to her right shoulder |
 | `A` / `D` | none | slow left/right flank caress |
 | `Z` / `C` | none | toggle left/right caress oval movement |
-| `F` (hold) | none | kiss at a full shoulder lean |
+| `F` (hold) | kiss at a full forward lean (W) | kiss at a full shoulder lean |
 | Mouse right | left/right cheek opposite the lean | same |
+
+`lean_action_kind()` only fires the standing shoulder reach now; kissing is not a lean action any
+more. `kiss_control.lean_kiss_tick()` runs every act tick for both poses and starts the same kiss
+when F is held at a full lean: `|lean_side| >= STANDING_KISS_LEAN` in standing, or
+`lean_forward >= MISSIONARY_KISS_LEAN` with W held in missionary (`lean_targets` adds `|side|` to
+forward, so W is required or a pure side lean would pull the kiss). Missionary kisses use the
+custom head-aim path below.
 
 - Standing reuses the game's own kiss path: temporarily clear `controls_locked` for
   `pony_kisser.begin_from_pony()`, move `AffectionPose` last in the skeleton so its IK layers on

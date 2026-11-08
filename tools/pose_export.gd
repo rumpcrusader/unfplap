@@ -84,6 +84,9 @@ func _open() -> Node:
 	root.add_child(scene)
 	await process_frame
 	scene.call("_adopt_or_build")
+	# The scene no longer stores the pose (Godot drops instance-child overrides on save), so the
+	# exporter applies the exported JSON exactly like the editor does before writing it back.
+	scene.call("_load_pose")
 	return scene
 
 

@@ -5160,7 +5160,7 @@ func _lean_tick(delta: float) -> void:
 		# snapped the camera by about a sway step. Freezing both values leaves nothing to jump.
 		_side_return_armed = false
 		_end_lean_action()
-		_kiss_controller().standing_tick()
+		_kiss_controller().lean_kiss_tick()
 		var frozen_caress := Time.get_ticks_usec()
 		_caress_controller().tick(delta)
 		_timed("caress_tick", frozen_caress)
@@ -5198,7 +5198,7 @@ func _lean_tick(delta: float) -> void:
 		_lean_view_forward = clampf(_lean_view_forward
 			+ sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD, -1.0, 1.0)
 	_lean_action_tick()
-	_kiss_controller().standing_tick()
+	_kiss_controller().lean_kiss_tick()
 	var caress_started := Time.get_ticks_usec()
 	_caress_controller().tick(delta)
 	_timed("caress_tick", caress_started)
@@ -5252,10 +5252,7 @@ func _start_lean_action(side: float) -> void:
 	_lean_action_side = side
 	_lean_action_kind = MOTION.lean_action_kind(pose_id, side)
 	var shoulder := ""
-	if _lean_action_kind == "kiss":
-		_kiss_controller().start_lean_kiss(side)
-		_log("kiss side=%.2f base=%s" % [side, str(_kiss_controller().base_active())])
-	elif _lean_action_kind == "reach":
+	if _lean_action_kind == "reach":
 		shoulder = "L" if side < 0.0 else "R"
 		_forced_glance = shoulder
 		_standing_camera_controller().hold_glance()
@@ -5264,10 +5261,7 @@ func _start_lean_action(side: float) -> void:
 		pose_id, side, _lean_action_kind, shoulder])
 
 func _end_lean_action() -> void:
-	_kiss_controller().end_standing()
-	if _lean_action_kind == "kiss":
-		_kiss_controller().end_lean_kiss()
-	elif _lean_action_kind == "reach":
+	if _lean_action_kind == "reach":
 		_caress_controller().end_reach()
 		_forced_glance = ""
 		_standing_camera_controller().clear_glance()

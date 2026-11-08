@@ -27,10 +27,9 @@ var anon_rig := ""
 ## Bone name -> {rotation: Quaternion, position: Vector3}, in the bone's parent space.
 var pony_bones: Dictionary = {}
 var anon_bones: Dictionary = {}
-## The two authored shot camera positions in bed space (over her chest, over her pelvis). Only the
-## origins are used: the act aims them at her live face and vulva.
-var shot_start := Transform3D.IDENTITY
-var shot_back := Transform3D.IDENTITY
+## Authored shot camera positions in bed space, keyed `start`, `back`, `front`, `left`, `right`.
+## Only the origins are used: the act aims them at her live face and vulva.
+var shots: Dictionary = {}
 var has_shots := false
 
 static var _shared: Variant = null
@@ -55,9 +54,8 @@ static func reload_file() -> String:
 func load_file() -> String:
 	available = false
 	error = ""
+	shots.clear()
 	has_shots = false
-	shot_start = Transform3D.IDENTITY
-	shot_back = Transform3D.IDENTITY
 	pony_bones.clear()
 	anon_bones.clear()
 	_indices.clear()
@@ -91,13 +89,21 @@ func load_file() -> String:
 	var bed: Variant = data.get("bed")
 	if bed is Dictionary:
 		bed_size = _vec((bed as Dictionary).get("size", ""))
-	var shots: Variant = data.get("shots")
-	if shots is Dictionary:
-		shot_start = _transform((shots as Dictionary).get("start", ""))
-		shot_back = _transform((shots as Dictionary).get("back", ""))
-		has_shots = shot_start.origin.is_finite() and shot_back.origin.is_finite()
+	var raw_shots: Variant = data.get("shots")
+	if raw_shots is Dictionary:
+		for key: Variant in (raw_shots as Dictionary):
+			var shot := _transform((raw_shots as Dictionary)[key])
+			if shot.origin.is_finite():
+				shots[str(key)] = shot
+	has_shots = not shots.is_empty()
 	available = true
 	return ""
+
+
+## True when the asset carries a position for this lean (`start`, `back`, `front`, `left`,
+## `right`).
+func has_shot(id: String) -> bool:
+	return shots.has(id)
 
 
 ## Applies the base pose to the pony's skeleton. `weight` blends from the game's current pose

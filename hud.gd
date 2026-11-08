@@ -421,9 +421,6 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		# The hold layer only exists while auto runs.
 		if key == "auto_settings" and not auto_on:
 			show = false
-		# The kiss is a standing-only control; do not offer it in the missionary shot.
-		if key == "kiss" and not standing:
-			show = false
 		# Finish control is hidden for now (see `_build_controls`); the B key still works.
 		if key == "anatomy_finish":
 			show = false

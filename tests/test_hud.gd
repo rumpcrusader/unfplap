@@ -200,8 +200,7 @@ func _check_controls() -> void:
 	check((rows.get("lean") as Control).visible == false, "missionary afterglow keeps only Y")
 	stub.state = 2
 	hud.call("update_from", stub, true)
-	check((rows.get("kiss") as Control).visible == false,
-		"the kiss is standing-only, so the missionary shot hides it")
+	check((rows.get("kiss") as Control).visible, "missionary shows the kiss (front lean)")
 	check((rows.get("anatomy_finish") as Control).visible == false,
 		"the finish control is hidden for now")
 	stub.pose_id = "standing"

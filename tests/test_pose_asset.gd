@@ -82,17 +82,21 @@ func run() -> void:
 	var bed_size: Vector3 = pose.get("bed_size")
 	check(bed_size.x > 0.5 and bed_size.z > 1.0, "bed reference size %s" % str(bed_size))
 
-	# The two authored shot positions are optional until they are placed in the lab, but when the
-	# block is present both ends must be usable bed-space cameras.
-	if bool(pose.get("has_shots")):
-		var start: Transform3D = pose.get("shot_start")
-		var back: Transform3D = pose.get("shot_back")
-		check(start.origin.is_finite() and back.origin.is_finite(), "shot positions are finite")
-		check(start.origin.y > 0.2 and start.origin.y < 1.6, "shot start height %.3f" % start.origin.y)
-		check(back.origin.y > 0.2 and back.origin.y < 1.6, "shot back height %.3f" % back.origin.y)
-		check(start.origin.distance_to(back.origin) > 0.1, "the two shot ends differ")
-	else:
-		check(true, "no authored shot positions yet (pose-derived shot)")
+	# The authored shot positions are optional until they are placed in the lab, but every entry
+	# present must be a usable bed-space camera.
+	var shots: Dictionary = pose.get("shots")
+	check(bool(pose.get("has_shots")) == not shots.is_empty(), "shot block agrees with its count")
+	var bad_shots: Array[String] = []
+	for key: Variant in shots:
+		var shot: Transform3D = shots[key]
+		if not shot.origin.is_finite() or shot.origin.y <= 0.2 or shot.origin.y >= 1.6:
+			bad_shots.append(str(key))
+	check(bad_shots.is_empty(), "shot positions are finite and over the mattress: %s" % str(bad_shots))
+	check(bool(pose.call("has_shot", "start")) or shots.is_empty(), "has_shot agrees with the block")
+	if shots.has("start") and shots.has("back"):
+		var start: Transform3D = shots["start"]
+		var back: Transform3D = shots["back"]
+		check(start.origin.distance_to(back.origin) > 0.02, "the start and back ends differ")
 
 	# Reloading the file in place is what the debug action does mid-act.
 	check(AUTHORED.reload_file().is_empty(), "reload clears the error")

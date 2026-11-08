@@ -21,6 +21,9 @@ const KISS_LEAN_SECONDS := 0.35
 const KISS_PONY_SIDE_SIGN := 1.0
 const KISS_RESTART_COOLDOWN_MS := 500
 const STANDING_KISS_LEAN := 0.90
+## Front lean needed in missionary. W must be held too, because `lean_targets` adds `|side|` to the
+## forward lean, and a pure side lean must not pull the kiss.
+const MISSIONARY_KISS_LEAN := 0.90
 
 var runtime: Node
 var pony: Variant
@@ -34,9 +37,9 @@ var _kiss_sound_clock := 0.0
 var _custom_kiss_active := false
 var _base_kiss_active := false
 var _base_kiss_releasing := false
-var _standing_kiss_active := false
-var _standing_kiss_used := false
-var _standing_kiss_ready_at := 0
+var _lean_kiss_active := false
+var _lean_kiss_used := false
+var _lean_kiss_ready_at := 0
 ## Latched for the whole kiss (including the Affection release) so rock noise cannot flip sides.
 var _kiss_camera_side := 0.0
 var _kiss_pony_side := 0.0
@@ -222,10 +225,7 @@ func _restore_base_kiss_excitement() -> void:
 func _kiss_visible() -> bool:
 	if _base_kiss_active:
 		return true
-	if _standing_kiss_active and _custom_kiss_active:
-		return true
-	return bool(runtime.get("_lean_action_active")) \
-		and str(runtime.get("_lean_action_kind")) == "kiss" and _custom_kiss_active
+	return _lean_kiss_active and _custom_kiss_active
 
 
 ## Standing kiss controls. Missionary keeps the fixed constants.
@@ -371,9 +371,7 @@ func _kiss_tick(delta: float) -> void:
 		_update_base_kiss(delta)
 		_kiss_amount = move_toward(_kiss_amount, 0.0, delta / KISS_FADE_OUT)
 		return
-	var active := (bool(runtime.get("_lean_action_active")) \
-		and str(runtime.get("_lean_action_kind")) == "kiss" and _custom_kiss_active) \
-		or (_standing_kiss_active and _custom_kiss_active)
+	var active := _lean_kiss_active and _custom_kiss_active
 	var target := 1.0 if active else 0.0
 	var seconds := KISS_FADE_IN if target > _kiss_amount else KISS_FADE_OUT
 	_kiss_amount = move_toward(_kiss_amount, target, delta / maxf(seconds, 0.001))
@@ -513,12 +511,12 @@ static func standing_kiss_wanted(key_down: bool, lean: float) -> bool:
 	return key_down and absf(lean) >= STANDING_KISS_LEAN
 
 
-func end_standing() -> void:
-	if not _standing_kiss_active:
+func end_lean_kiss() -> void:
+	if not _lean_kiss_active:
 		return
-	_standing_kiss_active = false
-	_standing_kiss_used = false
-	_standing_kiss_ready_at = Time.get_ticks_msec() + KISS_RESTART_COOLDOWN_MS
+	_lean_kiss_active = false
+	_lean_kiss_used = false
+	_lean_kiss_ready_at = Time.get_ticks_msec() + KISS_RESTART_COOLDOWN_MS
 	_end_base_kiss()
 	_custom_kiss_active = false
 	_release_kiss_face()
@@ -552,7 +550,7 @@ func tick(delta: float) -> void:
 
 
 func reset() -> void:
-	end_standing()
+	end_lean_kiss()
 	_end_base_kiss()
 	_custom_kiss_active = false
 	_clear_side()
@@ -561,15 +559,13 @@ func reset() -> void:
 
 
 func eyes_active() -> bool:
-	return _base_kiss_active or _base_kiss_releasing or _standing_kiss_active \
-		or (bool(runtime.get("_lean_action_active")) \
-			and str(runtime.get("_lean_action_kind")) == "kiss" and _custom_kiss_active) \
+	return _base_kiss_active or _base_kiss_releasing or _lean_kiss_active \
 		or _kiss_amount > 0.05
 
 
 func leaning_close() -> bool:
 	return _kiss_amount > 0.05 or _base_kiss_active or _base_kiss_releasing \
-		or _standing_kiss_active
+		or _lean_kiss_active
 
 
 func base_active() -> bool:
@@ -577,7 +573,7 @@ func base_active() -> bool:
 
 
 func standing_active() -> bool:
-	return _standing_kiss_active
+	return _lean_kiss_active
 
 
 func custom_visible() -> bool:
@@ -616,25 +612,6 @@ func target(view: Camera3D) -> Vector3:
 	return _target(view)
 
 
-func start_lean_kiss(side: float) -> void:
-	_sync()
-	_latch_side(side)
-	_custom_kiss_active = not _start_base_kiss()
-	if _custom_kiss_active:
-		runtime.call("_play_mouth_kiss")
-		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
-	runtime.call("_on_touch", "kiss")
-
-
-func end_lean_kiss() -> void:
-	var was_base := _base_kiss_active
-	if was_base:
-		_end_base_kiss()
-	_custom_kiss_active = false
-	if not was_base:
-		_release_kiss_face()
-
-
 func apply_live_settings() -> void:
 	_sync()
 	if _base_kiss_active:
@@ -649,32 +626,40 @@ func restore_forelegs() -> void:
 	_stop_kiss_leg_pin()
 
 
-func standing_tick() -> void:
+## F held at a full lean kisses: a shoulder lean in standing, a front lean in missionary. Called
+## every physics tick by the runtime for both poses.
+func lean_kiss_tick() -> void:
 	_sync()
 	var phase := str(runtime.get("pose_id"))
-	if phase != CATALOG.STANDING or not bool(runtime.call("_act_actions_allowed")):
-		_standing_kiss_used = false
-		end_standing()
+	if not bool(runtime.call("_act_actions_allowed")) \
+			or phase not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
+		_lean_kiss_used = false
+		end_lean_kiss()
 		return
 	var f_held := Input.is_physical_key_pressed(KEY_F) \
 		and not (runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open")))
-	var want := standing_kiss_wanted(f_held, float(runtime.get("_lean_side")))
+	var want := false
+	if phase == CATALOG.STANDING:
+		want = standing_kiss_wanted(f_held, float(runtime.get("_lean_side")))
+	else:
+		want = f_held and Input.is_action_pressed("move_forward") \
+			and float(runtime.get("_lean_forward")) >= MISSIONARY_KISS_LEAN
 	if not want:
-		_standing_kiss_used = false
-		end_standing()
+		_lean_kiss_used = false
+		end_lean_kiss()
 		return
-	if _standing_kiss_active:
+	if _lean_kiss_active:
 		if _base_kiss_active:
 			var affection: Variant = _base_kiss_affection
 			if not is_instance_valid(affection) or str(affection.get("kind")) != "kiss":
-				end_standing()
+				end_lean_kiss()
 		elif not _custom_kiss_active:
-			end_standing()
+			end_lean_kiss()
 		return
-	if _standing_kiss_used or Time.get_ticks_msec() < _standing_kiss_ready_at:
+	if _lean_kiss_used or Time.get_ticks_msec() < _lean_kiss_ready_at:
 		return
-	_standing_kiss_used = true
-	_standing_kiss_active = true
+	_lean_kiss_used = true
+	_lean_kiss_active = true
 	runtime.set("_forced_glance", "")
 	_latch_side(float(runtime.get("_lean_side")))
 	_custom_kiss_active = not _start_base_kiss()
@@ -682,8 +667,9 @@ func standing_tick() -> void:
 		runtime.call("_play_mouth_kiss")
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 	runtime.call("_on_touch", "kiss")
-	_log("standing kiss start lean=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
-		float(runtime.get("_lean_side")), _kiss_camera_side, _kiss_pony_side,
+	_log("lean kiss start pose=%s forward=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
+		phase, float(runtime.get("_lean_forward")), float(runtime.get("_lean_side")),
+		_kiss_camera_side, _kiss_pony_side,
 		lateral_offset(float(runtime.call("_standing_lean_scale"))), str(_base_kiss_active)])
 
 

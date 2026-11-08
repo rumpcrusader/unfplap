@@ -17,10 +17,16 @@ const ANON_RIG := preload("res://player/anon_body.tscn")
 
 const DEFAULT_POSE_PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const POSE_VERSION := 5
-## The two authored camera positions of the act's shot: over her chest (lean 0) and over her
-## pelvis at max S. Only their positions are exported; the runtime aims them at her face and vulva.
-const SHOT_START := "ShotStart"
-const SHOT_BACK := "ShotBack"
+## The authored camera positions of the act's shot, node name -> shot key: the neutral start (lean
+## 0), the pulled-back S end, the forward W end (the kiss), and the two side leans. Only the
+## positions are exported; the runtime aims them at her live face and vulva.
+const SHOT_NODES := [
+	["ShotStart", "start"],
+	["ShotBack", "back"],
+	["ShotFront", "front"],
+	["ShotLeft", "left"],
+	["ShotRight", "right"],
+]
 ## The rig exported under the JSON's `anon` key. Anon1 and Anon2 were early floor drafts.
 const ANON_EXPORT_NAME := "Anon3"
 const TARGET_NAMES := ["HipsTarget", "HeadTarget", "LeftHandTarget", "RightHandTarget",
@@ -80,10 +86,11 @@ var _built := false
 func _ready() -> void:
 	if not Engine.is_editor_hint():
 		return
-	var fresh := _adopt_or_build()
-	# A fresh scene is seeded from the exported pose; an authored scene is never overwritten.
-	if fresh:
-		_load_pose()
+	_adopt_or_build()
+	# The JSON is the source of truth: the scene keeps only the rig roots and the shot cameras,
+	# because Godot discards instance-child overrides when it saves the scene. Opening it therefore
+	# always applies the exported pose and shot positions. **Save pose** is what writes them back.
+	_load_pose()
 	call_deferred("_editor_ready")
 
 
@@ -337,39 +344,41 @@ func _pose_frame() -> Transform3D:
 	return Transform3D(bed_xform.basis.orthonormalized(), Vector3(at.x, _mattress_y(), at.z))
 
 
-## The two authored shot cameras, in `ShotStart`, `ShotBack` order, or empty when the scene has
-## neither.
-func _shot_cameras() -> Array[Node3D]:
-	var out: Array[Node3D] = []
-	for name: String in [SHOT_START, SHOT_BACK]:
-		var node := get_node_or_null(name) as Node3D
-		if node == null:
-			out.clear()
-			return out
-		out.append(node)
-	return out
-
-
-## Creates the two shot cameras at a first guess worked out from the pose: over her chest for the
-## start, over her pelvis for max S. Drag them where you want and save the scene.
+## Creates any missing shot cameras at a first guess worked out from the pose: start over her
+## chest, back over her pelvis, front at her face for the kiss, and the two side leans beside the
+## start. Drag them where you want and save the scene.
 func _add_shot_cameras() -> void:
-	if _shot_cameras().size() == 2:
-		print("[poselab] %s and %s already exist" % [SHOT_START, SHOT_BACK])
-		return
 	if _pony_skel == null:
 		print("[poselab] no pony skeleton to place the shots from")
 		return
 	var neck := _bone_world(_pony_skel, "pony_neck1", "pony_neck2")
 	var hips := _bone_world(_pony_skel, "pony_hips")
-	if not neck.is_finite() or not hips.is_finite():
-		print("[poselab] cannot read the neck and hips")
+	var head := _bone_world(_pony_skel, "pony_head")
+	if not neck.is_finite() or not hips.is_finite() or not head.is_finite():
+		print("[poselab] cannot read the neck, hips and head")
 		return
 	# Her rump is the opposite way from the head: in the lab's bed space that is -Z.
 	var rump := Vector3(0.0, 0.0, -1.0)
-	var start := _make_shot(SHOT_START, neck + Vector3.UP * 0.35 + rump * 0.75, neck)
-	var back := _make_shot(SHOT_BACK, hips + Vector3.UP * 0.35 + rump * 0.35, hips + Vector3.UP * 0.10)
-	print("[poselab] added %s at %s and %s at %s; drag them and save the scene" % [
-		start.name, str(_global_of(start).origin), back.name, str(_global_of(back).origin)])
+	var start := neck + Vector3.UP * 0.35 + rump * 0.75
+	var guesses := {
+		"start": [start, neck],
+		"back": [hips + Vector3.UP * 0.35 + rump * 0.35, hips + Vector3.UP * 0.10],
+		"front": [head + rump * 0.40 + Vector3.UP * 0.20, head],
+		"left": [start + Vector3.LEFT * 0.35, neck],
+		"right": [start + Vector3.RIGHT * 0.35, neck],
+	}
+	var added: Array[String] = []
+	for entry: Array in SHOT_NODES:
+		var node_name := str(entry[0])
+		if get_node_or_null(node_name) != null:
+			continue
+		var guess: Array = guesses[str(entry[1])]
+		_make_shot(node_name, guess[0], guess[1])
+		added.append(node_name)
+	if added.is_empty():
+		print("[poselab] all shot cameras already exist")
+	else:
+		print("[poselab] added %s; drag them and save the scene" % ", ".join(added))
 
 
 func _make_shot(name: String, at: Vector3, look_at: Vector3) -> Node3D:
@@ -426,15 +435,19 @@ func _save_pose() -> void:
 			"transform": _transform_to_str(frame.affine_inverse() * _global_of(rig)),
 			"bones": _save_bones(_anon_skels[index], []),
 		}
-	var shots := _shot_cameras()
-	if shots.size() == 2:
-		data["shots"] = {
-			"start": _transform_to_str(frame.affine_inverse() * _global_of(shots[0])),
-			"back": _transform_to_str(frame.affine_inverse() * _global_of(shots[1])),
-		}
+	var shots := {}
+	for entry: Array in SHOT_NODES:
+		var node := get_node_or_null(str(entry[0])) as Node3D
+		if node != null:
+			shots[str(entry[1])] = _transform_to_str(frame.affine_inverse() * _global_of(node))
+	if shots.is_empty():
+		print("[poselab] no shot cameras in the scene; the act shot stays pose-derived")
 	else:
-		print("[poselab] no %s/%s in the scene; the act shot stays pose-derived" % [
-			SHOT_START, SHOT_BACK])
+		data["shots"] = shots
+	if (data["pony"]["bones"] as Dictionary).is_empty():
+		push_error("PoseLab: the rig is at rest; load the pose before saving it")
+		print("[poselab] refusing to save an empty pose (the scene rig is at its rest pose)")
+		return
 	var text := JSON.stringify(data, "\t")
 	var file := FileAccess.open(pose_path, FileAccess.WRITE)
 	if file == null:
@@ -485,11 +498,14 @@ func _load_pose() -> void:
 			_set_global(rig, space * _str_to_transform(str(block.get("transform", ""))))
 			_load_targets(rig, block.get("targets", {}))
 			_load_bones(_anon_skels[index], block.get("bones", {}))
-	var shots := _shot_cameras()
 	var shot_data: Variant = data.get("shots")
-	if shots.size() == 2 and shot_data is Dictionary:
-		_set_global(shots[0], space * _str_to_transform(str((shot_data as Dictionary).get("start", ""))))
-		_set_global(shots[1], space * _str_to_transform(str((shot_data as Dictionary).get("back", ""))))
+	if shot_data is Dictionary:
+		for entry: Array in SHOT_NODES:
+			var node := get_node_or_null(str(entry[0])) as Node3D
+			var key := str(entry[1])
+			if node == null or not (shot_data as Dictionary).has(key):
+				continue
+			_set_global(node, space * _str_to_transform(str((shot_data as Dictionary)[key])))
 	if _camera != null and data.get("camera") is Dictionary and version < POSE_VERSION:
 		var cam: Dictionary = data["camera"]
 		_set_global(_camera, _str_to_transform(str(cam.get("transform", ""))))

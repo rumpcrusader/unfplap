@@ -145,20 +145,21 @@ ignores these keys. `tail_pose.gd` is not changed.
 When the authored base pose is in charge (`authored_base_active()`), the shot is a **slide along her
 body** instead of the frozen neck shot:
 
-- Two camera positions come from the pose lab, bed-relative, in the asset's `shots` block:
-  `start` over her chest and `back` over her pelvis. Until they are authored, both ends are derived
-  from her live neck and vulva (start `neck + up 0.35 + rump 0.75`, back
-  `vulva + up 0.35 + rump 0.30`, all × `body_scale`).
-- The S lean drives the slide: `slide = clamp(-_lean_view_forward, 0, 1)`, start at lean 0 and the
-  pelvis end at max S. W pushes up to 35 % of the distance past the start toward her head.
-- The aim slides with it: `missionary_face_point()` (the head bone pushed 12 cm along
-  neck2 → head) at the start, `missionary_vulva_point()` (the anatomy's `hole_point` when the part
-  shows, otherwise the hind-femur midpoint lifted 10 cm) at max S.
+- Five camera positions come from the pose lab, bed-relative, in the asset's `shots` block:
+  `start` (neutral), `back` (S, her pelvis), `front` (W, her face — where the kiss happens), and
+  `left`/`right` (Q/E). Each is an **offset from `start`** scaled by that lean component, so
+  diagonals blend additively. Until a position is authored it is derived from her live body:
+  start `neck + up 0.35 + rump 0.75`; back `vulva + up 0.35 + rump 0.30`; front
+  `face + rump 0.40 + up 0.15`; left/right the start shifted ±0.35 sideways (all × `body_scale`).
+- The aim is `missionary_face_point()` (the head bone pushed 12 cm along neck2 → head); it slides to
+  `missionary_vulva_point()` (the anatomy's `hole_point` when the part shows, otherwise the
+  hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face.
+- A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than 0.30 m.
 - The live offsets are **`shot_forward` / `shot_height` / `shot_side`** (default 0, applied every
   frame), so the stack's `forward`/`height`/`side` tuning stays with the stack. `pullback` and
   `pitch_deg` are shared.
 - The lean basis (pitch, side yaw, roll), the speed-driven surge along the mattress toward her head,
-  the side-lean travel, `_bob`, the kiss lateral offset/drop and the `MISSIONARY_START_LEAN` are:
+  the side-lean travel, `_bob`, the kiss lateral offset/drop and the `MISSIONARY_START_LEAN` are
   everything except the start lean, which is skipped because the authored start already sits at the
   shot distance. The view is kept at least 0.10 m over the bed surface.
 - `apply_framing()` does nothing on this path: there is no frozen anchor to nudge and nothing can
@@ -479,6 +480,14 @@ The recipe reads every value from the pose config first (`play_bow_bow`,
 `play_bow_pitch_deg`, `play_bow_foreleg_spread`, `play_bow_hind_spread`), so a character pose
 override can tune it without a new flag. The runtime writes only `play_bow` itself from
 `_feature("standing_play_bow")` in `_sync_standing_pose_config()`.
+
+### Missionary kiss
+
+`kiss_control.lean_kiss_tick()` runs for both poses. Missionary kisses when F is held and
+`_lean_forward >= MISSIONARY_KISS_LEAN` (0.90) **and** W is held: `lean_targets` adds `|side|` to
+the forward lean, so without the W test a pure side lean would pull the kiss. The kiss itself uses
+the custom head-aim path (the stock pose is authored for a standing pony); `Q`/`E` no longer kiss,
+and `lean_action_kind()` only fires the standing shoulder reach.
 
 ## Free look (debug)
 

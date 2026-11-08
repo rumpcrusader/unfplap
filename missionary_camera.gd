@@ -647,9 +647,8 @@ func _tick_authored(kiss: Variant) -> void:
 	if not is_instance_valid(_missionary_view):
 		return
 	var scale := _missionary_body_scale()
-	var start := _shot_position(true, scale)
-	var back := _shot_position(false, scale)
-	if not start.is_finite() or not back.is_finite():
+	var start := _shot_position("start", scale)
+	if not start.is_finite():
 		return
 	var face: Vector3 = runtime.call("missionary_face_point")
 	if not face.is_finite():
@@ -660,12 +659,24 @@ func _tick_authored(kiss: Variant) -> void:
 	var lean_forward := float(runtime.get("_lean_view_forward"))
 	var lean_side := float(runtime.get("_lean_view_side"))
 	var lean_scale: float = float(runtime.call("_lean_size_scale"))
-	var amount := clampf(-lean_forward, -0.35, 1.0)
-	var slide := clampf(amount, 0.0, 1.0)
-	var pos := start.lerp(back, slide)
-	if amount < 0.0:
-		pos += (start - back) * (-amount) * 0.35
-	var aim := face.lerp(vulva, slide)
+	# Each authored end is an offset from the neutral start, so diagonals blend naturally.
+	var pos := start
+	var aim := face
+	var forward := clampf(lean_forward, -1.0, 1.0)
+	if forward < 0.0:
+		var back := _shot_position("back", scale)
+		if back.is_finite():
+			pos += (back - start) * (-forward)
+			aim = face.lerp(vulva, -forward)
+	elif forward > 0.0:
+		var front := _shot_position("front", scale)
+		if front.is_finite():
+			pos += (front - start) * forward
+	var side := clampf(lean_side, -1.0, 1.0)
+	if absf(side) > 0.0001:
+		var beside := _shot_position("left" if side < 0.0 else "right", scale)
+		if beside.is_finite():
+			pos += (beside - start) * absf(side)
 	var offsets := _shot_offsets()
 	if offsets.length_squared() > 0.000001:
 		pos += -_bed_back_direction() * offsets.x * scale \
@@ -687,6 +698,10 @@ func _tick_authored(kiss: Variant) -> void:
 	at += _bed_head_direction() * (float(runtime.get("_lean")) + _missionary_side_lean_forward())
 	at += view_basis.x * kiss.lateral_offset(lean_scale)
 	at.y -= kiss.lean_drop() * kiss.lean()
+	# The kiss leans the eye in toward the aim, but never closer than 0.30 m to it.
+	if kiss.lean() > 0.0:
+		var reach := (aim - at).length()
+		at -= view_basis.z * minf(kiss.lean_distance(), maxf(0.0, reach - 0.30))
 	var top := _bed_surface_top()
 	if is_finite(top):
 		at.y = maxf(at.y, top + 0.10 * scale)
@@ -704,23 +719,34 @@ func _shot_offsets() -> Vector3:
 
 
 ## One end of the authored shot in world space: the lab's bed-relative camera position when the
-## asset carries one, otherwise a position worked out from her live neck and vulva.
-func _shot_position(start: bool, scale: float) -> Vector3:
+## asset carries one for this lean, otherwise a position worked out from her live body.
+func _shot_position(id: String, scale: float) -> Vector3:
 	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
 	var frame: Variant = _bed_frame()
-	if asset != null and frame is Transform3D and bool(asset.get("has_shots")):
-		var shot: Transform3D = asset.get("shot_start") if start else asset.get("shot_back")
+	if asset != null and frame is Transform3D and bool(asset.call("has_shot", id)):
+		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
 		shot.origin *= scale
 		return (frame as Transform3D) * shot.origin
+	# Derived from the pose until the lab positions are authored.
 	var rump := _bed_back_direction()
-	if start:
-		var neck: Vector3 = runtime.call("_neck_midpoint")
-		if neck.is_finite():
-			return neck + Vector3.UP * 0.35 * scale + rump * 0.75 * scale
-		return Vector3.INF
-	var vulva: Vector3 = runtime.call("missionary_vulva_point")
-	if vulva.is_finite():
-		return vulva + Vector3.UP * 0.35 * scale + rump * 0.30 * scale
+	match id:
+		"start":
+			var neck: Vector3 = runtime.call("_neck_midpoint")
+			if neck.is_finite():
+				return neck + Vector3.UP * 0.35 * scale + rump * 0.75 * scale
+		"back":
+			var vulva: Vector3 = runtime.call("missionary_vulva_point")
+			if vulva.is_finite():
+				return vulva + Vector3.UP * 0.35 * scale + rump * 0.30 * scale
+		"front":
+			var face: Vector3 = runtime.call("missionary_face_point")
+			if face.is_finite():
+				return face + rump * 0.40 * scale + Vector3.UP * 0.15 * scale
+		"left", "right":
+			var base := _shot_position("start", scale)
+			if base.is_finite():
+				var dir := _bed_side_direction()
+				return base + dir * (0.35 if id == "right" else -0.35) * scale
 	return Vector3.INF
 
 
@@ -780,9 +806,11 @@ func _log_shot_setup() -> void:
 	var source := "derived"
 	if asset != null and bool(asset.get("has_shots")):
 		source = "asset"
-	_log("missionary camera path=authored shots=%s start=%s back=%s offsets=%s" % [
-		source, str(_shot_position(true, scale)), str(_shot_position(false, scale)),
-		str(_shot_offsets())])
+	var parts: Array[String] = []
+	for id: String in ["start", "back", "front", "left", "right"]:
+		parts.append("%s=%s" % [id, str(_shot_position(id, scale))])
+	_log("missionary camera path=authored shots=%s %s offsets=%s" % [
+		source, " ".join(parts), str(_shot_offsets())])
 
 
 func _log(text: String) -> void:

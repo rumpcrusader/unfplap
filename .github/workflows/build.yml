@@ -23,16 +23,14 @@ jobs:
 
       - name: Fetch anatomy assets
         if: github.event_name != 'pull_request'
-        env:
-          ANATOMY_URL: ${{ vars.ANATOMY_URL }}
         run: |
-          if [ -z "$ANATOMY_URL" ]; then
-            echo "Repository variable ANATOMY_URL is not set; it must point at the anatomy zip." >&2
+          source scripts/anatomy_assets.sh
+          if [ -z "${ANATOMY_ARCHIVE_URL}" ]; then
+            echo "ANATOMY_ARCHIVE_URL is empty in scripts/anatomy_assets.sh; run scripts/pack_anatomy.sh --upload." >&2
             exit 1
           fi
-          echo "::add-mask::$ANATOMY_URL"
           curl --fail --silent --show-error --location --retry 3 \
-            --output "$RUNNER_TEMP/anatomy.zip" "$ANATOMY_URL"
+            --output "$RUNNER_TEMP/anatomy.zip" "$ANATOMY_ARCHIVE_URL"
 
       - name: Check tag matches mod.json
         if: startsWith(github.ref, 'refs/tags/v')
@@ -67,13 +65,37 @@ jobs:
           pathlib.Path("release_notes.md").write_text(body + "\n", encoding="utf-8")
           PY
 
+      # A tag build always takes the archive; only a pull request may build without the anatomy,
+      # so a release can never ship the code-only pack by accident.
       - name: Build
         run: |
-          if [ -f "$RUNNER_TEMP/anatomy.zip" ]; then
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
             ./build.sh --anatomy-zip "$RUNNER_TEMP/anatomy.zip"
           else
             ./build.sh --no-anatomy
           fi
+
+      - name: Assert anatomy is in the pack
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python3 - <<'PY'
+          import glob
+          import pathlib
+          import sys
+
+          pcks = glob.glob("dist/*.pck")
+          if len(pcks) != 1:
+              raise SystemExit(f"expected one pack, found {pcks}")
+          blob = pathlib.Path(pcks[0]).read_bytes()
+          if not blob.startswith(b"GDPC"):
+              raise SystemExit(f"{pcks[0]} is not a Godot pack")
+          source = pathlib.Path("scripts/anatomy_assets.sh").read_text(encoding="utf-8")
+          names = source.split("ANATOMY_FILES=(")[1].split(")")[0].split()
+          missing = [name for name in names if f"assets/anatomy/{name}".encode() not in blob]
+          if missing:
+              raise SystemExit(f"{pcks[0]} is missing anatomy: {' '.join(missing)}")
+          print(f"ANATOMY_PACKED ok {len(names)}/{len(names)} in {pcks[0]} ({len(blob)} bytes)")
+          PY
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')

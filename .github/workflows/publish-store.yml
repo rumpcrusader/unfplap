@@ -1,0 +1,65 @@
+name: publish-store
+
+# Mirrors a release pack to pone.rs and submits it to the community mod store.
+# A dry run stops after the preview, so the first submission is always reviewed by eye.
+# The submit job needs the `mod-store` environment with required reviewers; approving the run
+# is the final gate before the row is written. The store admin still approves the row itself.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (empty uses the latest release)
+        required: false
+        default: ""
+      dry_run:
+        description: Preview only, do not write to the store
+        type: boolean
+        default: true
+      force:
+        description: Submit even when the store already has this version
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preview the submission
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          args=()
+          if [ -n "$TAG" ]; then args+=(--tag "$TAG"); fi
+          scripts/publish_store.sh "${args[@]}"
+
+  submit:
+    needs: preview
+    if: github.event.inputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    environment:
+      name: mod-store
+      url: https://unrivaled-cannoli-17cf6d.netlify.app/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Submit to the community store
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preview.outputs.tag }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          args=(--submit --tag "$TAG")
+          if [ "$FORCE" = "true" ]; then args+=(--force); fi
+          scripts/publish_store.sh "${args[@]}"

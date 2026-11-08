@@ -3,9 +3,9 @@
 This folder holds the optional adult meshes and textures used by the anatomy feature. The
 PonyPussyParadise source files are **never committed**; the `.gitignore` here excludes them.
 `mare_bits_v2.scn` is the V2 variant and is tracked. A pack always ships the required set:
-`scripts/pack_anatomy.sh` writes `dist/unfplap-anatomy.zip`, that archive is uploaded to a plain
-URL recorded in the repository variable `ANATOMY_URL`, and `.github/workflows/build.yml`
-downloads and unpacks it before a release build.
+`scripts/pack_anatomy.sh` writes `dist/unfplap-anatomy.zip`, `--upload` publishes that archive to
+pone.rs and records the URL as `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh`, and
+`.github/workflows/build.yml` downloads and unpacks it before a release build.
 
 Redistribution is by permission of the PonyPussyParadise author; `mod.json` credits them.
 
@@ -27,6 +27,8 @@ anon_part_albedo.png 2048^2 albedo/detail
 
 ```bash
 scripts/pack_anatomy.sh                       # -> dist/unfplap-anatomy.zip
+scripts/pack_anatomy.sh --upload              # upload it and update ANATOMY_ARCHIVE_URL
+scripts/pack_anatomy.sh --upload --no-write   # upload it and print the URL only
 ./build.sh --anatomy-zip dist/unfplap-anatomy.zip
 ./build.sh                                    # requires the files to be in this folder
 ./build.sh --no-anatomy                       # code-only pack, assets left out

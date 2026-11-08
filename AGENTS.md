@@ -31,8 +31,9 @@ Do not start implementation until you have read the required files for the area 
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. The anatomy is an optional, feature-gated
   addition; it never replaces a pony's body or rig. The original PPP meshes/textures are kept out
-  of git (`assets/anatomy/` is ignored for them) and fetched from `ANATOMY_URL` for every release
-  build; the V2 `mare_bits_v2.scn` variant is tracked and packed with the archive. The act
+  of git (`assets/anatomy/` is ignored for them) and fetched from the committed
+  `ANATOMY_ARCHIVE_URL` for every release build; the V2 `mare_bits_v2.scn` variant is tracked
+  and packed with the archive. The act
   stays off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
@@ -123,16 +124,25 @@ scripts/smoke.sh
   `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by `scripts/pack_anatomy.sh`
   first; `--no-anatomy` builds a code-only pack and drops the assets even when they are in the
   working tree.
+- `scripts/pack_anatomy.sh --upload` publishes that archive to pone.rs, checks the served size
+  and rewrites `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh`; the constant is committed,
+  so a tag build fetches exactly what that commit names. `--no-write` prints the URL only.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio and packs
   the `.import` sidecars. Repository docs, tests, scripts, tools and `.git` do not ship;
   `AUDIO_CREDITS.md` and `changelog.txt` do.
 - `.github/workflows/build.yml` builds on pushes and pull requests. A push or tag downloads the
-  anatomy archive from the repository variable `ANATOMY_URL` and builds with it; a pull request
-  builds with `--no-anatomy`. A `v*` tag publishes `dist/unfplap-<version>.pck` as the only
-  artifact, so the tag release is the one place the anatomy content is hosted. Before tagging,
-  re-upload the archive after any asset change and append the release changelog section (format
-  and rules in `WORKFLOW.md`); the release step reads that section from `changelog.txt` as the
-  release body and fails when it is missing.
+  anatomy archive from the committed `ANATOMY_ARCHIVE_URL` and builds with it; a pull request
+  builds with `--no-anatomy`, and only a `v*` tag takes the archive, so a release cannot fall
+  back to the code-only pack. A tag also asserts the anatomy paths are in the built pck before
+  `dist/unfplap-<version>.pck` is attached to the release. Before tagging, re-upload the archive
+  after any asset change and append the release changelog section (format and rules in
+  `WORKFLOW.md`); the release step reads that section from `changelog.txt` as the release body
+  and fails when it is missing.
+- `.github/workflows/publish-store.yml` submits a finished release to the community mod store
+  through `scripts/publish_store.sh`: it mirrors the pack to pone.rs and inserts one row per
+  version, pointing at the mirror. It is `workflow_dispatch` only, defaults to a dry run that
+  writes nothing, and its submit job sits behind the `mod-store` environment, so a human
+  approves the run; the store admin then approves the row.
 - The official `tools/modding/build_mod.gd` command remains a fallback when the full game
   project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it

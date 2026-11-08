@@ -13,7 +13,9 @@
 #
 # The anatomy meshes and textures are not in the repository. A normal build requires all of them
 # under assets/anatomy/ and fails when any are missing. Pass --anatomy-zip to unpack them from
-# the archive first, or --no-anatomy to build without the feature.
+# the archive first, or --no-anatomy to build without the feature. CI fetches that archive from
+# the ANATOMY_ARCHIVE_URL declared in scripts/anatomy_assets.sh, which
+# scripts/pack_anatomy.sh --upload writes.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,7 +42,7 @@ while [ "$#" -gt 0 ]; do
 			shift
 			;;
 		-h|--help)
-			sed -n '2,16p' "$0"
+			sed -n '2,18p' "$0"
 			exit 0
 			;;
 		*)
@@ -92,7 +94,7 @@ elif missing="$(anatomy_missing "$ANATOMY_DIR")"; then
 	echo "ANATOMY ok ${#ANATOMY_FILES[@]}/${#ANATOMY_FILES[@]}"
 else
 	printf 'ANATOMY_FAIL missing in assets/anatomy/:\n%s\n' "$missing" >&2
-	echo "Pack them with scripts/pack_anatomy.sh, unpack the archive there, or pass --no-anatomy." >&2
+	echo "Pack and publish them with scripts/pack_anatomy.sh --upload, unpack the archive there, or pass --no-anatomy." >&2
 	exit 1
 fi
 

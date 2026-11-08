@@ -86,8 +86,13 @@ Docs-only commits do not need bisecting; use `git bisect skip` if one is picked.
 - Use an annotated release tag such as `v0.0.4`. The annotation records the target game version,
   build command, commit hash and pck hash.
 - Never commit `.pck`, `.godot/`, `*.uid`, logs or user settings (already ignored).
-- Re-upload the anatomy archive and update the `ANATOMY_URL` repository variable whenever an
-  anatomy asset changes; a release build fails when any of the eight files is missing.
+- Re-upload the anatomy archive with `scripts/pack_anatomy.sh --upload` whenever an anatomy asset
+  changes; it rewrites `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh`, which is committed
+  with the change. A release build fails when any of the eight files is missing, and only a tag
+  build may use the archive, so a release can never ship the code-only pack.
+- Publish the finished release with the `publish-store` workflow: a dry run first, then
+  `dry_run: false` and approve the `mod-store` environment gate. It mirrors the pack to pone.rs
+  and inserts one store row per version; the store admin approves the row.
 - `git describe --tags --dirty` identifies the source of a build.
 - Record the game version in the tag, because the mod repo cannot bisect game changes.
 

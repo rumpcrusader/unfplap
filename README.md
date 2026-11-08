@@ -86,5 +86,5 @@ The official `tools/modding/build_mod.gd` command still works for quick builds, 
 whole folder.
 
 On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests. A `v*` tag downloads
-the anatomy archive from the `ANATOMY_URL` repository variable and attaches
+the anatomy archive from the `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh` and attaches
 `dist/unfplap-<version>.pck` to a GitHub release; pull requests build without the anatomy assets.

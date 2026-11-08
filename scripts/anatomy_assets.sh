@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Shared anatomy asset list and archive handling.
 #
-# The meshes and textures are never committed. They are packed into one zip, upload that zip
-# somewhere with a plain URL, and `build.sh --anatomy-zip` or CI unpacks it into
-# `assets/anatomy/` before a pack is built. Sourced by `build.sh` and `scripts/pack_anatomy.sh`,
-# so the required set has one definition.
+# The meshes and textures are never committed. They are packed into one zip whose plain URL is
+# ANATOMY_ARCHIVE_URL below, and `build.sh --anatomy-zip` or CI unpacks it into `assets/anatomy/`
+# before a pack is built. Sourced by `build.sh`, `scripts/pack_anatomy.sh` and
+# `.github/workflows/build.yml`, so the required set has one definition.
 #
 # Keep this list in step with `anatomy.gd` (mare meshes) and `anon_part.gd` (player part); they
 # are the only consumers.
+
+# Where every release build fetches the archive. `scripts/pack_anatomy.sh --upload` uploads a
+# new archive to pone.rs and rewrites this line; commit the change with the asset change.
+ANATOMY_ARCHIVE_URL="https://u.pone.rs/lvswgomv.zip"
 
 ANATOMY_FILES=(
 	winking.scn

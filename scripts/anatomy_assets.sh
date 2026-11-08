@@ -12,8 +12,6 @@
 ANATOMY_FILES=(
 	winking.scn
 	mare_bits_v2.scn
-	anal.scn
-	anal_ring.scn
 	teats.scn
 	skin_bridge.scn
 	anon_part.scn

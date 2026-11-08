@@ -896,14 +896,9 @@ static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", fals
 	.as_debug()
 
 # -- Holes  (debug)
-static var anal_height_mm := num("anal_height_mm", "anatomy.anal_height_mm", -15.0,
-	"Anal opening height",
-	"Vertical placement of the anal mesh and its opening; positive is higher, negative lower.", ANATOMY, "Holes") \
-	.with_unit("mm").with_step(0.5).with_range(-20.0, 20.0) \
-	.as_debug()
 static var anal_scale := num("anal_scale", "anatomy.anal_scale", 1.0,
 	"Anal scale",
-	"Scale the anal cup around its opening. Below 1 tucks the outer rim into the mound; above 1 spreads it out.", ANATOMY, "Holes") \
+	"Scale the anal mound and the body coat around the opening. Above 1 grows the V2 ponut.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5) \
 	.as_debug()
 static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 0.0,
@@ -915,9 +910,6 @@ static var anal_hug_mm := num("anal_hug_mm", "anatomy.anal_hug_mm", 0.0,
 	"Anal hug",
 	"Pad the gap between the cock and the anal opening. Positive opens it wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
-	.as_debug()
-static var anal_ring := flag("anal_ring", "anatomy.anal_ring", false,
-	"Use ring model (experimental)", "Use the re-modelled anal ring instead of the original cup.", ANATOMY, "Holes") \
 	.as_debug()
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
 	"Lip vertical share",
@@ -1748,10 +1740,6 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 		block.erase("winking_model")
 	if block.has("mare_bits") and str(block["mare_bits"]) == "sculpted":
 		block["mare_bits"] = "v2"
-	if block.has("anal_drop_mm"):
-		if not block.has("anal_height_mm"):
-			block["anal_height_mm"] = -float(block["anal_drop_mm"])
-		block.erase("anal_drop_mm")
 	var tone: Variant = block.get("skin_tone")
 	if tone is String:
 		block["skin_tone"] = float(LEGACY_SKIN_TONES.get(str(tone),
@@ -1760,7 +1748,8 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 	# from then on the two switches are independent.
 	if block.has("teats") and not bool(block["teats"]) and not block.has("skin_strip"):
 		block["skin_strip"] = false
-	for key: String in ["anal_swell", "anal_depth", "anal_pitch_deg", "anal_side_mm",
+	for key: String in ["anal_swell", "anal_depth", "anal_height_mm", "anal_ring",
+			"anal_pitch_deg", "anal_side_mm",
 			"anal_tilt_deg", "cover_depth_m", "max_back_m", "player_pitch_deg",
 			"player_yaw_deg", "player_roll_deg", "hole_depth", "anal_hug", "hug",
 			"vulva_hug", "pair_limit", "genital_yaw_deg", "max_depth_m"]:

@@ -222,6 +222,51 @@ func run() -> void:
 					"the anal rim no longer winks")
 		wink_root.free()
 
+	# The V2 mesh owns the anal hole now: the cup/ring are gone.
+	if ResourceLoader.exists(ANATOMY.MARE_BITS_V2_PATH):
+		var v2_scene: PackedScene = load(ANATOMY.MARE_BITS_V2_PATH)
+		var v2_root: Node = v2_scene.instantiate()
+		var v2_mi := v2_root as MeshInstance3D
+		var v2_mesh := v2_mi.mesh as ArrayMesh
+		check(v2_mesh.get_blend_shape_count() >= 8, "the V2 mesh keeps its anal keys")
+		for shape_name: String in ["anal_open", "anal_stretch", "anal_overstretch",
+				"anal_extreme", "ponut_scale"]:
+			check(v2_mi.find_blend_shape_by_name(shape_name) >= 0,
+				"V2 has the %s key" % shape_name)
+		var v2_arrays: Array = v2_mesh.surface_get_arrays(0)
+		var v2_colors: Variant = v2_arrays[Mesh.ARRAY_COLOR]
+		check(v2_colors != null and (v2_colors as PackedColorArray).size()
+			== (v2_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size(),
+			"the V2 colours cover every vertex")
+		var folds := 0
+		var clits := 0
+		if v2_colors != null:
+			for c: Color in v2_colors:
+				if c.a > 0.9:
+					folds += 1
+				elif c.a > 0.4:
+					clits += 1
+		check(folds > 500, "the V2 inner folds keep their mask")
+		check(clits > 200, "the V2 clitoris keeps its mask")
+		var v2_anatomy: Node = ANATOMY.new()
+		v2_anatomy.set("_mesh", v2_mi)
+		v2_anatomy.set("_v2_anal", true)
+		v2_anatomy.call("_apply_anal_shape", 0.030)
+		var open_i := v2_mi.find_blend_shape_by_name("anal_open")
+		var stretch_i := v2_mi.find_blend_shape_by_name("anal_stretch")
+		var over_i := v2_mi.find_blend_shape_by_name("anal_overstretch")
+		var extreme_i := v2_mi.find_blend_shape_by_name("anal_extreme")
+		check(is_equal_approx(v2_mi.get_blend_shape_value(open_i), 1.0),
+			"30 mm opens the V2 anus")
+		check(is_equal_approx(v2_mi.get_blend_shape_value(stretch_i), 1.0),
+			"30 mm reaches the normal V2 stretch")
+		check(is_equal_approx(v2_mi.get_blend_shape_value(over_i), 1.0),
+			"30 mm reaches the V2 overstretch")
+		check(near(v2_mi.get_blend_shape_value(extreme_i), 0.0714, 0.002),
+			"30 mm starts the V2 extreme")
+		v2_anatomy.free()
+		v2_root.free()
+
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
 	# the lips stay on the shaft through the climax instead of closing on nothing.
 	var anatomy_act: Node = ANATOMY_ACT.new()

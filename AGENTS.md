@@ -118,7 +118,7 @@ scripts/smoke.sh
   ```
   Success prints `MOD_BUILT <path>`. The mod has no script extension.
 - The original PPP anatomy meshes and textures are never committed; the V2
-  `mare_bits_v2.scn` variant is tracked. `build.sh` requires all ten, prints `ANATOMY ok 10/10`,
+  `mare_bits_v2.scn` variant is tracked. `build.sh` requires all eight, prints `ANATOMY ok 8/8`,
   and fails with `ANATOMY_FAIL` and the missing names unless they are present under
   `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by `scripts/pack_anatomy.sh`
   first; `--no-anatomy` builds a code-only pack and drops the assets even when they are in the
@@ -1419,10 +1419,9 @@ rump blush. Unknown settings keys are ignored.
   spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `show_dock` (Show tail
   docks, on), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
-  (debug: scale the midline strip's model-space X around the midline; unbounded), the debug-only
-  `anal_ring` (use the re-modelled ring instead of the original cup; off by default),
-  `anal_scale` (debug: scale the anal cup around its opening; 1 is authored),
-  `anal_height_mm` (anal placement, positive is higher), `vulva_hug_mm` and `anal_hug_mm`
+  (debug: scale the midline strip's model-space X around the midline; unbounded),
+  `anal_scale` (debug: scale the anal mound and body coat; 1 is authored, above 1 grows
+  the V2 ponut), `vulva_hug_mm` and `anal_hug_mm`
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips),
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 1×) and
   `jiggle_still` (debug: no-jiggle zone around the vulva, 1×; 0 turns it off),

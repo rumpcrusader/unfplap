@@ -29,10 +29,11 @@ var _driver: Variant
 var _avatar_visible := true
 var _avatar_process := Node.PROCESS_MODE_INHERIT
 var _scale := Vector3.ONE
-## The game's own eye offset from the head bone: `anon_body.gd` puts the camera at the head joint
-## offset by `head_offset` (less `desktop_body_forward`) and turns it by `REST_FACING`. Built from
-## those values rather than read off the live camera, because the live camera is still the reclined
-## bed view when the act installs and its pitch would be baked into the eye.
+## The game's own eye offset from the head bone. `anon_body.gd` puts the camera at the head joint
+## offset by `head_offset` (less `desktop_body_forward`) and turns it by `REST_FACING`, and
+## `valve_body_ik.gd` turns the head bone to `target * rest`, so the bone-to-camera rotation is
+## `rest⁻¹ * REST_FACING`. Built from those values rather than read off the live camera: the live
+## camera is still the reclined bed view when the act installs.
 var _eye_rel := Transform3D.IDENTITY
 var _eye_saved := false
 var _eye_logged := false
@@ -81,9 +82,22 @@ func install(runtime_node: Node) -> bool:
 		head_offset.z -= float(forward)
 	var scale_value: Variant = avatar.get("model_scale")
 	var model_scale := float(scale_value) if scale_value is float or scale_value is int else 1.0
-	var facing := Basis(Vector3.UP, PI)
+	var head := skeleton.find_bone("Head")
+	var rest := skeleton.get_bone_global_rest(head).basis.orthonormalized() if head >= 0 \
+		else Basis.IDENTITY
+	var facing := rest.inverse() * Basis(Vector3.UP, PI)
 	_eye_rel = Transform3D(facing, -(facing * head_offset * model_scale))
 	_eye_saved = true
+	# Sanity check with the game still driving him: the body IK mirrors the live camera onto the
+	# head, so the derived relation must reproduce the camera's own basis within a degree or two.
+	var live: Variant = main.camera() if is_instance_valid(main) else null
+	if head >= 0 and live is Camera3D:
+		var bone_basis := (skeleton.global_transform
+			* skeleton.get_bone_global_pose(head)).basis.orthonormalized()
+		var predicted := bone_basis * facing
+		_log("anon eye check err=%.1f°" % rad_to_deg(
+			predicted.get_rotation_quaternion().angle_to(
+				(live as Camera3D).global_basis.orthonormalized().get_rotation_quaternion())))
 	avatar.visible = true
 	active = true
 	return true

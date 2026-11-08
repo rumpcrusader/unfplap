@@ -73,9 +73,11 @@ Missionary is its own state, not the game's bed rest:
   aims `pony_head`'s frame (plus `HybridNeckLink`'s offset) at Anon. Baked head rotations were
   rejected because the pose lab has no head mesh.
 - **Upright by default.** After the aim, `_level_head()` rolls the neck chain about its own forward
-  axis (shares 0.30/0.36/0.34, so the neck does not kink at one joint) until her up matches the world's. The shortest-arc aim only sets the face *direction*; a pose that
-  rolls the neck left her staring at Anon sideways. The settled `MISSIONARY` dump prints
-  `head aim=…° roll=…°` so a bad gaze is visible without guessing.
+  axis (shares 0.30/0.36/0.34, so the neck does not kink at one joint) until her up matches the
+  world's. The shortest-arc aim only sets the face *direction*; a pose that rolls the neck otherwise
+  leaves her staring at Anon sideways. The settled `MISSIONARY` dump prints `head aim=…° roll=…°`
+  and `body up=…°` (the pelvis up against the world up) so a sideways gaze or a rolled pose is
+  measurable.
 - **Overlays skip the joint-limit clamp** (`rig.rotate_free`). The authored pose can sit outside
   the limits the game derives from its own motion library, and `constrain()` would snap it back on
   the first gaze correction.

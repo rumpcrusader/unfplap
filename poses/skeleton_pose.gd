@@ -18,14 +18,12 @@ var head_back := 0.0
 var kiss := 0.0
 var amount := 0.0
 var target_amount := 0.0
-var head_roll := 0.0
 var climaxing := false
 var pose_config: Dictionary = {}
 ## Hand-authored base pose (poses/authored_pose.gd) and the bed space it is placed in. A null
 ## asset or a missing frame leaves the recipe's correction stack as the fallback.
 var authored: Variant = null
 var bed_frame: Variant = null
-var authored_on := true
 
 var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
@@ -82,21 +80,17 @@ func _apply(delta: float) -> void:
 	var mare_scale: Variant = mare.get("body_scale")
 	var state := {
 		"look_point": look_point,
-		"head_roll": head_roll,
 		"head_back": head_back,
 		"kiss": kiss,
 		"climaxing": climaxing,
 		"clock": _clock,
 		"config": pose_config,
 		"authored": authored,
-		"authored_on": authored_on,
 		"bed_frame": bed_frame,
 		"body_scale": float(mare_scale) if mare_scale != null else 1.0,
 	}
-	diag_last_base = "stack"
-	if authored != null and authored_on and bed_frame is Transform3D \
-			and bool(authored.get("available")):
-		diag_last_base = "authored"
+	diag_last_base = "authored" if authored != null and bed_frame is Transform3D \
+		and bool(authored.get("available")) else "none"
 	if mode == "standing":
 		_standing.apply(_rig, sk, weight, state)
 	elif mode == "afterglow" and afterglow_pose == CATALOG.MISSIONARY:
@@ -119,13 +113,8 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 	if body.length_squared() > 0.0001:
 		body = body.normalized()
 	var rows := PackedStringArray()
-	var base := "stack"
-	if authored != null and authored_on and bed_frame is Transform3D \
-			and bool(authored.get("available")):
-		base = "authored"
-	rows.append("base=%s root=%s mare=%s scale=%.2f roll pelvis=%.1f° chest=%.1f°" % [
-		base, str(sk.global_basis), str(mare.global_basis), float(mare.body_scale),
-		rad_to_deg(_missionary.last_roll), rad_to_deg(_missionary.last_chest_roll)])
+	rows.append("base=%s root=%s mare=%s scale=%.2f" % [
+		diag_last_base, str(sk.global_basis), str(mare.global_basis), float(mare.body_scale)])
 	var chain: Array[int] = []
 	if _rig.hips >= 0:
 		chain.append(_rig.hips)

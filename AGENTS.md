@@ -176,7 +176,7 @@ mods/unfplap/
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  standing caress, shoulder reach, smack and palm-on-coat contact
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
-  missionary_camera.gd  frozen missionary shot, aim, avatar hiding and start snapshot
+  missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
   standing_anon.gd  standing hip thrust wrapper, planted lower body and palm scale
   standing_presentation.gd  idle standing invitation, turn and request face
@@ -238,9 +238,10 @@ body-relative axes.
 
 ### Missionary
 
-The base pose comes from `poses/missionary_pose.json` when `presentation.missionary.authored_base`
-is on (the default) and the asset loads; the correction stack below is the fallback. The overlays —
-neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
+The pose **is** `poses/missionary_pose.json`, placed in the real bed's space, with the nuzzle and
+gaze overlays on top. There is no correction stack and no second pose: the act's `pose_asset` gate
+refuses the start (no Y hint) with `missionary pose unavailable: <reason>` when the asset cannot be
+loaded.
 
 - The asset is bed-space data: origin at the middle of the mattress top, the bed's axes, `+Z` her
   head direction. `poses/authored_pose.gd` maps it onto the real bed with
@@ -249,15 +250,14 @@ neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
 - Only the body bones in `PONY_BONES` and the skeleton root are written. The actor node is never
   moved, so the capsule, bed support and posture recovery are untouched. The head bone, lids, eyes,
   ears, wings, feathers, mane and tail are never baked; the game and the act own them.
-- The head bone is reset to rest on this path; the gaze solve and the pitch/roll offsets own the
-  face. The pose lab has no head mesh, so baked head rotations are rejected.
+- The head bone is reset to rest; the gaze solve owns the face. The pose lab has no head mesh, so
+  baked head rotations are rejected.
 - The overlays use `rig.rotate_free` on this path: the authored pose can sit outside the joint
   limits the game derives from its own motion library, and `constrain()` would snap it back.
-- A missing asset, a version below 4, the switch off, or no bed frame (the floating pose preview)
-  falls back to the correction stack. `pelvis_curl_deg`, `legs_wrap` and `bed_lift_m` are
-  stack-only.
-- The framing camera anchors to the bed frame origin (`runtime.authored_base_active()`,
-  `missionary_pose_origin()`) because the body is placed in bed space rather than around the actor.
+- No asset, a version below 5 or no bed frame (the floating pose preview) applies no pose at all:
+  the `pose_asset` gate refuses the act start and logs the reason. The old stack keys
+  `pelvis_curl_deg`/`legs_wrap`/`bed_lift_m` are gone.
+- The shot's camera positions and the body are both bed-relative, so they move together on any bed.
 - The pose is authored at canon size. Other pony sizes scale only the placement distance; they are
   not tuned.
 - The JSON is exported, never hand-edited: pose `tools/pose_lab.tscn` in the editor, save the
@@ -274,33 +274,8 @@ neck offsets, nuzzle, gaze, head pitch and roll — run on top of either base.
   JSON back, and it refuses to write an empty pose. Save the scene only when adding or removing
   nodes.
 
-### Correction stack (fallback)
+### Overlays and bed context
 
-- Recipe order is load-bearing:
-  1. `_straighten_spine_neck()`
-  2. `_align_chain_straight()`
-  3. `_level_body_roll()`
-  4. `_level_chest_roll()`
-- `_straighten_spine_neck()` must reset the **pelvis** (`pony_hips`) as well as spine and neck.
-  The bed's lie pose rotates the pelvis; leaving it alone tilts the rump while the shoulders are
-  straight.
-- `_align_chain_straight()` measures each bone toward the next bone's origin. Keep `pony_head`
-  in the list so `pony_neck2` has a target direction, but **never rotate the head bone itself**:
-  its `basis.z` is not the face axis and rotating it twists the face 90°.
-- Pelvis roll and chest roll are separate. The pelvis uses the hind-femur line; the chest uses
-  the front upper-arm line. Wrap measured left/right line angles into ±90° or the correction can
-  roll her belly-down.
-- `MISSIONARY_ROLL_TWEAK` (radians) offsets the pelvis correction if needed.
-- `_neck_bend(neck1_deg, neck2_deg)` bends `pony_neck1`/`pony_neck2` about the body right axis.
-  The live offsets default to zero because the authored base already holds the neck; this stack
-  adds `FALLBACK_NECK2_DEG` (45°) itself, and `FALLBACK_HEAD_PITCH_DEG` / `FALLBACK_HEAD_ROLL_DEG`
-  (90°) keep its old look.
-  `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward axis. Both run
-  **before** the gaze solve, so they change head position without biasing the final face
-  direction. After the gaze solve, `_head_pitch(head_pitch_deg)` tilts the head about the body
-  right axis, and `_roll_head(head_roll)` stays last. This last one is a **degrees** value and
-  must convert with `deg_to_rad()`; using it as radians turns a 1° control into ~57°. These are
-  live presentation controls under Missionary → Neck angles.
 - `_aim_gaze()` is a true shortest-arc solve from her current face direction to Anon, using the
   current `pony_head` frame plus `HybridNeckLink`'s fixed `pony_head → mHead` offset. Do not
   replace it with absolute yaw/pitch from the body axis: that assumed a standing rest
@@ -438,53 +413,10 @@ happens), `shots.left`/`shots.right` (Q/E). The blend is additive, so diagonals 
 position is authored it is derived from her live body (neck, vulva, face, and the start shifted
 sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
 sides and front keep the face. A kiss leans the eye in toward the aim but never closer than 0.30 m.
-The live offsets are `shot_forward`/`shot_height`/`shot_side` (default 0); the stack's
-`forward`/`height`/`side` tuning stays with the stack. `pullback` and `pitch_deg` are shared, the
-start lean is skipped, and `apply_framing` does nothing on this path (no frozen anchor, so nothing
-can accumulate). The rest of the section below is the stack's shot.
+The live offsets are `shot_forward`/`shot_height`/`shot_side` (default 0) and apply every frame.
+There is no frozen anchor, no pullback/pitch knob and no framing nudge. The bullets below cover the
+rest of the shot's behaviour.
 
-- Mod-owned `UnfplapMissionaryView`, top-level, anchored at
-  `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M(0.10)) * body_scale + back * 0.22 * body_scale`, then
-  shifted by the **Act presentation → Missionary** axes and pulled by the **Missionary pullback**
-  setting (`presentation.missionary.pullback`, default `0.22 m`, times body scale) back along its
-  own frozen view axis. Canon height is `0.9×`; JRHNBR (`body_scale 1.35`) gets a proportionally
-  higher, farther-back shot so the camera is not inside her neck. The anchor stays behind her
-  neck, toward her rump, so the frozen aim looks forward along her body at her face. Anchoring
-  ahead of the neck put the camera over her head and aimed back down her torso.
-  The fine axes are `presentation.missionary.forward` (default `0.30`),
-  `presentation.missionary.height` (default `0.25`) and `presentation.missionary.side`
-  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `-15`;
-  positive looks up) tilts the frozen view about its local right axis after the aim. They are
-  experimental/unbounded and applied live. The base view then adds
-  `MISSIONARY_START_LEAN = 1.0` (one full `LEAN_FORWARD_M` lean) along the view axis, so the shot
-  starts at the old maximum
-  W-lean point and W pushes further up her torso.
-  The view copies and restores the source camera's `fov`, `near`, `far` and `cull_mask`.
-  Do not bake the pullback into the world-space anchor; that moved the shot vertically and
-  broke the aim. The aim basis is always rebuilt from `_missionary_camera`, never the already moved
-  view, to avoid a start-up feedback flicker.
-- Aim: sample the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) during the first
-  second while the act pose blends, then freeze. The live snout is not used; it can fall behind
-  the bed camera. The look target is never derived from the moving view.
-- The aim basis is built from `_missionary_camera` and updated only during that settle second; there
-  is no forward-dot re-aim loop. A neck point behind the anchor is never accepted, so the shot
-  cannot flip back down her torso. Rebuild only when the anchor is invalid, more than 3 m away, or
-  genuinely below a **valid** bed top. `_bed_surface_top()` returns invalid (`INF`) when the bed
-  reference is gone, so a missing bed cannot trigger a rebuild every frame.
-- Her head aims at Anon's player camera, not the framing view, with a minimum
-  `0.45 * body_scale` distance. The look point moves with the displayed lean's lateral shift and
-  `presentation.missionary.side_lean` travel, so a side lean turns her toward the lean instead
-  of away. Aiming at the shot camera (now behind her neck) demanded a half-turn and snapped her
-  head side to side.
-- Lean is applied on top of the frozen base basis. `Q` also starts the act kiss; `E` has no
-  extra action. Missionary uses the same speed-driven surge/bob as standing; the surge runs along the
-  mattress toward her head, while the bob moves the view up at her face on the inward stroke.
-  The base already includes one full forward lean (`MISSIONARY_START_LEAN`). Forward lean is clamped
-  to stop `0.12 m` short of the neck target. A side lean also travels
-  `presentation.missionary.side_lean` (default `0.10 m`, experimental/unbounded) along the
-  mattress toward her head, outside the view-axis clamp; the side-lean roll remains separate.
-  `presentation.missionary.pitch_deg` is applied as a local right-axis rotation after the base
-  aim, before the lean basis.
 - Missionary body motion is `prone_sway` (`missionary_body_motion`), not the standing `body_sway`
   (`standing_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
   nod `±3°`. The hooves are not pinned the way the standing sway pins them.
@@ -1368,9 +1300,11 @@ examples.
   test both phases without waiting in-game days.
 - **Reload posed base**: re-read the hand-authored missionary base pose in place. A live act picks
   it up on its next frame; a bad file leaves the previous pose and reports the reason.
-- **Show pose state**: print which missionary base is in charge (authored or stack, with the reason
-  when it is the stack), the asset version/bone count/shot block, the bed frame, and where the live
-  pose put the hips, neck, head and hooves in world and bed space.
+- **Show pose state**: print whether the pose asset is loaded (and why not), the asset
+  version/bone count/shot block, the bed frame, where the live pose put the hips, neck, head and
+  hooves in world and bed space, and the rig diagnostics: which skeleton the modifier drives, which
+  skeleton every mesh is bound to, whether the pose survives to the next frame (`readback`), the
+  posture state and every pony within 4 m.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act while **Enable debug** is on. Neglect events log their warning/stop,
   tier, distress and dislike.
@@ -1664,9 +1598,9 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (Use posed base, body
-  motion, Use free look, then **Neck angles** and **Posed base shot** subheadings), **Standing**
-  (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Use free look,
+  then a **Posed base shot** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and
+  **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

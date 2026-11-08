@@ -345,11 +345,8 @@ func tick(delta: float) -> void:
 func pose_config(config: Dictionary) -> void:
 	if not is_instance_valid(anatomy):
 		return
-	if pose == CATALOG.MISSIONARY:
-		config["pelvis_curl_deg"] = 25.0
-		config["legs_wrap"] = 1.0
-		config["bed_lift_m"] = 0.05
-	elif _oral_mix > 0.0:
+	# Missionary needs no pose overrides: the authored base pose already holds the pelvis and legs.
+	if pose == CATALOG.STANDING and _oral_mix > 0.0:
 		config["oral_pitch"] = _oral_now.y * 0.5 * _oral_mix
 		config["oral_yaw"] = _oral_now.z * _oral_mix
 		config["oral_roll"] = _oral_now.z * 0.3 * _oral_mix

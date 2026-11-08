@@ -55,13 +55,11 @@ func _initialize() -> void:
 	var state := {
 		"config": {},
 		"authored": pose,
-		"authored_on": true,
 		"bed_frame": frame,
 		"body_scale": 1.0,
 		"look_point": look_point,
 		"clock": 0.0,
 		"climaxing": false,
-		"head_roll": 0.0,
 	}
 	var recipe = MISSIONARY.new()
 	recipe.apply(rig, skeleton, 1.0, state)
@@ -98,17 +96,6 @@ func _initialize() -> void:
 	print("[pose_runtime] bed space hips=%.3f head=%.3f hoof=%.3f" % [hips_up, head_forward, hoof_up])
 	var ok := worst <= 0.001 and hips_up > 0.0 and hips_up < 0.15 and head_forward > 0.2 \
 		and hoof_up > 0.2
-	# The A/B switch must actually select the fallback stack.
-	skeleton.reset_bone_poses()
-	skeleton.force_update_all_bone_transforms()
-	state["authored_on"] = false
-	recipe.apply(rig, skeleton, 1.0, state)
-	skeleton.force_update_all_bone_transforms()
-	var fallback: Vector3 = _joints(skeleton)["pony_hips"]
-
-	var differs := fallback.distance_to(baked["pony_hips"]) > 0.02
-	print("[pose_runtime] fallback hips differ=%.3f m" % fallback.distance_to(baked["pony_hips"]))
-	ok = ok and differs
 	print("[pose_runtime] %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 

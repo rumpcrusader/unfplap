@@ -610,25 +610,6 @@ static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
-static var authored_base := flag("authored_base", "presentation.missionary.authored_base", true,
-	"Use posed base",
-	"Build the missionary base from the hand-authored bed pose instead of the runtime correction stack.",
-	GENERAL, "Missionary").as_debug()
-static var forward := num("forward", "presentation.missionary.forward", 0.3,
-	"Missionary forward", "Shift the frozen shot forward along her body.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var height := num("height", "presentation.missionary.height", 0.25, "Missionary height",
-	"Raise the frozen shot.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var pitch_deg := num("pitch_deg", "presentation.missionary.pitch_deg", -15.0,
-	"Missionary pitch", "Tilt the frozen view; positive looks up.", GENERAL, "Missionary") \
-	.with_unit("°").with_step(0.5).as_debug()
-static var pullback := num("pullback", "presentation.missionary.pullback", 0.22,
-	"Missionary pullback", "Pull the shot back along its own view axis.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
-static var side := num("side", "presentation.missionary.side", 0.0, "Missionary side",
-	"Shift the frozen shot sideways; positive is her right.", GENERAL, "Missionary") \
-	.with_unit("m").with_step(0.01).as_debug()
 static var side_lean := num("side_lean", "presentation.missionary.side_lean", 0.1,
 	"Side lean forward", "Extra travel toward her head on a side lean.", GENERAL, "Missionary") \
 	.with_unit("m").with_step(0.01).as_debug()
@@ -648,27 +629,6 @@ static var free_look := flag("free_look", "presentation.missionary.free_look", f
 	"Use free look",
 	"Copy the player camera during an act instead of the frozen shot, so the pose can be inspected. The mouse stops driving thrust.",
 	GENERAL, "Missionary").as_debug()
-
-# -- Missionary › Neck angles  (debug)
-static var head_pitch_deg := num("head_pitch_deg", "presentation.missionary.head_pitch_deg",
-	0.0, "Head pitch", "Tilt the head about the body right axis after the gaze solve.", GENERAL,
-	"Missionary › Neck angles") \
-	.with_unit("°").with_step(1.0).as_debug()
-static var head_roll_deg := num("head_roll_deg", "presentation.missionary.head_roll_deg", 0.0,
-	"Head roll", "Roll the head last, in degrees.", GENERAL, "Missionary › Neck angles") \
-	.with_unit("°").with_step(1.0).as_debug()
-static var neck1_deg := num("neck1_deg", "presentation.missionary.neck1_deg", 0.0,
-	"Neck 1 angle", "Bend pony_neck1 about the body right axis.", GENERAL,
-	"Missionary › Neck angles") \
-	.with_unit("°").with_step(1.0).as_debug()
-static var neck2_deg := num("neck2_deg", "presentation.missionary.neck2_deg", 0.0,
-	"Neck 2 angle", "Bend pony_neck2 about the body right axis.", GENERAL,
-	"Missionary › Neck angles") \
-	.with_unit("°").with_step(1.0).as_debug()
-static var neck_roll_deg := num("neck_roll_deg", "presentation.missionary.neck_roll_deg", 0.0,
-	"Neck roll", "Roll both neck bones about the body forward axis.", GENERAL,
-	"Missionary › Neck angles") \
-	.with_unit("°").with_step(1.0).as_debug()
 
 # -- Standing  (debug)
 static var standing_play_bow := flag("standing_play_bow", "features.standing_play_bow", false,
@@ -1235,6 +1195,27 @@ static var _deprecated := [
 		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),
 	# The separate log switch folded into the debug switch.
 	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
+	# Missionary is one authored pose and one authored shot now; the correction stack, its neck
+	# offsets and its frozen-shot tuning are retired.
+	deprecated("presentation.missionary.authored_base",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.forward", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.height", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.pitch_deg",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.pullback",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.side", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.head_pitch_deg",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.head_roll_deg",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.neck1_deg",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.neck2_deg",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.neck_roll_deg",
+		func(_value: Variant) -> Dictionary: return {}),
 	# Pack foley is always on; the switch is retired.
 	deprecated("features.act_foley", func(_value: Variant) -> Dictionary: return {}),
 	# Thrust sensitivity is now a physical scale: pixels per centimetre of hip travel. The old
@@ -1763,7 +1744,6 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_feature_names(data)
 	data = _normalize_line_variety(data)
 	data = _normalize_presentation(data)
-	data = _normalize_missionary_offsets(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
@@ -1785,27 +1765,6 @@ static func _erase_path(data: Dictionary, path: String) -> void:
 			return
 		node = child
 	node.erase(parts[parts.size() - 1])
-
-
-## The authored missionary base pose holds her neck and face, so the live presentation offsets now
-## default to zero and the retired correction stack adds its own 45/90/90. Files written before the
-## authored base stored those old defaults, so reset a value that was never tuned away from them.
-static func _normalize_missionary_offsets(data: Dictionary) -> Dictionary:
-	var presentation: Variant = data.get("presentation")
-	if not presentation is Dictionary:
-		return data
-	var missionary: Variant = (presentation as Dictionary).get("missionary")
-	if not missionary is Dictionary:
-		return data
-	var block := missionary as Dictionary
-	# Key -> the old default it is reset from.
-	for pair: Array in [["head_pitch_deg", 90.0], ["head_roll_deg", 90.0], ["neck2_deg", 45.0]]:
-		var key := str(pair[0])
-		if block.has(key) and absf(float(block[key]) - float(pair[1])) < 0.001:
-			block.erase(key)
-	(presentation as Dictionary)["missionary"] = block
-	data["presentation"] = presentation
-	return data
 
 
 ## The anatomy used to be a master switch plus an "only during acts" switch; both fold into the

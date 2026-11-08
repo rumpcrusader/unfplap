@@ -27,7 +27,10 @@ func run() -> void:
 		ids[id] = true
 		var defaults := CATALOG.defaults(id)
 		check(not defaults.is_empty(), "defaults exist for " + id)
-	check(float(CATALOG.defaults(CATALOG.MISSIONARY).get("rump_drop_deg", -1.0)) == 35.0, "missionary rump pitch default")
+	check(float(CATALOG.defaults(CATALOG.MISSIONARY).get("nuzzle_period", -1.0)) == 7.0,
+		"missionary nuzzle period default")
+	check(not CATALOG.defaults(CATALOG.MISSIONARY).has("rump_drop_deg"),
+		"the retired correction-stack defaults are gone")
 	check(float(CATALOG.defaults(CATALOG.STANDING).get("hind_spread", -1.0)) == 0.32, "standing hind spread default")
 	var gaps: Variant = CATALOG.defaults(CATALOG.STANDING).get("gaps", {})
 	check(gaps is Dictionary and int((gaps as Dictionary).size()) == 4, "standing size gaps")

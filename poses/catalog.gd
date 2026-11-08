@@ -8,13 +8,6 @@ const STANDING := "standing"
 
 const POSE_DEFAULTS := {
 	MISSIONARY: {
-		"hind_spread": 0.42,
-		"rump_drop_deg": 35.0,
-		"head_roll": 0.0,
-		"roll_tweak": 0.0,
-		"neck_lift_deg": 15.0,
-		"camera_height": 0.45,
-		"camera_back": 0.22,
 		"nuzzle_scale": 0.45,
 		"nuzzle_period": 7.0,
 		"nuzzle_duration": 2.4,

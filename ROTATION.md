@@ -19,14 +19,12 @@ whenever a pose value or order changes.
 
 ## Missionary
 
-The base is the **hand-authored pose** in `poses/missionary_pose.json` when
-`presentation.missionary.authored_base` is on (the default) and the asset loads. The live overlays —
-neck offsets, nuzzle, gaze solve, head pitch and head roll — run on top of either base, so the face
-rules apply in both.
+The pose is the **hand-authored asset** in `poses/missionary_pose.json`, placed in the real bed's
+space, with the nuzzle and gaze overlays on top. There is no second implementation.
 
-### Authored base (default)
+### Base pose
 
-- **Asset.** `poses/authored_pose.gd` reads version 4 of the JSON once per process and caches it.
+- **Asset.** `poses/authored_pose.gd` reads version 5 of the JSON once per process and caches it.
   Every transform is in **bed space**: origin at the middle of the mattress top, the bed's own
   axes, `+Z` the direction her head points. The runtime maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
@@ -49,101 +47,19 @@ rules apply in both.
 - **Overlays skip the joint-limit clamp** (`rig.rotate_free`). The authored pose can sit outside
   the limits the game derives from its own motion library, and `constrain()` would snap it back on
   the first gaze correction.
-- **The framing camera anchors to the bed frame origin**, not the actor, because the body is placed
-  in bed space (`runtime.authored_base_active()` / `missionary_pose_origin()`).
-- **Fallback.** A missing asset, a version below 4, the A/B switch off, or no bed frame (the
-  floating pose preview) uses the correction stack below. The anatomy-only `pelvis_curl_deg`,
-  `legs_wrap` and `bed_lift_m` keys are skipped on the authored path: the pose already has them.
+- The shot's camera positions are bed-relative, so the body and the eye move together on any bed.
+- **No fallback.** There is no second missionary pose. A missing/invalid asset, a version below 4
+  or no bed frame (the floating pose preview) means no pose is applied, and the act's `pose_asset`
+  gate refuses the start with `missionary pose unavailable: <reason>` in the log. The anatomy's
+  `pelvis_curl_deg`/`legs_wrap`/`bed_lift_m` keys are gone with the stack.
 - **Reload.** The asset is shared for the process; the **Reload posed base** debug action (and
   `F4`) re-reads the file in place, so the lab export → game reload loop works mid-act.
 
-### Correction stack (fallback)
-
-Exact order:
-
-1. `_roll_root(PI * weight)`
-   - pivot: `pony_hips` origin
-   - axis: `forward`
-   - rotates root origin and basis, then adds `up * 0.03 * |angle|`.
-2. `_lift_root(0.05 * weight)`.
-3. `_straighten_spine_neck()`
-   - bones: `pony_hips`, `pony_spine1..3`, `pony_neck1..2`, `pony_head`
-   - slerps each local pose rotation toward its rest rotation by weight.
-   - Including the pelvis removes the game's bed `lie_down` curl.
-4. `_align_chain_straight()`
-   - bones: spine1–3 and neck1–2; head is a direction target only.
-   - target is `forward` with `y = 0`, normalized.
-   - each bone direction is measured to the next bone's origin.
-   - shortest-arc rotation directly written to the global pose; no joint-limit clamp.
-5. `_level_body_roll()`
-   - left/right hind-femur origins.
-   - `_line_roll()` measures the lateral line; wrap the result into ±90°.
-   - adds `MISSIONARY_ROLL_TWEAK`.
-   - rotates the root around `forward` at the hips pivot.
-6. `_level_chest_roll()`
-   - left/right upper-arm origins.
-   - `_line_roll()`; rotates only `pony_spine1` around `forward`.
-7. `_pitch_body_about_shoulders(MISSIONARY_RUMP_DROP_DEG)`
-   - pivot: midpoint of the two upper-arm origins.
-   - rotates root origin and basis about `right`.
-   - positive angle moves the pelvis/rump behind the pivot downward.
-8. `_bend_forelegs(0.3)`.
-9. `_raise_hind_legs()`
-   - femur target `(up * 0.75 + forward * 0.45).normalized()`
-   - knee bend `-0.55` around `right`.
-10. `_hug_forelegs()`.
-11. `_neck_bend(neck1_deg, neck2_deg)` about the body right axis on `pony_neck1`/`pony_neck2`.
-    The settings default to zero because the authored base already holds the neck; this stack adds
-    `FALLBACK_NECK2_DEG = 45` itself, and `FALLBACK_HEAD_PITCH_DEG` / `FALLBACK_HEAD_ROLL_DEG = 90`
-    keep its old look. `_neck_roll(neck_roll_deg)` rolls both neck bones about the body forward
-    axis. Both are posture offsets and run before the gaze solve, so they move her head off the
-    mattress without tilting her final gaze.
-12. Nuzzle
-    - `_nuzzle_pulse()`: 0→1→0 over `NUZZLE_DURATION` every `NUZZLE_PERIOD`.
-    - offsets the gaze target by the small angle `nuzzle_scale * 8°`; base gaze remains on Anon.
-    - during climax: `pulse = 0.75 + 0.25 * sin(_clock * 4.0)`.
-13. `_aim_gaze(look_point)` — the true gaze solve.
-    - uses the current `pony_head` frame plus `HybridNeckLink`'s fixed `pony_head → mHead`
-      offset, so it reads the face direction after the pose and neck lift.
-    - shortest-arc rotation from her current face direction to Anon; no absolute yaw/pitch and
-      no rest-orientation assumption. This is what keeps the lying missionary head off the
-      ceiling.
-    - neck shares `[0.30, 0.36, 0.34]`; `rig.rotate()` applies the native joint limits (the
-      authored base uses `rotate_free` instead, see above).
-    - the kiss target is already the runtime's `look_point`, so the old extra kiss aim is gone.
-    - after the solve, `_head_pitch(head_pitch_deg)` rotates the head about the body right axis.
-      This intentionally trades a little exact aim for a natural head angle.
-14. `_roll_head(head_roll)` around `forward`, head only.
-15. Dump once at weight > 0.9 if debug is on.
-
-The debug chin pitch lives in `chin_debug.gd`, a separate `SkeletonModifier3D` appended after
-the pose modifier. It is not part of the missionary recipe, so `Alt+7` / `Alt+8` also work
-while idle or standing.
-
-`_line_roll` must always select the branch nearest level, in (−90°, +90°]. Without the
-wrap, the correction can roll her belly-up to belly-down while still "levelling" the
-legs.
-
-### Head-back effect (reserved)
-
-Positive `_lift_neck()` angles were `0.10 / 0.08 / 0.06` around the body's right axis.
-They throw the neck/head back and were intentionally not applied in missionary. Keep
-these values here if a future pose needs that effect.
-
-### Anatomy additions (correction stack only)
-
-With the anatomy shown (`anatomy_mode` not `never`), the **correction stack** also applies
-`pelvis_curl_deg` (25°), `legs_wrap` and `bed_lift_m` (0.05). The curl tips the pelvis toward Anon
-and shares the turn back up the spine; the wrap opens each hind femur around him. `rump_rise_m` is
-accepted but unused. The authored base already contains its own pelvic curl and leg wrap, so it
-ignores these keys. `tail_pose.gd` is not changed.
-
 ## Missionary camera
 
-### Authored base shot (default)
+### The shot
 
-When the authored base pose is in charge (`authored_base_active()`), the shot is a **slide along her
-body** instead of the frozen neck shot:
+The shot is a **blend of authored camera positions along her body**:
 
 - Five camera positions come from the pose lab, bed-relative, in the asset's `shots` block:
   `start` (neutral), `back` (S, her pelvis), `front` (W, her face — where the kiss happens), and
@@ -156,111 +72,11 @@ body** instead of the frozen neck shot:
   hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face.
 - A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than 0.30 m.
 - The live offsets are **`shot_forward` / `shot_height` / `shot_side`** (default 0, applied every
-  frame), so the stack's `forward`/`height`/`side` tuning stays with the stack. `pullback` and
-  `pitch_deg` are shared.
-- The lean basis (pitch, side yaw, roll), the speed-driven surge along the mattress toward her head,
-  the side-lean travel, `_bob`, the kiss lateral offset/drop and the `MISSIONARY_START_LEAN` are
-  everything except the start lean, which is skipped because the authored start already sits at the
-  shot distance. The view is kept at least 0.10 m over the bed surface.
-- `apply_framing()` does nothing on this path: there is no frozen anchor to nudge and nothing can
-  accumulate (the old anchor drift in 0.25 m `height` steps came from nudging it).
-
-### Correction stack shot
-
-- Anchor: `root + up * (0.45 + MISSIONARY_CAMERA_LIFT_M 0.10) * body_scale + back * 0.22 * body_scale`,
-  where `back = +pony.global_basis.z` and `root` is the actor's position normally, or the authored
-  pose's bed-frame origin when the authored base is active (the body is placed in bed space then,
-  so an actor-anchored shot would sit off her centreline). The anchor stays behind her neck, toward her rump, so the
-  frozen aim looks forward along her body at her face; anchoring ahead of the neck aimed the shot
-  back down her torso. Canon height is `0.9×`; JRHNBR (`1.35`) gets a proportionally higher,
-  farther-back anchor. The **Act presentation → Missionary** axes move the frozen anchor:
-  `presentation.missionary.forward` (default `0.30`),
-  `presentation.missionary.height` (default `0.25`) and `presentation.missionary.side`
-  (default `0`; positive is her right). `presentation.missionary.pitch_deg` (default `-15`;
-  positive looks up) tilts the view about its local right axis after the frozen neck aim; the
-  anchor and neck settle target do not move. All are experimental and unbounded. The
-  **Missionary pullback** setting (`presentation.missionary.pullback`, default `0.22 m`, times
-  body scale) then
-  pulls the shot back along `_missionary_view_basis.z` (its own view axis), and
-  `MISSIONARY_START_LEAN = 1.0` (one full
-  `LEAN_FORWARD_M` lean) advances it along the same axis. The shot therefore starts at the old
-  maximum W-lean point, and W pushes further up her torso toward the neck. The aim basis is
-  computed once from the stable anchor, not the moved view, to prevent start-up flicker.
-- Aim: sample the middle of the neck (`pony_neck1`/`pony_neck2` midpoint) during the first
-  second while the pose blends, then freeze. The live snout is not used, and the target is never
-  derived from the moving view.
-- The aim basis comes from the stable anchor and is updated only during that settle second; no
-  forward-dot re-aim loop. A neck point behind the anchor is rejected, so the shot cannot flip
-  back down her torso. Rebuilds are limited to an invalid/too-far anchor or a genuinely
-  below-valid-bed top. A missing bed returns `INF`, not `0.0`. Her head aims at Anon's player
-  camera, not the framing view, and its look point keeps at least `0.45 * body_scale` from her
-  head. The look point moves with the lean's lateral shift and
-  `presentation.missionary.side_lean` travel, so a side lean turns her toward the lean. Aiming
-  at the framing view (now behind her neck) demanded
-  a half-turn and snapped her head side to side.
-- Missionary hides every `*AnonBody*` presentation node and disables the desktop presentation for
-  the act, re-applying each tick; both are restored at end. The stock bed body must never appear
-  inside the shot with a different orientation.
-- Missionary body motion is `prone_sway` (`missionary_body_motion`): the spine slides along the bed with
-  raw thrust depth, and the neck/head nod about `3°`. It is separate from the standing
-  `body_sway` (`standing_body_sway`) and does not pin hooves like the standing pose.
-- Eyes: `ACT_LIDS = 0.45` in `POSING_IN`/`ACTIVE`, `CLIMAX_LIDS = 0.0` in `CLIMAX`, sleepier
-  `0.90`/`0.95` in afterglow. `_eyes_tick()` reasserts the stare late each tick.
-- Lean is clamped to stop `0.12 m` short of the neck target in both directions, so the camera
-  can never cross its own look point and flip backwards.
-- The camera has no mouse look. `W`/`S` lean forward/back and `Q`/`E` lean sideways:
-  `side = E - Q`, `forward = W - S + abs(side)`.
-- Lean ramps over `0.5 s` and returns over `1.6 s`. Forward lean translates `0.24 m`; backward
-  lean is `presentation.lean_back_m` (default `0.08 m`); side lean translates `0.18 m`. Both
-  directions pitch `6°` down,
-  and side lean rolls `8°` outward and yaws `3°`; forward adds `1.5°` roll. A side lean also
-  travels `presentation.missionary.side_lean` (default `0.20 m`, experimental/unbounded) along
-  the mattress toward her head, outside the view-axis clamp. The displayed lean is always
-  smoothed at
-  `CAMERA_INERTIA_SMOOTH = 5.0`.
-- All lean distances/angles scale with pony size: `clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`)
-  is the reference; Canon (`0.66`) is `1.34`. The missionary Canon camera height is also `0.9×`.
-- The lean camera locks `player.controls_locked` for both poses and restores the previous value
-  at act end.
-- `Q` also starts the act kiss at `LEAN_FIRE = 0.75` and releases at `LEAN_RELEASE = 0.60`.
-  The kiss aims her neck/head at Anon's mouth through the recipe `kiss` weight; `E` only leans.
-  Missionary always uses that custom head aim: the stock kiss pose is authored for standing and its
-  chest/neck give lifts the lying body and turns her head across the mattress. Standing uses the
-  base kiss, with the runtime writing its live mouth/eye/face targets from Anon's real mouth
-  camera and repeating the mouth kiss sound because the player kisser's physics is paused for
-  the act. The excitement Beat timer is paused so unicorn horns do not
-  sparkle from the kiss. Anon leans in `KISS_LEAN_M = 0.27`, shifts to the shoulder side by
-  `KISS_LEAN_SIDE_M = 0.18` and drops `KISS_LEAN_DROP_M = 0.035`; standing applies it to the
-  camera and pelvis counter-lean and yaws the camera `KISS_CAMERA_YAW_DEG = 10°` toward her,
-  missionary to the framing view and virtual mouth. The kiss side is latched from the input lean at
-  start (`_lean_side`, falling back to `_lean_action_side`, not the lagging camera view), and
-  `_pin_base_kiss_side()` pins her tilt to the complementary side in standing
-  (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding; the deep-kiss side
-  switch is disabled for the act. The pin writes AffectionPose's private
-  `_side`/`_side_now`/`_side_wait` each tick and skips quietly if they are unavailable. The lateral travel crossfades from the lean's `0.18 m` to the
-  kiss's `0.18 m` rather than adding both, so the full kiss uses one offset.
-- Camera thrust is speed-driven, not impulse-driven. `_process` filters the signed depth speed
-  (`CAM_SPEED_SMOOTH_S = 0.06 s`); `_camera_thrust_tick()` follows it with one critically damped
-  response (`CAM_RESPONSE_S = 0.12 s`). No per-stroke kick.
-- `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward strokes use `CAM_BACK_RATIO = 0.5`.
-- Two `camera_thrust` amounts (`surge`, `bob`, both `0…1`, defaults `1.0`/`0.35`) scale
-  `CAM_SURGE_M = 0.06 m` and `CAM_BOB_M = 0.02 m`.
-- The bob target is negative: an inward stroke dips the camera toward her, so the frozen aim
-  moves up her body. The outward stroke rises back.
-- Missionary sends the surge along the mattress toward her head; standing sends it along the camera
-  forward. Both use the same bob.
-- Auto thrust feeds the same `depth`: `auto_thrust.gd` generates the raised cosine and the runtime
-  feeds it as mouse movement, so the surge/bob and the standing hip need no separate path.
-- Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
-- The act end runs through `runtime._end_session()`; the missionary re-invite restores:
-  1. player transform and yaw,
-  2. pony transform and posture,
-  3. camera transform + `make_current()`.
-- Do not reorder: setting player yaw rotates a child camera.
-- Missionary setup saves the source camera `fov`, `near`, `far` and `cull_mask`; freeing the
-  mod-owned view restores those exact values and logs them before making the source current.
-- After restore, re-invite the pony through the seat's couch; if that fails, restore
-  the captured posture.
+  frame). There is no pullback or pitch knob: the authored positions are the shot.
+- The lean basis (pitch, side yaw, roll), the speed-driven surge along the mattress toward her
+  head, the side-lean travel, `_bob` and the kiss lateral offset/drop are the only extra motion.
+  The view is kept at least 0.10 m over the bed surface. There is no frozen anchor and no framing
+  nudge, so nothing can accumulate.
 
 ## Standing
 

@@ -183,12 +183,12 @@ func _check_panels() -> void:
 func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
 	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", [
-		"presentation.missionary.forward", "camera_thrust.bob",
-		"presentation.missionary.height"], 16, null, Callable())
+		"presentation.missionary.shot_forward", "camera_thrust.bob",
+		"presentation.missionary.shot_height"], 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
-	check(labels.has("Missionary forward") and labels.has("Missionary height"),
+	check(labels.has("Posed shot forward") and labels.has("Posed shot height"),
 		"an interleaved section keeps every row")
 	check(labels.has("Bob"), "the interleaved section still draws the other group")
 	list.free()
@@ -275,15 +275,6 @@ func _check_migration() -> void:
 	var dock: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
 		"anatomy": {"hide_dock": true}}, SETTINGS.SCHEMA_VERSION)
 	check(not bool(dock["anatomy"].get("show_dock", true)), "hide_dock true maps to show_dock false")
-
-	# The authored missionary base made the live neck/head offsets default to zero; a file that
-	# still holds the old defaults is reset, and a tuned value survives.
-	var offsets: Dictionary = SETTINGS._normalize_missionary_offsets({"presentation": {"missionary": {
-		"head_pitch_deg": 90.0, "head_roll_deg": 12.0, "neck2_deg": 45.0}}})
-	var reset: Dictionary = (offsets["presentation"] as Dictionary)["missionary"]
-	check(not reset.has("head_pitch_deg"), "the old head pitch default is reset to zero")
-	check(not reset.has("neck2_deg"), "the old neck bend default is reset to zero")
-	check(near(float(reset.get("head_roll_deg", 0.0)), 12.0), "a tuned head roll survives")
 
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,

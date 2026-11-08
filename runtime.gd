@@ -440,7 +440,6 @@ var _inventory_hud_hidden := false
 var _inventory_hud_saved := false
 var _inventory_hotbar_visible := true
 var _inventory_hud_layer_visible := true
-var _missionary_head_roll := 0.0
 var _bob := 0.0
 var _bob_velocity := 0.0
 var _lean := 0.0
@@ -778,8 +777,6 @@ func apply_live_settings() -> void:
 	# Nudge the frozen missionary anchor only when the framing control actually changed, so a preference
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
-	if pose_id == CATALOG.MISSIONARY and state != State.IDLE:
-		_missionary_camera_controller().apply_framing()
 	if not _id.is_empty():
 		_preferences = SETTINGS.preferences(_id)
 	_refresh_live_modifiers()
@@ -1249,6 +1246,8 @@ func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: Strin
 		_gate_row(rows, "nav_owner",
 			nav != null and _nav_owner_allows(pose, act_source), "nav_owner")
 	if pose == CATALOG.MISSIONARY:
+		var pose_ready := _authored_pose_ready()
+		_gate_row(rows, "pose_asset", pose_ready, _authored_pose_reason())
 		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
 		_gate_row(rows, "bed", found != null, "no_bed")
 		if found != null:
@@ -1927,7 +1926,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 
 	_build_pose()
 	_clear_stock_flank_marks()
-	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
 	if pose == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
 	_reset_lean_state()
@@ -2359,21 +2357,11 @@ func _sync_missionary_pose_config() -> void:
 	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return
 	_pose_cfg = SETTINGS.pose(_id, CATALOG.MISSIONARY)
-	_pose_cfg["neck1_deg"] = float(_presentation_cfg.get("neck1_deg", 7.5))
-	_pose_cfg["neck2_deg"] = float(_presentation_cfg.get("neck2_deg", 7.5))
-	_pose_cfg["neck_roll_deg"] = float(_presentation_cfg.get("neck_roll_deg", 0.0))
-	_pose_cfg["head_pitch_deg"] = float(_presentation_cfg.get("head_pitch_deg", 0.0))
-	_pose_cfg["head_roll"] = float(_presentation_cfg.get("head_roll_deg", 0.0))
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("pose_config", _pose_cfg)
 	if is_instance_valid(_pose):
 		_pose.pose_config = _pose_cfg
-	_missionary_head_roll = float(_pose_cfg.get("head_roll", 0.0))
-	if is_instance_valid(_pose):
-		_pose.head_roll = _missionary_head_roll
-		# The base pose is switchable mid-act; the asset instance is shared, so a reload reaches
-		# the live act without rebuilding the modifier.
-		_pose.authored_on = SETTINGS.authored_base.get_bool()
+		# The asset instance is shared, so the reload action reaches the live act.
 		_pose.authored = _authored_pose()
 
 
@@ -2381,13 +2369,6 @@ func _sync_missionary_pose_config() -> void:
 ## the same instance in place, so a live act picks the new pose up on its next frame.
 func _authored_pose() -> Variant:
 	return AUTHORED.shared()
-
-
-## True when the missionary base pose is the authored asset rather than the correction stack. The
-## framing camera anchors to the bed frame then, because the body is placed in bed space.
-func authored_base_active() -> bool:
-	return pose_id == CATALOG.MISSIONARY and _bed_pose_frame is Transform3D \
-		and SETTINGS.authored_base.get_bool() and bool(_authored_pose().get("available"))
 
 
 ## The parsed authored pose, for the shot camera and the debug action.
@@ -2441,14 +2422,12 @@ func _build_pose() -> void:
 		_pose.set("runtime", self)
 		_pose.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
 		_pose.pose_config = SETTINGS.pose(_id, pose_id)
-		_pose.head_roll = _missionary_head_roll
 		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
 		_pose.amount = 0.0
 		_pose.target_amount = 1.0
 		if pose_id == CATALOG.MISSIONARY:
 			_bed_pose_frame = _missionary_pose_frame()
 			_pose.authored = _authored_pose()
-			_pose.authored_on = SETTINGS.authored_base.get_bool()
 			_pose.bed_frame = _bed_pose_frame
 			_log_pose_base()
 		(skeleton as Skeleton3D).add_child(_pose)
@@ -5361,29 +5340,40 @@ func pose_base_info() -> Dictionary:
 	var authored: Variant = _authored_pose()
 	var bones: Variant = authored.get("pony_bones")
 	var info := {
-		"base": "stack",
+		"base": "none",
 		"reason": "",
 		"version": int(authored.get("version")),
 		"bones": (bones as Dictionary).size() if bones is Dictionary else 0,
 		"available": bool(authored.get("available")),
 		"error": str(authored.get("error")),
-		"switch": SETTINGS.authored_base.get_bool(),
 		"frame": _bed_pose_frame,
 		"shots": bool(authored.get("has_shots")),
 		"asset": authored,
 	}
 	if pose_id != CATALOG.MISSIONARY:
 		info["reason"] = "pose=%s" % pose_id
-	elif not bool(info["switch"]):
-		info["reason"] = "switch off"
 	elif not bool(info["available"]):
-		var why := str(info["error"])
-		info["reason"] = "asset: %s" % (why if not why.is_empty() else "not loaded")
+		info["reason"] = _authored_pose_reason()
 	elif not _bed_pose_frame is Transform3D:
 		info["reason"] = "no bed frame"
 	else:
 		info["base"] = "authored"
 	return info
+
+
+## True when the missionary asset loaded. The act refuses to start otherwise: there is no fallback
+## missionary pose any more.
+func _authored_pose_ready() -> bool:
+	return bool(_authored_pose().get("available"))
+
+
+## Why the missionary pose asset is unusable, for the gate row and the start log.
+func _authored_pose_reason() -> String:
+	var authored: Variant = _authored_pose()
+	if bool(authored.get("available")):
+		return ""
+	var why := str(authored.get("error"))
+	return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
 
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
@@ -5470,8 +5460,8 @@ func pose_state_rows() -> Array:
 	var rows: Array = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
 		str(pony.name) if is_instance_valid(pony) else "?", pose_id, state, _pose_basis_amount()])
-	rows.append("base=%s reason=%s switch=%s asset=v%d %s bones=%d shots=%s error=%s" % [
-		str(info["base"]), str(info["reason"]), "on" if bool(info["switch"]) else "off",
+	rows.append("base=%s reason=%s asset=v%d %s bones=%d shots=%s error=%s" % [
+		str(info["base"]), str(info["reason"]),
 		int(info["version"]), "ok" if bool(info["available"]) else "error", int(info["bones"]),
 		"yes" if bool(info["shots"]) else "no", str(info["error"])])
 	rows.append("bed_frame=%s scale=%.2f" % [
@@ -5502,10 +5492,10 @@ func _log_pose_base() -> void:
 		return
 	var info := pose_base_info()
 	var frame: Variant = info["frame"]
-	_log("missionary base=%s reason=%s asset=v%d %s bones=%d shots=%s switch=%s frame=%s scale=%.2f" % [
+	_log("missionary base=%s reason=%s asset=v%d %s bones=%d shots=%s frame=%s scale=%.2f" % [
 		str(info["base"]), str(info["reason"]), int(info["version"]),
 		"ok" if bool(info["available"]) else "error", int(info["bones"]),
-		"yes" if bool(info["shots"]) else "no", "on" if bool(info["switch"]) else "off",
+		"yes" if bool(info["shots"]) else "no",
 		str(frame) if frame is Transform3D else "null", _body_scale_value()])
 
 

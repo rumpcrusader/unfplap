@@ -1208,7 +1208,7 @@ const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 4
+const SCHEMA_VERSION := 5
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -1747,6 +1747,7 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_feature_names(data)
 	data = _normalize_line_variety(data)
 	data = _normalize_presentation(data)
+	data = _normalize_missionary_offsets(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
@@ -1768,6 +1769,27 @@ static func _erase_path(data: Dictionary, path: String) -> void:
 			return
 		node = child
 	node.erase(parts[parts.size() - 1])
+
+
+## The authored missionary base pose holds her neck and face, so the live presentation offsets now
+## default to zero and the retired correction stack adds its own 45/90/90. Files written before the
+## authored base stored those old defaults, so reset a value that was never tuned away from them.
+static func _normalize_missionary_offsets(data: Dictionary) -> Dictionary:
+	var presentation: Variant = data.get("presentation")
+	if not presentation is Dictionary:
+		return data
+	var missionary: Variant = (presentation as Dictionary).get("missionary")
+	if not missionary is Dictionary:
+		return data
+	var block := missionary as Dictionary
+	# Key -> the old default it is reset from.
+	for pair: Array in [["head_pitch_deg", 90.0], ["head_roll_deg", 90.0], ["neck2_deg", 45.0]]:
+		var key := str(pair[0])
+		if block.has(key) and absf(float(block[key]) - float(pair[1])) < 0.001:
+			block.erase(key)
+	(presentation as Dictionary)["missionary"] = block
+	data["presentation"] = presentation
+	return data
 
 
 ## The anatomy used to be a master switch plus an "only during acts" switch; both fold into the

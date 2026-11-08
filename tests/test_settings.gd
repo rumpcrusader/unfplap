@@ -276,6 +276,15 @@ func _check_migration() -> void:
 		"anatomy": {"hide_dock": true}}, SETTINGS.SCHEMA_VERSION)
 	check(not bool(dock["anatomy"].get("show_dock", true)), "hide_dock true maps to show_dock false")
 
+	# The authored missionary base made the live neck/head offsets default to zero; a file that
+	# still holds the old defaults is reset, and a tuned value survives.
+	var offsets: Dictionary = SETTINGS._normalize_missionary_offsets({"presentation": {"missionary": {
+		"head_pitch_deg": 90.0, "head_roll_deg": 12.0, "neck2_deg": 45.0}}})
+	var reset: Dictionary = (offsets["presentation"] as Dictionary)["missionary"]
+	check(not reset.has("head_pitch_deg"), "the old head pitch default is reset to zero")
+	check(not reset.has("neck2_deg"), "the old neck bend default is reset to zero")
+	check(near(float(reset.get("head_roll_deg", 0.0)), 12.0), "a tuned head roll survives")
+
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,
 		"features": {"act_chat": true, "hud_readouts": true},

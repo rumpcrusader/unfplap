@@ -246,8 +246,11 @@ loaded.
 **The act is its own state.** Neither of them is in the game's lying state while it runs: Anon is
 stood up (`force_stand_up()` before the snapshot and the lock), the game's desktop presentation is
 parked, and his own `AnonBody` is placed in bed space and posed from the asset's `anon` block by
-`missionary_anon.gd`. She is released from the bed rest and asked to `stand`, so the solver keeps a
-neutral pose instead of the lie clip; her body is placed and posed by the act. The bed supplies only
+`missionary_anon.gd`, which blends his body between the authored `anon.travel.start`/`end` points by
+depth and adds the attached alignment's `hip_offset_wanted`, so his pelvis rides the stroke and the
+shaft stays in his crotch (the same `_aim_attached()` logic the standing act uses). She is released
+from the bed rest and asked to `stand`, so the solver keeps a neutral pose instead of the lie clip;
+her body is placed and posed by the act. The bed supplies only
 the frame (`bed_frame`) and the offer/eligibility path. Nothing rejoins the bed or a cuddle at the
 end: `restore_scene()` puts the player, the pony and the camera back and she stands.
 
@@ -434,8 +437,11 @@ position is authored it is derived from her live body (neck, vulva, face, and th
 sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
 sides and front keep the face. A kiss leans the eye in toward the aim but never closer than 0.30 m.
 The live offsets are `shot_forward`/`shot_height`/`shot_side` (default 0) and apply every frame.
-There is no frozen anchor, no pullback/pitch knob and no framing nudge. The bullets below cover the
-rest of the shot's behaviour.
+There is no frozen anchor, no pullback/pitch knob and no framing nudge.
+**Third-person views** (`presentation.missionary.third_person`, debug, off by default) is the only way
+off the trajectory: with it on, the lean tilts the eye and the thrust surge travels along the
+mattress, plus side-lean travel, bob and the kiss lateral/drop. Off, the eye only ever sits on the
+authored positions (plus the kiss lean-in). The bullets below cover the rest of the shot's behaviour.
 
 - Missionary body motion is `prone_sway` (`missionary_body_motion`), not the standing `body_sway`
   (`standing_body_sway`): the spine slides a little along the bed with raw depth and the head/neck

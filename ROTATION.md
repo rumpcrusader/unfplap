@@ -93,6 +93,12 @@ pelvis), `front` (W, her face, where the kiss happens), `left`/`right` (Q/E), ea
 point (never her live body) and the log names it; surge, bob and the kiss lean-in are the only extra
 motion. Free look turns this shot where it stands.
 
+**Third-person views** (`presentation.missionary.third_person`, debug, default off) is the only thing
+that takes the eye off that trajectory: with it on, the lean also tilts the eye and the speed-driven
+thrust surge travels along the mattress toward her head, plus the side-lean travel, the bob and the
+kiss lateral/drop — the shot then drifts around the two joined bodies. Off keeps the eye strictly on
+the authored positions.
+
 - Five camera positions come from the pose lab, bed-relative, in the asset's `shots` block:
   `start` (neutral), `back` (S, her pelvis), `front` (W, her face — where the kiss happens), and
   `left`/`right` (Q/E). Each is an **offset from `start`** scaled by that lean component, so
@@ -103,6 +109,15 @@ motion. Free look turns this shot where it stands.
   `missionary_vulva_point()` (the anatomy's `hole_point` when the part shows, otherwise the
   hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face.
 - A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than 0.30 m.
+- **Anon's body rides the stroke.** His placement is authored as two bed-space points
+  (`anon.travel.start` pulled out, `anon.travel.end` fully in, exported from the lab's
+  `AnonTravelStart`/`AnonTravelEnd` markers) and blended by `depth`. Without them he sits at the
+  neutral placement.
+- **Both poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the shaft about
+  its base along her opening's normal and asks for `hip_offset_wanted`; the body that carries him
+  applies that offset, so his pelvis follows the entrance and the shaft can never slide out of his
+  crotch — the same logic the standing act uses. The detached bed holder (`_track_bed`) is no longer
+  used by the act.
 - The live offsets are **`shot_forward` / `shot_height` / `shot_side`** (default 0, applied every
   frame). There is no pullback or pitch knob: the authored positions are the shot.
 - The lean basis (pitch, side yaw, roll), the speed-driven surge along the mattress toward her

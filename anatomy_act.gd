@@ -333,11 +333,12 @@ func tick(delta: float) -> void:
 			anatomy.call("clear_shaft")
 		part.set("aim_normal", _normal)
 		part.set("aim_opening", hole_point())
-	# Missionary always rides the act's own posed body now, so the part tracks the bed path there.
-	var bed := pose == CATALOG.MISSIONARY
+	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
+	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
+	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
 	var shown := float(runtime.get("penetration_m"))
-	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), bed,
-		shown, delta, (mesh as Node3D).get_parent(), pose == CATALOG.STANDING)
+	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), false,
+		shown, delta, (mesh as Node3D).get_parent(), true)
 	_debug_tick(part)
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "anatomy_tick", Time.get_ticks_usec() - started)

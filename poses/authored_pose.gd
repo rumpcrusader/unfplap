@@ -29,6 +29,9 @@ var bed_size := Vector3.ZERO
 var pony_frame := Transform3D.IDENTITY
 var anon_frame := Transform3D.IDENTITY
 var anon_rig := ""
+## His body's authored stroke: bed-space placements for the pulled-out (`start`) and fully-in
+## (`end`) ends. Empty when none are authored; the alignment then supplies the whole stroke.
+var anon_travel: Dictionary = {}
 ## Bone name -> {rotation: Quaternion, position: Vector3}, in the bone's parent space.
 var pony_bones: Dictionary = {}
 var anon_bones: Dictionary = {}
@@ -63,6 +66,7 @@ func load_file() -> String:
 	has_shots = false
 	pony_bones.clear()
 	anon_bones.clear()
+	anon_travel.clear()
 	_indices.clear()
 	_index_skeleton = 0
 	if not FileAccess.file_exists(PATH):
@@ -91,6 +95,12 @@ func load_file() -> String:
 		anon_frame = _transform((anon as Dictionary).get("transform", ""))
 		anon_bones = _bones((anon as Dictionary).get("bones", {}))
 		anon_rig = str((anon as Dictionary).get("rig", ""))
+		var travel: Variant = (anon as Dictionary).get("travel")
+		if travel is Dictionary:
+			for key: Variant in (travel as Dictionary):
+				var at := _transform((travel as Dictionary)[key])
+				if at.origin.is_finite():
+					anon_travel[str(key)] = at
 	var bed: Variant = data.get("bed")
 	if bed is Dictionary:
 		bed_size = _vec((bed as Dictionary).get("size", ""))
@@ -103,6 +113,16 @@ func load_file() -> String:
 	has_shots = not shots.is_empty()
 	available = true
 	return ""
+
+
+## His body placement for this depth (0 pulled out, 1 fully in), or null when the asset has no
+## authored travel. The caller falls back to the neutral placement.
+func travel_at(depth: float) -> Variant:
+	if not anon_travel.has("start") or not anon_travel.has("end"):
+		return null
+	var a: Transform3D = anon_travel["start"]
+	var b: Transform3D = anon_travel["end"]
+	return a.interpolate_with(b, clampf(depth, 0.0, 1.0))
 
 
 ## True when the asset carries a position for this lean (`start`, `back`, `front`, `left`,

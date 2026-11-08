@@ -3,10 +3,15 @@ extends RefCounted
 ## blends between five bed-relative camera positions authored in the pose lab, selected by the lean,
 ## and the aim slides from her live face to her vulva. See ROTATION.md.
 ##
-## Free look (debug) replaces the shot with the player camera plus its own accumulated look.
+## Free look (debug) turns the shot where it stands.
+##
+## The eye stays on that trajectory unless **Third-person views** (debug) is on: then the lean also
+## tilts the eye and the thrust surge travels along the mattress, so the shot drifts around the two
+## bodies instead of following the authored positions.
 
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const SHOT_IDS := ["start", "back", "front", "left", "right"]
 
@@ -144,21 +149,27 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if direction.length_squared() < 0.000001:
 		return
 	var basis := Basis.looking_at(direction.normalized(), Vector3.UP)
-	var lean := Basis.from_euler(Vector3(
-		-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(lean_forward) * lean_scale,
-		-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * lean_side * lean_scale,
-		(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * lean_side
-			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * lean_forward) * lean_scale))
-	var view_basis := basis * lean
+	var view_basis := basis
+	var at := pos
+	if SETTINGS.third_person.get_bool():
+		# Third-person views: the lean tilts the eye, the speed-driven surge travels along the
+		# mattress toward her head and a side lean travels with it. This is what makes the shot
+		# drift off the authored trajectory and look around the joined bodies.
+		var lean := Basis.from_euler(Vector3(
+			-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(lean_forward) * lean_scale,
+			-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * lean_side * lean_scale,
+			(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * lean_side
+				+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * lean_forward) * lean_scale))
+		view_basis = basis * lean
+		at = pos + Vector3.UP * float(runtime.get("_bob"))
+		at += _bed_head_direction() \
+			* (float(runtime.get("_lean")) + _missionary_side_lean_forward())
+		at += view_basis.x * kiss.lateral_offset(lean_scale)
+		at.y -= kiss.lean_drop() * kiss.lean()
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
 		# Debug free look: turn this shot where it stands. The act owns `controls_locked`, so the
 		# stock player look is dead, and the player camera is wherever the game left his rig.
 		view_basis = Basis(Vector3.UP, look.y) * view_basis * Basis(Vector3.RIGHT, look.x)
-	var at := pos + Vector3.UP * float(runtime.get("_bob"))
-	# The speed-driven surge runs along the mattress toward her head; a side lean travels with it.
-	at += _bed_head_direction() * (float(runtime.get("_lean")) + _missionary_side_lean_forward())
-	at += view_basis.x * kiss.lateral_offset(lean_scale)
-	at.y -= kiss.lean_drop() * kiss.lean()
 	# The kiss leans the eye in toward the aim, but never closer than 0.30 m to it.
 	if kiss.lean() > 0.0:
 		var reach: float = (aim - at).length()
@@ -186,8 +197,8 @@ func _shot_offsets() -> Vector3:
 		float((cfg as Dictionary).get("shot_side", 0.0)))
 
 
-## One end of the authored shot in world space: the lab's bed-relative camera position when the
-## asset carries one for this lean, otherwise a position worked out from her live body.
+## One end of the shot in world space: the lab's bed-relative camera position when the asset
+## carries one for this lean, otherwise a fixed point (never her live body).
 ## One end of the authored shot in world space. A shot that is not authored falls back to a fixed
 ## bed-relative point, never to her live body: the eye then only ever moves between fixed positions,
 ## and the log names what is still missing.

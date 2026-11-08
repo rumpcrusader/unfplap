@@ -622,6 +622,10 @@ static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.
 	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
 	"Missionary › Posed base shot") \
 	.with_unit("m").with_step(0.01).as_debug()
+static var third_person := flag("third_person", "presentation.missionary.third_person", false,
+	"Third-person views",
+	"Let the missionary shot lean and surge off the authored camera positions, so the eye drifts around the two bodies. Off keeps the camera on the authored trajectory.",
+	GENERAL, "Missionary").as_debug()
 static var free_look := flag("free_look", "presentation.missionary.free_look", false,
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",

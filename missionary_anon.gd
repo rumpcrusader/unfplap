@@ -89,10 +89,22 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	var pose: Variant = AUTHORED.shared()
 	if not bool(pose.get("available")):
 		return
+	# His body's path is authored as two bed-space placements (`anon.travel`): pulled out and fully
+	# in. Without them he sits at the authored neutral placement and the alignment below supplies the
+	# whole stroke on its own.
 	var placement: Transform3D = pose.get("anon_frame")
+	if pose.has_method("travel_at"):
+		var travel: Variant = pose.call("travel_at", _depth())
+		if travel is Transform3D:
+			placement = travel
 	placement.origin *= body_scale
 	var placed: Transform3D = bed_frame * placement
+	# The attached alignment asks for the pelvis offset that puts the shaft in her. The part is a
+	# child of his Hips bone, so moving his body moves the part with it.
+	var offset := _hip_offset()
+	placed.origin += offset
 	avatar.global_transform = Transform3D(placed.basis * Basis.from_scale(_scale), placed.origin)
+	_note_hip_offset(offset)
 	# The presentation parks the body every tick (invisible, processing off); the act needs it shown
 	# and its skeleton updating, and its own IK/driver are already neutralised.
 	if not avatar.visible:
@@ -110,6 +122,30 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		var bone := int(_indices[key])
 		skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
 		skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
+
+
+## The act's depth, 0 (pulled out) to 1 (full).
+func _depth() -> float:
+	var value: Variant = runtime.get("depth") if is_instance_valid(runtime) else null
+	return clampf(float(value), 0.0, 1.0) if value is float or value is int else 0.0
+
+
+## The pelvis offset the attached alignment asked for this frame, in world space.
+func _hip_offset() -> Vector3:
+	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	if part == null or not bool(part.call("showing")):
+		return Vector3.ZERO
+	var wanted: Variant = part.call("hip_offset_wanted")
+	if wanted is Vector3 and (wanted as Vector3).is_finite():
+		return wanted
+	return Vector3.ZERO
+
+
+## Tell the part the offset was applied, so next frame it measures from the moved body.
+func _note_hip_offset(offset: Vector3) -> void:
+	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	if part != null and bool(part.call("showing")):
+		part.set("hip_offset_applied", offset)
 
 
 ## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.

@@ -5385,18 +5385,19 @@ func _pose_diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
 	rows.append("modifier=%s parent=%s match=%s frames=%d weight=%.2f base=%s readback=%.2f°" % [
 		"yes" if is_instance_valid(pose) else "no",
 		"%s@%s" % [str(parent.name), str(parent.get_instance_id())] if parent != null else "none",
-		"yes" if parent == skeleton else "NO", int(pose.get("diag_frames")) if is_instance_valid(pose) else 0,
-		float(pose.get("diag_last_weight")) if is_instance_valid(pose) else 0.0,
+		"yes" if parent == skeleton else "NO", int(_num(pose.get("diag_frames"))) if is_instance_valid(pose) else 0,
+		_num(pose.get("diag_last_weight")) if is_instance_valid(pose) else 0.0,
 		str(pose.get("diag_last_base")) if is_instance_valid(pose) else "",
-		float(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0])
-	rows.append("pony_skeleton=%s@%s actor=%s posture=%s paused=%s" % [
+		_num(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0])
+	rows.append("pony_skeleton=%s@%s actor=%s paused=%s visible=%s" % [
 		str(skeleton.name), str(skeleton.get_instance_id()), str(pony.global_position),
-		str(pony.call("posture_status")), str(pony.get("motion_paused"))])
+		str(pony.get("motion_paused")), str(pony.visible)])
 	var posture: Variant = pony.get("posture")
 	if posture != null:
-		rows.append("posture kind=%s phase=%s blend=%.2f requested=%s" % [
-			str(posture.get("kind")), str(posture.get("phase")),
-			float(posture.get("blend")), str(posture.get("requested"))])
+		rows.append("posture kind=%s requested=%s phase=%s progress=%.2f ready=%s clip=%s refusal=%s" % [
+			str(posture.get("kind")), str(posture.get("requested")), str(posture.get("phase")),
+			_num(posture.get("progress")), str(posture.get("ready")), str(posture.get("clip")),
+			str(posture.get("refusal"))])
 	# Every mesh's own skeleton: a mesh bound elsewhere would follow the game's animation instead of
 	# the pose modifier.
 	var groups: Dictionary = {}
@@ -5530,6 +5531,11 @@ func _log_pose_settled() -> void:
 		str(pose_base_info()["base"]), _pose_basis_amount(), " ".join(parts)])
 	for row: Variant in _pose_diagnostics(skeleton, pose_base_info()):
 		_log("missionary diag %s" % str(row))
+
+
+## Numeric read of a Variant property without tripping over a missing one.
+func _num(value: Variant, fallback := 0.0) -> float:
+	return float(value) if value is float or value is int else fallback
 
 
 ## Her face, for the start shot: the head bone pushed a little along the neck → head direction, so

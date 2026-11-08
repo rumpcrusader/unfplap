@@ -990,6 +990,11 @@ static var wink_timing := num("wink_timing", "anatomy.wink_timing", 1.0, "Wink t
 static var fluid_size := num("fluid_size", "anatomy.fluid_size", 0.0055, "Fluid size",
 	"Size of each idle heat droplet.", ANATOMY, "Heat") \
 	.with_unit("mm").with_step(0.5).with_scale(1000.0).with_range(0.0005, 0.02).as_debug()
+static var fluid_y_speed := num("fluid_y_speed", "anatomy.fluid_y_speed", -0.15,
+	"Fluid Y speed",
+	"Vertical speed of each idle heat droplet in metres per second. Negative falls, positive rises; not clamped.",
+	ANATOMY, "Heat") \
+	.with_unit("m/s").with_step(0.01).as_debug()
 static var drip := num("drip", "anatomy.drip", 1.0, "Discharge",
 	"Scale the idle heat discharge: droplet count and speed. 0 turns it off.",
 	ANATOMY, "Heat") \

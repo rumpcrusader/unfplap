@@ -166,9 +166,9 @@ const VISIBILITY_POLL_S := 0.2
 const HEAT_PHASE_POLL_S := 2.0
 const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 ## Idle heat discharge: droplets leave the vulva opening along the ground and fall under the
-## fluid node's gravity. Speed and count scale with the Discharge debug setting.
+## fluid node's gravity. Speed and count scale with the Discharge debug setting; the vertical
+## speed is the Fluid Y speed setting.
 const IDLE_FLUID_SPEED := 0.9
-const IDLE_FLUID_ARC_DOWN := 0.15
 ## Ignore the body ellipsoid for this long after a discharge spawn, so a drop leaving the vulva
 ## flies instead of sticking to the rump and creeping down to the tail.
 const IDLE_FLUID_CLEAR_S := 0.2
@@ -1124,11 +1124,11 @@ func idle_discharge(count: int) -> void:
 	var shots := maxi(1, int(round(float(count) * amount)))
 	node.call("spray", hole_point(0.0), _discharge_direction(), shots,
 		IDLE_FLUID_SPEED * amount, maxf(SETTINGS.fluid_size.get_num(), 0.0001),
-		IDLE_FLUID_COLOR, IDLE_FLUID_CLEAR_S)
+		IDLE_FLUID_COLOR, IDLE_FLUID_CLEAR_S, SETTINGS.fluid_y_speed.get_num())
 
 
-## Horizontal direction away from the body, tipped slightly down so the droplets arc to the
-## ground. The anatomy mesh's own rear axis is used unless it points back into the body.
+## Horizontal direction away from the body. The anatomy mesh's own rear axis is used unless it
+## points back into the body; the vertical speed comes from the Fluid Y speed setting.
 func _discharge_direction() -> Vector3:
 	var rear := hole_rear()
 	var out := Vector3(rear.x, 0.0, rear.z)
@@ -1140,7 +1140,7 @@ func _discharge_direction() -> Vector3:
 		away.y = 0.0
 		if away.length_squared() > 0.000001 and out.dot(away.normalized()) < 0.0:
 			out = -out
-	return (out + Vector3.DOWN * IDLE_FLUID_ARC_DOWN).normalized()
+	return out
 
 
 func anal_mesh() -> MeshInstance3D:

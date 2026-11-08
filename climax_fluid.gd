@@ -69,15 +69,19 @@ func _radii() -> Vector3:
 
 
 ## `clear_seconds` lets a discharge drop ignore the body ellipsoid while it leaves the vulva, so
-## a spawn on the surface cannot stick to the rump and creep down to the tail.
+## a spawn on the surface cannot stick to the rump and creep down to the tail. `y_speed` replaces
+## the direction's vertical component when supplied, so a caller can set the droplet's rise or
+## fall directly; it is applied verbatim.
 func spray(at: Vector3, direction: Vector3, count: int, speed: float, size: float, color: Color,
-		clear_seconds := 0.0) -> void:
+		clear_seconds := 0.0, y_speed := NAN) -> void:
 	set_physics_process(true)
 	for i in count:
 		var spread := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.2
 		var along := (direction.normalized() + spread).normalized()
-		_add(at, along * speed * randf_range(0.55, 1.0), size * randf_range(0.7, 1.3), color,
-			clear_seconds)
+		var velocity := along * speed * randf_range(0.55, 1.0)
+		if not is_nan(y_speed):
+			velocity.y = y_speed
+		_add(at, velocity, size * randf_range(0.7, 1.3), color, clear_seconds)
 
 
 func drip(source: Callable, seconds: float, per_second: float, size: float, color: Color) -> void:

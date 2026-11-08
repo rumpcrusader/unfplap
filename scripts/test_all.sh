@@ -24,6 +24,7 @@ TESTS=(
 	test_source_hygiene
 	test_cycle
 	test_rotation
+	test_pose_asset
 	test_thrust
 	test_auto_thrust
 	test_auto_panel

@@ -709,6 +709,10 @@ func _apply_body_coat_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_anal_centre", anal_centre)
 		mat.set_shader_parameter("body_coat_anal_scale", anal_scale)
 		mat.set_shader_parameter("body_coat_anal_reach", BODY_ANAL_REACH)
+		mat.set_shader_parameter("body_coat_anal_out", out_axis)
+		mat.set_shader_parameter("body_coat_anal_depth",
+			SETTINGS.anal_body_depth_mm.get_num() / 1000.0 * (1.0 + anal_extreme))
+		mat.set_shader_parameter("body_coat_anal_hole_reach", anal_still_radius)
 		mat.set_shader_parameter("body_coat_vulva_centre", centre)
 		mat.set_shader_parameter("body_coat_vulva_out", out_axis)
 		mat.set_shader_parameter("body_coat_vulva_scale", spread)

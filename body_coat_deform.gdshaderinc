@@ -9,6 +9,11 @@
 uniform vec3 body_coat_anal_centre = vec3(0.0, 0.572, 0.299);
 uniform float body_coat_anal_scale = 1.0;
 uniform float body_coat_anal_reach = 0.09;
+// Push the visible body ponut inward around the anal opening so the V2 hole and the shaft
+// do not clip through the closed body surface.
+uniform vec3 body_coat_anal_out = vec3(0.0, 0.0, 1.0);
+uniform float body_coat_anal_depth = 0.0;
+uniform float body_coat_anal_hole_reach = 0.0;
 
 // The vulva's body-local frame and the no-jiggle zone under it. anatomy.gd converts them from
 // the anatomy's bone-local transform with the pony_hips bind pose, so poses do not move them.
@@ -51,6 +56,11 @@ vec3 body_coat_deform(vec3 vertex) {
 		vec3 spread = vertex - body_coat_anal_centre;
 		float weight = 1.0 - smoothstep(0.0, body_coat_anal_reach, length(spread));
 		offset += spread * ((body_coat_anal_scale - 1.0) * weight);
+	}
+	if (body_coat_anal_depth > 0.0 && body_coat_anal_hole_reach > 0.001) {
+		vec3 spread = vertex - body_coat_anal_centre;
+		float hole = 1.0 - smoothstep(0.0, body_coat_anal_hole_reach, length(spread));
+		offset -= normalize(body_coat_anal_out) * (body_coat_anal_depth * hole);
 	}
 	float still_vulva = body_coat_still_mask(rest, body_coat_still_centre,
 		body_coat_still_radius);

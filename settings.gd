@@ -916,6 +916,11 @@ static var anal_aim_mm := num("anal_aim_mm", "anatomy.anal_aim_mm", 0.0,
 	"Raise or lower the V2 anal penetration point. Negative lowers it; the mesh itself does not move.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-40.0, 40.0) \
 	.as_debug()
+static var anal_body_depth_mm := num("anal_body_depth_mm", "anatomy.anal_body_depth_mm", 20.0,
+	"Anal body depth",
+	"Push the visible body ponut inward around the anal opening so the V2 hole and an oversized shaft stop clipping the body.", ANATOMY, "Holes") \
+	.with_unit("mm").with_step(1.0).with_range(0.0, 60.0) \
+	.as_debug()
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
 	"Lip vertical share",
 	"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.", ANATOMY, "Holes") \

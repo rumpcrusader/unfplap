@@ -78,7 +78,7 @@ docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. 
 does, for credit.
 
 The original PPP anatomy meshes and textures are not in the repository; the V2
-`mare_bits_v2.scn` variant is tracked. A build requires all ten files under `assets/anatomy/`
+`mare_bits_v2.scn` variant is tracked. A build requires all eight files under `assets/anatomy/`
 and fails when any are missing. `scripts/pack_anatomy.sh` writes the archive that
 `--anatomy-zip` unpacks, and `--no-anatomy` builds without the feature.
 

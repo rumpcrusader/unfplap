@@ -1,3 +1,18 @@
+v0.3.0
+- Optional anatomy: the mare bits, the player part, fluids, teats, the skin strip, the original or V2 mesh and a separate VR act, each behind its own setting.
+- The V2 mesh adds the anal cup, the still zones around the vulva and ponut, and the body-coat spread.
+- Estrus cycle: an optional 30-day cycle with a week of heat, two days off, faster warmth, and idle winks and discharge; off by default.
+- Settings: General, Anatomy and World tabs, a live Debug block, and a reworked Characters form with per-mare preferences.
+- Play-bow stance: an optional standing pose with the chest down, front legs forward and head low.
+- Hold X opens the auto-thrust layer: min/max depth, pace, stroke shape, contact gap and the G smack.
+- The stroke follows the real shaft and the player size, and the body slap needs actual contact.
+- Dialogue cues carry the relationship and a shared memory; post-act lines are short and occasional.
+- One act now leaves one summary and one climax memory; idle conversations no longer steer every topic to sex, and the satisfied mood is warm and clear.
+- The act HUD is trimmed to the controls that still do something; the anatomy and camera rows moved into the settings tabs.
+- Public consent is now opt-in per mare.
+- Fixed: the dock switch no longer moves the anatomy, the anus colour no longer bleeds past its patch, and the hold-X layer no longer snaps the camera.
+- Fixed: the body coat stays still inside the still zones and no longer jiggles under the vulva.
+
 v0.2.0
 - Lover bond: she can agree to be lovers in conversation; Promiscuity and Starting Sex decide who may try and whether that bond is required.
 - Auto thrust: press X to take over the rhythm, the mouse wheel sets the pace and the mouse sets how deep each stroke goes.

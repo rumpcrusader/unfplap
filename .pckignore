@@ -22,3 +22,9 @@ mod.built.json
 *.pck
 *.zip
 *.log
+
+# Local anatomy working files are not part of a release.
+assets/anatomy/*.blend
+assets/anatomy/*.blend1
+assets/anatomy/backups
+assets/anatomy/winking_before_wink.scn

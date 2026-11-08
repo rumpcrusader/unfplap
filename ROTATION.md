@@ -70,8 +70,8 @@ Missionary is its own state, not the game's bed rest:
   modifier pass (`set_bone_pose_scale(..., get_bone_pose_scale(...) * factor)`) and rely on the
   animation resetting it to rest each frame. The act replaces the animation, so every bone it writes
   also gets its rest scale back: without that the factor compounds (0.92^N collapses, >1^N explodes)
-  and the neck, head or whole body stretches to `inf`. Parts the game hides stay hidden by hiding the
-  head mesh, not by leaving the bone collapsed.
+  and the neck, head or whole body stretches to `inf`. Parts the game hides stay hidden through its
+  own hiders, never by leaving a bone collapsed in the asset.
 - **Never invert a scaled parent basis.** The stock hiders collapse a bone by scaling it to `0.001`,
   and `set_bone_global_pose()` inverts the parent's *full* basis for every write — a 1000× multiplier
   that compounds each frame until the pose is `inf` (the body pulled away, then flickering) and the
@@ -79,6 +79,20 @@ Missionary is its own state, not the game's bed rest:
   local pose from the parent's **orthonormalized** rotation and origin only, and rejects a
   non-finite target. The stock hiders stay on: they only hide parts, and `BodyIK` (the standing pose
   driver, not a hider) is the one modifier parked for the act.
+- **Anon's own process is parked.** `missionary_anon.install()` stops `AnonBody._process`: it drives
+  `LegHide` from the height of the act camera (the mattress-height eye reads as `seated`, so the game
+  collapses his legs), rewrites the authored fingers every frame (`_update_fists`), and feeds
+  `model_scale` from that camera. `LegHide.influence` is set to zero for the act (the modifier stays
+  active), the desktop pose driver is nulled and the desktop presentation's own `advance()` is
+  stopped, so only the act writes his bones. The skeleton and the rest of its modifiers keep
+  updating.
+- **The head mesh is never hidden.** `head_smd` is the head **and the hands**; hiding it is what
+  removes the palms. The game's `HeadHide` collapses only the head bone, which hides the head
+  vertices. `apply()` caches the authored eye right after the bone write and the lean, before
+  `HeadHide` runs, so `eye_transform()` never reads the collapsed bone.
+- **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
+  back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
+  and the `LegHide` influence.
 - **Space rule.** Every act-space rotation is applied to a bone's **global pose** with the axis
   converted once into skeleton space (`pose_rig.rotate_free`). Pre-multiplying a bone's *local*
   pose applies the axis in the parent's frame — his hips are rotated ~90° here, and doing that made
@@ -118,11 +132,16 @@ Missionary is its own state, not the game's bed rest:
 
 `presentation.missionary.camera_mode` (debug) picks the eye:
 
-- **Anon eyes** (default): the view is his posed head plus the game's own eye offset (`eye_transform()`,
-  captured from the live body before the act poses it). Leaning bends **Spine, Chest, UpperChest, Neck
-  and Head** (`missionary_anon.gd`, `LEAN_CHAIN`), so the view moves with his upper body; his hips and
-  legs stay exactly on the authored pose. The kiss still leans the eye in toward the aim, never closer
-  than 0.30 m. The camera is written after the pose in the same frame, so it never trails his head.
+- **Anon eyes** (default): the view is his posed head plus the game's own eye offset, read from the
+  eye `missionary_anon.apply()` caches for the frame (the offset itself still comes from the rig's
+  rest values). The lean is **one hinge at the `Spine` joint** (`LEAN_HINGE`): the whole upper body —
+  chest, neck, head, shoulders, arms and hands — tilts as a unit around it, while the hips, thighs and
+  legs stay exactly on the authored pose and keep the stroke. `presentation.missionary.upper_lean_deg`
+  (debug, default `10°`, signed) is the base lean; W/S/Q/E add to the same hinge. Positive leans him
+  back, lifting his eyes off her; the debug value is unbounded and applies live. The kiss still leans
+  the eye in toward the aim, never closer than 0.30 m. The camera is written after the pose in the
+  same frame, so it never trails his head. Her gaze and the kiss target his authored **eye and
+  mouth**, never the game camera on his standing player rig.
 - **Authored shots**: the trajectory below, through the pose lab's camera positions.
 
 ### The shot
@@ -394,11 +413,12 @@ and `lean_action_kind()` only fires the standing shoulder reach.
 
 ## Free look (debug)
 
-`presentation.missionary.free_look` (default off) copies the **player camera** into the act view
-every frame instead of the frozen/authored shot: mouse look works, and `runtime._input` stops
-feeding mouse motion into thrust. The pose and act keep running. Standing has no separate view, so
-the standing camera controller simply leaves the player camera alone. The setting is live through
-`apply_live_settings`; the settings page pauses the world, so it takes effect when the panel closes.
+`presentation.missionary.free_look` (default off) turns the act view where it stands — his head in
+**Anon eyes**, the authored shot otherwise — instead of holding the authored orientation: mouse look
+works, and `runtime._input` stops feeding mouse motion into thrust. The pose and act keep running.
+Standing has no separate view, so the standing camera controller simply leaves the player camera
+alone. The setting is live through `apply_live_settings`; the settings page pauses the world, so it
+takes effect when the panel closes.
 
 ## Aftercare
 

@@ -36,6 +36,7 @@ var _missionary_start_pony_posture := ""
 var _missionary_start_saved := false
 var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
+var _desktop_presentation_processing := true
 var _shot_offsets_logged := Vector3.INF
 var _free_look_log_at := 0
 ## Shot ids already reported missing from the asset in this act.
@@ -378,13 +379,11 @@ func _missionary_head_transform() -> Transform3D:
 	return skeleton.global_transform * skeleton.get_bone_global_pose(head)
 
 
-## The missionary head aim uses the camera as Anon's face. Keep a minimum distance so the camera
-## cannot sit inside her head and produce near-zero direction flips.
-func _missionary_head_look_point(view: Camera3D) -> Vector3:
-	if not is_instance_valid(view):
+## Where her gaze goes: a world point. Keep a minimum distance so Anon's face cannot sit inside her
+## head and produce near-zero direction flips.
+func head_look_point_at(point: Vector3) -> Vector3:
+	if not point.is_finite():
 		return Vector3.INF
-	var kiss: Variant = runtime.call("_kiss_controller")
-	var point := view.global_position
 	var head := _missionary_head_transform()
 	if not head.origin.is_finite():
 		return point
@@ -395,6 +394,13 @@ func _missionary_head_look_point(view: Camera3D) -> Vector3:
 	var direction: Vector3 = offset.normalized() if offset.length_squared() > 0.000001 \
 		else -pony.global_basis.z.normalized()
 	return head.origin + direction * minimum
+
+
+## The standing/legacy path: the camera stands in for Anon's face.
+func _missionary_head_look_point(view: Camera3D) -> Vector3:
+	if not is_instance_valid(view):
+		return Vector3.INF
+	return head_look_point_at(view.global_position)
 
 
 func _make_missionary_view() -> void:
@@ -478,16 +484,23 @@ func _hide_anon_avatar_for_missionary() -> void:
 			_desktop_presentation_enabled = bool(enabled) if enabled != null else true
 			if _desktop_presentation_enabled:
 				presentation.call("set_enabled", false)
+			# `set_enabled(false)` only hides his body; `advance()` keeps running and re-hides it
+			# every frame. Park the presentation's process too, so the act owns the avatar wholly.
+			_desktop_presentation_processing = presentation.is_processing()
+			presentation.set_process(false)
 	if is_instance_valid(_desktop_presentation) and _desktop_presentation_enabled \
 			and bool(_desktop_presentation.get("_enabled")) == true:
 		_desktop_presentation.call("set_enabled", false)
 
 
 func _restore_anon_avatar() -> void:
-	if is_instance_valid(_desktop_presentation) and _desktop_presentation_enabled:
-		_desktop_presentation.call("set_enabled", true)
+	if is_instance_valid(_desktop_presentation):
+		_desktop_presentation.set_process(_desktop_presentation_processing)
+		if _desktop_presentation_enabled:
+			_desktop_presentation.call("set_enabled", true)
 	_desktop_presentation = null
 	_desktop_presentation_enabled = true
+	_desktop_presentation_processing = true
 
 
 ## Put the player, the pony and the camera back exactly as the act found them. The act never rejoins

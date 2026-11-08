@@ -345,10 +345,6 @@ func _pin_base_side() -> void:
 	_base_kiss_pose.set("_side_wait", 9999.0)
 
 
-func _kiss_side_distance() -> float:
-	return _kiss_lean_side() * _side() * _kiss_lean
-
-
 ## Her mouth stays at Anon's lips while the kiss channel is held, with a soft repeat sound.
 func _kiss_tick(delta: float) -> void:
 	var holding := _kiss_visible()
@@ -468,15 +464,18 @@ func _kiss_diag() -> void:
 func _target(view: Camera3D) -> Vector3:
 	if not is_instance_valid(view):
 		return Vector3.INF
+	# Missionary's Anon is the authored body on the bed, not the standing player rig the game camera
+	# still belongs to: aim her at his posed mouth, never at that camera.
+	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+		var body: Variant = runtime.call("missionary_anon_body")
+		if body != null and bool(body.get("active")):
+			var mouth: Variant = body.call("mouth_point")
+			if mouth is Vector3 and (mouth as Vector3).is_finite():
+				return mouth
 	var point: Vector3 = view.global_position + view.global_basis \
 		* (Vector3(0.0, -0.07, -0.02) * runtime.call("_anon_height_scale"))
 	if str(runtime.get("pose_id")) == CATALOG.STANDING:
 		point = view.global_position + view.global_basis * _kiss_mouth_offset()
-	# Missionary's player camera is not the rendered shot; move the virtual mouth with the view.
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
-		point += -view.global_basis.z.normalized() * _kiss_lean_distance()
-		point += view.global_basis.x.normalized() * _kiss_side_distance()
-		point.y -= _kiss_lean_drop() * _kiss_lean
 	return point
 
 

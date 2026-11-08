@@ -961,10 +961,9 @@ func _process_tick(delta: float) -> void:
 			if custom_kiss and is_instance_valid(kiss_view):
 				_pose.look_point = kiss.target(kiss_view)
 			elif pose_id == CATALOG.MISSIONARY:
-				# Look at Anon, not at the framing view: the shot now sits behind her neck and a
-				# camera there would demand a half-turn and flip her head side to side.
-				var head_view: Camera3D = kiss_view if is_instance_valid(kiss_view) else view
-				_pose.look_point = _missionary_camera_controller().head_look_point(head_view)
+				# Look at the authored Anon, not at the game camera: his body is placed by the act,
+				# and the player rig the camera belongs to is standing off the bed.
+				_pose.look_point = _missionary_gaze_point()
 			else:
 				_pose.look_point = view.global_position
 		_pose.kiss = kiss.amount() if custom_kiss else 0.0
@@ -2769,6 +2768,16 @@ func anatomy_actions_ready() -> bool:
 
 func missionary_anon_body() -> Variant:
 	return _missionary_anon
+
+
+## Her gaze target in missionary: the authored Anon's face. The game camera is on his standing
+## player rig, metres off the bed, and aiming there had her looking at empty air.
+func _missionary_gaze_point() -> Vector3:
+	if is_instance_valid(_missionary_anon) and bool(_missionary_anon.get("active")):
+		var point: Variant = _missionary_anon.call("eye_point")
+		if point is Vector3 and (point as Vector3).is_finite():
+			return _missionary_camera_controller().head_look_point_at(point)
+	return _missionary_camera_controller().head_look_point(_kiss_controller().mouth_view())
 
 
 func anatomy_bed_active() -> bool:
@@ -5646,6 +5655,9 @@ func _log_pose_settled() -> void:
 		str(pose_base_info()["base"]), _pose_basis_amount(), " ".join(parts)])
 	for row: Variant in _pose_diagnostics(skeleton, pose_base_info()):
 		_log("missionary diag %s" % str(row))
+	if is_instance_valid(_missionary_anon):
+		_log("anon diag %s" % str(_missionary_anon.call("diag_row",
+			missionary_face_point(), missionary_vulva_point())))
 
 
 ## Numeric read of a Variant property without tripping over a missing one.

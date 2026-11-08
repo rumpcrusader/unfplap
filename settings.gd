@@ -626,9 +626,13 @@ static var belly_down_deg := num("belly_down_deg", "presentation.missionary.bell
 	"Belly down",
 	"Tilt her lower belly toward the mattress, out of the shot. Negative lifts it.",
 	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
+static var upper_lean_deg := num("upper_lean_deg", "presentation.missionary.upper_lean_deg", 10.0,
+	"Upper lean",
+	"Tilt his whole upper body at the Spine joint so his eyes clear her belly. Positive leans him back; negative leans him down over her.",
+	GENERAL, "Missionary").with_unit("°").with_step(1.0).as_debug()
 static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "eye",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
-	"Anon eyes: the view is his posed head, and leaning bends his chest and neck over her. Authored shots: the eye follows the pose lab's camera positions.",
+	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",
 	GENERAL, "Missionary").as_debug()
 static var third_person := flag("third_person", "presentation.missionary.third_person", false,
 	"Third-person views",

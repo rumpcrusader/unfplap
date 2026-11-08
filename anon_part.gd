@@ -568,6 +568,11 @@ func _world_scale() -> float:
 	return _mesh.global_transform.basis.get_scale().x
 
 
+## Debug: the visible part's world scale. A stretch shows up here before it is visible in the scene.
+func debug_scale() -> Vector3:
+	return _mesh.global_transform.basis.get_scale() if is_instance_valid(_mesh) else Vector3.ZERO
+
+
 func _set_ready(value: float) -> void:
 	_ready_amount = value
 	if is_instance_valid(_mesh):

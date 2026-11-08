@@ -290,6 +290,19 @@ reclined eye height left the camera wrong after the act.
   follows). Every act write goes through `pose_rig.set_global()`, which uses the parent's
   **orthonormalized** rotation and origin only and rejects non-finite targets. The hiders stay on;
   only `BodyIK` (the standing pose driver) is parked for the act.
+- **Anon's own process is parked.** `missionary_anon.install()` stops `AnonBody._process`: it drives
+  `LegHide` from the mattress-height act camera (the eye reads as `seated`, so the legs collapse),
+  rewrites the authored fingers every frame (`_update_fists`), and feeds `model_scale` from that
+  camera. `LegHide.influence` is zeroed for the act (the modifier stays active), the desktop pose
+  driver is nulled and the desktop presentation's `advance()` is stopped, so only the act writes his
+  bones. The skeleton and its other modifiers keep updating.
+- **The head mesh is never hidden.** `head_smd` holds the head **and the hands**; hiding it removes
+  the palms. The game's `HeadHide` collapses only the head bone. `apply()` caches the authored eye
+  after the bone write and the lean, before `HeadHide` runs, so `eye_transform()` never reads the
+  collapsed bone.
+- **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
+  back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
+  and the `LegHide` influence.
 - **Space rule.** Rotate a bone by writing its **global pose** with the axis converted once into
   skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
   parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the
@@ -462,11 +475,14 @@ reclined eye height left the camera wrong after the act.
 ### Missionary camera
 
 `presentation.missionary.camera_mode` (debug) picks the eye. **Anon eyes** is the default: the view is
-`missionary_anon.gd`'s `eye_transform()` — his posed `Head` bone with the eye offset captured from the
-live body before the act poses it — and leaning bends `Spine`/`Chest`/`UpperChest`/`Neck`/`Head`
-(`LEAN_CHAIN`), so the view moves with his upper body while his hips and legs stay on the authored
-pose. The camera is written after the pose write in the same frame. **Authored shots** uses the shot
-trajectory below.
+`missionary_anon.gd`'s `eye_transform()` — his posed `Head` bone with the game's eye offset, read from
+the transform `apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one
+hinge at the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his
+hips, thighs and legs stay on the authored pose and keep the thrust. `presentation.missionary.upper_lean_deg`
+(debug, default `10°`, signed) is the base lean, and W/S/Q/E add to the same hinge. The camera is
+written after the pose write in the same frame. Her gaze and the kiss target his authored eye and
+mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig.
+**Authored shots** uses the shot trajectory below.
 
 ### Missionary shot
 
@@ -492,9 +508,10 @@ authored positions (plus the kiss lean-in). The bullets below cover the rest of 
   climax return or fluster peek cannot leave her wide-eyed. While a kiss is active it releases
   the act's stare once and stops touching the eyes, so the game's own fluster/deep-kiss eyelids
   run; the custom kiss's `touch("affection", ..., 0.95)` lid layer is not overridden.
-- Missionary hides every `*AnonBody*` presentation node and disables the desktop presentation for
-  the act, re-applying each tick because the stock rig can show itself again. Both are restored
-  at end, so the rotated bed body cannot appear inside the camera shot.
+- Missionary parks the desktop presentation for the act (process off, disabled) and re-shows the
+  act's own `AnonBody`; `missionary_anon.remove()` restores the presentation, the avatar transform
+  and its process at end, so the rotated bed body cannot appear inside the camera shot and the rig
+  is back on the player afterwards.
 
 ### Standing shot
 
@@ -627,7 +644,8 @@ custom head-aim path below.
   `kiss` as part of the act instead of an interruption.
 - `pony_kisser` physics is paused for the whole act, so the runtime feeds a base kiss the live
   `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound itself.
-  Missionary's custom kiss also aims at the player camera, not the separate missionary framing view. The
+  Missionary's custom kiss aims at the authored Anon's mouth (`mouth_point()`), never at the game
+  camera on his standing player rig. The
   excitement Beat timer is paused for the kiss so the stock unicorn horn sparkle does not fire.
 - Standing reads `presentation.standing.kiss`: `mouth_right`, `mouth_drop` and `mouth_forward` place
   Anon's mouth target; `camera_yaw_deg` is the over-the-shoulder kiss yaw; `lean_side`,

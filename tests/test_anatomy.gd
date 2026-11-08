@@ -285,6 +285,12 @@ func run() -> void:
 	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
 	# those hooks is left alone instead of being half-patched.
 	check(not SETTINGS.body_coat_deform.get_bool(), "body coat deform is off by default")
+	check(near(SETTINGS.anal_still.get_num(), 1.0), "anal still zone is on by default")
+	var expected_radius := maxf(0.022 * 2.2 * 0.742 * 1.3, 0.045)
+	check(near(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0), expected_radius),
+		"anal still radius follows the cup's outer ring")
+	check(is_zero_approx(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0)),
+		"anal still multiplier 0 disables the zone")
 	var patch_source := Shader.new()
 	patch_source.code = "shader_type spatial;\n" \
 		+ "#include \"includes/base-cel-shader.gdshaderinc\"\n" \

@@ -19,6 +19,10 @@ uniform float body_coat_vulva_reach = 0.04;
 uniform float body_coat_vulva_depth = 0.0;
 uniform vec3 body_coat_still_centre = vec3(0.0);
 uniform float body_coat_still_radius = 0.0;
+// The visible anal cup is a separate overlay from the body ponut; its own still zone keeps the
+// rump wave from pushing the coat through the cup while the vulva is stretched.
+uniform vec3 body_coat_anal_still_centre = vec3(0.0);
+uniform float body_coat_anal_still_radius = 0.0;
 
 vec3 body_coat_deform(vec3 vertex) {
 	vec3 rest = vertex;
@@ -28,12 +32,18 @@ vec3 body_coat_deform(vec3 vertex) {
 		float weight = 1.0 - smoothstep(0.0, body_coat_anal_reach, length(spread));
 		offset += spread * ((body_coat_anal_scale - 1.0) * weight);
 	}
-	float still = 1.0;
+	float still_vulva = 1.0;
 	if (body_coat_still_radius > 0.0) {
-		still = smoothstep(body_coat_still_radius * 0.8, body_coat_still_radius,
+		still_vulva = smoothstep(body_coat_still_radius * 0.8, body_coat_still_radius,
 			distance(rest, body_coat_still_centre));
 	}
-	offset += flank_jiggle(rest) * still;
+	float still_anal = 1.0;
+	if (body_coat_anal_still_radius > 0.0) {
+		still_anal = smoothstep(body_coat_anal_still_radius * 0.8,
+			body_coat_anal_still_radius,
+			distance(rest, body_coat_anal_still_centre));
+	}
+	offset += flank_jiggle(rest) * min(still_vulva, still_anal);
 	if (abs(body_coat_vulva_scale - 1.0) > 0.000001
 			|| abs(body_coat_vulva_depth) > 0.000001) {
 		vec3 spread = vertex - body_coat_vulva_centre;

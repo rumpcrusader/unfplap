@@ -731,6 +731,13 @@ static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 	return (bind.basis.inverse() * (mesh_transform.basis * direction)).normalized()
 
 
+## Body-local radius of the visible anal cup's still zone. The cup's own outer ring sets the
+## size; the 1.3 margin reaches the coat around it and the floor keeps a small cup usable.
+static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
+		multiplier: float) -> float:
+	return maxf(lip * outer_factor * scale * 1.3, 0.045) * multiplier
+
+
 ## Push the body coat's anal mound, vulva spread and no-jiggle zone into the rig material and
 ## its outline. `_hole_target` is anatomy-local; `_lip_radius` is too, so their ratio is unitless.
 func _apply_body_coat_uniforms() -> void:
@@ -748,6 +755,15 @@ func _apply_body_coat_uniforms() -> void:
 	var still_centre := centre - up_axis * JIGGLE_STILL_DROP_M
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
+	var anal_still_centre := BODY_ANAL_CENTRE
+	var anal_still_radius := 0.0
+	if is_instance_valid(_anal_mesh):
+		var cup_local := _anal_mesh.transform * ANAL_OPENING
+		anal_still_centre = body_local_point(_hips_bind, _mesh.transform, cup_local)
+		var lip := _anal_lip_radius if _anal_ring else ANAL_LIP
+		var outer := LIP_OUTER_FACTOR if _anal_ring else ANAL_OUTER_FACTOR
+		anal_still_radius = anal_still_radius_for(lip, outer, scale,
+			SETTINGS.anal_still.get_num())
 	var anal_scale := SETTINGS.anal_scale.get_num()
 	for material in [_body_material, _body_outline]:
 		if not is_instance_valid(material):
@@ -763,6 +779,8 @@ func _apply_body_coat_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_vulva_depth", depth)
 		mat.set_shader_parameter("body_coat_still_centre", still_centre)
 		mat.set_shader_parameter("body_coat_still_radius", still_radius)
+		mat.set_shader_parameter("body_coat_anal_still_centre", anal_still_centre)
+		mat.set_shader_parameter("body_coat_anal_still_radius", anal_still_radius)
 
 
 ## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig

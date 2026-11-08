@@ -934,6 +934,11 @@ static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.0,
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
+static var anal_still := num("anal_still", "anatomy.anal_still", 1.0,
+	"Anal still zone",
+	"Multiplier for the no-jiggle zone around the visible ponut. 0 turns the still zone off.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
+	.as_debug()
 
 # ======================================================== World
 

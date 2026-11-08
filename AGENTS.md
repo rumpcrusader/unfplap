@@ -521,7 +521,9 @@ body-relative axes.
   call. No game source is edited and no cel shader is copied. The patched material and its
   outline are no longer in `JIGGLE_SHADERS`, so `runtime._attach_body_coat_jiggle_target()` adds
   them back after every `_start_jiggle()`; the anatomy's `physical_reaction("flank_smack")` hook
-  covers stock smacks outside the act.
+  covers stock smacks outside the act. The vulva still zone and the visible anal cup still zone
+  are separate: the cup centre is `_anal_mesh.transform * ANAL_OPENING` mapped through the hips
+  bind, so placement, `anal_height_mm` and the genital yaw carry through.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -1420,7 +1422,8 @@ rump blush. Unknown settings keys are ignored.
   `anal_height_mm` (anal placement, positive is higher), `vulva_hug_mm` and `anal_hug_mm`
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips),
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 1×) and
-  `jiggle_still` (debug: no-jiggle zone around the vulva, 1×; 0 turns it off), and the player-part
+  `jiggle_still` (debug: no-jiggle zone around the vulva, 1×; 0 turns it off),
+  `anal_still` (debug: the same zone around the visible ponut, 1×; 0 turns it off), and the player-part
   controls `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.8`),
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.0`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when

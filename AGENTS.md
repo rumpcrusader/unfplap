@@ -497,7 +497,10 @@ from the pose lab, each an offset from the neutral start and selected by the lea
 happens), `shots.left`/`shots.right` (Q/E). The blend is additive, so diagonals work. Until a
 position is authored it is derived from her live body (neck, vulva, face, and the start shifted
 sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
-sides and front keep the face. A kiss leans the eye in toward the aim but never closer than
+sides and front keep the face. The pelvis slide is gated on the S eye being on the rump side of the
+vulva; a `ShotBack` between her head and pelvis would pass the aim through the eye and yaw the view
+180° at full S, so the aim then stays on her face (and the log says so). Put `ShotBack` behind her
+rump for the pelvis shot. A kiss leans the eye in toward the aim but never closer than
 `KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point — her muzzle extends past it, and
 the old 0.30 m floor put the eye inside it. There is no live offset, no frozen anchor, no pullback/pitch knob and no framing nudge: the authored
 positions are the shot.

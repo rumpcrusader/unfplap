@@ -41,6 +41,8 @@ var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
 var _desktop_presentation_processing := true
 var _free_look_log_at := 0
+## Set once when the S shot sits on her head side of the vulva and the pelvis aim had to be held.
+var _pelvis_aim_blocked_logged := false
 ## Shot ids already reported missing from the asset in this act.
 var _missing_shots_logged: Dictionary = {}
 
@@ -58,6 +60,7 @@ func _init(runtime_node: Node = null) -> void:
 func prepare() -> void:
 	_sync()
 	_missing_shots_logged.clear()
+	_pelvis_aim_blocked_logged = false
 	_snapshot_missionary_start()
 	_make_missionary_view()
 	_log_shot_setup()
@@ -191,7 +194,15 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 		var back := _shot_position("back", scale)
 		if back.is_finite():
 			pos += (back - start) * (-forward)
-			aim = face.lerp(vulva, -forward)
+			# The pelvis aim only makes sense when the S eye is on the rump side of the vulva. If the
+			# authored ShotBack sits between her head and her pelvis, the aim would pass the eye and
+			# yaw the view 180° at full lean; hold the aim on her face instead.
+			var pelvis := smoothstep(-0.06, 0.10, (vulva - pos).dot(_bed_head_direction()))
+			aim = face.lerp(vulva, -forward * pelvis)
+			if -forward > 0.6 and pelvis < 0.2 and not _pelvis_aim_blocked_logged:
+				_pelvis_aim_blocked_logged = true
+				_log("missionary camera: ShotBack is on her head side of the vulva; pelvis aim stays "
+					+ "on her face. Put ShotBack behind her rump for the pelvis shot.")
 	elif forward > 0.0:
 		var front := _shot_position("front", scale)
 		if front.is_finite():

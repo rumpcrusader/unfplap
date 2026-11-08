@@ -171,7 +171,10 @@ the authored positions.
   `start ∓ side 0.60` (all × `body_scale`) — and the log names it once per act.
 - The aim is `missionary_face_point()` (the head bone pushed 12 cm along neck2 → head); it slides to
   `missionary_vulva_point()` (the anatomy's `hole_point` when the part shows, otherwise the
-  hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face.
+  hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face. The
+  pelvis aim is weighted by `smoothstep(-0.06, 0.10, (vulva - pos) · bed_head)`: if `ShotBack` sits
+  between her head and her pelvis, the aim is held on her face rather than passing the eye and
+  yawing the view 180° at full S. Put `ShotBack` behind her rump for the pelvis shot.
 - A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than
   `KISS_CLEARANCE_M` (0.45 m) × her body scale from the face point.
 - **Anon's body rides the stroke.** His placement is authored as two bed-space points

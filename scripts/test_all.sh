@@ -38,6 +38,7 @@ TESTS=(
 	test_utterance_scheduler
 	test_utterance_lines
 	test_relationship_cue
+	test_runtime_notes
 	test_runtime_thrust
 	test_runtime_teardown
 	test_sex_bond

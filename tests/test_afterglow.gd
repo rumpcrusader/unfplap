@@ -33,12 +33,6 @@ func _runtime(pose: String) -> Node:
 
 
 func run() -> void:
-	var mission_text := MEMORY.afterglow_text("missionary")
-	var standing_text := MEMORY.afterglow_text("standing")
-	check(mission_text.contains("lying close"), "missionary afterglow context")
-	check(standing_text.contains("standing close"), "standing afterglow context")
-	check(mission_text.contains("not finished yet"), "afterglow context keeps the moment open")
-	check(not mission_text.contains("Do not start another act"), "afterglow context is not a scripted line")
 	var note_runtime: Node = _runtime("standing")
 	note_runtime._id = "fluttershy"
 	var idle_note: String = str(note_runtime.prompt_note())

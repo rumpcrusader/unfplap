@@ -320,12 +320,11 @@ The standing afterglow always starts an 8 s close window:
 - missionary afterglow is unchanged.
 
 Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
-removed; the HUD timer and active caress time own the standing close invitation. A world-context
-event records that the act has ended while the two are still in the afterglow together, so a
-normal reply keeps the moment present without a scripted line. The live note carries one short
-random afterglow beat (`ACT_SUMMARY.afterglow_beat()`, 40% silence) and the private relationship
-note; the HUD and the impression keep the full summary. The note does not recite the summary or
-append a mechanical “next time” wish.
+removed; the HUD timer and active caress time own the standing close invitation. The live prompt
+note keeps the moment present without a scripted line: it carries one short random afterglow beat
+(`ACT_SUMMARY.afterglow_beat()`, 40% silence) and the private relationship note; the HUD and the
+impression keep the full summary. The note does not recite the summary or append a mechanical
+“next time” wish.
 
 After 16 s the mare may choose to end the afterglow herself. The roll is once per second;
 caressing or leaning close lowers the chance. An accepted `[stay: SECONDS]` action from normal
@@ -334,13 +333,10 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 
 ## Memory and rewards
 
-- **Per pony climax:** a unique world-context event and a generated reaction.
+- **First pony climax:** one world-context event; every climax gets a generated reaction.
 - **Once at afterglow:** `_commit_summary()` scores the act, `MEMORY.commit_act()` writes the
-  grade-aware romance and mood, and `MEMORY.afterglow_event` and `WITNESS.commit` follow. See
-  `HISTORY.md`.
-- **Standing inside event:** at afterglow only, as the player's finish. It records context but no
-  longer queues a line.
-- **Standing close reward:** `MEMORY.stay_close_reward` records a private memory. On a good or
+  grade-aware romance and mood, and `WITNESS.commit` follows. See `HISTORY.md`.
+- **Standing close reward:** `MEMORY.stay_close_reward` records a private impression. On a good or
   non-early neutral act, staying and caressing adds a happy mood, a private thought and a small
   `romance` gain. After a bad act, staying and caressing repairs one point of history hurt instead.
 - **Peak act:** one strongest memory per mare is kept in

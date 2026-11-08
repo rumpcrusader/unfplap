@@ -311,9 +311,8 @@ body-relative axes.
   `_sync_standing_pose_config()`; the tail modifier is created from that pose config.
 - Standing enters the same held `AFTERGLOW` state when the player chooses it or the configured
   pony climax limit forces it. Lean and A/D caress stay live there; hold Y ends it. Her tail lifts and
-  flicks twice, and the inside event is recorded on entry. Normal dialogue resumes; a
-  world-context afterglow event keeps the just-intimate moment present, and a live
-  `pony_prompt_notes` line reports caressing/leaning. After 16 s she may choose to end the
+  flicks twice. Normal dialogue resumes; a live `pony_prompt_notes` line keeps the just-intimate
+  moment present and reports caressing/leaning. After 16 s she may choose to end the
   afterglow; an accepted `[stay: SECONDS]` pauses that roll. The 8 s HUD close window counts
   active caress time. No automatic withdrawal/restore.
 
@@ -893,14 +892,15 @@ examples.
   positive tail-up/flick body language is used only after a good act; a bad act keeps the 10 s
   hold without it.
 - A good act, or a non-early neutral act, also starts `satisfied.gd` for 300 s, matching the
-  impression mood freshness: a relaxed face, light blush and a warm prompt note. A bad act gets no
-  satisfied face. It does not hold the navigator or block another act; a new act clears it.
-- Each pony climax records a unique memory event and reaction. At afterglow `_commit_summary()`
-  scores the act once and `MEMORY.commit_act()` writes the grade-aware romance and mood; there is
-  no flat `commit_climax()` reward. The witness pass commits once at afterglow; standing records
-  the inside event at afterglow only. The standing afterglow also runs the 8 s close window and
-  records its own stay-close memory. Its stay-close reward is grade-aware: a bad act gets a
-  one-point hurt repair when Anon stays and caresses, not romance.
+  impression mood freshness: a relaxed face, light blush and a warm prompt note. The note says she
+  is still warm and relaxed after making love with Anon. A bad act gets no satisfied face. It does
+  not hold the navigator or block another act; a new act clears it.
+- The first pony climax records one memory event; every climax gets its reaction. At afterglow
+  `_commit_summary()` scores the act once and `MEMORY.commit_act()` writes the grade-aware romance
+  and mood; there is no flat `commit_climax()` reward. The witness pass commits once at afterglow.
+  The standing afterglow also runs the 8 s close window and keeps its stay-close reward
+  impression. Its stay-close reward is grade-aware: a bad act gets a one-point hurt repair when
+  Anon stays and caresses, not romance.
 - A peak act keeps one strongest memory per mare in `Mods.state("unfplap").peak_memories`.
   It is written only after a positive summary, with no disliked touch/talk and either peak
   satisfaction >= 90 or six both-axis thrust matches; a higher score replaces it. The stored text
@@ -909,8 +909,14 @@ examples.
 - The afterglow HUD shows the summary: missionary in the cue line, standing on the readiness line
   under its close prompt. Early end shows no HUD summary. `prompt_note()` carries one short random
   afterglow beat (`ACT_SUMMARY.afterglow_beat()`, 40% silence) and a private relationship note in
-  afterglow, the relationship note during the act and the history note while idle. It does not
-  recite the summary or append “Next time you want…” stroke mechanics.
+  afterglow, the relationship note during the act, the 300 s satisfied note after a good or
+  non-early neutral act, or the history note while a hurt history is active. `lover_prompt_note()`
+  adds the neutral lover fact (`You and Anon are lovers.` / `You are not Anon's lover.`) when no
+  other prompt note is present. It does not recite the summary or append “Next time you want…”
+  stroke mechanics.
+- One act writes one summary event and one climax event. The old start, afterglow and inside
+  events are not recorded; the standing close reward is an impression only. The summary keeps
+  “made love”, so the act is still a clear memory rather than a euphemism.
 - Memory uses the game's second-person phrasing. A witness must actually perceive the act:
   `pony_awareness.visible()` (24 m, facing, clear line) or `can_hear()` (12 m, clear line);
   sleeping ponies are skipped. Each observer gets her own event (`witnesses = [observer]`, place =
@@ -1192,8 +1198,8 @@ examples.
   because they can outlive the act slot; a speaking reaction is kept past that expiry.
 - The repeat hint contains the last four generated lines. There is no talk-cue line.
 - Each pony climax drops queued act lines but keeps an in-progress one, then queues a unique
-  climax reaction through the same slot. The standing afterglow records its inside event without
-  queuing a line. Only the cached “Mm.” is used; generated moans are parked.
+  climax reaction through the same slot. The standing afterglow queues no line. Only the cached
+  “Mm.” is used; generated moans are parked.
 - `_end_act_lines()` cancels every mod-owned line for the act except one that is already
   **speaking**. Queued and still-thinking lines are dropped. It runs at climax, afterglow, every
   act end (`cancel`, `_restore_begin`, `_restore_now`, `_abort_start`) and when
@@ -1205,10 +1211,10 @@ examples.
   post-act speech.
 - `features.act_lines` (default on) gates cue lines and climax/early-end reactions. Off keeps
   normal dialogue and the HUD cue.
-- The standing afterglow no longer queues `inside` or `stay_close` lines. Normal dialogue resumes
-  with the afterglow context event; the HUD close timer owns the invitation. The prompt note
-  provider (`main.gd` → runtime) reports caressing/leaning, and `[stay: SECONDS]` extends the
-  no-self-end hold.
+- The standing afterglow queues no `inside` or `stay_close` lines. Normal dialogue resumes with
+  the live afterglow note; the HUD close timer owns the invitation. The prompt note provider
+  (`main.gd` → runtime) reports caressing/leaning, and `[stay: SECONDS]` extends the no-self-end
+  hold.
 
 ## HUD and rewards
 
@@ -1290,6 +1296,10 @@ examples.
 - **Show act history**: print the aimed or nearest mare's stored row to the debug log, including
   tier, hurt/comfort, streaks, last grade and reasons, last text/wants, any stop cooldown, pending
   reminder/complaint and the recent entries. It does not modify the row.
+- **Show prompt context**: print the aimed or nearest mare's `prompt_note()`,
+  `lover_prompt_note()`, `cycle_note()`, history note, recent world-context events and the game's
+  `standing_line()`. It does not modify anything; use it to see what the model actually receives
+  when a line reads too eager or too quiet.
 - **Force neglect warning** / **Force neglect stop**: act on the live act. The request is
   consumed on the next unpaused frame, so close the settings panel to apply it.
 - **Force heat** / **Force diestrus** / **Clear forced cycle**: set the aimed or nearest mare's
@@ -1403,7 +1413,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `anatomy.anatomy_mode` | `never` | pill: `never`, `act` (only while an act runs) or `always`; anything but `never` attaches the anatomy and its pose keys |
 | `anatomy_holes` | `true` | `V` hole switch and the anal cup (General) |
 | `anatomy_oral` | `false` | `N` standing oral and its neck motion (General) |
-| `anatomy_finish` | `false` | `B` finish in/out and inside/outside afterglow (General) |
+| `anatomy_finish` | `false` | `B` finish in/out (General) |
 | `anatomy_fluid` | `true` | climax and finish droplets |
 | `anatomy_bed_body` | `true` | Anon bed body and eye view (General) |
 | `anatomy_vr` | `true` | VR act (General) |

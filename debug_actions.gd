@@ -77,6 +77,11 @@ const ACTIONS := {
 		"row": "Act history",
 		"short": "Show",
 	},
+	"show_prompt_context": {
+		"label": "Show prompt context",
+		"help": "Print the mod's normal-dialogue, memory and relationship context for the aimed or nearest mare.",
+		"method": "action_show_prompt_context",
+	},
 	"reset_act_prompts": {
 		"label": "Reset act prompts",
 		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",

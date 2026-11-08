@@ -197,11 +197,13 @@ and blocks nothing; the gates above do that.
 
 - The afterglow HUD shows the summary. Missionary puts it in the cue line; standing keeps the
   close prompt in the cue and puts the summary on the readiness line. Early end shows no HUD.
-- `prompt_note()` carries the private history note while idle, the relationship note during the
-  act and afterglow, and one short random afterglow beat (or none). It does not recite the summary
-  or her first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer
-  prompts filter `last_wants` through `ACT_HISTORY.repair_wants()`, which keeps comfort needs and
-  drops stroke mechanics.
+- `prompt_note()` carries the private history note while a hurt history is active, the 300 s
+  satisfied note after a good or non-early neutral act, the relationship note during the act and
+  afterglow, and one short random afterglow beat (or none). `lover_prompt_note()` adds the neutral
+  lover fact when no other prompt note is present. It does not recite the summary or her
+  first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts
+  filter `last_wants` through `ACT_HISTORY.repair_wants()` and pass `last_text` through
+  `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated act opening.
 - An intentional early end gives one short reaction 50% of the time and marks its pending history
   line announced, so the same act does not speak twice.
 - A pending complaint (tier 2/3) is queued as one short line after a 45 s delay, when the player is

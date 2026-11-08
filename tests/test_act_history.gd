@@ -257,6 +257,18 @@ func run() -> void:
 		"last_wants": "take me firmer"})
 	check(not str(HISTORY.ask_note(mechanical)).contains("take me firmer"),
 		"an offer note does not repeat stroke mechanics")
+	var sex_hurt_row := HISTORY.sanitize({
+		"hurt": 4,
+		"last_text": "You and Anon made love, but it did not give what was needed. Anon did not use the pressure she wanted.",
+		"last_wants": "be gentle",
+	})
+	check(HISTORY.private_text(sex_hurt_row) == "Anon did not use the pressure she wanted.",
+		"private text drops the summary opening")
+	for note: String in [HISTORY.prompt_note(sex_hurt_row), HISTORY.ask_note(sex_hurt_row),
+			HISTORY.line_purpose(sex_hurt_row, "complaint"),
+			HISTORY.refusal_purpose(sex_hurt_row)]:
+		check(not note.to_lower().contains("sex"),
+			"a hurt/offer/refusal note carries no bare sex word")
 
 	var reset_section: Dictionary = {}
 	HISTORY.commit(reset_section, "rarity", outcome("good"), 10.0)

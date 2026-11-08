@@ -9,17 +9,9 @@ extends RefCounted
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-
-
-static func start_event(game: Node, id: String, name: String, event_id: String) -> void:
-	var ctx = _context(game)
-	if ctx == null:
-		return
-	ctx.record("intimacy", "You and Anon started having sex.", [id, "player"], [id, "player"], event_id)
 
 
 static func cancel_event(game: Node, id: String, name: String, event_id: String) -> void:
@@ -29,37 +21,12 @@ static func cancel_event(game: Node, id: String, name: String, event_id: String)
 	ctx.record("intimacy", "Anon stopped before the act reached a climax.", [id, "player"], [id, "player"], event_id + ":cancel")
 
 
-static func climax_event(game: Node, id: String, name: String, event_id: String, count := 1) -> void:
+static func climax_event(game: Node, id: String, name: String, event_id: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "You and Anon made love, and she came."
-	if count > 1:
-		text = "You and Anon made love, and she came again."
-	ctx.record("intimacy", text, [id, "player"], [id, "player"],
-		"%s:pony_climax:%d" % [event_id, count])
-
-
-## Standing after the climax. Direct: she is told he came inside her.
-static func inside_event(game: Node, id: String, name: String, event_id: String) -> void:
-	var ctx = _context(game)
-	if ctx == null:
-		return
-	ctx.record("intimacy", "Anon finished inside.", [id, "player"], [id, "player"], event_id + ":inside")
-
-
-## Normal dialogue resumes in the afterglow, but the moment is not socially over yet. This
-## world-context event keeps that in view without queuing a scripted line.
-static func afterglow_text(pose: String) -> String:
-	var closeness := "lying close together" if pose != CATALOG.STANDING else "standing close together"
-	return "You and Anon just had sex and are still in the afterglow, %s; the act has ended, but the moment is not finished yet." % closeness
-
-
-static func afterglow_event(game: Node, id: String, name: String, event_id: String, pose: String) -> void:
-	var ctx = _context(game)
-	if ctx == null:
-		return
-	ctx.record("intimacy", afterglow_text(pose), [id, "player"], [id, "player"], event_id + ":afterglow")
+	ctx.record("intimacy", "You and Anon made love, and she came.",
+		[id, "player"], [id, "player"], event_id + ":pony_climax")
 
 
 ## One spoken reaction to a named act event. Custom prompts override the fallback; there is no
@@ -188,14 +155,6 @@ static func stay_close_reward(game: Node, id: String, event_id: String, caressed
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	var text := "After sex, Anon stayed close for a while."
-	if caressed and positive:
-		text = "After sex, Anon stayed close and caressed for a while."
-	elif caressed:
-		text = "After sex, Anon stayed close and caressed. Her hurt eased a little."
-	elif not positive:
-		text = "After sex, Anon stayed close. Her hurt was still there."
-	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stay_close")
 	var impressions: Variant = ctx.get("impressions")
 	if impressions == null or not is_instance_valid(impressions):
 		return
@@ -284,7 +243,7 @@ static func history_apology(game: Node, id: String, _text: String) -> void:
 	var ctx = _context(game)
 	if ctx == null:
 		return
-	ctx.record("relationship", "Anon apologized for how he behaved during sex.",
+	ctx.record("relationship", "Anon apologized for last time.",
 		[id, "player"], [id, "player"], "apology:%s:%d" % [id, Time.get_ticks_usec()])
 
 

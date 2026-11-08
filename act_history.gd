@@ -368,6 +368,16 @@ static func repair_wants(text: String) -> String:
 	return " and ".join(kept.slice(0, 2))
 
 
+## The stored summary is for the HUD. A normal-dialogue note keeps the reason and drops the
+## repeated "You and Anon made love ..." opening sentence.
+static func private_text(row: Dictionary) -> String:
+	var text := str(row.get("last_text", "")).strip_edges()
+	var cut := text.find(". ")
+	if cut < 0:
+		return text
+	return text.substr(cut + 2).strip_edges()
+
+
 static func prompt_note(row: Dictionary) -> String:
 	if not enabled():
 		return ""
@@ -376,18 +386,23 @@ static func prompt_note(row: Dictionary) -> String:
 	var tier := tier_index(row)
 	if tier <= 0:
 		return ""
-	var text := str(row.get("last_text", "")).strip_edges()
+	var text := private_text(row)
 	var wants := repair_wants(str(row.get("last_wants", "")))
+	var note := ""
 	if tier >= 3:
-		return "- You love Anon, but you are very reluctant to have sex with him again. " \
-			+ ("You remember: " + text + " " if not text.is_empty() else "") \
-			+ ("You want to " + wants + ". " if not wants.is_empty() else "") \
-			+ "If he asks, say so gently and refuse."
+		note = "- You love Anon, but you are very reluctant to try again."
+		if not text.is_empty():
+			note += " You remember: " + text
+		if not wants.is_empty():
+			note += " You want to " + wants + "."
+		return note + " If he asks, say so gently and refuse."
 	if tier == 2:
-		return "- You are still hurt about the last time. " \
-			+ ("You remember: " + text + " " if not text.is_empty() else "") \
-			+ ("You want to " + wants + ". " if not wants.is_empty() else "") \
-			+ "You do not want to ask him for sex; if he starts, tell him what you need."
+		note = "- You are still hurt about the last time."
+		if not text.is_empty():
+			note += " You remember: " + text
+		if not wants.is_empty():
+			note += " You want to " + wants + "."
+		return note + " You do not want to ask him again; if he starts, tell him what you need."
 	if not tier_one_hint(row):
 		return ""
 	return "- Something about last time is still sitting with you. You are not ready to spell it out."
@@ -397,24 +412,29 @@ static func ask_note(row: Dictionary) -> String:
 	if not enabled():
 		return ""
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
-		return "You stopped Anon and are not ready to ask for sex again yet."
+		return "You stopped Anon and are not ready to ask again yet."
 	if tier_index(row) <= 0:
 		return ""
-	var text := str(row.get("last_text", "")).strip_edges()
+	var text := private_text(row)
 	var wants := repair_wants(str(row.get("last_wants", "")))
-	var note := "You still feel a little hurt from last time: " + text
+	var note := "You still feel a little hurt from last time."
+	if not text.is_empty():
+		note += " " + text
 	if not wants.is_empty():
 		note += " You want to " + wants + "."
 	return note + " Ask him gently for what you need."
 
 
 static func line_purpose(row: Dictionary, kind: String) -> String:
-	var text := str(row.get("last_text", "")).strip_edges()
+	var text := private_text(row)
 	var wants := repair_wants(str(row.get("last_wants", "")))
 	if kind == "complaint":
-		return "You are still hurt about the last time with Anon. " + text \
-			+ (" You want to " + wants + "." if not wants.is_empty() else "") \
-			+ " Tell him gently but plainly what he did and what you need next time. " \
+		var note := "You are still hurt about the last time with Anon."
+		if not text.is_empty():
+			note += " " + text
+		if not wants.is_empty():
+			note += " You want to " + wants + "."
+		return note + " Tell him gently but plainly what he did and what you need next time. " \
 			+ "One short sentence, at most 14 words, in your own voice. Do not narrate actions."
 	return "Anon is close. Something about last time is still sitting with you. Say one short, " \
 		+ "in-character line that hints at it; do not summarize the act or list requests. " \
@@ -422,15 +442,18 @@ static func line_purpose(row: Dictionary, kind: String) -> String:
 
 
 static func refusal_purpose(row: Dictionary) -> String:
-	var text := str(row.get("last_text", "")).strip_edges()
+	var text := private_text(row)
 	var wants := repair_wants(str(row.get("last_wants", "")))
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
-		return "Anon wants sex again. You stopped him and are not ready to try again yet. " \
+		return "Anon wants to try again. You stopped him and are not ready to try again yet. " \
 			+ "Refuse gently in your own voice, one short sentence, at most 14 words. " \
 			+ "Do not narrate actions."
-	return "Anon wants sex again. You love him, but you are very reluctant: " + text \
-		+ (" You want to " + wants + "." if not wants.is_empty() else "") \
-		+ " Refuse gently in your own voice. One short sentence, at most 14 words. " \
+	var note := "Anon wants to try again. You love him, but you are very reluctant."
+	if not text.is_empty():
+		note += " You remember: " + text
+	if not wants.is_empty():
+		note += " You want to " + wants + "."
+	return note + " Refuse gently in your own voice. One short sentence, at most 14 words. " \
 		+ "Do not narrate actions."
 
 

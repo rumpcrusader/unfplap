@@ -333,6 +333,16 @@ func _check_profiles() -> void:
 	check(not live.is_empty(), "live template")
 	check(not SETTINGS.act_prompt("fluttershy", "utterance").is_empty(), "live utterance prompt")
 	check(not SETTINGS.act_prompt("fluttershy", "cue").is_empty(), "live cue prompt")
+	check(SETTINGS.act_prompt("fluttershy", "cue").contains("private, not a list to say"),
+		"the cue prompt keeps preferences private")
+	var legacy_data := {"default": {"act_prompts": {"cue": SETTINGS.LEGACY_ACT_PROMPTS["cue"][-1]}}}
+	var normalized := SETTINGS._normalize_act_prompts(legacy_data)
+	check(not (normalized["default"] as Dictionary).has("act_prompts"),
+		"a saved old cue prompt is removed")
+	var custom_data := {"default": {"act_prompts": {"cue": "custom"}}}
+	var custom := SETTINGS._normalize_act_prompts(custom_data)
+	check(str(((custom["default"] as Dictionary)["act_prompts"] as Dictionary)["cue"]) == "custom",
+		"a custom cue prompt survives")
 
 
 func _collect_labels(node: Node, out: Array) -> void:

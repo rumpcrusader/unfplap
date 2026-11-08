@@ -377,8 +377,8 @@ pose is unchanged. `tail_pose.gd` is not changed.
   in opposite directions, sweeping the spread wings slightly backwards. Entering afterglow
   releases the hold and drives the same `WingTuck` blend to a full fold over
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
-- Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice, and the inside event is
-  recorded on entry. Lean and A/D caress remain live; hold Y ends it. For the first 8 s the
+- Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice. Lean and A/D caress remain
+  live; hold Y ends it. For the first 8 s the
   HUD shows `Stay close · 8s · caress`; 2.5 s of active caress completes the close reward.
   Missionary afterglow stays passive.
 

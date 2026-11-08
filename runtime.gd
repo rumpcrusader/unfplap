@@ -91,15 +91,12 @@ const LINE_ANGLES := [
 	"tell him exactly what you want next.",
 	"say his name, and little else.",
 	"mention where you are right now.",
-	"let slip something a little embarrassing that you are thinking.",
-	"boast about how this feels for you.",
 	"tell him something you have never said out loud.",
 	"sound surprised at yourself.",
 	"say something tender, in the middle of all this.",
 	"let him see how much you trust him.",
 	"make a joke, in your usual voice.",
 	"complain playfully about something he is doing.",
-	"barely manage words at all.",
 	"bring up how you feel about him lately.",
 	"say something only you would say, true to your personality.",
 ]
@@ -1903,7 +1900,6 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_start_audio()
 	_apply_voice_policy()
 	_set_inventory_hud_hidden(true)
-	MEMORY.start_event(main.game, _id, _display_name, _event_id)
 	# integration: show the player part for the encounter.
 	if is_instance_valid(main) and main.has_method("anon_encounter"):
 		main.call("anon_encounter", true)
@@ -4205,8 +4201,8 @@ func _climax() -> void:
 	_climax_hearts_burst_at(_dock_point())
 	_set_face(0.3, CLIMAX_LIDS)
 	_end_act_lines(true)
-	if is_instance_valid(main):
-		MEMORY.climax_event(main.game, _id, _display_name, _event_id, pony_climaxes)
+	if is_instance_valid(main) and pony_climaxes == 1:
+		MEMORY.climax_event(main.game, _id, _display_name, _event_id)
 	_queue_climax_reaction()
 	_play_climax()
 	# integration: her fluid hook.
@@ -4391,7 +4387,7 @@ func prompt_note() -> String:
 	var history := _history_note()
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		if is_instance_valid(_satisfied):
-			var warm := "- You are still warm and satisfied after sex with Anon. Keep a relaxed, affectionate tone; do not act stiff or businesslike."
+			var warm := "- You are still warm and relaxed after making love with Anon. Keep an affectionate tone; do not act stiff or businesslike."
 			var relation := _relationship_note()
 			if not relation.is_empty():
 				warm += " " + relation
@@ -4432,15 +4428,9 @@ func lover_prompt_note() -> String:
 	if not _stage_ok():
 		return ""
 	var bonded := _stored_sex_bond()
-	if _try_luck():
-		if bonded:
-			return "- You and Anon are lovers; the lover agreement is optional. Your willingness still decides."
-		return "- Anon does not need a lover agreement for sex. Your normal willingness still decides."
-	if bonded:
-		return "- You and Anon are lovers."
-	if _relationship_ok():
-		return "- You are not yet Anon's lover; sex is not open until you both agree."
-	return ""
+	if not bonded and not _try_luck() and not _relationship_ok():
+		return ""
+	return RELATIONSHIP_CUE.lover_note(bonded)
 
 ## Grant the mod lover bond. Dialogue_consent calls this after a clear spoken agreement; the
 ## Debug action calls it for the aimed mare. Every gate is re-checked here because the classifier
@@ -4598,17 +4588,16 @@ func _commit_afterglow() -> void:
 		return
 	_commit_summary(true)
 	_record_peak_memory()
-	MEMORY.afterglow_event(main.game, _id, _display_name, _event_id, pose_id)
 	for row: Variant in WITNESS.commit(main.game, _id, _display_name, _serial, pony):
 		_log("witness " + str(row))
 
-## Both poses share the held afterglow; standing adds the inside event, the close window and
-## a slightly lifted tail.
+## Both poses share the held afterglow; standing adds the close window and a slightly lifted
+## tail.
 func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_stop_auto_thrust()
 	_end_act_lines(true)
-	# integration: decide and show the finish before the summary and inside event read it.
+	# integration: decide and show the finish before the summary is written.
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("on_finish")
 	_commit_afterglow()
@@ -4638,20 +4627,9 @@ func _afterglow_begin() -> void:
 		else:
 			_tail.target_amount = 0.35
 	if pose_id == CATALOG.STANDING:
-		_inside_aftermath()
 		_begin_close_window()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
-
-## Standing only: tell her Anon came inside her. Normal dialogue resumes from here.
-func _inside_aftermath() -> void:
-	if not is_instance_valid(main):
-		return
-	# integration: an explicit pull-out is not an inside finish.
-	if SETTINGS.anatomy_finish.get_bool() and is_instance_valid(_anatomy_act) \
-			and not bool(_anatomy_act.call("finished_inside")):
-		return
-	MEMORY.inside_event(main.game, _id, _display_name, _event_id)
 
 ## Standing afterglow only. The HUD and this timer own the stay-close invitation; normal dialogue
 ## resumes instead of a scripted stay-close line.

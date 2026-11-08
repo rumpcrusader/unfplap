@@ -47,6 +47,12 @@ func run() -> void:
 	var first := REL.note(facts({"first_time": true}))
 	check(first.contains("first time together"), "first-time note")
 	check(REL.note({}).is_empty(), "no facts gives no note")
+	check(REL.lover_note(true) == "- You and Anon are lovers.", "bonded lover note")
+	check(REL.lover_note(false) == "- You are not Anon's lover.", "unbonded lover note")
+	check(not REL.lover_note(true).to_lower().contains("sex"),
+		"the lover note does not mention sex")
+	check(not REL.lover_note(false).to_lower().contains("sex"),
+		"the unbonded lover note does not mention sex")
 
 	check(REL.tone(facts({"first_time": true})) == "tender", "first time is tender")
 	check(REL.tone(facts()) == "warm", "marefriend is warm")

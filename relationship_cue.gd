@@ -93,6 +93,12 @@ static func tone_line(tone_name: String) -> String:
 			return "Warm: let the fondness show."
 
 
+## The mod's lover fact for normal dialogue. A relationship fact, not a permission or an
+## invitation: the act gates and the dialogue classifier still decide what can happen.
+static func lover_note(bonded: bool) -> String:
+	return "- You and Anon are lovers." if bonded else "- You are not Anon's lover."
+
+
 static func memory_line(text: String) -> String:
 	var cleaned := text.strip_edges().replace("\r", " ").replace("\n", " ")
 	if cleaned.is_empty():

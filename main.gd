@@ -1427,6 +1427,43 @@ func action_show_act_history() -> String:
 	return "Act history printed for %s." % str(target.name)
 
 
+## The mod-owned parts of the next dialogue request, so a "too eager" or "too quiet" report can
+## be checked against the actual text instead of guessed at.
+func action_show_prompt_context() -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	var id := _debug_pony_id(target)
+	if id.is_empty():
+		return "No relationship id for %s." % str(target.name)
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime):
+		return "No runtime for %s." % str(target.name)
+	var rows: Array[String] = ["pony=%s id=%s" % [str(target.name), id]]
+	rows.append("prompt_note: " + str(runtime.call("prompt_note")))
+	rows.append("lover_prompt_note: " + str(runtime.call("lover_prompt_note")))
+	rows.append("cycle_note: " + str(runtime.call("cycle_note")))
+	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+	var history_note := ACT_HISTORY.prompt_note(history_row)
+	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
+	var ctx: Variant = game.get("world_context") if is_instance_valid(game) else null
+	if ctx != null and is_instance_valid(ctx):
+		var events: Array = ctx.call("events_for", id, 10) if ctx.has_method("events_for") else []
+		rows.append("recent events:")
+		for event: Variant in events:
+			if event is Dictionary:
+				var item: Dictionary = event
+				rows.append("  %s: %s" % [str(item.get("kind", "")), str(item.get("text", ""))])
+		var impressions: Variant = ctx.get("impressions")
+		if impressions != null and is_instance_valid(impressions) \
+				and impressions.has_method("standing_line"):
+			rows.append("standing_line: " + str(impressions.call("standing_line", id)))
+	_debug_block("PROMPT CONTEXT", rows)
+	return "Prompt context printed for %s." % str(target.name)
+
+
 func action_reset_act_prompts() -> String:
 	SETTINGS.reset_act_prompts()
 	return "Act prompts reset to defaults."

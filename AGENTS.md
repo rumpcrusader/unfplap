@@ -427,6 +427,15 @@ end: `restore_scene()` puts the player, the pony and the camera back and she sta
   (`abs(side) >= STANDING_KISS_LEAN = 0.90`) starts the same base-game kiss; outside an act it
   remains the game's flight key.
 
+### Missionary camera
+
+`presentation.missionary.camera_mode` (debug) picks the eye. **Anon eyes** is the default: the view is
+`missionary_anon.gd`'s `eye_transform()` — his posed `Head` bone with the eye offset captured from the
+live body before the act poses it — and leaning bends `Spine`/`Chest`/`UpperChest`/`Neck`/`Head`
+(`LEAN_CHAIN`), so the view moves with his upper body while his hips and legs stay on the authored
+pose. The camera is written after the pose write in the same frame. **Authored shots** uses the shot
+trajectory below.
+
 ### Missionary shot
 
 With the authored base pose in charge the shot is a **blend of five bed-relative camera positions**

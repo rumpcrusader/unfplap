@@ -622,6 +622,10 @@ static var shot_side := num("shot_side", "presentation.missionary.shot_side", 0.
 	"Posed shot side", "Shift the authored shot sideways; positive is her right.", GENERAL,
 	"Missionary › Posed base shot") \
 	.with_unit("m").with_step(0.01).as_debug()
+static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "eye",
+	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
+	"Anon eyes: the view is his posed head, and leaning bends his chest and neck over her. Authored shots: the eye follows the pose lab's camera positions.",
+	GENERAL, "Missionary").as_debug()
 static var third_person := flag("third_person", "presentation.missionary.third_person", false,
 	"Third-person views",
 	"Let the missionary shot lean and surge off the authored camera positions, so the eye drifts around the two bodies. Off keeps the camera on the authored trajectory.",

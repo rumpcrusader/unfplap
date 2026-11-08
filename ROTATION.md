@@ -85,6 +85,17 @@ Missionary is its own state, not the game's bed rest:
 
 ## Missionary camera
 
+### Camera
+
+`presentation.missionary.camera_mode` (debug) picks the eye:
+
+- **Anon eyes** (default): the view is his posed head plus the game's own eye offset (`eye_transform()`,
+  captured from the live body before the act poses it). Leaning bends **Spine, Chest, UpperChest, Neck
+  and Head** (`missionary_anon.gd`, `LEAN_CHAIN`), so the view moves with his upper body; his hips and
+  legs stay exactly on the authored pose. The kiss still leans the eye in toward the aim, never closer
+  than 0.30 m. The camera is written after the pose in the same frame, so it never trails his head.
+- **Authored shots**: the trajectory below, through the pose lab's camera positions.
+
 ### The shot
 
 The eye blends between the five authored positions and nothing else: `start` neutral, `back` (S, her

@@ -100,7 +100,43 @@ func tick() -> void:
 		var rotation: Variant = runtime.call("free_look_rotation")
 		if rotation is Vector3:
 			look = rotation
+	if str(SETTINGS.camera_mode.get_value()) == "eye":
+		_tick_eye(runtime.call("_kiss_controller"), look)
+		return
 	_tick_authored(runtime.call("_kiss_controller"), look)
+
+
+## His own view: the camera is his posed head, so the lean (which bends his chest and neck) and the
+## authored body are what move it. The kiss still leans the eye in towards the aim.
+func _tick_eye(kiss: Variant, look: Vector3) -> void:
+	if not is_instance_valid(_missionary_view):
+		_make_missionary_view()
+	if not is_instance_valid(_missionary_view):
+		return
+	var body: Variant = runtime.call("missionary_anon_body") if is_instance_valid(runtime) else null
+	if body == null:
+		return
+	var eye: Variant = body.call("eye_transform")
+	if not (eye is Transform3D) or not (eye as Transform3D).origin.is_finite():
+		return
+	var basis := (eye as Transform3D).basis.orthonormalized()
+	var at: Vector3 = (eye as Transform3D).origin
+	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
+		basis = Basis(Vector3.UP, look.y) * basis * Basis(Vector3.RIGHT, look.x)
+	var aim: Vector3 = runtime.call("missionary_face_point")
+	if aim.is_finite():
+		at += basis.x * kiss.lateral_offset(float(runtime.call("_lean_size_scale")))
+		at.y -= kiss.lean_drop() * kiss.lean()
+		if kiss.lean() > 0.0:
+			var reach := (aim - at).length()
+			at -= basis.z * minf(kiss.lean_distance(), maxf(0.0, reach - 0.30))
+	_missionary_view.global_position = at
+	_missionary_view.global_basis = basis
+	runtime.set("_camera_basis_ready", true)
+	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
+			and Time.get_ticks_msec() >= _free_look_log_at:
+		_free_look_log_at = Time.get_ticks_msec() + 2000
+		_log("free look eye=%s rotation=%s" % [str(at), str(look)])
 
 
 ## The authored shot. The eye blends between the five authored positions as offsets from `start`,

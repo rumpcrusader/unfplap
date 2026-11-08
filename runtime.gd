@@ -2760,6 +2760,10 @@ func anatomy_actions_ready() -> bool:
 	return anatomy_hole_ready() or anatomy_oral_ready() or anatomy_finish_ready()
 
 
+func missionary_anon_body() -> Variant:
+	return _missionary_anon
+
+
 func anatomy_bed_active() -> bool:
 	return is_instance_valid(_missionary_anon) and bool(_missionary_anon.get("active"))
 
@@ -5406,6 +5410,10 @@ func _pose_render_write() -> void:
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(_pose) and sk is Skeleton3D:
 		_pose.call("apply_render", sk)
+	# The eye camera reads his posed head, so it has to run after this write, not from the physics
+	# tick where the pose is one frame older.
+	if _free_camera_active and str(SETTINGS.camera_mode.get_value()) == "eye":
+		_missionary_camera_controller().tick()
 
 
 ## Render-time placement trace, two lines per act: printed from idle, after every physics and process

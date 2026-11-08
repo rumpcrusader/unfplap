@@ -300,6 +300,10 @@ reclined eye height left the camera wrong after the act.
   the palms. The game's `HeadHide` collapses only the head bone. `apply()` caches the authored eye
   after the bone write and the lean, before `HeadHide` runs, so `eye_transform()` never reads the
   collapsed bone.
+- **His palms are planted.** `_plant_hands()` keeps both wrists at the authored world height while
+  their X/Z follow the stroke and lean, so the hands slide along the mattress instead of lifting; a
+  two-bone arm solve reaches the wrist and the hand keeps its authored world orientation, so the
+  palms stay flat.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
   and the `LegHide` influence.
@@ -492,8 +496,9 @@ from the pose lab, each an offset from the neutral start and selected by the lea
 happens), `shots.left`/`shots.right` (Q/E). The blend is additive, so diagonals work. Until a
 position is authored it is derived from her live body (neck, vulva, face, and the start shifted
 sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
-sides and front keep the face. A kiss leans the eye in toward the aim but never closer than 0.30 m.
-There is no live offset, no frozen anchor, no pullback/pitch knob and no framing nudge: the authored
+sides and front keep the face. A kiss leans the eye in toward the aim but never closer than
+`KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point — her muzzle extends past it, and
+the old 0.30 m floor put the eye inside it. There is no live offset, no frozen anchor, no pullback/pitch knob and no framing nudge: the authored
 positions are the shot.
 **Third-person views** (`presentation.missionary.third_person`, debug, off by default) is the only way
 off the trajectory: with it on, the lean tilts the eye and the thrust surge travels along the

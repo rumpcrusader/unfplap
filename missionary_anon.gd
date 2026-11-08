@@ -173,6 +173,7 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		avatar.visible = true
 	if avatar.process_mode != Node.PROCESS_MODE_INHERIT:
 		avatar.process_mode = Node.PROCESS_MODE_INHERIT
+	var plants := {}
 	var bones: Dictionary = pose.get("anon_bones")
 	if not bones.is_empty():
 		_cache_indices(bones)
@@ -187,6 +188,13 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 			# on the animation to reset it. Without this the factor compounds and the body stretches
 			# or collapses. Parts they hide stay hidden by their own bones, not by ours.
 			skeleton.set_bone_pose_scale(bone, skeleton.get_bone_rest(bone).basis.get_scale())
+	# The authored hand frames, before the stroke or the lean move them: the plant keeps their
+	# height and lets only X/Z slide.
+	for side: String in ["Left", "Right"]:
+		var hand := skeleton.find_bone(side + "Hand")
+		if hand >= 0 and skeleton.find_bone(side + "UpperArm") >= 0 \
+				and skeleton.find_bone(side + "LowerArm") >= 0:
+			plants[side] = skeleton.get_bone_global_pose(hand)
 	# The attached alignment asks for the pelvis offset that puts the shaft in her; the authored
 	# path adds to it. Both reach the hips first and fade out up the spine, with the neck, head and
 	# planted legs pinned, so his shoulders and the camera move much less than his pelvis.
@@ -196,6 +204,7 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	_apply_hip_motion(offset)
 	_note_hip_offset(offset)
 	_apply_lean(placed)
+	_plant_hands(plants)
 	_cache_eye()
 
 
@@ -268,6 +277,65 @@ func _apply_lean(placed: Transform3D) -> void:
 	var pose: Transform3D = skeleton.get_bone_global_pose(bone)
 	pose.basis = Basis(nod, pitch) * Basis(turn, yaw) * pose.basis
 	RIG.set_global(skeleton, bone, pose)
+
+
+## Keep his palms at the height the pose authored while the body thrusts and leans: the wrist keeps
+## its current X/Z (so the hands slide along the mattress) and only its world height is held. A
+## two-bone solve on the arm, and the hand keeps its authored world orientation so the palm stays
+## flat on the bed.
+func _plant_hands(plants: Dictionary) -> void:
+	if plants.is_empty() or not is_instance_valid(skeleton):
+		return
+	var skel_inv := skeleton.global_transform.affine_inverse()
+	for side: Variant in plants.keys():
+		var name := str(side)
+		var upper := skeleton.find_bone(name + "UpperArm")
+		var lower := skeleton.find_bone(name + "LowerArm")
+		var hand := skeleton.find_bone(name + "Hand")
+		if upper < 0 or lower < 0 or hand < 0:
+			continue
+		var authored: Transform3D = plants[side]
+		var current_world := skeleton.global_transform * skeleton.get_bone_global_pose(hand)
+		var authored_world := skeleton.global_transform * authored
+		var target := skel_inv * Vector3(current_world.origin.x, authored_world.origin.y,
+			current_world.origin.z)
+		var shoulder := skeleton.get_bone_global_pose(upper).origin
+		var lower_offset := skeleton.get_bone_pose_position(lower)
+		var hand_offset := skeleton.get_bone_pose_position(hand)
+		var upper_len := lower_offset.length()
+		var lower_len := hand_offset.length()
+		if upper_len < 0.001 or lower_len < 0.001:
+			continue
+		var to_target := target - shoulder
+		var raw := to_target.length()
+		if raw < 0.001:
+			continue
+		var dir := to_target / raw
+		var distance := clampf(raw, absf(upper_len - lower_len) + 0.001,
+			upper_len + lower_len - 0.001)
+		var cos_a := clampf((upper_len * upper_len + distance * distance
+			- lower_len * lower_len) / (2.0 * upper_len * distance), -1.0, 1.0)
+		var bend := acos(cos_a)
+		# Carry the elbow plane from the current arm; fall back to the bed's up then its side.
+		var pole := skeleton.get_bone_global_pose(lower).origin - shoulder
+		pole -= dir * pole.dot(dir)
+		if pole.length() < 0.001:
+			var up := (skel_inv.basis * Vector3.UP).normalized()
+			pole = up - dir * up.dot(dir)
+		if pole.length() < 0.001:
+			pole = Vector3.RIGHT - dir * Vector3.RIGHT.dot(dir)
+		pole = pole.normalized()
+		var elbow := shoulder + (dir * cos(bend) + pole * sin(bend)) * upper_len
+		var upper_g := skeleton.get_bone_global_pose(upper)
+		var upper_axis := (upper_g.basis * lower_offset).normalized()
+		var q1 := Quaternion(upper_axis, (elbow - shoulder).normalized())
+		RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_g.basis, upper_g.origin))
+		var lower_g := skeleton.get_bone_global_pose(lower)
+		var lower_axis := (lower_g.basis * hand_offset).normalized()
+		var q2 := Quaternion(lower_axis, (target - lower_g.origin).normalized())
+		RIG.set_global(skeleton, lower,
+			Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
+		RIG.set_global(skeleton, hand, Transform3D(authored.basis, target))
 
 
 ## The act camera's transform: his posed head plus the game's own eye offset. Reads the eye cached

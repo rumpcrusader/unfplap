@@ -90,6 +90,10 @@ Missionary is its own state, not the game's bed rest:
   removes the palms. The game's `HeadHide` collapses only the head bone, which hides the head
   vertices. `apply()` caches the authored eye right after the bone write and the lean, before
   `HeadHide` runs, so `eye_transform()` never reads the collapsed bone.
+- **His palms are planted.** `_plant_hands()` holds both wrists at the authored world height and
+  lets only their X/Z follow the stroke and lean: the hands slide along the mattress instead of
+  lifting. A two-bone arm solve reaches each wrist; the hand keeps its authored world orientation so
+  the palm stays flat on the bed.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
   and the `LegHide` influence.
@@ -137,10 +141,11 @@ Missionary is its own state, not the game's bed rest:
   rest values). The lean is **one hinge at the `Spine` joint** (`LEAN_HINGE`): the whole upper body —
   chest, neck, head, shoulders, arms and hands — tilts as a unit around it, while the hips, thighs and
   legs stay exactly on the authored pose and keep the stroke. W tips the hinge forward/down toward her,
-  S back/up, and Q/E add the side lean. The kiss still leans
-  the eye in toward the aim, never closer than 0.30 m. The camera is written after the pose in the
-  same frame, so it never trails his head. Her gaze and the kiss target his authored **eye and
-  mouth**, never the game camera on his standing player rig.
+  S back/up, and Q/E add the side lean. The camera is written after the pose in the same frame, so it
+  never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
+  camera on his standing player rig. A kiss leans the eye in toward the aim but never closer than
+  `KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point; her muzzle extends past that
+  point.
 - **Authored shots**: the trajectory below, through the pose lab's camera positions.
 
 ### The shot
@@ -166,7 +171,8 @@ the authored positions.
 - The aim is `missionary_face_point()` (the head bone pushed 12 cm along neck2 → head); it slides to
   `missionary_vulva_point()` (the anatomy's `hole_point` when the part shows, otherwise the
   hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face.
-- A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than 0.30 m.
+- A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than
+  `KISS_CLEARANCE_M` (0.45 m) × her body scale from the face point.
 - **Anon's body rides the stroke.** His placement is authored as two bed-space points
   (`anon.travel.start` pulled out, `anon.travel.end` fully in, exported from the lab's
   `AnonTravelStart`/`AnonTravelEnd` markers) and blended by `depth`. Without them he sits at the

@@ -14,6 +14,9 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const SHOT_IDS := ["start", "back", "front", "left", "right"]
+## A kiss leans the eye in toward her face, but never closer than this to the face point: her muzzle
+## extends past it, and the old 0.30 m floor put the eye inside the muzzle.
+const KISS_CLEARANCE_M := 0.45
 
 var runtime: Node
 var main: Variant
@@ -149,7 +152,8 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		at.y -= kiss.lean_drop() * kiss.lean()
 		if kiss.lean() > 0.0:
 			var reach := (aim - at).length()
-			at -= basis.z * minf(kiss.lean_distance(), maxf(0.0, reach - 0.30))
+			at -= basis.z * minf(kiss.lean_distance(),
+				maxf(0.0, reach - KISS_CLEARANCE_M * _missionary_body_scale()))
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = basis
 	runtime.set("_camera_basis_ready", true)
@@ -232,7 +236,8 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	# The kiss leans the eye in toward the aim, but never closer than 0.30 m to it.
 	if kiss.lean() > 0.0:
 		var reach: float = (aim - at).length()
-		at -= view_basis.z * minf(kiss.lean_distance(), maxf(0.0, reach - 0.30))
+		at -= view_basis.z * minf(kiss.lean_distance(),
+			maxf(0.0, reach - KISS_CLEARANCE_M * _missionary_body_scale()))
 	var top := _bed_surface_top()
 	if is_finite(top):
 		at.y = maxf(at.y, top + 0.10 * scale)

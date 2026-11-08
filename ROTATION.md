@@ -70,8 +70,12 @@ Missionary is its own state, not the game's bed rest:
   `lie_down` settle left to the authored rotation, and the root blends with `interpolate_with`, so
   POSING_IN still eases her in.
 - **The head bone is reset to rest** on this path. The runtime owns the face: the gaze solve then
-  aims `pony_head`'s frame (plus `HybridNeckLink`'s offset) at Anon, and the pitch/roll offsets run
-  last. Baked head rotations were rejected because the pose lab has no head mesh.
+  aims `pony_head`'s frame (plus `HybridNeckLink`'s offset) at Anon. Baked head rotations were
+  rejected because the pose lab has no head mesh.
+- **Upright by default.** After the aim, `_level_head()` rolls the head about its own forward axis so
+  its up lines up with the world's. The shortest-arc aim only sets the face *direction*; a pose that
+  rolls the neck left her staring at Anon sideways. The settled `MISSIONARY` dump prints
+  `head aim=…° roll=…°` so a bad gaze is visible without guessing.
 - **Overlays skip the joint-limit clamp** (`rig.rotate_free`). The authored pose can sit outside
   the limits the game derives from its own motion library, and `constrain()` would snap it back on
   the first gaze correction.

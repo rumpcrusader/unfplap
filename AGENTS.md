@@ -1075,8 +1075,9 @@ examples.
   `anatomy.wink_min_s..anatomy.wink_max_s` (default 15-20 s), rolling 70% single, 25% double, 5%
   triple from `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a
   short hold and an accelerated close. `anatomy.wink_open_min`..`anatomy.wink_open_max` set the
-  opening range and `anatomy.wink_timing` scales the three phase times. Each burst also shoots
-  one or more `climax_fluid.spray()` droplets from the vulva opening along the ground, under the fluid node's
+  opening range and `anatomy.wink_timing` scales the three phase times. At the first beat's peak,
+  when the clitoris has finished travelling outward, the burst shoots one or more
+  `climax_fluid.spray()` droplets from the vulva opening along the ground, under the fluid node's
   gravity, scaled by `anatomy.drip` (0 turns it off), `anatomy.fluid_size` and
   `anatomy.fluid_alpha`. The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
   POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the

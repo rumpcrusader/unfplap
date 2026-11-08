@@ -472,8 +472,7 @@ func _heat_idle_tick(delta: float) -> void:
 		return
 	_heat_wink_clock = _wink_interval()
 	var count := CYCLE.wink_burst_count(randf())
-	wink_burst(count)
-	idle_discharge(count)
+	wink_burst(count, count)
 
 
 ## Idle heat wink gap from the Heat debug settings. A zero gap is guarded so the idle tick cannot
@@ -1236,7 +1235,9 @@ func wink(count := 1, seconds := 0.45) -> void:
 
 ## Idle heat wink. Each beat gets its own depth and timing, so a double or triple never reads as
 ## one repeated motion. The act's `wink()` stays tuned for its reaction and climax beats.
-func wink_burst(count: int) -> void:
+## `discharge_count` releases the heat droplets at the first beat's peak, when the clitoris has
+## finished travelling outward, instead of at the start of the opening.
+func wink_burst(count: int, discharge_count := -1) -> void:
 	if not is_instance_valid(_mesh):
 		return
 	if _tween != null:
@@ -1259,6 +1260,8 @@ func wink_burst(count: int) -> void:
 		var opening := _tween.tween_method(set_idle_wink, from, peak,
 			randf_range(0.18, 0.38) * timing)
 		opening.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		if i == 0 and discharge_count > 0:
+			_tween.tween_callback(func() -> void: idle_discharge(discharge_count))
 		_tween.tween_interval(randf_range(0.08, 0.18) * timing)
 		var closing := _tween.tween_method(set_idle_wink, peak, rest,
 			randf_range(0.22, 0.45) * timing)

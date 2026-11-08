@@ -712,7 +712,9 @@ func _apply_body_coat_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_anal_out", out_axis)
 		mat.set_shader_parameter("body_coat_anal_depth",
 			SETTINGS.anal_body_depth_mm.get_num() / 1000.0 * (1.0 + anal_extreme))
-		mat.set_shader_parameter("body_coat_anal_hole_reach", anal_still_radius)
+		# Keep the body under the V2 lip: the indent must not reach past the outer lip.
+		mat.set_shader_parameter("body_coat_anal_hole_reach",
+			maxf(_anal_local, ANAL_OPEN_R) * scale)
 		mat.set_shader_parameter("body_coat_vulva_centre", centre)
 		mat.set_shader_parameter("body_coat_vulva_out", out_axis)
 		mat.set_shader_parameter("body_coat_vulva_scale", spread)

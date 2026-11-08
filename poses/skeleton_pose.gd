@@ -112,6 +112,9 @@ func apply_render(sk: Skeleton3D) -> void:
 
 
 func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
+	# A bone the game collapsed (hidden by scaling it to zero) has no basis, and every global-pose
+	# write under it divides by that singular basis: the pose then stretches to infinity.
+	_rig.repair_scales(sk)
 	var mare_scale: Variant = mare.get("body_scale")
 	var state := {
 		"look_point": look_point,

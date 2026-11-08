@@ -47,11 +47,24 @@ func cache(mare_node: Node3D, sk: Skeleton3D) -> void:
 			hind.append({"femur": femur, "lower": lower})
 
 
+## Restore the rest scale of every bone the game collapsed. A bone hidden by scaling it to zero has
+## no basis, and a global-pose write under it inverts a singular matrix: the pose then stretches to
+## infinity (`set_bone_global_pose` divides by the parent's basis). Cheap: one scale read per bone.
+static func repair_scales(sk: Skeleton3D) -> void:
+	if sk == null:
+		return
+	for i in sk.get_bone_count():
+		if sk.get_bone_pose_scale(i).length_squared() < 0.0001:
+			sk.set_bone_pose_scale(i, sk.get_bone_rest(i).basis.get_scale())
+
+
 ## Rotate a bone in skeleton space, then clamp it with the pony's joint limits.
 func rotate(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
 	if bone < 0 or absf(angle) < 0.00001:
 		return
 	var pose := sk.get_bone_global_pose(bone)
+	if absf(pose.basis.determinant()) < 0.0000001:
+		return
 	pose.basis = Basis(axis.normalized(), angle) * pose.basis
 	sk.set_bone_global_pose(bone, pose)
 	_limit(sk, bone)
@@ -64,6 +77,8 @@ func rotate_free(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void
 	if bone < 0 or absf(angle) < 0.00001:
 		return
 	var pose := sk.get_bone_global_pose(bone)
+	if absf(pose.basis.determinant()) < 0.0000001:
+		return
 	pose.basis = Basis(axis.normalized(), angle) * pose.basis
 	sk.set_bone_global_pose(bone, pose)
 

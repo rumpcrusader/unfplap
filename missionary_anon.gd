@@ -25,12 +25,10 @@ var skeleton: Skeleton3D
 ## True once a body was found and is being driven by this controller.
 var active := false
 
-var _body_ik: SkeletonModifier3D
-var _body_ik_influence := 0.0
-var _leg_hide: SkeletonModifier3D
-var _leg_hide_influence := 0.0
-var _head_hide: SkeletonModifier3D
-var _head_hide_was_active := true
+## Every stock modifier on his skeleton, parked for the act: `[node, was_active]`. The IK, the
+## head hide and the body-part hiders all reshape or collapse bones we own, and a collapsed bone
+## (scale 0) has no basis — which is what put NaN into the pose and made the body flicker.
+var _modifiers: Array = []
 var _head_mesh: MeshInstance3D
 var _head_mesh_visible := true
 var _driver: Variant
@@ -68,22 +66,11 @@ func install(runtime_node: Node) -> bool:
 	# parked for the act; the pose we write is the only pose.
 	_driver = avatar.get("desktop_pose_driver")
 	avatar.set("desktop_pose_driver", null)
-	var ik: Variant = avatar.get("_body_ik")
-	if not is_instance_valid(ik):
-		ik = avatar.find_child("BodyIK", true, false)
-	if ik is SkeletonModifier3D:
-		_body_ik = ik as SkeletonModifier3D
-		_body_ik_influence = _body_ik.influence
-		# Deactivate, not just influence 0: an inactive-by-influence modifier still runs and its
-		# head step slerps the bone basis, which fails once the head bone is collapsed.
-		_body_ik.active = false
-	var legs: Variant = avatar.get("_leg_hide")
-	if not is_instance_valid(legs):
-		legs = avatar.find_child("LegHide", true, false)
-	if legs is SkeletonModifier3D:
-		_leg_hide = legs as SkeletonModifier3D
-		_leg_hide_influence = _leg_hide.influence
-		_leg_hide.influence = 0.0
+	_modifiers.clear()
+	for child: Node in skeleton.get_children():
+		if child is SkeletonModifier3D:
+			_modifiers.append([child, (child as SkeletonModifier3D).active])
+			(child as SkeletonModifier3D).active = false
 	# The desktop eye relative to the head bone, from the body's own values. `REST_FACING` is a
 	# 180° yaw, so its inverse is itself.
 	var offset: Variant = avatar.get("head_offset")
@@ -109,16 +96,13 @@ func install(runtime_node: Node) -> bool:
 		_log("anon eye check err=%.1f°" % rad_to_deg(
 			predicted.get_rotation_quaternion().angle_to(
 				(marker as Node3D).global_basis.orthonormalized().get_rotation_quaternion())))
-	# The game hides the first-person head by scaling the head bone to zero. That makes the head
-	# basis singular, and the act camera is built from that bone, so the view loses its pitch. Hide
-	# the head mesh instead and leave the bone intact.
-	var hide: Variant = avatar.get("_head_hide")
-	if not is_instance_valid(hide):
-		hide = avatar.find_child("HeadHide", true, false)
-	if hide is SkeletonModifier3D:
-		_head_hide = hide as SkeletonModifier3D
-		_head_hide_was_active = _head_hide.active
-		_head_hide.active = false
+	# The game hides the first-person head by collapsing a bone, and may already have done it before
+	# this ran. A zero scale leaves a bone with no basis: the eye camera loses its pitch, the head
+	# link places the visible head from garbage, and the lean turns to NaN. The head mesh is hidden
+	# below instead, and every collapsed bone gets its rest scale back.
+	for i in skeleton.get_bone_count():
+		if skeleton.get_bone_pose_scale(i).length_squared() < 0.0001:
+			skeleton.set_bone_pose_scale(i, skeleton.get_bone_rest(i).basis.get_scale())
 	var mesh: Variant = avatar.find_child("head_smd", true, false)
 	if mesh is MeshInstance3D:
 		_head_mesh = mesh as MeshInstance3D
@@ -131,23 +115,18 @@ func install(runtime_node: Node) -> bool:
 
 func remove() -> void:
 	active = false
-	if is_instance_valid(_body_ik):
-		_body_ik.influence = _body_ik_influence
-	if is_instance_valid(_leg_hide):
-		_leg_hide.influence = _leg_hide_influence
-	if is_instance_valid(_head_hide):
-		_head_hide.active = _head_hide_was_active
+	for entry: Array in _modifiers:
+		var node: Variant = entry[0]
+		if is_instance_valid(node):
+			(node as SkeletonModifier3D).active = bool(entry[1])
+	_modifiers.clear()
 	if is_instance_valid(_head_mesh):
 		_head_mesh.visible = _head_mesh_visible
-	_body_ik = null
-	_head_hide = null
 	_head_mesh = null
 	if is_instance_valid(avatar):
 		avatar.set("desktop_pose_driver", _driver)
 		avatar.visible = _avatar_visible
 		avatar.process_mode = _avatar_process
-	_body_ik = null
-	_leg_hide = null
 	avatar = null
 	skeleton = null
 	_indices.clear()
@@ -181,6 +160,9 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if avatar.process_mode != Node.PROCESS_MODE_INHERIT:
 		avatar.process_mode = Node.PROCESS_MODE_INHERIT
 	var bones: Dictionary = pose.get("anon_bones")
+	# A collapsed bone (the stock hiders scale one to zero) has no basis; every global-pose write
+	# below it divides by that basis and the body stretches to infinity.
+	_repair_scales()
 	if not bones.is_empty():
 		_cache_indices(bones)
 		for key: Variant in _indices:
@@ -268,8 +250,21 @@ func _apply_lean(placed: Transform3D) -> void:
 		# pose instead applies the axis in the parent's frame, and his hips are rotated ~90° here,
 		# so W/S yawed the view sideways instead of nodding it.
 		var pose: Transform3D = skeleton.get_bone_global_pose(bone)
+		if absf(pose.basis.determinant()) < 0.000001:
+			continue
 		pose.basis = Basis(nod, pitch * share) * Basis(turn, yaw * share) * pose.basis
 		skeleton.set_bone_global_pose(bone, pose)
+
+
+## Restore every collapsed bone's rest scale. The stock hiders (and the presentation re-enabling
+## itself) scale a bone to zero; a zero scale is a singular basis, and a global-pose write under one
+## divides by it and stretches the body to infinity.
+func _repair_scales() -> void:
+	if not is_instance_valid(skeleton):
+		return
+	for i in skeleton.get_bone_count():
+		if skeleton.get_bone_pose_scale(i).length_squared() < 0.0001:
+			skeleton.set_bone_pose_scale(i, skeleton.get_bone_rest(i).basis.get_scale())
 
 
 ## The act camera's transform: his posed head plus the game's own eye offset.

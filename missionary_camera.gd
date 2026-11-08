@@ -201,15 +201,26 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 			aim = face.lerp(vulva, -forward * pelvis)
 			if -forward > 0.6 and pelvis < 0.2 and not _pelvis_aim_blocked_logged:
 				_pelvis_aim_blocked_logged = true
+				var bed: Variant = _bed_frame()
+				var detail := ""
+				if bed is Transform3D:
+					var space := (bed as Transform3D).affine_inverse()
+					var back_bed := space * back
+					var vulva_bed := space * vulva
+					detail = " ShotBack bed=(%.2f,%.2f,%.2f), vulva bed=(%.2f,%.2f,%.2f);" % [
+						back_bed.x, back_bed.y, back_bed.z,
+						vulva_bed.x, vulva_bed.y, vulva_bed.z]
 				_log("missionary camera: ShotBack is on her head side of the vulva; pelvis aim stays "
-					+ "on her face. Put ShotBack behind her rump for the pelvis shot.")
+					+ "on her face." + detail + " put ShotBack behind her rump (bed z below the vulva).")
 	elif forward > 0.0:
 		var front := _shot_position("front", scale)
 		if front.is_finite():
 			pos += (front - start) * forward
 	var side := clampf(lean_side, -1.0, 1.0)
 	if absf(side) > 0.0001:
-		var beside := _shot_position("left" if side < 0.0 else "right", scale)
+		# The asset's `left` shot is on Anon's screen right and vice versa (the lab names them from
+		# her side), so Q reads `right` and E reads `left` to make the keys match the screen.
+		var beside := _shot_position("right" if side < 0.0 else "left", scale)
 		if beside.is_finite():
 			pos += (beside - start) * absf(side)
 	var direction := aim - pos

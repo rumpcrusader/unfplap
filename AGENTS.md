@@ -494,7 +494,8 @@ signed, unclamped) raising or lowering it. **Authored shots** uses the shot traj
 With the authored base pose in charge the shot is a **blend of five bed-relative camera positions**
 from the pose lab, each an offset from the neutral start and selected by the lean:
 `shots.start` (neutral), `shots.back` (S, her pelvis), `shots.front` (W, her face, where the kiss
-happens), `shots.left`/`shots.right` (Q/E). The blend is additive, so diagonals work. Until a
+happens), `shots.left`/`shots.right` (Q/E; the asset names are from her side, so Q reads `right` and
+E reads `left` to match the screen). The blend is additive, so diagonals work. Until a
 position is authored it is derived from her live body (neck, vulva, face, and the start shifted
 sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
 sides and front keep the face. The pelvis slide is gated on the S eye being on the rump side of the

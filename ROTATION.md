@@ -153,7 +153,8 @@ Missionary is its own state, not the game's bed rest:
 
 The eye blends between the five authored positions and nothing else: `start` neutral, `back` (S, her
 pelvis), `front` (W, her face, where the kiss happens), `left`/`right` (Q/E), each an offset from
-`start`, so diagonals work. A shot the asset does not carry falls back to a **fixed** bed-relative
+`start`, so diagonals work. The asset's `left`/`right` are named from her side, so Q reads `right`
+and E reads `left`; the keys match the screen. A shot the asset does not carry falls back to a **fixed** bed-relative
 point (never her live body) and the log names it; surge, bob and the kiss lean-in are the only extra
 motion. Free look turns this shot where it stands.
 

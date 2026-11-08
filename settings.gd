@@ -897,10 +897,9 @@ static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", fals
 
 # -- Holes  (debug)
 static var anal_scale := num("anal_scale", "anatomy.anal_scale", 1.0,
-	"Anal scale",
-	"Scale the anal mound and the body coat around the opening. Above 1 grows the V2 ponut.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.05).with_range(0.5, 1.5) \
-	.as_debug()
+	"Ponut scale",
+	"Scale the visible ponut mound. The vulva and the opening stay put.", ANATOMY, "") \
+	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
 static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 0.0,
 	"Vulva hug",
 	"Pad the gap between the cock and the vulva lips. Positive opens the lips wider; negative grips tighter.", ANATOMY, "Holes") \

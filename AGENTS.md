@@ -1426,8 +1426,8 @@ rump blush. Unknown settings keys are ignored.
   tone, 0–1; 0 is her coat, 0.5 the old Darker default, 1 the old Dark tone), `show_dock` (Show tail
   docks, on), `mare_bits` (Mare bits, `original`/`v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),
-  `anal_scale` (debug: scale the anal mound and body coat; 1 is authored, above 1 grows
-  the V2 ponut), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point),
+  `anal_scale` (Ponut scale: the V2 ponut interior and body coat; the vulva and opening
+  stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point),
   `vulva_hug_mm` and `anal_hug_mm`
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips),
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 1×) and

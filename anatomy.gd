@@ -1414,8 +1414,9 @@ func set_anal_grip(shaft_radius: float) -> void:
 	_apply_anal_shape(_anal_local)
 
 
-## Set the four anal keys and the independent ponut scale key. The extreme key already carries
-## its own 2x scale, so the ponut scale is faded out as the extreme comes in.
+## Set the four anal keys and the independent ponut scale key. The ponut key is a 2x
+## ponut-only scale with a boundary falloff, so the ring, vulva and opening stay put. The
+## extreme key carries its own whole-patch 2x scale and fades the ponut key out.
 func _apply_anal_shape(local: float) -> void:
 	if not is_instance_valid(_mesh) or not _v2_anal:
 		return

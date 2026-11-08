@@ -757,13 +757,9 @@ func apply_live_settings() -> void:
 	_anatomy_refresh()
 	if previous_lines and not _act_lines_enabled() and is_instance_valid(main) and is_instance_valid(main.game):
 		_end_act_lines(true)
-	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
-	if foley or vocals or climax:
-		_ensure_act_audio(foley, vocals, climax)
-	elif is_instance_valid(_act_audio):
-		_act_audio.set_enabled(false, false, false)
+	_ensure_act_audio(vocals, climax)
 	if is_instance_valid(_flank):
 		_apply_jiggle_radius()
 	if _auto_thrust != null:
@@ -3088,12 +3084,10 @@ func _on_impact(result: Dictionary) -> void:
 	_thrust_times.append(now)
 	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
 		_thrust_times.pop_front()
-	_play_kiss(contact)
 	_play_vocal()
 	if is_instance_valid(_act_audio):
-		if _act_audio.foley_enabled():
-			_act_audio.play_impact(pose_id, strength, _rump_point(),
-				_bed_audio_point(), _bed_soft, contact)
+		_act_audio.play_impact(pose_id, strength, _rump_point(),
+			_bed_audio_point(), _bed_soft, contact)
 	_log("thrust impact contact=%.2f plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		contact, 1 if plap else 0, satisfaction, _thrusts_per_second(), strength, impact, jiggle,
 		_last_intensity, _last_pattern])
@@ -5241,10 +5235,8 @@ func _reset_lean_state() -> void:
 	_hold_rock_clock = 0.0
 
 func _play_mouth_kiss() -> void:
-	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
+	if is_instance_valid(_act_audio):
 		_act_audio.play_mouth_kiss(_snout())
-		return
-	_sounds_controller().play_mouth_kiss(_snout())
 
 ## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
 ## start couch actions while the shot is active. The previous value is restored at act end.
@@ -5383,11 +5375,10 @@ func _restore_camera() -> void:
 
 # --------------------------------------------------------------------------- audio
 
-## Create the optional audio node on first use, or update its flags if it already exists.
-## This keeps act_audio.gd and its pack streams out of a both-flags-off act.
-func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
+## Create the audio node on first use, or update its optional layers if it already exists.
+func _ensure_act_audio(vocals: bool, climax: bool) -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(foley, vocals, climax)
+		_act_audio.set_enabled(vocals, climax)
 		return
 	var audio_script: Script = load(ACT_AUDIO_PATH)
 	if audio_script == null:
@@ -5395,18 +5386,16 @@ func _ensure_act_audio(foley: bool, vocals: bool, climax: bool) -> void:
 	_act_audio = audio_script.new()
 	_act_audio.name = "UnfplapActAudio"
 	add_child(_act_audio)
-	_act_audio.setup(foley, vocals, climax)
+	_act_audio.setup(vocals, climax)
 
 func _start_audio() -> void:
 	_stop_audio()
 	_bed_soft = is_instance_valid(bed) \
 		and ("couch" in bed.name.to_lower() or "sofa" in bed.name.to_lower()
 			or "cloth" in bed.name.to_lower())
-	var foley := _feature("act_foley")
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
-	if foley or vocals or climax:
-		_ensure_act_audio(foley, vocals, climax)
+	_ensure_act_audio(vocals, climax)
 	_sounds_controller().start()
 
 func _stop_audio() -> void:
@@ -5420,15 +5409,6 @@ func _stop_audio() -> void:
 func _stop_breath() -> void:
 	if _sounds != null:
 		_sounds.stop_breath()
-
-func _play_kiss(contact := 1.0) -> void:
-	# The impact event owns the plap now, and `contact` gates it: a stroke that stopped short of
-	# her coat has no body slap. Keeping it out of the stroke close avoids a second plap.
-	if is_instance_valid(_act_audio) and _act_audio.foley_enabled():
-		return
-	# Use the mod-owned player in both poses. Calling the game's boop `play_kiss()` increments her
-	# kiss counter, and pony_awareness then tells the AI "The player kissed your face." during sex.
-	_sounds_controller().play_kiss(_rump_point(), contact)
 
 func _play_climax() -> void:
 	_sounds_controller().play_climax(_snout())

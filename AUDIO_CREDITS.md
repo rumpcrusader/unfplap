@@ -1,6 +1,6 @@
 # Act audio credits
 
-The optional act foley and vocal layers in `audio/act/` come from the **OpenNSFW Sound
+The act foley and optional vocal layers in `audio/act/` come from the **OpenNSFW Sound
 Pack**.
 
 ```text

@@ -1,6 +1,6 @@
 extends Node
-## Runtime-owned base-game act sounds: breath, thrust plap and the climax squeak. The optional
-## pack layers stay in act_audio.gd and are gated by their own feature flags.
+## Runtime-owned base-game act sounds: breath and the climax squeak. The pack foley, vocal and
+## wet layers live in act_audio.gd.
 
 const BREATH_BASE_INTERVAL_S := 0.9
 const BREATH_MIN_INTERVAL_S := 0.2
@@ -14,11 +14,7 @@ var _breath: AudioStreamPlayer3D
 var _breath_streams: Array[AudioStream] = []
 var _breath_clock := 0.0
 var _breath_gain := 0.0
-var _kiss_sound: AudioStreamPlayer3D
-var _mouth_kiss_sound: AudioStreamPlayer3D
-var _plap_streams: Array[AudioStream] = []
 var _climax_sound: AudioStreamPlayer3D
-var _kiss_stream: AudioStream
 var _climax_streams: Array[AudioStream] = []
 
 
@@ -44,31 +40,6 @@ func start() -> void:
 	_breath_clock = 0.0
 	_breath_gain = 0.0
 
-	# The boop kiss uses the `kiss_soft_*` pool; use the same streams for the missionary rump plap.
-	_kiss_stream = load("res://world/audio/pony/kiss.wav") if ResourceLoader.exists("res://world/audio/pony/kiss.wav") else null
-	_plap_streams.clear()
-	for i: int in range(1, 41):
-		var path := "res://world/audio/pony/kiss_soft_%02d.wav" % i
-		if ResourceLoader.exists(path):
-			var stream: Resource = load(path)
-			if stream is AudioStream:
-				_plap_streams.append(stream)
-	if _plap_streams.is_empty() and _kiss_stream != null:
-		_plap_streams.append(_kiss_stream)
-	_kiss_sound = AudioStreamPlayer3D.new()
-	_kiss_sound.name = "UnfplapKiss"
-	_kiss_sound.bus = _breath.bus
-	_kiss_sound.unit_size = 1.0
-	_kiss_sound.max_distance = 6.0
-	add_child(_kiss_sound)
-
-	_mouth_kiss_sound = AudioStreamPlayer3D.new()
-	_mouth_kiss_sound.name = "UnfplapMouthKiss"
-	_mouth_kiss_sound.bus = _breath.bus
-	_mouth_kiss_sound.unit_size = 1.0
-	_mouth_kiss_sound.max_distance = 4.0
-	add_child(_mouth_kiss_sound)
-
 	_climax_streams.clear()
 	for path: String in ["res://world/audio/pony/squee_1.ogg", "res://world/audio/pony/squee_2.ogg"]:
 		if ResourceLoader.exists(path):
@@ -84,50 +55,17 @@ func start() -> void:
 
 
 func stop() -> void:
-	for player: AudioStreamPlayer3D in [_breath, _kiss_sound, _mouth_kiss_sound, _climax_sound]:
+	for player: AudioStreamPlayer3D in [_breath, _climax_sound]:
 		if is_instance_valid(player):
 			player.stop()
 			player.queue_free()
 	_breath = null
-	_kiss_sound = null
-	_mouth_kiss_sound = null
 	_climax_sound = null
 
 
 func stop_breath() -> void:
 	if is_instance_valid(_breath):
 		_breath.stop()
-
-
-## Play the low plap used when pack foley is off. The caller owns the foley-on check and the
-## contact gate: `contact` is 0 when his skin never met her coat at the bottom of the stroke.
-func play_kiss(at: Vector3, contact := 1.0) -> void:
-	var touch := clampf(contact, 0.0, 1.0)
-	if touch <= 0.001:
-		return
-	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
-	if stream == null or not is_instance_valid(_kiss_sound):
-		return
-	_kiss_sound.stream = stream
-	_kiss_sound.global_position = at
-	_kiss_sound.unit_size = 1.0
-	_kiss_sound.max_distance = 6.0
-	_kiss_sound.volume_db = -22.0 + lerpf(-10.0, 0.0, touch)
-	_kiss_sound.pitch_scale = randf_range(0.95, 1.05)
-	_kiss_sound.play()
-
-
-func play_mouth_kiss(at: Vector3) -> void:
-	if not is_instance_valid(_mouth_kiss_sound):
-		return
-	var stream: AudioStream = _plap_streams.pick_random() if not _plap_streams.is_empty() else _kiss_stream
-	if stream == null:
-		return
-	_mouth_kiss_sound.stream = stream
-	_mouth_kiss_sound.global_position = at
-	_mouth_kiss_sound.volume_db = -22.0
-	_mouth_kiss_sound.pitch_scale = randf_range(0.97, 1.03)
-	_mouth_kiss_sound.play()
 
 
 func play_climax(at: Vector3) -> void:

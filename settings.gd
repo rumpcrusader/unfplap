@@ -2,7 +2,7 @@ extends RefCounted
 ## The one settings module: every global setting, the settings file, and the per-mare profiles.
 ##
 ##   const SETTINGS := preload("res://mods/unfplap/settings.gd")
-##   if SETTINGS.act_foley.get_bool(): ...
+##   if SETTINGS.act_vocals.get_bool(): ...
 ##   SETTINGS.smack_raise.set(0.25)
 ##
 ## Every setting is declared once in the declarations block below: name, JSON path, label, help,
@@ -76,7 +76,7 @@ const WORLD := "world"
 
 # ---------------------------------------------------------------- settings
 ## One setting, declared once below. Call sites use the typed accessor on the named setting:
-## `SETTINGS.act_foley.get_bool()`; the JSON path appears only in the declaration.
+## `SETTINGS.act_vocals.get_bool()`; the JSON path appears only in the declaration.
 class Setting:
 	var name: String
 	var path: String
@@ -537,15 +537,11 @@ static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 # -- Audio  (debug)
 static var act_climax := flag("act_climax", "features.act_climax", false, "Play wet climax",
 	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
-	GENERAL, "Audio") \
-	.as_debug()
-static var act_foley := flag("act_foley", "features.act_foley", true, "Play act foley",
-	"Use the pack's thrust, slide, bed/fabric, mouth-kiss and flank-smack sounds. Off restores the current kiss-sample plap and the stock flank slap.",
-	GENERAL, "Audio") \
+	GENERAL, "") \
 	.as_debug()
 static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Play act vocals",
 	"Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
-	GENERAL, "Audio") \
+	GENERAL, "") \
 	.as_debug()
 
 # -- Camera  (debug)
@@ -1149,6 +1145,8 @@ static var _deprecated := [
 		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),
 	# The separate log switch folded into the debug switch.
 	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
+	# Pack foley is always on; the switch is retired.
+	deprecated("features.act_foley", func(_value: Variant) -> Dictionary: return {}),
 	# Thrust sensitivity is now a physical scale: pixels per centimetre of hip travel. The old
 	# value was pixels for one full stroke; 20 cm is the reference shaft, so its feel is kept.
 	deprecated("thrust.pixels_per_full",

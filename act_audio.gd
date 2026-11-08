@@ -1,6 +1,6 @@
 extends Node
-## Optional OpenNSFW act audio. The runtime creates this node only when `act_foley` or
-## `act_vocals` is on, so both flags off never loads a pack stream or allocates a player.
+## OpenNSFW act audio. The runtime creates this node for every act; the foley layer is always
+## on, while `vocals` and `climax` are optional flags.
 ##
 ## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `vocals`
 ## covers only the pack climax moan. `climax` is the separate wet finish layer. The mod's pony
@@ -17,7 +17,6 @@ const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
 
-var _foley := false
 var _vocals := false
 var _climax := false
 var _pools: Dictionary = {}
@@ -27,13 +26,9 @@ var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 
-func setup(foley: bool, vocals: bool, climax: bool) -> void:
+func setup(vocals: bool, climax: bool) -> void:
 	_rng.randomize()
-	set_enabled(foley, vocals, climax)
-
-
-func foley_enabled() -> bool:
-	return _foley
+	set_enabled(vocals, climax)
 
 
 func vocals_enabled() -> bool:
@@ -44,21 +39,18 @@ func climax_enabled() -> bool:
 	return _climax
 
 
-## Rebuild only the layer that changed. Called at start and from apply_live_settings().
-func set_enabled(foley: bool, vocals: bool, climax: bool) -> void:
-	if foley == _foley and vocals == _vocals and climax == _climax and not _pools.is_empty():
+## Rebuild only the optional layer that changed. The foley group is always built. Called at
+## start and from apply_live_settings().
+func set_enabled(vocals: bool, climax: bool) -> void:
+	if vocals == _vocals and climax == _climax and not _pools.is_empty():
 		return
-	if _foley and not foley:
-		_clear_group("foley")
 	if _vocals and not vocals:
 		_clear_group("vocals")
 	if _climax and not climax:
 		_clear_group("climax")
-	_foley = foley
 	_vocals = vocals
 	_climax = climax
-	if _foley:
-		_build_group("foley")
+	_build_group("foley")
 	if _vocals:
 		_build_group("vocals")
 	if _climax:
@@ -181,8 +173,6 @@ func play_plap(pose: String, intensity: String, strength: float, at: Vector3,
 ## short has no body slap. The bed fabric and the slide are not gated.
 func play_impact(pose: String, strength: float, rump: Vector3,
 		bed_at: Vector3, soft_bed: bool, contact := 1.0) -> void:
-	if not _foley:
-		return
 	var level := clampf(strength, 0.0, 1.0)
 	var touch := clampf(contact, 0.0, 1.0)
 	var intensity := PREFERENCES.intensity_for(level)
@@ -228,7 +218,7 @@ func crossed(before: float, after: float) -> bool:
 ## Withdraw only. The impact layer is fired from play_impact() on the tracker's impact event.
 func withdraw_crossed(before: float, after: float, strength: float, pose: String,
 		rump: Vector3, bed_at: Vector3, soft_bed: bool) -> void:
-	if not _foley or not (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH):
+	if not (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH):
 		return
 	var level := clampf(strength, 0.0, 1.0)
 	play_slide("out", level, rump, -4.0)

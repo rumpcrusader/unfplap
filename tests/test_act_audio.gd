@@ -88,34 +88,31 @@ func run() -> void:
 				check((stream as AudioStream).get_length() > 0.02, "stream length: " + cue)
 
 	var act: Node = ACT.new()
-	act.setup(false, false, false)
-	check(not act.foley_enabled() and not act.vocals_enabled(), "both flags off")
-	check((act.get("_pools") as Dictionary).is_empty(), "off/off allocates no players")
-
-	act.setup(true, false, false)
+	act.setup(false, false)
+	check(not act.vocals_enabled() and not act.climax_enabled(), "optional layers off")
 	var pools: Dictionary = act.get("_pools")
-	check(act.foley_enabled() and not act.vocals_enabled(), "foley only")
-	check(pools.has("plap_firm"), "foley pool built")
+	check(pools.has("plap_firm"), "foley pool is always built")
 	check(not pools.has("climax_voice"), "vocal pool not built")
+	check(not pools.has("climax_wet"), "wet pool not built")
 
-	act.set_enabled(false, true, false)
+	act.set_enabled(true, false)
 	pools = act.get("_pools")
-	check(not act.foley_enabled() and act.vocals_enabled(), "vocals only")
-	check(not pools.has("plap_firm"), "foley pool cleared")
+	check(act.vocals_enabled() and not act.climax_enabled(), "vocals only")
+	check(pools.has("plap_firm"), "foley pool stays built")
 	check(pools.has("climax_voice"), "climax voice pool built after switch")
 	check(not pools.has("climax_wet"), "wet climax stays off with vocals only")
-	act.set_enabled(false, false, true)
+	act.set_enabled(false, true)
 	pools = act.get("_pools")
 	check(act.climax_enabled() and pools.has("climax_wet"), "wet climax builds only from its own flag")
-	act.set_enabled(false, true, true)
+	act.set_enabled(true, true)
 
-	act.set_enabled(false, false, false)
-	check((act.get("_pools") as Dictionary).is_empty(), "both off clears every pool")
+	act.set_enabled(false, false)
+	check(not (act.get("_pools") as Dictionary).is_empty(), "foley stays after optional layers clear")
 
 	var parent := Node3D.new()
 	root.add_child(parent)
 	parent.add_child(act)
-	act.setup(true, false, false)
+	act.setup(false, false)
 	act.play_impact(CATALOG.MISSIONARY, 0.2, Vector3.ZERO, Vector3.ZERO, false)
 	var ready_at: Dictionary = act.get("_ready_at")
 	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "soft impact emits no plap")
@@ -123,7 +120,7 @@ func run() -> void:
 	check(float(ready_at.get("fabric", 0.0)) == 0.0, "a wood bed has no bed cue")
 	check(not act.play_plap(CATALOG.MISSIONARY, "soft", 0.2, Vector3.ZERO),
 		"soft plap call is refused")
-	act.set_enabled(true, false, false)
+	act.set_enabled(false, false)
 	ready_at = act.get("_ready_at")
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
@@ -157,43 +154,40 @@ func run() -> void:
 		if smack_stream is AudioStream:
 			var seconds := (smack_stream as AudioStream).get_length()
 			check(seconds > 0.05 and seconds < 1.0, "smack stream length: " + path)
-	act.set_enabled(false, true, false)
+	act.set_enabled(true, false)
 	act.play_climax_voice(Vector3.ZERO)
 	check(act.vocals_enabled(), "climax voice accepted after a live toggle")
-	check(not act.play_plap(CATALOG.STANDING, "rough", 0.9, Vector3.ZERO),
-		"foley plap is off after a live toggle")
+	ready_at = act.get("_ready_at")
+	ready_at["plap_standing"] = 0.0
+	check(act.play_plap(CATALOG.STANDING, "rough", 0.9, Vector3.ZERO),
+		"foley plap stays on after a live toggle")
 	act.stop()
 	parent.remove_child(act)
 	act.free()
 	parent.free()
 
-	# Runtime integration: both flags off leaves the pack node out entirely; either flag on
-	# creates it. _start_audio() also builds the existing fallback players.
+	# Runtime integration: the pack node is created for every act; vocals and climax are optional.
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime.bed = Node3D.new()
-	runtime._features = {"act_foley": false, "act_vocals": false, "act_climax": false}
+	runtime._features = {"act_vocals": false, "act_climax": false}
 	root.add_child(runtime)
 	runtime._start_audio()
-	check(not runtime.has_node("UnfplapActAudio"), "off/off starts no pack audio node")
+	check(runtime.has_node("UnfplapActAudio"), "foley starts the pack audio node")
 	runtime._stop_audio()
-	runtime._features = {"act_foley": true, "act_vocals": false, "act_climax": false}
+	runtime._features = {"act_vocals": true, "act_climax": false}
 	runtime._start_audio()
-	check(runtime.has_node("UnfplapActAudio"), "foley on starts the pack audio node")
+	check(runtime.has_node("UnfplapActAudio"), "vocals on keeps the pack audio node")
 	runtime._stop_audio()
-	runtime._features = {"act_foley": false, "act_vocals": true, "act_climax": false}
+	runtime._features = {"act_vocals": false, "act_climax": true}
 	runtime._start_audio()
-	check(runtime.has_node("UnfplapActAudio"), "vocals on starts the pack audio node")
-	runtime._stop_audio()
-	runtime._features = {"act_foley": false, "act_vocals": false, "act_climax": true}
-	runtime._start_audio()
-	check(runtime.has_node("UnfplapActAudio"), "climax on starts the pack audio node")
+	check(runtime.has_node("UnfplapActAudio"), "climax on keeps the pack audio node")
 	runtime._stop_audio()
 	root.remove_child(runtime)
 	runtime.free()
 
-	# The native FlankTouch player is the smack voice: act_foley on swaps in a pack variant at
-	# impact time, off restores the stock stream, level and pitch.
+	# The native FlankTouch player is the smack voice: the act swaps in a pack variant at
+	# impact time and restores the stock stream, level and pitch at act end.
 	var smack_pony := Node3D.new()
 	root.add_child(smack_pony)
 	var flank := Node3D.new()
@@ -208,16 +202,12 @@ func run() -> void:
 	flank.add_child(smack_player)
 	var smack_runtime: Node = RUNTIME.new()
 	smack_runtime.pony = smack_pony
-	smack_runtime._features = {"act_foley": false}
 	root.add_child(smack_runtime)
 	var caress: RefCounted = CAESS.new(smack_runtime)
 	caress.set("pony", smack_pony)
 	caress.call("_install_smack_sound")
-	check(smack_player.stream == stock_stream, "act_foley off keeps the stock smack")
-	smack_runtime._features = {"act_foley": true}
-	caress.call("_install_smack_sound")
 	check(smack_player.stream != stock_stream and smack_player.stream is AudioStream,
-		"act_foley installs a pack smack")
+		"the act installs a pack smack")
 	check(near(smack_player.volume_db, CAESS.SMACK_VOLUME_DB), "pack smack uses its own level")
 	check(smack_player.pitch_scale >= CAESS.SMACK_PITCH_MIN
 		and smack_player.pitch_scale <= CAESS.SMACK_PITCH_MAX, "pack smack varies its pitch")
@@ -225,10 +215,6 @@ func run() -> void:
 	check(smack_player.stream == stock_stream, "smack restore puts the stock stream back")
 	check(near(smack_player.volume_db, -10.0) and near(smack_player.pitch_scale, 1.2),
 		"smack restore puts the stock level and pitch back")
-	caress.call("_install_smack_sound")
-	smack_runtime._features = {"act_foley": false}
-	caress.call("_sync")
-	check(smack_player.stream == stock_stream, "live foley off restores the stock smack")
 	caress = null
 	root.remove_child(smack_runtime)
 	smack_runtime.free()

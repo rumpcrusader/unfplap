@@ -191,8 +191,8 @@ mods/unfplap/
   chin_debug.gd     debug head-pitch skeleton modifier
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
-  act_sound.gd      base-game breath, plap, mouth-kiss and climax players
-  act_audio.gd      optional pack foley/vocal/wet layers
+  act_sound.gd      base-game breath and climax players
+  act_audio.gd      pack foley/vocal/wet layers
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
@@ -674,13 +674,12 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
   `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the old
   hidden-hand `SMACK_SWING_SECONDS = 0.20` swing, impacting at `SMACK_CONTACT_PHASE = 0.45`. A
   `SMACK_COOLDOWN_MS = 200` gate remains; a new smack waits for the current recovery.
-- It reuses the decal, blush, jiggle and expression. With `act_foley` on, the act installs one
-  peak-normalised OpenNSFW hand-smack variant from `audio/act/smack/` (two samples, never the
-  same one twice in a row) on the native sound player immediately before the impact, with a
-  small pitch jitter; `act_foley` off keeps the stock `flank_slap.wav`. The stock stream, level
-  and pitch are restored at act end. The pony's `physical_reaction` connections are temporarily
-  disconnected around the call, so `flank_smack` cannot trigger the game's buck/fidget/hoof
-  shuffle or a bond/context/memory/satisfaction event.
+- It reuses the decal, blush, jiggle and expression. The act installs one peak-normalised
+  OpenNSFW hand-smack variant from `audio/act/smack/` (two samples, never the same one twice in a
+  row) on the native sound player immediately before the impact, with a small pitch jitter. The
+  stock stream, level and pitch are restored at act end. The pony's `physical_reaction`
+  connections are temporarily disconnected around the call, so `flank_smack` cannot trigger the
+  game's buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
 - A right lean (`side > 0`) selects the left cheek index; a left lean selects the right; exactly
   centered picks one at random. The index chooses which cheek decal reddens; standing's contact
   point is the live caress point or the bottom of that cheek. There is no rump target.
@@ -1350,7 +1349,7 @@ examples.
 
 **Every global setting is declared once, in `settings.gd`.** One declaration line names it, its JSON
 path, label, help, tab, group, default and bounds; call sites use the typed accessor on the named
-setting (`SETTINGS.act_foley.get_bool()`, `SETTINGS.raise_m.set(0.2)`) and never a string path.
+setting (`SETTINGS.act_vocals.get_bool()`, `SETTINGS.raise_m.set(0.2)`) and never a string path.
 `settings_ui.gd` draws the panels from the declarations. Never add a widget, a defaults constant or
 a save function for a setting anywhere else. A setting becomes a debug setting with `.as_debug()`,
 which also removes its clamp. The full contract is `TUNING.md`.
@@ -1403,7 +1402,6 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_public_offer` | `true` | per-mare public consent affects offers |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
-| `act_foley` | `true` | pack thrust, slide, bed/fabric, mouth-kiss and flank-smack foley |
 | `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 
@@ -1539,7 +1537,7 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Audio**, **Camera**, **Talk & cues**, **Missionary** (with a
+  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (with a
   **Neck angles** subheading), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
   subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Anon part** and **Actions**. **World** opens

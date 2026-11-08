@@ -79,9 +79,9 @@ const SMACK_PHASE_RAISE := 1
 const SMACK_PHASE_STRIKE := 2
 const SMACK_PHASE_CONTACT := 3
 const SMACK_PHASE_RECOVER := 4
-## The stock flank slap is bright and compressed. With act_foley on, install a peak-normalised
-## OpenNSFW hand-smack variant on the native FlankTouch player; the stock stream, level and
-## pitch are restored at act end.
+## The stock flank slap is bright and compressed. Install a peak-normalised OpenNSFW hand-smack
+## variant on the native FlankTouch player; the stock stream, level and pitch are restored at
+## act end.
 const SMACK_VOLUME_DB := -7.0
 const SMACK_PITCH_MIN := 0.97
 const SMACK_PITCH_MAX := 1.03
@@ -1382,16 +1382,6 @@ func _end_smack_swing() -> void:
 	_smack_outward = Vector3.UP
 
 
-## True while the active act has the optional pack foley layer on. The runtime caches the
-## feature flags at act start and refreshes them from the settings tab, so this is the live
-## value and can turn the pack smack off during an act.
-func _act_foley_on() -> bool:
-	if not is_instance_valid(runtime):
-		return false
-	var features: Variant = runtime.get("_features")
-	return features is Dictionary and bool((features as Dictionary).get("act_foley", false))
-
-
 func _smack_sound_player() -> AudioStreamPlayer3D:
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
@@ -1425,12 +1415,8 @@ func _next_smack_stream(count: int) -> int:
 
 
 ## Install one pack smack variant on the native player immediately before `impact()`, so the
-## sound lands on the same frame as the decal and blush. With pack foley off the stock
-## `flank_slap.wav` stays in place and plays instead.
+## sound lands on the same frame as the decal and blush.
 func _install_smack_sound() -> void:
-	if not _act_foley_on():
-		_restore_smack_sound()
-		return
 	var player := _smack_sound_player()
 	if player == null:
 		return
@@ -1451,8 +1437,7 @@ func _install_smack_sound() -> void:
 	player.pitch_scale = randf_range(SMACK_PITCH_MIN, SMACK_PITCH_MAX)
 
 
-## Put the stock slap stream, level and pitch back. Called at every act exit and whenever
-## act_foley is switched off live.
+## Put the stock slap stream, level and pitch back. Called at every act exit.
 func _restore_smack_sound() -> void:
 	if not _smack_sound_installed:
 		return
@@ -1510,8 +1495,6 @@ func _sync() -> void:
 	_profile = profile if profile is Dictionary else {}
 	if not is_instance_valid(_flank) and is_instance_valid(pony):
 		_flank = pony.get_node_or_null("FlankTouch")
-	if _smack_sound_installed and not _act_foley_on():
-		_restore_smack_sound()
 
 
 func _init(runtime_node: Node = null) -> void:

@@ -20,7 +20,7 @@ through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other p
 ```gdscript
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
-if SETTINGS.act_foley.get_bool(): ...
+if SETTINGS.act_vocals.get_bool(): ...
 var raise_m: float = SETTINGS.raise_m.get_num()
 var orientation: String = SETTINGS.orientation.get_choice()
 var ignored: Array = SETTINGS.ignore.get_list()
@@ -41,7 +41,7 @@ SETTINGS.radius.reset()
 Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`, `label`, `help`,
 `tab`, `group`, `default` and `debug`.
 
-A wrong accessor does not compile: `SETTINGS.act_foley.get_num()` is a parse error, and so is a
+A wrong accessor does not compile: `SETTINGS.act_vocals.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 
 **Bulk snapshots.** `SETTINGS.block(prefix)` returns the nested dictionary under a dotted prefix and
@@ -99,7 +99,7 @@ where a player would look for it, next to the setting it belongs to; do not add 
 ## Naming
 
 The identifier is the JSON path's last segment: `thrust.travel` → `travel`,
-`features.act_foley` → `act_foley`. Only on a collision with another setting does it gain the parent
+`features.act_vocals` → `act_vocals`. Only on a collision with another setting does it gain the parent
 segment as a prefix (`jiggle.intensity` → `intensity`; a second `intensity` would become
 `jiggle_intensity`). Keep names short; the panel group carries the context. Do not add group
 prefixes pre-emptively.

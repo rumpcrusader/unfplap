@@ -276,6 +276,9 @@ func run() -> void:
 		var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
 		check(aim.distance_to(v2_mi.global_transform * ANATOMY.V2_ANAL_RING_EXTREME) < 0.0001,
 			"the anal act aims at the deformed V2 ring")
+		v2_anatomy.call("_apply_anal_shape", 0.080)
+		check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,
+			"an oversized shaft extrapolates the V2 extreme")
 		v2_anatomy.free()
 		v2_root.free()
 

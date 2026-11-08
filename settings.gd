@@ -911,6 +911,11 @@ static var anal_hug_mm := num("anal_hug_mm", "anatomy.anal_hug_mm", 0.0,
 	"Pad the gap between the cock and the anal opening. Positive opens it wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
 	.as_debug()
+static var anal_aim_mm := num("anal_aim_mm", "anatomy.anal_aim_mm", 0.0,
+	"Anal aim height",
+	"Raise or lower the V2 anal penetration point. Negative lowers it; the mesh itself does not move.", ANATOMY, "Holes") \
+	.with_unit("mm").with_step(0.5).with_range(-40.0, 40.0) \
+	.as_debug()
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical", 1.0,
 	"Lip vertical share",
 	"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.", ANATOMY, "Holes") \

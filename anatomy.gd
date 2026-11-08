@@ -687,11 +687,12 @@ func _apply_body_coat_uniforms() -> void:
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
 	var anal_centre := BODY_ANAL_CENTRE
+	var anal_extreme := maxf(0.0, (_anal_local - ANAL_OVER_R) / (ANAL_EXTREME_R - ANAL_OVER_R))
 	if _v2_anal:
 		anal_centre = body_local_point(_hips_bind, _mesh.transform, _anal_mouth)
 	var anal_still_centre := anal_centre
 	var anal_still_radius := anal_still_radius_for(ANAL_LIP, ANAL_OUTER_FACTOR, scale,
-		SETTINGS.anal_still.get_num())
+		SETTINGS.anal_still.get_num()) * (1.0 + anal_extreme)
 	_zone_vulva_centre = still_centre
 	_zone_anal_centre = anal_still_centre
 	_zone_vulva_radius = still_radius
@@ -699,7 +700,8 @@ func _apply_body_coat_uniforms() -> void:
 	_zone_axes = Basis(right_axis, up_axis, out_axis)
 	_zone_oval = SETTINGS.still_oval.get_num()
 	_zone_fade = SETTINGS.still_fade.get_num()
-	var anal_scale := SETTINGS.anal_scale.get_num()
+	# Follow the extrapolated V2 extreme so the visible body mound wraps the same ring.
+	var anal_scale := SETTINGS.anal_scale.get_num() * (1.0 + anal_extreme)
 	for material in [_body_material, _body_outline]:
 		if not is_instance_valid(material):
 			continue
@@ -1082,7 +1084,12 @@ func anal_mesh() -> MeshInstance3D:
 
 func hole_local(mix: float) -> Vector3:
 	var anal := _anal_mouth if _v2_anal else ANAL_OPENING
-	return WINKING_OPENING.lerp(anal, mix)
+	var t := clampf(mix, 0.0, 1.0)
+	var local := WINKING_OPENING.lerp(anal, t)
+	if _v2_anal and is_instance_valid(_mesh):
+		var scale := maxf(_mesh.global_transform.basis.get_scale().y, 0.0001)
+		local += Vector3(0.0, SETTINGS.anal_aim_mm.get_num() / 1000.0 * t / scale, 0.0)
+	return local
 
 
 func hole_point(mix: float) -> Vector3:
@@ -1091,7 +1098,11 @@ func hole_point(mix: float) -> Vector3:
 	var point := _mesh.global_transform * WINKING_OPENING
 	if not _v2_anal:
 		return point
-	return point.lerp(_mesh.global_transform * _anal_mouth, clampf(mix, 0.0, 1.0))
+	var t := clampf(mix, 0.0, 1.0)
+	var anal := _mesh.global_transform * _anal_mouth
+	anal += _mesh.global_transform.basis.y.normalized() \
+		* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
+	return point.lerp(anal, t)
 
 
 func hole_rear(mix := 0.0) -> Vector3:
@@ -1330,10 +1341,11 @@ func _apply_anal_shape(local: float) -> void:
 	var open := clampf(local / ANAL_OPEN_R, 0.0, 1.0)
 	var stretch := clampf((local - ANAL_OPEN_R) / (ANAL_STRETCH_R - ANAL_OPEN_R), 0.0, 1.0)
 	var over := clampf((local - ANAL_STRETCH_R) / (ANAL_OVER_R - ANAL_STRETCH_R), 0.0, 1.0)
-	var extreme := clampf((local - ANAL_OVER_R) / (ANAL_EXTREME_R - ANAL_OVER_R), 0.0, 1.0)
+	# No upper clamp: an oversized shaft extrapolates the extreme so the ring can still wrap it.
+	var extreme := maxf(0.0, (local - ANAL_OVER_R) / (ANAL_EXTREME_R - ANAL_OVER_R))
 	# The ponut key is a 2x scale, so the setting maps 0.5..1.5 to -0.5..0.5 weight.
 	# Negative weights shrink the mound; the extreme key already carries its own 2x scale.
-	var ponut := (SETTINGS.anal_scale.get_num() - 1.0) * (1.0 - extreme)
+	var ponut := (SETTINGS.anal_scale.get_num() - 1.0) * maxf(0.0, 1.0 - extreme)
 	_anal_mouth = V2_ANAL_RING_BASE \
 		+ (V2_ANAL_RING_OPEN - V2_ANAL_RING_BASE) * open \
 		+ (V2_ANAL_RING_STRETCH - V2_ANAL_RING_OPEN) * stretch \

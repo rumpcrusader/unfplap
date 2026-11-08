@@ -10,6 +10,10 @@ extends RefCounted
 ## ears, wings, mane and tail stay with the game and the act (see `PONY_BONES` in the pose lab).
 ## The pose is blended by weight every frame from whatever the game's `lie_down` settle has put on
 ## the skeleton, so the act's POSING_IN ramp still eases her into it.
+##
+## Body bones are **rotated only**: their position is always the rig's own rest. The authored pose
+## cannot lengthen a limb or displace a joint, and an asset that carries a stale position cannot
+## stretch her. Only the skeleton root is placed (see `pony_frame`).
 
 const PATH := "res://mods/unfplap/poses/missionary_pose.json"
 ## Version 4 stores bed-relative transforms; version 6 stores every body bone, including the ones
@@ -125,9 +129,11 @@ func apply_pony(sk: Skeleton3D, weight: float, bed_frame: Transform3D, body_scal
 		var name := str(key)
 		var entry: Dictionary = pony_bones[name]
 		var rotation: Quaternion = entry["rotation"]
-		var position: Vector3 = entry["position"]
+		# Rotate only. The rig's rest position is the only length a bone may have; a stored position
+		# is informational (the exporter writes rest), never a stretch.
 		sk.set_bone_pose_rotation(bone, sk.get_bone_pose_rotation(bone).slerp(rotation, weight))
-		sk.set_bone_pose_position(bone, sk.get_bone_pose_position(bone).lerp(position, weight))
+		sk.set_bone_pose_position(bone,
+			sk.get_bone_pose_position(bone).lerp(sk.get_bone_rest(bone).origin, weight))
 	return true
 
 

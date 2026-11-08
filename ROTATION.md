@@ -46,6 +46,10 @@ space, with the nuzzle and gaze overlays on top. There is no second implementati
   game's own pose and breaks the chain it hangs from. Version 5 skipped rest bones; version 6 stores
   them, and `MIN_VERSION` is 6. The lab reads bed-space transforms for every version from
   `BED_SPACE_VERSION` 4 on, so an older file is never applied as lab world.
+- **Rotations only.** A body bone is never moved: its position is always the rig's rest, and a stored
+  position in the file is informational (the exporter writes rest). So a stale asset cannot lengthen
+  the neck or displace a flank, which is what made the first authored exports look like a broken rig.
+  Only the skeleton root carries a placement.
 - **Placement** is `bed_frame * (pony_frame with its origin × body_scale)`. Scaling only the
   distance keeps a larger pony's body on the mattress instead of in it. The pose is authored at
   canon size; other sizes are not tuned yet.

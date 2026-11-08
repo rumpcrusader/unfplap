@@ -124,6 +124,21 @@ func _initialize() -> void:
 			resume_name = name
 	print("[pose_runtime] apply over a posed rig worst=%.5f m %s" % [worst_resume, resume_name])
 
+	# Rotations only: no body bone may be longer than the rig's rest. A stored position that lengthens
+	# the neck or displaces a flank is what made the authored pose look like a broken rig.
+	var stretch := 0.0
+	var stretch_name := ""
+	for name: String in BODY_BONES:
+		var bone := skeleton.find_bone(name)
+		if bone < 0 or skeleton.get_bone_parent(bone) < 0:
+			continue
+		var delta := absf(skeleton.get_bone_pose_position(bone).length()
+			- skeleton.get_bone_rest(bone).origin.length())
+		if delta > stretch:
+			stretch = delta
+			stretch_name = name
+	print("[pose_runtime] longest bone stretch=%.5f m %s" % [stretch, stretch_name])
+
 	# Shape checks in bed space: she rests on the mattress, her head is toward the head end, and
 	# her hind hooves are lifted around him.
 	var hips: Vector3 = frame.affine_inverse() * (baked["pony_hips"] as Vector3)
@@ -133,8 +148,8 @@ func _initialize() -> void:
 	var head_forward := head.z
 	var hoof_up := hoof.y - hips.y
 	print("[pose_runtime] bed space hips=%.3f head=%.3f hoof=%.3f" % [hips_up, head_forward, hoof_up])
-	var ok := worst <= 0.001 and worst_resume <= 0.001 and hips_up > 0.0 and hips_up < 0.15 \
-		and head_forward > 0.2 and hoof_up > 0.2
+	var ok := worst <= 0.001 and worst_resume <= 0.001 and stretch <= 0.001 \
+		and hips_up > 0.0 and hips_up < 0.15 and head_forward > 0.2 and hoof_up > 0.2
 	print("[pose_runtime] %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 

@@ -258,6 +258,9 @@ loaded.
   holds and never resets the rig, so a missing bone keeps the game's pose and breaks its chain (that
   was the v5 bug; `MIN_VERSION` is 6). The lab reads bed-space transforms for every file from
   `BED_SPACE_VERSION` 4 up, never tied to the current version.
+- Body bones are **rotated only**: the runtime writes the rig's own rest position for every one of
+  them and the exporter stores rest positions, so no asset can stretch or displace a joint. Only the
+  root carries a placement.
 - The head bone is reset to rest; the gaze solve owns the face. The pose lab has no head mesh, so
   baked head rotations are rejected.
 - The overlays use `rig.rotate_free` on this path: the authored pose can sit outside the joint

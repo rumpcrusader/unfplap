@@ -622,9 +622,11 @@ func _save_bones(sk: Skeleton3D, allowed: Array) -> Dictionary:
 		var name := sk.get_bone_name(i)
 		if not allowed.is_empty() and not allowed.has(name):
 			continue
+		# Rotation is the pose. The position is written as the rig's rest, so the file never claims a
+		# longer bone than the rig has; the runtime only reads the rotation.
 		out[name] = {
 			"rotation": _quat_to_str(sk.get_bone_pose_rotation(i)),
-			"position": _vec_to_str(sk.get_bone_pose_position(i)),
+			"position": _vec_to_str(sk.get_bone_rest(i).origin),
 		}
 	return out
 
@@ -641,7 +643,9 @@ func _load_bones(sk: Skeleton3D, bones: Variant) -> void:
 			continue
 		var entry: Dictionary = (bones as Dictionary)[bone]
 		sk.set_bone_pose_rotation(i, _str_to_quat(str(entry.get("rotation", ""))))
-		sk.set_bone_pose_position(i, _str_to_vec(str(entry.get("position", ""))))
+		# Rotation is the pose. A stored position is informational: the rig's own rest is the only
+		# length a bone may have, so a stale position in an old file cannot stretch her here either.
+		sk.set_bone_pose_position(i, sk.get_bone_rest(i).origin)
 	sk.force_update_all_bone_transforms()
 
 

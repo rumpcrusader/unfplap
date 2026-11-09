@@ -851,22 +851,26 @@ custom head-aim path below.
 The old capsule/point path remains the fallback.
 
 - `caress/caress_surface.gd` builds a **posed triangle patch** of the visible `MareBody`/head mesh
-  around the path query. It filters by the body region (`torso`, `neck`, `head`) and a rest-space
-  window, skins only that patch (max 30 updates/s), and answers closest point/normal/distance.
-  Source arrays are cached per mesh/skin/region/window; `closest()` reports `inside`.
+  around the path query. It filters by the body region (`torso` includes the neck, `head`) and a
+  0.28 m rest-space window, skins only that patch (max 30 updates/s), and answers closest
+  point/normal/distance. A `TriangleMesh` ray gives `nearest(point, outward)` for the hand samples;
+  the full closest loop is the fallback. Source arrays are cached per mesh/skin/region/window;
+  `closest()` reports `inside`.
 - `caress/caress_hand.gd` is the hand shape. The palm marker is the palm centre; local `-Z` is the
-  fingers, `+Y` the thumb, palm normal `±X`. It carries a 4 cm palm ball, heel, four finger tips
-  and a thumb; `palm` and `fingertip` modes; `resolve()` pushes the marker out until every sample
-  is outside the surface plus `CONTACT_MARGIN`/`Raise over coat`. A palm ball radius is no longer
-  a 2 cm point offset.
+  fingers, `+Y` the thumb, palm normal `±X`. It carries a 2 cm palm ball, 2 cm heel, four 1.2 cm
+  finger tips and a 1.5 cm thumb; `palm` and `fingertip` modes; `resolve()` uses the surface ray
+  and pushes the marker out until every sample is outside the surface plus `CONTACT_MARGIN`/
+  `Raise over coat`. A palm radius is no longer a single point offset.
 - `caress/caress_arm.gd` plans the missionary reach: shoulder/body shift caps, arm stretch cap,
   target clamp and the actual solved target. `missionary_anon` writes the hand at the planned
   target, never at an unreachable raw target, so the hand cannot detach/stretch across a gap. The
   `caress_debug` log reports `reachable/shoulder/body/stretch`.
 - `standing_caress.gd` feeds the standing arm's existing game IK with the new hand-resolved palm
-  target. For standing it uses a `CoatProbe` adapter over the exact `FlankSurface`/hull query; for
-  missionary it uses the exact body/head surface. The feature only changes the caress; smack,
-  reach, scoring and the rest of the standing arm stay on the existing path.
+  target. Both poses query the exact body/head triangle surface: standing uses the `torso` patch,
+  missionary queries both `torso` and `head` and picks the closer contact. The old capsule hull
+  target is never used for the precise hand; if both surfaces fail, the last good precise target
+  is held. The feature only changes the caress; smack, reach, scoring and the rest of the standing
+  arm stay on the existing path.
 - `features.caress_debug` logs one precise contact line per act with the face count and
   build/query microseconds; `perf` gets `caress_surface`, `caress_hand` and `caress_precise`
   chunks. The debug caps are `features.caress_reach_shoulder_m` (12 cm),

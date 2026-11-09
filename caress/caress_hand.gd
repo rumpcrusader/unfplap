@@ -3,10 +3,10 @@ extends RefCounted
 ## and a penetration resolver against the posed surface. The marker is the game's palm frame;
 ## local -Z is the fingers, +Y the thumb, and the palm normal is +/-X per hand.
 
-const PALM_RADIUS := 0.04
-const HEEL_RADIUS := 0.035
-const FINGER_RADIUS := 0.014
-const THUMB_RADIUS := 0.02
+const PALM_RADIUS := 0.02
+const HEEL_RADIUS := 0.02
+const FINGER_RADIUS := 0.012
+const THUMB_RADIUS := 0.015
 const CONTACT_MARGIN := 0.002
 const RESOLVE_ITERATIONS := 4
 const FINGER_TIP := Vector3(0.015, 0.0, -0.09)
@@ -73,12 +73,14 @@ static func place(contact: Vector3, outward: Vector3, finger_hint: Vector3, side
 ## CaressSurface (or any object with closest(point) -> {point, normal, distance, inside}).
 ## Returns {frame, penetration, contacts, resolved}.
 static func resolve(surface: Variant, frame: Transform3D, mode: String,
-		over_coat := 0.0) -> Dictionary:
+		over_coat := 0.0, side := "right") -> Dictionary:
 	if not is_instance_valid(surface) or not surface.has_method("closest"):
 		return {"frame": frame, "penetration": 0.0, "contacts": [], "resolved": false}
 	var result := frame
 	var last_penetration := 0.0
 	var contacts: Array = []
+	var outward := (result.basis.x * (1.0 if side == "right" else -1.0)).normalized()
+	var ray: bool = surface.has_method("nearest")
 	for _iteration in RESOLVE_ITERATIONS:
 		var deepest := 0.0
 		var push := Vector3.ZERO
@@ -87,7 +89,11 @@ static func resolve(surface: Variant, frame: Transform3D, mode: String,
 			var offset: Vector3 = sample["offset"]
 			var radius: float = sample["radius"]
 			var world := result * offset
-			var hit: Variant = surface.call("closest", world)
+			var hit: Variant
+			if ray:
+				hit = surface.call("nearest", world, outward)
+			else:
+				hit = surface.call("closest", world)
 			if not hit is Dictionary or (hit as Dictionary).is_empty():
 				continue
 			var point: Vector3 = (hit as Dictionary).get("point", world)

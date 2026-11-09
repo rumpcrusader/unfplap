@@ -49,6 +49,14 @@ func run() -> void:
 	check(not bool(hit.get("inside", true)), "a point above the plane is outside")
 	var under: Dictionary = surface.call("closest", Vector3(0.0, -0.1, 0.0))
 	check(bool(under.get("inside", false)), "a point below the plane is inside")
+	var tri: TriangleMesh = surface.get("_tri")
+	var surface_faces: PackedVector3Array = surface.get("faces")
+	tri.create_from_faces(surface_faces)
+	var ray_hit: Dictionary = surface.call("nearest", Vector3(0.2, 0.1, 0.1), Vector3.UP)
+	check(not ray_hit.is_empty(), "the hand ray finds the plane")
+	check(near(float(ray_hit.get("point", Vector3.ZERO).y), 0.0),
+		"the ray contact lies on the plane")
+	check(not bool(ray_hit.get("inside", true)), "the ray point outside the plane is outside")
 
 	var palm := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm", 0.0, 0.0)
 	var right_basis := HAND.palm_basis("right", Vector3.UP, Vector3.FORWARD, 30.0)

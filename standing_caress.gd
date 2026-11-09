@@ -392,6 +392,7 @@ var _smack_impact_done := false
 var _palm_contacts: Dictionary = {}
 var _precise_surfaces: Dictionary = {}
 var _precise_logged: Dictionary = {}
+var _precise_last: Dictionary = {}
 var _smack_phase := SMACK_PHASE_NONE
 var _smack_phase_started := 0
 var _smack_contact := Transform3D.IDENTITY
@@ -950,17 +951,24 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 		-pony.global_basis.z, true, _caress_ignore())
 	if _precise_on():
 		var started := Time.get_ticks_usec()
-		var precise_outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
-		var contact := target.origin - precise_outward * _palm_clearance()
 		var over_coat := float(SETTINGS.over_coat_m.get_num())
-		var probe := CoatProbe.new()
-		probe.controller = self
-		probe.hint = precise_outward
-		probe.ignore = _caress_ignore()
-		var precise := _precise_hand(contact, precise_outward, -pony.global_basis.z, hand_side,
-			"palm", 0.0, over_coat, probe)
-		target = precise
-		_log_precise(hand_side, "palm", probe, target, 0.0, over_coat)
+		var query := centre_world + offset
+		var surface: Variant = _precise_surface("torso", query)
+		var precise_used := false
+		if is_instance_valid(surface):
+			var hit: Variant = surface.call("closest", query)
+			if hit is Dictionary and not (hit as Dictionary).is_empty():
+				var contact: Vector3 = (hit as Dictionary)["point"]
+				var precise_normal: Vector3 = (hit as Dictionary)["normal"]
+				target = _precise_hand(contact, precise_normal, -pony.global_basis.z, hand_side,
+					"palm", 0.0, over_coat, surface)
+				precise_used = true
+				_precise_last[hand_side] = target
+				_log_precise(hand_side, "palm", surface, target, 0.0, over_coat)
+		if not precise_used:
+			var last: Variant = _precise_last.get(hand_side)
+			if last is Transform3D and (last as Transform3D).is_finite():
+				target = last
 		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 			runtime.call("perf_note", "caress_precise", Time.get_ticks_usec() - started)
 	if not apply:
@@ -1170,25 +1178,41 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 	var precise_used := false
 	if _precise_on():
 		var surface_started := Time.get_ticks_usec()
-		var surface_region: String = path["surface_region"]
 		var hand_mode: String = path["mode"]
-		var surface: Variant = _precise_surface(surface_region, query)
-		if is_instance_valid(surface):
+		var chosen: Variant = null
+		var chosen_hit: Dictionary = {}
+		var chosen_distance := INF
+		for region: String in ["torso", "head"]:
+			var surface: Variant = _precise_surface(region, query)
+			if not is_instance_valid(surface):
+				continue
 			var hit: Variant = surface.call("closest", query)
-			if hit is Dictionary and not (hit as Dictionary).is_empty():
-				var contact: Vector3 = (hit as Dictionary)["point"]
-				var normal: Vector3 = (hit as Dictionary)["normal"]
-				var roll_deg := missionary_palm_roll_deg(hand_side) * float(path["roll"])
-				var hand_started := Time.get_ticks_usec()
-				var precise := _precise_hand(contact, normal, finger, hand_side, hand_mode,
-					roll_deg, over_coat, surface)
-				target = precise
-				precise_used = true
-				roll_rad = deg_to_rad(roll_deg)
-				_log_precise(hand_side, hand_mode, surface, target, roll_deg, over_coat)
-				if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-					runtime.call("perf_note", "caress_hand",
-						Time.get_ticks_usec() - hand_started)
+			if not hit is Dictionary or (hit as Dictionary).is_empty():
+				continue
+			var distance: float = float((hit as Dictionary).get("distance", INF))
+			if distance < chosen_distance:
+				chosen = surface
+				chosen_hit = hit
+				chosen_distance = distance
+		if is_instance_valid(chosen) and not chosen_hit.is_empty():
+			var contact: Vector3 = chosen_hit["point"]
+			var normal: Vector3 = chosen_hit["normal"]
+			var roll_deg := missionary_palm_roll_deg(hand_side) * float(path["roll"])
+			var hand_started := Time.get_ticks_usec()
+			var precise := _precise_hand(contact, normal, finger, hand_side, hand_mode,
+				roll_deg, over_coat, chosen)
+			target = precise
+			precise_used = true
+			_precise_last[hand_side] = target
+			roll_rad = deg_to_rad(roll_deg)
+			_log_precise(hand_side, hand_mode, chosen, target, roll_deg, over_coat)
+			if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+				runtime.call("perf_note", "caress_hand",
+					Time.get_ticks_usec() - hand_started)
+		elif _precise_last.get(hand_side) is Transform3D \
+				and (_precise_last[hand_side] as Transform3D).is_finite():
+			target = _precise_last[hand_side]
+			precise_used = true
 		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 			runtime.call("perf_note", "caress_surface", Time.get_ticks_usec() - surface_started)
 	if not precise_used:
@@ -1204,12 +1228,13 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 		return target
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		var probe := _coat_contact(query, hint, ignore, regions)
-		var coat: Vector3 = probe.get("point", query)
-		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
-			hand_side, str(target.origin), str(target.basis.x), lean,
-			str(probe.get("source", "?")), centre.y, coat.y,
-			target.origin.distance_to(coat), over_coat, rad_to_deg(roll_rad)])
+		if not precise_used:
+			var probe := _coat_contact(query, hint, ignore, regions)
+			var coat: Vector3 = probe.get("point", query)
+			_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
+				hand_side, str(target.origin), str(target.basis.x), lean,
+				str(probe.get("source", "?")), centre.y, coat.y,
+				target.origin.distance_to(coat), over_coat, rad_to_deg(roll_rad)])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
@@ -1227,7 +1252,7 @@ func _precise_surface(region: String, point: Vector3) -> Variant:
 	if not is_instance_valid(surface):
 		surface = CAESS_SURFACE.new()
 		_precise_surfaces[region] = surface
-	if not bool(surface.call("ensure", pony, region, point, 0.5)):
+	if not bool(surface.call("ensure", pony, region, point, 0.28)):
 		return null
 	surface.call("update_pose")
 	return surface
@@ -1237,7 +1262,7 @@ func _precise_hand(contact: Vector3, normal: Vector3, finger: Vector3, hand_side
 		mode: String, roll_deg: float, over_coat: float, surface: Variant) -> Transform3D:
 	var frame: Transform3D = CAESS_HAND.place(contact, normal, finger, hand_side, mode,
 		roll_deg, over_coat)
-	var resolved: Dictionary = CAESS_HAND.resolve(surface, frame, mode, over_coat)
+	var resolved: Dictionary = CAESS_HAND.resolve(surface, frame, mode, over_coat, hand_side)
 	return resolved.get("frame", frame)
 
 
@@ -1249,7 +1274,7 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 		return
 	_precise_logged[hand_side] = true
 	var info := "fallback"
-	if is_instance_valid(surface):
+	if is_instance_valid(surface) and surface is CAESS_SURFACE:
 		var faces: Variant = surface.get("faces")
 		var count := (faces as PackedVector3Array).size() / 3 if faces is PackedVector3Array else 0
 		info = "faces=%d build_us=%d query_us=%d" % [
@@ -1951,6 +1976,7 @@ func reset() -> void:
 	_palm_contacts.clear()
 	_precise_surfaces.clear()
 	_precise_logged.clear()
+	_precise_last.clear()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
 	_caress_moving = {"L": true, "R": true}

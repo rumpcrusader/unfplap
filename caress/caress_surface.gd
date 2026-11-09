@@ -28,6 +28,7 @@ var _weights := PackedFloat32Array()
 var _indices := PackedInt32Array()
 var _positions := PackedVector3Array()
 var _normals := PackedVector3Array()
+var _tri := TriangleMesh.new()
 var _last_update := -1
 var _cache_order: Array = []
 
@@ -122,6 +123,9 @@ func update_pose(force := false) -> void:
 		var v := _indices[i]
 		faces[i] = _positions[v]
 		vertex_normals[i] = _normals[v]
+	_tri.clear()
+	if not faces.is_empty():
+		_tri.create_from_faces(faces)
 	_last_update = now
 	build_us = Time.get_ticks_usec() - started
 
@@ -167,6 +171,52 @@ func closest(point: Vector3) -> Dictionary:
 	}
 
 
+## Cast a short ray through the patch along the hand normal. Much cheaper than the full
+## triangle loop for the palm/finger samples; `closest()` is the fallback.
+func nearest(point: Vector3, outward: Vector3) -> Dictionary:
+	var normal := outward.normalized()
+	if normal.length_squared() < 0.5:
+		normal = Vector3.UP
+	var started := Time.get_ticks_usec()
+	var hit := _cast(point + normal * 0.20, point - normal * 0.20)
+	query_us = Time.get_ticks_usec() - started
+	if hit.is_empty():
+		return closest(point)
+	var surface: Vector3 = hit.get("position", point)
+	var hit_normal: Vector3 = hit.get("normal", normal)
+	if hit_normal.length_squared() < 0.5:
+		hit_normal = normal
+	hit_normal = hit_normal.normalized()
+	return {
+		"point": surface,
+		"normal": hit_normal,
+		"distance": point.distance_to(surface),
+		"inside": (point - surface).dot(hit_normal) < 0.0,
+	}
+
+
+func _cast(from: Vector3, to: Vector3) -> Dictionary:
+	if faces.is_empty():
+		return {}
+	var hit: Dictionary = _tri.intersect_segment(from, to)
+	if hit.is_empty():
+		return {}
+	var i := int(hit.get("face_index", -1)) * 3
+	if i < 0 or i + 2 >= faces.size() or i + 2 >= vertex_normals.size():
+		return {}
+	var a := faces[i]
+	var b := faces[i + 1]
+	var c := faces[i + 2]
+	var point: Vector3 = hit.get("position", Vector3.ZERO)
+	var bary := _triangle_barycentric(a, b, c, point)
+	var normal := vertex_normals[i] * bary.x + vertex_normals[i + 1] * bary.y \
+		+ vertex_normals[i + 2] * bary.z
+	if normal.length_squared() < 0.000001:
+		normal = (b - a).cross(c - a)
+	hit["normal"] = normal.normalized()
+	return hit
+
+
 func _flatten() -> void:
 	_rest_positions = PackedVector3Array()
 	_rest_normals = PackedVector3Array()
@@ -198,6 +248,7 @@ func _flatten() -> void:
 	_normals.resize(_rest_positions.size())
 	faces = PackedVector3Array()
 	vertex_normals = PackedVector3Array()
+	_tri.clear()
 	_transforms.clear()
 	_last_update = -1
 
@@ -347,7 +398,8 @@ static func _region_allowed(region: String, wanted: String) -> bool:
 	if wanted == "body":
 		return region != "head" and region != ""
 	if wanted == "torso":
-		return region in ["back", "withers", "shoulder", "flank", "rump", "barrel", "belly"]
+		return region in ["back", "withers", "shoulder", "flank", "rump", "barrel", "belly",
+			"neck"]
 	if wanted == "neck":
 		return region == "neck"
 	if wanted == "head":

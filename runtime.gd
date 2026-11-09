@@ -256,6 +256,13 @@ var _free_look_pitch := 0.0
 var _free_look_was := false
 var _tail
 var _tail_lay: Node
+## The pony's whole skeleton (body and hair) before the act. The act writes rotations, positions
+## and scales; restoring every local pose is what keeps a zeroed/stretched bone from surviving the
+## teardown, the same reason Anon gets a bone snapshot.
+var _pony_saved_bones: Array[Transform3D] = []
+var _pony_saved_hair: Array[Transform3D] = []
+var _pony_saved_skeleton: Skeleton3D
+var _pony_saved_hair_skeleton: Skeleton3D
 var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
@@ -1929,6 +1936,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 		_abort_start()
 		return false
 
+	_snapshot_pony_bones()
 	_posture_owned = true
 	pony.sleeping = false
 	pony.set_sim_tier(pony.SimTier.HERO)
@@ -2231,9 +2239,12 @@ func _begin_standing_placement() -> Transform3D:
 	var target: Vector3 = pony.global_position - forward * _standing_gap()
 	target.y = body.global_position.y
 	body.global_position = target
+	# Do not inherit the previous act's view: face him along her forward, so his body is in front
+	# of the camera instead of off to one side after a missionary restore.
+	body.rotation.y = atan2(-forward.x, -forward.z)
 	body.reset_physics_interpolation()
-	_log("standing keeps pony at=%s and places Anon at=%s" % [
-		str(pony.global_position), str(target)])
+	_log("standing keeps pony at=%s and places Anon at=%s yaw=%.3f" % [
+		str(pony.global_position), str(target), body.rotation.y])
 	return standing
 
 func _standing_transform() -> Transform3D:
@@ -2490,6 +2501,43 @@ func _build_pose() -> void:
 		_dock_tail.runtime = self
 		_dock_tail.process_priority = 40
 		(hair as Skeleton3D).add_child(_dock_tail)
+
+## Snapshot before the act changes her posture or the pose writes bones.
+func _snapshot_pony_bones() -> void:
+	_pony_saved_bones.clear()
+	_pony_saved_hair.clear()
+	_pony_saved_skeleton = null
+	_pony_saved_hair_skeleton = null
+	if not is_instance_valid(pony):
+		return
+	var sk: Variant = pony.get("skeleton")
+	if sk is Skeleton3D:
+		_pony_saved_skeleton = sk as Skeleton3D
+		for i in (_pony_saved_skeleton as Skeleton3D).get_bone_count():
+			_pony_saved_bones.append((_pony_saved_skeleton as Skeleton3D).get_bone_pose(i))
+	var hair: Variant = pony.get("hair_skeleton")
+	if hair is Skeleton3D:
+		_pony_saved_hair_skeleton = hair as Skeleton3D
+		for i in (_pony_saved_hair_skeleton as Skeleton3D).get_bone_count():
+			_pony_saved_hair.append((_pony_saved_hair_skeleton as Skeleton3D).get_bone_pose(i))
+
+
+## Put every pony bone back before the game's animation re-poses her. The act's pose modifier is
+## already freed when this runs, so nothing rewrites the act pose on top.
+func _restore_pony_bones() -> void:
+	if is_instance_valid(_pony_saved_skeleton) \
+			and _pony_saved_bones.size() == _pony_saved_skeleton.get_bone_count():
+		for i in _pony_saved_bones.size():
+			_pony_saved_skeleton.set_bone_pose(i, _pony_saved_bones[i])
+	if is_instance_valid(_pony_saved_hair_skeleton) \
+			and _pony_saved_hair.size() == _pony_saved_hair_skeleton.get_bone_count():
+		for i in _pony_saved_hair.size():
+			_pony_saved_hair_skeleton.set_bone_pose(i, _pony_saved_hair[i])
+	_pony_saved_bones.clear()
+	_pony_saved_hair.clear()
+	_pony_saved_skeleton = null
+	_pony_saved_hair_skeleton = null
+
 
 func _free_pose() -> void:
 	if is_instance_valid(_tail_lay):
@@ -4930,6 +4978,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	if _posture_owned:
 		_restore_posture(pose_id, rejoin_cuddle)
 	_free_pose()
+	_restore_pony_bones()
 	_stop_audio()
 	if is_instance_valid(main):
 		if is_instance_valid(main.hud):

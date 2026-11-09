@@ -315,6 +315,15 @@ reclined eye height left the camera wrong after the act.
   the `LegHide` influence and **every bone's pre-act local transform**. The authored pose keeps
   deliberately stretched bone positions; the game re-poses rotations but not every position, so
   restoring the whole bone snapshot is what keeps his limbs from staying stretched outside the act.
+- **The player part is fully reset.** `anon_part.encounter(true)` and `encounter(false)` both call
+  `reset_state()`: parent/home, base placement, aim normal/opening/pitch, both hip offsets, the
+  smoothed penetration seed, bend/squash, shader squish/compress, throb and the ready tween. A
+  following standing act or carry therefore never inherits the missionary part's transform or
+  pelvis offset.
+- **The pony gets a bone snapshot too.** `_snapshot_pony_bones()` saves every body and hair skeleton
+  local pose at act start; `_restore_pony_bones()` puts them back after `_free_pose()`, before the
+  game's animation re-poses her, so an act scale/position cannot survive as a zeroed or stretched
+  bone.
 - **Space rule.** Rotate a bone by writing its **global pose** with the axis converted once into
   skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
   parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the
@@ -543,7 +552,8 @@ bullets below cover the rest of the shot's behaviour.
   `_stand_eye`/`_eye_height`; do not set the eye line by teleporting the rig.
 - Act start keeps her where she stands. `_begin_standing_placement()` builds the act transform
   from her current facing and, for desktop human Anon, places him at
-  `pony_position - forward * _standing_gap()`. That stance is only the starting point: with the
+  `pony_position - forward * _standing_gap()` and **sets his yaw along her forward**, so a standing
+  act after a missionary restore does not inherit the old view and put his body off to one side. That stance is only the starting point: with the
   anatomy part showing, the measured aim pulls his pelvis to `opening - normal × (shaft - depth)`,
   so `gap_offset_m` sets the pre-act view rather than the contacting distance. The 1.2 m Y cone
   means the correction is small, and `_smooth_penetration()` blends the pull-in through

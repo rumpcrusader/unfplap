@@ -98,6 +98,10 @@ Missionary is its own state, not the game's bed rest:
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately
   stretched positions, which the game does not re-pose for every bone).
+- **The part and the pony are reset too.** `anon_part.reset_state()` clears its aim, hip offsets,
+  penetration seed, bend/squash, shader and placement at both encounter start and end.
+  `_snapshot_pony_bones()` / `_restore_pony_bones()` put every body and hair bone back after the
+  act's pose is freed, so the game animation resumes from a sane rig.
 - **Space rule.** Every act-space rotation is applied to a bone's **global pose** with the axis
   converted once into skeleton space (`pose_rig.rotate_free`). Pre-multiplying a bone's *local*
   pose applies the axis in the parent's frame — his hips are rotated ~90° here, and doing that made
@@ -212,9 +216,10 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
 - Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by
   teleporting the rig. Act start keeps her where she stands: for desktop human Anon,
   `_begin_standing_placement()` builds the act transform from her current facing and places him
-  at `pony_position - forward * _standing_gap()`. The 1.2 m Y cone keeps that correction small.
-  The act end leaves him there and leaves his yaw/pitch at the last act aim; it does not snap the
-  pre-act view back. AnonPony and headset/VR still move her in front of the camera rig with
+  at `pony_position - forward * _standing_gap()`, then sets his yaw along her forward so a standing
+  act after a missionary restore does not inherit the old view. The 1.2 m Y cone keeps that
+  correction small. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
+  does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the camera rig with
   `_standing_transform()`.
 - The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose
   start, then freezes. The same lean vector is applied on top: forward `0.24 m` /

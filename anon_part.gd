@@ -621,29 +621,51 @@ func _hide() -> void:
 	_swap_legs(false)
 
 
-func encounter(on: bool) -> void:
-	_in_encounter = on
+## Complete per-act reset. The part is a child of the player's Hips, so a stale local transform,
+## aim or pelvis offset from one act is visible in the next one; every transient is cleared here.
+func reset_state() -> void:
 	hip_offset_applied = Vector3.ZERO
 	_hip_offset_wanted = Vector3.ZERO
+	aim_normal = Vector3.ZERO
+	aim_opening = Vector3.ZERO
+	aim_pitch_deg = 0.0
+	_bend = Vector3.ZERO
+	_bend_speed = Vector3.ZERO
+	_squash = 0.0
+	_squash_speed = 0.0
+	_last_root = Vector3.INF
+	_last_velocity = Vector3.ZERO
 	_throb_amount = 0.0
 	_throb_depth = 0.0
 	_throb_lift = 0.0
+	_p_smooth = 0.0
+	_p_started = false
+	if not is_instance_valid(_mesh):
+		return
+	_end_bed()
+	_set_bend(Vector3.ZERO)
+	_apply_place()
+	_apply_girth()
+	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
+	if material != null:
+		material.set_shader_parameter("squish", 0.0)
+		material.set_shader_parameter("squish_at", 0.0)
+		material.set_shader_parameter("compress", 0.0)
+		material.set_shader_parameter("throb", 0.0)
+		material.set_shader_parameter("throb_lift", 0.0)
+
+
+func encounter(on: bool) -> void:
+	_in_encounter = on
 	if on:
-		_p_started = false
 		if not _ensure():
 			return
+		reset_state()
 		_mesh.visible = true
 		_swap_legs(true)
 		_animate(1.0, 1.4)
 	elif is_instance_valid(_mesh):
-		_end_bed()
-		_bend = Vector3.ZERO
-		_bend_speed = Vector3.ZERO
-		_squash = 0.0
-		_squash_speed = 0.0
-		_last_root = Vector3.INF
-		_set_bend(Vector3.ZERO)
-		_apply_place()
+		reset_state()
 		_animate(0.0, 1.2, not placing)
 
 

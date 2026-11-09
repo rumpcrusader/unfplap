@@ -12,6 +12,7 @@ const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
+const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
@@ -1617,6 +1618,38 @@ func open_act_chat() -> bool:
 
 ## integration: debug placement controls for the local anatomy assets.
 func _anatomy_debug(op: String, value := 0.0) -> String:
+	var text := ""
+	if SETTINGS.edit_target.get_choice() == "default":
+		text = _anatomy_default_debug(op, value)
+	else:
+		text = _anatomy_mare_debug(op, value)
+	_debug("anatomy %s %s" % [op, text])
+	return text
+
+
+## Edit the global default preview. Nudges and Reset stage the values; Save writes the settings.
+func _anatomy_default_debug(op: String, value := 0.0) -> String:
+	var placement := SETTINGS.anatomy_placement_draft_values()
+	match op:
+		"save":
+			SETTINGS.save_anatomy_placement_default(placement)
+			_apply_settings_changed()
+			return "default saved " + PLACEMENT.text(placement)
+		"reset":
+			SETTINGS.reset_anatomy_placement_default()
+			refresh_anatomy()
+			return "default " + PLACEMENT.text(SETTINGS.anatomy_placement_draft_values())
+		"text":
+			return "default " + PLACEMENT.text(placement)
+		_:
+			if not _nudge_placement(placement, op, value):
+				return "Unknown anatomy place action."
+			SETTINGS.set_anatomy_placement_draft(placement)
+			refresh_anatomy()
+			return "default " + PLACEMENT.text(placement)
+
+
+func _anatomy_mare_debug(op: String, value := 0.0) -> String:
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
@@ -1624,9 +1657,24 @@ func _anatomy_debug(op: String, value := 0.0) -> String:
 	var runtime: Variant = runtime_for(target) if is_instance_valid(target) else null
 	if not is_instance_valid(runtime):
 		return "No anatomy pony targeted."
-	var text := str(runtime.call("anatomy_place", op, value))
-	_debug("anatomy %s %s" % [op, text])
-	return text
+	return str(runtime.call("anatomy_place", op, value))
+
+
+static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:
+	match op:
+		"x":
+			placement["offset_x"] = float(placement.get("offset_x", 0.0)) + value
+		"y":
+			placement["offset_y"] = float(placement.get("offset_y", 0.0)) + value
+		"z":
+			placement["offset_z"] = float(placement.get("offset_z", 0.0)) + value
+		"pitch":
+			placement["pitch_deg"] = float(placement.get("pitch_deg", 0.0)) + value
+		"scale":
+			placement["scale"] = maxf(0.05, float(placement.get("scale", 1.0)) + value)
+		_:
+			return false
+	return true
 
 
 func action_anatomy_up() -> String:

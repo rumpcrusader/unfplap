@@ -16,6 +16,7 @@ extends RefCounted
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CONSENT := preload("res://mods/unfplap/consent.gd")
+const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -86,6 +87,9 @@ class Setting:
 	var group: String
 	var default: Variant
 	var debug := false
+	## Hidden settings are still real, persisted settings; a hand-built control elsewhere in
+	## `settings_ui.gd` draws them (the placement target pill).
+	var hidden := false
 	var _get: Callable
 	var _set: Callable
 
@@ -102,6 +106,11 @@ class Setting:
 	## A debug setting is shown only behind debug mode and never clamps its own value.
 	func as_debug() -> Setting:
 		debug = true
+		return self
+
+	## Keep the setting out of the declaration-drawn rows; a hand-built control owns the widget.
+	func as_hidden() -> Setting:
+		hidden = true
 		return self
 
 
@@ -179,6 +188,10 @@ class ChoiceSetting extends Setting:
 
 	func as_debug() -> ChoiceSetting:
 		debug = true
+		return self
+
+	func as_hidden() -> ChoiceSetting:
+		hidden = true
 		return self
 
 
@@ -329,6 +342,165 @@ static func default_block(prefix: String) -> Dictionary:
 		if path.begins_with(prefix):
 			_write_path(out, path.substr(prefix.length()), (_by_path[path] as Setting).default)
 	return out
+
+
+# ---------------------------------------------------------------- anatomy placement
+## The five keys of one placement block, complete and validated.
+static func _declared_placement_defaults() -> Dictionary:
+	return {
+		"offset_x": float(offset_x.default),
+		"offset_y": float(offset_y.default),
+		"offset_z": float(offset_z.default),
+		"pitch_deg": float(pitch_deg.default),
+		"scale": float(scale.default),
+	}
+
+
+static func _placement_default_values() -> Dictionary:
+	var declared := _declared_placement_defaults()
+	if not _placement_draft.is_empty():
+		return PLACEMENT.sanitize(_placement_draft, declared)
+	return PLACEMENT.sanitize({
+		"offset_x": offset_x.get_num(),
+		"offset_y": offset_y.get_num(),
+		"offset_z": offset_z.get_num(),
+		"pitch_deg": pitch_deg.get_num(),
+		"scale": scale.get_num(),
+	}, declared)
+
+
+## The placement a mare gets from the global default and the shipped per-mare table, before any
+## player override. `use_draft` includes the unsaved default preview from the Anatomy place
+## actions; saving a per-mare override compares against the persisted default instead.
+static func anatomy_placement_default(id: String, use_draft := true) -> Dictionary:
+	var base := _persisted_placement_default_values()
+	if use_draft:
+		base = _placement_default_values()
+	var shipped: Variant = PLACEMENT.MARE_DEFAULTS.get(id, {})
+	return PLACEMENT.merge(base, shipped)
+
+
+static func _persisted_placement_default_values() -> Dictionary:
+	var declared := _declared_placement_defaults()
+	return PLACEMENT.sanitize({
+		"offset_x": offset_x.get_num(),
+		"offset_y": offset_y.get_num(),
+		"offset_z": offset_z.get_num(),
+		"pitch_deg": pitch_deg.get_num(),
+		"scale": scale.get_num(),
+	}, declared)
+
+
+## The placement a mare actually uses: her player override, then the shipped per-mare default,
+## then the global default.
+static func anatomy_placement(id: String) -> Dictionary:
+	var base := anatomy_placement_default(id)
+	var data := _read()
+	var anatomy: Variant = data.get("anatomy", {})
+	if not anatomy is Dictionary:
+		return base
+	var placement: Variant = (anatomy as Dictionary).get("placement", {})
+	if not placement is Dictionary:
+		return base
+	var over: Variant = (placement as Dictionary).get(id, {})
+	return PLACEMENT.merge(base, over)
+
+
+static func anatomy_placement_has_override(id: String) -> bool:
+	var data := _read()
+	var anatomy: Variant = data.get("anatomy", {})
+	if not anatomy is Dictionary:
+		return false
+	var placement: Variant = (anatomy as Dictionary).get("placement", {})
+	if not placement is Dictionary:
+		return false
+	var over: Variant = (placement as Dictionary).get(id, {})
+	if not over is Dictionary or (over as Dictionary).is_empty():
+		return false
+	var base := anatomy_placement_default(id, false)
+	return not PLACEMENT.same(PLACEMENT.merge(base, over), base)
+
+
+## The player-part placement. It is one global block, never per-mare.
+static func anon_placement() -> Dictionary:
+	return PLACEMENT.sanitize({
+		"offset_x": anon_offset_x.get_num(),
+		"offset_y": anon_offset_y.get_num(),
+		"offset_z": anon_offset_z.get_num(),
+		"pitch_deg": anon_pitch_deg.get_num(),
+		"scale": anon_scale.get_num(),
+	}, {
+		"offset_x": float(anon_offset_x.default),
+		"offset_y": float(anon_offset_y.default),
+		"offset_z": float(anon_offset_z.default),
+		"pitch_deg": float(anon_pitch_deg.default),
+		"scale": float(anon_scale.default),
+	})
+
+
+## Store only the keys that differ from the mare's default. An empty diff removes the override.
+static func save_anatomy_placement(id: String, values: Dictionary) -> void:
+	if id.is_empty() or id == "default" or id == "anon":
+		return
+	var base := anatomy_placement_default(id, false)
+	var current := PLACEMENT.sanitize(values, base)
+	var over := PLACEMENT.diff(current, base)
+	var data := _read()
+	var anatomy: Variant = data.get("anatomy", {})
+	var block: Dictionary = anatomy if anatomy is Dictionary else {}
+	var placement: Variant = block.get("placement", {})
+	var rows: Dictionary = placement if placement is Dictionary else {}
+	if over.is_empty():
+		rows.erase(id)
+	else:
+		rows[id] = over
+	if rows.is_empty():
+		block.erase("placement")
+	else:
+		block["placement"] = rows
+	if block.is_empty():
+		data.erase("anatomy")
+	else:
+		data["anatomy"] = block
+	_write(data)
+
+
+## Persist the unsaved default preview.
+static func save_anatomy_placement_default(values: Dictionary) -> void:
+	var current := PLACEMENT.sanitize(values, _declared_placement_defaults())
+	_placement_draft = {}
+	offset_x.set_num(float(current["offset_x"]))
+	offset_y.set_num(float(current["offset_y"]))
+	offset_z.set_num(float(current["offset_z"]))
+	pitch_deg.set_num(float(current["pitch_deg"]))
+	scale.set_num(maxf(0.05, float(current["scale"])))
+	placement_revision += 1
+
+
+## Preview the declaration defaults without saving them.
+static func reset_anatomy_placement_default() -> void:
+	_placement_draft = _declared_placement_defaults()
+	placement_revision += 1
+
+
+static func set_anatomy_placement_draft(values: Dictionary) -> void:
+	_placement_draft = PLACEMENT.sanitize(values, _declared_placement_defaults())
+	placement_revision += 1
+
+
+static func clear_anatomy_placement_draft() -> void:
+	if _placement_draft.is_empty():
+		return
+	_placement_draft = {}
+	placement_revision += 1
+
+
+static func has_anatomy_placement_draft() -> bool:
+	return not _placement_draft.is_empty()
+
+
+static func anatomy_placement_draft_values() -> Dictionary:
+	return _placement_default_values()
 
 
 ## Settings in one tab, in declaration order.
@@ -1010,6 +1182,44 @@ static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color",
 	Color.from_string("#d87690", Color.WHITE), "Clitoris colour",
 	"Colour of the clitoris. The shader derives its shadow.", ANATOMY, "")
 
+# -- Placement  (debug)
+## The anatomy place actions read this pill. It is hidden from the declaration rows because the
+## pill above those actions owns the widget.
+static var edit_target := choice("edit_target", "anatomy.placement_target", "mare",
+	["default", "mare"], ["Default", "Pointed mare"], "Placement target",
+	"Choose whether the Anatomy place actions change the global default or the pointed mare.",
+	ANATOMY, "Placement").as_debug().as_hidden()
+static var offset_x := num("offset_x", "anatomy.placement.default.offset_x", 0.0,
+	"Default X", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var offset_y := num("offset_y", "anatomy.placement.default.offset_y", 0.525,
+	"Default Y", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var offset_z := num("offset_z", "anatomy.placement.default.offset_z", 0.289,
+	"Default Z", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var pitch_deg := num("pitch_deg", "anatomy.placement.default.pitch_deg", -6.0,
+	"Default pitch", "Pitch of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("°").with_step(1.0).as_debug()
+static var scale := num("scale", "anatomy.placement.default.scale", 0.742,
+	"Default scale", "Scale of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("×").with_step(0.01).as_debug()
+static var anon_offset_x := num("anon_offset_x", "anatomy.placement.anon.offset_x", 0.0,
+	"Anon X", "Model-space placement of the player part.", ANATOMY, "Placement") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var anon_offset_y := num("anon_offset_y", "anatomy.placement.anon.offset_y", 0.74,
+	"Anon Y", "Model-space placement of the player part.", ANATOMY, "Placement") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var anon_offset_z := num("anon_offset_z", "anatomy.placement.anon.offset_z", 0.085,
+	"Anon Z", "Model-space placement of the player part.", ANATOMY, "Placement") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var anon_pitch_deg := num("anon_pitch_deg", "anatomy.placement.anon.pitch_deg", 0.0,
+	"Anon pitch", "Pitch of the player part.", ANATOMY, "Placement") \
+	.with_unit("°").with_step(1.0).as_debug()
+static var anon_scale := num("anon_scale", "anatomy.placement.anon.scale", 0.2,
+	"Anon scale", "Scale of the player part.", ANATOMY, "Placement") \
+	.with_unit("×").with_step(0.01).as_debug()
+
 # -- Anon
 static var player_scale := num("player_scale", "anatomy.player_scale", 1.5, "Size",
 	"Scale the player part relative to its default size.", ANATOMY, "Anon") \
@@ -1366,7 +1576,7 @@ const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 5
+const SCHEMA_VERSION := 6
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -1793,6 +2003,11 @@ static var _loaded := false
 ## Bumped on every load and every write. The flat value table rebuilds when it
 ## changes, so a save anywhere invalidates the cached setting reads.
 static var generation := 0
+## Bumped whenever the placement view can have changed: a settings load/write or an unsaved
+## default preview. The anatomy controller re-reads its resolved placement on the change.
+static var placement_revision := 0
+## Unsaved global-default preview from the Anatomy place actions. Session-only by design.
+static var _placement_draft: Dictionary = {}
 
 
 ## Drop the in-memory copy so the next read reloads the file. The settings page calls this when
@@ -1899,7 +2114,9 @@ static func _load() -> void:
 	data = _merge(_defaults(), data)
 	data["version"] = SCHEMA_VERSION
 	_cache = data
-	_write_file(data)
+	placement_revision += 1
+	if _write_file(data):
+		_finish_legacy_placement_import()
 
 
 static func _defaults() -> Dictionary:
@@ -1910,6 +2127,8 @@ static func _defaults() -> Dictionary:
 	}
 	for s: Setting in _registry:
 		_write_path(out, s.path, s.default)
+	for id: Variant in PLACEMENT.MARE_DEFAULTS:
+		_write_path(out, "anatomy.placement." + str(id), PLACEMENT.MARE_DEFAULTS[id])
 	return out
 
 
@@ -1919,7 +2138,7 @@ static func entry_view(s: Setting) -> Dictionary:
 		"kind": "bool" if s is FlagSetting else "num" if s is NumSetting else
 			"choice" if s is ChoiceSetting else "color" if s is ColorSetting else "list",
 		"default": s.default, "label": s.label, "help": s.help, "group": s.group,
-		"tab": s.tab, "debug": s.debug,
+		"tab": s.tab, "debug": s.debug, "hidden": s.hidden,
 	}
 	if s is NumSetting:
 		var n := s as NumSetting
@@ -1976,8 +2195,9 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
-	data = _normalize_retired_keys(data)
 	data = _normalize_anatomy(data)
+	data = _normalize_anatomy_placement(data)
+	data = _normalize_retired_keys(data)
 	return data
 
 
@@ -1994,6 +2214,98 @@ static func _erase_path(data: Dictionary, path: String) -> void:
 			return
 		node = child
 	node.erase(parts[parts.size() - 1])
+
+
+## Legacy placement files imported during `_migrate`; renamed only after the settings write.
+static var _legacy_mare_placement_pending := false
+static var _legacy_anon_placement_pending := false
+static var _legacy_mare_placement_path := ""
+static var _legacy_anon_placement_path := ""
+
+
+## Move the old anatomy_place.json and anon_place.json rows into the one anatomy.placement block.
+## Rows that already equal the resolved default are skipped, so the old "every mare has a row"
+## file collapses to real overrides.
+static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
+	_legacy_mare_placement_pending = false
+	_legacy_anon_placement_pending = false
+	_legacy_mare_placement_path = ""
+	_legacy_anon_placement_path = ""
+	var folder := _path().get_base_dir()
+	var mare_path := folder.path_join("anatomy_place.json")
+	var anon_path := folder.path_join("anon_place.json")
+	if FileAccess.file_exists(mare_path):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(mare_path))
+		if parsed is Dictionary:
+			var legacy := PLACEMENT.migrate_legacy(parsed)
+			var base := _legacy_placement_default(data, "anatomy.placement.default")
+			for id: Variant in legacy.keys():
+				var name := str(id)
+				if name == "version":
+					continue
+				var row: Variant = legacy[id]
+				if not row is Dictionary:
+					continue
+				var expected := PLACEMENT.merge(base, PLACEMENT.MARE_DEFAULTS.get(name, {}))
+				var values := PLACEMENT.row_to_placement(row)
+				var over := PLACEMENT.diff(PLACEMENT.sanitize(values, expected), expected)
+				if over.is_empty():
+					continue
+				var existing: Variant = _read_path(data, "anatomy.placement." + name, {})
+				var merged := PLACEMENT.merge(expected, over)
+				merged = PLACEMENT.merge(merged, existing)
+				var final_over := PLACEMENT.diff(merged, expected)
+				if not final_over.is_empty():
+					_write_path(data, "anatomy.placement." + name, final_over)
+			_legacy_mare_placement_pending = true
+			_legacy_mare_placement_path = mare_path
+	if FileAccess.file_exists(anon_path):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(anon_path))
+		if parsed is Dictionary:
+			var base := _legacy_placement_default(data, "anatomy.placement.anon")
+			var values := PLACEMENT.row_to_placement(parsed)
+			var over := PLACEMENT.diff(PLACEMENT.sanitize(values, base), base)
+			if not over.is_empty():
+				var existing: Variant = _read_path(data, "anatomy.placement.anon", {})
+				var merged := PLACEMENT.merge(base, over)
+				merged = PLACEMENT.merge(merged, existing)
+				var final_over := PLACEMENT.diff(merged, base)
+				if not final_over.is_empty():
+					_write_path(data, "anatomy.placement.anon", final_over)
+			_legacy_anon_placement_pending = true
+			_legacy_anon_placement_path = anon_path
+	return data
+
+
+static func _legacy_placement_default(data: Dictionary, path: String) -> Dictionary:
+	var base := default_block(path + ".")
+	var raw: Variant = _read_path(data, path, null)
+	if raw is Dictionary:
+		base = PLACEMENT.merge(base, raw)
+	return base
+
+
+static func _finish_legacy_placement_import() -> void:
+	if _legacy_mare_placement_pending:
+		_archive_legacy_placement(_legacy_mare_placement_path)
+		_legacy_mare_placement_pending = false
+	if _legacy_anon_placement_pending:
+		_archive_legacy_placement(_legacy_anon_placement_path)
+		_legacy_anon_placement_pending = false
+
+
+static func _archive_legacy_placement(path: String) -> void:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return
+	var target := path + ".migrated"
+	var index := 1
+	while FileAccess.file_exists(target):
+		index += 1
+		target = "%s.migrated%d" % [path, index]
+	var source_global := ProjectSettings.globalize_path(path)
+	var target_global := ProjectSettings.globalize_path(target)
+	if DirAccess.rename_absolute(source_global, target_global) != OK:
+		push_warning("unfplap settings: could not archive %s" % path)
 
 
 ## The anatomy used to be a master switch plus an "only during acts" switch; both fold into the
@@ -2137,14 +2449,32 @@ static func _merge(base: Dictionary, over: Dictionary) -> Dictionary:
 static func _write(data: Dictionary) -> void:
 	_cache = data
 	generation += 1
+	placement_revision += 1
 	_write_file(_cache)
 
 
-static func _write_file(data: Dictionary) -> void:
+## Write through a temporary file first, so a placement save cannot truncate the whole profile.
+## Returns false only when neither the rename nor the direct fallback could write.
+static func _write_file(data: Dictionary) -> bool:
 	var path := _path()
 	var folder := path.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		return
-	file.store_string(JSON.stringify(data, "\t") + "\n")
+	var text := JSON.stringify(data, "\t") + "\n"
+	var temp := path + ".tmp"
+	var file := FileAccess.open(temp, FileAccess.WRITE)
+	if file != null:
+		file.store_string(text)
+		file.close()
+		var source_global := ProjectSettings.globalize_path(temp)
+		var target_global := ProjectSettings.globalize_path(path)
+		if DirAccess.rename_absolute(source_global, target_global) == OK:
+			return true
+		DirAccess.remove_absolute(source_global)
+	# Windows can refuse to rename over an existing file. The direct write is the fallback, not
+	# the normal path.
+	var direct := FileAccess.open(path, FileAccess.WRITE)
+	if direct == null:
+		return false
+	direct.store_string(text)
+	direct.close()
+	return true

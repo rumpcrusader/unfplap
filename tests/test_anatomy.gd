@@ -4,6 +4,7 @@ extends SceneTree
 
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
@@ -94,9 +95,16 @@ func run() -> void:
 	player.name = "PlayerPony"
 	check(not ANATOMY.eligible(player), "player pony is excluded")
 
-	check(ANATOMY.DEFAULT_PLACE == Vector3(0.0, 0.525, 0.289), "global anatomy placement is on the crease")
-	check(is_equal_approx(ANATOMY.DEFAULT_PITCH, -6.0), "global anatomy pitch")
-	check(is_equal_approx(ANATOMY.DEFAULT_SCALE, 0.742), "global anatomy scale")
+	var default_place := SETTINGS.anatomy_placement_default("")
+	check(near(float(default_place["offset_x"]), 0.0), "global anatomy X is on the crease")
+	check(near(float(default_place["offset_y"]), 0.525), "global anatomy Y")
+	check(near(float(default_place["offset_z"]), 0.289), "global anatomy Z")
+	check(near(float(default_place["pitch_deg"]), -6.0), "global anatomy pitch")
+	check(near(float(default_place["scale"]), 0.742), "global anatomy scale")
+	var place_pos := Vector3(
+		float(default_place["offset_x"]),
+		float(default_place["offset_y"]),
+		float(default_place["offset_z"]))
 	# Show tail docks is visibility only. The old placement pinned the mesh top to the dock's
 	# buried base ring, which dropped a low-docked mare's anatomy by up to 9 cm.
 	var place := ANATOMY.new()
@@ -104,9 +112,9 @@ func run() -> void:
 	place_mesh.mesh = BoxMesh.new()
 	place.add_child(place_mesh)
 	place.set("_mesh", place_mesh)
-	place.set("_pos", ANATOMY.DEFAULT_PLACE)
-	place.set("_pitch", ANATOMY.DEFAULT_PITCH)
-	place.set("_scale", ANATOMY.DEFAULT_SCALE)
+	place.set("_pos", place_pos)
+	place.set("_pitch", float(default_place["pitch_deg"]))
+	place.set("_scale", float(default_place["scale"]))
 	place.set("_lift", float(place.call("_tail_lift")))
 	var dock_before := SETTINGS.show_dock.get_bool()
 	SETTINGS.show_dock.set_bool(true)
@@ -116,29 +124,29 @@ func run() -> void:
 	place.call("_apply_place")
 	var dock_off: Transform3D = place_mesh.transform
 	check(dock_on.is_equal_approx(dock_off), "the dock switch never moves the anatomy")
-	check(near(dock_on.origin.y, ANATOMY.DEFAULT_PLACE.y + float(place.call("_tail_lift"))),
+	check(near(dock_on.origin.y, place_pos.y + float(place.call("_tail_lift"))),
 		"placement uses the calibrated lift")
 	SETTINGS.show_dock.set_bool(dock_before)
 	place.free()
 	# Saved placements migrate once onto the current default: v0 rows get all three shifts, v1 the
 	# lateral and forward steps, v2 the forward step, and a v3 row is left alone.
-	var v0 := ANATOMY.migrate_place({"version": 0, "fluttershy": {
+	var v0 := PLACEMENT.migrate_legacy({"version": 0, "fluttershy": {
 		"position": [-0.005, 0.5, 0.281], "pitch": 6.0, "scale": 0.662}})
-	check(int(v0.get("version", 0)) == ANATOMY.PLACE_VERSION, "v0 placements migrate forward")
+	check(int(v0.get("version", 0)) == PLACEMENT.LEGACY_VERSION, "v0 placements migrate forward")
 	var v0_pos: Array = v0["fluttershy"]["position"]
 	check(near(float(v0_pos[0]), 0.0), "v0 row loses the lateral bias")
 	check(near(float(v0_pos[2]), 0.289), "v0 row keeps both forward shifts")
-	var v1 := ANATOMY.migrate_place({"version": 1, "rarity": {
+	var v1 := PLACEMENT.migrate_legacy({"version": 1, "rarity": {
 		"position": [-0.005, 0.5, 0.286], "pitch": 6.0, "scale": 0.662}})
 	var v1_pos: Array = v1["rarity"]["position"]
 	check(near(float(v1_pos[0]), 0.0), "v1 row loses the lateral bias")
 	check(near(float(v1_pos[2]), 0.289), "v1 row gets the current forward step")
-	var v2 := ANATOMY.migrate_place({"version": 2, "rarity": {
+	var v2 := PLACEMENT.migrate_legacy({"version": 2, "rarity": {
 		"position": [-0.004, 0.5, 0.286]}})
 	var v2_pos: Array = v2["rarity"]["position"]
 	check(near(float(v2_pos[0]), -0.004), "v2 row keeps its lateral offset")
 	check(near(float(v2_pos[2]), 0.289), "v2 row gets the current forward step")
-	var v3 := ANATOMY.migrate_place({"version": 3, "rarity": {
+	var v3 := PLACEMENT.migrate_legacy({"version": 3, "rarity": {
 		"position": [-0.004, 0.5, 0.289]}})
 	var v3_pos: Array = v3["rarity"]["position"]
 	check(near(float(v3_pos[2]), 0.289), "current rows are not touched")

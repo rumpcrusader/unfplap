@@ -7,7 +7,6 @@ const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const HIPS_REST := Vector3(0.0, 0.978635, 0.013361)
-const PLACE_PATH := "user://mods/data/unfplap/anon_place.json"
 const SKIN := Color(0.34, 0.66, 0.34)
 const SKIN_SHADE := Color(0.27, 0.54, 0.28)
 const TIP := Color(0.62, 0.74, 0.42)
@@ -59,9 +58,9 @@ var placing := false
 var _mesh: MeshInstance3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
-var _pos := Vector3(0.0, 0.74, 0.085)
+var _pos := Vector3.ZERO
 var _pitch := 0.0
-var _scale := 0.2
+var _scale := 1.0
 ## Missionary-only base slide along the shaft, set by `anatomy_act` from
 ## `presentation.missionary.part_inset_m`. Negative pulls the whole part back into the pelvis.
 var bed_inset_m := 0.0
@@ -302,6 +301,7 @@ func _smooth_penetration(penetration_m: float, delta: float, target: Vector3,
 ## integration: live user-facing size/rotation update.
 func apply_live() -> void:
 	_read_settings()
+	_load_place()
 	if is_instance_valid(_mesh):
 		_apply_place()
 		_apply_girth()
@@ -675,13 +675,10 @@ func encounter(on: bool) -> void:
 
 
 func _load_place() -> void:
-	if not FileAccess.file_exists(PLACE_PATH):
-		return
-	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(PLACE_PATH))
-	if not data is Dictionary:
-		return
-	var pos: Variant = data.get("position")
-	if pos is Array and (pos as Array).size() == 3:
-		_pos = Vector3(float(pos[0]), float(pos[1]), float(pos[2]))
-	_pitch = float(data.get("pitch", _pitch))
-	_scale = float(data.get("scale", _scale))
+	var placement := SETTINGS.anon_placement()
+	_pos = Vector3(
+		float(placement.get("offset_x", 0.0)),
+		float(placement.get("offset_y", 0.0)),
+		float(placement.get("offset_z", 0.0)))
+	_pitch = float(placement.get("pitch_deg", 0.0))
+	_scale = maxf(0.05, float(placement.get("scale", 1.0)))

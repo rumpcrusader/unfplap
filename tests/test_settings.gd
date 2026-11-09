@@ -33,6 +33,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func run() -> void:
 	_check_registry()
 	_check_defaults()
+	_check_placement()
 	_check_write_round_trip()
 	_check_coercion()
 	_check_sections()
@@ -40,6 +41,7 @@ func run() -> void:
 	_check_panels()
 	_check_section_folding()
 	_check_migration()
+	_check_placement_migration()
 	_check_api_names()
 	_check_profiles()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
@@ -83,6 +85,75 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
+
+
+## Anatomy placement is one default block plus partial per-mare overrides.
+func _check_placement() -> void:
+	var base := SETTINGS.anatomy_placement_default("")
+	check(near(float(base["offset_y"]), 0.525), "placement default Y")
+	check(near(float(base["pitch_deg"]), -6.0), "placement default pitch")
+	check(near(float(base["scale"]), 0.742), "placement default scale")
+
+	SETTINGS.save_anatomy_placement("fluttershy",
+		{"offset_y": 0.51, "offset_z": 0.284, "scale": 0.762})
+	var over := SETTINGS.anatomy_placement("fluttershy")
+	check(near(float(over["offset_y"]), 0.51), "per-mare override Y")
+	check(near(float(over["offset_x"]), 0.0), "an omitted override key falls back")
+	check(near(float(over["scale"]), 0.762), "per-mare override scale")
+	check(SETTINGS.anatomy_placement_has_override("fluttershy"),
+		"a differing per-mare block is an override")
+	SETTINGS.save_anatomy_placement("fluttershy", base)
+	check(not SETTINGS.anatomy_placement_has_override("fluttershy"),
+		"a block equal to the default is not an override")
+
+	SETTINGS.set_anatomy_placement_draft({"offset_y": 0.6, "scale": 0.9})
+	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.6),
+		"the default draft previews")
+	check(near(float(SETTINGS.anatomy_placement_default("", false)["offset_y"]), 0.525),
+		"the persisted default stays while previewing")
+	SETTINGS.clear_anatomy_placement_draft()
+	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.525),
+		"clearing the draft restores the default")
+
+	var anon := SETTINGS.anon_placement()
+	check(near(float(anon["offset_y"]), 0.74), "anon placement Y")
+	check(near(float(anon["scale"]), 0.2), "anon placement scale")
+
+
+## The old placement files import into the one block and collapse rows equal to the default.
+func _check_placement_migration() -> void:
+	var folder := "user://mods/data/unfplap"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
+	var mare_path := folder.path_join("anatomy_place.json")
+	var anon_path := folder.path_join("anon_place.json")
+	var mare := FileAccess.open(mare_path, FileAccess.WRITE)
+	mare.store_string(JSON.stringify({"version": 3,
+		"fluttershy": {"position": [0.0, 0.51, 0.284], "pitch": 6.0, "scale": 0.762},
+		"applejack": {"position": [0.0, 0.525, 0.289], "pitch": -6.0, "scale": 0.742},
+		"rainbow_dash": {"position": [0.0, 0.525, 0.289], "pitch": 6.0, "scale": 0.742},
+	}, "\t"))
+	mare.close()
+	var anon := FileAccess.open(anon_path, FileAccess.WRITE)
+	anon.store_string(JSON.stringify(
+		{"position": [0.1, 0.2, 0.3], "pitch": 1.0, "scale": 0.5}, "\t"))
+	anon.close()
+	var data := SETTINGS._migrate({}, SETTINGS.SCHEMA_VERSION - 1)
+	var placement: Dictionary = (data.get("anatomy", {}) as Dictionary).get("placement", {})
+	check(placement.has("fluttershy"), "a differing mare row imports")
+	check(not placement.has("applejack"), "a row equal to the default collapses")
+	check(placement.has("anon"), "the anon row imports")
+	check(near(float((placement["fluttershy"] as Dictionary).get("offset_y", 0.0)), 0.51),
+		"the imported mare row keeps its value")
+	check(near(float((placement["anon"] as Dictionary).get("scale", 0.0)), 0.5),
+		"the imported anon row keeps its value")
+	var dash: Dictionary = placement.get("rainbow_dash", {})
+	check(dash.size() == 1 and near(float(dash.get("pitch_deg", 0.0)), 6.0),
+		"a one-key legacy row stores only that key")
+	SETTINGS._finish_legacy_placement_import()
+	check(not FileAccess.file_exists(mare_path), "the old mare file is archived")
+	check(not FileAccess.file_exists(anon_path), "the old anon file is archived")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(anon_path + ".migrated"))
 
 
 ## A write persists through the file, and the flat cache rebuilds with it.
@@ -147,7 +218,7 @@ func _check_groups() -> void:
 			var sections := {}
 			var subs := {}
 			for setting: Variant in SETTINGS.tab_settings(tab):
-				if bool(setting.debug) != debug:
+				if bool(setting.hidden) or bool(setting.debug) != debug:
 					continue
 				var group := str(setting.group)
 				if group.is_empty():
@@ -204,6 +275,8 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	var missing: Array = []
 	var sections: Array = []
 	for setting: Variant in SETTINGS.tab_settings(tab):
+		if bool(setting.hidden):
+			continue
 		if not labels.has(str(setting.label)):
 			missing.append(setting.path)
 		var heading := str(setting.group).split("›", true, 1)[0].strip_edges()
@@ -224,7 +297,7 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 				SETTINGS.GENERAL:
 					expected = ["Trigger bed offer", "Reset act prompts"]
 				SETTINGS.ANATOMY:
-					expected = ["Pitch +", "Up"]
+					expected = ["Pitch +", "Up", "Pointed mare"]
 				SETTINGS.WORLD:
 					expected = ["Heat", "Warning"]
 			for action: String in expected:

@@ -1669,12 +1669,16 @@ rump blush. Unknown settings keys are ignored.
   The shaped length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole
   grip, so the geometry and the collision stay together. The anal placement applies to both
   models, is read on the next visibility poll, and the ring toggle swaps the asset live.
-  Per-mare placement rows live in `user://mods/data/unfplap/anatomy_place.json`; the default puts
-  the mesh on the body's x = 0 rump crease, and a `PLACE_VERSION` migration shifts rows saved
-  against an older default once on load. Version 3 adds the current 3 mm forward step.
-  `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on load; old skin tones map to the
-  slider anchors and an old teats-off file keeps the strip off once. Removed anatomy keys are
-  erased on load.
+  Placement lives in `settings.json` under `anatomy.placement`: `default.*` is the five-value
+  global default, `anon.*` is the player part, and `<mare id>.*` is a partial per-mare override.
+  `anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player override,
+  then the shipped per-mare default, then the global default. Only differing keys are stored.
+  The old `anatomy_place.json` and `anon_place.json` files import once and are renamed to
+  `.migrated`; the legacy v0-v3 shifts live only in that migration. `anatomy.placement_target`
+  is the persisted pill above the Anatomy place actions: `default` edits the global default,
+  `mare` edits the pointed mare. `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on
+  load; old skin tones map to the slider anchors and an old teats-off file keeps the strip off
+  once. Removed anatomy keys are erased on load.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
   the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
@@ -1712,6 +1716,11 @@ rump blush. Unknown settings keys are ignored.
   controls.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
+- `anatomy.placement` holds `default.*` (five debug numbers: `offset_x/y/z` in metres,
+  `pitch_deg`, `scale`), `anon.*` (the same five for the player part), and one partial
+  `<mare id>.*` block per real override. `anatomy.placement_target` is the persisted
+  `default`/`mare` pill. Per-mare edits store only differing keys; Reset previews the resolved
+  default and Save writes it, removing the block when it matches.
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
@@ -1783,7 +1792,8 @@ rump blush. Unknown settings keys are ignored.
   match, Caress along, Raise over coat, Cock base inset, Caress oval, a **Size** dropdown over the
   six per-size vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with
   **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
-  opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
+  opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part**, **Placement** and
+  **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two
   cue-line switches, per-mare **History** and **Neglect tolerance**. **Characters** holds
@@ -1831,6 +1841,10 @@ rump blush. Unknown settings keys are ignored.
   the Actions buttons live inside the Debug block of the action's tab.
 - A debug action that belongs with others shares a `row` caption and a `short` label in
   `debug_actions.gd`; consecutive entries with the same row render on one line.
+- The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
+  mare`), backed by the persisted hidden `anatomy.placement_target` setting. The Anatomy place
+  buttons then edit the selected target; Default stages a preview until Save, and Save writes the
+  five `anatomy.placement.default.*` settings.
 - **A boolean label starts with a verb**: Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch,
   Remember, Mute. Label the action the switch performs, not the noun it controls
   (“Show controls”, “Allow act lines”, “Remember acts”, “Use VR act”). Choices and numbers keep

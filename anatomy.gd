@@ -16,17 +16,6 @@ const WINKING_PATH := ASSET_DIR + "winking.scn"
 const MARE_BITS_V2_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
-const PLACE_PATH := "user://mods/data/unfplap/anatomy_place.json"
-## Placements saved before the 5 mm forward default are shifted once on load, so every mare keeps
-## the same calibration without re-tuning each one by hand.
-const PLACE_FORWARD_M := 0.005
-## The old global calibration also carried a 5 mm lateral bias. The rump crease is the model's
-## x = 0 plane, so saved rows are shifted back onto it once.
-const PLACE_RIGHT_M := 0.005
-## The current default sits 3 mm further forward than the previous one; version 3 shifts every
-## older saved row by the same amount.
-const PLACE_FORWARD_STEP_M := 0.003
-const PLACE_VERSION := 3
 
 const WINKING_PINK := Color(0.97, 0.66, 0.74)
 const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
@@ -81,12 +70,6 @@ const VULVA_RELIEF_M := 0.002
 ## stable still patch instead of a pinprick.
 const JIGGLE_STILL_MIN_M := 0.05
 
-## integration: global placement calibrated on Fluttershy. The rump crease is the body's x = 0
-## plane, so the anatomy has no lateral offset. A per-mare saved row still wins.
-const DEFAULT_PLACE := Vector3(0.0, 0.525, 0.289)
-const DEFAULT_PITCH := -6.0
-const DEFAULT_SCALE := 0.742
-
 var pony: Node3D
 var runtime: Node
 var main: Node
@@ -117,9 +100,11 @@ var _teats_jiggle: Node
 var _fluid: Node3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
-var _pos := DEFAULT_PLACE
-var _pitch := DEFAULT_PITCH
-var _scale := DEFAULT_SCALE
+var _pos := Vector3.ZERO
+var _pitch := 0.0
+var _scale := 1.0
+var _place_dirty := false
+var _place_revision := -1
 var _body: Array = []
 var _lift := 0.0
 ## The tail dock mesh; with genitals attached it reads as a stray blob above the ponut.
@@ -586,56 +571,35 @@ func _missionary_place_trim(local: Transform3D) -> Transform3D:
 	return parent.global_transform.affine_inverse() * world
 
 
+func _pony_id() -> String:
+	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
+	return str(identity.get("id")) if identity != null else ""
+
+
 func _load_place() -> void:
-	if not FileAccess.file_exists(PLACE_PATH):
-		return
-	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(PLACE_PATH))
-	if not data is Dictionary:
-		return
-	var version := int((data as Dictionary).get("version", 0))
-	data = migrate_place(data)
-	if int((data as Dictionary).get("version", 0)) != version:
-		var file := FileAccess.open(PLACE_PATH, FileAccess.WRITE)
-		if file != null:
-			file.store_string(JSON.stringify(data, "\t"))
-			file.close()
-	var identity: Variant = pony.get("identity")
-	var id := str(identity.get("id")) if identity != null else ""
-	var row: Variant = (data as Dictionary).get(id, {})
-	if not row is Dictionary:
-		return
-	var pos: Variant = (row as Dictionary).get("position")
-	if pos is Array and (pos as Array).size() == 3:
-		_pos = Vector3(float(pos[0]), float(pos[1]), float(pos[2]))
-	_pitch = float((row as Dictionary).get("pitch", _pitch))
-	_scale = float((row as Dictionary).get("scale", _scale))
+	var placement := SETTINGS.anatomy_placement(_pony_id())
+	_apply_placement_values(placement)
+	_place_revision = SETTINGS.placement_revision
+	_place_dirty = false
 
 
-## One-time shift of the saved per-mare placements onto the current global default. Pure: the
-## caller writes the result back when the version changed.
-static func migrate_place(data: Dictionary) -> Dictionary:
-	var version := int(data.get("version", 0))
-	if version >= PLACE_VERSION:
-		return data
-	var shift := Vector3.ZERO
-	if version < 1:
-		shift.z = PLACE_FORWARD_M
-	if version < 2:
-		shift.x = PLACE_RIGHT_M
-	if version < 3:
-		shift.z += PLACE_FORWARD_STEP_M
-	for id: Variant in data.keys():
-		if str(id) == "version":
-			continue
-		var row: Variant = data[id]
-		if not row is Dictionary:
-			continue
-		var pos: Variant = (row as Dictionary).get("position")
-		if pos is Array and (pos as Array).size() == 3:
-			(row as Dictionary)["position"] = [
-				float(pos[0]) + shift.x, float(pos[1]) + shift.y, float(pos[2]) + shift.z]
-	data["version"] = PLACE_VERSION
-	return data
+func _apply_placement_values(placement: Dictionary) -> void:
+	_pos = Vector3(
+		float(placement.get("offset_x", 0.0)),
+		float(placement.get("offset_y", 0.0)),
+		float(placement.get("offset_z", 0.0)))
+	_pitch = float(placement.get("pitch_deg", 0.0))
+	_scale = maxf(0.05, float(placement.get("scale", 1.0)))
+
+
+func _placement_values() -> Dictionary:
+	return {
+		"offset_x": _pos.x,
+		"offset_y": _pos.y,
+		"offset_z": _pos.z,
+		"pitch_deg": _pitch,
+		"scale": _scale,
+	}
 
 
 func _apply_material() -> void:
@@ -1061,6 +1025,8 @@ func apply_live() -> void:
 		return
 	if selected_mare_bits_path() != _mare_bits_path_loaded:
 		_reload_mare_bits_mesh()
+	if not _place_dirty and SETTINGS.placement_revision != _place_revision:
+		_load_place()
 	_apply_material()
 	_apply_place()
 	_apply_anal_shape(_anal_local)
@@ -1532,37 +1498,34 @@ func nudge(axis: String, amount: float) -> void:
 		"x": _pos.x += amount
 		"pitch": _pitch += amount
 		"scale": _scale = maxf(0.05, _scale + amount)
+	_place_dirty = true
 	_apply_place()
 
 
 func place_text() -> String:
-	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f" % [
-		_pos.x, _pos.y, _pos.z, _pitch, _scale]
+	var id := _pony_id()
+	var source := "override" if SETTINGS.anatomy_placement_has_override(id) else "default"
+	if _place_dirty:
+		source += "/unsaved"
+	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f source=%s" % [
+		_pos.x, _pos.y, _pos.z, _pitch, _scale, source]
 
 
 func save_place() -> void:
-	var data: Dictionary = {}
-	if FileAccess.file_exists(PLACE_PATH):
-		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PLACE_PATH))
-		if parsed is Dictionary:
-			data = parsed
-	var identity: Variant = pony.get("identity")
-	var id := str(identity.get("id")) if identity != null else ""
+	var id := _pony_id()
 	if id.is_empty():
 		return
-	data[id] = {"position": [_pos.x, _pos.y, _pos.z], "pitch": _pitch, "scale": _scale}
-	data["version"] = PLACE_VERSION
-	DirAccess.make_dir_recursive_absolute(PLACE_PATH.get_base_dir())
-	var file := FileAccess.open(PLACE_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(data, "\t"))
-		file.close()
+	SETTINGS.save_anatomy_placement(id, _placement_values())
+	_place_dirty = false
+	_place_revision = SETTINGS.placement_revision
 
 
+## Preview the mare's resolved default. Save writes the preview as her override, or removes it
+## when it matches the default.
 func reset_place() -> void:
-	_pos = DEFAULT_PLACE
-	_pitch = DEFAULT_PITCH
-	_scale = DEFAULT_SCALE
+	_apply_placement_values(SETTINGS.anatomy_placement_default(_pony_id(), false))
+	_place_dirty = true
+	_place_revision = SETTINGS.placement_revision
 	_apply_place()
 
 

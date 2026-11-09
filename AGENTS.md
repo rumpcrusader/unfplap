@@ -495,23 +495,23 @@ reclined eye height left the camera wrong after the act.
 
 ### Missionary camera
 
-`presentation.missionary.camera_mode` (debug) picks the eye. **Anon eyes** is the default: the view is
-`missionary_anon.gd`'s `eye_transform()` — his posed `Head` bone with the game's eye offset, read from
-the transform `apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one
-hinge at the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his
-hips, thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down
-toward her, S back/up, and Q/E add the side lean. The camera is
-written after the pose write in the same frame. Her gaze and the kiss target his authored eye and
-mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig; the game's
-eye modifier is pointed at the same target, with `presentation.missionary.gaze_offset_mm` (debug,
-signed, unclamped) raising or lowering it. The vulva trims (`vulva_shift_mm`, `vulva_pitch_deg`,
-`vulva_depth_shift_mm`) move only the anatomy mesh in missionary; the depth one starts at 20% depth
-and reaches its signed millimetre value at full thrust. Two hacks sit beside them, both missionary-only:
-`disable_fold_coloring` drops the vertex-alpha fold/clitoris masks so the mesh uses her skin tones,
-and `vulva_hug_mm` replaces the anatomy hug for the act. The camera itself is kept outside her live
-skull and muzzle by `head_clearance_mm` (debug, default 30 mm) in both views, so a close cheek or
-muzzle lean cannot enter her head as she turns it. **Authored shots** uses the shot trajectory
-below.
+`presentation.missionary.camera_mode` (debug) picks the eye. **Authored shots** is the default and
+uses the shot trajectory below. **Anon eyes** keeps the view at `missionary_anon.gd`'s
+`eye_transform()` — his posed `Head` bone with the game's eye offset, read from the transform
+`apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one hinge at
+the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his hips,
+thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down toward
+her, S back/up, and Q/E add the side lean. The camera is written after the pose write in the same
+frame. Her gaze and the kiss target his authored eye and mouth (`eye_point()` / `mouth_point()`),
+never the game camera on his standing player rig; the game's eye modifier is pointed at the same
+target, with `presentation.missionary.gaze_offset_mm` (debug, signed, unclamped) raising or lowering
+it. The vulva trims (`vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the
+anatomy mesh in missionary; the depth one starts at 20% depth and reaches its signed millimetre value
+at full thrust. Two hacks sit beside them, both missionary-only: `disable_fold_coloring` drops the
+vertex-alpha fold/clitoris masks so the mesh uses her skin tones, and `vulva_hug_mm` replaces the
+anatomy hug for the act. The camera itself is kept outside her live skull and muzzle by
+`head_clearance_mm` (debug, default 100 mm) in both views, so a close cheek or muzzle lean cannot
+enter her head as she turns it.
 
 ### Missionary shot
 
@@ -1586,19 +1586,19 @@ rump blush. Unknown settings keys are ignored.
   `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
   spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1, default 0.67; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
-  (Show tail docks, off; visibility only, it never moves the anatomy), `mare_bits` (Mare bits,
+  (Show tail docks, on; visibility only, it never moves the anatomy), `mare_bits` (Mare bits,
   `original`/`v2`; default `v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),
   `anal_scale` (Ponut scale, default 0.9: the V2 ponut interior and body coat; the vulva and opening
   stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point; default −20 mm),
-  `vulva_hug_mm` and `anal_hug_mm`
+  `vulva_hug_mm` (default `2 mm`) and `anal_hug_mm`
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips; the missionary
   hack `presentation.missionary.vulva_hug_mm` overrides `vulva_hug_mm` for that act),
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 2×) and
   `jiggle_still` (debug: no-jiggle zone around the vulva, 1.5×; 0 turns it off),
   `anal_still` (debug: the same zone around the visible ponut, default 0, off),
   `still_oval` (debug: vertical half-axis of both still zones, 1.5× the lateral one),
-  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.4),
+  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.6),
   `still_height_mm` (debug: vertical placement of the vulva still zone, default 25 mm) and
   `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
   `vulva_out_mm` (debug: push the whole anatomy mesh out along its own normal, so a pose that tucks
@@ -1613,7 +1613,7 @@ rump blush. Unknown settings keys are ignored.
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.2`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
   pulled all the way out, up to 5 cm), plus the debug
-  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.01 m`). The gap is not a depth cap: it sets
+  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.025 m`). The gap is not a depth cap: it sets
   `penetration_reach()` (`shaft length - gap`) in both poses, so 100 % depth is his body stopped
   `gap` behind her rear surface and a long `part_length_scale` moves the reach with it. The back-out
   gap is negative penetration, so it is travel the depth scale never counts.

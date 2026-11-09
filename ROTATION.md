@@ -141,7 +141,7 @@ Missionary is its own state, not the game's bed rest:
 
 `presentation.missionary.camera_mode` (debug) picks the eye:
 
-- **Anon eyes** (default): the view is his posed head plus the game's own eye offset, read from the
+- **Anon eyes**: the view is his posed head plus the game's own eye offset, read from the
   eye `missionary_anon.apply()` caches for the frame (the offset itself still comes from the rig's
   rest values). The lean is **one hinge at the `Spine` joint** (`LEAN_HINGE`): the whole upper body —
   chest, neck, head, shoulders, arms and hands — tilts as a unit around it, while the hips, thighs and
@@ -150,15 +150,15 @@ Missionary is its own state, not the game's bed rest:
   `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the anatomy mesh; the depth one ramps in
   after 20% depth and reaches its signed millimetre value at full thrust. The fold-coloring and
   vulva-hug hacks are missionary-only too. The camera is pushed out of her live skull sphere and
-  muzzle capsule by `head_clearance_mm` (debug, default 30 mm), in both views, so a close cheek or
+  muzzle capsule by `head_clearance_mm` (debug, default 100 mm), in both views, so a close cheek or
   muzzle lean cannot enter her head as she turns it. The camera is written after the pose in the same frame, so it
   never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
   camera on his standing player rig; the game's eye modifier follows the same target, offset by
   `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than
   `KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point; her muzzle extends past that
   point.
-- **Authored shots**: the trajectory below, through the pose lab's camera transforms (position and
-  direction).
+- **Authored shots** (default): the trajectory below, through the pose lab's camera transforms
+  (position and direction).
 
 ### The shot
 

@@ -387,8 +387,8 @@ func run() -> void:
 	check(near(float(SETTINGS.anal_still.default), 0.0), "anal still zone is off by default")
 	check(near(float(SETTINGS.still_oval.default), 1.5),
 		"still zones are taller than they are wide")
-	check(near(float(SETTINGS.still_fade.default), 0.4),
-		"still zones fade over 0.4 of their radius")
+	check(near(float(SETTINGS.still_fade.default), 0.6),
+		"still zones fade over 0.6 of their radius")
 	check(near(float(SETTINGS.still_height_mm.default), 25.0),
 		"the vulva still zone sits 25 mm above the opening by default")
 	check(not bool(SETTINGS.draw_still_zones.default), "still-zone debug rings are off by default")

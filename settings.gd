@@ -610,39 +610,39 @@ static var belly_down_deg := num("belly_down_deg", "presentation.missionary.bell
 	"Belly down",
 	"Tilt her lower belly toward the mattress, out of the shot. Negative lifts it.",
 	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
-static var vulva_shift_mm := num("vulva_shift_mm", "presentation.missionary.vulva_shift_mm", 0.0,
+static var vulva_shift_mm := num("vulva_shift_mm", "presentation.missionary.vulva_shift_mm", 70.0,
 	"Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
-static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vulva_pitch_deg", 0.0,
+static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vulva_pitch_deg", 20.0,
 	"Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm := num("vulva_depth_shift_mm",
-	"presentation.missionary.vulva_depth_shift_mm", -2.0,
+	"presentation.missionary.vulva_depth_shift_mm", 20.0,
 	"Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
 static var disable_fold_coloring := flag("disable_fold_coloring",
-	"presentation.missionary.disable_fold_coloring", false,
+	"presentation.missionary.disable_fold_coloring", true,
 	"Hack: Disable fold coloring",
 	"Draw the whole vulva in her outer skin color during the missionary act; the pink folds and clitoris colors are off.",
 	GENERAL, "Missionary").as_debug()
 static var missionary_vulva_hug_mm := num("missionary_vulva_hug_mm",
-	"presentation.missionary.vulva_hug_mm", 3.0,
+	"presentation.missionary.vulva_hug_mm", -2.0,
 	"Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
 static var head_clearance_mm := num("head_clearance_mm",
-	"presentation.missionary.head_clearance_mm", 30.0,
+	"presentation.missionary.head_clearance_mm", 100.0,
 	"Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
-static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", 0.0,
+static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", -250.0,
 	"Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
-static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "eye",
+static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "shots",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
 	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",
 	GENERAL, "Missionary").as_debug()
@@ -827,7 +827,7 @@ static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity", 0
 static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never",
 	["never", "act", "always"], ["Never", "During act only", "Always"], "Anatomy",
 	"Show the mare anatomy always, only while an act is running, or never.", ANATOMY, "")
-static var show_dock := flag("show_dock", "anatomy.show_dock", false, "Show tail docks",
+static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
 	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
 	ANATOMY, "")
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip", false, "Show skin strip",
@@ -888,7 +888,7 @@ static var part_front_m := num("part_front_m", "anatomy.part_front_m", 0.02, "Co
 	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-20.0, 20.0) \
 	.as_debug()
-static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", 0.01, "Pelvis gap",
+static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", 0.025, "Pelvis gap",
 	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 10.0) \
 	.as_debug()
@@ -907,7 +907,7 @@ static var anal_scale := num("anal_scale", "anatomy.anal_scale", 0.9,
 	"Ponut scale",
 	"Scale the visible ponut mound. The vulva and the opening stay put.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
-static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 3.0,
+static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 2.0,
 	"Vulva hug",
 	"Pad the gap between the cock and the vulva lips. Positive opens the lips wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
@@ -952,7 +952,7 @@ static var still_oval := num("still_oval", "anatomy.still_oval", 1.5,
 	"Vertical half-axis of both still zones as a share of the lateral one. Lower makes them flatter.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.2, 1.5) \
 	.as_debug()
-static var still_fade := num("still_fade", "anatomy.still_fade", 0.4,
+static var still_fade := num("still_fade", "anatomy.still_fade", 0.6,
 	"Still zone fade",
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \

@@ -60,6 +60,10 @@ jobs:
           TAG: ${{ needs.preview.outputs.tag }}
           FORCE: ${{ github.event.inputs.force }}
         run: |
+          if [ -z "$TAG" ]; then
+            echo "preview did not return a release tag" >&2
+            exit 1
+          fi
           args=(--submit --tag "$TAG")
           if [ "$FORCE" = "true" ]; then args+=(--force); fi
           scripts/publish_store.sh "${args[@]}"

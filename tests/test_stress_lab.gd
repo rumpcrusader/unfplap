@@ -3,6 +3,7 @@ extends "res://mods/unfplap/tests/test_lab.gd"
 ## a grid in front of Golden Oak Library. Run with ./lab-stress.sh. Fillies are excluded.
 
 const POPULATION_CONFIG := preload("res://world/population/pony_population_config.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const GRID_COLUMNS := 15
 const GRID_ACROSS_M := 0.95
 const GRID_BACK_M := 0.95

@@ -39,6 +39,10 @@ var _avatar_visible := true
 var _avatar_process := Node.PROCESS_MODE_INHERIT
 var _avatar_processing := true
 var _avatar_transform := Transform3D.IDENTITY
+## Every bone's local transform before the act. The authored pose deliberately keeps its stretched
+## bone positions; the game re-poses rotations after the act but not every bone position, so the
+## whole snapshot is put back instead of leaving the act's lengths in his limbs.
+var _saved_bones: Array[Transform3D] = []
 var _scale := Vector3.ONE
 ## The game's own eye offset from the head bone. `anon_body.gd` puts the camera at the head joint
 ## offset by `head_offset` (less `desktop_body_forward`) and turns it by `REST_FACING`, and
@@ -72,6 +76,9 @@ func install(runtime_node: Node) -> bool:
 	_avatar_process = avatar.process_mode
 	_avatar_processing = avatar.is_processing()
 	_avatar_transform = avatar.transform
+	_saved_bones.clear()
+	for i in skeleton.get_bone_count():
+		_saved_bones.append(skeleton.get_bone_pose(i))
 	_scale = avatar.scale
 	# His own drivers: the desktop pose driver poses the torso and the body IK the limbs. Both are
 	# parked for the act; the pose we write is the only pose.
@@ -139,8 +146,12 @@ func remove() -> void:
 		avatar.set_process(_avatar_processing)
 		avatar.visible = _avatar_visible
 		avatar.process_mode = _avatar_process
+		if is_instance_valid(skeleton) and _saved_bones.size() == skeleton.get_bone_count():
+			for i in skeleton.get_bone_count():
+				skeleton.set_bone_pose(i, _saved_bones[i])
 		_log("anon restore transform=%s process=%s leg=%.2f" % [
 			str(_avatar_transform.origin), str(_avatar_processing), _leg_hide_influence])
+	_saved_bones.clear()
 	avatar = null
 	skeleton = null
 	_indices.clear()

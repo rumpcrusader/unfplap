@@ -311,8 +311,10 @@ reclined eye height left the camera wrong after the act.
   the game's own tail motion resumes from the normal pose. The same restore runs for the standing
   tail and its post-stop tuck.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
-  back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
-  and the `LegHide` influence.
+  back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
+  the `LegHide` influence and **every bone's pre-act local transform**. The authored pose keeps
+  deliberately stretched bone positions; the game re-poses rotations but not every position, so
+  restoring the whole bone snapshot is what keeps his limbs from staying stretched outside the act.
 - **Space rule.** Rotate a bone by writing its **global pose** with the axis converted once into
   skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
   parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the

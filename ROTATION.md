@@ -95,8 +95,9 @@ Missionary is its own state, not the game's bed rest:
   lifting. A two-bone arm solve reaches each wrist; the hand keeps its authored world orientation so
   the palm stays flat on the bed.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
-  back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
-  and the `LegHide` influence.
+  back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
+  the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately
+  stretched positions, which the game does not re-pose for every bone).
 - **Space rule.** Every act-space rotation is applied to a bone's **global pose** with the axis
   converted once into skeleton space (`pose_rig.rotate_free`). Pre-multiplying a bone's *local*
   pose applies the axis in the parent's frame — his hips are rotated ~90° here, and doing that made

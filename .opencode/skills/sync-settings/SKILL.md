@@ -144,8 +144,8 @@ FEATURES or CONTROLS wording changes. Do not leave an old default in the docs.
 ## 6. Verify
 
 ```bash
-python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. \
-  --snapshot "$tmp/snapshot.json" --dry-run
+# No --snapshot: run a fresh snapshot so the verification sees the promoted defaults.
+python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. --dry-run
 scripts/check.sh --all
 work=$(mktemp -d /tmp/opencode/unfplap-settings.XXXXXX)
 XDG_DATA_HOME="$work" godot --headless --xr-mode off --path ../.. \

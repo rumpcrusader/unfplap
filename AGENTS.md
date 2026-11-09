@@ -855,8 +855,11 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   not by nearest vertices to bone origins. On first use it casts from the live act camera to the
   belly, chest, neck and head bone origins through the posed `CaressSurface` patches. The first
   triangle is the coat the player actually sees, so the path is on the visible side instead of
-  the rest-space underside. It stores each hit's rest position/normal/skin weights and caches
-  them per mesh/side and camera side. Every tick it skins only those anchors and samples a
+  the rest-space underside. The belly anchor stays on the centerline (closest to Anon); the
+  chest, neck and cheek ray targets are offset toward the hand's side by 10/6/7 cm × body scale,
+  so A builds a left-side path and D a right-side path. Those anchors store `lateral = 0`
+  because the side is already baked into the hit. It stores each hit's rest position/normal/skin
+  weights and caches them per mesh/side and camera side. Every tick it skins only those anchors and samples a
   Catmull-Rom curve (`lean` + `caress.along_m`). The path is on the coat by construction, so the
   single-point palm needs no triangle query. `belly_u` is derived from the belly anchor index.
   The rest-space ray path (below/front belly and chest, hand-side neck and cheek, plus a lower

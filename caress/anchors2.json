@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "order": [
+    "flank",
+    "shoulder",
+    "neck"
+  ],
+  "shared": {},
+  "left": {
+    "flank": {
+      "region": "torso",
+      "position": [
+        0.10939,
+        0.555737,
+        0.144943
+      ]
+    },
+    "shoulder": {
+      "region": "torso",
+      "position": [
+        0.105669,
+        0.495784,
+        -0.023642
+      ]
+    },
+    "neck": {
+      "region": "torso",
+      "position": [
+        0.07684,
+        0.5965,
+        -0.091523
+      ]
+    }
+  },
+  "right": {
+    "flank": {
+      "region": "torso",
+      "position": [
+        -0.113355,
+        0.558415,
+        0.158564
+      ]
+    },
+    "shoulder": {
+      "region": "torso",
+      "position": [
+        -0.106704,
+        0.483702,
+        -0.020842
+      ]
+    },
+    "neck": {
+      "region": "torso",
+      "position": [
+        -0.076427,
+        0.597737,
+        -0.080697
+      ]
+    }
+  }
+}

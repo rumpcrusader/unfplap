@@ -1,12 +1,21 @@
 {
-  "version": 1,
-  "belly": {
-    "region": "torso",
-    "position": [
-      -0.000659,
-      0.375227,
-      0.08244
-    ]
+  "version": 2,
+  "order": [
+    "lower",
+    "belly",
+    "chest",
+    "neck",
+    "cheek"
+  ],
+  "shared": {
+    "belly": {
+      "region": "torso",
+      "position": [
+        -0.000659,
+        0.375227,
+        0.08244
+      ]
+    }
   },
   "left": {
     "lower": {

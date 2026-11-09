@@ -712,6 +712,11 @@ static var caress_hand_shape := flag("caress_hand_shape", "features.caress_hand_
 	"Use hand shape",
 	"Resolve the precise palm as a small set of palm and finger samples. Off places a single palm-centre point on the coat.",
 	GENERAL, "Caress").as_debug()
+static var path_id := choice("path_id", "presentation.missionary.caress.path_id", "one",
+	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
+	"Caress path",
+	"Switch between the two authored missionary caress paths. Path one is belly/chest/neck/cheek; path two is flank/shoulder/neck.",
+	GENERAL, "Caress").as_debug()
 static var caress_debug := flag("caress_debug", "features.caress_debug", false,
 	"Print caress contact",
 	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,

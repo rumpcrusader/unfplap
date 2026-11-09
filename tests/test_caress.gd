@@ -290,7 +290,7 @@ func run() -> void:
 	body_pony.head = fake_head
 	var authored_path: Variant = PATH.new()
 	for side in ["left", "right"]:
-		var anchors: Array = authored_path.call("_build_authored", body_pony, side)
+		var anchors: Array = authored_path.call("_build_authored", body_pony, side, "one")
 		check(anchors.size() == 5, "the authored %s path has five anchors" % side)
 		var authored_ids: Array = []
 		for anchor: Dictionary in anchors:
@@ -300,6 +300,25 @@ func run() -> void:
 		if anchors.size() == 5:
 			check(str((anchors[4] as Dictionary).get("source_region", "")) == "head",
 				"the authored %s cheek uses the head source" % side)
+		var side_sign := 1.0 if side == "left" else -1.0
+		for anchor: Dictionary in anchors:
+			var anchor_id := str(anchor.get("id", ""))
+			if anchor_id == "belly":
+				continue
+			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
+			check(signf(anchor_x) == side_sign,
+				"the authored %s %s is on the %s side" % [side, anchor_id, side])
+		var anchors_two: Array = authored_path.call("_build_authored", body_pony, side, "two")
+		check(anchors_two.size() == 3, "the authored %s second path has three anchors" % side)
+		var ids_two: Array = []
+		for anchor: Dictionary in anchors_two:
+			ids_two.append(str(anchor.get("id", "")))
+		check(ids_two == ["flank", "shoulder", "neck"],
+			"the authored %s second path follows flank-shoulder-neck" % side)
+		for anchor: Dictionary in anchors_two:
+			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
+			check(signf(anchor_x) == side_sign,
+				"the authored %s second path stays on the %s side" % [side, side])
 	head_root.free()
 
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),

@@ -193,8 +193,8 @@ mods/unfplap/
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  caress in both poses, shoulder reach, smack and palm-on-coat contact
   caress/           precise caress (debug): caress_path.gd surface anchors and
-                    anchors.json authored rest points, caress_surface.gd stable posed patch,
-                    caress_hand.gd palm/finger samples, caress_arm.gd reach plan
+                    anchors.json/anchors2.json authored rest points, caress_surface.gd stable
+                    posed patch, caress_hand.gd palm/finger samples, caress_arm.gd reach plan
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
@@ -851,11 +851,15 @@ custom head-aim path below.
 The old capsule/point path remains the fallback. `features.caress_hand_shape` (default off) adds
 the multi-sample palm/finger resolver on top; off is the single-point palm.
 
-- `caress/anchors.json` is the primary authored path: rest-space body/head points chosen
-  in Blender from the visible coat, stored as source-region positions. Each point snaps to the
-  nearest source vertex within 6 cm, so the runtime keeps its skin weights. The shared belly and
-  per-hand lower/chest/neck/cheek produce `lower → belly → chest → neck → cheek`; a missing or
-  invalid point falls back to the camera path, then the rest path.
+- `caress/anchors.json` and `caress/anchors2.json` are the primary authored paths: rest-space
+  body/head points chosen in Blender from the visible coat, stored as source-region positions.
+  Each point snaps to the nearest source vertex within 6 cm, so the runtime keeps its skin
+  weights. `anchors.json` is a shared belly plus per-hand lower/chest/neck/cheek
+  (`lower → belly → chest → neck → cheek`); `anchors2.json` is per-hand flank/shoulder/neck
+  (`flank → shoulder → neck`, neutral at the flank). A missing or invalid point falls back to
+  the camera path, then the rest path. `presentation.missionary.caress.path_id` is the debug
+  dropdown (`one`/`two`); the path cache is keyed by the hand and path id, so switching it
+  rebuilds the next caress path.
 - `caress/caress_path.gd` is the missionary path controller: without authored points it chooses
   surface anchors by **act-camera rays**,
   not by nearest vertices to bone origins. On first use it casts from the live act camera to the
@@ -900,6 +904,9 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   Missionary uses the anchor path; the hand-shape mode queries both `torso` and `head` and picks
   the closer contact. The old capsule hull target is never used for the precise hand; if the
   surface fails, the last good precise target is held.
+- `presentation.missionary.caress.path_id` is the debug **Caress path** dropdown: `one` uses
+  `anchors.json` (belly/chest/neck/cheek), `two` uses `anchors2.json` (flank/shoulder/neck).
+  Changing it rebuilds the next caress path because the path cache is keyed by path id.
 - `features.caress_debug` logs one precise contact line per hand per act with `u`, target,
   normal, finger, roll, hover and surface; the first build also logs the body/head source sizes,
   any missing/rejected anchor, and each anchor's world position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
@@ -1697,6 +1704,7 @@ Always on: standing afterglow stay-close window, lean-camera inertia smoothing a
 rump blush. Unknown settings keys are ignored.
 - Precise caress debug values: `features.caress_surface` (default off),
   `features.caress_hand_shape` (default off), `features.caress_debug`,
+  `presentation.missionary.caress.path_id` (one/two debug dropdown),
   `features.caress_reach_shoulder_m` (2 cm), `features.caress_reach_body_m` (0) and
   `features.caress_reach_stretch` (1.0). They are read live; both precise flags are snapshotted
   with the other act features.
@@ -1866,8 +1874,8 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Caress** (precise toggle, hand-shape toggle, contact log,
-  shoulder/body/stretch caps), **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
+  during cuddles, then the **Caress** (precise toggle, hand-shape toggle, path dropdown, contact
+  log, shoulder/body/stretch caps), **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
   match, Caress along, Raise over coat, Cock base inset, Caress oval, a **Size** dropdown over the
   six per-size vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with
   **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**

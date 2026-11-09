@@ -1,12 +1,15 @@
 extends RefCounted
 ## Surface-anchored missionary caress path. The primary anchors come from the authored
-## `anchors.json` rest points (shared belly, per-hand lower/chest/neck/cheek); otherwise they are
+## `anchors.json` / `anchors2.json` rest points; otherwise they are
 ## chosen from the coat the act camera sees, with a rest-space ray path as the final fallback.
 ## Every tick the anchors are skinned with the live skeleton; no triangle query is needed for the
 ## single-point placement after they are built.
 
 const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
-const ANCHORS_FILE := "res://mods/unfplap/caress/anchors.json"
+const ANCHORS_FILES := {
+	"one": "res://mods/unfplap/caress/anchors.json",
+	"two": "res://mods/unfplap/caress/anchors2.json",
+}
 const BELLY_U := 0.25
 const CACHE_LIMIT := 16
 const AUTHORED_MAX_DISTANCE := 0.06
@@ -23,7 +26,8 @@ var belly_u := BELLY_U
 var debug_notes: Array = []
 
 
-func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> bool:
+func build(pony: Variant, hand_side: String, camera_position := Vector3.INF,
+		path_id := "one") -> bool:
 	valid = false
 	anchors.clear()
 	path_len = 0.0
@@ -45,10 +49,11 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> 
 		side_key = "%d|%d|%d" % [
 			int(round(local.x * 2.0)), int(round(local.y * 2.0)),
 			int(round(local.z * 2.0))]
-	var key := "%d|%d|%s|%s" % [
+	var key := "%d|%d|%s|%s|%s" % [
 		body_mesh.get_instance_id(),
-		head_mesh.get_instance_id() if head_mesh != null else 0, hand_side, side_key]
-	var authored_ready := _authored_ready(hand_side)
+		head_mesh.get_instance_id() if head_mesh != null else 0, hand_side, side_key,
+		path_id]
+	var authored_ready := _authored_ready(hand_side, path_id)
 	var cached: Variant = _cache.get(key)
 	if not authored_ready and cached is Array and not (cached as Array).is_empty():
 		var cache_ok := true
@@ -61,7 +66,7 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> 
 			_update_belly_u()
 			valid = anchors.size() >= 3
 			return valid
-	anchors = _build_anchors(pony, body, head, hand_side, camera_position)
+	anchors = _build_anchors(pony, body, head, hand_side, camera_position, path_id)
 	_update_belly_u()
 	if anchors.size() < 3:
 		return false
@@ -201,8 +206,8 @@ func _update_belly_u() -> void:
 
 
 func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
-		hand_side: String, camera_position: Vector3) -> Array:
-	var authored := _build_authored(pony, hand_side)
+		hand_side: String, camera_position: Vector3, path_id: String) -> Array:
+	var authored := _build_authored(pony, hand_side, path_id)
 	if authored.size() >= 3:
 		return authored
 	if camera_position.is_finite():
@@ -212,64 +217,86 @@ func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
 	return _build_anchors_rest(pony, body, head, hand_side)
 
 
-static func _authored() -> Dictionary:
-	if not _authored_data.is_empty():
-		return _authored_data
-	var file := FileAccess.open(ANCHORS_FILE, FileAccess.READ)
+static func _authored(path_id: String) -> Dictionary:
+	if _authored_data.has(path_id):
+		var cached: Variant = _authored_data[path_id]
+		return cached if cached is Dictionary else {}
+	var file_path := str(ANCHORS_FILES.get(path_id, ANCHORS_FILES["one"]))
+	var file := FileAccess.open(file_path, FileAccess.READ)
 	if file == null:
 		return {}
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if parsed is Dictionary:
-		_authored_data = parsed
-	return _authored_data
+		_authored_data[path_id] = parsed
+		return parsed
+	return {}
 
 
-func _authored_ready(hand_side: String) -> bool:
-	var data := _authored()
-	if not data.get("belly") is Dictionary:
+func _authored_ready(hand_side: String, path_id: String) -> bool:
+	var data := _authored(path_id)
+	var order: Variant = data.get("order", [])
+	if not order is Array or (order as Array).is_empty():
 		return false
+	var shared: Variant = data.get("shared", {})
 	var side_data: Variant = data.get(hand_side)
 	if not side_data is Dictionary:
 		return false
-	for slot in ["lower", "chest", "neck", "cheek"]:
-		if not (side_data as Dictionary).get(slot) is Dictionary:
+	for slot: Variant in (order as Array):
+		var key := str(slot)
+		var found := (side_data as Dictionary).get(key) is Dictionary
+		if not found and shared is Dictionary:
+			found = (shared as Dictionary).get(key) is Dictionary
+		if not found:
 			return false
 	return true
 
 
 ## Authored path from the Blender vertex groups. Positions are rest-space points on the body or
 ## head mesh; each is snapped to the nearest source vertex, so the runtime keeps the skin weights.
-func _build_authored(pony: Variant, hand_side: String) -> Array:
-	var data := _authored()
-	var belly: Variant = data.get("belly")
+## `order` and `shared` drive the slot chain; path one uses lower-belly-chest-neck-cheek and
+## path two uses flank-shoulder-neck.
+func _build_authored(pony: Variant, hand_side: String, path_id: String) -> Array:
+	var data := _authored(path_id)
+	var order: Variant = data.get("order", [])
+	if not order is Array or (order as Array).is_empty():
+		return []
+	var shared: Dictionary = {}
+	if data.get("shared") is Dictionary:
+		shared = data["shared"]
 	var side_data: Variant = data.get(hand_side)
-	if not belly is Dictionary or not side_data is Dictionary:
+	if not side_data is Dictionary:
 		return []
 	var body_surface: Variant = SURFACE.new()
 	if not bool(body_surface.call("ensure", pony, "torso")):
 		return []
-	var head_surface: Variant = SURFACE.new()
-	if not bool(head_surface.call("ensure", pony, "head")):
-		return []
 	var body_source: Dictionary = body_surface.get("source")
-	var head_source: Dictionary = head_surface.get("source")
 	var body_sk: Skeleton3D = body_surface.get("skeleton")
-	var head_sk: Skeleton3D = head_surface.get("skeleton")
 	debug_notes.append("source body verts=%d idx=%d" % [
 		(body_source.get("vertices", []) as Array).size(),
 		(body_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
-	debug_notes.append("source head verts=%d idx=%d" % [
-		(head_source.get("vertices", []) as Array).size(),
-		(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
+	var head_source: Dictionary = {}
+	var head_sk: Skeleton3D = null
 	var out: Array = []
-	for slot in ["lower", "chest", "neck", "cheek"]:
+	for slot_value: Variant in (order as Array):
+		var slot := str(slot_value)
 		var entry: Variant = (side_data as Dictionary).get(slot)
+		if not entry is Dictionary:
+			entry = shared.get(slot)
 		if not entry is Dictionary:
 			return []
 		var region := str((entry as Dictionary).get("region", "torso"))
 		var position := _entry_position(entry)
 		if not position.is_finite():
 			return []
+		if region == "head" and head_source.is_empty():
+			var head_surface: Variant = SURFACE.new()
+			if not bool(head_surface.call("ensure", pony, "head")):
+				return []
+			head_source = head_surface.get("source")
+			head_sk = head_surface.get("skeleton")
+			debug_notes.append("source head verts=%d idx=%d" % [
+				(head_source.get("vertices", []) as Array).size(),
+				(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
 		var source := head_source if region == "head" else body_source
 		var sk := head_sk if region == "head" else body_sk
 		var anchor := _nearest_source_anchor(source, sk, region, position,
@@ -277,21 +304,19 @@ func _build_authored(pony: Variant, hand_side: String) -> Array:
 		if anchor.is_empty():
 			debug_notes.append("authored %s miss" % slot)
 			return []
-		var roll := 1.0 if slot == "lower" else 0.7 if slot == "chest" else 0.2 if slot == "neck" else 0.0
-		_anchor_meta(anchor, slot, 0.0, roll, region)
+		_anchor_meta(anchor, slot, 0.0, _authored_roll(slot), region)
 		out.append(anchor)
-		if slot == "lower":
-			var belly_position := _entry_position(belly)
-			if not belly_position.is_finite():
-				return []
-			var belly_anchor := _nearest_source_anchor(body_source, body_sk, "torso",
-				belly_position, AUTHORED_MAX_DISTANCE)
-			if belly_anchor.is_empty():
-				debug_notes.append("authored belly miss")
-				return []
-			_anchor_meta(belly_anchor, "belly", 0.0, 1.0, "torso")
-			out.append(belly_anchor)
 	return out
+
+
+static func _authored_roll(slot: String) -> float:
+	if slot in ["lower", "flank", "belly"]:
+		return 1.0
+	if slot in ["chest", "shoulder"]:
+		return 0.7
+	if slot == "neck":
+		return 0.2
+	return 0.0
 
 
 static func _entry_position(entry: Variant) -> Vector3:

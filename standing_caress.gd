@@ -1531,6 +1531,10 @@ func _anchor_debug_color(id: String) -> Color:
 	match id:
 		"lower":
 			return Color(1.0, 0.2, 0.2)
+		"flank":
+			return Color(1.0, 0.45, 0.1)
+		"shoulder":
+			return Color(0.2, 0.8, 1.0)
 		"belly":
 			return Color(0.2, 1.0, 0.2)
 		"chest":
@@ -1569,17 +1573,20 @@ func _missionary_camera_position() -> Vector3:
 
 
 func _missionary_anchor_path(hand_side: String) -> Variant:
-	var path: Variant = _missionary_paths.get(hand_side)
+	var path_id := str(SETTINGS.path_id.get_choice())
+	var key := hand_side + "|" + path_id
+	var path: Variant = _missionary_paths.get(key)
 	if path != null and bool(path.get("valid")):
 		return path
 	var started := Time.get_ticks_usec()
 	path = CAESS_PATH.new()
-	if not bool(path.call("build", pony, hand_side, _missionary_camera_position())):
+	if not bool(path.call("build", pony, hand_side, _missionary_camera_position(),
+			path_id)):
 		return null
-	_missionary_paths[hand_side] = path
+	_missionary_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s anchors=%d build_ms=%.1f" % [hand_side,
-			(path.get("anchors") as Array).size(),
+		_log("caress path side=%s path=%s anchors=%d build_ms=%.1f" % [hand_side,
+			path_id, (path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 		for note: Variant in (path.get("debug_notes") as Array):
 			_log("caress " + str(note))

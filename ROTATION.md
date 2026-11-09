@@ -102,8 +102,9 @@ Missionary is its own state, not the game's bed rest:
 - **Missionary caress path.** The precise path is surface-anchored: `caress/caress_path.gd`
   casts rays from the live act camera to the belly, chest, neck and head bone origins through the
   posed body/head patches. The first triangle is the coat the player sees, so the anchors are on
-  the visible side; a rest-space fallback (below/front belly and chest, hand-side neck and cheek)
-  is used when no camera is available. It stores each hit's rest position/normal/skin weights
+  the visible side. The belly stays on the centerline; the chest/neck/cheek targets move toward
+  the hand's side, so the left and right hands build different paths. A rest-space fallback
+  (below/front belly and chest, hand-side neck and cheek) is used when no camera is available. It stores each hit's rest position/normal/skin weights
   and skins only those anchors every tick. It samples a
   Catmull-Rom curve; W walks toward the chest/neck/cheek,
   `presentation.missionary.caress.along_m` shifts it, and S moves to the lower belly. The

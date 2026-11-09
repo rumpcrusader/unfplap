@@ -220,6 +220,12 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 	var neck_world := belly_world
 	if neck_bone >= 0:
 		neck_world = sk.global_transform * sk.get_bone_global_pose(neck_bone).origin
+	var body_scale := 1.0
+	if is_instance_valid(pony) and pony.get("body_scale") != null:
+		body_scale = clampf(float(pony.get("body_scale")), 0.5, 2.0)
+	var side_sign := 1.0 if hand_side == "right" else -1.0
+	var body_right: Vector3 = pony.global_basis.x.normalized()
+	var hand_side_dir := body_right * side_sign
 	var out: Array = []
 	var body_surface: Variant = SURFACE.new()
 	if not bool(body_surface.call("ensure", pony, "torso")):
@@ -234,18 +240,20 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 	if belly_anchor.is_empty():
 		debug_notes.append("anchor belly miss")
 		return out
-	_anchor_meta(belly_anchor, "belly", 1.0, 1.0, "torso")
+	_anchor_meta(belly_anchor, "belly", 0.0, 1.0, "torso")
 	out.append(belly_anchor)
-	var chest_anchor := _posed_ray_anchor(body_surface, camera_position, chest_world)
+	var chest_anchor := _posed_ray_anchor(body_surface, camera_position,
+		chest_world + hand_side_dir * 0.10 * body_scale)
 	if chest_anchor.is_empty():
 		debug_notes.append("anchor chest miss")
 	else:
-		_anchor_meta(chest_anchor, "chest", 0.8, 0.7, "torso")
+		_anchor_meta(chest_anchor, "chest", 0.0, 0.7, "torso")
 		out.append(chest_anchor)
-	var neck_anchor := _posed_ray_anchor(body_surface, camera_position, neck_world)
+	var neck_anchor := _posed_ray_anchor(body_surface, camera_position,
+		neck_world + hand_side_dir * 0.06 * body_scale)
 	var neck_ok := not neck_anchor.is_empty()
 	if neck_ok:
-		_anchor_meta(neck_anchor, "neck", 0.3, 0.2, "torso")
+		_anchor_meta(neck_anchor, "neck", 0.0, 0.2, "torso")
 		out.append(neck_anchor)
 	else:
 		debug_notes.append("anchor neck miss")
@@ -265,7 +273,8 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 					(head_source.get("vertices", []) as Array).size(),
 					(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
 				var head_world := hsk.global_transform * hsk.get_bone_global_pose(head_bone).origin
-				var head_anchor := _posed_ray_anchor(head_surface, camera_position, head_world)
+				var head_anchor := _posed_ray_anchor(head_surface, camera_position,
+					head_world + hand_side_dir * 0.07 * body_scale)
 				if head_anchor.is_empty():
 					debug_notes.append("anchor cheek miss")
 				else:

@@ -48,6 +48,20 @@ class FakeAnatomy extends Node:
 		pass
 
 
+class FakeTouchBody extends Node:
+	var _rigs: Array = []
+	var _entries: Array = []
+	var syncs := 0
+
+	func _unprofiled_sync(_rig: int, _every: bool) -> void:
+		syncs += 1
+
+
+class FakeCaressPony extends Node3D:
+	var touch_body: Node
+	var skeleton: Skeleton3D
+
+
 class FakeBody extends Node3D:
 	var _left_foot: Node3D
 	var _right_foot: Node3D
@@ -186,6 +200,20 @@ func _check_missionary_hand_hold() -> void:
 	anon.call("_place_hands", plants, Transform3D.IDENTITY)
 	check(sk.get_bone_global_pose(hand).is_finite(),
 		"the release returns to the authored hand frame")
+	var touch := FakeTouchBody.new()
+	root.add_child(touch)
+	touch.set("_rigs", [sk])
+	touch.set("_entries", [{}])
+	var caress_pony := FakeCaressPony.new()
+	root.add_child(caress_pony)
+	caress_pony.skeleton = sk
+	caress_pony.touch_body = touch
+	var caress: RefCounted = CAESS.new()
+	caress.set("pony", caress_pony)
+	caress.call("_sync_missionary_touch")
+	check(touch.syncs == 1, "the caress refreshes the touch hulls from the act skeleton")
+	caress_pony.free()
+	touch.free()
 	sk.free()
 	anon.free()
 
@@ -404,6 +432,15 @@ func run() -> void:
 	check(CAESS.caress_profile_for("") == CAESS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
 	check(near(CAESS.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
+	check(near(CAESS.MISSIONARY_CARESS_LIFT_M, 0.18),
+		"missionary caress starts at the barrel radius")
+	check(CAESS._region_allowed("back", CAESS.MISSIONARY_TORSO_REGIONS),
+		"the missionary caress accepts a barrel hull")
+	check(not CAESS._region_allowed("leg", CAESS.MISSIONARY_TORSO_REGIONS),
+		"the missionary caress ignores a leg hull")
+	check(not CAESS._region_allowed("head_Ears1", CAESS.MISSIONARY_TORSO_REGIONS),
+		"the missionary caress ignores a head hull")
+	check(CAESS._region_allowed("anything", []), "an empty region filter allows every hull")
 	check(near(CAESS.missionary_caress_lean_offset(0.0), 0.0),
 		"missionary caress rests on her belly")
 	check(CAESS.missionary_caress_lean_offset(1.0) > 0.0,

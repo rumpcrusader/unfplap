@@ -50,7 +50,12 @@ const CARESS_RUMP_LEAN := 0.5
 ## snaps the palm onto her surface. All distances scale with her body.
 const MISSIONARY_CARESS_TRAVEL_M := 0.12
 const MISSIONARY_CARESS_LATERAL_M := 0.045
-const MISSIONARY_CARESS_LIFT_M := 0.25
+## The query starts roughly at the barrel radius, not above the chest: a higher lift makes the
+## chest/withers hull the nearest contact.
+const MISSIONARY_CARESS_LIFT_M := 0.18
+## Torso hulls the missionary caress may use. The neck, head, legs, tail, wings and mane cannot
+## steal the palm when the query sits near the chest.
+const MISSIONARY_TORSO_REGIONS := ["back", "withers", "shoulder", "barrel", "belly", "rump"]
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08
 const SMACK_ZONE_RADIUS_M := 0.035
@@ -569,19 +574,30 @@ static func _region_ignored(region: String, ignore: Array) -> bool:
 	return false
 
 
-## PonyTouchBody.nearest() without the caress-ignored regions. Only used when the ignore list
-## is non-empty; otherwise the game's own query is used unchanged.
-func _nearest_touch(point: Vector3, ignore: Array) -> Dictionary:
+static func _region_allowed(region: String, allowed: Array) -> bool:
+	if allowed.is_empty():
+		return true
+	var name := region.to_lower()
+	for value: Variant in allowed:
+		if name == str(value).to_lower():
+			return true
+	return false
+
+
+## PonyTouchBody.nearest() without the ignored regions, optionally restricted to a region list.
+## Only used when a filter is set; otherwise the game's own query is used unchanged.
+func _nearest_touch(point: Vector3, ignore: Array, allowed: Array = []) -> Dictionary:
 	var touch: Variant = pony.get("touch_body") if is_instance_valid(pony) else null
 	if touch == null or not touch.has_method("nearest"):
 		return {}
 	var near: Dictionary = touch.call("nearest", point)
-	if ignore.is_empty():
+	if ignore.is_empty() and allowed.is_empty():
 		return near
 	var entry: Variant = near.get("entry")
-	if entry is Dictionary and not _region_ignored(
-			str((entry as Dictionary).get("region", "")), ignore):
-		return near
+	if entry is Dictionary:
+		var name := str((entry as Dictionary).get("region", ""))
+		if not _region_ignored(name, ignore) and _region_allowed(name, allowed):
+			return near
 	var entries: Variant = touch.get("_entries")
 	if not entries is Array:
 		return {}
@@ -591,7 +607,8 @@ func _nearest_touch(point: Vector3, ignore: Array) -> Dictionary:
 		if not e is Dictionary:
 			continue
 		var ed: Dictionary = e
-		if _region_ignored(str(ed.get("region", "")), ignore):
+		var name := str(ed.get("region", ""))
+		if _region_ignored(name, ignore) or not _region_allowed(name, allowed):
 			continue
 		var world: Variant = ed.get("world")
 		if not world is Transform3D:
@@ -613,15 +630,16 @@ func _nearest_touch(point: Vector3, ignore: Array) -> Dictionary:
 
 
 ## Nearest coat point/normal for a palm. FlankSurface owns the flank/rump patch; the body
-## hull query covers the shoulder and any point outside that patch.
+## hull query covers the shoulder and any point outside that patch. `torso_only` skips the flank
+## patch and restricts the hulls to `MISSIONARY_TORSO_REGIONS` for the missionary chest/belly rub.
 func _coat_contact(point: Vector3, outward_hint: Vector3,
-		ignore: Array = []) -> Dictionary:
+		ignore: Array = [], torso_only := false) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {"point": point, "normal": outward_hint, "source": "fallback"}
 	var outward := outward_hint.normalized()
 	if outward.length_squared() < 0.5:
 		outward = pony.global_basis.x.normalized()
-	if is_instance_valid(_flank):
+	if is_instance_valid(_flank) and not torso_only:
 		var surface: Variant = _flank.get("surface")
 		var frame: Variant = _flank.get("frame")
 		var sk: Variant = pony.get("skeleton")
@@ -644,7 +662,8 @@ func _coat_contact(point: Vector3, outward_hint: Vector3,
 				return {"point": hit_world, "normal": hit_normal, "source": "flank"}
 	var touch: Variant = pony.get("touch_body")
 	if touch != null and touch.has_method("nearest"):
-		var near: Dictionary = _nearest_touch(point, ignore)
+		var allowed: Array = MISSIONARY_TORSO_REGIONS if torso_only else []
+		var near: Dictionary = _nearest_touch(point, ignore, allowed)
 		var entry: Variant = near.get("entry")
 		var normal_local: Variant = near.get("normal")
 		if entry is Dictionary and normal_local is Vector3:
@@ -717,8 +736,8 @@ static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) ->
 
 func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		finger_hint: Vector3, smooth := true, ignore: Array = [],
-		radial_outward := true) -> Transform3D:
-	var hit := _coat_contact(point, outward_hint, ignore)
+		radial_outward := true, torso_only := false) -> Transform3D:
+	var hit := _coat_contact(point, outward_hint, ignore, torso_only)
 	var source := str(hit.get("source", "fallback"))
 	var hit_point: Vector3 = hit.get("point", point)
 	var hit_normal: Vector3 = hit.get("normal", outward_hint)
@@ -915,6 +934,28 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	return target
 
 
+## PonyTouchBody follows the game's own hands, and the missionary act parks them. Without this the
+## hull query reads the last standing/pre-act hulls and the palm floats at their old height. The
+## act's physics pose is live, so refresh the body rig before the coat query. Guarded: a game
+## without the internal sync simply uses the hulls as they are.
+func _sync_missionary_touch() -> void:
+	if not is_instance_valid(pony):
+		return
+	var touch: Variant = pony.get("touch_body")
+	if touch == null or not touch.has_method("_unprofiled_sync"):
+		return
+	var rigs: Variant = touch.get("_rigs")
+	var entries: Variant = touch.get("_entries")
+	if not rigs is Array or (rigs as Array).is_empty():
+		return
+	if not entries is Array or (entries as Array).is_empty():
+		return
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D or (rigs as Array)[0] != sk:
+		return
+	touch.call("_unprofiled_sync", 0, true)
+
+
 ## Missionary caress: one palm on her belly, W slides toward the chest and S toward the lower
 ## belly along the posed body axis. The anchor is measured from the live body bones, lifted above
 ## her spine and snapped onto the coat, so it follows the thrust and the afterglow. The target is
@@ -926,6 +967,7 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 	if not sk is Skeleton3D:
 		return Transform3D.IDENTITY
 	var skeleton := sk as Skeleton3D
+	_sync_missionary_touch()
 	var hips := skeleton.find_bone("pony_hips")
 	var spine2 := skeleton.find_bone("pony_spine2")
 	var spine3 := skeleton.find_bone("pony_spine3")
@@ -968,15 +1010,20 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 	var ignore := _caress_ignore().duplicate()
 	if not ignore.has("leg"):
 		ignore.append("leg")
-	var target := _palm_on_coat_frame(hand_side, query, Vector3.UP, head_dir, true, ignore, false)
+	var target := _palm_on_coat_frame(hand_side, query, Vector3.UP, head_dir, true, ignore,
+		false, true)
 	if not target.is_finite():
 		return Transform3D.IDENTITY
 	if not apply:
 		return target
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f" % [
-			hand_side, str(target.origin), str(target.basis.x), lean])
+		var probe := _coat_contact(query, Vector3.UP, ignore, true)
+		var coat: Vector3 = probe.get("point", query)
+		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s spine_y=%.3f coat_y=%.3f palm_coat=%.3f" % [
+			hand_side, str(target.origin), str(target.basis.x), lean,
+			str(probe.get("source", "?")), belly.y, coat.y,
+			target.origin.distance_to(coat)])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")

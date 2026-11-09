@@ -329,10 +329,14 @@ reclined eye height left the camera wrong after the act.
   `pony_hips → pony_spine3` by `MISSIONARY_CARESS_TRAVEL_M` (0.12 m) × body scale × lean plus the
   debug `presentation.missionary.caress.along_m`: neutral is the belly, W slides toward the chest
   and S toward the lower belly, and the setting shifts the whole range along her. The point is
-  offset laterally per hand (`MISSIONARY_CARESS_LATERAL_M`), lifted `MISSIONARY_CARESS_LIFT_M`
-  above the body and snapped with `_coat_contact`; the torso query always ignores `leg`. Fingers
-  point toward her head, and the oval uses the existing `presentation.standing.caress` radii and
-  palm distance. The aim is recomputed every physics tick, so it follows the thrust, sway and
+  offset laterally per hand (`MISSIONARY_CARESS_LATERAL_M`), lifted
+  `MISSIONARY_CARESS_LIFT_M` (0.18 m, about the barrel radius) and snapped with the torso-only
+  coat query. The game parks `PonyTouchBody` while its desktop hands are away, so the caress calls
+  its body `_unprofiled_sync(0, true)` first; otherwise the hull query reads stale standing hulls
+  and the palm floats. The query uses only `MISSIONARY_TORSO_REGIONS` (`back`, `withers`,
+  `shoulder`, `barrel`, `belly`, `rump`), never the flank patch, legs, neck or head. Fingers point
+  toward her head, and the oval uses the existing `presentation.standing.caress` radii and palm
+  distance. The aim is recomputed every physics tick, so it follows the thrust, sway and
   afterglow.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever

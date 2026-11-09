@@ -106,8 +106,10 @@ Missionary is its own state, not the game's bed rest:
   `PonyTouchBody` with its desktop hands, so the caress refreshes rig 0 through
   `_unprofiled_sync(0, true)` before querying; otherwise the hulls are stale and the palm floats at
   the old standing height. The query is torso-only: `back`, `withers`, `shoulder`, `barrel`,
-  `belly` and `rump`; it skips the flank patch, legs, neck and head. The oval uses the standing
-  caress radii, laid along the body.
+  `belly` and `rump`; it skips the flank patch, legs, neck and head. The palm then rolls 45° about
+  the coat normal, counter-clockwise for the right hand and clockwise for the left, and the debug
+  `presentation.missionary.caress.over_coat_m` offsets it along that normal. The oval uses the
+  standing caress radii, laid along the body.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

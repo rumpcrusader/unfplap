@@ -434,6 +434,12 @@ func run() -> void:
 	check(near(CAESS.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
 	check(near(CAESS.MISSIONARY_CARESS_LIFT_M, 0.18),
 		"missionary caress starts at the barrel radius")
+	check(near(CAESS.MISSIONARY_CARESS_PALM_ROLL_DEG, 45.0),
+		"missionary caress rolls the palm 45 degrees")
+	check(near(CAESS.missionary_palm_roll_deg("right"), 45.0),
+		"the right palm rolls counter-clockwise")
+	check(near(CAESS.missionary_palm_roll_deg("left"), -45.0),
+		"the left palm rolls clockwise")
 	check(CAESS._region_allowed("back", CAESS.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress accepts a barrel hull")
 	check(not CAESS._region_allowed("leg", CAESS.MISSIONARY_TORSO_REGIONS),

@@ -53,6 +53,9 @@ const MISSIONARY_CARESS_LATERAL_M := 0.045
 ## The query starts roughly at the barrel radius, not above the chest: a higher lift makes the
 ## chest/withers hull the nearest contact.
 const MISSIONARY_CARESS_LIFT_M := 0.18
+## The palm rolls about its coat normal: counter-clockwise for Anon's right hand, clockwise for
+## his left, so the fingers lie comfortably across the chest instead of straight up her body.
+const MISSIONARY_CARESS_PALM_ROLL_DEG := 45.0
 ## Torso hulls the missionary caress may use. The neck, head, legs, tail, wings and mane cannot
 ## steal the palm when the query sits near the chest.
 const MISSIONARY_TORSO_REGIONS := ["back", "withers", "shoulder", "barrel", "belly", "rump"]
@@ -155,6 +158,13 @@ static func caress_single_hand_toggle(active: String, pressed: String) -> String
 ## Negative lean (S) moves toward her lower belly, positive (W) toward her chest.
 static func missionary_caress_lean_offset(lean: float) -> float:
 	return clampf(lean, -1.0, 1.0) * MISSIONARY_CARESS_TRAVEL_M
+
+
+## Roll about the coat normal, in degrees. The right hand turns counter-clockwise and the left
+## clockwise as seen from above.
+static func missionary_palm_roll_deg(side: String) -> float:
+	return MISSIONARY_CARESS_PALM_ROLL_DEG if side == "right" \
+		else -MISSIONARY_CARESS_PALM_ROLL_DEG
 
 
 ## Pitch the palm about its own normal (local X). Positive values lower the fingers; negative
@@ -1014,16 +1024,25 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 		false, true)
 	if not target.is_finite():
 		return Transform3D.IDENTITY
+	# Regular-game palm roll and the debug lift both act along the coat normal. The roll keeps
+	# the fingers across her body; the lift is a signed, unscaled offset for tuning the gap.
+	var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
+	var roll := deg_to_rad(missionary_palm_roll_deg(hand_side))
+	if absf(roll) > 0.0001:
+		target.basis = Basis(outward, roll) * target.basis
+	var over_coat := float(SETTINGS.over_coat_m.get_num())
+	if absf(over_coat) > 0.0001:
+		target.origin += outward * over_coat
 	if not apply:
 		return target
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
 		var probe := _coat_contact(query, Vector3.UP, ignore, true)
 		var coat: Vector3 = probe.get("point", query)
-		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s spine_y=%.3f coat_y=%.3f palm_coat=%.3f" % [
+		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s spine_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f" % [
 			hand_side, str(target.origin), str(target.basis.x), lean,
 			str(probe.get("source", "?")), belly.y, coat.y,
-			target.origin.distance_to(coat)])
+			target.origin.distance_to(coat), over_coat])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")

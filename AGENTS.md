@@ -324,7 +324,9 @@ reclined eye height left the camera wrong after the act.
   `(palm * hand_offset) * hand_rest_basis`. On release the same solve eases back to the authored
   pose, so the planted arms return exactly. The palm rides her coat, not his lean. `A` uses his
   left hand and `D` his right; only one hand caresses at a time, pressing the other swaps and
-  pressing the active one stops. `Z`/`C` pause the oval with that hand.
+  pressing the active one stops. `Z`/`C` pause the oval with that hand. The palm rolls 45° about
+  the coat normal, counter-clockwise for the right hand and clockwise for the left; the debug
+  `presentation.missionary.caress.over_coat_m` lifts it further above the coat.
 - **Missionary caress path.** The anchor is `pony_spine2`, moved along
   `pony_hips → pony_spine3` by `MISSIONARY_CARESS_TRAVEL_M` (0.12 m) × body scale × lean plus the
   debug `presentation.missionary.caress.along_m`: neutral is the belly, W slides toward the chest
@@ -1714,7 +1716,8 @@ rump blush. Unknown settings keys are ignored.
   - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
     `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
-    tail), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
+    tail), `caress.over_coat_m` (debug, signed, in centimetres: raise or press the palm over her
+    coat), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
     `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
     `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
     size dropdown above the six rows.
@@ -1773,9 +1776,9 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
-  match, Caress along, a **Size** dropdown over the six per-size vulva/clearance/gaze values,
-  fold/hug hacks, Use free look), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
-  subheadings) and **Thrust jiggle** sections. **Anatomy**
+  match, Caress along, Raise over coat, a **Size** dropdown over the six per-size
+  vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with **Motion**,
+  **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

@@ -618,6 +618,11 @@ static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vu
 	"Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
+static var vulva_depth_shift_mm := num("vulva_depth_shift_mm",
+	"presentation.missionary.vulva_depth_shift_mm", -2.0,
+	"Vulva depth shift",
+	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 50%. Negative pushes it down.",
+	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
 static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", 0.0,
 	"Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",

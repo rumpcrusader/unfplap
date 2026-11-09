@@ -374,6 +374,7 @@ func _on_physical_reaction(kind: String) -> void:
 func _process(delta: float) -> void:
 	_heat_idle_tick(delta)
 	_debug_zones_tick()
+	_missionary_depth_tick()
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
@@ -539,11 +540,29 @@ func _apply_place() -> void:
 	_mesh.transform = local
 
 
+## The depth trim follows the thrust every frame; the rest of the placement only polls at
+## `VISIBILITY_POLL_S`. Re-running the placement is one transform write.
+func _missionary_depth_tick() -> void:
+	if not _missionary_pose():
+		return
+	if absf(SETTINGS.vulva_depth_shift_mm.get_num()) < 0.0001:
+		return
+	_apply_place()
+
+
 ## Move only the anatomy mesh for the lying pose: a world-vertical shift plus a pitch about the
 ## bed's lateral axis, both around the mesh origin. Applied after the bone mapping so the values
 ## read the way they look on screen (up is up); the mesh still rides her hips like the placement.
 func _missionary_place_trim(local: Transform3D) -> Transform3D:
 	var shift: float = SETTINGS.vulva_shift_mm.get_num() / 1000.0
+	# The act's depth trim starts at 50% and reaches the setting at full depth.
+	var depth := 0.0
+	if is_instance_valid(runtime):
+		var value: Variant = runtime.get("depth")
+		if value is float or value is int:
+			depth = clampf(float(value), 0.0, 1.0)
+	shift += SETTINGS.vulva_depth_shift_mm.get_num() / 1000.0 \
+		* clampf((depth - 0.5) * 2.0, 0.0, 1.0)
 	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg.get_num())
 	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
 		return local

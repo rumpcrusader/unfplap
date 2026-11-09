@@ -141,7 +141,9 @@ Missionary is its own state, not the game's bed rest:
   rest values). The lean is **one hinge at the `Spine` joint** (`LEAN_HINGE`): the whole upper body —
   chest, neck, head, shoulders, arms and hands — tilts as a unit around it, while the hips, thighs and
   legs stay exactly on the authored pose and keep the stroke. W tips the hinge forward/down toward her,
-  S back/up, and Q/E add the side lean. The camera is written after the pose in the same frame, so it
+  S back/up, and Q/E add the side lean. The missionary vulva trims (`vulva_shift_mm`,
+  `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the anatomy mesh; the depth one ramps in
+  after 50% depth and reaches its signed millimetre value at full thrust. The camera is written after the pose in the same frame, so it
   never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
   camera on his standing player rig; the game's eye modifier follows the same target, offset by
   `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than

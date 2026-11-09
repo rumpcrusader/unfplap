@@ -95,14 +95,16 @@ Missionary is its own state, not the game's bed rest:
   `set_hold_target()`; `missionary_anon.gd` eases the hand from its mattress frame in
   `HOLD_BLEND_S = 0.35 s`, keeps the wrist on that absolute world point while his shoulders thrust
   and lean, and eases it back to the authored mattress frame over `HOLD_RELEASE_S = 0.35 s` after
-  `clear_hold_target()`. The palm frame is converted through the game's `left_hand_offset` /
-  `right_hand_offset` to the wrist bone, and the arm solve is the same one the planted palms use.
-  Only one hand caresses: `A` left, `D` right, the other press swaps, the active press stops.
+  `clear_hold_target()`. While held, the arm uses the game's regular desktop mode from the
+  shoulder down: `_arm_pole()` carries the `valve_body_ik.gd` elbow plane, and the wrist bone is
+  `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
+  press swaps, the active press stops.
 - **Missionary caress anchor.** Her belly is `pony_spine2`; travel follows
-  `pony_hips → pony_spine3` by `0.12 m × body_scale × lean` (neutral belly, W chest, S lower
-  belly). A per-hand lateral offset and a lift above the body feed the coat query, which always
-  ignores `leg`; the palm normal comes from the hull, never the standing actor-radius fallback.
-  The oval uses the standing caress radii, laid along the body.
+  `pony_hips → pony_spine3` by `0.12 m × body_scale × lean` plus the debug
+  `presentation.missionary.caress.along_m` (neutral belly, W chest, S lower belly). A per-hand
+  lateral offset and a lift above the body feed the coat query, which always ignores `leg`; the
+  palm normal comes from the hull, never the standing actor-radius fallback. The oval uses the
+  standing caress radii, laid along the body.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

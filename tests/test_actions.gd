@@ -147,6 +147,48 @@ func _check_perf_probe() -> void:
 	probe.free()
 	fake_main.free()
 
+
+## A held caress must solve the hand through the regular arm pole and return to the authored
+## frame without the scaled-basis slerp error the first implementation logged every frame.
+func _check_missionary_hand_hold() -> void:
+	var anon: Node = MISSIONARY_ANON.new()
+	root.add_child(anon)
+	var sk := Skeleton3D.new()
+	root.add_child(sk)
+	var armature := sk.add_bone("armature")
+	sk.set_bone_parent(armature, -1)
+	var upper := sk.add_bone("LeftUpperArm")
+	sk.set_bone_parent(upper, armature)
+	var lower := sk.add_bone("LeftLowerArm")
+	sk.set_bone_parent(lower, upper)
+	sk.set_bone_rest(lower, Transform3D(Basis.IDENTITY, Vector3(0.0, -0.30, 0.0)))
+	var hand := sk.add_bone("LeftHand")
+	sk.set_bone_parent(hand, lower)
+	sk.set_bone_rest(hand, Transform3D(Basis(Vector3.UP, 0.2), Vector3(0.0, -0.25, 0.0)))
+	sk.reset_bone_poses()
+	anon.set("skeleton", sk)
+	anon.set("active", true)
+	var offset := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.07))
+	anon.set("_hand_offsets", {"left": offset, "right": offset})
+	var hold := Transform3D(Basis(Vector3.UP, 0.2), Vector3(0.05, -0.45, 0.10))
+	anon.set("_holds", {"left": hold})
+	anon.set("_hold_from", {"left": hold})
+	anon.set("_hold_started", {"left": Time.get_ticks_msec() - 1000})
+	var plants := {"Left": sk.get_bone_global_pose(hand)}
+	anon.call("_place_hands", plants, Transform3D.IDENTITY)
+	var solved := sk.get_bone_global_pose(hand)
+	check(solved.is_finite() and solved.origin.length() < 0.6,
+		"a held hand solves to the caress target")
+	check(solved.basis.get_scale().is_equal_approx(Vector3.ONE),
+		"the held hand keeps the regular-game orthonormal basis")
+	anon.call("clear_hold_target", "left")
+	anon.set("_release_started", {"left": Time.get_ticks_msec() - 1000})
+	anon.call("_place_hands", plants, Transform3D.IDENTITY)
+	check(sk.get_bone_global_pose(hand).is_finite(),
+		"the release returns to the authored hand frame")
+	sk.free()
+	anon.free()
+
 var failures := 0
 var checks := 0
 
@@ -383,6 +425,20 @@ func run() -> void:
 		"the palm frame sits 7 cm ahead of the wrist bone")
 	check(MISSIONARY_ANON.bone_to_palm(bone_frame, hand_offset).is_equal_approx(palm_frame),
 		"the palm and wrist conversions round trip")
+	var rest_basis := Basis(Vector3.UP, 0.4)
+	var rest_bone: Transform3D = MISSIONARY_ANON.palm_to_bone(
+		palm_frame, hand_offset, rest_basis)
+	check(rest_bone.basis.is_equal_approx(
+		(palm_frame.basis * hand_offset.basis * rest_basis).orthonormalized()),
+		"the regular arm mode composes the hand rest basis")
+	check(MISSIONARY_ANON.bone_to_palm(rest_bone, hand_offset, rest_basis) \
+		.is_equal_approx(palm_frame), "the rest-basis conversion round trips")
+	var scaled_frame := Transform3D(
+		Basis.IDENTITY.scaled(Vector3(1.35, 1.35, 1.35)), Vector3.ZERO)
+	var blended: Transform3D = MISSIONARY_ANON._blend_frame(
+		scaled_frame, Transform3D(Basis.IDENTITY, Vector3.ONE), 0.5)
+	check(blended.is_finite() and near(blended.basis.get_scale().x, 1.0, 0.001),
+		"the caress blend orthonormalizes scaled world bases")
 	check(near(WING.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
 	check(near(KISS.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
 	check(KISS.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
@@ -811,6 +867,7 @@ func run() -> void:
 	_check_body_coat_jiggle_target()
 	_check_tail_tuning()
 	_check_perf_probe()
+	_check_missionary_hand_hold()
 
 	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

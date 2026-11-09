@@ -318,18 +318,22 @@ reclined eye height left the camera wrong after the act.
   palms stay flat.
 - **The caress lifts one palm onto her.** `standing_caress.gd` drives a world-space palm hold on
   `missionary_anon.gd`; `set_hold_target()`/`clear_hold_target()` blend the hand off and back onto
-  the mattress over `HOLD_BLEND_S`/`HOLD_RELEASE_S` (0.35 s), and `_place_hands()` converts the
-  palm frame through the game's `left_hand_offset`/`right_hand_offset` to the wrist bone before the
-  two-bone solve. The palm rides her coat, not his lean. `A` uses his left hand and `D` his right;
-  only one hand caresses at a time, pressing the other swaps and pressing the active one stops.
-  `Z`/`C` pause the oval with that hand.
+  the mattress over `HOLD_BLEND_S`/`HOLD_RELEASE_S` (0.35 s). While held, the arm runs the game's
+  regular desktop arm mode from the shoulder down: `_arm_pole()` is the `valve_body_ik.gd` elbow
+  plane (down, a little outward and back, carried between frames), and the wrist bone is
+  `(palm * hand_offset) * hand_rest_basis`. On release the same solve eases back to the authored
+  pose, so the planted arms return exactly. The palm rides her coat, not his lean. `A` uses his
+  left hand and `D` his right; only one hand caresses at a time, pressing the other swaps and
+  pressing the active one stops. `Z`/`C` pause the oval with that hand.
 - **Missionary caress path.** The anchor is `pony_spine2`, moved along
-  `pony_hips → pony_spine3` by `MISSIONARY_CARESS_TRAVEL_M` (0.12 m) × body scale × lean: neutral
-  is the belly, W slides toward the chest and S toward the lower belly. The point is offset
-  laterally per hand (`MISSIONARY_CARESS_LATERAL_M`), lifted `MISSIONARY_CARESS_LIFT_M` above the
-  body and snapped with `_coat_contact`; the torso query always ignores `leg`. Fingers point toward
-  her head, and the oval uses the existing `presentation.standing.caress` radii and palm distance.
-  The aim is recomputed every physics tick, so it follows the thrust, sway and afterglow.
+  `pony_hips → pony_spine3` by `MISSIONARY_CARESS_TRAVEL_M` (0.12 m) × body scale × lean plus the
+  debug `presentation.missionary.caress.along_m`: neutral is the belly, W slides toward the chest
+  and S toward the lower belly, and the setting shifts the whole range along her. The point is
+  offset laterally per hand (`MISSIONARY_CARESS_LATERAL_M`), lifted `MISSIONARY_CARESS_LIFT_M`
+  above the body and snapped with `_coat_contact`; the torso query always ignores `leg`. Fingers
+  point toward her head, and the oval uses the existing `presentation.standing.caress` radii and
+  palm distance. The aim is recomputed every physics tick, so it follows the thrust, sway and
+  afterglow.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
@@ -1704,10 +1708,12 @@ rump blush. Unknown settings keys are ignored.
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
   - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
-    `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her) and the six
-    per-size values `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`, `vulva_hug_mm`,
-    `head_clearance_mm` and `gaze_offset_mm` under `size.<preset>`, keyed `canon`, `mounting`,
-    `same height` and `hoers` and edited through one size dropdown above the six rows.
+    `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
+    `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
+    tail), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
+    `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
+    `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
+    size dropdown above the six rows.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
@@ -1763,9 +1769,9 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
-  match, a **Size** dropdown over the six per-size vulva/clearance/gaze values, fold/hug hacks,
-  Use free look), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust
-  jiggle** sections. **Anatomy**
+  match, Caress along, a **Size** dropdown over the six per-size vulva/clearance/gaze values,
+  fold/hug hacks, Use free look), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack**
+  subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

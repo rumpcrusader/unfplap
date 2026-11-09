@@ -4,6 +4,7 @@ extends RefCounted
 ## Standing rubs the flank; missionary rubs her chest and belly with one hand at a time.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -942,7 +943,9 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 	head_dir = head_dir.normalized()
 	var scale := _smack_body_scale()
 	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
-	var centre := belly + head_dir * (missionary_caress_lean_offset(lean) * scale)
+	var along_setting := float(SETTINGS.along_m.get_num())
+	var centre := belly \
+		+ head_dir * ((missionary_caress_lean_offset(lean) + along_setting) * scale)
 	# Her lateral axis from the posed body, so a bed at any angle works.
 	var side_axis := head_dir.cross(Vector3.UP)
 	if side_axis.length_squared() < 0.0001:

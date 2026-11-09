@@ -628,6 +628,10 @@ static var free_look := flag("free_look", "presentation.missionary.free_look", f
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
 	GENERAL, "Missionary").as_debug()
+static var along_m := num("along_m", "presentation.missionary.caress.along_m", 0.0,
+	"Caress along",
+	"Move the missionary caress point toward her head (positive) or tail (negative), in centimetres. W/S still slides it with the lean.",
+	GENERAL, "Missionary").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
 
 # -- Missionary size  (debug)
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is

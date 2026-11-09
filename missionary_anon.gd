@@ -75,6 +75,9 @@ var _release_started: Dictionary = {}
 ## The palm-to-hand-bone offset per side, from the game's `AnonBody` exports. The caress target
 ## and the plant frames are palm frames; the arm solve writes the wrist bone.
 var _hand_offsets: Dictionary = {}
+## Regular-arm pole state while a caress holds a hand, keyed "left"/"right".
+var _arm_poles: Dictionary = {}
+var _arm_axes: Dictionary = {}
 
 
 func install(runtime_node: Node) -> bool:
@@ -191,6 +194,8 @@ func remove() -> void:
 	_release_from.clear()
 	_release_started.clear()
 	_hand_offsets.clear()
+	_arm_poles.clear()
+	_arm_axes.clear()
 
 
 ## Place and pose him from the asset, once per displayed frame. The authored bones are written
@@ -248,7 +253,7 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	_apply_hip_motion(offset)
 	_note_hip_offset(offset)
 	_apply_lean(placed)
-	_place_hands(plants)
+	_place_hands(plants, placed)
 	_cache_eye()
 
 
@@ -331,6 +336,8 @@ func set_hold_target(side: String, world: Transform3D, _kind := "rub") -> void:
 	if not _holds.has(side):
 		_hold_from[side] = hand_frame(side)
 		_hold_started[side] = Time.get_ticks_msec()
+		_arm_poles.erase(side)
+		_arm_axes.erase(side)
 		_releases.erase(side)
 		_release_from.erase(side)
 		_release_started.erase(side)
@@ -344,13 +351,16 @@ func clear_hold_target(side: String) -> void:
 	_releases[side] = true
 	_release_from[side] = hand_frame(side)
 	_release_started[side] = Time.get_ticks_msec()
+	_arm_poles.erase(side)
+	_arm_axes.erase(side)
 	_holds.erase(side)
 	_hold_from.erase(side)
 	_hold_started.erase(side)
 
 
-## The hand's current palm frame; the caress target and the release both use this space, so the
-## 7 cm wrist offset turns the solve around the right point.
+## The hand's current palm frame; the caress target and the release both use this space. The
+## game's regular arm solve sets the hand bone to `target * rest`, so undo both the hand offset
+## and the hand's rest basis here.
 func hand_frame(side := "right") -> Transform3D:
 	if not active or not is_instance_valid(skeleton):
 		return Transform3D.IDENTITY
@@ -358,17 +368,28 @@ func hand_frame(side := "right") -> Transform3D:
 	if hand < 0:
 		return Transform3D.IDENTITY
 	var bone := skeleton.global_transform * skeleton.get_bone_global_pose(hand)
-	return bone_to_palm(bone, _hand_offset(side))
+	return bone_to_palm(bone, _hand_offset(side), _hand_rest_basis(side))
 
 
-## The game's controller/palm frame and the wrist bone differ by the hand offset (`bone = palm *
-## offset`). Keep the conversion in one place: the caress blend and the arm solve use it.
-static func palm_to_bone(palm: Transform3D, offset: Transform3D) -> Transform3D:
-	return palm * offset
+## The game's controller/palm frame and the wrist bone differ by the hand offset and the hand's
+## rest basis (`bone = (palm * offset) * rest`). The caress blend and the arm solve share this.
+static func palm_to_bone(palm: Transform3D, offset: Transform3D,
+		rest_basis := Basis.IDENTITY) -> Transform3D:
+	return (palm * offset) * Transform3D(rest_basis, Vector3.ZERO)
 
 
-static func bone_to_palm(bone: Transform3D, offset: Transform3D) -> Transform3D:
-	return bone * offset.affine_inverse()
+static func bone_to_palm(bone: Transform3D, offset: Transform3D,
+		rest_basis := Basis.IDENTITY) -> Transform3D:
+	return (bone * Transform3D(rest_basis, Vector3.ZERO).affine_inverse()) * offset.affine_inverse()
+
+
+func _hand_rest_basis(side: String) -> Basis:
+	if not is_instance_valid(skeleton):
+		return Basis.IDENTITY
+	var hand := skeleton.find_bone("LeftHand" if side == "left" else "RightHand")
+	if hand < 0:
+		return Basis.IDENTITY
+	return skeleton.get_bone_global_rest(hand).basis.orthonormalized()
 
 
 func _hand_offset(side: String) -> Transform3D:
@@ -380,11 +401,12 @@ func _hand_offset(side: String) -> Transform3D:
 ## A held hand follows the world frame the caress computed; a released one eases back to the
 ## authored mattress frame. Every path ends in the same two-bone solve, so the elbow plane and
 ## the authored hand scale are preserved.
-func _place_hands(plants: Dictionary) -> void:
+func _place_hands(plants: Dictionary, placed: Transform3D) -> void:
 	if plants.is_empty() or not is_instance_valid(skeleton):
 		return
 	var now := Time.get_ticks_msec()
 	var skel_inv := skeleton.global_transform.affine_inverse()
+	var body_basis := (skel_inv.basis * placed.basis).orthonormalized()
 	for side: Variant in plants.keys():
 		var name := str(side)
 		var key := name.to_lower()
@@ -392,6 +414,7 @@ func _place_hands(plants: Dictionary) -> void:
 		if hand < 0:
 			continue
 		var authored: Transform3D = plants[side]
+		var rest_basis := _hand_rest_basis(key)
 		if _holds.has(key):
 			var live: Variant = _holds.get(key)
 			if not live is Transform3D or not (live as Transform3D).is_finite():
@@ -403,12 +426,15 @@ func _place_hands(plants: Dictionary) -> void:
 			var started := int(_hold_started.get(key, now))
 			var t := clampf(float(now - started) / (HOLD_BLEND_S * 1000.0), 0.0, 1.0)
 			var hold_target := _blend_frame(from, live, t)
-			var hold_local := skel_inv * palm_to_bone(hold_target, _hand_offset(key))
+			var hold_local := skel_inv * palm_to_bone(hold_target, _hand_offset(key), rest_basis)
+			var target_basis := (skel_inv.basis * hold_target.basis).orthonormalized()
 			_solve_hand(name, hold_local.origin,
-				hold_local.basis.orthonormalized().scaled(authored.basis.get_scale()))
+				hold_local.basis.orthonormalized().scaled(authored.basis.get_scale()),
+				true, body_basis, key, target_basis)
 			continue
 		if _releases.has(key):
-			var dest := bone_to_palm(skeleton.global_transform * authored, _hand_offset(key))
+			var dest := bone_to_palm(skeleton.global_transform * authored,
+				_hand_offset(key), rest_basis)
 			var from := dest
 			var saved: Variant = _release_from.get(key)
 			if saved is Transform3D and (saved as Transform3D).is_finite():
@@ -416,7 +442,8 @@ func _place_hands(plants: Dictionary) -> void:
 			var started := int(_release_started.get(key, now))
 			var t := clampf(float(now - started) / (HOLD_RELEASE_S * 1000.0), 0.0, 1.0)
 			var release_target := _blend_frame(from, dest, t)
-			var release_local := skel_inv * palm_to_bone(release_target, _hand_offset(key))
+			var release_local := skel_inv * palm_to_bone(release_target,
+				_hand_offset(key), rest_basis)
 			_solve_hand(name, release_local.origin,
 				release_local.basis.orthonormalized().scaled(authored.basis.get_scale()))
 			if t >= 1.0:
@@ -433,8 +460,11 @@ func _place_hands(plants: Dictionary) -> void:
 
 
 ## Two-bone arm solve to a skeleton-space wrist target. The hand keeps the supplied basis so the
-## palm stays flat on the bed or on her coat.
-func _solve_hand(name: String, target: Vector3, hand_basis: Basis) -> void:
+## palm stays flat on the bed or on her coat. A held caress passes `natural`, which uses the game's
+## regular elbow pole instead of carrying the authored plant's elbow plane.
+func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := false,
+		body_basis := Basis.IDENTITY, pole_key := "",
+		pole_target_basis := Basis.IDENTITY) -> void:
 	if not is_instance_valid(skeleton):
 		return
 	var upper := skeleton.find_bone(name + "UpperArm")
@@ -459,20 +489,27 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis) -> void:
 	var cos_a := clampf((upper_len * upper_len + distance * distance
 		- lower_len * lower_len) / (2.0 * upper_len * distance), -1.0, 1.0)
 	var bend := acos(cos_a)
-	# Carry the elbow plane from the current arm; fall back to the bed's up then its side.
-	var pole := skeleton.get_bone_global_pose(lower).origin - shoulder
-	pole -= dir * pole.dot(dir)
-	if pole.length() < 0.001:
-		var up := (skeleton.global_transform.affine_inverse().basis * Vector3.UP).normalized()
-		pole = up - dir * up.dot(dir)
-	if pole.length() < 0.001:
-		pole = Vector3.RIGHT - dir * Vector3.RIGHT.dot(dir)
+	var pole := Vector3.ZERO
+	if natural and not pole_key.is_empty():
+		var outward_sign := 1.0 if pole_key == "left" else -1.0
+		pole = _arm_pole(pole_key, shoulder, target, body_basis, outward_sign,
+			get_process_delta_time(), pole_target_basis)
+	else:
+		# Carry the elbow plane from the current arm; fall back to the bed's up then its side.
+		pole = skeleton.get_bone_global_pose(lower).origin - shoulder
+		pole -= dir * pole.dot(dir)
+		if pole.length() < 0.001:
+			var up := (skeleton.global_transform.affine_inverse().basis * Vector3.UP).normalized()
+			pole = up - dir * up.dot(dir)
+		if pole.length() < 0.001:
+			pole = Vector3.RIGHT - dir * Vector3.RIGHT.dot(dir)
 	pole = pole.normalized()
 	var elbow := shoulder + (dir * cos(bend) + pole * sin(bend)) * upper_len
 	var upper_g := skeleton.get_bone_global_pose(upper)
 	var upper_axis := (upper_g.basis * lower_offset).normalized()
+	var upper_basis := upper_g.basis.orthonormalized() if natural else upper_g.basis
 	var q1 := Quaternion(upper_axis, (elbow - shoulder).normalized())
-	RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_g.basis, upper_g.origin))
+	RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_basis, upper_g.origin))
 	var lower_g := skeleton.get_bone_global_pose(lower)
 	var lower_axis := (lower_g.basis * hand_offset).normalized()
 	var q2 := Quaternion(lower_axis, (target - lower_g.origin).normalized())
@@ -481,13 +518,56 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis) -> void:
 	RIG.set_global(skeleton, hand, Transform3D(hand_basis, target))
 
 
+## The game's regular desktop arm pole (`valve_body_ik.gd`): the elbow bends below the
+## shoulder-to-wrist line with a little room beside the ribs. Carrying the previous plane keeps a
+## nearly straight arm from flipping when the caress point moves. Used only while a caress holds
+## the hand; the release and planted paths return to the authored pose.
+func _arm_pole(key: String, shoulder: Vector3, target: Vector3, body_basis: Basis,
+		outward_sign: float, delta: float, target_basis: Basis) -> Vector3:
+	var axis := target - shoulder
+	if axis.length_squared() < 0.000001:
+		axis = _arm_axes.get(key, body_basis.z)
+	axis = axis.normalized()
+	var down := -body_basis.y
+	var outward := body_basis.x * outward_sign
+	var back := -body_basis.z
+	var preferred := down + outward * 0.30 + back * 0.18 + target_basis.y * 0.08
+	var desired := preferred - axis * preferred.dot(axis)
+	var previous: Vector3 = _arm_poles.get(key, Vector3.ZERO)
+	if previous.length_squared() > 0.0:
+		var old_axis: Vector3 = _arm_axes.get(key, axis)
+		var transport := Quaternion(old_axis, axis) if old_axis.dot(axis) > -0.9999 \
+			else Quaternion(previous, PI)
+		previous = transport * previous
+		previous = (previous - axis * previous.dot(axis)).normalized()
+	if desired.length_squared() < 0.0001:
+		desired = previous
+	if desired.length_squared() < 0.0001:
+		desired = outward - axis * outward.dot(axis)
+	if desired.length_squared() < 0.0001:
+		desired = back - axis * back.dot(axis)
+	desired = desired.normalized()
+	if previous.length_squared() > 0.0:
+		var angle := atan2(axis.dot(previous.cross(desired)), previous.dot(desired))
+		var dt := clampf(delta, 0.0, 0.1)
+		var step := clampf(angle * (1.0 - exp(-dt / 0.10)), -PI * dt, PI * dt)
+		desired = previous.rotated(axis, step).normalized()
+	_arm_axes[key] = axis
+	_arm_poles[key] = desired
+	return desired
+
+
 ## Ease a wrist from one palm frame to another. The basis slerps so the palm plane turns with the
-## coat instead of snapping.
+## coat instead of snapping. The world bases arrive with Anon's scale on them, and `Basis.slerp`
+## requires orthonormal sides.
 static func _blend_frame(from: Transform3D, to: Transform3D, t: float) -> Transform3D:
 	if not from.is_finite():
 		return to
+	if not to.is_finite():
+		return from
 	var eased := smoothstep(0.0, 1.0, clampf(t, 0.0, 1.0))
-	return Transform3D(from.basis.slerp(to.basis, eased).orthonormalized(),
+	return Transform3D(
+		from.basis.orthonormalized().slerp(to.basis.orthonormalized(), eased),
 		from.origin.lerp(to.origin, eased))
 
 

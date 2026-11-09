@@ -1,3 +1,6 @@
+v0.3.1
+- Reworked the missionary pose and its camera.
+
 v0.3.0
 - Optional anatomy: the mare bits, the player part, fluids, teats, the skin strip, the original or V2 mesh and a separate VR act, each behind its own setting.
 - The V2 mesh adds the anal cup, the still zones around the vulva and ponut, and the body-coat spread.

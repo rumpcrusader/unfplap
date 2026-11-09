@@ -1,4 +1,4 @@
-# Preference, readiness and climax contract (`unfplap` 0.3.0)
+# Preference, readiness and climax contract (`unfplap` 0.3.1)
 
 This file covers the ACTIVE-stage scoring, the pony's climaxes, and the player's afterglow
 choice. Post-act scoring and the long-term history are `HISTORY.md`. Camera/pose mechanics and

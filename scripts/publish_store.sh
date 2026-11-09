@@ -7,9 +7,9 @@
 #   scripts/publish_store.sh --tag v0.3.1 --submit --force
 #                                                         submit even when the version exists
 #
-# A preview downloads the release pack, uploads it to pone.rs, checks the served size, runs the
-# store's duplicate guard and prints the exact row it would insert. It never writes to the store.
-# --submit does the same and then inserts the row.
+# A preview downloads the release pack and its .sha256, verifies them, uploads the pack to pone.rs,
+# verifies the served size and hash, runs the store's duplicate guard and prints the exact row it
+# would insert. It never writes to the store. --submit does the same and then inserts the row.
 #
 # The store is the static page at https://unrivaled-cannoli-17cf6d.netlify.app/; its form POSTs
 # straight to Supabase with the publishable key below, which is public in that page, not a secret.
@@ -110,30 +110,55 @@ case "$TAG" in
 esac
 
 api "https://api.github.com/repos/$REPO/releases/tags/$TAG" "$work/release.json"
-python3 - "$work/release.json" "$work/asset.json" "$VERSION" <<'PY'
+python3 - "$work/release.json" "$work/asset.json" "$work/sum_asset.json" "$VERSION" <<'PY'
 import json
 import sys
 
-release_path, asset_path, version = sys.argv[1:4]
+release_path, asset_path, sum_path, version = sys.argv[1:5]
 release = json.load(open(release_path, encoding="utf-8"))
-wanted = f"unfplap-{version}.pck"
+wanted = {
+    f"unfplap-{version}.pck": asset_path,
+    f"unfplap-{version}.pck.sha256": sum_path,
+}
+found = {}
 for asset in release.get("assets", []):
-	if asset.get("name") == wanted:
-		json.dump(asset, open(asset_path, "w", encoding="utf-8"))
-		break
-else:
-	raise SystemExit(f"{release.get('tag_name')} has no asset {wanted}")
+    if asset.get("name") in wanted:
+        found[asset["name"]] = asset
+for name, path in wanted.items():
+    if name not in found:
+        raise SystemExit(f"{release.get('tag_name')} has no asset {name}")
+    json.dump(found[name], open(path, "w", encoding="utf-8"))
 PY
 
 asset_url="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["browser_download_url"])' "$work/asset.json")"
 asset_size="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["size"])' "$work/asset.json")"
+sum_url="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["browser_download_url"])' "$work/sum_asset.json")"
 
 curl --fail-with-body --silent --show-error --location \
 	--output "$work/unfplap-$VERSION.pck" "$asset_url"
+curl --fail-with-body --silent --show-error --location \
+	--output "$work/unfplap-$VERSION.pck.sha256" "$sum_url"
 
 local_size="$(wc -c < "$work/unfplap-$VERSION.pck" | tr -d ' ')"
 if [ "$local_size" != "$asset_size" ]; then
 	echo "Downloaded pack is $local_size bytes, release asset is $asset_size." >&2
+	exit 1
+fi
+
+local_sha="$(python3 - "$work/unfplap-$VERSION.pck" <<'PY'
+import hashlib
+import sys
+
+digest = hashlib.sha256()
+with open(sys.argv[1], "rb") as handle:
+	for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+		digest.update(chunk)
+print(digest.hexdigest())
+PY
+)"
+release_sha="$(awk 'NR == 1 { print $1 }' "$work/unfplap-$VERSION.pck.sha256")"
+if [ "$local_sha" != "$release_sha" ]; then
+	echo "Downloaded pack sha256 $local_sha does not match release checksum $release_sha." >&2
 	exit 1
 fi
 
@@ -159,11 +184,26 @@ if ! [[ "$file_url" =~ ^https://u\.pone\.rs/[a-z0-9]+\.pck$ ]]; then
 	exit 1
 fi
 
-head="$(curl --fail --silent --show-error --location --head "$file_url")"
-served_size="$(printf '%s\n' "$head" | tr -d '\r' \
-	| awk 'tolower($1) == "content-length:" { value = $2 } END { print value }')"
+curl --fail-with-body --silent --show-error --location \
+	--output "$work/mirror-$VERSION.pck" "$file_url"
+served_size="$(wc -c < "$work/mirror-$VERSION.pck" | tr -d ' ')"
 if [ "$served_size" != "$local_size" ]; then
 	echo "Mirror check failed: host serves $served_size bytes, pack is $local_size." >&2
+	exit 1
+fi
+mirror_sha="$(python3 - "$work/mirror-$VERSION.pck" <<'PY'
+import hashlib
+import sys
+
+digest = hashlib.sha256()
+with open(sys.argv[1], "rb") as handle:
+	for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+		digest.update(chunk)
+print(digest.hexdigest())
+PY
+)"
+if [ "$mirror_sha" != "$local_sha" ]; then
+	echo "Mirror check failed: host serves sha256 $mirror_sha, pack is $local_sha." >&2
 	exit 1
 fi
 

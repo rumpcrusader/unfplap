@@ -272,9 +272,6 @@ var _vr_act: Node
 var _used_angles: Array[String] = []
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
-var _debug_pose: Node
-var _debug_pose_saved := Transform3D.IDENTITY
-var _debug_pose_active := false
 var _pose_in_left := 0.0
 var _climax_left := 0.0
 var _restore_left := 0.0
@@ -2327,36 +2324,6 @@ func _log_chin() -> void:
 			rows.append("snout world=%s" % str(boop.call("nose_world")))
 	if is_instance_valid(main) and main.has_method("_debug_block"):
 		main.call("_debug_block", "CHIN", rows)
-
-func debug_float_missionary(seconds: float) -> void:
-	if state != State.IDLE or not is_instance_valid(pony) or _debug_pose_active:
-		_log("float missionary: busy")
-		return
-	var skeleton: Variant = pony.get("skeleton")
-	if not skeleton is Skeleton3D:
-		return
-	_debug_pose_active = true
-	_debug_pose_saved = pony.global_transform
-	pony.global_position.y += 0.45
-	pony.reset_physics_interpolation()
-	_debug_pose = POSE.new()
-	_debug_pose.name = "UnfplapMissionaryDebugPose"
-	_debug_pose.set("mare", pony)
-	_debug_pose.set("mode", "missionary")
-	_debug_pose.set("amount", 0.0)
-	_debug_pose.set("target_amount", 1.0)
-	_debug_pose.set("look_point", main.camera().global_position if main.camera() != null else pony.global_position)
-	(skeleton as Skeleton3D).add_child(_debug_pose)
-	_keep_chin_last()
-	_log("float missionary pony=%s seconds=%.1f" % [str(pony.name), seconds])
-	await get_tree().create_timer(seconds).timeout
-	if is_instance_valid(pony) and _debug_pose_active:
-		pony.global_transform = _debug_pose_saved
-		pony.reset_physics_interpolation()
-	if is_instance_valid(_debug_pose):
-		_debug_pose.queue_free()
-	_debug_pose = null
-	_debug_pose_active = false
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.

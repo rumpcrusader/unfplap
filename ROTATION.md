@@ -144,7 +144,9 @@ Missionary is its own state, not the game's bed rest:
   S back/up, and Q/E add the side lean. The missionary vulva trims (`vulva_shift_mm`,
   `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the anatomy mesh; the depth one ramps in
   after 20% depth and reaches its signed millimetre value at full thrust. The fold-coloring and
-  vulva-hug hacks are missionary-only too. The camera is written after the pose in the same frame, so it
+  vulva-hug hacks are missionary-only too. The camera is pushed out of her live skull sphere and
+  muzzle capsule by `head_clearance_mm` (debug, default 30 mm), in both views, so a close cheek or
+  muzzle lean cannot enter her head as she turns it. The camera is written after the pose in the same frame, so it
   never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
   camera on his standing player rig; the game's eye modifier follows the same target, offset by
   `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than

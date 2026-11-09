@@ -135,8 +135,8 @@ tuning:
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
 - **Missionary**: body motion, belly down, the three vulva trims (shift/pitch/depth), two hacks
-  (**Disable fold coloring**, **Vulva hug**), gaze height, camera mode, free look and third-person
-  views.
+  (**Disable fold coloring**, **Vulva hug**), head clearance, gaze height, camera mode, free look
+  and third-person views.
 - **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
 - **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
 - **Standing → Caress**: palm distance (`0.02 m`), oval across/up (`1.0 cm` / `2.0 cm`), palm

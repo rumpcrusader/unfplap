@@ -491,7 +491,9 @@ signed, unclamped) raising or lowering it. The vulva trims (`vulva_shift_mm`, `v
 `vulva_depth_shift_mm`) move only the anatomy mesh in missionary; the depth one starts at 20% depth
 and reaches its signed millimetre value at full thrust. Two hacks sit beside them, both missionary-only:
 `disable_fold_coloring` drops the vertex-alpha fold/clitoris masks so the mesh uses her skin tones,
-and `vulva_hug_mm` replaces the anatomy hug for the act. **Authored shots** uses the shot trajectory
+and `vulva_hug_mm` replaces the anatomy hug for the act. The camera itself is kept outside her live
+skull and muzzle by `head_clearance_mm` (debug, default 30 mm) in both views, so a close cheek or
+muzzle lean cannot enter her head as she turns it. **Authored shots** uses the shot trajectory
 below.
 
 ### Missionary shot
@@ -1651,8 +1653,8 @@ rump blush. Unknown settings keys are ignored.
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
   - `missionary`: `belly_down_deg`, `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`,
-    `disable_fold_coloring`, `vulva_hug_mm`, `gaze_offset_mm`, `camera_mode`, `third_person`,
-    `free_look`.
+    `disable_fold_coloring`, `vulva_hug_mm`, `head_clearance_mm`, `gaze_offset_mm`, `camera_mode`,
+    `third_person`, `free_look`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
@@ -1708,8 +1710,9 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, belly down,
-  vulva shift/pitch/depth, fold/hug hacks, gaze height, Use free look), **Standing** (with
-  **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  vulva shift/pitch/depth, fold/hug hacks, head clearance, gaze height, Use free look),
+  **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust
+  jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

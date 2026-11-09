@@ -633,6 +633,11 @@ static var missionary_vulva_hug_mm := num("missionary_vulva_hug_mm",
 	"Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
+static var head_clearance_mm := num("head_clearance_mm",
+	"presentation.missionary.head_clearance_mm", 30.0,
+	"Head clearance",
+	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
+	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", 0.0,
 	"Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",

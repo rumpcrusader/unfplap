@@ -158,6 +158,7 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 			var reach := (aim - at).length()
 			at -= basis.z * minf(kiss.lean_distance(),
 				maxf(0.0, reach - KISS_CLEARANCE_M * _missionary_body_scale()))
+	at = _clear_live_head(at)
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = basis
 	runtime.set("_camera_basis_ready", true)
@@ -217,6 +218,7 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
 		# Debug free look: turn this shot where it stands.
 		view_basis = Basis(Vector3.UP, look.y) * view_basis * Basis(Vector3.RIGHT, look.x)
+	at = _clear_live_head(at)
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = view_basis
 	runtime.set("_camera_basis_ready", true)
@@ -378,6 +380,51 @@ func _bed_surface_top() -> float:
 	var fallback: float = float(bed.get_meta("mattress_top", 0.6)) + float(bed.global_position.y)
 	var points: Array[Vector3] = [bed.global_position]
 	return MATTRESS.visible_top(bed, points, fallback)
+
+
+## Her live head as a skull sphere plus a muzzle capsule. The camera is Anon's eye, so pushing it
+## out of those volumes is what keeps a close lean from entering her head no matter which way she
+## turns or pulls her head; a point target cannot do that because the surface moves under it.
+func _clear_live_head(at: Vector3) -> Vector3:
+	var clearance := SETTINGS.head_clearance_mm.get_num() / 1000.0
+	if clearance <= 0.0001 or not is_instance_valid(pony):
+		return at
+	var boop: Variant = pony.get("boop_node")
+	if boop == null or not is_instance_valid(boop):
+		return at
+	var skull: Variant = boop.call("skull_world")
+	var nose: Variant = boop.call("nose_world")
+	if not (skull is Vector3) or not (nose is Vector3):
+		return at
+	var point := _push_sphere(at, skull, 0.09 + clearance)
+	if boop.has_method("muzzle_world"):
+		var muzzle: Variant = boop.call("muzzle_world")
+		if muzzle is Vector3:
+			point = _push_capsule(point, muzzle, nose, 0.04 + clearance)
+	return point
+
+
+static func _push_sphere(p: Vector3, centre: Vector3, radius: float) -> Vector3:
+	var offset := p - centre
+	if offset.length_squared() >= radius * radius:
+		return p
+	if offset.length_squared() < 0.0000001:
+		offset = Vector3.UP
+	return centre + offset.normalized() * radius
+
+
+static func _push_capsule(p: Vector3, a: Vector3, b: Vector3, radius: float) -> Vector3:
+	var ab := b - a
+	var t := 0.0
+	if ab.length_squared() > 0.000001:
+		t = clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+	var closest := a + ab * t
+	var offset := p - closest
+	if offset.length_squared() >= radius * radius:
+		return p
+	if offset.length_squared() < 0.0000001:
+		offset = Vector3.UP
+	return closest + offset.normalized() * radius
 
 
 ## Her head, for the aim and the runtime's gaze target.

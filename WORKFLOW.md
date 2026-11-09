@@ -79,43 +79,11 @@ an explicit commit hash as the good endpoint.
 
 Docs-only commits do not need bisecting; use `git bisect skip` if one is picked.
 
-## Releases and tags
+## Releases
 
-- Tag only when a release pck is actually built. Do not create intermediate "known-good" tags.
-- Build from a clean tagged commit.
-- Use an annotated release tag such as `v0.0.4`. The annotation records the target game version,
-  build command, commit hash and pck hash.
-- Never commit `.pck`, `.godot/`, `*.uid`, logs or user settings (already ignored).
-- Re-upload the anatomy archive with `scripts/pack_anatomy.sh --upload` whenever an anatomy asset
-  changes; it rewrites `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh`, which is committed
-  with the change. A release build fails when any of the eight files is missing, and only a tag
-  build may use the archive, so a release can never ship the code-only pack.
-- Publish the finished release with the `publish-store` workflow: a dry run first, then
-  `dry_run: false` and approve the `mod-store` environment gate. It mirrors the pack to pone.rs
-  and inserts one store row per version; the store admin approves the row.
-- `git describe --tags --dirty` identifies the source of a build.
-- Record the game version in the tag, because the mod repo cannot bisect game changes.
-
-### Release changelog
-
-`changelog.txt` beside `mod.json` is the player-facing release history and ships in the pack.
-Before tagging, add the new version section at the top, using the tag as the separator:
-
-```text
-v0.1.3
-- One high-level feature.
-- Another feature.
-- Fixed: ...
-- Performance: ...
-```
-
-Build the section from `git log <previous-tag>..HEAD`. Ignore commits that are only tests, build,
-docs or internal debug work. Group multi-commit feature work into one item. Do not add an item for
-a feature that was added in an earlier release and only reworked here, and do not advertise a
-feature that was added and later removed or reworked away. Put bugfixes and performance work at
-the end. One item is one line: never wrap a bullet onto a second line, however long it gets. The
-release workflow extracts the section matching the tag as the GitHub release body and fails when
-it is missing.
+Use `/release`. The runbook is `.opencode/skills/release/SKILL.md`. The agent prepares and
+validates locally; the maintainer reviews the release commit, pushes it and the annotated tag, and
+handles CI and the community store.
 
 ## What not to do
 

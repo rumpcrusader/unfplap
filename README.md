@@ -73,8 +73,10 @@ Requires Godot 4.5.x on `PATH` and `python3`.
 ```
 
 `build.sh` stages the runtime tree selected by `.pckignore` in a temporary Godot project, imports
-the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported data. Repository
-docs, tests, scripts, tools, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
+the audio under `audio/`, and packs each `.import` sidecar plus Godot's imported data. The packer
+then verifies the required runtime files, rejects development files, checks the anatomy set and
+writes a `.sha256` beside the pck; a failed check removes the pack. Repository docs, tests,
+scripts, tools, skills, `.git`, `dist/` and `*.uid` do not enter the pack. `AUDIO_CREDITS.md`
 does, for credit.
 
 The original PPP anatomy meshes and textures are not in the repository; the V2
@@ -84,7 +86,3 @@ and fails when any are missing. `scripts/pack_anatomy.sh` writes the archive tha
 
 The official `tools/modding/build_mod.gd` command still works for quick builds, but packs the
 whole folder.
-
-On GitHub, `.github/workflows/build.yml` builds on pushes and pull requests. A `v*` tag downloads
-the anatomy archive from the `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh` and attaches
-`dist/unfplap-<version>.pck` to a GitHub release; pull requests build without the anatomy assets.

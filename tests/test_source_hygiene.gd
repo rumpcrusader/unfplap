@@ -26,12 +26,29 @@ func run() -> void:
 	var files: Array[String] = []
 	_collect(ROOT, files)
 	check(files.size() > 10, "source files found")
-	var manifest := FileAccess.get_file_as_string(ROOT.path_join("mod.json"))
-	check(manifest.contains("\"id\": \"unfplap\""), "mod id")
-	check(manifest.contains("\"version\": \"0.3.1\""), "mod version")
-	check(manifest.contains("\"game_version\": \"0.3.0\""), "target game version")
-	check(not manifest.contains("\"extends\""), "entry script only")
-	check(manifest.contains("res://mods/unfplap/"), "entry/extension paths")
+	var manifest_text := FileAccess.get_file_as_string(ROOT.path_join("mod.json"))
+	var manifest: Variant = JSON.parse_string(manifest_text)
+	check(manifest is Dictionary, "mod.json parses")
+	if manifest is Dictionary:
+		var data := manifest as Dictionary
+		var semver := RegEx.new()
+		semver.compile("^\\d+\\.\\d+\\.\\d+$")
+		var version := str(data.get("version", ""))
+		var game_version := str(data.get("game_version", ""))
+		check(str(data.get("id", "")) == "unfplap", "mod id")
+		check(semver.search(version) != null, "mod version is MAJOR.MINOR.PATCH")
+		check(game_version == str(ProjectSettings.get_setting("application/config/version", "")),
+			"target game version matches the project")
+		check(not data.has("extends"), "entry script only")
+		check(str(data.get("entry", "")) == "res://mods/unfplap/main.gd", "entry path")
+	for path: String in [
+		".opencode/skills/release/SKILL.md",
+		".opencode/commands/release.md",
+		"scripts/release_prepare.sh",
+		"scripts/release_check.sh",
+		"scripts/check_release.py",
+	]:
+		check(FileAccess.file_exists(ROOT.path_join(path)), "release file %s" % path)
 	for path: String in ["build.sh", "tools/pack.gd", ".github/workflows/build.yml"]:
 		check(not FileAccess.get_file_as_string(ROOT.path_join(path)).contains("--no-extends"),
 			"no obsolete extension flag in %s" % path)

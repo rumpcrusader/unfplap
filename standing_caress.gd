@@ -1252,7 +1252,8 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 	var target: Transform3D
 	var log_surface: Variant = null
 	var exact_started := Time.get_ticks_usec()
-	var exact := _nearest_precise(["torso", "head"], contact, normal)
+	var exact_region := str(chosen.get("region", "torso"))
+	var exact := _nearest_precise([exact_region], contact, normal)
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "caress_surface", Time.get_ticks_usec() - exact_started)
 	if not exact.is_empty():
@@ -1279,7 +1280,7 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 	_palm_points[hand_side] = contact
 	if shape:
 		if not is_instance_valid(log_surface):
-			var closest := _closest_precise(["torso", "head"], contact)
+			var closest := _closest_precise([exact_region], contact)
 			if closest.is_empty():
 				return _precise_last_or_invalid(hand_side)
 			contact = closest["point"]
@@ -1365,6 +1366,7 @@ func _missionary_frame(sample: Dictionary, hand_side: String, scale: float,
 		"mode": mode,
 		"roll": roll,
 		"u": u,
+		"region": str(sample.get("region", "torso")),
 		"valid": true,
 	}
 

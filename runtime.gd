@@ -4,6 +4,7 @@ extends Node
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
+const TAIL_LAY := preload("res://mods/unfplap/tail_lay.gd")
 const DOCK_TAIL_COAT := preload("res://mods/unfplap/dock_tail_coat_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
@@ -254,6 +255,7 @@ var _free_look_yaw := 0.0
 var _free_look_pitch := 0.0
 var _free_look_was := false
 var _tail
+var _tail_lay: Node
 var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
@@ -2460,6 +2462,8 @@ func _build_pose() -> void:
 		elif _feature("missionary_body_motion"):
 			_install_prone_sway(skeleton)
 		_keep_chin_last()
+	if pose_id == CATALOG.MISSIONARY:
+		_install_tail_lay()
 	if pose_id != CATALOG.STANDING:
 		return
 	_sync_standing_pose_config()
@@ -2488,6 +2492,9 @@ func _build_pose() -> void:
 		(hair as Skeleton3D).add_child(_dock_tail)
 
 func _free_pose() -> void:
+	if is_instance_valid(_tail_lay):
+		_tail_lay.queue_free()
+	_tail_lay = null
 	_bed_pose_frame = null
 	clear_presentation()
 	_end_lean_action()
@@ -2511,6 +2518,21 @@ func _free_pose() -> void:
 	if is_instance_valid(_tail):
 		_tail.queue_free()
 	_tail = null
+
+## The hair tail is not in the authored body pose: each pony has its own tail rig. This lays
+## whichever `mTail1..6` bones exist on the hair skeleton flat on the bed.
+func _install_tail_lay() -> void:
+	if not is_instance_valid(pony):
+		return
+	var hair: Variant = pony.get("hair_skeleton")
+	if not hair is Skeleton3D:
+		return
+	_tail_lay = TAIL_LAY.new()
+	_tail_lay.name = "UnfplapTailLay"
+	_tail_lay.mare = pony
+	_tail_lay.runtime = self
+	(hair as Skeleton3D).add_child(_tail_lay)
+
 
 func _install_body_sway(skeleton: Skeleton3D) -> void:
 	if not _feature("standing_body_sway"):

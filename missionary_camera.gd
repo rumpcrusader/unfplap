@@ -1,7 +1,7 @@
 extends RefCounted
 ## Missionary framing and the act avatar hiding. There is one shot: the **authored** one. The eye
-## blends between five bed-relative camera positions authored in the pose lab, selected by the lean,
-## and the aim slides from her live face to her vulva. See ROTATION.md.
+## blends between the five camera transforms (position and direction) authored in the pose lab,
+## selected by the lean; a pure axis lean meets the saved transform exactly. See ROTATION.md.
 ##
 ## Free look (debug) turns the shot where it stands.
 ##
@@ -14,8 +14,9 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const SHOT_IDS := ["start", "back", "front", "left", "right"]
-## A kiss leans the eye in toward her face, but never closer than this to the face point: her muzzle
-## extends past it, and the old 0.30 m floor put the eye inside the muzzle.
+## In Anon eyes a kiss leans the eye in toward her face, but never closer than this to the face
+## point: her muzzle extends past it, and the old 0.30 m floor put the eye inside the muzzle. The
+## authored shot does not move for a kiss; its front transform is the kiss framing.
 const KISS_CLEARANCE_M := 0.45
 
 var runtime: Node
@@ -41,8 +42,6 @@ var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
 var _desktop_presentation_processing := true
 var _free_look_log_at := 0
-## Set once when the S shot sits on her head side of the vulva and the pelvis aim had to be held.
-var _pelvis_aim_blocked_logged := false
 ## Shot ids already reported missing from the asset in this act.
 var _missing_shots_logged: Dictionary = {}
 
@@ -60,7 +59,6 @@ func _init(runtime_node: Node = null) -> void:
 func prepare() -> void:
 	_sync()
 	_missing_shots_logged.clear()
-	_pelvis_aim_blocked_logged = false
 	_snapshot_missionary_start()
 	_make_missionary_view()
 	_log_shot_setup()
@@ -166,110 +164,121 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		_log("free look eye=%s rotation=%s" % [str(at), str(look)])
 
 
-## The authored shot. The eye blends between the five authored positions as offsets from `start`,
-## selected by the lean (S → her pelvis, W → her face, Q/E → her sides), and the aim slides from her
-## live face to her vulva as S grows. W is where the kiss lives.
+## The authored shot. The eye is a weighted blend of the five authored camera transforms: the
+## neutral start plus the forward/back shot and the side shot selected by the lean. At a pure axis
+## extreme (S, W, Q or E) the weight is exactly one, so the eye meets the pose lab's camera position
+## **and direction**; everything between is interpolated. See ROTATION.md.
 func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		_make_missionary_view()
 	if not is_instance_valid(_missionary_view):
 		return
 	var scale := _missionary_body_scale()
-	var start := _shot_position("start", scale)
-	if not start.is_finite():
-		return
-	var face: Vector3 = runtime.call("missionary_face_point")
-	if not face.is_finite():
-		face = _missionary_head_transform().origin
-	var vulva: Vector3 = runtime.call("missionary_vulva_point")
-	if not vulva.is_finite():
-		vulva = face
-	var lean_forward: float = float(runtime.call("shot_lean_forward"))
-	var lean_side := float(runtime.get("_lean_view_side"))
-	var lean_scale: float = float(runtime.call("_lean_size_scale"))
-	var pos := start
-	var aim := face
-	var forward := clampf(lean_forward, -1.0, 1.0)
-	if forward < 0.0:
-		var back := _shot_position("back", scale)
-		if back.is_finite():
-			pos += (back - start) * (-forward)
-			# The pelvis aim only makes sense when the S eye is on the rump side of the vulva. If the
-			# authored ShotBack sits between her head and her pelvis, the aim would pass the eye and
-			# yaw the view 180° at full lean; hold the aim on her face instead.
-			var pelvis := smoothstep(-0.06, 0.10, (vulva - pos).dot(_bed_head_direction()))
-			aim = face.lerp(vulva, -forward * pelvis)
-			if -forward > 0.6 and pelvis < 0.2 and not _pelvis_aim_blocked_logged:
-				_pelvis_aim_blocked_logged = true
-				var bed: Variant = _bed_frame()
-				var detail := ""
-				if bed is Transform3D:
-					var space := (bed as Transform3D).affine_inverse()
-					var back_bed := space * back
-					var vulva_bed := space * vulva
-					detail = " ShotBack bed=(%.2f,%.2f,%.2f), vulva bed=(%.2f,%.2f,%.2f);" % [
-						back_bed.x, back_bed.y, back_bed.z,
-						vulva_bed.x, vulva_bed.y, vulva_bed.z]
-				_log("missionary camera: ShotBack is on her head side of the vulva; pelvis aim stays "
-					+ "on her face." + detail + " put ShotBack behind her rump (bed z below the vulva).")
-	elif forward > 0.0:
-		var front := _shot_position("front", scale)
-		if front.is_finite():
-			pos += (front - start) * forward
-	var side := clampf(lean_side, -1.0, 1.0)
-	if absf(side) > 0.0001:
+	var forward := clampf(float(runtime.call("shot_lean_forward")), -1.0, 1.0)
+	var side := clampf(float(runtime.get("_lean_view_side")), -1.0, 1.0)
+	var tf := absf(forward)
+	var ts := absf(side)
+	var total := maxf(1.0, tf + ts)
+	var entries: Array = []
+	var start_weight := maxf(0.0, 1.0 - tf - ts) / total
+	if start_weight > 0.0001:
+		entries.append([_shot_transform("start", scale), start_weight])
+	if tf > 0.0001:
+		entries.append([_shot_transform("front" if forward > 0.0 else "back", scale), tf / total])
+	if ts > 0.0001:
 		# The asset's `left` shot is on Anon's screen right and vice versa (the lab names them from
 		# her side), so Q reads `right` and E reads `left` to make the keys match the screen.
-		var beside := _shot_position("right" if side < 0.0 else "left", scale)
-		if beside.is_finite():
-			pos += (beside - start) * absf(side)
-	var direction := aim - pos
-	if direction.length_squared() < 0.000001:
+		entries.append([_shot_transform("right" if side < 0.0 else "left", scale), ts / total])
+	var shot := _blend_shots(entries)
+	if not shot.is_finite():
 		return
-	var dir := direction.normalized()
-	# `looking_at` needs a pole that is not parallel to the view. The full S shot looks almost
-	# straight down at her pelvis, and with world up as the pole the basis is degenerate there and
-	# snaps 180°. Hand the roll reference over to the mattress line as the view steepens.
-	var steep := smoothstep(0.55, 0.95, absf(dir.dot(Vector3.UP)))
-	var pole := Vector3.UP.lerp(_bed_head_direction(), steep)
-	if pole.length_squared() < 0.0001:
-		pole = Vector3.UP
-	var basis := Basis.looking_at(dir, pole.normalized())
-	var view_basis := basis
-	var at := pos
+	var at := shot.origin
+	var view_basis := shot.basis.orthonormalized()
 	if SETTINGS.third_person.get_bool():
-		# Third-person views: the lean tilts the eye, the speed-driven surge travels along the
-		# mattress toward her head and a side lean travels with it. This is what makes the shot
-		# drift off the authored trajectory and look around the joined bodies.
+		# Third-person views (debug) is the only deviation from the authored transform: the lean
+		# tilts the eye, the speed-driven surge travels along the mattress and a side lean travels
+		# with it. Off, the eye is exactly the authored shot at every extreme.
+		var lean_scale: float = float(runtime.call("_lean_size_scale"))
 		var lean := Basis.from_euler(Vector3(
-			-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(lean_forward) * lean_scale,
-			-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * lean_side * lean_scale,
-			(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * lean_side
-				+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * lean_forward) * lean_scale))
-		view_basis = basis * lean
-		at = pos + Vector3.UP * float(runtime.get("_bob"))
+			-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(forward) * lean_scale,
+			-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * side * lean_scale,
+			(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * side
+				+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * forward) * lean_scale))
+		view_basis = view_basis * lean
+		at = shot.origin + Vector3.UP * float(runtime.get("_bob"))
 		at += _bed_head_direction() * float(runtime.get("_lean"))
 		at += view_basis.x * kiss.lateral_offset(lean_scale)
 		at.y -= kiss.lean_drop() * kiss.lean()
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
-		# Debug free look: turn this shot where it stands. The act owns `controls_locked`, so the
-		# stock player look is dead, and the player camera is wherever the game left his rig.
+		# Debug free look: turn this shot where it stands.
 		view_basis = Basis(Vector3.UP, look.y) * view_basis * Basis(Vector3.RIGHT, look.x)
-	# The kiss leans the eye in toward the aim, but never closer than 0.30 m to it.
-	if kiss.lean() > 0.0:
-		var reach: float = (aim - at).length()
-		at -= view_basis.z * minf(kiss.lean_distance(),
-			maxf(0.0, reach - KISS_CLEARANCE_M * _missionary_body_scale()))
-	var top := _bed_surface_top()
-	if is_finite(top):
-		at.y = maxf(at.y, top + 0.10 * scale)
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = view_basis
+	runtime.set("_camera_basis_ready", true)
 	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
 			and Time.get_ticks_msec() >= _free_look_log_at:
 		_free_look_log_at = Time.get_ticks_msec() + 2000
-		_log("free look base=%s rotation=%s" % [str(at), str(look)])
-	runtime.set("_camera_basis_ready", true)
+		_log("free look shot=%s rotation=%s" % [str(at), str(look)])
+
+
+## The authored camera transform at one lean extreme: position and direction exactly as the pose
+## lab saved them. A missing shot keeps the fixed bed-relative fallback, aimed at her face.
+func _shot_transform(id: String, scale: float) -> Transform3D:
+	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
+	var frame: Variant = _bed_frame()
+	if asset != null and frame is Transform3D and bool(asset.call("has_shot", id)):
+		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
+		shot.origin *= scale
+		return (frame as Transform3D) * shot
+	var pos := _shot_position(id, scale)
+	var face: Vector3 = runtime.call("missionary_face_point")
+	if not face.is_finite():
+		face = _missionary_head_transform().origin
+	return Transform3D(_aimed_basis(pos, face), pos)
+
+
+## A camera basis that looks from `at` at `aim`, with the mattress line as the roll reference when
+## the view steepens: a straight-down view has no stable world-up roll.
+func _aimed_basis(at: Vector3, aim: Vector3) -> Basis:
+	var direction := aim - at
+	if not direction.is_finite() or direction.length_squared() < 0.000001:
+		return Basis.IDENTITY
+	var dir := direction.normalized()
+	var steep := smoothstep(0.55, 0.95, absf(dir.dot(Vector3.UP)))
+	var pole := Vector3.UP.lerp(_bed_head_direction(), steep)
+	if pole.length_squared() < 0.0001:
+		pole = Vector3.UP
+	return Basis.looking_at(dir, pole.normalized())
+
+
+## Weighted position and quaternion average. A pure axis lean has a single weight of one, so the
+## result is the authored transform itself, not an approximation.
+func _blend_shots(entries: Array) -> Transform3D:
+	if entries.is_empty():
+		return Transform3D.IDENTITY
+	var total := 0.0
+	var origin := Vector3.ZERO
+	var reference := Quaternion.IDENTITY
+	var have_reference := false
+	var qsum := Quaternion(0.0, 0.0, 0.0, 0.0)
+	for entry: Array in entries:
+		var shot: Transform3D = entry[0]
+		var weight := float(entry[1])
+		if weight <= 0.0 or not shot.is_finite():
+			continue
+		total += weight
+		origin += shot.origin * weight
+		var q := shot.basis.orthonormalized().get_rotation_quaternion()
+		if not have_reference:
+			reference = q
+			have_reference = true
+		if q.dot(reference) < 0.0:
+			q = Quaternion(-q.x, -q.y, -q.z, -q.w)
+		qsum = Quaternion(qsum.x + q.x * weight, qsum.y + q.y * weight,
+			qsum.z + q.z * weight, qsum.w + q.w * weight)
+	if total <= 0.0001 or qsum.length_squared() < 0.000001:
+		return Transform3D.IDENTITY
+	return Transform3D(Basis(qsum.normalized()), origin / total)
 
 
 ## One end of the authored shot in world space. A shot that is not authored falls back to a fixed

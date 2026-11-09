@@ -147,16 +147,16 @@ Missionary is its own state, not the game's bed rest:
   `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than
   `KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point; her muzzle extends past that
   point.
-- **Authored shots**: the trajectory below, through the pose lab's camera positions.
+- **Authored shots**: the trajectory below, through the pose lab's camera transforms (position and
+  direction).
 
 ### The shot
 
-The eye blends between the five authored positions and nothing else: `start` neutral, `back` (S, her
-pelvis), `front` (W, her face, where the kiss happens), `left`/`right` (Q/E), each an offset from
-`start`, so diagonals work. The asset's `left`/`right` are named from her side, so Q reads `right`
-and E reads `left`; the keys match the screen. A shot the asset does not carry falls back to a **fixed** bed-relative
-point (never her live body) and the log names it; surge, bob and the kiss lean-in are the only extra
-motion. Free look turns this shot where it stands.
+The eye blends between the five authored camera **transforms** and nothing else: `start` neutral,
+`back` (S), `front` (W, the kiss framing), `left`/`right` (Q/E). Both position and direction are
+used. A pure axis lean meets the saved transform exactly; everything between is interpolated. A
+shot the asset does not carry falls back to a fixed bed-relative point aimed at her live face, and
+the log names it. Free look turns this shot where it stands.
 
 **Third-person views** (`presentation.missionary.third_person`, debug, default off) is the only thing
 that takes the eye off that trajectory: with it on, the lean also tilts the eye and the speed-driven
@@ -164,20 +164,19 @@ thrust surge travels along the mattress toward her head, plus the side-lean trav
 kiss lateral/drop — the shot then drifts around the two joined bodies. Off keeps the eye strictly on
 the authored positions.
 
-- Five camera positions come from the pose lab, bed-relative, in the asset's `shots` block:
-  `start` (neutral), `back` (S, her pelvis), `front` (W, her face — where the kiss happens), and
-  `left`/`right` (Q/E). Each is an **offset from `start`** scaled by that lean component, so
-  diagonals blend additively. A missing shot falls back to a fixed bed-relative point — `back`
-  `start + rump 0.45 − up 0.18`, `front` `start + head 1.60 − up 0.10`, `left`/`right`
-  `start ∓ side 0.60` (all × `body_scale`) — and the log names it once per act.
-- The aim is `missionary_face_point()` (the head bone pushed 12 cm along neck2 → head); it slides to
-  `missionary_vulva_point()` (the anatomy's `hole_point` when the part shows, otherwise the
-  hind-femur midpoint lifted 10 cm) as `-lean_forward` grows. Sides and front keep the face. The
-  pelvis aim is weighted by `smoothstep(-0.06, 0.10, (vulva - pos) · bed_head)`: if `ShotBack` sits
-  between her head and her pelvis, the aim is held on her face rather than passing the eye and
-  yawing the view 180° at full S. Put `ShotBack` behind her rump for the pelvis shot.
-- A kiss leans the eye in toward the aim by `kiss.lean_distance()`, but never closer than
-  `KISS_CLEARANCE_M` (0.45 m) × her body scale from the face point.
+- Five camera transforms come from the pose lab, bed-relative, in the asset's `shots` block. Both
+  origin and basis are used; the origin is scaled by `body_scale`, the basis is not.
+- `_tick_authored()` blends them by the lean: start weight `max(0, 1 - |forward| - |side|)`, the
+  forward/back weight `|forward|` and the side weight `|side|`, normalised to one. A pure axis
+  (S, W, Q or E) has a single weight of one, so the eye meets the authored position **and**
+  direction exactly; everything between is a position average and a quaternion average.
+- The asset's `left`/`right` are named from her side, so Q reads `right` and E reads `left`; the
+  keys match the screen.
+- A missing shot falls back to a fixed bed-relative point — `back` `start + rump 0.45 − up 0.18`,
+  `front` `start + head 1.60 − up 0.10`, `left`/`right` `start ∓ side 0.60` (all × `body_scale`) —
+  aimed at her live face, and the log names it once per act.
+- A kiss does **not** move the authored shot: the `front` transform is the kiss framing. The
+  `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**.
 - **Anon's body rides the stroke.** His placement is authored as two bed-space points
   (`anon.travel.start` pulled out, `anon.travel.end` fully in, exported from the lab's
   `AnonTravelStart`/`AnonTravelEnd` markers) and blended by `depth`. Without them he sits at the

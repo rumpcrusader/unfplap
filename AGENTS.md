@@ -328,11 +328,11 @@ reclined eye height left the camera wrong after the act.
 - The JSON is exported, never hand-edited: pose `tools/pose_lab.tscn` in the editor, save the
   scene, then **Save pose** (or run `tools/pose_export.gd` headless). The exporter also checks a
   load round trip and the runtime application path, and `tools/` never ships.
-- The act's shot positions are authored in the same scene: `ShotStart` (neutral), `ShotBack` (S,
-  her pelvis), `ShotFront` (W, her face), `ShotLeft` and `ShotRight`. Only their bed-relative
-  **positions** are exported; the runtime aims them at her live face and vulva. The lab's **Add shot
-  cameras** button creates a first guess for any that are missing. Without them the shot is derived
-  from the live body.
+- The act's shot transforms are authored in the same scene: `ShotStart` (neutral), `ShotBack` (S),
+  `ShotFront` (W), `ShotLeft` and `ShotRight`. Their bed-relative **position and direction** are
+  exported: a pure axis lean meets the authored transform exactly, and everything between is
+  interpolated. The lab's **Add shot cameras** button creates a first guess for any that are
+  missing; a missing shot falls back to a fixed bed-relative point aimed at her live face.
 - **The scene stores only the rig roots and the shot cameras.** Godot discards instance-child
   overrides when it saves a scene, so the pose is never stored in `pose_lab.tscn`; opening it always
   applies `poses/missionary_pose.json` (pose and shot positions). **Save pose** is what writes the
@@ -491,20 +491,17 @@ signed, unclamped) raising or lowering it. **Authored shots** uses the shot traj
 
 ### Missionary shot
 
-With the authored base pose in charge the shot is a **blend of five bed-relative camera positions**
-from the pose lab, each an offset from the neutral start and selected by the lean:
-`shots.start` (neutral), `shots.back` (S, her pelvis), `shots.front` (W, her face, where the kiss
-happens), `shots.left`/`shots.right` (Q/E; the asset names are from her side, so Q reads `right` and
-E reads `left` to match the screen). The blend is additive, so diagonals work. Until a
-position is authored it is derived from her live body (neck, vulva, face, and the start shifted
-sideways). The aim is `missionary_face_point()`, sliding to `missionary_vulva_point()` as S grows;
-sides and front keep the face. The pelvis slide is gated on the S eye being on the rump side of the
-vulva; a `ShotBack` between her head and pelvis would pass the aim through the eye and yaw the view
-180° at full S, so the aim then stays on her face (and the log says so). Put `ShotBack` behind her
-rump for the pelvis shot. A kiss leans the eye in toward the aim but never closer than
-`KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point — her muzzle extends past it, and
-the old 0.30 m floor put the eye inside it. There is no live offset, no frozen anchor, no pullback/pitch knob and no framing nudge: the authored
-positions are the shot.
+With the authored base pose in charge the shot is a **blend of the five authored camera transforms**
+from the pose lab: `shots.start` (neutral), `shots.back` (S), `shots.front` (W, the kiss framing),
+`shots.left`/`shots.right` (Q/E; the asset names are from her side, so Q reads `right` and E reads
+`left` to match the screen). Both position and direction are used; the origin scales with
+`body_scale`. The weights are `max(0, 1 - |forward| - |side|)` for start, `|forward|` for the
+forward/back shot and `|side|` for the side shot, normalised. A pure axis lean has a single weight of
+one, so the eye meets the authored transform exactly; everything between is a position average and a
+quaternion average. A kiss does not move the authored shot — the `front` transform is the framing.
+The `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**. A missing shot falls back to a fixed
+bed-relative point aimed at her live face and is named in the log. There is no live offset, no frozen
+anchor and no framing nudge.
 **Third-person views** (`presentation.missionary.third_person`, debug, off by default) is the only way
 off the trajectory: with it on, the lean tilts the eye and the thrust surge travels along the
 mattress, plus side-lean travel, bob and the kiss lateral/drop. Off, the eye only ever sits on the

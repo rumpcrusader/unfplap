@@ -395,6 +395,7 @@ var _precise_surfaces: Dictionary = {}
 var _precise_logged: Dictionary = {}
 var _precise_last: Dictionary = {}
 var _missionary_paths: Dictionary = {}
+var _debug_draw_mesh: MeshInstance3D = null
 var _smack_phase := SMACK_PHASE_NONE
 var _smack_phase_started := 0
 var _smack_contact := Transform3D.IDENTITY
@@ -1281,6 +1282,7 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 		target = chosen["target"]
 	_log_precise(hand_side, mode, log_surface, target, roll_deg, hover, shape,
 		normal, finger, u)
+	_draw_missionary_debug(world, chosen, target)
 	_precise_last[hand_side] = target
 	return target
 
@@ -1436,6 +1438,94 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 	_log("precise caress side=%s mode=%s shape=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
 		hand_side, mode, "yes" if shape else "no", u, str(frame.origin), str(normal),
 		str(finger), roll_deg, hover, info])
+
+
+## Debug-only world-space overlay for the missionary path: anchors, normals, path, contact and
+## palm target. It draws with no depth test so the points remain visible through her body.
+func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3D) -> void:
+	if not bool(SETTINGS.caress_debug.get_bool()):
+		return
+	if not is_instance_valid(pony) or not pony.is_inside_tree():
+		return
+	var tree: SceneTree = pony.get_tree()
+	var scene: Node = tree.current_scene if tree != null else null
+	if scene == null:
+		return
+	if not is_instance_valid(_debug_draw_mesh) or not _debug_draw_mesh.is_inside_tree():
+		_debug_draw_mesh = MeshInstance3D.new()
+		_debug_draw_mesh.name = "UnfplapCaressDebug"
+		_debug_draw_mesh.top_level = true
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.vertex_color_use_as_albedo = true
+		material.no_depth_test = true
+		_debug_draw_mesh.material_override = material
+		_debug_draw_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		scene.add_child(_debug_draw_mesh)
+		_debug_draw_mesh.global_transform = Transform3D.IDENTITY
+	var immediate := _debug_draw_mesh.mesh as ImmediateMesh
+	if immediate == null:
+		immediate = ImmediateMesh.new()
+		_debug_draw_mesh.mesh = immediate
+	immediate.clear_surfaces()
+	immediate.surface_begin(Mesh.PRIMITIVE_LINES)
+	var previous := Vector3.ZERO
+	var have_previous := false
+	for anchor: Dictionary in world:
+		var point: Vector3 = anchor["position"]
+		var normal: Vector3 = anchor["normal"]
+		var color := _anchor_debug_color(str(anchor["id"]))
+		_debug_cross(immediate, point, color)
+		_debug_segment(immediate, point, point + normal * 0.08, color)
+		if have_previous:
+			_debug_segment(immediate, previous, point, Color.WHITE)
+		previous = point
+		have_previous = true
+	if not chosen.is_empty():
+		var contact: Vector3 = chosen["contact"]
+		var contact_normal: Vector3 = chosen["normal"]
+		_debug_cross(immediate, contact, Color(0.2, 1.0, 1.0), 0.035)
+		_debug_segment(immediate, contact, contact + contact_normal * 0.10,
+			Color(0.2, 1.0, 1.0))
+	if target.is_finite():
+		_debug_cross(immediate, target.origin, Color(1.0, 0.55, 0.15), 0.04)
+		_debug_segment(immediate, target.origin, target.origin + target.basis.y * 0.06,
+			Color(1.0, 0.55, 0.15))
+	immediate.surface_end()
+
+
+func _debug_segment(mesh: ImmediateMesh, from: Vector3, to: Vector3, color: Color) -> void:
+	mesh.surface_set_color(color)
+	mesh.surface_add_vertex(from)
+	mesh.surface_add_vertex(to)
+
+
+func _debug_cross(mesh: ImmediateMesh, point: Vector3, color: Color, size := 0.025) -> void:
+	_debug_segment(mesh, point - Vector3.RIGHT * size, point + Vector3.RIGHT * size, color)
+	_debug_segment(mesh, point - Vector3.UP * size, point + Vector3.UP * size, color)
+	_debug_segment(mesh, point - Vector3.FORWARD * size, point + Vector3.FORWARD * size, color)
+
+
+func _anchor_debug_color(id: String) -> Color:
+	match id:
+		"lower":
+			return Color(1.0, 0.2, 0.2)
+		"belly":
+			return Color(0.2, 1.0, 0.2)
+		"chest":
+			return Color(0.2, 0.5, 1.0)
+		"neck":
+			return Color(1.0, 1.0, 0.2)
+		"cheek":
+			return Color(1.0, 0.2, 1.0)
+		_:
+			return Color.WHITE
+
+
+func _clear_debug_draw() -> void:
+	if is_instance_valid(_debug_draw_mesh):
+		_debug_draw_mesh.queue_free()
+	_debug_draw_mesh = null
 
 
 func _missionary_anchor_path(hand_side: String) -> Variant:
@@ -2201,6 +2291,7 @@ func reset() -> void:
 	_precise_logged.clear()
 	_precise_last.clear()
 	_missionary_paths.clear()
+	_clear_debug_draw()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
 	_caress_moving = {"L": true, "R": true}

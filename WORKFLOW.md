@@ -5,26 +5,35 @@ is a separate repository; never commit game-source changes from the mod repo.
 
 ## Every task
 
-1. Inspect state before editing:
+1. A fresh checkout needs the external runtime assets once:
+
+   ```bash
+   scripts/fetch_assets.sh
+   ```
+
+   The audio and anatomy files are not tracked. Do this before `--mod-src`, tests, smoke, a lab or
+   a build. `scripts/fetch_assets.sh --sources` also restores the V2 Blender file.
+
+2. Inspect state before editing:
 
    ```bash
    git status
    git log --oneline -12
    ```
 
-2. Decide the commit-sized units before writing code. A commit is one behavior, setting,
+3. Decide the commit-sized units before writing code. A commit is one behavior, setting,
    refactor, test or docs change that fits in one sentence.
-3. Keep `master` buildable at every commit. No WIP, no failing tests, no TODO-only commits. If a
+4. Keep `master` buildable at every commit. No WIP, no failing tests, no TODO-only commits. If a
    task needs intermediate states, use a short-lived local branch and merge it back only when
    every commit passes.
-4. Never mix unrelated work. Stage explicitly (`git add <path>` or `git add -p`), never
+5. Never mix unrelated work. Stage explicitly (`git add <path>` or `git add -p`), never
    `git add -A` or `git commit -a` while another task has edits.
-5. Run the checks that cover the change manually before every commit:
+6. Run the checks that cover the change manually before every commit:
    - `scripts/test_all.sh` for any code change;
    - `scripts/smoke.sh` for entry/runtime changes;
    - `./lab.sh` for camera/pose changes; the session is in `last-run.log`, and say it was manual.
-6. Commit with one scoped, imperative subject line and no body.
-7. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
+7. Commit with one scoped, imperative subject line and no body.
+8. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
    CI builds and releases from the remote, but the agent never pushes.
 
 ## Commit messages

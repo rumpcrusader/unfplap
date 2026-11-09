@@ -38,7 +38,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
   and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. One Anatomy switch picks Never, only while an act runs, or Always. The PPP anatomy assets are tracked in the repository and packed for release; the V2 mare bits variant is also tracked.
+- **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. One Anatomy switch picks Never, only while an act runs, or Always. The PPP anatomy assets and act audio are included in the release.
 - **Mare bits** — Choose the original PPP genitals or the V2 variant in the Anatomy settings; the V2 choice falls back to the original when its asset is absent.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
@@ -61,7 +61,14 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 
 ## Build
 
-Requires Godot 4.5.x on `PATH`, `python3`, and a git checkout. Release checks require Godot 4.5.2.
+Requires Godot 4.5.x on `PATH`, `python3`, `git`, and `curl` for the asset fetch. Release checks
+require Godot 4.5.2.
+
+A fresh checkout needs the external runtime assets once:
+
+```sh
+scripts/fetch_assets.sh
+```
 
 ```sh
 ./build.sh
@@ -70,15 +77,18 @@ Requires Godot 4.5.x on `PATH`, `python3`, and a git checkout. Release checks re
 ./build.sh --out /tmp/unfplap.pck
 ```
 
-`build.sh` stages the tracked runtime tree in a temporary Godot project, imports the assets under
-`assets/` and `audio/`, and packs each `.import` sidecar plus Godot's imported data. The packer
-then verifies the packed files against the tracked runtime manifest, rejects development files and
-broken import data, and writes a `.sha256` beside the pck; a failed check removes the pack.
-Repository docs, tests, scripts, tools, skills, `.git`, `dist/` and `*.uid` do not enter the pack.
+`build.sh` stages the tracked runtime tree plus the fetched resource runtime in a temporary Godot
+project, imports the assets under `assets/` and `audio/`, and packs each `.import` sidecar plus
+Godot's imported data. The packer then verifies the packed files against the runtime manifest
+(tracked files plus the resource pack manifest), rejects development files and broken import data,
+and writes a `.sha256` beside the pck; a failed check removes the pack. Repository docs, tests,
+scripts, tools, skills, `.git`, `dist/`, `sources/` and `*.uid` do not enter the pack.
 `AUDIO_CREDITS.md` does, for credit.
 
-The PPP anatomy meshes and textures are tracked in `assets/anatomy/`. Every build includes all
-eight files; the anatomy feature itself remains optional in the settings.
+The PPP anatomy meshes, textures and act audio are fetched from `scripts/asset_pack.json`; they are
+not tracked. Every build includes all eight anatomy files and the complete audio catalogue; the
+anatomy feature itself remains optional in the settings. See `assets/README.md` for the archive
+layout and the asset-change workflow.
 
 The official `tools/modding/build_mod.gd` command still works for quick builds, but packs the
 whole folder.

@@ -32,9 +32,9 @@ Do not start implementation until you have read the required files for the area 
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. The anatomy is an optional, feature-gated
-  addition; it never replaces a pony's body or rig. The PPP anatomy meshes/textures are tracked in
-  `assets/anatomy/` and packed with the mod. The act stays off-camera by framing. Modelled
-  accessories are allowed.
+  addition; it never replaces a pony's body or rig. The PPP anatomy meshes/textures and the act
+  audio are fetched from one external resource pack at build time and packed with the mod; they are
+  not tracked. The act stays off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -43,6 +43,10 @@ Do not start implementation until you have read the required files for the area 
 ## Workflow
 
 Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
+
+A fresh checkout needs the external assets once (`scripts/fetch_assets.sh`), before source runs,
+tests, labs or builds. The script also accepts `--sources` for the V2 Blender file and `--force`
+to overwrite local changes.
 
 Run from source:
 
@@ -117,15 +121,19 @@ scripts/smoke.sh
   ```bash
   ./build.sh [--out <file.pck>]
   ```
-  Success prints `PACK_VERIFY`, `PCK_SHA256` and `MOD_BUILT <path>`. `build.sh` generates the
-  required runtime list with `scripts/build_manifest.py`; `pack.gd` requires the packed files to
-  match it, rejects development files, rejects broken `.import` data and writes a `.sha256` beside
-  the pck. The manifest reads `git ls-files`, so build from the git checkout. A failed check
-  removes the pack. The mod has no script extension.
-- The PPP anatomy meshes and textures are tracked in `assets/anatomy/`; the V2
-  `mare_bits_v2.scn` variant is one of the eight required files. The V2 Blender source
-  `mare_bits_v2.blend` is also tracked and is never packed. Every build includes the runtime
-  assets.
+  Success prints `PACK_VERIFY`, `PCK_SHA256` and `MOD_BUILT <path>`. `build.sh` verifies the
+  fetched runtime set with `scripts/asset_pack.py`, generates the required runtime list with
+  `scripts/build_manifest.py`, and `pack.gd` requires the packed files to match it, rejects
+  development files, rejects broken `.import` data and writes a `.sha256` beside the pck. The
+  manifest reads `git ls-files` plus the resource contract, so build from the git checkout with the
+  fetched assets. A failed check removes the pack. The mod has no script extension.
+- The PPP anatomy meshes, textures and act audio live in the external resource archive described
+  by `scripts/asset_pack.json`; the V2 `mare_bits_v2.scn` variant is one of the eight required
+  anatomy files. The V2 Blender source lives in `sources/anatomy/mare_bits_v2.blend`, is uploaded
+  in the archive's `sources/` tree and is never packed. Every build includes the runtime assets.
+- Change assets with `scripts/pack_assets.sh --upload`, then commit `scripts/asset_pack.json`. The
+  archive is one combined runtime/source zip; `runtime/` goes into the pack and `sources/` does
+  not. An unchanged asset set reuses the committed URL and hash. See `assets/README.md`.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the assets, packs the
   `.import` sidecars and verifies the result. Repository docs, tests, scripts, tools, skills and
   `.git` do not ship; `AUDIO_CREDITS.md` and `changelog.txt` do.
@@ -194,7 +202,7 @@ mods/unfplap/
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
-  audio/act/smack/  OpenNSFW hand-smack variants installed on FlankTouch
+  audio/act/smack/  fetched OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
   poses/authored_pose.gd  bed-space loader for the hand-authored missionary base pose
   poses/missionary_pose.json  the authored pose; exported from the pose lab, never hand-edited
@@ -219,7 +227,11 @@ mods/unfplap/
   dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
   sex_bond.gd       pure Promiscuity levels + per-world lover-bond state and validity
   HISTORY.md        act score, history points, tiers, offer weighting and repair contract
-  scripts/          build_manifest.py, prepare_release.sh, check_release.sh, check_release_metadata.py and other scripts
+  scripts/          asset_pack.py (pack/fetch/verify the resource archive), pack_assets.sh,
+                    fetch_assets.sh, asset_pack.json (committed URL/hash/manifest),
+                    build_manifest.py, prepare_release.sh, check_release.sh,
+                    check_release_metadata.py and other scripts
+  assets/README.md  resource-pack layout and asset-change workflow; never packed
   .opencode/        release skill and command; never packed
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    preference/readiness/strength contract
@@ -1794,8 +1806,8 @@ This is mandatory.
   - Features are concise, high-level and one sentence each. No history, implementation detail
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
-- Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md`, `TUNING.md`, `WORKFLOW.md`
-  and the release skill consistent.
+- Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md`, `TUNING.md`, `WORKFLOW.md`,
+  `assets/README.md` and the release skill consistent.
 
 ## Known constraints
 

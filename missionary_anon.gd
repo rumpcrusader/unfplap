@@ -159,7 +159,7 @@ func remove() -> void:
 
 
 ## Place and pose him from the asset, once per displayed frame. The authored bones are written
-## first, then the stroke and the lean on top of them, or the asset would wipe both.
+## first, then the lean on top of them, or the asset would wipe it.
 func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if not active or not is_instance_valid(avatar) or not is_instance_valid(skeleton):
 		return
@@ -167,14 +167,6 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if not bool(pose.get("available")):
 		return
 	var placement: Transform3D = pose.get("anon_frame")
-	# The authored stroke path (`anon.travel`, pulled out to fully in) moves his *pelvis*, not his
-	# body: his head is the act camera, so sliding the whole body would swing the view on every
-	# thrust. Graded below with the alignment offset.
-	var stroke := Vector3.ZERO
-	if pose.has_method("travel_at"):
-		var travel: Variant = pose.call("travel_at", _depth())
-		if travel is Transform3D:
-			stroke = (travel as Transform3D).origin - placement.origin
 	placement.origin *= body_scale
 	var placed: Transform3D = bed_frame * placement
 	avatar.global_transform = Transform3D(placed.basis * Basis.from_scale(_scale), placed.origin)
@@ -199,17 +191,17 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 			# on the animation to reset it. Without this the factor compounds and the body stretches
 			# or collapses. Parts they hide stay hidden by their own bones, not by ours.
 			skeleton.set_bone_pose_scale(bone, skeleton.get_bone_rest(bone).basis.get_scale())
-	# The authored hand frames, before the stroke or the lean move them: the plant keeps their
-	# height and lets only X/Z slide.
+	# The authored hand frames, before the lean moves them: the plant keeps their height and lets
+	# only X/Z slide.
 	for side: String in ["Left", "Right"]:
 		var hand := skeleton.find_bone(side + "Hand")
 		if hand >= 0 and skeleton.find_bone(side + "UpperArm") >= 0 \
 				and skeleton.find_bone(side + "LowerArm") >= 0:
 			plants[side] = skeleton.get_bone_global_pose(hand)
-	# The attached alignment asks for the pelvis offset that puts the shaft in her; the authored
-	# path adds to it. Both reach the hips first and fade out up the spine, with the neck, head and
-	# planted legs pinned, so his shoulders and the camera move much less than his pelvis.
-	var offset: Vector3 = bed_frame.basis * (stroke * body_scale) + _hip_offset()
+	# The attached alignment asks for the pelvis offset that puts the shaft in her. It reaches the
+	# hips first and fades out up the spine, with the neck, head and planted legs pinned, so his
+	# shoulders and the camera move much less than his pelvis.
+	var offset: Vector3 = _hip_offset()
 	if offset.length_squared() > 0.0000001:
 		offset += Vector3.UP * (offset.length() * HIP_UP_SHARE)
 	_apply_hip_motion(offset)
@@ -437,12 +429,6 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 func _log(text: String) -> void:
 	if is_instance_valid(runtime) and runtime.has_method("_log"):
 		runtime.call("_log", text)
-
-
-## The act's depth, 0 (pulled out) to 1 (full).
-func _depth() -> float:
-	var value: Variant = runtime.get("depth") if is_instance_valid(runtime) else null
-	return clampf(float(value), 0.0, 1.0) if value is float or value is int else 0.0
 
 
 ## The pelvis offset the attached alignment asked for this frame, in world space.

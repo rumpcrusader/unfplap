@@ -187,10 +187,9 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   aimed at her live face, and the log names it once per act.
 - A kiss does **not** move the authored shot: the `front` transform is the kiss framing. The
   `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**.
-- **Anon's body rides the stroke.** His placement is authored as two bed-space points
-  (`anon.travel.start` pulled out, `anon.travel.end` fully in, exported from the lab's
-  `AnonTravelStart`/`AnonTravelEnd` markers) and blended by `depth`. Without them he sits at the
-  neutral placement.
+- **His body keeps the authored placement.** There is no second stroke asset: the attached
+  alignment moves his pelvis, never his whole body, so his head (the act camera) cannot swing on a
+  thrust.
 - **Both poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the shaft about
   its base along her opening's normal and asks for `hip_offset_wanted`; the body that carries him
   applies that offset, so his pelvis follows the entrance and the shaft can never slide out of his

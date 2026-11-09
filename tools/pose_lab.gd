@@ -32,12 +32,6 @@ const SHOT_NODES := [
 	["ShotLeft", "left"],
 	["ShotRight", "right"],
 ]
-## His body's stroke: two bed-space placements, pulled out (`start`) and fully in (`end`). The
-## runtime blends between them by depth, so the authored pose decides where his body travels.
-const TRAVEL_NODES := [
-	["AnonTravelStart", "start"],
-	["AnonTravelEnd", "end"],
-]
 ## The rig exported under the JSON's `anon` key. Anon1 and Anon2 were early floor drafts.
 const ANON_EXPORT_NAME := "Anon3"
 const TARGET_NAMES := ["HipsTarget", "HeadTarget", "LeftHandTarget", "RightHandTarget",
@@ -73,7 +67,6 @@ const PONY_BONES := [
 @export_tool_button("Load pose") var load_pose: Callable = _load_pose
 @export_tool_button("Reset") var reset: Callable = _reset
 @export_tool_button("Capture") var capture: Callable = _capture
-@export_tool_button("Add travel markers") var add_travel: Callable = _add_travel_markers
 @export_tool_button("Show colliders") var toggle_colliders: Callable = _toggle_colliders
 @export_tool_button("Show skeleton") var toggle_skeleton: Callable = _toggle_skeleton
 @export_tool_button("Select pony skeleton") var select_skeleton: Callable = _select_skeleton
@@ -413,35 +406,6 @@ func _add_shot_cameras() -> void:
 		print("[poselab] added %s; drag them and save the scene" % ", ".join(added))
 
 
-## Two markers for his body's stroke: `start` where the exported rig stands now (pulled out) and
-## `end` one shaft length toward her hips. Move them to the two ends of the stroke and save the pose.
-func _add_travel_markers() -> void:
-	var rig := _export_anon()
-	if rig == null:
-		print("[poselab] no anon rig to place the travel markers from")
-		return
-	var added: Array[String] = []
-	for entry: Array in TRAVEL_NODES:
-		var node_name := str(entry[0])
-		if get_node_or_null(node_name) != null:
-			continue
-		var marker := Marker3D.new()
-		marker.name = node_name
-		add_child(marker)
-		_own(marker)
-		var at := _global_of(rig).origin
-		if str(entry[1]) == "end" and _pony_skel != null:
-			var toward := _bone_world(_pony_skel, "pony_hips") - at
-			if toward.length_squared() > 0.0001:
-				at += toward.normalized() * 0.20
-		_set_global(marker, Transform3D(Basis.IDENTITY, at))
-		added.append(node_name)
-	if added.is_empty():
-		print("[poselab] both travel markers already exist")
-	else:
-		print("[poselab] added %s; move them and save the pose" % ", ".join(added))
-
-
 func _make_shot(name: String, at: Vector3, look_at: Vector3) -> Node3D:
 	var shot := Camera3D.new()
 	shot.name = name
@@ -496,13 +460,6 @@ func _save_pose() -> void:
 			"transform": _transform_to_str(frame.affine_inverse() * _global_of(rig)),
 			"bones": _save_bones(_anon_skels[index], []),
 		}
-		var travel := {}
-		for entry: Array in TRAVEL_NODES:
-			var at := get_node_or_null(str(entry[0])) as Node3D
-			if at != null:
-				travel[str(entry[1])] = _transform_to_str(frame.affine_inverse() * _global_of(at))
-		if travel.size() == TRAVEL_NODES.size():
-			(data["anon"] as Dictionary)["travel"] = travel
 	var shots := {}
 	for entry: Array in SHOT_NODES:
 		var node := get_node_or_null(str(entry[0])) as Node3D
@@ -566,14 +523,6 @@ func _load_pose() -> void:
 			_set_global(rig, space * _str_to_transform(str(block.get("transform", ""))))
 			_load_targets(rig, block.get("targets", {}))
 			_load_bones(_anon_skels[index], block.get("bones", {}))
-			var travel_data: Variant = block.get("travel")
-			if travel_data is Dictionary:
-				for entry: Array in TRAVEL_NODES:
-					var at := get_node_or_null(str(entry[0])) as Node3D
-					var key := str(entry[1])
-					if at == null or not (travel_data as Dictionary).has(key):
-						continue
-					_set_global(at, space * _str_to_transform(str((travel_data as Dictionary)[key])))
 	var shot_data: Variant = data.get("shots")
 	if shot_data is Dictionary:
 		for entry: Array in SHOT_NODES:

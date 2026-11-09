@@ -267,9 +267,9 @@ loaded.
 **The act is its own state.** Neither of them is in the game's lying state while it runs: Anon is
 stood up (`force_stand_up()` before the snapshot and the lock), the game's desktop presentation is
 parked, and his own `AnonBody` is placed in bed space and posed from the asset's `anon` block by
-`missionary_anon.gd`, which blends his body between the authored `anon.travel.start`/`end` points by
-depth and adds the attached alignment's `hip_offset_wanted`, so his pelvis rides the stroke and the
-shaft stays in his crotch (the same `_aim_attached()` logic the standing act uses). She is released
+`missionary_anon.gd`; the attached alignment's `hip_offset_wanted` moves only his pelvis, so his
+pelvis rides the stroke and the shaft stays in his crotch (the same `_aim_attached()` logic the
+standing act uses). She is released
 from the bed rest and asked to `stand`, so the solver keeps a neutral pose instead of the lie clip;
 her body is placed and posed by the act. The bed supplies only
 the frame (`bed_frame`) and the offer/eligibility path. Nothing rejoins the bed or a cuddle at the

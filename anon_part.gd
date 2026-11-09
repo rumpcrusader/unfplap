@@ -62,6 +62,9 @@ var _bone_inverse := Transform3D.IDENTITY
 var _pos := Vector3(0.0, 0.74, 0.085)
 var _pitch := 0.0
 var _scale := 0.2
+## Missionary-only base slide along the shaft, set by `anatomy_act` from
+## `presentation.missionary.part_inset_m`. Negative pulls the whole part back into the pelvis.
+var bed_inset_m := 0.0
 var _setting_scale := 1.0
 var _girth_base := 1.0
 var _girth_mid := 1.0
@@ -211,8 +214,8 @@ func _rotation_basis() -> Basis:
 func _placed() -> Transform3D:
 	var basis := _rotation_basis().scaled(Vector3.ONE * _scale * _setting_scale)
 	# `Cock forward` slides the base out along the shaft, so it can sit on the front of the hips
-	# instead of inside the pelvis.
-	var front := SETTINGS.part_front_m.get_num()
+	# instead of inside the pelvis. The missionary inset moves the whole part back into the pelvis.
+	var front := SETTINGS.part_front_m.get_num() + bed_inset_m
 	var axis := (TIP_POINT - PIVOT).normalized()
 	return _bone_inverse * Transform3D(basis, _pos + (_rotation_basis() * axis) * front)
 
@@ -627,6 +630,7 @@ func _hide() -> void:
 func reset_state() -> void:
 	hip_offset_applied = Vector3.ZERO
 	_hip_offset_wanted = Vector3.ZERO
+	bed_inset_m = 0.0
 	aim_normal = Vector3.ZERO
 	aim_opening = Vector3.ZERO
 	aim_pitch_deg = 0.0

@@ -1660,6 +1660,9 @@ rump blush. Unknown settings keys are ignored.
   `penetration_reach()` (`shaft length - gap`) in both poses, so 100 % depth is his body stopped
   `gap` behind her rear surface and a long `part_length_scale` moves the reach with it. The back-out
   gap is negative penetration, so it is travel the depth scale never counts.
+  `presentation.missionary.part_inset_m` (debug, default `-0.08 m`) is applied in missionary only:
+  it slides the whole part back along its shaft into the pelvis, hiding the exposed base and
+  bringing the hips closer at max depth. It is added to `part_front_m` for that pose.
   Player-part values are applied on top of the saved placement and update live. `part_head_scale`
   widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
   its axis; `part_throb` scales the slight depth-driven heartbeat (0 off), which also lifts the
@@ -1717,7 +1720,8 @@ rump blush. Unknown settings keys are ignored.
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
     `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
     tail), `caress.over_coat_m` (debug, signed, in centimetres: raise or press the palm over her
-    coat), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
+    coat), `part_inset_m` (debug, signed, in centimetres: pull the cock base back into the pelvis
+    in missionary), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
     `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
     `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
     size dropdown above the six rows.
@@ -1776,7 +1780,7 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
-  match, Caress along, Raise over coat, a **Size** dropdown over the six per-size
+  match, Caress along, Raise over coat, Cock base inset, a **Size** dropdown over the six per-size
   vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with **Motion**,
   **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.

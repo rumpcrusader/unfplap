@@ -636,6 +636,10 @@ static var over_coat_m := num("over_coat_m", "presentation.missionary.caress.ove
 	"Raise over coat",
 	"Lift the missionary caress palm above her coat, in centimetres. Signed and unscaled: positive raises it, negative presses it into the coat.",
 	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m", -0.08,
+	"Cock base inset",
+	"Slide the cock base back toward Anon in missionary, in centimetres. Negative moves it into the pelvis; use it to hide the base and close the hip gap.",
+	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Missionary size  (debug)
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is

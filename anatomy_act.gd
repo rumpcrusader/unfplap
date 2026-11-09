@@ -333,6 +333,10 @@ func tick(delta: float) -> void:
 			anatomy.call("clear_shaft")
 		part.set("aim_normal", _normal)
 		part.set("aim_opening", hole_point())
+		# The bed pose needs the base pulled back into the pelvis: the authored pose puts it on
+		# the lower belly, which also leaves the hips farther from her than `Pelvis gap` implies.
+		part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
+			if pose == CATALOG.MISSIONARY else 0.0)
 	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
 	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.

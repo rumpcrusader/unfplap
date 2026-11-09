@@ -646,7 +646,9 @@ custom head-aim path below.
   deep-kiss and soft-kiss audio behaviour. Missionary always uses the custom head-aim path: the
   stock kiss pose is authored for a standing pony and its chest/neck give lifts the lying body
   and turns her head across the mattress. The custom path still sets the mouth expressions and
-  repeats the mouth kiss sound. Either path may stop the pony's current speech, but it does not
+  repeats the mouth kiss sound. Its look point blends from his eyes to his mouth by the kiss's
+  `0.35 s` fade (`kiss.amount()`), so the head leans in with the kiss instead of snapping to the
+  mouth on the first frame. Either path may stop the pony's current speech, but it does not
   interrupt thrusting or stats. `_check_running()` treats the act's own `Affection`-driven
   `kiss` as part of the act instead of an interruption.
 - `pony_kisser` physics is paused for the whole act, so the runtime feeds a base kiss the live

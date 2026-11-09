@@ -960,7 +960,18 @@ func _process_tick(delta: float) -> void:
 		var kiss_view: Camera3D = kiss.mouth_view()
 		if is_instance_valid(view):
 			if custom_kiss and is_instance_valid(kiss_view):
-				_pose.look_point = kiss.target(kiss_view)
+				if pose_id == CATALOG.MISSIONARY:
+					# Best-effort lean: blend from his eyes to his mouth with the kiss's own 0.35 s
+					# fade, so the head leans in with the kiss instead of snapping to the mouth on
+					# the first frame. The pose solve still aims at the moving point every frame.
+					var mouth: Variant = kiss.target(kiss_view)
+					var gaze := _missionary_gaze_point()
+					if mouth is Vector3 and (mouth as Vector3).is_finite() and gaze.is_finite():
+						_pose.look_point = gaze.lerp(mouth, clampf(float(kiss.amount()), 0.0, 1.0))
+					else:
+						_pose.look_point = gaze
+				else:
+					_pose.look_point = kiss.target(kiss_view)
 			elif pose_id == CATALOG.MISSIONARY:
 				# Look at the authored Anon, not at the game camera: his body is placed by the act,
 				# and the player rig the camera belongs to is standing off the bed.

@@ -416,7 +416,10 @@ override can tune it without a new flag. The runtime writes only `play_bow` itse
 `_lean_forward >= MISSIONARY_KISS_LEAN` (0.90) **and** W is held: `lean_targets` adds `|side|` to
 the forward lean, so without the W test a pure side lean would pull the kiss. The kiss itself uses
 the custom head-aim path (the stock pose is authored for a standing pony); `Q`/`E` no longer kiss,
-and `lean_action_kind()` only fires the standing shoulder reach.
+and `lean_action_kind()` only fires the standing shoulder reach. Instead of aiming at his mouth on
+the first frame, the look point blends from his eyes to his mouth by the kiss's own `0.35 s` fade, so
+her head leans in with the kiss rather than snapping. The solve still follows the moving point each
+frame, but the base-game contact target is his authored mouth (`mouth_point()`).
 
 ## Free look (debug)
 

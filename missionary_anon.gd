@@ -11,6 +11,7 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 ## The lean hinges his whole upper body at this joint: chest, neck, head, shoulders, arms and hands
 ## follow as one, while the hips, thighs and legs keep the authored pose and the stroke, so the
@@ -169,7 +170,13 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	var placement: Transform3D = pose.get("anon_frame")
 	placement.origin *= body_scale
 	var placed: Transform3D = bed_frame * placement
-	avatar.global_transform = Transform3D(placed.basis * Basis.from_scale(_scale), placed.origin)
+	# He is a human, so only his placement follows her size: his body keeps its own scale. The debug
+	# `Anon size match` blends his body toward hers: 0 human, 1 a uniform scale with her.
+	var body := _scale
+	var match_factor := clampf(SETTINGS.anon_size_match.get_num(), 0.0, 1.0)
+	if match_factor > 0.0:
+		body = _scale * lerpf(1.0, body_scale, match_factor)
+	avatar.global_transform = Transform3D(placed.basis * Basis.from_scale(body), placed.origin)
 	# The presentation parks the body every tick (invisible, processing off); the act needs it shown
 	# and its skeleton updating, and its own IK/driver are already neutralised.
 	if not avatar.visible:

@@ -147,13 +147,17 @@ Missionary is its own state, not the game's bed rest:
   S back/up, and Q/E add the side lean. The missionary vulva trims (`vulva_shift_mm`,
   `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the anatomy mesh; the depth one ramps in
   after 20% depth and reaches its signed millimetre value at full thrust. The fold-coloring and
-  vulva-hug hacks are missionary-only too. The camera is pushed out of her live skull sphere and
+  vulva-hug hacks are missionary-only too. The six values (`vulva_shift_mm`, `vulva_pitch_deg`,
+  `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm`, `gaze_offset_mm`) are per pony size,
+  stored under `presentation.missionary.size.<preset>` and edited through one **Size** dropdown;
+  the act reads the game's current preset. The camera is pushed out of her live skull sphere and
   muzzle capsule by `head_clearance_mm` (debug, default 100 mm), in both views, so a close cheek or
   muzzle lean cannot enter her head as she turns it. The skull and muzzle radii scale with her body
-  size; the clearance is an absolute pad on top. The camera is written after the pose in the same frame, so it
-  never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
-  camera on his standing player rig; the game's eye modifier follows the same target, offset by
-  `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than
+  size; the clearance is an absolute pad on top. The camera is written after the pose in the same
+  frame, so it never trails his head. Her gaze and the kiss target his authored **eye and mouth**,
+  never the game camera on his standing player rig; the game's eye modifier follows the same target,
+  offset by `presentation.missionary.size.<preset>.gaze_offset_mm` (debug, signed). A kiss leans
+  the eye in toward the aim but never closer than
   `KISS_CLEARANCE_M` (0.45 m) × her body scale from her face point; her muzzle extends past that
   point.
 - **Authored shots** (default): the trajectory below, through the pose lab's camera transforms
@@ -188,7 +192,9 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**.
 - **His body keeps the authored placement.** There is no second stroke asset: the attached
   alignment moves his pelvis, never his whole body, so his head (the act camera) cannot swing on a
-  thrust.
+  thrust. He is a human, so only his placement follows her size; the debug
+  `presentation.missionary.anon_size_match` (0…1) blends his body scale toward hers, 0 human and 1
+  a uniform scale with her.
 - **Both poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the shaft about
   its base along her opening's normal and asks for `hip_offset_wanted`; the body that carries him
   applies that offset, so his pelvis follows the entrance and the shaft can never slide out of his

@@ -389,7 +389,7 @@ func _bed_surface_top() -> float:
 ## out of those volumes is what keeps a close lean from entering her head no matter which way she
 ## turns or pulls her head; a point target cannot do that because the surface moves under it.
 func _clear_live_head(at: Vector3) -> Vector3:
-	var clearance := SETTINGS.head_clearance_mm.get_num() / 1000.0
+	var clearance := SETTINGS.head_clearance_mm_for(SETTINGS.pony_size_name()) / 1000.0
 	if clearance <= 0.0001 or not is_instance_valid(pony):
 		return at
 	var boop: Variant = pony.get("boop_node")

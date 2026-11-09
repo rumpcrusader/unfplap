@@ -117,8 +117,67 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, pa
 				rows.visible = on)
 			list.add_child(sub_header)
 		list.add_child(rows)
-		for path: String in _paths_in(paths, group):
-			_add_row(rows, path, font_size, page, changed)
+		if group == SETTINGS.MISSIONARY_SIZE_GROUP:
+			_build_missionary_size(rows, font_size, page, changed)
+		else:
+			for path: String in _paths_in(paths, group):
+				_add_row(rows, path, font_size, page, changed)
+
+
+## The six missionary geometry settings are per pony size. One dropdown picks which size is edited;
+## the six rows below belong to that size. The act always reads the game's current preset, so this
+## only chooses which preset's values are being edited.
+static func _build_missionary_size(parent: VBoxContainer, font_size: int, page: Node,
+		changed: Callable) -> void:
+	var values := VBoxContainer.new()
+	values.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	values.add_theme_constant_override("separation", 6)
+	var rebuild := func() -> void:
+		for child: Node in values.get_children():
+			values.remove_child(child)
+			child.queue_free()
+		var size: String = SETTINGS.size_group.get_choice()
+		for base: String in SETTINGS.MISSIONARY_SIZE_BASES:
+			_add_row(values, "presentation.missionary.size.%s.%s" % [size, base], font_size, page, changed)
+	var on_size := func() -> void:
+		changed.call()
+		rebuild.call()
+	_size_selector(parent, "presentation.missionary.size_group", font_size, page, on_size)
+	parent.add_child(values)
+	rebuild.call()
+
+
+## The dropdown above the per-size rows, drawn in the page's row card. It always uses a dropdown,
+## never the Segment pills the generic choice row would pick.
+static func _size_selector(parent: VBoxContainer, path: String, font_size: int, page: Node,
+		changed: Callable) -> void:
+	var item: Dictionary = SETTINGS.entry_view(SETTINGS.by_path(path))
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _row_box(page, false))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	card.add_child(row)
+	var label := STYLE.label(str(item.get("label", "Size")), "", font_size)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label)
+	var option := OptionButton.new()
+	var options: Array = item.get("options", [])
+	var labels: Array = item.get("labels", [])
+	for index: int in options.size():
+		option.add_item(str(labels[index]) if index < labels.size() else str(options[index]))
+		option.set_item_metadata(index, options[index])
+	var current: String = SETTINGS.size_group.get_choice()
+	for index: int in option.item_count:
+		if str(option.get_item_metadata(index)) == current:
+			option.select(index)
+			break
+	option.add_theme_font_size_override("font_size", font_size - 2)
+	option.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	option.item_selected.connect(func(index: int) -> void:
+		_store(path, str(option.get_item_metadata(index)), page, changed))
+	row.add_child(option)
+	parent.add_child(card)
 
 
 ## The Debug block's action buttons, plus the last result. Actions that share a `row` are drawn

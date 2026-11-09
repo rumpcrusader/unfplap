@@ -2838,7 +2838,7 @@ func _missionary_gaze_point() -> Vector3:
 		var point: Variant = _missionary_anon.call("eye_point")
 		if point is Vector3 and (point as Vector3).is_finite():
 			var aim: Vector3 = point
-			aim.y += SETTINGS.gaze_offset_mm.get_num() / 1000.0
+			aim.y += SETTINGS.gaze_offset_mm_for(SETTINGS.pony_size_name()) / 1000.0
 			return _missionary_camera_controller().head_look_point_at(aim)
 	return _missionary_camera_controller().head_look_point(_kiss_controller().mouth_view())
 

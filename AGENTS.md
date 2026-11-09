@@ -518,15 +518,16 @@ thighs and legs stay on the authored pose and keep the thrust. W tips the hinge 
 her, S back/up, and Q/E add the side lean. The camera is written after the pose write in the same
 frame. Her gaze and the kiss target his authored eye and mouth (`eye_point()` / `mouth_point()`),
 never the game camera on his standing player rig; the game's eye modifier is pointed at the same
-target, with `presentation.missionary.gaze_offset_mm` (debug, signed, unclamped) raising or lowering
-it. The vulva trims (`vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the
-anatomy mesh in missionary; the depth one starts at 20% depth and reaches its signed millimetre value
-at full thrust. Two hacks sit beside them, both missionary-only: `disable_fold_coloring` drops the
-vertex-alpha fold/clitoris masks so the mesh uses her skin tones, and `vulva_hug_mm` replaces the
-anatomy hug for the act. The camera itself is kept outside her live skull and muzzle by
+target, with `presentation.missionary.size.<preset>.gaze_offset_mm` (debug, signed, unclamped)
+raising or lowering it. The vulva trims (`vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`)
+move only the anatomy mesh in missionary; the depth one starts at 20% depth and reaches its signed
+millimetre value at full thrust. Two hacks sit beside them, both missionary-only: `disable_fold_coloring`
+drops the vertex-alpha fold/clitoris masks so the mesh uses her skin tones, and `vulva_hug_mm`
+replaces the anatomy hug for the act. The camera itself is kept outside her live skull and muzzle by
 `head_clearance_mm` (debug, default 100 mm) in both views, so a close cheek or muzzle lean cannot
 enter her head as she turns it. The skull and muzzle radii scale with her body size; the clearance
-is an absolute pad on top.
+is an absolute pad on top. The six values are per pony size, stored under
+`presentation.missionary.size.<preset>` and edited through one **Size** dropdown.
 
 ### Missionary shot
 
@@ -1608,7 +1609,7 @@ rump blush. Unknown settings keys are ignored.
   stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point; default −20 mm),
   `vulva_hug_mm` (default `2 mm`) and `anal_hug_mm`
   (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips; the missionary
-  hack `presentation.missionary.vulva_hug_mm` overrides `vulva_hug_mm` for that act),
+  hack `presentation.missionary.size.<preset>.vulva_hug_mm` overrides `vulva_hug_mm` for that act),
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 2×) and
   `jiggle_still` (debug: no-jiggle zone around the vulva, 1.5×; 0 turns it off),
   `anal_still` (debug: the same zone around the visible ponut, default 0, off),
@@ -1685,9 +1686,11 @@ rump blush. Unknown settings keys are ignored.
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
-  - `missionary`: `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`,
-    `disable_fold_coloring`, `vulva_hug_mm`, `head_clearance_mm`, `gaze_offset_mm`, `camera_mode`,
-    `third_person`, `free_look`.
+  - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
+    `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her) and the six
+    per-size values `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`, `vulva_hug_mm`,
+    `head_clearance_mm` and `gaze_offset_mm` under `size.<preset>`, keyed `canon`, `mounting`,
+    `same height` and `hoers` and edited through one size dropdown above the six rows.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
@@ -1742,9 +1745,9 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion,
-  vulva shift/pitch/depth, fold/hug hacks, head clearance, gaze height, Use free look),
-  **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust
+  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
+  match, a **Size** dropdown over the six per-size vulva/clearance/gaze values, fold/hug hacks,
+  Use free look), **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust
   jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,

@@ -183,13 +183,14 @@ func _check_panels() -> void:
 func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
 	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", [
-		"presentation.missionary.gaze_offset_mm", "camera_thrust.bob",
+		"presentation.missionary.size.canon.gaze_offset_mm", "camera_thrust.bob",
 		"presentation.missionary.camera_mode"], 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
 	check(labels.has("Gaze height") and labels.has("Camera"),
 		"an interleaved section keeps every row")
+	check(labels.has("Size"), "the per-size section draws its dropdown")
 	check(labels.has("Bob"), "the interleaved section still draws the other group")
 	list.free()
 
@@ -258,6 +259,28 @@ func _check_migration() -> void:
 		"a deprecated key maps to its replacement")
 	check(not (moved.get("old", {}) as Dictionary).has("radius"),
 		"the deprecated key is erased")
+
+	# The per-size split seeds Canon from the old flat value.
+	var sized: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"presentation": {"missionary": {"vulva_shift_mm": 42.0}}}, SETTINGS.SCHEMA_VERSION)
+	var sized_missionary: Dictionary = (sized.get("presentation", {}) as Dictionary).get(
+		"missionary", {})
+	check(not sized_missionary.has("vulva_shift_mm"), "the old flat vulva shift is erased")
+	var sized_size: Dictionary = sized_missionary.get("size", {})
+	var sized_canon: Dictionary = sized_size.get("canon", {})
+	check(near(float(sized_canon.get("vulva_shift_mm", 0.0)), 42.0),
+		"the old flat vulva shift seeds Canon")
+
+	# A file that already has the nested block is left alone.
+	var nested: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"presentation": {"missionary": {"size": {"canon": {"vulva_shift_mm": 55.0}}}}},
+		SETTINGS.SCHEMA_VERSION)
+	var nested_missionary: Dictionary = (nested.get("presentation", {}) as Dictionary).get(
+		"missionary", {})
+	var nested_canon: Dictionary = (nested_missionary.get("size", {}) as Dictionary).get(
+		"canon", {})
+	check(near(float(nested_canon.get("vulva_shift_mm", 0.0)), 55.0),
+		"the nested size block survives migration")
 
 	# The anatomy master switch and the act-only switch fold into one pill.
 	var off: Dictionary = SETTINGS._normalize_anatomy_visibility({

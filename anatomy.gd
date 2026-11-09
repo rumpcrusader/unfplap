@@ -545,7 +545,7 @@ func _apply_place() -> void:
 func _missionary_depth_tick() -> void:
 	if not _missionary_pose():
 		return
-	if absf(SETTINGS.vulva_depth_shift_mm.get_num()) < 0.0001:
+	if absf(SETTINGS.vulva_depth_shift_mm_for(SETTINGS.pony_size_name())) < 0.0001:
 		return
 	_apply_place()
 
@@ -554,16 +554,17 @@ func _missionary_depth_tick() -> void:
 ## bed's lateral axis, both around the mesh origin. Applied after the bone mapping so the values
 ## read the way they look on screen (up is up); the mesh still rides her hips like the placement.
 func _missionary_place_trim(local: Transform3D) -> Transform3D:
-	var shift: float = SETTINGS.vulva_shift_mm.get_num() / 1000.0
+	var size := SETTINGS.pony_size_name()
+	var shift: float = SETTINGS.vulva_shift_mm_for(size) / 1000.0
 	# The act's depth trim starts at 50% and reaches the setting at full depth.
 	var depth := 0.0
 	if is_instance_valid(runtime):
 		var value: Variant = runtime.get("depth")
 		if value is float or value is int:
 			depth = clampf(float(value), 0.0, 1.0)
-	shift += SETTINGS.vulva_depth_shift_mm.get_num() / 1000.0 \
+	shift += SETTINGS.vulva_depth_shift_mm_for(size) / 1000.0 \
 		* clampf((depth - 0.2) / 0.8, 0.0, 1.0)
-	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg.get_num())
+	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg_for(size))
 	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
 		return local
 	var parent := _mesh.get_parent() as Node3D
@@ -1330,7 +1331,7 @@ func wink_burst(count: int, discharge_count := -1) -> void:
 ## Missionary can use its own hug hack; every other pose keeps the anatomy setting.
 func _vulva_hug_mm() -> float:
 	if _missionary_pose():
-		return SETTINGS.missionary_vulva_hug_mm.get_num()
+		return SETTINGS.vulva_hug_mm_for(SETTINGS.pony_size_name())
 	return SETTINGS.vulva_hug_mm.get_num()
 
 

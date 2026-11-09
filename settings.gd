@@ -606,38 +606,16 @@ static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
-static var vulva_shift_mm := num("vulva_shift_mm", "presentation.missionary.vulva_shift_mm", 70.0,
-	"Vulva shift",
-	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
-	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
-static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vulva_pitch_deg", 20.0,
-	"Vulva pitch",
-	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
-	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
-static var vulva_depth_shift_mm := num("vulva_depth_shift_mm",
-	"presentation.missionary.vulva_depth_shift_mm", 20.0,
-	"Vulva depth shift",
-	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
-	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
+static var anon_size_match := num("anon_size_match",
+	"presentation.missionary.anon_size_match", 0.0,
+	"Anon size match",
+	"How much Anon's body scales with the pony in missionary. 0 keeps him human-sized; 1 scales him with her.",
+	GENERAL, "Missionary").with_range(0.0, 1.0).with_step(0.01).with_slider().as_debug()
 static var disable_fold_coloring := flag("disable_fold_coloring",
 	"presentation.missionary.disable_fold_coloring", true,
 	"Hack: Disable fold coloring",
 	"Draw the whole vulva in her outer skin color during the missionary act; the pink folds and clitoris colors are off.",
 	GENERAL, "Missionary").as_debug()
-static var missionary_vulva_hug_mm := num("missionary_vulva_hug_mm",
-	"presentation.missionary.vulva_hug_mm", -2.0,
-	"Hack: Vulva hug",
-	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
-	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
-static var head_clearance_mm := num("head_clearance_mm",
-	"presentation.missionary.head_clearance_mm", 100.0,
-	"Head clearance",
-	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
-	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
-static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", -250.0,
-	"Gaze height",
-	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
-	GENERAL, "Missionary").with_unit("mm").with_step(1.0).as_debug()
 static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode", "shots",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
 	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",
@@ -650,6 +628,169 @@ static var free_look := flag("free_look", "presentation.missionary.free_look", f
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
 	GENERAL, "Missionary").as_debug()
+
+# -- Missionary size  (debug)
+## The six geometry values are tuned per pony size. The dropdown above them picks which size is
+## edited; the act always reads the size the game is currently set to. Every size starts at the old
+## single default, so an unedited file behaves the same at every size.
+const MISSIONARY_SIZES := ["canon", "mounting", "same height", "hoers"]
+const MISSIONARY_SIZE_LABELS := ["Canon", "JRHNBR", "Same height", "Hoers"]
+const MISSIONARY_SIZE_BASES := ["vulva_shift_mm", "vulva_pitch_deg", "vulva_depth_shift_mm",
+	"vulva_hug_mm", "head_clearance_mm", "gaze_offset_mm"]
+const MISSIONARY_SIZE_GROUP := "Missionary › Size"
+static var size_group := choice("size_group", "presentation.missionary.size_group", "canon",
+	MISSIONARY_SIZES, MISSIONARY_SIZE_LABELS, "Size",
+	"The pony size these missionary values are for.", GENERAL, MISSIONARY_SIZE_GROUP).as_debug()
+static var vulva_shift_mm_canon := num("vulva_shift_mm_canon",
+	"presentation.missionary.size.canon.vulva_shift_mm", 70.0, "Vulva shift",
+	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var vulva_shift_mm_mounting := num("vulva_shift_mm_mounting",
+	"presentation.missionary.size.mounting.vulva_shift_mm", 70.0, "Vulva shift",
+	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var vulva_shift_mm_same_height := num("vulva_shift_mm_same_height",
+	"presentation.missionary.size.same height.vulva_shift_mm", 70.0, "Vulva shift",
+	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var vulva_shift_mm_hoers := num("vulva_shift_mm_hoers",
+	"presentation.missionary.size.hoers.vulva_shift_mm", 70.0, "Vulva shift",
+	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var vulva_pitch_deg_canon := num("vulva_pitch_deg_canon",
+	"presentation.missionary.size.canon.vulva_pitch_deg", 20.0, "Vulva pitch",
+	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+static var vulva_pitch_deg_mounting := num("vulva_pitch_deg_mounting",
+	"presentation.missionary.size.mounting.vulva_pitch_deg", 20.0, "Vulva pitch",
+	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+static var vulva_pitch_deg_same_height := num("vulva_pitch_deg_same_height",
+	"presentation.missionary.size.same height.vulva_pitch_deg", 20.0, "Vulva pitch",
+	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+static var vulva_pitch_deg_hoers := num("vulva_pitch_deg_hoers",
+	"presentation.missionary.size.hoers.vulva_pitch_deg", 20.0, "Vulva pitch",
+	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+static var vulva_depth_shift_mm_canon := num("vulva_depth_shift_mm_canon",
+	"presentation.missionary.size.canon.vulva_depth_shift_mm", 20.0, "Vulva depth shift",
+	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var vulva_depth_shift_mm_mounting := num("vulva_depth_shift_mm_mounting",
+	"presentation.missionary.size.mounting.vulva_depth_shift_mm", 20.0, "Vulva depth shift",
+	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var vulva_depth_shift_mm_same_height := num("vulva_depth_shift_mm_same_height",
+	"presentation.missionary.size.same height.vulva_depth_shift_mm", 20.0, "Vulva depth shift",
+	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var vulva_depth_shift_mm_hoers := num("vulva_depth_shift_mm_hoers",
+	"presentation.missionary.size.hoers.vulva_depth_shift_mm", 20.0, "Vulva depth shift",
+	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var missionary_vulva_hug_mm_canon := num("missionary_vulva_hug_mm_canon",
+	"presentation.missionary.size.canon.vulva_hug_mm", -2.0, "Hack: Vulva hug",
+	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var missionary_vulva_hug_mm_mounting := num("missionary_vulva_hug_mm_mounting",
+	"presentation.missionary.size.mounting.vulva_hug_mm", -2.0, "Hack: Vulva hug",
+	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var missionary_vulva_hug_mm_same_height := num("missionary_vulva_hug_mm_same_height",
+	"presentation.missionary.size.same height.vulva_hug_mm", -2.0, "Hack: Vulva hug",
+	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var missionary_vulva_hug_mm_hoers := num("missionary_vulva_hug_mm_hoers",
+	"presentation.missionary.size.hoers.vulva_hug_mm", -2.0, "Hack: Vulva hug",
+	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+static var head_clearance_mm_canon := num("head_clearance_mm_canon",
+	"presentation.missionary.size.canon.head_clearance_mm", 100.0, "Head clearance",
+	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var head_clearance_mm_mounting := num("head_clearance_mm_mounting",
+	"presentation.missionary.size.mounting.head_clearance_mm", 100.0, "Head clearance",
+	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var head_clearance_mm_same_height := num("head_clearance_mm_same_height",
+	"presentation.missionary.size.same height.head_clearance_mm", 100.0, "Head clearance",
+	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var head_clearance_mm_hoers := num("head_clearance_mm_hoers",
+	"presentation.missionary.size.hoers.head_clearance_mm", 100.0, "Head clearance",
+	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var gaze_offset_mm_canon := num("gaze_offset_mm_canon",
+	"presentation.missionary.size.canon.gaze_offset_mm", -250.0, "Gaze height",
+	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var gaze_offset_mm_mounting := num("gaze_offset_mm_mounting",
+	"presentation.missionary.size.mounting.gaze_offset_mm", -250.0, "Gaze height",
+	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var gaze_offset_mm_same_height := num("gaze_offset_mm_same_height",
+	"presentation.missionary.size.same height.gaze_offset_mm", -250.0, "Gaze height",
+	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+static var gaze_offset_mm_hoers := num("gaze_offset_mm_hoers",
+	"presentation.missionary.size.hoers.gaze_offset_mm", -250.0, "Gaze height",
+	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
+	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+
+## The size preset the game is currently set to. The game's Settings autoload is cached; the preset
+## is the same for every pony of that size (a stallion is 1.2x the preset, not a preset of its own).
+static var _game_settings: Node = null
+
+static func pony_size_name() -> String:
+	if not is_instance_valid(_game_settings):
+		var loop := Engine.get_main_loop() as SceneTree
+		_game_settings = loop.root.get_node_or_null("Settings") if loop != null else null
+	if _game_settings == null:
+		return "canon"
+	return str(_game_settings.call("get_value", "ponies/size"))
+
+static func vulva_shift_mm_for(size: String) -> float:
+	match size:
+		"mounting": return vulva_shift_mm_mounting.get_num()
+		"same height": return vulva_shift_mm_same_height.get_num()
+		"hoers": return vulva_shift_mm_hoers.get_num()
+	return vulva_shift_mm_canon.get_num()
+
+static func vulva_pitch_deg_for(size: String) -> float:
+	match size:
+		"mounting": return vulva_pitch_deg_mounting.get_num()
+		"same height": return vulva_pitch_deg_same_height.get_num()
+		"hoers": return vulva_pitch_deg_hoers.get_num()
+	return vulva_pitch_deg_canon.get_num()
+
+static func vulva_depth_shift_mm_for(size: String) -> float:
+	match size:
+		"mounting": return vulva_depth_shift_mm_mounting.get_num()
+		"same height": return vulva_depth_shift_mm_same_height.get_num()
+		"hoers": return vulva_depth_shift_mm_hoers.get_num()
+	return vulva_depth_shift_mm_canon.get_num()
+
+static func vulva_hug_mm_for(size: String) -> float:
+	match size:
+		"mounting": return missionary_vulva_hug_mm_mounting.get_num()
+		"same height": return missionary_vulva_hug_mm_same_height.get_num()
+		"hoers": return missionary_vulva_hug_mm_hoers.get_num()
+	return missionary_vulva_hug_mm_canon.get_num()
+
+static func head_clearance_mm_for(size: String) -> float:
+	match size:
+		"mounting": return head_clearance_mm_mounting.get_num()
+		"same height": return head_clearance_mm_same_height.get_num()
+		"hoers": return head_clearance_mm_hoers.get_num()
+	return head_clearance_mm_canon.get_num()
+
+static func gaze_offset_mm_for(size: String) -> float:
+	match size:
+		"mounting": return gaze_offset_mm_mounting.get_num()
+		"same height": return gaze_offset_mm_same_height.get_num()
+		"hoers": return gaze_offset_mm_hoers.get_num()
+	return gaze_offset_mm_canon.get_num()
 
 # -- Standing  (debug)
 static var standing_play_bow := flag("standing_play_bow", "features.standing_play_bow", false,
@@ -1251,10 +1392,29 @@ static var _deprecated := [
 	# The vulva trim moved from Anatomy to the Missionary section; keep a tuned value.
 	deprecated("anatomy.vulva_pose_shift_mm",
 		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.vulva_shift_mm": float(value)}),
+			return {"presentation.missionary.size.canon.vulva_shift_mm": float(value)}),
 	deprecated("anatomy.vulva_pose_pitch_deg",
 		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.vulva_pitch_deg": float(value)}),
+			return {"presentation.missionary.size.canon.vulva_pitch_deg": float(value)}),
+	# The six missionary geometry values became per-size. The old single value seeds Canon.
+	deprecated("presentation.missionary.vulva_shift_mm",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.size.canon.vulva_shift_mm": float(value)}),
+	deprecated("presentation.missionary.vulva_pitch_deg",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.size.canon.vulva_pitch_deg": float(value)}),
+	deprecated("presentation.missionary.vulva_depth_shift_mm",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.size.canon.vulva_depth_shift_mm": float(value)}),
+	deprecated("presentation.missionary.vulva_hug_mm",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.size.canon.vulva_hug_mm": float(value)}),
+	deprecated("presentation.missionary.head_clearance_mm",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.size.canon.head_clearance_mm": float(value)}),
+	deprecated("presentation.missionary.gaze_offset_mm",
+		func(value: Variant) -> Dictionary:
+			return {"presentation.missionary.size.canon.gaze_offset_mm": float(value)}),
 	# The act always shows and poses Anon's body, so the anatomy master no longer gates it.
 	deprecated("features.anatomy_bed_body", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.head_pitch_deg",
@@ -1781,7 +1941,9 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	for entry: Variant in _deprecated:
 		var path := str((entry as Dictionary).get("path", ""))
 		var value: Variant = _read_path(data, path, null)
-		if value == null:
+		# A dictionary at a retired leaf is the new nested block that shares its name, not a value
+		# to convert; leave it for the declarations that own it.
+		if value == null or value is Dictionary:
 			continue
 		var mapped: Variant = ((entry as Dictionary).get("map") as Callable).call(value)
 		_erase_path(data, path)

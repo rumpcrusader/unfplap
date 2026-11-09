@@ -327,8 +327,7 @@ reclined eye height left the camera wrong after the act.
   plane (down, a little outward and back, carried between frames), and the wrist bone is
   `(palm * hand_offset) * hand_rest_basis`. On release the same solve eases back to the authored
   pose, so the planted arms return exactly. The palm rides her coat, not his lean. `A` uses his
-  left hand and `D` his right; only one hand caresses at a time, pressing the other swaps and
-  pressing the active one stops. `Z`/`C` pause the oval with that hand. The palm rolls 30° about
+  left hand and `D` his right; each press toggles that hand and both can caress at once. `Z`/`C` pause the oval with that hand. The palm rolls 30° about
   the coat normal, counter-clockwise for the right hand and clockwise for the left; the roll fades
   to zero as the caress moves up the neck and cheek. The debug
   `presentation.missionary.caress.over_coat_m` lifts it further above the coat.
@@ -698,7 +697,7 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 |---|---|---|
 | `Q` | lean only | left-hand reach to her left shoulder |
 | `E` | lean only | right-hand reach to her right shoulder |
-| `A` / `D` | one-hand chest/belly caress (A left, D right, pressing the other swaps) | slow left/right flank caress |
+| `A` / `D` | left/right chest/belly caress (A left, D right; both can run) | slow left/right flank caress |
 | `Z` / `C` | toggle the active hand's caress oval | toggle left/right caress oval movement |
 | `F` (hold) | kiss at a full forward lean (W) | kiss at a full shoulder lean |
 | Mouse right | left/right cheek opposite the lean | same |
@@ -903,8 +902,10 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
 - `standing_caress.gd` feeds the standing arm's existing game IK with the exact `torso` contact.
   Missionary snaps the interpolated path point and every oval offset to the exact body/head
   surface with one `nearest` ray per hand per tick, and uses that hit normal, so the palm follows
-  the coat around the circle instead of a single anchor normal. The hand-shape mode reuses the
-  same exact surface. The old capsule hull target is never used for the precise hand; if the
+  the coat around the circle instead of a single anchor normal. `normal_blur_m` averages the
+  coat normal around the hit to stop crease snaps; `normal_deg_s` clamps the temporal normal turn;
+  `contact_smooth` low-passes the exact contact point. Each at 0 restores the exact behaviour.
+  The hand-shape mode reuses the same exact surface. The old capsule hull target is never used for the precise hand; if the
   surface fails, the last good precise target is held.
 - `presentation.missionary.caress.path_id` is the debug **Caress path** dropdown: `one` uses
   `anchors.json` (belly/chest/neck/cheek), `two` uses `anchors2.json` (flank/shoulder/neck).
@@ -1087,7 +1088,7 @@ examples.
   remains "paused, a panel is open, or the mouse is visible"; `menu_panel_open()` is the panel-only
   check the recapture uses.
 - Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress
-  (standing: left/right flank; missionary: one hand at a time on her chest/belly),
+  (standing: left/right flank; missionary: both hands independently on her chest/belly),
   `Z`/`C` toggle caress movement,
   `F` hold kiss in standing, mouse right **or `G`** smacks. `X` taps to toggle auto thrust; while
   it is on **the mouse no longer sets the depth** (only the wheel sets pace; the hold-X layer sets
@@ -1816,9 +1817,11 @@ rump blush. Unknown settings keys are ignored.
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
     `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
     tail), `caress.over_coat_m` (debug, default 2 cm, signed: palm-centre hover over her coat;
-    negative presses), `part_inset_m` (debug, signed, in centimetres: pull the cock base back into
-    the pelvis in missionary), `oval_scale` (debug, ×: scale the missionary caress oval), and the
-    six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
+    negative presses), `caress.normal_blur_m` (debug, default 2 cm: radius of the coat normal
+    average), `caress.normal_deg_s` (debug, default 120: palm normal turn limit), and
+    `caress.contact_smooth` (debug, default 18/s: contact low-pass), `part_inset_m` (debug, signed,
+    in centimetres: pull the cock base back into the pelvis in missionary), `oval_scale` (debug, ×:
+    scale the missionary caress oval), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
     `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
     `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
     size dropdown above the six rows.
@@ -1878,8 +1881,9 @@ rump blush. Unknown settings keys are ignored.
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Caress** (precise toggle, hand-shape toggle, path dropdown, contact
   log, shoulder/body/stretch caps), **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
-  match, Caress along, Raise over coat, Cock base inset, Caress oval, a **Size** dropdown over the
-  six per-size vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with
+  match, Caress along, Raise over coat, Cock base inset, Caress oval, Normal blur, Normal turn,
+  Contact smooth, a **Size** dropdown over the six per-size vulva/clearance/gaze values, fold/hug
+  hacks, Use free look), **Standing** (with
   **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part**, **Placement** and
   **Actions**.

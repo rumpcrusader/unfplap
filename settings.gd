@@ -847,6 +847,18 @@ static var oval_scale := num("oval_scale", "presentation.missionary.caress.oval_
 	"Caress oval",
 	"Scale the missionary caress oval. 1 uses the standing caress size.",
 	GENERAL, "Missionary").with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
+static var normal_blur_m := num("normal_blur_m", "presentation.missionary.caress.normal_blur_m",
+	0.02, "Normal blur",
+	"Average the coat normal over this radius so mesh creases do not snap the palm. 0 keeps the exact hit normal.",
+	GENERAL, "Missionary › Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var normal_deg_s := num("normal_deg_s", "presentation.missionary.caress.normal_deg_s",
+	120.0, "Normal turn",
+	"Maximum palm normal turn rate. 0 disables the temporal normal clamp.",
+	GENERAL, "Missionary › Caress").with_unit("°/s").with_step(10.0).as_debug()
+static var contact_smooth := num("contact_smooth", "presentation.missionary.caress.contact_smooth",
+	18.0, "Contact smooth",
+	"Low-pass rate for the exact contact point. 0 keeps the exact contact.",
+	GENERAL, "Missionary › Caress").with_unit("/s").with_step(1.0).as_debug()
 
 # -- Missionary size  (debug)
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is

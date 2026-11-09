@@ -201,6 +201,30 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	}
 
 
+## Distance-weighted average of the posed vertex normals around `point`, ignoring vertices whose
+## normal faces away from `hint`. This smooths the normal across mesh creases; 0 radius or a
+## cancelled sum returns Vector3.ZERO and the caller keeps the exact hit normal.
+func normal_blur(point: Vector3, radius: float, hint: Vector3) -> Vector3:
+	if radius <= 0.0 or _positions.is_empty():
+		return Vector3.ZERO
+	var hint_normal := hint.normalized()
+	if hint_normal.length_squared() < 0.5:
+		hint_normal = Vector3.UP
+	var r2 := radius * radius
+	var sum := Vector3.ZERO
+	for i in _positions.size():
+		var distance := _positions[i].distance_squared_to(point)
+		if distance > r2:
+			continue
+		var normal: Vector3 = _normals[i]
+		if normal.dot(hint_normal) < 0.2:
+			continue
+		sum += normal * (1.0 - distance / r2)
+	if sum.length_squared() < 0.0001:
+		return Vector3.ZERO
+	return sum.normalized()
+
+
 ## Cast an arbitrary world segment against the posed patch. Returns the ray hit dictionary
 ## (`position`, `normal`, `face_index`) or {}. `update_pose()` must have run for the current frame.
 func ray(from: Vector3, to: Vector3) -> Dictionary:

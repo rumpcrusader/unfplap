@@ -174,14 +174,6 @@ static func smack_side_index(side: float) -> int:
 	return -1
 
 
-## Missionary caress keeps one hand on her: pressing the inactive hand swaps, pressing the active
-## hand stops. `active` and `pressed` are "L", "R" or "".
-static func caress_single_hand_toggle(active: String, pressed: String) -> String:
-	if pressed not in ["L", "R"]:
-		return active
-	return "" if active == pressed else pressed
-
-
 ## Roll about the coat normal, in degrees. The right hand turns counter-clockwise and the left
 ## clockwise as seen from above.
 static func missionary_palm_roll_deg(side: String) -> float:
@@ -394,6 +386,8 @@ var _palm_contacts: Dictionary = {}
 var _precise_surfaces: Dictionary = {}
 var _precise_logged: Dictionary = {}
 var _precise_last: Dictionary = {}
+var _palm_normals: Dictionary = {}
+var _palm_points: Dictionary = {}
 var _missionary_paths: Dictionary = {}
 var _debug_draw_mesh: MeshInstance3D = null
 var _debug_draw_depth_mesh: MeshInstance3D = null
@@ -493,19 +487,7 @@ func _caress_tick(delta: float) -> void:
 			var pressed := held and not bool(_caress_key_down[side])
 			_caress_key_down[side] = held
 			if pressed:
-				if pose == CATALOG.MISSIONARY:
-					# One hand at a time: A and D choose the hand, and a second press stops it.
-					var active := ""
-					if bool(_caress_latched["L"]):
-						active = "L"
-					elif bool(_caress_latched["R"]):
-						active = "R"
-					var next := caress_single_hand_toggle(active, side)
-					if next != active and not active.is_empty():
-						_end_caress_side(active)
-					_caress_latched = {"L": next == "L", "R": next == "R"}
-				else:
-					_caress_latched[side] = not bool(_caress_latched[side])
+				_caress_latched[side] = not bool(_caress_latched[side])
 			var move_held := Input.is_physical_key_pressed(motion_keys[side])
 			var move_pressed := move_held and not bool(_caress_move_key_down[side])
 			_caress_move_key_down[side] = move_held
@@ -555,6 +537,8 @@ func _end_caress_side(side: String) -> void:
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", hand_side)
 	_precise_logged.erase(hand_side)
+	_palm_normals.erase(hand_side)
+	_palm_points.erase(hand_side)
 	_log("caress stop side=%s" % side)
 	_caress_active[side] = false
 	_caress_latched[side] = false
@@ -1275,6 +1259,24 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 		contact = exact["point"]
 		normal = exact["normal"]
 		log_surface = exact["surface"]
+		var blur_radius := maxf(float(SETTINGS.normal_blur_m.get_num()) * scale, 0.0)
+		if blur_radius > 0.0 and is_instance_valid(log_surface):
+			var blurred: Vector3 = log_surface.call("normal_blur", contact, blur_radius,
+				normal)
+			if blurred.length_squared() > 0.5:
+				normal = blurred
+	var delta := maxf(float(runtime.get_physics_process_delta_time()), 0.001)
+	var max_turn := deg_to_rad(maxf(float(SETTINGS.normal_deg_s.get_num()), 0.0)) * delta
+	var previous_normal: Variant = _palm_normals.get(hand_side)
+	if max_turn > 0.0 and previous_normal is Vector3:
+		normal = rotate_normal_toward(previous_normal, normal, max_turn)
+	_palm_normals[hand_side] = normal
+	var smooth_rate := maxf(float(SETTINGS.contact_smooth.get_num()), 0.0)
+	var previous_point: Variant = _palm_points.get(hand_side)
+	if smooth_rate > 0.0 and previous_point is Vector3:
+		var alpha := 1.0 - exp(-smooth_rate * delta)
+		contact = (previous_point as Vector3).lerp(contact, alpha)
+	_palm_points[hand_side] = contact
 	if shape:
 		if not is_instance_valid(log_surface):
 			var closest := _closest_precise(["torso", "head"], contact)
@@ -2368,6 +2370,8 @@ func reset() -> void:
 	_precise_surfaces.clear()
 	_precise_logged.clear()
 	_precise_last.clear()
+	_palm_normals.clear()
+	_palm_points.clear()
 	_missionary_paths.clear()
 	_clear_debug_draw()
 	_caress_latched = {"L": false, "R": false}

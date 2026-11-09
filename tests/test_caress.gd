@@ -321,6 +321,20 @@ func run() -> void:
 				"the authored %s second path stays on the %s side" % [side, side])
 	head_root.free()
 
+	var blur_surface: Variant = SURFACE.new()
+	blur_surface.set("_positions", PackedVector3Array([
+		Vector3(0.0, 0.0, 0.0), Vector3(0.05, 0.0, 0.0), Vector3(0.10, 0.0, 0.0),
+	]))
+	blur_surface.set("_normals", PackedVector3Array([
+		Vector3.UP, Vector3(0.7, 0.7, 0.0), Vector3.RIGHT,
+	]))
+	var blurred: Vector3 = blur_surface.call("normal_blur", Vector3.ZERO, 0.08, Vector3.UP)
+	check(blurred.length() > 0.99, "the crease normal blur is normalized")
+	check(blurred.y > 0.7 and blurred.x > 0.1,
+		"the crease normal blur averages the facing normals")
+	check((blur_surface.call("normal_blur", Vector3.ZERO, 0.0, Vector3.UP) as Vector3)
+		.is_zero_approx(), "zero radius disables the normal blur")
+
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),
 		1.0, 0.08, 0.0)
 	check(bool(near_plan.get("reachable", false)), "a short target is reachable")

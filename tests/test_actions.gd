@@ -451,14 +451,6 @@ func run() -> void:
 	check(not CAESS._region_allowed("head_Ears1", CAESS.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress ignores a head hull")
 	check(CAESS._region_allowed("anything", []), "an empty region filter allows every hull")
-	check(CAESS.caress_single_hand_toggle("", "L") == "L",
-		"A starts the left hand when nothing is caressing")
-	check(CAESS.caress_single_hand_toggle("L", "R") == "R",
-		"D swaps the caress to the right hand")
-	check(CAESS.caress_single_hand_toggle("R", "R") == "",
-		"pressing the active hand stops the caress")
-	check(CAESS.caress_single_hand_toggle("L", "") == "L",
-		"no press keeps the active hand")
 	var hand_offset := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.07))
 	var palm_frame := Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 3.0))
 	var bone_frame: Transform3D = MISSIONARY_ANON.palm_to_bone(palm_frame, hand_offset)

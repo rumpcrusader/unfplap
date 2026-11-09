@@ -97,8 +97,8 @@ Missionary is its own state, not the game's bed rest:
   and lean, and eases it back to the authored mattress frame over `HOLD_RELEASE_S = 0.35 s` after
   `clear_hold_target()`. While held, the arm uses the game's regular desktop mode from the
   shoulder down: `_arm_pole()` carries the `valve_body_ik.gd` elbow plane, and the wrist bone is
-  `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
-  press swaps, the active press stops.
+  `(palm * hand_offset) * hand_rest_basis`. `A` and `D` toggle their hand independently; both can
+  caress at once.
 - **Missionary caress path.** The primary paths are authored from the Blender rest meshes:
   `caress/anchors.json` has a shared belly and per-hand lower/chest/neck/cheek;
   `caress/anchors2.json` has per-hand flank/shoulder/neck. Every point snaps to the nearest

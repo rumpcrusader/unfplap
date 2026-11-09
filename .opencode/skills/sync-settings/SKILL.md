@@ -21,6 +21,9 @@ either promotes a value into the matching source default or keeps the local valu
 - `git status --short` should be clean or contain only the files this run will touch. Stop and
   ask the user if unrelated work is present.
 - `godot` and `python3` must be on `PATH`.
+- If the command was given `--dry-run`, add it to every analyzer call and stop after the report.
+- If it was given `--settings PATH`, pass it to every analyzer call. Automatic migration needs the
+  standard profile path; with an override, launch the game once instead.
 - Never sync these paths: the list is `.opencode/skills/sync-settings/never_sync.json`
   (`debug_mode`, `debug_perf`, `anatomy.anatomy_mode`). Print the names on every run. The user can
   add paths; `version` and `ui.sections` are structural and always skipped.

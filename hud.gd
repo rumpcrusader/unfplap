@@ -389,7 +389,7 @@ func _controls_hints_on(runtime: Node) -> bool:
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
-## afterglow keeps only Y; standing afterglow keeps lean, reach, caress, kiss and Y.
+## afterglow keeps lean, caress and Y; standing keeps lean, reach, caress, kiss and Y.
 func _apply_control_visibility(state: int, runtime: Node) -> void:
 	var hints_on := _controls_hints_on(runtime)
 	if _controls != null:
@@ -397,6 +397,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 	if _hint_gap != null:
 		_hint_gap.visible = hints_on and _hint.visible
 	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
+	var missionary := str(runtime.get("pose_id")) == CATALOG.MISSIONARY
 	var afterglow := state == STATE_AFTERGLOW
 	var layer := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
 	var auto_on := runtime.has_method("auto_active") and bool(runtime.call("auto_active"))
@@ -408,6 +409,8 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 		if afterglow:
 			if standing:
 				show = key in ["lean", "reach", "caress", "caress_move", "kiss", "y"]
+			elif missionary:
+				show = key in ["lean", "caress", "caress_move", "y"]
 			else:
 				show = key == "y"
 		elif state == STATE_CLIMAX:

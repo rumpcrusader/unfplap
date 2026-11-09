@@ -169,7 +169,8 @@ mods/unfplap/
                     winking mesh refinement, idle heat wink/drip
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
-  missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset
+  missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the
+                    caress hand hold and shared two-bone palm solve
   consent.gd        per-mare public/anal/oral defaults and merge
   climax_fluid.gd   optional droplets, sticking, creeping and pools
   teat_jiggle.gd    teats spring sway
@@ -189,7 +190,7 @@ mods/unfplap/
                     budget, one slot for cues and reactions
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
-  standing_caress.gd  standing caress, shoulder reach, smack and palm-on-coat contact
+  standing_caress.gd  caress in both poses, shoulder reach, smack and palm-on-coat contact
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
@@ -311,10 +312,24 @@ reclined eye height left the camera wrong after the act.
   the palms. The game's `HeadHide` collapses only the head bone. `apply()` caches the authored eye
   after the bone write and the lean, before `HeadHide` runs, so `eye_transform()` never reads the
   collapsed bone.
-- **His palms are planted.** `_plant_hands()` keeps both wrists at the authored world height while
+- **His palms are planted.** `_place_hands()` keeps both wrists at the authored world height while
   their X/Z follow the stroke and lean, so the hands slide along the mattress instead of lifting; a
   two-bone arm solve reaches the wrist and the hand keeps its authored world orientation, so the
   palms stay flat.
+- **The caress lifts one palm onto her.** `standing_caress.gd` drives a world-space palm hold on
+  `missionary_anon.gd`; `set_hold_target()`/`clear_hold_target()` blend the hand off and back onto
+  the mattress over `HOLD_BLEND_S`/`HOLD_RELEASE_S` (0.35 s), and `_place_hands()` converts the
+  palm frame through the game's `left_hand_offset`/`right_hand_offset` to the wrist bone before the
+  two-bone solve. The palm rides her coat, not his lean. `A` uses his left hand and `D` his right;
+  only one hand caresses at a time, pressing the other swaps and pressing the active one stops.
+  `Z`/`C` pause the oval with that hand.
+- **Missionary caress path.** The anchor is `pony_spine2`, moved along
+  `pony_hips → pony_spine3` by `MISSIONARY_CARESS_TRAVEL_M` (0.12 m) × body scale × lean: neutral
+  is the belly, W slides toward the chest and S toward the lower belly. The point is offset
+  laterally per hand (`MISSIONARY_CARESS_LATERAL_M`), lifted `MISSIONARY_CARESS_LIFT_M` above the
+  body and snapped with `_coat_contact`; the torso query always ignores `leg`. Fingers point toward
+  her head, and the oval uses the existing `presentation.standing.caress` radii and palm distance.
+  The aim is recomputed every physics tick, so it follows the thrust, sway and afterglow.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
@@ -671,8 +686,8 @@ Pose support lives in `lean_action_kind()` in `runtime.gd`:
 |---|---|---|
 | `Q` | lean only | left-hand reach to her left shoulder |
 | `E` | lean only | right-hand reach to her right shoulder |
-| `A` / `D` | none | slow left/right flank caress |
-| `Z` / `C` | none | toggle left/right caress oval movement |
+| `A` / `D` | one-hand chest/belly caress (A left, D right, pressing the other swaps) | slow left/right flank caress |
+| `Z` / `C` | toggle the active hand's caress oval | toggle left/right caress oval movement |
 | `F` (hold) | kiss at a full forward lean (W) | kiss at a full shoulder lean |
 | Mouse right | left/right cheek opposite the lean | same |
 
@@ -983,11 +998,12 @@ examples.
   inventory or alt-tab that leaves the cursor visible cannot kill thrust or the offer. `menu_open()`
   remains "paused, a panel is open, or the mouse is visible"; `menu_panel_open()` is the panel-only
   check the recapture uses.
-- Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress,
+- Act actions: `W`/`S` lean forward/back, `Q`/`E` side lean plus pose reaction, `A`/`D` caress
+  (standing: left/right flank; missionary: one hand at a time on her chest/belly),
   `Z`/`C` toggle caress movement,
   `F` hold kiss in standing, mouse right **or `G`** smacks. `X` taps to toggle auto thrust; while
   it is on **the mouse no longer sets the depth** (only the wheel sets pace; the hold-X layer sets
-  the band and shape). They are available in `ACTIVE`, `CLIMAX`, and the standing `AFTERGLOW`;
+  the band and shape). They are available in `ACTIVE`, `CLIMAX`, and the `AFTERGLOW` of both poses;
   `Y` is the context start/end control. `H` is the game's hug/deep-kiss key; the act consumes it
   without binding it so a hug cannot end the act's kiss.
 - **Hold `X`** (`auto_panel.gd`, pure) while auto is on opens the auto settings layer: it stays
@@ -1392,9 +1408,10 @@ examples.
   `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
 - The `Wants`/`You` line and cue segment are gated by `hud_readouts`
   (default `true`). The hearts remain when readouts are off.
-- Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps only `Y`;
-  standing keeps lean, reach, caress, caress movement, kiss and Y, while thrust, auto, smack and
-  talk are hidden. The standing close hint is independent of `hud_readouts`.
+- Afterglow shows `❤ N/3 | close hint` instead of `Wants`/`You`. Missionary keeps lean, caress,
+  caress movement and Y; standing keeps lean, reach, caress, caress movement, kiss and Y, while
+  thrust, auto, smack and talk are hidden. The standing close hint is independent of
+  `hud_readouts`.
 - The afterglow summary is always shown and independent of `hud_readouts`: missionary puts it in
   the cue line, standing puts it on the readiness line under its close prompt. Early end shows no
   HUD summary.

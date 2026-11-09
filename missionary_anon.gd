@@ -23,6 +23,10 @@ const HIP_UP_SHARE := 0.25
 ## The eye-to-mouth offset human Anon uses (`player/player_mouth.gd`), camera-local metres at
 ## scale 1. The kiss and her gaze aim at this, never at the standing player rig.
 const MOUTH_OFFSET := Vector3(0.0, -0.07, -0.02)
+## A caress hold eases the palm off the mattress and back, so it never snaps through her body or
+## leaves the hand floating when the act ends.
+const HOLD_BLEND_S := 0.35
+const HOLD_RELEASE_S := 0.35
 
 var runtime: Node
 var main: Variant
@@ -60,6 +64,17 @@ var _eye_cached := false
 var _lean_logged := false
 var _indices: Dictionary = {}
 var _index_skeleton := 0
+## Caress hand holds, keyed "left"/"right". `standing_caress.gd` supplies a world frame; the
+## start and release blends keep the arm from teleporting on and off the mattress.
+var _holds: Dictionary = {}
+var _hold_from: Dictionary = {}
+var _hold_started: Dictionary = {}
+var _releases: Dictionary = {}
+var _release_from: Dictionary = {}
+var _release_started: Dictionary = {}
+## The palm-to-hand-bone offset per side, from the game's `AnonBody` exports. The caress target
+## and the plant frames are palm frames; the arm solve writes the wrist bone.
+var _hand_offsets: Dictionary = {}
 
 
 func install(runtime_node: Node) -> bool:
@@ -77,6 +92,18 @@ func install(runtime_node: Node) -> bool:
 	_avatar_process = avatar.process_mode
 	_avatar_processing = avatar.is_processing()
 	_avatar_transform = avatar.transform
+	_hand_offsets.clear()
+	for side: String in ["left", "right"]:
+		var offset_key := "left_hand_offset" if side == "left" else "right_hand_offset"
+		var offset_value: Variant = avatar.get(offset_key)
+		if offset_value is Transform3D and (offset_value as Transform3D).is_finite():
+			_hand_offsets[side] = offset_value
+		else:
+			# The game's measured default: the controller/palm frame is 7 cm ahead of the wrist.
+			var side_sign := -1.0 if side == "left" else 1.0
+			_hand_offsets[side] = Transform3D(
+				Basis(Vector3(0, 0, side_sign), Vector3(side_sign, 0, 0), Vector3(0, 1, 0)),
+				Vector3(0.0, 0.0, 0.07))
 	_saved_bones.clear()
 	for i in skeleton.get_bone_count():
 		_saved_bones.append(skeleton.get_bone_pose(i))
@@ -157,6 +184,13 @@ func remove() -> void:
 	skeleton = null
 	_indices.clear()
 	_index_skeleton = 0
+	_holds.clear()
+	_hold_from.clear()
+	_hold_started.clear()
+	_releases.clear()
+	_release_from.clear()
+	_release_started.clear()
+	_hand_offsets.clear()
 
 
 ## Place and pose him from the asset, once per displayed frame. The authored bones are written
@@ -214,7 +248,7 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	_apply_hip_motion(offset)
 	_note_hip_offset(offset)
 	_apply_lean(placed)
-	_plant_hands(plants)
+	_place_hands(plants)
 	_cache_eye()
 
 
@@ -289,63 +323,172 @@ func _apply_lean(placed: Transform3D) -> void:
 	RIG.set_global(skeleton, bone, pose)
 
 
-## Keep his palms at the height the pose authored while the body thrusts and leans: the wrist keeps
-## its current X/Z (so the hands slide along the mattress) and only its world height is held. A
-## two-bone solve on the arm, and the hand keeps its authored world orientation so the palm stays
-## flat on the bed.
-func _plant_hands(plants: Dictionary) -> void:
+## The caress controller drives one hand onto her chest/belly through this world-space hold. The
+## act's palm stays on the coat while his shoulders move with the thrust and lean.
+func set_hold_target(side: String, world: Transform3D, _kind := "rub") -> void:
+	if side not in ["left", "right"] or not world.is_finite():
+		return
+	if not _holds.has(side):
+		_hold_from[side] = hand_frame(side)
+		_hold_started[side] = Time.get_ticks_msec()
+		_releases.erase(side)
+		_release_from.erase(side)
+		_release_started.erase(side)
+	_holds[side] = world
+
+
+## Release the palm back to the authored mattress frame instead of leaving it in the air.
+func clear_hold_target(side: String) -> void:
+	if not _holds.has(side):
+		return
+	_releases[side] = true
+	_release_from[side] = hand_frame(side)
+	_release_started[side] = Time.get_ticks_msec()
+	_holds.erase(side)
+	_hold_from.erase(side)
+	_hold_started.erase(side)
+
+
+## The hand's current palm frame; the caress target and the release both use this space, so the
+## 7 cm wrist offset turns the solve around the right point.
+func hand_frame(side := "right") -> Transform3D:
+	if not active or not is_instance_valid(skeleton):
+		return Transform3D.IDENTITY
+	var hand := skeleton.find_bone("LeftHand" if side == "left" else "RightHand")
+	if hand < 0:
+		return Transform3D.IDENTITY
+	var bone := skeleton.global_transform * skeleton.get_bone_global_pose(hand)
+	return bone_to_palm(bone, _hand_offset(side))
+
+
+## The game's controller/palm frame and the wrist bone differ by the hand offset (`bone = palm *
+## offset`). Keep the conversion in one place: the caress blend and the arm solve use it.
+static func palm_to_bone(palm: Transform3D, offset: Transform3D) -> Transform3D:
+	return palm * offset
+
+
+static func bone_to_palm(bone: Transform3D, offset: Transform3D) -> Transform3D:
+	return bone * offset.affine_inverse()
+
+
+func _hand_offset(side: String) -> Transform3D:
+	var value: Variant = _hand_offsets.get(side)
+	return value if value is Transform3D else Transform3D.IDENTITY
+
+
+## Keep his palms planted while the body thrusts and leans, unless the caress holds one on her.
+## A held hand follows the world frame the caress computed; a released one eases back to the
+## authored mattress frame. Every path ends in the same two-bone solve, so the elbow plane and
+## the authored hand scale are preserved.
+func _place_hands(plants: Dictionary) -> void:
 	if plants.is_empty() or not is_instance_valid(skeleton):
 		return
+	var now := Time.get_ticks_msec()
 	var skel_inv := skeleton.global_transform.affine_inverse()
 	for side: Variant in plants.keys():
 		var name := str(side)
-		var upper := skeleton.find_bone(name + "UpperArm")
-		var lower := skeleton.find_bone(name + "LowerArm")
+		var key := name.to_lower()
 		var hand := skeleton.find_bone(name + "Hand")
-		if upper < 0 or lower < 0 or hand < 0:
+		if hand < 0:
 			continue
 		var authored: Transform3D = plants[side]
+		if _holds.has(key):
+			var live: Variant = _holds.get(key)
+			if not live is Transform3D or not (live as Transform3D).is_finite():
+				continue
+			var from: Transform3D = live
+			var saved: Variant = _hold_from.get(key)
+			if saved is Transform3D and (saved as Transform3D).is_finite():
+				from = saved
+			var started := int(_hold_started.get(key, now))
+			var t := clampf(float(now - started) / (HOLD_BLEND_S * 1000.0), 0.0, 1.0)
+			var hold_target := _blend_frame(from, live, t)
+			var hold_local := skel_inv * palm_to_bone(hold_target, _hand_offset(key))
+			_solve_hand(name, hold_local.origin,
+				hold_local.basis.orthonormalized().scaled(authored.basis.get_scale()))
+			continue
+		if _releases.has(key):
+			var dest := bone_to_palm(skeleton.global_transform * authored, _hand_offset(key))
+			var from := dest
+			var saved: Variant = _release_from.get(key)
+			if saved is Transform3D and (saved as Transform3D).is_finite():
+				from = saved
+			var started := int(_release_started.get(key, now))
+			var t := clampf(float(now - started) / (HOLD_RELEASE_S * 1000.0), 0.0, 1.0)
+			var release_target := _blend_frame(from, dest, t)
+			var release_local := skel_inv * palm_to_bone(release_target, _hand_offset(key))
+			_solve_hand(name, release_local.origin,
+				release_local.basis.orthonormalized().scaled(authored.basis.get_scale()))
+			if t >= 1.0:
+				_releases.erase(key)
+				_release_from.erase(key)
+				_release_started.erase(key)
+			continue
+		# The planted palm: hold the authored world height, let X/Z slide with the stroke.
 		var current_world := skeleton.global_transform * skeleton.get_bone_global_pose(hand)
 		var authored_world := skeleton.global_transform * authored
-		var target := skel_inv * Vector3(current_world.origin.x, authored_world.origin.y,
+		var plant_target := skel_inv * Vector3(current_world.origin.x, authored_world.origin.y,
 			current_world.origin.z)
-		var shoulder := skeleton.get_bone_global_pose(upper).origin
-		var lower_offset := skeleton.get_bone_pose_position(lower)
-		var hand_offset := skeleton.get_bone_pose_position(hand)
-		var upper_len := lower_offset.length()
-		var lower_len := hand_offset.length()
-		if upper_len < 0.001 or lower_len < 0.001:
-			continue
-		var to_target := target - shoulder
-		var raw := to_target.length()
-		if raw < 0.001:
-			continue
-		var dir := to_target / raw
-		var distance := clampf(raw, absf(upper_len - lower_len) + 0.001,
-			upper_len + lower_len - 0.001)
-		var cos_a := clampf((upper_len * upper_len + distance * distance
-			- lower_len * lower_len) / (2.0 * upper_len * distance), -1.0, 1.0)
-		var bend := acos(cos_a)
-		# Carry the elbow plane from the current arm; fall back to the bed's up then its side.
-		var pole := skeleton.get_bone_global_pose(lower).origin - shoulder
-		pole -= dir * pole.dot(dir)
-		if pole.length() < 0.001:
-			var up := (skel_inv.basis * Vector3.UP).normalized()
-			pole = up - dir * up.dot(dir)
-		if pole.length() < 0.001:
-			pole = Vector3.RIGHT - dir * Vector3.RIGHT.dot(dir)
-		pole = pole.normalized()
-		var elbow := shoulder + (dir * cos(bend) + pole * sin(bend)) * upper_len
-		var upper_g := skeleton.get_bone_global_pose(upper)
-		var upper_axis := (upper_g.basis * lower_offset).normalized()
-		var q1 := Quaternion(upper_axis, (elbow - shoulder).normalized())
-		RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_g.basis, upper_g.origin))
-		var lower_g := skeleton.get_bone_global_pose(lower)
-		var lower_axis := (lower_g.basis * hand_offset).normalized()
-		var q2 := Quaternion(lower_axis, (target - lower_g.origin).normalized())
-		RIG.set_global(skeleton, lower,
-			Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
-		RIG.set_global(skeleton, hand, Transform3D(authored.basis, target))
+		_solve_hand(name, plant_target, authored.basis)
+
+
+## Two-bone arm solve to a skeleton-space wrist target. The hand keeps the supplied basis so the
+## palm stays flat on the bed or on her coat.
+func _solve_hand(name: String, target: Vector3, hand_basis: Basis) -> void:
+	if not is_instance_valid(skeleton):
+		return
+	var upper := skeleton.find_bone(name + "UpperArm")
+	var lower := skeleton.find_bone(name + "LowerArm")
+	var hand := skeleton.find_bone(name + "Hand")
+	if upper < 0 or lower < 0 or hand < 0:
+		return
+	var shoulder := skeleton.get_bone_global_pose(upper).origin
+	var lower_offset := skeleton.get_bone_pose_position(lower)
+	var hand_offset := skeleton.get_bone_pose_position(hand)
+	var upper_len := lower_offset.length()
+	var lower_len := hand_offset.length()
+	if upper_len < 0.001 or lower_len < 0.001:
+		return
+	var to_target := target - shoulder
+	var raw := to_target.length()
+	if raw < 0.001:
+		return
+	var dir := to_target / raw
+	var distance := clampf(raw, absf(upper_len - lower_len) + 0.001,
+		upper_len + lower_len - 0.001)
+	var cos_a := clampf((upper_len * upper_len + distance * distance
+		- lower_len * lower_len) / (2.0 * upper_len * distance), -1.0, 1.0)
+	var bend := acos(cos_a)
+	# Carry the elbow plane from the current arm; fall back to the bed's up then its side.
+	var pole := skeleton.get_bone_global_pose(lower).origin - shoulder
+	pole -= dir * pole.dot(dir)
+	if pole.length() < 0.001:
+		var up := (skeleton.global_transform.affine_inverse().basis * Vector3.UP).normalized()
+		pole = up - dir * up.dot(dir)
+	if pole.length() < 0.001:
+		pole = Vector3.RIGHT - dir * Vector3.RIGHT.dot(dir)
+	pole = pole.normalized()
+	var elbow := shoulder + (dir * cos(bend) + pole * sin(bend)) * upper_len
+	var upper_g := skeleton.get_bone_global_pose(upper)
+	var upper_axis := (upper_g.basis * lower_offset).normalized()
+	var q1 := Quaternion(upper_axis, (elbow - shoulder).normalized())
+	RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_g.basis, upper_g.origin))
+	var lower_g := skeleton.get_bone_global_pose(lower)
+	var lower_axis := (lower_g.basis * hand_offset).normalized()
+	var q2 := Quaternion(lower_axis, (target - lower_g.origin).normalized())
+	RIG.set_global(skeleton, lower,
+		Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
+	RIG.set_global(skeleton, hand, Transform3D(hand_basis, target))
+
+
+## Ease a wrist from one palm frame to another. The basis slerps so the palm plane turns with the
+## coat instead of snapping.
+static func _blend_frame(from: Transform3D, to: Transform3D, t: float) -> Transform3D:
+	if not from.is_finite():
+		return to
+	var eased := smoothstep(0.0, 1.0, clampf(t, 0.0, 1.0))
+	return Transform3D(from.basis.slerp(to.basis, eased).orthonormalized(),
+		from.origin.lerp(to.origin, eased))
 
 
 ## The act camera's transform: his posed head plus the game's own eye offset. Reads the eye cached

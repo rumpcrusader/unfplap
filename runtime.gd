@@ -4601,10 +4601,11 @@ func prompt_note() -> String:
 		parts.append("- " + relation)
 	var caressing := _player_is_caressing()
 	var leaning := _player_is_leaning_close()
+	var where := "your chest and belly" if pose_id == CATALOG.MISSIONARY else "your flank"
 	if caressing and leaning:
-		parts.append("He is leaning in close against you and caressing your flank.")
+		parts.append("He is leaning in close against you and caressing " + where + ".")
 	elif caressing:
-		parts.append("He is caressing your flank.")
+		parts.append("He is caressing " + where + ".")
 	elif leaning:
 		parts.append("He is leaning in close, holding you.")
 	else:
@@ -4791,6 +4792,9 @@ func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_stop_auto_thrust()
 	_end_act_lines(true)
+	# Missionary afterglow keeps only lean and caress; standing keeps its kiss.
+	if pose_id != CATALOG.STANDING:
+		_kiss_controller().end_lean_kiss()
 	# integration: decide and show the finish before the summary is written.
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("on_finish")
@@ -5250,10 +5254,10 @@ func _begin_camera_mode() -> void:
 		_standing_anon_controller().install()
 	_apply_free_camera_lock()
 
-## Lean/caress remain live through the standing afterglow; missionary afterglow stays passive.
+## Lean/caress remain live through the afterglow in both poses. Missionary keeps its passive
+## afterglow otherwise: no kiss, reach or close window.
 func _act_actions_allowed() -> bool:
-	return state in [State.ACTIVE, State.CLIMAX] \
-		or (state == State.AFTERGLOW and pose_id == CATALOG.STANDING)
+	return state in [State.ACTIVE, State.CLIMAX] or state == State.AFTERGLOW
 
 ## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and
 ## also fire a pose reaction once the smoothed side lean crosses MOTION.LEAN_FIRE.
@@ -5328,7 +5332,10 @@ func _lean_tick(delta: float) -> void:
 		_hold_rock_clock += delta
 		_lean_sway = sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD
 	_lean_action_tick()
-	_kiss_controller().lean_kiss_tick()
+	# Missionary afterglow keeps lean and caress live but not the kiss; standing afterglow keeps
+	# its kiss. `_afterglow_begin()` releases a missionary kiss when the state changes.
+	if pose_id == CATALOG.STANDING or state != State.AFTERGLOW:
+		_kiss_controller().lean_kiss_tick()
 	var caress_started := Time.get_ticks_usec()
 	_caress_controller().tick(delta)
 	_timed("caress_tick", caress_started)

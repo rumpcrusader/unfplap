@@ -13,6 +13,7 @@ const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 
 class FakeTail extends Node:
@@ -360,6 +361,28 @@ func run() -> void:
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
 	check(CAESS.caress_profile_for("") == CAESS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
+	check(near(CAESS.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
+	check(near(CAESS.missionary_caress_lean_offset(0.0), 0.0),
+		"missionary caress rests on her belly")
+	check(CAESS.missionary_caress_lean_offset(1.0) > 0.0,
+		"W slides the missionary caress toward her chest")
+	check(CAESS.missionary_caress_lean_offset(-1.0) < 0.0,
+		"S slides the missionary caress toward her lower belly")
+	check(CAESS.caress_single_hand_toggle("", "L") == "L",
+		"A starts the left hand when nothing is caressing")
+	check(CAESS.caress_single_hand_toggle("L", "R") == "R",
+		"D swaps the caress to the right hand")
+	check(CAESS.caress_single_hand_toggle("R", "R") == "",
+		"pressing the active hand stops the caress")
+	check(CAESS.caress_single_hand_toggle("L", "") == "L",
+		"no press keeps the active hand")
+	var hand_offset := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.07))
+	var palm_frame := Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 3.0))
+	var bone_frame: Transform3D = MISSIONARY_ANON.palm_to_bone(palm_frame, hand_offset)
+	check(bone_frame.origin.is_equal_approx(Vector3(1.0, 2.0, 3.07)),
+		"the palm frame sits 7 cm ahead of the wrist bone")
+	check(MISSIONARY_ANON.bone_to_palm(bone_frame, hand_offset).is_equal_approx(palm_frame),
+		"the palm and wrist conversions round trip")
 	check(near(WING.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
 	check(near(KISS.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
 	check(KISS.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")

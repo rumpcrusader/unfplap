@@ -87,10 +87,22 @@ Missionary is its own state, not the game's bed rest:
   removes the palms. The game's `HeadHide` collapses only the head bone, which hides the head
   vertices. `apply()` caches the authored eye right after the bone write and the lean, before
   `HeadHide` runs, so `eye_transform()` never reads the collapsed bone.
-- **His palms are planted.** `_plant_hands()` holds both wrists at the authored world height and
+- **His palms are planted.** `_place_hands()` holds both wrists at the authored world height and
   lets only their X/Z follow the stroke and lean: the hands slide along the mattress instead of
   lifting. A two-bone arm solve reaches each wrist; the hand keeps its authored world orientation so
   the palm stays flat on the bed.
+- **The caress owns one palm.** `standing_caress.gd` sends a world palm frame through
+  `set_hold_target()`; `missionary_anon.gd` eases the hand from its mattress frame in
+  `HOLD_BLEND_S = 0.35 s`, keeps the wrist on that absolute world point while his shoulders thrust
+  and lean, and eases it back to the authored mattress frame over `HOLD_RELEASE_S = 0.35 s` after
+  `clear_hold_target()`. The palm frame is converted through the game's `left_hand_offset` /
+  `right_hand_offset` to the wrist bone, and the arm solve is the same one the planted palms use.
+  Only one hand caresses: `A` left, `D` right, the other press swaps, the active press stops.
+- **Missionary caress anchor.** Her belly is `pony_spine2`; travel follows
+  `pony_hips → pony_spine3` by `0.12 m × body_scale × lean` (neutral belly, W chest, S lower
+  belly). A per-hand lateral offset and a lift above the body feed the coat query, which always
+  ignores `leg`; the palm normal comes from the hull, never the standing actor-radius fallback.
+  The oval uses the standing caress radii, laid along the body.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

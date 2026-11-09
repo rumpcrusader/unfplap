@@ -195,7 +195,7 @@ func _input(event: InputEvent) -> void:
 		if key.physical_keycode == KEY_H:
 			get_viewport().set_input_as_handled()
 			return
-		if state == 4: # AFTERGLOW: only Y / lean / caress / kiss are live
+		if state == 4: # AFTERGLOW: Y, lean, caress and the standing kiss are live
 			if key.is_action("stand_up") or key.physical_keycode in [
 					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T, KEY_Z, KEY_C]:
 				get_viewport().set_input_as_handled()

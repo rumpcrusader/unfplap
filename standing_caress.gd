@@ -1,6 +1,7 @@
 extends RefCounted
-## Standing caress, shoulder reach, flank smack and palm-on-coat contact. The runtime owns
+## Caress in both poses, shoulder reach, flank smack and palm-on-coat contact. The runtime owns
 ## scoring and the act state; this controller only drives the desktop hands and contact frames.
+## Standing rubs the flank; missionary rubs her chest and belly with one hand at a time.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
@@ -43,6 +44,12 @@ const CARESS_PROFILES := {
 }
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
+## Missionary caress: one hand on her belly at rest, W sliding it toward her chest and S toward the
+## lower belly along the posed body axis. The anchor is lifted above the spine before the coat query
+## snaps the palm onto her surface. All distances scale with her body.
+const MISSIONARY_CARESS_TRAVEL_M := 0.12
+const MISSIONARY_CARESS_LATERAL_M := 0.045
+const MISSIONARY_CARESS_LIFT_M := 0.25
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08
 const SMACK_ZONE_RADIUS_M := 0.035
@@ -128,6 +135,20 @@ static func smack_side_index(side: float) -> int:
 	if side < 0.0:
 		return 1
 	return -1
+
+
+## Missionary caress keeps one hand on her: pressing the inactive hand swaps, pressing the active
+## hand stops. `active` and `pressed` are "L", "R" or "".
+static func caress_single_hand_toggle(active: String, pressed: String) -> String:
+	if pressed not in ["L", "R"]:
+		return active
+	return "" if active == pressed else pressed
+
+
+## Signed belly-to-chest travel for the missionary caress, in metres before the body scale.
+## Negative lean (S) moves toward her lower belly, positive (W) toward her chest.
+static func missionary_caress_lean_offset(lean: float) -> float:
+	return clampf(lean, -1.0, 1.0) * MISSIONARY_CARESS_TRAVEL_M
 
 
 ## Pitch the palm about its own normal (local X). Positive values lower the fingers; negative
@@ -406,7 +427,8 @@ func _set_reach_hand() -> void:
 
 
 func _caress_tick(delta: float) -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING:
+	var pose := str(runtime.get("pose_id"))
+	if pose not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
 		_end_caress()
 		return
 	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open. The
@@ -426,7 +448,19 @@ func _caress_tick(delta: float) -> void:
 			var pressed := held and not bool(_caress_key_down[side])
 			_caress_key_down[side] = held
 			if pressed:
-				_caress_latched[side] = not bool(_caress_latched[side])
+				if pose == CATALOG.MISSIONARY:
+					# One hand at a time: A and D choose the hand, and a second press stops it.
+					var active := ""
+					if bool(_caress_latched["L"]):
+						active = "L"
+					elif bool(_caress_latched["R"]):
+						active = "R"
+					var next := caress_single_hand_toggle(active, side)
+					if next != active and not active.is_empty():
+						_end_caress_side(active)
+					_caress_latched = {"L": next == "L", "R": next == "R"}
+				else:
+					_caress_latched[side] = not bool(_caress_latched[side])
 			var move_held := Input.is_physical_key_pressed(motion_keys[side])
 			var move_pressed := move_held and not bool(_caress_move_key_down[side])
 			_caress_move_key_down[side] = move_held
@@ -472,7 +506,7 @@ func _end_caress_side(side: String) -> void:
 	if not bool(_caress_active[side]):
 		return
 	var hand_side := "left" if side == "L" else "right"
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", hand_side)
 	_log("caress stop side=%s" % side)
@@ -642,8 +676,8 @@ func _reset_palm_contact(side: String) -> void:
 ## Keep a genuine coat normal: blending toward a torso radial tilts the palm off the surface
 ## and presses its heel into the coat. The radial is only a fallback for a degenerate normal or
 ## one that points into the body.
-func _palm_stable_outward(point: Vector3, hint: Vector3) -> Vector3:
-	if not is_instance_valid(pony):
+func _palm_stable_outward(point: Vector3, hint: Vector3, radial_outward := true) -> Vector3:
+	if not is_instance_valid(pony) or not radial_outward:
 		return hint.normalized()
 	var wanted := hint.normalized()
 	if wanted.length_squared() < 0.5:
@@ -681,14 +715,15 @@ static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) ->
 
 
 func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
-		finger_hint: Vector3, smooth := true, ignore: Array = []) -> Transform3D:
+		finger_hint: Vector3, smooth := true, ignore: Array = [],
+		radial_outward := true) -> Transform3D:
 	var hit := _coat_contact(point, outward_hint, ignore)
 	var source := str(hit.get("source", "fallback"))
 	var hit_point: Vector3 = hit.get("point", point)
 	var hit_normal: Vector3 = hit.get("normal", outward_hint)
 	if hit_normal.length_squared() < 0.5:
 		hit_normal = outward_hint.normalized()
-	hit_normal = _palm_stable_outward(hit_point, hit_normal)
+	hit_normal = _palm_stable_outward(hit_point, hit_normal, radial_outward)
 	var clearance := _palm_clearance()
 	if not smooth:
 		return Transform3D(palm_surface_basis(side, hit_normal, finger_hint),
@@ -789,6 +824,8 @@ func _caress_oval_up_m() -> float:
 ## Slow oval palm movement on the chosen flank/side. `apply` false only computes the live
 ## target, which the smack recovery uses to return to the moved oval point.
 func _set_caress_hand(side: String, apply := true) -> Transform3D:
+	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+		return _set_missionary_caress_hand(side, apply)
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
 	if not is_instance_valid(_flank):
@@ -871,10 +908,94 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 			hand_side, str(target.origin), str(normal), str(target.basis.x),
 			str(target.basis.y), str(target.basis.z),
 			(centre_world + offset).y - pony.global_position.y])
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
 	return target
+
+
+## Missionary caress: one palm on her belly, W slides toward the chest and S toward the lower
+## belly along the posed body axis. The anchor is measured from the live body bones, lifted above
+## her spine and snapped onto the coat, so it follows the thrust and the afterglow. The target is
+## world space: his lean moves the shoulder, not the hand.
+func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
+	if not is_instance_valid(pony):
+		return Transform3D.IDENTITY
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return Transform3D.IDENTITY
+	var skeleton := sk as Skeleton3D
+	var hips := skeleton.find_bone("pony_hips")
+	var spine2 := skeleton.find_bone("pony_spine2")
+	var spine3 := skeleton.find_bone("pony_spine3")
+	if hips < 0 or spine2 < 0:
+		return Transform3D.IDENTITY
+	var g := skeleton.global_transform
+	var hips_world := g * skeleton.get_bone_global_pose(hips).origin
+	var belly := g * skeleton.get_bone_global_pose(spine2).origin
+	var head_world := belly
+	if spine3 >= 0:
+		head_world = g * skeleton.get_bone_global_pose(spine3).origin
+	var head_dir := head_world - hips_world
+	if head_dir.length_squared() < 0.0001:
+		head_dir = -pony.global_basis.z
+	head_dir = head_dir.normalized()
+	var scale := _smack_body_scale()
+	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
+	var centre := belly + head_dir * (missionary_caress_lean_offset(lean) * scale)
+	# Her lateral axis from the posed body, so a bed at any angle works.
+	var side_axis := head_dir.cross(Vector3.UP)
+	if side_axis.length_squared() < 0.0001:
+		side_axis = pony.global_basis.x
+	side_axis = side_axis.normalized()
+	var hand_side := "left" if side == "L" else "right"
+	var lateral := -1.0 if side == "L" else 1.0
+	centre += side_axis * (MISSIONARY_CARESS_LATERAL_M * scale * lateral)
+	# The oval is laid out on her belly plane before the coat snap: `oval_across_m` runs along
+	# her body and `oval_up_m` across it, the same meaning as the standing caress settings.
+	var along := head_dir - Vector3.UP * head_dir.dot(Vector3.UP)
+	if along.length_squared() < 0.0001:
+		along = Vector3.FORWARD
+	along = along.normalized()
+	var across := along.cross(Vector3.UP).normalized()
+	var angle := float(_caress_phase[side])
+	var offset := along * (cos(angle) * _caress_oval_across_m() * scale) \
+		+ across * (sin(angle) * _caress_oval_up_m() * scale)
+	var query := centre + offset + Vector3.UP * (MISSIONARY_CARESS_LIFT_M * scale)
+	var ignore := _caress_ignore().duplicate()
+	if not ignore.has("leg"):
+		ignore.append("leg")
+	var target := _palm_on_coat_frame(hand_side, query, Vector3.UP, head_dir, true, ignore, false)
+	if not target.is_finite():
+		return Transform3D.IDENTITY
+	if not apply:
+		return target
+	if not bool(_caress_logged[side]):
+		_caress_logged[side] = true
+		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f" % [
+			hand_side, str(target.origin), str(target.basis.x), lean])
+	var driver := _hand_driver()
+	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
+		driver.call("set_hold_target", hand_side, target, "rub")
+	return target
+
+
+## The hand driver for the current pose: the game's desktop Anon rig in standing, the act's own
+## bed-space Anon body in missionary.
+func _hand_driver() -> Node:
+	if not is_instance_valid(runtime):
+		return null
+	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+		if not runtime.has_method("missionary_anon_body"):
+			return null
+		var body: Variant = runtime.call("missionary_anon_body")
+		if is_instance_valid(body) and body is Node:
+			return body as Node
+		return null
+	var driver: Variant = runtime.call("_desktop_pose_driver")
+	if is_instance_valid(driver) and driver is Node:
+		return driver as Node
+	return null
 
 
 ## Release from the shoulder smoothly rather than teleporting back.

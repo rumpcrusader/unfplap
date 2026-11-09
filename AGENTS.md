@@ -33,8 +33,8 @@ Do not start implementation until you have read the required files for the area 
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. The anatomy is an optional, feature-gated
   addition; it never replaces a pony's body or rig. The PPP anatomy meshes/textures and the act
-  audio are fetched from one external resource pack at build time and packed with the mod; they are
-  not tracked. The act stays off-camera by framing. Modelled accessories are allowed.
+  audio are fetched from one external resource pack before a build and packed with the mod; they
+  are not tracked. The act stays off-camera by framing. Modelled accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -115,8 +115,16 @@ Source smoke:
 scripts/smoke.sh
 ```
 
+Fast parse check for changed scripts:
+
+```bash
+scripts/check.sh
+```
+
 - `test_all.sh` runs every suite, prints each `RESULT` line and exits nonzero on any failure.
   The printed output is the current state; do not copy counts into docs.
+- `check.sh --all` parses every mod script. It is a quick subset of `test_all.sh`, not a
+  replacement for the full gate.
 - Build only when the user asks:
   ```bash
   ./build.sh [--out <file.pck>]
@@ -139,8 +147,9 @@ scripts/smoke.sh
   `.git` do not ship; `AUDIO_CREDITS.md` and `changelog.txt` do.
 - CI builds on pushes and pull requests; only a `v*` tag publishes a release. Release preparation,
   versioning, tagging and store steps are in the release skill, not here.
-- The official `tools/modding/build_mod.gd` command remains a fallback when the full game
-  project is available, but it packs the whole folder.
+- The official `tools/modding/build_mod.gd` command is not a release path: it ignores
+  `.pckignore` and recurses the whole mod folder, including `.git`, `.godot`, `dist/`, `sources/`
+  and local-only assets. Use `build.sh` for anything you ship.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
   shadows source edits.
 

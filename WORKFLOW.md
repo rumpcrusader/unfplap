@@ -31,6 +31,7 @@ is a separate repository; never commit game-source changes from the mod repo.
 6. Run the checks that cover the change manually before every commit:
    - `scripts/test_all.sh` for any code change;
    - `scripts/smoke.sh` for entry/runtime changes;
+   - `scripts/check.sh` for a quick parse check of changed scripts;
    - `./lab.sh` for camera/pose changes; the session is in `last-run.log`, and say it was manual.
 7. Commit with one scoped, imperative subject line and no body.
 8. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;

@@ -89,6 +89,3 @@ The PPP anatomy meshes, textures and act audio are listed in `scripts/asset_pack
 before the build; they are not tracked. Every build includes all eight anatomy files and the
 complete audio catalogue; the anatomy feature itself remains optional in the settings. See
 `assets/README.md` for the archive layout and the asset-change workflow.
-
-The official `tools/modding/build_mod.gd` command still works for quick builds, but packs the
-whole folder.

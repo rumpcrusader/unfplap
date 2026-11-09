@@ -901,8 +901,10 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   stops at the arm instead of detaching. The `caress_debug` log reports the reach only on
   `ok`/`clamped` transitions and includes the target distance and max reach.
 - `standing_caress.gd` feeds the standing arm's existing game IK with the exact `torso` contact.
-  Missionary uses the anchor path; the hand-shape mode queries both `torso` and `head` and picks
-  the closer contact. The old capsule hull target is never used for the precise hand; if the
+  Missionary snaps the interpolated path point and every oval offset to the exact body/head
+  surface with one `nearest` ray per hand per tick, and uses that hit normal, so the palm follows
+  the coat around the circle instead of a single anchor normal. The hand-shape mode reuses the
+  same exact surface. The old capsule hull target is never used for the precise hand; if the
   surface fails, the last good precise target is held.
 - `presentation.missionary.caress.path_id` is the debug **Caress path** dropdown: `one` uses
   `anchors.json` (belly/chest/neck/cheek), `two` uses `anchors2.json` (flank/shoulder/neck).

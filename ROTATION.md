@@ -117,8 +117,10 @@ Missionary is its own state, not the game's bed rest:
   The oval uses the standing caress radii times `presentation.missionary.caress.oval_scale`. The
   path is reach-aware: the controller asks `missionary_anon.caress_reach()` for the world
   shoulder and arm lengths and walks the path back toward the belly until the palm frame fits;
-  the neck/cheek use the `fingertip` mode. The single-point palm sits at
-  `contact + normal * Raise over coat`. With `features.caress_hand_shape`,
+  the neck/cheek use the `fingertip` mode. The single-point palm snaps the interpolated point and
+  each oval offset to the exact body/head surface with one ray per hand per tick, then sits at
+  `contact + exact normal * Raise over coat`; the palm follows the coat normal around the circle.
+  With `features.caress_hand_shape`,
   `caress/caress_hand.gd` resolves the palm/finger samples against the stable body/head patch
   from `caress/caress_surface.gd`; the capsule/hull path remains the fallback when
   `features.caress_surface` is off or the rig cannot build anchors.

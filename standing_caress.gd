@@ -1267,23 +1267,33 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 	var shape := _hand_shape_on()
 	var target: Transform3D
 	var log_surface: Variant = null
+	var exact_started := Time.get_ticks_usec()
+	var exact := _nearest_precise(["torso", "head"], contact, normal)
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "caress_surface", Time.get_ticks_usec() - exact_started)
+	if not exact.is_empty():
+		contact = exact["point"]
+		normal = exact["normal"]
+		log_surface = exact["surface"]
 	if shape:
-		var closest := _closest_precise(["torso", "head"], contact)
-		if closest.is_empty():
-			return _precise_last_or_invalid(hand_side)
-		var hit_point: Vector3 = closest["point"]
-		var hit_normal: Vector3 = closest["normal"]
+		if not is_instance_valid(log_surface):
+			var closest := _closest_precise(["torso", "head"], contact)
+			if closest.is_empty():
+				return _precise_last_or_invalid(hand_side)
+			contact = closest["point"]
+			normal = closest["normal"]
+			log_surface = closest["surface"]
 		var hand_started := Time.get_ticks_usec()
-		target = _precise_hand(hit_point, hit_normal, finger, hand_side, mode, roll_deg,
-			hover, closest["surface"], true)
-		log_surface = closest["surface"]
-		normal = hit_normal
+		target = _precise_hand(contact, normal, finger, hand_side, mode, roll_deg,
+			hover, log_surface, true)
 		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 			runtime.call("perf_note", "caress_hand", Time.get_ticks_usec() - hand_started)
 	else:
-		target = chosen["target"]
+		target = CAESS_HAND.place(contact, normal, finger, hand_side, mode, roll_deg, hover)
 	_log_precise(hand_side, mode, log_surface, target, roll_deg, hover, shape,
 		normal, finger, u)
+	chosen["contact"] = contact
+	chosen["normal"] = normal
 	_draw_missionary_debug(world, chosen, target, hand_side)
 	_precise_last[hand_side] = target
 	return target
@@ -1397,6 +1407,27 @@ func _closest_precise(regions: Array, query: Vector3) -> Dictionary:
 		if not is_instance_valid(surface):
 			continue
 		var hit: Variant = surface.call("closest", query)
+		if not hit is Dictionary or (hit as Dictionary).is_empty():
+			continue
+		var distance: float = float((hit as Dictionary).get("distance", INF))
+		if distance < best_distance:
+			best_distance = distance
+			best = {
+				"surface": surface,
+				"point": (hit as Dictionary)["point"],
+				"normal": (hit as Dictionary)["normal"],
+			}
+	return best
+
+
+func _nearest_precise(regions: Array, query: Vector3, hint: Vector3) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance := INF
+	for region: String in regions:
+		var surface: Variant = _precise_surface(region)
+		if not is_instance_valid(surface):
+			continue
+		var hit: Variant = surface.call("nearest", query, hint)
 		if not hit is Dictionary or (hit as Dictionary).is_empty():
 			continue
 		var distance: float = float((hit as Dictionary).get("distance", INF))

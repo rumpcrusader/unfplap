@@ -47,7 +47,9 @@ CRITICAL_RUNTIME = [
     "assets/anatomy/anon_part_ao.png",
     "assets/anatomy/anon_part_nrm.png",
 ]
-ANATOMY_SUFFIXES = {".scn", ".res", ".tres", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".import"}
+ANATOMY_SUFFIXES = {
+    ".scn", ".tscn", ".res", ".tres", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".import",
+}
 AUDIO_SUFFIXES = {".wav", ".ogg", ".mp3", ".import"}
 IMPORTED_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".wav", ".ogg", ".mp3"}
 JUNK_SUFFIXES = (".blend1", ".tmp", ".bak", ".orig")
@@ -233,12 +235,15 @@ def verify_runtime(root: pathlib.Path, contract: dict, quiet: bool = False) -> b
     extra = sorted(set(actual) - set(runtime))
     if missing or stale or extra:
         if not quiet:
-            for rel in missing:
-                print("ASSETS_MISSING " + rel, file=sys.stderr)
-            for rel in stale:
-                print("ASSETS_STALE " + rel, file=sys.stderr)
-            for rel in extra:
-                print("ASSETS_EXTRA " + rel, file=sys.stderr)
+            def report(label: str, rows: list[str]) -> None:
+                for rel in rows[:12]:
+                    print(f"{label} {rel}", file=sys.stderr)
+                if len(rows) > 12:
+                    print(f"{label} ... and {len(rows) - 12} more", file=sys.stderr)
+
+            report("ASSETS_MISSING", missing)
+            report("ASSETS_STALE", stale)
+            report("ASSETS_EXTRA", extra)
             print(
                 "ASSETS_FAIL runtime asset set does not match "
                 f"{CONTRACT_PATH}; run scripts/fetch_assets.sh",
@@ -405,7 +410,8 @@ def command_pack(args) -> int:
 
     url = _upload(archive)
     print(f"ASSET_PACK_UPLOADED {url}")
-    write_contract(root, url, archive, runtime, sources)
+    if write_contract(root, url, archive, runtime, sources):
+        print("Commit scripts/asset_pack.json with the asset change.")
     return 0
 
 

@@ -307,7 +307,9 @@ reclined eye height left the camera wrong after the act.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
-  where the rig put it. The game's tail motion resumes when the act ends.
+  where the rig put it. The chain's pre-act local poses are restored before the modifier is freed, so
+  the game's own tail motion resumes from the normal pose. The same restore runs for the standing
+  tail and its post-stop tuck.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`
   and the `LegHide` influence.

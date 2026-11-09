@@ -57,6 +57,7 @@ func _finish() -> void:
 		return
 	_done = true
 	if is_instance_valid(_tail):
+		_tail.call("restore_tail")
 		_tail.queue_free()
 		_tail = null
 	queue_free()

@@ -45,6 +45,7 @@ var base_pivot := false
 var aside_sign := 1.0
 
 var _bones: Array[int] = []
+var _saved: Dictionary = {}
 var _cached := false
 var _flick_time := -1.0
 var _flick_cycles := 2.0
@@ -70,6 +71,8 @@ func _cache() -> void:
 		var bone := sk.find_bone("mTail%d" % i)
 		if bone >= 0:
 			_bones.append(bone)
+			if not _saved.has(bone):
+				_saved[bone] = sk.get_bone_pose(bone)
 	_pelvis = sk.find_bone("mPelvis")
 	_mane.clear()
 	for name: String in ["mChest", "mNeck", "mHead"]:
@@ -87,6 +90,16 @@ func choose_side(anchor := Vector3.INF) -> void:
 			aside_sign = 1.0 if side > 0.0 else -1.0
 			return
 	aside_sign = 1.0 if randf() < 0.5 else -1.0
+
+
+## Put the tail chain back where the game left it before the act. The game's own tail motion
+## resumes on top of it next frame.
+func restore_tail() -> void:
+	var sk := get_skeleton()
+	if sk == null:
+		return
+	for bone: Variant in _saved:
+		sk.set_bone_pose(int(bone), _saved[bone])
 
 
 ## A thrust restarts the tail's short jiggle at the same strength as the rump shader.

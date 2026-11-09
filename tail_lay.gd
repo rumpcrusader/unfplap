@@ -16,6 +16,7 @@ var amount := 0.0
 var target_amount := 1.0
 
 var _bones: Array[int] = []
+var _saved: Dictionary = {}
 var _cached := false
 
 
@@ -33,6 +34,18 @@ func _cache() -> void:
 		var bone := sk.find_bone(name)
 		if bone >= 0:
 			_bones.append(bone)
+			if not _saved.has(bone):
+				_saved[bone] = sk.get_bone_pose(bone)
+
+
+## Put the tail chain back where the game left it before the act; the game's own tail motion
+## resumes on top of it next frame.
+func restore_tail() -> void:
+	var sk := get_skeleton()
+	if sk == null:
+		return
+	for bone: Variant in _saved:
+		sk.set_bone_pose(int(bone), _saved[bone])
 
 
 func _process_modification_with_delta(delta: float) -> void:

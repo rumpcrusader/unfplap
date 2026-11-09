@@ -668,8 +668,8 @@ func lean_kiss_tick() -> void:
 	runtime.call("_on_touch", "kiss")
 	_log("lean kiss start pose=%s forward=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
 		phase, float(runtime.get("_lean_forward")), float(runtime.get("_lean_side")),
-		_kiss_camera_side, _kiss_pony_side,
-		lateral_offset(float(runtime.call("_standing_lean_scale"))), str(_base_kiss_active)])
+		_kiss_pony_side, lateral_offset(float(runtime.call("_standing_lean_scale"))),
+		str(_base_kiss_active)])
 
 
 func _log(text: String) -> void:

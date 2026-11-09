@@ -2493,6 +2493,7 @@ func _build_pose() -> void:
 
 func _free_pose() -> void:
 	if is_instance_valid(_tail_lay):
+		_tail_lay.call("restore_tail")
 		_tail_lay.queue_free()
 	_tail_lay = null
 	_bed_pose_frame = null
@@ -2516,6 +2517,7 @@ func _free_pose() -> void:
 		_dock_tail.queue_free()
 	_dock_tail = null
 	if is_instance_valid(_tail):
+		_tail.call("restore_tail")
 		_tail.queue_free()
 	_tail = null
 

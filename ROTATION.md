@@ -194,7 +194,8 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
-  where the rig put it. The game's tail motion resumes when the act ends.
+  where the rig put it. The chain's pre-act local poses are restored before the modifier is freed, so
+  the game's own tail motion resumes from the normal pose.
 - The speed-driven surge and bob (camera forward and world up, zero at rest) are always added. The
   third-person debug adds the lean basis (pitch, side yaw, roll), the side-lean travel and the kiss
   lateral/drop. There is no frozen anchor and no framing nudge, so nothing can accumulate.

@@ -99,17 +99,13 @@ Missionary is its own state, not the game's bed rest:
   shoulder down: `_arm_pole()` carries the `valve_body_ik.gd` elbow plane, and the wrist bone is
   `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
   press swaps, the active press stops.
-- **Missionary caress anchor.** Her belly is `pony_spine2`; travel follows
-  `pony_hips → pony_spine3` by `0.12 m × body_scale × lean` plus the debug
-  `presentation.missionary.caress.along_m` (neutral belly, W chest, S lower belly). A per-hand
-  lateral offset and a 0.18 m lift (about the barrel radius) feed the coat query. The game parks
-  `PonyTouchBody` with its desktop hands, so the caress refreshes rig 0 through
-  `_unprofiled_sync(0, true)` before querying; otherwise the hulls are stale and the palm floats at
-  the old standing height. The query is torso-only: `back`, `withers`, `shoulder`, `barrel`,
-  `belly` and `rump`; it skips the flank patch, legs, neck and head. The palm then rolls 45° about
-  the coat normal, counter-clockwise for the right hand and clockwise for the left, and the debug
-  `presentation.missionary.caress.over_coat_m` offsets it along that normal. The oval uses the
-  standing caress radii, laid along the body.
+- **Missionary caress path.** The path runs belly (`pony_spine2`) → chest (`pony_spine3`) → the
+  side of the neck (`pony_neck1/2`) → the cheek (`pony_head`). W walks the path and
+  `presentation.missionary.caress.along_m` shifts it; S stays on the lower belly. The hull filter
+  widens from the torso regions to torso+neck and then neck+head, and all three `PonyTouchBody`
+  rigs are synced first, because the game parks them with its desktop hands. The hand-side offset
+  fades out at the neck; the 30° palm roll fades to 0 by the neck/cheek. The oval uses the standing
+  caress radii times `presentation.missionary.caress.oval_scale`.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

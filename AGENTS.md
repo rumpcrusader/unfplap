@@ -324,22 +324,21 @@ reclined eye height left the camera wrong after the act.
   `(palm * hand_offset) * hand_rest_basis`. On release the same solve eases back to the authored
   pose, so the planted arms return exactly. The palm rides her coat, not his lean. `A` uses his
   left hand and `D` his right; only one hand caresses at a time, pressing the other swaps and
-  pressing the active one stops. `Z`/`C` pause the oval with that hand. The palm rolls 45° about
-  the coat normal, counter-clockwise for the right hand and clockwise for the left; the debug
+  pressing the active one stops. `Z`/`C` pause the oval with that hand. The palm rolls 30° about
+  the coat normal, counter-clockwise for the right hand and clockwise for the left; the roll fades
+  to zero as the caress moves up the neck and cheek. The debug
   `presentation.missionary.caress.over_coat_m` lifts it further above the coat.
-- **Missionary caress path.** The anchor is `pony_spine2`, moved along
-  `pony_hips → pony_spine3` by `MISSIONARY_CARESS_TRAVEL_M` (0.12 m) × body scale × lean plus the
-  debug `presentation.missionary.caress.along_m`: neutral is the belly, W slides toward the chest
-  and S toward the lower belly, and the setting shifts the whole range along her. The point is
-  offset laterally per hand (`MISSIONARY_CARESS_LATERAL_M`), lifted
-  `MISSIONARY_CARESS_LIFT_M` (0.18 m, about the barrel radius) and snapped with the torso-only
-  coat query. The game parks `PonyTouchBody` while its desktop hands are away, so the caress calls
-  its body `_unprofiled_sync(0, true)` first; otherwise the hull query reads stale standing hulls
-  and the palm floats. The query uses only `MISSIONARY_TORSO_REGIONS` (`back`, `withers`,
-  `shoulder`, `barrel`, `belly`, `rump`), never the flank patch, legs, neck or head. Fingers point
-  toward her head, and the oval uses the existing `presentation.standing.caress` radii and palm
-  distance. The aim is recomputed every physics tick, so it follows the thrust, sway and
-  afterglow.
+- **Missionary caress path.** The live path runs belly → chest → side of the neck → cheek.
+  W/lean walks a normalized distance along the anchor chain, and
+  `presentation.missionary.caress.along_m` shifts that distance: neutral is the belly, the chest
+  comes first, then the neck side and the cheek; S stays on the lower belly. At each step the
+  hull filter widens from `MISSIONARY_TORSO_REGIONS` to `torso + neck`, then `neck + head`, and the
+  head/neck rigs are synced too. The hand-side lateral offset fades out as the palm moves to the
+  neck, and the palm roll fades from 30° to 0. The 0.18 m lift at the belly/chest (about the
+  barrel radius) gives the torso hull the query; the neck/cheek use 0.10/0.12 m. Fingers point
+  toward her head, and the oval uses the standing caress radii times
+  `presentation.missionary.caress.oval_scale`. The aim is recomputed every physics tick, so it
+  follows the thrust, sway and afterglow.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
@@ -1721,7 +1720,8 @@ rump blush. Unknown settings keys are ignored.
     `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
     tail), `caress.over_coat_m` (debug, signed, in centimetres: raise or press the palm over her
     coat), `part_inset_m` (debug, signed, in centimetres: pull the cock base back into the pelvis
-    in missionary), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
+    in missionary), `oval_scale` (debug, ×: scale the missionary caress oval), and the six per-size
+    values `vulva_shift_mm`, `vulva_pitch_deg`,
     `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
     `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
     size dropdown above the six rows.
@@ -1780,9 +1780,9 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
-  match, Caress along, Raise over coat, Cock base inset, a **Size** dropdown over the six per-size
-  vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with **Motion**,
-  **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  match, Caress along, Raise over coat, Cock base inset, Caress oval, a **Size** dropdown over the
+  six per-size vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with
+  **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

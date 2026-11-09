@@ -640,6 +640,10 @@ static var part_inset_m := num("part_inset_m", "presentation.missionary.part_ins
 	"Cock base inset",
 	"Slide the cock base back toward Anon in missionary, in centimetres. Negative moves it into the pelvis; use it to hide the base and close the hip gap.",
 	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var oval_scale := num("oval_scale", "presentation.missionary.caress.oval_scale", 1.0,
+	"Caress oval",
+	"Scale the missionary caress oval. 1 uses the standing caress size.",
+	GENERAL, "Missionary").with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
 
 # -- Missionary size  (debug)
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is

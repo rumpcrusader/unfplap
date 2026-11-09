@@ -55,7 +55,7 @@ const MISSIONARY_CARESS_LATERAL_M := 0.045
 const MISSIONARY_CARESS_LIFT_M := 0.18
 ## The palm rolls about its coat normal: counter-clockwise for Anon's right hand, clockwise for
 ## his left, so the fingers lie comfortably across the chest instead of straight up her body.
-const MISSIONARY_CARESS_PALM_ROLL_DEG := 45.0
+const MISSIONARY_CARESS_PALM_ROLL_DEG := 30.0
 ## Torso hulls the missionary caress may use. The neck, head, legs, tail, wings and mane cannot
 ## steal the palm when the query sits near the chest.
 const MISSIONARY_TORSO_REGIONS := ["back", "withers", "shoulder", "barrel", "belly", "rump"]
@@ -152,12 +152,6 @@ static func caress_single_hand_toggle(active: String, pressed: String) -> String
 	if pressed not in ["L", "R"]:
 		return active
 	return "" if active == pressed else pressed
-
-
-## Signed belly-to-chest travel for the missionary caress, in metres before the body scale.
-## Negative lean (S) moves toward her lower belly, positive (W) toward her chest.
-static func missionary_caress_lean_offset(lean: float) -> float:
-	return clampf(lean, -1.0, 1.0) * MISSIONARY_CARESS_TRAVEL_M
 
 
 ## Roll about the coat normal, in degrees. The right hand turns counter-clockwise and the left
@@ -589,7 +583,10 @@ static func _region_allowed(region: String, allowed: Array) -> bool:
 		return true
 	var name := region.to_lower()
 	for value: Variant in allowed:
-		if name == str(value).to_lower():
+		var wanted := str(value).to_lower()
+		if name == wanted:
+			return true
+		if wanted == "head" and name.begins_with("head_"):
 			return true
 	return false
 
@@ -640,16 +637,17 @@ func _nearest_touch(point: Vector3, ignore: Array, allowed: Array = []) -> Dicti
 
 
 ## Nearest coat point/normal for a palm. FlankSurface owns the flank/rump patch; the body
-## hull query covers the shoulder and any point outside that patch. `torso_only` skips the flank
-## patch and restricts the hulls to `MISSIONARY_TORSO_REGIONS` for the missionary chest/belly rub.
+## hull query covers the shoulder and any point outside that patch. A non-empty `regions` list
+## skips the flank patch and restricts the hulls to those regions (the missionary path uses the
+## torso, then the neck and head as the caress moves up).
 func _coat_contact(point: Vector3, outward_hint: Vector3,
-		ignore: Array = [], torso_only := false) -> Dictionary:
+		ignore: Array = [], regions: Array = []) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {"point": point, "normal": outward_hint, "source": "fallback"}
 	var outward := outward_hint.normalized()
 	if outward.length_squared() < 0.5:
 		outward = pony.global_basis.x.normalized()
-	if is_instance_valid(_flank) and not torso_only:
+	if is_instance_valid(_flank) and regions.is_empty():
 		var surface: Variant = _flank.get("surface")
 		var frame: Variant = _flank.get("frame")
 		var sk: Variant = pony.get("skeleton")
@@ -672,8 +670,7 @@ func _coat_contact(point: Vector3, outward_hint: Vector3,
 				return {"point": hit_world, "normal": hit_normal, "source": "flank"}
 	var touch: Variant = pony.get("touch_body")
 	if touch != null and touch.has_method("nearest"):
-		var allowed: Array = MISSIONARY_TORSO_REGIONS if torso_only else []
-		var near: Dictionary = _nearest_touch(point, ignore, allowed)
+		var near: Dictionary = _nearest_touch(point, ignore, regions)
 		var entry: Variant = near.get("entry")
 		var normal_local: Variant = near.get("normal")
 		if entry is Dictionary and normal_local is Vector3:
@@ -746,8 +743,8 @@ static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) ->
 
 func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
 		finger_hint: Vector3, smooth := true, ignore: Array = [],
-		radial_outward := true, torso_only := false) -> Transform3D:
-	var hit := _coat_contact(point, outward_hint, ignore, torso_only)
+		radial_outward := true, regions: Array = []) -> Transform3D:
+	var hit := _coat_contact(point, outward_hint, ignore, regions)
 	var source := str(hit.get("source", "fallback"))
 	var hit_point: Vector3 = hit.get("point", point)
 	var hit_normal: Vector3 = hit.get("normal", outward_hint)
@@ -960,10 +957,105 @@ func _sync_missionary_touch() -> void:
 		return
 	if not entries is Array or (entries as Array).is_empty():
 		return
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D or (rigs as Array)[0] != sk:
-		return
-	touch.call("_unprofiled_sync", 0, true)
+	# The neck and head hulls live on the body and head rigs; sync every valid rig so a caress
+	# that moves up to the cheek sees the act's live pose, not stale standing hulls.
+	for rig in (rigs as Array).size():
+		if is_instance_valid((rigs as Array)[rig]):
+			touch.call("_unprofiled_sync", rig, true)
+
+
+## Smooth caress path: belly -> chest -> side of the neck -> cheek. The returned point is the
+## centreline anchor before the hand-side offset and oval; `hint` is the coat normal to seek,
+## `lift` the query distance, and `roll` the share of the palm roll (1 low, 0 at the neck/cheek).
+## Returns {} when the rig lacks the bones for the extended path.
+func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
+		lean: float, along_m: float) -> Dictionary:
+	var hips_b := skeleton.find_bone("pony_hips")
+	var belly_b := skeleton.find_bone("pony_spine2")
+	var chest_b := skeleton.find_bone("pony_spine3")
+	var neck1_b := skeleton.find_bone("pony_neck1")
+	var neck2_b := skeleton.find_bone("pony_neck2")
+	var head_b := skeleton.find_bone("pony_head")
+	if hips_b < 0 or belly_b < 0 or head_b < 0:
+		return {}
+	var hips := g * skeleton.get_bone_global_pose(hips_b).origin
+	var belly := g * skeleton.get_bone_global_pose(belly_b).origin
+	var head_t := g * skeleton.get_bone_global_pose(head_b)
+	var head := head_t.origin
+	var chest := head.lerp(belly, 0.35)
+	if chest_b >= 0:
+		chest = g * skeleton.get_bone_global_pose(chest_b).origin
+	var neck := chest.lerp(head, 0.5)
+	if neck1_b >= 0 and neck2_b >= 0:
+		neck = (g * skeleton.get_bone_global_pose(neck1_b).origin).lerp(
+			g * skeleton.get_bone_global_pose(neck2_b).origin, 0.5)
+	var head_dir := head - hips
+	if head_dir.length_squared() < 0.0001:
+		head_dir = -pony.global_basis.z
+	head_dir = head_dir.normalized()
+	var side_axis := head_dir.cross(Vector3.UP)
+	if side_axis.length_squared() < 0.0001:
+		side_axis = pony.global_basis.x
+	side_axis = side_axis.normalized()
+	var side_sign := -1.0 if side == "L" else 1.0
+	var body_side := (side_axis * side_sign).normalized()
+	var scale := _smack_body_scale()
+	var path_len := maxf(belly.distance_to(head), 0.001)
+	var chest_t := clampf(belly.distance_to(chest) / path_len, 0.05, 0.70)
+	var neck_t := clampf(belly.distance_to(neck) / path_len, chest_t + 0.05, 0.92)
+	var travel := lean * path_len + along_m * scale
+	if travel < 0.0:
+		# S stays on the lower belly; the long path above is only for moving up her body.
+		var lower := clampf(travel, -MISSIONARY_CARESS_TRAVEL_M * scale, 0.0)
+		return {
+			"point": belly + head_dir * lower,
+			"hint": Vector3.UP,
+			"lift": MISSIONARY_CARESS_LIFT_M * scale,
+			"regions": MISSIONARY_TORSO_REGIONS,
+			"lateral": 1.0,
+			"roll": 1.0,
+			"side": body_side,
+			"finger": head_dir,
+		}
+	var t := clampf(travel / path_len, 0.0, 1.0)
+	var head_side := head_t.basis.x.normalized()
+	if head_side.dot(body_side) < 0.0:
+		head_side = -head_side
+	var point := belly
+	var hint := Vector3.UP
+	var lift := MISSIONARY_CARESS_LIFT_M * scale
+	var regions: Array = MISSIONARY_TORSO_REGIONS
+	var lateral := 1.0
+	var roll := 1.0
+	if t <= chest_t:
+		var u := t / maxf(chest_t, 0.001)
+		point = belly.lerp(chest, u)
+	elif t <= neck_t:
+		var u := (t - chest_t) / maxf(neck_t - chest_t, 0.001)
+		point = chest.lerp(neck, u)
+		hint = Vector3.UP.lerp(body_side, u).normalized()
+		lift = lerpf(MISSIONARY_CARESS_LIFT_M, 0.10, u) * scale
+		regions = MISSIONARY_TORSO_REGIONS + ["neck"]
+		lateral = 1.0 - u
+		roll = 1.0 - u
+	else:
+		var u := (t - neck_t) / maxf(1.0 - neck_t, 0.001)
+		point = neck.lerp(head, u)
+		hint = body_side.lerp(head_side, u).normalized()
+		lift = lerpf(0.10, 0.12, u) * scale
+		regions = ["neck", "head"]
+		lateral = 0.0
+		roll = 0.0
+	return {
+		"point": point,
+		"hint": hint,
+		"lift": lift,
+		"regions": regions,
+		"lateral": lateral,
+		"roll": roll,
+		"side": body_side,
+		"finger": head_dir,
+	}
 
 
 ## Missionary caress: one palm on her belly, W slides toward the chest and S toward the lower
@@ -978,56 +1070,51 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 		return Transform3D.IDENTITY
 	var skeleton := sk as Skeleton3D
 	_sync_missionary_touch()
-	var hips := skeleton.find_bone("pony_hips")
-	var spine2 := skeleton.find_bone("pony_spine2")
-	var spine3 := skeleton.find_bone("pony_spine3")
-	if hips < 0 or spine2 < 0:
-		return Transform3D.IDENTITY
 	var g := skeleton.global_transform
-	var hips_world := g * skeleton.get_bone_global_pose(hips).origin
-	var belly := g * skeleton.get_bone_global_pose(spine2).origin
-	var head_world := belly
-	if spine3 >= 0:
-		head_world = g * skeleton.get_bone_global_pose(spine3).origin
-	var head_dir := head_world - hips_world
-	if head_dir.length_squared() < 0.0001:
-		head_dir = -pony.global_basis.z
-	head_dir = head_dir.normalized()
-	var scale := _smack_body_scale()
+	var hand_side := "left" if side == "L" else "right"
 	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
 	var along_setting := float(SETTINGS.along_m.get_num())
-	var centre := belly \
-		+ head_dir * ((missionary_caress_lean_offset(lean) + along_setting) * scale)
-	# Her lateral axis from the posed body, so a bed at any angle works.
-	var side_axis := head_dir.cross(Vector3.UP)
-	if side_axis.length_squared() < 0.0001:
-		side_axis = pony.global_basis.x
-	side_axis = side_axis.normalized()
-	var hand_side := "left" if side == "L" else "right"
-	var lateral := -1.0 if side == "L" else 1.0
-	centre += side_axis * (MISSIONARY_CARESS_LATERAL_M * scale * lateral)
-	# The oval is laid out on her belly plane before the coat snap: `oval_across_m` runs along
-	# her body and `oval_up_m` across it, the same meaning as the standing caress settings.
-	var along := head_dir - Vector3.UP * head_dir.dot(Vector3.UP)
+	var scale := _smack_body_scale()
+	var path := _missionary_caress_path(skeleton, g, hand_side, lean, along_setting)
+	if path.is_empty():
+		return Transform3D.IDENTITY
+	var centre: Vector3 = path["point"]
+	var hint: Vector3 = path["hint"]
+	var lift: float = path["lift"]
+	var regions: Array = path["regions"]
+	var lateral: float = path["lateral"]
+	var body_side: Vector3 = path["side"]
+	var finger: Vector3 = path["finger"]
+	centre += body_side * (MISSIONARY_CARESS_LATERAL_M * scale * lateral)
+	# The oval is laid out on the coat plane before the snap. `oval_across_m` runs along the
+	# body and `oval_up_m` across it; the missionary scale lets the oval grow without changing
+	# the standing caress.
+	var along := finger - hint * finger.dot(hint)
 	if along.length_squared() < 0.0001:
-		along = Vector3.FORWARD
+		along = Vector3.UP - hint * Vector3.UP.dot(hint)
+	if along.length_squared() < 0.0001:
+		along = Vector3.FORWARD - hint * Vector3.FORWARD.dot(hint)
 	along = along.normalized()
-	var across := along.cross(Vector3.UP).normalized()
+	var across := along.cross(hint)
+	if across.length_squared() < 0.0001:
+		across = Vector3.RIGHT - hint * Vector3.RIGHT.dot(hint)
+	across = across.normalized()
 	var angle := float(_caress_phase[side])
-	var offset := along * (cos(angle) * _caress_oval_across_m() * scale) \
-		+ across * (sin(angle) * _caress_oval_up_m() * scale)
-	var query := centre + offset + Vector3.UP * (MISSIONARY_CARESS_LIFT_M * scale)
+	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01)
+	var offset := along * (cos(angle) * _caress_oval_across_m() * scale * oval_scale) \
+		+ across * (sin(angle) * _caress_oval_up_m() * scale * oval_scale)
+	var query := centre + offset + hint * lift
 	var ignore := _caress_ignore().duplicate()
 	if not ignore.has("leg"):
 		ignore.append("leg")
-	var target := _palm_on_coat_frame(hand_side, query, Vector3.UP, head_dir, true, ignore,
-		false, true)
+	var target := _palm_on_coat_frame(hand_side, query, hint, finger, true, ignore,
+		false, regions)
 	if not target.is_finite():
 		return Transform3D.IDENTITY
-	# Regular-game palm roll and the debug lift both act along the coat normal. The roll keeps
-	# the fingers across her body; the lift is a signed, unscaled offset for tuning the gap.
+	# Regular-game palm roll and the debug lift both act along the coat normal. The roll fades
+	# to zero at the neck and cheek; the lift is a signed, unscaled offset for tuning the gap.
 	var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
-	var roll := deg_to_rad(missionary_palm_roll_deg(hand_side))
+	var roll := deg_to_rad(missionary_palm_roll_deg(hand_side)) * float(path["roll"])
 	if absf(roll) > 0.0001:
 		target.basis = Basis(outward, roll) * target.basis
 	var over_coat := float(SETTINGS.over_coat_m.get_num())
@@ -1037,12 +1124,12 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 		return target
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		var probe := _coat_contact(query, Vector3.UP, ignore, true)
+		var probe := _coat_contact(query, hint, ignore, regions)
 		var coat: Vector3 = probe.get("point", query)
-		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s spine_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f" % [
+		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
 			hand_side, str(target.origin), str(target.basis.x), lean,
-			str(probe.get("source", "?")), belly.y, coat.y,
-			target.origin.distance_to(coat), over_coat])
+			str(probe.get("source", "?")), centre.y, coat.y,
+			target.origin.distance_to(coat), over_coat, rad_to_deg(roll)])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")

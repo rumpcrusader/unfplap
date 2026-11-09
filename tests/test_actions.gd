@@ -434,12 +434,16 @@ func run() -> void:
 	check(near(CAESS.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
 	check(near(CAESS.MISSIONARY_CARESS_LIFT_M, 0.18),
 		"missionary caress starts at the barrel radius")
-	check(near(CAESS.MISSIONARY_CARESS_PALM_ROLL_DEG, 45.0),
-		"missionary caress rolls the palm 45 degrees")
-	check(near(CAESS.missionary_palm_roll_deg("right"), 45.0),
+	check(near(CAESS.MISSIONARY_CARESS_PALM_ROLL_DEG, 30.0),
+		"missionary caress rolls the palm 30 degrees")
+	check(near(CAESS.missionary_palm_roll_deg("right"), 30.0),
 		"the right palm rolls counter-clockwise")
-	check(near(CAESS.missionary_palm_roll_deg("left"), -45.0),
+	check(near(CAESS.missionary_palm_roll_deg("left"), -30.0),
 		"the left palm rolls clockwise")
+	check(CAESS._region_allowed("head_Ears1", ["head"]),
+		"the cheek path accepts a head hull")
+	check(not CAESS._region_allowed("neck", ["head"]),
+		"the cheek filter does not take a neck hull")
 	check(CAESS._region_allowed("back", CAESS.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress accepts a barrel hull")
 	check(not CAESS._region_allowed("leg", CAESS.MISSIONARY_TORSO_REGIONS),
@@ -447,12 +451,6 @@ func run() -> void:
 	check(not CAESS._region_allowed("head_Ears1", CAESS.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress ignores a head hull")
 	check(CAESS._region_allowed("anything", []), "an empty region filter allows every hull")
-	check(near(CAESS.missionary_caress_lean_offset(0.0), 0.0),
-		"missionary caress rests on her belly")
-	check(CAESS.missionary_caress_lean_offset(1.0) > 0.0,
-		"W slides the missionary caress toward her chest")
-	check(CAESS.missionary_caress_lean_offset(-1.0) < 0.0,
-		"S slides the missionary caress toward her lower belly")
 	check(CAESS.caress_single_hand_toggle("", "L") == "L",
 		"A starts the left hand when nothing is caressing")
 	check(CAESS.caress_single_hand_toggle("L", "R") == "R",

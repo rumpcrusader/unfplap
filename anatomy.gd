@@ -562,7 +562,7 @@ func _missionary_place_trim(local: Transform3D) -> Transform3D:
 		if value is float or value is int:
 			depth = clampf(float(value), 0.0, 1.0)
 	shift += SETTINGS.vulva_depth_shift_mm.get_num() / 1000.0 \
-		* clampf((depth - 0.5) * 2.0, 0.0, 1.0)
+		* clampf((depth - 0.2) / 0.8, 0.0, 1.0)
 	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg.get_num())
 	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
 		return local
@@ -651,6 +651,9 @@ func _apply_material() -> void:
 	material.set_shader_parameter("inner_shadow", inner_color.darkened(0.22))
 	material.set_shader_parameter("clitoris_color", clitoris_color)
 	material.set_shader_parameter("clitoris_shadow", clitoris_color.darkened(0.22))
+	# Act hack: drop the vertex-alpha fold/clitoris masks so the whole mesh uses her skin tones.
+	material.set_shader_parameter("fold_coloring",
+		0.0 if _missionary_pose() and SETTINGS.disable_fold_coloring.get_bool() else 1.0)
 	var world_scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.001)
 	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
 	material.set_shader_parameter("anal_centre", ANAL_OPENING)
@@ -1324,6 +1327,13 @@ func wink_burst(count: int, discharge_count := -1) -> void:
 		from = rest
 
 
+## Missionary can use its own hug hack; every other pose keeps the anatomy setting.
+func _vulva_hug_mm() -> float:
+	if _missionary_pose():
+		return SETTINGS.missionary_vulva_hug_mm.get_num()
+	return SETTINGS.vulva_hug_mm.get_num()
+
+
 ## Open the lips to the shaft's actual radius. `shaft_radius` is world metres; the mesh works in
 ## local units, so it is converted with the mesh scale and solved against the measured lip radius:
 ## the lip band is remapped from the rim out to `lip_outer`, so the opening reaches exactly that
@@ -1337,7 +1347,8 @@ func set_grip(shaft_radius: float) -> void:
 		return
 	var scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.0001)
 	# The hug pads the lip radius away from the shaft: positive leaves a gap, negative grips.
-	var hug := SETTINGS.vulva_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
+	# Missionary has its own hack value; every other pose uses the anatomy setting.
+	var hug := _vulva_hug_mm() / 1000.0 if shaft_radius > 0.0 else 0.0
 	var local := maxf(shaft_radius + hug, 0.0) / scale
 	_hole_target = local
 	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating

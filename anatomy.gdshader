@@ -13,6 +13,8 @@ uniform vec4 inner_color: source_color;
 uniform vec4 inner_shadow: source_color;
 uniform vec4 clitoris_color: source_color;
 uniform vec4 clitoris_shadow: source_color;
+// integration: act hack. 0 treats every vertex as outer skin, so no pink fold/clitoris tint.
+uniform float fold_coloring = 1.0;
 uniform vec4 fresnel: source_color = vec4(0.1, 0.1, 0.1, 0.1);
 
 varying vec3 lit_fill;
@@ -128,10 +130,10 @@ void vertex() {
 }
 
 void fragment() {
-	float inside = smoothstep(0.42, 0.58, COLOR.r);
+	float inside = smoothstep(0.42, 0.58, COLOR.r) * fold_coloring;
 	// Vertex alpha marks the inner folds (1.0) and the clitoris (0.5); 0 is the outer skin.
-	float inner_fold = step(0.75, COLOR.a);
-	float clit = step(0.25, COLOR.a) * (1.0 - inner_fold);
+	float inner_fold = step(0.75, COLOR.a) * fold_coloring;
+	float clit = step(0.25, COLOR.a) * (1.0 - step(0.75, COLOR.a)) * fold_coloring;
 	// The pink interior must fill the opening exactly: everything within the solved hole radius is
 	// interior, so the shaft is covered right up to the lips instead of showing through.
 	if (hole_target > 0.0 && hole_clip > 0.5 && inner_fold < 0.5) {

@@ -621,7 +621,17 @@ static var vulva_pitch_deg := num("vulva_pitch_deg", "presentation.missionary.vu
 static var vulva_depth_shift_mm := num("vulva_depth_shift_mm",
 	"presentation.missionary.vulva_depth_shift_mm", -2.0,
 	"Vulva depth shift",
-	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 50%. Negative pushes it down.",
+	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
+	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
+static var disable_fold_coloring := flag("disable_fold_coloring",
+	"presentation.missionary.disable_fold_coloring", false,
+	"Hack: Disable fold coloring",
+	"Draw the whole vulva in her outer skin color during the missionary act; the pink folds and clitoris colors are off.",
+	GENERAL, "Missionary").as_debug()
+static var missionary_vulva_hug_mm := num("missionary_vulva_hug_mm",
+	"presentation.missionary.vulva_hug_mm", 3.0,
+	"Hack: Vulva hug",
+	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	GENERAL, "Missionary").with_unit("mm").with_step(0.5).as_debug()
 static var gaze_offset_mm := num("gaze_offset_mm", "presentation.missionary.gaze_offset_mm", 0.0,
 	"Gaze height",

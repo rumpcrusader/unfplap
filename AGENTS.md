@@ -488,8 +488,10 @@ written after the pose write in the same frame. Her gaze and the kiss target his
 mouth (`eye_point()` / `mouth_point()`), never the game camera on his standing player rig; the game's
 eye modifier is pointed at the same target, with `presentation.missionary.gaze_offset_mm` (debug,
 signed, unclamped) raising or lowering it. The vulva trims (`vulva_shift_mm`, `vulva_pitch_deg`,
-`vulva_depth_shift_mm`) move only the anatomy mesh in missionary; the depth one starts at 50% depth
-and reaches its signed millimetre value at full thrust. **Authored shots** uses the shot trajectory
+`vulva_depth_shift_mm`) move only the anatomy mesh in missionary; the depth one starts at 20% depth
+and reaches its signed millimetre value at full thrust. Two hacks sit beside them, both missionary-only:
+`disable_fold_coloring` drops the vertex-alpha fold/clitoris masks so the mesh uses her skin tones,
+and `vulva_hug_mm` replaces the anatomy hug for the act. **Authored shots** uses the shot trajectory
 below.
 
 ### Missionary shot
@@ -1570,7 +1572,8 @@ rump blush. Unknown settings keys are ignored.
   `anal_scale` (Ponut scale, default 0.9: the V2 ponut interior and body coat; the vulva and opening
   stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point; default −20 mm),
   `vulva_hug_mm` and `anal_hug_mm`
-  (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips),
+  (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips; the missionary
+  hack `presentation.missionary.vulva_hug_mm` overrides `vulva_hug_mm` for that act),
   `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 2×) and
   `jiggle_still` (debug: no-jiggle zone around the vulva, 1.5×; 0 turns it off),
   `anal_still` (debug: the same zone around the visible ponut, default 0, off),
@@ -1648,7 +1651,8 @@ rump blush. Unknown settings keys are ignored.
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
   - `missionary`: `belly_down_deg`, `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`,
-    `gaze_offset_mm`, `camera_mode`, `third_person`, `free_look`.
+    `disable_fold_coloring`, `vulva_hug_mm`, `gaze_offset_mm`, `camera_mode`, `third_person`,
+    `free_look`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
@@ -1704,8 +1708,8 @@ rump blush. Unknown settings keys are ignored.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, belly down,
-  vulva shift/pitch/depth, gaze height, Use free look), **Standing** (with **Motion**, **Caress**,
-  **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  vulva shift/pitch/depth, fold/hug hacks, gaze height, Use free look), **Standing** (with
+  **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part** and **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
   ponies, the two

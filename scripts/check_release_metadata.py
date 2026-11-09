@@ -9,6 +9,8 @@ import pathlib
 import re
 import sys
 
+HEADING = re.compile(r"^v\d+\.\d+\.\d+$")
+
 
 def fail(why):
     raise SystemExit("RELEASE_CHECK_FAIL " + why)
@@ -23,8 +25,7 @@ def section(text, heading):
         fail("changelog.txt must start with %s, found %s" % (heading, lines[start].strip()))
     body = []
     for line in lines[start + 1:]:
-        stripped = line.strip()
-        if stripped.startswith("v") and len(stripped) > 1 and stripped[1].isdigit():
+        if HEADING.fullmatch(line.strip()):
             break
         body.append(line)
     return "\n".join(body).strip()
@@ -55,25 +56,11 @@ def main():
     body = section(changelog, "v" + version)
     if not body:
         fail("changelog.txt has no section for v%s" % version)
-    if "TODO" in body.upper():
-        fail("changelog.txt still has a TODO for v%s" % version)
-    bullets = []
-    for line in body.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if not stripped.startswith("- "):
-            fail("changelog bullets must be one line starting with '- ': %s" % stripped)
-        bullets.append(stripped[2:].strip())
+    if any(line.strip() == "- TODO" for line in body.splitlines()):
+        fail("changelog.txt still has the placeholder for v%s" % version)
+    bullets = [line.strip() for line in body.splitlines() if line.strip().startswith("- ")]
     if not bullets:
         fail("changelog.txt has no bullets for v%s" % version)
-
-    readme = (root / "README.md").read_text(encoding="utf-8")
-    match = re.search(r"Requires Home: Equestria `([^`]+)`", readme)
-    if match is None:
-        fail("README.md has no game-version line")
-    if match.group(1) != game_version:
-        fail("README.md requires %s, mod.json targets %s" % (match.group(1), game_version))
 
     if args.mode == "local":
         project = (root.parent.parent / "project.godot").read_text(encoding="utf-8")

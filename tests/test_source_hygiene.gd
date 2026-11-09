@@ -47,6 +47,7 @@ func run() -> void:
 		"scripts/prepare_release.sh",
 		"scripts/check_release.sh",
 		"scripts/check_release_metadata.py",
+		"scripts/build_manifest.py",
 	]:
 		check(FileAccess.file_exists(ROOT.path_join(path)), "release file %s" % path)
 	for path: String in ["build.sh", "tools/pack.gd", ".github/workflows/build.yml"]:

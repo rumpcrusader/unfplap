@@ -14,7 +14,7 @@ tag is pushed.
 ## 1. Start
 
 - `git status --short` must be empty.
-- `git branch --show-current` must be `master`.
+- Note the current branch; CI requires the tag to be on the repository default branch.
 - Read `mod.json` and `project.godot` (`config/version`).
 - Run `scripts/prepare_release.sh` with no argument to print the current version, target game,
   last tag and commit count.
@@ -53,8 +53,9 @@ commit.
 ## 4. Validate
 
 Run `scripts/check_release.sh`. It checks the release commit, versions, changelog, target game,
-runs the test suites, and builds a self-verifying preflight pack. Show its full review packet;
-do not summarize away warnings.
+runs the test suites, and builds a self-verifying preflight pack. It requires Godot 4.5.2 and
+moves installed `unfplap*.pck` files to `.pck.bak` before the smoke test. Show its full review
+packet; do not summarize away warnings.
 
 Stop. Ask the user to:
 
@@ -69,8 +70,8 @@ the commit has been pushed.
 ## 5. Hand off
 
 When the user approves, give the exact push and tag commands from the review packet. Do not run
-them. The user pushes `master`, creates the annotated tag `v<version>` on the reviewed commit,
-and pushes the tag.
+them. The user pushes the commit to the repository default branch, creates the annotated tag
+`v<version>` on the reviewed commit, and pushes the tag.
 
 The release is done when the tag is pushed. Do not wait for CI, do not poll the store, and do not
 create a release state file.
@@ -90,5 +91,3 @@ The store dry run previews the pone.rs mirror but does not write the store.
 - Before the tag is pushed: fix, amend the local commit, rerun `check_release.sh`.
 - After the tag is pushed: never move or reuse the tag. Publish a new patch release.
 - If `build.sh` fails, fix the pack; do not work around the verifier.
-- If anatomy assets changed, the user must run `scripts/pack_anatomy.sh --upload` and commit
-  `scripts/anatomy_assets.sh` before the release.

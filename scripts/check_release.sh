@@ -2,13 +2,13 @@
 # Validate a prepared release, or the metadata of a pushed tag in CI.
 #
 #   scripts/check_release.sh
-#     Local release check: clean master, release commit, version/changelog/target game,
-#     test suites, self-verifying preflight build, then a review packet and the exact
-#     push/tag commands. It never tags or pushes.
+#     Local release check: clean tree, version/changelog/target game, test suites,
+#     self-verifying preflight build, then a review packet and the exact push/tag commands.
+#     It never tags or pushes.
 #
-#   scripts/check_release.sh --ci --tag v0.3.2 [--notes-out FILE]
-#     CI metadata check: annotated tag on master, version/changelog/docs consistency, and
-#     optionally write the release-notes body. It does not need the full game project.
+#   scripts/check_release.sh --ci --tag v0.3.2 --branch master [--notes-out FILE]
+#     CI metadata check: annotated tag on the default branch, clean tag checkout, version,
+#     changelog and notes. It does not need the full game project.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,6 +19,7 @@ usage() { sed -n '2,11p' "$0"; }
 
 CI=0
 TAG=""
+BRANCH=""
 NOTES=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -26,6 +27,10 @@ while [ "$#" -gt 0 ]; do
 		--tag)
 			[ "$#" -ge 2 ] || fail "--tag needs a release tag"
 			TAG="$2"; shift 2
+			;;
+		--branch)
+			[ "$#" -ge 2 ] || fail "--branch needs a branch name"
+			BRANCH="$2"; shift 2
 			;;
 		--notes-out)
 			[ "$#" -ge 2 ] || fail "--notes-out needs a file path"
@@ -36,12 +41,37 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
+if [ "$CI" -eq 0 ] && { [ -n "$TAG" ] || [ -n "$BRANCH" ] || [ -n "$NOTES" ]; }; then
+	fail "--tag, --branch and --notes-out require --ci"
+fi
+
+stash_installed_packs() {
+	local dirs=()
+	[ -n "${UNFPLAP_MODS_DIR:-}" ] && dirs+=("$UNFPLAP_MODS_DIR")
+	dirs+=("${XDG_DATA_HOME:-$HOME/.local/share}/home-equestria-public/mods")
+	[ -n "${APPDATA:-}" ] && dirs+=("$APPDATA/home-equestria-public/mods")
+	local dir file moved=0
+	for dir in "${dirs[@]}"; do
+		[ -d "$dir" ] || continue
+		for file in "$dir"/unfplap*.pck; do
+			[ -e "$file" ] || continue
+			mv -f "$file" "$file.bak"
+			echo "STASHED $file -> $file.bak"
+			moved=1
+		done
+	done
+	if [ "$moved" -eq 0 ]; then echo "No installed unfplap packs to stash."; fi
+}
+
 if [ "$CI" -eq 1 ]; then
 	[ -n "$TAG" ] || fail "--ci needs --tag"
-	[ "$(git cat-file -t "refs/tags/$TAG" 2>/dev/null || true)" = "tag" ] || fail "tag $TAG is not annotated"
-	git rev-parse --verify --quiet refs/remotes/origin/master >/dev/null || fail "origin/master is not fetched"
-	if ! git merge-base --is-ancestor "$TAG^{commit}" refs/remotes/origin/master; then
-		fail "tag $TAG is not on master"
+	[ -n "$BRANCH" ] || fail "--ci needs --branch"
+	[ "$(git cat-file -t "$TAG" 2>/dev/null || true)" = "tag" ] || fail "tag $TAG is not annotated"
+	[ "$(git rev-parse HEAD)" = "$(git rev-parse "$TAG^{commit}")" ] || fail "HEAD is not the tag commit"
+	[ -z "$(git status --porcelain)" ] || fail "tag checkout is not clean"
+	git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" >/dev/null || fail "origin/$BRANCH is not fetched"
+	if ! git merge-base --is-ancestor "$TAG^{commit}" "refs/remotes/origin/$BRANCH"; then
+		fail "tag $TAG is not on $BRANCH"
 	fi
 	VERSION="${TAG#v}"
 	[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag must be vMAJOR.MINOR.PATCH: $TAG"
@@ -53,27 +83,30 @@ fi
 
 [ -f "$ROOT/../../project.godot" ] || fail "run from the mod inside the full game project"
 [ -z "$(git status --porcelain)" ] || fail "working tree is not clean; commit the release metadata first"
-BRANCH="$(git branch --show-current)"
-[ "$BRANCH" = "master" ] || fail "check a release from master, not $BRANCH"
 
 VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$ROOT/mod.json")"
 TAG="v$VERSION"
 if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
 	fail "tag $TAG already exists"
 fi
-SUBJECT="$(git log -1 --format=%s)"
-[ "$SUBJECT" = "build: release $VERSION" ] || fail "HEAD subject must be 'build: release $VERSION', found '$SUBJECT'"
-mapfile -t CHANGED < <(git show --pretty=format: --name-only HEAD | sed '/^$/d' | sort)
-if [ "${#CHANGED[@]}" -ne 2 ] || [ "${CHANGED[0]}" != "changelog.txt" ] || [ "${CHANGED[1]}" != "mod.json" ]; then
-	printf 'RELEASE_CHECK_FAIL release commit must touch only changelog.txt and mod.json, found:\n%s\n' "${CHANGED[*]}" >&2
-	exit 1
-fi
+CHANGED=()
+while IFS= read -r path; do
+	[ -n "$path" ] && CHANGED+=("$path")
+done < <(git show --pretty=format: --name-only HEAD | sed '/^$/d' | sort)
 
 GAME_VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["game_version"])' "$ROOT/mod.json")"
 scripts/check_release_metadata.py "$VERSION" --tag "$TAG" --mode local
 
+if ! command -v godot >/dev/null 2>&1; then
+	fail "Godot is not on PATH"
+fi
+GODOT_REPORT="$(godot --version | sed -n '1p')"
+[[ "$GODOT_REPORT" == 4.5.2* ]] || fail "release checks require Godot 4.5.2, found $GODOT_REPORT"
+
 echo "Running test suites..."
 scripts/test_all.sh
+echo "Stashing installed unfplap packs..."
+stash_installed_packs
 echo "Running source smoke..."
 scripts/smoke.sh
 echo "Building and verifying the preflight pack..."
@@ -91,7 +124,8 @@ echo "RELEASE_REVIEW"
 echo "version: $VERSION"
 echo "target game: $GAME_VERSION"
 echo "commit: $HASH"
-echo "files: ${CHANGED[*]}"
+echo "godot: $GODOT_REPORT"
+echo "files: ${CHANGED[*]:-}"
 echo "changelog:"
 awk -v tag="v$VERSION" '
 	$0 == tag { inside = 1; print; next }

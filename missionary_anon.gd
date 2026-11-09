@@ -485,6 +485,7 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var precise := is_instance_valid(runtime) and runtime.has_method("_feature") \
 		and bool(runtime.call("_feature", "caress_surface"))
 	var stretch := 1.0
+	var arm_started := Time.get_ticks_usec()
 	if precise:
 		var max_stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
 		var shoulder_cap := maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
@@ -545,6 +546,8 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	RIG.set_global(skeleton, lower,
 		Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
 	RIG.set_global(skeleton, hand, Transform3D(hand_basis, target))
+	if precise and is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "caress_arm", Time.get_ticks_usec() - arm_started)
 
 
 ## The game's regular desktop arm pole (`valve_body_ik.gd`): the elbow bends below the

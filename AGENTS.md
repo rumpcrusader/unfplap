@@ -280,7 +280,7 @@ reclined eye height left the camera wrong after the act.
 - The asset is bed-space data: origin at the middle of the mattress top, the bed's axes, `+Z` her
   head direction. `poses/authored_pose.gd` maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`
-  and places `bed_frame * (pony_frame with its origin × body_scale)`.
+  and places `bed_frame * (pony_frame × body_scale)`.
 - **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
   `enter`/`leave`, the posture, the terrain solver), so the runtime runs the same recipe again from
   `_process` after every other writer: `skeleton_pose.apply_render()`, same weight, no ramp or clock
@@ -345,15 +345,20 @@ reclined eye height left the camera wrong after the act.
   baked head rotations are rejected.
 - The overlays use `rig.rotate_free` on this path: the authored pose can sit outside the joint
   limits the game derives from its own motion library, and `constrain()` would snap it back.
-- No asset, a version below 5 or no bed frame (the floating pose preview) applies no pose at all:
-  the `pose_asset` gate refuses the act start and logs the reason. The old stack keys
+- No asset, a version below 6 or no bed frame applies no pose at all: the `pose_asset` gate refuses
+  the act start and logs the reason. The `pose_rig` gate refuses it when the live rig is missing
+  any authored body bone, naming the first few. The old stack keys
   `pelvis_curl_deg`/`legs_wrap`/`bed_lift_m` are gone.
 - The shot's camera positions and the body are both bed-relative, so they move together on any bed.
-- The pose is authored at canon size. Other pony sizes scale only the placement distance; they are
-  not tuned.
+- The pose is authored at canon size. The placement scales its origin and basis by `body_scale`, so
+  the rig's own pivot scale makes it a uniform scale about the mattress centre: Canon, JRHNBR, Same
+  Height and the stallion multiplier all work. Hoers is untested.
 - The JSON is exported, never hand-edited: pose `tools/pose_lab.tscn` in the editor, save the
   scene, then **Save pose** (or run `tools/pose_export.gd` headless). The exporter also checks a
-  load round trip and the runtime application path, and `tools/` never ships.
+  load round trip and the runtime application path, and `tools/` never ships. The lab's
+  **Preview size** scales the pony, the Anons and the shot cameras about the mattress centre the
+  way the runtime scales the body, so a JRHNBR or Same Height body can be inspected; **Save pose**
+  refuses while it is not 1, so the JSON stays canon.
 - The act's shot transforms are authored in the same scene: `ShotStart` (neutral), `ShotBack` (S),
   `ShotFront` (W), `ShotLeft` and `ShotRight`. Their bed-relative **position and direction** are
   exported: a pure axis lean meets the authored transform exactly, and everything between is
@@ -449,7 +454,7 @@ reclined eye height left the camera wrong after the act.
   forward roll.
 - Lean distances, pitch, yaw and roll scale with pony size:
   `lean_size_scale_for(size) = clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`) is the reference;
-  Canon (`0.66`) is `1.34` (+34%). Missionary Canon camera height is also multiplied by `0.9`.
+  Canon (`0.66`) is `1.34` (+34%).
 - Standing Anon body lean: `apply_anon_lean()` freezes the whole lower body (hip target and both
   foot targets) at its act-start pose. The camera/head moves forward, sideways or down, so the
   torso hinges over her while the legs keep their pose instead of walking into the shot.
@@ -520,7 +525,8 @@ at full thrust. Two hacks sit beside them, both missionary-only: `disable_fold_c
 vertex-alpha fold/clitoris masks so the mesh uses her skin tones, and `vulva_hug_mm` replaces the
 anatomy hug for the act. The camera itself is kept outside her live skull and muzzle by
 `head_clearance_mm` (debug, default 100 mm) in both views, so a close cheek or muzzle lean cannot
-enter her head as she turns it.
+enter her head as she turns it. The skull and muzzle radii scale with her body size; the clearance
+is an absolute pad on top.
 
 ### Missionary shot
 

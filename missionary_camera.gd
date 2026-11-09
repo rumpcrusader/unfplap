@@ -369,8 +369,11 @@ func _bed_side_direction() -> Vector3:
 
 
 func _missionary_body_scale() -> float:
+	# The real body size, the same number the pose placement and the anatomy use. The body scales
+	# with the rig, so the camera, the head clearance and the kiss distance must too; a floor keeps
+	# a degenerate rig from dividing by zero.
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
-		return clampf(float(pony.get("body_scale")), 0.8, 1.6)
+		return maxf(float(pony.get("body_scale")), 0.1)
 	return 1.0
 
 
@@ -396,11 +399,12 @@ func _clear_live_head(at: Vector3) -> Vector3:
 	var nose: Variant = boop.call("nose_world")
 	if not (skull is Vector3) or not (nose is Vector3):
 		return at
-	var point := _push_sphere(at, skull, 0.09 + clearance)
+	var scale := _missionary_body_scale()
+	var point := _push_sphere(at, skull, 0.09 * scale + clearance)
 	if boop.has_method("muzzle_world"):
 		var muzzle: Variant = boop.call("muzzle_world")
 		if muzzle is Vector3:
-			point = _push_capsule(point, muzzle, nose, 0.04 + clearance)
+			point = _push_capsule(point, muzzle, nose, 0.04 * scale + clearance)
 	return point
 
 

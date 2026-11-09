@@ -29,6 +29,8 @@ TESTS=(
 	test_cycle
 	test_rotation
 	test_pose_asset
+	test_pose_scale
+	test_pose_rig
 	test_thrust
 	test_auto_thrust
 	test_auto_panel

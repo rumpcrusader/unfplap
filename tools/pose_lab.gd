@@ -62,6 +62,15 @@ const PONY_BONES := [
 @export var bed_size := Vector3(1.6, 0.55, 2.2)
 @export var show_colliders := false
 @export var show_skeleton := false
+## Dev preview only, never exported. The runtime scales the rig's body by her own scale and the
+## authored pose by the same factor about the mattress centre, so this preview does the same to the
+## pony, the Anons and the shot cameras. **Save pose** refuses while it is not 1, so the JSON stays
+## canon. Set it to 1.35 or 1.7 to inspect a JRHNBR or Same Height body.
+@export var preview_size := 1.0:
+	set(value):
+		preview_size = clampf(value, 0.1, 4.0)
+		if _built:
+			_apply_preview()
 
 @export_tool_button("Save pose") var save_pose: Callable = _save_pose
 @export_tool_button("Load pose") var load_pose: Callable = _load_pose
@@ -86,6 +95,8 @@ var _anon_iks: Array[SkeletonModifier3D] = []
 var _bed: Node3D
 var _camera: Camera3D
 var _built := false
+## The rig transforms the preview scaled from, so returning to 1.0 restores them exactly.
+var _preview_originals: Dictionary = {}
 
 
 func _ready() -> void:
@@ -96,6 +107,7 @@ func _ready() -> void:
 	# because Godot discards instance-child overrides when it saves the scene. Opening it therefore
 	# always applies the exported pose and shot positions. **Save pose** is what writes them back.
 	_load_pose()
+	_apply_preview()
 	call_deferred("_editor_ready")
 
 
@@ -369,6 +381,39 @@ func _pose_frame() -> Transform3D:
 	return Transform3D(bed_xform.basis.orthonormalized(), Vector3(at.x, _mattress_y(), at.z))
 
 
+## Dev preview: scale the pony, the Anons and the shot cameras about the mattress centre, the way
+## the runtime scales the body and the pose. The originals are captured once, so returning to 1.0
+## restores the authored scene exactly. **Save pose** refuses while a preview is active.
+func _apply_preview() -> void:
+	if _pony == null or _bed == null:
+		return
+	if _preview_originals.is_empty():
+		_preview_originals["pony"] = _pony.transform
+		_preview_originals["anons"] = {}
+		for rig in _anons:
+			_preview_originals["anons"][rig] = rig.transform
+		_preview_originals["shots"] = {}
+		for entry: Array in SHOT_NODES:
+			var node := get_node_or_null(str(entry[0])) as Node3D
+			if node != null:
+				_preview_originals["shots"][node] = node.transform
+	var frame := _pose_frame()
+	_pony.transform = _scale_about(frame, _preview_originals["pony"], preview_size)
+	for rig in _anons:
+		rig.transform = _scale_about(frame, _preview_originals["anons"][rig], preview_size)
+	for node: Node3D in _preview_originals["shots"]:
+		node.transform = _scale_about(frame, _preview_originals["shots"][node], preview_size)
+
+
+## A transform scaled by `s` about `frame`: origin and basis both, the same rule the runtime's
+## `_scaled` uses, so the preview matches the act's body.
+static func _scale_about(frame: Transform3D, value: Transform3D, s: float) -> Transform3D:
+	var local := frame.affine_inverse() * value
+	local.origin *= s
+	local.basis = local.basis * Basis.from_scale(Vector3.ONE * s)
+	return frame * local
+
+
 ## Creates any missing shot cameras at a first guess worked out from the pose: start over her
 ## chest, back over her pelvis, front at her face for the kiss, and the two side leans beside the
 ## start. Drag them where you want and save the scene.
@@ -434,6 +479,9 @@ func _bone_world(sk: Skeleton3D, first: String, second := "") -> Vector3:
 func _save_pose() -> void:
 	if _pony == null or _pony_skel == null:
 		push_error("PoseLab: nothing to save")
+		return
+	if preview_size != 1.0:
+		print("[poselab] refusing to save while the preview is %.2f; set Preview size to 1" % preview_size)
 		return
 	var frame := _pose_frame()
 	var size := _bed_world_size()
@@ -535,6 +583,9 @@ func _load_pose() -> void:
 		var cam: Dictionary = data["camera"]
 		_set_global(_camera, _str_to_transform(str(cam.get("transform", ""))))
 		_camera.fov = float(cam.get("fov", _camera.fov))
+	# The preview works from the authored transforms, so a fresh load is always the 1.0 baseline.
+	_preview_originals.clear()
+	_apply_preview()
 	print("[poselab] loaded %s (version %d)" % [pose_path, version])
 
 

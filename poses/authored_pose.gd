@@ -113,7 +113,8 @@ func has_shot(id: String) -> bool:
 
 ## Applies the base pose to the pony's skeleton. `weight` blends from the game's current pose
 ## (0) to the authored pose (1) and the caller ramps it; `bed_frame` is the real bed's pose space
-## and `body_scale` scales the placement offset so a larger pony still rests on the mattress.
+## and `body_scale` scales the whole placement, so a larger pony rests on the mattress at her own
+## size rather than at canon size.
 func apply_pony(sk: Skeleton3D, weight: float, bed_frame: Transform3D, body_scale: float) -> bool:
 	if not available or sk == null:
 		return false
@@ -148,6 +149,20 @@ static func root_bone(sk: Skeleton3D) -> int:
 	return -1
 
 
+## The authored body bones this rig does not have. The runtime writes only what it holds, so a
+## missing bone keeps the game's pose on that link and the chain above it reads broken. The act
+## refuses to start instead of posing half a body.
+func missing_bones(sk: Skeleton3D) -> Array[String]:
+	var out: Array[String] = []
+	if sk == null:
+		return out
+	for key: Variant in pony_bones:
+		var name := str(key)
+		if sk.find_bone(name) < 0:
+			out.append(name)
+	return out
+
+
 ## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.
 func _cache_indices(sk: Skeleton3D) -> void:
 	var id := sk.get_instance_id()
@@ -162,11 +177,15 @@ func _cache_indices(sk: Skeleton3D) -> void:
 	_index_skeleton = id
 
 
-## Scales only the placement distance, never the rotation: a bigger pony's body sits the same way
-## on the mattress, higher above it by her own size.
+## Scales the placement by the pony's body size, the same way the rig's own pivot scales her body:
+## the origin and the basis both multiply by `body_scale`, so the authored pose becomes a uniform
+## scale about the mattress centre. The skeleton's global transform already carries the pivot's
+## scale, so writing the root pose in skeleton space divides it back out and the chain renders at
+## her real size. Canon (`1.0`) is unchanged.
 func _scaled(value: Transform3D, body_scale: float) -> Transform3D:
 	var out := value
 	out.origin *= body_scale
+	out.basis = out.basis * Basis.from_scale(Vector3.ONE * body_scale)
 	return out
 
 

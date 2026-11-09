@@ -106,9 +106,10 @@ Missionary is its own state, not the game's bed rest:
 - **Positions are authored too.** A body bone stores a position next to its rotation, and it is
   applied: a lengthened neck or a displaced flank root is a deliberate part of the pose. Only the
   skeleton root carries the absolute placement; every other position is relative to its parent.
-- **Placement** is `bed_frame * (pony_frame with its origin × body_scale)`. Scaling only the
-  distance keeps a larger pony's body on the mattress instead of in it. The pose is authored at
-  canon size; other sizes are not tuned yet.
+- **Placement** is `bed_frame * (pony_frame × body_scale)`, with the origin and the basis both
+  scaled by `body_scale`. The rig's pivot already scales her body, so the authored pose becomes a
+  uniform scale about the mattress centre: Canon, JRHNBR, Same Height and the stallion multiplier
+  all render at their own size. The pose is authored at canon size; Hoers is untested.
 - **Weight** comes from the pose modifier's `amount` ramp: each bone slerps from whatever the game's
   `lie_down` settle left to the authored rotation, and the root blends with `interpolate_with`, so
   POSING_IN still eases her in.
@@ -148,7 +149,8 @@ Missionary is its own state, not the game's bed rest:
   after 20% depth and reaches its signed millimetre value at full thrust. The fold-coloring and
   vulva-hug hacks are missionary-only too. The camera is pushed out of her live skull sphere and
   muzzle capsule by `head_clearance_mm` (debug, default 100 mm), in both views, so a close cheek or
-  muzzle lean cannot enter her head as she turns it. The camera is written after the pose in the same frame, so it
+  muzzle lean cannot enter her head as she turns it. The skull and muzzle radii scale with her body
+  size; the clearance is an absolute pad on top. The camera is written after the pose in the same frame, so it
   never trails his head. Her gaze and the kiss target his authored **eye and mouth**, never the game
   camera on his standing player rig; the game's eye modifier follows the same target, offset by
   `presentation.missionary.gaze_offset_mm` (debug, signed). A kiss leans the eye in toward the aim but never closer than

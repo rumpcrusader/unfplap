@@ -250,6 +250,11 @@ var _bed_pose_frame: Variant = null
 var _pose_logged := false
 ## Frames the render-time placement trace has printed this act (two, then it stops).
 var _pose_trace_frames := 0
+## The authored body bones the live rig lacks, cached per skeleton. The gate polls every frame, so
+## the name lookup runs once per rig, not once per poll.
+var _pose_rig_checked := false
+var _pose_rig_skeleton := 0
+var _pose_rig_missing_bones: Array = []
 ## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
 var _free_look_yaw := 0.0
 var _free_look_pitch := 0.0
@@ -1277,6 +1282,9 @@ func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: Strin
 	if pose == CATALOG.MISSIONARY:
 		var pose_ready := _authored_pose_ready()
 		_gate_row(rows, "pose_asset", pose_ready, _authored_pose_reason())
+		if pose_ready:
+			var missing := _pose_rig_missing()
+			_gate_row(rows, "pose_rig", missing.is_empty(), _pose_rig_reason(missing))
 		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
 		_gate_row(rows, "bed", found != null, "no_bed")
 		if found != null:
@@ -2506,6 +2514,9 @@ func _restore_pony_bones() -> void:
 
 
 func _free_pose() -> void:
+	_pose_rig_checked = false
+	_pose_rig_skeleton = 0
+	_pose_rig_missing_bones = []
 	if is_instance_valid(_tail_lay):
 		_tail_lay.call("restore_tail")
 		_tail_lay.queue_free()
@@ -5488,6 +5499,37 @@ func _authored_pose_reason() -> String:
 	return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
 
 
+## The authored body bones the live rig lacks. The pose writes only the bones it holds, so a missing
+## one leaves the game's pose on that link and the chain above it reads broken; the act refuses to
+## start. Cached per skeleton instance, because the gate polls every frame.
+func _pose_rig_missing() -> Array:
+	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+	if not sk is Skeleton3D:
+		return []
+	var skeleton := sk as Skeleton3D
+	var id := skeleton.get_instance_id()
+	if _pose_rig_checked and id == _pose_rig_skeleton:
+		return _pose_rig_missing_bones
+	_pose_rig_checked = true
+	_pose_rig_skeleton = id
+	var missing: Variant = _authored_pose().call("missing_bones", skeleton)
+	_pose_rig_missing_bones = missing if missing is Array else []
+	return _pose_rig_missing_bones
+
+
+## The gate row's reason, naming the first few bones and counting the rest.
+func _pose_rig_reason(missing: Array) -> String:
+	if missing.is_empty():
+		return ""
+	var names: PackedStringArray = []
+	for i in mini(3, missing.size()):
+		names.append(str(missing[i]))
+	var text := "pose_rig: missing %s" % ", ".join(names)
+	if missing.size() > 3:
+		text += " (+%d more)" % (missing.size() - 3)
+	return text
+
+
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
 ## One idle-frame sample of what the renderer actually sees, once per act.
@@ -5659,10 +5701,10 @@ func pose_state_rows() -> Array:
 	var rows: Array = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
 		str(pony.name) if is_instance_valid(pony) else "?", pose_id, state, _pose_basis_amount()])
-	rows.append("base=%s reason=%s asset=v%d %s bones=%d shots=%s error=%s" % [
+	rows.append("base=%s reason=%s asset=v%d %s bones=%d missing=%s shots=%s error=%s" % [
 		str(info["base"]), str(info["reason"]),
 		int(info["version"]), "ok" if bool(info["available"]) else "error", int(info["bones"]),
-		"yes" if bool(info["shots"]) else "no", str(info["error"])])
+		str(_pose_rig_missing()), "yes" if bool(info["shots"]) else "no", str(info["error"])])
 	rows.append("bed_frame=%s scale=%.2f" % [
 		str(frame) if frame is Transform3D else "null", _body_scale_value()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
@@ -5691,11 +5733,14 @@ func _log_pose_base() -> void:
 		return
 	var info := pose_base_info()
 	var frame: Variant = info["frame"]
-	_log("missionary base=%s reason=%s asset=v%d %s bones=%d shots=%s frame=%s scale=%.2f" % [
+	var missing := _pose_rig_missing()
+	_log("missionary base=%s reason=%s asset=v%d %s bones=%d missing=%d shots=%s frame=%s scale=%.2f" % [
 		str(info["base"]), str(info["reason"]), int(info["version"]),
 		"ok" if bool(info["available"]) else "error", int(info["bones"]),
-		"yes" if bool(info["shots"]) else "no",
+		missing.size(), "yes" if bool(info["shots"]) else "no",
 		str(frame) if frame is Transform3D else "null", _body_scale_value()])
+	if not missing.is_empty():
+		_log("missionary rig %s" % _pose_rig_reason(missing))
 
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
@@ -5759,7 +5804,7 @@ func missionary_face_point() -> Vector3:
 	var direction := at - base
 	if direction.length_squared() < 0.000001:
 		return at
-	return at + direction.normalized() * 0.12
+	return at + direction.normalized() * 0.12 * _body_scale_value()
 
 
 ## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between

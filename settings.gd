@@ -606,10 +606,6 @@ static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", true, "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
-static var belly_down_deg := num("belly_down_deg", "presentation.missionary.belly_down_deg", 0.0,
-	"Belly down",
-	"Tilt her lower belly toward the mattress, out of the shot. Negative lifts it.",
-	GENERAL, "Missionary").with_unit("°").with_step(0.5).as_debug()
 static var vulva_shift_mm := num("vulva_shift_mm", "presentation.missionary.vulva_shift_mm", 70.0,
 	"Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
@@ -1236,6 +1232,9 @@ static var _deprecated := [
 		func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.side", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.missionary.pose_hold",
+		func(_value: Variant) -> Dictionary: return {}),
+	# The authored pose holds the belly; the tilt is retired.
+	deprecated("presentation.missionary.belly_down_deg",
 		func(_value: Variant) -> Dictionary: return {}),
 	# The authored shots are the whole framing now: the live shot offsets, the side-lean travel and
 	# the upper-body base lean are retired.

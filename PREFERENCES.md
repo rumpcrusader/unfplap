@@ -134,7 +134,7 @@ tuning:
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
-- **Missionary**: body motion, belly down, the three vulva trims (shift/pitch/depth), two hacks
+- **Missionary**: body motion, the three vulva trims (shift/pitch/depth), two hacks
   (**Disable fold coloring**, **Vulva hug**), head clearance, gaze height, camera mode, free look
   and third-person views.
 - **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.

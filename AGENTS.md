@@ -339,8 +339,6 @@ reclined eye height left the camera wrong after the act.
   skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
   parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the
   view sideways instead of nodding it.
-- `presentation.missionary.belly_down_deg` (debug, default 0) tilts `pony_spine1` about the bed's
-  lateral axis before the gaze, so the belly sinks off the vulva without moving her face off Anon.
 - Body bones carry a rotation **and** a position, and both are applied: a lengthened neck or a
   displaced flank root can be deliberate. Only the root carries the absolute placement.
 - The head bone is reset to rest; the gaze solve owns the face. The pose lab has no head mesh, so
@@ -1681,7 +1679,7 @@ rump blush. Unknown settings keys are ignored.
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
-  - `missionary`: `belly_down_deg`, `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`,
+  - `missionary`: `vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`,
     `disable_fold_coloring`, `vulva_hug_mm`, `head_clearance_mm`, `gaze_offset_mm`, `camera_mode`,
     `third_person`, `free_look`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
@@ -1738,7 +1736,7 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, belly down,
+  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion,
   vulva shift/pitch/depth, fold/hug hacks, head clearance, gaze height, Use free look),
   **Standing** (with **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust
   jiggle** sections. **Anatomy**

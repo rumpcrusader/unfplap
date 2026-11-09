@@ -183,12 +183,12 @@ func _check_panels() -> void:
 func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
 	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", [
-		"presentation.missionary.belly_down_deg", "camera_thrust.bob",
+		"presentation.missionary.gaze_offset_mm", "camera_thrust.bob",
 		"presentation.missionary.camera_mode"], 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
-	check(labels.has("Belly down") and labels.has("Camera"),
+	check(labels.has("Gaze height") and labels.has("Camera"),
 		"an interleaved section keeps every row")
 	check(labels.has("Bob"), "the interleaved section still draws the other group")
 	list.free()

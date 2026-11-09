@@ -20,7 +20,6 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	if authored == null or not frame is Transform3D or not bool(authored.get("available")):
 		return
 	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)))
-	_belly_down(rig, sk, weight, state, frame)
 	_neutral_head(sk, weight)
 	var pulse := 1.0 if bool(state.get("climaxing", false)) else _nuzzle_pulse(float(state.get("clock", 0.0)))
 	if bool(state.get("climaxing", false)):
@@ -29,19 +28,6 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	if pulse > 0.001 and look_point.is_finite():
 		look_point = _nuzzle_look_point(rig, sk, look_point, pulse)
 	_aim_gaze(rig, sk, weight, look_point)
-
-
-## Tilt her lower belly toward the mattress so it stops covering the vulva. Runs before the gaze,
-## so the head still ends up on Anon.
-func _belly_down(rig, sk: Skeleton3D, weight: float, state: Dictionary, frame: Transform3D) -> void:
-	var degrees := _value("belly_down_deg", 0.0)
-	if absf(degrees) < 0.01:
-		return
-	var bone: int = sk.find_bone("pony_spine1")
-	if bone < 0:
-		return
-	var axis := (sk.global_basis.inverse() * frame.basis.x).normalized()
-	rig.rotate_free(sk, bone, axis, deg_to_rad(degrees) * clampf(weight, 0.0, 1.0))
 
 
 ## The head bone's own rotation comes from the game's lie animation and is not part of the authored

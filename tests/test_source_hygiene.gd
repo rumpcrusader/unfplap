@@ -44,9 +44,9 @@ func run() -> void:
 	for path: String in [
 		".opencode/skills/release/SKILL.md",
 		".opencode/commands/release.md",
-		"scripts/release_prepare.sh",
-		"scripts/release_check.sh",
-		"scripts/check_release.py",
+		"scripts/prepare_release.sh",
+		"scripts/check_release.sh",
+		"scripts/check_release_metadata.py",
 	]:
 		check(FileAccess.file_exists(ROOT.path_join(path)), "release file %s" % path)
 	for path: String in ["build.sh", "tools/pack.gd", ".github/workflows/build.yml"]:

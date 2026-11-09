@@ -31,7 +31,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           NOTES: ${{ runner.temp }}/release_notes.md
-        run: scripts/release_check.sh --ci --tag "$GITHUB_REF_NAME" --notes-out "$NOTES"
+        run: scripts/check_release.sh --ci --tag "$GITHUB_REF_NAME" --notes-out "$NOTES"
 
       - name: Fetch anatomy assets
         if: startsWith(github.ref, 'refs/tags/v')

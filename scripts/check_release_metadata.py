@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the release metadata shared by the local preflight and CI.
 
-Usage: scripts/check_release.py VERSION --tag TAG --mode local|ci [--notes-out FILE]
+Usage: scripts/check_release_metadata.py VERSION --tag TAG --mode local|ci [--notes-out FILE]
 """
 import argparse
 import json
@@ -91,5 +91,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, ValueError) as error:
         fail(str(error))

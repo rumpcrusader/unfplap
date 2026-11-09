@@ -225,7 +225,7 @@ mods/unfplap/
   dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
   sex_bond.gd       pure Promiscuity levels + per-world lover-bond state and validity
   HISTORY.md        act score, history points, tiers, offer weighting and repair contract
-  scripts/          release helpers plus test, build and anatomy scripts
+  scripts/          prepare_release.sh, check_release.sh, check_release_metadata.py and other scripts
   .opencode/        release skill and command; never packed
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    preference/readiness/strength contract

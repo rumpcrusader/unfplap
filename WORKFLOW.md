@@ -38,8 +38,8 @@ One line, at most 72 characters, no trailing period. Reverts use
 belongs in the code comment or the contract doc, not in git.
 
 Scopes: `camera`, `missionary`, `standing`, `thrust`, `hips`, `settings`, `hud`,
-`dialogue`, `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`,
-`anatomy`, `vr`.
+`dialogue`, `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`, `ci`,
+`release`, `anatomy`, `vr`.
 
 Never use `WIP`, `fixes`, `stuff`, `misc` or `cleanup` as the whole message: say what changed.
 

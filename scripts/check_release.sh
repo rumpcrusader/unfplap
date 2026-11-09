@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Validate a prepared release, or the metadata of a pushed tag in CI.
 #
-#   scripts/release_check.sh
+#   scripts/check_release.sh
 #     Local release check: clean master, release commit, version/changelog/target game,
 #     test suites, self-verifying preflight build, then a review packet and the exact
 #     push/tag commands. It never tags or pushes.
 #
-#   scripts/release_check.sh --ci --tag v0.3.2 [--notes-out FILE]
+#   scripts/check_release.sh --ci --tag v0.3.2 [--notes-out FILE]
 #     CI metadata check: annotated tag on master, version/changelog/docs consistency, and
 #     optionally write the release-notes body. It does not need the full game project.
 set -euo pipefail
@@ -45,7 +45,7 @@ if [ "$CI" -eq 1 ]; then
 	fi
 	VERSION="${TAG#v}"
 	[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag must be vMAJOR.MINOR.PATCH: $TAG"
-	scripts/check_release.py "$VERSION" --tag "$TAG" --mode ci --notes-out "$NOTES"
+	scripts/check_release_metadata.py "$VERSION" --tag "$TAG" --mode ci --notes-out "$NOTES"
 	if [ -n "$NOTES" ]; then echo "Release notes written to $NOTES"; fi
 	echo "RELEASE_CHECK_CI_OK tag=$TAG version=$VERSION"
 	exit 0
@@ -70,7 +70,7 @@ if [ "${#CHANGED[@]}" -ne 2 ] || [ "${CHANGED[0]}" != "changelog.txt" ] || [ "${
 fi
 
 GAME_VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["game_version"])' "$ROOT/mod.json")"
-scripts/check_release.py "$VERSION" --tag "$TAG" --mode local
+scripts/check_release_metadata.py "$VERSION" --tag "$TAG" --mode local
 
 echo "Running test suites..."
 scripts/test_all.sh

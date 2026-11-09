@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Prepare the mechanical part of a release.
 #
-#   scripts/release_prepare.sh              -> print the current version, target game and tags
-#   scripts/release_prepare.sh 0.3.2        -> bump mod.json and insert the changelog section
+#   scripts/prepare_release.sh              -> print the current version, target game and tags
+#   scripts/prepare_release.sh 0.3.2        -> bump mod.json and insert the changelog section
 #
 # The script refuses a dirty tree, a non-master branch, an existing tag, a version that does not
 # increase, and a mod.json game_version that does not match project.godot. It never commits.
@@ -18,7 +18,7 @@ usage() { sed -n '2,8p' "$0"; }
 case "${1:-}" in
 	-h|--help) usage; exit 0 ;;
 esac
-if [ "$#" -gt 1 ]; then fail "usage: scripts/release_prepare.sh [VERSION]"; fi
+if [ "$#" -gt 1 ]; then fail "usage: scripts/prepare_release.sh [VERSION]"; fi
 
 if [ ! -f "$ROOT/mod.json" ] || [ ! -f "$ROOT/changelog.txt" ]; then
 	fail "run from the mod repository root (mod.json and changelog.txt missing)"
@@ -112,4 +112,4 @@ else
 	echo "Commits:"
 	git log --oneline
 fi
-echo "Next: replace the TODO with user-facing bullets, commit mod.json and changelog.txt, then run scripts/release_check.sh."
+echo "Next: replace the TODO with user-facing bullets, commit mod.json and changelog.txt, then run scripts/check_release.sh."

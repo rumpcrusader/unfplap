@@ -16,7 +16,7 @@ tag is pushed.
 - `git status --short` must be empty.
 - `git branch --show-current` must be `master`.
 - Read `mod.json` and `project.godot` (`config/version`).
-- Run `scripts/release_prepare.sh` with no argument to print the current version, target game,
+- Run `scripts/prepare_release.sh` with no argument to print the current version, target game,
   last tag and commit count.
 - Ask the user for the next version (patch/minor/major) and confirm the target game.
 - If `project.godot` and `mod.json.game_version` differ, stop. Update compatibility in a separate
@@ -24,7 +24,7 @@ tag is pushed.
 
 ## 2. Prepare
 
-Run `scripts/release_prepare.sh <version>`. It updates `mod.json.version`, inserts a changelog
+Run `scripts/prepare_release.sh <version>`. It updates `mod.json.version`, inserts a changelog
 section with `- TODO`, and prints the commits since the previous tag.
 
 Draft the changelog from those commits:
@@ -52,7 +52,7 @@ commit.
 
 ## 4. Validate
 
-Run `scripts/release_check.sh`. It checks the release commit, versions, changelog, target game,
+Run `scripts/check_release.sh`. It checks the release commit, versions, changelog, target game,
 runs the test suites, and builds a self-verifying preflight pack. Show its full review packet;
 do not summarize away warnings.
 
@@ -63,7 +63,7 @@ Stop. Ask the user to:
   changes always need this);
 - confirm the pack loads in a fresh world and an existing save.
 
-If the user wants changes, amend the local commit and rerun `release_check.sh`. Never amend after
+If the user wants changes, amend the local commit and rerun `check_release.sh`. Never amend after
 the commit has been pushed.
 
 ## 5. Hand off
@@ -87,7 +87,7 @@ The store dry run previews the pone.rs mirror but does not write the store.
 
 ## Failure
 
-- Before the tag is pushed: fix, amend the local commit, rerun `release_check.sh`.
+- Before the tag is pushed: fix, amend the local commit, rerun `check_release.sh`.
 - After the tag is pushed: never move or reuse the tag. Publish a new patch release.
 - If `build.sh` fails, fix the pack; do not work around the verifier.
 - If anatomy assets changed, the user must run `scripts/pack_anatomy.sh --upload` and commit

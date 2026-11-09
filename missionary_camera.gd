@@ -147,6 +147,9 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	var at: Vector3 = (eye as Transform3D).origin
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
 		basis = Basis(Vector3.UP, look.y) * basis * Basis(Vector3.RIGHT, look.x)
+	# The same speed-driven surge/bob the standing camera uses; at rest both settle to zero.
+	at += Vector3.UP * float(runtime.get("_bob"))
+	at -= basis.z * float(runtime.get("_lean"))
 	var aim: Vector3 = runtime.call("missionary_face_point")
 	if aim.is_finite():
 		at += basis.x * kiss.lateral_offset(float(runtime.call("_lean_size_scale")))
@@ -194,6 +197,10 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 		return
 	var at := shot.origin
 	var view_basis := shot.basis.orthonormalized()
+	# The speed-driven surge/bob from standing: zero at rest, so the eye is exactly the authored
+	# transform; during a stroke the view rocks with it.
+	at += Vector3.UP * float(runtime.get("_bob"))
+	at -= view_basis.z * float(runtime.get("_lean"))
 	if SETTINGS.third_person.get_bool():
 		# Third-person views (debug) is the only deviation from the authored transform: the lean
 		# tilts the eye, the speed-driven surge travels along the mattress and a side lean travels
@@ -205,8 +212,6 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 			(-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * side
 				+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * forward) * lean_scale))
 		view_basis = view_basis * lean
-		at = shot.origin + Vector3.UP * float(runtime.get("_bob"))
-		at += _bed_head_direction() * float(runtime.get("_lean"))
 		at += view_basis.x * kiss.lateral_offset(lean_scale)
 		at.y -= kiss.lean_drop() * kiss.lean()
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:

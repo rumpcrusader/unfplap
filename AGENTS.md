@@ -497,15 +497,17 @@ from the pose lab: `shots.start` (neutral), `shots.back` (S), `shots.front` (W, 
 `left` to match the screen). Both position and direction are used; the origin scales with
 `body_scale`. The weights are `max(0, 1 - |forward| - |side|)` for start, `|forward|` for the
 forward/back shot and `|side|` for the side shot, normalised. A pure axis lean has a single weight of
-one, so the eye meets the authored transform exactly; everything between is a position average and a
-quaternion average. A kiss does not move the authored shot — the `front` transform is the framing.
+one, so with no stroke speed the eye meets the authored transform exactly; everything between is a
+position average and a quaternion average. The speed-driven surge/bob from standing is added on top
+(along the camera forward and world up) and settles to zero at rest. A kiss does not move the
+authored shot — the `front` transform is the framing.
 The `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**. A missing shot falls back to a fixed
 bed-relative point aimed at her live face and is named in the log. There is no live offset, no frozen
 anchor and no framing nudge.
 **Third-person views** (`presentation.missionary.third_person`, debug, off by default) is the only way
-off the trajectory: with it on, the lean tilts the eye and the thrust surge travels along the
-mattress, plus side-lean travel, bob and the kiss lateral/drop. Off, the eye only ever sits on the
-authored positions (plus the kiss lean-in). The bullets below cover the rest of the shot's behaviour.
+off the trajectory: with it on, the lean tilts the eye and the side-lean travel and kiss
+lateral/drop are added. Off, the authored transform plus the surge/bob is the whole shot. The
+bullets below cover the rest of the shot's behaviour.
 
 - Missionary body motion is `prone_sway` (`missionary_body_motion`), not the standing `body_sway`
   (`standing_body_sway`): the spine slides a little along the bed with raw depth and the head/neck
@@ -782,8 +784,9 @@ custom head-aim path below.
 - Both follow the filtered signed depth speed with one critically damped response. No impulses,
   no per-stroke kick and no camera rock.
 - Climax uses `CAM_CLIMAX_SURGE_M = 0.02` and `CAM_CLIMAX_BOB_M = 0.008`, scaled by the sliders.
-- Missionary and standing use the same surge/bob. Missionary sends the surge along the mattress toward her
-  head; standing sends it along the camera forward.
+- Missionary and standing use the same surge/bob. Both send the surge along the camera forward and
+  the bob along world up; in the authored shot they are the only motion off the authored transform,
+  and they settle to zero when the stroke stops.
 - Teardown is one function. `_end_session(rejoin_cuddle)` gives back, in order: the inventory HUD,
   request face, kiss forelegs, face-turn rate, eye override, face and wings, player lock, camera,
   `sex_active`, navigator, player look, posture/cuddle, pose, audio, HUD and the active runtime.

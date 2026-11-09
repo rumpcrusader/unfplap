@@ -156,13 +156,13 @@ The eye blends between the five authored camera **transforms** and nothing else:
 `back` (S), `front` (W, the kiss framing), `left`/`right` (Q/E). Both position and direction are
 used. A pure axis lean meets the saved transform exactly; everything between is interpolated. A
 shot the asset does not carry falls back to a fixed bed-relative point aimed at her live face, and
-the log names it. Free look turns this shot where it stands.
+the log names it. The speed-driven surge/bob from standing (camera forward and world up) is added and
+settles to zero at rest. Free look turns this shot where it stands.
 
 **Third-person views** (`presentation.missionary.third_person`, debug, default off) is the only thing
 that takes the eye off that trajectory: with it on, the lean also tilts the eye and the speed-driven
-thrust surge travels along the mattress toward her head, plus the side-lean travel, the bob and the
-kiss lateral/drop — the shot then drifts around the two joined bodies. Off keeps the eye strictly on
-the authored positions.
+tilt, side-lean travel and the kiss lateral/drop are added — the shot then drifts around the two
+joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
 
 - Five camera transforms come from the pose lab, bed-relative, in the asset's `shots` block. Both
   origin and basis are used; the origin is scaled by `body_scale`, the basis is not.
@@ -186,10 +186,9 @@ the authored positions.
   applies that offset, so his pelvis follows the entrance and the shaft can never slide out of his
   crotch — the same logic the standing act uses. The detached bed holder (`_track_bed`) is no longer
   used by the act.
-- The lean basis (pitch, side yaw, roll), the speed-driven surge along the mattress toward her
-  head, the side-lean travel, `_bob` and the kiss lateral offset/drop are the only extra motion.
-  The view is kept at least 0.10 m over the bed surface. There is no frozen anchor and no framing
-  nudge, so nothing can accumulate.
+- The speed-driven surge and bob (camera forward and world up, zero at rest) are always added. The
+  third-person debug adds the lean basis (pitch, side yaw, roll), the side-lean travel and the kiss
+  lateral/drop. There is no frozen anchor and no framing nudge, so nothing can accumulate.
 
 ## Standing
 

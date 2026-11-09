@@ -79,6 +79,7 @@ num(n, path, default, label, help, tab, group)
 choice(n, path, default, options, labels, label, help, tab, group)
 list(n, path, default, options, label, help, tab, group)
     .as_debug() on any kind
+    .as_hidden() on any kind
 ```
 
 | Argument | Meaning |
@@ -92,6 +93,7 @@ list(n, path, default, options, label, help, tab, group)
 | `with_range` | the contract bounds; only applied when the setting is not debug |
 | `with_slider` | draw a themed HSlider instead of a spin box |
 | `as_debug` | show it in the tab's Debug block only, and never clamp it |
+| `as_hidden` | keep it out of the declaration rows; a hand-built `settings_ui.gd` control (the placement target pill) owns the widget |
 
 Declarations render **in file order**, and a section is created where it first appears. Put a line
 where a player would look for it, next to the setting it belongs to; do not add a "misc" section.
@@ -133,6 +135,10 @@ prefixes pre-emptively.
 
 - The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
   Defaults are generated from the registry, so there is no second defaults table.
+- `anatomy.placement` is one block with `default.*` (five debug declarations), `anon.*` (the player
+  part) and partial `<mare id>.*` overrides. `anatomy_placement.gd` owns the shipped per-mare
+  `MARE_DEFAULTS` and resolves override, shipped default, then global default. The old
+  `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
   cached per generation, so a per-frame read is cheap.

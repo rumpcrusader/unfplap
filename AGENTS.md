@@ -19,6 +19,7 @@ Do not start implementation until you have read the required files for the area 
 | Character profiles or preference | `character_preferences.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
 | Release | `.opencode/skills/release/SKILL.md` |
+| Sync local settings to shipped defaults | `.opencode/skills/sync-settings/SKILL.md` |
 
 ## Identity and scope
 
@@ -242,7 +243,7 @@ mods/unfplap/
                     build_manifest.py, prepare_release.sh, check_release.sh,
                     check_release_metadata.py and other scripts
   assets/README.md  resource-pack layout and asset-change workflow; never packed
-  .opencode/        release skill and command; never packed
+  .opencode/        release and sync-settings skills/commands; never packed
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    preference/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract

@@ -45,6 +45,17 @@ func _plane() -> Variant:
 	return surface
 
 
+func _add_quad(verts: PackedVector3Array, norms: PackedVector3Array,
+		indices: PackedInt32Array, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
+		normal: Vector3) -> void:
+	var base := verts.size()
+	verts.append_array(PackedVector3Array([a, b, c, d]))
+	for _i in 4:
+		norms.append(normal)
+	indices.append_array(PackedInt32Array([base, base + 1, base + 2,
+		base, base + 2, base + 3]))
+
+
 func _path_fixture() -> Dictionary:
 	var root := Node3D.new()
 	get_root().add_child(root)
@@ -61,15 +72,24 @@ func _path_fixture() -> Dictionary:
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
 	var indices := PackedInt32Array()
-	for i in 5:
-		var z := -float(i) * 0.25
-		verts.append(Vector3(-0.2, -0.2, z))
-		verts.append(Vector3(0.2, -0.2, z))
-		norms.append(Vector3.UP)
-		norms.append(Vector3.UP)
-	for i in 4:
-		var a := i * 2
-		indices.append_array(PackedInt32Array([a, a + 1, a + 3, a, a + 3, a + 2]))
+	var x0 := -0.2
+	var x1 := 0.2
+	var y0 := -0.3
+	var y1 := 0.1
+	var z0 := -1.0
+	var z1 := 0.4
+	_add_quad(verts, norms, indices, Vector3(x0, y0, z0), Vector3(x1, y0, z0),
+		Vector3(x1, y0, z1), Vector3(x0, y0, z1), Vector3.DOWN)
+	_add_quad(verts, norms, indices, Vector3(x0, y1, z1), Vector3(x1, y1, z1),
+		Vector3(x1, y1, z0), Vector3(x0, y1, z0), Vector3.UP)
+	_add_quad(verts, norms, indices, Vector3(x1, y0, z0), Vector3(x1, y1, z0),
+		Vector3(x1, y1, z1), Vector3(x1, y0, z1), Vector3.RIGHT)
+	_add_quad(verts, norms, indices, Vector3(x0, y0, z1), Vector3(x0, y1, z1),
+		Vector3(x0, y1, z0), Vector3(x0, y0, z0), Vector3.LEFT)
+	_add_quad(verts, norms, indices, Vector3(x0, y0, z0), Vector3(x0, y1, z0),
+		Vector3(x1, y1, z0), Vector3(x1, y0, z0), Vector3.FORWARD)
+	_add_quad(verts, norms, indices, Vector3(x1, y0, z1), Vector3(x1, y1, z1),
+		Vector3(x0, y1, z1), Vector3(x0, y0, z1), Vector3.BACK)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = norms
 	arrays[Mesh.ARRAY_INDEX] = indices
@@ -91,6 +111,7 @@ func _path_fixture() -> Dictionary:
 	model.name = "Model"
 	root.add_child(model)
 	model.add_child(body)
+	body.skeleton = body.get_path_to(sk)
 	var pony := FakePony.new()
 	pony._model = model
 	pony.skeleton = sk
@@ -183,10 +204,10 @@ func run() -> void:
 	var built_finger: Vector3 = built["finger"]
 	var built_normal: Vector3 = built["normal"]
 	check(built_point.is_finite(), "the built path point is finite")
-	check(near(built_point.y, -0.2, 0.01), "the built path point sits on the body mesh")
+	check(near(built_point.y, -0.3, 0.01), "the built path point sits on the body mesh")
 	check(built_finger.dot(Vector3.FORWARD) > 0.5,
 		"the built path tangent points toward her head")
-	check(built_normal.y > 0.9, "the built path normal faces outward")
+	check(built_normal.y < -0.9, "the built path normal faces outward")
 	root.free()
 
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),

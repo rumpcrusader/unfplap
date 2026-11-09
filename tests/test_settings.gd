@@ -383,6 +383,16 @@ func _check_migration() -> void:
 		"anatomy": {"hide_dock": true}}, SETTINGS.SCHEMA_VERSION)
 	check(not bool(dock["anatomy"].get("show_dock", true)), "hide_dock true maps to show_dock false")
 
+	# The old caress shoulder default detached the arm; migrate only the shipped 12 cm value.
+	var reach: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
+		"features": {"caress_reach_shoulder_m": 0.12}}, SETTINGS.SCHEMA_VERSION - 1)
+	check(near(float((reach.get("features", {}) as Dictionary).get(
+		"caress_reach_shoulder_m", 0.0)), 0.02), "the old caress reach default migrates")
+	var reach_tuned: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
+		"features": {"caress_reach_shoulder_m": 0.05}}, SETTINGS.SCHEMA_VERSION - 1)
+	check(near(float((reach_tuned.get("features", {}) as Dictionary).get(
+		"caress_reach_shoulder_m", 0.0)), 0.05), "a tuned caress reach survives migration")
+
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,
 		"features": {"act_chat": true, "hud_readouts": true},

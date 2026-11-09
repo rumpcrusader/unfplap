@@ -1210,45 +1210,146 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 	var path: Variant = _missionary_anchor_path(hand_side)
 	if path == null:
 		return _precise_last_or_invalid(hand_side)
+	var world: Array = path.call("skinned")
+	if world.size() < 3:
+		return _precise_last_or_invalid(hand_side)
 	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
 	var along_setting := float(SETTINGS.along_m.get_num())
 	var scale := _smack_body_scale()
 	var body_right: Vector3 = pony.global_basis.x.normalized()
-	var sample: Dictionary = path.call("sample", lean, along_setting, body_right)
-	if sample.is_empty():
-		return _precise_last_or_invalid(hand_side)
-	var centre: Vector3 = sample["point"]
-	var normal: Vector3 = sample["normal"]
-	var finger: Vector3 = sample["finger"]
-	var lateral_axis: Vector3 = sample["side"]
-	centre += lateral_axis * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
+	var body_axis := _missionary_body_axis(skeleton_v as Skeleton3D)
+	var length := CAESS_PATH.path_length(world)
+	var u_wanted := CAESS_PATH.u_for(lean, along_setting / maxf(length, 0.05))
 	var angle := float(_caress_phase[side])
 	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01)
-	var offset := finger * (cos(angle) * _caress_oval_across_m() * scale * oval_scale) \
-		+ lateral_axis * (sin(angle) * _caress_oval_up_m() * scale * oval_scale)
-	var contact := centre + offset
-	var roll_deg := missionary_palm_roll_deg(hand_side) * float(sample["roll"])
 	var hover := _precise_hover()
+	var reach := _caress_reach(hand_side)
+	var max_reach := _caress_max_reach(reach)
+	var chosen: Dictionary = {}
+	var best: Dictionary = {}
+	var best_distance := INF
+	var steps := 32
+	for i in steps:
+		var try_u := u_wanted * (1.0 - float(i) / float(steps - 1))
+		var sample := CAESS_PATH.sample_world(world, try_u, hand_side, body_right)
+		if sample.is_empty():
+			continue
+		var frame := _missionary_frame(sample, hand_side, scale, body_axis, angle,
+			oval_scale, hover)
+		if not bool(frame.get("valid", false)):
+			continue
+		if max_reach <= 0.0:
+			chosen = frame
+			break
+		var shoulder: Vector3 = reach["origin"]
+		var frame_target: Transform3D = frame["target"]
+		var distance := shoulder.distance_to(frame_target.origin)
+		if distance < best_distance:
+			best_distance = distance
+			best = frame
+		if distance <= max_reach:
+			chosen = frame
+			break
+	if chosen.is_empty():
+		chosen = best
+	if chosen.is_empty():
+		return _precise_last_or_invalid(hand_side)
+	var contact: Vector3 = chosen["contact"]
+	var normal: Vector3 = chosen["normal"]
+	var finger: Vector3 = chosen["finger"]
+	var mode: String = chosen["mode"]
+	var roll_deg := float(chosen["roll"])
+	var u := float(chosen["u"])
 	var shape := _hand_shape_on()
 	var target: Transform3D
+	var log_surface: Variant = null
 	if shape:
-		var chosen := _closest_precise(["torso", "head"], contact)
-		if chosen.is_empty():
+		var closest := _closest_precise(["torso", "head"], contact)
+		if closest.is_empty():
 			return _precise_last_or_invalid(hand_side)
-		var hit_point: Vector3 = chosen["point"]
-		var hit_normal: Vector3 = chosen["normal"]
+		var hit_point: Vector3 = closest["point"]
+		var hit_normal: Vector3 = closest["normal"]
 		var hand_started := Time.get_ticks_usec()
-		target = _precise_hand(hit_point, hit_normal, finger, hand_side, "palm", roll_deg,
-			hover, chosen["surface"], true)
-		_log_precise(hand_side, "palm", chosen["surface"], target, roll_deg, hover, true)
+		target = _precise_hand(hit_point, hit_normal, finger, hand_side, mode, roll_deg,
+			hover, closest["surface"], true)
+		log_surface = closest["surface"]
+		normal = hit_normal
 		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 			runtime.call("perf_note", "caress_hand", Time.get_ticks_usec() - hand_started)
 	else:
-		target = CAESS_HAND.place(contact, normal, finger, hand_side, "palm", roll_deg,
-			hover)
-		_log_precise(hand_side, "palm", null, target, roll_deg, hover, false)
+		target = chosen["target"]
+	_log_precise(hand_side, mode, log_surface, target, roll_deg, hover, shape,
+		normal, finger, u)
 	_precise_last[hand_side] = target
 	return target
+
+
+func _missionary_body_axis(skeleton: Skeleton3D) -> Vector3:
+	var head := skeleton.find_bone("pony_head")
+	var hips := skeleton.find_bone("pony_hips")
+	if head < 0 or hips < 0:
+		return Vector3.FORWARD
+	var g := skeleton.global_transform
+	var head_pos := g * skeleton.get_bone_global_pose(head).origin
+	var hips_pos := g * skeleton.get_bone_global_pose(hips).origin
+	var axis := head_pos - hips_pos
+	if axis.length_squared() < 0.0001:
+		return Vector3.FORWARD
+	return axis.normalized()
+
+
+func _caress_reach(hand_side: String) -> Dictionary:
+	var driver := _hand_driver()
+	if is_instance_valid(driver) and driver.has_method("caress_reach"):
+		var value: Variant = driver.call("caress_reach", hand_side)
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _caress_max_reach(reach: Dictionary) -> float:
+	if reach.is_empty():
+		return 0.0
+	var stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
+	var total := (float(reach.get("upper", 0.0)) + float(reach.get("lower", 0.0))
+		+ float(reach.get("hand", 0.0))) * stretch
+	total += maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
+	total += maxf(float(SETTINGS.caress_reach_body_m.get_num()), 0.0)
+	return total
+
+
+func _missionary_frame(sample: Dictionary, hand_side: String, scale: float,
+		body_axis: Vector3, angle: float, oval_scale: float, hover: float) -> Dictionary:
+	var normal: Vector3 = sample["normal"]
+	var centre: Vector3 = sample["point"]
+	var lateral: Vector3 = sample["side"]
+	centre += lateral * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
+	var along := body_axis - normal * body_axis.dot(normal)
+	if along.length_squared() < 0.0001:
+		along = sample["finger"]
+	if along.length_squared() < 0.0001:
+		along = sample["side"]
+	along = along.normalized()
+	var across := lateral - normal * lateral.dot(normal)
+	if across.length_squared() < 0.0001:
+		across = normal.cross(along)
+	across = across.normalized()
+	var offset := along * (cos(angle) * _caress_oval_across_m() * scale * oval_scale) \
+		+ across * (sin(angle) * _caress_oval_up_m() * scale * oval_scale)
+	var contact := centre + offset
+	var u := float(sample.get("u", 0.0))
+	var mode := "fingertip" if u >= 0.75 else "palm"
+	var roll := missionary_palm_roll_deg(hand_side) * float(sample["roll"])
+	return {
+		"target": CAESS_HAND.place(contact, normal, along, hand_side, mode, roll, hover),
+		"contact": contact,
+		"normal": normal,
+		"finger": along,
+		"mode": mode,
+		"roll": roll,
+		"u": u,
+		"valid": true,
+	}
 
 
 ## The precise connection is opt-in while it is validated.
@@ -1317,7 +1418,8 @@ func _precise_hand(contact: Vector3, normal: Vector3, finger: Vector3, hand_side
 
 
 func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Transform3D,
-		roll_deg: float, hover: float, shape := false) -> void:
+		roll_deg: float, hover: float, shape := false, normal := Vector3.UP,
+		finger := Vector3.FORWARD, u := 0.0) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
 		return
 	if bool(_precise_logged.get(hand_side, false)):
@@ -1330,8 +1432,9 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 			int(surface.get("query_us"))]
 	elif shape:
 		info = "fallback"
-	_log("precise caress side=%s mode=%s shape=%s target=%s roll=%.0f over=%.3f surface=%s" % [
-		hand_side, mode, "yes" if shape else "no", str(frame.origin), roll_deg, hover, info])
+	_log("precise caress side=%s mode=%s shape=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
+		hand_side, mode, "yes" if shape else "no", u, str(frame.origin), str(normal),
+		str(finger), roll_deg, hover, info])
 
 
 func _missionary_anchor_path(hand_side: String) -> Variant:
@@ -1347,6 +1450,10 @@ func _missionary_anchor_path(hand_side: String) -> Variant:
 		_log("caress path side=%s anchors=%d build_ms=%.1f" % [hand_side,
 			(path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
+		var world: Array = path.call("skinned")
+		for anchor: Dictionary in world:
+			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],
+				str(anchor["position"]), str(anchor["normal"])])
 	return path
 
 

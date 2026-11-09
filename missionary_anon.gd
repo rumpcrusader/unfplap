@@ -400,6 +400,28 @@ func _hand_offset(side: String) -> Transform3D:
 	return value if value is Transform3D else Transform3D.IDENTITY
 
 
+## World reach of one hand, for the caress controller's reach-aware path. The wrist chain is
+## upper + lower; the palm sits one hand-offset farther, so the palm can reach that much more.
+func caress_reach(hand_side: String) -> Dictionary:
+	if not is_instance_valid(skeleton):
+		return {}
+	var name := "Left" if hand_side == "left" else "Right"
+	var upper := skeleton.find_bone(name + "UpperArm")
+	var lower := skeleton.find_bone(name + "LowerArm")
+	var hand := skeleton.find_bone(name + "Hand")
+	if upper < 0 or lower < 0 or hand < 0:
+		return {}
+	var shoulder: Vector3 = skeleton.global_transform \
+		* skeleton.get_bone_global_pose(upper).origin
+	var reach_scale := skeleton.global_transform.basis.get_scale().x
+	return {
+		"origin": shoulder,
+		"upper": skeleton.get_bone_pose_position(lower).length() * reach_scale,
+		"lower": skeleton.get_bone_pose_position(hand).length() * reach_scale,
+		"hand": _hand_offset(hand_side).origin.length() * reach_scale,
+	}
+
+
 ## Keep his palms planted while the body thrusts and leans, unless the caress holds one on her.
 ## A held hand follows the world frame the caress computed; a released one eases back to the
 ## authored mattress frame. Every path ends in the same two-bone solve, so the elbow plane and
@@ -504,9 +526,10 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 			var state := "ok" if reachable else "clamped"
 			if str(_reach_log_state.get(key, "")) != state:
 				_reach_log_state[key] = state
-				_log("caress arm side=%s %s shoulder=%.3f body=%.3f stretch=%.2f" % [
+				_log("caress arm side=%s %s shoulder=%.3f body=%.3f distance=%.3f max=%.3f stretch=%.2f" % [
 					key, state, float(plan.get("shoulder_shift", 0.0)),
-					float(plan.get("body_shift", 0.0)), stretch])
+					float(plan.get("body_shift", 0.0)), float(plan.get("distance", 0.0)),
+					float(plan.get("max_reach", 0.0)), stretch])
 	var upper_len_eff := upper_len * stretch
 	var lower_len_eff := lower_len * stretch
 	var to_target := target - shoulder

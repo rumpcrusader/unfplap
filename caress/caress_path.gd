@@ -44,7 +44,7 @@ func build(pony: Variant, hand_side: String) -> bool:
 			anchors = (cached as Array).duplicate()
 			valid = anchors.size() >= 3
 			return valid
-	anchors = _build_anchors(body, head, hand_side)
+	anchors = _build_anchors(pony, body, head, hand_side)
 	if anchors.size() < 3:
 		return false
 	_cache[key] = anchors.duplicate()
@@ -59,12 +59,10 @@ func build(pony: Variant, hand_side: String) -> bool:
 ## Skin the stored anchors and sample the path. `along_m` moves along the path in metres, and
 ## `body_right` is the pony's world right used to choose the hand-side lateral axis.
 func sample(lean: float, along_m: float, body_right: Vector3) -> Dictionary:
-	var world := _skin_anchors()
+	var world := skinned()
 	if world.size() < 3:
 		return {}
-	var length := 0.0
-	for i in range(1, world.size()):
-		length += _point(world[i]).distance_to(_point(world[i - 1]))
+	var length := path_length(world)
 	path_len = length
 	return sample_world(world, u_for(lean, along_m / maxf(length, 0.05)), side, body_right)
 
@@ -123,6 +121,7 @@ static func sample_world(world: Array, u: float, hand_side: String,
 	if lateral.dot(wanted) < 0.0:
 		lateral = -lateral
 	return {
+		"u": u,
 		"point": point,
 		"normal": normal,
 		"finger": tangent,
@@ -133,7 +132,7 @@ static func sample_world(world: Array, u: float, hand_side: String,
 	}
 
 
-func _skin_anchors() -> Array:
+func skinned() -> Array:
 	var world: Array = []
 	for anchor: Dictionary in anchors:
 		var sk: Skeleton3D = anchor.get("skeleton")
@@ -156,6 +155,7 @@ func _skin_anchors() -> Array:
 		if normal.length_squared() < 0.000001:
 			normal = Vector3.UP
 		world.append({
+			"id": str(anchor.get("id", "")),
 			"position": point,
 			"normal": normal.normalized(),
 			"lateral": float(anchor.get("lateral", 1.0)),
@@ -165,149 +165,154 @@ func _skin_anchors() -> Array:
 	return world
 
 
-func _build_anchors(body: Dictionary, head: Dictionary, hand_side: String) -> Array:
+static func path_length(world: Array) -> float:
+	var length := 0.0
+	for i in range(1, world.size()):
+		length += _point(world[i]).distance_to(_point(world[i - 1]))
+	return length
+
+
+func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
+		hand_side: String) -> Array:
 	var sk: Skeleton3D = body["skeleton"]
-	var body_mesh: MeshInstance3D = body["mesh"]
 	var spine2: Variant = _rest(sk, ["pony_spine2", "pony_spine1", "pony_hips"])
 	var spine3: Variant = _rest(sk, ["pony_spine3", "pony_neck1"])
 	var neck1: Variant = _rest(sk, ["pony_neck1", "pony_spine3"])
 	var hips_rest: Variant = _rest(sk, ["pony_hips", "pony_spine1"])
 	if spine2 == null:
 		return []
-	var lower_t: Transform3D = spine2
-	var belly_origin := lower_t.origin
-	# The spine sits along the back. Bias the body anchors toward the underside/barrel so the
-	# nearest vertex is the belly or chest, not the back. The lower anchor also sits a little
-	# toward the tail so the path tangent points toward her head.
+	var belly_origin: Vector3 = (spine2 as Transform3D).origin
 	var torso_forward := Vector3.FORWARD
 	if hips_rest != null:
 		var hips_origin: Vector3 = (hips_rest as Transform3D).origin
 		if hips_origin.distance_squared_to(belly_origin) > 0.0001:
 			torso_forward = (belly_origin - hips_origin).normalized()
-	var belly := belly_origin - Vector3.UP * 0.22
-	var chest := belly_origin - Vector3.UP * 0.22
+	var chest_origin := belly_origin
 	if spine3 != null:
-		chest = (spine3 as Transform3D).origin - Vector3.UP * 0.18
-	var neck_t: Transform3D = lower_t
+		chest_origin = (spine3 as Transform3D).origin
+	var neck_t: Transform3D = spine2 as Transform3D
 	if neck1 != null:
 		neck_t = neck1 as Transform3D
 	var side_sign := 1.0 if hand_side == "right" else -1.0
-	var neck := neck_t.origin + _lateral_axis(neck_t) * (side_sign * 0.09)
-	var lower := belly_origin - torso_forward * 0.15 - Vector3.UP * 0.28
-	var specs := [
-		{"target": lower, "lateral": 1.0, "roll": 1.0},
-		{"target": belly, "lateral": 1.0, "roll": 1.0},
-		{"target": chest, "lateral": 0.8, "roll": 0.7},
-		{"target": neck, "lateral": 0.3, "roll": 0.2},
-	]
+	var down := -Vector3.UP
 	var out: Array = []
-	for spec: Dictionary in specs:
-		var target: Vector3 = spec["target"]
-		var anchor := _nearest(body_mesh, sk, target, "torso")
-		if anchor.is_empty():
-			continue
-		anchor["lateral"] = spec["lateral"]
-		anchor["roll"] = spec["roll"]
-		anchor["region"] = "torso"
-		out.append(anchor)
+	var body_surface: Variant = SURFACE.new()
+	if bool(body_surface.call("ensure", pony, "torso")):
+		var body_source: Dictionary = body_surface.get("source")
+		var body_faces := _source_faces(body_source)
+		if not body_faces.is_empty():
+			var body_tri := TriangleMesh.new()
+			body_tri.create_from_faces(body_faces)
+			var body_specs := [
+				{"id": "lower", "inside": belly_origin - torso_forward * 0.15,
+					"out": down, "lateral": 1.0, "roll": 1.0},
+				{"id": "belly", "inside": belly_origin, "out": down,
+					"lateral": 1.0, "roll": 1.0},
+				{"id": "chest", "inside": chest_origin,
+					"out": (down + torso_forward * 0.35).normalized(),
+					"lateral": 0.8, "roll": 0.7},
+				{"id": "neck", "inside": neck_t.origin,
+					"out": _lateral_axis(neck_t) * side_sign,
+					"lateral": 0.3, "roll": 0.2},
+			]
+			for spec: Dictionary in body_specs:
+				var inside: Vector3 = spec["inside"]
+				var outward: Vector3 = spec["out"]
+				var anchor := _ray_anchor(body_source, body_tri, sk,
+					inside + outward * 1.0, inside - outward * 1.0)
+				if anchor.is_empty():
+					continue
+				anchor["id"] = spec["id"]
+				anchor["lateral"] = spec["lateral"]
+				anchor["roll"] = spec["roll"]
+				anchor["region"] = "torso"
+				out.append(anchor)
 	if not head.is_empty():
 		var hsk: Skeleton3D = head["skeleton"]
-		var hm: MeshInstance3D = head["mesh"]
 		var head_t: Variant = _rest(hsk, ["mHead", "pony_head", "Head"])
 		if head_t != null:
-			var cheek := (head_t as Transform3D).origin \
-				+ _lateral_axis(head_t as Transform3D) * (side_sign * 0.10)
-			var anchor := _nearest(hm, hsk, cheek, "head")
-			if not anchor.is_empty():
-				anchor["lateral"] = 0.0
-				anchor["roll"] = 0.0
-				anchor["region"] = "head"
-				out.append(anchor)
+			var head_surface: Variant = SURFACE.new()
+			if bool(head_surface.call("ensure", pony, "head")):
+				var head_source: Dictionary = head_surface.get("source")
+				var head_faces := _source_faces(head_source)
+				if not head_faces.is_empty():
+					var head_tri := TriangleMesh.new()
+					head_tri.create_from_faces(head_faces)
+					var head_origin: Vector3 = (head_t as Transform3D).origin
+					var head_out := _lateral_axis(head_t as Transform3D) * side_sign
+					var anchor := _ray_anchor(head_source, head_tri, hsk,
+						head_origin + head_out * 0.6, head_origin - head_out * 0.6)
+					if not anchor.is_empty():
+						anchor["id"] = "cheek"
+						anchor["lateral"] = 0.0
+						anchor["roll"] = 0.0
+						anchor["region"] = "head"
+						out.append(anchor)
 	return out
 
 
-func _nearest(mesh: MeshInstance3D, skeleton: Skeleton3D, target: Vector3,
-		region: String) -> Dictionary:
-	var skin: Skin = mesh.skin
-	if skin == null or mesh.mesh == null:
+func _source_faces(source: Dictionary) -> PackedVector3Array:
+	var vertices: Array = source.get("vertices", [])
+	var indices: PackedInt32Array = source.get("indices", PackedInt32Array())
+	var faces := PackedVector3Array()
+	faces.resize(indices.size())
+	for i in indices.size():
+		var index := indices[i]
+		if index < 0 or index >= vertices.size():
+			faces[i] = Vector3.ZERO
+			continue
+		faces[i] = vertices[index]["position"]
+	return faces
+
+
+## Cast a rest-space ray from outside the body toward the inside. The first triangle is the
+## desired near surface and its normal faces the ray origin, so the side and normal are explicit.
+func _ray_anchor(source: Dictionary, tri: TriangleMesh, skeleton: Skeleton3D,
+		outer: Vector3, inner: Vector3) -> Dictionary:
+	var hit: Variant = tri.intersect_segment(outer, inner)
+	if not hit is Dictionary or (hit as Dictionary).is_empty():
 		return {}
-	var role := "head_Head" if region == "head" else "body"
+	var indices: PackedInt32Array = source.get("indices", PackedInt32Array())
+	var vertices: Array = source.get("vertices", [])
+	var face := int((hit as Dictionary).get("face_index", -1)) * 3
+	if face < 0 or face + 2 >= indices.size():
+		return {}
+	var hit_point: Vector3 = (hit as Dictionary).get("position", Vector3.ZERO)
+	var best_index := -1
 	var best_distance := INF
-	var best: Dictionary = {}
-	for surface_index in mesh.mesh.get_surface_count():
-		var arrays := mesh.mesh.surface_get_arrays(surface_index)
-		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
-		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
-		if vertices.is_empty() or bones.is_empty():
+	for j in 3:
+		var index := indices[face + j]
+		if index < 0 or index >= vertices.size():
 			continue
-		var stride := bones.size() / vertices.size()
-		for id in vertices.size():
-			var best_bind := -1
-			var best_weight := 0.0
-			for k in stride:
-				var at := id * stride + k
-				var weight := weights[at]
-				if weight > best_weight:
-					best_weight = weight
-					best_bind = bones[at]
-			if best_bind < 0 or best_bind >= skin.get_bind_count():
-				continue
-			var bone := skin.get_bind_bone(best_bind)
-			var bind_name := String(skin.get_bind_name(best_bind))
-			if not bind_name.is_empty():
-				var found := skeleton.find_bone(bind_name)
-				if found >= 0:
-					bone = found
-			if bone < 0:
-				continue
-			# Materialised vertices may have no vertex normal; the bind pose still gives the
-			# rest position needed for the nearest search.
-			var bone_name := skeleton.get_bone_name(bone)
-			if not SURFACE.region_allowed(SURFACE.region_for(role, bone_name), region):
-				continue
-			var rest: Transform3D = skeleton.get_bone_global_rest(bone) \
-				* skin.get_bind_pose(best_bind)
-			var point: Vector3 = rest * vertices[id]
-			var distance := point.distance_squared_to(target)
-			if distance >= best_distance:
-				continue
+		var point: Vector3 = vertices[index]["position"]
+		var distance := point.distance_squared_to(hit_point)
+		if distance < best_distance:
 			best_distance = distance
-			var mesh_normal: Vector3 = normals[id] if id < normals.size() else Vector3.UP
-			var rest_normal: Vector3 = (rest.basis * mesh_normal).normalized()
-			if rest_normal.dot(point - target) < 0.0:
-				mesh_normal = -mesh_normal
-			best = {
-				"skeleton": skeleton,
-				"position": vertices[id],
-				"normal": mesh_normal,
-				"influences": _influences(skin, skeleton, bones, weights, stride, id),
-			}
-	return best
-
-
-func _influences(skin: Skin, skeleton: Skeleton3D, bones: PackedInt32Array,
-		weights: PackedFloat32Array, stride: int, id: int) -> Array:
-	var out: Array = []
-	for k in stride:
-		var at := id * stride + k
-		var weight := weights[at]
-		if weight <= 0.0:
-			continue
-		var bind := bones[at]
-		if bind < 0 or bind >= skin.get_bind_count():
-			continue
-		var bone := skin.get_bind_bone(bind)
-		var bind_name := String(skin.get_bind_name(bind))
-		if not bind_name.is_empty():
-			var found := skeleton.find_bone(bind_name)
-			if found >= 0:
-				bone = found
-		if bone < 0:
-			continue
-		out.append({"bone": bone, "bind": skin.get_bind_pose(bind), "weight": weight})
-	return out
+			best_index = index
+	if best_index < 0:
+		return {}
+	var vertex: Dictionary = vertices[best_index]
+	var point: Vector3 = vertex["position"]
+	var normal: Vector3 = vertex["normal"]
+	if normal.length_squared() < 0.5:
+		normal = (hit as Dictionary).get("normal", Vector3.UP)
+	if normal.dot(outer - point) < 0.0:
+		normal = -normal
+	var influences: Array = []
+	var bindings: Array = source.get("bindings", [])
+	for influence: Vector2 in vertex["influence"]:
+		var binding: Dictionary = bindings[int(influence.x)]
+		influences.append({
+			"bone": int(binding["bone"]),
+			"bind": binding["bind"],
+			"weight": float(influence.y),
+		})
+	return {
+		"skeleton": skeleton,
+		"position": point,
+		"normal": normal,
+		"influences": influences,
+	}
 
 
 func _rest(skeleton: Skeleton3D, names: Array) -> Variant:

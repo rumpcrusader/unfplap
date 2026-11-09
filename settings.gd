@@ -718,7 +718,7 @@ static var caress_debug := flag("caress_debug", "features.caress_debug", false,
 	"Caress").as_debug()
 static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
 	"features.caress_reach_shoulder_m", 0.02, "Reach shoulder",
-	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed and clamps the hand to the arm reach.",
+	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed; the path stops at the reachable point either way.",
 	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
 static var caress_reach_body_m := num("caress_reach_body_m",
 	"features.caress_reach_body_m", 0.0, "Reach body",
@@ -1602,7 +1602,7 @@ const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 6
+const SCHEMA_VERSION := 7
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -1994,6 +1994,17 @@ static func _normalize_tolerance(data: Dictionary) -> Dictionary:
 
 ## Move the pre-split flat presentation block into pose sections. Old unknown keys are dropped
 ## instead of being written back forever.
+## The old precise-caress reach default pulled the upper arm 12 cm off the chest. The safe
+## default is 2 cm, so migrate only the shipped old default and leave a tuned value alone.
+static func _normalize_caress_reach(data: Dictionary) -> Dictionary:
+	var path := "features.caress_reach_shoulder_m"
+	var value: Variant = _read_path(data, path, null)
+	if value is float or value is int:
+		if is_equal_approx(float(value), 0.12):
+			_write_path(data, path, 0.02)
+	return data
+
+
 static func _normalize_presentation(data: Dictionary) -> Dictionary:
 	var raw: Variant = data.get("presentation")
 	if not raw is Dictionary:
@@ -2225,6 +2236,7 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_pose_names(data)
 	data = _normalize_feature_names(data)
 	data = _normalize_line_variety(data)
+	data = _normalize_caress_reach(data)
 	data = _normalize_presentation(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)

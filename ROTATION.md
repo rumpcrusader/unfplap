@@ -100,16 +100,22 @@ Missionary is its own state, not the game's bed rest:
   `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
   press swaps, the active press stops.
 - **Missionary caress path.** The precise path is surface-anchored: `caress/caress_path.gd`
-  finds rest-space vertices on the visible `MareBody`/`Head` near the lower belly, belly, chest,
-  neck side and cheek, stores their rest position/normal/skin weights, and skins only those anchors
-  every tick. It samples a Catmull-Rom curve; W walks toward the chest/neck/cheek,
+  casts rest-space rays through the visible `MareBody`/`Head` from below/front (lower belly,
+  belly, chest) and from the hand side (neck, cheek). The first triangle is the near surface and
+  its normal faces the ray origin, so the side and outward normal are explicit. It stores each
+  hit's rest position/normal/skin weights and skins only those anchors every tick. It samples a
+  Catmull-Rom curve; W walks toward the chest/neck/cheek,
   `presentation.missionary.caress.along_m` shifts it, and S moves to the lower belly. The
   hand-side offset fades out at the neck and the 30° palm roll fades to 0 by the neck/cheek. The
-  oval uses the standing caress radii times `presentation.missionary.caress.oval_scale`. The
-  single-point palm sits at `contact + normal * Raise over coat`. With
-  `features.caress_hand_shape`, `caress/caress_hand.gd` resolves the palm/finger samples against
-  the stable body/head patch from `caress/caress_surface.gd`; the capsule/hull path remains the
-  fallback when `features.caress_surface` is off or the rig cannot build anchors.
+  finger axis is the body head axis projected onto the coat tangent plane, not the path tangent.
+  The oval uses the standing caress radii times `presentation.missionary.caress.oval_scale`. The
+  path is reach-aware: the controller asks `missionary_anon.caress_reach()` for the world
+  shoulder and arm lengths and walks the path back toward the belly until the palm frame fits;
+  the neck/cheek use the `fingertip` mode. The single-point palm sits at
+  `contact + normal * Raise over coat`. With `features.caress_hand_shape`,
+  `caress/caress_hand.gd` resolves the palm/finger samples against the stable body/head patch
+  from `caress/caress_surface.gd`; the capsule/hull path remains the fallback when
+  `features.caress_surface` is off or the rig cannot build anchors.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

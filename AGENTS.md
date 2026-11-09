@@ -851,12 +851,23 @@ custom head-aim path below.
 The old capsule/point path remains the fallback. `features.caress_hand_shape` (default off) adds
 the multi-sample palm/finger resolver on top; off is the single-point palm.
 
-- `caress/caress_path.gd` is the missionary path: surface anchors, not bone origins. On first use
-  it finds rest-space vertices near the lower belly, belly, chest, neck side and cheek on the
-  visible `MareBody`/`Head` mesh, stores their rest position/normal/skin weights, and caches them
-  per mesh/side. Every tick it skins only those anchors and samples a Catmull-Rom curve
-  (`lean` + `caress.along_m`), with the lateral axis chosen toward the hand side. The path is on
-  the coat by construction, so the single-point palm needs no triangle query.
+- `caress/caress_path.gd` is the missionary path: surface anchors chosen by **rest-space rays**,
+  not by nearest vertices to bone origins. On first use it casts rays from below/front through
+  the lower belly, belly and chest, and from the hand side through the neck and cheek on the
+  visible `MareBody`/`Head` mesh. The first triangle is the near surface and its normal faces the
+  ray origin, so the side and the outward normal are explicit; no `point - target` guess can flip
+  it. It stores each hit's rest position/normal/skin weights and caches them per mesh/side. Every
+  tick it skins only those anchors and samples a Catmull-Rom curve (`lean` +
+  `caress.along_m`). The path is on the coat by construction, so the single-point palm needs no
+  triangle query.
+- The palm's finger axis is the **body head axis** (`pony_head - pony_hips`) projected onto the
+  coat tangent plane, not the path tangent, so the fingers point toward her head instead of
+  following a kink in the anchor chain.
+- The path is **reach-aware**: the controller asks `missionary_anon.caress_reach()` for the world
+  shoulder and upper/lower/hand lengths, then walks `u` back toward the lower belly until the
+  palm frame is within `(upper + lower + hand) × stretch + shoulder/body caps`. W stops at the
+  furthest reachable coat point instead of clamping the wrist inside her. The neck/cheek use the
+  `fingertip` palm mode, which puts the palm behind the contact by the 9 cm finger length.
 - `caress/caress_surface.gd` builds a **stable posed patch** of the visible `MareBody`/head mesh
   anchored to the rig's rest pose, not to the moving query. It filters by body region (`torso`
   includes the neck, `head`) and skins the patch at 30 Hz. The face set does not change while the
@@ -869,17 +880,18 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   `place()` puts the single-point palm at `contact + normal * hover`.
 - `caress/caress_arm.gd` plans the missionary reach: shoulder/body shift caps, arm stretch cap,
   target clamp and the actual solved target. It runs only for the caressing hand, never the two
-  planted palms. `missionary_anon` writes the hand at the planned target, so an unreachable path
-  point clamps to the arm instead of detaching it. The `caress_debug` log reports the reach only on
-  `ok`/`clamped` transitions.
+  planted palms. With the reach-aware path the plan is normally not clamped; if it is, the hand
+  stops at the arm instead of detaching. The `caress_debug` log reports the reach only on
+  `ok`/`clamped` transitions and includes the target distance and max reach.
 - `standing_caress.gd` feeds the standing arm's existing game IK with the exact `torso` contact.
   Missionary uses the anchor path; the hand-shape mode queries both `torso` and `head` and picks
   the closer contact. The old capsule hull target is never used for the precise hand; if the
   surface fails, the last good precise target is held.
-- `features.caress_debug` logs one precise contact line per hand per act; `perf` gets
-  `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm` chunks. The reach caps are
-  `features.caress_reach_shoulder_m` (2 cm), `features.caress_reach_body_m` (0) and
-  `features.caress_reach_stretch` (1.0).
+- `features.caress_debug` logs one precise contact line per hand per act with `u`, target,
+  normal, finger, roll, hover and surface; the first build also logs each anchor's world
+  position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
+  chunks. The reach caps are `features.caress_reach_shoulder_m` (2 cm; the old 12 cm default
+  migrates to 2), `features.caress_reach_body_m` (0) and `features.caress_reach_stretch` (1.0).
 - `Raise over coat` is the palm-centre hover in missionary, default 2 cm and signed (negative
   presses). Standing uses the tuned `Palm distance`. In hand-shape mode the sample radii provide
   the clearance and the hover adds the difference above the 2 cm palm radius.

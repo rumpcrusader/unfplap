@@ -1,0 +1,7 @@
+{
+  "paths": [
+    "debug_mode",
+    "debug_perf",
+    "anatomy.anatomy_mode"
+  ]
+}

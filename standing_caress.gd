@@ -5,6 +5,8 @@ extends RefCounted
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const CAESS_SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
+const CAESS_HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -103,6 +105,31 @@ const SMACK_PITCH_MIN := 0.97
 const SMACK_PITCH_MAX := 1.03
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
+
+## Adapter for the old standing coat query so the shared hand model can resolve its samples
+## against the flank surface/hull during the migration.
+class CoatProbe extends RefCounted:
+	var controller: Variant
+	var hint: Vector3
+	var ignore: Array
+
+	func closest(point: Vector3) -> Dictionary:
+		if not is_instance_valid(controller):
+			return {}
+		var hit: Dictionary = controller.call("_coat_contact", point, hint, ignore)
+		var surface: Vector3 = hit.get("point", point)
+		var normal: Vector3 = hit.get("normal", hint)
+		if normal.length_squared() < 0.5:
+			normal = Vector3.UP
+		normal = normal.normalized()
+		return {
+			"point": surface,
+			"normal": normal,
+			"distance": point.distance_to(surface),
+			"inside": (point - surface).dot(normal) < 0.0,
+			"source": str(hit.get("source", "fallback")),
+		}
+
 
 ## Pure palm geometry for tests and the controller.
 static func palm_clearance_for(body_scale: float,
@@ -363,6 +390,8 @@ var _smack_to := Transform3D.IDENTITY
 var _smack_started := 0
 var _smack_impact_done := false
 var _palm_contacts: Dictionary = {}
+var _precise_surfaces: Dictionary = {}
+var _precise_logged: Dictionary = {}
 var _smack_phase := SMACK_PHASE_NONE
 var _smack_phase_started := 0
 var _smack_contact := Transform3D.IDENTITY
@@ -519,6 +548,7 @@ func _end_caress_side(side: String) -> void:
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", hand_side)
+	_precise_logged.erase(hand_side)
 	_log("caress stop side=%s" % side)
 	_caress_active[side] = false
 	_caress_latched[side] = false
@@ -918,6 +948,21 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	var hand_side := "left" if side == "L" else "right"
 	var target := _palm_on_coat_frame(hand_side, centre_world + offset, normal,
 		-pony.global_basis.z, true, _caress_ignore())
+	if _precise_on():
+		var started := Time.get_ticks_usec()
+		var precise_outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
+		var contact := target.origin - precise_outward * _palm_clearance()
+		var over_coat := float(SETTINGS.over_coat_m.get_num())
+		var probe := CoatProbe.new()
+		probe.controller = self
+		probe.hint = precise_outward
+		probe.ignore = _caress_ignore()
+		var precise := _precise_hand(contact, precise_outward, -pony.global_basis.z, hand_side,
+			"palm", 0.0, over_coat, probe)
+		target = precise
+		_log_precise(hand_side, "palm", probe, target, 0.0, over_coat)
+		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+			runtime.call("perf_note", "caress_precise", Time.get_ticks_usec() - started)
 	if not apply:
 		return target
 	var return_started := int(_caress_return_started.get(side, 0))
@@ -1012,6 +1057,8 @@ func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 			"hint": Vector3.UP,
 			"lift": MISSIONARY_CARESS_LIFT_M * scale,
 			"regions": MISSIONARY_TORSO_REGIONS,
+			"surface_region": "torso",
+			"mode": "palm",
 			"lateral": 1.0,
 			"roll": 1.0,
 			"side": body_side,
@@ -1025,6 +1072,8 @@ func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 	var hint := Vector3.UP
 	var lift := MISSIONARY_CARESS_LIFT_M * scale
 	var regions: Array = MISSIONARY_TORSO_REGIONS
+	var surface_region := "torso"
+	var mode := "palm"
 	var lateral := 1.0
 	var roll := 1.0
 	if t <= chest_t:
@@ -1036,6 +1085,7 @@ func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 		hint = Vector3.UP.lerp(body_side, u).normalized()
 		lift = lerpf(MISSIONARY_CARESS_LIFT_M, 0.10, u) * scale
 		regions = MISSIONARY_TORSO_REGIONS + ["neck"]
+		surface_region = "neck" if u >= 0.5 else "torso"
 		lateral = 1.0 - u
 		roll = 1.0 - u
 	else:
@@ -1044,6 +1094,8 @@ func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 		hint = body_side.lerp(head_side, u).normalized()
 		lift = lerpf(0.10, 0.12, u) * scale
 		regions = ["neck", "head"]
+		surface_region = "head"
+		mode = "fingertip"
 		lateral = 0.0
 		roll = 0.0
 	return {
@@ -1051,6 +1103,8 @@ func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 		"hint": hint,
 		"lift": lift,
 		"regions": regions,
+		"surface_region": surface_region,
+		"mode": mode,
 		"lateral": lateral,
 		"roll": roll,
 		"side": body_side,
@@ -1111,15 +1165,41 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 		false, regions)
 	if not target.is_finite():
 		return Transform3D.IDENTITY
-	# Regular-game palm roll and the debug lift both act along the coat normal. The roll fades
-	# to zero at the neck and cheek; the lift is a signed, unscaled offset for tuning the gap.
-	var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
-	var roll := deg_to_rad(missionary_palm_roll_deg(hand_side)) * float(path["roll"])
-	if absf(roll) > 0.0001:
-		target.basis = Basis(outward, roll) * target.basis
 	var over_coat := float(SETTINGS.over_coat_m.get_num())
-	if absf(over_coat) > 0.0001:
-		target.origin += outward * over_coat
+	var roll_rad := 0.0
+	var precise_used := false
+	if _precise_on():
+		var surface_started := Time.get_ticks_usec()
+		var surface_region: String = path["surface_region"]
+		var hand_mode: String = path["mode"]
+		var surface: Variant = _precise_surface(surface_region, query)
+		if is_instance_valid(surface):
+			var hit: Variant = surface.call("closest", query)
+			if hit is Dictionary and not (hit as Dictionary).is_empty():
+				var contact: Vector3 = (hit as Dictionary)["point"]
+				var normal: Vector3 = (hit as Dictionary)["normal"]
+				var roll_deg := missionary_palm_roll_deg(hand_side) * float(path["roll"])
+				var hand_started := Time.get_ticks_usec()
+				var precise := _precise_hand(contact, normal, finger, hand_side, hand_mode,
+					roll_deg, over_coat, surface)
+				target = precise
+				precise_used = true
+				roll_rad = deg_to_rad(roll_deg)
+				_log_precise(hand_side, hand_mode, surface, target, roll_deg, over_coat)
+				if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+					runtime.call("perf_note", "caress_hand",
+						Time.get_ticks_usec() - hand_started)
+		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+			runtime.call("perf_note", "caress_surface", Time.get_ticks_usec() - surface_started)
+	if not precise_used:
+		# Regular-game palm roll and the debug lift both act along the coat normal. The roll fades
+		# to zero at the neck and cheek; the lift is a signed, unscaled offset for tuning the gap.
+		var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
+		roll_rad = deg_to_rad(missionary_palm_roll_deg(hand_side)) * float(path["roll"])
+		if absf(roll_rad) > 0.0001:
+			target.basis = Basis(outward, roll_rad) * target.basis
+		if absf(over_coat) > 0.0001:
+			target.origin += outward * over_coat
 	if not apply:
 		return target
 	if not bool(_caress_logged[side]):
@@ -1129,11 +1209,53 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
 			hand_side, str(target.origin), str(target.basis.x), lean,
 			str(probe.get("source", "?")), centre.y, coat.y,
-			target.origin.distance_to(coat), over_coat, rad_to_deg(roll)])
+			target.origin.distance_to(coat), over_coat, rad_to_deg(roll_rad)])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
 	return target
+
+
+## The new precise connection is opt-in while it is validated.
+func _precise_on() -> bool:
+	return is_instance_valid(runtime) and runtime.has_method("_feature") \
+		and bool(runtime.call("_feature", "caress_surface"))
+
+
+func _precise_surface(region: String, point: Vector3) -> Variant:
+	var surface: Variant = _precise_surfaces.get(region)
+	if not is_instance_valid(surface):
+		surface = CAESS_SURFACE.new()
+		_precise_surfaces[region] = surface
+	if not bool(surface.call("ensure", pony, region, point, 0.5)):
+		return null
+	surface.call("update_pose")
+	return surface
+
+
+func _precise_hand(contact: Vector3, normal: Vector3, finger: Vector3, hand_side: String,
+		mode: String, roll_deg: float, over_coat: float, surface: Variant) -> Transform3D:
+	var frame: Transform3D = CAESS_HAND.place(contact, normal, finger, hand_side, mode,
+		roll_deg, over_coat)
+	var resolved: Dictionary = CAESS_HAND.resolve(surface, frame, mode, over_coat)
+	return resolved.get("frame", frame)
+
+
+func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Transform3D,
+		roll_deg: float, over_coat: float) -> void:
+	if not bool(SETTINGS.caress_debug.get_bool()):
+		return
+	if bool(_precise_logged.get(hand_side, false)):
+		return
+	_precise_logged[hand_side] = true
+	var info := "fallback"
+	if is_instance_valid(surface):
+		var faces: Variant = surface.get("faces")
+		var count := (faces as PackedVector3Array).size() / 3 if faces is PackedVector3Array else 0
+		info = "faces=%d build_us=%d query_us=%d" % [
+			count, int(surface.get("build_us")), int(surface.get("query_us"))]
+	_log("precise caress side=%s mode=%s target=%s roll=%.0f over=%.3f surface=%s" % [
+		hand_side, mode, str(frame.origin), roll_deg, over_coat, info])
 
 
 ## The hand driver for the current pose: the game's desktop Anon rig in standing, the act's own
@@ -1827,6 +1949,8 @@ func reset() -> void:
 	_reach_shoulder = ""
 	_reach_holding = false
 	_palm_contacts.clear()
+	_precise_surfaces.clear()
+	_precise_logged.clear()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
 	_caress_moving = {"L": true, "R": true}

@@ -105,7 +105,10 @@ Missionary is its own state, not the game's bed rest:
   widens from the torso regions to torso+neck and then neck+head, and all three `PonyTouchBody`
   rigs are synced first, because the game parks them with its desktop hands. The hand-side offset
   fades out at the neck; the 30° palm roll fades to 0 by the neck/cheek. The oval uses the standing
-  caress radii times `presentation.missionary.caress.oval_scale`.
+  caress radii times `presentation.missionary.caress.oval_scale`. With
+  `features.caress_surface`, the contact point comes from the posed body/head triangle patch in
+  `caress/caress_surface.gd`, and the palm/finger shape is resolved by `caress/caress_hand.gd`; the
+  capsule/hull path remains the fallback.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

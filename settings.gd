@@ -703,6 +703,28 @@ static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "") \
 	.as_debug()
 
+# -- Caress  (debug)
+static var caress_surface := flag("caress_surface", "features.caress_surface", false,
+	"Use precise caress",
+	"Place the caress hand on a posed triangle surface with a palm/finger shape instead of the capsule point.",
+	GENERAL, "Caress").as_debug()
+static var caress_debug := flag("caress_debug", "features.caress_debug", false,
+	"Print caress contact",
+	"Log the caress surface source, hand mode, reach and contact once per act.", GENERAL,
+	"Caress").as_debug()
+static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
+	"features.caress_reach_shoulder_m", 0.12, "Reach shoulder",
+	"Maximum shoulder shift used to reach a caress target in missionary.",
+	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
+static var caress_reach_body_m := num("caress_reach_body_m",
+	"features.caress_reach_body_m", 0.0, "Reach body",
+	"Maximum additional body shift used to reach a caress target in missionary.",
+	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
+static var caress_reach_stretch := num("caress_reach_stretch",
+	"features.caress_reach_stretch", 1.0, "Reach stretch",
+	"Maximum arm stretch before a caress target is clamped to the hand. 1 keeps the arm length fixed; the shoulder/body shift and fingertip mode cover the reach instead.",
+	GENERAL, "Caress").with_step(0.01).as_debug()
+
 # -- Audio  (debug)
 static var act_climax := flag("act_climax", "features.act_climax", false, "Play wet climax",
 	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",

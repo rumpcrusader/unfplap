@@ -192,6 +192,8 @@ mods/unfplap/
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  caress in both poses, shoulder reach, smack and palm-on-coat contact
+  caress/           precise caress (debug): caress_surface.gd posed triangle patch,
+                    caress_hand.gd palm/finger samples and resolve, caress_arm.gd reach plan
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
@@ -842,6 +844,37 @@ custom head-aim path below.
 - A right lean (`side > 0`) selects the left cheek index; a left lean selects the right; exactly
   centered picks one at random. The index chooses which cheek decal reddens; standing's contact
   point is the live caress point or the bottom of that cheek. There is no rump target.
+
+### Precise caress (debug)
+
+`features.caress_surface` (default off) swaps the capsule-point placement for the precise modules.
+The old capsule/point path remains the fallback.
+
+- `caress/caress_surface.gd` builds a **posed triangle patch** of the visible `MareBody`/head mesh
+  around the path query. It filters by the body region (`torso`, `neck`, `head`) and a rest-space
+  window, skins only that patch (max 30 updates/s), and answers closest point/normal/distance.
+  Source arrays are cached per mesh/skin/region/window; `closest()` reports `inside`.
+- `caress/caress_hand.gd` is the hand shape. The palm marker is the palm centre; local `-Z` is the
+  fingers, `+Y` the thumb, palm normal `±X`. It carries a 4 cm palm ball, heel, four finger tips
+  and a thumb; `palm` and `fingertip` modes; `resolve()` pushes the marker out until every sample
+  is outside the surface plus `CONTACT_MARGIN`/`Raise over coat`. A palm ball radius is no longer
+  a 2 cm point offset.
+- `caress/caress_arm.gd` plans the missionary reach: shoulder/body shift caps, arm stretch cap,
+  target clamp and the actual solved target. `missionary_anon` writes the hand at the planned
+  target, never at an unreachable raw target, so the hand cannot detach/stretch across a gap. The
+  `caress_debug` log reports `reachable/shoulder/body/stretch`.
+- `standing_caress.gd` feeds the standing arm's existing game IK with the new hand-resolved palm
+  target. For standing it uses a `CoatProbe` adapter over the exact `FlankSurface`/hull query; for
+  missionary it uses the exact body/head surface. The feature only changes the caress; smack,
+  reach, scoring and the rest of the standing arm stay on the existing path.
+- `features.caress_debug` logs one precise contact line per act with the face count and
+  build/query microseconds; `perf` gets `caress_surface`, `caress_hand` and `caress_precise`
+  chunks. The debug caps are `features.caress_reach_shoulder_m` (12 cm),
+  `features.caress_reach_body_m` (0), `features.caress_reach_stretch` (1.0).
+- Current scope: the precise surface covers the body/head meshes (torso/neck/cheek). Hair, mane,
+  wing and tail layers are not part of the exact patch yet; the existing `Ignore body parts`
+  setting still filters the legacy flank/hull contact. `Raise over coat` is the shared visible
+  hover margin.
 
 ### Thrust camera and restore
 
@@ -1598,6 +1631,8 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old satisfied/aftercare behaviour |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
+| `caress_surface` | `false` | precise caress: posed triangle surface, palm/finger shape and reach plan; off uses the capsule point path |
+| `caress_debug` | `false` | one precise caress contact line per act |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
 | `standing_play_bow` | `false` | standing play-bow stance: front legs forward, chest down, head low |
@@ -1623,6 +1658,10 @@ which also removes its clamp. The full contract is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
+- Precise caress debug values: `features.caress_surface` (default off),
+  `features.caress_debug`, `features.caress_reach_shoulder_m` (0.12), `features.caress_reach_body_m`
+  (0) and `features.caress_reach_stretch` (1.0). They are read live; the caress surface flag is
+  snapshotted with the other act features.
 - `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
   the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
   off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
@@ -1789,7 +1828,8 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
+  during cuddles, then the **Caress** (precise toggle, contact log, shoulder/body/stretch caps),
+  **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
   match, Caress along, Raise over coat, Cock base inset, Caress oval, a **Size** dropdown over the
   six per-size vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with
   **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**

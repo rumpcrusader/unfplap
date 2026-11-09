@@ -59,6 +59,7 @@ TESTS=(
 	test_anatomy
 	test_tail_hide
 	test_vr_act
+	test_caress
 )
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/unfplap-tests.XXXXXX")"

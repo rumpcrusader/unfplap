@@ -12,6 +12,7 @@ const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const CAESS_ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
 
 ## The lean hinges his whole upper body at this joint: chest, neck, head, shoulders, arms and hands
 ## follow as one, while the hips, thighs and legs keep the authored pose and the stroke, so the
@@ -64,6 +65,7 @@ var _eye_cached := false
 var _lean_logged := false
 var _indices: Dictionary = {}
 var _index_skeleton := 0
+var _reach_log_state := ""
 ## Caress hand holds, keyed "left"/"right". `standing_caress.gd` supplies a world frame; the
 ## start and release blends keep the arm from teleporting on and off the mattress.
 var _holds: Dictionary = {}
@@ -187,6 +189,7 @@ func remove() -> void:
 	skeleton = null
 	_indices.clear()
 	_index_skeleton = 0
+	_reach_log_state = ""
 	_holds.clear()
 	_hold_from.clear()
 	_hold_started.clear()
@@ -479,15 +482,40 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var lower_len := hand_offset.length()
 	if upper_len < 0.001 or lower_len < 0.001:
 		return
+	var precise := is_instance_valid(runtime) and runtime.has_method("_feature") \
+		and bool(runtime.call("_feature", "caress_surface"))
+	var stretch := 1.0
+	if precise:
+		var max_stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
+		var shoulder_cap := maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
+		var body_cap := maxf(float(SETTINGS.caress_reach_body_m.get_num()), 0.0)
+		var plan := CAESS_ARM.plan(shoulder, upper_len, lower_len, target, max_stretch,
+			shoulder_cap, body_cap)
+		shoulder = plan["shoulder_origin"]
+		target = plan["target"]
+		stretch = float(plan.get("stretch", 1.0))
+		if bool(SETTINGS.caress_debug.get_bool()):
+			var state := "%s|%.3f|%.3f|%.2f" % [
+				"ok" if bool(plan.get("reachable", true)) else "clamped",
+				float(plan.get("shoulder_shift", 0.0)), float(plan.get("body_shift", 0.0)),
+				stretch]
+			if state != _reach_log_state:
+				_reach_log_state = state
+				_log("caress arm reachable=%s shoulder=%.3f body=%.3f stretch=%.2f" % [
+					"ok" if bool(plan.get("reachable", true)) else "clamped",
+					float(plan.get("shoulder_shift", 0.0)),
+					float(plan.get("body_shift", 0.0)), stretch])
+	var upper_len_eff := upper_len * stretch
+	var lower_len_eff := lower_len * stretch
 	var to_target := target - shoulder
 	var raw := to_target.length()
 	if raw < 0.001:
 		return
 	var dir := to_target / raw
-	var distance := clampf(raw, absf(upper_len - lower_len) + 0.001,
-		upper_len + lower_len - 0.001)
-	var cos_a := clampf((upper_len * upper_len + distance * distance
-		- lower_len * lower_len) / (2.0 * upper_len * distance), -1.0, 1.0)
+	var distance := clampf(raw, absf(upper_len_eff - lower_len_eff) + 0.001,
+		upper_len_eff + lower_len_eff - 0.001)
+	var cos_a := clampf((upper_len_eff * upper_len_eff + distance * distance
+		- lower_len_eff * lower_len_eff) / (2.0 * upper_len_eff * distance), -1.0, 1.0)
 	var bend := acos(cos_a)
 	var pole := Vector3.ZERO
 	if natural and not pole_key.is_empty():
@@ -504,12 +532,13 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 		if pole.length() < 0.001:
 			pole = Vector3.RIGHT - dir * Vector3.RIGHT.dot(dir)
 	pole = pole.normalized()
-	var elbow := shoulder + (dir * cos(bend) + pole * sin(bend)) * upper_len
+	var elbow := shoulder + (dir * cos(bend) + pole * sin(bend)) * upper_len_eff
 	var upper_g := skeleton.get_bone_global_pose(upper)
 	var upper_axis := (upper_g.basis * lower_offset).normalized()
 	var upper_basis := upper_g.basis.orthonormalized() if natural else upper_g.basis
+	var upper_origin := shoulder if precise else upper_g.origin
 	var q1 := Quaternion(upper_axis, (elbow - shoulder).normalized())
-	RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_basis, upper_g.origin))
+	RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_basis, upper_origin))
 	var lower_g := skeleton.get_bone_global_pose(lower)
 	var lower_axis := (lower_g.basis * hand_offset).normalized()
 	var q2 := Quaternion(lower_axis, (target - lower_g.origin).normalized())

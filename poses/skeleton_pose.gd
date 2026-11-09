@@ -7,8 +7,6 @@ const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 
-const DEBUG_MISSIONARY_DUMP := true
-
 var mare: Node3D
 var runtime: Node
 var mode := "missionary"
@@ -202,7 +200,7 @@ func sk_body_up(sk: Skeleton3D) -> float:
 
 
 func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
-	if not DEBUG_MISSIONARY_DUMP or _debug_dumped or weight <= 0.9:
+	if _debug_dumped or weight <= 0.9:
 		return
 	_debug_dumped = true
 	var body := _rig.forward_axis(sk)
@@ -257,7 +255,10 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 		rows.append("head_skeleton unavailable")
 	# Her body's own up against the world's: a rolled pose reads as lying on her side.
 	rows.append("body up=%.0f°" % sk_body_up(sk))
-	var text := "[unfplap] MISSIONARY"
+	var text := "MISSIONARY"
 	for row: String in rows:
 		text += "\n\t" + row
-	print(text)
+	# `runtime._log` is the one debug gate (Enable debug). A pose without a runtime has no
+	# console owner and stays silent.
+	if is_instance_valid(runtime) and runtime.has_method("_log"):
+		runtime.call("_log", text)

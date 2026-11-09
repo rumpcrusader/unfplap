@@ -2128,7 +2128,10 @@ static func _defaults() -> Dictionary:
 	for s: Setting in _registry:
 		_write_path(out, s.path, s.default)
 	for id: Variant in PLACEMENT.MARE_DEFAULTS:
-		_write_path(out, "anatomy.placement." + str(id), PLACEMENT.MARE_DEFAULTS[id])
+		var name := str(id)
+		if name == "default" or name == "anon":
+			continue
+		_write_path(out, "anatomy.placement." + name, PLACEMENT.MARE_DEFAULTS[id])
 	return out
 
 

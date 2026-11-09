@@ -35,6 +35,7 @@ tools/pose_lab.tscn
 
 # Local anatomy working files. The release anatomy assets are tracked.
 assets/anatomy/*.blend
+!assets/anatomy/mare_bits_v2.blend
 assets/anatomy/*.blend1
 assets/anatomy/backups/
 assets/anatomy/winking_before_wink.scn

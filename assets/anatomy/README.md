@@ -4,6 +4,12 @@ This folder holds the optional adult meshes and textures used by the anatomy fea
 PonyPussyParadise assets are tracked here and every build, including CI, packs them. The feature
 itself remains optional in the settings.
 
+The V2 Blender source `mare_bits_v2.blend` is tracked so the mesh can be kept and edited. It is
+never packed. Other Blender iterations, `.blend1` files and `backups/` stay local.
+
+The texture `.import` sidecars are tracked; `.godot/` and its generated `.ctex`/`.sample` files
+are not.
+
 Redistribution is by permission of the PonyPussyParadise author; `mod.json` credits them.
 
 Required files:
@@ -45,4 +51,5 @@ godot --headless --xr-mode off --path <game-project> \
 
 The script writes into this folder and is safe to run again. It also creates a temporary import
 remap for the source scene's external texture; that remap lives under `res://mods/` and
-`res://.godot/` in the working project, not in this folder.
+`res://.godot/` in the working project, not in this folder. Run the Godot import afterward and
+commit the regenerated files, including the `.import` sidecars.

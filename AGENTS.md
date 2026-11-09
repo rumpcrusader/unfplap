@@ -120,9 +120,12 @@ scripts/smoke.sh
   Success prints `PACK_VERIFY`, `PCK_SHA256` and `MOD_BUILT <path>`. `build.sh` generates the
   required runtime list with `scripts/build_manifest.py`; `pack.gd` requires the packed files to
   match it, rejects development files, rejects broken `.import` data and writes a `.sha256` beside
-  the pck. A failed check removes the pack. The mod has no script extension.
+  the pck. The manifest reads `git ls-files`, so build from the git checkout. A failed check
+  removes the pack. The mod has no script extension.
 - The PPP anatomy meshes and textures are tracked in `assets/anatomy/`; the V2
-  `mare_bits_v2.scn` variant is one of the eight required files. Every build includes them.
+  `mare_bits_v2.scn` variant is one of the eight required files. The V2 Blender source
+  `mare_bits_v2.blend` is also tracked and is never packed. Every build includes the runtime
+  assets.
 - `build.sh` stages only the runtime tree selected by `.pckignore`, imports the assets, packs the
   `.import` sidecars and verifies the result. Repository docs, tests, scripts, tools, skills and
   `.git` do not ship; `AUDIO_CREDITS.md` and `changelog.txt` do.

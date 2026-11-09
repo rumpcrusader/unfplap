@@ -61,7 +61,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 
 ## Build
 
-Requires Godot 4.5.x on `PATH` and `python3`. Release checks require Godot 4.5.2.
+Requires Godot 4.5.x on `PATH`, `python3`, and a git checkout. Release checks require Godot 4.5.2.
 
 ```sh
 ./build.sh

@@ -44,9 +44,8 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> 
 	var key := "%d|%d|%s|%s" % [
 		body_mesh.get_instance_id(),
 		head_mesh.get_instance_id() if head_mesh != null else 0, hand_side, side_key]
-	var picked_ready := _picked_ready(hand_side)
 	var cached: Variant = _cache.get(key)
-	if not picked_ready and cached is Array and not (cached as Array).is_empty():
+	if cached is Array and not (cached as Array).is_empty():
 		var cache_ok := true
 		for cached_anchor: Dictionary in (cached as Array):
 			if not is_instance_valid(cached_anchor.get("skeleton")):
@@ -197,9 +196,6 @@ func _update_belly_u() -> void:
 
 func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
 		hand_side: String, camera_position: Vector3) -> Array:
-	var picked := _build_picked(pony, hand_side)
-	if picked.size() >= 3:
-		return picked
 	if camera_position.is_finite():
 		var anchors := _build_anchors_camera(pony, body, head, hand_side, camera_position)
 		if anchors.size() >= 3:
@@ -240,21 +236,21 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 	debug_notes.append("source body verts=%d idx=%d" % [
 		(body_source.get("vertices", []) as Array).size(),
 		(body_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
-	var belly_anchor := _posed_ray_anchor(body_surface, camera_position, belly_world, "torso")
+	var belly_anchor := _posed_ray_anchor(body_surface, camera_position, belly_world)
 	if belly_anchor.is_empty():
 		debug_notes.append("anchor belly miss")
 		return out
 	_anchor_meta(belly_anchor, "belly", 0.0, 1.0, "torso")
 	out.append(belly_anchor)
 	var chest_anchor := _posed_ray_anchor(body_surface, camera_position,
-		chest_world + hand_side_dir * 0.10 * body_scale, "torso")
+		chest_world + hand_side_dir * 0.10 * body_scale)
 	if chest_anchor.is_empty():
 		debug_notes.append("anchor chest miss")
 	else:
 		_anchor_meta(chest_anchor, "chest", 0.0, 0.7, "torso")
 		out.append(chest_anchor)
 	var neck_anchor := _posed_ray_anchor(body_surface, camera_position,
-		neck_world + hand_side_dir * 0.06 * body_scale, "torso")
+		neck_world + hand_side_dir * 0.06 * body_scale)
 	var neck_ok := not neck_anchor.is_empty()
 	if neck_ok:
 		_anchor_meta(neck_anchor, "neck", 0.0, 0.2, "torso")
@@ -278,7 +274,7 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 					(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
 				var head_world := hsk.global_transform * hsk.get_bone_global_pose(head_bone).origin
 				var head_anchor := _posed_ray_anchor(head_surface, camera_position,
-					head_world + hand_side_dir * 0.07 * body_scale, "head")
+					head_world + hand_side_dir * 0.07 * body_scale)
 				if head_anchor.is_empty():
 					debug_notes.append("anchor cheek miss")
 				else:
@@ -287,15 +283,8 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 	return out
 
 
-func _posed_ray_anchor(surface: Variant, camera: Vector3, inside_world: Vector3,
-		region: String) -> Dictionary:
+func _posed_ray_anchor(surface: Variant, camera: Vector3, inside_world: Vector3) -> Dictionary:
 	var hit: Variant = surface.call("ray", camera, inside_world)
-	if not hit is Dictionary or (hit as Dictionary).is_empty():
-		return {}
-	return _posed_hit_anchor(surface, hit, region)
-
-
-static func _posed_hit_anchor(surface: Variant, hit: Variant, region: String) -> Dictionary:
 	if not hit is Dictionary or (hit as Dictionary).is_empty():
 		return {}
 	var source: Dictionary = surface.get("source")
@@ -317,11 +306,11 @@ static func _posed_hit_anchor(surface: Variant, hit: Variant, region: String) ->
 	if best_j < 0:
 		return {}
 	return _anchor_from_source_vertex(source, indices[face + best_j],
-		surface.get("skeleton"), region)
+		surface.get("skeleton"))
 
 
-static func _anchor_from_source_vertex(source: Dictionary, index: int,
-		skeleton: Skeleton3D, region: String) -> Dictionary:
+func _anchor_from_source_vertex(source: Dictionary, index: int,
+		skeleton: Skeleton3D) -> Dictionary:
 	var vertices: Array = source.get("vertices", [])
 	if index < 0 or index >= vertices.size():
 		return {}
@@ -340,129 +329,7 @@ static func _anchor_from_source_vertex(source: Dictionary, index: int,
 		"position": vertex["position"],
 		"normal": vertex["normal"],
 		"influences": influences,
-		"source_index": index,
-		"source_region": region,
 	}
-
-
-static func _mods() -> Node:
-	var loop := Engine.get_main_loop() as SceneTree
-	if loop == null or loop.root == null:
-		return null
-	return loop.root.get_node_or_null("Mods")
-
-
-static func _picked_state() -> Dictionary:
-	var mods := _mods()
-	if mods == null:
-		return {}
-	var state: Variant = mods.call("state", "unfplap")
-	return state if state is Dictionary else {}
-
-
-static func save_pick(hand_side: String, slot: String, region: String, index: int) -> void:
-	if index < 0:
-		return
-	var mods := _mods()
-	if mods == null:
-		return
-	var state: Variant = mods.call("state", "unfplap")
-	if not state is Dictionary:
-		return
-	var data: Dictionary = state
-	var picks: Variant = data.get("caress_anchors", {})
-	if not picks is Dictionary:
-		picks = {}
-	var entry := {"region": region, "index": index}
-	if slot == "belly":
-		(picks as Dictionary)["belly"] = entry
-	else:
-		var side_data: Variant = (picks as Dictionary).get(hand_side, {})
-		if not side_data is Dictionary:
-			side_data = {}
-		(side_data as Dictionary)[slot] = entry
-		(picks as Dictionary)[hand_side] = side_data
-	data["caress_anchors"] = picks
-	if mods.has_method("save_changed"):
-		mods.call("save_changed")
-
-
-static func clear_picks() -> void:
-	var mods := _mods()
-	if mods == null:
-		return
-	var state: Variant = mods.call("state", "unfplap")
-	if not state is Dictionary:
-		return
-	(state as Dictionary).erase("caress_anchors")
-	if mods.has_method("save_changed"):
-		mods.call("save_changed")
-
-
-func _picked_ready(hand_side: String) -> bool:
-	var state := _picked_state()
-	var picks: Variant = state.get("caress_anchors", {})
-	if not picks is Dictionary:
-		return false
-	var data: Dictionary = picks
-	if not data.get("belly") is Dictionary:
-		return false
-	var side_data: Variant = data.get(hand_side)
-	if not side_data is Dictionary:
-		return false
-	for slot in ["chest", "neck", "cheek"]:
-		if not (side_data as Dictionary).get(slot) is Dictionary:
-			return false
-	return true
-
-
-func _build_picked(pony: Variant, hand_side: String) -> Array:
-	var state := _picked_state()
-	var picks: Variant = state.get("caress_anchors", {})
-	if not picks is Dictionary:
-		return []
-	var data: Dictionary = picks
-	var belly: Variant = data.get("belly")
-	var side_data: Variant = data.get(hand_side)
-	if not belly is Dictionary or not side_data is Dictionary:
-		return []
-	var body_surface: Variant = SURFACE.new()
-	if not bool(body_surface.call("ensure", pony, "torso")):
-		return []
-	var head_surface: Variant = SURFACE.new()
-	if not bool(head_surface.call("ensure", pony, "head")):
-		return []
-	var body_source: Dictionary = body_surface.get("source")
-	var head_source: Dictionary = head_surface.get("source")
-	var body_sk: Skeleton3D = body_surface.get("skeleton")
-	var head_sk: Skeleton3D = head_surface.get("skeleton")
-	var belly_anchor := _picked_anchor(body_source, body_sk, belly, "torso")
-	if belly_anchor.is_empty():
-		return []
-	_anchor_meta(belly_anchor, "belly", 0.0, 1.0, "torso")
-	var out: Array = [belly_anchor]
-	for slot in ["chest", "neck", "cheek"]:
-		var entry: Variant = (side_data as Dictionary).get(slot)
-		if not entry is Dictionary:
-			return []
-		var region := str((entry as Dictionary).get("region", "torso"))
-		var source := head_source if region == "head" else body_source
-		var sk := head_sk if region == "head" else body_sk
-		var anchor := _picked_anchor(source, sk, entry, region)
-		if anchor.is_empty():
-			return []
-		var roll := 0.7 if slot == "chest" else 0.2 if slot == "neck" else 0.0
-		_anchor_meta(anchor, slot, 0.0, roll, region)
-		out.append(anchor)
-	return out
-
-
-func _picked_anchor(source: Dictionary, skeleton: Skeleton3D, entry: Variant,
-		region: String) -> Dictionary:
-	if not entry is Dictionary:
-		return {}
-	return _anchor_from_source_vertex(source, int((entry as Dictionary).get("index", -1)),
-		skeleton, region)
 
 
 func _bone(skeleton: Skeleton3D, names: Array) -> int:

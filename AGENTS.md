@@ -894,15 +894,9 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   Missionary uses the anchor path; the hand-shape mode queries both `torso` and `head` and picks
   the closer contact. The old capsule hull target is never used for the precise hand; if the
   surface fails, the last good precise target is held.
-- `features.caress_pick` (default off) lets `P` assign the point under the screen-centre
-  crosshair to the nearest current path anchor while a missionary caress is active. The belly is
-  shared; chest/neck/cheek are stored per hand in `Mods.state("unfplap").caress_anchors` as the
-  source patch region and vertex index. Picked anchors override the camera/rest path until
-  **Clear picked caress anchors** (Debug actions) removes them.
 - `features.caress_debug` logs one precise contact line per hand per act with `u`, target,
   normal, finger, roll, hover and surface; the first build also logs the body/head source sizes,
-  any missing/rejected anchor, and each anchor's world position/normal; each pick logs its side,
-  slot, region, index and hit point. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
+  any missing/rejected anchor, and each anchor's world position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
   chunks. The reach caps are `features.caress_reach_shoulder_m` (2 cm; the old 12 cm default
   migrates to 2), `features.caress_reach_body_m` (0) and `features.caress_reach_stretch` (1.0).
 - `Raise over coat` is the palm-centre hover in missionary, default 2 cm and signed (negative
@@ -1669,7 +1663,6 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
 | `caress_surface` | `false` | precise caress: surface-anchored path and exact single-point palm; off uses the capsule point path |
 | `caress_hand_shape` | `false` | multi-sample palm/finger resolver on top of the precise contact; off uses one palm-centre point |
-| `caress_pick` | `false` | `P` picks the path anchor under the crosshair into `Mods.state("unfplap").caress_anchors` |
 | `caress_debug` | `false` | one precise caress contact line per hand per act |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
@@ -1697,8 +1690,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - Precise caress debug values: `features.caress_surface` (default off),
-  `features.caress_hand_shape` (default off), `features.caress_pick` (default off),
-  `features.caress_debug`,
+  `features.caress_hand_shape` (default off), `features.caress_debug`,
   `features.caress_reach_shoulder_m` (2 cm), `features.caress_reach_body_m` (0) and
   `features.caress_reach_stretch` (1.0). They are read live; both precise flags are snapshotted
   with the other act features.

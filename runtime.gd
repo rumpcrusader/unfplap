@@ -5374,21 +5374,6 @@ func _jiggle_size_scale() -> float:
 func smack() -> void:
 	_caress_controller().smack()
 
-
-func caress_pick_ready() -> bool:
-	return _feature("caress_pick") and pose_id == CATALOG.MISSIONARY \
-		and _caress_controller().any_active()
-
-
-func pick_caress_point() -> bool:
-	if not caress_pick_ready():
-		return false
-	return bool(_caress_controller().pick_missionary_anchor())
-
-
-func clear_caress_picks() -> void:
-	_caress_controller().clear_picked_anchors()
-
 func _lean_action_tick() -> void:
 	if not _act_actions_allowed():
 		_end_lean_action()

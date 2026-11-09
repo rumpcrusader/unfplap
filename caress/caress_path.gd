@@ -1,15 +1,19 @@
 extends RefCounted
-## Surface-anchored missionary caress path. The anchors are rest-space vertices chosen from the
-## coat the act camera sees; every tick they are skinned with the live skeleton. A rest-space ray
-## path is the fallback when no camera is available. No triangle query is needed for the
-## single-point placement after the anchors are built.
+## Surface-anchored missionary caress path. The primary anchors come from the authored
+## `anchors.json` rest points (shared belly, per-hand lower/chest/neck/cheek); otherwise they are
+## chosen from the coat the act camera sees, with a rest-space ray path as the final fallback.
+## Every tick the anchors are skinned with the live skeleton; no triangle query is needed for the
+## single-point placement after they are built.
 
 const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
+const ANCHORS_FILE := "res://mods/unfplap/caress/anchors.json"
 const BELLY_U := 0.25
 const CACHE_LIMIT := 16
+const AUTHORED_MAX_DISTANCE := 0.06
 
 static var _cache: Dictionary = {}
 static var _cache_order: Array = []
+static var _authored_data: Dictionary = {}
 
 var anchors: Array = []
 var side := "right"
@@ -44,8 +48,9 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> 
 	var key := "%d|%d|%s|%s" % [
 		body_mesh.get_instance_id(),
 		head_mesh.get_instance_id() if head_mesh != null else 0, hand_side, side_key]
+	var authored_ready := _authored_ready(hand_side)
 	var cached: Variant = _cache.get(key)
-	if cached is Array and not (cached as Array).is_empty():
+	if not authored_ready and cached is Array and not (cached as Array).is_empty():
 		var cache_ok := true
 		for cached_anchor: Dictionary in (cached as Array):
 			if not is_instance_valid(cached_anchor.get("skeleton")):
@@ -60,8 +65,9 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> 
 	_update_belly_u()
 	if anchors.size() < 3:
 		return false
-	_cache[key] = anchors.duplicate()
-	_cache_order.append(key)
+	if not authored_ready:
+		_cache[key] = anchors.duplicate()
+		_cache_order.append(key)
 	while _cache_order.size() > CACHE_LIMIT:
 		var old: Variant = _cache_order.pop_front()
 		_cache.erase(old)
@@ -196,11 +202,122 @@ func _update_belly_u() -> void:
 
 func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
 		hand_side: String, camera_position: Vector3) -> Array:
+	var authored := _build_authored(pony, hand_side)
+	if authored.size() >= 3:
+		return authored
 	if camera_position.is_finite():
 		var anchors := _build_anchors_camera(pony, body, head, hand_side, camera_position)
 		if anchors.size() >= 3:
 			return anchors
 	return _build_anchors_rest(pony, body, head, hand_side)
+
+
+static func _authored() -> Dictionary:
+	if not _authored_data.is_empty():
+		return _authored_data
+	var file := FileAccess.open(ANCHORS_FILE, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if parsed is Dictionary:
+		_authored_data = parsed
+	return _authored_data
+
+
+func _authored_ready(hand_side: String) -> bool:
+	var data := _authored()
+	if not data.get("belly") is Dictionary:
+		return false
+	var side_data: Variant = data.get(hand_side)
+	if not side_data is Dictionary:
+		return false
+	for slot in ["lower", "chest", "neck", "cheek"]:
+		if not (side_data as Dictionary).get(slot) is Dictionary:
+			return false
+	return true
+
+
+## Authored path from the Blender vertex groups. Positions are rest-space points on the body or
+## head mesh; each is snapped to the nearest source vertex, so the runtime keeps the skin weights.
+func _build_authored(pony: Variant, hand_side: String) -> Array:
+	var data := _authored()
+	var belly: Variant = data.get("belly")
+	var side_data: Variant = data.get(hand_side)
+	if not belly is Dictionary or not side_data is Dictionary:
+		return []
+	var body_surface: Variant = SURFACE.new()
+	if not bool(body_surface.call("ensure", pony, "torso")):
+		return []
+	var head_surface: Variant = SURFACE.new()
+	if not bool(head_surface.call("ensure", pony, "head")):
+		return []
+	var body_source: Dictionary = body_surface.get("source")
+	var head_source: Dictionary = head_surface.get("source")
+	var body_sk: Skeleton3D = body_surface.get("skeleton")
+	var head_sk: Skeleton3D = head_surface.get("skeleton")
+	debug_notes.append("source body verts=%d idx=%d" % [
+		(body_source.get("vertices", []) as Array).size(),
+		(body_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
+	debug_notes.append("source head verts=%d idx=%d" % [
+		(head_source.get("vertices", []) as Array).size(),
+		(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
+	var out: Array = []
+	for slot in ["lower", "chest", "neck", "cheek"]:
+		var entry: Variant = (side_data as Dictionary).get(slot)
+		if not entry is Dictionary:
+			return []
+		var region := str((entry as Dictionary).get("region", "torso"))
+		var position := _entry_position(entry)
+		if not position.is_finite():
+			return []
+		var source := head_source if region == "head" else body_source
+		var sk := head_sk if region == "head" else body_sk
+		var anchor := _nearest_source_anchor(source, sk, region, position,
+			AUTHORED_MAX_DISTANCE)
+		if anchor.is_empty():
+			debug_notes.append("authored %s miss" % slot)
+			return []
+		var roll := 1.0 if slot == "lower" else 0.7 if slot == "chest" else 0.2 if slot == "neck" else 0.0
+		_anchor_meta(anchor, slot, 0.0, roll, region)
+		out.append(anchor)
+		if slot == "lower":
+			var belly_position := _entry_position(belly)
+			if not belly_position.is_finite():
+				return []
+			var belly_anchor := _nearest_source_anchor(body_source, body_sk, "torso",
+				belly_position, AUTHORED_MAX_DISTANCE)
+			if belly_anchor.is_empty():
+				debug_notes.append("authored belly miss")
+				return []
+			_anchor_meta(belly_anchor, "belly", 0.0, 1.0, "torso")
+			out.append(belly_anchor)
+	return out
+
+
+static func _entry_position(entry: Variant) -> Vector3:
+	if not entry is Dictionary:
+		return Vector3.INF
+	var raw: Variant = (entry as Dictionary).get("position", [])
+	if not raw is Array or (raw as Array).size() < 3:
+		return Vector3.INF
+	return Vector3(float((raw as Array)[0]), float((raw as Array)[1]),
+		float((raw as Array)[2]))
+
+
+func _nearest_source_anchor(source: Dictionary, skeleton: Skeleton3D, region: String,
+		position: Vector3, max_distance: float) -> Dictionary:
+	var vertices: Array = source.get("vertices", [])
+	var best := -1
+	var best_distance := max_distance * max_distance
+	for i in vertices.size():
+		var point: Vector3 = vertices[i]["position"]
+		var distance := point.distance_squared_to(position)
+		if distance < best_distance:
+			best_distance = distance
+			best = i
+	if best < 0:
+		return {}
+	return _anchor_from_source_vertex(source, best, skeleton, region)
 
 
 ## Anchors on the side the act camera sees. Each ray starts at the camera and ends at the bone
@@ -310,7 +427,7 @@ func _posed_ray_anchor(surface: Variant, camera: Vector3, inside_world: Vector3)
 
 
 func _anchor_from_source_vertex(source: Dictionary, index: int,
-		skeleton: Skeleton3D) -> Dictionary:
+		skeleton: Skeleton3D, region := "torso") -> Dictionary:
 	var vertices: Array = source.get("vertices", [])
 	if index < 0 or index >= vertices.size():
 		return {}
@@ -329,6 +446,7 @@ func _anchor_from_source_vertex(source: Dictionary, index: int,
 		"position": vertex["position"],
 		"normal": vertex["normal"],
 		"influences": influences,
+		"source_region": region,
 	}
 
 

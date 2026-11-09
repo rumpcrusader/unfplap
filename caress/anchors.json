@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "belly": {
+    "region": "torso",
+    "position": [
+      -0.000659,
+      0.375227,
+      0.08244
+    ]
+  },
+  "left": {
+    "lower": {
+      "region": "torso",
+      "position": [
+        0.023744,
+        0.381927,
+        0.142229
+      ]
+    },
+    "chest": {
+      "region": "torso",
+      "position": [
+        0.025075,
+        0.41605,
+        -0.095334
+      ]
+    },
+    "neck": {
+      "region": "torso",
+      "position": [
+        0.052061,
+        0.592364,
+        -0.140166
+      ]
+    },
+    "cheek": {
+      "region": "head",
+      "position": [
+        -0.130414,
+        0.828959,
+        -0.306424
+      ]
+    }
+  },
+  "right": {
+    "lower": {
+      "region": "torso",
+      "position": [
+        -0.023738,
+        0.381925,
+        0.142229
+      ]
+    },
+    "chest": {
+      "region": "torso",
+      "position": [
+        -0.025066,
+        0.416048,
+        -0.095336
+      ]
+    },
+    "neck": {
+      "region": "torso",
+      "position": [
+        -0.065948,
+        0.593772,
+        -0.124162
+      ]
+    },
+    "cheek": {
+      "region": "head",
+      "position": [
+        0.132112,
+        0.837305,
+        -0.309128
+      ]
+    }
+  }
+}

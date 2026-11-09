@@ -99,9 +99,10 @@ Missionary is its own state, not the game's bed rest:
   shoulder down: `_arm_pole()` carries the `valve_body_ik.gd` elbow plane, and the wrist bone is
   `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
   press swaps, the active press stops.
-- **Missionary caress path.** The precise path is surface-anchored: `caress/caress_path.gd`
-  casts rays from the live act camera to the belly, chest, neck and head bone origins through the
-  posed body/head patches. The first triangle is the coat the player sees, so the anchors are on
+- **Missionary caress path.** The primary path is authored in `caress/anchors.json` from the
+  Blender rest meshes: a shared belly and per-hand lower/chest/neck/cheek, snapped to the nearest
+  body/head source vertex. Without authored points, `caress/caress_path.gd` casts rays from the
+  live act camera to the belly, chest, neck and head bone origins through the posed patches. The first triangle is the coat the player sees, so the anchors are on
   the visible side. The belly stays on the centerline; the chest/neck/cheek targets move toward
   the hand's side, so the left and right hands build different paths. A rest-space fallback
   (below/front belly and chest, hand-side neck and cheek) is used when no camera is available. It stores each hit's rest position/normal/skin weights

@@ -273,6 +273,33 @@ func run() -> void:
 				head_origin + Vector3.RIGHT * 0.6,
 				head_origin - Vector3.RIGHT * 0.6)
 			check(not head_hit.is_empty(), "the cheek ray hits the real head")
+	# Authored anchors from the Blender vertex groups, snapped to the real body/head sources.
+	var body_scene: Node = load("res://world/characters/hybrid_mare/body.glb").instantiate()
+	head_root.add_child(body_scene)
+	var body_mesh := body_scene.find_child("MareBody", true, false) as MeshInstance3D
+	var body_sk: Skeleton3D = null
+	if body_mesh != null and not body_mesh.skeleton.is_empty():
+		body_sk = body_mesh.get_node_or_null(body_mesh.skeleton) as Skeleton3D
+	if body_sk == null:
+		for child: Node in body_scene.find_children("*", "Skeleton3D", true, false):
+			body_sk = child as Skeleton3D
+			break
+	var body_pony := FakePony.new()
+	body_pony._model = body_scene as Node3D
+	body_pony.skeleton = body_sk
+	body_pony.head = fake_head
+	var authored_path: Variant = PATH.new()
+	for side in ["left", "right"]:
+		var anchors: Array = authored_path.call("_build_authored", body_pony, side)
+		check(anchors.size() == 5, "the authored %s path has five anchors" % side)
+		var authored_ids: Array = []
+		for anchor: Dictionary in anchors:
+			authored_ids.append(str(anchor.get("id", "")))
+		check(authored_ids == ["lower", "belly", "chest", "neck", "cheek"],
+			"the authored %s path follows lower-belly-chest-neck-cheek" % side)
+		if anchors.size() == 5:
+			check(str((anchors[4] as Dictionary).get("source_region", "")) == "head",
+				"the authored %s cheek uses the head source" % side)
 	head_root.free()
 
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),

@@ -192,9 +192,9 @@ mods/unfplap/
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  caress in both poses, shoulder reach, smack and palm-on-coat contact
-  caress/           precise caress (debug): caress_path.gd surface anchors,
-                    caress_surface.gd stable posed patch, caress_hand.gd palm/finger samples,
-                    caress_arm.gd reach plan
+  caress/           precise caress (debug): caress_path.gd surface anchors and
+                    anchors.json authored rest points, caress_surface.gd stable posed patch,
+                    caress_hand.gd palm/finger samples, caress_arm.gd reach plan
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
@@ -851,7 +851,13 @@ custom head-aim path below.
 The old capsule/point path remains the fallback. `features.caress_hand_shape` (default off) adds
 the multi-sample palm/finger resolver on top; off is the single-point palm.
 
-- `caress/caress_path.gd` is the missionary path: surface anchors chosen by **act-camera rays**,
+- `caress/anchors.json` is the primary authored path: rest-space body/head points chosen
+  in Blender from the visible coat, stored as source-region positions. Each point snaps to the
+  nearest source vertex within 6 cm, so the runtime keeps its skin weights. The shared belly and
+  per-hand lower/chest/neck/cheek produce `lower → belly → chest → neck → cheek`; a missing or
+  invalid point falls back to the camera path, then the rest path.
+- `caress/caress_path.gd` is the missionary path controller: without authored points it chooses
+  surface anchors by **act-camera rays**,
   not by nearest vertices to bone origins. On first use it casts from the live act camera to the
   belly, chest, neck and head bone origins through the posed `CaressSurface` patches. The first
   triangle is the coat the player actually sees, so the path is on the visible side instead of

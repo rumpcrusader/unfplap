@@ -2110,7 +2110,12 @@ static func _load() -> void:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
-	data = _migrate(data, int(data.get("version", 0)))
+	var file_version := int(data.get("version", 0))
+	data = _migrate(data, file_version)
+	# A current file still imports a legacy placement file that appeared after the schema bump
+	# (for example a copied profile); the files are archived after the write below.
+	if file_version >= SCHEMA_VERSION:
+		data = _normalize_anatomy_placement(data)
 	data = _merge(_defaults(), data)
 	data["version"] = SCHEMA_VERSION
 	_cache = data

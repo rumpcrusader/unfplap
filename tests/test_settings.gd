@@ -154,6 +154,17 @@ func _check_placement_migration() -> void:
 	check(not FileAccess.file_exists(anon_path), "the old anon file is archived")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(anon_path + ".migrated"))
+	# A current schema still imports a legacy file that appears after the bump.
+	var late := FileAccess.open(mare_path, FileAccess.WRITE)
+	late.store_string(JSON.stringify({"version": 3, "rarity": {
+		"position": [0.0, 0.525, 0.289], "pitch": 6.0, "scale": 0.742}}, "\t"))
+	late.close()
+	SETTINGS.reload_file()
+	SETTINGS.data()
+	check(near(float(SETTINGS.anatomy_placement("rarity").get("pitch_deg", 0.0)), 6.0),
+		"a current settings file still imports a late legacy placement")
+	check(not FileAccess.file_exists(mare_path), "the late legacy file is archived")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
 
 
 ## A write persists through the file, and the flat cache rebuilds with it.

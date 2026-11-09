@@ -2,13 +2,15 @@
 .git
 .github
 .godot
+.opencode
+.agents
+.claude
 build
 dist
 scripts
 tests
 tools
-build.sh
-lab-vr.sh
+*.sh
 .pckignore
 .gitignore
 README.md
@@ -21,8 +23,12 @@ TUNING.md
 mod.built.json
 *.uid
 *.pck
+*.sha256
 *.zip
 *.log
+*.py
+*.pyc
+release_notes.md
 
 # Local anatomy working files are not part of a release.
 assets/anatomy/*.blend

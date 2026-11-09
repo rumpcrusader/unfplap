@@ -11,6 +11,9 @@
 # throwaway minimal Godot project at the same res://mods/<id>/ paths the game uses, imports
 # assets there, and packs the staging tree.
 #
+# The packer verifies its own output: required runtime files, no development files, the expected
+# anatomy set and a .sha256 beside the pack. A failed check removes the pack.
+#
 # The anatomy meshes and textures are not in the repository. A normal build requires all of them
 # under assets/anatomy/ and fails when any are missing. Pass --anatomy-zip to unpack them from
 # the archive first, or --no-anatomy to build without the feature. CI fetches that archive from
@@ -42,7 +45,7 @@ while [ "$#" -gt 0 ]; do
 			shift
 			;;
 		-h|--help)
-			sed -n '2,18p' "$0"
+			sed -n '2,21p' "$0"
 			exit 0
 			;;
 		*)
@@ -112,6 +115,16 @@ TAR_ARGS=(--exclude-from="$ROOT/.pckignore")
 if [ "$NO_ANATOMY" -eq 1 ]; then TAR_ARGS+=(--exclude="./assets/anatomy"); fi
 tar -C "$ROOT" "${TAR_ARGS[@]}" -cf - . | tar -C "$MOD" -xf -
 
+# The packer verifies the staged tree itself. Give it the expected anatomy set from the one
+# shared list; --no-anatomy expects no anatomy entries at all.
+if [ "$NO_ANATOMY" -eq 1 ]; then
+	export MOD_EXPECT_ANATOMY=0
+	export MOD_ANATOMY_FILES=""
+else
+	export MOD_EXPECT_ANATOMY=1
+	export MOD_ANATOMY_FILES="${ANATOMY_FILES[*]}"
+fi
+
 cat > "$STAGE/project.godot" <<EOF
 config_version=5
 
@@ -127,3 +140,4 @@ cp "$ROOT/tools/pack.gd" "$STAGE/pack.gd"
 godot --headless --path "$STAGE" --script res://pack.gd -- --out "$OUT"
 
 echo "Copy $OUT into the game's mods folder and enable it in Settings -> Mods."
+echo "Checksum: $OUT.sha256"

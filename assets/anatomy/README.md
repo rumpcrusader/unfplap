@@ -36,6 +36,8 @@ scripts/pack_anatomy.sh --upload --no-write   # upload it and print the URL only
 
 `build.sh` prints `ANATOMY ok 8/8`, `ANATOMY skipped (--no-anatomy)`, or `ANATOMY_FAIL` with the
 missing names. `--no-anatomy` excludes the folder from the pack even when the files are present.
+The packer then verifies the expected anatomy set actually reached the pack and writes a `.sha256`
+beside it.
 
 The archive holds exactly the eight files above at its root; the extractor matches them by name
 and ignores everything else, so a stray path inside the zip cannot reach the pack. At runtime the

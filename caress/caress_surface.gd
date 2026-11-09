@@ -201,6 +201,12 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	}
 
 
+## Cast an arbitrary world segment against the posed patch. Returns the ray hit dictionary
+## (`position`, `normal`, `face_index`) or {}. `update_pose()` must have run for the current frame.
+func ray(from: Vector3, to: Vector3) -> Dictionary:
+	return _cast(from, to)
+
+
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	if faces.is_empty():
 		return {}

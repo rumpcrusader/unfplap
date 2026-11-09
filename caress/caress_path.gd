@@ -19,7 +19,7 @@ var belly_u := BELLY_U
 var debug_notes: Array = []
 
 
-func build(pony: Variant, hand_side: String) -> bool:
+func build(pony: Variant, hand_side: String, camera_position := Vector3.INF) -> bool:
 	valid = false
 	anchors.clear()
 	path_len = 0.0
@@ -34,9 +34,16 @@ func build(pony: Variant, hand_side: String) -> bool:
 	var head := SURFACE.find_mesh(pony, "head")
 	var body_mesh: MeshInstance3D = body["mesh"]
 	var head_mesh: MeshInstance3D = head["mesh"] if not head.is_empty() else null
-	var key := "%d|%d|%s" % [
+	var side_key := "rest"
+	if camera_position.is_finite() and is_instance_valid(pony):
+		var pony_transform: Transform3D = pony.global_transform
+		var local: Vector3 = pony_transform.affine_inverse() * camera_position
+		side_key = "%d|%d|%d" % [
+			int(round(local.x * 2.0)), int(round(local.y * 2.0)),
+			int(round(local.z * 2.0))]
+	var key := "%d|%d|%s|%s" % [
 		body_mesh.get_instance_id(),
-		head_mesh.get_instance_id() if head_mesh != null else 0, hand_side]
+		head_mesh.get_instance_id() if head_mesh != null else 0, hand_side, side_key]
 	var cached: Variant = _cache.get(key)
 	if cached is Array and not (cached as Array).is_empty():
 		var cache_ok := true
@@ -49,7 +56,7 @@ func build(pony: Variant, hand_side: String) -> bool:
 			_update_belly_u()
 			valid = anchors.size() >= 3
 			return valid
-	anchors = _build_anchors(pony, body, head, hand_side)
+	anchors = _build_anchors(pony, body, head, hand_side, camera_position)
 	_update_belly_u()
 	if anchors.size() < 3:
 		return false
@@ -188,6 +195,143 @@ func _update_belly_u() -> void:
 
 
 func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
+		hand_side: String, camera_position: Vector3) -> Array:
+	if camera_position.is_finite():
+		var anchors := _build_anchors_camera(pony, body, head, hand_side, camera_position)
+		if anchors.size() >= 3:
+			return anchors
+	return _build_anchors_rest(pony, body, head, hand_side)
+
+
+## Anchors on the side the act camera sees. Each ray starts at the camera and ends at the bone
+## origin inside the body; the first posed triangle is the visible coat on that line.
+func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
+		hand_side: String, camera_position: Vector3) -> Array:
+	var sk: Skeleton3D = body["skeleton"]
+	var spine2_bone := _bone(sk, ["pony_spine2", "pony_spine1", "pony_hips"])
+	var spine3_bone := _bone(sk, ["pony_spine3", "pony_neck1"])
+	var neck_bone := _bone(sk, ["pony_neck1", "pony_spine3"])
+	if spine2_bone < 0:
+		return []
+	var belly_world := sk.global_transform * sk.get_bone_global_pose(spine2_bone).origin
+	var chest_world := belly_world
+	if spine3_bone >= 0:
+		chest_world = sk.global_transform * sk.get_bone_global_pose(spine3_bone).origin
+	var neck_world := belly_world
+	if neck_bone >= 0:
+		neck_world = sk.global_transform * sk.get_bone_global_pose(neck_bone).origin
+	var out: Array = []
+	var body_surface: Variant = SURFACE.new()
+	if not bool(body_surface.call("ensure", pony, "torso")):
+		debug_notes.append("source body missing")
+		return out
+	body_surface.call("update_pose", true)
+	var body_source: Dictionary = body_surface.get("source")
+	debug_notes.append("source body verts=%d idx=%d" % [
+		(body_source.get("vertices", []) as Array).size(),
+		(body_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
+	var belly_anchor := _posed_ray_anchor(body_surface, camera_position, belly_world)
+	if belly_anchor.is_empty():
+		debug_notes.append("anchor belly miss")
+		return out
+	_anchor_meta(belly_anchor, "belly", 1.0, 1.0, "torso")
+	out.append(belly_anchor)
+	var chest_anchor := _posed_ray_anchor(body_surface, camera_position, chest_world)
+	if chest_anchor.is_empty():
+		debug_notes.append("anchor chest miss")
+	else:
+		_anchor_meta(chest_anchor, "chest", 0.8, 0.7, "torso")
+		out.append(chest_anchor)
+	var neck_anchor := _posed_ray_anchor(body_surface, camera_position, neck_world)
+	var neck_ok := not neck_anchor.is_empty()
+	if neck_ok:
+		_anchor_meta(neck_anchor, "neck", 0.3, 0.2, "torso")
+		out.append(neck_anchor)
+	else:
+		debug_notes.append("anchor neck miss")
+	if neck_ok and not head.is_empty():
+		var hsk: Skeleton3D = head["skeleton"]
+		var head_bone := _bone(hsk, ["mHead", "pony_head", "Head"])
+		if head_bone < 0:
+			debug_notes.append("anchor cheek miss: no head bone")
+		else:
+			var head_surface: Variant = SURFACE.new()
+			if not bool(head_surface.call("ensure", pony, "head")):
+				debug_notes.append("source head missing")
+			else:
+				head_surface.call("update_pose", true)
+				var head_source: Dictionary = head_surface.get("source")
+				debug_notes.append("source head verts=%d idx=%d" % [
+					(head_source.get("vertices", []) as Array).size(),
+					(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
+				var head_world := hsk.global_transform * hsk.get_bone_global_pose(head_bone).origin
+				var head_anchor := _posed_ray_anchor(head_surface, camera_position, head_world)
+				if head_anchor.is_empty():
+					debug_notes.append("anchor cheek miss")
+				else:
+					_anchor_meta(head_anchor, "cheek", 0.0, 0.0, "head")
+					out.append(head_anchor)
+	return out
+
+
+func _posed_ray_anchor(surface: Variant, camera: Vector3, inside_world: Vector3) -> Dictionary:
+	var hit: Variant = surface.call("ray", camera, inside_world)
+	if not hit is Dictionary or (hit as Dictionary).is_empty():
+		return {}
+	var source: Dictionary = surface.get("source")
+	var indices: PackedInt32Array = source.get("indices", PackedInt32Array())
+	var face := int((hit as Dictionary).get("face_index", -1)) * 3
+	if face < 0 or face + 2 >= indices.size():
+		return {}
+	var posed_faces: PackedVector3Array = surface.get("faces")
+	var hit_point: Vector3 = (hit as Dictionary).get("position", Vector3.ZERO)
+	var best_j := -1
+	var best_distance := INF
+	for j in 3:
+		if face + j >= posed_faces.size():
+			continue
+		var distance := posed_faces[face + j].distance_squared_to(hit_point)
+		if distance < best_distance:
+			best_distance = distance
+			best_j = j
+	if best_j < 0:
+		return {}
+	return _anchor_from_source_vertex(source, indices[face + best_j],
+		surface.get("skeleton"))
+
+
+func _anchor_from_source_vertex(source: Dictionary, index: int,
+		skeleton: Skeleton3D) -> Dictionary:
+	var vertices: Array = source.get("vertices", [])
+	if index < 0 or index >= vertices.size():
+		return {}
+	var vertex: Dictionary = vertices[index]
+	var influences: Array = []
+	var bindings: Array = source.get("bindings", [])
+	for influence: Vector2 in vertex["influence"]:
+		var binding: Dictionary = bindings[int(influence.x)]
+		influences.append({
+			"bone": int(binding["bone"]),
+			"bind": binding["bind"],
+			"weight": float(influence.y),
+		})
+	return {
+		"skeleton": skeleton,
+		"position": vertex["position"],
+		"normal": vertex["normal"],
+		"influences": influences,
+	}
+
+
+func _bone(skeleton: Skeleton3D, names: Array) -> int:
+	for name: String in names:
+		var bone := skeleton.find_bone(name)
+		if bone >= 0:
+			return bone
+	return -1
+
+
+func _build_anchors_rest(pony: Variant, body: Dictionary, head: Dictionary,
 		hand_side: String) -> Array:
 	var sk: Skeleton3D = body["skeleton"]
 	var spine2: Variant = _rest(sk, ["pony_spine2", "pony_spine1", "pony_hips"])

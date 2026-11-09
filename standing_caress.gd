@@ -1553,13 +1553,28 @@ func _clear_debug_draw() -> void:
 	_debug_immediate = null
 
 
+## The act camera position; the path anchors are chosen on the side it actually sees.
+func _missionary_camera_position() -> Vector3:
+	if not is_instance_valid(runtime):
+		return Vector3.INF
+	var value: Variant = runtime.get("_camera")
+	if value is Camera3D and is_instance_valid(value):
+		return (value as Camera3D).global_position
+	var main: Variant = runtime.get("main")
+	if is_instance_valid(main) and main.has_method("camera"):
+		var cam: Variant = main.call("camera")
+		if cam is Camera3D and is_instance_valid(cam):
+			return (cam as Camera3D).global_position
+	return Vector3.INF
+
+
 func _missionary_anchor_path(hand_side: String) -> Variant:
 	var path: Variant = _missionary_paths.get(hand_side)
 	if path != null and bool(path.get("valid")):
 		return path
 	var started := Time.get_ticks_usec()
 	path = CAESS_PATH.new()
-	if not bool(path.call("build", pony, hand_side)):
+	if not bool(path.call("build", pony, hand_side, _missionary_camera_position())):
 		return null
 	_missionary_paths[hand_side] = path
 	if bool(SETTINGS.caress_debug.get_bool()):

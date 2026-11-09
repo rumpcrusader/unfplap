@@ -1,7 +1,7 @@
 # Runtime assets
 
 The adult audio and anatomy files are not tracked in this repository. They live in one
-compile-time resource archive on pone.rs. Every release build fetches that archive and packs its
+compile-time resource archive on pone.rs. The release workflow fetches that archive and packs its
 `runtime/` tree into the mod `.pck`; players still install one file.
 
 ```bash

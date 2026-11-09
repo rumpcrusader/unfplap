@@ -17,7 +17,7 @@ Do not start implementation until you have read the required files for the area 
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `settings.gd`, `settings_ui.gd` |
 | Character profiles or preference | `character_preferences.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
-| Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md` |
+| Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
 | Release | `.opencode/skills/release/SKILL.md` |
 
 ## Identity and scope

@@ -1,30 +1,21 @@
 extends SceneTree
 ## Packs the staged mod at res://mods/<id>/ into a standalone .pck and verifies the result.
 ##
-## build.sh stages the runtime tree selected by .pckignore, runs --import, then copies this
-## script into the staging project and calls it. This packer adds the staged tree as-is:
-## mod.json, scripts, assets, poses and merge data. Each .import is packed with the data Godot
-## generated for it; raw imported assets are not.
-##
-## The packer rejects development paths, requires the runtime files and the expected anatomy
-## set, and writes a .sha256 beside the pack. A failed check removes the pack.
+## build.sh stages the tracked runtime tree, writes the expected file list from
+## scripts/build_manifest.py, runs --import, then copies this script into the staging project.
+## The packer requires the packed runtime files to equal that list plus mod.built.json, rejects
+## broken import sidecars, and writes a .sha256 beside the pack. A failed check removes the pack.
 ##
 ##   godot --headless --path <stage> --script res://pack.gd -- --out FILE.pck
 
 const ID_PATTERN := "^[a-z0-9_]{1,40}$"
-const REQUIRED := ["mod.json", "mod.built.json", "changelog.txt", "AUDIO_CREDITS.md"]
-const FORBIDDEN_DIRS := [".agents", ".claude", ".github", ".opencode", "backups", "scripts", "tests", "tools"]
-const FORBIDDEN_FILES := ["release_notes.md", "Thumbs.db", "winking_before_wink.scn"]
-const FORBIDDEN_SUFFIXES := [".bak", ".blend", ".blend1", ".log", ".orig", ".pck", ".py", ".pyc", ".sh", ".tmp", ".uid", ".zip"]
 
 var _count := 0
 var _failed := false
 var _root_key := ""
 var _out_path := ""
-var _paths := {}
-var _anatomy_expected: Array[String] = []
-var _anatomy_found := {}
-var _anatomy_enabled := false
+var _expected := {}
+var _packed := {}
 
 
 func _initialize() -> void:
@@ -40,6 +31,19 @@ func run() -> void:
 	if out.is_empty():
 		fail("missing --out <file.pck>")
 		return
+
+	var expected_path := OS.get_environment("MOD_EXPECTED_FILES")
+	if expected_path.is_empty() or not FileAccess.file_exists(expected_path):
+		fail("MOD_EXPECTED_FILES is missing or not readable")
+		return
+	for line: String in FileAccess.get_file_as_string(expected_path).split("\n"):
+		var rel := line.strip_edges()
+		if not rel.is_empty():
+			_expected[rel] = true
+	if _expected.is_empty():
+		fail("the expected file manifest is empty")
+		return
+	_expected["mod.built.json"] = true
 
 	var ids := DirAccess.get_directories_at("res://mods")
 	if ids.size() != 1:
@@ -69,11 +73,14 @@ func run() -> void:
 	if game_version.is_empty():
 		fail("mod.json game_version is empty")
 		return
-
-	_anatomy_enabled = OS.get_environment("MOD_EXPECT_ANATOMY") == "1"
-	_anatomy_expected = _env_list("MOD_ANATOMY_FILES")
-	if _anatomy_enabled and _anatomy_expected.is_empty():
-		fail("MOD_EXPECT_ANATOMY is set but MOD_ANATOMY_FILES is empty")
+	var entry := str(data.get("entry", ""))
+	var entry_prefix := "res://mods/%s/" % id
+	if not entry.begins_with(entry_prefix):
+		fail("mod.json entry is not under %s" % entry_prefix)
+		return
+	var entry_rel := entry.trim_prefix(entry_prefix)
+	if entry_rel.is_empty():
+		fail("mod.json entry is empty")
 		return
 
 	var out_path := ProjectSettings.globalize_path(out) if out.begins_with("res://") else out
@@ -102,10 +109,10 @@ func run() -> void:
 		_add_tree(packer, root.path_join(name), absolute_root.path_join(name))
 		if _failed: return
 
-	var stamp := OS.get_temp_dir().path_join("mod_build_%s.json" % id)
-	var marker := FileAccess.open(stamp, FileAccess.WRITE)
+	var marker_path := ProjectSettings.globalize_path(root.path_join("mod.built.json"))
+	var marker := FileAccess.open(marker_path, FileAccess.WRITE)
 	if marker == null:
-		fail("cannot write %s" % stamp)
+		fail("cannot write %s" % marker_path)
 		return
 	var built := {
 		"id": id,
@@ -115,26 +122,17 @@ func run() -> void:
 	}
 	marker.store_string(JSON.stringify(built, "\t"))
 	marker.close()
-	_add(packer, root.path_join("mod.built.json"), stamp)
+	_add(packer, root.path_join("mod.built.json"), marker_path)
 	if _failed: return
 
-	_verify_required()
+	_verify_manifest()
 	if _failed: return
-	var entry := str(data.get("entry", "")).trim_prefix("res://")
-	if not entry.is_empty() and not _paths.has(entry):
-		fail("entry script missing from pack: %s" % entry)
+	if not _packed.has(entry_rel):
+		fail("entry script missing from pack: %s" % entry_rel)
 		return
 	if packer.flush() != OK:
 		fail("cannot finish %s" % out_path)
 		return
-	DirAccess.remove_absolute(stamp)
-
-	var check := FileAccess.open(out_path, FileAccess.READ)
-	if check == null or check.get_buffer(4) != "GDPC".to_ascii_buffer():
-		if check != null: check.close()
-		fail("%s is not a Godot pack" % out_path)
-		return
-	check.close()
 
 	var sha := FileAccess.get_sha256(out_path)
 	if sha.is_empty():
@@ -149,74 +147,21 @@ func run() -> void:
 	sum.close()
 
 	print("[%s] %d files" % [id, _count])
-	print("PACK_VERIFY ok files=%d anatomy=%d/%d sha256=%s" % [
-		_count, _anatomy_found.size(), _anatomy_expected.size(), sha])
+	print("PACK_VERIFY ok files=%d expected=%d sha256=%s" % [_count, _expected.size(), sha])
 	print("PCK_SHA256 ", sum_path)
 	print("MOD_BUILT ", out_path)
 	quit(0)
 
 
-func _env_list(name: String) -> Array[String]:
-	var out: Array[String] = []
-	for part: String in OS.get_environment(name).split(" ", false):
-		if not part.is_empty():
-			out.append(part)
-	return out
-
-
-func _verify_required() -> void:
-	for name: String in REQUIRED:
-		if not _paths.has(_root_key + "/" + name):
-			fail("required file missing from pack: %s" % name)
+func _verify_manifest() -> void:
+	for rel: String in _expected:
+		if not _packed.has(rel):
+			fail("required file missing from pack: %s" % rel)
 			return
-	if not _anatomy_enabled:
-		return
-	var missing: Array[String] = []
-	for name: String in _anatomy_expected:
-		if not _anatomy_found.has(name):
-			missing.append(name)
-	if not missing.is_empty():
-		fail("anatomy missing from pack: %s" % ", ".join(PackedStringArray(missing)))
-
-
-func _verify_path(logical: String) -> String:
-	var key := logical.trim_prefix("res://")
-	if key.begins_with(".godot/"):
-		return ""
-	if not key.begins_with(_root_key + "/"):
-		return "packed path outside the mod root: %s" % logical
-	var relative := key.trim_prefix(_root_key + "/")
-	var first := relative.get_slice("/", 0)
-	if first in FORBIDDEN_DIRS:
-		return "development path in pack: %s" % logical
-	var file := relative.get_file()
-	if file in FORBIDDEN_FILES:
-		return "development file in pack: %s" % logical
-	for suffix: String in FORBIDDEN_SUFFIXES:
-		if file.ends_with(suffix):
-			return "development file in pack: %s" % logical
-	if file.ends_with(".md") and file != "AUDIO_CREDITS.md":
-		return "documentation file in pack: %s" % logical
-	if file.ends_with(".txt") and file != "changelog.txt":
-		return "documentation file in pack: %s" % logical
-	if relative.begins_with("assets/anatomy/"):
-		var name := relative.trim_prefix("assets/anatomy/")
-		if name.contains("/"):
-			return "nested anatomy path in pack: %s" % logical
-		if name.ends_with(".import"):
-			if not _anatomy_enabled:
-				return "anatomy import in a no-anatomy build: %s" % logical
-			var source := name.trim_suffix(".import")
-			if source not in _anatomy_expected:
-				return "unexpected anatomy import in pack: %s" % logical
-			_anatomy_found[source] = true
-			return ""
-		if not _anatomy_enabled:
-			return "anatomy asset in a no-anatomy build: %s" % logical
-		if name not in _anatomy_expected:
-			return "unexpected anatomy asset in pack: %s" % logical
-		_anatomy_found[name] = true
-	return ""
+	for rel: String in _packed:
+		if not _expected.has(rel):
+			fail("unexpected file in pack: %s" % rel)
+			return
 
 
 func _add_file(packer: PCKPacker, logical: String, absolute: String, import_sidecar := true) -> void:
@@ -231,7 +176,7 @@ func _add_import(packer: PCKPacker, logical: String, absolute: String) -> void:
 	if _failed: return
 	var config := ConfigFile.new()
 	if config.load(absolute) != OK:
-		push_warning("cannot read %s" % absolute)
+		fail("cannot read import sidecar: %s" % logical)
 		return
 	var dest: Variant = config.get_value("deps", "dest_files", [])
 	if not dest is Array or (dest as Array).is_empty():
@@ -239,12 +184,21 @@ func _add_import(packer: PCKPacker, logical: String, absolute: String) -> void:
 			dest = [config.get_value("remap", "path")]
 		else:
 			dest = []
+	if not dest is Array or (dest as Array).is_empty():
+		fail("import sidecar has no destination: %s" % logical)
+		return
 	for item: Variant in dest:
 		var logical_dest := str(item)
 		var absolute_dest := ProjectSettings.globalize_path(logical_dest)
 		if not FileAccess.file_exists(absolute_dest):
-			fail("%s is not imported yet (run build.sh again)" % logical_dest)
+			fail("imported data is missing for %s: %s" % [logical, logical_dest])
 			return
+		var imported := FileAccess.open(absolute_dest, FileAccess.READ)
+		if imported == null or imported.get_length() <= 0:
+			if imported != null: imported.close()
+			fail("imported data is empty for %s: %s" % [logical, logical_dest])
+			return
+		imported.close()
 		_add(packer, logical_dest, absolute_dest)
 		if _failed: return
 
@@ -270,15 +224,18 @@ func _add_tree(packer: PCKPacker, logical_dir: String, absolute_dir: String) -> 
 
 func _add(packer: PCKPacker, logical: String, absolute: String) -> void:
 	if _failed: return
-	var why := _verify_path(logical)
-	if not why.is_empty():
-		fail(why)
+	var key := logical.trim_prefix("res://")
+	if key.begins_with(".godot/"):
+		pass
+	elif key.begins_with(_root_key + "/"):
+		_packed[key.trim_prefix(_root_key + "/")] = true
+	else:
+		fail("packed path outside the mod root: %s" % logical)
 		return
 	if packer.add_file(logical, absolute) != OK:
 		fail("cannot add %s" % logical)
 		return
 	_count += 1
-	_paths[logical.trim_prefix("res://")] = true
 
 
 func _json(path: String) -> Variant:

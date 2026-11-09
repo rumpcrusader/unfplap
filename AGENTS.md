@@ -32,11 +32,9 @@ Do not start implementation until you have read the required files for the area 
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. The anatomy is an optional, feature-gated
-  addition; it never replaces a pony's body or rig. The original PPP meshes/textures are kept out
-  of git (`assets/anatomy/` is ignored for them) and fetched from the committed
-  `ANATOMY_ARCHIVE_URL` for every release build; the V2 `mare_bits_v2.scn` variant is tracked
-  and packed with the archive. The act
-  stays off-camera by framing. Modelled accessories are allowed.
+  addition; it never replaces a pony's body or rig. The PPP anatomy meshes/textures are tracked in
+  `assets/anatomy/` and packed with the mod. The act stays off-camera by framing. Modelled
+  accessories are allowed.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -117,26 +115,19 @@ scripts/smoke.sh
   The printed output is the current state; do not copy counts into docs.
 - Build only when the user asks:
   ```bash
-  ./build.sh [--out <file.pck>] [--anatomy-zip <file.zip> | --no-anatomy]
+  ./build.sh [--out <file.pck>]
   ```
-  Success prints `PACK_VERIFY`, `PCK_SHA256` and `MOD_BUILT <path>`. The packer verifies the
-  required runtime files, rejects development files, checks the expected anatomy set and writes a
-  `.sha256` beside the pck. A failed check removes the pack. The mod has no script extension.
-- The original PPP anatomy meshes and textures are never committed; the V2
-  `mare_bits_v2.scn` variant is tracked. `build.sh` requires all eight, prints `ANATOMY ok 8/8`,
-  and fails with `ANATOMY_FAIL` and the missing names unless they are present under
-  `assets/anatomy/`. `--anatomy-zip` unpacks the archive written by `scripts/pack_anatomy.sh`
-  first; `--no-anatomy` builds a code-only pack and drops the assets even when they are in the
-  working tree. `pack.gd` checks the anatomy set actually reached the pack.
-- `scripts/pack_anatomy.sh --upload` publishes that archive to pone.rs, checks the served size
-  and rewrites `ANATOMY_ARCHIVE_URL` in `scripts/anatomy_assets.sh`; the constant is committed,
-  so a tag build fetches exactly what that commit names. `--no-write` prints the URL only.
-- `build.sh` stages only the runtime tree selected by `.pckignore`, imports the audio, packs the
+  Success prints `PACK_VERIFY`, `PCK_SHA256` and `MOD_BUILT <path>`. `build.sh` generates the
+  required runtime list with `scripts/build_manifest.py`; `pack.gd` requires the packed files to
+  match it, rejects development files, rejects broken `.import` data and writes a `.sha256` beside
+  the pck. A failed check removes the pack. The mod has no script extension.
+- The PPP anatomy meshes and textures are tracked in `assets/anatomy/`; the V2
+  `mare_bits_v2.scn` variant is one of the eight required files. Every build includes them.
+- `build.sh` stages only the runtime tree selected by `.pckignore`, imports the assets, packs the
   `.import` sidecars and verifies the result. Repository docs, tests, scripts, tools, skills and
   `.git` do not ship; `AUDIO_CREDITS.md` and `changelog.txt` do.
-- CI builds on pushes and pull requests; only a `v*` tag takes the anatomy archive and publishes a
-  release. Release preparation, versioning, tagging and store steps are in the release skill, not
-  here.
+- CI builds on pushes and pull requests; only a `v*` tag publishes a release. Release preparation,
+  versioning, tagging and store steps are in the release skill, not here.
 - The official `tools/modding/build_mod.gd` command remains a fallback when the full game
   project is available, but it packs the whole folder.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
@@ -225,7 +216,7 @@ mods/unfplap/
   dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
   sex_bond.gd       pure Promiscuity levels + per-world lover-bond state and validity
   HISTORY.md        act score, history points, tiers, offer weighting and repair contract
-  scripts/          prepare_release.sh, check_release.sh, check_release_metadata.py and other scripts
+  scripts/          build_manifest.py, prepare_release.sh, check_release.sh, check_release_metadata.py and other scripts
   .opencode/        release skill and command; never packed
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    preference/readiness/strength contract

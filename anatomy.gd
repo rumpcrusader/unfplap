@@ -1,6 +1,6 @@
 extends Node
 ## integration: ported from PonyPussyParadise runtime anatomy attachment. One per adult mare,
-## persistent across acts. The mesh and textures are local-only assets; if they are missing the
+## persistent across acts. The mesh and textures are tracked assets; if they are missing the
 ## controller stays empty and every public method is a no-op.
 
 const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")

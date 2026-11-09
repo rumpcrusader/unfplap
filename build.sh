@@ -1,32 +1,21 @@
 #!/usr/bin/env bash
 # Build one standalone mod pack from this repository.
 #
-#   ./build.sh                          -> dist/unfplap-<version>.pck
-#   ./build.sh --out FILE.pck            -> FILE.pck
-#   ./build.sh --anatomy-zip FILE.zip    -> unpack the anatomy archive first
-#   ./build.sh --no-anatomy              -> code-only pack, no adult anatomy
+#   ./build.sh                  -> dist/unfplap-<version>.pck
+#   ./build.sh --out FILE.pck   -> FILE.pck
 #
-# Godot 4.5 must be on PATH. The pack contains only the runtime tree selected by .pckignore,
-# imported asset data and the generated mod.built.json. The build stages that tree in a
-# throwaway minimal Godot project at the same res://mods/<id>/ paths the game uses, imports
-# assets there, and packs the staging tree.
+# Godot 4.5 must be on PATH; the release check requires 4.5.2. The pack contains only the tracked
+# runtime tree selected by scripts/build_manifest.py, imported asset data and the generated
+# mod.built.json. The build stages that tree in a throwaway minimal Godot project at the same
+# res://mods/<id>/ paths the game uses, imports assets there, and packs the staging tree.
 #
-# The packer verifies its own output: required runtime files, no development files, the expected
-# anatomy set and a .sha256 beside the pack. A failed check removes the pack.
-#
-# The anatomy meshes and textures are not in the repository. A normal build requires all of them
-# under assets/anatomy/ and fails when any are missing. Pass --anatomy-zip to unpack them from
-# the archive first, or --no-anatomy to build without the feature. CI fetches that archive from
-# the ANATOMY_ARCHIVE_URL declared in scripts/anatomy_assets.sh, which
-# scripts/pack_anatomy.sh --upload writes.
+# The packer verifies its own output against the same manifest: required runtime files, no
+# development files, readable import data and a .sha256 beside the pack. A failed check removes
+# the pack.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/anatomy_assets.sh
-source "$ROOT/scripts/anatomy_assets.sh"
 OUT=""
-ANATOMY_ZIP=""
-NO_ANATOMY=0
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -35,17 +24,8 @@ while [ "$#" -gt 0 ]; do
 			OUT="$2"
 			shift 2
 			;;
-		--anatomy-zip)
-			if [ "$#" -lt 2 ]; then echo "--anatomy-zip needs a file path." >&2; exit 1; fi
-			ANATOMY_ZIP="$2"
-			shift 2
-			;;
-		--no-anatomy)
-			NO_ANATOMY=1
-			shift
-			;;
 		-h|--help)
-			sed -n '2,21p' "$0"
+			sed -n '2,14p' "$0"
 			exit 0
 			;;
 		*)
@@ -55,15 +35,12 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-if ! command -v godot >/dev/null 2>&1; then
-	echo "Godot not found on PATH (need the Godot 4.5 executable)." >&2
-	exit 1
-fi
-
-if ! command -v python3 >/dev/null 2>&1; then
-	echo "python3 is needed to read mod.json." >&2
-	exit 1
-fi
+for tool in godot python3 git; do
+	if ! command -v "$tool" >/dev/null 2>&1; then
+		echo "$tool is needed on PATH." >&2
+		exit 1
+	fi
+done
 
 if [ ! -f "$ROOT/mod.json" ] || [ ! -f "$ROOT/.pckignore" ]; then
 	echo "Expected mod.json and .pckignore beside build.sh." >&2
@@ -81,26 +58,6 @@ if [ -z "$VERSION" ]; then
 	exit 1
 fi
 
-if [ "$NO_ANATOMY" -eq 1 ] && [ -n "$ANATOMY_ZIP" ]; then
-	echo "--anatomy-zip and --no-anatomy cannot be combined." >&2
-	exit 1
-fi
-
-ANATOMY_DIR="$ROOT/assets/anatomy"
-if [ -n "$ANATOMY_ZIP" ]; then
-	echo "Unpacking anatomy assets from $ANATOMY_ZIP..."
-	anatomy_unpack "$ANATOMY_ZIP" "$ANATOMY_DIR"
-fi
-if [ "$NO_ANATOMY" -eq 1 ]; then
-	echo "ANATOMY skipped (--no-anatomy)"
-elif missing="$(anatomy_missing "$ANATOMY_DIR")"; then
-	echo "ANATOMY ok ${#ANATOMY_FILES[@]}/${#ANATOMY_FILES[@]}"
-else
-	printf 'ANATOMY_FAIL missing in assets/anatomy/:\n%s\n' "$missing" >&2
-	echo "Pack and publish them with scripts/pack_anatomy.sh --upload, unpack the archive there, or pass --no-anatomy." >&2
-	exit 1
-fi
-
 if [ -z "$OUT" ]; then OUT="$ROOT/dist/$ID-$VERSION.pck"; fi
 mkdir -p "$(dirname "$OUT")"
 
@@ -110,20 +67,13 @@ trap cleanup EXIT
 
 MOD="$STAGE/mods/$ID"
 mkdir -p "$MOD"
-TAR_ARGS=(--exclude-from="$ROOT/.pckignore")
-# --no-anatomy must drop the assets even when they sit in the working tree.
-if [ "$NO_ANATOMY" -eq 1 ]; then TAR_ARGS+=(--exclude="./assets/anatomy"); fi
-tar -C "$ROOT" "${TAR_ARGS[@]}" -cf - . | tar -C "$MOD" -xf -
+tar -C "$ROOT" --exclude-from="$ROOT/.pckignore" -cf - . | tar -C "$MOD" -xf -
 
-# The packer verifies the staged tree itself. Give it the expected anatomy set from the one
-# shared list; --no-anatomy expects no anatomy entries at all.
-if [ "$NO_ANATOMY" -eq 1 ]; then
-	export MOD_EXPECT_ANATOMY=0
-	export MOD_ANATOMY_FILES=""
-else
-	export MOD_EXPECT_ANATOMY=1
-	export MOD_ANATOMY_FILES="${ANATOMY_FILES[*]}"
-fi
+# The manifest is the single required-file contract: every tracked runtime file must be packed,
+# and the packer rejects anything not in this list.
+EXPECTED="$STAGE/expected.txt"
+python3 "$ROOT/scripts/build_manifest.py" "$ROOT" > "$EXPECTED"
+export MOD_EXPECTED_FILES="$EXPECTED"
 
 cat > "$STAGE/project.godot" <<EOF
 config_version=5

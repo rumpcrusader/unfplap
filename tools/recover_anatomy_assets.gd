@@ -1,6 +1,6 @@
 extends SceneTree
-## integration: recover the local-only anatomy assets from a PonyPussyParadise .pck. Run from the
-## game project with the pack path as the first user argument. Writes ignored files under
+## integration: recover the anatomy assets from a PonyPussyParadise .pck. Run from the
+## game project with the pack path as the first user argument. Writes files under
 ## res://mods/unfplap/assets/anatomy/ and never touches the repository index.
 
 const OUT := "res://mods/unfplap/assets/anatomy"

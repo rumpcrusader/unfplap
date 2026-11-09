@@ -7,9 +7,10 @@
 #   scripts/publish_store.sh --tag v0.3.1 --submit --force
 #                                                         submit even when the version exists
 #
-# A preview downloads the release pack and its .sha256, verifies them, uploads the pack to pone.rs,
-# verifies the served size and hash, runs the store's duplicate guard and prints the exact row it
-# would insert. It never writes to the store. --submit does the same and then inserts the row.
+# A preview downloads the release pack and, when present, its .sha256, verifies both, uploads the
+# pack to pone.rs, verifies the served size and hash, runs the store's duplicate guard and prints
+# the exact row it would insert. It never writes to the store. --submit does the same and then
+# inserts the row.
 #
 # The store is the static page at https://unrivaled-cannoli-17cf6d.netlify.app/; its form POSTs
 # straight to Supabase with the publishable key below, which is public in that page, not a secret.
@@ -116,28 +117,26 @@ import sys
 
 release_path, asset_path, sum_path, version = sys.argv[1:5]
 release = json.load(open(release_path, encoding="utf-8"))
-wanted = {
-    f"unfplap-{version}.pck": asset_path,
-    f"unfplap-{version}.pck.sha256": sum_path,
-}
+pck = f"unfplap-{version}.pck"
+sum_name = pck + ".sha256"
 found = {}
 for asset in release.get("assets", []):
-    if asset.get("name") in wanted:
+    if asset.get("name") in (pck, sum_name):
         found[asset["name"]] = asset
-for name, path in wanted.items():
-    if name not in found:
-        raise SystemExit(f"{release.get('tag_name')} has no asset {name}")
-    json.dump(found[name], open(path, "w", encoding="utf-8"))
+if pck not in found:
+    raise SystemExit(f"{release.get('tag_name')} has no asset {pck}")
+json.dump(found[pck], open(asset_path, "w", encoding="utf-8"))
+if sum_name in found:
+    json.dump(found[sum_name], open(sum_path, "w", encoding="utf-8"))
+else:
+    print(f"CHECKSUM_MISSING {release.get('tag_name')} has no asset {sum_name}", file=sys.stderr)
 PY
 
 asset_url="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["browser_download_url"])' "$work/asset.json")"
 asset_size="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["size"])' "$work/asset.json")"
-sum_url="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["browser_download_url"])' "$work/sum_asset.json")"
 
 curl --fail-with-body --silent --show-error --location \
 	--output "$work/unfplap-$VERSION.pck" "$asset_url"
-curl --fail-with-body --silent --show-error --location \
-	--output "$work/unfplap-$VERSION.pck.sha256" "$sum_url"
 
 local_size="$(wc -c < "$work/unfplap-$VERSION.pck" | tr -d ' ')"
 if [ "$local_size" != "$asset_size" ]; then
@@ -156,10 +155,17 @@ with open(sys.argv[1], "rb") as handle:
 print(digest.hexdigest())
 PY
 )"
-release_sha="$(awk 'NR == 1 { print $1 }' "$work/unfplap-$VERSION.pck.sha256")"
-if [ "$local_sha" != "$release_sha" ]; then
-	echo "Downloaded pack sha256 $local_sha does not match release checksum $release_sha." >&2
-	exit 1
+if [ -f "$work/sum_asset.json" ]; then
+	sum_url="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["browser_download_url"])' "$work/sum_asset.json")"
+	curl --fail-with-body --silent --show-error --location \
+		--output "$work/unfplap-$VERSION.pck.sha256" "$sum_url"
+	release_sha="$(awk 'NR == 1 { print $1 }' "$work/unfplap-$VERSION.pck.sha256")"
+	if [ "$local_sha" != "$release_sha" ]; then
+		echo "Downloaded pack sha256 $local_sha does not match release checksum $release_sha." >&2
+		exit 1
+	fi
+else
+	echo "Release has no .sha256 asset; using the downloaded pack hash for the mirror check." >&2
 fi
 
 release_url="$(curl --fail-with-body --silent --show-error \

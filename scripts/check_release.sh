@@ -50,13 +50,15 @@ stash_installed_packs() {
 	[ -n "${UNFPLAP_MODS_DIR:-}" ] && dirs+=("$UNFPLAP_MODS_DIR")
 	dirs+=("${XDG_DATA_HOME:-$HOME/.local/share}/home-equestria-public/mods")
 	[ -n "${APPDATA:-}" ] && dirs+=("$APPDATA/home-equestria-public/mods")
-	local dir file moved=0
+	local dir file backup moved=0
 	for dir in "${dirs[@]}"; do
 		[ -d "$dir" ] || continue
 		for file in "$dir"/unfplap*.pck; do
 			[ -e "$file" ] || continue
-			mv -f "$file" "$file.bak"
-			echo "STASHED $file -> $file.bak"
+			backup="$file.bak"
+			if [ -e "$backup" ]; then backup="$file.$(date +%Y%m%d-%H%M%S).bak"; fi
+			mv "$file" "$backup"
+			echo "STASHED $file -> $backup"
 			moved=1
 		done
 	done
@@ -119,11 +121,15 @@ SUM="$PCK.sha256"
 [ -f "$SUM" ] || fail "build did not write $SUM"
 
 HASH="$(git rev-parse HEAD)"
+DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+DEFAULT_BRANCH="${DEFAULT_BRANCH#origin/}"
+[ -n "$DEFAULT_BRANCH" ] || DEFAULT_BRANCH="master"
 echo
 echo "RELEASE_REVIEW"
 echo "version: $VERSION"
 echo "target game: $GAME_VERSION"
 echo "commit: $HASH"
+echo "branch: $DEFAULT_BRANCH"
 echo "godot: $GODOT_REPORT"
 echo "files: ${CHANGED[*]:-}"
 echo "changelog:"
@@ -138,7 +144,7 @@ echo "Preflight only; CI rebuilds the published pack and attaches its own .sha25
 echo
 echo "Before pushing, install $PCK and run the relevant lab pass."
 echo "If it is good, the user runs:"
-printf '  git push origin master\n'
+printf '  git push origin %s\n' "$DEFAULT_BRANCH"
 printf '  git tag -a %s %s -m "unfplap %s" -m "target game: %s" -m "source commit: %s"\n' \
 	"$TAG" "$HASH" "$VERSION" "$GAME_VERSION" "$HASH"
 printf '  git push origin %s\n' "$TAG"

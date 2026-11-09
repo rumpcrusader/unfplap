@@ -48,6 +48,11 @@ func run() -> void:
 		"scripts/check_release.sh",
 		"scripts/check_release_metadata.py",
 		"scripts/build_manifest.py",
+		"scripts/asset_pack.py",
+		"scripts/pack_assets.sh",
+		"scripts/fetch_assets.sh",
+		"scripts/asset_pack.json",
+		"assets/README.md",
 	]:
 		check(FileAccess.file_exists(ROOT.path_join(path)), "release file %s" % path)
 	for path: String in ["build.sh", "tools/pack.gd", ".github/workflows/build.yml"]:

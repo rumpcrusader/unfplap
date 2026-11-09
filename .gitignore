@@ -33,9 +33,12 @@ __pycache__/
 # exported poses/missionary_pose.json is the tracked source of truth.
 tools/pose_lab.tscn
 
-# Local anatomy working files. The release anatomy assets are tracked.
-assets/anatomy/*.blend
-!assets/anatomy/mare_bits_v2.blend
-assets/anatomy/*.blend1
-assets/anatomy/backups/
-assets/anatomy/winking_before_wink.scn
+# Runtime anatomy and audio assets are fetched from the resource pack, not committed.
+assets/anatomy/
+sources/
+audio/**/*.wav
+audio/**/*.wav.import
+audio/**/*.ogg
+audio/**/*.ogg.import
+audio/**/*.mp3
+audio/**/*.mp3.import

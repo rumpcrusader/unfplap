@@ -2,9 +2,9 @@
 # Validate a prepared release, or the metadata of a pushed tag in CI.
 #
 #   scripts/check_release.sh
-#     Local release check: clean tree, version/changelog/target game, test suites,
-#     self-verifying preflight build, then a review packet and the exact push/tag commands.
-#     It never tags or pushes.
+#     Local release check: clean tree, version/changelog/target game/resource manifest, test
+#     suites, self-verifying preflight build, then a review packet and the exact push/tag
+#     commands. It never tags or pushes.
 #
 #   scripts/check_release.sh --ci --tag v0.3.2 --branch master [--notes-out FILE]
 #     CI metadata check: annotated tag on the default branch, clean tag checkout, version,
@@ -104,6 +104,9 @@ if ! command -v godot >/dev/null 2>&1; then
 fi
 GODOT_REPORT="$(godot --version | sed -n '1p')"
 [[ "$GODOT_REPORT" == 4.5.2* ]] || fail "release checks require Godot 4.5.2, found $GODOT_REPORT"
+
+echo "Verifying resource assets..."
+python3 scripts/asset_pack.py verify --root "$ROOT" || fail "run scripts/fetch_assets.sh, or repack changed assets"
 
 echo "Running test suites..."
 scripts/test_all.sh

@@ -5,9 +5,11 @@
 #   ./build.sh --out FILE.pck   -> FILE.pck
 #
 # Godot 4.5 must be on PATH; the release check requires 4.5.2. The pack contains only the tracked
-# runtime tree selected by scripts/build_manifest.py, imported asset data and the generated
+# runtime tree plus the fetched resource runtime, imported asset data and the generated
 # mod.built.json. The build stages that tree in a throwaway minimal Godot project at the same
-# res://mods/<id>/ paths the game uses, imports assets there, and packs the staging tree.
+# res://mods/<id>/ paths the game uses, imports assets there, and packs the staging tree. A fresh
+# checkout needs scripts/fetch_assets.sh first; this script verifies the fetched set and never
+# downloads it.
 #
 # The packer verifies its own output against the same manifest: required runtime files, no
 # development files, readable import data and a .sha256 beside the pack. A failed check removes
@@ -47,6 +49,11 @@ if [ ! -f "$ROOT/mod.json" ] || [ ! -f "$ROOT/.pckignore" ]; then
 	exit 1
 fi
 
+if ! python3 "$ROOT/scripts/asset_pack.py" verify --root "$ROOT"; then
+	echo "Run scripts/fetch_assets.sh once in this checkout." >&2
+	exit 1
+fi
+
 ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1], encoding="utf-8"))["id"])' "$ROOT/mod.json")"
 VERSION="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$ROOT/mod.json")"
 if ! [[ "$ID" =~ ^[a-z0-9_]{1,40}$ ]]; then
@@ -69,8 +76,8 @@ MOD="$STAGE/mods/$ID"
 mkdir -p "$MOD"
 tar -C "$ROOT" --exclude-from="$ROOT/.pckignore" -cf - . | tar -C "$MOD" -xf -
 
-# The manifest is the single required-file contract: every tracked runtime file must be packed,
-# and the packer rejects anything not in this list.
+# The manifest is the single required-file contract: every tracked and fetched runtime file must
+# be packed, and the packer rejects anything not in this list.
 EXPECTED="$STAGE/expected.txt"
 python3 "$ROOT/scripts/build_manifest.py" "$ROOT" > "$EXPECTED"
 export MOD_EXPECTED_FILES="$EXPECTED"

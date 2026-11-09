@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Print the runtime files a release pack must contain.
 
-The list comes from the tracked tree, so a clean release commit and the pack cannot drift:
-every tracked runtime file is required, every imported source maps to its .import sidecar, and
-anything not listed is rejected by tools/pack.gd.
+The list combines the tracked runtime tree with the external resource pack's runtime manifest, so
+a clean release commit, the fetched assets and the pack cannot drift. Every imported source maps
+to its .import sidecar, and anything not listed is rejected by tools/pack.gd.
 
 Usage: scripts/build_manifest.py [ROOT]
 """
@@ -11,6 +11,9 @@ import json
 import pathlib
 import subprocess
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import asset_pack
 
 ALLOWED_SUFFIXES = {
     ".gd", ".gdshader", ".gdshaderinc", ".json", ".scn", ".tscn", ".tres", ".res",
@@ -20,14 +23,6 @@ CRITICAL = [
     "mod.json",
     "changelog.txt",
     "AUDIO_CREDITS.md",
-    "assets/anatomy/winking.scn",
-    "assets/anatomy/mare_bits_v2.scn",
-    "assets/anatomy/teats.scn",
-    "assets/anatomy/skin_bridge.scn",
-    "assets/anatomy/anon_part.scn",
-    "assets/anatomy/anon_part_albedo.png",
-    "assets/anatomy/anon_part_ao.png",
-    "assets/anatomy/anon_part_nrm.png",
 ]
 
 
@@ -64,6 +59,15 @@ def main():
         if path not in tracked:
             fail("critical runtime file is not tracked: " + path)
 
+    try:
+        contract = asset_pack.load_contract(root)
+        resource_runtime = contract["runtime"]
+        asset_pack.validate_runtime(root, resource_runtime)
+        if not asset_pack.verify_runtime(root, contract, quiet=True):
+            fail("resource runtime is missing, stale or has extra files; run scripts/fetch_assets.sh")
+    except asset_pack.AssetError as error:
+        fail(str(error))
+
     mod = json.loads((root / "mod.json").read_text(encoding="utf-8"))
     mod_id = str(mod.get("id", ""))
     entry = str(mod.get("entry", ""))
@@ -85,6 +89,15 @@ def main():
         if sidecar in tracked:
             expected.add(sidecar)
             mapped_imports.add(sidecar)
+        else:
+            expected.add(path)
+
+    for path in resource_runtime:
+        if path.endswith(".import"):
+            continue
+        sidecar = path + ".import"
+        if sidecar in resource_runtime:
+            expected.add(sidecar)
         else:
             expected.add(path)
 

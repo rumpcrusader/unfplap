@@ -11,6 +11,21 @@ Run from the mod repository root (`mods/unfplap`). The agent prepares and valida
 reviews, pushes the commit and annotated tag, and handles the store. The release is done when the
 tag is pushed.
 
+## 0. Assets
+
+The act audio and anatomy files are not tracked. They are fetched from one archive on pone.rs and
+packed at build time.
+
+- In a fresh checkout, run `scripts/fetch_assets.sh` before anything else.
+- If audio or anatomy changed since the committed archive, put the V2 Blender source in
+  `sources/anatomy/mare_bits_v2.blend` and run `scripts/pack_assets.sh --upload`. Commit
+  `scripts/asset_pack.json` in its own asset commit before the release metadata.
+- Do not re-upload an unchanged asset set. The committed URL and hash are reused.
+- `scripts/asset_pack.json` is the contract: archive URL, archive SHA-256 and the per-file runtime
+  manifest. Never hand-edit it. `scripts/fetch_assets.sh` and `build.sh` both verify it.
+- The archive's `sources/` tree is for editing and is never packed. The `runtime/` tree is packed.
+- `scripts/check_release.sh` verifies the local runtime set before tests and the build.
+
 ## 1. Start
 
 - `git status --short` must be empty.
@@ -52,10 +67,10 @@ commit.
 
 ## 4. Validate
 
-Run `scripts/check_release.sh`. It checks the release commit, versions, changelog, target game,
-runs the test suites, and builds a self-verifying preflight pack. It requires Godot 4.5.2 and
-moves installed `unfplap*.pck` files to `.pck.bak` before the smoke test. Show its full review
-packet; do not summarize away warnings.
+Run `scripts/check_release.sh`. It checks the release commit, versions, changelog, target game and
+the fetched resource manifest, runs the test suites, and builds a self-verifying preflight pack.
+It requires Godot 4.5.2 and moves installed `unfplap*.pck` files to `.pck.bak` before the smoke
+test. Show its full review packet; do not summarize away warnings.
 
 Stop. Ask the user to:
 
@@ -90,4 +105,9 @@ The store dry run previews the pone.rs mirror but does not write the store.
 
 - Before the tag is pushed: fix, amend the local commit, rerun `check_release.sh`.
 - After the tag is pushed: never move or reuse the tag. Publish a new patch release.
+- If `build.sh` reports `ASSETS_MISSING`, `ASSETS_STALE` or `ASSETS_EXTRA`, run
+  `scripts/fetch_assets.sh`. If the change is intentional, repack and upload the archive, commit
+  `scripts/asset_pack.json`, and rerun the check.
+- If `scripts/pack_assets.sh --upload` cannot verify the served archive, stop. Do not hand-write
+  the URL or hash into `scripts/asset_pack.json`.
 - If `build.sh` fails, fix the pack; do not work around the verifier.

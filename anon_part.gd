@@ -1,6 +1,7 @@
 extends Node
 ## integration: ported from PonyPussyParadise anon_part.gd. Shows the part on the human player's
-## Hips during encounters. The mesh and textures are tracked (see assets/anatomy/README.md).
+## Hips during encounters. The mesh and textures come from the external resource pack
+## (see assets/README.md).
 
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")

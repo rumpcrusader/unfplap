@@ -36,7 +36,10 @@ jobs:
           NOTES: ${{ runner.temp }}/release_notes.md
         run: scripts/check_release.sh --ci --tag "$GITHUB_REF_NAME" --branch "$DEFAULT_BRANCH" --notes-out "$NOTES"
 
-      # The packer verifies the full tracked runtime tree, including the committed anatomy assets.
+      - name: Fetch resource assets
+        run: scripts/fetch_assets.sh
+
+      # The packer verifies the full tracked tree plus the fetched resource runtime.
       - name: Build
         run: ./build.sh
 

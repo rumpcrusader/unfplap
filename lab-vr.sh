@@ -32,6 +32,10 @@ if ! command -v godot >/dev/null 2>&1; then
 	printf 'Godot not found on PATH. Install Godot 4.5 or add it to PATH.\n' >&2
 	exit 1
 fi
+if ! python3 "$ROOT/scripts/asset_pack.py" verify --root "$ROOT"; then
+	printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
+	exit 1
+fi
 if [[ "$no_service" == false ]] && ! command -v monado-service >/dev/null 2>&1; then
 	printf 'monado-service not found. Install Monado (monado-service) or start the runtime yourself and pass --no-service.\n' >&2
 	exit 1

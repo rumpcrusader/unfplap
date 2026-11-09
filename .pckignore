@@ -10,10 +10,12 @@ dist
 scripts
 tests
 tools
+sources
 *.sh
 .pckignore
 .gitignore
 README.md
+assets/README.md
 AGENTS.md
 PREFERENCES.md
 HISTORY.md

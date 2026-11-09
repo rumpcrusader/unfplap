@@ -28,6 +28,13 @@ mod.built.json
 *.sha256
 *.zip
 *.log
+*.swp
+*.tmp
+*.bak
+*.orig
+*~
+.DS_Store
+Thumbs.db
 *.py
 *.pyc
 release_notes.md

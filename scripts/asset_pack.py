@@ -188,6 +188,22 @@ def _check_table(name: str, table: dict) -> None:
             fail(f"{CONTRACT_PATH} has a bad hash entry for {name}/{rel}")
 
 
+def validate_archive(archive: dict) -> tuple[str, str, int]:
+    url = str(archive.get("url", ""))
+    digest = str(archive.get("sha256", ""))
+    try:
+        size = int(archive.get("size", -1))
+    except (TypeError, ValueError):
+        size = -1
+    if not ARCHIVE_PATTERN.fullmatch(url):
+        fail(f"{CONTRACT_PATH} has no valid pone.rs archive URL")
+    if not SHA_PATTERN.fullmatch(digest):
+        fail(f"{CONTRACT_PATH} has no valid archive sha256")
+    if size <= 0:
+        fail(f"{CONTRACT_PATH} has no valid archive size")
+    return url, digest, size
+
+
 def load_contract(root: pathlib.Path) -> dict:
     path = root / CONTRACT_PATH
     if not path.is_file():
@@ -201,6 +217,7 @@ def load_contract(root: pathlib.Path) -> dict:
     archive = data.get("archive")
     if not isinstance(archive, dict):
         fail(f"{CONTRACT_PATH} has no archive block")
+    validate_archive(archive)
     runtime = data.get("runtime")
     if not isinstance(runtime, dict) or not runtime:
         fail(f"{CONTRACT_PATH} has no runtime manifest")
@@ -473,31 +490,32 @@ def _check_archive(zf: zipfile.ZipFile, manifest: dict, contract: dict) -> None:
                 fail("archive entry hash does not match its manifest: " + name)
 
 
-def _extract(
+def _plan_extract(
     root: pathlib.Path,
     zf: zipfile.ZipFile,
     table: dict,
     prefix: str,
     dest_base: pathlib.Path,
-    force: bool,
-) -> tuple[int, list[str]]:
-    written = 0
+) -> tuple[list[tuple[pathlib.Path, bytes]], list[str]]:
+    writes: list[tuple[pathlib.Path, bytes]] = []
     changed: list[str] = []
     for rel in sorted(table):
         target = dest_base / pathlib.PurePosixPath(_safe_rel(rel))
-        data = zf.read(prefix + rel)
         if target.is_file():
             if sha256_file(target) == table[rel]["sha256"]:
                 continue
-            if not force:
-                changed.append(target.relative_to(root).as_posix())
-                continue
+            changed.append(target.relative_to(root).as_posix())
+        writes.append((target, zf.read(prefix + rel)))
+    return writes, changed
+
+
+def _apply_extract(writes: list[tuple[pathlib.Path, bytes]]) -> int:
+    for target, data in writes:
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = target.with_name(target.name + ".fetch")
         tmp.write_bytes(data)
         os.replace(tmp, target)
-        written += 1
-    return written, changed
+    return len(writes)
 
 
 def command_fetch(args) -> int:
@@ -506,13 +524,9 @@ def command_fetch(args) -> int:
         fail("curl is needed to download the archive")
     contract = load_contract(root)
     archive = contract["archive"]
-    url = str(archive.get("url", ""))
-    digest = str(archive.get("sha256", ""))
-    size = int(archive.get("size", -1))
-    if not ARCHIVE_PATTERN.fullmatch(url):
-        fail(f"{CONTRACT_PATH} has no pone.rs archive URL; run scripts/pack_assets.sh --upload")
-    if not SHA_PATTERN.fullmatch(digest):
-        fail(f"{CONTRACT_PATH} has no valid archive sha256")
+    url = str(archive["url"])
+    digest = str(archive["sha256"])
+    size = int(archive["size"])
 
     with tempfile.TemporaryDirectory(prefix="unfplap-assets-") as tmp:
         download = pathlib.Path(tmp) / "assets.zip"
@@ -544,26 +558,28 @@ def command_fetch(args) -> int:
             with zipfile.ZipFile(download) as zf:
                 manifest = _read_manifest(zf)
                 _check_archive(zf, manifest, contract)
-                runtime_written, runtime_changed = _extract(
-                    root, zf, manifest["runtime"], "runtime/", root, args.force
+                runtime_writes, runtime_changed = _plan_extract(
+                    root, zf, manifest["runtime"], "runtime/", root
                 )
-                source_written = 0
+                source_writes: list[tuple[pathlib.Path, bytes]] = []
                 source_changed: list[str] = []
                 if args.sources:
-                    source_written, source_changed = _extract(
-                        root, zf, manifest["sources"], "sources/", root / "sources", args.force
+                    source_writes, source_changed = _plan_extract(
+                        root, zf, manifest["sources"], "sources/", root / "sources"
                     )
         except zipfile.BadZipFile:
             fail("downloaded archive is not a zip file")
 
     changed = runtime_changed + source_changed
-    if changed:
+    if changed and not args.force:
         for rel in changed[:12]:
             print("ASSETS_LOCAL_CHANGED " + rel, file=sys.stderr)
         if len(changed) > 12:
             print(f"ASSETS_LOCAL_CHANGED ... and {len(changed) - 12} more", file=sys.stderr)
         fail("refusing to overwrite local changes; rerun with --force")
 
+    runtime_written = _apply_extract(runtime_writes)
+    source_written = _apply_extract(source_writes)
     print(f"ASSETS_FETCHED runtime={runtime_written} sources={source_written}")
     if args.sources:
         print(f"ASSETS_SOURCES {root / 'sources'}")

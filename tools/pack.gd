@@ -1,7 +1,7 @@
 extends SceneTree
 ## Packs the staged mod at res://mods/<id>/ into a standalone .pck and verifies the result.
 ##
-## build.sh stages the tracked runtime tree, writes the expected file list from
+## build.sh stages the tracked and fetched runtime tree, writes the expected file list from
 ## scripts/build_manifest.py, runs --import, then copies this script into the staging project.
 ## The packer requires the packed runtime files to equal that list plus mod.built.json, rejects
 ## broken import sidecars, and writes a .sha256 beside the pack. A failed check removes the pack.

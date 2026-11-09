@@ -396,6 +396,8 @@ var _precise_logged: Dictionary = {}
 var _precise_last: Dictionary = {}
 var _missionary_paths: Dictionary = {}
 var _debug_draw_mesh: MeshInstance3D = null
+var _debug_draw_depth_mesh: MeshInstance3D = null
+var _debug_immediate: ImmediateMesh = null
 var _smack_phase := SMACK_PHASE_NONE
 var _smack_phase_started := 0
 var _smack_contact := Transform3D.IDENTITY
@@ -1441,7 +1443,8 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 
 
 ## Debug-only world-space overlay for the missionary path: anchors, normals, path, contact and
-## palm target. It draws with no depth test so the points remain visible through her body.
+## palm target. The bright pass is depth-tested and the dim pass is not, so a cross that only
+## appears dim is on the far side of her body.
 func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3D,
 		hand_side: String) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
@@ -1452,22 +1455,16 @@ func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3
 	var scene: Node = tree.current_scene if tree != null else null
 	if scene == null:
 		return
+	if not is_instance_valid(_debug_immediate):
+		_debug_immediate = ImmediateMesh.new()
 	if not is_instance_valid(_debug_draw_mesh) or not _debug_draw_mesh.is_inside_tree():
-		_debug_draw_mesh = MeshInstance3D.new()
-		_debug_draw_mesh.name = "UnfplapCaressDebug"
-		_debug_draw_mesh.top_level = true
-		var material := StandardMaterial3D.new()
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		material.vertex_color_use_as_albedo = true
-		material.no_depth_test = true
-		_debug_draw_mesh.material_override = material
-		_debug_draw_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		scene.add_child(_debug_draw_mesh)
-		_debug_draw_mesh.global_transform = Transform3D.IDENTITY
-	var immediate := _debug_draw_mesh.mesh as ImmediateMesh
-	if immediate == null:
-		immediate = ImmediateMesh.new()
-		_debug_draw_mesh.mesh = immediate
+		_debug_draw_mesh = _make_debug_overlay(scene, "UnfplapCaressDebug", false)
+	if not is_instance_valid(_debug_draw_depth_mesh) \
+			or not _debug_draw_depth_mesh.is_inside_tree():
+		_debug_draw_depth_mesh = _make_debug_overlay(scene, "UnfplapCaressDebugDepth", true)
+	_debug_draw_mesh.mesh = _debug_immediate
+	_debug_draw_depth_mesh.mesh = _debug_immediate
+	var immediate := _debug_immediate
 	immediate.clear_surfaces()
 	immediate.surface_begin(Mesh.PRIMITIVE_LINES)
 	var previous := Vector3.ZERO
@@ -1502,6 +1499,22 @@ func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3
 	immediate.surface_end()
 
 
+func _make_debug_overlay(scene: Node, overlay_name: String, depth: bool) -> MeshInstance3D:
+	var overlay := MeshInstance3D.new()
+	overlay.name = overlay_name
+	overlay.top_level = true
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.no_depth_test = not depth
+	material.albedo_color = Color.WHITE if depth else Color(0.28, 0.28, 0.28)
+	overlay.material_override = material
+	overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	scene.add_child(overlay)
+	overlay.global_transform = Transform3D.IDENTITY
+	return overlay
+
+
 func _debug_segment(mesh: ImmediateMesh, from: Vector3, to: Vector3, color: Color) -> void:
 	mesh.surface_set_color(color)
 	mesh.surface_add_vertex(from)
@@ -1533,7 +1546,11 @@ func _anchor_debug_color(id: String) -> Color:
 func _clear_debug_draw() -> void:
 	if is_instance_valid(_debug_draw_mesh):
 		_debug_draw_mesh.queue_free()
+	if is_instance_valid(_debug_draw_depth_mesh):
+		_debug_draw_depth_mesh.queue_free()
 	_debug_draw_mesh = null
+	_debug_draw_depth_mesh = null
+	_debug_immediate = null
 
 
 func _missionary_anchor_path(hand_side: String) -> Variant:

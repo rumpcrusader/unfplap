@@ -65,7 +65,7 @@ Requires Godot 4.5.x on `PATH` and `python3`.
 
 ```sh
 ./build.sh
-# -> dist/unfplap-<version>.pck
+# -> dist/unfplap-<version>.pck and .pck.sha256
 
 ./build.sh --out /tmp/unfplap.pck
 ./build.sh --anatomy-zip dist/unfplap-anatomy.zip

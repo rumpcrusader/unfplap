@@ -100,10 +100,11 @@ Missionary is its own state, not the game's bed rest:
   `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
   press swaps, the active press stops.
 - **Missionary caress path.** The precise path is surface-anchored: `caress/caress_path.gd`
-  casts rest-space rays through the visible `MareBody`/`Head` from below/front (lower belly,
-  belly, chest) and from the hand side (neck, cheek). The first triangle is the near surface and
-  its normal faces the ray origin, so the side and outward normal are explicit. It stores each
-  hit's rest position/normal/skin weights and skins only those anchors every tick. It samples a
+  casts rest-space rays through the visible `MareBody`/`Head` from below/front (belly, chest) and
+  from the hand side (neck, cheek). The first triangle is the near surface and its normal faces
+  the ray origin, so the side and outward normal are explicit. The lower belly is derived from
+  the belly hit by moving toward the tail and snapping back along the belly normal. It stores
+  each hit's rest position/normal/skin weights and skins only those anchors every tick. It samples a
   Catmull-Rom curve; W walks toward the chest/neck/cheek,
   `presentation.missionary.caress.along_m` shifts it, and S moves to the lower belly. The
   hand-side offset fades out at the neck and the 30° palm roll fades to 0 by the neck/cheek. The

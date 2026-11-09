@@ -1219,7 +1219,8 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var body_axis := _missionary_body_axis(skeleton_v as Skeleton3D)
 	var length := CAESS_PATH.path_length(world)
-	var u_wanted := CAESS_PATH.u_for(lean, along_setting / maxf(length, 0.05))
+	var u_wanted := CAESS_PATH.u_for(lean, along_setting / maxf(length, 0.05),
+		float(path.get("belly_u")))
 	var angle := float(_caress_phase[side])
 	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01)
 	var hover := _precise_hover()
@@ -1450,6 +1451,8 @@ func _missionary_anchor_path(hand_side: String) -> Variant:
 		_log("caress path side=%s anchors=%d build_ms=%.1f" % [hand_side,
 			(path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
+		for note: Variant in (path.get("debug_notes") as Array):
+			_log("caress " + str(note))
 		var world: Array = path.call("skinned")
 		for anchor: Dictionary in world:
 			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],

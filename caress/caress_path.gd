@@ -15,12 +15,16 @@ var anchors: Array = []
 var side := "right"
 var valid := false
 var path_len := 0.0
+var belly_u := BELLY_U
+var debug_notes: Array = []
 
 
 func build(pony: Variant, hand_side: String) -> bool:
 	valid = false
 	anchors.clear()
 	path_len = 0.0
+	belly_u = BELLY_U
+	debug_notes.clear()
 	side = hand_side
 	if not is_instance_valid(pony):
 		return false
@@ -42,9 +46,11 @@ func build(pony: Variant, hand_side: String) -> bool:
 				break
 		if cache_ok:
 			anchors = (cached as Array).duplicate()
+			_update_belly_u()
 			valid = anchors.size() >= 3
 			return valid
 	anchors = _build_anchors(pony, body, head, hand_side)
+	_update_belly_u()
 	if anchors.size() < 3:
 		return false
 	_cache[key] = anchors.duplicate()
@@ -64,15 +70,16 @@ func sample(lean: float, along_m: float, body_right: Vector3) -> Dictionary:
 		return {}
 	var length := path_length(world)
 	path_len = length
-	return sample_world(world, u_for(lean, along_m / maxf(length, 0.05)), side, body_right)
+	return sample_world(world, u_for(lean, along_m / maxf(length, 0.05), belly_u),
+		side, body_right)
 
 
-static func u_for(lean: float, along_u: float) -> float:
-	var u := BELLY_U
+static func u_for(lean: float, along_u: float, belly := BELLY_U) -> float:
+	var u := belly
 	if lean >= 0.0:
-		u = lerpf(BELLY_U, 1.0, clampf(lean, 0.0, 1.0))
+		u = lerpf(belly, 1.0, clampf(lean, 0.0, 1.0))
 	else:
-		u = lerpf(BELLY_U, 0.0, clampf(-lean, 0.0, 1.0))
+		u = lerpf(belly, 0.0, clampf(-lean, 0.0, 1.0))
 	return clampf(u + along_u, 0.0, 1.0)
 
 
@@ -172,6 +179,14 @@ static func path_length(world: Array) -> float:
 	return length
 
 
+func _update_belly_u() -> void:
+	belly_u = 0.0
+	for i in anchors.size():
+		if str((anchors[i] as Dictionary).get("id", "")) == "belly":
+			belly_u = float(i) / maxf(float(anchors.size() - 1), 1.0)
+			return
+
+
 func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
 		hand_side: String) -> Array:
 	var sk: Skeleton3D = body["skeleton"]
@@ -196,59 +211,115 @@ func _build_anchors(pony: Variant, body: Dictionary, head: Dictionary,
 	var side_sign := 1.0 if hand_side == "right" else -1.0
 	var down := -Vector3.UP
 	var out: Array = []
+	var body_source: Dictionary = {}
+	var body_tri: TriangleMesh = null
 	var body_surface: Variant = SURFACE.new()
 	if bool(body_surface.call("ensure", pony, "torso")):
-		var body_source: Dictionary = body_surface.get("source")
+		body_source = body_surface.get("source")
+		debug_notes.append("source body verts=%d idx=%d" % [
+			(body_source.get("vertices", []) as Array).size(),
+			(body_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
 		var body_faces := _source_faces(body_source)
 		if not body_faces.is_empty():
-			var body_tri := TriangleMesh.new()
+			body_tri = TriangleMesh.new()
 			body_tri.create_from_faces(body_faces)
-			var body_specs := [
-				{"id": "lower", "inside": belly_origin - torso_forward * 0.15,
-					"out": down, "lateral": 1.0, "roll": 1.0},
-				{"id": "belly", "inside": belly_origin, "out": down,
-					"lateral": 1.0, "roll": 1.0},
-				{"id": "chest", "inside": chest_origin,
-					"out": (down + torso_forward * 0.35).normalized(),
-					"lateral": 0.8, "roll": 0.7},
-				{"id": "neck", "inside": neck_t.origin,
-					"out": _lateral_axis(neck_t) * side_sign,
-					"lateral": 0.3, "roll": 0.2},
-			]
-			for spec: Dictionary in body_specs:
-				var inside: Vector3 = spec["inside"]
-				var outward: Vector3 = spec["out"]
-				var anchor := _ray_anchor(body_source, body_tri, sk,
-					inside + outward * 1.0, inside - outward * 1.0)
-				if anchor.is_empty():
-					continue
-				anchor["id"] = spec["id"]
-				anchor["lateral"] = spec["lateral"]
-				anchor["roll"] = spec["roll"]
-				anchor["region"] = "torso"
-				out.append(anchor)
-	if not head.is_empty():
+	else:
+		debug_notes.append("source body missing")
+		return out
+	if body_tri == null:
+		debug_notes.append("source body empty")
+		return out
+
+	# The belly is the anchor that must work: it is the neutral caress point and the reference
+	# for the lower anchor.
+	var belly_anchor := _ray_anchor(body_source, body_tri, sk,
+		belly_origin + down * 1.0, belly_origin - down * 1.0)
+	if belly_anchor.is_empty():
+		debug_notes.append("anchor belly miss")
+		return out
+	_anchor_meta(belly_anchor, "belly", 1.0, 1.0, "torso")
+
+	# Lower belly: start from the belly surface point, move toward the tail, then snap back to
+	# the belly with a short ray along the belly normal. A separate rearward ray picked the
+	# rump/flank side, and the path from there cut through the body.
+	var lower_anchor: Dictionary = {}
+	var belly_pos: Vector3 = belly_anchor["position"]
+	var belly_normal: Vector3 = belly_anchor["normal"]
+	var lower_candidate := belly_pos - torso_forward * 0.12
+	lower_anchor = _ray_anchor(body_source, body_tri, sk,
+		lower_candidate + belly_normal * 0.5,
+		lower_candidate - belly_normal * 0.5)
+	if lower_anchor.is_empty():
+		debug_notes.append("anchor lower miss")
+	elif (lower_anchor["position"] as Vector3).distance_to(belly_pos) > 0.30 \
+			or (lower_anchor["normal"] as Vector3).dot(belly_normal) < 0.5:
+		debug_notes.append("anchor lower rejected")
+		lower_anchor = {}
+	if not lower_anchor.is_empty():
+		_anchor_meta(lower_anchor, "lower", 1.0, 1.0, "torso")
+		out.append(lower_anchor)
+	out.append(belly_anchor)
+
+	# Chest, from below/front.
+	var chest_out := (down + torso_forward * 0.35).normalized()
+	var chest_anchor := _ray_anchor(body_source, body_tri, sk,
+		chest_origin + chest_out * 1.0, chest_origin - chest_out * 1.0)
+	if chest_anchor.is_empty():
+		debug_notes.append("anchor chest miss")
+	else:
+		_anchor_meta(chest_anchor, "chest", 0.8, 0.7, "torso")
+		out.append(chest_anchor)
+
+	# Neck side, from the model lateral axis. The bone-local X is not guaranteed to be lateral.
+	var neck_out := Vector3.RIGHT * side_sign
+	var neck_anchor := _ray_anchor(body_source, body_tri, sk,
+		neck_t.origin + neck_out * 1.0, neck_t.origin - neck_out * 1.0)
+	var neck_ok := not neck_anchor.is_empty()
+	if neck_ok:
+		_anchor_meta(neck_anchor, "neck", 0.3, 0.2, "torso")
+		out.append(neck_anchor)
+	else:
+		debug_notes.append("anchor neck miss")
+
+	# Cheek, from the head side. Without the neck the chest->cheek chord cuts across the body,
+	# so keep the cheek only when the neck exists too.
+	if neck_ok and not head.is_empty():
 		var hsk: Skeleton3D = head["skeleton"]
 		var head_t: Variant = _rest(hsk, ["mHead", "pony_head", "Head"])
-		if head_t != null:
+		if head_t == null:
+			debug_notes.append("anchor cheek miss: no head bone")
+		else:
 			var head_surface: Variant = SURFACE.new()
-			if bool(head_surface.call("ensure", pony, "head")):
+			if not bool(head_surface.call("ensure", pony, "head")):
+				debug_notes.append("source head missing")
+			else:
 				var head_source: Dictionary = head_surface.get("source")
+				debug_notes.append("source head verts=%d idx=%d" % [
+					(head_source.get("vertices", []) as Array).size(),
+					(head_source.get("indices", PackedInt32Array()) as PackedInt32Array).size()])
 				var head_faces := _source_faces(head_source)
 				if not head_faces.is_empty():
 					var head_tri := TriangleMesh.new()
 					head_tri.create_from_faces(head_faces)
-					var head_origin: Vector3 = (head_t as Transform3D).origin
-					var head_out := _lateral_axis(head_t as Transform3D) * side_sign
-					var anchor := _ray_anchor(head_source, head_tri, hsk,
+					var head_origin: Vector3 = (head_t as Transform3D).origin \
+						+ Vector3.FORWARD * 0.52
+					var head_out := Vector3.RIGHT * side_sign
+					var head_anchor := _ray_anchor(head_source, head_tri, hsk,
 						head_origin + head_out * 0.6, head_origin - head_out * 0.6)
-					if not anchor.is_empty():
-						anchor["id"] = "cheek"
-						anchor["lateral"] = 0.0
-						anchor["roll"] = 0.0
-						anchor["region"] = "head"
-						out.append(anchor)
+					if head_anchor.is_empty():
+						debug_notes.append("anchor cheek miss")
+					else:
+						_anchor_meta(head_anchor, "cheek", 0.0, 0.0, "head")
+						out.append(head_anchor)
 	return out
+
+
+static func _anchor_meta(anchor: Dictionary, id: String, lateral: float, roll: float,
+		region: String) -> void:
+	anchor["id"] = id
+	anchor["lateral"] = lateral
+	anchor["roll"] = roll
+	anchor["region"] = region
 
 
 func _source_faces(source: Dictionary) -> PackedVector3Array:

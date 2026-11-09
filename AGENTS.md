@@ -853,13 +853,16 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
 
 - `caress/caress_path.gd` is the missionary path: surface anchors chosen by **rest-space rays**,
   not by nearest vertices to bone origins. On first use it casts rays from below/front through
-  the lower belly, belly and chest, and from the hand side through the neck and cheek on the
-  visible `MareBody`/`Head` mesh. The first triangle is the near surface and its normal faces the
-  ray origin, so the side and the outward normal are explicit; no `point - target` guess can flip
-  it. It stores each hit's rest position/normal/skin weights and caches them per mesh/side. Every
-  tick it skins only those anchors and samples a Catmull-Rom curve (`lean` +
+  the belly and chest, and from the hand side (`Vector3.RIGHT * side_sign`, not bone-local X)
+  through the neck and cheek on the visible `MareBody`/`Head` mesh. The first triangle is the
+  near surface and its normal faces the ray origin, so the side and the outward normal are
+  explicit. The lower belly is derived from the belly hit: move toward the tail, then snap back
+  with a short ray along the belly normal; reject it if it lands too far away or its normal
+  disagrees. It stores each hit's rest position/normal/skin weights and caches them per mesh/side.
+  Every tick it skins only those anchors and samples a Catmull-Rom curve (`lean` +
   `caress.along_m`). The path is on the coat by construction, so the single-point palm needs no
-  triangle query.
+  triangle query. `belly_u` is derived from the belly anchor index, so the path works with or
+  without the lower anchor.
 - The palm's finger axis is the **body head axis** (`pony_head - pony_hips`) projected onto the
   coat tangent plane, not the path tangent, so the fingers point toward her head instead of
   following a kink in the anchor chain.
@@ -871,8 +874,11 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
 - `caress/caress_surface.gd` builds a **stable posed patch** of the visible `MareBody`/head mesh
   anchored to the rig's rest pose, not to the moving query. It filters by body region (`torso`
   includes the neck, `head`) and skins the patch at 30 Hz. The face set does not change while the
-  hand moves. A `TriangleMesh` ray gives `nearest(point, outward)` for the hand samples; it is
-  built lazily and only when the hand shape is on. `closest()` reports `inside`.
+  hand moves. `_gather` uses the skeleton passed by `find_mesh`, not `mesh.skeleton`: the head
+  mesh's skeleton path is the model root, so re-reading it left the head source empty. The head
+  patch radius is 0.65 m and the cheek ray starts 0.52 m forward of `mHead`. A `TriangleMesh`
+  ray gives `nearest(point, outward)` for the hand samples; it is built lazily and only when the
+  hand shape is on. `closest()` reports `inside`.
 - `caress/caress_hand.gd` is the hand shape. The palm marker is the palm centre; local `-Z` is the
   fingers, `+Y` the thumb, palm normal `±X`. It carries a 2 cm palm ball, 2 cm heel, four 1.2 cm
   finger tips and a 1.5 cm thumb; `palm` and `fingertip` modes; `resolve()` uses the surface ray
@@ -888,8 +894,8 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   the closer contact. The old capsule hull target is never used for the precise hand; if the
   surface fails, the last good precise target is held.
 - `features.caress_debug` logs one precise contact line per hand per act with `u`, target,
-  normal, finger, roll, hover and surface; the first build also logs each anchor's world
-  position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
+  normal, finger, roll, hover and surface; the first build also logs the body/head source sizes,
+  any missing/rejected anchor, and each anchor's world position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
   chunks. The reach caps are `features.caress_reach_shoulder_m` (2 cm; the old 12 cm default
   migrates to 2), `features.caress_reach_body_m` (0) and `features.caress_reach_stretch` (1.0).
 - `Raise over coat` is the palm-centre hover in missionary, default 2 cm and signed (negative

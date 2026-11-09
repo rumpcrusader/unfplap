@@ -7,6 +7,10 @@ const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
 const ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
 const PATH := preload("res://mods/unfplap/caress/caress_path.gd")
 
+class FakeHead extends RefCounted:
+	var model: Node3D
+	var skeleton: Skeleton3D
+
 class FakePony extends RefCounted:
 	var _model: Node3D
 	var skeleton: Skeleton3D
@@ -78,8 +82,16 @@ func _path_fixture() -> Dictionary:
 	var y1 := 0.1
 	var z0 := -1.0
 	var z1 := 0.4
-	_add_quad(verts, norms, indices, Vector3(x0, y0, z0), Vector3(x1, y0, z0),
-		Vector3(x1, y0, z1), Vector3(x0, y0, z1), Vector3.DOWN)
+	var x_steps := 4
+	var z_steps := 14
+	for ix in x_steps:
+		var xa := x0 + (x1 - x0) * float(ix) / float(x_steps)
+		var xb := x0 + (x1 - x0) * float(ix + 1) / float(x_steps)
+		for iz in z_steps:
+			var za := z0 + (z1 - z0) * float(iz) / float(z_steps)
+			var zb := z0 + (z1 - z0) * float(iz + 1) / float(z_steps)
+			_add_quad(verts, norms, indices, Vector3(xa, y0, za), Vector3(xb, y0, za),
+				Vector3(xb, y0, zb), Vector3(xa, y0, zb), Vector3.DOWN)
 	_add_quad(verts, norms, indices, Vector3(x0, y1, z1), Vector3(x1, y1, z1),
 		Vector3(x1, y1, z0), Vector3(x0, y1, z0), Vector3.UP)
 	_add_quad(verts, norms, indices, Vector3(x1, y0, z0), Vector3(x1, y1, z0),
@@ -208,7 +220,60 @@ func run() -> void:
 	check(built_finger.dot(Vector3.FORWARD) > 0.5,
 		"the built path tangent points toward her head")
 	check(built_normal.y < -0.9, "the built path normal faces outward")
+	var ids: Array = []
+	for anchor: Dictionary in (path.get("anchors") as Array):
+		ids.append(str(anchor.get("id", "")))
+	check(ids.has("lower"), "the path keeps the lower belly anchor")
+	check(ids.has("neck"), "the path finds the neck side")
+	for anchor: Dictionary in (path.get("anchors") as Array):
+		if str(anchor.get("id", "")) == "lower":
+			var lower_position: Vector3 = anchor["position"]
+			check(near(lower_position.y, -0.3, 0.01),
+				"the lower anchor stays on the belly")
 	root.free()
+
+	# The real OpenPony head: the Head mesh's `skeleton` path is the model root, so the source
+	# must use the skeleton passed by `find_mesh`, not `mesh.skeleton`.
+	var head_root := Node3D.new()
+	get_root().add_child(head_root)
+	var head_scene: Node = load("res://world/characters/openpony/openpony_mare.tscn").instantiate()
+	head_root.add_child(head_scene)
+	await process_frame
+	await process_frame
+	var head_model: Node3D = head_scene.get("model")
+	var head_sk: Skeleton3D = head_scene.get("skeleton")
+	var fake_head := FakeHead.new()
+	fake_head.model = head_model
+	fake_head.skeleton = head_sk
+	var head_pony := FakePony.new()
+	head_pony._model = head_model
+	head_pony.skeleton = head_sk
+	head_pony.head = fake_head
+	var head_surface: Variant = SURFACE.new()
+	var head_ok := bool(head_surface.call("ensure", head_pony, "head"))
+	check(head_ok, "the real head source builds")
+	if head_ok:
+		var head_source: Dictionary = head_surface.get("source")
+		check(not (head_source.get("vertices", []) as Array).is_empty(),
+			"the real head source has vertices")
+		var head_faces := PackedVector3Array()
+		var head_vertices: Array = head_source["vertices"]
+		var head_indices: PackedInt32Array = head_source["indices"]
+		head_faces.resize(head_indices.size())
+		for i in head_indices.size():
+			head_faces[i] = head_vertices[head_indices[i]]["position"]
+		var head_tri := TriangleMesh.new()
+		head_tri.create_from_faces(head_faces)
+		var head_bone := head_sk.find_bone("mHead")
+		check(head_bone >= 0, "the real head skeleton has mHead")
+		if head_bone >= 0:
+			var head_origin: Vector3 = head_sk.get_bone_global_rest(head_bone).origin \
+				+ Vector3.FORWARD * 0.52
+			var head_hit: Dictionary = head_tri.intersect_segment(
+				head_origin + Vector3.RIGHT * 0.6,
+				head_origin - Vector3.RIGHT * 0.6)
+			check(not head_hit.is_empty(), "the cheek ray hits the real head")
+	head_root.free()
 
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),
 		1.0, 0.08, 0.0)

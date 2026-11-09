@@ -67,8 +67,9 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 		if _source_cache.has(cache_key):
 			source = _source_cache[cache_key]
 		else:
-			source = _gather(mesh, region, local_center, use_radius)
-			if source.is_empty():
+			source = _gather(mesh, region, local_center, use_radius, skeleton)
+			if source.is_empty() or (source.get("vertices", []) as Array).is_empty():
+				source = {}
 				return false
 			_source_cache[cache_key] = source
 			_cache_order.append(cache_key)
@@ -77,7 +78,7 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 				_source_cache.erase(old)
 		_flatten()
 		_last_update = -1
-	return not source.is_empty()
+	return not source.is_empty() and not (source.get("vertices", []) as Array).is_empty()
 
 
 func update_pose(force := false) -> void:
@@ -273,7 +274,7 @@ func _region_anchor(skeleton: Skeleton3D, region: String) -> Dictionary:
 		var head: Variant = _bone_global_rest(skeleton, ["mHead", "pony_head", "Head"])
 		if head == null:
 			return {}
-		return {"center": (head as Transform3D).origin, "radius": 0.32}
+		return {"center": (head as Transform3D).origin, "radius": 0.65}
 	var spine: Variant = _bone_global_rest(skeleton, ["pony_hips", "pony_spine1", "pony_spine2"])
 	if spine == null:
 		return {}
@@ -321,14 +322,9 @@ static func find_mesh(pony: Variant, region: String) -> Dictionary:
 
 
 func _gather(mesh: MeshInstance3D, region: String, center: Vector3,
-		radius: float) -> Dictionary:
+		radius: float, skeleton: Skeleton3D) -> Dictionary:
 	var skin: Skin = mesh.skin
-	if skin == null or mesh.mesh == null:
-		return {}
-	var skeleton := mesh.get_node_or_null(mesh.skeleton) as Skeleton3D
-	if skeleton == null:
-		skeleton = mesh.get_parent() as Skeleton3D
-	if skeleton == null:
+	if skin == null or mesh.mesh == null or not is_instance_valid(skeleton):
 		return {}
 	var vertices: Array = []
 	var indices := PackedInt32Array()

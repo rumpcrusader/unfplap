@@ -65,7 +65,7 @@ var _eye_cached := false
 var _lean_logged := false
 var _indices: Dictionary = {}
 var _index_skeleton := 0
-var _reach_log_state := ""
+var _reach_log_state: Dictionary = {}
 ## Caress hand holds, keyed "left"/"right". `standing_caress.gd` supplies a world frame; the
 ## start and release blends keep the arm from teleporting on and off the mattress.
 var _holds: Dictionary = {}
@@ -189,7 +189,7 @@ func remove() -> void:
 	skeleton = null
 	_indices.clear()
 	_index_skeleton = 0
-	_reach_log_state = ""
+	_reach_log_state.clear()
 	_holds.clear()
 	_hold_from.clear()
 	_hold_started.clear()
@@ -484,9 +484,12 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 		return
 	var precise := is_instance_valid(runtime) and runtime.has_method("_feature") \
 		and bool(runtime.call("_feature", "caress_surface"))
+	# Only the caressing hand may shift its shoulder or stretch. The two planted palms keep the
+	# authored arm and mattress contact.
+	var caress := natural and precise
 	var stretch := 1.0
 	var arm_started := Time.get_ticks_usec()
-	if precise:
+	if caress:
 		var max_stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
 		var shoulder_cap := maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
 		var body_cap := maxf(float(SETTINGS.caress_reach_body_m.get_num()), 0.0)
@@ -496,15 +499,13 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 		target = plan["target"]
 		stretch = float(plan.get("stretch", 1.0))
 		if bool(SETTINGS.caress_debug.get_bool()):
-			var state := "%s|%.3f|%.3f|%.2f" % [
-				"ok" if bool(plan.get("reachable", true)) else "clamped",
-				float(plan.get("shoulder_shift", 0.0)), float(plan.get("body_shift", 0.0)),
-				stretch]
-			if state != _reach_log_state:
-				_reach_log_state = state
-				_log("caress arm reachable=%s shoulder=%.3f body=%.3f stretch=%.2f" % [
-					"ok" if bool(plan.get("reachable", true)) else "clamped",
-					float(plan.get("shoulder_shift", 0.0)),
+			var key := pole_key if not pole_key.is_empty() else name
+			var reachable := bool(plan.get("reachable", true))
+			var state := "ok" if reachable else "clamped"
+			if str(_reach_log_state.get(key, "")) != state:
+				_reach_log_state[key] = state
+				_log("caress arm side=%s %s shoulder=%.3f body=%.3f stretch=%.2f" % [
+					key, state, float(plan.get("shoulder_shift", 0.0)),
 					float(plan.get("body_shift", 0.0)), stretch])
 	var upper_len_eff := upper_len * stretch
 	var lower_len_eff := lower_len * stretch
@@ -537,7 +538,7 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var upper_g := skeleton.get_bone_global_pose(upper)
 	var upper_axis := (upper_g.basis * lower_offset).normalized()
 	var upper_basis := upper_g.basis.orthonormalized() if natural else upper_g.basis
-	var upper_origin := shoulder if precise else upper_g.origin
+	var upper_origin := shoulder if caress else upper_g.origin
 	var q1 := Quaternion(upper_axis, (elbow - shoulder).normalized())
 	RIG.set_global(skeleton, upper, Transform3D(Basis(q1) * upper_basis, upper_origin))
 	var lower_g := skeleton.get_bone_global_pose(lower)
@@ -546,7 +547,7 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	RIG.set_global(skeleton, lower,
 		Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
 	RIG.set_global(skeleton, hand, Transform3D(hand_basis, target))
-	if precise and is_instance_valid(runtime) and runtime.has_method("perf_note"):
+	if caress and is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "caress_arm", Time.get_ticks_usec() - arm_started)
 
 

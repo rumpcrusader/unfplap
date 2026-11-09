@@ -706,15 +706,19 @@ static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 # -- Caress  (debug)
 static var caress_surface := flag("caress_surface", "features.caress_surface", false,
 	"Use precise caress",
-	"Place the caress hand on a posed triangle surface with a palm/finger shape instead of the capsule point.",
+	"Place the caress hand from the visible body/head surface instead of the capsule hull.",
+	GENERAL, "Caress").as_debug()
+static var caress_hand_shape := flag("caress_hand_shape", "features.caress_hand_shape", false,
+	"Use hand shape",
+	"Resolve the precise palm as a small set of palm and finger samples. Off places a single palm-centre point on the coat.",
 	GENERAL, "Caress").as_debug()
 static var caress_debug := flag("caress_debug", "features.caress_debug", false,
 	"Print caress contact",
-	"Log the caress surface source, hand mode, reach and contact once per act.", GENERAL,
+	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,
 	"Caress").as_debug()
 static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
-	"features.caress_reach_shoulder_m", 0.12, "Reach shoulder",
-	"Maximum shoulder shift used to reach a caress target in missionary.",
+	"features.caress_reach_shoulder_m", 0.02, "Reach shoulder",
+	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed and clamps the hand to the arm reach.",
 	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
 static var caress_reach_body_m := num("caress_reach_body_m",
 	"features.caress_reach_body_m", 0.0, "Reach body",
@@ -826,9 +830,9 @@ static var along_m := num("along_m", "presentation.missionary.caress.along_m", 0
 	"Caress along",
 	"Move the missionary caress point toward her head (positive) or tail (negative), in centimetres. W/S still slides it with the lean.",
 	GENERAL, "Missionary").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
-static var over_coat_m := num("over_coat_m", "presentation.missionary.caress.over_coat_m", 0.0,
+static var over_coat_m := num("over_coat_m", "presentation.missionary.caress.over_coat_m", 0.02,
 	"Raise over coat",
-	"Lift the missionary caress palm above her coat, in centimetres. Signed and unscaled: positive raises it, negative presses it into the coat.",
+	"Palm-centre distance from her coat in missionary, in centimetres. Positive raises it, negative presses it into the coat. The precise single-point palm uses this as its total hover.",
 	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m", -0.08,
 	"Cock base inset",

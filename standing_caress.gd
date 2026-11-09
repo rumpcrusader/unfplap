@@ -7,6 +7,7 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CAESS_SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
 const CAESS_HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
+const CAESS_PATH := preload("res://mods/unfplap/caress/caress_path.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -393,6 +394,7 @@ var _palm_contacts: Dictionary = {}
 var _precise_surfaces: Dictionary = {}
 var _precise_logged: Dictionary = {}
 var _precise_last: Dictionary = {}
+var _missionary_paths: Dictionary = {}
 var _smack_phase := SMACK_PHASE_NONE
 var _smack_phase_started := 0
 var _smack_contact := Transform3D.IDENTITY
@@ -947,30 +949,18 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	var offset := across * (cos(angle) * across_radius) \
 		+ up * (sin(angle) * up_radius)
 	var hand_side := "left" if side == "L" else "right"
-	var target := _palm_on_coat_frame(hand_side, centre_world + offset, normal,
-		-pony.global_basis.z, true, _caress_ignore())
+	var query := centre_world + offset
+	var target: Transform3D
 	if _precise_on():
 		var started := Time.get_ticks_usec()
-		var over_coat := float(SETTINGS.over_coat_m.get_num())
-		var query := centre_world + offset
-		var surface: Variant = _precise_surface("torso", query)
-		var precise_used := false
-		if is_instance_valid(surface):
-			var hit: Variant = surface.call("closest", query)
-			if hit is Dictionary and not (hit as Dictionary).is_empty():
-				var contact: Vector3 = (hit as Dictionary)["point"]
-				var precise_normal: Vector3 = (hit as Dictionary)["normal"]
-				target = _precise_hand(contact, precise_normal, -pony.global_basis.z, hand_side,
-					"palm", 0.0, over_coat, surface)
-				precise_used = true
-				_precise_last[hand_side] = target
-				_log_precise(hand_side, "palm", surface, target, 0.0, over_coat)
-		if not precise_used:
-			var last: Variant = _precise_last.get(hand_side)
-			if last is Transform3D and (last as Transform3D).is_finite():
-				target = last
+		target = _precise_standing_target(hand_side, query, normal, _hand_shape_on())
 		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 			runtime.call("perf_note", "caress_precise", Time.get_ticks_usec() - started)
+	else:
+		target = _palm_on_coat_frame(hand_side, query, normal,
+			-pony.global_basis.z, true, _caress_ignore())
+	if not target.is_finite():
+		return Transform3D.IDENTITY
 	if not apply:
 		return target
 	var return_started := int(_caress_return_started.get(side, 0))
@@ -984,10 +974,11 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 			target = from.interpolate_with(target, t)
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		_log("caress hand side=%s target=%s normal=%s x=%s y=%s z=%s lift=%.3f" % [
-			hand_side, str(target.origin), str(normal), str(target.basis.x),
-			str(target.basis.y), str(target.basis.z),
-			(centre_world + offset).y - pony.global_position.y])
+		if not _precise_on():
+			_log("caress hand side=%s target=%s normal=%s x=%s y=%s z=%s lift=%.3f" % [
+				hand_side, str(target.origin), str(normal), str(target.basis.x),
+				str(target.basis.y), str(target.basis.z),
+				(centre_world + offset).y - pony.global_position.y])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
@@ -1124,7 +1115,7 @@ func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 ## belly along the posed body axis. The anchor is measured from the live body bones, lifted above
 ## her spine and snapped onto the coat, so it follows the thrust and the afterglow. The target is
 ## world space: his lean moves the shoulder, not the hand.
-func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
+func _legacy_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 	if not is_instance_valid(pony):
 		return Transform3D.IDENTITY
 	var sk: Variant = pony.get("skeleton")
@@ -1174,113 +1165,235 @@ func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
 	if not target.is_finite():
 		return Transform3D.IDENTITY
 	var over_coat := float(SETTINGS.over_coat_m.get_num())
-	var roll_rad := 0.0
-	var precise_used := false
-	if _precise_on():
-		var surface_started := Time.get_ticks_usec()
-		var hand_mode: String = path["mode"]
-		var chosen: Variant = null
-		var chosen_hit: Dictionary = {}
-		var chosen_distance := INF
-		for region: String in ["torso", "head"]:
-			var surface: Variant = _precise_surface(region, query)
-			if not is_instance_valid(surface):
-				continue
-			var hit: Variant = surface.call("closest", query)
-			if not hit is Dictionary or (hit as Dictionary).is_empty():
-				continue
-			var distance: float = float((hit as Dictionary).get("distance", INF))
-			if distance < chosen_distance:
-				chosen = surface
-				chosen_hit = hit
-				chosen_distance = distance
-		if is_instance_valid(chosen) and not chosen_hit.is_empty():
-			var contact: Vector3 = chosen_hit["point"]
-			var normal: Vector3 = chosen_hit["normal"]
-			var roll_deg := missionary_palm_roll_deg(hand_side) * float(path["roll"])
-			var hand_started := Time.get_ticks_usec()
-			var precise := _precise_hand(contact, normal, finger, hand_side, hand_mode,
-				roll_deg, over_coat, chosen)
-			target = precise
-			precise_used = true
-			_precise_last[hand_side] = target
-			roll_rad = deg_to_rad(roll_deg)
-			_log_precise(hand_side, hand_mode, chosen, target, roll_deg, over_coat)
-			if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-				runtime.call("perf_note", "caress_hand",
-					Time.get_ticks_usec() - hand_started)
-		elif _precise_last.get(hand_side) is Transform3D \
-				and (_precise_last[hand_side] as Transform3D).is_finite():
-			target = _precise_last[hand_side]
-			precise_used = true
-		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-			runtime.call("perf_note", "caress_surface", Time.get_ticks_usec() - surface_started)
-	if not precise_used:
-		# Regular-game palm roll and the debug lift both act along the coat normal. The roll fades
-		# to zero at the neck and cheek; the lift is a signed, unscaled offset for tuning the gap.
-		var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
-		roll_rad = deg_to_rad(missionary_palm_roll_deg(hand_side)) * float(path["roll"])
-		if absf(roll_rad) > 0.0001:
-			target.basis = Basis(outward, roll_rad) * target.basis
-		if absf(over_coat) > 0.0001:
-			target.origin += outward * over_coat
+	# Regular-game palm roll and the debug lift both act along the coat normal. The roll fades
+	# to zero at the neck and cheek; the lift is a signed, unscaled offset for tuning the gap.
+	var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
+	var roll_rad := deg_to_rad(missionary_palm_roll_deg(hand_side)) * float(path["roll"])
+	if absf(roll_rad) > 0.0001:
+		target.basis = Basis(outward, roll_rad) * target.basis
+	if absf(over_coat) > 0.0001:
+		target.origin += outward * over_coat
 	if not apply:
 		return target
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		if not precise_used:
-			var probe := _coat_contact(query, hint, ignore, regions)
-			var coat: Vector3 = probe.get("point", query)
-			_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
-				hand_side, str(target.origin), str(target.basis.x), lean,
-				str(probe.get("source", "?")), centre.y, coat.y,
-				target.origin.distance_to(coat), over_coat, rad_to_deg(roll_rad)])
+		var probe := _coat_contact(query, hint, ignore, regions)
+		var coat: Vector3 = probe.get("point", query)
+		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
+			hand_side, str(target.origin), str(target.basis.x), lean,
+			str(probe.get("source", "?")), centre.y, coat.y,
+			target.origin.distance_to(coat), over_coat, rad_to_deg(roll_rad)])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
 	return target
 
 
-## The new precise connection is opt-in while it is validated.
+## Missionary: the precise path is surface-anchored. The legacy hull path remains the fallback
+## when the precise feature is off or the rig cannot build anchors.
+func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
+	if not _precise_on():
+		return _legacy_missionary_caress_hand(side, apply)
+	var target := _precise_missionary_hand(side)
+	if not target.is_finite():
+		return _legacy_missionary_caress_hand(side, apply)
+	return _apply_precise_target(side, "left" if side == "L" else "right", target, apply)
+
+
+func _precise_missionary_hand(side: String) -> Transform3D:
+	if not is_instance_valid(pony):
+		return _precise_last_or_invalid("left" if side == "L" else "right")
+	var skeleton_v: Variant = pony.get("skeleton")
+	if not skeleton_v is Skeleton3D:
+		return _precise_last_or_invalid("left" if side == "L" else "right")
+	var hand_side := "left" if side == "L" else "right"
+	var path: Variant = _missionary_anchor_path(hand_side)
+	if path == null:
+		return _precise_last_or_invalid(hand_side)
+	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
+	var along_setting := float(SETTINGS.along_m.get_num())
+	var scale := _smack_body_scale()
+	var body_right: Vector3 = pony.global_basis.x.normalized()
+	var sample: Dictionary = path.call("sample", lean, along_setting, body_right)
+	if sample.is_empty():
+		return _precise_last_or_invalid(hand_side)
+	var centre: Vector3 = sample["point"]
+	var normal: Vector3 = sample["normal"]
+	var finger: Vector3 = sample["finger"]
+	var lateral_axis: Vector3 = sample["side"]
+	centre += lateral_axis * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
+	var angle := float(_caress_phase[side])
+	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01)
+	var offset := finger * (cos(angle) * _caress_oval_across_m() * scale * oval_scale) \
+		+ lateral_axis * (sin(angle) * _caress_oval_up_m() * scale * oval_scale)
+	var contact := centre + offset
+	var roll_deg := missionary_palm_roll_deg(hand_side) * float(sample["roll"])
+	var hover := _precise_hover()
+	var shape := _hand_shape_on()
+	var target: Transform3D
+	if shape:
+		var chosen := _closest_precise(["torso", "head"], contact)
+		if chosen.is_empty():
+			return _precise_last_or_invalid(hand_side)
+		var hit_point: Vector3 = chosen["point"]
+		var hit_normal: Vector3 = chosen["normal"]
+		var hand_started := Time.get_ticks_usec()
+		target = _precise_hand(hit_point, hit_normal, finger, hand_side, "palm", roll_deg,
+			hover, chosen["surface"], true)
+		_log_precise(hand_side, "palm", chosen["surface"], target, roll_deg, hover, true)
+		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+			runtime.call("perf_note", "caress_hand", Time.get_ticks_usec() - hand_started)
+	else:
+		target = CAESS_HAND.place(contact, normal, finger, hand_side, "palm", roll_deg,
+			hover)
+		_log_precise(hand_side, "palm", null, target, roll_deg, hover, false)
+	_precise_last[hand_side] = target
+	return target
+
+
+## The precise connection is opt-in while it is validated.
 func _precise_on() -> bool:
 	return is_instance_valid(runtime) and runtime.has_method("_feature") \
 		and bool(runtime.call("_feature", "caress_surface"))
 
 
-func _precise_surface(region: String, point: Vector3) -> Variant:
+func _hand_shape_on() -> bool:
+	return is_instance_valid(runtime) and runtime.has_method("_feature") \
+		and bool(runtime.call("_feature", "caress_hand_shape"))
+
+
+## The visible palm-centre hover. Standing keeps the tuned `Palm distance`; missionary uses the
+## signed `Raise over coat` value as its total hover.
+func _precise_hover() -> float:
+	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+		return float(SETTINGS.over_coat_m.get_num())
+	return _palm_clearance()
+
+
+func _precise_surface(region: String) -> Variant:
 	var surface: Variant = _precise_surfaces.get(region)
 	if not is_instance_valid(surface):
 		surface = CAESS_SURFACE.new()
 		_precise_surfaces[region] = surface
-	if not bool(surface.call("ensure", pony, region, point, 0.28)):
+	if not bool(surface.call("ensure", pony, region)):
 		return null
 	surface.call("update_pose")
 	return surface
 
 
+## One exact contact query over the stable body/head patches. Returns {} when neither patch is
+## available; callers hold the last good target instead of falling back to a hull.
+func _closest_precise(regions: Array, query: Vector3) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance := INF
+	for region: String in regions:
+		var surface: Variant = _precise_surface(region)
+		if not is_instance_valid(surface):
+			continue
+		var hit: Variant = surface.call("closest", query)
+		if not hit is Dictionary or (hit as Dictionary).is_empty():
+			continue
+		var distance: float = float((hit as Dictionary).get("distance", INF))
+		if distance < best_distance:
+			best_distance = distance
+			best = {
+				"surface": surface,
+				"point": (hit as Dictionary)["point"],
+				"normal": (hit as Dictionary)["normal"],
+			}
+	return best
+
+
 func _precise_hand(contact: Vector3, normal: Vector3, finger: Vector3, hand_side: String,
-		mode: String, roll_deg: float, over_coat: float, surface: Variant) -> Transform3D:
+		mode: String, roll_deg: float, hover: float, surface: Variant,
+		shape := false) -> Transform3D:
+	if not shape:
+		return CAESS_HAND.place(contact, normal, finger, hand_side, mode, roll_deg, hover)
 	var frame: Transform3D = CAESS_HAND.place(contact, normal, finger, hand_side, mode,
-		roll_deg, over_coat)
-	var resolved: Dictionary = CAESS_HAND.resolve(surface, frame, mode, over_coat, hand_side)
+		roll_deg, 0.0)
+	var extra := maxf(0.0, hover - CAESS_HAND.CLEARANCE_M)
+	var resolved: Dictionary = CAESS_HAND.resolve(surface, frame, mode, extra, hand_side)
 	return resolved.get("frame", frame)
 
 
 func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Transform3D,
-		roll_deg: float, over_coat: float) -> void:
+		roll_deg: float, hover: float, shape := false) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
 		return
 	if bool(_precise_logged.get(hand_side, false)):
 		return
 	_precise_logged[hand_side] = true
-	var info := "fallback"
+	var info := "anchors"
 	if is_instance_valid(surface) and surface is CAESS_SURFACE:
-		var faces: Variant = surface.get("faces")
-		var count := (faces as PackedVector3Array).size() / 3 if faces is PackedVector3Array else 0
 		info = "faces=%d build_us=%d query_us=%d" % [
-			count, int(surface.get("build_us")), int(surface.get("query_us"))]
-	_log("precise caress side=%s mode=%s target=%s roll=%.0f over=%.3f surface=%s" % [
-		hand_side, mode, str(frame.origin), roll_deg, over_coat, info])
+			int(surface.call("face_count")), int(surface.get("build_us")),
+			int(surface.get("query_us"))]
+	elif shape:
+		info = "fallback"
+	_log("precise caress side=%s mode=%s shape=%s target=%s roll=%.0f over=%.3f surface=%s" % [
+		hand_side, mode, "yes" if shape else "no", str(frame.origin), roll_deg, hover, info])
+
+
+func _missionary_anchor_path(hand_side: String) -> Variant:
+	var path: Variant = _missionary_paths.get(hand_side)
+	if path != null and bool(path.get("valid")):
+		return path
+	var started := Time.get_ticks_usec()
+	path = CAESS_PATH.new()
+	if not bool(path.call("build", pony, hand_side)):
+		return null
+	_missionary_paths[hand_side] = path
+	if bool(SETTINGS.caress_debug.get_bool()):
+		_log("caress path side=%s anchors=%d build_ms=%.1f" % [hand_side,
+			(path.get("anchors") as Array).size(),
+			float(Time.get_ticks_usec() - started) / 1000.0])
+	return path
+
+
+func _apply_precise_target(side: String, hand_side: String, target: Transform3D,
+		apply: bool) -> Transform3D:
+	if not apply:
+		return target
+	var return_started := int(_caress_return_started.get(side, 0))
+	if return_started > 0:
+		var elapsed := float(Time.get_ticks_msec() - return_started) / 1000.0
+		if elapsed >= CARESS_RETURN_SECONDS:
+			_caress_return_started[side] = 0
+		else:
+			var t := smoothstep(0.0, 1.0, elapsed / CARESS_RETURN_SECONDS)
+			var from: Transform3D = _caress_return_from[side]
+			target = from.interpolate_with(target, t)
+	if not bool(_caress_logged[side]):
+		_caress_logged[side] = true
+	var driver := _hand_driver()
+	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
+		driver.call("set_hold_target", hand_side, target, "rub")
+	return target
+
+
+func _precise_standing_target(hand_side: String, query: Vector3, hint: Vector3,
+		shape: bool) -> Transform3D:
+	var surface: Variant = _precise_surface("torso")
+	if not is_instance_valid(surface):
+		return _precise_last_or_invalid(hand_side)
+	var hit: Variant = surface.call("nearest", query, hint)
+	if not hit is Dictionary or (hit as Dictionary).is_empty():
+		return _precise_last_or_invalid(hand_side)
+	var contact: Vector3 = (hit as Dictionary)["point"]
+	var normal: Vector3 = (hit as Dictionary)["normal"]
+	var hover := _precise_hover()
+	var target := _precise_hand(contact, normal, -pony.global_basis.z, hand_side,
+		"palm", 0.0, hover, surface, shape)
+	_precise_last[hand_side] = target
+	_log_precise(hand_side, "palm", surface, target, 0.0, hover, shape)
+	return target
+
+
+func _precise_last_or_invalid(hand_side: String) -> Transform3D:
+	var last: Variant = _precise_last.get(hand_side)
+	if last is Transform3D and (last as Transform3D).is_finite():
+		return last
+	return Transform3D(Basis(), Vector3(INF, INF, INF))
 
 
 ## The hand driver for the current pose: the game's desktop Anon rig in standing, the act's own
@@ -1977,6 +2090,7 @@ func reset() -> void:
 	_precise_surfaces.clear()
 	_precise_logged.clear()
 	_precise_last.clear()
+	_missionary_paths.clear()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
 	_caress_moving = {"L": true, "R": true}

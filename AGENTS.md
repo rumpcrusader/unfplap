@@ -192,8 +192,9 @@ mods/unfplap/
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   standing_caress.gd  caress in both poses, shoulder reach, smack and palm-on-coat contact
-  caress/           precise caress (debug): caress_surface.gd posed triangle patch,
-                    caress_hand.gd palm/finger samples and resolve, caress_arm.gd reach plan
+  caress/           precise caress (debug): caress_path.gd surface anchors,
+                    caress_surface.gd stable posed patch, caress_hand.gd palm/finger samples,
+                    caress_arm.gd reach plan
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
@@ -331,17 +332,16 @@ reclined eye height left the camera wrong after the act.
   the coat normal, counter-clockwise for the right hand and clockwise for the left; the roll fades
   to zero as the caress moves up the neck and cheek. The debug
   `presentation.missionary.caress.over_coat_m` lifts it further above the coat.
-- **Missionary caress path.** The live path runs belly → chest → side of the neck → cheek.
-  W/lean walks a normalized distance along the anchor chain, and
-  `presentation.missionary.caress.along_m` shifts that distance: neutral is the belly, the chest
-  comes first, then the neck side and the cheek; S stays on the lower belly. At each step the
-  hull filter widens from `MISSIONARY_TORSO_REGIONS` to `torso + neck`, then `neck + head`, and the
-  head/neck rigs are synced too. The hand-side lateral offset fades out as the palm moves to the
-  neck, and the palm roll fades from 30° to 0. The 0.18 m lift at the belly/chest (about the
-  barrel radius) gives the torso hull the query; the neck/cheek use 0.10/0.12 m. Fingers point
-  toward her head, and the oval uses the standing caress radii times
-  `presentation.missionary.caress.oval_scale`. The aim is recomputed every physics tick, so it
-  follows the thrust, sway and afterglow.
+- **Missionary caress path.** The live path runs lower belly → belly → chest → side of the neck
+  → cheek. W/lean walks the path, `presentation.missionary.caress.along_m` shifts it, neutral is
+  the belly, and S moves to the lower belly. With `features.caress_surface`, the path is the
+  surface anchors from `caress/caress_path.gd`: rest-space body/head vertices skinned every tick
+  and sampled with a Catmull-Rom curve, so the point stays on the coat. The hand-side lateral
+  offset fades out as the palm moves to the neck, and the palm roll fades from 30° to 0. Fingers
+  point toward her head, and the oval uses the standing caress radii times
+  `presentation.missionary.caress.oval_scale`. The path is recomputed every physics tick, so it
+  follows the thrust, sway and afterglow. The legacy hull path (torso/neck/head filter widening
+  and rig syncs) remains the fallback when the precise feature is off.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
@@ -848,37 +848,44 @@ custom head-aim path below.
 ### Precise caress (debug)
 
 `features.caress_surface` (default off) swaps the capsule-point placement for the precise modules.
-The old capsule/point path remains the fallback.
+The old capsule/point path remains the fallback. `features.caress_hand_shape` (default off) adds
+the multi-sample palm/finger resolver on top; off is the single-point palm.
 
-- `caress/caress_surface.gd` builds a **posed triangle patch** of the visible `MareBody`/head mesh
-  around the path query. It filters by the body region (`torso` includes the neck, `head`) and a
-  0.28 m rest-space window, skins only that patch (max 30 updates/s), and answers closest
-  point/normal/distance. A `TriangleMesh` ray gives `nearest(point, outward)` for the hand samples;
-  the full closest loop is the fallback. Source arrays are cached per mesh/skin/region/window;
-  `closest()` reports `inside`.
+- `caress/caress_path.gd` is the missionary path: surface anchors, not bone origins. On first use
+  it finds rest-space vertices near the lower belly, belly, chest, neck side and cheek on the
+  visible `MareBody`/`Head` mesh, stores their rest position/normal/skin weights, and caches them
+  per mesh/side. Every tick it skins only those anchors and samples a Catmull-Rom curve
+  (`lean` + `caress.along_m`), with the lateral axis chosen toward the hand side. The path is on
+  the coat by construction, so the single-point palm needs no triangle query.
+- `caress/caress_surface.gd` builds a **stable posed patch** of the visible `MareBody`/head mesh
+  anchored to the rig's rest pose, not to the moving query. It filters by body region (`torso`
+  includes the neck, `head`) and skins the patch at 30 Hz. The face set does not change while the
+  hand moves. A `TriangleMesh` ray gives `nearest(point, outward)` for the hand samples; it is
+  built lazily and only when the hand shape is on. `closest()` reports `inside`.
 - `caress/caress_hand.gd` is the hand shape. The palm marker is the palm centre; local `-Z` is the
   fingers, `+Y` the thumb, palm normal `±X`. It carries a 2 cm palm ball, 2 cm heel, four 1.2 cm
   finger tips and a 1.5 cm thumb; `palm` and `fingertip` modes; `resolve()` uses the surface ray
-  and pushes the marker out until every sample is outside the surface plus `CONTACT_MARGIN`/
-  `Raise over coat`. A palm radius is no longer a single point offset.
+  and pushes the marker out until every sample is outside the surface plus `CONTACT_MARGIN`.
+  `place()` puts the single-point palm at `contact + normal * hover`.
 - `caress/caress_arm.gd` plans the missionary reach: shoulder/body shift caps, arm stretch cap,
-  target clamp and the actual solved target. `missionary_anon` writes the hand at the planned
-  target, never at an unreachable raw target, so the hand cannot detach/stretch across a gap. The
-  `caress_debug` log reports `reachable/shoulder/body/stretch`.
-- `standing_caress.gd` feeds the standing arm's existing game IK with the new hand-resolved palm
-  target. Both poses query the exact body/head triangle surface: standing uses the `torso` patch,
-  missionary queries both `torso` and `head` and picks the closer contact. The old capsule hull
-  target is never used for the precise hand; if both surfaces fail, the last good precise target
-  is held. The feature only changes the caress; smack, reach, scoring and the rest of the standing
-  arm stay on the existing path.
-- `features.caress_debug` logs one precise contact line per act with the face count and
-  build/query microseconds; `perf` gets `caress_surface`, `caress_hand` and `caress_precise`
-  chunks. The debug caps are `features.caress_reach_shoulder_m` (12 cm),
-  `features.caress_reach_body_m` (0), `features.caress_reach_stretch` (1.0).
+  target clamp and the actual solved target. It runs only for the caressing hand, never the two
+  planted palms. `missionary_anon` writes the hand at the planned target, so an unreachable path
+  point clamps to the arm instead of detaching it. The `caress_debug` log reports the reach only on
+  `ok`/`clamped` transitions.
+- `standing_caress.gd` feeds the standing arm's existing game IK with the exact `torso` contact.
+  Missionary uses the anchor path; the hand-shape mode queries both `torso` and `head` and picks
+  the closer contact. The old capsule hull target is never used for the precise hand; if the
+  surface fails, the last good precise target is held.
+- `features.caress_debug` logs one precise contact line per hand per act; `perf` gets
+  `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm` chunks. The reach caps are
+  `features.caress_reach_shoulder_m` (2 cm), `features.caress_reach_body_m` (0) and
+  `features.caress_reach_stretch` (1.0).
+- `Raise over coat` is the palm-centre hover in missionary, default 2 cm and signed (negative
+  presses). Standing uses the tuned `Palm distance`. In hand-shape mode the sample radii provide
+  the clearance and the hover adds the difference above the 2 cm palm radius.
 - Current scope: the precise surface covers the body/head meshes (torso/neck/cheek). Hair, mane,
   wing and tail layers are not part of the exact patch yet; the existing `Ignore body parts`
-  setting still filters the legacy flank/hull contact. `Raise over coat` is the shared visible
-  hover margin.
+  setting still filters the legacy flank/hull contact.
 
 ### Thrust camera and restore
 
@@ -1635,8 +1642,9 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old satisfied/aftercare behaviour |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
-| `caress_surface` | `false` | precise caress: posed triangle surface, palm/finger shape and reach plan; off uses the capsule point path |
-| `caress_debug` | `false` | one precise caress contact line per act |
+| `caress_surface` | `false` | precise caress: surface-anchored path and exact single-point palm; off uses the capsule point path |
+| `caress_hand_shape` | `false` | multi-sample palm/finger resolver on top of the precise contact; off uses one palm-centre point |
+| `caress_debug` | `false` | one precise caress contact line per hand per act |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
 | `standing_play_bow` | `false` | standing play-bow stance: front legs forward, chest down, head low |
@@ -1663,9 +1671,10 @@ which also removes its clamp. The full contract is `TUNING.md`.
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored.
 - Precise caress debug values: `features.caress_surface` (default off),
-  `features.caress_debug`, `features.caress_reach_shoulder_m` (0.12), `features.caress_reach_body_m`
-  (0) and `features.caress_reach_stretch` (1.0). They are read live; the caress surface flag is
-  snapshotted with the other act features.
+  `features.caress_hand_shape` (default off), `features.caress_debug`,
+  `features.caress_reach_shoulder_m` (2 cm), `features.caress_reach_body_m` (0) and
+  `features.caress_reach_stretch` (1.0). They are read live; both precise flags are snapshotted
+  with the other act features.
 - `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
   the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
   off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
@@ -1771,10 +1780,10 @@ rump blush. Unknown settings keys are ignored.
   - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
     `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
-    tail), `caress.over_coat_m` (debug, signed, in centimetres: raise or press the palm over her
-    coat), `part_inset_m` (debug, signed, in centimetres: pull the cock base back into the pelvis
-    in missionary), `oval_scale` (debug, ×: scale the missionary caress oval), and the six per-size
-    values `vulva_shift_mm`, `vulva_pitch_deg`,
+    tail), `caress.over_coat_m` (debug, default 2 cm, signed: palm-centre hover over her coat;
+    negative presses), `part_inset_m` (debug, signed, in centimetres: pull the cock base back into
+    the pelvis in missionary), `oval_scale` (debug, ×: scale the missionary caress oval), and the
+    six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
     `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
     `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
     size dropdown above the six rows.
@@ -1832,8 +1841,8 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Caress** (precise toggle, contact log, shoulder/body/stretch caps),
-  **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
+  during cuddles, then the **Caress** (precise toggle, hand-shape toggle, contact log,
+  shoulder/body/stretch caps), **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
   match, Caress along, Raise over coat, Cock base inset, Caress oval, a **Size** dropdown over the
   six per-size vulva/clearance/gaze values, fold/hug hacks, Use free look), **Standing** (with
   **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**

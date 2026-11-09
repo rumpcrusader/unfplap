@@ -5,6 +5,12 @@ extends SceneTree
 const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
 const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
 const ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
+const PATH := preload("res://mods/unfplap/caress/caress_path.gd")
+
+class FakePony extends RefCounted:
+	var _model: Node3D
+	var skeleton: Skeleton3D
+	var head: Variant = null
 
 var checks := 0
 var failures := 0
@@ -39,6 +45,58 @@ func _plane() -> Variant:
 	return surface
 
 
+func _path_fixture() -> Dictionary:
+	var root := Node3D.new()
+	get_root().add_child(root)
+	var sk := Skeleton3D.new()
+	root.add_child(sk)
+	var names := ["pony_spine2", "pony_spine3", "pony_neck1", "pony_head"]
+	var zs := [0.0, -0.25, -0.5, -0.8]
+	for i in 4:
+		sk.add_bone(names[i])
+		sk.set_bone_rest(i, Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, zs[i])))
+	var mesh := ArrayMesh.new()
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for i in 5:
+		var z := -float(i) * 0.25
+		verts.append(Vector3(-0.2, -0.2, z))
+		verts.append(Vector3(0.2, -0.2, z))
+		norms.append(Vector3.UP)
+		norms.append(Vector3.UP)
+	for i in 4:
+		var a := i * 2
+		indices.append_array(PackedInt32Array([a, a + 1, a + 3, a, a + 3, a + 2]))
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = norms
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var bones := PackedInt32Array()
+	var weights := PackedFloat32Array()
+	for _i in verts.size():
+		bones.append_array(PackedInt32Array([0, 0, 0, 0]))
+		weights.append_array(PackedFloat32Array([1.0, 0.0, 0.0, 0.0]))
+	arrays[Mesh.ARRAY_BONES] = bones
+	arrays[Mesh.ARRAY_WEIGHTS] = weights
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var body := MeshInstance3D.new()
+	body.name = "MareBody"
+	body.mesh = mesh
+	var skin := Skin.new()
+	skin.add_bind(0, Transform3D.IDENTITY)
+	body.skin = skin
+	var model := Node3D.new()
+	model.name = "Model"
+	root.add_child(model)
+	model.add_child(body)
+	var pony := FakePony.new()
+	pony._model = model
+	pony.skeleton = sk
+	return {"root": root, "pony": pony}
+
+
 func run() -> void:
 	var surface: Variant = _plane()
 	var hit: Dictionary = surface.call("closest", Vector3(0.2, 0.25, 0.1))
@@ -50,15 +108,18 @@ func run() -> void:
 	var under: Dictionary = surface.call("closest", Vector3(0.0, -0.1, 0.0))
 	check(bool(under.get("inside", false)), "a point below the plane is inside")
 	var tri: TriangleMesh = surface.get("_tri")
-	var surface_faces: PackedVector3Array = surface.get("faces")
-	tri.create_from_faces(surface_faces)
+	check(tri == null, "the ray mesh is built lazily")
 	var ray_hit: Dictionary = surface.call("nearest", Vector3(0.2, 0.1, 0.1), Vector3.UP)
 	check(not ray_hit.is_empty(), "the hand ray finds the plane")
 	check(near(float(ray_hit.get("point", Vector3.ZERO).y), 0.0),
 		"the ray contact lies on the plane")
 	check(not bool(ray_hit.get("inside", true)), "the ray point outside the plane is outside")
+	check(surface.get("_tri") != null, "the first ray builds the ray mesh once")
 
 	var palm := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm", 0.0, 0.0)
+	var hovered := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm",
+		0.0, 0.03)
+	check(near(hovered.origin.y, 0.03), "the single-point palm uses the hover distance")
 	var right_basis := HAND.palm_basis("right", Vector3.UP, Vector3.FORWARD, 30.0)
 	var left_basis := HAND.palm_basis("left", Vector3.UP, Vector3.FORWARD, -30.0)
 	check(right_basis.x.dot(Vector3.UP) > 0.99, "the right palm marker faces the coat")
@@ -81,6 +142,52 @@ func run() -> void:
 	var tip_frame: Transform3D = tip_resolved.get("frame", tip)
 	check(tip_frame.origin.y >= HAND.FINGER_RADIUS,
 		"the fingertip mode clears the plane too")
+
+	check(near(PATH.u_for(-1.0, 0.0), 0.0), "S reaches the lower belly anchor")
+	check(near(PATH.u_for(0.0, 0.0), PATH.BELLY_U), "neutral stays on the belly anchor")
+	check(near(PATH.u_for(1.0, 0.0), 1.0), "W reaches the cheek anchor")
+	check(near(PATH.u_for(0.5, 0.25), 0.875), "along_m shifts the path parameter")
+	var world: Array = []
+	for i in 5:
+		world.append({
+			"position": Vector3(0.0, 0.0, -float(i) * 0.2),
+			"normal": Vector3.UP,
+			"lateral": 1.0 - float(i) * 0.25,
+			"roll": 1.0 - float(i) * 0.25,
+			"region": "head" if i == 4 else "torso",
+		})
+	var start: Dictionary = PATH.sample_world(world, 0.0, "right", Vector3.RIGHT)
+	var middle: Dictionary = PATH.sample_world(world, PATH.BELLY_U, "right", Vector3.RIGHT)
+	var end: Dictionary = PATH.sample_world(world, 1.0, "right", Vector3.RIGHT)
+	check(near((start["point"] as Vector3).z, 0.0), "the path starts at the lower anchor")
+	check(near((end["point"] as Vector3).z, -0.8), "the path ends at the cheek anchor")
+	check((middle["point"] as Vector3).z < -0.15 and (middle["point"] as Vector3).z > -0.3,
+		"neutral sits near the belly anchor")
+	check((middle["finger"] as Vector3).dot(Vector3.FORWARD) > 0.9,
+		"the path tangent points toward her head")
+	check(near(float(end["lateral"]), 0.0), "the lateral offset fades at the cheek")
+	check(str(end["region"]) == "head", "the cheek sample uses the head region")
+	var left: Dictionary = PATH.sample_world(world, PATH.BELLY_U, "left", Vector3.RIGHT)
+	check((left["side"] as Vector3).dot(Vector3.RIGHT) < -0.9,
+		"the left hand uses her left lateral axis")
+
+	var fixture := _path_fixture()
+	var pony: Variant = fixture["pony"]
+	var root: Node3D = fixture["root"]
+	var path: Variant = PATH.new()
+	check(bool(path.call("build", pony, "right")), "the path builds from a real skinned mesh")
+	check((path.get("anchors") as Array).size() >= 3, "the path finds the body anchors")
+	var built: Dictionary = path.call("sample", 0.0, 0.0, Vector3.RIGHT)
+	check(not built.is_empty(), "the built path samples")
+	var built_point: Vector3 = built["point"]
+	var built_finger: Vector3 = built["finger"]
+	var built_normal: Vector3 = built["normal"]
+	check(built_point.is_finite(), "the built path point is finite")
+	check(near(built_point.y, -0.2, 0.01), "the built path point sits on the body mesh")
+	check(built_finger.dot(Vector3.FORWARD) > 0.5,
+		"the built path tangent points toward her head")
+	check(built_normal.y > 0.9, "the built path normal faces outward")
+	root.free()
 
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),
 		1.0, 0.08, 0.0)

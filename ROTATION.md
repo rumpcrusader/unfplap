@@ -99,16 +99,17 @@ Missionary is its own state, not the game's bed rest:
   shoulder down: `_arm_pole()` carries the `valve_body_ik.gd` elbow plane, and the wrist bone is
   `(palm * hand_offset) * hand_rest_basis`. Only one hand caresses: `A` left, `D` right, the other
   press swaps, the active press stops.
-- **Missionary caress path.** The path runs belly (`pony_spine2`) → chest (`pony_spine3`) → the
-  side of the neck (`pony_neck1/2`) → the cheek (`pony_head`). W walks the path and
-  `presentation.missionary.caress.along_m` shifts it; S stays on the lower belly. The hull filter
-  widens from the torso regions to torso+neck and then neck+head, and all three `PonyTouchBody`
-  rigs are synced first, because the game parks them with its desktop hands. The hand-side offset
-  fades out at the neck; the 30° palm roll fades to 0 by the neck/cheek. The oval uses the standing
-  caress radii times `presentation.missionary.caress.oval_scale`. With
-  `features.caress_surface`, the contact point comes from the posed body/head triangle patch in
-  `caress/caress_surface.gd`, and the palm/finger shape is resolved by `caress/caress_hand.gd`; the
-  capsule/hull path remains the fallback.
+- **Missionary caress path.** The precise path is surface-anchored: `caress/caress_path.gd`
+  finds rest-space vertices on the visible `MareBody`/`Head` near the lower belly, belly, chest,
+  neck side and cheek, stores their rest position/normal/skin weights, and skins only those anchors
+  every tick. It samples a Catmull-Rom curve; W walks toward the chest/neck/cheek,
+  `presentation.missionary.caress.along_m` shifts it, and S moves to the lower belly. The
+  hand-side offset fades out at the neck and the 30° palm roll fades to 0 by the neck/cheek. The
+  oval uses the standing caress radii times `presentation.missionary.caress.oval_scale`. The
+  single-point palm sits at `contact + normal * Raise over coat`. With
+  `features.caress_hand_shape`, `caress/caress_hand.gd` resolves the palm/finger samples against
+  the stable body/head patch from `caress/caress_surface.gd`; the capsule/hull path remains the
+  fallback when `features.caress_surface` is off or the rig cannot build anchors.
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately

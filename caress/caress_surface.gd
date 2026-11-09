@@ -28,18 +28,20 @@ var _weights := PackedFloat32Array()
 var _indices := PackedInt32Array()
 var _positions := PackedVector3Array()
 var _normals := PackedVector3Array()
-var _tri := TriangleMesh.new()
+var _tri: TriangleMesh = null
+var _tri_stamp := -1
+var _pose_serial := 0
 var _last_update := -1
 var _cache_order: Array = []
 
 
-## Build/refresh a patch for a region around `center_world`. `region` is "torso", "neck",
-## "head" or "body". Returns false when the pony/rig/region is unavailable.
-func ensure(pony: Variant, region: String, center_world: Vector3,
-		radius := 0.45) -> bool:
-	if not is_instance_valid(pony) or not center_world.is_finite():
+## Build a stable patch for a body region. The patch is anchored to the rig's rest pose, not to
+## the caller's query, so it does not change face sets while the hand moves. `region` is "torso",
+## "neck", "head" or "body". Returns false when the pony/rig/region is unavailable.
+func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
+	if not is_instance_valid(pony):
 		return false
-	var found := _find_mesh(pony, region)
+	var found := find_mesh(pony, region)
 	if found.is_empty():
 		return false
 	var mesh: MeshInstance3D = found["mesh"]
@@ -47,22 +49,25 @@ func ensure(pony: Variant, region: String, center_world: Vector3,
 	if not sk is Skeleton3D:
 		return false
 	skeleton = sk as Skeleton3D
-	var local_center := skeleton.global_transform.affine_inverse() * center_world
-	var key := "%d|%d|%s|%d|%d|%d" % [
+	var anchor := _region_anchor(skeleton, region)
+	if anchor.is_empty():
+		return false
+	var local_center: Vector3 = anchor["center"]
+	var use_radius: float = radius if radius > 0.0 else float(anchor["radius"])
+	var key := "%d|%d|%s|%d|%d|%d|%d" % [
 		mesh.get_instance_id(), skeleton.get_instance_id(), region,
-		int(round(local_center.x * 10.0)), int(round(local_center.y * 10.0)),
-		int(round(local_center.z * 10.0))]
+		int(round(use_radius * 100.0)), int(round(local_center.x * 100.0)),
+		int(round(local_center.y * 100.0)), int(round(local_center.z * 100.0))]
 	if key != source_key or source.is_empty():
 		source_key = key
-		var cache_key := "%d|%d|%s|%d|%d|%d|%d|%d" % [
+		var cache_key := "%d|%d|%s|%d|%d|%d|%d" % [
 			mesh.mesh.get_instance_id(), mesh.skin.get_instance_id() if mesh.skin != null else 0,
-			region, int(radius * 100.0),
-			int(round(local_center.x * 10.0)), int(round(local_center.y * 10.0)),
-			int(round(local_center.z * 10.0)), 0]
+			region, int(round(use_radius * 100.0)), int(round(local_center.x * 100.0)),
+			int(round(local_center.y * 100.0)), int(round(local_center.z * 100.0))]
 		if _source_cache.has(cache_key):
 			source = _source_cache[cache_key]
 		else:
-			source = _gather(mesh, region, local_center, radius)
+			source = _gather(mesh, region, local_center, use_radius)
 			if source.is_empty():
 				return false
 			_source_cache[cache_key] = source
@@ -123,9 +128,9 @@ func update_pose(force := false) -> void:
 		var v := _indices[i]
 		faces[i] = _positions[v]
 		vertex_normals[i] = _normals[v]
-	_tri.clear()
-	if not faces.is_empty():
-		_tri.create_from_faces(faces)
+	_pose_serial += 1
+	_tri = null
+	_tri_stamp = -1
 	_last_update = now
 	build_us = Time.get_ticks_usec() - started
 
@@ -198,6 +203,10 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	if faces.is_empty():
 		return {}
+	if _tri == null or _tri_stamp != _pose_serial:
+		_tri = TriangleMesh.new()
+		_tri.create_from_faces(faces)
+		_tri_stamp = _pose_serial
 	var hit: Dictionary = _tri.intersect_segment(from, to)
 	if hit.is_empty():
 		return {}
@@ -248,12 +257,45 @@ func _flatten() -> void:
 	_normals.resize(_rest_positions.size())
 	faces = PackedVector3Array()
 	vertex_normals = PackedVector3Array()
-	_tri.clear()
+	_tri = null
+	_tri_stamp = -1
+	_pose_serial += 1
 	_transforms.clear()
 	_last_update = -1
 
 
-func _find_mesh(pony: Variant, region: String) -> Dictionary:
+func face_count() -> int:
+	return faces.size() / 3
+
+
+func _region_anchor(skeleton: Skeleton3D, region: String) -> Dictionary:
+	if region == "head":
+		var head: Variant = _bone_global_rest(skeleton, ["mHead", "pony_head", "Head"])
+		if head == null:
+			return {}
+		return {"center": (head as Transform3D).origin, "radius": 0.32}
+	var spine: Variant = _bone_global_rest(skeleton, ["pony_hips", "pony_spine1", "pony_spine2"])
+	if spine == null:
+		return {}
+	var center: Vector3 = (spine as Transform3D).origin
+	var radius := 0.85
+	var neck: Variant = _bone_global_rest(skeleton, ["pony_neck1", "pony_spine3"])
+	if neck != null:
+		var neck_origin: Vector3 = (neck as Transform3D).origin
+		center = (center + neck_origin) * 0.5
+		radius = center.distance_to(neck_origin) * 2.0 + 0.32
+	return {"center": center, "radius": maxf(radius, 0.55)}
+
+
+func _bone_global_rest(skeleton: Skeleton3D, names: Array) -> Variant:
+	for name: String in names:
+		var bone := skeleton.find_bone(name)
+		if bone >= 0:
+			return skeleton.get_bone_global_rest(bone)
+	return null
+
+
+static func find_mesh(pony: Variant, region: String) -> Dictionary:
 	if region == "head":
 		var head: Variant = pony.get("head")
 		if head == null:
@@ -314,7 +356,7 @@ func _gather(mesh: MeshInstance3D, region: String, center: Vector3,
 			for j in 3:
 				var id := ids[t + j]
 				var bone := _dominant_bone(id, ab, aw, stride, skin, skeleton)
-				if _region_allowed(_region_for(role, bone), region):
+				if region_allowed(region_for(role, bone), region):
 					hit = true
 					break
 			if not hit:
@@ -372,7 +414,7 @@ func _dominant_bone(id: int, ab: PackedInt32Array, aw: PackedFloat32Array,
 	return name
 
 
-static func _region_for(role: String, bone: String) -> String:
+static func region_for(role: String, bone: String) -> String:
 	if role.begins_with("head"):
 		return "head"
 	if bone.begins_with("pony_neck") or bone == "pony_head":
@@ -394,7 +436,7 @@ static func _region_for(role: String, bone: String) -> String:
 	return ""
 
 
-static func _region_allowed(region: String, wanted: String) -> bool:
+static func region_allowed(region: String, wanted: String) -> bool:
 	if wanted == "body":
 		return region != "head" and region != ""
 	if wanted == "torso":

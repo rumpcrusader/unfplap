@@ -7,6 +7,7 @@ const PALM_RADIUS := 0.02
 const HEEL_RADIUS := 0.02
 const FINGER_RADIUS := 0.012
 const THUMB_RADIUS := 0.015
+const CLEARANCE_M := 0.02
 const CONTACT_MARGIN := 0.002
 const RESOLVE_ITERATIONS := 4
 const FINGER_TIP := Vector3(0.015, 0.0, -0.09)
@@ -55,15 +56,15 @@ static func palm_basis(side: String, outward: Vector3, finger_hint: Vector3,
 	return basis
 
 
-## Build the palm marker at a contact point. `over_coat` is the debug hover; the resolver then
-## guarantees the palm/finger sample spheres stay outside the coat.
+## Build the palm marker at a contact point. `hover` is the palm-centre distance from the coat
+## for the single-point placement; the sample resolver adds its own radii instead.
 static func place(contact: Vector3, outward: Vector3, finger_hint: Vector3, side: String,
-		mode: String, roll_deg: float, _over_coat: float) -> Transform3D:
+		mode: String, roll_deg: float, hover: float) -> Transform3D:
 	var normal := outward.normalized()
 	if normal.length_squared() < 0.5:
 		normal = Vector3.UP
 	var basis := palm_basis(side, normal, finger_hint, roll_deg)
-	var origin := contact
+	var origin := contact + normal * hover
 	if mode == "fingertip":
 		origin -= basis * FINGER_TIP
 	return Transform3D(basis, origin)

@@ -673,6 +673,8 @@ def main() -> int:
             dirty = True
         if args.drop_placement_ids:
             for pony_id in [part.strip() for part in args.drop_placement_ids.split(",") if part.strip()]:
+                if pony_id in PLACEMENT_RESERVED:
+                    continue
                 placement.pop(pony_id, None)
             dirty = True
         if dirty:

@@ -221,5 +221,5 @@ func run() -> void:
 	root.remove_child(smack_pony)
 	smack_pony.free()
 
-	print("_RESULT checks=%d failures=%d" % [checks, failures])
+	print("ACT_AUDIO_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(1 if failures > 0 else 0)

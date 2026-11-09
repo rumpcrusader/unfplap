@@ -622,7 +622,7 @@ def report(
         print(f"  {index}. {target}: {group['count']} mares ({ids})")
         print(f"     values: {short(group['player'])}")
         print(f"     diff vs live global: {short(group['diff_vs_live'])}")
-        if group["diff"] != group["diff_vs_live"]:
+        if group["target"] == "mare" and group["diff"] != group["diff_vs_live"]:
             print(f"     diff after a global promotion: {short(group['diff'])}")
 
 

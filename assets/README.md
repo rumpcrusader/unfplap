@@ -28,7 +28,7 @@ unfplap-assets-<hash>.zip
 ```
 
 - `runtime/` is the only tree packed into the mod. Paths are repository-relative.
-- `sources/` is editable material and is never staged or packed.
+- `sources/` is editable material. `build.sh` and CI never stage or pack it.
 - `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd` and `audio/act/sources.json` stay in
   git: they are code and credit metadata, not audio data.
 - The V2 Blender source is the only Blender file included in the archive. Winking iterations,
@@ -68,17 +68,11 @@ anon_part_albedo.png 2048^2 albedo/detail
 At runtime the V2 mesh is optional: the Mare bits setting falls back to `winking.scn` when it is
 absent. The anatomy feature itself is optional in the settings.
 
-## Recovering the files
+## Recovering or replacing the files
 
-`tools/recover_anatomy_assets.gd` regenerates them from a PonyPussyParadise `.pck`:
-
-```bash
-godot --headless --xr-mode off --path <game-project> \
-  --script res://mods/unfplap/tools/recover_anatomy_assets.gd -- \
-  /path/to/<pack>.pck
-```
-
-The script writes into the ignored `assets/anatomy/` folder. Run the Godot import afterward and
-repack and upload the resource archive; do not commit the regenerated files directly.
+`scripts/fetch_assets.sh` restores the exact set recorded in `scripts/asset_pack.json`. If a local
+file was edited, the fetch refuses to overwrite it; `scripts/fetch_assets.sh --force` discards the
+local copy and restores the archived one. To keep intentional asset edits, repack and upload them
+instead. The downloaded files are ignored; only `scripts/asset_pack.json` is committed.
 
 Redistribution is by permission of the PonyPussyParadise author; `mod.json` credits them.

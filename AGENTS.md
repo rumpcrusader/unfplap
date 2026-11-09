@@ -851,18 +851,16 @@ custom head-aim path below.
 The old capsule/point path remains the fallback. `features.caress_hand_shape` (default off) adds
 the multi-sample palm/finger resolver on top; off is the single-point palm.
 
-- `caress/caress_path.gd` is the missionary path: surface anchors chosen by **rest-space rays**,
-  not by nearest vertices to bone origins. On first use it casts rays from below/front through
-  the belly and chest, and from the hand side (`Vector3.RIGHT * side_sign`, not bone-local X)
-  through the neck and cheek on the visible `MareBody`/`Head` mesh. The first triangle is the
-  near surface and its normal faces the ray origin, so the side and the outward normal are
-  explicit. The lower belly is derived from the belly hit: move toward the tail, then snap back
-  with a short ray along the belly normal; reject it if it lands too far away or its normal
-  disagrees. It stores each hit's rest position/normal/skin weights and caches them per mesh/side.
-  Every tick it skins only those anchors and samples a Catmull-Rom curve (`lean` +
-  `caress.along_m`). The path is on the coat by construction, so the single-point palm needs no
-  triangle query. `belly_u` is derived from the belly anchor index, so the path works with or
-  without the lower anchor.
+- `caress/caress_path.gd` is the missionary path: surface anchors chosen by **act-camera rays**,
+  not by nearest vertices to bone origins. On first use it casts from the live act camera to the
+  belly, chest, neck and head bone origins through the posed `CaressSurface` patches. The first
+  triangle is the coat the player actually sees, so the path is on the visible side instead of
+  the rest-space underside. It stores each hit's rest position/normal/skin weights and caches
+  them per mesh/side and camera side. Every tick it skins only those anchors and samples a
+  Catmull-Rom curve (`lean` + `caress.along_m`). The path is on the coat by construction, so the
+  single-point palm needs no triangle query. `belly_u` is derived from the belly anchor index.
+  The rest-space ray path (below/front belly and chest, hand-side neck and cheek, plus a lower
+  belly derived from the belly hit) remains the fallback when the camera is unavailable.
 - The palm's finger axis is the **body head axis** (`pony_head - pony_hips`) projected onto the
   coat tangent plane, not the path tangent, so the fingers point toward her head instead of
   following a kink in the anchor chain.

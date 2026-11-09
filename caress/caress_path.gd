@@ -1,8 +1,8 @@
 extends RefCounted
-## Surface-anchored missionary caress path. The anchors are rest-space vertices on the visible
-## body/head mesh; every tick they are skinned with the live skeleton, so the path follows the
-## coat instead of guessing from bone origins and world up. No triangle query is needed for the
-## single-point placement.
+## Surface-anchored missionary caress path. The anchors are rest-space vertices chosen from the
+## coat the act camera sees; every tick they are skinned with the live skeleton. A rest-space ray
+## path is the fallback when no camera is available. No triangle query is needed for the
+## single-point placement after the anchors are built.
 
 const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
 const BELLY_U := 0.25

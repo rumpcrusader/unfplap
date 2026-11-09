@@ -1494,6 +1494,16 @@ func action_reset_act_prompts() -> String:
 	return "Act prompts reset to defaults."
 
 
+func action_clear_caress_anchors() -> String:
+	var state: Dictionary = Mods.state("unfplap")
+	state.erase("caress_anchors")
+	Mods.save_changed()
+	if is_instance_valid(active_runtime):
+		if active_runtime.has_method("clear_caress_picks"):
+			active_runtime.call("clear_caress_picks")
+	return "Picked caress anchors cleared."
+
+
 func _debug_history_target() -> Node:
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null

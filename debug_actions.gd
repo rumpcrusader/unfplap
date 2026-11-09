@@ -162,6 +162,13 @@ const ACTIONS := {
 		"method": "action_anatomy_reset",
 		"tab": "anatomy",
 		"row": "Anatomy file", "short": "Reset"},
+	"clear_caress_anchors": {
+		"label": "Clear picked caress anchors",
+		"help": "Remove the picked missionary path and return to the automatic camera path.",
+		"method": "action_clear_caress_anchors",
+		"row": "Caress",
+		"short": "Clear picks",
+	},
 }
 
 

@@ -174,6 +174,10 @@ func _input(event: InputEvent) -> void:
 				and bool(main.call("open_act_chat")):
 			get_viewport().set_input_as_handled()
 			return
+		if key.physical_keycode == KEY_P and bool(runtime.call("caress_pick_ready")):
+			runtime.call("pick_caress_point")
+			get_viewport().set_input_as_handled()
+			return
 		var state := int(runtime.get("state"))
 		# X is consumed in every act state: AnonPony uses X to lie down, and the runtime polls it
 		# for the tap toggle and the hold-X auto settings layer. Consume it here and do not act.

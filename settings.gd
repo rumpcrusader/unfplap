@@ -712,6 +712,10 @@ static var caress_hand_shape := flag("caress_hand_shape", "features.caress_hand_
 	"Use hand shape",
 	"Resolve the precise palm as a small set of palm and finger samples. Off places a single palm-centre point on the coat.",
 	GENERAL, "Caress").as_debug()
+static var caress_pick := flag("caress_pick", "features.caress_pick", false,
+	"Pick caress points",
+	"Press P while a missionary caress is active to assign the point under the crosshair to the nearest path anchor. Pick the belly once, then the chest, neck and cheek for each hand.",
+	GENERAL, "Caress").as_debug()
 static var caress_debug := flag("caress_debug", "features.caress_debug", false,
 	"Print caress contact",
 	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,

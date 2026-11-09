@@ -104,7 +104,10 @@ Missionary is its own state, not the game's bed rest:
   posed body/head patches. The first triangle is the coat the player sees, so the anchors are on
   the visible side. The belly stays on the centerline; the chest/neck/cheek targets move toward
   the hand's side, so the left and right hands build different paths. A rest-space fallback
-  (below/front belly and chest, hand-side neck and cheek) is used when no camera is available. It stores each hit's rest position/normal/skin weights
+  (below/front belly and chest, hand-side neck and cheek) is used when no camera is available.
+  Picked anchors in `Mods.state("unfplap").caress_anchors` override both; `P` assigns the point
+  under the crosshair to the nearest anchor, the belly is shared, and chest/neck/cheek are stored
+  per hand. It stores each hit's rest position/normal/skin weights
   and skins only those anchors every tick. It samples a
   Catmull-Rom curve; W walks toward the chest/neck/cheek,
   `presentation.missionary.caress.along_m` shifts it, and S moves to the lower belly. The

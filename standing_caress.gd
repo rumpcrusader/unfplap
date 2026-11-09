@@ -1553,19 +1553,97 @@ func _clear_debug_draw() -> void:
 	_debug_immediate = null
 
 
-## The act camera position; the path anchors are chosen on the side it actually sees.
-func _missionary_camera_position() -> Vector3:
+## The act camera; the path anchors are chosen on the side it actually sees.
+func _missionary_camera() -> Camera3D:
 	if not is_instance_valid(runtime):
-		return Vector3.INF
+		return null
 	var value: Variant = runtime.get("_camera")
 	if value is Camera3D and is_instance_valid(value):
-		return (value as Camera3D).global_position
+		return value as Camera3D
 	var main: Variant = runtime.get("main")
 	if is_instance_valid(main) and main.has_method("camera"):
 		var cam: Variant = main.call("camera")
 		if cam is Camera3D and is_instance_valid(cam):
-			return (cam as Camera3D).global_position
-	return Vector3.INF
+			return cam as Camera3D
+	return null
+
+
+func _missionary_camera_position() -> Vector3:
+	var camera := _missionary_camera()
+	return camera.global_position if is_instance_valid(camera) else Vector3.INF
+
+
+## Pick the point under the screen-centre crosshair and assign it to the nearest current path
+## anchor. The belly is shared; chest/neck/cheek go to the active hand's side.
+func pick_missionary_anchor() -> bool:
+	if not is_instance_valid(pony) or not is_instance_valid(runtime):
+		return false
+	if not bool(runtime.call("_feature", "caress_pick")):
+		return false
+	var side := ""
+	if bool(_caress_active.get("L", false)):
+		side = "left"
+	elif bool(_caress_active.get("R", false)):
+		side = "right"
+	if side.is_empty():
+		return false
+	var path: Variant = _missionary_anchor_path(side)
+	if path == null:
+		return false
+	var camera := _missionary_camera()
+	if not is_instance_valid(camera):
+		return false
+	var viewport := camera.get_viewport()
+	if viewport == null:
+		return false
+	var screen := viewport.get_visible_rect().size * 0.5
+	var from := camera.project_ray_origin(screen)
+	var to := from + camera.project_ray_normal(screen) * 100.0
+	var best_hit: Dictionary = {}
+	var best_surface: Variant = null
+	var best_region := ""
+	var best_distance := INF
+	for region in ["torso", "head"]:
+		var surface: Variant = _precise_surface(region)
+		if not is_instance_valid(surface):
+			continue
+		var hit: Variant = surface.call("ray", from, to)
+		if not hit is Dictionary or (hit as Dictionary).is_empty():
+			continue
+		var distance: float = from.distance_to((hit as Dictionary)["position"])
+		if distance < best_distance:
+			best_distance = distance
+			best_hit = hit
+			best_surface = surface
+			best_region = region
+	if best_hit.is_empty() or not is_instance_valid(best_surface):
+		return false
+	var hit_anchor: Dictionary = CAESS_PATH._posed_hit_anchor(best_surface, best_hit,
+		best_region)
+	if hit_anchor.is_empty():
+		return false
+	var hit_world: Vector3 = best_hit["position"]
+	var nearest_id := ""
+	var nearest_distance := INF
+	for anchor: Dictionary in (path.call("skinned") as Array):
+		var distance: float = (anchor["position"] as Vector3).distance_squared_to(hit_world)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_id = str(anchor.get("id", ""))
+	if nearest_id.is_empty():
+		return false
+	var index := int(hit_anchor.get("source_index", -1))
+	CAESS_PATH.save_pick(side, nearest_id, best_region, index)
+	_missionary_paths.clear()
+	_log("caress pick side=%s slot=%s region=%s index=%d hit=%s" % [
+		side, nearest_id, best_region, index, str(hit_world)])
+	return true
+
+
+func clear_picked_anchors() -> void:
+	CAESS_PATH.clear_picks()
+	_missionary_paths.clear()
+	_log("caress picks cleared")
 
 
 func _missionary_anchor_path(hand_side: String) -> Variant:

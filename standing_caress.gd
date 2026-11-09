@@ -1282,7 +1282,7 @@ func _precise_missionary_hand(side: String) -> Transform3D:
 		target = chosen["target"]
 	_log_precise(hand_side, mode, log_surface, target, roll_deg, hover, shape,
 		normal, finger, u)
-	_draw_missionary_debug(world, chosen, target)
+	_draw_missionary_debug(world, chosen, target, hand_side)
 	_precise_last[hand_side] = target
 	return target
 
@@ -1442,7 +1442,8 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 
 ## Debug-only world-space overlay for the missionary path: anchors, normals, path, contact and
 ## palm target. It draws with no depth test so the points remain visible through her body.
-func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3D) -> void:
+func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3D,
+		hand_side: String) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
 		return
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
@@ -1491,6 +1492,13 @@ func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3
 		_debug_cross(immediate, target.origin, Color(1.0, 0.55, 0.15), 0.04)
 		_debug_segment(immediate, target.origin, target.origin + target.basis.y * 0.06,
 			Color(1.0, 0.55, 0.15))
+	# White is the actual hand palm; gray is the gap between it and the requested target.
+	var driver := _hand_driver()
+	if is_instance_valid(driver) and driver.has_method("hand_frame"):
+		var hand: Transform3D = driver.call("hand_frame", hand_side)
+		if hand.is_finite() and hand.origin.length_squared() > 0.0001:
+			_debug_cross(immediate, hand.origin, Color.WHITE, 0.045)
+			_debug_segment(immediate, hand.origin, target.origin, Color(0.6, 0.6, 0.6))
 	immediate.surface_end()
 
 

@@ -233,6 +233,9 @@ mods/unfplap/
   tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
   tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
   tail_visibility.gd  debug controller: installs tail_hide on loaded AI characters
+  tail_seat.gd      re-seats every adult mare's hair tail at the reference dock and moves the dock;
+                    per-mare exceptions; restores the original when the setting is off
+  tail_seat_placement.gd  pure tail seat exception data (`anatomy.tail_seat.<id>` offset_y/z)
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
                     offer weighting and history reminders
@@ -402,6 +405,29 @@ reclined eye height left the camera wrong after the act.
   exceptions let her sink and trigger the fall/re-seat loop. The bed anchor fix above is the
   supported way to keep the pose stable.
 - Start waits for player rest ≥ 0.99 and the pony's `lie_down` to settle.
+
+### Tail seating
+
+- `anatomy.reseat_tails` (Anatomy → **Re-seat tails**, default on) moves every adult mare's hair
+  tail base to the game's exact reference anchor from
+  `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's canonical
+  dock seat, derived from the body's own tail root (`pony_tail_01`); the `OpenPonyDock` is moved by
+  the same body-space delta and re-reached to the rump with the game's `hybrid_dock` fit. The body,
+  skeleton, mane and anatomy placement are untouched.
+- The seat is measured once on the live pony with `dock_tail_mount.measure()`. The original hair
+  `pelvis_offset` and dock mesh are cached before the first write, so turning the setting off
+  restores the game's tail and dock exactly. The far-mesh identity cache is invalidated, and a
+  currently shown far mesh is forced back to the near mesh for the next bake.
+- The exact reference is applied to all eligible adult mares, including tails currently above it.
+  A per-mare exception stores only `offset_y`/`offset_z` in metres under
+  `anatomy.tail_seat.<id>` in `settings.json`; zero removes the row. The Anatomy Debug actions
+  **Tail seat** Up/Down/Forward/Back and **Tail seat file** Save/Reset/Show edit and audit these;
+  they target the aimed or nearest mare. Reset previews the exact reference and Save writes it,
+  removing the exception, matching the anatomy placement flow. `Show tail seats` logs every live
+  mare's original anchor, target, offset, applied delta and source.
+- A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
+  tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
+  new tail only for shape or silhouette; the seat remains this controller's job.
 
 ### Standing
 
@@ -1387,6 +1413,9 @@ examples.
   their `tab` names (`general` by default, `anatomy` or `world`). Adding an
   action is one entry; give it a `hotkey` only when it must fire while the world is unpaused and
   you are looking at the scene. A hotkey-less action is the default.
+- **Tail seat** Up/Down/Forward/Back and **Tail seat file** Save/Reset/Show: edit the pointed or
+  nearest mare's tail seat exception from the exact reference anchor, save it, preview the exact
+  reference, or log every live mare's seat. See the tail seating contract above.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
   nearest) test mare. They bypass the quiet, cooldown, AI-usage and history offer checks, but not
   relationship, consent, pose, cycle or free-bed gates; use them in the lab, which runs with
@@ -1576,7 +1605,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
   spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1, default 0.67; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
-  (Show tail docks, on; visibility only, it never moves the anatomy), `mare_bits` (Mare bits,
+  (Show tail docks, on; visibility only, it never moves the anatomy) and `reseat_tails`
+  (Re-seat tails, on; seats every adult mare's hair tail at the exact reference dock and moves the
+  dock with it; off restores the original tail mount; per-mare exceptions live under
+  `anatomy.tail_seat.<id>`), `mare_bits` (Mare bits,
   `original`/`v2`; default `v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),
   `anal_scale` (Ponut scale, default 0.9: the V2 ponut interior and body coat; the vulva and opening

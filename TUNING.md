@@ -139,6 +139,11 @@ prefixes pre-emptively.
   part) and partial `<mare id>.*` overrides. `anatomy_placement.gd` owns the shipped per-mare
   `MARE_DEFAULTS` and resolves override, shipped default, then global default. The old
   `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`.
+- `anatomy.reseat_tails` (Re-seat tails, on by default) applies the exact reference dock seat to
+  every adult mare. Her exception is one partial `anatomy.tail_seat.<id>` row with
+  `offset_y`/`offset_z` in metres; zero removes it. The Anatomy Debug actions Tail seat
+  Up/Down/Forward/Back and Tail seat file Save/Reset/Show edit it in game; Reset previews the
+  exact reference and Save writes it, the same staging rule as anatomy placement.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
   cached per generation, so a per-frame read is cheap.

@@ -1,8 +1,7 @@
 extends RefCounted
-## Caress in both poses, shoulder reach, flank smack and palm-on-coat contact. The runtime owns
-## scoring and the act state; this controller only drives the desktop hands and contact frames.
-## Standing rubs the flank; missionary rubs her chest, neck and cheek. A and D toggle their
-## hand independently, so both can caress at once.
+## Act hands in both poses: caress, shoulder reach, smack and palm-on-coat contact. The runtime
+## owns scoring and the act state; this controller drives the palms and contact frames. Standing
+## rubs the flank; missionary rubs her chest, neck and cheek.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -976,7 +975,7 @@ func _smack() -> void:
 		hand_side = "left" if index == 0 else "right"
 	var caress_side := "L" if hand_side == "left" else "R"
 	var caressing := bool(_caress_active[caress_side])
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver: Node = _hand_driver()
 	var from_frame := Transform3D.IDENTITY
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
 		var current: Variant = driver.call("hand_frame", hand_side)
@@ -1041,7 +1040,7 @@ func _smack_swing_tick() -> void:
 	if _smack_side.is_empty():
 		_smack_active = false
 		return
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver: Node = _hand_driver()
 	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
 		_end_smack_swing()
 		return
@@ -1218,7 +1217,7 @@ func _end_smack_swing() -> void:
 	if not _smack_active:
 		return
 	if not _smack_side.is_empty():
-		var driver: Node = runtime.call("_desktop_pose_driver")
+		var driver: Node = _hand_driver()
 		var caress_side := "L" if _smack_side == "left" else "R"
 		if bool(_caress_active[caress_side]):
 			# The smack may have moved the tail or another soft hull next to the rub point.

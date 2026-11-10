@@ -1,5 +1,5 @@
 extends RefCounted
-## Pose-free caress placement. A path supplies where the caress should be on the body; this
+## Pose-free palm placement. A path supplies where the hand should be on the body; this
 ## engine applies the oval, snaps it to the coat, smooths the contact and builds the palm frame.
 ## It never reads the pose, the input or the camera.
 
@@ -24,7 +24,7 @@ func _init(runtime_node: Node = null) -> void:
 	runtime = runtime_node
 
 
-## Build the palm frame for one hand. `path` is a caress path (see caress_path_base.gd), and
+## Build the palm frame for one hand. `path` is a hand path (see hands/path_base.gd), and
 ## `context` carries lean, oval phase/radii, hover and the exact/hull mode. Returns an invalid
 ## transform when the path and the last good target are both unavailable.
 func frame(pony: Variant, path: Variant, hand_side: String, context: Dictionary) -> Transform3D:

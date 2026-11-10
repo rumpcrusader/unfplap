@@ -1,6 +1,6 @@
 extends RefCounted
 ## Base for a pose-specific caress path. A path answers where the caress should be for a hand;
-## `caress_system.gd` owns the contact query, smoothing and palm placement.
+## `hands/placement.gd` owns the contact query, smoothing and palm placement.
 ##
 ## `candidates(hand_side, context)` returns an ordered list of contacts, preferred first. Each
 ## contact has:

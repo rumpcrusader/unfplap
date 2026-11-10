@@ -45,6 +45,7 @@ This contract covers:
 | `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, act-camera anchors, rest fallback |
 | `hands/surface.gd` | stable posed body/head patch and exact ray queries |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
+| `hands/scale.gd` | shared per-preset hand-bone scale |
 | `hands/reach_plan.gd` | pure two-bone reach plan for the missionary hand |
 | `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
@@ -54,7 +55,7 @@ The pose boundary is deliberately small:
 
 - `hand_control.gd` chooses the pose's path provider and palm holder, and supplies the
   shared hover, oval and body scale.
-- `caress_system.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
+- `hands/placement.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
   pony, a path and the palm side.
 - The path providers contain all pose geometry.
 - `hands/contact.gd` is generic; only its comments mention the poses.

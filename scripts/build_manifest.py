@@ -38,7 +38,7 @@ def runtime_source(path):
     name = parts[-1]
     if name.startswith("."):
         return False
-    if path.startswith(("assets/", "audio/", "poses/")):
+    if path.startswith(("assets/", "audio/", "poses/", "hands/")):
         if "backups" in parts:
             return False
         return pathlib.PurePosixPath(path).suffix in ALLOWED_SUFFIXES

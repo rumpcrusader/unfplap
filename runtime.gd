@@ -5,7 +5,6 @@ const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
 const TAIL_LAY := preload("res://mods/unfplap/tail_lay.gd")
-const DOCK_TAIL_COAT := preload("res://mods/unfplap/dock_tail_coat_follow.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
@@ -268,7 +267,6 @@ var _pony_saved_bones: Array[Transform3D] = []
 var _pony_saved_hair: Array[Transform3D] = []
 var _pony_saved_skeleton: Skeleton3D
 var _pony_saved_hair_skeleton: Skeleton3D
-var _dock_tail
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
 var _anatomy_act: Node
@@ -630,13 +628,10 @@ func _perf_tick(delta: float) -> void:
 			wing_state = "held"
 		elif bool(wings.get("_winged")):
 			wing_state = "winged"
-	var dock := "no"
-	if is_instance_valid(_dock_tail):
-		dock = "on" if bool(_dock_tail.get("_active")) else "off"
-	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms near_mesh=%s tier=%s wings=%s dock=%s" % [
+	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms near_mesh=%s tier=%s wings=%s" % [
 		_id, pose_id, state, Engine.get_frames_per_second(),
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
-		near_mesh, tier, wing_state, dock]
+		near_mesh, tier, wing_state]
 	for row: Array in rows:
 		text += "\n\t%-16s %7.2fms/s per-frame %6.3fms max %6.2fms calls %d" % [
 			str(row[0]), float(row[2]), float(row[2]) / frames, float(row[3]) / 1000.0, int(row[1])]
@@ -2471,12 +2466,6 @@ func _build_pose() -> void:
 				side_anchor = (view as Camera3D).global_position
 		_tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(_tail)
-		_dock_tail = DOCK_TAIL_COAT.new()
-		_dock_tail.name = "UnfplapDockTailCoat"
-		_dock_tail.mare = pony
-		_dock_tail.runtime = self
-		_dock_tail.process_priority = 40
-		(hair as Skeleton3D).add_child(_dock_tail)
 
 ## Snapshot before the act changes her posture or the pose writes bones.
 func _snapshot_pony_bones() -> void:
@@ -2539,10 +2528,6 @@ func _free_pose() -> void:
 	if is_instance_valid(_pose):
 		_pose.queue_free()
 	_pose = null
-	if is_instance_valid(_dock_tail):
-		_dock_tail.call("restore")
-		_dock_tail.queue_free()
-	_dock_tail = null
 	if is_instance_valid(_tail):
 		_tail.call("restore_tail")
 		_tail.queue_free()

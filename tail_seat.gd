@@ -13,10 +13,14 @@ const PLACEMENT := preload("res://mods/unfplap/tail_seat_placement.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/dock_seat.gd")
+const DOCK_ATTACH := preload("res://mods/unfplap/dock_attach.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 
 const DOCK_NAME := "OpenPonyDock"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
+const DOCK_VISIBILITY_PATH := "res://world/characters/hybrid_mare/dock_visibility_fits.json"
+## Mirrors `hybrid_dock.VISIBILITY_FALLBACK`: the median of the hand fits.
+const DOCK_VISIBILITY_FALLBACK := Vector3(0.0, 0.0, 0.04)
 ## The reference's cap sits just below and in front of the body's own tail root. This fallback is
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
@@ -32,6 +36,7 @@ var _tail_lift := 0.0
 var _dock_lift := 0.0
 static var _reference := Vector3.INF
 static var _reference_loaded := false
+static var _visibility: Dictionary = {}
 
 
 func _ready() -> void:
@@ -63,6 +68,81 @@ static func reference(pony: Node = null) -> Vector3:
 				return (skeleton as Skeleton3D).get_bone_global_rest(bone).origin \
 					+ FALLBACK_TAIL_OFFSET
 	return Vector3.INF
+
+
+## Vertical centre of the pinned hair tail cap in body bind space. The dock's outer opening is
+## seated on this line, which is what makes the visible band sit under the tail base instead of on
+## its upper side. Returns NAN when the cap cannot be measured.
+static func _tail_cap_centre(pony: Node) -> float:
+	if not is_instance_valid(pony):
+		return NAN
+	var identity: Variant = pony.get("identity")
+	var hair_node: Variant = pony.get("hair")
+	if identity == null or not is_instance_valid(hair_node):
+		return NAN
+	var body: MeshInstance3D = pony.get("_model").find_child("MareBody", true, false) \
+		as MeshInstance3D
+	var tail: MeshInstance3D = (hair_node as Node).find_child(
+		str(identity.get("hair_prefix")) + "DevkitTail", true, false) as MeshInstance3D
+	if not is_instance_valid(body) or not is_instance_valid(tail):
+		return NAN
+	var link: Variant = pony.get("hair_link")
+	var transform: Transform3D = _bind_for(body, "pony_hips").affine_inverse() \
+		* link.get("pelvis_offset") * _bind_for(tail, "mPelvis")
+	var low := INF
+	var high := -INF
+	var count := 0
+	for surface in tail.mesh.get_surface_count():
+		var vertices: PackedVector3Array = tail.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for i: int in tail.mesh.get_meta("pinned_" + str(surface), PackedInt32Array()):
+			var y: float = (transform * vertices[i]).y
+			low = minf(low, y)
+			high = maxf(high, y)
+			count += 1
+	return (low + high) * 0.5 if count > 0 else NAN
+
+
+## A skinned mesh's skeleton path, including a hidden rig mesh that lends its skeleton while
+## parked (`hybrid_mare.set_rig_parking`). Mirrors `dock_tail_mount.bind_for`.
+static func _bind_for(mesh: MeshInstance3D, bone_name: String) -> Transform3D:
+	var sk: Skeleton3D = mesh.get_node(mesh.get_meta(&"parked_skeleton", mesh.skeleton)) \
+		as Skeleton3D
+	for i in mesh.skin.get_bind_count():
+		var bone := sk.find_bone(mesh.skin.get_bind_name(i))
+		if bone < 0:
+			bone = mesh.skin.get_bind_bone(i)
+		if sk.get_bone_name(bone) == bone_name:
+			return mesh.skin.get_bind_pose(i)
+	return Transform3D.IDENTITY
+
+
+## The per-mare visibility offset `hybrid_dock.effective_fit()` adds to the reference fit, so the
+## seat can remove it. Zero when the user has a custom dock fit or the mare is Rainbow Dash.
+static func _visibility_offset(pony: Node, fit: Dictionary) -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.ZERO
+	if _visibility.is_empty():
+		if not FileAccess.file_exists(DOCK_VISIBILITY_PATH):
+			return Vector3.ZERO
+		var parsed: Variant = JSON.parse_string(
+			FileAccess.get_file_as_string(DOCK_VISIBILITY_PATH))
+		if not parsed is Dictionary:
+			return Vector3.ZERO
+		_visibility = parsed
+	var reference_fit: Variant = _visibility.get("reference_fit")
+	if not reference_fit is Dictionary or not HYBRID_DOCK.same_fit(fit, reference_fit):
+		return Vector3.ZERO
+	var identity: Variant = pony.get("identity")
+	if identity == null or str(identity.get("id")) == "rainbow_dash":
+		return Vector3.ZERO
+	var offsets: Variant = _visibility.get("offsets")
+	if offsets is Dictionary and (offsets as Dictionary).has(str(identity.get("id"))):
+		var raw: Variant = (offsets as Dictionary)[str(identity.get("id"))]
+		if raw is Array and (raw as Array).size() == 3:
+			return Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
+	if bool(identity.get("filly")):
+		return Vector3.ZERO
+	return DOCK_VISIBILITY_FALLBACK
 
 
 ## Called by main when a pony is ready. Idempotent.
@@ -211,22 +291,55 @@ func _prepare(pony: Node) -> Dictionary:
 		_log("tail seat: non-finite anchor for %s" % pony.name)
 		return {}
 	var fit: Dictionary = HYBRID_DOCK.effective_fit(pony, HYBRID_DOCK.read_fit())
+	# `effective_fit()` also applies the per-mare visibility offset (up to +60 mm back) that was
+	# fitted for the mare's *own* tail. The seat already moves her tail to the reference anchor,
+	# so that offset puts the cuff above and behind the tail base: the sliver that read as "dock
+	# above tail". Keep the tail-mount part (the seat delta cancels it) and drop the visibility
+	# part.
+	var visible := _visibility_offset(pony, HYBRID_DOCK.read_fit())
+	if visible != Vector3.ZERO:
+		var position: Variant = fit.get("position")
+		if position is Array and (position as Array).size() == 3:
+			fit["position"] = [
+				float(position[0]) - visible.x,
+				float(position[1]) - visible.y,
+				float(position[2]) - visible.z,
+			]
 	if fit.is_empty():
 		_log("tail seat: no dock fit for %s" % pony.name)
 		return {}
 	var identity: Variant = pony.get("identity")
+	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
+	var hair_node: Variant = pony.get("hair")
+	var tail_mesh: MeshInstance3D = null
+	if is_instance_valid(hair_node):
+		tail_mesh = (hair_node as Node).find_child(
+			str(identity.get("hair_prefix")) + "DevkitTail", true, false) as MeshInstance3D
+	var tail_material: Material = null
+	if is_instance_valid(tail_mesh):
+		tail_material = tail_mesh.get_active_material(0)
+		if tail_material == null and tail_mesh.mesh != null:
+			tail_material = tail_mesh.mesh.surface_get_material(0)
+	var original_skin: Skin = dock.skin
 	return {
 		"pony": pony,
 		"id": str(identity.get("id")),
 		"body": "stallion" if bool(identity.get("stallion")) else "mare",
 		"link": link,
 		"dock": dock,
+		"body_sk": skeleton,
+		"hair_sk": hair,
 		"original_pelvis": link.get("pelvis_offset") as Transform3D,
 		"original_dock": dock.mesh,
+		"original_skin": original_skin,
+		"original_material": dock.get_surface_override_material(0),
+		"tail_material": tail_material,
 		"hips_rest": skeleton.get_bone_global_rest(hips),
 		"anchor": anchor,
+		"cap_centre": _tail_cap_centre(pony),
 		"fit": fit.duplicate(true),
 		"offset": SETTINGS.tail_seat_offset(str(identity.get("id"))),
+		"attached": null,
 		"applied": Vector3.ZERO,
 		"dirty": false,
 	}
@@ -243,7 +356,6 @@ func _apply(row: Dictionary) -> void:
 	if not reference_anchor.is_finite():
 		return
 	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
-	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	var delta := PLACEMENT.delta(row["anchor"] as Vector3, reference_anchor,
 		row["offset"] as Vector2, tail_lift)
 	var link: Node = row["link"]
@@ -254,7 +366,7 @@ func _apply(row: Dictionary) -> void:
 	link.set("pelvis_offset", next)
 	if link.has_method("_body_updated"):
 		link.call("_body_updated")
-	_move_dock(row, delta, dock_lift)
+	_move_dock(row, delta)
 	row["applied"] = delta
 	_invalidate_far(pony)
 
@@ -268,18 +380,20 @@ func _restore(row: Dictionary) -> void:
 		link.set("pelvis_offset", row["original_pelvis"])
 		if link.has_method("_body_updated"):
 			link.call("_body_updated")
+	_detach_follower(row)
 	var dock: MeshInstance3D = row["dock"]
 	if is_instance_valid(dock):
 		dock.mesh = row["original_dock"]
+		dock.skin = row["original_skin"]
+		dock.set_surface_override_material(0, row["original_material"])
 	row["applied"] = Vector3.ZERO
 	_invalidate_far(pony)
 
 
-## Move the dock by the same body-space delta as the tail, then the independent dock offset, and
-## snap its base ring to the rump. The fit is captured before the first write, so repeated nudges
-## rebuild from the game's original fit instead of accumulating. The base snap runs even when both
-## deltas are zero, because the reference fit itself floats behind the rump.
-func _move_dock(row: Dictionary, delta: Vector3, dock_lift: float) -> void:
+## Place the dock in its fitted/snapped cuff position, then let the tail-only follower carry it
+## with the hair tail root. The fit is captured before the first write, so repeated nudges rebuild
+## from the game's original fit instead of accumulating.
+func _move_dock(row: Dictionary, delta: Vector3) -> void:
 	var dock: MeshInstance3D = row["dock"]
 	if not is_instance_valid(dock):
 		return
@@ -289,7 +403,7 @@ func _move_dock(row: Dictionary, delta: Vector3, dock_lift: float) -> void:
 		return
 	fit["position"] = [
 		float(position[0]) + delta.x,
-		float(position[1]) + delta.y + dock_lift,
+		float(position[1]) + delta.y,
 		float(position[2]) + delta.z,
 	]
 	var fitted: ArrayMesh = HYBRID_DOCK.fitted_mesh(fit, false)
@@ -299,6 +413,48 @@ func _move_dock(row: Dictionary, delta: Vector3, dock_lift: float) -> void:
 	mesh = DOCK_SEAT.snap_base(mesh, str(row["body"]))
 	if mesh != null:
 		dock.mesh = mesh
+		_install_follower(row, mesh, delta)
+
+
+func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void:
+	_detach_follower(row)
+	var dock: MeshInstance3D = row["dock"]
+	var hair: Skeleton3D = row["hair_sk"]
+	var body: Skeleton3D = row["body_sk"]
+	if not is_instance_valid(dock) or not is_instance_valid(hair) or not is_instance_valid(body):
+		return
+	dock.skin = null
+	var material: Variant = row.get("tail_material")
+	dock.set_surface_override_material(0,
+		material if material is Material else row["original_material"])
+	var follower: SkeletonModifier3D = DOCK_ATTACH.new()
+	follower.name = "UnfplapDockAttach"
+	follower.set("pony", row["pony"])
+	follower.set("dock", dock)
+	follower.set("body", body)
+	follower.set("hair", hair)
+	follower.set("rest_mesh", mesh)
+	# Seat the dock's outer opening on the tail cap's centre line. `mesh` is already moved by the
+	# seat delta, so subtract that delta before comparing it with the cap measured in the mare's
+	# own pre-seat frame. The Anatomy Dock offset trims it from there.
+	var top := mesh.get_aabb().end.y - delta.y
+	var drop := float(row.get("cap_centre", NAN)) - top
+	if not is_finite(drop):
+		drop = 0.0
+	follower.set("dock_lift", drop + SETTINGS.dock_offset_mm.get_num() / 1000.0)
+	hair.add_child(follower)
+	row["attached"] = follower
+
+
+func _detach_follower(row: Dictionary) -> void:
+	var follower: Variant = row.get("attached")
+	row["attached"] = null
+	if not is_instance_valid(follower):
+		return
+	var parent: Node = (follower as Node).get_parent()
+	if is_instance_valid(parent):
+		parent.remove_child(follower)
+	(follower as Node).queue_free()
 
 
 func _invalidate_far(pony: Node) -> void:

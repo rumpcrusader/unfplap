@@ -89,6 +89,12 @@ static func snap_base(mesh: ArrayMesh, body: String) -> ArrayMesh:
 	return out
 
 
+## Rebuild outward normals after the dock vertices move. The topology winding is consistent,
+## so the original normals decide the sign.
+static func recompute_normals(arrays: Array) -> void:
+	_recompute_normals(arrays)
+
+
 ## Rebuild outward normals after the base ring moves. `reach_rump()` leaves the old normals;
 ## this keeps the stretched base lit correctly. The topology winding is consistent, so the
 ## original normals decide the sign.

@@ -1232,7 +1232,7 @@ static var tail_offset_mm := num("tail_offset_mm", "anatomy.tail_offset_mm", 0.0
 	"Move every re-seated tail up (+) or down (-) by this many millimetres. Stored verbatim; no clamp.",
 	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
 static var dock_offset_mm := num("dock_offset_mm", "anatomy.dock_offset_mm", 0.0, "Dock offset",
-	"Move every re-seated dock up (+) or down (-) by this many millimetres after the tail seat. Stored verbatim; no clamp.",
+	"Trim every re-seated dock up (+) or down (-) from its cuff position under the tail base. Stored verbatim; no clamp.",
 	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.67, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \

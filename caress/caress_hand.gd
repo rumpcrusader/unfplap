@@ -33,6 +33,21 @@ static func samples(mode: String) -> Array:
 	return FINGERTIP_SAMPLES if mode == "fingertip" else PALM_SAMPLES
 
 
+## Rotate `from` toward `to` by at most `max_step` radians. Keeps a palm normal from snapping
+## when the contact source changes or the coat curvature jumps.
+static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) -> Vector3:
+	var a := from.normalized()
+	var b := to.normalized()
+	if a.length_squared() < 0.5:
+		return b
+	if b.length_squared() < 0.5:
+		return a
+	var angle := a.angle_to(b)
+	if angle <= 0.0001 or angle <= max_step:
+		return b
+	return a.slerp(b, clampf(max_step / angle, 0.0, 1.0)).normalized()
+
+
 ## Palm plane with the fingers on `finger_hint`. The palm normal is local +X for the left hand
 ## and -X for the right, matching the game's hand-marker convention.
 static func palm_basis(side: String, outward: Vector3, finger_hint: Vector3,

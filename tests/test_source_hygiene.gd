@@ -61,6 +61,7 @@ func run() -> void:
 	_check_preloads(files)
 	_check_settings_module(files)
 	_check_teardown()
+	_check_caress_isolation()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -90,6 +91,17 @@ func _check_settings_module(files: Array[String]) -> void:
 					print("settings widget %s outside settings_ui.gd: %s" % [widget, path])
 	check(stale.is_empty(), "no file imports the removed tunable shims: %s" % str(stale))
 	check(widget_ok, "only settings_ui.gd (and the preference form) create settings widgets")
+
+
+## The caress engine must not know a pose. Pose geometry belongs in the path providers; the
+## engine only sees the body surface, a contact path and the palm frame.
+func _check_caress_isolation() -> void:
+	var engine := FileAccess.get_file_as_string(
+		ROOT.path_join("caress/caress_system.gd"))
+	check(engine.contains("func frame("), "caress engine is present")
+	for token: String in ["pose_id", "CATALOG", "missionary", "standing",
+			"desktop_pose_driver", "missionary_anon"]:
+		check(not engine.contains(token), "caress engine has no pose reference: %s" % token)
 
 
 ## One ordered teardown owns act exit. If a new exit path or a copied restore sequence appears,

@@ -6,6 +6,43 @@ const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
 const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
 const ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
 const PATH := preload("res://mods/unfplap/caress/caress_path.gd")
+const SYSTEM := preload("res://mods/unfplap/caress/caress_system.gd")
+const FLANK := preload("res://mods/unfplap/caress/flank_path.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
+
+class FlankPony extends Node3D:
+	var skeleton: Skeleton3D
+	var _model: Node3D
+	var body_scale := 1.0
+
+
+class FakeFlank extends Node3D:
+	var centers: Array = []
+	var normals: Array = []
+
+
+class FixedPath extends RefCounted:
+	var point := Vector3.ZERO
+	var normal := Vector3.UP
+	var calls := 0
+
+	func candidates(_hand_side: String, _context: Dictionary) -> Array:
+		calls += 1
+		return [{
+			"point": point,
+			"normal": normal,
+			"oval_x": Vector3.RIGHT,
+			"oval_y": Vector3.FORWARD,
+			"finger": Vector3.FORWARD,
+			"mode": "palm",
+			"roll": 0.0,
+			"region": "torso",
+			"precise": true,
+		}]
+
+	func debug_world(_hand_side: String) -> Array:
+		return []
+
 
 class FakeHead extends RefCounted:
 	var model: Node3D
@@ -334,6 +371,90 @@ func run() -> void:
 		"the crease normal blur averages the facing normals")
 	check((blur_surface.call("normal_blur", Vector3.ZERO, 0.0, Vector3.UP) as Vector3)
 		.is_zero_approx(), "zero radius disables the normal blur")
+
+	# The pose-free engine: the same candidate gives the same frame through different paths, and
+	# the intended oval motion is not delayed by contact smoothing.
+	var engine: Variant = SYSTEM.new()
+	var engine_fixture := _path_fixture()
+	var engine_pony: Variant = engine_fixture["pony"]
+	var engine_root: Node3D = engine_fixture["root"]
+	var first_path := FixedPath.new()
+	first_path.point = Vector3(0.0, -0.3, -0.5)
+	first_path.normal = Vector3.DOWN
+	var second_path := FixedPath.new()
+	second_path.point = first_path.point
+	second_path.normal = first_path.normal
+	var context := {
+		"oval": Vector2.ZERO, "phase": 0.0, "hover": 0.02, "clearance": 0.02,
+		"scale": 1.0, "delta": 0.016, "precise": true,
+	}
+	var first_frame: Transform3D = engine.call("frame", engine_pony, first_path, "right", context)
+	var second_frame: Transform3D = engine.call("frame", engine_pony, second_path, "right", context)
+	check(first_frame.is_finite(), "the engine builds a palm frame")
+	check(first_frame.is_equal_approx(second_frame),
+		"the engine does not depend on which pose path supplied the contact")
+	check(near(first_frame.origin.y, -0.32, 0.005),
+		"the engine places the palm at the hover above the exact coat")
+	check((first_path.calls == 1) and (second_path.calls == 1),
+		"each caress hand asks its path once per tick")
+	var state := {
+		"point": Vector3.INF, "normal": Vector3.UP, "source": "",
+		"switches": 0, "miss": 0, "offset": Vector3.ZERO, "offset_valid": false,
+		"normal_valid": false,
+	}
+	var first_smooth: Dictionary = engine.call("_smooth_precise", state,
+		Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.01, 0.0), Vector3.UP, 0.016)
+	var second_smooth: Dictionary = engine.call("_smooth_precise", state,
+		Vector3(1.0, 0.0, 0.0), Vector3(1.0, 0.02, 0.0), Vector3.UP, 0.016)
+	check(near((first_smooth["point"] as Vector3).y, 0.01),
+		"the first exact contact starts without smoothing")
+	check(near((second_smooth["point"] as Vector3).x, 1.0),
+		"contact smoothing never delays the intended caress motion")
+	var offset_y := (second_smooth["point"] as Vector3).y
+	check(offset_y > 0.01 and offset_y < 0.02,
+		"contact smoothing eases the surface snap correction")
+	engine.call("reset")
+	engine_root.free()
+
+	# Standing path: the flank centre and oval axes are pose geometry, supplied to the engine.
+	var flank_root := Node3D.new()
+	get_root().add_child(flank_root)
+	var flank := FakeFlank.new()
+	flank.name = "FlankTouch"
+	flank.centers = [Vector3(0.2, 0.0, 0.0), Vector3(-0.2, 0.0, 0.0)]
+	flank.normals = [Vector3.RIGHT, Vector3.LEFT]
+	var flank_pony := FlankPony.new()
+	flank_pony._model = flank_root
+	flank_pony.skeleton = null
+	flank_root.add_child(flank_pony)
+	flank_pony.add_child(flank)
+	var flank_path: Variant = FLANK.new()
+	flank_path.call("setup", flank_pony, null)
+	var flank_candidates: Array = flank_path.call("candidates", "right", {
+		"lean": 0.0, "size": 1.0, "profile": {"up": 0.16, "back": 0.08, "out": 0.02},
+		"precise": true, "ignore": [],
+	})
+	check(flank_candidates.size() == 1, "the standing path returns one contact")
+	if flank_candidates.size() == 1:
+		var flank_candidate: Dictionary = flank_candidates[0]
+		var flank_point: Vector3 = flank_candidate["point"]
+		var flank_normal: Vector3 = flank_candidate["normal"]
+		var flank_x: Vector3 = flank_candidate["oval_x"]
+		var flank_y: Vector3 = flank_candidate["oval_y"]
+		check(flank_point.is_finite() and flank_point.y > 0.15,
+			"the standing path lifts the rub above the flank centre")
+		check(flank_normal.dot(Vector3.RIGHT) > 0.9, "the standing path faces outward")
+		check(absf(flank_x.dot(flank_y)) < 0.001 and absf(flank_x.dot(flank_normal)) < 0.001,
+			"the standing oval axes are tangent and orthogonal")
+		check(flank_x.length() > 0.99 and flank_y.length() > 0.99,
+			"the standing oval axes are normalized")
+	var coat_engine: Variant = SYSTEM.new()
+	var coat_frame: Transform3D = coat_engine.call("coat_frame", flank_pony, "right",
+		Vector3(0.0, 1.0, 0.0), Vector3.UP, Vector3.FORWARD, 0.02, false)
+	check(coat_frame.is_finite(), "the shared engine builds a hull palm frame")
+	check(near(coat_frame.origin.y, 1.02, 0.001),
+		"the hull palm frame sits one clearance above the coat")
+	flank_root.free()
 
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),
 		1.0, 0.08, 0.0)

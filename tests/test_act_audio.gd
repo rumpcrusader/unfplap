@@ -8,7 +8,7 @@ const SMACK := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const CAESS := preload("res://mods/unfplap/standing_caress.gd")
+const CAESS := preload("res://mods/unfplap/caress_control.gd")
 var failures := 0
 var checks := 0
 

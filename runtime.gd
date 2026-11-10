@@ -33,7 +33,7 @@ const CHIN_DEBUG := preload("res://mods/unfplap/chin_debug.gd")
 const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
-const CAESS := preload("res://mods/unfplap/standing_caress.gd")
+const CAESS := preload("res://mods/unfplap/caress_control.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/missionary_camera.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
@@ -3363,7 +3363,7 @@ func _set_cue_override(text: String, seconds := -1.0) -> void:
 	_cue_until = _now_s() + maxf(0.0, seconds)
 
 ## One real action per call, including the tolerance meter. Continuous inputs must emit discrete
-## events: a held caress calls this once per CAESS_TOUCH_SECONDS (standing_caress.gd), never once
+## events: a held caress calls this once per CAESS_TOUCH_SECONDS (caress_control.gd), never once
 ## per physics tick, or a liked caress would erase all distress every frame.
 func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:

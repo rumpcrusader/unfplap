@@ -109,8 +109,8 @@ func run() -> void:
 	check(near(standing._close_left, RUNTIME.STAY_CLOSE_SECONDS), "standing close window starts")
 	var hint := str(standing.call("close_hint"))
 	check(hint.contains("Stay close") and hint.contains("caress"), "close cue names caressing")
-	var standing_caress: Variant = standing.call("_caress_controller")
-	standing_caress._caress_active = {"L": true, "R": false}
+	var caress_control: Variant = standing.call("_caress_controller")
+	caress_control._caress_active = {"L": true, "R": false}
 	standing._afterglow_tick(0.5)
 	check(standing._close_caress_seconds > 0.4, "caress time is counted")
 	check(standing._close_left < RUNTIME.STAY_CLOSE_SECONDS, "close window counts down")

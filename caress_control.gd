@@ -1,13 +1,16 @@
 extends RefCounted
 ## Caress in both poses, shoulder reach, flank smack and palm-on-coat contact. The runtime owns
 ## scoring and the act state; this controller only drives the desktop hands and contact frames.
-## Standing rubs the flank; missionary rubs her chest and belly with one hand at a time.
+## Standing rubs the flank; missionary rubs her chest, neck and cheek. A and D toggle their
+## hand independently, so both can caress at once.
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CAESS_SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
+const CAESS_SYSTEM := preload("res://mods/unfplap/caress/caress_system.gd")
+const FLANK_PATH := preload("res://mods/unfplap/caress/flank_path.gd")
+const MISSIONARY_PATH := preload("res://mods/unfplap/caress/missionary_path.gd")
+const COAT := preload("res://mods/unfplap/caress/coat.gd")
 const CAESS_HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
-const CAESS_PATH := preload("res://mods/unfplap/caress/caress_path.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -46,8 +49,6 @@ const CARESS_PROFILES := {
 	"same height": {"up": 0.18, "back": 0.09, "out": 0.03},
 	"hoers": {"up": 0.20, "back": 0.10, "out": 0.04},
 }
-## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
-const CARESS_RUMP_LEAN := 0.5
 ## Missionary caress: one hand on her belly at rest, W sliding it toward her chest and S toward the
 ## lower belly along the posed body axis. The anchor is lifted above the spine before the coat query
 ## snaps the palm onto her surface. All distances scale with her body.
@@ -107,32 +108,15 @@ const SMACK_PITCH_MAX := 1.03
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
-## Adapter for the old standing coat query so the shared hand model can resolve its samples
-## against the flank surface/hull during the migration.
-class CoatProbe extends RefCounted:
-	var controller: Variant
-	var hint: Vector3
-	var ignore: Array
-
-	func closest(point: Vector3) -> Dictionary:
-		if not is_instance_valid(controller):
-			return {}
-		var hit: Dictionary = controller.call("_coat_contact", point, hint, ignore)
-		var surface: Vector3 = hit.get("point", point)
-		var normal: Vector3 = hit.get("normal", hint)
-		if normal.length_squared() < 0.5:
-			normal = Vector3.UP
-		normal = normal.normalized()
-		return {
-			"point": surface,
-			"normal": normal,
-			"distance": point.distance_to(surface),
-			"inside": (point - surface).dot(normal) < 0.0,
-			"source": str(hit.get("source", "fallback")),
-		}
-
-
 ## Pure palm geometry for tests and the controller.
+static func _region_ignored(region: String, ignore: Array) -> bool:
+	return COAT.region_ignored(region, ignore)
+
+
+static func _region_allowed(region: String, allowed: Array) -> bool:
+	return COAT.region_allowed(region, allowed)
+
+
 static func palm_clearance_for(body_scale: float,
 		distance := PALM_ON_COAT_CLEARANCE_M) -> float:
 	return distance * clampf(body_scale, 0.5, 2.0)
@@ -382,13 +366,9 @@ var _smack_from := Transform3D.IDENTITY
 var _smack_to := Transform3D.IDENTITY
 var _smack_started := 0
 var _smack_impact_done := false
-var _palm_contacts: Dictionary = {}
-var _precise_surfaces: Dictionary = {}
-var _precise_logged: Dictionary = {}
-var _precise_last: Dictionary = {}
-var _palm_normals: Dictionary = {}
-var _palm_points: Dictionary = {}
-var _missionary_paths: Dictionary = {}
+var _caress_engine: RefCounted
+var _flank_path: RefCounted
+var _missionary_path: RefCounted
 var _debug_draw_mesh: MeshInstance3D = null
 var _debug_draw_depth_mesh: MeshInstance3D = null
 var _debug_immediate: ImmediateMesh = null
@@ -409,18 +389,10 @@ var _smack_sound_installed := false
 func _shoulder_hand_point(side: String) -> Dictionary:
 	if side.is_empty() or not is_instance_valid(pony):
 		return {}
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
+	var path: Variant = _path_for_pose()
+	if path == null or not path.has_method("shoulder_point"):
 		return {}
-	var skeleton := sk as Skeleton3D
-	var bone := skeleton.find_bone("pony_shoulder_" + side)
-	if bone < 0:
-		return {}
-	var shoulder := skeleton.global_transform * skeleton.get_bone_global_pose(bone)
-	var outward: Vector3 = pony.global_basis.x.normalized()
-	if side == "L":
-		outward = -outward
-	return {"palm": shoulder.origin, "outward": outward}
+	return path.call("shoulder_point", "left" if side == "L" else "right")
 
 
 ## Approximate phase-1 hand placement: the palm rests on the named shoulder. This uses the
@@ -437,11 +409,14 @@ func _set_reach_hand() -> void:
 	var outward: Vector3 = info["outward"]
 	var point: Vector3 = info["palm"]
 	var side := "left" if _reach_shoulder == "L" else "right"
+	var reach_key := "reach:" + side
 	if _reach_hand_started <= 0:
-		_reset_palm_contact(side)
-	# Palm flat on the shoulder coat: the surface contact supplies the position/normal and the
-	# shared frame helper keeps the fingers forward with the palm inward.
-	var target := _palm_on_coat_frame(side, point, outward, -pony.global_basis.z)
+		_engine().reset_hand(reach_key)
+	# Palm flat on the shoulder coat: the shared hull frame keeps the fingers forward with the
+	# palm inward.
+	var delta := runtime.get_physics_process_delta_time() if is_instance_valid(runtime) else 0.016
+	var target: Transform3D = _engine().coat_frame(pony, side, point, outward,
+		-pony.global_basis.z, _palm_clearance(), true, delta, [], true, [], 0.0, reach_key)
 	if _reach_hand_started <= 0:
 		_reach_hand_started = Time.get_ticks_msec()
 		_reach_hand_from = Transform3D.IDENTITY
@@ -510,7 +485,7 @@ func _caress_tick(delta: float) -> void:
 				_caress_phase[side] = 0.0
 				_caress_logged[side] = false
 				_caress_return_started[side] = 0
-				_reset_palm_contact("left" if side == "L" else "right")
+				_engine().reset_hand(hand_side)
 				_log("caress start side=%s" % side)
 			_caress_phase[side] = caress_phase_step(
 				float(_caress_phase[side]), bool(_caress_moving[side]), delta)
@@ -536,9 +511,7 @@ func _end_caress_side(side: String) -> void:
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", hand_side)
-	_precise_logged.erase(hand_side)
-	_palm_normals.erase(hand_side)
-	_palm_points.erase(hand_side)
+	_engine().reset_hand(hand_side)
 	_log("caress stop side=%s" % side)
 	_caress_active[side] = false
 	_caress_latched[side] = false
@@ -587,257 +560,8 @@ func _caress_ignore() -> Array:
 	return raw if raw is Array else []
 
 
-static func _region_ignored(region: String, ignore: Array) -> bool:
-	if ignore.is_empty():
-		return false
-	var name := region.to_lower()
-	for value: Variant in ignore:
-		var prefix := str(value).to_lower()
-		if name == prefix or name.begins_with(prefix + "_"):
-			return true
-	return false
-
-
-static func _region_allowed(region: String, allowed: Array) -> bool:
-	if allowed.is_empty():
-		return true
-	var name := region.to_lower()
-	for value: Variant in allowed:
-		var wanted := str(value).to_lower()
-		if name == wanted:
-			return true
-		if wanted == "head" and name.begins_with("head_"):
-			return true
-	return false
-
-
-## PonyTouchBody.nearest() without the ignored regions, optionally restricted to a region list.
-## Only used when a filter is set; otherwise the game's own query is used unchanged.
-func _nearest_touch(point: Vector3, ignore: Array, allowed: Array = []) -> Dictionary:
-	var touch: Variant = pony.get("touch_body") if is_instance_valid(pony) else null
-	if touch == null or not touch.has_method("nearest"):
-		return {}
-	var near: Dictionary = touch.call("nearest", point)
-	if ignore.is_empty() and allowed.is_empty():
-		return near
-	var entry: Variant = near.get("entry")
-	if entry is Dictionary:
-		var name := str((entry as Dictionary).get("region", ""))
-		if not _region_ignored(name, ignore) and _region_allowed(name, allowed):
-			return near
-	var entries: Variant = touch.get("_entries")
-	if not entries is Array:
-		return {}
-	var best: Dictionary = {}
-	var best_distance := INF
-	for e: Variant in entries:
-		if not e is Dictionary:
-			continue
-		var ed: Dictionary = e
-		var name := str(ed.get("region", ""))
-		if _region_ignored(name, ignore) or not _region_allowed(name, allowed):
-			continue
-		var world: Variant = ed.get("world")
-		if not world is Transform3D:
-			continue
-		var local: Vector3 = (world as Transform3D).affine_inverse() * point
-		var a: Vector3 = ed.get("a", Vector3.ZERO)
-		var b: Vector3 = ed.get("b", Vector3.ZERO)
-		var ab := b - a
-		var t := clampf((local - a).dot(ab) / maxf(ab.length_squared(), 1e-9), 0.0, 1.0)
-		var away := local - (a + ab * t)
-		var distance := away.length() - float(ed.get("r", 0.0))
-		if distance < best_distance:
-			best_distance = distance
-			var normal := Vector3.UP
-			if away.length() > 0.000001:
-				normal = away.normalized()
-			best = {"entry": ed, "distance": distance, "local": local, "normal": normal}
-	return best
-
-
-## Nearest coat point/normal for a palm. FlankSurface owns the flank/rump patch; the body
-## hull query covers the shoulder and any point outside that patch. A non-empty `regions` list
-## skips the flank patch and restricts the hulls to those regions (the missionary path uses the
-## torso, then the neck and head as the caress moves up).
-func _coat_contact(point: Vector3, outward_hint: Vector3,
-		ignore: Array = [], regions: Array = []) -> Dictionary:
-	if not is_instance_valid(pony):
-		return {"point": point, "normal": outward_hint, "source": "fallback"}
-	var outward := outward_hint.normalized()
-	if outward.length_squared() < 0.5:
-		outward = pony.global_basis.x.normalized()
-	if is_instance_valid(_flank) and regions.is_empty():
-		var surface: Variant = _flank.get("surface")
-		var frame: Variant = _flank.get("frame")
-		var sk: Variant = pony.get("skeleton")
-		if surface != null and surface.has_method("contact") and frame is Transform3D:
-			if surface.has_method("update_pose") and sk is Skeleton3D:
-				surface.call("update_pose", sk, frame)
-			var local_point: Vector3 = (frame as Transform3D).affine_inverse() * point
-			var local_palm: Vector3 = ((frame as Transform3D).basis.inverse() * -outward).normalized()
-			var radii: Variant = _flank.get("radii")
-			var reach := float((radii as Vector3).z) if radii is Vector3 else 0.10
-			var hit: Dictionary = surface.call("contact", local_point, local_point, local_palm, reach)
-			var hit_local: Variant = hit.get("position")
-			var normal_local: Variant = hit.get("normal")
-			if hit_local is Vector3 and normal_local is Vector3:
-				var hit_world: Vector3 = (frame as Transform3D) * (hit_local as Vector3)
-				var hit_normal: Vector3 = ((frame as Transform3D).basis.inverse().transposed() \
-					* (normal_local as Vector3)).normalized()
-				if hit_normal.dot(outward) < 0.0:
-					hit_normal = -hit_normal
-				return {"point": hit_world, "normal": hit_normal, "source": "flank"}
-	var touch: Variant = pony.get("touch_body")
-	if touch != null and touch.has_method("nearest"):
-		var near: Dictionary = _nearest_touch(point, ignore, regions)
-		var entry: Variant = near.get("entry")
-		var normal_local: Variant = near.get("normal")
-		if entry is Dictionary and normal_local is Vector3:
-			var world: Variant = (entry as Dictionary).get("world")
-			if world is Transform3D:
-				var hit_normal: Vector3 = ((world as Transform3D).basis \
-					* (normal_local as Vector3)).normalized()
-				var distance := float(near.get("distance", 0.0))
-				if hit_normal.dot(outward) < 0.0:
-					hit_normal = -hit_normal
-					distance = -distance
-				return {"point": point - hit_normal * distance, "normal": hit_normal,
-					"source": "hull"}
-	return {"point": point, "normal": outward, "source": "fallback"}
-
-
-func _palm_contact_state(side: String) -> Dictionary:
-	if not _palm_contacts.has(side):
-		_palm_contacts[side] = {
-			"point": Vector3.INF, "normal": Vector3.UP, "basis": Basis.IDENTITY,
-			"source": "", "switches": 0, "miss": 0,
-		}
-	return _palm_contacts[side]
-
-
-func _reset_palm_contact(side: String) -> void:
-	_palm_contacts.erase(side)
-
-
-## Keep a genuine coat normal: blending toward a torso radial tilts the palm off the surface
-## and presses its heel into the coat. The radial is only a fallback for a degenerate normal or
-## one that points into the body.
-func _palm_stable_outward(point: Vector3, hint: Vector3, radial_outward := true) -> Vector3:
-	if not is_instance_valid(pony) or not radial_outward:
-		return hint.normalized()
-	var wanted := hint.normalized()
-	if wanted.length_squared() < 0.5:
-		return _palm_radial_outward(point, hint)
-	var radial := _palm_radial_outward(point, hint)
-	if radial.length_squared() < 0.5:
-		return wanted
-	return radial if wanted.dot(radial) < 0.1 else wanted
-
-
-func _palm_radial_outward(point: Vector3, hint: Vector3) -> Vector3:
-	if not is_instance_valid(pony):
-		return hint.normalized()
-	var scale := clampf(float(pony.get("body_scale")), 0.8, 1.6)
-	var centre: Vector3 = pony.global_position + Vector3.UP * (0.55 * scale)
-	var radial: Vector3 = point - centre
-	if radial.length_squared() < 0.001:
-		return Vector3.ZERO
-	return radial.normalized()
-
-
-## Rotate `from` toward `to` by at most `max_step` radians. Keeps a palm normal from snapping
-## when the contact source changes or the coat curvature jumps.
 static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) -> Vector3:
-	var a := from.normalized()
-	var b := to.normalized()
-	if a.length_squared() < 0.5:
-		return b
-	if b.length_squared() < 0.5:
-		return a
-	var angle := a.angle_to(b)
-	if angle <= 0.0001 or angle <= max_step:
-		return b
-	return a.slerp(b, clampf(max_step / angle, 0.0, 1.0)).normalized()
-
-
-func _palm_on_coat_frame(side: String, point: Vector3, outward_hint: Vector3,
-		finger_hint: Vector3, smooth := true, ignore: Array = [],
-		radial_outward := true, regions: Array = []) -> Transform3D:
-	var hit := _coat_contact(point, outward_hint, ignore, regions)
-	var source := str(hit.get("source", "fallback"))
-	var hit_point: Vector3 = hit.get("point", point)
-	var hit_normal: Vector3 = hit.get("normal", outward_hint)
-	if hit_normal.length_squared() < 0.5:
-		hit_normal = outward_hint.normalized()
-	hit_normal = _palm_stable_outward(hit_point, hit_normal, radial_outward)
-	var clearance := _palm_clearance()
-	if not smooth:
-		return Transform3D(palm_surface_basis(side, hit_normal, finger_hint),
-			hit_point + hit_normal * clearance)
-	var state := _palm_contact_state(side)
-	var last_point: Vector3 = state.point
-	var last_normal: Vector3 = state.normal
-	var have := last_point.is_finite()
-	var changed := source != str(state.source)
-	if changed:
-		state.switches = int(state.switches) + 1
-	else:
-		state.switches = 0
-	var accept := not changed or int(state.switches) >= PALM_CONTACT_SOURCE_HITS or not have
-	if not changed and have and last_normal.dot(hit_normal) < -0.5:
-		# A near-opposite normal under the same source is a bad triangle/hull frame; do not
-		# let the palm rotate through the body. Smaller changes update the point and blend.
-		hit_normal = last_normal
-		accept = false
-	if source == "fallback":
-		state.miss = int(state.miss) + 1
-		if have:
-			accept = false
-	else:
-		state.miss = 0
-	if not accept and have:
-		hit_point = last_point
-		hit_normal = last_normal
-	if accept:
-		state.source = source
-	var smooth_point := hit_point
-	var smooth_normal := hit_normal
-	if have:
-		var step := smooth_point - last_point
-		if step.length() > PALM_CONTACT_MAX_STEP_M:
-			smooth_point = last_point + step.normalized() * PALM_CONTACT_MAX_STEP_M
-		var frame_delta := maxf(runtime.get_physics_process_delta_time(), 0.001)
-		var alpha := 1.0 - exp(-PALM_CONTACT_SMOOTH * frame_delta)
-		smooth_point = last_point.lerp(smooth_point, alpha)
-		var blended := last_normal.lerp(hit_normal, alpha)
-		if blended.length_squared() < 0.5:
-			blended = hit_normal
-		else:
-			blended = blended.normalized()
-		var max_step := deg_to_rad(PALM_NORMAL_MAX_DEG_S) * frame_delta
-		smooth_normal = rotate_normal_toward(last_normal, blended, max_step)
-		# A stale normal must never tuck the palm into the coat. Rotate back toward the
-		# resolved contact normal at the bounded rate; using the input hint here turned the
-		# palm edge-on whenever the hull fallback supplied a different coat direction.
-		var outward := hit_normal.normalized()
-		if outward.length_squared() < 0.5:
-			outward = outward_hint.normalized()
-		if outward.length_squared() < 0.5:
-			outward = last_normal
-		if outward.length_squared() > 0.5:
-			if smooth_normal.dot(outward) < 0.1:
-				smooth_normal = rotate_normal_toward(last_normal, outward, max_step)
-				if smooth_normal.dot(outward) < 0.1:
-					smooth_normal = outward
-	# The palm plane is rebuilt from the final normal every frame, not slerped on its own,
-	# so it cannot lag around and rotate into her between contact updates.
-	var smooth_basis := palm_surface_basis(side, smooth_normal, finger_hint)
-	state.point = smooth_point
-	state.normal = smooth_normal
-	state.basis = smooth_basis
-	var palm := smooth_point + smooth_normal * clearance
-	return Transform3D(smooth_basis, palm)
+	return CAESS_HAND.rotate_normal_toward(from, to, max_step)
 
 
 func _palm_clearance() -> float:
@@ -868,85 +592,22 @@ func _caress_oval_up_m() -> float:
 	return value
 
 
-## Slow oval palm movement on the chosen flank/side. `apply` false only computes the live
-## target, which the smack recovery uses to return to the moved oval point.
+## Place one caress hand. The path decides where the caress is; the shared engine does the
+## contact and palm frame. This function only blends the smack return and hands the frame to the
+## pose's palm holder.
 func _set_caress_hand(side: String, apply := true) -> Transform3D:
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
-		return _set_missionary_caress_hand(side, apply)
-	if not is_instance_valid(_flank):
-		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
-	if not is_instance_valid(_flank):
+	if not is_instance_valid(pony):
 		return Transform3D.IDENTITY
-	var centers: Variant = _flank.get("centers")
-	var normals: Variant = _flank.get("normals")
-	var index := 0 if side == "L" else 1
-	if not centers is Array or index >= (centers as Array).size() \
-			or not normals is Array or index >= (normals as Array).size():
-		return Transform3D.IDENTITY
-	var centre: Variant = (centers as Array)[index]
-	var normal_local: Variant = (normals as Array)[index]
-	if not centre is Vector3 or not normal_local is Vector3:
-		return Transform3D.IDENTITY
-	var frame: Transform3D = _flank.global_transform
-	var centre_world: Vector3 = frame * (centre as Vector3)
-	var normal: Vector3 = (frame.basis.inverse().transposed() * (normal_local as Vector3)).normalized()
-	if normal.length_squared() < 0.001:
-		return Transform3D.IDENTITY
-	# Keep the offset on the outside of the body even if the stored normal is inverted.
-	var outward: Vector3 = pony.global_basis.x.normalized()
-	if side == "L":
-		outward = -outward
-	if normal.dot(outward) < 0.0:
-		normal = -normal
-	var size := float(runtime.call("_size_scale"))
-	var profile := _caress_profile()
-	var flank_world: Vector3 = centre_world \
-		+ Vector3.UP * (float(profile.get("up", 0.16)) + CARESS_UP_BIAS_M) \
-		+ pony.global_basis.z.normalized() * float(profile.get("back", 0.08)) \
-		+ outward * float(profile.get("out", 0.0))
-	var shoulder_world: Vector3 = flank_world
-	var shoulder_info := _shoulder_hand_point(side)
-	if not shoulder_info.is_empty():
-		shoulder_world = shoulder_info["palm"]
-	var side_world: Vector3 = flank_world.lerp(shoulder_world, 0.5) + Vector3.DOWN * (0.06 * size)
-	var rump_top: Vector3 = flank_world + Vector3.UP * (0.12 * size) + outward * (0.02 * size)
-	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
-	var target_normal := outward
-	if lean < 0.0:
-		var t := clampf(-lean / CARESS_RUMP_LEAN, 0.0, 1.0)
-		centre_world = flank_world.lerp(rump_top, t)
-		target_normal = normal.lerp(Vector3.UP, t).normalized()
-	elif lean <= 0.5:
-		var t := lean * 2.0
-		centre_world = flank_world.lerp(side_world, t)
-		target_normal = normal.lerp(outward, t).normalized()
-	else:
-		var t := (lean - 0.5) * 2.0
-		centre_world = side_world.lerp(shoulder_world, t)
-	normal = target_normal
-	var up := Vector3.UP.slide(normal)
-	if up.length_squared() < 0.001:
-		# On the rump top the world-up tangent collapses; use the body axis instead.
-		up = -pony.global_basis.z.slide(normal)
-	up = up.normalized()
-	var across := up.cross(normal).normalized()
-	var angle := float(_caress_phase[side])
-	var across_radius := _caress_oval_across_m() * size
-	var up_radius := _caress_oval_up_m() * size
-	var offset := across * (cos(angle) * across_radius) \
-		+ up * (sin(angle) * up_radius)
 	var hand_side := "left" if side == "L" else "right"
-	var query := centre_world + offset
-	var target: Transform3D
-	if _precise_on():
-		var started := Time.get_ticks_usec()
-		target = _precise_standing_target(hand_side, query, normal, _hand_shape_on())
-		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-			runtime.call("perf_note", "caress_precise", Time.get_ticks_usec() - started)
-	else:
-		target = _palm_on_coat_frame(hand_side, query, normal,
-			-pony.global_basis.z, true, _caress_ignore())
-	if not target.is_finite():
+	var path: Variant = _path_for_pose()
+	if path == null:
+		return Transform3D.IDENTITY
+	var started := Time.get_ticks_usec()
+	var target: Transform3D = _engine().frame(pony, path, hand_side,
+		_caress_context(side, hand_side))
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", "caress_precise", Time.get_ticks_usec() - started)
+	if not target.is_finite() or target.origin.length_squared() < 0.0001:
 		return Transform3D.IDENTITY
 	if not apply:
 		return target
@@ -961,359 +622,69 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 			target = from.interpolate_with(target, t)
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
-		if not _precise_on():
-			_log("caress hand side=%s target=%s normal=%s x=%s y=%s z=%s lift=%.3f" % [
-				hand_side, str(target.origin), str(normal), str(target.basis.x),
-				str(target.basis.y), str(target.basis.z),
-				(centre_world + offset).y - pony.global_position.y])
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
 		driver.call("set_hold_target", hand_side, target, "rub")
+	var debug: Dictionary = _engine().debug_state(hand_side)
+	if not debug.is_empty():
+		_draw_caress_debug(path, hand_side, debug, target)
 	return target
 
 
-## PonyTouchBody follows the game's own hands, and the missionary act parks them. Without this the
-## hull query reads the last standing/pre-act hulls and the palm floats at their old height. The
-## act's physics pose is live, so refresh the body rig before the coat query. Guarded: a game
-## without the internal sync simply uses the hulls as they are.
-func _sync_missionary_touch() -> void:
-	if not is_instance_valid(pony):
-		return
-	var touch: Variant = pony.get("touch_body")
-	if touch == null or not touch.has_method("_unprofiled_sync"):
-		return
-	var rigs: Variant = touch.get("_rigs")
-	var entries: Variant = touch.get("_entries")
-	if not rigs is Array or (rigs as Array).is_empty():
-		return
-	if not entries is Array or (entries as Array).is_empty():
-		return
-	# The neck and head hulls live on the body and head rigs; sync every valid rig so a caress
-	# that moves up to the cheek sees the act's live pose, not stale standing hulls.
-	for rig in (rigs as Array).size():
-		if is_instance_valid((rigs as Array)[rig]):
-			touch.call("_unprofiled_sync", rig, true)
-
-
-## Smooth caress path: belly -> chest -> side of the neck -> cheek. The returned point is the
-## centreline anchor before the hand-side offset and oval; `hint` is the coat normal to seek,
-## `lift` the query distance, and `roll` the share of the palm roll (1 low, 0 at the neck/cheek).
-## Returns {} when the rig lacks the bones for the extended path.
-func _missionary_caress_path(skeleton: Skeleton3D, g: Transform3D, side: String,
-		lean: float, along_m: float) -> Dictionary:
-	var hips_b := skeleton.find_bone("pony_hips")
-	var belly_b := skeleton.find_bone("pony_spine2")
-	var chest_b := skeleton.find_bone("pony_spine3")
-	var neck1_b := skeleton.find_bone("pony_neck1")
-	var neck2_b := skeleton.find_bone("pony_neck2")
-	var head_b := skeleton.find_bone("pony_head")
-	if hips_b < 0 or belly_b < 0 or head_b < 0:
-		return {}
-	var hips := g * skeleton.get_bone_global_pose(hips_b).origin
-	var belly := g * skeleton.get_bone_global_pose(belly_b).origin
-	var head_t := g * skeleton.get_bone_global_pose(head_b)
-	var head := head_t.origin
-	var chest := head.lerp(belly, 0.35)
-	if chest_b >= 0:
-		chest = g * skeleton.get_bone_global_pose(chest_b).origin
-	var neck := chest.lerp(head, 0.5)
-	if neck1_b >= 0 and neck2_b >= 0:
-		neck = (g * skeleton.get_bone_global_pose(neck1_b).origin).lerp(
-			g * skeleton.get_bone_global_pose(neck2_b).origin, 0.5)
-	var head_dir := head - hips
-	if head_dir.length_squared() < 0.0001:
-		head_dir = -pony.global_basis.z
-	head_dir = head_dir.normalized()
-	var side_axis := head_dir.cross(Vector3.UP)
-	if side_axis.length_squared() < 0.0001:
-		side_axis = pony.global_basis.x
-	side_axis = side_axis.normalized()
-	var side_sign := -1.0 if side == "L" else 1.0
-	var body_side := (side_axis * side_sign).normalized()
+## Everything the pose-free engine needs for one hand this tick. Only the pose-specific path
+## receives the lean and path settings; the engine sees one oval, one hover and one mode.
+func _caress_context(side: String, hand_side: String) -> Dictionary:
+	var pose := str(runtime.get("pose_id")) if is_instance_valid(runtime) else ""
+	var missionary := pose == CATALOG.MISSIONARY
 	var scale := _smack_body_scale()
-	var path_len := maxf(belly.distance_to(head), 0.001)
-	var chest_t := clampf(belly.distance_to(chest) / path_len, 0.05, 0.70)
-	var neck_t := clampf(belly.distance_to(neck) / path_len, chest_t + 0.05, 0.92)
-	var travel := lean * path_len + along_m * scale
-	if travel < 0.0:
-		# S stays on the lower belly; the long path above is only for moving up her body.
-		var lower := clampf(travel, -MISSIONARY_CARESS_TRAVEL_M * scale, 0.0)
-		return {
-			"point": belly + head_dir * lower,
-			"hint": Vector3.UP,
-			"lift": MISSIONARY_CARESS_LIFT_M * scale,
-			"regions": MISSIONARY_TORSO_REGIONS,
-			"surface_region": "torso",
-			"mode": "palm",
-			"lateral": 1.0,
-			"roll": 1.0,
-			"side": body_side,
-			"finger": head_dir,
-		}
-	var t := clampf(travel / path_len, 0.0, 1.0)
-	var head_side := head_t.basis.x.normalized()
-	if head_side.dot(body_side) < 0.0:
-		head_side = -head_side
-	var point := belly
-	var hint := Vector3.UP
-	var lift := MISSIONARY_CARESS_LIFT_M * scale
-	var regions: Array = MISSIONARY_TORSO_REGIONS
-	var surface_region := "torso"
-	var mode := "palm"
-	var lateral := 1.0
-	var roll := 1.0
-	if t <= chest_t:
-		var u := t / maxf(chest_t, 0.001)
-		point = belly.lerp(chest, u)
-	elif t <= neck_t:
-		var u := (t - chest_t) / maxf(neck_t - chest_t, 0.001)
-		point = chest.lerp(neck, u)
-		hint = Vector3.UP.lerp(body_side, u).normalized()
-		lift = lerpf(MISSIONARY_CARESS_LIFT_M, 0.10, u) * scale
-		regions = MISSIONARY_TORSO_REGIONS + ["neck"]
-		surface_region = "neck" if u >= 0.5 else "torso"
-		lateral = 1.0 - u
-		roll = 1.0 - u
-	else:
-		var u := (t - neck_t) / maxf(1.0 - neck_t, 0.001)
-		point = neck.lerp(head, u)
-		hint = body_side.lerp(head_side, u).normalized()
-		lift = lerpf(0.10, 0.12, u) * scale
-		regions = ["neck", "head"]
-		surface_region = "head"
-		mode = "fingertip"
-		lateral = 0.0
-		roll = 0.0
+	var size := 1.0
+	if is_instance_valid(runtime) and runtime.has_method("_size_scale"):
+		size = float(runtime.call("_size_scale"))
+	var body_scale := scale if missionary else size
+	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01) if missionary else 1.0
+	var oval := Vector2(_caress_oval_across_m(), _caress_oval_up_m()) \
+		* body_scale * oval_scale
 	return {
-		"point": point,
-		"hint": hint,
-		"lift": lift,
-		"regions": regions,
-		"surface_region": surface_region,
-		"mode": mode,
-		"lateral": lateral,
-		"roll": roll,
-		"side": body_side,
-		"finger": head_dir,
+		"lean": clampf(float(runtime.get("_lean_forward")), -1.0, 1.0),
+		"along_m": float(SETTINGS.along_m.get_num()),
+		"phase": float(_caress_phase.get(side, 0.0)),
+		"scale": scale,
+		"size": size,
+		"oval": oval,
+		"hover": _precise_hover(),
+		"clearance": _palm_clearance(),
+		"hull_extra": float(SETTINGS.over_coat_m.get_num()) if missionary else 0.0,
+		"precise": _precise_on(),
+		"hand_shape": _hand_shape_on(),
+		"ignore": _caress_ignore(),
+		"profile": _caress_profile(),
+		"reach": _caress_reach(hand_side),
+		"delta": runtime.get_physics_process_delta_time() if is_instance_valid(runtime) else 0.016,
 	}
 
 
-## Missionary caress: one palm on her belly, W slides toward the chest and S toward the lower
-## belly along the posed body axis. The anchor is measured from the live body bones, lifted above
-## her spine and snapped onto the coat, so it follows the thrust and the afterglow. The target is
-## world space: his lean moves the shoulder, not the hand.
-func _legacy_missionary_caress_hand(side: String, apply := true) -> Transform3D:
-	if not is_instance_valid(pony):
-		return Transform3D.IDENTITY
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
-		return Transform3D.IDENTITY
-	var skeleton := sk as Skeleton3D
-	_sync_missionary_touch()
-	var g := skeleton.global_transform
-	var hand_side := "left" if side == "L" else "right"
-	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
-	var along_setting := float(SETTINGS.along_m.get_num())
-	var scale := _smack_body_scale()
-	var path := _missionary_caress_path(skeleton, g, hand_side, lean, along_setting)
-	if path.is_empty():
-		return Transform3D.IDENTITY
-	var centre: Vector3 = path["point"]
-	var hint: Vector3 = path["hint"]
-	var lift: float = path["lift"]
-	var regions: Array = path["regions"]
-	var lateral: float = path["lateral"]
-	var body_side: Vector3 = path["side"]
-	var finger: Vector3 = path["finger"]
-	centre += body_side * (MISSIONARY_CARESS_LATERAL_M * scale * lateral)
-	# The oval is laid out on the coat plane before the snap. `oval_across_m` runs along the
-	# body and `oval_up_m` across it; the missionary scale lets the oval grow without changing
-	# the standing caress.
-	var along := finger - hint * finger.dot(hint)
-	if along.length_squared() < 0.0001:
-		along = Vector3.UP - hint * Vector3.UP.dot(hint)
-	if along.length_squared() < 0.0001:
-		along = Vector3.FORWARD - hint * Vector3.FORWARD.dot(hint)
-	along = along.normalized()
-	var across := along.cross(hint)
-	if across.length_squared() < 0.0001:
-		across = Vector3.RIGHT - hint * Vector3.RIGHT.dot(hint)
-	across = across.normalized()
-	var angle := float(_caress_phase[side])
-	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01)
-	var offset := along * (cos(angle) * _caress_oval_across_m() * scale * oval_scale) \
-		+ across * (sin(angle) * _caress_oval_up_m() * scale * oval_scale)
-	var query := centre + offset + hint * lift
-	var ignore := _caress_ignore().duplicate()
-	if not ignore.has("leg"):
-		ignore.append("leg")
-	var target := _palm_on_coat_frame(hand_side, query, hint, finger, true, ignore,
-		false, regions)
-	if not target.is_finite():
-		return Transform3D.IDENTITY
-	var over_coat := float(SETTINGS.over_coat_m.get_num())
-	# Regular-game palm roll and the debug lift both act along the coat normal. The roll fades
-	# to zero at the neck and cheek; the lift is a signed, unscaled offset for tuning the gap.
-	var outward := (target.basis.x * (1.0 if hand_side == "right" else -1.0)).normalized()
-	var roll_rad := deg_to_rad(missionary_palm_roll_deg(hand_side)) * float(path["roll"])
-	if absf(roll_rad) > 0.0001:
-		target.basis = Basis(outward, roll_rad) * target.basis
-	if absf(over_coat) > 0.0001:
-		target.origin += outward * over_coat
-	if not apply:
-		return target
-	if not bool(_caress_logged[side]):
-		_caress_logged[side] = true
-		var probe := _coat_contact(query, hint, ignore, regions)
-		var coat: Vector3 = probe.get("point", query)
-		_log("missionary caress hand side=%s target=%s normal=%s lean=%.2f source=%s anchor_y=%.3f coat_y=%.3f palm_coat=%.3f over=%.3f roll=%.0f" % [
-			hand_side, str(target.origin), str(target.basis.x), lean,
-			str(probe.get("source", "?")), centre.y, coat.y,
-			target.origin.distance_to(coat), over_coat, rad_to_deg(roll_rad)])
-	var driver := _hand_driver()
-	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
-		driver.call("set_hold_target", hand_side, target, "rub")
-	return target
+func _engine() -> RefCounted:
+	if _caress_engine == null:
+		_caress_engine = CAESS_SYSTEM.new(runtime)
+	return _caress_engine
 
 
-## Missionary: the precise path is surface-anchored. The legacy hull path remains the fallback
-## when the precise feature is off or the rig cannot build anchors.
-func _set_missionary_caress_hand(side: String, apply := true) -> Transform3D:
-	if not _precise_on():
-		return _legacy_missionary_caress_hand(side, apply)
-	var target := _precise_missionary_hand(side)
-	if not target.is_finite():
-		return _legacy_missionary_caress_hand(side, apply)
-	return _apply_precise_target(side, "left" if side == "L" else "right", target, apply)
-
-
-func _precise_missionary_hand(side: String) -> Transform3D:
-	if not is_instance_valid(pony):
-		return _precise_last_or_invalid("left" if side == "L" else "right")
-	var skeleton_v: Variant = pony.get("skeleton")
-	if not skeleton_v is Skeleton3D:
-		return _precise_last_or_invalid("left" if side == "L" else "right")
-	var hand_side := "left" if side == "L" else "right"
-	var path: Variant = _missionary_anchor_path(hand_side)
-	if path == null:
-		return _precise_last_or_invalid(hand_side)
-	var world: Array = path.call("skinned")
-	if world.size() < 3:
-		return _precise_last_or_invalid(hand_side)
-	var lean := clampf(float(runtime.get("_lean_forward")), -1.0, 1.0)
-	var along_setting := float(SETTINGS.along_m.get_num())
-	var scale := _smack_body_scale()
-	var body_right: Vector3 = pony.global_basis.x.normalized()
-	var body_axis := _missionary_body_axis(skeleton_v as Skeleton3D)
-	var length := CAESS_PATH.path_length(world)
-	var u_wanted := CAESS_PATH.u_for(lean, along_setting / maxf(length, 0.05),
-		float(path.get("belly_u")))
-	var angle := float(_caress_phase[side])
-	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01)
-	var hover := _precise_hover()
-	var reach := _caress_reach(hand_side)
-	var max_reach := _caress_max_reach(reach)
-	var chosen: Dictionary = {}
-	var best: Dictionary = {}
-	var best_distance := INF
-	var steps := 32
-	for i in steps:
-		var try_u := u_wanted * (1.0 - float(i) / float(steps - 1))
-		var sample := CAESS_PATH.sample_world(world, try_u, hand_side, body_right)
-		if sample.is_empty():
-			continue
-		var frame := _missionary_frame(sample, hand_side, scale, body_axis, angle,
-			oval_scale, hover)
-		if not bool(frame.get("valid", false)):
-			continue
-		if max_reach <= 0.0:
-			chosen = frame
-			break
-		var shoulder: Vector3 = reach["origin"]
-		var frame_target: Transform3D = frame["target"]
-		var distance := shoulder.distance_to(frame_target.origin)
-		if distance < best_distance:
-			best_distance = distance
-			best = frame
-		if distance <= max_reach:
-			chosen = frame
-			break
-	if chosen.is_empty():
-		chosen = best
-	if chosen.is_empty():
-		return _precise_last_or_invalid(hand_side)
-	var contact: Vector3 = chosen["contact"]
-	var normal: Vector3 = chosen["normal"]
-	var finger: Vector3 = chosen["finger"]
-	var mode: String = chosen["mode"]
-	var roll_deg := float(chosen["roll"])
-	var u := float(chosen["u"])
-	var shape := _hand_shape_on()
-	var target: Transform3D
-	var log_surface: Variant = null
-	var exact_started := Time.get_ticks_usec()
-	var exact_region := str(chosen.get("region", "torso"))
-	var exact := _nearest_precise([exact_region], contact, normal)
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "caress_surface", Time.get_ticks_usec() - exact_started)
-	if not exact.is_empty():
-		contact = exact["point"]
-		normal = exact["normal"]
-		log_surface = exact["surface"]
-		var blur_radius := maxf(float(SETTINGS.normal_blur_m.get_num()) * scale, 0.0)
-		if blur_radius > 0.0 and is_instance_valid(log_surface):
-			var blurred: Vector3 = log_surface.call("normal_blur", contact, blur_radius,
-				normal)
-			if blurred.length_squared() > 0.5:
-				normal = blurred
-	var delta := maxf(float(runtime.get_physics_process_delta_time()), 0.001)
-	var max_turn := deg_to_rad(maxf(float(SETTINGS.normal_deg_s.get_num()), 0.0)) * delta
-	var previous_normal: Variant = _palm_normals.get(hand_side)
-	if max_turn > 0.0 and previous_normal is Vector3:
-		normal = rotate_normal_toward(previous_normal, normal, max_turn)
-	_palm_normals[hand_side] = normal
-	var smooth_rate := maxf(float(SETTINGS.contact_smooth.get_num()), 0.0)
-	var previous_point: Variant = _palm_points.get(hand_side)
-	if smooth_rate > 0.0 and previous_point is Vector3:
-		var alpha := 1.0 - exp(-smooth_rate * delta)
-		contact = (previous_point as Vector3).lerp(contact, alpha)
-	_palm_points[hand_side] = contact
-	if shape:
-		if not is_instance_valid(log_surface):
-			var closest := _closest_precise([exact_region], contact)
-			if closest.is_empty():
-				return _precise_last_or_invalid(hand_side)
-			contact = closest["point"]
-			normal = closest["normal"]
-			log_surface = closest["surface"]
-		var hand_started := Time.get_ticks_usec()
-		target = _precise_hand(contact, normal, finger, hand_side, mode, roll_deg,
-			hover, log_surface, true)
-		if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-			runtime.call("perf_note", "caress_hand", Time.get_ticks_usec() - hand_started)
-	else:
-		target = CAESS_HAND.place(contact, normal, finger, hand_side, mode, roll_deg, hover)
-	_log_precise(hand_side, mode, log_surface, target, roll_deg, hover, shape,
-		normal, finger, u)
-	chosen["contact"] = contact
-	chosen["normal"] = normal
-	_draw_missionary_debug(world, chosen, target, hand_side)
-	_precise_last[hand_side] = target
-	return target
-
-
-func _missionary_body_axis(skeleton: Skeleton3D) -> Vector3:
-	var head := skeleton.find_bone("pony_head")
-	var hips := skeleton.find_bone("pony_hips")
-	if head < 0 or hips < 0:
-		return Vector3.FORWARD
-	var g := skeleton.global_transform
-	var head_pos := g * skeleton.get_bone_global_pose(head).origin
-	var hips_pos := g * skeleton.get_bone_global_pose(hips).origin
-	var axis := head_pos - hips_pos
-	if axis.length_squared() < 0.0001:
-		return Vector3.FORWARD
-	return axis.normalized()
+func _path_for_pose() -> Variant:
+	if not is_instance_valid(runtime) or not is_instance_valid(pony):
+		return null
+	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+		if _missionary_path == null:
+			_missionary_path = MISSIONARY_PATH.new()
+		if _missionary_path.get("pony") != pony:
+			_missionary_path.call("setup", pony, runtime)
+			_missionary_path.call("reset")
+		return _missionary_path
+	if _flank_path == null:
+		_flank_path = FLANK_PATH.new()
+	if _flank_path.get("pony") != pony:
+		_flank_path.call("setup", pony, runtime)
+		_flank_path.call("reset")
+	return _flank_path
 
 
 func _caress_reach(hand_side: String) -> Dictionary:
@@ -1325,53 +696,6 @@ func _caress_reach(hand_side: String) -> Dictionary:
 	return {}
 
 
-func _caress_max_reach(reach: Dictionary) -> float:
-	if reach.is_empty():
-		return 0.0
-	var stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
-	var total := (float(reach.get("upper", 0.0)) + float(reach.get("lower", 0.0))
-		+ float(reach.get("hand", 0.0))) * stretch
-	total += maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
-	total += maxf(float(SETTINGS.caress_reach_body_m.get_num()), 0.0)
-	return total
-
-
-func _missionary_frame(sample: Dictionary, hand_side: String, scale: float,
-		body_axis: Vector3, angle: float, oval_scale: float, hover: float) -> Dictionary:
-	var normal: Vector3 = sample["normal"]
-	var centre: Vector3 = sample["point"]
-	var lateral: Vector3 = sample["side"]
-	centre += lateral * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
-	var along := body_axis - normal * body_axis.dot(normal)
-	if along.length_squared() < 0.0001:
-		along = sample["finger"]
-	if along.length_squared() < 0.0001:
-		along = sample["side"]
-	along = along.normalized()
-	var across := lateral - normal * lateral.dot(normal)
-	if across.length_squared() < 0.0001:
-		across = normal.cross(along)
-	across = across.normalized()
-	var offset := along * (cos(angle) * _caress_oval_across_m() * scale * oval_scale) \
-		+ across * (sin(angle) * _caress_oval_up_m() * scale * oval_scale)
-	var contact := centre + offset
-	var u := float(sample.get("u", 0.0))
-	var mode := "fingertip" if u >= 0.75 else "palm"
-	var roll := missionary_palm_roll_deg(hand_side) * float(sample["roll"])
-	return {
-		"target": CAESS_HAND.place(contact, normal, along, hand_side, mode, roll, hover),
-		"contact": contact,
-		"normal": normal,
-		"finger": along,
-		"mode": mode,
-		"roll": roll,
-		"u": u,
-		"region": str(sample.get("region", "torso")),
-		"valid": true,
-	}
-
-
-## The precise connection is opt-in while it is validated.
 func _precise_on() -> bool:
 	return is_instance_valid(runtime) and runtime.has_method("_feature") \
 		and bool(runtime.call("_feature", "caress_surface"))
@@ -1390,102 +714,15 @@ func _precise_hover() -> float:
 	return _palm_clearance()
 
 
-func _precise_surface(region: String) -> Variant:
-	var surface: Variant = _precise_surfaces.get(region)
-	if not is_instance_valid(surface):
-		surface = CAESS_SURFACE.new()
-		_precise_surfaces[region] = surface
-	if not bool(surface.call("ensure", pony, region)):
-		return null
-	surface.call("update_pose")
-	return surface
-
-
-## One exact contact query over the stable body/head patches. Returns {} when neither patch is
-## available; callers hold the last good target instead of falling back to a hull.
-func _closest_precise(regions: Array, query: Vector3) -> Dictionary:
-	var best: Dictionary = {}
-	var best_distance := INF
-	for region: String in regions:
-		var surface: Variant = _precise_surface(region)
-		if not is_instance_valid(surface):
-			continue
-		var hit: Variant = surface.call("closest", query)
-		if not hit is Dictionary or (hit as Dictionary).is_empty():
-			continue
-		var distance: float = float((hit as Dictionary).get("distance", INF))
-		if distance < best_distance:
-			best_distance = distance
-			best = {
-				"surface": surface,
-				"point": (hit as Dictionary)["point"],
-				"normal": (hit as Dictionary)["normal"],
-			}
-	return best
-
-
-func _nearest_precise(regions: Array, query: Vector3, hint: Vector3) -> Dictionary:
-	var best: Dictionary = {}
-	var best_distance := INF
-	for region: String in regions:
-		var surface: Variant = _precise_surface(region)
-		if not is_instance_valid(surface):
-			continue
-		var hit: Variant = surface.call("nearest", query, hint)
-		if not hit is Dictionary or (hit as Dictionary).is_empty():
-			continue
-		var distance: float = float((hit as Dictionary).get("distance", INF))
-		if distance < best_distance:
-			best_distance = distance
-			best = {
-				"surface": surface,
-				"point": (hit as Dictionary)["point"],
-				"normal": (hit as Dictionary)["normal"],
-			}
-	return best
-
-
-func _precise_hand(contact: Vector3, normal: Vector3, finger: Vector3, hand_side: String,
-		mode: String, roll_deg: float, hover: float, surface: Variant,
-		shape := false) -> Transform3D:
-	if not shape:
-		return CAESS_HAND.place(contact, normal, finger, hand_side, mode, roll_deg, hover)
-	var frame: Transform3D = CAESS_HAND.place(contact, normal, finger, hand_side, mode,
-		roll_deg, 0.0)
-	var extra := maxf(0.0, hover - CAESS_HAND.CLEARANCE_M)
-	var resolved: Dictionary = CAESS_HAND.resolve(surface, frame, mode, extra, hand_side)
-	return resolved.get("frame", frame)
-
-
-func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Transform3D,
-		roll_deg: float, hover: float, shape := false, normal := Vector3.UP,
-		finger := Vector3.FORWARD, u := 0.0) -> void:
-	if not bool(SETTINGS.caress_debug.get_bool()):
-		return
-	if bool(_precise_logged.get(hand_side, false)):
-		return
-	_precise_logged[hand_side] = true
-	var info := "anchors"
-	if is_instance_valid(surface) and surface is CAESS_SURFACE:
-		info = "faces=%d build_us=%d query_us=%d" % [
-			int(surface.call("face_count")), int(surface.get("build_us")),
-			int(surface.get("query_us"))]
-	elif shape:
-		info = "fallback"
-	_log("precise caress side=%s mode=%s shape=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
-		hand_side, mode, "yes" if shape else "no", u, str(frame.origin), str(normal),
-		str(finger), roll_deg, hover, info])
-
-
-## Debug-only world-space overlay for the missionary path: anchors, normals, path, contact and
-## palm target. The bright pass is depth-tested and the dim pass is not, so a cross that only
-## appears dim is on the far side of her body.
-func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3D,
-		hand_side: String) -> void:
+func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,
+		target: Transform3D) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
 		return
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return
+	var world: Variant = path.call("debug_world", hand_side)
+	if not world is Array:
+		world = []
 	var tree: SceneTree = pony.get_tree()
 	var scene: Node = tree.current_scene if tree != null else null
 	if scene == null:
@@ -1504,7 +741,10 @@ func _draw_missionary_debug(world: Array, chosen: Dictionary, target: Transform3
 	immediate.surface_begin(Mesh.PRIMITIVE_LINES)
 	var previous := Vector3.ZERO
 	var have_previous := false
-	for anchor: Dictionary in world:
+	for anchor_value: Variant in (world as Array):
+		if not anchor_value is Dictionary:
+			continue
+		var anchor: Dictionary = anchor_value
 		var point: Vector3 = anchor["position"]
 		var normal: Vector3 = anchor["normal"]
 		var color := _anchor_debug_color(str(anchor["id"]))
@@ -1593,93 +833,6 @@ func _clear_debug_draw() -> void:
 
 
 ## The act camera position; the path anchors are chosen on the side it actually sees.
-func _missionary_camera_position() -> Vector3:
-	if not is_instance_valid(runtime):
-		return Vector3.INF
-	var value: Variant = runtime.get("_camera")
-	if value is Camera3D and is_instance_valid(value):
-		return (value as Camera3D).global_position
-	var main: Variant = runtime.get("main")
-	if is_instance_valid(main) and main.has_method("camera"):
-		var cam: Variant = main.call("camera")
-		if cam is Camera3D and is_instance_valid(cam):
-			return (cam as Camera3D).global_position
-	return Vector3.INF
-
-
-func _missionary_anchor_path(hand_side: String) -> Variant:
-	var path_id := str(SETTINGS.path_id.get_choice())
-	var key := hand_side + "|" + path_id
-	var path: Variant = _missionary_paths.get(key)
-	if path != null and bool(path.get("valid")):
-		return path
-	var started := Time.get_ticks_usec()
-	path = CAESS_PATH.new()
-	if not bool(path.call("build", pony, hand_side, _missionary_camera_position(),
-			path_id)):
-		return null
-	_missionary_paths[key] = path
-	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s path=%s anchors=%d build_ms=%.1f" % [hand_side,
-			path_id, (path.get("anchors") as Array).size(),
-			float(Time.get_ticks_usec() - started) / 1000.0])
-		for note: Variant in (path.get("debug_notes") as Array):
-			_log("caress " + str(note))
-		var world: Array = path.call("skinned")
-		for anchor: Dictionary in world:
-			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],
-				str(anchor["position"]), str(anchor["normal"])])
-	return path
-
-
-func _apply_precise_target(side: String, hand_side: String, target: Transform3D,
-		apply: bool) -> Transform3D:
-	if not apply:
-		return target
-	var return_started := int(_caress_return_started.get(side, 0))
-	if return_started > 0:
-		var elapsed := float(Time.get_ticks_msec() - return_started) / 1000.0
-		if elapsed >= CARESS_RETURN_SECONDS:
-			_caress_return_started[side] = 0
-		else:
-			var t := smoothstep(0.0, 1.0, elapsed / CARESS_RETURN_SECONDS)
-			var from: Transform3D = _caress_return_from[side]
-			target = from.interpolate_with(target, t)
-	if not bool(_caress_logged[side]):
-		_caress_logged[side] = true
-	var driver := _hand_driver()
-	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
-		driver.call("set_hold_target", hand_side, target, "rub")
-	return target
-
-
-func _precise_standing_target(hand_side: String, query: Vector3, hint: Vector3,
-		shape: bool) -> Transform3D:
-	var surface: Variant = _precise_surface("torso")
-	if not is_instance_valid(surface):
-		return _precise_last_or_invalid(hand_side)
-	var hit: Variant = surface.call("nearest", query, hint)
-	if not hit is Dictionary or (hit as Dictionary).is_empty():
-		return _precise_last_or_invalid(hand_side)
-	var contact: Vector3 = (hit as Dictionary)["point"]
-	var normal: Vector3 = (hit as Dictionary)["normal"]
-	var hover := _precise_hover()
-	var target := _precise_hand(contact, normal, -pony.global_basis.z, hand_side,
-		"palm", 0.0, hover, surface, shape)
-	_precise_last[hand_side] = target
-	_log_precise(hand_side, "palm", surface, target, 0.0, hover, shape)
-	return target
-
-
-func _precise_last_or_invalid(hand_side: String) -> Transform3D:
-	var last: Variant = _precise_last.get(hand_side)
-	if last is Transform3D and (last as Transform3D).is_finite():
-		return last
-	return Transform3D(Basis(), Vector3(INF, INF, INF))
-
-
-## The hand driver for the current pose: the game's desktop Anon rig in standing, the act's own
-## bed-space Anon body in missionary.
 func _hand_driver() -> Node:
 	if not is_instance_valid(runtime):
 		return null
@@ -1835,7 +988,7 @@ func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 func _standing_smack_target(hand_side: String, hand_world: Vector3,
 		caressing: bool) -> Dictionary:
 	var caress_side := "L" if hand_side == "left" else "R"
-	var state: Dictionary = _palm_contact_state(hand_side)
+	var state: Dictionary = _engine().contact_state(hand_side)
 	if caressing and str(state.get("source", "")) == "flank":
 		var point_v: Variant = state.get("point", Vector3.INF)
 		var normal_v: Variant = state.get("normal", Vector3.UP)
@@ -1866,7 +1019,7 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3,
 		var across := up.cross(normal).normalized()
 		var angle := randf() * TAU
 		var shift := (up * cos(angle) + across * sin(angle)) * (sqrt(randf()) * radius)
-		var jittered := _coat_contact(point_world + shift, normal, _caress_ignore())
+		var jittered := COAT.contact(pony, point_world + shift, normal, _caress_ignore())
 		if str(jittered.get("source", "")) == "flank":
 			point_world = jittered.get("point", point_world)
 			var jittered_normal: Variant = jittered.get("normal", normal)
@@ -1972,8 +1125,9 @@ func _smack() -> void:
 	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank_frame() * at
-			var target := _palm_on_coat_frame(hand_side, world_centre, normal,
-				_smack_finger_hint(caressing), false)
+			var target: Transform3D = _engine().coat_frame(pony, hand_side, world_centre, normal,
+				_smack_finger_hint(caressing), _palm_clearance(), false, 0.0, [], true, [],
+				0.0, "smack:" + hand_side)
 			_smack_index = index
 			_smack_at = at
 			_smack_side = hand_side
@@ -2047,7 +1201,7 @@ func _smack_phase_tick(driver: Node) -> void:
 				_smack_phase_started = now
 				# The smack may have moved the tail or another soft hull next to the rub
 				# point. Reacquire the live caress contact before returning to it.
-				_reset_palm_contact(_smack_side)
+				_engine().reset_hand(_smack_side)
 		SMACK_PHASE_RECOVER:
 			var target := _smack_recover_target()
 			var duration := CARESS_RETURN_SECONDS if _smack_keep_caress() \
@@ -2183,7 +1337,7 @@ func _end_smack_swing() -> void:
 				var current: Variant = driver.call("hand_frame", _smack_side)
 				if current is Transform3D and (current as Transform3D).is_finite():
 					from = current
-			_reset_palm_contact(_smack_side)
+			_engine().reset_hand(_smack_side)
 			_caress_return_from[caress_side] = from
 			_caress_return_started[caress_side] = Time.get_ticks_msec()
 			_set_caress_hand(caress_side)
@@ -2368,13 +1522,11 @@ func reset() -> void:
 	_clear_reach_hand()
 	_reach_shoulder = ""
 	_reach_holding = false
-	_palm_contacts.clear()
-	_precise_surfaces.clear()
-	_precise_logged.clear()
-	_precise_last.clear()
-	_palm_normals.clear()
-	_palm_points.clear()
-	_missionary_paths.clear()
+	_engine().reset()
+	if _missionary_path != null:
+		_missionary_path.call("reset")
+	if _flank_path != null:
+		_flank_path.call("reset")
 	_clear_debug_draw()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}

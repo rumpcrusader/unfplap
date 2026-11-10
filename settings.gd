@@ -857,7 +857,7 @@ static var normal_deg_s := num("normal_deg_s", "presentation.missionary.caress.n
 	GENERAL, "Missionary › Caress").with_unit("°/s").with_step(10.0).as_debug()
 static var contact_smooth := num("contact_smooth", "presentation.missionary.caress.contact_smooth",
 	18.0, "Contact smooth",
-	"Low-pass rate for the exact contact point. 0 keeps the exact contact.",
+	"Low-pass rate for the surface snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
 	GENERAL, "Missionary › Caress").with_unit("/s").with_step(1.0).as_debug()
 
 # -- Missionary size  (debug)

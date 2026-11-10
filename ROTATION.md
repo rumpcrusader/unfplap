@@ -91,7 +91,7 @@ Missionary is its own state, not the game's bed rest:
   lets only their X/Z follow the stroke and lean: the hands slide along the mattress instead of
   lifting. A two-bone arm solve reaches each wrist; the hand keeps its authored world orientation so
   the palm stays flat on the bed.
-- **The caress owns one palm.** `standing_caress.gd` sends a world palm frame through
+- **The caress owns one palm.** `caress_control.gd` sends a world palm frame through
   `set_hold_target()`; `missionary_anon.gd` eases the hand from its mattress frame in
   `HOLD_BLEND_S = 0.35 s`, keeps the wrist on that absolute world point while his shoulders thrust
   and lean, and eases it back to the authored mattress frame over `HOLD_RELEASE_S = 0.35 s` after
@@ -117,10 +117,12 @@ Missionary is its own state, not the game's bed rest:
   The oval uses the standing caress radii times `presentation.missionary.caress.oval_scale`. The
   path is reach-aware: the controller asks `missionary_anon.caress_reach()` for the world
   shoulder and arm lengths and walks the path back toward the belly until the palm frame fits;
-  the neck/cheek use the `fingertip` mode. The single-point palm snaps the interpolated point and
-  each oval offset to the exact body/head surface with one ray per hand per tick, then sits at
-  `contact + exact normal * Raise over coat`; the palm follows the coat normal around the circle.
-  With `features.caress_hand_shape`,
+  the neck/cheek use the `fingertip` mode. The shared `caress/caress_system.gd` snaps the
+  interpolated point and each oval offset to the exact body/head surface with one ray per hand per
+  tick, then sits at `contact + exact normal * Raise over coat`; the palm follows the coat normal
+  around the circle. `normal_blur_m` averages the normal across creases, `normal_deg_s` clamps its
+  turn rate, and `contact_smooth` low-passes only the snap correction, so the intended oval motion
+  is never delayed. With `features.caress_hand_shape`,
   `caress/caress_hand.gd` resolves the palm/finger samples against the stable body/head patch
   from `caress/caress_surface.gd`; the capsule/hull path remains the fallback when
   `features.caress_surface` is off or the rig cannot build anchors.

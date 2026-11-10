@@ -34,6 +34,7 @@ func run() -> void:
 	_check_registry()
 	_check_defaults()
 	_check_placement()
+	_check_tail_seat()
 	_check_write_round_trip()
 	_check_coercion()
 	_check_sections()
@@ -82,6 +83,7 @@ func _check_defaults() -> void:
 	check(near(float(SETTINGS.pace.default), 1.0), "auto pace default")
 	check(str(SETTINGS.orientation.default) == "up", "thrust orientation default")
 	check(not bool(SETTINGS.debug_mode.default), "debug mode is off by default")
+	check(bool(SETTINGS.reseat_tails.default), "re-seat tails defaults on")
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
@@ -118,6 +120,25 @@ func _check_placement() -> void:
 	var anon := SETTINGS.anon_placement()
 	check(near(float(anon["offset_y"]), 0.74), "anon placement Y")
 	check(near(float(anon["scale"]), 0.2), "anon placement scale")
+
+
+## Tail seat exceptions are one partial row per mare and disappear when they return to exact.
+func _check_tail_seat() -> void:
+	check(SETTINGS.tail_seat_offset("minuette").is_equal_approx(Vector2.ZERO),
+		"a mare with no exception uses the exact reference")
+	SETTINGS.save_tail_seat_offset("minuette", Vector2(0.012, -0.003))
+	var row := SETTINGS.tail_seat_offset("minuette")
+	check(near(row.x, 0.012) and near(row.y, -0.003), "a tail seat exception reads back")
+	check(SETTINGS.tail_seat_has_override("minuette"), "a non-zero tail seat is an override")
+	check(SETTINGS.tail_seat_offset("fluttershy").is_equal_approx(Vector2.ZERO),
+		"tail seat exceptions are per mare")
+	SETTINGS.save_tail_seat_offset("minuette", Vector2.ZERO)
+	check(not SETTINGS.tail_seat_has_override("minuette"),
+		"a zero tail seat removes the exception")
+	var data := SETTINGS.data()
+	var anatomy: Variant = data.get("anatomy", {})
+	check(not anatomy is Dictionary or not (anatomy as Dictionary).has("tail_seat"),
+		"an empty tail seat block is removed")
 
 
 ## The old placement files import into the one block and collapse rows equal to the default.

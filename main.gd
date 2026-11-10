@@ -14,6 +14,7 @@ const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
+const TAIL_SEAT := preload("res://mods/unfplap/tail_seat.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -55,6 +56,8 @@ var input
 var anon_part: Node
 ## Debug: the global hide-tails toggle lives outside every pony runtime.
 var tail_visibility: Node
+## Anatomy: seats every adult mare's hair tail at the reference dock and moves the dock with it.
+var tail_seat: Node
 var _anatomy_status_label: Label
 var initiation
 var classifier
@@ -140,6 +143,10 @@ func _ready() -> void:
 	tail_visibility = TAIL_VISIBILITY.new()
 	tail_visibility.name = "UnfplapTailVisibility"
 	add_child(tail_visibility)
+	tail_seat = TAIL_SEAT.new()
+	tail_seat.name = "UnfplapTailSeat"
+	tail_seat.set("main", self)
+	add_child(tail_seat)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -283,6 +290,8 @@ func _apply_settings_changed() -> void:
 	_apply_live_settings()
 	# integration: anatomy switches are live outside acts too.
 	refresh_anatomy()
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_all")
 
 
 func _on_player(body: Node) -> void:
@@ -309,10 +318,12 @@ func _on_player(body: Node) -> void:
 func _on_pony(pony: Node) -> void:
 	if not is_instance_valid(pony):
 		return
-	if _runtimes.has(pony):
-		return
 	# The player's own AnonPony is a pony_locomotion too. Never attach an intimacy runtime to her.
 	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
+		return
+	if is_instance_valid(tail_seat):
+		tail_seat.call("attach", pony)
+	if _runtimes.has(pony):
 		return
 	var runtime: Node = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
@@ -1716,6 +1727,55 @@ func action_anatomy_save() -> String:
 func action_anatomy_reset() -> String:
 	return _anatomy_debug("reset")
 
+
+## integration: per-mare tail seat exceptions. The default is the exact reference anchor.
+func _tail_seat_target() -> Node:
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	return target
+
+
+func _tail_seat_debug(op: String, value := 0.005) -> String:
+	if not is_instance_valid(tail_seat):
+		return "Tail seat is unavailable."
+	var target := _tail_seat_target()
+	if not is_instance_valid(target):
+		return "No tail-seat pony targeted."
+	var text := str(tail_seat.call("place", target, op, value))
+	_debug("tail seat %s %s" % [op, text])
+	return text
+
+
+func action_tail_seat_up() -> String:
+	return _tail_seat_debug("up")
+
+
+func action_tail_seat_down() -> String:
+	return _tail_seat_debug("down")
+
+
+func action_tail_seat_forward() -> String:
+	return _tail_seat_debug("forward")
+
+
+func action_tail_seat_back() -> String:
+	return _tail_seat_debug("back")
+
+
+func action_tail_seat_save() -> String:
+	return _tail_seat_debug("save")
+
+
+func action_tail_seat_reset() -> String:
+	return _tail_seat_debug("reset")
+
+
+func action_show_tail_seats() -> String:
+	if not is_instance_valid(tail_seat):
+		return "Tail seat is unavailable."
+	return str(tail_seat.call("report_all"))
 
 
 func _nearest_pony(view: Camera3D) -> Node:

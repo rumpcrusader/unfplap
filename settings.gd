@@ -17,6 +17,7 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
+const TAIL_PLACEMENT := preload("res://mods/unfplap/tail_seat_placement.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -501,6 +502,51 @@ static func has_anatomy_placement_draft() -> bool:
 
 static func anatomy_placement_draft_values() -> Dictionary:
 	return _placement_default_values()
+
+
+# ---------------------------------------------------------------- tail seat exceptions
+## The pointed mare's saved exception from the exact reference anchor, zero when she has none.
+static func tail_seat_offset(id: String) -> Vector2:
+	if id.is_empty() or id == "default" or id == "anon":
+		return Vector2.ZERO
+	if not _loaded:
+		_load()
+	var anatomy: Variant = _cache.get("anatomy", {})
+	if not anatomy is Dictionary:
+		return Vector2.ZERO
+	var seats: Variant = (anatomy as Dictionary).get("tail_seat", {})
+	if not seats is Dictionary:
+		return Vector2.ZERO
+	return TAIL_PLACEMENT.read((seats as Dictionary).get(id, {}))
+
+
+static func tail_seat_has_override(id: String) -> bool:
+	return not TAIL_PLACEMENT.same(tail_seat_offset(id), Vector2.ZERO)
+
+
+## Store only the Y/Z components that differ from the exact reference; zero removes the row.
+static func save_tail_seat_offset(id: String, offset: Vector2) -> void:
+	if id.is_empty() or id == "default" or id == "anon":
+		return
+	var data := _read()
+	var anatomy: Variant = data.get("anatomy", {})
+	var block: Dictionary = anatomy if anatomy is Dictionary else {}
+	var seats: Variant = block.get("tail_seat", {})
+	var rows: Dictionary = seats if seats is Dictionary else {}
+	var row := TAIL_PLACEMENT.diff(TAIL_PLACEMENT.sanitize(offset))
+	if row.is_empty():
+		rows.erase(id)
+	else:
+		rows[id] = row
+	if rows.is_empty():
+		block.erase("tail_seat")
+	else:
+		block["tail_seat"] = rows
+	if block.is_empty():
+		data.erase("anatomy")
+	else:
+		data["anatomy"] = block
+	_write(data)
 
 
 ## Settings in one tab, in declaration order.
@@ -1197,6 +1243,9 @@ static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never
 	"Show the mare anatomy always, only while an act is running, or never.", ANATOMY, "")
 static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
 	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
+	ANATOMY, "")
+static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails", true, "Re-seat tails",
+	"Seat every mare's hair tail at the reference dock so her tail and dock stay clear of her genitals. Off restores the game's original tail mount.",
 	ANATOMY, "")
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip", false, "Show skin strip",
 	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")

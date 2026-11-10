@@ -1,7 +1,7 @@
 extends Node
 ## integration: ported from PonyPussyParadise runtime anatomy attachment. One per adult mare,
-## persistent across acts. The mesh and textures are tracked assets; if they are missing the
-## controller stays empty and every public method is a no-op.
+## including mares added by other mods, persistent across acts. The mesh and textures are tracked
+## assets; if they are missing the controller stays empty and every public method is a no-op.
 
 const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
@@ -140,6 +140,7 @@ var _tween: Tween
 var _strip_span := Vector2(0.0, 1.0)
 var _strip_gap := Vector2(2.0, 2.0)
 var _missing_logged := false
+var _rig_logged := false
 var _attached := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
 const VISIBILITY_POLL_S := 0.2
@@ -225,8 +226,9 @@ static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 	return rebuilt
 
 
-## integration: only the modern preference roster gets anatomy. Identity filly/stallion checks stay,
-## and the player's own pony never gets it. There is no separate age list.
+## integration: every adult mare gets anatomy, including mares added by other mods. The identity
+## filly/stallion flags are the age gate, the player's own pony never gets it, and the pony needs a
+## stable id for the per-mare placement. The base-game preference roster is not a whitelist.
 static func eligible(pony_node: Node3D) -> bool:
 	if not is_instance_valid(pony_node):
 		return false
@@ -235,10 +237,46 @@ static func eligible(pony_node: Node3D) -> bool:
 	var identity: Variant = pony_node.get("identity")
 	if identity == null or bool(identity.get("filly")) or bool(identity.get("stallion")):
 		return false
+	return not pony_id(pony_node).is_empty()
+
+
+## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
+## `runtime._read_id()` so placement and preferences key off the same value.
+static func pony_id(pony_node: Node) -> String:
+	if not is_instance_valid(pony_node):
+		return ""
 	var id := str(pony_node.get_meta("relationship_id", ""))
-	if id.is_empty():
-		id = str(identity.get("id"))
-	return not id.is_empty() and id in SETTINGS.CHARACTER_ORDER
+	if not id.is_empty():
+		return id
+	var identity: Variant = pony_node.get("identity")
+	return str(identity.get("id")) if identity != null else ""
+
+
+## The princess body scale and placement anchor for a known character. A modded copy can set
+## `character_id` to the canon pony whose body it uses; otherwise the identity id is the key.
+static func body_profile(identity: Variant) -> Array:
+	if identity == null:
+		return []
+	var character: Variant = identity.get("character_id")
+	var key := str(character) if character != null else ""
+	if key.is_empty():
+		var identity_id: Variant = identity.get("id")
+		key = str(identity_id) if identity_id != null else ""
+	return WINKING_BODIES.get(key, [])
+
+
+## Live adult mares outside the base roster, for the Characters selector. Deduplicated ids out;
+## the caller owns the live-pony source and ordering.
+static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
+	var out: Array[String] = []
+	for pony: Variant in ponies:
+		if not pony is Node3D or not eligible(pony as Node3D):
+			continue
+		var id := pony_id(pony as Node)
+		if id.is_empty() or id in base_ids or out.has(id):
+			continue
+		out.append(id)
+	return out
 
 
 func setup(pony_node: Node3D, runtime_node: Node) -> void:
@@ -271,10 +309,16 @@ func _attach() -> void:
 		return
 	var skeleton: Variant = pony.get("skeleton")
 	if not skeleton is Skeleton3D:
+		if not _rig_logged:
+			_rig_logged = true
+			_log("anatomy skipped for %s: no skeleton" % pony.name)
 		return
 	_skeleton = skeleton as Skeleton3D
 	var bone := _skeleton.find_bone("pony_hips")
 	if bone < 0:
+		if not _rig_logged:
+			_rig_logged = true
+			_log("anatomy skipped for %s: no pony_hips bone" % pony.name)
 		return
 	var selected := selected_mare_bits_path()
 	var scene: PackedScene = load(selected)
@@ -311,7 +355,7 @@ func _attach() -> void:
 	_load_place()
 	_lift = _tail_lift()
 	var identity: Variant = pony.get("identity")
-	_body = WINKING_BODIES.get(str(identity.get("id")) if identity != null else "", [])
+	_body = body_profile(identity)
 	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
 	_dock = dock
 	if is_instance_valid(dock):
@@ -572,8 +616,7 @@ func _missionary_place_trim(local: Transform3D) -> Transform3D:
 
 
 func _pony_id() -> String:
-	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
-	return str(identity.get("id")) if identity != null else ""
+	return pony_id(pony)
 
 
 func _load_place() -> void:

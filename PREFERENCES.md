@@ -151,7 +151,10 @@ bounds listed above are enforced. The framing, pitch and torso controls remain e
 unbounded.
 
 The **Characters** tab exposes one name-filtered pony selector, a **Save preset** button and a
-**Reset to default** button in one row under the selector, and one form:
+**Reset to default** button in one row under the selector, and one form. The selector lists the
+103 base-game mares first, then any live adult mare from another mod under **Other mares**; an
+off-roster mare uses the global default profile and placement until a preset or per-mare override
+is saved.
 
 - intensity, pattern, warmth;
 - neglect tolerance (forgiving, normal, strict);

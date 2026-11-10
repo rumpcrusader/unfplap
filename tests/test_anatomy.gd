@@ -5,6 +5,7 @@ extends SceneTree
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
+const TAIL_SEAT := preload("res://mods/unfplap/tail_seat.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
@@ -18,6 +19,7 @@ var checks := 0
 
 class FakeIdentity extends Resource:
 	var id := ""
+	var character_id := ""
 	var filly := false
 	var stallion := false
 
@@ -82,18 +84,50 @@ func run() -> void:
 		== bool(a.get("public", false)), "empty override keeps defaults")
 	check(not bool(a.get("public", true)), "no mare is public by default")
 
-	# Eligibility is the modern preference roster plus identity checks. There is no age list.
+	# Eligibility is identity-based: the base-game roster is not an attachment whitelist.
 	var twilight := _pony("twilight_sparkle")
-	check(ANATOMY.eligible(twilight), "roster adult is eligible")
-	var filly := _pony("twilight_sparkle", true)
-	check(not ANATOMY.eligible(filly), "identity filly is excluded")
-	var stallion := _pony("twilight_sparkle", false, true)
-	check(not ANATOMY.eligible(stallion), "stallion is excluded")
+	check(ANATOMY.eligible(twilight), "base adult is eligible")
 	var off_roster := _pony("not_a_base_mare")
-	check(not ANATOMY.eligible(off_roster), "off-roster mare is excluded")
+	check(ANATOMY.eligible(off_roster), "off-roster adult is eligible")
+	var filly := _pony("not_a_base_mare", true)
+	check(not ANATOMY.eligible(filly), "identity filly is excluded")
+	var stallion := _pony("not_a_base_mare", false, true)
+	check(not ANATOMY.eligible(stallion), "stallion is excluded")
+	var no_id := _pony("")
+	check(not ANATOMY.eligible(no_id), "empty id is excluded")
+	var no_identity := FakePony.new()
+	check(not ANATOMY.eligible(no_identity), "no identity is excluded")
 	var player := _pony("twilight_sparkle")
 	player.name = "PlayerPony"
 	check(not ANATOMY.eligible(player), "player pony is excluded")
+
+	# Placement and preferences use the relationship id first; the identity id is the fallback.
+	var meta_first := _pony("visual_id")
+	meta_first.set_meta("relationship_id", "relationship_id")
+	check(ANATOMY.pony_id(meta_first) == "relationship_id", "relationship id wins")
+	var placement_id := ANATOMY.new()
+	placement_id.set("pony", meta_first)
+	check(str(placement_id.call("_pony_id")) == "relationship_id",
+		"anatomy placement uses the relationship id")
+	placement_id.free()
+
+	# A modded copy of a princess uses the canon body profile; an ordinary modded mare does not.
+	var princess_copy := FakeIdentity.new()
+	princess_copy.id = "custom_celestia"
+	princess_copy.character_id = "celestia"
+	check(ANATOMY.body_profile(princess_copy).size() == 3,
+		"a modded Celestia copy uses the princess body profile")
+	var ordinary_identity := FakeIdentity.new()
+	ordinary_identity.id = "not_a_base_mare"
+	check(ANATOMY.body_profile(ordinary_identity).is_empty(),
+		"an ordinary modded mare uses the normal body profile")
+	check(ANATOMY.body_profile(null).is_empty(), "no identity has no body profile")
+
+	# The Characters selector lists only live off-roster mares.
+	var live_ids: Array[String] = ANATOMY.off_roster_ids(
+		[off_roster, twilight], SETTINGS.CHARACTER_ORDER)
+	check(live_ids.size() == 1 and live_ids[0] == "not_a_base_mare",
+		"the Characters selector lists live off-roster mares")
 
 	var default_place := SETTINGS.anatomy_placement_default("")
 	check(near(float(default_place["offset_x"]), 0.0), "global anatomy X is on the crease")
@@ -101,6 +135,16 @@ func run() -> void:
 	check(near(float(default_place["offset_z"]), 0.289), "global anatomy Z")
 	check(near(float(default_place["pitch_deg"]), -6.0), "global anatomy pitch")
 	check(near(float(default_place["scale"]), 0.742), "global anatomy scale")
+	var modded_place := SETTINGS.anatomy_placement_default("not_a_base_mare")
+	check(modded_place == default_place, "an off-roster mare uses the global anatomy placement")
+	var visibility: Variant = JSON.parse_string(FileAccess.get_file_as_string(
+		TAIL_SEAT.DOCK_VISIBILITY_PATH))
+	if visibility is Dictionary:
+		var reference: Variant = (visibility as Dictionary).get("reference_fit")
+		if reference is Dictionary:
+			check(TAIL_SEAT._visibility_offset(off_roster, reference)
+				== TAIL_SEAT.DOCK_VISIBILITY_FALLBACK,
+				"an off-roster mare gets the fallback dock visibility")
 	var place_pos := Vector3(
 		float(default_place["offset_x"]),
 		float(default_place["offset_y"]),
@@ -438,7 +482,8 @@ func run() -> void:
 	unpatched.code = "shader_type spatial;"
 	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")
 
-	for pony: Node in [twilight, filly, stallion, off_roster, player]:
+	for pony: Node in [twilight, filly, stallion, off_roster, no_id, no_identity, player,
+			meta_first]:
 		if is_instance_valid(pony):
 			pony.free()
 	print("ANATOMY_RESULT checks=%d failures=%d" % [checks, failures])

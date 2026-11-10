@@ -1,7 +1,8 @@
 extends RefCounted
 ## Every spawnable adult mare in the base game 0.3.0: display name, settings order and a
 ## private preference profile. `settings.gd` merges these as the character defaults; a player's
-## settings file overrides them per pony.
+## settings file overrides them per pony. An id outside this roster falls back to the global
+## default profile and placement.
 ##
 ## The first sixteen keep their original tuned profiles and selector order; the rest follow by
 ## display name. `twist` is written as a schoolfilly and `fiddly_twang` as a stallion in their

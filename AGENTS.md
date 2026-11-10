@@ -37,6 +37,9 @@ Do not start implementation until you have read the required files for the area 
   addition; it never replaces a pony's body or rig. The PPP anatomy meshes/textures and the act
   audio are fetched from one external resource pack before a build and packed with the mod; they
   are not tracked. The act stays off-camera by framing. Modelled accessories are allowed.
+- Anatomy attaches to every adult identity with `pony_hips`, including mares added by other mods;
+  the base-game roster is not an attachment whitelist. Tail seating follows the same rule. Acts
+  still need the game's relationship runtime and adult bond.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
@@ -186,7 +189,8 @@ mods/unfplap/
                     act camera lean, pose actions/smack, climax, afterglow/close window,
                     restore, aftercare
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
-                    winking mesh refinement, idle heat wink/drip
+                    winking mesh refinement, idle heat wink/drip; every adult identity with
+                    `pony_hips`, not only the base roster
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the
@@ -432,7 +436,10 @@ reclined eye height left the camera wrong after the act.
 - `anatomy.reseat_tails` (Anatomy → **Re-seat tails and docks**, default on) moves every adult
   mare's hair tail base to the game's exact reference anchor from
   `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's canonical
-  dock seat, derived from the body's own tail root (`pony_tail_01`).
+  dock seat, derived from the body's own tail root (`pony_tail_01`). Mares added by other mods use
+  the same seat: they are not gated by `SETTINGS.CHARACTER_ORDER`, an id with no
+  `dock_visibility_fits.json` row gets `DOCK_VISIBILITY_FALLBACK`, and its
+  `tail_y`/`tail_z`/`dock_y`/`dock_scale` come from the global `anatomy.placement.default.*`.
 - The `OpenPonyDock` uses the game reference fit, not `effective_fit()`: the per-mare
   `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
   that tail to the reference, pushes the cuff above and behind the tail base. The fit is
@@ -1525,12 +1532,15 @@ VR lab:
   `Mods.on_node("res://world/ui/settings_page.gd", ...)`, not a `mod.json` extension. If the
   page's private fields are unavailable it logs and skips, so the settings page is never
   required for the mod to load.
-- The injected tab also owns the per-mare **Characters** sub-tab: one pony selector from
-  `SETTINGS.CHARACTER_ORDER` with a name filter, enum controls from `preferences.gd`, neglect
-  tolerance (`forgiving`/`normal`/`strict`), one Dislikes / No preference / Likes pill row per touch
-  and talk action, and editable notes. Preference edits are staged in the form and written only by
-  **Save preset**, which applies live; **Reset to default** restores the character's own preference
-  template. Custom `event_prompts` and `poses` on the character entry must survive both actions.
+- The injected tab also owns the per-mare **Characters** sub-tab: one pony selector with a name
+  filter, enum controls from `preferences.gd`, neglect tolerance
+  (`forgiving`/`normal`/`strict`), one Dislikes / No preference / Likes pill row per touch and talk
+  action, and editable notes. The selector lists `SETTINGS.CHARACTER_ORDER` first, then any live
+  adult mare with the mod's runtime that is not in that roster under an **Other mares** separator;
+  an off-roster id uses the global default profile until a preset is saved. Preference edits are
+  staged in the form and written only by **Save preset**, which applies live; **Reset to default**
+  restores the character's own preference template. Custom `event_prompts` and `poses` on the
+  character entry must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
 
@@ -1795,7 +1805,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   obsolete keys are removed on load; the **Reset act prompts** debug action clears overrides.
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (103 IDs: every spawnable mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
-  ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.
+  base ID has a preference template in `character_preferences.gd`; add a pony there when expanding
+  the roster. Live adult mares outside that roster are appended under **Other mares** and use the
+  global default profile until a preset is saved; their `characters.<id>` block is preserved like
+  any other.
 - Pose defaults live in `poses/catalog.gd`; preference defaults and validation live in
   `character_preferences.gd`, `preferences.gd` and `settings.gd`.
 
@@ -1875,3 +1888,7 @@ This is mandatory.
   down before inviting.
 - The talk classifier in `preferences.gd` is a small keyword map, not an LLM call. Expand it
   only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
+- A mare from another mod needs the game's pony locomotion and hybrid rig: an adult identity, a
+  stable id, `pony_hips` for the anatomy mesh, `MareBody` for teats/strip/body-coat deform, and
+  `hair_skeleton` plus `OpenPonyDock` for tail seating. Acts still need the game's relationship
+  runtime and adult bond.

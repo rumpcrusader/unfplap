@@ -3,7 +3,7 @@ extends RefCounted
 ##
 ## Placement lives in `settings.json` under one block:
 ##
-##   anatomy.placement.default.*        the global default for every mare
+##   anatomy.placement.default.*        the global default for every mare, including modded mares
 ##   anatomy.placement.anon.*           the player part
 ##   anatomy.placement.<mare id>.*      a per-mare override
 ##

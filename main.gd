@@ -12,6 +12,7 @@ const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/tail_seat.gd")
@@ -330,6 +331,8 @@ func _on_pony(pony: Node) -> void:
 		return
 	if is_instance_valid(tail_seat):
 		tail_seat.call("attach", pony)
+		# A mod may finish its hair or dock a frame after the pony is ready; attach is idempotent.
+		tail_seat.call_deferred("attach", pony)
 	if _runtimes.has(pony):
 		return
 	var runtime: Node = RUNTIME.new()
@@ -340,6 +343,20 @@ func _on_pony(pony: Node) -> void:
 	_runtimes[pony] = runtime
 	_debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
+
+
+## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
+## appears while she is in the world; her saved preset stays in settings.json when she despawns.
+func live_character_ids() -> Array[String]:
+	var ponies: Array = []
+	for pony: Variant in _runtimes.keys():
+		if pony is Node3D and is_instance_valid(pony):
+			ponies.append(pony)
+	var out: Array[String] = ANATOMY.off_roster_ids(ponies, SETTINGS.CHARACTER_ORDER)
+	out.sort_custom(func(a: String, b: String) -> bool:
+		return SETTINGS.character_name(a).naturalnocasecmp_to(
+			SETTINGS.character_name(b)) < 0)
+	return out
 
 
 ## Runtime-injected Unfplap tab. No game-script extension is used. The title and pause hosts add
@@ -587,6 +604,15 @@ func _set_native_settings_visible(page: Node, value: bool) -> void:
 			(native_page as CanvasItem).visible = value
 
 
+## One selector row. The metadata carries the stable pony id, so an off-roster mare can be edited
+## with the same form as a base-game mare.
+func _add_character_selector_item(selector: OptionButton, id: String, current: String) -> void:
+	selector.add_item(SETTINGS.character_name(id))
+	selector.set_item_metadata(selector.get_item_count() - 1, id)
+	if id == current:
+		selector.select(selector.get_item_count() - 1)
+
+
 ## The per-mare preference profile is the one hand-built form; it borrows the setting rows' card,
 ## switch and pill pieces so it does not read as a different panel. It fills its own Characters
 ## sub-tab, so the tab bar supplies the heading. Edits are staged in the form and written only by
@@ -712,15 +738,25 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		if current.is_empty():
 			current = last_id
 		selector.clear()
-		for id: String in SETTINGS.CHARACTER_ORDER:
+		var matches := func(id: String) -> bool:
 			var display := SETTINGS.character_name(id)
-			if query.is_empty() or display.to_lower().contains(query) or id.contains(query):
-				selector.add_item(display)
-				selector.set_item_metadata(selector.get_item_count() - 1, id)
-				if id == current:
-					selector.select(selector.get_item_count() - 1)
-		if selector.selected < 0 and selector.get_item_count() > 0:
-			selector.select(0)
+			return query.is_empty() or display.to_lower().contains(query) or id.contains(query)
+		for id: String in SETTINGS.CHARACTER_ORDER:
+			if matches.call(id):
+				_add_character_selector_item(selector, id, current)
+		var others: Array[String] = []
+		for id: String in live_character_ids():
+			if matches.call(id):
+				others.append(id)
+		if not others.is_empty():
+			selector.add_separator("Other mares")
+			for id: String in others:
+				_add_character_selector_item(selector, id, current)
+		if selector.selected < 0:
+			for index in selector.get_item_count():
+				if not selector.is_item_separator(index):
+					selector.select(index)
+					break
 		if selector.get_item_count() == 0:
 			if status is Label:
 				(status as Label).text = "No pony matches that name."

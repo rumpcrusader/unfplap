@@ -1,7 +1,8 @@
 extends Node
 ## Re-seats every adult mare's hair tail at the game's exact reference dock and moves the
 ## OpenPonyDock with it. One controller under main; it never touches the body, skeleton, mane or
-## act systems.
+## act systems. Mares from other mods use the fallback dock visibility and the global placement
+## until a per-mare override is saved.
 ##
 ## The reference is the body-space anchor of the game's reference dock, read from
 ## `dock_tail_mounts.json`. A per-mare exception under `anatomy.tail_seat.<id>` offsets only Y/Z.
@@ -267,12 +268,15 @@ func _prepare(pony: Node) -> Dictionary:
 		_log("tail seat: no dock fit for %s" % pony.name)
 		return {}
 	var identity: Variant = pony.get("identity")
-	var placement := SETTINGS.anatomy_placement(str(identity.get("id")))
+	var id := str(pony.get_meta("relationship_id", ""))
+	if id.is_empty():
+		id = str(identity.get("id"))
+	var placement := SETTINGS.anatomy_placement(id)
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
 	var original_skin: Skin = dock.skin
 	return {
 		"pony": pony,
-		"id": str(identity.get("id")),
+		"id": id,
 		"body": "stallion" if bool(identity.get("stallion")) else "mare",
 		"link": link,
 		"dock": dock,

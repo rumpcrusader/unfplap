@@ -511,6 +511,20 @@ func _check_profiles() -> void:
 	check(SETTINGS.character_name("pinkie_pie") == "Pinkie Pie", "display name lookup")
 	var maud: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "maud_pie")
 	check((maud["preferences"].get("talk", []) as Array).is_empty(), "Maud is quiet")
+	var modded: Dictionary = SETTINGS.profile_for(base, {}, "a_modded_mare")
+	check((modded["preferences"] as Dictionary) == (base["preferences"] as Dictionary),
+		"an off-roster mare uses the global preference profile")
+	check(not str(modded.get("act_prompts", {}).get("cue", "")).is_empty(),
+		"an off-roster mare gets the built-in prompts")
+	check(not (modded.get("poses", {}) as Dictionary).is_empty(),
+		"an off-roster mare gets the pose defaults")
+	var modded_override: Dictionary = SETTINGS.profile_for(base,
+		{"a_modded_mare": {"preferences": {"intensity": "soft"}}}, "a_modded_mare")
+	check(str(modded_override["preferences"].get("intensity", "")) == "soft",
+		"an off-roster mare keeps a saved preference override")
+	check(SETTINGS.anatomy_placement_default("a_modded_mare")
+		== SETTINGS.anatomy_placement_default(""),
+		"an off-roster mare uses the global anatomy placement")
 	var override: Dictionary = SETTINGS.profile_for(base, {"fluttershy": {"cue_gap": 15.0}},
 		"fluttershy")
 	check(near(float(override.get("cue_gap", 0.0)), 15.0), "a character override wins")

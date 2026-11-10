@@ -516,8 +516,10 @@ func _ready() -> void:
 	_face_timer.one_shot = true
 	_face_timer.timeout.connect(_clear_face)
 	add_child(_face_timer)
-	# integration: anatomy is persistent outside acts and attaches only to the modern preference roster.
+	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
+	# that assigns the pony's identity after she enters the tree.
 	_anatomy_refresh()
+	call_deferred("_anatomy_refresh")
 
 
 ## integration: create or drop the persistent anatomy controller. Called at ready and on every

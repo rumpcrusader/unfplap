@@ -47,7 +47,7 @@ phase, target and audio contracts stay in `AGENTS.md`/`ROTATION.md`.
 | `caress/missionary_path.gd` | missionary path: authored one/two, reach filtering, legacy hull fallback |
 | `caress/caress_path.gd` | surface-anchored path builder: authored anchors, act-camera anchors, rest fallback |
 | `caress/caress_surface.gd` | stable posed body/head patch and exact ray queries |
-| `caress/caress_hand.gd` | palm/finger sample shape, palm basis, penetration resolver |
+| `caress/caress_hand.gd` | single-point palm frame: basis, placement and normal turn |
 | `caress/caress_arm.gd` | pure two-bone reach plan for the missionary hand |
 | `caress/coat.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
 | `caress/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
@@ -56,7 +56,7 @@ phase, target and audio contracts stay in `AGENTS.md`/`ROTATION.md`.
 The pose boundary is deliberately small:
 
 - `caress_control.gd` chooses the pose's path provider and palm holder, and supplies the
-  pose's hover, oval scale and body scale.
+  shared hover, oval and body scale.
 - `caress_system.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
   pony, a path and the palm side.
 - The path providers contain all pose geometry.
@@ -71,7 +71,6 @@ The pose boundary is deliberately small:
   - `two`: flank -> shoulder -> neck.
 - Neutral is the belly for path one and the flank for path two. W/lean walks toward the end of
   the chain; S walks toward the lower belly (path one) or clamps at the flank (path two).
-  `presentation.missionary.caress.along_m` shifts the sampled point before the oval.
 - Each anchor is a rest-space body/head point snapped to the nearest source vertex, so it keeps
   the source skin weights and follows the live pose.
 - Without authored anchors, `caress_path.gd` casts rays from the act camera to the belly, chest,
@@ -103,8 +102,8 @@ The pose boundary is deliberately small:
   `clear_hold_target()` blend the hand off and back onto the mattress over 0.35 s. While held,
   the arm runs the game's regular desktop arm mode from the shoulder down.
 - Standing uses the game's desktop pose driver through `set_hold_target(..., "rub")`.
-  `palm_scale.gd` applies the per-preset scale after BodyIK and restores the cached bone scales
-  on every act exit.
+- `palm_scale.gd` applies the shared per-preset hand scale in both poses and restores the cached
+  bone scales on every act exit.
 - Both holders expose `hand_frame()` for the debug overlay.
 
 ## Contact engine
@@ -129,8 +128,7 @@ For one hand the engine:
 4. clamps the temporal normal turn;
 5. low-passes the **surface snap correction**, not the intended point, so the intended oval
    motion is never delayed or shrunk;
-6. builds the palm frame with `caress_hand.gd`, including the optional multi-sample palm/finger
-   resolver;
+6. builds the single-point palm frame with `caress_hand.gd`;
 7. falls back to the last good target when the path or surface is unavailable.
 
 With `features.caress_surface` off, the candidate is a hull query through `coat.gd`: the
@@ -142,27 +140,21 @@ step and the same normal turn. The hull path keeps the last valid point on a mis
 | Setting | Default | Effect |
 |---|---|---|
 | `features.caress_surface` | off | precise exact surface instead of the hull path |
-| `features.caress_hand_shape` | off | multi-sample palm/finger resolver |
 | `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |
 | `features.caress_reach_shoulder_m` | 0.02 m | missionary reach shoulder shift |
-| `features.caress_reach_body_m` | 0.0 m | missionary reach body shift |
-| `features.caress_reach_stretch` | 1.0 | missionary arm stretch cap |
 | `presentation.missionary.caress.path_id` | one | authored chain `one` or `two` |
-| `presentation.missionary.caress.along_m` | 0 cm | signed shift toward head/tail |
-| `presentation.missionary.caress.over_coat_m` | 2 cm | signed palm-centre hover |
-| `presentation.missionary.caress.normal_blur_m` | 2 cm | coat-normal average radius |
-| `presentation.missionary.caress.normal_deg_s` | 120 | palm normal turn limit |
-| `presentation.missionary.caress.contact_smooth` | 18/s | snap-correction low-pass |
-| `presentation.missionary.caress.oval_scale` | 1.0x | oval scale |
-| `presentation.standing.caress.palm_distance` | 2 cm | standing palm-centre hover |
-| `presentation.standing.caress.oval_across_m` | 1 cm | oval radius along the body |
-| `presentation.standing.caress.oval_up_m` | 2 cm | oval radius vertically |
-| `presentation.standing.caress.ignore` | tail, wing | hull regions the fallback skips |
-| `presentation.standing.caress.palm_scale` | per preset | standing palm bone scale: Canon 0.75, mounting 0.9, same height/Hoers 1.0 |
+| `caress.hover_m` | 2 cm | body-scaled palm-centre hover in both poses |
+| `caress.normal_blur_m` | 2 cm | coat-normal average radius |
+| `caress.normal_deg_s` | 120 | palm normal turn limit |
+| `caress.contact_smooth` | 18/s | snap-correction low-pass |
+| `caress.ignore` | tail, wing | hull regions the fallback skips |
+| `caress.oval_across_m` | 1 cm | oval radius along the body |
+| `caress.oval_up_m` | 2 cm | oval radius vertically |
+| `caress.palm_scale.canon/mounting/same height/hoers` | .75/.9/1/1 | shared hand scale per body preset |
 
-The three smoothing values apply to both poses. `0` restores the exact behaviour. The standing
-caress offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the
-other presets keep their authored values.
+The three smoothing values apply to both poses. `0` restores the exact behaviour. The caress
+offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
+presets keep their authored values.
 
 Standing point profiles (`CARESS_PROFILES`, metres before body scale): Canon `up 0.08`,
 JRHNBR `up 0.16 / out 0.02`, Same Height `up 0.18 / out 0.03`, Hoers `up 0.20 / out 0.04`.
@@ -175,11 +167,11 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
   position/normal.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
-- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_hand` and
-  `caress_arm` chunks.
+- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface` and `caress_arm`
+  chunks.
 - `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand;
-  `caress_surface` covers the stable patch update, exact query and normal blur; `caress_hand`
-  covers the multi-sample resolver; `caress_arm` covers the missionary reach plan.
+  `caress_surface` covers the stable patch update, exact query and normal blur; `caress_arm`
+  covers the missionary reach plan.
 
 ## Scoring hooks
 
@@ -192,8 +184,8 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 ## Tests
 
-- `tests/test_caress.gd`: surface patch, hand shape, authored paths, side mapping, standing path,
-  engine placement, smoothing and reach.
+- `tests/test_caress.gd`: surface patch, authored paths, side mapping, standing path, engine
+  placement, smoothing and reach.
 - `tests/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
@@ -202,5 +194,4 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 - The precise patch covers the body and head meshes (torso, neck, cheek). Hair, mane, wing and
   tail layers are not part of the exact patch; the standing `Ignore body parts` setting still
   filters the hull fallback.
-- The multi-sample hand resolver is a debug feature; off uses the single palm-centre point.
 - The path builders cache per hand and pony; changing `path_id` rebuilds the next caress path.

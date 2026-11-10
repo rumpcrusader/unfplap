@@ -754,13 +754,9 @@ static var caress_surface := flag("caress_surface", "features.caress_surface", f
 	"Use precise caress",
 	"Place the caress hand from the visible body/head surface instead of the capsule hull.",
 	GENERAL, "Caress").as_debug()
-static var caress_hand_shape := flag("caress_hand_shape", "features.caress_hand_shape", false,
-	"Use hand shape",
-	"Resolve the precise palm as a small set of palm and finger samples. Off places a single palm-centre point on the coat.",
-	GENERAL, "Caress").as_debug()
 static var path_id := choice("path_id", "presentation.missionary.caress.path_id", "one",
 	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
-	"Caress path",
+	"Missionary path",
 	"Switch between the two authored missionary caress paths. Path one is belly/chest/neck/cheek; path two is flank/shoulder/neck.",
 	GENERAL, "Caress").as_debug()
 static var caress_debug := flag("caress_debug", "features.caress_debug", false,
@@ -768,17 +764,46 @@ static var caress_debug := flag("caress_debug", "features.caress_debug", false,
 	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,
 	"Caress").as_debug()
 static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
-	"features.caress_reach_shoulder_m", 0.02, "Reach shoulder",
+	"features.caress_reach_shoulder_m", 0.02, "Missionary reach shoulder",
 	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed; the path stops at the reachable point either way.",
 	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
-static var caress_reach_body_m := num("caress_reach_body_m",
-	"features.caress_reach_body_m", 0.0, "Reach body",
-	"Maximum additional body shift used to reach a caress target in missionary.",
-	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
-static var caress_reach_stretch := num("caress_reach_stretch",
-	"features.caress_reach_stretch", 1.0, "Reach stretch",
-	"Maximum arm stretch before a caress target is clamped to the hand. 1 keeps the arm length fixed; the shoulder/body shift and fingertip mode cover the reach instead.",
-	GENERAL, "Caress").with_step(0.01).as_debug()
+static var hover_m := num("hover_m", "caress.hover_m", 0.02, "Palm hover",
+	"Palm-centre distance from her coat in both poses, in centimetres. Positive raises it, negative presses it into the coat.",
+	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var ignore := list("ignore", "caress.ignore", ["tail", "wing"],
+	["tail", "mane", "wing", "leg"], "Ignore body parts",
+	"Regions the hull caress contact query skips. The precise surface uses fixed torso/head regions.",
+	GENERAL, "Caress").as_debug()
+static var normal_blur_m := num("normal_blur_m", "caress.normal_blur_m", 0.02,
+	"Normal blur",
+	"Average the coat normal over this radius so mesh creases do not snap the palm. 0 keeps the exact hit normal.",
+	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var normal_deg_s := num("normal_deg_s", "caress.normal_deg_s", 120.0,
+	"Normal turn",
+	"Maximum palm normal turn rate. 0 disables the temporal normal clamp.",
+	GENERAL, "Caress").with_unit("°/s").with_step(10.0).as_debug()
+static var contact_smooth := num("contact_smooth", "caress.contact_smooth", 18.0,
+	"Contact smooth",
+	"Low-pass rate for the surface snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
+	GENERAL, "Caress").with_unit("/s").with_step(1.0).as_debug()
+static var oval_across_m := num("oval_across_m", "caress.oval_across_m", 0.01,
+	"Oval across", "Caress stroke length along the body.", GENERAL, "Caress") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var oval_up_m := num("oval_up_m", "caress.oval_up_m", 0.02,
+	"Oval up", "Caress stroke height.", GENERAL, "Caress") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var canon := num("canon", "caress.palm_scale.canon", 0.75,
+	"Palm scale (Canon)", "Caress hand scale for Canon-size Anon.", GENERAL, "Caress") \
+	.with_unit("×").with_step(0.01).as_debug()
+static var hoers := num("hoers", "caress.palm_scale.hoers", 1.0,
+	"Palm scale (Hoers)", "Caress hand scale for the Hoers size.", GENERAL, "Caress") \
+	.with_unit("×").with_step(0.01).as_debug()
+static var mounting := num("mounting", "caress.palm_scale.mounting", 0.9,
+	"Palm scale (Mounting)", "Caress hand scale for mounting size.", GENERAL, "Caress") \
+	.with_unit("×").with_step(0.01).as_debug()
+static var same_height := num("same_height", "caress.palm_scale.same height", 1.0,
+	"Palm scale (Same height)", "Caress hand scale at Anon's own height.", GENERAL, "Caress") \
+	.with_unit("×").with_step(0.01).as_debug()
 
 # -- Audio  (debug)
 static var act_climax := flag("act_climax", "features.act_climax", false, "Play wet climax",
@@ -877,34 +902,10 @@ static var free_look := flag("free_look", "presentation.missionary.free_look", f
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
 	GENERAL, "Missionary").as_debug()
-static var along_m := num("along_m", "presentation.missionary.caress.along_m", 0.0,
-	"Caress along",
-	"Move the missionary caress point toward her head (positive) or tail (negative), in centimetres. W/S still slides it with the lean.",
-	GENERAL, "Missionary").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
-static var over_coat_m := num("over_coat_m", "presentation.missionary.caress.over_coat_m", 0.02,
-	"Raise over coat",
-	"Palm-centre distance from her coat in missionary, in centimetres. Positive raises it, negative presses it into the coat. The precise single-point palm uses this as its total hover.",
-	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m", -0.08,
 	"Cock base inset",
 	"Slide the cock base back toward Anon in missionary, in centimetres. Negative moves it into the pelvis; use it to hide the base and close the hip gap.",
 	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var oval_scale := num("oval_scale", "presentation.missionary.caress.oval_scale", 1.0,
-	"Caress oval",
-	"Scale the missionary caress oval. 1 uses the standing caress size.",
-	GENERAL, "Missionary").with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
-static var normal_blur_m := num("normal_blur_m", "presentation.missionary.caress.normal_blur_m",
-	0.02, "Normal blur",
-	"Average the coat normal over this radius so mesh creases do not snap the palm. 0 keeps the exact hit normal.",
-	GENERAL, "Missionary › Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var normal_deg_s := num("normal_deg_s", "presentation.missionary.caress.normal_deg_s",
-	120.0, "Normal turn",
-	"Maximum palm normal turn rate. 0 disables the temporal normal clamp.",
-	GENERAL, "Missionary › Caress").with_unit("°/s").with_step(10.0).as_debug()
-static var contact_smooth := num("contact_smooth", "presentation.missionary.caress.contact_smooth",
-	18.0, "Contact smooth",
-	"Low-pass rate for the surface snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
-	GENERAL, "Missionary › Caress").with_unit("/s").with_step(1.0).as_debug()
 
 # -- Missionary size  (debug)
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is
@@ -1135,36 +1136,6 @@ static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.tors
 	"Hinge Anon's upper body forward over her; the lower body stays planted.", GENERAL,
 	"Standing › Motion") \
 	.with_unit("°").with_step(1.0).as_debug()
-
-# -- Standing › Caress  (debug)
-static var ignore := list("ignore", "presentation.standing.caress.ignore", ["tail", "wing"],
-	["tail", "mane", "wing", "leg"], "Ignore body parts",
-	"Regions the caress contact query skips.", GENERAL, "Standing › Caress") \
-	.as_debug()
-static var oval_across_m := num("oval_across_m", "presentation.standing.caress.oval_across_m",
-	0.01, "Oval across", "Caress stroke length along the body.", GENERAL, "Standing › Caress") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var oval_up_m := num("oval_up_m", "presentation.standing.caress.oval_up_m", 0.02,
-	"Oval up", "Caress stroke height.", GENERAL, "Standing › Caress") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var palm_distance := num("palm_distance", "presentation.standing.caress.palm_distance",
-	0.02, "Palm distance", "Palm centre distance from the coat.", GENERAL, "Standing › Caress") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var canon := num("canon", "presentation.standing.caress.palm_scale.canon", 0.75,
-	"Palm scale (Canon)", "Standing hand scale for Canon-size Anon.", GENERAL,
-	"Standing › Caress") \
-	.with_unit("×").with_step(0.01).as_debug()
-static var hoers := num("hoers", "presentation.standing.caress.palm_scale.hoers", 1.0,
-	"Palm scale (Hoers)", "Standing hand scale for the Hoers size.", GENERAL, "Standing › Caress") \
-	.with_unit("×").with_step(0.01).as_debug()
-static var mounting := num("mounting", "presentation.standing.caress.palm_scale.mounting", 0.9,
-	"Palm scale (Mounting)", "Standing hand scale for mounting size.", GENERAL,
-	"Standing › Caress") \
-	.with_unit("×").with_step(0.01).as_debug()
-static var same_height := num("same_height",
-	"presentation.standing.caress.palm_scale.same height", 1.0, "Palm scale (Same height)",
-	"Standing hand scale at Anon's own height.", GENERAL, "Standing › Caress") \
-	.with_unit("×").with_step(0.01).as_debug()
 
 # -- Standing › Kiss  (debug)
 static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg",
@@ -1674,6 +1645,42 @@ const SCHEMA_VERSION := 7
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
 ## entry before the defaults merge, so a retired key cannot linger in the file.
 static var _deprecated := [
+	# Caress settings moved from pose blocks to one shared `caress.*` block.
+	deprecated("presentation.standing.caress.palm_distance",
+		func(value: Variant) -> Dictionary: return {"caress.hover_m": value}),
+	deprecated("presentation.missionary.caress.over_coat_m",
+		func(value: Variant) -> Dictionary: return {"caress.hover_m": value}),
+	deprecated("presentation.missionary.caress.normal_blur_m",
+		func(value: Variant) -> Dictionary: return {"caress.normal_blur_m": value}),
+	deprecated("presentation.missionary.caress.normal_deg_s",
+		func(value: Variant) -> Dictionary: return {"caress.normal_deg_s": value}),
+	deprecated("presentation.missionary.caress.contact_smooth",
+		func(value: Variant) -> Dictionary: return {"caress.contact_smooth": value}),
+	deprecated("presentation.standing.caress.ignore",
+		func(value: Variant) -> Dictionary: return {"caress.ignore": value}),
+	deprecated("presentation.standing.caress.oval_across_m",
+		func(value: Variant) -> Dictionary: return {"caress.oval_across_m": value}),
+	deprecated("presentation.standing.caress.oval_up_m",
+		func(value: Variant) -> Dictionary: return {"caress.oval_up_m": value}),
+	deprecated("presentation.standing.caress.palm_scale.canon",
+		func(value: Variant) -> Dictionary: return {"caress.palm_scale.canon": value}),
+	deprecated("presentation.standing.caress.palm_scale.mounting",
+		func(value: Variant) -> Dictionary: return {"caress.palm_scale.mounting": value}),
+	deprecated("presentation.standing.caress.palm_scale.same height",
+		func(value: Variant) -> Dictionary: return {"caress.palm_scale.same height": value}),
+	deprecated("presentation.standing.caress.palm_scale.hoers",
+		func(value: Variant) -> Dictionary: return {"caress.palm_scale.hoers": value}),
+	# Retired caress switches and tuning with no replacement.
+	deprecated("features.caress_hand_shape",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.caress_reach_body_m",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.caress_reach_stretch",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.caress.along_m",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.caress.oval_scale",
+		func(_value: Variant) -> Dictionary: return {}),
 	# The dock used to be hidden by a `true` switch; keep the player's choice across the rename.
 	deprecated("anatomy.hide_dock",
 		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),

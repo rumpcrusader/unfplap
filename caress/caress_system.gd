@@ -130,19 +130,17 @@ func _place_candidate(pony: Variant, hand_side: String, candidate: Dictionary,
 	var mode := str(candidate.get("mode", "palm"))
 	var roll := float(candidate.get("roll", 0.0))
 	var region := str(candidate.get("region", "torso"))
-	var hand_shape := bool(context.get("hand_shape", false))
 	var hover := float(context.get("hover", 0.0))
 	if bool(candidate.get("precise", true)):
 		return _place_precise(pony, hand_side, candidate, context, intended, normal,
-			finger, mode, roll, region, hover, hand_shape)
+			finger, mode, roll, region, hover)
 	return _place_hull(pony, hand_side, candidate, context, intended, normal, finger,
 		mode, roll)
 
 
 func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
-		mode: String, roll: float, region: String, hover: float,
-		hand_shape: bool) -> Transform3D:
+		mode: String, roll: float, region: String, hover: float) -> Transform3D:
 	var surface_started := Time.get_ticks_usec()
 	var surface: Variant = _surface(pony, region)
 	if not is_instance_valid(surface):
@@ -168,8 +166,7 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	var smoothed := _smooth_precise(_state(hand_side), intended, hit_point, hit_normal, delta)
 	var contact: Vector3 = smoothed["point"]
 	var contact_normal: Vector3 = smoothed["normal"]
-	var target := _place_hand(contact, contact_normal, finger, hand_side, mode, roll, hover,
-		surface, hand_shape)
+	var target := HAND.place(contact, contact_normal, finger, hand_side, mode, roll, hover)
 	_debug[hand_side] = {
 		"candidate": candidate,
 		"intended": intended,
@@ -178,8 +175,8 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 		"target": target,
 		"surface": surface,
 	}
-	_log_precise(hand_side, mode, surface, target, roll, hover, hand_shape, contact_normal,
-		finger, float(candidate.get("u", 0.0)))
+	_log_precise(hand_side, mode, surface, target, roll, hover, contact_normal, finger,
+		float(candidate.get("u", 0.0)))
 	return target
 
 
@@ -201,10 +198,9 @@ func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
 	var state := _state(hand_side)
 	var delta := maxf(float(context.get("delta", 0.001)), 0.001)
 	var smoothed := _smooth_hull(state, hit_point, hit_normal, source, delta)
-	var clearance := float(context.get("clearance", 0.04)) \
-		+ float(context.get("hull_extra", 0.0))
-	var target := _place_hand(smoothed["point"], smoothed["normal"], finger, hand_side, mode,
-		roll, clearance, null, false)
+	var clearance := float(context.get("clearance", 0.02))
+	var target := HAND.place(smoothed["point"], smoothed["normal"], finger, hand_side, mode,
+		roll, clearance)
 	_debug[hand_side] = {
 		"candidate": candidate,
 		"intended": intended,
@@ -214,20 +210,6 @@ func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
 		"surface": null,
 	}
 	return target
-
-
-func _place_hand(contact: Vector3, normal: Vector3, finger: Vector3, hand_side: String,
-		mode: String, roll: float, hover: float, surface: Variant,
-		hand_shape: bool) -> Transform3D:
-	if not hand_shape or not is_instance_valid(surface):
-		return HAND.place(contact, normal, finger, hand_side, mode, roll, hover)
-	var started := Time.get_ticks_usec()
-	var frame: Transform3D = HAND.place(contact, normal, finger, hand_side, mode, roll, 0.0)
-	var extra := maxf(0.0, hover - HAND.CLEARANCE_M)
-	var resolved: Dictionary = HAND.resolve(surface, frame, mode, extra, hand_side)
-	_perf_note("caress_hand", Time.get_ticks_usec() - started)
-	var value: Variant = resolved.get("frame", frame)
-	return value if value is Transform3D else frame
 
 
 func _surface(pony: Variant, region: String) -> Variant:
@@ -360,7 +342,7 @@ func _last_or_invalid(hand_side: String) -> Transform3D:
 
 
 func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Transform3D,
-		roll_deg: float, hover: float, shape: bool, normal: Vector3, finger: Vector3,
+		roll_deg: float, hover: float, normal: Vector3, finger: Vector3,
 		u: float) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
 		return
@@ -372,9 +354,8 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 		info = "faces=%d build_us=%d query_us=%d" % [
 			int(surface.call("face_count")), int(surface.get("build_us")),
 			int(surface.get("query_us"))]
-	_log("precise caress side=%s mode=%s shape=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
-		hand_side, mode, "yes" if shape else "no", u, str(frame.origin), str(normal),
-		str(finger), roll_deg, hover, info])
+	_log("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
+		hand_side, mode, u, str(frame.origin), str(normal), str(finger), roll_deg, hover, info])
 
 
 func _perf_note(chunk: String, usec: int) -> void:

@@ -1,5 +1,6 @@
 extends SkeletonModifier3D
-## Standing presentation: shrink the visible hands by scaling the hand bones themselves.
+## Caress presentation: shrink the visible hands by scaling the hand bones themselves. Used by
+## both the standing and missionary holders.
 ## Scaling a presentation marker would be discarded by `valve_body_ik.gd`, which orthonormalizes
 ## the hand target before writing the bone. The hand bone includes the palm and every finger.
 ##

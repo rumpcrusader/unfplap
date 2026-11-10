@@ -13,6 +13,7 @@ const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CAESS_ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
+const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
 
 ## The lean hinges his whole upper body at this joint: chest, neck, head, shoulders, arms and hands
 ## follow as one, while the hips, thighs and legs keep the authored pose and the stroke, so the
@@ -80,6 +81,7 @@ var _hand_offsets: Dictionary = {}
 ## Regular-arm pole state while a caress holds a hand, keyed "left"/"right".
 var _arm_poles: Dictionary = {}
 var _arm_axes: Dictionary = {}
+var _palm_scale: SkeletonModifier3D
 
 
 func install(runtime_node: Node) -> bool:
@@ -113,6 +115,7 @@ func install(runtime_node: Node) -> bool:
 	for i in skeleton.get_bone_count():
 		_saved_bones.append(skeleton.get_bone_pose(i))
 	_scale = avatar.scale
+	_install_palm_scale()
 	# His own drivers: the desktop pose driver poses the torso and the body IK the limbs. Both are
 	# parked for the act; the pose we write is the only pose.
 	_driver = avatar.get("desktop_pose_driver")
@@ -165,6 +168,7 @@ func install(runtime_node: Node) -> bool:
 func remove() -> void:
 	active = false
 	_eye_cached = false
+	_remove_palm_scale()
 	if is_instance_valid(_leg_hide):
 		_leg_hide.set("influence", _leg_hide_influence)
 	if is_instance_valid(_body_ik):
@@ -426,6 +430,33 @@ func caress_reach(hand_side: String) -> Dictionary:
 ## A held hand follows the world frame the caress computed; a released one eases back to the
 ## authored mattress frame. Every path ends in the same two-bone solve, so the elbow plane and
 ## the authored hand scale are preserved.
+func refresh_palm() -> void:
+	_install_palm_scale()
+
+
+func _install_palm_scale() -> void:
+	_remove_palm_scale()
+	if not is_instance_valid(skeleton) or not is_instance_valid(runtime):
+		return
+	var factor := float(runtime.call("_palm_scale_factor"))
+	if is_equal_approx(factor, 1.0):
+		return
+	_palm_scale = PALM_SCALE.new()
+	_palm_scale.name = "UnfplapMissionaryPalmScale"
+	_palm_scale.set("skeleton", skeleton)
+	_palm_scale.set("factor", factor)
+	_palm_scale.process_priority = 10
+	skeleton.add_child(_palm_scale)
+
+
+func _remove_palm_scale() -> void:
+	if is_instance_valid(_palm_scale):
+		_palm_scale.set("active", false)
+		_palm_scale.call("restore")
+		_palm_scale.queue_free()
+	_palm_scale = null
+
+
 func _place_hands(plants: Dictionary, placed: Transform3D) -> void:
 	if plants.is_empty() or not is_instance_valid(skeleton):
 		return
@@ -512,11 +543,9 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var stretch := 1.0
 	var arm_started := Time.get_ticks_usec()
 	if caress:
-		var max_stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
 		var shoulder_cap := maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
-		var body_cap := maxf(float(SETTINGS.caress_reach_body_m.get_num()), 0.0)
-		var plan := CAESS_ARM.plan(shoulder, upper_len, lower_len, target, max_stretch,
-			shoulder_cap, body_cap)
+		var plan := CAESS_ARM.plan(shoulder, upper_len, lower_len, target, 1.0,
+			shoulder_cap, 0.0)
 		shoulder = plan["shoulder_origin"]
 		target = plan["target"]
 		stretch = float(plan.get("stretch", 1.0))

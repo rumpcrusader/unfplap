@@ -200,7 +200,7 @@ mods/unfplap/
   standing_anon.gd  standing hip thrust wrapper, planted lower body and palm scale
   standing_presentation.gd  idle standing invitation, turn and request face
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
-  palm_scale.gd     standing hand-bone scale, restored when the act ends
+  palm_scale.gd     shared caress hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven standing body sway with planted hooves and Anon follow
   kiss_legs.gd      standing kiss hoof-tip pin after AffectionPose's chest flex
   prone_sway.gd     missionary lying torso slide and head nod on the thrust
@@ -514,8 +514,8 @@ reclined eye height left the camera wrong after the act.
   upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
-- Standing palm scale is a caress setting; see `docs/caress.md`. `palm_scale.gd` runs after
-  BodyIK and restores the cached bone scales in `_remove_anon_thrust()` on every act exit.
+- Palm scale is a shared caress setting; see `docs/caress.md`. `palm_scale.gd` runs after the
+  pose's hand solve and restores the cached bone scales on every act exit.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at

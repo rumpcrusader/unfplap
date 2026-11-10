@@ -826,6 +826,8 @@ func _refresh_live_modifiers() -> void:
 			_install_prone_sway(skeleton)
 		elif not _feature("missionary_body_motion") and is_instance_valid(_prone_sway):
 			_prone_sway.queue_free()
+		if is_instance_valid(_missionary_anon):
+			_missionary_anon.call("refresh_palm")
 			_prone_sway = null
 
 func _refresh_live_voice() -> void:
@@ -5175,12 +5177,8 @@ func _same_height_scale() -> float:
 
 ## Absolute hand scale for the current body preset, from the per-size caress setting.
 func _palm_scale_factor() -> float:
-	var caress: Variant = _presentation_cfg.get("caress", {})
-	if caress is Dictionary:
-		var scales: Variant = (caress as Dictionary).get("palm_scale", {})
-		if scales is Dictionary:
-			return float((scales as Dictionary).get(_size_name(), 1.0))
-	return 1.0
+	var scales := SETTINGS.block("caress.palm_scale.")
+	return float(scales.get(_size_name(), 1.0))
 
 
 func _apply_eye_override() -> void:

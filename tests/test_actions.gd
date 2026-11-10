@@ -389,7 +389,6 @@ func run() -> void:
 	lean_runtime.free()
 
 	check(near(CAESS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
-	check(near(CAESS.CARESS_RADIUS_M, 0.04125), "caress radius")
 	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
 	var left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
@@ -398,8 +397,6 @@ func run() -> void:
 		"left palm faces the coat with fingers forward")
 	check(right_palm.determinant() > 0.99 and left_palm.determinant() > 0.99,
 		"palm surface bases stay orthonormal")
-	check(near(CAESS.CARESS_OVAL_ACROSS, 1.30) and near(CAESS.CARESS_OVAL_UP, 0.70),
-		"caress path is an oval")
 	check(near(FLANK.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
 	check(near(CAESS.caress_phase_step(0.5, true, 0.25),
 		CAESS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
@@ -415,9 +412,8 @@ func run() -> void:
 	var stopped := CAESS.caress_touch_step(3.0, false, 2.0)
 	check(near(float(stopped[0]), 0.0) and int(stopped[1]) == 0,
 		"a stopped caress keeps no partial credit")
-	check(near(CAESS.PALM_ON_COAT_CLEARANCE_M, 0.04), "palm sits 4 cm above the coat at 1.0 scale")
-	check(near(CAESS.palm_clearance_for(0.66), 0.0264), "Canon palm clearance scales down")
-	check(near(CAESS.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")
+	check(near(CAESS.palm_clearance_for(0.66), 0.0132), "Canon palm clearance scales down")
+	check(near(CAESS.palm_clearance_for(1.10), 0.022), "Hoers palm clearance scales up")
 	check(near(CAESS.palm_clearance_for(1.0, 0.07), 0.07),
 		"caress palm distance overrides the default")
 	check(COAT.region_ignored("tail", ["tail"]), "caress ignores the tail hull")

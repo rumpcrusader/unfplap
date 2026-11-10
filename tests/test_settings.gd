@@ -414,6 +414,25 @@ func _check_migration() -> void:
 	check(near(float((reach_tuned.get("features", {}) as Dictionary).get(
 		"caress_reach_shoulder_m", 0.0)), 0.05), "a tuned caress reach survives migration")
 
+	var caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"presentation": {
+			"missionary": {"caress": {"over_coat_m": 0.03, "normal_blur_m": 0.01,
+				"along_m": 0.1, "oval_scale": 2.0}},
+			"standing": {"caress": {"palm_distance": 0.04, "ignore": ["leg"],
+				"palm_scale": {"canon": 0.8}}},
+		}}, SETTINGS.SCHEMA_VERSION)
+	var caress_moved: Dictionary = caress.get("caress", {})
+	check(near(float(caress_moved.get("hover_m", 0.0)), 0.03),
+		"the old caress hover keys map to the shared block")
+	check(near(float(caress_moved.get("normal_blur_m", 0.0)), 0.01),
+		"the old caress smoothing keys map to the shared block")
+	check((caress_moved.get("ignore", []) as Array).has("leg"),
+		"the old standing caress ignore list maps to the shared block")
+	check(near(float((caress_moved.get("palm_scale", {}) as Dictionary).get("canon", 0.0)), 0.8),
+		"the old palm scale maps to the shared block")
+	check(not caress_moved.has("along_m") and not caress_moved.has("oval_scale"),
+		"the retired caress tuning keys are erased")
+
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,
 		"features": {"act_chat": true, "hud_readouts": true},
@@ -471,8 +490,8 @@ func _check_profiles() -> void:
 	check(not live.is_empty(), "live template")
 	check(not SETTINGS.act_prompt("fluttershy", "utterance").is_empty(), "live utterance prompt")
 	check(not SETTINGS.act_prompt("fluttershy", "cue").is_empty(), "live cue prompt")
-	check(SETTINGS.act_prompt("fluttershy", "cue").contains("private, not a list to say"),
-		"the cue prompt keeps preferences private")
+	check(str(SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", "")).contains("private, not a list to say"),
+		"the default cue prompt keeps preferences private")
 	var legacy_data := {"default": {"act_prompts": {"cue": SETTINGS.LEGACY_ACT_PROMPTS["cue"][-1]}}}
 	var normalized := SETTINGS._normalize_act_prompts(legacy_data)
 	check(not (normalized["default"] as Dictionary).has("act_prompts"),

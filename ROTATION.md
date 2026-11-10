@@ -266,8 +266,8 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   rewrites all three to that capture. The upper body, camera lean, hands, kiss and hip thrust
   still move; the lower body does not. Off restores the game's stepping and lean foot motion;
   the capture clears at act end.
-- Standing palm scale is a caress setting; see `docs/caress.md`. `palm_scale.gd` runs after
-  BodyIK and restores the cached scales in `_remove_anon_thrust()` on every act exit.
+- Palm scale is a shared caress setting; see `docs/caress.md`. `palm_scale.gd` runs after the
+  pose's hand solve and restores the cached scales on every act exit.
 - Holding `F` at `abs(side) >= STANDING_KISS_LEAN = 0.90` starts the same base-game kiss used by
   missionary; releasing `F` or dropping the lean ends it. The side is latched from the input lean
   and `_pin_base_kiss_side()` keeps her on the complementary head tilt; the deep-kiss side

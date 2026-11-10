@@ -51,13 +51,11 @@ func _precise_candidates(hand_side: String, context: Dictionary) -> Array:
 	if not is_instance_valid(skeleton):
 		return []
 	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
-	var along_setting := float(context.get("along_m", 0.0))
 	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var body_axis := _body_axis(skeleton)
 	var length := PATH.path_length(world)
-	var u_wanted: float = PATH.u_for(lean, along_setting / maxf(length, 0.05),
-		float(path.get("belly_u")))
+	var u_wanted: float = PATH.u_for(lean, 0.0, float(path.get("belly_u")))
 	var oval: Variant = context.get("oval", Vector2(0.01, 0.02))
 	var radii: Vector2 = oval if oval is Vector2 else Vector2(0.01, 0.02)
 	var hover := float(context.get("hover", 0.0))
@@ -141,9 +139,7 @@ func _legacy_candidates(hand_side: String, context: Dictionary) -> Array:
 		return []
 	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
 	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
-	var along_setting := float(context.get("along_m", 0.0))
-	var path := _legacy_path(skeleton, skeleton.global_transform, hand_side, lean,
-		along_setting, scale)
+	var path := _legacy_path(skeleton, skeleton.global_transform, hand_side, lean, scale)
 	if path.is_empty():
 		return []
 	var centre: Vector3 = path["point"]
@@ -189,7 +185,7 @@ func _legacy_candidates(hand_side: String, context: Dictionary) -> Array:
 ## Smooth caress path: lower belly -> belly -> chest -> side of the neck -> cheek. The returned
 ## point is the centreline anchor before the hand-side offset and oval.
 func _legacy_path(skeleton: Skeleton3D, g: Transform3D, side: String,
-		lean: float, along_m: float, scale: float) -> Dictionary:
+		lean: float, scale: float) -> Dictionary:
 	var hips_b := skeleton.find_bone("pony_hips")
 	var belly_b := skeleton.find_bone("pony_spine2")
 	var chest_b := skeleton.find_bone("pony_spine3")
@@ -222,7 +218,7 @@ func _legacy_path(skeleton: Skeleton3D, g: Transform3D, side: String,
 	var path_len := maxf(belly.distance_to(head), 0.001)
 	var chest_t := clampf(belly.distance_to(chest) / path_len, 0.05, 0.70)
 	var neck_t := clampf(belly.distance_to(neck) / path_len, chest_t + 0.05, 0.92)
-	var travel := lean * path_len + along_m * scale
+	var travel := lean * path_len
 	if travel < 0.0:
 		var lower := clampf(travel, -MISSIONARY_CARESS_TRAVEL_M * scale, 0.0)
 		return {
@@ -349,11 +345,9 @@ func _body_axis(skeleton: Skeleton3D) -> Vector3:
 func _max_reach(reach: Dictionary) -> float:
 	if reach.is_empty():
 		return 0.0
-	var stretch := maxf(float(SETTINGS.caress_reach_stretch.get_num()), 1.0)
-	var total := (float(reach.get("upper", 0.0)) + float(reach.get("lower", 0.0))
-		+ float(reach.get("hand", 0.0))) * stretch
+	var total := float(reach.get("upper", 0.0)) + float(reach.get("lower", 0.0)) \
+		+ float(reach.get("hand", 0.0))
 	total += maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
-	total += maxf(float(SETTINGS.caress_reach_body_m.get_num()), 0.0)
 	return total
 
 

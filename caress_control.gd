@@ -17,19 +17,13 @@ const REACH_HAND_BLEND_S := 0.35
 const REACH_HAND_RELEASE_S := 0.35
 ## Standing A/D caress: an oval rub on the flank surface. The oval is wider along the body
 ## than up/down, so the hand reads as stroking instead of drawing a perfect circle.
-const CARESS_RADIUS_M := 0.04125
 const CARESS_SPEED_RAD_S := 3.6
 ## A caress is one continuous action, not a per-frame sample: five seconds of contact count as
 ## one liked or disliked touch. The runtime's scoring and tolerance paths see discrete events.
 const CAESS_TOUCH_SECONDS := 5.0
-const CARESS_OVAL_ACROSS := 1.30
-const CARESS_OVAL_UP := 0.70
 ## A smack swings the caress hand to the cheek and back; ease the return so the contact reset
 ## does not read as a teleport.
 const CARESS_RETURN_SECONDS := 0.12
-## The palm ball's own collision radius (anon_body.gd hand sweep). The palm marker is its
-## centre, so this is how far the centre sits above the coat when the visible palm touches.
-const PALM_ON_COAT_CLEARANCE_M := 0.04
 ## Caress-point offsets are per size preset, in metres before the body scale is applied to
 ## only the circle radius. `out` moves each hand out from the flank; both hands together gain
 ## twice that amount. JRHNBR (`mounting`) is 4 cm wider; Canon sits lower.
@@ -85,8 +79,7 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
 ## Pure palm geometry for tests and the controller.
-static func palm_clearance_for(body_scale: float,
-		distance := PALM_ON_COAT_CLEARANCE_M) -> float:
+static func palm_clearance_for(body_scale: float, distance := 0.02) -> float:
 	return distance * clampf(body_scale, 0.5, 2.0)
 
 
@@ -493,40 +486,22 @@ func _end_caress() -> void:
 ## Hand-marker basis with the palm flat on the coat: local -Z is the fingers, and the palm
 ## normal (local -X right / +X left) points inward along -outward. No custom roll.
 func _caress_ignore() -> Array:
-	var caress: Variant = _presentation_cfg.get("caress", {})
-	if not caress is Dictionary:
-		return []
-	# The ignore list setting keeps only the known region names, so this needs no filtering.
-	var raw: Variant = (caress as Dictionary).get("ignore", [])
-	return raw if raw is Array else []
+	return SETTINGS.ignore.get_list()
 
 
 func _palm_clearance() -> float:
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = float(pony.get("body_scale"))
-	var distance := PALM_ON_COAT_CLEARANCE_M
-	var caress: Variant = _presentation_cfg.get("caress", {})
-	if caress is Dictionary:
-		distance = float((caress as Dictionary).get("palm_distance", distance))
-	return palm_clearance_for(scale, distance)
+	return palm_clearance_for(scale, float(SETTINGS.hover_m.get_num()))
 
 
-## Oval radii at body scale 1.0. The old radius × ratio constants are the fallback.
 func _caress_oval_across_m() -> float:
-	var value := CARESS_RADIUS_M * CARESS_OVAL_ACROSS
-	var caress: Variant = _presentation_cfg.get("caress", {})
-	if caress is Dictionary:
-		value = float((caress as Dictionary).get("oval_across_m", value))
-	return value
+	return float(SETTINGS.oval_across_m.get_num())
 
 
 func _caress_oval_up_m() -> float:
-	var value := CARESS_RADIUS_M * CARESS_OVAL_UP
-	var caress: Variant = _presentation_cfg.get("caress", {})
-	if caress is Dictionary:
-		value = float((caress as Dictionary).get("oval_up_m", value))
-	return value
+	return float(SETTINGS.oval_up_m.get_num())
 
 
 ## Place one caress hand. The path decides where the caress is; the shared engine does the
@@ -571,28 +546,20 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 ## Everything the pose-free engine needs for one hand this tick. Only the pose-specific path
 ## receives the lean and path settings; the engine sees one oval, one hover and one mode.
 func _caress_context(side: String, hand_side: String) -> Dictionary:
-	var pose := str(runtime.get("pose_id")) if is_instance_valid(runtime) else ""
-	var missionary := pose == CATALOG.MISSIONARY
 	var scale := _smack_body_scale()
 	var size := 1.0
 	if is_instance_valid(runtime) and runtime.has_method("_size_scale"):
 		size = float(runtime.call("_size_scale"))
-	var body_scale := scale if missionary else size
-	var oval_scale := maxf(float(SETTINGS.oval_scale.get_num()), 0.01) if missionary else 1.0
-	var oval := Vector2(_caress_oval_across_m(), _caress_oval_up_m()) \
-		* body_scale * oval_scale
+	var oval := Vector2(_caress_oval_across_m(), _caress_oval_up_m()) * scale
 	return {
 		"lean": clampf(float(runtime.get("_lean_forward")), -1.0, 1.0),
-		"along_m": float(SETTINGS.along_m.get_num()),
 		"phase": float(_caress_phase.get(side, 0.0)),
 		"scale": scale,
 		"size": size,
 		"oval": oval,
-		"hover": _precise_hover(),
+		"hover": _palm_clearance(),
 		"clearance": _palm_clearance(),
-		"hull_extra": float(SETTINGS.over_coat_m.get_num()) if missionary else 0.0,
 		"precise": _precise_on(),
-		"hand_shape": _hand_shape_on(),
 		"ignore": _caress_ignore(),
 		"profile": _caress_profile(),
 		"reach": _caress_reach(hand_side),
@@ -636,19 +603,6 @@ func _caress_reach(hand_side: String) -> Dictionary:
 func _precise_on() -> bool:
 	return is_instance_valid(runtime) and runtime.has_method("_feature") \
 		and bool(runtime.call("_feature", "caress_surface"))
-
-
-func _hand_shape_on() -> bool:
-	return is_instance_valid(runtime) and runtime.has_method("_feature") \
-		and bool(runtime.call("_feature", "caress_hand_shape"))
-
-
-## The visible palm-centre hover. Standing keeps the tuned `Palm distance`; missionary uses the
-## signed `Raise over coat` value as its total hover.
-func _precise_hover() -> float:
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
-		return float(SETTINGS.over_coat_m.get_num())
-	return _palm_clearance()
 
 
 func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,

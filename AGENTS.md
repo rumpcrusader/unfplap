@@ -98,12 +98,18 @@ Stress lab:
 ```
 
 - Uses the separate `unfplap-stress` world and writes `last-run-stress.log`.
+- Forces every stress ID into Ponyville for the session and gives every non-live id a
+  session-only spawn on a 3.2 m grid in front of Golden Oak Library. The final line is 0.8 m
+  apart; the wider pre-spawn grid is what the base spawner's 3 m separation check accepts.
 - Spawns every ID in `SETTINGS.CHARACTER_ORDER` that the population catalogue can create, in one
   line in front of Golden Oak Library, all facing away from the building and standing idle after
   the teleport. That roster excludes the profile-marked schoolfilly/stallion entries (Twist,
   Fiddly Twang) and includes the adult specials (Sunset Shimmer).
 - Reuses the normal lab's world loading, pause and idle setup; it does not use the five-mare
   roster or the library bed.
+- Life, needs, schedulers and time pause as soon as the loading screen ends; population keeps
+  running until the whole roster is live, then it pauses too. A 60 s no-progress watchdog lists
+  the missing ids and proceeds instead of waiting the full 420 s in silence.
 - It logs the target count, the anatomy/action flags, missing mares and each placement. Use it
   with **Enable debug** and **Print perf logs** on for the anatomy stress pass.
 

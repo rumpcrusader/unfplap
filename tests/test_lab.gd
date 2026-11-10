@@ -87,6 +87,9 @@ var _done := false
 var _old_opening := ""
 var _settings: Node
 var _furnishing_trimmed := false
+## The simulation half of `_stop_standard_systems()` is idempotent across the stress lab's
+## roster wait and the normal lab's final setup.
+var _standard_systems_stopped := false
 ## The player's Max nearby ponies cap; -1 when the lab has not lifted it.
 var _old_nearby := -1
 
@@ -337,7 +340,16 @@ func _prune_population() -> void:
 		print("[unfplap test] despawned non-test pony %s" % str(id))
 
 
-func _stop_standard_systems() -> void:
+## `pause_population = false` leaves the streamer running while everything else stops. The stress
+## lab uses that between the loading screen and the end of its roster wait, so a slow spawn does
+## not keep the full town simulation running at 13 fps.
+func _stop_standard_systems(pause_population := true) -> void:
+	if pause_population and is_instance_valid(game.get("population")):
+		game.get("population").set_physics_process(false)
+		game.get("population").set_process(false)
+	if _standard_systems_stopped:
+		return
+	_standard_systems_stopped = true
 	# The dialogue director must keep processing: it serializes every reply, so stopping it
 	# leaves a pony stuck in "thinking" forever and blocks all later conversation. Silence the
 	# world's own AI instead by switching this session to usage "talk": ambient group chatter,
@@ -351,9 +363,6 @@ func _stop_standard_systems() -> void:
 			(data as Dictionary)["ai_usage"] = "talk"
 			print("[unfplap test] director kept alive (processing=%s); background AI disabled (ai_usage=talk)" \
 				% str(director.is_processing()))
-	if is_instance_valid(game.get("population")):
-		game.get("population").set_physics_process(false)
-		game.get("population").set_process(false)
 	if is_instance_valid(game.get("life")):
 		game.get("life").set_physics_process(false)
 	if is_instance_valid(game.get("needs")):

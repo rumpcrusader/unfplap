@@ -7,9 +7,16 @@ const POPULATION_CONFIG := preload("res://world/population/pony_population_confi
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const LINE_SPACING_M := 0.80
 const LINE_FIRST_BACK_M := 0.80
+## The base spawner needs 3 m between residents. The final line is tighter, so every non-live
+## stress mare gets a wide session-only pre-spawn point first and is moved into the line later.
+## The grid follows the final line's width and stays shallow, so it cannot reach into the library.
+const PRE_SPAWN_SPACING_M := 3.2
+const PRE_SPAWN_COLUMNS := 26
+const ROSTER_STALL_MS := 60000
 
 var _stress_ids_cache: Array[String] = []
 var _restrict_logged := false
+var _pre_spawn_logged := false
 
 
 ## integration: every female adult the catalogue can spawn. Fillies, stallions and Spike are
@@ -43,26 +50,47 @@ func run() -> void:
 		])
 
 
-## integration: the normal lab returns on the first live test pony. The stress lab waits for the
-## whole roster before pausing population.
+## integration: the normal lab returns on the first live test pony. The stress lab quiets the
+## simulation, then waits for the whole roster before pausing population.
 func _wait_for_world() -> bool:
 	if not await super._wait_for_world():
 		return false
+	# Population must stay on until the roster is out, but life, needs, schedulers and time do
+	# not: keeping the full world running for every spawn is what made the wait run at 13 fps.
+	_stop_standard_systems(false)
 	var target := _stress_ids().size()
-	# The first run loads every background rig; 105 mares take several minutes on a cold cache.
+	# The first run loads every background rig; 103 mares take several minutes on a cold cache.
 	var wait_until := Time.get_ticks_msec() + 420000
 	var last := -1
+	var last_change := Time.get_ticks_msec()
 	while Time.get_ticks_msec() < wait_until:
+		var now := Time.get_ticks_msec()
 		var count := _test_ponies().size()
 		if count != last:
 			last = count
+			last_change = now
 			print("[unfplap stress] mares live %d/%d" % [count, target])
 		if count >= target:
 			return true
+		if count > 0 and now - last_change >= ROSTER_STALL_MS:
+			print("[unfplap stress] roster stalled at %d/%d; missing=%s" % [
+				count, target, ",".join(_missing_stress_ids())])
+			return true
 		await get_tree().process_frame
-	print("[unfplap stress] roster did not finish spawning; proceeding with %d/%d" % [
-		_test_ponies().size(), target])
+	print("[unfplap stress] roster did not finish spawning; proceeding with %d/%d missing=%s" % [
+		_test_ponies().size(), target, ",".join(_missing_stress_ids())])
 	return true
+
+
+func _missing_stress_ids() -> Array[String]:
+	var live := {}
+	for pony: Variant in _test_ponies():
+		live[_pony_id(pony)] = true
+	var missing: Array[String] = []
+	for id: String in _stress_ids():
+		if not live.has(id):
+			missing.append(id)
+	return missing
 
 
 func _restrict_population() -> void:
@@ -76,14 +104,14 @@ func _restrict_population() -> void:
 	if not assignments is Dictionary:
 		return
 	var ids := _stress_ids()
-	var added: Array[String] = []
+	var assigned: Array[String] = []
 	for id: String in ids:
-		if (assignments as Dictionary).has(id):
+		if str((assignments as Dictionary).get(id, "")) == "ponyville":
 			continue
 		(assignments as Dictionary)[id] = "ponyville"
-		added.append(id)
-	if not added.is_empty():
-		print("[unfplap stress] assigned %d missing mares to ponyville" % added.size())
+		assigned.append(id)
+	if not assigned.is_empty():
+		print("[unfplap stress] assigned %d mares to ponyville" % assigned.size())
 	var removed := 0
 	for id: Variant in (assignments as Dictionary).keys():
 		if ids.has(str(id)):
@@ -96,39 +124,68 @@ func _restrict_population() -> void:
 	_place_missing_stress_spawns(population)
 
 
-## integration: put every stress mare's saved candidate at the library when her real home is
-## outside the activation radius. The game's own loading path still spawns them.
+## integration: every stress mare gets a session-only spawn on a wide grid in front of the
+## library. The base population only streams a resident inside the activation radius, and a saved
+## row from another region is ignored while the assignment still points there. The assignment is
+## forced to Ponyville above; this row makes `resuming()` return the grid spot even when the life
+## simulation still has her elsewhere. The game's own loading path still spawns them.
 func _place_missing_stress_spawns(population: Variant) -> void:
 	if not is_instance_valid(population):
-		return
-	var anchor: Variant = population.get("anchor")
-	if not anchor is Node3D:
 		return
 	var saved: Variant = population.get("saved")
 	if not saved is Dictionary:
 		return
 	var live: Variant = population.get("live")
-	var at := _test_spawn_point()
-	if not at.is_finite():
-		return
-	var origin: Vector3 = (anchor as Node3D).global_position
-	var moved := 0
-	for id: String in _stress_ids():
+	var ids := _stress_ids()
+	var visiting: Variant = population.get("visiting")
+	var retry_at: Variant = population.get("retry_at")
+	var failures: Variant = population.get("_startup_failures")
+	var status: Variant = population.get("status")
+	var placed := 0
+	for index in ids.size():
+		var id := ids[index]
 		if live is Dictionary and (live as Dictionary).has(id):
 			continue
-		if (saved as Dictionary).has(id) and (saved as Dictionary)[id] is Dictionary \
-				and ((saved as Dictionary)[id] as Dictionary).has("resume"):
+		var at := _stress_spawn_point(index)
+		if not at.is_finite():
 			continue
-		var where: Vector3 = population.call("candidate_position", id)
-		var reach := float(population.call("activate_distance", id))
-		var distance := _flat_distance(where, origin) if where.is_finite() else INF
-		if distance < reach - 5.0:
+		var current: Variant = (saved as Dictionary).get(id)
+		if current is Dictionary and str((current as Dictionary).get("region", "")) == "ponyville" \
+				and (current as Dictionary).has("resume") \
+				and (current as Dictionary).get("position", Vector3.INF) == at:
 			continue
 		(saved as Dictionary)[id] = {"region": "ponyville", "position": at,
 			"rotation": Vector3.ZERO, "resume": {}}
-		moved += 1
-	if moved > 0:
-		print("[unfplap stress] %d mares moved to the library spawn" % moved)
+		for blocked: Variant in [visiting, retry_at, failures, status]:
+			if blocked is Dictionary:
+				(blocked as Dictionary).erase(id)
+		placed += 1
+	if placed > 0 and not _pre_spawn_logged:
+		_pre_spawn_logged = true
+		print("[unfplap stress] %d mares pre-spawned on the library grid" % placed)
+	# The spawner reads the life simulation's region before `life.attach()` runs. Sync it now so
+	# the session's Ponyville assignment, not the saved region, chooses the navigation service.
+	# The same call moves unleased residents onto the grid rows above.
+	var life: Variant = population.get("life")
+	if is_instance_valid(life) and life.has_method("_sync_roster"):
+		life.call("_sync_roster")
+
+
+## A stable, separate point per stress id. The base spawner requires 3 m between residents, so
+## the temporary grid is wider than the final line; `_setup_ponies()` moves them in afterwards.
+func _stress_spawn_point(index: int) -> Vector3:
+	var home := _library_home()
+	if is_instance_valid(home) and home.has_method("outside"):
+		var front: Vector3 = home.call("outside")
+		var right: Vector3 = home.global_basis.x.normalized()
+		var back: Vector3 = home.global_basis.z.normalized()
+		var columns := maxi(PRE_SPAWN_COLUMNS, 1)
+		var column := index % columns
+		var row := floori(float(index) / float(columns))
+		var side := (float(column) - (float(columns) - 1.0) * 0.5) * PRE_SPAWN_SPACING_M
+		var depth := float(row) * PRE_SPAWN_SPACING_M
+		return front + right * side + back * (LINE_FIRST_BACK_M + depth)
+	return _test_spawn_point()
 
 
 func _prune_population() -> void:

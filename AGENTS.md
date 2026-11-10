@@ -92,10 +92,10 @@ script. `godot` must be on `PATH`.
   inventory persist.
 - `Shift+[` / `Shift+]` cycles every adult mare the population catalogue can spawn. The eight
   starters stay live and the previous starter returns to her saved spot; a non-starter is
-  spawned through the population streamer on demand, made idle in front of Anon facing away, and
-  the previous non-starter is despawned before the next one loads, so only one extra stays live.
-  The streamer is paused, so the lab ticks its `reconcile()` by hand and removes the extra's
-  in-memory assignment when she leaves. The keys
+  spawned through the population streamer on demand, made idle in front of Anon in a 3/4 rear
+  view (slightly to his right and turned 35°), and the previous non-starter is despawned before
+  the next one loads, so only one extra stays live. The streamer is paused, so the lab ticks its
+  `reconcile()` by hand and removes the extra's in-memory assignment when she leaves. The keys
   work with the mouse released and while the settings/pause menu is open (the posture settles when
   it closes), but not while a text field owns the keyboard; `Ctrl+[` / `Ctrl+]` is kept as an
   alias where the bracket key arrives (on many systems Ctrl+[ is the historical Escape control

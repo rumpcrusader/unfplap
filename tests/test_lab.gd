@@ -20,7 +20,7 @@ extends Node
 ##               first, and the log says why cuddling cannot start
 ##   Mouse 5     make the pointed adult mare idle, grant the lover bond and qualify for sex
 ##               without changing her romance tier
-##   Shift+[ / ]  move the previous/next mare in front of Anon, facing away, standing idle.
+##   Shift+[ / ]  move the previous/next mare in front of Anon in a 3/4 rear view, standing idle.
 ##               The eight starters stay loaded and the previous starter returns to her saved
 ##               spot; any other mare is spawned on demand and the previous non-starter is
 ##               despawned again, so only one extra is live.
@@ -34,6 +34,11 @@ const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "
 	"tempest_shadow", "lily_valley", "minuette"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.
 const TEST_STRANGERS := ["applejack"]
+## Review framing: she stands in front of Anon with her rump toward him, slightly to his right and
+## turned so the camera sees one hip and the dock at a 3/4 rear angle.
+const REVIEW_AHEAD_M := 1.25
+const REVIEW_SIDE_M := 0.15
+const REVIEW_TURN_DEG := 35.0
 ## Where each test pony stands at lab start: the transform she had in the world save of
 ## 2026-11-07 20:53 (save_20261107-205358). Position and yaw only; the ground raycast and
 ## `_upright()` still run on top.
@@ -907,7 +912,16 @@ func _bring_to_anon(pony: Node3D) -> void:
 	if forward.length_squared() < 0.000001:
 		forward = Vector3.FORWARD
 	forward = forward.normalized()
-	var at: Vector3 = (body as Node3D).global_position + forward * 1.25
+	var right: Vector3 = (view as Camera3D).global_basis.x \
+		if is_instance_valid(view) else (body as Node3D).global_basis.x
+	right.y = 0.0
+	if right.length_squared() < 0.000001:
+		right = forward.cross(Vector3.UP)
+	if right.length_squared() < 0.000001:
+		right = Vector3.RIGHT
+	right = right.normalized()
+	var at: Vector3 = (body as Node3D).global_position + forward * REVIEW_AHEAD_M \
+		+ right * REVIEW_SIDE_M
 	var space := pony.get_world_3d().direct_space_state
 	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 1.5,
 		at + Vector3.DOWN * 4.0, 1, [pony.get_rid()])
@@ -917,15 +931,16 @@ func _bring_to_anon(pony: Node3D) -> void:
 	_clear_busy(pony)
 	pony.global_position = at
 	var scale := pony.global_basis.get_scale()
-	pony.global_transform = Transform3D(
-		Basis.looking_at(forward, Vector3.UP) * Basis.from_scale(scale), at)
+	var away := Basis.looking_at(forward, Vector3.UP)
+	var turned := Basis(Vector3.UP, deg_to_rad(REVIEW_TURN_DEG)) * away
+	pony.global_transform = Transform3D(turned * Basis.from_scale(scale), at)
 	if pony.get("velocity") != null:
 		pony.set("velocity", Vector3.ZERO)
 	_upright(pony)
 	_make_idle(pony, true)
 	pony.reset_physics_interpolation()
 	_log_action("lab mare", PackedStringArray([
-		"%s pos=%s facing=away from Anon" % [_pony_id(pony), str(at)]]))
+		"%s pos=%s 3/4 rear view" % [_pony_id(pony), str(at)]]))
 
 
 ## Console is normally refused while the player's rest owns controls_locked. Open it with a

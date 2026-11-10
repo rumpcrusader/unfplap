@@ -12,6 +12,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PLACEMENT := preload("res://mods/unfplap/tail_seat_placement.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
+const DOCK_SEAT := preload("res://mods/unfplap/dock_seat.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 
 const DOCK_NAME := "OpenPonyDock"
@@ -20,21 +21,23 @@ const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.jso
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
 const MOVE_STEP := 0.005
-## Below this squared length the dock can stay on its cached original mesh.
-const DOCK_EPSILON := 0.0000000001
 
 var main: Node
 
 ## pony -> cached original values, target and live state. See `_prepare()`.
 var _rows: Dictionary = {}
-## Last applied value of Anatomy › Re-seat tails; `refresh_all` only re-applies when it changes.
+## Last applied values of Anatomy › Re-seat tails and docks and the two debug offsets.
 var _enabled := true
+var _tail_lift := 0.0
+var _dock_lift := 0.0
 static var _reference := Vector3.INF
 static var _reference_loaded := false
 
 
 func _ready() -> void:
 	_enabled = SETTINGS.reseat_tails.get_bool()
+	_tail_lift = SETTINGS.tail_offset_mm.get_num() / 1000.0
+	_dock_lift = SETTINGS.dock_offset_mm.get_num() / 1000.0
 
 
 ## The game's exact reference anchor, in body mesh space. Falls back to the body tail root.
@@ -82,14 +85,20 @@ func attach(pony: Node) -> void:
 ## changed saved exception cause a write.
 func refresh_all() -> void:
 	var enabled := SETTINGS.reseat_tails.get_bool()
+	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
+	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	var toggle_changed := enabled != _enabled
+	var offsets_changed := not is_equal_approx(tail_lift, _tail_lift) \
+		or not is_equal_approx(dock_lift, _dock_lift)
 	_enabled = enabled
+	_tail_lift = tail_lift
+	_dock_lift = dock_lift
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
 		var row: Dictionary = _rows[pony]
-		var changed := toggle_changed
+		var changed := toggle_changed or offsets_changed
 		if not bool(row["dirty"]):
 			var saved: Vector2 = SETTINGS.tail_seat_offset(str(row["id"]))
 			if not PLACEMENT.same(saved, row["offset"] as Vector2):
@@ -104,7 +113,7 @@ func place(pony: Node, op: String, value := MOVE_STEP) -> String:
 	if not is_instance_valid(pony) or not _rows.has(pony):
 		return "No tail-seat pony targeted."
 	if not SETTINGS.reseat_tails.get_bool():
-		return "Re-seat tails is off."
+		return "Re-seat tails and docks is off."
 	var row: Dictionary = _rows[pony]
 	var offset: Vector2 = row["offset"]
 	match op:
@@ -138,12 +147,14 @@ func report_all() -> String:
 	var lines := PackedStringArray()
 	var count := 0
 	var exceptions := 0
+	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
+	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
 		var row: Dictionary = _rows[pony]
-		var target := PLACEMENT.target(reference(pony), row["offset"] as Vector2)
+		var target := PLACEMENT.target(reference(pony), row["offset"] as Vector2, tail_lift)
 		var source := _source(row)
 		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) source=%s" % [
 			str(row["id"]), (row["anchor"] as Vector3).x, (row["anchor"] as Vector3).y,
@@ -154,7 +165,8 @@ func report_all() -> String:
 		if source == "override" or source == "unsaved":
 			exceptions += 1
 	if not lines.is_empty():
-		_log("tail seats\n\t" + "\n\t".join(lines))
+		_log("tail seats tail_offset=%+.0fmm dock_offset=%+.0fmm\n\t" % [
+			tail_lift * 1000.0, dock_lift * 1000.0] + "\n\t".join(lines))
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]
 
 
@@ -206,6 +218,7 @@ func _prepare(pony: Node) -> Dictionary:
 	return {
 		"pony": pony,
 		"id": str(identity.get("id")),
+		"body": "stallion" if bool(identity.get("stallion")) else "mare",
 		"link": link,
 		"dock": dock,
 		"original_pelvis": link.get("pelvis_offset") as Transform3D,
@@ -229,8 +242,10 @@ func _apply(row: Dictionary) -> void:
 	var reference_anchor := reference(pony)
 	if not reference_anchor.is_finite():
 		return
+	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
+	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	var delta := PLACEMENT.delta(row["anchor"] as Vector3, reference_anchor,
-		row["offset"] as Vector2)
+		row["offset"] as Vector2, tail_lift)
 	var link: Node = row["link"]
 	if not is_instance_valid(link) or not link.is_inside_tree():
 		return
@@ -239,7 +254,7 @@ func _apply(row: Dictionary) -> void:
 	link.set("pelvis_offset", next)
 	if link.has_method("_body_updated"):
 		link.call("_body_updated")
-	_move_dock(row, delta)
+	_move_dock(row, delta, dock_lift)
 	row["applied"] = delta
 	_invalidate_far(pony)
 
@@ -260,14 +275,13 @@ func _restore(row: Dictionary) -> void:
 	_invalidate_far(pony)
 
 
-## Move the dock by the same body-space delta as the tail. The fit is captured before the first
-## write, so repeated nudges rebuild from the game's original fit instead of accumulating.
-func _move_dock(row: Dictionary, delta: Vector3) -> void:
+## Move the dock by the same body-space delta as the tail, then the independent dock offset, and
+## snap its base ring to the rump. The fit is captured before the first write, so repeated nudges
+## rebuild from the game's original fit instead of accumulating. The base snap runs even when both
+## deltas are zero, because the reference fit itself floats behind the rump.
+func _move_dock(row: Dictionary, delta: Vector3, dock_lift: float) -> void:
 	var dock: MeshInstance3D = row["dock"]
 	if not is_instance_valid(dock):
-		return
-	if delta.length_squared() <= DOCK_EPSILON:
-		dock.mesh = row["original_dock"]
 		return
 	var fit: Dictionary = (row["fit"] as Dictionary).duplicate(true)
 	var position: Variant = fit.get("position")
@@ -275,11 +289,14 @@ func _move_dock(row: Dictionary, delta: Vector3) -> void:
 		return
 	fit["position"] = [
 		float(position[0]) + delta.x,
-		float(position[1]) + delta.y,
+		float(position[1]) + delta.y + dock_lift,
 		float(position[2]) + delta.z,
 	]
 	var fitted: ArrayMesh = HYBRID_DOCK.fitted_mesh(fit, false)
 	var mesh: ArrayMesh = HYBRID_DOCK.reach_rump(fitted, row["pony"] as Node, false)
+	if mesh == null:
+		return
+	mesh = DOCK_SEAT.snap_base(mesh, str(row["body"]))
 	if mesh != null:
 		dock.mesh = mesh
 

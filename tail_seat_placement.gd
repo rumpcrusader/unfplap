@@ -58,14 +58,15 @@ static func same(a: Vector2, b: Vector2) -> bool:
 	return absf(a.x - b.x) <= EPSILON and absf(a.y - b.y) <= EPSILON
 
 
-## The exact reference anchor plus one mare's exception. The reference carries X.
-static func target(reference: Vector3, offset: Vector2) -> Vector3:
-	return Vector3(reference.x, reference.y + offset.x, reference.z + offset.y)
+## The exact reference anchor plus the global tail lift and one mare's exception. The reference
+## carries X.
+static func target(reference: Vector3, offset: Vector2, lift := 0.0) -> Vector3:
+	return Vector3(reference.x, reference.y + lift + offset.x, reference.z + offset.y)
 
 
-## The translation needed to put an anchor on the reference plus its exception.
-static func delta(anchor: Vector3, reference: Vector3, offset: Vector2) -> Vector3:
-	return target(reference, offset) - anchor
+## The translation needed to put an anchor on the reference plus its lift and exception.
+static func delta(anchor: Vector3, reference: Vector3, offset: Vector2, lift := 0.0) -> Vector3:
+	return target(reference, offset, lift) - anchor
 
 
 static func text(offset: Vector2) -> String:

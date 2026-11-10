@@ -1215,8 +1215,9 @@ static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never
 static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
 	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
 	ANATOMY, "")
-static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails", true, "Re-seat tails",
-	"Seat every mare's hair tail at the reference dock so her tail and dock stay clear of her genitals. Off restores the game's original tail mount.",
+static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails", true,
+	"Re-seat tails and docks",
+	"Seat every mare's hair tail at the reference dock and snap the dock base to her rump. Off restores the game's original tail mount and dock.",
 	ANATOMY, "")
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip", false, "Show skin strip",
 	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
@@ -1227,6 +1228,12 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
+static var tail_offset_mm := num("tail_offset_mm", "anatomy.tail_offset_mm", 0.0, "Tail offset",
+	"Move every re-seated tail up (+) or down (-) by this many millimetres. Stored verbatim; no clamp.",
+	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
+static var dock_offset_mm := num("dock_offset_mm", "anatomy.dock_offset_mm", 0.0, "Dock offset",
+	"Move every re-seated dock up (+) or down (-) by this many millimetres after the tail seat. Stored verbatim; no clamp.",
+	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.67, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()

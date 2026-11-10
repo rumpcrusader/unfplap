@@ -58,6 +58,7 @@ TESTS=(
 	test_act_audio
 	test_anatomy
 	test_tail_seat
+	test_dock_seat
 	test_tail_hide
 	test_vr_act
 	test_caress

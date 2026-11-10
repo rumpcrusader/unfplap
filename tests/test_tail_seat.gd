@@ -43,9 +43,13 @@ func _check_target() -> void:
 	check(near(raised.x, REFERENCE.x), "the reference carries the lateral position")
 	check(near(raised.y, REFERENCE.y + 0.012), "the exception raises Y")
 	check(near(raised.z, REFERENCE.z - 0.003), "the exception moves Z")
+	var lifted := PLACEMENT.target(REFERENCE, Vector2(0.012, -0.003), 0.020)
+	check(near(lifted.y, raised.y + 0.020), "the global tail lift adds to Y")
 	var anchor := Vector3(0.0, 0.5, 0.25)
 	var delta := PLACEMENT.delta(anchor, REFERENCE, Vector2(0.012, -0.003))
 	check(delta.is_equal_approx(raised - anchor), "the translation reaches the target")
+	var lifted_delta := PLACEMENT.delta(anchor, REFERENCE, Vector2(0.012, -0.003), 0.020)
+	check(lifted_delta.is_equal_approx(lifted - anchor), "the lift reaches the lifted target")
 
 
 func _check_storage() -> void:

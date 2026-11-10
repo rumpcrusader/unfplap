@@ -84,6 +84,10 @@ func _check_defaults() -> void:
 	check(str(SETTINGS.orientation.default) == "up", "thrust orientation default")
 	check(not bool(SETTINGS.debug_mode.default), "debug mode is off by default")
 	check(bool(SETTINGS.reseat_tails.default), "re-seat tails defaults on")
+	check(near(float(SETTINGS.tail_offset_mm.default), 0.0)
+		and bool(SETTINGS.tail_offset_mm.debug), "the tail offset is a debug number at zero")
+	check(near(float(SETTINGS.dock_offset_mm.default), 0.0)
+		and bool(SETTINGS.dock_offset_mm.debug), "the dock offset is a debug number at zero")
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
@@ -212,6 +216,20 @@ func _check_coercion() -> void:
 	SETTINGS.radius.set_num(-5.0)
 	check(near(SETTINGS.radius.get_num(), -5.0), "a debug number is never clamped")
 	SETTINGS.radius.set_num(float(original["radius"]))
+
+	original["tail_offset"] = SETTINGS.tail_offset_mm.get_num()
+	SETTINGS.tail_offset_mm.set_num(500.0)
+	check(near(SETTINGS.tail_offset_mm.get_num(), 500.0), "the tail offset is never clamped")
+	SETTINGS.tail_offset_mm.set_num(-500.0)
+	check(near(SETTINGS.tail_offset_mm.get_num(), -500.0), "a negative tail offset is kept")
+	SETTINGS.tail_offset_mm.set_num(float(original["tail_offset"]))
+
+	original["dock_offset"] = SETTINGS.dock_offset_mm.get_num()
+	SETTINGS.dock_offset_mm.set_num(500.0)
+	check(near(SETTINGS.dock_offset_mm.get_num(), 500.0), "the dock offset is never clamped")
+	SETTINGS.dock_offset_mm.set_num(-500.0)
+	check(near(SETTINGS.dock_offset_mm.get_num(), -500.0), "a negative dock offset is kept")
+	SETTINGS.dock_offset_mm.set_num(float(original["dock_offset"]))
 
 	original["orientation"] = SETTINGS.orientation.get_choice()
 	SETTINGS.orientation.set_choice("sideways")

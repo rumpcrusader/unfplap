@@ -34,7 +34,10 @@ func candidates(hand_side: String, context: Dictionary) -> Array:
 ## The authored path is the standing caress path. It moves from the flank at no lean through
 ## the shoulder to the base of the neck at a full forward lean.
 func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -> Array:
-	var path: Variant = _path_for(hand_side)
+	# Anon stands behind her, so his left hand reaches her left side. The authored body chain
+	# uses the missionary facing, where the hands cross; request its opposite side here.
+	var anchor_hand := "right" if hand_side == "left" else "left"
+	var path: Variant = _path_for(anchor_hand)
 	if path == null:
 		return []
 	var world: Array = path.call("skinned")
@@ -43,7 +46,7 @@ func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var length := PATH.path_length(world)
 	var u: float = PATH.u_for(lean, 0.0, float(path.get("belly_u")))
-	var sample := PATH.sample_world(world, u, hand_side, body_right)
+	var sample := PATH.sample_world(world, u, anchor_hand, body_right)
 	if sample.is_empty():
 		return []
 	var normal: Vector3 = sample["normal"]

@@ -101,9 +101,9 @@ Missionary is its own state, not the game's bed rest:
   caress at once.
 - **Missionary caress path.** The primary paths are authored from the Blender rest meshes:
   `caress/anchors.json` has a shared belly and per-hand lower/chest/neck/cheek;
-  `caress/anchors2.json` has per-hand flank/shoulder/neck. Torso anchors are labelled in the
-  Blender rest-body space, so the builder swaps the left/right block for torso slots; head points
-  keep the head's mirrored convention. Every point snaps to the nearest body/head source vertex. The debug **Caress path** dropdown picks `one` or `two`; the path cache
+  `caress/anchors2.json` has per-hand flank/shoulder/neck. The authored side is the missionary
+  facing, where Anon's left hand reaches her right; standing requests the opposite authored hand
+  side because Anon is behind her. Every point snaps to the nearest body/head source vertex. The debug **Caress path** dropdown picks `one` or `two`; the path cache
   is keyed by path id, so the next caress rebuilds. Without authored points,
   `caress/caress_path.gd` casts rays from the live act camera to the belly, chest, neck and head
   bone origins through the posed patches. The first triangle is the coat the player sees, so the anchors are on

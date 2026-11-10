@@ -863,10 +863,10 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   Each point snaps to the nearest source vertex within 6 cm, so the runtime keeps its skin
   weights. `anchors.json` is a shared belly plus per-hand lower/chest/neck/cheek
   (`lower → belly → chest → neck → cheek`); `anchors2.json` is per-hand flank/shoulder/neck
-  (`flank → shoulder → neck`, neutral at the flank). Torso anchors are labelled in Blender's
-  rest-body space, where +X is the pony's right; the builder swaps the left/right block for torso
-  slots. Head points use the head's mirrored convention, so only the cheek keeps the hand label.
-  A missing or invalid point falls back to the camera path, then the rest path. `presentation.missionary.caress.path_id` is the debug
+  (`flank → shoulder → neck`, neutral at the flank). The authored side is the missionary facing:
+  Anon faces her, so his left hand reaches her right side. Standing requests the opposite authored
+  hand side because Anon is behind her and his left hand reaches her left side; the path data is
+  unchanged. A missing or invalid point falls back to the camera path, then the rest path. `presentation.missionary.caress.path_id` is the debug
   dropdown (`one`/`two`); the path cache is keyed by the hand and path id, so switching it
   rebuilds the next caress path.
 - `caress/caress_path.gd` is the missionary path controller: without authored points it chooses

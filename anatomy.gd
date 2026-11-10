@@ -526,7 +526,9 @@ func _apply_dock(anatomy_shown: bool) -> void:
 	if not anatomy_shown:
 		_dock.visible = _dock_was_visible
 		return
-	_dock.visible = SETTINGS.show_dock.get_bool()
+	# A dock the game hid before anatomy attached (the princesses' fitted body hides it) stays
+	# hidden: the anatomy must not re-show a dock the body art does not use.
+	_dock.visible = _dock_was_visible and SETTINGS.show_dock.get_bool()
 
 
 ## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some

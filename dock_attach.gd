@@ -8,7 +8,8 @@ extends SkeletonModifier3D
 ## dock with them. It never bridges body and tail, so sitting cannot stretch it.
 ##
 ## The dock is unskinned and its vertices are rewritten in the body skeleton's local space. The
-## source mesh is 344 vertices, updated at 30 Hz only while the near mesh/dock is visible.
+## source mesh is 344 vertices, updated at 30 Hz only while the near mesh/dock is visible. An
+## unchanged pelvis/tail pose skips the rebuild, which is most of the idle cost.
 
 const DOCK_SEAT := preload("res://mods/unfplap/dock_seat.gd")
 const UPDATE_DT := 1.0 / 30.0
@@ -33,6 +34,15 @@ var _rest_primitive := Mesh.PRIMITIVE_TRIANGLES
 var _weights := PackedFloat32Array()
 var _clock := 0.0
 var _first := true
+var _last_pelvis := Transform3D()
+var _last_tail := Transform3D()
+var _has_last := false
+## Rolling counters, drained by the tail-seat perf summary.
+var perf_updates := 0
+var perf_skipped := 0
+var perf_usec := 0
+var perf_max_usec := 0
+var perf_meshes := 0
 
 
 func _ready() -> void:
@@ -121,11 +131,20 @@ func _cache() -> void:
 
 func _update() -> void:
 	if not _cache_ready():
+		_has_last = false
 		return
+	var started := Time.get_ticks_usec()
 	var into_body := body.global_transform.affine_inverse()
 	var pelvis_current := into_body * hair.global_transform * hair.get_bone_global_pose(_pelvis)
-	var pelvis_delta := pelvis_current * _pelvis_rest_body.affine_inverse()
 	var tail_current := into_body * hair.global_transform * hair.get_bone_global_pose(_tail1)
+	if _has_last and pelvis_current.is_equal_approx(_last_pelvis) \
+			and tail_current.is_equal_approx(_last_tail):
+		perf_skipped += 1
+		return
+	_has_last = true
+	_last_pelvis = pelvis_current
+	_last_tail = tail_current
+	var pelvis_delta := pelvis_current * _pelvis_rest_body.affine_inverse()
 	var tail_delta := tail_current * _tail_rest_body.affine_inverse()
 	var offset := Vector3(0.0, dock_lift, 0.0)
 	var vertices := PackedVector3Array()
@@ -151,6 +170,11 @@ func _update() -> void:
 	for key: Variant in rest_mesh.get_meta_list():
 		mesh.set_meta(key, rest_mesh.get_meta(key))
 	dock.mesh = mesh
+	perf_updates += 1
+	perf_meshes += 1
+	var elapsed := Time.get_ticks_usec() - started
+	perf_usec += elapsed
+	perf_max_usec = maxi(perf_max_usec, elapsed)
 
 
 func _cache_ready() -> bool:
@@ -158,3 +182,15 @@ func _cache_ready() -> bool:
 			or not is_instance_valid(hair):
 		return false
 	return _pelvis >= 0 and _tail1 >= 0 and not _rest_vertices.is_empty()
+
+
+## Drained by the tail-seat perf summary. Times are microseconds.
+func take_perf() -> Dictionary:
+	var out := {"updates": perf_updates, "skipped": perf_skipped, "usec": perf_usec,
+		"max_usec": perf_max_usec, "meshes": perf_meshes}
+	perf_updates = 0
+	perf_skipped = 0
+	perf_usec = 0
+	perf_max_usec = 0
+	perf_meshes = 0
+	return out

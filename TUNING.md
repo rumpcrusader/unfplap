@@ -135,10 +135,10 @@ prefixes pre-emptively.
 
 - The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
   Defaults are generated from the registry, so there is no second defaults table.
-- `anatomy.placement` is one block with `default.*` (nine debug declarations: anatomy 5, tail 2,
+- `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
   dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `anatomy_placement.gd`
-  owns the shipped per-mare `MARE_DEFAULTS` and resolves override, shipped default, then global
-  default. The old `anatomy_place.json` and `anon_place.json` import once and are renamed
+  owns the shipped per-mare `MARE_DEFAULTS` (the tuned tail/dock rows) and resolves override,
+  shipped default, then global default. The old `anatomy_place.json` and `anon_place.json` import once and are renamed
   `.migrated`. The old `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate
   into the same block on load.
 - `anatomy.reseat_tails` (Re-seat tails and docks, on by default) applies the exact reference dock
@@ -146,12 +146,14 @@ prefixes pre-emptively.
   for her own tail), snaps the dock base to the rump and seats the dock opening on the tail cap's
   centre. A tail-only follower carries the cuff with `mPelvis`/`mTail1`. The tail/dock values live
   in the same `anatomy.placement.<id>` row as the anatomy: `tail_y`/`tail_z` move the tail from the
-  exact reference, `dock_y` trims the cuff and `dock_scale` scales it about the base ring; only
+  exact reference, `dock_y` trims the cuff, `dock_scale` scales it about the base ring and
+  `tail_tilt_deg` tilts the hair pelvis about the body's rear axis with the origin fixed; only
   differences from the resolved default are stored. The Anatomy Debug actions **Placement**
-  (anatomy), **Placement tail**, **Placement dock** and **Placement file** edit it in game; the
-  default is staged until Save, and a mare override is written directly.
-- `anatomy.dock_color` (Dock colour, `coat`/`genitals`, default `coat`) chooses the standard dock's
-  material. `coat` keeps the game's coat material; `genitals` uses a copy of the attached anatomy
+  (anatomy), **Placement tail**, **Placement tail tilt** (1° per press), **Placement dock** and
+  **Placement file** edit it in game; the default is staged until Save, and a mare override is
+  written directly.
+- `anatomy.dock_color` (Dock colour, `coat`/`genitals`, default `genitals`) chooses the standard
+  dock's material. `coat` keeps the game's coat material; `genitals` uses a copy of the attached anatomy
   material with `coat_color`/`coat_shadow` set to her skin tones, so the cuff matches her genital
   skin and never falls through to the shader's black default; while the anatomy is not attached it
   falls back to coat.

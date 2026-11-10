@@ -1711,6 +1711,10 @@ func _placement_debug(op: String, value := 0.0) -> String:
 	var id := _placement_id()
 	if id.is_empty():
 		return "No placement pony targeted."
+	if id != "default" and (op.begins_with("tail_") or op.begins_with("dock_")):
+		var target := _placement_target()
+		if not is_instance_valid(tail_seat) or not bool(tail_seat.call("can_seat", target)):
+			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var values := _placement_values(id)
 	match op:
 		"save":
@@ -1770,6 +1774,10 @@ static func _nudge_placement(placement: Dictionary, op: String, value: float) ->
 			placement["dock_scale"] = minf(float(placement.get("dock_scale", 1.0)) + value, 4.0)
 		"dock_scale_down":
 			placement["dock_scale"] = maxf(float(placement.get("dock_scale", 1.0)) - value, 0.05)
+		"tail_tilt_left":
+			placement["tail_tilt_deg"] = float(placement.get("tail_tilt_deg", 0.0)) + value
+		"tail_tilt_right":
+			placement["tail_tilt_deg"] = float(placement.get("tail_tilt_deg", 0.0)) - value
 		_:
 			return false
 	return true
@@ -1837,6 +1845,14 @@ func action_tail_seat_forward() -> String:
 
 func action_tail_seat_back() -> String:
 	return _placement_debug("tail_back", 0.005)
+
+
+func action_tail_tilt_left() -> String:
+	return _placement_debug("tail_tilt_left", 1.0)
+
+
+func action_tail_tilt_right() -> String:
+	return _placement_debug("tail_tilt_right", 1.0)
 
 
 func action_placement_save() -> String:

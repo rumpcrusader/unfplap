@@ -86,8 +86,10 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.reseat_tails.default), "re-seat tails defaults on")
 	check(near(float(SETTINGS.tail_y.default), 0.0) and bool(SETTINGS.tail_y.debug),
 		"the default tail Y is a debug number at zero")
-	check(near(float(SETTINGS.dock_scale.default), 1.0) and bool(SETTINGS.dock_scale.debug),
-		"the default dock scale is a debug number at one")
+	check(near(float(SETTINGS.dock_scale.default), 1.2) and bool(SETTINGS.dock_scale.debug),
+		"the default dock scale is a debug number at 1.2")
+	check(near(float(SETTINGS.tail_tilt_deg.default), 0.0) and bool(SETTINGS.tail_tilt_deg.debug),
+		"the default tail tilt is a debug number at zero")
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
@@ -96,33 +98,37 @@ func _check_defaults() -> void:
 ## Anatomy placement is one default block plus partial per-mare overrides.
 func _check_placement() -> void:
 	var base := SETTINGS.anatomy_placement_default("")
-	check(near(float(base["offset_y"]), 0.525), "placement default Y")
-	check(near(float(base["pitch_deg"]), -6.0), "placement default pitch")
-	check(near(float(base["tail_y"]), 0.0) and near(float(base["tail_z"]), 0.0),
+	check(near(float(base["offset_y"]), 0.505), "placement default Y")
+	check(near(float(base["pitch_deg"]), 3.0), "placement default pitch")
+	check(near(float(base["tail_y"]), 0.0) and near(float(base["tail_z"]), -0.01),
 		"placement default tail")
-	check(near(float(base["dock_y"]), 0.0) and near(float(base["dock_scale"]), 1.0),
+	check(near(float(base["dock_y"]), 0.01) and near(float(base["dock_scale"]), 1.2),
 		"placement default dock")
-	check(near(float(base["scale"]), 0.742), "placement default scale")
+	check(near(float(base["scale"]), 0.682), "placement default scale")
+	check(near(float(base["tail_tilt_deg"]), 0.0), "placement default tail tilt")
 
-	SETTINGS.save_anatomy_placement("fluttershy",
+	SETTINGS.save_anatomy_placement("octavia_melody",
 		{"offset_y": 0.51, "offset_z": 0.284, "scale": 0.762})
-	var over := SETTINGS.anatomy_placement("fluttershy")
+	var over := SETTINGS.anatomy_placement("octavia_melody")
 	check(near(float(over["offset_y"]), 0.51), "per-mare override Y")
 	check(near(float(over["offset_x"]), 0.0), "an omitted override key falls back")
 	check(near(float(over["scale"]), 0.762), "per-mare override scale")
-	check(SETTINGS.anatomy_placement_has_override("fluttershy"),
+	check(SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a differing per-mare block is an override")
-	SETTINGS.save_anatomy_placement("fluttershy", base)
-	check(not SETTINGS.anatomy_placement_has_override("fluttershy"),
+	SETTINGS.save_anatomy_placement("octavia_melody", base)
+	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a block equal to the default is not an override")
+	check(near(float(SETTINGS.anatomy_placement("rarity")["tail_y"]), -0.02)
+		and near(float(SETTINGS.anatomy_placement("rarity")["dock_y"]), 0.045),
+		"shipped per-mare defaults resolve")
 
 	SETTINGS.set_anatomy_placement_draft({"offset_y": 0.6, "scale": 0.9})
 	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.6),
 		"the default draft previews")
-	check(near(float(SETTINGS.anatomy_placement_default("", false)["offset_y"]), 0.525),
+	check(near(float(SETTINGS.anatomy_placement_default("", false)["offset_y"]), 0.505),
 		"the persisted default stays while previewing")
 	SETTINGS.clear_anatomy_placement_draft()
-	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.525),
+	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.505),
 		"clearing the draft restores the default")
 
 	var anon := SETTINGS.anon_placement()
@@ -132,35 +138,37 @@ func _check_placement() -> void:
 
 ## Tail and dock placement share the anatomy block and disappear at the default.
 func _check_tail_seat() -> void:
-	var default := SETTINGS.anatomy_placement_default("minuette")
-	check(near(float(default["tail_y"]), 0.0) and near(float(default["tail_z"]), 0.0),
+	var default := SETTINGS.anatomy_placement_default("octavia_melody")
+	check(near(float(default["tail_y"]), 0.0) and near(float(default["tail_z"]), -0.01),
 		"a mare with no override uses the default tail")
-	check(near(float(default["dock_y"]), 0.0) and near(float(default["dock_scale"]), 1.0),
+	check(near(float(default["dock_y"]), 0.01) and near(float(default["dock_scale"]), 1.2),
 		"a mare with no override uses the default dock")
 	var values := default.duplicate(true)
 	values["tail_y"] = 0.012
 	values["tail_z"] = -0.003
 	values["dock_y"] = -0.008
 	values["dock_scale"] = 1.06
-	SETTINGS.save_anatomy_placement("minuette", values)
-	var placed := SETTINGS.anatomy_placement("minuette")
+	values["tail_tilt_deg"] = 7.0
+	SETTINGS.save_anatomy_placement("octavia_melody", values)
+	var placed := SETTINGS.anatomy_placement("octavia_melody")
 	check(near(float(placed["tail_y"]), 0.012) and near(float(placed["tail_z"]), -0.003),
 		"a tail placement override reads back")
 	check(near(float(placed["dock_y"]), -0.008) and near(float(placed["dock_scale"]), 1.06),
 		"a dock placement override reads back")
-	check(SETTINGS.anatomy_placement_has_override("minuette"),
+	check(near(float(placed["tail_tilt_deg"]), 7.0), "a tail tilt override reads back")
+	check(SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a non-default tail/dock placement is an override")
-	check(near(float(SETTINGS.anatomy_placement("fluttershy")["tail_y"]), 0.0),
+	check(near(float(SETTINGS.anatomy_placement("maud_pie")["tail_y"]), 0.0),
 		"tail placement overrides are per mare")
-	SETTINGS.save_anatomy_placement("minuette",
-		SETTINGS.anatomy_placement_default("minuette", false))
-	check(not SETTINGS.anatomy_placement_has_override("minuette"),
+	SETTINGS.save_anatomy_placement("octavia_melody",
+		SETTINGS.anatomy_placement_default("octavia_melody", false))
+	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"returning to the default removes the override")
 	var data := SETTINGS.data()
 	var anatomy: Variant = data.get("anatomy", {})
 	var placement: Variant = (anatomy as Dictionary).get("placement", {}) \
 		if anatomy is Dictionary else {}
-	check(not placement is Dictionary or not (placement as Dictionary).has("minuette"),
+	check(not placement is Dictionary or not (placement as Dictionary).has("octavia_melody"),
 		"a default placement removes the mare row")
 
 ## The old placement files import into the one block and collapse rows equal to the default.
@@ -172,8 +180,8 @@ func _check_placement_migration() -> void:
 	var mare := FileAccess.open(mare_path, FileAccess.WRITE)
 	mare.store_string(JSON.stringify({"version": 3,
 		"fluttershy": {"position": [0.0, 0.51, 0.284], "pitch": 6.0, "scale": 0.762},
-		"applejack": {"position": [0.0, 0.525, 0.289], "pitch": -6.0, "scale": 0.742},
-		"rainbow_dash": {"position": [0.0, 0.525, 0.289], "pitch": 6.0, "scale": 0.742},
+		"applejack": {"position": [0.0, 0.505, 0.284], "pitch": 3.0, "scale": 0.682},
+		"rainbow_dash": {"position": [0.0, 0.505, 0.284], "pitch": 6.0, "scale": 0.682},
 	}, "\t"))
 	mare.close()
 	var anon := FileAccess.open(anon_path, FileAccess.WRITE)

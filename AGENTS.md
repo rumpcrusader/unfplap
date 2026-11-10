@@ -256,10 +256,10 @@ mods/unfplap/
   tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
   tail_visibility.gd  debug controller: installs tail_hide on loaded AI characters
   tail_seat.gd      re-seats every adult mare's hair tail at the reference dock, installs the
-                    tail-only dock cuff, reads the tail/dock placement; restores the original when
-                    the setting is off
+                    tail-only dock cuff, reads the tail/dock/tilt placement and prints its perf
+                    lines; restores the original when the setting is off
   dock_attach.gd    tail-only dock cuff follower: `mPelvis` base, `mTail1` outer end, 30 Hz CPU,
-                    keeps the dock's vertex colours and metadata
+                    skips unchanged poses, keeps the dock's vertex colours and metadata
   dock_seat.gd      snaps the dock base ring to the rump (`rump_z - 4 mm`) with a falloff
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
@@ -439,7 +439,9 @@ reclined eye height left the camera wrong after the act.
   dock seat, derived from the body's own tail root (`pony_tail_01`). Mares added by other mods use
   the same seat: they are not gated by `SETTINGS.CHARACTER_ORDER`, an id with no
   `dock_visibility_fits.json` row gets `DOCK_VISIBILITY_FALLBACK`, and its
-  `tail_y`/`tail_z`/`dock_y`/`dock_scale` come from the global `anatomy.placement.default.*`.
+  `tail_y`/`tail_z`/`dock_y`/`dock_scale`/`tail_tilt_deg` come from the global
+  `anatomy.placement.default.*`; the princesses' fitted bodies have no hair skeleton, so their
+  tail seat is unavailable and their pre-hidden dock stays hidden.
 - The `OpenPonyDock` uses the game reference fit, not `effective_fit()`: the per-mare
   `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
   that tail to the reference, pushes the cuff above and behind the tail base. The fit is
@@ -459,10 +461,13 @@ reclined eye height left the camera wrong after the act.
   Lift, aside, flick, tail lay and tail tuck all carry the cuff; it never bridges body and tail,
   so sitting cannot stretch it.
 - `anatomy.placement` is the one placement block: `offset_x/y/z`, `pitch_deg`, `scale`, `tail_y`,
-  `tail_z`, `dock_y` and `dock_scale`. `default` is global; `<mare id>` stores only differences.
-  `anatomy.placement_target` selects Default or Pointed mare for every placement action.
+  `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. `default` is global; `<mare id>` stores
+  only differences. `anatomy.placement_target` selects Default or Pointed mare for every
+  placement action.
 - `tail_y`/`tail_z` move the tail from the exact reference; the dock follows. `dock_y` trims the
-  cuff and `dock_scale` scales it. All apply live.
+  cuff and `dock_scale` scales it. `tail_tilt_deg` rotates the hair pelvis about the body's rear
+  axis, origin fixed, so the whole tail and its dock tilt sideways without moving the base. All
+  apply live.
 - The seat is measured once on the live pony with `dock_tail_mount.measure()`. The original hair
   `pelvis_offset`, dock mesh, skin, material and tail material are cached before the first write,
   so turning the setting off restores the game's tail and dock exactly. The far-mesh identity
@@ -471,10 +476,10 @@ reclined eye height left the camera wrong after the act.
 - The exact reference is applied to all eligible adult mares, including tails currently above it.
   A per-mare row lives under `anatomy.placement.<id>` with the same keys; only differences from
   the resolved default are stored, and a row equal to the default removes the key. The Anatomy
-  Debug actions **Placement** (anatomy), **Placement tail**, **Placement dock** and **Placement
-  file** edit, save, reset or log the selected target. The default is staged until Save; a mare
-  override is written directly. **Placement file Show** logs every live mare's anchor, target,
-  resolved placement, applied delta and source.
+  Debug actions **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail
+  tilt** (1° per press) and **Placement file** edit, save, reset or log the selected target. The
+  default is staged until Save; a mare override is written directly. **Placement file Show** logs
+  every live mare's anchor, target, resolved placement, applied delta and source.
 - The retired `anatomy.tail_seat.<id>` block and the `tail_offset_mm`/`tail_forward_mm`/
   `dock_offset_mm` globals migrate into the placement block on load.
 - A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
@@ -1416,9 +1421,9 @@ examples.
   their `tab` names (`general` by default, `anatomy` or `world`). Adding an
   action is one entry; give it a `hotkey` only when it must fire while the world is unpaused and
   you are looking at the scene. A hotkey-less action is the default.
-- **Placement** (anatomy), **Placement tail**, **Placement dock** and **Placement file**:
-  edit, save, reset or log the selected placement target (global default or pointed mare). All
-  values live in `anatomy.placement`. See the tail seating contract above.
+- **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail tilt** and
+  **Placement file**: edit, save, reset or log the selected placement target (global default or
+  pointed mare). All values live in `anatomy.placement`. See the tail seating contract above.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
   nearest) test mare. They bypass the quiet, cooldown, AI-usage and history offer checks, but not
   relationship, consent, pose, cycle or free-bed gates; use them in the lab, which runs with
@@ -1469,7 +1474,9 @@ examples.
   motion, HUD). A chunk calls
   `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
   instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
-  outside an act.
+  outside an act. **Print perf logs** also prints `tail perf attach`/`tail perf refresh` one-shot
+  lines and a once-per-second `tail perf seats=… follow=…/s skip=… mesh=…/s avg=… max=…` line
+  aggregating every live dock follower.
 - **Hide tails** is a persisted debug toggle (Anatomy › Debug). While on, it collapses the hair
   `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
   near and far tail geometry all disappear while the mane stays. The small root cap pinned to the
@@ -1611,10 +1618,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
   `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
   spread; off leaves the game shader untouched), `skin_tone` (Skin
-  tone, 0–1, default 0.67; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
+  tone, 0–1, default 0.6; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
   (Show tail docks, on; visibility only, it never moves the anatomy), `dock_color` (Dock colour,
-  `coat`/`genitals`, default `coat`; genitals uses the attached anatomy material and falls back to
-  coat when the anatomy is not attached), `reseat_tails` (Re-seat
+  `coat`/`genitals`, default `genitals`; genitals uses the attached anatomy material and falls back
+  to coat when the anatomy is not attached), `reseat_tails` (Re-seat
   tails and docks, on; seats every adult mare's hair tail at the exact reference dock and installs
   the tail-only dock cuff under the tail base; off restores the original tail mount and dock;
   the tail/dock placement lives under `anatomy.placement.<id>`), `mare_bits`
@@ -1641,7 +1648,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   droplet launch speed, −0.03 m/s; unbounded), `drip` (debug: idle heat discharge multiplier, 0.1×;
   0 turns it off) and `fluid_alpha` (debug: droplet opacity multiplier, 0.5×), and the player-part
   controls
-  `player_scale` (Size, `1.5×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.75`),
+  `player_scale` (Size, `1.4×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.75`),
   `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.2`) and the
   player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
   pulled all the way out, up to 5 cm), plus the debug
@@ -1659,9 +1666,9 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   The shaped length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole
   grip, so the geometry and the collision stay together. The anal placement applies to both
   models, is read on the next visibility poll, and the ring toggle swaps the asset live.
-  Placement lives in `settings.json` under `anatomy.placement`: `default.*` is the nine-value
-  global default (anatomy 5, tail 2, dock 2), `anon.*` is the player part, and `<mare id>.*` is a
-  partial per-mare override.
+  Placement lives in `settings.json` under `anatomy.placement`: `default.*` is the ten-value
+  global default (anatomy 5, tail 3, dock 2), `anon.*` is the player part, and `<mare id>.*` is a
+  partial per-mare override. The shipped `MARE_DEFAULTS` table carries the tuned per-mare rows.
   `anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player override,
   then the shipped per-mare default, then the global default. Only differing keys are stored.
   The old `anatomy_place.json` and `anon_place.json` files import once and are renamed to
@@ -1835,7 +1842,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 - The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
   mare`), backed by the persisted hidden `anatomy.placement_target` setting. The Placement
   buttons then edit the selected target; Default stages a preview until Save, and Save writes the
-  nine `anatomy.placement.default.*` settings.
+  ten `anatomy.placement.default.*` settings.
 - **A boolean label starts with a verb**: Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch,
   Remember, Mute. Label the action the switch performs, not the noun it controls
   (“Show controls”, “Allow act lines”, “Remember acts”, “Use VR act”). Choices and numbers keep

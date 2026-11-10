@@ -277,8 +277,9 @@ static func _action_button(name: String, action: Dictionary, font_size: int, mai
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", font_size - 2)
 	button.pressed.connect(func() -> void:
-		status.text = DEBUG_ACTIONS.run_action(name, main)
-		_debug(main, "action %s" % name))
+		var result := DEBUG_ACTIONS.run_action(name, main)
+		status.text = result
+		_debug(main, "action %s %s" % [name, result]))
 	return button
 
 

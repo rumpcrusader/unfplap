@@ -5,9 +5,9 @@ extends Node
 ## until a per-mare override is saved.
 ##
 ## The reference is the body-space anchor of the game's reference dock, read from
-## `dock_tail_mounts.json`. A per-mare exception under `anatomy.tail_seat.<id>` offsets only Y/Z.
-## The controller caches every original before it writes, so turning the setting off restores the
-## game's tail and dock exactly.
+## `dock_tail_mounts.json`. The per-mare row under `anatomy.placement.<id>` moves the tail, trims
+## and scales the dock and tilts the tail about the body's rear axis. The controller caches every
+## original before it writes, so turning the setting off restores the game's tail and dock exactly.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
@@ -35,10 +35,22 @@ var _enabled := true
 static var _reference := Vector3.INF
 static var _reference_loaded := false
 static var _visibility: Dictionary = {}
+var _perf_window := 0.0
 
 
 func _ready() -> void:
 	_enabled = SETTINGS.reseat_tails.get_bool()
+
+
+func _process(delta: float) -> void:
+	if not _perf_on():
+		_perf_window = 0.0
+		return
+	_perf_window += delta
+	if _perf_window < 1.0:
+		return
+	_perf_window = 0.0
+	_log_perf()
 
 
 ## The game's exact reference anchor, in body mesh space. Falls back to the body tail root.
@@ -145,12 +157,24 @@ static func _visibility_offset(pony: Node, fit: Dictionary) -> Vector3:
 func attach(pony: Node) -> void:
 	if not is_instance_valid(pony) or _rows.has(pony) or not _eligible(pony):
 		return
+	var started := Time.get_ticks_usec()
 	var row := _prepare(pony)
 	if row.is_empty():
 		return
+	var prepared := Time.get_ticks_usec()
 	_rows[pony] = row
 	pony.tree_exiting.connect(func() -> void: _rows.erase(pony))
 	_apply(row)
+	var done := Time.get_ticks_usec()
+	if _perf_on():
+		var dock: Variant = row.get("dock")
+		var verts := 0
+		if is_instance_valid(dock) and (dock as MeshInstance3D).mesh != null:
+			var arrays: Array = (dock as MeshInstance3D).mesh.surface_get_arrays(0)
+			if arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array:
+				verts = (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+		_log("tail perf attach %s prepare=%dus apply=%dus verts=%d" % [
+			str(row["id"]), prepared - started, done - prepared, verts])
 	_log("tail seat %s anchor=(%.3f,%.3f,%.3f) delta=(%.3f,%.3f,%.3f)" % [
 		str(row["id"]), (row["anchor"] as Vector3).x, (row["anchor"] as Vector3).y,
 		(row["anchor"] as Vector3).z, (row["applied"] as Vector3).x,
@@ -163,15 +187,19 @@ func refresh_all() -> void:
 	var enabled := SETTINGS.reseat_tails.get_bool()
 	var toggle_changed := enabled != _enabled
 	_enabled = enabled
+	var started := Time.get_ticks_usec()
+	var checked := 0
+	var rebuilt := 0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
+		checked += 1
 		var row: Dictionary = _rows[pony]
 		var placement := SETTINGS.anatomy_placement(str(row["id"]))
 		var changed := toggle_changed
 		for pair: Array in [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
-				["dock_scale", 1.0]]:
+				["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]:
 			var key := str(pair[0])
 			var value := float(placement.get(key, pair[1]))
 			if not is_equal_approx(value, float(row.get(key, pair[1]))):
@@ -179,6 +207,10 @@ func refresh_all() -> void:
 				changed = true
 		if changed:
 			_apply(row)
+			rebuilt += 1
+	if _perf_on() and rebuilt > 0:
+		_log("tail perf refresh checked=%d rebuilt=%d usec=%d" % [
+			checked, rebuilt, Time.get_ticks_usec() - started])
 
 ## Log every live mare's seat and the resolved placement; return a short summary.
 func report_all() -> String:
@@ -231,6 +263,11 @@ func _eligible(pony: Node) -> bool:
 		return false
 	var dock: Variant = pony.find_child(DOCK_NAME, true, false)
 	return dock is MeshInstance3D and (dock as MeshInstance3D).mesh != null
+
+
+## True when the tail/dock placement can ever move this pony, even while the seat is toggled off.
+func can_seat(pony: Node) -> bool:
+	return is_instance_valid(pony) and _eligible(pony)
 
 
 ## Cache every value the controller needs before its first write. Empty when the pony cannot be
@@ -294,6 +331,7 @@ func _prepare(pony: Node) -> Dictionary:
 		"tail_z": float(placement.get("tail_z", 0.0)),
 		"dock_y": float(placement.get("dock_y", 0.0)),
 		"dock_scale": float(placement.get("dock_scale", 1.0)),
+		"tail_tilt_deg": float(placement.get("tail_tilt_deg", 0.0)),
 		"attached": null,
 		"applied": Vector3.ZERO,
 	}
@@ -317,6 +355,9 @@ func _apply(row: Dictionary) -> void:
 		return
 	var next: Transform3D = row["original_pelvis"]
 	next.origin += (row["hips_rest"] as Transform3D).basis.inverse() * delta
+	var tilt := deg_to_rad(float(row.get("tail_tilt_deg", 0.0)))
+	if absf(tilt) > 0.000001:
+		next.basis = Basis(Vector3.BACK, tilt) * next.basis
 	link.set("pelvis_offset", next)
 	if link.has_method("_body_updated"):
 		link.call("_body_updated")
@@ -463,6 +504,36 @@ func _invalidate_far(pony: Node) -> void:
 	if bool(pony.get("_far_mesh_shown")) and pony.is_inside_tree() \
 			and pony.has_method("set_near_mesh"):
 		pony.call("set_near_mesh", true)
+
+
+func _perf_on() -> bool:
+	return is_instance_valid(main) and bool(main.get("debug_perf"))
+
+
+func _log_perf() -> void:
+	var seats := 0
+	var updates := 0
+	var skipped := 0
+	var usec := 0
+	var max_usec := 0
+	var meshes := 0
+	for pony: Variant in _rows.keys():
+		if not is_instance_valid(pony):
+			continue
+		seats += 1
+		var row: Dictionary = _rows[pony]
+		var follower: Variant = row.get("attached")
+		if not is_instance_valid(follower) or not follower.has_method("take_perf"):
+			continue
+		var stats: Dictionary = follower.call("take_perf")
+		updates += int(stats.get("updates", 0))
+		skipped += int(stats.get("skipped", 0))
+		usec += int(stats.get("usec", 0))
+		max_usec = maxi(max_usec, int(stats.get("max_usec", 0)))
+		meshes += int(stats.get("meshes", 0))
+	var avg := float(usec) / float(maxi(updates, 1)) / 1000.0
+	_log("tail perf seats=%d follow=%d/s skip=%d mesh=%d/s avg=%.2fms max=%.2fms" % [
+		seats, updates, skipped, meshes, avg, float(max_usec) / 1000.0])
 
 
 func _source(row: Dictionary) -> String:

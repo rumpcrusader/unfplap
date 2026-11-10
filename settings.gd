@@ -345,7 +345,7 @@ static func default_block(prefix: String) -> Dictionary:
 
 
 # ---------------------------------------------------------------- anatomy placement
-## The nine keys of one placement block, complete and validated.
+## The ten keys of one placement block, complete and validated.
 static func _declared_placement_defaults() -> Dictionary:
 	return {
 		"offset_x": float(offset_x.default),
@@ -357,6 +357,7 @@ static func _declared_placement_defaults() -> Dictionary:
 		"tail_z": float(tail_z.default),
 		"dock_y": float(dock_y.default),
 		"dock_scale": float(dock_scale.default),
+		"tail_tilt_deg": float(tail_tilt_deg.default),
 	}
 
 
@@ -374,6 +375,7 @@ static func _placement_default_values() -> Dictionary:
 		"tail_z": tail_z.get_num(),
 		"dock_y": dock_y.get_num(),
 		"dock_scale": dock_scale.get_num(),
+		"tail_tilt_deg": tail_tilt_deg.get_num(),
 	}, declared)
 
 
@@ -400,6 +402,7 @@ static func _persisted_placement_default_values() -> Dictionary:
 		"tail_z": tail_z.get_num(),
 		"dock_y": dock_y.get_num(),
 		"dock_scale": dock_scale.get_num(),
+		"tail_tilt_deg": tail_tilt_deg.get_num(),
 	}, declared)
 
 
@@ -490,6 +493,7 @@ static func save_anatomy_placement_default(values: Dictionary) -> void:
 	tail_z.set_num(float(current["tail_z"]))
 	dock_y.set_num(float(current["dock_y"]))
 	dock_scale.set_num(maxf(0.05, float(current["dock_scale"])))
+	tail_tilt_deg.set_num(float(current["tail_tilt_deg"]))
 	placement_revision += 1
 
 
@@ -1185,7 +1189,7 @@ static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never
 static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
 	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
 	ANATOMY, "")
-static var dock_color := choice("dock_color", "anatomy.dock_color", "coat",
+static var dock_color := choice("dock_color", "anatomy.dock_color", "genitals",
 	["coat", "genitals"], ["Coat", "Genitals"], "Dock colour",
 	"Choose the standard dock's colour: her coat, or the same skin as her genitals.",
 	ANATOMY, "")
@@ -1202,7 +1206,7 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
-static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.67, "Skin tone",
+static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.6, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
 static var mare_bits := choice("mare_bits", "anatomy.mare_bits", "v2",
@@ -1230,30 +1234,33 @@ static var edit_target := choice("edit_target", "anatomy.placement_target", "mar
 static var offset_x := num("offset_x", "anatomy.placement.default.offset_x", 0.0,
 	"Default X", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var offset_y := num("offset_y", "anatomy.placement.default.offset_y", 0.525,
+static var offset_y := num("offset_y", "anatomy.placement.default.offset_y", 0.505,
 	"Default Y", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var offset_z := num("offset_z", "anatomy.placement.default.offset_z", 0.289,
+static var offset_z := num("offset_z", "anatomy.placement.default.offset_z", 0.284,
 	"Default Z", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var pitch_deg := num("pitch_deg", "anatomy.placement.default.pitch_deg", -6.0,
+static var pitch_deg := num("pitch_deg", "anatomy.placement.default.pitch_deg", 3.0,
 	"Default pitch", "Pitch of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("°").with_step(1.0).as_debug()
-static var scale := num("scale", "anatomy.placement.default.scale", 0.742,
+static var scale := num("scale", "anatomy.placement.default.scale", 0.682,
 	"Default scale", "Scale of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug()
 static var tail_y := num("tail_y", "anatomy.placement.default.tail_y", 0.0,
 	"Default tail Y", "Vertical tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
-static var tail_z := num("tail_z", "anatomy.placement.default.tail_z", 0.0,
+static var tail_z := num("tail_z", "anatomy.placement.default.tail_z", -0.01,
 	"Default tail Z", "Forward/back tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
-static var dock_y := num("dock_y", "anatomy.placement.default.dock_y", 0.0,
+static var dock_y := num("dock_y", "anatomy.placement.default.dock_y", 0.01,
 	"Default dock Y", "Dock distance trim when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
-static var dock_scale := num("dock_scale", "anatomy.placement.default.dock_scale", 1.0,
+static var dock_scale := num("dock_scale", "anatomy.placement.default.dock_scale", 1.2,
 	"Default dock scale", "Dock scale when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug()
+static var tail_tilt_deg := num("tail_tilt_deg", "anatomy.placement.default.tail_tilt_deg", 0.0,
+	"Default tail tilt", "Side tilt of the tail seat when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("°").with_step(1.0).as_debug()
 static var anon_offset_x := num("anon_offset_x", "anatomy.placement.anon.offset_x", 0.0,
 	"Anon X", "Model-space placement of the player part.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
@@ -1271,7 +1278,7 @@ static var anon_scale := num("anon_scale", "anatomy.placement.anon.scale", 0.2,
 	.with_unit("×").with_step(0.01).as_debug()
 
 # -- Anon
-static var player_scale := num("player_scale", "anatomy.player_scale", 1.5, "Size",
+static var player_scale := num("player_scale", "anatomy.player_scale", 1.4, "Size",
 	"Scale the player part relative to its default size.", ANATOMY, "Anon") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0)
 static var part_length_scale := num("part_length_scale", "anatomy.part_length_scale", 1.0,

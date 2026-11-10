@@ -20,7 +20,8 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 | `X`         | Toggle auto thrust during the act                                  |
 | `W` / `S`   | Lean the act camera forward / back                                |
 | `Q` / `E`   | Lean diagonally; standing also cues a shoulder reach              |
-| `A` / `D`   | Caress in both poses: her flank standing, or one hand on her chest/belly in missionary |
+| `A` / `D`   | Caress with Anon's left/right hand: her flank standing, chest/belly in missionary |
+| `Z` / `C`   | Pause/resume the left/right caress oval                           |
 | `F` (hold)  | Kiss at a full shoulder lean (standing) or full forward lean        |
 | Mouse right | Smack her flank during the act                                    |
 | `G`         | Smack her flank during the act                                    |
@@ -51,7 +52,8 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.
 - **HUD** — Shows the act controls list, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
-- **Act actions** — Leaning cues kisses and shoulder reaches; A/D caress a flank in standing or her chest, neck and cheek in missionary, with each hand toggled independently, Z/C pause or resume the caress oval, F kisses at a full shoulder lean in standing or a full forward lean in missionary, and right-click smacks one.
+- **Caress** — Rub her flank standing or her chest, neck and cheek in missionary with either hand; see `docs/caress.md`.
+- **Act actions** — Leaning cues kisses and shoulder reaches; F kisses at a full lean, and right-click smacks one.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
 - **Presentation** — Adds blush, eyes, ears, tail, rump jiggle, audio and wing motion.
 - **Act audio** — Pack thrust, slide, bed/fabric, kiss and flank-smack sounds are always on; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default.

@@ -136,7 +136,7 @@ func _place_candidate(pony: Variant, hand_side: String, candidate: Dictionary,
 		return _place_precise(pony, hand_side, candidate, context, intended, normal,
 			finger, mode, roll, region, hover, hand_shape)
 	return _place_hull(pony, hand_side, candidate, context, intended, normal, finger,
-		mode, roll, hover)
+		mode, roll)
 
 
 func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
@@ -185,7 +185,7 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 
 func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
 		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
-		mode: String, roll: float, hover: float) -> Transform3D:
+		mode: String, roll: float) -> Transform3D:
 	var query := intended + normal * float(candidate.get("hull_lift", 0.0))
 	var ignore: Variant = candidate.get("ignore", context.get("ignore", []))
 	var regions: Variant = candidate.get("regions", [])

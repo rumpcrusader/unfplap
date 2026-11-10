@@ -139,9 +139,7 @@ tuning:
   **Disable fold coloring**, camera mode, free look and third-person views.
 - **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
 - **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
-- **Standing → Caress**: palm distance (`0.02 m`), oval across/up (`1.0 cm` / `2.0 cm`), palm
-  scale per body-size preset (Canon `0.75`, mounting `0.9`, same height `1.0`, Hoers `1.0`), and
-  ignored body parts (tail and wing by default).
+- **Standing → Caress**: see `docs/caress.md`.
 - **Standing → Smack**: max raise (`0.30 m`), hind offset (`0.10 m`), height (`-0.03 m`), palm
   arc (`0.06 m`), palm pitch (`12°`), raise speed (`2.0 m/s`) and return speed (`6.0 m/s`).
 - **Thrust jiggle**: radius, center height/back, thrust and smack intensity.
@@ -312,11 +310,8 @@ Hold `Y`:
 The standing afterglow always starts an 8 s close window:
 
 - the HUD shows `Stay close · 8s · caress`;
-- A/D caress time is counted while a hand is active; Z/C pause/resume the oval movement
-  without releasing the palm;
 - the player can hold `Y` to leave early, which cancels the reward;
-- at 8 s, 2.5 s or more of caress grants the full reward; staying without caressing gets only
-  the “She seems content.” cue;
+- the caress time and reward threshold are in `docs/caress.md`;
 - missionary afterglow is unchanged.
 
 Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
@@ -339,6 +334,7 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 - **Standing close reward:** `MEMORY.stay_close_reward` records a private impression. On a good or
   non-early neutral act, staying and caressing adds a happy mood, a private thought and a small
   `romance` gain. After a bad act, staying and caressing repairs one point of history hurt instead.
+  The caress time threshold is in `docs/caress.md`.
 - **Peak act:** one strongest memory per mare is kept in
   `Mods.state("unfplap").peak_memories`. It requires a positive summary, no disliked touch/talk and
   either peak readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces
@@ -392,6 +388,7 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 | held caress | `caress` |
 | kiss | `kiss` |
 
+The caress action and its five-second touch meter are in `docs/caress.md`.
 Touch shares one 4 s scoring cooldown across smack, caress and kiss. Talk has an 8 s scoring
 cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 `preferences.gd`; the AI still writes her reply.

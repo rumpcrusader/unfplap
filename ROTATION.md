@@ -91,42 +91,8 @@ Missionary is its own state, not the game's bed rest:
   lets only their X/Z follow the stroke and lean: the hands slide along the mattress instead of
   lifting. A two-bone arm solve reaches each wrist; the hand keeps its authored world orientation so
   the palm stays flat on the bed.
-- **The caress owns one palm.** `caress_control.gd` sends a world palm frame through
-  `set_hold_target()`; `missionary_anon.gd` eases the hand from its mattress frame in
-  `HOLD_BLEND_S = 0.35 s`, keeps the wrist on that absolute world point while his shoulders thrust
-  and lean, and eases it back to the authored mattress frame over `HOLD_RELEASE_S = 0.35 s` after
-  `clear_hold_target()`. While held, the arm uses the game's regular desktop mode from the
-  shoulder down: `_arm_pole()` carries the `valve_body_ik.gd` elbow plane, and the wrist bone is
-  `(palm * hand_offset) * hand_rest_basis`. `A` and `D` toggle their hand independently; both can
-  caress at once.
-- **Missionary caress path.** The primary paths are authored from the Blender rest meshes:
-  `caress/anchors.json` has a shared belly and per-hand lower/chest/neck/cheek;
-  `caress/anchors2.json` has per-hand flank/shoulder/neck. The authored side is the missionary
-  facing, where Anon's left hand reaches her right; standing requests the opposite authored hand
-  side because Anon is behind her. Every point snaps to the nearest body/head source vertex. The debug **Caress path** dropdown picks `one` or `two`; the path cache
-  is keyed by path id, so the next caress rebuilds. Without authored points,
-  `caress/caress_path.gd` casts rays from the live act camera to the belly, chest, neck and head
-  bone origins through the posed patches. The first triangle is the coat the player sees, so the anchors are on
-  the visible side. The belly stays on the centerline; the chest/neck/cheek targets move toward
-  the hand's side, so the left and right hands build different paths. A rest-space fallback
-  (below/front belly and chest, hand-side neck and cheek) is used when no camera is available. It stores each hit's rest position/normal/skin weights
-  and skins only those anchors every tick. It samples a
-  Catmull-Rom curve; W walks toward the chest/neck/cheek,
-  `presentation.missionary.caress.along_m` shifts it, and S moves to the lower belly. The
-  hand-side offset fades out at the neck and the 30° palm roll fades to 0 by the neck/cheek. The
-  finger axis is the body head axis projected onto the coat tangent plane, not the path tangent.
-  The oval uses the standing caress radii times `presentation.missionary.caress.oval_scale`. The
-  path is reach-aware: the controller asks `missionary_anon.caress_reach()` for the world
-  shoulder and arm lengths and walks the path back toward the belly until the palm frame fits;
-  the neck/cheek use the `fingertip` mode. The shared `caress/caress_system.gd` snaps the
-  interpolated point and each oval offset to the exact body/head surface with one ray per hand per
-  tick, then sits at `contact + exact normal * Raise over coat`; the palm follows the coat normal
-  around the circle. `normal_blur_m` averages the normal across creases, `normal_deg_s` clamps its
-  turn rate, and `contact_smooth` low-passes only the snap correction, so the intended oval motion
-  is never delayed. With `features.caress_hand_shape`,
-  `caress/caress_hand.gd` resolves the palm/finger samples against the stable body/head patch
-  from `caress/caress_surface.gd`; the capsule/hull path remains the fallback when
-  `features.caress_surface` is off or the rig cannot build anchors.
+- Caress: see `docs/caress.md`.
+
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
   the `LegHide` influence and every bone's pre-act local transform (the authored pose deliberately
@@ -284,7 +250,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled (default on), a slow `0.010` forward rock keeps the
   camera/upper body from freezing completely; it is clamped inside `-1…1`. There is no side sway. A/D
-  caress latches: a tap starts it and a second tap stops it. Pressing `S` arms a gradual side
+  caress latches as in `docs/caress.md`. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
 - The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`.
@@ -300,10 +266,8 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   rewrites all three to that capture. The upper body, camera lean, hands, kiss and hip thrust
   still move; the lower body does not. Off restores the game's stepping and lean foot motion;
   the capture clears at act end.
-- Standing palms scale absolutely per body preset from
-  `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.9`, same height/hoers `1.0`.
-  The Caress section edits one row per preset. `palm_scale.gd` runs after BodyIK and restores
-  the cached scales in `_remove_anon_thrust()` on every act exit.
+- Standing palm scale is a caress setting; see `docs/caress.md`. `palm_scale.gd` runs after
+  BodyIK and restores the cached scales in `_remove_anon_thrust()` on every act exit.
 - Holding `F` at `abs(side) >= STANDING_KISS_LEAN = 0.90` starts the same base-game kiss used by
   missionary; releasing `F` or dropping the lean ends it. The side is latched from the input lean
   and `_pin_base_kiss_side()` keeps her on the complementary head tilt; the deep-kiss side
@@ -312,9 +276,9 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   kiss has a `500 ms` restart cooldown.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
   Same Height preset now follows Anon's `player/height_cm`, so that gap, the lean scale and the
-  same-height caress offsets are multiplied by `Settings.anon_height_scale()`; the other presets
-  keep their authored values. For desktop human Anon the gap is measured from her root along her
-  backward axis after he is placed behind her.
+  caress offsets follow `Settings.anon_height_scale()` as described in `docs/caress.md`.
+  For desktop human Anon the gap is measured from her root along her backward axis after he is
+  placed behind her.
 - Standing kiss mouth offsets, kiss lean distances and the missionary virtual mouth scale with
   `Settings.anon_height_scale()`, matching `player/player_mouth.gd`.
 - Canon lowers the standing eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR
@@ -328,39 +292,11 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
 - `Q`/`E` at `0.75` side lean reach Anon's same-side open palm to the shoulder through
   `desktop_anon.set_hold_target(..., "rub")`. Hand-marker axes are local `-Z` fingers, `+Y`
   thumb/up and palm normal `-X` right / `+X` left. The shoulder contact supplies the position and
-  normal; `palm_surface_basis()` keeps the fingers forward and the palm flat on the coat. It
+  normal; `caress_hand.palm_basis()` keeps the fingers forward and the palm flat on the coat. It
   eases in over `0.35 s` and back to rest over another `0.35 s`. While held, `_forced_glance`
   overrides the random glance scheduler and locks her look over that shoulder; release clears it.
-- `A`/`D` in standing pose hold an oval caress (`CARESS_RADIUS_M = 0.04125`,
-  `CARESS_SPEED_RAD_S = 3.6`). `Z`/`C` toggle the left/right oval movement; the palm stays on
-  the coat and keeps scoring while the phase is frozen. The palm is projected onto the coat
-  each tick through
-  `FlankSurface.contact` or an exclusion-aware `PonyTouchBody.nearest` fallback, and
-  `palm_surface_basis()` makes the palm plane perpendicular to the coat normal. The fallback
-  skips `presentation.standing.caress.ignore` regions (default `tail`; UI also exposes mane, wings
-  and legs), so a tail flick cannot steal the contact. Its centre sits at
-  `presentation.standing.caress.palm_distance` (default `0.02 m`) at body scale `1.0`, scaled by
-  the pony's actual `body_scale` (clamped `0.5…2.0`); normal smoothing adds no lift. Contact is
-  cached per hand with source hysteresis and short position/normal
-  smoothing, so a missed hit holds the last valid point instead of snapping; a near-opposite
-  normal (dot < -0.5) is rejected under the same source. The final normal turns from the stock
-  FlankSurface normal toward each new contact normal at
-  `PALM_NORMAL_MAX_DEG_S = 120°/s`, and the palm basis is rebuilt from that final normal each
-  frame so it cannot rotate into her. A stale normal is corrected toward the resolved contact
-  normal, not the input hint, so a hull fallback at the shoulder cannot leave the palm edge-on.
-  The rub centre is lifted
-  `CARESS_UP_BIAS_M = 0.05` above the profile point; a 1 Hz log reports the rub/shoulder heights,
-  source, misses, switches, normal step/out angle and hand distance. The path is
-  `presentation.standing.caress.oval_across_m` (default `1.0 cm`) along the body and
-  `oval_up_m` (default `2.0 cm`) vertically, both times the pony size scale. Point
-  offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
-  between hands), Same Height and Hoers step up from there; the contact query snaps those points
-  to the coat. Both keys can run simultaneously; a tap latches that hand until the next tap.
-  The precise path is the authored `anchors2.json` flank -> shoulder -> neck chain: no lean is the
-  flank, and W walks through the shoulder to the base of the neck. S keeps the procedural rump
-  top, reaching it at `CARESS_RUMP_LEAN = 0.5`; the procedural flank/rump point is also the hull
-  path when `features.caress_surface` is off and the fallback when the anchors cannot build. The
-  circle radius scales with pony size; the point offsets are already per size.
+- Caress: see `docs/caress.md`.
+
 - Anon's hip follows the lightly smoothed mouse `depth` (`HIP_SMOOTH_S = 0.04 s`):
   the fixed rump point is the base HipsTarget plus `THRUST_MAX_M = 0.045 m × body_scale`, and
   only the Hips bone moves by `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so phase 0 is
@@ -434,8 +370,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   releases the hold and drives the same `WingTuck` blend to a full fold over
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
 - Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice. Lean and A/D caress remain
-  live; hold Y ends it. For the first 8 s the
-  HUD shows `Stay close · 8s · caress`; 2.5 s of active caress completes the close reward.
+  live; hold Y ends it. The close-window caress time is in `docs/caress.md`.
   Missionary afterglow stays passive.
 
 ### Play-bow stance

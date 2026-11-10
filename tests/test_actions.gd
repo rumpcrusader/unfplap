@@ -9,6 +9,9 @@ const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CAESS := preload("res://mods/unfplap/caress_control.gd")
 const COAT := preload("res://mods/unfplap/caress/coat.gd")
+const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
+const FLANK := preload("res://mods/unfplap/caress/flank_path.gd")
+const MISSIONARY_PATH := preload("res://mods/unfplap/caress/missionary_path.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -284,14 +287,14 @@ func run() -> void:
 		smack_contact, Vector3.RIGHT, -0.10, -0.04, Vector3.BACK, 15.0)
 	check(near(smack_lowered.origin.x, -0.10) and near(smack_lowered.origin.z, -0.04),
 		"smack raise and arc are applied unclamped")
-	var straight_palm: Basis = CAESS.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
+	var straight_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
 	var pitched_palm: Basis = CAESS.smack_pitch_basis(straight_palm, 15.0)
 	check(pitched_palm.determinant() > 0.99, "palm pitch stays orthonormal")
 	check(pitched_palm.x.dot(straight_palm.x) > 0.999, "palm pitch keeps the palm normal")
 	check((-pitched_palm.z).y < (-straight_palm.z).y, "positive pitch lowers the fingers")
 	var pitched_up: Basis = CAESS.smack_pitch_basis(straight_palm, -15.0)
 	check((-pitched_up.z).y > (-straight_palm.z).y, "negative pitch raises the fingers")
-	var smack_left_palm: Basis = CAESS.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
+	var smack_left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	var smack_left_pitched: Basis = CAESS.smack_pitch_basis(smack_left_palm, 15.0)
 	check((-smack_left_pitched.z).y < (-smack_left_palm.z).y,
 		"left palm also pitches down")
@@ -387,8 +390,8 @@ func run() -> void:
 
 	check(near(CAESS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
 	check(near(CAESS.CARESS_RADIUS_M, 0.04125), "caress radius")
-	var right_palm: Basis = CAESS.palm_surface_basis("right", Vector3.RIGHT, Vector3.FORWARD)
-	var left_palm: Basis = CAESS.palm_surface_basis("left", Vector3.RIGHT, Vector3.FORWARD)
+	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
+	var left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
 		"right palm faces the coat with fingers forward")
 	check(left_palm.x.dot(Vector3.LEFT) > 0.99 and (-left_palm.z).dot(Vector3.FORWARD) > 0.99,
@@ -397,7 +400,7 @@ func run() -> void:
 		"palm surface bases stay orthonormal")
 	check(near(CAESS.CARESS_OVAL_ACROSS, 1.30) and near(CAESS.CARESS_OVAL_UP, 0.70),
 		"caress path is an oval")
-	check(near(CAESS.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
+	check(near(FLANK.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
 	check(near(CAESS.caress_phase_step(0.5, true, 0.25),
 		CAESS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
 	check(near(CAESS.caress_phase_step(0.5, false, 0.25), 0.5),
@@ -417,12 +420,12 @@ func run() -> void:
 	check(near(CAESS.palm_clearance_for(1.10), 0.044), "Hoers palm clearance scales up")
 	check(near(CAESS.palm_clearance_for(1.0, 0.07), 0.07),
 		"caress palm distance overrides the default")
-	check(CAESS._region_ignored("tail", ["tail"]), "caress ignores the tail hull")
-	check(not CAESS._region_ignored("flank", ["tail"]), "caress keeps the flank hull")
-	check(near(CAESS.PALM_NORMAL_MAX_DEG_S, 120.0), "palm normal turns at a bounded rate")
-	var capped: Vector3 = CAESS.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
+	check(COAT.region_ignored("tail", ["tail"]), "caress ignores the tail hull")
+	check(not COAT.region_ignored("flank", ["tail"]), "caress keeps the flank hull")
+	check(SETTINGS.normal_deg_s.get_num() > 0.0, "palm normal turns at a bounded rate")
+	var capped: Vector3 = HAND.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
-	check(CAESS.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
+	check(HAND.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
 		"normal rate reaches the target")
 	var canon_caress: Dictionary = CAESS.caress_profile_for("canon")
 	var mounting_caress: Dictionary = CAESS.caress_profile_for("mounting")
@@ -430,26 +433,26 @@ func run() -> void:
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
 	check(CAESS.caress_profile_for("") == CAESS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
-	check(near(CAESS.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
-	check(near(CAESS.MISSIONARY_CARESS_LIFT_M, 0.18),
+	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
+	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_LIFT_M, 0.18),
 		"missionary caress starts at the barrel radius")
-	check(near(CAESS.MISSIONARY_CARESS_PALM_ROLL_DEG, 30.0),
+	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_PALM_ROLL_DEG, 30.0),
 		"missionary caress rolls the palm 30 degrees")
-	check(near(CAESS.missionary_palm_roll_deg("right"), 30.0),
+	check(near(MISSIONARY_PATH.missionary_palm_roll_deg("right"), 30.0),
 		"the right palm rolls counter-clockwise")
-	check(near(CAESS.missionary_palm_roll_deg("left"), -30.0),
+	check(near(MISSIONARY_PATH.missionary_palm_roll_deg("left"), -30.0),
 		"the left palm rolls clockwise")
-	check(CAESS._region_allowed("head_Ears1", ["head"]),
+	check(COAT.region_allowed("head_Ears1", ["head"]),
 		"the cheek path accepts a head hull")
-	check(not CAESS._region_allowed("neck", ["head"]),
+	check(not COAT.region_allowed("neck", ["head"]),
 		"the cheek filter does not take a neck hull")
-	check(CAESS._region_allowed("back", CAESS.MISSIONARY_TORSO_REGIONS),
+	check(COAT.region_allowed("back", MISSIONARY_PATH.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress accepts a barrel hull")
-	check(not CAESS._region_allowed("leg", CAESS.MISSIONARY_TORSO_REGIONS),
+	check(not COAT.region_allowed("leg", MISSIONARY_PATH.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress ignores a leg hull")
-	check(not CAESS._region_allowed("head_Ears1", CAESS.MISSIONARY_TORSO_REGIONS),
+	check(not COAT.region_allowed("head_Ears1", MISSIONARY_PATH.MISSIONARY_TORSO_REGIONS),
 		"the missionary caress ignores a head hull")
-	check(CAESS._region_allowed("anything", []), "an empty region filter allows every hull")
+	check(COAT.region_allowed("anything", []), "an empty region filter allows every hull")
 	var hand_offset := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.07))
 	var palm_frame := Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 3.0))
 	var bone_frame: Transform3D = MISSIONARY_ANON.palm_to_bone(palm_frame, hand_offset)

@@ -10,7 +10,6 @@ const CAESS_SYSTEM := preload("res://mods/unfplap/caress/caress_system.gd")
 const FLANK_PATH := preload("res://mods/unfplap/caress/flank_path.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/caress/missionary_path.gd")
 const COAT := preload("res://mods/unfplap/caress/coat.gd")
-const CAESS_HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -25,21 +24,12 @@ const CARESS_SPEED_RAD_S := 3.6
 const CAESS_TOUCH_SECONDS := 5.0
 const CARESS_OVAL_ACROSS := 1.30
 const CARESS_OVAL_UP := 0.70
-## The rub centre is lifted this far above each size profile's `up` point. The cutie-mark
-## anchor sits low on the flank; this keeps the stroke on the barrel instead of the belly.
-const CARESS_UP_BIAS_M := 0.05
 ## A smack swings the caress hand to the cheek and back; ease the return so the contact reset
 ## does not read as a teleport.
 const CARESS_RETURN_SECONDS := 0.12
 ## The palm ball's own collision radius (anon_body.gd hand sweep). The palm marker is its
 ## centre, so this is how far the centre sits above the coat when the visible palm touches.
 const PALM_ON_COAT_CLEARANCE_M := 0.04
-const PALM_CONTACT_SMOOTH := 18.0
-const PALM_CONTACT_MAX_STEP_M := 0.06
-const PALM_CONTACT_SOURCE_HITS := 2
-## A palm normal may turn this fast when the coat normal moves or the contact source changes.
-## Fast enough to track the coat, slow enough to avoid snapping.
-const PALM_NORMAL_MAX_DEG_S := 120.0
 ## Caress-point offsets are per size preset, in metres before the body scale is applied to
 ## only the circle radius. `out` moves each hand out from the flank; both hands together gain
 ## twice that amount. JRHNBR (`mounting`) is 4 cm wider; Canon sits lower.
@@ -49,20 +39,6 @@ const CARESS_PROFILES := {
 	"same height": {"up": 0.18, "back": 0.09, "out": 0.03},
 	"hoers": {"up": 0.20, "back": 0.10, "out": 0.04},
 }
-## Missionary caress: one hand on her belly at rest, W sliding it toward her chest and S toward the
-## lower belly along the posed body axis. The anchor is lifted above the spine before the coat query
-## snaps the palm onto her surface. All distances scale with her body.
-const MISSIONARY_CARESS_TRAVEL_M := 0.12
-const MISSIONARY_CARESS_LATERAL_M := 0.045
-## The query starts roughly at the barrel radius, not above the chest: a higher lift makes the
-## chest/withers hull the nearest contact.
-const MISSIONARY_CARESS_LIFT_M := 0.18
-## The palm rolls about its coat normal: counter-clockwise for Anon's right hand, clockwise for
-## his left, so the fingers lie comfortably across the chest instead of straight up her body.
-const MISSIONARY_CARESS_PALM_ROLL_DEG := 30.0
-## Torso hulls the missionary caress may use. The neck, head, legs, tail, wings and mane cannot
-## steal the palm when the query sits near the chest.
-const MISSIONARY_TORSO_REGIONS := ["back", "withers", "shoulder", "barrel", "belly", "rump"]
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08
 const SMACK_ZONE_RADIUS_M := 0.035
@@ -109,14 +85,6 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
 ## Pure palm geometry for tests and the controller.
-static func _region_ignored(region: String, ignore: Array) -> bool:
-	return COAT.region_ignored(region, ignore)
-
-
-static func _region_allowed(region: String, allowed: Array) -> bool:
-	return COAT.region_allowed(region, allowed)
-
-
 static func palm_clearance_for(body_scale: float,
 		distance := PALM_ON_COAT_CLEARANCE_M) -> float:
 	return distance * clampf(body_scale, 0.5, 2.0)
@@ -160,14 +128,6 @@ static func smack_side_index(side: float) -> int:
 
 ## Roll about the coat normal, in degrees. The right hand turns counter-clockwise and the left
 ## clockwise as seen from above.
-static func missionary_palm_roll_deg(side: String) -> float:
-	return MISSIONARY_CARESS_PALM_ROLL_DEG if side == "right" \
-		else -MISSIONARY_CARESS_PALM_ROLL_DEG
-
-
-## Pitch the palm about its own normal (local X). Positive values lower the fingers; negative
-## values raise them. The palm normal is unchanged, so this is a wrist pitch, not a roll around
-## the finger/arm axis (local Z).
 static func smack_pitch_basis(straight: Basis, pitch_deg: float) -> Basis:
 	if absf(pitch_deg) < 0.0001:
 		return straight
@@ -532,25 +492,6 @@ func _end_caress() -> void:
 
 ## Hand-marker basis with the palm flat on the coat: local -Z is the fingers, and the palm
 ## normal (local -X right / +X left) points inward along -outward. No custom roll.
-static func palm_surface_basis(side: String, outward: Vector3, finger_hint: Vector3) -> Basis:
-	var normal := outward.normalized()
-	if normal.length_squared() < 0.5:
-		normal = Vector3.RIGHT
-	var x_axis := normal * (1.0 if side == "right" else -1.0)
-	var fingers := finger_hint.normalized()
-	fingers -= x_axis * fingers.dot(x_axis)
-	if fingers.length_squared() < 0.0001:
-		fingers = Vector3.FORWARD - x_axis * Vector3.FORWARD.dot(x_axis)
-	if fingers.length_squared() < 0.0001:
-		fingers = Vector3.UP - x_axis * Vector3.UP.dot(x_axis)
-	fingers = fingers.normalized()
-	var z_axis := -fingers
-	var y_axis := z_axis.cross(x_axis).normalized()
-	return Basis(x_axis, y_axis, z_axis)
-
-
-## Caress contact exclusions. The tail flick after a smack can put a tail hull beside the rub
-## point; without this the fallback nearest() would snap the palm onto the tail.
 func _caress_ignore() -> Array:
 	var caress: Variant = _presentation_cfg.get("caress", {})
 	if not caress is Dictionary:
@@ -558,10 +499,6 @@ func _caress_ignore() -> Array:
 	# The ignore list setting keeps only the known region names, so this needs no filtering.
 	var raw: Variant = (caress as Dictionary).get("ignore", [])
 	return raw if raw is Array else []
-
-
-static func rotate_normal_toward(from: Vector3, to: Vector3, max_step: float) -> Vector3:
-	return CAESS_HAND.rotate_normal_toward(from, to, max_step)
 
 
 func _palm_clearance() -> float:

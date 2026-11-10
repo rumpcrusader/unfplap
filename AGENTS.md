@@ -11,6 +11,7 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
+| Any caress task | `docs/caress.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
@@ -191,13 +192,8 @@ mods/unfplap/
                     budget, one slot for cues and reactions
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
-  caress_control.gd  act caress input, touch scoring, reach, smack, palm holder and path wiring
-  caress/           pose-free caress: caress_system.gd contact, smoothing and palm frame;
-                    caress_path_base.gd path contract; flank_path.gd standing path;
-                    missionary_path.gd authored/legacy path;
-                    caress_path.gd surface anchors and anchors.json/anchors2.json rest points;
-                    caress_surface.gd stable posed patch; caress_hand.gd palm/finger samples;
-                    caress_arm.gd reach plan; coat.gd hull queries and touch sync
+  caress_control.gd  act hand controller: caress, reach and smack; details in docs/caress.md
+  caress/           caress engine, paths, anchors, contact and hand geometry; docs/caress.md
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
@@ -323,27 +319,8 @@ reclined eye height left the camera wrong after the act.
   their X/Z follow the stroke and lean, so the hands slide along the mattress instead of lifting; a
   two-bone arm solve reaches the wrist and the hand keeps its authored world orientation, so the
   palms stay flat.
-- **The caress lifts one palm onto her.** `caress_control.gd` drives a world-space palm hold on
-  `missionary_anon.gd`; `set_hold_target()`/`clear_hold_target()` blend the hand off and back onto
-  the mattress over `HOLD_BLEND_S`/`HOLD_RELEASE_S` (0.35 s). While held, the arm runs the game's
-  regular desktop arm mode from the shoulder down: `_arm_pole()` is the `valve_body_ik.gd` elbow
-  plane (down, a little outward and back, carried between frames), and the wrist bone is
-  `(palm * hand_offset) * hand_rest_basis`. On release the same solve eases back to the authored
-  pose, so the planted arms return exactly. The palm rides her coat, not his lean. `A` uses his
-  left hand and `D` his right; each press toggles that hand and both can caress at once. `Z`/`C` pause the oval with that hand. The palm rolls 30° about
-  the coat normal, counter-clockwise for the right hand and clockwise for the left; the roll fades
-  to zero as the caress moves up the neck and cheek. The debug
-  `presentation.missionary.caress.over_coat_m` lifts it further above the coat.
-- **Missionary caress path.** The live path runs lower belly → belly → chest → side of the neck
-  → cheek. W/lean walks the path, `presentation.missionary.caress.along_m` shifts it, neutral is
-  the belly, and S moves to the lower belly. With `features.caress_surface`, the path is the
-  surface anchors from `caress/caress_path.gd`: rest-space body/head vertices skinned every tick
-  and sampled with a Catmull-Rom curve, so the point stays on the coat. The hand-side lateral
-  offset fades out as the palm moves to the neck, and the palm roll fades from 30° to 0. Fingers
-  point toward her head, and the oval uses the standing caress radii times
-  `presentation.missionary.caress.oval_scale`. The path is recomputed every physics tick, so it
-  follows the thrust, sway and afterglow. The legacy hull path (torso/neck/head filter widening
-  and rig syncs) remains the fallback when the precise feature is off.
+- **The caress.** Both hands use the shared caress system; see `docs/caress.md`. The pose only
+  supplies the missionary path and the bed-space palm holder on `missionary_anon.gd`.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
   `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain; the root stays
@@ -511,11 +488,8 @@ reclined eye height left the camera wrong after the act.
   upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
-- Standing palms are scaled absolutely per body preset from
-  `presentation.standing.caress.palm_scale`: Canon `0.75`, JRHNBR `0.9`, same height/hoers
-  `1.0`. The Caress section edits one row per preset. `palm_scale.gd` runs after BodyIK and
-  restores the cached bone scales in `_remove_anon_thrust()` on every act exit. Marker scaling
-  would be discarded by the IK solver.
+- Standing palm scale is a caress setting; see `docs/caress.md`. `palm_scale.gd` runs after
+  BodyIK and restores the cached bone scales in `_remove_anon_thrust()` on every act exit.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at
@@ -526,9 +500,9 @@ reclined eye height left the camera wrong after the act.
 - With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow forward rock
   (`0.010`). It is a **separate offset** (`runtime.shot_lean_forward()`), never added into
   `_lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
-  crept while nobody was leaning. There is no side sway. A/D caress always latches: tap once
-  to keep rubbing after release, tap again to stop. Pressing `S` arms a gradual side return, so
-  the shoulder roll decays to neutral without leaning the other way.
+  crept while nobody was leaning. There is no side sway. Caress input is in `docs/caress.md`.
+  Pressing `S` arms a gradual side return, so the shoulder roll decays to neutral without
+  leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
 - The lean camera owns `player.controls_locked = true` for both poses. Save and restore the
   prior value at act end.
@@ -759,53 +733,13 @@ custom head-aim path below.
   so it does not need `request_action()` and does not fight `controls_locked`. `rub` keeps the
   hand open. Hand-marker convention: local `-Z` is the fingers, `+Y` is the thumb/up, and the
   palm normal is `-X` on the right hand / `+X` on the left. The shoulder target uses the pony's
-  surface contact for the palm position and outward normal; `palm_surface_basis()` keeps
+  surface contact for the palm position and outward normal; `caress_hand.palm_basis()` keeps
   the fingers straight forward and the palm inward. It interpolates from the current rest hand
   over `REACH_HAND_BLEND_S = 0.35`, and release blends back to that rest frame over
   `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
   `reach hand side=... target=... x=... y=... z=... fingers=... palm=...` log prints the result.
-- A/D caress uses the shared engine. With `features.caress_surface` on, the standing path is the
-  authored `anchors2.json` flank -> shoulder -> neck chain: no lean is the flank, W walks through
-  the shoulder to the base of the neck, and S keeps the procedural rump-top reach. The debug
-  overlay shows the three anchors. The old procedural flank/rump point remains the hull path when
-  `features.caress_surface` is off and the fallback when the anchors cannot build.
-  The oval uses `CARESS_RADIUS_M = 0.04125` and `CARESS_SPEED_RAD_S = 3.6`. Z/C toggle the
-  left/right oval movement: the hand keeps its current coat contact and still scores, but the
-  phase is frozen until toggled back on. During a smack the phase is frozen for the swinging hand.
-  The hull fallback projects the palm onto the coat every tick through
-  `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
-  orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
-  The fallback uses `_nearest_touch()`, which skips
-  `presentation.standing.caress.ignore` regions (default `tail` and `wing`; UI also exposes mane and
-  legs). This prevents a tail flick after a smack from stealing the caress contact.
-  The palm centre sits at `presentation.standing.caress.palm_distance` (default `0.02 m`) at body
-  scale `1.0`, multiplied by the pony's actual `body_scale` (clamped `0.5…2.0`); the normal
-  smoothing adds no extra lift.
-  The hull fallback caches contact per hand with
-  source hysteresis and short position/normal smoothing: a miss holds the last valid point, a
-  flank↔body source change needs two hits, and a near-opposite normal (dot < -0.5) is rejected
-  under the same source. The final normal turns from the stock FlankSurface normal toward each
-  new contact normal at
-  `PALM_NORMAL_MAX_DEG_S = 120°/s` instead of snapping, and the palm basis is rebuilt from that
-  final normal every frame. A stale normal is corrected toward the resolved contact normal, not
-  the input hint, so a hull fallback at the shoulder cannot turn the palm edge-on. The
-  torso-radial fallback only applies to a degenerate or inward normal. The rub centre is lifted
-  `CARESS_UP_BIAS_M = 0.05` above each size profile's `up` point.
-  The oval radii are `presentation.standing.caress.oval_across_m` (default `1.0 cm`) along the
-  body and `oval_up_m` (default `2.0 cm`) vertically, both times the pony size scale; the old
-  `CARESS_OVAL_ACROSS = 1.30` / `CARESS_OVAL_UP = 0.70` ratios are fallbacks. It reads as a
-  stroke rather than a perfect circle.
-  The controller reports one `_on_touch("caress")` per `CAESS_TOUCH_SECONDS` (5 s) of contact,
-  so readiness, the tolerance meter and the summary see discrete actions instead of one per
-  physics tick; a short tap scores nothing.
-  Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
-  (both hands 4 cm wider), Same Height and Hoers step up from there; those choose where on the
-  body to caress, then the contact query snaps the palm to the coat. Both A and D can run at
-  once, one hand per side. An A/D tap latches that hand until the next tap. The procedural
-  fallback centre interpolates with the lean: backward lean moves it toward the rump top as soon
-  as it passes zero (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly,
-  full lean = the shoulder contact point. The circle radius scales with pony size; the point
-  offsets are already per size. It is standing-only.
+- A/D caress uses the shared caress system; see `docs/caress.md`. The pose supplies the standing
+  flank -> shoulder -> neck path, the rump fallback and the standing palm holder.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
@@ -819,7 +753,7 @@ custom head-aim path below.
   A forward lean therefore lands on the forward flank instead of reaching back to the cheek.
   The body hull is never the smack target and the rump centre is not used. Missionary keeps the
   old decal-centre target: `at` is the mark centre shifted `0.08 m` up and `0.08 m` back,
-  jittered within the same zone. The contact palm uses the same `palm_surface_basis()` and
+  jittered within the same zone. The contact palm uses the same `caress_hand.palm_basis()` and
   caress palm distance above. If a hand is already caressing, the smack uses that hand; if both
   are caressing, one is chosen at random. The caress oval keeps moving through the smack, so the
   hand returns to the live point instead of the one it left.
@@ -851,93 +785,9 @@ custom head-aim path below.
   centered picks one at random. The index chooses which cheek decal reddens; standing's contact
   point is the live caress point or the bottom of that cheek. There is no rump target.
 
-### Precise caress (debug)
+### Caress
 
-`features.caress_surface` (default off) swaps the capsule-point placement for the precise modules
-in both poses. The old capsule/point path remains the fallback, and both modes go through
-`caress/caress_system.gd`. `features.caress_hand_shape` (default off) adds
-the multi-sample palm/finger resolver on top; off is the single-point palm.
-
-- `caress/anchors.json` and `caress/anchors2.json` are the primary authored paths: rest-space
-  body/head points chosen in Blender from the visible coat, stored as source-region positions.
-  Each point snaps to the nearest source vertex within 6 cm, so the runtime keeps its skin
-  weights. `anchors.json` is a shared belly plus per-hand lower/chest/neck/cheek
-  (`lower → belly → chest → neck → cheek`); `anchors2.json` is per-hand flank/shoulder/neck
-  (`flank → shoulder → neck`, neutral at the flank). The authored side is the missionary facing:
-  Anon faces her, so his left hand reaches her right side. Standing requests the opposite authored
-  hand side because Anon is behind her and his left hand reaches her left side; the path data is
-  unchanged. A missing or invalid point falls back to the camera path, then the rest path. `presentation.missionary.caress.path_id` is the debug
-  dropdown (`one`/`two`); the path cache is keyed by the hand and path id, so switching it
-  rebuilds the next caress path.
-- `caress/caress_path.gd` is the missionary path controller: without authored points it chooses
-  surface anchors by **act-camera rays**,
-  not by nearest vertices to bone origins. On first use it casts from the live act camera to the
-  belly, chest, neck and head bone origins through the posed `CaressSurface` patches. The first
-  triangle is the coat the player actually sees, so the path is on the visible side instead of
-  the rest-space underside. The belly anchor stays on the centerline (closest to Anon); the
-  chest, neck and cheek ray targets are offset toward the hand's side by 10/6/7 cm × body scale,
-  so A builds a left-side path and D a right-side path. Those anchors store `lateral = 0`
-  because the side is already baked into the hit. It stores each hit's rest position/normal/skin
-  weights and caches them per mesh/side and camera side. Every tick it skins only those anchors and samples a
-  Catmull-Rom curve (`lean` + `caress.along_m`). The path is on the coat by construction, so the
-  single-point palm needs no triangle query. `belly_u` is derived from the belly anchor index.
-  The rest-space ray path (below/front belly and chest, hand-side neck and cheek, plus a lower
-  belly derived from the belly hit) remains the fallback when the camera is unavailable.
-- The palm's finger axis is the **body head axis** (`pony_head - pony_hips`) projected onto the
-  coat tangent plane, not the path tangent, so the fingers point toward her head instead of
-  following a kink in the anchor chain.
-- The path is **reach-aware**: the controller asks `missionary_anon.caress_reach()` for the world
-  shoulder and upper/lower/hand lengths, then walks `u` back toward the lower belly until the
-  palm frame is within `(upper + lower + hand) × stretch + shoulder/body caps`. W stops at the
-  furthest reachable coat point instead of clamping the wrist inside her. The neck/cheek use the
-  `fingertip` palm mode, which puts the palm behind the contact by the 9 cm finger length.
-- `caress/caress_surface.gd` builds a **stable posed patch** of the visible `MareBody`/head mesh
-  anchored to the rig's rest pose, not to the moving query. It filters by body region (`torso`
-  includes the neck, `head`) and skins the patch at 30 Hz. The face set does not change while the
-  hand moves. `_gather` uses the skeleton passed by `find_mesh`, not `mesh.skeleton`: the head
-  mesh's skeleton path is the model root, so re-reading it left the head source empty. The head
-  patch radius is 0.65 m and the cheek ray starts 0.52 m forward of `mHead`. A `TriangleMesh`
-  ray gives `nearest(point, outward)` for the hand samples; it is built lazily and only when the
-  hand shape is on. `closest()` reports `inside`.
-- `caress/caress_hand.gd` is the hand shape. The palm marker is the palm centre; local `-Z` is the
-  fingers, `+Y` the thumb, palm normal `±X`. It carries a 2 cm palm ball, 2 cm heel, four 1.2 cm
-  finger tips and a 1.5 cm thumb; `palm` and `fingertip` modes; `resolve()` uses the surface ray
-  and pushes the marker out until every sample is outside the surface plus `CONTACT_MARGIN`.
-  `place()` puts the single-point palm at `contact + normal * hover`.
-- `caress/caress_arm.gd` plans the missionary reach: shoulder/body shift caps, arm stretch cap,
-  target clamp and the actual solved target. It runs only for the caressing hand, never the two
-  planted palms. With the reach-aware path the plan is normally not clamped; if it is, the hand
-  stops at the arm instead of detaching. The `caress_debug` log reports the reach only on
-  `ok`/`clamped` transitions and includes the target distance and max reach.
-- `caress_control.gd` owns the act side: A/D latches, the five-second touch meter, shoulder
-  reach, smack and the palm holder. `caress/caress_system.gd` is pose-free: it receives the pony,
-  a path and the palm side, then applies the oval, snaps to the coat, smooths and builds the palm
-  frame. The pose only chooses a path provider and a palm holder.
-- `caress/flank_path.gd` supplies the standing authored flank -> shoulder -> neck path, with the
-  procedural flank/rump centre as fallback;
-  `caress/missionary_path.gd` supplies the authored or legacy missionary path. Both use the same
-  engine. The engine snaps each interpolated point and every oval offset to the exact body/head
-  surface with one `nearest` ray per hand per tick, so the palm follows the coat around the circle.
-  `normal_blur_m` averages the coat normal around the hit to stop crease snaps; `normal_deg_s`
-  clamps the temporal normal turn; `contact_smooth` low-passes only the surface snap correction,
-  never the intended oval motion, so the standing oval does not shrink or lag. Each at 0 restores
-  the exact behaviour. The hand-shape mode reuses the same exact surface. If the surface fails,
-  the last good target is held.
-- `presentation.missionary.caress.path_id` is the missionary debug **Caress path** dropdown:
-  `one` uses `anchors.json` (belly/chest/neck/cheek), `two` uses `anchors2.json`
-  (flank/shoulder/neck). Standing always uses path two. Changing it rebuilds the next caress path
-  because the path cache is keyed by path id.
-- `features.caress_debug` logs one precise contact line per hand per act with `u`, target,
-  normal, finger, roll, hover and surface; the first build also logs the body/head source sizes,
-  any missing/rejected anchor, and each anchor's world position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`
-  chunks. The reach caps are `features.caress_reach_shoulder_m` (2 cm; the old 12 cm default
-  migrates to 2), `features.caress_reach_body_m` (0) and `features.caress_reach_stretch` (1.0).
-- `Raise over coat` is the palm-centre hover in missionary, default 2 cm and signed (negative
-  presses). Standing uses the tuned `Palm distance`. In hand-shape mode the sample radii provide
-  the clearance and the hover adds the difference above the 2 cm palm radius.
-- Current scope: the precise surface covers the body/head meshes (torso/neck/cheek). Hair, mane,
-  wing and tail layers are not part of the exact patch yet; the existing `Ignore body parts`
-  setting still filters the legacy flank/hull contact.
+The caress paths, contact, smoothing, settings and debug controls are in `docs/caress.md`.
 
 ### Thrust camera and restore
 
@@ -1212,8 +1062,8 @@ examples.
   `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 - A pure `act_tolerance.gd` meter runs in `POSING_IN`/`ACTIVE`. Every actual disliked touch/talk
   adds 1, every actual liked touch/talk subtracts 1, and passive decay removes 1 every 25 s.
-  A held caress is one action per `CAESS_TOUCH_SECONDS` (5 s) of contact, never one per physics
-  tick, so it cannot erase distress every frame.
+  A held caress is a discrete action; its five-second meter is in `docs/caress.md`, so it cannot
+  erase distress every frame.
 - Warnings are one-shot per act: forgiving at 4, normal at 1 and 4, strict at 1. They set a HUD cue
   and queue one short spoken warning even when `features.act_lines` is off.
 - Stop thresholds: forgiving never; normal 10; strict 3. A stop is not `cancel()`. It forces a severe
@@ -1694,9 +1544,6 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
 | `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old satisfied/aftercare behaviour |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
-| `caress_surface` | `false` | precise caress in both poses: surface-anchored path and exact single-point palm; off uses the capsule point path |
-| `caress_hand_shape` | `false` | multi-sample palm/finger resolver on top of the precise contact; off uses one palm-centre point |
-| `caress_debug` | `false` | one precise caress contact line per hand per act |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
 | `standing_play_bow` | `false` | standing play-bow stance: front legs forward, chest down, head low |
@@ -1721,13 +1568,8 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_climax` | `false` | pack wet finish layer |
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
-rump blush. Unknown settings keys are ignored.
-- Precise caress debug values: `features.caress_surface` (default off),
-  `features.caress_hand_shape` (default off), `features.caress_debug`,
-  `presentation.missionary.caress.path_id` (one/two debug dropdown),
-  `features.caress_reach_shoulder_m` (2 cm), `features.caress_reach_body_m` (0) and
-  `features.caress_reach_stretch` (1.0). They are read live; both precise flags are snapshotted
-  with the other act features.
+rump blush. Unknown settings keys are ignored. Caress feature flags and debug values are in
+`docs/caress.md`.
 - `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
   the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
   off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
@@ -1832,25 +1674,19 @@ rump blush. Unknown settings keys are ignored.
     distance used by both cameras and the planted lower body.
   - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
-    `caress.along_m` (debug, signed, in centimetres: move the caress point toward her head or
-    tail), `caress.over_coat_m` (debug, default 2 cm, signed: palm-centre hover over her coat;
-    negative presses), `caress.normal_blur_m` (debug, default 2 cm: radius of the coat normal
-    average), `caress.normal_deg_s` (debug, default 120: palm normal turn limit), and
-    `caress.contact_smooth` (debug, default 18/s: surface snap-correction low-pass), `part_inset_m` (debug, signed,
-    in centimetres: pull the cock base back into the pelvis in missionary), `oval_scale` (debug, ×:
-    scale the missionary caress oval), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
+    `part_inset_m` (debug, signed, in centimetres: pull the cock base back into the pelvis in
+    missionary), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
     `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
     `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
     size dropdown above the six rows.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
-    (default `32°`) and `pitch_deg` (default `24°`), `caress` with `palm_distance`,
-    `oval_across_m` (default `1.0 cm`), `oval_up_m` (default
-    `2.0 cm`), `palm_scale` keyed by `canon`/`mounting`/`same height`/`hoers`, and `ignore`,
-    and `smack` with `raise_m` (default `0.30 m`), `hind_m` (default `0.09 m`), `height_m`
+    (default `32°`) and `pitch_deg` (default `24°`), and `smack` with `raise_m` (default
+    `0.30 m`), `hind_m` (default `0.09 m`), `height_m`
     (default `0.05 m`, signed), `arc_m` (default `0.10 m`), `pitch_deg` (default `0°`),
     `raise_speed` (default `1.5 m/s`) and `return_speed` (default `3.0 m/s`). The smack values
     are experimental/unbounded.
+  - Caress settings are in `docs/caress.md`.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - **Never clamp a debug setting.** A debug `num` (`.as_debug()`) is stored and returned verbatim;
@@ -1896,12 +1732,11 @@ rump blush. Unknown settings keys are ignored.
   Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
   Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
-  during cuddles, then the **Caress** (precise toggle, hand-shape toggle, path dropdown, contact
-  log, shoulder/body/stretch caps), **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
-  match, Caress along, Raise over coat, Cock base inset, Caress oval, Normal blur, Normal turn,
-  Contact smooth, a **Size** dropdown over the six per-size vulva/clearance/gaze values, fold/hug
-  hacks, Use free look), **Standing** (with
-  **Motion**, **Caress**, **Kiss** and **Smack** subheadings) and **Thrust jiggle** sections. **Anatomy**
+  during cuddles, then **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
+  match, Cock base inset, a **Size** dropdown over the six per-size vulva/clearance/gaze values,
+  fold/hug hacks, Use free look), **Standing** (with **Motion**, **Kiss** and **Smack**
+  subheadings) and **Thrust jiggle** sections. Caress controls are in `docs/caress.md`.
+  **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part**, **Placement** and
   **Actions**.
   **World** opens with Promiscuity and the estrus switch, and its Debug block holds the witnesses,
@@ -1971,6 +1806,8 @@ This is mandatory.
   obsolete documentation instead of keeping historical notes.
 - Keep camera, pose, thrust and strength details here and in `PREFERENCES.md`/`ROTATION.md`.
   Summarize non-critical areas such as debug logs; do not build long catalogues.
+- The caress contract lives only in `docs/caress.md`; other docs link there and do not restate
+  its paths, contact, settings or debug controls.
 - Verify every claim against code before writing it. If docs and code disagree, fix the docs or
   the code in the same change.
 - `README.md` rule:
@@ -1981,7 +1818,7 @@ This is mandatory.
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
 - Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md`, `TUNING.md`, `WORKFLOW.md`,
-  `assets/README.md` and the release skill consistent.
+  `docs/caress.md`, `assets/README.md` and the release skill consistent.
 
 ## Known constraints
 
@@ -1992,7 +1829,8 @@ This is mandatory.
   offer through that lease is valid only for `bed_side`/`already_lying` when she is not sleeping
   and `posture_status().requested == "lie_down"`; walking to bed or sleeping is not.
 - "Same Height as Anon" now follows Anon's `player/height_cm`. The mod's lean scale, standing gap
-  and caress offsets follow the same multiplier; other size presets keep their authored values.
+  and caress offsets follow the same multiplier; see `docs/caress.md`. Other size presets keep
+  their authored values.
 - Standing kiss offsets, the missionary virtual mouth and kiss lean distances scale with Anon's chosen
   height (`Settings.anon_height_scale()`), matching `player/player_mouth.gd`.
 - `captions_on_top` is mod-owned: `main.gd` finds `SpeechCaption` through `Mods.on_node`, then

@@ -1,6 +1,6 @@
 extends RefCounted
-## Surface-anchored missionary caress path. The primary anchors come from the authored
-## `anchors.json` / `anchors2.json` rest points; otherwise they are
+## Surface-anchored caress path, shared by both pose providers. The primary anchors come from
+## the authored `anchors.json` / `anchors2.json` rest points; otherwise they are
 ## chosen from the coat the act camera sees, with a rest-space ray path as the final fallback.
 ## Every tick the anchors are skinned with the live skeleton; no triangle query is needed for the
 ## single-point placement after they are built.

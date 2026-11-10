@@ -62,6 +62,7 @@ func run() -> void:
 	_check_settings_module(files)
 	_check_teardown()
 	_check_caress_isolation()
+	_check_caress_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -102,6 +103,30 @@ func _check_caress_isolation() -> void:
 	for token: String in ["pose_id", "CATALOG", "missionary", "standing",
 			"desktop_pose_driver", "missionary_anon"]:
 		check(not engine.contains(token), "caress engine has no pose reference: %s" % token)
+	var path_base := FileAccess.get_file_as_string(
+		ROOT.path_join("caress/caress_path_base.gd"))
+	check(path_base.contains("func candidates("), "caress path contract is present")
+	var coat := FileAccess.get_file_as_string(ROOT.path_join("caress/coat.gd"))
+	check(coat.contains("static func contact("), "caress coat query is present")
+	for name: String in ["caress_path_base.gd", "coat.gd"]:
+		var text := FileAccess.get_file_as_string(
+			ROOT.path_join("caress").path_join(name))
+		for token: String in ["pose_id", "CATALOG", "desktop_pose_driver",
+				"missionary_anon"]:
+			check(not text.contains(token),
+				"%s has no pose reference: %s" % [name, token])
+
+
+## The caress contract lives in one file; every other doc points to it.
+func _check_caress_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/caress.md"))
+	check(not contract.is_empty(), "docs/caress.md exists")
+	check(contract.contains("## Controls") and contract.contains("## Contact engine"),
+		"docs/caress.md has the controls and contact contract")
+	for name: String in ["AGENTS.md", "ROTATION.md", "PREFERENCES.md", "HISTORY.md",
+			"README.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/caress.md"), "%s links to docs/caress.md" % name)
 
 
 ## One ordered teardown owns act exit. If a new exit path or a copied restore sequence appears,

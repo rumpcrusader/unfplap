@@ -1,8 +1,7 @@
-# Caress system
+# Hands system
 
-The caress is the act hand system for both poses: A/D rub her coat, Z/C pause or resume the
-oval, and the same controller owns the shoulder reach and act smack. This file is the single
-technical contract for the caress; other docs link here.
+The hands system is the act's hand layer for both poses: caress, shoulder reach, smack and hand
+scale. This file is the single technical contract; other docs link here.
 
 ## Scope
 
@@ -11,11 +10,9 @@ This contract covers:
 - caress input and state in both poses;
 - the pose-specific paths and authored anchors;
 - the surface contact, smoothing and palm frame;
-- caress settings and debug controls;
-- the five-second touch meter and the caress scoring hooks.
-
-Shoulder reach and smack are described here only where they share the caress hand. Their own
-phase, target and audio contracts stay in `AGENTS.md`/`ROTATION.md`.
+- the five-second touch meter and the caress scoring hooks;
+- the shared shoulder reach and smack hand actions;
+- the shared hand-bone scale and debug controls.
 
 ## Controls
 
@@ -172,6 +169,25 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 - `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand;
   `caress_surface` covers the stable patch update, exact query and normal blur; `caress_arm`
   covers the missionary reach plan.
+
+## Reach
+
+The standing `Q`/`E` side lean can send Anon's same-side hand to her shoulder. It uses the same
+palm holder and hull contact as the caress, blends from the current rest hand over 0.35 s, and
+blends back over 0.35 s. While held, the forced glance looks over that shoulder. Missionary has
+no shoulder reach.
+
+## Smack
+
+The act smack currently lives in `hand_control.gd`; it is the next module to move under `hands/`.
+
+- A live caress hand is used when possible; otherwise the lean chooses a cheek.
+- Standing uses the visible lift -> strike -> contact -> recover phases and returns to the live
+  caress point or the rest hand.
+- Missionary uses the hidden-hand swing to the decal centre.
+- The native `FlankTouch.impact` keeps its decal, blush and jiggle; the pony's game reaction
+  signals are disconnected around the call.
+- The pack hand-smack sound is installed immediately before impact and restored at act exit.
 
 ## Scoring hooks
 

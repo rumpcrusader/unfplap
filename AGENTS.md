@@ -11,7 +11,7 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
-| Any caress task | `docs/hands.md` |
+| Any hands, caress or smack task | `docs/hands.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
@@ -1869,7 +1869,7 @@ This is mandatory.
   obsolete documentation instead of keeping historical notes.
 - Keep camera, pose, thrust and strength details here and in `PREFERENCES.md`/`ROTATION.md`.
   Summarize non-critical areas such as debug logs; do not build long catalogues.
-- The caress contract lives only in `docs/hands.md`; other docs link there and do not restate
+- The hands contract lives only in `docs/hands.md`; other docs link there and do not restate
   its paths, contact, settings or debug controls.
 - Verify every claim against code before writing it. If docs and code disagree, fix the docs or
   the code in the same change.

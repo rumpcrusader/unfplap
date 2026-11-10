@@ -629,6 +629,16 @@ func _apply_material() -> void:
 	material.set_shader_parameter("lip_vertical",
 		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
 	material.set_shader_parameter("vulva_height", SETTINGS.vulva_height.get_num())
+	# `coat_color` is the shader's `to_coat` fallback (the dock and the strip edges read it). It
+	# must match her coat here, or those vertices render black: the main material used to leave
+	# both uniforms at their default (0,0,0,0).
+	var identity: Variant = pony.get("identity")
+	var coat_fill: Variant = identity.get("coat_fill") if identity != null else null
+	var coat_shade: Variant = identity.get("coat_shade") if identity != null else null
+	material.set_shader_parameter("coat_color",
+		coat_fill if coat_fill is Color else Color(0.8, 0.8, 0.8))
+	material.set_shader_parameter("coat_shadow",
+		coat_shade if coat_shade is Color else Color(0.68, 0.68, 0.68))
 	# `_wide` is the world shaft radius; the shader works in mesh units.
 	material.set_shader_parameter("hole_target", _wide / world_scale)
 	_mesh.set_surface_override_material(0, material)

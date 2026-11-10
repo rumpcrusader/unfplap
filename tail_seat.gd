@@ -433,8 +433,8 @@ func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void
 	row["attached"] = follower
 
 
-## The dock's chosen colour. Genitals uses the live anatomy material, so the cuff matches her
-## genital skin tone; otherwise the game's original coat material is kept.
+## The dock's chosen colour. Genitals uses a copy of the live anatomy material, recoloured so the
+## cuff matches her genital skin tone; otherwise the game's original coat material is kept.
 func _dock_material(row: Dictionary) -> Material:
 	if SETTINGS.dock_color.get_choice() == "genitals":
 		var pony: Node = row.get("pony") as Node
@@ -444,9 +444,22 @@ func _dock_material(row: Dictionary) -> Material:
 				var anatomy := (skeleton as Skeleton3D).find_child(
 					"UnfplapAnatomy", true, false) as MeshInstance3D
 				if is_instance_valid(anatomy) and not anatomy.is_queued_for_deletion():
-					var material := anatomy.get_active_material(0)
-					if material is Material:
-						return material
+					var base := anatomy.get_active_material(0)
+					if base is ShaderMaterial:
+						# The anatomy material is shared with the vulva; a copy keeps the dock's
+						# recolour and the shader reset away from it. The main material never sets
+						# `coat_color` (only the teats copy does), so a direct reuse is black:
+						# the dock's missing COLOR leaves `to_coat` at 1.
+						var dock := (base as ShaderMaterial).duplicate() as ShaderMaterial
+						var skin: Variant = base.get_shader_parameter("skin_color")
+						var shadow: Variant = base.get_shader_parameter("skin_shadow")
+						if skin is Color:
+							dock.set_shader_parameter("coat_color", skin)
+						if shadow is Color:
+							dock.set_shader_parameter("coat_shadow", shadow)
+						dock.set_shader_parameter("fold_coloring", 0.0)
+						dock.set_shader_parameter("contour_amount", 0.0)
+						return dock
 	var original: Variant = row.get("original_material")
 	return original as Material if original is Material else null
 

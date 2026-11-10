@@ -27,6 +27,7 @@ var _tail_rest_body := Transform3D.IDENTITY
 var _rest_vertices := PackedVector3Array()
 var _rest_normals := PackedVector3Array()
 var _rest_uv := PackedVector2Array()
+var _rest_color := PackedColorArray()
 var _rest_indices := PackedInt32Array()
 var _rest_primitive := Mesh.PRIMITIVE_TRIANGLES
 var _weights := PackedFloat32Array()
@@ -83,6 +84,8 @@ func _cache() -> void:
 		else PackedVector3Array()
 	_rest_uv = arrays[Mesh.ARRAY_TEX_UV] if arrays[Mesh.ARRAY_TEX_UV] != null \
 		else PackedVector2Array()
+	_rest_color = arrays[Mesh.ARRAY_COLOR] if arrays[Mesh.ARRAY_COLOR] != null \
+		else PackedColorArray()
 	_rest_indices = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null \
 		else PackedInt32Array()
 	_rest_primitive = rest_mesh.surface_get_primitive_type(0)
@@ -137,6 +140,8 @@ func _update() -> void:
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	arrays[Mesh.ARRAY_NORMAL] = _rest_normals.duplicate()
 	arrays[Mesh.ARRAY_TEX_UV] = _rest_uv
+	if not _rest_color.is_empty():
+		arrays[Mesh.ARRAY_COLOR] = _rest_color
 	arrays[Mesh.ARRAY_INDEX] = _rest_indices
 	DOCK_SEAT.recompute_normals(arrays)
 	var mesh := ArrayMesh.new()

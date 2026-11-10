@@ -239,7 +239,8 @@ mods/unfplap/
                     tail-only dock cuff, applies the debug lifts; per-mare exceptions; restores the
                     original when the setting is off
   tail_seat_placement.gd  pure tail seat exception data (`anatomy.tail_seat.<id>` offset_y/z)
-  dock_attach.gd    tail-only dock cuff follower: `mPelvis` base, `mTail1` outer end, 30 Hz CPU
+  dock_attach.gd    tail-only dock cuff follower: `mPelvis` base, `mTail1` outer end, 30 Hz CPU,
+                    keeps the dock's vertex colours and metadata
   dock_seat.gd      snaps the dock base ring to the rump (`rump_z - 4 mm`) with a falloff
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
@@ -422,7 +423,8 @@ reclined eye height left the camera wrong after the act.
   that tail to the reference, pushes the cuff above and behind the tail base. The fit is
   re-reached with `hybrid_dock`, its base ring is snapped to `hybrid_dock.rump_z(y) - 4 mm` by
   `dock_seat.gd`. The dock keeps her coat material by default; Anatomy → **Dock colour** switches
-  it to the attached anatomy material (her genital skin tone). The 4 mm embed and a falloff over the
+  it to a copy of the attached anatomy material with `coat_color`/`coat_shadow` set to her skin
+  tones (her genital skin tone). The 4 mm embed and a falloff over the
   first 35% of the dock keep the base in the coat without creasing. The body, skeleton, mane and
   anatomy placement are untouched.
 - The dock's outer opening is seated on the pinned tail cap's vertical centre. `tail_seat.gd`

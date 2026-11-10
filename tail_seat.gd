@@ -9,12 +9,12 @@ extends Node
 ## game's tail and dock exactly.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const PLACEMENT := preload("res://mods/unfplap/tail_seat_placement.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/dock_seat.gd")
 const DOCK_ATTACH := preload("res://mods/unfplap/dock_attach.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
+const ANATOMY_PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 
 const DOCK_NAME := "OpenPonyDock"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
@@ -24,7 +24,6 @@ const DOCK_VISIBILITY_FALLBACK := Vector3(0.0, 0.0, 0.04)
 ## The reference's cap sits just below and in front of the body's own tail root. This fallback is
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
-const MOVE_STEP := 0.005
 
 var main: Node
 
@@ -32,9 +31,6 @@ var main: Node
 var _rows: Dictionary = {}
 ## Last applied values of Anatomy › Re-seat tails and docks and the two debug offsets.
 var _enabled := true
-var _tail_lift := 0.0
-var _forward := 0.0
-var _dock_lift := 0.0
 static var _reference := Vector3.INF
 static var _reference_loaded := false
 static var _visibility: Dictionary = {}
@@ -42,9 +38,6 @@ static var _visibility: Dictionary = {}
 
 func _ready() -> void:
 	_enabled = SETTINGS.reseat_tails.get_bool()
-	_tail_lift = SETTINGS.tail_offset_mm.get_num() / 1000.0
-	_forward = SETTINGS.tail_forward_mm.get_num() / 1000.0
-	_dock_lift = SETTINGS.dock_offset_mm.get_num() / 1000.0
 
 
 ## The game's exact reference anchor, in body mesh space. Falls back to the body tail root.
@@ -167,121 +160,53 @@ func attach(pony: Node) -> void:
 ## changed saved exception cause a write.
 func refresh_all() -> void:
 	var enabled := SETTINGS.reseat_tails.get_bool()
-	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
-	var forward := SETTINGS.tail_forward_mm.get_num() / 1000.0
-	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	var toggle_changed := enabled != _enabled
-	var offsets_changed := not is_equal_approx(tail_lift, _tail_lift) \
-		or not is_equal_approx(forward, _forward) \
-		or not is_equal_approx(dock_lift, _dock_lift)
 	_enabled = enabled
-	_tail_lift = tail_lift
-	_forward = forward
-	_dock_lift = dock_lift
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
 		var row: Dictionary = _rows[pony]
-		var changed := toggle_changed or offsets_changed
-		if not bool(row["dirty"]):
-			var id := str(row["id"])
-			var saved: Vector2 = SETTINGS.tail_seat_offset(id)
-			if not PLACEMENT.same(saved, row["offset"] as Vector2):
-				row["offset"] = saved
-				changed = true
-			var saved_dock := SETTINGS.tail_seat_dock(id)
-			if not PLACEMENT.same_dock(saved_dock, float(row["dock_gap"])):
-				row["dock_gap"] = saved_dock
-				changed = true
-			var saved_scale := SETTINGS.tail_seat_dock_scale(id)
-			if not PLACEMENT.same_scale(saved_scale, float(row["dock_scale"])):
-				row["dock_scale"] = saved_scale
+		var placement := SETTINGS.anatomy_placement(str(row["id"]))
+		var changed := toggle_changed
+		for pair: Array in [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
+				["dock_scale", 1.0]]:
+			var key := str(pair[0])
+			var value := float(placement.get(key, pair[1]))
+			if not is_equal_approx(value, float(row.get(key, pair[1]))):
+				row[key] = value
 				changed = true
 		if changed:
 			_apply(row)
 
-
-## Move, save or reset the pointed mare's exception. Returns the status line.
-func place(pony: Node, op: String, value := MOVE_STEP) -> String:
-	if not is_instance_valid(pony) or not _rows.has(pony):
-		return "No tail-seat pony targeted."
-	if not SETTINGS.reseat_tails.get_bool():
-		return "Re-seat tails and docks is off."
-	var row: Dictionary = _rows[pony]
-	var offset: Vector2 = row["offset"]
-	var dock := float(row.get("dock_gap", 0.0))
-	var dock_scale := float(row.get("dock_scale", 1.0))
-	match op:
-		"up":
-			offset.x += value
-		"down":
-			offset.x -= value
-		"forward":
-			offset.y -= value
-		"back":
-			offset.y += value
-		"dock_up":
-			dock += value
-		"dock_down":
-			dock -= value
-		"dock_scale_up":
-			dock_scale = minf(dock_scale + value, PLACEMENT.DOCK_SCALE_MAX)
-		"dock_scale_down":
-			dock_scale = maxf(dock_scale - value, PLACEMENT.DOCK_SCALE_MIN)
-		"save":
-			SETTINGS.save_tail_seat(str(row["id"]), offset, dock, dock_scale)
-			row["dirty"] = false
-			_apply(row)
-			return "%s saved" % _text(row)
-		"reset":
-			offset = Vector2.ZERO
-			dock = 0.0
-			dock_scale = 1.0
-		"text":
-			return _text(row)
-		_:
-			return _text(row)
-	row["offset"] = offset
-	row["dock_gap"] = dock
-	row["dock_scale"] = dock_scale
-	row["dirty"] = true
-	_apply(row)
-	return _text(row)
-
-
-## Log every live mare's original seat, target and source; return a short summary.
+## Log every live mare's seat and the resolved placement; return a short summary.
 func report_all() -> String:
 	var lines := PackedStringArray()
 	var count := 0
 	var exceptions := 0
-	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
-	var forward := SETTINGS.tail_forward_mm.get_num() / 1000.0
-	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
 		var row: Dictionary = _rows[pony]
-		var target := PLACEMENT.target(reference(pony), row["offset"] as Vector2,
-			tail_lift, forward)
+		var placement := SETTINGS.anatomy_placement(str(row["id"]))
+		var reference_anchor := reference(pony)
+		var target := reference_anchor + Vector3(0.0, float(placement.get("tail_y", 0.0)),
+			float(placement.get("tail_z", 0.0)))
 		var source := _source(row)
-		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) %s %s source=%s" % [
+		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) source=%s" % [
 			str(row["id"]), (row["anchor"] as Vector3).x, (row["anchor"] as Vector3).y,
 			(row["anchor"] as Vector3).z, target.x, target.y, target.z,
-			PLACEMENT.text(row["offset"] as Vector2), (row["applied"] as Vector3).x,
-			(row["applied"] as Vector3).y, (row["applied"] as Vector3).z,
-			PLACEMENT.dock_text(float(row.get("dock_gap", 0.0))),
-			PLACEMENT.scale_text(float(row.get("dock_scale", 1.0))), source])
+			ANATOMY_PLACEMENT.text(placement), (row["applied"] as Vector3).x,
+			(row["applied"] as Vector3).y, (row["applied"] as Vector3).z, source])
 		count += 1
-		if source == "override" or source == "unsaved":
+		if source == "override":
 			exceptions += 1
 	if not lines.is_empty():
-		_log("tail seats tail_offset=%+.0fmm tail_forward=%+.0fmm dock_offset=%+.0fmm\n\t" % [
-			tail_lift * 1000.0, forward * 1000.0, dock_lift * 1000.0]
-			+ "\n\t".join(lines))
+		var base := SETTINGS.anatomy_placement_draft_values()
+		_log("tail seats default %s\n\t%s" % [ANATOMY_PLACEMENT.text(base),
+			"\n\t".join(lines)])
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]
-
 
 func _exit_tree() -> void:
 	for pony: Variant in _rows.keys():
@@ -342,6 +267,7 @@ func _prepare(pony: Node) -> Dictionary:
 		_log("tail seat: no dock fit for %s" % pony.name)
 		return {}
 	var identity: Variant = pony.get("identity")
+	var placement := SETTINGS.anatomy_placement(str(identity.get("id")))
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
 	var original_skin: Skin = dock.skin
 	return {
@@ -360,12 +286,12 @@ func _prepare(pony: Node) -> Dictionary:
 		"anchor": anchor,
 		"cap_centre": _tail_cap_centre(pony),
 		"fit": fit.duplicate(true),
-		"offset": SETTINGS.tail_seat_offset(str(identity.get("id"))),
-		"dock_gap": SETTINGS.tail_seat_dock(str(identity.get("id"))),
-		"dock_scale": SETTINGS.tail_seat_dock_scale(str(identity.get("id"))),
+		"tail_y": float(placement.get("tail_y", 0.0)),
+		"tail_z": float(placement.get("tail_z", 0.0)),
+		"dock_y": float(placement.get("dock_y", 0.0)),
+		"dock_scale": float(placement.get("dock_scale", 1.0)),
 		"attached": null,
 		"applied": Vector3.ZERO,
-		"dirty": false,
 	}
 
 
@@ -379,10 +305,9 @@ func _apply(row: Dictionary) -> void:
 	var reference_anchor := reference(pony)
 	if not reference_anchor.is_finite():
 		return
-	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
-	var forward := SETTINGS.tail_forward_mm.get_num() / 1000.0
-	var delta := PLACEMENT.delta(row["anchor"] as Vector3, reference_anchor,
-		row["offset"] as Vector2, tail_lift, forward)
+	var target := reference_anchor + Vector3(0.0, float(row.get("tail_y", 0.0)),
+		float(row.get("tail_z", 0.0)))
+	var delta := target - (row["anchor"] as Vector3)
 	var link: Node = row["link"]
 	if not is_instance_valid(link) or not link.is_inside_tree():
 		return
@@ -423,7 +348,7 @@ func _move_dock(row: Dictionary, delta: Vector3) -> void:
 	if not is_instance_valid(dock):
 		return
 	var fit: Dictionary = (row["fit"] as Dictionary).duplicate(true)
-	var dock_scale := float(row.get("dock_scale", 1.0))
+	var dock_scale := maxf(0.05, float(row.get("dock_scale", 1.0)))
 	if not is_equal_approx(dock_scale, 1.0):
 		fit["scale"] = float(fit.get("scale", 1.0)) * dock_scale
 	var position: Variant = fit.get("position")
@@ -467,8 +392,7 @@ func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void
 	var drop := float(row.get("cap_centre", NAN)) - top
 	if not is_finite(drop):
 		drop = 0.0
-	follower.set("dock_lift", drop + SETTINGS.dock_offset_mm.get_num() / 1000.0
-		+ float(row.get("dock_gap", 0.0)))
+	follower.set("dock_lift", drop + float(row.get("dock_y", 0.0)))
 	hair.add_child(follower)
 	row["attached"] = follower
 
@@ -540,19 +464,9 @@ func _invalidate_far(pony: Node) -> void:
 func _source(row: Dictionary) -> String:
 	if not SETTINGS.reseat_tails.get_bool():
 		return "off"
-	if bool(row["dirty"]):
-		return "unsaved"
-	if SETTINGS.tail_seat_has_override(str(row["id"])):
+	if SETTINGS.anatomy_placement_has_override(str(row["id"])):
 		return "override"
 	return "auto"
-
-
-func _text(row: Dictionary) -> String:
-	return "%s %s %s source=%s" % [
-		PLACEMENT.text(row["offset"] as Vector2),
-		PLACEMENT.dock_text(float(row.get("dock_gap", 0.0))),
-		PLACEMENT.scale_text(float(row.get("dock_scale", 1.0))),
-		_source(row)]
 
 
 func _log(text: String) -> void:

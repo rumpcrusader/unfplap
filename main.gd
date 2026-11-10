@@ -1634,48 +1634,76 @@ func open_act_chat() -> bool:
 	return opened
 
 
-## integration: debug placement controls for the local anatomy assets.
-func _anatomy_debug(op: String, value := 0.0) -> String:
-	var text := ""
-	if SETTINGS.edit_target.get_choice() == "default":
-		text = _anatomy_default_debug(op, value)
-	else:
-		text = _anatomy_mare_debug(op, value)
-	_debug("anatomy %s %s" % [op, text])
-	return text
-
-
-## Edit the global default preview. Nudges and Reset stage the values; Save writes the settings.
-func _anatomy_default_debug(op: String, value := 0.0) -> String:
-	var placement := SETTINGS.anatomy_placement_draft_values()
-	match op:
-		"save":
-			SETTINGS.save_anatomy_placement_default(placement)
-			_apply_settings_changed()
-			return "default saved " + PLACEMENT.text(placement)
-		"reset":
-			SETTINGS.reset_anatomy_placement_default()
-			refresh_anatomy()
-			return "default " + PLACEMENT.text(SETTINGS.anatomy_placement_draft_values())
-		"text":
-			return "default " + PLACEMENT.text(placement)
-		_:
-			if not _nudge_placement(placement, op, value):
-				return "Unknown anatomy place action."
-			SETTINGS.set_anatomy_placement_draft(placement)
-			refresh_anatomy()
-			return "default " + PLACEMENT.text(placement)
-
-
-func _anatomy_mare_debug(op: String, value := 0.0) -> String:
+## integration: one placement editor for anatomy, tail and dock. `Default` stages the global
+## default; `Pointed mare` saves the aimed or nearest mare's override. All values live in the one
+## `anatomy.placement` block.
+func _placement_target() -> Node:
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
 		target = _nearest_pony(view)
-	var runtime: Variant = runtime_for(target) if is_instance_valid(target) else null
-	if not is_instance_valid(runtime):
-		return "No anatomy pony targeted."
-	return str(runtime.call("anatomy_place", op, value))
+	return target
+
+
+func _placement_id() -> String:
+	if SETTINGS.edit_target.get_choice() == "default":
+		return "default"
+	var target := _placement_target()
+	if not is_instance_valid(target):
+		return ""
+	var id := str(target.get_meta("relationship_id", ""))
+	if id.is_empty():
+		var identity: Variant = target.get("identity")
+		if identity != null:
+			id = str(identity.get("id"))
+	return id
+
+
+func _placement_values(id: String) -> Dictionary:
+	if id == "default":
+		return SETTINGS.anatomy_placement_draft_values()
+	return SETTINGS.anatomy_placement(id)
+
+
+func _placement_refresh() -> void:
+	refresh_anatomy()
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_all")
+
+
+func _placement_debug(op: String, value := 0.0) -> String:
+	var id := _placement_id()
+	if id.is_empty():
+		return "No placement pony targeted."
+	var values := _placement_values(id)
+	match op:
+		"save":
+			if id == "default":
+				SETTINGS.save_anatomy_placement_default(values)
+				_apply_settings_changed()
+			else:
+				SETTINGS.save_anatomy_placement(id, values)
+				_placement_refresh()
+			return "%s saved %s" % [id, PLACEMENT.text(values)]
+		"reset":
+			if id == "default":
+				SETTINGS.reset_anatomy_placement_default()
+			else:
+				SETTINGS.save_anatomy_placement(id,
+					SETTINGS.anatomy_placement_default(id, false))
+			_placement_refresh()
+			return "%s %s" % [id, PLACEMENT.text(_placement_values(id))]
+		"text":
+			return "%s %s" % [id, PLACEMENT.text(values)]
+		_:
+			if not _nudge_placement(values, op, value):
+				return "Unknown placement action."
+			if id == "default":
+				SETTINGS.set_anatomy_placement_draft(values)
+			else:
+				SETTINGS.save_anatomy_placement(id, values)
+			_placement_refresh()
+			return "%s %s" % [id, PLACEMENT.text(values)]
 
 
 static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:
@@ -1690,115 +1718,104 @@ static func _nudge_placement(placement: Dictionary, op: String, value: float) ->
 			placement["pitch_deg"] = float(placement.get("pitch_deg", 0.0)) + value
 		"scale":
 			placement["scale"] = maxf(0.05, float(placement.get("scale", 1.0)) + value)
+		"tail_up":
+			placement["tail_y"] = float(placement.get("tail_y", 0.0)) + value
+		"tail_down":
+			placement["tail_y"] = float(placement.get("tail_y", 0.0)) - value
+		"tail_forward":
+			placement["tail_z"] = float(placement.get("tail_z", 0.0)) - value
+		"tail_back":
+			placement["tail_z"] = float(placement.get("tail_z", 0.0)) + value
+		"dock_up":
+			placement["dock_y"] = float(placement.get("dock_y", 0.0)) + value
+		"dock_down":
+			placement["dock_y"] = float(placement.get("dock_y", 0.0)) - value
+		"dock_scale_up":
+			placement["dock_scale"] = minf(float(placement.get("dock_scale", 1.0)) + value, 4.0)
+		"dock_scale_down":
+			placement["dock_scale"] = maxf(float(placement.get("dock_scale", 1.0)) - value, 0.05)
 		_:
 			return false
 	return true
 
 
 func action_anatomy_up() -> String:
-	return _anatomy_debug("y", 0.005)
+	return _placement_debug("y", 0.005)
 
 
 func action_anatomy_down() -> String:
-	return _anatomy_debug("y", -0.005)
+	return _placement_debug("y", -0.005)
 
 
 func action_anatomy_forward() -> String:
-	return _anatomy_debug("z", 0.005)
+	return _placement_debug("z", 0.005)
 
 
 func action_anatomy_back() -> String:
-	return _anatomy_debug("z", -0.005)
+	return _placement_debug("z", -0.005)
 
 
 func action_anatomy_pitch_up() -> String:
-	return _anatomy_debug("pitch", 1.0)
+	return _placement_debug("pitch", 1.0)
 
 
 func action_anatomy_pitch_down() -> String:
-	return _anatomy_debug("pitch", -1.0)
+	return _placement_debug("pitch", -1.0)
 
 
 func action_anatomy_scale_up() -> String:
-	return _anatomy_debug("scale", 0.02)
+	return _placement_debug("scale", 0.02)
 
 
 func action_anatomy_scale_down() -> String:
-	return _anatomy_debug("scale", -0.02)
-
-
-func action_anatomy_save() -> String:
-	return _anatomy_debug("save")
-
-
-func action_anatomy_reset() -> String:
-	return _anatomy_debug("reset")
-
-
-## integration: per-mare tail seat exceptions. The default is the exact reference anchor.
-func _tail_seat_target() -> Node:
-	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	return target
-
-
-func _tail_seat_debug(op: String, value := 0.005) -> String:
-	if not is_instance_valid(tail_seat):
-		return "Tail seat is unavailable."
-	var target := _tail_seat_target()
-	if not is_instance_valid(target):
-		return "No tail-seat pony targeted."
-	var text := str(tail_seat.call("place", target, op, value))
-	_debug("tail seat %s %s" % [op, text])
-	return text
+	return _placement_debug("scale", -0.02)
 
 
 func action_tail_seat_up() -> String:
-	return _tail_seat_debug("up")
+	return _placement_debug("tail_up", 0.005)
 
 
 func action_tail_seat_down() -> String:
-	return _tail_seat_debug("down")
+	return _placement_debug("tail_down", 0.005)
 
 
 func action_tail_dock_up() -> String:
-	return _tail_seat_debug("dock_up")
+	return _placement_debug("dock_up", 0.005)
 
 
 func action_tail_dock_down() -> String:
-	return _tail_seat_debug("dock_down")
+	return _placement_debug("dock_down", 0.005)
 
 
 func action_tail_dock_scale_up() -> String:
-	return _tail_seat_debug("dock_scale_up", 0.05)
+	return _placement_debug("dock_scale_up", 0.05)
 
 
 func action_tail_dock_scale_down() -> String:
-	return _tail_seat_debug("dock_scale_down", 0.05)
+	return _placement_debug("dock_scale_down", 0.05)
 
 
 func action_tail_seat_forward() -> String:
-	return _tail_seat_debug("forward")
+	return _placement_debug("tail_forward", 0.005)
 
 
 func action_tail_seat_back() -> String:
-	return _tail_seat_debug("back")
+	return _placement_debug("tail_back", 0.005)
 
 
-func action_tail_seat_save() -> String:
-	return _tail_seat_debug("save")
+func action_placement_save() -> String:
+	return _placement_debug("save")
 
 
-func action_tail_seat_reset() -> String:
-	return _tail_seat_debug("reset")
+func action_placement_reset() -> String:
+	return _placement_debug("reset")
 
 
-func action_show_tail_seats() -> String:
+func action_placement_show() -> String:
+	var text := _placement_debug("text")
 	if not is_instance_valid(tail_seat):
-		return "Tail seat is unavailable."
-	return str(tail_seat.call("report_all"))
+		return text
+	return "%s | %s" % [text, str(tail_seat.call("report_all"))]
 
 
 func _nearest_pony(view: Camera3D) -> Node:

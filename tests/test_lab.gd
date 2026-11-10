@@ -20,6 +20,7 @@ extends Node
 ##               first, and the log says why cuddling cannot start
 ##   Mouse 5     make the pointed adult mare idle, grant the lover bond and qualify for sex
 ##               without changing her romance tier
+##   Ctrl+[ / ]  move the previous/next test mare in front of Anon, facing away, standing idle
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -92,6 +93,8 @@ var _furnishing_trimmed := false
 var _standard_systems_stopped := false
 ## The player's Max nearby ponies cap; -1 when the lab has not lifted it.
 var _old_nearby := -1
+## Ctrl+[ / ] review cursor over the lab roster.
+var _lab_mare_index := -1
 
 
 func _ready() -> void:
@@ -129,7 +132,7 @@ func run() -> void:
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
 	print("[unfplap test] E sit, Ctrl lie back; test ponies placed on their saved standing spots")
-	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond)")
+	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond), Ctrl+[ / ] cycle mares")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -549,7 +552,17 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey:
 		var key := event as InputEventKey
-		if not key.pressed or key.echo or key.alt_pressed or key.ctrl_pressed:
+		if key.pressed and not key.echo and key.ctrl_pressed:
+			if key.physical_keycode == KEY_BRACKETLEFT:
+				_cycle_lab_mare(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if key.physical_keycode == KEY_BRACKETRIGHT:
+				_cycle_lab_mare(1)
+				get_viewport().set_input_as_handled()
+				return
+			return
+		if not key.pressed or key.echo or key.alt_pressed:
 			return
 		match key.physical_keycode:
 			KEY_MINUS:
@@ -578,6 +591,51 @@ func _input(event: InputEvent) -> void:
 		elif mouse.button_index == MOUSE_BUTTON_XBUTTON2:
 			_qualify_target()
 			get_viewport().set_input_as_handled()
+
+
+## Ctrl+[ / ]: move the previous/next test mare in front of Anon, facing away, standing idle.
+func _cycle_lab_mare(step: int) -> void:
+	var ponies := _test_ponies()
+	if ponies.is_empty():
+		return
+	_lab_mare_index = wrapi(_lab_mare_index + step, 0, ponies.size())
+	var pony := ponies[_lab_mare_index] as Node3D
+	_bring_to_anon(pony)
+
+
+func _bring_to_anon(pony: Node3D) -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(game):
+		return
+	var body: Variant = game.get("player")
+	if not is_instance_valid(body) or not body is Node3D:
+		return
+	var view: Variant = game.call("_find_camera", body) \
+		if game.has_method("_find_camera") else null
+	var forward: Vector3 = -(view as Camera3D).global_basis.z \
+		if is_instance_valid(view) else -(body as Node3D).global_basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.000001:
+		forward = Vector3.FORWARD
+	forward = forward.normalized()
+	var at: Vector3 = (body as Node3D).global_position + forward * 1.25
+	var space := pony.get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0,
+		at + Vector3.DOWN * 4.0, 1, [pony.get_rid()])
+	var hit: Dictionary = space.intersect_ray(query)
+	if not hit.is_empty():
+		at = hit.get("position", at)
+	_clear_busy(pony)
+	pony.global_position = at
+	var scale := pony.global_basis.get_scale()
+	pony.global_transform = Transform3D(
+		Basis.looking_at(forward, Vector3.UP) * Basis.from_scale(scale), at)
+	if pony.get("velocity") != null:
+		pony.set("velocity", Vector3.ZERO)
+	_upright(pony)
+	_make_idle(pony, true)
+	pony.reset_physics_interpolation()
+	_log_action("lab mare", PackedStringArray([
+		"%s pos=%s facing=away from Anon" % [_pony_id(pony), str(at)]]))
 
 
 ## Console is normally refused while the player's rest owns controls_locked. Open it with a

@@ -84,10 +84,10 @@ func _check_defaults() -> void:
 	check(str(SETTINGS.orientation.default) == "up", "thrust orientation default")
 	check(not bool(SETTINGS.debug_mode.default), "debug mode is off by default")
 	check(bool(SETTINGS.reseat_tails.default), "re-seat tails defaults on")
-	check(near(float(SETTINGS.tail_offset_mm.default), 0.0)
-		and bool(SETTINGS.tail_offset_mm.debug), "the tail offset is a debug number at zero")
-	check(near(float(SETTINGS.dock_offset_mm.default), 0.0)
-		and bool(SETTINGS.dock_offset_mm.debug), "the dock offset is a debug number at zero")
+	check(near(float(SETTINGS.tail_y.default), 0.0) and bool(SETTINGS.tail_y.debug),
+		"the default tail Y is a debug number at zero")
+	check(near(float(SETTINGS.dock_scale.default), 1.0) and bool(SETTINGS.dock_scale.debug),
+		"the default dock scale is a debug number at one")
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
@@ -98,6 +98,10 @@ func _check_placement() -> void:
 	var base := SETTINGS.anatomy_placement_default("")
 	check(near(float(base["offset_y"]), 0.525), "placement default Y")
 	check(near(float(base["pitch_deg"]), -6.0), "placement default pitch")
+	check(near(float(base["tail_y"]), 0.0) and near(float(base["tail_z"]), 0.0),
+		"placement default tail")
+	check(near(float(base["dock_y"]), 0.0) and near(float(base["dock_scale"]), 1.0),
+		"placement default dock")
 	check(near(float(base["scale"]), 0.742), "placement default scale")
 
 	SETTINGS.save_anatomy_placement("fluttershy",
@@ -126,35 +130,38 @@ func _check_placement() -> void:
 	check(near(float(anon["scale"]), 0.2), "anon placement scale")
 
 
-## Tail seat exceptions are one partial row per mare and disappear when they return to exact.
+## Tail and dock placement share the anatomy block and disappear at the default.
 func _check_tail_seat() -> void:
-	check(SETTINGS.tail_seat_offset("minuette").is_equal_approx(Vector2.ZERO),
-		"a mare with no exception uses the exact reference")
-	SETTINGS.save_tail_seat("minuette", Vector2(0.012, -0.003), -0.008, 1.06)
-	var row := SETTINGS.tail_seat_offset("minuette")
-	check(near(row.x, 0.012) and near(row.y, -0.003), "a tail seat exception reads back")
-	check(near(SETTINGS.tail_seat_dock("minuette"), -0.008), "a dock distance reads back")
-	check(near(SETTINGS.tail_seat_dock_scale("minuette"), 1.06), "a dock scale reads back")
-	check(SETTINGS.tail_seat_has_override("minuette"), "a non-zero tail seat is an override")
-	check(SETTINGS.tail_seat_offset("fluttershy").is_equal_approx(Vector2.ZERO),
-		"tail seat exceptions are per mare")
-	SETTINGS.save_tail_seat_offset("minuette", Vector2.ZERO)
-	check(SETTINGS.tail_seat_offset("minuette").is_equal_approx(Vector2.ZERO),
-		"an offset-only save clears the tail offset")
-	check(near(SETTINGS.tail_seat_dock("minuette"), -0.008),
-		"an offset-only save keeps the dock distance")
-	check(near(SETTINGS.tail_seat_dock_scale("minuette"), 1.06),
-		"an offset-only save keeps the dock scale")
-	check(SETTINGS.tail_seat_has_override("minuette"),
-		"a dock-only exception is still an override")
-	SETTINGS.save_tail_seat("minuette", Vector2.ZERO, 0.0, 1.0)
-	check(not SETTINGS.tail_seat_has_override("minuette"),
-		"a default tail seat removes the exception")
+	var default := SETTINGS.anatomy_placement_default("minuette")
+	check(near(float(default["tail_y"]), 0.0) and near(float(default["tail_z"]), 0.0),
+		"a mare with no override uses the default tail")
+	check(near(float(default["dock_y"]), 0.0) and near(float(default["dock_scale"]), 1.0),
+		"a mare with no override uses the default dock")
+	var values := default.duplicate(true)
+	values["tail_y"] = 0.012
+	values["tail_z"] = -0.003
+	values["dock_y"] = -0.008
+	values["dock_scale"] = 1.06
+	SETTINGS.save_anatomy_placement("minuette", values)
+	var placed := SETTINGS.anatomy_placement("minuette")
+	check(near(float(placed["tail_y"]), 0.012) and near(float(placed["tail_z"]), -0.003),
+		"a tail placement override reads back")
+	check(near(float(placed["dock_y"]), -0.008) and near(float(placed["dock_scale"]), 1.06),
+		"a dock placement override reads back")
+	check(SETTINGS.anatomy_placement_has_override("minuette"),
+		"a non-default tail/dock placement is an override")
+	check(near(float(SETTINGS.anatomy_placement("fluttershy")["tail_y"]), 0.0),
+		"tail placement overrides are per mare")
+	SETTINGS.save_anatomy_placement("minuette",
+		SETTINGS.anatomy_placement_default("minuette", false))
+	check(not SETTINGS.anatomy_placement_has_override("minuette"),
+		"returning to the default removes the override")
 	var data := SETTINGS.data()
 	var anatomy: Variant = data.get("anatomy", {})
-	check(not anatomy is Dictionary or not (anatomy as Dictionary).has("tail_seat"),
-		"an empty tail seat block is removed")
-
+	var placement: Variant = (anatomy as Dictionary).get("placement", {}) \
+		if anatomy is Dictionary else {}
+	check(not placement is Dictionary or not (placement as Dictionary).has("minuette"),
+		"a default placement removes the mare row")
 
 ## The old placement files import into the one block and collapse rows equal to the default.
 func _check_placement_migration() -> void:
@@ -228,19 +235,12 @@ func _check_coercion() -> void:
 	check(near(SETTINGS.radius.get_num(), -5.0), "a debug number is never clamped")
 	SETTINGS.radius.set_num(float(original["radius"]))
 
-	original["tail_offset"] = SETTINGS.tail_offset_mm.get_num()
-	SETTINGS.tail_offset_mm.set_num(500.0)
-	check(near(SETTINGS.tail_offset_mm.get_num(), 500.0), "the tail offset is never clamped")
-	SETTINGS.tail_offset_mm.set_num(-500.0)
-	check(near(SETTINGS.tail_offset_mm.get_num(), -500.0), "a negative tail offset is kept")
-	SETTINGS.tail_offset_mm.set_num(float(original["tail_offset"]))
-
-	original["dock_offset"] = SETTINGS.dock_offset_mm.get_num()
-	SETTINGS.dock_offset_mm.set_num(500.0)
-	check(near(SETTINGS.dock_offset_mm.get_num(), 500.0), "the dock offset is never clamped")
-	SETTINGS.dock_offset_mm.set_num(-500.0)
-	check(near(SETTINGS.dock_offset_mm.get_num(), -500.0), "a negative dock offset is kept")
-	SETTINGS.dock_offset_mm.set_num(float(original["dock_offset"]))
+	original["tail_y"] = SETTINGS.tail_y.get_num()
+	SETTINGS.tail_y.set_num(500.0)
+	check(near(SETTINGS.tail_y.get_num(), 500.0), "the default tail Y is never clamped")
+	SETTINGS.tail_y.set_num(-500.0)
+	check(near(SETTINGS.tail_y.get_num(), -500.0), "a negative default tail Y is kept")
+	SETTINGS.tail_y.set_num(float(original["tail_y"]))
 
 	original["orientation"] = SETTINGS.orientation.get_choice()
 	SETTINGS.orientation.set_choice("sideways")

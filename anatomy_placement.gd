@@ -11,7 +11,7 @@ extends RefCounted
 ## the keys that differ from the resolved default, so the file stays small and the shipped
 ## defaults stay the single source of truth.
 
-const KEYS := ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale"]
+const KEYS := ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale", "tail_y", "tail_z", "dock_y", "dock_scale"]
 ## Shipped per-mare defaults. Keep partial: a missing key falls back to the global default.
 ## `/sync-settings` promotes a custom mare placement here when the user asks for it.
 const MARE_DEFAULTS := {
@@ -87,8 +87,8 @@ static func overlay(base: Dictionary, over: Variant) -> Dictionary:
 	return out
 
 
-## Merge a partial block over a complete one. The result always has all five keys and a positive
-## scale; keep `base` complete when the result is used as a placement.
+## Merge a partial block over a complete one. The result always has all nine keys and a positive
+## anatomy and dock scale; keep `base` complete when the result is used as a placement.
 static func merge(base: Dictionary, over: Variant) -> Dictionary:
 	return sanitize(overlay(base, over), base)
 
@@ -106,6 +106,7 @@ static func sanitize(raw: Variant, fallback: Dictionary) -> Dictionary:
 				value = float(candidate)
 		out[key] = value
 	out["scale"] = maxf(0.05, float(out["scale"]))
+	out["dock_scale"] = maxf(0.05, float(out["dock_scale"]))
 	return out
 
 
@@ -128,10 +129,14 @@ static func same(a: Dictionary, b: Dictionary) -> bool:
 
 
 static func text(values: Dictionary) -> String:
-	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f" % [
+	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f tail=(%.1f,%.1f)mm dock=(%.1f,%.2f×)" % [
 		float(values.get("offset_x", 0.0)),
 		float(values.get("offset_y", 0.0)),
 		float(values.get("offset_z", 0.0)),
 		float(values.get("pitch_deg", 0.0)),
 		float(values.get("scale", 1.0)),
+		float(values.get("tail_y", 0.0)) * 1000.0,
+		float(values.get("tail_z", 0.0)) * 1000.0,
+		float(values.get("dock_y", 0.0)) * 1000.0,
+		float(values.get("dock_scale", 1.0)),
 	]

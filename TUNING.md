@@ -135,29 +135,26 @@ prefixes pre-emptively.
 
 - The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
   Defaults are generated from the registry, so there is no second defaults table.
-- `anatomy.placement` is one block with `default.*` (five debug declarations), `anon.*` (the player
-  part) and partial `<mare id>.*` overrides. `anatomy_placement.gd` owns the shipped per-mare
-  `MARE_DEFAULTS` and resolves override, shipped default, then global default. The old
-  `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`.
+- `anatomy.placement` is one block with `default.*` (nine debug declarations: anatomy 5, tail 2,
+  dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `anatomy_placement.gd`
+  owns the shipped per-mare `MARE_DEFAULTS` and resolves override, shipped default, then global
+  default. The old `anatomy_place.json` and `anon_place.json` import once and are renamed
+  `.migrated`. The old `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate
+  into the same block on load.
 - `anatomy.reseat_tails` (Re-seat tails and docks, on by default) applies the exact reference dock
   seat to every adult mare, drops the per-mare `dock_visibility_fits.json` offset (it was fitted
   for her own tail), snaps the dock base to the rump and seats the dock opening on the tail cap's
-  centre. A tail-only follower carries the cuff with `mPelvis`/`mTail1`. Her exception is one
-  partial `anatomy.tail_seat.<id>` row with `offset_y`/`offset_z` in metres, `dock_y` in metres and
-  `dock_scale` (1.0 authored); a default row removes the key. `dock_y` moves the dock toward or
-  away from the tail, and `dock_scale` grows or shrinks it about the base ring. The Anatomy Debug
-  actions Tail seat Up/Down/Forward/Back, Tail-dock Up/Down, Dock scale Larger/Smaller and Tail
-  seat file Save/Reset/Show edit it in game; Reset previews the exact reference and Save writes it,
-  the same staging rule as anatomy placement.
+  centre. A tail-only follower carries the cuff with `mPelvis`/`mTail1`. The tail/dock values live
+  in the same `anatomy.placement.<id>` row as the anatomy: `tail_y`/`tail_z` move the tail from the
+  exact reference, `dock_y` trims the cuff and `dock_scale` scales it about the base ring; only
+  differences from the resolved default are stored. The Anatomy Debug actions **Placement**
+  (anatomy), **Placement tail**, **Placement dock** and **Placement file** edit it in game; the
+  default is staged until Save, and a mare override is written directly.
 - `anatomy.dock_color` (Dock colour, `coat`/`genitals`, default `coat`) chooses the standard dock's
   material. `coat` keeps the game's coat material; `genitals` uses a copy of the attached anatomy
   material with `coat_color`/`coat_shadow` set to her skin tones, so the cuff matches her genital
   skin and never falls through to the shader's black default; while the anatomy is not attached it
   falls back to coat.
-- `anatomy.tail_offset_mm`, `anatomy.tail_forward_mm` and `anatomy.dock_offset_mm` are debug
-  numbers (default 0, unit mm, no clamp). The tail offset lifts the tail; tail forward moves it
-  toward (+) or away from (-) her head along the floor; the dock follows both. The dock offset
-  trims the cuff alone. The base snap runs from the dock fit, before the trims.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
   cached per generation, so a per-frame read is cheap.

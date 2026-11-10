@@ -17,7 +17,6 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
-const TAIL_PLACEMENT := preload("res://mods/unfplap/tail_seat_placement.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -346,7 +345,7 @@ static func default_block(prefix: String) -> Dictionary:
 
 
 # ---------------------------------------------------------------- anatomy placement
-## The five keys of one placement block, complete and validated.
+## The nine keys of one placement block, complete and validated.
 static func _declared_placement_defaults() -> Dictionary:
 	return {
 		"offset_x": float(offset_x.default),
@@ -354,6 +353,10 @@ static func _declared_placement_defaults() -> Dictionary:
 		"offset_z": float(offset_z.default),
 		"pitch_deg": float(pitch_deg.default),
 		"scale": float(scale.default),
+		"tail_y": float(tail_y.default),
+		"tail_z": float(tail_z.default),
+		"dock_y": float(dock_y.default),
+		"dock_scale": float(dock_scale.default),
 	}
 
 
@@ -367,11 +370,15 @@ static func _placement_default_values() -> Dictionary:
 		"offset_z": offset_z.get_num(),
 		"pitch_deg": pitch_deg.get_num(),
 		"scale": scale.get_num(),
+		"tail_y": tail_y.get_num(),
+		"tail_z": tail_z.get_num(),
+		"dock_y": dock_y.get_num(),
+		"dock_scale": dock_scale.get_num(),
 	}, declared)
 
 
 ## The placement a mare gets from the global default and the shipped per-mare table, before any
-## player override. `use_draft` includes the unsaved default preview from the Anatomy place
+## player override. `use_draft` includes the unsaved default preview from the Placement
 ## actions; saving a per-mare override compares against the persisted default instead.
 static func anatomy_placement_default(id: String, use_draft := true) -> Dictionary:
 	var base := _persisted_placement_default_values()
@@ -389,6 +396,10 @@ static func _persisted_placement_default_values() -> Dictionary:
 		"offset_z": offset_z.get_num(),
 		"pitch_deg": pitch_deg.get_num(),
 		"scale": scale.get_num(),
+		"tail_y": tail_y.get_num(),
+		"tail_z": tail_z.get_num(),
+		"dock_y": dock_y.get_num(),
+		"dock_scale": dock_scale.get_num(),
 	}, declared)
 
 
@@ -475,6 +486,10 @@ static func save_anatomy_placement_default(values: Dictionary) -> void:
 	offset_z.set_num(float(current["offset_z"]))
 	pitch_deg.set_num(float(current["pitch_deg"]))
 	scale.set_num(maxf(0.05, float(current["scale"])))
+	tail_y.set_num(float(current["tail_y"]))
+	tail_z.set_num(float(current["tail_z"]))
+	dock_y.set_num(float(current["dock_y"]))
+	dock_scale.set_num(maxf(0.05, float(current["dock_scale"])))
 	placement_revision += 1
 
 
@@ -502,84 +517,6 @@ static func has_anatomy_placement_draft() -> bool:
 
 static func anatomy_placement_draft_values() -> Dictionary:
 	return _placement_default_values()
-
-
-# ---------------------------------------------------------------- tail seat exceptions
-## The pointed mare's saved exception from the exact reference anchor, zero when she has none.
-static func tail_seat_offset(id: String) -> Vector2:
-	var row: Variant = _tail_seat_row(id)
-	if not row is Dictionary:
-		return Vector2.ZERO
-	return TAIL_PLACEMENT.read(row)
-
-
-## One mare's dock-only distance in metres, zero when she has none.
-static func tail_seat_dock(id: String) -> float:
-	var row: Variant = _tail_seat_row(id)
-	if not row is Dictionary:
-		return 0.0
-	return TAIL_PLACEMENT.dock(row)
-
-
-## One mare's dock scale, 1.0 when she has none.
-static func tail_seat_dock_scale(id: String) -> float:
-	var row: Variant = _tail_seat_row(id)
-	if not row is Dictionary:
-		return 1.0
-	return TAIL_PLACEMENT.dock_scale(row)
-
-
-static func tail_seat_has_override(id: String) -> bool:
-	return not TAIL_PLACEMENT.same(tail_seat_offset(id), Vector2.ZERO) \
-		or not TAIL_PLACEMENT.same_dock(tail_seat_dock(id), 0.0) \
-		or not TAIL_PLACEMENT.same_scale(tail_seat_dock_scale(id), 1.0)
-
-
-## Store only the non-default Y/Z offset, dock distance and dock scale; default removes the row.
-static func save_tail_seat(id: String, offset: Vector2, dock := 0.0, dock_scale := 1.0) -> void:
-	if id.is_empty() or id == "default" or id == "anon":
-		return
-	var data := _read()
-	var anatomy: Variant = data.get("anatomy", {})
-	var block: Dictionary = anatomy if anatomy is Dictionary else {}
-	var seats: Variant = block.get("tail_seat", {})
-	var rows: Dictionary = seats if seats is Dictionary else {}
-	var row := TAIL_PLACEMENT.diff(TAIL_PLACEMENT.sanitize(offset))
-	row.merge(TAIL_PLACEMENT.dock_diff(dock))
-	row.merge(TAIL_PLACEMENT.dock_scale_diff(dock_scale))
-	if row.is_empty():
-		rows.erase(id)
-	else:
-		rows[id] = row
-	if rows.is_empty():
-		block.erase("tail_seat")
-	else:
-		block["tail_seat"] = rows
-	if block.is_empty():
-		data.erase("anatomy")
-	else:
-		data["anatomy"] = block
-	_write(data)
-
-
-## Offset-only save keeps the mare's existing dock distance and scale.
-static func save_tail_seat_offset(id: String, offset: Vector2) -> void:
-	save_tail_seat(id, offset, tail_seat_dock(id), tail_seat_dock_scale(id))
-
-
-## The raw stored row, or {} when the id is a preview key or has no exception.
-static func _tail_seat_row(id: String) -> Variant:
-	if id.is_empty() or id == "default" or id == "anon":
-		return {}
-	if not _loaded:
-		_load()
-	var anatomy: Variant = _cache.get("anatomy", {})
-	if not anatomy is Dictionary:
-		return {}
-	var seats: Variant = (anatomy as Dictionary).get("tail_seat", {})
-	if not seats is Dictionary:
-		return {}
-	return (seats as Dictionary).get(id, {})
 
 
 ## Settings in one tab, in declaration order.
@@ -1265,15 +1202,6 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
-static var tail_offset_mm := num("tail_offset_mm", "anatomy.tail_offset_mm", 0.0, "Tail offset",
-	"Move every re-seated tail up (+) or down (-) by this many millimetres. Stored verbatim; no clamp.",
-	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
-static var tail_forward_mm := num("tail_forward_mm", "anatomy.tail_forward_mm", 0.0, "Tail forward",
-	"Move every re-seated tail toward (+) or away from (-) her head along the floor. Stored verbatim; no clamp.",
-	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
-static var dock_offset_mm := num("dock_offset_mm", "anatomy.dock_offset_mm", 0.0, "Dock offset",
-	"Trim every re-seated dock up (+) or down (-) from its cuff position under the tail base. Stored verbatim; no clamp.",
-	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.67, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
@@ -1297,7 +1225,7 @@ static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color",
 ## pill above those actions owns the widget.
 static var edit_target := choice("edit_target", "anatomy.placement_target", "mare",
 	["default", "mare"], ["Default", "Pointed mare"], "Placement target",
-	"Choose whether the Anatomy place actions change the global default or the pointed mare.",
+	"Choose whether the Placement actions change the global default or the pointed mare.",
 	ANATOMY, "Placement").as_debug().as_hidden()
 static var offset_x := num("offset_x", "anatomy.placement.default.offset_x", 0.0,
 	"Default X", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
@@ -1313,6 +1241,18 @@ static var pitch_deg := num("pitch_deg", "anatomy.placement.default.pitch_deg", 
 	.with_unit("°").with_step(1.0).as_debug()
 static var scale := num("scale", "anatomy.placement.default.scale", 0.742,
 	"Default scale", "Scale of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("×").with_step(0.01).as_debug()
+static var tail_y := num("tail_y", "anatomy.placement.default.tail_y", 0.0,
+	"Default tail Y", "Vertical tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
+static var tail_z := num("tail_z", "anatomy.placement.default.tail_z", 0.0,
+	"Default tail Z", "Forward/back tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
+static var dock_y := num("dock_y", "anatomy.placement.default.dock_y", 0.0,
+	"Default dock Y", "Dock distance trim when a mare has no override.", ANATOMY, "Placement") \
+	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
+static var dock_scale := num("dock_scale", "anatomy.placement.default.dock_scale", 1.0,
+	"Default dock scale", "Dock scale when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug()
 static var anon_offset_x := num("anon_offset_x", "anatomy.placement.anon.offset_x", 0.0,
 	"Anon X", "Model-space placement of the player part.", ANATOMY, "Placement") \
@@ -2163,7 +2103,7 @@ static var generation := 0
 ## Bumped whenever the placement view can have changed: a settings load/write or an unsaved
 ## default preview. The anatomy controller re-reads its resolved placement on the change.
 static var placement_revision := 0
-## Unsaved global-default preview from the Anatomy place actions. Session-only by design.
+## Unsaved global-default preview from the Placement actions. Session-only by design.
 static var _placement_draft: Dictionary = {}
 
 
@@ -2389,10 +2329,67 @@ static var _legacy_mare_placement_path := ""
 static var _legacy_anon_placement_path := ""
 
 
+## Move the retired global tail/dock trims and `anatomy.tail_seat.<id>` rows into the one
+## anatomy.placement block, then remove the old keys.
+static func _migrate_tail_seat_placement(data: Dictionary) -> void:
+	var anatomy: Variant = data.get("anatomy")
+	if not anatomy is Dictionary:
+		return
+	var block: Dictionary = anatomy
+	var has_seats := block.has("tail_seat")
+	var has_globals := block.has("tail_offset_mm") or block.has("tail_forward_mm") \
+		or block.has("dock_offset_mm")
+	if not has_seats and not has_globals:
+		return
+	var placement: Variant = block.get("placement")
+	if not placement is Dictionary:
+		placement = {}
+	var rows: Dictionary = placement
+	var default: Variant = rows.get("default")
+	if not default is Dictionary:
+		default = {}
+	var default_block: Dictionary = default
+	if block.has("tail_offset_mm"):
+		default_block["tail_y"] = float(block.get("tail_offset_mm", 0.0)) / 1000.0
+	if block.has("tail_forward_mm"):
+		default_block["tail_z"] = -float(block.get("tail_forward_mm", 0.0)) / 1000.0
+	if block.has("dock_offset_mm"):
+		default_block["dock_y"] = float(block.get("dock_offset_mm", 0.0)) / 1000.0
+	if not default_block.has("dock_scale"):
+		default_block["dock_scale"] = 1.0
+	rows["default"] = default_block
+	var seats: Variant = block.get("tail_seat")
+	if seats is Dictionary:
+		for id: Variant in (seats as Dictionary).keys():
+			var name := str(id)
+			if name == "default" or name == "anon":
+				continue
+			var seat: Variant = (seats as Dictionary)[id]
+			if not seat is Dictionary:
+				continue
+			var over: Variant = rows.get(name)
+			if not over is Dictionary:
+				over = {}
+			var over_block: Dictionary = over
+			for pair: Array in [["tail_y", "offset_y", 0.0], ["tail_z", "offset_z", 0.0],
+					["dock_y", "dock_y", 0.0], ["dock_scale", "dock_scale", 1.0]]:
+				var key := str(pair[0])
+				if not over_block.has(key):
+					over_block[key] = float(seat.get(str(pair[1]), float(pair[2])))
+			rows[name] = over_block
+	block["placement"] = rows
+	block.erase("tail_seat")
+	block.erase("tail_offset_mm")
+	block.erase("tail_forward_mm")
+	block.erase("dock_offset_mm")
+	data["anatomy"] = block
+
+
 ## Move the old anatomy_place.json and anon_place.json rows into the one anatomy.placement block.
 ## Rows that already equal the resolved default are skipped, so the old "every mare has a row"
 ## file collapses to real overrides.
 static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
+	_migrate_tail_seat_placement(data)
 	_legacy_mare_placement_pending = false
 	_legacy_anon_placement_pending = false
 	_legacy_mare_placement_path = ""

@@ -1,0 +1,20 @@
+{
+	"version": 1,
+	"default": {
+		"anatomy": {
+			"position": [0.0, 0.505, 0.289],
+			"rotation": [3.0, 0.0, 0.0],
+			"scale": 0.682
+		},
+		"tail": {
+			"position": [0.0, 0.0, 0.0],
+			"rotation": [0.0, 0.0, 0.0]
+		},
+		"dock": {
+			"scale": 1.5,
+			"position": [0.0, 0.0, 0.0],
+			"rotation": [0.0, 0.0, 0.0]
+		}
+	},
+	"mares": {}
+}

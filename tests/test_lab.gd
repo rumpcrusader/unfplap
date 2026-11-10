@@ -20,11 +20,16 @@ extends Node
 ##               first, and the log says why cuddling cannot start
 ##   Mouse 5     make the pointed adult mare idle, grant the lover bond and qualify for sex
 ##               without changing her romance tier
-##   Ctrl+[ / ]  move the previous/next test mare in front of Anon, facing away, standing idle
+##   Shift+[ / ]  move the previous/next mare in front of Anon, facing away, standing idle.
+##               The eight starters stay loaded and the previous starter returns to her saved
+##               spot; any other mare is spawned on demand and the previous non-starter is
+##               despawned again, so only one extra is live.
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const LAB_POPULATION := preload("res://world/population/pony_population_config.gd")
+const MOD_SETTINGS := preload("res://mods/unfplap/settings.gd")
 const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack",
 	"tempest_shadow", "lily_valley", "minuette"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.
@@ -73,6 +78,7 @@ const SETUP_ACTIONS := [
 	"despawn any other resident already live in the world",
 	"keep the dialogue director alive with ai_usage=talk",
 	"pause population, life and needs",
+	"cycle every adult mare on demand: one extra spawn, previous extra despawned",
 	"pause PrincessVisits, TrixieShow, DayRunner, NightRest and StuckRescue",
 	"pause TimeOfDay",
 	"skip generated house furnishing; the authored library keeps its room and bed",
@@ -93,8 +99,16 @@ var _furnishing_trimmed := false
 var _standard_systems_stopped := false
 ## The player's Max nearby ponies cap; -1 when the lab has not lifted it.
 var _old_nearby := -1
-## Ctrl+[ / ] review cursor over the lab roster.
+## Shift+[ / ] review cursor over the full adult mare roster.
 var _lab_mare_index := -1
+## The one non-starter mare kept live for review; empty when only the starters are out.
+var _extra_id := ""
+var _extra_mare: Node3D = null
+## The mare currently standing in front of Anon; the previous starter is returned to her spot.
+var _review_id := ""
+var _review_mare: Node3D = null
+var _cycle_busy := false
+var _cycle_ids_cache: Array[String] = []
 
 
 func _ready() -> void:
@@ -132,7 +146,7 @@ func run() -> void:
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
 	print("[unfplap test] E sit, Ctrl lie back; test ponies placed on their saved standing spots")
-	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond), Ctrl+[ / ] cycle mares")
+	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond), Shift+[ / ] cycle mares")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -548,20 +562,37 @@ func _report_rows(text: String, prefix := "") -> PackedStringArray:
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(game) or game.get("title_active") == true:
 		return
+	# Shift+[ / ] remains available after a menu released the mouse; the other lab hotkeys act
+	# under the crosshair and still need normal play. Ctrl+[ is kept as an alias for layouts and
+	# compositors that still deliver it as a bracket key instead of the historical Escape code.
+	if event is InputEventKey:
+		var cycle_key := event as InputEventKey
+		var step := _cycle_step(cycle_key)
+		if step != 0:
+			if _text_entry_open():
+				return
+			if get_tree().paused:
+				print("[unfplap test] cycle while paused: posture settles when the menu closes")
+			_cycle_lab_mare(step)
+			get_viewport().set_input_as_handled()
+			return
+		if cycle_key.pressed and not cycle_key.echo \
+				and (cycle_key.ctrl_pressed or cycle_key.shift_pressed) \
+				and (_is_bracket_code(cycle_key.physical_keycode)
+					or _is_bracket_code(cycle_key.keycode)):
+			print("[unfplap test] cycle key ignored: physical=%d keycode=%d unicode=%d ctrl=%s shift=%s paused=%s mouse=%s" % [
+				cycle_key.physical_keycode, cycle_key.keycode, cycle_key.unicode,
+				str(cycle_key.ctrl_pressed), str(cycle_key.shift_pressed),
+				str(get_tree().paused), str(Input.mouse_mode)])
+		elif cycle_key.pressed and not cycle_key.echo and cycle_key.ctrl_pressed \
+				and (cycle_key.keycode == KEY_ESCAPE
+					or cycle_key.physical_keycode == KEY_ESCAPE):
+			print("[unfplap test] Ctrl+[ arrived as Escape (physical=%d keycode=%d unicode=%d); use Shift+[ / ]" % [
+				cycle_key.physical_keycode, cycle_key.keycode, cycle_key.unicode])
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event is InputEventKey:
 		var key := event as InputEventKey
-		if key.pressed and not key.echo and key.ctrl_pressed:
-			if key.physical_keycode == KEY_BRACKETLEFT:
-				_cycle_lab_mare(-1)
-				get_viewport().set_input_as_handled()
-				return
-			if key.physical_keycode == KEY_BRACKETRIGHT:
-				_cycle_lab_mare(1)
-				get_viewport().set_input_as_handled()
-				return
-			return
 		if not key.pressed or key.echo or key.alt_pressed:
 			return
 		match key.physical_keycode:
@@ -593,14 +624,273 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-## Ctrl+[ / ]: move the previous/next test mare in front of Anon, facing away, standing idle.
+## One cycle step, or 0. Shift+[ / ] is the documented control; Ctrl+[ / ] still works where the
+## event arrives as a bracket key. Ctrl+[ is the historical Escape control code on many systems,
+## so it may never reach the game as a bracket at all.
+func _cycle_step(key: InputEventKey) -> int:
+	if not key.pressed or key.echo or key.alt_pressed:
+		return 0
+	if not (key.shift_pressed or key.ctrl_pressed):
+		return 0
+	if key.physical_keycode == KEY_BRACKETLEFT \
+			or key.keycode in [KEY_BRACKETLEFT, KEY_BRACELEFT] or key.unicode in [91, 123]:
+		return -1
+	if key.physical_keycode == KEY_BRACKETRIGHT \
+			or key.keycode in [KEY_BRACKETRIGHT, KEY_BRACERIGHT] or key.unicode in [93, 125]:
+		return 1
+	return 0
+
+
+static func _is_bracket_code(code: int) -> bool:
+	return code in [KEY_BRACKETLEFT, KEY_BRACKETRIGHT, KEY_BRACELEFT, KEY_BRACERIGHT]
+
+
+## A text field owns the keyboard: Shift+[ would type a brace, and the settings filter/chat box
+## must not cycle the review mare.
+func _text_entry_open() -> bool:
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return true
+	if not is_instance_valid(game):
+		return false
+	var chat: Node = game.get_node_or_null("ChatBox")
+	return chat != null and bool(chat.get("visible"))
+
+
+## Shift+[ / ]: move the previous/next adult mare in front of Anon, facing away, standing idle.
+## The eight starters stay live and the previous starter returns to her saved spot; a mare outside
+## that roster is spawned through the population streamer on demand, and the previous non-starter
+## is despawned so only one extra stays loaded.
 func _cycle_lab_mare(step: int) -> void:
-	var ponies := _test_ponies()
-	if ponies.is_empty():
+	if _cycle_busy:
 		return
-	_lab_mare_index = wrapi(_lab_mare_index + step, 0, ponies.size())
-	var pony := ponies[_lab_mare_index] as Node3D
+	_cycle_busy = true
+	await _cycle_lab_mare_async(step)
+	_cycle_busy = false
+
+
+func _cycle_lab_mare_async(step: int) -> void:
+	var ids := _cycle_ids()
+	if ids.is_empty():
+		print("[unfplap test] cycle: no adult mares in the population catalogue")
+		return
+	_lab_mare_index = wrapi(_lab_mare_index + step, 0, ids.size())
+	var id := ids[_lab_mare_index]
+	if _review_in_act():
+		print("[unfplap test] cycle: %s is in an act; end it before cycling" % _review_id)
+		return
+	var pony := _find_live_pony(id)
+	if not is_instance_valid(pony):
+		if TEST_IDS.has(id):
+			print("[unfplap test] cycle %s: starter is not live, spawning" % id)
+		_release_extra_mare("")
+		pony = await _spawn_lab_mare(id)
+		if not is_instance_valid(pony):
+			return
+	else:
+		_release_extra_mare(id)
+		if not TEST_IDS.has(id):
+			# She was already live (a manual spawn or a previous review). Track her as the one
+			# extra so the next non-starter cycle despawns her too.
+			_prepare_spawned_pony(pony)
+			_extra_id = id
+			_extra_mare = pony
+	if not is_instance_valid(pony):
+		return
+	_restore_previous_review(id)
 	_bring_to_anon(pony)
+	_review_id = id
+	_review_mare = pony
+	print("[unfplap test] cycle %d/%d %s%s" % [
+		_lab_mare_index + 1, ids.size(), id,
+		"" if TEST_IDS.has(id) else " (non-starter)"])
+
+
+## The eight starters first, then every other adult mare the population catalogue can spawn in
+## the mod's settings order. Cached for the session.
+func _cycle_ids() -> Array[String]:
+	if not _cycle_ids_cache.is_empty():
+		return _cycle_ids_cache
+	var catalogue: Dictionary = LAB_POPULATION.catalogue()
+	var ids: Array[String] = []
+	for id: String in TEST_IDS:
+		if catalogue.has(id):
+			ids.append(id)
+	for id: String in MOD_SETTINGS.CHARACTER_ORDER:
+		if ids.has(id) or not catalogue.has(id):
+			continue
+		ids.append(id)
+	_cycle_ids_cache = ids
+	return _cycle_ids_cache
+
+
+## The previous starter goes back to her saved standing spot, so only the current review mare is
+## in front of Anon. A non-starter is despawned by `_release_extra_mare()` instead.
+func _restore_previous_review(next_id: String) -> void:
+	if _review_id.is_empty() or _review_id == next_id:
+		return
+	var id := _review_id
+	var pony := _review_mare
+	_review_id = ""
+	_review_mare = null
+	if not TEST_IDS.has(id) or not is_instance_valid(pony):
+		return
+	_clear_busy(pony)
+	if not _place_saved(pony, id):
+		var home := _library_home()
+		if is_instance_valid(home):
+			_place_front(pony, home, 0, 1)
+	_make_idle(pony, true)
+	print("[unfplap test] cycle returned %s to her saved spot" % id)
+
+
+## The live actor for an id, or null. `game.mares` holds every spawned resident.
+func _find_live_pony(id: String) -> Node3D:
+	if id.is_empty() or not is_instance_valid(game):
+		return null
+	var list: Variant = game.get("mares")
+	if list is Array:
+		for node: Variant in list:
+			if is_instance_valid(node) and _pony_id(node) == id:
+				return node as Node3D
+	return null
+
+
+func _review_in_act() -> bool:
+	if is_instance_valid(_review_mare) and _review_mare.has_meta("sex_active"):
+		return true
+	return is_instance_valid(_extra_mare) and _extra_mare.has_meta("sex_active")
+
+
+## Despawn the one non-starter kept for review, unless it is the mare being kept. The in-memory
+## population assignment and saved row are removed too, so the lab returns to its starter-only
+## state until another mare is requested.
+func _release_extra_mare(keep_id: String) -> void:
+	if _extra_id.is_empty() or _extra_id == keep_id:
+		return
+	var id := _extra_id
+	var pony: Node3D = _extra_mare if is_instance_valid(_extra_mare) else _find_live_pony(id)
+	if is_instance_valid(pony):
+		_clear_busy(pony)
+		if is_instance_valid(game) and game.has_method("_despawn_resident"):
+			game.call("_despawn_resident", id, pony)
+	var population := _population()
+	if is_instance_valid(population):
+		_erase_population_id(population, id)
+		_sync_life_roster(population)
+	print("[unfplap test] cycle despawned %s" % id)
+	_extra_id = ""
+	_extra_mare = null
+	if _review_id == id:
+		_review_id = ""
+		_review_mare = null
+
+
+## Spawn one non-starter mare through the game's own streaming path, then give her the same
+## starter state as the eight. The population is paused, so reconcile() is ticked by hand until
+## the actor is live; the loader still runs one asynchronous spawn at a time.
+func _spawn_lab_mare(id: String) -> Node3D:
+	var population := _population()
+	if not is_instance_valid(population):
+		print("[unfplap test] cycle %s: no population streamer" % id)
+		return null
+	var at := _test_spawn_point()
+	if not at.is_finite():
+		print("[unfplap test] cycle %s: no spawn point" % id)
+		return null
+	var config: Variant = population.get("config")
+	var assignments: Variant = config.get("assignments") if config != null else null
+	if not assignments is Dictionary:
+		print("[unfplap test] cycle %s: population has no assignments" % id)
+		return null
+	(assignments as Dictionary)[id] = "ponyville"
+	var saved: Variant = population.get("saved")
+	if saved is Dictionary:
+		(saved as Dictionary)[id] = {"region": "ponyville", "position": at,
+			"rotation": Vector3.ZERO, "resume": {}}
+	_clear_population_blockers(population, id)
+	_sync_life_roster(population)
+	_lift_nearby_cap()
+	print("[unfplap test] cycle %s spawning at %s" % [id, str(at)])
+	var deadline := Time.get_ticks_msec() + 60000
+	var pony: Node3D = null
+	while Time.get_ticks_msec() < deadline and is_instance_valid(game) and is_inside_tree():
+		pony = _find_live_pony(id)
+		if is_instance_valid(pony):
+			break
+		population.call("reconcile")
+		await get_tree().process_frame
+	_restore_nearby_cap()
+	if not is_instance_valid(pony):
+		print("[unfplap test] cycle %s did not spawn: status=%s" % [
+			id, str(population.get("status"))])
+		return null
+	if not TEST_IDS.has(id):
+		_extra_id = id
+		_extra_mare = pony
+	_prepare_spawned_pony(pony)
+	return pony
+
+
+## The same starter state `_setup_ponies()` gives the eight: friendship, neutral mood, dating
+## record and a standing idle posture. Act history is left alone: it lives in the mod's global
+## state, not the lab world, and reviewing a dock must not clear the player's real history.
+func _prepare_spawned_pony(pony: Node3D) -> void:
+	var id := _pony_id(pony)
+	_clear_busy(pony)
+	var impressions := _impressions()
+	if is_instance_valid(impressions):
+		var stored: Variant = impressions.get("xp")
+		var xp: Dictionary = stored if stored is Dictionary else {}
+		if not stored is Dictionary:
+			impressions.set("xp", xp)
+		var row: Dictionary = xp.get(id, impressions.call("xp_for", id))
+		row["friendship"] = maxi(int(row.get("friendship", 0)), 500)
+		if not _is_young(pony):
+			row["romance"] = int(TEST_ROMANCE.get(id, 150))
+		xp[id] = row
+		impressions.set("xp", xp)
+	if not _is_young(pony):
+		_set_dating_record(pony)
+	_set_mood(pony, "neutral")
+	_make_idle(pony, true)
+	var context: Variant = game.get("world_context") if is_instance_valid(game) else null
+	if is_instance_valid(context):
+		context.call("_changed")
+
+
+func _population() -> Node:
+	if not is_instance_valid(game):
+		return null
+	var found: Variant = game.get("population")
+	return found as Node if is_instance_valid(found) else null
+
+
+func _clear_population_blockers(population: Node, id: String) -> void:
+	for key: String in ["visiting", "retry_at", "_startup_failures", "status"]:
+		var block: Variant = population.get(key)
+		if block is Dictionary:
+			(block as Dictionary).erase(id)
+
+
+func _erase_population_id(population: Node, id: String) -> void:
+	var live: Variant = population.get("live")
+	if live is Dictionary:
+		(live as Dictionary).erase(id)
+	var config: Variant = population.get("config")
+	var assignments: Variant = config.get("assignments") if config != null else null
+	if assignments is Dictionary:
+		(assignments as Dictionary).erase(id)
+	var saved: Variant = population.get("saved")
+	if saved is Dictionary:
+		(saved as Dictionary).erase(id)
+	_clear_population_blockers(population, id)
+
+
+func _sync_life_roster(population: Node) -> void:
+	var life: Variant = population.get("life")
+	if is_instance_valid(life) and (life as Node).has_method("_sync_roster"):
+		(life as Node).call("_sync_roster")
 
 
 func _bring_to_anon(pony: Node3D) -> void:
@@ -619,7 +909,7 @@ func _bring_to_anon(pony: Node3D) -> void:
 	forward = forward.normalized()
 	var at: Vector3 = (body as Node3D).global_position + forward * 1.25
 	var space := pony.get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0,
+	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 1.5,
 		at + Vector3.DOWN * 4.0, 1, [pony.get_rid()])
 	var hit: Dictionary = space.intersect_ray(query)
 	if not hit.is_empty():
@@ -1008,6 +1298,9 @@ func _test_ponies() -> Array:
 	for id: String in TEST_IDS:
 		if by_id.has(id):
 			out.append(by_id[id])
+	if not _extra_id.is_empty() and not TEST_IDS.has(_extra_id) \
+			and is_instance_valid(_extra_mare) and not out.has(_extra_mare):
+		out.append(_extra_mare)
 	return out
 
 

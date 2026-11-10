@@ -65,10 +65,10 @@ Manual lab:
 It runs the isolated `unfplap-test` world and writes the session to `last-run.log` beside the
 script. `godot` must be on `PATH`.
 
-- The lab loads only Twilight, Fluttershy, Rarity, Derpy, Applejack, Tempest Shadow, Lily Valley
-  and Colgate, pauses world scheduling and background AI, and uses the Golden Oak guest bed. It
-  does not spawn a test bed. Applejack starts as a stranger: friendship 0, no romance tier and no
-  dating record.
+- The lab starts with only Twilight, Fluttershy, Rarity, Derpy, Applejack, Tempest Shadow, Lily
+  Valley and Colgate, pauses world scheduling and background AI, and uses the Golden Oak guest
+  bed. It does not spawn a test bed. Applejack starts as a stranger: friendship 0, no romance
+  tier and no dating record.
 - Before the loading screen's furnishing wait the lab sets `furnish = false` on every generated
   house. Authored homes (the library) keep their furniture and bed, so the 200 ms-per-house
   furnishing stagger never runs.
@@ -87,6 +87,16 @@ script. `godot` must be on `PATH`.
   it once population is paused. A test pony whose home sits beyond the 240 m activation radius
   gets a session-only saved spawn at the library front. The rest of the world's context and
   inventory persist.
+- `Shift+[` / `Shift+]` cycles every adult mare the population catalogue can spawn. The eight
+  starters stay live and the previous starter returns to her saved spot; a non-starter is
+  spawned through the population streamer on demand, made idle in front of Anon facing away, and
+  the previous non-starter is despawned before the next one loads, so only one extra stays live.
+  The streamer is paused, so the lab ticks its `reconcile()` by hand and removes the extra's
+  in-memory assignment when she leaves. The keys
+  work with the mouse released and while the settings/pause menu is open (the posture settles when
+  it closes), but not while a text field owns the keyboard; `Ctrl+[` / `Ctrl+]` is kept as an
+  alias where the bracket key arrives (on many systems Ctrl+[ is the historical Escape control
+  code and never reaches the game).
 - The lab normalizes a mare's saved actor rotation to yaw-only in `_upright()` during setup and
   after bed transport. A tilted saved transform otherwise makes support recovery fight the
   collider every frame and print endless `re-seated on the floor` lines.
@@ -1459,9 +1469,9 @@ examples.
   pelvis may remain under the dock. It touches no other body part.
 - `act_ear_pin` is one of General's ungrouped debug rows and defaults off; when off the act skips
   `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
-- Lab: `Ctrl+[` / `Ctrl+]` moves the previous/next test mare in front of Anon, facing away,
-  standing idle. `-`/`=` romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed
-  invite, Mouse5
+- Lab: `Shift+[` / `Shift+]` moves the previous/next adult mare in front of Anon, facing away,
+  standing idle; non-starters are spawned on demand and the previous extra is despawned. `-`/`=`
+  romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed invite, Mouse5
   sex-ready. Mouse5 grants the lover bond after the neutral mood reset, so the default gate is
   satisfied; startup leaves bonds unset. Mouse4 moves a mare farther than `8 m` (or on another
   floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the

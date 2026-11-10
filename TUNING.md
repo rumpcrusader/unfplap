@@ -147,6 +147,9 @@ prefixes pre-emptively.
   Anatomy Debug actions Tail seat Up/Down/Forward/Back and Tail seat file Save/Reset/Show edit it
   in game; Reset previews the exact reference and Save writes it, the same staging rule as
   anatomy placement.
+- `anatomy.dock_color` (Dock colour, `coat`/`genitals`, default `coat`) chooses the standard dock's
+  material. `coat` keeps the game's coat material; `genitals` uses the attached anatomy material so
+  the cuff matches her genital skin tone, and falls back to coat while the anatomy is not attached.
 - `anatomy.tail_offset_mm` and `anatomy.dock_offset_mm` are debug numbers (default 0, unit mm, no
   clamp). The tail offset moves the tail target and the dock follows; the dock offset trims the
   cuff alone. The base snap runs from the dock fit, before both trims.

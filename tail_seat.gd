@@ -310,16 +310,6 @@ func _prepare(pony: Node) -> Dictionary:
 		return {}
 	var identity: Variant = pony.get("identity")
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
-	var hair_node: Variant = pony.get("hair")
-	var tail_mesh: MeshInstance3D = null
-	if is_instance_valid(hair_node):
-		tail_mesh = (hair_node as Node).find_child(
-			str(identity.get("hair_prefix")) + "DevkitTail", true, false) as MeshInstance3D
-	var tail_material: Material = null
-	if is_instance_valid(tail_mesh):
-		tail_material = tail_mesh.get_active_material(0)
-		if tail_material == null and tail_mesh.mesh != null:
-			tail_material = tail_mesh.mesh.surface_get_material(0)
 	var original_skin: Skin = dock.skin
 	return {
 		"pony": pony,
@@ -333,7 +323,6 @@ func _prepare(pony: Node) -> Dictionary:
 		"original_dock": dock.mesh,
 		"original_skin": original_skin,
 		"original_material": dock.get_surface_override_material(0),
-		"tail_material": tail_material,
 		"hips_rest": skeleton.get_bone_global_rest(hips),
 		"anchor": anchor,
 		"cap_centre": _tail_cap_centre(pony),
@@ -424,9 +413,7 @@ func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void
 	if not is_instance_valid(dock) or not is_instance_valid(hair) or not is_instance_valid(body):
 		return
 	dock.skin = null
-	var material: Variant = row.get("tail_material")
-	dock.set_surface_override_material(0,
-		material if material is Material else row["original_material"])
+	dock.set_surface_override_material(0, _dock_material(row))
 	var follower: SkeletonModifier3D = DOCK_ATTACH.new()
 	follower.name = "UnfplapDockAttach"
 	follower.set("pony", row["pony"])
@@ -444,6 +431,34 @@ func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void
 	follower.set("dock_lift", drop + SETTINGS.dock_offset_mm.get_num() / 1000.0)
 	hair.add_child(follower)
 	row["attached"] = follower
+
+
+## The dock's chosen colour. Genitals uses the live anatomy material, so the cuff matches her
+## genital skin tone; otherwise the game's original coat material is kept.
+func _dock_material(row: Dictionary) -> Material:
+	if SETTINGS.dock_color.get_choice() == "genitals":
+		var pony: Node = row.get("pony") as Node
+		if is_instance_valid(pony):
+			var skeleton: Variant = pony.get("skeleton")
+			if skeleton is Skeleton3D:
+				var anatomy := (skeleton as Skeleton3D).find_child(
+					"UnfplapAnatomy", true, false) as MeshInstance3D
+				if is_instance_valid(anatomy) and not anatomy.is_queued_for_deletion():
+					var material := anatomy.get_active_material(0)
+					if material is Material:
+						return material
+	var original: Variant = row.get("original_material")
+	return original as Material if original is Material else null
+
+
+## Re-apply the chosen dock material after the anatomy attaches, changes or detaches.
+func refresh_dock_color(pony: Node) -> void:
+	if not is_instance_valid(pony) or not _rows.has(pony):
+		return
+	var row: Dictionary = _rows[pony]
+	var dock: MeshInstance3D = row["dock"]
+	if is_instance_valid(dock):
+		dock.set_surface_override_material(0, _dock_material(row))
 
 
 func _detach_follower(row: Dictionary) -> void:

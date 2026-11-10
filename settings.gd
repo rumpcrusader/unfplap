@@ -1215,6 +1215,10 @@ static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never
 static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
 	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
 	ANATOMY, "")
+static var dock_color := choice("dock_color", "anatomy.dock_color", "coat",
+	["coat", "genitals"], ["Coat", "Genitals"], "Dock colour",
+	"Choose the standard dock's colour: her coat, or the same skin as her genitals.",
+	ANATOMY, "")
 static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails", true,
 	"Re-seat tails and docks",
 	"Seat every mare's hair tail at the reference dock and snap the dock base to her rump. Off restores the game's original tail mount and dock.",

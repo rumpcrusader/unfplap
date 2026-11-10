@@ -636,6 +636,8 @@ func _apply_material() -> void:
 	OUTLINE_EXCLUSION.apply_to(_mesh)
 	_apply_winking_shape()
 	_apply_teats_material(material)
+	if is_instance_valid(main) and main.has_method("refresh_dock_color"):
+		main.call("refresh_dock_color", pony)
 
 
 func _skin_tones() -> Array:
@@ -1106,6 +1108,8 @@ func detach() -> void:
 		if is_instance_valid(anchor):
 			anchor.queue_free()
 	_skeleton = null
+	if is_instance_valid(main) and main.has_method("refresh_dock_color"):
+		main.call("refresh_dock_color", pony)
 
 
 func winking_mesh() -> MeshInstance3D:

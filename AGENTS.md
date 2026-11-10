@@ -421,7 +421,8 @@ reclined eye height left the camera wrong after the act.
   `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
   that tail to the reference, pushes the cuff above and behind the tail base. The fit is
   re-reached with `hybrid_dock`, its base ring is snapped to `hybrid_dock.rump_z(y) - 4 mm` by
-  `dock_seat.gd`, and the dock uses the hair tail material. The 4 mm embed and a falloff over the
+  `dock_seat.gd`. The dock keeps her coat material by default; Anatomy → **Dock colour** switches
+  it to the attached anatomy material (her genital skin tone). The 4 mm embed and a falloff over the
   first 35% of the dock keep the base in the coat without creasing. The body, skeleton, mane and
   anatomy placement are untouched.
 - The dock's outer opening is seated on the pinned tail cap's vertical centre. `tail_seat.gd`
@@ -1454,11 +1455,6 @@ examples.
   floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the
   snuggle invite. Backtick (`` ` ``) toggles the debug console with a temporary control-lock
   release, so it also opens while Anon is lying down.
-- `tools/dock_gallery.tscn` is the dock/anatomy gallery: open it in the editor and run it (F6).
-  It builds every anatomy-roster mare from her game scene, attaches the anatomy, seats the tail
-  and dock, and lifts each tail aside so the cuff is visible. `A`/`D` moves between mares,
-  `Q`/`E` orbits, `W`/`S` zooms and `1`/`2`/`3` switches front/rear/side. `mare_ids` empty is the
-  whole roster; set a few ids for a fast start. `tools/` never ships.
 - The lab moves every test pony to her snapshot spot (`TEST_SPAWNS`) at startup, so they stand
   where the save left them; the library row is only a fallback. Its startup log lists every setup
   action (opening/tutorial handling, population restriction/prune, AI/time pauses, per-pony
@@ -1584,7 +1580,9 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
   spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1, default 0.67; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
-  (Show tail docks, on; visibility only, it never moves the anatomy), `reseat_tails` (Re-seat
+  (Show tail docks, on; visibility only, it never moves the anatomy), `dock_color` (Dock colour,
+  `coat`/`genitals`, default `coat`; genitals uses the attached anatomy material and falls back to
+  coat when the anatomy is not attached), `reseat_tails` (Re-seat
   tails and docks, on; seats every adult mare's hair tail at the exact reference dock and installs
   the tail-only dock cuff under the tail base; off restores the original tail mount and dock;
   per-mare exceptions live under `anatomy.tail_seat.<id>`), `tail_offset_mm` and

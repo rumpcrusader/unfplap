@@ -294,6 +294,13 @@ func _apply_settings_changed() -> void:
 		tail_seat.call("refresh_all")
 
 
+## The anatomy controller owns the genitals material; refresh the dock after it attaches, changes
+## tone or detaches.
+func refresh_dock_color(pony: Node) -> void:
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_dock_color", pony)
+
+
 func _on_player(body: Node) -> void:
 	player = body
 	_debug("player ready")

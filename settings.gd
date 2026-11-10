@@ -1268,6 +1268,9 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 static var tail_offset_mm := num("tail_offset_mm", "anatomy.tail_offset_mm", 0.0, "Tail offset",
 	"Move every re-seated tail up (+) or down (-) by this many millimetres. Stored verbatim; no clamp.",
 	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
+static var tail_forward_mm := num("tail_forward_mm", "anatomy.tail_forward_mm", 0.0, "Tail forward",
+	"Move every re-seated tail toward (+) or away from (-) her head along the floor. Stored verbatim; no clamp.",
+	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()
 static var dock_offset_mm := num("dock_offset_mm", "anatomy.dock_offset_mm", 0.0, "Dock offset",
 	"Trim every re-seated dock up (+) or down (-) from its cuff position under the tail base. Stored verbatim; no clamp.",
 	ANATOMY, "").with_unit("mm").with_step(1.0).as_debug()

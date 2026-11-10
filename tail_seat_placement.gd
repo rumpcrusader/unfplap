@@ -122,15 +122,17 @@ static func scale_text(value: float) -> String:
 	return "scale=%.2fx" % value
 
 
-## The exact reference anchor plus the global tail lift and one mare's exception. The reference
-## carries X.
-static func target(reference: Vector3, offset: Vector2, lift := 0.0) -> Vector3:
-	return Vector3(reference.x, reference.y + lift + offset.x, reference.z + offset.y)
+## The exact reference anchor plus the global tail lift/forward and one mare's exception. The
+## reference carries X; `forward` is toward her head and subtracts from Z.
+static func target(reference: Vector3, offset: Vector2, lift := 0.0, forward := 0.0) -> Vector3:
+	return Vector3(reference.x, reference.y + lift + offset.x,
+		reference.z + offset.y - forward)
 
 
-## The translation needed to put an anchor on the reference plus its lift and exception.
-static func delta(anchor: Vector3, reference: Vector3, offset: Vector2, lift := 0.0) -> Vector3:
-	return target(reference, offset, lift) - anchor
+## The translation needed to put an anchor on the reference plus its lift, forward and exception.
+static func delta(anchor: Vector3, reference: Vector3, offset: Vector2, lift := 0.0,
+		forward := 0.0) -> Vector3:
+	return target(reference, offset, lift, forward) - anchor
 
 
 static func text(offset: Vector2) -> String:

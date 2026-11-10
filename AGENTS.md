@@ -436,9 +436,10 @@ reclined eye height left the camera wrong after the act.
   rebuilds normals. It keeps the dock metadata (`base_indices`, `pinned_*`) on the rebuilt mesh.
   Lift, aside, flick, tail lay and tail tuck all carry the cuff; it never bridges body and tail,
   so sitting cannot stretch it.
-- `anatomy.tail_offset_mm` and `anatomy.dock_offset_mm` are debug numbers in millimetres (default
-  0, no clamp). The tail offset moves the tail target and the dock follows it; the dock offset
-  trims the cuff alone. Both apply live.
+- `anatomy.tail_offset_mm`, `anatomy.tail_forward_mm` and `anatomy.dock_offset_mm` are debug
+  numbers in millimetres (default 0, no clamp). The tail offset lifts the tail; tail forward moves
+  it toward (+) or away from (-) her head along the floor; the dock follows both. The dock offset
+  trims the cuff alone. All apply live.
 - The seat is measured once on the live pony with `dock_tail_mount.measure()`. The original hair
   `pelvis_offset`, dock mesh, skin, material and tail material are cached before the first write,
   so turning the setting off restores the game's tail and dock exactly. The far-mesh identity
@@ -1590,9 +1591,9 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   coat when the anatomy is not attached), `reseat_tails` (Re-seat
   tails and docks, on; seats every adult mare's hair tail at the exact reference dock and installs
   the tail-only dock cuff under the tail base; off restores the original tail mount and dock;
-  per-mare exceptions live under `anatomy.tail_seat.<id>`), `tail_offset_mm` and
-  `dock_offset_mm` (debug: tail target lift and dock cuff trim in millimetres, default 0, no
-  clamp), `mare_bits`
+  per-mare exceptions live under `anatomy.tail_seat.<id>`), `tail_offset_mm`, `tail_forward_mm`
+  and `dock_offset_mm` (debug: tail target lift, tail forward toward the head and dock cuff trim in
+  millimetres, default 0, no clamp), `mare_bits`
   (Mare bits,
   `original`/`v2`; default `v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),

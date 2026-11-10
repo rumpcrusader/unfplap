@@ -33,6 +33,7 @@ var _rows: Dictionary = {}
 ## Last applied values of Anatomy › Re-seat tails and docks and the two debug offsets.
 var _enabled := true
 var _tail_lift := 0.0
+var _forward := 0.0
 var _dock_lift := 0.0
 static var _reference := Vector3.INF
 static var _reference_loaded := false
@@ -42,6 +43,7 @@ static var _visibility: Dictionary = {}
 func _ready() -> void:
 	_enabled = SETTINGS.reseat_tails.get_bool()
 	_tail_lift = SETTINGS.tail_offset_mm.get_num() / 1000.0
+	_forward = SETTINGS.tail_forward_mm.get_num() / 1000.0
 	_dock_lift = SETTINGS.dock_offset_mm.get_num() / 1000.0
 
 
@@ -166,12 +168,15 @@ func attach(pony: Node) -> void:
 func refresh_all() -> void:
 	var enabled := SETTINGS.reseat_tails.get_bool()
 	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
+	var forward := SETTINGS.tail_forward_mm.get_num() / 1000.0
 	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	var toggle_changed := enabled != _enabled
 	var offsets_changed := not is_equal_approx(tail_lift, _tail_lift) \
+		or not is_equal_approx(forward, _forward) \
 		or not is_equal_approx(dock_lift, _dock_lift)
 	_enabled = enabled
 	_tail_lift = tail_lift
+	_forward = forward
 	_dock_lift = dock_lift
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
@@ -251,13 +256,15 @@ func report_all() -> String:
 	var count := 0
 	var exceptions := 0
 	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
+	var forward := SETTINGS.tail_forward_mm.get_num() / 1000.0
 	var dock_lift := SETTINGS.dock_offset_mm.get_num() / 1000.0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
 		var row: Dictionary = _rows[pony]
-		var target := PLACEMENT.target(reference(pony), row["offset"] as Vector2, tail_lift)
+		var target := PLACEMENT.target(reference(pony), row["offset"] as Vector2,
+			tail_lift, forward)
 		var source := _source(row)
 		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) %s %s source=%s" % [
 			str(row["id"]), (row["anchor"] as Vector3).x, (row["anchor"] as Vector3).y,
@@ -270,8 +277,9 @@ func report_all() -> String:
 		if source == "override" or source == "unsaved":
 			exceptions += 1
 	if not lines.is_empty():
-		_log("tail seats tail_offset=%+.0fmm dock_offset=%+.0fmm\n\t" % [
-			tail_lift * 1000.0, dock_lift * 1000.0] + "\n\t".join(lines))
+		_log("tail seats tail_offset=%+.0fmm tail_forward=%+.0fmm dock_offset=%+.0fmm\n\t" % [
+			tail_lift * 1000.0, forward * 1000.0, dock_lift * 1000.0]
+			+ "\n\t".join(lines))
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]
 
 
@@ -372,8 +380,9 @@ func _apply(row: Dictionary) -> void:
 	if not reference_anchor.is_finite():
 		return
 	var tail_lift := SETTINGS.tail_offset_mm.get_num() / 1000.0
+	var forward := SETTINGS.tail_forward_mm.get_num() / 1000.0
 	var delta := PLACEMENT.delta(row["anchor"] as Vector3, reference_anchor,
-		row["offset"] as Vector2, tail_lift)
+		row["offset"] as Vector2, tail_lift, forward)
 	var link: Node = row["link"]
 	if not is_instance_valid(link) or not link.is_inside_tree():
 		return

@@ -50,6 +50,10 @@ func _check_target() -> void:
 	check(delta.is_equal_approx(raised - anchor), "the translation reaches the target")
 	var lifted_delta := PLACEMENT.delta(anchor, REFERENCE, Vector2(0.012, -0.003), 0.020)
 	check(lifted_delta.is_equal_approx(lifted - anchor), "the lift reaches the lifted target")
+	var forward := PLACEMENT.target(REFERENCE, Vector2.ZERO, 0.0, 0.010)
+	check(near(forward.z, REFERENCE.z - 0.010), "tail forward moves toward the head")
+	var forward_delta := PLACEMENT.delta(anchor, REFERENCE, Vector2.ZERO, 0.0, 0.010)
+	check(forward_delta.is_equal_approx(forward - anchor), "forward reaches the target")
 
 
 func _check_storage() -> void:

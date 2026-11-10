@@ -154,9 +154,10 @@ prefixes pre-emptively.
   material with `coat_color`/`coat_shadow` set to her skin tones, so the cuff matches her genital
   skin and never falls through to the shader's black default; while the anatomy is not attached it
   falls back to coat.
-- `anatomy.tail_offset_mm` and `anatomy.dock_offset_mm` are debug numbers (default 0, unit mm, no
-  clamp). The tail offset moves the tail target and the dock follows; the dock offset trims the
-  cuff alone. The base snap runs from the dock fit, before both trims.
+- `anatomy.tail_offset_mm`, `anatomy.tail_forward_mm` and `anatomy.dock_offset_mm` are debug
+  numbers (default 0, unit mm, no clamp). The tail offset lifts the tail; tail forward moves it
+  toward (+) or away from (-) her head along the floor; the dock follows both. The dock offset
+  trims the cuff alone. The base snap runs from the dock fit, before the trims.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
   cached per generation, so a per-frame read is cheap.

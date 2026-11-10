@@ -406,6 +406,27 @@ func run() -> void:
 	check((blur_surface.call("normal_blur", Vector3.ZERO, 0.0, Vector3.UP) as Vector3)
 		.is_zero_approx(), "zero radius disables the normal blur")
 
+	# The seeded blur walks only the hit face's rings. At the real radii it must match the full
+	# scan, and a radius beyond the ring's proven reach must keep the full-scan average.
+	var ring_surface: Variant = SURFACE.new()
+	ring_surface.set("_positions", PackedVector3Array([
+		Vector3(0.0, 0.0, 0.0), Vector3(0.05, 0.0, 0.0), Vector3(0.10, 0.0, 0.0),
+		Vector3(0.0, 0.0, 0.05), Vector3(0.0, 0.0, -0.05),
+	]))
+	ring_surface.set("_normals", PackedVector3Array([
+		Vector3.UP, Vector3(0.7, 0.7, 0.0), Vector3.RIGHT, Vector3.UP, Vector3.UP,
+	]))
+	ring_surface.set("_rings", [
+		[1, 2, 3, 4], [0, 2], [0, 1], [0, 4], [0, 3],
+	])
+	var full: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.02, Vector3.UP)
+	var seeded: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.02, Vector3.UP, 0)
+	check(seeded.is_equal_approx(full), "the seeded blur matches the full scan at 2 cm")
+	var wide_full: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.08, Vector3.UP)
+	var wide_seeded: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.08, Vector3.UP, 0)
+	check(wide_seeded.is_equal_approx(wide_full),
+		"a blur beyond the ring reach keeps the full scan")
+
 	# The pose-free engine: the same candidate gives the same frame through different paths, and
 	# the intended oval motion is not delayed by contact smoothing.
 	var engine: Variant = SYSTEM.new()

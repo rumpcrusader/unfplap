@@ -4,7 +4,8 @@ extends SceneTree
 
 const ROOT := "res://mods/unfplap"
 ## Files allowed to create settings widgets. The declaration panel is settings_ui.gd; the
-## character preference form in main.gd is the one hand-built exception.
+## character preference form in main.gd is the one hand-built exception. The tools are never
+## shipped and are not settings UI.
 const WIDGET_FILES := ["res://mods/unfplap/settings_ui.gd", "res://mods/unfplap/main.gd"]
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "ColorPickerButton.new("]
 var failures := 0
@@ -79,6 +80,8 @@ func _check_settings_module(files: Array[String]) -> void:
 	var widget_ok := true
 	for path: String in files:
 		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		if path.begins_with(ROOT.path_join("tools/")):
 			continue
 		var text := FileAccess.get_file_as_string(path)
 		if text.contains("tunables_schema.gd") or text.contains("unfplap/tunables.gd"):

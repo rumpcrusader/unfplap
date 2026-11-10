@@ -144,7 +144,7 @@ step and the same normal turn. The hull path keeps the last valid point on a mis
 | `features.caress_reach_shoulder_m` | 0.02 m | missionary reach shoulder shift |
 | `presentation.missionary.caress.path_id` | one | authored chain `one` or `two` |
 | `caress.hover_m` | 2 cm | body-scaled palm-centre hover in both poses |
-| `caress.normal_blur_m` | 2 cm | coat-normal average radius |
+| `caress.normal_blur_m` | 2 cm | coat-normal average radius; above 3 cm it averages the whole patch |
 | `caress.normal_deg_s` | 120 | palm normal turn limit |
 | `caress.contact_smooth` | 18/s | snap-correction low-pass |
 | `caress.ignore` | tail, wing | hull regions the fallback skips |
@@ -167,11 +167,16 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
   position/normal.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
-- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface` and `caress_arm`
-  chunks.
+- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_skin`,
+  `caress_tri`, `caress_blur`, `caress_closest` and `caress_arm` chunks.
 - `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand;
-  `caress_surface` covers the stable patch update, exact query and normal blur; `caress_arm`
-  covers the missionary reach plan.
+  `caress_surface` covers the whole precise hand, `caress_skin` the patch update (skinning plus the
+  face and normal arrays), `caress_tri` the `TriangleMesh` rebuild, `caress_blur` the normal
+  average, `caress_closest` the full-triangle fallback when the ray misses; `caress_arm` covers
+  the missionary reach plan.
+- The patch is skinned and re-BVHed at most once per physics tick, and the normal blur averages
+  the hit face's ring (`BLUR_RING_RADIUS_M = 0.03 m`, `BLUR_RING_DEPTH = 4`) instead of the whole
+  patch; a wider radius keeps the full-scan average.
 
 ## Reach
 

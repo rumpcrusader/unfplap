@@ -7,17 +7,35 @@ extends RefCounted
 
 const CACHE_LIMIT := 12
 const UPDATE_MS := 33
+## The exact query touches a few centimetres of coat. The normal blur walks the hit vertex's
+## mesh ring instead of every posed vertex; a radius beyond the ring's proven reach keeps the
+## full-scan fallback so a debug radius still averages the whole patch.
+const BLUR_RING_RADIUS_M := 0.03
+const BLUR_RING_DEPTH := 4
 
 static var _source_cache: Dictionary = {}
 
+var runtime: Node
 var source: Dictionary = {}
 var skeleton: Skeleton3D
 var faces := PackedVector3Array()
 var vertex_normals := PackedVector3Array()
 var build_us := 0
 var query_us := 0
+var skin_us := 0
+var tri_us := 0
+var blur_us := 0
+var closest_us := 0
 var source_key := ""
 
+var _rings: Array = []
+var _pony_id := 0
+var _region := ""
+var _radius := 0.0
+var _mesh: MeshInstance3D = null
+var _mesh_id := 0
+var _skeleton_id := 0
+var _update_tick := -1
 var _bindings: Array = []
 var _transforms: Array[Transform3D] = []
 var _rest_positions := PackedVector3Array()
@@ -38,9 +56,20 @@ var _cache_order: Array = []
 ## Build a stable patch for a body region. The patch is anchored to the rig's rest pose, not to
 ## the caller's query, so it does not change face sets while the hand moves. `region` is "torso",
 ## "neck", "head" or "body". Returns false when the pony/rig/region is unavailable.
+func _init(runtime_node: Node = null) -> void:
+	runtime = runtime_node
+
+
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 	if not is_instance_valid(pony):
 		return false
+	# The same pony and region keep the same mesh, skeleton and rest anchor; skip the scene-tree
+	# lookup and key build on every hand call.
+	if _pony_id != 0 and _pony_id == int(pony.get_instance_id()) and _region == region \
+			and is_equal_approx(_radius, radius) and not source.is_empty() \
+			and is_instance_valid(_mesh) and _mesh.get_instance_id() == _mesh_id \
+			and is_instance_valid(skeleton) and skeleton.get_instance_id() == _skeleton_id:
+		return true
 	var found := find_mesh(pony, region)
 	if found.is_empty():
 		return false
@@ -49,6 +78,12 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 	if not sk is Skeleton3D:
 		return false
 	skeleton = sk as Skeleton3D
+	_mesh = mesh
+	_mesh_id = mesh.get_instance_id()
+	_skeleton_id = skeleton.get_instance_id()
+	_pony_id = int(pony.get_instance_id())
+	_region = region
+	_radius = radius
 	var anchor := _region_anchor(skeleton, region)
 	if anchor.is_empty():
 		return false
@@ -84,33 +119,35 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 func update_pose(force := false) -> void:
 	if source.is_empty() or not is_instance_valid(skeleton):
 		return
+	# One patch update per physics tick even if both hands ask: the second hand shares it.
+	var tick := Engine.get_physics_frames()
+	if not force and _update_tick == tick:
+		return
+	_update_tick = tick
 	var now := Time.get_ticks_msec()
 	if not force and _last_update >= 0 and now - _last_update < UPDATE_MS:
 		return
 	var started := Time.get_ticks_usec()
 	var base := skeleton.global_transform
-	var changed := _transforms.size() != _bindings.size()
-	if not changed:
-		for i in _bindings.size():
-			var binding: Dictionary = _bindings[i]
-			var bone := int(binding["bone"])
-			if bone < 0:
-				changed = true
-				break
-			var t: Transform3D = base * skeleton.get_bone_global_pose(bone) \
-				* (binding["bind"] as Transform3D)
-			if not t.is_equal_approx(_transforms[i]):
-				_transforms[i] = t
-				changed = true
-	if not changed and not force:
-		return
-	if _transforms.size() != _bindings.size():
-		_transforms.resize(_bindings.size())
-	for i in _bindings.size():
+	var count := _bindings.size()
+	var transforms: Array[Transform3D] = []
+	transforms.resize(count)
+	var changed := _transforms.size() != count
+	for i in count:
 		var binding: Dictionary = _bindings[i]
 		var bone := int(binding["bone"])
-		_transforms[i] = base * skeleton.get_bone_global_pose(bone) \
-			* (binding["bind"] as Transform3D)
+		var t := Transform3D.IDENTITY
+		if bone < 0:
+			changed = true
+		else:
+			t = base * skeleton.get_bone_global_pose(bone) \
+				* (binding["bind"] as Transform3D)
+		transforms[i] = t
+		if not changed and not t.is_equal_approx(_transforms[i]):
+			changed = true
+	if not changed and not force:
+		return
+	_transforms = transforms
 	for i in _rest_positions.size():
 		var p := Vector3.ZERO
 		var n := Vector3.ZERO
@@ -133,7 +170,9 @@ func update_pose(force := false) -> void:
 	_tri = null
 	_tri_stamp = -1
 	_last_update = now
-	build_us = Time.get_ticks_usec() - started
+	skin_us = Time.get_ticks_usec() - started
+	build_us = skin_us
+	_perf_note("caress_skin", skin_us)
 
 
 ## Closest point on the posed patch. Returns {} when the patch is empty. `inside` is true when
@@ -167,7 +206,9 @@ func closest(point: Vector3) -> Dictionary:
 		best_normal = normal.normalized()
 	if best_index < 0:
 		return {}
-	query_us = Time.get_ticks_usec() - started
+	closest_us = Time.get_ticks_usec() - started
+	_perf_note("caress_closest", closest_us)
+	query_us = closest_us
 	return {
 		"point": best_point,
 		"normal": best_normal,
@@ -185,9 +226,9 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 		normal = Vector3.UP
 	var started := Time.get_ticks_usec()
 	var hit := _cast(point + normal * 0.20, point - normal * 0.20)
-	query_us = Time.get_ticks_usec() - started
 	if hit.is_empty():
 		return closest(point)
+	query_us = Time.get_ticks_usec() - started
 	var surface: Vector3 = hit.get("position", point)
 	var hit_normal: Vector3 = hit.get("normal", normal)
 	if hit_normal.length_squared() < 0.5:
@@ -198,28 +239,43 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 		"normal": hit_normal,
 		"distance": point.distance_to(surface),
 		"inside": (point - surface).dot(hit_normal) < 0.0,
+		"face": int(hit.get("face_index", -1)),
 	}
 
 
 ## Distance-weighted average of the posed vertex normals around `point`, ignoring vertices whose
 ## normal faces away from `hint`. This smooths the normal across mesh creases; 0 radius or a
 ## cancelled sum returns Vector3.ZERO and the caller keeps the exact hit normal.
-func normal_blur(point: Vector3, radius: float, hint: Vector3) -> Vector3:
+func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Vector3:
 	if radius <= 0.0 or _positions.is_empty():
 		return Vector3.ZERO
+	var started := Time.get_ticks_usec()
 	var hint_normal := hint.normalized()
 	if hint_normal.length_squared() < 0.5:
 		hint_normal = Vector3.UP
 	var r2 := radius * radius
 	var sum := Vector3.ZERO
-	for i in _positions.size():
-		var distance := _positions[i].distance_squared_to(point)
-		if distance > r2:
-			continue
-		var normal: Vector3 = _normals[i]
-		if normal.dot(hint_normal) < 0.2:
-			continue
-		sum += normal * (1.0 - distance / r2)
+	var candidates := _blur_candidates(seed, radius)
+	if candidates.is_empty():
+		for i in _positions.size():
+			var distance := _positions[i].distance_squared_to(point)
+			if distance > r2:
+				continue
+			var normal: Vector3 = _normals[i]
+			if normal.dot(hint_normal) < 0.2:
+				continue
+			sum += normal * (1.0 - distance / r2)
+	else:
+		for i: int in candidates:
+			var distance := _positions[i].distance_squared_to(point)
+			if distance > r2:
+				continue
+			var normal: Vector3 = _normals[i]
+			if normal.dot(hint_normal) < 0.2:
+				continue
+			sum += normal * (1.0 - distance / r2)
+	blur_us = Time.get_ticks_usec() - started
+	_perf_note("caress_blur", blur_us)
 	if sum.length_squared() < 0.0001:
 		return Vector3.ZERO
 	return sum.normalized()
@@ -235,8 +291,11 @@ func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	if faces.is_empty():
 		return {}
 	if _tri == null or _tri_stamp != _pose_serial:
+		var tri_started := Time.get_ticks_usec()
 		_tri = TriangleMesh.new()
 		_tri.create_from_faces(faces)
+		tri_us = Time.get_ticks_usec() - tri_started
+		_perf_note("caress_tri", tri_us)
 		_tri_stamp = _pose_serial
 	var hit: Dictionary = _tri.intersect_segment(from, to)
 	if hit.is_empty():
@@ -284,6 +343,7 @@ func _flatten() -> void:
 			_weights.append(float(influence.y))
 	_offsets.append(_bones.size())
 	_indices = source.get("indices", PackedInt32Array())
+	_build_rings()
 	_positions.resize(_rest_positions.size())
 	_normals.resize(_rest_positions.size())
 	faces = PackedVector3Array()
@@ -293,6 +353,61 @@ func _flatten() -> void:
 	_pose_serial += 1
 	_transforms.clear()
 	_last_update = -1
+	_update_tick = -1
+
+
+## Vertex adjacency of the flattened patch, built once per source. The blur walks only these
+## rings around the hit face, so a centimetre query does not touch the whole patch.
+func _build_rings() -> void:
+	_rings.clear()
+	_rings.resize(_rest_positions.size())
+	for i in _rings.size():
+		_rings[i] = []
+	for t in range(0, _indices.size(), 3):
+		_link_ring(_indices[t], _indices[t + 1])
+		_link_ring(_indices[t], _indices[t + 2])
+		_link_ring(_indices[t + 1], _indices[t + 2])
+
+
+func _link_ring(a: int, b: int) -> void:
+	if a < 0 or b < 0 or a >= _rings.size() or b >= _rings.size():
+		return
+	var ra: Array = _rings[a]
+	if not ra.has(b):
+		ra.append(b)
+	var rb: Array = _rings[b]
+	if not rb.has(a):
+		rb.append(a)
+
+
+## The hit face's neighbours out to BLUR_RING_DEPTH rings. A seed outside the ring set or a
+## radius wider than the ring's proven reach returns an empty array so the caller keeps the
+## full-scan average, which is what a debug radius expects.
+func _blur_candidates(seed: int, radius: float) -> PackedInt32Array:
+	if seed < 0 or seed >= _rings.size() or radius > BLUR_RING_RADIUS_M or _rings.is_empty():
+		return PackedInt32Array()
+	var seen := PackedInt32Array()
+	var seen_set := {}
+	var front: Array[int] = [seed]
+	for _depth in BLUR_RING_DEPTH:
+		var next: Array[int] = []
+		for v: int in front:
+			if seen_set.has(v):
+				continue
+			seen_set[v] = true
+			seen.append(v)
+			for n: int in _rings[v]:
+				if not seen_set.has(n):
+					next.append(n)
+		front = next
+		if front.is_empty():
+			break
+	return seen
+
+
+func _perf_note(chunk: String, usec: int) -> void:
+	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
+		runtime.call("perf_note", chunk, usec)
 
 
 func face_count() -> int:

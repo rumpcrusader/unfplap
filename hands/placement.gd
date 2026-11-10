@@ -158,7 +158,8 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
 	var blur := maxf(float(SETTINGS.normal_blur_m.get_num()) * scale, 0.0)
 	if blur > 0.0:
-		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal)
+		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal,
+			int(hit.get("face", -1)))
 		if blurred.length_squared() > 0.5:
 			hit_normal = blurred.normalized()
 	_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
@@ -215,7 +216,7 @@ func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
 func _surface(pony: Variant, region: String) -> Variant:
 	var surface: Variant = _surfaces.get(region)
 	if not is_instance_valid(surface):
-		surface = SURFACE.new()
+		surface = SURFACE.new(runtime)
 		_surfaces[region] = surface
 	if not bool(surface.call("ensure", pony, region)):
 		return null

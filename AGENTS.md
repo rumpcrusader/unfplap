@@ -11,7 +11,7 @@ Do not start implementation until you have read the required files for the area 
 | Task | Read first |
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
-| Any caress task | `docs/caress.md` |
+| Any caress task | `docs/hands.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
@@ -194,15 +194,15 @@ mods/unfplap/
                     budget, one slot for cues and reactions
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
-  caress_control.gd  act hand controller: caress, reach and smack; details in docs/caress.md
-  caress/           caress engine, paths, anchors, contact and hand geometry; docs/caress.md
+  hand_control.gd  act hand controller: caress, reach and smack; details in docs/hands.md
+  hands/            placement engine, paths, anchors, contact, palm, reach, scale; docs/hands.md
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
   standing_anon.gd  standing hip thrust wrapper, planted lower body and palm scale
   standing_presentation.gd  idle standing invitation, turn and request face
   anon_thrust.gd    wraps the desktop Anon pose driver for the standing hip thrust
-  palm_scale.gd     shared caress hand-bone scale, restored when the act ends
+  hands/scale.gd     shared caress hand-bone scale, restored when the act ends
   body_sway.gd      depth-driven standing body sway with planted hooves and Anon follow
   kiss_legs.gd      standing kiss hoof-tip pin after AffectionPose's chest flex
   prone_sway.gd     missionary lying torso slide and head nod on the thrust
@@ -327,7 +327,7 @@ reclined eye height left the camera wrong after the act.
   their X/Z follow the stroke and lean, so the hands slide along the mattress instead of lifting; a
   two-bone arm solve reaches the wrist and the hand keeps its authored world orientation, so the
   palms stay flat.
-- **The caress.** Both hands use the shared caress system; see `docs/caress.md`. The pose only
+- **The caress.** Both hands use the shared caress system; see `docs/hands.md`. The pose only
   supplies the missionary path and the bed-space palm holder on `missionary_anon.gd`.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns whichever
@@ -537,7 +537,7 @@ reclined eye height left the camera wrong after the act.
   upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
-- Palm scale is a shared caress setting; see `docs/caress.md`. `palm_scale.gd` runs after the
+- Palm scale is a shared caress setting; see `docs/hands.md`. `hands/scale.gd` runs after the
   pose's hand solve and restores the cached bone scales on every act exit.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
@@ -549,7 +549,7 @@ reclined eye height left the camera wrong after the act.
 - With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow forward rock
   (`0.010`). It is a **separate offset** (`runtime.shot_lean_forward()`), never added into
   `_lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
-  crept while nobody was leaning. There is no side sway. Caress input is in `docs/caress.md`.
+  crept while nobody was leaning. There is no side sway. Caress input is in `docs/hands.md`.
   Pressing `S` arms a gradual side return, so the shoulder roll decays to neutral without
   leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
@@ -787,7 +787,7 @@ custom head-aim path below.
   over `REACH_HAND_BLEND_S = 0.35`, and release blends back to that rest frame over
   `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
   `reach hand side=... target=... x=... y=... z=... fingers=... palm=...` log prints the result.
-- A/D caress uses the shared caress system; see `docs/caress.md`. The pose supplies the standing
+- A/D caress uses the shared caress system; see `docs/hands.md`. The pose supplies the standing
   flank -> shoulder -> neck path, the rump fallback and the standing palm holder.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
@@ -836,7 +836,7 @@ custom head-aim path below.
 
 ### Caress
 
-The caress paths, contact, smoothing, settings and debug controls are in `docs/caress.md`.
+The caress paths, contact, smoothing, settings and debug controls are in `docs/hands.md`.
 
 ### Thrust camera and restore
 
@@ -1111,7 +1111,7 @@ examples.
   `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 - A pure `act_tolerance.gd` meter runs in `POSING_IN`/`ACTIVE`. Every actual disliked touch/talk
   adds 1, every actual liked touch/talk subtracts 1, and passive decay removes 1 every 25 s.
-  A held caress is a discrete action; its five-second meter is in `docs/caress.md`, so it cannot
+  A held caress is a discrete action; its five-second meter is in `docs/hands.md`, so it cannot
   erase distress every frame.
 - Warnings are one-shot per act: forgiving at 4, normal at 1 and 4, strict at 1. They set a HUD cue
   and queue one short spoken warning even when `features.act_lines` is off.
@@ -1626,7 +1626,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored. Caress feature flags and debug values are in
-`docs/caress.md`.
+`docs/hands.md`.
 - `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
   the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
   off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
@@ -1749,7 +1749,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
     (default `0.05 m`, signed), `arc_m` (default `0.10 m`), `pitch_deg` (default `0°`),
     `raise_speed` (default `1.5 m/s`) and `return_speed` (default `3.0 m/s`). The smack values
     are experimental/unbounded.
-  - Caress settings are in `docs/caress.md`.
+  - Caress settings are in `docs/hands.md`.
   - The legacy flat presentation block migrates once in `_normalize_presentation()`; its
     obsolete camera key is dropped.
 - **Never clamp a debug setting.** A debug `num` (`.as_debug()`) is stored and returned verbatim;
@@ -1798,7 +1798,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   during cuddles, then **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
   match, Cock base inset, a **Size** dropdown over the six per-size vulva/clearance/gaze values,
   fold/hug hacks, Use free look), **Standing** (with **Motion**, **Kiss** and **Smack**
-  subheadings) and **Thrust jiggle** sections. Caress controls are in `docs/caress.md`.
+  subheadings) and **Thrust jiggle** sections. Caress controls are in `docs/hands.md`.
   **Anatomy**
   opens with its ungrouped switches, then **Holes**, **Heat**, **Anon part**, **Placement** and
   **Actions**.
@@ -1869,7 +1869,7 @@ This is mandatory.
   obsolete documentation instead of keeping historical notes.
 - Keep camera, pose, thrust and strength details here and in `PREFERENCES.md`/`ROTATION.md`.
   Summarize non-critical areas such as debug logs; do not build long catalogues.
-- The caress contract lives only in `docs/caress.md`; other docs link there and do not restate
+- The caress contract lives only in `docs/hands.md`; other docs link there and do not restate
   its paths, contact, settings or debug controls.
 - Verify every claim against code before writing it. If docs and code disagree, fix the docs or
   the code in the same change.
@@ -1881,7 +1881,7 @@ This is mandatory.
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
 - Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md`, `TUNING.md`, `WORKFLOW.md`,
-  `docs/caress.md`, `assets/README.md` and the release skill consistent.
+  `docs/hands.md`, `assets/README.md` and the release skill consistent.
 
 ## Known constraints
 
@@ -1892,7 +1892,7 @@ This is mandatory.
   offer through that lease is valid only for `bed_side`/`already_lying` when she is not sleeping
   and `posture_status().requested == "lie_down"`; walking to bed or sleeping is not.
 - "Same Height as Anon" now follows Anon's `player/height_cm`. The mod's lean scale, standing gap
-  and caress offsets follow the same multiplier; see `docs/caress.md`. Other size presets keep
+  and caress offsets follow the same multiplier; see `docs/hands.md`. Other size presets keep
   their authored values.
 - Standing kiss offsets, the missionary virtual mouth and kiss lean distances scale with Anon's chosen
   height (`Settings.anon_height_scale()`), matching `player/player_mouth.gd`.

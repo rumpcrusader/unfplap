@@ -15,6 +15,7 @@ sources
 .pckignore
 .gitignore
 README.md
+docs
 assets/README.md
 AGENTS.md
 PREFERENCES.md

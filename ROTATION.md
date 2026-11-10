@@ -91,7 +91,7 @@ Missionary is its own state, not the game's bed rest:
   lets only their X/Z follow the stroke and lean: the hands slide along the mattress instead of
   lifting. A two-bone arm solve reaches each wrist; the hand keeps its authored world orientation so
   the palm stays flat on the bed.
-- Caress: see `docs/caress.md`.
+- Caress: see `docs/hands.md`.
 
 - **The exit restores the avatar.** The act writes his world placement every frame; `remove()` puts
   back `avatar.transform`, its process state, `process_mode`, visibility, the pose driver, `BodyIK`,
@@ -250,7 +250,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled (default on), a slow `0.010` forward rock keeps the
   camera/upper body from freezing completely; it is clamped inside `-1…1`. There is no side sway. A/D
-  caress latches as in `docs/caress.md`. Pressing `S` arms a gradual side
+  caress latches as in `docs/hands.md`. Pressing `S` arms a gradual side
   return so the shoulder roll decays to neutral.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
 - The hip is depth-driven. `_hip_phase` is `depth` low-passed by `HIP_SMOOTH_S = 0.04 s`.
@@ -266,7 +266,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   rewrites all three to that capture. The upper body, camera lean, hands, kiss and hip thrust
   still move; the lower body does not. Off restores the game's stepping and lean foot motion;
   the capture clears at act end.
-- Palm scale is a shared caress setting; see `docs/caress.md`. `palm_scale.gd` runs after the
+- Palm scale is a shared caress setting; see `docs/hands.md`. `hands/scale.gd` runs after the
   pose's hand solve and restores the cached scales on every act exit.
 - Holding `F` at `abs(side) >= STANDING_KISS_LEAN = 0.90` starts the same base-game kiss used by
   missionary; releasing `F` or dropping the lean ends it. The side is latched from the input lean
@@ -276,7 +276,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   kiss has a `500 ms` restart cooldown.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
   Same Height preset now follows Anon's `player/height_cm`, so that gap, the lean scale and the
-  caress offsets follow `Settings.anon_height_scale()` as described in `docs/caress.md`.
+  caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is
   placed behind her.
 - Standing kiss mouth offsets, kiss lean distances and the missionary virtual mouth scale with
@@ -295,7 +295,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   normal; `caress_hand.palm_basis()` keeps the fingers forward and the palm flat on the coat. It
   eases in over `0.35 s` and back to rest over another `0.35 s`. While held, `_forced_glance`
   overrides the random glance scheduler and locks her look over that shoulder; release clears it.
-- Caress: see `docs/caress.md`.
+- Caress: see `docs/hands.md`.
 
 - Anon's hip follows the lightly smoothed mouse `depth` (`HIP_SMOOTH_S = 0.04 s`):
   the fixed rump point is the base HipsTarget plus `THRUST_MAX_M = 0.045 m × body_scale`, and
@@ -370,7 +370,7 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   releases the hold and drives the same `WingTuck` blend to a full fold over
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
 - Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice. Lean and A/D caress remain
-  live; hold Y ends it. The close-window caress time is in `docs/caress.md`.
+  live; hold Y ends it. The close-window caress time is in `docs/hands.md`.
   Missionary afterglow stays passive.
 
 ### Play-bow stance

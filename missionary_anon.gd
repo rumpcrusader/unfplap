@@ -12,8 +12,8 @@ const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const HIP := preload("res://mods/unfplap/anon_hip_thrust.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CAESS_ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
-const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
+const REACH_PLAN := preload("res://mods/unfplap/hands/reach_plan.gd")
+const PALM_SCALE := preload("res://mods/unfplap/hands/scale.gd")
 
 ## The lean hinges his whole upper body at this joint: chest, neck, head, shoulders, arms and hands
 ## follow as one, while the hips, thighs and legs keep the authored pose and the stroke, so the
@@ -67,7 +67,7 @@ var _lean_logged := false
 var _indices: Dictionary = {}
 var _index_skeleton := 0
 var _reach_log_state: Dictionary = {}
-## Caress hand holds, keyed "left"/"right". `caress_control.gd` supplies a world frame; the
+## Caress hand holds, keyed "left"/"right". `hand_control.gd` supplies a world frame; the
 ## start and release blends keep the arm from teleporting on and off the mattress.
 var _holds: Dictionary = {}
 var _hold_from: Dictionary = {}
@@ -544,7 +544,7 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var arm_started := Time.get_ticks_usec()
 	if caress:
 		var shoulder_cap := maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
-		var plan := CAESS_ARM.plan(shoulder, upper_len, lower_len, target, 1.0,
+		var plan := REACH_PLAN.plan(shoulder, upper_len, lower_len, target, 1.0,
 			shoulder_cap, 0.0)
 		shoulder = plan["shoulder_origin"]
 		target = plan["target"]

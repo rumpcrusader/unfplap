@@ -1,8 +1,8 @@
-extends "res://mods/unfplap/caress/caress_path_base.gd"
+extends "res://mods/unfplap/hands/path_base.gd"
 ## Standing caress path: the authored flank -> shoulder -> neck chain from `anchors2.json`, with
 ## the old procedural flank/rump point as the fallback and the backward-lean reach.
 
-const PATH := preload("res://mods/unfplap/caress/caress_path.gd")
+const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const CARESS_UP_BIAS_M := 0.05

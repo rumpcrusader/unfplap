@@ -2,12 +2,12 @@ extends SceneTree
 ## Caress contact surface, hand shape and reach plan.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_caress.gd
 
-const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
-const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
-const ARM := preload("res://mods/unfplap/caress/caress_arm.gd")
-const PATH := preload("res://mods/unfplap/caress/caress_path.gd")
-const SYSTEM := preload("res://mods/unfplap/caress/caress_system.gd")
-const FLANK := preload("res://mods/unfplap/caress/flank_path.gd")
+const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
+const HAND := preload("res://mods/unfplap/hands/palm.gd")
+const ARM := preload("res://mods/unfplap/hands/reach_plan.gd")
+const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
+const SYSTEM := preload("res://mods/unfplap/hands/placement.gd")
+const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 class FlankPony extends Node3D:
@@ -506,7 +506,7 @@ func run() -> void:
 	check(near(float(body_plan.get("body_shift", 0.0)), 0.15),
 		"the body cap is used after the shoulder cap")
 
-	print("CAESS_RESULT checks=%d failures=%d" % [checks, failures])
+	print("HANDS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
-		print("CAESS_PASS")
+		print("HANDS_PASS")
 	quit(0 if failures == 0 else 1)

@@ -4,9 +4,9 @@ extends RefCounted
 ## It never reads the pose, the input or the camera.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
-const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
-const COAT := preload("res://mods/unfplap/caress/coat.gd")
+const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
+const HAND := preload("res://mods/unfplap/hands/palm.gd")
+const COAT := preload("res://mods/unfplap/hands/contact.gd")
 
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2

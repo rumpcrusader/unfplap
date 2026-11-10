@@ -40,27 +40,27 @@ phase, target and audio contracts stay in `AGENTS.md`/`ROTATION.md`.
 
 | File | Role |
 |---|---|
-| `caress_control.gd` | act hand controller: A/D/Z/C latches, five-second touch meter, shoulder reach, smack, palm-holder and path wiring |
-| `caress/caress_system.gd` | pose-free placement engine: oval, exact/hull contact, smoothing, palm frame, last-good target |
-| `caress/caress_path_base.gd` | path contract: ordered candidates, debug anchors, reset |
-| `caress/flank_path.gd` | standing path: authored flank -> shoulder -> neck, procedural flank/rump fallback |
-| `caress/missionary_path.gd` | missionary path: authored one/two, reach filtering, legacy hull fallback |
-| `caress/caress_path.gd` | surface-anchored path builder: authored anchors, act-camera anchors, rest fallback |
-| `caress/caress_surface.gd` | stable posed body/head patch and exact ray queries |
-| `caress/caress_hand.gd` | single-point palm frame: basis, placement and normal turn |
-| `caress/caress_arm.gd` | pure two-bone reach plan for the missionary hand |
-| `caress/coat.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
-| `caress/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
-| `caress/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
+| `hand_control.gd` | act hand controller: A/D/Z/C latches, five-second touch meter, shoulder reach, smack, palm-holder and path wiring |
+| `hands/placement.gd` | pose-free placement engine: oval, exact/hull contact, smoothing, palm frame, last-good target |
+| `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
+| `hands/paths/standing.gd` | standing path: authored flank -> shoulder -> neck, procedural flank/rump fallback |
+| `hands/paths/missionary.gd` | missionary path: authored one/two, reach filtering, legacy hull fallback |
+| `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, act-camera anchors, rest fallback |
+| `hands/surface.gd` | stable posed body/head patch and exact ray queries |
+| `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
+| `hands/reach_plan.gd` | pure two-bone reach plan for the missionary hand |
+| `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
+| `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
+| `hands/paths/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
 
 The pose boundary is deliberately small:
 
-- `caress_control.gd` chooses the pose's path provider and palm holder, and supplies the
+- `hand_control.gd` chooses the pose's path provider and palm holder, and supplies the
   shared hover, oval and body scale.
 - `caress_system.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
   pony, a path and the palm side.
 - The path providers contain all pose geometry.
-- `caress/coat.gd` is generic; only its comments mention the poses.
+- `hands/contact.gd` is generic; only its comments mention the poses.
 
 ## Pose paths
 
@@ -102,7 +102,7 @@ The pose boundary is deliberately small:
   `clear_hold_target()` blend the hand off and back onto the mattress over 0.35 s. While held,
   the arm runs the game's regular desktop arm mode from the shoulder down.
 - Standing uses the game's desktop pose driver through `set_hold_target(..., "rub")`.
-- `palm_scale.gd` applies the shared per-preset hand scale in both poses and restores the cached
+- `hands/scale.gd` applies the shared per-preset hand scale in both poses and restores the cached
   bone scales on every act exit.
 - Both holders expose `hand_frame()` for the debug overlay.
 

@@ -6,10 +6,10 @@ extends RefCounted
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CAESS_SYSTEM := preload("res://mods/unfplap/caress/caress_system.gd")
-const FLANK_PATH := preload("res://mods/unfplap/caress/flank_path.gd")
-const MISSIONARY_PATH := preload("res://mods/unfplap/caress/missionary_path.gd")
-const COAT := preload("res://mods/unfplap/caress/coat.gd")
+const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
+const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
+const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
+const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
@@ -569,7 +569,7 @@ func _caress_context(side: String, hand_side: String) -> Dictionary:
 
 func _engine() -> RefCounted:
 	if _caress_engine == null:
-		_caress_engine = CAESS_SYSTEM.new(runtime)
+		_caress_engine = PLACEMENT.new(runtime)
 	return _caress_engine
 
 

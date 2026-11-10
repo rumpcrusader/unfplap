@@ -4,14 +4,14 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
+const PALM_SCALE := preload("res://mods/unfplap/hands/scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
-const CAESS := preload("res://mods/unfplap/caress_control.gd")
-const COAT := preload("res://mods/unfplap/caress/coat.gd")
-const HAND := preload("res://mods/unfplap/caress/caress_hand.gd")
-const FLANK := preload("res://mods/unfplap/caress/flank_path.gd")
-const MISSIONARY_PATH := preload("res://mods/unfplap/caress/missionary_path.gd")
+const HANDS := preload("res://mods/unfplap/hand_control.gd")
+const COAT := preload("res://mods/unfplap/hands/contact.gd")
+const HAND := preload("res://mods/unfplap/hands/palm.gd")
+const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
+const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -258,84 +258,84 @@ func run() -> void:
 	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
 
-	check(CAESS.smack_side_index(0.4) == 0, "right lean smacks left cheek")
-	check(CAESS.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
-	check(CAESS.smack_side_index(0.0) == -1, "centered smack is random")
-	var up_offset: Vector3 = CAESS.smack_query_offset(0.05, 0.02, 1.0,
+	check(HANDS.smack_side_index(0.4) == 0, "right lean smacks left cheek")
+	check(HANDS.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
+	check(HANDS.smack_side_index(0.0) == -1, "centered smack is random")
+	var up_offset: Vector3 = HANDS.smack_query_offset(0.05, 0.02, 1.0,
 		Vector3.UP, Vector3.BACK)
 	check(near(up_offset.y, 0.05) and near(up_offset.z, 0.02),
 		"smack height and hind offsets use signed up and back")
-	var down_offset: Vector3 = CAESS.smack_query_offset(-0.03, 0.10, 2.0,
+	var down_offset: Vector3 = HANDS.smack_query_offset(-0.03, 0.10, 2.0,
 		Vector3.UP, Vector3.BACK)
 	check(near(down_offset.y, -0.06) and near(down_offset.z, 0.20),
 		"smack query offset scales with the pony")
-	var height_controller := CAESS.new()
+	var height_controller := HANDS.new()
 	height_controller.set("_presentation_cfg", {"smack": {"height_m": 0.12}})
 	check(near(float(height_controller.call("_smack_height_m")), 0.12),
 		"smack height reads the presentation setting")
-	var default_height := CAESS.new()
+	var default_height := HANDS.new()
 	check(near(float(default_height.call("_smack_height_m")), -0.03),
 		"smack height falls back to 3 cm below the mark")
 	var smack_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	var smack_raised: Transform3D = CAESS.smack_raise_frame(
+	var smack_raised: Transform3D = HANDS.smack_raise_frame(
 		smack_contact, Vector3.RIGHT, 0.18, 0.05, Vector3.BACK, 15.0)
 	check(near(smack_raised.origin.x, 0.18) and near(smack_raised.origin.z, 0.05)
 		and near(smack_raised.origin.y, 1.0), "smack raise lifts along the normal and back")
 	check((-smack_raised.basis.z).y < (-smack_contact.basis.z).y,
 		"raised palm pitches the fingers down")
-	var smack_lowered: Transform3D = CAESS.smack_raise_frame(
+	var smack_lowered: Transform3D = HANDS.smack_raise_frame(
 		smack_contact, Vector3.RIGHT, -0.10, -0.04, Vector3.BACK, 15.0)
 	check(near(smack_lowered.origin.x, -0.10) and near(smack_lowered.origin.z, -0.04),
 		"smack raise and arc are applied unclamped")
 	var straight_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
-	var pitched_palm: Basis = CAESS.smack_pitch_basis(straight_palm, 15.0)
+	var pitched_palm: Basis = HANDS.smack_pitch_basis(straight_palm, 15.0)
 	check(pitched_palm.determinant() > 0.99, "palm pitch stays orthonormal")
 	check(pitched_palm.x.dot(straight_palm.x) > 0.999, "palm pitch keeps the palm normal")
 	check((-pitched_palm.z).y < (-straight_palm.z).y, "positive pitch lowers the fingers")
-	var pitched_up: Basis = CAESS.smack_pitch_basis(straight_palm, -15.0)
+	var pitched_up: Basis = HANDS.smack_pitch_basis(straight_palm, -15.0)
 	check((-pitched_up.z).y > (-straight_palm.z).y, "negative pitch raises the fingers")
 	var smack_left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
-	var smack_left_pitched: Basis = CAESS.smack_pitch_basis(smack_left_palm, 15.0)
+	var smack_left_pitched: Basis = HANDS.smack_pitch_basis(smack_left_palm, 15.0)
 	check((-smack_left_pitched.z).y < (-smack_left_palm.z).y,
 		"left palm also pitches down")
 	check(smack_left_pitched.x.dot(smack_left_palm.x) > 0.999,
 		"left palm pitch keeps the palm normal")
-	check(CAESS.smack_pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
+	check(HANDS.smack_pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
 		"zero palm pitch keeps the basis")
-	check(CAESS.smack_finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
+	check(HANDS.smack_finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
 		"non-caress smack points the fingers down")
-	check(CAESS.smack_finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
+	check(HANDS.smack_finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
 		"caress smack keeps the fingers forward")
 	var swing_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	var swing := CAESS.smack_swing_raise_frame(
+	var swing := HANDS.smack_swing_raise_frame(
 		swing_contact, Vector3.RIGHT, Vector3.BACK, 0.20, 15.0)
 	check(swing.origin.z > swing_contact.origin.z, "non-caress swing starts behind")
 	check(swing.origin.y < swing_contact.origin.y, "non-caress swing starts below")
 	check(swing.origin.x > swing_contact.origin.x, "non-caress swing clears outward")
 	check((-swing.basis.z).y < (-swing_contact.basis.z).y,
 		"non-caress swing points the fingers down")
-	var raise_mid: Transform3D = CAESS.smack_raise_blend(
+	var raise_mid: Transform3D = HANDS.smack_raise_blend(
 		smack_contact, smack_raised, Vector3.BACK * 0.02, 0.5)
 	check(raise_mid.origin.x > smack_contact.origin.x
 		and raise_mid.origin.x < smack_raised.origin.x, "smack raise blends between frames")
 	check(near(raise_mid.origin.z - smack_contact.origin.z
 		- (smack_raised.origin.z - smack_contact.origin.z) * 0.5, 0.02, 0.002),
 		"smack raise bows along the arc parameter")
-	var no_arc_mid: Transform3D = CAESS.smack_raise_blend(
+	var no_arc_mid: Transform3D = HANDS.smack_raise_blend(
 		smack_contact, smack_raised, Vector3.ZERO, 0.5)
 	check(near(no_arc_mid.origin.z - smack_contact.origin.z,
 		(smack_raised.origin.z - smack_contact.origin.z) * 0.5, 0.002),
 		"zero arc is a straight blend")
-	var strike_mid: Transform3D = CAESS.smack_strike_blend(smack_raised, smack_contact, 0.5)
+	var strike_mid: Transform3D = HANDS.smack_strike_blend(smack_raised, smack_contact, 0.5)
 	check(strike_mid.origin.distance_to(smack_raised.origin)
 		< strike_mid.origin.distance_to(smack_contact.origin), "smack strike accelerates")
-	check(CAESS.smack_strike_blend(smack_raised, smack_contact, 1.0).origin.is_equal_approx(
+	check(HANDS.smack_strike_blend(smack_raised, smack_contact, 1.0).origin.is_equal_approx(
 		smack_contact.origin), "smack strike reaches the contact")
-	check(CAESS.smack_recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
+	check(HANDS.smack_recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
 		smack_raised.origin), "smack recovery reaches its target")
-	check(near(CAESS.SMACK_RAISE_SPEED_M_S, 2.0)
-		and near(CAESS.SMACK_RETURN_SPEED_M_S, 6.0), "smack default speeds")
-	check(near(CAESS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack contact hold")
+	check(near(HANDS.SMACK_RAISE_SPEED_M_S, 2.0)
+		and near(HANDS.SMACK_RETURN_SPEED_M_S, 6.0), "smack default speeds")
+	check(near(HANDS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack contact hold")
 	var quad_faces := PackedVector3Array([
 		Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0),
 		Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0),
@@ -344,19 +344,19 @@ func run() -> void:
 		Vector3.BACK, Vector3.BACK, Vector3.BACK,
 		Vector3.BACK, Vector3.BACK, Vector3.BACK,
 	])
-	var flank_hit: Dictionary = CAESS.closest_flank_hit(
+	var flank_hit: Dictionary = HANDS.closest_flank_hit(
 		quad_faces, quad_normals, Vector3(0.5, 0.5, 1.0))
 	var flank_point: Vector3 = flank_hit.get("point", Vector3.INF)
 	var flank_normal: Vector3 = flank_hit.get("normal", Vector3.ZERO)
 	check(near(float(flank_hit.get("distance", -1.0)), 1.0), "closest flank distance")
 	check(flank_point.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "closest flank point")
 	check(flank_normal.dot(Vector3.BACK) > 0.99, "closest flank normal")
-	var edge_hit: Dictionary = CAESS.closest_flank_hit(
+	var edge_hit: Dictionary = HANDS.closest_flank_hit(
 		quad_faces, quad_normals, Vector3(-1.0, 0.5, 0.0))
 	var edge_point: Vector3 = edge_hit.get("point", Vector3.INF)
 	check(edge_point.is_equal_approx(Vector3(0.0, 0.5, 0.0)),
 		"closest flank clamps outside the patch")
-	check(CAESS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
+	check(HANDS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
 		Vector3.ZERO).is_empty(), "empty flank patch has no hit")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
@@ -388,7 +388,7 @@ func run() -> void:
 	side_hip.free()
 	lean_runtime.free()
 
-	check(near(CAESS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
+	check(near(HANDS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
 	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
 	var left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
@@ -398,23 +398,23 @@ func run() -> void:
 	check(right_palm.determinant() > 0.99 and left_palm.determinant() > 0.99,
 		"palm surface bases stay orthonormal")
 	check(near(FLANK.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
-	check(near(CAESS.caress_phase_step(0.5, true, 0.25),
-		CAESS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
-	check(near(CAESS.caress_phase_step(0.5, false, 0.25), 0.5),
+	check(near(HANDS.caress_phase_step(0.5, true, 0.25),
+		HANDS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
+	check(near(HANDS.caress_phase_step(0.5, false, 0.25), 0.5),
 		"caress phase holds while movement is off")
-	check(near(CAESS.CAESS_TOUCH_SECONDS, 5.0), "a caress action is five seconds of contact")
-	var short := CAESS.caress_touch_step(0.0, true, 4.9)
+	check(near(HANDS.CAESS_TOUCH_SECONDS, 5.0), "a caress action is five seconds of contact")
+	var short := HANDS.caress_touch_step(0.0, true, 4.9)
 	check(near(float(short[0]), 4.9) and int(short[1]) == 0, "a short caress scores nothing")
-	var full := CAESS.caress_touch_step(float(short[0]), true, 0.1)
+	var full := HANDS.caress_touch_step(float(short[0]), true, 0.1)
 	check(near(float(full[0]), 0.0) and int(full[1]) == 1, "five seconds of caress score once")
-	var long := CAESS.caress_touch_step(1.0, true, 10.0)
+	var long := HANDS.caress_touch_step(1.0, true, 10.0)
 	check(int(long[1]) == 2 and near(float(long[0]), 1.0), "ten more seconds score twice")
-	var stopped := CAESS.caress_touch_step(3.0, false, 2.0)
+	var stopped := HANDS.caress_touch_step(3.0, false, 2.0)
 	check(near(float(stopped[0]), 0.0) and int(stopped[1]) == 0,
 		"a stopped caress keeps no partial credit")
-	check(near(CAESS.palm_clearance_for(0.66), 0.0132), "Canon palm clearance scales down")
-	check(near(CAESS.palm_clearance_for(1.10), 0.022), "Hoers palm clearance scales up")
-	check(near(CAESS.palm_clearance_for(1.0, 0.07), 0.07),
+	check(near(HANDS.palm_clearance_for(0.66), 0.0132), "Canon palm clearance scales down")
+	check(near(HANDS.palm_clearance_for(1.10), 0.022), "Hoers palm clearance scales up")
+	check(near(HANDS.palm_clearance_for(1.0, 0.07), 0.07),
 		"caress palm distance overrides the default")
 	check(COAT.region_ignored("tail", ["tail"]), "caress ignores the tail hull")
 	check(not COAT.region_ignored("flank", ["tail"]), "caress keeps the flank hull")
@@ -423,11 +423,11 @@ func run() -> void:
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
 	check(HAND.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
 		"normal rate reaches the target")
-	var canon_caress: Dictionary = CAESS.caress_profile_for("canon")
-	var mounting_caress: Dictionary = CAESS.caress_profile_for("mounting")
+	var canon_caress: Dictionary = HANDS.caress_profile_for("canon")
+	var mounting_caress: Dictionary = HANDS.caress_profile_for("mounting")
 	check(float(canon_caress["up"]) < float(mounting_caress["up"]), "Canon caress sits lower")
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
-	check(CAESS.caress_profile_for("") == CAESS.caress_profile_for("mounting"),
+	check(HANDS.caress_profile_for("") == HANDS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
 	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
 	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_LIFT_M, 0.18),

@@ -4,7 +4,7 @@ extends RefCounted
 
 const ANON_THRUST := preload("res://mods/unfplap/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/anon_hip_thrust.gd")
-const PALM_SCALE := preload("res://mods/unfplap/palm_scale.gd")
+const PALM_SCALE := preload("res://mods/unfplap/hands/scale.gd")
 const CHEST_BACK := preload("res://mods/unfplap/chest_back.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")

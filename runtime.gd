@@ -32,7 +32,7 @@ const CHIN_DEBUG := preload("res://mods/unfplap/chin_debug.gd")
 const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
-const CAESS := preload("res://mods/unfplap/caress_control.gd")
+const HANDS := preload("res://mods/unfplap/hand_control.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/missionary_camera.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
@@ -494,7 +494,7 @@ var _heart_counts: Array[int] = []
 ## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
 var _debug_chin_deg := 0.0
 var _sounds
-var _caress
+var _hands
 var _kiss
 var _missionary_camera_ctl
 var _standing_camera_ctl
@@ -652,11 +652,11 @@ func _sounds_controller():
 		add_child(_sounds)
 	return _sounds
 
-## Lazily create the standing caress controller, including outside the tree in tests.
-func _caress_controller():
-	if _caress == null:
-		_caress = CAESS.new(self)
-	return _caress
+## Lazily create the act hand controller, including outside the tree in tests.
+func _hand_controller():
+	if _hands == null:
+		_hands = HANDS.new(self)
+	return _hands
 
 ## Lazily create the kiss controller, including outside the tree in tests.
 func _kiss_controller():
@@ -2515,7 +2515,7 @@ func _free_pose() -> void:
 	_bed_pose_frame = null
 	clear_presentation()
 	_end_lean_action()
-	_caress_controller().reset()
+	_hand_controller().reset()
 	_kiss_controller().reset()
 	_release_free_camera_lock()
 	_standing_anon_controller().remove()
@@ -3350,7 +3350,7 @@ func _set_cue_override(text: String, seconds := -1.0) -> void:
 	_cue_until = _now_s() + maxf(0.0, seconds)
 
 ## One real action per call, including the tolerance meter. Continuous inputs must emit discrete
-## events: a held caress calls this once per CAESS_TOUCH_SECONDS (caress_control.gd), never once
+## events: a held caress calls this once per CAESS_TOUCH_SECONDS (hand_control.gd), never once
 ## per physics tick, or a liked caress would erase all distress every frame.
 func _on_touch(kind: String) -> void:
 	if state != State.ACTIVE:
@@ -4693,7 +4693,7 @@ func _record_sex_bond_event(text: String) -> void:
 		"unfplap:sex_bond:%s:%d" % [_id, Time.get_ticks_usec()])
 
 func _player_is_caressing() -> bool:
-	return _caress_controller().any_active()
+	return _hand_controller().any_active()
 
 func _player_is_leaning_close() -> bool:
 	return _lean_forward >= 0.35 or _lean_action_active or _kiss_controller().leaning_close()
@@ -4841,7 +4841,7 @@ func _afterglow_tick(delta: float) -> void:
 		return
 	if _close_left <= 0.0:
 		return
-	if _caress_controller().any_active():
+	if _hand_controller().any_active():
 		_close_caress_seconds += delta
 	_close_left = maxf(0.0, _close_left - delta)
 	if _close_left <= 0.0:
@@ -5245,9 +5245,9 @@ func _act_actions_allowed() -> bool:
 ## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and
 ## also fire a pose reaction once the smoothed side lean crosses MOTION.LEAN_FIRE.
 func _lean_tick(delta: float) -> void:
-	_caress_controller().return_tick()
+	_hand_controller().return_tick()
 	if not _act_actions_allowed():
-		_caress_controller().stop_inputs()
+		_hand_controller().stop_inputs()
 		_end_lean_action()
 		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -5261,7 +5261,7 @@ func _lean_tick(delta: float) -> void:
 			_log("lean blocked: free=%s pony=%s headset=%s paused=%s mouse=%d" % [
 				str(_free_camera_active), str(_player_pony), str(_headset_view()),
 				str(get_tree().paused), Input.mouse_mode])
-		_caress_controller().stop_inputs()
+		_hand_controller().stop_inputs()
 		_end_lean_action()
 		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -5276,7 +5276,7 @@ func _lean_tick(delta: float) -> void:
 		_end_lean_action()
 		_kiss_controller().lean_kiss_tick()
 		var frozen_caress := Time.get_ticks_usec()
-		_caress_controller().tick(delta)
+		_hand_controller().tick(delta)
 		_timed("caress_tick", frozen_caress)
 		if pose_id == CATALOG.STANDING:
 			_standing_camera_controller().apply_lean_look()
@@ -5320,7 +5320,7 @@ func _lean_tick(delta: float) -> void:
 	if pose_id == CATALOG.STANDING or state != State.AFTERGLOW:
 		_kiss_controller().lean_kiss_tick()
 	var caress_started := Time.get_ticks_usec()
-	_caress_controller().tick(delta)
+	_hand_controller().tick(delta)
 	_timed("caress_tick", caress_started)
 	if pose_id == CATALOG.STANDING:
 		_standing_camera_controller().apply_lean_look()
@@ -5355,7 +5355,7 @@ func _jiggle_size_scale() -> float:
 	return clampf(_size_scale(), 0.5, 1.2)
 
 func smack() -> void:
-	_caress_controller().smack()
+	_hand_controller().smack()
 
 func _lean_action_tick() -> void:
 	if not _act_actions_allowed():
@@ -5381,13 +5381,13 @@ func _start_lean_action(side: float) -> void:
 		shoulder = "L" if side < 0.0 else "R"
 		_forced_glance = shoulder
 		_standing_camera_controller().hold_glance()
-		_caress_controller().start_reach(shoulder)
+		_hand_controller().start_reach(shoulder)
 	_log("action fire pose=%s side=%.2f kind=%s shoulder=%s" % [
 		pose_id, side, _lean_action_kind, shoulder])
 
 func _end_lean_action() -> void:
 	if _lean_action_kind == "reach":
-		_caress_controller().end_reach()
+		_hand_controller().end_reach()
 		_forced_glance = ""
 		_standing_camera_controller().clear_glance()
 	_lean_action_active = false
@@ -5396,7 +5396,7 @@ func _end_lean_action() -> void:
 
 func _reset_lean_state() -> void:
 	_end_lean_action()
-	_caress_controller().reset()
+	_hand_controller().reset()
 	_kiss_controller().reset()
 	_lean_forward = 0.0
 	_lean_side = 0.0
@@ -5904,7 +5904,7 @@ func _restore_camera() -> void:
 		return
 	_camera_owned = false
 	_end_lean_action()
-	_caress_controller().reset()
+	_hand_controller().reset()
 	_release_free_camera_lock()
 	_standing_anon_controller().remove()
 	_restore_eye_override()

@@ -39,7 +39,7 @@ func run() -> void:
 	check(idle_note.contains("afterglow") and idle_note.contains("not caressing"),
 		"afterglow prompt note carries the live state")
 	check(idle_note.contains("[stay:"), "afterglow prompt note advertises the stay tag")
-	var note_caress: Variant = note_runtime.call("_caress_controller")
+	var note_caress: Variant = note_runtime.call("_hand_controller")
 	note_caress._caress_active = {"L": true, "R": false}
 	check(note_runtime.prompt_note().contains("caressing your flank"), "caress note")
 	note_caress._caress_active = {"L": false, "R": false}
@@ -109,7 +109,7 @@ func run() -> void:
 	check(near(standing._close_left, RUNTIME.STAY_CLOSE_SECONDS), "standing close window starts")
 	var hint := str(standing.call("close_hint"))
 	check(hint.contains("Stay close") and hint.contains("caress"), "close cue names caressing")
-	var caress_control: Variant = standing.call("_caress_controller")
+	var caress_control: Variant = standing.call("_hand_controller")
 	caress_control._caress_active = {"L": true, "R": false}
 	standing._afterglow_tick(0.5)
 	check(standing._close_caress_seconds > 0.4, "caress time is counted")

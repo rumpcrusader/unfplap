@@ -5,10 +5,10 @@ extends RefCounted
 ## Every tick the anchors are skinned with the live skeleton; no triangle query is needed for the
 ## single-point placement after they are built.
 
-const SURFACE := preload("res://mods/unfplap/caress/caress_surface.gd")
+const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const ANCHORS_FILES := {
-	"one": "res://mods/unfplap/caress/anchors.json",
-	"two": "res://mods/unfplap/caress/anchors2.json",
+	"one": "res://mods/unfplap/hands/paths/anchors.json",
+	"two": "res://mods/unfplap/hands/paths/anchors2.json",
 }
 const BELLY_U := 0.25
 const CACHE_LIMIT := 16

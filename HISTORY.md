@@ -76,7 +76,7 @@ flat `commit_climax` path is gone, so a bad act can no longer give `+2` romance.
 10 s aftercare hold always runs, but its positive tail-up body language is only used after a good
 act. `stay_close_reward` gives its extra romance only on a good or non-early neutral act; after a
 bad act, staying close and caressing is a one-point hurt repair instead. The caress reward
-threshold is in `docs/caress.md`.
+threshold is in `docs/hands.md`.
 
 ## History points
 
@@ -138,7 +138,7 @@ A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
 
 - every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
 - every actual liked touch/talk subtracts `tolerance.like_relief` (1);
-- a held caress is a discrete action; its five-second meter is in `docs/caress.md`;
+- a held caress is a discrete action; its five-second meter is in `docs/hands.md`;
 - passive decay subtracts 1 every 25 s;
 - warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
   not replay a warning.

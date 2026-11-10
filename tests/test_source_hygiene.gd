@@ -61,8 +61,8 @@ func run() -> void:
 	_check_preloads(files)
 	_check_settings_module(files)
 	_check_teardown()
-	_check_caress_isolation()
-	_check_caress_docs()
+	_check_hands_isolation()
+	_check_hands_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -94,39 +94,38 @@ func _check_settings_module(files: Array[String]) -> void:
 	check(widget_ok, "only settings_ui.gd (and the preference form) create settings widgets")
 
 
-## The caress engine must not know a pose. Pose geometry belongs in the path providers; the
+## The hands engine must not know a pose. Pose geometry belongs in the path providers; the
 ## engine only sees the body surface, a contact path and the palm frame.
-func _check_caress_isolation() -> void:
+func _check_hands_isolation() -> void:
 	var engine := FileAccess.get_file_as_string(
-		ROOT.path_join("caress/caress_system.gd"))
-	check(engine.contains("func frame("), "caress engine is present")
+		ROOT.path_join("hands/placement.gd"))
+	check(engine.contains("func frame("), "hands engine is present")
 	for token: String in ["pose_id", "CATALOG", "missionary", "standing",
 			"desktop_pose_driver", "missionary_anon"]:
-		check(not engine.contains(token), "caress engine has no pose reference: %s" % token)
+		check(not engine.contains(token), "hands engine has no pose reference: %s" % token)
 	var path_base := FileAccess.get_file_as_string(
-		ROOT.path_join("caress/caress_path_base.gd"))
-	check(path_base.contains("func candidates("), "caress path contract is present")
-	var coat := FileAccess.get_file_as_string(ROOT.path_join("caress/coat.gd"))
-	check(coat.contains("static func contact("), "caress coat query is present")
-	for name: String in ["caress_path_base.gd", "coat.gd"]:
-		var text := FileAccess.get_file_as_string(
-			ROOT.path_join("caress").path_join(name))
+		ROOT.path_join("hands/path_base.gd"))
+	check(path_base.contains("func candidates("), "hands path contract is present")
+	var contact := FileAccess.get_file_as_string(ROOT.path_join("hands/contact.gd"))
+	check(contact.contains("static func contact("), "hands contact query is present")
+	for name: String in ["hands/path_base.gd", "hands/contact.gd"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		for token: String in ["pose_id", "CATALOG", "desktop_pose_driver",
 				"missionary_anon"]:
 			check(not text.contains(token),
 				"%s has no pose reference: %s" % [name, token])
 
 
-## The caress contract lives in one file; every other doc points to it.
-func _check_caress_docs() -> void:
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/caress.md"))
-	check(not contract.is_empty(), "docs/caress.md exists")
+## The hands contract lives in one file; every other doc points to it.
+func _check_hands_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/hands.md"))
+	check(not contract.is_empty(), "docs/hands.md exists")
 	check(contract.contains("## Controls") and contract.contains("## Contact engine"),
-		"docs/caress.md has the controls and contact contract")
+		"docs/hands.md has the controls and contact contract")
 	for name: String in ["AGENTS.md", "ROTATION.md", "PREFERENCES.md", "HISTORY.md",
 			"README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
-		check(text.contains("docs/caress.md"), "%s links to docs/caress.md" % name)
+		check(text.contains("docs/hands.md"), "%s links to docs/hands.md" % name)
 
 
 ## One ordered teardown owns act exit. If a new exit path or a copied restore sequence appears,

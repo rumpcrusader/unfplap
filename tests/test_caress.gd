@@ -21,6 +21,13 @@ class FakeFlank extends Node3D:
 	var normals: Array = []
 
 
+class NodePony extends Node3D:
+	var _model: Node3D
+	var skeleton: Skeleton3D
+	var head: Variant = null
+	var body_scale := 1.0
+
+
 class FixedPath extends RefCounted:
 	var point := Vector3.ZERO
 	var normal := Vector3.UP
@@ -356,6 +363,42 @@ func run() -> void:
 			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
 			check(signf(anchor_x) == side_sign,
 				"the authored %s second path stays on the %s side" % [side, side])
+	var stand_pony := NodePony.new()
+	stand_pony._model = body_scene as Node3D
+	stand_pony.skeleton = body_sk
+	stand_pony.head = fake_head
+	head_root.add_child(stand_pony)
+	var stand_flank := FakeFlank.new()
+	stand_flank.name = "FlankTouch"
+	stand_flank.centers = [Vector3(0.2, 0.55, 0.1), Vector3(-0.2, 0.55, 0.1)]
+	stand_flank.normals = [Vector3.RIGHT, Vector3.LEFT]
+	stand_pony.add_child(stand_flank)
+	var standing_path: Variant = FLANK.new()
+	standing_path.call("setup", stand_pony, null)
+	var stand_context := {
+		"lean": 0.0, "size": 1.0, "profile": {"up": 0.16, "back": 0.08, "out": 0.02},
+		"precise": true, "ignore": [],
+	}
+	var flank_start: Array = standing_path.call("candidates", "left", stand_context)
+	stand_context["lean"] = 1.0
+	var flank_end: Array = standing_path.call("candidates", "left", stand_context)
+	check(flank_start.size() == 1 and flank_end.size() == 1,
+		"the standing authored path returns one contact per hand")
+	if flank_start.size() == 1 and flank_end.size() == 1:
+		var start_point: Vector3 = flank_start[0]["point"]
+		var end_point: Vector3 = flank_end[0]["point"]
+		check(start_point.distance_to(end_point) > 0.05,
+			"forward lean walks the standing path away from the flank")
+		check(end_point.y > start_point.y or end_point.z < start_point.z,
+			"forward lean walks toward the shoulder and neck")
+		check((end_point as Vector3).x > 0.0, "the left hand stays on her left side")
+		var debug_anchors: Array = standing_path.call("debug_world", "left")
+		check(debug_anchors.size() == 3,
+			"the standing debug path shows flank, shoulder and neck")
+	stand_context["lean"] = -1.0
+	var rump: Array = standing_path.call("candidates", "left", stand_context)
+	check(rump.size() == 1, "backward lean still returns the rump contact")
+	standing_path.call("reset")
 	head_root.free()
 
 	var blur_surface: Variant = SURFACE.new()

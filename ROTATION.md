@@ -355,10 +355,11 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   offsets come from `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02` (4 cm wider
   between hands), Same Height and Hoers step up from there; the contact query snaps those points
   to the coat. Both keys can run simultaneously; a tap latches that hand until the next tap.
-  The centre moves from the flank (no lean) to the side/belly (half forward lean) to
-  the exact Q/E shoulder contact point (full forward lean). Backward lean moves it toward the
-  rump top immediately, reaching there at `CARESS_RUMP_LEAN = 0.5`. The circle radius scales with
-  pony size; the point offsets are already per size.
+  The precise path is the authored `anchors2.json` flank -> shoulder -> neck chain: no lean is the
+  flank, and W walks through the shoulder to the base of the neck. S keeps the procedural rump
+  top, reaching it at `CARESS_RUMP_LEAN = 0.5`; the procedural flank/rump point is also the hull
+  path when `features.caress_surface` is off and the fallback when the anchors cannot build. The
+  circle radius scales with pony size; the point offsets are already per size.
 - Anon's hip follows the lightly smoothed mouse `depth` (`HIP_SMOOTH_S = 0.04 s`):
   the fixed rump point is the base HipsTarget plus `THRUST_MAX_M = 0.045 m × body_scale`, and
   only the Hips bone moves by `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so phase 0 is

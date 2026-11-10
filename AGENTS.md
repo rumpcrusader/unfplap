@@ -764,11 +764,15 @@ custom head-aim path below.
   over `REACH_HAND_BLEND_S = 0.35`, and release blends back to that rest frame over
   `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
   `reach hand side=... target=... x=... y=... z=... fingers=... palm=...` log prints the result.
-- A/D caress uses the same hold-target path with an oval rub (`CARESS_RADIUS_M = 0.04125`,
-  `CARESS_SPEED_RAD_S = 3.6`). Z/C toggle the left/right oval movement: the hand keeps its
-  current coat contact and still scores, but the phase is frozen until toggled back on. During
-  a smack the phase is frozen for the swinging hand. The palm is projected onto the coat every
-  tick through
+- A/D caress uses the shared engine. With `features.caress_surface` on, the standing path is the
+  authored `anchors2.json` flank -> shoulder -> neck chain: no lean is the flank, W walks through
+  the shoulder to the base of the neck, and S keeps the procedural rump-top reach. The debug
+  overlay shows the three anchors. The old procedural flank/rump point remains the hull path when
+  `features.caress_surface` is off and the fallback when the anchors cannot build.
+  The oval uses `CARESS_RADIUS_M = 0.04125` and `CARESS_SPEED_RAD_S = 3.6`. Z/C toggle the
+  left/right oval movement: the hand keeps its current coat contact and still scores, but the
+  phase is frozen until toggled back on. During a smack the phase is frozen for the swinging hand.
+  The hull fallback projects the palm onto the coat every tick through
   `FlankSurface.contact`, falling back to `PonyTouchBody.nearest` outside the flank patch; its
   orientation is `palm_surface_basis()`, so the palm plane is perpendicular to the coat normal.
   The fallback uses `_nearest_touch()`, which skips
@@ -777,7 +781,7 @@ custom head-aim path below.
   The palm centre sits at `presentation.standing.caress.palm_distance` (default `0.02 m`) at body
   scale `1.0`, multiplied by the pony's actual `body_scale` (clamped `0.5…2.0`); the normal
   smoothing adds no extra lift.
-  Contact is cached per hand with
+  The hull fallback caches contact per hand with
   source hysteresis and short position/normal smoothing: a miss holds the last valid point, a
   flank↔body source change needs two hits, and a near-opposite normal (dot < -0.5) is rejected
   under the same source. The final normal turns from the stock FlankSurface normal toward each
@@ -797,11 +801,11 @@ custom head-aim path below.
   Point offsets are per size in `CARESS_PROFILES`: Canon `up 0.08`, JRHNBR `up 0.16 / out 0.02`
   (both hands 4 cm wider), Same Height and Hoers step up from there; those choose where on the
   body to caress, then the contact query snaps the palm to the coat. Both A and D can run at
-  once, one hand per side. An A/D tap latches that hand until the next tap. The
-  centre interpolates with the lean: backward lean moves it toward the rump top as soon as it
-  passes zero (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly, full
-  lean = the exact same shoulder contact point used by the Q/E reach. The circle radius scales
-  with pony size; the point offsets are already per size. It is standing-only.
+  once, one hand per side. An A/D tap latches that hand until the next tap. The procedural
+  fallback centre interpolates with the lean: backward lean moves it toward the rump top as soon
+  as it passes zero (`CARESS_RUMP_LEAN = 0.5`), no lean = flank, half forward lean = side/belly,
+  full lean = the shoulder contact point. The circle radius scales with pony size; the point
+  offsets are already per size. It is standing-only.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
 - Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
@@ -907,7 +911,8 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   reach, smack and the palm holder. `caress/caress_system.gd` is pose-free: it receives the pony,
   a path and the palm side, then applies the oval, snaps to the coat, smooths and builds the palm
   frame. The pose only chooses a path provider and a palm holder.
-- `caress/flank_path.gd` supplies the standing flank/shoulder centre and oval;
+- `caress/flank_path.gd` supplies the standing authored flank -> shoulder -> neck path, with the
+  procedural flank/rump centre as fallback;
   `caress/missionary_path.gd` supplies the authored or legacy missionary path. Both use the same
   engine. The engine snaps each interpolated point and every oval offset to the exact body/head
   surface with one `nearest` ray per hand per tick, so the palm follows the coat around the circle.
@@ -916,9 +921,10 @@ the multi-sample palm/finger resolver on top; off is the single-point palm.
   never the intended oval motion, so the standing oval does not shrink or lag. Each at 0 restores
   the exact behaviour. The hand-shape mode reuses the same exact surface. If the surface fails,
   the last good target is held.
-- `presentation.missionary.caress.path_id` is the debug **Caress path** dropdown: `one` uses
-  `anchors.json` (belly/chest/neck/cheek), `two` uses `anchors2.json` (flank/shoulder/neck).
-  Changing it rebuilds the next caress path because the path cache is keyed by path id.
+- `presentation.missionary.caress.path_id` is the missionary debug **Caress path** dropdown:
+  `one` uses `anchors.json` (belly/chest/neck/cheek), `two` uses `anchors2.json`
+  (flank/shoulder/neck). Standing always uses path two. Changing it rebuilds the next caress path
+  because the path cache is keyed by path id.
 - `features.caress_debug` logs one precise contact line per hand per act with `u`, target,
   normal, finger, roll, hover and surface; the first build also logs the body/head source sizes,
   any missing/rejected anchor, and each anchor's world position/normal. `perf` gets `caress_surface`, `caress_hand`, `caress_precise` and `caress_arm`

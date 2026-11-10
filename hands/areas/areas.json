@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "poses": {
+    "standing": {
+      "order": [
+        "flank_back",
+        "flank_side",
+        "flank_top",
+        "back",
+        "shoulder",
+        "neck"
+      ],
+      "start": "flank_side"
+    },
+    "missionary": {
+      "order": [
+        "flank_side",
+        "flank_top",
+        "shoulder",
+        "neck"
+      ],
+      "start": "flank_side"
+    }
+  },
+  "areas": {
+    "flank_top": {
+      "label": "Flank Top",
+      "region": "torso",
+      "mode": "palm",
+      "roll": 1.0,
+      "hull": "flank",
+      "left": {
+        "position": [
+          -0.058039,
+          0.626885,
+          0.204777
+        ]
+      },
+      "right": {
+        "position": [
+          0.071829,
+          0.614824,
+          0.221208
+        ]
+      }
+    },
+    "flank_side": {
+      "label": "Flank Side",
+      "region": "torso",
+      "mode": "palm",
+      "roll": 1.0,
+      "hull": "flank",
+      "left": {
+        "position": [
+          -0.125215,
+          0.506803,
+          0.161347
+        ]
+      },
+      "right": {
+        "position": [
+          0.125216,
+          0.506801,
+          0.161349
+        ]
+      }
+    },
+    "flank_back": {
+      "label": "Flank Back",
+      "region": "torso",
+      "mode": "palm",
+      "roll": 1.0,
+      "hull": "flank",
+      "left": {
+        "position": [
+          -0.105318,
+          0.504116,
+          0.267253
+        ]
+      },
+      "right": {
+        "position": [
+          0.105321,
+          0.504114,
+          0.267249
+        ]
+      }
+    },
+    "back": {
+      "label": "Back",
+      "region": "torso",
+      "mode": "palm",
+      "roll": 0.7,
+      "hull": "body",
+      "left": {
+        "position": [
+          -0.049594,
+          0.595143,
+          0.083783
+        ]
+      },
+      "right": {
+        "position": [
+          0.037276,
+          0.601736,
+          0.0825
+        ]
+      }
+    },
+    "shoulder": {
+      "label": "Shoulder",
+      "region": "torso",
+      "mode": "palm",
+      "roll": 0.7,
+      "hull": "body",
+      "left": {
+        "position": [
+          -0.100413,
+          0.520197,
+          -0.019626
+        ]
+      },
+      "right": {
+        "position": [
+          0.098793,
+          0.534062,
+          -0.035774
+        ]
+      }
+    },
+    "neck": {
+      "label": "Neck",
+      "region": "torso",
+      "mode": "fingertip",
+      "roll": 0.2,
+      "hull": "body",
+      "left": {
+        "position": [
+          -0.061851,
+          0.505424,
+          -0.132313
+        ]
+      },
+      "right": {
+        "position": [
+          0.061858,
+          0.505425,
+          -0.132308
+        ]
+      }
+    }
+  }
+}

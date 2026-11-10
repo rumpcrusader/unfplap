@@ -79,6 +79,20 @@ func near(a: float, b: float, eps := 0.001) -> bool:
 	return absf(a - b) <= eps
 
 
+func _json_position(areas: Dictionary, area: String, side: String) -> Vector3:
+	var entry: Variant = areas.get(area, {})
+	if not entry is Dictionary:
+		return Vector3.INF
+	var side_entry: Variant = (entry as Dictionary).get(side, {})
+	if not side_entry is Dictionary:
+		return Vector3.INF
+	var values: Variant = (side_entry as Dictionary).get("position", [])
+	if not values is Array or (values as Array).size() < 3:
+		return Vector3.INF
+	return Vector3(float((values as Array)[0]), float((values as Array)[1]),
+		float((values as Array)[2]))
+
+
 func _plane() -> Variant:
 	var surface: Variant = SURFACE.new()
 	var faces := PackedVector3Array([
@@ -350,6 +364,77 @@ func run() -> void:
 			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
 			check(signf(anchor_x) == side_sign,
 				"the authored %s second path stays on the authored %s side" % [side, side])
+	# Marked area path: the JSON standing order is a lean-sampled chain.
+	var area_data: Variant = JSON.parse_string(FileAccess.get_file_as_string(
+		"res://mods/unfplap/hands/areas/areas.json"))
+	check(area_data is Dictionary, "the marked area JSON parses")
+	var area_areas: Dictionary = {}
+	var area_order: Array = []
+	var area_start := ""
+	if area_data is Dictionary:
+		var area_root: Dictionary = area_data
+		var area_poses: Variant = area_root.get("poses", {})
+		if area_poses is Dictionary:
+			var area_standing: Variant = (area_poses as Dictionary).get("standing", {})
+			if area_standing is Dictionary:
+				area_order = (area_standing as Dictionary).get("order", [])
+				area_start = str((area_standing as Dictionary).get("start", ""))
+		var area_rows: Variant = area_root.get("areas", {})
+		if area_rows is Dictionary:
+			area_areas = area_rows as Dictionary
+	check(area_order.size() >= 3, "the standing area order has at least three areas")
+	var expected_left: Array = []
+	for area_name: Variant in area_order:
+		var row: Variant = area_areas.get(area_name, {})
+		if row is Dictionary and (row as Dictionary).has("left"):
+			expected_left.append(str(area_name))
+	var area_path: Variant = PATH.new()
+	check(bool(area_path.call("build_areas", body_pony, "left", "standing")),
+		"the marked area path builds for the left hand")
+	var area_ids: Array = []
+	for anchor: Dictionary in (area_path.get("anchors") as Array):
+		area_ids.append(str(anchor.get("id", "")))
+	check(area_ids == expected_left, "the marked area path follows the JSON standing order")
+	var area_start_index := expected_left.find(area_start)
+	check(area_start_index >= 0, "the JSON start is in the standing area order")
+	var expected_belly_u := 0.0
+	if area_start_index >= 0 and expected_left.size() > 1:
+		expected_belly_u = float(area_start_index) / float(expected_left.size() - 1)
+	check(near(float(area_path.get("belly_u")), expected_belly_u),
+		"the marked area path starts at the JSON start")
+	var area_neutral: Dictionary = area_path.call("sample", 0.0, 0.0, Vector3.RIGHT)
+	var area_forward: Dictionary = area_path.call("sample", 1.0, 0.0, Vector3.RIGHT)
+	var area_back: Dictionary = area_path.call("sample", -1.0, 0.0, Vector3.RIGHT)
+	check(not area_neutral.is_empty() and not area_forward.is_empty() and not area_back.is_empty(),
+		"the marked area path samples")
+	if not area_neutral.is_empty() and not area_forward.is_empty() and not area_back.is_empty() \
+			and expected_left.size() >= 2:
+		var area_first := str(expected_left[0])
+		var area_last := str(expected_left[expected_left.size() - 1])
+		check((area_neutral["point"] as Vector3).distance_to(
+			_json_position(area_areas, area_start, "left")) < 0.01,
+			"no lean starts at the JSON start area")
+		check((area_forward["point"] as Vector3).distance_to(
+			_json_position(area_areas, area_last, "left")) < 0.01,
+			"forward lean reaches the last JSON area")
+		check((area_back["point"] as Vector3).distance_to(
+			_json_position(area_areas, area_first, "left")) < 0.01,
+			"backward lean reaches the first JSON area")
+		check(str(area_neutral.get("id", "")) == area_start,
+			"the neutral area is the JSON start")
+		var area_first_hull := "body"
+		var area_first_row: Variant = area_areas.get(area_first, {})
+		if area_first_row is Dictionary:
+			area_first_hull = str((area_first_row as Dictionary).get("hull", "body"))
+		check(str(area_back.get("hull", "")) == area_first_hull,
+			"the first area keeps its JSON hull")
+	var area_right: Variant = PATH.new()
+	check(bool(area_right.call("build_areas", body_pony, "right", "standing")),
+		"the marked area path builds for the right hand")
+	var area_right_start: Dictionary = area_right.call("sample", 0.0, 0.0, Vector3.RIGHT)
+	check(not area_right_start.is_empty()
+		and (area_right_start["point"] as Vector3).x > 0.0,
+		"the right area path stays on her right side")
 	var stand_pony := NodePony.new()
 	stand_pony._model = body_scene as Node3D
 	stand_pony.skeleton = body_sk
@@ -389,6 +474,58 @@ func run() -> void:
 	stand_context["lean"] = -1.0
 	var rump: Array = standing_path.call("candidates", "left", stand_context)
 	check(rump.size() == 1, "backward lean still returns the rump contact")
+	# The `features.caress_areas` toggle replaces the authored chain with the marked area chain.
+	var old_area_setting := bool(SETTINGS.caress_areas.get_bool())
+	SETTINGS.caress_areas.set_value(true)
+	standing_path.call("reset")
+	var area_context := {
+		"lean": 0.0, "size": 1.0, "profile": {}, "precise": true, "ignore": [],
+	}
+	var area_start_candidates: Array = standing_path.call("candidates", "left", area_context)
+	check(area_start_candidates.size() == 1,
+		"the area standing path returns one contact")
+	if area_start_candidates.size() == 1:
+		var area_candidate: Dictionary = area_start_candidates[0]
+		check((area_candidate["point"] as Vector3).x < 0.0,
+			"the left area standing path stays on her left side")
+		check((area_candidate["point"] as Vector3).distance_to(
+			_json_position(area_areas, area_start, "left")) < 0.02,
+			"no lean starts the standing area path at the JSON start")
+		check(bool(area_candidate.get("precise", false)),
+			"the precise area standing path uses the exact surface")
+	area_context["hover"] = 0.02
+	area_context["clearance"] = 0.02
+	area_context["oval"] = Vector2.ZERO
+	area_context["phase"] = 0.0
+	area_context["delta"] = 0.016
+	area_context["scale"] = 1.0
+	var area_engine: Variant = SYSTEM.new()
+	var area_frame: Transform3D = area_engine.call("frame", stand_pony, standing_path,
+		"left", area_context)
+	check(area_frame.is_finite(), "the area standing path builds a palm frame")
+	check((area_frame.origin as Vector3).x < 0.0
+		and (area_frame.origin as Vector3).distance_to(
+			_json_position(area_areas, area_start, "left")) < 0.05,
+		"the area standing palm sits on the JSON start point")
+	area_context["lean"] = 1.0
+	var area_forward_candidates: Array = standing_path.call("candidates", "left", area_context)
+	check(area_forward_candidates.size() == 1
+		and (area_forward_candidates[0]["point"] as Vector3).x < 0.0,
+		"forward lean reaches the area neck")
+	area_context["lean"] = -1.0
+	var area_back_candidates: Array = standing_path.call("candidates", "left", area_context)
+	check(area_back_candidates.size() == 1
+		and (area_back_candidates[0]["point"] as Vector3).x < 0.0,
+		"backward lean reaches the area flank_back")
+	area_context["lean"] = 0.0
+	area_context["precise"] = false
+	var area_hull_candidates: Array = standing_path.call("candidates", "left", area_context)
+	check(area_hull_candidates.size() == 1,
+		"the area standing path works in hull mode")
+	if area_hull_candidates.size() == 1:
+		check(not bool(area_hull_candidates[0].get("precise", true)),
+			"hull mode leaves the area standing contact on the hull")
+	SETTINGS.caress_areas.set_value(old_area_setting)
 	standing_path.call("reset")
 	head_root.free()
 

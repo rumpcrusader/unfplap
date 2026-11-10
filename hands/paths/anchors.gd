@@ -10,6 +10,7 @@ const ANCHORS_FILES := {
 	"one": "res://mods/unfplap/hands/paths/anchors.json",
 	"two": "res://mods/unfplap/hands/paths/anchors2.json",
 }
+const AREAS_FILE := "res://mods/unfplap/hands/areas/areas.json"
 const BELLY_U := 0.25
 const CACHE_LIMIT := 16
 const AUTHORED_MAX_DISTANCE := 0.06
@@ -17,10 +18,12 @@ const AUTHORED_MAX_DISTANCE := 0.06
 static var _cache: Dictionary = {}
 static var _cache_order: Array = []
 static var _authored_data: Dictionary = {}
+static var _areas_data: Dictionary = {}
 
 var anchors: Array = []
 var side := "right"
 var valid := false
+var area_mode := false
 var path_len := 0.0
 var belly_u := BELLY_U
 var debug_notes: Array = []
@@ -30,6 +33,7 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF,
 		path_id := "one") -> bool:
 	valid = false
 	anchors.clear()
+	area_mode = false
 	path_len = 0.0
 	belly_u = BELLY_U
 	debug_notes.clear()
@@ -76,6 +80,92 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF,
 	while _cache_order.size() > CACHE_LIMIT:
 		var old: Variant = _cache_order.pop_front()
 		_cache.erase(old)
+	valid = true
+	return true
+
+
+## Build a lean-sampled chain from the marked caress areas. The standing area order and the
+## no-lean `start` come from `hands/areas/areas.json`; every area resolves to the nearest source
+## vertex on the body or head mesh, so the chain keeps the live skin weights. This is the
+## `features.caress_areas` path: the old authored chains remain the default.
+func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bool:
+	valid = false
+	anchors.clear()
+	area_mode = true
+	path_len = 0.0
+	belly_u = 0.0
+	debug_notes.clear()
+	side = hand_side
+	if not is_instance_valid(pony_node):
+		return false
+	var data := _areas()
+	var poses: Variant = data.get("poses", {})
+	if not poses is Dictionary:
+		return false
+	var pose: Variant = (poses as Dictionary).get(pose_name, {})
+	if not pose is Dictionary:
+		return false
+	var order: Variant = (pose as Dictionary).get("order", [])
+	if not order is Array or (order as Array).size() < 2:
+		return false
+	var areas: Variant = data.get("areas", {})
+	if not areas is Dictionary:
+		return false
+	var body_surface: Variant = SURFACE.new()
+	var body_source: Dictionary = {}
+	var body_sk: Skeleton3D = null
+	var head_surface: Variant = SURFACE.new()
+	var head_source: Dictionary = {}
+	var head_sk: Skeleton3D = null
+	for slot_value: Variant in (order as Array):
+		var slot := str(slot_value)
+		var entry: Variant = (areas as Dictionary).get(slot, {})
+		if not entry is Dictionary:
+			continue
+		var side_entry: Variant = (entry as Dictionary).get(hand_side, {})
+		if not side_entry is Dictionary:
+			continue
+		var position := _entry_position(side_entry)
+		if not position.is_finite():
+			continue
+		var region := str((entry as Dictionary).get("region", "torso"))
+		var hull := str((entry as Dictionary).get("hull", "body"))
+		var roll := float((entry as Dictionary).get("roll", 1.0))
+		if region == "head":
+			if head_source.is_empty():
+				if not bool(head_surface.call("ensure", pony_node, "head")):
+					continue
+				head_source = head_surface.get("source")
+				head_sk = head_surface.get("skeleton")
+			var head_anchor := _nearest_source_anchor(head_source, head_sk, region, position,
+				AUTHORED_MAX_DISTANCE)
+			if head_anchor.is_empty():
+				debug_notes.append("area %s miss" % slot)
+				continue
+			_anchor_meta(head_anchor, slot, 1.0, roll, region, hull)
+			anchors.append(head_anchor)
+		else:
+			if body_source.is_empty():
+				if not bool(body_surface.call("ensure", pony_node, "torso")):
+					continue
+				body_source = body_surface.get("source")
+				body_sk = body_surface.get("skeleton")
+			var body_anchor := _nearest_source_anchor(body_source, body_sk, region, position,
+				AUTHORED_MAX_DISTANCE)
+			if body_anchor.is_empty():
+				debug_notes.append("area %s miss" % slot)
+				continue
+			_anchor_meta(body_anchor, slot, 1.0, roll, region, hull)
+			anchors.append(body_anchor)
+	if anchors.size() < 3:
+		return false
+	# The no-lean point is the authored `start` area.
+	var start := str((pose as Dictionary).get("start", ""))
+	for i in anchors.size():
+		if str((anchors[i] as Dictionary).get("id", "")) == start:
+			belly_u = float(i) / maxf(float(anchors.size() - 1), 1.0)
+			break
+	path_len = path_length(skinned())
 	valid = true
 	return true
 
@@ -154,6 +244,8 @@ static func sample_world(world: Array, u: float, hand_side: String,
 		"lateral": lerpf(float(a1["lateral"]), float(a2["lateral"]), t),
 		"roll": lerpf(float(a1["roll"]), float(a2["roll"]), t),
 		"region": str(a1["region"]) if t < 0.5 else str(a2["region"]),
+		"id": str(a1.get("id", "")) if t < 0.5 else str(a2.get("id", "")),
+		"hull": str(a1.get("hull", "body")) if t < 0.5 else str(a2.get("hull", "body")),
 	}
 
 
@@ -186,6 +278,7 @@ func skinned() -> Array:
 			"lateral": float(anchor.get("lateral", 1.0)),
 			"roll": float(anchor.get("roll", 1.0)),
 			"region": str(anchor.get("region", "torso")),
+			"hull": str(anchor.get("hull", "body")),
 		})
 	return world
 
@@ -229,6 +322,20 @@ static func _authored(path_id: String) -> Dictionary:
 	if parsed is Dictionary:
 		_authored_data[path_id] = parsed
 		return parsed
+	return {}
+
+
+## The marked caress areas from the Blender vertex groups. Loaded once per process.
+static func _areas() -> Dictionary:
+	if not _areas_data.is_empty():
+		return _areas_data
+	var file := FileAccess.open(AREAS_FILE, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if parsed is Dictionary:
+		_areas_data = parsed
+		return _areas_data
 	return {}
 
 
@@ -611,11 +718,12 @@ func _build_anchors_rest(pony: Variant, body: Dictionary, head: Dictionary,
 
 
 static func _anchor_meta(anchor: Dictionary, id: String, lateral: float, roll: float,
-		region: String) -> void:
+		region: String, hull := "body") -> void:
 	anchor["id"] = id
 	anchor["lateral"] = lateral
 	anchor["roll"] = roll
 	anchor["region"] = region
+	anchor["hull"] = hull
 
 
 func _source_faces(source: Dictionary) -> PackedVector3Array:

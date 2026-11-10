@@ -8,6 +8,9 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
+## Hull query regions for the area path's `body` areas. `flank` areas leave this empty so the
+## FlankSurface patch is used first.
+const TORSO_REGIONS := ["back", "withers", "shoulder", "flank", "barrel", "belly", "rump", "neck"]
 
 var _flank: Node
 var _paths: Dictionary = {}
@@ -23,7 +26,8 @@ func candidates(hand_side: String, context: Dictionary) -> Array:
 		return []
 	var precise := bool(context.get("precise", true))
 	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
-	if precise and lean >= 0.0:
+	var area_mode := bool(SETTINGS.caress_areas.get_bool())
+	if (precise or area_mode) and (lean >= 0.0 or area_mode):
 		var authored := _authored_candidates(hand_side, context, lean)
 		if not authored.is_empty():
 			return authored
@@ -34,9 +38,11 @@ func candidates(hand_side: String, context: Dictionary) -> Array:
 ## The authored path is the standing caress path. It moves from the flank at no lean through
 ## the shoulder to the base of the neck at a full forward lean.
 func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -> Array:
-	# Anon stands behind her, so his left hand reaches her left side. The authored body chain
-	# uses the missionary facing, where the hands cross; request its opposite side here.
-	var anchor_hand := "right" if hand_side == "left" else "left"
+	var area_mode := bool(SETTINGS.caress_areas.get_bool())
+	# Anon stands behind her, so his left hand reaches her left side. The old authored body
+	# chain uses the missionary facing, where the hands cross; request its opposite side. The
+	# area JSON already stores the mare's own body sides, so it uses the hand side directly.
+	var anchor_hand := hand_side if area_mode else ("right" if hand_side == "left" else "left")
 	var path: Variant = _path_for(anchor_hand)
 	if path == null:
 		return []
@@ -59,6 +65,8 @@ func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -
 	up = up.normalized()
 	var across := up.cross(normal).normalized()
 	_last_world[hand_side] = world
+	var precise_mode := bool(context.get("precise", true))
+	var hull := str(sample.get("hull", "body"))
 	return [{
 		"point": sample["point"],
 		"normal": normal,
@@ -67,11 +75,11 @@ func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -
 		"finger": -pony.global_basis.z.normalized(),
 		"mode": "palm",
 		"roll": 0.0,
-		"region": "torso",
-		"precise": true,
+		"region": str(sample.get("region", "torso")),
+		"precise": precise_mode if area_mode else true,
 		"hull_lift": 0.0,
 		"ignore": context.get("ignore", []),
-		"regions": [],
+		"regions": _hull_regions(hull) if area_mode and not precise_mode else [],
 		"radial": true,
 		"u": u,
 	}]
@@ -161,32 +169,39 @@ func _procedural_candidate(hand_side: String, context: Dictionary,
 
 
 func _path_for(hand_side: String) -> Variant:
+	var area_mode := bool(SETTINGS.caress_areas.get_bool())
 	var pony_id: int = int(pony.get_instance_id()) if is_instance_valid(pony) else 0
 	if pony_id != _path_pony_id:
 		_paths.clear()
 		_path_failed.clear()
 		_last_world.clear()
 		_path_pony_id = pony_id
-	if bool(_path_failed.get(hand_side, false)):
+	var key := hand_side + ("|areas" if area_mode else "|two")
+	if bool(_path_failed.get(key, false)):
 		return null
-	var path: Variant = _paths.get(hand_side)
+	var path: Variant = _paths.get(key)
 	if path != null and bool(path.get("valid")):
 		return path
 	var started := Time.get_ticks_usec()
 	path = PATH.new()
-	if not bool(path.call("build", pony, hand_side, _camera_position(), "two")):
-		_path_failed[hand_side] = true
-		return null
-	var ids: Array = []
-	for anchor: Dictionary in (path.get("anchors") as Array):
-		ids.append(str(anchor.get("id", "")))
-	if ids != ["flank", "shoulder", "neck"]:
-		_path_failed[hand_side] = true
-		return null
-	_paths[hand_side] = path
+	if area_mode:
+		if not bool(path.call("build_areas", pony, hand_side, "standing")):
+			_path_failed[key] = true
+			return null
+	else:
+		if not bool(path.call("build", pony, hand_side, _camera_position(), "two")):
+			_path_failed[key] = true
+			return null
+		var ids: Array = []
+		for anchor: Dictionary in (path.get("anchors") as Array):
+			ids.append(str(anchor.get("id", "")))
+		if ids != ["flank", "shoulder", "neck"]:
+			_path_failed[key] = true
+			return null
+	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s path=two anchors=%d build_ms=%.1f" % [hand_side,
-			(path.get("anchors") as Array).size(),
+		_log("caress path side=%s path=%s anchors=%d build_ms=%.1f" % [hand_side,
+			"areas" if area_mode else "two", (path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 		for note: Variant in (path.get("debug_notes") as Array):
 			_log("caress " + str(note))
@@ -251,6 +266,16 @@ func reset() -> void:
 	_last_world.clear()
 	_last_centres.clear()
 	_last_normals.clear()
+
+
+## Hull query regions for the area path. `flank` leaves the list empty so the FlankSurface
+## patch is used first; `body` uses the body hulls; `head` uses the head hulls.
+func _hull_regions(hull: String) -> Array:
+	if hull == "flank":
+		return []
+	if hull == "head":
+		return ["head"]
+	return TORSO_REGIONS
 
 
 func _log(text: String) -> void:

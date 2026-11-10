@@ -71,8 +71,23 @@ func _check_storage() -> void:
 		"a non-finite pair falls back per component")
 	var from_row := PLACEMENT.sanitize({"offset_y": 0.004, "offset_z": -0.002})
 	check(near(from_row.x, 0.004) and near(from_row.y, -0.002), "sanitize accepts a row")
+	check(near(PLACEMENT.dock({"dock_y": 0.012}), 0.012), "the dock distance reads back")
+	check(near(PLACEMENT.dock({}), 0.0), "a missing dock distance is zero")
+	check(near(PLACEMENT.dock({"dock_y": NAN}), 0.0), "a non-finite dock distance is zero")
+	check(PLACEMENT.dock_diff(0.0).is_empty(), "a zero dock distance stores nothing")
+	check(near(float(PLACEMENT.dock_diff(0.012).get("dock_y", 0.0)), 0.012),
+		"a dock distance stores dock_y")
+	check(near(PLACEMENT.dock_scale({}), 1.0), "a missing dock scale is authored 1.0")
+	check(near(PLACEMENT.dock_scale({"dock_scale": 1.06}), 1.06), "the dock scale reads back")
+	check(near(PLACEMENT.dock_scale({"dock_scale": 0.0}), PLACEMENT.DOCK_SCALE_MIN),
+		"a zero dock scale takes the floor")
+	check(PLACEMENT.dock_scale_diff(1.0).is_empty(), "an authored dock scale stores nothing")
+	check(near(float(PLACEMENT.dock_scale_diff(1.06).get("dock_scale", 0.0)), 1.06),
+		"a changed dock scale stores dock_scale")
 
 
 func _check_text() -> void:
 	check(PLACEMENT.text(Vector2.ZERO) == "y=+0mm z=+0mm", "zero text")
 	check(PLACEMENT.text(Vector2(0.012, -0.003)) == "y=+12mm z=-3mm", "exception text")
+	check(PLACEMENT.dock_text(0.012) == "dock=+12mm", "dock distance text")
+	check(PLACEMENT.scale_text(1.06) == "scale=1.06x", "dock scale text")

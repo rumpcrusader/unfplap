@@ -130,15 +130,26 @@ func _check_placement() -> void:
 func _check_tail_seat() -> void:
 	check(SETTINGS.tail_seat_offset("minuette").is_equal_approx(Vector2.ZERO),
 		"a mare with no exception uses the exact reference")
-	SETTINGS.save_tail_seat_offset("minuette", Vector2(0.012, -0.003))
+	SETTINGS.save_tail_seat("minuette", Vector2(0.012, -0.003), -0.008, 1.06)
 	var row := SETTINGS.tail_seat_offset("minuette")
 	check(near(row.x, 0.012) and near(row.y, -0.003), "a tail seat exception reads back")
+	check(near(SETTINGS.tail_seat_dock("minuette"), -0.008), "a dock distance reads back")
+	check(near(SETTINGS.tail_seat_dock_scale("minuette"), 1.06), "a dock scale reads back")
 	check(SETTINGS.tail_seat_has_override("minuette"), "a non-zero tail seat is an override")
 	check(SETTINGS.tail_seat_offset("fluttershy").is_equal_approx(Vector2.ZERO),
 		"tail seat exceptions are per mare")
 	SETTINGS.save_tail_seat_offset("minuette", Vector2.ZERO)
+	check(SETTINGS.tail_seat_offset("minuette").is_equal_approx(Vector2.ZERO),
+		"an offset-only save clears the tail offset")
+	check(near(SETTINGS.tail_seat_dock("minuette"), -0.008),
+		"an offset-only save keeps the dock distance")
+	check(near(SETTINGS.tail_seat_dock_scale("minuette"), 1.06),
+		"an offset-only save keeps the dock scale")
+	check(SETTINGS.tail_seat_has_override("minuette"),
+		"a dock-only exception is still an override")
+	SETTINGS.save_tail_seat("minuette", Vector2.ZERO, 0.0, 1.0)
 	check(not SETTINGS.tail_seat_has_override("minuette"),
-		"a zero tail seat removes the exception")
+		"a default tail seat removes the exception")
 	var data := SETTINGS.data()
 	var anatomy: Variant = data.get("anatomy", {})
 	check(not anatomy is Dictionary or not (anatomy as Dictionary).has("tail_seat"),

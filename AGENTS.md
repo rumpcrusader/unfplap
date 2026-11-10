@@ -238,7 +238,7 @@ mods/unfplap/
   tail_seat.gd      re-seats every adult mare's hair tail at the reference dock, installs the
                     tail-only dock cuff, applies the debug lifts; per-mare exceptions; restores the
                     original when the setting is off
-  tail_seat_placement.gd  pure tail seat exception data (`anatomy.tail_seat.<id>` offset_y/z)
+  tail_seat_placement.gd  pure tail seat exception data (`offset_y/z`, `dock_y`, `dock_scale`)
   dock_attach.gd    tail-only dock cuff follower: `mPelvis` base, `mTail1` outer end, 30 Hz CPU,
                     keeps the dock's vertex colours and metadata
   dock_seat.gd      snaps the dock base ring to the rump (`rump_z - 4 mm`) with a falloff
@@ -445,12 +445,14 @@ reclined eye height left the camera wrong after the act.
   cache is invalidated, and a currently shown far mesh is forced back to the near mesh for the
   next bake.
 - The exact reference is applied to all eligible adult mares, including tails currently above it.
-  A per-mare exception stores only `offset_y`/`offset_z` in metres under
-  `anatomy.tail_seat.<id>` in `settings.json`; zero removes the row. The Anatomy Debug actions
-  **Tail seat** Up/Down/Forward/Back and **Tail seat file** Save/Reset/Show edit and audit these;
-  they target the aimed or nearest mare. Reset previews the exact reference and Save writes it,
-  removing the exception, matching the anatomy placement flow. `Show tail seats` logs every live
-  mare's original anchor, target, offset, applied delta and source, plus the two global offsets.
+  A per-mare exception stores `offset_y`/`offset_z` in metres, the dock-only `dock_y` in metres and
+  the dock `dock_scale` (1.0 is authored) under `anatomy.tail_seat.<id>` in `settings.json`; a row
+  with only default values removes the key. The Anatomy Debug actions **Tail seat**
+  Up/Down/Forward/Back, **Tail-dock** Up/Down, **Dock scale** Larger/Smaller and **Tail seat file**
+  Save/Reset/Show edit and audit these; they target the aimed or nearest mare. Reset previews the
+  exact reference and Save writes it, removing the exception, matching the anatomy placement flow.
+  `Show tail seats` logs every live mare's original anchor, target, offset, dock distance, dock
+  scale, applied delta and source, plus the two global offsets.
 - A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
   tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
   new tail only for shape or silhouette; the seat remains this controller's job.
@@ -1390,8 +1392,9 @@ examples.
   their `tab` names (`general` by default, `anatomy` or `world`). Adding an
   action is one entry; give it a `hotkey` only when it must fire while the world is unpaused and
   you are looking at the scene. A hotkey-less action is the default.
-- **Tail seat** Up/Down/Forward/Back and **Tail seat file** Save/Reset/Show: edit the pointed or
-  nearest mare's tail seat exception from the exact reference anchor, save it, preview the exact
+- **Tail seat** Up/Down/Forward/Back, **Tail-dock** Up/Down, **Dock scale** Larger/Smaller and
+  **Tail seat file** Save/Reset/Show: edit the pointed or nearest mare's tail seat exception from
+  the exact reference anchor, trim her dock distance or scale, save it, preview the exact
   reference, or log every live mare's seat. See the tail seating contract above.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
   nearest) test mare. They bypass the quiet, cooldown, AI-usage and history offer checks, but not

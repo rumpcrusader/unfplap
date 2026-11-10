@@ -143,10 +143,12 @@ prefixes pre-emptively.
   seat to every adult mare, drops the per-mare `dock_visibility_fits.json` offset (it was fitted
   for her own tail), snaps the dock base to the rump and seats the dock opening on the tail cap's
   centre. A tail-only follower carries the cuff with `mPelvis`/`mTail1`. Her exception is one
-  partial `anatomy.tail_seat.<id>` row with `offset_y`/`offset_z` in metres; zero removes it. The
-  Anatomy Debug actions Tail seat Up/Down/Forward/Back and Tail seat file Save/Reset/Show edit it
-  in game; Reset previews the exact reference and Save writes it, the same staging rule as
-  anatomy placement.
+  partial `anatomy.tail_seat.<id>` row with `offset_y`/`offset_z` in metres, `dock_y` in metres and
+  `dock_scale` (1.0 authored); a default row removes the key. `dock_y` moves the dock toward or
+  away from the tail, and `dock_scale` grows or shrinks it about the base ring. The Anatomy Debug
+  actions Tail seat Up/Down/Forward/Back, Tail-dock Up/Down, Dock scale Larger/Smaller and Tail
+  seat file Save/Reset/Show edit it in game; Reset previews the exact reference and Save writes it,
+  the same staging rule as anatomy placement.
 - `anatomy.dock_color` (Dock colour, `coat`/`genitals`, default `coat`) chooses the standard dock's
   material. `coat` keeps the game's coat material; `genitals` uses a copy of the attached anatomy
   material with `coat_color`/`coat_shadow` set to her skin tones, so the cuff matches her genital

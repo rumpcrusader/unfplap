@@ -180,9 +180,18 @@ func refresh_all() -> void:
 		var row: Dictionary = _rows[pony]
 		var changed := toggle_changed or offsets_changed
 		if not bool(row["dirty"]):
-			var saved: Vector2 = SETTINGS.tail_seat_offset(str(row["id"]))
+			var id := str(row["id"])
+			var saved: Vector2 = SETTINGS.tail_seat_offset(id)
 			if not PLACEMENT.same(saved, row["offset"] as Vector2):
 				row["offset"] = saved
+				changed = true
+			var saved_dock := SETTINGS.tail_seat_dock(id)
+			if not PLACEMENT.same_dock(saved_dock, float(row["dock_gap"])):
+				row["dock_gap"] = saved_dock
+				changed = true
+			var saved_scale := SETTINGS.tail_seat_dock_scale(id)
+			if not PLACEMENT.same_scale(saved_scale, float(row["dock_scale"])):
+				row["dock_scale"] = saved_scale
 				changed = true
 		if changed:
 			_apply(row)
@@ -196,6 +205,8 @@ func place(pony: Node, op: String, value := MOVE_STEP) -> String:
 		return "Re-seat tails and docks is off."
 	var row: Dictionary = _rows[pony]
 	var offset: Vector2 = row["offset"]
+	var dock := float(row.get("dock_gap", 0.0))
+	var dock_scale := float(row.get("dock_scale", 1.0))
 	match op:
 		"up":
 			offset.x += value
@@ -205,18 +216,30 @@ func place(pony: Node, op: String, value := MOVE_STEP) -> String:
 			offset.y -= value
 		"back":
 			offset.y += value
+		"dock_up":
+			dock += value
+		"dock_down":
+			dock -= value
+		"dock_scale_up":
+			dock_scale = minf(dock_scale + value, PLACEMENT.DOCK_SCALE_MAX)
+		"dock_scale_down":
+			dock_scale = maxf(dock_scale - value, PLACEMENT.DOCK_SCALE_MIN)
 		"save":
-			SETTINGS.save_tail_seat_offset(str(row["id"]), offset)
+			SETTINGS.save_tail_seat(str(row["id"]), offset, dock, dock_scale)
 			row["dirty"] = false
 			_apply(row)
 			return "%s saved" % _text(row)
 		"reset":
 			offset = Vector2.ZERO
+			dock = 0.0
+			dock_scale = 1.0
 		"text":
 			return _text(row)
 		_:
 			return _text(row)
 	row["offset"] = offset
+	row["dock_gap"] = dock
+	row["dock_scale"] = dock_scale
 	row["dirty"] = true
 	_apply(row)
 	return _text(row)
@@ -236,11 +259,13 @@ func report_all() -> String:
 		var row: Dictionary = _rows[pony]
 		var target := PLACEMENT.target(reference(pony), row["offset"] as Vector2, tail_lift)
 		var source := _source(row)
-		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) source=%s" % [
+		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) %s %s source=%s" % [
 			str(row["id"]), (row["anchor"] as Vector3).x, (row["anchor"] as Vector3).y,
 			(row["anchor"] as Vector3).z, target.x, target.y, target.z,
 			PLACEMENT.text(row["offset"] as Vector2), (row["applied"] as Vector3).x,
-			(row["applied"] as Vector3).y, (row["applied"] as Vector3).z, source])
+			(row["applied"] as Vector3).y, (row["applied"] as Vector3).z,
+			PLACEMENT.dock_text(float(row.get("dock_gap", 0.0))),
+			PLACEMENT.scale_text(float(row.get("dock_scale", 1.0))), source])
 		count += 1
 		if source == "override" or source == "unsaved":
 			exceptions += 1
@@ -328,6 +353,8 @@ func _prepare(pony: Node) -> Dictionary:
 		"cap_centre": _tail_cap_centre(pony),
 		"fit": fit.duplicate(true),
 		"offset": SETTINGS.tail_seat_offset(str(identity.get("id"))),
+		"dock_gap": SETTINGS.tail_seat_dock(str(identity.get("id"))),
+		"dock_scale": SETTINGS.tail_seat_dock_scale(str(identity.get("id"))),
 		"attached": null,
 		"applied": Vector3.ZERO,
 		"dirty": false,
@@ -387,6 +414,9 @@ func _move_dock(row: Dictionary, delta: Vector3) -> void:
 	if not is_instance_valid(dock):
 		return
 	var fit: Dictionary = (row["fit"] as Dictionary).duplicate(true)
+	var dock_scale := float(row.get("dock_scale", 1.0))
+	if not is_equal_approx(dock_scale, 1.0):
+		fit["scale"] = float(fit.get("scale", 1.0)) * dock_scale
 	var position: Variant = fit.get("position")
 	if not position is Array or (position as Array).size() != 3:
 		return
@@ -428,7 +458,8 @@ func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void
 	var drop := float(row.get("cap_centre", NAN)) - top
 	if not is_finite(drop):
 		drop = 0.0
-	follower.set("dock_lift", drop + SETTINGS.dock_offset_mm.get_num() / 1000.0)
+	follower.set("dock_lift", drop + SETTINGS.dock_offset_mm.get_num() / 1000.0
+		+ float(row.get("dock_gap", 0.0)))
 	hair.add_child(follower)
 	row["attached"] = follower
 
@@ -508,7 +539,11 @@ func _source(row: Dictionary) -> String:
 
 
 func _text(row: Dictionary) -> String:
-	return "%s source=%s" % [PLACEMENT.text(row["offset"] as Vector2), _source(row)]
+	return "%s %s %s source=%s" % [
+		PLACEMENT.text(row["offset"] as Vector2),
+		PLACEMENT.dock_text(float(row.get("dock_gap", 0.0))),
+		PLACEMENT.scale_text(float(row.get("dock_scale", 1.0))),
+		_source(row)]
 
 
 func _log(text: String) -> void:

@@ -1763,6 +1763,22 @@ func action_tail_seat_down() -> String:
 	return _tail_seat_debug("down")
 
 
+func action_tail_dock_up() -> String:
+	return _tail_seat_debug("dock_up")
+
+
+func action_tail_dock_down() -> String:
+	return _tail_seat_debug("dock_down")
+
+
+func action_tail_dock_scale_up() -> String:
+	return _tail_seat_debug("dock_scale_up", 0.05)
+
+
+func action_tail_dock_scale_down() -> String:
+	return _tail_seat_debug("dock_scale_down", 0.05)
+
+
 func action_tail_seat_forward() -> String:
 	return _tail_seat_debug("forward")
 

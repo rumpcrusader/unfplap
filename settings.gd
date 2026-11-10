@@ -507,25 +507,36 @@ static func anatomy_placement_draft_values() -> Dictionary:
 # ---------------------------------------------------------------- tail seat exceptions
 ## The pointed mare's saved exception from the exact reference anchor, zero when she has none.
 static func tail_seat_offset(id: String) -> Vector2:
-	if id.is_empty() or id == "default" or id == "anon":
+	var row: Variant = _tail_seat_row(id)
+	if not row is Dictionary:
 		return Vector2.ZERO
-	if not _loaded:
-		_load()
-	var anatomy: Variant = _cache.get("anatomy", {})
-	if not anatomy is Dictionary:
-		return Vector2.ZERO
-	var seats: Variant = (anatomy as Dictionary).get("tail_seat", {})
-	if not seats is Dictionary:
-		return Vector2.ZERO
-	return TAIL_PLACEMENT.read((seats as Dictionary).get(id, {}))
+	return TAIL_PLACEMENT.read(row)
+
+
+## One mare's dock-only distance in metres, zero when she has none.
+static func tail_seat_dock(id: String) -> float:
+	var row: Variant = _tail_seat_row(id)
+	if not row is Dictionary:
+		return 0.0
+	return TAIL_PLACEMENT.dock(row)
+
+
+## One mare's dock scale, 1.0 when she has none.
+static func tail_seat_dock_scale(id: String) -> float:
+	var row: Variant = _tail_seat_row(id)
+	if not row is Dictionary:
+		return 1.0
+	return TAIL_PLACEMENT.dock_scale(row)
 
 
 static func tail_seat_has_override(id: String) -> bool:
-	return not TAIL_PLACEMENT.same(tail_seat_offset(id), Vector2.ZERO)
+	return not TAIL_PLACEMENT.same(tail_seat_offset(id), Vector2.ZERO) \
+		or not TAIL_PLACEMENT.same_dock(tail_seat_dock(id), 0.0) \
+		or not TAIL_PLACEMENT.same_scale(tail_seat_dock_scale(id), 1.0)
 
 
-## Store only the Y/Z components that differ from the exact reference; zero removes the row.
-static func save_tail_seat_offset(id: String, offset: Vector2) -> void:
+## Store only the non-default Y/Z offset, dock distance and dock scale; default removes the row.
+static func save_tail_seat(id: String, offset: Vector2, dock := 0.0, dock_scale := 1.0) -> void:
 	if id.is_empty() or id == "default" or id == "anon":
 		return
 	var data := _read()
@@ -534,6 +545,8 @@ static func save_tail_seat_offset(id: String, offset: Vector2) -> void:
 	var seats: Variant = block.get("tail_seat", {})
 	var rows: Dictionary = seats if seats is Dictionary else {}
 	var row := TAIL_PLACEMENT.diff(TAIL_PLACEMENT.sanitize(offset))
+	row.merge(TAIL_PLACEMENT.dock_diff(dock))
+	row.merge(TAIL_PLACEMENT.dock_scale_diff(dock_scale))
 	if row.is_empty():
 		rows.erase(id)
 	else:
@@ -547,6 +560,26 @@ static func save_tail_seat_offset(id: String, offset: Vector2) -> void:
 	else:
 		data["anatomy"] = block
 	_write(data)
+
+
+## Offset-only save keeps the mare's existing dock distance and scale.
+static func save_tail_seat_offset(id: String, offset: Vector2) -> void:
+	save_tail_seat(id, offset, tail_seat_dock(id), tail_seat_dock_scale(id))
+
+
+## The raw stored row, or {} when the id is a preview key or has no exception.
+static func _tail_seat_row(id: String) -> Variant:
+	if id.is_empty() or id == "default" or id == "anon":
+		return {}
+	if not _loaded:
+		_load()
+	var anatomy: Variant = _cache.get("anatomy", {})
+	if not anatomy is Dictionary:
+		return {}
+	var seats: Variant = (anatomy as Dictionary).get("tail_seat", {})
+	if not seats is Dictionary:
+		return {}
+	return (seats as Dictionary).get(id, {})
 
 
 ## Settings in one tab, in declaration order.

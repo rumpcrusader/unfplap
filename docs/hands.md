@@ -37,7 +37,7 @@ This contract covers:
 
 | File | Role |
 |---|---|
-| `hand_control.gd` | act hand controller: A/D/Z/C latches, five-second touch meter, shoulder reach, smack, palm-holder and path wiring |
+| `hand_control.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack target selection and palm-holder/path wiring |
 | `hands/placement.gd` | pose-free placement engine: oval, exact/hull contact, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
 | `hands/paths/standing.gd` | standing path: authored flank -> shoulder -> neck, procedural flank/rump fallback |
@@ -48,6 +48,7 @@ This contract covers:
 | `hands/scale.gd` | shared per-preset hand-bone scale |
 | `hands/reach_plan.gd` | pure two-bone reach plan for the missionary hand |
 | `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
+| `hands/smack.gd` | smack phases, impact audio and return to the live caress |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
 | `hands/paths/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
 
@@ -180,7 +181,8 @@ no shoulder reach.
 
 ## Smack
 
-The act smack currently lives in `hand_control.gd`; it is the next module to move under `hands/`.
+The smack action lives in `hands/smack.gd`; `hand_control.gd` keeps the pose-specific target
+selection and starts the swing.
 
 - A live caress hand is used when possible; otherwise the lean chooses a cheek.
 - Standing uses the visible lift -> strike -> contact -> recover phases and returns to the live

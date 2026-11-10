@@ -9,7 +9,7 @@ const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
-const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
+const SMACK := preload("res://mods/unfplap/hands/smack.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
@@ -35,45 +35,20 @@ const CARESS_PROFILES := {
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08
 const SMACK_ZONE_RADIUS_M := 0.035
-const SMACK_COOLDOWN_MS := 200
 ## Missionary keeps the old hidden-hand swing; the standing hand uses the phases below.
-const SMACK_SWING_SECONDS := 0.20
-const SMACK_CONTACT_PHASE := 0.45
 ## Standing smack: lift off the coat, accelerate into the contact, hold for a frame or two,
 ## then return to the live caress point or the rest hand. The raise distance is the debug
 ## `presentation.standing.smack.raise_m` value, scaled by the pony's body size.
-const SMACK_RAISE_SPEED_M_S := 2.0
-const SMACK_RAISE_MIN_S := 0.12
-const SMACK_RAISE_MAX_S := 0.30
-const SMACK_RETURN_SPEED_M_S := 6.0
-const SMACK_STRIKE_MIN_S := 0.06
-const SMACK_STRIKE_MAX_S := 0.20
-const SMACK_PITCH_DEG := 12.0
-const SMACK_RAISE_BACK_M := 0.05
 ## Non-caress smack: the query is offset vertically from the cheek centre by
 ## `presentation.standing.smack.height_m` (positive up, default -0.03 = 3 cm below), and the
 ## wind-up is a backswing from behind/below rather than an outward lift. All distances scale
 ## with the pony.
 const SMACK_HEIGHT_M := -0.03
 const SMACK_HIND_M := 0.10
-const SMACK_ARC_M := 0.06
-const SMACK_SWING_DOWN_RATIO := 0.55
-const SMACK_SWING_OUT_RATIO := 0.15
-const SMACK_CONTACT_HOLD_SECONDS := 0.03
-const SMACK_REST_RETURN_SECONDS := 0.20
 ## Native impact strength for the smack; also drives the tail jiggle propagation.
-const SMACK_IMPACT_STRENGTH := 0.8
-const SMACK_PHASE_NONE := 0
-const SMACK_PHASE_RAISE := 1
-const SMACK_PHASE_STRIKE := 2
-const SMACK_PHASE_CONTACT := 3
-const SMACK_PHASE_RECOVER := 4
 ## The stock flank slap is bright and compressed. Install a peak-normalised OpenNSFW hand-smack
 ## variant on the native FlankTouch player; the stock stream, level and pitch are restored at
 ## act end.
-const SMACK_VOLUME_DB := -7.0
-const SMACK_PITCH_MIN := 0.97
-const SMACK_PITCH_MAX := 1.03
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
@@ -120,38 +95,6 @@ static func smack_side_index(side: float) -> int:
 
 ## Roll about the coat normal, in degrees. The right hand turns counter-clockwise and the left
 ## clockwise as seen from above.
-static func smack_pitch_basis(straight: Basis, pitch_deg: float) -> Basis:
-	if absf(pitch_deg) < 0.0001:
-		return straight
-	var axis := straight.x.normalized()
-	if axis.length_squared() < 0.5:
-		return straight
-	var angle := deg_to_rad(absf(pitch_deg))
-	var positive := straight.rotated(axis, angle)
-	var negative := straight.rotated(axis, -angle)
-	var positive_down := (-positive.z).y
-	var negative_down := (-negative.z).y
-	var down := positive if positive_down < negative_down else negative
-	var up := negative if positive_down < negative_down else positive
-	return down if pitch_deg > 0.0 else up
-
-
-## Raised palm frame: lift along the coat normal and pull slightly toward her rump. The palm
-## is pitched down by `pitch_deg` about its normal so the wind-up is not a roll.
-static func smack_raise_frame(contact: Transform3D, outward: Vector3, raise_m: float,
-		back_m: float, back: Vector3, pitch_deg: float) -> Transform3D:
-	var normal := outward.normalized()
-	if normal.length_squared() < 0.5:
-		normal = Vector3.UP
-	var rear := back.normalized()
-	if rear.length_squared() < 0.5:
-		rear = contact.basis.z
-	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg),
-		contact.origin + normal * raise_m + rear * back_m)
-
-
-## Caressing keeps the palm in the caress plane (fingers forward). A free-hand smack comes
-## from behind/below, so the fingers point down along the coat.
 static func smack_finger_hint(caressing: bool, forward: Vector3) -> Vector3:
 	if caressing:
 		var hint := forward.normalized()
@@ -162,46 +105,6 @@ static func smack_finger_hint(caressing: bool, forward: Vector3) -> Vector3:
 
 
 ## Non-caress wind-up: a backswing from behind and below the contact, with the fingers down.
-static func smack_swing_raise_frame(contact: Transform3D, outward: Vector3, back: Vector3,
-		raise_m: float, pitch_deg: float) -> Transform3D:
-	var distance := raise_m
-	var rear := back.normalized()
-	if rear.length_squared() < 0.5:
-		rear = contact.basis.z
-	var normal := outward.normalized()
-	if normal.length_squared() < 0.5:
-		normal = contact.basis.x
-	var origin := contact.origin + rear * distance \
-		+ Vector3.DOWN * (distance * SMACK_SWING_DOWN_RATIO) \
-		+ normal * (distance * SMACK_SWING_OUT_RATIO)
-	return Transform3D(smack_pitch_basis(contact.basis, pitch_deg), origin)
-
-
-## Medium-speed lift with a backward bow. `back` is the bow vector toward her rump; its length
-## is `smack.arc_m` × body scale. Zero gives a straight blend.
-static func smack_raise_blend(from: Transform3D, to: Transform3D, back: Vector3,
-		t: float) -> Transform3D:
-	var eased := smoothstep(0.0, 1.0, clampf(t, 0.0, 1.0))
-	var origin := from.origin.lerp(to.origin, eased) + back * sin(eased * PI)
-	var basis := from.basis.slerp(to.basis, eased).orthonormalized()
-	return Transform3D(basis, origin)
-
-
-## Snappy strike: cubic travel, so the palm accelerates into the coat instead of sliding
-## linearly. The basis turns a little faster than the position.
-static func smack_strike_blend(from: Transform3D, to: Transform3D, t: float) -> Transform3D:
-	var clamped := clampf(t, 0.0, 1.0)
-	var basis := from.basis.slerp(to.basis, pow(clamped, 2.0)).orthonormalized()
-	return Transform3D(basis, from.origin.lerp(to.origin, pow(clamped, 3.0)))
-
-
-static func smack_recover_blend(from: Transform3D, to: Transform3D, t: float) -> Transform3D:
-	return from.interpolate_with(to, smoothstep(0.0, 1.0, clampf(t, 0.0, 1.0)))
-
-
-## Closest point on the posed FlankSurface triangle soup. `faces` holds three vertices per
-## triangle and `normals` the matching vertex normals, both in the space of `point`. The
-## returned normal is the interpolated surface normal at that point.
 static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3Array,
 		point: Vector3) -> Dictionary:
 	if faces.size() < 3:
@@ -309,35 +212,13 @@ var _caress_touch_seconds := 0.0
 var _caress_logged := {"L": false, "R": false}
 var _caress_return_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_return_started := {"L": 0, "R": 0}
-var _last_smack_ms := -10000
-var _smack_active := false
-var _smack_index := 0
-var _smack_at := Vector3.INF
-var _smack_side := ""
-var _smack_from := Transform3D.IDENTITY
-var _smack_to := Transform3D.IDENTITY
-var _smack_started := 0
-var _smack_impact_done := false
 var _caress_engine: RefCounted
+var _smack_ctl: RefCounted
 var _flank_path: RefCounted
 var _missionary_path: RefCounted
 var _debug_draw_mesh: MeshInstance3D = null
 var _debug_draw_depth_mesh: MeshInstance3D = null
 var _debug_immediate: ImmediateMesh = null
-var _smack_phase := SMACK_PHASE_NONE
-var _smack_phase_started := 0
-var _smack_contact := Transform3D.IDENTITY
-var _smack_raised := Transform3D.IDENTITY
-var _smack_rest := Transform3D.IDENTITY
-var _smack_outward := Vector3.UP
-var _smack_raise_seconds := SMACK_RAISE_MIN_S
-var _smack_strike_seconds := 0.10
-var _smack_caress := false
-var _smack_streams: Array[AudioStream] = []
-var _smack_stream_last := -1
-var _smack_sound_restore: Dictionary = {}
-var _smack_sound_installed := false
-
 func _shoulder_hand_point(side: String) -> Dictionary:
 	if side.is_empty() or not is_instance_valid(pony):
 		return {}
@@ -425,7 +306,7 @@ func _caress_tick(delta: float) -> void:
 		var hand_side := "left" if side == "L" else "right"
 		# The slapping hand owns the hold target during its swing. Keep the oval phase moving
 		# so the hand can return to the current caress point instead of the one it left.
-		if _smack_active and _smack_side == hand_side:
+		if _smack_controller().owns_hand(hand_side):
 			if bool(_caress_active[side]) and bool(_caress_moving[side]):
 				_caress_phase[side] = caress_phase_step(
 					float(_caress_phase[side]), true, delta)
@@ -952,7 +833,7 @@ func _smack() -> void:
 	if int(runtime.get("state")) not in [STATE_ACTIVE, STATE_CLIMAX]:
 		return
 	var now := Time.get_ticks_msec()
-	if _smack_active or now - _last_smack_ms < SMACK_COOLDOWN_MS:
+	if not _smack_controller().can_start(now):
 		return
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
@@ -1011,158 +892,17 @@ func _smack() -> void:
 		if not standing_target.is_empty():
 			at = standing_target.get("local", at)
 			normal = standing_target.get("normal", normal)
-	_last_smack_ms = now
 	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank_frame() * at
 			var target: Transform3D = _engine().coat_frame(pony, hand_side, world_centre, normal,
 				_smack_finger_hint(caressing), _palm_clearance(), false, 0.0, [], true, [],
 				0.0, "smack:" + hand_side)
-			_smack_index = index
-			_smack_at = at
-			_smack_side = hand_side
-			_smack_started = now
-			_smack_impact_done = false
-			_smack_active = true
-			if str(runtime.get("pose_id")) == CATALOG.STANDING:
-				_start_standing_smack(hand_side, from_frame, target, normal, now)
-			else:
-				_smack_from = from_frame
-				_smack_to = target
+			var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
+			_smack_controller().begin(hand_side, index, at, from_frame, target, normal,
+				caressing, standing, now)
 			return
-	_flank_impact_without_reaction(index, at)
-	runtime.call("_on_touch", "smack")
-
-
-func _smack_swing_tick() -> void:
-	if not _smack_active:
-		return
-	if _smack_side.is_empty():
-		_smack_active = false
-		return
-	var driver: Node = _hand_driver()
-	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
-		_end_smack_swing()
-		return
-	if str(runtime.get("pose_id")) == CATALOG.STANDING:
-		_smack_phase_tick(driver)
-		return
-	var phase := clampf(float(Time.get_ticks_msec() - _smack_started)
-		/ (SMACK_SWING_SECONDS * 1000.0), 0.0, 1.0)
-	var arc := sin(phase * PI)
-	var frame := _smack_from.interpolate_with(_smack_to, arc)
-	driver.call("set_hold_target", _smack_side, frame, "rub")
-	if not _smack_impact_done and phase >= SMACK_CONTACT_PHASE:
-		_smack_impact_done = true
-		_flank_impact_without_reaction(_smack_index, _smack_at)
-		runtime.call("_on_touch", "smack")
-	if phase >= 1.0:
-		_end_smack_swing()
-
-
-## Standing smack: lift, strike, contact, then return to the live caress point or the rest
-## hand. The impact fires exactly when the strike reaches the contact frame.
-func _smack_phase_tick(driver: Node) -> void:
-	var now := Time.get_ticks_msec()
-	var elapsed := float(now - _smack_phase_started) / 1000.0
-	match _smack_phase:
-		SMACK_PHASE_RAISE:
-			var t := clampf(elapsed / maxf(_smack_raise_seconds, 0.001), 0.0, 1.0)
-			var bow := _smack_back_dir() * _smack_arc_m()
-			var frame := smack_raise_blend(_smack_from, _smack_raised, bow, t)
-			driver.call("set_hold_target", _smack_side, frame, "rub")
-			if t >= 1.0:
-				_smack_phase = SMACK_PHASE_STRIKE
-				_smack_phase_started = now
-		SMACK_PHASE_STRIKE:
-			var t := clampf(elapsed / maxf(_smack_strike_seconds, 0.001), 0.0, 1.0)
-			var frame := smack_strike_blend(_smack_raised, _smack_contact, t)
-			driver.call("set_hold_target", _smack_side, frame, "rub")
-			if t >= 1.0:
-				driver.call("set_hold_target", _smack_side, _smack_contact, "rub")
-				_flank_impact_without_reaction(_smack_index, _smack_at)
-				runtime.call("_on_touch", "smack")
-				_smack_phase = SMACK_PHASE_CONTACT
-				_smack_phase_started = now
-		SMACK_PHASE_CONTACT:
-			driver.call("set_hold_target", _smack_side, _smack_contact, "rub")
-			if elapsed >= SMACK_CONTACT_HOLD_SECONDS:
-				_smack_phase = SMACK_PHASE_RECOVER
-				_smack_phase_started = now
-				# The smack may have moved the tail or another soft hull next to the rub
-				# point. Reacquire the live caress contact before returning to it.
-				_engine().reset_hand(_smack_side)
-		SMACK_PHASE_RECOVER:
-			var target := _smack_recover_target()
-			var duration := CARESS_RETURN_SECONDS if _smack_keep_caress() \
-				else SMACK_REST_RETURN_SECONDS
-			var t := clampf(elapsed / maxf(duration, 0.001), 0.0, 1.0)
-			var frame := smack_recover_blend(_smack_contact, target, t)
-			driver.call("set_hold_target", _smack_side, frame, "rub")
-			if t >= 1.0:
-				_finish_smack_recovery(driver)
-
-
-func _start_standing_smack(hand_side: String, from_frame: Transform3D, contact: Transform3D,
-		outward: Vector3, now: int) -> void:
-	_smack_from = from_frame
-	_smack_contact = contact
-	_smack_outward = outward.normalized()
-	_smack_rest = from_frame
-	_smack_caress = bool(_caress_active["L" if hand_side == "left" else "R"])
-	if _smack_caress:
-		var scale := _smack_body_scale()
-		_smack_raised = smack_raise_frame(contact, _smack_outward, _smack_raise_m(),
-			SMACK_RAISE_BACK_M * scale, _smack_back_dir(), _smack_pitch_deg())
-	else:
-		_smack_raised = smack_swing_raise_frame(contact, _smack_outward,
-			_smack_back_dir(), _smack_raise_m(), _smack_pitch_deg())
-	var distance := from_frame.origin.distance_to(_smack_raised.origin)
-	_smack_raise_seconds = clampf(distance / _smack_raise_speed(),
-		SMACK_RAISE_MIN_S, SMACK_RAISE_MAX_S)
-	var return_distance := _smack_raised.origin.distance_to(contact.origin)
-	_smack_strike_seconds = clampf(return_distance / _smack_return_speed(),
-		SMACK_STRIKE_MIN_S, SMACK_STRIKE_MAX_S)
-	_smack_phase = SMACK_PHASE_RAISE
-	_smack_phase_started = now
-
-
-func _smack_recover_target() -> Transform3D:
-	var caress_side := "L" if _smack_side == "left" else "R"
-	if _smack_keep_caress() and is_instance_valid(_flank):
-		var target := _set_caress_hand(caress_side, false)
-		if not target.is_equal_approx(Transform3D.IDENTITY):
-			return target
-	return _smack_rest
-
-
-func _smack_keep_caress() -> bool:
-	var caress_side := "L" if _smack_side == "left" else "R"
-	return _smack_caress and bool(_caress_latched.get(caress_side, false))
-
-
-func _finish_smack_recovery(driver: Node) -> void:
-	var caress_side := "L" if _smack_side == "left" else "R"
-	var keep_caress := _smack_keep_caress()
-	if keep_caress:
-		_caress_return_started[caress_side] = 0
-	elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-		driver.call("clear_hold_target", _smack_side)
-	_smack_active = false
-	_smack_side = ""
-	_smack_at = Vector3.INF
-	_smack_phase = SMACK_PHASE_NONE
-	_smack_caress = false
-
-
-func _smack_back_dir() -> Vector3:
-	if not is_instance_valid(pony):
-		return Vector3.BACK
-	var back: Vector3 = pony.global_basis.z.normalized()
-	back -= _smack_outward * back.dot(_smack_outward)
-	if back.length_squared() < 0.0001:
-		back = _smack_contact.basis.z
-	return back.normalized()
+	_smack_controller().instant(index, at)
 
 
 func _smack_body_scale() -> float:
@@ -1185,10 +925,6 @@ func _smack_setting(name: String, fallback: float) -> float:
 	return fallback
 
 
-func _smack_raise_m() -> float:
-	return maxf(0.0, _smack_setting("raise_m", 0.30)) * _smack_body_scale()
-
-
 func _smack_hind_m() -> float:
 	return maxf(0.0, _smack_setting("hind_m", SMACK_HIND_M))
 
@@ -1197,158 +933,6 @@ func _smack_height_m() -> float:
 	return _smack_setting("height_m", SMACK_HEIGHT_M)
 
 
-func _smack_arc_m() -> float:
-	return maxf(0.0, _smack_setting("arc_m", SMACK_ARC_M)) * _smack_body_scale()
-
-
-func _smack_pitch_deg() -> float:
-	return _smack_setting("pitch_deg", SMACK_PITCH_DEG)
-
-
-func _smack_raise_speed() -> float:
-	return maxf(0.05, _smack_setting("raise_speed", SMACK_RAISE_SPEED_M_S))
-
-
-func _smack_return_speed() -> float:
-	return maxf(0.05, _smack_setting("return_speed", SMACK_RETURN_SPEED_M_S))
-
-
-func _end_smack_swing() -> void:
-	if not _smack_active:
-		return
-	if not _smack_side.is_empty():
-		var driver: Node = _hand_driver()
-		var caress_side := "L" if _smack_side == "left" else "R"
-		if bool(_caress_active[caress_side]):
-			# The smack may have moved the tail or another soft hull next to the rub point.
-			# Drop the cached source/normal and reacquire the caress contact before returning.
-			var from := _smack_contact if _smack_phase != SMACK_PHASE_NONE else _smack_to
-			if is_instance_valid(driver) and driver.has_method("hand_frame"):
-				var current: Variant = driver.call("hand_frame", _smack_side)
-				if current is Transform3D and (current as Transform3D).is_finite():
-					from = current
-			_engine().reset_hand(_smack_side)
-			_caress_return_from[caress_side] = from
-			_caress_return_started[caress_side] = Time.get_ticks_msec()
-			_set_caress_hand(caress_side)
-		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-			driver.call("clear_hold_target", _smack_side)
-	_smack_active = false
-	_smack_side = ""
-	_smack_at = Vector3.INF
-	_smack_impact_done = false
-	_smack_phase = SMACK_PHASE_NONE
-	_smack_caress = false
-	_smack_contact = Transform3D.IDENTITY
-	_smack_raised = Transform3D.IDENTITY
-	_smack_rest = Transform3D.IDENTITY
-	_smack_outward = Vector3.UP
-
-
-func _smack_sound_player() -> AudioStreamPlayer3D:
-	if not is_instance_valid(_flank):
-		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
-	if not is_instance_valid(_flank):
-		return null
-	var player: Variant = _flank.get("sound")
-	if not player is AudioStreamPlayer3D:
-		player = _flank.get_node_or_null("sound")
-	return player if player is AudioStreamPlayer3D else null
-
-
-func _load_smack_streams() -> void:
-	if not _smack_streams.is_empty():
-		return
-	for path: String in SMACK_AUDIO.PATHS:
-		if ResourceLoader.exists(path):
-			var stream: Resource = load(path)
-			if stream is AudioStream:
-				_smack_streams.append(stream)
-
-
-## Pick a variant without repeating the previous one, so two fast smacks never sound alike.
-func _next_smack_stream(count: int) -> int:
-	if count <= 1:
-		return 0
-	var index := randi() % count
-	if index == _smack_stream_last:
-		index = (index + 1) % count
-	_smack_stream_last = index
-	return index
-
-
-## Install one pack smack variant on the native player immediately before `impact()`, so the
-## sound lands on the same frame as the decal and blush.
-func _install_smack_sound() -> void:
-	var player := _smack_sound_player()
-	if player == null:
-		return
-	_load_smack_streams()
-	if _smack_streams.is_empty():
-		_restore_smack_sound()
-		return
-	if not _smack_sound_installed:
-		_smack_sound_restore = {
-			"stream": player.stream,
-			"volume_db": player.volume_db,
-			"pitch_scale": player.pitch_scale,
-		}
-		_smack_sound_installed = true
-	var index := _next_smack_stream(_smack_streams.size())
-	player.stream = _smack_streams[index]
-	player.volume_db = SMACK_VOLUME_DB
-	player.pitch_scale = randf_range(SMACK_PITCH_MIN, SMACK_PITCH_MAX)
-
-
-## Put the stock slap stream, level and pitch back. Called at every act exit.
-func _restore_smack_sound() -> void:
-	if not _smack_sound_installed:
-		return
-	_smack_sound_installed = false
-	var player := _smack_sound_player()
-	if player != null and not _smack_sound_restore.is_empty():
-		var stock: Variant = _smack_sound_restore.get("stream")
-		if stock is AudioStream:
-			player.stream = stock
-		else:
-			player.stream = null
-		player.volume_db = float(_smack_sound_restore.get("volume_db", player.volume_db))
-		player.pitch_scale = float(_smack_sound_restore.get("pitch_scale", player.pitch_scale))
-	_smack_sound_restore.clear()
-
-
-## Native impact, but with the pony's game reaction signals silenced. During an act those
-## reactions can trigger a buck/fidget or hoof shuffle, which is not wanted for a sex smack.
-func _flank_impact_without_reaction(index: int, at: Vector3) -> void:
-	_install_smack_sound()
-	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
-		_flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
-		_notify_smack_jiggle()
-		return
-	var sig: Signal = pony.physical_reaction
-	var links: Array = sig.get_connections()
-	for link: Variant in links:
-		var entry: Dictionary = link
-		var callable: Variant = entry.get("callable")
-		if callable is Callable and sig.is_connected(callable):
-			sig.disconnect(callable)
-	_flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
-	for link: Variant in links:
-		var entry: Dictionary = link
-		var callable: Variant = entry.get("callable")
-		if callable is Callable and not sig.is_connected(callable):
-			sig.connect(callable)
-	_notify_smack_jiggle()
-
-
-## Carry the native cheek jiggle into the same tail-base propagation as a thrust.
-func _notify_smack_jiggle() -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_on_smack_impact"):
-		runtime.call("_on_smack_impact", SMACK_IMPACT_STRENGTH)
-
-
-## Refresh cached scene references once per public call. Pony and settings can change between
-## acts or when the settings tab edits a caress value live.
 func _sync() -> void:
 	pony = runtime.get("pony") if is_instance_valid(runtime) else null
 	main = runtime.get("main") if is_instance_valid(runtime) else null
@@ -1381,13 +965,13 @@ func tick(delta: float) -> void:
 	if _reach_holding:
 		_set_reach_hand()
 	_caress_tick(delta)
-	_smack_swing_tick()
+	_smack_controller().tick(delta)
 
 
 ## Stop input-driven contact without clearing the reach release.
 func stop_inputs() -> void:
 	_end_caress()
-	_end_smack_swing()
+	_smack_controller().cancel()
 
 
 func start_reach(shoulder: String) -> void:
@@ -1407,8 +991,7 @@ func end_reach() -> void:
 
 func reset() -> void:
 	_end_caress()
-	_end_smack_swing()
-	_restore_smack_sound()
+	_smack_controller().reset()
 	_clear_reach_hand()
 	_reach_shoulder = ""
 	_reach_holding = false
@@ -1437,6 +1020,66 @@ func active(side: String) -> bool:
 func smack() -> void:
 	_sync()
 	_smack()
+
+
+func _smack_controller() -> RefCounted:
+	if _smack_ctl == null:
+		_smack_ctl = SMACK.new(self)
+	return _smack_ctl
+
+
+func caress_active(side: String) -> bool:
+	return bool(_caress_active.get(side, false))
+
+
+func caress_latched(side: String) -> bool:
+	return bool(_caress_latched.get(side, false))
+
+
+func caress_phase(side: String) -> float:
+	return float(_caress_phase.get(side, 0.0))
+
+
+func caress_set_hand(side: String, apply := true) -> Transform3D:
+	return _set_caress_hand(side, apply)
+
+
+func caress_begin_return(caress_side: String, from: Transform3D) -> void:
+	var side := "left" if caress_side == "L" else "right"
+	_engine().reset_hand(side)
+	_caress_return_from[caress_side] = from
+	_caress_return_started[caress_side] = Time.get_ticks_msec()
+	_set_caress_hand(caress_side)
+
+
+func caress_finish_keep(caress_side: String) -> void:
+	_caress_return_started[caress_side] = 0
+
+
+func caress_reset_hand(side: String) -> void:
+	_engine().reset_hand(side)
+
+
+func caress_return_seconds() -> float:
+	return CARESS_RETURN_SECONDS
+
+
+func hand_driver() -> Node:
+	return _hand_driver()
+
+
+func smack_body_scale() -> float:
+	return _smack_body_scale()
+
+
+func smack_flank() -> Node:
+	if not is_instance_valid(_flank) and is_instance_valid(pony):
+		_flank = pony.get_node_or_null("FlankTouch")
+	return _flank
+
+
+func smack_presentation() -> Dictionary:
+	return _presentation_cfg
 
 
 func _log(text: String) -> void:

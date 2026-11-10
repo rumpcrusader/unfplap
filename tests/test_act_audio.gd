@@ -9,6 +9,7 @@ const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDS := preload("res://mods/unfplap/hand_control.gd")
+const SMACK_CTL := preload("res://mods/unfplap/hands/smack.gd")
 var failures := 0
 var checks := 0
 
@@ -203,19 +204,21 @@ func run() -> void:
 	var smack_runtime: Node = RUNTIME.new()
 	smack_runtime.pony = smack_pony
 	root.add_child(smack_runtime)
-	var caress: RefCounted = HANDS.new(smack_runtime)
-	caress.set("pony", smack_pony)
-	caress.call("_install_smack_sound")
+	var hands: RefCounted = HANDS.new(smack_runtime)
+	hands.set("pony", smack_pony)
+	hands.set("_flank", flank)
+	var smack: RefCounted = hands.call("_smack_controller")
+	smack.call("_install_sound")
 	check(smack_player.stream != stock_stream and smack_player.stream is AudioStream,
 		"the act installs a pack smack")
-	check(near(smack_player.volume_db, HANDS.SMACK_VOLUME_DB), "pack smack uses its own level")
-	check(smack_player.pitch_scale >= HANDS.SMACK_PITCH_MIN
-		and smack_player.pitch_scale <= HANDS.SMACK_PITCH_MAX, "pack smack varies its pitch")
-	caress.call("_restore_smack_sound")
+	check(near(smack_player.volume_db, SMACK_CTL.SMACK_VOLUME_DB), "pack smack uses its own level")
+	check(smack_player.pitch_scale >= SMACK_CTL.SMACK_PITCH_MIN
+		and smack_player.pitch_scale <= SMACK_CTL.SMACK_PITCH_MAX, "pack smack varies its pitch")
+	smack.call("_restore_sound")
 	check(smack_player.stream == stock_stream, "smack restore puts the stock stream back")
 	check(near(smack_player.volume_db, -10.0) and near(smack_player.pitch_scale, 1.2),
 		"smack restore puts the stock level and pitch back")
-	caress = null
+	hands = null
 	root.remove_child(smack_runtime)
 	smack_runtime.free()
 	root.remove_child(smack_pony)

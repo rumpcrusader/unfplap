@@ -8,6 +8,7 @@ const PALM_SCALE := preload("res://mods/unfplap/hands/scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const HANDS := preload("res://mods/unfplap/hand_control.gd")
+const SMACK := preload("res://mods/unfplap/hands/smack.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
@@ -258,9 +259,9 @@ func run() -> void:
 	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
 
-	check(HANDS.smack_side_index(0.4) == 0, "right lean smacks left cheek")
-	check(HANDS.smack_side_index(-0.4) == 1, "left lean smacks right cheek")
-	check(HANDS.smack_side_index(0.0) == -1, "centered smack is random")
+	check(SMACK.side_index(0.4) == 0, "right lean smacks left cheek")
+	check(SMACK.side_index(-0.4) == 1, "left lean smacks right cheek")
+	check(SMACK.side_index(0.0) == -1, "centered smack is random")
 	var up_offset: Vector3 = HANDS.smack_query_offset(0.05, 0.02, 1.0,
 		Vector3.UP, Vector3.BACK)
 	check(near(up_offset.y, 0.05) and near(up_offset.z, 0.02),
@@ -277,65 +278,65 @@ func run() -> void:
 	check(near(float(default_height.call("_smack_height_m")), -0.03),
 		"smack height falls back to 3 cm below the mark")
 	var smack_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	var smack_raised: Transform3D = HANDS.smack_raise_frame(
+	var smack_raised: Transform3D = SMACK.raise_frame(
 		smack_contact, Vector3.RIGHT, 0.18, 0.05, Vector3.BACK, 15.0)
 	check(near(smack_raised.origin.x, 0.18) and near(smack_raised.origin.z, 0.05)
 		and near(smack_raised.origin.y, 1.0), "smack raise lifts along the normal and back")
 	check((-smack_raised.basis.z).y < (-smack_contact.basis.z).y,
 		"raised palm pitches the fingers down")
-	var smack_lowered: Transform3D = HANDS.smack_raise_frame(
+	var smack_lowered: Transform3D = SMACK.raise_frame(
 		smack_contact, Vector3.RIGHT, -0.10, -0.04, Vector3.BACK, 15.0)
 	check(near(smack_lowered.origin.x, -0.10) and near(smack_lowered.origin.z, -0.04),
 		"smack raise and arc are applied unclamped")
 	var straight_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
-	var pitched_palm: Basis = HANDS.smack_pitch_basis(straight_palm, 15.0)
+	var pitched_palm: Basis = SMACK.pitch_basis(straight_palm, 15.0)
 	check(pitched_palm.determinant() > 0.99, "palm pitch stays orthonormal")
 	check(pitched_palm.x.dot(straight_palm.x) > 0.999, "palm pitch keeps the palm normal")
 	check((-pitched_palm.z).y < (-straight_palm.z).y, "positive pitch lowers the fingers")
-	var pitched_up: Basis = HANDS.smack_pitch_basis(straight_palm, -15.0)
+	var pitched_up: Basis = SMACK.pitch_basis(straight_palm, -15.0)
 	check((-pitched_up.z).y > (-straight_palm.z).y, "negative pitch raises the fingers")
 	var smack_left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
-	var smack_left_pitched: Basis = HANDS.smack_pitch_basis(smack_left_palm, 15.0)
+	var smack_left_pitched: Basis = SMACK.pitch_basis(smack_left_palm, 15.0)
 	check((-smack_left_pitched.z).y < (-smack_left_palm.z).y,
 		"left palm also pitches down")
 	check(smack_left_pitched.x.dot(smack_left_palm.x) > 0.999,
 		"left palm pitch keeps the palm normal")
-	check(HANDS.smack_pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
+	check(SMACK.pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
 		"zero palm pitch keeps the basis")
-	check(HANDS.smack_finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
+	check(SMACK.finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
 		"non-caress smack points the fingers down")
-	check(HANDS.smack_finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
+	check(SMACK.finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
 		"caress smack keeps the fingers forward")
 	var swing_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	var swing := HANDS.smack_swing_raise_frame(
+	var swing := SMACK.swing_raise_frame(
 		swing_contact, Vector3.RIGHT, Vector3.BACK, 0.20, 15.0)
 	check(swing.origin.z > swing_contact.origin.z, "non-caress swing starts behind")
 	check(swing.origin.y < swing_contact.origin.y, "non-caress swing starts below")
 	check(swing.origin.x > swing_contact.origin.x, "non-caress swing clears outward")
 	check((-swing.basis.z).y < (-swing_contact.basis.z).y,
 		"non-caress swing points the fingers down")
-	var raise_mid: Transform3D = HANDS.smack_raise_blend(
+	var raise_mid: Transform3D = SMACK.raise_blend(
 		smack_contact, smack_raised, Vector3.BACK * 0.02, 0.5)
 	check(raise_mid.origin.x > smack_contact.origin.x
 		and raise_mid.origin.x < smack_raised.origin.x, "smack raise blends between frames")
 	check(near(raise_mid.origin.z - smack_contact.origin.z
 		- (smack_raised.origin.z - smack_contact.origin.z) * 0.5, 0.02, 0.002),
 		"smack raise bows along the arc parameter")
-	var no_arc_mid: Transform3D = HANDS.smack_raise_blend(
+	var no_arc_mid: Transform3D = SMACK.raise_blend(
 		smack_contact, smack_raised, Vector3.ZERO, 0.5)
 	check(near(no_arc_mid.origin.z - smack_contact.origin.z,
 		(smack_raised.origin.z - smack_contact.origin.z) * 0.5, 0.002),
 		"zero arc is a straight blend")
-	var strike_mid: Transform3D = HANDS.smack_strike_blend(smack_raised, smack_contact, 0.5)
+	var strike_mid: Transform3D = SMACK.strike_blend(smack_raised, smack_contact, 0.5)
 	check(strike_mid.origin.distance_to(smack_raised.origin)
 		< strike_mid.origin.distance_to(smack_contact.origin), "smack strike accelerates")
-	check(HANDS.smack_strike_blend(smack_raised, smack_contact, 1.0).origin.is_equal_approx(
+	check(SMACK.strike_blend(smack_raised, smack_contact, 1.0).origin.is_equal_approx(
 		smack_contact.origin), "smack strike reaches the contact")
-	check(HANDS.smack_recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
+	check(SMACK.recover_blend(smack_contact, smack_raised, 1.0).origin.is_equal_approx(
 		smack_raised.origin), "smack recovery reaches its target")
-	check(near(HANDS.SMACK_RAISE_SPEED_M_S, 2.0)
-		and near(HANDS.SMACK_RETURN_SPEED_M_S, 6.0), "smack default speeds")
-	check(near(HANDS.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack contact hold")
+	check(near(SMACK.SMACK_RAISE_SPEED_M_S, 2.0)
+		and near(SMACK.SMACK_RETURN_SPEED_M_S, 6.0), "smack default speeds")
+	check(near(SMACK.SMACK_CONTACT_HOLD_SECONDS, 0.03), "smack contact hold")
 	var quad_faces := PackedVector3Array([
 		Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0),
 		Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0),

@@ -195,7 +195,7 @@ mods/unfplap/
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   hand_control.gd  act hand controller: caress, reach and smack; details in docs/hands.md
-  hands/            placement engine, paths, anchors, contact, palm, reach, scale; docs/hands.md
+  hands/            placement engine, paths, anchors, contact, palm, reach, scale and smack; docs/hands.md
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets

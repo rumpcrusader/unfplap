@@ -41,7 +41,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Two poses** — Supports missionary on a bed or couch and standing.
 - **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. One Anatomy switch picks Never, only while an act runs, or Always. The PPP anatomy assets and act audio are included in the release.
 - **Mare bits** — Choose the original PPP genitals or the V2 variant in the Anatomy settings; the V2 choice falls back to the original when its asset is absent.
-- **Tail seating** — Every adult mare's hair tail is seated at the reference dock and her dock base is snapped to her rump, so the tail and dock stay clear of her genitals.
+- **Tail seating** — Every adult mare's hair tail is seated at the reference dock and the standard dock rides as a short cuff under the tail base, so it follows the tail and stays clear of her genitals.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster, ask sooner, and wink and discharge while she idles, two days of diestrus turn her off, then normal. Off by default.

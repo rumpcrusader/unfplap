@@ -396,7 +396,7 @@ cooldown and uses the game's `T`/microphone turn plus the small keyword map in
 ## Character examples
 
 Every spawnable mare in the base game has an explicit profile in `character_preferences.gd`:
-102 mares, the original sixteen first in the selector and the rest alphabetical. This table is
+103 mares, the original sixteen first in the selector and the rest alphabetical. This table is
 the main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match
 their character profiles.

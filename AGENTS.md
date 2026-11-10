@@ -98,9 +98,10 @@ Stress lab:
 ```
 
 - Uses the separate `unfplap-stress` world and writes `last-run-stress.log`.
-- Spawns every mare the population catalogue can create, excluding fillies, stallions and
-  Spike, in one line in front of Golden Oak Library, all facing away from the building and
-  standing idle after the teleport.
+- Spawns every ID in `SETTINGS.CHARACTER_ORDER` that the population catalogue can create, in one
+  line in front of Golden Oak Library, all facing away from the building and standing idle after
+  the teleport. That roster excludes the profile-marked schoolfilly/stallion entries (Twist,
+  Fiddly Twang) and includes the adult specials (Sunset Shimmer).
 - Reuses the normal lab's world loading, pause and idle setup; it does not use the five-mare
   roster or the library bed.
 - It logs the target count, the anatomy/action flags, missing mares and each placement. Use it
@@ -234,10 +235,11 @@ mods/unfplap/
   tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
   tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
   tail_visibility.gd  debug controller: installs tail_hide on loaded AI characters
-  tail_seat.gd      re-seats every adult mare's hair tail at the reference dock, moves the dock,
-                    applies the debug lifts and seats its base; per-mare exceptions; restores the
+  tail_seat.gd      re-seats every adult mare's hair tail at the reference dock, installs the
+                    tail-only dock cuff, applies the debug lifts; per-mare exceptions; restores the
                     original when the setting is off
   tail_seat_placement.gd  pure tail seat exception data (`anatomy.tail_seat.<id>` offset_y/z)
+  dock_attach.gd    tail-only dock cuff follower: `mPelvis` base, `mTail1` outer end, 30 Hz CPU
   dock_seat.gd      snaps the dock base ring to the rump (`rump_z - 4 mm`) with a falloff
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
@@ -414,20 +416,31 @@ reclined eye height left the camera wrong after the act.
 - `anatomy.reseat_tails` (Anatomy → **Re-seat tails and docks**, default on) moves every adult
   mare's hair tail base to the game's exact reference anchor from
   `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's canonical
-  dock seat, derived from the body's own tail root (`pony_tail_01`). The `OpenPonyDock` is moved by
-  the same body-space delta, re-reached with the game's `hybrid_dock` fit, then its base ring is
-  snapped to `hybrid_dock.rump_z(y) - 4 mm` by `dock_seat.gd`; the 4 mm embed and a falloff over
-  the first 35% of the dock keep the base in the coat without creasing. The body, skeleton, mane
-  and anatomy placement are untouched.
+  dock seat, derived from the body's own tail root (`pony_tail_01`).
+- The `OpenPonyDock` uses the game reference fit, not `effective_fit()`: the per-mare
+  `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
+  that tail to the reference, pushes the cuff above and behind the tail base. The fit is
+  re-reached with `hybrid_dock`, its base ring is snapped to `hybrid_dock.rump_z(y) - 4 mm` by
+  `dock_seat.gd`, and the dock uses the hair tail material. The 4 mm embed and a falloff over the
+  first 35% of the dock keep the base in the coat without creasing. The body, skeleton, mane and
+  anatomy placement are untouched.
+- The dock's outer opening is seated on the pinned tail cap's vertical centre. `tail_seat.gd`
+  measures the cap low/high in body bind space and the fitted dock's top, then applies
+  `cap_centre - dock_top` through `dock_attach.gd`; there is no fixed drop constant. The Anatomy
+  **Dock offset** trims that cuff position.
+- `dock_attach.gd` is a tail-only follower: an unskinned `SkeletonModifier3D` on the hair skeleton
+  blends the dock vertices from `mPelvis` at the base to `mTail1` at the outer end, 30 Hz, and
+  rebuilds normals. It keeps the dock metadata (`base_indices`, `pinned_*`) on the rebuilt mesh.
+  Lift, aside, flick, tail lay and tail tuck all carry the cuff; it never bridges body and tail,
+  so sitting cannot stretch it.
 - `anatomy.tail_offset_mm` and `anatomy.dock_offset_mm` are debug numbers in millimetres (default
-  0, no clamp). The tail offset adds to the target Y for every mare; the dock offset adds to the
-  dock fit Y only. Both apply live and are on top of the exact reference and the per-mare
-  exception. The dock base snap runs even when both offsets are zero, because the reference fit's
-  base ring begins 5–27 mm behind the rump.
+  0, no clamp). The tail offset moves the tail target and the dock follows it; the dock offset
+  trims the cuff alone. Both apply live.
 - The seat is measured once on the live pony with `dock_tail_mount.measure()`. The original hair
-  `pelvis_offset` and dock mesh are cached before the first write, so turning the setting off
-  restores the game's tail and dock exactly. The far-mesh identity cache is invalidated, and a
-  currently shown far mesh is forced back to the near mesh for the next bake.
+  `pelvis_offset`, dock mesh, skin, material and tail material are cached before the first write,
+  so turning the setting off restores the game's tail and dock exactly. The far-mesh identity
+  cache is invalidated, and a currently shown far mesh is forced back to the near mesh for the
+  next bake.
 - The exact reference is applied to all eligible adult mares, including tails currently above it.
   A per-mare exception stores only `offset_y`/`offset_z` in metres under
   `anatomy.tail_seat.<id>` in `settings.json`; zero removes the row. The Anatomy Debug actions
@@ -1471,9 +1484,9 @@ examples.
   and no hotkey. It controls logging only.
 - **Print perf logs** is a separate debug toggle, OFF by default. With **Enable debug** and
   **Print perf logs** on, an act prints one `perf` block a second: pony, pose, state, fps, frame
-  time, `near_mesh`, sim tier, wing hold, dock-follower state, then the per-second cost of every
-  timed chunk (runtime process/physics, pose recipe, tail pose, body sway, ear twitch, dock
-  fast/full/start, caress, wings, kiss, camera motion, HUD). A chunk calls
+  time, `near_mesh`, sim tier, wing hold, then the per-second cost of every timed chunk (runtime
+  process/physics, pose recipe, tail pose, body sway, ear twitch, caress, wings, kiss, camera
+  motion, HUD). A chunk calls
   `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
   instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
   outside an act.
@@ -1490,6 +1503,11 @@ examples.
   floor) to the guest-bed approach before inviting, then waits for Anon's recline blend before the
   snuggle invite. Backtick (`` ` ``) toggles the debug console with a temporary control-lock
   release, so it also opens while Anon is lying down.
+- `tools/dock_gallery.tscn` is the dock/anatomy gallery: open it in the editor and run it (F6).
+  It builds every anatomy-roster mare from her game scene, attaches the anatomy, seats the tail
+  and dock, and lifts each tail aside so the cuff is visible. `A`/`D` moves between mares,
+  `Q`/`E` orbits, `W`/`S` zooms and `1`/`2`/`3` switches front/rear/side. `mare_ids` empty is the
+  whole roster; set a few ids for a fast start. `tools/` never ships.
 - The lab moves every test pony to her snapshot spot (`TEST_SPAWNS`) at startup, so they stand
   where the save left them; the library row is only a fallback. Its startup log lists every setup
   action (opening/tutorial handling, population restriction/prune, AI/time pauses, per-pony
@@ -1616,10 +1634,11 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   spread; off leaves the game shader untouched), `skin_tone` (Skin
   tone, 0–1, default 0.67; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
   (Show tail docks, on; visibility only, it never moves the anatomy), `reseat_tails` (Re-seat
-  tails and docks, on; seats every adult mare's hair tail at the exact reference dock, moves the
-  dock with it and snaps the dock base to the rump; off restores the original tail mount and
-  dock; per-mare exceptions live under `anatomy.tail_seat.<id>`), `tail_offset_mm` and
-  `dock_offset_mm` (debug: global tail/dock lift in millimetres, default 0, no clamp), `mare_bits`
+  tails and docks, on; seats every adult mare's hair tail at the exact reference dock and installs
+  the tail-only dock cuff under the tail base; off restores the original tail mount and dock;
+  per-mare exceptions live under `anatomy.tail_seat.<id>`), `tail_offset_mm` and
+  `dock_offset_mm` (debug: tail target lift and dock cuff trim in millimetres, default 0, no
+  clamp), `mare_bits`
   (Mare bits,
   `original`/`v2`; default `v2`), `strip_scale`
   (debug: scale the midline strip's model-space X around the midline; unbounded),
@@ -1804,7 +1823,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   carries its own note. `act_prompts` stores only overrides: the built-ins live in
   `DEFAULT_ACT_PROMPTS` and `_fill_prompts()` supplies them at read time. Known legacy values and
   obsolete keys are removed on load; the **Reset act prompts** debug action clears overrides.
-- The settings editor lists `SETTINGS.CHARACTER_ORDER` (102 IDs: every spawnable mare in
+- The settings editor lists `SETTINGS.CHARACTER_ORDER` (103 IDs: every spawnable mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
   ID has a preference template in `character_preferences.gd`; add a pony there when expanding the roster.
 - Pose defaults live in `poses/catalog.gd`; preference defaults and validation live in

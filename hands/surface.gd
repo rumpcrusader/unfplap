@@ -9,9 +9,10 @@ const CACHE_LIMIT := 12
 const UPDATE_MS := 33
 ## The exact query touches a few centimetres of coat. The normal blur walks the hit vertex's
 ## mesh ring instead of every posed vertex; a radius beyond the ring's proven reach keeps the
-## full-scan fallback so a debug radius still averages the whole patch.
+## full-scan fallback so a debug radius still averages the whole patch. Two rings already cover
+## the 2 cm default radius; four rings would walk ~4x the vertices for no extra reach.
 const BLUR_RING_RADIUS_M := 0.03
-const BLUR_RING_DEPTH := 4
+const BLUR_RING_DEPTH := 2
 
 static var _source_cache: Dictionary = {}
 
@@ -26,6 +27,8 @@ var skin_us := 0
 var tri_us := 0
 var blur_us := 0
 var closest_us := 0
+var ray_hits := 0
+var ray_misses := 0
 var source_key := ""
 
 var _rings: Array = []
@@ -230,7 +233,9 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	var started := Time.get_ticks_usec()
 	var hit := _cast(point + normal * 0.20, point - normal * 0.20)
 	if hit.is_empty():
+		ray_misses += 1
 		return closest(point)
+	ray_hits += 1
 	query_us = Time.get_ticks_usec() - started
 	_perf_note("caress_ray", query_us)
 	var surface: Vector3 = hit.get("position", point)

@@ -352,9 +352,10 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 	_logged[hand_side] = true
 	var info := "anchors"
 	if is_instance_valid(surface) and surface is SURFACE:
-		info = "faces=%d build_us=%d query_us=%d" % [
+		info = "faces=%d build_us=%d query_us=%d ray_hit=%d ray_miss=%d" % [
 			int(surface.call("face_count")), int(surface.get("build_us")),
-			int(surface.get("query_us"))]
+			int(surface.get("query_us")), int(surface.get("ray_hits")),
+			int(surface.get("ray_misses"))]
 	_log("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
 		hand_side, mode, u, str(frame.origin), str(normal), str(finger), roll_deg, hover, info])
 

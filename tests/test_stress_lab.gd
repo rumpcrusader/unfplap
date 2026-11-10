@@ -1,13 +1,12 @@
 extends "res://mods/unfplap/tests/test_lab.gd"
 ## integration: stress lab. Every adult mare in the game is assigned to Ponyville and placed in
-## a grid in front of Golden Oak Library. Run with ./lab-stress.sh. Fillies are excluded.
+## one line in front of Golden Oak Library, facing away from the building and standing idle.
+## Run with ./lab-stress.sh. Fillies are excluded.
 
 const POPULATION_CONFIG := preload("res://world/population/pony_population_config.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const GRID_COLUMNS := 15
-const GRID_ACROSS_M := 0.95
-const GRID_BACK_M := 0.95
-const GRID_FIRST_BACK_M := 0.9
+const LINE_SPACING_M := 0.80
+const LINE_FIRST_BACK_M := 0.80
 
 var _stress_ids_cache: Array[String] = []
 var _restrict_logged := false
@@ -200,9 +199,12 @@ func _setup_ponies(ponies: Array) -> void:
 			xp[id] = row
 		_set_dating_record(pony)
 		_set_mood(pony, "neutral")
-		_make_idle(pony, true)
-		var placed := _place_stress_grid(pony, home, index, count)
-		rows.append("%s pos=%s placed=%s" % [id, str(pony.global_position), str(placed)])
+		var placed := _place_stress_line(pony, home, index, count)
+		# Idle after the teleport: a navigator target queued before the move would otherwise
+		# make her walk away from the line.
+		var idle := _make_idle(pony, true)
+		rows.append("%s pos=%s placed=%s idle=%s" % [
+			id, str(pony.global_position), str(placed), idle])
 		index += 1
 	if is_instance_valid(impressions):
 		impressions.set("xp", xp)
@@ -220,8 +222,8 @@ func _setup_ponies(ponies: Array) -> void:
 		_log_action("stress act history cleared", history_rows)
 
 
-## integration: a 15-column grid in front of the library, stepping back one row at a time.
-func _place_stress_grid(pony: Node3D, home: Node3D, index: int, count: int) -> bool:
+## integration: one line in front of the library, all facing the same outward direction.
+func _place_stress_line(pony: Node3D, home: Node3D, index: int, count: int) -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(home):
 		return false
 	if not home.has_method("outside"):
@@ -229,14 +231,10 @@ func _place_stress_grid(pony: Node3D, home: Node3D, index: int, count: int) -> b
 	var front: Vector3 = home.call("outside")
 	var right: Vector3 = home.global_basis.x.normalized()
 	var back: Vector3 = home.global_basis.z.normalized()
-	var columns := GRID_COLUMNS
 	var total := maxi(count, 1)
-	var row := int(index / columns)
-	var col := index % columns
-	var in_row := mini(columns, total - row * columns)
 	var at := front \
-		+ right * ((float(col) - (float(in_row) - 1.0) * 0.5) * GRID_ACROSS_M) \
-		+ back * (GRID_FIRST_BACK_M + float(row) * GRID_BACK_M)
+		+ right * ((float(index) - (float(total) - 1.0) * 0.5) * LINE_SPACING_M) \
+		+ back * LINE_FIRST_BACK_M
 	var space := pony.get_world_3d().direct_space_state
 	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 5.0, 1)
 	query.exclude = [pony.get_rid()]
@@ -247,5 +245,17 @@ func _place_stress_grid(pony: Node3D, home: Node3D, index: int, count: int) -> b
 	if pony.get("velocity") != null:
 		pony.set("velocity", Vector3.ZERO)
 	_upright(pony)
+	_face(pony, back)
 	pony.reset_physics_interpolation()
 	return true
+
+
+## Make every pony face the same outward direction (away from the library).
+func _face(pony: Node3D, direction: Vector3) -> void:
+	var flat := Vector3(direction.x, 0.0, direction.z)
+	if flat.length_squared() < 0.000001:
+		return
+	var scale := pony.global_basis.get_scale()
+	var basis := Basis.looking_at(flat.normalized(), Vector3.UP) \
+		* Basis.from_scale(scale)
+	pony.global_transform = Transform3D(basis, pony.global_position)

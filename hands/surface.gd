@@ -61,6 +61,7 @@ func _init(runtime_node: Node = null) -> void:
 
 
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
+	var started := Time.get_ticks_usec()
 	if not is_instance_valid(pony):
 		return false
 	# The same pony and region keep the same mesh, skeleton and rest anchor; skip the scene-tree
@@ -69,6 +70,7 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 			and is_equal_approx(_radius, radius) and not source.is_empty() \
 			and is_instance_valid(_mesh) and _mesh.get_instance_id() == _mesh_id \
 			and is_instance_valid(skeleton) and skeleton.get_instance_id() == _skeleton_id:
+		_perf_note("caress_ensure", Time.get_ticks_usec() - started)
 		return true
 	var found := find_mesh(pony, region)
 	if found.is_empty():
@@ -113,6 +115,7 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 				_source_cache.erase(old)
 		_flatten()
 		_last_update = -1
+	_perf_note("caress_ensure", Time.get_ticks_usec() - started)
 	return not source.is_empty() and not (source.get("vertices", []) as Array).is_empty()
 
 
@@ -229,6 +232,7 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	if hit.is_empty():
 		return closest(point)
 	query_us = Time.get_ticks_usec() - started
+	_perf_note("caress_ray", query_us)
 	var surface: Vector3 = hit.get("position", point)
 	var hit_normal: Vector3 = hit.get("normal", normal)
 	if hit_normal.length_squared() < 0.5:

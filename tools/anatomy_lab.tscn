@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://boksamc1ielcl"]
 
-[ext_resource type="Script" path="res://mods/unfplap/tools/anatomy_lab.gd" id="1_lab"]
+[ext_resource type="Script" uid="uid://k6pnl2egiumr" path="res://mods/unfplap/tools/anatomy_lab.gd" id="1_lab"]
 
 [node name="AnatomyLab" type="Node3D"]
 script = ExtResource("1_lab")

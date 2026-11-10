@@ -1469,9 +1469,11 @@ examples.
   release, so it also opens while Anon is lying down.
 - `tools/anatomy_lab.tscn` is the hand-authoring lab for the anatomy and dock placement. Open it
   in the editor and run it (F6): one standing mare at a time, `A`/`D` cycles, `Q`/`E` orbits,
-  `W`/`S` zooms, `1`/`2`/`3` selects Anatomy/Tail/Dock, `G`/`R`/`T` selects move/rotate/scale.
-  **Save** writes the current mare's block to `tools/anatomy_placement.json`; the runtime ignores
-  that file. **Reset** previews the default block and **Reload** re-reads the file.
+  `W`/`S` zooms, hold **RMB** to look, `1`/`2`/`3` selects Anatomy/Tail/Dock, `G`/`R`/`T`
+  selects move/rotate/scale. **Reference seat** moves the tail to the game reference anchor (on)
+  or leaves the identity mount (off); the dock uses a bright debug material. **Save** writes the
+  current mare's block to `tools/anatomy_placement.json`; the runtime ignores that file. **Reset**
+  previews the default block and **Reload** re-reads the file.
 - The lab moves every test pony to her snapshot spot (`TEST_SPAWNS`) at startup, so they stand
   where the save left them; the library row is only a fallback. Its startup log lists every setup
   action (opening/tutorial handling, population restriction/prune, AI/time pauses, per-pony

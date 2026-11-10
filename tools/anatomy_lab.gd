@@ -16,6 +16,8 @@ const TAIL_OFFSET := preload("res://mods/unfplap/tools/tail_lab_offset.gd")
 const POPULATION := preload("res://world/population/pony_population_config.gd")
 const DOCK_MESH := preload("res://world/characters/hybrid_mare/openpony_dock.res")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
+const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
+const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
 
 const JSON_PATH := "res://mods/unfplap/tools/anatomy_placement.json"
 const GROUPS := ["anatomy", "tail", "dock"]
@@ -39,6 +41,11 @@ var _tail_pose: SkeletonModifier3D
 var _dock_attach: BoneAttachment3D
 var _dock_node: Node3D
 var _dock: MeshInstance3D
+var _link: Node
+var _original_pelvis := Transform3D.IDENTITY
+var _anchor := Vector3.INF
+var _hips_rest := Transform3D.IDENTITY
+var _reference_cache := Vector3.INF
 
 var _camera: Camera3D
 var _camera_target := Vector3.ZERO
@@ -54,11 +61,14 @@ var _rings: Array[MeshInstance3D] = []
 var _center: MeshInstance3D
 var _drag: Dictionary = {}
 var _field_widgets: Dictionary = {}
+var _looking := false
+var _look_last := Vector2.ZERO
 
 var _mare_label: Label
 var _status: Label
 var _fields: VBoxContainer
 var _aside: CheckButton
+var _reference_seat: CheckButton
 
 
 func _ready() -> void:
@@ -298,6 +308,15 @@ func _build_ui() -> void:
 	_aside.text = "Tail aside"
 	_aside.toggled.connect(_set_tail_aside)
 	column.add_child(_aside)
+	_reference_seat = CheckButton.new()
+	_reference_seat.text = "Reference seat"
+	_reference_seat.button_pressed = true
+	_reference_seat.toggled.connect(func(_on: bool) -> void: _apply_seat())
+	column.add_child(_reference_seat)
+	var hint := Label.new()
+	hint.text = "RMB look"
+	hint.add_theme_color_override("font_color", Color(0.72, 0.72, 0.8))
+	column.add_child(hint)
 
 	var file_row := HBoxContainer.new()
 	column.add_child(file_row)
@@ -429,6 +448,7 @@ func _build_mare() -> void:
 	_hair = _pony.get("hair_skeleton") as Skeleton3D
 	_setup_anatomy()
 	_setup_tail()
+	_apply_seat()
 	_setup_dock()
 	_values = _merged(id)
 	_apply_current()
@@ -452,6 +472,8 @@ func _clear_mare() -> void:
 	_dock_attach = null
 	_dock_node = null
 	_dock = null
+	_link = null
+	_anchor = Vector3.INF
 	if is_instance_valid(_gizmo):
 		_gizmo.visible = false
 	if is_instance_valid(_aside):
@@ -476,6 +498,52 @@ func _setup_tail() -> void:
 	_tail_offset.name = "LabTailOffset"
 	_tail_offset.process_priority = 100
 	_hair.add_child(_tail_offset)
+	_link = _pony.get("hair_link") as Node
+	if is_instance_valid(_link) and _link.get("pelvis_offset") is Transform3D:
+		_original_pelvis = _link.get("pelvis_offset") as Transform3D
+	else:
+		_link = null
+	var skeleton: Skeleton3D = _pony.get("skeleton") as Skeleton3D
+	if is_instance_valid(skeleton):
+		var hips := skeleton.find_bone("pony_hips")
+		if hips >= 0:
+			_hips_rest = skeleton.get_bone_global_rest(hips)
+	var measured: Dictionary = DOCK_TAIL_MOUNT.measure(_pony) if is_instance_valid(_pony) else {}
+	var raw: Variant = measured.get("anchor")
+	if raw is Array and (raw as Array).size() == 3:
+		_anchor = Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
+	else:
+		_anchor = Vector3.INF
+
+
+func _reference_anchor() -> Vector3:
+	if _reference_cache.is_finite():
+		return _reference_cache
+	if FileAccess.file_exists(REFERENCE_PATH):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(REFERENCE_PATH))
+		if parsed is Dictionary:
+			var value: Variant = (parsed as Dictionary).get("reference")
+			if value is Array and (value as Array).size() == 3:
+				_reference_cache = Vector3(float((value as Array)[0]),
+					float((value as Array)[1]), float((value as Array)[2]))
+	return _reference_cache
+
+
+## Move the tail base to the game reference anchor (runtime seat) or restore the identity mount.
+func _apply_seat() -> void:
+	if not is_instance_valid(_link):
+		return
+	if is_instance_valid(_reference_seat) and _reference_seat.button_pressed:
+		var reference := _reference_anchor()
+		if reference.is_finite() and _anchor.is_finite():
+			var next := _original_pelvis
+			next.origin += _hips_rest.basis.inverse() * (reference - _anchor)
+			_link.set("pelvis_offset", next)
+	else:
+		_link.set("pelvis_offset", _original_pelvis)
+	if _link.has_method("_body_updated"):
+		_link.call("_body_updated")
+	_update_camera_target()
 
 
 func _setup_dock() -> void:
@@ -495,25 +563,16 @@ func _setup_dock() -> void:
 	_dock.skin = null
 	_dock.position = -pivot
 	_dock_node.add_child(_dock)
-	var material := _tail_material()
-	if material != null:
-		_dock.set_surface_override_material(0, material)
+	_dock.set_surface_override_material(0, _dock_debug_material())
 
 
-func _tail_material() -> Material:
-	if not is_instance_valid(_pony):
-		return null
-	var hair_node: Variant = _pony.get("hair")
-	var identity: Variant = _pony.get("identity")
-	if not is_instance_valid(hair_node) or identity == null:
-		return null
-	var tail := (hair_node as Node).find_child(
-		str(identity.get("hair_prefix")) + "DevkitTail", true, false) as MeshInstance3D
-	if not is_instance_valid(tail):
-		return null
-	var material := tail.get_active_material(0)
-	if material == null and tail.mesh != null:
-		material = tail.mesh.surface_get_material(0)
+func _dock_debug_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(1.0, 0.82, 0.1, 0.9)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.no_depth_test = false
 	return material
 
 
@@ -605,6 +664,8 @@ func _update_camera_target() -> void:
 
 
 func _process(delta: float) -> void:
+	if _looking and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		_looking = false
 	if Input.is_key_pressed(KEY_Q):
 		_yaw += delta * 1.6
 	if Input.is_key_pressed(KEY_E):
@@ -792,14 +853,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif button.button_index == MOUSE_BUTTON_WHEEL_DOWN and button.pressed:
 			_distance = minf(_distance + 0.1, 6.0)
 			get_viewport().set_input_as_handled()
+		elif button.button_index == MOUSE_BUTTON_RIGHT:
+			_looking = button.pressed
+			_look_last = button.position
+			get_viewport().set_input_as_handled()
 		elif button.button_index == MOUSE_BUTTON_LEFT:
 			if button.pressed:
 				_start_drag(button.position)
 			else:
 				_drag = {}
-	elif event is InputEventMouseMotion and not _drag.is_empty():
-		_drag_motion((event as InputEventMouseMotion).position)
-		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		if _looking:
+			var delta := motion.position - _look_last
+			_look_last = motion.position
+			_yaw -= delta.x * 0.005
+			_pitch = clampf(_pitch - delta.y * 0.005, -1.2, 1.2)
+			get_viewport().set_input_as_handled()
+		elif not _drag.is_empty():
+			_drag_motion(motion.position)
+			get_viewport().set_input_as_handled()
 
 
 func _start_drag(mouse: Vector2) -> void:

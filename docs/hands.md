@@ -38,6 +38,7 @@ This contract covers:
 | File | Role |
 |---|---|
 | `hand_control.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack target selection and palm-holder/path wiring |
+| `hands/session.gd` | typed coordinator interface used by the smack action |
 | `hands/placement.gd` | pose-free placement engine: oval, exact/hull contact, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
 | `hands/paths/standing.gd` | standing path: authored flank -> shoulder -> neck, procedural flank/rump fallback |
@@ -185,9 +186,16 @@ The smack action lives in `hands/smack.gd`; `hand_control.gd` keeps the pose-spe
 selection and starts the swing.
 
 - A live caress hand is used when possible; otherwise the lean chooses a cheek.
-- Standing uses the visible lift -> strike -> contact -> recover phases and returns to the live
-  caress point or the rest hand.
-- Missionary uses the hidden-hand swing to the decal centre.
+- Standing targets the flank patch. The live caress point is used when that hand's contact
+  source is `flank`; a free-hand smack queries the chosen cheek, offset by
+  `smack.height_m` (signed, default `0.05 m`) and `smack.hind_m` (default `0.09 m`), then snaps
+  to the nearest `FlankSurface` point and jitters within `smack_zone_radius`.
+- Missionary keeps the decal-centre target shifted `0.08 m` up and `0.08 m` back.
+- Standing runs raise -> strike -> contact -> recover. A caress raise lifts off the coat; a
+  free-hand raise is a backswing from behind and below. The strike is cubic, CONTACT holds the
+  exact frame for `0.03 s`, and RECOVER returns to the live caress or the captured rest hand.
+- Missionary uses the hidden-hand `0.20 s` swing, impacting at phase `0.45`.
+- A `200 ms` cooldown gates a new smack.
 - The native `FlankTouch.impact` keeps its decal, blush and jiggle; the pony's game reaction
   signals are disconnected around the call.
 - The pack hand-smack sound is installed immediately before impact and restored at act exit.

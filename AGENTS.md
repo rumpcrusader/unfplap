@@ -778,61 +778,12 @@ custom head-aim path below.
   until the release has retracted (`Affection.amount > 0.2`) before easing out, and a completed
   kiss has a `KISS_RESTART_COOLDOWN_MS = 500` before another kiss can start. The side latch and
   the pose lock are cleared when the kiss lean reaches zero.
-- The shoulder reach uses `desktop_anon.set_hold_target(..., "rub")` through `anon_thrust.gd`,
-  so it does not need `request_action()` and does not fight `controls_locked`. `rub` keeps the
-  hand open. Hand-marker convention: local `-Z` is the fingers, `+Y` is the thumb/up, and the
-  palm normal is `-X` on the right hand / `+X` on the left. The shoulder target uses the pony's
-  surface contact for the palm position and outward normal; `caress_hand.palm_basis()` keeps
-  the fingers straight forward and the palm inward. It interpolates from the current rest hand
-  over `REACH_HAND_BLEND_S = 0.35`, and release blends back to that rest frame over
-  `REACH_HAND_RELEASE_S = 0.35` before the hold is cleared. A one-shot
-  `reach hand side=... target=... x=... y=... z=... fingers=... palm=...` log prints the result.
+- Shoulder reach and palm basis: see `docs/hands.md`.
 - A/D caress uses the shared caress system; see `docs/hands.md`. The pose supplies the standing
   flank -> shoulder -> neck path, the rump fallback and the standing palm holder.
 - While a shoulder reach is held, `_forced_glance` locks the pony's glance over that shoulder
   and suppresses the random glance scheduler; release clears it.
-- Smack calls the native `FlankTouch.impact(index, at)` with `index 0 = left cheek`,
-  `1 = right cheek`. Standing targets the flank patch: if the striking hand is already
-  caressing and its contact source is `flank`, that live point is used. A free-hand smack
-  targets the chosen cheek: the mark centre offset vertically by `smack.height_m` (default
-  `0.05 m`, positive up) × body scale and moved `smack.hind_m` (default `0.09 m`) × body scale
-  toward her rump, snapped to the nearest `FlankSurface` point and jittered tangentially within
-  `smack_zone_radius` (default `0.035 m`). That keeps a resting hand from
-  reaching the leg and puts the contact on the hind of the flank.
-  A forward lean therefore lands on the forward flank instead of reaching back to the cheek.
-  The body hull is never the smack target and the rump centre is not used. Missionary keeps the
-  old decal-centre target: `at` is the mark centre shifted `0.08 m` up and `0.08 m` back,
-  jittered within the same zone. The contact palm uses the same `caress_hand.palm_basis()` and
-  caress palm distance above. If a hand is already caressing, the smack uses that hand; if both
-  are caressing, one is chosen at random. The caress oval keeps moving through the smack, so the
-  hand returns to the live point instead of the one it left.
-- Standing plays four phases. The contact palm uses the caress finger hint (`-pony.global_basis.z`,
-  forward) when caressing, and `Vector3.DOWN` for a free-hand smack, so the fingers stay in the
-  right plane. A caress RAISE lifts the palm from its current frame to the contact plus
-  `presentation.standing.smack.raise_m` (default `0.30 m`, body-scaled) along the coat normal and
-  `SMACK_RAISE_BACK_M = 0.05 m` toward her rump. A free-hand RAISE is a backswing from behind and
-  below: `back × raise_m`, `down × (raise_m × SMACK_SWING_DOWN_RATIO = 0.55)` and a small
-  `outward × (raise_m × SMACK_SWING_OUT_RATIO = 0.15)` clearance. Both raised bases are the
-  straight contact basis pitched down by `smack.pitch_deg` (default `0°`) about the palm normal,
-  so the wind-up is a pitch, not a roll around the arm. The lift path bows toward her rump by
-  `smack.arc_m` (default `0.10 m`, body-scaled) at the middle of the raise. Its speed is
-  `smack.raise_speed` (default `1.5 m/s`), clamped to `0.12–0.30 s`. STRIKE travels straight to
-  the contact with cubic acceleration and pitches back to the straight contact basis at
-  `smack.return_speed` (default `3.0 m/s`), clamped to `0.06–0.20 s`. CONTACT holds for `SMACK_CONTACT_HOLD_SECONDS = 0.03 s`
-  and fires `impact` and `_on_touch("smack")`. RECOVER blends to the live caress oval over
-  `CARESS_RETURN_SECONDS = 0.12 s`, or to the captured rest hand over
-  `SMACK_REST_RETURN_SECONDS = 0.20 s`, then clears the hold. Missionary keeps the old
-  hidden-hand `SMACK_SWING_SECONDS = 0.20` swing, impacting at `SMACK_CONTACT_PHASE = 0.45`. A
-  `SMACK_COOLDOWN_MS = 200` gate remains; a new smack waits for the current recovery.
-- It reuses the decal, blush, jiggle and expression. The act installs one peak-normalised
-  OpenNSFW hand-smack variant from `audio/act/smack/` (two samples, never the same one twice in a
-  row) on the native sound player immediately before the impact, with a small pitch jitter. The
-  stock stream, level and pitch are restored at act end. The pony's `physical_reaction`
-  connections are temporarily disconnected around the call, so `flank_smack` cannot trigger the
-  game's buck/fidget/hoof shuffle or a bond/context/memory/satisfaction event.
-- A right lean (`side > 0`) selects the left cheek index; a left lean selects the right; exactly
-  centered picks one at random. The index chooses which cheek decal reddens; standing's contact
-  point is the live caress point or the bottom of that cheek. There is no rump target.
+- Smack: see `docs/hands.md`.
 
 ### Caress
 

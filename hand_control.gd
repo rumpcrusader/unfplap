@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/hands/session.gd"
 ## Act hands in both poses: caress, shoulder reach, smack and palm-on-coat contact. The runtime
 ## owns scoring and the act state; this controller drives the palms and contact frames. Standing
 ## rubs the flank; missionary rubs her chest, neck and cheek.
@@ -1080,6 +1080,14 @@ func smack_flank() -> Node:
 
 func smack_presentation() -> Dictionary:
 	return _presentation_cfg
+
+
+func smack_pony() -> Variant:
+	return pony
+
+
+func smack_runtime() -> Node:
+	return runtime
 
 
 func _log(text: String) -> void:

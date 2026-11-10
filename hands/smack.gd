@@ -3,6 +3,7 @@ extends RefCounted
 ## controller owns the swing phases, native impact audio and the return to the live caress.
 
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
+const SESSION := preload("res://mods/unfplap/hands/session.gd")
 
 const SMACK_COOLDOWN_MS := 200
 const SMACK_SWING_SECONDS := 0.20
@@ -30,7 +31,7 @@ const SMACK_VOLUME_DB := -7.0
 const SMACK_PITCH_MIN := 0.97
 const SMACK_PITCH_MAX := 1.03
 
-var hand: Variant
+var hand: SESSION
 
 var _active := false
 var _index := 0
@@ -57,7 +58,7 @@ var _sound_restore: Dictionary = {}
 var _sound_installed := false
 
 
-func _init(hand_node: Variant = null) -> void:
+func _init(hand_node: SESSION = null) -> void:
 	hand = hand_node
 
 
@@ -179,7 +180,7 @@ func tick(_delta: float) -> void:
 	if _side.is_empty():
 		_active = false
 		return
-	var driver: Node = hand.call("hand_driver") if is_instance_valid(hand) else null
+	var driver: Node = hand.hand_driver() if is_instance_valid(hand) else null
 	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
 		_end_swing()
 		return
@@ -212,10 +213,9 @@ func reset() -> void:
 
 
 func _start_standing() -> void:
-	_caress = bool(hand.call("caress_active", _side))
 	_rest = _from
 	if _caress:
-		var scale := float(hand.call("smack_body_scale"))
+		var scale := float(hand.smack_body_scale())
 		_raised = raise_frame(_contact, _outward, _raise_m(),
 			SMACK_RAISE_BACK_M * scale, _back_dir(), _pitch_deg())
 	else:
@@ -255,10 +255,10 @@ func _phase_tick(driver: Node) -> void:
 			if elapsed >= SMACK_CONTACT_HOLD_SECONDS:
 				_phase = SMACK_PHASE_RECOVER
 				_phase_started = now
-				hand.call("caress_reset_hand", _side)
+				hand.caress_reset_hand(_side)
 		SMACK_PHASE_RECOVER:
 			var target := _recover_target()
-			var duration := float(hand.call("caress_return_seconds")) \
+			var duration := float(hand.caress_return_seconds()) \
 				if _keep_caress() else SMACK_REST_RETURN_SECONDS
 			var t := clampf(elapsed / maxf(duration, 0.001), 0.0, 1.0)
 			var frame := recover_blend(_contact, target, t)
@@ -270,7 +270,7 @@ func _phase_tick(driver: Node) -> void:
 func _recover_target() -> Transform3D:
 	var caress_side := "L" if _side == "left" else "R"
 	if _keep_caress():
-		var target: Transform3D = hand.call("caress_set_hand", caress_side, false)
+		var target: Transform3D = hand.caress_set_hand(caress_side, false)
 		if not target.is_equal_approx(Transform3D.IDENTITY):
 			return target
 	return _rest
@@ -278,13 +278,13 @@ func _recover_target() -> Transform3D:
 
 func _keep_caress() -> bool:
 	var caress_side := "L" if _side == "left" else "R"
-	return _caress and bool(hand.call("caress_latched", caress_side))
+	return _caress and bool(hand.caress_latched(caress_side))
 
 
 func _finish(driver: Node) -> void:
 	var caress_side := "L" if _side == "left" else "R"
 	if _keep_caress():
-		hand.call("caress_finish_keep", caress_side)
+		hand.caress_finish_keep(caress_side)
 	elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", _side)
 	_active = false
@@ -298,15 +298,15 @@ func _end_swing() -> void:
 	if not _active:
 		return
 	if not _side.is_empty():
-		var driver: Node = hand.call("hand_driver") if is_instance_valid(hand) else null
+		var driver: Node = hand.hand_driver() if is_instance_valid(hand) else null
 		var caress_side := "L" if _side == "left" else "R"
-		if bool(hand.call("caress_active", caress_side)):
+		if bool(hand.caress_active(caress_side)):
 			var from := _contact if _phase != SMACK_PHASE_NONE else _to
 			if is_instance_valid(driver) and driver.has_method("hand_frame"):
 				var current: Variant = driver.call("hand_frame", _side)
 				if current is Transform3D and (current as Transform3D).is_finite():
 					from = current
-			hand.call("caress_begin_return", caress_side, from)
+			hand.caress_begin_return(caress_side, from)
 		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 			driver.call("clear_hold_target", _side)
 	_active = false
@@ -330,7 +330,7 @@ func _impact_at(index: int, at: Vector3) -> void:
 	if not is_instance_valid(flank):
 		return
 	_install_sound()
-	var pony: Variant = hand.get("pony") if is_instance_valid(hand) else null
+	var pony: Variant = hand.smack_pony() if is_instance_valid(hand) else null
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
 		flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
 		_notify_jiggle()
@@ -350,24 +350,24 @@ func _impact_at(index: int, at: Vector3) -> void:
 			sig.connect(callable)
 	_notify_jiggle()
 	if is_instance_valid(hand):
-		var runtime: Node = hand.get("runtime")
+		var runtime: Node = hand.smack_runtime()
 		if is_instance_valid(runtime):
 			runtime.call("_on_touch", "smack")
 
 
 func _notify_jiggle() -> void:
 	if is_instance_valid(hand):
-		var runtime: Node = hand.get("runtime")
+		var runtime: Node = hand.smack_runtime()
 		if is_instance_valid(runtime) and runtime.has_method("_on_smack_impact"):
 			runtime.call("_on_smack_impact", SMACK_IMPACT_STRENGTH)
 
 
 func _flank() -> Node:
-	return hand.call("smack_flank") if is_instance_valid(hand) else null
+	return hand.smack_flank() if is_instance_valid(hand) else null
 
 
 func _back_dir() -> Vector3:
-	var pony: Variant = hand.get("pony") if is_instance_valid(hand) else null
+	var pony: Variant = hand.smack_pony() if is_instance_valid(hand) else null
 	if not is_instance_valid(pony):
 		return Vector3.BACK
 	var back: Vector3 = pony.global_basis.z.normalized()
@@ -378,13 +378,13 @@ func _back_dir() -> Vector3:
 
 
 func _setting(name: String, fallback: float) -> float:
-	var cfg: Dictionary = hand.call("smack_presentation") if is_instance_valid(hand) else {}
+	var cfg: Dictionary = hand.smack_presentation() if is_instance_valid(hand) else {}
 	var smack: Variant = cfg.get("smack", {})
 	return float((smack as Dictionary).get(name, fallback)) if smack is Dictionary else fallback
 
 
 func _raise_m() -> float:
-	return maxf(0.0, _setting("raise_m", 0.30)) * float(hand.call("smack_body_scale"))
+	return maxf(0.0, _setting("raise_m", 0.30)) * float(hand.smack_body_scale())
 
 
 func _pitch_deg() -> float:

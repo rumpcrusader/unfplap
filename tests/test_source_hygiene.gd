@@ -108,7 +108,9 @@ func _check_hands_isolation() -> void:
 	check(path_base.contains("func candidates("), "hands path contract is present")
 	var contact := FileAccess.get_file_as_string(ROOT.path_join("hands/contact.gd"))
 	check(contact.contains("static func contact("), "hands contact query is present")
-	for name: String in ["hands/path_base.gd", "hands/contact.gd"]:
+	for name: String in ["hands/session.gd", "hands/path_base.gd", "hands/contact.gd",
+			"hands/surface.gd", "hands/palm.gd", "hands/reach_plan.gd", "hands/scale.gd",
+			"hands/smack.gd"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		for token: String in ["pose_id", "CATALOG", "desktop_pose_driver",
 				"missionary_anon"]:

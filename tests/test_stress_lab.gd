@@ -19,12 +19,12 @@ func _stress_ids() -> Array[String]:
 		return _stress_ids_cache
 	var catalogue: Dictionary = POPULATION_CONFIG.catalogue()
 	var ids: Array[String] = []
-	for id: Variant in catalogue.keys():
-		var name := str(id)
-		if name == "spike" or POPULATION_CONFIG.STALLIONS.has(name) \
-				or POPULATION_CONFIG.FILLIES.has(name):
-			continue
-		ids.append(name)
+	# Use the anatomy roster, not the raw catalogue: it excludes the profile-marked
+	# schoolfilly/stallion entries (Twist, Fiddly Twang) and includes the adult specials
+	# (Sunset Shimmer) that the mod actually supports.
+	for id: String in SETTINGS.CHARACTER_ORDER:
+		if catalogue.has(id):
+			ids.append(id)
 	ids.sort()
 	_stress_ids_cache = ids
 	return _stress_ids_cache

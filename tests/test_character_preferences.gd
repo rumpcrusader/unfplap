@@ -41,7 +41,7 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
-	check(PROFILES.ORDER.size() == 102, "one hundred and two adult mares")
+	check(PROFILES.ORDER.size() == 103, "one hundred and three adult mares")
 	check(PROFILES.ORDER.size() == PROFILES.NAMES.size(), "every mare has a display name")
 	check(PROFILES.ORDER.size() == PROFILES.TEMPLATES.size(), "every mare has a template")
 

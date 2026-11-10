@@ -99,6 +99,7 @@ const ORDER := [
 	"strawberry_sunrise",
 	"sugar_belle",
 	"sunny_rays",
+	"sunset_shimmer",
 	"sunshower",
 	"sunshower_raindrops",
 	"suri_polomare",
@@ -204,6 +205,7 @@ const NAMES := {
 	"strawberry_sunrise": "Strawberry Sunrise",
 	"sugar_belle": "Sugar Belle",
 	"sunny_rays": "Sunny Rays",
+	"sunset_shimmer": "Sunset Shimmer",
 	"sunshower": "Sunshower",
 	"sunshower_raindrops": "Sunshower Raindrops",
 	"suri_polomare": "Suri Polomare",
@@ -1178,6 +1180,17 @@ const TEMPLATES := {
 			"warmth": "quick",
 			"tolerance": "normal",
 			"notes": "You like a partner who can keep up and laugh at the absurdity. Tease, analyze, and do not ask for sincerity without a joke.",
+		},
+	},
+	"sunset_shimmer": {
+		"preferences": {
+			"intensity": "firm",
+			"pattern": "steady",
+			"touch": ["kiss", "caress"],
+			"talk": ["praise", "reassurance"],
+			"warmth": "slow",
+			"tolerance": "normal",
+			"notes": "You are trying to be better than the pony you were. Praise the effort, not the old story, and let trust build slowly.",
 		},
 	},
 	"stellar_flare": {

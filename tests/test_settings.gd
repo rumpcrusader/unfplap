@@ -492,7 +492,7 @@ func _check_api_names() -> void:
 ## Per-mare profiles share the file and the merge; a few representative checks.
 func _check_profiles() -> void:
 	var base: Dictionary = SETTINGS._filled_default()
-	check(SETTINGS.CHARACTER_ORDER.size() == 102, "every spawnable adult mare is editable")
+	check(SETTINGS.CHARACTER_ORDER.size() == 103, "every spawnable adult mare is editable")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_NAMES.size(),
 		"every pony has a display name")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_TEMPLATES.size(),

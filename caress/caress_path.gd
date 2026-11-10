@@ -263,8 +263,8 @@ func _build_authored(pony: Variant, hand_side: String, path_id: String) -> Array
 	var shared: Dictionary = {}
 	if data.get("shared") is Dictionary:
 		shared = data["shared"]
-	var side_data: Variant = data.get(hand_side)
-	if not side_data is Dictionary:
+	var played: Variant = data.get(hand_side)
+	if not played is Dictionary:
 		return []
 	var body_surface: Variant = SURFACE.new()
 	if not bool(body_surface.call("ensure", pony, "torso")):
@@ -279,12 +279,26 @@ func _build_authored(pony: Variant, hand_side: String, path_id: String) -> Array
 	var out: Array = []
 	for slot_value: Variant in (order as Array):
 		var slot := str(slot_value)
+		var probe: Variant = (played as Dictionary).get(slot)
+		if not probe is Dictionary:
+			probe = shared.get(slot)
+		if not probe is Dictionary:
+			return []
+		var region := str((probe as Dictionary).get("region", "torso"))
+		# The Blender rest body uses +X for the pony's right, so its left/right labels are
+		# opposite the game's pony sides. Head points were exported in the mirrored head
+		# space and already use the game convention, so only torso slots swap.
+		var anchor_side := hand_side
+		if region != "head":
+			anchor_side = "right" if hand_side == "left" else "left"
+		var side_data: Variant = data.get(anchor_side)
+		if not side_data is Dictionary:
+			return []
 		var entry: Variant = (side_data as Dictionary).get(slot)
 		if not entry is Dictionary:
 			entry = shared.get(slot)
 		if not entry is Dictionary:
 			return []
-		var region := str((entry as Dictionary).get("region", "torso"))
 		var position := _entry_position(entry)
 		if not position.is_finite():
 			return []

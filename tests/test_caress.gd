@@ -350,8 +350,9 @@ func run() -> void:
 			if anchor_id == "belly":
 				continue
 			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
-			check(signf(anchor_x) == side_sign,
-				"the authored %s %s is on the %s side" % [side, anchor_id, side])
+			var wanted_sign := side_sign if anchor_id == "cheek" else -side_sign
+			check(signf(anchor_x) == wanted_sign,
+				"the authored %s %s matches the game %s side" % [side, anchor_id, side])
 		var anchors_two: Array = authored_path.call("_build_authored", body_pony, side, "two")
 		check(anchors_two.size() == 3, "the authored %s second path has three anchors" % side)
 		var ids_two: Array = []
@@ -361,8 +362,8 @@ func run() -> void:
 			"the authored %s second path follows flank-shoulder-neck" % side)
 		for anchor: Dictionary in anchors_two:
 			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
-			check(signf(anchor_x) == side_sign,
-				"the authored %s second path stays on the %s side" % [side, side])
+			check(signf(anchor_x) == -side_sign,
+				"the authored %s second path matches the game %s side" % [side, side])
 	var stand_pony := NodePony.new()
 	stand_pony._model = body_scene as Node3D
 	stand_pony.skeleton = body_sk
@@ -391,7 +392,7 @@ func run() -> void:
 			"forward lean walks the standing path away from the flank")
 		check(end_point.y > start_point.y or end_point.z < start_point.z,
 			"forward lean walks toward the shoulder and neck")
-		check((end_point as Vector3).x > 0.0, "the left hand stays on her left side")
+		check((end_point as Vector3).x < 0.0, "the left hand stays on her left side")
 		var debug_anchors: Array = standing_path.call("debug_world", "left")
 		check(debug_anchors.size() == 3,
 			"the standing debug path shows flank, shoulder and neck")

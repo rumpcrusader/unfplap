@@ -41,6 +41,9 @@ var _tail_pose: SkeletonModifier3D
 var _dock_attach: BoneAttachment3D
 var _dock_node: Node3D
 var _dock: MeshInstance3D
+var _tail_mesh: MeshInstance3D
+var _tail_mesh_original: ArrayMesh
+var _cap_hidden := false
 var _link: Node
 var _original_pelvis := Transform3D.IDENTITY
 var _anchor := Vector3.INF
@@ -69,6 +72,7 @@ var _status: Label
 var _fields: VBoxContainer
 var _aside: CheckButton
 var _reference_seat: CheckButton
+var _hide_cap: CheckButton
 
 
 func _ready() -> void:
@@ -313,6 +317,10 @@ func _build_ui() -> void:
 	_reference_seat.button_pressed = true
 	_reference_seat.toggled.connect(func(_on: bool) -> void: _apply_seat())
 	column.add_child(_reference_seat)
+	_hide_cap = CheckButton.new()
+	_hide_cap.text = "Hide root cap"
+	_hide_cap.toggled.connect(_set_hide_cap)
+	column.add_child(_hide_cap)
 	var hint := Label.new()
 	hint.text = "RMB look"
 	hint.add_theme_color_override("font_color", Color(0.72, 0.72, 0.8))
@@ -472,6 +480,9 @@ func _clear_mare() -> void:
 	_dock_attach = null
 	_dock_node = null
 	_dock = null
+	_tail_mesh = null
+	_tail_mesh_original = null
+	_cap_hidden = false
 	_link = null
 	_anchor = Vector3.INF
 	if is_instance_valid(_gizmo):
@@ -498,6 +509,13 @@ func _setup_tail() -> void:
 	_tail_offset.name = "LabTailOffset"
 	_tail_offset.process_priority = 100
 	_hair.add_child(_tail_offset)
+	var identity: Variant = _pony.get("identity")
+	var hair_node: Variant = _pony.get("hair")
+	if is_instance_valid(hair_node) and identity != null:
+		_tail_mesh = (hair_node as Node).find_child(
+			str(identity.get("hair_prefix")) + "DevkitTail", true, false) as MeshInstance3D
+		if is_instance_valid(_tail_mesh):
+			_tail_mesh_original = _tail_mesh.mesh as ArrayMesh
 	_link = _pony.get("hair_link") as Node
 	if is_instance_valid(_link) and _link.get("pelvis_offset") is Transform3D:
 		_original_pelvis = _link.get("pelvis_offset") as Transform3D
@@ -514,6 +532,8 @@ func _setup_tail() -> void:
 		_anchor = Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
 	else:
 		_anchor = Vector3.INF
+	if is_instance_valid(_hide_cap) and _hide_cap.button_pressed:
+		_set_hide_cap(true)
 
 
 func _reference_anchor() -> Vector3:
@@ -527,6 +547,59 @@ func _reference_anchor() -> Vector3:
 				_reference_cache = Vector3(float((value as Array)[0]),
 					float((value as Array)[1]), float((value as Array)[2]))
 	return _reference_cache
+
+
+## Remove the fully pinned tail root cap triangles from the near tail mesh. The pinned ring and
+## its weights stay, so the tail remains attached; only the closed end is removed.
+func _set_hide_cap(on: bool) -> void:
+	if not is_instance_valid(_tail_mesh):
+		return
+	if on:
+		if _cap_hidden:
+			return
+		if _tail_mesh_original == null:
+			_tail_mesh_original = _tail_mesh.mesh as ArrayMesh
+		var capped := _cap_less_mesh(_tail_mesh_original)
+		if capped != null:
+			_tail_mesh.mesh = capped
+			_cap_hidden = true
+	elif _cap_hidden:
+		if _tail_mesh_original != null:
+			_tail_mesh.mesh = _tail_mesh_original
+		_cap_hidden = false
+
+
+func _cap_less_mesh(source: ArrayMesh) -> ArrayMesh:
+	if source == null:
+		return null
+	var out := ArrayMesh.new()
+	for surface in source.get_surface_count():
+		var arrays: Array = source.surface_get_arrays(surface).duplicate(true)
+		var pinned: PackedInt32Array = source.get_meta("pinned_" + str(surface),
+			PackedInt32Array())
+		var index: Variant = arrays[Mesh.ARRAY_INDEX]
+		if index is PackedInt32Array and not pinned.is_empty():
+			var marked := {}
+			for i: int in pinned:
+				marked[i] = true
+			var list: PackedInt32Array = index
+			var keep := PackedInt32Array()
+			for at in range(0, list.size(), 3):
+				if marked.has(list[at]) and marked.has(list[at + 1]) \
+						and marked.has(list[at + 2]):
+					continue
+				keep.append(list[at])
+				keep.append(list[at + 1])
+				keep.append(list[at + 2])
+			arrays[Mesh.ARRAY_INDEX] = keep
+		var format := source.surface_get_format(surface) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		out.add_surface_from_arrays(source.surface_get_primitive_type(surface), arrays,
+			[], {}, format)
+		out.surface_set_material(surface, source.surface_get_material(surface))
+		out.surface_set_name(surface, source.surface_get_name(surface))
+	for key: Variant in source.get_meta_list():
+		out.set_meta(key, source.get_meta(key))
+	return out
 
 
 ## Move the tail base to the game reference anchor (runtime seat) or restore the identity mount.

@@ -549,8 +549,8 @@ func _reference_anchor() -> Vector3:
 	return _reference_cache
 
 
-## Remove the fully pinned tail root cap triangles from the near tail mesh. The pinned ring and
-## its weights stay, so the tail remains attached; only the closed end is removed.
+## Remove every near-tail face that touches a vertex weighted to the hair pelvis: the fully pinned
+## cap and the blended root collar. The free strands remain; the body/dock covers the opening.
 func _set_hide_cap(on: bool) -> void:
 	if not is_instance_valid(_tail_mesh):
 		return
@@ -572,21 +572,40 @@ func _set_hide_cap(on: bool) -> void:
 func _cap_less_mesh(source: ArrayMesh) -> ArrayMesh:
 	if source == null:
 		return null
+	var mount := -1
+	if is_instance_valid(_tail_mesh) and _tail_mesh.skin != null:
+		for i in _tail_mesh.skin.get_bind_count():
+			if _tail_mesh.skin.get_bind_name(i) == "mPelvis":
+				mount = i
+				break
 	var out := ArrayMesh.new()
 	for surface in source.get_surface_count():
 		var arrays: Array = source.surface_get_arrays(surface).duplicate(true)
 		var pinned: PackedInt32Array = source.get_meta("pinned_" + str(surface),
 			PackedInt32Array())
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var stride := bones.size() / maxi(vertices.size(), 1)
 		var index: Variant = arrays[Mesh.ARRAY_INDEX]
-		if index is PackedInt32Array and not pinned.is_empty():
-			var marked := {}
-			for i: int in pinned:
-				marked[i] = true
+		if index is PackedInt32Array:
 			var list: PackedInt32Array = index
 			var keep := PackedInt32Array()
 			for at in range(0, list.size(), 3):
-				if marked.has(list[at]) and marked.has(list[at + 1]) \
-						and marked.has(list[at + 2]):
+				var rooted := false
+				for k in 3:
+					var v := list[at + k]
+					if mount >= 0:
+						for i in stride:
+							if bones[v * stride + i] == mount \
+									and weights[v * stride + i] > 0.0001:
+								rooted = true
+								break
+					elif pinned.has(v):
+						rooted = true
+					if rooted:
+						break
+				if rooted:
 					continue
 				keep.append(list[at])
 				keep.append(list[at + 1])

@@ -1472,8 +1472,9 @@ examples.
   `W`/`S` zooms, hold **RMB** to look, `1`/`2`/`3` selects Anatomy/Tail/Dock, `G`/`R`/`T`
   selects move/rotate/scale. **Reference seat** moves the tail to the game reference anchor (on)
   or leaves the identity mount (off); the dock uses a bright debug material. **Hide root cap**
-  removes the fully pinned root-cap triangles from the near tail; the root ring keeps its weights,
-  and the body/dock covers the opening. **Save** writes the current mare's block to
+  removes every near-tail face touching the pelvis-weighted root (the pinned cap and the blended
+  collar); the free strands remain, and the body/dock covers the opening. **Save** writes the
+  current mare's block to
   `tools/anatomy_placement.json`; the runtime ignores that file. **Reset** previews the default
   block and **Reload** re-reads the file.
 - The lab moves every test pony to her snapshot spot (`TEST_SPAWNS`) at startup, so they stand

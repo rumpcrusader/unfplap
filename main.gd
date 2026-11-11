@@ -13,6 +13,7 @@ const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const STOOL := preload("res://mods/unfplap/stool.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
@@ -44,6 +45,8 @@ const CAPTION_TOP_MARGIN := 26.0
 ## The offer hint beside the game's prompt row: a single Y press starts the act, so it reads like
 ## the base game's tap prompts ("G · Carry"), not a hold. Only Y during an act is a hold.
 const OFFER_HINT := "Make love"
+## The standing-act note when her reach needs a footstool and Anon has none in the case.
+const NEEDS_STOOL_HINT := "Needs a footstool"
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default OFF. Toggle in the Debug settings tab.
 var debug_logs := false
@@ -57,6 +60,8 @@ var input
 var api: Node
 ## Anatomy system facade: per-pony controllers, the player part and tail seating.
 var anatomy: Node
+## Footstool system facade: the standing reach rule, item, act prop and world supply.
+var stool: Node
 var _anatomy_status_label: Label
 var initiation
 var classifier
@@ -67,6 +72,7 @@ var eligibility: Variant
 
 var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
+var _offer_blocked: Dictionary = {}
 var _offer_clock := 0.0
 ## Lover-bond maintenance: clear a stored bond once the loaded mare is no longer romantic.
 var _sex_bond_clock := 0.0
@@ -75,7 +81,10 @@ var _desktop: Node
 var _camera_cache: Camera3D
 var _camera_cache_at := 0.0
 var _last_offer_key := ""
+var _last_blocked_key := ""
+var _stool_hint_toast_shown := false
 var _native_hint_label: Control
+var _native_hint_text := ""
 var _debug_skeleton: Node3D
 var _injected_settings: Array = []
 ## The Debug block of each injected settings tab, toggled live by `debug_mode`.
@@ -157,6 +166,10 @@ func _ready() -> void:
 	anatomy.name = "UnfplapAnatomy"
 	anatomy.call("setup", self)
 	add_child(anatomy)
+	stool = STOOL.new()
+	stool.name = "UnfplapStool"
+	stool.call("setup", self)
+	add_child(stool)
 	api = API.new()
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)
@@ -200,11 +213,16 @@ func _on_world(host: Node) -> void:
 	if not is_instance_valid(eligibility):
 		eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
+	if is_instance_valid(stool):
+		stool.call("on_world", host)
+	_stool_hint_toast_shown = false
+	_last_blocked_key = ""
 	_interactor = null
 	_desktop = null
 	_camera_cache = null
 	_camera_cache_at = 0.0
 	_offer = {}
+	_offer_blocked = {}
 	_sex_bond_clock = 0.0
 	if is_instance_valid(initiation):
 		initiation.reset()
@@ -233,6 +251,10 @@ func _on_world_closed(_host: Node) -> void:
 	game = null
 	player = null
 	_offer = {}
+	_offer_blocked = {}
+	_last_blocked_key = ""
+	if is_instance_valid(stool):
+		stool.call("on_world_closed")
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -1098,7 +1120,8 @@ func _process(delta: float) -> void:
 			hud.update_from(active_runtime, show_readouts)
 			active_runtime.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
 		_offer = {}
-		_sync_native_hint(false)
+		_offer_blocked = {}
+		_sync_native_hint("")
 		return
 
 	_offer_clock += delta
@@ -1107,15 +1130,20 @@ func _process(delta: float) -> void:
 		_refresh_offer()
 	if is_instance_valid(initiation):
 		initiation.tick(delta)
-	if _offer.is_empty():
-		_last_offer_key = ""
-		_sync_native_hint(false)
+	var hint := ""
+	if not _offer.is_empty():
+		hint = OFFER_HINT
+	elif not _offer_blocked.is_empty():
+		hint = NEEDS_STOOL_HINT
 	else:
-		_sync_native_hint(true)
+		_last_offer_key = ""
+		_last_blocked_key = ""
+	_sync_native_hint(hint)
 
 
 func _refresh_offer() -> void:
 	_offer = {}
+	_offer_blocked = {}
 	if not is_instance_valid(player) or not is_instance_valid(game):
 		return
 	if get_tree().paused:
@@ -1164,6 +1192,10 @@ func _refresh_offer() -> void:
 			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
 				"source": "", "bed": null}
 			_log_offer()
+		elif is_instance_valid(runtime) \
+				and bool(runtime.call("stool_blocks_start", CATALOG.STANDING, "", null)):
+			_offer_blocked = {"runtime": runtime, "pony": standing}
+			_log_blocked_offer(runtime, standing)
 
 
 ## The standing Y zone: the nearest standing mare whose rear cone holds Anon. The cone alone
@@ -1219,11 +1251,13 @@ func _native_row() -> HBoxContainer:
 
 ## The offer hint is one more unit in the game's own prompt row, in that row's style and phrasing
 ## ("Hold G · Bridal carry" reads as "Hold: ..."), so it sits beside base prompts unnoticed.
-func _make_native_hint_label() -> Control:
-	return HUD.prompt_row("button_y", OFFER_HINT)
+func _make_native_hint_label(text: String) -> Control:
+	var icon := "button_y" if text == OFFER_HINT else ""
+	return HUD.prompt_row(icon, text)
 
 
 func _remove_native_hint(row: HBoxContainer = null) -> void:
+	_native_hint_text = ""
 	if is_instance_valid(_native_hint_label):
 		var holder: Node = _native_hint_label.get_parent()
 		if is_instance_valid(holder):
@@ -1240,29 +1274,47 @@ func _clear_native_hint() -> void:
 	_remove_native_hint(_native_row())
 
 
-func _sync_native_hint(show_hint: bool) -> void:
+func _sync_native_hint(text: String) -> void:
 	var row: HBoxContainer = _native_row()
 	if row == null:
 		if is_instance_valid(hud):
-			if show_hint:
-				hud.show_prompt(OFFER_HINT)
-			else:
+			if text.is_empty():
 				hud.hide_prompt()
+			else:
+				hud.show_prompt(text, "button_y" if text == OFFER_HINT else "")
 		return
-	if not show_hint:
+	if text.is_empty():
 		_remove_native_hint(row)
 		if is_instance_valid(hud):
 			hud.hide_prompt()
 		return
-	if not is_instance_valid(_native_hint_label) or _native_hint_label.get_parent() != row or _native_hint_label.is_queued_for_deletion():
+	if not is_instance_valid(_native_hint_label) or _native_hint_label.get_parent() != row \
+			or _native_hint_label.is_queued_for_deletion() or _native_hint_text != text:
 		_remove_native_hint(row)
-		_native_hint_label = _make_native_hint_label()
+		_native_hint_label = _make_native_hint_label(text)
+		_native_hint_text = text
 		row.add_child(_native_hint_label)
 	var parent: Node = row.get_parent()
 	if parent is Control:
 		(parent as Control).visible = true
 	if is_instance_valid(hud):
 		hud.hide_prompt()
+
+
+func _log_blocked_offer(runtime: Node, target: Node) -> void:
+	var key := "stool:%d" % target.get_instance_id()
+	if key == _last_blocked_key:
+		return
+	_last_blocked_key = key
+	var gap: Variant = runtime.call("stool_gap_m")
+	var gap_text := "n/a" if not (gap is float or gap is int) \
+		or not is_finite(float(gap)) else "%.3f" % float(gap)
+	_debug("OFFER blocked pony=%s reason=needs_stool gap=%s" % [
+		str(target.name), gap_text])
+	if not _stool_hint_toast_shown:
+		_stool_hint_toast_shown = true
+		if is_instance_valid(hud) and hud.has_method("toast"):
+			hud.call("toast", "Find a footstool in a house.", 4.0)
 
 
 func _log_offer() -> void:
@@ -1323,6 +1375,10 @@ func try_start() -> bool:
 		return false
 	_refresh_offer()
 	if _offer.is_empty():
+		if not _offer_blocked.is_empty():
+			if is_instance_valid(hud) and hud.has_method("toast"):
+				hud.call("toast", "Find a footstool in a house.", 4.0)
+			return false
 		return _try_refusal()
 	var runtime: Variant = _offer.get("runtime")
 	if not is_instance_valid(runtime):
@@ -1609,6 +1665,36 @@ func action_show_prompt_context() -> String:
 func action_reset_act_prompts() -> String:
 	SETTINGS.reset_act_prompts()
 	return "Act prompts reset to defaults."
+
+
+func action_give_stool() -> String:
+	if not is_instance_valid(game):
+		return "Act system not ready."
+	var inventory: Variant = game.get("inventory")
+	if not is_instance_valid(inventory):
+		return "No briefcase."
+	var store: Variant = inventory.get("inventory")
+	if store == null:
+		return "No briefcase."
+	var slot := int(store.call("grant", STOOL.ID, 1))
+	if slot < 0:
+		return "No room in the briefcase."
+	_debug("stool granted slot=%d" % slot)
+	return "Footstool added."
+
+
+func action_show_stool() -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime):
+		return "No runtime for %s." % str(target.name)
+	var text := str(runtime.call("stool_state_text"))
+	_debug_block("STOOL", [text])
+	return "Stool state printed for %s." % str(target.name)
 
 
 func _debug_history_target() -> Node:
@@ -2216,6 +2302,10 @@ func _exit_tree() -> void:
 			runtime.force_stop()
 			runtime.queue_free()
 	_runtimes.clear()
+	if is_instance_valid(stool):
+		stool.call("shutdown")
+		stool.queue_free()
+		stool = null
 	if is_instance_valid(anatomy):
 		anatomy.call("shutdown")
 		anatomy.queue_free()

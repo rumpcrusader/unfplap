@@ -14,6 +14,7 @@ Do not start implementation until you have read the required files for the area 
 | Any hands, caress or smack task | `docs/hands.md` |
 | Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
 | Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
+| Any standing footstool or stool-supply task | `docs/stool.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Any act face, mood or voice emotion | `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_act_face_beat`, `_eyes_tick`), `settings.gd` prompts |
@@ -94,6 +95,7 @@ modules; a system is for behavior with lifecycle, scene access or stored state.
 | Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
 | Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated; controller still holds attach |
+| Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
 | Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
@@ -110,6 +112,7 @@ Hands, eligibility and anatomy use `tests/<system>/`. The remaining suites are s
 | `docs/eligibility.md` | eligibility and consent |
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
+| `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
 | `HISTORY.md` | act summary and long-term history |
@@ -271,8 +274,12 @@ mods/unfplap/
                     oral/finish/debug; player part; fluid, teats, still zones and the anatomy shader
   anatomy/act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
                     a plain facts dictionary and returns pose/facing values
-  anatomy/player.gd player anatomy mesh, placement, girth/head/length shaping and throb
+  anatomy/player.gd player anatomy mesh, placement, girth/head/length shaping and throb;
+                    `player_prepare()` builds it hidden for the footstool measurement
   anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration
+  stool.gd          footstool facade: reach rule, case item, act prop and world supply
+  stool/            pure gap/item helpers, the static act prop and the house supply
+  docs/stool.md     standing footstool contract; never packed
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the
                     caress hand hold and shared two-bone palm solve
   consent.gd        pure per-mare public/anal/oral defaults and merge; a
@@ -531,6 +538,8 @@ The reference seat, dock skin, per-mare placement and debug actions are in `docs
   It is a normal recipe pass through `rig.rotate()`, so the native joint limits still clamp it.
   The idle standing invitation never sets the flag and keeps the natural stand.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
+- A live reach gap over `presentation.standing.stool_gap_m` needs a `goods:footstool`; the
+  footstool rule, act prop and world supply are in `docs/stool.md`.
 - Body facing is locked every physics tick at priority 100; the navigator must not turn her.
   `stay()` alone does not stop conversation facing, so `face_point` and the conversation target
   are cleared late each tick and `face_turn_rate` is held at `0` for the act. This stops the
@@ -1576,6 +1585,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   lines and a once-per-second `tail perf seats=… skinned=… builds=…/s` line aggregating every live
   dock; steady state is `builds=0/s` because the blend runs on the GPU.
 - **Hide tails** is the Anatomy debug tail-collapse toggle; see `docs/anatomy.md`.
+- **Give footstool** and **Show stool state** are General debug actions; see `docs/stool.md`.
 - `act_ear_pin` is one of General's ungrouped debug rows and defaults off. On, it pins the ears
   through `expressions.fluster()` for the whole act; off leaves the ears to the face beats and the
   climax fluster. It also forces full blush through the base fluster path, so it conflicts with
@@ -1694,6 +1704,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
+| `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs a `goods:footstool` for the standing act; the shop or a house drop supplies it |
 | `act_ear_pin` | `false` | General debug rows: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
 | `act_bystanders` | `true` | adult witness lines using the modern perception |
@@ -1806,7 +1817,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   needs at least three related settings to earn one. **General** is one ungrouped list in this
   order: Starting Sex, Show controls, Show HUD readouts, Show captions on top, Mute Ponese audio,
   Allow act lines, Show act expressions, Use precise caress, Caress quality, Remember acts, Climax limit, Sensitivity, Thrust direction,
-  Use Anon bed body, Use VR act, Allow hole switch, Allow oral, Allow finish control, then the
+  Use Anon bed body, Use VR act, Use footstool, Allow hole switch, Allow oral, Allow finish control, then the
   **Enable debug** switch. Its Debug block holds the perf-log and act-ear switches, the **Act face**
   section (climax face, blush arc, face log), auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts

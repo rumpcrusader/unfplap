@@ -69,6 +69,8 @@ func run() -> void:
 	_check_eligibility_docs()
 	_check_anatomy_isolation(files)
 	_check_anatomy_docs()
+	_check_stool_isolation(files)
+	_check_stool_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -263,6 +265,38 @@ func _check_anatomy_docs() -> void:
 	for name: String in ["AGENTS.md", "README.md", "ROTATION.md", "PREFERENCES.md", "TUNING.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/anatomy.md"), "%s links to docs/anatomy.md" % name)
+
+
+## The stool system is self-contained: only its facade may be preloaded outside `stool/`, and the
+## pure measurement/item files stay scene-free.
+func _check_stool_isolation(files: Array[String]) -> void:
+	for name: String in ["stool/measure.gd", "stool/item.gd"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+				"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+				"preload(\"res://mods/unfplap/main.gd\")"]:
+			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative == "stool.gd" or relative.begins_with("stool/"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		check(not text.contains("mods/unfplap/stool/"),
+			"%s uses the stool facade only" % relative)
+
+
+func _check_stool_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/stool.md"))
+	check(not contract.is_empty(), "docs/stool.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Rule",
+			"## Gate and hint", "## Act flow", "## Supply", "## Settings and debug",
+			"## Tests and limits"]:
+		check(contract.contains(heading), "docs/stool.md has %s" % heading)
+	for name: String in ["AGENTS.md", "README.md", "ROTATION.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/stool.md"), "%s links to docs/stool.md" % name)
 
 
 func _func_body(text: String, name: String) -> String:

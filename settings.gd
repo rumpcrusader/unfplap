@@ -692,6 +692,9 @@ static var orientation := choice("orientation", "thrust.orientation", "up", ["up
 	"Which mouse direction deepens the thrust.", GENERAL, "")
 static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "Use VR act",
 	"The standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", GENERAL, "")
+static var standing_stool := flag("standing_stool", "features.standing_stool", true,
+	"Use footstool",
+	"A mare much taller than Anon needs a footstool for the standing act. Find one in a house or buy one at the shop.", GENERAL, "")
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Allow hole switch",
 	"Let V switch between the front and the anal cup.", GENERAL, "")
 static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", false, "Allow oral",
@@ -1121,6 +1124,11 @@ static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset
 	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
 	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+static var stool_gap_m := num("stool_gap_m", "presentation.standing.stool_gap_m", 0.30,
+	"Stool gap",
+	"Vertical gap between her bits and Anon's that needs a footstool. 30 cm by default.",
+	GENERAL, "Standing › Motion") \
+	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
 static var glance_back_speed := num("glance_back_speed",
 	"presentation.standing.glance_back_speed", 2.0, "Glance-back speed",
 	"How fast a look-back glance eases in and out.", GENERAL, "Standing › Motion") \

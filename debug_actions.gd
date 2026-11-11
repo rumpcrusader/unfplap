@@ -88,6 +88,16 @@ const ACTIONS := {
 		"help": "Print the mod's normal-dialogue, memory and relationship context for the aimed or nearest mare.",
 		"method": "action_show_prompt_context",
 	},
+	"give_stool": {
+		"label": "Give footstool",
+		"help": "Add a footstool to Anon's briefcase.",
+		"method": "action_give_stool",
+	},
+	"show_stool": {
+		"label": "Show stool state",
+		"help": "Print the aimed or nearest mare's live reach gap and footstool state.",
+		"method": "action_show_stool",
+	},
 	"reset_act_prompts": {
 		"label": "Reset act prompts",
 		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",

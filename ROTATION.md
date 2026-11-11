@@ -281,6 +281,8 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is
   placed behind her.
+- A footstool may raise Anon's player root before the standing pose; the camera, feet and hips
+  follow the raised floor. The rule, prop and supply are in `docs/stool.md`.
 - Standing kiss mouth offsets, kiss lean distances and the missionary virtual mouth scale with
   `Settings.anon_height_scale()`, matching `player/player_mouth.gd`.
 - Canon lowers the standing eye line by `0.10 m` and multiplies lean travel by `0.8`; JRHNBR

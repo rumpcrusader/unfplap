@@ -478,6 +478,15 @@ var _eye_override := false
 var _saved_stand_eye := 0.0
 var _saved_eye_height := 0.0
 var _camera_target_eye := 0.0
+## Footstool state for the standing act. See docs/stool.md.
+var _stool_active := false
+var _stool_lifted := false
+var _stool_failed := false
+var _stool_token := ""
+var _stool_slot := -1
+var _stool_node: Node3D
+var _stool_height_m := 0.0
+var _stool_floor_y := 0.0
 var _wings
 var _act_seconds := 0.0
 ## Processed-time clock. It only advances while the runtime ticks, so a paused tree freezes
@@ -1296,6 +1305,132 @@ func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) ->
 	return _report_reasons(start_verdict(pose, act_source, bed_in).get("rows", []))
 
 
+## Whether the footstool rule can apply at all. Anatomy internals stay behind its facade.
+func stool_applies() -> bool:
+	if not SETTINGS.standing_stool.get_bool():
+		return false
+	if not SETTINGS.anatomy_on():
+		return false
+	if not is_instance_valid(main) or not is_instance_valid(pony) or not pony is Node3D:
+		return false
+	if not is_instance_valid(main.player) or not main.player is Node3D:
+		return false
+	var tree := get_tree() if is_inside_tree() else null
+	if PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
+		return false
+	if _headset_view():
+		return false
+	if not is_instance_valid(_anatomy) or not _anatomy.has_method("hole_point"):
+		return false
+	return true
+
+
+## The live vertical gap: her opening above her hooves against his part above his feet.
+## Returns NAN when either body or the anatomy is unavailable.
+func stool_gap_m() -> float:
+	if not stool_applies():
+		return NAN
+	var service: Variant = _anatomy_service()
+	if service == null or not service.has_method("player_prepare") \
+			or not service.has_method("player_root_now"):
+		return NAN
+	if not bool(service.call("player_prepare")):
+		return NAN
+	var opening: Variant = _anatomy.call("hole_point", 0.0)
+	var part: Variant = service.call("player_root_now")
+	if not opening is Vector3 or not (opening as Vector3).is_finite():
+		return NAN
+	if not part is Vector3 or not (part as Vector3).is_finite():
+		return NAN
+	var system: Variant = main.get("stool")
+	if system == null or not system.has_method("gap"):
+		return NAN
+	return float(system.call("gap", (opening as Vector3).y, pony.global_position.y,
+		(part as Vector3).y, main.player.global_position.y))
+
+
+func stool_required() -> bool:
+	var gap := stool_gap_m()
+	if not is_finite(gap):
+		return false
+	var system: Variant = main.get("stool") if is_instance_valid(main) else null
+	return system != null and bool(system.call("required", gap))
+
+
+func stool_case_slot() -> int:
+	var system: Variant = main.get("stool") if is_instance_valid(main) else null
+	var store: Variant = _inventory_store()
+	if system == null or store == null:
+		return -1
+	if not bool(system.call("writable", store)):
+		return -1
+	return int(system.call("case_slot", store))
+
+
+## True only when the footstool is the one thing keeping the Make love hint away.
+func stool_blocks_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+	if not stool_required() or stool_case_slot() >= 0:
+		return false
+	var reasons: PackedStringArray = _start_reasons(pose, act_source, bed_in)
+	if reasons.is_empty():
+		return false
+	for reason: String in reasons:
+		if reason != "needs_stool":
+			return false
+	return true
+
+
+func stool_state_text() -> String:
+	var system: Variant = main.get("stool") if is_instance_valid(main) else null
+	var store: Variant = _inventory_store()
+	var anatomy_ok := is_instance_valid(_anatomy) and _anatomy.has_method("hole_point")
+	var opening := Vector3.ZERO
+	if anatomy_ok:
+		var value: Variant = _anatomy.call("hole_point", 0.0)
+		if value is Vector3:
+			opening = value
+	var service: Variant = _anatomy_service()
+	var part := Vector3.ZERO
+	var part_ok := false
+	if service != null and service.has_method("player_prepare") \
+			and service.has_method("player_root_now"):
+		if bool(service.call("player_prepare")):
+			var value: Variant = service.call("player_root_now")
+			if value is Vector3 and (value as Vector3).is_finite():
+				part = value
+				part_ok = true
+	var hoof_y: float = pony.global_position.y if is_instance_valid(pony) and pony is Node3D else 0.0
+	var foot_y: float = main.player.global_position.y \
+		if is_instance_valid(main) and is_instance_valid(main.player) and main.player is Node3D else 0.0
+	var gap := NAN
+	if anatomy_ok and part_ok and system != null and system.has_method("gap") \
+			and is_instance_valid(pony) and is_instance_valid(main.player) and main.player is Node3D:
+		gap = float(system.call("gap", opening.y, hoof_y, part.y, foot_y))
+	var threshold := SETTINGS.stool_gap_m.get_num() if system == null \
+		else float(system.call("threshold_m"))
+	var gap_text := "n/a" if not is_finite(gap) else "%.3f" % gap
+	var owned := 0
+	var free := 0
+	if system != null and store != null:
+		owned = int(system.call("owned_count", store))
+		free = int(system.call("free_slots", store))
+	return "pony=%s applies=%s anatomy=%s part=%s her_opening=%.3f her_hoof=%.3f her_bits=%.3f his_root=%.3f his_feet=%.3f his_bits=%.3f floor_delta=%.3f gap=%s threshold=%.3f required=%s active=%s slot=%d owned=%d free=%d" % [
+		str(pony.name) if is_instance_valid(pony) else "?",
+		str(stool_applies()), str(anatomy_ok), str(part_ok),
+		opening.y, hoof_y, opening.y - hoof_y, part.y, foot_y, part.y - foot_y,
+		hoof_y - foot_y, gap_text, threshold, str(stool_required()),
+		str(_stool_active), stool_case_slot(), owned, free]
+
+
+func _inventory_store() -> Variant:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return null
+	var inventory: Variant = main.game.get("inventory")
+	if not is_instance_valid(inventory):
+		return null
+	return inventory.get("inventory")
+
+
 ## The full Y-start gate: eligibility policy rows plus the start scene rows. `show` is the hint,
 ## `attempt` is a start, and the two refusals are separate. See docs/eligibility.md.
 func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
@@ -1384,6 +1519,9 @@ func _scene_rows(pose: String, act_source: String, bed_in: Variant, mode: String
 	else:
 		_gate_row(rows, "nav_owner",
 			nav != null and _nav_owner_allows(pose, act_source), "nav_owner")
+	if pose == CATALOG.STANDING:
+		_gate_row(rows, "stool", not stool_required() or stool_case_slot() >= 0,
+			"needs_stool")
 	if pose == CATALOG.MISSIONARY:
 		var pose_ready := _authored_pose_ready()
 		_gate_row(rows, "pose_asset", pose_ready, _authored_pose_reason())
@@ -1941,6 +2079,12 @@ func start(pose: String, bed_in: Variant, act_source: String,
 			_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 			refuse(pose, act_source, bed_in, gate)
 		return false
+	_reset_stool_state()
+	_anatomy_refresh()
+	if pose == CATALOG.STANDING and stool_required():
+		if stool_case_slot() < 0 or not _take_stool_item():
+			_log("start blocked stool pose=%s pony=%s" % [pose, str(pony.name) if is_instance_valid(pony) else "?"])
+			return false
 	_camera_owned = false
 	_look_captured = false
 	_look_restore_yaw = pose != CATALOG.STANDING
@@ -2063,6 +2207,9 @@ func start(pose: String, bed_in: Variant, act_source: String,
 			pony.request_posture("stand")
 	else:
 		var standing := _begin_standing_placement()
+		if _stool_failed:
+			_abort_start()
+			return false
 		pony.request_posture("stand")
 		_standing_camera_controller().begin_facing(standing)
 
@@ -2334,7 +2481,9 @@ func _begin_standing_placement() -> Transform3D:
 	forward = forward.normalized()
 	var standing := Transform3D(Basis.looking_at(forward, Vector3.UP), pony.global_position)
 	if _player_pony or _headset_view() or not is_instance_valid(main) \
-			or not is_instance_valid(main.player):
+			or not is_instance_valid(main.player) or not main.player is Node3D:
+		if _stool_active:
+			_stool_failed = true
 		pony.reset_motion(standing)
 		pony.reset_physics_interpolation()
 		return standing
@@ -2342,15 +2491,134 @@ func _begin_standing_placement() -> Transform3D:
 	# The act end leaves him there instead of snapping him back.
 	var body: Variant = main.player
 	var target: Vector3 = pony.global_position - forward * _standing_gap()
+	var floor_y := _floor_y_at(Vector3(target.x, body.global_position.y + 0.4, target.z), body)
+	if not is_finite(floor_y) or absf(floor_y - body.global_position.y) > 1.0:
+		floor_y = body.global_position.y
 	target.y = body.global_position.y
+	if _stool_active:
+		var system: Variant = main.get("stool")
+		var built: Dictionary = {}
+		if system != null and system.has_method("build_prop"):
+			built = system.call("build_prop", system, Vector3(target.x, floor_y, target.z),
+				body.rotation.y)
+		var node: Variant = built.get("node")
+		if node is Node3D and is_instance_valid(node):
+			_stool_node = node
+			_stool_height_m = float(built.get("height", 0.0))
+			_stool_floor_y = floor_y
+			_stool_lifted = true
+			target.y = floor_y + _stool_height_m + 0.005
+			_log("stool placed height=%.3f floor=%.3f at=%s" % [
+				_stool_height_m, floor_y, str(Vector3(target.x, floor_y, target.z))])
+		else:
+			_stool_failed = true
+			_log("stool placement failed at=%s" % str(Vector3(target.x, floor_y, target.z)))
 	body.global_position = target
+	if _stool_lifted and body.get("velocity") != null:
+		body.set("velocity", Vector3.ZERO)
 	# Do not inherit the previous act's view: face him along her forward, so his body is in front
 	# of the camera instead of off to one side after a missionary restore.
 	body.rotation.y = atan2(-forward.x, -forward.z)
 	body.reset_physics_interpolation()
-	_log("standing keeps pony at=%s and places Anon at=%s yaw=%.3f" % [
-		str(pony.global_position), str(target), body.rotation.y])
+	_log("standing keeps pony at=%s and places Anon at=%s yaw=%.3f stool=%s" % [
+		str(pony.global_position), str(target), body.rotation.y, str(_stool_active)])
 	return standing
+
+
+## Remove the act prop and put the exact case item back. Every exit path calls this.
+func _release_stool() -> void:
+	var was_active := _stool_active or not _stool_token.is_empty()
+	if is_instance_valid(_stool_node):
+		var system: Variant = main.get("stool") if is_instance_valid(main) else null
+		if system != null and system.has_method("free_prop"):
+			system.call("free_prop", _stool_node)
+		else:
+			_stool_node.queue_free()
+	_stool_node = null
+	if _stool_lifted and is_instance_valid(main) and is_instance_valid(main.player) \
+			and main.player is Node3D:
+		var body: Variant = main.player
+		var at: Vector3 = body.global_position
+		var floor_y := _stool_floor_y
+		var candidate := _floor_y_at(Vector3(at.x, at.y + 0.2, at.z), body)
+		if is_finite(candidate) and absf(candidate - _stool_floor_y) < 0.5:
+			floor_y = candidate
+		body.global_position = Vector3(at.x, floor_y + 0.002, at.z)
+		if body.get("velocity") != null:
+			body.set("velocity", Vector3.ZERO)
+		body.reset_physics_interpolation()
+		_log("stool lowered player floor=%.3f" % floor_y)
+	if not _stool_token.is_empty():
+		var store: Variant = _inventory_store()
+		var returned := false
+		if store != null:
+			returned = bool(store.call("put", _stool_token, _stool_slot))
+			if not returned:
+				returned = bool(store.call("put", _stool_token, -1))
+		if returned:
+			_log("stool returned slot=%d" % _stool_slot)
+		else:
+			_log("stool item restore pending token=%s" % _stool_token)
+	if was_active:
+		_log("stool released")
+	_stool_active = false
+	_stool_lifted = false
+	_stool_failed = false
+	_stool_token = ""
+	_stool_slot = -1
+	_stool_height_m = 0.0
+	_stool_floor_y = 0.0
+
+
+func _reset_stool_state() -> void:
+	if _stool_active or not _stool_token.is_empty() or is_instance_valid(_stool_node):
+		_release_stool()
+	_stool_active = false
+	_stool_lifted = false
+	_stool_failed = false
+	_stool_token = ""
+	_stool_slot = -1
+	_stool_node = null
+	_stool_height_m = 0.0
+	_stool_floor_y = 0.0
+
+
+func _take_stool_item() -> bool:
+	var system: Variant = main.get("stool") if is_instance_valid(main) else null
+	var store: Variant = _inventory_store()
+	if system == null or store == null or not bool(system.call("writable", store)):
+		return false
+	var slot := int(system.call("case_slot", store))
+	if slot < 0:
+		return false
+	var token := str(store.call("take", slot))
+	if token.is_empty():
+		return false
+	_stool_token = token
+	_stool_slot = slot
+	_stool_active = true
+	_stool_failed = false
+	_log("stool item taken slot=%d" % slot)
+	return true
+
+
+## The floor under a standing spot. The player is excluded so his own capsule cannot answer.
+func _floor_y_at(at: Vector3, body: Node3D) -> float:
+	if not is_instance_valid(body) or not at.is_finite():
+		return NAN
+	var world := body.get_world_3d()
+	if world == null:
+		return NAN
+	var query := PhysicsRayQueryParameters3D.create(at, at + Vector3.DOWN * 1.4, 1)
+	if body is CollisionObject3D:
+		query.exclude = [body.get_rid()]
+	var hit: Dictionary = world.direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return NAN
+	var point: Vector3 = hit.get("position", Vector3.ZERO)
+	var y := float(point.y)
+	return y if is_finite(y) else NAN
+
 
 func _standing_transform() -> Transform3D:
 	var view: Camera3D = main.camera()
@@ -5077,6 +5345,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_unlock_player()
 	if _camera_owned:
 		_restore_camera()
+	_release_stool()
 	if is_instance_valid(pony):
 		pony.remove_meta("sex_active")
 	# integration: hide the player part when the act ends.
@@ -6477,6 +6746,7 @@ func _snout() -> Vector3:
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
 	_kiss_controller().restore_forelegs()
+	_release_stool()
 	_end_tail_tuck()
 	# integration: never leave the anatomy nodes or the per-act controller behind.
 	var was_standing := pose_id == CATALOG.STANDING

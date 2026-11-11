@@ -254,6 +254,10 @@ var thrust_up := true
 var _pose
 ## Bed space of the hand-authored missionary base pose for this act (`null` for other poses).
 var _bed_pose_frame: Variant = null
+## The bed's global transform when `_bed_pose_frame` was last synced. A moving bed (Rainbow Dash's
+## Cloudominium drifts) carries the authored pose by this rigid delta; a stationary bed early-outs.
+var _bed_frame_source := Transform3D.IDENTITY
+var _bed_frame_source_saved := false
 ## One settled-pose log line per act.
 var _pose_logged := false
 ## Frames the render-time placement trace has printed this act (two, then it stops).
@@ -626,8 +630,8 @@ func _anatomy_context() -> RefCounted:
 	return _anatomy_facts
 
 
-## Write the state the persistent controller polls outside the act. `bed_frame` is the cached
-## missionary frame, so the anatomy never reads the runtime field directly.
+## Write the state the persistent controller polls outside the act. `bed_frame` is the live
+## missionary bed frame, so the anatomy never reads the runtime field directly.
 func _sync_anatomy_facts() -> void:
 	_anatomy_facts.state = state
 	_anatomy_facts.pose_id = pose_id
@@ -1058,6 +1062,7 @@ func _process_tick(delta: float) -> void:
 	if state == State.IDLE:
 		_standing_presentation_controller().process()
 		return
+	_sync_bed_pose_frame()
 	_pose_render_write()
 	_pose_idle_sample()
 	_standing_camera_controller().clamp_look()
@@ -1214,6 +1219,7 @@ func _physics_tick(delta: float) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		force_stop()
 		return
+	_sync_bed_pose_frame()
 	if pony.sleeping:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
@@ -2823,6 +2829,24 @@ func _missionary_pose_frame() -> Variant:
 	return Transform3D(basis, Vector3(at.x, top, at.z))
 
 
+## A bed can move under the act: the Cloudominium's CloudDrift moves it every 0.1 s from
+## TimeOfDay.active_seconds. The authored pose, the act body, the camera shot and the anatomy
+## placement are all bed-space, so carry them with the bed instead of leaving them at the world
+## transform where the act started. The delta is rigid; the mattress top is not re-measured.
+func _sync_bed_pose_frame() -> void:
+	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(bed) \
+			or not _bed_frame_source_saved or not _bed_pose_frame is Transform3D:
+		return
+	var now := bed.global_transform
+	if now.is_equal_approx(_bed_frame_source):
+		return
+	var delta := now * _bed_frame_source.affine_inverse()
+	_bed_pose_frame = delta * (_bed_pose_frame as Transform3D)
+	_bed_frame_source = now
+	if is_instance_valid(_pose):
+		_pose.bed_frame = _bed_pose_frame
+
+
 func _build_pose() -> void:
 	_free_pose()
 	var skeleton: Variant = pony.get("skeleton")
@@ -2838,6 +2862,9 @@ func _build_pose() -> void:
 		_pose.target_amount = 1.0
 		if pose_id == CATALOG.MISSIONARY:
 			_bed_pose_frame = _missionary_pose_frame()
+			_bed_frame_source_saved = is_instance_valid(bed)
+			if _bed_frame_source_saved:
+				_bed_frame_source = (bed as Node3D).global_transform
 			_pose.authored = _authored_pose()
 			_pose.bed_frame = _bed_pose_frame
 			_log_pose_base()
@@ -2919,6 +2946,8 @@ func _free_pose() -> void:
 		_tail_lay.queue_free()
 	_tail_lay = null
 	_bed_pose_frame = null
+	_bed_frame_source_saved = false
+	_bed_frame_source = Transform3D.IDENTITY
 	clear_presentation()
 	_end_lean_action()
 	_hand_controller().reset()

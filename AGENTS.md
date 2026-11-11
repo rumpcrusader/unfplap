@@ -407,6 +407,10 @@ reclined eye height left the camera wrong after the act.
   head direction. `poses/authored_pose.gd` maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`
   and places `bed_frame * (pony_frame × body_scale)`.
+- **The bed frame follows the bed.** `_bed_pose_frame` is updated each tick by the bed's rigid
+  delta, so a moving bed (the Cloudominium's CloudDrift) carries the authored pose, the act body and
+  the shot. The snapshot stores the bed transform, and `restore_scene()` applies the same delta to
+  the player, pony and camera so the cuddle rejoin starts beside the current bed.
 - **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
   `enter`/`leave`, the posture, the terrain solver), so the runtime runs the same recipe again from
   `_process` after every other writer: `skeleton_pose.apply_render()`, same weight, no ramp or clock

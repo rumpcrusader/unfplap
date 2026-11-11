@@ -33,9 +33,15 @@ Missionary is its own state, not the game's bed rest:
 - **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
 - **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
-- **The end restores the scene** (`restore_scene()`: player, pony and camera snapshot) and stands
-  her. A normal end of a bed act then returns to the cuddle: Anon sits on the bed's player seat and
-  lies back, and she is invited into its guest seat, where the stock `CuddleSession` picks her up.
+- **The bed frame follows the bed.** `_bed_pose_frame` is updated each tick by the bed's rigid
+  delta; a moving bed (the Cloudominium's CloudDrift) carries the authored pose, the act body and
+  the shot instead of leaving them at the world transform where the act started. The mattress top
+  is not re-measured.
+- **The end restores the scene relative to the bed** (`restore_scene()`: player, pony and camera
+  snapshot plus the bed transform) and stands her. A moving bed applies the same rigid delta to all
+  three, so the cuddle rejoin starts beside the current bed. A normal end of a bed act then returns
+  to the cuddle: Anon sits on the bed's player seat and lies back, and she is invited into its guest
+  seat, where the stock `CuddleSession` picks her up.
   A forced stop, a bad summary or a stock closeness refusal leaves her standing. The snapshot is
   re-read once the pose settles (`resnapshot()` at ACTIVE): taken at `prepare()` it catches Anon mid
   stand-up and restores the reclined eye height. `resnapshot()` refreshes only the game camera's

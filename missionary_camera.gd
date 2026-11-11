@@ -36,8 +36,10 @@ var _missionary_start_camera: Camera3D
 var _missionary_start_camera_transform := Transform3D.IDENTITY
 var _missionary_start_player_transform := Transform3D.IDENTITY
 var _missionary_start_pony_transform := Transform3D.IDENTITY
+var _missionary_start_bed_transform := Transform3D.IDENTITY
 var _missionary_start_pony_posture := ""
 var _missionary_start_saved := false
+var _missionary_start_bed_saved := false
 var _desktop_presentation: Node
 var _desktop_presentation_enabled := true
 var _desktop_presentation_processing := true
@@ -81,6 +83,9 @@ func resnapshot() -> void:
 		_missionary_start_camera_transform = main.camera().global_transform
 	_missionary_start_pony_transform = pony.global_transform
 	_missionary_start_pony_posture = str(pony.call("posture_status").get("requested", ""))
+	_missionary_start_bed_saved = is_instance_valid(bed)
+	if _missionary_start_bed_saved:
+		_missionary_start_bed_transform = (bed as Node3D).global_transform
 	_missionary_start_saved = true
 
 
@@ -529,6 +534,7 @@ func _free_missionary_view() -> void:
 
 ## Remember the exact scene at missionary start so ending early can revert to it.
 func _snapshot_missionary_start() -> void:
+	_missionary_start_bed_saved = false
 	_missionary_start_camera = runtime.get_viewport().get_camera_3d() \
 		if runtime.get_viewport() != null else null
 	if is_instance_valid(_missionary_start_camera):
@@ -538,6 +544,9 @@ func _snapshot_missionary_start() -> void:
 	if is_instance_valid(pony):
 		_missionary_start_pony_transform = pony.global_transform
 		_missionary_start_pony_posture = str(pony.call("posture_status").get("requested", ""))
+		_missionary_start_bed_saved = is_instance_valid(bed)
+		if _missionary_start_bed_saved:
+			_missionary_start_bed_transform = (bed as Node3D).global_transform
 		_missionary_start_saved = true
 
 
@@ -575,24 +584,34 @@ func _restore_anon_avatar() -> void:
 	_desktop_presentation_processing = true
 
 
-## Put the player, the pony and the camera back exactly as the act found them. The act's own state
-## is over here; the runtime's bed cuddle rejoin starts from this restored standing spot.
+## Put the player, the pony and the camera back at the same place relative to the bed as the act
+## found them. The act's own state is over here; the runtime's bed cuddle rejoin starts from this
+## restored standing spot.
 func _restore_scene() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	if not _missionary_start_saved:
 		return
+	# A moving bed carries the whole scene with it. The snapshots are world transforms from the
+	# ACTIVE settle; applying the bed's rigid delta since then puts the player, pony and camera
+	# back at the same place relative to the live bed, so the cuddle rejoin starts in reach.
+	var delta := Transform3D.IDENTITY
+	var bed_shift := 0.0
+	if is_instance_valid(bed) and _missionary_start_bed_saved:
+		delta = (bed as Node3D).global_transform * _missionary_start_bed_transform.affine_inverse()
+		bed_shift = (bed as Node3D).global_position.distance_to(_missionary_start_bed_transform.origin)
 	# Player/pony first, camera last: setting the player yaw rotates a child camera, so the snapshot
 	# camera transform must be applied after the rig is back in place.
-	main.player.global_transform = _missionary_start_player_transform
-	pony.global_transform = _missionary_start_pony_transform
+	main.player.global_transform = delta * _missionary_start_player_transform
+	pony.global_transform = delta * _missionary_start_pony_transform
 	pony.reset_physics_interpolation()
 	if is_instance_valid(_missionary_start_camera):
-		_missionary_start_camera.global_transform = _missionary_start_camera_transform
+		_missionary_start_camera.global_transform = delta * _missionary_start_camera_transform
 		_missionary_start_camera.make_current()
-	_log("missionary restore: scene restored camera=%s player=%s pony=%s" % [
-		str(_missionary_start_camera_transform.origin), str(_missionary_start_player_transform.origin),
-		str(_missionary_start_pony_transform.origin)])
+	_log("missionary restore: bed_shift=%.2f scene restored camera=%s player=%s pony=%s" % [
+		bed_shift, str((delta * _missionary_start_camera_transform).origin),
+		str((delta * _missionary_start_player_transform).origin),
+		str((delta * _missionary_start_pony_transform).origin)])
 
 
 ## One line at act start: the authored shot ends.

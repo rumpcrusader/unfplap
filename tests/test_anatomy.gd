@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_anatomy.gd
 
 const CONSENT := preload("res://mods/unfplap/consent.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")

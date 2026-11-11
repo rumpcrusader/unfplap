@@ -58,6 +58,8 @@ var hud
 var input
 ## Cross-mod API facade; see docs/api.md.
 var api: Node
+## Anatomy system facade: per-pony controllers and the player part.
+var anatomy: Node
 ## integration: the optional player anatomy part is created once per player.
 var anon_part: Node
 ## Debug: the global hide-tails toggle lives outside every pony runtime.
@@ -160,6 +162,10 @@ func _ready() -> void:
 	initiation.name = "UnfplapInitiation"
 	initiation.main = self
 	add_child(initiation)
+	anatomy = ANATOMY.new()
+	anatomy.name = "UnfplapAnatomy"
+	anatomy.call("setup", self)
+	add_child(anatomy)
 	tail_visibility = TAIL_VISIBILITY.new()
 	tail_visibility.name = "UnfplapTailVisibility"
 	add_child(tail_visibility)
@@ -365,6 +371,8 @@ func _on_pony(pony: Node) -> void:
 	runtime.name = "UnfplapRuntime"
 	runtime.set("pony", pony)
 	runtime.set("main", self)
+	if is_instance_valid(anatomy):
+		anatomy.call("bind", pony, runtime)
 	pony.add_child(runtime)
 	_runtimes[pony] = runtime
 	_debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
@@ -1726,6 +1734,9 @@ func refresh_anatomy() -> void:
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime) and runtime.has_method("apply_live_settings"):
 			runtime.call("apply_live_settings")
+	if is_instance_valid(anatomy):
+		anatomy.call("refresh_all")
+		anatomy.call("apply_live")
 	if is_instance_valid(anon_part) and anon_part.has_method("apply_live"):
 		anon_part.call("apply_live")
 
@@ -2346,6 +2357,10 @@ func _exit_tree() -> void:
 			runtime.force_stop()
 			runtime.queue_free()
 	_runtimes.clear()
+	if is_instance_valid(anatomy):
+		anatomy.call("shutdown")
+		anatomy.queue_free()
+		anatomy = null
 	_offer = {}
 	if is_instance_valid(hud):
 		hud.queue_free()

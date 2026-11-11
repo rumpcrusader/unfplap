@@ -43,6 +43,7 @@ const SOUND := preload("res://mods/unfplap/act_sound.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const ANATOMY_CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
@@ -543,25 +544,28 @@ func _ready() -> void:
 	call_deferred("_anatomy_refresh")
 
 
-## integration: create or drop the persistent anatomy controller. Called at ready and on every
-## settings edit, including while idle.
+## integration: resolve the persistent anatomy controller through the world service. The service
+## owns it; the runtime only keeps the handle for the act.
 func _anatomy_refresh() -> void:
 	if not is_instance_valid(pony):
 		return
-	if not SETTINGS.anatomy_on():
-		if is_instance_valid(_anatomy):
+	var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
+	if not SETTINGS.anatomy_on() or not ANATOMY.eligible(pony) or not ANATOMY.assets_exist():
+		if service != null and service.has_method("detach_controller"):
+			service.call("detach_controller", pony)
+		elif is_instance_valid(_anatomy):
 			_anatomy.call("detach")
 			_anatomy.queue_free()
 		_anatomy = null
 		return
-	if not ANATOMY.eligible(pony) or not ANATOMY.assets_exist():
+	if service != null and service.has_method("controller_for"):
+		_anatomy = service.call("controller_for", pony, self)
 		if is_instance_valid(_anatomy):
-			_anatomy.call("detach")
-			_anatomy.queue_free()
-		_anatomy = null
+			_anatomy.call("refresh")
 		return
+	# Fallback for tests or a host without the service.
 	if not is_instance_valid(_anatomy):
-		_anatomy = ANATOMY.new()
+		_anatomy = ANATOMY_CONTROLLER.new()
 		_anatomy.name = "UnfplapAnatomyController"
 		add_child(_anatomy)
 		_anatomy.call("setup", pony, self)
@@ -6491,8 +6495,12 @@ func _exit_tree() -> void:
 		_missionary_anon = null
 	_stop_vr_act()
 	if is_instance_valid(_anatomy):
-		_anatomy.call("detach")
-		_anatomy.queue_free()
+		var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
+		if service != null and service.has_method("detach_controller"):
+			service.call("detach_controller", pony)
+		else:
+			_anatomy.call("detach")
+			_anatomy.queue_free()
 		_anatomy = null
 	_end_act_face()
 	if is_instance_valid(_mood_face):

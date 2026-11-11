@@ -67,6 +67,7 @@ func run() -> void:
 	_check_hands_docs()
 	_check_eligibility_isolation(files)
 	_check_eligibility_docs()
+	_check_anatomy_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -215,6 +216,19 @@ func _check_eligibility_docs() -> void:
 	for name: String in ["AGENTS.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md", "README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/eligibility.md"), "%s links to docs/eligibility.md" % name)
+
+
+## The anatomy contract owns the anatomy and tail-seating rules. It is one file; AGENTS and the
+## settings/pose docs link to it instead of restating them.
+func _check_anatomy_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/anatomy.md"))
+	check(not contract.is_empty(), "docs/anatomy.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Controls", "## Act anatomy",
+			"## Tail seating", "## Tests", "## Migration target"]:
+		check(contract.contains(heading), "docs/anatomy.md has %s" % heading)
+	for name: String in ["AGENTS.md", "README.md", "ROTATION.md", "PREFERENCES.md", "TUNING.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/anatomy.md"), "%s links to docs/anatomy.md" % name)
 
 
 func _func_body(text: String, name: String) -> String:

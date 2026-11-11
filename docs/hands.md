@@ -264,3 +264,7 @@ selection and starts the swing.
   flank/rump point.
 - The area chain uses one representative point per group (the vertex nearest the group mean). It
   does not roam the whole marked region; the oval remains the local stroke.
+- `hand_control.gd` is the facade and the coordinator in one file. It still reads runtime
+  presentation fields (`_lean_forward`, `_presentation_cfg`, `_profile`, `_size_scale`) and
+  calls runtime internals (`_on_touch`, `_log`, `perf_note`). New hand code uses the coordinator's
+  methods; do not add another host read.

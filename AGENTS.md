@@ -13,6 +13,7 @@ Do not start implementation until you have read the required files for the area 
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
 | Any hands, caress or smack task | `docs/hands.md` |
 | Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
+| Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Any act face, mood or voice emotion | `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_act_face_beat`, `_eyes_tick`), `settings.gd` prompts |
@@ -44,8 +45,76 @@ Do not start implementation until you have read the required files for the area 
   still need the game's relationship runtime and adult bond.
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
-- The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
-  `HISTORY.md`, `ROTATION.md` and `docs/eligibility.md`.
+- The user-facing summary is `README.md`. The per-system contracts are indexed in
+  `## Architecture: isolated systems`.
+
+## Architecture: isolated systems
+
+Unfplap is built from isolated systems. A system owns one responsibility and exposes it through
+one mod-internal API; other systems talk to it only through that API.
+
+| Part | Rule |
+|---|---|
+| `<system>.gd` | the facade: the only file another system may preload or call. It owns scene access, lifecycle and the system's stored state. |
+| `<system>/` | private implementation: pure modules, paths, data and resources. Nothing outside the system preloads these files. |
+| `docs/<system>.md` | the system's one technical contract. `AGENTS.md` links to it and does not restate it. |
+| `tests/<system>/` | the system's suites: pure core tests and facade/API tests stay separate. |
+
+The facade's public methods are the system's **internal API**. This is not the cross-mod API:
+`docs/api.md` and `api.gd` are the stable contract another mod may call. Internal APIs change
+freely with the mod and are never added to `docs/api.md` by accident.
+
+Rules:
+
+- One responsibility per system. If the description needs "and", split it.
+- The facade is the only scene adapter. It reads Nodes, `Settings`, the tree and the game, then
+  passes plain values to pure modules. A pure module has no `Node`, `Time`, `SceneTree`,
+  `FileAccess`, game scene preload or another system's facade.
+- A system never reads another system's private fields, `_` helpers, child nodes or raw scene
+  state. It calls the other facade, or receives the values it needs as arguments.
+- Exchange values, not Nodes. Use a typed `RefCounted` context, a plain dictionary or a
+  documented handle at the boundary. `runtime` is a caller, not a service locator.
+- Dependencies point one way: system -> shared pure data (`settings`, `poses/catalog`,
+  `eligibility/facts`, `cycle`, `preferences`) -> game. `main` and `runtime` compose systems and
+  keep orchestration, state and ordering; they never hold a system's implementation.
+- One contract per system under `docs/`. `AGENTS.md` holds project-wide rules and the index only.
+- Every system ships its contract, its tests and its source-hygiene boundary in the same change
+  that introduces it.
+- Migrate one system at a time: extract the pure core, add the facade, route callers, move the
+  tests and the contract, then delete the old path. No mixed-state commits.
+
+A system is not the right unit for a tiny pure helper or a data table. `settings.gd`,
+`poses/catalog.gd`, `preferences.gd`, `cycle.gd` and `anatomy_placement.gd` stay shared pure
+modules; a system is for behavior with lifecycle, scene access or stored state.
+
+### Systems
+
+| System | Entry | Contract | Status |
+|---|---|---|---|
+| Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
+| Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
+| Anatomy | `anatomy.gd` | `docs/anatomy.md` | refactor in progress |
+| Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
+| Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
+| Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
+| Cross-mod API | `api.gd` | `docs/api.md` | stable |
+
+Current test suites are flat (`tests/test_*.gd`). A system moves to `tests/<system>/` when it is
+next touched; anatomy starts that convention.
+
+### Docs
+
+| Doc | Owns |
+|---|---|
+| `docs/api.md` | cross-mod API only |
+| `docs/eligibility.md` | eligibility and consent |
+| `docs/hands.md` | hands, caress and smack |
+| `docs/anatomy.md` | anatomy, player part and tail seating |
+| `ROTATION.md` | pose, skeleton and camera |
+| `PREFERENCES.md` | readiness, preference and strength |
+| `HISTORY.md` | act summary and long-term history |
+| `TUNING.md` | settings framework |
+| `WORKFLOW.md` | commands, lab and release flow |
 
 ## Workflow
 
@@ -178,7 +247,7 @@ scripts/check.sh
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
   shadows source edits.
 
-## Architecture and important files
+## Important files
 
 ```text
 mods/unfplap/
@@ -196,9 +265,10 @@ mods/unfplap/
   eligibility/      pure policy, facts and verdict helpers
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip; every adult identity with
-                    `pony_hips`, not only the base roster
+                    `pony_hips`, not only the base roster; contract in `docs/anatomy.md`
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
+  anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the
                     caress hand hold and shared two-bone palm solve
   consent.gd        pure per-mare public/anal/oral defaults and merge; a
@@ -289,6 +359,8 @@ mods/unfplap/
   ROTATION.md       pose, skeleton and camera positioning contract
   docs/api.md       cross-mod API contract; never packed
   docs/eligibility.md  eligibility and consent contract; never packed
+  docs/hands.md     hands, caress and smack contract; never packed
+  docs/anatomy.md   anatomy, player part and tail seating contract; never packed
 ```
 
 Entry script only. No script extensions, game-file edits or JSON merges. The bed-size extension
@@ -448,66 +520,7 @@ reclined eye height left the camera wrong after the act.
 
 ### Tail seating
 
-- `anatomy.reseat_tails` (Anatomy → **Re-seat tails and docks**, default on) moves every adult
-  mare's hair tail base to the game's exact reference anchor from
-  `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's canonical
-  dock seat, derived from the body's own tail root (`pony_tail_01`). Mares added by other mods use
-  the same seat: they are not gated by `SETTINGS.CHARACTER_ORDER`, an id with no
-  `dock_visibility_fits.json` row gets `DOCK_VISIBILITY_FALLBACK`, and its
-  `tail_y`/`tail_z`/`dock_y`/`dock_scale`/`tail_tilt_deg` come from the global
-  `anatomy.placement.default.*`; the princesses' fitted bodies have no hair skeleton, so their
-  tail seat is unavailable and their pre-hidden dock stays hidden.
-- The `OpenPonyDock` uses the game reference fit, not `effective_fit()`: the per-mare
-  `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
-  that tail to the reference, pushes the cuff above and behind the tail base. The fit is
-  re-reached with `hybrid_dock`, its base ring is snapped to `hybrid_dock.rump_z(y) - 4 mm` by
-  `dock_seat.gd`. The dock keeps her coat material by default; Anatomy → **Dock colour** switches
-  it to a copy of the attached anatomy material with `coat_color`/`coat_shadow` set to her skin
-  tones (her genital skin tone). The 4 mm embed and a falloff over the
-  first 35% of the dock keep the base in the coat without creasing. The body, skeleton, mane and
-  anatomy placement are untouched.
-- The dock's outer opening is seated on the pinned tail cap's vertical centre. `tail_seat.gd`
-  measures the cap low/high in body bind space and the fitted dock's top, then applies
-  `cap_centre - dock_top` through `dock_attach.gd`; there is no fixed drop constant. The Anatomy
-  **Dock offset** trims that cuff position.
-- `dock_attach.gd` builds the dock as a two-bind GPU skin on the hair skeleton: `mPelvis` at the
-  base, `mTail1` at the outer end, and the same smoothstep weight between them. The mesh stays in
-  the body skeleton's space; the bind poses convert body space into the hair skeleton's bind space
-  (`rest_pose^-1 * hair_global^-1 * body_global`), and the dock's instance transform carries the
-  lift as a post-skin body-space Y offset. The engine blends it every frame, so there is no
-  per-frame mesh rebuild; lift, aside, flick, tail lay and tail tuck all carry the cuff, and it
-  never bridges body and tail, so sitting cannot stretch it. The mesh keeps the dock metadata
-  (`base_indices`, `pinned_*`).
-- The dock must stay parented under the hair skeleton: `hybrid_far_mesh.sources()` bakes every
-  visible `_model` mesh with a skin into the far mesh, and a hair-bound skin there would be
-  remapped onto body bones. Under `hair`, `_show_far_mesh()` hides the cuff with the hair and the
-  near/far bakes ignore it by name. Turning the setting off restores the original parent, local
-  transform, skeleton path, skin, mesh and material, and strips the game's `parked_skeleton` meta.
-- `anatomy.placement` is the one placement block: `offset_x/y/z`, `pitch_deg`, `scale`, `tail_y`,
-  `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. `default` is global; `<mare id>` stores
-  only differences. `anatomy.placement_target` selects Default or Pointed mare for every
-  placement action.
-- `tail_y`/`tail_z` move the tail from the exact reference; the dock follows. `dock_y` trims the
-  cuff and `dock_scale` scales it. `tail_tilt_deg` rotates the hair pelvis about the body's rear
-  axis, origin fixed, so the whole tail and its dock tilt sideways without moving the base. All
-  apply live.
-- The seat is measured once on the live pony with `dock_tail_mount.measure()`. The original hair
-  `pelvis_offset`, dock mesh, skin, material and tail material are cached before the first write,
-  so turning the setting off restores the game's tail and dock exactly. The far-mesh identity
-  cache is invalidated, and a currently shown far mesh is forced back to the near mesh for the
-  next bake.
-- The exact reference is applied to all eligible adult mares, including tails currently above it.
-  A per-mare row lives under `anatomy.placement.<id>` with the same keys; only differences from
-  the resolved default are stored, and a row equal to the default removes the key. The Anatomy
-  Debug actions **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail
-  tilt** (1° per press) and **Placement file** edit, save, reset or log the selected target. The
-  default is staged until Save; a mare override is written directly. **Placement file Show** logs
-  every live mare's anchor, target, resolved placement, applied delta and source.
-- The retired `anatomy.tail_seat.<id>` block and the `tail_offset_mm`/`tail_forward_mm`/
-  `dock_offset_mm` globals migrate into the placement block on load.
-- A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
-  tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
-  new tail only for shape or silhouette; the seat remains this controller's job.
+The reference seat, dock skin, per-mare placement and debug actions are in `docs/anatomy.md`.
 
 ### Standing
 
@@ -628,11 +641,8 @@ her, S back/up, and Q/E add the side lean. The camera is written after the pose 
 frame. Her gaze and the kiss target his authored eye and mouth (`eye_point()` / `mouth_point()`),
 never the game camera on his standing player rig; the game's eye modifier is pointed at the same
 target, with `presentation.missionary.size.<preset>.gaze_offset_mm` (debug, signed, unclamped)
-raising or lowering it. The vulva trims (`vulva_shift_mm`, `vulva_pitch_deg`, `vulva_depth_shift_mm`)
-move only the anatomy mesh in missionary; the depth one starts at 20% depth and reaches its signed
-millimetre value at full thrust. Two hacks sit beside them, both missionary-only: `disable_fold_coloring`
-drops the vertex-alpha fold/clitoris masks so the mesh uses her skin tones, and `vulva_hug_mm`
-replaces the anatomy hug for the act. The camera itself is kept outside her live skull and muzzle by
+raising or lowering it. The vulva trims and the fold/hug hacks are missionary-only anatomy values;
+see `docs/anatomy.md`. The camera itself is kept outside her live skull and muzzle by
 `head_clearance_mm` (debug: 50 mm on Canon and JRHNBR, 100 mm on Same Height and Hoers) in both
 views, so a close cheek or muzzle lean cannot enter her head as she turns it. The skull and muzzle
 radii scale with her body size; the clearance is an absolute pad on top. The six values are per
@@ -750,12 +760,7 @@ bullets below cover the rest of the shot's behaviour.
   call. No game source is edited and no cel shader is copied. The patched material and its
   outline are no longer in `JIGGLE_SHADERS`, so `runtime._attach_body_coat_jiggle_target()` adds
   them back after every `_start_jiggle()`; the anatomy's `physical_reaction("flank_smack")` hook
-  covers stock smacks outside the act. The vulva still zone and the visible anal cup still zone
-  are separate: the cup centre is `_anal_mesh.transform * ANAL_OPENING` mapped through the hips
-  bind, so placement, `anal_height_mm` and the genital yaw carry through. Both zones are
-  ellipsoids in the anatomy's body-local frame; `still_oval` flattens them vertically and
-  `still_fade` widens the rim blend. `still_height_mm` moves only the vulva zone; the anal zone
-  follows the visible cup.
+  covers stock smacks outside the act. The two still zones are in `docs/anatomy.md`.
 - At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
@@ -1156,16 +1161,9 @@ is deliberately blush-free so the 0.35 decal stays light.
   the base value and the copy snaps the shot. The caress ignores A/D and Z/C, the kiss ignores F,
   and the HUD card swaps to the four live rows. The layer only exists while auto is on (tap X to
   enable it). X is consumed in every act state, so AnonPony's X lie-down still cannot fire.
-- Anatomy actions are additive and gated: `V` switches the hole in `ACTIVE`/`CLIMAX`, `N` turns her
-  round for oral in standing `ACTIVE`, and `B` chooses finish in/out in `ACTIVE`/`CLIMAX`. Enter
-  opens the game chat during an act. With every anatomy flag off these
-  keys are not consumed and the act is exactly the master act.
-- `anatomy_act.on_climax()` clears the winking shape and starts the three-beat climax pulse before
-  the fluid hook. `tick()` drives the closed/stretch/anal shapes only in `ACTIVE`/`CLIMAX`, and the
-  pulse is layered on that drive because a tween would be cancelled by it. While the act runs she
-  also winks on her own: one 0.5 s beat every 4–7 s while the tip rests at her lips, and every
-  1–2 s once he has pulled out after at least one climax. Both share one countdown, the vulva
-  only, and never on top of a climax pulse.
+- Anatomy actions are additive and gated: `V`, `N`, `B` and their shape, winking and fluid
+  behavior are in `docs/anatomy.md`. Enter opens the game chat during an act. With every anatomy
+  flag off these keys are not consumed and the act is exactly the master act.
 - `Y` starts an act on a single press when idle. During an act, `Y` is a `0.35 s` hold, matching
   bridal-carry initiation; a tap does nothing there. In `ACTIVE`, hold Y cancels with 0 pony
   climaxes and enters afterglow with 1+; in `CLIMAX`, hold Y enters afterglow. Hold Y ends
@@ -1355,32 +1353,8 @@ is deliberately blush-free so the 0.35 decal stays light.
   `| In heat`, and `cycle_note()` adds the heat text to `main.prompt_note()` outside and during acts.
 - The offer cooldown, privacy override and ask-prompt heat sentence are in
   `docs/eligibility.md`; the readiness and dialogue effects stay below.
-- Outside an active act, a heat mare with the anatomy shown idles: `anatomy.gd` winks every
-  `anatomy.wink_min_s..anatomy.wink_max_s` (default 17-34 s), rolling 70% single, 25% double, 5%
-  triple from `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a
-  short hold and an accelerated close. `anatomy.wink_open_min`..`anatomy.wink_open_max` set the
-  opening range and `anatomy.wink_timing` scales the three phase times. At the first beat's peak,
-  when the clitoris has finished travelling outward, the burst shoots one or more
-  `climax_fluid.spray()` droplets from the vulva opening along the ground, under the fluid node's
-  gravity, scaled by `anatomy.drip` (0 turns it off), `anatomy.fluid_size` and
-  `anatomy.fluid_alpha`. The vertical launch speed is `anatomy.fluid_y_speed` (default −0.03 m/s,
-  unbounded). The idle display runs in IDLE, AFTERGLOW, RESTORE and while sleeping;
-  POSING_IN, ACTIVE and CLIMAX suppress it because the act owns the mesh. It also stops while the
-  mesh is far or `anatomy.anatomy_mode` hides it.
-- `anatomy.gd` rebuilds each winking source mesh once and caches it per source, then masks the
-  anal rim out of the authored `closed` and `wink` shapes, so only the vulva moves.
-  `anatomy.mare_bits` (`original`/`v2`) selects `winking.scn` or `mare_bits_v2.scn`; the V2
-  choice falls back to the original when the file is absent, and a live change swaps the mesh in
-  place. The resting pose is `closed = 1` and `wink = 0`. The original `winking.scn` carries only
-  the `closed` and `stretch` keys; `wink` is V2-only and moves the clitoris, not the lips. The
-  idle heat wink therefore drives `closed` from 1 toward 0 and `wink` with the same amount: the
-  lips carry the opening on both models, and the V2 clitoris adds its accent. A heat mare rests at
-  `anatomy.heat_rest_open` (default 0.3) of the way from that closed pose toward the open pose,
-  and each idle wink crossfades toward the open shape and back. The shader depth cut is the act's
-  shaft solve only: it pulls the pink interior toward the camera, and the clitoris sits in that
-  mask, so `set_idle_wink` suppresses the cut while it owns the shapes. `tools/winking_glb.gd`
-  round-trips the keys through the anatomy `.scn` (and keeps `winking_before_wink.scn` on the
-  first import). Acts drive `closed` only, so the wink amount never fights the penetration grip.
+- Outside an active act, the idle heat wink and drip are in `docs/anatomy.md`. The cycle phase
+  and its gameplay effects stay here.
 - The debug Actions **Force heat**, **Force diestrus** and **Clear forced cycle** set a session-only
   `_cycle_override` on the aimed or nearest mare.
 
@@ -1548,7 +1522,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   you are looking at the scene. A hotkey-less action is the default.
 - **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail tilt** and
   **Placement file**: edit, save, reset or log the selected placement target (global default or
-  pointed mare). All values live in `anatomy.placement`. See the tail seating contract above.
+  pointed mare). See `docs/anatomy.md`.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
   nearest) test mare. They bypass the quiet, cooldown and AI-usage checks, but keep the eligibility
   gate (`docs/eligibility.md`), pose and free-bed gates; use them in the lab, which runs with
@@ -1605,10 +1579,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   outside an act. **Print perf logs** also prints `tail perf attach`/`tail perf refresh` one-shot
   lines and a once-per-second `tail perf seats=… skinned=… builds=…/s` line aggregating every live
   dock; steady state is `builds=0/s` because the blend runs on the GPU.
-- **Hide tails** is a persisted debug toggle (Anatomy › Debug). While on, it collapses the hair
-  `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
-  near and far tail geometry all disappear while the mane stays. The small root cap pinned to the
-  pelvis may remain under the dock. It touches no other body part.
+- **Hide tails** is the Anatomy debug tail-collapse toggle; see `docs/anatomy.md`.
 - `act_ear_pin` is one of General's ungrouped debug rows and defaults off. On, it pins the ears
   through `expressions.fluster()` for the whole act; off leaves the ears to the face beats and the
   climax fluster. It also forces full blush through the base fluster path, so it conflicts with
@@ -1729,12 +1700,6 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
 | `act_ear_pin` | `false` | General debug rows: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
-| `anatomy.anatomy_mode` | `never` | pill: `never`, `act` (only while an act runs) or `always`; anything but `never` attaches the anatomy and its pose keys |
-| `anatomy_holes` | `true` | `V` hole switch and the anal cup (General) |
-| `anatomy_oral` | `false` | `N` standing oral and its neck motion (General) |
-| `anatomy_finish` | `false` | `B` finish in/out (General) |
-| `anatomy_fluid` | `true` | climax and finish droplets |
-| `anatomy_vr` | `true` | VR act (General) |
 | `act_bystanders` | `true` | adult witness lines using the modern perception |
 | `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
@@ -1746,71 +1711,11 @@ which also removes its clamp. The full contract is `TUNING.md`.
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
 rump blush. Unknown settings keys are ignored. Caress feature flags and debug values are in
-`docs/hands.md`.
-- `anatomy` stores `anatomy_mode` (the `never`/`act`/`always` pill, default `never`; it replaced
-  the old master switch and `act_only`, and drives `SETTINGS.anatomy_on()`), `teats` (Show teats,
-  off), `skin_strip` (Show skin strip, off), `anatomy_fluid` (Show fluids, on),
-  `body_coat_deform` (debug: runtime-patch the rig coat shader for the still zone and vulva
-  spread; off leaves the game shader untouched), `skin_tone` (Skin
-  tone, 0–1, default 0.6; 0 is her coat, 0.5 the old Darker tone, 1 the old Dark tone), `show_dock`
-  (Show tail docks, on; visibility only, it never moves the anatomy), `dock_color` (Dock colour,
-  `coat`/`genitals`, default `genitals`; genitals uses the attached anatomy material and falls back
-  to coat when the anatomy is not attached), `reseat_tails` (Re-seat
-  tails and docks, on; seats every adult mare's hair tail at the exact reference dock and installs
-  the tail-only dock cuff under the tail base; off restores the original tail mount and dock;
-  the tail/dock placement lives under `anatomy.placement.<id>`), `mare_bits`
-  (Mare bits,
-  `original`/`v2`; default `v2`), `strip_scale`
-  (debug: scale the midline strip's model-space X around the midline; unbounded),
-  `anal_scale` (Ponut scale, default 0.9: the V2 ponut interior and body coat; the vulva and opening
-  stay put), `anal_aim_mm` (debug: raise/lower the V2 anal penetration point; default −20 mm),
-  `vulva_hug_mm` (default `2 mm`) and `anal_hug_mm`
-  (debug: pad the cock-to-lip gap in half-mm steps; positive opens, negative grips; the missionary
-  hack `presentation.missionary.size.<preset>.vulva_hug_mm` overrides `vulva_hug_mm` for that act),
-  `lip_vertical`, `coat_spread` (debug: body coat stretch around the vulva, 2×) and
-  `jiggle_still` (debug: no-jiggle zone around the vulva, 1.5×; 0 turns it off),
-  `anal_still` (debug: the same zone around the visible ponut, default 0, off),
-  `still_oval` (debug: vertical half-axis of both still zones, 1.5× the lateral one),
-  `still_fade` (debug: share of the radius spent fading back to full jiggle, 0.6),
-  `still_height_mm` (debug: vertical placement of the vulva still zone, default 25 mm) and
-  `draw_still_zones` (debug: overlay the two still-zone ellipsoids and their fully-still cores),
-  `vulva_out_mm` (debug: push the whole anatomy mesh out along its own normal, so a pose that tucks
-  it into the coat does not clip her), `wink_min_s` and `wink_max_s` (debug: idle heat wink gap, 17/34 s), `heat_rest_open` (debug:
-  resting share of the open shape, 0.3), `wink_open_min` and `wink_open_max` (debug: idle wink
-  opening range, 90% of the open shape), `wink_timing` (debug: idle wink phase-time multiplier,
-  1.2×), `fluid_size` (debug: idle heat droplet size, 10 mm), `fluid_y_speed` (debug: vertical
-  droplet launch speed, −0.03 m/s; unbounded), `drip` (debug: idle heat discharge multiplier, 0.1×;
-  0 turns it off) and `fluid_alpha` (debug: droplet opacity multiplier, 0.5×), and the player-part
-  controls
-  `player_scale` (Size, `1.4×`), `part_base_scale` (`1.3`), `part_mid_scale` (`0.75`),
-  `part_head_scale` (`1.3`), `part_length_scale` (`1.0`), `part_throb` (`1.2`) and the
-  player-facing `back_out_m` (Back-out gap, `0 cm`; how far the tip rests behind her lips when
-  pulled all the way out, up to 5 cm), plus the debug
-  `part_front_m` (`0.02 m`) and `pelvis_gap_m` (`0.025 m`). The gap is not a depth cap: it sets
-  `penetration_reach()` (`shaft length - gap`) in both poses, so 100 % depth is his body stopped
-  `gap` behind her rear surface and a long `part_length_scale` moves the reach with it. The back-out
-  gap is negative penetration, so it is travel the depth scale never counts.
-  `presentation.missionary.part_inset_m` (debug, default `-0.08 m`) is applied in missionary only:
-  it slides the whole part back along its shaft into the pelvis, hiding the exposed base and
-  bringing the hips closer at max depth. It is added to `part_front_m` for that pose.
-  Player-part values are applied on top of the saved placement and update live. `part_head_scale`
-  widens the glans over the last part of the shaft; `part_length_scale` stretches the shaft along
-  its axis; `part_throb` scales the slight depth-driven heartbeat (0 off), which also lifts the
-  visible shaft upward on each beat while it is outside her, fading to nothing at full depth.
-  The shaped length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole
-  grip, so the geometry and the collision stay together. The anal placement applies to both
-  models, is read on the next visibility poll, and the ring toggle swaps the asset live.
-  Placement lives in `settings.json` under `anatomy.placement`: `default.*` is the ten-value
-  global default (anatomy 5, tail 3, dock 2), `anon.*` is the player part, and `<mare id>.*` is a
-  partial per-mare override. The shipped `MARE_DEFAULTS` table carries the tuned per-mare rows.
-  `anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player override,
-  then the shipped per-mare default, then the global default. Only differing keys are stored.
-  The old `anatomy_place.json` and `anon_place.json` files import once and are renamed to
-  `.migrated`; the legacy v0-v3 shifts live only in that migration. `anatomy.placement_target`
-  is the persisted pill above the Placement actions: `default` edits the global default,
-  `mare` edits the pointed mare. `anal_drop_mm` migrates to `anal_height_mm` (sign flipped) on
-  load; old skin tones map to the slider anchors and an old teats-off file keeps the strip off
-  once. Removed anatomy keys are erased on load.
+`docs/hands.md`; anatomy feature flags and debug values are in `docs/anatomy.md`.
+- `anatomy` settings (mode, teats, strip, fluid, coat deform, dock/seat, mare bits, placement,
+  player part, heat, fluid and their debug values) are declared once in `settings.gd`. Their
+  behavior is in `docs/anatomy.md`; the declarations are the source for defaults and bounds.
+  `anatomy_placement.gd` is the shared pure placement schema.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
   `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`).
 - `relationship.sex_start` is a `choice`, default `try_luck` (label `Try Your Luck`); the other
@@ -1842,23 +1747,19 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   controls.
 - `camera_thrust` stores `surge` and `bob`, both `0…1`; defaults `1.0` and `0.35`. They scale the
   speed-driven camera travel and apply live during an act.
-- `anatomy.placement` holds `default.*` (five debug numbers: `offset_x/y/z` in metres,
-  `pitch_deg`, `scale`), `anon.*` (the same five for the player part), and one partial
-  `<mare id>.*` block per real override. `anatomy.placement_target` is the persisted
-  `default`/`mare` pill. Per-mare edits store only differing keys; Reset previews the resolved
-  default and Save writes it, removing the block when it matches.
+- `anatomy.placement` and `anatomy.placement_target` are the shared placement block and editor
+  target. Their structure and migration are in `TUNING.md`; their behavior is in
+  `docs/anatomy.md`.
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
   - `act`: `climax_mode` (debug choice `auto`/`fluster`/`ooo`/`wide`, default `wide`) picks the
     climax expression from the live act quality when it is `auto`.
-  - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
-    `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
-    `part_inset_m` (debug, signed, in centimetres: pull the cock base back into the pelvis in
-    missionary), and the six per-size values `vulva_shift_mm`, `vulva_pitch_deg`,
-    `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm` and `gaze_offset_mm` under
-    `size.<preset>`, keyed `canon`, `mounting`, `same height` and `hoers` and edited through one
-    size dropdown above the six rows.
+  - `missionary`: `camera_mode`, `third_person`, `free_look` and the debug `anon_size_match`
+    (0 keeps Anon human-sized, 1 scales him uniformly with her). The per-size block under
+    `size.<preset>` keys `canon`, `mounting`, `same height` and `hoers` and holds
+    `head_clearance_mm` and `gaze_offset_mm` for the shot. The anatomy values
+    (`disable_fold_coloring`, `part_inset_m` and the vulva trims/hug) are in `docs/anatomy.md`.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
     (default `35°`) and `pitch_deg` (default `25°`), and `smack` with `raise_m` (default
@@ -1990,10 +1891,11 @@ This is mandatory.
   measurements and tuning history in the code comment or the contract doc; commits are one line.
 - Never leave stale paths, removed controls, obsolete constants or incorrect claims. Remove
   obsolete documentation instead of keeping historical notes.
-- Keep camera, pose, thrust and strength details here and in `PREFERENCES.md`/`ROTATION.md`.
-  Summarize non-critical areas such as debug logs; do not build long catalogues.
-- The hands contract lives only in `docs/hands.md`; other docs link there and do not restate
-  its paths, contact, settings or debug controls.
+- A system contract lives only in its owning doc (`docs/hands.md`, `docs/eligibility.md`,
+  `docs/anatomy.md`, `PREFERENCES.md`, `HISTORY.md`, `ROTATION.md`, `TUNING.md`). Other docs link
+  there and do not restate its paths, contact, settings or debug controls.
+- `AGENTS.md` holds project-wide practices, the architecture rules and the docs index; a system
+  detail belongs in its contract, not here.
 - Verify every claim against code before writing it. If docs and code disagree, fix the docs or
   the code in the same change.
 - `README.md` rule:
@@ -2004,7 +1906,8 @@ This is mandatory.
     or architectural reasoning.
   - Do not rewrite or reformat the rest of README.
 - Keep `AGENTS.md`, `README.md`, `PREFERENCES.md`, `ROTATION.md`, `TUNING.md`, `WORKFLOW.md`,
-  `docs/hands.md`, `assets/README.md` and the release skill consistent.
+  `docs/hands.md`, `docs/eligibility.md`, `docs/anatomy.md`, `assets/README.md` and the release
+  skill consistent.
 
 ## Known constraints
 

@@ -142,22 +142,9 @@ prefixes pre-emptively.
   shipped default, then global default. The old `anatomy_place.json` and `anon_place.json` import once and are renamed
   `.migrated`. The old `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate
   into the same block on load.
-- `anatomy.reseat_tails` (Re-seat tails and docks, on by default) applies the exact reference dock
-  seat to every adult mare, drops the per-mare `dock_visibility_fits.json` offset (it was fitted
-  for her own tail), snaps the dock base to the rump and seats the dock opening on the tail cap's
-  centre. A tail-only follower carries the cuff with `mPelvis`/`mTail1`. The tail/dock values live
-  in the same `anatomy.placement.<id>` row as the anatomy: `tail_y`/`tail_z` move the tail from the
-  exact reference, `dock_y` trims the cuff, `dock_scale` scales it about the base ring and
-  `tail_tilt_deg` tilts the hair pelvis about the body's rear axis with the origin fixed; only
-  differences from the resolved default are stored. The Anatomy Debug actions **Placement**
-  (anatomy), **Placement tail**, **Placement tail tilt** (1° per press), **Placement dock** and
-  **Placement file** edit it in game; the default is staged until Save, and a mare override is
-  written directly.
-- `anatomy.dock_color` (Dock colour, `coat`/`genitals`, default `genitals`) chooses the standard
-  dock's material. `coat` keeps the game's coat material; `genitals` uses a copy of the attached anatomy
-  material with `coat_color`/`coat_shadow` set to her skin tones, so the cuff matches her genital
-  skin and never falls through to the shader's black default; while the anatomy is not attached it
-  falls back to coat.
+- `anatomy.reseat_tails`, `anatomy.dock_color` and the tail/dock placement behavior are in
+  `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
+  migration above.
 - `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
   cached per generation, so a per-frame read is cheap.

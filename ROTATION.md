@@ -151,7 +151,7 @@ Missionary is its own state, not the game's bed rest:
   S back/up, and Q/E add the side lean. The missionary vulva trims (`vulva_shift_mm`,
   `vulva_pitch_deg`, `vulva_depth_shift_mm`) move only the anatomy mesh; the depth one ramps in
   after 20% depth and reaches its signed millimetre value at full thrust. The fold-coloring and
-  vulva-hug hacks are missionary-only too. The six values (`vulva_shift_mm`, `vulva_pitch_deg`,
+  vulva-hug hacks are missionary-only too; the anatomy side is in `docs/anatomy.md`. The six values (`vulva_shift_mm`, `vulva_pitch_deg`,
   `vulva_depth_shift_mm`, `vulva_hug_mm`, `head_clearance_mm`, `gaze_offset_mm`) are per pony size,
   stored under `presentation.missionary.size.<preset>` and edited through one **Size** dropdown;
   the act reads the game's current preset. The camera is pushed out of her live skull sphere and

@@ -106,7 +106,7 @@ stores the choice.
 The first rows have no heading: the **Anatomy** pill (**Never** / **During act only** / **Always**),
 **Show tail docks**, **Show skin strip**, **Show teats**, **Show fluids**, **Skin tone** and
 **Mare bits** (Original PPP or V2). **Show tail docks** only shows or hides the dock; it never
-moves the anatomy.
+moves the anatomy. The behavior behind these rows is in `docs/anatomy.md`.
 
 - **Anon**: size, length, base/mid/head radius, throb and the back-out gap.
 

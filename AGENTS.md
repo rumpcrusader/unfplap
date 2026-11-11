@@ -18,6 +18,7 @@ Do not start implementation until you have read the required files for the area 
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `settings.gd`, `settings_ui.gd` |
 | Character profiles or preference | `character_preferences.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
+| Cross-mod API | `docs/api.md`, `api.gd`, `mare_registry.gd` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
 | Release | `.opencode/skills/release/SKILL.md` |
 | Sync local settings to shipped defaults | `.opencode/skills/sync-settings/SKILL.md` |
@@ -244,7 +245,9 @@ mods/unfplap/
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
                     and afterglow summary
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
-  settings.gd       settings.json IO and cache, legacy migration, per-character merge
+  settings.gd       settings.json IO and cache, legacy migration, provider and per-character merge
+  api.gd            stable cross-mod facade; see docs/api.md
+  mare_registry.gd  in-memory provider layers for modded and base-game mare templates
   character_preferences.gd  display names, selector order and every spawnable mare's preference
   memory.gd         world_context events, grade-aware act impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
@@ -277,6 +280,7 @@ mods/unfplap/
   tests/            unit/source-hygiene tests + manual test_lab.gd
   PREFERENCES.md    preference/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
+  docs/api.md       cross-mod API contract; never packed
 ```
 
 Entry script only. No script extensions, game-file edits or JSON merges. The bed-size extension
@@ -1555,9 +1559,10 @@ VR lab:
   (`forgiving`/`normal`/`strict`), one Dislikes / No preference / Likes pill row per touch and talk
   action, and editable notes. The selector lists `SETTINGS.CHARACTER_ORDER` first, then any live
   adult mare with the mod's runtime that is not in that roster under an **Other mares** separator;
-  an off-roster id uses the global default profile until a preset is saved. Preference edits are
+  an off-roster id uses her provider template when registered (`docs/api.md`), otherwise the
+  global default profile, until a preset is saved. Preference edits are
   staged in the form and written only by **Save preset**, which applies live; **Reset to default**
-  restores the character's own preference template. Custom `event_prompts` and `poses` on the
+  restores her built-in template plus any provider layer. Custom `event_prompts` and `poses` on the
   character entry must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
@@ -1811,9 +1816,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   active act. The hand-built Characters form is the exception: it stages edits and writes them only
   when **Save preset** is pressed.
 - `debug_mode` and `debug_perf` default to `false`.
-- Character entries inherit unspecified fields from `default`; a known mare's preference block seeds
-  from her own template in `character_preferences.gd`, so removing her saved preference override
-  restores that template rather than the global default.
+- `characters.<id>` stores only the player's differences from her resolved template; the built-in
+  templates are not materialized in the file. A known mare's base is her template in
+  `character_preferences.gd`, then any mod provider layer (see `docs/api.md`), then `default`; so
+  removing her saved override restores that chain rather than the global default.
 - Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `preferences`,
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
@@ -1824,9 +1830,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 - The settings editor lists `SETTINGS.CHARACTER_ORDER` (103 IDs: every spawnable mare in
   the base game, the original sixteen first) and uses `CHARACTER_NAMES` for display labels. Every
   base ID has a preference template in `character_preferences.gd`; add a pony there when expanding
-  the roster. Live adult mares outside that roster are appended under **Other mares** and use the
-  global default profile until a preset is saved; their `characters.<id>` block is preserved like
-  any other.
+  the roster. Live adult mares outside that roster are appended under **Other mares**; a mare
+  registered by another mod uses her provider template (`docs/api.md`), an unregistered one uses
+  the global default profile until a preset is saved. Their `characters.<id>` block is preserved
+  like any other.
 - Pose defaults live in `poses/catalog.gd`; preference defaults and validation live in
   `character_preferences.gd`, `preferences.gd` and `settings.gd`.
 

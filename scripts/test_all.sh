@@ -24,6 +24,7 @@ fi
 TESTS=(
 	test_catalog
 	test_settings
+	test_api
 	test_character_preferences
 	test_source_hygiene
 	test_cycle

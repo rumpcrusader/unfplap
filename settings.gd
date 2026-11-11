@@ -68,6 +68,8 @@ const LEGACY_ACT_PROMPTS := {
 const CHARACTERS := preload("res://mods/unfplap/character_preferences.gd")
 const CHARACTER_ORDER := CHARACTERS.ORDER
 const CHARACTER_NAMES := CHARACTERS.NAMES
+## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
+const MARE_REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
 
 ## Tabs, in panel order. Characters is the hand-built per-mare form, not a settings tab.
 const GENERAL := "general"
@@ -387,7 +389,11 @@ static func anatomy_placement_default(id: String, use_draft := true) -> Dictiona
 	if use_draft:
 		base = _placement_default_values()
 	var shipped: Variant = PLACEMENT.MARE_DEFAULTS.get(id, {})
-	return PLACEMENT.merge(base, shipped)
+	var placed := PLACEMENT.merge(base, shipped)
+	var provided := MARE_REGISTRY.placement(id)
+	if provided.is_empty():
+		return placed
+	return PLACEMENT.merge(placed, provided)
 
 
 static func _persisted_placement_default_values() -> Dictionary:
@@ -1637,7 +1643,7 @@ const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 7
+const SCHEMA_VERSION := 8
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -1802,24 +1808,11 @@ static func preferences(id: String) -> Dictionary:
 	return PREFERENCES.defaults()
 
 
-## The character's own preference template, before any player override. Empty for an id with no
-## template. Reset to default and the form's comparison both use this.
-static func character_default_preferences(id: String) -> Dictionary:
-	var template: Variant = CHARACTER_TEMPLATES.get(id, {})
-	if template is Dictionary:
-		var raw: Variant = (template as Dictionary).get("preferences", {})
-		if raw is Dictionary:
-			return PREFERENCES.resolve(raw)
-	return {}
-
-
-## The preference profile a character returns to when her saved override is removed: her own
-## template for a known mare, the global default profile otherwise.
+## The preference profile a character returns to when her saved override is removed: her built-in
+## template plus any provider layer for a known or registered mare, the global default otherwise.
 static func default_preferences_for(base: Dictionary, id: String) -> Dictionary:
-	var character := character_default_preferences(id)
-	if not character.is_empty():
-		return character
-	return PREFERENCES.resolve(base.get("preferences", {}))
+	var template := profile_for(base, {}, id)
+	return PREFERENCES.resolve(template.get("preferences", {}))
 
 
 static func default_preferences(id: String) -> Dictionary:
@@ -1838,6 +1831,21 @@ static func preferences_match(a: Dictionary, b: Dictionary) -> bool:
 		if not _same_set(left.get(key, []), right.get(key, [])):
 			return false
 	return true
+
+
+## Only the preference keys that differ from `base`. Used both by the settings form and by the
+## load-time normalization, so a saved profile never pins fields the player did not edit.
+static func _preferences_diff(values: Dictionary, base: Dictionary) -> Dictionary:
+	var left := PREFERENCES.resolve(values)
+	var right := PREFERENCES.resolve(base)
+	var out: Dictionary = {}
+	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes"]:
+		if str(left.get(key, "")) != str(right.get(key, "")):
+			out[key] = left[key]
+	for key: String in ["touch", "talk", "dislikes"]:
+		if not _same_set(left.get(key, []), right.get(key, [])):
+			out[key] = (left.get(key, []) as Array).duplicate()
+	return out
 
 
 static func _same_set(a: Variant, b: Variant) -> bool:
@@ -1861,7 +1869,8 @@ static func consent(id: String) -> Dictionary:
 	return CONSENT.resolve(id, template.get("consent", {}))
 
 
-## integration: save only the consent block. Preferences, prompts and poses are preserved.
+## integration: save only the consent block. Preferences, prompts and poses are preserved. Like
+## preferences, only differences from her resolved consent defaults are stored.
 static func save_consent(id: String, values: Dictionary) -> void:
 	var data := _read()
 	var characters: Variant = data.get("characters", {})
@@ -1872,19 +1881,47 @@ static func save_consent(id: String, values: Dictionary) -> void:
 	if not entry is Dictionary:
 		entry = {}
 	var character: Dictionary = entry
-	character["consent"] = CONSENT.clean(values)
-	roster[id] = character
-	data["characters"] = roster
+	var base: Dictionary = data.get("default", _filled_default())
+	var defaults := _profile_consent(base, id)
+	var cleaned := CONSENT.clean(values)
+	var diff: Dictionary = {}
+	for key: String in ["public", "anal", "oral"]:
+		if cleaned.has(key) and bool(cleaned[key]) != bool(defaults.get(key, false)):
+			diff[key] = bool(cleaned[key])
+	if diff.is_empty():
+		character.erase("consent")
+	else:
+		character["consent"] = diff
+	if character.is_empty():
+		roster.erase(id)
+	else:
+		roster[id] = character
+	if roster.is_empty():
+		data.erase("characters")
+	else:
+		data["characters"] = roster
 	_write(data)
+
+
+## The consent a character gets from her built-in template plus provider layers, before the
+## player's saved differences.
+static func _profile_consent(base: Dictionary, id: String) -> Dictionary:
+	var template := profile_for(base, {}, id)
+	return CONSENT.resolve(id, template.get("consent", {}))
 
 
 static func character_name(id: String) -> String:
 	if CHARACTER_NAMES.has(id):
 		return str(CHARACTER_NAMES[id])
+	var provided := MARE_REGISTRY.name_for(id)
+	if not provided.is_empty():
+		return provided
 	return id.replace("_", " ").capitalize()
 
 
-## Save only the preference block. Character prompts and pose settings are preserved.
+## Save only the preference block. Character prompts and pose settings are preserved. Only the
+## keys that differ from her resolved default are stored, so a provider can update the rest later
+## and a player's edit never pins fields they did not touch.
 static func save_preferences(id: String, preferences: Dictionary) -> void:
 	var data := _read()
 	var characters: Variant = data.get("characters", {})
@@ -1895,9 +1932,23 @@ static func save_preferences(id: String, preferences: Dictionary) -> void:
 	if not entry is Dictionary:
 		entry = {}
 	var character: Dictionary = entry
-	character["preferences"] = PREFERENCES.resolve(preferences)
-	roster[id] = character
-	data["characters"] = roster
+	var base: Dictionary = data.get("default", _filled_default())
+	var defaults := default_preferences_for(base, id)
+	# A partial input changes only the keys it names; missing keys keep the resolved default.
+	var intended := PREFERENCES.resolve(_merge(defaults, preferences))
+	var diff := _preferences_diff(intended, defaults)
+	if diff.is_empty():
+		character.erase("preferences")
+	else:
+		character["preferences"] = diff
+	if character.is_empty():
+		roster.erase(id)
+	else:
+		roster[id] = character
+	if roster.is_empty():
+		data.erase("characters")
+	else:
+		data["characters"] = roster
 	_write(data)
 
 
@@ -1917,7 +1968,10 @@ static func reset_preferences(id: String) -> void:
 			roster[id] = entry
 	else:
 		roster.erase(id)
-	data["characters"] = roster
+	if roster.is_empty():
+		data.erase("characters")
+	else:
+		data["characters"] = roster
 	_write(data)
 
 
@@ -2047,6 +2101,55 @@ static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 	return data
 
 
+## Reduce a saved character block to the player's real differences from the shipped template.
+## Older settings files materialized every built-in template; without this step those copies
+## would shadow a cross-mod provider layer. A value that differs from the current built-in is
+## kept: it may be a real player edit, or an old template pinned by the previous mod version, and
+## preserving it is safer than guessing. Idempotent.
+static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
+	var roster: Variant = data.get("characters")
+	if not roster is Dictionary:
+		return data
+	var cleaned: Dictionary = {}
+	for key: Variant in (roster as Dictionary).keys():
+		var id := str(key)
+		var raw: Variant = (roster as Dictionary)[key]
+		if not raw is Dictionary:
+			cleaned[id] = raw
+			continue
+		var entry: Dictionary = (raw as Dictionary).duplicate(true)
+		var built_in: Variant = CHARACTER_TEMPLATES.get(id, {})
+		if built_in is Dictionary and not (built_in as Dictionary).is_empty():
+			var template: Dictionary = built_in
+			if entry.has("preferences"):
+				var saved: Variant = entry["preferences"]
+				if saved is Dictionary:
+					var diff := _preferences_diff(
+						PREFERENCES.resolve(saved),
+						PREFERENCES.resolve(template.get("preferences", {})))
+					if diff.is_empty():
+						entry.erase("preferences")
+					else:
+						entry["preferences"] = diff
+				else:
+					entry.erase("preferences")
+			# These blocks are kept whole once any part of them was edited. A provider update
+			# inside an edited block is an edge case; the player's block stays authoritative.
+			for field: String in ["poses", "act_prompts", "event_prompts"]:
+				if entry.has(field) and entry[field] == template.get(field, null):
+					entry.erase(field)
+			for field: String in ["cue_gap", "aftercare_min", "smack_zone_radius"]:
+				if entry.has(field) and entry[field] == template.get(field, null):
+					entry.erase(field)
+		if not entry.is_empty():
+			cleaned[id] = entry
+	if cleaned.is_empty():
+		data.erase("characters")
+	else:
+		data["characters"] = cleaned
+	return data
+
+
 ## Move the tolerance block's old tier keys onto the renamed paths.
 static func _normalize_tolerance(data: Dictionary) -> Dictionary:
 	var raw: Variant = data.get("tolerance")
@@ -2111,9 +2214,16 @@ static var _loaded := false
 ## Bumped on every load and every write. The flat value table rebuilds when it
 ## changes, so a save anywhere invalidates the cached setting reads.
 static var generation := 0
-## Bumped whenever the placement view can have changed: a settings load/write or an unsaved
-## default preview. The anatomy controller re-reads its resolved placement on the change.
+## Bumped whenever the placement view can have changed: a settings load/write, an unsaved
+## default preview, or a cross-mod provider layer. The anatomy controller re-reads its resolved
+## placement on the change.
 static var placement_revision := 0
+
+
+## Mark the placement view dirty without writing the settings file. The cross-mod API calls this
+## when a provider registers or leaves.
+static func bump_placement_revision() -> void:
+	placement_revision += 1
 ## Unsaved global-default preview from the Placement actions. Session-only by design.
 static var _placement_draft: Dictionary = {}
 
@@ -2175,14 +2285,18 @@ static func template_for(id: String) -> Dictionary:
 		id)
 
 
-## Pure merge for tests and for `template_for`.
+## Merge for tests and `template_for`: built-in template, then provider layers, then the saved
+## player differences. Provider layers are process state, so tests that register one reset it.
 static func profile_for(base: Dictionary, characters: Variant, id: String) -> Dictionary:
 	var selected: Dictionary = base.duplicate(true)
-	# A known mare's preference block starts from her own template, so removing her saved
-	# preference override restores that profile instead of the global default.
-	var character_default := character_default_preferences(id)
-	if not character_default.is_empty():
-		selected["preferences"] = character_default.duplicate(true)
+	# A known mare's whole template is the base for provider and player layers, so removing a
+	# saved override returns to her shipped template instead of the global default.
+	var character_default: Variant = CHARACTER_TEMPLATES.get(id, {})
+	if character_default is Dictionary and not (character_default as Dictionary).is_empty():
+		selected = _merge(selected, character_default)
+	var provided := MARE_REGISTRY.template_for(id)
+	if not provided.is_empty():
+		selected = _merge(selected, provided)
 	if characters is Dictionary and (characters as Dictionary).has(id):
 		var over: Variant = (characters as Dictionary)[id]
 		if over is Dictionary:
@@ -2233,9 +2347,11 @@ static func _load() -> void:
 
 
 static func _defaults() -> Dictionary:
+	# Built-in character templates are not materialized here: `profile_for()` seeds them, and the
+	# saved `characters` block holds only the player's real differences. That is what lets a
+	# provider pack update a default mare without overwriting a player's edits.
 	var out: Dictionary = {
 		"default": _filled_default(),
-		"characters": CHARACTER_TEMPLATES.duplicate(true),
 		"ui": {"sections": {}},
 	}
 	for s: Setting in _registry:
@@ -2312,6 +2428,7 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
 	data = _normalize_act_prompts(data)
+	data = _normalize_character_overrides(data)
 	data = _normalize_anatomy(data)
 	data = _normalize_anatomy_placement(data)
 	data = _normalize_retired_keys(data)

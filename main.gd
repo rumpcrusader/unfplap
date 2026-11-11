@@ -18,6 +18,7 @@ const TAIL_VISIBILITY := preload("res://mods/unfplap/tail_visibility.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/tail_seat.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
+const API := preload("res://mods/unfplap/api.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -53,6 +54,8 @@ var game
 var player
 var hud
 var input
+## Cross-mod API facade; see docs/api.md.
+var api: Node
 ## integration: the optional player anatomy part is created once per player.
 var anon_part: Node
 ## Debug: the global hide-tails toggle lives outside every pony runtime.
@@ -148,6 +151,10 @@ func _ready() -> void:
 	tail_seat.name = "UnfplapTailSeat"
 	tail_seat.set("main", self)
 	add_child(tail_seat)
+	api = API.new()
+	api.name = "UnfplapAPI"
+	api.call("_bind", self)
+	add_child(api)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -1634,6 +1641,17 @@ func public_offers_enabled() -> bool:
 	return SETTINGS.act_public_offer.get_bool()
 
 
+## Cross-mod API: a provider layer changed. Re-resolve the live anatomy, tail seat and act
+## settings without writing the player's settings file.
+func refresh_api_state() -> void:
+	if not is_inside_tree():
+		return
+	_apply_live_settings()
+	refresh_anatomy()
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_all")
+
+
 ## integration: keep the anatomy feature live when the player edits a flag.
 func refresh_anatomy() -> void:
 	var enabled := SETTINGS.anatomy_on()
@@ -2236,6 +2254,10 @@ func nearest_lying(view: Camera3D) -> Node:
 
 
 func _exit_tree() -> void:
+	if is_instance_valid(api):
+		api.call("_shutdown")
+		api.queue_free()
+		api = null
 	_clear_injected_settings()
 	_clear_native_hint()
 	if is_instance_valid(initiation):

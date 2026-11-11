@@ -45,6 +45,7 @@ func run() -> void:
 	_check_placement_migration()
 	_check_api_names()
 	_check_profiles()
+	_check_character_overrides()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_PASS")
@@ -551,6 +552,72 @@ func _check_profiles() -> void:
 	var custom := SETTINGS._normalize_act_prompts(custom_data)
 	check(str(((custom["default"] as Dictionary)["act_prompts"] as Dictionary)["cue"]) == "custom",
 		"a custom cue prompt survives")
+
+
+## A saved character block holds only real differences from the built-in template, so a provider
+## can update the fields the player never edited.
+func _check_character_overrides() -> void:
+	var full: Dictionary = SETTINGS.CHARACTER_TEMPLATES["fluttershy"].duplicate(true)
+	var data := {"characters": {"fluttershy": full}}
+	var normalized := SETTINGS._normalize_character_overrides(data)
+	check(not normalized.has("characters")
+		or (normalized["characters"] as Dictionary).is_empty(),
+		"a materialized built-in template normalizes away")
+
+	var old := {"version": SETTINGS.SCHEMA_VERSION - 1, "characters": {"fluttershy": full}}
+	var migrated := SETTINGS._migrate(old, SETTINGS.SCHEMA_VERSION - 1)
+	check(not migrated.has("characters")
+		or (migrated["characters"] as Dictionary).is_empty(),
+		"an older full-template file normalizes once")
+	var current := {"version": SETTINGS.SCHEMA_VERSION, "characters": {"fluttershy": full}}
+	var kept := SETTINGS._migrate(current, SETTINGS.SCHEMA_VERSION)
+	check((kept.get("characters", {}) as Dictionary).has("fluttershy"),
+		"a current file is not normalized twice")
+
+	var edited := SETTINGS.default_preferences("fluttershy")
+	edited["intensity"] = "soft"
+	var edited_data := {"characters": {"fluttershy": {"preferences": edited}}}
+	var edited_norm := SETTINGS._normalize_character_overrides(edited_data)
+	var edited_pref: Dictionary = ((edited_norm["characters"] as Dictionary)["fluttershy"]
+		as Dictionary).get("preferences", {})
+	check(edited_pref.has("intensity") and not edited_pref.has("notes"),
+		"a full saved profile normalizes to the edited key")
+	check(not edited_pref.has("tolerance"), "the untouched defaults are not pinned")
+
+	var custom := {"characters": {"a_modded_mare": {"preferences": {"intensity": "soft"}}}}
+	var custom_norm := SETTINGS._normalize_character_overrides(custom)
+	check((custom_norm["characters"] as Dictionary).has("a_modded_mare"),
+		"a custom mare block is untouched")
+
+	var base: Dictionary = SETTINGS._filled_default()
+	var fluttershy: Dictionary = SETTINGS.profile_for(base, {}, "fluttershy")
+	check(not (fluttershy.get("event_prompts", {}) as Dictionary).is_empty(),
+		"built-in event prompts seed without a saved block")
+	check(not (fluttershy.get("poses", {}) as Dictionary).is_empty(),
+		"built-in poses seed without a saved block")
+
+	SETTINGS.save_preferences("fluttershy", {"intensity": "soft"})
+	var saved: Dictionary = SETTINGS.data().get("characters", {})
+	var entry: Dictionary = (saved as Dictionary).get("fluttershy", {})
+	var stored: Dictionary = entry.get("preferences", {})
+	check(stored.has("intensity") and not stored.has("notes"),
+		"a save stores only the preference difference")
+	SETTINGS.reset_preferences("fluttershy")
+
+	var consent := SETTINGS.consent("fluttershy")
+	SETTINGS.save_consent("fluttershy", consent)
+	saved = SETTINGS.data().get("characters", {})
+	entry = (saved as Dictionary).get("fluttershy", {})
+	check(not entry.has("consent"), "saving the resolved consent stores nothing")
+	var changed := consent.duplicate(true)
+	changed["public"] = not bool(consent.get("public", false))
+	SETTINGS.save_consent("fluttershy", changed)
+	saved = SETTINGS.data().get("characters", {})
+	entry = (saved as Dictionary).get("fluttershy", {})
+	var consent_diff: Dictionary = entry.get("consent", {})
+	check(consent_diff.has("public") and not consent_diff.has("anal"),
+		"a consent save stores only the changed key")
+	SETTINGS.save_consent("fluttershy", consent)
 
 
 func _collect_labels(node: Node, out: Array) -> void:

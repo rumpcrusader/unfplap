@@ -153,8 +153,9 @@ unbounded.
 The **Characters** tab exposes one name-filtered pony selector, a **Save preset** button and a
 **Reset to default** button in one row under the selector, and one form. The selector lists the
 103 base-game mares first, then any live adult mare from another mod under **Other mares**; an
-off-roster mare uses the global default profile and placement until a preset or per-mare override
-is saved.
+off-roster mare uses her registered provider template and placement when one exists
+(`docs/api.md`), otherwise the global default profile and placement, until a preset or per-mare
+override is saved.
 
 - intensity, pattern, warmth;
 - neglect tolerance (forgiving, normal, strict);
@@ -166,9 +167,11 @@ is saved.
 Preset changes are staged in the form and written only by **Save preset**, then applied live during
 an act. If the form matches the character's own preference template, Save preset removes the saved
 preference override instead of writing a redundant one. **Reset to default** restores the
-character's own preference template and preserves custom `event_prompts` and pose settings; it does
-not clear consent overrides. The Reset button is disabled while the saved preset already matches the
-character template. Consent defaults are deterministic from her id and can be overridden per pony.
+character's own preference template, including a registered provider layer, and preserves custom
+`event_prompts` and pose settings; it does not clear consent overrides. The Reset button is
+disabled while the saved preset already matches the character template. Consent defaults are
+deterministic from her id, can be supplied by a registered provider layer, and can be overridden
+per pony.
 - Public consent is opt-in and off by default for every mare. It only matters while
   `features.act_public_offer` is on; it lets her offer with others around.
 - Anal consent gates `V`; oral consent gates `N`. A refusal gives a short status toast and leaves

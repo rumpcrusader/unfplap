@@ -74,6 +74,10 @@ The pose boundary is deliberately small:
   the chain; S walks toward the lower belly (path one) or clamps at the flank (path two).
 - Each anchor is a rest-space body/head point snapped to the nearest source vertex, so it keeps
   the source skin weights and follows the live pose.
+- The missionary pose always uses this authored surface chain, even when
+  `features.caress_surface` is off; the hull path is only the build fallback. The authored pose is
+  bed-space, and the procedural hull path's palm frame is not valid on the lying body (the cheek
+  came out edge-on), so the surface chain is the only correct missionary path.
 - Without authored anchors, `caress_path.gd` casts rays from the act camera to the belly, chest,
   neck and head bone origins through the posed patch. A rest-space ray path remains the fallback
   when the camera is unavailable.
@@ -145,17 +149,18 @@ For one hand the engine:
 6. builds the single-point palm frame with `caress_hand.gd`;
 7. falls back to the last good target when the path or surface is unavailable.
 
-With `features.caress_surface` off, the candidate is a hull query through `coat.gd`: the
+With `features.caress_surface` off, the standing candidate is a hull query through `coat.gd`: the
 FlankSurface patch first, then PonyTouchBody nearest, with source hysteresis, a maximum contact
 step and the same normal turn. The flank patch is skipped (its skinning and query) when the point
 is outside its last posed bounds, so shoulder and neck points go straight to the hulls. The hull
-path keeps the last valid point on a miss.
+path keeps the last valid point on a miss. The missionary pose always takes the precise branch;
+the hull path there is only the fallback when the authored chain cannot build.
 
 ## Settings
 
 | Setting | Default | Effect |
 |---|---|---|
-| `features.caress_surface` | off | player-facing Use precise caress: exact surface instead of the hull path |
+| `features.caress_surface` | off | player-facing Use precise caress for the standing pose: exact surface instead of the hull path; the missionary authored chain always uses the surface |
 | `caress.quality` | precise | player-facing hand quality; `balanced` accepts the oval point on a ray miss and refreshes at 20 Hz, `fast` also at 15 Hz with a 1-ring blur |
 | `features.caress_areas` | on | standing authored path from `hands/areas/areas.json` instead of `anchors2.json`; lean-driven chain |
 | `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |

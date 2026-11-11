@@ -67,6 +67,14 @@ class FakeCaressPony extends Node3D:
 	var skeleton: Skeleton3D
 
 
+class FakeCaressRuntime extends Node:
+	var pose_id := ""
+	var features := {}
+
+	func _feature(name: String) -> bool:
+		return bool(features.get(name, false))
+
+
 class FakeBody extends Node3D:
 	var _left_foot: Node3D
 	var _right_foot: Node3D
@@ -169,6 +177,22 @@ func _check_perf_probe() -> void:
 
 ## A held caress must solve the hand through the regular arm pole and return to the authored
 ## frame without the scaled-basis slerp error the first implementation logged every frame.
+func _check_caress_precise_pose() -> void:
+	var runtime := FakeCaressRuntime.new()
+	var hands: RefCounted = HANDS.new(runtime)
+	runtime.pose_id = CATALOG.MISSIONARY
+	runtime.features = {"caress_surface": false}
+	check(bool(hands.call("_precise_on")),
+		"missionary always uses the authored surface chain")
+	runtime.pose_id = CATALOG.STANDING
+	check(not bool(hands.call("_precise_on")),
+		"standing precise caress stays off by default")
+	runtime.features = {"caress_surface": true}
+	check(bool(hands.call("_precise_on")),
+		"standing precise caress follows the setting")
+	runtime.free()
+
+
 func _check_missionary_hand_hold() -> void:
 	var anon: Node = MISSIONARY_ANON.new()
 	root.add_child(anon)
@@ -899,6 +923,7 @@ func run() -> void:
 	_check_body_coat_jiggle_target()
 	_check_tail_tuning()
 	_check_perf_probe()
+	_check_caress_precise_pose()
 	_check_missionary_hand_hold()
 
 	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])

@@ -672,7 +672,7 @@ static var act_faces := flag("act_faces", "features.act_faces", true, "Show act 
 	"Use the game's own faces during acts, offers and the afterglow. Off keeps the current act faces and stops asking act lines for a face; the blush arc and post-act mood face are separate.", GENERAL, "")
 static var caress_surface := flag("caress_surface", "features.caress_surface", false,
 	"Use precise caress",
-	"Place the caress hand from the visible body/head surface instead of the capsule hull. The quality below applies only while this is on.", GENERAL, "")
+	"Place the standing caress hand from the visible body/head surface instead of the capsule hull. The missionary authored chain always uses the surface. The quality below applies only while this is on.", GENERAL, "")
 static var quality := choice("quality", "caress.quality", "precise",
 	["precise", "balanced", "fast"], ["Precise", "Balanced", "Fast"],
 	"Caress quality",

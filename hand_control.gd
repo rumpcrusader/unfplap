@@ -481,8 +481,15 @@ func _caress_reach(hand_side: String) -> Dictionary:
 
 
 func _precise_on() -> bool:
-	return is_instance_valid(runtime) and runtime.has_method("_feature") \
-		and bool(runtime.call("_feature", "caress_surface"))
+	if not is_instance_valid(runtime):
+		return false
+	# The missionary base pose is authored in bed space, and the procedural hull path's palm
+	# frame is not valid on the lying body (the cheek ended up edge-on). The authored surface
+	# chain is the missionary path; the standing caress keeps the player-facing precise toggle
+	# and its hull fallback.
+	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+		return true
+	return runtime.has_method("_feature") and bool(runtime.call("_feature", "caress_surface"))
 
 
 func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,

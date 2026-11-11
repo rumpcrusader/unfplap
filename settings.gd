@@ -668,6 +668,8 @@ static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_
 	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
 static var act_lines := flag("act_lines", "features.act_lines", true, "Allow act lines",
 	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
+static var act_faces := flag("act_faces", "features.act_faces", true, "Show act expressions",
+	"Use the game's own faces during acts, offers and the afterglow. Off keeps the current act faces and stops asking act lines for a face; the blush arc and post-act mood face are separate.", GENERAL, "")
 static var act_history := flag("act_history", "features.act_history", true, "Remember acts",
 	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.", GENERAL, "")
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
@@ -699,6 +701,19 @@ static var debug_perf := flag("debug_perf", "debug_perf", false, "Print perf log
 static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pin act ears",
 	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.", GENERAL, "") \
 	.as_debug()
+# -- Act face  (debug)
+static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "auto",
+	["auto", "fluster", "ooo", "wide"],
+	["Act quality", "Flustered", "Round mouth", "Wide-eyed"],
+	"Climax face",
+	"Auto picks her climax expression from how the act is going: flustered for a warm, well-matched act, round-mouthed for a good physical act, wide-eyed for a poor or mismatched one.",
+	GENERAL, "Act face").as_debug()
+static var blush_arc := flag("blush_arc", "features.blush_arc", true, "Ramp act blush",
+	"Ramp the act blush with her readiness instead of full blush from the first frame.",
+	GENERAL, "Act face").as_debug()
+static var face_debug := flag("face_debug", "features.face_debug", false, "Print face changes",
+	"Print every act face change, the climax quality score and the blush/fluster values. Requires Enable debug.",
+	GENERAL, "Act face").as_debug()
 static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
 	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0).as_debug()
@@ -1622,8 +1637,8 @@ static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1
 	.with_step(1.0).as_debug()
 
 const DEFAULT_ACT_PROMPTS := {
-	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
-	"cue": "During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory color it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
+	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed], [surprised], [sad] or [fearful]. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
+	"cue": "During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory color it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy], or [calm], [surprised], [sad] or [fearful] if the moment calls for it. No narration, no stage directions, no anatomy. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
 }
 
 const DEFAULT_TEMPLATE := {

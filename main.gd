@@ -24,6 +24,7 @@ const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RUMP_CONE := preload("res://mods/unfplap/rump_cone.gd")
+const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
@@ -83,6 +84,7 @@ var _debug_skeleton: Node3D
 var _injected_settings: Array = []
 ## The Debug block of each injected settings tab, toggled live by `debug_mode`.
 var _debug_sections: Array = []
+var _debug_face_index := -1
 var _settings_switch_guard := false
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
@@ -1440,6 +1442,47 @@ func action_show_pose_state() -> String:
 	var rows: Variant = active_runtime.call("pose_state_rows")
 	_debug_block("pose state", rows if rows is Array else [])
 	return "Pose state written to the debug log."
+
+
+## Debug: cycle the game's expression faces on the active act or the aimed/nearest mare.
+func action_force_act_face() -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	if not is_instance_valid(target):
+		return "No mare under the crosshair or nearby."
+	_debug_face_index = (_debug_face_index + 1) % ACT_FACE.FACES.size()
+	var face := str(ACT_FACE.FACES[_debug_face_index])
+	var runtime: Variant = runtime_for(target)
+	var shown := false
+	if is_instance_valid(runtime) and runtime.has_method("force_act_face"):
+		shown = bool(runtime.call("force_act_face", face))
+	if not shown:
+		shown = ACT_FACE.react(target, face, 3.0)
+	_debug("act face %s=%s shown=%s" % [str(target.name), face, str(shown)])
+	return "Act face %s: %s%s." % [str(target.name), face,
+		"" if shown else " (a spoken line owns the face)"]
+
+
+## Debug: print the live act face, director face, climax mode and mood face.
+func action_show_act_face() -> String:
+	if not is_instance_valid(player):
+		return "Act system not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		target = _nearest_pony(view)
+	if not is_instance_valid(target):
+		return "No mare under the crosshair or nearby."
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime) or not runtime.has_method("act_face_rows"):
+		return "No runtime for %s." % str(target.name)
+	var rows: Variant = runtime.call("act_face_rows")
+	_debug_block("act face", rows if rows is Array else [])
+	return "Act face written to the debug log."
 
 
 ## Debug: clear the aimed or nearest mare's long-term act history.

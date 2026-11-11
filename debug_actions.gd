@@ -114,6 +114,20 @@ const ACTIONS := {
 		"help": "Print which missionary base pose is in charge and where it put her.",
 		"method": "action_show_pose_state",
 	},
+	"force_act_face": {
+		"label": "Force act face",
+		"help": "Cycle the game's expression faces on the active act or the aimed mare.",
+		"method": "action_force_act_face",
+		"row": "Act face",
+		"short": "Next",
+	},
+	"show_act_face": {
+		"label": "Show act face",
+		"help": "Print the act face, director face, climax mode and mood face.",
+		"method": "action_show_act_face",
+		"row": "Act face",
+		"short": "Inspect",
+	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
 		"help": "Toggle the F10 skeleton overlay.",

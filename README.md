@@ -56,10 +56,11 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Caress** — Rub her flank standing or her chest, neck and cheek in missionary with either hand; see `docs/hands.md`.
 - **Act actions** — Leaning cues kisses and shoulder reaches; F kisses at a full lean, and right-click smacks one.
+- **Act expressions** — She uses the game's own faces during sex: shy or comfortable at the start, eager as she gets close, and a climax that turns flustered, open-mouthed or wide-eyed with how the act is going. Act lines can pick a face too.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.
-- **Presentation** — Adds blush, eyes, ears, tail, rump jiggle, audio and wing motion.
+- **Presentation** — Adds blush, eye and ear motion, tail, rump jiggle, audio and wing motion.
 - **Act audio** — Pack thrust, slide, bed/fabric, kiss and flank-smack sounds are always on; `Act vocals` adds only the optional pack climax moan; `Wet climax layer` is separate and off by default.
-- **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In standing afterglow, staying close and caressing earns a small extra reward, then short aftercare. A warm, relaxed "satisfied" mood and expression last for five minutes afterward.
+- **Aftermath** — Ends with a held afterglow for either pose; normal dialogue resumes with the just-intimate context, she may choose to get up after a while, and asking to stay longer holds the moment. In standing afterglow, staying close and caressing earns a small extra reward, then short aftercare. A warm, relaxed expression lasts for five minutes afterward; a bad act shows hurt or annoyance instead.
 - **Back to bed** — A missionary act that started in a bed and ended well puts Anon back in it and invites her to lie with him again.
 - **Memory and witnesses** — Intimacy is remembered, and nearby awake ponies can witness it and talk about it later.
 - **Long-term history** — Good sex builds trust and desire, while repeated neglect or disliked handling makes a mare reluctant; she may stop asking, complain, or gently refuse until things improve. No break-up.

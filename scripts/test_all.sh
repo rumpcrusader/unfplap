@@ -37,6 +37,8 @@ TESTS=(
 	test_auto_panel
 	test_preferences
 	test_memory
+	test_act_face
+	test_mood_face
 	test_act_summary
 	test_act_history
 	test_act_flow
@@ -47,6 +49,7 @@ TESTS=(
 	test_utterance_lines
 	test_relationship_cue
 	test_runtime_notes
+	test_runtime_face
 	test_runtime_thrust
 	test_runtime_teardown
 	test_sex_bond

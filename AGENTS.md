@@ -14,6 +14,7 @@ Do not start implementation until you have read the required files for the area 
 | Any hands, caress or smack task | `docs/hands.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
+| Any act face, mood or voice emotion | `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_act_face_beat`, `_eyes_tick`), `settings.gd` prompts |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `settings.gd`, `settings_ui.gd` |
@@ -187,8 +188,8 @@ mods/unfplap/
                     settings-tab injection with guard, Characters preference editor, debug actions,
                     skeleton debug helper
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
-                    act camera lean, pose actions/smack, climax, afterglow/close window,
-                    restore, bed cuddle rejoin, aftercare
+                    act camera lean, pose actions/smack, act face beats, climax,
+                    afterglow/close window, restore, bed cuddle rejoin, aftercare
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip; every adult identity with
                     `pony_hips`, not only the base roster
@@ -252,8 +253,8 @@ mods/unfplap/
   memory.gd         world_context events, grade-aware act impression, witnesses, reactions
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
-  satisfied.gd      300 s post-act relaxed face, light blush and warm prompt note; no nav hold
-  upset.gd          300 s refused/stopped mood face (annoyed/angry), yields to line faces
+  act_face.gd       pure act face beats, live climax style, blush levels and prompt hints
+  mood_face.gd      300 s post-act base-game mood face, light blush, yields to line faces
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
   tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
@@ -984,6 +985,121 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 Read `PREFERENCES.md` for the exact preference schema, readiness rates, cue rules and character
 examples.
 
+## Critical: act expression and mood
+
+The act uses the game's own expression vocabulary; it never adds a second emotion stat. `act_face.gd`
+is pure and owns every face/beat decision; `mood_face.gd` holds one post-act face; `runtime.gd`
+owns the timing and the line-face yield.
+
+### Vocabularies
+
+- **Faces** (`[face:NAME]`): 22 names from `face_poses.gd` (`LINE_FACES`). The director applies
+  them on speech start, holds them for 3 s after speech, and strips them from the words.
+- **Mood** (`[mood:NAME]`): 10 names in `pony_impressions.gd`, fresh for 300 s. It gates
+  `bonds.welcomes()` and feeds prompts/profile. The base game has no mood→face bridge.
+- **Voice** (`[emotion]`): 11 TTS tags. They are audio only. `shy`, `affectionate`, `ooo` and
+  `anticipation` are faces, not voices; `calm`, `fearful`, `whispering` and `shouting` are voices,
+  not faces.
+- **Gaze moods** (`openpony_eye_motion.gd`): set from the active face/fluster; the act still points
+  `eye_motion.target_world` at Anon.
+
+### One face owner
+
+`_act_face` tracks the face the act set. `_set_act_face(face, hold_s)` refuses to override a
+director line (`dialogue_face` non-empty and not `_act_face`). A face with `hold_s > 0` calls
+`finish_dialogue(hold_s)`; `_end_act_face()` clears only if `dialogue_face == _act_face`. The act
+face is cleared in `_restore_begin()`/`_end_session()`; the post-act mood face starts after it at
+`_begin_aftercare()`.
+
+### Beats
+
+| Moment | Face | Hold |
+|---|---|---|
+| start, first time | `shy` | 2.5 s |
+| start, repeat | `relaxed` | 2.5 s |
+| readiness reaches `CLOSE_AT` (65) | `anticipation` | 3 s |
+| climax, `fluster` | `shy` + `fluster(5.0)` | 5 s |
+| climax, `ooo` | `ooo` | 5 s |
+| climax, `wide` | none | — |
+| afterglow, positive | `affectionate` | 3 s |
+| afterglow, neutral non-early | `relaxed` | 3 s |
+| afterglow, bad | `sad`/`annoyed` | 3 s |
+| warning / overwhelmed | `sad` for forgiving, else `annoyed` | 3 s / 2.5 s |
+
+`_first_time` is one `MEMORY.cue_facts()` call at start. `warning` is `_tolerance_warn`;
+`overwhelmed` is the disliked touch/talk path. Both are one-shot, so a cue line can replace them.
+
+### Auto climax style
+
+`climax_mode` (`auto` default, or forced `fluster`/`ooo`/`wide`) picks the climax expression. In
+`auto`, `act_face.climax_style()` scores the live act from the same counters the summary uses:
+
+```text
+motion     = avg(intensity match rate, pattern match rate)       # 0.5 with no data
+both       = both_matches / max(3, intensity_total)
+affection  = min(1, (liked_touch + liked_talk) / 3)
+engagement = 0.5 * min(1, intensity_total / 6)
+           + 0.5 if any liked touch/talk
+penalty    = min(0.8,
+               dislikes_total * 0.20
+             + tolerance_distress * 0.05
+             + 0.10 if she seeks touch and got none
+             + 0.10 if she seeks talk and got none
+             + 0.20 if overwhelmed)
+score      = clamp(0.35*motion + 0.25*both + 0.25*affection + 0.15*engagement - penalty, 0, 1)
+```
+
+`score >= 0.70` → `fluster`; `>= 0.40` → `ooo`; otherwise `wide`. This is presentation only; the act
+summary still owns the grade, history, mood and rewards. `face_debug` logs the style and all parts
+once per climax.
+
+### Blush and lids
+
+`blush_for()`: POSING_IN `0.60`; ACTIVE `0.55 + 0.45 × readiness/100`; CLIMAX `1.0`; AFTERGLOW
+`0.40`. `blush_arc` off restores full blush for the whole act. A line face with `blush` overrides
+the decal; the beats choose blush-free faces at low readiness.
+
+`stare()` still owns the eyelids: ACTIVE `0.45`, CLIMAX `0.0`, AFTERGLOW `0.9`. The only act-time
+release is the climax `fluster` (and the existing kiss path). `_stare_release_until` is cleared by
+`_finish_climax`, `_afterglow_begin` and `_restore_begin`. `act_ear_pin` still pins ears through
+`fluster`; it also forces full blush through the base game, so it conflicts with the blush arc.
+
+### Prompts
+
+Default `cue`/`utterance` prompts carry `{face_note}`. The runtime fills it with
+`ACT_FACE.prompt_note("cue", mood)` and appends it to a saved prompt that lacks the placeholder.
+`MEMORY.reaction_for()` appends the event note for `climax`, `end_early`, `tolerance_warning`,
+`tolerance_stop` and `history_refusal`. The offer ask/invite and the bystander prompt get their own
+notes. A note is skipped when the prompt already contains `[face`. The note never suggests
+`[mood:...]` in an act line.
+
+### Post-act mood face
+
+`mood_face.gd` holds one post-act face for 300 s, yields to
+spoken line faces, ends when the impression mood changes, and clears only its own face. It starts
+from `_begin_aftercare()` for a normal act and from `_start_upset()` for a refusal/stop. Positive
+and non-early neutral acts use `relaxed` and set `_warm_note` for the warm prompt note; a bad act
+uses `sad`/`annoyed`; a stop uses `angry`/`annoyed`. The face survives the deferred
+`_rejoin_bed_cuddle()`. A positive act's afterglow has the short `affectionate` beat; the held face
+is deliberately blush-free so the 0.35 decal stays light.
+
+### Settings and debug
+
+- `features.act_faces` (default on) gates the beats and prompt notes; the post-act mood face stays.
+- `presentation.act.climax_mode` (debug, `auto`/`fluster`/`ooo`/`wide`).
+- `features.blush_arc` (debug, default on) and `features.face_debug` (debug, default off).
+- Actions **Force act face** (`Next`) and **Show act face** (`Inspect`) in General's Debug block.
+- `face_debug` logs one line per face change, the climax score parts and the mood-face start/end.
+
+### Guardrails
+
+- A face tag cannot close the eyes while `stare` is on; only `fluster`/kiss release it on purpose.
+- Never use `[mood:...]` in act lines; the summary owns the impression mood.
+- Do not use `pain`/`fearful` for consensual intensity; reserve them for real distress/stop.
+- `angry`/`ponyrage` carry `brace`; a standing cue line with one can trigger `expression_stance`.
+- Pair `fluster` with `shy`/`relaxed`, not a frown or round mouth: it brings its own `.55` smile.
+- Custom prompts may use `{face_note}`; the runtime appends the note when it is absent.
+
 ## Act flow, gates and controls
 
 - Eligibility: adult, not filly/colt, player not young, love level per
@@ -1046,10 +1162,11 @@ examples.
 - Aftercare starts only at final readiness ≥ 10; it holds navigator ownership for 10 s. Its
   positive tail-up/flick body language is used only after a good act; a bad act keeps the 10 s
   hold without it.
-- A good act, or a non-early neutral act, also starts `satisfied.gd` for 300 s, matching the
-  impression mood freshness: a relaxed face, light blush and a warm prompt note. The note says she
-  is still warm and relaxed after making love with Anon. A bad act gets no satisfied face. It does
-  not hold the navigator or block another act; a new act clears it.
+- Every completed act starts `mood_face.gd` for 300 s, matching the impression mood freshness. A
+  positive or non-early neutral act uses a relaxed face, a light 0.35 blush and the warm prompt note
+  ("still warm and relaxed after making love with Anon"); a bad act uses `sad`/`annoyed` instead. The
+  face does not hold the navigator or block another act; a new act clears it. The positive
+  afterglow also gets a short `affectionate` beat before the held face takes over.
 - The first pony climax records one memory event; every climax gets its reaction. At afterglow
   `_commit_summary()` scores the act once and `MEMORY.commit_act()` writes the grade-aware romance
   and mood; there is no flat `commit_climax()` reward. The witness pass commits once at afterglow.
@@ -1064,8 +1181,9 @@ examples.
 - The afterglow HUD shows the summary: missionary in the cue line, standing on the readiness line
   under its close prompt. Early end shows no HUD summary. `prompt_note()` carries one short random
   afterglow beat (`ACT_SUMMARY.afterglow_beat()`, 40% silence) and a private relationship note in
-  afterglow, the relationship note during the act, the 300 s satisfied note after a good or
-  non-early neutral act, or the history note while a hurt history is active. `lover_prompt_note()`
+  afterglow, the relationship note during the act, the 300 s warm note after a good or non-early
+  neutral act (`_warm_note` on the mood face), or the history note while a hurt history is active.
+  `lover_prompt_note()`
   adds the neutral lover fact (`You and Anon are lovers.` / `You are not Anon's lover.`) when no
   other prompt note is present. It does not recite the summary or append “Next time you want…”
   stroke mechanics.
@@ -1096,8 +1214,8 @@ examples.
 - An intentional early end or a partner stop records one event: the summary, or the basic
   `cancel`/`stop` event when history is off or the summary was skipped.
 - A summary is good at `>= 0.80`, bad at `<= 0.20`, neutral between. A neutral early end adds
-  one mild hurt. A partner stop is always severe. The grade decides romance, mood, satisfied and
-  aftercare; there is no flat `commit_climax()` reward.
+  one mild hurt. A partner stop is always severe. The grade decides romance, mood, the post-act
+  face and aftercare; there is no flat `commit_climax()` reward.
 - The history tiers are hurt `2` rare vague hint, `4` no proactive offers, `6+` spoken refusal.
   Good acts repair hurt, time decays it and an apology repairs it once per in-game day. There is no
   break-up path. A tier-1 hint is deterministic per act and appears only about one time in four;
@@ -1127,8 +1245,8 @@ examples.
   `stop_until` blocks `blocks_start()`, proactive offers and offer weight; pressing Y gets the
   spoken refusal. A new stop replaces the old cooldown.
 - A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
-  (`upset.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
-  `features.act_history` off, or a skipped summary, there is no impression and no face.
+  (`mood_face.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
+  `features.act_history` off, or a skipped summary, the stop path keeps its old no-face guard.
 - The **Neglect tolerance** debug settings sit in World's Debug block; the Debug actions have **Force neglect warning**
   and **Force neglect stop**. See `HISTORY.md`.
 
@@ -1269,7 +1387,7 @@ examples.
 - A refusal is a real mood beat. `refuse()` tries the buck/push, then `_note_refusal()` writes the
   game's impression (`MEMORY.refusal_event`): `annoyed` for a turn-away, `angry` when she bucked
   or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` (trust -2, boundary)
-  and holds the matching face in `upset.gd`. `angry` makes `bonds.welcomes()` false, so she refuses
+  and holds the matching face in `mood_face.gd`. `angry` makes `bonds.welcomes()` false, so she refuses
   kisses and offers for the note's 300 s freshness.
 - `can_start()` requires the `sex_bond` row. In Default, the `relation` row is required too, so
   the Y hint appears only when she welcomes the kiss and the bond exists. In Try Your Luck, the
@@ -1474,6 +1592,9 @@ examples.
   lines: the armature bone the placement is written to, and its world pose at the start of the
   modifier pass, right after the write and again at render time, against the authored target in the
   live bed frame.
+- **Force act face** / **Show act face**: cycle the 22 base-game faces on the active act or the
+  aimed/nearest mare for 3 s, and print the live act face, director face, climax mode, blush arc,
+  fluster and mood face. The cycle never overrides a speaking line; the status label says so.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act while **Enable debug** is on. Neglect events log their warning/stop,
   tier, distress and dislike.
@@ -1498,8 +1619,10 @@ examples.
   `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
   near and far tail geometry all disappear while the mane stays. The small root cap pinned to the
   pelvis may remain under the dock. It touches no other body part.
-- `act_ear_pin` is one of General's ungrouped debug rows and defaults off; when off the act skips
-  `expressions.fluster()`, keeping normal ears while the blush, gaze and ear twitch remain.
+- `act_ear_pin` is one of General's ungrouped debug rows and defaults off. On, it pins the ears
+  through `expressions.fluster()` for the whole act; off leaves the ears to the face beats and the
+  climax fluster. It also forces full blush through the base fluster path, so it conflicts with
+  `blush_arc`.
 - Lab: `Shift+[` / `Shift+]` moves the previous/next adult mare in front of Anon, facing away,
   standing idle; non-starters are spawned on demand and the previous extra is despawned. `-`/`=`
   romance tier, `9`/`0` anger mood (the impression and its held face), Mouse4 bed invite, Mouse5
@@ -1603,7 +1726,10 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `hud_readouts` | `true` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
 | `act_controls` | `true` | act control card; the cue and close prompt stay |
 | `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
-| `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old satisfied/aftercare behaviour |
+| `act_faces` | `true` | act face beats and `{face_note}` prompt hints; off keeps the current act faces; the blush arc and post-act mood face are separate |
+| `blush_arc` | `true` | readiness-ramped act blush; off restores full blush from the first frame |
+| `face_debug` | `false` | print act face changes, the climax score and the mood-face start/end |
+| `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old aftercare behaviour |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
@@ -1740,6 +1866,8 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
+  - `act`: `climax_mode` (debug choice `auto`/`fluster`/`ooo`/`wide`, default `auto`) picks the
+    climax expression from the live act quality when it is `auto`.
   - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
     `part_inset_m` (debug, signed, in centimetres: pull the cock base back into the pelvis in
@@ -1796,9 +1924,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   second title. Settings with no group render at the top of the tab without a heading; a group
   needs at least three related settings to earn one. **General** is one ungrouped list in this
   order: Starting Sex, Show controls, Show HUD readouts, Show captions on top, Mute Ponese audio,
-  Allow act lines, Remember acts, Climax limit, Sensitivity, Thrust direction, Use Anon bed body,
-  Use VR act, Allow hole switch, Allow oral, Allow finish control, then the **Enable debug** switch.
-  Its Debug block holds the perf-log and act-ear switches, auto thrust (pace, bottom, peak,
+  Allow act lines, Show act expressions, Remember acts, Climax limit, Sensitivity, Thrust direction,
+  Use Anon bed body, Use VR act, Allow hole switch, Allow oral, Allow finish control, then the
+  **Enable debug** switch. Its Debug block holds the perf-log and act-ear switches, the **Act face**
+  section (climax face, blush arc, face log), auto thrust (pace, bottom, peak,
   shape), the contact gap, the hip back-off and acts
   during cuddles, then **Camera**, **Talk & cues**, **Missionary** (body motion, Anon size
   match, Cock base inset, a **Size** dropdown over the six per-size vulva/clearance/gaze values,

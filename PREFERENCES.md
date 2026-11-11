@@ -276,6 +276,11 @@ overwhelmed   a disliked touch/talk landed recently
 - `UTTERANCE.context_note()` owns the mandatory context. If a saved prompt omits `{state}`,
   `{relationship}`, `{tone}` or `{memory}`, the runtime appends that block and the privacy guard
   after formatting. A legacy template cannot drop the relationship note.
+- `{face_note}` is the base-game expression hint. The default `cue`/`utterance` prompts carry it;
+  the runtime fills it from `act_face.prompt_note("cue", mood)` and appends the same hint to a saved
+  prompt that does not use the placeholder. It suggests one valid `[face:...]` tag and forbids
+  `[mood:...]` in an act line. Voice emotions stay in the prompt text: `[whispering]` is the act
+  default, with `[calm]`, `[happy]`, `[annoyed]`, `[surprised]`, `[sad]` or `[fearful]` by moment.
 - One unused shared memory may ride with a cue. A stored peak memory is preferred; otherwise
   the story journal (a cue-word match, then the most recent player exchange), then older
   world-context events. Intimacy events and private brain notes are skipped. The memory is

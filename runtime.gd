@@ -16,8 +16,8 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
-const SATISFIED := preload("res://mods/unfplap/satisfied.gd")
-const UPSET := preload("res://mods/unfplap/upset.gd")
+const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
+const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
@@ -109,7 +109,7 @@ const BYSTANDER_FIRST_S := 12.0
 const BYSTANDER_GAP_S := 20.0
 const BYSTANDER_CHANCE := 0.7
 const BYSTANDER_MAX := 3
-const BYSTANDER_PROMPT := "You can see Anon and %s having sex right in front of you, %s Say ONE short line in your own voice, at most 14 words, aloud to them or to yourself. Ponies have much less shame about this than humans do, so react the way a pony would: amused, teasing, curious, nosy, a little flustered, or mildly put out, but never horrified, panicked or disgusted. Mention where they are doing it if that is what stands out. Do not join in, do not describe anatomy, and do not ask a question that needs an answer."
+const BYSTANDER_PROMPT := "You can see Anon and %s having sex right in front of you, %s Say ONE short line in your own voice, at most 14 words, aloud to them or to yourself. Begin with [happy], [surprised] or [calm]. Ponies have much less shame about this than humans do, so react the way a pony would: amused, teasing, curious, nosy, a little flustered, or mildly put out, but never horrified, panicked or disgusted. Mention where they are doing it if that is what stands out. Do not join in, do not describe anatomy, and do not ask a question that needs an answer."
 const BYSTANDER_OUTDOORS := "out in the open where anypony could walk past."
 const BYSTANDER_INDOORS := "indoors, in a house you are also in."
 var _bystander_event := ""
@@ -481,8 +481,13 @@ var _act_seconds := 0.0
 ## act timing and stroke memory instead of aging them by the pause length.
 var _clock_s := 0.0
 var _aftercare: Node
-var _satisfied: Node
-var _upset: Node
+var _mood_face: Node
+var _warm_note := false
+var _act_face := ""
+var _stare_release_until := 0.0
+var _first_time := false
+var _close_face_done := false
+var _act_climax_mode := "auto"
 var _satisfaction_tween: Tween
 ## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
@@ -767,6 +772,7 @@ func _snapshot_settings() -> void:
 	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
 	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
 	_presentation_cfg = SETTINGS.block("presentation." + pose_id + ".")
+	_act_climax_mode = str(SETTINGS.climax_mode.get_choice())
 	_configure_utterance_scheduler()
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
@@ -802,6 +808,7 @@ func apply_live_settings() -> void:
 	if not _id.is_empty():
 		_preferences = SETTINGS.preferences(_id)
 	_refresh_live_modifiers()
+	_sync_act_face_settings()
 	if previous_mute != _feature("mute_ponese_audio"):
 		_refresh_live_voice()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
@@ -908,7 +915,7 @@ func auto_hud_text() -> String:
 		roundi(float(auto.get("max_depth")) * 100.0),
 		float(auto.get("pace")), auto_shape_name()]
 
-## Strong blush for the whole act; pegasi/alicorns spread their wings and occasionally flutter.
+## Act blush and wing presentation. The blush ramps with readiness unless the debug arc is off.
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -918,7 +925,8 @@ func _act_presentation(delta: float) -> void:
 		_aim_missionary_eyes()
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", 1.0)
+		boop.call("sustain_blush", ACT_FACE.blush_for(_act_phase(), satisfaction,
+			_feature("blush_arc")))
 	# The optional debug pin reuses the boop-fluster response: it pins the ears back along the
 	# skull. Off keeps normal ears; the blush and stare() eyelids are independent.
 	var expressions: Variant = pony.get("expressions")
@@ -1196,6 +1204,12 @@ func _eyes_tick() -> void:
 	if expressions == null:
 		return
 	if _kiss_controller().eyes_active():
+		if not _act_eyes_released:
+			if expressions.has_method("stare"):
+				expressions.call("stare", false)
+			_act_eyes_released = true
+		return
+	if _now_s() < _stare_release_until:
 		if not _act_eyes_released:
 			if expressions.has_method("stare"):
 				expressions.call("stare", false)
@@ -1522,7 +1536,7 @@ func _buck_or_push() -> bool:
 
 ## A refusal is a real mood beat, not just a buck animation. The game's lasting feeling is the
 ## impression note, which drives `bonds.welcomes()`, anger, offers, approaches and her dialogue;
-## the held face displays it (upset.gd). A buck is the stronger moment, so it is the stronger mood.
+## the held face displays it (mood_face.gd). A buck is the stronger moment, so it is the stronger mood.
 func _note_refusal(bucked: bool) -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		MEMORY.refusal_event(main.game, _id, _display_name,
@@ -1860,8 +1874,9 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
 	set_request_face(false)
 	clear_presentation()
-	_end_satisfied()
-	_end_upset()
+	_end_mood_face()
+	_end_act_face()
+	_close_face_done = false
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
@@ -1904,6 +1919,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_set_face(0.45, ACT_LIDS)
 	_serial = _next_serial()
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
+	_first_time = _read_first_time()
 	_started_at = Time.get_unix_time_from_system()
 	satisfaction = 0.0
 	mood = "warming"
@@ -1995,6 +2011,7 @@ func start(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if is_instance_valid(main) and main.has_method("anon_encounter"):
 		main.call("anon_encounter", true)
 	state = State.POSING_IN
+	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	if is_instance_valid(_anatomy):
 		_anatomy.call("apply_live")
@@ -3310,6 +3327,9 @@ func _readiness_tick(delta: float) -> void:
 	if satisfaction >= PONY_CLIMAX_AT:
 		_climax()
 		return
+	if not _close_face_done and satisfaction >= UTTERANCE_SCHEDULER.CLOSE_AT:
+		_close_face_done = true
+		_act_face_beat("close")
 	var now := _now_s()
 	if now - _last_stroke_at > STROKE_MEMORY_S:
 		_last_intensity = ""
@@ -3397,6 +3417,7 @@ func _on_touch(kind: String) -> void:
 		_act_dislikes += 1
 		_add_heat(-TOUCH_HEAT)
 		_overwhelmed = _cue_overwhelmed_s
+		_act_face_beat("overwhelmed")
 		_set_cue_override("She doesn't like that.")
 		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
 	# A neutral touch sets no override; the live base cue stays on screen.
@@ -3435,6 +3456,7 @@ func _on_talk(text: String) -> void:
 		_act_dislikes += 1
 		_add_heat(-TALK_HEAT)
 		_overwhelmed = _cue_overwhelmed_s
+		_act_face_beat("overwhelmed")
 		_set_cue_override("She didn't like that.")
 		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
 	else:
@@ -3548,6 +3570,8 @@ func _bystander_tick(delta: float) -> void:
 	var indoors: bool = HOUSE.at(get_tree(), pony.global_position) != null
 	var purpose := BYSTANDER_PROMPT % [_display_name,
 		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
+	if _feature("act_faces"):
+		purpose += ACT_FACE.prompt_note("bystander")
 	if MEMORY.bystander_line(main.game, str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
 		_log("bystander line from %s" % row.id)
@@ -3567,6 +3591,9 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	if template.strip_edges().is_empty():
 		_log("utterance missing prompt kind=%s" % kind)
 		return ""
+	var face_note := ""
+	if kind == "cue" and _feature("act_faces"):
+		face_note = ACT_FACE.prompt_note("cue", mood)
 	var values := {
 		"state": UTTERANCE.state_line(
 			pose_id, mood, _last_intensity, _last_pattern,
@@ -3575,6 +3602,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		"taste": PREFERENCES.describe(_preferences),
 		"cue": cue,
 		"recent": _recent_lines(),
+		"face_note": face_note,
 	}
 	var memory_id := ""
 	if kind == "cue":
@@ -3601,6 +3629,9 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		memory_id = str(memory.get("id", ""))
 	var purpose := UTTERANCE.format(template, values)
 	if kind == "cue":
+		if not face_note.is_empty() and not template.contains("{face_note}") \
+				and not purpose.contains("[face"):
+			purpose += face_note
 		purpose += UTTERANCE.context_note(template, values)
 		purpose += CUE_REACTION_NOTE
 		# integration: optional line angles and speech feel, independent of each other.
@@ -3952,6 +3983,7 @@ func _tolerance_event(event: Dictionary) -> void:
 func _tolerance_warn(level: int) -> void:
 	var cue := "She doesn't like that." if level <= 1 else "She is warning you."
 	_set_cue_override(cue, 4.0)
+	_act_face_beat("warning")
 	_queue_tolerance_warning(level)
 	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
 		level, str(_preferences.get("tolerance", "normal")),
@@ -3968,7 +4000,8 @@ func _queue_tolerance_warning(level: int) -> void:
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state in [State.POSING_IN, State.ACTIVE] \
 			and _event_id == act_id
-	var fallback := "Don't do that." if level <= 1 else "I said stop that."
+	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
+		+ " Begin with [annoyed] or [calm]."
 	_tolerance_warning_key = MEMORY.reaction_for(main.game, _id, "tolerance_warning",
 		event_id, fallback, valid)
 
@@ -4023,9 +4056,9 @@ func _request_space() -> void:
 func _queue_stop_line(strict: bool) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
 		return
-	var fallback := "Stop. I don't want to continue. Not now."
+	var fallback := "Stop. I don't want to continue. Not now. Begin with [angry] or [sad]."
 	if strict:
-		fallback = "I told you to stop. Get off me and give me space."
+		fallback = "I told you to stop. Get off me and give me space. Begin with [angry] or [sad]."
 	var event_id := "tolerance_stop_%s_%d" % [_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state == State.IDLE
@@ -4393,6 +4426,7 @@ func _climax() -> void:
 	_schedule_climax_hearts()
 	_climax_hearts_burst_at(_dock_point())
 	_set_face(0.3, CLIMAX_LIDS)
+	_act_face_beat("climax")
 	_end_act_lines(true)
 	if is_instance_valid(main) and pony_climaxes == 1:
 		MEMORY.climax_event(main.game, _id, _display_name, _event_id)
@@ -4502,7 +4536,7 @@ func _queue_climax_reaction() -> void:
 			return true
 		return MEMORY.line_state(main.game, reaction_key) == "speaking"
 	var key := MEMORY.reaction_for(main.game, _id, "climax", climax_id,
-		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Staying quiet is fine. Do not describe anatomy.",
+		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine. Do not describe anatomy.",
 		valid)
 	if key.is_empty():
 		return
@@ -4518,6 +4552,7 @@ func _finish_climax() -> void:
 		_enter_afterglow()
 		return
 	state = State.ACTIVE
+	_stare_release_until = 0.0
 	_set_face(0.45, ACT_LIDS)
 	satisfaction = 0.0
 	mood = "warming"
@@ -4579,7 +4614,7 @@ func _relationship_note() -> String:
 func prompt_note() -> String:
 	var history := _history_note()
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		if is_instance_valid(_satisfied):
+		if _warm_note:
 			var warm := "- You are still warm and relaxed after making love with Anon. Keep an affectionate tone; do not act stiff or businesslike."
 			var relation := _relationship_note()
 			if not relation.is_empty():
@@ -4808,7 +4843,9 @@ func _afterglow_begin() -> void:
 	cue = ""
 	_cue_override = ""
 	_cue_until = 0.0
+	_stare_release_until = 0.0
 	_set_face(0.85, AFTERGLOW_LIDS)
+	_act_face_beat("afterglow")
 	if is_instance_valid(_pose):
 		if pose_id == CATALOG.STANDING:
 			_pose.mode = "standing"
@@ -4907,6 +4944,7 @@ func _restore_begin() -> void:
 		_anatomy.call("apply_live")
 	_restore_left = RESTORE_SECONDS
 	_clear_face()
+	_end_act_face()
 	_wings_controller().release()
 	if is_instance_valid(_pose):
 		_pose.target_amount = 0.0
@@ -4951,6 +4989,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_restore_eye_override()
 	if is_instance_valid(pony):
 		_clear_face()
+		_end_act_face()
 		_wings_controller().release()
 	_unlock_player()
 	if _camera_owned:
@@ -5186,56 +5225,260 @@ func _begin_aftercare() -> void:
 	var has_summary := not _summary.is_empty()
 	var healthy := bool(_summary.get("positive", false)) if has_summary \
 		else satisfaction >= _aftercare_min
-	var reward := bool(_summary.get("reward", false)) if has_summary \
-		else satisfaction >= _aftercare_min
 	_aftercare = AFTERCARE.new()
 	_aftercare.set("pony", pony)
 	_aftercare.set("runtime", self)
 	_aftercare.set("body_language", healthy and satisfaction >= _aftercare_min)
 	add_child(_aftercare)
-	if reward and satisfaction >= _aftercare_min:
-		_start_satisfied()
+	_start_post_act_face()
 
-## The emotional grace after a positive act: relaxed face, light blush and a warm prompt note.
-## It lasts as long as the game's impression mood stays fresh (satisfied.gd) and never holds
-## her navigator or blocks another act.
-func _start_satisfied() -> void:
-	if not is_inside_tree() or not is_instance_valid(pony):
+## The post-act face. A positive or non-early neutral act keeps a light, relaxed face and the warm
+## prompt note; a bad act shows its summary mood instead. The node yields to spoken line faces and
+## lasts as long as the impression mood is fresh.
+func _start_post_act_face() -> void:
+	_warm_note = false
+	if _stopped_by_her or not is_inside_tree() or not is_instance_valid(pony):
 		return
-	if is_instance_valid(_satisfied):
+	var face := ""
+	var mood := ""
+	var blush := 0.0
+	var warm := false
+	if not _summary.is_empty():
+		face = ACT_FACE.face_for_summary_hold(_summary)
+		mood = str(_summary.get("mood", ""))
+		warm = bool(_summary.get("reward", false)) and satisfaction >= _aftercare_min
+		if warm:
+			blush = 0.35
+	elif satisfaction >= _aftercare_min:
+		face = "relaxed"
+		blush = 0.35
+		warm = true
+	if face.is_empty():
 		return
-	_satisfied = SATISFIED.new()
-	_satisfied.name = "UnfplapSatisfied"
-	_satisfied.set("pony", pony)
-	_satisfied.set("runtime", self)
-	add_child(_satisfied)
+	_start_mood_face(mood, face, blush, warm)
 
-func _end_satisfied() -> void:
-	if is_instance_valid(_satisfied):
-		_satisfied.queue_free()
-	_satisfied = null
+func _start_mood_face(mood: String, face: String, blush: float, warm_note: bool) -> void:
+	if not is_inside_tree() or not is_instance_valid(pony) or face.is_empty():
+		return
+	if not ACT_FACE.valid_face(face):
+		return
+	_end_mood_face()
+	_mood_face = MOOD_FACE.new()
+	_mood_face.name = "UnfplapMoodFace"
+	_mood_face.set("pony", pony)
+	_mood_face.set("runtime", self)
+	_mood_face.set("mood", mood)
+	_mood_face.set("face", face)
+	_mood_face.set("blush", blush)
+	_mood_face.connect("finished", _on_mood_face_finished)
+	_warm_note = warm_note
+	add_child(_mood_face)
 
+func _on_mood_face_finished(_reason: String) -> void:
+	_mood_face = null
+	_warm_note = false
 
-## A refused advance or a consent stop: hold the hostile face that matches the impression mood.
-## It yields to the director's line faces and ends when a newer mood replaces ours (upset.gd).
+func _end_mood_face() -> void:
+	if is_instance_valid(_mood_face):
+		if _mood_face.is_connected("finished", _on_mood_face_finished):
+			_mood_face.disconnect("finished", _on_mood_face_finished)
+		_mood_face.call("_finish", "replaced")
+	_mood_face = null
+	_warm_note = false
+
+## Compatibility aliases: the lab's anger keys and the old call sites still use these names.
 func _start_upset(mood: String) -> void:
-	if not is_inside_tree() or not is_instance_valid(pony):
-		return
-	_end_satisfied()
-	if is_instance_valid(_upset):
-		_upset.queue_free()
-	_upset = UPSET.new()
-	_upset.name = "UnfplapUpset"
-	_upset.set("pony", pony)
-	_upset.set("runtime", self)
-	_upset.set("mood", mood)
-	add_child(_upset)
-
+	_start_mood_face(mood, str(ACT_FACE.MOOD_FACES.get(mood, "")), 0.0, false)
 
 func _end_upset() -> void:
-	if is_instance_valid(_upset):
-		_upset.queue_free()
-	_upset = null
+	_end_mood_face()
+
+func _end_satisfied() -> void:
+	_end_mood_face()
+
+# --------------------------------------------------------------------------- act face
+
+func _act_phase() -> String:
+	match state:
+		State.POSING_IN:
+			return "posing_in"
+		State.ACTIVE:
+			return "active"
+		State.CLIMAX:
+			return "climax"
+		State.AFTERGLOW:
+			return "afterglow"
+	return ""
+
+
+## First time uses the durable act history plus the world context, the same fact the cue prompt
+## already gets.
+func _read_first_time() -> bool:
+	if not is_instance_valid(main) or not is_instance_valid(main.game) or _id.is_empty():
+		return false
+	var facts := MEMORY.cue_facts(main.game, _id, _event_id)
+	return bool(facts.get("first_time", false))
+
+
+## Live presentation score for the auto climax face. This never writes the summary or history.
+func _climax_quality_inputs() -> Dictionary:
+	var touch_dislikes := 0
+	for count: Variant in _act_touch_dislikes.values():
+		touch_dislikes += int(count)
+	return {
+		"intensity_total": _act_intensity_total,
+		"intensity_right": _act_intensity_right,
+		"pattern_total": _act_pattern_total,
+		"pattern_right": _act_pattern_right,
+		"both_matches": _act_both_matches,
+		"liked_touch": _act_liked_touch,
+		"liked_talk": _act_liked_talk,
+		"dislikes_total": touch_dislikes + _act_talk_dislikes,
+		"distress": float(_tolerance_controller().distress),
+		"seeks_touch": PREFERENCES.seeks_touch(_preferences),
+		"seeks_talk": PREFERENCES.seeks_talk(_preferences),
+		"overwhelmed": _overwhelmed > 0.0,
+	}
+
+
+func _act_face_beat(moment: String) -> void:
+	if not _feature("act_faces") or not is_instance_valid(pony):
+		return
+	var ctx := {
+		"first_time": _first_time,
+		"tolerance": str(_preferences.get("tolerance", "normal")),
+	}
+	if moment == "climax":
+		ctx["mode"] = _act_climax_mode
+		ctx["quality"] = _climax_quality_inputs()
+	elif moment == "afterglow":
+		ctx["summary"] = _summary
+	var plan := ACT_FACE.plan_for(moment, ctx)
+	if plan.is_empty():
+		return
+	var face := str(plan.get("face", ""))
+	if face.is_empty():
+		if moment in ["climax", "afterglow"]:
+			_end_act_face()
+		if moment == "climax" and _feature("face_debug"):
+			var debug_data: Dictionary = {}
+			var raw_debug: Variant = plan.get("style_debug", {})
+			if raw_debug is Dictionary:
+				debug_data = raw_debug as Dictionary
+			_log("act face moment=climax style=%s score=%.2f face=wide" % [
+				str(plan.get("style", "wide")), float(debug_data.get("score", 0.0))])
+		return
+	_set_act_face(face, float(plan.get("hold_s", 0.0)))
+	var fluster_s := float(plan.get("fluster_s", 0.0))
+	if fluster_s > 0.0:
+		var expressions: Variant = pony.get("expressions")
+		if expressions != null and expressions.has_method("fluster"):
+			expressions.call("fluster", fluster_s, true)
+	if bool(plan.get("release_stare", false)):
+		_stare_release_until = _now_s() + float(plan.get("hold_s", 0.0)) + 0.9
+	if _feature("face_debug"):
+		if moment == "climax":
+			var style_data: Dictionary = {}
+			var raw_style: Variant = plan.get("style_debug", {})
+			if raw_style is Dictionary:
+				style_data = raw_style as Dictionary
+			_log("act face moment=climax style=%s score=%.2f motion=%.2f both=%.2f affection=%.2f engagement=%.2f penalty=%.2f face=%s" % [
+				str(plan.get("style", "")), float(style_data.get("score", 0.0)),
+				float(style_data.get("motion", 0.0)), float(style_data.get("both", 0.0)),
+				float(style_data.get("affection", 0.0)),
+				float(style_data.get("engagement", 0.0)),
+				float(style_data.get("penalty", 0.0)), face])
+		else:
+			_log("act face moment=%s face=%s hold=%.1f" % [
+				moment, face, float(plan.get("hold_s", 0.0))])
+
+
+func _current_dialogue_face() -> String:
+	if not is_instance_valid(pony):
+		return ""
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null or not is_instance_valid(expressions):
+		return ""
+	var value: Variant = expressions.get("dialogue_face")
+	if value is String:
+		return value
+	return ""
+
+
+func _set_act_face(face: String, hold_s: float) -> bool:
+	if not is_instance_valid(pony) or not ACT_FACE.valid_face(face):
+		return false
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null or not is_instance_valid(expressions) \
+			or not expressions.has_method("set_dialogue"):
+		return false
+	var current := _current_dialogue_face()
+	if not current.is_empty() and current != _act_face:
+		if _feature("face_debug"):
+			_log("act face skip face=%s owner=line current=%s" % [face, current])
+		return false
+	expressions.call("set_dialogue", face)
+	if hold_s > 0.0 and expressions.has_method("finish_dialogue"):
+		expressions.call("finish_dialogue", hold_s)
+	_act_face = face
+	if _feature("face_debug"):
+		_log("act face set face=%s hold=%.1f" % [face, hold_s])
+	return true
+
+
+func _end_act_face() -> void:
+	_stare_release_until = 0.0
+	if _act_face.is_empty():
+		return
+	if is_instance_valid(pony):
+		var expressions: Variant = pony.get("expressions")
+		if expressions != null and is_instance_valid(expressions) \
+				and expressions.has_method("clear_dialogue") \
+				and _current_dialogue_face() == _act_face:
+			expressions.call("clear_dialogue")
+			if _feature("face_debug"):
+				_log("act face clear face=%s" % _act_face)
+	_act_face = ""
+
+
+func _sync_act_face_settings() -> void:
+	if not _feature("act_faces"):
+		_end_act_face()
+
+
+## Debug preview: set one base-game face on the current act. A speaking line still wins.
+func force_act_face(face: String) -> bool:
+	return _set_act_face(face, 3.0)
+
+
+## Debug view for the "Show act face" action.
+func act_face_rows() -> Array[String]:
+	var rows: Array[String] = []
+	var base_mood := ""
+	if is_instance_valid(main) and is_instance_valid(main.game) and not _id.is_empty():
+		var facts := MEMORY.cue_facts(main.game, _id, _event_id)
+		base_mood = str(facts.get("mood", ""))
+	rows.append("pony=%s state=%d hud_mood=%s base_mood=%s" % [
+		str(pony.name) if is_instance_valid(pony) else "?", state, mood, base_mood])
+	rows.append("act_face=%s dialogue_face=%s stare_release=%.2f" % [
+		_act_face, _current_dialogue_face(), maxf(0.0, _stare_release_until - _now_s())])
+	var fluster := 0.0
+	if is_instance_valid(pony):
+		var expressions: Variant = pony.get("expressions")
+		if expressions != null and is_instance_valid(expressions):
+			var value: Variant = expressions.get("fluster_amount")
+			if value is float or value is int:
+				fluster = float(value)
+	rows.append("act_faces=%s climax_mode=%s blush_arc=%s fluster=%.2f" % [
+		str(_feature("act_faces")), _act_climax_mode, str(_feature("blush_arc")), fluster])
+	if is_instance_valid(_mood_face):
+		var left: Variant = _mood_face.get("_left")
+		rows.append("mood_face face=%s mood=%s left=%.1f warm=%s" % [
+			str(_mood_face.get("face")), str(_mood_face.get("mood")),
+			float(left) if left is float or left is int else 0.0, str(_warm_note)])
+	else:
+		rows.append("mood_face none warm=%s" % str(_warm_note))
+	return rows
 
 # --------------------------------------------------------------------------- checks
 
@@ -6168,9 +6411,8 @@ func _exit_tree() -> void:
 		_anatomy.call("detach")
 		_anatomy.queue_free()
 		_anatomy = null
-	if is_instance_valid(_satisfied):
-		_satisfied.queue_free()
-		_satisfied = null
-	if is_instance_valid(_upset):
-		_upset.queue_free()
-		_upset = null
+	_end_act_face()
+	if is_instance_valid(_mood_face):
+		_mood_face.queue_free()
+		_mood_face = null
+	_warm_note = false

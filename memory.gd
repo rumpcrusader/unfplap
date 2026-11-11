@@ -12,6 +12,7 @@ const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 
 
 static func cancel_event(game: Node, id: String, name: String, event_id: String) -> void:
@@ -42,6 +43,8 @@ static func reaction_for(game: Node, id: String, event: String, event_id: String
 	var purpose := custom if not custom.is_empty() else fallback
 	if event == "climax":
 		purpose += " Include a private first-person [thought: ...] impression of this moment in your reply."
+	if SETTINGS.act_faces.get_bool() and not purpose.contains("[face"):
+		purpose += ACT_FACE.prompt_note(event)
 	var key := mod_key(event_id, "reply", event)
 	var queued := bool(director.call("queue_generated_intent", id, purpose, key, valid, Callable(), true))
 	return key if queued else ""

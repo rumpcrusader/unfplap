@@ -19,6 +19,7 @@ const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
+const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 
 const COOLDOWN_S := 600.0
 ## Heat shortens the offer cooldown to this share of the usual wait.
@@ -1634,11 +1635,13 @@ func _ask_purpose() -> String:
 		text += " You are alone together. Ask him to come to bed with you, clearly enough that he can answer, in your own voice; do not sound like a script or a demand. You are asking him a question."
 	else:
 		text += " You may ask directly or hint, in your own voice, in the way that fits you and this relationship; make it clear enough that he can answer. Phrase it as a question."
-	text += " Say one or two short sentences. Let it sound like you want him, not just the act. Do not narrate actions. End with a question mark."
+	text += " Say one or two short sentences. Let it sound like you want him, not just the act. Begin with [calm], [happy] or [whispering]. Do not narrate actions. End with a question mark."
 	text += _heat_ask_line()
 	var note := _history_ask_note()
 	if not note.is_empty():
 		text += " " + note
+	if SETTINGS.act_faces.get_bool():
+		text += ACT_FACE.prompt_note("ask")
 	return text
 
 
@@ -1677,9 +1680,14 @@ func _relationship_ask_note() -> String:
 
 
 func _invite_purpose() -> String:
+	var text := ""
 	if str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
-		return "You are lying beside Anon on the bed, ready for him. Comment on taking the bed position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Do not narrate actions."
-	return "You have just turned your back to Anon and lifted your tail aside, ready for him. Comment on taking the position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Do not narrate actions."
+		text = "You are lying beside Anon on the bed, ready for him. Comment on taking the bed position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Begin with [whispering] or [calm]. Do not narrate actions."
+	else:
+		text = "You have just turned your back to Anon and lifted your tail aside, ready for him. Comment on taking the position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Begin with [whispering] or [calm]. Do not narrate actions."
+	if SETTINGS.act_faces.get_bool():
+		text += ACT_FACE.prompt_note("invite")
+	return text
 
 
 func _clarify_purpose() -> String:

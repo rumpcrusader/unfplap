@@ -72,9 +72,9 @@ An intentional early end and a partner stop each record **one** event: the summa
 on and the summary is not skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old
 flat `commit_climax` path is gone, so a bad act can no longer give `+2` romance.
 
-`satisfied.gd` starts on a good or non-early neutral act; a bad act gets no satisfied face. The
-10 s aftercare hold always runs, but its positive tail-up body language is only used after a good
-act. `stay_close_reward` gives its extra romance only on a good or non-early neutral act; after a
+A completed act starts `mood_face.gd`: a good or non-early neutral act holds a relaxed face with
+the warm prompt note, and a bad act holds `sad`/`annoyed` instead. The 10 s aftercare hold always
+runs, but its positive tail-up body language is only used after a good act. `stay_close_reward` gives its extra romance only on a good or non-early neutral act; after a
 bad act, staying close and caressing is a one-point hurt repair instead. The caress reward
 threshold is in `docs/hands.md`.
 
@@ -160,8 +160,9 @@ A stop is a dedicated path, not `cancel()`:
 - Normal: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
 - Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
 - the history `stop_until` field blocks `blocks_start()`, `blocks_offers()` and offer weight;
-- no aftercare or satisfied face. A 20 s tucked-tail effect hinged at the tail base follows her,
-  owns no navigator, and is removed if a new act starts.
+- no aftercare; the `angry`/`annoyed` mood face follows when a summary was written. A 20 s
+  tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a
+  new act starts.
 
 The neglect settings live under **Neglect tolerance** in World's Debug block (turn on **Debug mode**).
 The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for testing.
@@ -189,17 +190,17 @@ The mod writes or keeps that note on the moments the base game does not see:
 - the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
 - a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
 
-`upset.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s, yields
-to any spoken line face, and ends early when her AI commits a different mood. It owns no navigator
-and blocks nothing; the gates above do that.
+`mood_face.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s,
+yields to any spoken line face, and ends early when her AI commits a different mood. It owns no
+navigator and blocks nothing; the gates above do that.
 
 ## Feedback
 
 - The afterglow HUD shows the summary. Missionary puts it in the cue line; standing keeps the
   close prompt in the cue and puts the summary on the readiness line. Early end shows no HUD.
 - `prompt_note()` carries the private history note while a hurt history is active, the 300 s
-  satisfied note after a good or non-early neutral act, the relationship note during the act and
-  afterglow, and one short random afterglow beat (or none). `lover_prompt_note()` adds the neutral
+  warm note after a good or non-early neutral act (`_warm_note`), the relationship note during the
+  act and afterglow, and one short random afterglow beat (or none). `lover_prompt_note()` adds the neutral
   lover fact when no other prompt note is present. It does not recite the summary or her
   first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts
   filter `last_wants` through `ACT_HISTORY.repair_wants()` and pass `last_text` through
@@ -217,8 +218,8 @@ and blocks nothing; the gates above do that.
 ## Settings
 
 `features.act_history` is the master switch (General › Controls, default on). With it off, no summary is
-stored, no history note or refusal is used, and the existing satisfied/aftercare behaviour falls
-back to the readiness threshold. It does not disable the per-mare mid-act neglect stop.
+stored, no history note or refusal is used, and the warm note and aftercare fall back to the
+readiness threshold. It does not disable the per-mare mid-act neglect stop.
 
 The thresholds and weights live under `History` in World's Debug block. They are debug numbers,
 so stored values are never clamped. See `TUNING.md`.

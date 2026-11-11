@@ -302,8 +302,8 @@ static func afterglow_beat(summary: Dictionary, roll: float) -> String:
 ## The early-end reaction asks for a moment, not a summary or a next-time list.
 static func early_end_prompt(summary: Dictionary) -> String:
 	if bool(summary.get("severe", false)):
-		return "Anon stopped early and you are hurt. Say one short, quiet sentence. Do not explain or negotiate. Saying nothing is fine."
-	return "Anon stopped before the act finished. Say one short sentence about how you feel right now, in your own voice. Do not review the act, do not list what you want next time, and do not lecture. One sentence, at most 10 words. Saying nothing is fine."
+		return "Anon stopped early and you are hurt. Say one short, quiet sentence. Begin with [sad] or [calm]. Do not explain or negotiate. Saying nothing is fine."
+	return "Anon stopped before the act finished. Say one short sentence about how you feel right now, in your own voice. Begin with [sad] or [calm]. Do not review the act, do not list what you want next time, and do not lecture. One sentence, at most 10 words. Saying nothing is fine."
 
 
 static func _skipped(reason: String) -> Dictionary:

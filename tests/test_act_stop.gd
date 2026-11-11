@@ -7,7 +7,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const UPSET := preload("res://mods/unfplap/upset.gd")
+const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
 
 var checks := 0
 var failures := 0
@@ -290,11 +290,11 @@ func run() -> void:
 	var bucked: Dictionary = (refused["impressions"] as Node).calls[-1]
 	check(str((bucked["data"] as Dictionary).get("mood", "")) == "angry", "a buck is angry")
 	check(int(refused["bonds"].unwanted) == 2, "each refusal costs trust once")
-	check(refused_runtime.get("_upset") == null,
+	check(refused_runtime.get("_mood_face") == null,
 		"the face waits for a runtime in the tree")
-	check(UPSET.DURATION == 300.0, "the mood face matches the 300 s impression freshness")
-	check(str(UPSET.MOOD_FACES.get("annoyed", "")) == "annoyed"
-		and str(UPSET.MOOD_FACES.get("angry", "")) == "angry",
+	check(MOOD_FACE.DURATION == 300.0, "the mood face matches the 300 s impression freshness")
+	check(str(MOOD_FACE.MOOD_FACES.get("annoyed", "")) == "annoyed"
+		and str(MOOD_FACE.MOOD_FACES.get("angry", "")) == "angry",
 		"the mood face uses the game's expression names")
 	root.add_child(refused_runtime)
 	paused = true

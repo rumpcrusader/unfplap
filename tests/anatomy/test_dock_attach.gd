@@ -4,7 +4,7 @@ extends SceneTree
 ## outer end must follow `mTail1`.
 ##
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_dock_attach.gd
+##     --script res://mods/unfplap/tests/anatomy/test_dock_attach.gd
 
 const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")

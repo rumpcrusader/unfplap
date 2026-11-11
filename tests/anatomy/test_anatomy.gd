@@ -1,6 +1,6 @@
 extends SceneTree
 ## integration: anatomy consent, eligibility and placement checks.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_anatomy.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/anatomy/test_anatomy.gd
 
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")

@@ -343,7 +343,7 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 - `tests/test_source_hygiene.gd`: purity, the single-reader rule and the docs link.
 - `tests/test_actions.gd`: the invalid-pony gate smoke.
 - `tests/test_initiation.gd`: offer wording and consent classification.
-- `tests/test_anatomy.gd`: adult-mare eligibility.
+- `tests/anatomy/test_anatomy.gd`: adult-mare eligibility.
 - `tests/test_memory.gd`: witness wording.
 
 ## Known limits

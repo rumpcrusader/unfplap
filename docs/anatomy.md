@@ -443,11 +443,11 @@ Current suites:
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
   scheduler.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
-- `tests/test_anatomy.gd`: the legacy integration suite (placement, dock visibility, idle heat,
-  mesh refinement, act calls, player part, body coat and still zones).
-- `tests/test_dock_attach.gd`: the dock's two-bind skin and bind math.
-- `tests/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
-- `tests/test_tail_hide.gd`: the debug tail collapse and restore.
+- `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
+  idle heat, mesh refinement, act calls, player part, body coat and still zones).
+- `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
+- `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
+- `tests/anatomy/test_tail_hide.gd`: the debug tail collapse and restore.
 
 The target layout is `tests/anatomy/`, split by system area: identity, geometry, act state,
 controller, shapes, coat, heat, fluid, act API, player part and tail. Pure tests must not

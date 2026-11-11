@@ -3,7 +3,7 @@ extends SceneTree
 ## base-ring vertex at or inside `rump_z - EMBED`. The outer dock must not move.
 ##
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_dock_seat.gd
+##     --script res://mods/unfplap/tests/anatomy/test_dock_seat.gd
 
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")

@@ -529,7 +529,7 @@ reclined eye height left the camera wrong after the act.
   `eye_motion.target_world`. A full forward `W` lean with no side lean forces `head_back = 1.0`
   and the upward look toward Anon instead of waiting for the random glance scheduler.
 - Tail aside/lift/flick is applied down the hair chain; the side is randomized per act.
-  `presentation.standing.tail.yaw_deg` (default `32°`) and `pitch_deg` (default `24°`) set
+  `presentation.standing.tail.yaw_deg` (default `35°`) and `pitch_deg` (default `25°`) set
   how far it sweeps aside and lifts, in degrees, and apply live through
   `_sync_standing_pose_config()`; the tail modifier is created from that pose config.
 - Standing enters the same held `AFTERGLOW` state when the player chooses it or the configured
@@ -583,7 +583,7 @@ reclined eye height left the camera wrong after the act.
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
-- `presentation.standing.torso_angle_deg` (default `6`, experimental/unbounded) hinges Anon's
+- `presentation.standing.torso_angle_deg` (default `5`, experimental/unbounded) hinges Anon's
   upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
@@ -626,10 +626,11 @@ move only the anatomy mesh in missionary; the depth one starts at 20% depth and 
 millimetre value at full thrust. Two hacks sit beside them, both missionary-only: `disable_fold_coloring`
 drops the vertex-alpha fold/clitoris masks so the mesh uses her skin tones, and `vulva_hug_mm`
 replaces the anatomy hug for the act. The camera itself is kept outside her live skull and muzzle by
-`head_clearance_mm` (debug, default 100 mm) in both views, so a close cheek or muzzle lean cannot
-enter her head as she turns it. The skull and muzzle radii scale with her body size; the clearance
-is an absolute pad on top. The six values are per pony size, stored under
-`presentation.missionary.size.<preset>` and edited through one **Size** dropdown.
+`head_clearance_mm` (debug: 50 mm on Canon and JRHNBR, 100 mm on Same Height and Hoers) in both
+views, so a close cheek or muzzle lean cannot enter her head as she turns it. The skull and muzzle
+radii scale with her body size; the clearance is an absolute pad on top. The six values are per
+pony size, stored under `presentation.missionary.size.<preset>` and edited through one **Size**
+dropdown.
 
 ### Missionary shot
 
@@ -698,7 +699,7 @@ bullets below cover the rest of the shot's behaviour.
 - Strong thrusts (`strength >= 0.55`) build a subtle rump blush decal by `0.0525` per thrust,
   capped at `0.375` (the smack decal uses `0.8`). It decays at `0.006`/s and is removed at act
   end.
-- Base posture adds `chin_up_deg = 30` (head) and `neck_down_deg = 30` total (neck1/neck2), giving
+- Base posture adds `chin_up_deg = 30` (head) and `neck_down_deg = 15` total (neck1/neck2), giving
   the chin-up, snout-reaching S-curve. The debug chin modifier remains additive.
 - `foreleg_spread` is the absolute outward half-angle from the body centreline. The default
   `0.172 rad` matches the current rest placement; `_spread_fore()` measures the current hoof line
@@ -952,7 +953,7 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
   as a real soft thrust. The pace range reaches every pattern at any depth, and the depth range
   reaches every intensity at any pace.
   `auto_thrust.curve` (`Auto shape`, debug) picks the stroke waveform: `cosine` (the `Normal`
-  panel value, a symmetric ease and the default), `thrust` (35 % duty, fast in and slow out),
+  panel value, a symmetric ease), `thrust` (35 % duty, fast in and slow out, the default),
   `tease` (65 % duty), `saw` (constant speed, no easing), `hold` (quick in, a dwell at full depth,
   quick out). Every shape starts at the bottom and returns to it, so the tracker only ever sees
   depth deltas; `phase_for()` is a numeric inverse so turning auto on never snaps. The stroke
@@ -1039,7 +1040,7 @@ face is cleared in `_restore_begin()`/`_end_session()`; the post-act mood face s
 
 ### Auto climax style
 
-`climax_mode` (`auto` default, or forced `fluster`/`ooo`/`wide`) picks the climax expression. In
+`climax_mode` (`wide` default, or `auto`/`fluster`/`ooo`) picks the climax expression. In
 `auto`, `act_face.climax_style()` scores the live act from the same counters the summary uses:
 
 ```text
@@ -1854,7 +1855,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   `value / 20`.
 - `auto_thrust` stores `pace` (thrusts/s, default `1.0`, clamped `1.0…3.75`), `min_depth`
   (bottom, default `0`, clamped `0…0.82`) and `max_depth` (peak, default `0.5`, clamped
-  `0.20…1`), plus `curve` (`Auto shape`, default `tease`, one of the five waveforms). They are
+  `0.20…1`), plus `curve` (`Auto shape`, default `thrust`, one of the five waveforms). They are
   act-start defaults; the wheel, mouse and hold-X layer changes are per-act, except `curve`, which
   applies live and is written by the layer's `Z`. The wheel and `E`/`D` step is the fixed
   `0.25/s`; the depth step is a fixed 5 %. `thrust.contact_gap_m` (Contact gap, default `0 cm`,
@@ -1874,7 +1875,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 - `presentation` is split per pose:
   - Top-level `presentation.lean_back_m` (default `0.08 m`) is the player-facing back-lean
     distance used by both cameras and the planted lower body.
-  - `act`: `climax_mode` (debug choice `auto`/`fluster`/`ooo`/`wide`, default `auto`) picks the
+  - `act`: `climax_mode` (debug choice `auto`/`fluster`/`ooo`/`wide`, default `wide`) picks the
     climax expression from the live act quality when it is `auto`.
   - `missionary`: `disable_fold_coloring`, `camera_mode`, `third_person`, `free_look`, the debug
     `anon_size_match` (0 keeps Anon human-sized, 1 scales him uniformly with her),
@@ -1885,7 +1886,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
     size dropdown above the six rows.
   - `standing`: `glance_back_speed`, `torso_angle_deg`,
     `neck_down_deg` (default `30°`), `chin_up_deg` (default `30°`), `tail` with `yaw_deg`
-    (default `32°`) and `pitch_deg` (default `24°`), and `smack` with `raise_m` (default
+    (default `35°`) and `pitch_deg` (default `25°`), and `smack` with `raise_m` (default
     `0.30 m`), `hind_m` (default `0.09 m`), `height_m`
     (default `0.05 m`, signed), `arc_m` (default `0.10 m`), `pitch_deg` (default `0°`),
     `raise_speed` (default `1.5 m/s`) and `return_speed` (default `3.0 m/s`). The smack values

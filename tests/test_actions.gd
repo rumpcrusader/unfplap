@@ -129,8 +129,8 @@ func _check_tail_tuning() -> void:
 	tail_runtime.set("_presentation_cfg", {})
 	tail_runtime.call("_sync_standing_pose_config")
 	cfg = tail_runtime.get("_pose_cfg")
-	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(45.0)), "tail yaw default")
-	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(32.0)), "tail pitch default")
+	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
+	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
 	tail_pony.free()
 	tail_runtime.free()
 

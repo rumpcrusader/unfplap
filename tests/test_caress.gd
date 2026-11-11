@@ -463,6 +463,9 @@ func run() -> void:
 	stand_flank.normals = [Vector3.RIGHT, Vector3.LEFT]
 	stand_pony.add_child(stand_flank)
 	var standing_path: Variant = FLANK.new()
+	# Keep the authored-chain block below independent of the shipped caress_areas default.
+	var old_area_setting := bool(SETTINGS.caress_areas.get_bool())
+	SETTINGS.caress_areas.set_value(false)
 	standing_path.call("setup", stand_pony, null)
 	var left_shoulder: Dictionary = standing_path.call("shoulder_point", "left")
 	var right_shoulder: Dictionary = standing_path.call("shoulder_point", "right")
@@ -506,7 +509,6 @@ func run() -> void:
 	var rump: Array = standing_path.call("candidates", "left", stand_context)
 	check(rump.size() == 1, "backward lean still returns the rump contact")
 	# The `features.caress_areas` toggle replaces the authored chain with the marked area chain.
-	var old_area_setting := bool(SETTINGS.caress_areas.get_bool())
 	SETTINGS.caress_areas.set_value(true)
 	standing_path.call("reset")
 	var area_context := {

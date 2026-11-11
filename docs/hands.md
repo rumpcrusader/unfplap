@@ -92,7 +92,7 @@ The pose boundary is deliberately small:
 - S keeps the procedural rump-top reach, reaching it at `CARESS_RUMP_LEAN = 0.5`.
 - The standing provider requests the opposite authored hand side because Anon is behind her and
   his left hand reaches her left side. The path data is unchanged.
-- With `features.caress_areas` on (debug, default off), the standing path is built from the
+- With `features.caress_areas` on (debug, default on), the standing path is built from the
   standing order in `hands/areas/areas.json`: `flank_back -> flank_side` (the JSON `start`)
   `-> flank_top -> back -> shoulder -> neck`. The same lean sampling moves along it: no lean is
   the `start`, W walks toward the neck and S toward the `flank_back`. The points are the
@@ -157,14 +157,14 @@ path keeps the last valid point on a miss.
 |---|---|---|
 | `features.caress_surface` | off | player-facing Use precise caress: exact surface instead of the hull path |
 | `caress.quality` | precise | player-facing hand quality; `balanced` accepts the oval point on a ray miss and refreshes at 20 Hz, `fast` also at 15 Hz with a 1-ring blur |
-| `features.caress_areas` | off | standing authored path from `hands/areas/areas.json` instead of `anchors2.json`; lean-driven chain |
+| `features.caress_areas` | on | standing authored path from `hands/areas/areas.json` instead of `anchors2.json`; lean-driven chain |
 | `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |
-| `features.caress_reach_shoulder_m` | 0.02 m | missionary reach shoulder shift |
-| `presentation.missionary.caress.path_id` | one | authored chain `one` or `two` |
-| `caress.hover_m` | 2 cm | body-scaled palm-centre hover in both poses |
+| `features.caress_reach_shoulder_m` | 0 m | missionary reach shoulder shift |
+| `presentation.missionary.caress.path_id` | two | authored chain `one` or `two` |
+| `caress.hover_m` | 1.5 cm | body-scaled palm-centre hover in both poses |
 | `caress.normal_blur_m` | 2 cm | coat-normal average radius; above 3 cm it averages the whole patch |
 | `caress.normal_deg_s` | 120 | palm normal turn limit |
-| `caress.contact_smooth` | 18/s | snap-correction low-pass |
+| `caress.contact_smooth` | 24/s | snap-correction low-pass |
 | `caress.ignore` | tail, wing | hull regions the fallback skips |
 | `caress.oval_across_m` | 1 cm | oval radius along the body |
 | `caress.oval_up_m` | 2 cm | oval radius vertically |

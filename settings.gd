@@ -709,7 +709,7 @@ static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pi
 	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.", GENERAL, "") \
 	.as_debug()
 # -- Act face  (debug)
-static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "auto",
+static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "wide",
 	["auto", "fluster", "ooo", "wide"],
 	["Act quality", "Flustered", "Round mouth", "Wide-eyed"],
 	"Climax face",
@@ -732,7 +732,7 @@ static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
 	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
 	GENERAL, "") \
 	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75).as_debug()
-static var curve := choice("curve", "auto_thrust.curve", "tease",
+static var curve := choice("curve", "auto_thrust.curve", "thrust",
 	["cosine", "thrust", "tease", "saw", "hold"],
 	["Normal", "Thrust", "Tease", "Saw", "Hold"],
 	"Auto shape",
@@ -752,11 +752,11 @@ static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 	.as_debug()
 
 # -- Caress  (debug)
-static var caress_areas := flag("caress_areas", "features.caress_areas", false,
+static var caress_areas := flag("caress_areas", "features.caress_areas", true,
 	"Use area caress path",
-	"Standing caress follows the marked areas in hands/areas/areas.json as one continuous path. The old flank/shoulder/neck path stays the default.",
+	"Standing caress follows the marked areas in hands/areas/areas.json as one continuous path. Off restores the old flank/shoulder/neck path.",
 	GENERAL, "Caress").as_debug()
-static var path_id := choice("path_id", "presentation.missionary.caress.path_id", "one",
+static var path_id := choice("path_id", "presentation.missionary.caress.path_id", "two",
 	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
 	"Missionary path",
 	"Switch between the two authored missionary caress paths. Path one is belly/chest/neck/cheek; path two is flank/shoulder/neck.",
@@ -766,10 +766,10 @@ static var caress_debug := flag("caress_debug", "features.caress_debug", false,
 	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,
 	"Caress").as_debug()
 static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
-	"features.caress_reach_shoulder_m", 0.02, "Missionary reach shoulder",
+	"features.caress_reach_shoulder_m", 0.0, "Missionary reach shoulder",
 	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed; the path stops at the reachable point either way.",
 	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
-static var hover_m := num("hover_m", "caress.hover_m", 0.02, "Palm hover",
+static var hover_m := num("hover_m", "caress.hover_m", 0.015, "Palm hover",
 	"Palm-centre distance from her coat in both poses, in centimetres. Positive raises it, negative presses it into the coat.",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var ignore := list("ignore", "caress.ignore", ["tail", "wing"],
@@ -784,7 +784,7 @@ static var normal_deg_s := num("normal_deg_s", "caress.normal_deg_s", 120.0,
 	"Normal turn",
 	"Maximum palm normal turn rate. 0 disables the temporal normal clamp.",
 	GENERAL, "Caress").with_unit("°/s").with_step(10.0).as_debug()
-static var contact_smooth := num("contact_smooth", "caress.contact_smooth", 18.0,
+static var contact_smooth := num("contact_smooth", "caress.contact_smooth", 24.0,
 	"Contact smooth",
 	"Low-pass rate for the surface snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
 	GENERAL, "Caress").with_unit("/s").with_step(1.0).as_debug()
@@ -926,7 +926,7 @@ static var vulva_shift_mm_canon := num("vulva_shift_mm_canon",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var vulva_shift_mm_mounting := num("vulva_shift_mm_mounting",
-	"presentation.missionary.size.mounting.vulva_shift_mm", 70.0, "Vulva shift",
+	"presentation.missionary.size.mounting.vulva_shift_mm", 100.0, "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var vulva_shift_mm_same_height := num("vulva_shift_mm_same_height",
@@ -970,11 +970,11 @@ static var vulva_depth_shift_mm_hoers := num("vulva_depth_shift_mm_hoers",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_canon := num("missionary_vulva_hug_mm_canon",
-	"presentation.missionary.size.canon.vulva_hug_mm", -2.0, "Hack: Vulva hug",
+	"presentation.missionary.size.canon.vulva_hug_mm", 0.0, "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_mounting := num("missionary_vulva_hug_mm_mounting",
-	"presentation.missionary.size.mounting.vulva_hug_mm", -2.0, "Hack: Vulva hug",
+	"presentation.missionary.size.mounting.vulva_hug_mm", 0.0, "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_same_height := num("missionary_vulva_hug_mm_same_height",
@@ -986,11 +986,11 @@ static var missionary_vulva_hug_mm_hoers := num("missionary_vulva_hug_mm_hoers",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var head_clearance_mm_canon := num("head_clearance_mm_canon",
-	"presentation.missionary.size.canon.head_clearance_mm", 100.0, "Head clearance",
+	"presentation.missionary.size.canon.head_clearance_mm", 50.0, "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var head_clearance_mm_mounting := num("head_clearance_mm_mounting",
-	"presentation.missionary.size.mounting.head_clearance_mm", 100.0, "Head clearance",
+	"presentation.missionary.size.mounting.head_clearance_mm", 50.0, "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var head_clearance_mm_same_height := num("head_clearance_mm_same_height",
@@ -1006,15 +1006,15 @@ static var gaze_offset_mm_canon := num("gaze_offset_mm_canon",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_mounting := num("gaze_offset_mm_mounting",
-	"presentation.missionary.size.mounting.gaze_offset_mm", -250.0, "Gaze height",
+	"presentation.missionary.size.mounting.gaze_offset_mm", 0.0, "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_same_height := num("gaze_offset_mm_same_height",
-	"presentation.missionary.size.same height.gaze_offset_mm", -250.0, "Gaze height",
+	"presentation.missionary.size.same height.gaze_offset_mm", 0.0, "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_hoers := num("gaze_offset_mm_hoers",
-	"presentation.missionary.size.hoers.gaze_offset_mm", -250.0, "Gaze height",
+	"presentation.missionary.size.hoers.gaze_offset_mm", 0.0, "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 
@@ -1083,10 +1083,10 @@ static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg"
 static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg", 30.0,
 	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
-static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg", 32.0,
+static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg", 25.0,
 	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
-static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg", 45.0,
+static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg", 35.0,
 	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 
@@ -1134,7 +1134,7 @@ static var plant_spread_m := num("plant_spread_m", "presentation.standing.plant_
 	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg",
-	0.0, "Anon torso lean",
+	5.0, "Anon torso lean",
 	"Hinge Anon's upper body forward over her; the lower body stays planted.", GENERAL,
 	"Standing › Motion") \
 	.with_unit("°").with_step(1.0).as_debug()

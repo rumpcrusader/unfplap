@@ -245,9 +245,9 @@ selection and starts the swing.
 
 ## Tests
 
-- `tests/test_caress.gd`: surface patch, authored paths, marked area path, side mapping,
+- `tests/hands/test_caress.gd`: surface patch, authored paths, marked area path, side mapping,
   standing path and its `features.caress_areas` toggle, engine placement, smoothing and reach.
-- `tests/test_actions.gd`: pure act-action helpers and smack geometry.
+- `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
 ## Known limits

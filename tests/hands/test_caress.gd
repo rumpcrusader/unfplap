@@ -1,6 +1,6 @@
 extends SceneTree
 ## Caress contact surface, hand shape and reach plan.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_caress.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_caress.gd
 
 const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")

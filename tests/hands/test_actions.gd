@@ -1,6 +1,6 @@
 extends SceneTree
 ## Pure act-action checks: lean mapping, threshold hysteresis, pose support, smack side.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_actions.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_actions.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")

@@ -1,7 +1,7 @@
 extends SceneTree
 ## Eligibility API adapter: live facts, adult predicates, consent and one verdict. No world file is
 ## touched; SETTINGS uses a throwaway XDG data dir in the test runner.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_eligibility_api.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")

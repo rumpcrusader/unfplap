@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure eligibility policy: adults, Promiscuity, willingness, lover bond, history, cycle and
 ## per-mare consent. No world or user:// file is touched.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_eligibility.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")

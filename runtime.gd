@@ -43,6 +43,7 @@ const SOUND := preload("res://mods/unfplap/act_sound.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
@@ -278,9 +279,9 @@ var _pony_saved_hair_skeleton: Skeleton3D
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
 var _anatomy_act: Node
-## Reused plain-data context for the per-act anatomy controller. The act never reads runtime
-## private fields; this dictionary is the boundary.
-var _anatomy_facts: Dictionary = {}
+## Reused typed context for the per-act and persistent anatomy controllers. The runtime writes
+## it; anatomy reads it. No anatomy file reads this runtime node.
+var _anatomy_facts: RefCounted = ANATOMY_FACTS.new()
 var _missionary_anon: Node
 var _vr_act: Node
 var _used_angles: Array[String] = []
@@ -531,6 +532,12 @@ var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
 
+func _init() -> void:
+	_anatomy_facts.perf_note = Callable(self, "perf_note")
+	_anatomy_facts.log = Callable(self, "_log")
+	_anatomy_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
+
+
 func _ready() -> void:
 	set_process(true)
 	set_physics_process(true)
@@ -577,8 +584,24 @@ func anatomy_available() -> bool:
 	return is_instance_valid(_anatomy)
 
 
+## The typed anatomy context. The anatomy facade takes it when it creates the controller.
+func anatomy_facts() -> RefCounted:
+	return _anatomy_facts
+
+
+## Public hook for the anatomy's stock flank smack. The controller calls it through the context
+## callback instead of reaching into `_attach_body_coat_jiggle_target`.
+func body_coat_jiggle_target() -> void:
+	_attach_body_coat_jiggle_target()
+
+
 func _anatomy_act_refresh(pose_id: String) -> void:
-	_anatomy_facts = {}
+	_anatomy_facts.penetration_m = 0.0
+	_anatomy_facts.climaxes = 0
+	_anatomy_facts.auto_pace = 1.0
+	_anatomy_facts.fluid_ground_y = 0.0
+	_anatomy_facts.penetration_reach = 0.2
+	_sync_anatomy_facts()
 	_anatomy_act = null
 	if not is_instance_valid(_anatomy):
 		return
@@ -589,18 +612,28 @@ func _anatomy_service() -> Variant:
 	return main.get("anatomy") if is_instance_valid(main) else null
 
 
-## The plain-data act context the anatomy act reads. Reused, never saved.
-func _anatomy_context() -> Dictionary:
-	_anatomy_facts["state"] = state
-	_anatomy_facts["depth"] = depth
-	_anatomy_facts["penetration_m"] = penetration_m
-	_anatomy_facts["climaxes"] = pony_climaxes
-	_anatomy_facts["size_scale"] = _size_scale()
+## The typed act/context the anatomy reads. Reused, never saved. The persistent controller sees
+## the same object every frame; the act gets the extra depth/finish fields here.
+func _anatomy_context() -> RefCounted:
+	_sync_anatomy_facts()
+	_anatomy_facts.penetration_m = penetration_m
+	_anatomy_facts.climaxes = pony_climaxes
+	_anatomy_facts.size_scale = _size_scale()
 	var auto: Variant = _auto_controller()
-	_anatomy_facts["auto_pace"] = float(auto.get("pace")) if auto != null else 1.0
-	_anatomy_facts["fluid_ground_y"] = _anatomy_fluid_ground_y()
-	_anatomy_facts["penetration_reach"] = penetration_reach()
+	_anatomy_facts.auto_pace = float(auto.get("pace")) if auto != null else 1.0
+	_anatomy_facts.fluid_ground_y = _anatomy_fluid_ground_y()
+	_anatomy_facts.penetration_reach = penetration_reach()
 	return _anatomy_facts
+
+
+## Write the state the persistent controller polls outside the act. `bed_frame` is the cached
+## missionary frame, so the anatomy never reads the runtime field directly.
+func _sync_anatomy_facts() -> void:
+	_anatomy_facts.state = state
+	_anatomy_facts.pose_id = pose_id
+	_anatomy_facts.depth = depth
+	_anatomy_facts.bed_frame = _bed_pose_frame
+	_anatomy_facts.cycle_phase = cycle_phase()
 
 
 func _anatomy_fluid_ground_y() -> float:
@@ -1162,7 +1195,9 @@ func _hold_y_tick(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	var started := Time.get_ticks_usec()
+	_sync_anatomy_facts()
 	_physics_tick(delta)
+	_sync_anatomy_facts()
 	if _perf_on():
 		perf_note("runtime_physics", Time.get_ticks_usec() - started)
 
@@ -4483,8 +4518,8 @@ func _attach_body_coat_jiggle_target() -> void:
 			or not is_instance_valid(mat) or not mat is ShaderMaterial:
 		# The near mesh can be rebuilt between the anatomy's visibility polls. Catch up now
 		# instead of waiting for the next poll and losing a few thrusts of body wobble.
-		if _anatomy.has_method("_apply_body_coat"):
-			_anatomy.call("_apply_body_coat")
+		if _anatomy.has_method("body_coat_refresh"):
+			_anatomy.call("body_coat_refresh")
 		body = _anatomy.call("body_coat_mesh")
 		mat = _anatomy.call("body_coat_material")
 	if not is_instance_valid(body) or not body is MeshInstance3D \

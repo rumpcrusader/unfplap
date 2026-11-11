@@ -11,6 +11,7 @@ const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const FINISH := preload("res://mods/unfplap/anatomy/act/finish.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
+const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -34,14 +35,15 @@ const HOLE_SWAP_S := 0.9
 const PULLED_OUT_PHASE := 0.35
 const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 
-var runtime: Node
+var service: Node
 var pony: Node3D
 var anatomy: Node
-var main: Node
 var pose := ""
+var consent := Callable()
+var status := Callable()
 var _display_name := ""
-## Per-tick act facts written by the runtime. The act never reads runtime private fields.
-var _facts: Dictionary = {}
+## Per-tick typed act facts written by the runtime. The act never reads runtime private fields.
+var _facts: RefCounted = FACTS.new()
 var _anal := false
 var _hole_mix := 0.0
 var _oral_turn: RefCounted
@@ -62,29 +64,30 @@ var _normal := Vector3.ZERO
 var _debug: RefCounted
 
 
-func setup(runtime_node: Node, main_node: Node, pony_node: Node3D, anatomy_node: Node,
-		pose_id: String) -> void:
-	runtime = runtime_node
-	main = main_node
+func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node, pose_id: String,
+		consent_callable := Callable(), status_callable := Callable()) -> void:
+	service = service_node
 	pony = pony_node
 	anatomy = anatomy_node
 	pose = pose_id
+	consent = consent_callable
+	status = status_callable
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
 	if identity != null and identity.get("display_name") != null:
 		_display_name = str(identity.get("display_name"))
 	elif is_instance_valid(pony):
 		_display_name = str(pony.name)
 	_finish = FINISH.new()
-	_finish.setup(anatomy, pony, main, pose)
+	_finish.setup(anatomy, pony, service, pose, status)
 	_oral_turn = ORAL.new()
-	_oral_turn.setup(pony, main, anatomy, pose)
+	_oral_turn.setup(pony, anatomy, pose, consent, status)
 	reset()
 	_debug = DEBUG.new()
-	_debug.setup(main, anatomy)
+	_debug.setup(anatomy, anatomy)
 
 
 func reset() -> void:
-	_facts.clear()
+	_facts = FACTS.new()
 	_anal = false
 	_hole_mix = 0.0
 	_fill = 0.0
@@ -103,16 +106,11 @@ func reset() -> void:
 
 
 func _state() -> int:
-	return int(_facts.get("state", 0))
+	return int(_facts.state) if _facts != null else 0
 
 
 func _depth() -> float:
-	return clampf(float(_facts.get("depth", 0.0)), 0.0, 1.0)
-
-
-func _fact_float(key: String, fallback: float) -> float:
-	var value: Variant = _facts.get(key, fallback)
-	return float(value) if value is float or value is int else fallback
+	return clampf(float(_facts.depth), 0.0, 1.0) if _facts != null else 0.0
 
 
 ## The oral facing the runtime applies after the tick. Empty when no turn is active.
@@ -179,33 +177,23 @@ func toggle_finish(state: int) -> void:
 		_finish.toggle(state)
 
 
-func _service() -> Variant:
-	return main.get("anatomy") if is_instance_valid(main) else null
-
-
 func _part() -> Variant:
-	var service: Variant = _service()
-	if service == null or not service.has_method("part"):
+	if not is_instance_valid(service) or not service.has_method("part"):
 		return null
 	return service.call("part")
 
 
 func _consent(key: String) -> bool:
-	if not is_instance_valid(main):
-		return false
-	var service: Variant = main.get("eligibility")
-	if service == null or not service.has_method("action_consent"):
-		return false
-	return bool(service.call("action_consent", pony, key))
+	return bool(consent.call(key)) if consent.is_valid() else false
 
 
 func _status(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("anatomy_status"):
-		main.call("anatomy_status", text, 2.0)
+	if status.is_valid():
+		status.call(text)
 
 
-func tick(delta: float, facts: Dictionary) -> void:
-	_facts = facts
+func tick(delta: float, facts: RefCounted) -> void:
+	_facts = facts if facts != null else FACTS.new()
 	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
 	var started := Time.get_ticks_usec()
@@ -278,16 +266,14 @@ func tick(delta: float, facts: Dictionary) -> void:
 	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
 	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
-	var shown := _fact_float("penetration_m", 0.0)
-	var service: Variant = _service()
-	if service != null:
+	var shown: float = _facts.penetration_m
+	if is_instance_valid(service):
 		service.call("player_track", hole_point(), hole_rear(),
 			frame.basis.y.normalized(), false, shown, delta, (mesh as Node3D).get_parent(),
 			true)
 	if _debug != null:
 		_debug.tick(part)
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "anatomy_tick", Time.get_ticks_usec() - started)
+	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
 
 
 func pose_config(config: Dictionary) -> void:
@@ -313,7 +299,7 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 		var reach := TOUCH_MARGIN_M + maxf(SETTINGS.back_out_m.get_num(), 0.0)
 		var tip: Vector3 = part.call("tip_center")
 		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
-	var mode := STATE.wink_mode(_depth(), touching, int(_facts.get("climaxes", 0)),
+	var mode := STATE.wink_mode(_depth(), touching, _facts.climaxes,
 		PULLED_OUT_PHASE)
 	if mode != _act_wink_mode:
 		_act_wink_mode = mode
@@ -394,14 +380,14 @@ func on_climax() -> void:
 func on_finish() -> void:
 	if _finish != null:
 		_finish.on_finish(_depth(), _oral_turn != null and bool(_oral_turn.active()),
-			_fact_float("fluid_ground_y", pony.global_position.y))
+			_facts.fluid_ground_y)
 
 
 ## integration: afterglow part tracking for the optional bed body.
-func afterglow_tick(delta: float, facts: Dictionary) -> void:
-	_facts = facts
+func afterglow_tick(delta: float, facts: RefCounted) -> void:
+	_facts = facts if facts != null else FACTS.new()
 	if not is_instance_valid(anatomy) \
-			or not is_instance_valid(pony) or not is_instance_valid(main):
+			or not is_instance_valid(pony) or not is_instance_valid(service):
 		return
 	var started := Time.get_ticks_usec()
 	var mesh: Variant = anatomy.call("winking_mesh")
@@ -410,14 +396,12 @@ func afterglow_tick(delta: float, facts: Dictionary) -> void:
 		return
 	var rest_m := 0.0
 	if _finish != null:
-		rest_m = float(_finish.afterglow_step(delta, _fact_float("penetration_reach", 0.2)))
-	var service: Variant = _service()
-	if service != null:
+		rest_m = float(_finish.afterglow_step(delta, _facts.penetration_reach))
+	if is_instance_valid(service):
 		service.call("player_track", hole_point(), hole_rear(),
 			(mesh as Node3D).global_transform.basis.y.normalized(), true, rest_m, delta,
 			(mesh as Node3D).get_parent())
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "anatomy_afterglow", Time.get_ticks_usec() - started)
+	_facts.perf("anatomy_afterglow", Time.get_ticks_usec() - started)
 
 
 func withdraw() -> void:
@@ -437,7 +421,7 @@ func teardown() -> void:
 	if _debug != null:
 		_debug.clear()
 		_debug = null
-	_facts.clear()
+	_facts = null
 	if _oral_turn != null:
 		_oral_turn.teardown()
 	_anal = false

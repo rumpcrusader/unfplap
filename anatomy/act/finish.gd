@@ -12,8 +12,9 @@ const ANON_FLUID_COLOR := Color(0.98, 0.97, 0.93, 0.96)
 
 var anatomy: Node
 var pony: Node3D
-var main: Node
+var service: Node
 var pose := ""
+var status := Callable()
 
 var _pull_out := false
 var _finish_out := false
@@ -21,11 +22,13 @@ var _finished_inside := false
 var _bed_rest := 0.8
 
 
-func setup(anatomy_node: Node, pony_node: Node3D, main_node: Node, pose_id: String) -> void:
+func setup(anatomy_node: Node, pony_node: Node3D, service_node: Node, pose_id: String,
+		status_callable := Callable()) -> void:
 	anatomy = anatomy_node
 	pony = pony_node
-	main = main_node
+	service = service_node
 	pose = pose_id
+	status = status_callable
 	reset()
 
 
@@ -40,9 +43,8 @@ func toggle(state: int) -> void:
 	if not SETTINGS.anatomy_finish.get_bool() or state not in [2, 3]:
 		return
 	_pull_out = not _pull_out
-	if is_instance_valid(main) and main.has_method("anatomy_status"):
-		main.call("anatomy_status",
-			"Finish: %s" % ("pull out" if _pull_out else "stay in"), 2.0)
+	if status.is_valid():
+		status.call("Finish: %s" % ("pull out" if _pull_out else "stay in"))
 
 
 func pull_out_selected() -> bool:
@@ -96,13 +98,8 @@ func teardown() -> void:
 	_bed_rest = 0.8
 
 
-func _service() -> Variant:
-	return main.get("anatomy") if is_instance_valid(main) else null
-
-
 func _part() -> Variant:
-	var service: Variant = _service()
-	if service == null or not service.has_method("part"):
+	if not is_instance_valid(service) or not service.has_method("part"):
 		return null
 	return service.call("part")
 

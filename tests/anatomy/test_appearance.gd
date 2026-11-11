@@ -49,7 +49,7 @@ func run() -> void:
 	shapes.set_mesh(mesh, false)
 
 	var appearance := APPEARANCE.new()
-	appearance.setup(pony, null, null, shapes)
+	appearance.setup(pony, shapes)
 	appearance.set_mesh(mesh, null)
 	appearance.apply_material(false)
 

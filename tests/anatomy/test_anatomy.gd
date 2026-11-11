@@ -15,6 +15,7 @@ const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
+const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 
 var failures := 0
 var checks := 0
@@ -38,13 +39,6 @@ class FakeAnatomy extends Node:
 
 	func fluid() -> Node3D:
 		return null
-
-
-class FakeHeatRuntime extends Node:
-	var state := 0
-
-	func cycle_phase() -> String:
-		return "heat"
 
 
 func _initialize() -> void:
@@ -226,7 +220,8 @@ func run() -> void:
 	runtime.free()
 
 	# Idle heat: active act states suppress the display, idle allows it, and a due timer winks.
-	var heat_runtime := FakeHeatRuntime.new()
+	var heat_facts := FACTS.new()
+	heat_facts.cycle_phase = "heat"
 	var heat_anatomy: Node = ANATOMY.new()
 	var heat_pony := Node3D.new()
 	var wink_mesh := MeshInstance3D.new()
@@ -235,15 +230,15 @@ func run() -> void:
 	get_root().add_child(heat_anatomy)
 	heat_anatomy.set_process(false)
 	heat_anatomy.set("pony", heat_pony)
-	heat_anatomy.set("runtime", heat_runtime)
+	heat_anatomy.set("facts", heat_facts)
 	heat_anatomy.set("_attached", true)
 	heat_anatomy.set("_mesh", wink_mesh)
 	heat_anatomy.shapes.set_mesh(wink_mesh, false)
 	heat_anatomy.set("_last_shown", true)
-	heat_runtime.state = 2
+	heat_facts.state = 2
 	heat_anatomy.call("_heat_idle_tick", 0.1)
 	check(heat_anatomy.heat.suppressed(), "active act suppresses idle heat")
-	heat_runtime.state = 0
+	heat_facts.state = 0
 	heat_anatomy.heat.set("_phase", CYCLE.HEAT)
 	heat_anatomy.heat.set("_phase_clock", 999.0)
 	heat_anatomy.heat.set("_wink_clock", 0.001)
@@ -272,7 +267,6 @@ func run() -> void:
 		"an act clears the idle cut suppression")
 	heat_anatomy.free()
 	heat_pony.free()
-	heat_runtime.free()
 
 	# The V2 mesh's density walk can collapse to the 4 mm floor; keep the authored band.
 	check(is_equal_approx(ANATOMY.stable_lip_radius(0.004), GEOMETRY.WINKING_LIP_RADIUS),

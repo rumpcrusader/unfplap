@@ -6,7 +6,7 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
-var main: Node
+var parent: Node
 var anatomy: Node
 
 var _vulva: MeshInstance3D
@@ -14,8 +14,8 @@ var _anus: MeshInstance3D
 var _tip: MeshInstance3D
 
 
-func setup(main_node: Node, anatomy_node: Node) -> void:
-	main = main_node
+func setup(parent_node: Node, anatomy_node: Node) -> void:
+	parent = parent_node
 	anatomy = anatomy_node
 	_build()
 
@@ -50,13 +50,13 @@ func clear() -> void:
 
 
 func _build() -> void:
-	if not is_instance_valid(main) or not SETTINGS.debug_aim_points.get_bool():
+	if not is_instance_valid(parent) or not SETTINGS.debug_aim_points.get_bool():
 		return
 	_vulva = _sphere(Color(1.0, 0.1, 0.75))
 	_anus = _sphere(Color(1.0, 0.35, 0.05))
 	_tip = _sphere(Color(0.1, 1.0, 0.4))
 	for point: MeshInstance3D in [_vulva, _anus, _tip]:
-		main.add_child(point)
+		parent.add_child(point)
 
 
 func _sphere(color: Color) -> MeshInstance3D:

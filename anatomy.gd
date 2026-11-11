@@ -14,6 +14,7 @@ const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
+const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 
 var main: Node
 var player: Node
@@ -32,22 +33,51 @@ func setup(main_node: Node) -> void:
 	add_child(tail_visibility)
 	tail_seat = TAIL_SEAT.new()
 	tail_seat.name = "UnfplapTailSeat"
-	tail_seat.set("main", main)
+	var perf_call := func() -> bool:
+		return is_instance_valid(main) and bool(main.get("debug_perf"))
+	var log_call := func(text: String) -> void:
+		if is_instance_valid(main) and main.has_method("_debug"):
+			main.call("_debug", text)
+	tail_seat.set("perf_on", perf_call)
+	tail_seat.set("log", log_call)
 	add_child(tail_seat)
 
 
-## The live controller for a pony, created on first use. Runtime passes itself so the controller
-## can read the act state, cycle and perf sink.
+## Host consent lookup for the act's V/N actions. The facade is the scene adapter; the act
+## receives this as a callback.
+func consent(pony_node: Node, key: String) -> bool:
+	if not is_instance_valid(main):
+		return false
+	var service: Variant = main.get("eligibility")
+	if service == null or not service.has_method("action_consent"):
+		return false
+	return bool(service.call("action_consent", pony_node, key))
+
+
+## Host status line for the anatomy actions.
+func status(text: String) -> void:
+	if is_instance_valid(main) and main.has_method("anatomy_status"):
+		main.call("anatomy_status", text, 2.0)
+
+
+## The live controller for a pony, created on first use. The runtime supplies its typed facts;
+## the facade supplies the anatomy service and the host callbacks for the act handle.
 func controller_for(pony: Node, runtime: Node) -> Node:
 	if not is_instance_valid(pony):
 		return null
 	var existing: Variant = _controllers.get(pony)
 	if is_instance_valid(existing):
 		return existing
+	var facts: Variant = null
+	if is_instance_valid(runtime) and runtime.has_method("anatomy_facts"):
+		facts = runtime.call("anatomy_facts")
+	if facts == null:
+		facts = FACTS.new()
 	var controller: Node = CONTROLLER.new()
 	controller.name = "UnfplapAnatomyController"
 	add_child(controller)
-	controller.call("setup", pony, runtime)
+	controller.call("setup", pony, facts, self, Callable(self, "consent"),
+		Callable(self, "status"), Callable(self, "refresh_dock_color"))
 	_controllers[pony] = controller
 	pony.tree_exiting.connect(func() -> void: detach_controller(pony))
 	return controller
@@ -279,10 +309,24 @@ func refresh_player() -> void:
 	if not is_instance_valid(_player_part):
 		_player_part = PLAYER.new()
 		_player_part.name = "UnfplapAnonPart"
-		_player_part.set("main", main)
 		add_child(_player_part)
+	_player_part.set("player_body", _player_body())
 	if _player_part.has_method("apply_live"):
 		_player_part.call("apply_live")
+
+
+## The Anon body the player part binds to. The facade resolves it; the part never reads `main`.
+func _player_body() -> Node3D:
+	if not is_instance_valid(player):
+		return null
+	var anon: Variant = (player as Node).find_child("AnonBody", true, false)
+	if anon is Node3D:
+		return anon as Node3D
+	if is_instance_valid(main) and main.has_method("player_body"):
+		var body: Variant = main.call("player_body")
+		if body is Node3D:
+			return body as Node3D
+	return player as Node3D if player is Node3D else null
 
 
 ## The anatomy-internal player part handle. Pose systems use the methods below instead.

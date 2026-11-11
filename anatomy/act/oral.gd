@@ -23,11 +23,12 @@ const ORAL_STYLES := [
 ]
 
 var pony: Node3D
-var main: Node
 var anatomy: Node
 var pose := ""
+var consent := Callable()
+var status := Callable()
 
-var _facts: Dictionary = {}
+var _facts: RefCounted
 var _active := false
 var _mix := 0.0
 var _style: Array = ORAL_STYLES[0]
@@ -45,16 +46,18 @@ var _pose_delta: Dictionary = {}
 var _facing: Dictionary = {}
 
 
-func setup(pony_node: Node3D, main_node: Node, anatomy_node: Node, pose_id: String) -> void:
+func setup(pony_node: Node3D, anatomy_node: Node, pose_id: String,
+		consent_callable := Callable(), status_callable := Callable()) -> void:
 	pony = pony_node
-	main = main_node
 	anatomy = anatomy_node
 	pose = pose_id
+	consent = consent_callable
+	status = status_callable
 	reset()
 
 
 func reset() -> void:
-	_facts.clear()
+	_facts = null
 	_active = false
 	_mix = 0.0
 	_style = ORAL_STYLES[0]
@@ -72,7 +75,7 @@ func reset() -> void:
 	_facing.clear()
 
 
-func set_facts(facts: Dictionary) -> void:
+func set_facts(facts: RefCounted) -> void:
 	_facts = facts
 
 
@@ -170,7 +173,7 @@ func _motion_tick(delta: float) -> void:
 	var blend := 1.0 - exp(-delta * ORAL_STYLE_BLEND)
 	_now = _now.lerp(_style[0], blend)
 	_speed = lerpf(_speed, float(_style[1]), blend)
-	var pace := maxf(0.8, _fact_float("auto_pace", 1.0))
+	var pace := maxf(0.8, _facts.auto_pace if _facts != null else 1.0)
 	_clock = fposmod(_clock + delta * pace * _speed, 16.0)
 	var turn := TAU * _clock
 	var mix := smoothstep(0.0, 1.0, _mix)
@@ -183,12 +186,7 @@ func _motion_tick(delta: float) -> void:
 
 
 func _size_scale() -> float:
-	return _fact_float("size_scale", 1.0)
-
-
-func _fact_float(key: String, fallback: float) -> float:
-	var value: Variant = _facts.get(key, fallback)
-	return float(value) if value is float or value is int else fallback
+	return _facts.size_scale if _facts != null else 1.0
 
 
 func _display_name() -> String:
@@ -199,17 +197,12 @@ func _display_name() -> String:
 
 
 func _consent(key: String) -> bool:
-	if not is_instance_valid(main):
-		return false
-	var service: Variant = main.get("eligibility")
-	if service == null or not service.has_method("action_consent"):
-		return false
-	return bool(service.call("action_consent", pony, key))
+	return bool(consent.call(key)) if consent.is_valid() else false
 
 
 func _status(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("anatomy_status"):
-		main.call("anatomy_status", text, 2.0)
+	if status.is_valid():
+		status.call(text)
 
 
 func _head_ends() -> Array:

@@ -13,7 +13,7 @@ const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
-const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
@@ -26,8 +26,14 @@ const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
 
 var pony: Node3D
-var runtime: Node
-var main: Node
+## The typed runtime context. The controller never reads the runtime node.
+var facts: RefCounted
+## The anatomy facade's dock-colour refresh. Called after attach/detach/tone changes.
+var dock_refresh := Callable()
+## The anatomy facade and its host callbacks for the act handle.
+var service: Node
+var consent := Callable()
+var status := Callable()
 
 var _mesh: MeshInstance3D
 ## The rig coat's runtime deform and still-zone debug.
@@ -124,6 +130,7 @@ static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
 
 
 func _init() -> void:
+	facts = FACTS.new()
 	shapes = SHAPES.new()
 	shapes.setup(null, self)
 	coat = COAT.new()
@@ -133,15 +140,28 @@ func _init() -> void:
 	placement = PLACEMENT.new()
 
 
-func setup(pony_node: Node3D, runtime_node: Node) -> void:
+func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
+		consent_callable := Callable(), status_callable := Callable(),
+		dock_refresh_callable := Callable()) -> void:
 	pony = pony_node
-	runtime = runtime_node
-	main = runtime.get("main") if is_instance_valid(runtime) else null
+	set_facts(facts_node)
+	service = service_node
+	consent = consent_callable
+	status = status_callable
+	dock_refresh = dock_refresh_callable
 	shapes.setup(pony, self)
 	coat.setup(pony, shapes)
 	placement.setup(pony)
 	appearance = APPEARANCE.new()
-	appearance.setup(pony, runtime, main, shapes)
+	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
+
+
+## Replace the runtime context. The facade calls this when the controller is created; tests can
+## build a bare context without a runtime.
+func set_facts(facts_node: RefCounted) -> void:
+	facts = facts_node if facts_node != null else FACTS.new()
+	if appearance != null:
+		appearance.set_perf(facts.perf_note)
 
 
 ## Create the per-act controller for `pose_id`. The controller owns it until `end_act()`.
@@ -150,7 +170,7 @@ func begin_act(pose_id: String) -> Node:
 	_act = ACT.new()
 	_act.name = "UnfplapAnatomyAct"
 	add_child(_act)
-	_act.call("setup", runtime, main, pony, self, pose_id)
+	_act.call("setup", service, pony, self, pose_id, consent, status)
 	return _act
 
 
@@ -273,8 +293,7 @@ func _attach() -> void:
 func _on_physical_reaction(kind: String) -> void:
 	if kind != "flank_smack":
 		return
-	if is_instance_valid(runtime) and runtime.has_method("_attach_body_coat_jiggle_target"):
-		runtime.call("_attach_body_coat_jiggle_target")
+	facts.smack_body_coat()
 
 
 func _process(delta: float) -> void:
@@ -292,8 +311,7 @@ func _process(delta: float) -> void:
 		appearance.apply_strip_scale()
 	var started := Time.get_ticks_usec()
 	_apply_visibility()
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "anatomy_visibility", Time.get_ticks_usec() - started)
+	facts.perf("anatomy_visibility", Time.get_ticks_usec() - started)
 
 
 ## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,
@@ -303,9 +321,7 @@ func _act_visible() -> bool:
 		"always":
 			return true
 		"act":
-			if not is_instance_valid(runtime):
-				return true
-			return int(runtime.get("state")) in [1, 2, 3, 4]
+			return facts.state in [1, 2, 3, 4]
 	return false
 
 
@@ -333,17 +349,14 @@ func _apply_visibility() -> void:
 
 
 func _heat_idle_tick(delta: float) -> void:
-	if not _attached or not is_instance_valid(runtime) or not is_instance_valid(pony) \
-			or heat == null:
+	if not _attached or not is_instance_valid(pony) or heat == null:
 		return
-	heat.tick(delta, int(runtime.get("state")), _heat_visible(),
+	heat.tick(delta, facts.state, _heat_visible(),
 		Callable(self, "_cycle_phase_now"), Callable(self, "idle_discharge"))
 
 
 func _cycle_phase_now() -> String:
-	if is_instance_valid(runtime) and runtime.has_method("cycle_phase"):
-		return str(runtime.call("cycle_phase"))
-	return CYCLE.NORMAL
+	return facts.cycle_phase
 
 
 ## How open she rests between winks, from the Heat debug settings.
@@ -381,18 +394,15 @@ func _tail_lift() -> float:
 ## The act-only placement trim. The lying missionary pose tilts her pelvis, so the rigged vulva can
 ## sit a little high/low or face the wrong way; these values move only the anatomy mesh.
 func _missionary_pose() -> bool:
-	return is_instance_valid(runtime) and str(runtime.get("pose_id")) == CATALOG.MISSIONARY
+	return facts.pose_id == CATALOG.MISSIONARY
 
 
 func _pose_depth() -> float:
-	if not is_instance_valid(runtime):
-		return 0.0
-	var value: Variant = runtime.get("depth")
-	return clampf(float(value), 0.0, 1.0) if value is float or value is int else 0.0
+	return clampf(float(facts.depth), 0.0, 1.0)
 
 
 func _bed_frame() -> Variant:
-	return runtime.get("_bed_pose_frame") if is_instance_valid(runtime) else null
+	return facts.bed_frame
 
 
 func _apply_place() -> void:
@@ -436,6 +446,12 @@ func body_coat_material() -> ShaderMaterial:
 
 func body_outline_material() -> ShaderMaterial:
 	return coat.body_outline_material() if coat != null else null
+
+
+## Public coat refresh for the runtime's jiggle fallback. The private `_apply_body_coat` stays
+## the implementation; the runtime no longer calls a private method.
+func body_coat_refresh() -> void:
+	_apply_body_coat()
 
 
 func _apply_body_coat_uniforms() -> void:
@@ -528,8 +544,8 @@ func detach() -> void:
 		if is_instance_valid(anchor):
 			anchor.queue_free()
 	_skeleton = null
-	if is_instance_valid(main) and main.has_method("refresh_dock_color"):
-		main.call("refresh_dock_color", pony)
+	if dock_refresh.is_valid():
+		dock_refresh.call(pony)
 
 
 func winking_mesh() -> MeshInstance3D:
@@ -543,9 +559,8 @@ func fluid() -> Node3D:
 	if not is_instance_valid(_fluid):
 		_fluid = CLIMAX_FLUID.new()
 		_fluid.name = "UnfplapAnatomyFluid"
-		_fluid.set("runtime", runtime)
 		pony.add_child(_fluid)
-	_fluid.set("runtime", runtime)
+	_fluid.set("perf_note", facts.perf_note)
 	_fluid.set("skeleton", pony.get("skeleton"))
 	_fluid.set("body_scale",
 		float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)
@@ -706,5 +721,4 @@ func reset_place() -> void:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	facts.write_log(text)

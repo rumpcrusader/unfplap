@@ -52,7 +52,8 @@ const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon_part_albedo.png"
 const AO_PATH := "res://mods/unfplap/assets/anatomy/anon_part_ao.png"
 const NRM_PATH := "res://mods/unfplap/assets/anatomy/anon_part_nrm.png"
 
-var main: Node
+## The Anon body this part binds to. The facade resolves it; the part never reads the main node.
+var player_body: Node3D
 var placing := false
 
 var _mesh: MeshInstance3D
@@ -120,8 +121,7 @@ func _ensure() -> bool:
 	if not assets_exist():
 		return false
 	# integration: the VR rig holds the same Anon body deeper down.
-	var anon: Variant = (main.get("player") as Node).find_child("AnonBody", true, false)
-	var body: Node3D = anon if anon is Node3D else main.call("player_body")
+	var body: Node3D = player_body if is_instance_valid(player_body) else null
 	if not is_instance_valid(body):
 		return false
 	var skeletons: Array = body.find_children("*", "Skeleton3D", true, false)

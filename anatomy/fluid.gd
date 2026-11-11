@@ -22,7 +22,7 @@ var skeleton: Skeleton3D
 var ground_y := 0.0
 ## integration: the shared body ellipsoid is authored at scale 1.
 var body_scale := 1.0
-var runtime: Node
+var perf_note := Callable()
 
 var _hips := -1
 var _drops: Array[Dictionary] = []
@@ -152,8 +152,8 @@ func _physics_process(delta: float) -> void:
 	_draw_drops()
 	if _drops.is_empty() and _leaks.is_empty():
 		set_physics_process(false)
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "climax_fluid", Time.get_ticks_usec() - started)
+	if perf_note.is_valid():
+		perf_note.call("climax_fluid", Time.get_ticks_usec() - started)
 
 
 func _fly(drop: Dictionary, frame: Transform3D, inverse: Transform3D, delta: float) -> void:

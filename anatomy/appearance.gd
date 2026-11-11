@@ -22,8 +22,8 @@ const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 
 var pony: Node3D
-var runtime: Node
-var main: Node
+var dock_refresh := Callable()
+var perf_note := Callable()
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
@@ -35,12 +35,18 @@ var _strip_span := Vector2(0.0, 1.0)
 var _strip_gap := Vector2(2.0, 2.0)
 
 
-func setup(pony_node: Node3D, runtime_node: Node, main_node: Node,
-		shapes_node: RefCounted) -> void:
+func setup(pony_node: Node3D, shapes_node: RefCounted,
+		dock_refresh_callable := Callable(), perf_callable := Callable()) -> void:
 	pony = pony_node
-	runtime = runtime_node
-	main = main_node
 	shapes = shapes_node
+	dock_refresh = dock_refresh_callable
+	perf_note = perf_callable
+
+
+func set_perf(perf_callable: Callable) -> void:
+	perf_note = perf_callable
+	if is_instance_valid(teats_jiggle):
+		teats_jiggle.set("perf_note", perf_note)
 
 
 func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
@@ -92,8 +98,8 @@ func apply_material(missionary: bool) -> void:
 	OUTLINE_EXCLUSION.apply_to(mesh)
 	shapes.refresh_winking()
 	apply_teats_material(material)
-	if is_instance_valid(main) and main.has_method("refresh_dock_color"):
-		main.call("refresh_dock_color", pony)
+	if dock_refresh.is_valid():
+		dock_refresh.call(pony)
 
 
 func attach_parts() -> void:
@@ -190,7 +196,7 @@ func _attach_teats() -> void:
 	teats_jiggle = TEAT_JIGGLE.new()
 	teats_jiggle.name = "UnfplapAnatomyTeatJiggle"
 	teats_jiggle.set("skeleton", skeleton)
-	teats_jiggle.set("runtime", runtime)
+	teats_jiggle.set("perf_note", perf_note)
 	teats_mesh.add_child(teats_jiggle)
 	var size := _teat_size()
 	teats_mesh.set_blend_shape_value(teats_mesh.find_blend_shape_by_name("mid"),

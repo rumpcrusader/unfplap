@@ -27,7 +27,8 @@ const DOCK_VISIBILITY_FALLBACK := Vector3(0.0, 0.0, 0.04)
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
 
-var main: Node
+var perf_on := Callable()
+var log := Callable()
 
 ## pony -> cached original values, target and live state. See `_prepare()`.
 var _rows: Dictionary = {}
@@ -557,7 +558,7 @@ func _invalidate_far(pony: Node) -> void:
 
 
 func _perf_on() -> bool:
-	return is_instance_valid(main) and bool(main.get("debug_perf"))
+	return perf_on.is_valid() and bool(perf_on.call())
 
 
 func _log_perf() -> void:
@@ -585,5 +586,5 @@ func _source(row: Dictionary) -> String:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("_debug"):
-		main.call("_debug", text)
+	if log.is_valid():
+		log.call(text)

@@ -21,54 +21,12 @@ if ! python3 "$MOD_DIR/scripts/asset_pack.py" verify --root "$MOD_DIR"; then
 	exit 1
 fi
 
-TESTS=(
-	test_catalog
-	test_settings
-	test_api
-	test_character_preferences
-	test_source_hygiene
-	test_cycle
-	test_rotation
-	test_pose_asset
-	test_pose_scale
-	test_pose_rig
-	test_thrust
-	test_auto_thrust
-	test_auto_panel
-	test_preferences
-	test_memory
-	test_act_face
-	test_mood_face
-	test_act_summary
-	test_act_history
-	test_act_flow
-	test_act_tolerance
-	test_act_stop
-	test_utterance
-	test_utterance_scheduler
-	test_utterance_lines
-	test_relationship_cue
-	test_runtime_notes
-	test_runtime_face
-	test_runtime_thrust
-	test_runtime_teardown
-	test_sex_bond
-	test_eligibility
-	test_eligibility_api
-	test_afterglow
-	test_voice
-	test_actions
-	test_hud
-	test_initiation
-	test_standing_presentation
-	test_rump_cone
-	test_act_audio
-	test_anatomy
-	test_dock_seat
-	test_dock_attach
-	test_tail_hide
-	test_vr_act
-	test_caress
+# Suites live in tests/ and tests/<system>/. The manual labs need a live world and are not part
+# of the headless gate.
+mapfile -t TESTS < <(
+	cd "$MOD_DIR" && find tests -maxdepth 2 -name 'test_*.gd' \
+		! -name 'test_lab.gd' ! -name 'test_lab_vr.gd' ! -name 'test_stress_lab.gd' \
+		-printf '%P\n' | sed 's/\.gd$//' | sort
 )
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/unfplap-tests.XXXXXX")"
@@ -78,17 +36,18 @@ trap 'rm -rf "$work_dir"' EXIT
 # change a default-value assertion and parallel runs cannot race on the same files.
 run_one() {
 	local test_name="$1"
+	local safe="${test_name//\//_}"
 	if [[ ! -f "$MOD_DIR/tests/$test_name.gd" ]]; then
-		printf 'MISSING\n' >"$work_dir/$test_name.result"
+		printf 'MISSING\n' >"$work_dir/$safe.result"
 		return
 	fi
-	XDG_DATA_HOME="$work_dir/data-$test_name" mkdir -p "$work_dir/data-$test_name"
-	XDG_DATA_HOME="$work_dir/data-$test_name" timeout 90 godot --headless --xr-mode off \
+	XDG_DATA_HOME="$work_dir/data-$safe" mkdir -p "$work_dir/data-$safe"
+	XDG_DATA_HOME="$work_dir/data-$safe" timeout 90 godot --headless --xr-mode off \
 		--path "$PROJECT_ROOT" --script "res://mods/unfplap/tests/$test_name.gd" \
-		>"$work_dir/$test_name.out" 2>&1
+		>"$work_dir/$safe.out" 2>&1
 	local result
-	result="$(grep -E '_RESULT checks=' "$work_dir/$test_name.out" | tail -n 1)"
-	printf '%s\n' "$result" >"$work_dir/$test_name.result"
+	result="$(grep -E '_RESULT checks=' "$work_dir/$safe.out" | tail -n 1)"
+	printf '%s\n' "$result" >"$work_dir/$safe.result"
 }
 export -f run_one
 export MOD_DIR PROJECT_ROOT work_dir
@@ -97,7 +56,8 @@ printf '%s\n' "${TESTS[@]}" | xargs -P "$JOBS" -I{} bash -c 'run_one "$@"' _ {}
 
 failed=0
 for test_name in "${TESTS[@]}"; do
-	result="$(cat "$work_dir/$test_name.result" 2>/dev/null || true)"
+	safe="${test_name//\//_}"
+	result="$(cat "$work_dir/$safe.result" 2>/dev/null || true)"
 	if [[ "$result" == "MISSING" ]]; then
 		printf 'MISSING %s\n' "$test_name"
 		failed=1
@@ -105,7 +65,7 @@ for test_name in "${TESTS[@]}"; do
 	fi
 	if [[ -z "$result" ]]; then
 		printf 'FAIL %s (no result)\n' "$test_name"
-		tail -n 20 "$work_dir/$test_name.out" 2>/dev/null || true
+		tail -n 20 "$work_dir/$safe.out" 2>/dev/null || true
 		failed=1
 		continue
 	fi
@@ -114,7 +74,7 @@ for test_name in "${TESTS[@]}"; do
 	else
 		printf 'FAIL %s\n' "$result"
 		grep -E '^FAIL|SCRIPT ERROR|Parse Error|Invalid|ERROR' \
-			"$work_dir/$test_name.out" 2>/dev/null || true
+			"$work_dir/$safe.out" 2>/dev/null || true
 		failed=1
 	fi
 done

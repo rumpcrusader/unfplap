@@ -67,6 +67,7 @@ func run() -> void:
 	_check_hands_docs()
 	_check_eligibility_isolation(files)
 	_check_eligibility_docs()
+	_check_anatomy_isolation(files)
 	_check_anatomy_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
@@ -216,6 +217,30 @@ func _check_eligibility_docs() -> void:
 	for name: String in ["AGENTS.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md", "README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/eligibility.md"), "%s links to docs/eligibility.md" % name)
+
+
+## The pure anatomy core is scene-free, and the system internals never preload the two hosts.
+## The facade is the only file another system should call.
+func _check_anatomy_isolation(files: Array[String]) -> void:
+	var pure_files := [
+		"anatomy/identity.gd", "anatomy/geometry.gd", "anatomy/act/state.gd",
+	]
+	for name: String in pure_files:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+				"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+				"preload(\"res://mods/unfplap/main.gd\")"]:
+			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if not relative.begins_with("anatomy/"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+				"preload(\"res://mods/unfplap/main.gd\")"]:
+			check(not text.contains(token), "%s does not preload the host: %s" % [relative, token])
 
 
 ## The anatomy contract owns the anatomy and tail-seating rules. It is one file; AGENTS and the

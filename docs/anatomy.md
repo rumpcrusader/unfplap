@@ -419,11 +419,14 @@ restated here.
 
 Current suites:
 
-- `tests/test_anatomy.gd`: consent defaults, adult-mare eligibility, placement defaults and
-  migration, dock visibility fallback, the pose-free placement write, idle heat suppression and
-  wink scheduling, lip-radius stability, V2 mesh refinement and anal anchors, the act's climax and
-  grip calls, the player part's shaped length/head/throb, the body-coat patch and the still-zone
-  math.
+- `tests/anatomy/test_identity.gd`: the stable id, the adult-mare predicate, the princess body
+  profile and the off-roster list.
+- `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
+  radius and the V2 anal ring weights/centre.
+- `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
+  scheduler.
+- `tests/test_anatomy.gd`: the legacy integration suite (placement, dock visibility, idle heat,
+  mesh refinement, act calls, player part, body coat and still zones).
 - `tests/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
 - `tests/test_tail_hide.gd`: the debug tail collapse and restore.

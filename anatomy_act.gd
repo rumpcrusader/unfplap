@@ -7,6 +7,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -292,20 +293,20 @@ func tick(delta: float) -> void:
 	_wide = lerpf(_wide, wide, 1.0 - exp(-delta * WINKING_HUG_RATE))
 	_fill = lerpf(_fill, smoothstep(0.0, WINKING_OPEN_AT, wide),
 		1.0 - exp(-delta * WINKING_FILL_RATE))
-	_hole_mix = move_toward(_hole_mix, 1.0 if _anal else 0.0, delta / HOLE_SWAP_S)
+	_hole_mix = STATE.hole_mix_step(_hole_mix, _anal, HOLE_SWAP_S, delta)
 	_oral_tick(delta)
 	if _oral_mix > 0.0:
 		_oral_motion_tick(delta)
 	var rearward := 1.0 - _oral_mix
-	var front := (1.0 - _hole_mix) * rearward
+	var front := STATE.front(_hole_mix, _oral_mix)
 	_act_wink_tick(delta, part)
 	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
 	# instead of snapping closed; the climax wink is applied on top as a pulse.
 	if _state() in [2, 3]:
-		var closed := 1.0 - (1.0 - WINKING_REST_OPEN * (1.0 - _fill)) * front
+		var closed := STATE.closed_for(_fill, _hole_mix, _oral_mix, WINKING_REST_OPEN)
 		if _wink_left > 0.0:
 			_wink_left = maxf(_wink_left - delta, 0.0)
-			var beat: float = absf(sin((1.0 - _wink_left / _wink_total) * PI * _wink_beats))
+			var beat := STATE.wink_beat(_wink_left, _wink_total, _wink_beats)
 			closed = lerpf(closed, WINK_OPEN if closed > 0.5 else 0.85, beat)
 		# The fill closes the shader's cut over the shaft; without it the hole stays fully open
 		# and the lips cannot read as gripping it.
@@ -372,7 +373,8 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 		var reach := TOUCH_MARGIN_M + maxf(SETTINGS.back_out_m.get_num(), 0.0)
 		var tip: Vector3 = part.call("tip_center")
 		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
-	var mode := wink_mode(_depth(), touching, int(runtime.get("pony_climaxes")))
+	var mode := STATE.wink_mode(_depth(), touching, int(runtime.get("pony_climaxes")),
+		PULLED_OUT_PHASE)
 	if mode != _act_wink_mode:
 		_act_wink_mode = mode
 		_act_wink_next = _wink_interval(mode)
@@ -385,13 +387,10 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 	_start_wink(ACT_WINK_S, 1.0)
 
 
-## 0: nothing. 1: the tip is at her lips. 2: she has climaxed and he has pulled out of her.
+## The pure decision lives in `anatomy/act/state.gd`; this forwarder keeps the act's static
+## surface stable while the system is split.
 static func wink_mode(depth: float, touching: bool, climaxes: int) -> int:
-	if depth >= PULLED_OUT_PHASE:
-		return 0
-	if touching:
-		return 1
-	return 2 if climaxes >= 1 else 0
+	return STATE.wink_mode(depth, touching, climaxes, PULLED_OUT_PHASE)
 
 
 func _wink_interval(mode: int) -> float:

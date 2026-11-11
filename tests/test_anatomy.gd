@@ -4,6 +4,7 @@ extends SceneTree
 
 const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
+const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/tail_seat.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
@@ -271,10 +272,10 @@ func run() -> void:
 	heat_runtime.free()
 
 	# The V2 mesh's density walk can collapse to the 4 mm floor; keep the authored band.
-	check(is_equal_approx(ANATOMY.stable_lip_radius(0.004), ANATOMY.WINKING_LIP_RADIUS),
+	check(is_equal_approx(ANATOMY.stable_lip_radius(0.004), GEOMETRY.WINKING_LIP_RADIUS),
 		"a collapsed lip radius falls back to the authored band")
-	check(is_equal_approx(ANATOMY.stable_lip_radius(ANATOMY.WINKING_LIP_RADIUS),
-		ANATOMY.WINKING_LIP_RADIUS), "the authored lip radius is kept")
+	check(is_equal_approx(ANATOMY.stable_lip_radius(GEOMETRY.WINKING_LIP_RADIUS),
+		GEOMETRY.WINKING_LIP_RADIUS), "the authored lip radius is kept")
 	check(is_equal_approx(ANATOMY.stable_lip_radius(0.030), 0.030),
 		"a nearby measured lip radius is kept")
 
@@ -359,12 +360,12 @@ func run() -> void:
 			"30 mm tracks the V2 ring down from the old cup point")
 		v2_anatomy.call("_apply_anal_shape", 0.056)
 		mouth = v2_anatomy.get("_anal_mouth")
-		check(near(mouth.y, ANATOMY.V2_ANAL_RING_EXTREME.y, 0.001),
+		check(near(mouth.y, GEOMETRY.V2_ANAL_RING_EXTREME.y, 0.001),
 			"56 mm puts the anal aim on the extreme ring")
 		var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
 		var aim_offset: Vector3 = v2_mi.global_transform.basis.y.normalized() \
 			* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
-		check(aim.distance_to(v2_mi.global_transform * ANATOMY.V2_ANAL_RING_EXTREME
+		check(aim.distance_to(v2_mi.global_transform * GEOMETRY.V2_ANAL_RING_EXTREME
 			+ aim_offset) < 0.0001, "the anal act aims at the deformed V2 ring")
 		v2_anatomy.call("_apply_anal_shape", 0.080)
 		check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,

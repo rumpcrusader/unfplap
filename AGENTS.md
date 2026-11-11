@@ -99,8 +99,8 @@ modules; a system is for behavior with lifecycle, scene access or stored state.
 | Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
-Current test suites are flat (`tests/test_*.gd`). A system moves to `tests/<system>/` when it is
-next touched; anatomy starts that convention.
+Most current test suites are flat (`tests/test_*.gd`). A system moves to `tests/<system>/` when
+it is next touched; anatomy has started that convention with its pure suites.
 
 ### Docs
 

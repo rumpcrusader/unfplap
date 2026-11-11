@@ -7,7 +7,8 @@ const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
+const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/still_zone_debug.gd")
@@ -21,21 +22,7 @@ const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 const WINKING_PINK := Color(0.97, 0.66, 0.74)
 const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
 const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
-## Authored lip band radius. The density walk is unreliable on the denser V2 mesh, which
-## can collapse the measured value to the 4 mm floor and make the shader open a huge ring.
-const WINKING_LIP_RADIUS := 0.018
-## The authored `closed` shape also pulls the anal rim. The runtime rebuild masks that out.
-const WINK_ANAL_FROM_Y := 0.020
-const WINK_ANAL_TO_Y := 0.050
 const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
-## The V2 mesh owns the anus, so its ring centre is not the old cup's ANAL_OPENING. These are
-## the measured outer-ring centres (Godot mesh local) at each additive anal key.
-const V2_ANAL_RING_BASE := Vector3(0.00275, 0.06314, 0.01908)
-const V2_ANAL_RING_OPEN := Vector3(0.00262, 0.06183, 0.01908)
-const V2_ANAL_RING_STRETCH := Vector3(0.00272, 0.06286, 0.01908)
-const V2_ANAL_RING_OVER := Vector3(0.00279, 0.05955, 0.01908)
-const V2_ANAL_RING_EXTREME := Vector3(0.00303, 0.03996, 0.03310)
-const V2_ANAL_RING_PONUT := Vector3(0.00296, 0.06515, 0.03310)
 const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
 const WINKING_CUT_DEPTH := 0.07
@@ -43,21 +30,11 @@ const WINKING_CUT_DEPTH := 0.07
 ## How far outside the rim the widening fades out. The measured mound ends ~4.5 cm from the
 ## opening and the anal bulb starts ~8 cm out, so this keeps the bulb out of the deformation.
 const LIP_OUTER_FACTOR := 3.0
-## Anal rim fallback, in mesh units. The V2 mesh owns the anal opening now.
-const ANAL_LIP := 0.022
-## V2 anal blend-shape radii, mesh-local. Each key starts where the previous one ends.
-const ANAL_OPEN_R := 0.008
-const ANAL_STRETCH_R := 0.020
-const ANAL_OVER_R := 0.028
-const ANAL_EXTREME_R := 0.056
-## Outer-radius factor for the original cup model.
-const ANAL_OUTER_FACTOR := 2.2
 const WINKING_CUT_FILLED := 0.9
 const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
-const WINKING_BODIES := {"celestia": [0.853, 0.3329, 1.67], "luna": [0.596, 0.2265, 1.095]}
 ## Runtime patch of the rig coat shader. It swaps only the flank_jiggle include and call in a
 ## duplicated Shader, so no game source is edited and the cel shader is not copied.
 const BODY_COAT_PATCH := preload("res://mods/unfplap/body_coat_patch.gd")
@@ -119,7 +96,7 @@ var _v2_anal := false
 ## Last anal opening radius in mesh units; re-applied when the ponut scale changes.
 var _anal_local := 0.0
 ## Current V2 ring centre in mesh local, tracked through the additive anal keys.
-var _anal_mouth := V2_ANAL_RING_BASE
+var _anal_mouth := GEOMETRY.V2_ANAL_RING_BASE
 ## Anon's shaft, published every frame for the collision projection.
 var _shaft_pivot := Vector3.ZERO
 var _shaft_axis := Vector3.ZERO
@@ -181,50 +158,10 @@ static func selected_mare_bits_path() -> String:
 	return WINKING_PATH
 
 
-static var _refined_winking_meshes := {}
-
-
-## integration: rebuild each winking source mesh once and share it across mares. The authored
-## `closed` and `wink` shapes both pull the anal rim; the rebuild masks that out so only the
-## vulva moves. Keyed by source so the original and V2 models can coexist.
+## The pure mesh rebuild and geometry live in `anatomy/geometry.gd`; these forwarders keep the
+## static anatomy surface stable while the system is split.
 static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
-	if source == null:
-		return null
-	if _refined_winking_meshes.has(source):
-		return _refined_winking_meshes[source] as ArrayMesh
-	var rebuilt := ArrayMesh.new()
-	rebuilt.blend_shape_mode = source.blend_shape_mode
-	var closed_index := -1
-	var wink_index := -1
-	for i in source.get_blend_shape_count():
-		var shape_name := source.get_blend_shape_name(i)
-		rebuilt.add_blend_shape(shape_name)
-		if shape_name == &"closed":
-			closed_index = i
-		elif shape_name == &"wink":
-			wink_index = i
-	for surface in source.get_surface_count():
-		var arrays: Array = source.surface_get_arrays(surface)
-		var shapes: Array = source.surface_get_blend_shape_arrays(surface)
-		var base: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var typed_shapes: Array[Array] = []
-		for s in shapes.size():
-			var shape: Array = shapes[s]
-			var shape_verts: PackedVector3Array = shape[Mesh.ARRAY_VERTEX]
-			if (s == closed_index or s == wink_index) and shape_verts.size() == base.size():
-				for i in shape_verts.size():
-					var p := base[i]
-					var anal := 1.0 - smoothstep(WINK_ANAL_FROM_Y, WINK_ANAL_TO_Y, p.y)
-					var delta := shape_verts[i] - p
-					shape_verts[i] = p + delta * anal
-				shape[Mesh.ARRAY_VERTEX] = shape_verts
-			typed_shapes.append(shape)
-		rebuilt.add_surface_from_arrays(source.surface_get_primitive_type(surface),
-			arrays, typed_shapes, {}, 0)
-		rebuilt.surface_set_material(surface, source.surface_get_material(surface))
-		rebuilt.surface_set_name(surface, source.surface_get_name(surface))
-	_refined_winking_meshes[source] = rebuilt
-	return rebuilt
+	return GEOMETRY.refined_winking_mesh(source)
 
 
 ## integration: every adult mare gets anatomy, including mares added by other mods. The identity
@@ -234,10 +171,7 @@ static func eligible(pony_node: Node3D) -> bool:
 	if not is_instance_valid(pony_node):
 		return false
 	var player_pony := pony_node.name == "PlayerPony" or is_instance_valid(pony_node.get("rig"))
-	var identity: Variant = pony_node.get("identity")
-	if not FACTS.adult_mare_identity(identity, player_pony):
-		return false
-	return not pony_id(pony_node).is_empty()
+	return IDENTITY.eligible(pony_node.get("identity"), player_pony, pony_id(pony_node))
 
 
 ## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
@@ -245,38 +179,23 @@ static func eligible(pony_node: Node3D) -> bool:
 static func pony_id(pony_node: Node) -> String:
 	if not is_instance_valid(pony_node):
 		return ""
-	var id := str(pony_node.get_meta("relationship_id", ""))
-	if not id.is_empty():
-		return id
-	var identity: Variant = pony_node.get("identity")
-	return str(identity.get("id")) if identity != null else ""
+	return IDENTITY.id_for(str(pony_node.get_meta("relationship_id", "")),
+		pony_node.get("identity"))
 
 
-## The princess body scale and placement anchor for a known character. A modded copy can set
-## `character_id` to the canon pony whose body it uses; otherwise the identity id is the key.
+## The princess body scale and placement anchor for a known character.
 static func body_profile(identity: Variant) -> Array:
-	if identity == null:
-		return []
-	var character: Variant = identity.get("character_id")
-	var key := str(character) if character != null else ""
-	if key.is_empty():
-		var identity_id: Variant = identity.get("id")
-		key = str(identity_id) if identity_id != null else ""
-	return WINKING_BODIES.get(key, [])
+	return IDENTITY.body_profile(identity)
 
 
 ## Live adult mares outside the base roster, for the Characters selector. Deduplicated ids out;
 ## the caller owns the live-pony source and ordering.
 static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
-	var out: Array[String] = []
+	var ids: Array[String] = []
 	for pony: Variant in ponies:
-		if not pony is Node3D or not eligible(pony as Node3D):
-			continue
-		var id := pony_id(pony as Node)
-		if id.is_empty() or id in base_ids or out.has(id):
-			continue
-		out.append(id)
-	return out
+		if pony is Node3D and eligible(pony as Node3D):
+			ids.append(pony_id(pony as Node))
+	return IDENTITY.off_roster_ids(ids, base_ids)
 
 
 func setup(pony_node: Node3D, runtime_node: Node) -> void:
@@ -348,7 +267,7 @@ func _attach() -> void:
 	_mesh = mesh
 	_mare_bits_path_loaded = selected
 	_v2_anal = selected == MARE_BITS_V2_PATH
-	_anal_mouth = V2_ANAL_RING_BASE
+	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
@@ -758,19 +677,18 @@ func _hips_bind_pose() -> Transform3D:
 
 static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
 		point: Vector3) -> Vector3:
-	return bind.affine_inverse() * (mesh_transform * point)
+	return GEOMETRY.body_local_point(bind, mesh_transform, point)
 
 
 static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 		direction: Vector3) -> Vector3:
-	return (bind.basis.inverse() * (mesh_transform.basis * direction)).normalized()
+	return GEOMETRY.body_local_direction(bind, mesh_transform, direction)
 
 
-## Body-local radius of the visible anal cup's still zone. The cup's own outer ring sets the
-## size; the 1.3 margin reaches the coat around it and the floor keeps a small cup usable.
+## Body-local radius of the visible anal cup's still zone.
 static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 		multiplier: float) -> float:
-	return maxf(lip * outer_factor * scale * 1.3, 0.045) * multiplier
+	return GEOMETRY.anal_still_radius_for(lip, outer_factor, scale, multiplier)
 
 
 func _apply_strip_scale() -> void:
@@ -801,12 +719,13 @@ func _apply_body_coat_uniforms() -> void:
 	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
 	var anal_centre := BODY_ANAL_CENTRE
-	var anal_extreme := maxf(0.0, (_anal_local - ANAL_OVER_R) / (ANAL_EXTREME_R - ANAL_OVER_R))
+	var anal_extreme := maxf(0.0, (_anal_local - GEOMETRY.ANAL_OVER_R)
+		/ (GEOMETRY.ANAL_EXTREME_R - GEOMETRY.ANAL_OVER_R))
 	if _v2_anal:
 		anal_centre = body_local_point(_hips_bind, _mesh.transform, _anal_mouth)
 	var anal_still_centre := anal_centre
-	var anal_still_radius := anal_still_radius_for(ANAL_LIP, ANAL_OUTER_FACTOR, scale,
-		SETTINGS.anal_still.get_num()) * (1.0 + anal_extreme)
+	var anal_still_radius := GEOMETRY.anal_still_radius_for(GEOMETRY.ANAL_LIP,
+		GEOMETRY.ANAL_OUTER_FACTOR, scale, SETTINGS.anal_still.get_num()) * (1.0 + anal_extreme)
 	_zone_vulva_centre = still_centre
 	_zone_anal_centre = anal_still_centre
 	_zone_vulva_radius = still_radius
@@ -829,7 +748,7 @@ func _apply_body_coat_uniforms() -> void:
 		# Keep the body under the V2 lip: the indent must not reach past the outer lip.
 		# Slightly wider than the shaft; the extra 3 mm side lip flange covers the wall.
 		mat.set_shader_parameter("body_coat_anal_hole_reach",
-			(maxf(_anal_local, ANAL_OPEN_R) + 0.0015) * scale)
+			(maxf(_anal_local, GEOMETRY.ANAL_OPEN_R) + 0.0015) * scale)
 		mat.set_shader_parameter("body_coat_vulva_centre", centre)
 		mat.set_shader_parameter("body_coat_vulva_out", out_axis)
 		mat.set_shader_parameter("body_coat_vulva_scale", spread)
@@ -1119,7 +1038,7 @@ func _reload_mare_bits_mesh() -> void:
 	_mare_bits_path_loaded = selected
 	_v2_anal = selected == MARE_BITS_V2_PATH
 	_anal_local = 0.0
-	_anal_mouth = V2_ANAL_RING_BASE
+	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
 	_lip_radius = _measure_lip_radius()
 	_apply_winking_shape()
 	_apply_anal_shape(0.0)
@@ -1155,7 +1074,7 @@ func detach() -> void:
 	_teats_jiggle = null
 	_v2_anal = false
 	_anal_local = 0.0
-	_anal_mouth = V2_ANAL_RING_BASE
+	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
 	if is_instance_valid(_mesh):
 		var anchor := _mesh.get_parent()
 		_mesh.queue_free()
@@ -1423,17 +1342,14 @@ func lip_radius() -> float:
 ## the mesh carries the lip flag. The rim is the first radius whose vertex density is high, found
 ## by binning the planar distance from the opening.
 func _measure_lip_radius() -> float:
-	return stable_lip_radius(_measure_ring_radius(_mesh, WINKING_OPENING, WINKING_LIP_RADIUS))
+	return GEOMETRY.stable_lip_radius(
+		_measure_ring_radius(_mesh, WINKING_OPENING, GEOMETRY.WINKING_LIP_RADIUS))
 
 
-## The V2 mesh's inner folds/high-res patch can make the density walk pick the wrong
-## inner bin. Keep the authored band unless the measurement lands near it.
+## The pure stability rule lives in `anatomy/geometry.gd`; this forwarder keeps the static
+## anatomy surface stable while the system is split.
 static func stable_lip_radius(measured: float) -> float:
-	if not is_finite(measured):
-		return WINKING_LIP_RADIUS
-	if measured < WINKING_LIP_RADIUS * 0.65 or measured > WINKING_LIP_RADIUS * 1.8:
-		return WINKING_LIP_RADIUS
-	return measured
+	return GEOMETRY.stable_lip_radius(measured)
 
 
 func _measure_ring_radius(target: MeshInstance3D, centre: Vector3, fallback: float) -> float:
@@ -1510,26 +1426,14 @@ func set_anal_grip(shaft_radius: float) -> void:
 func _apply_anal_shape(local: float) -> void:
 	if not is_instance_valid(_mesh) or not _v2_anal:
 		return
-	var open := clampf(local / ANAL_OPEN_R, 0.0, 1.0)
-	var stretch := clampf((local - ANAL_OPEN_R) / (ANAL_STRETCH_R - ANAL_OPEN_R), 0.0, 1.0)
-	var over := clampf((local - ANAL_STRETCH_R) / (ANAL_OVER_R - ANAL_STRETCH_R), 0.0, 1.0)
-	# No upper clamp: an oversized shaft extrapolates the extreme so the ring can still wrap it.
-	var extreme := maxf(0.0, (local - ANAL_OVER_R) / (ANAL_EXTREME_R - ANAL_OVER_R))
-	# The ponut key is a 2x scale, so the setting maps 0.5..1.5 to -0.5..0.5 weight.
-	# Negative weights shrink the mound; the extreme key already carries its own 2x scale.
-	var ponut := (SETTINGS.anal_scale.get_num() - 1.0) * maxf(0.0, 1.0 - extreme)
-	_anal_mouth = V2_ANAL_RING_BASE \
-		+ (V2_ANAL_RING_OPEN - V2_ANAL_RING_BASE) * open \
-		+ (V2_ANAL_RING_STRETCH - V2_ANAL_RING_OPEN) * stretch \
-		+ (V2_ANAL_RING_OVER - V2_ANAL_RING_STRETCH) * over \
-		+ (V2_ANAL_RING_EXTREME - V2_ANAL_RING_OVER) * extreme \
-		+ (V2_ANAL_RING_PONUT - V2_ANAL_RING_BASE) * ponut
-	for pair: Array in [["anal_open", open], ["anal_stretch", stretch],
-			["anal_overstretch", over], ["anal_extreme", extreme],
-			["ponut_scale", ponut]]:
+	var weights := GEOMETRY.anal_ring_weights(local, SETTINGS.anal_scale.get_num())
+	_anal_mouth = GEOMETRY.anal_ring_centre(weights)
+	for pair: Array in [["anal_open", "open"], ["anal_stretch", "stretch"],
+			["anal_overstretch", "over"], ["anal_extreme", "extreme"],
+			["ponut_scale", "ponut"]]:
 		var index := _mesh.find_blend_shape_by_name(str(pair[0]))
 		if index >= 0:
-			_mesh.set_blend_shape_value(index, float(pair[1]))
+			_mesh.set_blend_shape_value(index, float(weights.get(str(pair[1]), 0.0)))
 
 
 ## Kept for the act's call order; the old cup's cut depth is gone and the shape keys do the work.

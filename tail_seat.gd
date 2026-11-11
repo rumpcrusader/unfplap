@@ -479,8 +479,12 @@ func refresh_dock_color(pony: Node) -> void:
 		return
 	var row: Dictionary = _rows[pony]
 	var dock: MeshInstance3D = row["dock"]
-	if is_instance_valid(dock):
-		dock.set_surface_override_material(0, _dock_material(row))
+	if not is_instance_valid(dock) or dock.is_queued_for_deletion():
+		return
+	var mesh: Mesh = dock.mesh
+	if mesh == null or mesh.get_surface_count() == 0:
+		return
+	dock.set_surface_override_material(0, _dock_material(row))
 
 
 func _detach_follower(row: Dictionary) -> void:

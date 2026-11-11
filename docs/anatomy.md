@@ -24,7 +24,8 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 | File | Role |
 |---|---|
-| `anatomy.gd` | persistent per-mare controller: attach/detach, placement, material, teats, strip, body coat, shape drive, idle heat, dock visibility, debug placement |
+| `anatomy.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement editor |
+| `anatomy/controller.gd` | persistent per-mare controller: attach/detach, placement, visibility and fluid; forwards the shape and coat APIs |
 | `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | oral turn state, mouth anchor, style motion and facing |
@@ -34,7 +35,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/coat.gd` | rig coat patch, vulva/anal spread and the still zones |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
-| `anon_part.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
+| `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
 | `anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
 | `anatomy/tail/dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
@@ -49,22 +50,60 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/body_coat_deform.gdshaderinc` | the coat deform include used by the patch |
 | `vr_act.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
 
-The current entry points are not yet isolated:
+The internal entry points are:
 
-- `main.gd` creates and holds `anon_part` and `tail_seat`, refreshes anatomy on settings changes,
-  owns the placement debug actions and `refresh_dock_color`, and forwards `anon_encounter` and
-  `anon_track`.
-- `runtime.gd` resolves the persistent controller through `main.anatomy`, ticks the act handle,
-  exposes the V/N/B gates and object queries, and supplies the shaft length and body-coat jiggle
-  handoff.
-- `missionary_anon.gd` and `standing_anon.gd` read `main.anon_part` directly for the hip offset,
-  shaft length and shoulder aim.
+- `main.gd` creates `main.anatomy`. `_on_pony` binds the controller and tail seat, `_on_player`
+  creates the player part, and the placement debug buttons forward to the service.
+- `anatomy.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
+  placement editor. Runtime and pose systems use its methods; no other system needs the player
+  node or a controller handle.
+- `runtime.gd` resolves the controller through the service, asks it to begin/end the act, ticks
+  the act handle, and supplies the act-facts dictionary and body-coat jiggle handoff.
+- `missionary_anon.gd` and `standing_anon.gd` use the service's player methods for the hip
+  offset, root position and scale.
 - `input.gd` calls the runtime's anatomy action gates; `hud.gd` renders the matching rows and
   hidden finish row.
 - `settings.gd` and `mare_registry.gd` use `anatomy_placement.gd` as the shared pure schema.
 
-The migration target in `## Migration target` replaces those entry points with one world facade,
-a per-pony controller and a per-act handle. Until then, treat the current files as the contract.
+The controller still reads a few runtime values (`state`, `cycle_phase`, `depth`, the bed frame
+and the perf sink) because it is attached to the act. The remaining split is attach/placement and
+the typed facts boundary; see `## Migration target`.
+
+## Internal API
+
+`main.anatomy` (world service):
+
+```gdscript
+setup(main)
+player_ready(body), clear_player(), refresh_player(), player_apply_live()
+controller_for(pony, runtime), bind(pony, runtime), controller(pony), online(pony)
+refresh_all(), apply_live(), detach_controller(pony), shutdown()
+tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), tail_report()
+placement_debug(op, value), placement_show()
+player_encounter(on), player_track(...), player_showing()
+player_shaft_length_m(), player_girth_at(point), player_root_now(), player_tip_world()
+player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
+```
+
+`main.anatomy.controller(pony)` (per-pony handle):
+
+```gdscript
+refresh(), detach(), apply_live()
+begin_act(pose_id) -> Node, end_act(), act()
+```
+
+`controller.begin_act(pose_id)` (per-act handle):
+
+```gdscript
+tick(facts, delta), pose_config(config), facing()
+toggle_hole(state), toggle_oral(state), toggle_finish(state)
+oral_active(), pull_out_selected(), opening(), normal(), rear()
+on_climax(), on_finish(), withdraw(), afterglow_tick(delta, facts)
+end(), teardown()
+```
+
+The act handle also exposes the shape calls the runtime already forwards. `part()` is an
+anatomy-internal handle for the act; other systems use the service's `player_*` methods.
 
 ## Controls
 
@@ -295,7 +334,7 @@ turn's camera facing through `facing()`; the runtime applies both in the same fr
 
 ## Player part
 
-- `anon_part.gd` loads `assets/anatomy/anon_part.scn` and its albedo, AO and normal maps. It is
+- `anatomy/player.gd` loads `assets/anatomy/anon_part.scn` and its albedo, AO and normal maps. It is
   available only for the human player form; AnonPony and a young form never show it.
 - The part is attached to the player's Hips bone and placed from `anatomy.placement.anon.*`.
   `player_scale`, `part_base_scale`, `part_mid_scale`, `part_head_scale`, `part_length_scale` and
@@ -480,22 +519,22 @@ fakes. See `## Migration target`.
 
 The refactor is one system at a time, with no behavior change:
 
-- `anatomy.gd` becomes the world facade owned by `main` as `main.anatomy`. It owns the per-pony
+- `anatomy.gd` is the world facade owned by `main` as `main.anatomy`. It owns the per-pony
   controllers, the player part and tail seating.
-- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd` and `heat.gd` are already split out.
-  `anatomy/controller.gd` and `anatomy/attach.gd` are the remaining split: attach/detach, LOD,
-  placement and the per-pony lifecycle.
+- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd` and `heat.gd` are split out.
+  `anatomy/controller.gd` still holds attach/detach, placement, visibility and fluid;
+  `anatomy/attach.gd` and `anatomy/placement.gd` are the remaining split.
 - `anatomy/act.gd` is the per-act handle returned by `controller.begin_act(pose_id)`;
   `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
   three behaviors.
 - `anatomy/identity.gd`, `geometry.gd` and `act/state.gd` are pure. `anatomy_placement.gd` stays
   a shared pure schema.
-- The player part and tail seating move under `anatomy/`; `main` drops its `anon_part`,
-  `tail_seat`, `refresh_anatomy`, `refresh_dock_color` and placement debug code.
+- The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
+  forwards and the HUD status gateway.
 - The act receives the plain act-facts dictionary (later a typed value) from the runtime instead
   of reading runtime private fields, and returns the oral pose delta and facing instead of writing
-  `runtime._pose_cfg`. This part is already in place.
-- Tests move to `tests/anatomy/`, split pure vs facade. The boundary is enforced by
+  `runtime._pose_cfg`.
+- Tests live under `tests/anatomy/`, split pure vs facade. The boundary is enforced by
   `tests/test_source_hygiene.gd`.
 
 The plan and phase gates live in the refactor notes; this section only records the target API.

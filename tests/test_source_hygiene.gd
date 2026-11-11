@@ -234,6 +234,12 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act.gd"))
 	check(not act.contains("runtime.get("), "the anatomy act does not read runtime fields")
 	check(not act.contains("runtime.call(\"_"), "the anatomy act does not call runtime private helpers")
+	var runtime_text := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for token: String in ["anatomy/controller.gd", "anatomy/act.gd", "anatomy/player.gd"]:
+		check(not runtime_text.contains(token), "runtime does not preload anatomy internals: %s" % token)
+	var main_text := FileAccess.get_file_as_string(ROOT.path_join("main.gd"))
+	for token: String in ["var anon_part", "var tail_seat"]:
+		check(not main_text.contains(token), "main does not hold the anatomy node: %s" % token)
 	for path: String in files:
 		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
 			continue

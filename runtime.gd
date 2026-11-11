@@ -43,7 +43,6 @@ const SOUND := preload("res://mods/unfplap/act_sound.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
-const ANATOMY_CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
@@ -557,18 +556,12 @@ func _anatomy_refresh() -> void:
 			_anatomy.queue_free()
 		_anatomy = null
 		return
-	if service != null and service.has_method("controller_for"):
-		_anatomy = service.call("controller_for", pony, self)
-		if is_instance_valid(_anatomy):
-			_anatomy.call("refresh")
+	if service == null or not service.has_method("controller_for"):
+		_anatomy = null
 		return
-	# Fallback for tests or a host without the service.
-	if not is_instance_valid(_anatomy):
-		_anatomy = ANATOMY_CONTROLLER.new()
-		_anatomy.name = "UnfplapAnatomyController"
-		add_child(_anatomy)
-		_anatomy.call("setup", pony, self)
-	_anatomy.call("refresh")
+	_anatomy = service.call("controller_for", pony, self)
+	if is_instance_valid(_anatomy):
+		_anatomy.call("refresh")
 
 
 func anatomy_available() -> bool:
@@ -3054,7 +3047,7 @@ func anatomy_facing(basis: Basis, amount: float) -> void:
 		camera.call("set_facing_override", basis, amount)
 
 
-## integration: the standing part aims itself in `anatomy/player.gd track`; only the optional bed body
+## integration: the standing part aims itself in `player.gd`'s track; only the optional bed body
 ## still needs the wrapper hook.
 ## The bed pose writes his hip itself, so the marker alignment is only for other rigs (VR).
 func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:

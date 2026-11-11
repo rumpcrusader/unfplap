@@ -93,7 +93,7 @@ modules; a system is for behavior with lifecycle, scene access or stored state.
 |---|---|---|---|
 | Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
-| Anatomy | `anatomy.gd` | `docs/anatomy.md` | refactor in progress |
+| Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated; controller still holds attach/placement |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
 | Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
@@ -263,9 +263,10 @@ mods/unfplap/
   eligibility.gd    internal eligibility API and the only scene adapter; see
                     docs/eligibility.md
   eligibility/      pure policy, facts and verdict helpers
-  anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
-                    winking mesh refinement, idle heat wink/drip; every adult identity with
-                    `pony_hips`, not only the base roster; contract in `docs/anatomy.md`
+  anatomy.gd        world facade: per-pony controllers, player part, tail seat/visibility and
+                    placement editor; contract in `docs/anatomy.md`
+  anatomy/controller.gd  persistent per-mare controller: attach, placement, LOD and fluid;
+                    forwards shapes, coat, appearance and heat
   anatomy/          identity, geometry, shapes, coat, appearance and heat; act state and
                     oral/finish/debug; player part; fluid, teats, still zones and the anatomy shader
   anatomy/act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads

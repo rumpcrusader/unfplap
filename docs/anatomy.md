@@ -489,16 +489,15 @@ Current suites:
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
 - `tests/anatomy/test_tail_hide.gd`: the debug tail collapse and restore.
 
-The target layout is `tests/anatomy/`, split by system area: identity, geometry, act state,
-controller, shapes, coat, heat, fluid, act API, player part and tail. Pure tests must not
-instantiate a scene or read private controller state; facade tests use documented accessors and
-fakes. See `## Migration target`.
+All anatomy suites live under `tests/anatomy/`. Pure tests must not instantiate a scene or read
+private controller state; facade tests use documented accessors and fakes. The remaining split
+(attach/visibility and the typed facts value) adds its suites in the same directory.
 
 ## Known limits
 
 - The anatomy is per-pony and attaches after the pony enters the tree; a mod that assigns the
-  identity a frame later is caught by the deferred `_read_id()`/refresh retry. The service
-  migration must keep that timing.
+  identity a frame later is caught by the deferred `_read_id()`/refresh retry. The service keeps
+  that timing.
 - The rig coat material is shared between ponies of one identity. A per-pony copy and its outline
   must stay owned by the anatomy; removing the copy would make one mare's still zone move every
   copy of that body.

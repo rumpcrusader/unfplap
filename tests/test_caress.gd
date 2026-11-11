@@ -207,6 +207,23 @@ func run() -> void:
 	check(not bool(ray_hit.get("inside", true)), "the ray point outside the plane is outside")
 	check(surface.get("_tri") != null, "the first ray builds the ray mesh once")
 
+	# The player quality: precise still snaps a missed ray to the coat; balanced/fast keep the
+	# intended oval point and the path normal when the ray misses.
+	var lossy: Variant = _plane()
+	lossy.call("set_quality", "balanced")
+	var miss: Dictionary = lossy.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
+	check(int(miss.get("face", 0)) < 0, "the lossy miss reports no exact face")
+	check((miss.get("point", Vector3.ZERO) as Vector3).is_equal_approx(Vector3(0.2, 0.5, 0.1)),
+		"the lossy miss keeps the intended oval point")
+	var exact: Variant = _plane()
+	exact.call("set_quality", "precise")
+	var exact_miss: Dictionary = exact.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
+	var exact_point: Vector3 = exact_miss.get("point", Vector3.ZERO)
+	check(near(exact_point.y, 0.0), "precise still snaps a missed ray to the coat")
+	lossy.call("set_quality", "fast")
+	check(int(lossy.get("update_ms")) == 66 and int(lossy.get("blur_depth")) == 1,
+		"fast lowers the patch refresh and the blur ring")
+
 	var palm := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm", 0.0, 0.0)
 	var hovered := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm",
 		0.0, 0.03)

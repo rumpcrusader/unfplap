@@ -670,6 +670,13 @@ static var act_lines := flag("act_lines", "features.act_lines", true, "Allow act
 	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
 static var act_faces := flag("act_faces", "features.act_faces", true, "Show act expressions",
 	"Use the game's own faces during acts, offers and the afterglow. Off keeps the current act faces and stops asking act lines for a face; the blush arc and post-act mood face are separate.", GENERAL, "")
+static var caress_surface := flag("caress_surface", "features.caress_surface", false,
+	"Use precise caress",
+	"Place the caress hand from the visible body/head surface instead of the capsule hull. The quality below applies only while this is on.", GENERAL, "")
+static var quality := choice("quality", "caress.quality", "precise",
+	["precise", "balanced", "fast"], ["Precise", "Balanced", "Fast"],
+	"Caress quality",
+	"Precise snaps the hand to the visible coat every tick. Balanced accepts the intended oval point when the surface ray misses and refreshes the patch at 20 Hz. Fast also refreshes at 15 Hz and narrows the normal blur. Lower levels can let the palm float by about the oval radius on a miss.", GENERAL, "")
 static var act_history := flag("act_history", "features.act_history", true, "Remember acts",
 	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.", GENERAL, "")
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
@@ -745,10 +752,6 @@ static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
 	.as_debug()
 
 # -- Caress  (debug)
-static var caress_surface := flag("caress_surface", "features.caress_surface", false,
-	"Use precise caress",
-	"Place the caress hand from the visible body/head surface instead of the capsule hull.",
-	GENERAL, "Caress").as_debug()
 static var caress_areas := flag("caress_areas", "features.caress_areas", false,
 	"Use area caress path",
 	"Standing caress follows the marked areas in hands/areas/areas.json as one continuous path. The old flank/shoulder/neck path stays the default.",

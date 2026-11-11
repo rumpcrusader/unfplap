@@ -55,6 +55,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **HUD** — Shows the act controls list, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Caress** — Rub her flank standing or her chest, neck and cheek in missionary with either hand; see `docs/hands.md`.
+- **Caress quality** — `Caress quality` trades exact coat contact for speed (Precise, Balanced, Fast); lower levels can let the palm float by the oval radius when the surface ray misses.
 - **Act actions** — Leaning cues kisses and shoulder reaches; F kisses at a full lean, and right-click smacks one.
 - **Act expressions** — She uses the game's own faces during sex: shy or comfortable at the start, eager as she gets close, and a climax that turns flustered, open-mouthed or wide-eyed with how the act is going. Act lines can pick a face too.
 - **Cuddle override** — Lets an encounter begin while a cuddle is active.

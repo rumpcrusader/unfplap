@@ -112,22 +112,28 @@ static func contact(pony: Variant, point: Vector3, outward_hint: Vector3,
 		var frame: Variant = flank.get("frame")
 		var sk: Variant = pony.get("skeleton")
 		if surface != null and surface.has_method("contact") and frame is Transform3D:
-			if surface.has_method("update_pose") and sk is Skeleton3D:
-				surface.call("update_pose", sk, frame)
 			var local_point: Vector3 = (frame as Transform3D).affine_inverse() * point
-			var local_palm: Vector3 = ((frame as Transform3D).basis.inverse() * -outward).normalized()
 			var radii: Variant = flank.get("radii")
 			var reach := float((radii as Vector3).z) if radii is Vector3 else 0.10
-			var hit: Dictionary = surface.call("contact", local_point, local_point, local_palm, reach)
-			var hit_local: Variant = hit.get("position")
-			var normal_local: Variant = hit.get("normal")
-			if hit_local is Vector3 and normal_local is Vector3:
-				var hit_world: Vector3 = (frame as Transform3D) * (hit_local as Vector3)
-				var hit_normal: Vector3 = ((frame as Transform3D).basis.inverse().transposed() \
-					* (normal_local as Vector3)).normalized()
-				if hit_normal.dot(outward) < 0.0:
-					hit_normal = -hit_normal
-				return {"point": hit_world, "normal": hit_normal, "source": "flank"}
+			# The flank patch only covers the cheek. Skip its skinning and query when the point is
+			# outside the last posed bounds, so a shoulder or neck caress goes straight to the hulls.
+			var bounds: Variant = surface.get("bounds")
+			var near_flank := not bounds is AABB or not (bounds as AABB).has_volume() \
+				or (bounds as AABB).grow(reach + 0.02).has_point(local_point)
+			if near_flank:
+				if surface.has_method("update_pose") and sk is Skeleton3D:
+					surface.call("update_pose", sk, frame)
+				var local_palm: Vector3 = ((frame as Transform3D).basis.inverse() * -outward).normalized()
+				var hit: Dictionary = surface.call("contact", local_point, local_point, local_palm, reach)
+				var hit_local: Variant = hit.get("position")
+				var normal_local: Variant = hit.get("normal")
+				if hit_local is Vector3 and normal_local is Vector3:
+					var hit_world: Vector3 = (frame as Transform3D) * (hit_local as Vector3)
+					var hit_normal: Vector3 = ((frame as Transform3D).basis.inverse().transposed() \
+						* (normal_local as Vector3)).normalized()
+					if hit_normal.dot(outward) < 0.0:
+						hit_normal = -hit_normal
+					return {"point": hit_world, "normal": hit_normal, "source": "flank"}
 	var touch: Variant = pony.get("touch_body")
 	if touch != null and touch.has_method("nearest"):
 		var near: Dictionary = nearest_touch(pony, point, ignore, regions)

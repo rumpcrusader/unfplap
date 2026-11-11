@@ -135,8 +135,10 @@ For one hand the engine:
 1. applies the oval offset
    `point + oval_x * cos(phase) * across + oval_y * sin(phase) * up`;
 2. for `precise`, snaps the point to the exact body/head patch with one `nearest` ray on the
-   candidate's region only;
-3. applies the distance-weighted normal blur around the hit;
+   candidate's region only; a ray miss uses the exact `closest()` point at `precise` quality and
+   keeps the intended oval point with the path normal at `balanced`/`fast`;
+3. applies the distance-weighted normal blur around a ray hit; a miss keeps the exact `closest()`
+   normal at `precise` or the path normal at `balanced`/`fast`;
 4. clamps the temporal normal turn;
 5. low-passes the **surface snap correction**, not the intended point, so the intended oval
    motion is never delayed or shrunk;
@@ -145,13 +147,16 @@ For one hand the engine:
 
 With `features.caress_surface` off, the candidate is a hull query through `coat.gd`: the
 FlankSurface patch first, then PonyTouchBody nearest, with source hysteresis, a maximum contact
-step and the same normal turn. The hull path keeps the last valid point on a miss.
+step and the same normal turn. The flank patch is skipped (its skinning and query) when the point
+is outside its last posed bounds, so shoulder and neck points go straight to the hulls. The hull
+path keeps the last valid point on a miss.
 
 ## Settings
 
 | Setting | Default | Effect |
 |---|---|---|
-| `features.caress_surface` | off | precise exact surface instead of the hull path |
+| `features.caress_surface` | off | player-facing Use precise caress: exact surface instead of the hull path |
+| `caress.quality` | precise | player-facing hand quality; `balanced` accepts the oval point on a ray miss and refreshes at 20 Hz, `fast` also at 15 Hz with a 1-ring blur |
 | `features.caress_areas` | off | standing authored path from `hands/areas/areas.json` instead of `anchors2.json`; lean-driven chain |
 | `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |
 | `features.caress_reach_shoulder_m` | 0.02 m | missionary reach shoulder shift |
@@ -190,15 +195,17 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 - `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_ensure`,
   `caress_skin`, `caress_tri`, `caress_ray`, `caress_blur`, `caress_closest` and `caress_arm`
   chunks.
-- `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand;
+- `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand
+  on both the precise and hull paths (the precise surface is the separate `caress_surface` chunk);
   `caress_surface` covers the whole precise hand, `caress_ensure` the mesh/anchor cache check,
   `caress_skin` the patch update (skinning plus the face and normal arrays), `caress_tri` the
   `TriangleMesh` rebuild, `caress_ray` the segment query, `caress_blur` the normal average,
   `caress_closest` the full-triangle fallback when the ray misses; `caress_arm` covers the
   missionary reach plan.
-- The patch is skinned and re-BVHed at most once per physics tick, and the normal blur averages
-  the hit face's ring (`BLUR_RING_RADIUS_M = 0.03 m`, `BLUR_RING_DEPTH = 2`) instead of the whole
-  patch; a wider radius keeps the full-scan average.
+- The patch is skinned and re-BVHed at most once per `caress.quality` refresh (33 ms precise,
+  50 ms balanced, 66 ms fast) and at most once per physics tick, and the normal blur averages the
+  hit face's ring (`BLUR_RING_RADIUS_M = 0.03 m`, 2 rings precise/balanced, 1 fast) instead of the
+  whole patch; a wider radius keeps the full-scan average.
 
 ## Reach
 

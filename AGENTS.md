@@ -1924,7 +1924,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   second title. Settings with no group render at the top of the tab without a heading; a group
   needs at least three related settings to earn one. **General** is one ungrouped list in this
   order: Starting Sex, Show controls, Show HUD readouts, Show captions on top, Mute Ponese audio,
-  Allow act lines, Show act expressions, Remember acts, Climax limit, Sensitivity, Thrust direction,
+  Allow act lines, Show act expressions, Use precise caress, Caress quality, Remember acts, Climax limit, Sensitivity, Thrust direction,
   Use Anon bed body, Use VR act, Allow hole switch, Allow oral, Allow finish control, then the
   **Enable debug** switch. Its Debug block holds the perf-log and act-ear switches, the **Act face**
   section (climax face, blush arc, face log), auto thrust (pace, bottom, peak,

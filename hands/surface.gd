@@ -6,13 +6,12 @@ extends RefCounted
 ## to one patch.
 
 const CACHE_LIMIT := 12
-const UPDATE_MS := 33
-## The exact query touches a few centimetres of coat. The normal blur walks the hit vertex's
-## mesh ring instead of every posed vertex; a radius beyond the ring's proven reach keeps the
-## full-scan fallback so a debug radius still averages the whole patch. Two rings already cover
-## the 2 cm default radius; four rings would walk ~4x the vertices for no extra reach.
+## The patch is skinned at most once per update_ms, and the blur walks blur_depth rings. The
+## caress quality setting lowers both; the default keeps the exact miss fallback.
 const BLUR_RING_RADIUS_M := 0.03
-const BLUR_RING_DEPTH := 2
+var update_ms := 33
+var blur_depth := 2
+var accurate_miss := true
 
 static var _source_cache: Dictionary = {}
 
@@ -61,6 +60,24 @@ var _cache_order: Array = []
 ## "neck", "head" or "body". Returns false when the pony/rig/region is unavailable.
 func _init(runtime_node: Node = null) -> void:
 	runtime = runtime_node
+
+
+## Apply the player's caress quality. Precise keeps the exact miss fallback; balanced and fast
+## accept the intended oval point on a ray miss and refresh the patch less often.
+func set_quality(quality: String) -> void:
+	match quality:
+		"balanced":
+			update_ms = 50
+			blur_depth = 2
+			accurate_miss = false
+		"fast":
+			update_ms = 66
+			blur_depth = 1
+			accurate_miss = false
+		_:
+			update_ms = 33
+			blur_depth = 2
+			accurate_miss = true
 
 
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
@@ -131,7 +148,7 @@ func update_pose(force := false) -> void:
 		return
 	_update_tick = tick
 	var now := Time.get_ticks_msec()
-	if not force and _last_update >= 0 and now - _last_update < UPDATE_MS:
+	if not force and _last_update >= 0 and now - _last_update < update_ms:
 		return
 	var started := Time.get_ticks_usec()
 	var base := skeleton.global_transform
@@ -234,7 +251,17 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	var hit := _cast(point + normal * 0.20, point - normal * 0.20)
 	if hit.is_empty():
 		ray_misses += 1
-		return closest(point)
+		if accurate_miss:
+			return closest(point)
+		query_us = Time.get_ticks_usec() - started
+		_perf_note("caress_ray", query_us)
+		return {
+			"point": point,
+			"normal": normal,
+			"distance": 0.0,
+			"inside": false,
+			"face": -1,
+		}
 	ray_hits += 1
 	query_us = Time.get_ticks_usec() - started
 	_perf_note("caress_ray", query_us)
@@ -389,16 +416,16 @@ func _link_ring(a: int, b: int) -> void:
 		rb.append(a)
 
 
-## The hit face's neighbours out to BLUR_RING_DEPTH rings. A seed outside the ring set or a
-## radius wider than the ring's proven reach returns an empty array so the caller keeps the
-## full-scan average, which is what a debug radius expects.
+## The hit face's neighbours out to `blur_depth` rings. A seed outside the ring set or a radius
+## wider than the ring's proven reach returns an empty array so the caller keeps the full-scan
+## average, which is what a debug radius expects.
 func _blur_candidates(seed: int, radius: float) -> PackedInt32Array:
 	if seed < 0 or seed >= _rings.size() or radius > BLUR_RING_RADIUS_M or _rings.is_empty():
 		return PackedInt32Array()
 	var seen := PackedInt32Array()
 	var seen_set := {}
 	var front: Array[int] = [seed]
-	for _depth in BLUR_RING_DEPTH:
+	for _depth in blur_depth:
 		var next: Array[int] = []
 		for v: int in front:
 			if seen_set.has(v):

@@ -157,9 +157,9 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	hit_normal = hit_normal.normalized()
 	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
 	var blur := maxf(float(SETTINGS.normal_blur_m.get_num()) * scale, 0.0)
-	if blur > 0.0:
-		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal,
-			int(hit.get("face", -1)))
+	var face := int(hit.get("face", -1))
+	if blur > 0.0 and face >= 0:
+		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal, face)
 		if blurred.length_squared() > 0.5:
 			hit_normal = blurred.normalized()
 	_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
@@ -220,6 +220,7 @@ func _surface(pony: Variant, region: String) -> Variant:
 		_surfaces[region] = surface
 	if not bool(surface.call("ensure", pony, region)):
 		return null
+	surface.call("set_quality", str(SETTINGS.quality.get_choice()))
 	surface.call("update_pose")
 	return surface
 

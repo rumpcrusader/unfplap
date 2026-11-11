@@ -845,7 +845,7 @@ func run() -> void:
 	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
-	check(not gate_runtime.can_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")
+	check(not gate_runtime.can_show_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")
 	check(not gate_runtime.can_offer(CATALOG.STANDING, ""), "missing pony blocks offer")
 	check(gate_runtime._start_reasons(CATALOG.MISSIONARY, "bed_side") == PackedStringArray(["invalid_pony"]),
 		"gate report keeps the invalid-pony reason")

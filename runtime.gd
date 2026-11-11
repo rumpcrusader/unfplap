@@ -530,6 +530,10 @@ func _ready() -> void:
 	_face_timer.one_shot = true
 	_face_timer.timeout.connect(_clear_face)
 	add_child(_face_timer)
+	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
+	# the pony enters the tree, so read it now and once more after the first frame.
+	_read_id()
+	call_deferred("_read_id")
 	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
 	# that assigns the pony's identity after she enters the tree.
 	_anatomy_refresh()
@@ -1189,7 +1193,7 @@ func _physics_tick(delta: float) -> void:
 	_standing_anon_controller().tick_phase(delta)
 	_rump_blush_tick(delta)
 	apply_camera_motion()
-	if state in [State.POSING_IN, State.ACTIVE, State.AFTERGLOW]:
+	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_check_clock += delta
 		if _check_clock >= 0.25:
 			_check_clock = 0.0
@@ -1232,7 +1236,7 @@ func _eyes_tick() -> void:
 
 # --------------------------------------------------------------------------- gates
 
-func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+func can_show_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	return bool(start_verdict(pose, act_source, bed_in).get("show", false))
 
 
@@ -1256,8 +1260,9 @@ func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) ->
 
 ## The full Y-start gate: eligibility policy rows plus the start scene rows. `show` is the hint,
 ## `attempt` is a start, and the two refusals are separate. See docs/eligibility.md.
-func start_verdict(pose: String, act_source: String, bed_in: Variant = null) -> Dictionary:
-	var data := _gate_data(pose, act_source, bed_in, "start")
+func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
+		facts_in: Dictionary = {}) -> Dictionary:
+	var data := _gate_data(pose, act_source, bed_in, "start", false, facts_in)
 	var policy: Dictionary = data.get("policy", {})
 	var scene_ok := bool(data.get("scene_ok", false))
 	return {
@@ -1272,8 +1277,8 @@ func start_verdict(pose: String, act_source: String, bed_in: Variant = null) -> 
 
 ## The full proactive-offer gate. It uses the offer-safe scene subset.
 func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		forced := false) -> Dictionary:
-	var data := _gate_data(pose, act_source, bed_in, "offer", forced)
+		forced := false, facts_in: Dictionary = {}) -> Dictionary:
+	var data := _gate_data(pose, act_source, bed_in, "offer", forced, facts_in)
 	var policy: Dictionary = data.get("policy", {})
 	var scene_ok := bool(data.get("scene_ok", false))
 	return {
@@ -1284,11 +1289,12 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 
 
 func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
-		forced := false) -> Dictionary:
+		forced := false, facts_in: Dictionary = {}) -> Dictionary:
 	var structural: Array = []
 	_gate_row(structural, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
 		return {"rows": structural, "policy": {}, "scene_ok": false}
+	_read_id()
 	_gate_row(structural, "no_main", is_instance_valid(main), "no_main")
 	if not is_instance_valid(main):
 		return {"rows": structural, "policy": {}, "scene_ok": false}
@@ -1299,7 +1305,7 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 	if not is_instance_valid(main.game):
 		return {"rows": structural, "policy": {}, "scene_ok": false}
 	var policy_mode: String = ELIGIBILITY.MODE_OFFER if mode == "offer" else ELIGIBILITY.MODE_START
-	var policy: Dictionary = _policy_verdict(policy_mode)
+	var policy: Dictionary = _policy_verdict(policy_mode, facts_in)
 	var scene_rows: Array = _scene_rows(pose, act_source, bed_in, mode, forced)
 	var rows: Array = structural.duplicate()
 	for row: Variant in policy.get("rows", []):
@@ -1361,13 +1367,15 @@ func _scene_rows(pose: String, act_source: String, bed_in: Variant, mode: String
 	return rows
 
 
-func _policy_verdict(mode: String) -> Dictionary:
+func _policy_verdict(mode: String, facts_in: Dictionary = {}) -> Dictionary:
 	if not is_instance_valid(main):
 		return {}
 	var service: Variant = main.get("eligibility")
-	if service != null and service.has_method("evaluate"):
+	if service == null or not service.has_method("evaluate"):
+		return {}
+	if facts_in.is_empty():
 		return service.call("evaluate", pony, mode)
-	return {}
+	return service.call("evaluate_facts", facts_in, mode)
 
 
 func _gate_row(rows: Array, key: String, ok: bool, reason := "") -> void:
@@ -1401,6 +1409,16 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	var relations: Dictionary = policy.get("relations", {})
 	var stage := str(relations.get("stage", "?"))
 	var love_level := int(relations.get("love_level", -1))
+	var love_name := "?"
+	var rel: Variant = null
+	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
+		rel = pony.get_meta("relationship_runtime")
+	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
+		var ladder: Variant = rel.call("ladder", id)
+		if ladder is Dictionary:
+			var love: Variant = (ladder as Dictionary).get("love", {})
+			if love is Dictionary:
+				love_name = str((love as Dictionary).get("name", "?"))
 	var welcomes := bool(relations.get("willing", false))
 	var sex_bond := not policy.is_empty() and (bool(relations.get("stored_bond", false)) \
 		or str(relations.get("sex_start", "")) == "try_luck")
@@ -1429,8 +1447,8 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	var bed_gate := "n/a"
 	if pose == CATALOG.MISSIONARY:
 		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
-	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=level%d welcomes=%s bond=%s start=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s bondrow=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
-		display, id, float(distance), float(dot), stage, love_level, str(welcomes), str(sex_bond), sex_start, mood,
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level%d) welcomes=%s bond=%s start=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s bondrow=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), str(sex_bond), sex_start, mood,
 		str(bool(gate.get("show", false))), str(bool(gate.get("attempt", false))),
 		str(bool(policy.get("offer", false))), str(bool(policy.get("buck_refuse", false))),
 		str(bool(policy.get("history_refuse", false))),
@@ -1464,12 +1482,17 @@ func _policy_row_ok(policy: Dictionary, key: String) -> bool:
 			return bool((row as Dictionary).get("ok", false))
 	return true
 
-func refuse_available(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+func refuse_available(pose: String, act_source: String, bed_in: Variant = null,
+		gate_in: Dictionary = {}) -> bool:
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
 	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
 		return false
-	if not bool(_policy_verdict(ELIGIBILITY.MODE_START).get("buck_refuse", false)):
+	_read_id()
+	var gate: Dictionary = gate_in if not gate_in.is_empty() \
+		else start_verdict(pose, act_source, bed_in)
+	var policy: Dictionary = gate.get("policy", {})
+	if not bool(policy.get("buck_refuse", false)):
 		return false # Willing, or not an eligible adult mare: the normal offer/start path owns it.
 	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
 		return false
@@ -1515,8 +1538,9 @@ func refuse_available(pose: String, act_source: String, bed_in: Variant = null) 
 		return main.player_beside_bed(bed)
 	return false
 
-func refuse(pose: String, act_source: String, bed_in: Variant = null) -> void:
-	if not refuse_available(pose, act_source, bed_in):
+func refuse(pose: String, act_source: String, bed_in: Variant = null,
+		gate_in: Dictionary = {}) -> void:
+	if not refuse_available(pose, act_source, bed_in, gate_in):
 		return
 	if pose == CATALOG.STANDING:
 		_note_refusal(_buck_or_push())
@@ -1611,12 +1635,15 @@ func _refuse_trust() -> void:
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
 		return false
-	if _id.is_empty():
-		_id = str(pony.get_meta("relationship_id", ""))
-		if _id.is_empty():
-			var identity_id: Variant = pony.get("identity")
-			if identity_id != null:
-				_id = str(identity_id.get("id"))
+	# The relationship id is the stable key used by eligibility, preferences and memory. Prefer
+	# the meta value whenever it appears; a mod may assign it after the pony enters the tree.
+	var meta_id := str(pony.get_meta("relationship_id", "")) if pony.has_meta("relationship_id") else ""
+	if not meta_id.is_empty():
+		_id = meta_id
+	elif _id.is_empty():
+		var identity_id: Variant = pony.get("identity")
+		if identity_id != null:
+			_id = str(identity_id.get("id"))
 	if _id.is_empty():
 		return false
 	var identity: Variant = pony.get("identity")
@@ -1859,15 +1886,22 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 
 # --------------------------------------------------------------------------- start
 
-func start(pose: String, bed_in: Variant, act_source: String) -> bool:
-	var gate := start_verdict(pose, act_source, bed_in)
+func start(pose: String, bed_in: Variant, act_source: String,
+		gate_in: Dictionary = {}) -> bool:
+	_read_id()
+	var gate: Dictionary = gate_in if not gate_in.is_empty() \
+		else start_verdict(pose, act_source, bed_in)
+	if bool(gate.get("history_refuse", false)):
+		_log("start refused by history pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		refuse_from_history(pose, act_source, bed_in)
+		return false
 	if not bool(gate.get("attempt", false)):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		# Try Your Luck can reach this point before she welcomes the kiss. The refusal is a real
-		# buck/push, not a silent no-op; history refusal is routed by main before start().
-		if bool(gate.get("buck_refuse", false)) and refuse_available(pose, act_source, bed_in):
+		# buck/push, not a silent no-op.
+		if bool(gate.get("buck_refuse", false)) and refuse_available(pose, act_source, bed_in, gate):
 			_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-			refuse(pose, act_source, bed_in)
+			refuse(pose, act_source, bed_in, gate)
 		return false
 	_camera_owned = false
 	_look_captured = false
@@ -3873,6 +3907,7 @@ func history_blocks_start() -> bool:
 
 
 func refuse_from_history(_pose: String, source: String, _bed: Variant = null) -> bool:
+	_read_id()
 	if not history_blocks_start():
 		return false
 	if _now_s() - _history_refusal_at < 4.0:
@@ -4611,12 +4646,14 @@ func cycle_note() -> String:
 func _relationship_note() -> String:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
 		return ""
+	_read_id()
 	return RELATIONSHIP_CUE.note(MEMORY.cue_facts(main.game, _id, _event_id))
 
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
+	_read_id()
 	var history := _history_note()
 	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		if _warm_note:
@@ -5488,7 +5525,7 @@ func _check_running() -> void:
 	if not is_instance_valid(pony):
 		force_stop()
 		return
-	if state == State.ACTIVE or state == State.POSING_IN:
+	if state == State.ACTIVE or state == State.POSING_IN or state == State.CLIMAX:
 		if not _still_willing():
 			_stop("unwilling")
 			return
@@ -5524,7 +5561,7 @@ func _still_willing() -> bool:
 
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
-	if state in [State.POSING_IN, State.ACTIVE]:
+	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
 		MEMORY.stop_event(main.game, _id, _display_name, _event_id, reason)
 	_restore_begin()
 

@@ -121,7 +121,7 @@ func debug_text(pony: Node, mode := MODE_START) -> String:
 
 
 func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
-	var rel: Variant = pony.get_meta("relationship_runtime", null)
+	var rel: Variant = pony.get_meta("relationship_runtime") if pony.has_meta("relationship_runtime") else null
 	if rel == null or not is_instance_valid(rel):
 		return
 	out["has_relationship"] = true

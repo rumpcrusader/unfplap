@@ -45,7 +45,7 @@ Do not start implementation until you have read the required files for the area 
 - Desktop first. VR and seated VR are deferred except the optional standing VR act behind the
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. Technical contracts are `PREFERENCES.md`,
-  `HISTORY.md` and `ROTATION.md`.
+  `HISTORY.md`, `ROTATION.md` and `docs/eligibility.md`.
 
 ## Workflow
 
@@ -288,6 +288,7 @@ mods/unfplap/
   PREFERENCES.md    preference/readiness/strength contract
   ROTATION.md       pose, skeleton and camera positioning contract
   docs/api.md       cross-mod API contract; never packed
+  docs/eligibility.md  eligibility and consent contract; never packed
 ```
 
 Entry script only. No script extensions, game-file edits or JSON merges. The bed-size extension
@@ -1231,11 +1232,10 @@ is deliberately blush-free so the 0.35 decal stays light.
 - A summary is good at `>= 0.80`, bad at `<= 0.20`, neutral between. A neutral early end adds
   one mild hurt. A partner stop is always severe. The grade decides romance, mood, the post-act
   face and aftercare; there is no flat `commit_climax()` reward.
-- The history tiers are hurt `2` rare vague hint, `4` no proactive offers, `6+` spoken refusal.
-  Good acts repair hurt, time decays it and an apology repairs it once per in-game day. There is no
-  break-up path. A tier-1 hint is deterministic per act and appears only about one time in four;
-  tier 2/3 keep the clear hurt/space line, and an early-end act suppresses the later history line
-  for that act.
+- The history tiers and their offer/refusal effects are in `docs/eligibility.md`. Good acts repair
+  hurt, time decays it and an apology repairs it once per in-game day. There is no break-up path.
+  A tier-1 hint is deterministic per act and appears only about one time in four; tier 2/3 keep the
+  clear hurt/space line, and an early-end act suppresses the later history line for that act.
 - The afterglow HUD shows the summary. The debug log prints the grade, quality, checks, reasons,
   hurt and comfort. See `HISTORY.md`.
 
@@ -1257,8 +1257,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   down the middle of the chain.
 - Normal stops with a stern line, no buck and a `300 s` sex-only cooldown. Strict stops with a
   stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
-  `stop_until` gate is in `docs/eligibility.md`; pressing Y gets the spoken refusal. A new stop
-  replaces the old cooldown.
+  `stop_until` gate is in `docs/eligibility.md`. A new stop replaces the old cooldown.
 - A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
   (`mood_face.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
   `features.act_history` off, or a skipped summary, the stop path keeps its old no-face guard.
@@ -1276,20 +1275,20 @@ is deliberately blush-free so the 0.35 decal stays light.
   `Y` still runs the final start gate.
 - The mare chooses the pose. With both a usable bed and a standing offer, she picks one at
   random (`pick_offer_pose`); with one, she uses it. An active cuddle always offers missionary.
-- Cuddle: requires an active cuddle and `can_offer(MISSIONARY, "bed_side")` or
-  `"already_lying"`. Indoor privacy is house-only solitude; outdoors it is nobody
-  within 30 m. A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle.
+- Cuddle: requires an active cuddle and the offer gate in `docs/eligibility.md`. The privacy rule
+  is in the same contract. A cuddle rising edge clears that mare's cooldown and permits one ask
+  per cuddle.
 - Bed: a free bed within `BED_SEARCH_M = 10 m` of Anon, same region and floor, with no other
   guest or sleeper. She walks to the bed front, asks him to come to bed, and waits up to
   `BED_WAIT_TIMEOUT_S = 90 s`. Once Anon lies on that bed, the native `SharedBedRest` seats her
   beside him; then she queues the invite line and `Y` becomes available. Lying down after the
   ask's `PHYSICAL_ACCEPT_GRACE_S = 2.5 s` grace counts as a physical yes. No free bed means she
   cannot choose missionary.
-- Standing: requires `can_offer(STANDING)`. She walks to a spot 2 m in front of Anon's view (same
-  navigation region, ≤24 m, empty/`life:` navigator owner, 35 s deadline). The ask is decoupled
-  from the Y zone: it starts when she is still present and eligible, not only while the player
-  stands in the rear cone.
-- Private means alone in the house or nobody within 30 m. Private asks clearly enough that he can
+- Standing: requires the standing offer gate in `docs/eligibility.md`. She walks to a spot 2 m in
+  front of Anon's view (same navigation region, ≤24 m, empty/`life:` navigator owner, 35 s
+  deadline). The ask is decoupled from the Y zone: it starts when she is still present and
+  eligible, not only while the player stands in the rear cone.
+- The privacy rule is in `docs/eligibility.md`. Private asks clearly enough that he can
   answer, in the way that fits her and the relationship, with a private relationship note and
   tone; it is not forced into a scripted demand. With others around she only hints.
   A throttled `request privacy ...` log lists the player position, house, every mare in the
@@ -1338,9 +1337,9 @@ is deliberately blush-free so the 0.35 decal stays light.
   sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
   bed rest so `runtime.start()` still sees her lying.
 - The **Trigger bed offer** / **Trigger standing offer** debug actions force a missionary or
-  standing ask; they bypass quiet,
-  cooldown, AI-usage and the paused-tree gate, but not relationship, consent, pose or free-bed
-  gates. The settings page pauses the tree, so the episode advances after the page closes.
+  standing ask; they bypass quiet, cooldown and AI-usage, but keep the eligibility gate
+  (`docs/eligibility.md`), pose and free-bed gates. The settings page pauses the tree, so the
+  episode advances after the page closes.
 
 ### Estrus cycle
 
@@ -1822,7 +1821,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   while idle. Bond validity and gate effects are in `docs/eligibility.md`.
 - The per-mare act history is stored in `Mods.state("unfplap").act_history`; the score, points,
   tiers and repair rules are `HISTORY.md`. It never changes the base relationship stage and never
-  calls `break_up`; the worst tier is a spoken refusal.
+  calls `break_up`; the tier gate is in `docs/eligibility.md`.
 - `thrust.orientation`: `"up"` (default) means mouse up deepens; `"down"` flips it.
   `thrust.pixels_per_cm` is the player's sensitivity, default `50` and clamped to `20…400`: mouse
   travel per centimetre of hip movement, so his shaft length sets one full stroke and a longer part

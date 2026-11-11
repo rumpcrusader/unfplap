@@ -10,6 +10,10 @@ var failures := 0
 var checks := 0
 
 
+class FakePony extends Node3D:
+	var identity: Variant
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -22,6 +26,34 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
+	var identity := {"id": "identity_id", "display_name": "Identity"}
+	var pony := FakePony.new()
+	pony.identity = identity
+	root.add_child(pony)
+	var id_runtime: Node = RUNTIME.new()
+	id_runtime.pony = pony
+	check(bool(id_runtime.call("_read_id")), "identity fallback reads a runtime id")
+	check(str(id_runtime.get("_id")) == "identity_id", "identity id is the fallback")
+	pony.set_meta("relationship_id", "rarity")
+	id_runtime.call("_read_id")
+	check(str(id_runtime.get("_id")) == "rarity", "relationship metadata wins when it appears")
+	check(str(id_runtime.get("_display_name")) == "Identity", "display name is kept")
+	id_runtime.free()
+
+	var ready_pony := FakePony.new()
+	ready_pony.identity = identity
+	ready_pony.set_meta("relationship_id", "ready_id")
+	root.add_child(ready_pony)
+	var ready_runtime: Node = RUNTIME.new()
+	ready_runtime.pony = ready_pony
+	ready_pony.add_child(ready_runtime)
+	await process_frame
+	check(str(ready_runtime.get("_id")) == "ready_id", "a runtime reads its id on ready")
+	check(str(ready_runtime.get("_display_name")) == "Identity",
+		"a runtime keeps its display name on ready")
+	ready_runtime.free()
+	ready_pony.free()
+
 	var runtime: Node = RUNTIME.new()
 	runtime.state = 0 # IDLE
 	runtime._warm_note = true

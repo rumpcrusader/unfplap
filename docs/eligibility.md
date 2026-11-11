@@ -202,7 +202,7 @@ eligible + Promiscuity level pass.
 
 Rules:
 
-- `history_refuse` wins over `buck_refuse`.
+- `history_refuse` wins over `buck_refuse`; it does not require willingness.
 - `buck_refuse` ignores bond, cycle and history.
 - `bond` requires base + willing only; it does not need a stored bond.
 - `stop` requires base + willing + bond + cycle; history does not stop an act.
@@ -268,6 +268,11 @@ The old labels that said Try Your Luck drops the stage are corrected to this rul
 - `blocks_offers`: hurt tier or higher, or an active `stop_until`;
 - `offer_weight`: the weighted proactive-offer chance.
 
+Tiers: hurt 2–3 keeps normal offers but lowers their weight and may give a rare vague hint
+(about one in four acts); hurt 4–5 makes no proactive offers while a player-initiated start is
+still allowed; hurt 6+ (withdrawn) makes no offers and keeps the start hint with a spoken refusal
+until repaired. An active `stop_until` blocks both the next start and proactive offers.
+
 A withdrawn mare still shows the hint; pressing Y speaks the refusal. A hurt mare still accepts a
 player-initiated start but makes no proactive offers.
 
@@ -299,8 +304,9 @@ A proactive offer uses the same public/heat override for bed, cuddle and standin
 offer_allowed = private or heat or (features.act_public_offer and consent.public)
 ```
 
-"Private" is the existing house or 30 m rule. A public offer is still an offer; the act itself
-does not require privacy.
+"Private" is a house with no other pony in that house, or outdoors with no other pony within
+30 m. The offering mare is excluded from the other-pony checks. A public offer is still an offer;
+the act itself does not require privacy.
 
 Offer weight comes from history. A blocked history offer has weight `0`. Heat quarters the
 proactive-offer cooldown (`HEAT_COOLDOWN = 0.25`) and adds the heat sentence to the ask prompt.

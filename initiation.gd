@@ -240,6 +240,8 @@ func _consider_start() -> void:
 	for node: Variant in _mares():
 		if not is_instance_valid(node):
 			continue
+		if main.has_method("is_adult_mare") and not bool(main.call("is_adult_mare", node)):
+			continue
 		var runtime: Variant = main.call("runtime_for", node)
 		if not is_instance_valid(runtime):
 			continue
@@ -285,6 +287,10 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if id.is_empty():
 		reasons.append("no_id")
 		return {}
+	var facts: Dictionary = {}
+	var service: Variant = main.get("eligibility") if is_instance_valid(main) else null
+	if service != null and service.has_method("facts"):
+		facts = service.call("facts", pony)
 	if not forced and not _cooldown_ok(id, _in_heat(runtime)):
 		reasons.append("cooldown")
 		return {}
@@ -293,16 +299,16 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		return {}
 	var cuddle: bool = bool(runtime.call("_cuddle_active")) if runtime.has_method("_cuddle_active") else false
 	if pose_request == CATALOG.MISSIONARY or (pose_request.is_empty() and cuddle):
-		var bed_candidate := _cuddle_candidate(runtime, forced, reasons) if cuddle \
-			else _bed_candidate(runtime, forced, reasons)
+		var bed_candidate := _cuddle_candidate(runtime, forced, reasons, facts) if cuddle \
+			else _bed_candidate(runtime, forced, reasons, facts)
 		if not bed_candidate.is_empty() or not pose_request.is_empty():
 			return bed_candidate
-	var standing_candidate := _standing_candidate(runtime, forced, reasons)
+	var standing_candidate := _standing_candidate(runtime, forced, reasons, facts)
 	if pose_request == CATALOG.STANDING:
 		return standing_candidate
 	if cuddle:
 		return {}
-	var bed_candidate := _bed_candidate(runtime, forced, reasons)
+	var bed_candidate := _bed_candidate(runtime, forced, reasons, facts)
 	var pose := pick_offer_pose(not bed_candidate.is_empty(),
 		not standing_candidate.is_empty(), randf())
 	if pose == CATALOG.MISSIONARY:
@@ -316,7 +322,8 @@ func _history_row(id: String) -> Dictionary:
 	return ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 
 
-func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dictionary:
+func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = [],
+		facts_in: Dictionary = {}) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
 		reasons.append("cuddle:no_pony")
@@ -337,7 +344,8 @@ func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dict
 	if not is_instance_valid(bed):
 		reasons.append("cuddle:no_bed_under")
 		return {}
-	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, forced)
+	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, forced,
+		facts_in)
 	if not bool(gate.get("ok", false)):
 		_append_gate_reasons(reasons, "cuddle", gate)
 		return {}
@@ -353,7 +361,8 @@ func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dict
 	}
 
 
-func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictionary:
+func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = [],
+		facts_in: Dictionary = {}) -> Dictionary:
 	var pony: Node3D = runtime.get("pony") if is_instance_valid(runtime) else null
 	if not is_instance_valid(pony):
 		reasons.append("bed:no_pony")
@@ -365,7 +374,8 @@ func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictio
 	var bed: Node3D = found.get("bed")
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
-	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, _forced)
+	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, _forced,
+		facts_in)
 	if not bool(gate.get("ok", false)):
 		_append_gate_reasons(reasons, "bed", gate)
 		return {}
@@ -379,12 +389,14 @@ func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictio
 	}
 
 
-func _standing_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictionary:
+func _standing_candidate(runtime: Node, _forced: bool, reasons: Array = [],
+		facts_in: Dictionary = {}) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
 		reasons.append("standing:no_pony")
 		return {}
-	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.STANDING, "", null, _forced)
+	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.STANDING, "", null, _forced,
+		facts_in)
 	if not bool(gate.get("ok", false)):
 		_append_gate_reasons(reasons, "standing", gate)
 		return {}
@@ -524,10 +536,11 @@ func _privacy_report(target: Node = null) -> String:
 	var house_text := "none"
 	if house != null:
 		house_text = "%s@%s" % [str(house.name), str(house.global_position)]
-	return "player=%s target=%s house=%s in_house=[%s] within_%dm=[%s] private=%s" % [
+	var public_offer := is_instance_valid(target) and _public_offer_ok(target)
+	return "player=%s target=%s house=%s in_house=[%s] within_%dm=[%s] public_offer=%s private=%s" % [
 		str((player as Node3D).global_position), str(_pony_id(target)) if is_instance_valid(target) else "?",
 		house_text, ",".join(in_house), int(PRIVACY_RADIUS_M), ",".join(nearby),
-		str(_private_at_player(target))]
+		str(public_offer), str(_private_at_player(target))]
 
 
 func _log_privacy_once(target: Node) -> void:
@@ -813,7 +826,7 @@ func _tick_bed_wait() -> void:
 		_episode["bed_joining"] = true
 		_episode["bed_joined"] = true
 		_debug("request bed join %s" % str(_episode.get("id", "")))
-	if not bool(runtime.call("can_start", CATALOG.MISSIONARY, str(_episode.get("source", "")), bed)):
+	if not bool(runtime.call("can_show_start", CATALOG.MISSIONARY, str(_episode.get("source", "")), bed)):
 		if not _player_in_bed(bed):
 			_cancel_episode(false, "bed player stood up")
 		return
@@ -1155,9 +1168,9 @@ func _tick_invite() -> void:
 		if not _player_in_bed(_episode.get("bed")):
 			_cancel_episode(false, "invite left bed")
 			return
-		if not bool(runtime.call("can_start", CATALOG.MISSIONARY,
+		if not bool(runtime.call("can_show_start", CATALOG.MISSIONARY,
 				str(_episode.get("source", "")), _episode.get("bed"))):
-			_cancel_episode(true, "invite can_start false")
+			_cancel_episode(true, "invite can_show_start false")
 			return
 		if _now() - float(_episode.get("invite_started", _now())) >= INVITE_TIMEOUT_S:
 			_invite_give_up()
@@ -1174,8 +1187,8 @@ func _tick_invite() -> void:
 	if not is_instance_valid(player) or player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		_cancel_episode(false, "invite player moved")
 		return
-	if not bool(runtime.call("can_start", CATALOG.STANDING, "", null)):
-		_cancel_episode(true, "invite can_start false")
+	if not bool(runtime.call("can_show_start", CATALOG.STANDING, "", null)):
+		_cancel_episode(true, "invite can_show_start false")
 		return
 	if _now() - float(_episode.get("invite_started", _now())) >= INVITE_TIMEOUT_S:
 		_invite_give_up()
@@ -1227,7 +1240,7 @@ func _invite_valid(serial: int) -> bool:
 	if str(_episode.get("pose", "")) == CATALOG.MISSIONARY:
 		if not _player_in_bed(_episode.get("bed")):
 			return false
-		return bool(runtime.call("can_start", CATALOG.MISSIONARY,
+		return bool(runtime.call("can_show_start", CATALOG.MISSIONARY,
 			str(_episode.get("source", "")), _episode.get("bed")))
 	if not bool(runtime.call("presentation_active")):
 		return false
@@ -1236,7 +1249,7 @@ func _invite_valid(serial: int) -> bool:
 		return false
 	if player.global_position.distance_to(pony.global_position) > ASK_RANGE_CANCEL_M:
 		return false
-	return bool(runtime.call("can_start", CATALOG.STANDING, "", null))
+	return bool(runtime.call("can_show_start", CATALOG.STANDING, "", null))
 
 
 ## A private offer waits for Anon's own answer. Clear yes/no is parsed locally before the

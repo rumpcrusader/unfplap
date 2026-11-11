@@ -128,8 +128,8 @@ Only good and bad acts move the points. Neutral acts change no history.
 The tier names are presentation. Their effect on the start hint, proactive offers and spoken
 refusal is in `docs/eligibility.md`.
 
-There is **no break-up path**. The highest tier closes sex, not the relationship. The base
-`player_bonds.break_up()` is never called.
+There is **no break-up path**. The highest tier's act gate is in `docs/eligibility.md`; it never
+calls `player_bonds.break_up()`.
 
 ## Neglect tolerance and the mid-act stop
 
@@ -162,8 +162,7 @@ A stop is a dedicated path, not `cancel()`:
 - it ends through the forced path with no afterglow and no cuddle rejoin;
 - Normal: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
 - Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
-- `stop_until` blocks the next start and proactive offers; the exact gate is in
-  `docs/eligibility.md`;
+- `stop_until`'s act gate is in `docs/eligibility.md`;
 - no aftercare; the `angry`/`annoyed` mood face follows when a summary was written. A 20 s
   tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a
   new act starts.

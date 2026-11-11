@@ -56,7 +56,6 @@ var pony: Node3D
 var anatomy: Node
 var main: Node
 var pose := ""
-var _id := ""
 var _display_name := ""
 var _anal := false
 var _hole_mix := 0.0
@@ -102,7 +101,6 @@ func setup(runtime_node: Node, anatomy_node: Node, pose_id: String) -> void:
 	main = runtime.get("main")
 	pony = runtime.get("pony")
 	pose = pose_id
-	_id = str(runtime.get("_id"))
 	_display_name = str(runtime.get("_display_name"))
 	reset()
 	_debug_setup()

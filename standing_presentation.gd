@@ -59,6 +59,8 @@ func present_standing() -> bool:
 	if service == null or not service.has_method("adult_mare") \
 			or not bool(service.call("adult_mare", pony)):
 		return false
+	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null)):
+		return false
 	if not _request_face:
 		set_request_face(true)
 	var player: Variant = main.player

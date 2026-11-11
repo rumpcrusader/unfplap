@@ -105,14 +105,23 @@ func prompt_note(pony: String) -> String:
 	if pony.is_empty():
 		return ""
 	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime) and str(runtime.get("_id")) == pony:
-			var note := str(runtime.call("prompt_note"))
-			if note.is_empty():
-				note = str(runtime.call("lover_prompt_note"))
-			var cycle := str(runtime.call("cycle_note"))
-			if not cycle.is_empty():
-				note = cycle if note.is_empty() else note + " " + cycle
-			return note
+		if not is_instance_valid(runtime):
+			continue
+		runtime.call("_read_id")
+		var runtime_id := str(runtime.get("_id"))
+		if runtime_id.is_empty():
+			var target: Variant = runtime.get("pony")
+			if is_instance_valid(target):
+				runtime_id = ANATOMY.pony_id(target)
+		if runtime_id != pony:
+			continue
+		var note := str(runtime.call("prompt_note"))
+		if note.is_empty():
+			note = str(runtime.call("lover_prompt_note"))
+		var cycle := str(runtime.call("cycle_note"))
+		if not cycle.is_empty():
+			note = cycle if note.is_empty() else note + " " + cycle
+		return note
 	return ""
 
 
@@ -198,6 +207,9 @@ func _ready() -> void:
 func _on_world(host: Node) -> void:
 	_clear_native_hint()
 	game = host
+	if not is_instance_valid(eligibility):
+		eligibility = ELIGIBILITY.new()
+	eligibility.setup(self)
 	_interactor = null
 	_desktop = null
 	_camera_cache = null
@@ -231,8 +243,6 @@ func _on_world_closed(_host: Node) -> void:
 	game = null
 	player = null
 	_offer = {}
-	if is_instance_valid(eligibility):
-		eligibility.clear()
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -1138,7 +1148,7 @@ func _refresh_offer() -> void:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "bed_side", bed):
+				if bed != null and runtime.can_show_start(CATALOG.MISSIONARY, "bed_side", bed):
 					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
 						"source": "bed_side", "bed": bed}
 					_log_offer()
@@ -1151,7 +1161,7 @@ func _refresh_offer() -> void:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and runtime.can_start(CATALOG.MISSIONARY, "already_lying", bed):
+				if bed != null and runtime.can_show_start(CATALOG.MISSIONARY, "already_lying", bed):
 					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
 						"source": "already_lying", "bed": bed}
 					_log_offer()
@@ -1161,7 +1171,7 @@ func _refresh_offer() -> void:
 	var standing: Node = _rump_cone_target(view)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and runtime.can_start(CATALOG.STANDING, "", null):
+		if is_instance_valid(runtime) and runtime.can_show_start(CATALOG.STANDING, "", null):
 			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
 				"source": "", "bed": null}
 			_log_offer()
@@ -1330,13 +1340,14 @@ func try_start() -> bool:
 	var bed = _offer.get("bed")
 	if is_instance_valid(initiation) and is_instance_valid(target):
 		initiation.cancel_for(target)
-	if runtime.has_method("history_blocks_start") and bool(runtime.call("history_blocks_start")):
+	var gate: Dictionary = runtime.call("start_verdict", pose, source, bed)
+	if bool(gate.get("history_refuse", false)):
 		runtime.call("refuse_from_history", pose, source, bed)
 		_offer = {}
 		if is_instance_valid(hud):
 			hud.hide_prompt()
 		return true
-	var started: bool = runtime.start(pose, bed, source)
+	var started: bool = bool(runtime.call("start", pose, bed, source, gate))
 	if started:
 		if is_instance_valid(classifier):
 			classifier.call("cancel_scope", "dialogue:")

@@ -136,6 +136,10 @@ func run() -> void:
 
 	main.eligibility.clear()
 	check(not main.eligibility.adult_mare(pony), "cleared service rejects every pony")
+	main.eligibility.setup(main)
+	check(main.eligibility.adult_mare(pony), "setup after clear restores the service")
+	var restored: Dictionary = main.eligibility.evaluate(pony, ELIGIBILITY.MODE_START)
+	check(bool(restored.bond), "setup after clear restores the verdict")
 
 	print("ELIGIBILITY_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

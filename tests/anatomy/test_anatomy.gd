@@ -107,8 +107,8 @@ func run() -> void:
 	meta_first.set_meta("relationship_id", "relationship_id")
 	check(ANATOMY.pony_id(meta_first) == "relationship_id", "relationship id wins")
 	var placement_id := ANATOMY.new()
-	placement_id.set("pony", meta_first)
-	check(str(placement_id.call("_pony_id")) == "relationship_id",
+	placement_id.placement.set("pony", meta_first)
+	check(str(placement_id.placement.call("_pony_id")) == "relationship_id",
 		"anatomy placement uses the relationship id")
 	placement_id.free()
 
@@ -156,11 +156,10 @@ func run() -> void:
 	var place_mesh := MeshInstance3D.new()
 	place_mesh.mesh = BoxMesh.new()
 	place.add_child(place_mesh)
-	place.set("_mesh", place_mesh)
-	place.set("_pos", place_pos)
-	place.set("_pitch", float(default_place["pitch_deg"]))
-	place.set("_scale", float(default_place["scale"]))
-	place.set("_lift", float(place.call("_tail_lift")))
+	place.placement.set_mesh(place_mesh, Transform3D.IDENTITY, [])
+	place.placement.set("_pos", place_pos)
+	place.placement.set("_pitch", float(default_place["pitch_deg"]))
+	place.placement.set("_scale", float(default_place["scale"]))
 	var dock_before := SETTINGS.show_dock.get_bool()
 	SETTINGS.show_dock.set_bool(true)
 	place.call("_apply_place")

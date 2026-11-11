@@ -10,6 +10,7 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
+const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
@@ -35,13 +36,8 @@ var _mare_bits_path_loaded := ""
 var _fluid: Node3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
-var _pos := Vector3.ZERO
-var _pitch := 0.0
-var _scale := 1.0
-var _place_dirty := false
-var _place_revision := -1
-var _body: Array = []
-var _lift := 0.0
+## Saved placement, missionary trims and the debug nudge path.
+var placement: RefCounted
 ## The tail dock mesh; with genitals attached it reads as a stray blob above the ponut.
 var _dock: MeshInstance3D
 var _dock_was_visible := true
@@ -134,6 +130,7 @@ func _init() -> void:
 	coat.setup(null, shapes)
 	heat = HEAT.new()
 	heat.setup(shapes)
+	placement = PLACEMENT.new()
 
 
 func setup(pony_node: Node3D, runtime_node: Node) -> void:
@@ -142,6 +139,7 @@ func setup(pony_node: Node3D, runtime_node: Node) -> void:
 	main = runtime.get("main") if is_instance_valid(runtime) else null
 	shapes.setup(pony, self)
 	coat.setup(pony, shapes)
+	placement.setup(pony)
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, runtime, main, shapes)
 
@@ -234,15 +232,14 @@ func _attach() -> void:
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
-	_load_place()
-	_lift = _tail_lift()
 	var identity: Variant = pony.get("identity")
-	_body = body_profile(identity)
+	placement.set_mesh(mesh, _bone_inverse, body_profile(identity))
+	placement.load()
 	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
 	_dock = dock
 	if is_instance_valid(dock):
 		_dock_was_visible = dock.visible
-	_apply_place()
+	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
 	shapes.set_mesh(_mesh, is_v2)
 	coat.set_mesh(_mesh, _skeleton)
 	appearance.set_mesh(_mesh, _skeleton)
@@ -255,7 +252,7 @@ func _attach() -> void:
 		pony.physical_reaction.connect(_on_physical_reaction)
 	set_process(true)
 	_apply_visibility()
-	_log("anatomy attached lift=%.3f" % _lift)
+	_log("anatomy attached lift=%.3f" % PLACEMENT.LIFT)
 	if shapes != null and bool(shapes.v2_anal()) and _mesh.mesh is ArrayMesh:
 		var arrays: Array = (_mesh.mesh as ArrayMesh).surface_get_arrays(0)
 		var cols: Variant = arrays[Mesh.ARRAY_COLOR]
@@ -283,7 +280,7 @@ func _on_physical_reaction(kind: String) -> void:
 func _process(delta: float) -> void:
 	_heat_idle_tick(delta)
 	coat.tick_debug()
-	_missionary_depth_tick()
+	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
@@ -378,115 +375,28 @@ func _apply_dock(anatomy_shown: bool) -> void:
 ## anatomy's size and position are identical across mares; the Show tail docks switch only hides or
 ## shows the dock and never moves the anatomy.
 func _tail_lift() -> float:
-	return 0.03
+	return PLACEMENT.LIFT
 
 
 ## The act-only placement trim. The lying missionary pose tilts her pelvis, so the rigged vulva can
-## sit a little high/low or face the wrong way; these two debug values move only the anatomy mesh
-## while that act runs, without touching the rest pose or the per-mare placement. The shift is world
-## up/down and the pitch turns the mesh about the bed's lateral axis.
+## sit a little high/low or face the wrong way; these values move only the anatomy mesh.
 func _missionary_pose() -> bool:
 	return is_instance_valid(runtime) and str(runtime.get("pose_id")) == CATALOG.MISSIONARY
 
 
+func _pose_depth() -> float:
+	if not is_instance_valid(runtime):
+		return 0.0
+	var value: Variant = runtime.get("depth")
+	return clampf(float(value), 0.0, 1.0) if value is float or value is int else 0.0
+
+
+func _bed_frame() -> Variant:
+	return runtime.get("_bed_pose_frame") if is_instance_valid(runtime) else null
+
+
 func _apply_place() -> void:
-	if not is_instance_valid(_mesh):
-		return
-	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
-		.scaled(Vector3.ONE * _scale)
-	# Placement never follows the dock. `show_dock` is a visibility switch; aligning the mesh to
-	# the dock's buried base ring moved it down by up to 9 cm on a low-docked mare.
-	var place := _pos + Vector3(0.0, _lift, minf(_lift, 0.0) * 0.2)
-	if not _body.is_empty():
-		var size: float = _body[2]
-		place = Vector3(place.x * size, _body[0] + (place.y - WINKING_REAR_Y) * size,
-			_body[1] + (place.z - WINKING_REAR_Z) * size)
-		basis = basis.scaled(Vector3.ONE * size)
-	# Push the whole mesh out along its own normal. A pose that tucks the anatomy into the coat (a
-	# changed skeleton, a raised belly) then shows the vulva instead of clipping it.
-	var out: float = SETTINGS.vulva_out_mm.get_num() / 1000.0
-	if absf(out) > 0.00001:
-		place += basis.z.normalized() * out
-	var local := _bone_inverse * Transform3D(basis, place)
-	if _missionary_pose():
-		local = _missionary_place_trim(local)
-	_mesh.transform = local
-
-
-## The depth trim follows the thrust every frame; the rest of the placement only polls at
-## `VISIBILITY_POLL_S`. Re-running the placement is one transform write.
-func _missionary_depth_tick() -> void:
-	if not _missionary_pose():
-		return
-	if absf(SETTINGS.vulva_depth_shift_mm_for(SETTINGS.pony_size_name())) < 0.0001:
-		return
-	_apply_place()
-
-
-## Move only the anatomy mesh for the lying pose: a world-vertical shift plus a pitch about the
-## bed's lateral axis, both around the mesh origin. Applied after the bone mapping so the values
-## read the way they look on screen (up is up); the mesh still rides her hips like the placement.
-func _missionary_place_trim(local: Transform3D) -> Transform3D:
-	var size := SETTINGS.pony_size_name()
-	var shift: float = SETTINGS.vulva_shift_mm_for(size) / 1000.0
-	# The act's depth trim starts at 50% and reaches the setting at full depth.
-	var depth := 0.0
-	if is_instance_valid(runtime):
-		var value: Variant = runtime.get("depth")
-		if value is float or value is int:
-			depth = clampf(float(value), 0.0, 1.0)
-	shift += SETTINGS.vulva_depth_shift_mm_for(size) / 1000.0 \
-		* clampf((depth - 0.2) / 0.8, 0.0, 1.0)
-	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg_for(size))
-	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
-		return local
-	var parent := _mesh.get_parent() as Node3D
-	if not is_instance_valid(parent) or not _mesh.is_inside_tree():
-		# No live pose yet: apply the same intent in body space so the first frame is consistent.
-		return Transform3D(Basis(Vector3.RIGHT, pitch) * local.basis,
-			local.origin + Vector3.UP * shift)
-	var world := parent.global_transform * local
-	var axis := Vector3.RIGHT
-	var frame: Variant = runtime.get("_bed_pose_frame") if is_instance_valid(runtime) else null
-	if frame is Transform3D:
-		var lateral: Vector3 = (frame as Transform3D).basis.x
-		lateral.y = 0.0
-		if lateral.length_squared() > 0.0001:
-			axis = lateral.normalized()
-	var pivot := world.origin
-	world.basis = Basis(axis, pitch) * world.basis
-	world.origin = pivot + Vector3.UP * shift
-	return parent.global_transform.affine_inverse() * world
-
-
-func _pony_id() -> String:
-	return pony_id(pony)
-
-
-func _load_place() -> void:
-	var placement := SETTINGS.anatomy_placement(_pony_id())
-	_apply_placement_values(placement)
-	_place_revision = SETTINGS.placement_revision
-	_place_dirty = false
-
-
-func _apply_placement_values(placement: Dictionary) -> void:
-	_pos = Vector3(
-		float(placement.get("offset_x", 0.0)),
-		float(placement.get("offset_y", 0.0)),
-		float(placement.get("offset_z", 0.0)))
-	_pitch = float(placement.get("pitch_deg", 0.0))
-	_scale = maxf(0.05, float(placement.get("scale", 1.0)))
-
-
-func _placement_values() -> Dictionary:
-	return {
-		"offset_x": _pos.x,
-		"offset_y": _pos.y,
-		"offset_z": _pos.z,
-		"pitch_deg": _pitch,
-		"scale": _scale,
-	}
+	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
 
 
 func _apply_material() -> void:
@@ -534,8 +444,8 @@ func apply_live() -> void:
 		return
 	if selected_mare_bits_path() != _mare_bits_path_loaded:
 		_reload_mare_bits_mesh()
-	if not _place_dirty and SETTINGS.placement_revision != _place_revision:
-		_load_place()
+	if not placement.dirty() and SETTINGS.placement_revision != placement.revision():
+		placement.load()
 	_apply_material()
 	_apply_place()
 	shapes.refresh_anal()
@@ -581,6 +491,8 @@ func detach() -> void:
 		pony.physical_reaction.disconnect(_on_physical_reaction)
 	if coat != null:
 		coat.clear_mesh()
+	if placement != null:
+		placement.clear_mesh()
 	_mare_bits_path_loaded = ""
 	_visibility_init = false
 	set_process(false)
@@ -756,42 +668,23 @@ func _clear_part() -> void:
 
 ## integration: local placement calibration for the debug actions.
 func nudge(axis: String, amount: float) -> void:
-	match axis:
-		"y": _pos.y += amount
-		"z": _pos.z += amount
-		"x": _pos.x += amount
-		"pitch": _pitch += amount
-		"scale": _scale = maxf(0.05, _scale + amount)
-	_place_dirty = true
+	placement.nudge(axis, amount)
 	_apply_place()
 
 
 func place_text() -> String:
-	var id := _pony_id()
-	var source := "override" if SETTINGS.anatomy_placement_has_override(id) else "default"
-	if _place_dirty:
-		source += "/unsaved"
-	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f source=%s" % [
-		_pos.x, _pos.y, _pos.z, _pitch, _scale, source]
+	return placement.place_text()
 
 
 func save_place() -> void:
-	var id := _pony_id()
-	if id.is_empty():
-		return
-	SETTINGS.save_anatomy_placement(id, _placement_values())
-	_place_dirty = false
-	_place_revision = SETTINGS.placement_revision
+	placement.save()
 
 
 ## Preview the mare's resolved default. Save writes the preview as her override, or removes it
 ## when it matches the default.
 func reset_place() -> void:
-	_apply_placement_values(SETTINGS.anatomy_placement_default(_pony_id(), false))
-	_place_dirty = true
-	_place_revision = SETTINGS.placement_revision
+	placement.reset()
 	_apply_place()
-
 
 
 func _log(text: String) -> void:

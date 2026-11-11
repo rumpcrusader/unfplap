@@ -25,7 +25,8 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement editor |
-| `anatomy/controller.gd` | persistent per-mare controller: attach/detach, placement, visibility and fluid; forwards the shape and coat APIs |
+| `anatomy/controller.gd` | persistent per-mare controller: attach/detach, visibility, fluid and lifecycle; forwards the shape, placement and coat APIs |
+| `anatomy/placement.gd` | saved offset/pitch/scale, missionary trims and the debug nudge/save/reset path |
 | `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | oral turn state, mouth anchor, style motion and facing |
@@ -66,7 +67,7 @@ The internal entry points are:
 - `settings.gd` and `mare_registry.gd` use `anatomy_placement.gd` as the shared pure schema.
 
 The controller still reads a few runtime values (`state`, `cycle_phase`, `depth`, the bed frame
-and the perf sink) because it is attached to the act. The remaining split is attach/placement and
+and the perf sink) because it is attached to the act. The remaining split is attach/detach and
 the typed facts boundary; see `## Migration target`.
 
 ## Internal API
@@ -521,9 +522,9 @@ The refactor is one system at a time, with no behavior change:
 
 - `anatomy.gd` is the world facade owned by `main` as `main.anatomy`. It owns the per-pony
   controllers, the player part and tail seating.
-- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd` and `heat.gd` are split out.
-  `anatomy/controller.gd` still holds attach/detach, placement, visibility and fluid;
-  `anatomy/attach.gd` and `anatomy/placement.gd` are the remaining split.
+- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd` and `placement.gd` are split out.
+  `anatomy/controller.gd` still holds attach/detach, visibility, fluid and the lifecycle;
+  `anatomy/attach.gd` is the remaining split.
 - `anatomy/act.gd` is the per-act handle returned by `controller.begin_act(pose_id)`;
   `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
   three behaviors.

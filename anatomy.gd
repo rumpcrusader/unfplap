@@ -336,11 +336,17 @@ func player_tip_center() -> Vector3:
 	return value if value is Vector3 else Vector3.ZERO
 
 
+func player_prepare() -> bool:
+	if not is_instance_valid(_player_part):
+		return false
+	return bool(_player_part.call("prepare"))
+
+
 func player_root_now() -> Vector3:
 	if not is_instance_valid(_player_part):
-		return Vector3.ZERO
+		return Vector3.INF
 	var value: Variant = _player_part.call("root_now")
-	return value if value is Vector3 else Vector3.ZERO
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
 
 
 func player_shaft_radii(count := 8) -> PackedFloat32Array:

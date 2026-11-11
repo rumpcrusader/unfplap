@@ -82,7 +82,8 @@ refresh_all(), apply_live(), detach_controller(pony), shutdown()
 tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), tail_report()
 placement_debug(op, value), placement_show()
 player_encounter(on), player_track(...), player_showing()
-player_shaft_length_m(), player_girth_at(point), player_root_now(), player_tip_world()
+player_prepare(), player_root_now()
+player_shaft_length_m(), player_girth_at(point), player_tip_world()
 player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 ```
 
@@ -342,6 +343,9 @@ turn's camera facing through `facing()`; the runtime applies both in the same fr
   `part_throb` shape the mesh; `part_front_m` and `pelvis_gap_m` set the standoff. The shaped
   length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole grip, so
   geometry and collision stay together.
+- `player_prepare()` builds the part mesh hidden so the standing footstool gate can measure its
+  natural root before an encounter. `player_root_now()` returns `Vector3.INF` until the mesh
+  exists; `root_now()` on the part does the same guard.
 - `part_throb` scales a two-lobe heartbeat. It also lifts the visible shaft while it is outside
   her; the lift fades to nothing at full depth.
 - `back_out_m` is how far the tip rests behind her lips when pulled all the way out. It is

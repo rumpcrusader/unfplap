@@ -411,6 +411,8 @@ func run() -> void:
 	part.set("_throb_depth", 1.0)
 	part.call("_throb_tick", 0.001, 1.0)
 	check(is_zero_approx(float(part.get("_throb_lift"))), "the upward beat fades at full thrust")
+	check(not (part.call("root_now") as Vector3).is_finite(),
+		"the player root is invalid before the part mesh is prepared")
 	part.free()
 
 	# Her act wink: quiet at her lips, frequent once a climax has been pulled out of her.

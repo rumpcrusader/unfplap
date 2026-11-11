@@ -542,7 +542,14 @@ func depth_for(metres: float) -> float:
 
 
 func root_now() -> Vector3:
+	if not is_instance_valid(_mesh):
+		return Vector3.INF
 	return _mesh.global_transform * PIVOT
+
+
+## Build the hidden part mesh so a gate can measure its natural root before an encounter.
+func prepare() -> bool:
+	return _ensure()
 
 
 ## Where his pelvis pivot sits for a given penetration: `shaft - penetration` behind her lips, so

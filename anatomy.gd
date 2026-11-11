@@ -10,10 +10,14 @@ extends Node
 
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
+const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
+const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 var main: Node
 var player: Node
+var tail_seat: Node
+var tail_visibility: Node
 
 ## pony -> controller
 var _controllers: Dictionary = {}
@@ -22,6 +26,13 @@ var _player_part: Node
 
 func setup(main_node: Node) -> void:
 	main = main_node
+	tail_visibility = TAIL_VISIBILITY.new()
+	tail_visibility.name = "UnfplapTailVisibility"
+	add_child(tail_visibility)
+	tail_seat = TAIL_SEAT.new()
+	tail_seat.name = "UnfplapTailSeat"
+	tail_seat.set("main", main)
+	add_child(tail_seat)
 
 
 ## The live controller for a pony, created on first use. Runtime passes itself so the controller
@@ -75,6 +86,34 @@ func apply_live() -> void:
 			controller.call("apply_live")
 
 
+func tail_ready(pony: Node) -> void:
+	if not is_instance_valid(tail_seat) or not is_instance_valid(pony):
+		return
+	tail_seat.call("attach", pony)
+	# A mod may finish its hair or dock a frame after the pony is ready; attach is idempotent.
+	tail_seat.call_deferred("attach", pony)
+
+
+func refresh_tails() -> void:
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_all")
+
+
+func refresh_dock_color(pony: Node) -> void:
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_dock_color", pony)
+
+
+func can_seat(pony: Node) -> bool:
+	return is_instance_valid(tail_seat) and bool(tail_seat.call("can_seat", pony))
+
+
+func tail_report() -> String:
+	if not is_instance_valid(tail_seat):
+		return ""
+	return str(tail_seat.call("report_all"))
+
+
 func detach_controller(pony: Node) -> void:
 	var controller: Variant = _controllers.get(pony)
 	_controllers.erase(pony)
@@ -93,6 +132,8 @@ func shutdown() -> void:
 				controller.queue_free()
 	_controllers.clear()
 	clear_player()
+	tail_seat = null
+	tail_visibility = null
 	main = null
 
 

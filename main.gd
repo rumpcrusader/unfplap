@@ -14,8 +14,6 @@ const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
-const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
-const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
@@ -57,12 +55,8 @@ var hud
 var input
 ## Cross-mod API facade; see docs/api.md.
 var api: Node
-## Anatomy system facade: per-pony controllers and the player part.
+## Anatomy system facade: per-pony controllers, the player part and tail seating.
 var anatomy: Node
-## Debug: the global hide-tails toggle lives outside every pony runtime.
-var tail_visibility: Node
-## Anatomy: seats every adult mare's hair tail at the reference dock and moves the dock with it.
-var tail_seat: Node
 var _anatomy_status_label: Label
 var initiation
 var classifier
@@ -163,13 +157,6 @@ func _ready() -> void:
 	anatomy.name = "UnfplapAnatomy"
 	anatomy.call("setup", self)
 	add_child(anatomy)
-	tail_visibility = TAIL_VISIBILITY.new()
-	tail_visibility.name = "UnfplapTailVisibility"
-	add_child(tail_visibility)
-	tail_seat = TAIL_SEAT.new()
-	tail_seat.name = "UnfplapTailSeat"
-	tail_seat.set("main", self)
-	add_child(tail_seat)
 	api = API.new()
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)
@@ -320,15 +307,15 @@ func _apply_settings_changed() -> void:
 	_apply_live_settings()
 	# integration: anatomy switches are live outside acts too.
 	refresh_anatomy()
-	if is_instance_valid(tail_seat):
-		tail_seat.call("refresh_all")
+	if is_instance_valid(anatomy):
+		anatomy.call("refresh_tails")
 
 
 ## The anatomy controller owns the genitals material; refresh the dock after it attaches, changes
 ## tone or detaches.
 func refresh_dock_color(pony: Node) -> void:
-	if is_instance_valid(tail_seat):
-		tail_seat.call("refresh_dock_color", pony)
+	if is_instance_valid(anatomy):
+		anatomy.call("refresh_dock_color", pony)
 
 
 func _on_player(body: Node) -> void:
@@ -353,10 +340,8 @@ func _on_pony(pony: Node) -> void:
 	# The player's own AnonPony is a pony_locomotion too. Never attach an intimacy runtime to her.
 	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
 		return
-	if is_instance_valid(tail_seat):
-		tail_seat.call("attach", pony)
-		# A mod may finish its hair or dock a frame after the pony is ready; attach is idempotent.
-		tail_seat.call_deferred("attach", pony)
+	if is_instance_valid(anatomy):
+		anatomy.call("tail_ready", pony)
 	if _runtimes.has(pony):
 		return
 	var runtime: Node = RUNTIME.new()
@@ -1694,8 +1679,8 @@ func refresh_api_state() -> void:
 		return
 	_apply_live_settings()
 	refresh_anatomy()
-	if is_instance_valid(tail_seat):
-		tail_seat.call("refresh_all")
+	if is_instance_valid(anatomy):
+		anatomy.call("refresh_tails")
 
 
 ## integration: keep the anatomy feature live when the player edits a flag.
@@ -1759,8 +1744,8 @@ func _placement_values(id: String) -> Dictionary:
 
 func _placement_refresh() -> void:
 	refresh_anatomy()
-	if is_instance_valid(tail_seat):
-		tail_seat.call("refresh_all")
+	if is_instance_valid(anatomy):
+		anatomy.call("refresh_tails")
 
 
 func _placement_debug(op: String, value := 0.0) -> String:
@@ -1769,7 +1754,7 @@ func _placement_debug(op: String, value := 0.0) -> String:
 		return "No placement pony targeted."
 	if id != "default" and (op.begins_with("tail_") or op.begins_with("dock_")):
 		var target := _placement_target()
-		if not is_instance_valid(tail_seat) or not bool(tail_seat.call("can_seat", target)):
+		if not is_instance_valid(anatomy) or not bool(anatomy.call("can_seat", target)):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var values := _placement_values(id)
 	match op:
@@ -1921,9 +1906,9 @@ func action_placement_reset() -> String:
 
 func action_placement_show() -> String:
 	var text := _placement_debug("text")
-	if not is_instance_valid(tail_seat):
+	if not is_instance_valid(anatomy):
 		return text
-	return "%s | %s" % [text, str(tail_seat.call("report_all"))]
+	return "%s | %s" % [text, str(anatomy.call("tail_report"))]
 
 
 func _nearest_pony(view: Camera3D) -> Node:

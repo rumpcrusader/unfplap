@@ -83,7 +83,7 @@ Use the OpenCode `question` API. One question object per `plan.json` `diffs` ent
 For a placement group:
 
 - `GLOBAL DEFAULT` (the largest group of three or more mares): Promote writes the group values
-  into the five `anatomy.placement.default.*` declarations.
+  into the ten `anatomy.placement.default.*` declarations.
 - `PER-MARE DEFAULTS`: Promote writes the group values into `MARE_DEFAULTS` in
   `anatomy_placement.gd` as partial diffs.
 
@@ -112,7 +112,7 @@ Edit that mare's block in `character_preferences.gd` `TEMPLATES`. Preserve custo
 
 ### Placement
 
-- **Global group**: first change the five `anatomy.placement.default.*` declarations to the group
+- **Global group**: first change the ten `anatomy.placement.default.*` declarations to the group
   values, then update the local profile's global default and drop the now-redundant rows:
 
   ```bash

@@ -21,7 +21,11 @@ from pathlib import Path
 from typing import Any
 
 MISSING = object()
-PLACEMENT_KEYS = ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale"]
+# Keep in sync with anatomy_placement.gd KEYS: the global default and every per-mare row carry all
+# ten placement values, so a tail or dock change is a real override and a tail-only row is not
+# redundant.
+PLACEMENT_KEYS = ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale",
+                  "tail_y", "tail_z", "dock_y", "dock_scale", "tail_tilt_deg"]
 PREFERENCE_KEYS = ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes"]
 CONSENT_KEYS = ["public", "anal", "oral"]
 CHARACTER_SCALARS = ["smack_zone_radius", "aftercare_min", "cue_gap"]
@@ -427,6 +431,12 @@ def analyse(
     default_block = defaults.get("default", {})
     characters = defaults.get("characters", {})
     placement_defaults = defaults.get("anatomy", {}).get("placement", {})
+    shipped_placement_keys = set(placement_defaults.get("default", {}).keys())
+    if shipped_placement_keys != set(PLACEMENT_KEYS):
+        raise SystemExit(
+            "PLACEMENT_KEYS is out of sync with the shipped placement default: "
+            f"analyzer {sorted(PLACEMENT_KEYS)}, shipped {sorted(shipped_placement_keys)}"
+        )
 
     # Dead keys: unknown leaves in the player. A dead key that also exists in the shipped
     # templates is a source dead key; removing it from the player would only make it return on
@@ -500,7 +510,8 @@ def analyse(
                     "source": source_hint(mod_root, "character", leaf),
                 })
 
-    # Placement. The global default and anon blocks are five-value units.
+    # Placement. The global default and the per-mare rows are ten-value units; the anon block
+    # carries only the five anatomy values.
     player_placement = get_path(player, "anatomy.placement")
     if not isinstance(player_placement, dict):
         player_placement = {}

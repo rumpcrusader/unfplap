@@ -25,6 +25,7 @@ func run() -> void:
 	store.slots[0] = {"id": ITEM.ID, "count": 1}
 	store.slots[1] = {"id": "apple", "count": 2}
 	check(ITEM.case_slot(store) == 0, "the footstool case slot is found")
+	check(ITEM.case_count(store) == 1, "one footstool is in the case")
 	check(ITEM.owned_count(store) == 1, "one footstool is owned")
 	check(ITEM.free_slots(store) == 25, "two filled slots leave 25 free")
 	check(ITEM.writable(store), "a fresh store is writable")

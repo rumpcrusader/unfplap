@@ -546,8 +546,9 @@ The reference seat, dock skin, per-mare placement and debug actions are in `docs
   It is a normal recipe pass through `rig.rotate()`, so the native joint limits still clamp it.
   The idle standing invitation never sets the flag and keeps the natural stand.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
-- A live reach gap over `presentation.standing.stool_gap_m` needs a `goods:footstool`; the
-  footstool rule, act prop and world supply are in `docs/stool.md`.
+- A live reach gap over `presentation.standing.stool_gap_m` needs enough `goods:footstool`
+  stacks of `presentation.standing.stool_height_m`; the rule, prop and supply are in
+  `docs/stool.md`.
 - Body facing is locked every physics tick at priority 100; the navigator must not turn her.
   `stay()` alone does not stop conversation facing, so `face_point` and the conversation target
   are cleared late each tick and `face_turn_rate` is held at `0` for the act. This stops the
@@ -1712,7 +1713,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
-| `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs a `goods:footstool` for the standing act; the shop or a house drop supplies it |
+| `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
 | `act_ear_pin` | `false` | General debug rows: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
 | `act_bystanders` | `true` | adult witness lines using the modern perception |

@@ -1124,9 +1124,14 @@ static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset
 	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
 	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var stool_gap_m := num("stool_gap_m", "presentation.standing.stool_gap_m", 0.30,
+static var stool_gap_m := num("stool_gap_m", "presentation.standing.stool_gap_m", 0.20,
 	"Stool gap",
-	"Vertical gap between her bits and Anon's that needs a footstool. 30 cm by default.",
+	"Vertical gap between her bits and Anon's that needs a footstool. 20 cm by default.",
+	GENERAL, "Standing › Motion") \
+	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
+static var stool_height_m := num("stool_height_m", "presentation.standing.stool_height_m", 0.20,
+	"Stool height",
+	"Height each placed footstool adds. The act stacks enough footstools to cover the gap.",
 	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
 static var glance_back_speed := num("glance_back_speed",

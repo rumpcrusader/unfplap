@@ -21,14 +21,19 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
+	SETTINGS.stool_gap_m.set_num(0.20)
+	SETTINGS.stool_height_m.set_num(0.20)
 	var system: Node = STOOL.new()
 	check(system.enabled() == SETTINGS.standing_stool.get_bool(),
 		"the facade reads the feature switch")
 	var threshold: float = system.threshold_m()
 	check(is_equal_approx(threshold, SETTINGS.stool_gap_m.get_num()),
 		"the facade reads the configured threshold")
+	check(is_equal_approx(system.height_m(), 0.20), "the facade reads the step height")
 	check(system.required(threshold + 0.01), "a gap over the threshold needs a stool")
 	check(not system.required(threshold), "a gap at the threshold does not")
+	check(system.needed_count(0.25) == 1, "25 cm needs one 20 cm step")
+	check(system.needed_count(0.40) == 2, "40 cm needs two 20 cm steps")
 	check(is_equal_approx(system.gap(1.1, 0.0, 0.8, 0.0), 0.3),
 		"the facade exposes the pure gap")
 	check(STOOL.ID == "goods:footstool", "the base-game footstool is the item")

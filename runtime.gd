@@ -487,8 +487,9 @@ var _camera_target_eye := 0.0
 var _stool_active := false
 var _stool_lifted := false
 var _stool_failed := false
-var _stool_token := ""
-var _stool_slot := -1
+var _stool_tokens: Array[String] = []
+var _stool_slots: Array[int] = []
+var _stool_count := 0
 var _stool_node: Node3D
 var _stool_height_m := 0.0
 var _stool_floor_y := 0.0
@@ -1390,12 +1391,18 @@ func stool_gap_m() -> float:
 		(part as Vector3).y, main.player.global_position.y))
 
 
-func stool_required() -> bool:
+func stool_needed_count() -> int:
 	var gap := stool_gap_m()
 	if not is_finite(gap):
-		return false
+		return 0
 	var system: Variant = main.get("stool") if is_instance_valid(main) else null
-	return system != null and bool(system.call("required", gap))
+	if system == null or not system.has_method("needed_count"):
+		return 0
+	return maxi(0, int(system.call("needed_count", gap)))
+
+
+func stool_required() -> bool:
+	return stool_needed_count() > 0
 
 
 func stool_case_slot() -> int:
@@ -1408,9 +1415,20 @@ func stool_case_slot() -> int:
 	return int(system.call("case_slot", store))
 
 
-## True only when the footstool is the one thing keeping the Make love hint away.
+func stool_case_count() -> int:
+	var system: Variant = main.get("stool") if is_instance_valid(main) else null
+	var store: Variant = _inventory_store()
+	if system == null or store == null:
+		return 0
+	if not bool(system.call("writable", store)):
+		return 0
+	return maxi(0, int(system.call("case_count", store)))
+
+
+## True only when the footstool stack is the one thing keeping the Make love hint away.
 func stool_blocks_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	if not stool_required() or stool_case_slot() >= 0:
+	var need := stool_needed_count()
+	if need <= 0 or stool_case_count() >= need:
 		return false
 	var reasons: PackedStringArray = _start_reasons(pose, act_source, bed_in)
 	if reasons.is_empty():
@@ -1449,18 +1467,21 @@ func stool_state_text() -> String:
 		gap = float(system.call("gap", opening.y, hoof_y, part.y, foot_y))
 	var threshold := SETTINGS.stool_gap_m.get_num() if system == null \
 		else float(system.call("threshold_m"))
+	var height := SETTINGS.stool_height_m.get_num() if system == null \
+		else float(system.call("height_m"))
+	var need := stool_needed_count()
 	var gap_text := "n/a" if not is_finite(gap) else "%.3f" % gap
 	var owned := 0
 	var free := 0
 	if system != null and store != null:
 		owned = int(system.call("owned_count", store))
 		free = int(system.call("free_slots", store))
-	return "pony=%s applies=%s anatomy=%s part=%s her_opening=%.3f her_hoof=%.3f her_bits=%.3f his_root=%.3f his_feet=%.3f his_bits=%.3f floor_delta=%.3f gap=%s threshold=%.3f required=%s active=%s slot=%d owned=%d free=%d" % [
+	return "pony=%s applies=%s anatomy=%s part=%s her_opening=%.3f her_hoof=%.3f her_bits=%.3f his_root=%.3f his_feet=%.3f his_bits=%.3f floor_delta=%.3f gap=%s threshold=%.3f height=%.3f required=%s need=%d active=%s count=%d case=%d owned=%d free=%d" % [
 		str(pony.name) if is_instance_valid(pony) else "?",
 		str(stool_applies()), str(anatomy_ok), str(part_ok),
 		opening.y, hoof_y, opening.y - hoof_y, part.y, foot_y, part.y - foot_y,
-		hoof_y - foot_y, gap_text, threshold, str(stool_required()),
-		str(_stool_active), stool_case_slot(), owned, free]
+		hoof_y - foot_y, gap_text, threshold, height, str(stool_required()),
+		need, str(_stool_active), _stool_count, stool_case_count(), owned, free]
 
 
 func _inventory_store() -> Variant:
@@ -1561,7 +1582,8 @@ func _scene_rows(pose: String, act_source: String, bed_in: Variant, mode: String
 		_gate_row(rows, "nav_owner",
 			nav != null and _nav_owner_allows(pose, act_source), "nav_owner")
 	if pose == CATALOG.STANDING:
-		_gate_row(rows, "stool", not stool_required() or stool_case_slot() >= 0,
+		var stool_need := stool_needed_count()
+		_gate_row(rows, "stool", stool_need <= 0 or stool_case_count() >= stool_need,
 			"needs_stool")
 	if pose == CATALOG.MISSIONARY:
 		var pose_ready := _authored_pose_ready()
@@ -2122,10 +2144,13 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		return false
 	_reset_stool_state()
 	_anatomy_refresh()
-	if pose == CATALOG.STANDING and stool_required():
-		if stool_case_slot() < 0 or not _take_stool_item():
-			_log("start blocked stool pose=%s pony=%s" % [pose, str(pony.name) if is_instance_valid(pony) else "?"])
-			return false
+	if pose == CATALOG.STANDING:
+		var stool_need := stool_needed_count()
+		if stool_need > 0:
+			if stool_case_count() < stool_need or not _take_stool_items(stool_need):
+				_log("start blocked stool pose=%s pony=%s need=%d" % [
+					pose, str(pony.name) if is_instance_valid(pony) else "?", stool_need])
+				return false
 	_camera_owned = false
 	_look_captured = false
 	_look_restore_yaw = pose != CATALOG.STANDING
@@ -2540,8 +2565,13 @@ func _begin_standing_placement() -> Transform3D:
 		var system: Variant = main.get("stool")
 		var built: Dictionary = {}
 		if system != null and system.has_method("build_prop"):
-			built = system.call("build_prop", system, Vector3(target.x, floor_y, target.z),
-				body.rotation.y)
+			var step := float(system.call("height_m"))
+			var ignore: PhysicsBody3D = null
+			if pony is PhysicsBody3D:
+				ignore = pony as PhysicsBody3D
+			built = system.call("build_prop", system,
+				Vector3(target.x, floor_y, target.z), body.rotation.y,
+				_stool_count, step, ignore)
 		var node: Variant = built.get("node")
 		if node is Node3D and is_instance_valid(node):
 			_stool_node = node
@@ -2549,8 +2579,9 @@ func _begin_standing_placement() -> Transform3D:
 			_stool_floor_y = floor_y
 			_stool_lifted = true
 			target.y = floor_y + _stool_height_m + 0.005
-			_log("stool placed height=%.3f floor=%.3f at=%s" % [
-				_stool_height_m, floor_y, str(Vector3(target.x, floor_y, target.z))])
+			_log("stool placed count=%d height=%.3f floor=%.3f at=%s" % [
+				_stool_count, _stool_height_m, floor_y,
+				str(Vector3(target.x, floor_y, target.z))])
 		else:
 			_stool_failed = true
 			_log("stool placement failed at=%s" % str(Vector3(target.x, floor_y, target.z)))
@@ -2566,9 +2597,9 @@ func _begin_standing_placement() -> Transform3D:
 	return standing
 
 
-## Remove the act prop and put the exact case item back. Every exit path calls this.
+## Remove the act prop and put every case item back. Every exit path calls this.
 func _release_stool() -> void:
-	var was_active := _stool_active or not _stool_token.is_empty()
+	var was_active := _stool_active or not _stool_tokens.is_empty()
 	if is_instance_valid(_stool_node):
 		var system: Variant = main.get("stool") if is_instance_valid(main) else null
 		if system != null and system.has_method("free_prop"):
@@ -2589,58 +2620,72 @@ func _release_stool() -> void:
 			body.set("velocity", Vector3.ZERO)
 		body.reset_physics_interpolation()
 		_log("stool lowered player floor=%.3f" % floor_y)
-	if not _stool_token.is_empty():
+	if not _stool_tokens.is_empty():
 		var store: Variant = _inventory_store()
-		var returned := false
-		if store != null:
-			returned = bool(store.call("put", _stool_token, _stool_slot))
-			if not returned:
-				returned = bool(store.call("put", _stool_token, -1))
-		if returned:
-			_log("stool returned slot=%d" % _stool_slot)
-		else:
-			_log("stool item restore pending token=%s" % _stool_token)
+		for i: int in _stool_tokens.size():
+			var token := _stool_tokens[i]
+			var slot := _stool_slots[i] if i < _stool_slots.size() else -1
+			var returned := false
+			if store != null:
+				returned = bool(store.call("put", token, slot))
+				if not returned:
+					returned = bool(store.call("put", token, -1))
+			if returned:
+				_log("stool returned count=%d/%d slot=%d" % [
+					i + 1, _stool_tokens.size(), slot])
+			else:
+				_log("stool item restore pending token=%s" % token)
+		_stool_tokens.clear()
+		_stool_slots.clear()
 	if was_active:
 		_log("stool released")
 	_stool_active = false
 	_stool_lifted = false
 	_stool_failed = false
-	_stool_token = ""
-	_stool_slot = -1
+	_stool_count = 0
 	_stool_height_m = 0.0
 	_stool_floor_y = 0.0
 
 
 func _reset_stool_state() -> void:
-	if _stool_active or not _stool_token.is_empty() or is_instance_valid(_stool_node):
+	if _stool_active or not _stool_tokens.is_empty() or is_instance_valid(_stool_node):
 		_release_stool()
 	_stool_active = false
 	_stool_lifted = false
 	_stool_failed = false
-	_stool_token = ""
-	_stool_slot = -1
+	_stool_tokens.clear()
+	_stool_slots.clear()
+	_stool_count = 0
 	_stool_node = null
 	_stool_height_m = 0.0
 	_stool_floor_y = 0.0
 
 
-func _take_stool_item() -> bool:
+func _take_stool_items(need: int) -> bool:
+	var count := maxi(1, need)
+	_stool_tokens.clear()
+	_stool_slots.clear()
 	var system: Variant = main.get("stool") if is_instance_valid(main) else null
 	var store: Variant = _inventory_store()
 	if system == null or store == null or not bool(system.call("writable", store)):
 		return false
-	var slot := int(system.call("case_slot", store))
-	if slot < 0:
-		return false
-	var token := str(store.call("take", slot))
-	if token.is_empty():
-		return false
-	_stool_token = token
-	_stool_slot = slot
+	for _i: int in count:
+		var slot := int(system.call("case_slot", store))
+		if slot < 0:
+			_release_stool()
+			return false
+		var token := str(store.call("take", slot))
+		if token.is_empty():
+			_release_stool()
+			return false
+		_stool_tokens.append(token)
+		_stool_slots.append(slot)
+	_stool_count = count
 	_stool_active = true
 	_stool_failed = false
-	_log("stool item taken slot=%d" % slot)
+	_log("stool items taken count=%d" % count)
 	return true
+
 
 
 ## The floor under a standing spot. The player is excluded so his own capsule cannot answer.

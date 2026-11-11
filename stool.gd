@@ -51,6 +51,10 @@ func threshold_m() -> float:
 	return SETTINGS.stool_gap_m.get_num()
 
 
+func height_m() -> float:
+	return SETTINGS.stool_height_m.get_num()
+
+
 func gap(her_opening_y: float, her_hoof_y: float, his_root_y: float,
 		his_foot_y: float) -> float:
 	return MEASURE.gap(her_opening_y, her_hoof_y, his_root_y, his_foot_y)
@@ -60,8 +64,16 @@ func required(gap_m: float) -> bool:
 	return MEASURE.required(gap_m, threshold_m())
 
 
+func needed_count(gap_m: float) -> int:
+	return MEASURE.count(gap_m, threshold_m(), height_m())
+
+
 func case_slot(store: Variant) -> int:
 	return ITEM.case_slot(store)
+
+
+func case_count(store: Variant) -> int:
+	return ITEM.case_count(store)
 
 
 func owned_count(store: Variant) -> int:
@@ -76,8 +88,9 @@ func writable(store: Variant) -> bool:
 	return ITEM.writable(store)
 
 
-func build_prop(host: Node, at: Vector3, yaw: float) -> Dictionary:
-	return PROP.build(host, at, yaw)
+func build_prop(host: Node, at: Vector3, yaw: float, count := 1,
+		step_height := 0.20, ignore: PhysicsBody3D = null) -> Dictionary:
+	return PROP.build(host, at, yaw, count, step_height, ignore)
 
 
 func free_prop(prop: Variant) -> void:

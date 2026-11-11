@@ -39,7 +39,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Relationship settings** — `Promiscuity` and `Starting Sex` control the relationship gate; the
   exact rule is in `docs/eligibility.md`.
 - **Two poses** — Supports missionary on a bed or couch and standing.
-- **Footstool** — A mare much taller than Anon needs a footstool for the standing act; find one in a house or buy one at the shop, and Anon sets it down and takes it back (`docs/stool.md`).
+- **Footstool** — A mare much taller than Anon needs one or more footstools for the standing act; each covers a step of height, find them in houses or buy them at the shop, and Anon stacks enough to reach (`docs/stool.md`).
 - **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. One Anatomy switch picks Never, only while an act runs, or Always. The PPP anatomy assets and act audio are included in the release (`docs/anatomy.md`).
 - **Mare bits** — Choose the original PPP genitals or the V2 variant in the Anatomy settings; the V2 choice falls back to the original when its asset is absent.
 - **Tail seating** — Every adult mare's hair tail is seated at the reference dock and the standard dock rides as a short cuff under the tail base, follows the tail, and can use her coat or her genitals for its colour.

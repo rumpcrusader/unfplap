@@ -1134,7 +1134,7 @@ func _process(delta: float) -> void:
 	if not _offer.is_empty():
 		hint = OFFER_HINT
 	elif not _offer_blocked.is_empty():
-		hint = NEEDS_STOOL_HINT
+		hint = str(_offer_blocked.get("hint", NEEDS_STOOL_HINT))
 	else:
 		_last_offer_key = ""
 		_last_blocked_key = ""
@@ -1194,8 +1194,11 @@ func _refresh_offer() -> void:
 			_log_offer()
 		elif is_instance_valid(runtime) \
 				and bool(runtime.call("stool_blocks_start", CATALOG.STANDING, "", null)):
-			_offer_blocked = {"runtime": runtime, "pony": standing}
-			_log_blocked_offer(runtime, standing)
+			var need := maxi(1, int(runtime.call("stool_needed_count")))
+			var hint := _stool_hint_for(need)
+			_offer_blocked = {"runtime": runtime, "pony": standing,
+				"need": need, "hint": hint}
+			_log_blocked_offer(runtime, standing, need)
 
 
 ## The standing Y zone: the nearest standing mare whose rear cone holds Anon. The cone alone
@@ -1301,20 +1304,30 @@ func _sync_native_hint(text: String) -> void:
 		hud.hide_prompt()
 
 
-func _log_blocked_offer(runtime: Node, target: Node) -> void:
-	var key := "stool:%d" % target.get_instance_id()
+func _stool_hint_for(need: int) -> String:
+	return NEEDS_STOOL_HINT if need <= 1 else "Needs %d footstools" % need
+
+
+func _stool_find_hint(need: int) -> String:
+	return "Find a footstool in a house." if need <= 1 \
+		else "Find %d footstools in a house." % need
+
+
+func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
+	var key := "stool:%d:%d" % [target.get_instance_id(), need]
 	if key == _last_blocked_key:
 		return
 	_last_blocked_key = key
 	var gap: Variant = runtime.call("stool_gap_m")
 	var gap_text := "n/a" if not (gap is float or gap is int) \
 		or not is_finite(float(gap)) else "%.3f" % float(gap)
-	_debug("OFFER blocked pony=%s reason=needs_stool gap=%s" % [
-		str(target.name), gap_text])
+	var have := int(runtime.call("stool_case_count"))
+	_debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d" % [
+		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:
 		_stool_hint_toast_shown = true
 		if is_instance_valid(hud) and hud.has_method("toast"):
-			hud.call("toast", "Find a footstool in a house.", 4.0)
+			hud.call("toast", _stool_find_hint(need), 4.0)
 
 
 func _log_offer() -> void:
@@ -1377,7 +1390,8 @@ func try_start() -> bool:
 	if _offer.is_empty():
 		if not _offer_blocked.is_empty():
 			if is_instance_valid(hud) and hud.has_method("toast"):
-				hud.call("toast", "Find a footstool in a house.", 4.0)
+				var need := maxi(1, int(_offer_blocked.get("need", 1)))
+				hud.call("toast", _stool_find_hint(need), 4.0)
 			return false
 		return _try_refusal()
 	var runtime: Variant = _offer.get("runtime")

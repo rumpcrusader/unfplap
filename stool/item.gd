@@ -27,6 +27,26 @@ static func case_slot(store: Variant) -> int:
 	return -1
 
 
+## Units in the briefcase that can be taken now (an equipped unit is not available).
+static func case_count(store: Variant) -> int:
+	if store == null:
+		return 0
+	var slots: Variant = store.get("slots")
+	if not slots is Array:
+		return 0
+	var total := 0
+	var rows: Array = slots
+	for i: int in mini(rows.size(), SLOT_COUNT):
+		var slot: Variant = rows[i]
+		if not slot is Dictionary or str((slot as Dictionary).get("id", "")) != ID:
+			continue
+		if store.has_method("available"):
+			total += maxi(0, int(store.call("available", i)))
+		else:
+			total += maxi(0, int((slot as Dictionary).get("count", 0)))
+	return total
+
+
 ## Every owned footstool: case units, held units, placed furniture and world drops.
 static func owned_count(store: Variant) -> int:
 	if store == null:

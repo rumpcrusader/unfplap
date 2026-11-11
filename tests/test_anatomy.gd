@@ -238,35 +238,38 @@ func run() -> void:
 	heat_anatomy.set("runtime", heat_runtime)
 	heat_anatomy.set("_attached", true)
 	heat_anatomy.set("_mesh", wink_mesh)
+	heat_anatomy.shapes.set_mesh(wink_mesh, false)
 	heat_anatomy.set("_last_shown", true)
 	heat_runtime.state = 2
 	heat_anatomy.call("_heat_idle_tick", 0.1)
-	check(bool(heat_anatomy.get("_heat_suppressed")), "active act suppresses idle heat")
+	check(heat_anatomy.heat.suppressed(), "active act suppresses idle heat")
 	heat_runtime.state = 0
-	heat_anatomy.set("_heat_phase", CYCLE.HEAT)
-	heat_anatomy.set("_heat_phase_clock", 999.0)
-	heat_anatomy.set("_heat_wink_clock", 0.001)
+	heat_anatomy.heat.set("_phase", CYCLE.HEAT)
+	heat_anatomy.heat.set("_phase_clock", 999.0)
+	heat_anatomy.heat.set("_wink_clock", 0.001)
 	heat_anatomy.call("_heat_idle_tick", 0.01)
 	var gap_lo := minf(SETTINGS.wink_min_s.get_num(), SETTINGS.wink_max_s.get_num())
-	check(float(heat_anatomy.get("_heat_wink_clock")) >= gap_lo,
+	check(heat_anatomy.heat.wink_clock() >= gap_lo,
 		"an idle heat wink resets the interval")
-	check(heat_anatomy.get("_tween") != null, "an idle heat wink builds its tween")
+	check(heat_anatomy.shapes.tween_running(), "an idle heat wink builds its tween")
 	heat_anatomy.set_idle_wink(0.0)
-	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), 0.0),
+	check(is_equal_approx(float(heat_anatomy.shapes.wink_amount()), 0.0),
 		"the default rest clears the wink shape")
-	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0),
+	check(is_equal_approx(float(heat_anatomy.shapes.state().get("closed", -1.0)), 1.0),
 		"the default rest is the authored closed shape")
 	var rest_open := clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
 	heat_anatomy.set_idle_wink(rest_open)
-	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), rest_open),
+	check(is_equal_approx(float(heat_anatomy.shapes.wink_amount()), rest_open),
 		"heat rests at the configured share of the open shape")
-	check(is_equal_approx(float(heat_anatomy.get("_closed")), 1.0 - rest_open),
-		"the heat rest opens the closed lips by the same share")
-	check(bool(heat_anatomy.get("_idle_wink")), "the idle rest owns the shapes")
+	check(is_equal_approx(float(heat_anatomy.shapes.state().get("closed", -1.0)),
+		1.0 - rest_open), "the heat rest opens the closed lips by the same share")
+	check(bool(heat_anatomy.shapes.state().get("idle_wink", false)),
+		"the idle rest owns the shapes")
 	heat_anatomy.drive(0.5)
-	check(is_equal_approx(float(heat_anatomy.get("_wink_amount")), 0.0),
+	check(is_equal_approx(float(heat_anatomy.shapes.wink_amount()), 0.0),
 		"acts clear the idle wink shape")
-	check(not bool(heat_anatomy.get("_idle_wink")), "an act clears the idle cut suppression")
+	check(not bool(heat_anatomy.shapes.state().get("idle_wink", true)),
+		"an act clears the idle cut suppression")
 	heat_anatomy.free()
 	heat_pony.free()
 	heat_runtime.free()
@@ -340,9 +343,8 @@ func run() -> void:
 		get_root().add_child(v2_mi)
 		v2_mi.transform = Transform3D.IDENTITY
 		var v2_anatomy: Node = ANATOMY.new()
-		v2_anatomy.set("_mesh", v2_mi)
-		v2_anatomy.set("_v2_anal", true)
-		v2_anatomy.call("_apply_anal_shape", 0.030)
+		v2_anatomy.shapes.set_mesh(v2_mi, true)
+		v2_anatomy.shapes.apply_anal_local(0.030)
 		var open_i := v2_mi.find_blend_shape_by_name("anal_open")
 		var stretch_i := v2_mi.find_blend_shape_by_name("anal_stretch")
 		var over_i := v2_mi.find_blend_shape_by_name("anal_overstretch")
@@ -355,11 +357,11 @@ func run() -> void:
 			"30 mm reaches the V2 overstretch")
 		check(near(v2_mi.get_blend_shape_value(extreme_i), 0.0714, 0.002),
 			"30 mm starts the V2 extreme")
-		var mouth: Vector3 = v2_anatomy.get("_anal_mouth")
+		var mouth: Vector3 = v2_anatomy.shapes.anal_mouth()
 		check(mouth.y < 0.062 and mouth.y > 0.041,
 			"30 mm tracks the V2 ring down from the old cup point")
-		v2_anatomy.call("_apply_anal_shape", 0.056)
-		mouth = v2_anatomy.get("_anal_mouth")
+		v2_anatomy.shapes.apply_anal_local(0.056)
+		mouth = v2_anatomy.shapes.anal_mouth()
 		check(near(mouth.y, GEOMETRY.V2_ANAL_RING_EXTREME.y, 0.001),
 			"56 mm puts the anal aim on the extreme ring")
 		var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
@@ -367,7 +369,7 @@ func run() -> void:
 			* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
 		check(aim.distance_to(v2_mi.global_transform * GEOMETRY.V2_ANAL_RING_EXTREME
 			+ aim_offset) < 0.0001, "the anal act aims at the deformed V2 ring")
-		v2_anatomy.call("_apply_anal_shape", 0.080)
+		v2_anatomy.shapes.apply_anal_local(0.080)
 		check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,
 			"an oversized shaft extrapolates the V2 extreme")
 		v2_anatomy.free()

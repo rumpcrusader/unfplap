@@ -25,7 +25,7 @@ fi
 # of the headless gate.
 mapfile -t TESTS < <(
 	cd "$MOD_DIR" && find tests -maxdepth 2 -name 'test_*.gd' \
-		! -name 'test_lab.gd' ! -name 'test_lab_vr.gd' ! -name 'test_stress_lab.gd' \
+		! -name 'test_lab*.gd' ! -name 'test_stress_lab.gd' \
 		-printf '%P\n' | sed 's/\.gd$//' | sort
 )
 

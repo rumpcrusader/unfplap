@@ -30,6 +30,10 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/act/oral.gd` | oral turn state, mouth anchor, style motion and facing |
 | `anatomy/act/finish.gd` | finish in/out, finish droplets and afterglow rest depth |
 | `anatomy/act/debug.gd` | the three aim markers |
+| `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
+| `anatomy/coat.gd` | rig coat patch, vulva/anal spread and the still zones |
+| `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
+| `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anon_part.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
 | `anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
@@ -477,8 +481,9 @@ The refactor is one system at a time, with no behavior change:
 
 - `anatomy.gd` becomes the world facade owned by `main` as `main.anatomy`. It owns the per-pony
   controllers, the player part and tail seating.
-- `anatomy/controller.gd` owns the persistent per-pony state; `anatomy/attach.gd`,
-  `appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd` and `fluid.gd` own their one area.
+- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd` and `heat.gd` are already split out.
+  `anatomy/controller.gd` and `anatomy/attach.gd` are the remaining split: attach/detach, LOD,
+  placement and the per-pony lifecycle.
 - `anatomy/act.gd` is the per-act handle returned by `controller.begin_act(pose_id)`;
   `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
   three behaviors.

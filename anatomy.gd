@@ -3,15 +3,16 @@ extends Node
 ## including mares added by other mods, persistent across acts. The mesh and textures are tracked
 ## assets; if they are missing the controller stays empty and every public method is a no-op.
 
-const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
-const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
+const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
+const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
+const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
+const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
@@ -19,62 +20,17 @@ const MARE_BITS_V2_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 
-const WINKING_PINK := Color(0.97, 0.66, 0.74)
-const WINKING_PINK_SHADE := Color(0.84, 0.47, 0.57)
-const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
-const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
 const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
-const WINKING_CUT_DEPTH := 0.07
-## Shader widening applied to the vulva per unit of stretch, so the anal bulb never scales with it.
-## How far outside the rim the widening fades out. The measured mound ends ~4.5 cm from the
-## opening and the anal bulb starts ~8 cm out, so this keeps the bulb out of the deformation.
-const LIP_OUTER_FACTOR := 3.0
-const WINKING_CUT_FILLED := 0.9
-const WINKING_SLIT_HALF := 0.06
-const TEAT_STRIP_END_Y := 0.384
-const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
-const STRIP_END_FADE := 0.03
-## Runtime patch of the rig coat shader. It swaps only the flank_jiggle include and call in a
-## duplicated Shader, so no game source is edited and the cel shader is not copied.
-const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
-## The visible ponut is the pony body, not the genitals overlay. These are body-local: the
-## Blender body.glb anus centre (0, -0.299, 0.572) maps to Godot (0, 0.572, 0.299).
-const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
-const BODY_ANAL_REACH := 0.09
-## The body coat gives under the stretched vulva rim by this much per unit of lip opening.
-const VULVA_RELIEF_M := 0.002
-## The no-jiggle zone never goes below this body-local radius, so a small vulva still has a
-## stable still patch instead of a pinprick.
-const JIGGLE_STILL_MIN_M := 0.05
 
 var pony: Node3D
 var runtime: Node
 var main: Node
 
 var _mesh: MeshInstance3D
-var _body_mesh: MeshInstance3D
-var _body_material: ShaderMaterial
-var _body_outline: ShaderMaterial
-var _body_original_shader: Shader
-var _body_outline_original_shader: Shader
-var _body_patched := false
-## Debug overlay for the two still zones.
-var _zone_debug: Node3D
-var _zone_vulva_centre := Vector3.ZERO
-var _zone_anal_centre := Vector3.ZERO
-var _zone_axes := Basis.IDENTITY
-var _zone_vulva_radius := 0.0
-var _zone_anal_radius := 0.0
-var _zone_oval := 0.7
-var _zone_fade := 0.25
-## pony_hips bind pose from the body skin: anatomy-local -> body-local (NearBody) space.
-var _hips_bind := Transform3D.IDENTITY
-var _hips_bind_ready := false
+## The rig coat's runtime deform and still-zone debug.
+var coat: RefCounted
 var _mare_bits_path_loaded := ""
-var _teats_mesh: MeshInstance3D
-var _skin_strip: MeshInstance3D
-var _teats_jiggle: Node
 var _fluid: Node3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
@@ -88,42 +44,16 @@ var _lift := 0.0
 ## The tail dock mesh; with genitals attached it reads as a stray blob above the ponut.
 var _dock: MeshInstance3D
 var _dock_was_visible := true
-## Mean radius of the lip band in mesh-local units, measured once so the opening can be solved
-## exactly against the shaft's radius instead of scaled by a constant.
-var _lip_radius := 0.03
-## True when the loaded mare mesh is the V2 anatomy with the anal shape keys.
-var _v2_anal := false
-## Last anal opening radius in mesh units; re-applied when the ponut scale changes.
-var _anal_local := 0.0
-## Current V2 ring centre in mesh local, tracked through the additive anal keys.
-var _anal_mouth := GEOMETRY.V2_ANAL_RING_BASE
-## Anon's shaft, published every frame for the collision projection.
-var _shaft_pivot := Vector3.ZERO
-var _shaft_axis := Vector3.ZERO
-var _shaft_length := 0.0
-var _shaft_radii := PackedFloat32Array()
-var _closed := 1.0
-var _rest := 1.0
-## 0 = resting closed, 1 = the authored open shape. Idle heat crossfades the `closed` lips and
-## the V2 `wink` clitoris accent together.
-var _wink_amount := 0.0
-## True while the idle heat crossfade owns the shapes. The act's depth cut stays off then.
-var _idle_wink := false
-var _fill := 0.0
-var _wide := 0.0
-## The solved anatomy-local opening radius last pushed by set_grip; the body coat spread uses
-## the same value so the hug setting stays consistent between the lips and the coat.
-var _hole_target := 0.0
-var _tween: Tween
-var _strip_span := Vector2(0.0, 1.0)
-var _strip_gap := Vector2(2.0, 2.0)
+## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
+## keys. The controller forwards its public shape API.
+var shapes: RefCounted
+## Material, skin tones, teats and the skin strip.
+var appearance: RefCounted
 var _missing_logged := false
 var _rig_logged := false
 var _attached := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
 const VISIBILITY_POLL_S := 0.2
-## How often the idle heat tick re-reads the estrus phase.
-const HEAT_PHASE_POLL_S := 2.0
 const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 ## Idle heat discharge: droplets leave the vulva opening along the ground and fall under the
 ## fluid node's gravity. Speed and count scale with the Discharge debug setting; the vertical
@@ -137,12 +67,8 @@ var _visibility_init := false
 var _last_shown := false
 var _last_teats_shown := false
 var _last_strip_shown := false
-## integration: idle heat display. POSING_IN, ACTIVE and CLIMAX suppress it because the act
-## controller owns the mesh then; IDLE, AFTERGLOW, RESTORE and sleeping allow it.
-var _heat_phase := ""
-var _heat_phase_clock := 0.0
-var _heat_wink_clock := 0.0
-var _heat_suppressed := false
+## Idle heat schedule; the controller supplies state, visibility and the cycle phase.
+var heat: RefCounted
 
 
 static func assets_exist() -> bool:
@@ -198,10 +124,23 @@ static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
 	return IDENTITY.off_roster_ids(ids, base_ids)
 
 
+func _init() -> void:
+	shapes = SHAPES.new()
+	shapes.setup(null, self)
+	coat = COAT.new()
+	coat.setup(null, shapes)
+	heat = HEAT.new()
+	heat.setup(shapes)
+
+
 func setup(pony_node: Node3D, runtime_node: Node) -> void:
 	pony = pony_node
 	runtime = runtime_node
 	main = runtime.get("main") if is_instance_valid(runtime) else null
+	shapes.setup(pony, self)
+	coat.setup(pony, shapes)
+	appearance = APPEARANCE.new()
+	appearance.setup(pony, runtime, main, shapes)
 
 
 func refresh() -> void:
@@ -266,8 +205,7 @@ func _attach() -> void:
 	_bone_inverse = _skeleton.get_bone_global_rest(bone).affine_inverse()
 	_mesh = mesh
 	_mare_bits_path_loaded = selected
-	_v2_anal = selected == MARE_BITS_V2_PATH
-	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
+	var is_v2 := selected == MARE_BITS_V2_PATH
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
@@ -280,13 +218,11 @@ func _attach() -> void:
 	if is_instance_valid(dock):
 		_dock_was_visible = dock.visible
 	_apply_place()
-	_lip_radius = _measure_lip_radius()
-	_apply_material()
-	_attach_teats()
-	_attach_skin_strip(_teat_size())
-	if _mesh.get_surface_override_material(0) is ShaderMaterial:
-		_apply_teats_material(_mesh.get_surface_override_material(0) as ShaderMaterial)
-	_apply_anal_shape(0.0)
+	shapes.set_mesh(_mesh, is_v2)
+	coat.set_mesh(_mesh, _skeleton)
+	appearance.set_mesh(_mesh, _skeleton)
+	appearance.attach_parts()
+	appearance.apply_material(_missionary_pose())
 	_attached = true
 	_visibility_init = false
 	if pony.has_signal("physical_reaction") \
@@ -295,7 +231,7 @@ func _attach() -> void:
 	set_process(true)
 	_apply_visibility()
 	_log("anatomy attached lift=%.3f" % _lift)
-	if _v2_anal and _mesh.mesh is ArrayMesh:
+	if shapes != null and bool(shapes.v2_anal()) and _mesh.mesh is ArrayMesh:
 		var arrays: Array = (_mesh.mesh as ArrayMesh).surface_get_arrays(0)
 		var cols: Variant = arrays[Mesh.ARRAY_COLOR]
 		var a1 := 0
@@ -321,16 +257,17 @@ func _on_physical_reaction(kind: String) -> void:
 
 func _process(delta: float) -> void:
 	_heat_idle_tick(delta)
-	_debug_zones_tick()
+	coat.tick_debug()
 	_missionary_depth_tick()
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
 	_visibility_clock = VISIBILITY_POLL_S
 	_apply_place()
-	_apply_anal_shape(_anal_local)
+	shapes.refresh_anal()
 	_apply_body_coat()
-	_apply_strip_scale()
+	if appearance != null:
+		appearance.apply_strip_scale()
 	var started := Time.get_ticks_usec()
 	_apply_visibility()
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
@@ -369,66 +306,27 @@ func _apply_visibility() -> void:
 	if is_instance_valid(_mesh):
 		_mesh.visible = show
 	_apply_dock(show)
-	if is_instance_valid(_teats_mesh):
-		_teats_mesh.visible = teats_show
-	if is_instance_valid(_skin_strip):
-		_skin_strip.visible = strip_show
-	if is_instance_valid(_teats_jiggle):
-		_teats_jiggle.set_physics_process(teats_show)
+	if appearance != null:
+		appearance.apply_visibility(show, teats_on, strip_on)
 
 
 func _heat_idle_tick(delta: float) -> void:
-	if not _attached or not is_instance_valid(runtime) or not is_instance_valid(pony):
+	if not _attached or not is_instance_valid(runtime) or not is_instance_valid(pony) \
+			or heat == null:
 		return
-	# POSING_IN, ACTIVE and CLIMAX are the act; it owns the mesh. AFTERGLOW and RESTORE are free.
-	var state := int(runtime.get("state"))
-	if state in [1, 2, 3]:
-		if not _heat_suppressed:
-			_heat_suppressed = true
-			_heat_phase = ""
-			_heat_phase_clock = 0.0
-			_heat_wink_clock = _wink_interval()
-		return
-	_heat_suppressed = false
-	if not _heat_visible():
-		return
-
-	_heat_phase_clock -= delta
-	if _heat_phase_clock <= 0.0:
-		_heat_phase_clock = HEAT_PHASE_POLL_S
-		var phase := str(runtime.call("cycle_phase"))
-		if phase != _heat_phase:
-			_heat_phase = phase
-			_heat_wink_clock = _wink_interval() if phase == CYCLE.HEAT else 0.0
-
-	# Heat rests slightly open; normal and diestrus rest closed. Do not fight a wink tween.
-	if _tween == null or not _tween.is_running():
-		var idle_rest := _heat_rest_open() if _heat_phase == CYCLE.HEAT else 0.0
-		if not is_equal_approx(_wink_amount, idle_rest):
-			set_idle_wink(idle_rest)
-
-	if _heat_phase != CYCLE.HEAT:
-		return
-
-	_heat_wink_clock -= delta
-	if _heat_wink_clock > 0.0:
-		return
-	_heat_wink_clock = _wink_interval()
-	var count := CYCLE.wink_burst_count(randf())
-	wink_burst(count, count)
+	heat.tick(delta, int(runtime.get("state")), _heat_visible(),
+		Callable(self, "_cycle_phase_now"), Callable(self, "idle_discharge"))
 
 
-## Idle heat wink gap from the Heat debug settings. A zero gap is guarded so the idle tick cannot
-## spin on every frame.
-func _wink_interval() -> float:
-	return CYCLE.wink_interval(
-		maxf(SETTINGS.wink_min_s.get_num(), 0.05),
-		maxf(SETTINGS.wink_max_s.get_num(), 0.05))
+func _cycle_phase_now() -> String:
+	if is_instance_valid(runtime) and runtime.has_method("cycle_phase"):
+		return str(runtime.call("cycle_phase"))
+	return CYCLE.NORMAL
 
 
 ## How open she rests between winks, from the Heat debug settings.
 func _heat_rest_open() -> float:
-	return clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
+	return float(heat.rest_open()) if heat != null else 0.0
 
 
 ## True when the mesh is actually shown. Far meshes and act-only hiding both skip idle display.
@@ -567,112 +465,8 @@ func _placement_values() -> Dictionary:
 
 
 func _apply_material() -> void:
-	if not is_instance_valid(_mesh) or not is_instance_valid(pony):
-		return
-	var material := ShaderMaterial.new()
-	material.shader = load("res://mods/unfplap/anatomy/anatomy.gdshader")
-	var tones := _skin_tones()
-	material.set_shader_parameter("skin_color", tones[0])
-	material.set_shader_parameter("skin_shadow", tones[1])
-	var inner_color := SETTINGS.vulva_inner_color.get_color()
-	var clitoris_color := SETTINGS.clitoris_color.get_color()
-	material.set_shader_parameter("inner_color", inner_color)
-	material.set_shader_parameter("inner_shadow", inner_color.darkened(0.22))
-	material.set_shader_parameter("clitoris_color", clitoris_color)
-	material.set_shader_parameter("clitoris_shadow", clitoris_color.darkened(0.22))
-	# Act hack: drop the vertex-alpha fold/clitoris masks so the whole mesh uses her skin tones.
-	material.set_shader_parameter("fold_coloring",
-		0.0 if _missionary_pose() and SETTINGS.disable_fold_coloring.get_bool() else 1.0)
-	var world_scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.001)
-	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
-	material.set_shader_parameter("anal_centre", ANAL_OPENING)
-	material.set_shader_parameter("anal_scale",
-		1.0 if _v2_anal else SETTINGS.anal_scale.get_num())
-	material.set_shader_parameter("lip_radius", _lip_radius)
-	material.set_shader_parameter("lip_outer", _lip_radius * LIP_OUTER_FACTOR)
-	material.set_shader_parameter("lip_vertical",
-		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
-	material.set_shader_parameter("vulva_height", SETTINGS.vulva_height.get_num())
-	# `coat_color` is the shader's `to_coat` fallback (the dock and the strip edges read it). It
-	# must match her coat here, or those vertices render black: the main material used to leave
-	# both uniforms at their default (0,0,0,0).
-	var identity: Variant = pony.get("identity")
-	var coat_fill: Variant = identity.get("coat_fill") if identity != null else null
-	var coat_shade: Variant = identity.get("coat_shade") if identity != null else null
-	material.set_shader_parameter("coat_color",
-		coat_fill if coat_fill is Color else Color(0.8, 0.8, 0.8))
-	material.set_shader_parameter("coat_shadow",
-		coat_shade if coat_shade is Color else Color(0.68, 0.68, 0.68))
-	# `_wide` is the world shaft radius; the shader works in mesh units.
-	material.set_shader_parameter("hole_target", _wide / world_scale)
-	_mesh.set_surface_override_material(0, material)
-	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	OUTLINE_EXCLUSION.apply_to(_mesh)
-	_apply_winking_shape()
-	_apply_teats_material(material)
-	if is_instance_valid(main) and main.has_method("refresh_dock_color"):
-		main.call("refresh_dock_color", pony)
-
-
-func _skin_tones() -> Array:
-	var identity: Variant = pony.get("identity")
-	var fill: Variant = identity.get("coat_fill") if identity != null else null
-	var shade: Variant = identity.get("coat_shade") if identity != null else null
-	var base: Color = fill if fill is Color else Color(0.8, 0.8, 0.8)
-	var dark: Color = shade if shade is Color else Color(0.68, 0.68, 0.68)
-	# The old Coat / Darker / Dark values are the three anchors of one 0…1 slider, with every
-	# point between them interpolated.
-	var tone := SETTINGS.skin_tone.get_num()
-	var darker_fill := base.darkened(0.1)
-	var darker_shade := dark.darkened(0.16)
-	if tone <= 0.5:
-		var k := tone / 0.5
-		return [base.lerp(darker_fill, k), dark.lerp(darker_shade, k)]
-	var k := (tone - 0.5) / 0.5
-	return [darker_fill.lerp(Color(0.26, 0.22, 0.26), k),
-		darker_shade.lerp(Color(0.17, 0.14, 0.18), k)]
-
-
-## The anal opening is part of the V2 mesh now; the old cup/ring attachment is gone.
-## The shape keys are driven from the real shaft radius in set_anal_grip().
-
-
-
-## True while the anatomy owns the near-body material. A detached anatomy must not re-apply it.
-func is_attached() -> bool:
-	return _attached
-
-
-## The visible rig coat and its outline. The runtime uses these to put the runtime-patched
-## materials back into FlankTouch's jiggle target list.
-func body_coat_mesh() -> MeshInstance3D:
-	return _body_mesh if _body_patched and is_instance_valid(_body_mesh) else null
-
-func body_coat_material() -> ShaderMaterial:
-	return _body_material if _body_patched and is_instance_valid(_body_material) else null
-
-func body_outline_material() -> ShaderMaterial:
-	return _body_outline if _body_patched and is_instance_valid(_body_outline) else null
-
-
-## pony_hips bind pose from the body skin. `body_local_point` maps a point from the anatomy's
-## bone-local space (the mesh's own transform) into the rig coat's vertex space, which is the
-## space the patched cel shader writes in. The bind pose is cached because the skin is immutable.
-func _hips_bind_pose() -> Transform3D:
-	if _hips_bind_ready:
-		return _hips_bind
-	var model: Variant = pony.get("_model") if is_instance_valid(pony) else null
-	if not model is Node:
-		return _hips_bind
-	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
-	if not is_instance_valid(body) or body.skin == null:
-		return _hips_bind
-	for i in body.skin.get_bind_count():
-		if String(body.skin.get_bind_name(i)) == "pony_hips":
-			_hips_bind = body.skin.get_bind_pose(i)
-			_hips_bind_ready = true
-			break
-	return _hips_bind
+	if appearance != null:
+		appearance.apply_material(_missionary_pose())
 
 
 static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
@@ -691,312 +485,25 @@ static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 	return GEOMETRY.anal_still_radius_for(lip, outer_factor, scale, multiplier)
 
 
-func _apply_strip_scale() -> void:
-	if not is_instance_valid(_skin_strip):
-		return
-	var material := _skin_strip.get_surface_override_material(0) as ShaderMaterial
-	if material == null:
-		return
-	material.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
-
-
-## Push the body coat's anal mound, vulva spread and no-jiggle zone into the rig material and
-## its outline. `_hole_target` is anatomy-local; `_lip_radius` is too, so their ratio is unitless.
 func _apply_body_coat_uniforms() -> void:
-	if not _body_patched or not is_instance_valid(_body_material) \
-			or not is_instance_valid(_mesh) or not _hips_bind_ready:
-		return
-	var scale := maxf(_mesh.transform.basis.get_scale().x, 0.0001)
-	var centre := body_local_point(_hips_bind, _mesh.transform, WINKING_OPENING)
-	var right_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.RIGHT)
-	var out_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.BACK)
-	var up_axis := body_local_direction(_hips_bind, _mesh.transform, Vector3.UP)
-	var spread := maxf(_hole_target / maxf(_lip_radius, 0.004), 1.0)
-	spread = 1.0 + (spread - 1.0) * SETTINGS.coat_spread.get_num()
-	var reach := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.1, 0.02)
-	var depth := (spread - 1.0) * VULVA_RELIEF_M
-	var still_centre := centre + up_axis * (SETTINGS.still_height_mm.get_num() / 1000.0)
-	var still_radius := maxf(_lip_radius * LIP_OUTER_FACTOR * scale * 1.3,
-			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
-	var anal_centre := BODY_ANAL_CENTRE
-	var anal_extreme := maxf(0.0, (_anal_local - GEOMETRY.ANAL_OVER_R)
-		/ (GEOMETRY.ANAL_EXTREME_R - GEOMETRY.ANAL_OVER_R))
-	if _v2_anal:
-		anal_centre = body_local_point(_hips_bind, _mesh.transform, _anal_mouth)
-	var anal_still_centre := anal_centre
-	var anal_still_radius := GEOMETRY.anal_still_radius_for(GEOMETRY.ANAL_LIP,
-		GEOMETRY.ANAL_OUTER_FACTOR, scale, SETTINGS.anal_still.get_num()) * (1.0 + anal_extreme)
-	_zone_vulva_centre = still_centre
-	_zone_anal_centre = anal_still_centre
-	_zone_vulva_radius = still_radius
-	_zone_anal_radius = anal_still_radius
-	_zone_axes = Basis(right_axis, up_axis, out_axis)
-	_zone_oval = SETTINGS.still_oval.get_num()
-	_zone_fade = SETTINGS.still_fade.get_num()
-	# Follow the extrapolated V2 extreme so the visible body mound wraps the same ring.
-	var anal_scale := SETTINGS.anal_scale.get_num() * (1.0 + anal_extreme)
-	for material in [_body_material, _body_outline]:
-		if not is_instance_valid(material):
-			continue
-		var mat := material as ShaderMaterial
-		mat.set_shader_parameter("body_coat_anal_centre", anal_centre)
-		mat.set_shader_parameter("body_coat_anal_scale", anal_scale)
-		mat.set_shader_parameter("body_coat_anal_reach", BODY_ANAL_REACH)
-		mat.set_shader_parameter("body_coat_anal_out", out_axis)
-		mat.set_shader_parameter("body_coat_anal_depth",
-			SETTINGS.anal_body_depth_mm.get_num() / 1000.0 * (1.0 + anal_extreme))
-		# Keep the body under the V2 lip: the indent must not reach past the outer lip.
-		# Slightly wider than the shaft; the extra 3 mm side lip flange covers the wall.
-		mat.set_shader_parameter("body_coat_anal_hole_reach",
-			(maxf(_anal_local, GEOMETRY.ANAL_OPEN_R) + 0.0015) * scale)
-		mat.set_shader_parameter("body_coat_vulva_centre", centre)
-		mat.set_shader_parameter("body_coat_vulva_out", out_axis)
-		mat.set_shader_parameter("body_coat_vulva_scale", spread)
-		mat.set_shader_parameter("body_coat_vulva_reach", reach)
-		mat.set_shader_parameter("body_coat_vulva_depth", depth)
-		mat.set_shader_parameter("body_coat_still_centre", still_centre)
-		mat.set_shader_parameter("body_coat_still_radius", still_radius)
-		mat.set_shader_parameter("body_coat_anal_still_centre", anal_still_centre)
-		mat.set_shader_parameter("body_coat_anal_still_radius", anal_still_radius)
-		mat.set_shader_parameter("body_coat_still_right", right_axis)
-		mat.set_shader_parameter("body_coat_still_up", up_axis)
-		mat.set_shader_parameter("body_coat_still_oval", SETTINGS.still_oval.get_num())
-		mat.set_shader_parameter("body_coat_still_fade", SETTINGS.still_fade.get_num())
+	coat.apply()
 
 
 ## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
-## coat (MareBody) is the visible one; NearBody is only the cutie-mark merge. The game shader is
-## patched at runtime by `anatomy/body_coat_patch.gd`, so no source is edited and no cel shader is
-## copied.
+## coat (MareBody) is the visible one; NearBody is only the cutie-mark merge.
 func _apply_body_coat() -> void:
-	if not SETTINGS.body_coat_deform.get_bool():
-		_restore_body_coat()
-		return
-	if not is_instance_valid(pony):
-		_restore_body_coat()
-		return
-	var model: Variant = pony.get("_model")
-	if not model is Node:
-		_restore_body_coat()
-		return
-	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
-	if not is_instance_valid(body) or body.mesh == null:
-		_restore_body_coat()
-		return
-	if not _hips_bind_ready:
-		_hips_bind_pose()
-	if _body_mesh != body or not is_instance_valid(_body_material) \
-			or body.get_active_material(0) != _body_material:
-		_restore_body_coat()
-		# The body material is shared between ponies of one identity. FlankTouch owns the
-		# per-pony copies and keeps the outline in the pony's outline list.
-		var flank := pony.get_node_or_null("FlankTouch")
-		if flank != null and flank.has_method("_own_body_materials"):
-			flank.call("_own_body_materials")
-		var source := body.get_active_material(0) as ShaderMaterial
-		if source == null:
-			return
-		if not source.has_meta("jiggle_own"):
-			source = source.duplicate() as ShaderMaterial
-			var own_hull := source.next_pass as ShaderMaterial
-			if own_hull != null:
-				source.next_pass = own_hull.duplicate()
-			source.set_meta("jiggle_own", true)
-			body.set_surface_override_material(0, source)
-		_body_mesh = body
-		_body_material = source
-		_body_original_shader = source.shader
-		var hull := source.next_pass as ShaderMaterial
-		_body_outline = hull
-		_body_outline_original_shader = hull.shader if hull != null else null
-	if not _body_patched:
-		var patched := BODY_COAT_PATCH.patched(_body_original_shader)
-		if patched == null:
-			return
-		_body_material.shader = patched
-		if _body_outline != null and _body_outline_original_shader != null:
-			var hull_patched := BODY_COAT_PATCH.patched(_body_outline_original_shader)
-			if hull_patched != null:
-				_body_outline.shader = hull_patched
-		_body_patched = true
-	_ensure_zone_debug()
-	_apply_body_coat_uniforms()
+	coat.apply()
 
 
-## Put the game shaders back. The per-pony material copies stay; only the shader resource and
-## the mod uniforms are undone.
 func _restore_body_coat() -> void:
-	if _body_patched:
-		if is_instance_valid(_body_material) and is_instance_valid(_body_original_shader):
-			_body_material.shader = _body_original_shader
-		if is_instance_valid(_body_outline) and is_instance_valid(_body_outline_original_shader):
-			_body_outline.shader = _body_outline_original_shader
-	_body_patched = false
-	if is_instance_valid(_zone_debug):
-		_zone_debug.visible = false
-	_body_material = null
-	_body_outline = null
-	_body_mesh = null
-	_body_original_shader = null
-	_body_outline_original_shader = null
-
-
-## Debug-only rings for the two still zones. Created lazily once the body coat is patched and
-## hidden whenever the debug toggle or the body coat flag is off.
-func _ensure_zone_debug() -> void:
-	if is_instance_valid(_zone_debug) or not is_instance_valid(pony):
-		return
-	_zone_debug = STILL_ZONE_DEBUG.new()
-	pony.add_child(_zone_debug)
-	_zone_debug.call("setup")
+	coat.restore()
 
 
 func _debug_zones_tick() -> void:
-	if not is_instance_valid(_zone_debug):
-		_zone_debug = null
-		return
-	var show := SETTINGS.draw_still_zones.get_bool() and _body_patched \
-		and SETTINGS.body_coat_deform.get_bool() and _hips_bind_ready \
-		and is_instance_valid(_skeleton) and is_instance_valid(_mesh)
-	if not show:
-		_zone_debug.visible = false
-		return
-	var hip := _skeleton.find_bone("pony_hips")
-	if hip < 0:
-		_zone_debug.visible = false
-		return
-	# The zone centres are body-local; the hips skinning transform puts the rings on the posed
-	# rump. The rump coat is dominated by this bone, so this is the useful debug frame.
-	var body_to_world := _skeleton.global_transform \
-		* _skeleton.get_bone_global_pose(hip) * _hips_bind
-	_zone_debug.call("update", body_to_world, _zone_vulva_centre, _zone_axes,
-		_zone_vulva_radius, _zone_anal_centre, _zone_anal_radius, _zone_oval,
-		_zone_fade, true)
+	coat.tick_debug()
 
 
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
-func _skinned_part(path: String, part_name: String) -> MeshInstance3D:
-	var model: Variant = pony.get("_model")
-	if not is_instance_valid(_skeleton) or not model is Node:
-		return null
-	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
-	var scene: PackedScene = load(path)
-	if body == null or body.skin == null or scene == null:
-		return null
-	var part: Node = scene.instantiate()
-	var meshes: Array = part.find_children("*", "MeshInstance3D", true, false)
-	if part is MeshInstance3D:
-		meshes = [part]
-	if meshes.is_empty() or (meshes[0] as MeshInstance3D).skin == null:
-		part.queue_free()
-		return null
-	var mesh: MeshInstance3D = meshes[0]
-	var binds := {}
-	for i in body.skin.get_bind_count():
-		binds[String(body.skin.get_bind_name(i))] = body.skin.get_bind_pose(i)
-	var skin := Skin.new()
-	for i in mesh.skin.get_bind_count():
-		var bone := String(mesh.skin.get_bind_name(i))
-		skin.add_named_bind(bone, binds.get(bone, Transform3D.IDENTITY))
-	mesh.owner = null
-	if mesh.get_parent() != null:
-		mesh.get_parent().remove_child(mesh)
-	if part != mesh:
-		part.queue_free()
-	mesh.name = part_name
-	_skeleton.add_child(mesh)
-	mesh.transform = Transform3D.IDENTITY
-	mesh.skin = skin
-	mesh.skeleton = mesh.get_path_to(_skeleton)
-	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	OUTLINE_EXCLUSION.apply_to(mesh)
-	return mesh
-
-
-func _attach_teats() -> void:
-	if not _body.is_empty() or is_instance_valid(_teats_mesh):
-		return
-	_teats_mesh = _skinned_part(TEATS_PATH, "UnfplapAnatomyTeats")
-	if not is_instance_valid(_teats_mesh):
-		return
-	_teats_jiggle = TEAT_JIGGLE.new()
-	_teats_jiggle.name = "UnfplapAnatomyTeatJiggle"
-	_teats_jiggle.set("skeleton", _skeleton)
-	_teats_jiggle.set("runtime", runtime)
-	_teats_mesh.add_child(_teats_jiggle)
-	var size := _teat_size()
-	_teats_mesh.set_blend_shape_value(_teats_mesh.find_blend_shape_by_name("mid"),
-		1.0 - absf(size * 2.0 - 1.0))
-	_teats_mesh.set_blend_shape_value(_teats_mesh.find_blend_shape_by_name("full"),
-		maxf(size * 2.0 - 1.0, 0.0))
-	_teats_jiggle.set("swing", 1.0 + 2.0 * size)
-
-
-func _attach_skin_strip(size: float) -> void:
-	if not _body.is_empty() or is_instance_valid(_skin_strip):
-		return
-	_skin_strip = _skinned_part(STRIP_PATH, "UnfplapAnatomySkinStrip")
-	if not is_instance_valid(_skin_strip) or not is_instance_valid(_mesh):
-		return
-	var arrays: Array = _skin_strip.mesh.surface_get_arrays(0)
-	var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-	var strip_at := func(point: Vector3) -> float:
-		var best := INF
-		var along := 0.0
-		for i in points.size():
-			var distance := points[i].distance_squared_to(point)
-			if distance < best:
-				best = distance
-				along = uvs[i].x
-		return along
-	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
-	if is_instance_valid(dock) and dock.mesh != null:
-		var box := dock.mesh.get_aabb()
-		_strip_span.x = strip_at.call(Vector3(0.0, box.position.y, box.position.z + box.size.z * 0.5))
-	_strip_span.y = strip_at.call(Vector3(0.0, TEAT_STRIP_END_Y,
-		lerpf(TEAT_STRIP_END_Z.x, TEAT_STRIP_END_Z.y, size)))
-	var parts := _skeleton.get_bone_global_rest(_skeleton.find_bone("pony_hips")) * _mesh.transform
-	var slit := Vector3(0.0, WINKING_SLIT_HALF, 0.0)
-	var gap_a: float = strip_at.call(parts * slit)
-	var gap_b: float = strip_at.call(parts * -slit)
-	_strip_gap = Vector2(minf(gap_a, gap_b), maxf(gap_a, gap_b))
-
-
-func _teat_size() -> float:
-	var identity: Variant = pony.get("identity")
-	var id := str(identity.get("id")) if identity != null else ""
-	return float(absi(id.hash()) % 101) / 100.0
-
-
-func _apply_teats_material(base: ShaderMaterial) -> void:
-	if not is_instance_valid(base):
-		return
-	if not is_instance_valid(_teats_mesh) and not is_instance_valid(_skin_strip):
-		return
-	var material := base.duplicate() as ShaderMaterial
-	var identity: Variant = pony.get("identity")
-	var fill: Variant = identity.get("coat_fill") if identity != null else null
-	var shade: Variant = identity.get("coat_shade") if identity != null else null
-	material.set_shader_parameter("coat_color", fill if fill is Color else Color(0.8, 0.8, 0.8))
-	material.set_shader_parameter("coat_shadow", shade if shade is Color else Color(0.68, 0.68, 0.68))
-	material.set_shader_parameter("contour_amount", 0.0)
-	if is_instance_valid(_teats_mesh):
-		_teats_mesh.set_surface_override_material(0, material)
-	if is_instance_valid(_teats_jiggle):
-		_teats_jiggle.set("material", material)
-	if is_instance_valid(_skin_strip):
-		var strip := material.duplicate() as ShaderMaterial
-		strip.set_shader_parameter("span_from", _strip_span.x)
-		strip.set_shader_parameter("span_to", _strip_span.y)
-		strip.set_shader_parameter("span_fade", STRIP_END_FADE)
-		strip.set_shader_parameter("gap_from", _strip_gap.x)
-		strip.set_shader_parameter("gap_to", _strip_gap.y)
-		strip.set_shader_parameter("strip_trim", 1.0)
-		strip.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
-		_skin_strip.set_surface_override_material(0, strip)
-
-
 func apply_live() -> void:
 	if not _attached:
 		return
@@ -1006,7 +513,7 @@ func apply_live() -> void:
 		_load_place()
 	_apply_material()
 	_apply_place()
-	_apply_anal_shape(_anal_local)
+	shapes.refresh_anal()
 	_apply_body_coat()
 	_apply_visibility()
 
@@ -1037,12 +544,7 @@ func _reload_mare_bits_mesh() -> void:
 		return
 	_mesh.mesh = refined
 	_mare_bits_path_loaded = selected
-	_v2_anal = selected == MARE_BITS_V2_PATH
-	_anal_local = 0.0
-	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
-	_lip_radius = _measure_lip_radius()
-	_apply_winking_shape()
-	_apply_anal_shape(0.0)
+	shapes.set_mesh(_mesh, selected == MARE_BITS_V2_PATH)
 	instance.queue_free()
 
 
@@ -1051,31 +553,18 @@ func detach() -> void:
 	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
 			and pony.physical_reaction.is_connected(_on_physical_reaction):
 		pony.physical_reaction.disconnect(_on_physical_reaction)
-	var body_mesh := _body_mesh
-	var body_material := _body_material
-	_restore_body_coat()
-	if is_instance_valid(_zone_debug):
-		_zone_debug.queue_free()
-	_zone_debug = null
-	if is_instance_valid(body_mesh) and is_instance_valid(body_material):
-		body_mesh.set_surface_override_material(0, null)
-	_hips_bind_ready = false
+	if coat != null:
+		coat.clear_mesh()
 	_mare_bits_path_loaded = ""
 	_visibility_init = false
 	set_process(false)
 	if is_instance_valid(_fluid):
 		_fluid.queue_free()
 	_fluid = null
-	if is_instance_valid(_skin_strip):
-		_skin_strip.queue_free()
-	_skin_strip = null
-	if is_instance_valid(_teats_mesh):
-		_teats_mesh.queue_free()
-	_teats_mesh = null
-	_teats_jiggle = null
-	_v2_anal = false
-	_anal_local = 0.0
-	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
+	if appearance != null:
+		appearance.clear()
+	if shapes != null:
+		shapes.clear_mesh()
 	if is_instance_valid(_mesh):
 		var anchor := _mesh.get_parent()
 		_mesh.queue_free()
@@ -1088,7 +577,7 @@ func detach() -> void:
 
 
 func winking_mesh() -> MeshInstance3D:
-	return _mesh
+	return shapes.winking_mesh()
 
 
 ## integration: one persistent fluid node per pony, reused by every act.
@@ -1146,205 +635,68 @@ func _discharge_direction() -> Vector3:
 
 
 func anal_mesh() -> MeshInstance3D:
-	return _mesh if _v2_anal else null
+	return shapes.anal_mesh()
 
 
 func hole_local(mix: float) -> Vector3:
-	var anal := _anal_mouth if _v2_anal else ANAL_OPENING
-	var t := clampf(mix, 0.0, 1.0)
-	var local := WINKING_OPENING.lerp(anal, t)
-	if _v2_anal and is_instance_valid(_mesh):
-		var scale := maxf(_mesh.global_transform.basis.get_scale().y, 0.0001)
-		local += Vector3(0.0, SETTINGS.anal_aim_mm.get_num() / 1000.0 * t / scale, 0.0)
-	return local
+	return shapes.hole_local(mix)
 
 
-func hole_point(mix: float) -> Vector3:
-	if not is_instance_valid(_mesh):
-		return Vector3.ZERO
-	var point := _mesh.global_transform * WINKING_OPENING
-	if not _v2_anal:
-		return point
-	var t := clampf(mix, 0.0, 1.0)
-	var anal := _mesh.global_transform * _anal_mouth
-	anal += _mesh.global_transform.basis.y.normalized() \
-		* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
-	return point.lerp(anal, t)
+func hole_point(mix := 0.0) -> Vector3:
+	return shapes.hole_point(mix)
 
 
 func hole_rear(mix := 0.0) -> Vector3:
-	if not is_instance_valid(_mesh):
-		return Vector3.BACK
-	return _mesh.global_basis.z.normalized()
+	return shapes.hole_rear(mix)
 
 
 func set_closed(value: float) -> void:
-	_idle_wink = false
-	_closed = clampf(value, 0.0, 1.0)
-	_apply_winking_shape()
+	shapes.set_closed(value)
 
 
-## Idle heat crossfade: 0 is resting closed, 1 is the authored open shape. The `closed` shape
-## carries the lips; the V2 `wink` shape adds the clitoral accent. The depth cut stays out of the
-## idle rest: it pulls the pink interior toward the camera, and the clitoris sits in that mask, so
-## a partial cut drags it out through the lips.
+## Idle heat crossfade: 0 is resting closed, 1 is the authored open shape.
 func set_idle_wink(amount: float) -> void:
-	_wink_amount = clampf(amount, 0.0, 1.0)
-	# `closed` is inverted: 1 is the authored closed lips, 0 is open.
-	_idle_wink = true
-	_closed = 1.0 - _wink_amount
-	_apply_winking_shape()
+	shapes.set_idle_wink(amount)
 
 
 func drive(closed: float) -> void:
-	_idle_wink = false
-	_wink_amount = 0.0
-	_rest = clampf(closed, 0.0, 1.0)
-	if _tween != null:
-		_tween.kill()
-	set_closed(_rest)
+	shapes.drive(closed)
 
 
 func animate(target: float, seconds: float) -> void:
-	if not is_instance_valid(_mesh):
-		return
-	_idle_wink = false
-	_wink_amount = 0.0
-	_rest = clampf(target, 0.0, 1.0)
-	if _tween != null:
-		_tween.kill()
-	_apply_winking_shape()
-	_tween = create_tween()
-	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_tween.tween_method(set_closed, _closed, _rest, seconds)
+	shapes.animate(target, seconds)
 
 
 func wink(count := 1, seconds := 0.45) -> void:
-	if not is_instance_valid(_mesh):
-		return
-	_idle_wink = false
-	var peak := 0.25 if _rest > 0.5 else 0.85
-	if _tween != null:
-		_tween.kill()
-	_tween = create_tween()
-	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	var from := _closed
-	for _i in count:
-		_tween.tween_method(set_closed, from, peak, seconds * 0.5)
-		_tween.tween_method(set_closed, peak, _rest, seconds * 0.5)
-		from = _rest
+	shapes.wink(count, seconds)
 
 
-## Idle heat wink. Each beat gets its own depth and timing, so a double or triple never reads as
-## one repeated motion. The act's `wink()` stays tuned for its reaction and climax beats.
-## `discharge_count` releases the heat droplets at the first beat's peak, when the clitoris has
-## finished travelling outward, instead of at the start of the opening.
+## Idle heat wink. The shape module owns the tween; `discharge_count` releases the droplets at
+## the first beat's peak.
 func wink_burst(count: int, discharge_count := -1) -> void:
-	if not is_instance_valid(_mesh):
-		return
-	if _tween != null:
-		_tween.kill()
-	# AFTERGLOW/RESTORE can still hold the act's grip. Clear it so the idle wink reads as a wink.
-	if _fill > 0.0 or _wide > 0.0:
-		_clear_part()
-	var rest := _heat_rest_open()
-	var open_a := clampf(SETTINGS.wink_open_min.get_num(), 0.0, 1.0)
-	var open_b := clampf(SETTINGS.wink_open_max.get_num(), 0.0, 1.0)
-	var open_min := minf(open_a, open_b)
-	var open_max := maxf(open_a, open_b)
-	var timing := maxf(SETTINGS.wink_timing.get_num(), 0.01)
-	_tween = create_tween()
-	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	var from := _wink_amount
-	for i in count:
-		var peak := randf_range(open_min, open_max)
-		# Accelerated expansion, a short hold, then an accelerated retraction.
-		var opening := _tween.tween_method(set_idle_wink, from, peak,
-			randf_range(0.18, 0.38) * timing)
-		opening.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		if i == 0 and discharge_count > 0:
-			_tween.tween_callback(func() -> void: idle_discharge(discharge_count))
-		_tween.tween_interval(randf_range(0.08, 0.18) * timing)
-		var closing := _tween.tween_method(set_idle_wink, peak, rest,
-			randf_range(0.22, 0.45) * timing)
-		closing.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		if i < count - 1:
-			_tween.tween_interval(randf_range(0.08, 0.18) * timing)
-		from = rest
-
-
-## Missionary can use its own hug hack; every other pose keeps the anatomy setting.
-func _vulva_hug_mm() -> float:
-	if _missionary_pose():
-		return SETTINGS.vulva_hug_mm_for(SETTINGS.pony_size_name())
-	return SETTINGS.vulva_hug_mm.get_num()
-
-
-## Open the lips to the shaft's actual radius. `shaft_radius` is world metres; the mesh works in
-## local units, so it is converted with the mesh scale and solved against the measured lip radius:
-## the lip band is remapped from the rim out to `lip_outer`, so the opening reaches exactly that
-## radius while the outer silhouette keeps its shape.
-func set_grip(shaft_radius: float) -> void:
-	_wide = maxf(shaft_radius, 0.0)
-	if not is_instance_valid(_mesh):
-		return
-	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
-	if material == null:
-		return
-	var scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.0001)
-	# The hug pads the lip radius away from the shaft: positive leaves a gap, negative grips.
-	# Missionary has its own hack value; every other pose uses the anatomy setting.
-	var hug := _vulva_hug_mm() / 1000.0 if shaft_radius > 0.0 else 0.0
-	var local := maxf(shaft_radius + hug, 0.0) / scale
-	_hole_target = local
-	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
-	# the rim band outward to the measured shaft radius.
-	var shape := _mesh.find_blend_shape_by_name("stretch")
-	if shape >= 0:
-		_mesh.set_blend_shape_value(shape, 0.0)
-	material.set_shader_parameter("hole_target", local)
+	shapes.wink_burst(count, discharge_count, _heat_rest_open(),
+		Callable(self, "idle_discharge"))
 	_apply_body_coat_uniforms()
 
 
-## Publish Anon's shaft so the shader can project any vertex that ends up inside it back onto the
-## surface. `radii` are world metres, sampled evenly from base to tip.
+## Open the lips to the shaft's actual radius. The shape module converts world metres to mesh
+## units and applies the hug padding.
+func set_grip(shaft_radius: float) -> void:
+	shapes.set_grip(shaft_radius, _missionary_pose())
+	_apply_body_coat_uniforms()
+
+
 func set_shaft(pivot: Vector3, axis: Vector3, length: float, radii: PackedFloat32Array) -> void:
-	_shaft_pivot = pivot
-	_shaft_axis = axis
-	_shaft_length = length
-	_shaft_radii = radii
-	_push_shaft(_mesh)
-
-
-func _push_shaft(target: MeshInstance3D) -> void:
-	if not is_instance_valid(target):
-		return
-	var material := target.get_surface_override_material(0) as ShaderMaterial
-	if material == null:
-		return
-	material.set_shader_parameter("shaft_pivot", _shaft_pivot)
-	material.set_shader_parameter("shaft_axis", _shaft_axis)
-	material.set_shader_parameter("shaft_length", _shaft_length)
-	material.set_shader_parameter("shaft_radii", _shaft_radii)
+	shapes.set_shaft(pivot, axis, length, radii)
 
 
 func clear_shaft() -> void:
-	var zeros := PackedFloat32Array()
-	zeros.resize(8)
-	set_shaft(Vector3.ZERO, Vector3.ZERO, 0.0, zeros)
+	shapes.clear_shaft()
 
 
 ## The lip band's mean radius in local units, used by the grip solve and by tuning readouts.
 func lip_radius() -> float:
-	return _lip_radius
-
-
-## Measure the inner lip ring from the mesh geometry. The vertex colours cannot be used: 90 % of
-## the mesh carries the lip flag. The rim is the first radius whose vertex density is high, found
-## by binning the planar distance from the opening.
-func _measure_lip_radius() -> float:
-	return GEOMETRY.stable_lip_radius(
-		_measure_ring_radius(_mesh, WINKING_OPENING, GEOMETRY.WINKING_LIP_RADIUS))
+	return shapes.lip_radius()
 
 
 ## The pure stability rule lives in `anatomy/geometry.gd`; this forwarder keeps the static
@@ -1353,88 +705,13 @@ static func stable_lip_radius(measured: float) -> float:
 	return GEOMETRY.stable_lip_radius(measured)
 
 
-func _measure_ring_radius(target: MeshInstance3D, centre: Vector3, fallback: float) -> float:
-	if not is_instance_valid(target) or target.mesh == null:
-		return fallback
-	var arrays := target.mesh.surface_get_arrays(0)
-	if arrays.is_empty():
-		return fallback
-	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	if verts.is_empty():
-		return fallback
-	const STEP := 0.002
-	const BINS := 40
-	var bin_counts := PackedInt32Array()
-	bin_counts.resize(BINS)
-	for v: Vector3 in verts:
-		var radius := Vector2(v.x - centre.x, v.y - centre.y).length()
-		var bin := int(radius / STEP)
-		if bin >= 0 and bin < BINS:
-			bin_counts[bin] += 1
-	var peak := 0
-	for bin: int in BINS:
-		peak = maxi(peak, bin_counts[bin])
-	if peak == 0:
-		return fallback
-	# Walk inward from the densest band until the density collapses: that edge is the rim.
-	var dense := int(float(peak) * 0.25)
-	var rim_bin := 0
-	for bin: int in BINS:
-		if bin_counts[bin] >= dense:
-			rim_bin = bin
-			break
-	return maxf(float(rim_bin) * STEP, 0.004)
-
-
 func set_fill(fill: float) -> void:
-	_fill = clampf(fill, 0.0, 1.0)
-	_apply_winking_shape()
+	shapes.set_fill(fill)
 
 
-func _apply_winking_shape() -> void:
-	if not is_instance_valid(_mesh):
-		return
-	var shape := _mesh.find_blend_shape_by_name("closed")
-	if shape >= 0:
-		_mesh.set_blend_shape_value(shape, _closed)
-	var wink_shape := _mesh.find_blend_shape_by_name("wink")
-	if wink_shape >= 0:
-		_mesh.set_blend_shape_value(wink_shape, _wink_amount)
-	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
-	if material != null:
-		# The depth cut is the act's shaft opening only. The idle wink drives `closed` too, so
-		# keep the cut fully off while the idle crossfade owns the shapes.
-		var open := 0.0 if _idle_wink else smoothstep(0.0, 0.4, 1.0 - _closed)
-		var filled := lerpf(1.0, WINKING_CUT_FILLED, smoothstep(0.5, 1.0, _fill))
-		material.set_shader_parameter("cut_depth", WINKING_CUT_DEPTH * open * filled
-			* _mesh.global_transform.basis.get_scale().x)
-
-
-## Drive the V2 anal blend shapes from the real shaft radius. Each key starts where the
-## previous one ends, so the hole grows continuously into the overstretch and extreme scales.
+## Drive the V2 anal blend shapes from the real shaft radius.
 func set_anal_grip(shaft_radius: float) -> void:
-	if not is_instance_valid(_mesh) or not _v2_anal:
-		return
-	var scale := maxf(_mesh.global_transform.basis.get_scale().x, 0.0001)
-	var hug := SETTINGS.anal_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
-	_anal_local = maxf(shaft_radius + hug, 0.0) / scale
-	_apply_anal_shape(_anal_local)
-
-
-## Set the four anal keys and the independent ponut scale key. The ponut key is a 2x
-## ponut-only scale with a boundary falloff, so the ring, vulva and opening stay put. The
-## extreme key carries its own whole-patch 2x scale and fades the ponut key out.
-func _apply_anal_shape(local: float) -> void:
-	if not is_instance_valid(_mesh) or not _v2_anal:
-		return
-	var weights := GEOMETRY.anal_ring_weights(local, SETTINGS.anal_scale.get_num())
-	_anal_mouth = GEOMETRY.anal_ring_centre(weights)
-	for pair: Array in [["anal_open", "open"], ["anal_stretch", "stretch"],
-			["anal_overstretch", "over"], ["anal_extreme", "extreme"],
-			["ponut_scale", "ponut"]]:
-		var index := _mesh.find_blend_shape_by_name(str(pair[0]))
-		if index >= 0:
-			_mesh.set_blend_shape_value(index, float(weights.get(str(pair[1]), 0.0)))
+	shapes.set_anal_grip(shaft_radius)
 
 
 ## Kept for the act's call order; the old cup's cut depth is gone and the shape keys do the work.
@@ -1443,15 +720,12 @@ func set_anal_shape(_fill: float, _wide := 0.0) -> void:
 
 
 func react() -> void:
-	if is_instance_valid(_mesh):
-		wink(2)
+	shapes.react()
 
 
 func _clear_part() -> void:
-	set_fill(0.0)
-	set_grip(0.0)
-	set_anal_grip(0.0)
-	_apply_winking_shape()
+	shapes.clear_part()
+	_apply_body_coat_uniforms()
 
 
 ## integration: local placement calibration for the debug actions.

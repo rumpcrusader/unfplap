@@ -9,6 +9,7 @@ extends SceneTree
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
+const CONSENT := preload("res://mods/unfplap/consent.gd")
 
 var failures := 0
 var checks := 0
@@ -573,6 +574,35 @@ func _check_character_overrides() -> void:
 	var kept := SETTINGS._migrate(current, SETTINGS.SCHEMA_VERSION)
 	check((kept.get("characters", {}) as Dictionary).has("fluttershy"),
 		"a current file is not normalized twice")
+
+	var empty := {"version": SETTINGS.SCHEMA_VERSION - 1,
+		"characters": {"fluttershy": {"preferences": {}}}}
+	var empty_migrated := SETTINGS._migrate(empty, SETTINGS.SCHEMA_VERSION - 1)
+	check(not empty_migrated.has("characters"),
+		"an empty saved profile is not a player override")
+
+	var shipped_consent := CONSENT.defaults("fluttershy")
+	var consent_data := {"version": SETTINGS.SCHEMA_VERSION - 1,
+		"characters": {"fluttershy": {"consent": shipped_consent}}}
+	var consent_migrated := SETTINGS._migrate(consent_data, SETTINGS.SCHEMA_VERSION - 1)
+	check(not consent_migrated.has("characters"),
+		"unchanged consent normalizes away")
+	var changed_consent := shipped_consent.duplicate(true)
+	changed_consent["public"] = not bool(shipped_consent.get("public", false))
+	var changed_data := {"version": SETTINGS.SCHEMA_VERSION - 1,
+		"characters": {"fluttershy": {"consent": changed_consent}}}
+	var changed_migrated := SETTINGS._migrate(changed_data, SETTINGS.SCHEMA_VERSION - 1)
+	var stored_consent: Dictionary = ((changed_migrated.get("characters", {}) as Dictionary)
+		.get("fluttershy", {}) as Dictionary).get("consent", {})
+	check(stored_consent.has("public") and not stored_consent.has("anal")
+		and not stored_consent.has("oral"), "only changed consent is kept")
+	var custom_consent := CONSENT.defaults("a_modded_mare")
+	var custom_consent_data := {"version": SETTINGS.SCHEMA_VERSION - 1,
+		"characters": {"a_modded_mare": {"consent": custom_consent}}}
+	var custom_consent_migrated := SETTINGS._migrate(custom_consent_data,
+		SETTINGS.SCHEMA_VERSION - 1)
+	check(not custom_consent_migrated.has("characters"),
+		"a custom mare's unchanged consent also normalizes away")
 
 	var edited := SETTINGS.default_preferences("fluttershy")
 	edited["intensity"] = "soft"

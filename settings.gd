@@ -2119,11 +2119,12 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 			continue
 		var entry: Dictionary = (raw as Dictionary).duplicate(true)
 		var built_in: Variant = CHARACTER_TEMPLATES.get(id, {})
+		var template: Dictionary = {}
 		if built_in is Dictionary and not (built_in as Dictionary).is_empty():
-			var template: Dictionary = built_in
+			template = built_in
 			if entry.has("preferences"):
 				var saved: Variant = entry["preferences"]
-				if saved is Dictionary:
+				if saved is Dictionary and not (saved as Dictionary).is_empty():
 					var diff := _preferences_diff(
 						PREFERENCES.resolve(saved),
 						PREFERENCES.resolve(template.get("preferences", {})))
@@ -2141,6 +2142,25 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 			for field: String in ["cue_gap", "aftercare_min", "smack_zone_radius"]:
 				if entry.has(field) and entry[field] == template.get(field, null):
 					entry.erase(field)
+		# Consent is not tied to a built-in template. Old files stored all three keys even when
+		# the player never changed one; keep only real differences so a provider's consent
+		# defaults still apply to the rest.
+		if entry.has("consent"):
+			var saved_consent: Variant = entry["consent"]
+			if saved_consent is Dictionary and not (saved_consent as Dictionary).is_empty():
+				var consent_defaults := CONSENT.resolve(id, template.get("consent", {}))
+				var saved := CONSENT.clean(saved_consent)
+				var diff: Dictionary = {}
+				for consent_key: String in ["public", "anal", "oral"]:
+					if saved.has(consent_key) \
+							and bool(saved[consent_key]) != bool(consent_defaults.get(consent_key, false)):
+						diff[consent_key] = bool(saved[consent_key])
+				if diff.is_empty():
+					entry.erase("consent")
+				else:
+					entry["consent"] = diff
+			else:
+				entry.erase("consent")
 		if not entry.is_empty():
 			cleaned[id] = entry
 	if cleaned.is_empty():

@@ -18,6 +18,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      # checkout re-fetches a tag push as a lightweight ref for its commit when
+      # fetch-depth is 0, so the release check must read the tag object again.
+      - name: Restore the annotated tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+
       - uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.5.2

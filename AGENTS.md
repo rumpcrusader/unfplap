@@ -260,10 +260,10 @@ mods/unfplap/
   tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
   tail_visibility.gd  debug controller: installs tail_hide on loaded AI characters
   tail_seat.gd      re-seats every adult mare's hair tail at the reference dock, installs the
-                    tail-only dock cuff, reads the tail/dock/tilt placement and prints its perf
-                    lines; restores the original when the setting is off
-  dock_attach.gd    tail-only dock cuff follower: `mPelvis` base, `mTail1` outer end, 30 Hz CPU,
-                    skips unchanged poses, keeps the dock's vertex colours and metadata
+                    two-bone dock cuff skin, reads the tail/dock/tilt placement and prints its
+                    perf lines; restores the original when the setting is off
+  dock_attach.gd    builds the dock's two-bone GPU skin: `mPelvis` base, `mTail1` outer end,
+                    body-space mesh, post-skin lift; keeps the dock's vertex colours and metadata
   dock_seat.gd      snaps the dock base ring to the rump (`rump_z - 4 mm`) with a falloff
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
@@ -463,11 +463,19 @@ reclined eye height left the camera wrong after the act.
   measures the cap low/high in body bind space and the fitted dock's top, then applies
   `cap_centre - dock_top` through `dock_attach.gd`; there is no fixed drop constant. The Anatomy
   **Dock offset** trims that cuff position.
-- `dock_attach.gd` is a tail-only follower: an unskinned `SkeletonModifier3D` on the hair skeleton
-  blends the dock vertices from `mPelvis` at the base to `mTail1` at the outer end, 30 Hz, and
-  rebuilds normals. It keeps the dock metadata (`base_indices`, `pinned_*`) on the rebuilt mesh.
-  Lift, aside, flick, tail lay and tail tuck all carry the cuff; it never bridges body and tail,
-  so sitting cannot stretch it.
+- `dock_attach.gd` builds the dock as a two-bind GPU skin on the hair skeleton: `mPelvis` at the
+  base, `mTail1` at the outer end, and the same smoothstep weight between them. The mesh stays in
+  the body skeleton's space; the bind poses convert body space into the hair skeleton's bind space
+  (`rest_pose^-1 * hair_global^-1 * body_global`), and the dock's instance transform carries the
+  lift as a post-skin body-space Y offset. The engine blends it every frame, so there is no
+  per-frame mesh rebuild; lift, aside, flick, tail lay and tail tuck all carry the cuff, and it
+  never bridges body and tail, so sitting cannot stretch it. The mesh keeps the dock metadata
+  (`base_indices`, `pinned_*`).
+- The dock must stay parented under the hair skeleton: `hybrid_far_mesh.sources()` bakes every
+  visible `_model` mesh with a skin into the far mesh, and a hair-bound skin there would be
+  remapped onto body bones. Under `hair`, `_show_far_mesh()` hides the cuff with the hair and the
+  near/far bakes ignore it by name. Turning the setting off restores the original parent, local
+  transform, skeleton path, skin, mesh and material, and strips the game's `parked_skeleton` meta.
 - `anatomy.placement` is the one placement block: `offset_x/y/z`, `pitch_deg`, `scale`, `tail_y`,
   `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. `default` is global; `<mare id>` stores
   only differences. `anatomy.placement_target` selects Default or Pointed mare for every
@@ -1613,8 +1621,8 @@ is deliberately blush-free so the 0.35 decal stays light.
   `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
   instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
   outside an act. **Print perf logs** also prints `tail perf attach`/`tail perf refresh` one-shot
-  lines and a once-per-second `tail perf seats=… follow=…/s skip=… mesh=…/s avg=… max=…` line
-  aggregating every live dock follower.
+  lines and a once-per-second `tail perf seats=… skinned=… builds=…/s` line aggregating every live
+  dock; steady state is `builds=0/s` because the blend runs on the GPU.
 - **Hide tails** is a persisted debug toggle (Anatomy › Debug). While on, it collapses the hair
   `mTail1` and body `pony_tail_01` chain roots of every loaded `ai_characters` pony, so the rig,
   near and far tail geometry all disappear while the mane stays. The small root cap pinned to the

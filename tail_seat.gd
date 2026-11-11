@@ -311,6 +311,11 @@ func _prepare(pony: Node) -> Dictionary:
 	var placement := SETTINGS.anatomy_placement(id)
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
 	var original_skin: Skin = dock.skin
+	# A far pony's dock may be parked by the game's rig parking: the path is empty and the real
+	# one is in `parked_skeleton`. Cache the resolved path so `_restore()` always puts it back.
+	var original_skeleton: NodePath = dock.skeleton
+	if original_skeleton.is_empty() and dock.has_meta(&"parked_skeleton"):
+		original_skeleton = dock.get_meta(&"parked_skeleton")
 	return {
 		"pony": pony,
 		"id": id,
@@ -323,6 +328,9 @@ func _prepare(pony: Node) -> Dictionary:
 		"original_dock": dock.mesh,
 		"original_skin": original_skin,
 		"original_material": dock.get_surface_override_material(0),
+		"original_parent": dock.get_parent(),
+		"original_transform": dock.transform,
+		"original_skeleton": original_skeleton,
 		"hips_rest": skeleton.get_bone_global_rest(hips),
 		"anchor": anchor,
 		"cap_centre": _tail_cap_centre(pony),
@@ -332,7 +340,8 @@ func _prepare(pony: Node) -> Dictionary:
 		"dock_y": float(placement.get("dock_y", 0.0)),
 		"dock_scale": float(placement.get("dock_scale", 1.0)),
 		"tail_tilt_deg": float(placement.get("tail_tilt_deg", 0.0)),
-		"attached": null,
+		"attached": false,
+		"builds": 0,
 		"applied": Vector3.ZERO,
 	}
 
@@ -375,19 +384,41 @@ func _restore(row: Dictionary) -> void:
 		link.set("pelvis_offset", row["original_pelvis"])
 		if link.has_method("_body_updated"):
 			link.call("_body_updated")
-	_detach_follower(row)
+	_clear_skin(row)
 	var dock: MeshInstance3D = row["dock"]
 	if is_instance_valid(dock):
+		# Same relative-path hazard as `_install_skin`: detach first, then move the node.
+		dock.skeleton = NodePath()
+		dock.skin = null
+		var original_parent: Variant = row.get("original_parent")
+		if is_instance_valid(original_parent) and dock.get_parent() != original_parent:
+			var current: Node = dock.get_parent()
+			if is_instance_valid(current):
+				current.remove_child(dock)
+			(original_parent as Node).add_child(dock)
+		var original_skeleton: NodePath = row.get("original_skeleton", NodePath())
+		var original_transform: Transform3D = row.get("original_transform",
+			Transform3D.IDENTITY)
+		# The dock is watched by the game's rig parking; a stale parked path would make the next
+		# unpark restore our hair binding instead of the body one.
+		dock.remove_meta(&"parked_skeleton")
 		dock.mesh = row["original_dock"]
 		dock.skin = row["original_skin"]
+		dock.skeleton = original_skeleton
+		dock.transform = original_transform
+		# Back under `_model`; carry the far-mesh hide again if the pony is far right now, so the
+		# game's own far-end restore takes it down with the other rig meshes.
+		if bool(pony.get("_far_mesh_shown")) and dock.visible:
+			dock.set_meta(&"far_hidden", true)
+			dock.visible = false
 		dock.set_surface_override_material(0, row["original_material"])
 	row["applied"] = Vector3.ZERO
 	_invalidate_far(pony)
 
 
-## Place the dock in its fitted/snapped cuff position, then let the tail-only follower carry it
-## with the hair tail root. The fit is captured before the first write, so repeated nudges rebuild
-## from the game's original fit instead of accumulating.
+## Place the dock in its fitted/snapped cuff position, then install the hair-bound two-bone skin
+## that carries it with the hair tail root. The fit is captured before the first write, so repeated
+## nudges rebuild from the game's original fit instead of accumulating.
 func _move_dock(row: Dictionary, delta: Vector3) -> void:
 	var dock: MeshInstance3D = row["dock"]
 	if not is_instance_valid(dock):
@@ -410,26 +441,15 @@ func _move_dock(row: Dictionary, delta: Vector3) -> void:
 		return
 	mesh = DOCK_SEAT.snap_base(mesh, str(row["body"]))
 	if mesh != null:
-		dock.mesh = mesh
-		_install_follower(row, mesh, delta)
+		_install_skin(row, mesh, delta)
 
 
-func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void:
-	_detach_follower(row)
+func _install_skin(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void:
 	var dock: MeshInstance3D = row["dock"]
 	var hair: Skeleton3D = row["hair_sk"]
 	var body: Skeleton3D = row["body_sk"]
 	if not is_instance_valid(dock) or not is_instance_valid(hair) or not is_instance_valid(body):
 		return
-	dock.skin = null
-	dock.set_surface_override_material(0, _dock_material(row))
-	var follower: SkeletonModifier3D = DOCK_ATTACH.new()
-	follower.name = "UnfplapDockAttach"
-	follower.set("pony", row["pony"])
-	follower.set("dock", dock)
-	follower.set("body", body)
-	follower.set("hair", hair)
-	follower.set("rest_mesh", mesh)
 	# Seat the dock's outer opening on the tail cap's centre line. `mesh` is already moved by the
 	# seat delta, so subtract that delta before comparing it with the cap measured in the mare's
 	# own pre-seat frame. The Anatomy Dock offset trims it from there.
@@ -437,9 +457,40 @@ func _install_follower(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void
 	var drop := float(row.get("cap_centre", NAN)) - top
 	if not is_finite(drop):
 		drop = 0.0
-	follower.set("dock_lift", drop + float(row.get("dock_y", 0.0)))
-	hair.add_child(follower)
-	row["attached"] = follower
+	var parts := DOCK_ATTACH.build(mesh, body, hair, drop + float(row.get("dock_y", 0.0)))
+	if parts.is_empty():
+		return
+	_clear_skin(row)
+	# Drop the old binding before the node moves: `skeleton` is a relative path, and an old skin
+	# must not resolve against the new parent while the node is re-entering the tree.
+	dock.skeleton = NodePath()
+	dock.skin = null
+	# The dock is skinned to the hair skeleton, so it must live under it: the game bakes every
+	# visible `_model` mesh with a skin into the far mesh, and a hair-bound skin there would be
+	# remapped onto body bones. Under `hair`, `_show_far_mesh()` hides the cuff with the hair.
+	var parent: Node = dock.get_parent()
+	if parent != hair:
+		if is_instance_valid(parent):
+			parent.remove_child(dock)
+		hair.add_child(dock)
+	var placement: Transform3D = parts.get("transform")
+	var skinned: ArrayMesh = parts.get("mesh")
+	var skin: Skin = parts.get("skin")
+	dock.remove_meta(&"parked_skeleton")
+	dock.transform = placement
+	dock.mesh = skinned
+	# Set the skin while the skeleton path is empty, then resolve it once: setting the path with
+	# no skin would make Godot register a temporary rest skin for the whole hair rig.
+	dock.skin = skin
+	dock.skeleton = dock.get_path_to(hair)
+	# The dock left `_model`, so the far-mesh pass cannot restore a `far_hidden` mark it set
+	# before the move. Only a visible dock gets that mark; return it to the anatomy's switch.
+	if dock.has_meta(&"far_hidden"):
+		dock.remove_meta(&"far_hidden")
+		dock.visible = SETTINGS.show_dock.get_bool()
+	dock.set_surface_override_material(0, _dock_material(row))
+	row["attached"] = true
+	row["builds"] = int(row.get("builds", 0)) + 1
 
 
 ## The dock's chosen colour. Genitals uses a copy of the live anatomy material, recoloured so the
@@ -487,15 +538,10 @@ func refresh_dock_color(pony: Node) -> void:
 	dock.set_surface_override_material(0, _dock_material(row))
 
 
-func _detach_follower(row: Dictionary) -> void:
-	var follower: Variant = row.get("attached")
-	row["attached"] = null
-	if not is_instance_valid(follower):
-		return
-	var parent: Node = (follower as Node).get_parent()
-	if is_instance_valid(parent):
-		parent.remove_child(follower)
-	(follower as Node).queue_free()
+## The dock is a real skinned mesh now, so there is no follower node to free. `_restore()` puts
+## the game's body-skinned dock back; a rebuild simply overwrites the installed mesh and skin.
+func _clear_skin(row: Dictionary) -> void:
+	row["attached"] = false
 
 
 func _invalidate_far(pony: Node) -> void:
@@ -516,28 +562,18 @@ func _perf_on() -> bool:
 
 func _log_perf() -> void:
 	var seats := 0
-	var updates := 0
-	var skipped := 0
-	var usec := 0
-	var max_usec := 0
-	var meshes := 0
+	var skinned := 0
+	var builds := 0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			continue
 		seats += 1
 		var row: Dictionary = _rows[pony]
-		var follower: Variant = row.get("attached")
-		if not is_instance_valid(follower) or not follower.has_method("take_perf"):
-			continue
-		var stats: Dictionary = follower.call("take_perf")
-		updates += int(stats.get("updates", 0))
-		skipped += int(stats.get("skipped", 0))
-		usec += int(stats.get("usec", 0))
-		max_usec = maxi(max_usec, int(stats.get("max_usec", 0)))
-		meshes += int(stats.get("meshes", 0))
-	var avg := float(usec) / float(maxi(updates, 1)) / 1000.0
-	_log("tail perf seats=%d follow=%d/s skip=%d mesh=%d/s avg=%.2fms max=%.2fms" % [
-		seats, updates, skipped, meshes, avg, float(max_usec) / 1000.0])
+		if bool(row.get("attached", false)):
+			skinned += 1
+		builds += int(row.get("builds", 0))
+		row["builds"] = 0
+	_log("tail perf seats=%d skinned=%d builds=%d/s" % [seats, skinned, builds])
 
 
 func _source(row: Dictionary) -> String:

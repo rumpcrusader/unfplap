@@ -120,7 +120,7 @@ func debug_text(pony: Node, mode := MODE_START) -> String
 | `main._try_refusal()` | `runtime.refuse_available()` | none |
 | `initiation` | `runtime.offer_verdict()` | cooldown, approach, bed search, privacy, classifier |
 | `dialogue_consent` | `runtime.grant_sex_bond/end_sex_bond` | none |
-| `anatomy_act` | `action_consent()` | feature flags |
+| `anatomy/act` | `action_consent()` | feature flags |
 | `anatomy`, `tail_seat` | `adult_mare()` | rig, hair, dock |
 | `memory` | `facts.gd` adult predicates | perception, sleeping |
 | `standing_presentation` | `adult_mare()` | pose, state |

@@ -8,6 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
+const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
@@ -47,6 +48,8 @@ var _dock_was_visible := true
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
 ## keys. The controller forwards its public shape API.
 var shapes: RefCounted
+## The current act handle; created here and freed with this controller.
+var _act: Node
 ## Material, skin tones, teats and the skin strip.
 var appearance: RefCounted
 var _missing_logged := false
@@ -141,6 +144,28 @@ func setup(pony_node: Node3D, runtime_node: Node) -> void:
 	coat.setup(pony, shapes)
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, runtime, main, shapes)
+
+
+## Create the per-act controller for `pose_id`. The controller owns it until `end_act()`.
+func begin_act(pose_id: String) -> Node:
+	end_act()
+	_act = ACT.new()
+	_act.name = "UnfplapAnatomyAct"
+	add_child(_act)
+	_act.call("setup", runtime, main, pony, self, pose_id)
+	return _act
+
+
+func end_act() -> void:
+	if is_instance_valid(_act):
+		_act.call("end")
+		_act.call("teardown")
+		_act.queue_free()
+	_act = null
+
+
+func act() -> Node:
+	return _act
 
 
 func refresh() -> void:
@@ -549,6 +574,7 @@ func _reload_mare_bits_mesh() -> void:
 
 
 func detach() -> void:
+	end_act()
 	_attached = false
 	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
 			and pony.physical_reaction.is_connected(_on_physical_reaction):

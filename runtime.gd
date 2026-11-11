@@ -44,7 +44,6 @@ const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const ANATOMY_CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
-const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
@@ -577,17 +576,11 @@ func anatomy_available() -> bool:
 
 
 func _anatomy_act_refresh(pose_id: String) -> void:
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("teardown")
-		_anatomy_act.queue_free()
-		_anatomy_act = null
+	_anatomy_facts = {}
+	_anatomy_act = null
 	if not is_instance_valid(_anatomy):
 		return
-	_anatomy_facts = {}
-	_anatomy_act = ANATOMY_ACT.new()
-	_anatomy_act.name = "UnfplapAnatomyAct"
-	add_child(_anatomy_act)
-	_anatomy_act.call("setup", self, main, pony, _anatomy, pose_id)
+	_anatomy_act = _anatomy.call("begin_act", pose_id)
 
 
 func _anatomy_service() -> Variant:
@@ -5064,12 +5057,16 @@ func _end_session(rejoin_cuddle: bool) -> void:
 			and _rejoin_wanted():
 		rejoin_bed = bed
 	# integration: close the anatomy act once, before the pose is freed.
-	if is_instance_valid(_anatomy_act):
+	var was_standing := pose_id == CATALOG.STANDING
+	if is_instance_valid(_anatomy) and _anatomy.has_method("end_act"):
+		_anatomy.call("end_act")
+	elif is_instance_valid(_anatomy_act):
 		_anatomy_act.call("end")
-		_apply_anatomy_facing()
 		_anatomy_act.call("teardown")
 		_anatomy_act.queue_free()
-		_anatomy_act = null
+	_anatomy_act = null
+	if was_standing:
+		anatomy_facing(Basis.IDENTITY, 0.0)
 	if is_instance_valid(_missionary_anon):
 		_missionary_anon.call("remove")
 		_missionary_anon.queue_free()
@@ -6489,12 +6486,16 @@ func _exit_tree() -> void:
 	_kiss_controller().restore_forelegs()
 	_end_tail_tuck()
 	# integration: never leave the anatomy nodes or the per-act controller behind.
-	if is_instance_valid(_anatomy_act):
+	var was_standing := pose_id == CATALOG.STANDING
+	if is_instance_valid(_anatomy) and _anatomy.has_method("end_act"):
+		_anatomy.call("end_act")
+	elif is_instance_valid(_anatomy_act):
 		_anatomy_act.call("end")
-		_apply_anatomy_facing()
 		_anatomy_act.call("teardown")
 		_anatomy_act.queue_free()
-		_anatomy_act = null
+	_anatomy_act = null
+	if was_standing:
+		anatomy_facing(Basis.IDENTITY, 0.0)
 	if is_instance_valid(_missionary_anon):
 		_missionary_anon.call("remove")
 		_missionary_anon.queue_free()

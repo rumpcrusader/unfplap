@@ -3,8 +3,8 @@ extends Node
 ## later, the player part and tail seating. Other systems call this facade, never a controller's
 ## internals.
 ##
-## The per-pony controller is `anatomy/controller.gd`; the act handle is `anatomy_act.gd` until
-## it moves under the same facade.
+## The per-pony controller is `anatomy/controller.gd`; it owns the per-act handle
+## `anatomy/act.gd`.
 ##
 ## See `docs/anatomy.md`.
 

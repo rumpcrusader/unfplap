@@ -267,10 +267,10 @@ mods/unfplap/
                     winking mesh refinement, idle heat wink/drip; every adult identity with
                     `pony_hips`, not only the base roster; contract in `docs/anatomy.md`
   anatomy/          identity, geometry, shapes, coat, appearance and heat; act state and
-                    oral/finish/debug; fluid, teats, still zones and the anatomy shader
-  anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
+                    oral/finish/debug; player part; fluid, teats, still zones and the anatomy shader
+  anatomy/act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
                     a plain facts dictionary and returns pose/facing values
-  anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
+  anatomy/player.gd player anatomy mesh, placement, girth/head/length shaping and throb
   anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the
                     caress hand hold and shared two-bone palm solve

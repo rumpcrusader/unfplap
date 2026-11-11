@@ -231,7 +231,7 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 				"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 				"preload(\"res://mods/unfplap/main.gd\")"]:
 			check(not text.contains(token), "%s stays pure: %s" % [name, token])
-	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy_act.gd"))
+	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act.gd"))
 	check(not act.contains("runtime.get("), "the anatomy act does not read runtime fields")
 	check(not act.contains("runtime.call(\"_"), "the anatomy act does not call runtime private helpers")
 	for path: String in files:

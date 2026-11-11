@@ -25,7 +25,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy.gd` | persistent per-mare controller: attach/detach, placement, material, teats, strip, body coat, shape drive, idle heat, dock visibility, debug placement |
-| `anatomy_act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
+| `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | oral turn state, mouth anchor, style motion and facing |
 | `anatomy/act/finish.gd` | finish in/out, finish droplets and afterglow rest depth |
@@ -54,9 +54,9 @@ The current entry points are not yet isolated:
 - `main.gd` creates and holds `anon_part` and `tail_seat`, refreshes anatomy on settings changes,
   owns the placement debug actions and `refresh_dock_color`, and forwards `anon_encounter` and
   `anon_track`.
-- `runtime.gd` creates a persistent `anatomy.gd` node per pony and a per-act `anatomy_act.gd`
-  node, ticks the act controller, exposes the V/N/B gates and object queries, and supplies the
-  shaft length and body-coat jiggle handoff.
+- `runtime.gd` resolves the persistent controller through `main.anatomy`, ticks the act handle,
+  exposes the V/N/B gates and object queries, and supplies the shaft length and body-coat jiggle
+  handoff.
 - `missionary_anon.gd` and `standing_anon.gd` read `main.anon_part` directly for the hip offset,
   shaft length and shoulder aim.
 - `input.gd` calls the runtime's anatomy action gates; `hud.gd` renders the matching rows and

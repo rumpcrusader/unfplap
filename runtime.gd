@@ -13,6 +13,7 @@ const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
@@ -1232,52 +1233,91 @@ func _eyes_tick() -> void:
 # --------------------------------------------------------------------------- gates
 
 func can_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	return _report_ok(_gate_report(pose, act_source, bed_in, "start"))
+	return bool(start_verdict(pose, act_source, bed_in).get("show", false))
 
 
-## Offer eligibility before she is in position. Unlike can_start(), this does not require the
-## pony to be lying or the player to be ready; those stay in the final Y gate. `forced` is the
+## Offer eligibility before she is in position. Unlike the Y start gate, this does not require
+## the pony to be lying or the player to be ready; those stay in the final gate. `forced` is the
 ## Debug -> Actions bypass: the settings page pauses the tree, and the episode advances after it
 ## closes, so the paused row must not reject a forced offer.
 func can_offer(pose: String, act_source: String, bed_in: Variant = null, forced := false) -> bool:
-	return _report_ok(_gate_report(pose, act_source, bed_in, "offer", forced))
+	return bool(offer_verdict(pose, act_source, bed_in, forced).get("ok", false))
 
 
 ## The failed offer gates, for the debug request buttons and their logs.
 func offer_reasons(pose: String, act_source: String, bed_in: Variant = null,
 		forced := false) -> PackedStringArray:
-	return _report_reasons(_gate_report(pose, act_source, bed_in, "offer", forced))
+	return _report_reasons(offer_verdict(pose, act_source, bed_in, forced).get("rows", []))
 
 
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
-	return _report_reasons(_gate_report(pose, act_source, bed_in, "start"))
+	return _report_reasons(start_verdict(pose, act_source, bed_in).get("rows", []))
 
 
-## Ordered gate report shared by the start and offer paths. Start adds player readiness,
-## navigator reservation and the full bed gate; offer keeps only the offer-safe subset.
-func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: String,
-		forced := false) -> Array:
-	var rows: Array = []
-	_gate_row(rows, "invalid_pony", is_instance_valid(pony), "invalid_pony")
+## The full Y-start gate: eligibility policy rows plus the start scene rows. `show` is the hint,
+## `attempt` is a start, and the two refusals are separate. See docs/eligibility.md.
+func start_verdict(pose: String, act_source: String, bed_in: Variant = null) -> Dictionary:
+	var data := _gate_data(pose, act_source, bed_in, "start")
+	var policy: Dictionary = data.get("policy", {})
+	var scene_ok := bool(data.get("scene_ok", false))
+	return {
+		"show": not policy.is_empty() and bool(policy.get("show", false)) and scene_ok,
+		"attempt": not policy.is_empty() and bool(policy.get("attempt", false)) and scene_ok,
+		"buck_refuse": not policy.is_empty() and bool(policy.get("buck_refuse", false)),
+		"history_refuse": not policy.is_empty() and bool(policy.get("history_refuse", false)) and scene_ok,
+		"rows": data.get("rows", []),
+		"policy": policy,
+	}
+
+
+## The full proactive-offer gate. It uses the offer-safe scene subset.
+func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
+		forced := false) -> Dictionary:
+	var data := _gate_data(pose, act_source, bed_in, "offer", forced)
+	var policy: Dictionary = data.get("policy", {})
+	var scene_ok := bool(data.get("scene_ok", false))
+	return {
+		"ok": not policy.is_empty() and bool(policy.get("offer", false)) and scene_ok,
+		"rows": data.get("rows", []),
+		"policy": policy,
+	}
+
+
+func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
+		forced := false) -> Dictionary:
+	var structural: Array = []
+	_gate_row(structural, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
-		return rows
-	_gate_row(rows, "no_main", is_instance_valid(main), "no_main")
+		return {"rows": structural, "policy": {}, "scene_ok": false}
+	_gate_row(structural, "no_main", is_instance_valid(main), "no_main")
 	if not is_instance_valid(main):
-		return rows
-	_gate_row(rows, "no_player", is_instance_valid(main.player), "no_player")
+		return {"rows": structural, "policy": {}, "scene_ok": false}
+	_gate_row(structural, "no_player", is_instance_valid(main.player), "no_player")
 	if not is_instance_valid(main.player):
-		return rows
-	_gate_row(rows, "no_game", is_instance_valid(main.game), "no_game")
+		return {"rows": structural, "policy": {}, "scene_ok": false}
+	_gate_row(structural, "no_game", is_instance_valid(main.game), "no_game")
 	if not is_instance_valid(main.game):
-		return rows
+		return {"rows": structural, "policy": {}, "scene_ok": false}
+	var policy_mode: String = ELIGIBILITY.MODE_OFFER if mode == "offer" else ELIGIBILITY.MODE_START
+	var policy: Dictionary = _policy_verdict(policy_mode)
+	var scene_rows: Array = _scene_rows(pose, act_source, bed_in, mode, forced)
+	var rows: Array = structural.duplicate()
+	for row: Variant in policy.get("rows", []):
+		rows.append(row)
+	for row: Variant in scene_rows:
+		rows.append(row)
+	return {
+		"rows": rows,
+		"policy": policy,
+		"scene_ok": _report_ok(scene_rows),
+	}
+
+
+## The scene-only rows. They never enter the pure policy.
+func _scene_rows(pose: String, act_source: String, bed_in: Variant, mode: String,
+		forced: bool) -> Array:
+	var rows: Array = []
 	_gate_row(rows, "state", state == State.IDLE, "state=%d" % state)
-	_gate_row(rows, "cycle", CYCLE.allows_sex(cycle_phase()), "diestrus")
-	# Try Your Luck lets the attempt reach the refusal path before she welcomes the kiss.
-	# Her proactive offers still require willingness (mode == "offer").
-	if mode == "offer" or not _try_luck():
-		_gate_row(rows, "relation", _relationship_ok(), "relation")
-	_gate_row(rows, "sex_bond", _sex_bond_ok(), "sex_bond")
-	_gate_row(rows, "form", _player_form_ok(), "form")
 	var tree := get_tree()
 	_gate_row(rows, "paused", forced or tree == null or not tree.paused, "paused")
 	_gate_row(rows, "conversation", _conversation_ok(), "conversation")
@@ -1321,6 +1361,15 @@ func _gate_report(pose: String, act_source: String, bed_in: Variant, mode: Strin
 	return rows
 
 
+func _policy_verdict(mode: String) -> Dictionary:
+	if not is_instance_valid(main):
+		return {}
+	var service: Variant = main.get("eligibility")
+	if service != null and service.has_method("evaluate"):
+		return service.call("evaluate", pony, mode)
+	return {}
+
+
 func _gate_row(rows: Array, key: String, ok: bool, reason := "") -> void:
 	rows.append({"key": key, "ok": ok, "reason": reason if not reason.is_empty() else key})
 
@@ -1347,24 +1396,15 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	if identity != null:
 		id = str(identity.get("id"))
 		display = str(identity.get("display_name")) if identity.get("display_name") != null else id
-	var rel: Variant = pony.get_meta("relationship_runtime") if is_instance_valid(pony) else null
-	var bonds: Variant = rel.get("bonds") if rel != null and is_instance_valid(rel) else null
-	var stage := "?"
-	var love_name := "?"
-	var love_level := -1
-	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
-		var ladder: Dictionary = rel.call("ladder", id)
-		var love: Dictionary = ladder.get("love", {})
-		love_name = str(love.get("name", "?"))
-		love_level = int(love.get("level", -1))
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("record_for"):
-		var rec: Dictionary = bonds.call("record_for", id)
-		stage = str(rec.get("stage", "?"))
-	var welcomes := false
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("welcomes"):
-		welcomes = bool(bonds.call("welcomes", id, "kiss"))
-	var sex_bond := _sex_bond_ok()
-	var sex_start := SETTINGS.sex_start.get_choice()
+	var gate := start_verdict(pose, act_source, bed_in)
+	var policy: Dictionary = gate.get("policy", {})
+	var relations: Dictionary = policy.get("relations", {})
+	var stage := str(relations.get("stage", "?"))
+	var love_level := int(relations.get("love_level", -1))
+	var welcomes := bool(relations.get("willing", false))
+	var sex_bond := not policy.is_empty() and (bool(relations.get("stored_bond", false)) \
+		or str(relations.get("sex_start", "")) == "try_luck")
+	var sex_start := str(relations.get("sex_start", ""))
 	var mood := "?"
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		var ctx: Variant = main.game.get("world_context")
@@ -1383,15 +1423,17 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		target = bool(nav.get("_has_target"))
 		reserved = str(nav.get("reserved_by"))
 	var body: Variant = main.player if is_instance_valid(main) else null
-	var reasons: PackedStringArray = _start_reasons(pose, act_source, bed_in)
-	var can := can_start(pose, act_source, bed_in)
+	var reasons: PackedStringArray = _report_reasons(gate.get("rows", []))
 	var reason_text := "none" if reasons.is_empty() else ",".join(reasons)
 	var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in) if pose == CATALOG.MISSIONARY else null
 	var bed_gate := "n/a"
 	if pose == CATALOG.MISSIONARY:
 		bed_gate = str(found_bed != null and _bed_gate(pose, act_source, found_bed))
-	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level=%d) welcomes=%s bond=%s start=%s mood=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
-		display, id, float(distance), float(dot), stage, love_name, love_level, str(welcomes), str(sex_bond), sex_start, mood,
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=level%d welcomes=%s bond=%s start=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s bondrow=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+		display, id, float(distance), float(dot), stage, love_level, str(welcomes), str(sex_bond), sex_start, mood,
+		str(bool(gate.get("show", false))), str(bool(gate.get("attempt", false))),
+		str(bool(policy.get("offer", false))), str(bool(policy.get("buck_refuse", false))),
+		str(bool(policy.get("history_refuse", false))),
 		state, str(_standing_presentation_controller().presentation_active()), str(pony.get("sleeping")), str(pony.is_held()), str(pony.grounded()), str(pony.has_meta("seated")),
 		str(_cuddle_active()), str(pony.get("motion_paused")), float(pony.get("actual_speed")), str(status.get("requested")),
 		str(pony.action_interruption_reason()), owner, str(target), reserved,
@@ -1399,9 +1441,12 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 		str(body.get("flying")) if body != null else "?",
 		str(body.get("seat")) if body != null else "?",
 		str(Input.mouse_mode), str(get_tree().paused),
-		str(_relationship_ok()), str(_player_form_ok()), str(_conversation_ok()), str(_free_of_affection()),
+		str(_policy_row_ok(policy, "relation")), str(_policy_row_ok(policy, "form")),
+		str(_policy_row_ok(policy, "romance")), str(_policy_row_ok(policy, "promiscuity")),
+		str(_policy_row_ok(policy, "sex_bond")), str(_policy_row_ok(policy, "cycle")),
+		str(_policy_row_ok(policy, "history")), str(_conversation_ok()), str(_free_of_affection()),
 		str(_player_ready_for(pose, act_source, bed_in)), str(_nav_owner_allows(pose, act_source)),
-		str(_nav_pose_gate(pose, act_source)), bed_gate, str(can), reason_text]
+		str(_nav_pose_gate(pose, act_source)), bed_gate, str(bool(gate.get("show", false))), reason_text]
 	if state != State.IDLE:
 		var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
 		text += " | readiness=%.0f mood=%s climaxes=%d/%s intensity=%s pattern=%s cue=%s up=%s penetration=%.1f/%.1fcm | %s" % [
@@ -1412,15 +1457,20 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	text += " | " + voice_status_line()
 	return text
 
+
+func _policy_row_ok(policy: Dictionary, key: String) -> bool:
+	for row: Variant in policy.get("rows", []):
+		if row is Dictionary and str((row as Dictionary).get("key", "")) == key:
+			return bool((row as Dictionary).get("ok", false))
+	return true
+
 func refuse_available(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
 	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
 		return false
-	if not _stage_ok() or not _player_form_ok():
-		return false
-	if _relationship_ok():
-		return false # Willing: the normal offer/start path owns it.
+	if not bool(_policy_verdict(ELIGIBILITY.MODE_START).get("buck_refuse", false)):
+		return false # Willing, or not an eligible adult mare: the normal offer/start path owns it.
 	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
 		return false
 	if not _conversation_ok() or not _free_of_affection():
@@ -1535,8 +1585,8 @@ func _buck_or_push() -> bool:
 
 
 ## A refusal is a real mood beat, not just a buck animation. The game's lasting feeling is the
-## impression note, which drives `bonds.welcomes()`, anger, offers, approaches and her dialogue;
-## the held face displays it (mood_face.gd). A buck is the stronger moment, so it is the stronger mood.
+## impression note, which drives eligibility, anger, offers, approaches and her dialogue; the held
+## face displays it (mood_face.gd). A buck is the stronger moment, so it is the stronger mood.
 func _note_refusal(bucked: bool) -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		MEMORY.refusal_event(main.game, _id, _display_name,
@@ -1561,65 +1611,18 @@ func _refuse_trust() -> void:
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
 		return false
-	if not _id.is_empty():
-		return true
-	_id = str(pony.get_meta("relationship_id", ""))
 	if _id.is_empty():
-		var identity_id: Variant = pony.get("identity")
-		if identity_id != null:
-			_id = str(identity_id.get("id"))
-	return not _id.is_empty()
-
-func _stage_ok() -> bool:
-	var runtime: Variant = pony.get_meta("relationship_runtime")
-	if runtime == null or not is_instance_valid(runtime):
-		return false
-	if not _read_id():
+		_id = str(pony.get_meta("relationship_id", ""))
+		if _id.is_empty():
+			var identity_id: Variant = pony.get("identity")
+			if identity_id != null:
+				_id = str(identity_id.get("id"))
+	if _id.is_empty():
 		return false
 	var identity: Variant = pony.get("identity")
-	if identity == null or bool(identity.get("filly")):
-		return false
-	if not bool(runtime.bonds.adults.get(_id, false)):
-		return false
-	var ladder: Dictionary = runtime.ladder(_id)
-	var love: Dictionary = ladder.get("love", {})
-	if not SEX_BOND.level_ok(SETTINGS.promiscuity.get_choice(),
-			int(love.get("level", -1))):
-		return false
-	if not bool(runtime.bonds.eligible_for_romance(_id)):
-		return false
-	_display_name = str(identity.get("display_name")) if identity.get("display_name") != null else _id
+	if identity != null:
+		_display_name = str(identity.get("display_name")) if identity.get("display_name") != null else _id
 	return true
-
-func _relationship_ok() -> bool:
-	if not _stage_ok():
-		return false
-	var runtime: Variant = pony.get_meta("relationship_runtime")
-	if runtime == null or not is_instance_valid(runtime):
-		return false
-	return bool(runtime.bonds.welcomes(_id, "kiss"))
-
-## Starting Sex: Try Your Luck lets Anon attempt before she welcomes the kiss. The actual start
-## still checks _relationship_ok() and refuses when it is false.
-func _try_luck() -> bool:
-	return SETTINGS.sex_start.get_choice() == "try_luck"
-
-## The stored bond, without the Starting Sex bypass. Promiscuity and the base kiss willingness
-## are separate gates, so a bond made at Crush or Any Adult is valid outside a dating stage.
-func _stored_sex_bond() -> bool:
-	return SEX_BOND.bonded(SEX_BOND.section(), _id)
-
-## Gate row: the mod lover bond, or true when Starting Sex is Try Your Luck. The base kiss
-## willingness remains the separate relation row.
-func _sex_bond_ok() -> bool:
-	if not _stage_ok():
-		return false
-	if _try_luck():
-		return true
-	return _stored_sex_bond()
-
-func _player_form_ok() -> bool:
-	return not PLAYER_FORM.is_young(PLAYER_FORM.active(get_tree()))
 
 func _conversation_ok() -> bool:
 	var target: Variant = pony.get("conversation_target")
@@ -1857,14 +1860,14 @@ func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> boo
 # --------------------------------------------------------------------------- start
 
 func start(pose: String, bed_in: Variant, act_source: String) -> bool:
-	if not can_start(pose, act_source, bed_in):
+	var gate := start_verdict(pose, act_source, bed_in)
+	if not bool(gate.get("attempt", false)):
 		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-		return false
-	# Try Your Luck can reach this point before she welcomes the kiss. Starting still needs her
-	# current willingness; refusal is a real buck/push, not a silent no-op.
-	if not _relationship_ok():
-		_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-		refuse(pose, act_source, bed_in)
+		# Try Your Luck can reach this point before she welcomes the kiss. The refusal is a real
+		# buck/push, not a silent no-op; history refusal is routed by main before start().
+		if bool(gate.get("buck_refuse", false)) and refuse_available(pose, act_source, bed_in):
+			_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+			refuse(pose, act_source, bed_in)
 		return false
 	_camera_owned = false
 	_look_captured = false
@@ -3864,9 +3867,9 @@ func _history_note() -> String:
 ## Called by main before a normal Y start. A withdrawn mare still shows the offer; pressing Y
 ## gives one gentle refusal instead of a silent no.
 func history_blocks_start() -> bool:
-	if state != State.IDLE or not _history_enabled():
+	if state != State.IDLE:
 		return false
-	return ACT_HISTORY.blocks_start(_history_row())
+	return bool(_policy_verdict(ELIGIBILITY.MODE_START).get("history_refuse", false))
 
 
 func refuse_from_history(_pose: String, source: String, _bed: Variant = null) -> bool:
@@ -4597,7 +4600,9 @@ func set_cycle_override(phase_name: String) -> void:
 
 ## Private heat/diestrus note for the normal dialogue prompt, outside and during acts.
 func cycle_note() -> String:
-	if not is_instance_valid(pony) or not _stage_ok():
+	if not is_instance_valid(pony):
+		return ""
+	if not bool(_policy_verdict(ELIGIBILITY.MODE_START).get("base", false)):
 		return ""
 	return CYCLE.prompt_note(cycle_phase())
 
@@ -4654,12 +4659,11 @@ func prompt_note() -> String:
 func lover_prompt_note() -> String:
 	if not is_instance_valid(pony) or pony.sleeping:
 		return ""
-	if not _stage_ok():
+	var policy := _policy_verdict(ELIGIBILITY.MODE_BOND)
+	if policy.is_empty() or not bool(policy.get("bond", false)):
 		return ""
-	var bonded := _stored_sex_bond()
-	if not bonded and not _try_luck() and not _relationship_ok():
-		return ""
-	return RELATIONSHIP_CUE.lover_note(bonded)
+	var relations: Dictionary = policy.get("relations", {})
+	return RELATIONSHIP_CUE.lover_note(bool(relations.get("stored_bond", false)))
 
 ## Grant the mod lover bond. Dialogue_consent calls this after a clear spoken agreement; the
 ## Debug action calls it for the aimed mare. Every gate is re-checked here because the classifier
@@ -4667,19 +4671,17 @@ func lover_prompt_note() -> String:
 func grant_sex_bond(source := "dialogue", line := "") -> bool:
 	if state != State.IDLE or not is_instance_valid(pony) or pony.sleeping:
 		return false
-	if not _stage_ok() or not _player_form_ok() or not _relationship_ok():
+	if not _read_id():
 		return false
-	var runtime: Variant = pony.get_meta("relationship_runtime")
-	if runtime == null or not is_instance_valid(runtime):
+	var policy := _policy_verdict(ELIGIBILITY.MODE_BOND)
+	if policy.is_empty() or not bool(policy.get("bond", false)):
 		return false
-	var record: Dictionary = runtime.bonds.record_for(_id)
-	var stage := str(record.get("stage", ""))
-	if _stored_sex_bond():
-		return true
-	var ladder: Dictionary = runtime.ladder(_id)
-	var love: Dictionary = ladder.get("love", {})
+	var relations: Dictionary = policy.get("relations", {})
+	var stage := str(relations.get("stage", ""))
 	var section: Dictionary = SEX_BOND.section()
-	if not SEX_BOND.grant(section, _id, stage, int(love.get("level", -1)), source, line):
+	if SEX_BOND.bonded(section, _id):
+		return true
+	if not SEX_BOND.grant(section, _id, stage, int(relations.get("love_level", -1)), source, line):
 		return false
 	SEX_BOND.save()
 	_record_sex_bond_event("You and Anon became lovers.")
@@ -5517,10 +5519,8 @@ func _check_running() -> void:
 		return
 
 func _still_willing() -> bool:
-	var runtime: Variant = pony.get_meta("relationship_runtime")
-	if runtime == null or not is_instance_valid(runtime):
-		return false
-	return bool(runtime.bonds.welcomes(_id, "kiss"))
+	var policy := _policy_verdict(ELIGIBILITY.MODE_MID_ACT)
+	return not policy.is_empty() and not bool(policy.get("stop", true))
 
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])

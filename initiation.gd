@@ -291,39 +291,29 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if not forced and _now() < float(_retry_at.get(id, -100000.0)):
 		reasons.append("retry")
 		return {}
-	var history: Dictionary = _history_row(id)
-	if not forced and ACT_HISTORY.blocks_offers(history):
-		reasons.append("history")
-		return {}
 	var cuddle: bool = bool(runtime.call("_cuddle_active")) if runtime.has_method("_cuddle_active") else false
 	if pose_request == CATALOG.MISSIONARY or (pose_request.is_empty() and cuddle):
 		var bed_candidate := _cuddle_candidate(runtime, forced, reasons) if cuddle \
 			else _bed_candidate(runtime, forced, reasons)
 		if not bed_candidate.is_empty() or not pose_request.is_empty():
-			return _with_weight(bed_candidate, history)
+			return bed_candidate
 	var standing_candidate := _standing_candidate(runtime, forced, reasons)
 	if pose_request == CATALOG.STANDING:
-		return _with_weight(standing_candidate, history)
+		return standing_candidate
 	if cuddle:
 		return {}
 	var bed_candidate := _bed_candidate(runtime, forced, reasons)
 	var pose := pick_offer_pose(not bed_candidate.is_empty(),
 		not standing_candidate.is_empty(), randf())
 	if pose == CATALOG.MISSIONARY:
-		return _with_weight(bed_candidate, history)
+		return bed_candidate
 	if pose == CATALOG.STANDING:
-		return _with_weight(standing_candidate, history)
+		return standing_candidate
 	return {}
 
 
 func _history_row(id: String) -> Dictionary:
 	return ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
-
-
-func _with_weight(candidate: Dictionary, history: Dictionary) -> Dictionary:
-	if not candidate.is_empty():
-		candidate["weight"] = ACT_HISTORY.offer_weight(history)
-	return candidate
 
 
 func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dictionary:
@@ -347,16 +337,19 @@ func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = []) -> Dict
 	if not is_instance_valid(bed):
 		reasons.append("cuddle:no_bed_under")
 		return {}
-	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed, forced)):
-		_append_offer_reasons(reasons, "cuddle", runtime, CATALOG.MISSIONARY, source, bed, forced)
+	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, forced)
+	if not bool(gate.get("ok", false)):
+		_append_gate_reasons(reasons, "cuddle", gate)
 		return {}
 	if not _offer_targets_pony(pony):
 		reasons.append("cuddle:target")
 		return {}
+	var policy: Dictionary = gate.get("policy", {})
 	return {
 		"pony": pony, "runtime": runtime, "id": id,
 		"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
 		"private": true, "cuddle": true, "bed_invite": false,
+		"weight": float(policy.get("offer_weight", 0.0)),
 	}
 
 
@@ -372,14 +365,17 @@ func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> Dictio
 	var bed: Node3D = found.get("bed")
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
-	if not bool(runtime.call("can_offer", CATALOG.MISSIONARY, source, bed, _forced)):
-		_append_offer_reasons(reasons, "bed", runtime, CATALOG.MISSIONARY, source, bed, _forced)
+	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, _forced)
+	if not bool(gate.get("ok", false)):
+		_append_gate_reasons(reasons, "bed", gate)
 		return {}
+	var policy: Dictionary = gate.get("policy", {})
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
 		"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
 		"private": _private_at_player(pony), "cuddle": false, "bed_invite": true,
 		"bed_rest": found.get("rest"), "bed_front": found.get("front"),
+		"weight": float(policy.get("offer_weight", 0.0)),
 	}
 
 
@@ -388,15 +384,18 @@ func _standing_candidate(runtime: Node, _forced: bool, reasons: Array = []) -> D
 	if not is_instance_valid(pony):
 		reasons.append("standing:no_pony")
 		return {}
-	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null, _forced)):
-		_append_offer_reasons(reasons, "standing", runtime, CATALOG.STANDING, "", null, _forced)
+	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.STANDING, "", null, _forced)
+	if not bool(gate.get("ok", false)):
+		_append_gate_reasons(reasons, "standing", gate)
 		return {}
 	if not _can_approach(pony, reasons):
 		return {}
+	var policy: Dictionary = gate.get("policy", {})
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
 		"pose": CATALOG.STANDING, "source": "", "bed": null,
 		"private": _private_at_player(pony), "cuddle": false, "bed_invite": false,
+		"weight": float(policy.get("offer_weight", 0.0)),
 	}
 
 
@@ -428,12 +427,11 @@ func _can_approach(pony: Node3D, reasons: Array = []) -> bool:
 	return true
 
 
-func _append_offer_reasons(reasons: Array, label: String, runtime: Node, pose: String,
-		source: String, bed: Variant, forced := false) -> void:
-	if not runtime.has_method("offer_reasons"):
-		reasons.append(label + ":can_offer")
-		return
-	var failed: PackedStringArray = runtime.call("offer_reasons", pose, source, bed, forced)
+func _append_gate_reasons(reasons: Array, label: String, gate: Dictionary) -> void:
+	var failed: PackedStringArray = []
+	for row: Variant in gate.get("rows", []):
+		if row is Dictionary and not bool((row as Dictionary).get("ok", false)):
+			failed.append(str((row as Dictionary).get("reason", "")))
 	reasons.append("%s:%s" % [label, ",".join(failed)])
 
 
@@ -443,15 +441,10 @@ func _private_at_player(except: Node = null) -> bool:
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
 		return false
-	# integration: a mare who is comfortable with others around still offers.
-	if is_instance_valid(except):
-		if is_instance_valid(main) and main.has_method("runtime_for") \
-				and _in_heat(main.call("runtime_for", except)):
-			return true
-		var id := _pony_id(except)
-		if not id.is_empty() and bool(SETTINGS.consent(id).get("public", false)) \
-				and main.has_method("public_offers_enabled") and bool(main.call("public_offers_enabled")):
-			return true
+	# integration: heat and per-mare public consent override the privacy reserve, for every kind
+	# of offer. The exact rule is in docs/eligibility.md.
+	if is_instance_valid(except) and _public_offer_ok(except):
+		return true
 	var house: Node3D = _house_at(player.global_position)
 	return presentation_allowed(house != null and not _other_in_house(house, except),
 		_other_within(player.global_position, except, PRIVACY_RADIUS_M))
@@ -461,10 +454,23 @@ func _cuddle_privacy_ok(pony: Node3D) -> bool:
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
 		return false
+	if _public_offer_ok(pony):
+		return true
 	var house: Node3D = _house_at(player.global_position)
 	var indoor := house != null
 	return cuddle_private(indoor, indoor and not _other_in_house(house, pony),
 		_other_within(player.global_position, pony, PRIVACY_RADIUS_M))
+
+
+func _public_offer_ok(pony: Node) -> bool:
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	var service: Variant = main.get("eligibility")
+	if service == null or not service.has_method("evaluate"):
+		return false
+	var verdict: Dictionary = service.call("evaluate", pony, "offer")
+	var actions: Dictionary = verdict.get("actions", {})
+	return bool(actions.get("public_offer", false))
 
 
 func _house_at(at: Vector3) -> Node3D:

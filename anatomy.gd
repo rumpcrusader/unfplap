@@ -7,6 +7,7 @@ const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/still_zone_debug.gd")
@@ -232,10 +233,9 @@ static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 static func eligible(pony_node: Node3D) -> bool:
 	if not is_instance_valid(pony_node):
 		return false
-	if pony_node.name == "PlayerPony" or is_instance_valid(pony_node.get("rig")):
-		return false
+	var player_pony := pony_node.name == "PlayerPony" or is_instance_valid(pony_node.get("rig"))
 	var identity: Variant = pony_node.get("identity")
-	if identity == null or bool(identity.get("filly")) or bool(identity.get("stallion")):
+	if not FACTS.adult_mare_identity(identity, player_pony):
 		return false
 	return not pony_id(pony_node).is_empty()
 

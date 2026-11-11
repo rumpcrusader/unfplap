@@ -12,6 +12,7 @@ Do not start implementation until you have read the required files for the area 
 |---|---|
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
 | Any hands, caress or smack task | `docs/hands.md` |
+| Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
 | Any act face, mood or voice emotion | `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_act_face_beat`, `_eyes_tick`), `settings.gd` prompts |
@@ -28,10 +29,9 @@ Do not start implementation until you have read the required files for the area 
 
 - Mod id `unfplap`; the current public version and target game are the `version` and
   `game_version` in `mod.json`.
-- Adult mares and stallions only. Human Anon and AnonPony.
-- Romance level per `relationship.promiscuity` (default Any Adult). Sex also needs the
-  mod lover bond unless `relationship.sex_start` is Try Your Luck. `bonds.welcomes(id, "kiss")`
-  still decides the actual start; refusal is real.
+- Adult mares only. Human Anon and AnonPony.
+- All eligibility, consent, lover-bond and relationship-level gates are in `docs/eligibility.md`.
+  That file is the single contract; do not restate its rules here.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
@@ -187,9 +187,13 @@ mods/unfplap/
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
                     settings-tab injection with guard, Characters preference editor, debug actions,
                     skeleton debug helper
-  runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
-                    act camera lean, pose actions/smack, act face beats, climax,
-                    afterglow/close window, restore, bed cuddle rejoin, aftercare
+  runtime.gd        per-pony state machine, scene gate composition, start,
+                    ACTIVE readiness/talk, act camera lean, pose actions/smack,
+                    act face beats, climax, afterglow/close window, restore,
+                    bed cuddle rejoin, aftercare
+  eligibility.gd    internal eligibility API and the only scene adapter; see
+                    docs/eligibility.md
+  eligibility/      pure policy, facts and verdict helpers
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip; every adult identity with
                     `pony_hips`, not only the base roster
@@ -197,7 +201,8 @@ mods/unfplap/
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the
                     caress hand hold and shared two-bone palm solve
-  consent.gd        per-mare public/anal/oral defaults and merge
+  consent.gd        pure per-mare public/anal/oral defaults and merge; a
+                    dependency of the eligibility API, not a gate by itself
   climax_fluid.gd   optional droplets, sticking, creeping and pools
   teat_jiggle.gd    teats spring sway
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
@@ -270,7 +275,8 @@ mods/unfplap/
                     offer weighting and history reminders
   consent_classifier.gd  one shared classifier client/queue for offer and lover dialogue
   dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
-  sex_bond.gd       pure Promiscuity levels + per-world lover-bond state and validity
+  sex_bond.gd       per-world lover-bond storage and stage maintenance; gate
+                    policy is in docs/eligibility.md
   HISTORY.md        act score, history points, tiers, offer weighting and repair contract
   scripts/          asset_pack.py (pack/fetch/verify the resource archive), pack_assets.sh,
                     fetch_assets.sh, asset_pack.json (committed URL/hash/manifest),
@@ -1004,8 +1010,8 @@ owns the timing and the line-face yield.
 
 - **Faces** (`[face:NAME]`): 22 names from `face_poses.gd` (`LINE_FACES`). The director applies
   them on speech start, holds them for 3 s after speech, and strips them from the words.
-- **Mood** (`[mood:NAME]`): 10 names in `pony_impressions.gd`, fresh for 300 s. It gates
-  `bonds.welcomes()` and feeds prompts/profile. The base game has no mood→face bridge.
+- **Mood** (`[mood:NAME]`): 10 names in `pony_impressions.gd`, fresh for 300 s. Its gate effect
+  is in `docs/eligibility.md`; it feeds prompts/profile. The base game has no mood→face bridge.
 - **Voice** (`[emotion]`): 11 TTS tags. They are audio only. `shy`, `affectionate`, `ooo` and
   `anticipation` are faces, not voices; `calm`, `fearful`, `whispering` and `shouting` are voices,
   not faces.
@@ -1111,9 +1117,9 @@ is deliberately blush-free so the 0.35 decal stays light.
 
 ## Act flow, gates and controls
 
-- Eligibility: adult, not filly/colt, player not young, love level per
-  `relationship.promiscuity`, and `bonds.welcomes(id, "kiss")`. The mod lover bond is also
-  required unless `relationship.sex_start` is Try Your Luck.
+- Eligibility, willingness, the lover bond, history refusal, cycle and per-mare consent are in
+  `docs/eligibility.md`. Scene gates (state, navigator, pose, bed, player position) stay in
+  `runtime.gd`.
 - Missionary: Human Anon uses the seated/lying bed path; AnonPony uses the already-lying path. Standing:
   standing/settled.
 - Start only when free/idle; another pony's conversation, active task or conflicting navigator
@@ -1251,8 +1257,8 @@ is deliberately blush-free so the 0.35 decal stays light.
   down the middle of the chain.
 - Normal stops with a stern line, no buck and a `300 s` sex-only cooldown. Strict stops with a
   stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
-  `stop_until` blocks `blocks_start()`, proactive offers and offer weight; pressing Y gets the
-  spoken refusal. A new stop replaces the old cooldown.
+  `stop_until` gate is in `docs/eligibility.md`; pressing Y gets the spoken refusal. A new stop
+  replaces the old cooldown.
 - A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
   (`mood_face.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
   `features.act_history` off, or a skipped summary, the stop path keeps its old no-face guard.
@@ -1265,18 +1271,9 @@ is deliberately blush-free so the 0.35 decal stays light.
   (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
   character chat within 45 s. The lab runs in Talk, so trigger offers from the **Actions** block
   (General › **Enable debug** on › **Debug** › **Actions**).
-- Offer eligibility uses `runtime.can_offer(pose, source, bed)`, not `can_start`: an offer may
-  exist before the pony is lying or Anon is in position. `Y` still calls `can_start` as the final
-  gate. `can_offer` always requires `relation`; Try Your Luck lifts only the lover-bond row, so
-  she never proactively offers while unwilling.
-- Offer weighting is `act_history.offer_weight()`: comfort raises it, hurt lowers it, and a mare
-  at hurt 4 or higher makes no proactive offers. The base cooldown is `600 s`, shortened by
-  comfort with a `300 s` floor. A hurt mare's ask prompt also carries one private reminder from
-  `act_history.ask_note()`.
-- The withdrawn tier (hurt 6+) still shows the `Y` hint. `main.try_start()` checks
-  `runtime.history_blocks_start()` and calls `refuse_from_history()`; she speaks one gentle refusal
-  and the act does not start. This is not `refuse()`: there is no buck or push. Good acts, time and
-  an apology repair the hurt.
+- Offer eligibility, offer weight, privacy and the withdrawn refusal are in
+  `docs/eligibility.md`. An offer may exist before the pony is lying or Anon is in position;
+  `Y` still runs the final start gate.
 - The mare chooses the pose. With both a usable bed and a standing offer, she picks one at
   random (`pick_offer_pose`); with one, she uses it. An active cuddle always offers missionary.
 - Cuddle: requires an active cuddle and `can_offer(MISSIONARY, "bed_side")` or
@@ -1353,12 +1350,12 @@ is deliberately blush-free so the 0.35 decal stays light.
   `_id`, never saved.
 - `runtime.cycle_phase()` returns `normal` when the flag is off or no relationship runtime is
   present. A debug override wins over both, so the lab can force a phase.
-- In diestrus the `cycle` gate row blocks both `can_start` and `can_offer`; there is no separate
-  refusal line, so the Y hint simply does not appear.
+- In diestrus the gate hides both the Y hint and proactive offers; the exact rule and heat's
+  offer/consent effects are in `docs/eligibility.md`.
 - In heat each real thrust chunk is multiplied by `HEAT_READINESS = 1.6`, the readiness line appends
   `| In heat`, and `cycle_note()` adds the heat text to `main.prompt_note()` outside and during acts.
-- Heat also quarters the offer cooldown (`HEAT_COOLDOWN = 0.25`), overrides the privacy reserve, and
-  adds the heat sentence to the ask prompt.
+- The offer cooldown, privacy override and ask-prompt heat sentence are in
+  `docs/eligibility.md`; the readiness and dialogue effects stay below.
 - Outside an active act, a heat mare with the anatomy shown idles: `anatomy.gd` winks every
   `anatomy.wink_min_s..anatomy.wink_max_s` (default 17-34 s), rolling 70% single, 25% double, 5%
   triple from `cycle.gd`; each beat has its own open depth and timing, with an accelerated open, a
@@ -1390,29 +1387,14 @@ is deliberately blush-free so the 0.35 decal stays light.
 
 ### Act start and aim zone
 
-- `main.try_start()` is the only act-start path. It offers Y when `runtime.can_start()` passes.
-  `runtime.start()` re-checks `can_start()` and then `_relationship_ok()`. If she does not
-  welcome the kiss, it calls `refuse()` and returns false; no act starts.
-- A refusal is a real mood beat. `refuse()` tries the buck/push, then `_note_refusal()` writes the
-  game's impression (`MEMORY.refusal_event`): `annoyed` for a turn-away, `angry` when she bucked
-  or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` (trust -2, boundary)
-  and holds the matching face in `mood_face.gd`. `angry` makes `bonds.welcomes()` false, so she refuses
-  kisses and offers for the note's 300 s freshness.
-- `can_start()` requires the `sex_bond` row. In Default, the `relation` row is required too, so
-  the Y hint appears only when she welcomes the kiss and the bond exists. In Try Your Luck, the
-  `relation` row is omitted for the start attempt, so Y can appear before she welcomes; pressing
-  Y still refuses when she does not.
-- `can_offer()` always requires `relation`; a mare never proactively offers while unwilling.
-  Try Your Luck lifts only the bond requirement for offers.
-- History is not a `can_start` row. A withdrawn mare still shows the Y hint; `try_start()` checks
-  `history_blocks_start()` and calls `refuse_from_history()` for a spoken refusal instead of
-  starting.
+- `main.try_start()` is the only act-start path. The start hint, start attempt, buck refusal,
+  history refusal and offer gates are in `docs/eligibility.md`.
 - Standing Y uses `rump_cone.gd`: Anon must stand within 45° of her backward axis (90° total)
   and 1.2 m of her rump anchor. The crosshair is not used, so looking away does not hide the
   hint. Missionary bed offers stay contextual.
 - `dialogue_consent.gd` classifies every player line with a pony reply through the shared
-  classifier. `lover_accept` grants the mod bond, `lover_decline` does nothing and `lover_end`
-  clears it. It never arms an act and never starts one.
+  classifier. It never arms an act and never starts one; the lover-bond gate is in
+  `docs/eligibility.md`.
 - `consent_classifier.gd` is one shared service: one LLM client, one queue and scoped
   cancellation for `offer:` and `dialogue:` jobs. It never runs two mod classifier requests at
   the same time.
@@ -1569,14 +1551,14 @@ is deliberately blush-free so the 0.35 decal stays light.
   **Placement file**: edit, save, reset or log the selected placement target (global default or
   pointed mare). All values live in `anatomy.placement`. See the tail seating contract above.
 - **Trigger bed offer** / **Trigger standing offer**: force a proactive ask for the aimed (or
-  nearest) test mare. They bypass the quiet, cooldown, AI-usage and history offer checks, but not
-  relationship, consent, pose, cycle or free-bed gates; use them in the lab, which runs with
+  nearest) test mare. They bypass the quiet, cooldown and AI-usage checks, but keep the eligibility
+  gate (`docs/eligibility.md`), pose and free-bed gates; use them in the lab, which runs with
   `ai_usage=talk`. A rejected offer reports the failing gate (`relation`, `sex_bond`, `no_free_bed`,
   `standing:region`, and so on) in the status label and the debug log. Because the settings page
   pauses the tree, an offer advances after it closes.
 - **Grant lover bond** / **Clear lover bond**: grant or clear the mod bond for the aimed (or
-  nearest) mare. Grant uses the real Promiscuity, adulthood and kiss-willingness checks, so it
-  fails outside them; clear always works.
+  nearest) mare. Grant uses the eligibility service, so it fails outside the adult, Promiscuity
+  and kiss-willingness gates; clear always works. The gate is in `docs/eligibility.md`.
 - **Reset act history**: clear the aimed or nearest mare's `act_history` row, including hurt and
   comfort. Use it in the lab between escalation runs.
 - **Show act history**: print the aimed or nearest mare's stored row to the debug log, including
@@ -1738,7 +1720,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_faces` | `true` | act face beats and `{face_note}` prompt hints; off keeps the current act faces; the blush arc and post-act mood face are separate |
 | `blush_arc` | `true` | readiness-ramped act blush; off restores full blush from the first frame |
 | `face_debug` | `false` | print act face changes, the climax score and the mood-face start/end |
-| `act_history` | `true` | per-act summary, hurt/comfort, reminders, offer weighting and the withdrawn refusal; off keeps the old aftercare behaviour |
+| `act_history` | `true` | per-act summary, hurt/comfort, reminders and offer weighting; the history gate is in `docs/eligibility.md`; off keeps the old aftercare behaviour |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
@@ -1757,7 +1739,7 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `act_bystanders` | `true` | adult witness lines using the modern perception |
 | `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
-| `act_public_offer` | `true` | per-mare public consent affects offers |
+| `act_public_offer` | `true` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_vocals` | `false` | pack climax moan only |
@@ -1831,19 +1813,13 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   load; old skin tones map to the slider anchors and an old teats-off file keeps the strip off
   once. Removed anatomy keys are erased on load.
 - `relationship.promiscuity` is a `choice`, default `any`; values `soulmates`,
-  `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`). It sets
-  the love-level floor in `_stage_ok()` for the lover bond and sex. `any` skips only that floor.
-- `relationship.sex_start` is a `choice`, default `try_luck` (label `Try Your Luck`).
-  `when_available` (label `When Available`) keeps every gate: the Promiscuity love stage, her
-  welcomed kiss (`bonds.welcomes`) and a stored lover bond, so the Make love hint only appears when
-  all three pass. The rest of the bullet describes the other value:
-  `try_luck` makes the lover bond optional and omits the `relation` row from the start attempt. It never
-  skips the actual `bonds.welcomes(id, "kiss")` check: `runtime.start()` calls `refuse()` when it
-  fails.
+  `head_over_hooves`, `marefriend`, `new_couple`, `crush` and `any` (label `Any Adult`).
+- `relationship.sex_start` is a `choice`, default `try_luck` (label `Try Your Luck`); the other
+  value is `when_available` (label `When Available`). Both store only the choice; the gate
+  semantics and the corrected Try Your Luck rule are in `docs/eligibility.md`.
 - The lover bond is stored in `Mods.state("unfplap").sex_bonds`. It never expires.
-  `lover_accept` grants it; `lover_end` clears it. A bond is cleared when the stage it reached
-  leaves dating/engaged/married; a bond that never reached a romantic stage stays until
-  withdrawn. `main.gd` runs the stale-bond check every 2 s while idle.
+  `lover_accept` grants it; `lover_end` clears it. `main.gd` runs the stale-bond check every 2 s
+  while idle. Bond validity and gate effects are in `docs/eligibility.md`.
 - The per-mare act history is stored in `Mods.state("unfplap").act_history`; the score, points,
   tiers and repair rules are `HISTORY.md`. It never changes the base relationship stage and never
   calls `break_up`; the worst tier is a spoken refusal.
@@ -2057,5 +2033,5 @@ This is mandatory.
   only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
 - A mare from another mod needs the game's pony locomotion and hybrid rig: an adult identity, a
   stable id, `pony_hips` for the anatomy mesh, `MareBody` for teats/strip/body-coat deform, and
-  `hair_skeleton` plus `OpenPonyDock` for tail seating. Acts still need the game's relationship
-  runtime and adult bond.
+  `hair_skeleton` plus `OpenPonyDock` for tail seating. Acts still need the eligibility runtime
+  described in `docs/eligibility.md`.

@@ -34,10 +34,10 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 
 ## Features
 
-- **Relationship-gated encounters** — Adult mares and stallions only, with a lover bond agreed
-  in conversation and real refusals for both player forms.
-- **Relationship settings** — `Promiscuity` sets the lowest relationship level for a lover bond
-  and sex; `Starting Sex` decides whether Anon needs that bond before he can try.
+- **Relationship-gated encounters** — Adult mares only, with a lover bond agreed in conversation
+  and real refusals for both player forms (`docs/eligibility.md`).
+- **Relationship settings** — `Promiscuity` and `Starting Sex` control the relationship gate; the
+  exact rule is in `docs/eligibility.md`.
 - **Two poses** — Supports missionary on a bed or couch and standing.
 - **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. One Anatomy switch picks Never, only while an act runs, or Always. The PPP anatomy assets and act audio are included in the release.
 - **Mare bits** — Choose the original PPP genitals or the V2 variant in the Anatomy settings; the V2 choice falls back to the original when its asset is absent.

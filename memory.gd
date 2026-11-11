@@ -11,6 +11,7 @@ const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 
@@ -196,7 +197,7 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 
 
 ## An act attempt she turned down. The game's mood is the impression note, not a scripted feeling:
-## `angry` makes `bonds.welcomes()` false (no kisses) and `bonds.anger()` 70 for the note's 300 s
+## `angry` blocks kisses (`docs/eligibility.md`) and is `bonds.anger()` 70 for the note's 300 s
 ## freshness; `annoyed` is 40, which still blocks relationship offers and resting closeness.
 ## A buck is the stronger moment, so it commits the stronger mood.
 static func refusal_event(game: Node, id: String, name: String, event_id: String,
@@ -271,17 +272,12 @@ static func perceived_adults(game: Node, partner: Node3D) -> Array:
 		if bool(observer.get("sleeping")):
 			continue
 		var identity: Variant = observer.get("identity")
-		if identity == null or bool(identity.get("filly")):
+		if not FACTS.adult_pony_identity(identity, false):
 			continue
 		var observer_id := str(observer.get_meta("relationship_id", ""))
 		if observer_id.is_empty():
 			observer_id = str(identity.get("id"))
 		if observer_id.is_empty():
-			continue
-		var runtime: Variant = observer.get_meta("relationship_runtime")
-		if runtime == null or not is_instance_valid(runtime):
-			continue
-		if not bool(runtime.bonds.adults.get(observer_id, false)):
 			continue
 		var seen := awareness.visible(observer, partner)
 		var heard := false if seen else awareness.can_hear(observer, partner, AWARENESS.HEARING_RANGE)
@@ -338,13 +334,9 @@ static func witnesses(game: Node, partner_id: String, partner_name: String, seri
 			observer_id = str(identity.get("id"))
 		if observer_id.is_empty():
 			continue
-		var young := bool(identity.get("filly"))
-		if not young:
-			var runtime: Variant = observer.get_meta("relationship_runtime")
-			if runtime == null or not is_instance_valid(runtime):
-				continue
-			if not bool(runtime.bonds.adults.get(observer_id, false)):
-				continue
+		var young := FACTS.young_identity(identity)
+		if not young and not FACTS.adult_pony_identity(identity, false):
+			continue
 		var seen := awareness.visible(observer, partner)
 		var heard := false
 		if not seen:

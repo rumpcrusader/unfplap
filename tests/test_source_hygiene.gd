@@ -65,6 +65,8 @@ func run() -> void:
 	_check_teardown()
 	_check_hands_isolation()
 	_check_hands_docs()
+	_check_eligibility_isolation(files)
+	_check_eligibility_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -163,6 +165,56 @@ func _check_teardown() -> void:
 	var finish := _func_body(runtime, "_finish_restore")
 	check(not finish.contains("_end_act_lines"), "normal restore keeps the early-stop line")
 	check(not finish.contains("MEMORY.cancel_act_lines"), "normal restore cancels no director rows")
+
+
+## The eligibility rules are pure and only the adapter reads the gate sources. The docs contract
+## lives in one file; other docs link to it instead of restating the rules.
+func _check_eligibility_isolation(files: Array[String]) -> void:
+	var pure_files := [
+		"eligibility/policy.gd", "eligibility/facts.gd", "eligibility/verdict.gd",
+	]
+	for name: String in pure_files:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+				"preload(\"res://world/", "preload(\"res://mods/unfplap/settings.gd\")"]:
+			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	var shell := FileAccess.get_file_as_string(ROOT.path_join("eligibility.gd"))
+	for token: String in ["save_changed", "save_consent", "save_preferences", "SEX_BOND.save",
+			"ACT_HISTORY.commit", "ACT_HISTORY.save", "FileAccess"]:
+		check(not shell.contains(token), "eligibility shell is read-only: %s" % token)
+	var readers := {
+		"bonds.welcomes(": ["eligibility.gd"],
+		"bonds.eligible_for_romance(": ["eligibility.gd"],
+		"bonds.adults": ["eligibility.gd"],
+		"SETTINGS.promiscuity": ["eligibility.gd", "settings.gd"],
+		"SETTINGS.sex_start": ["eligibility.gd", "settings.gd"],
+		"CYCLE.allows_sex(": ["eligibility.gd", "cycle.gd"],
+		"ACT_HISTORY.blocks_start(": ["eligibility.gd", "act_history.gd"],
+		"ACT_HISTORY.blocks_offers(": ["eligibility.gd", "act_history.gd"],
+		"ACT_HISTORY.offer_weight(": ["eligibility.gd", "act_history.gd"],
+	}
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var text := FileAccess.get_file_as_string(path)
+		for token: String in readers.keys():
+			if not text.contains(token):
+				continue
+			var allowed: Array = readers[token]
+			check(relative in allowed, "%s does not read %s outside the eligibility API" % [
+				relative, token])
+
+
+func _check_eligibility_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/eligibility.md"))
+	check(not contract.is_empty(), "docs/eligibility.md exists")
+	for heading: String in ["## Data ownership", "## Public API", "## Modes and truth table",
+			"## Tests"]:
+		check(contract.contains(heading), "docs/eligibility.md has %s" % heading)
+	for name: String in ["AGENTS.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md", "README.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/eligibility.md"), "%s links to docs/eligibility.md" % name)
 
 
 func _func_body(text: String, name: String) -> String:

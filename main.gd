@@ -4,6 +4,7 @@ extends Node
 ## game files; it only reads the game's pony, relationship, memory and bed APIs.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const HUD := preload("res://mods/unfplap/hud.gd")
 const INPUT := preload("res://mods/unfplap/input.gd")
 const INITIATION := preload("res://mods/unfplap/initiation.gd")
@@ -68,6 +69,8 @@ var initiation
 var classifier
 var dialogue_consent
 var active_runtime
+## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
+var eligibility: Variant
 
 var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
@@ -135,6 +138,8 @@ func _ready() -> void:
 	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
+	eligibility = ELIGIBILITY.new()
+	eligibility.setup(self)
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
@@ -226,6 +231,8 @@ func _on_world_closed(_host: Node) -> void:
 	game = null
 	player = null
 	_offer = {}
+	if is_instance_valid(eligibility):
+		eligibility.clear()
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -1174,6 +1181,8 @@ func _rump_cone_target(view: Camera3D) -> Node:
 		var actor: Node3D = node as Node3D
 		if actor == null or not actor.has_method("posture_status"):
 			continue
+		if not is_adult_mare(actor):
+			continue
 		if str(actor.posture_status().get("requested", "")) != "stand":
 			continue
 		var runtime: Node = runtime_for(actor)
@@ -1679,11 +1688,6 @@ func anatomy_status(text: String, seconds := 2.0) -> void:
 		_debug(text)
 
 
-## integration: gate for the per-mare public consent.
-func public_offers_enabled() -> bool:
-	return SETTINGS.act_public_offer.get_bool()
-
-
 ## Cross-mod API: a provider layer changed. Re-resolve the live anatomy, tail seat and act
 ## settings without writing the player's settings file.
 func refresh_api_state() -> void:
@@ -2090,6 +2094,12 @@ func mares() -> Array:
 	return []
 
 
+## The act-target, anatomy and tail predicate. The eligibility service owns the identity rule;
+## a scan uses this before building a runtime gate for a stallion or a young pony.
+func is_adult_mare(pony: Variant) -> bool:
+	return is_instance_valid(eligibility) and bool(eligibility.adult_mare(pony))
+
+
 func runtime_for(pony: Node) -> Node:
 	if not is_instance_valid(pony):
 		return null
@@ -2265,7 +2275,7 @@ func _bedside_pony(view: Camera3D) -> Node:
 			var couch: Variant = seat.get_meta("couch")
 			if is_instance_valid(couch) and couch.has_method("partner"):
 				var partner: Variant = couch.call("partner", seat)
-				if partner is Node and is_instance_valid(partner):
+				if partner is Node and is_instance_valid(partner) and is_adult_mare(partner):
 					return partner
 	return null
 
@@ -2282,6 +2292,8 @@ func nearest_lying(view: Camera3D) -> Node:
 		var actor: Node3D = node as Node3D
 		if actor == null or not actor.has_method("posture_status"):
 			continue
+		if not is_adult_mare(actor):
+			continue
 		var status: Dictionary = actor.posture_status()
 		if str(status.get("requested", "")) != "lie_down":
 			continue
@@ -2297,6 +2309,9 @@ func nearest_lying(view: Camera3D) -> Node:
 
 
 func _exit_tree() -> void:
+	if is_instance_valid(eligibility):
+		eligibility.clear()
+		eligibility = null
 	if is_instance_valid(api):
 		api.call("_shutdown")
 		api.queue_free()

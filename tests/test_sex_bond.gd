@@ -1,6 +1,6 @@
 extends SceneTree
-## Pure lover-bond policy: Promiscuity levels, stored bond, break-up validity and the Starting
-## Sex bypass. No world or user:// file is touched.
+## Pure lover-bond storage: rows, stage refresh, break-up validity and idempotence. The
+## Promiscuity ladder and Starting Sex live in the eligibility policy tests.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_sex_bond.gd
 
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
@@ -21,24 +21,6 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
-	check(SEX_BOND.level_ok("soulmates", 4), "Soulmates accepts level 4")
-	check(not SEX_BOND.level_ok("soulmates", 3), "Soulmates rejects level 3")
-	check(SEX_BOND.level_ok("head_over_hooves", 3), "Head Over Hooves accepts level 3")
-	check(not SEX_BOND.level_ok("head_over_hooves", 2), "Head Over Hooves rejects level 2")
-	check(SEX_BOND.level_ok("marefriend", 2), "Marefriend accepts level 2")
-	check(not SEX_BOND.level_ok("marefriend", 1), "Marefriend rejects level 1")
-	check(SEX_BOND.level_ok("new_couple", 1), "New Couple accepts level 1")
-	check(not SEX_BOND.level_ok("new_couple", 0), "New Couple rejects level 0")
-	check(SEX_BOND.level_ok("crush", 0), "Crush accepts level 0")
-	check(not SEX_BOND.level_ok("crush", -1), "Crush rejects no crush")
-	check(SEX_BOND.level_ok("any", -1), "Any Adult skips the love level")
-	check(SEX_BOND.level_ok("", 2), "unknown Promiscuity falls back to Marefriend")
-	check(not SEX_BOND.level_ok("", 1), "fallback still has a floor")
-
-	check(SEX_BOND.bypasses_bond("try_luck"), "Try Your Luck bypasses the bond")
-	check(not SEX_BOND.bypasses_bond("when_available"), "When Available requires the bond")
-	check(not SEX_BOND.bypasses_bond(""), "unknown Starting Sex is not a bypass")
-
 	check(SEX_BOND.romantic_stage("dating"), "dating is romantic")
 	check(SEX_BOND.romantic_stage("engaged"), "engaged is romantic")
 	check(SEX_BOND.romantic_stage("married"), "married is romantic")

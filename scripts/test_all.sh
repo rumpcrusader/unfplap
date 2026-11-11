@@ -53,6 +53,8 @@ TESTS=(
 	test_runtime_thrust
 	test_runtime_teardown
 	test_sex_bond
+	test_eligibility
+	test_eligibility_api
 	test_afterglow
 	test_voice
 	test_actions

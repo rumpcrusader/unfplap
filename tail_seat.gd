@@ -10,6 +10,7 @@ extends Node
 ## original before it writes, so turning the setting off restores the game's tail and dock exactly.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/dock_seat.gd")
@@ -249,10 +250,9 @@ func _exit_tree() -> void:
 
 
 func _eligible(pony: Node) -> bool:
+	var player_pony := pony.name == "PlayerPony" or is_instance_valid(pony.get("rig"))
 	var identity: Variant = pony.get("identity")
-	if identity == null or bool(identity.get("filly")) or bool(identity.get("stallion")):
-		return false
-	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
+	if not FACTS.adult_mare_identity(identity, player_pony):
 		return false
 	var hair: Variant = pony.get("hair_skeleton")
 	var skeleton: Variant = pony.get("skeleton")

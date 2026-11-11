@@ -55,7 +55,9 @@ func present_standing() -> bool:
 		return false
 	if not bool(runtime.call("_free_of_affection")):
 		return false
-	if str(runtime.get("_id")).is_empty() and not bool(runtime.call("_stage_ok")):
+	var service: Variant = main.get("eligibility") if is_instance_valid(main) else null
+	if service == null or not service.has_method("adult_mare") \
+			or not bool(service.call("adult_mare", pony)):
 		return false
 	if not _request_face:
 		set_request_face(true)

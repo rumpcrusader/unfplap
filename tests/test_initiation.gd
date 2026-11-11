@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_initiation.gd
 
 const INIT := preload("res://mods/unfplap/initiation.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
 
 var failures := 0
@@ -17,6 +18,7 @@ class FakeMain extends Node:
 	var player: Node3D
 	var game: Node
 	var runtimes: Dictionary = {}
+	var eligibility: Variant
 
 	func runtime_for(pony: Node) -> Node:
 		var runtime: Variant = runtimes.get(pony)
@@ -86,6 +88,8 @@ func run() -> void:
 	check(INIT.wording_mode(false) == "indirect", "public wording is indirect")
 
 	var fake_main := FakeMain.new()
+	fake_main.eligibility = ELIGIBILITY.new()
+	fake_main.eligibility.setup(fake_main)
 	var player := Node3D.new()
 	var target := Node3D.new()
 	root.add_child(player)

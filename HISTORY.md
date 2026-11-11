@@ -118,12 +118,15 @@ Only good and bad acts move the points. Neutral acts change no history.
 
 ## Tiers
 
-| Tier | Trigger | Proactive offers | Player-initiated act |
-|---|---|---|---|
-| Steady | hurt 0–1 | normal | normal |
-| Uneasy | hurt 2–3 | normal, but offer weight drops and she may give a rare vague hint | normal |
-| Hurt | hurt 4–5 | no offers | allowed, with a cold reminder |
-| Withdrawn | hurt 6+ | none | a gentle spoken refusal until repair |
+| Tier | Trigger |
+|---|---|
+| Steady | hurt 0–1 |
+| Uneasy | hurt 2–3 |
+| Hurt | hurt 4–5 |
+| Withdrawn | hurt 6+ |
+
+The tier names are presentation. Their effect on the start hint, proactive offers and spoken
+refusal is in `docs/eligibility.md`.
 
 There is **no break-up path**. The highest tier closes sex, not the relationship. The base
 `player_bonds.break_up()` is never called.
@@ -159,7 +162,8 @@ A stop is a dedicated path, not `cancel()`:
 - it ends through the forced path with no afterglow and no cuddle rejoin;
 - Normal: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
 - Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
-- the history `stop_until` field blocks `blocks_start()`, `blocks_offers()` and offer weight;
+- `stop_until` blocks the next start and proactive offers; the exact gate is in
+  `docs/eligibility.md`;
 - no aftercare; the `angry`/`annoyed` mood face follows when a summary was written. A 20 s
   tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a
   new act starts.
@@ -169,18 +173,13 @@ The **Force neglect warning** and **Force neglect stop** debug actions drive the
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
-`initiation.gd` uses the weight in its candidate pick and the cooldown in its gate.
-
-At the withdrawn tier, the Y hint is still shown. `main.try_start()` checks
-`runtime.history_blocks_start()` and calls `runtime.refuse_from_history()` instead of
-`runtime.start()`; the refusal is a generated line, not a buck or a silent no. Repair comes from
-good acts, time and an apology.
+How the weight, cooldown and refusal reach the act gate is in `docs/eligibility.md`.
 
 ## Mood after a refusal and a buck
 
 A mare's lasting mood in this game is the impression note (`world_context.impressions`), fresh for
-300 s. It is what `bonds.anger()` reads (`angry` 70, `annoyed` 40) and therefore what gates
-`bonds.welcomes()`, relationship offers, resting closeness, hand feeding and her unprompted
+300 s. It is what `bonds.anger()` reads (`angry` 70, `annoyed` 40). Its eligibility gate effect is
+in `docs/eligibility.md`; it also gates resting closeness, hand feeding and her unprompted
 approaches. Her dialogue prompt and the relationship profile also show it.
 
 The mod writes or keeps that note on the moments the base game does not see:

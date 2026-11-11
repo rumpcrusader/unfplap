@@ -14,6 +14,7 @@ pills, sidebar row and the hand-built Characters preference tab are added by the
 Per-character profiles (`default`/`characters` templates, preferences, prompts, consent) and the
 pose catalog overrides (`poses.*`) are not global settings: they live in the same file but are read
 through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other profile functions.
+Eligibility and consent gate semantics are in `docs/eligibility.md`; this file owns their storage.
 
 ## Reading and writing
 

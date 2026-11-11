@@ -655,7 +655,7 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"],
 	"Starting Sex",
-	"When to show the \u201cMake love\u201d button. When Available needs the Promiscuity stage and a lover bond; Try Your Luck drops both, but the mare can still refuse.", GENERAL, "")
+	"When to show the \u201cMake love\u201d button. When Available needs the Promiscuity stage and a lover bond; Try Your Luck drops the lover bond and the start hint's kiss-willingness gate, but not the Promiscuity stage. She can still refuse.", GENERAL, "")
 static var act_controls := flag("act_controls", "features.act_controls", true, "Show controls",
 	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
 static var hud_readouts := flag("hud_readouts", "features.hud_readouts", true, "Show HUD readouts",

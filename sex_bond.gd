@@ -1,36 +1,12 @@
 extends RefCounted
-## The mod-owned lover bond and the Promiscuity scale. This file is pure policy: it never reads
-## a scene and never decides consent on its own. `runtime.gd` supplies the live love level, the
-## base relationship stage and `bonds.welcomes(id, "kiss")`.
+## The mod-owned lover-bond store. The Promiscuity ladder, willingness, Starting Sex and every
+## gate live in `eligibility.gd`; this file only stores the bond and its stage.
 ##
 ## The bond lives in `Mods.state("unfplap").sex_bonds`, so it is per-world save data and survives
 ## a reload. It never expires; a bond granted while dating/engaged/married is cleared when the base
 ## stage leaves those stages, and a clear spoken withdrawal always clears it.
 
 const ROMANTIC_STAGES := ["dating", "engaged", "married"]
-## The Promiscuity setting, pickiest first. `any` skips the love-level check entirely.
-const LEVELS := {
-	"soulmates": 4,
-	"head_over_hooves": 3,
-	"marefriend": 2,
-	"new_couple": 1,
-	"crush": 0,
-	"any": -1,
-}
-const DEFAULT_LEVEL := "marefriend"
-
-
-## True when `love_level` meets the selected Promiscuity floor. Unknown values fall back to
-## Marefriend/Coltfriend, the old hardcoded gate.
-static func level_ok(required: String, love_level: int) -> bool:
-	var need: int = int(LEVELS.get(required, int(LEVELS[DEFAULT_LEVEL])))
-	return need < 0 or love_level >= need
-
-
-## Starting Sex `try_luck` makes the lover bond optional. It never skips the base kiss
-## willingness; the runtime still checks that separately.
-static func bypasses_bond(sex_start: String) -> bool:
-	return sex_start == "try_luck"
 
 
 static func romantic_stage(stage: String) -> bool:

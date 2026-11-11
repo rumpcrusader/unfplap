@@ -231,7 +231,12 @@ func toggle_finish() -> void:
 
 
 func _consent(key: String) -> bool:
-	return bool(SETTINGS.consent(_id).get(key, false))
+	if not is_instance_valid(main):
+		return false
+	var service: Variant = main.get("eligibility")
+	if service == null or not service.has_method("action_consent"):
+		return false
+	return bool(service.call("action_consent", pony, key))
 
 
 func _status(text: String) -> void:

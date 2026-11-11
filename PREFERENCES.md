@@ -97,10 +97,9 @@ The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.8
 waveforms), the body-slap **Contact gap** (`0…12 cm`, default `0 cm`), the hip
 back-off (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 
-**Starting Sex** sets when the Make love hint appears. **When Available** keeps every gate: the
-Promiscuity love stage, her welcomed kiss and a stored lover bond, so the hint only shows when all
-three pass. **Try Your Luck** drops the stage and bond gates for the attempt, but she still refuses
-when she does not welcome a kiss.
+**Starting Sex** chooses between When Available and Try Your Luck. The gate semantics — including
+what Try Your Luck does and does not lift — are in `docs/eligibility.md`. The setting itself only
+stores the choice.
 
 **Anatomy**
 
@@ -165,7 +164,7 @@ override is saved.
 - neglect tolerance (forgiving, normal, strict);
 - one Dislikes / No preference / Likes pill row per touch action (smack, caress, kiss) and per
   talk action (praise, reassurance, dirty talk, playful);
-- public, anal and oral consent;
+- public, anal and oral consent (`docs/eligibility.md`);
 - private notes.
 
 Preset changes are staged in the form and written only by **Save preset**, then applied live during
@@ -176,10 +175,8 @@ character's own preference template, including a registered provider layer, and 
 disabled while the saved preset already matches the character template. Consent defaults are
 deterministic from her id, can be supplied by a registered provider layer, and can be overridden
 per pony.
-- Public consent is opt-in and off by default for every mare. It only matters while
-  `features.act_public_offer` is on; it lets her offer with others around.
-- Anal consent gates `V`; oral consent gates `N`. A refusal gives a short status toast and leaves
-  the act in its current state.
+- Public, anal and oral consent and their gates are defined in `docs/eligibility.md`. The form only
+  stores the per-mare differences.
 `hud_readouts` is a normal feature toggle in the General tab; the standing close window is always
 on.
 

@@ -1,6 +1,6 @@
 extends Node
-## The anatomy system's world facade. One service under `main` owns the per-pony controllers and,
-## later, the player part and tail seating. Other systems call this facade, never a controller's
+## The anatomy system's world facade. One service under `main` owns the per-pony controllers, the
+## player part and the tail seating. Other systems call this facade, never a controller's
 ## internals.
 ##
 ## The per-pony controller is `anatomy/controller.gd`; it owns the per-act handle

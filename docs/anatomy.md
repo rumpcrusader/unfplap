@@ -25,7 +25,9 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement editor |
-| `anatomy/controller.gd` | persistent per-mare controller: attach/detach, visibility, fluid and lifecycle; forwards the shape, placement and coat APIs |
+| `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, act lifecycle and the typed-facts boundary |
+| `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
+| `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase and the host callbacks |
 | `anatomy/placement.gd` | saved offset/pitch/scale, missionary trims and the debug nudge/save/reset path |
 | `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
@@ -56,19 +58,20 @@ The internal entry points are:
 - `main.gd` creates `main.anatomy`. `_on_pony` binds the controller and tail seat, `_on_player`
   creates the player part, and the placement debug buttons forward to the service.
 - `anatomy.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
-  placement editor. Runtime and pose systems use its methods; no other system needs the player
-  node or a controller handle.
-- `runtime.gd` resolves the controller through the service, asks it to begin/end the act, ticks
-  the act handle, and supplies the act-facts dictionary and body-coat jiggle handoff.
+  placement editor. It supplies the typed facts, the service, consent, status and the dock
+  refresh to each controller. Runtime and pose systems use its methods; no other system needs the
+  player node or a controller handle.
+- `runtime.gd` resolves the controller through the service, passes the typed facts object,
+  asks it to begin/end the act, ticks the act handle, and supplies the body-coat jiggle handoff.
 - `missionary_anon.gd` and `standing_anon.gd` use the service's player methods for the hip
   offset, root position and scale.
 - `input.gd` calls the runtime's anatomy action gates; `hud.gd` renders the matching rows and
   hidden finish row.
 - `settings.gd` and `mare_registry.gd` use `anatomy_placement.gd` as the shared pure schema.
 
-The controller still reads a few runtime values (`state`, `cycle_phase`, `depth`, the bed frame
-and the perf sink) because it is attached to the act. The remaining split is attach/detach and
-the typed facts boundary; see `## Migration target`.
+The controller reads the typed `anatomy/facts.gd` object and host callbacks; it never reads the
+runtime node. `anatomy/attach.gd` owns the mesh, dock, visibility and fluid, so the controller is
+a thin shell.
 
 ## Internal API
 
@@ -80,32 +83,42 @@ player_ready(body), clear_player(), refresh_player(), player_apply_live()
 controller_for(pony, runtime), bind(pony, runtime), controller(pony), online(pony)
 refresh_all(), apply_live(), detach_controller(pony), shutdown()
 tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), tail_report()
+placement_target(), placement_id(), placement_values(id), placement_refresh()
 placement_debug(op, value), placement_show()
-player_encounter(on), player_track(...), player_showing()
-player_prepare(), player_root_now()
+consent(pony, key), status(text)
+player_encounter(on), player_track(...), player_showing(), player_available()
+player_prepare(), player_root_now(), player_tip_center(), player_shaft_radii(count)
 player_shaft_length_m(), player_girth_at(point), player_tip_world()
+player_set_aim(normal, opening, pitch), player_set_bed_inset(metres)
 player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 ```
 
 `main.anatomy.controller(pony)` (per-pony handle):
 
 ```gdscript
+setup(pony, facts, service, consent, status, dock_refresh)
+set_facts(facts)
 refresh(), detach(), apply_live()
 begin_act(pose_id) -> Node, end_act(), act()
+apply_part_visibility(show, teats_on, strip_on)
+is_attached(), body_coat_refresh()
+body_coat_mesh(), body_coat_material(), body_outline_material()
+fluid(), idle_discharge(count)
 ```
 
 `controller.begin_act(pose_id)` (per-act handle):
 
 ```gdscript
-tick(facts, delta), pose_config(config), facing()
+tick(delta, facts), pose_config(config), facing()
 toggle_hole(state), toggle_oral(state), toggle_finish(state)
-oral_active(), pull_out_selected(), opening(), normal(), rear()
+oral_active(), pull_out_selected(), finish_out(), finished_inside()
+opening_normal(), hole_point(), hole_rear()
 on_climax(), on_finish(), withdraw(), afterglow_tick(delta, facts)
 end(), teardown()
 ```
 
-The act handle also exposes the shape calls the runtime already forwards. `part()` is an
-anatomy-internal handle for the act; other systems use the service's `player_*` methods.
+`part()` is an anatomy-internal handle for the act; other systems use the service's `player_*`
+methods. The act and controller read `anatomy/facts.gd`; neither reads the runtime node.
 
 ## Controls
 
@@ -213,10 +226,12 @@ anatomy-internal handle for the act; other systems use the service's `player_*` 
 
 ## Act anatomy
 
-The runtime passes one reused plain dictionary of act facts: `state`, `depth`, `penetration_m`,
-`climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y` and `penetration_reach`. The act never
-reads runtime private fields. It returns the oral pose keys through `pose_config()` and the oral
-turn's camera facing through `facing()`; the runtime applies both in the same frame.
+The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `pose_id`, `depth`,
+`penetration_m`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`, `penetration_reach`,
+`bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
+host callbacks; neither reads the runtime node. It returns the oral pose keys through
+`pose_config()` and the oral turn's camera facing through `facing()`; the runtime applies both in
+the same frame.
 
 ### Shape drive
 
@@ -489,13 +504,16 @@ Current suites:
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
   idle heat, mesh refinement, act calls, player part, body coat and still zones).
+- `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
+  callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
 - `tests/anatomy/test_tail_hide.gd`: the debug tail collapse and restore.
 
 All anatomy suites live under `tests/anatomy/`. Pure tests must not instantiate a scene or read
-private controller state; facade tests use documented accessors and fakes. The remaining split
-(attach/visibility and the typed facts value) adds its suites in the same directory.
+private controller state; facade tests use documented accessors and fakes. The legacy
+`test_anatomy.gd` integration suite is the one exception: it still reads private state and is
+split when the suite is next touched.
 
 ## Known limits
 
@@ -515,30 +533,32 @@ private controller state; facade tests use documented accessors and fakes. The r
 - `V` is V2-only. The original PPP mesh has no anal mesh.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would
   make them overlap.
-- The persistent controller still reads runtime private fields. The act controller no longer
-  does: it reads the facts dictionary and returns pose/facing values. That is the boundary the
-  persistent split must copy; see the migration target.
+- The persistent controller and the act read the typed `anatomy/facts.gd` context, not the
+  runtime node. The legacy `test_anatomy.gd` integration suite still reads private controller
+  state; it is the only test seam left.
 
 ## Migration target
 
-The refactor is one system at a time, with no behavior change:
+The anatomy migration is complete:
 
 - `anatomy.gd` is the world facade owned by `main` as `main.anatomy`. It owns the per-pony
   controllers, the player part and tail seating.
-- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd` and `placement.gd` are split out.
-  `anatomy/controller.gd` still holds attach/detach, visibility, fluid and the lifecycle;
-  `anatomy/attach.gd` is the remaining split.
+- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd`, `placement.gd` and `attach.gd` are
+  split out. The controller is a thin shell; the attach module owns the mesh, dock, visibility,
+  fluid and idle discharge.
 - `anatomy/act.gd` is the per-act handle returned by `controller.begin_act(pose_id)`;
   `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
   three behaviors.
-- `anatomy/identity.gd`, `geometry.gd` and `act/state.gd` are pure. `anatomy_placement.gd` stays
-  a shared pure schema.
+- `anatomy/identity.gd`, `geometry.gd`, `act/state.gd` and `facts.gd` are pure.
+  `anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
-  forwards and the HUD status gateway.
-- The act receives the plain act-facts dictionary (later a typed value) from the runtime instead
-  of reading runtime private fields, and returns the oral pose delta and facing instead of writing
-  `runtime._pose_cfg`.
+  forwards and the HUD status gateway. The player body, the dock refresh, the perf sink and the
+  debug logger are injected into the anatomy modules.
+- The act and the persistent controller receive the typed `anatomy/facts.gd` context from the
+  runtime instead of reading runtime private fields, and return the oral pose delta and facing
+  instead of writing `runtime._pose_cfg`.
 - Tests live under `tests/anatomy/`, split pure vs facade. The boundary is enforced by
   `tests/test_source_hygiene.gd`.
 
-The plan and phase gates live in the refactor notes; this section only records the target API.
+The only remaining seam is the legacy `test_anatomy.gd` integration suite, which still reads
+private state; split it when the suite is next touched.

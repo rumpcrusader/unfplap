@@ -3,7 +3,6 @@ extends Node
 ## including mares added by other mods, persistent across acts. The mesh and textures are tracked
 ## assets; if they are missing the controller stays empty and every public method is a no-op.
 
-const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
@@ -14,6 +13,7 @@ const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
@@ -21,9 +21,6 @@ const WINKING_PATH := ASSET_DIR + "winking.scn"
 const MARE_BITS_V2_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
-
-const WINKING_REAR_Y := 0.541
-const WINKING_REAR_Z := 0.2961
 
 var pony: Node3D
 ## The typed runtime context. The controller never reads the runtime node.
@@ -35,18 +32,12 @@ var service: Node
 var consent := Callable()
 var status := Callable()
 
-var _mesh: MeshInstance3D
+## The persistent mesh/anchor/dock/fluid/visibility attachment.
+var attach: RefCounted
 ## The rig coat's runtime deform and still-zone debug.
 var coat: RefCounted
-var _mare_bits_path_loaded := ""
-var _fluid: Node3D
-var _skeleton: Skeleton3D
-var _bone_inverse := Transform3D.IDENTITY
 ## Saved placement, missionary trims and the debug nudge path.
 var placement: RefCounted
-## The tail dock mesh; with genitals attached it reads as a stray blob above the ponut.
-var _dock: MeshInstance3D
-var _dock_was_visible := true
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
 ## keys. The controller forwards its public shape API.
 var shapes: RefCounted
@@ -56,22 +47,8 @@ var _act: Node
 var appearance: RefCounted
 var _missing_logged := false
 var _rig_logged := false
-var _attached := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
-const VISIBILITY_POLL_S := 0.2
-const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
-## Idle heat discharge: droplets leave the vulva opening along the ground and fall under the
-## fluid node's gravity. Speed and count scale with the Discharge debug setting; the vertical
-## speed is the Fluid Y speed setting.
-const IDLE_FLUID_SPEED := 0.9
-## Ignore the body ellipsoid for this long after a discharge spawn, so a drop leaving the vulva
-## flies instead of sticking to the rump and creeping down to the tail.
-const IDLE_FLUID_CLEAR_S := 0.2
 var _visibility_clock := 0.0
-var _visibility_init := false
-var _last_shown := false
-var _last_teats_shown := false
-var _last_strip_shown := false
 ## Idle heat schedule; the controller supplies state, visibility and the cycle phase.
 var heat: RefCounted
 
@@ -131,6 +108,8 @@ static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
 
 func _init() -> void:
 	facts = FACTS.new()
+	attach = ATTACH.new()
+	attach.setup(self, null, facts)
 	shapes = SHAPES.new()
 	shapes.setup(null, self)
 	coat = COAT.new()
@@ -149,6 +128,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	consent = consent_callable
 	status = status_callable
 	dock_refresh = dock_refresh_callable
+	attach.setup(self, pony, facts)
 	shapes.setup(pony, self)
 	coat.setup(pony, shapes)
 	placement.setup(pony)
@@ -160,6 +140,8 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 ## build a bare context without a runtime.
 func set_facts(facts_node: RefCounted) -> void:
 	facts = facts_node if facts_node != null else FACTS.new()
+	if attach != null:
+		attach.facts = facts
 	if appearance != null:
 		appearance.set_perf(facts.perf_note)
 
@@ -203,78 +185,36 @@ func _enabled() -> bool:
 
 
 func _attach() -> void:
-	if _attached:
+	if is_attached():
 		apply_live()
 		return
 	if not is_instance_valid(pony):
 		return
-	var skeleton: Variant = pony.get("skeleton")
-	if not skeleton is Skeleton3D:
-		if not _rig_logged:
-			_rig_logged = true
-			_log("anatomy skipped for %s: no skeleton" % pony.name)
-		return
-	_skeleton = skeleton as Skeleton3D
-	var bone := _skeleton.find_bone("pony_hips")
-	if bone < 0:
-		if not _rig_logged:
-			_rig_logged = true
-			_log("anatomy skipped for %s: no pony_hips bone" % pony.name)
-		return
 	var selected := selected_mare_bits_path()
-	var scene: PackedScene = load(selected)
-	if scene == null:
+	if not attach.attach(selected):
+		if not _rig_logged:
+			_rig_logged = true
+			_log("anatomy skipped for %s: %s" % [pony.name, attach.last_error])
 		return
-	var instance: Node = scene.instantiate()
-	var mesh: MeshInstance3D = instance as MeshInstance3D
-	if mesh == null:
-		for child: Node in instance.find_children("*", "MeshInstance3D", true, false):
-			mesh = child as MeshInstance3D
-			break
-	if mesh == null:
-		instance.queue_free()
-		return
-	mesh.owner = null
-	if mesh.get_parent() != null:
-		mesh.get_parent().remove_child(mesh)
-	if instance != mesh:
-		instance.queue_free()
-	mesh.name = "UnfplapAnatomy"
-	var anchor := BoneAttachment3D.new()
-	anchor.name = "UnfplapAnatomyAnchor"
-	anchor.bone_name = "pony_hips"
-	_skeleton.add_child(anchor)
-	anchor.add_child(mesh)
-	_bone_inverse = _skeleton.get_bone_global_rest(bone).affine_inverse()
-	_mesh = mesh
-	_mare_bits_path_loaded = selected
-	var is_v2 := selected == MARE_BITS_V2_PATH
+	var mesh: MeshInstance3D = attach.mesh
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
+	var is_v2 := selected == MARE_BITS_V2_PATH
 	var identity: Variant = pony.get("identity")
-	placement.set_mesh(mesh, _bone_inverse, body_profile(identity))
+	placement.set_mesh(mesh, attach.bone_inverse, body_profile(identity))
 	placement.load()
-	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
-	_dock = dock
-	if is_instance_valid(dock):
-		_dock_was_visible = dock.visible
 	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
-	shapes.set_mesh(_mesh, is_v2)
-	coat.set_mesh(_mesh, _skeleton)
-	appearance.set_mesh(_mesh, _skeleton)
+	shapes.set_mesh(mesh, is_v2)
+	coat.set_mesh(mesh, attach.skeleton)
+	appearance.set_mesh(mesh, attach.skeleton)
 	appearance.attach_parts()
 	appearance.apply_material(_missionary_pose())
-	_attached = true
-	_visibility_init = false
-	if pony.has_signal("physical_reaction") \
-			and not pony.physical_reaction.is_connected(_on_physical_reaction):
-		pony.physical_reaction.connect(_on_physical_reaction)
 	set_process(true)
-	_apply_visibility()
+	attach.apply_visibility(_act_visible())
 	_log("anatomy attached lift=%.3f" % PLACEMENT.LIFT)
-	if shapes != null and bool(shapes.v2_anal()) and _mesh.mesh is ArrayMesh:
-		var arrays: Array = (_mesh.mesh as ArrayMesh).surface_get_arrays(0)
+	if shapes != null and bool(shapes.v2_anal()) and mesh.mesh is ArrayMesh:
+		var arrays: Array = (mesh.mesh as ArrayMesh).surface_get_arrays(0)
 		var cols: Variant = arrays[Mesh.ARRAY_COLOR]
 		var a1 := 0
 		var a05 := 0
@@ -284,16 +224,7 @@ func _attach() -> void:
 					a1 += 1
 				elif c.a > 0.4:
 					a05 += 1
-		_log("V2 colour mask a1=%d a05=%d path=%s" % [a1, a05, _mare_bits_path_loaded])
-
-
-## A stock flank smack (outside the act) never reaches the runtime's thrust/smack path, and
-## FlankTouch does not recognise the mod-owned near-body shader. Re-add the targets when she is
-## slapped so the near body and its outline wobble too.
-func _on_physical_reaction(kind: String) -> void:
-	if kind != "flank_smack":
-		return
-	facts.smack_body_coat()
+		_log("V2 colour mask a1=%d a05=%d path=%s" % [a1, a05, attach.mare_bits_path])
 
 
 func _process(delta: float) -> void:
@@ -303,14 +234,14 @@ func _process(delta: float) -> void:
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
-	_visibility_clock = VISIBILITY_POLL_S
+	_visibility_clock = ATTACH.VISIBILITY_POLL_S
 	_apply_place()
 	shapes.refresh_anal()
 	_apply_body_coat()
 	if appearance != null:
 		appearance.apply_strip_scale()
 	var started := Time.get_ticks_usec()
-	_apply_visibility()
+	attach.apply_visibility(_act_visible())
 	facts.perf("anatomy_visibility", Time.get_ticks_usec() - started)
 
 
@@ -325,33 +256,10 @@ func _act_visible() -> bool:
 	return false
 
 
-func _apply_visibility() -> void:
-	if not _attached or not is_instance_valid(pony):
-		return
-	var far := bool(pony.get("_far_mesh_shown")) if pony.get("_far_mesh_shown") != null else false
-	var teats_on := SETTINGS.teats.get_bool()
-	var strip_on := SETTINGS.skin_strip.get_bool()
-	var show := not far and _act_visible()
-	var teats_show := show and teats_on
-	var strip_show := show and strip_on
-	if _visibility_init and show == _last_shown and teats_show == _last_teats_shown \
-			and strip_show == _last_strip_shown:
-		return
-	_visibility_init = true
-	_last_shown = show
-	_last_teats_shown = teats_show
-	_last_strip_shown = strip_show
-	if is_instance_valid(_mesh):
-		_mesh.visible = show
-	_apply_dock(show)
-	if appearance != null:
-		appearance.apply_visibility(show, teats_on, strip_on)
-
-
 func _heat_idle_tick(delta: float) -> void:
-	if not _attached or not is_instance_valid(pony) or heat == null:
+	if not attach.is_attached() or not is_instance_valid(pony) or heat == null:
 		return
-	heat.tick(delta, facts.state, _heat_visible(),
+	heat.tick(delta, facts.state, attach.visible(),
 		Callable(self, "_cycle_phase_now"), Callable(self, "idle_discharge"))
 
 
@@ -362,25 +270,6 @@ func _cycle_phase_now() -> String:
 ## How open she rests between winks, from the Heat debug settings.
 func _heat_rest_open() -> float:
 	return float(heat.rest_open()) if heat != null else 0.0
-
-
-## True when the mesh is actually shown. Far meshes and act-only hiding both skip idle display.
-func _heat_visible() -> bool:
-	return _last_shown and is_instance_valid(_mesh) and not bool(
-		pony.get("_far_mesh_shown") if pony.get("_far_mesh_shown") != null else false)
-
-
-## The dock is a skinned mesh, so hiding it is the only reliable way to stop it reading as a
-## stray blob above the ponut once the anatomy is visible.
-func _apply_dock(anatomy_shown: bool) -> void:
-	if not is_instance_valid(_dock):
-		return
-	if not anatomy_shown:
-		_dock.visible = _dock_was_visible
-		return
-	# A dock the game hid before anatomy attached (the princesses' fitted body hides it) stays
-	# hidden: the anatomy must not re-show a dock the body art does not use.
-	_dock.visible = _dock_was_visible and SETTINGS.show_dock.get_bool()
 
 
 ## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
@@ -430,12 +319,17 @@ static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 	return GEOMETRY.anal_still_radius_for(lip, outer_factor, scale, multiplier)
 
 
+## The attach module computes the mesh/dock visibility; the controller owns the teats and strip
+## parts, which live in the appearance module.
+func apply_part_visibility(show: bool, teats_on: bool, strip_on: bool) -> void:
+	if appearance != null:
+		appearance.apply_visibility(show, teats_on, strip_on)
+
+
 func is_attached() -> bool:
-	return _attached
+	return attach.is_attached()
 
 
-## The visible rig coat and its outline. The runtime uses these to put the runtime-patched
-## materials back into FlankTouch's jiggle target list.
 func body_coat_mesh() -> MeshInstance3D:
 	return coat.body_mesh() if coat != null else null
 
@@ -464,86 +358,35 @@ func _apply_body_coat() -> void:
 	coat.apply()
 
 
-func _restore_body_coat() -> void:
-	coat.restore()
-
-
-func _debug_zones_tick() -> void:
-	coat.tick_debug()
-
-
 ## integration: a mesh modelled on the shared mare body and skinned with her own weights.
 func apply_live() -> void:
-	if not _attached:
+	if not is_attached():
 		return
-	if selected_mare_bits_path() != _mare_bits_path_loaded:
-		_reload_mare_bits_mesh()
+	var selected := selected_mare_bits_path()
+	if selected != attach.mare_bits_path and attach.reload_mare_bits(selected):
+		shapes.set_mesh(attach.mesh, selected == MARE_BITS_V2_PATH)
 	if not placement.dirty() and SETTINGS.placement_revision != placement.revision():
 		placement.load()
 	_apply_material()
 	_apply_place()
 	shapes.refresh_anal()
 	_apply_body_coat()
-	_apply_visibility()
-
-
-## integration: swap the winking mesh in place when the model choice changes. The anchor,
-## material override, placement and current shape values stay with the existing mesh node.
-func _reload_mare_bits_mesh() -> void:
-	if not is_instance_valid(_mesh):
-		return
-	var selected := selected_mare_bits_path()
-	if selected == _mare_bits_path_loaded:
-		return
-	var scene: PackedScene = load(selected)
-	if scene == null:
-		return
-	var instance: Node = scene.instantiate()
-	var source: MeshInstance3D = instance as MeshInstance3D
-	if source == null:
-		for child: Node in instance.find_children("*", "MeshInstance3D", true, false):
-			source = child as MeshInstance3D
-			break
-	if source == null or source.mesh == null:
-		instance.queue_free()
-		return
-	var refined := refined_winking_mesh(source.mesh as ArrayMesh)
-	if refined == null:
-		instance.queue_free()
-		return
-	_mesh.mesh = refined
-	_mare_bits_path_loaded = selected
-	shapes.set_mesh(_mesh, selected == MARE_BITS_V2_PATH)
-	instance.queue_free()
+	attach.apply_visibility(_act_visible())
 
 
 func detach() -> void:
 	end_act()
-	_attached = false
-	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
-			and pony.physical_reaction.is_connected(_on_physical_reaction):
-		pony.physical_reaction.disconnect(_on_physical_reaction)
 	if coat != null:
 		coat.clear_mesh()
 	if placement != null:
 		placement.clear_mesh()
-	_mare_bits_path_loaded = ""
-	_visibility_init = false
-	set_process(false)
-	if is_instance_valid(_fluid):
-		_fluid.queue_free()
-	_fluid = null
 	if appearance != null:
 		appearance.clear()
 	if shapes != null:
 		shapes.clear_mesh()
-	if is_instance_valid(_mesh):
-		var anchor := _mesh.get_parent()
-		_mesh.queue_free()
-		_mesh = null
-		if is_instance_valid(anchor):
-			anchor.queue_free()
-	_skeleton = null
+	if attach != null:
+		attach.detach()
+	set_process(false)
 	if dock_refresh.is_valid():
 		dock_refresh.call(pony)
 
@@ -554,55 +397,14 @@ func winking_mesh() -> MeshInstance3D:
 
 ## integration: one persistent fluid node per pony, reused by every act.
 func fluid() -> Node3D:
-	if not _enabled() or not is_instance_valid(pony):
-		return null
-	if not is_instance_valid(_fluid):
-		_fluid = CLIMAX_FLUID.new()
-		_fluid.name = "UnfplapAnatomyFluid"
-		pony.add_child(_fluid)
-	_fluid.set("perf_note", facts.perf_note)
-	_fluid.set("skeleton", pony.get("skeleton"))
-	_fluid.set("body_scale",
-		float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)
-	return _fluid
+	return attach.fluid() if attach != null else null
 
 
 ## Idle heat discharge: one or more droplets are shot out of the vulva opening on each wink
-## burst. They leave along the ground and the fluid node's gravity pulls them down, so they read
-## as discharged rather than dripping from under the tail. The fluid node is persistent, so the
-## drops keep their motion and pool on the ground under her.
+## burst. The persistent fluid node keeps their motion and pools them on the ground under her.
 func idle_discharge(count: int) -> void:
-	if not SETTINGS.anatomy_fluid.get_bool():
-		return
-	if not is_instance_valid(pony) or not pony.is_inside_tree() or not is_instance_valid(_mesh):
-		return
-	var amount := maxf(SETTINGS.drip.get_num(), 0.0)
-	if amount <= 0.0:
-		return
-	var node := fluid()
-	if not is_instance_valid(node):
-		return
-	node.set("ground_y", pony.global_position.y)
-	var shots := maxi(1, int(round(float(count) * amount)))
-	node.call("spray", hole_point(0.0), _discharge_direction(), shots,
-		IDLE_FLUID_SPEED * amount, maxf(SETTINGS.fluid_size.get_num(), 0.0001),
-		IDLE_FLUID_COLOR, IDLE_FLUID_CLEAR_S, SETTINGS.fluid_y_speed.get_num())
-
-
-## Horizontal direction away from the body. The anatomy mesh's own rear axis is used unless it
-## points back into the body; the vertical speed comes from the Fluid Y speed setting.
-func _discharge_direction() -> Vector3:
-	var rear := hole_rear()
-	var out := Vector3(rear.x, 0.0, rear.z)
-	if out.length_squared() < 0.000001:
-		out = Vector3.BACK
-	out = out.normalized()
-	if is_instance_valid(pony):
-		var away := hole_point(0.0) - pony.global_position
-		away.y = 0.0
-		if away.length_squared() > 0.000001 and out.dot(away.normalized()) < 0.0:
-			out = -out
-	return out
+	if attach != null:
+		attach.idle_discharge(count)
 
 
 func anal_mesh() -> MeshInstance3D:

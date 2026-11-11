@@ -94,7 +94,7 @@ modules; a system is for behavior with lifecycle, scene access or stored state.
 |---|---|---|---|
 | Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
-| Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated; controller still holds attach |
+| Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
@@ -268,12 +268,16 @@ mods/unfplap/
   eligibility/      pure policy, facts and verdict helpers
   anatomy.gd        world facade: per-pony controllers, player part, tail seat/visibility and
                     placement editor; contract in `docs/anatomy.md`
-  anatomy/controller.gd  persistent per-mare controller: attach, LOD, visibility and fluid;
-                    forwards shapes, placement, coat, appearance and heat
-  anatomy/          identity, geometry, shapes, coat, appearance and heat; act state and
-                    oral/finish/debug; player part; fluid, teats, still zones and the anatomy shader
+  anatomy/controller.gd  persistent per-mare shell: placement, shapes, coat, appearance and
+                    heat forwards; owns the act lifecycle; attach/visibility/fluid in
+                    `anatomy/attach.gd`
+  anatomy/attach.gd persistent mesh/anchor/dock, visibility, dock restore, fluid and idle discharge
+  anatomy/facts.gd  typed runtime context: state, pose, depth, bed frame, cycle and callbacks
+  anatomy/          identity, geometry, shapes, coat, appearance, heat, facts, attach, placement;
+                    act state and oral/finish/debug; player part; fluid, teats, still zones and the
+                    anatomy shader
   anatomy/act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
-                    a plain facts dictionary and returns pose/facing values
+                    the typed `anatomy/facts.gd` context and returns pose/facing values
   anatomy/player.gd player anatomy mesh, placement, girth/head/length shaping and throb;
                     `player_prepare()` builds it hidden for the footstool measurement
   anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration

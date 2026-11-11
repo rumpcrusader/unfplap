@@ -231,10 +231,11 @@ func run() -> void:
 	heat_anatomy.set_process(false)
 	heat_anatomy.set("pony", heat_pony)
 	heat_anatomy.set("facts", heat_facts)
-	heat_anatomy.set("_attached", true)
-	heat_anatomy.set("_mesh", wink_mesh)
+	heat_anatomy.attach.setup(heat_anatomy, heat_pony, heat_facts)
+	heat_anatomy.attach.attached = true
+	heat_anatomy.attach.mesh = wink_mesh
 	heat_anatomy.shapes.set_mesh(wink_mesh, false)
-	heat_anatomy.set("_last_shown", true)
+	heat_anatomy.attach.apply_visibility(true)
 	heat_facts.state = 2
 	heat_anatomy.call("_heat_idle_tick", 0.1)
 	check(heat_anatomy.heat.suppressed(), "active act suppresses idle heat")

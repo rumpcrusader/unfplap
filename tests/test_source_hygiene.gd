@@ -226,6 +226,7 @@ func _check_eligibility_docs() -> void:
 func _check_anatomy_isolation(files: Array[String]) -> void:
 	var pure_files := [
 		"anatomy/identity.gd", "anatomy/geometry.gd", "anatomy/act/state.gd",
+		"anatomy/facts.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
@@ -239,19 +240,24 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 	var runtime_text := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	for token: String in ["anatomy/controller.gd", "anatomy/act.gd", "anatomy/player.gd"]:
 		check(not runtime_text.contains(token), "runtime does not preload anatomy internals: %s" % token)
+	check(not runtime_text.contains("_anatomy.call(\"_"),
+		"runtime does not call anatomy private helpers")
 	var main_text := FileAccess.get_file_as_string(ROOT.path_join("main.gd"))
 	for token: String in ["var anon_part", "var tail_seat"]:
 		check(not main_text.contains(token), "main does not hold the anatomy node: %s" % token)
+	check(not main_text.contains("anatomy.call(\"_"),
+		"main does not call anatomy private helpers")
 	for path: String in files:
 		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
 			continue
 		var relative := path.trim_prefix(ROOT.path_join(""))
-		if not relative.begins_with("anatomy/"):
+		if not relative.begins_with("anatomy/") or relative == "anatomy.gd":
 			continue
 		var text := FileAccess.get_file_as_string(path)
 		for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
-				"preload(\"res://mods/unfplap/main.gd\")"]:
-			check(not text.contains(token), "%s does not preload the host: %s" % [relative, token])
+				"preload(\"res://mods/unfplap/main.gd\")",
+				"runtime.get(", "runtime.call(\"", "main.get(", "main.call(\""]:
+			check(not text.contains(token), "%s does not read the host: %s" % [relative, token])
 
 
 ## The anatomy contract owns the anatomy and tail-seating rules. It is one file; AGENTS and the

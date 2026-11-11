@@ -1,8 +1,8 @@
 extends Node
 ## Re-seats every adult mare's hair tail at the game's exact reference dock and moves the
-## OpenPonyDock with it. One controller under main; it never touches the body, skeleton, mane or
-## act systems. Mares from other mods use the fallback dock visibility and the global placement
-## until a per-mare override is saved.
+## OpenPonyDock with it. One controller under the anatomy facade; it never touches the body,
+## skeleton, mane or act systems. Mares from other mods use the fallback dock visibility and the
+## global placement until a per-mare override is saved.
 ##
 ## The reference is the body-space anchor of the game's reference dock, read from
 ## `dock_tail_mounts.json`. The per-mare row under `anatomy.placement.<id>` moves the tail, trims

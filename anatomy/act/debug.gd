@@ -23,7 +23,7 @@ func setup(main_node: Node, anatomy_node: Node) -> void:
 func tick(part: Variant) -> void:
 	if not SETTINGS.debug_aim_points.get_bool():
 		if is_instance_valid(_vulva):
-			free()
+			clear()
 		return
 	if not is_instance_valid(_vulva):
 		_build()
@@ -40,7 +40,7 @@ func tick(part: Variant) -> void:
 			_tip.global_position = part.call("tip_world")
 
 
-func free() -> void:
+func clear() -> void:
 	for point: MeshInstance3D in [_vulva, _anus, _tip]:
 		if is_instance_valid(point):
 			point.queue_free()

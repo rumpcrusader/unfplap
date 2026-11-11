@@ -435,7 +435,7 @@ func end() -> void:
 
 func teardown() -> void:
 	if _debug != null:
-		_debug.free()
+		_debug.clear()
 		_debug = null
 	_facts.clear()
 	if _oral_turn != null:

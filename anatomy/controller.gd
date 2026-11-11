@@ -420,6 +420,24 @@ static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 	return GEOMETRY.anal_still_radius_for(lip, outer_factor, scale, multiplier)
 
 
+func is_attached() -> bool:
+	return _attached
+
+
+## The visible rig coat and its outline. The runtime uses these to put the runtime-patched
+## materials back into FlankTouch's jiggle target list.
+func body_coat_mesh() -> MeshInstance3D:
+	return coat.body_mesh() if coat != null else null
+
+
+func body_coat_material() -> ShaderMaterial:
+	return coat.body_material() if coat != null else null
+
+
+func body_outline_material() -> ShaderMaterial:
+	return coat.body_outline_material() if coat != null else null
+
+
 func _apply_body_coat_uniforms() -> void:
 	coat.apply()
 

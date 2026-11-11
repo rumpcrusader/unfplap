@@ -56,7 +56,10 @@ func clear_mesh() -> void:
 	var body := _body_mesh
 	var material := _body_material
 	restore()
-	if is_instance_valid(body) and is_instance_valid(material):
+	# A despawned pony can already be a surface-less mesh; releasing surface 0 then errors in the
+	# rendering server.
+	if is_instance_valid(body) and is_instance_valid(material) \
+			and body.mesh != null and body.mesh.get_surface_count() > 0:
 		body.set_surface_override_material(0, null)
 	mesh = null
 	skeleton = null
@@ -94,6 +97,9 @@ func apply() -> void:
 		return
 	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
 	if not is_instance_valid(body) or body.mesh == null:
+		restore()
+		return
+	if body.mesh.get_surface_count() == 0:
 		restore()
 		return
 	if not _hips_bind_ready:

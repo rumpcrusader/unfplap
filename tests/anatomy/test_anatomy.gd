@@ -13,6 +13,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
+const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
 var failures := 0
@@ -466,6 +467,36 @@ func run() -> void:
 		"anal still radius follows the cup's outer ring")
 	check(is_zero_approx(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0)),
 		"anal still multiplier 0 disables the zone")
+	# The controller keeps the coat accessors the runtime uses for the jiggle handoff.
+	var coat_owner := ANATOMY.new()
+	for method: String in ["is_attached", "body_coat_mesh", "body_coat_material",
+			"body_outline_material"]:
+		check(coat_owner.has_method(method), "the controller exposes %s" % method)
+	check(not bool(coat_owner.call("is_attached")), "a fresh controller is not attached")
+	coat_owner.free()
+
+	# A despawned body can already have no surfaces; clearing the coat must not index surface 0.
+	var thin_body := MeshInstance3D.new()
+	thin_body.mesh = ArrayMesh.new()
+	var thin_coat := COAT.new()
+	thin_coat.set("_body_mesh", thin_body)
+	thin_coat.set("_body_material", ShaderMaterial.new())
+	thin_coat.call("clear_mesh")
+	check(true, "a surface-less coat clear completes")
+	thin_body.free()
+
+	# A normal surface still loses its override on clear.
+	var real_body := MeshInstance3D.new()
+	real_body.mesh = BoxMesh.new()
+	real_body.set_surface_override_material(0, ShaderMaterial.new())
+	var real_coat := COAT.new()
+	real_coat.set("_body_mesh", real_body)
+	real_coat.set("_body_material", ShaderMaterial.new())
+	real_coat.call("clear_mesh")
+	check(real_body.get_surface_override_material(0) == null,
+		"the coat clear removes the surface override")
+	real_body.free()
+
 	var patch_source := Shader.new()
 	patch_source.code = "shader_type spatial;\n" \
 		+ "#include \"includes/base-cel-shader.gdshaderinc\"\n" \

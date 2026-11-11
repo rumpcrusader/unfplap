@@ -266,8 +266,8 @@ mods/unfplap/
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip; every adult identity with
                     `pony_hips`, not only the base roster; contract in `docs/anatomy.md`
-  anatomy/          identity, geometry and act state; fluid, teats, coat patch, still zones and
-                    the anatomy shader
+  anatomy/          identity, geometry and act state; act oral/finish/debug; fluid, teats, coat
+                    patch, still zones and the anatomy shader
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
                     a plain facts dictionary and returns pose/facing values
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb

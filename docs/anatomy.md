@@ -25,7 +25,11 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy.gd` | persistent per-mare controller: attach/detach, placement, material, teats, strip, body coat, shape drive, idle heat, dock visibility, debug placement |
-| `anatomy_act.gd` | per-act controller: shaft-driven shapes, hole/oral/finish, winking, fluid, pose keys and aim markers; reads a plain act-facts dictionary and returns pose/facing values |
+| `anatomy_act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
+| `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
+| `anatomy/act/oral.gd` | oral turn state, mouth anchor, style motion and facing |
+| `anatomy/act/finish.gd` | finish in/out, finish droplets and afterglow rest depth |
+| `anatomy/act/debug.gd` | the three aim markers |
 | `anon_part.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
 | `anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |

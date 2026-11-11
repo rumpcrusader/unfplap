@@ -296,6 +296,10 @@ func _apply_live_settings() -> void:
 
 ## One path for every control edit: refresh the cached flags, the caption position and the live
 ## act. Every tunable change goes through here, so a control never needs its own handler.
+func apply_settings_changed() -> void:
+	_apply_settings_changed()
+
+
 func _apply_settings_changed() -> void:
 	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
@@ -1276,6 +1280,10 @@ func _log_offer() -> void:
 		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(_offer.get("bed"))])
 
 
+func debug_target(view: Camera3D) -> Node:
+	return _debug_target(view)
+
+
 func _debug_target(view: Camera3D) -> Node:
 	if not is_instance_valid(player) or not is_instance_valid(game):
 		return null
@@ -1711,117 +1719,11 @@ func open_act_chat() -> bool:
 	return opened
 
 
-## integration: one placement editor for anatomy, tail and dock. `Default` stages the global
-## default; `Pointed mare` saves the aimed or nearest mare's override. All values live in the one
-## `anatomy.placement` block.
-func _placement_target() -> Node:
-	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	return target
-
-
-func _placement_id() -> String:
-	if SETTINGS.edit_target.get_choice() == "default":
-		return "default"
-	var target := _placement_target()
-	if not is_instance_valid(target):
-		return ""
-	var id := str(target.get_meta("relationship_id", ""))
-	if id.is_empty():
-		var identity: Variant = target.get("identity")
-		if identity != null:
-			id = str(identity.get("id"))
-	return id
-
-
-func _placement_values(id: String) -> Dictionary:
-	if id == "default":
-		return SETTINGS.anatomy_placement_draft_values()
-	return SETTINGS.anatomy_placement(id)
-
-
-func _placement_refresh() -> void:
-	refresh_anatomy()
-	if is_instance_valid(anatomy):
-		anatomy.call("refresh_tails")
-
-
+## integration: the anatomy service owns the placement editor.
 func _placement_debug(op: String, value := 0.0) -> String:
-	var id := _placement_id()
-	if id.is_empty():
-		return "No placement pony targeted."
-	if id != "default" and (op.begins_with("tail_") or op.begins_with("dock_")):
-		var target := _placement_target()
-		if not is_instance_valid(anatomy) or not bool(anatomy.call("can_seat", target)):
-			return "%s: tail seat unavailable (no hair tail or dock)." % id
-	var values := _placement_values(id)
-	match op:
-		"save":
-			if id == "default":
-				SETTINGS.save_anatomy_placement_default(values)
-				_apply_settings_changed()
-			else:
-				SETTINGS.save_anatomy_placement(id, values)
-				_placement_refresh()
-			return "%s saved %s" % [id, PLACEMENT.text(values)]
-		"reset":
-			if id == "default":
-				SETTINGS.reset_anatomy_placement_default()
-			else:
-				SETTINGS.save_anatomy_placement(id,
-					SETTINGS.anatomy_placement_default(id, false))
-			_placement_refresh()
-			return "%s %s" % [id, PLACEMENT.text(_placement_values(id))]
-		"text":
-			return "%s %s" % [id, PLACEMENT.text(values)]
-		_:
-			if not _nudge_placement(values, op, value):
-				return "Unknown placement action."
-			if id == "default":
-				SETTINGS.set_anatomy_placement_draft(values)
-			else:
-				SETTINGS.save_anatomy_placement(id, values)
-			_placement_refresh()
-			return "%s %s" % [id, PLACEMENT.text(values)]
-
-
-static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:
-	match op:
-		"x":
-			placement["offset_x"] = float(placement.get("offset_x", 0.0)) + value
-		"y":
-			placement["offset_y"] = float(placement.get("offset_y", 0.0)) + value
-		"z":
-			placement["offset_z"] = float(placement.get("offset_z", 0.0)) + value
-		"pitch":
-			placement["pitch_deg"] = float(placement.get("pitch_deg", 0.0)) + value
-		"scale":
-			placement["scale"] = maxf(0.05, float(placement.get("scale", 1.0)) + value)
-		"tail_up":
-			placement["tail_y"] = float(placement.get("tail_y", 0.0)) + value
-		"tail_down":
-			placement["tail_y"] = float(placement.get("tail_y", 0.0)) - value
-		"tail_forward":
-			placement["tail_z"] = float(placement.get("tail_z", 0.0)) - value
-		"tail_back":
-			placement["tail_z"] = float(placement.get("tail_z", 0.0)) + value
-		"dock_up":
-			placement["dock_y"] = float(placement.get("dock_y", 0.0)) + value
-		"dock_down":
-			placement["dock_y"] = float(placement.get("dock_y", 0.0)) - value
-		"dock_scale_up":
-			placement["dock_scale"] = minf(float(placement.get("dock_scale", 1.0)) + value, 4.0)
-		"dock_scale_down":
-			placement["dock_scale"] = maxf(float(placement.get("dock_scale", 1.0)) - value, 0.05)
-		"tail_tilt_left":
-			placement["tail_tilt_deg"] = float(placement.get("tail_tilt_deg", 0.0)) + value
-		"tail_tilt_right":
-			placement["tail_tilt_deg"] = float(placement.get("tail_tilt_deg", 0.0)) - value
-		_:
-			return false
-	return true
+	if is_instance_valid(anatomy):
+		return str(anatomy.call("placement_debug", op, value))
+	return "Anatomy service unavailable."
 
 
 func action_anatomy_up() -> String:
@@ -1905,10 +1807,13 @@ func action_placement_reset() -> String:
 
 
 func action_placement_show() -> String:
-	var text := _placement_debug("text")
-	if not is_instance_valid(anatomy):
-		return text
-	return "%s | %s" % [text, str(anatomy.call("tail_report"))]
+	if is_instance_valid(anatomy):
+		return str(anatomy.call("placement_show"))
+	return "Anatomy service unavailable."
+
+
+func nearest_pony(view: Camera3D) -> Node:
+	return _nearest_pony(view)
 
 
 func _nearest_pony(view: Camera3D) -> Node:

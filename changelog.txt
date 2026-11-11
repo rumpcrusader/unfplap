@@ -1,3 +1,14 @@
+v0.4.0
+- Reworked: caress — both hands on authored paths with exact coat contact in both poses, a new Caress quality setting, Z/C to pause each caress oval, and a much cheaper per-frame cost.
+- Tail seating — every adult mare's hair tail is seated at the reference dock, and the dock rides under the tail base as a short cuff that follows the tail and takes her coat or genital colour.
+- Mares from other mods — adult mares added by other mods get the anatomy placement, the tail seating, and a row in the Characters tab.
+- Missionary at every pony size — the authored pose and camera now cover Canon, JRHNBR, Same Height and Hoers, with per-size vulva, clearance and gaze tuning.
+- Back to bed — a bed act that ends well puts Anon back in the bed and invites her to lie with him again.
+- Act expressions — the game's own faces through the act, from shy or relaxed at the start to a climax that matches how it went, and a five-minute afterglow face that shows hurt or annoyance after a bad act.
+- Anatomy placement — anatomy, tail and dock placement now live in one settings block with per-mare overrides, a tail tilt and a dock offset; old placement files migrate once.
+- Fixed: her intensity preference now follows stroke travel, so a slow deep stroke reads as firm.
+- Fixed: old settings files keep empty character profiles and public consent correct.
+
 v0.3.1
 - Reworked the missionary pose and its camera.
 

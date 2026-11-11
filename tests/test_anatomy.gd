@@ -344,6 +344,7 @@ func run() -> void:
 		v2_mi.transform = Transform3D.IDENTITY
 		var v2_anatomy: Node = ANATOMY.new()
 		v2_anatomy.shapes.set_mesh(v2_mi, true)
+		check(v2_anatomy.shapes.v2_anal(), "the V2 shape state reports the anal mesh")
 		v2_anatomy.shapes.apply_anal_local(0.030)
 		var open_i := v2_mi.find_blend_shape_by_name("anal_open")
 		var stretch_i := v2_mi.find_blend_shape_by_name("anal_stretch")

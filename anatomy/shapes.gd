@@ -17,7 +17,7 @@ const WINKING_CUT_FILLED := 0.9
 var pony: Node3D
 var host: Node
 var mesh: MeshInstance3D
-var v2_anal := false
+var _v2_anal := false
 
 var _anal_local := 0.0
 var _anal_mouth := GEOMETRY.V2_ANAL_RING_BASE
@@ -43,7 +43,7 @@ func setup(pony_node: Node3D, host_node: Node) -> void:
 
 func set_mesh(mesh_node: MeshInstance3D, is_v2: bool) -> void:
 	mesh = mesh_node
-	v2_anal = is_v2
+	_v2_anal = is_v2
 	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
 	_anal_local = 0.0
 	_lip_radius = _measure_lip_radius()
@@ -53,7 +53,7 @@ func set_mesh(mesh_node: MeshInstance3D, is_v2: bool) -> void:
 
 func clear_mesh() -> void:
 	mesh = null
-	v2_anal = false
+	_v2_anal = false
 	_anal_local = 0.0
 	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
 	_lip_radius = GEOMETRY.WINKING_LIP_RADIUS
@@ -74,7 +74,11 @@ func winking_mesh() -> MeshInstance3D:
 
 
 func anal_mesh() -> MeshInstance3D:
-	return mesh if v2_anal else null
+	return mesh if _v2_anal else null
+
+
+func v2_anal() -> bool:
+	return _v2_anal
 
 
 func lip_radius() -> float:
@@ -138,15 +142,15 @@ func state() -> Dictionary:
 		"lip_radius": _lip_radius,
 		"anal_local": _anal_local,
 		"anal_mouth": _anal_mouth,
-		"v2_anal": v2_anal,
+		"v2_anal": _v2_anal,
 	}
 
 
 func hole_local(mix: float) -> Vector3:
-	var anal := _anal_mouth if v2_anal else ANAL_OPENING
+	var anal := _anal_mouth if _v2_anal else ANAL_OPENING
 	var t := clampf(mix, 0.0, 1.0)
 	var local := WINKING_OPENING.lerp(anal, t)
-	if v2_anal and is_instance_valid(mesh):
+	if _v2_anal and is_instance_valid(mesh):
 		var scale := maxf(mesh.global_transform.basis.get_scale().y, 0.0001)
 		local += Vector3(0.0, SETTINGS.anal_aim_mm.get_num() / 1000.0 * t / scale, 0.0)
 	return local
@@ -156,7 +160,7 @@ func hole_point(mix := 0.0) -> Vector3:
 	if not is_instance_valid(mesh):
 		return Vector3.ZERO
 	var point := mesh.global_transform * WINKING_OPENING
-	if not v2_anal:
+	if not _v2_anal:
 		return point
 	var t := clampf(mix, 0.0, 1.0)
 	var anal := mesh.global_transform * _anal_mouth
@@ -348,7 +352,7 @@ func _apply_winking_shape() -> void:
 ## Drive the V2 anal blend shapes from the real shaft radius. Each key starts where the
 ## previous one ends, so the hole grows continuously into the overstretch and extreme scales.
 func set_anal_grip(shaft_radius: float) -> void:
-	if not is_instance_valid(mesh) or not v2_anal:
+	if not is_instance_valid(mesh) or not _v2_anal:
 		return
 	var scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
 	var hug := SETTINGS.anal_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
@@ -360,7 +364,7 @@ func set_anal_grip(shaft_radius: float) -> void:
 ## ponut-only scale with a boundary falloff, so the ring, vulva and opening stay put. The
 ## extreme key carries its own whole-patch 2x scale and fades the ponut key out.
 func _apply_anal_shape(local: float) -> void:
-	if not is_instance_valid(mesh) or not v2_anal:
+	if not is_instance_valid(mesh) or not _v2_anal:
 		return
 	var weights := GEOMETRY.anal_ring_weights(local, SETTINGS.anal_scale.get_num())
 	_anal_mouth = GEOMETRY.anal_ring_centre(weights)

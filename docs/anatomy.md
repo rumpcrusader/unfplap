@@ -442,6 +442,7 @@ Current suites:
   radius and the V2 anal ring weights/centre.
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
   scheduler.
+- `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/test_anatomy.gd`: the legacy integration suite (placement, dock visibility, idle heat,
   mesh refinement, act calls, player part, body coat and still zones).
 - `tests/test_dock_attach.gd`: the dock's two-bind skin and bind math.

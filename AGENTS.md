@@ -187,7 +187,7 @@ mods/unfplap/
                     skeleton debug helper
   runtime.gd        per-pony state machine, gates, start, ACTIVE readiness/talk,
                     act camera lean, pose actions/smack, climax, afterglow/close window,
-                    restore, aftercare
+                    restore, bed cuddle rejoin, aftercare
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip; every adult identity with
                     `pony_hips`, not only the base roster
@@ -304,8 +304,11 @@ pelvis rides the stroke and the shaft stays in his crotch (the same `_aim_attach
 standing act uses). She is released
 from the bed rest and asked to `stand`, so the solver keeps a neutral pose instead of the lie clip;
 her body is placed and posed by the act. The bed supplies only
-the frame (`bed_frame`) and the offer/eligibility path. Nothing rejoins the bed or a cuddle at the
-end: `restore_scene()` puts the player, the pony and the camera back and she stands. The snapshot is
+the frame (`bed_frame`) and the offer/eligibility path. The end restores the scene
+(`restore_scene()`: player, pony and camera) and stands her; a normal end of a bed act then returns
+to the cuddle (`_rejoin_bed_cuddle()`): Anon sits back on the bed's player seat and lies back, and
+she is invited into its guest seat, where the stock `CuddleSession` picks her up. A forced stop, a
+bad summary or a stock closeness refusal leaves her standing. The snapshot is
 re-read at ACTIVE (`resnapshot()`): at `prepare()` it catches him mid stand-up, and restoring that
 reclined eye height left the camera wrong after the act.
 
@@ -840,7 +843,9 @@ The caress paths, marked area chain, contact, smoothing, settings and debug cont
   Every step checks the ownership flag it restores (`_camera_owned`, `_look_captured`,
   `_posture_owned`, `_locked_player`, `_eye_override`, `_face_turn_rate_owned`,
   `_inventory_hud_hidden`, `_nav`, the controller flags), so a failed start runs the same
-  function and restores only what it took. `_finalize_session(real_act)` runs the post-act
+  function and restores only what it took. The back-to-IDLE tail schedules the bed cuddle rejoin
+  when `rejoin_cuddle` is true and the act qualifies; it is deferred so `_finalize_session()` has
+  started aftercare first. `_finalize_session(real_act)` runs the post-act
   bookkeeping (`_reset_after_act`: thrust reset, satisfaction fade, aftercare) once and is
   idempotent. Never add a second exit sequence; add a step and a flag.
 - `_end_act_lines()` is deliberately outside the teardown. `cancel()` queues the early-stop
@@ -852,9 +857,14 @@ The caress paths, marked area chain, contact, smoothing, settings and debug cont
   eye override and avatar, missionary view, standing camera, then player look. `_restore_look()`
   only runs when it captured the player (`_look_captured`), so a forced stop at `IDLE` cannot
   reset the player's facing.
-- A forced stop never rejoins the missionary bed cuddle; a normal end does (`_restore_posture`).
+- A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act
+  (`bed_side`) that did not go badly re-seats Anon on the bed's own player seat and re-invites her
+  through the bed rest's `invite(pony, seats[1])`; the retry waits out aftercare's navigator hold
+  and the guest cooldown, and every failure is logged before she is left standing. The act restores
+  her standing on the mattress, so the rejoin first moves her to the clear floor beside the bed
+  (`COUCH_EXIT.find_exit`): `_front_for()` rejects a floor more than 0.5 m below her feet.
 - Missionary snapshots camera + current camera, player transform and pony transform/posture. Keep
-  that snapshot exact; the bed cuddle re-invite depends on it.
+  that snapshot exact; the re-seat starts from the standing spot it restores.
 
 ## Critical: ACTIVE readiness and strength
 
@@ -1893,7 +1903,9 @@ This is mandatory.
 - The stock bed captures a snuggle guest's rest transform at invite time from the player's
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying
-  down before inviting.
+  down before inviting; the rejoin waits `CUDDLE_REJOIN_SETTLE_S`.
+- `SharedBed.accept()` is dead code in this game version: it calls `invite(actor, null)` and
+  `invite()` rejects a null seat. Re-invite a mare into a bed with `invite(actor, seats[1])`.
 - The talk classifier in `preferences.gd` is a small keyword map, not an LLM call. Expand it
   only from real playtest phrasing, and keep `talk` empty for mares who should not score it.
 - A mare from another mod needs the game's pony locomotion and hybrid rig: an adult identity, a

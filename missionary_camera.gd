@@ -569,8 +569,8 @@ func _restore_anon_avatar() -> void:
 	_desktop_presentation_processing = true
 
 
-## Put the player, the pony and the camera back exactly as the act found them. The act never rejoins
-## a bed or a cuddle: both stand, and the caller stands her.
+## Put the player, the pony and the camera back exactly as the act found them. The act's own state
+## is over here; the runtime's bed cuddle rejoin starts from this restored standing spot.
 func _restore_scene() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return

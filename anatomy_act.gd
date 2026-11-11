@@ -179,6 +179,17 @@ func toggle_finish(state: int) -> void:
 		_finish.toggle(state)
 
 
+func _service() -> Variant:
+	return main.get("anatomy") if is_instance_valid(main) else null
+
+
+func _part() -> Variant:
+	var service: Variant = _service()
+	if service == null or not service.has_method("part"):
+		return null
+	return service.call("part")
+
+
 func _consent(key: String) -> bool:
 	if not is_instance_valid(main):
 		return false
@@ -203,7 +214,7 @@ func tick(delta: float, facts: Dictionary) -> void:
 		return
 	var frame: Transform3D = (mesh as Node3D).global_transform
 	var mesh_scale := maxf(frame.basis.get_scale().x, 0.001)
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	var part: Variant = _part()
 	var width: float = -1.0
 	if is_instance_valid(part):
 		width = float(part.call("girth_at", hole_point()))
@@ -268,8 +279,11 @@ func tick(delta: float, facts: Dictionary) -> void:
 	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
 	var shown := _fact_float("penetration_m", 0.0)
-	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), false,
-		shown, delta, (mesh as Node3D).get_parent(), true)
+	var service: Variant = _service()
+	if service != null:
+		service.call("player_track", hole_point(), hole_rear(),
+			frame.basis.y.normalized(), false, shown, delta, (mesh as Node3D).get_parent(),
+			true)
 	if _debug != null:
 		_debug.tick(part)
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
@@ -391,15 +405,17 @@ func afterglow_tick(delta: float, facts: Dictionary) -> void:
 		return
 	var started := Time.get_ticks_usec()
 	var mesh: Variant = anatomy.call("winking_mesh")
-	var part: Variant = main.get("anon_part")
+	var part: Variant = _part()
 	if not is_instance_valid(mesh) or not is_instance_valid(part) or not bool(part.call("showing")):
 		return
 	var rest_m := 0.0
 	if _finish != null:
 		rest_m = float(_finish.afterglow_step(delta, _fact_float("penetration_reach", 0.2)))
-	main.call("anon_track", hole_point(), hole_rear(),
-		(mesh as Node3D).global_transform.basis.y.normalized(), true, rest_m, delta,
-		(mesh as Node3D).get_parent())
+	var service: Variant = _service()
+	if service != null:
+		service.call("player_track", hole_point(), hole_rear(),
+			(mesh as Node3D).global_transform.basis.y.normalized(), true, rest_m, delta,
+			(mesh as Node3D).get_parent())
 	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
 		runtime.call("perf_note", "anatomy_afterglow", Time.get_ticks_usec() - started)
 

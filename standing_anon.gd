@@ -67,12 +67,12 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	# With the anatomy part showing, the part asks for the pelvis to move to her entrance; the
 	# Hips-bone offset carries the pelvis and the part together.
-	var part: Variant = _anon_part()
-	if part != null:
-		var wanted: Variant = part.call("hip_offset_wanted")
+	var service: Variant = _anatomy_service()
+	if service != null and bool(service.call("player_showing")):
+		var wanted: Variant = service.call("player_hip_offset")
 		if wanted is Vector3 and (wanted as Vector3).is_finite():
 			_hip_thrust.set("offset_world", wanted)
-			part.set("hip_offset_applied", wanted)
+			service.call("player_note_hip_offset", wanted)
 			return
 	_hip_thrust.set("offset_world", forward * hip_offset(_hip_phase, scale, travel))
 
@@ -145,24 +145,22 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			_log("standing lower body released")
 
 
-func _anon_part() -> Variant:
+func _anatomy_service() -> Variant:
 	if not is_instance_valid(runtime):
 		return null
 	var main: Variant = runtime.get("main")
 	if not is_instance_valid(main):
 		return null
-	var part: Variant = main.get("anon_part")
-	if is_instance_valid(part) and bool(part.call("showing")):
-		return part
-	return null
+	return main.get("anatomy")
 
 
 ## Square his hips to her entrance every frame: his forward turns to face the opening, so the
 ## shaft leaves his pelvis normal to her vulva instead of arriving at an angle. Using the opening
 ## itself avoids depending on which way her mesh's rear axis happens to point.
 func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
-	var part: Variant = _anon_part()
-	if part == null or not runtime.has_method("anatomy_opening"):
+	var service: Variant = _anatomy_service()
+	if service == null or not bool(service.call("player_showing")) \
+			or not runtime.has_method("anatomy_opening"):
 		return plant
 	var toward := Vector3.ZERO
 	var normal: Vector3 = runtime.call("anatomy_normal") if runtime.has_method("anatomy_normal") else Vector3.ZERO
@@ -171,7 +169,7 @@ func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
 		toward = -Vector3(normal.x, 0.0, normal.z)
 	if toward.length_squared() < 0.0004:
 		var opening: Vector3 = runtime.call("anatomy_opening")
-		var pivot: Vector3 = part.call("root_now")
+		var pivot: Vector3 = service.call("player_root_now")
 		toward = Vector3(opening.x - pivot.x, 0.0, opening.z - pivot.z)
 	if toward.length_squared() < 0.0004:
 		return plant

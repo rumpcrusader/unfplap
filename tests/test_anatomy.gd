@@ -11,7 +11,7 @@ const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
-const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
+const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
@@ -390,10 +390,10 @@ func run() -> void:
 	fake_anatomy.free()
 
 	# The shaped length and head profile are reported from the same values the shader uses.
-	var part: Node = ANON_PART.new()
+	var part: Node = PLAYER_PART.new()
 	part.set("_part_length_scale", 1.5)
 	part.set("_girth_head", 1.5)
-	check(absf(float(part.call("_part_length")) - ANON_PART.PART_LENGTH * 1.5) < 0.0001,
+	check(absf(float(part.call("_part_length")) - PLAYER_PART.PART_LENGTH * 1.5) < 0.0001,
 		"part length scales")
 	check(absf(float(part.call("_head_scale_at", 0.0)) - 1.0) < 0.0001,
 		"head scale leaves the base alone")

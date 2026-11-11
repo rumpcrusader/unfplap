@@ -96,8 +96,19 @@ func teardown() -> void:
 	_bed_rest = 0.8
 
 
+func _service() -> Variant:
+	return main.get("anatomy") if is_instance_valid(main) else null
+
+
+func _part() -> Variant:
+	var service: Variant = _service()
+	if service == null or not service.has_method("part"):
+		return null
+	return service.call("part")
+
+
 func _spurts_on_her(pulse: int) -> void:
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
+	var part: Variant = _part()
 	var fluid := _fluid_node()
 	if pulse >= 4 or not is_instance_valid(part) or not bool(part.call("showing")) \
 			or not is_instance_valid(fluid):

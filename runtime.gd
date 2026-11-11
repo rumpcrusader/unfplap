@@ -590,6 +590,10 @@ func _anatomy_act_refresh(pose_id: String) -> void:
 	_anatomy_act.call("setup", self, main, pony, _anatomy, pose_id)
 
 
+func _anatomy_service() -> Variant:
+	return main.get("anatomy") if is_instance_valid(main) else null
+
+
 ## The plain-data act context the anatomy act reads. Reused, never saved.
 func _anatomy_context() -> Dictionary:
 	_anatomy_facts["state"] = state
@@ -2093,8 +2097,9 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_apply_voice_policy()
 	_set_inventory_hud_hidden(true)
 	# integration: show the player part for the encounter.
-	if is_instance_valid(main) and main.has_method("anon_encounter"):
-		main.call("anon_encounter", true)
+	var service: Variant = _anatomy_service()
+	if service != null and service.has_method("player_encounter"):
+		service.call("player_encounter", true)
 	state = State.POSING_IN
 	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
@@ -3056,7 +3061,7 @@ func anatomy_facing(basis: Basis, amount: float) -> void:
 		camera.call("set_facing_override", basis, amount)
 
 
-## integration: the standing part aims itself in `anon_part.track`; only the optional bed body
+## integration: the standing part aims itself in `anatomy/player.gd track`; only the optional bed body
 ## still needs the wrapper hook.
 ## The bed pose writes his hip itself, so the marker alignment is only for other rigs (VR).
 func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
@@ -3220,9 +3225,9 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 ## Anon's visible shaft length in metres, measured from the placed part. With the anatomy off the
 ## nominal length keeps the mouse feel identical.
 func _shaft_length_m() -> float:
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
-	if is_instance_valid(part) and bool(part.call("showing")):
-		var length: Variant = part.call("shaft_length_m")
+	var service: Variant = _anatomy_service()
+	if service != null and service.has_method("player_shaft_length_m"):
+		var length: Variant = service.call("player_shaft_length_m")
 		if length is float and (length as float) > 0.001:
 			return length as float
 	return NOMINAL_SHAFT_M
@@ -5085,8 +5090,9 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	if is_instance_valid(pony):
 		pony.remove_meta("sex_active")
 	# integration: hide the player part when the act ends.
-	if is_instance_valid(main) and main.has_method("anon_encounter"):
-		main.call("anon_encounter", false)
+	var service: Variant = _anatomy_service()
+	if service != null and service.has_method("player_encounter"):
+		service.call("player_encounter", false)
 	_release_nav()
 	if _look_captured:
 		_restore_look()

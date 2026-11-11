@@ -724,9 +724,9 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 		float(_leg_hide.get("influence")) if is_instance_valid(_leg_hide) else -1.0]
 	if not odd.is_empty():
 		row += " odd=[%s]" % ", ".join(odd)
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
-	if part != null and part.has_method("showing") and bool(part.call("showing")):
-		var part_scale: Variant = part.call("debug_scale") if part.has_method("debug_scale") else null
+	var service: Variant = _anatomy_service()
+	if service != null and bool(service.call("player_showing")):
+		var part_scale: Variant = service.call("player_debug_scale")
 		if part_scale is Vector3:
 			row += " part_scale=(%.2f,%.2f,%.2f)" % [
 				(part_scale as Vector3).x, (part_scale as Vector3).y, (part_scale as Vector3).z]
@@ -746,22 +746,23 @@ func _log(text: String) -> void:
 		runtime.call("_log", text)
 
 
+func _anatomy_service() -> Variant:
+	return main.get("anatomy") if is_instance_valid(main) else null
+
+
 ## The pelvis offset the attached alignment asked for this frame, in world space.
 func _hip_offset() -> Vector3:
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
-	if part == null or not bool(part.call("showing")):
+	var service: Variant = _anatomy_service()
+	if service == null or not service.has_method("player_hip_offset"):
 		return Vector3.ZERO
-	var wanted: Variant = part.call("hip_offset_wanted")
-	if wanted is Vector3 and (wanted as Vector3).is_finite():
-		return wanted
-	return Vector3.ZERO
+	return service.call("player_hip_offset")
 
 
 ## Tell the part the offset was applied, so next frame it measures from the moved body.
 func _note_hip_offset(offset: Vector3) -> void:
-	var part: Variant = main.get("anon_part") if is_instance_valid(main) else null
-	if part != null and bool(part.call("showing")):
-		part.set("hip_offset_applied", offset)
+	var service: Variant = _anatomy_service()
+	if service != null and service.has_method("player_note_hip_offset"):
+		service.call("player_note_hip_offset", offset)
 
 
 ## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.

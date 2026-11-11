@@ -1,5 +1,5 @@
 extends Node
-## integration: ported from PonyPussyParadise anon_part.gd. Shows the part on the human player's
+## integration: ported from PonyPussyParadise anon_part.gd; the player part. Shows the part on the human player's
 ## Hips during encounters. The mesh and textures come from the external resource pack
 ## (see assets/README.md).
 
@@ -165,7 +165,7 @@ func _ensure() -> bool:
 
 func _apply_material() -> void:
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://mods/unfplap/anon_part.gdshader")
+	mat.shader = load("res://mods/unfplap/anatomy/player.gdshader")
 	mat.set_shader_parameter("color", SKIN)
 	mat.set_shader_parameter("shadow_color", SKIN_SHADE)
 	mat.set_shader_parameter("tip_color", TIP)

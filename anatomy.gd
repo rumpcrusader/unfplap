@@ -9,11 +9,15 @@ extends Node
 ## See `docs/anatomy.md`.
 
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
+const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 var main: Node
+var player: Node
 
 ## pony -> controller
 var _controllers: Dictionary = {}
+var _player_part: Node
 
 
 func setup(main_node: Node) -> void:
@@ -88,7 +92,141 @@ func shutdown() -> void:
 				controller.call("detach")
 				controller.queue_free()
 	_controllers.clear()
+	clear_player()
 	main = null
+
+
+# --------------------------------------------------------------------------- player part
+
+func player_ready(body: Node) -> void:
+	player = body
+	refresh_player()
+
+
+func clear_player() -> void:
+	if is_instance_valid(_player_part):
+		_player_part.call("encounter", false)
+		_player_part.queue_free()
+	_player_part = null
+	player = null
+
+
+func refresh_player() -> void:
+	var enabled := SETTINGS.anatomy_on() and is_instance_valid(player) and PLAYER.assets_exist()
+	if not enabled:
+		if is_instance_valid(_player_part):
+			_player_part.call("encounter", false)
+			_player_part.queue_free()
+			_player_part = null
+		return
+	if not is_instance_valid(_player_part):
+		_player_part = PLAYER.new()
+		_player_part.name = "UnfplapAnonPart"
+		_player_part.set("main", main)
+		add_child(_player_part)
+	if _player_part.has_method("apply_live"):
+		_player_part.call("apply_live")
+
+
+## The anatomy-internal player part handle. Pose systems use the methods below instead.
+func part() -> Node:
+	return _player_part if is_instance_valid(_player_part) else null
+
+
+func player_available() -> bool:
+	return is_instance_valid(_player_part)
+
+
+func player_encounter(on: bool) -> void:
+	if is_instance_valid(_player_part):
+		_player_part.call("encounter", on)
+
+
+func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
+		penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
+	if is_instance_valid(_player_part):
+		_player_part.call("track", target, rear, up, bed, penetration_m, delta,
+			mare_anchor, attached)
+
+
+func player_showing() -> bool:
+	return is_instance_valid(_player_part) and bool(_player_part.call("showing"))
+
+
+func player_shaft_length_m() -> float:
+	if not is_instance_valid(_player_part):
+		return 0.0
+	return float(_player_part.call("shaft_length_m"))
+
+
+func player_girth_at(point: Vector3) -> float:
+	if not is_instance_valid(_player_part):
+		return -1.0
+	return float(_player_part.call("girth_at", point))
+
+
+func player_tip_world() -> Vector3:
+	if not is_instance_valid(_player_part):
+		return Vector3.ZERO
+	var value: Variant = _player_part.call("tip_world")
+	return value if value is Vector3 else Vector3.ZERO
+
+
+func player_tip_center() -> Vector3:
+	if not is_instance_valid(_player_part):
+		return Vector3.ZERO
+	var value: Variant = _player_part.call("tip_center")
+	return value if value is Vector3 else Vector3.ZERO
+
+
+func player_root_now() -> Vector3:
+	if not is_instance_valid(_player_part):
+		return Vector3.ZERO
+	var value: Variant = _player_part.call("root_now")
+	return value if value is Vector3 else Vector3.ZERO
+
+
+func player_shaft_radii(count := 8) -> PackedFloat32Array:
+	if not is_instance_valid(_player_part):
+		return PackedFloat32Array()
+	var value: Variant = _player_part.call("shaft_radii", count)
+	return value if value is PackedFloat32Array else PackedFloat32Array()
+
+
+func player_hip_offset() -> Vector3:
+	if not is_instance_valid(_player_part) or not bool(_player_part.call("showing")):
+		return Vector3.ZERO
+	var value: Variant = _player_part.call("hip_offset_wanted")
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.ZERO
+
+
+func player_note_hip_offset(offset: Vector3) -> void:
+	if is_instance_valid(_player_part) and bool(_player_part.call("showing")):
+		_player_part.set("hip_offset_applied", offset)
+
+
+func player_debug_scale() -> Variant:
+	if not is_instance_valid(_player_part) or not bool(_player_part.call("showing")):
+		return null
+	return _player_part.call("debug_scale")
+
+
+func player_set_aim(normal: Vector3, opening: Vector3, pitch := 0.0) -> void:
+	if not is_instance_valid(_player_part):
+		return
+	_player_part.set("aim_normal", normal)
+	_player_part.set("aim_opening", opening)
+	_player_part.set("aim_pitch_deg", pitch)
+
+
+func player_set_bed_inset(metres: float) -> void:
+	if is_instance_valid(_player_part):
+		_player_part.set("bed_inset_m", metres)
+
+
+func player_apply_live() -> void:
+	if is_instance_valid(_player_part) and _player_part.has_method("apply_live"):
+		_player_part.call("apply_live")
 
 
 # --------------------------------------------------------------------------- static identity

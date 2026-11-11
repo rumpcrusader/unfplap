@@ -12,7 +12,6 @@ const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
 const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
-const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
@@ -60,8 +59,6 @@ var input
 var api: Node
 ## Anatomy system facade: per-pony controllers and the player part.
 var anatomy: Node
-## integration: the optional player anatomy part is created once per player.
-var anon_part: Node
 ## Debug: the global hide-tails toggle lives outside every pony runtime.
 var tail_visibility: Node
 ## Anatomy: seats every adult mare's hair tail at the reference dock and moves the dock with it.
@@ -234,8 +231,8 @@ func _on_world(host: Node) -> void:
 
 func _on_world_closed(_host: Node) -> void:
 	_debug("world closed")
-	if is_instance_valid(anon_part):
-		anon_part.call("encounter", false)
+	if is_instance_valid(anatomy):
+		anatomy.call("clear_player")
 	_clear_native_hint()
 	if is_instance_valid(initiation):
 		initiation.reset()
@@ -341,13 +338,8 @@ func _on_player(body: Node) -> void:
 		hud = HUD.new()
 		hud.name = "UnfplapHUD"
 		add_child(hud)
-	# integration: the Anon part exists only with the anatomy feature and the local assets.
-	if not is_instance_valid(anon_part) and SETTINGS.anatomy_on() \
-			and ANON_PART.assets_exist():
-		anon_part = ANON_PART.new()
-		anon_part.name = "UnfplapAnonPart"
-		anon_part.set("main", self)
-		add_child(anon_part)
+	if is_instance_valid(anatomy):
+		anatomy.call("player_ready", body)
 	if not is_instance_valid(input):
 		input = INPUT.new()
 		input.name = "UnfplapInput"
@@ -1688,18 +1680,6 @@ func _debug_bond_request(grant: bool) -> String:
 
 
 ## integration: anatomy hooks used by the runtime and input.
-func anon_encounter(on: bool) -> void:
-	if is_instance_valid(anon_part):
-		anon_part.call("encounter", on)
-
-
-func anon_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, penetration_m: float,
-		delta: float, mare_anchor: Node3D, attached := true) -> void:
-	if is_instance_valid(anon_part):
-		anon_part.call("track", target, rear, up, bed, penetration_m, delta, mare_anchor,
-			attached)
-
-
 func anatomy_status(text: String, seconds := 2.0) -> void:
 	if is_instance_valid(hud) and hud.has_method("toast"):
 		hud.call("toast", text, seconds)
@@ -1720,25 +1700,14 @@ func refresh_api_state() -> void:
 
 ## integration: keep the anatomy feature live when the player edits a flag.
 func refresh_anatomy() -> void:
-	var enabled := SETTINGS.anatomy_on()
-	if enabled and not is_instance_valid(anon_part) and is_instance_valid(player) \
-			and ANON_PART.assets_exist():
-		anon_part = ANON_PART.new()
-		anon_part.name = "UnfplapAnonPart"
-		anon_part.set("main", self)
-		add_child(anon_part)
-	elif not enabled and is_instance_valid(anon_part):
-		anon_part.call("encounter", false)
-		anon_part.queue_free()
-		anon_part = null
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime) and runtime.has_method("apply_live_settings"):
 			runtime.call("apply_live_settings")
 	if is_instance_valid(anatomy):
+		anatomy.call("refresh_player")
 		anatomy.call("refresh_all")
 		anatomy.call("apply_live")
-	if is_instance_valid(anon_part) and anon_part.has_method("apply_live"):
-		anon_part.call("apply_live")
+		anatomy.call("player_apply_live")
 
 
 ## integration: the chat box refuses while the act holds the controls; open it past that lock.

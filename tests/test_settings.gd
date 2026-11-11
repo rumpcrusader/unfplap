@@ -120,8 +120,9 @@ func _check_placement() -> void:
 	SETTINGS.save_anatomy_placement("octavia_melody", base)
 	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a block equal to the default is not an override")
-	check(near(float(SETTINGS.anatomy_placement("rarity")["tail_y"]), -0.02)
-		and near(float(SETTINGS.anatomy_placement("rarity")["dock_y"]), 0.045),
+	check(near(float(SETTINGS.anatomy_placement("rarity")["tail_y"]), -0.005)
+		and near(float(SETTINGS.anatomy_placement("rarity")["dock_y"]), 0.0)
+		and near(float(SETTINGS.anatomy_placement("rarity")["tail_tilt_deg"]), 6.0),
 		"shipped per-mare defaults resolve")
 
 	SETTINGS.set_anatomy_placement_draft({"offset_y": 0.6, "scale": 0.9})

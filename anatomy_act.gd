@@ -58,6 +58,13 @@ var anatomy: Node
 var main: Node
 var pose := ""
 var _display_name := ""
+## Per-tick act facts written by the runtime. The act never reads runtime private fields.
+var _facts: Dictionary = {}
+## The oral pose keys for this tick, merged by the runtime after `pose_config()`.
+var _pose_delta: Dictionary = {}
+## The oral turn's camera facing; the runtime applies it after the tick.
+var _facing: Dictionary = {}
+var _oral_turn_started := false
 var _anal := false
 var _hole_mix := 0.0
 var _oral := false
@@ -96,18 +103,27 @@ var _debug_anus: MeshInstance3D
 var _debug_tip: MeshInstance3D
 
 
-func setup(runtime_node: Node, anatomy_node: Node, pose_id: String) -> void:
+func setup(runtime_node: Node, main_node: Node, pony_node: Node3D, anatomy_node: Node,
+		pose_id: String) -> void:
 	runtime = runtime_node
+	main = main_node
+	pony = pony_node
 	anatomy = anatomy_node
-	main = runtime.get("main")
-	pony = runtime.get("pony")
 	pose = pose_id
-	_display_name = str(runtime.get("_display_name"))
+	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
+	if identity != null and identity.get("display_name") != null:
+		_display_name = str(identity.get("display_name"))
+	elif is_instance_valid(pony):
+		_display_name = str(pony.name)
 	reset()
 	_debug_setup()
 
 
 func reset() -> void:
+	_facts.clear()
+	_pose_delta.clear()
+	_facing.clear()
+	_oral_turn_started = false
 	_anal = false
 	_hole_mix = 0.0
 	_oral = false
@@ -138,11 +154,21 @@ func reset() -> void:
 
 
 func _state() -> int:
-	return int(runtime.get("state"))
+	return int(_facts.get("state", 0))
 
 
 func _depth() -> float:
-	return clampf(float(runtime.get("depth")), 0.0, 1.0)
+	return clampf(float(_facts.get("depth", 0.0)), 0.0, 1.0)
+
+
+func _fact_float(key: String, fallback: float) -> float:
+	var value: Variant = _facts.get(key, fallback)
+	return float(value) if value is float or value is int else fallback
+
+
+## The oral facing the runtime applies after the tick. Empty when no turn is active.
+func facing() -> Dictionary:
+	return _facing.duplicate()
 
 
 func hole_point() -> Vector3:
@@ -179,8 +205,8 @@ func finished_inside() -> bool:
 	return _finished_inside
 
 
-func toggle_hole() -> void:
-	if not SETTINGS.anatomy_holes.get_bool() or _state() not in [2, 3] or _oral:
+func toggle_hole(state: int) -> void:
+	if not SETTINGS.anatomy_holes.get_bool() or state not in [2, 3] or _oral:
 		return
 	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("anal_mesh")):
 		return
@@ -190,8 +216,8 @@ func toggle_hole() -> void:
 	_anal = not _anal
 
 
-func toggle_oral() -> void:
-	if not SETTINGS.anatomy_oral.get_bool() or _state() != 2 or pose != CATALOG.STANDING:
+func toggle_oral(state: int) -> void:
+	if not SETTINGS.anatomy_oral.get_bool() or state != 2 or pose != CATALOG.STANDING:
 		return
 	if not _consent("oral"):
 		_status("%s is not into that" % _display_name)
@@ -200,6 +226,7 @@ func toggle_oral() -> void:
 	if ends.is_empty():
 		return
 	if not _oral and _oral_mix <= 0.0:
+		_oral_turn_started = true
 		_anal = false
 		_hole_mix = 0.0
 		var mouth: Vector3 = pony.global_transform.affine_inverse() * _mouth_point()
@@ -222,8 +249,8 @@ func toggle_oral() -> void:
 			mouth_rig.call("clear")
 
 
-func toggle_finish() -> void:
-	if not SETTINGS.anatomy_finish.get_bool() or _state() not in [2, 3]:
+func toggle_finish(state: int) -> void:
+	if not SETTINGS.anatomy_finish.get_bool() or state not in [2, 3]:
 		return
 	_pull_out = not _pull_out
 	_status("Finish: %s" % ("pull out" if _pull_out else "stay in"))
@@ -269,10 +296,11 @@ func _mouth_point() -> Vector3:
 
 
 func _size_scale() -> float:
-	return float(runtime.call("_size_scale"))
+	return _fact_float("size_scale", 1.0)
 
 
-func tick(delta: float) -> void:
+func tick(delta: float, facts: Dictionary) -> void:
+	_facts = facts
 	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
 	var started := Time.get_ticks_usec()
@@ -344,7 +372,7 @@ func tick(delta: float) -> void:
 	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
 	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
-	var shown := float(runtime.get("penetration_m"))
+	var shown := _fact_float("penetration_m", 0.0)
 	main.call("anon_track", hole_point(), hole_rear(), frame.basis.y.normalized(), false,
 		shown, delta, (mesh as Node3D).get_parent(), true)
 	_debug_tick(part)
@@ -353,13 +381,13 @@ func tick(delta: float) -> void:
 
 
 func pose_config(config: Dictionary) -> void:
-	if not is_instance_valid(anatomy):
+	if not is_instance_valid(anatomy) or _pose_delta.is_empty():
 		return
 	# Missionary needs no pose overrides: the authored base pose already holds the pelvis and legs.
-	if pose == CATALOG.STANDING and _oral_mix > 0.0:
-		config["oral_pitch"] = _oral_now.y * 0.5 * _oral_mix
-		config["oral_yaw"] = _oral_now.z * _oral_mix
-		config["oral_roll"] = _oral_now.z * 0.3 * _oral_mix
+	if pose != CATALOG.STANDING:
+		return
+	for key: String in _pose_delta:
+		config[key] = _pose_delta[key]
 
 
 ## Her own wink while the act runs: one quiet beat while the tip rests at her lips, and a
@@ -373,7 +401,7 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 		var reach := TOUCH_MARGIN_M + maxf(SETTINGS.back_out_m.get_num(), 0.0)
 		var tip: Vector3 = part.call("tip_center")
 		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
-	var mode := STATE.wink_mode(_depth(), touching, int(runtime.get("pony_climaxes")),
+	var mode := STATE.wink_mode(_depth(), touching, int(_facts.get("climaxes", 0)),
 		PULLED_OUT_PHASE)
 	if mode != _act_wink_mode:
 		_act_wink_mode = mode
@@ -446,26 +474,16 @@ func _oral_motion_tick(delta: float) -> void:
 	var blend := 1.0 - exp(-delta * ORAL_STYLE_BLEND)
 	_oral_now = _oral_now.lerp(_oral_style[0], blend)
 	_oral_speed = lerpf(_oral_speed, float(_oral_style[1]), blend)
-	var pace := 0.8
-	var auto: Variant = runtime.get("_auto_thrust")
-	if auto != null:
-		pace = maxf(pace, float(auto.get("pace")))
+	var pace := maxf(0.8, _fact_float("auto_pace", 1.0))
 	_oral_clock = fposmod(_oral_clock + delta * pace * _oral_speed, 16.0)
 	var turn := TAU * _oral_clock
-	var stroke := sin(turn)
 	var mix := smoothstep(0.0, 1.0, _oral_mix)
 	var mouth := _mouth_point()
 	_oral_anchor = mouth if _oral_anchor == Vector3.INF \
 		else _oral_anchor.lerp(mouth, 1.0 - exp(-delta * ORAL_ANCHOR_RATE))
-	var config: Dictionary = runtime.get("_pose_cfg") if runtime.get("_pose_cfg") is Dictionary else {}
-	config["oral_pitch"] = cos(turn) * _oral_now.y * mix
-	config["oral_yaw"] = (sin(turn * 0.5) * _oral_now.z + _oral_side * _oral_now.z * 0.5) * mix
-	config["oral_roll"] = sin(turn * 0.5 + 1.1) * _oral_now.z * 0.6 * mix
-	if is_instance_valid(runtime.get("_pose")) and runtime.get("_pose").get("pose_config") is Dictionary:
-		var live: Dictionary = runtime.get("_pose").get("pose_config")
-		live["oral_pitch"] = config["oral_pitch"]
-		live["oral_yaw"] = config["oral_yaw"]
-		live["oral_roll"] = config["oral_roll"]
+	_pose_delta["oral_pitch"] = cos(turn) * _oral_now.y * mix
+	_pose_delta["oral_yaw"] = (sin(turn * 0.5) * _oral_now.z + _oral_side * _oral_now.z * 0.5) * mix
+	_pose_delta["oral_roll"] = sin(turn * 0.5 + 1.1) * _oral_now.z * 0.6 * mix
 
 
 func _oral_tick(delta: float) -> void:
@@ -473,16 +491,14 @@ func _oral_tick(delta: float) -> void:
 	if mix == _oral_mix:
 		return
 	_oral_mix = mix
-	if mix <= 0.0 and is_instance_valid(runtime.get("_pose")) \
-			and runtime.get("_pose").get("pose_config") is Dictionary:
-		for key: String in ["oral_pitch", "oral_yaw", "oral_roll"]:
-			(runtime.get("_pose").get("pose_config") as Dictionary).erase(key)
-	if not _oral:
-		_oral_anchor = Vector3.INF
+	if mix <= 0.0:
+		_pose_delta.clear()
+		if not _oral:
+			_oral_anchor = Vector3.INF
+			_oral_turn_started = false
 	var eased := smoothstep(0.0, 1.0, mix)
 	var basis: Basis = Basis(Vector3.UP, PI * eased) * _oral_from_basis
-	if is_instance_valid(runtime) and runtime.has_method("anatomy_facing"):
-		runtime.call("anatomy_facing", basis, eased)
+	_facing = {"basis": basis, "amount": eased}
 	pony.global_position = _oral_from.lerp(_oral_to, eased)
 
 
@@ -518,7 +534,8 @@ func on_finish() -> void:
 
 
 ## integration: afterglow part tracking for the optional bed body.
-func afterglow_tick(delta: float) -> void:
+func afterglow_tick(delta: float, facts: Dictionary) -> void:
+	_facts = facts
 	if not is_instance_valid(anatomy) \
 			or not is_instance_valid(pony) or not is_instance_valid(main):
 		return
@@ -529,7 +546,7 @@ func afterglow_tick(delta: float) -> void:
 		return
 	_bed_rest = move_toward(_bed_rest, 0.0 if _finish_out else 0.8, delta * 1.6)
 	# `_bed_rest` is a depth share; the part is placed by measured penetration now.
-	var rest_m := _bed_rest * float(runtime.call("penetration_reach"))
+	var rest_m := _bed_rest * _fact_float("penetration_reach", 0.2)
 	main.call("anon_track", hole_point(), hole_rear(),
 		(mesh as Node3D).global_transform.basis.y.normalized(), true, rest_m, delta,
 		(mesh as Node3D).get_parent())
@@ -552,11 +569,13 @@ func end() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("animate", 1.0, 1.5)
 		anatomy.call("_clear_part")
-	if _oral_mix > 0.0:
-		_oral = false
-		_oral_mix = 0.0
-		if is_instance_valid(runtime) and runtime.has_method("anatomy_facing"):
-			runtime.call("anatomy_facing", Basis.IDENTITY, 0.0)
+	if _oral_turn_started and is_instance_valid(pony):
+		pony.global_position = _oral_from
+	_oral = false
+	_oral_mix = 0.0
+	_oral_turn_started = false
+	_pose_delta.clear()
+	_facing = {"basis": Basis.IDENTITY, "amount": 0.0}
 	var mouth_rig: Variant = _pony_mouth()
 	if mouth_rig != null and mouth_rig.has_method("clear"):
 		mouth_rig.call("clear")
@@ -564,6 +583,10 @@ func end() -> void:
 
 func teardown() -> void:
 	_debug_free()
+	_facts.clear()
+	_pose_delta.clear()
+	_facing.clear()
+	_oral_turn_started = false
 	_oral = false
 	_oral_mix = 0.0
 	_anal = false
@@ -654,14 +677,7 @@ func _fluid_ready() -> bool:
 	var fluid := _fluid_node()
 	if not is_instance_valid(fluid):
 		return false
-	var ground := pony.global_position.y
-	if pose == CATALOG.MISSIONARY:
-		var camera: Variant = runtime.call("_missionary_camera_controller")
-		if camera != null and camera.has_method("_bed_surface_top"):
-			var top: Variant = camera.call("_bed_surface_top")
-			if top is float and is_finite(top):
-				ground = top
-	fluid.set("ground_y", ground)
+	fluid.set("ground_y", _fact_float("fluid_ground_y", pony.global_position.y))
 	return true
 
 

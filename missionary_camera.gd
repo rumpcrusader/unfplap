@@ -377,6 +377,12 @@ func _missionary_body_scale() -> float:
 	return 1.0
 
 
+## Public: the fluid ground for the act. The anatomy act receives this value in its facts context
+## instead of reaching into the camera controller.
+func bed_surface_top() -> float:
+	return _bed_surface_top()
+
+
 func _bed_surface_top() -> float:
 	if not is_instance_valid(bed):
 		return INF

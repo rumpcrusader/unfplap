@@ -279,6 +279,9 @@ var _pony_saved_hair_skeleton: Skeleton3D
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
 var _anatomy_act: Node
+## Reused plain-data context for the per-act anatomy controller. The act never reads runtime
+## private fields; this dictionary is the boundary.
+var _anatomy_facts: Dictionary = {}
 var _missionary_anon: Node
 var _vr_act: Node
 var _used_angles: Array[String] = []
@@ -576,10 +579,50 @@ func _anatomy_act_refresh(pose_id: String) -> void:
 		_anatomy_act = null
 	if not is_instance_valid(_anatomy):
 		return
+	_anatomy_facts = {}
 	_anatomy_act = ANATOMY_ACT.new()
 	_anatomy_act.name = "UnfplapAnatomyAct"
 	add_child(_anatomy_act)
-	_anatomy_act.call("setup", self, _anatomy, pose_id)
+	_anatomy_act.call("setup", self, main, pony, _anatomy, pose_id)
+
+
+## The plain-data act context the anatomy act reads. Reused, never saved.
+func _anatomy_context() -> Dictionary:
+	_anatomy_facts["state"] = state
+	_anatomy_facts["depth"] = depth
+	_anatomy_facts["penetration_m"] = penetration_m
+	_anatomy_facts["climaxes"] = pony_climaxes
+	_anatomy_facts["size_scale"] = _size_scale()
+	var auto: Variant = _auto_controller()
+	_anatomy_facts["auto_pace"] = float(auto.get("pace")) if auto != null else 1.0
+	_anatomy_facts["fluid_ground_y"] = _anatomy_fluid_ground_y()
+	_anatomy_facts["penetration_reach"] = penetration_reach()
+	return _anatomy_facts
+
+
+func _anatomy_fluid_ground_y() -> float:
+	var ground: float = pony.global_position.y if is_instance_valid(pony) else 0.0
+	if pose_id != CATALOG.MISSIONARY:
+		return ground
+	var camera: Variant = _missionary_camera_controller()
+	if camera != null and camera.has_method("bed_surface_top"):
+		var top: Variant = camera.call("bed_surface_top")
+		if top is float and is_finite(top):
+			return top
+	return ground
+
+
+## Apply the oral turn's facing after the anatomy tick, inside the same physics frame.
+func _apply_anatomy_facing() -> void:
+	if not is_instance_valid(_anatomy_act) or pose_id != CATALOG.STANDING:
+		return
+	var facing: Variant = _anatomy_act.call("facing")
+	if not facing is Dictionary or (facing as Dictionary).is_empty():
+		return
+	var value: Dictionary = facing
+	var basis: Basis = value.get("basis", Basis.IDENTITY)
+	anatomy_facing(basis, float(value.get("amount", 0.0)))
+
 
 func _log(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
@@ -1159,7 +1202,8 @@ func _physics_tick(delta: float) -> void:
 		_auto_thrust_tick(delta)
 		_thrust_tick()
 		if is_instance_valid(_anatomy_act):
-			_anatomy_act.call("tick", delta)
+			_anatomy_act.call("tick", delta, _anatomy_context())
+			_apply_anatomy_facing()
 		if state == State.ACTIVE:
 			_readiness_tick(delta)
 			_talk_tick(delta)
@@ -2835,17 +2879,17 @@ func auto_panel_label(kind: String) -> String:
 ## controller is absent, so the keys behave exactly like master with the feature off.
 func toggle_anatomy_hole() -> void:
 	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("toggle_hole")
+		_anatomy_act.call("toggle_hole", state)
 
 
 func toggle_anatomy_oral() -> void:
 	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("toggle_oral")
+		_anatomy_act.call("toggle_oral", state)
 
 
 func toggle_anatomy_finish() -> void:
 	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("toggle_finish")
+		_anatomy_act.call("toggle_finish", state)
 
 
 func anatomy_oral_active() -> bool:
@@ -4923,7 +4967,7 @@ func _afterglow_tick(delta: float) -> void:
 	_afterglow_elapsed += delta
 	# integration: keep the optional bed-body part tracking through afterglow.
 	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("afterglow_tick", delta)
+		_anatomy_act.call("afterglow_tick", delta, _anatomy_context())
 	_self_end_tick(delta)
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return
@@ -5013,6 +5057,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# integration: close the anatomy act once, before the pose is freed.
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("end")
+		_apply_anatomy_facing()
 		_anatomy_act.call("teardown")
 		_anatomy_act.queue_free()
 		_anatomy_act = null
@@ -6436,6 +6481,7 @@ func _exit_tree() -> void:
 	# integration: never leave the anatomy nodes or the per-act controller behind.
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("end")
+		_apply_anatomy_facing()
 		_anatomy_act.call("teardown")
 		_anatomy_act.queue_free()
 		_anatomy_act = null

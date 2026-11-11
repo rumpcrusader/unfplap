@@ -268,7 +268,8 @@ mods/unfplap/
                     `pony_hips`, not only the base roster; contract in `docs/anatomy.md`
   anatomy/          identity, geometry and act state; fluid, teats, coat patch, still zones and
                     the anatomy shader
-  anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
+  anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
+                    a plain facts dictionary and returns pose/facing values
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
   anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the

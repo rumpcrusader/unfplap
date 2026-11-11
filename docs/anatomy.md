@@ -25,7 +25,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy.gd` | persistent per-mare controller: attach/detach, placement, material, teats, strip, body coat, shape drive, idle heat, dock visibility, debug placement |
-| `anatomy_act.gd` | per-act controller: shaft-driven shapes, hole/oral/finish, winking, fluid, pose keys and aim markers |
+| `anatomy_act.gd` | per-act controller: shaft-driven shapes, hole/oral/finish, winking, fluid, pose keys and aim markers; reads a plain act-facts dictionary and returns pose/facing values |
 | `anon_part.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
 | `anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
@@ -164,6 +164,11 @@ a per-pony controller and a per-act handle. Until then, treat the current files 
 
 ## Act anatomy
 
+The runtime passes one reused plain dictionary of act facts: `state`, `depth`, `penetration_m`,
+`climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y` and `penetration_reach`. The act never
+reads runtime private fields. It returns the oral pose keys through `pose_config()` and the oral
+turn's camera facing through `facing()`; the runtime applies both in the same frame.
+
 ### Shape drive
 
 - The act reads the player part's girth at the opening. Without a part, the width comes from the
@@ -216,9 +221,8 @@ a per-pony controller and a per-act handle. Until then, treat the current files 
   during the act. Releasing the toggle eases her back to `_oral_from`.
 - `B` toggles finish in/out in `ACTIVE`/`CLIMAX` when `features.anatomy_finish` is on. The row is
   built in the HUD but hidden until the finish has a visible effect.
-- The oral turn writes the pony's global position. Every exit must restore `_oral_from` before
-  the navigator and posture resume. An act ended while oral is active currently clears the mix
-  without that position restore; see `## Known limits`.
+- The oral turn writes the pony's global position. Every exit restores `_oral_from` before the
+  navigator and posture resume; both a normal release and an act end use the same restore.
 
 ### Finish and fluid
 
@@ -459,11 +463,9 @@ fakes. See `## Migration target`.
 - `V` is V2-only. The original PPP mesh has no anal mesh.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would
   make them overlap.
-- An act ended while oral is active clears the turn without the position lerp; the standing
-  restore path does not move her back. `act.end()` must restore `_oral_from` before the
-  navigator resumes. Missionary is unaffected because its scene restore owns the transform.
-- The current persistent and act controllers read runtime private fields and the act writes the
-  pose config. That is documented debt, not a pattern to copy; see the migration target.
+- The persistent controller still reads runtime private fields. The act controller no longer
+  does: it reads the facts dictionary and returns pose/facing values. That is the boundary the
+  persistent split must copy; see the migration target.
 
 ## Migration target
 
@@ -480,8 +482,9 @@ The refactor is one system at a time, with no behavior change:
   a shared pure schema.
 - The player part and tail seating move under `anatomy/`; `main` drops its `anon_part`,
   `tail_seat`, `refresh_anatomy`, `refresh_dock_color` and placement debug code.
-- The act receives an `AnatomyActFacts` value from the runtime instead of reading runtime private
-  fields, and returns the oral pose delta and facing instead of writing `runtime._pose_cfg`.
+- The act receives the plain act-facts dictionary (later a typed value) from the runtime instead
+  of reading runtime private fields, and returns the oral pose delta and facing instead of writing
+  `runtime._pose_cfg`. This part is already in place.
 - Tests move to `tests/anatomy/`, split pure vs facade. The boundary is enforced by
   `tests/test_source_hygiene.gd`.
 

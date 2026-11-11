@@ -3197,7 +3197,9 @@ func _on_stroke(event: Dictionary) -> void:
 	_stroke_window.append(_last_stroke)
 	while _stroke_window.size() > 4:
 		_stroke_window.pop_front()
-	_last_intensity = PREFERENCES.intensity_for(float(event.get("strength", 0.0)))
+	# The preference axis is the stroke's depth; the physical strength stays the audio/foley
+	# impact value. Keeping the two axes independent lets the player choose depth and tempo.
+	_last_intensity = PREFERENCES.intensity_for_travel(float(event.get("travel", 0.0)))
 	_last_pattern = PREFERENCES.pattern_for(_stroke_window)
 	_log("thrust stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f" % [
 		float(event.get("travel", 0.0)), float(event.get("speed", 0.0)),

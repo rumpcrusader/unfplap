@@ -63,6 +63,8 @@ func run() -> void:
 	check(near(float(inward.get("strength", 0.0)), 0.5), "full deep thrust strength")
 	check(PREF.intensity_for(float(inward.get("strength", 0.0))) == "firm",
 		"full normal-speed thrust reads firm")
+	check(PREF.intensity_for_travel(float(inward.get("travel", 0.0))) == "rough",
+		"full depth reads rough on the travel axis")
 	check(not inward.has("base_gain"), "stroke has no base gain")
 	events = tracker.tick(0.8)
 	check(_only(events, "impact").is_empty(), "an outward stroke fires no impact")
@@ -101,6 +103,8 @@ func run() -> void:
 	check(bool(hand_event.get("thrust", false)), "a 20% hand stroke is a thrust")
 	check(PREF.intensity_for(float(hand_event.get("strength", 0.0))) == "soft",
 		"a 20% hand stroke reads soft")
+	check(PREF.intensity_for_travel(float(hand_event.get("travel", 0.0))) == "soft",
+		"a 20% hand stroke reads soft on the travel axis")
 
 	var hold: RefCounted = THRUST.new()
 	hold.move(0.5, 0.0)
@@ -143,6 +147,8 @@ func run() -> void:
 	var slow_strength := float((_only(events, "stroke")[0] as Dictionary).get("strength", 0.0))
 	check(near(slow_strength, 0.15), "slow full-depth strength is soft")
 	check(PREF.intensity_for(slow_strength) == "soft", "slow full-depth reads soft")
+	check(PREF.intensity_for_travel(float((_only(events, "stroke")[0] as Dictionary).get("travel", 0.0))) == "rough",
+		"slow full-depth reads rough on the travel axis")
 
 	var fast_full: RefCounted = THRUST.new()
 	fast_full.move(1.0, 0.0)
@@ -151,6 +157,8 @@ func run() -> void:
 	var fast_strength := float((_only(events, "stroke")[0] as Dictionary).get("strength", 0.0))
 	check(near(fast_strength, 5.0 / 6.0, 0.001), "fast full-depth strength is high")
 	check(PREF.intensity_for(fast_strength) == "rough", "fast full-depth reads rough")
+	check(PREF.intensity_for_travel(float((_only(events, "stroke")[0] as Dictionary).get("travel", 0.0))) == "rough",
+		"fast full-depth reads rough on the travel axis")
 
 	var live: RefCounted = THRUST.new()
 	live.move(0.2, 0.0)

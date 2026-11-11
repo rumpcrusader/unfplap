@@ -47,8 +47,8 @@ func run() -> void:
 	runtime._thrust_move(0.10, 0.0)
 	runtime._thrust_move(-0.15, 0.1)
 	check(str(runtime._last_intensity).is_empty(), "tiny stroke does not feed the axes")
-	runtime._thrust_move(1.0, 0.2)
-	runtime._thrust_move(-1.0, 0.45)
+	runtime._thrust_move(0.5, 0.2)
+	runtime._thrust_move(-0.5, 0.45)
 	check(not str(runtime._last_intensity).is_empty(), "real thrust classifies intensity")
 	check(near(runtime.satisfaction, 0.7), "a single matching axis adds only the one-axis chunk")
 

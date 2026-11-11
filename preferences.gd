@@ -24,9 +24,15 @@ const DEFAULTS := {
 	"notes": "Open to affection.",
 }
 
-## Strength is travel x peak-speed factor from thrust.gd, clamped 0..1.
+## Strength is travel x peak-speed factor from thrust.gd, clamped 0..1. This is the physical
+## impact value used by the audio and the foley, not the preference axis.
 const SOFT_MAX := 0.33
 const FIRM_MAX := 0.60
+## The intensity preference is read from the stroke's travel, so the player can choose depth and
+## tempo independently. A deep slow stroke is rough and a shallow slow stroke is soft; the
+## physical strength stays speed-led for the plap, the impact and the wobble.
+const TRAVEL_SOFT_MAX := 0.35
+const TRAVEL_FIRM_MAX := 0.65
 ## The pattern classifier is intentionally a small, readable window, not a curve fit. It is a
 ## tempo axis: depth must not decide the rhythm, or a full-depth fast stroke could never read
 ## quick and a full-depth slow stroke could never read teasing.
@@ -62,12 +68,26 @@ static func resolve(raw: Variant) -> Dictionary:
 	return out
 
 
-## "soft", "firm" or "rough" from a closed stroke's strength.
+## "soft", "firm" or "rough" from a closed stroke's strength. This is the physical impact
+## classification used by the audio, the foley and the plap; the preference axis is
+## `intensity_for_travel()`.
 static func intensity_for(strength: float) -> String:
 	var value := clampf(strength, 0.0, 1.0)
 	if value < SOFT_MAX:
 		return "soft"
 	if value < FIRM_MAX:
+		return "firm"
+	return "rough"
+
+
+## "soft", "firm" or "rough" from a closed stroke's travel. The preference axis is the depth
+## axis, so a deep slow stroke is rough and a shallow fast stroke is soft. Keeping the two axes
+## independent makes all nine intensity x pattern combinations reachable.
+static func intensity_for_travel(travel: float) -> String:
+	var value := clampf(travel, 0.0, 1.0)
+	if value < TRAVEL_SOFT_MAX:
+		return "soft"
+	if value < TRAVEL_FIRM_MAX:
 		return "firm"
 	return "rough"
 

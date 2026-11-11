@@ -38,10 +38,14 @@ aftercare are outside it.
   `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
   counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:
   they do not update the axes or score readiness.
-- `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)` is the intensity value.
-  The `0.15` floor lets a slow full-depth stroke read as soft. Average speed drives intensity;
-  peak speed is logged and capped at `2 × average speed`, but one fast sample cannot saturate
-  the score by itself.
+- `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)` is the physical impact value.
+  The `0.15` floor lets a slow full-depth stroke stay soft on the physical axis; average speed
+  drives strength, peak speed is logged and capped at `2 × average speed`, but one fast sample
+  cannot saturate it by itself.
+- The **intensity preference** is read from the stroke's travel: `soft` (< 0.35), `firm`
+  (< 0.65), `rough`. The depth and tempo axes are independent, so a deep slow stroke is rough and
+  a shallow fast stroke is soft. The physical strength above stays the plap/foley/impact/wobble
+  value.
 - Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned wing,
   ear and blush response while slow or shallow strokes stay lighter; the foley scales from
   `strength` directly. The rump/tail wobble is separate:
@@ -183,13 +187,17 @@ on.
 
 ### Intensity
 
-From the last real inward thrust's strength:
+From the last real inward thrust's travel:
 
 ```text
-soft   strength < 0.33
-firm   0.33 <= strength < 0.60
-rough  strength >= 0.60
+soft   travel < 0.35
+firm   0.35 <= travel < 0.65
+rough  travel >= 0.65
 ```
+
+The strength formula above is the physical impact value (plap, foley, wobble) and is not the
+preference axis. The player's depth and tempo are independent, so all nine intensity × pattern
+combinations are reachable.
 
 ### Pattern
 

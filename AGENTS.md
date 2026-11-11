@@ -914,9 +914,9 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - Every stroke carries `direction`, `start_depth`, `end_depth`, `travel`, `duration`, `speed`,
   `peak_speed`, `thrust` and `strength`. There is no base gain and no per-stroke multiplier.
 - Physical strength is `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)`.
-  The `0.15` floor lets a slow full-depth stroke read as soft. Average speed drives intensity;
-  peak speed is logged and capped at `2 × average speed`, but one fast sample cannot saturate
-  the score.
+  The `0.15` floor lets a slow full-depth stroke stay soft on the physical axis. Average speed
+  drives strength; peak speed is logged and capped at `2 × average speed`, but one fast sample
+  cannot saturate the score. The intensity preference is travel-led, not strength-led.
 - Visual impact is `min(1, strength × THRUST_IMPACT_GAIN)` with `THRUST_IMPACT_GAIN = 2.0`,
   preserving the tuned normal/fast response while slow and shallow strokes stay lighter. It
   drives wings, ear twitch and rump blush; the foley scales from `strength` directly. The
@@ -926,10 +926,12 @@ a real direction reversal or `STROKE_TIMEOUT_S = 0.18 s`.
 - Only real thrusts update the axes and score. Outward strokes, tiny jitter and pullbacks are
   presentation only.
 - The ACTIVE stage reads two axes from the last real thrusts:
-  - **intensity**: `soft` (< 0.33), `firm` (< 0.60), `rough`;
+  - **intensity**: `soft` (`travel < 0.35`), `firm` (`travel < 0.65`), `rough`;
   - **pattern**: `steady`, `teasing` (`mean duration > 0.45 s`) or `quick`
     (`mean duration < 0.30 s`), classified over the last 3–4 real thrusts. Fewer than 3 has no
-    pattern yet. Pattern is tempo only: depth does not decide the rhythm.
+    pattern yet. Pattern is tempo only: depth does not decide the rhythm. The depth and tempo
+    axes are independent, so all nine intensity × pattern combinations are reachable. The physical
+    strength formula above is the plap/foley/wobble value, not the preference axis.
 - Auto thrust (`X`) feeds this tracker, never a parallel score. `auto_thrust.gd` advances
   `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`;
   `_auto_thrust_tick()` sends the per-frame depth delta through `_thrust_move()`, so readiness,

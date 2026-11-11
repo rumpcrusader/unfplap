@@ -65,21 +65,21 @@ func _intensity(depth: float, pace: float, seconds: float) -> String:
 	var strokes := _thrusts(_simulate(depth, pace, seconds))
 	if strokes.is_empty():
 		return ""
-	return PREF.intensity_for(float(strokes[strokes.size() - 1].get("strength", 0.0)))
+	return PREF.intensity_for_travel(float(strokes[strokes.size() - 1].get("travel", 0.0)))
 
 
 func _pattern(depth: float, pace: float, seconds: float) -> String:
 	return PREF.pattern_for(_last_four(_thrusts(_simulate(depth, pace, seconds))))
 
 
-## Strongest inward stroke in the last four. A window can end on a partial or timed-out stroke,
-## so the fastest pace is read from the best stroke it produced, not from whichever closed last.
-func _strongest_intensity(depth: float, pace: float, seconds: float) -> String:
+## Deepest inward stroke in the last four. A window can end on a partial or timed-out stroke,
+## so the depth is read from the best stroke it produced, not from whichever closed last.
+func _deepest_intensity(depth: float, pace: float, seconds: float) -> String:
 	var strokes := _last_four(_thrusts(_simulate(depth, pace, seconds)))
 	var best := 0.0
 	for stroke: Dictionary in strokes:
-		best = maxf(best, float(stroke.get("strength", 0.0)))
-	return PREF.intensity_for(best)
+		best = maxf(best, float(stroke.get("travel", 0.0)))
+	return PREF.intensity_for_travel(best)
 
 
 func run() -> void:
@@ -100,10 +100,11 @@ func run() -> void:
 	check(_intensity(AUTO.DEPTH_MIN, 2.0, 3.0) == "soft",
 		"the shallowest auto peak counts as soft")
 
-	# Pace and depth together reach every intensity class.
-	check(_intensity(1.0, AUTO.PACE_MIN, 3.0) == "soft", "slow full auto reads soft")
-	check(_intensity(1.0, 2.0, 2.0) == "firm", "normal full auto reads firm")
-	check(_strongest_intensity(1.0, AUTO.PACE_MAX, 1.4) == "rough",
+	# Depth alone sets the intensity axis; pace only changes the tempo.
+	check(_intensity(1.0, AUTO.PACE_MIN, 3.0) == "rough", "slow full auto reads rough")
+	check(_intensity(1.0, 2.0, 2.0) == "rough", "normal full auto reads rough")
+	check(_intensity(0.5, 2.0, 2.0) == "firm", "normal mid auto reads firm")
+	check(_deepest_intensity(1.0, AUTO.PACE_MAX, 1.4) == "rough",
 		"fastest full auto reads rough")
 	check(_intensity(AUTO.DEPTH_MIN, AUTO.PACE_MAX, 1.0) == "soft",
 		"fast shallow auto stays soft")
@@ -127,6 +128,22 @@ func run() -> void:
 		check(intensities.has(name), "auto range reaches intensity " + name)
 	for name: String in PREF.PATTERNS:
 		check(patterns.has(name), "auto range reaches pattern " + name)
+
+	# The two axes are independent, so every intensity x pattern combination is reachable.
+	var combos: Dictionary = {}
+	for depth: float in [AUTO.DEPTH_MIN, 0.5, 0.9, 1.0]:
+		for pace: float in [AUTO.PACE_MIN, 1.25, 1.5, 2.5, 3.5, AUTO.PACE_MAX]:
+			var combo_strokes := _last_four(_thrusts(_simulate(depth, pace, 4.0)))
+			if combo_strokes.is_empty():
+				continue
+			var intensity := PREF.intensity_for_travel(
+				float(combo_strokes[combo_strokes.size() - 1].get("travel", 0.0)))
+			var pattern := PREF.pattern_for(combo_strokes)
+			combos[intensity + "|" + pattern] = true
+	for intensity: String in PREF.INTENSITIES:
+		for pattern: String in PREF.PATTERNS:
+			check(combos.has(intensity + "|" + pattern),
+				"auto range reaches " + intensity + " & " + pattern)
 
 	# Every stroke shape is a valid generator: it starts and ends at the bottom and stays in range,
 	# so the tracker can only ever see a real stroke.

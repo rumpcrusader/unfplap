@@ -33,6 +33,11 @@ func run() -> void:
 	check(PREF.intensity_for(0.60) == "rough", "rough starts at the retuned threshold")
 	check(PREF.intensity_for(0.85) == "rough", "rough intensity band")
 
+	check(PREF.intensity_for_travel(0.10) == "soft", "shallow travel reads soft")
+	check(PREF.intensity_for_travel(0.50) == "firm", "mid travel reads firm")
+	check(PREF.intensity_for_travel(0.65) == "rough", "deep travel starts at the rough band")
+	check(PREF.intensity_for_travel(0.90) == "rough", "deep travel reads rough")
+
 	check(PREF.pattern_for([]) == "", "no pattern without strokes")
 	check(PREF.pattern_for(_strokes(0.60, 0.40, 3)) == "steady", "steady pattern")
 	check(PREF.pattern_for(_strokes(0.30, 0.90, 3)) == "teasing", "teasing pattern")
@@ -41,6 +46,19 @@ func run() -> void:
 		"a deep fast stroke reads quick")
 	check(PREF.pattern_for(_strokes(0.90, 0.90, 3)) == "teasing",
 		"a deep slow stroke reads teasing")
+
+	# The travel and tempo axes are independent: a manual stroke can reach all nine
+	# intensity x pattern combinations. The physical strength is not part of the preference.
+	var combos: Dictionary = {}
+	for travel_step in range(1, 20):
+		for duration_step in range(1, 20):
+			var travel := float(travel_step) / 20.0
+			var duration := float(duration_step) / 20.0
+			combos[PREF.intensity_for_travel(travel) + "|" + PREF.pattern_for(_strokes(travel, duration, 3))] = true
+	for intensity: String in PREF.INTENSITIES:
+		for pattern: String in PREF.PATTERNS:
+			check(combos.has(intensity + "|" + pattern),
+				"manual travel and tempo reach " + intensity + " & " + pattern)
 
 	check(PREF.classify_talk("you are so beautiful") == "praise", "praise classification")
 	check(PREF.classify_talk("are you okay?") == "reassurance", "reassurance classification")

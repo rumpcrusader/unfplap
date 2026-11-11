@@ -227,18 +227,20 @@ func _camera_position() -> Vector3:
 
 
 func shoulder_point(side: String) -> Dictionary:
-	if side.is_empty() or not is_instance_valid(pony):
+	var is_left := side == "left" or side == "L"
+	var is_right := side == "right" or side == "R"
+	if not (is_left or is_right) or not is_instance_valid(pony):
 		return {}
 	var sk: Variant = pony.get("skeleton")
 	if not sk is Skeleton3D:
 		return {}
 	var skeleton := sk as Skeleton3D
-	var bone := skeleton.find_bone("pony_shoulder_" + side)
+	var bone := skeleton.find_bone("pony_shoulder_" + ("L" if is_left else "R"))
 	if bone < 0:
 		return {}
 	var shoulder := skeleton.global_transform * skeleton.get_bone_global_pose(bone)
 	var outward: Vector3 = pony.global_basis.x.normalized()
-	if side == "left":
+	if is_left:
 		outward = -outward
 	return {"palm": shoulder.origin, "outward": outward}
 

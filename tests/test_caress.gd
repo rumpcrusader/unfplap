@@ -464,6 +464,20 @@ func run() -> void:
 	stand_pony.add_child(stand_flank)
 	var standing_path: Variant = FLANK.new()
 	standing_path.call("setup", stand_pony, null)
+	var left_shoulder: Dictionary = standing_path.call("shoulder_point", "left")
+	var right_shoulder: Dictionary = standing_path.call("shoulder_point", "right")
+	check(not standing_path.call("shoulder_point", "L").is_empty()
+		and not standing_path.call("shoulder_point", "R").is_empty(),
+		"the standing shoulder point accepts both side spellings")
+	check(not left_shoulder.is_empty() and not right_shoulder.is_empty(),
+		"the standing path resolves both shoulder bones")
+	if not left_shoulder.is_empty() and not right_shoulder.is_empty():
+		check((left_shoulder["palm"] as Vector3).x < 0.0
+			and (right_shoulder["palm"] as Vector3).x > 0.0,
+			"the standing shoulder points sit on their own sides")
+		check((left_shoulder["outward"] as Vector3).dot(Vector3.LEFT) > 0.9
+			and (right_shoulder["outward"] as Vector3).dot(Vector3.RIGHT) > 0.9,
+			"the standing shoulder outward hints point away from the body")
 	var stand_context := {
 		"lean": 0.0, "size": 1.0, "profile": {"up": 0.16, "back": 0.08, "out": 0.02},
 		"precise": true, "ignore": [],

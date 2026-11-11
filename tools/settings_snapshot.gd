@@ -18,6 +18,9 @@ func _initialize() -> void:
 		row["path"] = str(setting.path)
 		settings.append(row)
 	var defaults: Dictionary = SETTINGS._defaults()
+	# The profile file stores only per-mare differences now, but the sync analyzer still needs the
+	# full shipped templates to compare each character leaf against its real default.
+	defaults["characters"] = SETTINGS.CHARACTER_TEMPLATES.duplicate(true)
 	# The profile file holds act-prompt overrides next to the built-ins. The comparison needs the
 	# built-in text, not the empty override table.
 	var default_block: Dictionary = defaults.get("default", {})

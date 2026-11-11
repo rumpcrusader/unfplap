@@ -28,15 +28,17 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy_act.gd` | per-act controller: shaft-driven shapes, hole/oral/finish, winking, fluid, pose keys and aim markers |
 | `anon_part.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
 | `anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
-| `tail_seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
-| `dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
-| `dock_seat.gd` | snaps the dock base ring to the rumen and measures the tail-cap seat |
-| `tail_hide.gd` | debug modifier: collapses the tail chain by scale, restores cached scales |
-| `tail_visibility.gd` | debug controller: installs `tail_hide` on loaded AI characters |
-| `climax_fluid.gd` | droplets with gravity, sticking, creeping and ground pools |
-| `teat_jiggle.gd` | teat spring sway |
-| `still_zone_debug.gd` | debug overlay for the two no-jiggle zones |
-| `body_coat_patch.gd` | runtime patch of the game coat shader; swaps the jiggle include and call |
+| `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
+| `anatomy/tail/dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
+| `anatomy/tail/dock_seat.gd` | snaps the dock base ring to the rumen and measures the tail-cap seat |
+| `anatomy/tail/hide.gd` | debug modifier: collapses the tail chain by scale, restores cached scales |
+| `anatomy/tail/visibility.gd` | debug controller: installs `anatomy/tail/hide.gd` on loaded AI characters |
+| `anatomy/fluid.gd` | droplets with gravity, sticking, creeping and ground pools |
+| `anatomy/teat_jiggle.gd` | teat spring sway |
+| `anatomy/still_zone_debug.gd` | debug overlay for the two no-jiggle zones |
+| `anatomy/body_coat_patch.gd` | runtime patch of the game coat shader; swaps the jiggle include and call |
+| `anatomy/anatomy.gdshader` | the per-pony anatomy material |
+| `anatomy/body_coat_deform.gdshaderinc` | the coat deform include used by the patch |
 | `vr_act.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
 
 The current entry points are not yet isolated:
@@ -104,7 +106,8 @@ a per-pony controller and a per-act handle. Until then, treat the current files 
 
 ## Appearance
 
-- The anatomy material is `anatomy.gdshader`, created per pony. `skin_tone` maps `0` to her coat,
+- The anatomy material is `anatomy/anatomy.gdshader`, created per pony. `skin_tone` maps `0` to
+  her coat,
   `0.5` to the old Darker tone and `1` to the old Dark tone, interpolating between the three
   anchors. Inner-fold and clitoris colours are separate settings.
 - `vulva_height`, `lip_vertical` and `anal_scale` drive the shader. On the V2 mesh the anal scale
@@ -114,7 +117,8 @@ a per-pony controller and a per-act handle. Until then, treat the current files 
 - `coat_color` and `coat_shadow` on the anatomy material are her coat colours. The dock and the
   strip edges read that fallback; leaving it at zero made those vertices black.
 - Teats are a skinned part from `teats.scn`, bound to the mare's own skin. The id hash selects the
-  `mid`/`full` blend weights and the jiggle swing. `teat_jiggle.gd` is parented under the teats
+  `mid`/`full` blend weights and the jiggle swing. `anatomy/teat_jiggle.gd` is parented under the
+  teats
   and only physics-processes while they are visible.
 - The skin strip is `skin_bridge.scn`, also skinned to the mare. Its span is measured from the
   dock AABB and the teat strip end; its gap is measured from the hip bind and the authored slit.
@@ -263,7 +267,7 @@ a per-pony controller and a per-act handle. Until then, treat the current files 
   `VERTEX += flank_jiggle(VERTEX);` with `VERTEX += body_coat_deform(VERTEX);`. The outline hull
   is patched the same way. No game source is edited and no cel shader is copied.
 - The patch is cached per source shader. A game update that removes either hook makes
-  `body_coat_patch.patched()` return null; the original shader is left alone.
+  `anatomy/body_coat_patch.patched()` return null; the original shader is left alone.
 - The patch drives the vulva spread, the V2 anal mound and hole, and two no-jiggle ellipsoids:
   one around the vulva and one around the visible ponut. The uniforms are body-local, mapped
   through the `pony_hips` bind.
@@ -318,15 +322,16 @@ a per-pony controller and a per-act handle. Until then, treat the current files 
   `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
   that tail to the reference, pushes the cuff above and behind the tail base. The fit is re-reached
   with `hybrid_dock`; its base ring is snapped to `hybrid_dock.rump_z(y) - 4 mm` by
-  `dock_seat.gd`. The 4 mm embed and a falloff over the first 35% of the dock keep the base in the
-  coat without creasing. The body, skeleton, mane and anatomy placement are untouched.
-- The dock's outer opening is seated on the pinned tail cap's vertical centre. `tail_seat.gd`
-  measures the cap low/high in body bind space and the fitted dock's top, then applies
-  `cap_centre - dock_top` through `dock_attach.gd`; there is no fixed drop constant. The Anatomy
-  **Dock offset** trims that cuff position.
-- `dock_attach.gd` builds the dock as a two-bind GPU skin on the hair skeleton: `mPelvis` at the
-  base, `mTail1` at the outer end, and the same smoothstep weight between them. The mesh stays in
-  the body skeleton's space; the bind poses convert body space into the hair skeleton's bind space
+  `anatomy/tail/dock_seat.gd`. The 4 mm embed and a falloff over the first 35% of the dock keep the
+  base in the coat without creasing. The body, skeleton, mane and anatomy placement are untouched.
+- The dock's outer opening is seated on the pinned tail cap's vertical centre.
+  `anatomy/tail/seat.gd` measures the cap low/high in body bind space and the fitted dock's top,
+  then applies `cap_centre - dock_top` through `anatomy/tail/dock_attach.gd`; there is no fixed
+  drop constant. The Anatomy **Dock offset** trims that cuff position.
+- `anatomy/tail/dock_attach.gd` builds the dock as a two-bind GPU skin on the hair skeleton:
+  `mPelvis` at the base, `mTail1` at the outer end, and the same smoothstep weight between them.
+  The mesh stays in the body skeleton's space; the bind poses convert body space into the hair
+  skeleton's bind space
   (`rest_pose^-1 * hair_global^-1 * body_global`), and the dock's instance transform carries the
   lift as a post-skin body-space Y offset. The engine blends it every frame, so there is no
   per-frame mesh rebuild; lift, aside, flick, tail lay and tail tuck all carry the cuff, and it
@@ -401,7 +406,7 @@ restated here.
   override writes directly. **Placement file Show** logs every live mare's anchor, target,
   resolved placement, applied delta and source.
 - **Hide tails** is the persisted Debug toggle that collapses every loaded AI character's hair
-  and body tail roots through `tail_hide.gd`; it touches no other body part.
+  and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part.
 - `anatomy.draw_still_zones` (**Draw still zones**) overlays the two still-zone ellipsoids and
   their fully-still cores on the body coat.
 - **Force heat**, **Force diestrus** and **Clear forced cycle** are cycle debug actions; their

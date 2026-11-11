@@ -5,7 +5,7 @@ extends Node
 ## larger skinned mesh. Collapsing the hair tail bones hides all of it, and the native tail bones
 ## cover the far bake's skeleton.
 
-const TAIL_HIDE := preload("res://mods/unfplap/tail_hide.gd")
+const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const GROUP := "ai_characters"
 ## Only the chain root is collapsed; every child bone inherits its scale, so the whole tail

@@ -10,7 +10,7 @@ extends RefCounted
 ## it return null, which the caller treats as "leave the original shader alone".
 
 const GAME_INCLUDE := "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
-const MOD_INCLUDE := "res://mods/unfplap/body_coat_deform.gdshaderinc"
+const MOD_INCLUDE := "res://mods/unfplap/anatomy/body_coat_deform.gdshaderinc"
 const GAME_CALL := "VERTEX += flank_jiggle(VERTEX);"
 const PATCHED_CALL := "VERTEX += body_coat_deform(VERTEX);"
 

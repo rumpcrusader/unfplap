@@ -266,6 +266,8 @@ mods/unfplap/
   anatomy.gd        persistent anatomy: attach, tone, teats, strip, placement, LOD,
                     winking mesh refinement, idle heat wink/drip; every adult identity with
                     `pony_hips`, not only the base roster; contract in `docs/anatomy.md`
+  anatomy/          identity, geometry and act state; fluid, teats, coat patch, still zones and
+                    the anatomy shader
   anatomy_act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys
   anon_part.gd      player anatomy mesh, placement, girth/head/length shaping and throb
   anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration
@@ -273,8 +275,6 @@ mods/unfplap/
                     caress hand hold and shared two-bone palm solve
   consent.gd        pure per-mare public/anal/oral defaults and merge; a
                     dependency of the eligibility API, not a gate by itself
-  climax_fluid.gd   optional droplets, sticking, creeping and pools
-  teat_jiggle.gd    teats spring sway
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength,
                     and the bottom-of-stroke impact event
@@ -332,14 +332,8 @@ mods/unfplap/
   mood_face.gd      300 s post-act base-game mood face, light blush, yields to line faces
   tail_pose.gd      tail aside/lift/flick + thrust jiggle on the hair skeleton
   tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
-  tail_hide.gd      debug tail collapse modifier: scale-only, restores cached bone scales
-  tail_visibility.gd  debug controller: installs tail_hide on loaded AI characters
-  tail_seat.gd      re-seats every adult mare's hair tail at the reference dock, installs the
-                    two-bone dock cuff skin, reads the tail/dock/tilt placement and prints its
-                    perf lines; restores the original when the setting is off
-  dock_attach.gd    builds the dock's two-bone GPU skin: `mPelvis` base, `mTail1` outer end,
-                    body-space mesh, post-skin lift; keeps the dock's vertex colours and metadata
-  dock_seat.gd      snaps the dock base ring to the rump (`rump_z - 4 mm`) with a falloff
+  anatomy/tail/     tail seat, dock skin/seat, debug tail hide/visibility; contract in
+                    docs/anatomy.md
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
                     offer weighting and history reminders
@@ -754,10 +748,10 @@ bullets below cover the rest of the shot's behaviour.
   the radius on an active wobble.
 - The visible body coat is the rig `MareBody`, not the `NearBody` merge (which holds only the
   cutie-mark patches). With `body_coat_deform` on, `anatomy.gd` takes the per-pony body material
-  from `FlankTouch._own_body_materials()`, then `body_coat_patch.gd` duplicates the game
+  from `FlankTouch._own_body_materials()`, then `anatomy/body_coat_patch.gd` duplicates the game
   `Shader`, swaps the `flank_jiggle.gdshaderinc` include for
-  `body_coat_deform.gdshaderinc` and the `VERTEX += flank_jiggle(VERTEX);` call for the deform
-  call. No game source is edited and no cel shader is copied. The patched material and its
+  `anatomy/body_coat_deform.gdshaderinc` and the `VERTEX += flank_jiggle(VERTEX);` call for the
+  deform call. No game source is edited and no cel shader is copied. The patched material and its
   outline are no longer in `JIGGLE_SHADERS`, so `runtime._attach_body_coat_jiggle_target()` adds
   them back after every `_start_jiggle()`; the anatomy's `physical_reaction("flank_smack")` hook
   covers stock smacks outside the act. The two still zones are in `docs/anatomy.md`.

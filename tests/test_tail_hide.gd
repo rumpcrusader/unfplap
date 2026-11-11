@@ -2,7 +2,7 @@ extends SceneTree
 ## Debug tail collapse: the modifier scales the tail chain and restores it without moving joints.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_tail_hide.gd
 
-const TAIL_HIDE := preload("res://mods/unfplap/tail_hide.gd")
+const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 var failures := 0

@@ -3,15 +3,15 @@ extends Node
 ## including mares added by other mods, persistent across acts. The mesh and textures are tracked
 ## assets; if they are missing the controller stays empty and every public method is a no-op.
 
-const TEAT_JIGGLE := preload("res://mods/unfplap/teat_jiggle.gd")
-const CLIMAX_FLUID := preload("res://mods/unfplap/climax_fluid.gd")
+const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
+const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const STILL_ZONE_DEBUG := preload("res://mods/unfplap/still_zone_debug.gd")
+const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
@@ -37,7 +37,7 @@ const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
 ## Runtime patch of the rig coat shader. It swaps only the flank_jiggle include and call in a
 ## duplicated Shader, so no game source is edited and the cel shader is not copied.
-const BODY_COAT_PATCH := preload("res://mods/unfplap/body_coat_patch.gd")
+const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 ## The visible ponut is the pony body, not the genitals overlay. These are body-local: the
 ## Blender body.glb anus centre (0, -0.299, 0.572) maps to Godot (0, 0.572, 0.299).
 const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
@@ -570,7 +570,7 @@ func _apply_material() -> void:
 	if not is_instance_valid(_mesh) or not is_instance_valid(pony):
 		return
 	var material := ShaderMaterial.new()
-	material.shader = load("res://mods/unfplap/anatomy.gdshader")
+	material.shader = load("res://mods/unfplap/anatomy/anatomy.gdshader")
 	var tones := _skin_tones()
 	material.set_shader_parameter("skin_color", tones[0])
 	material.set_shader_parameter("skin_shadow", tones[1])
@@ -766,7 +766,8 @@ func _apply_body_coat_uniforms() -> void:
 
 ## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
 ## coat (MareBody) is the visible one; NearBody is only the cutie-mark merge. The game shader is
-## patched at runtime by body_coat_patch.gd, so no source is edited and no cel shader is copied.
+## patched at runtime by `anatomy/body_coat_patch.gd`, so no source is edited and no cel shader is
+## copied.
 func _apply_body_coat() -> void:
 	if not SETTINGS.body_coat_deform.get_bool():
 		_restore_body_coat()

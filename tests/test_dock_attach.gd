@@ -6,8 +6,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_dock_attach.gd
 
-const DOCK_ATTACH := preload("res://mods/unfplap/dock_attach.gd")
-const DOCK_SEAT := preload("res://mods/unfplap/dock_seat.gd")
+const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
+const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const APPROVED_FIT := "res://world/characters/hybrid_mare/dock_fit.json"
 

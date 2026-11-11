@@ -6,14 +6,14 @@ const CONSENT := preload("res://mods/unfplap/consent.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
-const TAIL_SEAT := preload("res://mods/unfplap/tail_seat.gd")
+const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy_act.gd")
 const ANON_PART := preload("res://mods/unfplap/anon_part.gd")
-const COAT_PATCH := preload("res://mods/unfplap/body_coat_patch.gd")
-const STILL_ZONES := preload("res://mods/unfplap/still_zone_debug.gd")
+const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
+const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
 var failures := 0
 var checks := 0

@@ -520,6 +520,8 @@ func _dock_material(row: Dictionary) -> Material:
 							dock.set_shader_parameter("coat_shadow", shadow)
 						dock.set_shader_parameter("fold_coloring", 0.0)
 						dock.set_shader_parameter("contour_amount", 0.0)
+						# The dock rides the hair skeleton, not the body's leg skinning.
+						dock.set_shader_parameter("coat_follow_strength", 0.0)
 						return dock
 	var original: Variant = row.get("original_material")
 	return original as Material if original is Material else null

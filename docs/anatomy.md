@@ -9,7 +9,7 @@ technical contract; other docs link here.
 This contract covers:
 
 - which adult mares attach anatomy and how the mesh is bound;
-- anatomy visibility, teats, the skin strip and the body-coat deform;
+- anatomy visibility, teats, the skin strip, the body-coat deform and the coat follow;
 - the per-mare placement block and the debug placement actions;
 - the act's shape drive, winking, hole, oral and finish controls;
 - idle heat winking and discharge;
@@ -36,6 +36,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/act/debug.gd` | the three aim markers |
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
 | `anatomy/coat.gd` | rig coat patch, vulva/anal spread and the still zones |
+| `anatomy/coat_follow.gd` | samples the body coat's leg weights and keeps the anatomy shell on the rump |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
@@ -156,8 +157,8 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   of the authored `closed` and `wink` shapes, so those shapes move only the vulva.
 - Attachment loads the selected scene, moves its `MeshInstance3D` under a `BoneAttachment3D` on
   `pony_hips`, caches the bone bind, applies the placement, builds the material, attaches the
-  teats and strip, resets the anal shape, and connects `physical_reaction` for a stock flank
-  smack. The mesh is not parented to the body model.
+  teats and strip, resets the anal shape, builds the coat-follow weights, and connects
+  `physical_reaction` for a stock flank smack. The mesh is not parented to the body model.
 - `anatomy_mode = never` detaches. `act` shows her only during `POSING_IN`, `ACTIVE`, `CLIMAX`
   and `AFTERGLOW`; `always` shows her whenever the mesh is not a far mesh. `RESTORE` is hidden in
   `act` mode.
@@ -349,6 +350,41 @@ the same frame.
 - Turning the flag off restores the original shader resource and clears the mod uniforms. The
   per-pony material copies stay; only the shader and the uniforms are undone.
 
+### Coat follow
+
+The anatomy mesh is rigidly attached to `pony_hips`, while the visible rig coat is skinned to
+`pony_hips` plus `pony_flank_L/R` and `pony_femur_L/R`. Without a follow, the coat's rump moves
+with the hind legs and the anatomy rim slides out of the coat. The follow gives the anatomy the
+body's own deformation at its outer shell.
+
+- `anatomy/coat_follow.gd` finds the skinned `MareBody`, buckets its 7,625 rest vertices into a
+  2 cm grid and samples the nearest three body vertices for every anatomy vertex. Only the four
+  leg weights are stored; the rest of the body weight stays on the pelvis. The weight is written
+  to the anatomy mesh's unused `ARRAY_CUSTOM0` channel as RGBA8, so the mesh keeps its vertices,
+  normals, material and blend shapes.
+- `geometry.sample_coat_weights()` is pure: it maps the anatomy vertex through the body skin's
+  `pony_hips` bind into body rest space, averages the nearest three weights by inverse distance,
+  and clamps the four leg weights so the pelvis keeps the remainder.
+- Each frame the controller computes four matrices `place⁻¹ · A_hips⁻¹ · A_leg · place`, where
+  `A` is the live skeleton pose times the rest pose inverse and `place` is the untrimmed anatomy
+  placement in skeleton rest space. `anatomy.gdshader` blends them by `CUSTOM0`; at rest every
+  matrix is the identity.
+- The blend is masked around the two openings: zero inside `MASK_INNER_M = 0.03 m` and full from
+  `MASK_OUTER_M = 0.07 m`. The vulva and anus therefore stay on the rigid hips anchor that
+  `anatomy/act.gd` uses for the hole, the shaft contact and the player part, while the outer rim
+  follows the rump.
+- `anatomy.coat_follow` is the 0…1 debug strength; 0 sets the shader strength to zero and keeps
+  the anatomy rigid. The teats and skin strip are already engine-skinned, and the dock rides the
+  hair skeleton, so their material copies set the strength to zero.
+- The follow is independent of `features.body_coat_deform`: it finds the body skin itself and
+  works with the game coat shader untouched. It skips when the body has no `MareBody`, no
+  skinned `ARRAY_BONES`/`ARRAY_WEIGHTS`, or no `pony_hips` bind; the anatomy then keeps its rigid
+  attachment. A missing `pony_flank`/`pony_femur` bone leaves that leg's contribution zero.
+- The weighted mesh is per pony and is rebuilt when the selected anatomy mesh changes, the
+  placement changes, or the body mesh or skin is replaced. The body weight grid is cached per
+  body mesh and skin. The mesh swap keeps the anatomy's blend-shape values and the surface
+  override material.
+
 ## Player part
 
 - `anatomy/player.gd` loads `assets/anatomy/anon_part.scn` and its albedo, AO and normal maps. It is
@@ -442,6 +478,8 @@ restated here.
   default.
 - `features.anatomy_fluid`: climax, finish and idle droplets; default on.
 - `features.body_coat_deform`: runtime coat patch; debug, default on.
+- `anatomy.coat_follow`: how far the anatomy follows the body coat's leg skinning; debug,
+  default `1.0`, `0` keeps it rigid.
 - `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.vulva_inner_color`,
   `anatomy.clitoris_color`: material appearance.
 - `anatomy.show_dock`, `anatomy.dock_color`, `anatomy.reseat_tails`: dock visibility, colour and
@@ -483,7 +521,8 @@ restated here.
 - **Force heat**, **Force diestrus** and **Clear forced cycle** are cycle debug actions; their
   effect on the idle heat display is described in `## Idle heat`.
 - With **Enable debug** and **Print perf logs** on, an act prints the runtime's `perf` block; the
-  anatomy contributes `anatomy_visibility`, `anatomy_tick` and `anatomy_afterglow` timings. Tail
+  anatomy contributes `anatomy_visibility`, `anatomy_tick`, `anatomy_coat_follow` and
+  `anatomy_afterglow` timings. Tail
   seating prints `tail perf attach`/`tail perf refresh` one-shot lines and a once-per-second
   `tail perf seats=… skinned=… builds=…/s` line; steady state is `builds=0/s` because the dock
   blend runs on the GPU.
@@ -498,7 +537,8 @@ Current suites:
 - `tests/anatomy/test_identity.gd`: the stable id, the adult-mare predicate, the princess body
   profile and the off-roster list.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
-  radius and the V2 anal ring weights/centre.
+  radius, the V2 anal ring weights/centre, the coat weight grid/sampler and the coat-follow
+  matrices.
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
   scheduler.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
@@ -528,6 +568,9 @@ split when the suite is next touched.
 - The body-coat patch depends on the game shader keeping `flank_jiggle.gdshaderinc` and
   `VERTEX += flank_jiggle(VERTEX);`. A game update that removes either hook disables the patch,
   not the whole anatomy.
+- The coat follow depends on the body coat's `pony_flank_L/R` and `pony_femur_L/R` skin weights.
+  A body without those bones, a skin, or a `pony_hips` bind stays rigid; the openings are masked
+  so the act anchor is never moved by the follow.
 - The princesses' fitted bodies have no hair skeleton; their tail seat is unavailable and their
   pre-hidden dock stays hidden.
 - `V` is V2-only. The original PPP mesh has no anal mesh.

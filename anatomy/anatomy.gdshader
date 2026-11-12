@@ -71,6 +71,44 @@ uniform float strip_trim = 0.0;
 uniform float strip_scale = 1.0;
 uniform float contour_amount = 1.0;
 
+// integration: the anatomy's outer shell follows the body coat's leg skinning. `CUSTOM0` holds
+// the four leg weights (flank L/R, femur L/R) sampled from the body mesh; the remaining weight is
+// the rigid pelvis. The mask keeps the vulva and anus on their rigid anchor, so the act's hole and
+// the player part's aim stay on the visible opening while the rim follows the rump.
+uniform mat4 coat_follow_l;
+uniform mat4 coat_follow_r;
+uniform mat4 coat_follow_femur_l;
+uniform mat4 coat_follow_femur_r;
+uniform float coat_follow_strength = 0.0;
+uniform float coat_follow_inner = 0.04;
+uniform float coat_follow_outer = 0.10;
+
+void apply_coat_follow(inout vec3 vertex, inout vec3 normal, vec4 weights) {
+	if (coat_follow_strength <= 0.0) {
+		return;
+	}
+	float weight_sum = min(dot(weights, vec4(1.0)), 1.0);
+	float opening = min(distance(vertex, vulva_centre), distance(vertex, anal_centre));
+	float amount = coat_follow_strength
+		* smoothstep(coat_follow_inner, coat_follow_outer, opening);
+	if (amount <= 0.0) {
+		return;
+	}
+	vec4 p = vec4(vertex, 1.0);
+	vec3 followed = vertex * (1.0 - weight_sum);
+	followed += (coat_follow_l * p).xyz * weights.x;
+	followed += (coat_follow_r * p).xyz * weights.y;
+	followed += (coat_follow_femur_l * p).xyz * weights.z;
+	followed += (coat_follow_femur_r * p).xyz * weights.w;
+	mat3 normal_matrix = mat3(1.0) * (1.0 - weight_sum)
+		+ mat3(coat_follow_l) * weights.x
+		+ mat3(coat_follow_r) * weights.y
+		+ mat3(coat_follow_femur_l) * weights.z
+		+ mat3(coat_follow_femur_r) * weights.w;
+	vertex = mix(vertex, followed, amount);
+	normal = normalize(mix(normal, normal_matrix * normal, amount));
+}
+
 void vertex() {
 	if (abs(anal_scale - 1.0) > 0.000001) {
 		vec3 spread = VERTEX - anal_centre;
@@ -89,6 +127,7 @@ void vertex() {
 	if (strip_trim > 0.5 && abs(strip_scale - 1.0) > 0.000001) {
 		VERTEX.x *= strip_scale;
 	}
+	apply_coat_follow(VERTEX, NORMAL, CUSTOM0);
 	VERTEX += flank_jiggle(VERTEX);
 	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
 	if (hole_target > lip_radius) {

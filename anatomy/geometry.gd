@@ -31,6 +31,13 @@ const V2_ANAL_RING_OVER := Vector3(0.00279, 0.05955, 0.01908)
 const V2_ANAL_RING_EXTREME := Vector3(0.00303, 0.03996, 0.03310)
 const V2_ANAL_RING_PONUT := Vector3(0.00296, 0.06515, 0.03310)
 
+## The leg bones the anatomy follows, in the custom0 order the shader reads.
+const COAT_FOLLOW_BONES := ["pony_flank_L", "pony_flank_R", "pony_femur_L", "pony_femur_R"]
+
+## Cell size of the body-vertex lookup grid. The rump weights are smooth; 2 cm keeps the nearest
+## three body vertices inside the 3x3x3 neighbourhood around every anatomy vertex.
+const COAT_FOLLOW_CELL_M := 0.02
+
 static var _refined_winking_meshes := {}
 
 
@@ -101,6 +108,145 @@ static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 		multiplier: float) -> float:
 	return maxf(lip * outer_factor * scale * 1.3, 0.045) * multiplier
+
+
+## Bucket body rest vertices by cell so the anatomy's weight sample is a handful of distance
+## checks instead of a full scan. Pure: the caller owns the vertices.
+static func body_weight_grid(vertices: PackedVector3Array, cell: float) -> Dictionary:
+	var grid := {}
+	if vertices.is_empty() or cell <= 0.0:
+		return grid
+	for i in vertices.size():
+		var key := Vector3i(
+			floori(vertices[i].x / cell),
+			floori(vertices[i].y / cell),
+			floori(vertices[i].z / cell))
+		var bucket: PackedInt32Array = grid.get(key, PackedInt32Array())
+		bucket.append(i)
+		grid[key] = bucket
+	return grid
+
+
+## Sample the body coat's four leg weights for every anatomy vertex. `body_to_local` maps the
+## anatomy mesh into the body mesh's rest space; the nearest three body vertices are averaged by
+## inverse distance, so a seam between vertex groups does not snap. The four bytes are the
+## custom0 RGBA8 weights in `COAT_FOLLOW_BONES` order; the remaining weight is the pelvis.
+static func sample_coat_weights(vertices: PackedVector3Array, body_to_local: Transform3D,
+		body_vertices: PackedVector3Array, body_bones: PackedInt32Array,
+		body_weights: PackedFloat32Array, bone_names: PackedStringArray,
+		grid: Dictionary, cell: float) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(vertices.size() * 4)
+	if vertices.is_empty() or body_vertices.is_empty() or cell <= 0.0:
+		return out
+	var stride := body_bones.size() / body_vertices.size() if body_vertices.size() > 0 else 0
+	if stride <= 0 or body_weights.size() != body_bones.size() \
+			or body_bones.size() != body_vertices.size() * stride:
+		return out
+	var leg_binds: Array[int] = [-1, -1, -1, -1]
+	var any := false
+	for i in bone_names.size():
+		var index := COAT_FOLLOW_BONES.find(String(bone_names[i]))
+		if index >= 0 and leg_binds[index] < 0:
+			leg_binds[index] = i
+			any = true
+	if not any:
+		return out
+	var inv_cell := 1.0 / cell
+	for v in vertices.size():
+		var p: Vector3 = body_to_local * vertices[v]
+		var base := Vector3i(floori(p.x * inv_cell), floori(p.y * inv_cell),
+			floori(p.z * inv_cell))
+		var candidates: Array[int] = []
+		var distances: Array[float] = []
+		for radius in [1, 2]:
+			for dx in range(-radius, radius + 1):
+				for dy in range(-radius, radius + 1):
+					for dz in range(-radius, radius + 1):
+						var key := base + Vector3i(dx, dy, dz)
+						var bucket: Variant = grid.get(key)
+						if not bucket is PackedInt32Array:
+							continue
+						for index: int in bucket:
+							var d: float = body_vertices[index].distance_squared_to(p)
+							if candidates.size() < 3:
+								candidates.append(index)
+								distances.append(d)
+								continue
+							var worst := 0
+							for k in 3:
+								if distances[k] > distances[worst]:
+									worst = k
+							if d < distances[worst]:
+								candidates[worst] = index
+								distances[worst] = d
+			if not candidates.is_empty():
+				break
+		if candidates.is_empty():
+			continue
+		var inverse_total := 0.0
+		for c in candidates.size():
+			inverse_total += 1.0 / maxf(distances[c], 0.00000001)
+		var sums := [0.0, 0.0, 0.0, 0.0]
+		for c in candidates.size():
+			var weight := (1.0 / maxf(distances[c], 0.00000001)) / inverse_total
+			var start := candidates[c] * stride
+			for k in stride:
+				var bind := body_bones[start + k]
+				var amount := body_weights[start + k] * weight
+				if amount <= 0.0:
+					continue
+				for j in 4:
+					if bind == leg_binds[j]:
+						sums[j] += amount
+						break
+		var total := float(sums[0]) + float(sums[1]) + float(sums[2]) + float(sums[3])
+		var scale := 1.0 if total <= 1.0 else 1.0 / total
+		for j in 4:
+			out[v * 4 + j] = clampi(roundi(float(sums[j]) * scale * 255.0), 0, 255)
+	return out
+
+
+## One mesh with the sampled weights on its unused custom0 channel. The anatomy has one surface
+## and no custom attributes today; a surface that cannot take the weights is left to the caller
+## (the coat follow then stays off rather than collapsing the mesh).
+static func mesh_with_coat_weights(source: ArrayMesh, weights: PackedByteArray) -> ArrayMesh:
+	if source == null or source.get_surface_count() != 1:
+		return null
+	if weights.size() != source.surface_get_array_len(0) * 4:
+		return null
+	var rebuilt := ArrayMesh.new()
+	rebuilt.blend_shape_mode = source.blend_shape_mode
+	for i in source.get_blend_shape_count():
+		rebuilt.add_blend_shape(source.get_blend_shape_name(i))
+	var arrays: Array = source.surface_get_arrays(0)
+	if arrays.size() != Mesh.ARRAY_MAX:
+		return null
+	arrays[Mesh.ARRAY_CUSTOM0] = weights
+	var shapes: Array = source.surface_get_blend_shape_arrays(0)
+	rebuilt.add_surface_from_arrays(source.surface_get_primitive_type(0), arrays, shapes, {}, 0)
+	rebuilt.surface_set_material(0, source.surface_get_material(0))
+	rebuilt.surface_set_name(0, source.surface_get_name(0))
+	return rebuilt
+
+
+## The four bone transforms in the anatomy mesh's local space, relative to the pelvis. `poses`
+## and `rests` are the live and rest skeleton poses of the same four leg bones; `hips` and
+## `hips_rest` are the pelvis. `base_place` maps anatomy local into skeleton rest space. At rest
+## every returned matrix is the identity, so no coat follow means no motion.
+static func coat_follow_matrices(hips: Transform3D, hips_rest: Transform3D,
+		poses: Array[Transform3D], rests: Array[Transform3D],
+		base_place: Transform3D) -> Array[Transform3D]:
+	var out: Array[Transform3D] = []
+	var hips_delta := hips * hips_rest.affine_inverse()
+	var inv_delta := hips_delta.affine_inverse()
+	var inv_place := base_place.affine_inverse()
+	for i in poses.size():
+		var pose := poses[i]
+		var rest := rests[i] if i < rests.size() else Transform3D.IDENTITY
+		var delta := pose * rest.affine_inverse()
+		out.append(inv_place * inv_delta * delta * base_place)
+	return out
 
 
 ## The five additive V2 anal keys for a local penetration radius. The first four start where the

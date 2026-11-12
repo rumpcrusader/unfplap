@@ -1247,6 +1247,10 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
+static var coat_follow := num("coat_follow", "anatomy.coat_follow", 1.0,
+	"Coat follow",
+	"How far the anatomy follows the body coat when the hind legs move. 0 keeps it rigid; 1 follows fully.",
+	ANATOMY, "").with_range(0.0, 1.0).as_debug()
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.6, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()

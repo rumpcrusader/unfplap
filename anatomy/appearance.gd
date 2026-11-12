@@ -54,6 +54,13 @@ func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
 	skeleton = skeleton_node
 
 
+## The material currently applied to the anatomy mesh, for the coat follow and the dock copy.
+func material() -> ShaderMaterial:
+	if not is_instance_valid(mesh):
+		return null
+	return mesh.get_surface_override_material(0) as ShaderMaterial
+
+
 ## Build the anatomy material and apply it to the mesh. The shape module reapplies the blend
 ## shapes and the cut after the material exists. `missionary` selects the fold-coloring hack.
 func apply_material(missionary: bool) -> void:
@@ -141,6 +148,8 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 	material.set_shader_parameter("coat_shadow",
 		shade if shade is Color else Color(0.68, 0.68, 0.68))
 	material.set_shader_parameter("contour_amount", 0.0)
+	# The teats and strip are engine-skinned already; only the anatomy mesh carries custom0.
+	material.set_shader_parameter("coat_follow_strength", 0.0)
 	if is_instance_valid(teats_mesh):
 		teats_mesh.set_surface_override_material(0, material)
 	if is_instance_valid(teats_jiggle):
@@ -154,6 +163,7 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 		strip.set_shader_parameter("gap_to", _strip_gap.y)
 		strip.set_shader_parameter("strip_trim", 1.0)
 		strip.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
+		strip.set_shader_parameter("coat_follow_strength", 0.0)
 		skin_strip.set_surface_override_material(0, strip)
 
 

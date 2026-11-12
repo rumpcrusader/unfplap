@@ -9,6 +9,7 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
+const COAT_FOLLOW := preload("res://mods/unfplap/anatomy/coat_follow.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
@@ -36,6 +37,8 @@ var status := Callable()
 var attach: RefCounted
 ## The rig coat's runtime deform and still-zone debug.
 var coat: RefCounted
+## The anatomy shell's follow of the body coat's leg skinning.
+var coat_follow: RefCounted
 ## Saved placement, missionary trims and the debug nudge path.
 var placement: RefCounted
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
@@ -114,6 +117,7 @@ func _init() -> void:
 	shapes.setup(null, self)
 	coat = COAT.new()
 	coat.setup(null, shapes)
+	coat_follow = COAT_FOLLOW.new()
 	heat = HEAT.new()
 	heat.setup(shapes)
 	placement = PLACEMENT.new()
@@ -132,6 +136,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	shapes.setup(pony, self)
 	coat.setup(pony, shapes)
 	placement.setup(pony)
+	coat_follow.setup(pony, placement)
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
 
@@ -207,9 +212,16 @@ func _attach() -> void:
 	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
 	shapes.set_mesh(mesh, is_v2)
 	coat.set_mesh(mesh, attach.skeleton)
+	coat_follow.setup(pony, placement)
+	coat_follow.set_mesh(mesh, attach.skeleton)
 	appearance.set_mesh(mesh, attach.skeleton)
 	appearance.attach_parts()
-	appearance.apply_material(_missionary_pose())
+	_apply_material()
+	if not coat_follow.rebuild():
+		if SETTINGS.coat_follow.get_num() > 0.0:
+			_log("coat follow skipped: %s" % str(coat_follow.last_error))
+	else:
+		_log("coat follow built %s" % str(coat_follow.summary()))
 	set_process(true)
 	attach.apply_visibility(_act_visible())
 	_log("anatomy attached lift=%.3f" % PLACEMENT.LIFT)
@@ -231,6 +243,9 @@ func _process(delta: float) -> void:
 	_heat_idle_tick(delta)
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
+	var follow_started := Time.get_ticks_usec()
+	coat_follow.tick()
+	facts.perf("anatomy_coat_follow", Time.get_ticks_usec() - follow_started)
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		return
@@ -301,6 +316,8 @@ func _apply_place() -> void:
 func _apply_material() -> void:
 	if appearance != null:
 		appearance.apply_material(_missionary_pose())
+	if coat_follow != null and appearance != null:
+		coat_follow.set_material(appearance.material())
 
 
 static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
@@ -376,6 +393,8 @@ func apply_live() -> void:
 
 func detach() -> void:
 	end_act()
+	if coat_follow != null:
+		coat_follow.clear()
 	if coat != null:
 		coat.clear_mesh()
 	if placement != null:

@@ -50,6 +50,15 @@ func load() -> void:
 func apply(missionary: bool, depth: float, bed_frame: Variant) -> void:
 	if not is_instance_valid(mesh):
 		return
+	var local := bone_inverse * base_place()
+	if missionary:
+		local = _missionary_trim(local, depth, bed_frame)
+	mesh.transform = local
+
+
+## The untrimmed anatomy placement in skeleton rest space. The coat follow samples and rotates
+## this placement; the missionary trim is applied after it on the mesh transform.
+func base_place() -> Transform3D:
 	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
 		.scaled(Vector3.ONE * _scale)
 	# Placement never follows the dock. `show_dock` is a visibility switch.
@@ -64,10 +73,13 @@ func apply(missionary: bool, depth: float, bed_frame: Variant) -> void:
 	var out: float = SETTINGS.vulva_out_mm.get_num() / 1000.0
 	if absf(out) > 0.00001:
 		place += basis.z.normalized() * out
-	var local := bone_inverse * Transform3D(basis, place)
-	if missionary:
-		local = _missionary_trim(local, depth, bed_frame)
-	mesh.transform = local
+	return Transform3D(basis, place)
+
+
+## The untrimmed placement in the anatomy mesh's parent (bone) space, for sampling the body
+## coat's skin weights.
+func base_transform() -> Transform3D:
+	return bone_inverse * base_place()
 
 
 ## The depth trim follows the thrust every frame; the rest of the placement polls.

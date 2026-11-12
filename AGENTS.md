@@ -273,9 +273,11 @@ mods/unfplap/
                     `anatomy/attach.gd`
   anatomy/attach.gd persistent mesh/anchor/dock, visibility, dock restore, fluid and idle discharge
   anatomy/facts.gd  typed runtime context: state, pose, depth, bed frame, cycle and callbacks
-  anatomy/          identity, geometry, shapes, coat, appearance, heat, facts, attach, placement;
-                    act state and oral/finish/debug; player part; fluid, teats, still zones and the
-                    anatomy shader
+  anatomy/coat_follow.gd  sampled body-coat leg weights and the per-frame pelvis-relative
+                    anatomy shell matrices
+  anatomy/          identity, geometry, shapes, coat, coat follow, appearance, heat, facts, attach,
+                    placement; act state and oral/finish/debug; player part; fluid, teats, still
+                    zones and the anatomy shader
   anatomy/act.gd    per-act hole/oral/finish, shape driving, winking, fluid and pose keys; reads
                     the typed `anatomy/facts.gd` context and returns pose/facing values
   anatomy/player.gd player anatomy mesh, placement, girth/head/length shaping and throb;

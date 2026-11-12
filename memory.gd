@@ -11,7 +11,7 @@ const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 
@@ -253,9 +253,12 @@ static func history_apology(game: Node, id: String, _text: String) -> void:
 
 ## integration: adult ponies who can perceive the act right now, using the modern witness rules.
 ## This is a read-only observer list; it commits no memory. Young ponies are never included.
-static func perceived_adults(game: Node, partner: Node3D) -> Array:
+## `service` is the eligibility facade; the age rule belongs there.
+static func perceived_adults(game: Node, service: ELIGIBILITY, partner: Node3D) -> Array:
 	var out: Array = []
 	if not is_instance_valid(partner) or not is_instance_valid(game) or not partner.is_inside_tree():
+		return out
+	if service == null or not is_instance_valid(service):
 		return out
 	if PLAYER_FORM.is_young(PLAYER_FORM.active(partner.get_tree())):
 		return out
@@ -271,12 +274,12 @@ static func perceived_adults(game: Node, partner: Node3D) -> Array:
 			continue
 		if bool(observer.get("sleeping")):
 			continue
-		var identity: Variant = observer.get("identity")
-		if not FACTS.adult_pony_identity(identity, false):
+		if service.witness_age(observer) != ELIGIBILITY.Age.ADULT:
 			continue
 		var observer_id := str(observer.get_meta("relationship_id", ""))
 		if observer_id.is_empty():
-			observer_id = str(identity.get("id"))
+			var identity: Variant = observer.get("identity")
+			observer_id = str(identity.get("id")) if identity != null else ""
 		if observer_id.is_empty():
 			continue
 		var seen := awareness.visible(observer, partner)
@@ -304,9 +307,12 @@ static func bystander_line(game: Node, id: String, event_id: String, purpose: St
 ## One event per observer, private to her (`witnesses = [observer_id]`). Adults are told what it
 ## was; fillies and colts get a perception with the place they saw it from, and the game's story
 ## summary infers a memory they could actually hold. Returns one debug row per recorded witness.
-static func witnesses(game: Node, partner_id: String, partner_name: String, serial: int, partner: Node3D) -> Array:
+static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String, partner_name: String,
+		serial: int, partner: Node3D) -> Array:
 	var ctx = _context(game)
 	if ctx == null or not is_instance_valid(partner) or not is_instance_valid(game):
+		return []
+	if service == null or not is_instance_valid(service):
 		return []
 	if not partner.is_inside_tree():
 		return []
@@ -334,9 +340,10 @@ static func witnesses(game: Node, partner_id: String, partner_name: String, seri
 			observer_id = str(identity.get("id"))
 		if observer_id.is_empty():
 			continue
-		var young := FACTS.young_identity(identity)
-		if not young and not FACTS.adult_pony_identity(identity, false):
+		var kind := service.witness_age(observer)
+		if kind == ELIGIBILITY.Age.NONE:
 			continue
+		var young := kind == ELIGIBILITY.Age.YOUNG
 		var seen := awareness.visible(observer, partner)
 		var heard := false
 		if not seen:

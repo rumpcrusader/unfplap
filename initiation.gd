@@ -17,6 +17,7 @@ const REST_CONTROL := preload("res://mods/unfplap/rest_control.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
@@ -287,10 +288,10 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if id.is_empty():
 		reasons.append("no_id")
 		return {}
-	var facts: Dictionary = {}
-	var service: Variant = main.get("eligibility") if is_instance_valid(main) else null
-	if service != null and service.has_method("facts"):
-		facts = service.call("facts", pony)
+	var verdict: ELIGIBILITY.Verdict = null
+	var service: ELIGIBILITY = main.get("eligibility") if is_instance_valid(main) else null
+	if service != null:
+		verdict = service.get_verdict(pony, ELIGIBILITY.Mode.OFFER)
 	if not forced and not _cooldown_ok(id, _in_heat(runtime)):
 		reasons.append("cooldown")
 		return {}
@@ -299,16 +300,16 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		return {}
 	var cuddle: bool = bool(runtime.call("_cuddle_active")) if runtime.has_method("_cuddle_active") else false
 	if pose_request == CATALOG.MISSIONARY or (pose_request.is_empty() and cuddle):
-		var bed_candidate := _cuddle_candidate(runtime, forced, reasons, facts) if cuddle \
-			else _bed_candidate(runtime, forced, reasons, facts)
+		var bed_candidate := _cuddle_candidate(runtime, forced, reasons, verdict) if cuddle \
+			else _bed_candidate(runtime, forced, reasons, verdict)
 		if not bed_candidate.is_empty() or not pose_request.is_empty():
 			return bed_candidate
-	var standing_candidate := _standing_candidate(runtime, forced, reasons, facts)
+	var standing_candidate := _standing_candidate(runtime, forced, reasons, verdict)
 	if pose_request == CATALOG.STANDING:
 		return standing_candidate
 	if cuddle:
 		return {}
-	var bed_candidate := _bed_candidate(runtime, forced, reasons, facts)
+	var bed_candidate := _bed_candidate(runtime, forced, reasons, verdict)
 	var pose := pick_offer_pose(not bed_candidate.is_empty(),
 		not standing_candidate.is_empty(), randf())
 	if pose == CATALOG.MISSIONARY:
@@ -323,7 +324,7 @@ func _history_row(id: String) -> Dictionary:
 
 
 func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = [],
-		facts_in: Dictionary = {}) -> Dictionary:
+		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
 		reasons.append("cuddle:no_pony")
@@ -345,24 +346,24 @@ func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = [],
 		reasons.append("cuddle:no_bed_under")
 		return {}
 	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, forced,
-		facts_in)
+		verdict_in)
 	if not bool(gate.get("ok", false)):
 		_append_gate_reasons(reasons, "cuddle", gate)
 		return {}
 	if not _offer_targets_pony(pony):
 		reasons.append("cuddle:target")
 		return {}
-	var policy: Dictionary = gate.get("policy", {})
+	var policy: ELIGIBILITY.Verdict = gate.get("policy")
 	return {
 		"pony": pony, "runtime": runtime, "id": id,
 		"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
 		"private": true, "cuddle": true, "bed_invite": false,
-		"weight": float(policy.get("offer_weight", 0.0)),
+		"weight": policy.offer_weight if policy != null else 0.0,
 	}
 
 
 func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = [],
-		facts_in: Dictionary = {}) -> Dictionary:
+		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
 	var pony: Node3D = runtime.get("pony") if is_instance_valid(runtime) else null
 	if not is_instance_valid(pony):
 		reasons.append("bed:no_pony")
@@ -375,39 +376,39 @@ func _bed_candidate(runtime: Node, _forced: bool, reasons: Array = [],
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
 	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, _forced,
-		facts_in)
+		verdict_in)
 	if not bool(gate.get("ok", false)):
 		_append_gate_reasons(reasons, "bed", gate)
 		return {}
-	var policy: Dictionary = gate.get("policy", {})
+	var policy: ELIGIBILITY.Verdict = gate.get("policy")
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
 		"pose": CATALOG.MISSIONARY, "source": source, "bed": bed,
 		"private": _private_at_player(pony), "cuddle": false, "bed_invite": true,
 		"bed_rest": found.get("rest"), "bed_front": found.get("front"),
-		"weight": float(policy.get("offer_weight", 0.0)),
+		"weight": policy.offer_weight if policy != null else 0.0,
 	}
 
 
 func _standing_candidate(runtime: Node, _forced: bool, reasons: Array = [],
-		facts_in: Dictionary = {}) -> Dictionary:
+		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):
 		reasons.append("standing:no_pony")
 		return {}
 	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.STANDING, "", null, _forced,
-		facts_in)
+		verdict_in)
 	if not bool(gate.get("ok", false)):
 		_append_gate_reasons(reasons, "standing", gate)
 		return {}
 	if not _can_approach(pony, reasons):
 		return {}
-	var policy: Dictionary = gate.get("policy", {})
+	var policy: ELIGIBILITY.Verdict = gate.get("policy")
 	return {
 		"pony": pony, "runtime": runtime, "id": _pony_id(pony),
 		"pose": CATALOG.STANDING, "source": "", "bed": null,
 		"private": _private_at_player(pony), "cuddle": false, "bed_invite": false,
-		"weight": float(policy.get("offer_weight", 0.0)),
+		"weight": policy.offer_weight if policy != null else 0.0,
 	}
 
 
@@ -441,9 +442,9 @@ func _can_approach(pony: Node3D, reasons: Array = []) -> bool:
 
 func _append_gate_reasons(reasons: Array, label: String, gate: Dictionary) -> void:
 	var failed: PackedStringArray = []
-	for row: Variant in gate.get("rows", []):
-		if row is Dictionary and not bool((row as Dictionary).get("ok", false)):
-			failed.append(str((row as Dictionary).get("reason", "")))
+	for row: ELIGIBILITY.Row in gate.get("rows", []):
+		if not row.ok:
+			failed.append(row.reason)
 	reasons.append("%s:%s" % [label, ",".join(failed)])
 
 
@@ -477,12 +478,10 @@ func _cuddle_privacy_ok(pony: Node3D) -> bool:
 func _public_offer_ok(pony: Node) -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
-	var service: Variant = main.get("eligibility")
-	if service == null or not service.has_method("evaluate"):
+	var service: ELIGIBILITY = main.get("eligibility")
+	if service == null:
 		return false
-	var verdict: Dictionary = service.call("evaluate", pony, "offer")
-	var actions: Dictionary = verdict.get("actions", {})
-	return bool(actions.get("public_offer", false))
+	return service.get_verdict(pony, ELIGIBILITY.Mode.OFFER).actions.public_offer
 
 
 func _house_at(at: Vector3) -> Node3D:

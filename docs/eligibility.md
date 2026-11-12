@@ -4,14 +4,15 @@ The eligibility system is the one gate for adult intimacy: adulthood, relationsh
 willingness, the lover bond, act history, the estrus cycle and per-mare action consent. This file
 is the single technical contract; other docs link here.
 
-The internal API is `eligibility.gd`. Cross-mod exposure is a later phase; `docs/api.md` is not
-changed by this contract.
+The internal API is `eligibility.gd`. The typed surface is `eligible`, `witness_age`, `get_verdict`,
+`get_profile` and `set_profile`. Cross-mod exposure stays `docs/api.md`, which is not changed by
+this contract.
 
 ## Scope
 
 This contract covers:
 
-- the adult mare and adult player predicates;
+- the adult identity predicates and the per-target capability answers;
 - the Promiscuity level and Starting Sex choice;
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
 - the stored mod lover bond;
@@ -28,10 +29,9 @@ It does not cover act readiness, thrust, tolerance, pose or camera rules.
 
 | File | Role |
 |---|---|
-| `eligibility.gd` | public API and the only scene adapter: builds facts, reads the live relationship runtime, settings profile, lover bond, history, cycle and consent |
-| `eligibility/policy.gd` | pure truth table: facts plus mode -> verdict |
-| `eligibility/facts.gd` | pure fact schema and identity predicates |
-| `eligibility/verdict.gd` | pure verdict queries and row formatting |
+| `eligibility.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, lover bond, history, cycle and consent |
+| `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets and witness age |
+| `eligibility/facts.gd` | pure fact schema; the identity predicates stay private here |
 | `docs/eligibility.md` | this contract |
 
 The purity boundary is deliberate:
@@ -45,6 +45,9 @@ The purity boundary is deliberate:
   offer_weight` or `CYCLE.allows_sex`.
 - `sex_bond.gd`, `act_history.gd`, `cycle.gd` and `consent.gd` remain the authorities for their
   own data. Eligibility only composes their resolved results.
+- No file outside `eligibility/` preloads the pure core. Another system calls the facade, which
+  answers `eligible(pony, target)` or `witness_age(pony)`; it never inspects age, sex or the
+  provider assertion itself.
 
 ## Data ownership
 
@@ -69,7 +72,7 @@ Rules:
   in `Mods.state("unfplap")`.
 - `eligibility.gd` never calls `SETTINGS.save_*`, `SEX_BOND.save`, `ACT_HISTORY.commit/save` or
   `Mods.save_changed`.
-- `facts.consent` is a snapshot. `action_consent()` re-resolves live.
+- `facts.consent` is a snapshot. `get_profile(id).consent` re-resolves live.
 - Preferences are not facts. Tolerance stays with `act_tolerance.gd`; eligibility never reads the
   preference profile.
 - `api.describe_mare()` keeps its static shape and is not extended with live eligibility.
@@ -77,103 +80,134 @@ Rules:
 ## Public API
 
 `eligibility.gd` extends `RefCounted`. `main.gd` creates one instance and exposes it as
-`main.eligibility`.
+`main.eligibility`. The types are declared in the facade, so a consumer names them
+`ELIGIBILITY.Verdict`, `ELIGIBILITY.Target`, and so on.
 
 ```gdscript
-const MODE_START := "start"
-const MODE_OFFER := "offer"
-const MODE_BOND := "bond"
-const MODE_MID_ACT := "mid_act"
+enum Target { ACT, ANATOMY, TAIL, CHARACTER }
+enum Mode { START, OFFER, BOND, MID_ACT }
+enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
+enum Age { NONE, YOUNG, ADULT }
+enum AdultAssertion { IDENTITY, ADULT, NOT_ADULT }
 
-const ACTION_PUBLIC := "public"
-const ACTION_ANAL := "anal"
-const ACTION_ORAL := "oral"
+class Participation: acts, anatomy, tail
+class Consent: public, anal, oral
+class Profile: adult, participation, consent
+               adult_value() -> Variant  # null, true or false; the cross-mod shape
+class History: tier, hurt, comfort, blocks_start, blocks_offers, offer_weight
+class Facts: id, adult, participation, has_relationship, ... (see `## Facts`)
+class Actions: public, public_offer, anal, oral
+class Relations: id, stage, love_level, ... (see `## Verdict`)
+class Row: key, ok, reason, effect
+class Verdict: mode, base, show, attempt, offer, bond, buck_refuse, history_refuse,
+               stop, offer_weight, facts, actions, relations, rows
+               reasons() -> PackedStringArray
+               rows_text() -> String
 
 func setup(main_node: Node) -> void
 func clear() -> void
 
-func facts(pony: Node) -> Dictionary
-func evaluate(pony: Node, mode := MODE_START) -> Dictionary
-func evaluate_facts(snapshot: Dictionary, mode := MODE_START) -> Dictionary
+func eligible(pony: Node, target: Target = Target.ACT) -> bool
+func witness_age(pony: Node) -> Age
 
-func adult_pony(pony: Node) -> bool
-func adult_mare(pony: Node) -> bool
-func adult_player() -> bool
-func action_consent(pony: Node, key: String) -> bool
+func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict
 
-func reasons(verdict: Dictionary) -> PackedStringArray
-func rows_text(verdict: Dictionary) -> String
-func debug_text(pony: Node, mode := MODE_START) -> String
+func get_profile(id: String) -> Profile
+func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary
 ```
+
+`eligible()` is the capability answer. `witness_age()` is the only age-shaped answer and only
+for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the resolved
+provider/player profile for one id; `set_profile()` writes the provider layer's adult assertion,
+participation and consent. The pair is the cross-mod read/write side. The service stores nothing.
 
 ### Callers
 
 | Caller | API | Scene work it keeps |
 |---|---|---|
-| `runtime.start_verdict()` | `evaluate(pony, MODE_START)` | state, paused, player, navigator, pose asset, bed |
-| `runtime.offer_verdict()` | `evaluate(pony, MODE_OFFER)` | offer-safe scene rows |
+| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | state, paused, player, navigator, pose asset, bed |
+| `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe scene rows |
 | `runtime.start()` | `start_verdict()` | none |
 | `runtime.refuse_available()` | `buck_refuse` | pose context |
-| `runtime.grant_sex_bond()` | `evaluate(pony, MODE_BOND)` | IDLE, not sleeping |
-| `runtime._still_willing()` | `evaluate(pony, MODE_MID_ACT)` | none |
+| `runtime.grant_sex_bond()` | `get_verdict(pony, Mode.BOND)` | IDLE, not sleeping |
+| `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
 | `main._refresh_offer()` | `runtime.start_verdict().show` | candidate discovery |
 | `main.try_start()` | `runtime.start()` | none |
 | `main._try_refusal()` | `runtime.refuse_available()` | none |
-| `initiation` | `runtime.offer_verdict()` | cooldown, approach, bed search, privacy, classifier |
+| `main.is_adult_mare()` | `eligible(pony, Target.ACT)` | none |
+| `main.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
+| `initiation` | `get_verdict(pony, Mode.OFFER)` | cooldown, approach, bed search, privacy, classifier |
 | `dialogue_consent` | `runtime.grant_sex_bond/end_sex_bond` | none |
-| `anatomy/act` | `action_consent()` | feature flags |
-| `anatomy`, `tail_seat` | `adult_mare()` | rig, hair, dock |
-| `memory` | `facts.gd` adult predicates | perception, sleeping |
-| `standing_presentation` | `adult_mare()` | pose, state |
+| `anatomy/act` | `get_profile(id).consent` | feature flags |
+| `anatomy` facade | `eligible(pony, Target.ANATOMY)` | rig, assets, dock; forwards to its controllers |
+| `tail_seat` | `eligible(pony, Target.TAIL)` through the anatomy facade | hair, dock |
+| `memory` | `witness_age(pony)` | perception, sleeping |
+| `standing_presentation` | `eligible(pony, Target.ACT)` | pose, state |
+| `api.describe_mare()` | `get_profile(id)` | provider metadata, settings shape |
 
 Only `runtime` combines policy rows with scene rows. The pure policy never sees a bed, a
 navigator, a pose asset or the player body.
 
+## Capability targets
+
+A consumer asks about its own target and never inspects identity:
+
+| Target | Veto | Callers |
+|---|---|---|
+| `Target.ACT` | `participation.acts` | act discovery, the standing invitation, `is_adult_mare` |
+| `Target.ANATOMY` | `participation.anatomy` | the anatomy controller and runtime attachment |
+| `Target.TAIL` | `participation.tail` | tail seating |
+| `Target.CHARACTER` | none | the Characters selector, so an opted-out mare stays editable |
+
+`eligible()` is cheap by design: stable id, identity, provider assertion, `profile_identity` and
+participation. It never builds the full fact snapshot, because discovery calls it in per-frame
+loops. `witness_age()` returns `Age.YOUNG`, `Age.ADULT` or `Age.NONE`; a provider's `adult`
+assertion wins over the identity flag in both directions.
+
 ## Facts
 
-```gdscript
-{
-  "id", "has_identity", "is_player_pony", "is_filly", "is_stallion",
-  "adult", "participation",
-  "has_relationship", "registered_adult", "romance_eligible",
-  "stage", "love_level", "willing", "stored_bond", "bond_stage",
-  "promiscuity", "sex_start", "public_feature",
-  "player_young", "player_pony",
-  "cycle_phase", "cycle_allows", "heat",
-  "history": {"tier", "hurt", "comfort", "blocks_start", "blocks_offers", "offer_weight"},
-  "consent": {"public", "anal", "oral"},
-}
+`Facts` is a typed object on `Verdict.facts`:
+
+```text
+id, has_identity, is_player_pony, is_filly, is_stallion, adult, participation,
+has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
+stored_bond, bond_stage, promiscuity, sex_start, public_feature, player_young, player_pony,
+cycle_phase, cycle_allows, heat, history, consent
 ```
 
 `cycle_phase` comes from `runtime.cycle_phase()`, so the debug heat/diestrus override applies.
 `history` is resolved by `act_history.gd`; `consent` by `SETTINGS.consent(id)`.
 `adult` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
-`SETTINGS.profile_adult(id)` and `SETTINGS.profile_participation(id)`.
+`SETTINGS.profile_identity(id)`.
 
 Not in facts: the preference profile, poses, prompts, timing values, prompt names, mood,
 first-time state, or request cooldowns.
 
 ## Verdict
 
-```gdscript
-{
-  "mode": String,
-  "base": bool,
-  "show": bool,             # the Make love hint appears
-  "attempt": bool,          # Y starts the act
-  "offer": bool,            # proactive offer allowed
-  "bond": bool,             # a lover-bond dialogue grant is allowed
-  "buck_refuse": bool,      # Y triggers refuse()
-  "history_refuse": bool,   # Y triggers refuse_from_history()
-  "stop": bool,             # mid-act withdrawal
-  "offer_weight": float,
-  "actions": {"public", "public_offer", "anal", "oral"},
-  "relations": {"id", "stage", "love_level", "willing", "stored_bond", "bond_stage",
-                "promiscuity", "sex_start", "cycle_phase", "heat", "base"},
-  "rows": [{"key", "ok", "reason", "effect"}],
-}
+`Verdict` is the typed gate returned by `get_verdict()`:
+
+```text
+mode: Mode
+base: bool
+show: bool             # the Make love hint appears
+attempt: bool          # Y starts the act
+offer: bool            # proactive offer allowed
+bond: bool             # a lover-bond dialogue grant is allowed
+buck_refuse: bool      # Y triggers refuse()
+history_refuse: bool   # Y triggers refuse_from_history()
+stop: bool             # mid-act withdrawal
+offer_weight: float
+facts: Facts
+actions: Actions       # public, public_offer, anal, oral
+relations: Relations   # id, stage, love_level, willing, stored_bond, bond_stage,
+                       # promiscuity, sex_start, cycle_phase, heat, base
+rows: Array[Row]       # key, ok, reason, effect
 ```
+
+`reasons()` returns the failed rows' reasons; `rows_text()` renders the rows. `Row.effect` is
+the `Effect` enum, not a string.
 
 Rows and effects:
 
@@ -218,14 +252,20 @@ Rules:
 
 ## Adults
 
-- `adult_pony`: an identified pony that is not a filly/colt and is not the player's own pony.
-- `adult_mare`: an adult pony that is not a stallion. This is the act target, the anatomy target
-  and the tail-seat target.
+- The identity predicates (`adult_pony_identity`, `adult_mare_identity`, `young_identity`) are
+  private to `eligibility/facts.gd`. Other systems ask a capability target; they never inspect
+  age, sex or the provider assertion.
+- `Target.ACT`, `Target.ANATOMY` and `Target.CHARACTER` accept an adult mare: an identified pony
+  that is not a filly/colt, not a stallion and not the player's own pony. `Target.TAIL` is the
+  same identity plus the tail veto.
 - A provider's `adult` assertion is a tri-state override: `true` or `false` overrides the
   identity's age flag; `null` lets the identity decide. It changes age, not sex. It is
   provider-only and never written to the player's settings.
-- Adult stallions are not act targets. They may still witness an act; witnesses use
-  `adult_pony`.
+- Adult stallions are not act, anatomy or tail targets. They may still witness an act:
+  `witness_age()` returns `Age.ADULT` for them.
+- `witness_age()` returns `Age.YOUNG` for a filly/colt the provider has not asserted adult,
+  `Age.ADULT` for an adult (or asserted adult), and `Age.NONE` for a pony who can be neither. It is
+  the only age-shaped answer a consumer gets, and only for witness wording.
 - A young player blocks every act and every lover-bond grant.
 
 ## Participation
@@ -234,7 +274,9 @@ Rules:
 subtractive: `true` means "does not veto", never "grants". A missing key means the default
 `true`. The `acts` key is an eligibility row with a `block` effect; it does not set
 `buck_refuse` or `history_refuse`, and it does not change `stop`. A player who opts out of acts
-is a quiet boundary, not a mood beat. The `anatomy` and `tail` keys are in `docs/anatomy.md`.
+is a quiet boundary, not a mood beat. The anatomy and tail keys gate `Target.ANATOMY` and
+`Target.TAIL`; their rig checks stay in `docs/anatomy.md`. `Target.CHARACTER` ignores all three
+so the Characters selector can always re-enable an opted-out mare.
 
 A provider's `profile` is a layer; the player's `characters.<id>.profile` is a sparse difference
 layer. The player's `Reset to default` clears the player's participation and returns to the
@@ -337,7 +379,7 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 
 ## Mid-act withdrawal
 
-`MODE_MID_ACT.stop` is true when any of these changes after the act started:
+`Mode.MID_ACT.stop` is true when any of these changes after the act started:
 
 - adult mare, adult player or romance eligibility;
 - Promiscuity level;
@@ -352,7 +394,7 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 
 - `runtime.debug_line()` prints `show`, `attempt`, `offer`, `buck`, `history`, the policy rows and
   the relation facts. It does not re-derive the gate.
-- `eligibility.debug_text()` returns the same policy view without scene rows.
+- `Verdict.rows_text()` returns the same policy view without scene rows.
 - The Debug actions **Grant lover bond**, **Clear lover bond**, **Trigger bed offer** and
   **Trigger standing offer** use the same service.
 - The Debug actions **Force heat** and **Force diestrus** feed `cycle_phase`; they do not bypass
@@ -360,17 +402,22 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 
 ## Tests
 
-- `tests/eligibility/test_eligibility.gd`: the pure truth table, identity predicates, Promiscuity,
-  willingness, bond, history, cycle, public/anal/oral, participation and row effects.
+- `tests/eligibility/test_eligibility.gd`: the pure truth table, identity predicates, capability
+  targets, witness age, Promiscuity, willingness, bond, history, cycle, public/anal/oral,
+  participation and row effects.
+- `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
+  facts and verdict, capability targets, the profile consent, the provider layer through
+  `set_profile()`/`get_profile()` and clear/setup lifecycle.
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `tests/test_sex_bond.gd`: bond storage only.
-- `tests/test_source_hygiene.gd`: purity, the single-reader rule and the docs link.
+- `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
+  the docs link.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
 - `tests/test_initiation.gd`: offer wording and consent classification.
-- `tests/anatomy/test_anatomy.gd`: adult-mare eligibility, participation and the provider's
-  `adult` assertion.
-- `tests/anatomy/test_identity.gd`: the pure identity predicate and the provider's `adult`
-  assertion.
+- `tests/anatomy/test_anatomy.gd`: the anatomy target, participation, the provider's `adult`
+  assertion and the rig checks.
+- `tests/anatomy/test_identity.gd`: the stable-id helpers, the princess body profile and the
+  off-roster list.
 - `tests/test_memory.gd`: witness wording.
 
 ## Known limits
@@ -380,6 +427,6 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 - Stallion partners stored in an older save remain in `sex_bonds`, but they are no longer act
   targets. No migration removes the row.
 - Public consent is not a general exhibitionism gate; it is an offer privacy override.
-- The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability exposes
-  only the resolved `adult` and `participation` block. A live eligibility verdict is not part of
-  the API.
+- The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability reads
+  `get_profile(id)` and writes `set_profile(owner, id, profile)`. A live eligibility verdict is
+  not part of the API.

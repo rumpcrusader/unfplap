@@ -146,6 +146,67 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 	return result
 
 
+## Write the identity half of one owner's layer: the adult assertion, consent and participation.
+## The rest of that owner's template is preserved. A missing layer is created with only identity
+## keys. `adult` absent from `identity` clears any previous assertion. Returns the same result
+## shape as `register()`.
+static func set_profile(owner_id: int, source: String, id: String,
+		identity: Dictionary) -> Dictionary:
+	var warnings: Array = []
+	var errors: Array = []
+	var key := id.strip_edges()
+	_check_id(key, errors)
+	_check_source(source, errors)
+	if owner_id == 0:
+		errors.append("owner: must be a valid Node inside the scene tree")
+	var patch: Dictionary = {}
+	if identity.has("adult"):
+		patch["adult"] = _validate_adult(identity["adult"], errors)
+	if identity.has("consent"):
+		patch["consent"] = _validate_consent(identity["consent"], warnings, errors)
+	if identity.has("profile"):
+		patch["profile"] = _validate_profile(identity["profile"], warnings, errors)
+	var result := {
+		"ok": false, "id": key, "source": source, "replaced": false,
+		"warnings": warnings, "errors": errors,
+	}
+	if not errors.is_empty():
+		return result
+	var list: Array = _layers.get(key, [])
+	var found := false
+	for index: int in list.size():
+		var existing: Variant = list[index]
+		if not existing is Dictionary:
+			continue
+		var layer: Dictionary = existing
+		if int(layer.get("owner", 0)) != owner_id:
+			continue
+		var template: Dictionary = (layer.get("template", {}) as Dictionary).duplicate(true)
+		if patch.has("adult"):
+			template["adult"] = patch["adult"]
+		else:
+			template.erase("adult")
+		if patch.has("consent"):
+			template["consent"] = patch["consent"]
+		if patch.has("profile"):
+			template["profile"] = patch["profile"]
+		layer["template"] = template
+		list[index] = layer
+		found = true
+		break
+	if not found:
+		var layer := {
+			"owner": owner_id, "source": source, "name": "", "template": patch, "order": 0,
+		}
+		_next_order += 1
+		layer["order"] = _next_order
+		list.append(layer)
+	_layers[key] = list
+	result["ok"] = true
+	result["replaced"] = found
+	return result
+
+
 ## Remove only this owner's layer. Returns true when a layer was present.
 static func unregister(owner_id: int, id: String) -> bool:
 	var key := id.strip_edges()

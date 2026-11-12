@@ -10,7 +10,6 @@ extends Node
 ## original before it writes, so turning the setting off restores the game's tail and dock exactly.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
@@ -29,6 +28,8 @@ const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
 
 var perf_on := Callable()
 var log := Callable()
+## The anatomy facade's capability answer for this pony (identity + tail participation).
+var eligible := Callable()
 
 ## pony -> cached original values, target and live state. See `_prepare()`.
 var _rows: Dictionary = {}
@@ -255,12 +256,7 @@ func _exit_tree() -> void:
 
 
 func _eligible(pony: Node) -> bool:
-	var player_pony := pony.name == "PlayerPony" or is_instance_valid(pony.get("rig"))
-	var identity: Variant = pony.get("identity")
-	var id := _id_for(pony)
-	if not FACTS.adult_mare_identity(identity, player_pony, SETTINGS.profile_adult(id)):
-		return false
-	if not SETTINGS.profile_participation(id).get("tail", true):
+	if eligible.is_null() or not bool(eligible.call(pony)):
 		return false
 	var hair: Variant = pony.get("hair_skeleton")
 	var skeleton: Variant = pony.get("skeleton")

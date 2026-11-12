@@ -1,11 +1,11 @@
 extends RefCounted
-## Pure anatomy identity helpers: the stable pony id, the adult-mare attachment predicate, the
-## princess body profile and the off-roster id list. It reads no Node, scene or settings file;
-## `anatomy.gd` supplies the live values.
+## Pure anatomy helpers: the stable pony id, the princess body profile and the off-roster id
+## list. It reads no Node, scene or settings file; `anatomy.gd` supplies the live values.
+##
+## The adult capability is not here: the eligibility facade owns it and the anatomy facade asks
+## `eligible(pony, Target.ANATOMY)`.
 ##
 ## See `docs/anatomy.md` (`## Attachment and identity`).
-
-const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 
 ## The princess body scale and placement anchor for a known character. A modded copy can set
 ## `character_id` to the canon pony whose body it uses; otherwise the identity id is the key.
@@ -23,14 +23,6 @@ static func id_for(meta_id: String, identity: Variant) -> String:
 	return str(identity.get("id")) if identity != null else ""
 
 
-## Every adult mare gets anatomy: the identity filly/stallion flags are the age gate, the
-## player's own pony never gets it, and the pony needs a stable id for the per-mare placement. A
-## provider's `adult` assertion overrides the identity's age flag; `null` means the identity decides.
-static func eligible(identity: Variant, is_player_pony: bool, id: String,
-		adult: Variant = null) -> bool:
-	return FACTS.adult_mare_identity(identity, is_player_pony, adult) and not id.is_empty()
-
-
 ## The princess body profile, or an empty array for an ordinary body. A modded copy is matched by
 ## `character_id` first, then by its own identity id.
 static func body_profile(identity: Variant) -> Array:
@@ -45,8 +37,8 @@ static func body_profile(identity: Variant) -> Array:
 	return profile.duplicate() if profile is Array else []
 
 
-## Deduplicated eligible ids that are not in the base roster. The caller owns the live-pony
-## source and its ordering; this helper only filters and deduplicates.
+## Deduplicated ids that are not in the base roster. The caller owns the eligibility filter, the
+## live-pony source and its ordering; this helper only filters and deduplicates.
 static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:
 	var out: Array[String] = []
 	for id: String in ids:

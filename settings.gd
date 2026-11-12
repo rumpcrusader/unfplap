@@ -1961,25 +1961,30 @@ static func _profile_participation_raw(template: Dictionary) -> Variant:
 	return {}
 
 
-## The resolved participation block for a mare: built-in default, provider layer, then the
-## player's saved differences. The block is subtractive: `true` means "does not veto".
-static func profile_participation(id: String) -> Dictionary:
+## The identity half of a mare's resolved profile in one pass: the provider-only `adult`
+## assertion and the participation block. Discovery scans ask for both, and two separate calls
+## would resolve the whole profile twice.
+static func profile_identity(id: String) -> Dictionary:
 	var data := _read()
 	var template := profile_for(data.get("default", _filled_default()),
 		data.get("characters", {}), id)
-	return PARTICIPATION.resolve(_profile_participation_raw(template))
+	var raw: Variant = template.get("adult", null)
+	return {
+		"adult": raw if raw is bool else null,
+		"participation": PARTICIPATION.resolve(_profile_participation_raw(template)),
+	}
+
+
+## The resolved participation block for a mare: built-in default, provider layer, then the
+## player's saved differences. The block is subtractive: `true` means "does not veto".
+static func profile_participation(id: String) -> Dictionary:
+	return profile_identity(id).get("participation", {})
 
 
 ## The resolved provider-only `adult` assertion. `true`/`false` is a provider's assertion; `null`
 ## means the pony's identity decides. The player's saved block never carries it.
 static func profile_adult(id: String) -> Variant:
-	var data := _read()
-	var template := profile_for(data.get("default", _filled_default()),
-		data.get("characters", {}), id)
-	var raw: Variant = template.get("adult", null)
-	if raw is bool:
-		return raw
-	return null
+	return profile_identity(id).get("adult", null)
 
 
 ## Provider mod ids that registered a layer for one mare, in resolution order.

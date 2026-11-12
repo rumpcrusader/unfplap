@@ -69,7 +69,7 @@ var classifier
 var dialogue_consent
 var active_runtime
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
-var eligibility: Variant
+var eligibility: ELIGIBILITY
 
 var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
@@ -386,11 +386,12 @@ func _on_pony(pony: Node) -> void:
 ## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
 ## appears while she is in the world; her saved preset stays in settings.json when she despawns.
 func live_character_ids() -> Array[String]:
-	var ponies: Array = []
+	var ids: Array[String] = []
 	for pony: Variant in _runtimes.keys():
-		if pony is Node3D and is_instance_valid(pony):
-			ponies.append(pony)
-	var out: Array[String] = ANATOMY.off_roster_ids(ponies, SETTINGS.CHARACTER_ORDER)
+		if pony is Node3D and is_instance_valid(pony) and is_instance_valid(eligibility) \
+				and eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER):
+			ids.append(ANATOMY.pony_id(pony))
+	var out: Array[String] = ANATOMY.off_roster_ids(ids, SETTINGS.CHARACTER_ORDER)
 	out.sort_custom(func(a: String, b: String) -> bool:
 		return SETTINGS.character_name(a).naturalnocasecmp_to(
 			SETTINGS.character_name(b)) < 0)
@@ -947,7 +948,9 @@ func _refresh_preference_form(refs: Dictionary) -> void:
 		(refs.get("consent_anal") as CheckButton).set_pressed_no_signal(bool(consent.get("anal", false)))
 	if refs.get("consent_oral") is CheckButton:
 		(refs.get("consent_oral") as CheckButton).set_pressed_no_signal(bool(consent.get("oral", false)))
-	var participation := SETTINGS.profile_participation(id)
+	var participation := {}
+	if is_instance_valid(eligibility):
+		participation = eligibility.get_profile(id).participation.to_dict()
 	for key: String in PARTICIPATION.KEYS:
 		var button: Variant = refs.get("participation_" + key)
 		if button is CheckButton:
@@ -1064,7 +1067,9 @@ func _preference_participation_values(refs: Dictionary) -> Dictionary:
 
 
 func _participation_matches(id: String) -> bool:
-	var resolved := SETTINGS.profile_participation(id)
+	var resolved := {}
+	if is_instance_valid(eligibility):
+		resolved = eligibility.get_profile(id).participation.to_dict()
 	var defaults := SETTINGS.default_participation(id)
 	for key: String in PARTICIPATION.KEYS:
 		if bool(resolved.get(key, true)) != bool(defaults.get(key, true)):
@@ -2156,10 +2161,11 @@ func mares() -> Array:
 	return []
 
 
-## The act-target, anatomy and tail predicate. The eligibility service owns the identity rule;
-## a scan uses this before building a runtime gate for a stallion or a young pony.
+## The act-target capability. The eligibility service owns the rule; a scan uses this before
+## building a runtime gate for a stallion or a young pony.
 func is_adult_mare(pony: Variant) -> bool:
-	return is_instance_valid(eligibility) and bool(eligibility.adult_mare(pony))
+	return is_instance_valid(eligibility) \
+		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 
 
 func runtime_for(pony: Node) -> Node:

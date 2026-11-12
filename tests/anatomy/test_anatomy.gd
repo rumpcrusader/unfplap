@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/anatomy/test_anatomy.gd
 
 const CONSENT := preload("res://mods/unfplap/consent.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
@@ -30,6 +31,10 @@ class FakeIdentity extends Resource:
 class FakePony extends Node3D:
 	var identity: Resource
 	var rig: Node
+
+
+class FakeMain extends Node:
+	var eligibility: Variant
 
 
 class FakeAnatomy extends Node:
@@ -81,36 +86,47 @@ func run() -> void:
 		== bool(a.get("public", false)), "empty override keeps defaults")
 	check(not bool(a.get("public", true)), "no mare is public by default")
 
-	# Eligibility is identity-based: the base-game roster is not an attachment whitelist.
+	# Eligibility is capability-scoped: the eligibility service answers the anatomy target, and
+	# the base-game roster is not an attachment whitelist.
+	var host := FakeMain.new()
+	root.add_child(host)
+	host.eligibility = ELIGIBILITY.new()
+	host.eligibility.setup(host)
 	var twilight := _pony("twilight_sparkle")
-	check(ANATOMY.eligible(twilight), "base adult is eligible")
+	check(bool(host.eligibility.eligible(twilight, ELIGIBILITY.Target.ANATOMY)),
+		"base adult is eligible")
 	var off_roster := _pony("not_a_base_mare")
-	check(ANATOMY.eligible(off_roster), "off-roster adult is eligible")
+	check(bool(host.eligibility.eligible(off_roster, ELIGIBILITY.Target.ANATOMY)),
+		"off-roster adult is eligible")
 	var filly := _pony("not_a_base_mare", true)
-	check(not ANATOMY.eligible(filly), "identity filly is excluded")
+	check(not bool(host.eligibility.eligible(filly, ELIGIBILITY.Target.ANATOMY)),
+		"identity filly is excluded")
 	var stallion := _pony("not_a_base_mare", false, true)
-	check(not ANATOMY.eligible(stallion), "stallion is excluded")
+	check(not bool(host.eligibility.eligible(stallion, ELIGIBILITY.Target.ANATOMY)),
+		"stallion is excluded")
 	var no_id := _pony("")
-	check(not ANATOMY.eligible(no_id), "empty id is excluded")
+	check(not bool(host.eligibility.eligible(no_id, ELIGIBILITY.Target.ANATOMY)),
+		"empty id is excluded")
 	var no_identity := FakePony.new()
-	check(not ANATOMY.eligible(no_identity), "no identity is excluded")
+	check(not bool(host.eligibility.eligible(no_identity, ELIGIBILITY.Target.ANATOMY)),
+		"no identity is excluded")
 	var player := _pony("twilight_sparkle")
 	player.name = "PlayerPony"
-	check(not ANATOMY.eligible(player), "player pony is excluded")
+	check(not bool(host.eligibility.eligible(player, ELIGIBILITY.Target.ANATOMY)),
+		"player pony is excluded")
 
 	# A provider's `adult` assertion overrides the identity's age flag; the participation block
-	# gates the attachment. The controller's `_participation_anatomy()` is the gate.
+	# is the anatomy target's veto, and the character target keeps her editable.
 	var registered: Dictionary = MARE_REGISTRY.register(1, {
 		"id": "provider_filly", "source": "test",
 		"adult": true, "profile": {"participation": {"anatomy": false}},
 	})
 	check(bool(registered.get("ok", false)), "the provider registers")
 	var provider_filly := _pony("provider_filly", true)
-	check(ANATOMY.eligible(provider_filly), "a provider's adult assertion attaches a filly")
-	var gate := ANATOMY.new()
-	gate.pony = provider_filly
-	check(not gate._participation_anatomy(), "a participation opt-out blocks the anatomy")
-	gate.free()
+	check(bool(host.eligibility.eligible(provider_filly, ELIGIBILITY.Target.CHARACTER)),
+		"a provider's adult assertion attaches a filly")
+	check(not bool(host.eligibility.eligible(provider_filly, ELIGIBILITY.Target.ANATOMY)),
+		"a participation opt-out blocks the anatomy target")
 	MARE_REGISTRY.unregister(1, "provider_filly")
 
 	# Placement and preferences use the relationship id first; the identity id is the fallback.
@@ -137,7 +153,7 @@ func run() -> void:
 
 	# The Characters selector lists only live off-roster mares.
 	var live_ids: Array[String] = ANATOMY.off_roster_ids(
-		[off_roster, twilight], SETTINGS.CHARACTER_ORDER)
+		["not_a_base_mare", "twilight_sparkle"], SETTINGS.CHARACTER_ORDER)
 	check(live_ids.size() == 1 and live_ids[0] == "not_a_base_mare",
 		"the Characters selector lists live off-roster mares")
 

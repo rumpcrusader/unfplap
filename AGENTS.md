@@ -75,8 +75,8 @@ Rules:
   state. It calls the other facade, or receives the values it needs as arguments.
 - Exchange values, not Nodes. Use a typed `RefCounted` context, a plain dictionary or a
   documented handle at the boundary. `runtime` is a caller, not a service locator.
-- Dependencies point one way: system -> shared pure data (`settings`, `poses/catalog`,
-  `eligibility/facts`, `cycle`, `preferences`) -> game. `main` and `runtime` compose systems and
+- Dependencies point one way: system -> shared pure data (`settings`, `poses/catalog`, `cycle`,
+  `preferences`) -> game. `main` and `runtime` compose systems and
   keep orchestration, state and ordering; they never hold a system's implementation.
 - One contract per system under `docs/`. `AGENTS.md` holds project-wide rules and the index only.
 - Every system ships its contract, its tests and its source-hygiene boundary in the same change
@@ -122,6 +122,16 @@ Hands, eligibility and anatomy use `tests/<system>/`. The remaining suites are s
 ## Workflow
 
 Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
+
+Work the change in one batch:
+
+- Settle the design before touching files. Once it is settled, apply every edit first, then run
+  only the touched suites, then `scripts/test_all.sh` once. Do not re-run the full gate after each
+  file.
+- Use one whole-file write for a file that changes heavily, and send independent edits together in
+  one turn. A chain of single-line edits costs a round trip each.
+- Start a fresh session once the context has grown past a few hundred thousand tokens; carry a
+  short plan forward instead of appending to a long conversation.
 
 A fresh checkout needs the external assets once (`scripts/fetch_assets.sh`), before source runs,
 tests, labs or builds. The script also accepts `--sources` for the V2 Blender file and `--force`
@@ -265,7 +275,6 @@ mods/unfplap/
                     bed cuddle rejoin, aftercare
   eligibility.gd    internal eligibility API and the only scene adapter; see
                     docs/eligibility.md
-  eligibility/      pure policy, facts and verdict helpers
   anatomy.gd        world facade: per-pony controllers, player part, tail seat/visibility and
                     placement editor; contract in `docs/anatomy.md`
   anatomy/controller.gd  persistent per-mare shell: placement, shapes, coat, appearance and

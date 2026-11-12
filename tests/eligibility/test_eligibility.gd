@@ -87,6 +87,32 @@ func run() -> void:
 	check(not FACTS.adult_pony_identity({"id": "x", "filly": true}), "filly is not adult")
 	check(not FACTS.adult_pony_identity(identity, true), "player pony is not a target")
 
+	# Capability targets: an adult mare plus the named participation veto. An empty key is the
+	# identity-only character target, which must keep an opted-out mare editable.
+	var mare := facts()
+	check(POLICY.participates(mare, "acts"), "an adult mare is an act target")
+	check(POLICY.participates(mare, "anatomy") and POLICY.participates(mare, "tail"),
+		"an adult mare is an anatomy and tail target")
+	check(POLICY.participates(mare, ""), "the character target has no participation veto")
+	check(not POLICY.participates(facts({"participation": {"acts": false}}), "acts"),
+		"the act target respects the participation veto")
+	check(POLICY.participates(facts({"participation": {"acts": false}}), ""),
+		"an opt-out keeps the character target")
+	check(not POLICY.participates(facts({"is_stallion": true}), "acts"),
+		"a stallion is no target")
+	check(not POLICY.participates(facts({"has_identity": false}), "acts"),
+		"no identity is no target")
+
+	# Witness age categories. A provider's `adult` assertion wins over the identity flag.
+	check(POLICY.age_kind(mare) == "adult", "an adult mare witnesses as an adult")
+	check(POLICY.age_kind(facts({"is_filly": true})) == "young", "a filly witnesses as young")
+	check(POLICY.age_kind(facts({"is_filly": true, "adult": true})) == "adult",
+		"a provider's adult assertion makes a filly an adult witness")
+	check(POLICY.age_kind(facts({"adult": false})) == "",
+		"a vetoed adult is neither an adult nor a young witness")
+	check(POLICY.age_kind(facts({"is_player_pony": true})) == "",
+		"the player pony is not a witness")
+
 	var base := POLICY.evaluate(facts(), "start")
 	check(bool(base.base), "steady adult mare has a base")
 	check(bool(base.show) and bool(base.attempt), "all gates pass in Try Your Luck")

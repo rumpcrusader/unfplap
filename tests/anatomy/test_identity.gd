@@ -1,6 +1,6 @@
 extends SceneTree
-## Pure anatomy identity helpers: the stable id, the adult-mare predicate, the princess body
-## profile and the off-roster list.
+## Pure anatomy helpers: the stable id, the princess body profile and the off-roster list.
+## The adult capability is tested with the eligibility service in `tests/eligibility/`.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_identity.gd
 
@@ -28,29 +28,6 @@ func run() -> void:
 	check(IDENTITY.id_for("", {"id": "identity_id"}) == "identity_id",
 		"the identity id is the fallback")
 	check(IDENTITY.id_for("", null) == "", "no identity has no id")
-
-	# Adult identity, filly/stallion and the player pony.
-	var adult := {"id": "adult_mare", "filly": false, "stallion": false}
-	check(IDENTITY.eligible(adult, false, "adult_mare"), "an adult mare is eligible")
-	check(not IDENTITY.eligible({"id": "filly", "filly": true, "stallion": false},
-		false, "filly"), "a filly is excluded")
-	check(not IDENTITY.eligible({"id": "stallion", "filly": false, "stallion": true},
-		false, "stallion"), "a stallion is excluded")
-	check(not IDENTITY.eligible(adult, true, "adult_mare"), "the player pony is excluded")
-	check(not IDENTITY.eligible(adult, false, ""), "a pony without a stable id is excluded")
-	check(not IDENTITY.eligible(null, false, "adult_mare"), "no identity is excluded")
-
-	# A provider's `adult` assertion overrides the identity's age flag; it changes age, not sex.
-	check(IDENTITY.eligible({"id": "filly", "filly": true, "stallion": false},
-		false, "filly", true), "an adult assertion overrides a filly")
-	check(not IDENTITY.eligible({"id": "adult_mare", "filly": false, "stallion": false},
-		false, "adult_mare", false), "a not-adult assertion excludes a base adult")
-	check(not IDENTITY.eligible({"id": "stallion", "filly": false, "stallion": true},
-		false, "stallion", true), "an adult assertion does not change sex")
-	check(not IDENTITY.eligible({"id": "filly", "filly": true, "stallion": false},
-		true, "filly", true), "the player pony stays excluded")
-	check(IDENTITY.eligible({"id": "adult_mare", "filly": false, "stallion": false},
-		false, "adult_mare", null), "a null assertion lets the identity decide")
 
 	# A modded copy uses the canon body profile through character_id; an ordinary mare does not.
 	check(IDENTITY.body_profile({"id": "custom_celestia", "character_id": "celestia"}).size() == 3,

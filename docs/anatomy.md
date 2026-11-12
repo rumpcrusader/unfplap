@@ -135,7 +135,7 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - With `anatomy_mode = never` the keys pass through: the act controller does not exist.
 - `V` also requires the V2 mare bits. The original PPP mesh has no anal mesh, so the toggle is a
   no-op on it.
-- Anal and oral need the mare's per-mare consent (`action_consent(pony, "anal"/"oral")`); a
+- Anal and oral need the mare's per-mare consent (`get_profile(id).consent.anal` / `.oral`); a
   refusal shows the anatomy status line and changes nothing.
 - `B` only changes the finish selection and shows the status line. The finish is applied by the
   player's climax event.
@@ -148,10 +148,15 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   identities are excluded, and the player's own AnonPony never receives anatomy.
 - A provider's `adult` assertion overrides the identity's age flag; `null` lets the identity
   decide. It changes age, not sex.
-- `profile.participation.anatomy` gates the attachment. A `false` value detaches the anatomy and
-  leaves the rest of the mare's profile alone. `ANATOMY.eligible()` stays identity-only so the
-  Characters selector and the live roster still see her; the participation gate is applied by the
-  runtime's `_anatomy_refresh()` and the controller's `refresh()`.
+- The eligibility facade owns the adult capability: anatomy calls
+  `eligible(pony, Target.ANATOMY)` and tail seating calls `eligible(pony, Target.TAIL)`. Anatomy
+  never inspects the identity, filly/stallion flags or the provider's `adult` assertion itself.
+- `profile.participation.anatomy` is part of the `Target.ANATOMY` answer. A `false` value detaches
+  the anatomy and leaves the rest of the mare's profile alone. The Characters selector asks
+  `Target.CHARACTER`, which has no participation veto, so an opted-out mare stays editable.
+- The anatomy facade forwards the capability to its controllers and the tail seat as a callable;
+  the runtime asks the eligibility service directly before it binds a controller. Rig readiness
+  (`assets_exist()`, `pony_hips`, the dock, the hair skeleton) stays here.
 - The stable id is `relationship_id` metadata first, then the identity id. Placement, the
   per-mare profile and the act history all key off the same value.
 - The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
@@ -546,8 +551,8 @@ restated here.
 
 Current suites:
 
-- `tests/anatomy/test_identity.gd`: the stable id, the adult-mare predicate, the provider's `adult`
-  assertion, the princess body profile and the off-roster list.
+- `tests/anatomy/test_identity.gd`: the stable id, the princess body profile and the off-roster
+  list. The adult capability is tested with the eligibility service in `tests/eligibility/`.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat weight grid/sampler and the coat-follow
   matrices.

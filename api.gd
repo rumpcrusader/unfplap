@@ -11,6 +11,7 @@ extends Node
 ## for one mare. Signals, act events and live-state queries are additive later.
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
@@ -114,6 +115,13 @@ func describe_mare(id: String) -> Dictionary:
 	var smack_radius := 0.035
 	if smack_value is float or smack_value is int:
 		smack_radius = maxf(0.0, float(smack_value))
+	# The identity slice is read through the eligibility service so its rules and the registry
+	# stay in one place.
+	var service: ELIGIBILITY = _main.get("eligibility") if is_instance_valid(_main) else null
+	var profile: ELIGIBILITY.Profile = service.get_profile(mare_id) if service != null else null
+	var consent: Dictionary = profile.consent.to_dict() if profile != null else {}
+	var adult: Variant = profile.adult_value() if profile != null else null
+	var participation: Dictionary = profile.participation.to_dict() if profile != null else {}
 	return {
 		"schema": SCHEMA,
 		"id": mare_id,
@@ -123,9 +131,9 @@ func describe_mare(id: String) -> Dictionary:
 		"registered": REGISTRY.has(mare_id),
 		"sources": REGISTRY.sources(mare_id),
 		"preferences": SETTINGS.preferences(mare_id),
-		"consent": SETTINGS.consent(mare_id),
-		"adult": SETTINGS.profile_adult(mare_id),
-		"profile": {"participation": SETTINGS.profile_participation(mare_id)},
+		"consent": consent,
+		"adult": adult,
+		"profile": {"participation": participation},
 		"placement": SETTINGS.anatomy_placement(mare_id),
 		"poses": poses,
 		"act_prompts": act_prompts,

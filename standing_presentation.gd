@@ -4,6 +4,7 @@ extends RefCounted
 
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/tail_pose.gd")
@@ -55,9 +56,8 @@ func present_standing() -> bool:
 		return false
 	if not bool(runtime.call("_free_of_affection")):
 		return false
-	var service: Variant = main.get("eligibility") if is_instance_valid(main) else null
-	if service == null or not service.has_method("adult_mare") \
-			or not bool(service.call("adult_mare", pony)):
+	var service: ELIGIBILITY = main.get("eligibility") if is_instance_valid(main) else null
+	if service == null or not service.eligible(pony, ELIGIBILITY.Target.ACT):
 		return false
 	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null)):
 		return false

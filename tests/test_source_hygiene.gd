@@ -187,12 +187,35 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 	for token: String in ["save_changed", "save_consent", "save_preferences", "SEX_BOND.save",
 			"ACT_HISTORY.commit", "ACT_HISTORY.save", "FileAccess"]:
 		check(not shell.contains(token), "eligibility shell is read-only: %s" % token)
+	# Only the facade is preloaded outside the system; the pure core stays private.
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative == "eligibility.gd" or relative.begins_with("eligibility/"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		check(not text.contains("mods/unfplap/eligibility/"),
+			"%s uses the eligibility facade only" % relative)
+	# Age, sex and the provider assertion stay private: consumers ask a capability target.
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var text := FileAccess.get_file_as_string(path)
+		for token: String in [".adult_mare(", ".adult_pony(", ".adult_player("]:
+			check(not text.contains(token),
+				"%s asks for a capability, not identity: %s" % [relative, token])
 	var readers := {
 		"bonds.welcomes(": ["eligibility.gd"],
 		"bonds.eligible_for_romance(": ["eligibility.gd"],
 		"bonds.adults": ["eligibility.gd"],
 		"SETTINGS.promiscuity": ["eligibility.gd", "settings.gd"],
 		"SETTINGS.sex_start": ["eligibility.gd", "settings.gd"],
+		"SETTINGS.profile_adult": ["eligibility.gd", "main.gd", "api.gd"],
+		"SETTINGS.profile_participation": ["eligibility.gd", "main.gd", "api.gd"],
+		"SETTINGS.profile_identity": ["eligibility.gd"],
+		"SETTINGS.consent(": ["eligibility.gd", "main.gd", "api.gd"],
 		"CYCLE.allows_sex(": ["eligibility.gd", "cycle.gd"],
 		"ACT_HISTORY.blocks_start(": ["eligibility.gd", "act_history.gd"],
 		"ACT_HISTORY.blocks_offers(": ["eligibility.gd", "act_history.gd"],

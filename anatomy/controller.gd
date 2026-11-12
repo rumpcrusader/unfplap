@@ -32,6 +32,8 @@ var dock_refresh := Callable()
 var service: Node
 var consent := Callable()
 var status := Callable()
+## The anatomy facade's capability answer for this pony (identity + participation).
+var eligible := Callable()
 
 ## The persistent mesh/anchor/dock/fluid/visibility attachment.
 var attach: RefCounted
@@ -75,19 +77,6 @@ static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 	return GEOMETRY.refined_winking_mesh(source)
 
 
-## integration: every adult mare gets anatomy, including mares added by other mods. The identity
-## filly/stallion flags are the age gate, the player's own pony never gets it, and the pony needs a
-## stable id for the per-mare placement. A provider's `adult` assertion overrides the identity's
-## age flag. The base-game preference roster is not a whitelist.
-static func eligible(pony_node: Node3D) -> bool:
-	if not is_instance_valid(pony_node):
-		return false
-	var player_pony := pony_node.name == "PlayerPony" or is_instance_valid(pony_node.get("rig"))
-	var id := pony_id(pony_node)
-	return IDENTITY.eligible(pony_node.get("identity"), player_pony, id,
-		SETTINGS.profile_adult(id))
-
-
 ## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
 ## `runtime._read_id()` so placement and preferences key off the same value.
 static func pony_id(pony_node: Node) -> String:
@@ -102,13 +91,9 @@ static func body_profile(identity: Variant) -> Array:
 	return IDENTITY.body_profile(identity)
 
 
-## Live adult mares outside the base roster, for the Characters selector. Deduplicated ids out;
-## the caller owns the live-pony source and ordering.
-static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
-	var ids: Array[String] = []
-	for pony: Variant in ponies:
-		if pony is Node3D and eligible(pony as Node3D):
-			ids.append(pony_id(pony as Node))
+## Deduplicated ids outside the base roster. The caller owns the eligibility filter and the live
+## source ordering; this helper only deduplicates.
+static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:
 	return IDENTITY.off_roster_ids(ids, base_ids)
 
 
@@ -128,13 +113,14 @@ func _init() -> void:
 
 func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 		consent_callable := Callable(), status_callable := Callable(),
-		dock_refresh_callable := Callable()) -> void:
+		dock_refresh_callable := Callable(), eligible_callable := Callable()) -> void:
 	pony = pony_node
 	set_facts(facts_node)
 	service = service_node
 	consent = consent_callable
 	status = status_callable
 	dock_refresh = dock_refresh_callable
+	eligible = eligible_callable
 	attach.setup(self, pony, facts)
 	shapes.setup(pony, self)
 	coat.setup(pony, shapes)
@@ -177,7 +163,7 @@ func act() -> Node:
 
 
 func refresh() -> void:
-	if not _enabled() or not eligible(pony) or not _participation_anatomy():
+	if not _enabled() or not _is_eligible():
 		detach()
 		return
 	if not assets_exist():
@@ -188,8 +174,9 @@ func refresh() -> void:
 	_attach()
 
 
-func _participation_anatomy() -> bool:
-	return bool(SETTINGS.profile_participation(pony_id(pony)).get("anatomy", true))
+## The anatomy facade answers the capability; the controller never inspects identity itself.
+func _is_eligible() -> bool:
+	return not eligible.is_null() and is_instance_valid(pony) and bool(eligible.call(pony))
 
 
 func _enabled() -> bool:

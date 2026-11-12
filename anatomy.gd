@@ -15,6 +15,7 @@ const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd"
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 
 var main: Node
 var player: Node
@@ -38,26 +39,52 @@ func setup(main_node: Node) -> void:
 	var log_call := func(text: String) -> void:
 		if is_instance_valid(main) and main.has_method("_debug"):
 			main.call("_debug", text)
+	var eligible_tail := func(pony_node: Node) -> bool:
+		return _eligible_target(pony_node, ELIGIBILITY.Target.TAIL)
 	tail_seat.set("perf_on", perf_call)
 	tail_seat.set("log", log_call)
+	tail_seat.set("eligible", eligible_tail)
 	add_child(tail_seat)
 
 
 ## Host consent lookup for the act's V/N actions. The facade is the scene adapter; the act
 ## receives this as a callback.
 func consent(pony_node: Node, key: String) -> bool:
-	if not is_instance_valid(main):
+	if not is_instance_valid(main) or not is_instance_valid(pony_node):
 		return false
-	var service: Variant = main.get("eligibility")
-	if service == null or not service.has_method("action_consent"):
+	var service: ELIGIBILITY = main.get("eligibility")
+	if service == null:
 		return false
-	return bool(service.call("action_consent", pony_node, key))
+	var id := CONTROLLER.pony_id(pony_node)
+	if id.is_empty():
+		return false
+	var profile := service.get_profile(id)
+	match key:
+		"public":
+			return profile.consent.public
+		"anal":
+			return profile.consent.anal
+		"oral":
+			return profile.consent.oral
+		_:
+			return false
 
 
 ## Host status line for the anatomy actions.
 func status(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("anatomy_status"):
 		main.call("anatomy_status", text, 2.0)
+
+
+## Host capability lookup. The eligibility service owns the rule; anatomy only names its target
+## and never inspects identity or participation itself.
+func _eligible_target(pony_node: Node, target: ELIGIBILITY.Target) -> bool:
+	if not is_instance_valid(main):
+		return false
+	var service: ELIGIBILITY = main.get("eligibility")
+	if service == null:
+		return false
+	return service.eligible(pony_node, target)
 
 
 ## The live controller for a pony, created on first use. The runtime supplies its typed facts;
@@ -76,8 +103,10 @@ func controller_for(pony: Node, runtime: Node) -> Node:
 	var controller: Node = CONTROLLER.new()
 	controller.name = "UnfplapAnatomyController"
 	add_child(controller)
+	var eligible_anatomy := func(pony_node: Node) -> bool:
+		return _eligible_target(pony_node, ELIGIBILITY.Target.ANATOMY)
 	controller.call("setup", pony, facts, self, Callable(self, "consent"),
-		Callable(self, "status"), Callable(self, "refresh_dock_color"))
+		Callable(self, "status"), Callable(self, "refresh_dock_color"), eligible_anatomy)
 	_controllers[pony] = controller
 	pony.tree_exiting.connect(func() -> void: detach_controller(pony))
 	return controller
@@ -436,7 +465,7 @@ func player_apply_live() -> void:
 		_player_part.call("apply_live")
 
 
-# --------------------------------------------------------------------------- static identity
+# --------------------------------------------------------------------------- static helpers
 
 static func assets_exist() -> bool:
 	return CONTROLLER.assets_exist()
@@ -444,10 +473,6 @@ static func assets_exist() -> bool:
 
 static func selected_mare_bits_path() -> String:
 	return CONTROLLER.selected_mare_bits_path()
-
-
-static func eligible(pony_node: Node3D) -> bool:
-	return CONTROLLER.eligible(pony_node)
 
 
 static func pony_id(pony_node: Node) -> String:
@@ -458,5 +483,5 @@ static func body_profile(identity: Variant) -> Array:
 	return CONTROLLER.body_profile(identity)
 
 
-static func off_roster_ids(ponies: Array, base_ids: Array) -> Array[String]:
-	return CONTROLLER.off_roster_ids(ponies, base_ids)
+static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:
+	return CONTROLLER.off_roster_ids(ids, base_ids)

@@ -7,6 +7,7 @@ const API := preload("res://mods/unfplap/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 
 ## The public v1 surface. An addition or rename must update this list and docs/api.md together.
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]
@@ -27,6 +28,10 @@ var api: Node
 var owner: Node
 
 
+class FakeMain extends Node:
+	var eligibility: ELIGIBILITY
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -44,9 +49,15 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 func run() -> void:
 	REGISTRY.reset()
+	var main := FakeMain.new()
+	main.name = "FakeMain"
+	main.eligibility = ELIGIBILITY.new()
+	main.eligibility.setup(main)
+	root.add_child(main)
 	api = API.new()
 	api.name = "UnfplapAPI"
 	root.add_child(api)
+	api.call("_bind", main)
 	owner = Node.new()
 	owner.name = "TestProvider"
 	root.add_child(owner)
@@ -65,6 +76,8 @@ func run() -> void:
 	api.free()
 	root.remove_child(owner)
 	owner.free()
+	root.remove_child(main)
+	main.free()
 	REGISTRY.reset()
 	print("API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

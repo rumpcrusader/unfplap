@@ -21,6 +21,11 @@ const EFFECT_HISTORY_REFUSE := "history_refuse"
 const EFFECT_OFFER_BLOCK := "offer_block"
 const EFFECT_FLAG := "flag"
 
+## Witness age categories. `young` is the game's filly/colt flag; a provider's `adult` assertion
+## wins over it.
+const AGE_ADULT := "adult"
+const AGE_YOUNG := "young"
+
 
 ## True when `love_level` meets the selected Promiscuity floor. Unknown values fall back to
 ## Marefriend, the old hardcoded gate.
@@ -51,6 +56,32 @@ static func adult_mare(facts: Dictionary) -> bool:
 
 static func adult_player(facts: Dictionary) -> bool:
 	return not bool(facts.get("player_young", false))
+
+
+## The capability answer for a consumer: adult mare plus the named participation veto. An empty
+## key means identity only, which the Characters selector needs so an opted-out mare stays
+## editable. See `docs/eligibility.md` (`## Capability targets`).
+static func participates(facts: Dictionary, key := "") -> bool:
+	if not adult_mare(facts):
+		return false
+	if key.is_empty():
+		return true
+	return bool((facts.get("participation", {}) as Dictionary).get(key, true))
+
+
+## The witness age category, or empty when she can be neither an adult nor a young witness.
+## A provider's `adult` assertion wins over the identity flag in both directions.
+static func age_kind(facts: Dictionary) -> String:
+	if not bool(facts.get("has_identity", false)) or bool(facts.get("is_player_pony", false)):
+		return ""
+	var adult: Variant = facts.get("adult", null)
+	if adult is bool and bool(adult):
+		return AGE_ADULT
+	if bool(facts.get("is_filly", false)):
+		return AGE_YOUNG
+	if adult is bool:
+		return ""
+	return AGE_ADULT
 
 
 ## The shared base: an adult mare with a relationship runtime, a registered adult, an adult

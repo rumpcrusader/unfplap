@@ -645,8 +645,16 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act.gd"))
 	check(not act.contains("runtime.get("), "the anatomy act does not read runtime fields")
 	check(not act.contains("runtime.call(\"_"), "the anatomy act does not call runtime private helpers")
+	var bridge := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act_bridge.gd"))
+	check(bridge.contains("func bind(host_in: Dictionary)") and bridge.contains("func context("),
+		"the anatomy bridge takes a host dictionary and owns the typed context")
+	for token: String in ["extends Node", "FileAccess",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")"]:
+		check(not bridge.contains(token), "the anatomy bridge has no host reach-in: %s" % token)
 	var runtime_text := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
-	for token: String in ["anatomy/controller.gd", "anatomy/act.gd", "anatomy/player.gd"]:
+	for token: String in ["anatomy/controller.gd", "anatomy/act.gd", "anatomy/player.gd",
+			"anatomy/act_bridge.gd"]:
 		check(not runtime_text.contains(token), "runtime does not preload anatomy internals: %s" % token)
 	check(not runtime_text.contains("_anatomy.call(\"_"),
 		"runtime does not call anatomy private helpers")
@@ -674,11 +682,13 @@ func _check_anatomy_docs() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/anatomy.md"))
 	check(not contract.is_empty(), "docs/anatomy.md exists")
 	for heading: String in ["## Scope", "## Architecture", "## Controls", "## Act anatomy",
-			"## Tail seating", "## Tests", "## Migration target"]:
+			"## Act bridge", "## Tail seating", "## Tests", "## Migration target"]:
 		check(contract.contains(heading), "docs/anatomy.md has %s" % heading)
 	for name: String in ["AGENTS.md", "README.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/anatomy.md"), "%s links to docs/anatomy.md" % name)
+	check(FileAccess.file_exists(ROOT.path_join("tests/anatomy/test_act_bridge.gd")),
+		"tests/anatomy/test_act_bridge.gd exists")
 
 
 ## The stool system is self-contained: only its facade may be preloaded outside `stool/`, and the

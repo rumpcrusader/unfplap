@@ -9,6 +9,7 @@ extends Node
 ## See `docs/anatomy.md`.
 
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const ACT_BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
@@ -114,6 +115,13 @@ func controller_for(pony: Node, runtime: Node) -> Node:
 
 func bind(pony: Node, runtime: Node) -> Node:
 	return controller_for(pony, runtime)
+
+
+## One act's anatomy bridge. The runtime creates one per act and binds the host callbacks.
+static func new_act(host: Dictionary) -> RefCounted:
+	var bridge: RefCounted = ACT_BRIDGE.new()
+	bridge.bind(host)
+	return bridge
 
 
 func controller(pony: Node) -> Node:

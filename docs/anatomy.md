@@ -30,6 +30,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase and the host callbacks |
 | `anatomy/placement.gd` | saved offset/pitch/scale, missionary trims and the debug nudge/save/reset path |
 | `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads a plain act-facts dictionary and returns pose/facing values |
+| `anatomy/act_bridge.gd` | per-act handle the runtime owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | oral turn state, mouth anchor, style motion and facing |
 | `anatomy/act/finish.gd` | finish in/out, finish droplets and afterglow rest depth |
@@ -244,6 +245,33 @@ The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `p
 host callbacks; neither reads the runtime node. It returns the oral pose keys through
 `pose_config()` and the oral turn's camera facing through `facing()`; the runtime applies both in
 the same frame.
+
+## Act bridge
+
+`anatomy/act_bridge.gd` is the per-act handle the runtime owns. It is a `RefCounted`, created by
+`anatomy.gd.new_act(host)`; the runtime creates one per act, binds it on every access and keeps
+the orchestration. It owns:
+
+- the persistent controller handle and the per-act `anatomy/act.gd` handle;
+- the reused `anatomy/facts.gd` context;
+- the missionary Anon body handle and the VR standing controller;
+- the action gates (`hole_ready`, `oral_ready`, `finish_ready`, `actions_ready`), the toggles,
+  the oral/finish reads and the placement controls;
+- the aim/gaze reads (`gaze_point`, `aim_eyes`, `normal`, `opening`, `rear`);
+- the act hooks (`tick`, `withdraw`, `on_climax`, `on_finish`, `afterglow_tick`, `end`,
+  `apply_live`, `detach`);
+- the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
+
+The host is a plain dictionary of callables. The runtime supplies `main`, `pony`, `runtime`,
+`reactions`, `anatomy_service`, `eligibility_service`, the live state (`state`, `pose_id`, `depth`,
+`penetration_m`, `penetration_reach`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`,
+`cycle_phase`, `bed_frame`), the callbacks (`log`, `perf_note`, `body_coat_smack`, `status`,
+`anatomy_facing`, `missionary_camera`, `kiss_controller`, `pose`, `thrust_move`, `now_s`,
+`set_penetration_m`, `player_pony`, `headset_view`). A missing callable is a no-op.
+
+The bridge never reads `runtime` or `main` private fields and never preloads either host. The
+action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
+bridge only routes them.
 
 ### Shape drive
 
@@ -611,6 +639,10 @@ The anatomy migration is complete:
 - `anatomy/act.gd` is the per-act handle returned by `controller.begin_act(pose_id)`;
   `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
   three behaviors.
+- `anatomy/act_bridge.gd` is the per-act bridge the runtime owns: created by
+  `anatomy.gd.new_act(host)`, it keeps the controller/act handles, the typed context, the
+  missionary Anon body, the VR controller, the action gates and the aim/gaze reads. The runtime
+  binds a cached host dictionary and never preloads the bridge.
 - `anatomy/identity.gd`, `geometry.gd`, `act/state.gd` and `facts.gd` are pure.
   `anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button

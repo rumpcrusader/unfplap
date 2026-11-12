@@ -33,7 +33,6 @@ const STANDING_PRESENTATION := preload("res://mods/unfplap/standing_presentation
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
-const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
 const READINESS := preload("res://mods/unfplap/readiness.gd")
@@ -43,7 +42,6 @@ const FACE := preload("res://mods/unfplap/face_session.gd")
 const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
-const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/act_audio.gd"
@@ -248,12 +246,15 @@ var _camera_surge: float:
 		return _act_camera.camera_surge
 	set(value):
 		_act_camera.camera_surge = value
+## The per-act anatomy bridge: the persistent controller, the per-act handle, the typed context,
+## the missionary body and the VR controller. See `docs/anatomy.md`.
+var _anatomy_bridge: RefCounted = ANATOMY.new_act(_anatomy_host())
 ## integration: persistent anatomy and the current act's anatomy controller.
-var _anatomy: Node
-var _anatomy_act: Node
-## Reused typed context for the per-act and persistent anatomy controllers. The runtime writes
-## it; anatomy reads it. No anatomy file reads this runtime node.
-var _anatomy_facts: RefCounted = ANATOMY_FACTS.new()
+var _anatomy: Node:
+	get:
+		return _anatomy_bridge.controller
+	set(value):
+		_anatomy_bridge.controller = value
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
 ## reaching into this node. See `act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
@@ -262,8 +263,6 @@ var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
 var _act_lines_main: Node
 ## Debug perf probe: timed chunks report here and one summary prints per window. See `perf.gd`.
 var _perf_probe := PERF.new()
-var _missionary_anon: Node
-var _vr_act: Node
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _pose_in_left := 0.0
@@ -618,9 +617,7 @@ var _act_audio: Node
 var _bed_soft := false
 
 func _init() -> void:
-	_anatomy_facts.perf_note = Callable(self, "perf_note")
-	_anatomy_facts.log = Callable(self, "_log")
-	_anatomy_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
+	_anatomy_bridge.bind(_anatomy_host())
 	_act_facts.perf_note = Callable(self, "perf_note")
 	_act_facts.log = Callable(self, "_log")
 	_act_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
@@ -672,6 +669,107 @@ func _init() -> void:
 	_perf_probe.log = Callable(self, "_log")
 
 
+## The host callbacks for the per-act anatomy bridge. The bridge reads the scene, the live state
+## and the callbacks through this dictionary; it never reads the runtime's private fields. Built
+## once: the callables are bound methods, so a per-frame rebind must not allocate.
+var _anatomy_host_cache: Dictionary = {}
+
+func _anatomy_host() -> Dictionary:
+	if not _anatomy_host_cache.is_empty():
+		return _anatomy_host_cache
+	_anatomy_host_cache = {
+		"main": Callable(self, "_main"),
+		"pony": Callable(self, "_pony"),
+		"runtime": Callable(self, "_runtime"),
+		"reactions": Callable(self, "_reactions_service"),
+		"anatomy_service": Callable(self, "_anatomy_service"),
+		"eligibility_service": Callable(self, "_eligibility_service"),
+		"state": Callable(self, "_state"),
+		"pose_id": Callable(self, "_pose_id"),
+		"depth": Callable(self, "_depth"),
+		"penetration_m": Callable(self, "_penetration_m"),
+		"penetration_reach": Callable(self, "penetration_reach"),
+		"climaxes": Callable(self, "_climaxes"),
+		"size_scale": Callable(self, "_size_scale"),
+		"auto_pace": Callable(self, "_auto_pace"),
+		"fluid_ground_y": Callable(self, "_anatomy_fluid_ground_y"),
+		"cycle_phase": Callable(self, "cycle_phase"),
+		"bed_frame": Callable(self, "_bed_frame"),
+		"log": Callable(self, "_log"),
+		"perf_note": Callable(self, "perf_note"),
+		"body_coat_smack": Callable(self, "body_coat_jiggle_target"),
+		"status": Callable(self, "_anatomy_status"),
+		"anatomy_facing": Callable(self, "anatomy_facing"),
+		"missionary_camera": Callable(self, "_missionary_camera_controller"),
+		"kiss_controller": Callable(self, "_kiss_controller"),
+		"pose": Callable(self, "_pose_service"),
+		"thrust_move": Callable(self, "_thrust_move"),
+		"now_s": Callable(self, "_now_s"),
+		"set_penetration_m": Callable(self, "_set_penetration_m"),
+		"player_pony": Callable(self, "_player_pony_value"),
+		"headset_view": Callable(self, "_headset_view"),
+	}
+	return _anatomy_host_cache
+
+
+func _main() -> Variant:
+	return main
+
+
+func _pony() -> Variant:
+	return pony
+
+
+func _runtime() -> Variant:
+	return self
+
+
+func _reactions_service() -> Variant:
+	return _reactions
+
+
+func _state() -> int:
+	return state
+
+
+func _pose_id() -> String:
+	return pose_id
+
+
+func _depth() -> float:
+	return depth
+
+
+func _penetration_m() -> float:
+	return penetration_m
+
+
+func _climaxes() -> int:
+	return pony_climaxes
+
+
+func _auto_pace() -> float:
+	var auto: Variant = _auto_controller()
+	return float(auto.get("pace")) if auto != null else 1.0
+
+
+func _bed_frame() -> Variant:
+	return _bed_pose_frame
+
+
+func _player_pony_value() -> bool:
+	return _player_pony
+
+
+func _set_penetration_m(value: float) -> void:
+	penetration_m = value
+
+
+func _anatomy_status(text: String, seconds := 2.0) -> void:
+	if is_instance_valid(main) and main.has_method("anatomy_status"):
+		main.call("anatomy_status", text, seconds)
+
+
 func _ready() -> void:
 	set_process(true)
 	set_physics_process(true)
@@ -693,43 +791,20 @@ func _ready() -> void:
 	call_deferred("_anatomy_refresh")
 
 
-## integration: resolve the persistent anatomy controller through the world service. The service
-## owns it; the runtime only keeps the handle for the act.
+## integration: resolve the persistent anatomy controller through the world service. The bridge
+## owns the controller handle; the service owns the controller.
 func _anatomy_refresh() -> void:
-	if not is_instance_valid(pony):
-		_reactions.bind_scene(pony, null)
-		return
-	var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
-	var eligibility_service: ELIGIBILITY = main.get("eligibility") \
-		if is_instance_valid(main) else null
-	var target_ok := eligibility_service != null \
-		and eligibility_service.eligible(pony, ELIGIBILITY.Target.ANATOMY)
-	if not SETTINGS.anatomy_on() or not target_ok or not ANATOMY.assets_exist():
-		if service != null and service.has_method("detach_controller"):
-			service.call("detach_controller", pony)
-		elif is_instance_valid(_anatomy):
-			_anatomy.call("detach")
-			_anatomy.queue_free()
-		_anatomy = null
-		_reactions.bind_scene(pony, _anatomy)
-		return
-	if service == null or not service.has_method("controller_for"):
-		_anatomy = null
-		_reactions.bind_scene(pony, _anatomy)
-		return
-	_anatomy = service.call("controller_for", pony, self)
-	_reactions.bind_scene(pony, _anatomy)
-	if is_instance_valid(_anatomy):
-		_anatomy.call("refresh")
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.refresh()
 
 
 func anatomy_available() -> bool:
-	return is_instance_valid(_anatomy)
+	return _anatomy_bridge.available()
 
 
-## The typed anatomy context. The anatomy facade takes it when it creates the controller.
+## The typed anatomy context. The bridge owns it; the controller reads it.
 func anatomy_facts() -> RefCounted:
-	return _anatomy_facts
+	return _anatomy_bridge.context()
 
 
 ## Public hook for the anatomy's stock flank smack. The controller calls it through the context
@@ -739,44 +814,28 @@ func body_coat_jiggle_target() -> void:
 
 
 func _anatomy_act_refresh(pose_id: String) -> void:
-	_anatomy_facts.penetration_m = 0.0
-	_anatomy_facts.climaxes = 0
-	_anatomy_facts.auto_pace = 1.0
-	_anatomy_facts.fluid_ground_y = 0.0
-	_anatomy_facts.penetration_reach = 0.2
-	_sync_anatomy_facts()
-	_anatomy_act = null
-	if not is_instance_valid(_anatomy):
-		return
-	_anatomy_act = _anatomy.call("begin_act", pose_id)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.begin_act(pose_id)
 
 
 func _anatomy_service() -> Variant:
 	return main.get("anatomy") if is_instance_valid(main) else null
 
 
-## The typed act/context the anatomy reads. Reused, never saved. The persistent controller sees
-## the same object every frame; the act gets the extra depth/finish fields here.
+func _eligibility_service() -> Variant:
+	return main.get("eligibility") if is_instance_valid(main) else null
+
+
+## The typed act/context the anatomy reads. The bridge owns the per-act facts.
 func _anatomy_context() -> RefCounted:
-	_sync_anatomy_facts()
-	_anatomy_facts.penetration_m = penetration_m
-	_anatomy_facts.climaxes = pony_climaxes
-	_anatomy_facts.size_scale = _size_scale()
-	var auto: Variant = _auto_controller()
-	_anatomy_facts.auto_pace = float(auto.get("pace")) if auto != null else 1.0
-	_anatomy_facts.fluid_ground_y = _anatomy_fluid_ground_y()
-	_anatomy_facts.penetration_reach = penetration_reach()
-	return _anatomy_facts
+	_anatomy_bridge.bind(_anatomy_host())
+	return _anatomy_bridge.context()
 
 
-## Write the state the persistent controller polls outside the act. `bed_frame` is the live
-## missionary bed frame, so the anatomy never reads the runtime field directly.
+## Write the state the persistent controller polls outside the act. The bridge owns the facts.
 func _sync_anatomy_facts() -> void:
-	_anatomy_facts.state = state
-	_anatomy_facts.pose_id = pose_id
-	_anatomy_facts.depth = depth
-	_anatomy_facts.bed_frame = _bed_pose_frame
-	_anatomy_facts.cycle_phase = cycle_phase()
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.sync_facts()
 
 
 ## Write the typed act context the presentation controllers read. Called at the head of each tick
@@ -813,8 +872,8 @@ func _sync_act_facts() -> void:
 	facts.last_talk = _last_talk
 	facts.cue_override = not _cue_override.is_empty()
 	facts.thrust_pace = _thrusts_per_second()
-	facts.oral_active = anatomy_oral_active()
-	facts.anal_active = is_instance_valid(_anatomy_act) and bool(_anatomy_act.get("_anal"))
+	facts.oral_active = _anatomy_bridge.oral_active()
+	facts.anal_active = _anatomy_bridge.anal_active()
 	facts.penetration_reach = penetration_reach()
 	var cam: RefCounted = _camera_service()
 	facts.size_name = cam.call("size_name")
@@ -885,16 +944,11 @@ func _anatomy_fluid_ground_y() -> float:
 	return ground
 
 
-## Apply the oral turn's facing after the anatomy tick, inside the same physics frame.
+## Apply the oral turn's facing after the anatomy tick, inside the same physics frame. The bridge
+## owns the act handle and the facing read.
 func _apply_anatomy_facing() -> void:
-	if not is_instance_valid(_anatomy_act) or pose_id != CATALOG.STANDING:
-		return
-	var facing: Variant = _anatomy_act.call("facing")
-	if not facing is Dictionary or (facing as Dictionary).is_empty():
-		return
-	var value: Dictionary = facing
-	var basis: Basis = value.get("basis", Basis.IDENTITY)
-	anatomy_facing(basis, float(value.get("amount", 0.0)))
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.apply_facing()
 
 
 func _log(text: String) -> void:
@@ -1152,8 +1206,8 @@ func _refresh_live_modifiers() -> void:
 	if pose_id == CATALOG.STANDING:
 		_standing_anon_controller().refresh_palm()
 	elif pose_id == CATALOG.MISSIONARY:
-		if is_instance_valid(_missionary_anon):
-			_missionary_anon.call("refresh_palm")
+		_anatomy_bridge.bind(_anatomy_host())
+		_anatomy_bridge.refresh_palm()
 
 func _refresh_live_voice() -> void:
 	if not is_inside_tree():
@@ -1337,8 +1391,8 @@ func _hold_y_tick(delta: float) -> void:
 		_y_hold = 0.0
 		_y_hold_fired = false
 		return
-	var held := Input.is_physical_key_pressed(KEY_Y) \
-		or (is_instance_valid(_vr_act) and bool(_vr_act.get("y_held")))
+	var held: bool = Input.is_physical_key_pressed(KEY_Y) \
+		or _anatomy_bridge.vr_y_held()
 	if not held:
 		_y_hold = 0.0
 		_y_hold_fired = false
@@ -1408,9 +1462,9 @@ func _physics_tick(delta: float) -> void:
 	if state in [State.ACTIVE, State.CLIMAX]:
 		_auto_thrust_tick(delta)
 		_thrust_tick()
-		if is_instance_valid(_anatomy_act):
-			_anatomy_act.call("tick", delta, _anatomy_context())
-			_apply_anatomy_facing()
+		if _anatomy_bridge.act_available():
+			_anatomy_bridge.bind(_anatomy_host())
+			_anatomy_bridge.tick(delta)
 		if state == State.ACTIVE:
 			_readiness_tick(delta)
 			_talk_tick(delta)
@@ -1914,8 +1968,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	state = State.POSING_IN
 	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
-	if is_instance_valid(_anatomy):
-		_anatomy.call("apply_live")
+	_anatomy_bridge.apply_live()
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
@@ -2204,8 +2257,8 @@ func _log_chin() -> void:
 func _sync_standing_pose_config() -> void:
 	if not _pose_service().sync_standing_config(_presentation_cfg):
 		return
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("pose_config", _pose_cfg)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.pose_config(_pose_cfg)
 
 
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
@@ -2213,8 +2266,8 @@ func _sync_standing_pose_config() -> void:
 func _sync_missionary_pose_config() -> void:
 	if not _pose_service().sync_missionary_config():
 		return
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("pose_config", _pose_cfg)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.pose_config(_pose_cfg)
 
 
 ## The parsed authored missionary pose, for the shot camera and the debug action.
@@ -2437,172 +2490,107 @@ func auto_panel_label(kind: String) -> String:
 ## integration: anatomy action entry points for input.gd. They are no-ops when the per-act
 ## controller is absent, so the keys behave exactly like master with the feature off.
 func toggle_anatomy_hole() -> void:
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("toggle_hole", state)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_hole()
 
 
 func toggle_anatomy_oral() -> void:
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("toggle_oral", state)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_oral()
 
 
 func toggle_anatomy_finish() -> void:
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("toggle_finish", state)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_finish()
 
 
 func anatomy_oral_active() -> bool:
-	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("oral_active"))
+	return _anatomy_bridge.oral_active()
 
 
 func anatomy_finish_pull_out() -> bool:
-	return is_instance_valid(_anatomy_act) and bool(_anatomy_act.call("pull_out_selected"))
+	return _anatomy_bridge.finish_pull_out()
 
 
 ## integration: precise action gates. With no act controller (assets missing, feature off) the
 ## keys pass through and the HUD rows stay hidden.
 func anatomy_hole_ready() -> bool:
-	return is_instance_valid(_anatomy_act) and state in [State.ACTIVE, State.CLIMAX] \
-		and SETTINGS.anatomy_holes.get_bool() \
-		and not bool(_anatomy_act.call("oral_active"))
+	return _anatomy_bridge.hole_ready()
 
 
 func anatomy_oral_ready() -> bool:
-	return is_instance_valid(_anatomy_act) and state == State.ACTIVE \
-		and pose_id == CATALOG.STANDING and SETTINGS.anatomy_oral.get_bool()
+	return _anatomy_bridge.oral_ready()
 
 
 func anatomy_finish_ready() -> bool:
-	return is_instance_valid(_anatomy_act) and state in [State.ACTIVE, State.CLIMAX] \
-		and SETTINGS.anatomy_finish.get_bool()
+	return _anatomy_bridge.finish_ready()
 
 
 func anatomy_actions_ready() -> bool:
-	return anatomy_hole_ready() or anatomy_oral_ready() or anatomy_finish_ready()
+	return _anatomy_bridge.actions_ready()
 
 
 func missionary_anon_body() -> Variant:
-	return _missionary_anon
+	return _anatomy_bridge.missionary_anon_body()
 
 
 ## Her gaze target in missionary: the authored Anon's face. The game camera is on his standing
 ## player rig, metres off the bed, and aiming there had her looking at empty air.
 func _missionary_gaze_point() -> Vector3:
-	if is_instance_valid(_missionary_anon) and bool(_missionary_anon.get("active")):
-		var point: Variant = _missionary_anon.call("eye_point")
-		if point is Vector3 and (point as Vector3).is_finite():
-			var aim: Vector3 = point
-			aim.y += SETTINGS.gaze_offset_mm_for(SETTINGS.pony_size_name()) / 1000.0
-			return _missionary_camera_controller().head_look_point_at(aim)
-	return _missionary_camera_controller().head_look_point(_kiss_controller().mouth_view())
+	_anatomy_bridge.bind(_anatomy_host())
+	return _anatomy_bridge.gaze_point()
 
 
 ## The game's eye modifier still points wherever the standing player rig left it; in missionary the
 ## pupils follow the same gaze target the head solve uses, so the eyes do not sit above his face.
 func _aim_missionary_eyes() -> void:
-	if not is_instance_valid(pony):
-		return
-	var target := _missionary_gaze_point()
-	if is_instance_valid(_pose):
-		var value: Variant = _pose.get("look_point")
-		if value is Vector3 and (value as Vector3).is_finite() \
-				and (value as Vector3).length_squared() > 0.0001:
-			target = value
-	if not target.is_finite():
-		return
-	var eye_motion: Variant = pony.get("eye_motion")
-	if eye_motion == null or not is_instance_valid(eye_motion):
-		return
-	eye_motion.set("target_world", target)
-	eye_motion.set("target_weight", 1.0)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.aim_eyes()
 
 
 func anatomy_bed_active() -> bool:
-	return is_instance_valid(_missionary_anon) and bool(_missionary_anon.get("active"))
+	return _anatomy_bridge.bed_active()
 
 
 ## integration: VR standing hooks. No-op unless the VR flag created the controller.
 func _start_vr_act() -> void:
-	_stop_vr_act()
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
-	if not is_instance_valid(avatar):
-		return
-	var cameras: Array = main.player.find_children("*", "XRCamera3D", true, false)
-	var origins: Array = main.player.find_children("*", "XROrigin3D", true, false)
-	if cameras.is_empty() or origins.is_empty():
-		return
-	_vr_act = VR_ACT.new()
-	_vr_act.name = "UnfplapVrAct"
-	_vr_act.set("runtime", self)
-	_vr_act.set("player", main.player)
-	_vr_act.set("hip_target", avatar.get("_hip_target"))
-	_vr_act.set("camera", cameras[0])
-	_vr_act.set("origin", origins[0])
-	add_child(_vr_act)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.vr_start()
 
 
 func _stop_vr_act() -> void:
-	if is_instance_valid(_vr_act):
-		_vr_act.queue_free()
-	_vr_act = null
+	_anatomy_bridge.vr_stop()
 
 
 func vr_forward() -> Vector3:
-	if is_instance_valid(_anatomy_act):
-		var rear: Vector3 = _anatomy_act.call("hole_rear")
-		var forward := Vector3(-rear.x, 0.0, -rear.z).normalized()
-		if forward.length_squared() > 0.001:
-			return forward
-	if is_instance_valid(pony):
-		return -pony.global_basis.z.normalized()
-	return Vector3.FORWARD
+	_anatomy_bridge.bind(_anatomy_host())
+	return _anatomy_bridge.vr_forward()
 
 
 func vr_depth(value: float) -> void:
-	if state not in [State.ACTIVE, State.CLIMAX]:
-		return
-	_thrust_move(value - depth, _now_s())
-	penetration_m = depth * penetration_reach()
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.vr_depth(value)
 
 
 ## The Anon body the act poses, so the avatar hiding leaves it visible.
 func anatomy_bed_avatar() -> Variant:
-	if is_instance_valid(_missionary_anon):
-		return _missionary_anon.get("avatar")
-	return null
+	return _anatomy_bridge.bed_avatar()
 
 
 ## integration: drives the standing camera's facing override for the oral turn.
 ## integration: her opening's outward normal, in world space.
 func anatomy_normal() -> Vector3:
-	if not is_instance_valid(_anatomy_act):
-		return Vector3.ZERO
-	var normal: Variant = _anatomy_act.call("opening_normal")
-	if normal is Vector3 and (normal as Vector3).is_finite():
-		return normal
-	return Vector3.ZERO
+	return _anatomy_bridge.normal()
 
 
 ## integration: her entrance point during an anatomy act, in world space.
 func anatomy_opening() -> Vector3:
-	if not is_instance_valid(_anatomy_act):
-		return Vector3.ZERO
-	var point: Variant = _anatomy_act.call("hole_point")
-	if point is Vector3 and (point as Vector3).is_finite():
-		return point
-	return Vector3.ZERO
+	return _anatomy_bridge.opening()
 
 
 ## integration: her exit axis during an anatomy act, in world space; `Vector3.ZERO` otherwise.
 func anatomy_rear() -> Vector3:
-	if not is_instance_valid(_anatomy_act):
-		return Vector3.ZERO
-	var rear: Variant = _anatomy_act.call("hole_rear")
-	if rear is Vector3 and (rear as Vector3).is_finite():
-		return rear
-	return Vector3.ZERO
+	return _anatomy_bridge.rear()
 
 
 func anatomy_facing(basis: Basis, amount: float) -> void:
@@ -2619,24 +2607,14 @@ func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:
-	if is_instance_valid(main) and main.has_method("anatomy_status"):
-		main.call("anatomy_status", text, seconds)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.status(text, seconds)
 
 
 ## integration: debug placement controls for the local anatomy asset.
 func anatomy_place(op: String, value := 0.0) -> String:
-	if not is_instance_valid(_anatomy):
-		return "Anatomy is not attached."
-	match op:
-		"save":
-			_anatomy.call("save_place")
-		"reset":
-			_anatomy.call("reset_place")
-		"text":
-			return str(_anatomy.call("place_text"))
-		_:
-			_anatomy.call("nudge", op, value)
-	return str(_anatomy.call("place_text"))
+	_anatomy_bridge.bind(_anatomy_host())
+	return _anatomy_bridge.place(op, value)
 
 ## Idempotent stop for every state exit. It never moves the depth.
 func _stop_auto_thrust() -> void:
@@ -2908,8 +2886,7 @@ func _readiness_close() -> void:
 
 
 func _readiness_anatomy_react() -> void:
-	if is_instance_valid(_anatomy):
-		_anatomy.call("react")
+	_anatomy_bridge.react()
 
 
 func _readiness_heat() -> bool:
@@ -3298,8 +3275,7 @@ func end_afterglow() -> void:
 	if state == State.AFTERGLOW:
 		_log("afterglow end pony=%s" % str(pony.name))
 		# integration: if he stayed in, the withdrawal gush is part of the finish.
-		if is_instance_valid(_anatomy_act):
-			_anatomy_act.call("withdraw")
+		_anatomy_bridge.withdraw()
 		_afterglow.cancel_close()
 		_restore_begin()
 
@@ -3325,8 +3301,7 @@ func _climax() -> void:
 	_queue_climax_reaction()
 	_play_climax()
 	# integration: her fluid hook.
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("on_climax")
+	_anatomy_bridge.on_climax()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("CLIMAX")
 
@@ -3591,8 +3566,7 @@ func _afterglow_begin() -> void:
 	if pose_id != CATALOG.STANDING:
 		_kiss_controller().end_lean_kiss()
 	# integration: decide and show the finish before the summary is written.
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("on_finish")
+	_anatomy_bridge.on_finish()
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_afterglow.begin(pose_id, _summary)
@@ -3624,8 +3598,8 @@ func _afterglow_tick(delta: float) -> void:
 		return
 	_afterglow.advance(delta)
 	# integration: keep the optional bed-body part tracking through afterglow.
-	if is_instance_valid(_anatomy_act):
-		_anatomy_act.call("afterglow_tick", delta, _anatomy_context())
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.afterglow_tick(delta)
 	_afterglow.self_end_tick(delta)
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return
@@ -3663,8 +3637,7 @@ func _restore_begin() -> void:
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	state = State.RESTORE
 	# integration: act-only anatomy hides as soon as the act starts restoring.
-	if is_instance_valid(_anatomy):
-		_anatomy.call("apply_live")
+	_anatomy_bridge.apply_live()
 	_restore_left = RESTORE_SECONDS
 	_clear_face()
 	_end_act_face()
@@ -3695,20 +3668,10 @@ func _end_session(rejoin_cuddle: bool) -> void:
 		rejoin_bed = bed
 	# integration: close the anatomy act once, before the pose is freed.
 	var was_standing := pose_id == CATALOG.STANDING
-	if is_instance_valid(_anatomy) and _anatomy.has_method("end_act"):
-		_anatomy.call("end_act")
-	elif is_instance_valid(_anatomy_act):
-		_anatomy_act.call("end")
-		_anatomy_act.call("teardown")
-		_anatomy_act.queue_free()
-	_anatomy_act = null
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.end()
 	if was_standing:
 		anatomy_facing(Basis.IDENTITY, 0.0)
-	if is_instance_valid(_missionary_anon):
-		_missionary_anon.call("remove")
-		_missionary_anon.queue_free()
-		_missionary_anon = null
-	_stop_vr_act()
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_kiss_controller().restore_forelegs()
@@ -3745,8 +3708,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	source = ""
 	bed = null
 	# integration: act-only anatomy hides immediately when the act ends.
-	if is_instance_valid(_anatomy):
-		_anatomy.call("apply_live")
+	_anatomy_bridge.apply_live()
 	# Deferred so `_finalize_session()` has started aftercare (and its navigator hold) first; the
 	# rejoin retries until that hold and the bed's guest cooldown are gone.
 	if rejoin_bed != null:
@@ -4095,12 +4057,14 @@ func _begin_camera_mode() -> void:
 	_missionary_camera_controller().reset_look()
 	# The act shows and poses Anon's body itself (desktop human only; AnonPony and VR have their own).
 	if pose_id == CATALOG.MISSIONARY and not _player_pony and not _headset_view():
-		_missionary_anon = MISSIONARY_ANON.new()
-		_missionary_anon.name = "UnfplapMissionaryAnon"
-		add_child(_missionary_anon)
-		if not bool(_missionary_anon.call("install", self)):
-			_missionary_anon.queue_free()
-			_missionary_anon = null
+		_anatomy_bridge.bind(_anatomy_host())
+		var body: Node = MISSIONARY_ANON.new()
+		body.name = "UnfplapMissionaryAnon"
+		add_child(body)
+		_anatomy_bridge.set_missionary_anon(body)
+		if not _anatomy_bridge.install_missionary_anon():
+			_anatomy_bridge.set_missionary_anon(null)
+			body.queue_free()
 	# integration: optional VR standing act; it uses the headset rig and no desktop camera.
 	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING \
 			and SETTINGS.anatomy_vr.get_bool():
@@ -4233,8 +4197,8 @@ func _pose_render_write() -> void:
 	# own Anon body over it, before her pose writes last.
 	_missionary_camera_controller().hide_avatar()
 	var frame: Variant = _bed_pose_frame
-	if is_instance_valid(_missionary_anon) and frame is Transform3D:
-		_missionary_anon.call("apply", frame, _body_scale_value())
+	if frame is Transform3D:
+		_anatomy_bridge.apply_missionary_anon(frame, _body_scale_value())
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(_pose) and sk is Skeleton3D:
 		_pose_service().apply_render(sk)
@@ -4262,9 +4226,7 @@ func _log_pose_settled() -> void:
 
 ## The posed Anon body's diagnostic row, or silence when the act has no Anon body.
 func _anon_pose_diag_row() -> String:
-	if not is_instance_valid(_missionary_anon):
-		return ""
-	return str(_missionary_anon.call("diag_row", missionary_face_point(), missionary_vulva_point()))
+	return _anatomy_bridge.diag_row(missionary_face_point(), missionary_vulva_point())
 
 
 func missionary_face_point() -> Vector3:
@@ -4291,10 +4253,9 @@ func missionary_face_point() -> Vector3:
 ## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between
 ## her hind femurs lifted toward her belly.
 func missionary_vulva_point() -> Vector3:
-	if is_instance_valid(_anatomy_act):
-		var point: Variant = _anatomy_act.call("hole_point")
-		if point is Vector3 and (point as Vector3).is_finite():
-			return point
+	var point: Vector3 = _anatomy_bridge.opening()
+	if point != Vector3.ZERO:
+		return point
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return Vector3.INF
@@ -4452,26 +4413,9 @@ func _exit_tree() -> void:
 	_end_tail_tuck()
 	# integration: never leave the anatomy nodes or the per-act controller behind.
 	var was_standing := pose_id == CATALOG.STANDING
-	if is_instance_valid(_anatomy) and _anatomy.has_method("end_act"):
-		_anatomy.call("end_act")
-	elif is_instance_valid(_anatomy_act):
-		_anatomy_act.call("end")
-		_anatomy_act.call("teardown")
-		_anatomy_act.queue_free()
-	_anatomy_act = null
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.end()
 	if was_standing:
 		anatomy_facing(Basis.IDENTITY, 0.0)
-	if is_instance_valid(_missionary_anon):
-		_missionary_anon.call("remove")
-		_missionary_anon.queue_free()
-		_missionary_anon = null
-	_stop_vr_act()
-	if is_instance_valid(_anatomy):
-		var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
-		if service != null and service.has_method("detach_controller"):
-			service.call("detach_controller", pony)
-		else:
-			_anatomy.call("detach")
-			_anatomy.queue_free()
-		_anatomy = null
+	_anatomy_bridge.detach()
 	_face.shutdown()

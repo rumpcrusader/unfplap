@@ -62,7 +62,7 @@ the per-character profile.
 | Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
 | Lover bond | `Mods.state("unfplap").sex_bonds` | `sex_bond.gd` |
 | Act history | `Mods.state("unfplap").act_history` | `act_history.gd` |
-| Request cooldown | `Mods.state("unfplap").request_times` | `initiation.gd` (contract: `docs/initiation.md`) |
+| Request cooldown | `Mods.state("unfplap").request_times` | `initiation/cooldowns.gd` (contract: `docs/initiation.md`) |
 | Relationship stage, love, friendship, willingness | game save (`player_bonds`, impressions) | base game |
 | Eligibility facts | nowhere | `eligibility.gd` per call |
 

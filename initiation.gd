@@ -20,6 +20,7 @@ const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
 const CONSENT_CORE := preload("res://mods/unfplap/initiation/consent.gd")
+const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -248,62 +249,10 @@ func _tick_cuddle_edges() -> void:
 		if active and not seen:
 			_cuddle_seen[id] = true
 			_cuddle_asked[id] = false
-			_clear_cooldown(id)
+			COOLDOWNS.clear(id)
 		elif not active and seen:
 			_cuddle_seen[id] = false
 			_cuddle_asked[id] = false
-
-
-func _cooldown_ok(id: String, in_heat := false) -> bool:
-	var mods := _mods()
-	if mods == null:
-		return true
-	var section: Dictionary = mods.call("state", "unfplap")
-	var times: Variant = section.get("request_times", {})
-	if not times is Dictionary:
-		times = {}
-	var last := float((times as Dictionary).get(id, -100000.0))
-	var history := ACT_HISTORY.effective_row(section, id, ACT_HISTORY.day_now())
-	var wait := ACT_HISTORY.offer_cooldown(history)
-	if in_heat:
-		wait = POLICY.heat_cooldown(wait)
-	return POLICY.cooldown_ready(Time.get_unix_time_from_system(), last, wait)
-
-
-func _set_cooldown(id: String) -> void:
-	if id.is_empty():
-		return
-	var mods := _mods()
-	if mods == null:
-		return
-	var section: Dictionary = mods.call("state", "unfplap")
-	var times: Variant = section.get("request_times", {})
-	if not times is Dictionary:
-		times = {}
-	(times as Dictionary)[id] = Time.get_unix_time_from_system()
-	section["request_times"] = times
-	mods.call("save_changed")
-
-
-func _clear_cooldown(id: String) -> void:
-	if id.is_empty():
-		return
-	var mods := _mods()
-	if mods == null:
-		return
-	var section: Dictionary = mods.call("state", "unfplap")
-	var times: Variant = section.get("request_times", {})
-	if not times is Dictionary or not (times as Dictionary).has(id):
-		return
-	(times as Dictionary).erase(id)
-	section["request_times"] = times
-	mods.call("save_changed")
-
-
-func _mods() -> Node:
-	if not is_inside_tree():
-		return null
-	return get_node_or_null("/root/Mods")
 
 
 # --------------------------------------------------------------------------- candidate
@@ -379,7 +328,8 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	var service := _eligibility()
 	if service != null:
 		verdict = service.get_verdict(pony, ELIGIBILITY.Mode.OFFER)
-	if not forced and not _cooldown_ok(id, _in_heat(runtime)):
+	if not forced and not COOLDOWNS.ready(COOLDOWNS.section(), id,
+			Time.get_unix_time_from_system(), _in_heat(runtime)):
 		reasons.append("cooldown")
 		return null
 	if not forced and not POLICY.retry_ready(_now(), float(_retry_at.get(id, -100000.0))):
@@ -1336,7 +1286,7 @@ func _cancel_episode(set_cooldown: bool, reason := "", keep_rest := false) -> vo
 		REST_CONTROL.release_managed(pony)
 	_release_nav()
 	if set_cooldown and POLICY.sets_cooldown(phase):
-		_set_cooldown(id)
+		COOLDOWNS.set_last(id)
 	elif not set_cooldown and POLICY.sets_retry(phase):
 		_retry_at[id] = _now() + POLICY.RETRY_S
 	_conversation.cancel_keys(_episode.keys)

@@ -30,6 +30,7 @@ It does not cover act eligibility (see `docs/eligibility.md`), act readiness or 
 | `initiation/facts.gd` | pure typed `Request`: the plain values the rules and wording read |
 | `initiation/policy.gd` | pure rules: timers, cooldowns, privacy, wording mode, prompt schedule, pose choice, weighted pick and the phase tables |
 | `initiation/consent.gd` | pure private-answer state machine: transcript, model step, one clarification, deadlines |
+| `initiation/cooldowns.gd` | request cooldown store: `request_times`, the history wait and the heat shortening |
 | `initiation/prompts.gd` | pure wording: ask, reminders, clarification, invitation, give-up lines and the situation texts |
 | `initiation/conversation.gd` | scene adapter: the only reader of the conversation director, the consent classifier and the world context |
 | `initiation/venue.gd` | scene adapter: the only reader of navigators, posture, the bed search and the privacy scan |
@@ -48,8 +49,9 @@ The purity boundary is deliberate:
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
   `couch_sleeping`, the house lookup, the `couches` group and `WorldLayout`.
-- The facade is the only file that preloads `eligibility.gd`, `act_history.gd`, `cycle.gd`,
-  `settings.gd`, `memory.gd`, `relationship_cue.gd`, `act_face.gd` and `rest_control.gd`.
+- The facade is the only file that preloads `eligibility.gd`, `cycle.gd`, `settings.gd`,
+  `memory.gd`, `relationship_cue.gd`, `act_face.gd` and `rest_control.gd`; `cooldowns.gd`
+  preloads `act_history.gd` and the policy module.
 - No file outside `initiation.gd` and `initiation/` preloads `initiation/*`.
 - `main.gd` creates the service (`setup(self)`) and drives it: `tick`, `reset`, `cancel_for`,
   `force` and `offer_target()`. `runtime.gd` exposes `cuddle_active()` for the scan.
@@ -92,7 +94,7 @@ venue:        player, mares, pony_id, region_of, camera_forward, private_at_play
 
 | Data | Stored where | Owner |
 |---|---|---|
-| Request cooldown (`request_times`) | `Mods.state("unfplap")` | this facade |
+| Request cooldown (`request_times`) | `Mods.state("unfplap")` | `initiation/cooldowns.gd` |
 | Live episode, cuddle edge, one-ask-per-cuddle, retry deadlines | memory only | this facade |
 | Lover bond | `Mods.state("unfplap").sex_bonds` | `sex_bond.gd` |
 | Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `act_history.gd` |
@@ -136,7 +138,8 @@ Per mare, the scan then requires:
 
 - the runtime idle (`state == 0`) and a stable id;
 - the eligibility offer verdict (`Mode.OFFER`);
-- the cooldown: `ACT_HISTORY.offer_cooldown()` since `request_times[id]`, quartered in heat;
+- the cooldown: the history offer cooldown since `request_times[id]`, quartered in heat (the
+  cooldown store owns it);
 - the `30 s` retry deadline left by a failed walk-over or an unavailable ask.
 
 A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle. The debug
@@ -260,6 +263,8 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
   invitation, reminders, give-up lines and the situation texts.
 - `tests/initiation/test_consent.gd`: the private-answer state machine, the model step and the
   deadlines.
+- `tests/initiation/test_cooldowns.gd`: the stored clock, the history wait, the heat shortening
+  and the set/clear round trip.
 - `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
   runtime — the standing ask, the ask and invite keys, the local yes/no effects, the request
   face, the privacy refusal, the heat override and `cancel_for`/`reset`.

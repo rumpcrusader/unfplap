@@ -417,7 +417,8 @@ contract is `docs/initiation.md`.
   facts and verdict, capability targets, the profile consent, the provider layer through
   `set_profile()`/`get_profile()` and clear/setup lifecycle.
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
-- `tests/test_sex_bond.gd`: bond storage only.
+- `tests/bond/test_sex_bond.gd`: bond storage only; `tests/bond/test_bond_service.gd`: the service
+  gates, the event and the stale-bond sweep.
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
   the docs link.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.

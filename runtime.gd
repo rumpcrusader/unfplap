@@ -257,6 +257,9 @@ var _anatomy: Node:
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
 ## reaching into this node. See `act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
+## The mod-owned lover bond service. The store is static; this instance owns the gate wrappers.
+var _sex_bond: RefCounted = SEX_BOND.new()
+
 ## The act's line system: scheduler, prompt assembly, reactions and the bystander line.
 var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
 var _act_lines_main: Node
@@ -655,6 +658,15 @@ func _init() -> void:
 	_rest.context = Callable(self, "_rest_context")
 	_rest.restore_scene = Callable(self, "_rest_restore_scene")
 	_rest.log = Callable(self, "_log")
+	_sex_bond.bind({
+		"id": Callable(self, "_bond_id"),
+		"state": Callable(self, "_state"),
+		"pony": Callable(self, "_pony"),
+		"bond_facts": Callable(self, "_bond_facts"),
+		"relationship": Callable(self, "_relationship_runtime"),
+		"event": Callable(self, "_record_sex_bond_event"),
+		"log": Callable(self, "_log"),
+	})
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -3358,70 +3370,44 @@ func lover_prompt_note() -> String:
 	return _lines_service().lover_prompt_note(policy.relations.stored_bond)
 
 ## Grant the mod lover bond. Dialogue_consent calls this after a clear spoken agreement; the
-## Debug action calls it for the aimed mare. Every gate is re-checked here because the classifier
-## can answer while the world has moved on.
+## Debug action calls it for the aimed mare. The service owns the store and the event.
 func grant_sex_bond(source := "dialogue", line := "") -> bool:
-	if state != State.IDLE or not is_instance_valid(pony) or pony.sleeping:
-		return false
-	if not _read_id():
-		return false
-	var policy := _policy_verdict(ELIGIBILITY.Mode.BOND)
-	if policy == null or not policy.bond:
-		return false
-	var stage := policy.relations.stage
-	var section: Dictionary = SEX_BOND.section()
-	if SEX_BOND.bonded(section, _id):
-		return true
-	if not SEX_BOND.grant(section, _id, stage, policy.relations.love_level, source, line):
-		return false
-	SEX_BOND.save()
-	_record_sex_bond_event("You and Anon became lovers.")
-	_log("lover bond granted id=%s stage=%s source=%s" % [_id, stage, source])
-	return true
+	return _sex_bond.grant_bond(source, line)
 
-## Clear the mod lover bond after a spoken withdrawal or from the Debug action. A break-up is
-## handled by refresh_sex_bond().
-func end_sex_bond(source := "dialogue", _line := "") -> bool:
-	if not _read_id():
-		return false
-	var section: Dictionary = SEX_BOND.section()
-	if not SEX_BOND.bonded(section, _id):
-		return false
-	if not SEX_BOND.clear(section, _id, source):
-		return false
-	SEX_BOND.save()
-	_record_sex_bond_event("You and Anon are no longer lovers.")
-	_log("lover bond ended id=%s source=%s" % [_id, source])
-	return true
 
-## Clear a stored bond once the base relationship has left the romantic stages. The gate already
-## rejects it; this prevents it from reviving if they date again later.
+## Clear the mod lover bond after a spoken withdrawal or from the Debug action.
+func end_sex_bond(source := "dialogue", line := "") -> bool:
+	return _sex_bond.end_bond(source, line)
+
+
+## Clear a stored bond once the base relationship has left the romantic stages.
 func refresh_sex_bond() -> void:
-	if not _read_id():
-		return
-	var section: Dictionary = SEX_BOND.section()
-	if not SEX_BOND.bonded(section, _id):
-		return
-	var runtime: Variant = pony.get_meta("relationship_runtime")
-	if runtime == null or not is_instance_valid(runtime):
-		return
-	var row: Dictionary = SEX_BOND.row(section, _id)
-	var stored_stage := str(row.get("stage", ""))
-	var record: Dictionary = runtime.bonds.record_for(_id)
-	var live_stage := str(record.get("stage", ""))
-	if SEX_BOND.romantic_stage(live_stage):
-		# A Crush bond can become a dating bond later; keep the stored stage current so a
-		# break-up still clears it.
-		if stored_stage != live_stage and SEX_BOND.set_stage(section, _id, live_stage):
-			SEX_BOND.save()
-		return
-	# A bond made at Crush or Any Adult has no romantic stage to leave. A bond made while
-	# dating/engaged/married is cleared by a break-up.
-	if not SEX_BOND.romantic_stage(stored_stage):
-		return
-	if SEX_BOND.clear(section, _id, "stage=" + live_stage):
-		SEX_BOND.save()
-		_log("lover bond cleared id=%s stage=%s" % [_id, live_stage])
+	_sex_bond.refresh_bond()
+
+
+## The bond host boundary: the id (reading it if needed), the eligibility facts and the
+## relationship runtime.
+func _bond_id() -> String:
+	_read_id()
+	return _id
+
+
+func _bond_facts() -> Dictionary:
+	var policy := _policy_verdict(ELIGIBILITY.Mode.BOND)
+	if policy == null:
+		return {}
+	return {
+		"bond": policy.bond,
+		"stage": policy.relations.stage,
+		"love_level": policy.relations.love_level,
+		"stored": policy.relations.stored_bond,
+	}
+
+
+func _relationship_runtime() -> Variant:
+	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
+		return pony.get_meta("relationship_runtime")
+	return null
 
 func _record_sex_bond_event(text: String) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):

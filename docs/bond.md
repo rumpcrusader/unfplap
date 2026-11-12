@@ -7,9 +7,22 @@ world-context event. The eligibility rules that decide when a bond may be grante
 ## Ownership
 
 `sex_bond.gd` stores the bond in `Mods.state("unfplap").sex_bonds`. It is per-world save data and
-survives a reload. It never expires. The runtime's `grant_sex_bond()`, `end_sex_bond()` and
-`refresh_sex_bond()` are the scene-facing gate wrappers; `dialogue_consent.gd` calls them after a
-spoken agreement or withdrawal, and the Debug actions call them for the aimed or nearest mare.
+survives a reload. It never expires. The static functions (`section`, `grant`, `clear`,
+`set_stage`, `row`, `bonded`, `save`) are the store the pure tests drive.
+
+The per-pony service is one instance the runtime owns and binds with host callables:
+
+| Method | Contract |
+|---|---|
+| `bind(host)` | the host: `id`, `state`, `pony`, `bond_facts`, `relationship`, `event`, `log`, and the optional `section` (tests) |
+| `grant_bond(source, line)` | re-check the scene gates, store the row, save, record one event |
+| `end_bond(source, line)` | clear the row, save, record one event |
+| `refresh_bond()` | the stale-bond sweep: keep the stage current, clear after a break-up |
+
+The runtime's `grant_sex_bond()`, `end_sex_bond()` and `refresh_sex_bond()` are thin forwards;
+`dialogue_consent.gd` calls them after a spoken agreement or withdrawal, and the Debug actions call
+them for the aimed or nearest mare. The runtime supplies `bond_facts` (the eligibility verdict's
+bond flag, stage and love level), so the service never reads the policy itself.
 
 `bonds.record_for(id)` is the game's base relationship record; the mod never edits it. The mod bond
 is separate.

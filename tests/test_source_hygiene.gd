@@ -88,6 +88,7 @@ func run() -> void:
 	_check_rest_rejoin()
 	_check_act_audio()
 	_check_hud_lines()
+	_check_bond()
 	_check_docs_index(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
@@ -303,6 +304,26 @@ func _check_act_lines() -> void:
 	for token: String in ["after making love with Anon", "You are in the middle of sex with Anon",
 			"still in the afterglow with Anon", "stay: 120"]:
 		check(not runtime.contains(token), "runtime has no prompt wording: %s" % token)
+
+
+## The lover bond is a static store plus one per-pony service instance; the runtime only forwards.
+func _check_bond() -> void:
+	var text := FileAccess.get_file_as_string(ROOT.path_join("sex_bond.gd"))
+	check(text.contains("func grant_bond(") and text.contains("func refresh_bond("),
+		"sex_bond.gd owns the grant/end/refresh service")
+	for token: String in ["extends Node", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "main.get("]:
+		check(not text.contains(token), "sex bond has no host reach-in: %s" % token)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for token: String in ["SEX_BOND.grant(", "SEX_BOND.clear(", "SEX_BOND.set_stage(",
+			"SEX_BOND.bonded(", "SEX_BOND.row(", "sex_bonds_last_clear"]:
+		check(not runtime.contains(token), "runtime has no bond store calls: %s" % token)
+	for name: String in ["test_sex_bond.gd", "test_bond_service.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/bond/" + name)),
+			"tests/bond/%s exists" % name)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/bond.md"))
+	check(contract.contains("## Ownership"), "docs/bond.md documents the owner")
+	check(contract.contains("grant_bond"), "docs/bond.md names the service API")
 
 
 ## The readiness facade is scene-free scoring state. Its contract is `docs/readiness.md`, and the

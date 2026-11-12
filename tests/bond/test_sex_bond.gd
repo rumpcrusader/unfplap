@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure lover-bond storage: rows, stage refresh, break-up validity and idempotence. The
 ## Promiscuity ladder and Starting Sex live in the eligibility policy tests.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_sex_bond.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/bond/test_sex_bond.gd
 
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 

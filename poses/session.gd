@@ -59,6 +59,10 @@ var saved_hair_skeleton: Skeleton3D
 
 ## Host boundary. A missing callback is a no-op.
 var log := Callable()
+## Park the game presentation and place the act's own Anon body, for `render_write()`.
+var place_anon := Callable()
+## The eye-shot camera tick, which must run after the render write.
+var eye_camera := Callable()
 
 
 func bind(host_node: Variant, pony_node: Variant) -> void:
@@ -400,6 +404,22 @@ func head_skeleton(boop: Variant) -> Variant:
 func apply_render(skeleton: Skeleton3D) -> void:
 	if is_instance_valid(pose_node):
 		pose_node.call("apply_render", skeleton)
+
+
+## The whole render-time step for one frame, in order: park the game presentation and place the
+## act's own Anon body over it, write her pose last, then let the eye-shot camera read his posed
+## head. The runtime owns the call site in `_process_tick`; this facade owns the sequence.
+## Context: `pose_id`, `bed_frame`, `body_scale`, `eye_camera_active`.
+func render_write(context: Dictionary) -> void:
+	if str(context.get("pose_id", "")) != CATALOG.MISSIONARY or not is_instance_valid(pony):
+		return
+	if place_anon.is_valid():
+		place_anon.call(context.get("bed_frame"), float(context.get("body_scale", 1.0)))
+	var sk: Variant = pony.get("skeleton")
+	if is_instance_valid(pose_node) and sk is Skeleton3D:
+		apply_render(sk as Skeleton3D)
+	if bool(context.get("eye_camera_active", false)) and eye_camera.is_valid():
+		eye_camera.call()
 
 
 func trigger_ear_twitch(impact: float) -> void:

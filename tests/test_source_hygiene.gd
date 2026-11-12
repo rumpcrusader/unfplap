@@ -507,6 +507,7 @@ func _check_pose_session() -> void:
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(runtime.contains("func _pose_service()"), "runtime reaches the pose through the session")
+	check(facade.contains("func render_write("), "the pose session owns the render-time order")
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
 			"_attach_body_coat_jiggle_target"]:
 		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)

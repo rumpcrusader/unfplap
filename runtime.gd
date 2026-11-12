@@ -1148,6 +1148,8 @@ func _pose_service() -> RefCounted:
 	_pose_session.bind(self, pony)
 	_pose_session.pose_id = pose_id
 	_pose_session.id = _id
+	_pose_session.place_anon = Callable(self, "_place_missionary_anon")
+	_pose_session.eye_camera = Callable(self, "_missionary_eye_tick")
 	return _pose_session
 
 
@@ -4037,21 +4039,27 @@ func _pose_rig_reason(missing: Array) -> String:
 ## the authored pose is written once more here, after every physics and process writer of the frame.
 ## See docs/poses.md.
 func _pose_render_write() -> void:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
-		return
-	# Park the game's desktop presentation (it re-enables itself) and then place and pose the act's
-	# own Anon body over it, before her pose writes last.
+	_pose_service().render_write({
+		"pose_id": pose_id,
+		"bed_frame": _bed_pose_frame,
+		"body_scale": _body_scale_value(),
+		"eye_camera_active": _free_camera_active \
+			and str(SETTINGS.camera_mode.get_value()) == "eye",
+	})
+
+
+## The pose session's render step, first half: park the game's desktop presentation (it
+## re-enables itself) and place and pose the act's own Anon body over it.
+func _place_missionary_anon(frame: Variant, body_scale: float) -> void:
 	_missionary_camera_controller().hide_avatar()
-	var frame: Variant = _bed_pose_frame
 	if frame is Transform3D:
-		_anatomy_bridge.apply_missionary_anon(frame, _body_scale_value())
-	var sk: Variant = pony.get("skeleton")
-	if is_instance_valid(_pose) and sk is Skeleton3D:
-		_pose_service().apply_render(sk)
-	# The eye camera reads his posed head, so it has to run after this write, not from the physics
-	# tick where the pose is one frame older.
-	if _free_camera_active and str(SETTINGS.camera_mode.get_value()) == "eye":
-		_missionary_camera_controller().tick()
+		_anatomy_bridge.apply_missionary_anon(frame, body_scale)
+
+
+## The eye camera reads his posed head, so it has to run after the render write, not from the
+## physics tick where the pose is one frame older.
+func _missionary_eye_tick() -> void:
+	_missionary_camera_controller().tick()
 
 
 ## The render-time placement trace, driven by the pose session.

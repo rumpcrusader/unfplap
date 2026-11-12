@@ -40,6 +40,7 @@ func run() -> void:
 	_check_bones()
 	_check_chin()
 	_check_diagnostics()
+	_check_render_write()
 
 	print("POSE_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -234,5 +235,31 @@ func _check_diagnostics() -> void:
 	check(not session.rig_checked, "the pose release clears the rig cache")
 	root.remove_child(body)
 	body.free()
+	root.remove_child(pony)
+	pony.free()
+
+
+## The render-time step: the Anon placement, her pose write and the eye camera, in that order,
+## and nothing outside a missionary act.
+func _check_render_write() -> void:
+	var made := _session(CATALOG.MISSIONARY)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var order: Array[String] = []
+	session.place_anon = func(_frame: Variant, _scale: float) -> void: order.append("anon")
+	session.eye_camera = func() -> void: order.append("eye")
+	session.render_write({"pose_id": CATALOG.MISSIONARY, "bed_frame": Transform3D.IDENTITY,
+		"body_scale": 0.66, "eye_camera_active": false})
+	check(order == ["anon"], "the render write places the Anon body without the eye camera")
+	session.render_write({"pose_id": CATALOG.MISSIONARY, "bed_frame": Transform3D.IDENTITY,
+		"body_scale": 0.66, "eye_camera_active": true})
+	check(order == ["anon", "anon", "eye"], "the eye camera runs after the pose write")
+	order.clear()
+	session.render_write({"pose_id": CATALOG.STANDING, "eye_camera_active": true})
+	check(order.is_empty(), "a standing act has no render write")
+	session.place_anon = Callable()
+	session.eye_camera = Callable()
+	session.render_write({"pose_id": CATALOG.MISSIONARY, "eye_camera_active": true})
+	check(order.is_empty(), "absent render callbacks are no-ops")
 	root.remove_child(pony)
 	pony.free()

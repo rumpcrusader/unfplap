@@ -81,6 +81,7 @@ func run() -> void:
 	_check_history()
 	_check_afterglow()
 	_check_face()
+	_check_reactions()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -368,6 +369,33 @@ func _check_face() -> void:
 	for name: String in ["test_runtime_face.gd", "test_act_face.gd", "test_mood_face.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/face/" + name)),
 			"tests/face/%s exists" % name)
+
+
+## The reaction facade owns the jiggle, smack, rump blush and climax hearts; the runtime only
+## binds the scene and dispatches the stroke events. Contract: `docs/reactions.md`.
+func _check_reactions() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("act_reactions.gd"))
+	check(facade.contains("func smack(") and facade.contains("func hearts_tick("),
+		"reaction facade is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "reactions has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/reactions.md"))
+	check(not contract.is_empty(), "docs/reactions.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Jiggle and smack",
+			"## Rump blush", "## Climax hearts", "## Tests"]:
+		check(contract.contains(heading), "docs/reactions.md has %s" % heading)
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("docs/reactions.md"), "AGENTS.md links to docs/reactions.md")
+	check(FileAccess.file_exists(ROOT.path_join("tests/reactions/test_reactions.gd")),
+		"tests/reactions/test_reactions.gd exists")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("_reactions.thrust(") and runtime.contains("_reactions.smack("),
+		"runtime dispatches to the reaction facade")
+	for token: String in ["_rump_decal", "_attach_body_coat_jiggle_target", "_climax_hearts_tick"]:
+		check(not runtime.contains(token), "runtime has no reaction internals: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

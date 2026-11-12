@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_actions.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PALM_SCALE := preload("res://mods/unfplap/hands/scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
@@ -101,19 +102,15 @@ func _check_body_coat_jiggle_target() -> void:
 	flank._jiggle_targets = []
 	var was_on := SETTINGS.body_coat_deform.get_bool()
 	SETTINGS.body_coat_deform.set_bool(true)
-	var runtime: Node = RUNTIME.new()
-	runtime._flank = flank
-	runtime._anatomy = anatomy
-	root.add_child(runtime)
+	var reactions := REACTIONS.new()
+	reactions.bind_scene(null, anatomy, flank)
 	root.add_child(flank)
 	root.add_child(anatomy)
 	root.add_child(body)
-	runtime.call("_attach_body_coat_jiggle_target")
+	reactions.body_coat_target()
 	check(flank._jiggle_targets.size() == 2, "body and outline join the jiggle targets")
-	runtime.call("_attach_body_coat_jiggle_target")
+	reactions.body_coat_target()
 	check(flank._jiggle_targets.size() == 2, "body target is not duplicated")
-	root.remove_child(runtime)
-	runtime.free()
 	root.remove_child(anatomy)
 	anatomy.free()
 	root.remove_child(body)
@@ -500,7 +497,7 @@ func run() -> void:
 	check(KISS.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
 	check(not KISS.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
-	check(near(RUNTIME.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
+	check(near(REACTIONS.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
 	check(near(RUNTIME.CAM_SURGE_M, 0.06), "camera surge amplitude")
 	check(near(RUNTIME.CAM_BOB_M, 0.02), "camera bob amplitude")
 	check(near(KISS.KISS_LEAN_M, 0.27) and near(KISS.KISS_LEAN_SIDE_M, 0.18)
@@ -563,23 +560,20 @@ func run() -> void:
 		"live settings refresh camera thrust")
 	live_runtime.free()
 
-	var jiggle_runtime: Node = RUNTIME.new()
+	var smack := REACTIONS.new()
+	smack.configure({"pose_id": CATALOG.STANDING, "size_scale": 1.0,
+		"jiggle": {"smack_intensity": 0.5}})
 	var jiggle_pony := Node3D.new()
 	root.add_child(jiggle_pony)
 	var fake_tail := FakeTail.new()
 	root.add_child(fake_tail)
-	jiggle_runtime.pony = jiggle_pony
-	jiggle_runtime.pose_id = CATALOG.STANDING
-	jiggle_runtime._tail = fake_tail
-	root.add_child(jiggle_runtime)
-	jiggle_runtime.call("_on_smack_impact", 0.8)
-	var expected_jiggle := float(jiggle_runtime.call("_jiggle_size_scale")) \
-		* float(jiggle_runtime._jiggle_smack_intensity)
-	check(near(fake_tail.last_strength, expected_jiggle),
-		"smack carries the tail jiggle in standing")
-	root.remove_child(jiggle_runtime)
-	jiggle_runtime.free()
+	smack.bind_scene(jiggle_pony, null)
+	smack.bind_tail(fake_tail)
+	smack.smack(0.8)
+	check(near(fake_tail.last_strength, 0.5), "smack carries the tail jiggle in standing")
+	root.remove_child(fake_tail)
 	fake_tail.free()
+	root.remove_child(jiggle_pony)
 	jiggle_pony.free()
 
 	var mark_flank := FakeFlank.new()
@@ -590,20 +584,19 @@ func run() -> void:
 	mark_b.visible = true
 	mark_flank.marks = [mark_a, mark_b]
 	mark_flank.ages = [0.0, 0.0]
-	var mark_runtime: Node = RUNTIME.new()
 	var mark_pony := Node3D.new()
 	root.add_child(mark_pony)
 	mark_pony.add_child(mark_flank)
-	mark_runtime.pony = mark_pony
-	root.add_child(mark_runtime)
-	mark_runtime.call("_clear_stock_flank_marks")
+	var marks := REACTIONS.new()
+	marks.bind_scene(mark_pony, null)
+	marks.clear_stock_marks()
 	check(not mark_a.visible and not mark_b.visible,
 		"act start hides stock flank marks")
 	check(near(float(mark_flank.ages[0]), 1000.0)
 		and near(float(mark_flank.ages[1]), 1000.0),
 		"act start ages the stock flank marks")
-	root.remove_child(mark_runtime)
-	mark_runtime.free()
+	mark_pony.remove_child(mark_flank)
+	mark_flank.free()
 	mark_a.free()
 	mark_b.free()
 	mark_pony.free()
@@ -614,22 +607,19 @@ func run() -> void:
 	var radius_mesh := Node3D.new()
 	root.add_child(radius_mesh)
 	radius_flank._jiggle_targets = [[radius_mat, radius_mesh]]
-	var radius_runtime: Node = RUNTIME.new()
-	radius_runtime._flank = radius_flank
-	radius_runtime._jiggle_radius_m = 0.30
-	root.add_child(radius_runtime)
-	radius_runtime.call("_apply_jiggle_radius")
+	var radius := REACTIONS.new()
+	radius.bind_scene(null, null, radius_flank)
+	radius.configure({"jiggle": {"radius": 0.30}})
+	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), 0.30),
 		"jiggle radius applies to the targets")
-	radius_runtime._jiggle_radius_m = -0.05
-	radius_runtime.call("_apply_jiggle_radius")
+	radius.configure({"jiggle": {"radius": -0.05}})
+	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), -0.05),
 		"jiggle radius is applied unclamped")
-	radius_runtime.call("_restore_jiggle_radius")
+	radius.restore_radius()
 	check(radius_mat.get_shader_parameter("jiggle_radius") == null,
 		"jiggle radius override restores")
-	root.remove_child(radius_runtime)
-	radius_runtime.free()
 	radius_mesh.free()
 	radius_flank.free()
 
@@ -718,18 +708,14 @@ func run() -> void:
 	var smack_mesh := Node3D.new()
 	smack_flank._jiggle_targets = [[smack_mat, smack_mesh]]
 	smack_flank._jiggle_amount = 0.08
-	var smack_runtime: Node = RUNTIME.new()
+	var smack_amount := REACTIONS.new()
 	var smack_pony := Node3D.new()
 	root.add_child(smack_pony)
-	smack_runtime.pony = smack_pony
-	smack_runtime._flank = smack_flank
-	smack_runtime._jiggle_smack_intensity = 0.5
-	root.add_child(smack_runtime)
-	smack_runtime.call("_on_smack_impact", 0.8)
+	smack_amount.bind_scene(smack_pony, null, smack_flank)
+	smack_amount.configure({"jiggle": {"smack_intensity": 0.5}})
+	smack_amount.smack(0.8)
 	check(near(float(smack_flank._jiggle_amount), 0.04),
 		"smack jiggle intensity scales the amount")
-	root.remove_child(smack_runtime)
-	smack_runtime.free()
 	smack_mesh.free()
 	smack_flank.free()
 	smack_pony.free()

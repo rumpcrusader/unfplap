@@ -16,6 +16,7 @@ Do not start implementation until you have read the required files for the area 
 | Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
 | Any proactive request, privacy, offer-flow or consent-classifier task | `docs/initiation.md` |
 | Any act cue line, reaction or bystander line task | `docs/lines.md` |
+| Any jiggle, smack impact, rump blush or climax-heart task | `docs/reactions.md` |
 | Any standing footstool or stool-supply task | `docs/stool.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `history.gd`, `preferences.gd`, `act_summary.gd`, `act_history.gd` |
@@ -107,11 +108,13 @@ stored state.
 | Act summary and history | `history.gd` | `HISTORY.md` | migrated |
 | Afterglow and close window | `afterglow.gd` | `docs/afterglow.md` | migrated |
 | Act face and post-act mood | `face_session.gd` | `docs/face.md` | migrated |
+| Thrust and climax reactions | `act_reactions.gd` | `docs/reactions.md` | migrated |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
-act lines, readiness, history, afterglow and face, plus the act-context and perf modules. The
-remaining suites are still flat (`tests/test_*.gd`) and move when their system is next touched.
+act lines, readiness, history, afterglow, face and reactions, plus the act-context and perf
+modules. The remaining suites are still flat (`tests/test_*.gd`) and move when their system is
+next touched.
 
 ### Docs
 
@@ -126,6 +129,7 @@ remaining suites are still flat (`tests/test_*.gd`) and move when their system i
 | `docs/lines.md` | act cue admission, prompt assembly, reactions and bystander lines |
 | `docs/afterglow.md` | afterglow self-end, `[stay]` hold and the standing close window |
 | `docs/face.md` | act face beats, line-face ownership, stare release and the post-act mood face |
+| `docs/reactions.md` | thrust/smack jiggle, rump blush and climax hearts |
 | `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
@@ -364,6 +368,8 @@ mods/unfplap/
                     window; contract in `docs/afterglow.md`
   face_session.gd   act face facade: the beat table, the line-face owner, the stare release
                     and the post-act mood face; contract in `docs/face.md`
+  act_reactions.gd  reaction facade: thrust/smack jiggle, body-coat target, rump blush and
+                    climax hearts; contract in `docs/reactions.md`
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
@@ -783,34 +789,29 @@ bullets below cover the rest of the shot's behaviour.
   Every thrust calls `tail.thrust(jiggle)` with the same `jiggle_amount` as the rump shader: a
   short `JIGGLE_DECAY = 3.6` / `JIGGLE_FREQ = 18` wave, strongest at the tail root
   (`mTail1`) and lagging down the chain (`JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`). A smack
-  calls the same tail impulse through `_on_smack_impact()` at
+  calls the same tail impulse through `act_reactions.gd` at
   `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust tail impulse also scales with
   `jiggle.intensity`. A debug line reports the resulting amount. This is the cheapest way to
   make rump jiggle and tail read as one motion; the shader itself stays native.
-  `FlankTouch._start_jiggle()` clamps its own impulse to `0.3…1.0`, so `_thrust_jiggle()` passes
-  `1.0`, scales the resolved `_jiggle_amount` by the travel-led `jiggle_amount ×
-  JIGGLE_RUMP_SCALE = 2.8 × size × jiggle.intensity`, and re-runs `_process(0.0)` once so a soft
-  stroke cannot flash at full amplitude.
+  The jiggle scaling and the stock-impulse clamp are in `docs/reactions.md`.
   The game's tail anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair
   `mPelvis`, so rotating `mTail1..6` alone cannot move the base. `tail_pose` also translates the
   hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave, restoring
   `mChest`/`mNeck`/`mHead` so only the tail base and chain move.
-- The rump shader wobble is tuned by the `jiggle` block: `radius` (default `0.26 m`) spreads it
-  across the whole flank, `intensity` (default `0.25×`) scales the thrust amount, and
-  `smack_intensity` (default `0.45×`) scales the act smack amount. The runtime
-  sets `jiggle_radius` on every active `_flank._jiggle_targets` material and restores the override
-  at act end, so stock smacks keep the shader default `0.12 m`. `apply_live_settings()` updates
-  the radius on an active wobble.
+- The rump shader wobble is tuned by the `jiggle` block (`radius`, `intensity` and
+  `smack_intensity`); `act_reactions.gd` writes the radius to every active wobble material and
+  restores the stock `0.12 m` default at act end. `apply_live_settings()` updates the radius on
+  an active wobble. See `docs/reactions.md`.
 - The visible body coat is the rig `MareBody`, not the `NearBody` merge (which holds only the
   cutie-mark patches). With `body_coat_deform` on, `anatomy.gd` takes the per-pony body material
   from `FlankTouch._own_body_materials()`, then `anatomy/body_coat_patch.gd` duplicates the game
   `Shader`, swaps the `flank_jiggle.gdshaderinc` include for
   `anatomy/body_coat_deform.gdshaderinc` and the `VERTEX += flank_jiggle(VERTEX);` call for the
   deform call. No game source is edited and no cel shader is copied. The patched material and its
-  outline are no longer in `JIGGLE_SHADERS`, so `runtime._attach_body_coat_jiggle_target()` adds
+  outline are no longer in `JIGGLE_SHADERS`, so `act_reactions.body_coat_target()` adds
   them back after every `_start_jiggle()`; the anatomy's `physical_reaction("flank_smack")` hook
   covers stock smacks outside the act. The two still zones are in `docs/anatomy.md`.
-- At act start the runtime hides and ages every stock `FlankTouch.mark`, so a redness mark from
+- At act start the act hides and ages every stock `FlankTouch.mark`, so a redness mark from
   a regular smack before the act cannot linger and look like a stale jiggle point. The act's
   own rump blush and act-smack mark take over. Regular smacks outside the act keep their native
   marks, blush and decal duration.

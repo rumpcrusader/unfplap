@@ -326,12 +326,11 @@ joined bodies. Off, the authored transform plus the surge/bob is the whole shot.
   `ROCK_YAW = 0.08`. Each thrust adds a short decaying wave (`JIGGLE_DECAY = 3.6`,
   `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`, `JIGGLE_YAW = 0.08`) at the same strength as the
   rump shader, strongest at the tail root and lagging down the chain. A smack adds the same wave
-  through `_on_smack_impact()` at `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust
-  wave scales with `jiggle.intensity`. The `jiggle.radius` setting (default
-  `0.26 m`) is applied to every active wobble material and restored at act end; `jiggle.intensity`
-  (default `0.25×`) scales the thrust amount, and `jiggle.smack_intensity` (default `0.45×`)
-  scales the act smack amount. Stock marks are hidden and aged at act start, so a
-  mark from an earlier regular smack cannot linger as a stale jiggle point. The game's tail
+  through `act_reactions.gd` at `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust
+  wave scales with `jiggle.intensity`. The `jiggle` radius, intensity and smack amount, the
+  stock-mark clear and the body-coat target are in `docs/reactions.md`. Stock marks are hidden
+  and aged at act start, so a mark from an earlier regular smack cannot linger as a stale jiggle
+  point. The game's tail
   anchor pins the first 12–67 mm of the `DevkitTail` root cap to the hair `mPelvis`, so the
   `mTail1..6` wave alone cannot move the base; `tail_pose` also translates the hair `mPelvis` by
   `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave and restores the mane bones, so

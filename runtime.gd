@@ -46,11 +46,11 @@ const READINESS := preload("res://mods/unfplap/readiness.gd")
 const HISTORY := preload("res://mods/unfplap/history.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow.gd")
 const FACE := preload("res://mods/unfplap/face_session.gd")
+const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
-const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
@@ -152,11 +152,6 @@ const CAM_CLIMAX_SURGE_M := 0.02
 ## Q/E fire their pose reaction when the smoothed side lean crosses these values.
 ## Displayed-lean smoothing. Always on.
 const CAMERA_INERTIA_SMOOTH := 5.0
-## Rump blush from strong thrusts: a fraction of the 0.8 smack decal strength. Always on.
-const RUMP_BLUSH_MIN_STRENGTH := 0.55
-const RUMP_BLUSH_STEP := 0.0525
-const RUMP_BLUSH_MAX := 0.375
-const RUMP_BLUSH_DECAY := 0.006
 ## Canon is small enough that the standing shot needs a lower eye line.
 ## JRHNBR is tall enough that the standing shot needs a higher eye line.
 ## Anon's spine length, used to turn the standing torso angle into head/camera travel.
@@ -175,11 +170,6 @@ const Y_END_TINT_MAX := 0.75
 ## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
 ## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
 ## Yaw limit for a look-back glance. Raised 20% from 1.35 so she turns farther over her shoulder.
-## Jiggle placement on the flank. The thrust scale is reduced 20% from the review pass; the
-## native smack keeps its own strength.
-const JIGGLE_HEIGHT := 0.78
-const JIGGLE_BACK := 0.12
-const JIGGLE_RUMP_SCALE := 2.8
 ## Act kiss timing. The sound repeats softly while her mouth is held to Anon's.
 ## Anon leans in while kissing. Standing moves the act camera (and the hip counter keeps his
 ## pelvis planted); missionary moves the framing view and offsets the virtual mouth by the same
@@ -367,12 +357,6 @@ var _auto_default_shape := "cosine"
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
-var _jiggle_radius_m := 0.26
-var _jiggle_center_height_m := 0.1
-var _jiggle_center_back_m := 0.15
-var _jiggle_intensity_scale := 0.2
-var _jiggle_smack_intensity := 0.55
-var _jiggle_radius_materials: Array = []
 var _camera_surge := 0.0
 var _camera_bob := 0.0
 var _last_intensity: String:
@@ -595,8 +579,6 @@ var _lean_action_side := 0.0
 var _lean_action_kind := ""
 var _forced_glance := ""
 var _presentation_cfg: Dictionary = {}
-var _rump_blush := 0.0
-var _rump_decal: Decal
 var _voice_info: Dictionary = {}
 var _voice_player: AudioStreamPlayer3D
 var _voice_volume_saved := 0.0
@@ -656,6 +638,9 @@ var _stare_release_until: float:
 		return _face.stare_release_until
 	set(value):
 		_face.stare_release_until = value
+## Thrust and climax presentation: jiggle, smack reaction, rump blush and hearts. See
+## `act_reactions.gd` and `docs/reactions.md`.
+var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
 var _act_climax_mode := "auto"
 var _satisfaction_tween: Tween
@@ -667,13 +652,6 @@ var _face_timer: Timer
 var _kisser: Node
 var _kisser_processing := false
 var _climax_progress := 0.0
-## Climax hearts: three pulses with at least one second between them. The first pulse emits
-## four boop bursts, the second two, and the last one. A separate burst starts from her dock at
-## the exact climax start. Each burst uses celebrate() (five hearts, no boop count).
-var _heart_elapsed := 0.0
-var _heart_index := 0
-var _heart_times: Array[float] = []
-var _heart_counts: Array[int] = []
 ## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
 var _debug_chin_deg := 0.0
 var _sounds
@@ -683,8 +661,6 @@ var _missionary_camera_ctl
 var _standing_camera_ctl
 var _standing_anon_ctl
 var _standing_presentation_ctl
-var _flank: Node
-var _jiggle_logged := false
 var _act_audio: Node
 var _bed_soft := false
 
@@ -727,6 +703,7 @@ func _init() -> void:
 	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
 	_face.log = Callable(self, "_log")
 	_face.clock = Callable(self, "_now_s")
+	_reactions.log = Callable(self, "_log")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -758,6 +735,7 @@ func _ready() -> void:
 ## owns it; the runtime only keeps the handle for the act.
 func _anatomy_refresh() -> void:
 	if not is_instance_valid(pony):
+		_reactions.bind_scene(pony, null)
 		return
 	var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
 	var eligibility_service: ELIGIBILITY = main.get("eligibility") \
@@ -771,11 +749,14 @@ func _anatomy_refresh() -> void:
 			_anatomy.call("detach")
 			_anatomy.queue_free()
 		_anatomy = null
+		_reactions.bind_scene(pony, _anatomy)
 		return
 	if service == null or not service.has_method("controller_for"):
 		_anatomy = null
+		_reactions.bind_scene(pony, _anatomy)
 		return
 	_anatomy = service.call("controller_for", pony, self)
+	_reactions.bind_scene(pony, _anatomy)
 	if is_instance_valid(_anatomy):
 		_anatomy.call("refresh")
 
@@ -790,9 +771,9 @@ func anatomy_facts() -> RefCounted:
 
 
 ## Public hook for the anatomy's stock flank smack. The controller calls it through the context
-## callback instead of reaching into `_attach_body_coat_jiggle_target`.
+## callback instead of reaching into the reaction facade.
 func body_coat_jiggle_target() -> void:
-	_attach_body_coat_jiggle_target()
+	_reactions.body_coat_target()
 
 
 func _anatomy_act_refresh(pose_id: String) -> void:
@@ -1108,11 +1089,12 @@ func _snapshot_settings() -> void:
 	var shape_setting := str(auto_block.get("curve", "cosine"))
 	_auto_default_shape = shape_setting if AUTO_THRUST.SHAPES.has(shape_setting) else "cosine"
 	var jiggle_block := SETTINGS.block("jiggle.")
-	_jiggle_radius_m = float(jiggle_block.get("radius", 0.26))
-	_jiggle_center_height_m = float(jiggle_block.get("center_height_m", 0.1))
-	_jiggle_center_back_m = float(jiggle_block.get("center_back_m", 0.15))
-	_jiggle_intensity_scale = float(jiggle_block.get("intensity", 0.2))
-	_jiggle_smack_intensity = float(jiggle_block.get("smack_intensity", 0.55))
+	_reactions.configure({
+		"jiggle": jiggle_block,
+		"pose_id": pose_id,
+		"size_scale": _jiggle_size_scale(),
+		"climax_seconds": CLIMAX_SECONDS,
+	})
 	var camera_block := SETTINGS.block("camera_thrust.")
 	_camera_surge = float(camera_block.get("surge", 1.0))
 	_camera_bob = float(camera_block.get("bob", 0.35))
@@ -1155,8 +1137,7 @@ func apply_live_settings() -> void:
 	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
 	_ensure_act_audio(vocals, climax)
-	if is_instance_valid(_flank):
-		_apply_jiggle_radius()
+	_reactions.apply_radius()
 	if _auto_thrust != null:
 		_auto_thrust.call("set_shape", _auto_default_shape)
 	if pose_id == CATALOG.STANDING:
@@ -1542,7 +1523,7 @@ func _physics_tick(delta: float) -> void:
 				_missionary_camera_controller().resnapshot()
 	elif state == State.CLIMAX:
 		_climax_left -= delta
-		_climax_hearts_tick(delta)
+		_reactions.hearts_tick(delta)
 		if _climax_left <= 0.0:
 			_finish_climax()
 	elif state == State.AFTERGLOW:
@@ -1557,7 +1538,7 @@ func _physics_tick(delta: float) -> void:
 	_standing_camera_controller().clamp_look()
 	_standing_camera_controller().tick_depth(delta)
 	_standing_anon_controller().tick_phase(delta)
-	_rump_blush_tick(delta)
+	_reactions.blush_tick(delta)
 	apply_camera_motion()
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_check_clock += delta
@@ -2471,8 +2452,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_preferences = SETTINGS.preferences(_id)
 	_act_prompts = _profile.get("act_prompts", {})
 	_snapshot_settings()
-	if is_instance_valid(_flank):
-		_apply_jiggle_radius()
+	_reactions.apply_radius()
 	_thrust_tracker = THRUST.new()
 	_aftercare_min = int(_profile.get("aftercare_min", 10))
 	_cue_gap = SETTINGS.cue_gap_value(float(_profile.get("cue_gap", 12.0)))
@@ -2480,7 +2460,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	bed = _resolve_bed(pose, act_source, bed_in)
 	if pose == CATALOG.MISSIONARY and bed == null:
 		# Nothing else is borrowed yet, but the jiggle radius was just applied.
-		_restore_jiggle_radius()
+		_reactions.restore_radius()
 		pose_id = ""
 		source = ""
 		bed = null
@@ -2494,14 +2474,9 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_back_target = 0.0
 	_apply_eye_override()
 	_wings_controller().reset()
-	_jiggle_logged = false
 	_act_seconds = 0.0
-	_heart_elapsed = 0.0
-	_heart_index = 0
-	_heart_times.clear()
-	_heart_counts.clear()
+	_reactions.begin_act()
 	_reset_lean_state()
-	_rump_blush = 0.0
 	_clear_face()
 	_set_face(0.45, ACT_LIDS)
 	_serial = _next_serial()
@@ -2579,7 +2554,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		_standing_camera_controller().begin_facing(standing)
 
 	_build_pose()
-	_clear_stock_flank_marks()
+	_reactions.clear_stock_marks()
 	if pose == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
 	_reset_lean_state()
@@ -2986,7 +2961,6 @@ func _take_stool_items(need: int) -> bool:
 	return true
 
 
-
 ## The floor under a standing spot. The player is excluded so his own capsule cannot answer.
 func _floor_y_at(at: Vector3, body: Node3D) -> float:
 	if not is_instance_valid(body) or not at.is_finite():
@@ -3242,6 +3216,7 @@ func _build_pose() -> void:
 				side_anchor = (view as Camera3D).global_position
 		_tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(_tail)
+		_reactions.bind_tail(_tail)
 
 ## Snapshot before the act changes her posture or the pose writes bones.
 func _snapshot_pony_bones() -> void:
@@ -3299,10 +3274,7 @@ func _free_pose() -> void:
 	_standing_anon_controller().remove()
 	_remove_extra_modifiers()
 	_restore_voice_volume()
-	if is_instance_valid(_rump_decal):
-		_rump_decal.queue_free()
-	_rump_decal = null
-	_rump_blush = 0.0
+	_reactions.end_act()
 	if is_instance_valid(_pose):
 		_pose.queue_free()
 	_pose = null
@@ -3356,7 +3328,7 @@ func _install_ear_twitch() -> void:
 	(head as Skeleton3D).add_child(_ear_twitch)
 
 func _remove_extra_modifiers() -> void:
-	_restore_jiggle_radius()
+	_reactions.restore_radius()
 	if is_instance_valid(_body_sway):
 		_body_sway.queue_free()
 	_body_sway = null
@@ -3887,7 +3859,7 @@ func _thrust_move(amount: float, now: float) -> void:
 	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
 			and _act_audio.crossed(before, depth):
 		_act_audio.withdraw_crossed(before, depth, _thrust_tracker.live_strength(now),
-			pose_id, _rump_point(), _bed_audio_point(), _bed_soft)
+			pose_id, _reactions.rump_point(), _bed_audio_point(), _bed_soft)
 	for event: Dictionary in events:
 		_dispatch_stroke_event(event)
 
@@ -3939,13 +3911,10 @@ func _on_impact(result: Dictionary) -> void:
 	var plap := PREFERENCES.intensity_for(strength) != "soft" and contact > 0.001
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
-	_thrust_jiggle(jiggle)
-	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
-		_tail.call("thrust", jiggle * _jiggle_size_scale() * _jiggle_intensity_scale)
+	_reactions.thrust(jiggle)
+	_reactions.tail_thrust(jiggle)
 	if pose_id == CATALOG.STANDING:
-		if impact >= RUMP_BLUSH_MIN_STRENGTH:
-			_rump_blush = minf(RUMP_BLUSH_MAX, _rump_blush + RUMP_BLUSH_STEP)
-			_ensure_rump_decal()
+		_reactions.add_blush(impact)
 		if _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
 			_ear_twitch.call("try_trigger", impact)
 	_readiness.thrust_times.append(now)
@@ -3954,7 +3923,7 @@ func _on_impact(result: Dictionary) -> void:
 		_readiness.thrust_times.pop_front()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
-		_act_audio.play_impact(pose_id, strength, _rump_point(),
+		_act_audio.play_impact(pose_id, strength, _reactions.rump_point(),
 			_bed_audio_point(), _bed_soft, contact)
 	_log("thrust impact contact=%.2f plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		contact, 1 if plap else 0, satisfaction, _thrusts_per_second(), strength, impact, jiggle,
@@ -4029,7 +3998,6 @@ func _tolerance_dislike(kind: String) -> Dictionary:
 
 func _tolerance_like(kind: String) -> void:
 	_history.observe_like(kind)
-
 
 
 ## True while the director or the pony is actually speaking.
@@ -4344,246 +4312,16 @@ func _record_peak_memory() -> void:
 	}, _act_spoken_at)
 
 
-## The runtime-patched rig coat is no longer the exact game Shader, so FlankTouch's
-## JIGGLE_SHADERS check skips it. Put the coat and its outline back into the active target list.
-## `_start_jiggle()` rebuilds the list on every slap, so this runs for each thrust and act smack.
-func _attach_body_coat_jiggle_target() -> void:
-	if not SETTINGS.body_coat_deform.get_bool():
-		return
-	if not is_instance_valid(_flank) and is_instance_valid(pony):
-		_flank = pony.get_node_or_null("FlankTouch")
-	if not is_instance_valid(_flank) or not is_instance_valid(_anatomy):
-		return
-	if _anatomy.has_method("is_attached") and not bool(_anatomy.call("is_attached")):
-		return
-	var body: Variant = _anatomy.call("body_coat_mesh")
-	var mat: Variant = _anatomy.call("body_coat_material")
-	if not is_instance_valid(body) or not body is MeshInstance3D \
-			or not is_instance_valid(mat) or not mat is ShaderMaterial:
-		# The near mesh can be rebuilt between the anatomy's visibility polls. Catch up now
-		# instead of waiting for the next poll and losing a few thrusts of body wobble.
-		if _anatomy.has_method("body_coat_refresh"):
-			_anatomy.call("body_coat_refresh")
-		body = _anatomy.call("body_coat_mesh")
-		mat = _anatomy.call("body_coat_material")
-	if not is_instance_valid(body) or not body is MeshInstance3D \
-			or not is_instance_valid(mat) or not mat is ShaderMaterial:
-		return
-	var targets: Variant = _flank.get("_jiggle_targets")
-	if not targets is Array:
-		return
-	var materials: Array = [mat]
-	var outline: Variant = _anatomy.call("body_outline_material")
-	if is_instance_valid(outline) and outline is ShaderMaterial:
-		materials.append(outline)
-	for material: Variant in materials:
-		var target_mat := material as ShaderMaterial
-		if target_mat == null:
-			continue
-		var present := false
-		for target: Variant in targets:
-			if target is Array and not (target as Array).is_empty() \
-					and (target as Array)[0] == target_mat:
-				present = true
-				break
-		if present:
-			continue
-		(targets as Array).append([target_mat, body])
-
-
-func _thrust_jiggle(weight: float) -> void:
-	if not is_instance_valid(pony):
-		return
-	if not is_instance_valid(_flank):
-		_flank = pony.get_node_or_null("FlankTouch")
-	if not is_instance_valid(_flank) or not _flank.has_method("_start_jiggle"):
-		return
-	if _flank.has_method("wake_tick"):
-		_flank.call("wake_tick")
-	var marks: Variant = _flank.get("marks")
-	if not marks is Array or (marks as Array).size() < 2:
-		return
-	# One shader center on the rump midline so both flanks wobble together. The native FlankTouch
-	# supports only one jiggle at a time; the shader center covers both flanks.
-	var mark: Variant = (marks as Array)[0]
-	if not mark is Decal:
-		return
-	var back: Vector3 = pony.global_basis.z.normalized()
-	var normal := back
-	if normal.length_squared() < 0.001:
-		return
-	var at: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + back * JIGGLE_BACK
-	var sk: Variant = pony.get("skeleton")
-	if sk is Skeleton3D:
-		var skeleton := sk as Skeleton3D
-		var left := skeleton.find_bone("pony_femur_L")
-		var right := skeleton.find_bone("pony_femur_R")
-		if left >= 0 and right >= 0:
-			var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
-			var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
-			at = (a + b) * 0.5 + Vector3.UP * _jiggle_center_height_m \
-				+ back * _jiggle_center_back_m
-	var across := Vector3.UP.cross(normal).normalized()
-	if across.length_squared() < 0.5:
-		across = Vector3.RIGHT
-	var decal := mark as Decal
-	decal.global_transform = Transform3D(Basis(across, normal, across.cross(normal)).orthonormalized(), at + normal * 0.015)
-	decal.visible = false
-	# The stock jiggle clamps its own impulse to 0.3..1. Pass a full stroke and scale the
-	# resolved amount here, so a soft stroke can wobble almost not at all.
-	var wobble := clampf(weight, 0.0, 1.0)
-	_flank.call("_start_jiggle", 0, 1.0)
-	_attach_body_coat_jiggle_target()
-	# One shader center now covers both flanks, so scale the resolved amount up. Smaller ponies
-	# get less shader travel from the same thrust impulse.
-	var amount: Variant = _flank.get("_jiggle_amount")
-	if amount != null:
-		_flank.set("_jiggle_amount", float(amount) * wobble * JIGGLE_RUMP_SCALE
-			* _jiggle_size_scale() * _jiggle_intensity_scale)
-		# `_start_jiggle()` already ran one frame at the stock full amount; refresh it now so
-		# the first frame of a soft thrust does not pop.
-		if _flank.has_method("_process"):
-			_flank.call("_process", 0.0)
-	_apply_jiggle_radius()
-	if not _jiggle_logged:
-		_jiggle_logged = true
-		var targets: Variant = _flank.get("_jiggle_targets")
-		_log("jiggle rump at=%s root=%s normal=%s targets=%d index=%d mark=%s" % [
-			str(at), str(pony.global_position), str(normal),
-			(targets as Array).size() if targets is Array else -1,
-			int(_flank.get("_jiggle_index")), str(decal.global_position)])
-
-## A smack has already started the native cheek jiggle. Carry it into the same tail-base
-## propagation as a thrust.
+## A smack has already started the native cheek jiggle. The reaction facade carries it into the
+## same tail-base propagation as a thrust.
 func _on_smack_impact(strength: float) -> void:
-	if not is_instance_valid(pony):
-		return
-	if is_instance_valid(_flank):
-		_attach_body_coat_jiggle_target()
-		var amount: Variant = _flank.get("_jiggle_amount")
-		if amount != null:
-			_flank.set("_jiggle_amount", float(amount) * _jiggle_smack_intensity)
-	_apply_jiggle_radius()
-	if pose_id == CATALOG.STANDING and is_instance_valid(_tail):
-		var tail_strength := _jiggle_size_scale() * _jiggle_smack_intensity
-		_tail.call("thrust", tail_strength)
-
-
-## Set the shared rump wobble radius on every active jiggle target material.
-func _apply_jiggle_radius() -> void:
-	if not is_instance_valid(_flank):
-		return
-	var targets: Variant = _flank.get("_jiggle_targets")
-	if not targets is Array:
-		return
-	var radius := _jiggle_radius_m
-	for target_v: Variant in targets:
-		if not target_v is Array or (target_v as Array).is_empty():
-			continue
-		var mat_v: Variant = (target_v as Array)[0]
-		if not mat_v is ShaderMaterial:
-			continue
-		var mat := mat_v as ShaderMaterial
-		mat.set_shader_parameter("jiggle_radius", radius)
-		if not _jiggle_radius_materials.has(mat):
-			_jiggle_radius_materials.append(mat)
-
-
-## Remove the radius override so stock/base-game jiggles use the shader default again.
-func _restore_jiggle_radius() -> void:
-	for mat_v: Variant in _jiggle_radius_materials:
-		if mat_v is ShaderMaterial and is_instance_valid(mat_v):
-			(mat_v as ShaderMaterial).set_shader_parameter("jiggle_radius", null)
-	_jiggle_radius_materials.clear()
-
-
-
-## The base game leaves a redness mark for 18 s after a regular smack. The act has its own
-## rump blush and act-smack mark, so clear the stock marks when the act starts. Regular smacks
-## outside the act keep their native marks.
-func _clear_stock_flank_marks() -> void:
-	if not is_instance_valid(pony):
-		return
-	_flank = pony.get_node_or_null("FlankTouch")
-	if not is_instance_valid(_flank):
-		return
-	var marks: Variant = _flank.get("marks")
-	if not marks is Array:
-		return
-	var ages: Variant = _flank.get("ages")
-	for i: int in (marks as Array).size():
-		var mark: Variant = (marks as Array)[i]
-		if mark is Decal:
-			(mark as Decal).visible = false
-		if ages is Array and i < (ages as Array).size():
-			ages[i] = 1000.0
-	_log("stock flank marks cleared count=%d" % (marks as Array).size())
-
-
-func _ensure_rump_decal() -> void:
-	if is_instance_valid(_rump_decal):
-		return
-	if not is_instance_valid(pony):
-		return
-	if not is_instance_valid(_flank):
-		_flank = pony.get_node_or_null("FlankTouch")
-	var texture: Variant = FLANK_TOUCH.texture
-	if not texture is Texture2D:
-		return
-	var decal := Decal.new()
-	decal.name = "UnfplapRumpBlush"
-	decal.texture_albedo = texture
-	decal.modulate = Color("de5263")
-	decal.size = Vector3(0.16, 0.10, 0.18)
-	decal.upper_fade = 0.2
-	decal.lower_fade = 0.25
-	decal.normal_fade = 0.6
-	decal.cull_mask = 1 << 19
-	decal.albedo_mix = 0.0
-	decal.visible = false
-	pony.add_child(decal)
-	_rump_decal = decal
-
-func _rump_point() -> Vector3:
-	if not is_instance_valid(pony):
-		return Vector3.INF
-	var back: Vector3 = pony.global_basis.z.normalized()
-	var point: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + back * JIGGLE_BACK
-	var sk: Variant = pony.get("skeleton")
-	if sk is Skeleton3D:
-		var skeleton := sk as Skeleton3D
-		var left := skeleton.find_bone("pony_femur_L")
-		var right := skeleton.find_bone("pony_femur_R")
-		if left >= 0 and right >= 0:
-			var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
-			var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
-			point = (a + b) * 0.5 + Vector3.UP * 0.08 + back * 0.10
-	return point
+	_reactions.smack(strength)
 
 
 ## Public rump anchor for the standing offer's rear cone.
 func rump_anchor() -> Vector3:
-	return _rump_point()
+	return _reactions.rump_point()
 
-func _rump_blush_tick(delta: float) -> void:
-	if pose_id != CATALOG.STANDING:
-		return
-	if _rump_blush > 0.0:
-		_rump_blush = maxf(0.0, _rump_blush - RUMP_BLUSH_DECAY * delta)
-	if not is_instance_valid(_rump_decal):
-		return
-	if _rump_blush <= 0.001:
-		_rump_decal.visible = false
-		return
-	var point := _rump_point()
-	var back: Vector3 = pony.global_basis.z.normalized()
-	var across := Vector3.UP.cross(back).normalized()
-	if not point.is_finite() or across.length_squared() < 0.5:
-		return
-	var basis := Basis(across, back, across.cross(back)).orthonormalized()
-	_rump_decal.global_transform = Transform3D(basis, point + back * 0.015)
-	_rump_decal.albedo_mix = _rump_blush
-	_rump_decal.visible = true
 
 func cancel() -> void:
 	_log("cancel state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
@@ -4646,8 +4384,8 @@ func _climax() -> void:
 	mood = "climax"
 	cue = "She is climaxing."
 	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
-	_schedule_climax_hearts()
-	_climax_hearts_burst_at(_dock_point())
+	_reactions.schedule_hearts()
+	_reactions.hearts_burst_at(_reactions.dock_point())
 	_set_face(0.3, CLIMAX_LIDS)
 	_act_face_beat("climax")
 	_end_act_lines(true)
@@ -4661,88 +4399,6 @@ func _climax() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("CLIMAX")
 
-## Three pulses: four bursts at the start, two after at least one second, one after at least
-## another second. The dock burst is separate and fires from `_climax()`.
-func _schedule_climax_hearts() -> void:
-	_heart_elapsed = 0.0
-	_heart_index = 0
-	_heart_times.clear()
-	_heart_counts.clear()
-	_heart_times.append(0.0)
-	_heart_counts.append(4)
-	var latest := maxf(1.0, CLIMAX_SECONDS - 0.4)
-	var second := randf_range(1.0, minf(2.4, latest))
-	var third := randf_range(second + 1.0, maxf(second + 1.0, latest))
-	_heart_times.append(second)
-	_heart_counts.append(2)
-	_heart_times.append(third)
-	_heart_counts.append(1)
-
-func _climax_hearts_tick(delta: float) -> void:
-	if _heart_times.is_empty():
-		return
-	_heart_elapsed += delta
-	while _heart_index < _heart_times.size() and _heart_elapsed >= _heart_times[_heart_index]:
-		var count := _heart_counts[_heart_index] if _heart_index < _heart_counts.size() else 1
-		var at := _heart_times[_heart_index]
-		_heart_index += 1
-		for i: int in count:
-			_climax_hearts_burst()
-		_log("climax hearts pulse t=%.2f count=%d" % [at, count])
-
-## Same effect as a boop (five drifting hearts, her heart colours) without counting a boop or
-## restarting the blush/squeak reaction.
-func _climax_hearts_burst() -> void:
-	var boop: Variant = pony.get("boop_node") if is_instance_valid(pony) else null
-	if boop != null and boop.has_method("celebrate"):
-		boop.call("celebrate")
-
-## A boop-heart burst moved to `origin` while keeping its random spread and drift.
-func _climax_hearts_burst_at(origin: Vector3) -> void:
-	if not is_instance_valid(pony) or not origin.is_finite():
-		return
-	var boop: Variant = pony.get("boop_node")
-	if boop == null or not boop.has_method("celebrate"):
-		return
-	var stored: Variant = boop.get("_hearts")
-	if not stored is Array:
-		return
-	var hearts: Array = stored
-	var before := hearts.size()
-	boop.call("celebrate")
-	if hearts.size() <= before:
-		return
-	var first: Dictionary = hearts[before]
-	var first_origin: Vector3 = first.get("origin", origin)
-	var shift: Vector3 = origin - first_origin
-	for i: int in range(before, hearts.size()):
-		var heart: Dictionary = hearts[i]
-		var old: Vector3 = heart.get("origin", origin)
-		var moved := old + shift
-		heart["origin"] = moved
-		var sprite: Variant = heart.get("sprite")
-		if sprite is Node3D:
-			(sprite as Node3D).global_position = moved
-	_log("climax dock hearts=%d" % (hearts.size() - before))
-
-## Her dock is the tail base on the hair skeleton; fall back to the hips if it is unavailable.
-func _dock_point() -> Vector3:
-	if not is_instance_valid(pony):
-		return Vector3.INF
-	if not pony.is_inside_tree():
-		return pony.position
-	var hair: Variant = pony.get("hair_skeleton")
-	if hair is Skeleton3D:
-		var tail := (hair as Skeleton3D).find_bone("mTail1")
-		if tail >= 0:
-			return (hair as Skeleton3D).global_transform * (hair as Skeleton3D).get_bone_global_pose(tail).origin
-	var body: Variant = pony.get("skeleton")
-	if body is Skeleton3D:
-		var hips := (body as Skeleton3D).find_bone("pony_hips")
-		if hips >= 0:
-			return (body as Skeleton3D).global_transform * (body as Skeleton3D).get_bone_global_pose(hips).origin \
-				+ pony.global_basis.z.normalized() * 0.18 + Vector3.UP * 0.05
-	return pony.global_position + Vector3.UP * 0.7
 
 func _queue_climax_reaction() -> void:
 	if not is_instance_valid(main) or not _act_lines_enabled():
@@ -5059,7 +4715,7 @@ func _on_stay_close(caressed: bool, reward: bool) -> void:
 		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
 			ACT_HISTORY.save()
 	_set_face(0.9, AFTERGLOW_CLOSE_LIDS)
-	_climax_hearts_burst()
+	_reactions.hearts_burst()
 	cue = ""
 
 func close_hint() -> String:
@@ -6407,7 +6063,7 @@ func _stop_breath() -> void:
 func _play_climax() -> void:
 	_sounds_controller().play_climax(_snout())
 	if is_instance_valid(_act_audio):
-		_act_audio.play_climax_wet(_dock_point())
+		_act_audio.play_climax_wet(_reactions.dock_point())
 		_act_audio.play_climax_voice(_snout())
 
 func _breath_tick(delta: float) -> void:
@@ -6426,7 +6082,7 @@ func _thrusts_per_second() -> float:
 func _bed_audio_point() -> Vector3:
 	if is_instance_valid(bed):
 		return bed.global_position + Vector3.UP * 0.35
-	return _rump_point()
+	return _reactions.rump_point()
 
 func _snout() -> Vector3:
 	var boop: Variant = pony.get("boop_node")

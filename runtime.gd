@@ -2,6 +2,7 @@ extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/session.gd")
+const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
@@ -80,7 +81,6 @@ const RECEPTIVE_BOOST := 1.25
 ## Readiness text clears after this long without an inward thrust.
 const STROKE_MEMORY_S := 1.2
 const CLIMAX_SECONDS := 5.0
-const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 ## A normal bed missionary end puts Anon back in the bed's rest and invites her into its guest
@@ -116,20 +116,8 @@ const STANDING_GAPS := {
 	"canon": 0.25,
 	"hoers": 0.55,
 }
-## Camera thrust amplitudes at full slider and full speed. The camera follows the filtered
-## thrust speed, never an impulse: surge moves forward, bob dips toward the bed.
-const CAM_SURGE_M := 0.06
-const CAM_BOB_M := 0.02
-## Depth speed (depth/second) that reaches full camera travel.
-const CAM_SPEED_REF := 4.0
-## Low-pass on the raw depth speed, seconds.
-## One critically damped camera response for surge and bob, seconds.
-const CAM_RESPONSE_S := 0.12
-## Outward strokes move the camera this fraction of the inward travel.
-const CAM_BACK_RATIO := 0.5
-## Climax camera amplitudes at full sliders. The sine keeps the same smooth envelope.
-const CAM_CLIMAX_BOB_M := 0.008
-const CAM_CLIMAX_SURGE_M := 0.02
+## Camera thrust amplitudes, the speed reference and the damping constants live in
+## `act_camera.gd`; the runtime only supplies the state-driven targets.
 ## Hip phase low-pass on mouse depth. Depth is the input; this only removes single-frame
 ## mouse steps, it is not a speed attack.
 ## Standing F kiss: hold F at a full side lean (the shoulder reach) to use the same base kiss.
@@ -143,18 +131,11 @@ const CAM_CLIMAX_SURGE_M := 0.02
 ## Hold-mode breathing amplitude in lean units, reduced 33% from the first pass
 ## (forward 0.015, side 0.0125).
 ## Q/E fire their pose reaction when the smoothed side lean crosses these values.
-## Displayed-lean smoothing. Always on.
-const CAMERA_INERTIA_SMOOTH := 5.0
 ## Canon is small enough that the standing shot needs a lower eye line.
 ## JRHNBR is tall enough that the standing shot needs a higher eye line.
-## Anon's spine length, used to turn the standing torso angle into head/camera travel.
-const ANON_TORSO_LEN_M := 0.65
 ## Standing Anon thrust: mouse depth (only lightly smoothed) moves the hip. This is position, not
 ## speed; the camera's speed-driven thrust is separate.
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
-## Standing after the climax: Anon eases back before the act restores.
-const AFTERGLOW_BACK_SPEED := 0.16
-const RESTORE_BACK_SPEED := 0.6
 ## Standing after the climax: held afterglow; Anon stays put.
 ## The Y hint's `End` shade: one step per climax, capped below full so only the earned
 ## afterglow caress turns it fully pink.
@@ -224,10 +205,118 @@ var _pose: Variant:
 var _bed_pose_frame: Variant:
 	get:
 		return _pose_session.bed_frame
-## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
-var _free_look_yaw := 0.0
-var _free_look_pitch := 0.0
-var _free_look_was := false
+## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
+## standing eye override and the captured player look. See `act_camera.gd` and `ROTATION.md`.
+## The fields below are read views over it: the two pose cameras, the hands/kiss controllers, the
+## test suites and `_sync_act_facts()` still read them by name.
+var _act_camera: RefCounted = ACT_CAMERA.new()
+var _camera_owned: bool:
+	get:
+		return _act_camera.camera_owned
+	set(value):
+		_act_camera.camera_owned = value
+var _look_captured: bool:
+	get:
+		return _act_camera.look_captured
+	set(value):
+		_act_camera.look_captured = value
+## Standing leaves Anon facing where the act left him; only missionary snaps the pre-act
+## yaw/pitch back.
+var _look_restore_yaw: bool:
+	get:
+		return _act_camera.look_restore_yaw
+	set(value):
+		_act_camera.look_restore_yaw = value
+var _camera: Camera3D:
+	get:
+		return _act_camera.camera
+	set(value):
+		_act_camera.camera = value
+var _free_camera_active: bool:
+	get:
+		return _act_camera.free_camera_active
+	set(value):
+		_act_camera.free_camera_active = value
+var _camera_basis_ready: bool:
+	get:
+		return _act_camera.camera_basis_ready
+	set(value):
+		_act_camera.camera_basis_ready = value
+var _lean_forward: float:
+	get:
+		return _act_camera.lean_forward
+	set(value):
+		_act_camera.lean_forward = value
+var _lean_side: float:
+	get:
+		return _act_camera.lean_side
+	set(value):
+		_act_camera.lean_side = value
+var _lean_view_forward: float:
+	get:
+		return _act_camera.lean_view_forward
+	set(value):
+		_act_camera.lean_view_forward = value
+var _lean_view_side: float:
+	get:
+		return _act_camera.lean_view_side
+	set(value):
+		_act_camera.lean_view_side = value
+var _lean_sway: float:
+	get:
+		return _act_camera.lean_sway
+	set(value):
+		_act_camera.lean_sway = value
+var _lean_action_active: bool:
+	get:
+		return _act_camera.lean_action_active
+	set(value):
+		_act_camera.lean_action_active = value
+var _lean_action_side: float:
+	get:
+		return _act_camera.lean_action_side
+	set(value):
+		_act_camera.lean_action_side = value
+var _lean_action_kind: String:
+	get:
+		return _act_camera.lean_action_kind
+	set(value):
+		_act_camera.lean_action_kind = value
+var _bob: float:
+	get:
+		return _act_camera.bob
+	set(value):
+		_act_camera.bob = value
+var _lean: float:
+	get:
+		return _act_camera.lean
+	set(value):
+		_act_camera.lean = value
+var _eye_override: bool:
+	get:
+		return _act_camera.eye_override
+	set(value):
+		_act_camera.eye_override = value
+var _saved_stand_eye: float:
+	get:
+		return _act_camera.saved_stand_eye
+	set(value):
+		_act_camera.saved_stand_eye = value
+var _saved_eye_height: float:
+	get:
+		return _act_camera.saved_eye_height
+	set(value):
+		_act_camera.saved_eye_height = value
+var _camera_target_eye: float:
+	get:
+		return _act_camera.camera_target_eye
+	set(value):
+		_act_camera.camera_target_eye = value
+var _camera_surge: float:
+	get:
+		return _act_camera.camera_surge
+	set(value):
+		_act_camera.camera_surge = value
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
 var _anatomy_act: Node
@@ -302,12 +391,8 @@ var _locked_player := false
 var _face_turn_rate_saved := -1.0
 var _face_turn_rate_owned := false
 ## Act-session ownership: each flag marks external state this act took and must give back.
-## `_end_session()` checks them, so a start that failed early restores only what it took.
-var _camera_owned := false
-var _look_captured := false
-## Standing leaves Anon facing where the act left him; only missionary snaps the pre-act
-## yaw/pitch back.
-var _look_restore_yaw := true
+## `_end_session()` checks them, so a start that failed early restores only what it took. The
+## camera flags are read views over `_act_camera`.
 var _posture_owned := false
 var _session_finalized := false
 var _y_hold := 0.0
@@ -342,8 +427,6 @@ var _auto_default_shape := "cosine"
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
-var _camera_surge := 0.0
-var _camera_bob := 0.0
 var _last_intensity: String:
 	get:
 		return _readiness.last_intensity
@@ -535,29 +618,11 @@ var _serial := 0
 var _event_id := ""
 var _started_at := 0.0
 
-var _camera: Camera3D
-var _free_camera_active := false
-var _camera_basis_ready := false
-var _restore_yaw := 0.0
-var _restore_pitch := 0.0
-var _controls_locked_saved := false
-var _controls_locked_by_camera := false
 ## World-space hip sway published by `body_sway.gd`; the standing Anon controller adds it to its
 ## pinned hip so the two bodies rock together.
 var _standing_sway_offset := Vector3.ZERO
-var _lean_forward := 0.0
-var _lean_side := 0.0
-var _lean_view_forward := 0.0
-var _lean_view_side := 0.0
-## Idle breathing, added on top of the displayed lean by the shot (never folded into it).
-var _lean_sway := 0.0
-## One-shot per act: the lean input was blocked, and why.
-var _lean_block_logged := false
-var _side_return_armed := false
-var _hold_rock_clock := 0.0
-var _lean_action_active := false
-var _lean_action_side := 0.0
-var _lean_action_kind := ""
+## The forced over-the-shoulder glance of a standing reach; the camera facade writes it back
+## through the typed act view.
 var _forced_glance := ""
 var _presentation_cfg: Dictionary = {}
 var _voice_info: Dictionary = {}
@@ -568,18 +633,6 @@ var _inventory_hud_hidden := false
 var _inventory_hud_saved := false
 var _inventory_hotbar_visible := true
 var _inventory_hud_layer_visible := true
-var _bob := 0.0
-var _bob_velocity := 0.0
-var _lean := 0.0
-var _lean_velocity := 0.0
-var _back := 0.0
-var _back_target := 0.0
-var _look_yaw := 0.0
-var _look_pitch := 0.0
-var _eye_override := false
-var _saved_stand_eye := 0.0
-var _saved_eye_height := 0.0
-var _camera_target_eye := 0.0
 ## Footstool state for the standing act. See docs/stool.md.
 var _stool_active := false
 var _stool_lifted := false
@@ -836,29 +889,30 @@ func _sync_act_facts() -> void:
 	facts.oral_active = anatomy_oral_active()
 	facts.anal_active = is_instance_valid(_anatomy_act) and bool(_anatomy_act.get("_anal"))
 	facts.penetration_reach = penetration_reach()
-	facts.size_name = _size_name()
-	facts.size_scale = _size_scale()
-	facts.lean_size_scale = _lean_size_scale()
-	facts.standing_lean_scale = _standing_lean_scale()
-	facts.player_eye_height = _player_eye_height()
-	facts.anon_torso_forward = _anon_torso_forward()
-	facts.anon_torso_drop = _anon_torso_drop()
+	var cam: RefCounted = _camera_service()
+	facts.size_name = cam.call("size_name")
+	facts.size_scale = cam.call("size_scale")
+	facts.lean_size_scale = cam.call("lean_size_scale")
+	facts.standing_lean_scale = cam.call("standing_lean_scale")
+	facts.player_eye_height = cam.call("player_eye_height")
+	facts.anon_torso_forward = cam.call("anon_torso_forward")
+	facts.anon_torso_drop = cam.call("anon_torso_drop")
 	facts.player_pony = _player_pony
 	facts.headset_view = _headset_view()
-	facts.free_camera_active = _free_camera_active
-	facts.free_look_active = free_look_active()
-	facts.camera_owned = _camera_owned
-	facts.look_captured = _look_captured
-	facts.look_yaw = _look_yaw
-	facts.look_pitch = _look_pitch
-	facts.lean_forward = _lean_forward
-	facts.lean_side = _lean_side
-	facts.lean_view_forward = _lean_view_forward
-	facts.lean_view_side = _lean_view_side
-	facts.lean_sway = _lean_sway
-	facts.bob = _bob
-	facts.back = _back
-	facts.back_target = _back_target
+	facts.free_camera_active = cam.free_camera_active
+	facts.free_look_active = cam.call("free_look_active")
+	facts.camera_owned = cam.camera_owned
+	facts.look_captured = cam.look_captured
+	facts.look_yaw = cam.look_yaw
+	facts.look_pitch = cam.look_pitch
+	facts.lean_forward = cam.lean_forward
+	facts.lean_side = cam.lean_side
+	facts.lean_view_forward = cam.lean_view_forward
+	facts.lean_view_side = cam.lean_view_side
+	facts.lean_sway = cam.lean_sway
+	facts.bob = cam.bob
+	facts.back = cam.back
+	facts.back_target = cam.back_target
 	facts.forced_glance = _forced_glance
 	facts.pose_config = _pose_cfg
 	facts.presentation_config = _presentation_cfg
@@ -874,11 +928,11 @@ func _sync_act_facts() -> void:
 		facts.kiss_side = 0.0
 
 
-## Typed write-backs for the presentation controllers. The runtime keeps ownership of the captured
-## look snapshot and the forced glance, so the controller never writes those fields directly.
+## Typed write-backs for the presentation controllers. The runtime keeps ownership of the forced
+## glance; the captured look snapshot is the camera facade's.
 func _act_set_look(yaw: float, pitch: float) -> void:
-	_look_yaw = yaw
-	_look_pitch = pitch
+	_act_camera.look_yaw = yaw
+	_act_camera.look_pitch = pitch
 	_act_facts.look_yaw = yaw
 	_act_facts.look_pitch = pitch
 
@@ -1050,6 +1104,20 @@ func _pose_service() -> RefCounted:
 	return _pose_session
 
 
+## The act camera session, bound to this runtime's typed act view and controllers. Suites build a
+## runtime without entering the tree, so the binding is refreshed on every access and the live
+## values it reads are written here rather than waiting for the next facts sync.
+func _camera_service() -> RefCounted:
+	_act_facts.main = main
+	_act_facts.pony = pony
+	_act_facts.state = state
+	_act_facts.pose_id = pose_id
+	_act_facts.player_pony = _player_pony
+	_act_camera.bind(_act_facts, _hand_controller(), _kiss_controller(),
+		_standing_camera_controller(), _missionary_camera_controller())
+	return _act_camera
+
+
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
 ## fields, so `_reset_thrust_state()` only has to reset the act's timing state.
 func _configure_utterance_scheduler() -> void:
@@ -1083,12 +1151,10 @@ func _snapshot_settings() -> void:
 	_reactions.configure({
 		"jiggle": jiggle_block,
 		"pose_id": pose_id,
-		"size_scale": _jiggle_size_scale(),
+		"size_scale": _camera_service().call("jiggle_size_scale"),
 		"climax_seconds": CLIMAX_SECONDS,
 	})
-	var camera_block := SETTINGS.block("camera_thrust.")
-	_camera_surge = float(camera_block.get("surge", 1.0))
-	_camera_bob = float(camera_block.get("bob", 0.35))
+	_camera_service().call("configure", SETTINGS.block("camera_thrust."))
 	var cue_block := SETTINGS.block("cues.")
 	_cue_override_seconds = float(cue_block.get("override_seconds", 10.0))
 	_cue_base_stable_s = float(cue_block.get("base_stable_seconds", 2.0))
@@ -1327,33 +1393,11 @@ func _process_tick(delta: float) -> void:
 				_pose.look_point = view.global_position
 		_pose.kiss = kiss.amount() if custom_kiss else 0.0
 		_pose.climaxing = state == State.CLIMAX
-	var surge_target := 0.0
-	var bob_target := 0.0
-	if state == State.ACTIVE:
-		var norm := clampf(_standing_camera_controller().speed() / CAM_SPEED_REF, -1.0, 1.0)
-		surge_target = norm * CAM_SURGE_M * _camera_surge \
-			* (CAM_BACK_RATIO if norm < 0.0 else 1.0)
-		bob_target = -norm * CAM_BOB_M * _camera_bob
-	elif state == State.CLIMAX:
+	if state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
-		var wave := sin(_climax_progress * PI * 2.0 * float(CLIMAX_BOBS))
-		surge_target = wave * CAM_CLIMAX_SURGE_M * _camera_surge
-		bob_target = -wave * CAM_CLIMAX_BOB_M * _camera_bob
-	_camera_thrust_tick(delta, surge_target, bob_target)
-	var back_speed := AFTERGLOW_BACK_SPEED if state == State.AFTERGLOW else RESTORE_BACK_SPEED
-	_back = move_toward(_back, _back_target, back_speed * delta)
+	_camera_service().call("tick_shot", delta, state,
+		_standing_camera_controller().speed(), _climax_progress)
 	_breath_tick(delta)
-
-## One critically damped response for both camera channels. The targets are velocity-driven
-## metres, so the camera eases through the stroke instead of being kicked at its close.
-func _camera_thrust_tick(delta: float, surge_target: float, bob_target: float) -> void:
-	var omega := 1.0 / maxf(CAM_RESPONSE_S, 0.001)
-	var surge_accel := omega * omega * (surge_target - _lean) - 2.0 * omega * _lean_velocity
-	_lean_velocity += surge_accel * delta
-	_lean += _lean_velocity * delta
-	var bob_accel := omega * omega * (bob_target - _bob) - 2.0 * omega * _bob_velocity
-	_bob_velocity += bob_accel * delta
-	_bob += _bob_velocity * delta
 
 ## Mouse input. Vertical motion thrusts; the act camera intentionally ignores it for look.
 ## Auto thrust owns the stroke, so the mouse does nothing there: depth is set from the hold-X layer.
@@ -1366,11 +1410,7 @@ func _input(event: InputEvent) -> void:
 	# Debug free look: the mouse looks around instead of driving depth. The act owns
 	# `controls_locked`, so the stock player look is dead and this has to drive it.
 	if free_look_active():
-		var sensitivity := _mouse_sensitivity()
-		_free_look_yaw = wrapf(_free_look_yaw - motion.relative.x * sensitivity, -PI, PI)
-		var sign := -1.0 if _invert_y() else 1.0
-		_free_look_pitch = clampf(_free_look_pitch - motion.relative.y * sensitivity * sign,
-			-1.5, 1.5)
+		_camera_service().call("look_input", motion.relative)
 		get_viewport().set_input_as_handled()
 		return
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -1381,17 +1421,6 @@ func _input(event: InputEvent) -> void:
 				thrust_up)
 			_set_penetration(penetration_m + travel, _now_s())
 		get_viewport().set_input_as_handled()
-
-func _mouse_sensitivity() -> float:
-	var body: Variant = main.player if is_instance_valid(main) else null
-	var value: Variant = body.get("mouse_sensitivity") if body != null else null
-	return float(value) if value != null else 0.0022
-
-
-func _invert_y() -> bool:
-	var body: Variant = main.player if is_instance_valid(main) else null
-	var value: Variant = body.get("invert_y") if body != null else null
-	return bool(value) if value != null else false
 
 
 func _headset_view() -> bool:
@@ -1457,11 +1486,7 @@ func _physics_tick(delta: float) -> void:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 	_keep_nav()
-	if free_look_active() != _free_look_was:
-		_free_look_was = free_look_active()
-		_free_look_yaw = 0.0
-		_free_look_pitch = 0.0
-		_log("free look %s" % ("on" if _free_look_was else "off"))
+	_camera_service().call("tick_free_look")
 	_keep_act_attention()
 	_pause_face_turn()
 	_hold_y_tick(delta)
@@ -2411,9 +2436,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 				_log("start blocked stool pose=%s pony=%s need=%d" % [
 					pose, str(pony.name) if is_instance_valid(pony) else "?", stool_need])
 				return false
-	_camera_owned = false
-	_look_captured = false
-	_look_restore_yaw = pose != CATALOG.STANDING
+	_camera_service().call("begin_session", pose)
 	_posture_owned = false
 	_session_finalized = false
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
@@ -2442,17 +2465,11 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		bed = null
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	_bob = 0.0
-	_bob_velocity = 0.0
-	_lean = 0.0
-	_lean_velocity = 0.0
-	_back = 0.0
-	_back_target = 0.0
 	_apply_eye_override()
 	_wings_controller().reset()
 	_act_seconds = 0.0
 	_reactions.begin_act()
-	_reset_lean_state()
+	_camera_service().call("reset_lean_state")
 	_clear_face()
 	_set_face(0.45, ACT_LIDS)
 	_serial = _next_serial()
@@ -2531,10 +2548,10 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_reactions.clear_stock_marks()
 	if pose == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
-	_reset_lean_state()
+	_camera_service().call("reset_lean_state")
 	if pose == CATALOG.MISSIONARY:
 		_missionary_camera_controller().prepare()
-	_capture_look()
+	_camera_service().call("capture_look")
 	_lock_player()
 	_pause_face_turn()
 	_begin_camera_mode()
@@ -3043,12 +3060,13 @@ func authored_pose_asset() -> Variant:
 ## feeding thrust while it is on and drives this look instead, because the act holds
 ## `controls_locked` (the stock mouse look is dead during an act).
 func free_look_active() -> bool:
-	return state != State.IDLE and SETTINGS.free_look.get_bool()
+	return bool(_camera_service().call("free_look_active"))
 
 
 ## Accumulated free-look rotation as (pitch, yaw), radians, from the act's starting view.
 func free_look_rotation() -> Vector3:
-	return Vector3(_free_look_pitch, _free_look_yaw, 0.0)
+	var rotation: Variant = _camera_service().call("free_look_rotation")
+	return rotation if rotation is Vector3 else Vector3.ZERO
 
 
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
@@ -4513,7 +4531,7 @@ func _restore_begin() -> void:
 		_pose.target_amount = 0.0
 	_pose_service().set_tail_target(0.0)
 	_stop_breath()
-	_back_target = 0.0
+	_camera_service().call("release_back")
 	_standing_camera_controller().reset_facing()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.hide_act()
@@ -4998,89 +5016,44 @@ func _stop(reason: String) -> void:
 
 # --------------------------------------------------------------------------- camera
 
+## The act camera session. See `act_camera.gd` and `ROTATION.md`.
 func _size_name() -> String:
-	if not is_inside_tree():
-		return ""
-	var settings: Node = get_node_or_null("/root/Settings")
-	if settings == null:
-		return ""
-	return str(settings.call("get_value", "ponies/size"))
+	return str(_camera_service().call("size_name"))
+
 
 func _size_scale() -> float:
-	var size := _size_name()
-	match size:
-		"mounting":
-			return 0.80
-		"hoers":
-			return 1.10
-		"canon":
-			return 0.66
-	return _same_height_scale()
+	return float(_camera_service().call("size_scale"))
+
 
 ## Anon's chosen height over the 6 ft rig every offset was tuned on (1.0 at default).
 func _anon_height_scale() -> float:
-	var settings: Node = get_node_or_null("/root/Settings")
-	if settings != null and settings.has_method("anon_height_scale"):
-		return clampf(float(settings.call("anon_height_scale")), 0.6, 1.4)
-	return 1.0
+	return float(_camera_service().call("anon_height_scale"))
+
 
 ## "Same height as Anon" now sizes the pony from Anon's chosen height too. Other presets keep
 ## their authored sizes, so only this preset's camera/gap offsets follow the setting.
 func _same_height_scale() -> float:
-	return _anon_height_scale() if _size_name() == "same height" else 1.0
+	return float(_camera_service().call("same_height_scale"))
+
 
 ## Absolute hand scale for the current body preset, from the per-size caress setting.
 func _palm_scale_factor() -> float:
-	var scales := SETTINGS.block("caress.palm_scale.")
-	return float(scales.get(_size_name(), 1.0))
+	return float(_camera_service().call("palm_scale_factor"))
 
 
+## Standing eye height follows the body preset. The camera facade owns the saved values.
 func _apply_eye_override() -> void:
-	_camera_target_eye = 0.0
-	# Missionary is owned by the game's bed rest/seat camera. Do not fight it with eye-height edits.
-	if pose_id == CATALOG.MISSIONARY or _player_pony:
-		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	var body: Variant = main.player
-	if body.get("_stand_eye") == null or body.get("seat") != null:
-		return
-	var base := _player_eye_height()
-	var target := base * _size_scale()
-	_camera_target_eye = target
-	if absf(target - base) < 0.001:
-		return
-	if not _eye_override:
-		_saved_stand_eye = float(body.get("_stand_eye"))
-		_saved_eye_height = float(body.get("_eye_height"))
-		_eye_override = true
-	body.set("_stand_eye", target)
-	body.set("_eye_height", target)
-	if body.has_method("_set_eye_y"):
-		body.call("_set_eye_y", target)
-	_log("eye override standing base=%.2f target=%.2f" % [base, target])
+	_camera_service().call("apply_eye_override", pose_id, _player_pony)
+
 
 func _restore_eye_override() -> void:
-	if not _eye_override:
-		return
-	_eye_override = false
-	var body: Variant = main.player if is_instance_valid(main) else null
-	if not is_instance_valid(body):
-		return
-	if body.get("_stand_eye") != null:
-		body.set("_stand_eye", _saved_stand_eye)
-	if body.get("_eye_height") != null:
-		body.set("_eye_height", _saved_eye_height)
-	if body.has_method("_set_eye_y"):
-		body.call("_set_eye_y", _saved_stand_eye)
+	_camera_service().call("restore_eye_override")
+
 
 ## Set up the free shot before the first camera frame. AnonPony and headset/VR keep the stock
 ## camera and do not enter this path.
 func _begin_camera_mode() -> void:
-	_free_camera_active = false
-	_camera_owned = true
-	_camera_basis_ready = false
-	_reset_lean_state()
+	_camera_service().call("open_shot")
 	_standing_anon_controller().reset_phase()
 	_missionary_camera_controller().reset_look()
 	# The act shows and poses Anon's body itself (desktop human only; AnonPony and VR have their own).
@@ -5099,223 +5072,90 @@ func _begin_camera_mode() -> void:
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
-	_free_camera_active = true
-	_camera = main.camera()
+	_camera_service().call("begin_free")
 	_sync_act_facts()
 	if pose_id == CATALOG.STANDING and is_instance_valid(_camera):
 		_standing_camera_controller().prepare()
 		_standing_anon_controller().install()
-	_apply_free_camera_lock()
+	_camera_service().call("apply_free_camera_lock")
+
 
 ## Lean/caress remain live through the afterglow in both poses. Missionary keeps its passive
 ## afterglow otherwise: no kiss, reach or close window.
 func _act_actions_allowed() -> bool:
-	return state in [State.ACTIVE, State.CLIMAX] or state == State.AFTERGLOW
+	return bool(_camera_service().call("at_actions_allowed"))
 
-## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and
-## also fire a pose reaction once the smoothed side lean crosses MOTION.LEAN_FIRE.
+
+## Q/E drive the side lean; W/S lean forward/back. The camera facade owns the lean, the pose
+## reaction, the caress hand dispatch and the kiss tick.
 func _lean_tick(delta: float) -> void:
-	_hand_controller().return_tick()
-	if not _act_actions_allowed():
-		_hand_controller().stop_inputs()
-		_end_lean_action()
-		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
-		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
-		_lean_view_forward = _lean_forward
-		_lean_view_side = _lean_side
-		return
-	if not _free_camera_active or _player_pony or _headset_view() or get_tree().paused \
-			or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		if not _lean_block_logged and state in [State.ACTIVE, State.CLIMAX]:
-			_lean_block_logged = true
-			_log("lean blocked: free=%s pony=%s headset=%s paused=%s mouse=%d" % [
-				str(_free_camera_active), str(_player_pony), str(_headset_view()),
-				str(get_tree().paused), Input.mouse_mode])
-		_hand_controller().stop_inputs()
-		_end_lean_action()
-		_lean_forward = move_toward(_lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
-		_lean_side = move_toward(_lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
-		_lean_view_forward = _lean_forward
-		_lean_view_side = _lean_side
-		return
-	if auto_panel_open():
-		# Hold-X auto settings: hold the shot exactly where it is. Do not write `_lean_view_*`
-		# here: the idle sway leaves it ahead of `_lean_forward`, so copying the base value in
-		# snapped the camera by about a sway step. Freezing both values leaves nothing to jump.
-		_side_return_armed = false
-		_end_lean_action()
-		_kiss_controller().lean_kiss_tick()
-		var frozen_caress := Time.get_ticks_usec()
-		_hand_controller().tick(delta)
-		_timed("caress_tick", frozen_caress)
-		if pose_id == CATALOG.STANDING:
-			_standing_camera_controller().apply_lean_look()
-		return
-	var side := 0.0
-	if Input.is_physical_key_pressed(KEY_Q):
-		side -= 1.0
-	if Input.is_physical_key_pressed(KEY_E):
-		side += 1.0
-	var forward := 0.0
-	if Input.is_action_pressed("move_forward"):
-		forward -= 1.0
-	if Input.is_action_pressed("move_back"):
-		forward += 1.0
-	var targets := MOTION.lean_targets(side, forward)
-	if targets.y != 0.0:
-		_side_return_armed = false
-	elif targets.x < 0.0:
-		# Pulling back also recentres the shoulder roll instead of leaving it locked until a
-		# lean to the other side.
-		_side_return_armed = true
-	_lean_forward = MOTION.lean_step(_lean_forward, targets.x, delta)
-	_lean_side = MOTION.lean_step(_lean_side, targets.y, delta, _side_return_armed)
-	if _side_return_armed and is_zero_approx(targets.y) and absf(_lean_side) <= 0.001:
-		_side_return_armed = false
-	var alpha := 1.0 - exp(-CAMERA_INERTIA_SMOOTH * delta)
-	_lean_view_forward = lerpf(_lean_view_forward, _lean_forward, alpha)
-	_lean_view_side = lerpf(_lean_view_side, _lean_side, alpha)
-	# Idle breathing is a true offset on top of the displayed lean. Adding it into
-	# `_lean_view_forward` itself let the smoother amplify it (a forced offset of
-	# HOLD_SWAY_FORWARD / (1 - exp(-CAMERA_INERTIA_SMOOTH * delta)), about twelve times the
-	# intended amount) so the shot crept when nobody was leaning.
-	_lean_sway = 0.0
-	_lean_block_logged = false
-	if _feature("idle_camera_sway"):
-		_hold_rock_clock += delta
-		_lean_sway = sin(_hold_rock_clock * 0.80) * MOTION.HOLD_SWAY_FORWARD
-	_lean_action_tick()
-	# Missionary afterglow keeps lean and caress live but not the kiss; standing afterglow keeps
-	# its kiss. `_afterglow_begin()` releases a missionary kiss when the state changes.
-	if pose_id == CATALOG.STANDING or state != State.AFTERGLOW:
-		_kiss_controller().lean_kiss_tick()
-	var caress_started := Time.get_ticks_usec()
-	_hand_controller().tick(delta)
-	_timed("caress_tick", caress_started)
-	if pose_id == CATALOG.STANDING:
-		_standing_camera_controller().apply_lean_look()
+	_camera_service().call("tick_lean", delta, get_tree().paused, auto_panel_open())
+
 
 ## The shot's forward lean: the displayed lean plus the idle-breathing offset, applied once.
 func shot_lean_forward() -> float:
-	return clampf(_lean_view_forward + _lean_sway, -1.0, 1.0)
+	return float(_camera_service().call("shot_lean_forward"))
 
 
 func _lean_size_scale() -> float:
-	return MOTION.lean_size_scale_for(_size_scale())
+	return float(_camera_service().call("lean_size_scale"))
+
 
 ## Canon needs a little less travel in the standing pose than the other presets.
 func _standing_lean_scale() -> float:
-	var scale := _lean_size_scale()
-	if _size_name() == "canon":
-		scale *= 0.8
-	return scale
+	return float(_camera_service().call("standing_lean_scale"))
+
 
 ## Standing torso angle: hinge Anon's upper body forward over her by moving the head/camera
-## forward and down by the spine arc, then countering the hip in `apply_anon_lean`.
-func _anon_torso_angle() -> float:
-	return deg_to_rad(float(_presentation_cfg.get("torso_angle_deg", 0.0)))
-
+## forward and down by the spine arc, then countering the hip in `standing_anon.gd`.
 func _anon_torso_forward() -> float:
-	return ANON_TORSO_LEN_M * sin(_anon_torso_angle())
+	return float(_camera_service().call("anon_torso_forward"))
+
 
 func _anon_torso_drop() -> float:
-	return ANON_TORSO_LEN_M * (1.0 - cos(_anon_torso_angle()))
+	return float(_camera_service().call("anon_torso_drop"))
+
 
 func _jiggle_size_scale() -> float:
-	return clampf(_size_scale(), 0.5, 1.2)
+	return float(_camera_service().call("jiggle_size_scale"))
+
 
 func smack() -> void:
 	_hand_controller().smack()
 
-func _lean_action_tick() -> void:
-	if not _act_actions_allowed():
-		_end_lean_action()
-		return
-	var side := _lean_side
-	if not _lean_action_active:
-		if absf(side) >= MOTION.LEAN_FIRE:
-			_start_lean_action(side)
-		return
-	if absf(side) <= MOTION.LEAN_RELEASE or signf(side) != signf(_lean_action_side):
-		_end_lean_action()
-		if absf(side) >= MOTION.LEAN_FIRE:
-			_start_lean_action(side)
-		return
 
-func _start_lean_action(side: float) -> void:
-	_lean_action_active = true
-	_lean_action_side = side
-	_lean_action_kind = MOTION.lean_action_kind(pose_id, side)
-	var shoulder := ""
-	if _lean_action_kind == "reach":
-		shoulder = "L" if side < 0.0 else "R"
-		_forced_glance = shoulder
-		_standing_camera_controller().hold_glance()
-		_hand_controller().start_reach(shoulder)
-	_log("action fire pose=%s side=%.2f kind=%s shoulder=%s" % [
-		pose_id, side, _lean_action_kind, shoulder])
+func _lean_action_tick() -> void:
+	_camera_service().call("tick_lean_action")
+
 
 func _end_lean_action() -> void:
-	if _lean_action_kind == "reach":
-		_hand_controller().end_reach()
-		_forced_glance = ""
-		_standing_camera_controller().clear_glance()
-	_lean_action_active = false
-	_lean_action_side = 0.0
-	_lean_action_kind = ""
+	_camera_service().call("end_lean_action")
+
 
 func _reset_lean_state() -> void:
-	_end_lean_action()
-	_hand_controller().reset()
-	_kiss_controller().reset()
-	_lean_forward = 0.0
-	_lean_side = 0.0
-	_lean_view_forward = 0.0
-	_lean_view_side = 0.0
-	_lean_sway = 0.0
-	_side_return_armed = false
-	_hold_rock_clock = 0.0
+	_camera_service().call("reset_lean_state")
+
 
 func _play_mouth_kiss() -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.play_mouth_kiss(_snout())
 
+
 ## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
 ## start couch actions while the shot is active. The previous value is restored at act end.
 func _apply_free_camera_lock() -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	var body: Variant = main.player
-	if not _controls_locked_by_camera:
-		_controls_locked_saved = bool(body.get("controls_locked"))
-		_controls_locked_by_camera = true
-	body.set("controls_locked", true)
+	_camera_service().call("apply_free_camera_lock")
+
 
 func _release_free_camera_lock() -> void:
-	if not _controls_locked_by_camera:
-		return
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		main.player.set("controls_locked", _controls_locked_saved)
-	_controls_locked_by_camera = false
-	_controls_locked_saved = false
+	_camera_service().call("release_free_camera_lock")
+
 
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
 func _neck_midpoint() -> Vector3:
-	if not is_instance_valid(pony):
-		return Vector3.INF
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
-		return Vector3.INF
-	var skeleton := sk as Skeleton3D
-	var first := skeleton.find_bone("pony_neck1")
-	var second := skeleton.find_bone("pony_neck2")
-	if first >= 0 and second >= 0:
-		var a := skeleton.global_transform * skeleton.get_bone_global_pose(first).origin
-		var b := skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
-		return (a + b) * 0.5
-	if second >= 0:
-		return skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
-	return Vector3.INF
+	var point: Variant = _camera_service().call("neck_midpoint")
+	return point if point is Vector3 else Vector3.INF
+
 
 ## Which missionary base is in charge and why, from the pose session.
 func pose_base_info() -> Dictionary:
@@ -5436,102 +5276,60 @@ func _body_scale_value() -> float:
 	return float(value) if value != null else 1.0
 
 
+## Dispatch the act shot through the camera facade. The facts are refreshed first so the shot
+## reads this frame's lean and look.
 func apply_camera_motion() -> void:
-	if state == State.IDLE or not _free_camera_active:
-		return
-	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
-		return
-	if not is_instance_valid(_camera):
-		_camera = main.camera() if is_instance_valid(main) else null
-	if not is_instance_valid(_camera):
+	if not bool(_camera_service().call("motion_ready")):
 		return
 	_sync_act_facts()
-	if pose_id == CATALOG.MISSIONARY:
-		_missionary_camera_controller().tick()
-		return
-	# Debug free look: the stock player camera is the view, so the act camera leaves it alone.
-	if free_look_active():
-		return
-	_standing_camera_controller().tick()
+	_camera_service().call("apply_motion")
+
 
 ## Shared desktop hand driver for the caress and the standing body wrapper.
 func _desktop_pose_driver() -> Node:
 	return _standing_anon_controller().driver()
 
+
 func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
 	_standing_anon_controller().apply_anon_thrust(hip, facing)
+
 
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	_standing_anon_controller().apply_anon_lean(hip, facing)
 
+
 func _player_eye_height() -> float:
-	var body: Variant = main.player if is_instance_valid(main) else null
-	if is_instance_valid(body) and body.has_method("eye_height"):
-		return float(body.call("eye_height"))
-	if is_instance_valid(body) and body.get("_stand_eye") != null:
-		return float(body.get("_stand_eye"))
-	return 1.6
+	return float(_camera_service().call("player_eye_height"))
+
 
 func _capture_look() -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	_restore_yaw = float(main.player.rotation.y)
-	var pitch: Variant = main.player.get("_pitch")
-	_restore_pitch = float(pitch) if pitch != null else 0.0
-	_look_yaw = _restore_yaw
-	_look_pitch = _restore_pitch
-	_look_captured = true
+	_camera_service().call("capture_look")
+
 
 ## Restore the player's yaw/pitch captured at act start. Missionary restores exactly; standing
 ## leaves Anon facing where the act left him, because snapping the pre-act view back looks worse.
 ## The lean/caress/kiss state is reset either way.
 func _restore_look() -> void:
-	if not _look_captured:
-		return
-	_look_captured = false
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	var yaw := _restore_yaw
-	if _look_restore_yaw:
-		# Missionary restores the exact start snapshot; use its rig yaw rather than the later
-		# capture.
-		if pose_id == CATALOG.MISSIONARY:
-			var saved_yaw: float = _missionary_camera_controller().snapshot_yaw()
-			if not is_nan(saved_yaw):
-				yaw = saved_yaw
-		main.player.rotation.y = yaw
-		if main.player.get("_pitch") != null:
-			main.player.set("_pitch", _restore_pitch)
-		if main.player.get("form_driver") == null:
-			var view: Camera3D = main.camera()
-			if is_instance_valid(view):
-				view.rotation.x = _restore_pitch
-				view.rotation.z = 0.0
-	_reset_lean_state()
-	_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f restore=%s" % [
-		yaw, _restore_yaw, _restore_pitch, str(_look_restore_yaw)])
+	_camera_service().call("restore_look", pose_id)
 
+
+## Give the camera back in the order the shot was built. The facade owns the leaves; the runtime
+## keeps the ordered ledger and the cross-system releases.
 func _restore_camera() -> void:
 	if not _camera_owned:
 		return
 	_camera_owned = false
-	_end_lean_action()
+	_camera_service().call("end_lean_action")
 	_hand_controller().reset()
-	_release_free_camera_lock()
+	_camera_service().call("release_free_camera_lock")
 	_standing_anon_controller().remove()
-	_restore_eye_override()
+	_camera_service().call("restore_eye_override")
 	_missionary_camera_controller().release()
 	_sync_act_facts()
 	_standing_camera_controller().restore()
-	_bob = 0.0
-	_bob_velocity = 0.0
-	_lean = 0.0
-	_lean_velocity = 0.0
+	_camera_service().call("close_shot")
 	_standing_anon_controller().reset_phase()
-	_back = 0.0
-	_back_target = 0.0
-	_camera_basis_ready = false
-	_camera = null
+
 
 # --------------------------------------------------------------------------- audio
 

@@ -103,7 +103,7 @@ stored state.
 | Act memory | `memory.gd` | `docs/memory.md` | migrated |
 | Act lines | `act_lines.gd` | `docs/lines.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
-| Poses and cameras | `poses/session.gd` | `ROTATION.md` | pose session migrated; camera in runtime |
+| Poses and cameras | `poses/session.gd`, `act_camera.gd` | `ROTATION.md` | migrated; runtime owns the tick order and shot targets |
 | Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
 | Act summary and history | `history.gd` | `HISTORY.md` | migrated |
 | Afterglow and close window | `afterglow.gd` | `docs/afterglow.md` | migrated |
@@ -112,9 +112,9 @@ stored state.
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
-act lines, readiness, history, afterglow, face and reactions, plus the act-context and perf
-modules. The remaining suites are still flat (`tests/test_*.gd`) and move when their system is
-next touched.
+act lines, readiness, history, afterglow, face, reactions, poses and the act camera, plus the
+act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
+when their system is next touched.
 
 ### Docs
 
@@ -345,6 +345,9 @@ mods/unfplap/
   hand_control.gd  act hand controller: caress, reach and smack; details in docs/hands.md
   hands/            placement engine, paths, marked area data, anchors, contact, palm, reach, scale and smack; docs/hands.md
   kiss_control.gd   missionary/standing kiss, base AffectionPose bridge and foreleg pin
+  act_camera.gd     act camera session: lean and smoothing, shot response, free look,
+                    free-camera lock, eye override, captured look and the size helpers;
+                    contract in `ROTATION.md`
   missionary_camera.gd  authored shot blend, live aim, free look, avatar hiding and start snapshot
   standing_camera.gd  standing look, glance, facing lock and camera offsets
   standing_anon.gd  standing hip thrust wrapper, planted lower body and palm scale
@@ -621,6 +624,9 @@ The reference seat, dock skin, per-mare placement and debug actions are in `docs
 
 ### Modes and lean
 
+- `act_camera.gd` owns the lean, the shot smoothing, the free look, the free-camera lock, the eye
+  override and the captured player look. The runtime keeps the tick order, the state-driven shot
+  targets and the `_restore_camera()` ledger; the two pose cameras stay the shot implementations.
 - Desktop human Anon always uses the mod-controlled act camera.
 - AnonPony and headset/VR keep the stock camera; they do not receive lean or act actions.
 - Mouse motion does not turn the view; vertical mouse motion still thrusts.
@@ -657,18 +663,18 @@ The reference seat, dock skin, per-mare placement and debug actions are in `docs
   move; the lower body does not. Off restores the game's stepping and lean foot motion; the
   capture clears at act end.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
-  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `_camera_thrust_tick()` follows it with one critically
+  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `act_camera.gd` follows it with one critically
   damped response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel;
   outward strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips
   toward her on the inward stroke and rises on the return.
 - `presentation.standing.torso_angle_deg` (default `5`, experimental/unbounded) hinges Anon's
   upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
   `apply_camera_motion()` moves the head/camera along the spine arc
-  (`ANON_TORSO_LEN_M = 0.65`). It applies live.
+  (`ANON_TORSO_LEN_M = 0.65`, `act_camera.gd`). It applies live.
 - Palm scale is a shared caress setting; see `docs/hands.md`. `hands/scale.gd` runs after the
   pose's hand solve and restores the cached bone scales on every act exit.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
-- The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0`.
+- The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0` (`act_camera.gd`).
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at
   `LEAN_RELEASE = 0.60`. The action is latched while above release.
 - The lean always holds a released position. `_lean_step()` only ramps toward a pressed target;

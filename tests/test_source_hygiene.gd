@@ -83,6 +83,7 @@ func run() -> void:
 	_check_face()
 	_check_reactions()
 	_check_pose_session()
+	_check_act_camera()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -424,6 +425,31 @@ func _check_pose_session() -> void:
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
 			"_attach_body_coat_jiggle_target"]:
 		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)
+
+
+## The act camera owns the lean, the shot smoothing, the free look, the free-camera lock, the eye
+## override and the captured look. Its contract is `ROTATION.md`; its suite is `tests/act_camera/`.
+func _check_act_camera() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("act_camera.gd"))
+	check(facade.contains("func tick_lean(") and facade.contains("func tick_shot("),
+		"act camera facade is present")
+	for token: String in ["extends Node", "FileAccess",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "act camera has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("ROTATION.md"))
+	check(contract.contains("`act_camera.gd`"), "ROTATION names act_camera.gd")
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("`act_camera.gd`"), "AGENTS.md names act_camera.gd")
+	check(FileAccess.file_exists(ROOT.path_join("tests/act_camera/test_camera.gd")),
+		"tests/act_camera/test_camera.gd exists")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("func _camera_service()"), "runtime reaches the camera through the facade")
+	for token: String in ["_lean_block_logged", "_side_return_armed", "_hold_rock_clock",
+			"_free_look_yaw", "_free_look_pitch", "_controls_locked_by_camera", "_look_yaw",
+			"_back_target", "_lean_velocity", "_bob_velocity", "_camera_thrust_tick"]:
+		check(not runtime.contains(token), "runtime has no camera internals: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

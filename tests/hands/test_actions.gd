@@ -4,6 +4,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
+const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const PALM_SCALE := preload("res://mods/unfplap/hands/scale.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
@@ -498,8 +499,8 @@ func run() -> void:
 	check(not KISS.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
 
 	check(near(REACTIONS.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
-	check(near(RUNTIME.CAM_SURGE_M, 0.06), "camera surge amplitude")
-	check(near(RUNTIME.CAM_BOB_M, 0.02), "camera bob amplitude")
+	check(near(ACT_CAMERA.CAM_SURGE_M, 0.06), "camera surge amplitude")
+	check(near(ACT_CAMERA.CAM_BOB_M, 0.02), "camera bob amplitude")
 	check(near(KISS.KISS_LEAN_M, 0.27) and near(KISS.KISS_LEAN_SIDE_M, 0.18)
 		and near(KISS.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
 	check(near(KISS.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")

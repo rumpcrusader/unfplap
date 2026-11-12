@@ -12,6 +12,17 @@ diagnostics. The runtime owns the act state, the start ordering and the one tear
 binds the session and calls the render-time write. `runtime._pose`, `runtime._pose_cfg` and
 `runtime._bed_pose_frame` are read views over the session for presentation modules and tests.
 
+`act_camera.gd` is the act camera session. It owns the lean input and its smoothing, the
+speed-driven surge/bob response and the afterglow back-off, the debug free look, the free-camera
+`controls_locked` lock, the standing eye override, the captured player look and every size/torso
+helper the shot and the hands read. `missionary_camera.gd` and `standing_camera.gd` stay the shot
+implementations; `standing_anon.gd` and `missionary_anon.gd` stay the Anon body wrappers. The
+runtime owns the tick order, the start sequence, the shot targets (stroke speed, climax wave) and
+the one teardown ledger; `_restore_camera()` is that ledger and calls the facade's leaves in the
+built order. The camera fields the presentation modules and the suites still read by name
+(`_lean_forward`, `_lean_view_side`, `_free_camera_active`, `_bob`, `_lean`, `_camera_owned`, …)
+are read views over the facade.
+
 ## Spaces and axes
 
 - Bone writes use `Skeleton3D` skeleton space via `get_bone_global_pose` /

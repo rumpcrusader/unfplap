@@ -49,6 +49,9 @@ class Sink extends RefCounted:
 	func neck_point() -> Vector3:
 		return neck
 
+	func clock_now() -> float:
+		return 7.5
+
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -77,6 +80,12 @@ func run() -> void:
 	check(facts.bed_frame == null, "bed frame starts null")
 	check(facts.main == null and facts.pony == null and facts.camera == null
 		and facts.pose == null, "scene handles start null")
+	check(facts.event_id == "" and facts.pony_id == "", "line ids start empty")
+	check(facts.features.is_empty() and facts.preferences.is_empty(),
+		"feature and preference blocks start empty")
+	check(is_zero_approx(facts.clock()), "the line clock starts at zero")
+	check(not facts.director.is_valid(), "the director callback starts absent")
+	check(not facts.now.is_valid(), "the clock callback starts absent")
 	check(not facts.perf_note.is_valid(), "perf callback starts absent")
 	check(not facts.log.is_valid(), "log callback starts absent")
 	check(not facts.kiss.is_valid(), "kiss callback starts absent")
@@ -102,6 +111,7 @@ func run() -> void:
 	facts.set_camera_basis_ready = Callable(sink, "mark_ready")
 	facts.kiss = Callable(sink, "controller")
 	facts.neck_point = Callable(sink, "neck_point")
+	facts.now = Callable(sink, "clock_now")
 	facts.perf("act_tick", 42)
 	check(sink.perf_calls == 1 and sink.last_chunk == "act_tick" and sink.last_usec == 42,
 		"the perf callback keeps the chunk and microseconds")
@@ -119,6 +129,7 @@ func run() -> void:
 	check(facts.kiss_controller() == "kiss" and sink.kiss_calls == 1,
 		"the kiss callback returns the controller")
 	check(facts.neck_midpoint() == sink.neck, "the neck callback returns the point")
+	check(is_equal_approx(facts.clock(), 7.5), "the clock callback supplies the act clock")
 
 	print("ACT_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

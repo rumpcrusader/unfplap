@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure admission-policy tests for act lines.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_utterance_scheduler.gd
+##     --script res://mods/unfplap/tests/act_lines/test_utterance_scheduler.gd
 
 const SCHED := preload("res://mods/unfplap/utterance_scheduler.gd")
 var failures := 0

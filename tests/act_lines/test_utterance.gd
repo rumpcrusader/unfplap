@@ -1,6 +1,6 @@
 extends SceneTree
 ## Pure prompt-format tests.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_utterance.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_lines/test_utterance.gd
 
 const UTTER := preload("res://mods/unfplap/utterance.gd")
 var failures := 0

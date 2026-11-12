@@ -76,6 +76,7 @@ func run() -> void:
 	_check_memory_isolation(files)
 	_check_memory_docs()
 	_check_act_facts()
+	_check_act_lines()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -257,6 +258,28 @@ func _check_act_facts() -> void:
 	check(camera.contains("var facts: Variant"), "standing camera reads the act context")
 	for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\""]:
 		check(not camera.contains(token), "standing camera has no runtime reach-in: %s" % token)
+
+
+## The act line facade reads the typed act context and the memory facade only. Its contract is
+## `docs/lines.md`, linked from the shared docs.
+func _check_act_lines() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("act_lines.gd"))
+	check(facade.contains("func admit_cue("), "act line facade is present")
+	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(\"",
+			"runtime.call(\"", "runtime.set(\""]:
+		check(not facade.contains(token), "act lines has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/lines.md"))
+	check(not contract.is_empty(), "docs/lines.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Admission",
+			"## Reactions and bystanders", "## Cancelling", "## Tests"]:
+		check(contract.contains(heading), "docs/lines.md has %s" % heading)
+	for name: String in ["AGENTS.md", "docs/memory.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/lines.md"), "%s links to docs/lines.md" % name)
+	for name: String in ["test_act_lines.gd", "test_utterance.gd", "test_utterance_scheduler.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/act_lines/" + name)),
+			"tests/act_lines/%s exists" % name)
 
 
 func _check_eligibility_docs() -> void:

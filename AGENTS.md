@@ -15,6 +15,7 @@ Do not start implementation until you have read the required files for the area 
 | Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
 | Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
 | Any proactive request, privacy, offer-flow or consent-classifier task | `docs/initiation.md` |
+| Any act cue line, reaction or bystander line task | `docs/lines.md` |
 | Any standing footstool or stool-supply task | `docs/stool.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
@@ -98,7 +99,8 @@ stored state.
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
 | Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated |
 | Proactive requests | `initiation.gd` | `docs/initiation.md` | migrated |
-| Act memory and lines | `memory.gd` | `docs/memory.md` | migrated |
+| Act memory | `memory.gd` | `docs/memory.md` | migrated |
+| Act lines | `act_lines.gd` | `docs/lines.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
@@ -118,6 +120,7 @@ still flat (`tests/test_*.gd`) and move when their system is next touched.
 | `docs/anatomy.md` | anatomy, player part and tail seating |
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
 | `docs/memory.md` | act memory, witnesses, peak memory and the mod's own line channel |
+| `docs/lines.md` | act cue admission, prompt assembly, reactions and bystander lines |
 | `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
@@ -324,6 +327,8 @@ mods/unfplap/
   utterance.gd      pure prompt formatting
   utterance_scheduler.gd  pure cue selection and line admission: stability, gaps, demand
                     budget, one slot for cues and reactions
+  act_lines.gd      act line facade: cue admission and prompt assembly, reactions, bystanders and
+                    the recent-line reads; contract in `docs/lines.md`
   relationship_cue.gd pure relationship/tone formatting and peak-memory gate
   act_motion.gd    pure lean travel/step, pose action, glance fade and hip smoothing
   hand_control.gd  act hand controller: caress, reach and smack; details in docs/hands.md
@@ -1334,8 +1339,8 @@ is deliberately blush-free so the 0.35 decal stays light.
 - Cues are event-driven: a touch/talk result, an overwhelmed state, or a ready state.
 - `utterance_scheduler.gd` is the pure admission policy: it owns `mood_for`, `base_cue`, the
   stability clock, `cue_gap` (default `12 s`, clamped `8..30`, per character), the shared
-  utterance gap, the demand budget and the single pending slot. `runtime.gd` builds the prompt and
-  calls the director.
+  utterance gap, the demand budget and the single pending slot. `act_lines.gd` owns the prompt
+  assembly, the line channel and the director calls; its contract is `docs/lines.md`.
 - The **Talk & cues** debug settings push the pacing values into the scheduler: override lifetime
   (`cues.override_seconds`, default `10 s`), base and override stability, shared line gap, demand
   gap/repeat, cue/reaction max age and the release hold. `runtime._snapshot_settings()` and
@@ -1349,8 +1354,8 @@ is deliberately blush-free so the 0.35 decal stays light.
   text, so a flapping preference cannot become a stream of commands. The trend fallback
   `She wants you to keep going.` is not a demand. The same text as the last queued cue is not
   repeated; it can return after a different cue has been queued.
-- The runtime logs the cue text and the admission decision on a change, adds the cue text to
-  `utterance kind=...`, and logs cancel age/line/director state plus delivered/absent rows. Use
+- The act line facade logs the cue text and the admission decision on a change, adds the cue text
+  to `utterance kind=...`, and logs cancel age/line/director state plus delivered/absent rows. Use
   these when a cue seems lost; there is no per-tick cue log.
 - The HUD cue is third-person shorthand (`She wants it firmer.`). The prompt does not use it as the
   line's content: `UTTERANCE.line_seed()` turns the same facts into a private second-person seed

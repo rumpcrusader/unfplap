@@ -18,6 +18,23 @@ var depth := 0.0
 var penetration_m := 0.0
 var penetration_reach := 0.2
 
+# Line and prompt values.
+var event_id := ""
+var pony_id := ""
+var display_name := ""
+var act_seconds := 0.0
+var last_intensity := ""
+var last_pattern := ""
+var last_touch := ""
+var last_talk := ""
+var thrust_pace := 0.0
+var oral_active := false
+var anal_active := false
+var cue_override := false
+var preferences: Dictionary = {}
+var act_prompts: Dictionary = {}
+var features: Dictionary = {}
+
 # Size and camera values.
 var size_name := ""
 var size_scale := 1.0
@@ -70,6 +87,10 @@ var neck_point := Callable()
 var set_look := Callable()
 var set_forced_glance := Callable()
 var set_camera_basis_ready := Callable()
+## The live conversation director, or absent outside a scene.
+var director := Callable()
+## The act's processed-time clock, so line pacing freezes with the tree.
+var now := Callable()
 
 
 func perf(chunk: String, usec: int) -> void:
@@ -113,3 +134,7 @@ func write_forced_glance(side: String) -> void:
 func mark_camera_basis_ready() -> void:
 	if set_camera_basis_ready.is_valid():
 		set_camera_basis_ready.call()
+
+
+func clock() -> float:
+	return float(now.call()) if now.is_valid() else 0.0

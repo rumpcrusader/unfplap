@@ -23,7 +23,6 @@ const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
-const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -44,6 +43,7 @@ const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
+const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
@@ -84,39 +84,6 @@ const TALK_HEAT := 6.0
 const RECEPTIVE_BOOST := 1.25
 ## Readiness text clears after this long without an inward thrust.
 const STROKE_MEMORY_S := 1.2
-## Appended to cue prompts to stop the model turning every cue into a command.
-const CUE_REACTION_NOTE := "\nDo not turn the private moment into a repeated command; say it as your own reaction or preference."
-## integration: line-variety history and angles, ported from the fork.
-const RECENT_LINES := 8
-const ANGLES_REMEMBERED := 7
-const LINE_ANGLES := [
-	"say something about a thing you two talked about earlier.",
-	"tease him.",
-	"tell him exactly what you want next.",
-	"say his name, and little else.",
-	"mention where you are right now.",
-	"tell him something you have never said out loud.",
-	"sound surprised at yourself.",
-	"say something tender, in the middle of all this.",
-	"let him see how much you trust him.",
-	"make a joke, in your usual voice.",
-	"complain playfully about something he is doing.",
-	"bring up how you feel about him lately.",
-	"say something only you would say, true to your personality.",
-]
-const SPEECH_ROUGHNESS := {"soft": 0.1, "firm": 0.5, "rough": 1.0}
-const SPEECH_FULL_PACE := 3.0
-## integration: optional bystander lines.
-const BYSTANDER_FIRST_S := 12.0
-const BYSTANDER_GAP_S := 20.0
-const BYSTANDER_CHANCE := 0.7
-const BYSTANDER_MAX := 3
-const BYSTANDER_PROMPT := "You can see Anon and %s having sex right in front of you, %s Say ONE short line in your own voice, at most 14 words, aloud to them or to yourself. Begin with [happy], [surprised] or [calm]. Ponies have much less shame about this than humans do, so react the way a pony would: amused, teasing, curious, nosy, a little flustered, or mildly put out, but never horrified, panicked or disgusted. Mention where they are doing it if that is what stands out. Do not join in, do not describe anatomy, and do not ask a question that needs an answer."
-const BYSTANDER_OUTDOORS := "out in the open where anypony could walk past."
-const BYSTANDER_INDOORS := "indoors, in a house you are also in."
-var _bystander_event := ""
-var _bystander_spoken: Array[String] = []
-var _bystander_wait := 0.0
 const CLIMAX_SECONDS := 5.0
 const CLIMAX_BOBS := 2
 const POSE_IN_SECONDS := 0.6
@@ -289,11 +256,13 @@ var _anatomy_facts: RefCounted = ANATOMY_FACTS.new()
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
 ## reaching into this node. See `act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
+## The act's line system: scheduler, prompt assembly, reactions and the bystander line.
+var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
+var _act_lines_main: Node
 ## Debug perf probe: timed chunks report here and one summary prints per window. See `perf.gd`.
 var _perf_probe := PERF.new()
 var _missionary_anon: Node
 var _vr_act: Node
-var _used_angles: Array[String] = []
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _pose_in_left := 0.0
@@ -369,11 +338,6 @@ var _last_intensity := ""
 var _last_pattern := ""
 var _stroke_window: Array[Dictionary] = []
 var _last_stroke_at := -1000.0
-var _utterance_serial := 0
-## One `utterance delivered` log per line: the pending key stays until speech stops and the release
-## hold passes, so the delivered state is seen every frame.
-var _utterance_delivered_key := ""
-var _lines
 var _vocal_cooldown := 0.0
 var _overwhelmed := 0.0
 var _cue_override := ""
@@ -385,8 +349,6 @@ var _last_thrust_score_at := -1000.0
 var _receptive_until := 0.0
 var _last_talk_at := -1000.0
 var _last_talk_turn := -1
-var _last_cue_log_text := ""
-var _last_cue_log_reason := ""
 var _cue_gap := 12.0
 var _cue_override_seconds := 10.0
 var _cue_base_stable_s := 2.0
@@ -401,7 +363,6 @@ var _cue_overwhelmed_s := 1.2
 var _touch_cooldown_s := 4.0
 var _talk_cooldown_s := 8.0
 var _receptive_seconds := 8.0
-var _used_memory_ids: Array[String] = []
 var _act_spoken_at := -1e9
 var _peak_satisfaction := 0.0
 var _act_both_matches := 0
@@ -556,6 +517,8 @@ func _init() -> void:
 	_act_facts.set_look = Callable(self, "_act_set_look")
 	_act_facts.set_forced_glance = Callable(self, "_act_set_forced_glance")
 	_act_facts.set_camera_basis_ready = Callable(self, "_act_set_camera_basis_ready")
+	_act_facts.director = Callable(self, "_director")
+	_act_facts.now = Callable(self, "_now_s")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -681,10 +644,25 @@ func _sync_act_facts() -> void:
 	facts.pony = pony
 	facts.camera = _camera
 	facts.pose = _pose
+	facts.event_id = _event_id
+	facts.pony_id = _id
+	facts.display_name = _display_name
+	facts.preferences = _preferences
+	facts.act_prompts = _act_prompts
+	facts.features = _features
 	if state == State.IDLE:
 		# No presentation module reads the derived values outside an act; skipping the settings and
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
 		return
+	facts.act_seconds = _act_seconds
+	facts.last_intensity = _last_intensity
+	facts.last_pattern = _last_pattern
+	facts.last_touch = _last_touch
+	facts.last_talk = _last_talk
+	facts.cue_override = not _cue_override.is_empty()
+	facts.thrust_pace = _thrusts_per_second()
+	facts.oral_active = anatomy_oral_active()
+	facts.anal_active = is_instance_valid(_anatomy_act) and bool(_anatomy_act.get("_anal"))
 	facts.penetration_reach = penetration_reach()
 	facts.size_name = _size_name()
 	facts.size_scale = _size_scale()
@@ -883,23 +861,26 @@ func _act_lines_enabled() -> bool:
 	return bool(_features.get("act_lines", true))
 
 
-func _utterance_scheduler():
-	if _lines == null:
-		_lines = UTTERANCE_SCHEDULER.new()
-	return _lines
+func _lines_service() -> RefCounted:
+	if _act_lines_main != main:
+		_act_lines_main = main
+		_act_lines.setup(main)
+	_act_facts.pony_id = _id
+	return _act_lines
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
 ## fields, so `_reset_thrust_state()` only has to reset the act's timing state.
 func _configure_utterance_scheduler() -> void:
-	var lines = _utterance_scheduler()
-	lines.base_stable_s = _cue_base_stable_s
-	lines.override_stable_s = _cue_override_stable_s
-	lines.utterance_gap_s = _cue_utterance_gap_s
-	lines.demand_gap_s = _cue_demand_gap_s
-	lines.demand_repeat_s = _cue_demand_repeat_s
-	lines.max_age_s = _cue_max_age_s
-	lines.release_hold_s = _cue_release_hold_s
+	_lines_service().configure({
+		"base_stable": _cue_base_stable_s,
+		"override_stable": _cue_override_stable_s,
+		"utterance_gap": _cue_utterance_gap_s,
+		"demand_gap": _cue_demand_gap_s,
+		"demand_repeat": _cue_demand_repeat_s,
+		"max_age": _cue_max_age_s,
+		"release_hold": _cue_release_hold_s,
+	})
 
 
 ## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
@@ -1338,6 +1319,7 @@ func _physics_tick(delta: float) -> void:
 			_talk_tick(delta)
 			_bystander_tick(delta)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
+		_sync_act_facts()
 		_utterance_tick()
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
@@ -3205,24 +3187,18 @@ func _reset_thrust_state() -> void:
 	_close_caress_seconds = 0.0
 	_close_rewarded = false
 	_close_caress_earned = false
-	_utterance_serial = 0
-	_utterance_delivered_key = ""
-	_utterance_scheduler().reset(_now_s(), _cue_gap)
+	_lines_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
 	_overwhelmed = 0.0
 	_cue_override = ""
 	_cue_until = 0.0
-	_last_cue_log_text = ""
-	_last_cue_log_reason = ""
 	_last_touch = ""
 	_last_talk = ""
 	_last_touch_at = -1000.0
 	_last_thrust_score_at = -1000.0
 	_receptive_until = 0.0
 	_last_talk_at = -1000.0
-	_used_memory_ids.clear()
-	_used_angles.clear()
 	_act_spoken_at = -1e9
 	_peak_satisfaction = 0.0
 	_act_both_matches = 0
@@ -3903,7 +3879,6 @@ func _readiness_tick(delta: float) -> void:
 	if satisfaction >= PONY_CLIMAX_AT:
 		_climax()
 		return
-	var lines = _utterance_scheduler()
 	mood = UTTERANCE_SCHEDULER.mood_for(satisfaction, _overwhelmed)
 	if not _cue_override.is_empty() and now < _cue_until:
 		cue = _cue_override
@@ -3911,31 +3886,10 @@ func _readiness_tick(delta: float) -> void:
 		_cue_override = ""
 		cue = UTTERANCE_SCHEDULER.base_cue(_preferences, _overwhelmed, satisfaction,
 			_last_intensity, _last_pattern)
-	lines.observe_cue(now, cue)
-	var demand := UTTERANCE.is_demand(cue)
-	var is_override := not _cue_override.is_empty()
-	var admit := false
-	var reason := ""
-	if not _act_lines_enabled():
-		reason = "act_lines_off"
-	elif demand and lines.demand_blocked(cue, now):
-		reason = "demand"
-	elif not _utterance_channel_free():
-		reason = "channel" if not lines.channel_free() else "speech"
-	else:
-		admit = lines.admit_cue(now, cue, is_override)
-		if not admit:
-			reason = lines.last_reason
-	var decision := reason if not admit else "admit"
-	if cue != _last_cue_log_text or decision != _last_cue_log_reason:
-		_last_cue_log_text = cue
-		_last_cue_log_reason = decision
-		_log("cue text=\"%s\" admit=%s reason=%s override=%s" % [
-			cue, "yes" if admit else "no", decision, str(is_override)])
-	if admit:
-		var key := _queue_utterance("cue", "cue", "cue")
-		if not key.is_empty():
-			lines.note_cue_queued(now, key, cue, demand, is_override)
+	_act_facts.mood = mood
+	_act_facts.cue = cue
+	_act_facts.cue_override = not _cue_override.is_empty()
+	_lines_service().admit_cue(now)
 
 func _set_cue_override(text: String, seconds := -1.0) -> void:
 	if seconds < 0.0:
@@ -4049,243 +4003,19 @@ func _remember_talk_turn() -> void:
 		return
 	_last_talk_turn = int(director.get("_turn_id"))
 
-## True while the director or the pony is actually speaking. Unlike
-## `_utterance_channel_free`, this ignores our own pending key, so a queued line can tell the
-## difference between "still talking" and "stuck".
+## True while the director or the pony is actually speaking.
 func _speech_busy() -> bool:
-	var director := _director()
-	if director != null and str(director.get("state")) != "idle":
-		return true
-	if is_instance_valid(pony) and pony.has_method("is_speaking") and bool(pony.call("is_speaking")):
-		return true
-	return false
-
-## True when no mod line owns the slot and the director/pony are not already speaking.
-func _utterance_channel_free() -> bool:
-	return _utterance_scheduler().channel_free() and not _speech_busy()
+	return _lines_service().busy()
 
 
-## Free a delivered line after its release hold, drop a row the director erased, and expire a
-## queued or generating line at its max age. A line that already reached audio is never cut here.
+## Free a delivered line and expire a queued one at its max age. See `act_lines.gd`.
 func _utterance_tick() -> void:
-	if state in [State.IDLE, State.POSING_IN]:
-		return
-	_release_finished_utterance()
-	var lines = _utterance_scheduler()
-	var key = lines.pending_key()
-	if key.is_empty():
-		_utterance_delivered_key = ""
-		return
-	var now := _now_s()
-	var line: int = MEMORY.LineState.UNKNOWN
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		line = main.memory.line_state(key)
-	if line == MEMORY.LineState.ABSENT:
-		_log("utterance absent key=%s" % key)
-		lines.drop_pending()
-		return
-	if line == MEMORY.LineState.DELIVERED:
-		# A released line keeps this state until speech stops and the hold passes. Log it once.
-		if key != _utterance_delivered_key:
-			_utterance_delivered_key = key
-			_log("utterance delivered key=%s age=%.1f" % [
-				key, maxf(0.0, now - lines.pending_since())])
-		lines.note_finished(now, key)
-		_release_finished_utterance()
-		return
-	if line == MEMORY.LineState.SPEAKING:
-		return
-	if lines.pending_override() and (_cue_override.is_empty() or cue != lines.pending_cue()) \
-			and not (line == MEMORY.LineState.UNKNOWN and _speech_busy()):
-		_cancel_pending_utterance("override")
-		return
-	if line == MEMORY.LineState.UNKNOWN and _speech_busy():
-		return
-	if now > lines.pending_until():
-		_cancel_pending_utterance("age")
+	_lines_service().tick()
 
 
 ## integration: one adult observer may say a short line, using the modern witness perception.
 func _bystander_tick(delta: float) -> void:
-	if not SETTINGS.act_bystanders.get_bool() or state != State.ACTIVE \
-			or not is_instance_valid(main) or not is_instance_valid(main.game):
-		return
-	if _bystander_event != _event_id:
-		_bystander_event = _event_id
-		_bystander_spoken.clear()
-		_bystander_wait = BYSTANDER_FIRST_S
-	_bystander_wait -= delta
-	if _bystander_wait > 0.0 or _bystander_spoken.size() >= BYSTANDER_MAX:
-		return
-	_bystander_wait = BYSTANDER_GAP_S
-	if randf() > BYSTANDER_CHANCE:
-		return
-	var seen: Array = main.memory.observers(pony) \
-		.filter(func(row: MEMORY.Observer) -> bool:
-			return not str(row.id) in _bystander_spoken and str(row.id) != _id)
-	if seen.is_empty():
-		return
-	var row: MEMORY.Observer = seen.pick_random()
-	var observer: Node3D = row.node
-	var event_id := _event_id
-	var valid := func() -> bool:
-		return is_instance_valid(observer) and is_instance_valid(pony) and _event_id == event_id \
-			and state in [State.ACTIVE, State.CLIMAX]
-	var indoors: bool = HOUSE.at(get_tree(), pony.global_position) != null
-	var purpose := BYSTANDER_PROMPT % [_display_name,
-		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
-	if _feature("act_faces"):
-		purpose += ACT_FACE.prompt_note("bystander")
-	if _bystander_line(str(row.id), event_id, purpose, valid):
-		_bystander_spoken.append(str(row.id))
-		_log("bystander line from %s" % row.id)
-
-
-func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> String:
-	if state != State.ACTIVE or not is_instance_valid(main) or not is_instance_valid(main.game):
-		return ""
-	# integration: her mouth is busy during oral.
-	if anatomy_oral_active():
-		return ""
-	if _director() == null:
-		return ""
-	var template := str(_act_prompts.get(prompt_key, ""))
-	if template.strip_edges().is_empty():
-		template = str(_act_prompts.get("utterance", ""))
-	if template.strip_edges().is_empty():
-		_log("utterance missing prompt kind=%s" % kind)
-		return ""
-	var face_note := ""
-	if kind == "cue" and _feature("act_faces"):
-		face_note = ACT_FACE.prompt_note("cue", mood)
-	var values := {
-		"state": UTTERANCE.state_line(
-			pose_id, mood, _last_intensity, _last_pattern,
-			_last_touch, _last_talk, _act_seconds, pony_climaxes),
-		"preferences": PREFERENCES.describe(_preferences),
-		"taste": PREFERENCES.describe(_preferences),
-		"cue": cue,
-		"recent": _recent_lines(),
-		"face_note": face_note,
-	}
-	var memory_id := ""
-	if kind == "cue":
-		var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
-		var facts_dict := facts.to_dict()
-		var tone_name := RELATIONSHIP_CUE.tone(facts_dict)
-		var relationship_note := RELATIONSHIP_CUE.note(facts_dict)
-		values["relationship"] = relationship_note
-		values["tone"] = RELATIONSHIP_CUE.tone_line(tone_name) \
-			if not relationship_note.is_empty() else ""
-		values["seed"] = UTTERANCE.line_seed({
-			"mood": mood,
-			"intensity": _last_intensity,
-			"pattern": _last_pattern,
-			"wanted_intensity": str(_preferences.get("intensity", "firm")),
-			"wanted_pattern": str(_preferences.get("pattern", "steady")),
-			"last_touch": _last_touch,
-			"last_talk": _last_talk,
-			"touch_likes": _preferences.get("touch", []),
-			"touch_dislikes": _preferences.get("dislikes", []),
-			"talk_likes": _preferences.get("talk", []),
-		})
-		var memory: MEMORY.MemoryHit = main.memory.shared_memory(_id, cue, _event_id, _used_memory_ids)
-		values["memory"] = RELATIONSHIP_CUE.memory_line(memory.text)
-		memory_id = memory.id
-	var purpose := UTTERANCE.format(template, values)
-	if kind == "cue":
-		if not face_note.is_empty() and not template.contains("{face_note}") \
-				and not purpose.contains("[face"):
-			purpose += face_note
-		purpose += UTTERANCE.context_note(template, values)
-		purpose += CUE_REACTION_NOTE
-		# integration: optional line angles and speech feel, independent of each other.
-		if SETTINGS.act_speech_feel.get_bool():
-			purpose += _speech_feel_note()
-		if SETTINGS.act_line_angles.get_bool():
-			purpose += _line_variety(values.recent)
-	_utterance_serial += 1
-	var suffix := "%s:%d" % [key_suffix, _utterance_serial]
-	var act_id := _event_id
-	var valid := func() -> bool:
-		# Deliberately independent of the act state: cancelling the act must not invalidate
-		# a line that is already being generated or spoken. Explicit `_end_act_lines` calls
-		# still cancel it at climax/afterglow boundaries.
-		return is_instance_valid(pony) and _event_id == act_id
-	var finished := func(key: String) -> void:
-		_utterance_done(key)
-	var queued := _utterance_line(act_id, suffix, purpose, valid, finished)
-	if queued.is_empty():
-		_log("utterance queue failed kind=%s text=\"%s\"" % [kind, cue])
-		return ""
-	if not memory_id.is_empty():
-		_used_memory_ids.append(memory_id)
-	_log("utterance kind=%s text=\"%s\" key=%s" % [kind, cue, queued])
-	return queued
-
-
-func _utterance_done(key: String) -> void:
-	_utterance_scheduler().note_finished(_now_s(), key)
-	_release_finished_utterance()
-
-
-## The director can report a line finished before its final voice chunk has stopped. Keep the
-## slot reserved until `_speech_busy()` is false, otherwise the next line can cut it off.
-func _release_finished_utterance() -> void:
-	if _speech_busy():
-		return
-	var lines = _utterance_scheduler()
-	if not lines.release_ready(_now_s()):
-		return
-	lines.release()
-
-
-func _cancel_pending_utterance(reason := "") -> void:
-	var lines = _utterance_scheduler()
-	var key = lines.pending_key()
-	var pending_cue: String = str(lines.pending_cue())
-	var age: float = maxf(0.0, _now_s() - float(lines.pending_since()))
-	var line: int = MEMORY.LineState.UNKNOWN
-	if not key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
-		line = main.memory.line_state(key)
-	var director := _director()
-	var director_state := str(director.get("state")) if director != null else "?"
-	lines.drop_pending()
-	if key.is_empty():
-		return
-	_log("utterance cancel reason=%s key=%s text=\"%s\" age=%.1f line=%s director=%s speech=%s" % [
-		reason if not reason.is_empty() else "manual", key, pending_cue, age,
-		_line_state_name(line), director_state, str(_speech_busy())])
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		main.memory.cancel_line(key)
-
-
-## Drop all act lines that have not started speaking. A line that is already speaking may
-## finish; one that is only queued or still being generated is cancelled. This runs at every
-## climax/afterglow boundary and every act end, so a delayed line cannot start afterward.
-func _end_act_lines(keep_speaking := true) -> void:
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var cancelled: int = main.memory.cancel_act(_event_id, keep_speaking)
-		if cancelled > 0:
-			_log("act lines cancelled=%d" % cancelled)
-	_utterance_scheduler().drop_pending()
-
-
-## The debug name for a typed line state. The enum stays the only comparison in the code.
-func _line_state_name(state: int) -> String:
-	match state:
-		MEMORY.LineState.ABSENT:
-			return "absent"
-		MEMORY.LineState.QUEUED:
-			return "queued"
-		MEMORY.LineState.GENERATING:
-			return "generating"
-		MEMORY.LineState.SPEAKING:
-			return "speaking"
-		MEMORY.LineState.DELIVERED:
-			return "delivered"
-		_:
-			return "unknown"
+	_lines_service().bystander_tick(delta)
 
 
 ## The typed stop reason for one `_stop()` reason string.
@@ -4307,128 +4037,22 @@ func _stop_reason(reason: String) -> int:
 
 ## Queue one settings-driven reaction line. Returns the director key, or "" when it was not queued.
 func _reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
-		return ""
-	var request := MEMORY.LineRequest.new()
-	request.kind = MEMORY.LineKind.REACTION
-	request.id = _id
-	request.event_id = event_id
-	request.purpose = fallback
-	request.reaction = reaction
-	request.valid = valid
-	var line: MEMORY.Line = main.memory.line(request)
-	return line.key if line.queued else ""
+	return _lines_service().reaction_line(reaction, event_id, fallback, valid)
 
 
-## Queue one on-demand utterance. `finished` receives the director key when the line is delivered.
-func _utterance_line(event_id: String, suffix: String, purpose: String,
-		valid: Callable, finished: Callable) -> String:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
-		return ""
-	var request := MEMORY.LineRequest.new()
-	request.kind = MEMORY.LineKind.UTTERANCE
-	request.id = _id
-	request.event_id = event_id
-	request.suffix = suffix
-	request.purpose = purpose
-	request.valid = valid
-	request.finished = finished
-	var line: MEMORY.Line = main.memory.line(request)
-	return line.key if line.queued else ""
+## Drop all act lines that have not started speaking.
+func _end_act_lines(keep_speaking := true) -> void:
+	_lines_service().end_act(_event_id, keep_speaking)
 
-
-## Queue one bystander line. The act owns it, so its end cancels it.
-func _bystander_line(id: String, event_id: String, purpose: String,
-		valid: Callable) -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
-		return false
-	var request := MEMORY.LineRequest.new()
-	request.kind = MEMORY.LineKind.BYSTANDER
-	request.id = id
-	request.event_id = event_id
-	request.purpose = purpose
-	request.valid = valid
-	return main.memory.line(request).queued
-
-
-func _recent_lines() -> String:
-	var director := _director()
-	if director == null or not is_instance_valid(pony):
-		return ""
-	var characters: Variant = director.get("characters")
-	if not characters is Dictionary or not (characters as Dictionary).has(_id):
-		return ""
-	var entry: Variant = (characters as Dictionary)[_id]
-	if not entry is Dictionary:
-		return ""
-	var spoken: Variant = (entry as Dictionary).get("spoken", [])
-	if not spoken is Array or (spoken as Array).is_empty():
-		return ""
-	var recent: Array[String] = []
-	var limit := RECENT_LINES if SETTINGS.act_line_angles.get_bool() else 4
-	var start := maxi(0, (spoken as Array).size() - limit)
-	for index in range(start, (spoken as Array).size()):
-		recent.append(str((spoken as Array)[index]))
-	return " | ".join(recent)
-
-
-## integration: without a fresh angle she answers the same prompt the same way.
-func _line_variety(recent: Variant) -> String:
-	var open: Array = LINE_ANGLES.filter(func(angle: String) -> bool:
-		return not angle in _used_angles)
-	if open.is_empty():
-		_used_angles.clear()
-		open = LINE_ANGLES.duplicate()
-	var angle: String = open.pick_random()
-	_used_angles.append(angle)
-	if _used_angles.size() > ANGLES_REMEMBERED:
-		_used_angles.remove_at(0)
-	var note := " This time, %s Bring in something you two actually said, did or know from today if it fits." % angle
-	if not str(recent).is_empty():
-		note += " Your recent lines were: %s. Do not reuse their wording, their opening word or their idea." % recent
-	return note
-
-
-## integration: tells the line how the current strokes break up her speech.
-func _speech_feel_note() -> String:
-	if _last_intensity.is_empty():
-		return ""
-	var pace := maxf(_thrusts_per_second(), 0.0)
-	var hole := ""
-	if is_instance_valid(_anatomy_act) and bool(_anatomy_act.get("_anal")):
-		hole = " Anon is in your ass right now, not your pussy."
-	var level := 0.5 * float(SPEECH_ROUGHNESS.get(_last_intensity, 0.5)) \
-		+ 0.5 * clampf(pace / SPEECH_FULL_PACE, 0.0, 1.0)
-	var frequency := "Put one after almost every word or two, so your speech keeps breaking apart."
-	if level < 0.25:
-		frequency = "Use only one, quiet and breathy."
-	elif level < 0.5:
-		frequency = "Use one or two."
-	elif level < 0.75:
-		frequency = "Put one after every few words."
-	return hole + " Right now Anon's strokes are %s and %s, about %.1f a second. Break up your speech with exclamations between words, such as \"Ah!\", \"Hah!\", \"FUCK!\", \"Ah...\", \"Buck...\", \"Nngh...\" and similar ones in your own voice. %s They do not count toward your word limit." % [
-		_last_intensity, _last_pattern if not _last_pattern.is_empty() else "steady", pace, frequency]
 
 func _last_spoken_line() -> String:
-	var recent := _recent_lines()
-	if recent.is_empty():
-		return ""
-	var parts := recent.split(" | ")
-	return parts[parts.size() - 1].strip_edges() if not parts.is_empty() else ""
+	return _lines_service().last_spoken_line()
 
 
 ## When she last actually spoke, so a peak memory does not quote a pre-act line as an answer.
 func _last_spoken_at() -> float:
-	var director := _director()
-	if director == null:
-		return -1e9
-	var characters: Variant = director.get("characters")
-	if not characters is Dictionary or not (characters as Dictionary).has(_id):
-		return -1e9
-	var entry: Variant = (characters as Dictionary)[_id]
-	if not entry is Dictionary:
-		return -1e9
-	return float((entry as Dictionary).get("last_spoken_at", -1e9))
+	return _lines_service().last_spoken_at()
+
 
 ## One summary per act. It is scored from the action counters, stored in the world's module
 ## state, and written to the game's impression once. Forced stops never call it.
@@ -5052,8 +4676,7 @@ func cancel() -> void:
 				_end_early_key = key
 				if not key.is_empty():
 					var now := _now_s()
-					_utterance_scheduler().note_reaction_queued(now, key, "",
-						now + _cue_reaction_max_age_s)
+					_lines_service().note_reaction(key, "", now + _cue_reaction_max_age_s)
 					_log("utterance kind=reaction key=%s" % key)
 			# The stopped act gets one post-act beat at most: suppress the later history line
 			# for the same act, even when the roll chose silence. A skipped summary must not
@@ -5203,8 +4826,7 @@ func _queue_climax_reaction() -> void:
 	if key.is_empty():
 		return
 	var now := _now_s()
-	_utterance_scheduler().note_reaction_queued(now, key, cue,
-		now + _cue_reaction_max_age_s)
+	_lines_service().note_reaction(key, cue, now + _cue_reaction_max_age_s)
 	_log("utterance kind=reaction key=%s" % key)
 
 ## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was

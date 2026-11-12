@@ -1,0 +1,62 @@
+# Act audio contract
+
+The act's sound and voice: the pack foley/vocal/wet layers, the base-game breath and squee
+climax, and the Ponese mute policy.
+
+## Ownership
+
+| File | Role |
+|---|---|
+| `act_audio.gd` | the per-runtime audio facade: pack layers, base-game sound child, and the Ponese mute policy |
+| `act_sound.gd` | base-game breath and `squee_*` climax players and their timing |
+| `audio/act/catalogue.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
+| `audio/act/smack/catalogue.gd` | the hand-smack variants used by the hands system |
+| `docs/audio.md` | this contract |
+
+`act_audio.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the
+process: `start(features)` opens an act's layers, `stop_act()` closes them. It never preloads
+`runtime.gd` or `main.gd`; the runtime passes the pony, the id, the feature snapshot and the
+classified voice info as arguments.
+
+## Act lifecycle
+
+- `start(features)` randomises the variant picker, builds the always-on `foley` group and the
+  optional `vocals`/`climax` groups from the feature flags, then creates and starts the
+  `act_sound` child.
+- `set_enabled(vocals, climax)` rebuilds only the optional group that changed; the foley group
+  stays built. `apply_live_settings()` calls it while the act runs.
+- `stop_act()` stops and clears every pack pool and frees the sound child. The facade itself
+  survives, so the mute policy can still give the voice player its volume back on a later
+  settings edit.
+- `play_impact`/`play_plap`/`play_bed`/`play_slide`/`withdraw_crossed`/`crossed`/`play_mouth_kiss`
+  are the pack cues the runtime drives from the impact and kiss paths.
+- `play_climax(snout, dock)` plays the base-game squee at the snout, the wet layer at the dock and
+  the optional pack vocal at the snout.
+- `breath_tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences
+  it at the restore begin.
+
+## Voice policy
+
+`mute_ponese_audio` keeps the generated line and the text HUD but silences the pony's Ponese
+audio for the act. `apply_voice_policy(pony, id, mute, info)` receives `VOICE.classify()` and
+mutes only when the effective voice is Ponese (`effective_ponese`). A generated/openai voice is
+left alone. The saved volume is restored by `restore_voice_policy()` at the act end or when the
+setting changes.
+
+The classification itself stays `voice_status.gd` (pure); the runtime's `voice_status_line()` is
+the debug read.
+
+## Packs and settings
+
+- The OpenNSFW foley, vocal and wet files are fetched from the resource archive and packed; see
+  `assets/README.md`.
+- `features.act_vocals` (default off) gates only the pack climax moan.
+- `features.act_climax` (default off) gates only the wet finish layer.
+- `features.mute_ponese_audio` (default on) gates the Ponese mute.
+- The base-game breath and squee are always on and are not gated by those flags.
+
+## Tests
+
+`tests/act_audio/test_audio.gd` covers the facade lifecycle, the sound child, the mute policy and
+the live layer switch. `tests/act_audio/test_act_audio.gd` covers the pure catalogue and the pack
+cue selection. `tests/test_runtime_teardown.gd` drives the runtime's audio forwards.

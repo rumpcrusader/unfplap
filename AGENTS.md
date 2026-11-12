@@ -113,11 +113,12 @@ stored state.
 | Afterglow and close window | `afterglow.gd` | `docs/afterglow.md` | migrated |
 | Act face and post-act mood | `face_session.gd` | `docs/face.md` | migrated |
 | Thrust and climax reactions | `act_reactions.gd` | `docs/reactions.md` | migrated |
+| Act audio and voice | `act_audio.gd` | `docs/audio.md` | migrated |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
 act lines, readiness, history, afterglow, face, reactions, poses, the act camera, the scene
-gate and the rest rejoin, plus the act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
+gate, the rest rejoin and audio, plus the act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
 when their system is next touched.
 
 ### Docs
@@ -128,6 +129,7 @@ when their system is next touched.
 | `docs/eligibility.md` | eligibility and consent |
 | `docs/scene_gate.md` | live scene rows and the refusal executor |
 | `docs/rest.md` | bed anchor, placement, cuddle rejoin and restore posture |
+| `docs/audio.md` | act pack layers, base-game breath/climax and the Ponese mute |
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
@@ -374,8 +376,9 @@ mods/unfplap/
   chin_debug.gd     debug head-pitch skeleton modifier
   debug_skeleton.gd F10 skeleton line/circle overlay with hover and joint inspection
   voice_status.gd   pure character-voice/Ponese classification
-  act_sound.gd      base-game breath and climax players
-  act_audio.gd      pack foley/vocal/wet layers
+  act_sound.gd      base-game breath and climax players, owned by act_audio.gd
+  act_audio.gd      act audio facade: pack foley/vocal/wet layers, base-game breath and squeak,
+                    and the Ponese mute policy; contract in docs/audio.md
   history.gd        act summary/history facade: commit trigger, peak memory, idle history
                     decisions, refusal gate and the tolerance meter; contract in `HISTORY.md`
   afterglow.gd      afterglow facade: self-end roll, `[stay]` hold and the standing close

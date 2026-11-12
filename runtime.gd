@@ -623,10 +623,6 @@ var _standing_sway_offset := Vector3.ZERO
 ## through the typed act view.
 var _forced_glance := ""
 var _presentation_cfg: Dictionary = {}
-var _voice_info: Dictionary = {}
-var _voice_player: AudioStreamPlayer3D
-var _voice_volume_saved := 0.0
-var _text_only_voice := false
 var _inventory_hud_hidden := false
 var _inventory_hud_saved := false
 var _inventory_hotbar_visible := true
@@ -679,7 +675,6 @@ var _kisser_processing := false
 var _climax_progress := 0.0
 ## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
 var _debug_chin_deg := 0.0
-var _sounds
 var _hands
 var _kiss
 var _missionary_camera_ctl
@@ -1032,15 +1027,6 @@ func _wings_controller():
 		_wings = WING.new(self)
 	return _wings
 
-## Lazily create the base-game act sound controller, including outside the tree in tests.
-func _sounds_controller():
-	if _sounds == null:
-		_sounds = SOUND.new(self)
-		_sounds.name = "UnfplapActSound"
-		add_child(_sounds)
-	return _sounds
-
-## Lazily create the act hand controller, including outside the tree in tests.
 func _hand_controller():
 	if _hands == null:
 		_hands = HANDS.new(self)
@@ -2887,41 +2873,17 @@ func _classify_voice() -> Dictionary:
 func voice_status_line() -> String:
 	return "voice " + VOICE.describe(_classify_voice())
 
-func _find_voice_player() -> AudioStreamPlayer3D:
-	if not is_instance_valid(pony):
-		return null
-	var head: Variant = pony.get("head")
-	var voice: Variant = head.get("voice") if head != null else null
-	if voice is AudioStreamPlayer3D:
-		return voice
-	var found: Variant = pony.find_child("Voice", true, false)
-	return found as AudioStreamPlayer3D if found is AudioStreamPlayer3D else null
-
-## `mute_ponese_audio`: keep the generated line and text HUD, but silence the Ponese audio
-## for this act. A generated-voice pony is left alone.
 func _apply_voice_policy() -> void:
-	_voice_info = _classify_voice()
-	_text_only_voice = _feature("mute_ponese_audio") \
-		and bool(_voice_info.get("effective_ponese", false))
-	if not _text_only_voice:
-		return
-	_voice_player = _find_voice_player()
-	if not is_instance_valid(_voice_player):
-		_log("voice text-only: no voice player pony=%s" % _id)
-		return
-	_voice_volume_saved = _voice_player.volume_db
-	_voice_player.volume_db = -80.0
-	_log("voice text-only pony=%s %s" % [_id, VOICE.describe(_voice_info)])
+	var audio: Variant = _audio_service()
+	if audio != null:
+		audio.call("apply_voice_policy", pony, _id, _feature("mute_ponese_audio"),
+			_classify_voice())
+
 
 func _restore_voice_volume() -> void:
-	if is_instance_valid(_voice_player):
-		_voice_player.volume_db = _voice_volume_saved
-	_voice_player = null
-	_voice_volume_saved = 0.0
-	_text_only_voice = false
+	if is_instance_valid(_act_audio):
+		_act_audio.call("restore_voice_policy")
 
-## Hide the quick-slot hotbar for the whole act. `hud_hidden` keeps the inventory's own
-## `_place_hotbar()` from showing it again.
 func _set_inventory_hud_hidden(hidden: bool) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
 		return
@@ -4581,46 +4543,51 @@ func _restore_camera() -> void:
 
 # --------------------------------------------------------------------------- audio
 
-## Create the audio node on first use, or update its optional layers if it already exists.
-func _ensure_act_audio(vocals: bool, climax: bool) -> void:
+## The act audio node. One per runtime for the process; `start()` opens an act and `stop_act()`
+## closes it, so the Ponese mute policy keeps its saved volume across the act boundary.
+func _audio_service() -> Node:
 	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(vocals, climax)
-		return
+		return _act_audio
 	var audio_script: Script = load(ACT_AUDIO_PATH)
 	if audio_script == null:
-		return
+		return null
 	_act_audio = audio_script.new()
 	_act_audio.name = "UnfplapActAudio"
+	_act_audio.log = Callable(self, "_log")
 	add_child(_act_audio)
-	_act_audio.setup(vocals, climax)
+	return _act_audio
+
+
+## Rebuild the optional pack layers after a settings edit. The node is never created outside an act.
+func _ensure_act_audio(vocals: bool, climax: bool) -> void:
+	if is_instance_valid(_act_audio):
+		_act_audio.call("set_enabled", vocals, climax)
+
 
 func _start_audio() -> void:
 	_stop_audio()
 	_bed_soft = is_instance_valid(bed) \
 		and ("couch" in bed.name.to_lower() or "sofa" in bed.name.to_lower()
 			or "cloth" in bed.name.to_lower())
-	var vocals := _feature("act_vocals")
-	var climax := _feature("act_climax")
-	_ensure_act_audio(vocals, climax)
-	_sounds_controller().start()
+	var audio: Variant = _audio_service()
+	if audio != null:
+		audio.call("start", _features)
+
 
 func _stop_audio() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.stop()
-		_act_audio.queue_free()
-		_act_audio = null
-	if _sounds != null:
-		_sounds.stop()
+		_act_audio.call("stop_act")
+
 
 func _stop_breath() -> void:
-	if _sounds != null:
-		_sounds.stop_breath()
+	if is_instance_valid(_act_audio):
+		_act_audio.call("stop_breath")
+
 
 func _play_climax() -> void:
-	_sounds_controller().play_climax(_snout())
 	if is_instance_valid(_act_audio):
-		_act_audio.play_climax_wet(_reactions.dock_point())
-		_act_audio.play_climax_voice(_snout())
+		_act_audio.call("play_climax", _snout(), _reactions.dock_point())
+
 
 func _breath_tick(delta: float) -> void:
 	var phase := ""
@@ -4630,15 +4597,19 @@ func _breath_tick(delta: float) -> void:
 		phase = "climax"
 	elif state == State.AFTERGLOW:
 		phase = "afterglow"
-	_sounds_controller().breath_tick(delta, phase, _thrusts_per_second(), _snout())
+	if is_instance_valid(_act_audio):
+		_act_audio.call("breath_tick", delta, phase, _thrusts_per_second(), _snout())
+
 
 func _thrusts_per_second() -> float:
 	return _readiness.thrusts_per_second()
+
 
 func _bed_audio_point() -> Vector3:
 	if is_instance_valid(bed):
 		return bed.global_position + Vector3.UP * 0.35
 	return _reactions.rump_point()
+
 
 func _snout() -> Vector3:
 	var boop: Variant = pony.get("boop_node")

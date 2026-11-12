@@ -1,6 +1,6 @@
 extends SceneTree
 ## Pure/unit checks for the optional OpenNSFW act audio layer.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_act_audio.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_audio/test_act_audio.gd
 
 const ACT := preload("res://mods/unfplap/act_audio.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
@@ -89,7 +89,7 @@ func run() -> void:
 				check((stream as AudioStream).get_length() > 0.02, "stream length: " + cue)
 
 	var act: Node = ACT.new()
-	act.setup(false, false)
+	act.set_enabled(false, false)
 	check(not act.vocals_enabled() and not act.climax_enabled(), "optional layers off")
 	var pools: Dictionary = act.get("_pools")
 	check(pools.has("plap_firm"), "foley pool is always built")
@@ -113,7 +113,7 @@ func run() -> void:
 	var parent := Node3D.new()
 	root.add_child(parent)
 	parent.add_child(act)
-	act.setup(false, false)
+	act.set_enabled(false, false)
 	act.play_impact(CATALOG.MISSIONARY, 0.2, Vector3.ZERO, Vector3.ZERO, false)
 	var ready_at: Dictionary = act.get("_ready_at")
 	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "soft impact emits no plap")

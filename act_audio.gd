@@ -1,14 +1,17 @@
 extends Node
-## OpenNSFW act audio. The runtime creates this node for every act; the foley layer is always
-## on, while `vocals` and `climax` are optional flags.
+## The act audio facade: the OpenNSFW foley/vocal/wet layers, the base-game breath and squee
+## climax, and the Ponese mute policy. The runtime creates one node and keeps it for the process;
+## `start()` opens the layers for an act and `stop_act()` closes them.
 ##
-## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `vocals`
-## covers only the pack climax moan. `climax` is the separate wet finish layer. The mod's pony
-## breath, Ponese voice and `squee_*` climax stay in runtime.gd and are not gated by these flags.
+## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `vocals` covers only the pack
+## climax moan. `climax` is the separate wet finish layer. The base-game breath, Ponese voice and
+## `squee_*` climax are not gated by these flags. See `docs/audio.md`.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SOUND := preload("res://mods/unfplap/act_sound.gd")
+const VOICE := preload("res://mods/unfplap/voice_status.gd")
 
 ## The withdraw sound fires when the depth crosses back out. The impact itself fires from the
 ## tracker's `impact` event, the moment the inward stroke bottoms out, so the plap lands with
@@ -24,11 +27,95 @@ var _next: Dictionary = {}
 var _last: Dictionary = {}
 var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
+## The base-game breath and squee players, one child node for the act.
+var _sound: Node
+## Ponese mute policy state. Kept on the persistent facade, so a settings edit at IDLE can still
+## give the voice player its volume back.
+var _voice_player: AudioStreamPlayer3D
+var _voice_volume_saved := 0.0
+var _text_only_voice := false
+
+## Host boundary. A missing callback is a no-op.
+var log := Callable()
 
 
-func setup(vocals: bool, climax: bool) -> void:
+## Open the act's layers. The foley group is always built; `vocals` and `climax` are optional.
+func start(features: Dictionary) -> void:
 	_rng.randomize()
-	set_enabled(vocals, climax)
+	set_enabled(bool(features.get("act_vocals", false)),
+		bool(features.get("act_climax", false)))
+	if not is_instance_valid(_sound):
+		_sound = SOUND.new()
+		_sound.name = "UnfplapActSound"
+		add_child(_sound)
+	_sound.call("start")
+
+
+## Close the act's layers but keep the facade (and the voice policy state) alive for the process.
+func stop_act() -> void:
+	stop()
+	if is_instance_valid(_sound):
+		_sound.call("stop")
+		_sound.queue_free()
+		_sound = null
+
+
+func stop_breath() -> void:
+	if is_instance_valid(_sound):
+		_sound.call("stop_breath")
+
+
+## The squee climax plus the pack wet and vocal layers.
+func play_climax(snout: Vector3, dock: Vector3) -> void:
+	if is_instance_valid(_sound):
+		_sound.call("play_climax", snout)
+	play_climax_wet(dock)
+	play_climax_voice(snout)
+
+
+## Breath follows the plap rate and the act phase. `phase` is empty outside the act.
+func breath_tick(delta: float, phase: String, rate: float, snout: Vector3) -> void:
+	if is_instance_valid(_sound):
+		_sound.call("breath_tick", delta, phase, rate, snout)
+
+
+## `mute_ponese_audio`: keep the generated line and text HUD, but silence the Ponese audio for
+## this act. A generated-voice pony is left alone. `info` is `VOICE.classify()`.
+func apply_voice_policy(pony_node: Variant, id: String, mute: bool, info: Dictionary) -> void:
+	_text_only_voice = mute and bool(info.get("effective_ponese", false))
+	if not _text_only_voice:
+		return
+	_voice_player = _find_voice_player(pony_node)
+	if not is_instance_valid(_voice_player):
+		write_log("voice text-only: no voice player pony=%s" % id)
+		return
+	_voice_volume_saved = _voice_player.volume_db
+	_voice_player.volume_db = -80.0
+	write_log("voice text-only pony=%s %s" % [id, VOICE.describe(info)])
+
+
+func restore_voice_policy() -> void:
+	if is_instance_valid(_voice_player):
+		_voice_player.volume_db = _voice_volume_saved
+	_voice_player = null
+	_voice_volume_saved = 0.0
+	_text_only_voice = false
+
+
+func voice_text_only() -> bool:
+	return _text_only_voice
+
+
+func _find_voice_player(pony_node: Variant) -> AudioStreamPlayer3D:
+	if not is_instance_valid(pony_node):
+		return null
+	var head: Variant = pony_node.get("head")
+	var voice: Variant = head.get("voice") if head != null else null
+	if voice is AudioStreamPlayer3D:
+		return voice
+	var found: Variant = pony_node.find_child("Voice", true, false)
+	return found as AudioStreamPlayer3D if found is AudioStreamPlayer3D else null
+
 
 
 func vocals_enabled() -> bool:
@@ -287,3 +374,8 @@ static func next_index(count: int, last: int, roll: int) -> int:
 	if index == last:
 		index = (index + 1) % count
 	return index
+
+
+func write_log(text: String) -> void:
+	if log.is_valid():
+		log.call(text)

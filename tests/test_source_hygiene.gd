@@ -86,6 +86,7 @@ func run() -> void:
 	_check_act_camera()
 	_check_scene_gate()
 	_check_rest_rejoin()
+	_check_act_audio()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -504,6 +505,31 @@ func _check_rest_rejoin() -> void:
 	for token: String in ["_bed_anchor", "_shared_bed_rest", "_bed_rest_for", "_stand_beside_bed",
 			"_rejoin_note", "CUDDLE_REJOIN_", "COUCH_EXIT"]:
 		check(not runtime.contains(token), "runtime has no rest internals: %s" % token)
+
+
+## The act audio facade owns the pack layers, the base-game sound child and the Ponese mute
+## policy. Its contract is `docs/audio.md`; its suites are `tests/act_audio/`.
+func _check_act_audio() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("act_audio.gd"))
+	check(facade.contains("func start(") and facade.contains("func apply_voice_policy("),
+		"act audio facade is present")
+	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "act audio has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/audio.md"))
+	check(contract.contains("## Ownership"), "docs/audio.md documents the owner")
+	check(contract.contains("`act_audio.gd`"), "docs/audio.md names the facade")
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("`docs/audio.md`"), "AGENTS.md links to docs/audio.md")
+	for name: String in ["test_audio.gd", "test_act_audio.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/act_audio/" + name)),
+			"tests/act_audio/%s exists" % name)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("func _audio_service()"), "runtime reaches the audio through the facade")
+	for token: String in ["_voice_player", "_voice_volume_saved", "_text_only_voice",
+			"_sounds_controller", "func _find_voice_player("]:
+		check(not runtime.contains(token), "runtime has no audio internals: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

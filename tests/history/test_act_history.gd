@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure long-term act history: hurt/comfort, tiers, offer weight and cooldown, repair and decay.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_act_history.gd
+##     --script res://mods/unfplap/tests/history/test_act_history.gd
 
 const HISTORY := preload("res://mods/unfplap/act_history.gd")
 

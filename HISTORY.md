@@ -4,6 +4,15 @@ This is the contract for the mod-owned post-act summary and the per-mare act his
 only place that decides whether an act was good, neutral or bad, and what that changes later. The
 event and impression the summary writes are owned by the memory system; see `docs/memory.md`.
 
+## Ownership
+
+`history.gd` is the system facade. It owns the summary trigger and commit, the peak-memory record,
+the per-mare row reads, the idle apology/reminder decisions and the pure `act_tolerance.gd` meter.
+The runtime keeps the act state machine, gathers the action counters into the summary inputs,
+runs the scene stop executor (`_stop_with_her`: bed release, session end, space, buck, tail tuck)
+and owns the face and line presentation. `act_summary.gd` and `act_history.gd` remain the pure
+scoring and stored-row modules behind the facade.
+
 ## Per-act score
 
 `act_summary.gd` is pure. It scores one act from the action counters the runtime collected:
@@ -228,15 +237,17 @@ The per-mare neglect-tolerance tier is a preference field, not a global setting:
 
 ## Tests
 
-- `tests/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief, 25 s decay,
+- `tests/history/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief, 25 s decay,
   warning monotonicity and stop cooldowns.
-- `tests/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck and
+- `tests/history/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck and
   request space.
-- `tests/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike neutrality,
+- `tests/history/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike neutrality,
   severe handling, early end, stopped-by-her severe outcome, forced stop, short act, motion and
   touch misses.
-- `tests/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology, sanitising,
+- `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology, sanitising,
   pending lines, reset.
-- `tests/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
+- `tests/history/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
+- `tests/history/test_history.gd` — facade: summary commit, peak memory, tolerance decisions,
+  refusal gate and the idle apology/reminder scan.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
 - `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.

@@ -18,7 +18,7 @@ Do not start implementation until you have read the required files for the area 
 | Any act cue line, reaction or bystander line task | `docs/lines.md` |
 | Any standing footstool or stool-supply task | `docs/stool.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
-| Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
+| Act summary, long-term history, reluctance | `HISTORY.md`, `history.gd`, `preferences.gd`, `act_summary.gd`, `act_history.gd` |
 | Any act face, mood or voice emotion | `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_act_face_beat`, `_eyes_tick`), `settings.gd` prompts |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
@@ -104,10 +104,11 @@ stored state.
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
-| Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
+| Act summary and history | `history.gd` | `HISTORY.md` | migrated |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
-Hands, eligibility, anatomy, initiation and memory use `tests/<system>/`. The remaining suites are
+Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
+act lines, readiness and history, plus the act-context and perf modules. The remaining suites are
 still flat (`tests/test_*.gd`) and move when their system is next touched.
 
 ### Docs
@@ -353,6 +354,8 @@ mods/unfplap/
   voice_status.gd   pure character-voice/Ponese classification
   act_sound.gd      base-game breath and climax players
   act_audio.gd      pack foley/vocal/wet layers
+  history.gd        act summary/history facade: commit trigger, peak memory, idle history
+                    decisions, refusal gate and the tolerance meter; contract in `HISTORY.md`
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds

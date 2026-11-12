@@ -78,6 +78,7 @@ func run() -> void:
 	_check_act_facts()
 	_check_act_lines()
 	_check_readiness()
+	_check_history()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -300,6 +301,25 @@ func _check_readiness() -> void:
 			"test_auto_thrust.gd", "test_auto_panel.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/readiness/" + name)),
 			"tests/readiness/%s exists" % name)
+
+
+## The history facade owns the summary/tolerance decisions and reads only its pure modules.
+## Its contract is `HISTORY.md`, and the runtime keeps the scene stop executor.
+func _check_history() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("history.gd"))
+	check(facade.contains("func commit_summary(") and facade.contains("func tick_idle("),
+		"history facade is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get("]:
+		check(not facade.contains(token), "history has no scene reference: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("HISTORY.md"))
+	check(contract.contains("## Ownership"), "HISTORY documents the history owner")
+	check(contract.contains("`history.gd`"), "HISTORY names history.gd")
+	for name: String in ["test_act_flow.gd", "test_act_stop.gd", "test_act_summary.gd",
+			"test_act_history.gd", "test_act_tolerance.gd", "test_history.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/history/" + name)),
+			"tests/history/%s exists" % name)
 
 
 func _check_eligibility_docs() -> void:

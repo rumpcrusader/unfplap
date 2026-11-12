@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure act-outcome scoring: per-act action checklist, good/bad bands, early end and silence.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_act_summary.gd
+##     --script res://mods/unfplap/tests/history/test_act_summary.gd
 
 const SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 

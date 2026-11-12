@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure per-act tolerance: tiers, warnings, compensation, decay and stop cooldowns.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_act_tolerance.gd
+##     --script res://mods/unfplap/tests/history/test_act_tolerance.gd
 
 const TOLERANCE := preload("res://mods/unfplap/act_tolerance.gd")
 

@@ -2,7 +2,7 @@ extends SceneTree
 ## Act-history wiring that can be checked without a live world: the runtime commits one
 ## summary, the afterglow HUD carries it, and the snapshot uses the action counters.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_act_flow.gd
+##     --script res://mods/unfplap/tests/history/test_act_flow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")

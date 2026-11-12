@@ -8,7 +8,6 @@ const TAIL_LAY := preload("res://mods/unfplap/tail_lay.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const ACT_TOLERANCE := preload("res://mods/unfplap/act_tolerance.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -45,6 +44,7 @@ const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
 const READINESS := preload("res://mods/unfplap/readiness.gd")
+const HISTORY := preload("res://mods/unfplap/history.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
@@ -513,20 +513,29 @@ var _talk_cooldown_s := 8.0
 var _receptive_seconds := 8.0
 var _act_spoken_at := -1e9
 var _act_ended_early := false
-var _summary: Dictionary = {}
-var _summary_done := false
+## The act's summary, history and tolerance system; see `history.gd`. The act values below forward.
+var _history: RefCounted = HISTORY.new()
+var _summary: Dictionary:
+	get:
+		return _history.summary
+	set(value):
+		_history.summary = value
+var _summary_done: bool:
+	get:
+		return _history.summary_done
+	set(value):
+		_history.summary_done = value
+## Compatibility read for the face suite: the live pure tolerance meter.
+var _tolerance:
+	get:
+		return _history.tolerance
+	set(value):
+		_history.tolerance = value
 var _stopped_by_her := false
-var _tolerance
 var _tolerance_warning_key := ""
 var _end_early_key := ""
 var _climax_reaction_key := ""
-var _debug_forced_tolerance := ""
 var _tail_tuck: Node
-var _history_refusal_at := -1000.0
-var _history_reminder_at := -1000.0
-var _history_scan_clock := 0.0
-var _history_turn := -1
-var _peak_recorded := false
 var _aftercare_min := 10
 var _display_name := "the pony"
 var _serial := 0
@@ -662,6 +671,9 @@ func _init() -> void:
 	_readiness.tolerance_event = Callable(self, "_tolerance_event")
 	_readiness.heat_cycle = Callable(self, "_readiness_heat")
 	_readiness.on_cue = Callable(self, "_readiness_cue")
+	_history.log = Callable(self, "_log")
+	_history.reaction_line = Callable(self, "_reaction_line")
+	_history.idle = Callable(self, "_history_is_idle")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -2451,14 +2463,11 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_reset_thrust_state()
 	_pose_logged = false
 	_pose_trace_frames = 0
-	_summary = {}
-	_summary_done = false
 	_afterglow_beat = ""
 	_stopped_by_her = false
-	_debug_forced_tolerance = ""
 	_tolerance_warning_key = ""
 	_end_tail_tuck()
-	_tolerance_controller().reset(_preferences)
+	_history.reset_act(_preferences)
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
@@ -3331,7 +3340,6 @@ func _reset_thrust_state() -> void:
 	_vocal_cooldown = 0.0
 	_act_spoken_at = -1e9
 	_act_ended_early = false
-	_peak_recorded = false
 	if _thrust_tracker == null:
 		_thrust_tracker = THRUST.new()
 	_thrust_tracker.reset()
@@ -3966,11 +3974,11 @@ func _readiness_cue(mood_value: String, cue_value: String, is_override: bool) ->
 
 
 func _tolerance_dislike(kind: String) -> Dictionary:
-	return _tolerance_controller().observe_dislike(kind)
+	return _history.observe_dislike(kind)
 
 
 func _tolerance_like(kind: String) -> void:
-	_tolerance_controller().observe_like(kind)
+	_history.observe_like(kind)
 
 
 
@@ -4025,43 +4033,18 @@ func _last_spoken_at() -> float:
 	return _lines_service().last_spoken_at()
 
 
-## One summary per act. It is scored from the action counters, stored in the world's module
-## state, and written to the game's impression once. Forced stops never call it.
+## One summary per act. The history system scores it and owns the stored row.
 func _commit_summary(real_act: bool) -> void:
-	if _summary_done:
-		return
-	_summary_done = true
-	if not _history_enabled() or not is_instance_valid(main) or not is_instance_valid(main.game):
-		return
-	var outcome: Dictionary = ACT_SUMMARY.evaluate(_summary_inputs(), ACT_SUMMARY.rules())
-	if bool(outcome.get("skip", false)):
-		_log("summary skip reasons=%s seconds=%.1f thrusts=%d" % [
-			_summary_reasons(outcome), _act_seconds, _act_thrusts])
-		return
-	_summary = outcome
-	var result: Dictionary = ACT_HISTORY.commit(ACT_HISTORY.section(), _id, outcome,
-		ACT_HISTORY.day_now())
-	ACT_HISTORY.save()
-	var impression := MEMORY.Impression.new()
-	impression.id = _id
-	impression.event_id = _event_id
-	impression.slot = MEMORY.ImpressionSlot.ACT if real_act else MEMORY.ImpressionSlot.ACT_EARLY
-	impression.mood = str(outcome.get("mood", "relaxed"))
-	impression.romance = int(outcome.get("romance", 0))
-	impression.thought = str(outcome.get("thought", ""))
-	impression.event_text = str(outcome.get("text", ""))
-	main.memory.commit(impression)
-	var row: Dictionary = result.get("row", {})
-	var events: PackedStringArray = []
-	var raw_events: Variant = result.get("events", [])
-	if raw_events is Array:
-		for item: Variant in raw_events:
-			events.append(str(item))
-	_log("summary grade=%s quality=%.2f checks=%d/%d reasons=%s tier=%s hurt=%d comfort=%d events=%s" % [
-		str(outcome.get("grade", "neutral")), float(outcome.get("quality", 0.0)),
-		int(outcome.get("right", 0)), int(outcome.get("total", 0)),
-		_summary_reasons(outcome), ACT_HISTORY.tier_name(row),
-		int(row.get("hurt", 0)), int(row.get("comfort", 0)), ",".join(events)])
+	_history.commit_summary(real_act, _summary_context())
+
+
+func _summary_context() -> Dictionary:
+	return {
+		"main": main,
+		"pony_id": _id,
+		"event_id": _event_id,
+		"inputs": _summary_inputs(),
+	}
 
 
 func _summary_inputs() -> Dictionary:
@@ -4086,27 +4069,8 @@ func _summary_inputs() -> Dictionary:
 	}
 
 
-func _summary_reasons(outcome: Dictionary) -> String:
-	var parts: PackedStringArray = []
-	var raw: Variant = outcome.get("reasons", [])
-	if raw is Array:
-		for item: Variant in raw:
-			parts.append(str(item))
-	return ",".join(parts)
-
-
-func _history_enabled() -> bool:
-	return ACT_HISTORY.enabled()
-
-
-func _history_row() -> Dictionary:
-	return ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id, ACT_HISTORY.day_now())
-
-
 func _history_note() -> String:
-	if not _history_enabled():
-		return ""
-	return ACT_HISTORY.prompt_note(_history_row())
+	return _history.prompt_note(_id)
 
 
 ## Called by main before a normal Y start. A withdrawn mare still shows the offer; pressing Y
@@ -4115,18 +4079,19 @@ func history_blocks_start() -> bool:
 	if state != State.IDLE:
 		return false
 	var verdict := _policy_verdict(ELIGIBILITY.Mode.START)
-	return verdict != null and verdict.history_refuse
+	return _history.blocks_start(verdict)
 
 
 func refuse_from_history(_pose: String, source: String, _bed: Variant = null) -> bool:
 	_read_id()
 	if not history_blocks_start():
 		return false
-	if _now_s() - _history_refusal_at < 4.0:
+	var now := _now_s()
+	if not _history.refusal_ready(now):
 		return true
-	_history_refusal_at = _now_s()
+	_history.mark_refusal(now)
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		var row := _history_row()
+		var row: Dictionary = _history.row(_id)
 		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
 		var valid := func() -> bool:
 			return is_instance_valid(pony) and state == State.IDLE
@@ -4141,95 +4106,64 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 	return true
 
 
-## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
-## complaint becomes one short line in a quiet moment.
-func _history_tick(_delta: float) -> void:
-	if not _history_enabled() or not is_instance_valid(pony) or not is_instance_valid(main):
-		return
-	if not is_instance_valid(main.player) or get_tree().paused:
+## Idle-only history scan. The scene values are gathered here; `history.gd` owns the decisions.
+func _history_tick(delta: float) -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(main) \
+			or not is_instance_valid(main.player):
 		return
 	var director := _director()
 	if director == null:
 		return
-	var now := _now_s()
-	var turn := int(director.get("_turn_id"))
-	var text := str(director.get("_player_text")).strip_edges()
-	if _history_turn < 0:
-		_history_turn = turn
-	elif turn != _history_turn:
-		_history_turn = turn
-		if not text.is_empty() and PREFERENCES.apology_intent(text):
-			var target: Variant = pony.get("conversation_target")
-			var body: Variant = main.player_body()
-			if target == main.player or target == body:
-				if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), _id,
-						ACT_HISTORY.day_now()):
-					ACT_HISTORY.save()
-					if is_instance_valid(main.game):
-						main.memory.note(MEMORY.NoteKind.APOLOGY, _id, _event_id)
-					_log("history apology id=%s" % _id)
-	_history_scan_clock += _delta
-	if _history_scan_clock < 1.0:
-		return
-	_history_scan_clock = 0.0
-	if now - _history_reminder_at < 15.0 or _speech_busy():
-		return
-	if str(director.get("state")) != "idle":
-		return
-	if main.player.global_position.distance_to(pony.global_position) > 5.0:
-		return
-	var row := _history_row()
-	var kind := ACT_HISTORY.pending_line(row)
-	if kind.is_empty():
-		return
-	if Time.get_unix_time_from_system() - float(row.get("last_at", 0.0)) < 45.0:
-		return
-	var event_id := "history_%s_%d" % [_id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
-		return is_instance_valid(pony) and state == State.IDLE
-	var reaction := MEMORY.Reaction.HISTORY_REMINDER if kind == "reminder" \
-		else MEMORY.Reaction.HISTORY_COMPLAINT
-	var key: String = _reaction_line(reaction, event_id,
-		ACT_HISTORY.line_purpose(row, kind), valid)
-	if key.is_empty():
-		return
-	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), _id, kind)
-	ACT_HISTORY.save()
-	_history_reminder_at = now
-	_log("history line kind=%s key=%s" % [kind, key])
+	var target: Variant = pony.get("conversation_target")
+	var body: Variant = main.player_body()
+	_history.tick_idle(delta, {
+		"main": main,
+		"pony": pony,
+		"director": director,
+		"pony_id": _id,
+		"event_id": _event_id,
+		"now": _now_s(),
+		"turn": int(director.get("_turn_id")),
+		"text": str(director.get("_player_text")).strip_edges(),
+		"paused": get_tree().paused,
+		"speech_busy": _speech_busy(),
+		"director_state": str(director.get("state")),
+		"distance": main.player.global_position.distance_to(pony.global_position),
+		"target_is_player": target == main.player or target == body,
+	})
 
 
-func _tolerance_controller():
-	if _tolerance == null:
-		_tolerance = ACT_TOLERANCE.new()
-	return _tolerance
+func _history_is_idle() -> bool:
+	return state == State.IDLE
 
 
 ## The meter only advances during an act. A forced debug warning or stop runs here so it lands
 ## on the next frame after the Debug panel is closed.
-func _tolerance_tick(_delta: float) -> void:
+func _tolerance_tick(delta: float) -> void:
 	if state not in [State.POSING_IN, State.ACTIVE]:
 		return
-	if not _debug_forced_tolerance.is_empty():
-		var action := _debug_forced_tolerance
-		_debug_forced_tolerance = ""
+	var action: String = _history.take_debug()
+	if not action.is_empty():
 		if action == "warning":
 			_tolerance_warn(1)
 		elif action == "stop":
 			_stop_with_her("debug")
 		return
-	_tolerance_controller().tick(_delta)
+	_history.tolerance_tick(delta)
 
 
 func _tolerance_event(event: Dictionary) -> void:
 	if event.is_empty() or _stopped_by_her:
 		return
-	var warning := int(event.get("warning", 0))
+	var decision: Dictionary = _history.tolerance_decision(event)
+	if decision.is_empty():
+		return
+	var warning := int(decision.get("warning", 0))
 	if warning > 0:
 		_tolerance_warn(warning)
 		return
-	if bool(event.get("stopped", false)) or bool(event.get("stop", false)):
-		_stop_with_her(str(event.get("kind", "")))
+	if bool(decision.get("stopped", false)) or bool(decision.get("stop", false)):
+		_stop_with_her(str(decision.get("kind", "")))
 
 
 func _tolerance_warn(level: int) -> void:
@@ -4239,7 +4173,7 @@ func _tolerance_warn(level: int) -> void:
 	_queue_tolerance_warning(level)
 	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
 		level, str(_preferences.get("tolerance", "normal")),
-		float(_tolerance_controller().distress), _tolerance_controller().last_dislike])
+		_history.distress(), _history.last_dislike()])
 
 
 func _queue_tolerance_warning(level: int) -> void:
@@ -4290,7 +4224,7 @@ func _stop_with_her(reason: String) -> void:
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_preferences.get("tolerance", "normal")), float(_tolerance_controller().distress),
+		str(_preferences.get("tolerance", "normal")), _history.distress(),
 		reason, str(strict)])
 
 
@@ -4339,43 +4273,26 @@ func _end_tail_tuck() -> void:
 func debug_force_tolerance(kind: String) -> bool:
 	if state not in [State.POSING_IN, State.ACTIVE]:
 		return false
-	_debug_forced_tolerance = kind
+	_history.request_debug(kind)
 	return true
 
 
-## Store the strongest clean act per mare. The exchange is the useful part: a later cue can
-## infer that she liked it without any name-specific instruction.
+## Store the strongest clean act per mare. The history system owns the eligibility and the text.
 func _record_peak_memory() -> void:
-	if _peak_recorded:
-		return
-	_peak_recorded = true
-	if not _summary.is_empty() and not bool(_summary.get("positive", false)):
-		return
-	if not RELATIONSHIP_CUE.peak_eligible(_peak_satisfaction, _act_both_matches, _act_dislikes):
-		return
-	var player := _last_player_talk.strip_edges()
-	var her := ""
-	if _last_spoken_at() > _act_spoken_at:
-		her = _last_spoken_line()
-	if player.length() > 160:
-		player = player.left(160).strip_edges()
-	if her.length() > 160:
-		her = her.left(160).strip_edges()
-	var text := ""
-	if not player.is_empty():
-		text = "Anon said: \"%s\"." % player
-		if not her.is_empty():
-			text += " You answered: \"%s\"." % her
-	else:
-		text = "Anon made you feel completely wanted."
-	var score := RELATIONSHIP_CUE.peak_score(_peak_satisfaction, _act_both_matches,
-		_act_liked_touch, _act_liked_talk, _act_dislikes)
-	var peak := MEMORY.Peak.new()
-	peak.id = _id
-	peak.event_id = _event_id
-	peak.text = text
-	peak.score = score
-	main.memory.record_peak(peak)
+	_history.record_peak_memory({
+		"main": main,
+		"pony_id": _id,
+		"event_id": _event_id,
+		"satisfaction": _peak_satisfaction,
+		"both_matches": _act_both_matches,
+		"dislikes": _act_dislikes,
+		"liked_touch": _act_liked_touch,
+		"liked_talk": _act_liked_talk,
+		"player_talk": _last_player_talk,
+		"her_at": _last_spoken_at(),
+		"her_line": _last_spoken_line(),
+	}, _act_spoken_at)
+
 
 ## The runtime-patched rig coat is no longer the exact game Shader, so FlankTouch's
 ## JIGGLE_SHADERS check skips it. Put the coat and its outline back into the active target list.
@@ -5602,7 +5519,7 @@ func _climax_quality_inputs() -> Dictionary:
 		"liked_touch": _act_liked_touch,
 		"liked_talk": _act_liked_talk,
 		"dislikes_total": touch_dislikes + _act_talk_dislikes,
-		"distress": float(_tolerance_controller().distress),
+		"distress": _history.distress(),
 		"seeks_touch": PREFERENCES.seeks_touch(_preferences),
 		"seeks_talk": PREFERENCES.seeks_talk(_preferences),
 		"overwhelmed": _overwhelmed > 0.0,

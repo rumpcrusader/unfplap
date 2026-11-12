@@ -80,6 +80,7 @@ func run() -> void:
 	_check_readiness()
 	_check_history()
 	_check_afterglow()
+	_check_face()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -343,6 +344,30 @@ func _check_afterglow() -> void:
 	check(agents.contains("docs/afterglow.md"), "AGENTS.md links to docs/afterglow.md")
 	check(FileAccess.file_exists(ROOT.path_join("tests/afterglow/test_afterglow.gd")),
 		"tests/afterglow/test_afterglow.gd exists")
+
+
+## The face facade owns the act face, the line-face owner and the mood-face lifetime. It reads the
+## scene through the pony and the host callbacks and never the runtime node. Its contract is
+## `docs/face.md`.
+func _check_face() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("face_session.gd"))
+	check(facade.contains("func set_act_face(") and facade.contains("func beat("),
+		"face facade is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "face has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/face.md"))
+	check(not contract.is_empty(), "docs/face.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Beat table",
+			"## Line-face ownership", "## Post-act mood face", "## Tests"]:
+		check(contract.contains(heading), "docs/face.md has %s" % heading)
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("docs/face.md"), "AGENTS.md links to docs/face.md")
+	for name: String in ["test_runtime_face.gd", "test_act_face.gd", "test_mood_face.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/face/" + name)),
+			"tests/face/%s exists" % name)
 
 
 func _check_eligibility_docs() -> void:

@@ -1,7 +1,7 @@
 extends SceneTree
 ## Pure act-face mapping: face beats, the live climax style, blush levels and prompt hints.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_act_face.gd
+##     --script res://mods/unfplap/tests/face/test_act_face.gd
 
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 var checks := 0

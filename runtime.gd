@@ -16,7 +16,6 @@ const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
-const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
@@ -46,6 +45,7 @@ const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
 const READINESS := preload("res://mods/unfplap/readiness.gd")
 const HISTORY := preload("res://mods/unfplap/history.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow.gd")
+const FACE := preload("res://mods/unfplap/face_session.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
@@ -633,10 +633,29 @@ var _act_seconds := 0.0
 ## act timing and stroke memory instead of aging them by the pause length.
 var _clock_s := 0.0
 var _aftercare: Node
-var _mood_face: Node
-var _warm_note := false
-var _act_face := ""
-var _stare_release_until := 0.0
+## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
+## face. See `face_session.gd` and `docs/face.md`.
+var _face: RefCounted = FACE.new()
+var _mood_face: Node:
+	get:
+		return _face.mood_face
+	set(value):
+		_face.mood_face = value
+var _warm_note: bool:
+	get:
+		return _face.warm_note
+	set(value):
+		_face.warm_note = value
+var _act_face: String:
+	get:
+		return _face.act_face
+	set(value):
+		_face.act_face = value
+var _stare_release_until: float:
+	get:
+		return _face.stare_release_until
+	set(value):
+		_face.stare_release_until = value
 var _first_time := false
 var _act_climax_mode := "auto"
 var _satisfaction_tween: Tween
@@ -706,6 +725,8 @@ func _init() -> void:
 	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
 	_afterglow.on_end = Callable(self, "end_afterglow")
 	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
+	_face.log = Callable(self, "_log")
+	_face.clock = Callable(self, "_now_s")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -726,6 +747,7 @@ func _ready() -> void:
 	# the pony enters the tree, so read it now and once more after the first frame.
 	_read_id()
 	call_deferred("_read_id")
+	_face.bind(pony, self)
 	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
 	# that assigns the pony's identity after she enters the tree.
 	_anatomy_refresh()
@@ -5354,72 +5376,41 @@ func _begin_aftercare() -> void:
 	add_child(_aftercare)
 	_start_post_act_face()
 
-## The post-act face. A positive or non-early neutral act keeps a light, relaxed face and the warm
-## prompt note; a bad act shows its summary mood instead. The node yields to spoken line faces and
-## lasts as long as the impression mood is fresh.
+## The post-act face. The facade owns the lifetime and the warm note; the runtime gathers the
+## scene values.
 func _start_post_act_face() -> void:
-	_warm_note = false
-	if _stopped_by_her or not is_inside_tree() or not is_instance_valid(pony):
-		return
-	var face := ""
-	var mood := ""
-	var blush := 0.0
-	var warm := false
-	if not _summary.is_empty():
-		face = ACT_FACE.face_for_summary_hold(_summary)
-		mood = str(_summary.get("mood", ""))
-		warm = bool(_summary.get("reward", false)) and satisfaction >= _aftercare_min
-		if warm:
-			blush = 0.35
-	elif satisfaction >= _aftercare_min:
-		face = "relaxed"
-		blush = 0.35
-		warm = true
-	if face.is_empty():
-		return
-	_start_mood_face(mood, face, blush, warm)
+	_bind_face()
+	_face.start_post_act({
+		"stopped": _stopped_by_her,
+		"summary": _summary,
+		"satisfied": satisfaction,
+		"aftercare_min": _aftercare_min,
+	})
 
 func _start_mood_face(mood: String, face: String, blush: float, warm_note: bool) -> void:
-	if not is_inside_tree() or not is_instance_valid(pony) or face.is_empty():
-		return
-	if not ACT_FACE.valid_face(face):
-		return
-	_end_mood_face()
-	_mood_face = MOOD_FACE.new()
-	_mood_face.name = "UnfplapMoodFace"
-	_mood_face.set("pony", pony)
-	_mood_face.set("runtime", self)
-	_mood_face.set("mood", mood)
-	_mood_face.set("face", face)
-	_mood_face.set("blush", blush)
-	_mood_face.connect("finished", _on_mood_face_finished)
-	_warm_note = warm_note
-	add_child(_mood_face)
-
-func _on_mood_face_finished(_reason: String) -> void:
-	_mood_face = null
-	_warm_note = false
+	_bind_face()
+	_face.start_mood_face(mood, face, blush, warm_note)
 
 func _end_mood_face() -> void:
-	if is_instance_valid(_mood_face):
-		if _mood_face.is_connected("finished", _on_mood_face_finished):
-			_mood_face.disconnect("finished", _on_mood_face_finished)
-		_mood_face.call("_finish", "replaced")
-	_mood_face = null
-	_warm_note = false
+	_bind_face()
+	_face.end_mood_face()
 
 ## Compatibility aliases: the lab's anger keys and the old call sites still use these names.
 func _start_upset(mood: String) -> void:
-	_start_mood_face(mood, str(ACT_FACE.MOOD_FACES.get(mood, "")), 0.0, false)
+	_bind_face()
+	_face.start_upset(mood)
 
 func _end_upset() -> void:
-	_end_mood_face()
+	_bind_face()
+	_face.end_mood_face()
 
 func _end_satisfied() -> void:
-	_end_mood_face()
+	_bind_face()
+	_face.end_mood_face()
 
 # --------------------------------------------------------------------------- act face
 
+## The act's phase name for the face table. The state machine stays here.
 func _act_phase() -> String:
 	match state:
 		State.POSING_IN:
@@ -5463,144 +5454,76 @@ func _climax_quality_inputs() -> Dictionary:
 	}
 
 
+## The facade is bound in `_ready`; a suite that builds a runtime without entering the tree
+## binds it on the first call.
+func _bind_face() -> void:
+	if _face.pony != pony or _face.host != self:
+		_face.bind(pony, self)
+
+
 func _act_face_beat(moment: String) -> void:
+	_bind_face()
 	if not _feature("act_faces") or not is_instance_valid(pony):
 		return
+	_face.debug_enabled = _feature("face_debug")
 	var ctx := {
+		"enabled": true,
+		"debug": _face.debug_enabled,
 		"first_time": _first_time,
 		"tolerance": str(_preferences.get("tolerance", "normal")),
 	}
 	if moment == "climax":
-		ctx["mode"] = _act_climax_mode
+		ctx["climax_mode"] = _act_climax_mode
 		ctx["quality"] = _climax_quality_inputs()
 	elif moment == "afterglow":
 		ctx["summary"] = _summary
-	var plan := ACT_FACE.plan_for(moment, ctx)
-	if plan.is_empty():
-		return
-	var face := str(plan.get("face", ""))
-	if face.is_empty():
-		if moment in ["climax", "afterglow"]:
-			_end_act_face()
-		if moment == "climax" and _feature("face_debug"):
-			var debug_data: Dictionary = {}
-			var raw_debug: Variant = plan.get("style_debug", {})
-			if raw_debug is Dictionary:
-				debug_data = raw_debug as Dictionary
-			_log("act face moment=climax style=%s score=%.2f face=wide" % [
-				str(plan.get("style", "wide")), float(debug_data.get("score", 0.0))])
-		return
-	_set_act_face(face, float(plan.get("hold_s", 0.0)))
-	var fluster_s := float(plan.get("fluster_s", 0.0))
-	if fluster_s > 0.0:
-		var expressions: Variant = pony.get("expressions")
-		if expressions != null and expressions.has_method("fluster"):
-			expressions.call("fluster", fluster_s, true)
-	if bool(plan.get("release_stare", false)):
-		_stare_release_until = _now_s() + float(plan.get("hold_s", 0.0)) + 0.9
-	if _feature("face_debug"):
-		if moment == "climax":
-			var style_data: Dictionary = {}
-			var raw_style: Variant = plan.get("style_debug", {})
-			if raw_style is Dictionary:
-				style_data = raw_style as Dictionary
-			_log("act face moment=climax style=%s score=%.2f motion=%.2f both=%.2f affection=%.2f engagement=%.2f penalty=%.2f face=%s" % [
-				str(plan.get("style", "")), float(style_data.get("score", 0.0)),
-				float(style_data.get("motion", 0.0)), float(style_data.get("both", 0.0)),
-				float(style_data.get("affection", 0.0)),
-				float(style_data.get("engagement", 0.0)),
-				float(style_data.get("penalty", 0.0)), face])
-		else:
-			_log("act face moment=%s face=%s hold=%.1f" % [
-				moment, face, float(plan.get("hold_s", 0.0))])
+	_face.beat(moment, ctx)
 
 
 func _current_dialogue_face() -> String:
-	if not is_instance_valid(pony):
-		return ""
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null or not is_instance_valid(expressions):
-		return ""
-	var value: Variant = expressions.get("dialogue_face")
-	if value is String:
-		return value
-	return ""
+	_bind_face()
+	return _face.dialogue_face()
 
 
 func _set_act_face(face: String, hold_s: float) -> bool:
-	if not is_instance_valid(pony) or not ACT_FACE.valid_face(face):
-		return false
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null or not is_instance_valid(expressions) \
-			or not expressions.has_method("set_dialogue"):
-		return false
-	var current := _current_dialogue_face()
-	if not current.is_empty() and current != _act_face:
-		if _feature("face_debug"):
-			_log("act face skip face=%s owner=line current=%s" % [face, current])
-		return false
-	expressions.call("set_dialogue", face)
-	if hold_s > 0.0 and expressions.has_method("finish_dialogue"):
-		expressions.call("finish_dialogue", hold_s)
-	_act_face = face
-	if _feature("face_debug"):
-		_log("act face set face=%s hold=%.1f" % [face, hold_s])
-	return true
+	_bind_face()
+	_face.debug_enabled = _feature("face_debug")
+	return _face.set_act_face(face, hold_s)
 
 
 func _end_act_face() -> void:
-	_stare_release_until = 0.0
-	if _act_face.is_empty():
-		return
-	if is_instance_valid(pony):
-		var expressions: Variant = pony.get("expressions")
-		if expressions != null and is_instance_valid(expressions) \
-				and expressions.has_method("clear_dialogue") \
-				and _current_dialogue_face() == _act_face:
-			expressions.call("clear_dialogue")
-			if _feature("face_debug"):
-				_log("act face clear face=%s" % _act_face)
-	_act_face = ""
+	_bind_face()
+	_face.debug_enabled = _feature("face_debug")
+	_face.end_face()
 
 
 func _sync_act_face_settings() -> void:
-	if not _feature("act_faces"):
-		_end_act_face()
+	_bind_face()
+	_face.sync_settings(_feature("act_faces"), _feature("face_debug"))
 
 
 ## Debug preview: set one base-game face on the current act. A speaking line still wins.
 func force_act_face(face: String) -> bool:
-	return _set_act_face(face, 3.0)
+	_bind_face()
+	_face.debug_enabled = _feature("face_debug")
+	return _face.force_face(face)
 
 
 ## Debug view for the "Show act face" action.
 func act_face_rows() -> Array[String]:
-	var rows: Array[String] = []
+	_bind_face()
 	var base_mood := ""
 	if is_instance_valid(main) and is_instance_valid(main.game) and not _id.is_empty():
 		var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
 		base_mood = facts.mood
-	rows.append("pony=%s state=%d hud_mood=%s base_mood=%s" % [
-		str(pony.name) if is_instance_valid(pony) else "?", state, mood, base_mood])
-	rows.append("act_face=%s dialogue_face=%s stare_release=%.2f" % [
-		_act_face, _current_dialogue_face(), maxf(0.0, _stare_release_until - _now_s())])
-	var fluster := 0.0
-	if is_instance_valid(pony):
-		var expressions: Variant = pony.get("expressions")
-		if expressions != null and is_instance_valid(expressions):
-			var value: Variant = expressions.get("fluster_amount")
-			if value is float or value is int:
-				fluster = float(value)
-	rows.append("act_faces=%s climax_mode=%s blush_arc=%s fluster=%.2f" % [
-		str(_feature("act_faces")), _act_climax_mode, str(_feature("blush_arc")), fluster])
-	if is_instance_valid(_mood_face):
-		var left: Variant = _mood_face.get("_left")
-		rows.append("mood_face face=%s mood=%s left=%.1f warm=%s" % [
-			str(_mood_face.get("face")), str(_mood_face.get("mood")),
-			float(left) if left is float or left is int else 0.0, str(_warm_note)])
-	else:
-		rows.append("mood_face none warm=%s" % str(_warm_note))
-	return rows
+	return _face.rows({
+		"state": state,
+		"hud_mood": mood,
+		"base_mood": base_mood,
+		"act_faces": _feature("act_faces"),
+		"climax_mode": _act_climax_mode,
+		"blush_arc": _feature("blush_arc"),
+	})
 
 # --------------------------------------------------------------------------- checks
 
@@ -6541,8 +6464,4 @@ func _exit_tree() -> void:
 			_anatomy.call("detach")
 			_anatomy.queue_free()
 		_anatomy = null
-	_end_act_face()
-	if is_instance_valid(_mood_face):
-		_mood_face.queue_free()
-		_mood_face = null
-	_warm_note = false
+	_face.shutdown()

@@ -1,7 +1,7 @@
 extends SceneTree
 ## The held post-act mood face: table, duration and the line-face yield/clear rule.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_mood_face.gd
+##     --script res://mods/unfplap/tests/face/test_mood_face.gd
 
 const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")

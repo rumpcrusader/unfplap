@@ -2,7 +2,7 @@ extends SceneTree
 ## Runtime face beats with a fake expressions node: start, close, warning, afterglow, climax and
 ## the line-face ownership rule. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/test_runtime_face.gd
+##     --script res://mods/unfplap/tests/face/test_runtime_face.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 var checks := 0

@@ -19,7 +19,7 @@ Do not start implementation until you have read the required files for the area 
 | Any standing footstool or stool-supply task | `docs/stool.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `history.gd`, `preferences.gd`, `act_summary.gd`, `act_history.gd` |
-| Any act face, mood or voice emotion | `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_act_face_beat`, `_eyes_tick`), `settings.gd` prompts |
+| Any act face, mood or voice emotion | `docs/face.md`, `face_session.gd`, `act_face.gd`, `mood_face.gd`, `runtime.gd` (`_eyes_tick`), `settings.gd` prompts |
 | Pose, skeleton, camera, act actions | `ROTATION.md`, `poses/` |
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Any setting, flag or debug control | `TUNING.md`, `settings.gd`, `settings_ui.gd` |
@@ -106,11 +106,12 @@ stored state.
 | Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
 | Act summary and history | `history.gd` | `HISTORY.md` | migrated |
 | Afterglow and close window | `afterglow.gd` | `docs/afterglow.md` | migrated |
+| Act face and post-act mood | `face_session.gd` | `docs/face.md` | migrated |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
-act lines, readiness, history and afterglow, plus the act-context and perf modules. The remaining
-suites are still flat (`tests/test_*.gd`) and move when their system is next touched.
+act lines, readiness, history, afterglow and face, plus the act-context and perf modules. The
+remaining suites are still flat (`tests/test_*.gd`) and move when their system is next touched.
 
 ### Docs
 
@@ -124,6 +125,7 @@ suites are still flat (`tests/test_*.gd`) and move when their system is next tou
 | `docs/memory.md` | act memory, witnesses, peak memory and the mod's own line channel |
 | `docs/lines.md` | act cue admission, prompt assembly, reactions and bystander lines |
 | `docs/afterglow.md` | afterglow self-end, `[stay]` hold and the standing close window |
+| `docs/face.md` | act face beats, line-face ownership, stare release and the post-act mood face |
 | `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
@@ -360,6 +362,8 @@ mods/unfplap/
                     decisions, refusal gate and the tolerance meter; contract in `HISTORY.md`
   afterglow.gd      afterglow facade: self-end roll, `[stay]` hold and the standing close
                     window; contract in `docs/afterglow.md`
+  face_session.gd   act face facade: the beat table, the line-face owner, the stare release
+                    and the post-act mood face; contract in `docs/face.md`
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
@@ -1054,8 +1058,9 @@ examples.
 ## Critical: act expression and mood
 
 The act uses the game's own expression vocabulary; it never adds a second emotion stat. `act_face.gd`
-is pure and owns every face/beat decision; `mood_face.gd` holds one post-act face; `runtime.gd`
-owns the timing and the line-face yield.
+is pure and owns every face/beat decision; `face_session.gd` owns the face, the line-face owner and
+the held mood face; `mood_face.gd` is the held node; `runtime.gd` owns the eyelids and the blush.
+The contract is `docs/face.md`.
 
 ### Vocabularies
 
@@ -1071,11 +1076,11 @@ owns the timing and the line-face yield.
 
 ### One face owner
 
-`_act_face` tracks the face the act set. `_set_act_face(face, hold_s)` refuses to override a
-director line (`dialogue_face` non-empty and not `_act_face`). A face with `hold_s > 0` calls
-`finish_dialogue(hold_s)`; `_end_act_face()` clears only if `dialogue_face == _act_face`. The act
-face is cleared in `_restore_begin()`/`_end_session()`; the post-act mood face starts after it at
-`_begin_aftercare()`.
+`face_session.gd` tracks the face the act set. The runtime's `_set_act_face()` forwards to
+`set_act_face()`, which refuses to override a director line (`dialogue_face` non-empty and not the
+act face). A face with `hold_s > 0` calls `finish_dialogue(hold_s)`; `_end_act_face()` clears only
+if `dialogue_face == act_face`. The act face is cleared in `_restore_begin()`/`_end_session()`; the
+post-act mood face starts after it at `_begin_aftercare()`. See `docs/face.md`.
 
 ### Beats
 
@@ -1142,8 +1147,9 @@ notes. A note is skipped when the prompt already contains `[face`. The note neve
 ### Post-act mood face
 
 `mood_face.gd` holds one post-act face for 300 s, yields to
-spoken line faces, ends when the impression mood changes, and clears only its own face. It starts
-from `_begin_aftercare()` for a normal act and from `_start_upset()` for a refusal/stop. Positive
+spoken line faces, ends when the impression mood changes, and clears only its own face.
+`face_session.gd` owns its lifetime and the warm note. It starts from `_begin_aftercare()` for a
+normal act and from `_start_upset()` for a refusal/stop. Positive
 and non-early neutral acts use `relaxed` and set `_warm_note` for the warm prompt note; a bad act
 uses `sad`/`annoyed`; a stop uses `angry`/`annoyed`. The face survives the deferred
 `_rejoin_bed_cuddle()`. A positive act's afterglow has the short `affectionate` beat; the held face

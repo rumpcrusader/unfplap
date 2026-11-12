@@ -434,12 +434,25 @@ func hole_local(mix: float) -> Vector3:
 	return shapes.hole_local(mix)
 
 
+## The act and fluid anchors follow the anatomy's coat-follow weights. The shader moves the
+## visible opening; these two use the same four matrices and the opening's sampled weights so the
+## shaft, droplets and drips stay on it.
 func hole_point(mix := 0.0) -> Vector3:
-	return shapes.hole_point(mix)
+	var mesh: MeshInstance3D = shapes.winking_mesh()
+	if not is_instance_valid(mesh) or coat_follow == null:
+		return shapes.hole_point(mix)
+	var local: Vector3 = shapes.hole_local(mix)
+	local = coat_follow.deform_point(local, coat_follow.opening_weights(mix))
+	return mesh.global_transform * local
 
 
 func hole_rear(mix := 0.0) -> Vector3:
-	return shapes.hole_rear(mix)
+	var mesh: MeshInstance3D = shapes.winking_mesh()
+	if not is_instance_valid(mesh) or coat_follow == null:
+		return shapes.hole_rear(mix)
+	var local: Vector3 = coat_follow.deform_direction(Vector3.BACK,
+		coat_follow.opening_weights(mix))
+	return (mesh.global_basis * local).normalized()
 
 
 func set_closed(value: float) -> void:

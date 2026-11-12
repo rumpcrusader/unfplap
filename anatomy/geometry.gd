@@ -249,6 +249,45 @@ static func coat_follow_matrices(hips: Transform3D, hips_rest: Transform3D,
 	return out
 
 
+## The nearest anatomy vertex for a local point (the two openings use this to read the same
+## weights the shader uses there).
+static func nearest_vertex_index(vertices: PackedVector3Array, point: Vector3) -> int:
+	var best := -1
+	var best_distance := INF
+	for i in vertices.size():
+		var distance := vertices[i].distance_squared_to(point)
+		if distance < best_distance:
+			best_distance = distance
+			best = i
+	return best
+
+
+## The shader's weighted point, on the CPU. `weights` are the four leg weights (0…1) in custom0
+## order, `matrices` the four pelvis-relative transforms, and `strength` the coat-follow setting.
+static func weighted_point(local: Vector3, weights: PackedFloat32Array,
+		matrices: Array[Transform3D], strength: float) -> Vector3:
+	if weights.size() < 4 or matrices.size() < 4 or strength <= 0.0:
+		return local
+	var weight_sum := minf(weights[0] + weights[1] + weights[2] + weights[3], 1.0)
+	var followed := local * (1.0 - weight_sum)
+	for i in 4:
+		followed += (matrices[i] * local) * weights[i]
+	return local.lerp(followed, strength)
+
+
+## The shader's weighted normal direction, on the CPU.
+static func weighted_direction(local: Vector3, weights: PackedFloat32Array,
+		matrices: Array[Transform3D], strength: float) -> Vector3:
+	if weights.size() < 4 or matrices.size() < 4 or strength <= 0.0:
+		return local
+	var weight_sum := minf(weights[0] + weights[1] + weights[2] + weights[3], 1.0)
+	var followed := local * (1.0 - weight_sum)
+	for i in 4:
+		followed += (matrices[i].basis * local) * weights[i]
+	var out := local.lerp(followed, strength)
+	return out.normalized() if out.length_squared() > 0.000001 else local.normalized()
+
+
 ## The five additive V2 anal keys for a local penetration radius. The first four start where the
 ## previous one ends; the ponut key is a 2x ponut-only scale that fades under the extreme key. No
 ## upper clamp: an oversized shaft extrapolates the extreme key.

@@ -355,7 +355,7 @@ the same frame.
 The anatomy mesh is rigidly attached to `pony_hips`, while the visible rig coat is skinned to
 `pony_hips` plus `pony_flank_L/R` and `pony_femur_L/R`. Without a follow, the coat's rump moves
 with the hind legs and the anatomy rim slides out of the coat. The follow gives the anatomy the
-body's own deformation at its outer shell.
+body's own deformation across the whole mesh.
 
 - `anatomy/coat_follow.gd` finds the skinned `MareBody`, buckets its 7,625 rest vertices into a
   2 cm grid and samples the nearest three body vertices for every anatomy vertex. Only the four
@@ -369,10 +369,12 @@ body's own deformation at its outer shell.
   `A` is the live skeleton pose times the rest pose inverse and `place` is the untrimmed anatomy
   placement in skeleton rest space. `anatomy.gdshader` blends them by `CUSTOM0`; at rest every
   matrix is the identity.
-- The blend is masked around the two openings: zero inside `MASK_INNER_M = 0.03 m` and full from
-  `MASK_OUTER_M = 0.07 m`. The vulva and anus therefore stay on the rigid hips anchor that
-  `anatomy/act.gd` uses for the hole, the shaft contact and the player part, while the outer rim
-  follows the rump.
+- The same four matrices and the opening's sampled weights drive the controller's
+  `hole_point()` and `hole_rear()`: the act's shaft contact, the fluid and the idle drips track
+  the visible vulva and anus instead of the rigid mesh transform. The opening point uses the
+  nearest anatomy vertex's custom0 weights; the normal uses the same blend of the local +Z.
+  `shapes.hole_local()` stays the base local point; the controller deforms it before applying the
+  mesh transform.
 - `anatomy.coat_follow` is the 0…1 debug strength; 0 sets the shader strength to zero and keeps
   the anatomy rigid. The teats and skin strip are already engine-skinned, and the dock rides the
   hair skeleton, so their material copies set the strength to zero.
@@ -569,8 +571,9 @@ split when the suite is next touched.
   `VERTEX += flank_jiggle(VERTEX);`. A game update that removes either hook disables the patch,
   not the whole anatomy.
 - The coat follow depends on the body coat's `pony_flank_L/R` and `pony_femur_L/R` skin weights.
-  A body without those bones, a skin, or a `pony_hips` bind stays rigid; the openings are masked
-  so the act anchor is never moved by the follow.
+  A body without those bones, a skin, or a `pony_hips` bind stays rigid. The act's hole point and
+  normal use the same matrices and the opening's sampled weights as the shader, so the shaft
+  tracks the visible opening.
 - The princesses' fitted bodies have no hair skeleton; their tail seat is unavailable and their
   pre-hidden dock stays hidden.
 - `V` is V2-only. The original PPP mesh has no anal mesh.

@@ -1,7 +1,7 @@
 extends RefCounted
-## Per-pony coat follow: the anatomy's outer shell follows the body coat's leg skinning so the
-## seam stays on the rump when the hind legs move. The vulva and anus stay on the rigid hips
-## anchor; the follow fades in away from the two openings.
+## Per-pony coat follow: the anatomy follows the body coat's leg skinning so the seam stays on the
+## rump when the hind legs move. The act's hole point and normal use the same matrices, so the
+## visible vulva and anus, the shaft and the fluid stay together.
 ##
 ## The weights are sampled once from the body mesh's own skin, stored in the anatomy mesh's
 ## custom0 RGBA8 channel, and blended in `anatomy.gdshader` by four pelvis-relative bone
@@ -15,10 +15,10 @@ const HIPS_BONE := "pony_hips"
 ## The shader's four matrices, in the custom0 weight order.
 const UNIFORMS := ["coat_follow_l", "coat_follow_r", "coat_follow_femur_l",
 	"coat_follow_femur_r"]
-## The mask keeps the openings on the rigid anchor. The values are physical metres; the tick
-## converts them to the anatomy mesh's local units.
-const MASK_INNER_M := 0.03
-const MASK_OUTER_M := 0.07
+## The two local openings. The act's hole point and normal use the same sampled weights as the
+## shader, so the shaft and the fluid keep tracking the visible opening.
+const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
+const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
 
 var pony: Node3D
 var placement: RefCounted
@@ -50,6 +50,10 @@ var _built_mesh_id := 0
 var _built := false
 ## A body without a usable coat is a stable condition; do not scan for it every frame.
 var _retry_at_msec := 0
+## The last four matrices, also used by the act's hole point and normal.
+var _matrices: Array[Transform3D] = []
+var _vulva_weights := PackedFloat32Array()
+var _anal_weights := PackedFloat32Array()
 
 
 func setup(pony_node: Node3D, placement_node: RefCounted) -> void:
@@ -74,6 +78,7 @@ func set_material(material_node: ShaderMaterial) -> void:
 	for uniform: String in UNIFORMS:
 		material.set_shader_parameter(uniform, Transform3D.IDENTITY)
 	material.set_shader_parameter("coat_follow_strength", 0.0)
+	_matrices = []
 
 
 ## One debug line for the attach log: how many anatomy vertices got a leg weight.
@@ -105,6 +110,9 @@ func clear() -> void:
 	_built_mesh_id = 0
 	_retry_at_msec = 0
 	_weights = PackedByteArray()
+	_vulva_weights = PackedFloat32Array()
+	_anal_weights = PackedFloat32Array()
+	_matrices = []
 	_grid = {}
 	last_error = ""
 
@@ -142,12 +150,10 @@ func tick() -> void:
 			else Transform3D.IDENTITY)
 	var matrices := GEOMETRY.coat_follow_matrices(skeleton.get_bone_global_pose(_hips_index),
 		_hips_rest, poses, _leg_rests, _built_place)
+	_matrices = matrices
 	for i in mini(matrices.size(), UNIFORMS.size()):
 		material.set_shader_parameter(UNIFORMS[i], matrices[i])
 	material.set_shader_parameter("coat_follow_strength", strength)
-	var scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
-	material.set_shader_parameter("coat_follow_inner", MASK_INNER_M / scale)
-	material.set_shader_parameter("coat_follow_outer", MASK_OUTER_M / scale)
 
 
 ## Re-find the body mesh, resample the anatomy vertices and replace the mesh with a weighted
@@ -155,6 +161,7 @@ func tick() -> void:
 func rebuild() -> bool:
 	_built = false
 	_built_mesh_id = 0
+	_matrices = []
 	last_error = ""
 	if not is_instance_valid(mesh) or not is_instance_valid(skeleton) \
 			or not is_instance_valid(placement):
@@ -203,11 +210,48 @@ func rebuild() -> bool:
 			else Transform3D.IDENTITY)
 	mesh.mesh = weighted
 	_weights = weights
+	_vulva_weights = _opening_weights_at(vertices, WINKING_OPENING)
+	_anal_weights = _opening_weights_at(vertices, ANAL_OPENING)
 	_built_mesh_id = weighted.get_instance_id()
 	_built_place = base
 	_built = true
 	_retry_at_msec = 0
 	return true
+
+
+## The four leg weights at one of the two openings, blended by the act's hole mix. The act's
+## `hole_point()` and `hole_rear()` use this so the shaft, fluid and idle drips track the visible
+## opening instead of the rigid mesh transform.
+func opening_weights(mix: float) -> PackedFloat32Array:
+	var out := PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
+	if _vulva_weights.size() < 4:
+		return out
+	var t := clampf(mix, 0.0, 1.0)
+	for i in 4:
+		out[i] = lerpf(_vulva_weights[i],
+			_anal_weights[i] if _anal_weights.size() >= 4 else 0.0, t)
+	return out
+
+
+func deform_point(local: Vector3, weights: PackedFloat32Array) -> Vector3:
+	return GEOMETRY.weighted_point(local, weights, _matrices,
+		SETTINGS.coat_follow.get_num())
+
+
+func deform_direction(local: Vector3, weights: PackedFloat32Array) -> Vector3:
+	return GEOMETRY.weighted_direction(local, weights, _matrices,
+		SETTINGS.coat_follow.get_num())
+
+
+## Decode the four custom0 bytes at the nearest anatomy vertex to a local opening.
+func _opening_weights_at(vertices: PackedVector3Array, point: Vector3) -> PackedFloat32Array:
+	var out := PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
+	var index := GEOMETRY.nearest_vertex_index(vertices, point)
+	if index < 0 or _weights.size() < (index + 1) * 4:
+		return out
+	for i in 4:
+		out[i] = float(_weights[index * 4 + i]) / 255.0
+	return out
 
 
 ## The body coat's rest vertices and skin bind indices. The body mesh and skin resources are

@@ -71,26 +71,21 @@ uniform float strip_trim = 0.0;
 uniform float strip_scale = 1.0;
 uniform float contour_amount = 1.0;
 
-// integration: the anatomy's outer shell follows the body coat's leg skinning. `CUSTOM0` holds
-// the four leg weights (flank L/R, femur L/R) sampled from the body mesh; the remaining weight is
-// the rigid pelvis. The mask keeps the vulva and anus on their rigid anchor, so the act's hole and
-// the player part's aim stay on the visible opening while the rim follows the rump.
+// integration: the anatomy follows the body coat's leg skinning. `CUSTOM0` holds the four leg
+// weights (flank L/R, femur L/R) sampled from the body mesh; the remaining weight is the rigid
+// pelvis. The controller applies the same weighted matrices to the act's hole point and normal.
 uniform mat4 coat_follow_l;
 uniform mat4 coat_follow_r;
 uniform mat4 coat_follow_femur_l;
 uniform mat4 coat_follow_femur_r;
 uniform float coat_follow_strength = 0.0;
-uniform float coat_follow_inner = 0.04;
-uniform float coat_follow_outer = 0.10;
 
 void apply_coat_follow(inout vec3 vertex, inout vec3 normal, vec4 weights) {
 	if (coat_follow_strength <= 0.0) {
 		return;
 	}
 	float weight_sum = min(dot(weights, vec4(1.0)), 1.0);
-	float opening = min(distance(vertex, vulva_centre), distance(vertex, anal_centre));
-	float amount = coat_follow_strength
-		* smoothstep(coat_follow_inner, coat_follow_outer, opening);
+	float amount = coat_follow_strength;
 	if (amount <= 0.0) {
 		return;
 	}

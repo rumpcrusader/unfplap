@@ -155,5 +155,33 @@ func run() -> void:
 	check((placed[0] * Vector3.ZERO).is_equal_approx(Vector3(-1.0, 1.0, 0.0)),
 		"the follow matrix is placed in anatomy-local space")
 
+	# The opening anchor uses the same weights as the shader. The nearest vertex and the weighted
+	# point/direction are the CPU side of that contract.
+	var points := PackedVector3Array([Vector3.ZERO, Vector3(1.0, 0.0, 0.0)])
+	check(GEOMETRY.nearest_vertex_index(points, Vector3(0.1, 0.0, 0.0)) == 0,
+		"the opening weight picks the nearest anatomy vertex")
+	check(GEOMETRY.nearest_vertex_index(points, Vector3(0.9, 0.0, 0.0)) == 1,
+		"the nearest anatomy vertex follows the point")
+	check(GEOMETRY.nearest_vertex_index(PackedVector3Array(), Vector3.ZERO) == -1,
+		"an empty anatomy mesh has no nearest vertex")
+	var one := PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
+	var half := PackedFloat32Array([0.5, 0.0, 0.0, 0.0])
+	var identity: Array[Transform3D] = [rest, rest, rest, rest]
+	var rotated: Array[Transform3D] = [quarter, rest, rest, rest]
+	check(GEOMETRY.weighted_point(Vector3.RIGHT, PackedFloat32Array(), identity, 1.0)
+		.is_equal_approx(Vector3.RIGHT), "a missing weight map leaves the point alone")
+	check(GEOMETRY.weighted_point(Vector3.RIGHT, one, identity, 1.0)
+		.is_equal_approx(Vector3.RIGHT), "identity follow keeps the point")
+	check(GEOMETRY.weighted_point(Vector3.RIGHT, one, rotated, 1.0)
+		.is_equal_approx(Vector3.UP), "a full leg weight rotates the opening point")
+	check(GEOMETRY.weighted_point(Vector3.RIGHT, half, rotated, 1.0)
+		.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "the pelvis keeps the remaining weight")
+	check(GEOMETRY.weighted_point(Vector3.RIGHT, one, rotated, 0.0)
+		.is_equal_approx(Vector3.RIGHT), "strength zero keeps the opening rigid")
+	check(GEOMETRY.weighted_direction(Vector3.RIGHT, one, rotated, 1.0)
+		.is_equal_approx(Vector3.UP), "the opening normal follows the leg rotation")
+	check(GEOMETRY.weighted_direction(Vector3.RIGHT, one, identity, 1.0)
+		.is_equal_approx(Vector3.RIGHT), "identity follow keeps the opening normal")
+
 	print("ANATOMY_GEOMETRY_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

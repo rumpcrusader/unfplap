@@ -43,6 +43,8 @@ func facts(pony: Node) -> Dictionary:
 	var identity: Variant = pony.get("identity")
 	var id := _pony_id(pony)
 	out["id"] = id
+	out["adult"] = SETTINGS.profile_adult(id)
+	out["participation"] = SETTINGS.profile_participation(id)
 	out["has_identity"] = identity != null
 	out["is_player_pony"] = _is_player_pony(pony)
 	out["is_filly"] = identity != null and bool(identity.get("filly"))
@@ -70,13 +72,15 @@ func evaluate_facts(snapshot: Dictionary, mode := MODE_START) -> Dictionary:
 func adult_pony(pony: Node) -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return false
-	return FACTS.adult_pony_identity(pony.get("identity"), _is_player_pony(pony))
+	return FACTS.adult_pony_identity(pony.get("identity"), _is_player_pony(pony),
+		SETTINGS.profile_adult(_pony_id(pony)))
 
 
 func adult_mare(pony: Node) -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return false
-	return FACTS.adult_mare_identity(pony.get("identity"), _is_player_pony(pony))
+	return FACTS.adult_mare_identity(pony.get("identity"), _is_player_pony(pony),
+		SETTINGS.profile_adult(_pony_id(pony)))
 
 
 func adult_player() -> bool:

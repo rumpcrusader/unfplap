@@ -176,6 +176,7 @@ func _check_teardown() -> void:
 func _check_eligibility_isolation(files: Array[String]) -> void:
 	var pure_files := [
 		"eligibility/policy.gd", "eligibility/facts.gd", "eligibility/verdict.gd",
+		"participation.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))

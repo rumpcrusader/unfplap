@@ -9,6 +9,7 @@ const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
@@ -96,6 +97,21 @@ func run() -> void:
 	var player := _pony("twilight_sparkle")
 	player.name = "PlayerPony"
 	check(not ANATOMY.eligible(player), "player pony is excluded")
+
+	# A provider's `adult` assertion overrides the identity's age flag; the participation block
+	# gates the attachment. The controller's `_participation_anatomy()` is the gate.
+	var registered: Dictionary = MARE_REGISTRY.register(1, {
+		"id": "provider_filly", "source": "test",
+		"adult": true, "profile": {"participation": {"anatomy": false}},
+	})
+	check(bool(registered.get("ok", false)), "the provider registers")
+	var provider_filly := _pony("provider_filly", true)
+	check(ANATOMY.eligible(provider_filly), "a provider's adult assertion attaches a filly")
+	var gate := ANATOMY.new()
+	gate.pony = provider_filly
+	check(not gate._participation_anatomy(), "a participation opt-out blocks the anatomy")
+	gate.free()
+	MARE_REGISTRY.unregister(1, "provider_filly")
 
 	# Placement and preferences use the relationship id first; the identity id is the fallback.
 	var meta_first := _pony("visual_id")

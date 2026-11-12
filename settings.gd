@@ -16,6 +16,7 @@ extends RefCounted
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CONSENT := preload("res://mods/unfplap/consent.gd")
+const PARTICIPATION := preload("res://mods/unfplap/participation.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
@@ -1945,6 +1946,129 @@ static func _profile_consent(base: Dictionary, id: String) -> Dictionary:
 	return CONSENT.resolve(id, template.get("consent", {}))
 
 
+## The participation block a character gets from her built-in template plus provider layers,
+## before the player's saved differences. The provider's `adult` assertion is a separate top-level
+## key and is not part of this block.
+static func _profile_participation(base: Dictionary, id: String) -> Dictionary:
+	var template := profile_for(base, {}, id)
+	return PARTICIPATION.resolve(_profile_participation_raw(template))
+
+
+static func _profile_participation_raw(template: Dictionary) -> Variant:
+	var raw: Variant = template.get("profile", {})
+	if raw is Dictionary:
+		return (raw as Dictionary).get("participation", {})
+	return {}
+
+
+## The resolved participation block for a mare: built-in default, provider layer, then the
+## player's saved differences. The block is subtractive: `true` means "does not veto".
+static func profile_participation(id: String) -> Dictionary:
+	var data := _read()
+	var template := profile_for(data.get("default", _filled_default()),
+		data.get("characters", {}), id)
+	return PARTICIPATION.resolve(_profile_participation_raw(template))
+
+
+## The resolved provider-only `adult` assertion. `true`/`false` is a provider's assertion; `null`
+## means the pony's identity decides. The player's saved block never carries it.
+static func profile_adult(id: String) -> Variant:
+	var data := _read()
+	var template := profile_for(data.get("default", _filled_default()),
+		data.get("characters", {}), id)
+	var raw: Variant = template.get("adult", null)
+	if raw is bool:
+		return raw
+	return null
+
+
+## Provider mod ids that registered a layer for one mare, in resolution order.
+static func provider_sources(id: String) -> Array[String]:
+	return MARE_REGISTRY.sources(id)
+
+
+## The participation block a character returns to when her saved override is removed: her
+## built-in template plus any provider layer, the global default otherwise.
+static func default_participation_for(base: Dictionary, id: String) -> Dictionary:
+	return _profile_participation(base, id)
+
+
+static func default_participation(id: String) -> Dictionary:
+	var data := _read()
+	return default_participation_for(data.get("default", _filled_default()), id)
+
+
+## Save only the participation block. Preferences, consent, prompts and poses are preserved. Only
+## the keys that differ from her resolved default are stored, so a provider can update the rest
+## later and a player's edit never pins a field they did not touch.
+static func save_participation(id: String, values: Dictionary) -> void:
+	var data := _read()
+	var characters: Variant = data.get("characters", {})
+	if not characters is Dictionary:
+		characters = {}
+	var roster: Dictionary = characters
+	var entry: Variant = roster.get(id, {})
+	if not entry is Dictionary:
+		entry = {}
+	var character: Dictionary = entry
+	var base: Dictionary = data.get("default", _filled_default())
+	var defaults := _profile_participation(base, id)
+	var cleaned := PARTICIPATION.clean(values)
+	var diff: Dictionary = {}
+	for key: String in PARTICIPATION.KEYS:
+		if cleaned.has(key) and bool(cleaned[key]) != bool(defaults.get(key, true)):
+			diff[key] = bool(cleaned[key])
+	if diff.is_empty():
+		character.erase("profile")
+	else:
+		var profile: Variant = character.get("profile", {})
+		if not profile is Dictionary:
+			profile = {}
+		(profile as Dictionary)["participation"] = diff
+		character["profile"] = profile
+	if character.is_empty():
+		roster.erase(id)
+	else:
+		roster[id] = character
+	if roster.is_empty():
+		data.erase("characters")
+	else:
+		data["characters"] = roster
+	_write(data)
+
+
+## Remove only the participation override; the provider's default returns. Preferences, consent,
+## prompts and poses stay.
+static func reset_participation(id: String) -> void:
+	var data := _read()
+	var characters: Variant = data.get("characters", {})
+	if not characters is Dictionary:
+		characters = {}
+	var roster: Dictionary = characters
+	var entry: Variant = roster.get(id, {})
+	if entry is Dictionary:
+		var character: Dictionary = entry
+		if character.has("profile"):
+			var profile: Variant = character["profile"]
+			if profile is Dictionary:
+				(profile as Dictionary).erase("participation")
+				if (profile as Dictionary).is_empty():
+					character.erase("profile")
+			else:
+				character.erase("profile")
+		if character.is_empty():
+			roster.erase(id)
+		else:
+			roster[id] = character
+	else:
+		roster.erase(id)
+	if roster.is_empty():
+		data.erase("characters")
+	else:
+		data["characters"] = roster
+	_write(data)
+
+
 static func character_name(id: String) -> String:
 	if CHARACTER_NAMES.has(id):
 		return str(CHARACTER_NAMES[id])
@@ -2153,6 +2277,22 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 			cleaned[id] = raw
 			continue
 		var entry: Dictionary = (raw as Dictionary).duplicate(true)
+		# A player cannot age a character up; the provider's `adult` assertion is not a player
+		# field, so it is never written into the player's block.
+		entry.erase("adult")
+		# The profile block is a sparse capability layer; only the player's real differences
+		# from the provider's default are stored.
+		if entry.has("profile"):
+			var profile: Variant = entry["profile"]
+			if profile is Dictionary:
+				var cleaned_profile := _clean_profile(profile,
+					data.get("default", _filled_default()), id)
+				if cleaned_profile.is_empty():
+					entry.erase("profile")
+				else:
+					entry["profile"] = cleaned_profile
+			else:
+				entry.erase("profile")
 		var built_in: Variant = CHARACTER_TEMPLATES.get(id, {})
 		var template: Dictionary = {}
 		if built_in is Dictionary and not (built_in as Dictionary).is_empty():
@@ -2203,6 +2343,20 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 	else:
 		data["characters"] = cleaned
 	return data
+
+
+## Reduce a saved profile block to the player's real participation differences. The provider's
+## `adult` assertion is never a player value and is dropped here.
+static func _clean_profile(profile: Dictionary, base: Dictionary, id: String) -> Dictionary:
+	var defaults := _profile_participation(base, id)
+	var cleaned := PARTICIPATION.clean(profile.get("participation", {}))
+	var diff: Dictionary = {}
+	for key: String in PARTICIPATION.KEYS:
+		if cleaned.has(key) and bool(cleaned[key]) != bool(defaults.get(key, true)):
+			diff[key] = bool(cleaned[key])
+	if diff.is_empty():
+		return {}
+	return {"participation": diff}
 
 
 ## Move the tolerance block's old tier keys onto the renamed paths.

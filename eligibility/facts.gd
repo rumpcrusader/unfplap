@@ -7,6 +7,7 @@ extends RefCounted
 
 const KEYS := [
 	"id", "has_identity", "is_player_pony", "is_filly", "is_stallion",
+	"adult", "participation",
 	"has_relationship", "registered_adult", "romance_eligible",
 	"stage", "love_level", "willing", "stored_bond", "bond_stage",
 	"promiscuity", "sex_start", "public_feature",
@@ -24,6 +25,8 @@ static func empty() -> Dictionary:
 		"is_player_pony": false,
 		"is_filly": false,
 		"is_stallion": false,
+		"adult": null,
+		"participation": {"acts": true, "anatomy": true, "tail": true},
 		"has_relationship": false,
 		"registered_adult": false,
 		"romance_eligible": false,
@@ -75,18 +78,23 @@ static func normalize(raw: Variant) -> Dictionary:
 
 
 ## An adult pony is any identified pony that is not a filly or colt (the game's `filly` age flag)
-## and is not the player's own pony. Stallions are adults here; use `adult_mare_identity` for the
-## act-target, anatomy and tail predicate.
-static func adult_pony_identity(identity: Variant, is_player_pony := false) -> bool:
+## and is not the player's own pony. A provider's `adult` assertion overrides the identity's age
+## flag; `null` means the identity decides. Stallions are adults here; use `adult_mare_identity`
+## for the act-target, anatomy and tail predicate.
+static func adult_pony_identity(identity: Variant, is_player_pony := false,
+		adult: Variant = null) -> bool:
 	if identity == null or is_player_pony:
 		return false
+	if adult is bool:
+		return adult
 	return not bool(identity.get("filly"))
 
 
 ## An adult mare is an adult pony that is not a stallion. This is the act target and the anatomy
-## and tail seat target.
-static func adult_mare_identity(identity: Variant, is_player_pony := false) -> bool:
-	if not adult_pony_identity(identity, is_player_pony):
+## and tail seat target. The `adult` override changes age, not sex.
+static func adult_mare_identity(identity: Variant, is_player_pony := false,
+		adult: Variant = null) -> bool:
+	if not adult_pony_identity(identity, is_player_pony, adult):
 		return false
 	return not bool(identity.get("stallion"))
 

@@ -24,9 +24,11 @@ static func id_for(meta_id: String, identity: Variant) -> String:
 
 
 ## Every adult mare gets anatomy: the identity filly/stallion flags are the age gate, the
-## player's own pony never gets it, and the pony needs a stable id for the per-mare placement.
-static func eligible(identity: Variant, is_player_pony: bool, id: String) -> bool:
-	return FACTS.adult_mare_identity(identity, is_player_pony) and not id.is_empty()
+## player's own pony never gets it, and the pony needs a stable id for the per-mare placement. A
+## provider's `adult` assertion overrides the identity's age flag; `null` means the identity decides.
+static func eligible(identity: Variant, is_player_pony: bool, id: String,
+		adult: Variant = null) -> bool:
+	return FACTS.adult_mare_identity(identity, is_player_pony, adult) and not id.is_empty()
 
 
 ## The princess body profile, or an empty array for an ordinary body. A modded copy is matched by

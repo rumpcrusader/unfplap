@@ -290,6 +290,8 @@ mods/unfplap/
                     caress hand hold and shared two-bone palm solve
   consent.gd        pure per-mare public/anal/oral defaults and merge; a
                     dependency of the eligibility API, not a gate by itself
+  participation.gd  pure per-mare capability layer (acts, anatomy, tail); a
+                    subtractive opt-out, not a gate by itself
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength,
                     and the bottom-of-stroke impact event
@@ -1660,12 +1662,15 @@ VR lab:
 - The injected tab also owns the per-mare **Characters** sub-tab: one pony selector with a name
   filter, enum controls from `preferences.gd`, neglect tolerance
   (`forgiving`/`normal`/`strict`), one Dislikes / No preference / Likes pill row per touch and talk
-  action, and editable notes. The selector lists `SETTINGS.CHARACTER_ORDER` first, then any live
+  action, one **Takes part in** row of `Acts` / `Anatomy` / `Tail` checks, and editable notes. The
+  selector lists `SETTINGS.CHARACTER_ORDER` first, then any live
   adult mare with the mod's runtime that is not in that roster under an **Other mares** separator;
   an off-roster id uses her provider template when registered (`docs/api.md`), otherwise the
   global default profile, until a preset is saved. Preference edits are
   staged in the form and written only by **Save preset**, which applies live; **Reset to default**
-  restores her built-in template plus any provider layer. Custom `event_prompts` and `poses` on the
+  restores her built-in template plus any provider layer. The participation row shows the resolved
+  values and a provider hint when a provider layer is in effect; a provider's `adult` assertion is
+  shown read-only and only when it overrides the identity. Custom `event_prompts` and `poses` on the
   character entry must survive both actions.
 - Injected pages/buttons are tracked and removed in `_exit_tree()`. Do not add `extends` for the
   settings page.
@@ -1854,7 +1859,14 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   templates are not materialized in the file. A known mare's base is her template in
   `character_preferences.gd`, then any mod provider layer (see `docs/api.md`), then `default`; so
   removing her saved override restores that chain rather than the global default.
-- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `preferences`,
+- `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation`
+  holds `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A
+  provider's `adult` assertion is top-level and never a player value. The `characters` block is the
+  same per-mare block as the preference, consent, prompt and pose overrides.
+- `participation.gd` resolves the per-mare participation block: the built-in default, the provider
+  layer, then the player's `characters.<id>.profile.participation` differences. The gate semantics
+  are in `docs/eligibility.md`; the attachment and tail gates are in `docs/anatomy.md`.
+- Key fields: `smack_zone_radius`, `aftercare_min`, `cue_gap`, `preferences`, `consent`, `profile`,
   `act_prompts`, `event_prompts` (`climax`, `end_early`),
   `poses.missionary`, `poses.standing`. `cue_gap` is a per-character JSON value, not a settings-tab
   control. The global default preference note is `Open to affection.`; every character template

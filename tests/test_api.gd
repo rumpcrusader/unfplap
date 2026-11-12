@@ -12,13 +12,13 @@ const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]
 const DESCRIPTOR_KEYS := [
 	"schema", "id", "source", "name",
-	"preferences", "consent", "placement", "poses", "act_prompts", "event_prompts",
-	"cue_gap", "aftercare_min", "smack_zone_radius",
+	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 const DESCRIPTION_KEYS := [
 	"schema", "id", "name", "known", "registered", "sources",
-	"preferences", "consent", "placement", "poses", "act_prompts", "event_prompts",
-	"cue_gap", "aftercare_min", "smack_zone_radius",
+	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
 var failures := 0
@@ -95,11 +95,12 @@ func _check_contract() -> void:
 	var contract: Dictionary = api.contract()
 	check(str(contract.get("provider", "")) == "unfplap", "provider id")
 	check(int(contract.get("api_major", 0)) == 1, "api major")
-	check(int(contract.get("api_minor", -1)) == 0, "api minor")
+	check(int(contract.get("api_minor", -1)) == 1, "api minor")
 	check(int((contract.get("schemas", {}) as Dictionary).get("mare", 0)) == 1, "mare schema")
 	var capabilities: Dictionary = contract.get("capabilities", {})
 	check(int(capabilities.get("registry.mare", 0)) == 1, "registry capability")
 	check(int(capabilities.get("mare.read", 0)) == 1, "read capability")
+	check(int(capabilities.get("profile.mare", 0)) == 1, "profile capability")
 	check((contract.get("deprecations", []) as Array).is_empty(), "no v1 deprecations")
 	check(api.supports("registry.mare"), "supports a known capability")
 	check(not api.supports("registry.mare", 2), "capability version check")
@@ -111,13 +112,13 @@ func _check_docs() -> void:
 	check(not text.is_empty(), "docs/api.md exists")
 	for name: String in METHODS:
 		check(text.contains(name), "docs mention " + name)
-	for name: String in ["registry.mare", "mare.read"]:
+	for name: String in ["registry.mare", "mare.read", "profile.mare"]:
 		check(text.contains(name), "docs mention capability " + name)
 	for key: String in DESCRIPTOR_KEYS:
 		check(text.contains(key), "docs mention descriptor " + key)
 	for key: String in DESCRIPTION_KEYS:
 		check(text.contains(key), "docs mention description " + key)
-	check(text.contains("1.0"), "docs carry the current API version")
+	check(text.contains("1.1"), "docs carry the current API version")
 
 
 func _check_base_description() -> void:
@@ -135,6 +136,9 @@ func _check_base_description() -> void:
 	check(str((data.get("preferences", {}) as Dictionary).get("intensity", "")) == "firm",
 		"built-in preference resolves")
 	check((data.get("consent", {}) as Dictionary).has("public"), "consent resolves")
+	check(data.get("adult") == null, "a base mare has no adult assertion")
+	check(bool((data.get("profile", {}) as Dictionary).get("participation", {}).get("acts", false)),
+		"base participation resolves to all allowed")
 	check((data.get("placement", {}) as Dictionary).size() == PLACEMENT.KEYS.size(),
 		"placement has every key")
 	check(near(float((data.get("placement", {}) as Dictionary).get("tail_tilt_deg", -1.0)), 0.0),
@@ -166,6 +170,8 @@ func _check_custom_mare() -> void:
 			"notes": "A test provider mare.",
 		},
 		"consent": {"public": true, "anal": true, "oral": false},
+		"adult": true,
+		"profile": {"participation": {"acts": false, "anatomy": false}},
 		"placement": {"tail_tilt_deg": 4.0, "dock_scale": 0.9},
 		"poses": {"missionary": {"nuzzle_scale": 0.5}},
 		"act_prompts": {"cue": "Custom cue {seed}"},
@@ -195,6 +201,12 @@ func _check_custom_mare() -> void:
 	check(bool(consent.get("public", false)), "provider public consent")
 	check(bool(consent.get("anal", false)), "provider anal consent")
 	check(not bool(consent.get("oral", true)), "provider oral consent")
+	check(data.get("adult") == true, "provider adult assertion")
+	var profile: Dictionary = data.get("profile", {})
+	var participation: Dictionary = profile.get("participation", {})
+	check(not bool(participation.get("acts", true)), "provider participation acts")
+	check(not bool(participation.get("anatomy", true)), "provider participation anatomy")
+	check(bool(participation.get("tail", false)), "provider participation tail defaults")
 	var placement: Dictionary = data.get("placement", {})
 	check(near(float(placement.get("tail_tilt_deg", 0.0)), 4.0), "provider tail tilt")
 	check(near(float(placement.get("dock_scale", 1.0)), 0.9), "provider dock scale")
@@ -314,6 +326,18 @@ func _check_validation() -> void:
 
 	bad = api.register_mare(null, {"id": "no_owner", "source": "test"})
 	check(not bool(bad.get("ok", true)), "a null owner is rejected")
+
+	bad = api.register_mare(owner, {"id": "bad_adult", "source": "test", "adult": "yes"})
+	check(not bool(bad.get("ok", true)), "a non-boolean adult is rejected")
+	bad = api.register_mare(owner, {"id": "bad_profile", "source": "test",
+		"profile": {"participation": {"acts": "yes"}}})
+	check(not bool(bad.get("ok", true)), "a non-boolean participation is rejected")
+	var warned_profile: Dictionary = api.register_mare(owner, {"id": "warned_profile",
+		"source": "test", "profile": {"participation": {"unknown": true}}})
+	check(bool(warned_profile.get("ok", false)), "an unknown participation key is a warning")
+	check(not (warned_profile.get("warnings", []) as Array).is_empty(),
+		"the unknown participation key is reported")
+	api.unregister_mare(owner, "warned_profile")
 
 	var warned: Dictionary = api.register_mare(owner, {"id": "warned_mare", "source": "test",
 		"unknown_key": true})

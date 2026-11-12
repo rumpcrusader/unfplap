@@ -59,15 +59,16 @@ var contract: Dictionary = api.contract()
 ```gdscript
 {
 	"provider": "unfplap",
-	"api_version": "1.0",
+	"api_version": "1.1",
 	"api_major": 1,
-	"api_minor": 0,
+	"api_minor": 1,
 	"mod_version": "0.4.0",
 	"game_version": "0.3.0-maredev",
 	"schemas": {"mare": 1, "preferences": 1, "placement": 1},
 	"capabilities": {
 		"registry.mare": 1,
 		"mare.read": 1,
+		"profile.mare": 1,
 	},
 	"deprecations": [],
 }
@@ -76,7 +77,7 @@ var contract: Dictionary = api.contract()
 `api.supports(capability, min_version := 1)` returns true when this build has the capability at
 least at that version. `contract()` is plain data and may be cached for the process lifetime.
 
-## Methods (API 1.0)
+## Methods (API 1.1)
 
 | Method | Returns | Purpose |
 |---|---|---|
@@ -144,6 +145,8 @@ values, a reserved id, a missing `id` or `source`, and non-positive placement sc
 | `name` | no | Settings label and `describe_mare().name` for an off-roster mare. A base-game name always wins. |
 | `preferences` | no | `preferences.gd` profile fields: `intensity`, `pattern`, `touch`, `dislikes`, `talk`, `warmth`, `tolerance`, `notes`. |
 | `consent` | no | `public`, `anal`, `oral` booleans. Missing keys use the existing deterministic id defaults. |
+| `adult` | no | Provider-only tri-state: `true` or `false` asserts the pony's age; absent lets the game's identity decide. It is never written to the player's settings. |
+| `profile` | no | `participation` with `acts`, `anatomy` and `tail` booleans. Missing keys default to `true`. It is subtractive: `true` means "does not veto", never "grants". |
 | `placement` | no | Any subset of `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`, `tail_y`, `tail_z`, `dock_y`, `dock_scale`, `tail_tilt_deg`. |
 | `poses` | no | Partial per-pose blocks, merged over `poses/catalog.gd` defaults. |
 | `act_prompts` | no | `cue` and `utterance` prompt overrides. |
@@ -155,10 +158,15 @@ values, a reserved id, a missing `id` or `source`, and non-positive placement sc
 Provider data is never written to `settings.json`. It is an in-memory layer. The player's saved
 character block and placement override always win.
 
-Registration is metadata only. It does not make a pony adult, spawn her, grant a relationship or
-start an act; the game's identity and relationship runtime still decide all of that. A custom
-mare still needs the game's pony locomotion and hybrid rig, a stable id, `pony_hips`,
-`MareBody`, and a hair skeleton plus `OpenPonyDock` for tail seating.
+Registration is metadata only. It does not spawn a pony, grant a relationship or start an act; the
+game's relationship runtime still decides the live relationship. A provider's `adult` assertion is
+unfplap's own view of the pony's age, not a base-game identity rewrite: the base game's own
+`pony_kisser`, `bonds.welcomes` and `bonds.eligible_for_romance` still read the game's identity
+flag and `bonds.adults` table. A provider that rewrites a character as an adult must change the
+game's identity and bond table too; the API's `adult` only makes unfplap's own eligibility,
+anatomy and tail-seat gates accept her. A custom mare still needs the game's pony locomotion and
+hybrid rig, a stable id, `pony_hips`, `MareBody`, and a hair skeleton plus `OpenPonyDock` for tail
+seating.
 
 ## Base-game mares
 
@@ -186,6 +194,8 @@ genuine edit or an old template, and preserving it is safer.
 | Data | Resolution order |
 |---|---|
 | Preferences, consent, poses, prompts, timing | player differences → provider layers (registration order) → built-in template → global default |
+| `adult` | provider layers only (never a player value) |
+| `profile.participation` | player differences → provider layers (registration order) → built-in default |
 | Placement | player `anatomy.placement.<id>` → provider placement → shipped `MARE_DEFAULTS` → global default |
 | Display name | built-in name → provider name → humanized id |
 
@@ -208,6 +218,8 @@ dictionary, including for an unknown id.
 
 	"preferences": { ... }, # resolved, player override applied
 	"consent": {"public": false, "anal": true, "oral": true},
+	"adult": null,          # provider's tri-state assertion; null = the identity decides
+	"profile": {"participation": {"acts": true, "anatomy": true, "tail": true}},
 	"placement": { ... },   # all ten keys, player override applied
 	"poses": {"missionary": { ... }, "standing": { ... }},
 	"act_prompts": { ... }, # resolved built-ins plus overrides
@@ -228,11 +240,14 @@ Every returned dictionary and array is a deep copy. Mutating it cannot change un
 
 Provider layers are defaults. The player's saved data remains authoritative:
 
-- `characters.<id>` stores only the preference and consent keys that differ from the resolved
-  default;
+- `characters.<id>` stores only the preference, consent and participation keys that differ from
+  the resolved default;
+- `adult` is provider-only and never appears in the player's block; a player cannot age a
+  character up;
 - `anatomy.placement.<id>` stores only placement keys that differ from the resolved default;
 - **Reset to default** in the Characters form returns to the built-in template plus the provider
-  layer;
+  layer; it clears the player's participation to the provider's default and leaves the provider's
+  `adult` assertion alone;
 - removing the provider leaves the player's saved differences in place and simply drops the
   provider layer from resolution.
 
@@ -255,3 +270,4 @@ Provider layers are defaults. The player's saved data remains authoritative:
 | API | Unfplap | Changes |
 |---|---|---|
 | 1.0 | 0.4.0 (next) | `contract`, `supports`, `register_mare`, `unregister_mare`, `describe_mare`; custom and base-game provider templates. |
+| 1.1 | 0.4.0 (next) | `adult` and `profile.participation` in the descriptor and `describe_mare`; `profile.mare` capability. |

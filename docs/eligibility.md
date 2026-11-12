@@ -55,6 +55,7 @@ the per-character profile.
 |---|---|---|
 | Preference profile (intensity, pattern, warmth, tolerance, touch, talk, dislikes, notes) | `settings.json` -> `default.preferences` and `characters.<id>.preferences` (differences only) | `settings.gd`, `character_preferences.gd`, `preferences.gd` |
 | Per-mare consent (public, anal, oral) | `settings.json` -> `characters.<id>.consent` (differences only) | `settings.gd` plus the `consent.gd` resolver |
+| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `adult` is a provider layer | `settings.gd` plus the `participation.gd` resolver |
 | Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
 | Lover bond | `Mods.state("unfplap").sex_bonds` | `sex_bond.gd` |
 | Act history | `Mods.state("unfplap").act_history` | `act_history.gd` |
@@ -133,6 +134,7 @@ navigator, a pose asset or the player body.
 ```gdscript
 {
   "id", "has_identity", "is_player_pony", "is_filly", "is_stallion",
+  "adult", "participation",
   "has_relationship", "registered_adult", "romance_eligible",
   "stage", "love_level", "willing", "stored_bond", "bond_stage",
   "promiscuity", "sex_start", "public_feature",
@@ -145,6 +147,9 @@ navigator, a pose asset or the player body.
 
 `cycle_phase` comes from `runtime.cycle_phase()`, so the debug heat/diestrus override applies.
 `history` is resolved by `act_history.gd`; `consent` by `SETTINGS.consent(id)`.
+`adult` is the provider's tri-state assertion (`null` means the identity decides); `participation`
+is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
+`SETTINGS.profile_adult(id)` and `SETTINGS.profile_participation(id)`.
 
 Not in facts: the preference profile, poses, prompts, timing values, prompt names, mood,
 first-time state, or request cooldowns.
@@ -180,8 +185,8 @@ Rows and effects:
 | `offer_block` | start may be allowed; no proactive offer |
 | `flag` | public/privacy flag; never a failure |
 
-Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `relation`, `sex_bond`,
-`cycle`, `history`, `history_offers`, `public`.
+Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `participation`,
+`relation`, `sex_bond`, `cycle`, `history`, `history_offers`, `public`.
 
 ## Modes and truth table
 
@@ -191,6 +196,7 @@ eligible + Promiscuity level pass.
 | Condition | `show` | `attempt` | `buck_refuse` | `history_refuse` | `offer` | `bond` | `stop` |
 |---|---|---|---|---|---|---|---|
 | not `base` | no | no | no | no | no | no | yes |
+| `participation.acts` false | no | no | no | no | no | no | no |
 | `!willing`, When Available | no | no | yes | — | no | no | yes |
 | `!willing`, Try Your Luck | yes | no | yes | — | no | no | yes |
 | `willing`, history withdrawn/stop | yes | no | no | yes | no | yes | no |
@@ -204,8 +210,10 @@ Rules:
 
 - `history_refuse` wins over `buck_refuse`; it does not require willingness.
 - `buck_refuse` ignores bond, cycle and history.
-- `bond` requires base + willing only; it does not need a stored bond.
+- `bond` requires base + willing + participation; it does not need a stored bond.
 - `stop` requires base + willing + bond + cycle; history does not stop an act.
+- `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
+  buck, a history refusal or a mood note. It is a boundary, not a mood beat.
 - `show` and `attempt` are separate. Try Your Luck shows the hint while `attempt` is false.
 
 ## Adults
@@ -213,9 +221,24 @@ Rules:
 - `adult_pony`: an identified pony that is not a filly/colt and is not the player's own pony.
 - `adult_mare`: an adult pony that is not a stallion. This is the act target, the anatomy target
   and the tail-seat target.
+- A provider's `adult` assertion is a tri-state override: `true` or `false` overrides the
+  identity's age flag; `null` lets the identity decide. It changes age, not sex. It is
+  provider-only and never written to the player's settings.
 - Adult stallions are not act targets. They may still witness an act; witnesses use
   `adult_pony`.
 - A young player blocks every act and every lover-bond grant.
+
+## Participation
+
+`profile.participation` is the per-mare capability block: `acts`, `anatomy` and `tail`. It is
+subtractive: `true` means "does not veto", never "grants". A missing key means the default
+`true`. The `acts` key is an eligibility row with a `block` effect; it does not set
+`buck_refuse` or `history_refuse`, and it does not change `stop`. A player who opts out of acts
+is a quiet boundary, not a mood beat. The `anatomy` and `tail` keys are in `docs/anatomy.md`.
+
+A provider's `profile` is a layer; the player's `characters.<id>.profile` is a sparse difference
+layer. The player's `Reset to default` clears the player's participation and returns to the
+provider's default; it does not clear the provider's `adult` assertion.
 
 ## Promiscuity
 
@@ -338,12 +361,16 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 ## Tests
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, identity predicates, Promiscuity,
-  willingness, bond, history, cycle, public/anal/oral and row effects.
+  willingness, bond, history, cycle, public/anal/oral, participation and row effects.
+- `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `tests/test_sex_bond.gd`: bond storage only.
 - `tests/test_source_hygiene.gd`: purity, the single-reader rule and the docs link.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
 - `tests/test_initiation.gd`: offer wording and consent classification.
-- `tests/anatomy/test_anatomy.gd`: adult-mare eligibility.
+- `tests/anatomy/test_anatomy.gd`: adult-mare eligibility, participation and the provider's
+  `adult` assertion.
+- `tests/anatomy/test_identity.gd`: the pure identity predicate and the provider's `adult`
+  assertion.
 - `tests/test_memory.gd`: witness wording.
 
 ## Known limits
@@ -353,4 +380,6 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 - Stallion partners stored in an older save remain in `sex_bonds`, but they are no longer act
   targets. No migration removes the row.
 - Public consent is not a general exhibitionism gate; it is an offer privacy override.
-- The internal API is not part of `docs/api.md`; a read-only cross-mod capability is a later phase.
+- The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability exposes
+  only the resolved `adult` and `participation` block. A live eligibility verdict is not part of
+  the API.

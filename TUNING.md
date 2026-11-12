@@ -167,6 +167,10 @@ prefixes pre-emptively.
   is a per-mare `preferences.tolerance`, not a global setting.
 - Built-in act prompts live in `SETTINGS.DEFAULT_ACT_PROMPTS`; `act_prompts` stores only overrides.
   **Reset act prompts** (General › Enable debug › Debug › Actions) clears them.
+- `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
+  `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
+  `adult` assertion is top-level and never a player value. The `characters` block is the same
+  per-mare block as the preference, consent, prompt and pose overrides.
 - Unknown keys are ignored on load.
 - Never name a settings API function after a `Script`/`Object` built-in (`reload`, `set_path`,
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`

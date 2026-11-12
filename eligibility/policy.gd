@@ -36,9 +36,13 @@ static func bypasses_bond(sex_start: String) -> bool:
 
 
 static func adult_pony(facts: Dictionary) -> bool:
-	return bool(facts.get("has_identity", false)) \
-		and not bool(facts.get("is_filly", false)) \
-		and not bool(facts.get("is_player_pony", false))
+	if not bool(facts.get("has_identity", false)) \
+			or bool(facts.get("is_player_pony", false)):
+		return false
+	var adult: Variant = facts.get("adult", null)
+	if adult is bool:
+		return adult
+	return not bool(facts.get("is_filly", false))
 
 
 static func adult_mare(facts: Dictionary) -> bool:
@@ -79,14 +83,17 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	var history := facts.get("history", {}) as Dictionary
 	var blocks_start := bool(history.get("blocks_start", false))
 	var blocks_offers := bool(history.get("blocks_offers", false))
+	var participation: Dictionary = facts.get("participation", {}) as Dictionary
+	var participates := bool(participation.get("acts", true))
 	var base := adult and relationship and player and romance and level
 	var try_luck := bypasses_bond(str(facts.get("sex_start", "")))
-	var show := base and bond_ok and cycle_ok and (willing or try_luck)
+	var show := base and participates and bond_ok and cycle_ok and (willing or try_luck)
 	var attempt := show and willing and not blocks_start
 	var buck_refuse := base and not willing
 	var history_refuse := base and blocks_start
-	var offer := base and willing and bond_ok and cycle_ok and not blocks_offers and not blocks_start
-	var bond := base and willing
+	var offer := base and participates and willing and bond_ok and cycle_ok \
+		and not blocks_offers and not blocks_start
+	var bond := base and participates and willing
 	var stop := not (base and willing and bond_ok and cycle_ok)
 	var offer_weight := 0.0
 	if offer:
@@ -97,6 +104,7 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	_add_row(rows, "form", player, "form", EFFECT_BLOCK)
 	_add_row(rows, "romance", romance, "romance", EFFECT_BLOCK)
 	_add_row(rows, "promiscuity", level, "promiscuity", EFFECT_BLOCK)
+	_add_row(rows, "participation", participates, "participation", EFFECT_BLOCK)
 	_add_row(rows, "relation", willing, "relation", EFFECT_REFUSE)
 	_add_row(rows, "sex_bond", bond_ok, "sex_bond", EFFECT_BLOCK)
 	_add_row(rows, "cycle", cycle_ok, "cycle", EFFECT_BLOCK)

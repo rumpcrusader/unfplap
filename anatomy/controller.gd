@@ -77,12 +77,15 @@ static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 
 ## integration: every adult mare gets anatomy, including mares added by other mods. The identity
 ## filly/stallion flags are the age gate, the player's own pony never gets it, and the pony needs a
-## stable id for the per-mare placement. The base-game preference roster is not a whitelist.
+## stable id for the per-mare placement. A provider's `adult` assertion overrides the identity's
+## age flag. The base-game preference roster is not a whitelist.
 static func eligible(pony_node: Node3D) -> bool:
 	if not is_instance_valid(pony_node):
 		return false
 	var player_pony := pony_node.name == "PlayerPony" or is_instance_valid(pony_node.get("rig"))
-	return IDENTITY.eligible(pony_node.get("identity"), player_pony, pony_id(pony_node))
+	var id := pony_id(pony_node)
+	return IDENTITY.eligible(pony_node.get("identity"), player_pony, id,
+		SETTINGS.profile_adult(id))
 
 
 ## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
@@ -174,7 +177,7 @@ func act() -> Node:
 
 
 func refresh() -> void:
-	if not _enabled() or not eligible(pony):
+	if not _enabled() or not eligible(pony) or not _participation_anatomy():
 		detach()
 		return
 	if not assets_exist():
@@ -183,6 +186,10 @@ func refresh() -> void:
 			_log("anatomy assets missing under %s; anatomy stays off" % ASSET_DIR)
 		return
 	_attach()
+
+
+func _participation_anatomy() -> bool:
+	return bool(SETTINGS.profile_participation(pony_id(pony)).get("anatomy", true))
 
 
 func _enabled() -> bool:

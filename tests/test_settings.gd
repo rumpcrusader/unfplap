@@ -47,6 +47,7 @@ func run() -> void:
 	_check_api_names()
 	_check_profiles()
 	_check_character_overrides()
+	_check_participation()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_PASS")
@@ -649,6 +650,38 @@ func _check_character_overrides() -> void:
 	check(consent_diff.has("public") and not consent_diff.has("anal"),
 		"a consent save stores only the changed key")
 	SETTINGS.save_consent("fluttershy", consent)
+
+
+## A participation block is a subtractive capability layer. A player's `adult` assertion is never
+## stored, and only the player's real participation differences are saved.
+func _check_participation() -> void:
+	var data := {"characters": {"fluttershy": {
+		"adult": true,
+		"profile": {"participation": {"acts": true, "anatomy": false, "tail": true}},
+	}}}
+	var normalized := SETTINGS._normalize_character_overrides(data)
+	var entry: Dictionary = (normalized.get("characters", {}) as Dictionary).get("fluttershy", {})
+	check(not entry.has("adult"), "a player's adult assertion is dropped")
+	var participation: Dictionary = (entry.get("profile", {}) as Dictionary).get("participation", {})
+	check(not participation.has("acts"), "an unchanged participation is not stored")
+	check(not bool(participation.get("anatomy", true)), "a changed participation is kept")
+	check(not participation.has("tail"), "an unchanged participation is not stored")
+
+	var resolved := SETTINGS.profile_participation("fluttershy")
+	check(bool(resolved.get("acts", false)), "the base participation is all allowed")
+	check(bool(resolved.get("anatomy", false)), "the base participation is all allowed")
+	check(bool(resolved.get("tail", false)), "the base participation is all allowed")
+
+	SETTINGS.save_participation("fluttershy", {"acts": false, "anatomy": true, "tail": true})
+	var saved: Variant = SETTINGS.data().get("characters", {})
+	var saved_entry: Dictionary = (saved as Dictionary).get("fluttershy", {})
+	var saved_profile: Dictionary = (saved_entry.get("profile", {}) as Dictionary).get("participation", {})
+	check(not bool(saved_profile.get("acts", true)), "a saved opt-out is stored")
+	check(not saved_profile.has("anatomy"), "an unchanged participation is not stored")
+	check(not saved_profile.has("tail"), "an unchanged participation is not stored")
+	SETTINGS.reset_participation("fluttershy")
+	var after: Variant = SETTINGS.data().get("characters", {})
+	check(not (after as Dictionary).has("fluttershy"), "reset removes the participation block")
 
 
 func _collect_labels(node: Node, out: Array) -> void:

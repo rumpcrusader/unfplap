@@ -569,7 +569,8 @@ func _anatomy_refresh() -> void:
 	if not is_instance_valid(pony):
 		return
 	var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
-	if not SETTINGS.anatomy_on() or not ANATOMY.eligible(pony) or not ANATOMY.assets_exist():
+	if not SETTINGS.anatomy_on() or not ANATOMY.eligible(pony) or not ANATOMY.assets_exist() \
+			or not SETTINGS.profile_participation(_id).get("anatomy", true):
 		if service != null and service.has_method("detach_controller"):
 			service.call("detach_controller", pony)
 		elif is_instance_valid(_anatomy):

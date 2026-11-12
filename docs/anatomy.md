@@ -146,6 +146,12 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - Anatomy attaches to every adult identity with a `pony_hips` bone and a stable id, including
   mares added by other mods. The base-game roster is not a whitelist. Filly/colt and stallion
   identities are excluded, and the player's own AnonPony never receives anatomy.
+- A provider's `adult` assertion overrides the identity's age flag; `null` lets the identity
+  decide. It changes age, not sex.
+- `profile.participation.anatomy` gates the attachment. A `false` value detaches the anatomy and
+  leaves the rest of the mare's profile alone. `ANATOMY.eligible()` stays identity-only so the
+  Characters selector and the live roster still see her; the participation gate is applied by the
+  runtime's `_anatomy_refresh()` and the controller's `refresh()`.
 - The stable id is `relationship_id` metadata first, then the identity id. Placement, the
   per-mare profile and the act history all key off the same value.
 - The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
@@ -427,6 +433,10 @@ body's own deformation across the whole mesh.
   `tail_y`/`tail_z`/`dock_y`/`dock_scale`/`tail_tilt_deg` come from the global
   `anatomy.placement.default.*`; the princesses' fitted bodies have no hair skeleton, so their
   tail seat is unavailable and their pre-hidden dock stays hidden.
+- `profile.participation.tail` gates the seat. A `false` value skips the attach and restores the
+  row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `adult`
+  assertion applies to the tail seat too, so a provider can make a character an adult without
+  giving her a tail seat.
 - The `OpenPonyDock` uses the game reference fit, not `effective_fit()`: the per-mare
   `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
   that tail to the reference, pushes the cuff above and behind the tail base. The fit is re-reached
@@ -536,8 +546,8 @@ restated here.
 
 Current suites:
 
-- `tests/anatomy/test_identity.gd`: the stable id, the adult-mare predicate, the princess body
-  profile and the off-roster list.
+- `tests/anatomy/test_identity.gd`: the stable id, the adult-mare predicate, the provider's `adult`
+  assertion, the princess body profile and the off-roster list.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat weight grid/sampler and the coat-follow
   matrices.
@@ -545,7 +555,8 @@ Current suites:
   scheduler.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
-  idle heat, mesh refinement, act calls, player part, body coat and still zones).
+  idle heat, mesh refinement, act calls, player part, body coat and still zones), plus the
+  provider's `adult` assertion and the participation gate.
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

@@ -15,11 +15,11 @@ const REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
 const API_MAJOR := 1
-const API_MINOR := 0
-const API_VERSION := "1.0"
+const API_MINOR := 1
+const API_VERSION := "1.1"
 const SCHEMA := 1
 const SCHEMAS := {"mare": 1, "preferences": 1, "placement": 1}
-const CAPABILITIES := {"registry.mare": 1, "mare.read": 1}
+const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1}
 ## Methods that still work but should be replaced. None in 1.0; the entry shape is part of the
 ## contract so a future deprecation is data, not a code change in every consumer.
 const DEPRECATIONS := []
@@ -124,6 +124,8 @@ func describe_mare(id: String) -> Dictionary:
 		"sources": REGISTRY.sources(mare_id),
 		"preferences": SETTINGS.preferences(mare_id),
 		"consent": SETTINGS.consent(mare_id),
+		"adult": SETTINGS.profile_adult(mare_id),
+		"profile": {"participation": SETTINGS.profile_participation(mare_id)},
 		"placement": SETTINGS.anatomy_placement(mare_id),
 		"poses": poses,
 		"act_prompts": act_prompts,

@@ -19,6 +19,7 @@ const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const PARTICIPATION := preload("res://mods/unfplap/participation.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
@@ -726,6 +727,33 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		consent_row.add_child(button)
 	form.add_child(_form_label("Okay with", font_size))
 	form.add_child(consent_row)
+	# integration: per-mare participation. A subtractive capability layer; a provider's `adult`
+	# assertion is read-only and only shown when the provider overrides it.
+	var participation_acts := CheckButton.new()
+	participation_acts.text = "Acts"
+	var participation_anatomy := CheckButton.new()
+	participation_anatomy.text = "Anatomy"
+	var participation_tail := CheckButton.new()
+	participation_tail.text = "Tail"
+	var participation_row := HBoxContainer.new()
+	participation_row.add_theme_constant_override("separation", 10)
+	participation_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for button: CheckButton in [participation_acts, participation_anatomy, participation_tail]:
+		button.add_theme_font_size_override("font_size", font_size - 3)
+		participation_row.add_child(button)
+	form.add_child(_form_label("Takes part in", font_size))
+	form.add_child(participation_row)
+	var participation_hint := STYLE.label("", "Faint", font_size - 6)
+	participation_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	participation_hint.visible = false
+	form.add_child(participation_hint)
+	var adult_label := _form_label("Adult", font_size)
+	adult_label.visible = false
+	var adult_hint := STYLE.label("", "Faint", font_size - 6)
+	adult_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	adult_hint.visible = false
+	form.add_child(adult_label)
+	form.add_child(adult_hint)
 	var notes := TextEdit.new()
 	notes.custom_minimum_size = Vector2(0.0, 76.0)
 	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -746,6 +774,12 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 		"consent_public": consent_public,
 		"consent_anal": consent_anal,
 		"consent_oral": consent_oral,
+		"participation_acts": participation_acts,
+		"participation_anatomy": participation_anatomy,
+		"participation_tail": participation_tail,
+		"participation_hint": participation_hint,
+		"adult_label": adult_label,
+		"adult_hint": adult_hint,
 		"status": status,
 		"reset": reset,
 		"refreshing": false,
@@ -765,6 +799,8 @@ func _add_preference_form(list: VBoxContainer, font_size: int) -> void:
 					pills, str(pill.get_meta("value")), refs))
 	# integration: consent edits stage with the rest of the preset.
 	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
+		button.toggled.connect(func(_on: bool) -> void: _mark_preference_dirty(refs))
+	for button: CheckButton in [participation_acts, participation_anatomy, participation_tail]:
 		button.toggled.connect(func(_on: bool) -> void: _mark_preference_dirty(refs))
 	notes.text_changed.connect(func() -> void: _mark_preference_dirty(refs))
 	notes.focus_exited.connect(func() -> void: _mark_preference_dirty(refs))
@@ -911,6 +947,30 @@ func _refresh_preference_form(refs: Dictionary) -> void:
 		(refs.get("consent_anal") as CheckButton).set_pressed_no_signal(bool(consent.get("anal", false)))
 	if refs.get("consent_oral") is CheckButton:
 		(refs.get("consent_oral") as CheckButton).set_pressed_no_signal(bool(consent.get("oral", false)))
+	var participation := SETTINGS.profile_participation(id)
+	for key: String in PARTICIPATION.KEYS:
+		var button: Variant = refs.get("participation_" + key)
+		if button is CheckButton:
+			(button as CheckButton).set_pressed_no_signal(bool(participation.get(key, true)))
+	var sources := SETTINGS.provider_sources(id)
+	var participation_hint: Variant = refs.get("participation_hint")
+	if participation_hint is Label:
+		(participation_hint as Label).visible = not sources.is_empty()
+		if not sources.is_empty():
+			(participation_hint as Label).text = "Overridden by %s" % ", ".join(sources)
+	var adult: Variant = SETTINGS.profile_adult(id)
+	var adult_label: Variant = refs.get("adult_label")
+	var adult_hint: Variant = refs.get("adult_hint")
+	var show_adult := adult is bool
+	if adult_label is Label:
+		(adult_label as Label).visible = show_adult
+		if show_adult:
+			(adult_label as Label).text = "Adult: %s" % ("yes" if adult else "no")
+	if adult_hint is Label:
+		(adult_hint as Label).visible = show_adult
+		if show_adult:
+			(adult_hint as Label).text = "Overridden by %s" % (
+				", ".join(sources) if not sources.is_empty() else "a provider")
 	var status: Variant = refs.get("status")
 	if status is Label:
 		(status as Label).text = "Editing %s" % SETTINGS.character_name(id)
@@ -939,8 +999,9 @@ func _update_preference_reset(refs: Dictionary) -> void:
 	if not reset is Button:
 		return
 	var id := _selected_preference_id(refs)
-	var disabled := id.is_empty() or SETTINGS.preferences_match(
-		SETTINGS.preferences(id), SETTINGS.default_preferences(id))
+	var disabled := id.is_empty() or (
+		SETTINGS.preferences_match(SETTINGS.preferences(id), SETTINGS.default_preferences(id))
+		and _participation_matches(id))
 	(reset as Button).disabled = disabled
 
 
@@ -993,6 +1054,24 @@ func _preference_consent_values(refs: Dictionary) -> Dictionary:
 	return {"public": public, "anal": anal, "oral": oral}
 
 
+func _preference_participation_values(refs: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: String in PARTICIPATION.KEYS:
+		var button: Variant = refs.get("participation_" + key)
+		if button is CheckButton:
+			out[key] = (button as CheckButton).button_pressed
+	return out
+
+
+func _participation_matches(id: String) -> bool:
+	var resolved := SETTINGS.profile_participation(id)
+	var defaults := SETTINGS.default_participation(id)
+	for key: String in PARTICIPATION.KEYS:
+		if bool(resolved.get(key, true)) != bool(defaults.get(key, true)):
+			return false
+	return true
+
+
 func _save_preference_form(refs: Dictionary) -> void:
 	if bool(refs.get("refreshing", false)):
 		return
@@ -1006,6 +1085,7 @@ func _save_preference_form(refs: Dictionary) -> void:
 	else:
 		SETTINGS.save_preferences(id, preferences)
 	SETTINGS.save_consent(id, _preference_consent_values(refs))
+	SETTINGS.save_participation(id, _preference_participation_values(refs))
 	_apply_live_settings()
 	refresh_anatomy()
 	_refresh_preference_form(refs)
@@ -1020,6 +1100,7 @@ func _reset_preference_form(refs: Dictionary) -> void:
 	if id.is_empty():
 		return
 	SETTINGS.reset_preferences(id)
+	SETTINGS.reset_participation(id)
 	_refresh_preference_form(refs)
 	_apply_live_settings()
 	var status: Variant = refs.get("status")

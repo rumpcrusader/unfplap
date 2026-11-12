@@ -196,6 +196,10 @@ func refresh_all() -> void:
 		if not is_instance_valid(pony):
 			_rows.erase(pony)
 			continue
+		if not _eligible(pony):
+			_restore(_rows[pony] as Dictionary)
+			_rows.erase(pony)
+			continue
 		checked += 1
 		var row: Dictionary = _rows[pony]
 		var placement := SETTINGS.anatomy_placement(str(row["id"]))
@@ -253,7 +257,10 @@ func _exit_tree() -> void:
 func _eligible(pony: Node) -> bool:
 	var player_pony := pony.name == "PlayerPony" or is_instance_valid(pony.get("rig"))
 	var identity: Variant = pony.get("identity")
-	if not FACTS.adult_mare_identity(identity, player_pony):
+	var id := _id_for(pony)
+	if not FACTS.adult_mare_identity(identity, player_pony, SETTINGS.profile_adult(id)):
+		return false
+	if not SETTINGS.profile_participation(id).get("tail", true):
 		return false
 	var hair: Variant = pony.get("hair_skeleton")
 	var skeleton: Variant = pony.get("skeleton")
@@ -264,6 +271,15 @@ func _eligible(pony: Node) -> bool:
 		return false
 	var dock: Variant = pony.find_child(DOCK_NAME, true, false)
 	return dock is MeshInstance3D and (dock as MeshInstance3D).mesh != null
+
+
+## The mod's stable id for a pony: relationship metadata first, then the identity.
+func _id_for(pony: Node) -> String:
+	var meta_id := str(pony.get_meta("relationship_id", ""))
+	if not meta_id.is_empty():
+		return meta_id
+	var identity: Variant = pony.get("identity")
+	return str(identity.get("id")) if identity != null else ""
 
 
 ## True when the tail/dock placement can ever move this pony, even while the seat is toggled off.

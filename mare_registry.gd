@@ -11,6 +11,7 @@ extends RefCounted
 ## tests and a run without other mods behave exactly as before.
 
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+const PARTICIPATION := preload("res://mods/unfplap/participation.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 
@@ -22,13 +23,13 @@ const RESERVED_IDS := ["default", "anon"]
 const PROMPT_KEYS := ["cue", "utterance"]
 const EVENT_PROMPT_KEYS := ["climax", "end_early"]
 const TEMPLATE_KEYS := [
-	"preferences", "consent", "placement", "poses", "act_prompts", "event_prompts",
-	"cue_gap", "aftercare_min", "smack_zone_radius",
+	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 const TOP_KEYS := [
 	"schema", "id", "source", "name",
-	"preferences", "consent", "placement", "poses", "act_prompts", "event_prompts",
-	"cue_gap", "aftercare_min", "smack_zone_radius",
+	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
 ## mare id -> Array of layers, in registration order. A layer is
@@ -86,6 +87,14 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 					template[key] = clean
 			"consent":
 				var clean := _validate_consent(raw, warnings, errors)
+				if not clean.is_empty() or raw is Dictionary:
+					template[key] = clean
+			"adult":
+				var clean: Variant = _validate_adult(raw, errors)
+				if clean != null:
+					template[key] = clean
+			"profile":
+				var clean := _validate_profile(raw, warnings, errors)
 				if not clean.is_empty() or raw is Dictionary:
 					template[key] = clean
 			"placement":
@@ -315,6 +324,44 @@ static func _validate_consent(raw: Variant, warnings: Array, errors: Array) -> D
 			errors.append("consent.%s: expected true or false" % name)
 		else:
 			out[name] = bool(value)
+	return out
+
+
+## A provider's `adult` assertion. It is a tri-state: `true`/`false` is a provider assertion, and
+## absent means the pony's identity decides. It is never a player field.
+static func _validate_adult(raw: Variant, errors: Array) -> Variant:
+	if raw is bool:
+		return raw
+	errors.append("adult: expected true or false")
+	return null
+
+
+static func _validate_profile(raw: Variant, warnings: Array, errors: Array) -> Dictionary:
+	var out: Dictionary = {}
+	if not raw is Dictionary:
+		errors.append("profile: expected an object")
+		return out
+	for key: Variant in (raw as Dictionary).keys():
+		var name := str(key)
+		if name != "participation":
+			warnings.append("profile.%s: unknown key" % name)
+			continue
+		var raw_participation: Variant = (raw as Dictionary)[key]
+		if not raw_participation is Dictionary:
+			errors.append("profile.participation: expected an object")
+			continue
+		var participation: Dictionary = {}
+		for part_key: Variant in (raw_participation as Dictionary).keys():
+			var part_name := str(part_key)
+			if not part_name in PARTICIPATION.KEYS:
+				warnings.append("profile.participation.%s: unknown key" % part_name)
+				continue
+			var value: Variant = (raw_participation as Dictionary)[part_key]
+			if not value is bool:
+				errors.append("profile.participation.%s: expected true or false" % part_name)
+			else:
+				participation[part_name] = bool(value)
+		out["participation"] = participation
 	return out
 
 

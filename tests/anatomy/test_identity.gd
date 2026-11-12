@@ -40,6 +40,18 @@ func run() -> void:
 	check(not IDENTITY.eligible(adult, false, ""), "a pony without a stable id is excluded")
 	check(not IDENTITY.eligible(null, false, "adult_mare"), "no identity is excluded")
 
+	# A provider's `adult` assertion overrides the identity's age flag; it changes age, not sex.
+	check(IDENTITY.eligible({"id": "filly", "filly": true, "stallion": false},
+		false, "filly", true), "an adult assertion overrides a filly")
+	check(not IDENTITY.eligible({"id": "adult_mare", "filly": false, "stallion": false},
+		false, "adult_mare", false), "a not-adult assertion excludes a base adult")
+	check(not IDENTITY.eligible({"id": "stallion", "filly": false, "stallion": true},
+		false, "stallion", true), "an adult assertion does not change sex")
+	check(not IDENTITY.eligible({"id": "filly", "filly": true, "stallion": false},
+		true, "filly", true), "the player pony stays excluded")
+	check(IDENTITY.eligible({"id": "adult_mare", "filly": false, "stallion": false},
+		false, "adult_mare", null), "a null assertion lets the identity decide")
+
 	# A modded copy uses the canon body profile through character_id; an ordinary mare does not.
 	check(IDENTITY.body_profile({"id": "custom_celestia", "character_id": "celestia"}).size() == 3,
 		"a modded Celestia copy uses the princess body profile")

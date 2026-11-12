@@ -44,6 +44,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Mare bits** — Choose the original PPP genitals or the V2 variant in the Anatomy settings; the V2 choice falls back to the original when its asset is absent.
 - **Tail seating** — Every adult mare's hair tail is seated at the reference dock and the standard dock rides as a short cuff under the tail base, follows the tail, and can use her coat or her genitals for its colour.
 - **Mares from other mods** — Adult mares added by other mods get the default anatomy placement and tail seating, and appear in the Characters tab while they are in the world.
+- **Mare participation** — A mod can mark a mare as an adult or opt her out of acts, anatomy or tail seating; the Characters tab shows the same per-mare switches.
 - **Play-bow stance** — Optional standing stance with her front legs stretched forward, chest down and head low.
 - **Proactive mares** — A ready mare may ask for sex herself. She may invite you to bed or turn her back and invite you from behind; answer yes and take the position. Standing `Y` appears when you stand behind her rump.
 - **Estrus cycle** — Optional 30-day cycle: a week of heat makes her warm faster, ask sooner, and wink and discharge while she idles, two days of diestrus turn her off, then normal. Off by default.

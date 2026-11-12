@@ -104,7 +104,7 @@ stored state.
 | Proactive requests | `initiation.gd` | `docs/initiation.md` | migrated |
 | Act memory | `memory.gd` | `docs/memory.md` | migrated |
 | Act lines | `act_lines.gd` | `docs/lines.md` | migrated |
-| Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
+| Footstool | `stool.gd` | `docs/stool.md` | migrated; the per-act handle owns the stack and loans |
 | Poses and cameras | `poses/session.gd`, `act_camera.gd` | `ROTATION.md` | migrated; runtime owns the tick order and shot targets |
 | Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
 | Act summary and history | `history.gd` | `HISTORY.md` | migrated |
@@ -318,7 +318,10 @@ mods/unfplap/
   act_facts.gd      typed act context: state, pose, readiness, lean/camera values, scene handles and
                     host callbacks; presentation modules read it instead of the runtime
   perf.gd           debug perf probe: timed chunks and the once-per-second summary
-  stool.gd          footstool facade: reach rule, case item, act prop and world supply
+  stool.gd          footstool facade: per-act handle factory, floor probe, case item,
+                    act prop and world supply
+  stool/act.gd      one act's footstool handle: live rule, case loans, placed stack, lift and
+                    release; contract in `docs/stool.md`
   stool/            pure gap/item helpers, the static act prop and the house supply
   docs/stool.md     standing footstool contract; never packed
   missionary_anon.gd the act's Anon body, placed in bed space and posed from the asset, with the

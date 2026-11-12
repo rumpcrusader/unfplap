@@ -6,6 +6,7 @@ const MEASURE := preload("res://mods/unfplap/stool/measure.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 const SUPPLY := preload("res://mods/unfplap/stool/supply.gd")
+const ACT := preload("res://mods/unfplap/stool/act.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 
 const ID := ITEM.ID
@@ -95,3 +96,28 @@ func build_prop(host: Node, at: Vector3, yaw: float, count := 1,
 
 func free_prop(prop: Variant) -> void:
 	PROP.remove(prop)
+
+
+## One act's footstool state. The runtime creates one per act and binds the scene each access.
+func new_act() -> RefCounted:
+	var act: RefCounted = ACT.new()
+	act.facade = self
+	return act
+
+
+## The floor under a standing spot. The player is excluded so his own capsule cannot answer.
+func floor_y_at(at: Vector3, body: Node3D) -> float:
+	if not is_instance_valid(body) or not at.is_finite():
+		return NAN
+	var world := body.get_world_3d()
+	if world == null:
+		return NAN
+	var query := PhysicsRayQueryParameters3D.create(at, at + Vector3.DOWN * 1.4, 1)
+	if body is CollisionObject3D:
+		query.exclude = [body.get_rid()]
+	var hit: Dictionary = world.direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return NAN
+	var point: Vector3 = hit.get("position", Vector3.ZERO)
+	var y := float(point.y)
+	return y if is_finite(y) else NAN

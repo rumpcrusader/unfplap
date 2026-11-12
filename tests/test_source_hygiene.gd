@@ -573,6 +573,17 @@ func _check_stool_docs() -> void:
 	for name: String in ["AGENTS.md", "README.md", "ROTATION.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/stool.md"), "%s links to docs/stool.md" % name)
+	var act := FileAccess.get_file_as_string(ROOT.path_join("stool/act.gd"))
+	check(act.contains("func take_items(") and act.contains("func place("),
+		"the per-act footstool handle is present")
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("stool.gd"))
+	check(facade.contains("func new_act()"), "the stool facade creates the per-act handle")
+	check(FileAccess.file_exists(ROOT.path_join("tests/stool/test_act.gd")),
+		"tests/stool/test_act.gd exists")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for token: String in ["_stool_active", "_stool_tokens", "_stool_slots", "_stool_node",
+			"_stool_height_m", "_stool_floor_y", "_stool_lifted", "_inventory_store"]:
+		check(not runtime.contains(token), "runtime has no footstool internals: %s" % token)
 
 
 ## The request rules and wording are pure, and the director, classifier, navigator and bed-rest

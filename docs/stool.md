@@ -23,7 +23,8 @@ inventory contract.
 
 | File | Role |
 |---|---|
-| `stool.gd` | facade: the only other systems preload or call; owns the supply child and the public helpers |
+| `stool.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
+| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack and player lift; the runtime owns one per act |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
 | `stool/item.gd` | pure `goods:footstool` case-slot, case-count, owned-count and free-slot checks |
 | `stool/prop.gd` | scene adapter: builds the stacked static act stool and its pony collision exception |
@@ -52,14 +53,44 @@ free_slots(store) -> int
 writable(store) -> bool
 build_prop(host, at, yaw, count, step_height, ignore) -> Dictionary
 free_prop(prop)
+new_act() -> RefCounted
+floor_y_at(at, body) -> float
 ```
+
+`new_act()` creates one per-act handle; the runtime keeps it for the act and drops it with the
+runtime. `floor_y_at()` is the stateless standing-spot floor probe, with the player capsule
+excluded.
+
+The handle's internal API:
+
+```gdscript
+bind(facade, main, pony, player, anatomy_ctl)
+applies() -> bool
+gap_m() -> float
+needed_count() -> int
+required() -> bool
+case_slot() -> int
+case_count() -> int
+blocks_start(reasons) -> bool
+state_text() -> String
+take_items(need) -> bool
+place(target, yaw, floor) -> Vector3
+release()
+reset()
+floor_y_at(at, body) -> float
+```
+
+`place()` builds the stack under the runtime's standing spot and returns the raised player
+target; `release()` frees the prop, lowers the player and returns every case unit.
 
 `build_prop()` returns `{"node": StaticBody3D, "height": float, "count": int, "step": float}`.
 `ignore` is the partner pony; the stack must not collide with her.
 
-`runtime.gd` supplies the scene values and composes the gate; it does not read a controller's
-private state. The live opening comes from the per-pony anatomy controller, the part root from
-`main.anatomy.player_root_now()`, and `main.anatomy.player_prepare()` builds the hidden part first.
+`runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read
+a controller's private state. The live opening comes from the per-pony anatomy controller, the
+part root from `main.anatomy.player_root_now()`, and `main.anatomy.player_prepare()` builds the
+hidden part first. The handle reads `main.stool` for the settings/item/measure calls and
+`main.anatomy` for the player part.
 
 ## Rule
 
@@ -109,12 +140,12 @@ and again on `start()`.
 ## Act flow
 
 - The standing state is unchanged when the rule does not apply.
-- When it applies, `runtime.start()` checks out `needed` case units with `store.take(slot)` and
-  keeps every token and slot.
-- `_begin_standing_placement()` computes Anon's normal spot, builds a stack of `needed` stools
-  under it and raises his player root to `floor + needed * step_height`. `AnonBody` then plants the
-  feet and hips on the raised floor, so the standing pose, camera and anatomy aim use the same
-  body.
+- When it applies, `runtime.start()` asks the handle to check out `needed` case units
+  (`take_items()` → `store.take(slot)`); the handle keeps every token and slot.
+- `_begin_standing_placement()` computes Anon's normal spot and calls `place()`; the handle builds
+  a stack of `needed` stools under it and raises his player root to
+  `floor + needed * step_height`. `AnonBody` then plants the feet and hips on the raised floor, so
+  the standing pose, camera and anatomy aim use the same body.
 - Each stool uses the base-game shop visual (`world/shop/shop_items.gd` → `goods:footstool` →
   `world/props/household/footstool.glb`). The visual is scaled uniformly to the configured step
   height; the collider keeps a minimum `0.46 × 0.40 m` top so Anon's feet are supported. A plain
@@ -162,7 +193,9 @@ and again on `start()`.
   loans.
 - `tests/stool/test_stool_api.gd`: the facade's setting reads, threshold, step height, count, gap
   and item id.
-- `tests/stool/test_gate.gd`: the runtime's live gap, two-step requirement and case count.
+- `tests/stool/test_gate.gd`: the runtime forwards' live gap, two-step requirement and case count.
+- `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
+  reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision
   exceptions.
 - `tests/stool/test_placement.gd`: the player-root raise to the stack top, exception cleanup and

@@ -1,7 +1,8 @@
 # Act summary and long-term history
 
 This is the contract for the mod-owned post-act summary and the per-mare act history. It is the
-only place that decides whether an act was good, neutral or bad, and what that changes later.
+only place that decides whether an act was good, neutral or bad, and what that changes later. The
+event and impression the summary writes are owned by the memory system; see `docs/memory.md`.
 
 ## Per-act score
 
@@ -61,7 +62,7 @@ An event line starts with the pair, `You and Anon `, so the profile can replace 
 **Recent activities** line stays correct. The event text is what the AI reads as context; the
 reason sentences in each voice keep that same rule.
 
-`MEMORY.commit_act` writes this to the game's impressions once. It also records the summary text as
+`main.memory.commit` writes this to the game's impressions once. It also records the summary text as
 a `relationship` world-context event. The two lines have separate voices: the recorded `text` is the
 profile-safe world event, while `thought` is her private first-person impression (`He`/`I`) and is
 what the profile shows as **Last impression**. An early end is stated once, not repeated as a
@@ -158,7 +159,7 @@ even when `features.act_lines` is off.
 A stop is a dedicated path, not `cancel()`:
 
 - it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
-- it records `MEMORY.stop_event(..., "withdrew")`;
+- it records `main.memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
 - it ends through the forced path with no afterglow and no cuddle rejoin;
 - Normal: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
 - Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
@@ -184,7 +185,7 @@ approaches. Her dialogue prompt and the relationship profile also show it.
 The mod writes or keeps that note on the moments the base game does not see:
 
 - a refused act attempt (`runtime.refuse()`) commits `annoyed`, or `angry` when the refusal also
-  bucked or knocked Anon down (`MEMORY.refusal_event`);
+  bucked or knocked Anon down (`main.memory.commit`, the `REFUSAL` slot);
 - the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
 - a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
 
@@ -237,4 +238,5 @@ The per-mare neglect-tolerance tier is a preference field, not a global setting:
 - `tests/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology, sanitising,
   pending lines, reset.
 - `tests/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
-- `tests/test_memory.gd` — grade-aware impression and stay-close rewards.
+- `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
+- `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.

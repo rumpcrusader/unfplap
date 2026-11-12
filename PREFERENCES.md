@@ -345,9 +345,10 @@ caressing her or leaning in; leaning counts as staying close/hugging.
 ## Memory and rewards
 
 - **First pony climax:** one world-context event; every climax gets a generated reaction.
-- **Once at afterglow:** `_commit_summary()` scores the act, `MEMORY.commit_act()` writes the
-  grade-aware romance and mood, and `WITNESS.commit` follows. See `HISTORY.md`.
-- **Standing close reward:** `MEMORY.stay_close_reward` records a private impression. On a good or
+- **Once at afterglow:** `_commit_summary()` scores the act, `main.memory.commit()` writes the
+  grade-aware romance and mood, and `main.memory.witnesses()` follows. See `HISTORY.md`.
+- **Standing close reward:** `main.memory.commit()` (the `STAY_CLOSE` slot) records a private
+  impression. On a good or
   non-early neutral act, staying and caressing adds a happy mood, a private thought and a small
   `romance` gain. After a bad act, staying and caressing repairs one point of history hurt instead.
   The caress time threshold is in `docs/hands.md`.

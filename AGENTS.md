@@ -97,14 +97,15 @@ modules; a system is for behavior with lifecycle, scene access or stored state.
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
 | Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated |
 | Proactive requests | `initiation.gd` | `docs/initiation.md` | migrated |
+| Act memory and lines | `memory.gd` | `docs/memory.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
 | Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
-Hands, eligibility and anatomy use `tests/<system>/`. The remaining suites are still flat
-(`tests/test_*.gd`) and move when their system is next touched.
+Hands, eligibility, anatomy, initiation and memory use `tests/<system>/`. The remaining suites are
+still flat (`tests/test_*.gd`) and move when their system is next touched.
 
 ### Docs
 
@@ -115,6 +116,7 @@ Hands, eligibility and anatomy use `tests/<system>/`. The remaining suites are s
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
+| `docs/memory.md` | act memory, witnesses, peak memory and the mod's own line channel |
 | `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
@@ -354,7 +356,10 @@ mods/unfplap/
   api.gd            stable cross-mod facade; see docs/api.md
   mare_registry.gd  in-memory provider layers for modded and base-game mare templates
   character_preferences.gd  display names, selector order and every spawnable mare's preference
-  memory.gd         world_context events, grade-aware act impression, witnesses, reactions
+  memory.gd         act memory facade: world_context events, grade-aware impression,
+                    peak memory, witnesses, cue facts and the mod's own line channel;
+                    contract in docs/memory.md
+  memory/           pure text/facts and the world, dialogue, perception and store adapters
   rest_control.gd   release pony_seating and shared_bed/couch without standing
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   act_face.gd       pure act face beats, live climax style, blush levels and prompt hints
@@ -363,7 +368,6 @@ mods/unfplap/
   tail_tuck.gd      20 s tucked-tail posture hinged at mTail1 after a partner stop; no nav hold
   anatomy/tail/     tail seat, dock skin/seat, debug tail hide/visibility; contract in
                     docs/anatomy.md
-  witness.gd        witness pass: perception test, per-observer and age-appropriate memory
   initiation.gd     proactive requests service (facade and `initiation/` internals);
                     contract in `docs/initiation.md`
   consent_classifier.gd  one shared classifier client/queue for offer and lover dialogue
@@ -1069,7 +1073,7 @@ face is cleared in `_restore_begin()`/`_end_session()`; the post-act mood face s
 | afterglow, bad | `sad`/`annoyed` | 3 s |
 | warning / overwhelmed | `sad` for forgiving, else `annoyed` | 3 s / 2.5 s |
 
-`_first_time` is one `MEMORY.cue_facts()` call at start. `warning` is `_tolerance_warn`;
+`_first_time` is one `main.memory.cue_facts()` call at start. `warning` is `_tolerance_warn`;
 `overwhelmed` is the disliked touch/talk path. Both are one-shot, so a cue line can replace them.
 
 ### Auto climax style
@@ -1111,7 +1115,7 @@ release is the climax `fluster` (and the existing kiss path). `_stare_release_un
 
 Default `cue`/`utterance` prompts carry `{face_note}`. The runtime fills it with
 `ACT_FACE.prompt_note("cue", mood)` and appends it to a saved prompt that lacks the placeholder.
-`MEMORY.reaction_for()` appends the event note for `climax`, `end_early`, `tolerance_warning`,
+`main.memory.line()` appends the event note for `climax`, `end_early`, `tolerance_warning`,
 `tolerance_stop` and `history_refusal`. The offer ask/invite and the bystander prompt get their own
 notes. A note is skipped when the prompt already contains `[face`. The note never suggests
 `[mood:...]` in an act line.
@@ -1204,7 +1208,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   face does not hold the navigator or block another act; a new act clears it. The positive
   afterglow also gets a short `affectionate` beat before the held face takes over.
 - The first pony climax records one memory event; every climax gets its reaction. At afterglow
-  `_commit_summary()` scores the act once and `MEMORY.commit_act()` writes the grade-aware romance
+  `_commit_summary()` scores the act once and `main.memory.commit()` writes the grade-aware romance
   and mood; there is no flat `commit_climax()` reward. The witness pass commits once at afterglow.
   The standing afterglow also runs the 8 s close window and keeps its stay-close reward
   impression. Its stay-close reward is grade-aware: a bad act gets a one-point hurt repair when
@@ -1270,7 +1274,8 @@ is deliberately blush-free so the 0.35 decal stays light.
 - Warnings are one-shot per act: forgiving at 4, normal at 1 and 4, strict at 1. They set a HUD cue
   and queue one short spoken warning even when `features.act_lines` is off.
 - Stop thresholds: forgiving never; normal 10; strict 3. A stop is not `cancel()`. It forces a severe
-  bad summary (`stopped_by_her`, no romance, `+2` hurt), records `MEMORY.stop_event(..., "withdrew")`,
+  bad summary (`stopped_by_her`, no romance, `+2` hurt), records
+  `main.memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`,
   ends with no afterglow/cuddle rejoin and no aftercare, and starts a 20 s `tail_tuck.gd` that owns
   no navigator. The tuck hinges the tail at `mTail1` (the rest of the chain follows rigidly), not
   down the middle of the chain.
@@ -1278,7 +1283,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   stern line, `request_space()`, a buck/kick from bed and a `600 s` sex-only cooldown. The history
   `stop_until` gate is in `docs/eligibility.md`. A new stop replaces the old cooldown.
 - A stop also holds the refusal mood face: `annoyed` for normal, `angry` for strict
-  (`mood_face.gd`), matching the summary impression that `MEMORY.commit_act()` already wrote. With
+  (`mood_face.gd`), matching the summary impression that `main.memory.commit()` already wrote. With
   `features.act_history` off, or a skipped summary, the stop path keeps its old no-face guard.
 - The **Neglect tolerance** debug settings sit in World's Debug block; the Debug actions have **Force neglect warning**
   and **Force neglect stop**. See `HISTORY.md`.
@@ -1361,7 +1366,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   love levels are ardent/open.
   The functional cue text is unchanged. The prompt tells her not to say the labels, levels or
   numbers.
-- The cue prompt may include one unused shared memory. `MEMORY.shared_memory()` prefers the
+- The cue prompt may include one unused shared memory. `main.memory.shared_memory()` prefers the
   stored peak memory, then the story journal: a cue-word match, then the most recent player
   exchange. It falls back to the world-context events. Intimacy events and private brain notes
   are not used as the hint. The memory is marked used only after the line is queued. The peak
@@ -1375,7 +1380,8 @@ is deliberately blush-free so the 0.35 decal stays light.
   `1 s`) passes. A row that reaches `cues.max_age_seconds` (default `20 s`, cue) or
   `cues.reaction_max_age_seconds` (default `30 s`, reaction) while still
   `queued` or `generating` is cancelled; a `speaking` row is never cut by age. The runtime observes
-  `MEMORY.line_state()` (`absent`, `queued`, `generating`, `speaking`, `delivered`, `unknown`) and
+  `main.memory.line_state()` (a `MEMORY.LineState`: `ABSENT`, `QUEUED`, `GENERATING`,
+  `SPEAKING`, `DELIVERED`, `UNKNOWN`) and
   frees the slot when the director drops or delivers the row. The old 60 s watchdog is gone.
 - Cue `valid` remains tied to the pony/event id, not `State.ACTIVE`: cancelling the act must not
   invalidate a line that is already generating or speaking. Act boundaries still cancel queued and
@@ -1452,8 +1458,9 @@ is deliberately blush-free so the 0.35 decal stays light.
 - The afterglow summary is always shown and independent of `hud_readouts`: missionary puts it in
   the cue line, standing puts it on the readiness line under its close prompt. Early end shows no
   HUD summary.
-- Love XP and happy mood are granted once by `MEMORY.commit_act()` at afterglow, using the
-  summary grade. `MEMORY.stay_close_reward()` may add a small extra romance, happy mood and private
+- Love XP and happy mood are granted once by `main.memory.commit()` at afterglow, using the
+  summary grade. `main.memory.commit()` (the `STAY_CLOSE` slot) may add a small extra romance,
+  happy mood and private
   thought when the standing close window is completed on a good or non-early neutral act; after a
   bad act it repairs one point of history hurt instead. No other afterglow reward is granted.
 - `captions_on_top`, default `true`, moves the game's desktop bottom caption to the top only

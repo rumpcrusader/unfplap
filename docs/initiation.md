@@ -50,7 +50,8 @@ The purity boundary is deliberate:
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
   `couch_sleeping`, the house lookup, the `couches` group and `WorldLayout`.
 - The facade is the only file that preloads `eligibility.gd`, `act_history.gd` (for the ask
-  notes), `cycle.gd`, `settings.gd`, `memory.gd`, `relationship_cue.gd`, `act_face.gd` and
+  notes), `cycle.gd`, `settings.gd`, `memory.gd` (`docs/memory.md`), `relationship_cue.gd`,
+  `act_face.gd` and
   `rest_control.gd`; `cooldowns.gd` also preloads `act_history.gd` and the policy module.
 - No file outside `initiation.gd` and `initiation/` preloads `initiation/*`.
 - `main.gd` creates the service (`setup(self)`) and drives it: `tick`, `reset`, `cancel_for`,
@@ -247,7 +248,7 @@ runtime.
 ## Prompts
 
 `initiation/prompts.gd` builds every line from a `FACTS.Request`. The facade supplies
-`relation_note` (from `memory.cue_facts` + `relationship_cue`), `history_note` (from
+`relation_note` (from `main.memory.cue_facts` + `relationship_cue`), `history_note` (from
 `act_history.ask_note`) and `face_note` (`act_face.prompt_note("ask"|"invite")`, only with
 `features.act_faces`). Wording mode is decided once per builder by
 `policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while

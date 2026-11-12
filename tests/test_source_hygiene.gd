@@ -73,6 +73,8 @@ func run() -> void:
 	_check_stool_docs()
 	_check_initiation_isolation(files)
 	_check_initiation_docs()
+	_check_memory_isolation(files)
+	_check_memory_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -170,7 +172,7 @@ func _check_teardown() -> void:
 	# not cancel director rows or that line never speaks.
 	var finish := _func_body(runtime, "_finish_restore")
 	check(not finish.contains("_end_act_lines"), "normal restore keeps the early-stop line")
-	check(not finish.contains("MEMORY.cancel_act_lines"), "normal restore cancels no director rows")
+	check(not finish.contains("main.memory.cancel_act("), "normal restore cancels no director rows")
 
 
 ## The eligibility rules are pure and only the adapter reads the gate sources. The docs contract
@@ -391,6 +393,50 @@ func _check_initiation_docs() -> void:
 	for name: String in ["AGENTS.md", "docs/eligibility.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/initiation.md"), "%s links to docs/initiation.md" % name)
+
+
+## The memory wording and facts are pure, the adapters own every stock read, and the facade keeps
+## the director, store and world details behind them. The docs contract lives in one file.
+func _check_memory_isolation(files: Array[String]) -> void:
+	for name: String in ["memory/text.gd", "memory/facts.gd"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+				"preload(\"res://world/", "preload(\"res://mods/unfplap/settings.gd\")"]:
+			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative == "memory.gd" or relative.begins_with("memory/"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		check(not text.contains("mods/unfplap/memory/"),
+			"%s uses the memory facade only" % relative)
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("memory.gd"))
+	for token: String in ["_authored_lines", "_authored_active", "peak_memories", "save_changed"]:
+		check(not facade.contains(token),
+			"the memory facade keeps %s behind an adapter" % token)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(not runtime.contains("witness.gd"), "runtime does not preload the witness wrapper")
+	for token: String in ["commit_act", "refusal_event", "stay_close_reward", "cancel_event",
+			"climax_event", "stop_event", "history_apology", "reaction_for", "utterance_for",
+			"bystander_line", "perceived_adults", "mod_key", "keep_active_line",
+			"cancel_act_lines", "peak_memory", "record_peak_memory", "witness_kind",
+			"witness_text", "witness_scene_prefix", "witness_thought", "witness_impression"]:
+		check(not runtime.contains("MEMORY." + token),
+			"runtime uses the memory facade, not MEMORY.%s" % token)
+
+
+func _check_memory_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/memory.md"))
+	check(not contract.is_empty(), "docs/memory.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Data ownership",
+			"## Impressions and events", "## Witness pass", "## Line channel",
+			"## Cue facts and shared memory", "## Tests", "## Known limits"]:
+		check(contract.contains(heading), "docs/memory.md has %s" % heading)
+	for name: String in ["AGENTS.md", "HISTORY.md", "docs/initiation.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/memory.md"), "%s links to docs/memory.md" % name)
 
 
 func _func_body(text: String, name: String) -> String:

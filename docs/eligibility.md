@@ -304,7 +304,8 @@ reimplement it.
 `buck_refuse` becomes true even when the hint is hidden.
 
 A refusal is a real mood beat. `runtime.refuse()` tries the buck/push, then `_note_refusal()`
-writes the game's impression (`MEMORY.refusal_event`): `annoyed` for a turn-away, `angry` when she
+writes the game's impression (`main.memory.commit`, the `REFUSAL` slot): `annoyed` for a
+turn-away, `angry` when she
 bucked or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` (trust -2,
 boundary) and holds the matching face in `mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
 she refuses kisses and offers for the note's 300 s freshness.
@@ -421,7 +422,9 @@ contract is `docs/initiation.md`.
   assertion and the rig checks.
 - `tests/anatomy/test_identity.gd`: the stable-id helpers, the princess body profile and the
   off-roster list.
-- `tests/test_memory.gd`: witness wording.
+- `tests/memory/test_memory_api.gd`: the facade's impression and event writes, the refusal mood
+  and the stay-close reward.
+- `tests/memory/test_text.gd`: the witness wording and the age split.
 
 ## Known limits
 

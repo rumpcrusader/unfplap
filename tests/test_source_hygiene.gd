@@ -438,6 +438,9 @@ func _check_face() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("face_session.gd"))
 	check(facade.contains("func set_act_face(") and facade.contains("func beat("),
 		"face facade is present")
+	check(facade.contains("func eyes_tick(") and facade.contains("func set_face(")
+		and facade.contains("func climax_quality("),
+		"face facade owns the lids, the smile and the climax quality shape")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
@@ -446,7 +449,7 @@ func _check_face() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/face.md"))
 	check(not contract.is_empty(), "docs/face.md exists")
 	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Beat table",
-			"## Line-face ownership", "## Post-act mood face", "## Tests"]:
+			"## Line-face ownership", "## Stare and blush", "## Post-act mood face", "## Tests"]:
 		check(contract.contains(heading), "docs/face.md has %s" % heading)
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
 	check(agents.contains("docs/face.md"), "AGENTS.md links to docs/face.md")

@@ -6,13 +6,30 @@ extends RefCounted
 
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
+const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
+
+## The act's eyelid values, applied outside a kiss. Afterglow reads the close variant when the
+## close window was rewarded.
+const ACT_LIDS := 0.45
+const CLIMAX_LIDS := 0.0
+const AFTERGLOW_LIDS := 0.9
+const AFTERGLOW_CLOSE_LIDS := 0.95
+## The act states the lids answer. The runtime owns the enum; these are its values.
+const STATE_POSING_IN := 1
+const STATE_ACTIVE := 2
+const STATE_CLIMAX := 3
+const STATE_AFTERGLOW := 4
 
 ## The face the act set. A spoken line face always wins until it ends.
 var act_face := ""
 ## While this clock is in the future the act releases the stare (a warm climax or the kiss).
 var stare_release_until := 0.0
+## True while the act's own stare is released, so a reassert happens only once per release.
+var act_eyes_released := false
 ## The held post-act face node, or null.
 var mood_face: Node = null
+## The hold timer behind `set_face()`, parented to the host and freed by `shutdown()`.
+var face_timer: Timer = null
 ## The warm prompt note that goes with a positive post-act face.
 var warm_note := false
 ## Mirrors `features.face_debug` for the facade's own logs.
@@ -30,6 +47,118 @@ var clock := Callable()
 func bind(pony_in: Variant, host_in: Node) -> void:
 	pony = pony_in
 	host = host_in
+
+
+## The act's smile and lids, with an optional hold that clears it again. The timer is created on
+## the first call and parented to the host, so a facade built without a tree simply skips the hold.
+func set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	if expressions.has_method("touch"):
+		expressions.call("touch", "unfplap_state", smile, 0.0)
+	if expressions.has_method("stare"):
+		expressions.call("stare", true, lids)
+	if hold_seconds > 0.0:
+		var timer := _timer()
+		if is_instance_valid(timer):
+			timer.start(hold_seconds)
+
+
+## Clear the act's smile and lids. A held timer is stopped first.
+func clear_face() -> void:
+	if is_instance_valid(face_timer):
+		face_timer.stop()
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	if expressions.has_method("stare"):
+		expressions.call("stare", false)
+	if expressions.has_method("release_touch"):
+		expressions.call("release_touch", "unfplap_state")
+
+
+## The act owns the lids outside a kiss. The runtime sets them at every transition and calls this
+## late in the tick so a climax return or fluster peek cannot leave her wide-eyed while leaning.
+## Context: `state`, `close_rewarded`, `eyes_active`.
+func eyes_tick(context: Dictionary) -> void:
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null:
+		return
+	if bool(context.get("eyes_active", false)) or _now() < stare_release_until:
+		if not act_eyes_released:
+			if expressions.has_method("stare"):
+				expressions.call("stare", false)
+			act_eyes_released = true
+		return
+	act_eyes_released = false
+	var lids := -1.0
+	match int(context.get("state", 0)):
+		STATE_POSING_IN, STATE_ACTIVE:
+			lids = ACT_LIDS
+		STATE_CLIMAX:
+			lids = CLIMAX_LIDS
+		STATE_AFTERGLOW:
+			lids = AFTERGLOW_CLOSE_LIDS if bool(context.get("close_rewarded", false)) \
+				else AFTERGLOW_LIDS
+	if lids < 0.0:
+		return
+	if expressions.has_method("stare"):
+		expressions.call("stare", true, lids)
+
+
+## One act moment, with the feature gate and the debug flag applied before the beat table runs.
+## The runtime gathers the act values in `context`; the facade owns the gate.
+func act_beat(moment: String, context: Dictionary, enabled: bool, debug: bool) -> void:
+	debug_enabled = debug
+	if not enabled:
+		return
+	beat(moment, context)
+
+
+## Live presentation score for the auto climax face. The runtime gathers its counters; the facade
+## owns the shape `act_face.gd` reads. Never writes the summary or the history.
+func climax_quality(context: Dictionary) -> Dictionary:
+	var touch_dislikes := 0
+	var counts: Variant = context.get("touch_dislikes", {})
+	if counts is Dictionary:
+		for count: Variant in (counts as Dictionary).values():
+			touch_dislikes += int(count)
+	var preferences: Dictionary = _dict(context.get("preferences"))
+	return {
+		"intensity_total": float(context.get("intensity_total", 0.0)),
+		"intensity_right": float(context.get("intensity_right", 0.0)),
+		"pattern_total": float(context.get("pattern_total", 0.0)),
+		"pattern_right": float(context.get("pattern_right", 0.0)),
+		"both_matches": float(context.get("both_matches", 0.0)),
+		"liked_touch": float(context.get("liked_touch", 0.0)),
+		"liked_talk": float(context.get("liked_talk", 0.0)),
+		"dislikes_total": touch_dislikes + int(context.get("talk_dislikes", 0)),
+		"distress": float(context.get("distress", 0.0)),
+		"seeks_touch": PREFERENCES.seeks_touch(preferences),
+		"seeks_talk": PREFERENCES.seeks_talk(preferences),
+		"overwhelmed": bool(context.get("overwhelmed", false)),
+	}
+
+
+## The hold timer, created on first use under the host.
+func _timer() -> Timer:
+	if is_instance_valid(face_timer):
+		return face_timer
+	if not _host_ok():
+		return null
+	face_timer = Timer.new()
+	face_timer.name = "UnfplapFaceTimer"
+	face_timer.one_shot = true
+	face_timer.timeout.connect(clear_face)
+	host.add_child(face_timer)
+	return face_timer
 
 
 ## Apply the beat table for one moment. The context is gathered by the runtime:
@@ -256,6 +385,10 @@ func shutdown() -> void:
 	if is_instance_valid(mood_face):
 		mood_face.queue_free()
 	mood_face = null
+	if is_instance_valid(face_timer):
+		face_timer.queue_free()
+	face_timer = null
+	act_eyes_released = false
 	warm_note = false
 
 

@@ -3,19 +3,19 @@
 ## Scope
 
 `face_session.gd` owns the act's one face: the beat table driven by the pure `act_face.gd`, the
-line-face ownership rule, the stare release, the held post-act mood face node and the warm prompt
-note. It does not own the runtime state, the eyelids, the blush, the kiss, the HUD or the summary
-grade.
+line-face ownership rule, the stare release, the eyelids, the smile and its hold timer, the climax
+quality shape, the held post-act mood face node and the warm prompt note. It does not own the
+runtime state, the blush, the kiss, the HUD or the summary grade.
 
 The runtime still:
 
-- reads the act state into `_act_phase()` and the scene values into `_act_face_beat()`,
-  `_act_face_rows()`, `_read_first_time()` and `_climax_quality_inputs()`;
+- gathers the act values for `_act_face_beat()` (state, first-time flag, tolerance, climax mode,
+  summary), `_act_face_rows()`, `_read_first_time()` and `_climax_quality_inputs()`;
 - calls `_act_face_beat()` at the start, close, warning, climax, afterglow and stop moments;
 - calls `_start_post_act_face()` from `_begin_aftercare()` and `_start_upset()` from a stop or
   refusal;
-- runs `_eyes_tick()` and `_set_face()`/`_clear_face()` for the lids and smile;
-- forwards the face values to `_act_presentation()` and `_eyes_tick()`.
+- calls `_eyes_tick()` late in the tick and `_set_face()`/`_clear_face()` at the transitions;
+- forwards the face values to `_act_presentation()`.
 
 `face_session.gd` is the facade and the only module another system calls. There is no private
 `face/` directory: `act_face.gd` stays pure and `mood_face.gd` stays the held-face node.
@@ -24,10 +24,10 @@ The runtime still:
 
 | Piece | Owns |
 |---|---|
-| `face_session.gd` | the act face, the line-face owner, the stare release, the beat call, the mood-face lifetime and the warm note |
+| `face_session.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
 | `act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
 | `mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
-| `runtime.gd` | the state, the scene reads, the lids, the blush, the kiss, the HUD and the summary grade |
+| `runtime.gd` | the state, the scene reads, the blush, the kiss, the HUD and the summary grade |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
 
@@ -43,8 +43,13 @@ a runtime without entering the tree calls `_bind_face()` on the first facade cal
 
 | Method | Meaning |
 |---|---|
-| `bind(pony, host)` | bind the pony and the runtime node that parents the mood face |
+| `bind(pony, host)` | bind the pony and the runtime node that parents the mood face and the hold timer |
 | `beat(moment, context)` | run the beat table for one moment; `context` carries `enabled`, `debug`, `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary` |
+| `act_beat(moment, context, enabled, debug)` | the runtime's beat call: applies the `act_faces` gate and the debug flag, then the beat table |
+| `set_face(smile, lids, hold_seconds)` | write the act's smile and lids; a hold starts the face timer |
+| `clear_face()` | stop the hold, release the stare and release the act's touch layer |
+| `eyes_tick(context)` | the late lid owner; `context` carries `state`, `close_rewarded` and `eyes_active` |
+| `climax_quality(context)` | the climax presentation score shape; the runtime gathers the counters |
 | `set_act_face(face, hold_s)` | set one face unless a spoken line owns it; returns whether it applied |
 | `end_face()` | clear only the face this owner set; a spoken line face is never cleared |
 | `dialogue_face()` | the face a director line currently owns, or empty |
@@ -82,16 +87,19 @@ calls `finish_dialogue(hold_s)`. A climax with `release_stare` sets `stare_relea
 - `set_act_face()` refuses while `dialogue_face()` is non-empty and not the face the act set. The
   runtime's `_set_act_face()` and `_end_act_face()` are the same call; the `end_face()` rule only
   clears the face the act set, so a director line survives teardown.
-- `_act_face_beat()` is the only place the runtime writes a beat. It reads `_feature("act_faces")`
-  and `_feature("face_debug")` and sets `debug_enabled` before the facade call.
+- `_act_face_beat()` is the only place the runtime writes a beat. It gathers the act values and
+  calls `act_beat()`, which reads `_feature("act_faces")`/`_feature("face_debug")`, sets
+  `debug_enabled` and returns before the beat table when act faces are off.
 - `sync_settings()` ends the act face when `act_faces` is off; the post-act mood face stays
   independent.
 
 ## Stare and blush
 
-The runtime's `_eyes_tick()` releases the stare while `stare_release_until` is in the future, or
-while a kiss is active. The act's `_set_face()` and `_act_presentation()` own the lids and blush;
-the facade only sets the release window. `blush_for()` is in `act_face.gd` and reads
+`eyes_tick()` releases the stare while `stare_release_until` is in the future or while a kiss is
+active, then reasserts the state's lids: half-lidded through `POSING_IN`/`ACTIVE`, wide at
+`CLIMAX`, sleepier in `AFTERGLOW` and sleepier again when the close window was rewarded. The lid
+values are the facade's constants; the runtime passes the state and the flags. `_set_face()` and
+`_act_presentation()` own the smile and the blush; `blush_for()` is in `act_face.gd` and reads
 `_act_phase()`.
 
 ## Post-act mood face
@@ -109,5 +117,6 @@ and the `_left`/`face`/`mood` reads for the debug row.
 ## Tests
 
 `tests/face/test_runtime_face.gd` covers the beat table, the line-face owner, the stare release,
-the mood face and the warm note with a fake expressions node. `tests/face/test_act_face.gd` covers
-the pure plans and `tests/face/test_mood_face.gd` covers the held node.
+the lids and the smile hold, the climax quality shape, the mood face and the warm note with a fake
+expressions node. `tests/face/test_act_face.gd` covers the pure plans and
+`tests/face/test_mood_face.gd` covers the held node.

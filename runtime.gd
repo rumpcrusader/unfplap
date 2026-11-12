@@ -49,11 +49,6 @@ const ACT_AUDIO_PATH := "res://mods/unfplap/act_audio.gd"
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 
 const READINESS_MAX := 100.0
-## Act eyelid values: half-lidded through ACTIVE, wide only at climax, sleepier afterglow.
-const ACT_LIDS := 0.45
-const CLIMAX_LIDS := 0.0
-const AFTERGLOW_LIDS := 0.9
-const AFTERGLOW_CLOSE_LIDS := 0.95
 ## Visual impact = physical strength × this, so normal and fast thrusts keep their tuned
 ## reaction while slow or shallow strokes stay lighter. Readiness scoring lives in
 ## `readiness.gd`.
@@ -612,8 +607,6 @@ var _satisfaction_tween: Tween
 ## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
 ## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
-var _act_eyes_released := false
-var _face_timer: Timer
 var _climax_progress := 0.0
 ## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
 var _debug_chin_deg := 0.0
@@ -823,11 +816,6 @@ func _ready() -> void:
 	set_physics_process(true)
 	# Run after locomotion/navigator/attention so the body facing lock and head glance win.
 	process_physics_priority = 100
-	_face_timer = Timer.new()
-	_face_timer.name = "UnfplapFaceTimer"
-	_face_timer.one_shot = true
-	_face_timer.timeout.connect(_clear_face)
-	add_child(_face_timer)
 	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
 	# the pony enters the tree, so read it now and once more after the first frame.
 	_read_id()
@@ -1361,31 +1349,16 @@ func _act_presentation(delta: float) -> void:
 	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
 	_timed("wings_tick", wings_started)
 
+## The act's smile and lids; the facade owns the write and the hold timer.
 func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
-	if not is_instance_valid(pony):
-		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null:
-		return
-	if expressions.has_method("touch"):
-		expressions.call("touch", "unfplap_state", smile, 0.0)
-	if expressions.has_method("stare"):
-		expressions.call("stare", true, lids)
-	if hold_seconds > 0.0 and is_instance_valid(_face_timer):
-		_face_timer.start(hold_seconds)
+	_bind_face()
+	_face.set_face(smile, lids, hold_seconds)
 
+
+## Clear the act's smile and lids.
 func _clear_face() -> void:
-	if is_instance_valid(_face_timer):
-		_face_timer.stop()
-	if not is_instance_valid(pony):
-		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null:
-		return
-	if expressions.has_method("stare"):
-		expressions.call("stare", false)
-	if expressions.has_method("release_touch"):
-		expressions.call("release_touch", "unfplap_state")
+	_bind_face()
+	_face.clear_face()
 
 func _process(delta: float) -> void:
 	var started := Time.get_ticks_usec()
@@ -1591,36 +1564,12 @@ func _physics_tick(delta: float) -> void:
 ## The act owns the lids outside a kiss. Set at every transition, then reasserted late so a
 ## climax return or fluster peek cannot leave her wide-eyed while leaning.
 func _eyes_tick() -> void:
-	if not is_instance_valid(pony):
-		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null:
-		return
-	if _kiss_controller().eyes_active():
-		if not _act_eyes_released:
-			if expressions.has_method("stare"):
-				expressions.call("stare", false)
-			_act_eyes_released = true
-		return
-	if _now_s() < _stare_release_until:
-		if not _act_eyes_released:
-			if expressions.has_method("stare"):
-				expressions.call("stare", false)
-			_act_eyes_released = true
-		return
-	_act_eyes_released = false
-	var lids := -1.0
-	match state:
-		State.POSING_IN, State.ACTIVE:
-			lids = ACT_LIDS
-		State.CLIMAX:
-			lids = CLIMAX_LIDS
-		State.AFTERGLOW:
-			lids = AFTERGLOW_CLOSE_LIDS if _close_rewarded else AFTERGLOW_LIDS
-	if lids < 0.0:
-		return
-	if expressions.has_method("stare"):
-		expressions.call("stare", true, lids)
+	_bind_face()
+	_face.eyes_tick({
+		"state": state,
+		"close_rewarded": _close_rewarded,
+		"eyes_active": _kiss_controller().eyes_active(),
+	})
 
 # --------------------------------------------------------------------------- gates
 
@@ -1954,7 +1903,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_reactions.begin_act()
 	_camera_service().call("reset_lean_state")
 	_clear_face()
-	_set_face(0.45, ACT_LIDS)
+	_set_face(0.45, FACE.ACT_LIDS)
 	_serial = _next_serial()
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
 	_first_time = _read_first_time()
@@ -3244,7 +3193,7 @@ func _climax() -> void:
 	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
 	_reactions.schedule_hearts()
 	_reactions.hearts_burst_at(_reactions.dock_point())
-	_set_face(0.3, CLIMAX_LIDS)
+	_set_face(0.3, FACE.CLIMAX_LIDS)
 	_act_face_beat("climax")
 	_end_act_lines(true)
 	if is_instance_valid(main) and pony_climaxes == 1:
@@ -3288,7 +3237,7 @@ func _finish_climax() -> void:
 		return
 	state = State.ACTIVE
 	_stare_release_until = 0.0
-	_set_face(0.45, ACT_LIDS)
+	_set_face(0.45, FACE.ACT_LIDS)
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
@@ -3475,7 +3424,7 @@ func _afterglow_begin() -> void:
 	_cue_override = ""
 	_cue_until = 0.0
 	_stare_release_until = 0.0
-	_set_face(0.85, AFTERGLOW_LIDS)
+	_set_face(0.85, FACE.AFTERGLOW_LIDS)
 	_act_face_beat("afterglow")
 	if is_instance_valid(_pose):
 		if pose_id == CATALOG.STANDING:
@@ -3518,7 +3467,7 @@ func _on_stay_close(caressed: bool, reward: bool) -> void:
 	if not reward and caressed:
 		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
 			ACT_HISTORY.save()
-	_set_face(0.9, AFTERGLOW_CLOSE_LIDS)
+	_set_face(0.9, FACE.AFTERGLOW_CLOSE_LIDS)
 	_reactions.hearts_burst()
 	cue = ""
 
@@ -3775,12 +3724,11 @@ func _read_first_time() -> bool:
 	return facts.first_time
 
 
-## Live presentation score for the auto climax face. This never writes the summary or history.
+## Live presentation score for the auto climax face. This never writes the summary or history:
+## the runtime gathers its counters and the facade owns the shape `act_face.gd` reads.
 func _climax_quality_inputs() -> Dictionary:
-	var touch_dislikes := 0
-	for count: Variant in _act_touch_dislikes.values():
-		touch_dislikes += int(count)
-	return {
+	_bind_face()
+	return _face.climax_quality({
 		"intensity_total": _act_intensity_total,
 		"intensity_right": _act_intensity_right,
 		"pattern_total": _act_pattern_total,
@@ -3788,12 +3736,12 @@ func _climax_quality_inputs() -> Dictionary:
 		"both_matches": _act_both_matches,
 		"liked_touch": _act_liked_touch,
 		"liked_talk": _act_liked_talk,
-		"dislikes_total": touch_dislikes + _act_talk_dislikes,
+		"touch_dislikes": _act_touch_dislikes,
+		"talk_dislikes": _act_talk_dislikes,
 		"distress": _history.distress(),
-		"seeks_touch": PREFERENCES.seeks_touch(_preferences),
-		"seeks_talk": PREFERENCES.seeks_talk(_preferences),
+		"preferences": _preferences,
 		"overwhelmed": _overwhelmed > 0.0,
-	}
+	})
 
 
 ## The facade is bound in `_ready`; a suite that builds a runtime without entering the tree
@@ -3803,14 +3751,12 @@ func _bind_face() -> void:
 		_face.bind(pony, self)
 
 
+## One act face moment. The runtime gathers the act values; the facade applies the feature gate,
+## the debug flag and the beat table.
 func _act_face_beat(moment: String) -> void:
 	_bind_face()
-	if not _feature("act_faces") or not is_instance_valid(pony):
-		return
-	_face.debug_enabled = _feature("face_debug")
 	var ctx := {
 		"enabled": true,
-		"debug": _face.debug_enabled,
 		"first_time": _first_time,
 		"tolerance": str(_preferences.get("tolerance", "normal")),
 	}
@@ -3819,7 +3765,7 @@ func _act_face_beat(moment: String) -> void:
 		ctx["quality"] = _climax_quality_inputs()
 	elif moment == "afterglow":
 		ctx["summary"] = _summary
-	_face.beat(moment, ctx)
+	_face.act_beat(moment, ctx, _feature("act_faces"), _feature("face_debug"))
 
 
 func _current_dialogue_face() -> String:

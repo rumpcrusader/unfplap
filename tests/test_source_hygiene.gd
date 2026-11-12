@@ -288,9 +288,21 @@ func _check_act_lines() -> void:
 	for name: String in ["AGENTS.md", "docs/memory.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/lines.md"), "%s links to docs/lines.md" % name)
-	for name: String in ["test_act_lines.gd", "test_utterance.gd", "test_utterance_scheduler.gd"]:
+	for name: String in ["test_act_lines.gd", "test_utterance.gd", "test_utterance_scheduler.gd",
+			"test_prompt_notes.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/act_lines/" + name)),
 			"tests/act_lines/%s exists" % name)
+	var prompts := FileAccess.get_file_as_string(ROOT.path_join("act_lines/prompts.gd"))
+	check(prompts.contains("static func note("), "act_lines/prompts.gd is the pure note module")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")"]:
+		check(not prompts.contains(token), "prompt notes have no scene reference: %s" % token)
+	check(contract.contains("act_lines/prompts.gd"), "docs/lines.md names the prompt note module")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for token: String in ["after making love with Anon", "You are in the middle of sex with Anon",
+			"still in the afterglow with Anon", "stay: 120"]:
+		check(not runtime.contains(token), "runtime has no prompt wording: %s" % token)
 
 
 ## The readiness facade is scene-free scoring state. Its contract is `docs/readiness.md`, and the

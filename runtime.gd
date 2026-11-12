@@ -3335,41 +3335,16 @@ func _relationship_note() -> String:
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
 	_read_id()
-	var history := _history_note()
-	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		if _warm_note:
-			var warm := "- You are still warm and relaxed after making love with Anon. Keep an affectionate tone; do not act stiff or businesslike."
-			var relation := _relationship_note()
-			if not relation.is_empty():
-				warm += " " + relation
-			return warm
-		return history
-	var parts: PackedStringArray = []
-	if state == State.AFTERGLOW:
-		parts.append("- You are still in the afterglow with Anon; the act has ended, but the moment is not finished yet.")
-		if not _afterglow_beat.is_empty():
-			parts.append("- " + _afterglow_beat)
-	else:
-		parts.append("- You are in the middle of sex with Anon.")
-		if not history.is_empty():
-			parts.append(history)
-	var relation := _relationship_note()
-	if not relation.is_empty():
-		parts.append("- " + relation)
-	var caressing := _player_is_caressing()
-	var leaning := _player_is_leaning_close()
-	var where := "your chest and belly" if pose_id == CATALOG.MISSIONARY else "your flank"
-	if caressing and leaning:
-		parts.append("He is leaning in close against you and caressing " + where + ".")
-	elif caressing:
-		parts.append("He is caressing " + where + ".")
-	elif leaning:
-		parts.append("He is leaning in close, holding you.")
-	else:
-		parts.append("He is close but not caressing or leaning in right now.")
-	if state == State.AFTERGLOW:
-		parts.append("If Anon asks to stay longer, use [stay: 120] to hold the afterglow.")
-	return " ".join(parts)
+	return _lines_service().prompt_note({
+		"state": state,
+		"warm": _warm_note,
+		"history": _history_note(),
+		"beat": _afterglow_beat,
+		"relation": _relationship_note(),
+		"caressing": _player_is_caressing(),
+		"leaning": _player_is_leaning_close(),
+		"missionary": pose_id == CATALOG.MISSIONARY,
+	})
 
 
 ## Lover-bond context for the normal dialogue prompt. Empty during an act, where prompt_note
@@ -3380,7 +3355,7 @@ func lover_prompt_note() -> String:
 	var policy := _policy_verdict(ELIGIBILITY.Mode.BOND)
 	if policy == null or not policy.bond:
 		return ""
-	return RELATIONSHIP_CUE.lover_note(policy.relations.stored_bond)
+	return _lines_service().lover_prompt_note(policy.relations.stored_bond)
 
 ## Grant the mod lover bond. Dialogue_consent calls this after a clear spoken agreement; the
 ## Debug action calls it for the aimed mare. Every gate is re-checked here because the classifier

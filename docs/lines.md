@@ -11,6 +11,8 @@ This contract covers:
 - the per-act utterance scheduler and its pacing configuration;
 - cue admission: stability, shared gap, demand budget, override lifetime and one pending slot;
 - cue prompt assembly from the act facts, preferences, relationship facts and the shared memory;
+- the normal dialogue prompt notes: the mid-act and afterglow moment, the warm after-sex note,
+  the history and relationship lines and the caress/lean reads;
 - reaction lines for climax, early end, history refusal and tolerance events;
 - the bystander line and its observer pass;
 - the recent-line text and the director's last-spoken time;
@@ -28,6 +30,7 @@ face beats (`docs/face.md`).
 | `act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
 | `utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
 | `utterance.gd` | pure prompt formatting and the private line seed |
+| `act_lines/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean |
 | `memory.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
 | `docs/lines.md` | this contract |
 | `tests/act_lines/` | the pure scheduler/formatting suites and the facade suite |
@@ -52,6 +55,8 @@ tree.
 | `note_reaction(key, cue_text, until)` | reserve the shared slot for that reaction |
 | `busy()` | the director or the pony is actually speaking |
 | `recent_lines()` / `last_spoken_line()` / `last_spoken_at()` | read the director's recent speech |
+| `prompt_note(values)` | the normal dialogue note: state, warm, history, beat, relation, caress/lean, pose |
+| `lover_prompt_note(stored_bond)` | the neutral lover wording; the runtime keeps the bond gates |
 | `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
 
 ## Admission
@@ -71,6 +76,20 @@ shared-memory id is marked used only after the line was accepted.
 
 `readiness.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
 sets them on `act_facts` immediately before calling the facade.
+
+## Prompt notes
+
+`act_lines/prompts.gd` is pure and owns the normal dialogue prompt, outside and during an act:
+
+- outside the act states, the warm after-sex note (with the relationship line appended) or the
+  history note;
+- mid-act, the act note plus the history note, the relationship line and one caress/lean sentence
+  (chest and belly in missionary, flank standing);
+- in afterglow, the afterglow note, one optional beat, the same relationship and caress reads and
+  the `[stay: 120]` instruction; the mid-act history note is not recited.
+
+The runtime supplies plain values and keeps the history, relationship, caress, lean, pose and
+afterglow-beat reads, so the module has no scene access.
 
 ## Reactions and bystanders
 
@@ -152,6 +171,8 @@ second-person seed (`{seed}`): it states the need or the moment, never “She wa
 - `tests/act_lines/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
 - `tests/act_lines/test_act_lines.gd`: pacing configuration, cue admission, prompt assembly,
   the memory channel, reactions, the recent-line reads, busy state and act-end cancellation.
+- `tests/act_lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the
+  caress/lean reads and the two facade forwarders.
 
 Run:
 

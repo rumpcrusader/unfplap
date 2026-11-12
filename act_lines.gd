@@ -6,6 +6,7 @@ extends RefCounted
 ## It reads the mod's own line channel through `main.memory` and the conversation director from
 ## the act facts. See `docs/lines.md`.
 
+const PROMPTS := preload("res://mods/unfplap/act_lines/prompts.gd")
 const UTTERANCE := preload("res://mods/unfplap/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
@@ -377,6 +378,17 @@ func busy() -> bool:
 ## True when no mod line owns the slot and the director/pony are not already speaking.
 func channel_free() -> bool:
 	return scheduler().channel_free() and not _speech_busy()
+
+
+## The normal dialogue prompt note. Every value is plain data, supplied by the runtime, so the
+## wording and the precedence are testable without a scene.
+func prompt_note(values: Dictionary) -> String:
+	return PROMPTS.note(values)
+
+
+## The lover-bond prompt note. The runtime keeps the bond/act/sleep gates; the wording is here.
+func lover_prompt_note(stored_bond: bool) -> String:
+	return RELATIONSHIP_CUE.lover_note(stored_bond)
 
 
 func recent_lines() -> String:

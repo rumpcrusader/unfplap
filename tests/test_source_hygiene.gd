@@ -88,6 +88,7 @@ func run() -> void:
 	_check_rest_rejoin()
 	_check_act_audio()
 	_check_hud_lines()
+	_check_docs_index(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -159,8 +160,7 @@ func _check_hands_docs() -> void:
 	check(not contract.is_empty(), "docs/hands.md exists")
 	check(contract.contains("## Controls") and contract.contains("## Contact engine"),
 		"docs/hands.md has the controls and contact contract")
-	for name: String in ["AGENTS.md", "ROTATION.md", "PREFERENCES.md", "HISTORY.md",
-			"README.md"]:
+	for name: String in ["AGENTS.md", "docs/README.md", "README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/hands.md"), "%s links to docs/hands.md" % name)
 
@@ -293,7 +293,7 @@ func _check_act_lines() -> void:
 			"tests/act_lines/%s exists" % name)
 
 
-## The readiness facade is scene-free scoring state. Its contract is `PREFERENCES.md`, and the
+## The readiness facade is scene-free scoring state. Its contract is `docs/readiness.md`, and the
 ## runtime forwards the public values instead of keeping a second copy.
 func _check_readiness() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("readiness.gd"))
@@ -303,9 +303,9 @@ func _check_readiness() -> void:
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")"]:
 		check(not facade.contains(token), "readiness has no scene reference: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("PREFERENCES.md"))
-	check(contract.contains("## Ownership"), "PREFERENCES documents the readiness owner")
-	check(contract.contains("`readiness.gd`"), "PREFERENCES names readiness.gd")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/readiness.md"))
+	check(contract.contains("## Ownership"), "docs/readiness.md documents the readiness owner")
+	check(contract.contains("`readiness.gd`"), "docs/readiness.md names readiness.gd")
 	for name: String in ["test_readiness.gd", "test_runtime_thrust.gd", "test_preferences.gd",
 			"test_auto_thrust.gd", "test_auto_panel.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/readiness/" + name)),
@@ -313,7 +313,7 @@ func _check_readiness() -> void:
 
 
 ## The history facade owns the summary/tolerance decisions and reads only its pure modules.
-## Its contract is `HISTORY.md`, and the runtime keeps the scene stop executor.
+## Its contract is `docs/history.md`, and the runtime keeps the scene stop executor.
 func _check_history() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("history.gd"))
 	check(facade.contains("func commit_summary(") and facade.contains("func tick_idle("),
@@ -322,9 +322,9 @@ func _check_history() -> void:
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get("]:
 		check(not facade.contains(token), "history has no scene reference: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("HISTORY.md"))
-	check(contract.contains("## Ownership"), "HISTORY documents the history owner")
-	check(contract.contains("`history.gd`"), "HISTORY names history.gd")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/history.md"))
+	check(contract.contains("## Ownership"), "docs/history.md documents the history owner")
+	check(contract.contains("`history.gd`"), "docs/history.md names history.gd")
 	for name: String in ["test_act_flow.gd", "test_act_stop.gd", "test_act_summary.gd",
 			"test_act_history.gd", "test_act_tolerance.gd", "test_history.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/history/" + name)),
@@ -405,7 +405,7 @@ func _check_reactions() -> void:
 
 
 ## The pose session owns the pose and modifier nodes, the bed frame, the bone snapshots and the
-## pose diagnostics. Its contract is `ROTATION.md`; the pose suites live under `tests/poses/`.
+## pose diagnostics. Its contract is `docs/poses.md`; the pose suites live under `tests/poses/`.
 func _check_pose_session() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("poses/session.gd"))
 	check(facade.contains("func begin(") and facade.contains("func sync_standing_config("),
@@ -415,9 +415,9 @@ func _check_pose_session() -> void:
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
 			"main.get(", "main.call(\""]:
 		check(not facade.contains(token), "pose session has no host reach-in: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("ROTATION.md"))
-	check(contract.contains("## Ownership"), "ROTATION documents the pose owner")
-	check(contract.contains("`poses/session.gd`"), "ROTATION names poses/session.gd")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
+	check(contract.contains("## Ownership"), "docs/poses.md documents the pose owner")
+	check(contract.contains("`poses/session.gd`"), "docs/poses.md names poses/session.gd")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
 	check(agents.contains("`poses/session.gd`"), "AGENTS.md names poses/session.gd")
 	for name: String in ["test_session.gd", "test_pose_asset.gd", "test_pose_rig.gd",
@@ -432,7 +432,7 @@ func _check_pose_session() -> void:
 
 
 ## The act camera owns the lean, the shot smoothing, the free look, the free-camera lock, the eye
-## override and the captured look. Its contract is `ROTATION.md`; its suite is `tests/act_camera/`.
+## override and the captured look. Its contract is `docs/camera.md`; its suite is `tests/act_camera/`.
 func _check_act_camera() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("act_camera.gd"))
 	check(facade.contains("func tick_lean(") and facade.contains("func tick_shot("),
@@ -442,8 +442,8 @@ func _check_act_camera() -> void:
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
 			"main.get(", "main.call(\""]:
 		check(not facade.contains(token), "act camera has no host reach-in: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("ROTATION.md"))
-	check(contract.contains("`act_camera.gd`"), "ROTATION names act_camera.gd")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/camera.md"))
+	check(contract.contains("`act_camera.gd`"), "docs/camera.md names act_camera.gd")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
 	check(agents.contains("`act_camera.gd`"), "AGENTS.md names act_camera.gd")
 	check(FileAccess.file_exists(ROOT.path_join("tests/act_camera/test_camera.gd")),
@@ -554,13 +554,77 @@ func _check_hud_lines() -> void:
 	check(not runtime.contains("const Y_END_TINT_MAX"), "runtime has no HUD tint constant")
 
 
+## The docs are the single source of truth: every doc under docs/ is indexed by docs/README.md, and
+## the root holds no service contract. The service doc names its facade and its tests.
+func _check_docs_index(files: Array[String]) -> void:
+	var index := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
+	check(not index.is_empty(), "docs/README.md exists")
+	for name: String in ["README.md", "AGENTS.md", "WORKFLOW.md", "assets/README.md",
+			"AUDIO_CREDITS.md"]:
+		check(FileAccess.file_exists(ROOT.path_join(name)), "root doc %s exists" % name)
+	for name: String in ["ROTATION.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md"]:
+		check(not FileAccess.file_exists(ROOT.path_join(name)),
+			"root service contract is gone: %s" % name)
+	for path: String in files:
+		if not path.ends_with(".md"):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative.begins_with("docs/"):
+			var doc := relative.trim_prefix("docs/")
+			if doc != "README.md":
+				check(index.contains(doc), "docs/README.md indexes %s" % doc)
+		for token: String in ["ROTATION.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md"]:
+			check(not FileAccess.get_file_as_string(path).contains("`" + token + "`"),
+				"%s does not name a removed root path" % relative)
+	var docs := [
+		["docs/eligibility.md", "eligibility.gd", "tests/eligibility/"],
+		["docs/scene_gate.md", "scene_gate.gd", "tests/scene_gate/"],
+		["docs/scene_hold.md", "scene_hold.gd", "tests/scene_hold/"],
+		["docs/rest.md", "rest_rejoin.gd", "tests/rest/"],
+		["docs/hands.md", "hand_control.gd", "tests/hands/"],
+		["docs/anatomy.md", "anatomy.gd", "tests/anatomy/"],
+		["docs/vr.md", "vr_act.gd", "tests/test_vr_act.gd"],
+		["docs/initiation.md", "initiation.gd", "tests/initiation/"],
+		["docs/memory.md", "memory.gd", "tests/memory/"],
+		["docs/lines.md", "act_lines.gd", "tests/act_lines/"],
+		["docs/readiness.md", "readiness.gd", "tests/readiness/"],
+		["docs/preferences.md", "preferences.gd", "tests/readiness/"],
+		["docs/poses.md", "poses/session.gd", "tests/poses/"],
+		["docs/camera.md", "act_camera.gd", "tests/act_camera/"],
+		["docs/kiss.md", "kiss_control.gd", "tests/act_camera/"],
+		["docs/history.md", "history.gd", "tests/history/"],
+		["docs/afterglow.md", "afterglow.gd", "tests/afterglow/"],
+		["docs/face.md", "face_session.gd", "tests/face/"],
+		["docs/reactions.md", "act_reactions.gd", "tests/reactions/"],
+		["docs/stool.md", "stool.gd", "tests/stool/"],
+		["docs/audio.md", "act_audio.gd", "tests/act_audio/"],
+		["docs/hud.md", "hud.gd", "tests/hud/"],
+		["docs/settings.md", "settings.gd", "tests/test_settings.gd"],
+		["docs/bond.md", "sex_bond.gd", "tests/bond/"],
+		["docs/act_facts.md", "act_facts.gd", "tests/act_facts/"],
+		["docs/perf.md", "perf.gd", "tests/perf/"],
+		["docs/debug.md", "debug_actions.gd", "tests/"],
+	]
+	for row: Array in docs:
+		var doc := str(row[0])
+		var facade := str(row[1])
+		var tests := str(row[2])
+		var text := FileAccess.get_file_as_string(ROOT.path_join(doc))
+		check(not text.is_empty(), "%s exists" % doc)
+		check(text.contains(facade), "%s names %s" % [doc, facade])
+		check(text.contains(tests), "%s names %s" % [doc, tests])
+		check(text.contains("## Ownership") or text.contains("## Scope"),
+			"%s has an ownership section" % doc)
+		check(text.contains("## Tests"), "%s has a tests section" % doc)
+
+
 func _check_eligibility_docs() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/eligibility.md"))
 	check(not contract.is_empty(), "docs/eligibility.md exists")
 	for heading: String in ["## Data ownership", "## Public API", "## Modes and truth table",
 			"## Tests"]:
 		check(contract.contains(heading), "docs/eligibility.md has %s" % heading)
-	for name: String in ["AGENTS.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md", "README.md"]:
+	for name: String in ["AGENTS.md", "docs/README.md", "README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/eligibility.md"), "%s links to docs/eligibility.md" % name)
 
@@ -612,7 +676,7 @@ func _check_anatomy_docs() -> void:
 	for heading: String in ["## Scope", "## Architecture", "## Controls", "## Act anatomy",
 			"## Tail seating", "## Tests", "## Migration target"]:
 		check(contract.contains(heading), "docs/anatomy.md has %s" % heading)
-	for name: String in ["AGENTS.md", "README.md", "ROTATION.md", "PREFERENCES.md", "TUNING.md"]:
+	for name: String in ["AGENTS.md", "README.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/anatomy.md"), "%s links to docs/anatomy.md" % name)
 
@@ -644,7 +708,7 @@ func _check_stool_docs() -> void:
 			"## Gate and hint", "## Act flow", "## Supply", "## Settings and debug",
 			"## Tests and limits"]:
 		check(contract.contains(heading), "docs/stool.md has %s" % heading)
-	for name: String in ["AGENTS.md", "README.md", "ROTATION.md"]:
+	for name: String in ["AGENTS.md", "README.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/stool.md"), "%s links to docs/stool.md" % name)
 	var act := FileAccess.get_file_as_string(ROOT.path_join("stool/act.gd"))
@@ -761,7 +825,7 @@ func _check_memory_docs() -> void:
 			"## Impressions and events", "## Witness pass", "## Line channel",
 			"## Cue facts and shared memory", "## Tests", "## Known limits"]:
 		check(contract.contains(heading), "docs/memory.md has %s" % heading)
-	for name: String in ["AGENTS.md", "HISTORY.md", "docs/initiation.md"]:
+	for name: String in ["AGENTS.md", "docs/history.md", "docs/initiation.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/memory.md"), "%s links to docs/memory.md" % name)
 

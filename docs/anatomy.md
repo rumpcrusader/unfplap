@@ -18,7 +18,7 @@ This contract covers:
 - the debug and performance surface.
 
 It does not cover eligibility, act readiness, thrust scoring, pose or camera rules. Those are in
-`docs/eligibility.md`, `PREFERENCES.md` and `ROTATION.md`.
+`docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md` and `docs/camera.md`.
 
 ## Architecture
 

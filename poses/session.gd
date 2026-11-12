@@ -3,7 +3,7 @@ extends RefCounted
 ## frame, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch, chin debug),
 ## the bone snapshots and the pose diagnostics. The runtime owns the act state, the start order
 ## and the one teardown ledger; it binds this session and calls the render-time write.
-## Contract: `ROTATION.md`.
+## Contract: docs/poses.md.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")

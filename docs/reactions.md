@@ -70,7 +70,7 @@ already set its own impulse before the facade scales it.
   `size_scale × smack_intensity`.
 - `apply_radius()` writes the `jiggle_radius` shader parameter to every live target and records
   the material; `restore_radius()` clears it so stock smacks keep the shader default.
-- The facade never clamps a setting-derived radius or smack intensity. See `TUNING.md`.
+- The facade never clamps a setting-derived radius or smack intensity. See `docs/settings.md`.
 
 ## Rump blush
 

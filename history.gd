@@ -2,7 +2,7 @@ extends RefCounted
 ## The act's summary, long-term history and neglect tolerance. The runtime owns the act state,
 ## the scene stop executor and the line/face presentation; this system owns the scoring trigger,
 ## the grade-aware commit, the peak-memory record, the idle history scan's decisions and the
-## tolerance meter. See `HISTORY.md`.
+## tolerance meter. See docs/history.md.
 
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")

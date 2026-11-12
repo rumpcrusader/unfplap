@@ -54,8 +54,9 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 | `standing_free` | offer, standing | she is not held and not seated |
 | `pose` | offer, not standing | the pose is unsupported for an offer |
 
-The footstool rule still lives in the runtime until its own phase; the rows reach it through
-`stool_need` / `stool_count` callbacks. The pose rows reach the pose session facade.
+The footstool rule lives in the per-act handle `stool/act.gd` (`docs/stool.md`); the rows reach it
+through the runtime's `stool_needed_count` / `stool_case_count` forwards. The pose rows reach the
+pose session facade.
 
 ## Navigator owners
 

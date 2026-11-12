@@ -16,7 +16,7 @@ This contract covers:
 - the mod's own line channel: queue, key, cancel, cancel-by-act and the typed line state;
 - the cue facts and the one shared-memory hit for the cue prompt.
 
-It does not cover act scoring, the grade, history tiers or hurt repair (`HISTORY.md`), act
+It does not cover act scoring, the grade, history tiers or hurt repair (`docs/history.md`), act
 eligibility and consent (`docs/eligibility.md`), proactive requests (`docs/initiation.md`), or the
 cue admission, prompt assembly and act-line reactions (`docs/lines.md`). The memory system only
 writes the facts those systems read.

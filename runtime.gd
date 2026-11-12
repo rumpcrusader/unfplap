@@ -137,7 +137,7 @@ var _scene: RefCounted = SCENE_GATE.new()
 ## The bed/couch rest and cuddle rejoin. See `rest_rejoin.gd` and `docs/rest.md`.
 var _rest: RefCounted = REST_REJOIN.new()
 ## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
-## standing eye override and the captured player look. See `act_camera.gd` and `ROTATION.md`.
+## standing eye override and the captured player look. See `act_camera.gd` and `docs/camera.md`.
 ## The fields below are read views over it: the two pose cameras, the hands/kiss controllers, the
 ## test suites and `_sync_act_facts()` still read them by name.
 var _act_camera: RefCounted = ACT_CAMERA.new()
@@ -2323,7 +2323,7 @@ func missionary_pose_origin() -> Vector3:
 
 
 ## A bed can move under the act. The pose session carries the authored pose, the act body, the
-## camera shot and the anatomy placement with it. See ROTATION.md.
+## camera shot and the anatomy placement with it. See docs/poses.md.
 func _sync_bed_pose_frame() -> void:
 	_pose_service().sync_bed_frame()
 
@@ -4135,7 +4135,7 @@ func _stop(reason: String) -> void:
 
 # --------------------------------------------------------------------------- camera
 
-## The act camera session. See `act_camera.gd` and `ROTATION.md`.
+## The act camera session. See `act_camera.gd` and `docs/camera.md`.
 func _size_name() -> String:
 	return str(_camera_service().call("size_name"))
 
@@ -4307,7 +4307,7 @@ func _pose_rig_reason(missing: Array) -> String:
 ## One idle-frame sample of what the renderer actually sees, once per act.
 ## The missionary act owns what is rendered: the game re-poses the rig after our modifier pass, so
 ## the authored pose is written once more here, after every physics and process writer of the frame.
-## See ROTATION.md.
+## See docs/poses.md.
 func _pose_render_write() -> void:
 	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return

@@ -3,7 +3,7 @@ extends RefCounted
 ##
 ## This is the only file allowed to create settings widgets. Do not add a SpinBox, CheckButton or
 ## OptionButton control for a setting anywhere else: declare the setting instead and it appears
-## here. See TUNING.md.
+## here. See docs/settings.md.
 ##
 ## Every section heading is a click-to-collapse button wearing the menu's open sidebar row (the
 ## `Tab` look: a pink accent while the section is open). Every setting is one of the settings

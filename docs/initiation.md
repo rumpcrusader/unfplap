@@ -20,7 +20,8 @@ This contract covers:
 - the world-context situations, the debug actions and the lab path.
 
 It does not cover act eligibility (see `docs/eligibility.md`), act readiness or thrust
-(`PREFERENCES.md`), pose or camera (`ROTATION.md`), or the act's own dialogue cues and prompts.
+(`docs/readiness.md`), pose or camera (`docs/poses.md`, `docs/camera.md`), or the act's own
+dialogue cues and prompts.
 
 ## Architecture
 

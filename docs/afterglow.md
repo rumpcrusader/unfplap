@@ -84,6 +84,34 @@ Host callbacks, all optional so a test can build the facade without a runtime:
   reward. An early end calls `cancel_close()`, which never rewards.
 - `hud_y_pink()` still reads the earned flag to turn the control card's `End` fully pink.
 
+## Player afterglow
+
+Hold `Y`:
+
+| State | Climaxes | Result |
+|---|---:|---|
+| `POSING_IN` | any | cancel |
+| `ACTIVE` | 0 | cancel / early stop |
+| `ACTIVE` | 1+ | afterglow |
+| `CLIMAX` | 1+ | afterglow |
+| `AFTERGLOW` | any | end afterglow |
+
+- The player cannot enter afterglow before the first pony climax.
+- One or more climaxes allows afterglow at any time.
+- A non-zero configured climax limit forces afterglow after that climax's 5 s effect.
+- Pegasi and alicorns slowly fold their wings back to rest during afterglow over 6 s rather than
+  holding the spread pose until the act ends.
+- Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
+  removed; the HUD timer and active caress time own the standing close invitation. The live prompt
+  note keeps the moment present without a scripted line: it carries one short random afterglow beat
+  (`ACT_SUMMARY.afterglow_beat()`, 40 % silence) and the private relationship note; the HUD and the
+  impression keep the full summary. The note does not recite the summary or append a mechanical
+  “next time” wish.
+- After 16 s the mare may choose to end the afterglow herself. The roll is once per second;
+  caressing or leaning close lowers the chance. An accepted `[stay: SECONDS]` action from normal
+  dialogue pauses the roll for that long. The live prompt note tells her whether Anon is caressing
+  her or leaning in; leaning counts as staying close/hugging.
+
 ## Tests
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the self-end

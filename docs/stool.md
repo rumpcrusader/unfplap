@@ -16,8 +16,8 @@ This contract covers:
 - the offer hint, debug actions, tests and limits.
 
 It does not cover eligibility, act readiness, camera, pose, anatomy or inventory rules. Those stay
-in `docs/eligibility.md`, `PREFERENCES.md`, `ROTATION.md`, `docs/anatomy.md` and the game's own
-inventory contract.
+in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`,
+`docs/anatomy.md` and the game's own inventory contract.
 
 ## Architecture
 

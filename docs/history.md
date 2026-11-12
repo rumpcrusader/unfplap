@@ -3,15 +3,17 @@
 This is the contract for the mod-owned post-act summary and the per-mare act history. It is the
 only place that decides whether an act was good, neutral or bad, and what that changes later. The
 event and impression the summary writes are owned by the memory system; see `docs/memory.md`.
+Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; the face is
+`docs/face.md`.
 
 ## Ownership
 
 `history.gd` is the system facade. It owns the summary trigger and commit, the peak-memory record,
 the per-mare row reads, the idle apology/reminder decisions and the pure `act_tolerance.gd` meter.
-The runtime keeps the act state machine, gathers the action counters into the summary inputs,
-runs the scene stop executor (`_stop_with_her`: bed release, session end, space, buck, tail tuck)
-and owns the face and line presentation. `act_summary.gd` and `act_history.gd` remain the pure
-scoring and stored-row modules behind the facade.
+The runtime keeps the act state machine, gathers the action counters into the summary inputs, runs
+the scene stop executor (`_stop_with_her`: bed release, session end, space, buck, tail tuck) and
+owns the face and line presentation. `act_summary.gd` and `act_history.gd` remain the pure scoring
+and stored-row modules behind the facade.
 
 ## Per-act score
 
@@ -84,9 +86,28 @@ flat `commit_climax` path is gone, so a bad act can no longer give `+2` romance.
 
 A completed act starts `mood_face.gd`: a good or non-early neutral act holds a relaxed face with
 the warm prompt note, and a bad act holds `sad`/`annoyed` instead. The 10 s aftercare hold always
-runs, but its positive tail-up body language is only used after a good act. `stay_close_reward` gives its extra romance only on a good or non-early neutral act; after a
-bad act, staying close and caressing is a one-point hurt repair instead. The caress reward
-threshold is in `docs/hands.md`.
+runs, but its positive tail-up body language is only used after a good act. `stay_close_reward`
+gives its extra romance only on a good or non-early neutral act; after a bad act, staying close and
+caressing is a one-point hurt repair instead. The caress reward threshold is in `docs/hands.md`.
+
+### Memory and rewards
+
+- **First pony climax:** one world-context event; every climax gets a generated reaction.
+- **Once at afterglow:** `_commit_summary()` scores the act, `main.memory.commit()` writes the
+  grade-aware romance and mood, and `main.memory.witnesses()` follows.
+- **Standing close reward:** `main.memory.commit()` (the `STAY_CLOSE` slot) records a private
+  impression. On a good or non-early neutral act, staying and caressing adds a happy mood, a
+  private thought and a small `romance` gain. After a bad act, staying and caressing repairs one
+  point of history hurt instead. The caress time threshold is in `docs/hands.md`.
+- **Peak act:** one strongest memory per mare is kept in
+  `Mods.state("unfplap").peak_memories`. It requires a positive summary, no disliked touch/talk and
+  either peak readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces
+  it. The text is the last player exchange, or a generic warm beat if he did not speak.
+- **Zero-climax Y:** the early-stop/cancel path commits an early summary but no romance. The summary
+  can add hurt through this file; the early-stop reaction includes what she wanted.
+- Act lines that have not started speaking are cancelled at every climax/afterglow boundary and at
+  every act end. A line already speaking may finish. The intentional early-stop line is queued
+  after the act-line cancel.
 
 ## History points
 
@@ -143,9 +164,9 @@ calls `player_bonds.break_up()`.
 
 ## Neglect tolerance and the mid-act stop
 
-`preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab edits it
-as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is forgiving. The
-old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
+`preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab edits
+it as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is forgiving.
+The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 
 A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
 
@@ -177,8 +198,8 @@ A stop is a dedicated path, not `cancel()`:
   tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a
   new act starts.
 
-The neglect settings live under **Neglect tolerance** in World's Debug block (turn on **Debug mode**).
-The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for testing.
+The neglect settings live under **Neglect tolerance** in World's Debug block. The **Force neglect
+warning** and **Force neglect stop** debug actions drive the live act for testing.
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
@@ -208,8 +229,8 @@ navigator and blocks nothing; the gates above do that.
   close prompt in the cue and puts the summary on the readiness line. Early end shows no HUD.
 - `prompt_note()` carries the private history note while a hurt history is active, the 300 s
   warm note after a good or non-early neutral act (`_warm_note`), the relationship note during the
-  act and afterglow, and one short random afterglow beat (or none). `lover_prompt_note()` adds the neutral
-  lover fact when no other prompt note is present. It does not recite the summary or her
+  act and afterglow, and one short random afterglow beat (or none). `lover_prompt_note()` adds the
+  neutral lover fact when no other prompt note is present. It does not recite the summary or her
   first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts
   filter `last_wants` through `ACT_HISTORY.repair_wants()` and pass `last_text` through
   `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated act opening.
@@ -230,24 +251,39 @@ stored, no history note or refusal is used, and the warm note and aftercare fall
 readiness threshold. It does not disable the per-mare mid-act neglect stop.
 
 The thresholds and weights live under `History` in World's Debug block. They are debug numbers,
-so stored values are never clamped. See `TUNING.md`.
+so stored values are never clamped. See `docs/settings.md`.
 
 The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
-**Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug settings.
+**Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
+settings.
 
 ## Tests
 
-- `tests/history/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief, 25 s decay,
-  warning monotonicity and stop cooldowns.
+- `tests/history/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief, 25 s
+  decay, warning monotonicity and stop cooldowns.
 - `tests/history/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck and
   request space.
-- `tests/history/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike neutrality,
-  severe handling, early end, stopped-by-her severe outcome, forced stop, short act, motion and
-  touch misses.
-- `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology, sanitising,
-  pending lines, reset.
+- `tests/history/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike
+  neutrality, severe handling, early end, stopped-by-her severe outcome, forced stop, short act,
+  motion and touch misses.
+- `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
+  sanitising, pending lines, reset.
 - `tests/history/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
 - `tests/history/test_history.gd` — facade: summary commit, peak memory, tolerance decisions,
   refusal gate and the idle apology/reminder scan.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
 - `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.
+
+## Verification / lab
+
+- One act per grade: summary log once, history row and tier, peak memory, mood face.
+- Early end (hold Y at 0 climaxes) and a forced stop (Debug → Force neglect stop).
+- Apology and time decay in the lab.
+
+## Related docs
+
+- `docs/readiness.md` — scoring inputs and the climax count.
+- `docs/memory.md` — the event, impression and witness channel.
+- `docs/eligibility.md` — the history gate and the stop cooldown.
+- `docs/face.md` — the post-act mood face.
+- `docs/afterglow.md` — the close window and its reward.

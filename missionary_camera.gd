@@ -1,7 +1,7 @@
 extends RefCounted
 ## Missionary framing and the act avatar hiding. There is one shot: the **authored** one. The eye
 ## blends between the five camera transforms (position and direction) authored in the pose lab,
-## selected by the lean; a pure axis lean meets the saved transform exactly. See ROTATION.md.
+## selected by the lean; a pure axis lean meets the saved transform exactly. See docs/camera.md.
 ##
 ## Free look (debug) turns the shot where it stands.
 ##
@@ -176,7 +176,7 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 ## The authored shot. The eye is a weighted blend of the five authored camera transforms: the
 ## neutral start plus the forward/back shot and the side shot selected by the lean. At a pure axis
 ## extreme (S, W, Q or E) the weight is exactly one, so the eye meets the pose lab's camera position
-## **and direction**; everything between is interpolated. See ROTATION.md.
+## **and direction**; everything between is interpolated. See docs/camera.md.
 func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		_make_missionary_view()

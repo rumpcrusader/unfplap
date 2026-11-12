@@ -3,7 +3,7 @@ extends RefCounted
 ## debug free look, the free-camera lock, the standing eye override, the captured player look and
 ## the shot geometry helpers. The two pose cameras (`missionary_camera.gd`, `standing_camera.gd`)
 ## stay the shot implementations; this facade owns the session around them.
-## Contract: `ROTATION.md`.
+## Contract: docs/camera.md.
 
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")

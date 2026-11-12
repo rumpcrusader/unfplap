@@ -3,7 +3,7 @@ extends RefCounted
 ## window so a pony-specific stall can be attributed to a modifier without a live profiler.
 ##
 ## The host supplies the two gates and the header facts, so this module has no scene access. See
-## `AGENTS.md` (`## Debug and testing`) and `TUNING.md`.
+## `docs/perf.md` and `docs/settings.md`.
 
 const WINDOW_S := 1.0
 

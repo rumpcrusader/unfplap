@@ -2,7 +2,7 @@ extends RefCounted
 ## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input and the
 ## counters the act summary reads. The runtime owns the act state and supplies the clock, the
 ## climax transition, the face beats, the tolerance meter and the cue admission; this module owns
-## only the scoring state. See `PREFERENCES.md`.
+## only the scoring state. See docs/readiness.md.
 
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")

@@ -332,7 +332,7 @@ The old labels that said Try Your Luck drops the stage are corrected to this rul
 
 ## History and cycle
 
-`act_history.gd` owns the point math and tiers (`HISTORY.md`). `history.gd` owns the runtime-side
+`act_history.gd` owns the point math and tiers (`docs/history.md`). `history.gd` owns the runtime-side
 summary/tolerance decisions and the refusal gate; the runtime still exposes
 `refuse_from_history()`. Eligibility consumes:
 

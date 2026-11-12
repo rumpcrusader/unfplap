@@ -140,9 +140,10 @@ Edit that mare's block in `character_preferences.gd` `TEMPLATES`. Preserve custo
 
 ### Docs
 
-Update the matching contract text in `AGENTS.md` and, when the value is stated there,
-`TUNING.md`/`PREFERENCES.md`/`HISTORY.md`. `README.md` changes only if the player-facing
-FEATURES or CONTROLS wording changes. Do not leave an old default in the docs.
+Update the matching contract text in `docs/settings.md` and the owning service doc
+(`docs/readiness.md`, `docs/history.md`, `docs/poses.md`, `docs/camera.md`, ...). `AGENTS.md` only
+holds the service index. `README.md` changes only if the player-facing FEATURES or CONTROLS wording
+changes. Do not leave an old default in the docs.
 
 ## 6. Verify
 

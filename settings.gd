@@ -8,7 +8,7 @@ extends RefCounted
 ## Every setting is declared once in the declarations block below: name, JSON path, label, help,
 ## tab, group, default and bounds. Call sites use the typed accessor on the named setting and
 ## never a string; the JSON path lives only in the declaration. A setting gains the debug flag
-## with `.as_debug()`, which also removes its clamp. See TUNING.md.
+## with `.as_debug()`, which also removes its clamp. See docs/settings.md.
 ##
 ## The same file owns the per-mare profile data (`preferences`, `poses`, `consent`, prompts),
 ## because it shares the file, the generation counter and the migration pipeline.
@@ -642,7 +642,7 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 
 # ---------------------------------------------------------------- declarations
 ## Every setting, declared once. Order here is the panel order. `debug` entries are shown in the
-## tab's Debug block only; see TUNING.md.
+## tab's Debug block only; see docs/settings.md.
 
 
 

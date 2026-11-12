@@ -2,6 +2,7 @@ extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/session.gd")
+const REST_REJOIN := preload("res://mods/unfplap/rest_rejoin.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
@@ -23,7 +24,6 @@ const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const HANDS := preload("res://mods/unfplap/hand_control.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/missionary_camera.gd")
@@ -46,7 +46,6 @@ const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
-const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/act_audio.gd"
@@ -84,13 +83,6 @@ const STROKE_MEMORY_S := 1.2
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
-## A normal bed missionary end puts Anon back in the bed's rest and invites her into its guest
-## seat. The stock snuggle support reads the reclined avatar's hip targets, so the invite waits
-## for the recline to settle (the lab waits 1.2 s for the same reason). The window covers the
-## 10 s aftercare navigator hold and the bed's own 20 s guest cooldown.
-const CUDDLE_REJOIN_SETTLE_S := 1.5
-const CUDDLE_REJOIN_RETRY_S := 0.5
-const CUDDLE_REJOIN_WINDOW_S := 30.0
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
 ## feel is the same with the anatomy off. Close to the default part's visible length.
 const NOMINAL_SHAFT_M := 0.2
@@ -209,6 +201,8 @@ var _bed_pose_frame: Variant:
 ## The scene gate: the live state, navigator, bed, cuddle, player and pose rows plus the refusal
 ## executor. See `scene_gate.gd` and `docs/scene_gate.md`.
 var _scene: RefCounted = SCENE_GATE.new()
+## The bed/couch rest and cuddle rejoin. See `rest_rejoin.gd` and `docs/rest.md`.
+var _rest: RefCounted = REST_REJOIN.new()
 ## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
 ## standing eye override and the captured player look. See `act_camera.gd` and `ROTATION.md`.
 ## The fields below are read views over it: the two pose cameras, the hands/kiss controllers, the
@@ -741,6 +735,9 @@ func _init() -> void:
 	_scene.request_face_active = Callable(self, "request_face_active")
 	_scene.release_carry = Callable(self, "_release_carry")
 	_scene.on_refusal_face = Callable(self, "_refusal_face")
+	_rest.context = Callable(self, "_rest_context")
+	_rest.restore_scene = Callable(self, "_rest_restore_scene")
+	_rest.log = Callable(self, "_log")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -2067,7 +2064,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 			body.call("force_stand_up")
 	if pose == CATALOG.MISSIONARY:
 		if source == "cradle":
-			_place_on_bed(_bed_anchor())
+			_rest_service().call("place_on_start")
 		else:
 			pony.reset_physics_interpolation()
 		if pony.get("posture") != null:
@@ -2264,83 +2261,6 @@ func _abort_start() -> void:
 	_end_session(false)
 	_finalize_session(false)
 
-## Put her on the bed's anchor. The act poses her body itself, so she only needs to be there; she
-## keeps the neutral standing state the solver maintains without fighting the authored pose.
-func _place_on_bed(anchor: Transform3D) -> void:
-	if not is_instance_valid(pony):
-		return
-	pony.reset_motion(anchor)
-	pony.reset_physics_interpolation()
-	for _i in 3:
-		await get_tree().physics_frame
-		if not is_instance_valid(pony) or state == State.IDLE:
-			return
-		if pony.grounded():
-			break
-	pony.reset_physics_interpolation()
-	if pony.get("posture") != null:
-		pony.request_posture("stand")
-
-func _bed_anchor() -> Transform3D:
-	if bed != null:
-		var shared: Variant = _shared_bed_rest(bed)
-		if shared != null:
-			return shared
-	var fallback := 0.6
-	if bed != null and bed.has_meta("mattress_top"):
-		fallback = float(bed.get_meta("mattress_top"))
-	var center: Vector3 = bed.global_position if bed != null else pony.global_position
-	var top: float = center.y
-	if bed != null:
-		var points: Array[Vector3] = [bed.to_global(Vector3(0.18, 0.0, 0.0)), bed.to_global(Vector3(-0.18, 0.0, 0.0))]
-		top = MATTRESS.visible_top(bed, points, bed.to_global(Vector3(0.0, fallback, 0.0)).y)
-		center = Vector3(bed.global_position.x, top, bed.global_position.z)
-	var player_at: Vector3 = main.player.global_position
-	var side := Vector3.FORWARD
-	if bed != null:
-		side = bed.global_basis.x
-		side.y = 0.0
-	if side.length_squared() < 0.0001:
-		side = player_at - center
-		side.y = 0.0
-	side = side.normalized()
-	var across := side * signf((player_at - center).dot(side)) * 0.25
-	var along: Vector3 = -bed.global_basis.z if bed != null else -main.player.global_basis.z
-	along.y = 0.0
-	if along.length_squared() < 0.0001:
-		along = player_at - center
-		along.y = 0.0
-	along = along.normalized()
-	var at: Vector3 = center + across
-	at.y = top + 0.02
-	return Transform3D(Basis.looking_at(along, Vector3.UP), at)
-
-## The game's own bed-rest place for a pony lying beside Anon. Using it keeps her along the
-## mattress (not across it) and on the drawn bedding.
-func _shared_bed_rest(bed_node: Node3D) -> Variant:
-	if not is_instance_valid(bed_node) or not is_inside_tree():
-		return null
-	for node: Node in get_tree().get_nodes_in_group("couches"):
-		if not node is Node3D or node.get("bed_node") != bed_node:
-			continue
-		if not node.has_method("pony_transform"):
-			continue
-		var seats: Variant = node.get("seats")
-		if not seats is Array or (seats as Array).size() < 2:
-			continue
-		var rest: Variant = node.call("pony_transform", (seats as Array)[1])
-		if not rest is Transform3D:
-			continue
-		var t: Transform3D = rest
-		if t.origin.length_squared() < 0.01 or t.origin.distance_to(bed_node.global_position) > 4.0:
-			continue
-		return t
-	return null
-
-## Standing start keeps her where she is and puts Anon behind her. The offer cone already
-## requires him within 0.8 m of her rump, so the correction is small; the old path moved her in
-## front of him instead. AnonPony and headset/VR keep the old placement because their rig is
-## the camera or another body.
 func _begin_standing_placement() -> Transform3D:
 	var forward: Vector3 = -pony.global_basis.z
 	forward.y = 0.0
@@ -4052,152 +3972,47 @@ func _finalize_session(real_act: bool) -> void:
 	if real_act:
 		_reset_after_act()
 
+## The bed/couch rest and cuddle rejoin. See `rest_rejoin.gd` and `docs/rest.md`.
+func _rest_service() -> RefCounted:
+	_rest.bind(main, pony, bed)
+	return _rest
+
+
+## The live act values the rejoin decisions need. Read fresh on every check, so the async paths
+## see a new act or an ended session instead of the values from the call that started them.
+func _rest_context() -> Dictionary:
+	return {
+		"serial": _serial,
+		"state": state,
+		"player_pony": _player_pony,
+		"headset": _headset_view(),
+		"summary": _summary,
+		"satisfaction": satisfaction,
+		"aftercare_min": _aftercare_min,
+	}
+
+
+func _rest_restore_scene() -> void:
+	_missionary_camera_controller().restore_scene()
+
+
 ## Give the bed back: restore the pre-act scene and stand her. A bed missionary act that ended well
 ## is re-seated and re-invited by `_rejoin_bed_cuddle()` after the session is fully back to IDLE.
 ## A forced stop never reaches it; the world is going away or the pony is already invalid.
 func _restore_posture(restore_pose: String, rejoin_cuddle: bool) -> void:
 	_posture_owned = false
-	if not is_instance_valid(pony):
-		return
-	# The act's own snapshot puts the player, the pony and the camera back, so the rejoin starts
-	# from the same standing spot the act began at.
-	if restore_pose == CATALOG.MISSIONARY:
-		_missionary_camera_controller().restore_scene()
-	if pony.get("posture") != null:
-		pony.request_posture("stand")
+	_rest_service().call("restore_posture", restore_pose, rejoin_cuddle)
 
-## A normal bed missionary end returns to the cuddle: Anon lies back on the same bed and she is
-## invited into its guest seat, where the stock `CuddleSession` picks her up. The act released the
-## bed rest and stood both of them, so this is a fresh stock recline and a fresh guest invite. The
-## stock closeness rule still decides (she must welcome hugs and be at least a friend), and a bad
-## act or an upset mare stays standing. Every failure is logged and leaves her standing.
+
 func _rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
-	if not is_inside_tree() or not is_instance_valid(pony) or not is_instance_valid(bed_node):
-		return
-	if _serial != act_serial:
-		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	var body: Variant = main.player
-	if not body.has_method("sit_on") or not body.has_method("toggle_couch_sleep"):
-		_log("cuddle rejoin skipped reason=no_player_rest")
-		return
-	var rest: Variant = _bed_rest_for(bed_node)
-	if rest == null:
-		_log("cuddle rejoin skipped reason=no_bed_rest")
-		return
-	var seats: Variant = rest.get("seats")
-	if not seats is Array or (seats as Array).size() < 2:
-		_log("cuddle rejoin skipped reason=no_seats")
-		return
-	var player_seat: Variant = (seats as Array)[0]
-	var guest_seat: Variant = (seats as Array)[1]
-	if not player_seat is Node3D or not guest_seat is Node3D:
-		_log("cuddle rejoin skipped reason=no_seats")
-		return
-	if body.get("seat") != player_seat:
-		if not bool(body.call("sit_on", player_seat)):
-			_log("cuddle rejoin failed reason=sit")
-			return
-	if not bool(body.get_meta("couch_sleeping", false)):
-		if not bool(body.call("toggle_couch_sleep")):
-			_log("cuddle rejoin failed reason=recline")
-			return
-	# The act restores her still standing on the mattress, and the bed's own front probe rejects a
-	# floor half a metre below her feet. Put her on the clear floor beside the bed first.
-	_stand_beside_bed(rest, guest_seat)
-	await get_tree().create_timer(CUDDLE_REJOIN_SETTLE_S).timeout
-	var deadline := Time.get_ticks_msec() + int(CUDDLE_REJOIN_WINDOW_S * 1000.0)
-	var note := ""
-	while Time.get_ticks_msec() < deadline:
-		if not is_inside_tree() or not is_instance_valid(pony) or not is_instance_valid(bed_node):
-			return
-		if _serial != act_serial or state != State.IDLE:
-			_log("cuddle rejoin cancelled reason=act")
-			return
-		if not bool(body.get_meta("couch_sleeping", false)):
-			_log("cuddle rejoin cancelled reason=stood_up")
-			return
-		if bool(rest.call("open")) and bool(rest.call("invite", pony, guest_seat)):
-			_log("cuddle rejoin invited bed=%s" % str(bed_node.name))
-			return
-		note = _rejoin_note(rest)
-		await get_tree().create_timer(CUDDLE_REJOIN_RETRY_S).timeout
-	_log("cuddle rejoin failed reason=timeout %s" % note)
+	await _rest_service().call("rejoin_bed_cuddle", bed_node, act_serial)
 
-## The game's live rest that owns this bed (`world/relationships/shared_bed.gd`). `_shared_bed_rest`
-## only returns her transform; the rejoin needs the seats and the invite entry.
-func _bed_rest_for(bed_node: Node3D) -> Variant:
-	if not is_instance_valid(bed_node) or not is_inside_tree():
-		return null
-	for node: Node in get_tree().get_nodes_in_group("couches"):
-		if not node is Node3D or not node.has_method("invite"):
-			continue
-		if node.get("_bed") != bed_node and node.get("bed_node") != bed_node:
-			continue
-		var seats: Variant = node.get("seats")
-		if seats is Array and (seats as Array).size() >= 2:
-			return node
-	return null
-
-## Stand her on the nearest clear floor beside the bed. The act's restore leaves her on the
-## mattress, and `shared_bed._front_for()` drops a floor more than half a metre below her feet.
-func _stand_beside_bed(rest: Node, seat: Node3D) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(seat):
-		return
-	var profile: Variant = pony.get("profile")
-	var clearance := float(profile.get("clearance")) if profile != null else 1.2
-	var radius := float(profile.get("radius")) if profile != null else 0.25
-	var front: Variant = rest.call("approach", seat)
-	var fallback: Vector3 = seat.global_position
-	if front is Vector3 and (front as Vector3).is_finite():
-		fallback = front
-	var at: Vector3 = COUCH_EXIT.find_exit(pony, seat, fallback, clearance, radius)
-	if not at.is_finite():
-		_log("cuddle rejoin floor=no_space")
-		return
-	var pose: Transform3D = pony.global_transform
-	pose.origin = at
-	var euler: Vector3 = pose.basis.get_euler()
-	if absf(euler.x) > 0.01 or absf(euler.z) > 0.01:
-		# A support-recovery tilt would fight the collider every tick; keep the facing yaw.
-		pose.basis = Basis(Vector3.UP, euler.y) * Basis.from_scale(pose.basis.get_scale())
-	pony.reset_motion(pose)
-	if pony.get("velocity") != null:
-		pony.set("velocity", Vector3.ZERO)
-	pony.reset_physics_interpolation()
-	_log("cuddle rejoin floor=%s" % str(at))
-
-## A compact state dump for the timeout line. Read-only: the stock invite stays the authority.
-func _rejoin_note(rest: Node) -> String:
-	var parts := PackedStringArray()
-	if is_instance_valid(pony):
-		var status: Dictionary = pony.posture_status() if pony.has_method("posture_status") else {}
-		parts.append("posture=" + str(status.get("requested", "")))
-		parts.append("grounded=" + str(pony.grounded()))
-		var nav: Node = pony.get_node_or_null("Navigator")
-		if nav != null:
-			parts.append("nav=" + str(nav.get("command_owner")))
-		var cooldowns: Variant = rest.get("_cooldowns")
-		if cooldowns is Dictionary:
-			var until := int((cooldowns as Dictionary).get(pony.get_instance_id(), 0))
-			var left := until - Time.get_ticks_msec()
-			if left > 0:
-				parts.append("cooldown=%dms" % left)
-	parts.append("fits=" + str(rest.get("_mare_fits")))
-	return " ".join(parts)
 
 ## A bed missionary end that can return to the cuddle: desktop human Anon at the unforced end of an
 ## act that did not go badly. With act history off there is no summary, so the aftercare readiness
 ## rule is the fallback.
 func _rejoin_wanted() -> bool:
-	if _player_pony or _headset_view():
-		return false
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return false
-	if not _summary.is_empty():
-		return str(_summary.get("grade", "neutral")) != "bad"
-	return satisfaction >= float(_aftercare_min)
+	return bool(_rest_service().call("rejoin_wanted", _rest_context()))
 
 func _finish_restore() -> void:
 	if is_instance_valid(pony):

@@ -85,6 +85,7 @@ func run() -> void:
 	_check_pose_session()
 	_check_act_camera()
 	_check_scene_gate()
+	_check_rest_rejoin()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -478,6 +479,31 @@ func _check_scene_gate() -> void:
 	for token: String in ["_scene_rows", "_sleep_owner_allows_bed", "_refusal_floor",
 			"_refuse_trust", "_cuddle_start_override", "_player_beside_bed"]:
 		check(not runtime.contains(token), "runtime has no scene gate internals: %s" % token)
+
+
+## The rest facade owns the bed anchor, placement, cuddle rejoin and restore posture. Its contract
+## is `docs/rest.md`; its suite is `tests/rest/`.
+func _check_rest_rejoin() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("rest_rejoin.gd"))
+	check(facade.contains("func rejoin_bed_cuddle(") and facade.contains("func bed_anchor("),
+		"rest rejoin facade is present")
+	for token: String in ["extends Node", "FileAccess",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "rest rejoin has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/rest.md"))
+	check(contract.contains("## Ownership"), "docs/rest.md documents the owner")
+	check(contract.contains("`rest_rejoin.gd`"), "docs/rest.md names the facade")
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("`rest_rejoin.gd`"), "AGENTS.md names rest_rejoin.gd")
+	check(FileAccess.file_exists(ROOT.path_join("tests/rest/test_rest.gd")),
+		"tests/rest/test_rest.gd exists")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("func _rest_service()"), "runtime reaches the rest through the facade")
+	for token: String in ["_bed_anchor", "_shared_bed_rest", "_bed_rest_for", "_stand_beside_bed",
+			"_rejoin_note", "CUDDLE_REJOIN_", "COUCH_EXIT"]:
+		check(not runtime.contains(token), "runtime has no rest internals: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

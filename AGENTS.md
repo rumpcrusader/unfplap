@@ -14,6 +14,7 @@ Do not start implementation until you have read the required files for the area 
 | Any hands, caress or smack task | `docs/hands.md` |
 | Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
 | Any scene gate, refusal or bed/player/navigator gate task | `docs/scene_gate.md` |
+| Any bed anchor, cuddle rejoin or post-act restore task | `docs/rest.md` |
 | Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
 | Any proactive request, privacy, offer-flow or consent-classifier task | `docs/initiation.md` |
 | Any act cue line, reaction or bystander line task | `docs/lines.md` |
@@ -99,6 +100,7 @@ stored state.
 |---|---|---|---|
 | Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
 | Act scene gate and refusal | `scene_gate.gd` | `docs/scene_gate.md` | migrated |
+| Bed rest and cuddle rejoin | `rest_rejoin.gd` | `docs/rest.md` | migrated |
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
 | Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated |
 | Proactive requests | `initiation.gd` | `docs/initiation.md` | migrated |
@@ -114,8 +116,8 @@ stored state.
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
-act lines, readiness, history, afterglow, face, reactions, poses, the act camera and the scene
-gate, plus the act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
+act lines, readiness, history, afterglow, face, reactions, poses, the act camera, the scene
+gate and the rest rejoin, plus the act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
 when their system is next touched.
 
 ### Docs
@@ -125,6 +127,7 @@ when their system is next touched.
 | `docs/api.md` | cross-mod API only |
 | `docs/eligibility.md` | eligibility and consent |
 | `docs/scene_gate.md` | live scene rows and the refusal executor |
+| `docs/rest.md` | bed anchor, placement, cuddle rejoin and restore posture |
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
@@ -402,6 +405,8 @@ mods/unfplap/
                     contract in docs/memory.md
   memory/           pure text/facts and the world, dialogue, perception and store adapters
   rest_control.gd   release pony_seating and shared_bed/couch without standing
+  rest_rejoin.gd    bed anchor, placement, cuddle rejoin, floor beside the bed and restore
+                    posture; contract in docs/rest.md
   aftercare.gd      10 s post-act tail-up/flick, navigator hold, sex_aftercare gate
   act_face.gd       pure act face beats, live climax style, blush levels and prompt hints
   mood_face.gd      300 s post-act base-game mood face, light blush, yields to line faces
@@ -458,9 +463,9 @@ from the bed rest and asked to `stand`, so the solver keeps a neutral pose inste
 her body is placed and posed by the act. The bed supplies only
 the frame (`bed_frame`) and the offer/eligibility path. The end restores the scene
 (`restore_scene()`: player, pony and camera) and stands her; a normal end of a bed act then returns
-to the cuddle (`_rejoin_bed_cuddle()`): Anon sits back on the bed's player seat and lies back, and
-she is invited into its guest seat, where the stock `CuddleSession` picks her up. A forced stop, a
-bad summary or a stock closeness refusal leaves her standing. The snapshot is
+to the cuddle (`rest_rejoin.gd` → `rejoin_bed_cuddle()`): Anon sits back on the bed's player seat
+and lies back, and she is invited into its guest seat, where the stock `CuddleSession` picks her
+up. A forced stop, a bad summary or a stock closeness refusal leaves her standing. The snapshot is
 re-read at ACTIVE (`resnapshot()`): at `prepare()` it catches him mid stand-up, and restoring that
 reclined eye height left the camera wrong after the act.
 

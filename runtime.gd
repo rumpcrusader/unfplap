@@ -418,6 +418,8 @@ var _summary_done := false
 var _stopped_by_her := false
 var _tolerance
 var _tolerance_warning_key := ""
+var _end_early_key := ""
+var _climax_reaction_key := ""
 var _debug_forced_tolerance := ""
 var _tail_tuck: Node
 var _history_refusal_at := -1000.0
@@ -1865,8 +1867,12 @@ func _buck_or_push() -> bool:
 ## face displays it (mood_face.gd). A buck is the stronger moment, so it is the stronger mood.
 func _note_refusal(bucked: bool) -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		main.memory.refusal_event(_id, _display_name,
-			"unfplap_refusal_%s_%d" % [_id, Time.get_ticks_usec()], bucked)
+		var impression := MEMORY.Impression.new()
+		impression.id = _id
+		impression.event_id = "unfplap_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
+		impression.slot = MEMORY.ImpressionSlot.REFUSAL
+		impression.mood = "angry" if bucked else "annoyed"
+		main.memory.commit(impression)
 	_refuse_trust()
 	_start_upset("angry" if bucked else "annoyed")
 
@@ -3991,14 +3997,14 @@ func _utterance_tick() -> void:
 		_utterance_delivered_key = ""
 		return
 	var now := _now_s()
-	var line := "unknown"
+	var line: int = MEMORY.LineState.UNKNOWN
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		line = main.memory.line_state(key)
-	if line == "absent":
+	if line == MEMORY.LineState.ABSENT:
 		_log("utterance absent key=%s" % key)
 		lines.drop_pending()
 		return
-	if line == "delivered":
+	if line == MEMORY.LineState.DELIVERED:
 		# A released line keeps this state until speech stops and the hold passes. Log it once.
 		if key != _utterance_delivered_key:
 			_utterance_delivered_key = key
@@ -4007,13 +4013,13 @@ func _utterance_tick() -> void:
 		lines.note_finished(now, key)
 		_release_finished_utterance()
 		return
-	if line == "speaking":
+	if line == MEMORY.LineState.SPEAKING:
 		return
 	if lines.pending_override() and (_cue_override.is_empty() or cue != lines.pending_cue()) \
-			and not (line == "unknown" and _speech_busy()):
+			and not (line == MEMORY.LineState.UNKNOWN and _speech_busy()):
 		_cancel_pending_utterance("override")
 		return
-	if line == "unknown" and _speech_busy():
+	if line == MEMORY.LineState.UNKNOWN and _speech_busy():
 		return
 	if now > lines.pending_until():
 		_cancel_pending_utterance("age")
@@ -4034,12 +4040,12 @@ func _bystander_tick(delta: float) -> void:
 	_bystander_wait = BYSTANDER_GAP_S
 	if randf() > BYSTANDER_CHANCE:
 		return
-	var seen: Array = main.memory.perceived_adults(pony) \
-		.filter(func(row: Dictionary) -> bool:
+	var seen: Array = main.memory.observers(pony) \
+		.filter(func(row: MEMORY.Observer) -> bool:
 			return not str(row.id) in _bystander_spoken and str(row.id) != _id)
 	if seen.is_empty():
 		return
-	var row: Dictionary = seen.pick_random()
+	var row: MEMORY.Observer = seen.pick_random()
 	var observer: Node3D = row.node
 	var event_id := _event_id
 	var valid := func() -> bool:
@@ -4050,7 +4056,7 @@ func _bystander_tick(delta: float) -> void:
 		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
 	if _feature("act_faces"):
 		purpose += ACT_FACE.prompt_note("bystander")
-	if main.memory.bystander_line(str(row.id), event_id, purpose, valid):
+	if _bystander_line(str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
 		_log("bystander line from %s" % row.id)
 
@@ -4084,9 +4090,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	}
 	var memory_id := ""
 	if kind == "cue":
-		var facts: Dictionary = main.memory.cue_facts(_id, _event_id)
-		var tone_name := RELATIONSHIP_CUE.tone(facts)
-		var relationship_note := RELATIONSHIP_CUE.note(facts)
+		var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
+		var facts_dict := facts.to_dict()
+		var tone_name := RELATIONSHIP_CUE.tone(facts_dict)
+		var relationship_note := RELATIONSHIP_CUE.note(facts_dict)
 		values["relationship"] = relationship_note
 		values["tone"] = RELATIONSHIP_CUE.tone_line(tone_name) \
 			if not relationship_note.is_empty() else ""
@@ -4102,9 +4109,9 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 			"touch_dislikes": _preferences.get("dislikes", []),
 			"talk_likes": _preferences.get("talk", []),
 		})
-		var memory: Dictionary = main.memory.shared_memory(_id, cue, _event_id, _used_memory_ids)
-		values["memory"] = RELATIONSHIP_CUE.memory_line(str(memory.get("text", "")))
-		memory_id = str(memory.get("id", ""))
+		var memory: MEMORY.MemoryHit = main.memory.shared_memory(_id, cue, _event_id, _used_memory_ids)
+		values["memory"] = RELATIONSHIP_CUE.memory_line(memory.text)
+		memory_id = memory.id
 	var purpose := UTTERANCE.format(template, values)
 	if kind == "cue":
 		if not face_note.is_empty() and not template.contains("{face_note}") \
@@ -4120,15 +4127,14 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	_utterance_serial += 1
 	var suffix := "%s:%d" % [key_suffix, _utterance_serial]
 	var act_id := _event_id
-	var line_key := MEMORY.mod_key(act_id, "line", suffix)
 	var valid := func() -> bool:
 		# Deliberately independent of the act state: cancelling the act must not invalidate
 		# a line that is already being generated or spoken. Explicit `_end_act_lines` calls
 		# still cancel it at climax/afterglow boundaries.
 		return is_instance_valid(pony) and _event_id == act_id
-	var finished := func() -> void:
-		_utterance_done(line_key)
-	var queued: String = main.memory.utterance_for(_id, act_id, suffix, purpose, valid, finished)
+	var finished := func(key: String) -> void:
+		_utterance_done(key)
+	var queued := _utterance_line(act_id, suffix, purpose, valid, finished)
 	if queued.is_empty():
 		_log("utterance queue failed kind=%s text=\"%s\"" % [kind, cue])
 		return ""
@@ -4159,7 +4165,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 	var key = lines.pending_key()
 	var pending_cue: String = str(lines.pending_cue())
 	var age: float = maxf(0.0, _now_s() - float(lines.pending_since()))
-	var line := "unknown"
+	var line: int = MEMORY.LineState.UNKNOWN
 	if not key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
 		line = main.memory.line_state(key)
 	var director := _director()
@@ -4168,8 +4174,8 @@ func _cancel_pending_utterance(reason := "") -> void:
 	if key.is_empty():
 		return
 	_log("utterance cancel reason=%s key=%s text=\"%s\" age=%.1f line=%s director=%s speech=%s" % [
-		reason if not reason.is_empty() else "manual", key, pending_cue, age, line,
-		director_state, str(_speech_busy())])
+		reason if not reason.is_empty() else "manual", key, pending_cue, age,
+		_line_state_name(line), director_state, str(_speech_busy())])
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		main.memory.cancel_line(key)
 
@@ -4179,10 +4185,91 @@ func _cancel_pending_utterance(reason := "") -> void:
 ## climax/afterglow boundary and every act end, so a delayed line cannot start afterward.
 func _end_act_lines(keep_speaking := true) -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		var cancelled: int = main.memory.cancel_act_lines(_event_id, keep_speaking)
+		var cancelled: int = main.memory.cancel_act(_event_id, keep_speaking)
 		if cancelled > 0:
 			_log("act lines cancelled=%d" % cancelled)
 	_utterance_scheduler().drop_pending()
+
+
+## The debug name for a typed line state. The enum stays the only comparison in the code.
+func _line_state_name(state: int) -> String:
+	match state:
+		MEMORY.LineState.ABSENT:
+			return "absent"
+		MEMORY.LineState.QUEUED:
+			return "queued"
+		MEMORY.LineState.GENERATING:
+			return "generating"
+		MEMORY.LineState.SPEAKING:
+			return "speaking"
+		MEMORY.LineState.DELIVERED:
+			return "delivered"
+		_:
+			return "unknown"
+
+
+## The typed stop reason for one `_stop()` reason string.
+func _stop_reason(reason: String) -> int:
+	match reason:
+		"unwilling":
+			return MEMORY.StopReason.UNWILLING
+		"picked up":
+			return MEMORY.StopReason.PICKED_UP
+		"interrupted":
+			return MEMORY.StopReason.INTERRUPTED
+		"form change":
+			return MEMORY.StopReason.FORM_CHANGE
+		"withdrew":
+			return MEMORY.StopReason.WITHDREW
+		_:
+			return MEMORY.StopReason.NONE
+
+
+## Queue one settings-driven reaction line. Returns the director key, or "" when it was not queued.
+func _reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return ""
+	var request := MEMORY.LineRequest.new()
+	request.kind = MEMORY.LineKind.REACTION
+	request.id = _id
+	request.event_id = event_id
+	request.purpose = fallback
+	request.reaction = reaction
+	request.valid = valid
+	var line: MEMORY.Line = main.memory.line(request)
+	return line.key if line.queued else ""
+
+
+## Queue one on-demand utterance. `finished` receives the director key when the line is delivered.
+func _utterance_line(event_id: String, suffix: String, purpose: String,
+		valid: Callable, finished: Callable) -> String:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return ""
+	var request := MEMORY.LineRequest.new()
+	request.kind = MEMORY.LineKind.UTTERANCE
+	request.id = _id
+	request.event_id = event_id
+	request.suffix = suffix
+	request.purpose = purpose
+	request.valid = valid
+	request.finished = finished
+	var line: MEMORY.Line = main.memory.line(request)
+	return line.key if line.queued else ""
+
+
+## Queue one bystander line. The act owns it, so its end cancels it.
+func _bystander_line(id: String, event_id: String, purpose: String,
+		valid: Callable) -> bool:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return false
+	var request := MEMORY.LineRequest.new()
+	request.kind = MEMORY.LineKind.BYSTANDER
+	request.id = id
+	request.event_id = event_id
+	request.purpose = purpose
+	request.valid = valid
+	return main.memory.line(request).queued
+
 
 func _recent_lines() -> String:
 	var director := _director()
@@ -4280,7 +4367,15 @@ func _commit_summary(real_act: bool) -> void:
 	var result: Dictionary = ACT_HISTORY.commit(ACT_HISTORY.section(), _id, outcome,
 		ACT_HISTORY.day_now())
 	ACT_HISTORY.save()
-	main.memory.commit_act(_id, _display_name, _event_id, outcome, not real_act)
+	var impression := MEMORY.Impression.new()
+	impression.id = _id
+	impression.event_id = _event_id
+	impression.slot = MEMORY.ImpressionSlot.ACT if real_act else MEMORY.ImpressionSlot.ACT_EARLY
+	impression.mood = str(outcome.get("mood", "relaxed"))
+	impression.romance = int(outcome.get("romance", 0))
+	impression.thought = str(outcome.get("thought", ""))
+	impression.event_text = str(outcome.get("text", ""))
+	main.memory.commit(impression)
 	var row: Dictionary = result.get("row", {})
 	var events: PackedStringArray = []
 	var raw_events: Variant = result.get("events", [])
@@ -4360,7 +4455,7 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
 		var valid := func() -> bool:
 			return is_instance_valid(pony) and state == State.IDLE
-		main.memory.reaction_for(_id, "history_refusal", event_id,
+		_reaction_line(MEMORY.Reaction.HISTORY_REFUSAL, event_id,
 			ACT_HISTORY.refusal_purpose(row), valid)
 		_log("history refusal id=%s tier=%s hurt=%d" % [
 			_id, ACT_HISTORY.tier_name(row), int(row.get("hurt", 0))])
@@ -4396,7 +4491,7 @@ func _history_tick(_delta: float) -> void:
 						ACT_HISTORY.day_now()):
 					ACT_HISTORY.save()
 					if is_instance_valid(main.game):
-						main.memory.history_apology(_id, text)
+						main.memory.note(MEMORY.NoteKind.APOLOGY, _id, _event_id)
 					_log("history apology id=%s" % _id)
 	_history_scan_clock += _delta
 	if _history_scan_clock < 1.0:
@@ -4417,7 +4512,9 @@ func _history_tick(_delta: float) -> void:
 	var event_id := "history_%s_%d" % [_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state == State.IDLE
-	var key: String = main.memory.reaction_for(_id, "history_" + kind, event_id,
+	var reaction := MEMORY.Reaction.HISTORY_REMINDER if kind == "reminder" \
+		else MEMORY.Reaction.HISTORY_COMPLAINT
+	var key: String = _reaction_line(reaction, event_id,
 		ACT_HISTORY.line_purpose(row, kind), valid)
 	if key.is_empty():
 		return
@@ -4482,7 +4579,7 @@ func _queue_tolerance_warning(level: int) -> void:
 			and _event_id == act_id
 	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
 		+ " Begin with [annoyed] or [calm]."
-	_tolerance_warning_key = main.memory.reaction_for(_id, "tolerance_warning",
+	_tolerance_warning_key = _reaction_line(MEMORY.Reaction.TOLERANCE_WARNING,
 		event_id, fallback, valid)
 
 
@@ -4504,7 +4601,7 @@ func _stop_with_her(reason: String) -> void:
 	# The stopped summary already says why. The basic event is the fallback when no summary was
 	# written (features.act_history off), so one partner stop is never two memories.
 	if _summary.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
-		main.memory.stop_event(_id, _display_name, _event_id, "withdrew")
+		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
 	if pose_id == CATALOG.MISSIONARY:
 		REST.release_managed(pony)
 	_end_act_lines(true)
@@ -4542,7 +4639,7 @@ func _queue_stop_line(strict: bool) -> void:
 	var event_id := "tolerance_stop_%s_%d" % [_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state == State.IDLE
-	main.memory.reaction_for(_id, "tolerance_stop", event_id, fallback, valid)
+	_reaction_line(MEMORY.Reaction.TOLERANCE_STOP, event_id, fallback, valid)
 
 
 func _start_tail_tuck() -> void:
@@ -4598,7 +4695,12 @@ func _record_peak_memory() -> void:
 		text = "Anon made you feel completely wanted."
 	var score := RELATIONSHIP_CUE.peak_score(_peak_satisfaction, _act_both_matches,
 		_act_liked_touch, _act_liked_talk, _act_dislikes)
-	main.memory.record_peak_memory(_id, _event_id, text, score)
+	var peak := MEMORY.Peak.new()
+	peak.id = _id
+	peak.event_id = _event_id
+	peak.text = text
+	peak.score = score
+	main.memory.record_peak(peak)
 
 ## The runtime-patched rig coat is no longer the exact game Shader, so FlankTouch's
 ## JIGGLE_SHADERS check skips it. Put the coat and its outline back into the active target list.
@@ -4849,7 +4951,7 @@ func cancel() -> void:
 		# The early summary already records this end. Keep the basic event only when history is
 		# off or the summary was skipped, so the story never holds the same end twice.
 		if _summary.is_empty():
-			main.memory.cancel_event(_id, _display_name, _event_id)
+			main.memory.note(MEMORY.NoteKind.CANCELLED, _id, _event_id)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()
@@ -4859,15 +4961,15 @@ func cancel() -> void:
 			if randf() >= 0.5:
 				var act_id := _event_id
 				var expires := _now_s() + _cue_reaction_max_age_s
-				var reaction_key := MEMORY.mod_key(act_id, "reply", "end_early")
 				var valid := func() -> bool:
 					if not is_instance_valid(pony) or _event_id != act_id:
 						return false
 					if _now_s() <= expires:
 						return true
-					return main.memory.line_state(reaction_key) == "speaking"
-				var key: String = main.memory.reaction_for(_id, "end_early", act_id,
+					return main.memory.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
+				var key: String = _reaction_line(MEMORY.Reaction.END_EARLY, act_id,
 					ACT_SUMMARY.early_end_prompt(_summary), valid)
+				_end_early_key = key
 				if not key.is_empty():
 					var now := _now_s()
 					_utterance_scheduler().note_reaction_queued(now, key, "",
@@ -4909,7 +5011,7 @@ func _climax() -> void:
 	_act_face_beat("climax")
 	_end_act_lines(true)
 	if is_instance_valid(main) and pony_climaxes == 1:
-		main.memory.climax_event(_id, _display_name, _event_id)
+		main.memory.note(MEMORY.NoteKind.CLIMAXED, _id, _event_id)
 	_queue_climax_reaction()
 	_play_climax()
 	# integration: her fluid hook.
@@ -5008,16 +5110,16 @@ func _queue_climax_reaction() -> void:
 	var count := pony_climaxes
 	var climax_id := "%s:pony_climax:%d" % [act_id, count]
 	var expires := _now_s() + _cue_reaction_max_age_s
-	var reaction_key := MEMORY.mod_key(climax_id, "reply", "climax")
 	var valid := func() -> bool:
 		if not is_instance_valid(pony) or _event_id != act_id or pony_climaxes != count:
 			return false
 		if _now_s() <= expires:
 			return true
-		return main.memory.line_state(reaction_key) == "speaking"
-	var key: String = main.memory.reaction_for(_id, "climax", climax_id,
+		return main.memory.line_state(_climax_reaction_key) == MEMORY.LineState.SPEAKING
+	var key: String = _reaction_line(MEMORY.Reaction.CLIMAX, climax_id,
 		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine. Do not describe anatomy.",
 		valid)
+	_climax_reaction_key = key
 	if key.is_empty():
 		return
 	var now := _now_s()
@@ -5090,7 +5192,7 @@ func _relationship_note() -> String:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
 		return ""
 	_read_id()
-	return RELATIONSHIP_CUE.note(main.memory.cue_facts(_id, _event_id))
+	return RELATIONSHIP_CUE.note(main.memory.cue_facts(_id, _event_id).to_dict())
 
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
@@ -5297,8 +5399,8 @@ func _commit_afterglow() -> void:
 		return
 	_commit_summary(true)
 	_record_peak_memory()
-	for row: Variant in main.memory.witnesses(_id, _display_name, _serial, pony):
-		_log("witness " + str(row))
+	for row: MEMORY.Witness in main.memory.witnesses(_id, _display_name, _serial, pony):
+		_log("witness " + str(row.to_dict()))
 
 ## Both poses share the held afterglow; standing adds the close window and a slightly lifted
 ## tail.
@@ -5385,7 +5487,13 @@ func _close_afterglow() -> void:
 	_close_caress_earned = caressed
 	var reward := bool(_summary.get("reward", false))
 	if is_instance_valid(main):
-		main.memory.stay_close_reward(_id, _event_id, caressed, reward)
+		var impression := MEMORY.Impression.new()
+		impression.id = _id
+		impression.event_id = _event_id
+		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
+		impression.mood = "happy" if reward else ""
+		impression.romance = 1 if reward and caressed else 0
+		main.memory.commit(impression)
 	if not reward and caressed:
 		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
 			ACT_HISTORY.save()
@@ -5803,8 +5911,8 @@ func _act_phase() -> String:
 func _read_first_time() -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(main.game) or _id.is_empty():
 		return false
-	var facts: Dictionary = main.memory.cue_facts(_id, _event_id)
-	return bool(facts.get("first_time", false))
+	var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
+	return facts.first_time
 
 
 ## Live presentation score for the auto climax face. This never writes the summary or history.
@@ -5943,8 +6051,8 @@ func act_face_rows() -> Array[String]:
 	var rows: Array[String] = []
 	var base_mood := ""
 	if is_instance_valid(main) and is_instance_valid(main.game) and not _id.is_empty():
-		var facts: Dictionary = main.memory.cue_facts(_id, _event_id)
-		base_mood = str(facts.get("mood", ""))
+		var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
+		base_mood = facts.mood
 	rows.append("pony=%s state=%d hud_mood=%s base_mood=%s" % [
 		str(pony.name) if is_instance_valid(pony) else "?", state, mood, base_mood])
 	rows.append("act_face=%s dialogue_face=%s stare_release=%.2f" % [
@@ -6010,7 +6118,7 @@ func _still_willing() -> bool:
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		main.memory.stop_event(_id, _display_name, _event_id, reason)
+		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, _stop_reason(reason))
 	_restore_begin()
 
 # --------------------------------------------------------------------------- camera

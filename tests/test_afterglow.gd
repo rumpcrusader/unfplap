@@ -1,9 +1,8 @@
 extends SceneTree
-## Standing afterglow close window and act-line keep rule.
+## Standing afterglow close window.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_afterglow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const MEMORY := preload("res://mods/unfplap/memory.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const PREF := preload("res://mods/unfplap/preferences.gd")
@@ -86,11 +85,6 @@ func run() -> void:
 		"an accepted stay extends the afterglow hold")
 	stayed._action_executor.free()
 	stayed.free()
-
-	check(MEMORY.keep_active_line("speaking", "line", "line", true), "speaking line is kept")
-	check(not MEMORY.keep_active_line("thinking", "line", "line", true), "thinking line is dropped")
-	check(not MEMORY.keep_active_line("speaking", "other", "line", true), "inactive line is dropped")
-	check(not MEMORY.keep_active_line("speaking", "line", "line", false), "cancel-all drops even speaking")
 
 	var active: Node = _runtime("standing")
 	active.state = 2 # ACTIVE

@@ -1372,11 +1372,12 @@ func _relationship_ask_note() -> String:
 		return ""
 	if not is_instance_valid(main.get("game")):
 		return ""
-	var facts: Dictionary = main.memory.cue_facts(id, "")
-	var note := RELATIONSHIP_CUE.note(facts)
+	var facts: MEMORY.CueFacts = main.memory.cue_facts(id, "")
+	var facts_dict := facts.to_dict()
+	var note := RELATIONSHIP_CUE.note(facts_dict)
 	if note.is_empty():
 		return ""
-	return note + " " + RELATIONSHIP_CUE.tone_line(RELATIONSHIP_CUE.tone(facts))
+	return note + " " + RELATIONSHIP_CUE.tone_line(RELATIONSHIP_CUE.tone(facts_dict))
 
 
 func _record_situation() -> void:

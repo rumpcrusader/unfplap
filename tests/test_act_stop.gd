@@ -8,6 +8,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
+const MEMORY := preload("res://mods/unfplap/memory.gd")
 
 var checks := 0
 var failures := 0
@@ -137,6 +138,7 @@ class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
 	var hud: Variant = null
+	var memory: Variant = null
 	var cleared: Array = []
 
 	func clear_active(runtime: Node) -> void:
@@ -194,6 +196,9 @@ func fixture(kind: String) -> Dictionary:
 	main.player = player
 	main.game = game
 	main.hud = hud
+	var memory := MEMORY.new()
+	memory.setup(main)
+	main.memory = memory
 	runtime.add_child(pony)
 	runtime.add_child(nav)
 	runtime.add_child(main)

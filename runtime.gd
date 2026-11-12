@@ -3,6 +3,7 @@ extends Node
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/session.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
@@ -205,6 +206,9 @@ var _pose: Variant:
 var _bed_pose_frame: Variant:
 	get:
 		return _pose_session.bed_frame
+## The scene gate: the live state, navigator, bed, cuddle, player and pose rows plus the refusal
+## executor. See `scene_gate.gd` and `docs/scene_gate.md`.
+var _scene: RefCounted = SCENE_GATE.new()
 ## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
 ## standing eye override and the captured player look. See `act_camera.gd` and `ROTATION.md`.
 ## The fields below are read views over it: the two pose cameras, the hands/kiss controllers, the
@@ -739,6 +743,11 @@ func _init() -> void:
 	_face.clock = Callable(self, "_now_s")
 	_reactions.log = Callable(self, "_log")
 	_pose_session.log = Callable(self, "_log")
+	_scene.stool_need = Callable(self, "stool_needed_count")
+	_scene.stool_count = Callable(self, "stool_case_count")
+	_scene.request_face_active = Callable(self, "request_face_active")
+	_scene.release_carry = Callable(self, "_release_carry")
+	_scene.on_refusal_face = Callable(self, "_refusal_face")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -1116,6 +1125,14 @@ func _camera_service() -> RefCounted:
 	_act_camera.bind(_act_facts, _hand_controller(), _kiss_controller(),
 		_standing_camera_controller(), _missionary_camera_controller())
 	return _act_camera
+
+
+## The scene gate, bound to this runtime's pony, main node and pose session. Refreshed on every
+## call so suites work without entering the tree.
+func _scene_gate() -> RefCounted:
+	_scene.bind(pony, main, _pose_service())
+	_scene.configure(state, _id, _features)
+	return _scene
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
@@ -1801,7 +1818,7 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 	var policy_mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.OFFER if mode == "offer" \
 		else ELIGIBILITY.Mode.START
 	var policy: ELIGIBILITY.Verdict = _policy_verdict(policy_mode, verdict_in)
-	var scene_rows: Array = _scene_rows(pose, act_source, bed_in, mode, forced)
+	var scene_rows: Array = _scene_gate().rows(pose, act_source, bed_in, mode, forced)
 	var rows: Array = structural.duplicate()
 	if policy != null:
 		for row: ELIGIBILITY.Row in policy.rows:
@@ -1813,58 +1830,6 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 		"policy": policy,
 		"scene_ok": _report_ok(scene_rows),
 	}
-
-
-## The scene-only rows. They never enter the pure policy.
-func _scene_rows(pose: String, act_source: String, bed_in: Variant, mode: String,
-		forced: bool) -> Array:
-	var rows: Array = []
-	_gate_row(rows, "state", state == State.IDLE, "state=%d" % state)
-	var tree := get_tree()
-	_gate_row(rows, "paused", forced or tree == null or not tree.paused, "paused")
-	_gate_row(rows, "conversation", _conversation_ok(), "conversation")
-	_gate_row(rows, "sleeping", not pony.sleeping, "sleeping")
-	_gate_row(rows, "sex_active", not bool(pony.get_meta("sex_active", false)), "sex_active")
-	_gate_row(rows, "aftercare", not pony.has_meta("sex_aftercare"), "aftercare")
-	_gate_row(rows, "cuddle",
-		not _cuddle_active() or _cuddle_start_override(pose, act_source), "cuddle")
-	_gate_row(rows, "affection", _free_of_affection(), "affection")
-	if mode == "start":
-		_gate_row(rows, "player", _player_ready_for(pose, act_source, bed_in), "player")
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if mode == "start":
-		_gate_row(rows, "navigator", nav != null, "no_navigator")
-		if nav != null:
-			_gate_row(rows, "navigator_reserved",
-				str(nav.get("reserved_by")) == "", "navigator_reserved")
-			_gate_row(rows, "nav_owner", _nav_owner_allows(pose, act_source), "nav_owner")
-		_gate_row(rows, "nav_pose", _nav_pose_gate(pose, act_source), "nav_pose")
-	else:
-		_gate_row(rows, "nav_owner",
-			nav != null and _nav_owner_allows(pose, act_source), "nav_owner")
-	if pose == CATALOG.STANDING:
-		var stool_need := stool_needed_count()
-		_gate_row(rows, "stool", stool_need <= 0 or stool_case_count() >= stool_need,
-			"needs_stool")
-	if pose == CATALOG.MISSIONARY:
-		var pose_ready := _authored_pose_ready()
-		_gate_row(rows, "pose_asset", pose_ready, _authored_pose_reason())
-		if pose_ready:
-			var missing := _pose_rig_missing()
-			_gate_row(rows, "pose_rig", missing.is_empty(), _pose_rig_reason(missing))
-		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
-		_gate_row(rows, "bed", found != null, "no_bed")
-		if found != null:
-			_gate_row(rows, "bed_occupied", not main.bed_occupied(found, pony), "bed_occupied")
-			if mode == "start":
-				_gate_row(rows, "bed_gate", _bed_gate(pose, act_source, found), "bed_gate")
-	elif mode == "offer":
-		if pose == CATALOG.STANDING:
-			_gate_row(rows, "standing_free",
-				not pony.is_held() and not pony.has_meta("seated"), "standing_free")
-		else:
-			_gate_row(rows, "pose", false, "pose")
-	return rows
 
 
 func _policy_verdict(mode: ELIGIBILITY.Mode,
@@ -1990,159 +1955,35 @@ func _policy_row_ok(policy: ELIGIBILITY.Verdict, key: String) -> bool:
 			return row.ok
 	return true
 
+## Whether the scene itself can host a refusal. The policy must already say `buck_refuse`.
 func refuse_available(pose: String, act_source: String, bed_in: Variant = null,
 		gate_in: Dictionary = {}) -> bool:
-	if state != State.IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
-		return false
-	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
-		return false
 	_read_id()
 	var gate: Dictionary = gate_in if not gate_in.is_empty() \
 		else start_verdict(pose, act_source, bed_in)
-	var policy: ELIGIBILITY.Verdict = gate.get("policy")
-	if policy == null or not policy.buck_refuse:
-		return false # Willing, or not an eligible adult mare: the normal offer/start path owns it.
-	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
-		return false
-	if not _conversation_ok() or not _free_of_affection():
-		return false
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav == null or str(nav.get("reserved_by")) != "":
-		return false
-	if not _nav_owner_allows(pose, act_source):
-		return false
-	var body = main.player
-	if body.get("controls_locked") == true or body.get("flying") == true:
-		return false
-	if bool(body.get_meta("knocked_down", false)):
-		return false
-	if DisplayServer.get_name() != "headless" and not _headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return false
-	var affection: Node = pony.get_node_or_null("Affection")
-	if affection == null or not affection.has_method("buck"):
-		return false
-	if pose == CATALOG.STANDING:
-		if pony.is_held() or not pony.grounded() or pony.has_meta("seated"):
-			return false
-		var status: Dictionary = pony.posture_status()
-		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):
-			return false
-		if pony.global_position.distance_to(body.global_position) > 2.4:
-			return false
-		return true
-	if act_source == "cradle":
-		var reach: Node = main.interactor()
-		if not is_instance_valid(reach):
-			return false
-		return reach.get("held") == pony and reach.get("cradled") == true
-	if act_source == "already_lying":
-		var bed: Node3D = _resolve_bed(pose, act_source, bed_in)
-		if bed == null:
-			return false
-		var status2: Dictionary = pony.posture_status()
-		if str(status2.get("requested", "")) != "lie_down":
-			return false
-		return main.player_beside_bed(bed)
-	return false
+	return _scene_gate().refuse_available(pose, act_source, bed_in, gate)
 
+## The refusal itself: the scene gate owns the buck/push and its mood beat.
 func refuse(pose: String, act_source: String, bed_in: Variant = null,
 		gate_in: Dictionary = {}) -> void:
-	if not refuse_available(pose, act_source, bed_in, gate_in):
-		return
-	if pose == CATALOG.STANDING:
-		_note_refusal(_buck_or_push())
-		return
-	if act_source == "cradle":
-		if not _release_carry():
-			return
-		var at: Vector3 = _refusal_floor()
-		var forward: Vector3 = main.player.global_position - at
-		forward.y = 0.0
-		if forward.length_squared() < 0.0001:
-			forward = -main.player.global_basis.z
-		forward = forward.normalized()
-		pony.reset_motion(Transform3D(Basis.looking_at(forward, Vector3.UP), at))
-		pony.reset_physics_interpolation()
-		pony.request_posture("stand")
-		await get_tree().physics_frame
-		_note_refusal(_buck_or_push())
-		return
-	if act_source == "already_lying":
-		if not REST.release_managed(pony):
-			return
-		pony.request_posture("stand")
-		await get_tree().physics_frame
-		_note_refusal(_buck_or_push())
+	_read_id()
+	var gate: Dictionary = gate_in if not gate_in.is_empty() \
+		else start_verdict(pose, act_source, bed_in)
+	await _scene_gate().refuse(pose, act_source, bed_in, gate)
 
-func _refusal_floor() -> Vector3:
-	var forward: Vector3 = -main.player.global_basis.z
-	var view: Camera3D = main.camera()
-	if view != null:
-		forward = -view.global_basis.z
-	forward.y = 0.0
-	if forward.length_squared() < 0.0001:
-		forward = Vector3.FORWARD
-	forward = forward.normalized()
-	var at: Vector3 = main.player.global_position + forward * 1.1
-	var world: World3D = main.player.get_world_3d()
-	if world != null:
-		var space: PhysicsDirectSpaceState3D = world.direct_space_state
-		if space != null:
-			var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 4.0, 1)
-			var hit: Dictionary = space.intersect_ray(query)
-			if not hit.is_empty():
-				at = hit.get("position", at)
-	return at
-
-func _buck_or_push() -> bool:
-	if not is_instance_valid(pony) or not is_instance_valid(main):
-		return false
-	var affection: Node = pony.get_node_or_null("Affection")
-	if affection != null and affection.has_method("buck"):
-		if bool(affection.call("buck", main.player_body())):
-			return true
-	var body = main.player
-	if not is_instance_valid(body):
-		return false
-	var knockdown: Variant = body.get("knockdown")
-	if knockdown == null or not knockdown.has_method("start"):
-		return false
-	var direction: Vector3 = pony.global_position - body.global_position
-	direction.y = 0.25
-	if direction.length_squared() < 0.0001:
-		direction = -body.global_basis.z
-	knockdown.call("start", body, direction.normalized() * 3.0)
-	return true
-
-
-## A refusal is a real mood beat, not just a buck animation. The game's lasting feeling is the
-## impression note, which drives eligibility, anger, offers, approaches and her dialogue; the held
-## face displays it (mood_face.gd). A buck is the stronger moment, so it is the stronger mood.
+## A refusal is a real mood beat: the scene gate writes the impression and trust, and this holds
+## the matching face.
 func _note_refusal(bucked: bool) -> void:
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var impression := MEMORY.Impression.new()
-		impression.id = _id
-		impression.event_id = "unfplap_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
-		impression.slot = MEMORY.ImpressionSlot.REFUSAL
-		impression.mood = "angry" if bucked else "annoyed"
-		main.memory.commit(impression)
-	_refuse_trust()
+	_scene_gate().note_refusal(bucked)
+
+
+func _refusal_face(bucked: bool) -> void:
 	_start_upset("angry" if bucked else "annoyed")
 
 
-## The game's own unwelcome-contact hook: a little trust lost and the boundary signal. It never
-## sets a mood itself, so `refusal_event` owns the impression.
-func _refuse_trust() -> void:
-	if not is_instance_valid(pony):
-		return
-	var rel: Variant = pony.get_meta("relationship_runtime")
-	if rel == null or not is_instance_valid(rel):
-		return
-	var bonds: Variant = rel.get("bonds")
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("unwanted_contact"):
-		bonds.call("unwanted_contact", _id, "kiss")
-
+## The strict partner stop kicks or pushes from the bed; the scene gate owns the reaction.
+func _buck_or_push() -> bool:
+	return bool(_scene_gate().buck_or_push())
 
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
@@ -2164,251 +2005,42 @@ func _read_id() -> bool:
 	return true
 
 func _conversation_ok() -> bool:
-	var target: Variant = pony.get("conversation_target")
-	if target == null or not is_instance_valid(target):
-		return true
-	var body: Node3D = main.player_body()
-	if target == main.player or target == body:
-		return true
-	# The player's body/avatar is under the rig; another pony's is not.
-	if is_instance_valid(main.player) and main.player is Node and (main.player as Node).is_ancestor_of(target as Node):
-		return true
-	return false
+	return _scene_gate().conversation_ok()
 
 func _suppress_auto_cuddle() -> void:
-	if state == State.IDLE:
-		return
-	if not is_instance_valid(pony):
-		return
-	# The stock bed marks a lying companion with couch_cuddle; cuddle/player_input then
-	# automatically begins a CuddleSession. That interrupts missionary, so keep it off while active.
-	if pony.has_meta("couch_cuddle"):
-		pony.remove_meta("couch_cuddle")
-	var session: Node = pony.get_node_or_null("CuddleSession")
-	if session != null and (bool(session.get("enabled")) or float(session.get("blend")) > 0.0):
-		if session.has_method("end"):
-			session.call("end", true)
-	if pony.has_meta("cuddle_active"):
-		pony.remove_meta("cuddle_active")
+	_scene_gate().suppress_auto_cuddle()
 
-## The stock cuddle gate is bypassable by feature flag. The normal bed-side paths remain.
-func _cuddle_start_override(pose: String, act_source: String) -> bool:
-	if pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]:
-		return true
-	if _features.is_empty():
-		return SETTINGS.allow_act_during_cuddle.get_bool()
-	return _feature("allow_act_during_cuddle")
-
-
-## Public cuddle state for the proactive-request service. The internal helper stays for the act
-## gates, so no other system reaches a private function.
 func cuddle_active() -> bool:
 	return _cuddle_active()
 
 
 func _cuddle_active() -> bool:
-	if not is_instance_valid(pony):
-		return false
-	if pony.has_meta("cuddle_active"):
-		return true
-	# cuddle_session is a persistent reference to the cuddle input's session; the session
-	# stays on the pony after end(). Only an enabled/blending session is an active cuddle.
-	if not pony.has_meta("cuddle_session"):
-		return false
-	var session: Variant = pony.get_meta("cuddle_session")
-	if session == null or not is_instance_valid(session):
-		return false
-	if bool(session.get("enabled")):
-		return true
-	var blend: Variant = session.get("blend")
-	return blend != null and float(blend) > 0.01
+	return _scene_gate().cuddle_active()
 
-## Public affection state for the standing presentation. The internal helper stays for the
-## act gates, so no other system reaches a private function.
 func free_of_affection() -> bool:
 	return _free_of_affection()
 
 
 func _free_of_affection() -> bool:
-	var affection: Node = pony.get_node_or_null("Affection")
-	if affection != null:
-		var kind: Variant = affection.get("kind")
-		if kind != null and not str(kind).is_empty():
-			return false
-	var hoof: Variant = pony.get("hoof_hold")
-	if hoof != null and hoof.has_method("active") and bool(hoof.call("active")):
-		return false
-	return true
+	return _scene_gate().free_of_affection()
 
 func _nav_owner_allows(pose: String, act_source: String) -> bool:
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav == null:
-		return false
-	var owner := str(nav.get("command_owner"))
-	if owner.is_empty():
-		return true
-	# The request controller holds her while she walks over, presents and waits for Y.
-	if owner.begins_with("unfplap:request:"):
-		return state == State.IDLE
-	# NightRest's new [go_to_bed] owns her with a sleep: lease. While she is lying awake in a
-	# bed, a bed-side act is still valid; walking to bed or sleeping is not.
-	if owner.begins_with("sleep:"):
-		return _sleep_owner_allows_bed(pose, act_source)
-	if owner.begins_with("unfplap:"):
-		return false
-	if owner.begins_with("weather:") or owner.begins_with("show:"):
-		return false
-	if owner.begins_with("cuddle:"):
-		return pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]
-	# A managed bed/couch rest is valid for missionary; every other leisure seat is not.
-	if owner.begins_with("leisure:"):
-		return pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]
-	# Player conversation is free; another pony's conversation is not.
-	if owner.begins_with("social:"):
-		return owner.begins_with("social:talk") and _conversation_ok()
-	# Normal routine owners: idle routines are free, an active route is not.
-	if owner.begins_with("life:") or owner.begins_with("day:"):
-		return not bool(nav.get("_has_target"))
-	# A player-owned date/outing, following the player, or an idle rest.
-	if owner.begins_with("bond:") or owner.begins_with("player:") or owner == "rest_after_command":
-		return true
-	return false
-
-## NightRest's sleep: lease is also used for an awake [go_to_bed] rest. Only a pony already
-## lying in a bed, with Anon there too, may accept a bed-side act through it.
-func _sleep_owner_allows_bed(pose: String, act_source: String) -> bool:
-	if pose != CATALOG.MISSIONARY or act_source not in ["bed_side", "already_lying"]:
-		return false
-	if not is_instance_valid(pony) or bool(pony.get("sleeping")):
-		return false
-	if not pony.has_method("posture_status"):
-		return false
-	var status: Dictionary = pony.posture_status()
-	return str(status.get("requested", "")) == "lie_down"
+	return _scene_gate().nav_owner_allows(pose, act_source)
 
 func _nav_pose_gate(pose: String, act_source: String) -> bool:
-	if pose == CATALOG.STANDING:
-		if pony.is_held() or not pony.grounded():
-			return false
-		if bool(pony.motion_paused):
-			return false
-		if pony.has_meta("seated"):
-			return false
-		var interruption := str(pony.action_interruption_reason())
-		if not interruption.is_empty():
-			# The request's own affection_active hold is not a gate against its invite.
-			if not (_standing_presentation_controller().request_face_active() and state == State.IDLE and interruption.contains("Affection")):
-				return false
-		var status: Dictionary = pony.posture_status()
-		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):
-			return false
-		if float(pony.actual_speed) > 0.06:
-			return false
-		return true
-	if act_source == "cradle":
-		return true
-	# already_lying: seated is allowed; held/grounded/interruption are not used.
-	return true
+	return _scene_gate().nav_pose_gate(pose, act_source)
 
 func _bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
-	if pose != CATALOG.MISSIONARY:
-		return true
-	var rest: Node = pony.get_node_or_null("CradleRest")
-	if rest != null:
-		if bool(rest.get("asleep")):
-			return false
-		if act_source == "cradle" and float(rest.get("drowse")) >= 0.5:
-			return false
-	if act_source == "cradle":
-		var reach: Node = main.interactor()
-		if not is_instance_valid(reach):
-			return false
-		if reach.get("held") != pony or reach.get("cradled") != true:
-			return false
-		# The cradle path exists only for human Anon.
-		if PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
-			return false
-		return true
-	if act_source == "bed_side":
-		var status: Dictionary = pony.posture_status()
-		if str(status.get("requested", "")) != "lie_down" or not bool(status.get("settled", false)):
-			return false
-		return main.player_beside_bed(found)
-	if not PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
-		return false
-	var status: Dictionary = pony.posture_status()
-	if str(status.get("requested", "")) != "lie_down" or not bool(status.get("settled", false)):
-		return false
-	return main.player_beside_bed(found)
+	return _scene_gate().bed_gate(pose, act_source, found)
 
 func _resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
-	if pose != CATALOG.MISSIONARY:
-		return null
-	if bed_in is Node3D and is_instance_valid(bed_in):
-		var real: Variant = main.call("real_bed", bed_in) if main.has_method("real_bed") else bed_in
-		if real is Node3D and is_instance_valid(real):
-			return real
-	if act_source == "cradle":
-		return main.bed_for_cradle(pony)
-	return find_bed_under()
+	return _scene_gate().resolve_bed(pose, act_source, bed_in)
 
 func find_bed_under() -> Node3D:
-	if not is_instance_valid(pony) or not is_instance_valid(main):
-		return null
-	var exclude: RID = pony.get_rid() if pony is CollisionObject3D else RID()
-	return main.bed_under(pony.global_position, exclude)
+	return _scene_gate().find_bed_under()
 
 func _player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool:
-	var body = main.player
-	if not is_instance_valid(body):
-		return false
-	# A headset rig is a plain Node3D: it has neither desktop `controls_locked` nor `flying`, and
-	# `bool(null)` is an error in GDScript, so compare against true instead.
-	if body.get("controls_locked") == true:
-		return false
-	if body.get("flying") == true:
-		return false
-	var wing: Variant = body.get("wing_flight")
-	if wing != null and bool(wing.get("active")):
-		return false
-	if bool(body.get_meta("knocked_down", false)):
-		return false
-	var swimming: Variant = body.get("swimming")
-	if swimming != null and bool(swimming.get("active")):
-		return false
-	if DisplayServer.get_name() != "headless" and not _headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return false
-	var inventory: Variant = main.game.get("inventory") if is_instance_valid(main.game) else null
-	if inventory != null:
-		var held: Variant = inventory.get("held")
-		if held is Dictionary and not (held as Dictionary).is_empty():
-			return false
-		if str(inventory.get("holding_case")) != "":
-			return false
-	var seat: Variant = body.get("seat")
-	if pose == CATALOG.STANDING:
-		if seat != null:
-			return false
-	elif act_source == "cradle":
-		if seat != null:
-			return false
-	elif act_source == "already_lying":
-		var found: Node3D = _resolve_bed(pose, act_source, bed_in)
-		if not main.player_beside_bed(found):
-			return false
-	elif act_source == "bed_side":
-		if seat == null:
-			return false
-		var rest: Variant = body.get("_couch_rest")
-		if rest != null and is_instance_valid(rest) and float(rest.get("amount")) < 0.99:
-			return false
-		var found_bed: Node3D = _resolve_bed(pose, act_source, bed_in)
-		if not main.player_beside_bed(found_bed):
-			return false
-	return true
-
-# --------------------------------------------------------------------------- start
+	return _scene_gate().player_ready_for(pose, act_source, bed_in)
 
 func start(pose: String, bed_in: Variant, act_source: String,
 		gate_in: Dictionary = {}) -> bool:

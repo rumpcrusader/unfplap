@@ -84,6 +84,7 @@ func run() -> void:
 	_check_reactions()
 	_check_pose_session()
 	_check_act_camera()
+	_check_scene_gate()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -450,6 +451,33 @@ func _check_act_camera() -> void:
 			"_free_look_yaw", "_free_look_pitch", "_controls_locked_by_camera", "_look_yaw",
 			"_back_target", "_lean_velocity", "_bob_velocity", "_camera_thrust_tick"]:
 		check(not runtime.contains(token), "runtime has no camera internals: %s" % token)
+
+
+## The scene gate owns the live scene rows and the refusal executor. Its contract is
+## `docs/scene_gate.md`; its suite is `tests/scene_gate/`.
+func _check_scene_gate() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("scene_gate.gd"))
+	check(facade.contains("func rows(") and facade.contains("func refuse_available("),
+		"scene gate facade is present")
+	for token: String in ["extends Node", "FileAccess",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "scene gate has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/scene_gate.md"))
+	check(contract.contains("## Ownership"), "docs/scene_gate.md documents the owner")
+	check(contract.contains("`scene_gate.gd`"), "docs/scene_gate.md names the facade")
+	var eligibility := FileAccess.get_file_as_string(ROOT.path_join("docs/eligibility.md"))
+	check(eligibility.contains("`scene_gate.gd`"), "docs/eligibility.md names scene_gate.gd")
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("`scene_gate.gd`"), "AGENTS.md names scene_gate.gd")
+	check(FileAccess.file_exists(ROOT.path_join("tests/scene_gate/test_scene_gate.gd")),
+		"tests/scene_gate/test_scene_gate.gd exists")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("func _scene_gate()"), "runtime reaches the scene rows through the gate")
+	for token: String in ["_scene_rows", "_sleep_owner_allows_bed", "_refusal_floor",
+			"_refuse_trust", "_cuddle_start_override", "_player_beside_bed"]:
+		check(not runtime.contains(token), "runtime has no scene gate internals: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

@@ -13,6 +13,7 @@ Do not start implementation until you have read the required files for the area 
 | Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
 | Any hands, caress or smack task | `docs/hands.md` |
 | Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
+| Any scene gate, refusal or bed/player/navigator gate task | `docs/scene_gate.md` |
 | Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
 | Any proactive request, privacy, offer-flow or consent-classifier task | `docs/initiation.md` |
 | Any act cue line, reaction or bystander line task | `docs/lines.md` |
@@ -97,6 +98,7 @@ stored state.
 | System | Entry | Contract | Status |
 |---|---|---|---|
 | Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
+| Act scene gate and refusal | `scene_gate.gd` | `docs/scene_gate.md` | migrated |
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
 | Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated |
 | Proactive requests | `initiation.gd` | `docs/initiation.md` | migrated |
@@ -112,8 +114,8 @@ stored state.
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
-act lines, readiness, history, afterglow, face, reactions, poses and the act camera, plus the
-act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
+act lines, readiness, history, afterglow, face, reactions, poses, the act camera and the scene
+gate, plus the act-context and perf modules. The remaining suites are still flat (`tests/test_*.gd`) and move
 when their system is next touched.
 
 ### Docs
@@ -122,6 +124,7 @@ when their system is next touched.
 |---|---|
 | `docs/api.md` | cross-mod API only |
 | `docs/eligibility.md` | eligibility and consent |
+| `docs/scene_gate.md` | live scene rows and the refusal executor |
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
@@ -287,12 +290,14 @@ mods/unfplap/
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
                     settings-tab injection with guard, Characters preference editor, debug actions,
                     skeleton debug helper
-  runtime.gd        per-pony state machine, scene gate composition, start,
+  runtime.gd        per-pony state machine, gate composition, start,
                     ACTIVE readiness/talk, act camera lean, pose actions/smack,
                     act face beats, climax, afterglow/close window, restore,
                     bed cuddle rejoin, aftercare
   eligibility.gd    internal eligibility API and the only scene adapter; see
                     docs/eligibility.md
+  scene_gate.gd     scene rows, bed/player/navigator predicates and the refusal executor;
+                    contract in docs/scene_gate.md
   anatomy.gd        world facade: per-pony controllers, player part, tail seat/visibility and
                     placement editor; contract in `docs/anatomy.md`
   anatomy/controller.gd  persistent per-mare shell: placement, shapes, coat, appearance and
@@ -1185,8 +1190,9 @@ is deliberately blush-free so the 0.35 decal stays light.
 ## Act flow, gates and controls
 
 - Eligibility, willingness, the lover bond, history refusal, cycle and per-mare consent are in
-  `docs/eligibility.md`. Scene gates (state, navigator, pose, bed, player position) stay in
-  `runtime.gd`.
+  `docs/eligibility.md`. The live scene rows (state, navigator, pose, bed, player position, cuddle,
+  affection) and the refusal executor are `scene_gate.gd`; see `docs/scene_gate.md`. The runtime
+  composes the policy verdict with those rows.
 - Missionary: Human Anon uses the seated/lying bed path; AnonPony uses the already-lying path. Standing:
   standing/settled.
 - Start only when free/idle; another pony's conversation, active task or conflicting navigator

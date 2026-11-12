@@ -23,7 +23,9 @@ This contract covers:
 - proactive offer eligibility and offer weight;
 - mid-act withdrawal from a relationship change.
 
-It does not cover act readiness, thrust, tolerance, pose or camera rules.
+It does not cover act readiness, thrust, tolerance, pose or camera rules. The live scene rows
+(state, navigator, bed, player, cuddle, affection) and the refusal executor are a separate
+contract: `docs/scene_gate.md`.
 
 ## Architecture
 
@@ -32,6 +34,7 @@ It does not cover act readiness, thrust, tolerance, pose or camera rules.
 | `eligibility.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, lover bond, history, cycle and consent |
 | `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets and witness age |
 | `eligibility/facts.gd` | pure fact schema; the identity predicates stay private here |
+| `scene_gate.gd` | the live scene rows and the refusal executor; contract in `docs/scene_gate.md` |
 | `docs/eligibility.md` | this contract |
 
 The purity boundary is deliberate:
@@ -125,10 +128,10 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 
 | Caller | API | Scene work it keeps |
 |---|---|---|
-| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | state, paused, player, navigator, pose asset, bed |
-| `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe scene rows |
+| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate.gd` rows |
+| `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe `scene_gate.gd` rows |
 | `runtime.start()` | `start_verdict()` | none |
-| `runtime.refuse_available()` | `buck_refuse` | pose context |
+| `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate.gd` refusal executor |
 | `runtime.grant_sex_bond()` | `get_verdict(pony, Mode.BOND)` | IDLE, not sleeping |
 | `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
 | `main._refresh_offer()` | `runtime.start_verdict().show` | candidate discovery |
@@ -145,8 +148,9 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 | `standing_presentation` | `eligible(pony, Target.ACT)` | pose, state |
 | `api.describe_mare()` | `get_profile(id)` | provider metadata, settings shape |
 
-Only `runtime` combines policy rows with scene rows. The pure policy never sees a bed, a
-navigator, a pose asset or the player body.
+Only `runtime` combines policy rows with scene rows. The rows themselves are built by
+`scene_gate.gd` (`docs/scene_gate.md`). The pure policy never sees a bed, a navigator, a pose
+asset or the player body.
 
 ## Capability targets
 
@@ -417,6 +421,8 @@ contract is `docs/initiation.md`.
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
   the docs link.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
+- `tests/scene_gate/test_scene_gate.gd`: the live scene rows, the navigator/player/bed
+  predicates and the refusal executor; its contract is `docs/scene_gate.md`.
 - `tests/initiation/test_policy.gd`, `test_prompts.gd` and `test_initiation_api.gd`: the offer
   rules, wording and facade; `tests/test_consent_classifier.gd` covers the classifier parsing.
   The request service's contract is `docs/initiation.md`.

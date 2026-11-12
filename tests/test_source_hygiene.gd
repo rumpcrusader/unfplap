@@ -335,7 +335,8 @@ func _check_stool_docs() -> void:
 ## internals live only in the two scene adapters.
 func _check_initiation_isolation(files: Array[String]) -> void:
 	var pure_files := [
-		"initiation/facts.gd", "initiation/policy.gd", "initiation/prompts.gd",
+		"initiation/consent.gd", "initiation/facts.gd", "initiation/policy.gd",
+		"initiation/prompts.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))

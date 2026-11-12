@@ -29,6 +29,7 @@ It does not cover act eligibility (see `docs/eligibility.md`), act readiness or 
 | `initiation.gd` | facade: scan, admission, candidate assembly, the live episode, phase dispatch, cooldown IO and the typed `Episode`/`Candidate`/`ForceResult` |
 | `initiation/facts.gd` | pure typed `Request`: the plain values the rules and wording read |
 | `initiation/policy.gd` | pure rules: timers, cooldowns, privacy, wording mode, prompt schedule, pose choice, weighted pick and the phase tables |
+| `initiation/consent.gd` | pure private-answer state machine: transcript, model step, one clarification, deadlines |
 | `initiation/prompts.gd` | pure wording: ask, reminders, clarification, invitation, give-up lines and the situation texts |
 | `initiation/conversation.gd` | scene adapter: the only reader of the conversation director, the consent classifier and the world context |
 | `initiation/venue.gd` | scene adapter: the only reader of navigators, posture, the bed search and the privacy scan |
@@ -37,11 +38,12 @@ It does not cover act eligibility (see `docs/eligibility.md`), act readiness or 
 
 The purity boundary is deliberate:
 
-- `facts.gd`, `policy.gd` and `prompts.gd` have no `Node`, tree, time, file, `Settings`, scene or
-  game preload. They take plain values and return plain values or strings.
+- `facts.gd`, `policy.gd`, `prompts.gd` and `consent.gd` have no `Node`, tree, time, file,
+  `Settings`, scene or game preload. They take plain values and return plain values or strings.
 - `conversation.gd` owns `director._player_text`, `_held_text`, `_now`, `characters`, `speech`,
-  `player_approaches`, `group`, the `transcript` connection, the classifier calls and
-  `world_context.record`.
+  `player_approaches`, `group`, the `transcript` connection, the classifier client and
+  `world_context.record`. The facade still parses a local yes/no with the shared
+  `consent_classifier.local_intent()` static and hands the intent to the consent core.
 - `venue.gd` owns `Navigator` fields (`command_owner`, `wander_enabled`, `command_speed_limit`,
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
@@ -181,11 +183,24 @@ The initial line uses `begin_player_greeting` when the director has it, otherwis
 
 ## Consent
 
-A private offer waits for Anon's answer. `CONSENT.local_intent()` resolves clear yes/no first;
-anything else becomes one bounded classifier request (`offer:<id>:<serial>`) that starts only
-when the director is idle again, so it never runs beside the reply to the same line. An unclear
-answer gets exactly one clarification line and then gives up. A decline records the declined
-situation and closes with the full cooldown.
+A private offer waits for Anon's answer. The decision is pure: `initiation/consent.gd` owns a
+`Reply` (seen, clarified, pending, started, intent, source, text, response, key) and returns an
+`Action` (`NONE`, `CLASSIFY`, `ACCEPT`, `DECLINE`, `CLARIFY`) plus the `cancel_pending` flag. The
+facade parses a local yes/no with the shared `consent_classifier.local_intent()`, hands the intent
+in, performs the returned action and owns every effect.
+
+Rules:
+
+- one clear answer ends the wait; a second answer is ignored until the one clarification has
+  happened, and the same text after it is ignored while a different one can still resolve it;
+- a new answer replaces one still waiting for the model and cancels its classifier key;
+- an unclear answer becomes pending; the model request (`offer:<id>:<serial>`) starts only when
+  the director is idle and she is not speaking, so it never runs beside the reply to the same
+  line; a provider error or a missing classifier is `unclear`;
+- an unresolved answer gets exactly one clarification line, then gives up;
+- the ask deadline extends while an answer, a line or her own speech is in flight.
+
+A decline records the declined situation and closes with the full cooldown.
 
 An accept records the accepted situation, then:
 
@@ -242,8 +257,12 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
   mode, prompt schedule, pose choice, weighted picks and the phase tables.
 - `tests/initiation/test_facts.gd`: the typed request defaults and independence.
 - `tests/initiation/test_prompts.gd`: ask, public/private wording, heat, notes, face hint,
-  invitation, reminders, give-up lines and the situation texts.- `tests/initiation/test_initiation_api.gd`: the facade's privacy gathering, heat override, the
-  local yes/no consent flow, the typed `ForceResult`, `cancel_for` and `reset`.
+  invitation, reminders, give-up lines and the situation texts.
+- `tests/initiation/test_consent.gd`: the private-answer state machine, the model step and the
+  deadlines.
+- `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
+  runtime — the standing ask, the ask and invite keys, the local yes/no effects, the request
+  face, the privacy refusal, the heat override and `cancel_for`/`reset`.
 - `tests/test_consent_classifier.gd`: the shared classifier's local and strict reply parsing.
 - `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
   adapter private-access boundary and this contract's presence.

@@ -19,6 +19,7 @@ const CONVERSATION := preload("res://mods/unfplap/initiation/conversation.gd")
 const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
+const CONSENT_CORE := preload("res://mods/unfplap/initiation/consent.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -67,6 +68,8 @@ class Candidate extends RefCounted:
 ## One live request episode. The facade owns it and clears it on every exit; it is never stored
 ## across a world.
 class Episode extends RefCounted:
+	const CONSENT_CORE := preload("res://mods/unfplap/initiation/consent.gd")
+
 	var serial := 0
 	## A `Phase` value. Inner classes cannot see the script enum, so 0 is `Phase.NONE`.
 	var phase := 0
@@ -100,16 +103,9 @@ class Episode extends RefCounted:
 	var bed_join_retry_at := 0.0
 	var bed_joining := false
 	var bed_joined := false
-	var clarified := false
-	var consent_pending := false
-	var consent_started := false
-	var consent_intent := ""
-	var consent_source := ""
-	var consent_key := ""
-	var consent_text := ""
-	var reply_seen := false
+	## The private-answer state machine. Cleared with the episode.
+	var reply: CONSENT_CORE.Reply = CONSENT_CORE.Reply.new()
 	var reacted := false
-	var response_text := ""
 	var keys: Array[String] = []
 	var nav: Node
 	var token := ""
@@ -981,33 +977,34 @@ func _tick_ask(_delta: float) -> void:
 		_cancel_episode(true, "ask player moved")
 		return
 	var now := _now()
-	if now >= _episode.deadline_at:
-		if _episode.consent_pending or not bool(_conversation.idle()) \
-				or bool(_conversation.pony_speaking(pony)):
-			# His answer or her reply is still in flight. Do not cancel the line the player is
-			# waiting on; give it another moment and check again.
+	# His answer or her reply is still in flight. Do not cancel the line the player is waiting
+	# on; give it another moment and check again.
+	var in_flight := _episode.reply.pending or not bool(_conversation.idle()) \
+		or bool(_conversation.pony_speaking(pony))
+	match CONSENT_CORE.deadline(now >= _episode.deadline_at, in_flight):
+		CONSENT_CORE.EXTEND:
 			_episode.deadline_at = now + POLICY.DEADLINE_EXTEND_S
-		else:
+		CONSENT_CORE.ABANDON:
 			_give_up("timeout")
 			return
 	if _episode.pose == CATALOG.MISSIONARY and not _episode.cuddle \
-			and not _episode.consent_pending \
+			and not _episode.reply.pending \
 			and _now() - _episode.ask_started >= POLICY.PHYSICAL_ACCEPT_GRACE_S \
 			and _player_in_bed(_episode.bed):
 		# Lying down on the offered bed is a physical yes.
-		if _episode.reply_seen:
+		if _episode.reply.seen:
 			return
 		_accept_offer()
 		return
 	if _is_private_offer():
-		if _episode.reply_seen:
-			if _episode.consent_pending:
-				if not _episode.consent_started and bool(_conversation.idle()) \
-						and not bool(_conversation.pony_speaking(pony)):
+		if _episode.reply.seen:
+			var decision := CONSENT_CORE.poll(_episode.reply, bool(_conversation.idle()),
+				bool(_conversation.pony_speaking(pony)))
+			match decision.action:
+				CONSENT_CORE.Action.CLASSIFY:
 					_start_consent_classification()
-				return
-			if _episode.consent_intent == "unclear" and not _episode.clarified:
-				_clarify_consent()
+				CONSENT_CORE.Action.CLARIFY:
+					_clarify_consent()
 			return
 		if _episode.reacted:
 			return
@@ -1165,87 +1162,64 @@ func _on_player_transcript(text: String) -> void:
 		return
 	if not _episode.private:
 		return
-	text = text.strip_edges()
-	if text.is_empty():
+	var decision := CONSENT_CORE.on_text(_episode.reply, text,
+		CONSENT.local_intent(text.strip_edges(), _player_name()))
+	if decision.cancel_pending:
+		_conversation.cancel_key(_episode.reply.key)
+	if not decision.accepted:
 		return
-	if _episode.consent_pending:
-		# A new answer replaces the one still waiting for the model.
-		if _episode.consent_started:
-			_conversation.cancel_key(_episode.consent_key)
-		_episode.consent_pending = false
-		_episode.consent_started = false
-		_episode.reply_seen = false
-	if _episode.reply_seen:
-		# One clear answer ends the wait. After the one clarification, a different answer
-		# may still resolve it; the same text is the `_tick_ask` fallback re-reading it.
-		if not _episode.clarified:
-			return
-		if text == _episode.response_text:
-			return
-	_episode.reply_seen = true
 	_episode.reacted = true
-	_episode.response_text = text
 	_episode.deadline_at = _now() + POLICY.REPLY_GRACE_S
-	_debug("request consent text=\"%s\"" % text.left(120))
-	var intent := CONSENT.local_intent(text, _player_name())
-	if intent != "unclear":
-		_resolve_consent(intent, text, "local")
+	_debug("request consent text=\"%s\"" % text.strip_edges().left(120))
+	if decision.action == CONSENT_CORE.Action.NONE:
+		# Do not put a classifier request beside the director's reply to the same line. The
+		# tick starts it once the director is idle again.
+		_debug("request consent waiting %s" % _episode.id)
 		return
-	# Do not put a classifier request beside the director's reply to the same line. The
-	# tick starts it once the director is idle again.
-	_episode.consent_text = text
-	_episode.consent_pending = true
-	_episode.consent_started = false
-	_debug("request consent waiting %s" % _episode.id)
+	_resolve_consent(decision)
 
 
-func _on_consent_result(intent: String, detail: String, serial: int, text: String) -> void:
+func _on_consent_result(intent: String, detail: String, serial: int, _text: String) -> void:
 	if _episode == null or _episode.serial != serial:
 		return
-	_episode.consent_pending = false
-	_episode.consent_started = false
-	_resolve_consent(intent, text, "llm" if detail.is_empty() else "llm:%s" % detail)
+	_resolve_consent(CONSENT_CORE.on_model(_episode.reply, intent, detail))
 
 
 ## Start the model request only after the director is idle. The player's line and the
 ## director's reply already occupy the provider; a second request beside it is what produced
 ## the HTTP 429s. Clear answers never reach this function.
 func _start_consent_classification() -> void:
-	if _episode == null or _episode.consent_started:
+	if _episode == null or _episode.reply.started:
 		return
-	if not _episode.consent_pending:
+	if not _episode.reply.pending:
 		return
-	var text := _episode.consent_text.strip_edges()
+	var text := _episode.reply.text.strip_edges()
 	if text.is_empty():
-		_resolve_consent("unclear", text, "empty")
+		_resolve_consent(CONSENT_CORE.on_model(_episode.reply, CONSENT_CORE.UNCLEAR, "empty"))
 		return
 	var id := _episode.id
 	var offer := "The pony %s has just asked Anon directly to have sex with her. She is waiting for his answer." % id
 	var key := "offer:%s:%d" % [id, _episode.serial]
-	_episode.consent_key = key
-	_episode.consent_started = true
+	_episode.reply.key = key
+	_episode.reply.started = true
 	var accepted := bool(_conversation.classify_offer(text, offer, key,
 		Callable(self, "_on_consent_result").bind(_episode.serial, text)))
 	if not accepted:
-		_episode.consent_started = false
-		_episode.consent_pending = false
-		_resolve_consent("unclear", text, "unavailable")
+		_resolve_consent(CONSENT_CORE.on_model(_episode.reply, CONSENT_CORE.UNCLEAR, "unavailable"))
 		return
 	_debug("request consent classify %s text=\"%s\"" % [id, text.left(120)])
 
 
-func _resolve_consent(intent: String, text: String, source: String) -> void:
+func _resolve_consent(decision: CONSENT_CORE.Decision) -> void:
 	if _episode == null or _episode.phase != Phase.ASK:
 		return
-	_episode.consent_pending = false
-	_episode.consent_intent = intent
-	_episode.consent_source = source
+	var reply: CONSENT_CORE.Reply = _episode.reply
 	_debug("request consent %s intent=%s source=%s text=\"%s\"" % [
-		_episode.id, intent, source, text.left(120)])
-	match intent:
-		"accept":
+		_episode.id, reply.intent, reply.source, reply.text.left(120)])
+	match decision.action:
+		CONSENT_CORE.Action.ACCEPT:
 			_accept_offer()
-		"decline":
+		CONSENT_CORE.Action.DECLINE:
 			_decline_offer()
 		_:
 			_clarify_consent()
@@ -1303,15 +1277,15 @@ func _decline_offer() -> void:
 func _clarify_consent() -> void:
 	if _episode == null:
 		return
-	if _episode.clarified:
-		_give_up("unclear")
+	if _episode.reply.clarified:
+		_give_up(CONSENT_CORE.UNCLEAR)
 		return
 	var id := _episode.id
 	var key := "%s:%s:%d:clarify" % [KEY_PREFIX, id, _episode.serial]
 	var queued := bool(_conversation.queue(id, PROMPTS.clarify_purpose(), key,
 		Callable(self, "_clarify_valid").bind(_episode.serial), true))
 	if queued:
-		_episode.clarified = true
+		_episode.reply.clarified = true
 		_episode.deadline_at = _now() + POLICY.CLARIFY_GRACE_S
 		if not key in _episode.keys:
 			_episode.keys.append(key)

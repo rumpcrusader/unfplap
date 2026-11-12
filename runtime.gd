@@ -1,10 +1,7 @@
 extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
-const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
-const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
-const TAIL := preload("res://mods/unfplap/tail_pose.gd")
-const TAIL_LAY := preload("res://mods/unfplap/tail_lay.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/session.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
@@ -25,10 +22,6 @@ const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd"
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const CHIN_DEBUG := preload("res://mods/unfplap/chin_debug.gd")
-const BODY_SWAY := preload("res://mods/unfplap/body_sway.gd")
-const PRONE_SWAY := preload("res://mods/unfplap/prone_sway.gd")
-const EAR_TWITCH := preload("res://mods/unfplap/ear_twitch.gd")
 const HANDS := preload("res://mods/unfplap/hand_control.gd")
 const KISS := preload("res://mods/unfplap/kiss_control.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/missionary_camera.gd")
@@ -218,35 +211,23 @@ var depth := 0.0
 var penetration_m := 0.0
 var thrust_up := true
 
-var _pose
+## The act's pose session: the pose modifier, the authored missionary base, the bed frame, the
+## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/session.gd`.
+var _pose_session: RefCounted = POSE_SESSION.new()
+## The live pose modifier. The session owns it; presentation modules still write its look and
+## afterglow fields through this read view.
+var _pose: Variant:
+	get:
+		return _pose_session.pose()
 ## Bed space of the hand-authored missionary base pose for this act (`null` for other poses).
-var _bed_pose_frame: Variant = null
-## The bed's global transform when `_bed_pose_frame` was last synced. A moving bed (Rainbow Dash's
-## Cloudominium drifts) carries the authored pose by this rigid delta; a stationary bed early-outs.
-var _bed_frame_source := Transform3D.IDENTITY
-var _bed_frame_source_saved := false
-## One settled-pose log line per act.
-var _pose_logged := false
-## Frames the render-time placement trace has printed this act (two, then it stops).
-var _pose_trace_frames := 0
-## The authored body bones the live rig lacks, cached per skeleton. The gate polls every frame, so
-## the name lookup runs once per rig, not once per poll.
-var _pose_rig_checked := false
-var _pose_rig_skeleton := 0
-var _pose_rig_missing_bones: Array = []
+## The pose session owns it; this is the read view presentation modules still poll.
+var _bed_pose_frame: Variant:
+	get:
+		return _pose_session.bed_frame
 ## Free look's own view rotation (the act holds controls_locked, so the stock look is off).
 var _free_look_yaw := 0.0
 var _free_look_pitch := 0.0
 var _free_look_was := false
-var _tail
-var _tail_lay: Node
-## The pony's whole skeleton (body and hair) before the act. The act writes rotations, positions
-## and scales; restoring every local pose is what keeps a zeroed/stretched bone from surviving the
-## teardown, the same reason Anon gets a bone snapshot.
-var _pony_saved_bones: Array[Transform3D] = []
-var _pony_saved_hair: Array[Transform3D] = []
-var _pony_saved_skeleton: Skeleton3D
-var _pony_saved_hair_skeleton: Skeleton3D
 ## integration: persistent anatomy and the current act's anatomy controller.
 var _anatomy: Node
 var _anatomy_act: Node
@@ -342,7 +323,11 @@ var _id := ""
 var _cycle_override := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
-var _pose_cfg: Dictionary = {}
+## The live pose config. The pose session owns it; the standing gap, the act view and the tests
+## read it here.
+var _pose_cfg: Dictionary:
+	get:
+		return _pose_session.pose_config
 var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
@@ -557,10 +542,6 @@ var _restore_yaw := 0.0
 var _restore_pitch := 0.0
 var _controls_locked_saved := false
 var _controls_locked_by_camera := false
-var _chin_modifier: SkeletonModifier3D
-var _body_sway: SkeletonModifier3D
-var _prone_sway: SkeletonModifier3D
-var _ear_twitch: SkeletonModifier3D
 ## World-space hip sway published by `body_sway.gd`; the standing Anon controller adds it to its
 ## pinned hip so the two bodies rock together.
 var _standing_sway_offset := Vector3.ZERO
@@ -704,6 +685,7 @@ func _init() -> void:
 	_face.log = Callable(self, "_log")
 	_face.clock = Callable(self, "_now_s")
 	_reactions.log = Callable(self, "_log")
+	_pose_session.log = Callable(self, "_log")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -833,7 +815,7 @@ func _sync_act_facts() -> void:
 	facts.main = main
 	facts.pony = pony
 	facts.camera = _camera
-	facts.pose = _pose
+	facts.pose = _pose_session.pose()
 	facts.event_id = _event_id
 	facts.pony_id = _id
 	facts.display_name = _display_name
@@ -1059,6 +1041,15 @@ func _lines_service() -> RefCounted:
 	return _act_lines
 
 
+## The pose session, bound to this runtime and its pony. Suites build a runtime without entering
+## the tree, so the binding is refreshed on every access instead of only in `_ready()`.
+func _pose_service() -> RefCounted:
+	_pose_session.bind(self, pony)
+	_pose_session.pose_id = pose_id
+	_pose_session.id = _id
+	return _pose_session
+
+
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
 ## fields, so `_reset_thrust_state()` only has to reset the act's timing state.
 func _configure_utterance_scheduler() -> void:
@@ -1163,27 +1154,12 @@ func _refresh_live_modifiers() -> void:
 	var skeleton_value: Variant = pony.get("skeleton")
 	if not skeleton_value is Skeleton3D:
 		return
-	var skeleton := skeleton_value as Skeleton3D
+	_pose_service().refresh_modifiers(pose_id, _features)
 	if pose_id == CATALOG.STANDING:
-		if _feature("standing_body_sway") and not is_instance_valid(_body_sway):
-			_install_body_sway(skeleton)
-		elif not _feature("standing_body_sway") and is_instance_valid(_body_sway):
-			_body_sway.queue_free()
-			_body_sway = null
-		if _feature("thrust_ear_twitch") and not is_instance_valid(_ear_twitch):
-			_install_ear_twitch()
-		elif not _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
-			_ear_twitch.queue_free()
-			_ear_twitch = null
 		_standing_anon_controller().refresh_palm()
 	elif pose_id == CATALOG.MISSIONARY:
-		if _feature("missionary_body_motion") and not is_instance_valid(_prone_sway):
-			_install_prone_sway(skeleton)
-		elif not _feature("missionary_body_motion") and is_instance_valid(_prone_sway):
-			_prone_sway.queue_free()
 		if is_instance_valid(_missionary_anon):
 			_missionary_anon.call("refresh_palm")
-			_prone_sway = null
 
 func _refresh_live_voice() -> void:
 	if not is_inside_tree():
@@ -2448,7 +2424,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
-	_pose_cfg = SETTINGS.pose(_id, pose_id)
+	_pose_service().set_pose_config(SETTINGS.pose(_id, pose_id))
 	_preferences = SETTINGS.preferences(_id)
 	_act_prompts = _profile.get("act_prompts", {})
 	_snapshot_settings()
@@ -2490,8 +2466,6 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_y_hold_ready = false
 	_y_hold_fired = false
 	_reset_thrust_state()
-	_pose_logged = false
-	_pose_trace_frames = 0
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
 	_end_tail_tuck()
@@ -3008,32 +2982,14 @@ func debug_chin(step_deg: float) -> void:
 	if not is_instance_valid(pony):
 		return
 	_debug_chin_deg = clampf(_debug_chin_deg + step_deg, -30.0, 30.0)
-	_apply_debug_chin()
+	_pose_service().set_chin(_debug_chin_deg)
 	# Let the skeleton modifier apply this frame before sampling the head/chin positions.
 	call_deferred("_log_chin")
 
-## Attach the debug chin modifier and keep it after every pose modifier, so an act cannot
-## overwrite the debug head pitch.
-func _apply_debug_chin() -> void:
-	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not skeleton is Skeleton3D:
-		return
-	if not is_instance_valid(_chin_modifier) or _chin_modifier.get_parent() != skeleton:
-		if is_instance_valid(_chin_modifier):
-			_chin_modifier.queue_free()
-		_chin_modifier = CHIN_DEBUG.new()
-		_chin_modifier.name = "UnfplapChinDebug"
-		_chin_modifier.set("mare", pony)
-		(skeleton as Skeleton3D).add_child(_chin_modifier)
-	_chin_modifier.set("chin_deg", _debug_chin_deg)
-	_keep_chin_last()
-
+## Keep the debug chin modifier after every pose modifier, so an act cannot overwrite the debug
+## head pitch.
 func _keep_chin_last() -> void:
-	if not is_instance_valid(_chin_modifier):
-		return
-	var parent := _chin_modifier.get_parent()
-	if parent is Skeleton3D:
-		(parent as Skeleton3D).move_child(_chin_modifier, parent.get_child_count() - 1)
+	_pose_service().keep_chin_last()
 
 func _log_chin() -> void:
 	if not is_instance_valid(pony):
@@ -3063,51 +3019,24 @@ func _log_chin() -> void:
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
 func _sync_standing_pose_config() -> void:
-	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
+	if not _pose_service().sync_standing_config(_presentation_cfg):
 		return
-	_pose_cfg = SETTINGS.pose(_id, CATALOG.STANDING)
-	_pose_cfg["chin_up_deg"] = float(_presentation_cfg.get("chin_up_deg",
-		SETTINGS.chin_up_deg.default))
-	_pose_cfg["neck_down_deg"] = float(_presentation_cfg.get("neck_down_deg",
-		SETTINGS.neck_down_deg.default))
-	var tail_cfg: Variant = _presentation_cfg.get("tail", {})
-	if tail_cfg is Dictionary:
-		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
-			SETTINGS.yaw_deg.default)))
-		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
-			SETTINGS.tail_pitch_deg.default)))
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("pose_config", _pose_cfg)
-	if is_instance_valid(_pose):
-		_pose.pose_config = _pose_cfg
-	if is_instance_valid(_tail):
-		_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
-		_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
 
 
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
 ## pose keeps its nuzzle overrides live.
 func _sync_missionary_pose_config() -> void:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
+	if not _pose_service().sync_missionary_config():
 		return
-	_pose_cfg = SETTINGS.pose(_id, CATALOG.MISSIONARY)
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("pose_config", _pose_cfg)
-	if is_instance_valid(_pose):
-		_pose.pose_config = _pose_cfg
-		# The asset instance is shared, so the reload action reaches the live act.
-		_pose.authored = _authored_pose()
 
 
-## The hand-authored missionary base pose. Parsed once for the process; the debug action rewrites
-## the same instance in place, so a live act picks the new pose up on its next frame.
-func _authored_pose() -> Variant:
-	return AUTHORED.shared()
-
-
-## The parsed authored pose, for the shot camera and the debug action.
+## The parsed authored missionary pose, for the shot camera and the debug action.
 func authored_pose_asset() -> Variant:
-	return _authored_pose()
+	return _pose_service().authored_asset()
 
 
 ## Debug: the player camera replaces the act shot so the pose can be inspected. The mouse stops
@@ -3124,220 +3053,63 @@ func free_look_rotation() -> Vector3:
 
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
 func missionary_pose_origin() -> Vector3:
-	if _bed_pose_frame is Transform3D:
-		return (_bed_pose_frame as Transform3D).origin
-	return pony.global_position if is_instance_valid(pony) else Vector3.ZERO
+	return _pose_service().missionary_origin()
 
 
-## Bed space for the authored pose: the middle of the real bed's mattress top, in the bed's axes,
-## with the pillow end at -Z so the authored `+Z` (her head) points at the head of the bed. The
-## pose is stored relative to this frame, so any bed size or yaw works; `null` leaves the
-## correction stack in charge.
-func _missionary_pose_frame() -> Variant:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(bed):
-		return null
-	var fallback: float = float(bed.get_meta("mattress_top", 0.6)) + float(bed.global_position.y)
-	var points: Array[Vector3] = [bed.global_position]
-	var top: float = MATTRESS.visible_top(bed, points, fallback)
-	if not is_finite(top):
-		return null
-	var at: Vector3 = bed.global_position
-	var basis := bed.global_basis.orthonormalized() * Basis(Vector3.UP, PI)
-	return Transform3D(basis, Vector3(at.x, top, at.z))
-
-
-## A bed can move under the act: the Cloudominium's CloudDrift moves it every 0.1 s from
-## TimeOfDay.active_seconds. The authored pose, the act body, the camera shot and the anatomy
-## placement are all bed-space, so carry them with the bed instead of leaving them at the world
-## transform where the act started. The delta is rigid; the mattress top is not re-measured.
+## A bed can move under the act. The pose session carries the authored pose, the act body, the
+## camera shot and the anatomy placement with it. See ROTATION.md.
 func _sync_bed_pose_frame() -> void:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(bed) \
-			or not _bed_frame_source_saved or not _bed_pose_frame is Transform3D:
-		return
-	var now := bed.global_transform
-	if now.is_equal_approx(_bed_frame_source):
-		return
-	var delta := now * _bed_frame_source.affine_inverse()
-	_bed_pose_frame = delta * (_bed_pose_frame as Transform3D)
-	_bed_frame_source = now
-	if is_instance_valid(_pose):
-		_pose.bed_frame = _bed_pose_frame
+	_pose_service().sync_bed_frame()
 
 
 func _build_pose() -> void:
 	_free_pose()
-	var skeleton: Variant = pony.get("skeleton")
-	if skeleton is Skeleton3D:
-		_pose = POSE.new()
-		_pose.name = "UnfplapPose"
-		_pose.mare = pony
-		_pose.set("runtime", self)
-		_pose.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
-		_pose.pose_config = SETTINGS.pose(_id, pose_id)
-		_pose.look_point = main.camera().global_position if main.camera() != null else pony.global_position
-		_pose.amount = 0.0
-		_pose.target_amount = 1.0
-		if pose_id == CATALOG.MISSIONARY:
-			_bed_pose_frame = _missionary_pose_frame()
-			_bed_frame_source_saved = is_instance_valid(bed)
-			if _bed_frame_source_saved:
-				_bed_frame_source = (bed as Node3D).global_transform
-			_pose.authored = _authored_pose()
-			_pose.bed_frame = _bed_pose_frame
-			_log_pose_base()
-		(skeleton as Skeleton3D).add_child(_pose)
-		if pose_id == CATALOG.STANDING:
-			if _feature("standing_body_sway"):
-				_install_body_sway(skeleton)
-			if _feature("thrust_ear_twitch"):
-				_install_ear_twitch()
-		elif _feature("missionary_body_motion"):
-			_install_prone_sway(skeleton)
-		_keep_chin_last()
-	if pose_id == CATALOG.MISSIONARY:
-		_install_tail_lay()
-	if pose_id != CATALOG.STANDING:
-		return
-	_sync_standing_pose_config()
-	var hair: Variant = pony.get("hair_skeleton")
-	if hair is Skeleton3D:
-		_tail = TAIL.new()
-		_tail.name = "UnfplapTail"
-		_tail.mare = pony
-		_tail.runtime = self
-		_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
-		_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
-		_tail.amount = 0.0
-		_tail.target_amount = 1.0
-		var side_anchor := Vector3.INF
-		if is_instance_valid(main) and main.has_method("camera"):
-			var view: Variant = main.call("camera")
-			if view is Camera3D:
-				side_anchor = (view as Camera3D).global_position
-		_tail.call("choose_side", side_anchor)
-		(hair as Skeleton3D).add_child(_tail)
-		_reactions.bind_tail(_tail)
+	var session := _pose_service()
+	var view: Variant = main.call("camera") if is_instance_valid(main) and main.has_method("camera") else null
+	var look: Vector3 = pony.global_position
+	var camera_at := Vector3.INF
+	if view is Camera3D:
+		look = (view as Camera3D).global_position
+		camera_at = look
+	session.begin({
+		"pose_id": pose_id,
+		"id": _id,
+		"features": _features,
+		"bed": bed,
+		"presentation": _presentation_cfg,
+		"pose_config": _pose_cfg,
+		"look_point": look,
+		"camera_position": camera_at,
+	})
+	_reactions.bind_tail(session.tail)
+
 
 ## Snapshot before the act changes her posture or the pose writes bones.
 func _snapshot_pony_bones() -> void:
-	_pony_saved_bones.clear()
-	_pony_saved_hair.clear()
-	_pony_saved_skeleton = null
-	_pony_saved_hair_skeleton = null
-	if not is_instance_valid(pony):
-		return
-	var sk: Variant = pony.get("skeleton")
-	if sk is Skeleton3D:
-		_pony_saved_skeleton = sk as Skeleton3D
-		for i in (_pony_saved_skeleton as Skeleton3D).get_bone_count():
-			_pony_saved_bones.append((_pony_saved_skeleton as Skeleton3D).get_bone_pose(i))
-	var hair: Variant = pony.get("hair_skeleton")
-	if hair is Skeleton3D:
-		_pony_saved_hair_skeleton = hair as Skeleton3D
-		for i in (_pony_saved_hair_skeleton as Skeleton3D).get_bone_count():
-			_pony_saved_hair.append((_pony_saved_hair_skeleton as Skeleton3D).get_bone_pose(i))
+	_pose_service().snapshot_bones()
 
 
 ## Put every pony bone back before the game's animation re-poses her. The act's pose modifier is
 ## already freed when this runs, so nothing rewrites the act pose on top.
 func _restore_pony_bones() -> void:
-	if is_instance_valid(_pony_saved_skeleton) \
-			and _pony_saved_bones.size() == _pony_saved_skeleton.get_bone_count():
-		for i in _pony_saved_bones.size():
-			_pony_saved_skeleton.set_bone_pose(i, _pony_saved_bones[i])
-	if is_instance_valid(_pony_saved_hair_skeleton) \
-			and _pony_saved_hair.size() == _pony_saved_hair_skeleton.get_bone_count():
-		for i in _pony_saved_hair.size():
-			_pony_saved_hair_skeleton.set_bone_pose(i, _pony_saved_hair[i])
-	_pony_saved_bones.clear()
-	_pony_saved_hair.clear()
-	_pony_saved_skeleton = null
-	_pony_saved_hair_skeleton = null
+	_pose_service().restore_bones()
 
 
+## The one pose teardown: the pose-owned start state, the cross-system releases in their order,
+## the live modifiers, then the pose and the standing tail.
 func _free_pose() -> void:
-	_pose_rig_checked = false
-	_pose_rig_skeleton = 0
-	_pose_rig_missing_bones = []
-	if is_instance_valid(_tail_lay):
-		_tail_lay.call("restore_tail")
-		_tail_lay.queue_free()
-	_tail_lay = null
-	_bed_pose_frame = null
-	_bed_frame_source_saved = false
-	_bed_frame_source = Transform3D.IDENTITY
+	_pose_service().release_start()
 	clear_presentation()
 	_end_lean_action()
 	_hand_controller().reset()
 	_kiss_controller().reset()
 	_release_free_camera_lock()
 	_standing_anon_controller().remove()
-	_remove_extra_modifiers()
+	_pose_service().remove_modifiers()
 	_restore_voice_volume()
 	_reactions.end_act()
-	if is_instance_valid(_pose):
-		_pose.queue_free()
-	_pose = null
-	if is_instance_valid(_tail):
-		_tail.call("restore_tail")
-		_tail.queue_free()
-	_tail = null
+	_pose_service().release_pose()
 
-## The hair tail is not in the authored body pose: each pony has its own tail rig. This lays
-## whichever `mTail1..6` bones exist on the hair skeleton flat on the bed.
-func _install_tail_lay() -> void:
-	if not is_instance_valid(pony):
-		return
-	var hair: Variant = pony.get("hair_skeleton")
-	if not hair is Skeleton3D:
-		return
-	_tail_lay = TAIL_LAY.new()
-	_tail_lay.name = "UnfplapTailLay"
-	_tail_lay.mare = pony
-	_tail_lay.runtime = self
-	(hair as Skeleton3D).add_child(_tail_lay)
-
-
-func _install_body_sway(skeleton: Skeleton3D) -> void:
-	if not _feature("standing_body_sway"):
-		return
-	_body_sway = BODY_SWAY.new()
-	_body_sway.name = "UnfplapBodySway"
-	_body_sway.set("mare", pony)
-	_body_sway.set("runtime", self)
-	skeleton.add_child(_body_sway)
-
-func _install_prone_sway(skeleton: Skeleton3D) -> void:
-	_prone_sway = PRONE_SWAY.new()
-	_prone_sway.name = "UnfplapProneSway"
-	_prone_sway.set("mare", pony)
-	_prone_sway.set("runtime", self)
-	skeleton.add_child(_prone_sway)
-
-func _install_ear_twitch() -> void:
-	if not _feature("thrust_ear_twitch"):
-		return
-	var boop: Variant = pony.get("boop_node")
-	var head: Variant = boop.get("head_skeleton") if boop != null else null
-	if not head is Skeleton3D:
-		return
-	_ear_twitch = EAR_TWITCH.new()
-	_ear_twitch.name = "UnfplapEarTwitch"
-	_ear_twitch.set("mare", pony)
-	_ear_twitch.set("runtime", self)
-	(head as Skeleton3D).add_child(_ear_twitch)
-
-func _remove_extra_modifiers() -> void:
-	_reactions.restore_radius()
-	if is_instance_valid(_body_sway):
-		_body_sway.queue_free()
-	_body_sway = null
-	if is_instance_valid(_prone_sway):
-		_prone_sway.queue_free()
-	_prone_sway = null
-	if is_instance_valid(_ear_twitch):
-		_ear_twitch.queue_free()
-	_ear_twitch = null
 
 # --------------------------------------------------------------------------- thrust
 
@@ -3915,8 +3687,7 @@ func _on_impact(result: Dictionary) -> void:
 	_reactions.tail_thrust(jiggle)
 	if pose_id == CATALOG.STANDING:
 		_reactions.add_blush(impact)
-		if _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
-			_ear_twitch.call("try_trigger", impact)
+		_pose_service().trigger_ear_twitch(impact)
 	_readiness.thrust_times.append(now)
 	while not _readiness.thrust_times.is_empty() \
 			and now - float(_readiness.thrust_times[0]) > 1.0:
@@ -4680,12 +4451,11 @@ func _afterglow_begin() -> void:
 			_pose.afterglow_pose = pose_id
 		_pose.target_amount = 1.0
 		_pose.amount = 1.0
-	if is_instance_valid(_tail):
-		if pose_id == CATALOG.STANDING:
-			_tail.target_amount = 0.55
-			_tail.call("flick", 2)
-		else:
-			_tail.target_amount = 0.35
+	if pose_id == CATALOG.STANDING:
+		_pose_service().set_tail_target(0.55)
+		_pose_service().flick_tail(2)
+	else:
+		_pose_service().set_tail_target(0.35)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
 
@@ -4741,8 +4511,7 @@ func _restore_begin() -> void:
 	_wings_controller().release()
 	if is_instance_valid(_pose):
 		_pose.target_amount = 0.0
-	if is_instance_valid(_tail):
-		_tail.target_amount = 0.0
+	_pose_service().set_tail_target(0.0)
 	_stop_breath()
 	_back_target = 0.0
 	_standing_camera_controller().reset_facing()
@@ -5548,77 +5317,30 @@ func _neck_midpoint() -> Vector3:
 		return skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
 	return Vector3.INF
 
-## Which missionary base is in charge and why. One dictionary so the log, the settled line and the
-## debug action cannot drift apart.
+## Which missionary base is in charge and why, from the pose session.
 func pose_base_info() -> Dictionary:
-	var authored: Variant = _authored_pose()
-	var bones: Variant = authored.get("pony_bones")
-	var info := {
-		"base": "none",
-		"reason": "",
-		"version": int(authored.get("version")),
-		"bones": (bones as Dictionary).size() if bones is Dictionary else 0,
-		"available": bool(authored.get("available")),
-		"error": str(authored.get("error")),
-		"frame": _bed_pose_frame,
-		"shots": bool(authored.get("has_shots")),
-		"asset": authored,
-	}
-	if pose_id != CATALOG.MISSIONARY:
-		info["reason"] = "pose=%s" % pose_id
-	elif not bool(info["available"]):
-		info["reason"] = _authored_pose_reason()
-	elif not _bed_pose_frame is Transform3D:
-		info["reason"] = "no bed frame"
-	else:
-		info["base"] = "authored"
-	return info
+	return _pose_service().base_info()
 
 
 ## True when the missionary asset loaded. The act refuses to start otherwise: there is no fallback
 ## missionary pose any more.
 func _authored_pose_ready() -> bool:
-	return bool(_authored_pose().get("available"))
+	return _pose_service().authored_ready()
 
 
 ## Why the missionary pose asset is unusable, for the gate row and the start log.
 func _authored_pose_reason() -> String:
-	var authored: Variant = _authored_pose()
-	if bool(authored.get("available")):
-		return ""
-	var why := str(authored.get("error"))
-	return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
+	return _pose_service().authored_reason()
 
 
-## The authored body bones the live rig lacks. The pose writes only the bones it holds, so a missing
-## one leaves the game's pose on that link and the chain above it reads broken; the act refuses to
-## start. Cached per skeleton instance, because the gate polls every frame.
+## The authored body bones the live rig lacks, cached per skeleton by the pose session.
 func _pose_rig_missing() -> Array:
-	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not sk is Skeleton3D:
-		return []
-	var skeleton := sk as Skeleton3D
-	var id := skeleton.get_instance_id()
-	if _pose_rig_checked and id == _pose_rig_skeleton:
-		return _pose_rig_missing_bones
-	_pose_rig_checked = true
-	_pose_rig_skeleton = id
-	var missing: Variant = _authored_pose().call("missing_bones", skeleton)
-	_pose_rig_missing_bones = missing if missing is Array else []
-	return _pose_rig_missing_bones
+	return _pose_service().rig_missing()
 
 
 ## The gate row's reason, naming the first few bones and counting the rest.
 func _pose_rig_reason(missing: Array) -> String:
-	if missing.is_empty():
-		return ""
-	var names: PackedStringArray = []
-	for i in mini(3, missing.size()):
-		names.append(str(missing[i]))
-	var text := "pose_rig: missing %s" % ", ".join(names)
-	if missing.size() > 3:
-		text += " (+%d more)" % (missing.size() - 3)
-	return text
+	return _pose_service().rig_reason(missing)
 
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
@@ -5638,245 +5360,36 @@ func _pose_render_write() -> void:
 		_missionary_anon.call("apply", frame, _body_scale_value())
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(_pose) and sk is Skeleton3D:
-		_pose.call("apply_render", sk)
+		_pose_service().apply_render(sk)
 	# The eye camera reads his posed head, so it has to run after this write, not from the physics
 	# tick where the pose is one frame older.
 	if _free_camera_active and str(SETTINGS.camera_mode.get_value()) == "eye":
 		_missionary_camera_controller().tick()
 
 
-## Render-time placement trace, two lines per act: printed from idle, after every physics and process
-## writer, so it reads the pose the renderer is about to use. `root` is the armature bone the authored
-## placement is written to; `wanted` is that pose carried into the live bed frame.
+## The render-time placement trace, driven by the pose session.
 func _pose_idle_sample() -> void:
-	if _pose_trace_frames >= 2 or pose_id != CATALOG.MISSIONARY or state == State.IDLE:
-		return
-	if not is_instance_valid(_pose) or _pose_basis_amount() < 0.9:
-		return
-	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not sk is Skeleton3D:
-		return
-	var skeleton := sk as Skeleton3D
-	var root := int(_pose.get("diag_root"))
-	var hips := skeleton.find_bone("pony_hips")
-	var g := skeleton.global_transform
-	var render_root := g * skeleton.get_bone_global_pose(root) if root >= 0 else Transform3D.IDENTITY
-	var render_hips := g * skeleton.get_bone_global_pose(hips) if hips >= 0 else Transform3D.IDENTITY
-	var wanted_root: Transform3D = _pose.get("diag_root_wanted")
-	var wanted_hips: Transform3D = _pose.get("diag_hips_wanted")
-	var animation: Variant = pony.get("animation")
-	var clip := ""
-	var playing := false
-	if animation is AnimationPlayer:
-		clip = (animation as AnimationPlayer).current_animation
-		playing = (animation as AnimationPlayer).is_playing()
-	_log("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s" % [
-		_pose_trace_frames, root, str(_pose.get("diag_root_name")), int(_pose.get("diag_asset_root")),
-		int(_pose.get("diag_trace")), skeleton.modifier_callback_mode_process, clip, str(playing),
-		str(g)])
-	_log("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f" % [
-		_pose_trace_frames, str(_pose.get("diag_root_start")), str(_pose.get("diag_root_after")),
-		str(render_root), str(wanted_root),
-		render_root.origin.distance_to(wanted_root.origin),
-		_transform_angle(render_root, wanted_root),
-		str(_pose.get("diag_hips_start")), str(render_hips), str(wanted_hips),
-		render_hips.origin.distance_to(wanted_hips.origin)])
-	_pose_trace_frames += 1
-
-
-## Degrees between two transforms' bases, for the trace.
-func _transform_angle(a: Transform3D, b: Transform3D) -> float:
-	return rad_to_deg(a.basis.orthonormalized().get_rotation_quaternion().angle_to(
-		b.basis.orthonormalized().get_rotation_quaternion()))
-
-
-func _pose_diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
-	var rows: Array = []
-	var pose: Variant = _pose
-	var parent: Node = pose.get_parent() if is_instance_valid(pose) else null
-	rows.append("modifier=%s parent=%s match=%s frames=%d weight=%.2f base=%s readback=%.2f°" % [
-		"yes" if is_instance_valid(pose) else "no",
-		"%s@%s" % [str(parent.name), str(parent.get_instance_id())] if parent != null else "none",
-		"yes" if parent == skeleton else "NO", int(_num(pose.get("diag_frames"))) if is_instance_valid(pose) else 0,
-		_num(pose.get("diag_last_weight")) if is_instance_valid(pose) else 0.0,
-		str(pose.get("diag_last_base")) if is_instance_valid(pose) else "",
-		_num(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0])
-	var modifiers: Array[String] = []
-	for child: Node in skeleton.get_children():
-		if child is SkeletonModifier3D:
-			var active: Variant = child.get("active")
-			var influence: Variant = child.get("influence")
-			modifiers.append("%s%s%s" % [
-				str(child.name),
-				(" active=%s" % str(active)) if active != null else "",
-				(" inf=%.2f" % float(influence)) if influence is float else ""])
-	rows.append("skeleton modifiers=%d [%s]" % [modifiers.size(), ", ".join(modifiers)])
-	rows.append("hips write check: after_write=%.2f° readback=%.2f° (%s)" % [
-		_num(pose.get("diag_after_write_deg")) if is_instance_valid(pose) else 0.0,
-		_num(pose.get("diag_readback_deg")) if is_instance_valid(pose) else 0.0,
-		"write lands, survives" if is_instance_valid(pose)
-			and _num(pose.get("diag_after_write_deg")) < 1.0
-			and _num(pose.get("diag_readback_deg")) < 1.0
-		else "write lands, lost by next frame" if is_instance_valid(pose)
-			and _num(pose.get("diag_after_write_deg")) < 1.0
-		else "write does not land"])
-	rows.append("pony_skeleton=%s@%s actor=%s paused=%s visible=%s" % [
-		str(skeleton.name), str(skeleton.get_instance_id()), str(pony.global_position),
-		str(pony.get("motion_paused")), str(pony.visible)])
-	var posture: Variant = pony.get("posture")
-	if posture != null:
-		rows.append("posture kind=%s requested=%s phase=%s progress=%.2f ready=%s clip=%s refusal=%s" % [
-			str(posture.get("kind")), str(posture.get("requested")), str(posture.get("phase")),
-			_num(posture.get("progress")), str(posture.get("ready")), str(posture.get("clip")),
-			str(posture.get("refusal"))])
-	# Every mesh's own skeleton: a mesh bound elsewhere would follow the game's animation instead of
-	# the pose modifier.
-	var groups: Dictionary = {}
-	for node: Node in pony.find_children("*", "MeshInstance3D", true, false):
-		var mesh := node as MeshInstance3D
-		var target: Node = mesh.get_node_or_null(mesh.skeleton) if not mesh.skeleton.is_empty() else null
-		var id := target.get_instance_id() if target != null else 0
-		if not groups.has(id):
-			groups[id] = {"count": 0, "sample": str(mesh.name), "visible": false, "target": target}
-		var entry: Dictionary = groups[id]
-		entry["count"] = int(entry["count"]) + 1
-		entry["visible"] = bool(entry["visible"]) or mesh.is_visible_in_tree()
-	for id: Variant in groups:
-		var entry: Dictionary = groups[id]
-		var target: Variant = entry["target"]
-		var hips := Vector3.INF
-		if target is Skeleton3D:
-			var bone := (target as Skeleton3D).find_bone("pony_hips")
-			if bone >= 0:
-				hips = (target as Skeleton3D).global_transform * (target as Skeleton3D).get_bone_global_pose(bone).origin
-		rows.append("mesh_skeleton=%s meshes=%d sample=%s visible=%s hips=%s" % [
-			("%s@%s" % [str((target as Node).name), str(id)]) if target is Node else "none",
-			int(entry["count"]), str(entry["sample"]), str(entry["visible"]), str(hips)])
-	# Live hips pose vs the authored quaternion: proves whether the modifier's write is what lives.
-	var authored: Variant = info.get("asset")
-	var hips_bone := skeleton.find_bone("pony_hips")
-	if hips_bone >= 0 and authored != null:
-		var entry: Variant = (authored.get("pony_bones") as Dictionary).get("pony_hips")
-		if entry is Dictionary:
-			var wanted: Quaternion = (entry as Dictionary)["rotation"]
-			var live := skeleton.get_bone_pose_rotation(hips_bone)
-			rows.append("hips_pose live=%s authored=%s delta=%.1f°" % [
-				str(live), str(wanted), rad_to_deg(live.angle_to(wanted))])
-	# Nearby ponies, so a body on the bed can be identified as someone else.
-	var nearest: Array = []
-	for node: Node in get_tree().get_nodes_in_group("ai_characters"):
-		var other := node as Node3D
-		if other == null or other == pony:
-			continue
-		var distance := other.global_position.distance_to(pony.global_position)
-		if distance > 4.0:
-			continue
-		var other_sk: Variant = other.get("skeleton")
-		var hips_at := Vector3.INF
-		if other_sk is Skeleton3D:
-			var b := (other_sk as Skeleton3D).find_bone("pony_hips")
-			if b >= 0:
-				hips_at = (other_sk as Skeleton3D).global_transform * (other_sk as Skeleton3D).get_bone_global_pose(b).origin
-		nearest.append("%s d=%.1f posture=%s hips=%s" % [
-			str(other.name), distance,
-			str(other.call("posture_status").get("requested", "?")), str(hips_at)])
-	rows.append("nearby=%d %s" % [nearest.size(), "; ".join(nearest)])
-	return rows
+	_pose_service().idle_sample(state)
 
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
 ## the live pose actually put her (world and bed space).
 func pose_state_rows() -> Array:
-	var info := pose_base_info()
-	var frame: Variant = info["frame"]
-	var rows: Array = []
-	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
-		str(pony.name) if is_instance_valid(pony) else "?", pose_id, state, _pose_basis_amount()])
-	rows.append("base=%s reason=%s asset=v%d %s bones=%d missing=%s shots=%s error=%s" % [
-		str(info["base"]), str(info["reason"]),
-		int(info["version"]), "ok" if bool(info["available"]) else "error", int(info["bones"]),
-		str(_pose_rig_missing()), "yes" if bool(info["shots"]) else "no", str(info["error"])])
-	rows.append("bed_frame=%s scale=%.2f" % [
-		str(frame) if frame is Transform3D else "null", _body_scale_value()])
-	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not sk is Skeleton3D:
-		return rows
-	var skeleton := sk as Skeleton3D
-	rows.append_array(_pose_diagnostics(skeleton, info))
-	var space := Transform3D.IDENTITY
-	if frame is Transform3D:
-		space = (frame as Transform3D).affine_inverse()
-	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["neck_mid", "pony_neck2"],
-			["head", "pony_head"], ["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
-		var bone := skeleton.find_bone(str(pair[1]))
-		if bone < 0:
-			continue
-		var world := skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
-		var bed := space * world
-		rows.append("%s world=(%.3f,%.3f,%.3f) bed=(%.3f,%.3f,%.3f)" % [
-			str(pair[0]), world.x, world.y, world.z, bed.x, bed.y, bed.z])
-	return rows
+	return _pose_service().state_rows(state)
 
 
-## The base line written once when the act builds its pose.
-func _log_pose_base() -> void:
-	if pose_id != CATALOG.MISSIONARY:
-		return
-	var info := pose_base_info()
-	var frame: Variant = info["frame"]
-	var missing := _pose_rig_missing()
-	_log("missionary base=%s reason=%s asset=v%d %s bones=%d missing=%d shots=%s frame=%s scale=%.2f" % [
-		str(info["base"]), str(info["reason"]), int(info["version"]),
-		"ok" if bool(info["available"]) else "error", int(info["bones"]),
-		missing.size(), "yes" if bool(info["shots"]) else "no",
-		str(frame) if frame is Transform3D else "null", _body_scale_value()])
-	if not missing.is_empty():
-		_log("missionary rig %s" % _pose_rig_reason(missing))
-
-
-## One line with where the pose actually put her, in world and bed space, once the weight settles.
+## One line with where the pose actually put her, once the weight settles.
 func _log_pose_settled() -> void:
-	if _pose_logged or pose_id != CATALOG.MISSIONARY or state == State.IDLE:
-		return
-	if _pose_basis_amount() < 0.9:
-		return
-	_pose_logged = true
-	if not is_instance_valid(pony):
-		return
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
-		return
-	var skeleton := sk as Skeleton3D
-	var frame: Variant = _bed_pose_frame
-	var space := Transform3D.IDENTITY
-	if frame is Transform3D:
-		space = (frame as Transform3D).affine_inverse()
-	var parts: Array[String] = []
-	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["head", "pony_head"],
-			["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
-		var bone := skeleton.find_bone(str(pair[1]))
-		if bone < 0:
-			continue
-		var world := skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
-		var bed := space * world
-		parts.append("%s=w%s/b(%.3f,%.3f,%.3f)" % [
-			str(pair[0]), str(world), bed.x, bed.y, bed.z])
-	_log("missionary settled base=%s weight=%.2f %s" % [
-		str(pose_base_info()["base"]), _pose_basis_amount(), " ".join(parts)])
-	for row: Variant in _pose_diagnostics(skeleton, pose_base_info()):
-		_log("missionary diag %s" % str(row))
-	if is_instance_valid(_missionary_anon):
-		_log("anon diag %s" % str(_missionary_anon.call("diag_row",
-			missionary_face_point(), missionary_vulva_point())))
+	_pose_service().log_settled(state, Callable(self, "_anon_pose_diag_row"))
 
 
-## Numeric read of a Variant property without tripping over a missing one.
-func _num(value: Variant, fallback := 0.0) -> float:
-	return float(value) if value is float or value is int else fallback
+## The posed Anon body's diagnostic row, or silence when the act has no Anon body.
+func _anon_pose_diag_row() -> String:
+	if not is_instance_valid(_missionary_anon):
+		return ""
+	return str(_missionary_anon.call("diag_row", missionary_face_point(), missionary_vulva_point()))
 
 
-## Her face, for the start shot: the head bone pushed a little along the neck → head direction, so
-## the aim lands where the OpenPony face hangs.
 func missionary_face_point() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
@@ -5950,9 +5463,6 @@ func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
 
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	_standing_anon_controller().apply_anon_lean(hip, facing)
-
-func _pose_basis_amount() -> float:
-	return float(_pose.get("amount")) if is_instance_valid(_pose) else 0.0
 
 func _player_eye_height() -> float:
 	var body: Variant = main.player if is_instance_valid(main) else null

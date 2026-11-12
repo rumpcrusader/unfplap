@@ -1,6 +1,6 @@
 extends SceneTree
 ## The hand-authored missionary pose asset the runtime poses from.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_pose_asset.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_pose_asset.gd
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 

@@ -1,6 +1,6 @@
 extends SceneTree
 ## The rig check: the authored pose must not pose a body that is missing one of its bones.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_pose_rig.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_pose_rig.gd
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 

@@ -82,6 +82,7 @@ func run() -> void:
 	_check_afterglow()
 	_check_face()
 	_check_reactions()
+	_check_pose_session()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -396,6 +397,33 @@ func _check_reactions() -> void:
 		"runtime dispatches to the reaction facade")
 	for token: String in ["_rump_decal", "_attach_body_coat_jiggle_target", "_climax_hearts_tick"]:
 		check(not runtime.contains(token), "runtime has no reaction internals: %s" % token)
+
+
+## The pose session owns the pose and modifier nodes, the bed frame, the bone snapshots and the
+## pose diagnostics. Its contract is `ROTATION.md`; the pose suites live under `tests/poses/`.
+func _check_pose_session() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("poses/session.gd"))
+	check(facade.contains("func begin(") and facade.contains("func sync_standing_config("),
+		"pose session facade is present")
+	for token: String in ["extends Node", "FileAccess",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "pose session has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("ROTATION.md"))
+	check(contract.contains("## Ownership"), "ROTATION documents the pose owner")
+	check(contract.contains("`poses/session.gd`"), "ROTATION names poses/session.gd")
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("`poses/session.gd`"), "AGENTS.md names poses/session.gd")
+	for name: String in ["test_session.gd", "test_pose_asset.gd", "test_pose_rig.gd",
+			"test_pose_scale.gd", "test_rotation.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
+			"tests/poses/%s exists" % name)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("func _pose_service()"), "runtime reaches the pose through the session")
+	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
+			"_attach_body_coat_jiggle_target"]:
+		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

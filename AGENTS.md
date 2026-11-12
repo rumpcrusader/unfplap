@@ -103,7 +103,7 @@ stored state.
 | Act memory | `memory.gd` | `docs/memory.md` | migrated |
 | Act lines | `act_lines.gd` | `docs/lines.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
-| Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
+| Poses and cameras | `poses/session.gd` | `ROTATION.md` | pose session migrated; camera in runtime |
 | Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
 | Act summary and history | `history.gd` | `HISTORY.md` | migrated |
 | Afterglow and close window | `afterglow.gd` | `docs/afterglow.md` | migrated |
@@ -375,6 +375,8 @@ mods/unfplap/
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
   audio/act/smack/  fetched OpenNSFW hand-smack variants installed on FlankTouch
   poses/            skeleton driver, rig cache, rotation helpers, recipes, catalog
+  poses/session.gd  pose session facade: pose build/free, authored base, bed frame, modifiers,
+                    bone snapshots and pose diagnostics; contract in `ROTATION.md`
   poses/authored_pose.gd  bed-space loader for the hand-authored missionary base pose
   poses/missionary_pose.json  the authored pose; exported from the pose lab, never hand-edited
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
@@ -455,7 +457,8 @@ reclined eye height left the camera wrong after the act.
   head direction. `poses/authored_pose.gd` maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`
   and places `bed_frame * (pony_frame × body_scale)`.
-- **The bed frame follows the bed.** `_bed_pose_frame` is updated each tick by the bed's rigid
+- **The bed frame follows the bed.** The pose session's `bed_frame` (`runtime._bed_pose_frame`
+  for presentation modules) is updated each tick by the bed's rigid
   delta, so a moving bed (the Cloudominium's CloudDrift) carries the authored pose, the act body and
   the shot. The snapshot stores the bed transform, and `restore_scene()` applies the same delta to
   the player, pony and camera so the cuddle rejoin starts beside the current bed.
@@ -511,10 +514,10 @@ reclined eye height left the camera wrong after the act.
   smoothed penetration seed, bend/squash, shader squish/compress, throb and the ready tween. A
   following standing act or carry therefore never inherits the missionary part's transform or
   pelvis offset.
-- **The pony gets a bone snapshot too.** `_snapshot_pony_bones()` saves every body and hair skeleton
-  local pose at act start; `_restore_pony_bones()` puts them back after `_free_pose()`, before the
-  game's animation re-poses her, so an act scale/position cannot survive as a zeroed or stretched
-  bone.
+- **The pony gets a bone snapshot too.** The pose session's `snapshot_bones()` saves every body
+  and hair skeleton local pose at act start; `restore_bones()` puts them back after the pose is
+  freed, before the game's animation re-poses her, so an act scale/position cannot survive as a
+  zeroed or stretched bone.
 - **Space rule.** Rotate a bone by writing its **global pose** with the axis converted once into
   skeleton space (`pose_rig.rotate_free`). Pre-multiplying the *local* pose applies the axis in the
   parent's frame; his hips are rotated about 90° in this pose, and that made the W/S lean yaw the

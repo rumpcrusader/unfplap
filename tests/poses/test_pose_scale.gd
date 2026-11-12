@@ -1,7 +1,7 @@
 extends SceneTree
 ## The authored pose's size handling: the rig's own pivot scales her body, so the placement has to
 ## scale the same way, or a bigger pony renders as a canon body shifted along the bed.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_pose_scale.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_pose_scale.gd
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 

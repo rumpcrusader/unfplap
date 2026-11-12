@@ -3,6 +3,15 @@
 This file records the brittle skeleton/pose logic. Keep it next to the code and update it
 whenever a pose value or order changes.
 
+## Ownership
+
+`poses/session.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
+missionary base, the bed frame and its follow, the extra modifiers (tail, tail lay, body sway,
+prone sway, ear twitch, chin debug), the pony bone snapshots, the pose rig check and the pose
+diagnostics. The runtime owns the act state, the start ordering and the one teardown ledger; it
+binds the session and calls the render-time write. `runtime._pose`, `runtime._pose_cfg` and
+`runtime._bed_pose_frame` are read views over the session for presentation modules and tests.
+
 ## Spaces and axes
 
 - Bone writes use `Skeleton3D` skeleton space via `get_bone_global_pose` /
@@ -33,7 +42,8 @@ Missionary is its own state, not the game's bed rest:
 - **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
 - **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
-- **The bed frame follows the bed.** `_bed_pose_frame` is updated each tick by the bed's rigid
+- **The bed frame follows the bed.** The session's `bed_frame` (`runtime._bed_pose_frame` for
+  presentation modules) is updated each tick by the bed's rigid
   delta; a moving bed (the Cloudominium's CloudDrift) carries the authored pose, the act body and
   the shot instead of leaving them at the world transform where the act started. The mattress top
   is not re-measured.
@@ -107,8 +117,8 @@ Missionary is its own state, not the game's bed rest:
   stretched positions, which the game does not re-pose for every bone).
 - **The part and the pony are reset too.** `anon_part.reset_state()` clears its aim, hip offsets,
   penetration seed, bend/squash, shader and placement at both encounter start and end.
-  `_snapshot_pony_bones()` / `_restore_pony_bones()` put every body and hair bone back after the
-  act's pose is freed, so the game animation resumes from a sane rig.
+  The pose session's `snapshot_bones()` / `restore_bones()` put every body and hair bone back after
+  the act's pose is freed, so the game animation resumes from a sane rig.
 - **Space rule.** Every act-space rotation is applied to a bone's **global pose** with the axis
   converted once into skeleton space (`pose_rig.rotate_free`). Pre-multiplying a bone's *local*
   pose applies the axis in the parent's frame — his hips are rotated ~90° here, and doing that made

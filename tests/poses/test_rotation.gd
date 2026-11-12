@@ -1,6 +1,6 @@
 extends SceneTree
 ## Pure rotation tests.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_rotation.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_rotation.gd
 
 const ROT := preload("res://mods/unfplap/poses/rotation.gd")
 var failures := 0

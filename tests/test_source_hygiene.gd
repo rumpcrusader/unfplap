@@ -87,6 +87,7 @@ func run() -> void:
 	_check_scene_gate()
 	_check_rest_rejoin()
 	_check_act_audio()
+	_check_hud_lines()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -530,6 +531,27 @@ func _check_act_audio() -> void:
 	for token: String in ["_voice_player", "_voice_volume_saved", "_text_only_voice",
 			"_sounds_controller", "func _find_voice_player("]:
 		check(not runtime.contains(token), "runtime has no audio internals: %s" % token)
+
+
+## The pure HUD text stays scene-free; the runtime gathers the values and the card renders them.
+## Its contract is `docs/hud.md`.
+func _check_hud_lines() -> void:
+	var lines := FileAccess.get_file_as_string(ROOT.path_join("hud_lines.gd"))
+	check(lines.contains("static func cue_line(") and lines.contains("static func y_pink("),
+		"hud lines module is present")
+	for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")"]:
+		check(not lines.contains(token), "hud lines stays pure: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/hud.md"))
+	check(contract.contains("## Ownership"), "docs/hud.md documents the owner")
+	check(contract.contains("`hud_lines.gd`"), "docs/hud.md names hud_lines.gd")
+	for name: String in ["test_hud_lines.gd", "test_hud.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/hud/" + name)),
+			"tests/hud/%s exists" % name)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("HUD_LINES.cue_line("), "runtime reaches the HUD text through hud_lines")
+	check(not runtime.contains("const Y_END_TINT_MAX"), "runtime has no HUD tint constant")
 
 
 func _check_eligibility_docs() -> void:

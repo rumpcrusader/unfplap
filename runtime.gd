@@ -5,6 +5,7 @@ const POSE_SESSION := preload("res://mods/unfplap/poses/session.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest_rejoin.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud_lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
@@ -130,9 +131,6 @@ const STANDING_GAPS := {
 ## speed; the camera's speed-driven thrust is separate.
 ## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
 ## Standing after the climax: held afterglow; Anon stays put.
-## The Y hint's `End` shade: one step per climax, capped below full so only the earned
-## afterglow caress turns it fully pink.
-const Y_END_TINT_MAX := 0.75
 
 ## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
 ## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
@@ -1237,63 +1235,39 @@ func hud_controls() -> bool:
 ## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
 ## always kept in afterglow even when the optional readouts are off.
 func hud_cue_line(show_readouts := true) -> String:
-	if state not in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		return ""
-	var hearts := "❤ %d/∞" % pony_climaxes if _max_pony_climaxes <= 0 \
-		else "❤ %d/%d" % [pony_climaxes, _max_pony_climaxes]
-	var parts: PackedStringArray = [hearts]
-	var cue_text := cue.strip_edges()
-	var closing := state == State.AFTERGLOW
-	if closing:
-		var close_text := close_hint()
-		if not close_text.is_empty():
-			cue_text = close_text
-		elif not _summary.is_empty():
-			cue_text = str(_summary.get("hud", ""))
-	if show_readouts or closing:
-		parts.append(cue_text if not cue_text.is_empty() else "—")
-	return " | ".join(parts)
+	var close_text := close_hint() if state == State.AFTERGLOW else ""
+	return HUD_LINES.cue_line(state, pony_climaxes, _max_pony_climaxes, cue, close_text,
+		str(_summary.get("hud", "")), show_readouts)
 
-## Separate readiness/preference line under the cue. In the afterglow it carries the act summary when
-## the cue already shows the standing close prompt. Empty elsewhere when readouts are off.
+
+## Separate readiness/preference line under the cue. In the afterglow it carries the act summary
+## when the cue already shows the standing close prompt.
 func hud_readiness_line(show_readouts := true) -> String:
-	if state == State.AFTERGLOW:
-		if _summary.is_empty() or close_hint().is_empty():
-			return ""
-		return str(_summary.get("hud", ""))
-	if not show_readouts or state not in [State.ACTIVE, State.CLIMAX]:
-		return ""
-	var have_intensity := _last_intensity if not _last_intensity.is_empty() else "—"
-	var have_pattern := _last_pattern if not _last_pattern.is_empty() else "—"
-	var want_intensity := str(_preferences.get("intensity", "firm"))
-	var want_pattern := str(_preferences.get("pattern", "steady"))
-	var line := "Wants: %s & %s | You: %s & %s" % [
-		want_intensity, want_pattern, have_intensity, have_pattern]
-	return line + " | In heat" if cycle_phase() == CYCLE.HEAT else line
+	return HUD_LINES.readiness_line(state, show_readouts, _last_intensity, _last_pattern,
+		str(_preferences.get("intensity", "firm")), str(_preferences.get("pattern", "steady")),
+		cycle_phase() == CYCLE.HEAT, close_hint(), str(_summary.get("hud", "")))
+
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
 func auto_active() -> bool:
 	return _auto_on and state in [State.ACTIVE, State.CLIMAX]
 
+
 ## Pink shade for the control card's `End`: one step per climax, capped below full so only the
 ## earned standing afterglow caress turns it fully pink.
 func hud_y_pink() -> float:
-	if pose_id == CATALOG.STANDING and state == State.AFTERGLOW and _close_caress_earned:
-		return 1.0
-	var reference := float(_max_pony_climaxes) if _max_pony_climaxes > 0 else 3.0
-	return clampf(float(pony_climaxes) / reference, 0.0, 1.0) * Y_END_TINT_MAX
+	return HUD_LINES.y_pink(pose_id == CATALOG.STANDING, state == State.AFTERGLOW,
+		_close_caress_earned, pony_climaxes, _max_pony_climaxes)
+
 
 ## HUD control readout under the Wants/You line. Empty while manual.
 func auto_hud_text() -> String:
 	if not auto_active():
 		return ""
 	var auto = _auto_controller()
-	return "Auto · %d–%d%% · %.2f/s · %s" % [
-		roundi(float(auto.get("min_depth")) * 100.0),
-		roundi(float(auto.get("max_depth")) * 100.0),
-		float(auto.get("pace")), auto_shape_name()]
+	return HUD_LINES.auto_text(float(auto.get("min_depth")), float(auto.get("max_depth")),
+		float(auto.get("pace")), auto_shape_name())
 
-## Act blush and wing presentation. The blush ramps with readiness unless the debug arc is off.
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
 		return

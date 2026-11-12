@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/afterglow/test_afterglow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud_lines.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
@@ -103,12 +104,12 @@ func run() -> void:
 	pink_runtime.pony_climaxes = 2
 	check(near(pink_runtime.hud_y_pink(), 0.5), "two climaxes shade End halfway")
 	pink_runtime.pony_climaxes = 3
-	check(near(pink_runtime.hud_y_pink(), RUNTIME.Y_END_TINT_MAX),
+	check(near(pink_runtime.hud_y_pink(), HUD_LINES.Y_END_TINT_MAX),
 		"three climaxes stop short of full pink")
 	pink_runtime._afterglow.close_caress_earned = true
 	check(near(pink_runtime.hud_y_pink(), 1.0), "the earned caress turns End fully pink")
 	pink_runtime.pose_id = "missionary"
-	check(near(pink_runtime.hud_y_pink(), RUNTIME.Y_END_TINT_MAX),
+	check(near(pink_runtime.hud_y_pink(), HUD_LINES.Y_END_TINT_MAX),
 		"missionary keeps the capped climax shade")
 	pink_runtime.free()
 

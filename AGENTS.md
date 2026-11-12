@@ -29,6 +29,7 @@ Do not start implementation until you have read the required files for the area 
 | Character profiles or preference | `character_preferences.gd`, `settings.gd`, `poses/catalog.gd`, `PREFERENCES.md` |
 | Cross-mod API | `docs/api.md`, `api.gd`, `mare_registry.gd` |
 | Act audio or sound assets | `act_audio.gd`, `act_sound.gd`, `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
+| Any act HUD text or `End` tint task | `docs/hud.md` |
 | Release | `.opencode/skills/release/SKILL.md` |
 | Sync local settings to shipped defaults | `.opencode/skills/sync-settings/SKILL.md` |
 
@@ -130,6 +131,7 @@ when their system is next touched.
 | `docs/scene_gate.md` | live scene rows and the refusal executor |
 | `docs/rest.md` | bed anchor, placement, cuddle rejoin and restore posture |
 | `docs/audio.md` | act pack layers, base-game breath/climax and the Ponese mute |
+| `docs/hud.md` | cue/readiness/auto text and the `End` tint |
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
@@ -398,6 +400,7 @@ mods/unfplap/
   poses/missionary_pose.json  the authored pose; exported from the pose lab, never hand-edited
   hud.gd            bottom-left controls list, combined status line, readiness line, close cue
                     and afterglow summary
+  hud_lines.gd      pure cue/readiness/auto text and the End tint; contract in docs/hud.md
   input.gd          Y start/end, right-click smack routing, key consumption, action hotkeys
   settings.gd       settings.json IO and cache, legacy migration, provider and per-character merge
   api.gd            stable cross-mod facade; see docs/api.md

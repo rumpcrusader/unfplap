@@ -13,7 +13,8 @@ readiness values are `docs/readiness.md`; the close window is `docs/afterglow.md
 | `docs/hud.md` | this contract |
 
 The runtime gathers the live values (state, climax count and limit, cue, close hint, summary,
-preference axes, heat, auto settings) and calls `hud_lines.gd`. The pure module has no Node,
+preference axes, heat) and reads the auto values from `readiness.gd`; it then calls
+`hud_lines.gd`. The pure module has no Node,
 tree, `Settings` or game access, so the formats are testable without a scene.
 
 ## Lines

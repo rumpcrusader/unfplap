@@ -19,7 +19,6 @@ const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
-const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
@@ -347,13 +346,6 @@ var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 ## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
-var _auto_thrust
-var _auto_panel
-var _auto_on := false
-var _auto_default_pace := 1.0
-var _auto_default_depth := 0.5
-var _auto_default_min := 0.0
-var _auto_default_shape := "cosine"
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
@@ -749,8 +741,7 @@ func _climaxes() -> int:
 
 
 func _auto_pace() -> float:
-	var auto: Variant = _auto_controller()
-	return float(auto.get("pace")) if auto != null else 1.0
+	return _readiness.auto_pace()
 
 
 func _bed_frame() -> Variant:
@@ -1124,11 +1115,9 @@ func _snapshot_settings() -> void:
 	_thrust_travel = float(thrust_block.get("travel", 0.5))
 	_max_pony_climaxes = int(thrust_block.get("max_pony_climaxes", 3))
 	var auto_block := SETTINGS.block("auto_thrust.")
-	_auto_default_pace = float(auto_block.get("pace", 1.0))
-	_auto_default_depth = float(auto_block.get("max_depth", 0.5))
-	_auto_default_min = float(auto_block.get("min_depth", 0.0))
-	var shape_setting := str(auto_block.get("curve", "cosine"))
-	_auto_default_shape = shape_setting if AUTO_THRUST.SHAPES.has(shape_setting) else "cosine"
+	_readiness.configure_auto(float(auto_block.get("pace", 1.0)),
+		float(auto_block.get("max_depth", 0.5)), str(auto_block.get("curve", "cosine")),
+		float(auto_block.get("min_depth", 0.0)))
 	var jiggle_block := SETTINGS.block("jiggle.")
 	_reactions.configure({
 		"jiggle": jiggle_block,
@@ -1177,8 +1166,6 @@ func apply_live_settings() -> void:
 	var climax := _feature("act_climax")
 	_ensure_act_audio(vocals, climax)
 	_reactions.apply_radius()
-	if _auto_thrust != null:
-		_auto_thrust.call("set_shape", _auto_default_shape)
 	if pose_id == CATALOG.STANDING:
 		_kiss_controller().apply_live_settings()
 		_sync_standing_pose_config()
@@ -1241,7 +1228,7 @@ func hud_readiness_line(show_readouts := true) -> String:
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
 func auto_active() -> bool:
-	return _auto_on and state in [State.ACTIVE, State.CLIMAX]
+	return _readiness.auto_active()
 
 
 ## Pink shade for the control card's `End`: one step per climax, capped below full so only the
@@ -1255,9 +1242,8 @@ func hud_y_pink() -> float:
 func auto_hud_text() -> String:
 	if not auto_active():
 		return ""
-	var auto = _auto_controller()
-	return HUD_LINES.auto_text(float(auto.get("min_depth")), float(auto.get("max_depth")),
-		float(auto.get("pace")), auto_shape_name())
+	return HUD_LINES.auto_text(_readiness.auto_min_depth(), _readiness.auto_max_depth(),
+		_readiness.auto_pace(), auto_shape_name())
 
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
@@ -1374,7 +1360,7 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
-		if not _auto_on and _thrust_tracker != null:
+		if not _readiness.auto_active() and _thrust_tracker != null:
 			var travel: float = THRUST.pixels_to_metres(motion.relative.y, _thrust_pixels_per_cm,
 				thrust_up)
 			_set_penetration(penetration_m + travel, _now_s())
@@ -1448,7 +1434,7 @@ func _physics_tick(delta: float) -> void:
 	_keep_act_attention()
 	_pause_face_turn()
 	_hold_y_tick(delta)
-	_auto_panel_tick(delta)
+	_auto_layer_tick(delta)
 	_lean_tick(delta)
 	_sync_act_facts()
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
@@ -1460,7 +1446,7 @@ func _physics_tick(delta: float) -> void:
 	_kiss_controller().tick(delta)
 	_timed("kiss_tick", kiss_started)
 	if state in [State.ACTIVE, State.CLIMAX]:
-		_auto_thrust_tick(delta)
+		_auto_tick(delta)
 		_thrust_tick()
 		if _anatomy_bridge.act_available():
 			_anatomy_bridge.bind(_anatomy_host())
@@ -2356,10 +2342,7 @@ func _now_s() -> float:
 func _reset_thrust_state() -> void:
 	depth = 0.0
 	penetration_m = -_back_out_m()
-	_auto_on = false
-	_auto_controller().reset(_auto_default_pace, _auto_default_depth, _auto_default_shape,
-		_auto_default_min)
-	_auto_panel_controller().reset()
+	_readiness.reset_auto()
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
 	_standing_sway_offset = Vector3.ZERO
@@ -2375,97 +2358,50 @@ func _reset_thrust_state() -> void:
 		_thrust_tracker = THRUST.new()
 	_thrust_tracker.reset()
 
-func _auto_controller():
-	if _auto_thrust == null:
-		_auto_thrust = AUTO_THRUST.new()
-	return _auto_thrust
-
 ## Switch the automatic stroke on or off. X is the only caller. Turning it on starts from the
 ## hand's current depth, so the shot does not snap; turning it off leaves the depth where it is.
 func toggle_auto_thrust() -> void:
-	if state not in [State.ACTIVE, State.CLIMAX]:
-		return
-	_auto_on = not _auto_on
-	var auto = _auto_controller()
-	if _auto_on:
-		auto.call("begin", depth)
-	else:
-		auto.call("stop")
-	_log("auto thrust %s pace=%.2f/s depth=%.0f%%" % [
-		"on" if _auto_on else "off", float(auto.get("pace")),
-		float(auto.get("max_depth")) * 100.0])
+	_readiness.toggle_auto(depth)
 
-## One wheel notch while auto owns the stroke. A static controller makes this a no-op.
+
+## One wheel notch while auto owns the stroke.
 func auto_thrust_wheel(direction: int) -> void:
-	if not _auto_on or state not in [State.ACTIVE, State.CLIMAX]:
-		return
-	_auto_controller().call("nudge_pace", float(direction) * AUTO_THRUST.PACE_STEP)
-
-
-func _auto_panel_controller():
-	if _auto_panel == null:
-		_auto_panel = AUTO_PANEL.new()
-	return _auto_panel
+	_readiness.auto_wheel(direction)
 
 
 ## True while the hold-X auto settings layer is open. The lean, the caress input and the kiss
 ## read this so W/S/Q/E/A/D/Z/F belong to the layer instead of the act.
 func auto_panel_open() -> bool:
-	return _auto_panel != null and bool(_auto_panel.get("open"))
+	return _readiness.auto_panel_open()
 
 
 ## Hold X for the auto settings layer: a tap still toggles auto, a hold opens the four rows while
-## auto runs. Every action comes from the pure `auto_panel.gd`.
-func _auto_panel_tick(delta: float) -> void:
-	if state not in [State.ACTIVE, State.CLIMAX]:
-		_auto_panel_controller().reset()
-		return
+## auto runs. The policy and every row nudge live in `readiness.gd`; the runtime supplies the key
+## states and carries out the one settings write.
+func _auto_layer_tick(delta: float) -> void:
 	var keys := [
 		Input.is_physical_key_pressed(KEY_Q), Input.is_physical_key_pressed(KEY_A),
 		Input.is_physical_key_pressed(KEY_W), Input.is_physical_key_pressed(KEY_S),
 		Input.is_physical_key_pressed(KEY_E), Input.is_physical_key_pressed(KEY_D),
 		Input.is_physical_key_pressed(KEY_Z),
 	]
-	var actions: Array = _auto_panel_controller().tick(delta,
-		Input.is_physical_key_pressed(KEY_X), keys, _auto_on)
+	var actions: Array[String] = _readiness.auto_panel_tick(delta,
+		Input.is_physical_key_pressed(KEY_X), keys, depth)
 	for action: String in actions:
-		_auto_panel_action(action)
-
-
-func _auto_panel_action(action: String) -> void:
-	var auto = _auto_controller()
-	match action:
-		"toggle":
-			toggle_auto_thrust()
-		"min_up", "min_down":
-			auto.call("nudge_min", AUTO_PANEL.DEPTH_STEP if action == "min_up"
-				else -AUTO_PANEL.DEPTH_STEP)
-		"max_up", "max_down":
-			auto.call("nudge_depth", AUTO_PANEL.DEPTH_STEP if action == "max_up"
-				else -AUTO_PANEL.DEPTH_STEP)
-		"pace_up", "pace_down":
-			auto.call("nudge_pace", AUTO_PANEL.PACE_STEP if action == "pace_up"
-				else -AUTO_PANEL.PACE_STEP)
-		"shape_next":
+		if action == "shape_next":
 			auto_cycle_shape()
-		_:
-			return
-	_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s shape=%s" % [
-		action, float(auto.get("min_depth")) * 100.0, float(auto.get("max_depth")) * 100.0,
-		float(auto.get("pace")), str(auto.get("shape"))])
 
 
 ## `Z` in the layer: next stroke shape, written to settings so an experiment survives the act.
 func auto_cycle_shape() -> void:
-	var next: String = AUTO_THRUST.next_shape(str(_auto_controller().get("shape")))
+	var next: String = AUTO_THRUST.next_shape(_readiness.auto_shape())
 	SETTINGS.curve.set_choice(next)
-	_auto_default_shape = next
-	_auto_controller().call("set_shape", next)
+	_readiness.auto_set_shape(next)
 
 
 ## The `Auto shape` label for the current generator value, matching the settings row.
 func auto_shape_name() -> String:
-	var value := str(_auto_controller().get("shape"))
+	var value: String = _readiness.auto_shape()
 	var index := SETTINGS.curve.options.find(value)
 	if index >= 0 and index < SETTINGS.curve.labels.size():
 		return str(SETTINGS.curve.labels[index])
@@ -2474,14 +2410,13 @@ func auto_shape_name() -> String:
 
 ## Live text for one hold-X control row.
 func auto_panel_label(kind: String) -> String:
-	var auto = _auto_controller()
 	match kind:
 		"min":
-			return "Min depth %d%%" % roundi(float(auto.get("min_depth")) * 100.0)
+			return "Min depth %d%%" % roundi(_readiness.auto_min_depth() * 100.0)
 		"max":
-			return "Max depth %d%%" % roundi(float(auto.get("max_depth")) * 100.0)
+			return "Max depth %d%%" % roundi(_readiness.auto_max_depth() * 100.0)
 		"pace":
-			return "Pace %.2f/s" % float(auto.get("pace"))
+			return "Pace %.2f/s" % _readiness.auto_pace()
 		"shape":
 			return "Shape: %s" % auto_shape_name()
 	return ""
@@ -2617,19 +2552,18 @@ func anatomy_place(op: String, value := 0.0) -> String:
 	return _anatomy_bridge.place(op, value)
 
 ## Idempotent stop for every state exit. It never moves the depth.
-func _stop_auto_thrust() -> void:
-	_auto_on = false
-	if _auto_thrust != null:
-		_auto_thrust.call("stop")
-	if _auto_panel != null:
-		_auto_panel.call("close")
+func _stop_auto() -> void:
+	_readiness.stop_auto()
+
 
 ## Feed the generated depth through the same tracker as the mouse. Strength, readiness,
 ## intensity, pattern, audio, camera and presentation therefore need no auto-specific path.
-func _auto_thrust_tick(delta: float) -> void:
-	if not _auto_on or _thrust_tracker == null:
+func _auto_tick(delta: float) -> void:
+	if _thrust_tracker == null:
 		return
-	var next_depth: float = _auto_controller().call("step", delta)
+	var next_depth: float = _readiness.auto_step(delta)
+	if is_nan(next_depth):
+		return
 	_thrust_move(next_depth - depth, _now_s())
 	penetration_m = depth * penetration_reach()
 
@@ -3560,7 +3494,7 @@ func _commit_afterglow() -> void:
 ## tail.
 func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
-	_stop_auto_thrust()
+	_stop_auto()
 	_end_act_lines(true)
 	# Missionary afterglow keeps only lean and caress; standing keeps its kiss.
 	if pose_id != CATALOG.STANDING:
@@ -3632,7 +3566,7 @@ func _restore_begin() -> void:
 		return
 	_record_peak_memory()
 	_afterglow.cancel_close()
-	_stop_auto_thrust()
+	_stop_auto()
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	state = State.RESTORE
@@ -3657,7 +3591,7 @@ func _restore_begin() -> void:
 ## `cancel()` queues the early-stop reaction after `_restore_begin()`, and `_finish_restore()` must
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
-	_stop_auto_thrust()
+	_stop_auto()
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null

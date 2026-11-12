@@ -145,18 +145,17 @@ func run() -> void:
 
 	# Auto thrust feeds the same tracker and scores through it.
 	runtime.state = 2
-	runtime._auto_default_pace = 1.5
-	runtime._auto_default_depth = 0.9
+	runtime._readiness.configure_auto(1.5, 0.9, "cosine", 0.0)
 	runtime._reset_thrust_state()
 	var auto_thrusts := int(runtime._act_intensity_total)
 	runtime.toggle_auto_thrust()
 	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
 	for _i: int in 240:
 		runtime._clock_s += 1.0 / 60.0
-		runtime._auto_thrust_tick(1.0 / 60.0)
+		runtime._auto_tick(1.0 / 60.0)
 	check(int(runtime._act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
 	check(not str(runtime._last_intensity).is_empty(), "auto thrust classifies intensity")
-	runtime._stop_auto_thrust()
+	runtime._stop_auto()
 	check(not runtime.auto_active(), "stopping auto clears the mode")
 	runtime._reset_thrust_state()
 	check(not runtime.auto_active(), "thrust reset clears auto for the next act")

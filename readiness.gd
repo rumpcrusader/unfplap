@@ -6,6 +6,8 @@ extends RefCounted
 
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
+const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
+const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
 
 const READINESS_MAX := 100.0
 const PONY_CLIMAX_AT := READINESS_MAX
@@ -86,6 +88,129 @@ var tolerance_event := Callable()
 var heat_cycle := Callable()
 ## `(mood, cue, is_override)` after the cue changed. The runtime syncs its act view and admits.
 var on_cue := Callable()
+
+## Auto thrust and the hold-X layer. The runtime reads the keys and applies the returned depth,
+## so the stroke still runs through one tracker and scores like the mouse.
+var auto_thrust: RefCounted = AUTO_THRUST.new()
+var auto_panel: RefCounted = AUTO_PANEL.new()
+var auto_on := false
+## The act's `auto_thrust.*` snapshot, pushed by the runtime.
+var auto_default_pace := 1.0
+var auto_default_depth := 0.5
+var auto_default_min := 0.0
+var auto_default_shape := "cosine"
+
+
+## The runtime forwards the public values; these are the auto readouts.
+func auto_active() -> bool:
+	return auto_on and _state_in([STATE_ACTIVE, STATE_CLIMAX])
+
+
+## Snapshot the auto defaults once per act and on every live settings apply. The live shape
+## follows the setting, matching the old runtime behaviour.
+func configure_auto(pace: float, max_depth: float, shape: String, min_depth: float) -> void:
+	auto_default_pace = pace
+	auto_default_depth = max_depth
+	auto_default_min = min_depth
+	auto_default_shape = shape if AUTO_THRUST.SHAPES.has(shape) else "cosine"
+	auto_thrust.set_shape(auto_default_shape)
+
+
+## A fresh act: the generator returns to its settings defaults and the layer closes.
+func reset_auto() -> void:
+	auto_on = false
+	auto_thrust.reset(auto_default_pace, auto_default_depth, auto_default_shape,
+		auto_default_min)
+	auto_panel.reset()
+
+
+func stop_auto() -> void:
+	auto_on = false
+	auto_thrust.stop()
+	auto_panel.close()
+
+
+## X toggles auto in ACTIVE/CLIMAX. `current_depth` starts the machine where the hand left it.
+func toggle_auto(current_depth: float) -> bool:
+	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
+		return auto_on
+	auto_on = not auto_on
+	if auto_on:
+		auto_thrust.begin(current_depth)
+	else:
+		auto_thrust.stop()
+	_log("auto thrust %s pace=%.2f/s depth=%.0f%%" % [
+		"on" if auto_on else "off", auto_thrust.pace, auto_thrust.max_depth * 100.0])
+	return auto_on
+
+
+## One auto frame: the next depth, or NAN while auto is off. The runtime applies the depth.
+func auto_step(delta: float) -> float:
+	if not auto_on:
+		return NAN
+	return auto_thrust.step(delta)
+
+
+## One wheel notch while auto owns the stroke.
+func auto_wheel(direction: int) -> void:
+	if not auto_on or not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
+		return
+	auto_thrust.nudge_pace(float(direction) * AUTO_THRUST.PACE_STEP)
+
+
+func auto_panel_open() -> bool:
+	return auto_panel.open
+
+
+## The hold-X layer. The runtime supplies the key states and the current depth; the layer owns
+## tap/hold, the grace and the key repeats. Returns the actions the runtime still has to carry out
+## (the shape cycle is a settings write).
+func auto_panel_tick(delta: float, x_down: bool, keys: Array,
+		current_depth: float) -> Array[String]:
+	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
+		auto_panel.reset()
+		return []
+	var actions: Array[String] = auto_panel.tick(delta, x_down, keys, auto_on)
+	for action: String in actions:
+		match action:
+			"toggle":
+				toggle_auto(current_depth)
+			"min_up", "min_down":
+				auto_thrust.nudge_min(AUTO_PANEL.DEPTH_STEP if action == "min_up"
+					else -AUTO_PANEL.DEPTH_STEP)
+			"max_up", "max_down":
+				auto_thrust.nudge_depth(AUTO_PANEL.DEPTH_STEP if action == "max_up"
+					else -AUTO_PANEL.DEPTH_STEP)
+			"pace_up", "pace_down":
+				auto_thrust.nudge_pace(AUTO_PANEL.PACE_STEP if action == "pace_up"
+					else -AUTO_PANEL.PACE_STEP)
+	_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s shape=%s" % [
+		",".join(actions), auto_thrust.min_depth * 100.0, auto_thrust.max_depth * 100.0,
+		auto_thrust.pace, auto_thrust.shape])
+	return actions
+
+
+## The generator value. The runtime maps it to the settings label for the HUD.
+func auto_shape() -> String:
+	return auto_thrust.shape
+
+
+func auto_set_shape(name: String) -> void:
+	auto_default_shape = name
+	auto_thrust.set_shape(name)
+
+
+func auto_pace() -> float:
+	return auto_thrust.pace
+
+
+func auto_min_depth() -> float:
+	return auto_thrust.min_depth
+
+
+func auto_max_depth() -> float:
+	return auto_thrust.max_depth
+
 
 
 ## Start a fresh act. The configuration fields set by `configure()` survive.

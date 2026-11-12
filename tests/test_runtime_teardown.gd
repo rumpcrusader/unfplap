@@ -118,7 +118,7 @@ func _fixture() -> Dictionary:
 	runtime.pose_id = CATALOG_STANDING
 	runtime.source = "test"
 	runtime.state = 2
-	runtime._auto_on = true
+	runtime.toggle_auto_thrust()
 	runtime._nav = nav
 	nav.command_owner = "unfplap:test_mare"
 	nav.wander_enabled = false
@@ -153,7 +153,7 @@ func run() -> void:
 	check(pony.posture_requests.size() == 1 and pony.posture_requests[0] == "stand",
 		"standing posture requested once")
 	check(not runtime._posture_owned, "posture ownership cleared")
-	check(not runtime._auto_on, "teardown clears auto thrust")
+	check(not runtime.auto_active(), "teardown clears auto thrust")
 	check(int(runtime.state) == 0, "state returns to IDLE")
 	check(runtime.pose_id == "" and runtime.source == "" and runtime.bed == null,
 		"act ids cleared")

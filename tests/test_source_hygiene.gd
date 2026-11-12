@@ -303,11 +303,17 @@ func _check_readiness() -> void:
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")"]:
 		check(not facade.contains(token), "readiness has no scene reference: %s" % token)
+	check(facade.contains("func auto_step(") and facade.contains("func auto_panel_tick("),
+		"readiness owns the auto generator and the hold-X policy")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for token: String in ["AUTO_PANEL", "var _auto_thrust", "var _auto_panel", "_auto_on",
+			"_auto_default", "_auto_controller()", "auto_panel_action("]:
+		check(not runtime.contains(token), "runtime has no auto internals: %s" % token)
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/readiness.md"))
 	check(contract.contains("## Ownership"), "docs/readiness.md documents the readiness owner")
 	check(contract.contains("`readiness.gd`"), "docs/readiness.md names readiness.gd")
 	for name: String in ["test_readiness.gd", "test_runtime_thrust.gd", "test_preferences.gd",
-			"test_auto_thrust.gd", "test_auto_panel.gd"]:
+			"test_auto_thrust.gd", "test_auto_panel.gd", "test_readiness_auto.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/readiness/" + name)),
 			"tests/readiness/%s exists" % name)
 

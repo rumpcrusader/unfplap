@@ -11,12 +11,25 @@ are `docs/lines.md`; the HUD text is `docs/hud.md`; the camera response is `docs
 `satisfaction`, `mood`, `cue` and `pony_climaxes`; the runtime forwards them and keeps the act
 state machine, the climax transition, the face beats and the tolerance meter. The runtime calls
 `readiness.stroke()`, `touch()`, `talk()` and `tick()`; readiness owns the counters the summary
-reads and the one-second impact window. It also owns the auto-thrust generator and the hold-X panel
-policy (after the auto phase).
+reads and the one-second impact window. It also owns the auto-thrust generator, the hold-X panel
+policy and their defaults.
 
 `thrust.gd`, `auto_thrust.gd` and `auto_panel.gd` are pure modules behind the facade. The runtime
-keeps the input reads (`Input`, mouse motion, wheel) and applies the depth through `_thrust_move`
-so audio, camera, jiggle and presentation keep one path.
+keeps the input reads (`Input`, mouse motion, wheel, the shape key) and applies the depth through
+`_thrust_move` so audio, camera, jiggle and presentation keep one path.
+
+The auto surface:
+
+| Facade call | Contract |
+|---|---|
+| `configure_auto(pace, max_depth, shape, min_depth)` | push the act's `auto_thrust.*` snapshot; `reset_auto()` returns to it |
+| `reset_auto()` / `stop_auto()` | a fresh act / the act phases that end it |
+| `toggle_auto(depth)` | `X`; starts the generator at the hand's current depth |
+| `auto_step(delta)` | one generated depth, or `NAN` while off; the runtime applies it |
+| `auto_wheel(direction)` | the wheel notch |
+| `auto_panel_tick(delta, x_down, keys, depth)` | the hold-X policy; applies the row nudges and the tap, returns the remaining actions |
+| `auto_panel_open()`, `auto_shape()`, `auto_*_depth()`, `auto_pace()` | the HUD and the settings-shape reads |
+| `auto_set_shape(name)` | the runtime's `Z` settings write lands here too |
 
 ## What the player does
 
@@ -151,6 +164,8 @@ The afterglow phase and the standing close window are `docs/afterglow.md`.
   the four live rows.
 - The runtime reads `Input` and passes the key states to readiness; readiness returns the actions
   and the generated depth. The mouse does nothing while auto is on. The wheel sets pace.
+- The panel's `toggle` and min/max/pace nudges are applied inside readiness. The one remaining
+  action is `shape_next`: the runtime writes `SETTINGS.curve` and calls `auto_set_shape()`.
 - `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
   stop it, and `_reset_thrust_state()` restores the act-start defaults.
 - The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).
@@ -172,6 +187,8 @@ declared once in `settings.gd`.
 - `tests/readiness/test_preferences.gd` — profile merge, likes/dislikes, classification.
 - `tests/readiness/test_auto_thrust.gd` — every waveform, pace, band, inverse phase and reset.
 - `tests/readiness/test_auto_panel.gd` — tap/hold, grace, repeats and the shape cycle.
+- `tests/readiness/test_readiness_auto.gd` — the facade: defaults, toggle, step, wheel, the panel
+  actions and the reset.
 
 ## Verification / lab
 

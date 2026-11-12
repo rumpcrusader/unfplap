@@ -213,12 +213,12 @@ func _path_for(hand_side: String) -> Variant:
 
 
 func _camera_position() -> Vector3:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return Vector3.INF
-	var value: Variant = runtime.get("_camera")
+	var value: Variant = facts.camera
 	if value is Camera3D and is_instance_valid(value):
 		return (value as Camera3D).global_position
-	var main: Variant = runtime.get("main")
+	var main: Variant = facts.main
 	if is_instance_valid(main) and main.has_method("camera"):
 		var cam: Variant = main.call("camera")
 		if cam is Camera3D and is_instance_valid(cam):
@@ -281,5 +281,5 @@ func _hull_regions(hull: String) -> Array:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)

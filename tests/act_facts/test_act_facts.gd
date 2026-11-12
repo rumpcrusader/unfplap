@@ -20,6 +20,12 @@ class Sink extends RefCounted:
 	var basis_ready := 0
 	var kiss_calls := 0
 	var neck := Vector3(1.0, 2.0, 3.0)
+	var touch_kind := ""
+	var touch_calls := 0
+	var impact_strength := 0.0
+	var offer_ok := true
+	var paused := false
+	var restored := 0
 
 	func note(chunk: String, usec: int) -> void:
 		perf_calls += 1
@@ -51,6 +57,25 @@ class Sink extends RefCounted:
 
 	func clock_now() -> float:
 		return 7.5
+
+	func touch_event(kind: String) -> void:
+		touch_kind = kind
+		touch_calls += 1
+
+	func impact(strength: float) -> void:
+		impact_strength = strength
+
+	func offer(_pose: String, _source: String, _bed: Variant) -> bool:
+		return offer_ok
+
+	func pause(on: bool) -> void:
+		paused = on
+
+	func restore() -> void:
+		restored += 1
+
+	func host() -> Variant:
+		return self
 
 
 func _initialize() -> void:
@@ -130,6 +155,38 @@ func run() -> void:
 		"the kiss callback returns the controller")
 	check(facts.neck_midpoint() == sink.neck, "the neck callback returns the point")
 	check(is_equal_approx(facts.clock(), 7.5), "the clock callback supplies the act clock")
+
+	check(not facts.on_touch.is_valid() and not facts.on_smack.is_valid(),
+		"the readiness callbacks start absent")
+	facts.touch("caress")
+	facts.smack_hit(0.4)
+	facts.pause_face(true)
+	facts.restore_face()
+	check(true, "absent readiness and scene-hold callbacks are no-ops")
+	check(facts.driver_host() == null, "an absent pose host returns null")
+	check(not facts.offer_allowed("standing", ""), "an absent offer gate refuses")
+	check(facts.standing_camera_controller() == null, "an absent camera callback returns null")
+	check(facts.pose_driver() == null, "an absent pose driver returns null")
+	facts.on_touch = Callable(sink, "touch_event")
+	facts.on_smack = Callable(sink, "impact")
+	facts.can_offer = Callable(sink, "offer")
+	facts.pause_face_turn = Callable(sink, "pause")
+	facts.restore_face_turn = Callable(sink, "restore")
+	facts.pose_host = Callable(sink, "host")
+	facts.touch("kiss")
+	check(sink.touch_calls == 1 and sink.touch_kind == "kiss",
+		"the touch callback receives the kind")
+	facts.smack_hit(0.25)
+	check(is_equal_approx(sink.impact_strength, 0.25), "the smack callback receives the strength")
+	facts.pause_face(true)
+	check(sink.paused, "the face-turn pause callback receives the force flag")
+	facts.restore_face()
+	check(sink.restored == 1, "the face-turn restore callback fires once")
+	check(facts.offer_allowed("standing", "") and sink.offer_ok, "the offer gate answers the caller")
+	sink.offer_ok = false
+	check(not facts.offer_allowed("standing", ""), "a closed offer gate refuses")
+	check(facts.driver_host() == sink, "the pose host callback returns the host")
+	check(is_equal_approx(facts.physics_delta, 0.016), "the physics delta starts at 60 Hz")
 
 	print("ACT_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

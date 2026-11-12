@@ -350,16 +350,12 @@ func _impact_at(index: int, at: Vector3) -> void:
 			sig.connect(callable)
 	_notify_jiggle()
 	if is_instance_valid(hand):
-		var runtime: Node = hand.smack_runtime()
-		if is_instance_valid(runtime):
-			runtime.call("_on_touch", "smack")
+		hand.hand_on_touch("smack")
 
 
 func _notify_jiggle() -> void:
 	if is_instance_valid(hand):
-		var runtime: Node = hand.smack_runtime()
-		if is_instance_valid(runtime) and runtime.has_method("_on_smack_impact"):
-			runtime.call("_on_smack_impact", SMACK_IMPACT_STRENGTH)
+		hand.hand_on_smack_impact(SMACK_IMPACT_STRENGTH)
 
 
 func _flank() -> Node:

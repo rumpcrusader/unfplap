@@ -19,7 +19,7 @@ const SHOT_IDS := ["start", "back", "front", "left", "right"]
 ## authored shot does not move for a kiss; its front transform is the kiss framing.
 const KISS_CLEARANCE_M := 0.45
 
-var runtime: Node
+var facts: Variant
 var main: Variant
 var pony: Variant
 var bed: Variant
@@ -48,14 +48,21 @@ var _free_look_log_at := 0
 var _missing_shots_logged: Dictionary = {}
 
 
+## Read the live scene handles from the typed act view. The runtime rewrites the view before
+## it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
-	main = runtime.get("main") if is_instance_valid(runtime) else null
-	pony = runtime.get("pony") if is_instance_valid(runtime) else null
-	bed = runtime.get("bed") if is_instance_valid(runtime) else null
+	if facts == null:
+		main = null
+		pony = null
+		bed = null
+		return
+	main = facts.main
+	pony = facts.pony
+	bed = facts.bed
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 func prepare() -> void:
@@ -124,15 +131,14 @@ func tick() -> void:
 	if not is_instance_valid(pony):
 		return
 	var look := Vector3.ZERO
-	if is_instance_valid(runtime) and runtime.has_method("free_look_active") \
-			and bool(runtime.call("free_look_active")):
-		var rotation: Variant = runtime.call("free_look_rotation")
+	if facts != null and bool(facts.free_look_active):
+		var rotation: Variant = facts.call_value(facts.free_look_rotation, Vector3.ZERO)
 		if rotation is Vector3:
 			look = rotation
 	if str(SETTINGS.camera_mode.get_value()) == "eye":
-		_tick_eye(runtime.call("_kiss_controller"), look)
+		_tick_eye(facts.kiss_controller(), look)
 		return
-	_tick_authored(runtime.call("_kiss_controller"), look)
+	_tick_authored(facts.kiss_controller(), look)
 
 
 ## His own view: the camera is his posed head, so the lean (which bends his chest and neck) and the
@@ -142,7 +148,7 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		_make_missionary_view()
 	if not is_instance_valid(_missionary_view):
 		return
-	var body: Variant = runtime.call("missionary_anon_body") if is_instance_valid(runtime) else null
+	var body: Variant = facts.missionary_body() if facts != null else null
 	if body == null:
 		return
 	var eye: Variant = body.call("eye_transform")
@@ -153,11 +159,11 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
 		basis = Basis(Vector3.UP, look.y) * basis * Basis(Vector3.RIGHT, look.x)
 	# The same speed-driven surge/bob the standing camera uses; at rest both settle to zero.
-	at += Vector3.UP * float(runtime.get("_bob"))
-	at -= basis.z * float(runtime.get("_lean"))
-	var aim: Vector3 = runtime.call("missionary_face_point")
+	at += Vector3.UP * float(facts.bob)
+	at -= basis.z * float(facts.lean)
+	var aim: Vector3 = facts.call_value(facts.missionary_face_point, Vector3.INF)
 	if aim.is_finite():
-		at += basis.x * kiss.lateral_offset(float(runtime.call("_lean_size_scale")))
+		at += basis.x * kiss.lateral_offset(float(facts.lean_size_scale))
 		at.y -= kiss.lean_drop() * kiss.lean()
 		if kiss.lean() > 0.0:
 			var reach := (aim - at).length()
@@ -166,7 +172,7 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	at = _clear_live_head(at)
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = basis
-	runtime.set("_camera_basis_ready", true)
+	facts.mark_camera_basis_ready()
 	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
 			and Time.get_ticks_msec() >= _free_look_log_at:
 		_free_look_log_at = Time.get_ticks_msec() + 2000
@@ -183,8 +189,8 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		return
 	var scale := _missionary_body_scale()
-	var forward := clampf(float(runtime.call("shot_lean_forward")), -1.0, 1.0)
-	var side := clampf(float(runtime.get("_lean_view_side")), -1.0, 1.0)
+	var forward := clampf(float(facts.shot_lean_forward), -1.0, 1.0)
+	var side := clampf(float(facts.lean_view_side), -1.0, 1.0)
 	var tf := absf(forward)
 	var ts := absf(side)
 	var total := maxf(1.0, tf + ts)
@@ -205,13 +211,13 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	var view_basis := shot.basis.orthonormalized()
 	# The speed-driven surge/bob from standing: zero at rest, so the eye is exactly the authored
 	# transform; during a stroke the view rocks with it.
-	at += Vector3.UP * float(runtime.get("_bob"))
-	at -= view_basis.z * float(runtime.get("_lean"))
+	at += Vector3.UP * float(facts.bob)
+	at -= view_basis.z * float(facts.lean)
 	if SETTINGS.third_person.get_bool():
 		# Third-person views (debug) is the only deviation from the authored transform: the lean
 		# tilts the eye, the speed-driven surge travels along the mattress and a side lean travels
 		# with it. Off, the eye is exactly the authored shot at every extreme.
-		var lean_scale: float = float(runtime.call("_lean_size_scale"))
+		var lean_scale: float = float(facts.lean_size_scale)
 		var lean := Basis.from_euler(Vector3(
 			-deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(forward) * lean_scale,
 			-deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * side * lean_scale,
@@ -226,7 +232,7 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	at = _clear_live_head(at)
 	_missionary_view.global_position = at
 	_missionary_view.global_basis = view_basis
-	runtime.set("_camera_basis_ready", true)
+	facts.mark_camera_basis_ready()
 	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
 			and Time.get_ticks_msec() >= _free_look_log_at:
 		_free_look_log_at = Time.get_ticks_msec() + 2000
@@ -236,14 +242,14 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 ## The authored camera transform at one lean extreme: position and direction exactly as the pose
 ## lab saved them. A missing shot keeps the fixed bed-relative fallback, aimed at her face.
 func _shot_transform(id: String, scale: float) -> Transform3D:
-	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
+	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null
 	var frame: Variant = _bed_frame()
 	if asset != null and frame is Transform3D and bool(asset.call("has_shot", id)):
 		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
 		shot.origin *= scale
 		return (frame as Transform3D) * shot
 	var pos := _shot_position(id, scale)
-	var face: Vector3 = runtime.call("missionary_face_point")
+	var face: Vector3 = facts.call_value(facts.missionary_face_point, Vector3.INF)
 	if not face.is_finite():
 		face = _missionary_head_transform().origin
 	return Transform3D(_aimed_basis(pos, face), pos)
@@ -297,7 +303,7 @@ func _blend_shots(entries: Array) -> Transform3D:
 ## bed-relative point, never to her live body: the eye then only ever moves between fixed positions,
 ## and the log names what is still missing.
 func _shot_position(id: String, scale: float) -> Vector3:
-	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
+	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null
 	var frame: Variant = _bed_frame()
 	if asset != null and frame is Transform3D and bool(asset.call("has_shot", id)):
 		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
@@ -331,8 +337,8 @@ func _fallback_start(_asset: Variant, frame: Variant, scale: float) -> Vector3:
 
 
 func _bed_frame() -> Variant:
-	if is_instance_valid(runtime):
-		var frame: Variant = runtime.get("_bed_pose_frame")
+	if facts != null:
+		var frame: Variant = facts.bed_frame
 		if frame is Transform3D:
 			return frame
 	return null
@@ -481,12 +487,12 @@ func _missionary_head_look_point(view: Camera3D) -> Vector3:
 
 
 func _make_missionary_view() -> void:
-	if bool(runtime.get("_player_pony")) or not is_instance_valid(pony):
+	if bool(facts.player_pony) or not is_instance_valid(pony):
 		return
 	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
 		return
-	_missionary_prev_camera = runtime.get_viewport().get_camera_3d() \
-		if runtime.get_viewport() != null else null
+	_missionary_prev_camera = facts.viewport.get_camera_3d() \
+		if facts.viewport != null else null
 	_missionary_view = Camera3D.new()
 	_missionary_view.name = "UnfplapMissionaryView"
 	_missionary_view.top_level = true
@@ -535,8 +541,8 @@ func _free_missionary_view() -> void:
 ## Remember the exact scene at missionary start so ending early can revert to it.
 func _snapshot_missionary_start() -> void:
 	_missionary_start_bed_saved = false
-	_missionary_start_camera = runtime.get_viewport().get_camera_3d() \
-		if runtime.get_viewport() != null else null
+	_missionary_start_camera = facts.viewport.get_camera_3d() \
+		if facts.viewport != null else null
 	if is_instance_valid(_missionary_start_camera):
 		_missionary_start_camera_transform = _missionary_start_camera.global_transform
 	if is_instance_valid(main) and is_instance_valid(main.player):
@@ -554,7 +560,7 @@ func _snapshot_missionary_start() -> void:
 ## Park the game's desktop presentation, which would otherwise show and drive his body from the
 ## player rig. The act's own body (`missionary_anon.gd`) is placed and posed over it after this.
 func _hide_anon_avatar_for_missionary() -> void:
-	if str(runtime.get("pose_id")) != "missionary" or not is_instance_valid(main) \
+	if str(facts.pose_id) != "missionary" or not is_instance_valid(main) \
 			or not is_instance_valid(main.player):
 		return
 	if not is_instance_valid(_desktop_presentation) and is_instance_valid(main.game):
@@ -619,7 +625,7 @@ func _log_shot_setup() -> void:
 	if not is_instance_valid(main) or not bool(main.get("debug_logs")):
 		return
 	var scale := _missionary_body_scale()
-	var asset: Variant = runtime.call("authored_pose_asset") if is_instance_valid(runtime) else null
+	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null
 	var source := "derived"
 	if asset != null and bool(asset.get("has_shots")):
 		source = "asset"
@@ -630,5 +636,5 @@ func _log_shot_setup() -> void:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)

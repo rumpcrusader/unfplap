@@ -14,7 +14,7 @@ const THRUST_MAX_M := 0.045
 ## hind legs. The hips use the same capture, so the whole lower body translates as one.
 const PLANT_FEET_BACK_M := 0.15
 
-var runtime: Node
+var facts: Variant
 var main: Variant
 var pony: Variant
 var _hip_phase := 0.0
@@ -36,10 +36,10 @@ var _plant_captured := false
 var _lower_body: Node
 
 func _hip_phase_tick(delta: float) -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or int(runtime.get("state")) not in [2, 3, 4]:
+	if str(facts.pose_id) != CATALOG.STANDING or int(facts.state) not in [2, 3, 4]:
 		_hip_phase = 0.0
 		return
-	_hip_phase = MOTION.hip_phase_step(_hip_phase, float(runtime.get("depth")), delta)
+	_hip_phase = MOTION.hip_phase_step(_hip_phase, float(facts.depth), delta)
 
 
 ## Signed forward offset from the base HipsTarget. Positive is toward the fixed rump limit;
@@ -53,7 +53,7 @@ static func hip_offset(phase: float, scale: float, travel: float) -> float:
 func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	# integration: the optional alignment pins the hip target but keeps this old hip-bone
 	# backset, so large depths cannot drive his crotch into her.
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(_hip_thrust):
+	if str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(_hip_thrust):
 		return
 	if not facing.is_finite() or facing.z.length_squared() < 0.0001:
 		return
@@ -61,7 +61,7 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
 	var travel := 1.0
-	var travel_value: Variant = runtime.get("_thrust_travel")
+	var travel_value: Variant = facts.thrust_travel
 	if travel_value != null:
 		travel = maxf(0.0, float(travel_value))
 	var forward := -facing.z.normalized()
@@ -82,8 +82,8 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 ## planted. Pulling back moves the whole lower body away from her; the hips and both feet use the
 ## same capture offset, so the legs keep their pose.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
-	var kiss: Variant = runtime.call("_kiss_controller")
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or not bool(runtime.get("_free_camera_active")) or not is_instance_valid(hip):
+	var kiss: Variant = facts.kiss_controller()
+	if str(facts.pose_id) != CATALOG.STANDING or not bool(facts.free_camera_active) or not is_instance_valid(hip):
 		return
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
@@ -119,14 +119,14 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			hip.global_transform = Transform3D(
 				plant_basis, _plant_hip.origin + sway + drop)
 			return
-		var lean_scale: float = float(runtime.call("_standing_lean_scale"))
-		var forward_shift: float = MOTION.lean_distance(maxf(float(runtime.call("shot_lean_forward")), 0.0), lean_scale) \
-			+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward"))
+		var lean_scale: float = float(facts.standing_lean_scale)
+		var forward_shift: float = MOTION.lean_distance(maxf(float(facts.shot_lean_forward), 0.0), lean_scale) \
+			+ kiss.lean_distance() + float(facts.anon_torso_forward)
 		hip.global_position -= forward * forward_shift
 		var side_shift: float = kiss.lateral_offset(lean_scale)
 		hip.global_position -= side * side_shift
 		# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
-		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(runtime.call("_anon_torso_drop"))
+		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(facts.anon_torso_drop)
 		hip.global_position.y -= _hip_drop()
 		# Flag off: keep the game's stepping feet and only pin the lower body while leaning.
 		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
@@ -146,12 +146,12 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 
 
 func _anatomy_service() -> Variant:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return null
-	var main: Variant = runtime.get("main")
-	if not is_instance_valid(main):
+	var scene: Variant = facts.main
+	if not is_instance_valid(scene):
 		return null
-	return main.get("anatomy")
+	return scene.get("anatomy")
 
 
 ## Square his hips to her entrance every frame: his forward turns to face the opening, so the
@@ -160,15 +160,15 @@ func _anatomy_service() -> Variant:
 func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
 	var service: Variant = _anatomy_service()
 	if service == null or not bool(service.call("player_showing")) \
-			or not runtime.has_method("anatomy_opening"):
+			or not facts.anatomy_opening.is_valid():
 		return plant
 	var toward := Vector3.ZERO
-	var normal: Vector3 = runtime.call("anatomy_normal") if runtime.has_method("anatomy_normal") else Vector3.ZERO
+	var normal: Vector3 = facts.call_value(facts.anatomy_normal, Vector3.ZERO)
 	if normal.length_squared() > 0.0001:
 		# Face straight into her opening, so his pelvis plane is parallel to her vulva.
 		toward = -Vector3(normal.x, 0.0, normal.z)
 	if toward.length_squared() < 0.0004:
-		var opening: Vector3 = runtime.call("anatomy_opening")
+		var opening: Vector3 = facts.call_value(facts.anatomy_opening, Vector3.ZERO)
 		var pivot: Vector3 = service.call("player_root_now")
 		toward = Vector3(opening.x - pivot.x, 0.0, opening.z - pivot.z)
 	if toward.length_squared() < 0.0004:
@@ -187,9 +187,9 @@ func _hip_drop() -> float:
 
 
 func _sway_offset() -> Vector3:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return Vector3.ZERO
-	var raw: Variant = runtime.get("_standing_sway_offset")
+	var raw: Variant = facts.standing_sway_offset
 	if raw is Vector3 and (raw as Vector3).is_finite():
 		return raw
 	return Vector3.ZERO
@@ -214,7 +214,7 @@ func _lower_body_of(hip: Node3D) -> Node:
 
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or bool(runtime.get("_player_pony")) or not is_instance_valid(main) or not is_instance_valid(main.player):
+	if str(facts.pose_id) != CATALOG.STANDING or bool(facts.player_pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
@@ -225,7 +225,7 @@ func _install_anon_thrust() -> void:
 	var driver: Node3D = ANON_THRUST.new()
 	driver.name = "UnfplapAnonThrust"
 	driver.set("original", original)
-	driver.set("runtime", runtime)
+	driver.set("runtime", facts.driver_host())
 	main.player.add_child(driver)
 	avatar.set("desktop_pose_driver", driver)
 	_anon_thrust_driver = driver
@@ -250,7 +250,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 	_remove_palm_scale()
 	if not is_instance_valid(avatar):
 		return
-	var factor: float = float(runtime.call("_palm_scale_factor"))
+	var factor: float = float(facts.palm_scale_factor)
 	if is_equal_approx(factor, 1.0):
 		return
 	var skeleton := avatar.find_child("Skeleton3D", true, false) as Skeleton3D
@@ -263,14 +263,14 @@ func _install_palm_scale(avatar: Node3D) -> void:
 	_palm_scale.set("factor", factor)
 	_palm_scale.process_priority = 10
 	skeleton.add_child(_palm_scale)
-	_log("standing palm scale=%.2f size=%s" % [factor, runtime.call("_size_name")])
+	_log("standing palm scale=%.2f size=%s" % [factor, facts.size_name])
 
 
 
 func _refresh_palm_scale() -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(_anon_thrust_avatar):
+	if str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(_anon_thrust_avatar):
 		return
-	var factor: float = float(runtime.call("_palm_scale_factor"))
+	var factor: float = float(facts.palm_scale_factor)
 	if is_equal_approx(factor, 1.0):
 		_remove_palm_scale()
 		return
@@ -329,13 +329,19 @@ func _desktop_pose_driver() -> Node:
 
 
 
+## Read the live scene handles from the typed act view. The runtime rewrites the view before
+## it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
-	main = runtime.get("main") if is_instance_valid(runtime) else null
-	pony = runtime.get("pony") if is_instance_valid(runtime) else null
+	if facts == null:
+		main = null
+		pony = null
+		return
+	main = facts.main
+	pony = facts.pony
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 func reset_phase() -> void:
@@ -369,11 +375,11 @@ func refresh_palm() -> void:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)
 
 
 func _feature_on(name: String) -> bool:
-	if is_instance_valid(runtime) and runtime.has_method("_feature"):
-		return bool(runtime.call("_feature", name))
-	return false
+	if facts == null:
+		return false
+	return facts.feature(name, false)

@@ -63,6 +63,17 @@ The pose boundary is deliberately small:
 - The path providers contain all pose geometry.
 - `hands/contact.gd` is generic; only its comments mention the poses.
 
+## Typed view
+
+`hand_control.gd` and every hands internal read `act_facts.gd`, never the runtime node. The
+controller takes the view in `_init(facts)`, the engine and each path receive the same view, and
+they read `pose_id`, `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
+`same_height_scale`, `physics_delta`, `presentation_config`, `profile`, `camera` and `main`, plus
+the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, `touch()` and
+`smack_hit()` callbacks. The smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
+`hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
+`docs/act_facts.md`; `tests/test_source_hygiene.gd` fails on a runtime reach-in.
+
 ## Pose paths
 
 ### Missionary

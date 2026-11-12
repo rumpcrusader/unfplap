@@ -253,7 +253,7 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 				relative, token])
 
 
-## The typed act context and the perf probe stay scene-free. The standing camera reads the
+## The typed act context and the perf probe stay scene-free. Every presentation module reads the
 ## context and never reaches into the runtime's private fields.
 func _check_act_facts() -> void:
 	var facts := FileAccess.get_file_as_string(ROOT.path_join("act_facts.gd"))
@@ -267,14 +267,25 @@ func _check_act_facts() -> void:
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")"]:
 		check(not perf.contains(token), "perf probe has no scene access: %s" % token)
-	var camera := FileAccess.get_file_as_string(ROOT.path_join("standing_camera.gd"))
-	check(camera.contains("var facts: Variant"), "standing camera reads the act context")
-	for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\""]:
-		check(not camera.contains(token), "standing camera has no runtime reach-in: %s" % token)
-	var anon := FileAccess.get_file_as_string(ROOT.path_join("missionary_anon.gd"))
-	check(anon.contains("var facts: Variant"), "missionary Anon reads the act context")
-	for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\""]:
-		check(not anon.contains(token), "missionary Anon has no runtime reach-in: %s" % token)
+	var readers := {
+		"standing_camera.gd": "standing camera",
+		"missionary_anon.gd": "missionary Anon",
+		"missionary_camera.gd": "missionary camera",
+		"standing_anon.gd": "standing Anon",
+		"standing_presentation.gd": "standing presentation",
+		"kiss_control.gd": "kiss",
+		"hand_control.gd": "hands",
+		"hands/placement.gd": "hands engine",
+		"hands/surface.gd": "hands surface",
+		"hands/path_base.gd": "hands path base",
+	}
+	for name: String in readers.keys():
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("var facts: Variant"), "%s reads the act context" % readers[name])
+		for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\"",
+				"preload(\"res://mods/unfplap/runtime.gd\")"]:
+			check(not text.contains(token),
+				"%s has no runtime reach-in: %s" % [readers[name], token])
 
 
 ## The act line facade reads the typed act context and the memory facade only. Its contract is

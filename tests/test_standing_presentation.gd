@@ -4,6 +4,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
 const PRESENTATION := preload("res://mods/unfplap/standing_presentation.gd")
+const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 
 var failures := 0
@@ -33,32 +34,6 @@ class FakeMain extends Node:
 		return null
 
 
-class FakeRuntime extends Node:
-	var state := 0
-	var pony: Node3D
-	var main: Node
-	var offer_ok := false
-	var _pose_cfg: Dictionary = {}
-
-	func cuddle_active() -> bool:
-		return false
-
-	func free_of_affection() -> bool:
-		return true
-
-	func _pause_face_turn(_on: bool) -> void:
-		pass
-
-	func _restore_face_turn() -> void:
-		pass
-
-	func _now_s() -> float:
-		return 0.0
-
-	func can_offer(_pose: String, _source: String, _bed: Variant, _forced := false) -> bool:
-		return offer_ok
-
-
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -81,16 +56,25 @@ func run() -> void:
 	var pony := FakePony.new()
 	pony.identity = FakeIdentity.new()
 	root.add_child(pony)
-	var runtime := FakeRuntime.new()
-	runtime.pony = pony
-	runtime.main = main
-	root.add_child(runtime)
 
-	var presentation: Variant = PRESENTATION.new(runtime)
+	var offer_ok := {"value": false}
+	var facts: RefCounted = ACT_FACTS.new()
+	facts.main = main
+	facts.pony = pony
+	facts.pose_id = "standing"
+	facts.cuddle_active = func() -> bool: return false
+	facts.free_of_affection = func() -> bool: return true
+	facts.can_offer = func(_pose: String, _source: String, _bed: Variant) -> bool:
+		return bool(offer_ok["value"])
+	facts.pause_face_turn = func(_force: bool) -> void: pass
+	facts.restore_face_turn = func() -> void: pass
+	facts.now = func() -> float: return 0.0
+
+	var presentation: Variant = PRESENTATION.new(facts)
 	check(not bool(presentation.call("present_standing")),
 		"a closed offer gate refuses to present")
 
-	runtime.offer_ok = true
+	offer_ok["value"] = true
 	check(bool(presentation.call("present_standing")),
 		"an open offer gate reaches the presentation path")
 	presentation.call("clear_presentation")

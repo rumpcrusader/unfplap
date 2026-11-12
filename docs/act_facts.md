@@ -8,10 +8,13 @@ orchestrator and the scene adapters.
 ## Ownership
 
 - `act_facts.gd` defines the fields and the no-op host callbacks.
-- `runtime.gd` creates it, binds the callbacks in `_init()` and refreshes it at the head of each
-  tick in `_sync_act_facts()`.
-- `standing_camera.gd` and `missionary_anon.gd` are the migrated consumers. The remaining
-  presentation modules move to it in the typed-view phase.
+- `runtime.gd` creates it, binds the callbacks in `_init()`, refreshes the live values in
+  `_sync_act_facts()` at the head of each act tick, and refreshes them again in `_bind_act_view()`
+  before it hands a presentation controller out. The second refresh exists because the idle
+  standing invitation, the debug actions and the suites call the controllers outside the act tick.
+- The consumers are `missionary_anon.gd`, `missionary_camera.gd`, `standing_anon.gd`,
+  `standing_camera.gd`, `standing_presentation.gd`, `kiss_control.gd`, `hand_control.gd` and the
+  hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths).
 - `anatomy/facts.gd` is the same pattern for the anatomy system.
 
 ## Fields
@@ -49,12 +52,13 @@ kiss_amount, kiss_active, kiss_side
 thrust_travel, same_height_scale, anon_height_scale, palm_scale_factor
 standing_sway_offset
 bed_frame (the live missionary bed frame, or null), bed, profile
+physics_delta (the physics tick delta the hand and reach easing uses)
 ```
 
 Scene handles:
 
 ```
-main, pony, camera, pose
+main, pony, camera, pose, viewport
 ```
 
 A presentation module is a scene adapter, so it may receive the nodes it works on. It must not read
@@ -69,7 +73,8 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `log` | write one debug line |
 | `perf_note` | record one timed chunk for `perf.gd` |
 | `body_coat_smack` | the anatomy's stock-smack hook |
-| `on_touch`, `on_smack` | the readiness touch/smack hooks |
+| `on_touch` | one readiness touch event, by kind |
+| `on_smack` | one smack impact, by strength |
 | `kiss` | return the live `kiss_control.gd` controller |
 | `neck_point` | her neck midpoint for the standing aim |
 | `set_look` | write back the captured player look |
@@ -86,11 +91,15 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `authored_pose_asset`, `missionary_face_point` | the shot targets |
 | `free_look_rotation` | the debug view rotation |
 | `desktop_pose_driver` | the game's pose driver |
+| `pose_host` | the node that answers the Anon pose-driver write-backs |
 | `cuddle_active`, `free_of_affection`, `can_offer` | the start gates |
 | `pause_face_turn`, `restore_face_turn` | the scene hold |
 
-Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `kiss_controller()`,
-`neck_midpoint()`, `write_look()`, `write_forced_glance()`, `mark_camera_basis_ready()`, `clock()`.
+Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `touch()`, `smack_hit()`,
+`kiss_controller()`, `neck_midpoint()`, `write_look()`, `write_forced_glance()`,
+`mark_camera_basis_ready()`, `clock()`, `call_value()`, `missionary_body()`, `feature()`,
+`standing_camera_controller()`, `pose_driver()`, `driver_host()`, `offer_allowed()`,
+`pause_face()`, `restore_face()`.
 
 ## Rules
 
@@ -104,10 +113,13 @@ Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `kiss_controller()
 ## Tests
 
 - `tests/act_facts/test_act_facts.gd` — defaults, callback no-ops, helpers and the clock.
+- `tests/test_source_hygiene.gd` — the context has no scene reference and no presentation module
+  reaches into the runtime.
 
 ## Related docs
 
 - `AGENTS.md` — the isolated-systems architecture.
 - `docs/camera.md` — the camera values the view carries.
 - `docs/hands.md` — the hand/kiss readers.
+- `docs/poses.md` — the body wrappers that read the view.
 - `docs/perf.md` — the perf callback.

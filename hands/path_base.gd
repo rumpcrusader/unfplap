@@ -13,12 +13,13 @@ extends RefCounted
 
 
 var pony: Variant
-var runtime: Node
+## The typed act view: a path reads the camera, the scene handles and the log from it.
+var facts: Variant
 
 
-func setup(pony_node: Variant, runtime_node: Node = null) -> void:
+func setup(pony_node: Variant, facts_context: Variant = null) -> void:
 	pony = pony_node
-	runtime = runtime_node
+	facts = facts_context
 
 
 func candidates(_hand_side: String, _context: Dictionary) -> Array:

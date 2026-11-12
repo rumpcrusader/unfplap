@@ -191,31 +191,16 @@ var _lean_view_side: float:
 		return _act_camera.lean_view_side
 	set(value):
 		_act_camera.lean_view_side = value
-var _lean_sway: float:
-	get:
-		return _act_camera.lean_sway
-	set(value):
-		_act_camera.lean_sway = value
 var _lean_action_active: bool:
 	get:
 		return _act_camera.lean_action_active
 	set(value):
 		_act_camera.lean_action_active = value
-var _lean_action_side: float:
-	get:
-		return _act_camera.lean_action_side
-	set(value):
-		_act_camera.lean_action_side = value
 var _lean_action_kind: String:
 	get:
 		return _act_camera.lean_action_kind
 	set(value):
 		_act_camera.lean_action_kind = value
-var _bob: float:
-	get:
-		return _act_camera.bob
-	set(value):
-		_act_camera.bob = value
 var _lean: float:
 	get:
 		return _act_camera.lean
@@ -711,6 +696,9 @@ func _init() -> void:
 	_act_facts.can_offer = Callable(self, "can_offer")
 	_act_facts.pause_face_turn = Callable(self, "_pause_face_turn")
 	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
+	_act_facts.on_touch = Callable(self, "_on_touch")
+	_act_facts.on_smack = Callable(self, "_on_smack_impact")
+	_act_facts.pose_host = Callable(self, "_runtime")
 	_sex_bond.bind({
 		"id": Callable(self, "_bond_id"),
 		"state": Callable(self, "_state"),
@@ -914,6 +902,7 @@ func _sync_act_facts() -> void:
 	facts.main = main
 	facts.pony = pony
 	facts.camera = _camera
+	facts.viewport = get_viewport()
 	facts.pose = _pose_session.pose()
 	facts.event_id = _event_id
 	facts.pony_id = _id
@@ -973,6 +962,7 @@ func _sync_act_facts() -> void:
 	facts.pose_config = _pose_cfg
 	facts.presentation_config = _presentation_cfg
 	facts.bed_frame = _bed_pose_frame
+	facts.physics_delta = get_physics_process_delta_time()
 	var kiss: Variant = _kiss
 	if kiss != null:
 		facts.kiss_amount = float(kiss.amount())
@@ -1078,6 +1068,28 @@ func _perf_header() -> Dictionary:
 	}
 
 
+## Refresh the live values the presentation controllers read, for the calls that arrive outside
+## the act tick: the idle standing invitation, the debug actions and the suites. The act tick's
+## `_sync_act_facts()` carries the rest. Cheap on purpose; it writes fields, never allocates.
+func _bind_act_view() -> void:
+	var facts := _act_facts
+	facts.main = main
+	facts.pony = pony
+	facts.state = state
+	facts.pose_id = pose_id
+	facts.pony_id = _id
+	facts.camera = _camera
+	facts.viewport = get_viewport()
+	facts.pose = _pose_session.pose()
+	facts.player_pony = _player_pony
+	facts.bed = bed
+	facts.pose_config = _pose_cfg
+	facts.presentation_config = _presentation_cfg
+	facts.profile = _profile
+	facts.features = _features
+	facts.physics_delta = get_physics_process_delta_time()
+
+
 ## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
 func _wings_controller():
 	if _wings == null:
@@ -1086,19 +1098,22 @@ func _wings_controller():
 
 func _hand_controller():
 	if _hands == null:
-		_hands = HANDS.new(self)
+		_hands = HANDS.new(_act_facts)
+	_bind_act_view()
 	return _hands
 
 ## Lazily create the kiss controller, including outside the tree in tests.
 func _kiss_controller():
 	if _kiss == null:
-		_kiss = KISS.new(self)
+		_kiss = KISS.new(_act_facts)
+	_bind_act_view()
 	return _kiss
 
 ## Lazily create the missionary camera controller, including outside the tree in tests.
 func _missionary_camera_controller():
 	if _missionary_camera_ctl == null:
-		_missionary_camera_ctl = MISSIONARY_CAMERA.new(self)
+		_missionary_camera_ctl = MISSIONARY_CAMERA.new(_act_facts)
+	_bind_act_view()
 	return _missionary_camera_ctl
 
 ## Lazily create the standing camera controller, including outside the tree in tests.
@@ -1110,13 +1125,15 @@ func _standing_camera_controller():
 ## Lazily create the standing Anon body controller, including outside the tree in tests.
 func _standing_anon_controller():
 	if _standing_anon_ctl == null:
-		_standing_anon_ctl = STANDING_ANON.new(self)
+		_standing_anon_ctl = STANDING_ANON.new(_act_facts)
+	_bind_act_view()
 	return _standing_anon_ctl
 
 ## Lazily create the idle standing presentation controller.
 func _standing_presentation_controller():
 	if _standing_presentation_ctl == null:
-		_standing_presentation_ctl = STANDING_PRESENTATION.new(self)
+		_standing_presentation_ctl = STANDING_PRESENTATION.new(_act_facts)
+	_bind_act_view()
 	return _standing_presentation_ctl
 
 ## Feature flag from the act snapshot. Unknown flags read as off.

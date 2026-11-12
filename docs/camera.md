@@ -15,10 +15,17 @@ helper the shot and the hands read.
 `missionary_camera.gd` and `standing_camera.gd` stay the shot implementations;
 `standing_anon.gd` and `missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick
 order, the start sequence, the shot targets (stroke speed, climax wave) and the one teardown
-ledger; `_restore_camera()` is that ledger and calls the facade's leaves in the built order. The
-camera fields the presentation modules and the suites still read by name (`_lean_forward`,
-`_lean_view_side`, `_free_camera_active`, `_bob`, `_lean`, `_camera_owned`, …) are read views over
-the facade until the typed-view migration retires them.
+ledger; `_restore_camera()` is that ledger and calls the facade's leaves in the built order.
+
+## Typed view
+
+Every camera, shot and body module reads `act_facts.gd` and never the runtime node. The runtime
+binds the view, refreshes it in `_sync_act_facts()` and before it hands a controller out, and the
+modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`,
+`look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
+`authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The field and callback
+contract is `docs/act_facts.md`; a camera module that reaches into the runtime fails
+`tests/test_source_hygiene.gd`.
 
 ## Modes and lean
 

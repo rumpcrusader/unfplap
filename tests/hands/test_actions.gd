@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_actions.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
@@ -67,14 +68,6 @@ class FakeTouchBody extends Node:
 class FakeCaressPony extends Node3D:
 	var touch_body: Node
 	var skeleton: Skeleton3D
-
-
-class FakeCaressRuntime extends Node:
-	var pose_id := ""
-	var features := {}
-
-	func _feature(name: String) -> bool:
-		return bool(features.get(name, false))
 
 
 class FakeBody extends Node3D:
@@ -176,19 +169,18 @@ func _check_perf_probe() -> void:
 ## A held caress must solve the hand through the regular arm pole and return to the authored
 ## frame without the scaled-basis slerp error the first implementation logged every frame.
 func _check_caress_precise_pose() -> void:
-	var runtime := FakeCaressRuntime.new()
-	var hands: RefCounted = HANDS.new(runtime)
-	runtime.pose_id = CATALOG.MISSIONARY
-	runtime.features = {"caress_surface": false}
+	var facts: RefCounted = ACT_FACTS.new()
+	var hands: RefCounted = HANDS.new(facts)
+	facts.pose_id = CATALOG.MISSIONARY
+	facts.features = {"caress_surface": false}
 	check(bool(hands.call("_precise_on")),
 		"missionary always uses the authored surface chain")
-	runtime.pose_id = CATALOG.STANDING
+	facts.pose_id = CATALOG.STANDING
 	check(not bool(hands.call("_precise_on")),
 		"standing precise caress stays off by default")
-	runtime.features = {"caress_surface": true}
+	facts.features = {"caress_surface": true}
 	check(bool(hands.call("_precise_on")),
 		"standing precise caress follows the setting")
-	runtime.free()
 
 
 func _check_missionary_hand_hold() -> void:
@@ -390,26 +382,33 @@ func run() -> void:
 
 	var hip := Node3D.new()
 	root.add_child(hip)
-	var lean_runtime: Node = RUNTIME.new()
-	lean_runtime.pose_id = CATALOG.STANDING
-	lean_runtime._free_camera_active = true
-	lean_runtime._lean_view_forward = 1.0
-	lean_runtime._lean_view_side = 0.0
-	lean_runtime.depth = 0.0
-	var lean_scale: float = lean_runtime._standing_lean_scale()
-	lean_runtime.apply_anon_lean(hip, Basis.IDENTITY)
+	var lean_facts: RefCounted = ACT_FACTS.new()
+	lean_facts.pose_id = CATALOG.STANDING
+	lean_facts.free_camera_active = true
+	lean_facts.lean_view_forward = 1.0
+	lean_facts.lean_view_side = 0.0
+	lean_facts.shot_lean_forward = 1.0
+	lean_facts.depth = 0.0
+	var lean_kiss: RefCounted = KISS.new(lean_facts)
+	lean_facts.kiss = func() -> Variant: return lean_kiss
+	var lean_scale := 1.0
+	var lean_anon := STANDING_ANON.new(lean_facts)
+	lean_anon.call("apply_anon_lean", hip, Basis.IDENTITY)
 	check(near(hip.global_position.z, MOTION.lean_distance(1.0, lean_scale)),
 		"forward lean keeps the pelvis behind the rump")
 	var side_hip := Node3D.new()
 	root.add_child(side_hip)
-	lean_runtime._lean_view_forward = 0.0
-	lean_runtime._lean_view_side = 1.0
-	lean_runtime.apply_anon_lean(side_hip, Basis.IDENTITY)
+	lean_facts.lean_view_forward = 0.0
+	lean_facts.lean_view_side = 1.0
+	lean_facts.shot_lean_forward = 0.0
+	lean_anon.call("apply_anon_lean", side_hip, Basis.IDENTITY)
 	check(near(side_hip.global_position.x, -MOTION.LEAN_SIDE_M * lean_scale),
 		"side lean keeps the pelvis centred")
 	hip.free()
 	side_hip.free()
-	lean_runtime.free()
+	# The kiss callback closes a reference cycle; break it so the helpers are freed.
+	lean_facts.kiss = Callable()
+	lean_kiss = null
 
 	check(near(HANDS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
 	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
@@ -633,14 +632,14 @@ func run() -> void:
 	check(near(STANDING_ANON.hip_offset(1.0, 0.66, 2.0), 0.045 * 0.66),
 		"hip reach scales with pony size")
 
-	var hip_runtime: Node = RUNTIME.new()
-	hip_runtime.pose_id = CATALOG.STANDING
-	hip_runtime._thrust_travel = 2.0
+	var hip_facts: RefCounted = ACT_FACTS.new()
+	hip_facts.pose_id = CATALOG.STANDING
+	hip_facts.thrust_travel = 2.0
 	var hip_pony := Node3D.new()
 	root.add_child(hip_pony)
 	var hip_modifier = HIP_THRUST.new()
 	root.add_child(hip_modifier)
-	var stand := STANDING_ANON.new(hip_runtime)
+	var stand := STANDING_ANON.new(hip_facts)
 	stand.set("pony", hip_pony)
 	stand.set("_hip_thrust", hip_modifier)
 	stand.set("_hip_phase", 0.0)
@@ -653,7 +652,6 @@ func run() -> void:
 	hip_offset = hip_modifier.get("offset_world")
 	check(near(hip_offset.length(), 0.045) and hip_offset.z < 0.0,
 		"depth 1 moves the hips onto the rump limit")
-	hip_runtime.free()
 	hip_modifier.free()
 	hip_pony.free()
 
@@ -786,14 +784,16 @@ func run() -> void:
 	plant_body.add_child(plant_skeleton)
 	var plant_hip := Node3D.new()
 	plant_skeleton.add_child(plant_hip)
-	var plant_runtime: Node = RUNTIME.new()
-	plant_runtime.pose_id = CATALOG.STANDING
-	plant_runtime._free_camera_active = true
-	plant_runtime._features = {"standing_plant_feet": true}
-	plant_runtime.pony = Node3D.new()
-	root.add_child(plant_runtime)
-	var plant_anon := STANDING_ANON.new(plant_runtime)
-	plant_anon.set("pony", plant_runtime.pony)
+	var plant_facts: RefCounted = ACT_FACTS.new()
+	plant_facts.pose_id = CATALOG.STANDING
+	plant_facts.free_camera_active = true
+	plant_facts.features = {"standing_plant_feet": true}
+	var plant_kiss: RefCounted = KISS.new(plant_facts)
+	plant_facts.kiss = func() -> Variant: return plant_kiss
+	plant_facts.pony = Node3D.new()
+	root.add_child(plant_facts.pony)
+	var plant_anon := STANDING_ANON.new(plant_facts)
+	plant_anon.set("pony", plant_facts.pony)
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	var planted_left := plant_left.global_position
 	var planted_right := plant_right.global_position
@@ -815,7 +815,7 @@ func run() -> void:
 	check(plant_hip.global_position.is_equal_approx(plant_drop),
 		"planted hips hold their act-start point")
 	# A forward lean must not move the pinned lower body; the head/camera is what travels.
-	plant_runtime._lean_view_forward = 1.0
+	plant_facts.lean_view_forward = 1.0
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
 	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
@@ -825,7 +825,7 @@ func run() -> void:
 	check(plant_left.global_position.is_equal_approx(planted_left)
 		and plant_right.global_position.is_equal_approx(planted_right),
 		"a forward lean keeps the planted feet")
-	plant_runtime.set("_standing_sway_offset", Vector3(0.02, 0.0, 0.0))
+	plant_facts.standing_sway_offset = Vector3(0.02, 0.0, 0.0)
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
 	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
@@ -835,20 +835,23 @@ func run() -> void:
 	check(plant_left.global_position.is_equal_approx(planted_left)
 		and plant_right.global_position.is_equal_approx(planted_right),
 		"the body sway leaves the planted feet")
-	plant_runtime.set("_standing_sway_offset", Vector3.ZERO)
-	plant_runtime._lean_view_forward = 0.0
-	plant_runtime._features = {"standing_plant_feet": false}
+	plant_facts.standing_sway_offset = Vector3.ZERO
+	plant_facts.lean_view_forward = 0.0
+	plant_facts.features = {"standing_plant_feet": false}
 	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
 	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
 	plant_hip.global_position = Vector3.ZERO
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	check(plant_left.global_position.is_equal_approx(Vector3(5.0, 0.0, 0.0)),
 		"plant flag off releases the feet")
-	plant_runtime._lean_view_forward = 1.0
+	plant_facts.shot_lean_forward = 1.0
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	check(not plant_hip.global_position.is_zero_approx(),
 		"plant flag off lets the forward lean move the pelvis")
-	plant_runtime.free()
+	plant_facts.kiss = Callable()
+	plant_kiss = null
+	root.remove_child(plant_facts.pony)
+	plant_facts.pony.free()
 	plant_hip.free()
 	plant_skeleton.free()
 	plant_left.free()

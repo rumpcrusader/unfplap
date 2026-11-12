@@ -9,6 +9,7 @@ const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDS := preload("res://mods/unfplap/hand_control.gd")
+const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const SMACK_CTL := preload("res://mods/unfplap/hands/smack.gd")
 var failures := 0
 var checks := 0
@@ -201,10 +202,9 @@ func run() -> void:
 	smack_player.volume_db = -10.0
 	smack_player.pitch_scale = 1.2
 	flank.add_child(smack_player)
-	var smack_runtime: Node = RUNTIME.new()
-	smack_runtime.pony = smack_pony
-	root.add_child(smack_runtime)
-	var hands: RefCounted = HANDS.new(smack_runtime)
+	var smack_facts: RefCounted = ACT_FACTS.new()
+	smack_facts.pony = smack_pony
+	var hands: RefCounted = HANDS.new(smack_facts)
 	hands.set("pony", smack_pony)
 	hands.set("_flank", flank)
 	var smack: RefCounted = hands.call("_smack_controller")
@@ -219,8 +219,6 @@ func run() -> void:
 	check(near(smack_player.volume_db, -10.0) and near(smack_player.pitch_scale, 1.2),
 		"smack restore puts the stock level and pitch back")
 	hands = null
-	root.remove_child(smack_runtime)
-	smack_runtime.free()
 	root.remove_child(smack_pony)
 	smack_pony.free()
 

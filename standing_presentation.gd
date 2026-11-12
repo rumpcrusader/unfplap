@@ -21,7 +21,7 @@ const REQUEST_LIDS := 0.45
 const REQUEST_BLUSH := 1.0
 const STATE_IDLE := 0
 
-var runtime: Node
+var facts: Variant
 var main: Variant
 var pony: Variant
 var _pose_cfg: Dictionary = {}
@@ -50,16 +50,16 @@ func present_standing() -> bool:
 	_sync()
 	if _presenting or _present_turning:
 		return true
-	if int(runtime.get("state")) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
+	if int(facts.state) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
-	if pony.is_held() or pony.sleeping or bool(runtime.call("cuddle_active")):
+	if pony.is_held() or pony.sleeping or bool(facts.call_value(facts.cuddle_active, false)):
 		return false
-	if not bool(runtime.call("free_of_affection")):
+	if not bool(facts.call_value(facts.free_of_affection, true)):
 		return false
 	var service: ELIGIBILITY = main.get("eligibility") if is_instance_valid(main) else null
 	if service == null or not service.eligible(pony, ELIGIBILITY.Target.ACT):
 		return false
-	if not bool(runtime.call("can_offer", CATALOG.STANDING, "", null)):
+	if not facts.offer_allowed(CATALOG.STANDING, ""):
 		return false
 	if not _request_face:
 		set_request_face(true)
@@ -81,7 +81,7 @@ func present_standing() -> bool:
 	_present_face_direction = away
 	if pony.has_method("request_posture") and str(pony.posture_status().get("requested", "")) != "stand":
 		pony.request_posture("stand")
-	_present_turn_started = float(runtime.call("_now_s"))
+	_present_turn_started = facts.clock()
 	_present_started = _present_turn_started
 	_present_turn_last_yaw = pony.rotation.y
 	_present_turn_still = 0.0
@@ -92,7 +92,7 @@ func present_standing() -> bool:
 		# Unusual actor without the locomotion turn: keep the old direct-rotation fallback.
 		_present_turning = false
 		_attach_present_pose()
-		runtime.call("_pause_face_turn", true)
+		facts.pause_face(true)
 	_log("present standing target_yaw=%.2f turn=%s" % [
 		_present_target_yaw, "stepping" if _present_turning else "direct"])
 	return true
@@ -104,7 +104,7 @@ func present_standing() -> bool:
 func _attach_present_pose() -> void:
 	if not is_instance_valid(pony):
 		return
-	_pose_cfg = SETTINGS.pose(str(runtime.get("_id")), CATALOG.STANDING)
+	_pose_cfg = SETTINGS.pose(str(facts.pony_id), CATALOG.STANDING)
 	# The act stance bows and bends the forelegs for the thrust; seen from behind it reads as her
 	# front legs tucked between her hind. The invitation is a natural stand with the rump
 	# presented, so the act-only bow, foreleg bend and wide hind stance are removed.
@@ -119,7 +119,6 @@ func _attach_present_pose() -> void:
 	if tail_cfg is Dictionary:
 		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg", 31.5)))
 		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg", 24.1)))
-	runtime.set("_pose_cfg", _pose_cfg)
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
 		_present_pose = POSE.new()
@@ -131,7 +130,7 @@ func _attach_present_pose() -> void:
 		_present_pose.amount = 0.0
 		_present_pose.target_amount = 1.0
 		(skeleton as Skeleton3D).add_child(_present_pose)
-		runtime.call("_keep_chin_last")
+		facts.call_value(facts.keep_chin_last)
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		_present_tail = TAIL.new()
@@ -143,7 +142,7 @@ func _attach_present_pose() -> void:
 		_present_tail.amount = 0.0
 		_present_tail.target_amount = 1.0
 		var side_anchor := Vector3.INF
-		var main_v: Variant = runtime.get("main") if is_instance_valid(runtime) else null
+		var main_v: Variant = facts.main if facts != null else null
 		if main_v != null and main_v.has_method("camera"):
 			var view: Variant = main_v.call("camera")
 			if view is Camera3D:
@@ -198,7 +197,7 @@ func _finish_present_turn() -> void:
 			_log("present standing turn settled yaw=%.2f" % _present_yaw)
 	if not _presenting:
 		_attach_present_pose()
-	runtime.call("_pause_face_turn", true)
+	facts.pause_face(true)
 
 
 
@@ -232,18 +231,18 @@ func clear_presentation() -> void:
 	_presenting = false
 	_present_glance_back = false
 	_present_glance_sign_set = false
-	runtime.call("_restore_face_turn")
+	facts.restore_face()
 
 
 
 func _presentation_valid() -> bool:
-	if not _presenting or int(runtime.get("state")) != STATE_IDLE:
+	if not _presenting or int(facts.state) != STATE_IDLE:
 		return false
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
-	if bool(runtime.call("cuddle_active")) or not bool(runtime.call("free_of_affection")):
+	if bool(facts.call_value(facts.cuddle_active, false)) or not bool(facts.call_value(facts.free_of_affection, true)):
 		return false
 	if not pony.grounded():
 		return false
@@ -279,7 +278,7 @@ func _presentation_physics(delta: float) -> void:
 			nav.set("face_point", Vector3.INF)
 		if nav.has_method("set_conversation_target"):
 			nav.call("set_conversation_target", null, false)
-	runtime.call("_pause_face_turn", true)
+	facts.pause_face(true)
 
 
 ## Turn her with the game's supported standing turn, which steps the hooves. The direct
@@ -306,19 +305,19 @@ func _presentation_turn_physics(delta: float) -> void:
 	var error := absf(wrapf(yaw - _present_target_yaw, -PI, PI))
 	if error <= PRESENT_TURN_SETTLE_RAD \
 			or _present_turn_still >= PRESENT_TURN_STALL_S \
-			or float(runtime.call("_now_s")) - _present_turn_started >= PRESENT_TURN_TIMEOUT_S:
+			or facts.clock() - _present_turn_started >= PRESENT_TURN_TIMEOUT_S:
 		_finish_present_turn()
 
 
 
 func _presentation_turn_valid() -> bool:
-	if not _present_turning or int(runtime.get("state")) != STATE_IDLE:
+	if not _present_turning or int(facts.state) != STATE_IDLE:
 		return false
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
-	if bool(runtime.call("cuddle_active")) or not bool(runtime.call("free_of_affection")):
+	if bool(facts.call_value(facts.cuddle_active, false)) or not bool(facts.call_value(facts.free_of_affection, true)):
 		return false
 	if not pony.grounded():
 		return false
@@ -436,15 +435,22 @@ func _present_aim_eyes() -> void:
 
 
 
+## Read the live scene handles and pose config from the typed act view. The runtime rewrites
+## the view before it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
-	main = runtime.get("main") if is_instance_valid(runtime) else null
-	pony = runtime.get("pony") if is_instance_valid(runtime) else null
-	var cfg: Variant = runtime.get("_pose_cfg") if is_instance_valid(runtime) else null
+	if facts == null:
+		main = null
+		pony = null
+		_pose_cfg = {}
+		return
+	main = facts.main
+	pony = facts.pony
+	var cfg: Variant = facts.pose_config
 	_pose_cfg = cfg if cfg is Dictionary else {}
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 func process() -> void:
@@ -461,7 +467,7 @@ func physics(delta: float) -> void:
 	_sync()
 	if not (_present_turning or _presenting):
 		return
-	if float(runtime.call("_now_s")) - _present_started >= PRESENT_MAX_SECONDS:
+	if facts.clock() - _present_started >= PRESENT_MAX_SECONDS:
 		_log("present standing expired after %.0f s" % PRESENT_MAX_SECONDS)
 		set_request_face(false)
 		clear_presentation()
@@ -470,5 +476,5 @@ func physics(delta: float) -> void:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)

@@ -10,7 +10,11 @@ camera shot is `docs/camera.md`; the face beats are `docs/face.md`; the hands ar
 `kiss_control.gd` is the act kiss controller. It owns the kiss state, the lean-in, the side latch,
 the mouth target, the base-kiss bridge, the foreleg pin and the sound cadence. The runtime owns
 the state machine, the action latch (`F` held at a full lean), the camera and the teardown.
-`kiss_legs.gd` is the standing foreleg pin. `affection_pose.gd` is the game's kiss pose.
+`kiss_legs.gd` is the standing foreleg pin. `affection_pose.gd` is the game's kiss pose. The
+controller reads `act_facts.gd` (`pose_id`, `state`, `lean_*`, `anon_height_scale`,
+`standing_lean_scale`, `camera`, the scene handles and the `kiss_controller()`, `touch()`,
+`keep_chin_last()` and `write_forced_glance()` callbacks), never the runtime node; see
+`docs/act_facts.md`.
 
 ## Controls
 

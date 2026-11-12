@@ -11,7 +11,7 @@ const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
 
-var runtime: Node
+var facts: Variant
 
 var _surfaces: Dictionary = {}
 var _states: Dictionary = {}
@@ -20,8 +20,8 @@ var _logged: Dictionary = {}
 var _debug: Dictionary = {}
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 ## Build the palm frame for one hand. `path` is a hand path (see hands/path_base.gd), and
@@ -216,7 +216,7 @@ func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
 func _surface(pony: Variant, region: String) -> Variant:
 	var surface: Variant = _surfaces.get(region)
 	if not is_instance_valid(surface):
-		surface = SURFACE.new(runtime)
+		surface = SURFACE.new(facts)
 		_surfaces[region] = surface
 	if not bool(surface.call("ensure", pony, region)):
 		return null
@@ -362,12 +362,12 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 
 
 func _perf_note(chunk: String, usec: int) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", chunk, usec)
+	if facts != null:
+		facts.perf(chunk, usec)
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)
 	else:
 		print("[unfplap] " + text)

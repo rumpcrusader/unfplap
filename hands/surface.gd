@@ -15,7 +15,7 @@ var accurate_miss := true
 
 static var _source_cache: Dictionary = {}
 
-var runtime: Node
+var facts: Variant
 var source: Dictionary = {}
 var skeleton: Skeleton3D
 var faces := PackedVector3Array()
@@ -58,8 +58,8 @@ var _cache_order: Array = []
 ## Build a stable patch for a body region. The patch is anchored to the rig's rest pose, not to
 ## the caller's query, so it does not change face sets while the hand moves. `region` is "torso",
 ## "neck", "head" or "body". Returns false when the pony/rig/region is unavailable.
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 ## Apply the player's caress quality. Precise keeps the exact miss fallback; balanced and fast
@@ -442,8 +442,8 @@ func _blur_candidates(seed: int, radius: float) -> PackedInt32Array:
 
 
 func _perf_note(chunk: String, usec: int) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", chunk, usec)
+	if facts != null:
+		facts.perf(chunk, usec)
 
 
 func face_count() -> int:

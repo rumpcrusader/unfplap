@@ -19,6 +19,15 @@ binds the session and calls the render-time write. `runtime._pose`, `runtime._po
 the live pose. `act_motion.gd` is pure lean-travel and pose-action math; `act_camera.gd` owns the
 camera and lean state.
 
+## Typed view
+
+The body wrappers that move with the pose (`missionary_anon.gd`, `standing_anon.gd`,
+`standing_presentation.gd`) read `act_facts.gd`, never the runtime node. The view carries the pose
+config, the presentation config, the per-mare profile, the pose id and state, the scene handles,
+the lean and thrust values and the callbacks they call back through. The field and callback
+contract is `docs/act_facts.md`; a body module that reaches into the runtime fails
+`tests/test_source_hygiene.gd`.
+
 ## Spaces and axes
 
 - Bone writes use `Skeleton3D` skeleton space via `get_bone_global_pose` /

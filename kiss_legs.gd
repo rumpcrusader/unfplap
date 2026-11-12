@@ -10,7 +10,6 @@ const STEP_DEG := 8.0
 const REACH_EPS_M := 0.003
 
 var mare: Node3D
-var runtime: Node
 
 var _rig = RIG.new()
 var _legs: Array[Dictionary] = []

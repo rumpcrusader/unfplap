@@ -39,5 +39,8 @@ func smack_presentation() -> Dictionary:
 func smack_pony() -> Variant:
 	return null
 
-func smack_runtime() -> Node:
-	return null
+func hand_on_touch(_kind: String) -> void:
+	pass
+
+func hand_on_smack_impact(_strength: float) -> void:
+	pass

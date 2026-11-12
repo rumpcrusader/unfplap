@@ -184,7 +184,7 @@ static func _triangle_barycentric(a: Vector3, b: Vector3, c: Vector3, p: Vector3
 	return Vector3(1.0 - v - w, v, w)
 
 
-var runtime: Node
+var facts: Variant
 var main: Variant
 var pony: Variant
 var _presentation_cfg: Dictionary = {}
@@ -233,7 +233,7 @@ func _shoulder_hand_point(side: String) -> Dictionary:
 func _set_reach_hand() -> void:
 	if _reach_shoulder.is_empty() or not is_instance_valid(pony):
 		return
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver: Node = facts.pose_driver()
 	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
 		return
 	var info := _shoulder_hand_point(_reach_shoulder)
@@ -247,7 +247,7 @@ func _set_reach_hand() -> void:
 		_engine().reset_hand(reach_key)
 	# Palm flat on the shoulder coat: the shared hull frame keeps the fingers forward with the
 	# palm inward.
-	var delta := runtime.get_physics_process_delta_time() if is_instance_valid(runtime) else 0.016
+	var delta := float(facts.physics_delta)
 	var target: Transform3D = _engine().coat_frame(pony, side, point, outward,
 		-pony.global_basis.z, _palm_clearance(), true, delta, [], true, [], 0.0, reach_key)
 	if _reach_hand_started <= 0:
@@ -274,13 +274,13 @@ func _set_reach_hand() -> void:
 
 
 func _caress_tick(delta: float) -> void:
-	var pose := str(runtime.get("pose_id"))
+	var pose := str(facts.pose_id)
 	if pose not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
 		_end_caress()
 		return
 	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open. The
 	# hands keep their current state and the caress keeps scoring; only the input is ignored.
-	var frozen := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
+	var frozen := bool(facts.call_value(facts.auto_panel_open, false))
 	var keys := {
 		"L": Input.is_physical_key_pressed(KEY_A),
 		"R": Input.is_physical_key_pressed(KEY_D),
@@ -334,7 +334,7 @@ func _caress_touch_tick(delta: float) -> void:
 	var step := caress_touch_step(_caress_touch_seconds, any_active(), delta)
 	_caress_touch_seconds = float(step[0])
 	for _index in int(step[1]):
-		runtime.call("_on_touch", "caress")
+		facts.touch("caress")
 
 
 func _end_caress_side(side: String) -> void:
@@ -397,8 +397,8 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	var started := Time.get_ticks_usec()
 	var target: Transform3D = _engine().frame(pony, path, hand_side,
 		_caress_context(side, hand_side))
-	if is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "caress_precise", Time.get_ticks_usec() - started)
+	if facts != null:
+		facts.perf("caress_precise", Time.get_ticks_usec() - started)
 	if not target.is_finite() or target.origin.length_squared() < 0.0001:
 		return Transform3D.IDENTITY
 	if not apply:
@@ -428,11 +428,11 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 func _caress_context(side: String, hand_side: String) -> Dictionary:
 	var scale := _smack_body_scale()
 	var size := 1.0
-	if is_instance_valid(runtime) and runtime.has_method("_size_scale"):
-		size = float(runtime.call("_size_scale"))
+	if facts != null:
+		size = float(facts.size_scale)
 	var oval := Vector2(_caress_oval_across_m(), _caress_oval_up_m()) * scale
 	return {
-		"lean": clampf(float(runtime.get("_lean_forward")), -1.0, 1.0),
+		"lean": clampf(float(facts.lean_forward), -1.0, 1.0),
 		"phase": float(_caress_phase.get(side, 0.0)),
 		"scale": scale,
 		"size": size,
@@ -443,30 +443,30 @@ func _caress_context(side: String, hand_side: String) -> Dictionary:
 		"ignore": _caress_ignore(),
 		"profile": _caress_profile(),
 		"reach": _caress_reach(hand_side),
-		"delta": runtime.get_physics_process_delta_time() if is_instance_valid(runtime) else 0.016,
+		"delta": float(facts.physics_delta),
 	}
 
 
 func _engine() -> RefCounted:
 	if _caress_engine == null:
-		_caress_engine = PLACEMENT.new(runtime)
+		_caress_engine = PLACEMENT.new(facts)
 	return _caress_engine
 
 
 func _path_for_pose() -> Variant:
-	if not is_instance_valid(runtime) or not is_instance_valid(pony):
+	if facts == null or not is_instance_valid(pony):
 		return null
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+	if str(facts.pose_id) == CATALOG.MISSIONARY:
 		if _missionary_path == null:
 			_missionary_path = MISSIONARY_PATH.new()
 		if _missionary_path.get("pony") != pony:
-			_missionary_path.call("setup", pony, runtime)
+			_missionary_path.call("setup", pony, facts)
 			_missionary_path.call("reset")
 		return _missionary_path
 	if _flank_path == null:
 		_flank_path = FLANK_PATH.new()
 	if _flank_path.get("pony") != pony:
-		_flank_path.call("setup", pony, runtime)
+		_flank_path.call("setup", pony, facts)
 		_flank_path.call("reset")
 	return _flank_path
 
@@ -481,15 +481,15 @@ func _caress_reach(hand_side: String) -> Dictionary:
 
 
 func _precise_on() -> bool:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return false
 	# The missionary base pose is authored in bed space, and the procedural hull path's palm
 	# frame is not valid on the lying body (the cheek ended up edge-on). The authored surface
 	# chain is the missionary path; the standing caress keeps the player-facing precise toggle
 	# and its hull fallback.
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+	if str(facts.pose_id) == CATALOG.MISSIONARY:
 		return true
-	return runtime.has_method("_feature") and bool(runtime.call("_feature", "caress_surface"))
+	return facts.feature("caress_surface", false)
 
 
 func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,
@@ -612,16 +612,14 @@ func _clear_debug_draw() -> void:
 
 ## The act camera position; the path anchors are chosen on the side it actually sees.
 func _hand_driver() -> Node:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return null
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
-		if not runtime.has_method("missionary_anon_body"):
-			return null
-		var body: Variant = runtime.call("missionary_anon_body")
+	if str(facts.pose_id) == CATALOG.MISSIONARY:
+		var body: Variant = facts.missionary_body()
 		if is_instance_valid(body) and body is Node:
 			return body as Node
 		return null
-	var driver: Variant = runtime.call("_desktop_pose_driver")
+	var driver: Variant = facts.pose_driver()
 	if is_instance_valid(driver) and driver is Node:
 		return driver as Node
 	return null
@@ -632,7 +630,7 @@ func _begin_reach_release() -> void:
 	if _reach_shoulder.is_empty():
 		return
 	var side := "left" if _reach_shoulder == "L" else "right"
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver: Node = facts.pose_driver()
 	_reach_hand_return_from = _reach_hand_from
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
 		var current: Variant = driver.call("hand_frame", side)
@@ -652,7 +650,7 @@ func _reach_hand_return_tick() -> void:
 	if _reach_hand_return_side.is_empty():
 		_reach_hand_returning = false
 		return
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver: Node = facts.pose_driver()
 	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
 		_reach_hand_returning = false
 		return
@@ -685,7 +683,7 @@ func _clear_reach_hand() -> void:
 	_reach_hand_rest_valid = false
 	if side.is_empty():
 		return
-	var driver: Node = runtime.call("_desktop_pose_driver")
+	var driver: Node = facts.pose_driver()
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", side)
 
@@ -837,7 +835,7 @@ func _lower_cheek_query(hand_side: String) -> Vector3:
 
 
 func _smack() -> void:
-	if int(runtime.get("state")) not in [STATE_ACTIVE, STATE_CLIMAX]:
+	if int(facts.state) not in [STATE_ACTIVE, STATE_CLIMAX]:
 		return
 	var now := Time.get_ticks_msec()
 	if not _smack_controller().can_start(now):
@@ -855,7 +853,7 @@ func _smack() -> void:
 		hand_side = "left"
 	elif _caress_active["R"]:
 		hand_side = "right"
-	var index := 0 if hand_side == "left" else (1 if hand_side == "right" else smack_side_index(float(runtime.get("_lean_side"))))
+	var index := 0 if hand_side == "left" else (1 if hand_side == "right" else smack_side_index(float(facts.lean_side)))
 	if index < 0:
 		index = 0 if randf() < 0.5 else 1
 		hand_side = "left" if index == 0 else "right"
@@ -894,7 +892,7 @@ func _smack() -> void:
 				normal = -normal
 	# Standing targets the live caress point or the bottom of the chosen cheek, not the decal
 	# centre. The cheek-centre target above remains the fallback when the patch is unavailable.
-	if str(runtime.get("pose_id")) == CATALOG.STANDING and from_frame.is_finite():
+	if str(facts.pose_id) == CATALOG.STANDING and from_frame.is_finite():
 		var standing_target := _standing_smack_target(hand_side, from_frame.origin, caressing)
 		if not standing_target.is_empty():
 			at = standing_target.get("local", at)
@@ -905,7 +903,7 @@ func _smack() -> void:
 			var target: Transform3D = _engine().coat_frame(pony, hand_side, world_centre, normal,
 				_smack_finger_hint(caressing), _palm_clearance(), false, 0.0, [], true, [],
 				0.0, "smack:" + hand_side)
-			var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
+			var standing := str(facts.pose_id) == CATALOG.STANDING
 			_smack_controller().begin(hand_side, index, at, from_frame, target, normal,
 				caressing, standing, now)
 			return
@@ -940,19 +938,27 @@ func _smack_height_m() -> float:
 	return _smack_setting("height_m", SMACK_HEIGHT_M)
 
 
+## Read the live scene handles and configs from the typed act view. The runtime rewrites the
+## view before it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
-	pony = runtime.get("pony") if is_instance_valid(runtime) else null
-	main = runtime.get("main") if is_instance_valid(runtime) else null
-	var cfg: Variant = runtime.get("_presentation_cfg") if is_instance_valid(runtime) else null
+	if facts == null:
+		pony = null
+		main = null
+		_presentation_cfg = {}
+		_profile = {}
+		return
+	pony = facts.pony
+	main = facts.main
+	var cfg: Variant = facts.presentation_config
 	_presentation_cfg = cfg if cfg is Dictionary else {}
-	var profile: Variant = runtime.get("_profile") if is_instance_valid(runtime) else null
+	var profile: Variant = facts.profile
 	_profile = profile if profile is Dictionary else {}
 	if not is_instance_valid(_flank) and is_instance_valid(pony):
 		_flank = pony.get_node_or_null("FlankTouch")
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 ## One physics tick: ease the reach hand home, hold it on the shoulder, then run the caress
@@ -960,13 +966,13 @@ func _init(runtime_node: Node = null) -> void:
 ## Return easing runs at the top of every lean tick, even while the act is leaving the
 ## actionable states, so a released reach still blends home.
 func return_tick() -> void:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return
 	_reach_hand_return_tick()
 
 
 func tick(delta: float) -> void:
-	if not is_instance_valid(runtime):
+	if facts == null:
 		return
 	_sync()
 	if _reach_holding:
@@ -1093,21 +1099,29 @@ func smack_pony() -> Variant:
 	return pony
 
 
-func smack_runtime() -> Node:
-	return runtime
+## One readiness touch event from a smack swing.
+func hand_on_touch(kind: String) -> void:
+	if facts != null:
+		facts.touch(kind)
+
+
+## One smack impact, for the jiggle and rump blush fan-out.
+func hand_on_smack_impact(strength: float) -> void:
+	if facts != null:
+		facts.smack_hit(strength)
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)
 
 
 ## Per-size caress-point offsets, scaled for the "same height" preset.
 func _caress_profile() -> Dictionary:
-	var size := str(runtime.call("_size_name"))
+	var size := str(facts.size_name)
 	var profile := caress_profile_for(size).duplicate(true)
 	if size == "same height":
-		var scale := float(runtime.call("_same_height_scale"))
+		var scale := float(facts.same_height_scale)
 		for key: String in ["up", "back", "out"]:
 			profile[key] = float(profile.get(key, 0.0)) * scale
 	return profile

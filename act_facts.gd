@@ -79,6 +79,8 @@ var bed_frame: Variant = null
 ## The act's bed node and the per-mare profile the presentation reads.
 var bed: Variant = null
 var profile: Dictionary = {}
+## The physics delta the hand and reach easing uses, so a controller never asks the tree.
+var physics_delta := 0.016
 
 # Scene handles the act owns. Presentation modules are scene adapters, so they receive the nodes
 # they work on rather than reading the runtime's fields.
@@ -86,6 +88,7 @@ var main: Variant = null
 var pony: Variant = null
 var camera: Camera3D = null
 var pose: Variant = null
+var viewport: Variant = null
 
 # Host callbacks. A missing callback is a no-op.
 var log := Callable()
@@ -121,6 +124,9 @@ var free_of_affection := Callable()
 var can_offer := Callable()
 var pause_face_turn := Callable()
 var restore_face_turn := Callable()
+## The node that answers the Anon pose-driver write-backs (`apply_anon_thrust`,
+## `apply_anon_lean`, `apply_anon_align`). It is passed as an opaque host handle.
+var pose_host := Callable()
 
 
 func perf(chunk: String, usec: int) -> void:
@@ -168,6 +174,51 @@ func mark_camera_basis_ready() -> void:
 
 func clock() -> float:
 	return float(now.call()) if now.is_valid() else 0.0
+
+
+## One readiness touch event of `kind` (`caress`, `kiss`, `smack`).
+func touch(kind: String) -> void:
+	if on_touch.is_valid():
+		on_touch.call(kind)
+
+
+## One smack impact of `strength`, for the jiggle and rump blush fan-out.
+func smack_hit(strength: float) -> void:
+	if on_smack.is_valid():
+		on_smack.call(strength)
+
+
+## The standing camera controller, or null outside a standing act.
+func standing_camera_controller() -> Variant:
+	return standing_camera.call() if standing_camera.is_valid() else null
+
+
+## The game's desktop pose driver, or null when the avatar has none.
+func pose_driver() -> Variant:
+	return desktop_pose_driver.call() if desktop_pose_driver.is_valid() else null
+
+
+## The node that answers the Anon pose-driver write-backs.
+func driver_host() -> Variant:
+	return pose_host.call() if pose_host.is_valid() else null
+
+
+## Whether an act may be offered now. A missing callback refuses.
+func offer_allowed(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+	if not can_offer.is_valid():
+		return false
+	return bool(can_offer.call(pose, act_source, bed_in))
+
+
+## Hold the face turn for the act. A missing callback is a no-op.
+func pause_face(force := false) -> void:
+	if pause_face_turn.is_valid():
+		pause_face_turn.call(force)
+
+
+func restore_face() -> void:
+	if restore_face_turn.is_valid():
+		restore_face_turn.call()
 
 
 ## A host value that may be missing: `null` outside a scene, so a caller tests it.

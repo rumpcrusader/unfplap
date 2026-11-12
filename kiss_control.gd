@@ -25,7 +25,7 @@ const STANDING_KISS_LEAN := 0.90
 ## forward lean, and a pure side lean must not pull the kiss.
 const MISSIONARY_KISS_LEAN := 0.90
 
-var runtime: Node
+var facts: Variant
 var pony: Variant
 var main: Variant
 var _presentation_cfg: Dictionary = {}
@@ -56,7 +56,7 @@ var _kiss_saved_hooves := 1.0
 var _kiss_leg_pin: Node
 
 func _apply_kiss_forelegs() -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING:
+	if str(facts.pose_id) != CATALOG.STANDING:
 		return
 	if _kiss_forelegs_planted:
 		return
@@ -81,7 +81,7 @@ func _restore_kiss_forelegs() -> void:
 ## The base kiss's chest flex runs after body_sway's upper-arm pin. This extra modifier runs
 ## last and brings the visible hoof tips back to where they were before the kiss.
 func _start_kiss_leg_pin() -> void:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING:
+	if str(facts.pose_id) != CATALOG.STANDING:
 		return
 	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
 		return
@@ -92,7 +92,6 @@ func _start_kiss_leg_pin() -> void:
 	_kiss_leg_pin = KISS_LEGS.new()
 	_kiss_leg_pin.name = "UnfplapKissLegPin"
 	_kiss_leg_pin.set("mare", pony)
-	_kiss_leg_pin.set("runtime", runtime)
 	skeleton.add_child(_kiss_leg_pin)
 	skeleton.move_child(_kiss_leg_pin, skeleton.get_child_count() - 1)
 	_kiss_leg_pin.call("capture")
@@ -113,7 +112,7 @@ func _start_base_kiss() -> bool:
 	# The stock kiss pose is authored for a standing pony. On the bed its chest/neck give lifts
 	# the lying body off the mattress and turns her head across it, so missionary uses the act's own
 	# head aim instead.
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+	if str(facts.pose_id) == CATALOG.MISSIONARY:
 		return false
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
 			or not is_instance_valid(main.player) or not is_instance_valid(main.game):
@@ -146,7 +145,7 @@ func _start_base_kiss() -> bool:
 			(sk as Skeleton3D).move_child(_base_kiss_pose, (sk as Skeleton3D).get_child_count() - 1)
 			_pin_base_side()
 	_start_kiss_leg_pin()
-	_log("base kiss start pony=%s" % str(runtime.get("_id")))
+	_log("base kiss start pony=%s" % str(facts.pony_id))
 	return true
 
 
@@ -168,7 +167,7 @@ func _end_base_kiss() -> void:
 			kisser.set("_her_kiss", false)
 			kisser.set("_used_hold", false)
 	if is_instance_valid(main) and is_instance_valid(main.player) \
-			and int(runtime.get("state")) in [STATE_ACTIVE, STATE_CLIMAX]:
+			and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
 		main.player.set_meta("kiss_hold", true)
 	_base_kiss_releasing = is_instance_valid(_base_kiss_pose)
 	if not _base_kiss_releasing:
@@ -194,7 +193,7 @@ func _restore_base_kiss_pose() -> void:
 	_base_kiss_pose_index = -1
 	_base_kiss_affection = null
 	_restore_base_kiss_excitement()
-	runtime.call("_keep_chin_last")
+	facts.call_value(facts.keep_chin_last)
 
 
 ## A base kiss otherwise triggers the stock unicorn horn sparkle and flutter beat. Keep the beat
@@ -230,7 +229,7 @@ func _kiss_visible() -> bool:
 
 ## Standing kiss controls. Missionary keeps the fixed constants.
 func _kiss_controls() -> Dictionary:
-	if str(runtime.get("pose_id")) != CATALOG.STANDING:
+	if str(facts.pose_id) != CATALOG.STANDING:
 		return {}
 	var kiss: Variant = _presentation_cfg.get("kiss", {})
 	return kiss if kiss is Dictionary else {}
@@ -238,7 +237,7 @@ func _kiss_controls() -> Dictionary:
 
 func _kiss_mouth_offset() -> Vector3:
 	var kiss := _kiss_controls()
-	var scale: float = float(runtime.call("_anon_height_scale"))
+	var scale: float = float(facts.anon_height_scale)
 	return Vector3(
 		float(kiss.get("mouth_right", 0.0)),
 		-float(kiss.get("mouth_drop", 0.07)),
@@ -250,15 +249,15 @@ func _kiss_camera_yaw_deg() -> float:
 
 
 func _kiss_lean_side() -> float:
-	return float(_kiss_controls().get("lean_side", KISS_LEAN_SIDE_M)) * runtime.call("_anon_height_scale")
+	return float(_kiss_controls().get("lean_side", KISS_LEAN_SIDE_M)) * float(facts.anon_height_scale)
 
 
 func _kiss_lean_forward() -> float:
-	return float(_kiss_controls().get("lean_forward", KISS_LEAN_M)) * runtime.call("_anon_height_scale")
+	return float(_kiss_controls().get("lean_forward", KISS_LEAN_M)) * float(facts.anon_height_scale)
 
 
 func _kiss_lean_drop() -> float:
-	return float(_kiss_controls().get("lean_drop", KISS_LEAN_DROP_M)) * runtime.call("_anon_height_scale")
+	return float(_kiss_controls().get("lean_drop", KISS_LEAN_DROP_M)) * float(facts.anon_height_scale)
 
 
 func _kiss_lean_distance() -> float:
@@ -269,10 +268,10 @@ func _kiss_lean_distance() -> float:
 func _side() -> float:
 	if absf(_kiss_camera_side) > 0.5:
 		return _kiss_camera_side
-	if absf(float(runtime.get("_lean_view_side"))) > 0.01:
-		return signf(float(runtime.get("_lean_view_side")))
-	if absf(float(runtime.get("_lean_action_side"))) > 0.01:
-		return signf(float(runtime.get("_lean_action_side")))
+	if absf(float(facts.lean_view_side)) > 0.01:
+		return signf(float(facts.lean_view_side))
+	if absf(float(facts.lean_action_side)) > 0.01:
+		return signf(float(facts.lean_action_side))
 	return 0.0
 
 
@@ -303,7 +302,7 @@ func _kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
 
 
 func lateral_offset(lean_scale: float) -> float:
-	return _kiss_lateral_offset(float(runtime.get("_lean_view_side")), _side(), _kiss_lean, lean_scale)
+	return _kiss_lateral_offset(float(facts.lean_view_side), _side(), _kiss_lean, lean_scale)
 
 
 func _latch_side(side: float = NAN) -> void:
@@ -312,11 +311,11 @@ func _latch_side(side: float = NAN) -> void:
 	_kiss_diag_clock = 0.0
 	# Latch the requested lean, not the inertia-smoothed view: switching sides and pressing F
 	# immediately must not keep the previous side for the whole kiss.
-	var lean := float(runtime.get("_lean_side")) if is_nan(side) else side
+	var lean := float(facts.lean_side) if is_nan(side) else side
 	if absf(lean) <= 0.01:
-		lean = float(runtime.get("_lean_action_side"))
+		lean = float(facts.lean_action_side)
 	if absf(lean) <= 0.01:
-		lean = float(runtime.get("_lean_view_side"))
+		lean = float(facts.lean_view_side)
 	if absf(lean) <= 0.01:
 		return
 	_kiss_camera_side = signf(lean)
@@ -389,7 +388,7 @@ func _kiss_tick(delta: float) -> void:
 		return
 	_kiss_sound_clock -= delta
 	if _kiss_sound_clock <= 0.0:
-		runtime.call("_play_mouth_kiss")
+		facts.call_value(facts.play_mouth_kiss)
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 
 
@@ -405,7 +404,7 @@ func _update_base_kiss(delta: float) -> void:
 			affection.set("face", view.global_basis.orthonormalized())
 	_kiss_sound_clock -= delta
 	if _kiss_sound_clock <= 0.0:
-		runtime.call("_play_mouth_kiss")
+		facts.call_value(facts.play_mouth_kiss)
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 
 
@@ -442,7 +441,7 @@ func _kiss_diag() -> void:
 			var skull: Variant = boop.call("skull_world")
 			if skull is Vector3:
 				skull_lateral = ((skull as Vector3) - target).dot(right)
-		var camera: Variant = runtime.get("_camera")
+		var camera: Variant = facts.camera
 		cam_roll = rad_to_deg(camera.rotation.z) if is_instance_valid(camera) else 0.0
 		var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 		if sk is Skeleton3D:
@@ -458,7 +457,7 @@ func _kiss_diag() -> void:
 		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
 		pose_side, cam_roll, head_roll, skull_lateral, mouth_gap,
 		limited, miss, cleared,
-		lateral_offset(float(runtime.call("_standing_lean_scale"))) if str(runtime.get("pose_id")) == CATALOG.STANDING else 0.0])
+		lateral_offset(float(facts.standing_lean_scale)) if str(facts.pose_id) == CATALOG.STANDING else 0.0])
 
 
 func _target(view: Camera3D) -> Vector3:
@@ -466,15 +465,15 @@ func _target(view: Camera3D) -> Vector3:
 		return Vector3.INF
 	# Missionary's Anon is the authored body on the bed, not the standing player rig the game camera
 	# still belongs to: aim her at his posed mouth, never at that camera.
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
-		var body: Variant = runtime.call("missionary_anon_body")
+	if str(facts.pose_id) == CATALOG.MISSIONARY:
+		var body: Variant = facts.missionary_body()
 		if body != null and bool(body.get("active")):
 			var mouth: Variant = body.call("mouth_point")
 			if mouth is Vector3 and (mouth as Vector3).is_finite():
 				return mouth
 	var point: Vector3 = view.global_position + view.global_basis \
-		* (Vector3(0.0, -0.07, -0.02) * runtime.call("_anon_height_scale"))
-	if str(runtime.get("pose_id")) == CATALOG.STANDING:
+		* (Vector3(0.0, -0.07, -0.02) * float(facts.anon_height_scale))
+	if str(facts.pose_id) == CATALOG.STANDING:
 		point = view.global_position + view.global_basis * _kiss_mouth_offset()
 	return point
 
@@ -486,7 +485,7 @@ func _mouth_view() -> Camera3D:
 		var view: Camera3D = main.camera()
 		if is_instance_valid(view):
 			return view
-	return runtime.get("_camera") as Camera3D
+	return facts.camera as Camera3D
 
 
 
@@ -521,25 +520,33 @@ func end_lean_kiss() -> void:
 	_release_kiss_face()
 	# Releasing the kiss must not leave the shoulder reach's forced over-the-shoulder glance
 	# latched while F is still held.
-	runtime.set("_forced_glance", "")
-	var cam: Variant = runtime.call("_standing_camera_controller")
+	facts.write_forced_glance("")
+	var cam: Variant = facts.standing_camera_controller()
 	cam.clear_glance()
 	_log("standing kiss stop")
 
 
 
 
+## Read the live scene handles and configs from the typed act view. The runtime rewrites the
+## view before it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
-	pony = runtime.get("pony") if is_instance_valid(runtime) else null
-	main = runtime.get("main") if is_instance_valid(runtime) else null
-	var cfg: Variant = runtime.get("_presentation_cfg") if is_instance_valid(runtime) else null
+	if facts == null:
+		pony = null
+		main = null
+		_presentation_cfg = {}
+		_pose_cfg = {}
+		return
+	pony = facts.pony
+	main = facts.main
+	var cfg: Variant = facts.presentation_config
 	_presentation_cfg = cfg if cfg is Dictionary else {}
-	var pose_cfg: Variant = runtime.get("_pose_cfg") if is_instance_valid(runtime) else null
+	var pose_cfg: Variant = facts.pose_config
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 func tick(delta: float) -> void:
@@ -629,20 +636,20 @@ func restore_forelegs() -> void:
 ## every physics tick by the runtime for both poses.
 func lean_kiss_tick() -> void:
 	_sync()
-	var phase := str(runtime.get("pose_id"))
-	if not bool(runtime.call("_act_actions_allowed")) \
+	var phase := str(facts.pose_id)
+	if not bool(facts.call_value(facts.act_actions_allowed, false)) \
 			or phase not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
 		_lean_kiss_used = false
 		end_lean_kiss()
 		return
 	var f_held := Input.is_physical_key_pressed(KEY_F) \
-		and not (runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open")))
+		and not bool(facts.call_value(facts.auto_panel_open, false))
 	var want := false
 	if phase == CATALOG.STANDING:
-		want = standing_kiss_wanted(f_held, float(runtime.get("_lean_side")))
+		want = standing_kiss_wanted(f_held, float(facts.lean_side))
 	else:
 		want = f_held and Input.is_action_pressed("move_forward") \
-			and float(runtime.get("_lean_forward")) >= MISSIONARY_KISS_LEAN
+			and float(facts.lean_forward) >= MISSIONARY_KISS_LEAN
 	if not want:
 		_lean_kiss_used = false
 		end_lean_kiss()
@@ -659,19 +666,19 @@ func lean_kiss_tick() -> void:
 		return
 	_lean_kiss_used = true
 	_lean_kiss_active = true
-	runtime.set("_forced_glance", "")
-	_latch_side(float(runtime.get("_lean_side")))
+	facts.write_forced_glance("")
+	_latch_side(float(facts.lean_side))
 	_custom_kiss_active = not _start_base_kiss()
 	if _custom_kiss_active:
-		runtime.call("_play_mouth_kiss")
+		facts.call_value(facts.play_mouth_kiss)
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
-	runtime.call("_on_touch", "kiss")
+	facts.touch("kiss")
 	_log("lean kiss start pose=%s forward=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
-		phase, float(runtime.get("_lean_forward")), float(runtime.get("_lean_side")),
-		_kiss_pony_side, lateral_offset(float(runtime.call("_standing_lean_scale"))),
+		phase, float(facts.lean_forward), float(facts.lean_side),
+		_kiss_pony_side, lateral_offset(float(facts.standing_lean_scale)),
 		str(_base_kiss_active)])
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)

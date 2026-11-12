@@ -43,6 +43,8 @@ const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
+const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
@@ -131,8 +133,7 @@ const CUDDLE_REJOIN_WINDOW_S := 30.0
 const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_Y_SECONDS := 0.35
-## Debug perf probe window (one `[unfplap] perf` block per second, DEBUG LOGS only).
-const PERF_WINDOW_S := 1.0
+## Debug perf probe window: see `perf.gd`.
 ## After this long the mare may choose to end the afterglow herself. Being held or caressed
 ## lowers the chance; an accepted [stay] pauses the roll entirely.
 const AFTERGLOW_SELF_END_SECONDS := 16.0
@@ -285,6 +286,11 @@ var _anatomy_act: Node
 ## Reused typed context for the per-act and persistent anatomy controllers. The runtime writes
 ## it; anatomy reads it. No anatomy file reads this runtime node.
 var _anatomy_facts: RefCounted = ANATOMY_FACTS.new()
+## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
+## reaching into this node. See `act_facts.gd`.
+var _act_facts: RefCounted = ACT_FACTS.new()
+## Debug perf probe: timed chunks report here and one summary prints per window. See `perf.gd`.
+var _perf_probe := PERF.new()
 var _missionary_anon: Node
 var _vr_act: Node
 var _used_angles: Array[String] = []
@@ -542,6 +548,18 @@ func _init() -> void:
 	_anatomy_facts.perf_note = Callable(self, "perf_note")
 	_anatomy_facts.log = Callable(self, "_log")
 	_anatomy_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
+	_act_facts.perf_note = Callable(self, "perf_note")
+	_act_facts.log = Callable(self, "_log")
+	_act_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
+	_act_facts.kiss = Callable(self, "_kiss_controller")
+	_act_facts.neck_point = Callable(self, "_neck_midpoint")
+	_act_facts.set_look = Callable(self, "_act_set_look")
+	_act_facts.set_forced_glance = Callable(self, "_act_set_forced_glance")
+	_act_facts.set_camera_basis_ready = Callable(self, "_act_set_camera_basis_ready")
+	_perf_probe.enabled = Callable(self, "_perf_enabled")
+	_perf_probe.active = Callable(self, "_perf_active")
+	_perf_probe.header = Callable(self, "_perf_header")
+	_perf_probe.log = Callable(self, "_log")
 
 
 func _ready() -> void:
@@ -646,6 +664,84 @@ func _sync_anatomy_facts() -> void:
 	_anatomy_facts.cycle_phase = cycle_phase()
 
 
+## Write the typed act context the presentation controllers read. Called at the head of each tick
+## and again by `apply_camera_motion()`, because `main.gd` drives the camera after the act tick.
+func _sync_act_facts() -> void:
+	var facts := _act_facts
+	facts.state = state
+	facts.pose_id = pose_id
+	facts.source = source
+	facts.satisfaction = satisfaction
+	facts.mood = mood
+	facts.cue = cue
+	facts.pony_climaxes = pony_climaxes
+	facts.depth = depth
+	facts.penetration_m = penetration_m
+	facts.main = main
+	facts.pony = pony
+	facts.camera = _camera
+	facts.pose = _pose
+	if state == State.IDLE:
+		# No presentation module reads the derived values outside an act; skipping the settings and
+		# geometry lookups keeps an idle town from paying for every runtime every frame.
+		return
+	facts.penetration_reach = penetration_reach()
+	facts.size_name = _size_name()
+	facts.size_scale = _size_scale()
+	facts.lean_size_scale = _lean_size_scale()
+	facts.standing_lean_scale = _standing_lean_scale()
+	facts.player_eye_height = _player_eye_height()
+	facts.anon_torso_forward = _anon_torso_forward()
+	facts.anon_torso_drop = _anon_torso_drop()
+	facts.player_pony = _player_pony
+	facts.headset_view = _headset_view()
+	facts.free_camera_active = _free_camera_active
+	facts.free_look_active = free_look_active()
+	facts.camera_owned = _camera_owned
+	facts.look_captured = _look_captured
+	facts.look_yaw = _look_yaw
+	facts.look_pitch = _look_pitch
+	facts.lean_forward = _lean_forward
+	facts.lean_side = _lean_side
+	facts.lean_view_forward = _lean_view_forward
+	facts.lean_view_side = _lean_view_side
+	facts.lean_sway = _lean_sway
+	facts.bob = _bob
+	facts.back = _back
+	facts.back_target = _back_target
+	facts.forced_glance = _forced_glance
+	facts.pose_config = _pose_cfg
+	facts.presentation_config = _presentation_cfg
+	facts.bed_frame = _bed_pose_frame
+	var kiss: Variant = _kiss
+	if kiss != null:
+		facts.kiss_amount = float(kiss.amount())
+		facts.kiss_active = bool(kiss.leaning_close())
+		facts.kiss_side = float(kiss.side())
+	else:
+		facts.kiss_amount = 0.0
+		facts.kiss_active = false
+		facts.kiss_side = 0.0
+
+
+## Typed write-backs for the presentation controllers. The runtime keeps ownership of the captured
+## look snapshot and the forced glance, so the controller never writes those fields directly.
+func _act_set_look(yaw: float, pitch: float) -> void:
+	_look_yaw = yaw
+	_look_pitch = pitch
+	_act_facts.look_yaw = yaw
+	_act_facts.look_pitch = pitch
+
+
+func _act_set_forced_glance(side: String) -> void:
+	_forced_glance = side
+	_act_facts.forced_glance = side
+
+
+func _act_set_camera_basis_ready() -> void:
+	_camera_basis_ready = true
+
+
 func _anatomy_fluid_ground_y() -> float:
 	var ground: float = pony.global_position.y if is_instance_valid(pony) else 0.0
 	if pose_id != CATALOG.MISSIONARY:
@@ -675,54 +771,34 @@ func _log(text: String) -> void:
 		main.call("debug", text)
 
 
-## Debug perf probe. Timed chunks report microseconds here; `_perf_tick()` prints one summary a
-## second so a pony-specific stall can be attributed to a modifier without a live profiler.
-var _perf: Dictionary = {}
-var _perf_clock := 0.0
-var _perf_frames := 0
-
-
-func _perf_on() -> bool:
+## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `perf.gd`,
+## which prints one summary a second so a pony-specific stall can be attributed to a modifier
+## without a live profiler.
+func _perf_enabled() -> bool:
 	return is_instance_valid(main) and bool(main.get("debug_logs")) \
 		and bool(main.get("debug_perf"))
 
 
+func _perf_active() -> bool:
+	return state != State.IDLE
+
+
 ## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with logs off.
 func perf_note(key: String, usec: int) -> void:
-	if not _perf_on():
-		return
-	var row: Array = _perf.get(key, [0, 0, 0])
-	row[0] = int(row[0]) + 1
-	row[1] = int(row[1]) + usec
-	row[2] = maxi(int(row[2]), usec)
-	_perf[key] = row
+	_perf_probe.note(key, usec)
 
 
 ## Time one call site for the perf probe (callers take the start stamp themselves).
 func _timed(key: String, started: int) -> void:
-	if _perf_on():
-		perf_note(key, Time.get_ticks_usec() - started)
+	_perf_probe.time(key, started)
 
 
 func _perf_tick(delta: float) -> void:
-	if not _perf_on() or state == State.IDLE:
-		_perf_clock = 0.0
-		_perf_frames = 0
-		_perf.clear()
-		return
-	_perf_frames += 1
-	_perf_clock += delta
-	if _perf_clock < PERF_WINDOW_S:
-		return
-	var frames := maxi(1, _perf_frames)
-	_perf_clock = 0.0
-	_perf_frames = 0
-	var rows: Array = []
-	for key: String in _perf:
-		var row: Array = _perf[key]
-		rows.append([key, int(row[0]), float(row[1]) / 1000.0, int(row[2])])
-	_perf.clear()
-	rows.sort_custom(func(a: Array, b: Array) -> bool: return float(a[2]) > float(b[2]))
+	_perf_probe.tick(delta)
+
+
+## Header facts for one perf summary line.
+func _perf_header() -> Dictionary:
 	var near_mesh := "?"
 	var tier := "?"
 	if is_instance_valid(pony):
@@ -737,14 +813,14 @@ func _perf_tick(delta: float) -> void:
 			wing_state = "held"
 		elif bool(wings.get("_winged")):
 			wing_state = "winged"
-	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms near_mesh=%s tier=%s wings=%s" % [
-		_id, pose_id, state, Engine.get_frames_per_second(),
-		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
-		near_mesh, tier, wing_state]
-	for row: Array in rows:
-		text += "\n\t%-16s %7.2fms/s per-frame %6.3fms max %6.2fms calls %d" % [
-			str(row[0]), float(row[2]), float(row[2]) / frames, float(row[3]) / 1000.0, int(row[1])]
-	_log(text)
+	return {
+		"pony": _id,
+		"pose": pose_id,
+		"state": state,
+		"near_mesh": near_mesh,
+		"tier": tier,
+		"wings": wing_state,
+	}
 
 
 ## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
@@ -782,7 +858,7 @@ func _missionary_camera_controller():
 ## Lazily create the standing camera controller, including outside the tree in tests.
 func _standing_camera_controller():
 	if _standing_camera_ctl == null:
-		_standing_camera_ctl = STANDING_CAMERA.new(self)
+		_standing_camera_ctl = STANDING_CAMERA.new(_act_facts)
 	return _standing_camera_ctl
 
 ## Lazily create the standing Anon body controller, including outside the tree in tests.
@@ -1059,7 +1135,7 @@ func _clear_face() -> void:
 func _process(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	_process_tick(delta)
-	if _perf_on():
+	if _perf_probe.on():
 		perf_note("runtime_process", Time.get_ticks_usec() - started)
 		_perf_tick(delta)
 
@@ -1068,6 +1144,7 @@ func _process_tick(delta: float) -> void:
 	if state == State.IDLE:
 		_standing_presentation_controller().process()
 		return
+	_sync_act_facts()
 	_sync_bed_pose_frame()
 	_pose_render_write()
 	_pose_idle_sample()
@@ -1209,12 +1286,13 @@ func _physics_process(delta: float) -> void:
 	_sync_anatomy_facts()
 	_physics_tick(delta)
 	_sync_anatomy_facts()
-	if _perf_on():
+	if _perf_probe.on():
 		perf_note("runtime_physics", Time.get_ticks_usec() - started)
 
 
 func _physics_tick(delta: float) -> void:
 	_clock_s += maxf(0.0, delta)
+	_sync_act_facts()
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		if _inventory_hud_hidden:
@@ -1240,6 +1318,7 @@ func _physics_tick(delta: float) -> void:
 	_hold_y_tick(delta)
 	_auto_panel_tick(delta)
 	_lean_tick(delta)
+	_sync_act_facts()
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_act_presentation(delta)
 	if state in [State.POSING_IN, State.ACTIVE]:
@@ -2308,6 +2387,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 			_abort_start()
 			return false
 		pony.request_posture("stand")
+		_sync_act_facts()
 		_standing_camera_controller().begin_facing(standing)
 
 	_build_pose()
@@ -6226,6 +6306,7 @@ func _begin_camera_mode() -> void:
 		return
 	_free_camera_active = true
 	_camera = main.camera()
+	_sync_act_facts()
 	if pose_id == CATALOG.STANDING and is_instance_valid(_camera):
 		_standing_camera_controller().prepare()
 		_standing_anon_controller().install()
@@ -6825,6 +6906,7 @@ func apply_camera_motion() -> void:
 		_camera = main.camera() if is_instance_valid(main) else null
 	if not is_instance_valid(_camera):
 		return
+	_sync_act_facts()
 	if pose_id == CATALOG.MISSIONARY:
 		_missionary_camera_controller().tick()
 		return
@@ -6903,6 +6985,7 @@ func _restore_camera() -> void:
 	_standing_anon_controller().remove()
 	_restore_eye_override()
 	_missionary_camera_controller().release()
+	_sync_act_facts()
 	_standing_camera_controller().restore()
 	_bob = 0.0
 	_bob_velocity = 0.0

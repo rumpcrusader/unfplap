@@ -86,8 +86,9 @@ Rules:
   tests and the contract, then delete the old path. No mixed-state commits.
 
 A system is not the right unit for a tiny pure helper or a data table. `settings.gd`,
-`poses/catalog.gd`, `preferences.gd`, `cycle.gd` and `anatomy_placement.gd` stay shared pure
-modules; a system is for behavior with lifecycle, scene access or stored state.
+`poses/catalog.gd`, `preferences.gd`, `cycle.gd`, `anatomy_placement.gd`, `act_facts.gd` and
+`perf.gd` stay shared pure modules; a system is for behavior with lifecycle, scene access or
+stored state.
 
 ### Systems
 
@@ -297,6 +298,9 @@ mods/unfplap/
   anatomy/player.gd player anatomy mesh, placement, girth/head/length shaping and throb;
                     `player_prepare()` builds it hidden for the footstool measurement
   anatomy_placement.gd  shared pure placement schema, shipped per-mare defaults and migration
+  act_facts.gd      typed act context: state, pose, readiness, lean/camera values, scene handles and
+                    host callbacks; presentation modules read it instead of the runtime
+  perf.gd           debug perf probe: timed chunks and the once-per-second summary
   stool.gd          footstool facade: reach rule, case item, act prop and world supply
   stool/            pure gap/item helpers, the static act prop and the house supply
   docs/stool.md     standing footstool contract; never packed
@@ -1529,8 +1533,9 @@ is deliberately blush-free so the 0.35 decal stays light.
   time, `near_mesh`, sim tier, wing hold, then the per-second cost of every timed chunk (runtime
   process/physics, pose recipe, tail pose, body sway, ear twitch, caress, wings, kiss, camera
   motion, HUD). A chunk calls
-  `runtime.perf_note()`, and `_perf_tick()` prints; use it to attribute a pony-specific stall
-  instead of guessing. The window clears whenever the runtime is `IDLE`, so nothing prints
+  `runtime.perf_note()`, and `perf.gd` prints one summary per window; use it to attribute a
+  pony-specific stall without guessing. The window clears whenever the runtime is `IDLE`, so
+  nothing prints
   outside an act. **Print perf logs** also prints `tail perf attach`/`tail perf refresh` one-shot
   lines and a once-per-second `tail perf seats=… skinned=… builds=…/s` line aggregating every live
   dock; steady state is `builds=0/s` because the blend runs on the GPU.

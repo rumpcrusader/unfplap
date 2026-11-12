@@ -75,6 +75,7 @@ func run() -> void:
 	_check_initiation_docs()
 	_check_memory_isolation(files)
 	_check_memory_docs()
+	_check_act_facts()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -236,6 +237,26 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 			var allowed: Array = readers[token]
 			check(relative in allowed, "%s does not read %s outside the eligibility API" % [
 				relative, token])
+
+
+## The typed act context and the perf probe stay scene-free. The standing camera reads the
+## context and never reaches into the runtime's private fields.
+func _check_act_facts() -> void:
+	var facts := FileAccess.get_file_as_string(ROOT.path_join("act_facts.gd"))
+	check(facts.contains("func neck_midpoint("), "act context is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")"]:
+		check(not facts.contains(token), "act context has no scene reference: %s" % token)
+	var perf := FileAccess.get_file_as_string(ROOT.path_join("perf.gd"))
+	check(perf.contains("func note(") and perf.contains("func tick("), "perf probe is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")"]:
+		check(not perf.contains(token), "perf probe has no scene access: %s" % token)
+	var camera := FileAccess.get_file_as_string(ROOT.path_join("standing_camera.gd"))
+	check(camera.contains("var facts: Variant"), "standing camera reads the act context")
+	for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\""]:
+		check(not camera.contains(token), "standing camera has no runtime reach-in: %s" % token)
 
 
 func _check_eligibility_docs() -> void:

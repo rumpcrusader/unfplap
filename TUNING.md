@@ -196,6 +196,14 @@ action that must fire while the world is unpaused and you are looking at the sce
 skeleton overlay is the only one); use `"panel": false` for hotkey-only. `input.gd` routes declared
 hotkeys only.
 
+## Perf probe
+
+**Print perf logs** (with **Enable debug**) turns on the act's probe. Timed chunks call
+`runtime.perf_note(chunk, usec)`; `perf.gd` holds the window, the chunk rows and the header facts,
+and prints one `perf` summary a second. The probe is off and allocation-free when either switch
+is off, and its window resets outside an act. It is a debug tool, not a setting: no declaration,
+no persisted value.
+
 ## Guards
 
 - `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/

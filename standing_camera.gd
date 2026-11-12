@@ -1,6 +1,6 @@
 extends RefCounted
-## Standing look, glance, facing lock and camera offsets. The runtime owns the act state and
-## the camera reference; this controller owns the look cone and framing state.
+## Standing look, glance, facing lock and camera offsets. The runtime owns the act state and feeds
+## the typed `act_facts.gd` context; this controller owns the look cone and framing state.
 
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -20,7 +20,7 @@ const CAM_SPEED_SMOOTH_S := 0.06
 const STATE_IDLE := 0
 const STATE_RESTORE := 5
 
-var runtime: Node
+var facts: Variant
 var main: Variant
 var pony: Variant
 var camera: Camera3D
@@ -48,26 +48,29 @@ var _glance_sign_set := false
 var _glance_head_back := 0.0
 
 func _depth_speed_tick(delta: float) -> void:
-	var raw_speed := (float(runtime.get("depth")) - _depth_prev) / maxf(delta, 0.0001)
-	_depth_prev = float(runtime.get("depth"))
+	var raw_speed := (float(facts.depth) - _depth_prev) / maxf(delta, 0.0001)
+	_depth_prev = float(facts.depth)
 	var alpha := 1.0 - exp(-delta / maxf(CAM_SPEED_SMOOTH_S, 0.001))
 	_depth_speed = lerpf(_depth_speed, raw_speed, alpha)
 
 ## Standing yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
 
 func _apply_standing_lean_look() -> void:
-	var kiss: Variant = runtime.call("_kiss_controller")
-	if not bool(runtime.get("_free_camera_active")) or str(runtime.get("pose_id")) != CATALOG.STANDING or bool(runtime.get("_player_pony")) or bool(runtime.call("_headset_view")):
+	var kiss: Variant = facts.kiss_controller()
+	if not bool(facts.free_camera_active) or str(facts.pose_id) != CATALOG.STANDING \
+			or bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(main.player) or kiss == null:
 		return
 	var body: Node = main.player
-	var lean_scale := float(runtime.call("_standing_lean_scale"))
-	var yaw := float(runtime.get("_look_yaw")) + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) * float(runtime.get("_lean_view_side")) * lean_scale
+	var lean_scale := float(facts.standing_lean_scale)
+	var yaw := float(facts.look_yaw) + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) \
+		* float(facts.lean_view_side) * lean_scale
 	# Turn a little further toward her while kissing, over the shoulder.
 	yaw += deg_to_rad(kiss.camera_yaw_deg()) * kiss.lean() * kiss.side()
 	var pitch := clampf(
-		float(runtime.get("_look_pitch")) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(runtime.get("_lean_view_forward"))) * lean_scale
+		float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) \
+			* absf(float(facts.lean_view_forward)) * lean_scale
 		+ deg_to_rad(float(_presentation_cfg.get("camera_pitch_deg", 0.0))),
 		-1.5, 1.5)
 	body.rotation.y = yaw
@@ -82,7 +85,7 @@ func _apply_standing_lean_look() -> void:
 ## start couch actions while the shot is active. The previous value is restored at act end.
 
 func _standing_neck_point() -> Vector3:
-	var neck: Vector3 = runtime.call("_neck_midpoint")
+	var neck: Vector3 = facts.neck_midpoint()
 	if neck.is_finite():
 		return neck
 	if not is_instance_valid(pony):
@@ -95,7 +98,7 @@ func _standing_neck_point() -> Vector3:
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
 
 func _apply_standing_base_look() -> void:
-	if bool(runtime.get("_player_pony")) or bool(runtime.call("_headset_view")):
+	if bool(facts.player_pony) or bool(facts.headset_view):
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
@@ -119,11 +122,10 @@ func _apply_standing_base_look() -> void:
 		body.set("_pitch", pitch)
 	if body.get("form_driver") == null:
 		view.rotation.x = pitch
-	runtime.set("_look_yaw", yaw)
-	runtime.set("_look_pitch", pitch)
-	runtime.set("_camera_basis_ready", true)
+	facts.write_look(yaw, pitch)
+	facts.mark_camera_basis_ready()
 	_standing_base_look = target
-	if str(runtime.get("pose_id")) == CATALOG.STANDING and _has_facing \
+	if str(facts.pose_id) == CATALOG.STANDING and _has_facing \
 			and not _facing_override_on:
 		_facing_basis = Basis(Vector3.UP, yaw)
 	_apply_standing_lean_look()
@@ -163,17 +165,17 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 	_applied_side = side
 
 func _standing_eye_height() -> float:
-	var height: float = float(runtime.call("_player_eye_height"))
-	if runtime.call("_size_name") == "canon":
+	var height := float(facts.player_eye_height)
+	if str(facts.size_name) == "canon":
 		height -= CANON_STANDING_CAMERA_DROP_M
-	elif runtime.call("_size_name") == "mounting":
+	elif str(facts.size_name) == "mounting":
 		height += MOUNTING_STANDING_CAMERA_LIFT_M
 	return height
 
 func _lock_body_facing() -> void:
-	if not _has_facing or str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(pony):
+	if not _has_facing or str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(pony):
 		return
-	if int(runtime.get("state")) in [STATE_IDLE, STATE_RESTORE]:
+	if int(facts.state) in [STATE_IDLE, STATE_RESTORE]:
 		return
 	var t: Transform3D = pony.global_transform
 	var scale := t.basis.get_scale()
@@ -196,31 +198,34 @@ func _glance_back_fade() -> float:
 ## eased so it does not snap.
 
 func _drive_glance(delta: float) -> void:
-	var kiss: Variant = runtime.call("_kiss_controller")
-	if not _has_facing or str(runtime.get("pose_id")) != CATALOG.STANDING or not is_instance_valid(pony):
+	var kiss: Variant = facts.kiss_controller()
+	if not _has_facing or str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(pony):
+		return
+	if kiss == null:
 		return
 	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
 	# forced over-the-shoulder look so the two head poses do not fight and clip.
 	if kiss.standing_active() or kiss.base_active():
-		if is_instance_valid(runtime.get("_pose")):
+		if is_instance_valid(facts.pose):
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
-			runtime.get("_pose").set("head_back", _glance_head_back)
-		runtime.set("_forced_glance", "")
+			facts.pose.set("head_back", _glance_head_back)
+		facts.write_forced_glance("")
 		_glance_left = 0.0
 		_glance_back = false
 		return
 	# A full forward W lean (no side lean, no kiss) makes her throw her head fully back and
 	# look up at Anon instead of waiting for a random glance.
-	var lean_up: bool = float(runtime.get("_lean_forward")) >= 0.95 and absf(float(runtime.get("_lean_side"))) <= 0.2 and not kiss.standing_active()
-	if is_instance_valid(runtime.get("_pose")):
-		var back_target := 1.0 if (not str(runtime.get("_forced_glance")).is_empty() or lean_up \
+	var lean_up: bool = float(facts.lean_forward) >= 0.95 \
+		and absf(float(facts.lean_side)) <= 0.2 and not kiss.standing_active()
+	if is_instance_valid(facts.pose):
+		var back_target := 1.0 if (not str(facts.forced_glance).is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
 		_glance_head_back = move_toward(_glance_head_back, back_target, delta / _glance_back_fade())
-		runtime.get("_pose").set("head_back", _glance_head_back)
+		facts.pose.set("head_back", _glance_head_back)
 	var secondary: Variant = pony.get("secondary")
-	if not str(runtime.get("_forced_glance")).is_empty():
+	if not str(facts.forced_glance).is_empty():
 		_glance_sign_set = true
-		_glance_sign = 1.0 if str(runtime.get("_forced_glance")) == "L" else -1.0
+		_glance_sign = 1.0 if str(facts.forced_glance) == "L" else -1.0
 		_glance_back = true
 		if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
 			secondary.call("look_toward", _glance_angles(), 0.4)
@@ -293,7 +298,7 @@ func _glance_angles() -> Vector3:
 ## held by kiss_hold; this only limits where the camera can turn.
 
 func _clamp_look() -> void:
-	if str(runtime.get("pose_id")) == CATALOG.MISSIONARY:
+	if str(facts.pose_id) == CATALOG.MISSIONARY:
 		# Missionary uses the mod-owned view; the player's body look is left alone.
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -303,16 +308,16 @@ func _clamp_look() -> void:
 	# AnonPony lying/sitting has her own body-yaw limit; never widen it.
 	if form != null and form is Node and (form as Node).has_method("clamp_view"):
 		form.call("clamp_view")
-	var yaw_delta := angle_difference(float(runtime.get("_look_yaw")), float(body.rotation.y))
+	var yaw_delta := angle_difference(float(facts.look_yaw), float(body.rotation.y))
 	if absf(yaw_delta) > LOOK_YAW_LIMIT:
-		body.rotation.y = float(runtime.get("_look_yaw")) + clampf(yaw_delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
+		body.rotation.y = float(facts.look_yaw) + clampf(yaw_delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
 	var headset: Variant = body.get("headset_view")
 	if headset is bool and headset:
 		return
 	var pitch_value: Variant = body.get("_pitch")
 	if pitch_value == null:
 		return
-	var want := float(runtime.get("_look_pitch")) + clampf(float(pitch_value) - float(runtime.get("_look_pitch")), -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
+	var want := float(facts.look_pitch) + clampf(float(pitch_value) - float(facts.look_pitch), -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
 	if absf(float(pitch_value) - want) > 0.00001:
 		body.set("_pitch", want)
 	var view: Camera3D = main.camera()
@@ -320,16 +325,16 @@ func _clamp_look() -> void:
 		view.rotation.x = want
 
 func _sync() -> void:
-	main = runtime.get("main") if is_instance_valid(runtime) else null
-	pony = runtime.get("pony") if is_instance_valid(runtime) else null
-	camera = runtime.get("_camera") if is_instance_valid(runtime) else null
-	var cfg: Variant = runtime.get("_presentation_cfg") if is_instance_valid(runtime) else null
+	main = facts.main if facts != null else null
+	pony = facts.pony if facts != null else null
+	camera = facts.camera if facts != null else null
+	var cfg: Variant = facts.presentation_config if facts != null else null
 	_presentation_cfg = cfg if cfg is Dictionary else {}
-	var pose_cfg: Variant = runtime.get("_pose_cfg") if is_instance_valid(runtime) else null
+	var pose_cfg: Variant = facts.pose_config if facts != null else null
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 func prepare() -> void:
 	_sync()
@@ -421,19 +426,21 @@ func clear_glance() -> void:
 
 func tick() -> void:
 	_sync()
-	var kiss: Variant = runtime.call("_kiss_controller")
+	var kiss: Variant = facts.kiss_controller()
+	if kiss == null:
+		return
 
-	var lean_scale := float(runtime.call("_standing_lean_scale"))
-	_set_camera_offsets(float(runtime.get("_bob")) - kiss.lean_drop() * kiss.lean() - float(runtime.call("_anon_torso_drop")),
-		float(runtime.get("_lean")) - float(runtime.get("_back")) + MOTION.lean_distance(
-			float(runtime.get("_lean_view_forward")), lean_scale)
-		+ kiss.lean_distance() + float(runtime.call("_anon_torso_forward"))
+	var lean_scale := float(facts.standing_lean_scale)
+	_set_camera_offsets(float(facts.bob) - kiss.lean_drop() * kiss.lean() - float(facts.anon_torso_drop),
+		float(facts.lean) - float(facts.back) + MOTION.lean_distance(
+			float(facts.lean_view_forward), lean_scale)
+		+ kiss.lean_distance() + float(facts.anon_torso_forward)
 		+ float(_presentation_cfg.get("camera_forward_m", 0.0)), kiss.lateral_offset(lean_scale))
-	if str(runtime.get("pose_id")) == CATALOG.STANDING and bool(runtime.get("_free_camera_active")) and is_instance_valid(camera):
-		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(runtime.get("_lean_view_side")) \
-			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(runtime.get("_lean_view_forward"))) * lean_scale
+	if str(facts.pose_id) == CATALOG.STANDING and bool(facts.free_camera_active) and is_instance_valid(camera):
+		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(facts.lean_view_side) \
+			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(facts.lean_view_forward)) * lean_scale
 		camera.rotation.x = clampf(
-			float(runtime.get("_look_pitch")) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(runtime.get("_lean_view_forward"))) * lean_scale
+			float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(facts.lean_view_forward)) * lean_scale
 			+ deg_to_rad(float(_presentation_cfg.get("camera_pitch_deg", 0.0))),
 			-1.5, 1.5)
 
@@ -441,7 +448,7 @@ func restore() -> void:
 	_sync()
 	if is_instance_valid(camera):
 		if _standing_base_saved:
-			camera.position = Vector3(_standing_base_local.x, float(runtime.call("_player_eye_height")), _standing_base_local.z)
+			camera.position = Vector3(_standing_base_local.x, float(facts.player_eye_height), _standing_base_local.z)
 		elif camera.top_level:
 			if absf(_applied_bob) > 0.00001:
 				camera.global_position -= Vector3.UP * _applied_bob
@@ -450,7 +457,7 @@ func restore() -> void:
 			if absf(_applied_side) > 0.00001:
 				camera.global_position -= camera.global_basis.x * _applied_side
 		else:
-			camera.position.y = float(runtime.call("_player_eye_height"))
+			camera.position.y = float(facts.player_eye_height)
 			camera.position.z += _applied_lean
 			camera.position.x -= _applied_side
 	_applied_bob = 0.0
@@ -461,5 +468,5 @@ func restore() -> void:
 	_depth_speed = 0.0
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)

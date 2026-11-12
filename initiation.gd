@@ -931,9 +931,8 @@ func _issue_initial() -> void:
 		return
 	var started := bool(_conversation.begin_greeting(_episode.id, _ask_context()))
 	if not started:
-		started = bool(_conversation.queue(_episode.id, _ask_purpose(),
-			"%s:%s:%d:ask" % [KEY_PREFIX, _episode.id, _episode.serial],
-			Callable(self, "_episode_valid").bind(_episode.serial), false))
+		started = _queue_line("ask", _ask_purpose(),
+			Callable(self, "_episode_valid").bind(_episode.serial), false, false)
 	if not started:
 		_cancel_episode(false)
 		return
@@ -987,10 +986,8 @@ func _tick_ask(_delta: float) -> void:
 		CONSENT_CORE.ABANDON:
 			_give_up("timeout")
 			return
-	if _episode.pose == CATALOG.MISSIONARY and not _episode.cuddle \
-			and not _episode.reply.pending \
-			and _now() - _episode.ask_started >= POLICY.PHYSICAL_ACCEPT_GRACE_S \
-			and _player_in_bed(_episode.bed):
+	if POLICY.physical_yes(_episode.pose == CATALOG.MISSIONARY, _episode.cuddle,
+			_episode.reply.pending, _now() - _episode.ask_started, _player_in_bed(_episode.bed)):
 		# Lying down on the offered bed is a physical yes.
 		if _episode.reply.seen:
 			return
@@ -1119,14 +1116,8 @@ func _represent_or_cancel(reason: String) -> bool:
 
 
 func _queue_invitation() -> bool:
-	if _episode == null:
-		return false
-	var key := "%s:%s:%d:invite" % [KEY_PREFIX, _episode.id, _episode.serial]
-	var queued := bool(_conversation.queue(_episode.id, _invite_purpose(), key,
-		Callable(self, "_invite_valid").bind(_episode.serial), true))
-	if queued and not key in _episode.keys:
-		_episode.keys.append(key)
-	return queued
+	return _queue_line("invite", _invite_purpose(),
+		Callable(self, "_invite_valid").bind(_episode.serial))
 
 
 func _invite_valid(serial: int) -> bool:
@@ -1280,16 +1271,12 @@ func _clarify_consent() -> void:
 	if _episode.reply.clarified:
 		_give_up(CONSENT_CORE.UNCLEAR)
 		return
-	var id := _episode.id
-	var key := "%s:%s:%d:clarify" % [KEY_PREFIX, id, _episode.serial]
-	var queued := bool(_conversation.queue(id, PROMPTS.clarify_purpose(), key,
-		Callable(self, "_clarify_valid").bind(_episode.serial), true))
+	var queued := _queue_line("clarify", PROMPTS.clarify_purpose(),
+		Callable(self, "_clarify_valid").bind(_episode.serial))
 	if queued:
 		_episode.reply.clarified = true
 		_episode.deadline_at = _now() + POLICY.CLARIFY_GRACE_S
-		if not key in _episode.keys:
-			_episode.keys.append(key)
-		_debug("request clarify %s" % id)
+		_debug("request clarify %s" % _episode.id)
 
 
 func _clarify_valid(serial: int) -> bool:
@@ -1312,9 +1299,8 @@ func _clarify_valid(serial: int) -> bool:
 func _invite_give_up() -> void:
 	var id := _episode.id
 	_record_end_situation("invite timeout")
-	_conversation.queue(id, PROMPTS.invite_give_up_purpose(),
-		"%s:%s:%d:invite_giveup" % [KEY_PREFIX, id, _episode.serial],
-		Callable(self, "_pony_alive").bind(id), true)
+	_queue_line("invite_giveup", PROMPTS.invite_give_up_purpose(),
+		Callable(self, "_pony_alive").bind(id), true, false)
 	_cancel_episode(true, "invite give up")
 	_debug("request invite give up %s" % id)
 
@@ -1328,9 +1314,8 @@ func _player_name() -> String:
 func _give_up(reason := "timeout") -> void:
 	var id := _episode.id
 	_record_end_situation(reason)
-	_conversation.queue(id, PROMPTS.give_up_purpose(),
-		"%s:%s:%d:giveup" % [KEY_PREFIX, id, _episode.serial],
-		Callable(self, "_pony_alive").bind(id), true)
+	_queue_line("giveup", PROMPTS.give_up_purpose(),
+		Callable(self, "_pony_alive").bind(id), true, false)
 	_cancel_episode(true, "give up:" + reason)
 	_debug("request give up %s reason=%s" % [id, reason])
 
@@ -1493,18 +1478,34 @@ func _pony_alive(id: String) -> bool:
 	return false
 
 
+## The episode line key for one tag ("ask", "invite", "prompt1", "clarify", "giveup").
+func _line_key(tag: String) -> String:
+	return "%s:%s:%d:%s" % [KEY_PREFIX, _episode.id, _episode.serial, tag]
+
+
+## Queue one authored line for this episode and, when `track`, record its key so the close path
+## can cancel it.
+func _queue_line(tag: String, purpose: String, valid: Callable, priority := true,
+		track := true) -> bool:
+	if _episode == null:
+		return false
+	var key := _line_key(tag)
+	var queued := bool(_conversation.queue(_episode.id, purpose, key, valid, priority))
+	if queued and track and not key in _episode.keys:
+		_episode.keys.append(key)
+	return queued
+
+
 func _queue_reminder(number: int) -> bool:
 	if not bool(_conversation.idle()):
 		return false
-	var id := _episode.id
-	var key := "%s:%s:%d:prompt%d" % [KEY_PREFIX, id, _episode.serial, number]
-	if key in _episode.keys:
+	var tag := "prompt%d" % number
+	if _line_key(tag) in _episode.keys:
 		return false
-	var queued := bool(_conversation.queue(id, _reminder_purpose(), key,
-		Callable(self, "_episode_valid").bind(_episode.serial), true))
+	var queued := _queue_line(tag, _reminder_purpose(),
+		Callable(self, "_episode_valid").bind(_episode.serial))
 	if queued:
-		_episode.keys.append(key)
-		_debug("request reminder %d %s" % [number, id])
+		_debug("request reminder %d %s" % [number, _episode.id])
 	return queued
 
 

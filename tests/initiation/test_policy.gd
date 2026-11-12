@@ -79,6 +79,19 @@ func run() -> void:
 	check(POLICY.next_prompt_time(1) == 24.0, "the second reminder time")
 	check(POLICY.next_prompt_time(2) < 0.0, "there is no third reminder")
 
+	check(POLICY.physical_yes(true, false, false, 3.0, true),
+		"a bed offer accepts the physical yes")
+	check(not POLICY.physical_yes(false, false, false, 3.0, true),
+		"a standing offer has no bed yes")
+	check(not POLICY.physical_yes(true, true, false, 3.0, true),
+		"a cuddle never counts as a physical yes")
+	check(not POLICY.physical_yes(true, false, true, 3.0, true),
+		"a pending answer defers the physical yes")
+	check(not POLICY.physical_yes(true, false, false, 1.0, true),
+		"the physical-yes grace still applies")
+	check(not POLICY.physical_yes(true, false, false, 3.0, false),
+		"lying down on the offered bed is required")
+
 	check(POLICY.pick_offer_pose(true, true, 0.1) == CATALOG.MISSIONARY,
 		"the bed wins the low coin flip")
 	check(POLICY.pick_offer_pose(true, true, 0.9) == CATALOG.STANDING,

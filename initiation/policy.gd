@@ -105,6 +105,15 @@ static func next_prompt_time(prompts_sent: int) -> float:
 	return -1.0
 
 
+## Lying down on the offered bed after the grace is a physical yes. It only applies to a bed
+## offer that is still waiting for an answer.
+static func physical_yes(missionary: bool, cuddle: bool, pending: bool, elapsed: float,
+		in_bed: bool, grace := PHYSICAL_ACCEPT_GRACE_S) -> bool:
+	if not missionary or cuddle or pending:
+		return false
+	return in_bed and elapsed >= grace
+
+
 ## Per-mare pose choice for an automatic offer. Both feasible: a coin flip; one feasible: it.
 static func pick_offer_pose(bed_ok: bool, standing_ok: bool, roll: float) -> String:
 	if bed_ok and standing_ok:

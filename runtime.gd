@@ -45,6 +45,7 @@ const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
 const READINESS := preload("res://mods/unfplap/readiness.gd")
 const HISTORY := preload("res://mods/unfplap/history.gd")
+const AFTERGLOW := preload("res://mods/unfplap/afterglow.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
@@ -101,13 +102,6 @@ const CUDDLE_REJOIN_WINDOW_S := 30.0
 const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_Y_SECONDS := 0.35
-## Debug perf probe window: see `perf.gd`.
-## After this long the mare may choose to end the afterglow herself. Being held or caressed
-## lowers the chance; an accepted [stay] pauses the roll entirely.
-const AFTERGLOW_SELF_END_SECONDS := 16.0
-const AFTERGLOW_SELF_END_CHECK_S := 1.0
-const AFTERGLOW_SELF_END_CHANCE_CLOSE := 0.12
-const AFTERGLOW_SELF_END_CHANCE_ALONE := 0.30
 ## Missionary camera: above and behind her neck so the shot looks forward along her body at her
 ## face. `pony.global_basis.z` is her backward direction.
 ## Default room between the missionary shot and the pony; the presentation setting overrides it.
@@ -174,9 +168,6 @@ const ANON_TORSO_LEN_M := 0.65
 const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Standing after the climax: held afterglow; Anon stays put.
-## The close window only exists in the standing afterglow.
-const STAY_CLOSE_SECONDS := 8.0
-const STAY_CLOSE_CARESS_SECONDS := 2.5
 ## The Y hint's `End` shade: one step per climax, capped below full so only the earned
 ## afterglow caress turns it fully pink.
 const Y_END_TINT_MAX := 0.75
@@ -288,18 +279,51 @@ var _pose_in_left := 0.0
 var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
-var _afterglow_pose := ""
-var _afterglow_elapsed := 0.0
+## The act's afterglow phase: self-end roll, `[stay]` hold and the standing close window.
+## See `afterglow.gd` and `docs/afterglow.md`.
+var _afterglow: RefCounted = AFTERGLOW.new()
+var _afterglow_elapsed: float:
+	get:
+		return _afterglow.elapsed
+	set(value):
+		_afterglow.elapsed = value
 ## One short private afterglow beat, rolled once when afterglow begins. Empty means silence.
-var _afterglow_beat := ""
-var _afterglow_hold_until := 0.0
-var _self_end_clock := 0.0
-var _action_executor: Node
-var _close_left := 0.0
-var _close_caress_seconds := 0.0
-var _close_rewarded := false
+var _afterglow_beat: String:
+	get:
+		return _afterglow.beat
+	set(value):
+		_afterglow.beat = value
+var _afterglow_hold_until: float:
+	get:
+		return _afterglow.hold_until
+	set(value):
+		_afterglow.hold_until = value
+var _self_end_clock: float:
+	get:
+		return _afterglow.self_end_clock
+	set(value):
+		_afterglow.self_end_clock = value
+var _close_left: float:
+	get:
+		return _afterglow.close_left
+	set(value):
+		_afterglow.close_left = value
+var _close_caress_seconds: float:
+	get:
+		return _afterglow.close_caress_seconds
+	set(value):
+		_afterglow.close_caress_seconds = value
+var _close_rewarded: bool:
+	get:
+		return _afterglow.close_rewarded
+	set(value):
+		_afterglow.close_rewarded = value
 ## True only when the standing close window earned its caress reward.
-var _close_caress_earned := false
+var _close_caress_earned: bool:
+	get:
+		return _afterglow.close_caress_earned
+	set(value):
+		_afterglow.close_caress_earned = value
 
 var _player_pony := false
 var _had_kiss_hold := false
@@ -674,6 +698,14 @@ func _init() -> void:
 	_history.log = Callable(self, "_log")
 	_history.reaction_line = Callable(self, "_reaction_line")
 	_history.idle = Callable(self, "_history_is_idle")
+	_afterglow.log = Callable(self, "_log")
+	_afterglow.clock = Callable(self, "_now_s")
+	_afterglow.in_phase = Callable(self, "_afterglow_active")
+	_afterglow.speech_busy = Callable(self, "_speech_busy")
+	_afterglow.player_close = Callable(self, "_player_is_close")
+	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
+	_afterglow.on_end = Callable(self, "end_afterglow")
+	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -2463,7 +2495,6 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_reset_thrust_state()
 	_pose_logged = false
 	_pose_trace_frames = 0
-	_afterglow_beat = ""
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
 	_end_tail_tuck()
@@ -3331,10 +3362,7 @@ func _reset_thrust_state() -> void:
 	_standing_sway_offset = Vector3.ZERO
 	_readiness.reset(_preferences)
 	_climax_left = 0.0
-	_close_left = 0.0
-	_close_caress_seconds = 0.0
-	_close_rewarded = false
-	_close_caress_earned = false
+	_afterglow.reset()
 	_lines_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
@@ -4581,7 +4609,7 @@ func end_afterglow() -> void:
 		# integration: if he stayed in, the withdrawal gush is part of the finish.
 		if is_instance_valid(_anatomy_act):
 			_anatomy_act.call("withdraw")
-		_close_cancel()
+		_afterglow.cancel_close()
 		_restore_begin()
 
 func _climax() -> void:
@@ -4920,65 +4948,17 @@ func _player_is_leaning_close() -> bool:
 func _player_is_close() -> bool:
 	return _player_is_caressing() or _player_is_leaning_close()
 
-## The game's action executor owns [stay: SECONDS]. A permitted stay during the afterglow is
-## her agreement to keep the moment going, so pause the self-end roll for that long.
+func _afterglow_active() -> bool:
+	return state == State.AFTERGLOW
+
+func _afterglow_caressing() -> bool:
+	return _hand_controller().any_active()
+
+## The game's action executor owns `[stay: SECONDS]`. A permitted stay during the afterglow is
+## her agreement to keep the moment going, so pause the self-end roll for that long. The
+## afterglow facade owns the hold; the runtime only finds the game's executor.
 func _bind_action_executor() -> void:
-	if is_instance_valid(_action_executor) and _action_executor.is_inside_tree():
-		return
-	_action_executor = null
-	var director := _director()
-	if director == null:
-		return
-	var actions: Variant = director.get("actions")
-	if actions == null:
-		return
-	var executors: Variant = actions.get("executors")
-	if not executors is Dictionary:
-		return
-	var executor: Variant = (executors as Dictionary).get(_id)
-	if not executor is Node:
-		return
-	_action_executor = executor as Node
-	var callback := Callable(self, "_on_action_outcome")
-	if _action_executor.has_signal("outcome") and not _action_executor.is_connected("outcome", callback):
-		_action_executor.connect("outcome", callback)
-
-func _on_action_outcome(event: Dictionary) -> void:
-	if state != State.AFTERGLOW:
-		return
-	if str(event.get("type", "")) != "stay":
-		return
-	if str(event.get("status", "")) != "accepted":
-		return
-	var duration := 30.0
-	if is_instance_valid(_action_executor):
-		var movement: Variant = _action_executor.get("movement")
-		if movement is Dictionary:
-			duration = float((movement as Dictionary).get("duration_s", 30.0))
-	duration = clampf(duration, 0.5, 600.0)
-	_afterglow_hold_until = maxf(_afterglow_hold_until, _now_s() + duration)
-	_log("afterglow hold extended %.0fs by [stay]" % duration)
-
-static func self_end_chance(close: bool) -> float:
-	return AFTERGLOW_SELF_END_CHANCE_CLOSE if close else AFTERGLOW_SELF_END_CHANCE_ALONE
-
-func _self_end_tick(delta: float) -> void:
-	if _afterglow_elapsed < AFTERGLOW_SELF_END_SECONDS:
-		return
-	if _now_s() < _afterglow_hold_until:
-		return
-	_self_end_clock -= delta
-	if _self_end_clock > 0.0:
-		return
-	_self_end_clock = AFTERGLOW_SELF_END_CHECK_S
-	if _speech_busy():
-		return
-	var close := _player_is_close()
-	var chance := self_end_chance(close)
-	if randf() >= chance:
-		return
-	_log("afterglow self end after %.1fs close=%s" % [_afterglow_elapsed, str(close)])
-	end_afterglow()
+	_afterglow.bind_action_executor(_director(), _id)
 
 func _enter_afterglow() -> void:
 	_afterglow_begin()
@@ -5005,12 +4985,8 @@ func _afterglow_begin() -> void:
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("on_finish")
 	_commit_afterglow()
-	_afterglow_beat = ACT_SUMMARY.afterglow_beat(_summary, randf())
 	state = State.AFTERGLOW
-	_afterglow_pose = pose_id
-	_afterglow_elapsed = 0.0
-	_afterglow_hold_until = 0.0
-	_self_end_clock = 0.0
+	_afterglow.begin(pose_id, _summary)
 	_bind_action_executor()
 	cue = ""
 	_cue_override = ""
@@ -5032,50 +5008,23 @@ func _afterglow_begin() -> void:
 			_tail.call("flick", 2)
 		else:
 			_tail.target_amount = 0.35
-	if pose_id == CATALOG.STANDING:
-		_begin_close_window()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		main.hud.set_state("AFTERGLOW")
-
-## Standing afterglow only. The HUD and this timer own the stay-close invitation; normal dialogue
-## resumes instead of a scripted stay-close line.
-func _begin_close_window() -> void:
-	if pose_id != CATALOG.STANDING:
-		return
-	_close_left = STAY_CLOSE_SECONDS
-	_close_caress_seconds = 0.0
-	_close_rewarded = false
-	_close_caress_earned = false
-	cue = ""
-	_cue_override = ""
-	_cue_until = 0.0
 
 func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW:
 		return
-	_afterglow_elapsed += delta
+	_afterglow.advance(delta)
 	# integration: keep the optional bed-body part tracking through afterglow.
 	if is_instance_valid(_anatomy_act):
 		_anatomy_act.call("afterglow_tick", delta, _anatomy_context())
-	_self_end_tick(delta)
+	_afterglow.self_end_tick(delta)
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return
-	if _close_left <= 0.0:
-		return
-	if _hand_controller().any_active():
-		_close_caress_seconds += delta
-	_close_left = maxf(0.0, _close_left - delta)
-	if _close_left <= 0.0:
-		_close_afterglow()
+	_afterglow.close_tick(delta)
 
-func _close_afterglow() -> void:
-	if _close_rewarded:
-		return
-	_close_rewarded = true
-	_close_left = 0.0
-	var caressed := _close_caress_seconds >= STAY_CLOSE_CARESS_SECONDS
-	_close_caress_earned = caressed
-	var reward := bool(_summary.get("reward", false))
+## The standing close window elapsed. The facade decided the reward; the runtime presents it.
+func _on_stay_close(caressed: bool, reward: bool) -> void:
 	if is_instance_valid(main):
 		var impression := MEMORY.Impression.new()
 		impression.id = _id
@@ -5090,29 +5039,17 @@ func _close_afterglow() -> void:
 	_set_face(0.9, AFTERGLOW_CLOSE_LIDS)
 	_climax_hearts_burst()
 	cue = ""
-	_log("stay close reward caressed=%s caress_seconds=%.1f" % [
-		str(caressed), _close_caress_seconds])
-
-func _close_cancel() -> void:
-	if _close_rewarded:
-		return
-	_close_left = 0.0
-	_close_caress_seconds = 0.0
 
 func close_hint() -> String:
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return ""
-	if _close_left > 0.0:
-		return "Stay close · %ds · caress" % int(ceil(_close_left))
-	if _close_rewarded:
-		return "She seems content."
-	return ""
+	return _afterglow.hint()
 
 func _restore_begin() -> void:
 	if state == State.IDLE or state == State.RESTORE:
 		return
 	_record_peak_memory()
-	_close_cancel()
+	_afterglow.cancel_close()
 	_stop_auto_thrust()
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])

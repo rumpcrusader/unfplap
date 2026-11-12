@@ -105,11 +105,12 @@ stored state.
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
 | Act summary and history | `history.gd` | `HISTORY.md` | migrated |
+| Afterglow and close window | `afterglow.gd` | `docs/afterglow.md` | migrated |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
 Systems with a facade use `tests/<system>/`: hands, eligibility, anatomy, initiation, memory,
-act lines, readiness and history, plus the act-context and perf modules. The remaining suites are
-still flat (`tests/test_*.gd`) and move when their system is next touched.
+act lines, readiness, history and afterglow, plus the act-context and perf modules. The remaining
+suites are still flat (`tests/test_*.gd`) and move when their system is next touched.
 
 ### Docs
 
@@ -122,6 +123,7 @@ still flat (`tests/test_*.gd`) and move when their system is next touched.
 | `docs/initiation.md` | proactive requests, privacy, consent classification |
 | `docs/memory.md` | act memory, witnesses, peak memory and the mod's own line channel |
 | `docs/lines.md` | act cue admission, prompt assembly, reactions and bystander lines |
+| `docs/afterglow.md` | afterglow self-end, `[stay]` hold and the standing close window |
 | `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
@@ -356,6 +358,8 @@ mods/unfplap/
   act_audio.gd      pack foley/vocal/wet layers
   history.gd        act summary/history facade: commit trigger, peak memory, idle history
                     decisions, refusal gate and the tolerance meter; contract in `HISTORY.md`
+  afterglow.gd      afterglow facade: self-end roll, `[stay]` hold and the standing close
+                    window; contract in `docs/afterglow.md`
   act_summary.gd    pure per-act action checklist, grade, reward and summary text
   act_history.gd    per-mare hurt/comfort, tiers, offer weight, prompts and repair
   act_tolerance.gd  pure per-act distress, warning stages and stop thresholds
@@ -597,7 +601,8 @@ The reference seat, dock skin, per-mare placement and debug actions are in `docs
   flicks twice. Normal dialogue resumes; a live `pony_prompt_notes` line keeps the just-intimate
   moment present and reports caressing/leaning. After 16 s she may choose to end the
   afterglow; an accepted `[stay: SECONDS]` pauses that roll. The 8 s HUD close window counts
-  active caress time. No automatic withdrawal/restore.
+  active caress time. `afterglow.gd` owns the phase decisions; see `docs/afterglow.md`.
+  No automatic withdrawal/restore.
 
 ## Critical: camera work
 

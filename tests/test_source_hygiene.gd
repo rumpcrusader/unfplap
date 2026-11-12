@@ -79,6 +79,7 @@ func run() -> void:
 	_check_act_lines()
 	_check_readiness()
 	_check_history()
+	_check_afterglow()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -320,6 +321,28 @@ func _check_history() -> void:
 			"test_act_history.gd", "test_act_tolerance.gd", "test_history.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/history/" + name)),
 			"tests/history/%s exists" % name)
+
+
+## The afterglow facade owns the phase timers and the close-window decision; it reads plain
+## host callbacks and never the runtime node. Its contract is `docs/afterglow.md`.
+func _check_afterglow() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("afterglow.gd"))
+	check(facade.contains("func self_end_tick(") and facade.contains("func close_tick("),
+		"afterglow facade is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not facade.contains(token), "afterglow has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/afterglow.md"))
+	check(not contract.is_empty(), "docs/afterglow.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Self-end",
+			"## `[stay]` hold", "## Close window", "## Tests"]:
+		check(contract.contains(heading), "docs/afterglow.md has %s" % heading)
+	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))
+	check(agents.contains("docs/afterglow.md"), "AGENTS.md links to docs/afterglow.md")
+	check(FileAccess.file_exists(ROOT.path_join("tests/afterglow/test_afterglow.gd")),
+		"tests/afterglow/test_afterglow.gd exists")
 
 
 func _check_eligibility_docs() -> void:

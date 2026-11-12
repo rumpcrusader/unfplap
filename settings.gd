@@ -1077,10 +1077,6 @@ static func gaze_offset_mm_for(size: String) -> float:
 	return gaze_offset_mm_canon.get_num()
 
 # -- Standing  (debug)
-static var standing_play_bow := flag("standing_play_bow", "features.standing_play_bow", false,
-	"Use play-bow stance",
-	"Standing: stretch the front legs forward with the chest down and head low instead of the tucked act stance.", GENERAL, "Standing") \
-	.as_debug()
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg", 30.0,
 	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()

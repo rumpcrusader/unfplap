@@ -2819,7 +2819,6 @@ func _sync_standing_pose_config() -> void:
 	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return
 	_pose_cfg = SETTINGS.pose(_id, CATALOG.STANDING)
-	_pose_cfg["play_bow"] = _feature("standing_play_bow")
 	_pose_cfg["chin_up_deg"] = float(_presentation_cfg.get("chin_up_deg",
 		SETTINGS.chin_up_deg.default))
 	_pose_cfg["neck_down_deg"] = float(_presentation_cfg.get("neck_down_deg",

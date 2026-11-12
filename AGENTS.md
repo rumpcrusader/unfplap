@@ -553,14 +553,6 @@ The reference seat, dock skin, per-mare placement and debug actions are in `docs
 
 - Stance: `STANDING_BOW = 2.4`, `STANDING_FORELEG = 2.0`,
   `STANDING_FORELEG_SPREAD = 0.172`, `STANDING_HIND_SPREAD = 0.32`.
-- `features.standing_play_bow` (default off) swaps the tucked act stance for
-  `_apply_play_bow` in `standing_recipe.gd`: the hips pitch `8°` nose-down and the hind femurs
-  counter it so her hind legs stay under her; the spine bends at `PLAY_BOW_BOW = 3.0`; the
-  shoulders and upper arms rotate to their `+35°` limits with the lower arm `+55°`, wrist
-  `+10°` and hand `+10°`, which puts the front hooves out under her chin; the neck hangs
-  `-30°`/`-22°` and the head `+10°`; the foreleg spread is `0.14` and the hind spread `0.10`.
-  It is a normal recipe pass through `rig.rotate()`, so the native joint limits still clamp it.
-  The idle standing invitation never sets the flag and keeps the natural stand.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`.
 - A live reach gap over `presentation.standing.stool_gap_m` needs enough `goods:footstool`
   stacks of `presentation.standing.stool_height_m`; the rule, prop and supply are in
@@ -1654,7 +1646,6 @@ which also removes its clamp. The full contract is `TUNING.md`.
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
-| `standing_play_bow` | `false` | standing play-bow stance: front legs forward, chest down, head low |
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |

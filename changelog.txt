@@ -17,7 +17,6 @@ v0.3.0
 - The V2 mesh adds the anal cup, the still zones around the vulva and ponut, and the body-coat spread.
 - Estrus cycle: an optional 30-day cycle with a week of heat, two days off, faster warmth, and idle winks and discharge; off by default.
 - Settings: General, Anatomy and World tabs, a live Debug block, and a reworked Characters form with per-mare preferences.
-- Play-bow stance: an optional standing pose with the chest down, front legs forward and head low.
 - Hold X opens the auto-thrust layer: min/max depth, pace, stroke shape, contact gap and the G smack.
 - The stroke follows the real shaft and the player size, and the body slap needs actual contact.
 - Dialogue cues carry the relationship and a shared memory; post-act lines are short and occasional.

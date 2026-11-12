@@ -1370,10 +1370,9 @@ func _relationship_ask_note() -> String:
 	var id := _episode.id if _episode != null else ""
 	if id.is_empty() or not is_instance_valid(main):
 		return ""
-	var game: Variant = main.get("game")
-	if not is_instance_valid(game):
+	if not is_instance_valid(main.get("game")):
 		return ""
-	var facts := MEMORY.cue_facts(game, id, "")
+	var facts: Dictionary = main.memory.cue_facts(id, "")
 	var note := RELATIONSHIP_CUE.note(facts)
 	if note.is_empty():
 		return ""

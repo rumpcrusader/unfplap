@@ -8,6 +8,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
+const MEMORY := preload("res://mods/unfplap/memory.gd")
 
 var failures := 0
 var checks := 0
@@ -47,6 +48,7 @@ class FakeImpressions extends Node:
 
 class FakeMain extends Node:
 	var game: Node
+	var memory
 	var lines: Array[String] = []
 
 	func debug(text: String) -> void:
@@ -150,6 +152,8 @@ func _check_commit() -> void:
 	root.add_child(impressions)
 	var main := FakeMain.new()
 	main.game = game
+	main.memory = MEMORY.new()
+	main.memory.setup(main)
 	root.add_child(main)
 	var runtime: Node = RUNTIME.new()
 	runtime.main = main

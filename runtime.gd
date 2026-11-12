@@ -11,7 +11,6 @@ const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const ACT_TOLERANCE := preload("res://mods/unfplap/act_tolerance.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest_control.gd")
-const WITNESS := preload("res://mods/unfplap/witness.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
@@ -1866,7 +1865,7 @@ func _buck_or_push() -> bool:
 ## face displays it (mood_face.gd). A buck is the stronger moment, so it is the stronger mood.
 func _note_refusal(bucked: bool) -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		MEMORY.refusal_event(main.game, _id, _display_name,
+		main.memory.refusal_event(_id, _display_name,
 			"unfplap_refusal_%s_%d" % [_id, Time.get_ticks_usec()], bucked)
 	_refuse_trust()
 	_start_upset("angry" if bucked else "annoyed")
@@ -3994,7 +3993,7 @@ func _utterance_tick() -> void:
 	var now := _now_s()
 	var line := "unknown"
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		line = MEMORY.line_state(main.game, key)
+		line = main.memory.line_state(key)
 	if line == "absent":
 		_log("utterance absent key=%s" % key)
 		lines.drop_pending()
@@ -4035,8 +4034,7 @@ func _bystander_tick(delta: float) -> void:
 	_bystander_wait = BYSTANDER_GAP_S
 	if randf() > BYSTANDER_CHANCE:
 		return
-	var eligibility_service: ELIGIBILITY = main.get("eligibility")
-	var seen: Array = MEMORY.perceived_adults(main.game, eligibility_service, pony) \
+	var seen: Array = main.memory.perceived_adults(pony) \
 		.filter(func(row: Dictionary) -> bool:
 			return not str(row.id) in _bystander_spoken and str(row.id) != _id)
 	if seen.is_empty():
@@ -4052,7 +4050,7 @@ func _bystander_tick(delta: float) -> void:
 		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
 	if _feature("act_faces"):
 		purpose += ACT_FACE.prompt_note("bystander")
-	if MEMORY.bystander_line(main.game, str(row.id), event_id, purpose, valid):
+	if main.memory.bystander_line(str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
 		_log("bystander line from %s" % row.id)
 
@@ -4086,7 +4084,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	}
 	var memory_id := ""
 	if kind == "cue":
-		var facts := MEMORY.cue_facts(main.game, _id, _event_id)
+		var facts: Dictionary = main.memory.cue_facts(_id, _event_id)
 		var tone_name := RELATIONSHIP_CUE.tone(facts)
 		var relationship_note := RELATIONSHIP_CUE.note(facts)
 		values["relationship"] = relationship_note
@@ -4104,7 +4102,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 			"touch_dislikes": _preferences.get("dislikes", []),
 			"talk_likes": _preferences.get("talk", []),
 		})
-		var memory := MEMORY.shared_memory(main.game, _id, cue, _event_id, _used_memory_ids)
+		var memory: Dictionary = main.memory.shared_memory(_id, cue, _event_id, _used_memory_ids)
 		values["memory"] = RELATIONSHIP_CUE.memory_line(str(memory.get("text", "")))
 		memory_id = str(memory.get("id", ""))
 	var purpose := UTTERANCE.format(template, values)
@@ -4130,7 +4128,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		return is_instance_valid(pony) and _event_id == act_id
 	var finished := func() -> void:
 		_utterance_done(line_key)
-	var queued := MEMORY.utterance_for(main.game, _id, act_id, suffix, purpose, valid, finished)
+	var queued: String = main.memory.utterance_for(_id, act_id, suffix, purpose, valid, finished)
 	if queued.is_empty():
 		_log("utterance queue failed kind=%s text=\"%s\"" % [kind, cue])
 		return ""
@@ -4163,7 +4161,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 	var age: float = maxf(0.0, _now_s() - float(lines.pending_since()))
 	var line := "unknown"
 	if not key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
-		line = MEMORY.line_state(main.game, key)
+		line = main.memory.line_state(key)
 	var director := _director()
 	var director_state := str(director.get("state")) if director != null else "?"
 	lines.drop_pending()
@@ -4173,7 +4171,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 		reason if not reason.is_empty() else "manual", key, pending_cue, age, line,
 		director_state, str(_speech_busy())])
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		MEMORY.cancel_line(main.game, key)
+		main.memory.cancel_line(key)
 
 
 ## Drop all act lines that have not started speaking. A line that is already speaking may
@@ -4181,7 +4179,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 ## climax/afterglow boundary and every act end, so a delayed line cannot start afterward.
 func _end_act_lines(keep_speaking := true) -> void:
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		var cancelled := MEMORY.cancel_act_lines(main.game, _event_id, keep_speaking)
+		var cancelled: int = main.memory.cancel_act_lines(_event_id, keep_speaking)
 		if cancelled > 0:
 			_log("act lines cancelled=%d" % cancelled)
 	_utterance_scheduler().drop_pending()
@@ -4282,7 +4280,7 @@ func _commit_summary(real_act: bool) -> void:
 	var result: Dictionary = ACT_HISTORY.commit(ACT_HISTORY.section(), _id, outcome,
 		ACT_HISTORY.day_now())
 	ACT_HISTORY.save()
-	MEMORY.commit_act(main.game, _id, _display_name, _event_id, outcome, not real_act)
+	main.memory.commit_act(_id, _display_name, _event_id, outcome, not real_act)
 	var row: Dictionary = result.get("row", {})
 	var events: PackedStringArray = []
 	var raw_events: Variant = result.get("events", [])
@@ -4362,7 +4360,7 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
 		var valid := func() -> bool:
 			return is_instance_valid(pony) and state == State.IDLE
-		MEMORY.reaction_for(main.game, _id, "history_refusal", event_id,
+		main.memory.reaction_for(_id, "history_refusal", event_id,
 			ACT_HISTORY.refusal_purpose(row), valid)
 		_log("history refusal id=%s tier=%s hurt=%d" % [
 			_id, ACT_HISTORY.tier_name(row), int(row.get("hurt", 0))])
@@ -4398,7 +4396,7 @@ func _history_tick(_delta: float) -> void:
 						ACT_HISTORY.day_now()):
 					ACT_HISTORY.save()
 					if is_instance_valid(main.game):
-						MEMORY.history_apology(main.game, _id, text)
+						main.memory.history_apology(_id, text)
 					_log("history apology id=%s" % _id)
 	_history_scan_clock += _delta
 	if _history_scan_clock < 1.0:
@@ -4419,7 +4417,7 @@ func _history_tick(_delta: float) -> void:
 	var event_id := "history_%s_%d" % [_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state == State.IDLE
-	var key := MEMORY.reaction_for(main.game, _id, "history_" + kind, event_id,
+	var key: String = main.memory.reaction_for(_id, "history_" + kind, event_id,
 		ACT_HISTORY.line_purpose(row, kind), valid)
 	if key.is_empty():
 		return
@@ -4476,7 +4474,7 @@ func _queue_tolerance_warning(level: int) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
 		return
 	if not _tolerance_warning_key.is_empty():
-		MEMORY.cancel_line(main.game, _tolerance_warning_key)
+		main.memory.cancel_line(_tolerance_warning_key)
 	var act_id := _event_id
 	var event_id := "%s:tolerance_warning:%d" % [_event_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
@@ -4484,13 +4482,13 @@ func _queue_tolerance_warning(level: int) -> void:
 			and _event_id == act_id
 	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
 		+ " Begin with [annoyed] or [calm]."
-	_tolerance_warning_key = MEMORY.reaction_for(main.game, _id, "tolerance_warning",
+	_tolerance_warning_key = main.memory.reaction_for(_id, "tolerance_warning",
 		event_id, fallback, valid)
 
 
 func _cancel_tolerance_warning() -> void:
 	if not _tolerance_warning_key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
-		MEMORY.cancel_line(main.game, _tolerance_warning_key)
+		main.memory.cancel_line(_tolerance_warning_key)
 	_tolerance_warning_key = ""
 
 
@@ -4506,7 +4504,7 @@ func _stop_with_her(reason: String) -> void:
 	# The stopped summary already says why. The basic event is the fallback when no summary was
 	# written (features.act_history off), so one partner stop is never two memories.
 	if _summary.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
-		MEMORY.stop_event(main.game, _id, _display_name, _event_id, "withdrew")
+		main.memory.stop_event(_id, _display_name, _event_id, "withdrew")
 	if pose_id == CATALOG.MISSIONARY:
 		REST.release_managed(pony)
 	_end_act_lines(true)
@@ -4544,7 +4542,7 @@ func _queue_stop_line(strict: bool) -> void:
 	var event_id := "tolerance_stop_%s_%d" % [_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state == State.IDLE
-	MEMORY.reaction_for(main.game, _id, "tolerance_stop", event_id, fallback, valid)
+	main.memory.reaction_for(_id, "tolerance_stop", event_id, fallback, valid)
 
 
 func _start_tail_tuck() -> void:
@@ -4600,7 +4598,7 @@ func _record_peak_memory() -> void:
 		text = "Anon made you feel completely wanted."
 	var score := RELATIONSHIP_CUE.peak_score(_peak_satisfaction, _act_both_matches,
 		_act_liked_touch, _act_liked_talk, _act_dislikes)
-	MEMORY.record_peak_memory(_id, _event_id, text, score)
+	main.memory.record_peak_memory(_id, _event_id, text, score)
 
 ## The runtime-patched rig coat is no longer the exact game Shader, so FlankTouch's
 ## JIGGLE_SHADERS check skips it. Put the coat and its outline back into the active target list.
@@ -4851,7 +4849,7 @@ func cancel() -> void:
 		# The early summary already records this end. Keep the basic event only when history is
 		# off or the summary was skipped, so the story never holds the same end twice.
 		if _summary.is_empty():
-			MEMORY.cancel_event(main.game, _id, _display_name, _event_id)
+			main.memory.cancel_event(_id, _display_name, _event_id)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()
@@ -4867,8 +4865,8 @@ func cancel() -> void:
 						return false
 					if _now_s() <= expires:
 						return true
-					return MEMORY.line_state(main.game, reaction_key) == "speaking"
-				var key := MEMORY.reaction_for(main.game, _id, "end_early", act_id,
+					return main.memory.line_state(reaction_key) == "speaking"
+				var key: String = main.memory.reaction_for(_id, "end_early", act_id,
 					ACT_SUMMARY.early_end_prompt(_summary), valid)
 				if not key.is_empty():
 					var now := _now_s()
@@ -4911,7 +4909,7 @@ func _climax() -> void:
 	_act_face_beat("climax")
 	_end_act_lines(true)
 	if is_instance_valid(main) and pony_climaxes == 1:
-		MEMORY.climax_event(main.game, _id, _display_name, _event_id)
+		main.memory.climax_event(_id, _display_name, _event_id)
 	_queue_climax_reaction()
 	_play_climax()
 	# integration: her fluid hook.
@@ -5016,8 +5014,8 @@ func _queue_climax_reaction() -> void:
 			return false
 		if _now_s() <= expires:
 			return true
-		return MEMORY.line_state(main.game, reaction_key) == "speaking"
-	var key := MEMORY.reaction_for(main.game, _id, "climax", climax_id,
+		return main.memory.line_state(reaction_key) == "speaking"
+	var key: String = main.memory.reaction_for(_id, "climax", climax_id,
 		"You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine. Do not describe anatomy.",
 		valid)
 	if key.is_empty():
@@ -5092,7 +5090,7 @@ func _relationship_note() -> String:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
 		return ""
 	_read_id()
-	return RELATIONSHIP_CUE.note(MEMORY.cue_facts(main.game, _id, _event_id))
+	return RELATIONSHIP_CUE.note(main.memory.cue_facts(_id, _event_id))
 
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
@@ -5299,9 +5297,7 @@ func _commit_afterglow() -> void:
 		return
 	_commit_summary(true)
 	_record_peak_memory()
-	var eligibility_service: ELIGIBILITY = main.get("eligibility")
-	for row: Variant in WITNESS.commit(main.game, eligibility_service, _id, _display_name,
-			_serial, pony):
+	for row: Variant in main.memory.witnesses(_id, _display_name, _serial, pony):
 		_log("witness " + str(row))
 
 ## Both poses share the held afterglow; standing adds the close window and a slightly lifted
@@ -5389,7 +5385,7 @@ func _close_afterglow() -> void:
 	_close_caress_earned = caressed
 	var reward := bool(_summary.get("reward", false))
 	if is_instance_valid(main):
-		MEMORY.stay_close_reward(main.game, _id, _event_id, caressed, reward)
+		main.memory.stay_close_reward(_id, _event_id, caressed, reward)
 	if not reward and caressed:
 		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
 			ACT_HISTORY.save()
@@ -5807,7 +5803,7 @@ func _act_phase() -> String:
 func _read_first_time() -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(main.game) or _id.is_empty():
 		return false
-	var facts := MEMORY.cue_facts(main.game, _id, _event_id)
+	var facts: Dictionary = main.memory.cue_facts(_id, _event_id)
 	return bool(facts.get("first_time", false))
 
 
@@ -5947,7 +5943,7 @@ func act_face_rows() -> Array[String]:
 	var rows: Array[String] = []
 	var base_mood := ""
 	if is_instance_valid(main) and is_instance_valid(main.game) and not _id.is_empty():
-		var facts := MEMORY.cue_facts(main.game, _id, _event_id)
+		var facts: Dictionary = main.memory.cue_facts(_id, _event_id)
 		base_mood = str(facts.get("mood", ""))
 	rows.append("pony=%s state=%d hud_mood=%s base_mood=%s" % [
 		str(pony.name) if is_instance_valid(pony) else "?", state, mood, base_mood])
@@ -6014,7 +6010,7 @@ func _still_willing() -> bool:
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		MEMORY.stop_event(main.game, _id, _display_name, _event_id, reason)
+		main.memory.stop_event(_id, _display_name, _event_id, reason)
 	_restore_begin()
 
 # --------------------------------------------------------------------------- camera

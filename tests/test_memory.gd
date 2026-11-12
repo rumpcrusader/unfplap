@@ -13,6 +13,10 @@ class FakeGame extends Node:
 	var world_context: Node
 
 
+class FakeMain extends Node:
+	var game: Node
+
+
 class FakeContext extends Node:
 	var impressions: Node
 	var events: Array = []
@@ -91,8 +95,13 @@ func run() -> void:
 	root.add_child(game)
 	root.add_child(context)
 	root.add_child(impressions)
+	var main := FakeMain.new()
+	main.game = game
+	root.add_child(main)
+	var memory := MEMORY.new()
+	memory.setup(main)
 
-	MEMORY.commit_act(game, "rarity", "Rarity", "intimacy_1", {
+	memory.commit_act("rarity", "Rarity", "intimacy_1", {
 		"mood": "happy", "romance": 2, "thought": "He gave me what I needed.",
 		"text": "You and Anon made love. You felt wanted.",
 	}, false)
@@ -104,7 +113,7 @@ func run() -> void:
 	check(context.events.size() == 1 and str(context.events[0].kind) == "relationship",
 		"the summary is recorded as a relationship event")
 
-	MEMORY.commit_act(game, "rarity", "Rarity", "intimacy_1", {
+	memory.commit_act("rarity", "Rarity", "intimacy_1", {
 		"mood": "sad", "romance": -1, "thought": "He did not give me what I need.",
 		"text": "You felt used.",
 	}, false)
@@ -112,27 +121,27 @@ func run() -> void:
 	check(int((bad["data"] as Dictionary).get("romance", 0)) == -1, "a bad act gives romance -1")
 	check(str((bad["data"] as Dictionary).get("mood", "")) == "sad", "a bad act is sad")
 
-	MEMORY.commit_act(game, "rarity", "Rarity", "intimacy_2", {
+	memory.commit_act("rarity", "Rarity", "intimacy_2", {
 		"mood": "relaxed", "romance": 1, "thought": "It was nice.",
 		"text": "It was nice, but something was missing.",
 	}, false)
 	check(int((impressions.calls[2]["data"] as Dictionary).get("romance", 0)) == 1,
 		"a neutral act gives romance +1")
 
-	MEMORY.stay_close_reward(game, "rarity", "intimacy_1", true, true)
+	memory.stay_close_reward("rarity", "intimacy_1", true, true)
 	var stay: Dictionary = impressions.calls[3]
 	check(int((stay["data"] as Dictionary).get("romance", 0)) == 1,
 		"a positive stay-close caress gives its extra romance")
-	MEMORY.stay_close_reward(game, "rarity", "intimacy_2", true, false)
+	memory.stay_close_reward("rarity", "intimacy_2", true, false)
 	var hurt_stay: Dictionary = impressions.calls[4]
 	check(not (hurt_stay["data"] as Dictionary).has("romance"),
 		"staying close after a bad act gives no romance")
 
-	MEMORY.history_apology(game, "rarity", "I am sorry.")
+	memory.history_apology("rarity", "I am sorry.")
 	check(str(context.events[-1].kind) == "relationship", "an apology is recorded as a relationship event")
 	check(str(context.events[-1].text).contains("apologized"), "the apology event says what happened")
 
-	MEMORY.refusal_event(game, "rarity", "Rarity", "refusal_1", false)
+	memory.refusal_event("rarity", "Rarity", "refusal_1", false)
 	var turned_away: Dictionary = impressions.calls[5]
 	check(str((turned_away["data"] as Dictionary).get("mood", "")) == "annoyed",
 		"a plain refusal is annoyed")
@@ -146,7 +155,7 @@ func run() -> void:
 	check(str(context.events[-1].text).contains("turned Anon away"),
 		"the refusal event says what happened")
 
-	MEMORY.refusal_event(game, "rarity", "Rarity", "refusal_2", true)
+	memory.refusal_event("rarity", "Rarity", "refusal_2", true)
 	var bucked: Dictionary = impressions.calls[6]
 	check(str((bucked["data"] as Dictionary).get("mood", "")) == "angry",
 		"a buck is angry")
@@ -156,6 +165,7 @@ func run() -> void:
 	game.queue_free()
 	context.queue_free()
 	impressions.queue_free()
+	main.queue_free()
 
 	print("MEMORY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -5,6 +5,7 @@ extends Node
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
+const MEMORY := preload("res://mods/unfplap/memory.gd")
 const HUD := preload("res://mods/unfplap/hud.gd")
 const INPUT := preload("res://mods/unfplap/input.gd")
 const INITIATION := preload("res://mods/unfplap/initiation.gd")
@@ -70,6 +71,9 @@ var dialogue_consent
 var active_runtime
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
+## Internal memory service: act events, impressions, witnesses and the mod's own lines.
+## See docs/memory.md. Never part of the cross-mod API.
+var memory: MEMORY
 
 var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
@@ -152,6 +156,8 @@ func _ready() -> void:
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
+	memory = MEMORY.new()
+	memory.setup(self)
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)

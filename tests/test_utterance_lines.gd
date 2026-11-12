@@ -8,6 +8,10 @@ var failures := 0
 var checks := 0
 
 
+class FakeMain extends Node:
+	var game: Node
+
+
 class FakeDirector:
 	extends Node
 	var _authored_lines = {}
@@ -33,42 +37,48 @@ func run() -> void:
 	var director := FakeDirector.new()
 	director.add_to_group("conversation_director")
 	root.add_child(director)
+	var main := FakeMain.new()
+	main.game = director
+	root.add_child(main)
+	var memory := MEMORY.new()
+	memory.setup(main)
 	var key := MEMORY.mod_key("act", "reply", "climax")
 	check(key == "unfplap:act:reply:climax", "director key format")
 
-	check(MEMORY.line_state(root, key) == "absent", "missing row is absent")
+	check(memory.line_state(key) == "absent", "missing row is absent")
 	director._authored_lines[key] = {"started": false, "delivered": false}
-	check(MEMORY.line_state(root, key) == "queued", "unclaimed row is queued")
+	check(memory.line_state(key) == "queued", "unclaimed row is queued")
 
 	director._authored_lines[key] = {"started": true, "delivered": false}
 	director._authored_active = "other"
-	check(MEMORY.line_state(root, key) == "queued",
+	check(memory.line_state(key) == "queued",
 		"a started row without the active key is safe to cancel")
 
 	director._authored_active = key
 	director.state = "thinking"
-	check(MEMORY.line_state(root, key) == "generating", "thinking row is generating")
+	check(memory.line_state(key) == "generating", "thinking row is generating")
 	director.state = "rendering"
-	check(MEMORY.line_state(root, key) == "generating",
+	check(memory.line_state(key) == "generating",
 		"rendering before any heard sentence is generating")
 
 	director._authored_lines[key]["heard"] = ["one sentence"]
-	check(MEMORY.line_state(root, key) == "speaking",
+	check(memory.line_state(key) == "speaking",
 		"a multi-sentence line between beats is speaking")
 	director.state = "speaking"
-	check(MEMORY.line_state(root, key) == "speaking", "speaking state is speaking")
+	check(memory.line_state(key) == "speaking", "speaking state is speaking")
 
 	director._authored_lines[key]["delivered"] = true
 	director._authored_active = ""
-	check(MEMORY.line_state(root, key) == "delivered", "delivered row is delivered")
+	check(memory.line_state(key) == "delivered", "delivered row is delivered")
 
 	director._authored_lines.erase(key)
-	check(MEMORY.line_state(root, key) == "absent", "erased row is absent")
+	check(memory.line_state(key) == "absent", "erased row is absent")
 
 	director._authored_lines = null
-	check(MEMORY.line_state(root, key) == "unknown",
+	check(memory.line_state(key) == "unknown",
 		"unreadable queue is unknown")
 
+	main.queue_free()
 	director.queue_free()
 
 	print("UTTERANCE_LINES_RESULT checks=%d failures=%d" % [checks, failures])

@@ -1,11 +1,16 @@
 extends RefCounted
-## AI context and impression writes. Every text is short and non-graphic. A witness text is a
-## perception, never a conclusion: the game's per-pony story summary forms her memory from it.
+## The memory system's entry point: the mod's act memory and its own dialogue lines. Every
+## event text is short and non-graphic. A witness text is a perception, never a conclusion: the
+## game's per-pony story summary forms her memory from it.
 ## The event id makes both world_context.record and impressions.commit idempotent.
 ##
 ## Event text also appears in the profile's Recent activities. The profile rewrites only a
 ## leading "You and Anon " into "You and <name>", so the rest of an event line must not use
 ## second-person pronouns for the pony. The private impression thought stays first-person.
+##
+## This file is the only entry another system may call. `main.gd` creates it and exposes it as
+## `main.memory`; it reads `main.game` and `main.eligibility` per call and stores nothing except
+## the world's peak memories. See `docs/memory.md`.
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
@@ -15,16 +20,22 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
 
+var main: Node
 
-static func cancel_event(game: Node, id: String, name: String, event_id: String) -> void:
-	var ctx = _context(game)
+
+func setup(main_node: Node) -> void:
+	main = main_node
+
+
+func cancel_event(id: String, name: String, event_id: String) -> void:
+	var ctx := _context()
 	if ctx == null:
 		return
 	ctx.record("intimacy", "Anon stopped before the act reached a climax.", [id, "player"], [id, "player"], event_id + ":cancel")
 
 
-static func climax_event(game: Node, id: String, name: String, event_id: String) -> void:
-	var ctx = _context(game)
+func climax_event(id: String, name: String, event_id: String) -> void:
+	var ctx := _context()
 	if ctx == null:
 		return
 	ctx.record("intimacy", "You and Anon made love, and she came.",
@@ -34,11 +45,12 @@ static func climax_event(game: Node, id: String, name: String, event_id: String)
 ## One spoken reaction to a named act event. Custom prompts override the fallback; there is no
 ## probability gate any more. Every mod-owned director key is prefixed so the act owns its lines.
 ## Returns the director key on acceptance, or "" when nothing was queued.
-static func reaction_for(game: Node, id: String, event: String, event_id: String, fallback: String, valid: Callable) -> String:
+func reaction_for(id: String, event: String, event_id: String, fallback: String, valid: Callable) -> String:
 	var custom := SETTINGS.event_prompt(id, event)
-	if not is_instance_valid(game) or not game.is_inside_tree():
+	var tree := _tree()
+	if tree == null:
 		return ""
-	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	var director: Node = tree.get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("queue_generated_intent"):
 		return ""
 	var purpose := custom if not custom.is_empty() else fallback
@@ -54,10 +66,11 @@ static func reaction_for(game: Node, id: String, event: String, event_id: String
 ## One on-demand act utterance. The caller supplies the already-formatted private purpose and a
 ## `valid` guard tied to the act/event. Delivery is asynchronous, so a pending line is the
 ## runtime's responsibility. Returns the full director key on acceptance.
-static func utterance_for(game: Node, id: String, event_id: String, key: String, purpose: String, valid: Callable, finished: Callable) -> String:
-	if not is_instance_valid(game) or not game.is_inside_tree():
+func utterance_for(id: String, event_id: String, key: String, purpose: String, valid: Callable, finished: Callable) -> String:
+	var tree := _tree()
+	if tree == null:
 		return ""
-	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	var director: Node = tree.get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("queue_generated_intent"):
 		return ""
 	var director_key := mod_key(event_id, "line", key)
@@ -68,10 +81,11 @@ static func utterance_for(game: Node, id: String, event_id: String, key: String,
 ## Cancel one mod-owned authored line by its full director key. A queued row is erased; an active
 ## row is also interrupted by the director, so the caller must only use this on queued or
 ## generating rows and must not cut a speaking line.
-static func cancel_line(game: Node, key: String) -> void:
-	if key.is_empty() or not is_instance_valid(game) or not game.is_inside_tree():
+func cancel_line(key: String) -> void:
+	var tree := _tree()
+	if key.is_empty() or tree == null:
 		return
-	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	var director: Node = tree.get_first_node_in_group("conversation_director")
 	if director != null and director.has_method("cancel_authored_line"):
 		director.call("cancel_authored_line", key)
 
@@ -83,10 +97,11 @@ static func cancel_line(game: Node, key: String) -> void:
 ##   speaking   audio is playing or a sentence of a multi-sentence line was already heard
 ##   delivered  the final sentence was delivered; the slot may release
 ##   unknown    the director or its queue is not readable; fall back to the age
-static func line_state(game: Node, key: String) -> String:
-	if key.is_empty() or not is_instance_valid(game) or not game.is_inside_tree():
+func line_state(key: String) -> String:
+	var tree := _tree()
+	if key.is_empty() or tree == null:
 		return "unknown"
-	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	var director: Node = tree.get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("cancel_authored_line"):
 		return "unknown"
 	var raw: Variant = director.get("_authored_lines")
@@ -127,10 +142,11 @@ static func keep_active_line(state: String, key: String, active: String, keep_sp
 
 ## Drop every mod-owned line for one act. Called at climax/afterglow boundaries and at every
 ## act end. Returns the number of cancelled lines.
-static func cancel_act_lines(game: Node, event_id: String, keep_speaking := true) -> int:
-	if not is_instance_valid(game) or not game.is_inside_tree() or event_id.is_empty():
+func cancel_act_lines(event_id: String, keep_speaking := true) -> int:
+	var tree := _tree()
+	if tree == null or event_id.is_empty():
 		return 0
-	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	var director: Node = tree.get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("cancel_authored_line"):
 		return 0
 	var raw: Variant = director.get("_authored_lines")
@@ -154,9 +170,9 @@ static func cancel_act_lines(game: Node, event_id: String, keep_speaking := true
 
 ## The standing afterglow close reward. A positive act gets a small romance gain and a happy
 ## mood; after a bad act, staying close is a repair beat with a private thought but no romance.
-static func stay_close_reward(game: Node, id: String, event_id: String, caressed: bool,
+func stay_close_reward(id: String, event_id: String, caressed: bool,
 		positive := true) -> void:
-	var ctx = _context(game)
+	var ctx := _context()
 	if ctx == null:
 		return
 	var impressions: Variant = ctx.get("impressions")
@@ -175,8 +191,8 @@ static func stay_close_reward(game: Node, id: String, event_id: String, caressed
 	impressions.commit(id, data, event_id + ":stay_close_gain")
 
 
-static func stop_event(game: Node, id: String, name: String, event_id: String, reason: String) -> void:
-	var ctx = _context(game)
+func stop_event(id: String, name: String, event_id: String, reason: String) -> void:
+	var ctx := _context()
 	if ctx == null:
 		return
 	var text := "The act stopped."
@@ -189,8 +205,6 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 			text = "The act was interrupted."
 		"form change":
 			text = "Anon changed form, so the act stopped."
-		"world close":
-			text = "The world closed during the act."
 		"withdrew":
 			text = "Anon kept doing something she does not like, so the act stopped."
 	ctx.record("intimacy", text, [id, "player"], [id, "player"], event_id + ":stop:" + reason)
@@ -200,9 +214,8 @@ static func stop_event(game: Node, id: String, name: String, event_id: String, r
 ## `angry` blocks kisses (`docs/eligibility.md`) and is `bonds.anger()` 70 for the note's 300 s
 ## freshness; `annoyed` is 40, which still blocks relationship offers and resting closeness.
 ## A buck is the stronger moment, so it commits the stronger mood.
-static func refusal_event(game: Node, id: String, name: String, event_id: String,
-		bucked: bool) -> void:
-	var ctx = _context(game)
+func refusal_event(id: String, name: String, event_id: String, bucked: bool) -> void:
+	var ctx := _context()
 	if ctx == null:
 		return
 	var text := "She turned Anon away when he wanted more."
@@ -221,9 +234,9 @@ static func refusal_event(game: Node, id: String, name: String, event_id: String
 ## Grade-aware act impression. A good act gives romance +2 and a happy mood, a neutral one +1,
 ## and a bad one -1 with a sad or annoyed mood. The summary text is also kept as a relationship
 ## event so a later prompt can recall the specific act.
-static func commit_act(game: Node, id: String, name: String, event_id: String,
+func commit_act(id: String, name: String, event_id: String,
 		outcome: Dictionary, early := false) -> void:
-	var ctx = _context(game)
+	var ctx := _context()
 	if ctx == null:
 		return
 	var impressions: Variant = ctx.get("impressions")
@@ -243,8 +256,8 @@ static func commit_act(game: Node, id: String, name: String, event_id: String,
 
 ## A sincere apology outside an act. The repair itself lives in act_history; this only keeps the
 ## moment in her story memory.
-static func history_apology(game: Node, id: String, _text: String) -> void:
-	var ctx = _context(game)
+func history_apology(id: String, _text: String) -> void:
+	var ctx := _context()
 	if ctx == null:
 		return
 	ctx.record("relationship", "Anon apologized for last time.",
@@ -253,12 +266,14 @@ static func history_apology(game: Node, id: String, _text: String) -> void:
 
 ## integration: adult ponies who can perceive the act right now, using the modern witness rules.
 ## This is a read-only observer list; it commits no memory. Young ponies are never included.
-## `service` is the eligibility facade; the age rule belongs there.
-static func perceived_adults(game: Node, service: ELIGIBILITY, partner: Node3D) -> Array:
+## The age rule belongs to the eligibility service.
+func perceived_adults(partner: Node3D) -> Array:
 	var out: Array = []
-	if not is_instance_valid(partner) or not is_instance_valid(game) or not partner.is_inside_tree():
+	var game := _game()
+	var service := _eligibility()
+	if not is_instance_valid(partner) or game == null or not partner.is_inside_tree():
 		return out
-	if service == null or not is_instance_valid(service):
+	if service == null:
 		return out
 	if PLAYER_FORM.is_young(PLAYER_FORM.active(partner.get_tree())):
 		return out
@@ -292,11 +307,12 @@ static func perceived_adults(game: Node, service: ELIGIBILITY, partner: Node3D) 
 
 
 ## integration: one line from a pony watching the act. Owned by the act, so its end cancels it.
-static func bystander_line(game: Node, id: String, event_id: String, purpose: String,
+func bystander_line(id: String, event_id: String, purpose: String,
 		valid: Callable) -> bool:
-	if not is_instance_valid(game) or not game.is_inside_tree():
+	var tree := _tree()
+	if tree == null:
 		return false
-	var director: Node = game.get_tree().get_first_node_in_group("conversation_director")
+	var director: Node = tree.get_first_node_in_group("conversation_director")
 	if director == null or not director.has_method("queue_generated_intent"):
 		return false
 	return bool(director.call("queue_generated_intent", id, purpose,
@@ -307,12 +323,14 @@ static func bystander_line(game: Node, id: String, event_id: String, purpose: St
 ## One event per observer, private to her (`witnesses = [observer_id]`). Adults are told what it
 ## was; fillies and colts get a perception with the place they saw it from, and the game's story
 ## summary infers a memory they could actually hold. Returns one debug row per recorded witness.
-static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String, partner_name: String,
+func witnesses(partner_id: String, partner_name: String,
 		serial: int, partner: Node3D) -> Array:
-	var ctx = _context(game)
-	if ctx == null or not is_instance_valid(partner) or not is_instance_valid(game):
+	var ctx := _context()
+	var game := _game()
+	if ctx == null or game == null or not is_instance_valid(partner):
 		return []
-	if service == null or not is_instance_valid(service):
+	var service := _eligibility()
+	if service == null:
 		return []
 	if not partner.is_inside_tree():
 		return []
@@ -413,9 +431,10 @@ static func witness_impression(partner_name: String, young: bool, indoors: bool)
 
 
 ## Private facts for the cue prompt. No raw scores or counts leave this function.
-static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
+func cue_facts(id: String, event_id: String) -> Dictionary:
 	var out: Dictionary = {}
-	if not is_instance_valid(game):
+	var game := _game()
+	if game == null:
 		return out
 	var rel: Variant = game.get("relationship_runtime")
 	if rel == null or not rel is Node or not is_instance_valid(rel):
@@ -437,7 +456,7 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 			out["stage"] = str((record as Dictionary).get("stage", ""))
 			out["anger"] = float((record as Dictionary).get("anger", 0.0))
 	var prior := 0
-	var ctx := _context(game)
+	var ctx := _context()
 	if ctx != null:
 		if ctx.has_method("events_for"):
 			for event: Variant in ctx.call("events_for", id, 64):
@@ -464,7 +483,7 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 
 ## One unused shared memory for the cue prompt. The story journal is preferred because it keeps
 ## the actual exchange; the older world-context events are the fallback.
-static func shared_memory(game: Node, id: String, cue: String, event_id: String,
+func shared_memory(id: String, cue: String, event_id: String,
 		used_ids: Array) -> Dictionary:
 	var peak := peak_memory(id)
 	if not peak.is_empty():
@@ -472,7 +491,7 @@ static func shared_memory(game: Node, id: String, cue: String, event_id: String,
 		var peak_text := str(peak.get("text", "")).strip_edges()
 		if not (peak_id in used_ids) and not peak_text.is_empty():
 			return {"id": peak_id, "text": peak_text}
-	var ctx := _context(game)
+	var ctx := _context()
 	if ctx == null:
 		return {}
 	var story := _story_memory(ctx, id, cue, used_ids)
@@ -497,7 +516,7 @@ static func peak_memory(id: String) -> Dictionary:
 	return (row as Dictionary).duplicate(true) if row is Dictionary else {}
 
 
-static func record_peak_memory(id: String, event_id: String, text: String, score: float) -> void:
+func record_peak_memory(id: String, event_id: String, text: String, score: float) -> void:
 	var mods := _mods()
 	if mods == null:
 		return
@@ -519,6 +538,31 @@ static func record_peak_memory(id: String, event_id: String, text: String, score
 	(state as Dictionary)["peak_memories"] = rows
 	if mods.has_method("save_changed"):
 		mods.call("save_changed")
+
+
+## The game node for the current world, or null outside one.
+func _game() -> Node:
+	if not is_instance_valid(main):
+		return null
+	var node: Variant = main.get("game")
+	if node is Node and is_instance_valid(node):
+		return node
+	return null
+
+
+## The eligibility service, or null before it exists. This is the one-way capability read.
+func _eligibility() -> ELIGIBILITY:
+	if not is_instance_valid(main):
+		return null
+	var service: Variant = main.get("eligibility")
+	return service if service is ELIGIBILITY and is_instance_valid(service) else null
+
+
+func _tree() -> SceneTree:
+	var game := _game()
+	if game != null and game.is_inside_tree():
+		return game.get_tree()
+	return null
 
 
 static func _mods() -> Node:
@@ -598,8 +642,9 @@ static func _memory_words(cue: String) -> Array:
 	return words.slice(0, 8)
 
 
-static func _context(game: Node) -> Node:
-	if not is_instance_valid(game):
+func _context() -> Node:
+	var game := _game()
+	if game == null:
 		return null
 	var ctx: Variant = game.get("world_context")
 	if ctx is Node and is_instance_valid(ctx):

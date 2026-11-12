@@ -22,7 +22,6 @@ const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
 const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
-const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/utterance_scheduler.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const HANDS := preload("res://mods/unfplap/hand_control.gd")
@@ -31,7 +30,6 @@ const MISSIONARY_CAMERA := preload("res://mods/unfplap/missionary_camera.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
 const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/standing_presentation.gd")
-const SOUND := preload("res://mods/unfplap/act_sound.gd")
 const MOTION := preload("res://mods/unfplap/act_motion.gd")
 const WING := preload("res://mods/unfplap/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
@@ -46,7 +44,6 @@ const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
-const HOUSE := preload("res://world/buildings/house_interior.gd")
 const VOICE := preload("res://mods/unfplap/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/act_audio.gd"
@@ -59,28 +56,10 @@ const ACT_LIDS := 0.45
 const CLIMAX_LIDS := 0.0
 const AFTERGLOW_LIDS := 0.9
 const AFTERGLOW_CLOSE_LIDS := 0.95
-## Readiness that triggers one pony climax. The player's afterglow is separate.
-const PONY_CLIMAX_AT := READINESS_MAX
-## Readiness per real thrust. Both preference axes match, one axis matches, or neither matches.
-const THRUST_HEAT_BOTH := 1.4
-const THRUST_HEAT_ONE := 0.7
-## Perceived intensity is scored from average stroke speed. Visual impact uses a separate
-## scale so normal and fast thrusts move the rump and camera; slow and shallow strokes stay
-## lighter.
+## Visual impact = physical strength × this, so normal and fast thrusts keep their tuned
+## reaction while slow or shallow strokes stay lighter. Readiness scoring lives in
+## `readiness.gd`.
 const THRUST_IMPACT_GAIN := 2.0
-const THRUST_HEAT_NONE := 0.0
-## Heat multiplies every real thrust chunk while the estrus cycle is enabled and she is in heat.
-const HEAT_READINESS := 1.6
-## Never let a macro score faster than this.
-const THRUST_SCORE_MIN_INTERVAL := 0.2
-## Touch and talk can warm her to this point; only real thrusts can finish her.
-const ASSIST_CAP := 60.0
-const TOUCH_HEAT := 6.0
-const TALK_HEAT := 6.0
-## A liked touch/talk briefly makes real thrusts land harder.
-const RECEPTIVE_BOOST := 1.25
-## Readiness text clears after this long without an inward thrust.
-const STROKE_MEMORY_S := 1.2
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
@@ -89,20 +68,8 @@ const RESTORE_SECONDS := 0.4
 const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_Y_SECONDS := 0.35
-## Missionary camera: above and behind her neck so the shot looks forward along her body at her
-## face. `pony.global_basis.z` is her backward direction.
-## Default room between the missionary shot and the pony; the presentation setting overrides it.
-## Extra height requested after the first visual pass.
-## The missionary shot starts at the old maximum forward lean, so W pushes further up her torso
-## instead of starting from the wide position. 1.0 is one full `MOTION.LEAN_FORWARD_M` lean.
 ## Presentation: how close the pony stands in front of the player for standing.
 const STANDING_GAP_M := 0.55
-## Idle standing invitation: turn away from Anon at this rate before she settles into the stance.
-## The game's supported standing turn steps the hooves. Its default 0.45 rad/s half-turn would
-## take about 7 s, so the request speeds it up while it owns the turn.
-## The locomotion's stepping turn stops at 3°, so settle just beyond that.
-## A blocked ground probe can leave the stepping turn standing still; snap instead of waiting.
-## The request's face: the act's half-lidded gaze and a full blush while she asks and presents.
 ## Per-size standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
 const STANDING_GAPS := {
 	"same height": 0.55,
@@ -110,38 +77,6 @@ const STANDING_GAPS := {
 	"canon": 0.25,
 	"hoers": 0.55,
 }
-## Camera thrust amplitudes, the speed reference and the damping constants live in
-## `act_camera.gd`; the runtime only supplies the state-driven targets.
-## Hip phase low-pass on mouse depth. Depth is the input; this only removes single-frame
-## mouse steps, it is not a speed attack.
-## Standing F kiss: hold F at a full side lean (the shoulder reach) to use the same base kiss.
-## Act camera lean. Q/E drive one controlled lean vector: W/S forward/back, Q/E a
-## forward-plus-side diagonal. The channel ramps in, then returns slowly when released.
-## Backward travel is halved so pulling away cannot open an extreme gap.
-## Backing off is half the forward travel so Anon cannot pull too far from her.
-## Phase-2 Anon body lean: the pelvis stays planted while the camera/head leans.
-## Experiment: Anon's chest/head follow the thrust; the pelvis counter-moves so his upper body
-## travels forward on the inward stroke and back on the outward stroke.
-## Hold-mode breathing amplitude in lean units, reduced 33% from the first pass
-## (forward 0.015, side 0.0125).
-## Q/E fire their pose reaction when the smoothed side lean crosses these values.
-## Canon is small enough that the standing shot needs a lower eye line.
-## JRHNBR is tall enough that the standing shot needs a higher eye line.
-## Standing Anon thrust: mouse depth (only lightly smoothed) moves the hip. This is position, not
-## speed; the camera's speed-driven thrust is separate.
-## Safety cone for AnonPony's own body-yaw limit; the desktop act camera does not free-look.
-## Standing after the climax: held afterglow; Anon stays put.
-
-## Standing keeps her body facing away but lets her glance back over a shoulder now and then.
-## Fade time for the extra head-back glance pose; prevents the head snapping back to low.
-## Yaw limit for a look-back glance. Raised 20% from 1.35 so she turns farther over her shoulder.
-## Act kiss timing. The sound repeats softly while her mouth is held to Anon's.
-## Anon leans in while kissing. Standing moves the act camera (and the hip counter keeps his
-## pelvis planted); missionary moves the framing view and offsets the virtual mouth by the same
-## amount, because its player camera is not the rendered shot.
-## `AffectionPose`'s lean/tilt sign is opposite the camera lean sign: `+1` rolls her head toward
-## Anon's left, while a negative lean moves the camera to his left. Keep the mapping in one place.
-## Kissing heads need complementary tilts, so she rolls away from his lean.
 
 var pony
 var main

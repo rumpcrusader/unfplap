@@ -1464,6 +1464,9 @@ is deliberately blush-free so the 0.35 decal stays light.
 
 ## HUD and rewards
 
+- The act's text lines are `hud_lines.gd` (pure): the hearts/cue line, the readiness line, the
+  auto readout and the `End` tint. `hud.gd` renders the card, and the runtime gathers the live
+  values. See `docs/hud.md`.
 - Buttons and words copy the game's own prompt row (`world/ui/interaction_hints.gd`) and carry card
   (`player/cradle_controls.gd`): the game's `prompts/<name>.png` icons where it has one, a dark
   drawn key cap (`CAP_BG`/`CAP_EDGE`) for keys it does not (W/S/A/D/Z, `↕`), ink words in
@@ -1489,7 +1492,8 @@ is deliberately blush-free so the 0.35 decal stays light.
   (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`), so the live values
   are visible while adjusting.
   The card has no separate title. The `End` label is shaded from ink toward `ACCENT` by
-  `runtime.hud_y_pink()`: one step per pony climax, capped at `Y_END_TINT_MAX = 0.75`, and fully
+  `runtime.hud_y_pink()` (`hud_lines.gd`): one step per pony climax, capped at
+  `Y_END_TINT_MAX = 0.75`, and fully
   pink only after the standing afterglow close window earned its caress reward. The cue line's
   hearts read `❤ N/limit`, or `❤ N/∞` when the climax limit is 0.
 - The control card stays at full opacity while Anon leans or kisses; only `act_controls` hides

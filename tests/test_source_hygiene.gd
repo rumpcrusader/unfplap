@@ -89,6 +89,7 @@ func run() -> void:
 	_check_act_audio()
 	_check_hud_lines()
 	_check_bond()
+	_check_scene_hold()
 	_check_docs_index(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
@@ -304,6 +305,29 @@ func _check_act_lines() -> void:
 	for token: String in ["after making love with Anon", "You are in the middle of sex with Anon",
 			"still in the afterglow with Anon", "stay: 120"]:
 		check(not runtime.contains(token), "runtime has no prompt wording: %s" % token)
+
+
+## The scene hold owns the borrowed navigator, player and attention state; the runtime keeps the
+## one ledger and thin wrappers with read views.
+func _check_scene_hold() -> void:
+	var text := FileAccess.get_file_as_string(ROOT.path_join("scene_hold.gd"))
+	for token: String in ["func claim_nav(", "func keep_nav(", "func release_nav(",
+			"func lock_player(", "func unlock_player(", "func release_carry(",
+			"func end_cuddle(", "func keep_attention("]:
+		check(text.contains(token), "scene_hold.gd has %s" % token)
+	for token: String in ["extends Node", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call("]:
+		check(not text.contains(token), "scene hold has no runtime reach-in: %s" % token)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("_hold.claim_nav(_id)") and runtime.contains("_hold.lock_player()"),
+		"runtime routes the ownership through the facade")
+	check(not runtime.contains("func _claim_nav() -> bool:\n\t_nav ="),
+		"runtime has no inline navigator claim")
+	check(FileAccess.file_exists(ROOT.path_join("tests/scene_hold/test_scene_hold.gd")),
+		"tests/scene_hold/test_scene_hold.gd exists")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/scene_hold.md"))
+	check(contract.contains("## Ownership and boundary"), "docs/scene_hold.md documents the boundary")
+	check(contract.contains("`scene_hold.gd`"), "docs/scene_hold.md names the facade")
 
 
 ## The lover bond is a static store plus one per-pony service instance; the runtime only forwards.

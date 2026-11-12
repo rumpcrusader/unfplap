@@ -108,10 +108,10 @@ func _fixture() -> Dictionary:
 	runtime.main = main
 	runtime._id = "test_mare"
 	runtime._face_turn_rate_saved = 0.45
-	runtime._face_turn_rate_owned = true
+	runtime._hold.face_turn_rate_owned = true
 	pony.face_turn_rate = 0.0
-	runtime._locked_player = true
-	runtime._had_kiss_hold = false
+	runtime._hold.locked_player = true
+	runtime._hold.had_kiss_hold = false
 	player.set_meta("kiss_hold", true)
 	pony.set_meta("sex_active", true)
 	runtime._posture_owned = true
@@ -119,7 +119,7 @@ func _fixture() -> Dictionary:
 	runtime.source = "test"
 	runtime.state = 2
 	runtime.toggle_auto_thrust()
-	runtime._nav = nav
+	runtime._hold.nav = nav
 	nav.command_owner = "unfplap:test_mare"
 	nav.wander_enabled = false
 	runtime._nav_old_wander = false
@@ -136,15 +136,15 @@ func run() -> void:
 	var pony: FakePony = f["pony"]
 	var player: FakePlayer = f["player"]
 	var main: FakeMain = f["main"]
-	var nav: FakeNav = runtime._nav
+	var nav: FakeNav = runtime._hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
 	runtime._end_session(false)
 	check(pony.face_turn_rate == 0.45, "face-turn rate restored")
-	check(not runtime._face_turn_rate_owned, "face-turn ownership cleared")
+	check(not runtime._hold.face_turn_rate_owned, "face-turn ownership cleared")
 	check(nav.command_owner == "", "navigator ownership released")
 	check(nav.wander_enabled == false, "navigator gives back the saved wander flag")
-	check(not runtime._locked_player, "player lock released")
+	check(not runtime._hold.locked_player, "player lock released")
 	check(not player.has_meta("kiss_hold"), "kiss hold removed when the act set it")
 	check(not pony.has_meta("sex_active"), "sex_active cleared")
 	check(not runtime._inventory_hud_hidden, "inventory HUD restored")
@@ -195,11 +195,11 @@ func run() -> void:
 	var f4 := _fixture()
 	var runtime4: Node = f4["runtime"]
 	var main4: FakeMain = f4["main"]
-	var nav4: FakeNav = runtime4._nav
+	var nav4: FakeNav = runtime4._hold.nav
 	runtime4.pony = null
 	runtime4.state = 4
 	runtime4._finish_restore()
-	check(not runtime4._locked_player, "invalid pony still unlocks the player")
+	check(not runtime4._hold.locked_player, "invalid pony still unlocks the player")
 	check(nav4.command_owner == "", "invalid pony still releases the navigator")
 	check(int(runtime4.state) == 0, "invalid pony ends in IDLE")
 	check(main4.cleared.size() == 1, "invalid pony still clears the active runtime")

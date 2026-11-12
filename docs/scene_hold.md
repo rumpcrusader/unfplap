@@ -14,21 +14,21 @@ ownership is taken, which is held, and in which order it is released.
 
 ## Ownership and boundary
 
-`scene_hold.gd` is the facade. It owns the ownership flags and the order of their release. The
-runtime owns the act state machine, the one `_end_session` ledger and the call sites; the service
-is called from the ledger and the tick, and it never touches the runtime's state.
+`scene_hold.gd` is the facade. It owns the ownership flags and the per-flag release. The runtime
+owns the act state machine, the one `_end_session` ledger and the call order; the service is
+called from the ledger and the tick, and it never touches the runtime's state.
 
-The runtime keeps the flags and calls the service in the same order as the current teardown. The
-service is the planned extraction of the runtime's `_claim_nav`, `_keep_nav`, `_release_nav`,
+The runtime keeps thin wrappers with their old names (`_claim_nav`, `_keep_nav`, `_release_nav`,
 `_lock_player`, `_unlock_player`, `_pause_face_turn`, `_restore_face_turn`,
-`_keep_act_attention`, `_release_carry` and `_end_cuddle_session`. The service owns the ownership
-state, not the runtime's state.
+`_keep_act_attention`, `_release_carry`, `_end_cuddle_session`) and property views over the
+service flags for the teardown reports and the suites. The service owns the state, not the
+runtime's.
 
 ## Public API
 
-- `bind(host)` — the host context: `pony`, `main`, `pose_id`, `state`, `log`, `token`.
-- `claim_nav()` — takes the navigator, records the old wander flag, and returns whether the
-  lease is owned.
+- `bind(host)` — the host context: `pony`, `main`, `pose_id`, `state`.
+- `claim_nav(owner_id)` — takes the navigator, records the old wander flag, builds the
+  `unfplap:<id>` token and returns whether the lease is owned.
 - `keep_nav()` — re-asserts the lease if the owner changed.
 - `release_nav()` — gives the owner back and restores the wander flag.
 - `pause_face_turn(force)` — holds the standing face-turn rate at zero.
@@ -38,23 +38,23 @@ state, not the runtime's state.
 - `unlock_player()` — restores the hold and the kisser.
 - `release_carry()` — releases the held carry and returns whether it was released.
 - `end_cuddle()` — ends the active cuddle session.
-- `release_all()` — the release order used by the ledger.
 
-The host is a plain dictionary or a typed `RefCounted` context; the service never reads the
-runtime's private fields. The host supplies `pony`, `main`, `state`, `pose_id`, `token` and the
-log callable.
+The ledger calls the leaves in this order: cuddle/carry at start, navigator claim before the pose,
+then on end the face-turn restore, the player unlock, the carry/stool release, the navigator
+release. The host is a plain dictionary of callables; the service never reads the runtime's
+private fields.
 
 ## State and data
 
 The service owns the flags:
 
-- `nav`, `nav_token`, `nav_old_wander`, `nav_owned`;
+- `nav`, `token`, `nav_old_wander`;
 - `face_turn_rate_owned`, `face_turn_rate_saved`;
-- `locked_player`, `kisser`, `kisser_processing`, `had_kiss_hold`;
-- `carry_owned`, `cuddle_owned`.
+- `locked_player`, `kisser`, `kisser_processing`, `had_kiss_hold`.
 
-The runtime owns the act state, the pose, the serial and the teardown ledger. The service is reset
-on every act end; a failed start releases the same flags.
+The carry and the cuddle are released, not flagged: both are idempotent and read the scene. The
+runtime owns the act state, the pose, the serial and the teardown ledger. The service fields stay
+cleared on every act end, so a failed start releases the same ownership as a normal end.
 
 ## Settings
 
@@ -71,6 +71,7 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 - `main` — the `interactor`, `player`, `game.kisser`.
 - `main.player` — the `kiss_hold` meta, `seat` and `_q_held`.
 - The runtime — the caller and the state.
+- `poses/catalog.gd` — the standing pose id for the face-turn gate.
 
 ## Tests
 

@@ -14,6 +14,7 @@ const REST := preload("res://mods/unfplap/rest_control.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
+const SCENE_HOLD := preload("res://mods/unfplap/scene_hold.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
@@ -318,10 +319,29 @@ var _close_caress_earned: bool:
 		_afterglow.close_caress_earned = value
 
 var _player_pony := false
-var _had_kiss_hold := false
-var _locked_player := false
-var _face_turn_rate_saved := -1.0
-var _face_turn_rate_owned := false
+## The act's scene ownership. The runtime keeps the act state and the teardown order; the service
+## owns the flags. See `scene_hold.gd`.
+var _hold: RefCounted = SCENE_HOLD.new()
+var _had_kiss_hold: bool:
+	get:
+		return _hold.had_kiss_hold
+	set(value):
+		_hold.had_kiss_hold = value
+var _locked_player: bool:
+	get:
+		return _hold.locked_player
+	set(value):
+		_hold.locked_player = value
+var _face_turn_rate_saved: float:
+	get:
+		return _hold.face_turn_rate_saved
+	set(value):
+		_hold.face_turn_rate_saved = value
+var _face_turn_rate_owned: bool:
+	get:
+		return _hold.face_turn_rate_owned
+	set(value):
+		_hold.face_turn_rate_owned = value
 ## Act-session ownership: each flag marks external state this act took and must give back.
 ## `_end_session()` checks them, so a start that failed early restores only what it took. The
 ## camera flags are read views over `_act_camera`.
@@ -330,11 +350,23 @@ var _session_finalized := false
 var _y_hold := 0.0
 var _y_hold_ready := false
 var _y_hold_fired := false
-var _nav: Node
+var _nav: Node:
+	get:
+		return _hold.nav
+	set(value):
+		_hold.nav = value
 ## Wander flag found when the act claimed the navigator. Other systems can hold it off, so the
 ## act gives back what it found instead of forcing it on.
-var _nav_old_wander := true
-var _token := ""
+var _nav_old_wander: bool:
+	get:
+		return _hold.nav_old_wander
+	set(value):
+		_hold.nav_old_wander = value
+var _token: String:
+	get:
+		return _hold.token
+	set(value):
+		_hold.token = value
 var _id := ""
 ## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
 var _cycle_override := ""
@@ -597,8 +629,6 @@ var _satisfaction_tween: Tween
 ## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
 var _act_eyes_released := false
 var _face_timer: Timer
-var _kisser: Node
-var _kisser_processing := false
 var _climax_progress := 0.0
 ## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
 var _debug_chin_deg := 0.0
@@ -658,6 +688,12 @@ func _init() -> void:
 	_rest.context = Callable(self, "_rest_context")
 	_rest.restore_scene = Callable(self, "_rest_restore_scene")
 	_rest.log = Callable(self, "_log")
+	_hold.bind({
+		"pony": Callable(self, "_pony"),
+		"main": Callable(self, "_main"),
+		"state": Callable(self, "_state"),
+		"pose_id": Callable(self, "_pose_id"),
+	})
 	_sex_bond.bind({
 		"id": Callable(self, "_bond_id"),
 		"state": Callable(self, "_state"),
@@ -1981,67 +2017,25 @@ func _next_serial() -> int:
 	return 1
 
 func _end_cuddle_session() -> void:
-	var session: Node = pony.get_node_or_null("CuddleSession") if is_instance_valid(pony) else null
-	if session != null and session.has_method("end"):
-		if bool(session.get("enabled")) or float(session.get("blend")) > 0.0:
-			session.call("end", true)
-	if is_instance_valid(pony) and pony.has_meta("cuddle_active"):
-		pony.remove_meta("cuddle_active")
+	_hold.end_cuddle()
+
 
 func _release_carry() -> bool:
-	var reach: Node = main.interactor()
-	if not is_instance_valid(reach):
-		return false
-	if reach.get("held") != pony or reach.get("cradled") != true:
-		return false
-	pony.end_interaction()
-	reach.set("held", null)
-	reach.set("cradled", false)
-	reach.set("_drop_upright", false)
-	reach.set("_laying", -1.0)
-	reach.set("_sleepy_kiss", false)
-	reach.set("_lean", 0.0)
-	reach.set("_lay", {})
-	var actions: Variant = reach.get("desktop_actions")
-	if is_instance_valid(actions) and actions.has_method("pony_released"):
-		actions.call("pony_released")
-	return true
+	return _hold.release_carry()
+
 
 func _claim_nav() -> bool:
-	_nav = pony.get_node_or_null("Navigator")
-	if _nav == null:
-		return false
-	if str(_nav.get("reserved_by")) != "":
-		return false
-	_nav_old_wander = bool(_nav.get("wander_enabled"))
-	_token = "unfplap:" + _id
-	_nav.call("stay")
-	_nav.set("command_owner", _token)
-	_nav.set("wander_enabled", false)
-	return str(_nav.get("command_owner")) == _token
+	return _hold.claim_nav(_id)
+
 
 ## Standing keeps her body turned away and planted. Stop the standing face-turn response so a
 ## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
 func _pause_face_turn(force := false) -> void:
-	if (not force and pose_id != CATALOG.STANDING) or not is_instance_valid(pony):
-		return
-	if _face_turn_rate_owned:
-		if absf(float(pony.get("face_turn_rate"))) > 0.0001:
-			pony.set("face_turn_rate", 0.0)
-		return
-	var rate: Variant = pony.get("face_turn_rate")
-	if rate == null:
-		return
-	_face_turn_rate_saved = float(rate)
-	if absf(_face_turn_rate_saved) > 0.0001:
-		pony.set("face_turn_rate", 0.0)
-		_face_turn_rate_owned = true
+	_hold.pause_face_turn(force)
+
 
 func _restore_face_turn() -> void:
-	if _face_turn_rate_owned and is_instance_valid(pony):
-		pony.set("face_turn_rate", _face_turn_rate_saved)
-	_face_turn_rate_owned = false
-	_face_turn_rate_saved = -1.0
+	_hold.restore_face_turn()
 
 func present_standing() -> bool:
 	return bool(_standing_presentation_controller().present_standing())
@@ -2062,63 +2056,26 @@ func request_face_active() -> bool:
 	return bool(_standing_presentation_controller().request_face_active())
 
 func _keep_nav() -> void:
-	if _nav == null or not is_instance_valid(_nav):
-		return
-	if str(_nav.get("command_owner")) != _token:
-		_nav.call("stay")
-		_nav.set("command_owner", _token)
-		_nav.set("wander_enabled", false)
+	_hold.keep_nav()
+
 
 ## Keep the act's attention while another character talks to Anon. Clearing the listener every
 ## tick stops the director from turning her away or pinning her gaze; speech, emotions and
 ## locomotion keep running, and `_check_running` does not treat conversation as a stop.
 func _keep_act_attention() -> void:
-	if state in [State.IDLE, State.RESTORE, State.AFTERGLOW] or not is_instance_valid(pony):
-		return
-	if pony.has_method("set_conversation_target"):
-		pony.call("set_conversation_target", null, false)
+	_hold.keep_attention()
+
 
 func _release_nav() -> void:
-	if _nav == null or not is_instance_valid(_nav):
-		_nav = null
-		return
-	if str(_nav.get("command_owner")) == _token:
-		_nav.set("command_owner", "")
-	_nav.set("wander_enabled", _nav_old_wander)
-	_nav = null
+	_hold.release_nav()
+
 
 func _lock_player() -> void:
-	var body = main.player
-	if not is_instance_valid(body):
-		return
-	# Hold movement with the game's kiss_hold meta, not controls_locked: the camera stays free.
-	_had_kiss_hold = body.has_meta("kiss_hold")
-	if not _had_kiss_hold:
-		body.set_meta("kiss_hold", true)
-	# pony_kisser.gd removes kiss_hold every physics tick when no deep kiss is active. Pause its
-	# physics for the act so the hold survives while mouse look remains free.
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var kisser: Variant = main.game.get("kisser")
-		if is_instance_valid(kisser) and kisser is Node:
-			_kisser = kisser as Node
-			_kisser_processing = _kisser.is_physics_processing()
-			if _kisser_processing:
-				_kisser.set_physics_process(false)
-	_locked_player = true
-	if body.get("seat") != null:
-		body.set("_q_held", true)
+	_hold.lock_player()
+
 
 func _unlock_player() -> void:
-	if not _locked_player:
-		return
-	if is_instance_valid(_kisser):
-		_kisser.set_physics_process(_kisser_processing)
-	_kisser = null
-	_kisser_processing = false
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		if not _had_kiss_hold and main.player.has_meta("kiss_hold"):
-			main.player.remove_meta("kiss_hold")
-	_locked_player = false
+	_hold.unlock_player()
 
 func _abort_start() -> void:
 	_end_act_lines(true)

@@ -161,7 +161,7 @@ func _ready() -> void:
 	add_child(dialogue_consent)
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
-	initiation.main = self
+	initiation.call("setup", self)
 	add_child(initiation)
 	anatomy = ANATOMY.new()
 	anatomy.name = "UnfplapAnatomy"
@@ -1287,6 +1287,16 @@ func _refresh_offer() -> void:
 			_log_blocked_offer(runtime, standing, need)
 
 
+## The current offer's pony, for the request service's cuddle check. It refreshes the offer the
+## same way the prompt does, so Y and a proactive cuddle offer cannot disagree.
+func offer_target() -> Node:
+	_refresh_offer()
+	if _offer.is_empty():
+		return null
+	var target: Variant = _offer.get("pony")
+	return target if is_instance_valid(target) else null
+
+
 ## The standing Y zone: the nearest standing mare whose rear cone holds Anon. The cone alone
 ## decides, so the crosshair can point anywhere as long as he stands behind her rump.
 func _rump_cone_target(view: Camera3D) -> Node:
@@ -1566,7 +1576,8 @@ func _debug_offer_request(pose := "") -> String:
 	if not is_instance_valid(runtime):
 		_debug("request: no runtime for %s" % str(target.name))
 		return "No runtime for %s." % str(target.name)
-	var started: bool = bool(initiation.force(runtime, pose))
+	var result: INITIATION.ForceResult = initiation.force(runtime, pose)
+	var started := result != null and result.ok
 	var label := ""
 	if pose == CATALOG.MISSIONARY:
 		label = " (bed)"
@@ -1576,9 +1587,9 @@ func _debug_offer_request(pose := "") -> String:
 		_debug("request button: %s%s" % [str(target.name), label])
 		return "Offer started for %s%s. Close settings to let her approach." % [
 			str(target.name), label]
-	var reason := str(initiation.call("last_reject_reason"))
-	if reason.is_empty():
-		reason = "unknown"
+	var reason := "unknown"
+	if result != null and not result.reject.is_empty():
+		reason = result.reject
 	_debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
 	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
 

@@ -71,6 +71,8 @@ func run() -> void:
 	_check_anatomy_docs()
 	_check_stool_isolation(files)
 	_check_stool_docs()
+	_check_initiation_isolation(files)
+	_check_initiation_docs()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -327,6 +329,52 @@ func _check_stool_docs() -> void:
 	for name: String in ["AGENTS.md", "README.md", "ROTATION.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/stool.md"), "%s links to docs/stool.md" % name)
+
+
+## The request rules and wording are pure, and the director, classifier, navigator and bed-rest
+## internals live only in the two scene adapters.
+func _check_initiation_isolation(files: Array[String]) -> void:
+	var pure_files := [
+		"initiation/facts.gd", "initiation/policy.gd", "initiation/prompts.gd",
+	]
+	for name: String in pure_files:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+				"preload(\"res://world/", "preload(\"res://mods/unfplap/settings.gd\")"]:
+			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("initiation.gd"))
+	for token: String in [".get(\"_player_text\")", ".get(\"_held_text\")",
+			".get(\"_has_target\")", "\"_front_for\"", ".get(\"_mare_fits\")",
+			".get(\"_guest\")", ".get(\"_sleeper\")", "get_first_node_in_group",
+			"main.get(\"classifier\")"]:
+		check(not facade.contains(token), "the initiation facade keeps %s behind an adapter" % token)
+	for name: String in ["initiation/conversation.gd", "initiation/venue.gd"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+				"preload(\"res://mods/unfplap/main.gd\")"]:
+			check(not text.contains(token), "%s does not preload the hosts: %s" % [name, token])
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative == "initiation.gd" or relative.begins_with("initiation/"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		check(not text.contains("mods/unfplap/initiation/"),
+			"%s uses the initiation facade only" % relative)
+
+
+func _check_initiation_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/initiation.md"))
+	check(not contract.is_empty(), "docs/initiation.md exists")
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Data ownership",
+			"## Episode", "## Admission", "## Candidates", "## Privacy", "## Ask", "## Consent",
+			"## Presentation and invite", "## Cancellation", "## Prompts", "## Debug and lab",
+			"## Tests", "## Known limits"]:
+		check(contract.contains(heading), "docs/initiation.md has %s" % heading)
+	for name: String in ["AGENTS.md", "docs/eligibility.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/initiation.md"), "%s links to docs/initiation.md" % name)
 
 
 func _func_body(text: String, name: String) -> String:

@@ -52,7 +52,7 @@ func present_standing() -> bool:
 		return true
 	if int(runtime.get("state")) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
-	if pony.is_held() or pony.sleeping or bool(runtime.call("_cuddle_active")):
+	if pony.is_held() or pony.sleeping or bool(runtime.call("cuddle_active")):
 		return false
 	if not bool(runtime.call("_free_of_affection")):
 		return false
@@ -243,7 +243,7 @@ func _presentation_valid() -> bool:
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
-	if bool(runtime.call("_cuddle_active")) or not bool(runtime.call("_free_of_affection")):
+	if bool(runtime.call("cuddle_active")) or not bool(runtime.call("_free_of_affection")):
 		return false
 	if not pony.grounded():
 		return false
@@ -318,7 +318,7 @@ func _presentation_turn_valid() -> bool:
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
-	if bool(runtime.call("_cuddle_active")) or not bool(runtime.call("_free_of_affection")):
+	if bool(runtime.call("cuddle_active")) or not bool(runtime.call("_free_of_affection")):
 		return false
 	if not pony.grounded():
 		return false

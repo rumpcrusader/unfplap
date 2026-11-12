@@ -14,6 +14,7 @@ Do not start implementation until you have read the required files for the area 
 | Any hands, caress or smack task | `docs/hands.md` |
 | Any eligibility, consent, offer or relationship-level task | `docs/eligibility.md` |
 | Any anatomy, player-part, tail-seat or dock task | `docs/anatomy.md` |
+| Any proactive request, privacy, offer-flow or consent-classifier task | `docs/initiation.md` |
 | Any standing footstool or stool-supply task | `docs/stool.md` |
 | ACTIVE readiness, preference, strength | `PREFERENCES.md`, `thrust.gd`, `auto_thrust.gd`, `preferences.gd`, `utterance.gd`, `utterance_scheduler.gd` |
 | Act summary, long-term history, reluctance | `HISTORY.md`, `preferences.gd`, `act_summary.gd`, `act_history.gd`, `runtime.gd` |
@@ -95,6 +96,7 @@ modules; a system is for behavior with lifecycle, scene access or stored state.
 | Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` | migrated |
 | Hands | `hand_control.gd` | `docs/hands.md` | migrated; facade still reads host state |
 | Anatomy | `anatomy.gd` | `docs/anatomy.md` | migrated |
+| Proactive requests | `initiation.gd` | `docs/initiation.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
 | Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
@@ -112,6 +114,7 @@ Hands, eligibility and anatomy use `tests/<system>/`. The remaining suites are s
 | `docs/eligibility.md` | eligibility and consent |
 | `docs/hands.md` | hands, caress and smack |
 | `docs/anatomy.md` | anatomy, player part and tail seating |
+| `docs/initiation.md` | proactive requests, privacy, consent classification |
 | `docs/stool.md` | standing footstool rule, act prop and world supply |
 | `ROTATION.md` | pose, skeleton and camera |
 | `PREFERENCES.md` | readiness, preference and strength |
@@ -361,8 +364,10 @@ mods/unfplap/
   anatomy/tail/     tail seat, dock skin/seat, debug tail hide/visibility; contract in
                     docs/anatomy.md
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
-  initiation.gd     proactive requests: privacy, approach, ask, consent, standing invitation,
-                    offer weighting and history reminders
+  initiation.gd     proactive requests facade: the episode, admission, phases and cooldowns;
+                    typed Episode/Candidate/ForceResult; contract in docs/initiation.md
+  initiation/       pure rules and wording (policy, prompts, facts) and the two scene adapters
+                    (conversation, venue)
   consent_classifier.gd  one shared classifier client/queue for offer and lover dialogue
   dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
   sex_bond.gd       per-world lover-bond storage and stage maintenance; gate
@@ -1291,80 +1296,21 @@ is deliberately blush-free so the 0.35 decal stays light.
 
 ### Proactive requests
 
-- One request episode at a time. Automatic requests require AI usage Full
-  (`AI_CONFIG.background_allowed`), an idle director, no group exchange, no hearing, and no
-  character chat within 45 s. The lab runs in Talk, so trigger offers from the **Actions** block
-  (General › **Enable debug** on › **Debug** › **Actions**).
-- Offer eligibility, offer weight, privacy and the withdrawn refusal are in
-  `docs/eligibility.md`. An offer may exist before the pony is lying or Anon is in position;
-  `Y` still runs the final start gate.
-- The mare chooses the pose. With both a usable bed and a standing offer, she picks one at
-  random (`pick_offer_pose`); with one, she uses it. An active cuddle always offers missionary.
-- Cuddle: requires an active cuddle and the offer gate in `docs/eligibility.md`. The privacy rule
-  is in the same contract. A cuddle rising edge clears that mare's cooldown and permits one ask
-  per cuddle.
-- Bed: a free bed within `BED_SEARCH_M = 10 m` of Anon, same region and floor, with no other
-  guest or sleeper. She walks to the bed front, asks him to come to bed, and waits up to
-  `BED_WAIT_TIMEOUT_S = 90 s`. Once Anon lies on that bed, the native `SharedBedRest` seats her
-  beside him; then she queues the invite line and `Y` becomes available. Lying down after the
-  ask's `PHYSICAL_ACCEPT_GRACE_S = 2.5 s` grace counts as a physical yes. No free bed means she
-  cannot choose missionary.
-- Standing: requires the standing offer gate in `docs/eligibility.md`. She walks to a spot 2 m in
-  front of Anon's view (same navigation region, ≤24 m, empty/`life:` navigator owner, 35 s
-  deadline). The ask is decoupled from the Y zone: it starts when she is still present and
-  eligible, not only while the player stands in the rear cone.
-- The privacy rule is in `docs/eligibility.md`. Private asks clearly enough that he can
-  answer, in the way that fits her and the relationship, with a private relationship note and
-  tone; it is not forced into a scripted demand. With others around she only hints.
-  A throttled `request privacy ...` log lists the player position, house, every mare in the
-  house, every mare within 30 m separately labelled with the target, and the computed result.
-  The offering mare is excluded from the other-pony checks, so the target label in the log is
-  diagnostic only.
-- Private offer order: she asks, Anon answers by text/voice, then the pose-specific invite.
-  Clear yes/no uses `consent_classifier.local_intent()`; anything else is classified by a short
-  provider request (one try, 16 tokens, 4 s) after the director is idle. The request includes an
-  offer line so short answers like "right here" are understood. The controller does not run the
-  classifier beside the director's own reply; that caused HTTP 429s. A decline cancels with the
-  full cooldown and no presentation.
-  - Standing accept re-checks privacy, presents, waits for `runtime.presentation_settled()`, queues
-    one generated comment/invite line, then waits for `Y`.
-  - Missionary cuddle accept queues the invite line in the existing bed.
-  - Missionary bed accept walks her to the bed (`bed_lead`), waits for Anon to lie down
-    (`bed_wait`), joins through the bed rest, then queues the invite line.
-  - `Y` itself keeps its old behavior: pressing it during any phase cancels the episode and
-    starts the act immediately.
-- The private standing ask/presentation has a request face: full blush and half-lidded eyes while
-  she asks and presents. It also sets the game's `affection_active` hold so an AI
+- The controller is `initiation.gd`; the episode, admission, privacy, consent, invitation,
+  timings and debug paths are its contract, `docs/initiation.md`.
+- It never starts the act. `Y` is the only act-start path; `try_start()` cancels the episode
+  first and keeps the bed rest so `runtime.start()` still sees her lying.
+- Offer eligibility, offer weight, the withdrawn refusal and the public-consent override are in
+  `docs/eligibility.md`.
+- One episode at a time; a request is never persisted. `unfplap:request:` navigator ownership
+  keeps `Y` valid until the episode ends.
+- The lab runs with AI usage Talk, so automatic offers do not fire; use **Trigger bed offer** and
+  **Trigger standing offer** in the **Actions** block.
+- The private standing presentation sets the game's `affection_active` hold so an AI
   `[approach]`/`[follow]` from her reply cannot break the pose; `_nav_pose_gate` exempts that
-  hold while `_request_face` is true. If movement still clears the presentation, the controller
-  re-presents twice before ending the offer. The bed invite does not set the request face because
-  `SharedBedRest.eligible()` rejects `affection_active`.
-- The standing invitation is IDLE-only: turn away with `pony.face_direction()` at
-  `PRESENT_FACE_TURN_RATE = 1.5`, clear navigator `face_point` and conversation target late each
-  physics tick, then attach the standing modifier and tail-aside once the turn settles. Do not
-  write the transform directly during the turn: that rotated the body under planted hooves and
-  twisted her legs. The idle stance is a natural stand: the act's `bow`, `foreleg` bend and wide
-  `hind_spread` are zeroed so her front legs do not read as tucked between her hind. After
-  settling, hold `face_turn_rate = 0` and lock the body facing. It is not the act: no camera,
-  lock, HUD or `sex_active`. `unfplap:request:` navigator ownership keeps `Y` valid until the
-  episode ends. A `PRESENT_MAX_SECONDS = 75 s` safety clears the pose and request face if no end
-  path fires.
-- Initial ask uses `begin_player_greeting` with a situation prompt; the context event is recorded
-  as `situation`. The ask carries `MEMORY.cue_facts()` through `_relationship_ask_note()` and must
-  be phrased as a question. Reminders are generated at 12 s and 24 s. A no-reply offer gives up at
-  60 s; after any answer the deadline is 45 s, and after a clarification 30 s. A pending
-  classifier or a busy director extends the deadline instead of
-  cancelling the line. An unclear answer gets one clarification. A give-up records an "offer is
-  over" situation, queues a short give-up line even when he answered, and logs
-  `request end ... reason=...`; the invite phase waits up to 60 s after the comment.
-- Cooldown is 600 s per mare in `Mods.state("unfplap").request_times`. An approach, bed walk or
-  initial-ask failure sets a short 30 s retry instead; an ask, presentation, invite or give-up
-  sets the full cooldown. `Y` cancels the episode before `start()`; the act-start path keeps the
-  bed rest so `runtime.start()` still sees her lying.
-- The **Trigger bed offer** / **Trigger standing offer** debug actions force a missionary or
-  standing ask; they bypass quiet, cooldown and AI-usage, but keep the eligibility gate
-  (`docs/eligibility.md`), pose and free-bed gates. The settings page pauses the tree, so the
-  episode advances after the page closes.
+  hold while `_request_face` is true. Both live in `runtime.gd`.
+- `main.offer_target()` is the host read the cuddle check uses, so a proactive cuddle and the Y
+  prompt cannot disagree.
 
 ### Estrus cycle
 

@@ -40,7 +40,7 @@ class FakeRuntime extends Node:
 	var offer_ok := false
 	var _pose_cfg: Dictionary = {}
 
-	func _cuddle_active() -> bool:
+	func cuddle_active() -> bool:
 		return false
 
 	func _free_of_affection() -> bool:

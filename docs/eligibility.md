@@ -62,7 +62,7 @@ the per-character profile.
 | Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
 | Lover bond | `Mods.state("unfplap").sex_bonds` | `sex_bond.gd` |
 | Act history | `Mods.state("unfplap").act_history` | `act_history.gd` |
-| Request cooldown | `Mods.state("unfplap").request_times` | `initiation.gd` |
+| Request cooldown | `Mods.state("unfplap").request_times` | `initiation.gd` (contract: `docs/initiation.md`) |
 | Relationship stage, love, friendship, willingness | game save (`player_bonds`, impressions) | base game |
 | Eligibility facts | nowhere | `eligibility.gd` per call |
 
@@ -136,7 +136,7 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 | `main._try_refusal()` | `runtime.refuse_available()` | none |
 | `main.is_adult_mare()` | `eligible(pony, Target.ACT)` | none |
 | `main.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
-| `initiation` | `get_verdict(pony, Mode.OFFER)` | cooldown, approach, bed search, privacy, classifier |
+| `initiation` | `get_verdict(pony, Mode.OFFER)` | cooldown, approach, bed search, privacy, classifier; see `docs/initiation.md` |
 | `dialogue_consent` | `runtime.grant_sex_bond/end_sex_bond` | none |
 | `anatomy/act` | `get_profile(id).consent` | feature flags |
 | `anatomy` facade | `eligible(pony, Target.ANATOMY)` | rig, assets, dock; forwards to its controllers |
@@ -375,7 +375,8 @@ the act itself does not require privacy.
 
 Offer weight comes from history. A blocked history offer has weight `0`. Heat quarters the
 proactive-offer cooldown (`HEAT_COOLDOWN = 0.25`) and adds the heat sentence to the ask prompt.
-Cooldown, approach, bed search and the ask/consent classifier remain in `initiation.gd`.
+Cooldown, approach, bed search and the ask/consent classifier remain in the request service; its
+contract is `docs/initiation.md`.
 
 ## Mid-act withdrawal
 
@@ -413,7 +414,9 @@ Cooldown, approach, bed search and the ask/consent classifier remain in `initiat
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
   the docs link.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
-- `tests/test_initiation.gd`: offer wording and consent classification.
+- `tests/initiation/test_policy.gd`, `test_prompts.gd` and `test_initiation_api.gd`: the offer
+  rules, wording and facade; `tests/test_consent_classifier.gd` covers the classifier parsing.
+  The request service's contract is `docs/initiation.md`.
 - `tests/anatomy/test_anatomy.gd`: the anatomy target, participation, the provider's `adult`
   assertion and the rig checks.
 - `tests/anatomy/test_identity.gd`: the stable-id helpers, the princess body profile and the

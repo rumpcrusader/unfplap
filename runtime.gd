@@ -1941,6 +1941,12 @@ func _cuddle_start_override(pose: String, act_source: String) -> bool:
 	return _feature("allow_act_during_cuddle")
 
 
+## Public cuddle state for the proactive-request service. The internal helper stays for the act
+## gates, so no other system reaches a private function.
+func cuddle_active() -> bool:
+	return _cuddle_active()
+
+
 func _cuddle_active() -> bool:
 	if not is_instance_valid(pony):
 		return false

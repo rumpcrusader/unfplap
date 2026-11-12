@@ -396,6 +396,8 @@ func _check_history() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("history.gd"))
 	check(facade.contains("func commit_summary(") and facade.contains("func tick_idle("),
 		"history facade is present")
+	check(facade.contains("func summary_inputs(") and facade.contains("func summary_context("),
+		"the history facade owns the summary input and context shape")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get("]:

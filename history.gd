@@ -90,6 +90,44 @@ func take_debug() -> String:
 	return action
 
 
+## The summary inputs the pure scorer reads. The runtime gathers its act counters and the scene
+## values; the facade owns the shape `act_summary.gd` scores, so a new input lands in one place.
+func summary_inputs(context: Dictionary) -> Dictionary:
+	var preference_value: Variant = context.get("preferences", {})
+	var preferences: Dictionary = preference_value if preference_value is Dictionary else {}
+	var dislike_value: Variant = context.get("touch_dislikes", {})
+	var touch_dislikes: Dictionary = dislike_value if dislike_value is Dictionary else {}
+	return {
+		"preferences": preferences,
+		"seconds": float(context.get("seconds", 0.0)),
+		"thrusts": int(context.get("thrusts", 0)),
+		"pony_climaxes": int(context.get("pony_climaxes", 0)),
+		"talk_liked": int(context.get("talk_liked", 0)),
+		"talk_dislikes": int(context.get("talk_dislikes", 0)),
+		"touches_liked": int(context.get("touches_liked", 0)),
+		"touch_dislikes": touch_dislikes.duplicate(true),
+		"player_lines": int(context.get("player_lines", 0)),
+		"intensity_total": int(context.get("intensity_total", 0)),
+		"intensity_right": int(context.get("intensity_right", 0)),
+		"pattern_total": int(context.get("pattern_total", 0)),
+		"pattern_right": int(context.get("pattern_right", 0)),
+		"ended_early": bool(context.get("ended_early", false)),
+		"stopped_by_her": bool(context.get("stopped_by_her", false)),
+		"tolerance": str(preferences.get("tolerance", "normal")),
+		"forced": bool(context.get("forced", false)),
+	}
+
+
+## The context `commit_summary()` takes: the scene handles plus the inputs above.
+func summary_context(context: Dictionary) -> Dictionary:
+	return {
+		"main": context.get("main"),
+		"pony_id": str(context.get("pony_id", "")),
+		"event_id": str(context.get("event_id", "")),
+		"inputs": summary_inputs(context),
+	}
+
+
 ## One summary per act. It is scored from the action counters, stored in the world's module
 ## state, and written to the game's impression once. Forced stops never call it.
 func commit_summary(real_act: bool, context: Dictionary) -> void:

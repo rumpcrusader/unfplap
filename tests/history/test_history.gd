@@ -158,6 +158,42 @@ func run() -> void:
 		"reset binds the tolerance tier")
 	check(is_zero_approx(history.distress()), "the tolerance meter starts at zero")
 
+	# The facade owns the summary input and context shape; the runtime only gathers.
+	var gathered: Dictionary = {
+		"main": main,
+		"pony_id": "rarity",
+		"event_id": "intimacy_test",
+		"preferences": {"tolerance": "forgiving", "touch": ["cheek"]},
+		"seconds": 42.5,
+		"thrusts": 7,
+		"pony_climaxes": 2,
+		"talk_liked": 1,
+		"talk_dislikes": 0,
+		"touches_liked": 2,
+		"touch_dislikes": {"smack": 1},
+		"player_lines": 3,
+		"intensity_total": 6,
+		"intensity_right": 5,
+		"pattern_total": 4,
+		"pattern_right": 3,
+		"ended_early": false,
+		"stopped_by_her": true,
+	}
+	var built: Dictionary = history.summary_inputs(gathered)
+	check(is_equal_approx(float(built.get("seconds", 0.0)), 42.5), "the input keeps the act seconds")
+	check(int(built.get("thrusts", 0)) == 7, "the input keeps the real thrusts")
+	check(int((built.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 1,
+		"the input keeps the disliked touch kinds")
+	check(str(built.get("tolerance", "")) == "forgiving",
+		"the tolerance comes from the gathered preferences")
+	check(bool(built.get("stopped_by_her", false)), "the input keeps the partner stop")
+	check(not bool(built.get("forced", false)), "a missing forced flag reads false")
+	var wrapped: Dictionary = history.summary_context(gathered)
+	check(str(wrapped.get("pony_id", "")) == "rarity" and str(wrapped.get("event_id", "")) == "intimacy_test",
+		"the context keeps the ids")
+	check((wrapped.get("inputs", {}) as Dictionary).has("touch_dislikes"),
+		"the context wraps the built inputs")
+
 	history.commit_summary(true, _context(main, _inputs()))
 	check(not history.summary.is_empty(), "a summary is committed once")
 	check(str(history.summary.get("grade", "")) == "good", "a clean act is good")

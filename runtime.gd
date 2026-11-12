@@ -2866,17 +2866,12 @@ func _commit_summary(real_act: bool) -> void:
 	_history.commit_summary(real_act, _summary_context())
 
 
-func _summary_context() -> Dictionary:
+## The scene values the summary scores. The history facade owns the shape; this only gathers.
+func _summary_values() -> Dictionary:
 	return {
 		"main": main,
 		"pony_id": _id,
 		"event_id": _event_id,
-		"inputs": _summary_inputs(),
-	}
-
-
-func _summary_inputs() -> Dictionary:
-	return {
 		"preferences": _preferences,
 		"seconds": _act_seconds,
 		"thrusts": _act_thrusts,
@@ -2884,7 +2879,7 @@ func _summary_inputs() -> Dictionary:
 		"talk_liked": _act_liked_talk,
 		"talk_dislikes": _act_talk_dislikes,
 		"touches_liked": _act_liked_touch,
-		"touch_dislikes": _act_touch_dislikes.duplicate(true),
+		"touch_dislikes": _act_touch_dislikes,
 		"player_lines": _act_player_lines,
 		"intensity_total": _act_intensity_total,
 		"intensity_right": _act_intensity_right,
@@ -2892,9 +2887,15 @@ func _summary_inputs() -> Dictionary:
 		"pattern_right": _act_pattern_right,
 		"ended_early": _act_ended_early,
 		"stopped_by_her": _stopped_by_her,
-		"tolerance": str(_preferences.get("tolerance", "normal")),
-		"forced": false,
 	}
+
+
+func _summary_context() -> Dictionary:
+	return _history.summary_context(_summary_values())
+
+
+func _summary_inputs() -> Dictionary:
+	return _history.summary_inputs(_summary_values())
 
 
 func _history_note() -> String:

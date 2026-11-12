@@ -8,12 +8,13 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 ## Ownership
 
-`history.gd` is the system facade. It owns the summary trigger and commit, the peak-memory record,
-the per-mare row reads, the idle apology/reminder decisions and the pure `act_tolerance.gd` meter.
-The runtime keeps the act state machine, gathers the action counters into the summary inputs, runs
-the scene stop executor (`_stop_with_her`: bed release, session end, space, buck, tail tuck) and
-owns the face and line presentation. `act_summary.gd` and `act_history.gd` remain the pure scoring
-and stored-row modules behind the facade.
+`history.gd` is the system facade. It owns the summary trigger and commit, the summary input and
+context shape the pure scorer reads (`summary_inputs()`, `summary_context()`), the peak-memory
+record, the per-mare row reads, the idle apology/reminder decisions and the pure
+`act_tolerance.gd` meter. The runtime keeps the act state machine, gathers the action counters and
+the scene values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release,
+session end, space, buck, tail tuck) and owns the face and line presentation. `act_summary.gd` and
+`act_history.gd` remain the pure scoring and stored-row modules behind the facade.
 
 ## Per-act score
 

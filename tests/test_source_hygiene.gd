@@ -271,6 +271,10 @@ func _check_act_facts() -> void:
 	check(camera.contains("var facts: Variant"), "standing camera reads the act context")
 	for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\""]:
 		check(not camera.contains(token), "standing camera has no runtime reach-in: %s" % token)
+	var anon := FileAccess.get_file_as_string(ROOT.path_join("missionary_anon.gd"))
+	check(anon.contains("var facts: Variant"), "missionary Anon reads the act context")
+	for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\""]:
+		check(not anon.contains(token), "missionary Anon has no runtime reach-in: %s" % token)
 
 
 ## The act line facade reads the typed act context and the memory facade only. Its contract is

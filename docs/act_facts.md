@@ -10,8 +10,8 @@ orchestrator and the scene adapters.
 - `act_facts.gd` defines the fields and the no-op host callbacks.
 - `runtime.gd` creates it, binds the callbacks in `_init()` and refreshes it at the head of each
   tick in `_sync_act_facts()`.
-- `standing_camera.gd` is the proof consumer. The remaining presentation modules move to it in the
-  typed-view phase.
+- `standing_camera.gd` and `missionary_anon.gd` are the migrated consumers. The remaining
+  presentation modules move to it in the typed-view phase.
 - `anatomy/facts.gd` is the same pattern for the anatomy system.
 
 ## Fields
@@ -41,11 +41,14 @@ player_eye_height, anon_torso_forward, anon_torso_drop
 player_pony, headset_view
 free_camera_active, free_look_active
 camera_owned, look_captured, look_yaw, look_pitch
-lean_forward, lean_side, lean_view_forward, lean_view_side, lean_sway
+lean_forward, lean_side, lean_action_side, lean_view_forward, lean_view_side, lean_sway
+lean, shot_lean_forward
 bob, back, back_target
 forced_glance, pose_config, presentation_config
 kiss_amount, kiss_active, kiss_side
-bed_frame (the live missionary bed frame, or null)
+thrust_travel, same_height_scale, anon_height_scale, palm_scale_factor
+standing_sway_offset
+bed_frame (the live missionary bed frame, or null), bed, profile
 ```
 
 Scene handles:
@@ -74,6 +77,17 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `set_camera_basis_ready` | mark the camera basis ready |
 | `director` | the live conversation director |
 | `now` | the act's processed-time clock |
+| `keep_chin_last` | the chin overlay's last write |
+| `play_mouth_kiss` | the mouth kiss sound |
+| `act_actions_allowed` | the camera's action window |
+| `auto_panel_open` | the hold-X layer |
+| `standing_camera`, `missionary_anon` | the pose bodies |
+| `anatomy_normal`, `anatomy_opening` | the anatomy reads |
+| `authored_pose_asset`, `missionary_face_point` | the shot targets |
+| `free_look_rotation` | the debug view rotation |
+| `desktop_pose_driver` | the game's pose driver |
+| `cuddle_active`, `free_of_affection`, `can_offer` | the start gates |
+| `pause_face_turn`, `restore_face_turn` | the scene hold |
 
 Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `kiss_controller()`,
 `neck_midpoint()`, `write_look()`, `write_forced_glance()`, `mark_camera_basis_ready()`, `clock()`.

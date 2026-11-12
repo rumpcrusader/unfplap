@@ -53,9 +53,13 @@ var look_yaw := 0.0
 var look_pitch := 0.0
 var lean_forward := 0.0
 var lean_side := 0.0
+var lean_action_side := 0.0
 var lean_view_forward := 0.0
 var lean_view_side := 0.0
 var lean_sway := 0.0
+## The shot's forward lean plus the idle-breathing offset, and the camera's own lean.
+var shot_lean_forward := 0.0
+var lean := 0.0
 var bob := 0.0
 var back := 0.0
 var back_target := 0.0
@@ -65,8 +69,16 @@ var presentation_config: Dictionary = {}
 var kiss_amount := 0.0
 var kiss_active := false
 var kiss_side := 0.0
+var thrust_travel := 0.5
+var same_height_scale := 1.0
+var anon_height_scale := 1.0
+var palm_scale_factor := 1.0
+var standing_sway_offset := Vector3.ZERO
 ## The act's bed frame, or null outside a missionary act.
 var bed_frame: Variant = null
+## The act's bed node and the per-mare profile the presentation reads.
+var bed: Variant = null
+var profile: Dictionary = {}
 
 # Scene handles the act owns. Presentation modules are scene adapters, so they receive the nodes
 # they work on rather than reading the runtime's fields.
@@ -91,6 +103,24 @@ var set_camera_basis_ready := Callable()
 var director := Callable()
 ## The act's processed-time clock, so line pacing freezes with the tree.
 var now := Callable()
+## The presentation and input dispatch the runtime still owns.
+var keep_chin_last := Callable()
+var play_mouth_kiss := Callable()
+var act_actions_allowed := Callable()
+var auto_panel_open := Callable()
+var standing_camera := Callable()
+var missionary_anon := Callable()
+var anatomy_normal := Callable()
+var anatomy_opening := Callable()
+var authored_pose_asset := Callable()
+var missionary_face_point := Callable()
+var free_look_rotation := Callable()
+var desktop_pose_driver := Callable()
+var cuddle_active := Callable()
+var free_of_affection := Callable()
+var can_offer := Callable()
+var pause_face_turn := Callable()
+var restore_face_turn := Callable()
 
 
 func perf(chunk: String, usec: int) -> void:
@@ -138,3 +168,16 @@ func mark_camera_basis_ready() -> void:
 
 func clock() -> float:
 	return float(now.call()) if now.is_valid() else 0.0
+
+
+## A host value that may be missing: `null` outside a scene, so a caller tests it.
+func call_value(callback: Callable, fallback: Variant = null) -> Variant:
+	return callback.call() if callback.is_valid() else fallback
+
+
+func missionary_body() -> Variant:
+	return missionary_anon.call() if missionary_anon.is_valid() else null
+
+
+func feature(name: String, fallback := true) -> bool:
+	return bool(features.get(name, fallback))

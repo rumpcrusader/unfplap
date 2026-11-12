@@ -30,7 +30,9 @@ const MOUTH_OFFSET := Vector3(0.0, -0.07, -0.02)
 const HOLD_BLEND_S := 0.35
 const HOLD_RELEASE_S := 0.35
 
-var runtime: Node
+## The typed act view. Every live value and callback comes through it; the runtime node is never
+## read directly.
+var facts: Variant
 var main: Variant
 var avatar: Node3D
 var skeleton: Skeleton3D
@@ -84,9 +86,9 @@ var _arm_axes: Dictionary = {}
 var _palm_scale: SkeletonModifier3D
 
 
-func install(runtime_node: Node) -> bool:
-	runtime = runtime_node
-	main = runtime.get("main") if is_instance_valid(runtime) else null
+func install(context: Variant) -> bool:
+	facts = context
+	main = facts.main if facts != null else null
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
 		return false
 	avatar = main.player.find_child("AnonBody", true, false) as Node3D
@@ -302,14 +304,11 @@ func _apply_hip_motion(offset_world: Vector3) -> void:
 ## lean, leaving his hips and legs on the authored pose so the lower body still thrusts. The view
 ## is his head, so this is what moves the camera.
 func _apply_lean(placed: Transform3D) -> void:
-	if not is_instance_valid(runtime) or not is_instance_valid(skeleton):
+	if facts == null or not is_instance_valid(skeleton):
 		return
-	var forward: Variant = runtime.call("shot_lean_forward")
-	var side: Variant = runtime.get("_lean_view_side")
-	var lean_forward := float(forward) if forward is float or forward is int else 0.0
-	var lean_side := float(side) if side is float or side is int else 0.0
-	var scale: Variant = runtime.call("_lean_size_scale")
-	var lean_scale := float(scale) if scale is float or scale is int else 1.0
+	var lean_forward: float = facts.shot_lean_forward
+	var lean_side: float = facts.lean_view_side
+	var lean_scale: float = facts.lean_size_scale
 	# W tips the hinge forward/down toward her; S back/up.
 	var pitch := deg_to_rad(MOTION.LEAN_PITCH_DEG * 3.0) * lean_forward * lean_scale
 	var yaw := -deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG * 4.0) * lean_side * lean_scale
@@ -436,9 +435,9 @@ func refresh_palm() -> void:
 
 func _install_palm_scale() -> void:
 	_remove_palm_scale()
-	if not is_instance_valid(skeleton) or not is_instance_valid(runtime):
+	if not is_instance_valid(skeleton) or facts == null:
 		return
-	var factor := float(runtime.call("_palm_scale_factor"))
+	var factor: float = facts.palm_scale_factor
 	if is_equal_approx(factor, 1.0):
 		return
 	_palm_scale = PALM_SCALE.new()
@@ -535,8 +534,7 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var lower_len := hand_offset.length()
 	if upper_len < 0.001 or lower_len < 0.001:
 		return
-	var precise := is_instance_valid(runtime) and runtime.has_method("_feature") \
-		and bool(runtime.call("_feature", "caress_surface"))
+	var precise: bool = facts != null and facts.feature("caress_surface")
 	# Only the caressing hand may shift its shoulder or stretch. The two planted palms keep the
 	# authored arm and mattress contact.
 	var caress := natural and precise
@@ -599,8 +597,8 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	RIG.set_global(skeleton, lower,
 		Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
 	RIG.set_global(skeleton, hand, Transform3D(hand_basis, target))
-	if caress and is_instance_valid(runtime) and runtime.has_method("perf_note"):
-		runtime.call("perf_note", "caress_arm", Time.get_ticks_usec() - arm_started)
+	if caress and facts != null:
+		facts.perf("caress_arm", Time.get_ticks_usec() - arm_started)
 
 
 ## The game's regular desktop arm pole (`valve_body_ik.gd`): the elbow bends below the
@@ -676,9 +674,7 @@ func mouth_point() -> Vector3:
 	var eye: Variant = eye_transform()
 	if not (eye is Transform3D) or not (eye as Transform3D).origin.is_finite():
 		return Vector3.INF
-	var scale := 1.0
-	if is_instance_valid(runtime) and runtime.has_method("_anon_height_scale"):
-		scale = float(runtime.call("_anon_height_scale"))
+	var scale: float = facts.anon_height_scale if facts != null else 1.0
 	return (eye as Transform3D).origin + (eye as Transform3D).basis * (MOUTH_OFFSET * scale)
 
 
@@ -742,8 +738,8 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if facts != null:
+		facts.write_log(text)
 
 
 func _anatomy_service() -> Variant:

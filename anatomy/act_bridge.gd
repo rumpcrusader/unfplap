@@ -337,7 +337,7 @@ func set_missionary_anon(node: Variant) -> void:
 func install_missionary_anon() -> bool:
 	if not is_instance_valid(missionary_anon):
 		return false
-	return bool(missionary_anon.call("install", _host("runtime")))
+	return bool(missionary_anon.call("install", _host("act_facts")))
 
 
 func refresh_palm() -> void:

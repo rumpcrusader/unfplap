@@ -694,6 +694,23 @@ func _init() -> void:
 		"state": Callable(self, "_state"),
 		"pose_id": Callable(self, "_pose_id"),
 	})
+	_act_facts.keep_chin_last = Callable(self, "_keep_chin_last")
+	_act_facts.play_mouth_kiss = Callable(self, "_play_mouth_kiss")
+	_act_facts.act_actions_allowed = Callable(self, "_act_actions_allowed")
+	_act_facts.auto_panel_open = Callable(self, "auto_panel_open")
+	_act_facts.standing_camera = Callable(self, "_standing_camera_controller")
+	_act_facts.missionary_anon = Callable(self, "missionary_anon_body")
+	_act_facts.anatomy_normal = Callable(self, "anatomy_normal")
+	_act_facts.anatomy_opening = Callable(self, "anatomy_opening")
+	_act_facts.authored_pose_asset = Callable(self, "authored_pose_asset")
+	_act_facts.missionary_face_point = Callable(self, "missionary_face_point")
+	_act_facts.free_look_rotation = Callable(self, "free_look_rotation")
+	_act_facts.desktop_pose_driver = Callable(self, "_desktop_pose_driver")
+	_act_facts.cuddle_active = Callable(self, "_cuddle_active")
+	_act_facts.free_of_affection = Callable(self, "_free_of_affection")
+	_act_facts.can_offer = Callable(self, "can_offer")
+	_act_facts.pause_face_turn = Callable(self, "_pause_face_turn")
+	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
 	_sex_bond.bind({
 		"id": Callable(self, "_bond_id"),
 		"state": Callable(self, "_state"),
@@ -766,6 +783,10 @@ func _runtime() -> Variant:
 
 func _reactions_service() -> Variant:
 	return _reactions
+
+
+func _act_facts_value() -> Variant:
+	return _act_facts
 
 
 func _state() -> int:
@@ -932,9 +953,19 @@ func _sync_act_facts() -> void:
 	facts.look_pitch = cam.look_pitch
 	facts.lean_forward = cam.lean_forward
 	facts.lean_side = cam.lean_side
+	facts.lean_action_side = cam.lean_action_side
 	facts.lean_view_forward = cam.lean_view_forward
 	facts.lean_view_side = cam.lean_view_side
 	facts.lean_sway = cam.lean_sway
+	facts.lean = cam.lean
+	facts.shot_lean_forward = shot_lean_forward()
+	facts.thrust_travel = _thrust_travel
+	facts.same_height_scale = _same_height_scale()
+	facts.anon_height_scale = _anon_height_scale()
+	facts.palm_scale_factor = _palm_scale_factor()
+	facts.standing_sway_offset = _standing_sway_offset
+	facts.bed = bed
+	facts.profile = _profile
 	facts.bob = cam.bob
 	facts.back = cam.back
 	facts.back_target = cam.back_target

@@ -1,8 +1,8 @@
 extends RefCounted
 ## The scene half of the act gate and the refusal executor: the live state, cuddle, affection,
-## navigator, player, pose, stool and bed rows, the bed search, the buck/push refusal and its mood
-## beat. The pure policy rows and the verdict composition stay in the runtime; eligibility owns
-## the policy. Contract: `docs/scene_gate.md`.
+## navigator, player, pose, stool and bed rows, the bed search, the structural rows, the
+## policy/scene merge, the start/offer verdicts, the debug status line, the buck/push refusal and
+## its mood beat. Eligibility owns the policy. Contract: `docs/scene_gate.md`.
 
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
 const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
@@ -31,6 +31,10 @@ var request_face_active := Callable()
 var release_carry := Callable()
 ## The runtime owns the refusal face; this only says whether the moment was a buck.
 var on_refusal_face := Callable()
+## The policy verdict and the debug context. The runtime supplies both; the gate never reads
+## eligibility's own logic or the runtime's private fields.
+var policy_verdict := Callable()
+var debug_context := Callable()
 
 
 ## Bind the scene nodes and the pose session. A missing node fails the gate closed.
@@ -100,8 +104,170 @@ func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
 	return rows_out
 
 
-## The footstool rule still lives in the runtime until its own phase, so it reaches the rows
-## through these callbacks.
+## The structural rows and the policy/scene merge. The runtime supplies the policy verdict and
+## the debug context; the gate owns the merge and the debug string.
+func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
+		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
+	var data := _gate_data(pose, act_source, bed_in, "start", false, verdict_in)
+	var policy: ELIGIBILITY.Verdict = data.get("policy")
+	var scene_ok := bool(data.get("scene_ok", false))
+	return {
+		"show": policy != null and policy.show and scene_ok,
+		"attempt": policy != null and policy.attempt and scene_ok,
+		"buck_refuse": policy != null and policy.buck_refuse,
+		"history_refuse": policy != null and policy.history_refuse and scene_ok,
+		"rows": data.get("rows", []),
+		"policy": policy,
+	}
+
+
+## The full proactive-offer gate. It uses the offer-safe scene subset.
+func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
+		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
+	var data := _gate_data(pose, act_source, bed_in, "offer", forced, verdict_in)
+	var policy: ELIGIBILITY.Verdict = data.get("policy")
+	var scene_ok := bool(data.get("scene_ok", false))
+	return {
+		"ok": policy != null and policy.offer and scene_ok,
+		"rows": data.get("rows", []),
+		"policy": policy,
+	}
+
+
+func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
+		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
+	var structural: Array = []
+	_gate_row(structural, "invalid_pony", is_instance_valid(pony), "invalid_pony")
+	if not is_instance_valid(pony):
+		return {"rows": structural, "policy": null, "scene_ok": false}
+	_gate_row(structural, "no_main", is_instance_valid(main), "no_main")
+	if not is_instance_valid(main):
+		return {"rows": structural, "policy": null, "scene_ok": false}
+	_gate_row(structural, "no_player", is_instance_valid(main.player), "no_player")
+	if not is_instance_valid(main.player):
+		return {"rows": structural, "policy": null, "scene_ok": false}
+	_gate_row(structural, "no_game", is_instance_valid(main.game), "no_game")
+	if not is_instance_valid(main.game):
+		return {"rows": structural, "policy": null, "scene_ok": false}
+	var policy_mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.OFFER if mode == "offer" \
+		else ELIGIBILITY.Mode.START
+	var policy: ELIGIBILITY.Verdict = _policy_verdict(policy_mode, verdict_in)
+	var scene_rows: Array = rows(pose, act_source, bed_in, mode, forced)
+	var rows_all: Array = structural.duplicate()
+	if policy != null:
+		for row: ELIGIBILITY.Row in policy.rows:
+			rows_all.append(row)
+	for row: Variant in scene_rows:
+		rows_all.append(row)
+	return {
+		"rows": rows_all,
+		"policy": policy,
+		"scene_ok": _report_ok(scene_rows),
+	}
+
+
+func _policy_verdict(mode: ELIGIBILITY.Mode,
+		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
+	if verdict_in != null:
+		return verdict_in
+	if policy_verdict.is_valid():
+		return policy_verdict.call(mode, verdict_in)
+	return null
+
+
+func _gate_row(rows_out: Array, key: String, ok: bool, reason := "") -> void:
+	var row := ELIGIBILITY.Row.new()
+	row.key = key
+	row.ok = ok
+	row.reason = reason if not reason.is_empty() else key
+	rows_out.append(row)
+
+
+func _report_ok(rows_in: Array) -> bool:
+	for row: ELIGIBILITY.Row in rows_in:
+		if not row.ok:
+			return false
+	return true
+
+
+## The failed reasons of a row list. The runtime's `offer_reasons` and `_start_reasons`
+## read it; the gate's own debug line uses it too.
+func report_reasons(rows_in: Array) -> PackedStringArray:
+	var reasons: PackedStringArray = []
+	for row: ELIGIBILITY.Row in rows_in:
+		if not row.ok:
+			reasons.append(row.reason)
+	return reasons
+
+
+func _policy_row_ok(policy: ELIGIBILITY.Verdict, key: String) -> bool:
+	if policy == null:
+		return true
+	for row in policy.rows:
+		if row.key == key:
+			return row.ok
+	return true
+
+
+## The debug status line. The gate owns the row and verdict assembly; the runtime supplies the
+## live act values through the context callback.
+func debug_line(pose: String, act_source: String, bed_in: Variant = null,
+		distance := -1.0, dot := -1.0) -> String:
+	var context: Dictionary = debug_context.call() if debug_context.is_valid() else {}
+	var gate := start_verdict(pose, act_source, bed_in)
+	var policy: ELIGIBILITY.Verdict = gate.get("policy")
+	var relations: ELIGIBILITY.Relations = policy.relations if policy != null \
+		else ELIGIBILITY.Relations.new()
+	var reasons: PackedStringArray = report_reasons(gate.get("rows", []))
+	var reason_text := "none" if reasons.is_empty() else ",".join(reasons)
+	var found_bed: Node3D = resolve_bed(pose, act_source, bed_in) if pose == CATALOG.MISSIONARY else null
+	var bed_text := "n/a"
+	if pose == CATALOG.MISSIONARY:
+		bed_text = str(found_bed != null and bed_gate(pose, act_source, found_bed))
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level%d) welcomes=%s bond=%s start=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s bondrow=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+		str(context.get("display", "?")), str(context.get("id", "")),
+		float(distance), float(dot), str(context.get("stage", "")),
+		str(context.get("love_name", "?")), int(context.get("love_level", 0)),
+		str(context.get("welcomes", false)), str(context.get("bond", false)),
+		str(context.get("sex_start", "")), str(context.get("mood", "?")),
+		str(bool(gate.get("show", false))), str(bool(gate.get("attempt", false))),
+		str(policy != null and policy.offer), str(policy != null and policy.buck_refuse),
+		str(policy != null and policy.history_refuse),
+		int(context.get("state", 0)), str(context.get("presenting", false)),
+		str(context.get("sleeping", false)), str(context.get("held", false)),
+		str(context.get("grounded", false)), str(context.get("seated", false)),
+		str(context.get("cuddle", false)), str(context.get("motion", false)),
+		float(context.get("speed", 0.0)), str(context.get("posture", "")),
+		str(context.get("interrupt", "")),
+		str(context.get("owner", "")), str(context.get("target", false)),
+		str(context.get("reserved", "")),
+		str(context.get("body_controls_locked", "?")),
+		str(context.get("body_flying", "?")), str(context.get("body_seat", "?")),
+		str(context.get("mouse", "")), str(context.get("paused", false)),
+		str(_policy_row_ok(policy, "relation")), str(_policy_row_ok(policy, "form")),
+		str(_policy_row_ok(policy, "romance")), str(_policy_row_ok(policy, "promiscuity")),
+		str(_policy_row_ok(policy, "sex_bond")), str(_policy_row_ok(policy, "cycle")),
+		str(_policy_row_ok(policy, "history")), str(conversation_ok()), str(free_of_affection()),
+		str(player_ready_for(pose, act_source, bed_in)), str(nav_owner_allows(pose, act_source)),
+		str(nav_pose_gate(pose, act_source)), bed_text, str(bool(gate.get("show", false))),
+		reason_text]
+	if int(context.get("state", 0)) != STATE_IDLE:
+		var limit_text := "∞" if int(context.get("max_pony_climaxes", 0)) <= 0 \
+			else str(int(context.get("max_pony_climaxes", 0)))
+		text += " | readiness=%.0f mood=%s climaxes=%d/%s intensity=%s pattern=%s cue=%s up=%s penetration=%.1f/%.1fcm | %s" % [
+			float(context.get("satisfaction", 0.0)), str(context.get("mood", "")),
+			int(context.get("pony_climaxes", 0)), limit_text,
+			str(context.get("last_intensity", "")), str(context.get("last_pattern", "")),
+			str(context.get("cue", "")), str(context.get("thrust_up", false)),
+			float(context.get("penetration_m", 0.0)) * 100.0,
+			float(context.get("penetration_reach", 0.0)) * 100.0,
+			str(context.get("preferences", "")).replace("\n", "; ")]
+	text += " | " + str(context.get("voice_status_line", ""))
+	return text
+
+
+## The footstool rule lives in the per-act handle `stool/act.gd`; the rows reach it through the
+## runtime's callbacks.
 func needed_stool() -> int:
 	return int(stool_need.call()) if stool_need.is_valid() else 0
 

@@ -1,6 +1,7 @@
 extends SceneTree
-## The scene gate: the live scene rows, the bed search, the player/navigator predicates and the
-## refusal executor. The pure policy and the verdict composition stay in the runtime.
+## The scene gate: the live scene rows, the structural rows, the policy/scene merge, the
+## start/offer verdicts, the debug status line, the bed search, the player/navigator predicates
+## and the refusal executor. The policy itself is the runtime's callback.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_gate/test_scene_gate.gd
 
@@ -163,6 +164,22 @@ class FakeFace extends RefCounted:
 		moods.append("angry" if bucked else "annoyed")
 
 
+class FakePolicy extends RefCounted:
+	var verdict: Variant = null
+	var calls := 0
+
+	func verdict_for(_mode: int, _verdict_in: Variant = null) -> Variant:
+		calls += 1
+		return verdict
+
+
+class FakeContext extends RefCounted:
+	var values: Dictionary = {}
+
+	func context() -> Dictionary:
+		return values
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -206,10 +223,14 @@ func _fixture() -> Dictionary:
 	gate.stool_need = Callable(stool, "stool_need")
 	gate.stool_count = Callable(stool, "stool_count")
 	gate.on_refusal_face = Callable(face, "on_face")
+	var policy := FakePolicy.new()
+	var context := FakeContext.new()
+	gate.policy_verdict = Callable(policy, "verdict_for")
+	gate.debug_context = Callable(context, "context")
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,
 		"main": main, "bed": bed, "pose": pose, "stool": stool, "face": face,
-		"affection": affection,
+		"affection": affection, "policy": policy, "context": context,
 	}
 
 
@@ -239,6 +260,7 @@ func run() -> void:
 	_check_player()
 	_check_bed()
 	_check_rows()
+	_check_verdicts()
 	_check_refusal()
 	_check_suppress()
 
@@ -489,6 +511,54 @@ func _check_rows() -> void:
 	var offer_rows: Array = gate.call("rows", "standing", "", null, "offer", true)
 	for row: ELIGIBILITY.Row in offer_rows:
 		check(row.key != "player", "the offer rows skip the player row")
+	_free(made)
+
+
+func _check_verdicts() -> void:
+	var made := _fixture()
+	var gate: RefCounted = made["gate"]
+	var pony: FakePony = made["pony"]
+	var policy: FakePolicy = made["policy"]
+	var context: FakeContext = made["context"]
+	var verdict := ELIGIBILITY.Verdict.new()
+	verdict.show = true
+	verdict.attempt = true
+	verdict.offer = true
+	verdict.buck_refuse = true
+	verdict.history_refuse = true
+	var row := ELIGIBILITY.Row.new()
+	row.key = "relation"
+	row.ok = true
+	row.reason = "relation"
+	verdict.rows.append(row)
+	policy.verdict = verdict
+	var start: Dictionary = gate.call("start_verdict", "standing", "", null)
+	check(bool(start.get("show", false)), "the start verdict follows the policy")
+	check(bool(start.get("attempt", false)), "the start verdict follows the policy")
+	check(bool(start.get("buck_refuse", false)), "the start verdict follows the policy")
+	check(bool(start.get("history_refuse", false)), "the start verdict follows the policy")
+	check(policy.calls == 1, "the policy callback runs once")
+	var keys: Array[String] = []
+	for entry: ELIGIBILITY.Row in start.get("rows", []):
+		keys.append(entry.key)
+	check("invalid_pony" in keys and "no_main" in keys and "no_player" in keys \
+		and "no_game" in keys, "the structural rows are appended")
+	check("relation" in keys, "the policy rows are appended")
+	check("state" in keys, "the scene rows are appended")
+	pony.set_meta("sex_aftercare", true)
+	var blocked: Dictionary = gate.call("start_verdict", "standing", "", null)
+	check(not bool(blocked.get("show", false)), "a failed scene row hides the start")
+	check(not bool(blocked.get("attempt", false)), "a failed scene row blocks the attempt")
+	check(not bool(blocked.get("history_refuse", false)), "a failed scene row hides the history refusal")
+	pony.remove_meta("sex_aftercare")
+	var offer: Dictionary = gate.call("offer_verdict", "standing", "", null, true)
+	check(bool(offer.get("ok", false)), "the offer verdict follows the policy")
+	var reasons: PackedStringArray = gate.call("report_reasons", blocked.get("rows", []))
+	check(reasons.has("aftercare"), "the failed rows are reported")
+	context.values = {"id": "rarity", "display": "Rarity", "state": 0}
+	var line: String = gate.call("debug_line", "standing", "", null)
+	check(line.contains("id=rarity"), "the debug line carries the pony id")
+	check(line.contains("can_start="), "the debug line carries the start verdict")
 	_free(made)
 
 

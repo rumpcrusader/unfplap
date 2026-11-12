@@ -14,16 +14,17 @@ adult mare *may*; this answers whether the *scene* is ready right now.
 - the player predicate: controls, flight, wing flight, knockdown, swimming, mouse capture, held
   item/case, seat and bed-side recline;
 - the cuddle and affection predicates, and the live auto-cuddle suppression;
+- the structural rows (`invalid_pony`, `no_main`, `no_player`, `no_game`), the policy/scene merge,
+  `start_verdict` / `offer_verdict`, the debug status line and the reason list;
 - the refusal executor: `refuse_available`, `refuse`, the buck/push, the refusal impression, the
   lost-trust hook and the refusal floor.
 
-`runtime.gd` owns the composition: it builds the structural rows (`invalid_pony`, `no_main`,
-`no_player`, `no_game`), asks `eligibility.gd` for the policy verdict, appends
-`scene_gate.rows(...)`, and returns `start_verdict` / `offer_verdict`. It keeps the public gate
-forwards (`can_show_start`, `can_offer`, `offer_reasons`, `refuse_available`, `refuse`,
-`find_bed_under`, `free_of_affection`, `cuddle_active`), the debug status line and the scene
-executors for the rest of the act. The runtime also owns the refusal face
-(`_start_upset("angry"|"annoyed")`); the facade calls back with the buck flag.
+`runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the
+`eligibility.gd` verdict) and `debug_context` (the act values the status line reads) through
+callbacks, and keeps the public forwards (`can_show_start`, `can_offer`, `offer_reasons`,
+`refuse_available`, `refuse`, `find_bed_under`, `free_of_affection`, `cuddle_active`). The runtime
+also owns the refusal face (`_start_upset("angry"|"annoyed")`); the facade calls back with the
+buck flag.
 
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body.
@@ -87,13 +88,14 @@ the impression; the face is presentation. A strict partner stop also calls the s
 
 ## Debug
 
-`runtime.debug_line()` keeps the status string but reads the scene predicates through the facade
-(`conversation`, `affection`, player, navigator owner/pose, bed gate). No scene row is recomputed
-twice in different ways.
+`scene_gate.debug_line()` owns the status string: it reads the live act values through the
+runtime's `debug_context` callback, the row/verdict assembly, and the policy row reads. The
+runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in different ways.
 
 ## Tests
 
 `tests/scene_gate/test_scene_gate.gd` covers the conversation, cuddle, affection, navigator,
-player, bed and row sets, the refusal executor and the auto-cuddle suppression with fake scene
-nodes. `tests/eligibility/` keeps the pure policy suites. The runtime suite
+player, bed and row sets, the structural rows, the policy/scene merge, the start/offer verdicts,
+the debug line, the reason list, the refusal executor and the auto-cuddle suppression with fake
+scene nodes. `tests/eligibility/` keeps the pure policy suites. The runtime suite
 (`tests/test_runtime_teardown.gd`) and the history stop suite drive the public forwards.

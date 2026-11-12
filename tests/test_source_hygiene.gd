@@ -77,6 +77,7 @@ func run() -> void:
 	_check_memory_docs()
 	_check_act_facts()
 	_check_act_lines()
+	_check_readiness()
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
@@ -280,6 +281,25 @@ func _check_act_lines() -> void:
 	for name: String in ["test_act_lines.gd", "test_utterance.gd", "test_utterance_scheduler.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/act_lines/" + name)),
 			"tests/act_lines/%s exists" % name)
+
+
+## The readiness facade is scene-free scoring state. Its contract is `PREFERENCES.md`, and the
+## runtime forwards the public values instead of keeping a second copy.
+func _check_readiness() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("readiness.gd"))
+	check(facade.contains("func stroke(") and facade.contains("func tick("),
+		"readiness facade is present")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")"]:
+		check(not facade.contains(token), "readiness has no scene reference: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("PREFERENCES.md"))
+	check(contract.contains("## Ownership"), "PREFERENCES documents the readiness owner")
+	check(contract.contains("`readiness.gd`"), "PREFERENCES names readiness.gd")
+	for name: String in ["test_readiness.gd", "test_runtime_thrust.gd", "test_preferences.gd",
+			"test_auto_thrust.gd", "test_auto_panel.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/readiness/" + name)),
+			"tests/readiness/%s exists" % name)
 
 
 func _check_eligibility_docs() -> void:

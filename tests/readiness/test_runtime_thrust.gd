@@ -1,6 +1,6 @@
 extends SceneTree
 ## Minimal integration test for ACTIVE readiness and pony-climax separation, without a world.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_thrust.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_runtime_thrust.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const THRUST := preload("res://mods/unfplap/thrust.gd")
@@ -39,6 +39,7 @@ func _runtime() -> Node:
 	runtime.state = 2 # ACTIVE
 	runtime._last_touch_at = -1000.0
 	runtime._last_talk_at = -1000.0
+	runtime._reset_thrust_state()
 	return runtime
 
 

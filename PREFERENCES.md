@@ -4,6 +4,14 @@ This file covers the ACTIVE-stage scoring, the pony's climaxes, and the player's
 choice. Post-act scoring and the long-term history are `HISTORY.md`. Camera/pose mechanics and
 aftercare are outside it.
 
+## Ownership
+
+`readiness.gd` owns the scoring state and the public act values `satisfaction`, `mood`, `cue` and
+`pony_climaxes`; the runtime forwards them and keeps the act state machine, the climax transition,
+the face beats and the tolerance meter. The runtime calls `readiness.stroke()`, `touch()`,
+`talk()` and `tick()`; the readiness system owns the counters the summary reads and the readiness
+events. The cue admission and prompt assembly belong to `docs/lines.md`.
+
 ## What the player does
 
 - Mouse vertical motion feeds the measured penetration in metres. `thrust.orientation` flips the
@@ -271,10 +279,10 @@ overwhelmed   a disliked touch/talk landed recently
   `first_time` uses durable act history plus the world context. The functional cue text is unchanged, and the model is not told to
   repeat specific names.
 - `UTTERANCE.context_note()` owns the mandatory context. If a saved prompt omits `{state}`,
-  `{relationship}`, `{tone}` or `{memory}`, the runtime appends that block and the privacy guard
+  `{relationship}`, `{tone}` or `{memory}`, the act line facade appends that block and the privacy guard
   after formatting. A legacy template cannot drop the relationship note.
 - `{face_note}` is the base-game expression hint. The default `cue`/`utterance` prompts carry it;
-  the runtime fills it from `act_face.prompt_note("cue", mood)` and appends the same hint to a saved
+  the act line facade fills it from `act_face.prompt_note("cue", mood)` and appends the same hint to a saved
   prompt that does not use the placeholder. It suggests one valid `[face:...]` tag and forbids
   `[mood:...]` in an act line. Voice emotions stay in the prompt text: `[whispering]` is the act
   default, with `[calm]`, `[happy]`, `[annoyed]`, `[surprised]`, `[sad]` or `[fearful]` by moment.

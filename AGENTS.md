@@ -103,7 +103,7 @@ stored state.
 | Act lines | `act_lines.gd` | `docs/lines.md` | migrated |
 | Footstool | `stool.gd` | `docs/stool.md` | new; facade owns the supplied world drops |
 | Poses and cameras | `poses/skeleton_pose.gd` | `ROTATION.md` | partial |
-| Act readiness and thrust | `thrust.gd` | `PREFERENCES.md` | pure core; runtime hosts the act |
+| Act readiness and thrust | `readiness.gd` | `PREFERENCES.md` | migrated; runtime hosts the act |
 | Act summary and history | `act_summary.gd` | `HISTORY.md` | partial |
 | Cross-mod API | `api.gd` | `docs/api.md` | stable |
 
@@ -314,6 +314,8 @@ mods/unfplap/
   participation.gd  pure per-mare capability layer (acts, anatomy, tail); a
                     subtractive opt-out, not a gate by itself
   vr_act.gd         optional VR standing act; last and gated by the anatomy master
+  readiness.gd      act readiness facade: satisfaction/mood/cue, stroke score, touch/talk input
+                    and the act counters; contract in `PREFERENCES.md`
   thrust.gd         pure stroke tracker: reversal hysteresis, timeout, travel, speed, strength,
                     and the bottom-of-stroke impact event
   auto_thrust.gd    pure auto-thrust depth generator: pace, band, stroke shape

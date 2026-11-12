@@ -44,6 +44,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
 const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
 const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
+const READINESS := preload("res://mods/unfplap/readiness.gd")
 const PERF := preload("res://mods/unfplap/perf.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
@@ -203,14 +204,32 @@ var state: int = State.IDLE
 var pose_id := ""
 var source := ""
 var bed: Node3D
+## The act's readiness system; see `readiness.gd`. The public act values below forward to it.
+var _readiness: RefCounted = READINESS.new()
 ## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
-var satisfaction := 0.0
+var satisfaction: float:
+	get:
+		return _readiness.satisfaction
+	set(value):
+		_readiness.satisfaction = value
 ## Public for the HUD: mood and a short third-person cue.
-var mood := "warming"
-var cue := ""
+var mood: String:
+	get:
+		return _readiness.mood
+	set(value):
+		_readiness.mood = value
+var cue: String:
+	get:
+		return _readiness.cue
+	set(value):
+		_readiness.cue = value
 
 ## Public for the HUD/debug: how many pony climaxes this act has had.
-var pony_climaxes := 0
+var pony_climaxes: int:
+	get:
+		return _readiness.pony_climaxes
+	set(value):
+		_readiness.pony_climaxes = value
 ## Public: penetration 0..1 and the same orientation flag used by mouse input.
 var depth := 0.0
 ## Public: how far the tip has passed her lips, in metres. Negative is the `back_out` standoff
@@ -332,24 +351,153 @@ var _jiggle_smack_intensity := 0.55
 var _jiggle_radius_materials: Array = []
 var _camera_surge := 0.0
 var _camera_bob := 0.0
-## Last closed inward thrust; the pattern window is the last three to four thrusts.
-var _last_stroke: Dictionary = {}
-var _last_intensity := ""
-var _last_pattern := ""
-var _stroke_window: Array[Dictionary] = []
-var _last_stroke_at := -1000.0
-var _vocal_cooldown := 0.0
-var _overwhelmed := 0.0
-var _cue_override := ""
-var _cue_until := 0.0
-var _last_touch := ""
-var _last_talk := ""
-var _last_touch_at := -1000.0
-var _last_thrust_score_at := -1000.0
-var _receptive_until := 0.0
-var _last_talk_at := -1000.0
-var _last_talk_turn := -1
+var _last_intensity: String:
+	get:
+		return _readiness.last_intensity
+	set(value):
+		_readiness.last_intensity = value
+var _last_pattern: String:
+	get:
+		return _readiness.last_pattern
+	set(value):
+		_readiness.last_pattern = value
+var _stroke_window: Array[Dictionary]:
+	get:
+		return _readiness.stroke_window
+	set(value):
+		_readiness.stroke_window = value
+var _last_stroke_at: float:
+	get:
+		return _readiness.last_stroke_at
+	set(value):
+		_readiness.last_stroke_at = value
+var _overwhelmed: float:
+	get:
+		return _readiness.overwhelmed
+	set(value):
+		_readiness.overwhelmed = value
+var _cue_override: String:
+	get:
+		return _readiness.cue_override
+	set(value):
+		_readiness.cue_override = value
+var _cue_until: float:
+	get:
+		return _readiness.cue_until
+	set(value):
+		_readiness.cue_until = value
+var _last_touch: String:
+	get:
+		return _readiness.last_touch
+	set(value):
+		_readiness.last_touch = value
+var _last_talk: String:
+	get:
+		return _readiness.last_talk
+	set(value):
+		_readiness.last_talk = value
+var _last_touch_at: float:
+	get:
+		return _readiness.last_touch_at
+	set(value):
+		_readiness.last_touch_at = value
+var _last_thrust_score_at: float:
+	get:
+		return _readiness.last_thrust_score_at
+	set(value):
+		_readiness.last_thrust_score_at = value
+var _receptive_until: float:
+	get:
+		return _readiness.receptive_until
+	set(value):
+		_readiness.receptive_until = value
+var _last_talk_at: float:
+	get:
+		return _readiness.last_talk_at
+	set(value):
+		_readiness.last_talk_at = value
+var _last_talk_turn: int:
+	get:
+		return _readiness.last_talk_turn
+	set(value):
+		_readiness.last_talk_turn = value
+var _peak_satisfaction: float:
+	get:
+		return _readiness.peak_satisfaction
+	set(value):
+		_readiness.peak_satisfaction = value
+var _act_both_matches: int:
+	get:
+		return _readiness.act_both_matches
+	set(value):
+		_readiness.act_both_matches = value
+var _act_dislikes: int:
+	get:
+		return _readiness.act_dislikes
+	set(value):
+		_readiness.act_dislikes = value
+var _act_liked_touch: int:
+	get:
+		return _readiness.act_liked_touch
+	set(value):
+		_readiness.act_liked_touch = value
+var _act_liked_talk: int:
+	get:
+		return _readiness.act_liked_talk
+	set(value):
+		_readiness.act_liked_talk = value
+var _last_player_talk: String:
+	get:
+		return _readiness.last_player_talk
+	set(value):
+		_readiness.last_player_talk = value
+var _act_touch_counts: Dictionary:
+	get:
+		return _readiness.act_touch_counts
+	set(value):
+		_readiness.act_touch_counts = value
+var _act_touch_dislikes: Dictionary:
+	get:
+		return _readiness.act_touch_dislikes
+	set(value):
+		_readiness.act_touch_dislikes = value
+var _act_talk_dislikes: int:
+	get:
+		return _readiness.act_talk_dislikes
+	set(value):
+		_readiness.act_talk_dislikes = value
+var _act_player_lines: int:
+	get:
+		return _readiness.act_player_lines
+	set(value):
+		_readiness.act_player_lines = value
+var _act_thrusts: int:
+	get:
+		return _readiness.act_thrusts
+	set(value):
+		_readiness.act_thrusts = value
+var _act_intensity_total: int:
+	get:
+		return _readiness.act_intensity_total
+	set(value):
+		_readiness.act_intensity_total = value
+var _act_intensity_right: int:
+	get:
+		return _readiness.act_intensity_right
+	set(value):
+		_readiness.act_intensity_right = value
+var _act_pattern_total: int:
+	get:
+		return _readiness.act_pattern_total
+	set(value):
+		_readiness.act_pattern_total = value
+var _act_pattern_right: int:
+	get:
+		return _readiness.act_pattern_right
+	set(value):
+		_readiness.act_pattern_right = value
 var _cue_gap := 12.0
+var _vocal_cooldown := 0.0
 var _cue_override_seconds := 10.0
 var _cue_base_stable_s := 2.0
 var _cue_override_stable_s := 0.5
@@ -364,21 +512,6 @@ var _touch_cooldown_s := 4.0
 var _talk_cooldown_s := 8.0
 var _receptive_seconds := 8.0
 var _act_spoken_at := -1e9
-var _peak_satisfaction := 0.0
-var _act_both_matches := 0
-var _act_dislikes := 0
-var _act_liked_touch := 0
-var _act_liked_talk := 0
-var _last_player_talk := ""
-var _act_touch_counts := {}
-var _act_touch_dislikes := {}
-var _act_talk_dislikes := 0
-var _act_player_lines := 0
-var _act_thrusts := 0
-var _act_intensity_total := 0
-var _act_intensity_right := 0
-var _act_pattern_total := 0
-var _act_pattern_right := 0
 var _act_ended_early := false
 var _summary: Dictionary = {}
 var _summary_done := false
@@ -472,7 +605,6 @@ var _warm_note := false
 var _act_face := ""
 var _stare_release_until := 0.0
 var _first_time := false
-var _close_face_done := false
 var _act_climax_mode := "auto"
 var _satisfaction_tween: Tween
 ## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
@@ -501,7 +633,6 @@ var _standing_anon_ctl
 var _standing_presentation_ctl
 var _flank: Node
 var _jiggle_logged := false
-var _thrust_times: Array[float] = []
 var _act_audio: Node
 var _bed_soft := false
 
@@ -519,6 +650,18 @@ func _init() -> void:
 	_act_facts.set_camera_basis_ready = Callable(self, "_act_set_camera_basis_ready")
 	_act_facts.director = Callable(self, "_director")
 	_act_facts.now = Callable(self, "_now_s")
+	_readiness.log = Callable(self, "_log")
+	_readiness.clock = Callable(self, "_now_s")
+	_readiness.state = Callable(self, "_readiness_state")
+	_readiness.on_climax = Callable(self, "_climax")
+	_readiness.on_close = Callable(self, "_readiness_close")
+	_readiness.on_face = Callable(self, "_act_face_beat")
+	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
+	_readiness.tolerance_dislike = Callable(self, "_tolerance_dislike")
+	_readiness.tolerance_like = Callable(self, "_tolerance_like")
+	_readiness.tolerance_event = Callable(self, "_tolerance_event")
+	_readiness.heat_cycle = Callable(self, "_readiness_heat")
+	_readiness.on_cue = Callable(self, "_readiness_cue")
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -922,6 +1065,8 @@ func _snapshot_settings() -> void:
 	_touch_cooldown_s = float(talk_block.get("touch_cooldown_seconds", 4.0))
 	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
 	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
+	_readiness.configure(_preferences, _cue_override_seconds, _cue_overwhelmed_s,
+		_touch_cooldown_s, _talk_cooldown_s, _receptive_seconds)
 	_presentation_cfg = SETTINGS.block("presentation." + pose_id + ".")
 	_act_climax_mode = str(SETTINGS.climax_mode.get_choice())
 	_configure_utterance_scheduler()
@@ -2253,7 +2398,6 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	clear_presentation()
 	_end_mood_face()
 	_end_act_face()
-	_close_face_done = false
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
@@ -3176,12 +3320,7 @@ func _reset_thrust_state() -> void:
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
 	_standing_sway_offset = Vector3.ZERO
-	_last_stroke.clear()
-	_last_intensity = ""
-	_last_pattern = ""
-	_stroke_window.clear()
-	_last_stroke_at = -1000.0
-	pony_climaxes = 0
+	_readiness.reset(_preferences)
 	_climax_left = 0.0
 	_close_left = 0.0
 	_close_caress_seconds = 0.0
@@ -3190,31 +3329,7 @@ func _reset_thrust_state() -> void:
 	_lines_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
-	_overwhelmed = 0.0
-	_cue_override = ""
-	_cue_until = 0.0
-	_last_touch = ""
-	_last_talk = ""
-	_last_touch_at = -1000.0
-	_last_thrust_score_at = -1000.0
-	_receptive_until = 0.0
-	_last_talk_at = -1000.0
 	_act_spoken_at = -1e9
-	_peak_satisfaction = 0.0
-	_act_both_matches = 0
-	_act_dislikes = 0
-	_act_liked_touch = 0
-	_act_liked_talk = 0
-	_last_player_talk = ""
-	_act_touch_counts.clear()
-	_act_touch_dislikes.clear()
-	_act_talk_dislikes = 0
-	_act_player_lines = 0
-	_act_thrusts = 0
-	_act_intensity_total = 0
-	_act_intensity_right = 0
-	_act_pattern_total = 0
-	_act_pattern_right = 0
 	_act_ended_early = false
 	_peak_recorded = false
 	if _thrust_tracker == null:
@@ -3734,72 +3849,21 @@ func _dispatch_stroke_event(event: Dictionary) -> void:
 	else:
 		_on_stroke(event)
 
-## Only real thrusts update the pattern window and score. Upward strokes, tiny jitter and
-## pullbacks are presentation only.
+## Score one closed inward thrust through the readiness system. Presentation stays in
+## `_on_impact`; this only updates the two preference axes and the act counters.
 func _on_stroke(event: Dictionary) -> void:
-	if state not in [State.ACTIVE, State.CLIMAX]:
-		return
-	if int(event.get("direction", 0)) <= 0:
-		return
-	if not bool(event.get("thrust", false)):
-		return
-	_act_thrusts += 1
-	if state == State.CLIMAX:
-		# The player can keep thrusting through her climax; presentation already happened at the
-		# bottom and only the score stays off.
-		return
-	_last_stroke = event.duplicate(true)
-	_last_stroke_at = _now_s()
-	_stroke_window.append(_last_stroke)
-	while _stroke_window.size() > 4:
-		_stroke_window.pop_front()
-	# The preference axis is the stroke's depth; the physical strength stays the audio/foley
-	# impact value. Keeping the two axes independent lets the player choose depth and tempo.
-	_last_intensity = PREFERENCES.intensity_for_travel(float(event.get("travel", 0.0)))
-	_last_pattern = PREFERENCES.pattern_for(_stroke_window)
-	_log("thrust stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f" % [
-		float(event.get("travel", 0.0)), float(event.get("speed", 0.0)),
-		float(event.get("peak_speed", 0.0)), float(event.get("strength", 0.0)),
-		_last_intensity, _last_pattern, satisfaction])
-	_score_thrust()
+	_readiness.stroke(event)
 
-## Each real thrust lands as a discrete chunk. Matching both axes is best, one axis still
-## helps, and a mismatch makes no progress. This is what makes thrusting essential.
+
+## Score the current axes. The readiness tick calls it after a stroke; the suite calls it directly.
 func _score_thrust() -> void:
-	if state != State.ACTIVE:
-		return
-	var now := _now_s()
-	if now - _last_thrust_score_at < THRUST_SCORE_MIN_INTERVAL:
-		return
-	_last_thrust_score_at = now
-	var wanted_intensity := str(_preferences.get("intensity", "firm"))
-	var wanted_pattern := str(_preferences.get("pattern", "steady"))
-	var intensity_match := not _last_intensity.is_empty() and _last_intensity == wanted_intensity
-	var pattern_match := not _last_pattern.is_empty() and _last_pattern == wanted_pattern
-	_act_intensity_total += 1
-	if intensity_match:
-		_act_intensity_right += 1
-	if not _last_pattern.is_empty():
-		_act_pattern_total += 1
-		if pattern_match:
-			_act_pattern_right += 1
-	if intensity_match and pattern_match:
-		_act_both_matches += 1
-	var heat := THRUST_HEAT_NONE
-	if intensity_match and pattern_match:
-		heat = THRUST_HEAT_BOTH
-	elif intensity_match or pattern_match:
-		heat = THRUST_HEAT_ONE
-	if heat > 0.0:
-		heat *= PREFERENCES.warmth_scale(_preferences)
-		if now < _receptive_until:
-			heat *= RECEPTIVE_BOOST
-		if cycle_phase() == CYCLE.HEAT:
-			heat *= HEAT_READINESS
-		_add_heat(heat)
-	_log("thrust score intensity=%s pattern=%s both=%s heat=%.2f readiness=%.0f" % [
-		_last_intensity, _last_pattern, str(intensity_match and pattern_match),
-		heat, satisfaction])
+	_readiness.score_thrust()
+
+
+## Add one readiness chunk. The readiness system clamps and tracks the peak.
+func _add_heat(amount: float) -> void:
+	_readiness.add_heat(amount)
+
 
 ## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
 ## here, with the motion. Fired once per real thrust from the tracker's `impact` event. Only the
@@ -3826,9 +3890,10 @@ func _on_impact(result: Dictionary) -> void:
 			_ensure_rump_decal()
 		if _feature("thrust_ear_twitch") and is_instance_valid(_ear_twitch):
 			_ear_twitch.call("try_trigger", impact)
-	_thrust_times.append(now)
-	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
-		_thrust_times.pop_front()
+	_readiness.thrust_times.append(now)
+	while not _readiness.thrust_times.is_empty() \
+			and now - float(_readiness.thrust_times[0]) > 1.0:
+		_readiness.thrust_times.pop_front()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
 		_act_audio.play_impact(pose_id, strength, _rump_point(),
@@ -3848,160 +3913,66 @@ func _play_vocal() -> void:
 		if bool(vocal.call("play", _id, "m", pony, -34.0)):
 			_vocal_cooldown = 3.0
 
-func _add_heat(amount: float) -> void:
-	if is_zero_approx(amount):
-		return
-	var before := int(satisfaction)
-	satisfaction = clampf(satisfaction + amount, 0.0, READINESS_MAX)
-	if satisfaction > _peak_satisfaction:
-		_peak_satisfaction = satisfaction
-	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
-		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
-
-## Readiness never decays on its own. Real thrusts add the chunks in `_score_thrust`; only a
-## disliked touch/talk subtracts. This tick clears stale thrust memory and updates cues.
+## Readiness never decays on its own; the readiness system owns the values and counters.
 func _readiness_tick(delta: float) -> void:
-	if state != State.ACTIVE:
-		return
-	if satisfaction >= PONY_CLIMAX_AT:
-		_climax()
-		return
-	if not _close_face_done and satisfaction >= UTTERANCE_SCHEDULER.CLOSE_AT:
-		_close_face_done = true
-		_act_face_beat("close")
-	var now := _now_s()
-	if now - _last_stroke_at > STROKE_MEMORY_S:
-		_last_intensity = ""
-		_last_pattern = ""
-		_stroke_window.clear()
-	if _overwhelmed > 0.0:
-		_overwhelmed = maxf(0.0, _overwhelmed - delta)
-	if satisfaction >= PONY_CLIMAX_AT:
-		_climax()
-		return
-	mood = UTTERANCE_SCHEDULER.mood_for(satisfaction, _overwhelmed)
-	if not _cue_override.is_empty() and now < _cue_until:
-		cue = _cue_override
-	else:
-		_cue_override = ""
-		cue = UTTERANCE_SCHEDULER.base_cue(_preferences, _overwhelmed, satisfaction,
-			_last_intensity, _last_pattern)
-	_act_facts.mood = mood
-	_act_facts.cue = cue
-	_act_facts.cue_override = not _cue_override.is_empty()
-	_lines_service().admit_cue(now)
+	_readiness.tick(delta)
 
+
+## One real touch event. The readiness system applies the cooldown, heat and tolerance meter.
 func _set_cue_override(text: String, seconds := -1.0) -> void:
-	if seconds < 0.0:
-		seconds = _cue_override_seconds
-	cue = text
-	_cue_override = text
-	_cue_until = _now_s() + maxf(0.0, seconds)
+	_readiness.set_cue_override(text, seconds)
 
-## One real action per call, including the tolerance meter. Continuous inputs must emit discrete
-## events: a held caress calls this once per CAESS_TOUCH_SECONDS (hand_control.gd), never once
-## per physics tick, or a liked caress would erase all distress every frame.
+
 func _on_touch(kind: String) -> void:
-	if state != State.ACTIVE:
-		return
-	# integration: a kiss or an act smack makes the anatomy mesh react.
-	if is_instance_valid(_anatomy) and kind in ["kiss", "smack"]:
-		_anatomy.call("react")
-	_act_touch_counts[kind] = int(_act_touch_counts.get(kind, 0)) + 1
-	var tolerance_event: Dictionary = {}
-	if kind in _preferences.get("dislikes", []):
-		_act_touch_dislikes[kind] = int(_act_touch_dislikes.get(kind, 0)) + 1
-		tolerance_event = _tolerance_controller().observe_dislike(kind)
-	elif kind in _preferences.get("touch", []):
-		_tolerance_controller().observe_like(kind)
-	var now := _now_s()
-	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
-	if now - _last_touch_at < _touch_cooldown_s:
-		_tolerance_event(tolerance_event)
-		return
-	_last_touch_at = now
-	_last_touch = kind
-	if kind in _preferences.get("touch", []):
-		_act_liked_touch += 1
-		if satisfaction < ASSIST_CAP:
-			_add_heat(minf(TOUCH_HEAT, ASSIST_CAP - satisfaction))
-			_set_cue_override("She likes that.")
-		else:
-			_set_cue_override("She needs more than your hands.")
-		_receptive_until = now + _receptive_seconds
-		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
-	elif kind in _preferences.get("dislikes", []):
-		_act_dislikes += 1
-		_add_heat(-TOUCH_HEAT)
-		_overwhelmed = _cue_overwhelmed_s
-		_act_face_beat("overwhelmed")
-		_set_cue_override("She doesn't like that.")
-		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
-	# A neutral touch sets no override; the live base cue stays on screen.
-	_tolerance_event(tolerance_event)
+	_readiness.touch(kind)
 
-## The player's own words are a concrete input. The AI still writes her reply; this only
-## decides whether the line landed with her preference.
+
 func _on_talk(text: String) -> void:
-	if state != State.ACTIVE:
-		return
-	var category := PREFERENCES.classify_talk(text)
-	if category.is_empty():
-		return
-	var tolerance_event: Dictionary = {}
-	if category in _preferences.get("dislikes", []):
-		_act_talk_dislikes += 1
-		tolerance_event = _tolerance_controller().observe_dislike(category)
-	elif category in _preferences.get("talk", []):
-		_tolerance_controller().observe_like(category)
-	var now := _now_s()
-	if now - _last_talk_at < _talk_cooldown_s:
-		_tolerance_event(tolerance_event)
-		return
-	_last_talk_at = now
-	_last_talk = category
-	if category in _preferences.get("talk", []):
-		_act_liked_talk += 1
-		if satisfaction < ASSIST_CAP:
-			_add_heat(minf(TALK_HEAT, ASSIST_CAP - satisfaction))
-			_set_cue_override("She likes that.")
-		else:
-			_set_cue_override("She needs you to move.")
-		_receptive_until = now + _receptive_seconds
-		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
-	elif category in _preferences.get("dislikes", []):
-		_act_dislikes += 1
-		_add_heat(-TALK_HEAT)
-		_overwhelmed = _cue_overwhelmed_s
-		_act_face_beat("overwhelmed")
-		_set_cue_override("She didn't like that.")
-		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
-	else:
-		_set_cue_override("She listens.")
-	_tolerance_event(tolerance_event)
+	_readiness.talk(text)
 
-## Watch the director for a new player turn. No new control: the game's T key already
-## produces the text/mic turn. Talk is scored when it actually happens.
+
 func _talk_tick(_delta: float) -> void:
-	if state != State.ACTIVE:
-		return
-	var director := _director()
-	if director != null:
-		var turn := int(director.get("_turn_id"))
-		var text := str(director.get("_player_text"))
-		if turn != _last_talk_turn:
-			_last_talk_turn = turn
-			if not text.strip_edges().is_empty():
-				_last_player_talk = text.strip_edges()
-				_act_player_lines += 1
-				_on_talk(text)
+	_readiness.talk_tick(_director())
+
 
 func _remember_talk_turn() -> void:
-	var director := _director()
-	if director == null:
-		_last_talk_turn = -1
-		return
-	_last_talk_turn = int(director.get("_turn_id"))
+	_readiness.remember_talk_turn(_director())
+
+
+## The readiness host boundary: scene values the pure scoring needs, and the presentation it
+## triggers. The runtime keeps the state, the face beats, the tolerance meter and the cue line.
+func _readiness_state() -> int:
+	return state
+
+
+func _readiness_close() -> void:
+	_act_face_beat("close")
+
+
+func _readiness_anatomy_react() -> void:
+	if is_instance_valid(_anatomy):
+		_anatomy.call("react")
+
+
+func _readiness_heat() -> bool:
+	return cycle_phase() == CYCLE.HEAT
+
+
+func _readiness_cue(mood_value: String, cue_value: String, is_override: bool) -> void:
+	_act_facts.mood = mood_value
+	_act_facts.cue = cue_value
+	_act_facts.cue_override = is_override
+	_lines_service().admit_cue(_now_s())
+
+
+func _tolerance_dislike(kind: String) -> Dictionary:
+	return _tolerance_controller().observe_dislike(kind)
+
+
+func _tolerance_like(kind: String) -> void:
+	_tolerance_controller().observe_like(kind)
+
+
 
 ## True while the director or the pony is actually speaking.
 func _speech_busy() -> bool:
@@ -6673,10 +6644,7 @@ func _breath_tick(delta: float) -> void:
 	_sounds_controller().breath_tick(delta, phase, _thrusts_per_second(), _snout())
 
 func _thrusts_per_second() -> float:
-	var now := _now_s()
-	while not _thrust_times.is_empty() and now - float(_thrust_times[0]) > 1.0:
-		_thrust_times.pop_front()
-	return float(_thrust_times.size())
+	return _readiness.thrusts_per_second()
 
 func _bed_audio_point() -> Vector3:
 	if is_instance_valid(bed):

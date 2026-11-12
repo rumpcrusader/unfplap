@@ -1,6 +1,6 @@
 extends SceneTree
 ## Hold-X auto settings layer: tap toggles, hold opens, the grace period, and key repeats.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_auto_panel.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_auto_panel.gd
 
 const PANEL := preload("res://mods/unfplap/auto_panel.gd")
 const DT := 1.0 / 60.0

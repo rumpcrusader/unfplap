@@ -49,9 +49,9 @@ The purity boundary is deliberate:
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
   `couch_sleeping`, the house lookup, the `couches` group and `WorldLayout`.
-- The facade is the only file that preloads `eligibility.gd`, `cycle.gd`, `settings.gd`,
-  `memory.gd`, `relationship_cue.gd`, `act_face.gd` and `rest_control.gd`; `cooldowns.gd`
-  preloads `act_history.gd` and the policy module.
+- The facade is the only file that preloads `eligibility.gd`, `act_history.gd` (for the ask
+  notes), `cycle.gd`, `settings.gd`, `memory.gd`, `relationship_cue.gd`, `act_face.gd` and
+  `rest_control.gd`; `cooldowns.gd` also preloads `act_history.gd` and the policy module.
 - No file outside `initiation.gd` and `initiation/` preloads `initiation/*`.
 - `main.gd` creates the service (`setup(self)`) and drives it: `tick`, `reset`, `cancel_for`,
   `force` and `offer_target()`. `runtime.gd` exposes `cuddle_active()` for the scan.

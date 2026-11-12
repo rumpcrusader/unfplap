@@ -57,7 +57,7 @@ one mod-internal API; other systems talk to it only through that API.
 
 | Part | Rule |
 |---|---|
-| `<system>.gd` | the facade: the only file another system may preload or call. It owns scene access, lifecycle and the system's stored state. |
+| `<system>.gd` | the facade: the only file another system may preload or call. It owns lifecycle and the system's stored state; in-system scene adapters are listed in the contract and only the facade calls them. |
 | `<system>/` | private implementation: pure modules, paths, data and resources. Nothing outside the system preloads these files. |
 | `docs/<system>.md` | the system's one technical contract. `AGENTS.md` links to it and does not restate it. |
 | `tests/<system>/` | the system's suites: pure core tests and facade/API tests stay separate. |
@@ -364,10 +364,8 @@ mods/unfplap/
   anatomy/tail/     tail seat, dock skin/seat, debug tail hide/visibility; contract in
                     docs/anatomy.md
   witness.gd        witness pass: perception test, per-observer and age-appropriate memory
-  initiation.gd     proactive requests facade: the episode, admission, phases and cooldowns;
-                    typed Episode/Candidate/ForceResult; contract in docs/initiation.md
-  initiation/       pure rules and wording (policy, prompts, facts) and the two scene adapters
-                    (conversation, venue)
+  initiation.gd     proactive requests service (facade and `initiation/` internals);
+                    contract in `docs/initiation.md`
   consent_classifier.gd  one shared classifier client/queue for offer and lover dialogue
   dialogue_consent.gd    lover-bond accept, decline and withdrawal from player dialogue
   sex_bond.gd       per-world lover-bond storage and stage maintenance; gate
@@ -1244,8 +1242,7 @@ is deliberately blush-free so the 0.35 decal stays light.
   indoors/outdoors prefix and no conclusion, and mood only, so the game's per-pony story summary
   forms a memory they could hold. Young witnesses can retell it; the game propagates that through
   speech and town rumours.
-- Proactive requests are a separate controller (`initiation.gd`), not an action tag. They never
-  start the act; `Y` remains the only act-start path.
+- Proactive requests are a separate controller; see `docs/initiation.md`.
 
 ### Act summary and long-term history
 
@@ -1296,21 +1293,7 @@ is deliberately blush-free so the 0.35 decal stays light.
 
 ### Proactive requests
 
-- The controller is `initiation.gd`; the episode, admission, privacy, consent, invitation,
-  timings and debug paths are its contract, `docs/initiation.md`.
-- It never starts the act. `Y` is the only act-start path; `try_start()` cancels the episode
-  first and keeps the bed rest so `runtime.start()` still sees her lying.
-- Offer eligibility, offer weight, the withdrawn refusal and the public-consent override are in
-  `docs/eligibility.md`.
-- One episode at a time; a request is never persisted. `unfplap:request:` navigator ownership
-  keeps `Y` valid until the episode ends.
-- The lab runs with AI usage Talk, so automatic offers do not fire; use **Trigger bed offer** and
-  **Trigger standing offer** in the **Actions** block.
-- The private standing presentation sets the game's `affection_active` hold so an AI
-  `[approach]`/`[follow]` from her reply cannot break the pose; `_nav_pose_gate` exempts that
-  hold while `_request_face` is true. Both live in `runtime.gd`.
-- `main.offer_target()` is the host read the cuddle check uses, so a proactive cuddle and the Y
-  prompt cannot disagree.
+- The proactive-request service is specified in `docs/initiation.md`.
 
 ### Estrus cycle
 

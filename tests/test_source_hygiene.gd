@@ -343,6 +343,21 @@ func _check_initiation_isolation(files: Array[String]) -> void:
 		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
 				"preload(\"res://world/", "preload(\"res://mods/unfplap/settings.gd\")"]:
 			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	# No outside file reaches into the service; the service never reaches into a host's private
+	# members (the game privates live only in the two adapters).
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var text := FileAccess.get_file_as_string(path)
+		if relative == "initiation.gd" or relative.begins_with("initiation/"):
+			for token: String in ["runtime.call(\"_", "main.call(\"_", "main.get(\"_",
+					"_cuddle_active"]:
+				check(not text.contains(token), "%s keeps host privates out: %s" % [relative, token])
+		else:
+			for token: String in ["initiation.call(\"_", "initiation._", "initiation.get(\"_"]:
+				check(not text.contains(token),
+					"%s does not touch the request internals: %s" % [relative, token])
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("initiation.gd"))
 	for token: String in [".get(\"_player_text\")", ".get(\"_held_text\")",
 			".get(\"_has_target\")", "\"_front_for\"", ".get(\"_mare_fits\")",

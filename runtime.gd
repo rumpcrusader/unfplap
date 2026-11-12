@@ -1964,6 +1964,12 @@ func _cuddle_active() -> bool:
 	var blend: Variant = session.get("blend")
 	return blend != null and float(blend) > 0.01
 
+## Public affection state for the standing presentation. The internal helper stays for the
+## act gates, so no other system reaches a private function.
+func free_of_affection() -> bool:
+	return _free_of_affection()
+
+
 func _free_of_affection() -> bool:
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null:

@@ -213,12 +213,16 @@ An accept records the accepted situation, then:
 
 ## Presentation and invite
 
-The standing presentation is turned with `present_standing()`; the invitation waits for
-`presentation_settled()` or the `5 s` cap. If movement breaks the present, the controller
-re-presents twice before ending an offer the player already accepted. The invitation is queued
-once and is valid only while the phase is still `present`, `invite` or `bed_wait`, the
-presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation timeout queues
-one short give-up line and closes with the full cooldown.
+The standing presentation is turned with `present_standing()`. It sets the game's
+`affection_active` hold so an AI `[approach]`/`[follow]` from her reply cannot break the pose, and
+`runtime._nav_pose_gate` exempts that hold while `_request_face` is true. The bed invite does not
+set the request face, because `SharedBedRest.eligible()` rejects `affection_active`.
+
+The standing invitation waits for `presentation_settled()` or the `5 s` cap. If movement breaks
+the present, the controller re-presents twice before ending an offer the player already accepted.
+The invitation is queued once and is valid only while the phase is still `present`, `invite` or
+`bed_wait`, the presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation
+timeout queues one short give-up line and closes with the full cooldown.
 
 ## Cancellation
 
@@ -234,6 +238,11 @@ one short give-up line and closes with the full cooldown.
 
 `cancel_for()` runs before a normal `Y` start and keeps the bed rest; `force()` closes any live
 episode first; `reset()` closes it and clears the session maps on a world close.
+
+The navigator lease is `unfplap:request:<id>` while the episode runs. The runtime's act gate
+accepts that owner while the runtime is `IDLE`, so `Y` stays valid; the runtime reads the
+namespace string and never calls the service, which keeps the service's one-way dependency on the
+runtime.
 
 ## Prompts
 

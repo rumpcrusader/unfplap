@@ -43,7 +43,7 @@ class FakeRuntime extends Node:
 	func cuddle_active() -> bool:
 		return false
 
-	func _free_of_affection() -> bool:
+	func free_of_affection() -> bool:
 		return true
 
 	func _pause_face_turn(_on: bool) -> void:

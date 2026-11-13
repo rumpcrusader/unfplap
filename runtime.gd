@@ -3071,7 +3071,8 @@ func _stop_with_her(reason: String) -> void:
 func _request_space() -> void:
 	if not is_instance_valid(pony):
 		return
-	var rel: Variant = pony.get_meta("relationship_runtime")
+	var rel: Variant = pony.get_meta("relationship_runtime") \
+		if pony.has_meta("relationship_runtime") else null
 	if rel == null or not is_instance_valid(rel):
 		return
 	var bonds: Variant = rel.get("bonds")
@@ -3275,6 +3276,10 @@ func cycle_phase() -> String:
 	if not SETTINGS.estrus_cycle.get_bool():
 		return CYCLE.NORMAL
 	if not is_instance_valid(pony) or not _read_id():
+		return CYCLE.NORMAL
+	# A pony that has only just spawned has no relationship runtime yet, and the anatomy bridge
+	# asks for the phase during its own bind.
+	if not pony.has_meta("relationship_runtime"):
 		return CYCLE.NORMAL
 	var relationship: Variant = pony.get_meta("relationship_runtime")
 	if relationship == null or not is_instance_valid(relationship):

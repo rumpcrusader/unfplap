@@ -179,7 +179,9 @@ stored_bond, bond_stage, promiscuity, sex_start, public_feature, player_young, p
 cycle_phase, cycle_allows, heat, history, consent
 ```
 
-`cycle_phase` comes from `runtime.cycle_phase()`, so the debug heat/diestrus override applies.
+`cycle_phase` comes from `runtime.cycle_phase()`, so the debug heat/diestrus override applies. A
+pony that has only just spawned has no relationship runtime yet, so the read is a normal phase
+until one exists; the anatomy bridge asks for it during its own bind.
 `history` is resolved by `act_history.gd`; `consent` by `SETTINGS.consent(id)`.
 `adult` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by

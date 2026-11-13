@@ -4,6 +4,7 @@ extends SceneTree
 
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
 var failures := 0
 var checks := 0
@@ -65,6 +66,24 @@ func run() -> void:
 	check(CYCLE.wink_burst_count(0.999) == 1, "the top roll is a single")
 
 	check(not bool(SETTINGS.estrus_cycle.default), "estrus is off by default")
+
+	# A pony that has only just spawned has no relationship runtime yet. The anatomy bridge asks
+	# for the phase during its bind, so the read must not warn or throw.
+	var runtime: Node = RUNTIME.new()
+	var pony := Node3D.new()
+	pony.set_meta("relationship_id", "rarity")
+	root.add_child(pony)
+	runtime.pony = pony
+	var was_on := SETTINGS.estrus_cycle.get_bool()
+	SETTINGS.estrus_cycle.set_bool(true)
+	check(str(runtime.call("cycle_phase")) == CYCLE.NORMAL,
+		"a pony without a relationship runtime reads a normal phase")
+	SETTINGS.estrus_cycle.set_bool(false)
+	check(str(runtime.call("cycle_phase")) == CYCLE.NORMAL, "estrus off reads a normal phase")
+	SETTINGS.estrus_cycle.set_bool(was_on)
+	root.remove_child(pony)
+	pony.free()
+	runtime.free()
 
 	print("CYCLE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -1,7 +1,7 @@
 extends Node3D
-## Debug skeleton overlay, toggled from the Debug block while DEBUG LOGS are on. Draws the body,
-## face and hair/tail skeletons of nearby loaded ponies as thick unshaded lines with joint circles.
-## Hovering a joint turns it red; clicking one prints its bone name and pose properties.
+## Debug skeleton overlay, enabled by the Anatomy Debug flag while DEBUG LOGS are on. Draws the
+## body, face and hair/tail skeletons of nearby loaded ponies as thick unshaded lines with joint
+## circles. Hovering a joint turns it red; clicking one prints its bone name and pose properties.
 
 const BODY_COLOR := Color(0.38, 1.0, 0.62)
 const FACE_COLOR := Color(1.0, 0.83, 0.36)

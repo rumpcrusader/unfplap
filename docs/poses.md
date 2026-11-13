@@ -309,8 +309,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Verification / lab
 
 - Missionary on the Golden Oak guest bed: start, pose, a moving bed, the **Reload posed base**
-  action, the **Skeleton overlay** action, hold-Y end and the bone restore on the next animation
-  frame.
+  action, the **Show skeleton overlay** Anatomy Debug flag, hold-Y end and the bone restore on the
+  next animation frame.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
 

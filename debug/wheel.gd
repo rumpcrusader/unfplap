@@ -1,9 +1,10 @@
 extends CanvasLayer
-## The debug action wheel: one middle click in captured desktop play opens a ring of the actions
-## for the aimed or nearest mare, or for the live act. It does not pause the tree, claim a hotkey
-## or write a setting; see docs/debug.md.
+## The debug action wheel: holding the middle mouse button in captured desktop play opens a ring
+## of the actions for the aimed mare, or for the live act. It does not pause the tree, claim a
+## hotkey or write a setting; see docs/debug.md.
 
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 
 var main: Node
 
@@ -40,6 +41,7 @@ func _ready() -> void:
 	_canvas.wheel = self
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_canvas.modulate = Color(1.0, 1.0, 1.0, 0.75)
 	_canvas.resized.connect(_canvas.queue_redraw)
 	_root.add_child(_canvas)
 	_root.visible = false
@@ -79,8 +81,9 @@ func close() -> void:
 	set_process(false)
 
 
-## Every event while open is ours. The middle click opens and closes, Escape and right click
-## close, left click runs the highlighted slot, and the game's dev F-keys close and pass through.
+## Every event while open is ours. Releasing the middle button closes without running a slot;
+## Escape and right click close, left click runs the highlighted slot, and the game's dev F-keys
+## close and pass through.
 func handle_input(event: InputEvent) -> bool:
 	if not _open:
 		if event is InputEventMouseButton:
@@ -98,6 +101,8 @@ func handle_input(event: InputEvent) -> bool:
 	if event is InputEventMouseButton:
 		var button := event as InputEventMouseButton
 		if not button.pressed:
+			if button.button_index == MOUSE_BUTTON_MIDDLE:
+				close()
 			return true
 		match button.button_index:
 			MOUSE_BUTTON_MIDDLE:
@@ -156,23 +161,40 @@ func _clamp_aim() -> void:
 		_aim = _aim.normalized() * limit
 
 
+func _set_hover(value: int) -> void:
+	if value == _hover:
+		return
+	_hover = value
+	if _hover >= 0:
+		_play_hover()
+
+
 func _update_hover() -> void:
 	if _slots.is_empty():
-		_hover = -1
+		_set_hover(-1)
 		return
 	if _aim.length() < _wheel_metrics().y * 0.75:
-		_hover = -1
+		_set_hover(-1)
 		return
 	var count := _slots.size()
 	var step := TAU / float(count)
 	var angle := fposmod(atan2(_aim.y, _aim.x) + PI * 0.5, TAU)
-	_hover = int(angle / step) % count
+	_set_hover(int(angle / step) % count)
+
+
+## One stock UI click when the reticle moves onto a slot. The centre, open and close stay silent.
+func _play_hover() -> void:
+	if not is_instance_valid(main) or not main.has_method("camera"):
+		return
+	var view: Variant = main.call("camera")
+	if view is Camera3D and is_instance_valid(view):
+		SOUNDS.play_at(view, "prop_ui_confirm", (view as Camera3D).global_position)
 
 
 ## Outer and inner radius for the current viewport.
 func _wheel_metrics() -> Vector2:
 	var size := _canvas.size if is_instance_valid(_canvas) else Vector2(800.0, 600.0)
-	var outer := clampf(minf(size.x, size.y) * 0.40, 140.0, 360.0)
+	var outer := clampf(minf(size.x, size.y) * 0.20, 70.0, 180.0)
 	return Vector2(outer, outer * 0.42)
 
 
@@ -184,19 +206,9 @@ func _context_source() -> String:
 	match str(_context.get("source", "none")):
 		"aimed":
 			return "aimed mare"
-		"nearest":
-			return "nearest mare"
 		"act":
 			return "live act"
 	return "no target"
-
-
-func _help_text() -> String:
-	if _hover >= 0 and _hover < _slots.size():
-		var entry: Variant = DEBUG_ACTIONS.ACTIONS.get(_slots[_hover])
-		if entry is Dictionary:
-			return str((entry as Dictionary).get("help", ""))
-	return DEBUG_ACTIONS.wheel_help(_page)
 
 
 func _sector(center: Vector2, inner: float, outer: float, start: float, end: float) \
@@ -224,7 +236,6 @@ func _draw_wheel(canvas: Control) -> void:
 	var font_size := clampi(roundi(outer * 0.052), 12, 18)
 	var count := _slots.size()
 	var step := TAU / float(maxi(1, count))
-	canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.015, 0.008, 0.03, 0.62))
 	canvas.draw_circle(center, outer + 18.0, Color(0.04, 0.015, 0.07, 0.86))
 	canvas.draw_arc(center, outer + 18.0, 0.0, TAU, 96, Color(0.95, 0.5, 0.7, 0.25), 2.0, true)
 	for i in count:
@@ -253,12 +264,10 @@ func _draw_wheel(canvas: Control) -> void:
 	canvas.draw_string(font, center + Vector2(-inner, -inner * 0.02), _context_source(),
 		HORIZONTAL_ALIGNMENT_CENTER, inner * 2.0, maxi(10, font_size - 4),
 		Color(0.82, 0.72, 0.8, 0.9))
-	canvas.draw_multiline_string(font, center + Vector2(-inner * 0.86, inner * 0.30),
-		_help_text(), HORIZONTAL_ALIGNMENT_CENTER, inner * 1.72, maxi(10, font_size - 3), 5,
-		Color(0.92, 0.86, 0.9, 0.95))
 	var tip := center + _aim
 	canvas.draw_circle(tip, 4.0, Color(0.98, 0.7, 0.82, 0.95))
 	canvas.draw_arc(tip, 10.0, 0.0, TAU, 24, Color(0.98, 0.7, 0.82, 0.55), 1.5, true)
 	canvas.draw_string(font, center + Vector2(-outer, outer + 34.0),
-		"Left click select · Right click / Esc close", HORIZONTAL_ALIGNMENT_CENTER,
-		outer * 2.0, maxi(10, font_size - 4), Color(0.8, 0.72, 0.78, 0.8))
+		"Hold middle · Left click select · Release closes · Right click / Esc close",
+		HORIZONTAL_ALIGNMENT_CENTER, outer * 2.0, maxi(10, font_size - 4),
+		Color(0.8, 0.72, 0.78, 0.8))

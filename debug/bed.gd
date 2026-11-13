@@ -71,7 +71,7 @@ static func rows(main: Node, target: Node) -> Array[String]:
 ## The detailed result goes to the debug log; the one-line result is the wheel toast.
 static func invite(main: Node, target: Node) -> String:
 	if not is_instance_valid(main) or not is_instance_valid(target) or not target is Node3D:
-		return "No mare under the crosshair or nearby."
+		return "No mare under the crosshair."
 	var pony := target as Node3D
 	var bed := find_bed(main)
 	if not is_instance_valid(bed):

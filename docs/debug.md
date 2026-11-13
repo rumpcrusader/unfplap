@@ -7,7 +7,7 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 ## Scope
 
 `debug/service.gd` owns the action registry and the wheel page order. `debug/ui.gd` draws the
-Debug block buttons. `debug/wheel.gd` is the middle-click wheel. `debug/bed.gd` is the stock bed
+Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `debug/bed.gd` is the stock bed
 cuddle helper behind the wheel's Bed cuddle action and Show data's BED section. `debug/skeleton.gd`
 draws the skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for
 each Debug block. `main.gd` owns the console gate, the wheel gate and the skeleton-flag sync.
@@ -54,18 +54,18 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 
 - **Placement** actions edit the selected target (global default or pointed mare). The Anatomy
   Actions block starts with the **Placement target** pill. See `docs/anatomy.md`.
-- **Trigger bed/standing offer** forces a proactive ask for the aimed (or nearest) test mare. It
-  bypasses the quiet, cooldown and AI-usage checks but keeps the eligibility gate, pose and
-  free-bed gates. The "close settings" hint is printed only while the settings page paused the
-  tree; the wheel's toast does not claim it.
+- **Trigger bed/standing offer** forces a proactive ask for the aimed test mare. It bypasses the
+  quiet, cooldown and AI-usage checks but keeps the eligibility gate, pose and free-bed gates.
+  The "close settings" hint is printed only while the settings page paused the tree; the wheel's
+  toast does not claim it.
 - **Show data** replaces the old Show act history, Show stool state, Show act face, Show prompt
   context and Show pose state actions, and the lab's per-mare report. See below.
 - **Bed cuddle** is the stock bed invite migrated from the lab's Mouse4 key. It sits on the wheel
   only; `debug/bed.gd` finds the player's bed, reclines Anon, moves a far mare to the bed approach
   and calls the stock `accept()` path. The detailed result goes to the debug log.
 - **Force/Clear heat** and **Force/Clear diestrus** are one slot each. The label follows the
-  aimed or nearest mare's current phase; Clear sets the session phase to **normal**. **Resume
-  automatic cycle** clears the override and is settings-only. See the cycle section of
+  aimed mare's current phase; Clear sets the session phase to **normal**. **Resume automatic
+  cycle** clears the override and is settings-only. See the cycle section of
   `docs/eligibility.md`.
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
@@ -74,8 +74,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 
 ## Action wheel
 
-One **middle mouse click** in captured desktop play opens the wheel. It is debug-only, does not
-pause the tree and claims no hotkey or setting.
+**Hold the middle mouse button** in captured desktop play to open the wheel; release it to close.
+It is debug-only, does not pause the tree, does not dim the frame and claims no hotkey or setting.
+The ring is compact and the whole wheel is drawn at 75% opacity.
 
 | Page | Slots, clockwise from the top |
 |---|---|
@@ -84,20 +85,23 @@ pause the tree and claims no hotkey or setting.
 
 - The page is chosen by the live act: **Act** while an act runs, **Mare** otherwise. There are no
   subpages, so every action is at most one click from the open wheel.
-- The centre names the target (the act's mare on the Act page, else the aimed mare, else the
-  nearest) and says whether she was aimed, nearest or the live act. The hovered slot's help fills
-  the centre.
-- A virtual reticle follows mouse motion. **Left click** runs the highlighted slot; releasing in
-  the centre cancels. **Middle click** toggles, **right click** closes, **Escape** closes. The
-  game's `F4`/`F9`/`F10`/`F11` dev keys close the wheel and pass through.
+- The centre names the target (the act's mare on the Act page, else the aimed mare) and says
+  whether she was aimed or the live act. There is no help text in the centre.
+- The aimed mare is the one closest to the camera's forward ray: in front, within `8 m`, and
+  within `1.5 m` of the ray. There is no nearest-pony fallback.
+- A virtual reticle follows mouse motion. Moving onto a slot plays the base game's
+  `prop_ui_confirm` UI click once; the centre, opening and closing are silent. **Left click** runs
+  the highlighted slot. **Releasing the middle button** closes the wheel without running a slot.
+  **Right click** and **Escape** close. The game's `F4`/`F9`/`F10`/`F11` dev keys close the wheel
+  and pass through.
 - Opening needs **Enable debug**, captured desktop play, a focused window, no pause/menu/text
-  field and the left mouse button released. With debug off the middle click is not consumed.
+  field and the left mouse button released. With debug off the middle press is not consumed.
   While open, mouse motion, mouse buttons and keys are consumed; the act does not thrust or
   free-look.
 - An action closes the wheel, writes its one-line result to the HUD toast and its name/result to
   the debug log. Show data's multi-line block stays in the log.
-- The wheel closes on debug-off, pause, focus loss, a menu or headset, a mouse-mode change, a
-  world close or an act-context change.
+- The wheel closes on release, debug-off, pause, focus loss, a menu or headset, a mouse-mode
+  change, a world close or an act-context change.
 
 ## Show data
 
@@ -135,7 +139,7 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
   starters stay live; a non-starter is spawned through the population streamer on demand and the
   previous extra is despawned.
 - `-`/`=` romance tier; `9`/`0` anger mood; Mouse5 sex-ready.
-- Middle click opens the action wheel; use **Bed cuddle** for the treebrary bed.
+- Hold middle to open the action wheel; use **Bed cuddle** for the treebrary bed.
 - Reload the posed base from General's Debug block; the skeleton overlay is the Anatomy Debug
   flag.
 - Backtick toggles the debug console with a temporary control-lock release.
@@ -151,6 +155,7 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 |---|---|---|---|
 | service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
+| game | interaction_sounds | `res://world/audio/interaction_sounds.gd` | the hover `prop_ui_confirm` cue |
 
 ## Lifecycle
 
@@ -164,8 +169,10 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 ## Tests
 
 `tests/test_debug_wheel.gd` pins the wheel page order, the six-slot cap, the settings-only split,
-the retired action ids and the dynamic cycle labels. `tests/test_settings.gd` covers the skeleton
-flag and the Debug block labels. The overlay and the lab pass are manual.
+the retired action ids, the dynamic cycle labels and the hold-middle input contract (middle press
+opens, left click runs the hovered slot, middle release closes without running).
+`tests/test_settings.gd` covers the skeleton flag and the Debug block labels. The overlay, the
+hover cue and the lab pass are manual.
 
 ## Related docs
 

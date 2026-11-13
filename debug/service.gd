@@ -20,25 +20,25 @@ const ACTIONS := {
 	},
 	"bed_offer": {
 		"label": "Trigger bed offer",
-		"help": "Force a missionary offer for the aimed or nearest mare.",
+		"help": "Force a missionary offer for the aimed mare.",
 		"method": "action_bed_offer",
 		"short": "Bed offer",
 	},
 	"standing_offer": {
 		"label": "Trigger standing offer",
-		"help": "Force a standing offer for the aimed or nearest mare.",
+		"help": "Force a standing offer for the aimed mare.",
 		"method": "action_standing_offer",
 		"short": "Standing offer",
 	},
 	"show_data": {
 		"label": "Show data",
-		"help": "Print the aimed or nearest mare's target, cycle, gate, act, stool, history, prompt and bed data to the debug log.",
+		"help": "Print the aimed mare's target, cycle, gate, act, stool, history, prompt and bed data to the debug log.",
 		"method": "action_show_data",
 		"short": "Show data",
 	},
 	"bed_cuddle": {
 		"label": "Bed cuddle",
-		"help": "Sit or lie Anon on the bed and invite the aimed or nearest mare to the stock cuddle.",
+		"help": "Sit or lie Anon on the bed and invite the aimed mare to the stock cuddle.",
 		"method": "action_bed_cuddle",
 		"panel": false,
 		"short": "Bed cuddle",
@@ -55,7 +55,7 @@ const ACTIONS := {
 	},
 	"cycle_heat": {
 		"label": "Force heat",
-		"help": "Put the aimed or nearest mare in heat for this session, or clear heat when she is already in it.",
+		"help": "Put the aimed mare in heat for this session, or clear heat when she is already in it.",
 		"method": "action_toggle_heat",
 		"tab": "world",
 		"row": "Cycle",
@@ -66,7 +66,7 @@ const ACTIONS := {
 	},
 	"cycle_diestrus": {
 		"label": "Force diestrus",
-		"help": "Turn the aimed or nearest mare off for this session, or clear diestrus when she is already in it.",
+		"help": "Turn the aimed mare off for this session, or clear diestrus when she is already in it.",
 		"method": "action_toggle_diestrus",
 		"tab": "world",
 		"row": "Cycle",
@@ -77,7 +77,7 @@ const ACTIONS := {
 	},
 	"cycle_auto": {
 		"label": "Resume automatic cycle",
-		"help": "Clear the aimed or nearest mare's session override and resume her automatic estrus cycle.",
+		"help": "Clear the aimed mare's session override and resume her automatic estrus cycle.",
 		"method": "action_cycle_auto",
 		"tab": "world",
 		"row": "Cycle",
@@ -85,7 +85,7 @@ const ACTIONS := {
 	},
 	"reset_act_history": {
 		"label": "Reset act history",
-		"help": "Clear the aimed or nearest mare's long-term act history and hurt.",
+		"help": "Clear the aimed mare's long-term act history and hurt.",
 		"method": "action_reset_act_history",
 		"tab": "world",
 		"row": "Act history",
@@ -186,13 +186,11 @@ const ACTIONS := {
 const WHEEL_PAGES := {
 	"mare": {
 		"title": "Mare",
-		"help": "Actions for the aimed or nearest mare. Move the reticle, then left-click.",
 		"actions": ["show_data", "bed_offer", "bed_cuddle", "standing_offer", "cycle_heat",
 			"cycle_diestrus"],
 	},
 	"act": {
 		"title": "Act",
-		"help": "Actions for the live act. Move the reticle, then left-click.",
 		"actions": ["show_data", "force_tolerance_warning", "force_tolerance_stop",
 			"force_act_face"],
 	},
@@ -221,11 +219,6 @@ static func wheel_actions(page: String) -> Array[String]:
 static func wheel_title(page: String) -> String:
 	var entry: Variant = WHEEL_PAGES.get(page)
 	return str((entry as Dictionary).get("title", page)) if entry is Dictionary else page
-
-
-static func wheel_help(page: String) -> String:
-	var entry: Variant = WHEEL_PAGES.get(page)
-	return str((entry as Dictionary).get("help", "")) if entry is Dictionary else ""
 
 
 ## The action's full label, or the match label when the target is already in its `phase`.

@@ -20,6 +20,8 @@ class PhaseMain extends Node:
 
 
 class WheelMain extends Node:
+	var last_action := ""
+
 	func debug_wheel_allowed() -> bool:
 		return true
 
@@ -29,7 +31,8 @@ class WheelMain extends Node:
 	func debug_wheel_act_live() -> bool:
 		return false
 
-	func debug_wheel_action(_name: String) -> String:
+	func debug_wheel_action(name: String) -> String:
+		last_action = name
 		return ""
 
 
@@ -61,8 +64,6 @@ func _check_roots() -> void:
 	check(DEBUG_ACTIONS.wheel_root(true) == "act", "a live act opens the Act page")
 	check(DEBUG_ACTIONS.wheel_title("mare") == "Mare", "the Mare page is titled")
 	check(DEBUG_ACTIONS.wheel_title("act") == "Act", "the Act page is titled")
-	check(not DEBUG_ACTIONS.wheel_help("mare").is_empty(), "the Mare page has help")
-	check(not DEBUG_ACTIONS.wheel_help("act").is_empty(), "the Act page has help")
 	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 6, "the wheel is capped at six slots")
 
 
@@ -146,8 +147,21 @@ func _check_labels() -> void:
 	main.free()
 
 
-## The wheel scene builds without a game and opens closed; this catches a broken _ready before a
-## manual lab does.
+func _button(index: MouseButton, pressed: bool) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = index
+	event.pressed = pressed
+	return event
+
+
+func _hover_top(wheel: CanvasLayer) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(0.0, -200.0)
+	wheel.call("handle_input", motion)
+
+
+## The wheel scene builds without a game and follows the hold-middle contract; this catches a
+## broken _ready or input path before a manual lab does.
 func _check_node() -> void:
 	var wheel: CanvasLayer = DEBUG_WHEEL.new()
 	root.add_child(wheel)
@@ -157,9 +171,25 @@ func _check_node() -> void:
 	var fake := WheelMain.new()
 	root.add_child(fake)
 	wheel.set("main", fake)
-	check(bool(wheel.call("open")), "the wheel opens with a valid context")
-	check(bool(wheel.call("is_open")), "the wheel reports open")
 	await process_frame
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
+		"the middle press is consumed")
+	check(bool(wheel.call("is_open")), "the middle press opens the wheel")
+	_hover_top(wheel)
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_LEFT, true))),
+		"the left press is consumed")
+	check(fake.last_action == "show_data", "the left click runs the top slot")
+	check(not bool(wheel.call("is_open")), "the left click closes the wheel")
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
+		"the wheel reopens on a middle press")
+	fake.last_action = ""
+	_hover_top(wheel)
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, false))),
+		"the middle release is consumed")
+	check(not bool(wheel.call("is_open")), "the middle release closes the wheel")
+	check(fake.last_action.is_empty(), "the middle release does not run a slot")
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
+		"the wheel reopens after a release")
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true

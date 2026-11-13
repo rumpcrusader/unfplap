@@ -42,6 +42,9 @@ const CAPTION_TOP_MARGIN := 26.0
 const OFFER_HINT := "Make love"
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
+## Debug target rule: the mare closest to the camera's aim ray, inside this tube and range.
+const AIM_RANGE_M := 8.0
+const AIM_TUBE_M := 1.5
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default OFF. Toggle in the Debug settings tab.
 var debug_logs := false
@@ -736,9 +739,11 @@ func _debug_target(view: Camera3D) -> Node:
 			var held: Variant = reach.get("held")
 			if held is Node3D and is_instance_valid(held):
 				return held
+	if not is_instance_valid(view):
+		return null
 	var forward := -view.global_basis.z
-	var best = null
-	var best_score := -INF
+	var best: Node = null
+	var best_perp := INF
 	for node: Variant in mares():
 		if not is_instance_valid(node):
 			continue
@@ -747,15 +752,14 @@ func _debug_target(view: Camera3D) -> Node:
 			continue
 		var at: Vector3 = actor.global_position + Vector3.UP * 0.9
 		var delta: Vector3 = at - view.global_position
-		var dist: float = delta.length()
-		if dist > 6.0:
+		var along := forward.dot(delta)
+		if along <= 0.0 or along > AIM_RANGE_M:
 			continue
-		var dot: float = forward.dot(delta.normalized()) if dist > 0.001 else 0.0
-		if dot < 0.2:
+		var perp := (delta - forward * along).length()
+		if perp > AIM_TUBE_M:
 			continue
-		var score: float = dot - dist * 0.05
-		if score > best_score:
-			best_score = score
+		if perp < best_perp:
+			best_perp = perp
 			best = actor
 	return best
 
@@ -798,8 +802,8 @@ func try_start() -> bool:
 
 
 ## Debug Actions entries (`DEBUG_ACTIONS.ACTIONS`). The offer helper forces a proactive request for
-## the aimed (or nearest) mare, bypassing the quiet/cooldown/AI-usage checks so the lab can test
-## requests with ai_usage=talk.
+## the aimed mare, bypassing the quiet/cooldown/AI-usage checks so the lab can test requests with
+## ai_usage=talk.
 func action_bed_offer() -> String:
 	return _debug_offer_request(CATALOG.MISSIONARY)
 
@@ -815,7 +819,7 @@ func action_bed_cuddle() -> String:
 		return "Player not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
+		return "No pony under the crosshair."
 	if not is_instance_valid(DEBUG_BED.find_bed(self)):
 		return "No bed found in this house."
 	_bed_cuddle_sequence(target)
@@ -846,7 +850,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 		return "Player not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
-		return "No mare under the crosshair or nearby."
+		return "No mare under the crosshair."
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
 		return "No runtime for %s." % str(target.name)
@@ -858,7 +862,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
 
 
-## The aimed or nearest mare's effective estrus phase, or "" when there is no target.
+## The aimed mare's effective estrus phase, or "" when there is no target.
 func debug_cycle_phase() -> String:
 	if not is_instance_valid(player):
 		return ""
@@ -877,9 +881,7 @@ func _debug_cycle_request(phase_name: String) -> String:
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	if not is_instance_valid(target):
-		return "No mare under the crosshair or nearby."
+		return "No mare under the crosshair."
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
 		return "No runtime for %s." % str(target.name)
@@ -896,10 +898,8 @@ func _debug_offer_request(pose := "") -> String:
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	if not is_instance_valid(target):
 		_debug("request: no pony target")
-		return "No mare under the crosshair or nearby."
+		return "No mare under the crosshair."
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime):
 		_debug("request: no runtime for %s" % str(target.name))
@@ -935,14 +935,14 @@ func action_reload_pose() -> String:
 	return "Reloaded the missionary posed base."
 
 
-## Debug: one structured dump for the aimed or nearest mare. Show data, and a future always-on
-## overlay, can render the same sections: TARGET, CYCLE, GATE, ACT, STOOL, HISTORY, PROMPT, BED.
+## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
+## render the same sections: TARGET, CYCLE, GATE, ACT, STOOL, HISTORY, PROMPT, BED.
 func action_show_data() -> String:
 	if not is_instance_valid(player):
 		return "Player not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
+		return "No pony under the crosshair."
 	var data := debug_data(target)
 	var rows: Array[String] = []
 	for section: Variant in data.get("sections", []):
@@ -1050,16 +1050,14 @@ func _debug_stool_rows(runtime: Variant) -> Array[String]:
 	return [str(runtime.call("stool_state_text"))]
 
 
-## Debug: cycle the game's expression faces on the active act or the aimed/nearest mare.
+## Debug: cycle the game's expression faces on the active act or the aimed mare.
 func action_force_act_face() -> String:
 	if not is_instance_valid(player):
 		return "Player not ready."
 	var view: Camera3D = camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	if not is_instance_valid(target):
-		return "No mare under the crosshair or nearby."
+		return "No mare under the crosshair."
 	_debug_face_index = (_debug_face_index + 1) % ACT_FACE.FACES.size()
 	var face := str(ACT_FACE.FACES[_debug_face_index])
 	var runtime: Variant = runtime_for(target)
@@ -1073,13 +1071,13 @@ func action_force_act_face() -> String:
 		"" if shown else " (a spoken line owns the face)"]
 
 
-## Debug: clear the aimed or nearest mare's long-term act history.
+## Debug: clear the aimed mare's long-term act history.
 func action_reset_act_history() -> String:
 	if not is_instance_valid(player):
 		return "Act system not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
+		return "No pony under the crosshair."
 	var id := _debug_pony_id(target)
 	if id.is_empty():
 		return "No relationship id for %s." % str(target.name)
@@ -1195,10 +1193,7 @@ func action_give_stool() -> String:
 
 func _debug_history_target() -> Node:
 	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	return target
+	return _debug_target(view) if is_instance_valid(view) else null
 
 
 func _debug_pony_id(target: Node) -> String:
@@ -1398,7 +1393,7 @@ func _sync_skeleton_overlay() -> void:
 		_debug_skeleton.set("enabled", false)
 
 
-## The debug wheel is created lazily on the first middle click. The gate here keeps a pack with
+## The debug wheel is created lazily on the first middle press. The gate here keeps a pack with
 ## debug off from creating the node at all.
 func debug_wheel_input(event: InputEvent) -> bool:
 	if not is_instance_valid(_debug_wheel):
@@ -1450,7 +1445,7 @@ func debug_wheel_allowed() -> bool:
 	return not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
 
-## The wheel's target: the active act's pony while an act runs, else the aimed mare, else nearest.
+## The wheel's target: the active act's pony while an act runs, else the aimed mare.
 func debug_wheel_context() -> Dictionary:
 	var out := {"pony": null, "name": "No mare", "source": "none", "act": false}
 	if is_instance_valid(active_runtime):
@@ -1470,12 +1465,6 @@ func debug_wheel_context() -> Dictionary:
 		out["pony"] = target
 		out["name"] = str(target.name)
 		out["source"] = "aimed"
-		return out
-	target = _nearest_pony(view)
-	if is_instance_valid(target):
-		out["pony"] = target
-		out["name"] = str(target.name)
-		out["source"] = "nearest"
 	return out
 
 

@@ -389,7 +389,7 @@ Debug commands are entries in `debug/service.gd`:
 ```gdscript
 "bed_offer": {
     "label": "Trigger bed offer",
-    "help": "Force a missionary offer for the aimed or nearest mare.",
+    "help": "Force a missionary offer for the aimed mare.",
     "method": "action_bed_offer",
 },
 ```

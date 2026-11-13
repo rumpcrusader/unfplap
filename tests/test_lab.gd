@@ -18,7 +18,7 @@ extends Node
 ##   9 / 0       lower / raise the pointed mare's anger mood (all test mares when not aiming)
 ##   Mouse 5     make the pointed adult mare idle and qualify for sex
 ##               without changing her romance tier
-##   Middle click  the mod's action wheel; use Bed cuddle for the treebrary bed
+##   Hold middle  the mod's action wheel; use Bed cuddle for the treebrary bed
 ##   Shift+[ / ]  move the previous/next mare in front of Anon in a 3/4 rear view, standing idle.
 ##               The eight starters stay loaded and the previous starter returns to her saved
 ##               spot; any other mare is spawned on demand and the previous non-starter is

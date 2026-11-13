@@ -19,7 +19,7 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab :
 	heading.add_theme_constant_override("line_spacing", 0)
 	box.add_child(heading)
 	if tab == SETTINGS.GENERAL:
-		var hint := STYLE.label("Middle click in play: action wheel", "Faint",
+		var hint := STYLE.label("Hold middle in play: action wheel", "Faint",
 			maxi(11, font_size - 8))
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(hint)

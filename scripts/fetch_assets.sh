@@ -7,7 +7,8 @@
 #
 # Run this once in a fresh checkout, before --mod-src, tests, smoke, a lab or build.sh. The
 # download is verified against the committed scripts/asset_pack.json archive hash and file
-# manifest. Local runtime changes are never overwritten unless --force is passed.
+# manifest. Local runtime changes are never overwritten unless --force is passed. A local
+# UNFPLAP_ASSET_CONTRACT is ignored here: fetch always restores the released set.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

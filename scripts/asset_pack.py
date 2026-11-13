@@ -7,14 +7,19 @@ has two trees:
     runtime/    extracted into assets/ and packed into the mod .pck
     sources/    editable originals, never packed
 
-`scripts/pack_assets.sh` builds and uploads the archive and writes the committed contract
-`scripts/asset_pack.json`. `scripts/fetch_assets.sh` downloads the archive, verifies it against
-that contract and extracts the runtime tree into its ignored working paths. `build.sh` calls
-`verify` and refuses a missing or stale set.
+`scripts/pack_assets.sh` builds the archive. `--upload` publishes it and writes the committed
+release contract `scripts/asset_pack.json`; `--local` writes an ignored
+`dist/asset_pack.local.json` for testing an unuploaded asset set. `scripts/fetch_assets.sh`
+downloads the released archive, verifies it against the release contract and extracts the runtime
+tree into its ignored working paths. `build.sh` calls `verify` and refuses a missing or stale set.
+
+`UNFPLAP_ASSET_CONTRACT` selects a contract for `verify` and the build manifest, so local tests
+and builds can opt into the local contract explicitly. `fetch` and `--upload` always use the
+release contract.
 
 Usage:
     scripts/asset_pack.py verify [--root DIR]
-    scripts/asset_pack.py pack [--root DIR] [--out FILE] [--upload]
+    scripts/asset_pack.py pack [--root DIR] [--out FILE] [--upload | --local]
     scripts/asset_pack.py fetch [--root DIR] [--sources] [--force]
 """
 from __future__ import annotations
@@ -32,7 +37,9 @@ import tempfile
 import zipfile
 
 SCHEMA = 1
-CONTRACT_PATH = "scripts/asset_pack.json"
+RELEASE_CONTRACT_PATH = "scripts/asset_pack.json"
+LOCAL_CONTRACT_PATH = "dist/asset_pack.local.json"
+LOCAL_CONTRACT_ENV = "UNFPLAP_ASSET_CONTRACT"
 UPLOAD_ENDPOINT = "https://pone.rs/upload"
 ARCHIVE_PATTERN = re.compile(r"^https://u\.pone\.rs/[a-z0-9]+\.zip$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -77,6 +84,30 @@ def sha256_file(path: pathlib.Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def release_contract_path(root: pathlib.Path) -> pathlib.Path:
+    return root / RELEASE_CONTRACT_PATH
+
+
+def local_contract_path(root: pathlib.Path) -> pathlib.Path:
+    return root / LOCAL_CONTRACT_PATH
+
+
+def configured_contract_path(root: pathlib.Path) -> pathlib.Path:
+    """The contract verify/build should read: the release one, or an explicit local override."""
+    override = os.environ.get(LOCAL_CONTRACT_ENV, "").strip()
+    if not override:
+        return release_contract_path(root)
+    path = pathlib.Path(override)
+    return path if path.is_absolute() else root / path
+
+
+def display_path(root: pathlib.Path, path: pathlib.Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def entry_for(path: pathlib.Path, base: pathlib.Path) -> dict:
@@ -182,24 +213,24 @@ def validate_runtime(root: pathlib.Path, runtime: dict) -> None:
     _check_catalogue_refs(root, runtime)
 
 
-def _check_table(name: str, table: dict) -> None:
+def _check_table(name: str, table: dict, label: str) -> None:
     for rel, meta in table.items():
         if not isinstance(rel, str) or not rel:
-            fail(f"{CONTRACT_PATH} has an invalid {name} path")
+            fail(f"{label} has an invalid {name} path")
         pure = pathlib.PurePosixPath(rel)
         if pure.is_absolute() or ".." in pure.parts:
-            fail(f"{CONTRACT_PATH} has an unsafe {name} path: {rel}")
+            fail(f"{label} has an unsafe {name} path: {rel}")
         if not isinstance(meta, dict):
-            fail(f"{CONTRACT_PATH} has no hash entry for {name}/{rel}")
+            fail(f"{label} has no hash entry for {name}/{rel}")
         try:
             size = int(meta.get("size", -1))
         except (TypeError, ValueError):
             size = -1
         if size < 0 or not SHA_PATTERN.fullmatch(str(meta.get("sha256", ""))):
-            fail(f"{CONTRACT_PATH} has a bad hash entry for {name}/{rel}")
+            fail(f"{label} has a bad hash entry for {name}/{rel}")
 
 
-def validate_archive(archive: dict) -> tuple[str, str, int]:
+def validate_archive(archive: dict, label: str) -> tuple[str, str, int]:
     url = str(archive.get("url", ""))
     digest = str(archive.get("sha256", ""))
     try:
@@ -207,40 +238,69 @@ def validate_archive(archive: dict) -> tuple[str, str, int]:
     except (TypeError, ValueError):
         size = -1
     if not ARCHIVE_PATTERN.fullmatch(url):
-        fail(f"{CONTRACT_PATH} has no valid pone.rs archive URL")
+        fail(f"{label} has no valid pone.rs archive URL")
     if not SHA_PATTERN.fullmatch(digest):
-        fail(f"{CONTRACT_PATH} has no valid archive sha256")
+        fail(f"{label} has no valid archive sha256")
     if size <= 0:
-        fail(f"{CONTRACT_PATH} has no valid archive size")
+        fail(f"{label} has no valid archive size")
     return url, digest, size
 
 
-def load_contract(root: pathlib.Path) -> dict:
-    path = root / CONTRACT_PATH
+def validate_local_archive(root: pathlib.Path, archive: dict, label: str) -> pathlib.Path:
+    raw = str(archive.get("path", ""))
+    if not raw:
+        fail(f"{label} has no local archive path")
+    path = pathlib.Path(raw)
+    if not path.is_absolute():
+        path = root / path
     if not path.is_file():
-        fail(f"{CONTRACT_PATH} is missing; run scripts/pack_assets.sh --upload")
+        fail(f"{label} local archive is missing: {display_path(root, path)}")
+    digest = str(archive.get("sha256", ""))
+    try:
+        size = int(archive.get("size", -1))
+    except (TypeError, ValueError):
+        size = -1
+    if not SHA_PATTERN.fullmatch(digest):
+        fail(f"{label} has no valid local archive sha256")
+    if size <= 0 or path.stat().st_size != size or sha256_file(path) != digest:
+        fail(f"{label} local archive does not match its hash; run scripts/pack_assets.sh --local")
+    return path
+
+
+def load_contract(root: pathlib.Path, path: pathlib.Path | None = None) -> dict:
+    path = path or configured_contract_path(root)
+    label = display_path(root, path)
+    if not path.is_file():
+        if path.resolve() == release_contract_path(root).resolve():
+            fail(f"{label} is missing; run scripts/pack_assets.sh --upload")
+        fail(f"{label} is missing; run scripts/pack_assets.sh --local")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
-        fail(f"cannot read {CONTRACT_PATH}: {error}")
+        fail(f"cannot read {label}: {error}")
     if not isinstance(data, dict) or data.get("schema") != SCHEMA:
-        fail(f"{CONTRACT_PATH} has an unsupported schema")
+        fail(f"{label} has an unsupported schema")
     archive = data.get("archive")
     if not isinstance(archive, dict):
-        fail(f"{CONTRACT_PATH} has no archive block")
-    validate_archive(archive)
+        fail(f"{label} has no archive block")
+    if data.get("local") is True:
+        validate_local_archive(root, archive, label)
+        print(f"ASSETS_LOCAL_CONTRACT {label}", file=sys.stderr)
+    else:
+        validate_archive(archive, label)
     runtime = data.get("runtime")
     if not isinstance(runtime, dict) or not runtime:
-        fail(f"{CONTRACT_PATH} has no runtime manifest")
+        fail(f"{label} has no runtime manifest")
     sources = data.get("sources")
     if not isinstance(sources, dict):
-        fail(f"{CONTRACT_PATH} has no sources manifest")
-    _check_table("runtime", runtime)
-    _check_table("sources", sources)
+        fail(f"{label} has no sources manifest")
+    _check_table("runtime", runtime, label)
+    _check_table("sources", sources, label)
     return data
 
 
-def verify_runtime(root: pathlib.Path, contract: dict, quiet: bool = False) -> bool:
+def verify_runtime(root: pathlib.Path, contract: dict, quiet: bool = False,
+                   contract_label: str | None = None) -> bool:
     runtime = contract["runtime"]
     missing: list[str] = []
     stale: list[str] = []
@@ -263,18 +323,19 @@ def verify_runtime(root: pathlib.Path, contract: dict, quiet: bool = False) -> b
     extra = sorted(set(actual) - set(runtime))
     if missing or stale or extra:
         if not quiet:
-            def report(label: str, rows: list[str]) -> None:
+            def report(kind: str, rows: list[str]) -> None:
                 for rel in rows[:12]:
-                    print(f"{label} {rel}", file=sys.stderr)
+                    print(f"{kind} {rel}", file=sys.stderr)
                 if len(rows) > 12:
-                    print(f"{label} ... and {len(rows) - 12} more", file=sys.stderr)
+                    print(f"{kind} ... and {len(rows) - 12} more", file=sys.stderr)
 
             report("ASSETS_MISSING", missing)
             report("ASSETS_STALE", stale)
             report("ASSETS_EXTRA", extra)
+            label = contract_label or RELEASE_CONTRACT_PATH
             print(
                 "ASSETS_FAIL runtime asset set does not match "
-                f"{CONTRACT_PATH}; run scripts/fetch_assets.sh",
+                f"{label}; run scripts/fetch_assets.sh",
                 file=sys.stderr,
             )
         return False
@@ -376,7 +437,8 @@ def _upload(path: pathlib.Path) -> str:
     return url
 
 
-def write_contract(root: pathlib.Path, url: str, archive: pathlib.Path, runtime: dict, sources: dict) -> bool:
+def write_release_contract(root: pathlib.Path, url: str, archive: pathlib.Path,
+                           runtime: dict, sources: dict) -> bool:
     contract = {
         "schema": SCHEMA,
         "archive": {
@@ -388,7 +450,7 @@ def write_contract(root: pathlib.Path, url: str, archive: pathlib.Path, runtime:
         "sources": sources,
     }
     text = json.dumps(contract, indent="\t", ensure_ascii=False) + "\n"
-    path = root / CONTRACT_PATH
+    path = release_contract_path(root)
     if path.is_file() and path.read_text(encoding="utf-8") == text:
         print(f"ASSET_PACK_CONFIG_UNCHANGED {path}")
         return False
@@ -398,18 +460,46 @@ def write_contract(root: pathlib.Path, url: str, archive: pathlib.Path, runtime:
     return True
 
 
+def write_local_contract(root: pathlib.Path, archive: pathlib.Path,
+                         runtime: dict, sources: dict) -> pathlib.Path:
+    contract = {
+        "schema": SCHEMA,
+        "local": True,
+        "archive": {
+            "path": display_path(root, archive),
+            "sha256": sha256_file(archive),
+            "size": archive.stat().st_size,
+        },
+        "runtime": runtime,
+        "sources": sources,
+    }
+    text = json.dumps(contract, indent="\t", ensure_ascii=False) + "\n"
+    path = local_contract_path(root)
+    if path.is_file() and path.read_text(encoding="utf-8") == text:
+        print(f"ASSET_PACK_LOCAL_UNCHANGED {path}")
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    print(f"ASSET_PACK_LOCAL_UPDATED {path}")
+    return path
+
+
 def command_verify(args) -> int:
     root = repo_root(args.root)
-    contract = load_contract(root)
+    contract_path = configured_contract_path(root)
+    contract = load_contract(root, contract_path)
+    label = display_path(root, contract_path)
     try:
         validate_runtime(root, contract["runtime"])
     except AssetError as error:
         print("ASSETS_FAIL " + str(error), file=sys.stderr)
         return 1
-    return 0 if verify_runtime(root, contract) else 1
+    return 0 if verify_runtime(root, contract, contract_label=label) else 1
 
 
 def command_pack(args) -> int:
+    if args.upload and args.local:
+        fail("--upload and --local are mutually exclusive")
     root = repo_root(args.root)
     runtime = collect_runtime(root)
     validate_runtime(root, runtime)
@@ -432,13 +522,19 @@ def command_pack(args) -> int:
     print(f"ASSET_PACK_SHA256 {digest}")
     print(f"ASSET_PACK_FILES runtime={len(runtime)} sources={len(sources)}")
 
+    if args.local:
+        path = write_local_contract(root, archive, runtime, sources)
+        rel = display_path(root, path)
+        print(f"Next: {LOCAL_CONTRACT_ENV}={rel} scripts/test_all.sh")
+        return 0
+
     if not args.upload:
-        print("Next: scripts/pack_assets.sh --upload")
+        print("Next: scripts/pack_assets.sh --upload (release) or --local (local tests)")
         return 0
 
     url = _upload(archive)
     print(f"ASSET_PACK_UPLOADED {url}")
-    if write_contract(root, url, archive, runtime, sources):
+    if write_release_contract(root, url, archive, runtime, sources):
         print("Commit scripts/asset_pack.json with the asset change.")
     return 0
 
@@ -468,9 +564,9 @@ def _safe_rel(name: str) -> str:
 
 def _check_archive(zf: zipfile.ZipFile, manifest: dict, contract: dict) -> None:
     if manifest["runtime"] != contract["runtime"]:
-        fail("archive runtime manifest does not match " + CONTRACT_PATH)
+        fail("archive runtime manifest does not match " + RELEASE_CONTRACT_PATH)
     if manifest["sources"] != contract["sources"]:
-        fail("archive sources manifest does not match " + CONTRACT_PATH)
+        fail("archive sources manifest does not match " + RELEASE_CONTRACT_PATH)
 
     expected = {"manifest.json"}
     expected.update("runtime/" + rel for rel in manifest["runtime"])
@@ -533,7 +629,12 @@ def command_fetch(args) -> int:
     root = repo_root(args.root)
     if shutil.which("curl") is None:
         fail("curl is needed to download the archive")
-    contract = load_contract(root)
+    if os.environ.get(LOCAL_CONTRACT_ENV, "").strip():
+        print(
+            f"ASSETS_LOCAL_CONTRACT_IGNORED fetch uses {RELEASE_CONTRACT_PATH}",
+            file=sys.stderr,
+        )
+    contract = load_contract(root, release_contract_path(root))
     archive = contract["archive"]
     url = str(archive["url"])
     digest = str(archive["sha256"])
@@ -564,7 +665,7 @@ def command_fetch(args) -> int:
                 % (download.stat().st_size, size)
             )
         if sha256_file(download) != digest:
-            fail("downloaded archive sha256 does not match " + CONTRACT_PATH)
+            fail("downloaded archive sha256 does not match " + RELEASE_CONTRACT_PATH)
         try:
             with zipfile.ZipFile(download) as zf:
                 manifest = _read_manifest(zf)
@@ -616,6 +717,8 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--root", default=None)
     pack.add_argument("--out", default=None)
     pack.add_argument("--upload", action="store_true", help="upload and rewrite scripts/asset_pack.json")
+    pack.add_argument("--local", action="store_true",
+                      help="write dist/asset_pack.local.json for an unuploaded asset set")
     pack.set_defaults(func=command_pack)
 
     fetch = sub.add_parser("fetch", help="download and extract the resource archive")

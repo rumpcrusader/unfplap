@@ -14,6 +14,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# A release always validates the published contract, never a local unuploaded one.
+if [ -n "${UNFPLAP_ASSET_CONTRACT:-}" ]; then
+	echo "RELEASE_CHECK_IGNORED UNFPLAP_ASSET_CONTRACT (using scripts/asset_pack.json)" >&2
+	unset UNFPLAP_ASSET_CONTRACT
+fi
+
 fail() { echo "RELEASE_CHECK_FAIL $*" >&2; exit 1; }
 usage() { sed -n '2,11p' "$0"; }
 

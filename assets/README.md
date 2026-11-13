@@ -14,7 +14,8 @@ Run the fetch once in a fresh checkout, before `--mod-src`, `scripts/test_all.sh
 `scripts/smoke.sh`, a lab or `build.sh`. The download is verified against the archive hash and
 per-file manifest in `scripts/asset_pack.json`; a missing, stale or extra runtime file fails
 `build.sh` with the fetch hint. The runtime files are required: the mod has no missing-asset
-fallback.
+fallback. An unuploaded asset edit uses the ignored local contract described under
+[Local testing before upload](#local-testing-before-upload).
 
 ## Two roots
 
@@ -66,6 +67,21 @@ unfplap-assets-<hash>.zip
 
 An unchanged asset set reuses the existing archive; do not re-upload it for every release.
 
+### Local testing before upload
+
+An unuploaded runtime edit can be tested without changing the release contract:
+
+```bash
+scripts/pack_assets.sh --local
+UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json scripts/test_all.sh
+UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
+```
+
+`--local` writes `dist/asset_pack.local.json` beside the archive. Both live under the ignored
+`dist/`. The variable is explicit: without it every gate keeps reading `scripts/asset_pack.json`.
+`fetch` and `--upload` always use the release contract, and `check_release.sh` clears the variable,
+so a local contract cannot reach a release.
+
 The import pass is `godot --headless --xr-mode off --path <project> --import`. The Blender
 importer's headless check aborts the whole pass when the project contains `.blend` files, so move
 `sources/` out of the project for the run and put it back afterwards. Never hand-edit an
@@ -84,15 +100,17 @@ anon/anon_part_nrm.png    2048^2 normal map
 anon/anon_part_albedo.png 2048^2 albedo/detail
 ```
 
-These runtime files are required: `build.sh` and `smoke.sh` refuse a set that does not match
-`scripts/asset_pack.json`, and the mod has no missing-asset fallback. The anatomy feature itself
+These runtime files are required: `build.sh` and `smoke.sh` refuse a set that does not match the
+active contract (`scripts/asset_pack.json`, or a local contract explicitly selected with
+`UNFPLAP_ASSET_CONTRACT`), and the mod has no missing-asset fallback. The anatomy feature itself
 is optional in the settings.
 
 ## Recovering or replacing the files
 
 `scripts/fetch_assets.sh` restores the exact set recorded in `scripts/asset_pack.json`. If a local
 file was edited, the fetch refuses to overwrite it; `scripts/fetch_assets.sh --force` discards the
-local copy and restores the archived one. To keep intentional asset edits, repack and upload them
-instead. The downloaded files are ignored; only `scripts/asset_pack.json` is committed.
+local copy and restores the archived one. To keep intentional asset edits for local testing, use
+the local contract above; to keep them for a release, repack and upload them. The downloaded files
+are ignored; only `scripts/asset_pack.json` is committed.
 
 Redistribution is by permission of the author; `CREDITS.md` names the source.

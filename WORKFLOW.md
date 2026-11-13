@@ -59,6 +59,17 @@ runtime set with `scripts/asset_pack.py`, generates the required runtime list wi
 `scripts/build_manifest.py`, and `pack.gd` requires the packed files to match it. Build from the git
 checkout with the fetched assets; a failed check removes the pack. The mod has no script extension.
 
+An asset edit that is not uploaded yet uses a local contract instead of the release one:
+
+```bash
+scripts/pack_assets.sh --local
+UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
+```
+
+The same variable prefixes `scripts/test_all.sh`, `scripts/check.sh`, `scripts/smoke.sh` and the
+labs. `fetch_assets.sh` and `--upload` always use `scripts/asset_pack.json`, and
+`scripts/check_release.sh` clears the variable. See `assets/README.md`.
+
 - `res://tools/modding/build_mod.gd` is not a release path: it ignores `.pckignore` and recurses
   the whole mod folder. Use `build.sh` for anything you ship.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it

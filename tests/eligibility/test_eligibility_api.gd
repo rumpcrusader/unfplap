@@ -22,9 +22,10 @@ class FakeBonds extends RefCounted:
 	var adults := {"rarity": true}
 	var stage := "dating"
 	var welcome := true
+	var romance := true
 
 	func eligible_for_romance(_id: String) -> bool:
-		return true
+		return romance
 
 	func welcomes(_id: String, _kind: String) -> bool:
 		return welcome
@@ -168,6 +169,56 @@ func run() -> void:
 		"set_profile rejects a null owner")
 	check(main.eligibility.get_profile("rarity").adult_value() == true,
 		"the cross-mod shape is the tri-state adult value")
+
+	# A provider adult assertion resolves unfplap's registered-adult fact even when the base game
+	# has not registered the pony as an adult. Base-game willingness and romance still gate.
+	var filly := FakePony.new()
+	filly.name = "Scootaloo"
+	var filly_identity := FakeIdentity.new()
+	filly_identity.id = "scootaloo"
+	filly_identity.display_name = "Scootaloo"
+	filly_identity.filly = true
+	filly.identity = filly_identity
+	filly.set_meta("relationship_id", "scootaloo")
+	var filly_relation := FakeRelation.new()
+	filly_relation.bonds = FakeBonds.new()
+	filly_relation.bonds.adults = {"scootaloo": false}
+	filly_relation.bonds.romance = false
+	filly_relation.bonds.welcome = false
+	filly.set_meta("relationship_runtime", filly_relation)
+	root.add_child(filly)
+
+	var fallback: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
+	check(not bool(fallback.facts.registered_adult),
+		"without a provider assertion registered_adult follows the base game")
+
+	var filly_layer := ELIGIBILITY.Profile.new()
+	filly_layer.adult = ELIGIBILITY.AdultAssertion.ADULT
+	check(bool(main.eligibility.set_profile(main, "scootaloo", filly_layer).get("ok", false)),
+		"set_profile writes the filly provider layer")
+	var filly_verdict: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
+	check(filly_verdict.facts.adult == ELIGIBILITY.AdultAssertion.ADULT,
+		"the provider adult assertion reaches the fact snapshot")
+	check(bool(filly_verdict.facts.registered_adult),
+		"the provider adult assertion resolves registered_adult")
+	check(not bool(filly_verdict.facts.romance_eligible),
+		"base-game romance eligibility still gates")
+	check(not bool(filly_verdict.facts.willing),
+		"base-game kiss willingness still gates")
+	check(not bool(filly_verdict.show) and not bool(filly_verdict.attempt),
+		"base-game gates still block the act")
+
+	# A provider non-adult assertion overrides a base-game registered adult.
+	layer.adult = ELIGIBILITY.AdultAssertion.NOT_ADULT
+	check(bool(main.eligibility.set_profile(main, "rarity", layer).get("ok", false)),
+		"set_profile rewrites the adult assertion")
+	var blocked: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
+	check(blocked.facts.adult == ELIGIBILITY.AdultAssertion.NOT_ADULT,
+		"the provider non-adult assertion reaches the fact snapshot")
+	check(not bool(blocked.facts.registered_adult),
+		"the provider non-adult assertion overrides registered_adult")
+	layer.adult = ELIGIBILITY.AdultAssertion.ADULT
+	main.eligibility.set_profile(main, "rarity", layer)
 
 	relation.bonds.welcome = true
 	SETTINGS.sex_start.set_choice("when_available")

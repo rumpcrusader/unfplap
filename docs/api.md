@@ -160,13 +160,14 @@ character block and placement override always win.
 
 Registration is metadata only. It does not spawn a pony, grant a relationship or start an act; the
 game's relationship runtime still decides the live relationship. A provider's `adult` assertion is
-unfplap's own view of the pony's age, not a base-game identity rewrite: the base game's own
-`pony_kisser`, `bonds.welcomes` and `bonds.eligible_for_romance` still read the game's identity
-flag and `bonds.adults` table. A provider that rewrites a character as an adult must change the
-game's identity and bond table too; the API's `adult` only makes unfplap's own eligibility,
-anatomy and tail-seat gates accept her. A custom mare still needs the game's pony locomotion and
-hybrid rig, a stable id, `pony_hips`, `MareBody`, and a hair skeleton plus `OpenPonyDock` for tail
-seating.
+unfplap's own view of the pony's age, not a base-game identity rewrite. It resolves unfplap's
+`adult`/`adult_mare()` checks and its `registered_adult` fact, so a provider can make unfplap
+accept a pony the base game has not registered as an adult. The base game's own `pony_kisser`,
+`bonds.welcomes` and `bonds.eligible_for_romance` still read the game's identity flag and
+`bonds.adults` table, so kissing, willingness and romance remain base-game gated. A provider that
+rewrites a character as an adult must change the game's identity and bond table too. A custom mare
+still needs the game's pony locomotion and hybrid rig, a stable id, `pony_hips`, `MareBody`, and a
+hair skeleton plus `OpenPonyDock` for tail seating.
 
 ## Base-game mares
 

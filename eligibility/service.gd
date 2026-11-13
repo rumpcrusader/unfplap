@@ -312,6 +312,15 @@ func _facts_data(pony: Node) -> Dictionary:
 	return out
 
 
+## The provider's tri-state assertion wins for unfplap's own registration fact; without one,
+## the base game's adult table decides. Base-game willingness and romance still read the game.
+func _registered_adult(id: String, adults: Variant) -> bool:
+	var asserted: Variant = SETTINGS.profile_adult(id)
+	if asserted is bool:
+		return asserted
+	return adults is Dictionary and bool((adults as Dictionary).get(id, false))
+
+
 func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 	var rel: Variant = pony.get_meta("relationship_runtime") if pony.has_meta("relationship_runtime") else null
 	if rel == null or not is_instance_valid(rel):
@@ -320,7 +329,7 @@ func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 	var bonds: Variant = rel.get("bonds")
 	if bonds != null and is_instance_valid(bonds):
 		var adults: Variant = bonds.get("adults")
-		out["registered_adult"] = adults is Dictionary and bool((adults as Dictionary).get(id, false))
+		out["registered_adult"] = _registered_adult(id, adults)
 		if bonds.has_method("eligible_for_romance"):
 			out["romance_eligible"] = bool(bonds.call("eligible_for_romance", id))
 		if bonds.has_method("welcomes"):

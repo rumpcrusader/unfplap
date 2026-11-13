@@ -185,7 +185,9 @@ until one exists; the anatomy bridge asks for it during its own bind.
 `history` is resolved by `shared/act_history.gd`; `consent` by `SETTINGS.consent(id)`.
 `adult` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
-`SETTINGS.profile_identity(id)`.
+`SETTINGS.profile_identity(id)`. `registered_adult` follows the same tri-state assertion when one
+is set, and otherwise reads the game's `bonds.adults` entry. `willing` and `romance_eligible`
+still come from the game's `bonds.welcomes` and `bonds.eligible_for_romance`.
 
 Not in facts: the preference profile, poses, prompts, timing values, prompt names, mood,
 first-time state, or request cooldowns.
@@ -267,6 +269,10 @@ Rules:
 - A provider's `adult` assertion is a tri-state override: `true` or `false` overrides the
   identity's age flag; `null` lets the identity decide. It changes age, not sex. It is
   provider-only and never written to the player's settings.
+- The same assertion resolves `registered_adult`: a provider can pass unfplap's relationship row
+  for a pony the base game has not registered as an adult. It does not change `willing` or
+  `romance_eligible`, which still read the game's `bonds.welcomes` and
+  `bonds.eligible_for_romance`.
 - Adult stallions are not act, anatomy or tail targets. They may still witness an act:
   `witness_age()` returns `Age.ADULT` for them.
 - `witness_age()` returns `Age.YOUNG` for a filly/colt the provider has not asserted adult,

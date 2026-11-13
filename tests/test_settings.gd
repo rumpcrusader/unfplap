@@ -121,6 +121,8 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.skeleton_overlay.debug), "the skeleton overlay is a debug setting")
 	check(not bool(SETTINGS.kissing_reactions.default),
 		"the Kissing reaction bridge defaults off")
+	check(not bool(SETTINGS.idle_life_stretch.default),
+		"the Idle Life stretch pose defaults off")
 	check(not bool(SETTINGS.kissing_full_fidgets.default)
 		and bool(SETTINGS.kissing_full_fidgets.debug),
 		"full Kissing fidgets are an off-by-default debug feature")
@@ -144,6 +146,8 @@ func _check_snapshot() -> void:
 	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
 	check(snap.features.has("kissing_full_fidgets"),
 		"the act snapshot carries the Kissing debug feature")
+	check(snap.features.has("idle_life_stretch"),
+		"the act snapshot carries the Idle Life stretch feature")
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
@@ -450,6 +454,10 @@ func _check_integrations_panel() -> void:
 	SETTINGS_UI.build_integrations(list, 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
+	var notice := _find_named(list, "IntegrationsExperimental")
+	check(notice is PanelContainer, "the Integrations tab opens with the Experimental notice")
+	check(labels.size() > 0 and str(labels[0]) == "Experimental",
+		"the Experimental notice is the first text in the tab")
 	var providers: Array[Dictionary] = INTEGRATIONS.all()
 	check(not providers.is_empty(), "the Integrations tab has a provider")
 	for provider: Dictionary in providers:

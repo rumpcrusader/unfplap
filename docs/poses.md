@@ -240,6 +240,36 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   live; hold Y ends it. The close-window caress time is in `docs/hands.md`.
   Missionary afterglow stays passive.
 
+### Stretch (Idle Life)
+
+The optional stretch is a standing pose style, not a new pose id. It is gated by
+`features.idle_life_stretch` and only applies while Idle Life is active.
+
+- `poses/idle_stretch.gd` is the only file that names `res://mods/idle_life/idle_pose.gd`. It
+  loads the installed script at call time, validates `mare`, `idle`, `side`, `time` and `fade`,
+  and adds a `UnfplapIdleStretch` modifier to the body skeleton. Missing scripts or fields fail
+  quietly; the act logs `stretch pose unavailable: idle_life` and keeps the normal recipe.
+- One episode rolls `stretch` or `stretch_deep` and a side once, when the accepted presentation
+  attaches. The choice lives on the pony's metadata, so the presentation and the act share it. A
+  cancel or teardown clears it; a direct act rolls fresh. The ask itself is always the normal
+  standing pose, so she can keep turning and talking to Anon while she asks.
+- The external holder owns the body, the stance, the ground plant and the wings. The act's
+  `UnfplapPose` (or `UnfplapPresentPose`) runs after it and, in stretch mode, applies only the oral
+  neck offset and the head-back lift; the bow, chin/neck, foreleg bend and stance spread are
+  skipped. `UnfplapBodySway` runs after both. The debug chin modifier stays last.
+- The presentation attaches its full holder in `_attach_present_pose()`, after the stepping turn
+  away from Anon. It does not start during the ask or during the turn. `_process_tick`'s standing
+  render write calls `sync_stretch()`; the runtime also calls it once after the act integrations
+  begin, before body sway's first pass.
+- `poses/body_sway.gd` recaches the hips origin and limb roots through `reset_base()` whenever the
+  holder is installed or removed, so sway rocks the stretched plant instead of undoing it.
+- The holder stays through the standing afterglow until `_end_session()` frees it. Teardown
+  restores the normal pose and drops the stored episode choice.
+- The presentation holder is owned by `poses/standing_presentation.gd`; the act holder is owned
+  by `poses/service.gd`. The runtime forwards `clear_stretch_offer()` to the presentation
+  controller for a cancel or close. The launching rules are in `docs/initiation.md`; the switch is
+  in `docs/integrations.md`.
+
 ### Missionary kiss
 
 `kiss_control.lean_kiss_tick()` runs for both poses. Missionary kisses when F is held and
@@ -299,8 +329,12 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ## Tests
 
-- `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, bone
-  snapshots and the session API.
+- `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
+  standing stretch holder and the session API.
+- `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
+  modifier order, fallback and cleanup.
+- `tests/test_standing_presentation.gd` — the offer gate and the ask-to-presentation stretch
+  handoff, including a live flag edit.
 - `tests/poses/test_pose_asset.gd` — asset version, bone list and bed-space load.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.
@@ -313,6 +347,10 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   next animation frame.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
+- Idle Life stretch: a private standing offer, the accept turn, the presentation, the act, a live
+  flag toggle, a cancelled offer, a direct act, Idle Life removed, and both integrations at once.
+  Check the forehooves stay planted through body sway, the oral/head-back overlays, anatomy and
+  camera alignment, and the afterglow close window.
 
 ## Related docs
 

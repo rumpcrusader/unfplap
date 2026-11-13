@@ -26,6 +26,10 @@ class Sink extends RefCounted:
 	var offer_ok := true
 	var paused := false
 	var restored := 0
+	var mod_active := false
+
+	func mod_on(_id: String) -> bool:
+		return mod_active
 
 	func note(chunk: String, usec: int) -> void:
 		perf_calls += 1
@@ -167,11 +171,13 @@ func run() -> void:
 	check(true, "absent readiness and scene-hold callbacks are no-ops")
 	check(facts.driver_host() == null, "an absent pose host returns null")
 	check(not facts.offer_allowed("standing", ""), "an absent offer gate refuses")
+	check(not facts.mod_active("idle_life"), "an absent mod gate reads as inactive")
 	check(facts.standing_camera_controller() == null, "an absent camera callback returns null")
 	check(facts.pose_driver() == null, "an absent pose driver returns null")
 	facts.on_touch = Callable(sink, "touch_event")
 	facts.on_smack = Callable(sink, "impact")
 	facts.can_offer = Callable(sink, "offer")
+	facts.mod_enabled = Callable(sink, "mod_on")
 	facts.pause_face_turn = Callable(sink, "pause")
 	facts.restore_face_turn = Callable(sink, "restore")
 	facts.pose_host = Callable(sink, "host")
@@ -187,6 +193,9 @@ func run() -> void:
 	check(facts.offer_allowed("standing", "") and sink.offer_ok, "the offer gate answers the caller")
 	sink.offer_ok = false
 	check(not facts.offer_allowed("standing", ""), "a closed offer gate refuses")
+	check(not facts.mod_active("idle_life"), "the mod gate reports an inactive mod")
+	sink.mod_active = true
+	check(facts.mod_active("idle_life"), "the mod gate reports an active mod")
 	check(facts.driver_host() == sink, "the pose host callback returns the host")
 	check(is_equal_approx(facts.physics_delta, 0.016), "the physics delta starts at 60 Hz")
 

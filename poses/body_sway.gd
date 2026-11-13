@@ -33,6 +33,12 @@ func _exit_tree() -> void:
 		facts.standing_sway_offset = Vector3.ZERO
 
 
+## Re-read the hips origin and the limb roots on the next pass. The stretch holder moves the
+## planted body, so the sway must cache from the stretched pose instead of undoing its plant.
+func reset_base() -> void:
+	_cached = false
+
+
 func _apply(delta: float) -> void:
 	if not is_instance_valid(mare) or facts == null:
 		return

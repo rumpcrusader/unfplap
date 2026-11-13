@@ -93,6 +93,9 @@ class Episode extends RefCounted:
 	var deadline_at := 0.0
 	var prompts_sent := 0
 	var present_until := 0.0
+	## An accepted standing offer waits for the ask line before the presentation starts.
+	var present_pending := false
+	var line_until := 0.0
 	var invite_started := 0.0
 	var invite_queued := false
 	var accepted_at := 0.0
@@ -910,6 +913,11 @@ func _is_private_standing() -> bool:
 	return _is_private_offer() and _episode.pose == CATALOG.STANDING
 
 
+## The ask line has been spoken: the director is idle and she is not still talking.
+func _ask_line_done(pony: Node) -> bool:
+	return bool(_conversation.idle()) and not bool(_conversation.pony_speaking(pony))
+
+
 func _tick_ask(_delta: float) -> void:
 	var pony: Node = _episode.pony
 	var runtime: Node = _episode.runtime
@@ -985,6 +993,27 @@ func _tick_present() -> void:
 	if not is_instance_valid(runtime) or not is_instance_valid(pony):
 		_cancel_episode(false, "present pony lost")
 		return
+	if _episode.present_pending:
+		var player_now: Node3D = _venue.player()
+		if not is_instance_valid(player_now) \
+				or player_now.global_position.distance_to(pony.global_position) \
+				> POLICY.ASK_RANGE_CANCEL_M:
+			_cancel_episode(false, "accept player moved")
+			return
+		_episode.private = _private_at_player(pony)
+		if not _episode.private:
+			_cancel_episode(false, "accept not private")
+			return
+		var line_done := _ask_line_done(pony)
+		if not line_done and _now() < _episode.line_until:
+			return
+		_episode.present_pending = false
+		_episode.present_until = _now() + POLICY.PRESENT_TURN_TIMEOUT_S
+		if not runtime.has_method("present_standing") or not bool(runtime.call("present_standing")):
+			_debug("request accept present failed %s" % _episode.id)
+			_cancel_episode(false, "accept present failed")
+			return
+		_debug("request present %s line_done=%s" % [_episode.id, str(line_done)])
 	if not bool(runtime.call("presentation_active")):
 		if _represent_or_cancel("presentation lost"):
 			return
@@ -1197,16 +1226,14 @@ func _accept_offer() -> void:
 		_debug("request accept %s pose=missionary cuddle=%s" % [
 			_episode.id, str(_episode.cuddle)])
 		return
-	if not runtime.has_method("present_standing") or not bool(runtime.call("present_standing")):
-		_debug("request accept present failed %s" % _episode.id)
-		_cancel_episode(false, "accept present failed")
-		return
 	_episode.phase = Phase.PRESENT
 	_episode.accepted_at = _now()
-	_episode.present_until = _now() + POLICY.PRESENT_TURN_TIMEOUT_S
+	_episode.present_pending = true
+	_episode.line_until = _now() + POLICY.ACCEPT_LINE_TIMEOUT_S
+	_episode.present_until = 0.0
 	_episode.invite_queued = false
 	_record_consent_situation(true)
-	_debug("request accept %s private=true" % _episode.id)
+	_debug("request accept %s private=true pending_line=true" % _episode.id)
 
 
 func _decline_offer() -> void:
@@ -1281,6 +1308,10 @@ func _cancel_episode(set_cooldown: bool, reason := "", keep_rest := false) -> vo
 	_conversation.cancel_scope()
 	if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
 		runtime.call("set_request_face", false)
+	# A Y start keeps the choice for the act: `clear_presentation()` releases the holder without
+	# clearing it. Every other close path drops the choice and rerolls the next offer.
+	if not keep_rest and is_instance_valid(runtime) and runtime.has_method("clear_stretch_offer"):
+		runtime.call("clear_stretch_offer")
 	if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 		runtime.call("clear_presentation")
 	if not keep_rest and _episode.bed_joined and is_instance_valid(pony):

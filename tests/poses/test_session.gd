@@ -7,6 +7,10 @@ extends SceneTree
 const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
+
+const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
+const STRETCH_MISSING := "res://mods/idle_life/not_a_real_stretch.gd"
 
 var failures := 0
 var checks := 0
@@ -40,6 +44,7 @@ func run() -> void:
 	_check_bones()
 	_check_chin()
 	_check_diagnostics()
+	_check_stretch()
 	_check_render_write()
 
 	print("POSE_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
@@ -239,6 +244,155 @@ func _check_diagnostics() -> void:
 	pony.free()
 
 
+## The external Idle Life holder: install order, the body-sway base, removal and fallback.
+func _standing_stretch_scene(logs: Array[String]) -> Dictionary:
+	var made := _session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var body := Skeleton3D.new()
+	body.name = "Body"
+	body.add_bone("pony_hips")
+	pony.skeleton = body
+	root.add_child(body)
+	session.log = func(text: String) -> void: logs.append(text)
+	session.begin({
+		"pose_id": CATALOG.STANDING,
+		"id": "twilight_sparkle",
+		"features": {"standing_body_sway": true},
+		"bed": null,
+		"presentation": {},
+		"pose_config": {},
+		"look_point": Vector3.ZERO,
+		"camera_position": Vector3.INF,
+	})
+	return {"session": session, "pony": pony, "body": body}
+
+
+func _stretch_node(body: Skeleton3D) -> Node:
+	return body.get_node_or_null("UnfplapIdleStretch")
+
+
+func _free_stretch_scene(made: Dictionary) -> void:
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var body: Skeleton3D = made["body"]
+	session.remove_modifiers()
+	session.release_pose()
+	if is_instance_valid(body):
+		root.remove_child(body)
+		body.free()
+	root.remove_child(pony)
+	pony.free()
+
+
+func _check_stretch() -> void:
+	STRETCH.pose_path = STRETCH_FAKE
+	_check_stretch_act()
+	_check_stretch_removal()
+	_check_stretch_fallback()
+	_check_stretch_render()
+	_check_stretch_pose_gate()
+	STRETCH.pose_path = STRETCH.POSE_PATH
+
+
+func _check_stretch_act() -> void:
+	var logs: Array[String] = []
+	var made := _standing_stretch_scene(logs)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var body: Skeleton3D = made["body"]
+	check(is_instance_valid(session.pose_node), "the standing pose node is built")
+	check(not bool(session.pose_node.stretch), "a standing act starts in the normal recipe")
+	check(is_instance_valid(session.body_sway), "the standing body sway is installed")
+	session.body_sway.set("_cached", true)
+	session.pose_node.stretch = true
+	session.sync_stretch()
+	var holder := _stretch_node(body)
+	check(holder != null, "a stretch pose installs the external holder")
+	check(holder != null and holder.get_index() + 1 == session.pose_node.get_index(),
+		"the external holder runs immediately before the pose node")
+	check(holder != null and holder.get_index() < session.body_sway.get_index(),
+		"body sway still runs after both pose modifiers")
+	check(not bool(session.body_sway.get("_cached")),
+		"installing the holder resets body sway's cached hips origin")
+	check(pony.has_meta(STRETCH.META_IDLE) and pony.has_meta(STRETCH.META_SIDE),
+		"the act's holder stores the episode choice")
+	_free_stretch_scene(made)
+
+
+func _check_stretch_removal() -> void:
+	var logs: Array[String] = []
+	var made := _standing_stretch_scene(logs)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var body: Skeleton3D = made["body"]
+	session.pose_node.stretch = true
+	session.sync_stretch()
+	var holder := _stretch_node(body)
+	check(holder != null, "the removal check installs a holder")
+	session.body_sway.set("_cached", true)
+	session.pose_node.stretch = false
+	session.sync_stretch()
+	check(holder != null and holder.is_queued_for_deletion(), "turning stretch off frees the holder")
+	check(not bool(session.body_sway.get("_cached")),
+		"removing the holder resets body sway's cached hips origin")
+	check(pony.has_meta(STRETCH.META_IDLE),
+		"the act's own removal preserves the choice for the next holder")
+	session.remove_modifiers()
+	check(pony.has_meta(STRETCH.META_IDLE),
+		"the new-act prep preserves the episode choice")
+	session.clear_stretch_choice()
+	check(not pony.has_meta(STRETCH.META_IDLE) and not pony.has_meta(STRETCH.META_SIDE),
+		"the one act teardown clears the episode choice")
+	_free_stretch_scene(made)
+
+
+func _check_stretch_fallback() -> void:
+	var logs: Array[String] = []
+	STRETCH.pose_path = STRETCH_MISSING
+	var made := _standing_stretch_scene(logs)
+	var session: RefCounted = made["session"]
+	var body: Skeleton3D = made["body"]
+	session.pose_node.stretch = true
+	session.sync_stretch()
+	check(not bool(session.pose_node.stretch),
+		"a missing external script turns the act pose back to the normal recipe")
+	check(_stretch_node(body) == null, "a missing external script adds no holder")
+	var logged := false
+	for text: String in logs:
+		if text.contains("stretch pose unavailable: idle_life"):
+			logged = true
+	check(logged, "the fallback logs the reason once")
+	STRETCH.pose_path = STRETCH_FAKE
+	_free_stretch_scene(made)
+
+
+func _check_stretch_render() -> void:
+	var logs: Array[String] = []
+	var made := _standing_stretch_scene(logs)
+	var session: RefCounted = made["session"]
+	var body: Skeleton3D = made["body"]
+	session.pose_node.stretch = true
+	session.render_write({"pose_id": CATALOG.STANDING})
+	var holder := _stretch_node(body)
+	check(holder != null, "the render-time write watches the standing stretch toggle")
+	check(holder != null and holder.get_index() + 1 == session.pose_node.get_index(),
+		"the render-time holder keeps the modifier order")
+	_free_stretch_scene(made)
+
+
+func _check_stretch_pose_gate() -> void:
+	var logs: Array[String] = []
+	var made := _standing_stretch_scene(logs)
+	var session: RefCounted = made["session"]
+	var body: Skeleton3D = made["body"]
+	session.pose_id = CATALOG.MISSIONARY
+	session.pose_node.stretch = true
+	session.sync_stretch()
+	check(_stretch_node(body) == null, "a non-standing pose never installs the stretch")
+	_free_stretch_scene(made)
+
+
 ## The render-time step: the Anon placement, her pose write and the eye camera, in that order,
 ## and nothing outside a missionary act.
 func _check_render_write() -> void:
@@ -256,7 +410,7 @@ func _check_render_write() -> void:
 	check(order == ["anon", "anon", "eye"], "the eye camera runs after the pose write")
 	order.clear()
 	session.render_write({"pose_id": CATALOG.STANDING, "eye_camera_active": true})
-	check(order.is_empty(), "a standing act has no render write")
+	check(order.is_empty(), "a standing render write places no Anon body or eye camera")
 	session.place_anon = Callable()
 	session.eye_camera = Callable()
 	session.render_write({"pose_id": CATALOG.MISSIONARY, "eye_camera_active": true})

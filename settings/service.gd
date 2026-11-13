@@ -1746,6 +1746,10 @@ static var kissing_reactions := flag("kissing_reactions", "features.kissing_reac
 	"Use Kissing reactions",
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")
+static var idle_life_stretch := flag("idle_life_stretch", "features.idle_life_stretch", false,
+	"Use the Idle Life stretch pose",
+	"Offer and hold Idle Life's stretch during the standing offer and act.",
+	INTEGRATIONS, "")
 
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed], [surprised], [sad] or [fearful]. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",

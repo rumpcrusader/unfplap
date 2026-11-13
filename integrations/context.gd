@@ -17,6 +17,8 @@ var act_seconds := 0.0
 var afterglow := false
 ## The game's Affection kind: "", "kiss" or "hug".
 var affection_kind := ""
+## Whether the provider's external mod is active in this launch.
+var mod_active := false
 ## The runtime's per-act feature snapshot.
 var features: Dictionary = {}
 ## Binding id -> whether the binding currently resolves to a live node.

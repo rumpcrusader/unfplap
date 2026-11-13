@@ -334,6 +334,7 @@ func _init() -> void:
 	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
 	_act_facts.hold_excitement = Callable(self, "_hold_excitement")
 	_act_facts.release_excitement = Callable(self, "_release_excitement")
+	_act_facts.mod_enabled = Callable(self, "_mod_enabled")
 	_act_facts.on_touch = Callable(self, "_on_touch")
 	_act_facts.on_smack = Callable(self, "_on_smack_impact")
 	_act_facts.pose_host = Callable(self, "_runtime")
@@ -408,6 +409,16 @@ func _reactions_service() -> Variant:
 
 func _act_facts_value() -> Variant:
 	return _act_facts
+
+
+## Whether another mod's entry is active in this launch, for the integrations context.
+func _mod_enabled(id: String) -> bool:
+	if id.is_empty() or not is_inside_tree():
+		return false
+	var mods: Node = get_node_or_null("/root/Mods")
+	if mods == null or not mods.has_method("is_active"):
+		return false
+	return bool(mods.call("is_active", id))
 
 
 func _state() -> int:
@@ -952,6 +963,10 @@ func apply_live_settings() -> void:
 	idle_perf = _perf_enabled()
 	_snapshot_settings()
 	if state == State.IDLE:
+		# The idle standing presentation owns its own stretch holder, so a live settings edit has
+		# to reach it before the act-only work is skipped.
+		_bind_act_view()
+		_standing_presentation_controller().apply_live_settings()
 		# integration: the anatomy feature is live outside acts too.
 		_anatomy_refresh()
 		return
@@ -965,6 +980,7 @@ func apply_live_settings() -> void:
 	if pose_id == CATALOG.STANDING:
 		_kiss_controller().apply_live_settings()
 		_sync_standing_pose_config()
+		_standing_presentation_controller().apply_live_settings()
 	elif pose_id == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
 	# Nudge the frozen missionary anchor only when the framing control actually changed, so a preference
@@ -1859,6 +1875,8 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_integrations_controller()
 	_sync_act_facts()
 	_integrations_controller().begin()
+	# Install the stretch holder before body sway's first modification pass caches the hips.
+	_pose_service().sync_stretch()
 	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	_anatomy_bridge.apply_live()
@@ -1908,6 +1926,9 @@ func presentation_settled() -> bool:
 
 func clear_presentation() -> void:
 	_standing_presentation_controller().clear_presentation()
+
+func clear_stretch_offer() -> void:
+	_standing_presentation_controller().clear_stretch_offer()
 
 func set_request_face(on: bool) -> void:
 	_standing_presentation_controller().set_request_face(on)
@@ -3281,6 +3302,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	if _posture_owned:
 		_restore_posture(pose_id, rejoin_cuddle)
 	_free_pose()
+	_pose_service().clear_stretch_choice()
 	_restore_pony_bones()
 	_stop_audio()
 	if is_instance_valid(main):

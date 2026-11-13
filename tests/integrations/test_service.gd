@@ -22,6 +22,10 @@ class FakeFacts extends RefCounted:
 	var beat: Variant = null
 	var beat_original := false
 	var beat_holders: Array[String] = []
+	var mods_active: Dictionary = {}
+
+	func mod_active(id: String) -> bool:
+		return bool(mods_active.get(id, false))
 
 	func write_log(text: String) -> void:
 		logs.append(text)
@@ -68,6 +72,10 @@ class FakeFidgets extends Node3D:
 	var _tap_next := 0.25
 
 
+class FakePose extends Node3D:
+	var stretch := false
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -97,6 +105,9 @@ func _setup(feature := true) -> Dictionary:
 	skeleton.name = "Skeleton"
 	pony.add_child(skeleton)
 	pony.skeleton = skeleton
+	var pose := FakePose.new()
+	pose.name = "UnfplapPose"
+	skeleton.add_child(pose)
 	var feelings := FakeFeelings.new()
 	feelings.name = "KissingFeelings"
 	pony.add_child(feelings)
@@ -116,6 +127,7 @@ func _setup(feature := true) -> Dictionary:
 		"skeleton": skeleton,
 		"feelings": feelings,
 		"affection": affection,
+		"pose": pose,
 	}
 
 
@@ -141,6 +153,9 @@ func run() -> void:
 	_check_two_owners()
 	_check_missing_mid_act()
 	_check_full_fidgets()
+	_check_idle_life()
+	_check_idle_life_gates()
+	_check_coexist()
 	print("INTEGRATIONS_SERVICE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -341,4 +356,89 @@ func _check_full_fidgets() -> void:
 	service.reset()
 	check(int(fidgets._root) == 7, "reset restores the act-start root")
 	check(near(float(fidgets._tap_next), 0.25), "reset restores the act-start tap clock")
+	_free_scene(scene)
+
+
+## The Idle Life provider writes the act pose node's stretch flag and restores it on reset.
+func _check_idle_life() -> void:
+	var scene := _setup(false)
+	var facts: FakeFacts = scene["facts"]
+	var service := SERVICE.new(facts)
+	var pose: FakePose = scene["pose"]
+	facts.features = {"idle_life_stretch": true}
+	facts.mods_active = {"idle_life": true}
+	service.begin()
+	check(service.active_ids().has("idle_life"), "the Idle Life provider starts")
+	check(pose.stretch, "start turns the act pose into stretch mode")
+	check(facts.logs.has("integration idle_life on"), "the stretch activation is logged")
+	service.tick(0.1)
+	check(pose.stretch, "the stretch stays on every tick")
+	service.afterglow()
+	check(pose.stretch, "the stretch holds through afterglow")
+	facts.features = {"idle_life_stretch": false}
+	service.apply_live_settings()
+	check(not pose.stretch, "turning the feature off restores the normal pose live")
+	facts.features = {"idle_life_stretch": true}
+	service.apply_live_settings()
+	check(pose.stretch, "turning the feature on reinstalls stretch mode live")
+	service.reset()
+	check(not pose.stretch, "reset restores the act-start pose mode")
+	service.reset()
+	check(not pose.stretch, "reset is idempotent")
+	_free_scene(scene)
+
+
+## Every gate keeps the normal standing pose: wrong pose, inactive mod, missing pose node.
+func _check_idle_life_gates() -> void:
+	var scene := _setup(false)
+	var facts: FakeFacts = scene["facts"]
+	var service := SERVICE.new(facts)
+	var pose: FakePose = scene["pose"]
+	facts.features = {"idle_life_stretch": true}
+	facts.mods_active = {"idle_life": false}
+	service.begin()
+	check(not service.active_ids().has("idle_life"),
+		"an inactive Idle Life leaves the pose alone")
+	check(not pose.stretch, "an inactive Idle Life does not stretch")
+	service.reset()
+	facts.mods_active = {"idle_life": true}
+	facts.pose_id = "missionary"
+	service.begin()
+	check(not service.active_ids().has("idle_life"),
+		"a missionary act does not use the standing stretch")
+	check(not pose.stretch, "a missionary act does not stretch")
+	service.reset()
+	facts.pose_id = "standing"
+	pose.free()
+	service.begin()
+	check(not service.active_ids().has("idle_life"),
+		"a missing pose binding keeps the stretch off")
+	service.reset()
+	scene["pose"] = null
+	_free_scene(scene)
+
+
+## Kissing and Idle Life run together: one owns the Beat, the other owns the stretch flag.
+func _check_coexist() -> void:
+	var scene := _setup(false)
+	var facts: FakeFacts = scene["facts"]
+	var service := SERVICE.new(facts)
+	var pose: FakePose = scene["pose"]
+	var beat: Timer = scene["beat"]
+	var excitement: Variant = scene["excitement"]
+	facts.features = {"kissing_reactions": true, "idle_life_stretch": true}
+	facts.mods_active = {"idle_life": true}
+	service.begin()
+	var active: Array[String] = service.active_ids()
+	check(active.has("kissing") and active.has("idle_life"),
+		"both integrations start together")
+	check(pose.stretch, "the stretch provider writes its pose")
+	check(beat.paused and facts.beat_holders.has("kissing"),
+		"the Kissing provider keeps the shared Beat hold")
+	service.tick(0.1)
+	check(near(excitement._until, 0.5), "the Kissing ramp still ticks beside the stretch")
+	check(pose.stretch, "the stretch survives a Kissing tick")
+	service.reset()
+	check(not pose.stretch, "reset restores the normal pose with both providers")
+	check(near(excitement._until, 1.25), "reset restores the Kissing cause")
 	_free_scene(scene)

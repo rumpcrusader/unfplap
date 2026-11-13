@@ -160,6 +160,7 @@ static func _set_enabled_deep(root: Node, enabled: bool) -> void:
 ## provider's feature flags. Integrations have no Debug block and no installed/mismatch status.
 static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 		changed: Callable) -> void:
+	_build_experimental_notice(list, font_size)
 	var providers: Array[Dictionary] = INTEGRATIONS_CATALOG.all()
 	if providers.is_empty():
 		list.add_child(STYLE.label("No supported integrations in this build.", "Faint",
@@ -199,6 +200,19 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 			continue
 		drawn[setting.name] = true
 		_add_row(list, setting, font_size, page, changed)
+
+
+## The Integrations tab opens with the blue Experimental banner. It is the tab's only status
+## block: the provider sections below stay catalog-driven and carry no installed/mismatch state.
+static func _build_experimental_notice(list: VBoxContainer, font_size: int) -> void:
+	var panel := PanelContainer.new()
+	panel.name = "IntegrationsExperimental"
+	var style := STYLE.box(Color(STYLE.SKY, 0.16), Color(STYLE.SKY, 0.8), 1)
+	panel.add_theme_stylebox_override("panel", STYLE.rounded(style))
+	var label := STYLE.label("Experimental", "", font_size - 4)
+	label.add_theme_color_override("font_color", STYLE.SKY)
+	panel.add_child(label)
+	list.add_child(panel)
 
 
 static func _add_integration_version(parent: VBoxContainer, provider: Dictionary,

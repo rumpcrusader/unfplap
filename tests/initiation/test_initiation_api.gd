@@ -109,6 +109,7 @@ class FakeRuntime extends Node:
 	var state := 0
 	var presented := false
 	var face_on := false
+	var stretch_clears := 0
 	var phase := "normal"
 
 	func offer_verdict(_pose: String, _source: String, _bed: Variant, _forced: bool,
@@ -145,6 +146,9 @@ class FakeRuntime extends Node:
 
 	func set_request_face(on: bool) -> void:
 		face_on = on
+
+	func clear_stretch_offer() -> void:
+		stretch_clears += 1
 
 
 func check(ok: bool, text: String) -> void:
@@ -203,18 +207,24 @@ func run() -> void:
 	check(context.keys.size() == 1 and context.keys[0].ends_with(":situation"),
 		"the ask records one situation")
 
-	# A local yes presents her, and the presentation queues the invitation.
+	# A local yes waits for the ask line to finish, then presents and queues the invitation.
+	director.state = "speaking"
 	director.transcript.emit("yes")
-	check(runtime.presented, "a private yes presents")
+	check(not runtime.presented, "a private yes waits for the offer line")
+	initiation.tick(0.0)
+	check(not runtime.presented, "a speaking offer still waits")
 	check(context.keys.size() == 2 and context.keys[1].ends_with(":accepted"),
 		"an accepted situation is recorded")
+	director.state = "idle"
 	initiation.tick(0.0)
+	check(runtime.presented, "the presentation starts after the offer line")
 	check(director.queued.size() == 1, "the presentation queues one invitation")
 	check(director.queued[0].begins_with("unfplap:request:rarity:")
 		and director.queued[0].ends_with(":invite"), "the invitation key names the request")
 
 	# The queued ask key uses the same shape when the greeting cannot open the line.
 	initiation.reset()
+	check(runtime.stretch_clears == 1, "reset closes the accepted offer's stretch choice")
 	director.greet_ok = false
 	director.queued.clear()
 	var asked: INIT.ForceResult = initiation.force(runtime, CATALOG.STANDING)
@@ -225,9 +235,12 @@ func run() -> void:
 	# A local no closes the offer and hands the presentation and face back.
 	runtime.presented = false
 	runtime.face_on = true
+	var clears_before_no := runtime.stretch_clears
 	director.transcript.emit("no")
 	check(not runtime.presented, "a private no does not present")
 	check(not runtime.face_on, "a private no clears the request face")
+	check(runtime.stretch_clears == clears_before_no + 1,
+		"a private no clears the offer's stretch choice")
 	check(context.keys.size() == 4 and context.keys[3].ends_with(":declined"),
 		"a declined situation is recorded")
 
@@ -245,17 +258,22 @@ func run() -> void:
 	runtime.presented = false
 	initiation.force(runtime, CATALOG.STANDING)
 	check(runtime.face_on, "the private ask arms the face before the answer")
+	var clears_before_refuse := runtime.stretch_clears
 	game.mares = [target, other]
 	director.transcript.emit("yes")
 	check(not runtime.presented, "a private yes is refused when a third pony arrived")
 	check(not runtime.face_on, "the refused accept clears the request face")
+	check(runtime.stretch_clears == clears_before_refuse + 1,
+		"the refused accept clears the offer's stretch choice")
 
 	# Heat opens the public override, so the same crowded offer is accepted.
 	initiation.reset()
 	runtime.phase = "heat"
 	runtime.presented = false
 	initiation.force(runtime, CATALOG.STANDING)
+	director.state = "idle"
 	director.transcript.emit("yes")
+	initiation.tick(0.0)
 	check(runtime.presented, "heat overrides the privacy reserve")
 	runtime.phase = "normal"
 	game.mares = [target]
@@ -270,10 +288,15 @@ func run() -> void:
 		"force reports the runtime state")
 	runtime.state = 0
 
-	# Cancelling a normal Y start keeps the bed rest but gives the presentation back.
+	# Cancelling a normal Y start keeps the bed rest and the stretch choice for the act, but gives
+	# the presentation back.
+	var clears_before_y := runtime.stretch_clears
+	initiation.force(runtime, CATALOG.STANDING)
 	runtime.presented = true
 	initiation.cancel_for(target)
 	check(not runtime.presented, "cancel_for clears the presentation")
+	check(runtime.stretch_clears == clears_before_y,
+		"cancel_for keeps the stretch choice for the act")
 
 	initiation.reset()
 	check(runtime.presented == false and runtime.face_on == false,

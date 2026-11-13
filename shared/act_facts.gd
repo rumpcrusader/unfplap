@@ -153,6 +153,8 @@ var restore_face_turn := Callable()
 ## runtime restores the Beat's original pause state when the last holder releases.
 var hold_excitement := Callable()
 var release_excitement := Callable()
+## Whether another mod's entry is active in this launch, by mod id.
+var mod_enabled := Callable()
 ## The node that answers the Anon pose-driver write-backs (`apply_anon_thrust`,
 ## `apply_anon_lean`, `apply_anon_align`). It is passed as an opaque host handle.
 var pose_host := Callable()
@@ -260,6 +262,13 @@ func hold_beat(owner: String) -> void:
 func release_beat(owner: String) -> void:
 	if release_excitement.is_valid():
 		release_excitement.call(owner)
+
+
+## Whether the external mod `id` is active this launch. A missing callback reads as inactive.
+func mod_active(id: String) -> bool:
+	if mod_enabled.is_valid():
+		return bool(mod_enabled.call(id))
+	return false
 
 
 ## A host value that may be missing: `null` outside a scene, so a caller tests it.

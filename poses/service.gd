@@ -13,6 +13,7 @@ const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const CHIN_DEBUG := preload("res://mods/unfplap/poses/chin_debug.gd")
+const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
@@ -38,6 +39,8 @@ var body_sway: SkeletonModifier3D
 var prone_sway: SkeletonModifier3D
 var ear_twitch: SkeletonModifier3D
 var chin_modifier: SkeletonModifier3D
+## The act's external Idle Life stretch holder, or null when the act pose has no stretch.
+var _stretch: Variant = null
 
 ## Bed space for the authored pose. The runtime reads it through `_pose_session.bed_frame`.
 var bed_frame: Variant = null
@@ -80,6 +83,9 @@ func set_pose_config(config: Dictionary) -> void:
 ## Build the pose for a fresh act. `context` carries `pose_id`, `id`, `features`, `bed`,
 ## `presentation`, `look_point` and `camera_position` from the runtime's start sequence.
 func begin(context: Dictionary) -> void:
+	# A holder left from the last act is dropped without clearing the choice: a new act after an
+	# offer reuses the variant and side the offer rolled.
+	_release_stretch(false)
 	pose_id = str(context.get("pose_id", ""))
 	id = str(context.get("id", ""))
 	features = context.get("features", {})
@@ -300,6 +306,9 @@ func release_start() -> void:
 ## Drop the live-installed extra modifiers. The runtime calls this where it used to call
 ## `_remove_extra_modifiers()`.
 func remove_modifiers() -> void:
+	# `_build_pose()` runs this at the start of a new act too: preserve the offer's episode
+	# choice so the act reuses it. `_end_session()` clears it through `clear_stretch_choice()`.
+	_release_stretch(false)
 	if is_instance_valid(body_sway):
 		body_sway.queue_free()
 	body_sway = null
@@ -313,6 +322,7 @@ func remove_modifiers() -> void:
 
 ## Free the pose modifier and the standing tail. The runtime calls this last in `_free_pose()`.
 func release_pose() -> void:
+	_release_stretch(false)
 	if is_instance_valid(pose_node):
 		pose_node.queue_free()
 	pose_node = null
@@ -320,6 +330,33 @@ func release_pose() -> void:
 		tail.call("restore_tail")
 		tail.queue_free()
 	tail = null
+
+
+## Install, keep or remove the external Idle Life stretch holder for the live act pose. The
+## integration provider writes `pose_node.stretch`; this owns the node, its modifier order and
+## the body-sway base that must follow the stretched hips.
+func sync_stretch() -> void:
+	if pose_id != CATALOG.STANDING or not is_instance_valid(pose_node) \
+			or not is_instance_valid(pony):
+		return
+	if bool(pose_node.get("stretch")):
+		if _stretch != null and bool(_stretch.call("active")):
+			return
+		_release_stretch(false)
+		var holder: Variant = IDLE_STRETCH.new()
+		if not bool(holder.call("begin", pony, true)):
+			pose_node.set("stretch", false)
+			_write_log("stretch pose unavailable: idle_life")
+			_reset_sway_base()
+			return
+		_stretch = holder
+		holder.call("place_before", pose_node)
+		keep_chin_last()
+		_reset_sway_base()
+		return
+	if _stretch != null:
+		_release_stretch(false)
+		_reset_sway_base()
 
 
 ## Install or remove the live-editable extra modifiers after a settings edit.
@@ -349,6 +386,8 @@ func refresh_modifiers(pose: String, feature_flags: Dictionary) -> void:
 		elif not _feature("missionary_body_motion") and is_instance_valid(prone_sway):
 			prone_sway.queue_free()
 			prone_sway = null
+	if pose_id == CATALOG.STANDING:
+		sync_stretch()
 
 
 func _install_tail_lay() -> void:
@@ -372,6 +411,7 @@ func _install_body_sway(skeleton: Skeleton3D) -> void:
 	body_sway.set("mare", pony)
 	body_sway.set("facts", facts)
 	skeleton.add_child(body_sway)
+	_reset_sway_base()
 
 
 func _install_prone_sway(skeleton: Skeleton3D) -> void:
@@ -416,7 +456,14 @@ func apply_render(skeleton: Skeleton3D) -> void:
 ## head. The runtime owns the call site in `_process_tick`; this facade owns the sequence.
 ## Context: `pose_id`, `bed_frame`, `body_scale`, `eye_camera_active`.
 func render_write(context: Dictionary) -> void:
-	if str(context.get("pose_id", "")) != CATALOG.MISSIONARY or not is_instance_valid(pony):
+	if not is_instance_valid(pony):
+		return
+	var posed := str(context.get("pose_id", ""))
+	if posed == CATALOG.STANDING:
+		# The live stretch toggle is watched here, after every physics and process writer.
+		sync_stretch()
+		return
+	if posed != CATALOG.MISSIONARY:
 		return
 	if place_anon.is_valid():
 		place_anon.call(context.get("bed_frame"), float(context.get("body_scale", 1.0)))
@@ -768,6 +815,25 @@ func keep_chin_last() -> void:
 func body_scale() -> float:
 	var value: Variant = pony.get("body_scale") if is_instance_valid(pony) else null
 	return float(value) if value != null else 1.0
+
+
+## End the act episode: the runtime calls this from the one teardown path after the pose is
+## released, never from the new-act prep (which must reuse the offer's stored choice).
+func clear_stretch_choice() -> void:
+	_release_stretch(true)
+
+
+func _release_stretch(clear: bool) -> void:
+	if _stretch != null:
+		_stretch.call("finish", clear)
+		_stretch = null
+	elif clear and is_instance_valid(pony):
+		IDLE_STRETCH.clear_choice(pony)
+
+
+func _reset_sway_base() -> void:
+	if is_instance_valid(body_sway):
+		body_sway.call("reset_base")
 
 
 func _feature(name: String) -> bool:

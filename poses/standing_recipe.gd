@@ -15,6 +15,14 @@ var _config: Dictionary = {}
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
+	if bool(state.get("stretch", false)):
+		# The external Idle Life holder owns the body, the stance and the ground plant. The act
+		# keeps only its oral overlay and its head-back lift on top.
+		_oral_neck(rig, sk, weight)
+		var stretch_back := float(state.get("head_back", 0.0))
+		if stretch_back > 0.001:
+			_raise_head(rig, sk, weight * stretch_back)
+		return
 	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
 	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
 	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))

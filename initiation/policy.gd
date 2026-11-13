@@ -30,6 +30,8 @@ const CLARIFY_GRACE_S := 30.0
 const INVITE_TIMEOUT_S := 60.0
 ## Safety cap while the presentation turns; the runtime's settled check normally wins earlier.
 const PRESENT_TURN_TIMEOUT_S := 5.0
+## After a private accept, let the ask line finish before the presentation turns her.
+const ACCEPT_LINE_TIMEOUT_S := 12.0
 const RETRY_S := 30.0
 ## A bed invite only considers beds this close to Anon, so she can join without a long detour.
 const BED_SEARCH_M := 10.0

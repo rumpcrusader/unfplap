@@ -8,7 +8,7 @@ extends RefCounted
 ## optional. The service keeps optional bindings under watch so a node that appears mid-act is
 ## bound then.
 
-const ORDER := ["kissing"]
+const ORDER := ["kissing", "idle_life"]
 
 const PROVIDERS := {
 	"kissing": {
@@ -23,6 +23,19 @@ const PROVIDERS := {
 			"beat": [{"property": "excitement"}, {"child": "Beat"}],
 			"skeleton": [{"property": "skeleton"}],
 			"fidgets": [{"property": "skeleton"}, {"child": "KissingFidgets", "optional": true}],
+		},
+	},
+	"idle_life": {
+		"mod_id": "idle_life",
+		"mod_name": "Idle Life",
+		"author": "modChad",
+		"verified_version": "1.4.2",
+		"features": ["idle_life_stretch"],
+		"bindings": {
+			"pose": [
+				{"property": "skeleton"},
+				{"child": "UnfplapPose"},
+			],
 		},
 	},
 }

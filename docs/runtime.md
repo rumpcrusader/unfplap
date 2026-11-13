@@ -37,7 +37,8 @@ sequence:
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
 9. place the bodies, build the pose, capture the look, lock the player and the navigator, start the
-   camera, the audio, the HUD and the act face, then arm the act integrations.
+   camera, the audio, the HUD and the act face, then arm the act integrations and install the
+   standing stretch holder before body sway's first pass.
 
 A failure in any step runs `_abort_start()` and the same teardown; it never leaves a partial act.
 
@@ -85,8 +86,8 @@ failed start runs the same function and restores only what it took.
   after `_restore_begin()`, and `_finish_restore()` must not cancel director rows.
 - `_restore_begin()` / `_restore_now()` are the ordered leaves; `_restore_camera()` is the camera
   ledger. `_free_pose()` resets the mod-integration bridge after the base kiss, releases the shared
-  excitement Beat hold, and leaves every property the act borrowed back in place before the pose is
-  released.
+  excitement Beat hold, drops the standing stretch holder and its stored episode choice, and
+  leaves every property the act borrowed back in place before the pose is released.
 - A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act that did
   not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/service.gd`;
   the retry waits out aftercare and the guest cooldown, and every failure is logged before she is
@@ -99,8 +100,8 @@ failed start runs the same function and restores only what it took.
 - `_physics_process`: `_physics_tick(delta)` — the act timer, the readiness tick, the lines, the
   history scan, the tolerance, the scene keep-alives, the anatomy tick, the thrust tracker and the
   presentation modules (wings and mod integrations).
-- `_process`: `_process_tick(delta)` — the render-time pose write, the camera lean and motion, the
-  climax wave, the breath, the face and the HUD.
+- `_process`: `_process_tick(delta)` — the render-time pose write (which also watches the standing
+  stretch toggle), the camera lean and motion, the climax wave, the breath, the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
   single owner.
 - Do not merge these timing domains blindly. The pose/camera timing is in `docs/poses.md` and
@@ -109,7 +110,8 @@ failed start runs the same function and restores only what it took.
 ## Public surface
 
 The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.gd`, the labs, `initiation/service.gd`,
-`anatomy/service.gd`, `poses/standing_presentation.gd` and the tests. The stable
+`anatomy/service.gd`, `poses/standing_presentation.gd` (including `clear_stretch_offer()`) and the
+tests. The stable
 cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.

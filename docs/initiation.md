@@ -178,7 +178,9 @@ public-offer flag and the resolved result.
 
 The initial line uses `begin_player_greeting` when the director has it, otherwise one
 `queue_generated_intent` row keyed `unfplap:request:<id>:<serial>:ask`. It records the
-`situation` world-context event and, for a private standing offer, sets the request face.
+`situation` world-context event and, for a private standing offer, sets the request face. The ask
+itself stays in the normal standing pose: no stretch starts while she is still speaking or turning
+to face Anon. The stretch behavior is in `docs/poses.md`.
 
 - Reminders are queued at `12 s` and `24 s`, one each, and never repeat a key.
 - The no-reply deadline is `60 s`; after an answer it is `45 s`; after a clarification `30 s`.
@@ -209,7 +211,9 @@ A decline records the declined situation and closes with the full cooldown.
 
 An accept records the accepted situation, then:
 
-- standing: `present_standing()` and the presentation phase;
+- standing: the presentation phase with the turn pending. `present_standing()` starts once the ask
+  line has finished (the director is idle and she is not speaking), or at its safety cap. This
+  keeps her normal and facing Anon for the whole offer line;
 - cuddle: the invitation line in the existing bed;
 - bed: the walk to the bed (`BED_LEAD`) and the wait for Anon to lie down.
 
@@ -217,8 +221,11 @@ An accept records the accepted situation, then:
 
 The standing presentation is turned with `present_standing()`. It sets the game's
 `affection_active` hold so an AI `[approach]`/`[follow]` from her reply cannot break the pose, and
-`runtime._nav_pose_gate` exempts that hold while `_request_face` is true. The bed invite does not
-set the request face, because `SharedBedRest.eligible()` rejects `affection_active`.
+`runtime._nav_pose_gate` exempts that hold while `_request_face` is true. The stretch starts only
+in the presentation's `_attach_present_pose()`, after the stepping turn: the variant and side are
+rolled then and stored for the act. Once presenting, her yaw is locked and conversation facing is
+paused, so she does not turn to face Anon while talking. The bed invite does not set the request
+face, because `SharedBedRest.eligible()` rejects `affection_active`.
 
 The standing invitation waits for `presentation_settled()` or the `5 s` cap. If movement breaks
 the present, the controller re-presents twice before ending an offer the player already accepted.
@@ -231,7 +238,9 @@ timeout queues one short give-up line and closes with the full cooldown.
 `_cancel_episode(set_cooldown, reason, keep_rest)` is the one close path:
 
 1. cancel the `offer:` classifier scope;
-2. clear the request face and the presentation;
+2. clear the request face, the presentation and (outside the `Y`-start handoff) the stretch
+   choice through `clear_stretch_offer()`; the handoff releases the holder but keeps the choice
+   for the act;
 3. release the bed rest unless `keep_rest` (a `Y` start keeps it);
 4. hand the navigator back with its saved owner, wander, speed and pace;
 5. set the full cooldown or the `30 s` retry from the phase tables;
@@ -303,7 +312,8 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
   and the set/clear round trip.
 - `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
   runtime — the standing ask, the ask and invite keys, the local yes/no effects, the request
-  face, the privacy refusal, the heat override and `cancel_for`/`reset`.
+  face, the deferred presentation after the offer line, the stretch clear, the privacy refusal,
+  the heat override and `cancel_for`/`reset`.
 - `tests/test_consent_classifier.gd`: the shared classifier's local and strict reply parsing.
 - `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
   adapter private-access boundary and this contract's presence.

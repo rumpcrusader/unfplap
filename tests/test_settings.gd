@@ -498,17 +498,20 @@ func _check_migration() -> void:
 
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,
-		"features": {"act_chat": true, "hud_readouts": true},
-		"anatomy": {"anal_ring": false, "strip_width": 1.0},
+		"features": {"act_chat": true, "act_vocals": true, "hud_readouts": true},
+		"anatomy": {"anal_ring": false, "mare_bits": "original", "strip_width": 1.0},
 		"presentation": {"missionary": {}, "standing": {
 			"kiss": {"forelegs": "planted"}, "smack": {"sound": "pack"}}},
 		"thrust": {"camera_bob": true, "contact_gap_m": 0.0},
 		"auto_thrust": {"pace_step": 0.25}}, 3)
 	var dead_features: Dictionary = dead.get("features", {})
 	check(not dead_features.has("act_chat"), "a retired feature is erased")
+	check(not dead_features.has("act_vocals"), "the retired audio layer is erased")
 	check(bool(dead_features.get("hud_readouts", false)), "a live feature is kept")
 	check(not (dead.get("anatomy", {}) as Dictionary).has("anal_ring"),
 		"a retired anatomy key is erased")
+	check(not (dead.get("anatomy", {}) as Dictionary).has("mare_bits"),
+		"the retired mesh choice is erased")
 	check(not (dead.get("thrust", {}) as Dictionary).has("camera_bob"),
 		"a retired thrust key is erased")
 	var dead_standing: Dictionary = (dead.get("presentation", {}) as Dictionary).get("standing", {})

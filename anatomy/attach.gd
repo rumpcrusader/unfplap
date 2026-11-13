@@ -7,7 +7,6 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
-const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
 const ANATOMY_NAME := "UnfplapAnatomy"
 const ANCHOR_NAME := "UnfplapAnatomyAnchor"
@@ -30,7 +29,6 @@ var facts: RefCounted
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var bone_inverse := Transform3D.IDENTITY
-var mare_bits_path := ""
 var attached := false
 ## The game's dock, cached so detach restores its original visibility.
 var dock: MeshInstance3D
@@ -50,9 +48,9 @@ func setup(controller_node: Node, pony_node: Node3D, facts_node: RefCounted) -> 
 	facts = facts_node
 
 
-## Load the selected mesh and install it under `pony_hips`. The controller refines the mesh and
+## Load the mare bits mesh and install it under `pony_hips`. The controller refines the mesh and
 ## wires placement/shapes/coat/appearance after this returns true.
-func attach(selected_path: String) -> bool:
+func attach(mesh_path: String) -> bool:
 	last_error = ""
 	if attached:
 		return true
@@ -68,9 +66,10 @@ func attach(selected_path: String) -> bool:
 	if bone < 0:
 		last_error = "no pony_hips bone"
 		return false
-	var scene: PackedScene = load(selected_path)
+	var scene: PackedScene = load(mesh_path)
 	if scene == null:
-		last_error = "asset missing"
+		last_error = "cannot load " + mesh_path
+		push_error("unfplap anatomy: " + last_error)
 		return false
 	var instance: Node = scene.instantiate()
 	var found: MeshInstance3D = instance as MeshInstance3D
@@ -95,7 +94,6 @@ func attach(selected_path: String) -> bool:
 	anchor.add_child(found)
 	mesh = found
 	bone_inverse = skeleton.get_bone_global_rest(bone).affine_inverse()
-	mare_bits_path = selected_path
 	var dock_value: Variant = pony.find_child(DOCK_NAME, true, false)
 	dock = dock_value as MeshInstance3D
 	if is_instance_valid(dock):
@@ -105,34 +103,6 @@ func attach(selected_path: String) -> bool:
 	if pony.has_signal("physical_reaction") \
 			and not pony.physical_reaction.is_connected(_on_physical_reaction):
 		pony.physical_reaction.connect(_on_physical_reaction)
-	return true
-
-
-## Swap the winking mesh in place. The controller keeps the same mesh node, placement, coat and
-## appearance; it only has to tell the shape module which is loaded.
-func reload_mare_bits(selected_path: String) -> bool:
-	if not attached or not is_instance_valid(mesh):
-		return false
-	if selected_path == mare_bits_path:
-		return true
-	var scene: PackedScene = load(selected_path)
-	if scene == null:
-		return false
-	var instance: Node = scene.instantiate()
-	var source: MeshInstance3D = instance as MeshInstance3D
-	if source == null:
-		for child: Node in instance.find_children("*", "MeshInstance3D", true, false):
-			source = child as MeshInstance3D
-			break
-	if source == null or source.mesh == null:
-		instance.queue_free()
-		return false
-	var refined: Variant = GEOMETRY.refined_winking_mesh(source.mesh as ArrayMesh)
-	instance.queue_free()
-	if refined == null:
-		return false
-	mesh.mesh = refined
-	mare_bits_path = selected_path
 	return true
 
 
@@ -152,7 +122,6 @@ func detach() -> void:
 			anchor.queue_free()
 	skeleton = null
 	bone_inverse = Transform3D.IDENTITY
-	mare_bits_path = ""
 	attached = false
 	_visibility_init = false
 	_shown = false

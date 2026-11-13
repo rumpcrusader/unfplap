@@ -46,7 +46,7 @@ func run() -> void:
 
 	var shapes := SHAPES.new()
 	shapes.setup(pony, pony)
-	shapes.set_mesh(mesh, false)
+	shapes.set_mesh(mesh)
 
 	var appearance := APPEARANCE.new()
 	appearance.setup(pony, shapes)
@@ -64,13 +64,12 @@ func run() -> void:
 		check(material.get_shader_parameter("hole_target") is float,
 			"the hole target is published to the shader")
 
-	# Rebuilding the material must keep working after the shapes report a V2 state, without the
-	# old variable/method API mismatch.
-	shapes.set_mesh(mesh, true)
-	check(shapes.v2_anal(), "the V2 shape state reports the anal mesh")
+	# Rebuilding the material keeps working after the mesh is set again, without the old
+	# variable/method API mismatch.
+	shapes.set_mesh(mesh)
 	appearance.apply_material(false)
 	check(mesh.get_surface_override_material(0) is ShaderMaterial,
-		"the material rebuilds on the V2 state")
+		"the material rebuilds on a re-set mesh")
 
 	pony.queue_free()
 	print("ANATOMY_APPEARANCE_RESULT checks=%d failures=%d" % [checks, failures])

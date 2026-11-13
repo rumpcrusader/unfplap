@@ -1,7 +1,6 @@
 extends Node
-## integration: ported from PonyPussyParadise runtime anatomy attachment. One per adult mare,
-## including mares added by other mods, persistent across acts. The mesh and textures are tracked
-## assets; if they are missing the controller stays empty and every public method is a no-op.
+## integration: the runtime anatomy attachment. One per adult mare, including mares added by
+## other mods, persistent across acts. The mesh and textures ship with the mod.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
@@ -18,8 +17,7 @@ const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
-const WINKING_PATH := ASSET_DIR + "winking.scn"
-const MARE_BITS_V2_PATH := ASSET_DIR + "mare_bits_v2.scn"
+const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 
@@ -50,25 +48,11 @@ var shapes: RefCounted
 var _act: Node
 ## Material, skin tones, teats and the skin strip.
 var appearance: RefCounted
-var _missing_logged := false
 var _rig_logged := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
 var _visibility_clock := 0.0
 ## Idle heat schedule; the controller supplies state, visibility and the cycle phase.
 var heat: RefCounted
-
-
-static func assets_exist() -> bool:
-	return ResourceLoader.exists(WINKING_PATH) and ResourceLoader.exists(TEATS_PATH) \
-		and ResourceLoader.exists(STRIP_PATH)
-
-
-## integration: the V2 model is optional; fall back to the original PPP mesh when absent.
-static func selected_mare_bits_path() -> String:
-	if SETTINGS.mare_bits.get_choice() == "v2" \
-			and ResourceLoader.exists(MARE_BITS_V2_PATH):
-		return MARE_BITS_V2_PATH
-	return WINKING_PATH
 
 
 ## The pure mesh rebuild and geometry live in `anatomy/geometry.gd`; these forwarders keep the
@@ -166,11 +150,6 @@ func refresh() -> void:
 	if not _enabled() or not _is_eligible():
 		detach()
 		return
-	if not assets_exist():
-		if not _missing_logged:
-			_missing_logged = true
-			_log("anatomy assets missing under %s; anatomy stays off" % ASSET_DIR)
-		return
 	_attach()
 
 
@@ -189,8 +168,7 @@ func _attach() -> void:
 		return
 	if not is_instance_valid(pony):
 		return
-	var selected := selected_mare_bits_path()
-	if not attach.attach(selected):
+	if not attach.attach(MARE_BITS_PATH):
 		if not _rig_logged:
 			_rig_logged = true
 			_log("anatomy skipped for %s: %s" % [pony.name, attach.last_error])
@@ -199,12 +177,11 @@ func _attach() -> void:
 	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
-	var is_v2 := selected == MARE_BITS_V2_PATH
 	var identity: Variant = pony.get("identity")
 	placement.set_mesh(mesh, attach.bone_inverse, body_profile(identity))
 	placement.load()
 	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
-	shapes.set_mesh(mesh, is_v2)
+	shapes.set_mesh(mesh)
 	coat.set_mesh(mesh, attach.skeleton)
 	coat_follow.setup(pony, placement)
 	coat_follow.set_mesh(mesh, attach.skeleton)
@@ -220,18 +197,6 @@ func _attach() -> void:
 	attach.apply_visibility(_act_visible())
 	_apply_body_coat()
 	_log("anatomy attached lift=%.3f" % PLACEMENT.LIFT)
-	if shapes != null and bool(shapes.v2_anal()) and mesh.mesh is ArrayMesh:
-		var arrays: Array = (mesh.mesh as ArrayMesh).surface_get_arrays(0)
-		var cols: Variant = arrays[Mesh.ARRAY_COLOR]
-		var a1 := 0
-		var a05 := 0
-		if cols != null:
-			for c: Color in cols:
-				if c.a > 0.9:
-					a1 += 1
-				elif c.a > 0.4:
-					a05 += 1
-		_log("V2 colour mask a1=%d a05=%d path=%s" % [a1, a05, attach.mare_bits_path])
 
 
 func _process(delta: float) -> void:
@@ -386,9 +351,6 @@ func _apply_body_coat() -> void:
 func apply_live() -> void:
 	if not is_attached():
 		return
-	var selected := selected_mare_bits_path()
-	if selected != attach.mare_bits_path and attach.reload_mare_bits(selected):
-		shapes.set_mesh(attach.mesh, selected == MARE_BITS_V2_PATH)
 	if not placement.dirty() and SETTINGS.placement_revision != placement.revision():
 		placement.load()
 	_apply_material()

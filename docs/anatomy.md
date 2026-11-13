@@ -134,8 +134,8 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   `features.anatomy_finish`. With every flag off the keys are not consumed and the act is the
   master act.
 - With `anatomy_mode = never` the keys pass through: the act controller does not exist.
-- `V` also requires the V2 mare bits. The original PPP mesh has no anal mesh, so the toggle is a
-  no-op on it.
+- `V` toggles the anal hole. The mare bits mesh carries the anal shape keys; `anal_mesh()`
+  returns the anatomy mesh.
 - Anal and oral need the mare's per-mare consent (`get_profile(id).consent.anal` / `.oral`); a
   refusal shows the anatomy status line and changes nothing.
 - `B` only changes the finish selection and shows the status line. The finish is applied by the
@@ -157,17 +157,17 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   `Target.CHARACTER`, which has no participation veto, so an opted-out mare stays editable.
 - The anatomy facade forwards the capability to its controllers and the tail seat as a callable;
   the runtime asks the eligibility service directly before it binds a controller. Rig readiness
-  (`assets_exist()`, `pony_hips`, the dock, the hair skeleton) stays here.
+  (`pony_hips`, the dock, the hair skeleton) stays here.
 - The stable id is `relationship_id` metadata first, then the identity id. Placement, the
   per-mare profile and the act history all key off the same value.
 - The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
   `character_id` to either. It supplies the body scale and the placement anchor; an ordinary
   off-roster mare uses the normal profile.
-- `assets_exist()` requires the winking mesh, teats and the skin strip. The V2 mesh is optional:
-  `mare_bits = v2` falls back to the original PPP mesh when its asset is absent.
+- The mare bits mesh, teats and skin strip ship with the pack, so a missing mesh is a broken
+  build, not a state the controller handles.
 - The winking mesh is rebuilt once per source mesh and shared. The rebuild masks the anal rim out
   of the authored `closed` and `wink` shapes, so those shapes move only the vulva.
-- Attachment loads the selected scene, moves its `MeshInstance3D` under a `BoneAttachment3D` on
+- Attachment loads the mare bits scene, moves its `MeshInstance3D` under a `BoneAttachment3D` on
   `pony_hips`, caches the bone bind, applies the placement, builds the material, attaches the
   teats and strip, resets the anal shape, builds the coat-follow weights, and connects
   `physical_reaction` for a stock flank smack. The mesh is not parented to the body model.
@@ -185,8 +185,9 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   her coat,
   `0.5` to the old Darker tone and `1` to the old Dark tone, interpolating between the three
   anchors. Inner-fold and clitoris colours are separate settings.
-- `vulva_height`, `lip_vertical` and `anal_scale` drive the shader. On the V2 mesh the anal scale
-  is carried by the blend shape, so the shader's `anal_scale` stays at `1.0`.
+- `vulva_height`, `lip_vertical` and `anal_scale` drive the shader. The mesh carries its anal
+  scale in the blend shape, so the shader's `anal_scale` stays at `1.0`; the setting drives the
+  ponut and the body coat.
 - `disable_fold_coloring` is a missionary-only hack: it drops the vertex-alpha fold/clitoris
   masks so the whole mesh uses her skin tones.
 - `coat_color` and `coat_shadow` on the anatomy material are her coat colours. The dock and the
@@ -198,9 +199,6 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - The skin strip is `skin_bridge.scn`, also skinned to the mare. Its span is measured from the
   dock AABB and the teat strip end; its gap is measured from the hip bind and the authored slit.
   `strip_scale` scales the strip in model-space X around the midline.
-- `mare_bits = original`/`v2` swaps the mesh in place. The anchor, material override, placement
-  and current shape values stay on the existing node; the replacement mesh is refined and the
-  lip radius is measured again.
 - The default dock colour is `genitals`: the dock copies the attached anatomy material with the
   skin tones. `coat` keeps the game's coat material. With anatomy detached, the dock falls back to
   the coat.
@@ -301,12 +299,13 @@ bridge only routes them.
   the penetration point vertically for the hole query; the ring shape itself uses the measured
   points. `anal_scale` drives the ponut and body coat, not the opening.
 - `set_anal_grip(radius)` uses the same world-to-local conversion and `anal_hug_mm` padding. The
-  original PPP mesh has no anal shape keys; `anal_mesh()` returns null and `V` is unavailable.
+  mesh carries the anal shape keys, so `anal_mesh()` always returns the anatomy mesh and `V` is
+  available.
 
 ### Winking
 
-- The `closed` shape is 1 for the authored closed lips and 0 for open. The V2 `wink` shape adds the
-  clitoral accent; the original PPP mesh has only `closed` and `stretch`.
+- The `closed` shape is 1 for the authored closed lips and 0 for open. The `wink` shape adds the
+  clitoral accent.
 - The idle heat rest and each wink drive `set_idle_wink(amount)`, which writes
   `closed = 1 - amount` and `wink = amount`. The shader depth cut stays off while the idle path
   owns the shapes, so a partial cut cannot drag the clitoris out through the lips.
@@ -320,8 +319,8 @@ bridge only routes them.
 
 ### Hole, oral and finish
 
-- `V` toggles the anal hole in `ACTIVE`/`CLIMAX` when `features.anatomy_holes` is on, the V2 anal
-  mesh exists, she is not oral and the per-mare `anal` consent is true. The mix eases over `0.9 s`.
+- `V` toggles the anal hole in `ACTIVE`/`CLIMAX` when `features.anatomy_holes` is on, she is not
+  oral and the per-mare `anal` consent is true. The mix eases over `0.9 s`.
 - `N` turns her to oral in standing `ACTIVE` when `features.anatomy_oral` is on and the per-mare
   `oral` consent is true. She is turned about `UP` over `ORAL_TURN_S = 1.6 s`, her position eases
   to the mirrored anchor, her mouth viseme becomes `D`, and the oral style sequence drives
@@ -571,7 +570,6 @@ restated here.
   `anatomy.clitoris_color`: material appearance.
 - `anatomy.show_dock`, `anatomy.dock_color`, `anatomy.reseat_tails`: dock visibility, colour and
   seat; reseat is on by default.
-- `anatomy.mare_bits`: `original`/`v2`, default `v2`; V2 falls back to the original when absent.
 - `anatomy.placement.default.*`, `anatomy.placement.anon.*`, `anatomy.placement.<id>.*` and
   `anatomy.placement_target`: the placement block and editor target.
 - `anatomy.anal_scale`, `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
@@ -678,7 +676,6 @@ split when the suite is next touched.
   tracks the visible opening.
 - The princesses' fitted bodies have no hair skeleton; their tail seat is unavailable and their
   pre-hidden dock stays hidden.
-- `V` is V2-only. The original PPP mesh has no anal mesh.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would
   make them overlap.
 - The persistent controller and the act read the typed `anatomy/facts.gd` context, not the

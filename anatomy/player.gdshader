@@ -1,6 +1,6 @@
 shader_type spatial;
 
-// integration: ported from PonyPussyParadise anon_part.gdshader. Same lighting as
+// integration: the player part shader. Same lighting as
 // near_pony.gdshader. The texture supplies detail and a warm tip mask; the baked AO steps into cel
 // shadow bands.
 #include "res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"

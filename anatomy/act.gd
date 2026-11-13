@@ -1,5 +1,5 @@
 extends Node
-## integration: per-act anatomy behaviour ported from PonyPussyParadise runtime.gd. It reads the
+## integration: per-act anatomy behaviour. It reads the
 ## current act depth and drives the anatomy meshes, the Anon part, the oral turn, the finish state
 ## and the fluid. It never touches thrust scoring, auto thrust or the camera.
 

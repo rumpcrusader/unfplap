@@ -1,5 +1,5 @@
 extends RefCounted
-## integration: ported from PonyPussyParadise cycle.gd. Each mare's monthly cycle, in game days:
+## integration: each mare's monthly cycle, in game days:
 ## a week of heat, then two days turned off. Her id sets where she is in it, so ponies are not all
 ## in step and each keeps the same dates. The phase is derived, never saved.
 

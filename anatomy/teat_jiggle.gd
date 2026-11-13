@@ -1,5 +1,5 @@
 extends Node
-## integration: ported from PonyPussyParadise teat_jiggle.gd. Springy sway for the teats mesh. It
+## integration: springy sway for the teats mesh. It
 ## only offsets the mesh in its shader; her own skin carries the shape through her poses.
 
 const STIFFNESS := 130.0

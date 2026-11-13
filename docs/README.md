@@ -15,7 +15,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | `../AGENTS.md` | project-wide agent rules and the reading table |
 | `../WORKFLOW.md` | commands, the lab scripts and the release flow |
 | `../assets/README.md` | the resource pack layout and the asset-change workflow |
-| `../AUDIO_CREDITS.md` | audio credits |
+| `../CREDITS.md` | external credits: anatomy and act audio |
 | `api.md` | the stable cross-mod API |
 
 ## Orchestrators

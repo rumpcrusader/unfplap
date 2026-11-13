@@ -409,10 +409,9 @@ func _load_streams() -> void:
 	if not _streams.is_empty():
 		return
 	for path: String in SMACK_AUDIO.PATHS:
-		if ResourceLoader.exists(path):
-			var stream: Resource = load(path)
-			if stream is AudioStream:
-				_streams.append(stream)
+		var stream: Resource = load(path)
+		if stream is AudioStream:
+			_streams.append(stream)
 
 
 func _next_stream(count: int) -> int:

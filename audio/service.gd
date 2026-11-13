@@ -1,11 +1,11 @@
 extends Node
-## The act audio facade: the OpenNSFW foley/vocal/wet layers, the base-game breath and squee
+## The act audio facade: the pack foley and wet layers, the base-game breath and squee
 ## climax, and the Ponese mute policy. The runtime creates one node and keeps it for the process;
 ## `begin()` opens the layers for an act and `end()` closes them.
 ##
-## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `vocals` covers only the pack
-## climax moan. `climax` is the separate wet finish layer. The base-game breath, Ponese voice and
-## `squee_*` climax are not gated by these flags. See `docs/audio.md`.
+## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `climax` is the separate wet
+## finish layer. The base-game breath, Ponese voice and `squee_*` climax are not gated by these
+## flags. See `docs/audio.md`.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -20,7 +20,6 @@ const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
 
-var _vocals := false
 var _climax := false
 var _pools: Dictionary = {}
 var _next: Dictionary = {}
@@ -39,11 +38,10 @@ var _text_only_voice := false
 var log := Callable()
 
 
-## Open the act's layers. The foley group is always built; `vocals` and `climax` are optional.
+## Open the act's layers. The foley group is always built; the wet climax is optional.
 func begin(features: Dictionary) -> void:
 	_rng.randomize()
-	set_enabled(bool(features.get("act_vocals", false)),
-		bool(features.get("act_climax", false)))
+	set_enabled(bool(features.get("act_climax", false)))
 	if not is_instance_valid(_sound):
 		_sound = SOUND.new()
 		_sound.name = "UnfplapActSound"
@@ -65,12 +63,11 @@ func stop_breath() -> void:
 		_sound.call("stop_breath")
 
 
-## The squee climax plus the pack wet and vocal layers.
+## The squee climax plus the pack wet layer.
 func climax(snout: Vector3, dock: Vector3) -> void:
 	if is_instance_valid(_sound):
 		_sound.call("play_climax", snout)
 	play_climax_wet(dock)
-	play_climax_voice(snout)
 
 
 ## Breath follows the plap rate and the act phase. `phase` is empty outside the act.
@@ -118,29 +115,19 @@ func _find_voice_player(pony_node: Variant) -> AudioStreamPlayer3D:
 	return found as AudioStreamPlayer3D if found is AudioStreamPlayer3D else null
 
 
-
-func vocals_enabled() -> bool:
-	return _vocals
-
-
 func climax_enabled() -> bool:
 	return _climax
 
 
-## Rebuild only the optional layer that changed. The foley group is always built. Called at
+## Rebuild the optional layer when it changed. The foley group is always built. Called at
 ## start and from apply_live_settings().
-func set_enabled(vocals: bool, climax: bool) -> void:
-	if vocals == _vocals and climax == _climax and not _pools.is_empty():
+func set_enabled(climax: bool) -> void:
+	if climax == _climax and not _pools.is_empty():
 		return
-	if _vocals and not vocals:
-		_clear_group("vocals")
 	if _climax and not climax:
 		_clear_group("climax")
-	_vocals = vocals
 	_climax = climax
 	_build_group("foley")
-	if _vocals:
-		_build_group("vocals")
 	if _climax:
 		_build_group("climax")
 
@@ -188,8 +175,8 @@ func _clear_group(group: String) -> void:
 		_ready_at.erase(cue)
 
 
-## Play one cue at a world position. Returns false when the cue is disabled, cooling down, or
-## has no usable stream so the caller can fall back to the current game-sample path.
+## Play one cue at a world position. Returns false when the cue is disabled, cooling down or
+## has no usable stream.
 func play(cue: String, at: Vector3, strength := 1.0,
 		extra_db := 0.0, pitch := 1.0) -> bool:
 	if not _pools.has(cue) or not at.is_finite():
@@ -290,11 +277,6 @@ func play_mouth_kiss(at: Vector3) -> bool:
 func play_climax_wet(at: Vector3) -> void:
 	if _climax:
 		play("climax_wet", at, 1.0)
-
-
-func play_climax_voice(at: Vector3) -> void:
-	if _vocals:
-		play("climax_voice", at, 1.0)
 
 
 ## True only on the frames that will fire the withdraw layer. The caller uses this before asking

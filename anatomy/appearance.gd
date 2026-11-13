@@ -83,8 +83,8 @@ func apply_material(missionary: bool) -> void:
 	var world_scale := maxf(mesh.global_transform.basis.get_scale().x, 0.001)
 	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
 	material.set_shader_parameter("anal_centre", ANAL_OPENING)
-	material.set_shader_parameter("anal_scale",
-		1.0 if bool(shapes.v2_anal()) else SETTINGS.anal_scale.get_num())
+	# The mesh carries the ponut shape in its blend keys; the coat side reads `anal_scale`.
+	material.set_shader_parameter("anal_scale", 1.0)
 	material.set_shader_parameter("lip_radius", shapes.lip_radius())
 	material.set_shader_parameter("lip_outer", shapes.lip_radius() * LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
@@ -262,8 +262,11 @@ func _skinned_part(path: String, part_name: String) -> MeshInstance3D:
 	if not is_instance_valid(skeleton) or not model is Node:
 		return null
 	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
+	if body == null or body.skin == null:
+		return null
 	var scene: PackedScene = load(path)
-	if body == null or body.skin == null or scene == null:
+	if scene == null:
+		push_error("unfplap anatomy: cannot load " + path)
 		return null
 	var part: Node = scene.instantiate()
 	var meshes: Array = part.find_children("*", "MeshInstance3D", true, false)

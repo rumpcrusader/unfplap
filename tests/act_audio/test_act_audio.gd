@@ -1,5 +1,5 @@
 extends SceneTree
-## Pure/unit checks for the optional OpenNSFW act audio layer.
+## Pure/unit checks for the act audio facade and its pack cue table.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_audio/test_act_audio.gd
 
 const ACT := preload("res://mods/unfplap/audio/service.gd")
@@ -74,7 +74,6 @@ func run() -> void:
 		"plap_firm": 7, "plap_rough": 7, "plap_standing": 8,
 		"slide_in": 6, "slide_out": 6,
 		"fabric": 8, "mouth_kiss": 8, "climax_wet": 4,
-		"climax_voice": 3,
 	}
 	check(CATALOGUE.CUES.size() == expected.size(), "cue count")
 	for cue: String in expected:
@@ -90,31 +89,29 @@ func run() -> void:
 				check((stream as AudioStream).get_length() > 0.02, "stream length: " + cue)
 
 	var act: Node = ACT.new()
-	act.set_enabled(false, false)
-	check(not act.vocals_enabled() and not act.climax_enabled(), "optional layers off")
+	act.set_enabled(false)
+	check(not act.climax_enabled(), "the optional layer is off")
 	var pools: Dictionary = act.get("_pools")
 	check(pools.has("plap_firm"), "foley pool is always built")
-	check(not pools.has("climax_voice"), "vocal pool not built")
 	check(not pools.has("climax_wet"), "wet pool not built")
 
-	act.set_enabled(true, false)
+	act.set_enabled(true)
 	pools = act.get("_pools")
-	check(act.vocals_enabled() and not act.climax_enabled(), "vocals only")
+	check(act.climax_enabled(), "the wet layer is on")
 	check(pools.has("plap_firm"), "foley pool stays built")
-	check(pools.has("climax_voice"), "climax voice pool built after switch")
-	check(not pools.has("climax_wet"), "wet climax stays off with vocals only")
-	act.set_enabled(false, true)
-	pools = act.get("_pools")
-	check(act.climax_enabled() and pools.has("climax_wet"), "wet climax builds only from its own flag")
-	act.set_enabled(true, true)
+	check(pools.has("climax_wet"), "wet pool built after the switch")
+	act.set_enabled(false)
+	check(not (act.get("_pools") as Dictionary).has("climax_wet"),
+		"a live settings edit clears the wet layer")
 
-	act.set_enabled(false, false)
-	check(not (act.get("_pools") as Dictionary).is_empty(), "foley stays after optional layers clear")
+	act.set_enabled(false)
+	check(not (act.get("_pools") as Dictionary).is_empty(),
+		"foley stays after the optional layer clears")
 
 	var parent := Node3D.new()
 	root.add_child(parent)
 	parent.add_child(act)
-	act.set_enabled(false, false)
+	act.set_enabled(false)
 	act.play_impact(CATALOG.MISSIONARY, 0.2, Vector3.ZERO, Vector3.ZERO, false)
 	var ready_at: Dictionary = act.get("_ready_at")
 	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "soft impact emits no plap")
@@ -122,7 +119,7 @@ func run() -> void:
 	check(float(ready_at.get("fabric", 0.0)) == 0.0, "a wood bed has no bed cue")
 	check(not act.play_plap(CATALOG.MISSIONARY, "soft", 0.2, Vector3.ZERO),
 		"soft plap call is refused")
-	act.set_enabled(false, false)
+	act.set_enabled(false)
 	ready_at = act.get("_ready_at")
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
@@ -156,9 +153,9 @@ func run() -> void:
 		if smack_stream is AudioStream:
 			var seconds := (smack_stream as AudioStream).get_length()
 			check(seconds > 0.05 and seconds < 1.0, "smack stream length: " + path)
-	act.set_enabled(true, false)
-	act.play_climax_voice(Vector3.ZERO)
-	check(act.vocals_enabled(), "climax voice accepted after a live toggle")
+	act.set_enabled(true)
+	act.play_climax_wet(Vector3.ZERO)
+	check(act.climax_enabled(), "the wet layer is accepted after a live toggle")
 	ready_at = act.get("_ready_at")
 	ready_at["plap_standing"] = 0.0
 	check(act.play_plap(CATALOG.STANDING, "rough", 0.9, Vector3.ZERO),
@@ -168,20 +165,16 @@ func run() -> void:
 	act.free()
 	parent.free()
 
-	# Runtime integration: the pack node is created for every act; vocals and climax are optional.
+	# Runtime integration: the pack node is created for every act; the wet layer is optional.
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime.bed = Node3D.new()
-	runtime._features = {"act_vocals": false, "act_climax": false}
+	runtime._features = {"act_climax": false}
 	root.add_child(runtime)
 	runtime._start_audio()
 	check(runtime.has_node("UnfplapActAudio"), "foley starts the pack audio node")
 	runtime._stop_audio()
-	runtime._features = {"act_vocals": true, "act_climax": false}
-	runtime._start_audio()
-	check(runtime.has_node("UnfplapActAudio"), "vocals on keeps the pack audio node")
-	runtime._stop_audio()
-	runtime._features = {"act_vocals": false, "act_climax": true}
+	runtime._features = {"act_climax": true}
 	runtime._start_audio()
 	check(runtime.has_node("UnfplapActAudio"), "climax on keeps the pack audio node")
 	runtime._stop_audio()

@@ -1,9 +1,9 @@
 {
 	"schema": 1,
 	"archive": {
-		"url": "https://u.pone.rs/olhrgqmp.zip",
-		"sha256": "7d55ceab59214db78f53d4d1f41c72690ed539f95008c89f83dfd5cd2b06b1c8",
-		"size": 11030134
+		"url": "https://u.pone.rs/oarokzwx.zip",
+		"sha256": "7c706ba321c6d6d7164e8b19230c85c4c5346bc748f20131859babf077bb7043",
+		"size": 10500467
 	},
 	"runtime": {
 		"assets/anatomy/anon/anon_part.scn": {
@@ -45,10 +45,6 @@
 		"assets/anatomy/mare/teats.scn": {
 			"size": 563188,
 			"sha256": "dc12809b739b4b0c41979d813ed4a5292ce5a67852e6e9d9f519403542baa720"
-		},
-		"assets/anatomy/mare/winking.scn": {
-			"size": 511021,
-			"sha256": "98b6e583ee8ea3c385c153019ead73d26d8eb43d3b8756f818dd5b2f1ec0d13e"
 		},
 		"assets/audio/climax/wet_01.wav": {
 			"size": 124924,
@@ -497,30 +493,6 @@
 		"assets/audio/smack/hand_03.wav.import": {
 			"size": 511,
 			"sha256": "1b46135ff22e70058795a37e24c85179f80c64e8cb33d94d3e651f5f190ac604"
-		},
-		"assets/audio/vocals/climax_01.wav": {
-			"size": 54926,
-			"sha256": "2adc3430eda63fb7da02922550fc329ae79c25bf0cb58ce82ad27b89f07b42c7"
-		},
-		"assets/audio/vocals/climax_01.wav.import": {
-			"size": 518,
-			"sha256": "71ac5120b5f45884de36b13242c7cd0b59d5e1a6e320b072ffd4986400cb4192"
-		},
-		"assets/audio/vocals/climax_02.wav": {
-			"size": 71056,
-			"sha256": "805c23b08a7ba51ecc8518188b59796fbd0a84794efea31586c41eb202559267"
-		},
-		"assets/audio/vocals/climax_02.wav.import": {
-			"size": 518,
-			"sha256": "ab79c4f47ca2e725ff92bd9c980cc4d0c893c401520d912638c62ea12c30c2f0"
-		},
-		"assets/audio/vocals/climax_03.wav": {
-			"size": 51044,
-			"sha256": "649859b151b4c3113088743750cf952ef54dcc741be55ff1b958ce6548a1fdae"
-		},
-		"assets/audio/vocals/climax_03.wav.import": {
-			"size": 518,
-			"sha256": "d4e322c9c08656c0428f475cc90bd4f924fa19a9426f99d9bbbf0cd6a0c04675"
 		}
 	},
 	"sources": {

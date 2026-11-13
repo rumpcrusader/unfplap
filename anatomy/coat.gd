@@ -12,8 +12,6 @@ const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.g
 
 const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
 const LIP_OUTER_FACTOR := 3.0
-## Body-local anus centre from the Blender body.glb mapping.
-const BODY_ANAL_CENTRE := Vector3(0.0, 0.572, 0.299)
 const BODY_ANAL_REACH := 0.09
 const VULVA_RELIEF_M := 0.002
 const JIGGLE_STILL_MIN_M := 0.05
@@ -224,11 +222,9 @@ func _apply_uniforms() -> void:
 	var still_centre := centre + up_axis * (SETTINGS.still_height_mm.get_num() / 1000.0)
 	var still_radius := maxf(shapes.lip_radius() * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
-	var anal_centre := BODY_ANAL_CENTRE
+	var anal_centre := GEOMETRY.body_local_point(_hips_bind, mesh.transform, shapes.anal_mouth())
 	var anal_extreme := maxf(0.0, (shapes.anal_local() - GEOMETRY.ANAL_OVER_R)
 		/ (GEOMETRY.ANAL_EXTREME_R - GEOMETRY.ANAL_OVER_R))
-	if bool(shapes.v2_anal()):
-		anal_centre = GEOMETRY.body_local_point(_hips_bind, mesh.transform, shapes.anal_mouth())
 	var anal_still_centre := anal_centre
 	var anal_still_radius := GEOMETRY.anal_still_radius_for(GEOMETRY.ANAL_LIP,
 		GEOMETRY.ANAL_OUTER_FACTOR, scale, SETTINGS.anal_still.get_num()) * (1.0 + anal_extreme)

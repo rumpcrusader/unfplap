@@ -1,5 +1,5 @@
 extends RefCounted
-## Curated OpenNSFW hand-on-flank smack variants. These stay out of the act cue table: the act
+## Curated hand-on-flank smack variants. These stay out of the act cue table: the act
 ## installs one on the native `FlankTouch` sound player so the decal, blush,
 ## jiggle and reaction suppression stay on the stock impact. `hands/service.gd` lazy-loads
 ## the paths on the first smack, so an act with no smack loads no pack stream.

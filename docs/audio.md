@@ -1,7 +1,7 @@
 # Act audio contract
 
-The act's sound and voice: the pack foley/vocal/wet layers, the base-game breath and squee
-climax, and the Ponese mute policy.
+The act's sound: the pack foley and wet layers, the base-game breath and squee climax, and the
+Ponese mute policy.
 
 ## Ownership
 
@@ -31,7 +31,7 @@ The runtime calls one typed bridge, never a private field or a raw player:
 | `apply_voice_policy(pony, id, mute, info)` | the act start and every live settings edit |
 | `restore_voice_policy()` | the act end and a mute-policy change |
 | `stop_breath()` | the restore begin |
-| `set_enabled(vocals, climax)` | `apply_live_settings()` |
+| `set_enabled(climax)` | `apply_live_settings()` |
 | `play_impact`, `play_plap`, `play_bed`, `play_slide`, `crossed`, `withdraw_crossed`, `play_mouth_kiss` | the impact and kiss paths |
 
 The runtime keeps the call sites, the director/vocal prepare and the feature snapshot.
@@ -39,16 +39,15 @@ The runtime keeps the call sites, the director/vocal prepare and the feature sna
 ## Act lifecycle
 
 - `begin(features)` randomises the variant picker, builds the always-on `foley` group and the
-  optional `vocals`/`climax` groups from the feature flags, then creates and starts the
-  `act_sound` child.
-- `set_enabled(vocals, climax)` rebuilds only the optional group that changed; the foley group
-  stays built. `apply_live_settings()` calls it while the act runs.
+  optional `climax` group from the feature flag, then creates and starts the `act_sound` child.
+- `set_enabled(climax)` rebuilds the optional group when it changed; the foley group stays built.
+  `apply_live_settings()` calls it while the act runs.
 - `end()` stops and clears every pack pool and frees the sound child. The facade itself survives,
   so the mute policy can still give the voice player its volume back on a later settings edit.
 - `play_impact`/`play_plap`/`play_bed`/`play_slide`/`withdraw_crossed`/`crossed`/`play_mouth_kiss`
   are the pack cues the runtime drives from the impact and kiss paths.
-- `climax(snout, dock)` plays the base-game squee at the snout, the wet layer at the dock and the
-  optional pack vocal at the snout.
+- `climax(snout, dock)` plays the base-game squee at the snout and the optional wet layer at the
+  dock.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at
   the restore begin.
 
@@ -65,9 +64,8 @@ the debug read.
 
 ## Packs and settings
 
-- The OpenNSFW foley, vocal and wet files are fetched from the resource archive and packed; see
+- The pack foley and wet files are fetched from the resource archive and packed; see
   `assets/README.md`.
-- `features.act_vocals` (default off) gates only the pack climax moan.
 - `features.act_climax` (default off) gates only the wet finish layer.
 - `features.mute_ponese_audio` (default on) gates the Ponese mute.
 - The base-game breath and squee are always on and are not gated by those flags.

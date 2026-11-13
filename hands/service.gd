@@ -46,7 +46,7 @@ const SMACK_ZONE_RADIUS_M := 0.035
 const SMACK_HEIGHT_M := -0.03
 const SMACK_HIND_M := 0.10
 ## Native impact strength for the smack; also drives the tail jiggle propagation.
-## The stock flank slap is bright and compressed. Install a peak-normalised OpenNSFW hand-smack
+## The stock flank slap is bright and compressed. Install a peak-normalised pack hand-smack
 ## variant on the native FlankTouch player; the stock stream, level and pitch are restored at
 ## act end.
 const STATE_ACTIVE := 2

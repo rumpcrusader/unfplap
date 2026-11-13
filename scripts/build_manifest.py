@@ -23,7 +23,7 @@ ALLOWED_SUFFIXES = {
 CRITICAL = [
     "mod.json",
     "changelog.txt",
-    "AUDIO_CREDITS.md",
+    "CREDITS.md",
 ]
 
 
@@ -32,7 +32,7 @@ def fail(why):
 
 
 def runtime_source(path):
-    if path in ("mod.json", "changelog.txt", "AUDIO_CREDITS.md"):
+    if path in ("mod.json", "changelog.txt", "CREDITS.md"):
         return True
     parts = path.split("/")
     name = parts[-1]

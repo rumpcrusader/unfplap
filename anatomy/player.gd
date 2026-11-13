@@ -1,7 +1,6 @@
 extends Node
-## integration: ported from PonyPussyParadise anon_part.gd; the player part. Shows the part on the human player's
-## Hips during encounters. The mesh and textures come from the external resource pack
-## (see assets/README.md).
+## integration: the player part. Shows the part on the human player's Hips during encounters.
+## The mesh and textures ship with the mod.
 
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
@@ -104,14 +103,6 @@ var aim_normal := Vector3.ZERO
 var aim_opening := Vector3.ZERO
 
 
-static func assets_exist() -> bool:
-	return ResourceLoader.exists(MESH_PATH)
-
-
-func available() -> bool:
-	return assets_exist()
-
-
 func _ensure() -> bool:
 	var form: Variant = PLAYER_FORM.active(get_tree())
 	if PLAYER_FORM.is_young(form) or PLAYER_FORM.is_pony(form):
@@ -120,8 +111,6 @@ func _ensure() -> bool:
 		_drop_mesh()
 	if is_instance_valid(_mesh):
 		return true
-	if not assets_exist():
-		return false
 	# integration: the VR rig holds the same Anon body deeper down.
 	var body: Node3D = player_body if is_instance_valid(player_body) else null
 	if not is_instance_valid(body):
@@ -135,6 +124,7 @@ func _ensure() -> bool:
 		return false
 	var scene: PackedScene = load(MESH_PATH)
 	if scene == null:
+		push_error("unfplap anatomy: cannot load " + MESH_PATH)
 		return false
 	var instance: Node = scene.instantiate()
 	var meshes: Array = instance.find_children("*", "MeshInstance3D", true, false)

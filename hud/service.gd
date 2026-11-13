@@ -438,7 +438,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 func _extra_row_visible(key: String, state: int, standing: bool, runtime: Node) -> bool:
 	if state == STATE_AFTERGLOW:
 		return false
-	# integration: use the runtime's precise readiness so missing anatomy assets hide the rows.
+	# The runtime's precise readiness keeps the rows on the feature and consent gates.
 	match key:
 		"anatomy_hole":
 			return runtime.has_method("anatomy_hole_ready") and bool(runtime.call("anatomy_hole_ready"))

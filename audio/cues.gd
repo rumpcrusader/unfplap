@@ -1,5 +1,5 @@
 extends RefCounted
-## Curated OpenNSFW act cues. Generated from audio/cue_sources.json.
+## Curated act cue table. Generated from audio/cue_sources.json.
 ## Keep the arrays in filename order so the variant bags stay stable.
 
 const PLAP_FIRM := [
@@ -80,13 +80,7 @@ const CLIMAX_WET := [
 	preload("res://mods/unfplap/assets/audio/climax/wet_04.wav"),
 ]
 
-const CLIMAX_VOICE := [
-	preload("res://mods/unfplap/assets/audio/vocals/climax_01.wav"),
-	preload("res://mods/unfplap/assets/audio/vocals/climax_02.wav"),
-	preload("res://mods/unfplap/assets/audio/vocals/climax_03.wav"),
-]
-
-## group: foley | vocals. volume_db is the full-strength level; act_audio scales down
+## group: foley | climax. volume_db is the full-strength level; act_audio scales down
 ## with strength. voices is the number of overlapping 3D players for that cue.
 const CUES := {
 	"plap_firm": {
@@ -126,11 +120,6 @@ const CUES := {
 	},
 	"climax_wet": {
 		"group": "climax", "streams": CLIMAX_WET, "voices": 2,
-		"volume_db": -18.0, "cooldown": 0.5, "distance": 10.0,
-		"pitch_min": 0.94, "pitch_max": 1.06,
-	},
-	"climax_voice": {
-		"group": "vocals", "streams": CLIMAX_VOICE, "voices": 2,
 		"volume_db": -18.0, "cooldown": 0.5, "distance": 10.0,
 		"pitch_min": 0.94, "pitch_max": 1.06,
 	},

@@ -1266,9 +1266,8 @@ func apply_live_settings() -> void:
 	_anatomy_refresh()
 	if previous_lines and not _act_lines_enabled() and is_instance_valid(main) and is_instance_valid(main.game):
 		_end_act_lines(true)
-	var vocals := _feature("act_vocals")
 	var climax := _feature("act_climax")
-	_ensure_act_audio(vocals, climax)
+	_ensure_act_audio(climax)
 	_reactions.apply_radius()
 	if pose_id == CATALOG.STANDING:
 		_kiss_controller().apply_live_settings()
@@ -2462,7 +2461,7 @@ func anatomy_finish_pull_out() -> bool:
 	return _anatomy_bridge.finish_pull_out()
 
 
-## integration: precise action gates. With no act controller (assets missing, feature off) the
+## integration: precise action gates. With no act controller (feature off or no controller) the
 ## keys pass through and the HUD rows stay hidden.
 func anatomy_hole_ready() -> bool:
 	return _anatomy_bridge.hole_ready()
@@ -4203,10 +4202,10 @@ func _audio_service() -> Node:
 	return _act_audio
 
 
-## Rebuild the optional pack layers after a settings edit. The node is never created outside an act.
-func _ensure_act_audio(vocals: bool, climax: bool) -> void:
+## Rebuild the optional pack layer after a settings edit. The node is never created outside an act.
+func _ensure_act_audio(climax: bool) -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(vocals, climax)
+		_act_audio.set_enabled(climax)
 
 
 func _start_audio() -> void:

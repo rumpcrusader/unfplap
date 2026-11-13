@@ -1,6 +1,6 @@
 shader_type spatial;
 
-// integration: ported from PonyPussyParadise winking.gdshader. Same lighting as
+// integration: the mare bits shader. Same lighting as
 // near_pony.gdshader. Vertex colour: R is the inner pink mask, G is closeness to an opening,
 // which places the lip band and contour.
 #include "res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"

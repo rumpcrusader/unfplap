@@ -676,7 +676,7 @@ func _check_docs_index(files: Array[String]) -> void:
 	var index := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(not index.is_empty(), "docs/README.md exists")
 	for name: String in ["README.md", "AGENTS.md", "WORKFLOW.md", "assets/README.md",
-			"AUDIO_CREDITS.md"]:
+			"CREDITS.md"]:
 		check(FileAccess.file_exists(ROOT.path_join(name)), "root doc %s exists" % name)
 	for name: String in ["ROTATION.md", "PREFERENCES.md", "HISTORY.md", "TUNING.md"]:
 		check(not FileAccess.file_exists(ROOT.path_join(name)),

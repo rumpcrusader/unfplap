@@ -1,5 +1,5 @@
 extends Node3D
-## integration: ported from PonyPussyParadise climax_fluid.gd. Droplets with real motion: they fly
+## integration: climax droplets with real motion: they fly
 ## under gravity and drag, stick where they hit her body and creep down it, drop off her underside,
 ## and pool on the ground before fading. Her body is an ellipsoid that rides her hips, so stuck
 ## drops move with her.

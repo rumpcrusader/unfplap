@@ -33,10 +33,10 @@ func run() -> void:
 	var audio: Node = AUDIO.new()
 	root.add_child(audio)
 
-	audio.begin({"act_vocals": false, "act_climax": false})
+	audio.begin({"act_climax": false})
 	var pools: Dictionary = audio.get("_pools")
 	check(pools.has("plap_firm"), "the foley layer opens with the act")
-	check(not pools.has("climax_voice"), "the optional vocal layer stays off")
+	check(not pools.has("climax_wet"), "the optional wet layer stays off")
 	var sound: Variant = audio.get("_sound")
 	check(is_instance_valid(sound), "the base-game sound node is created")
 	check(sound.get_parent() == audio, "the sound node rides the audio facade")
@@ -76,11 +76,10 @@ func run() -> void:
 	audio.call("apply_voice_policy", pony, "rarity", true, {"effective_ponese": false})
 	check(not audio.call("voice_text_only"), "a generated-voice pony is not muted")
 
-	audio.begin({"act_vocals": true, "act_climax": true})
+	audio.begin({"act_climax": true})
 	pools = audio.get("_pools")
-	check(pools.has("climax_voice") and pools.has("climax_wet"),
-		"the optional layers rebuild on a new act")
-	audio.call("set_enabled", false, false)
+	check(pools.has("climax_wet"), "the optional layer rebuilds on a new act")
+	audio.call("set_enabled", false)
 	check(not (audio.get("_pools") as Dictionary).has("climax_wet"),
 		"a live settings edit clears the optional layer")
 	audio.end()

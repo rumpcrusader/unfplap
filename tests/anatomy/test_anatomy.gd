@@ -286,7 +286,6 @@ func run() -> void:
 		"consent merge preserves event prompts")
 	check(absf(float(((profile.get("poses", {}) as Dictionary).get("missionary", {}) as Dictionary)
 		.get("rump_drop_deg", 0.0)) - 12.0) < 0.001, "consent merge preserves pose overrides")
-	check(not ANATOMY.assets_exist() or ANATOMY.assets_exist(), "asset check is a bool")
 	# integration: no act controller means all anatomy action gates are closed.
 	var runtime: Node = RUNTIME.new()
 	check(not bool(runtime.call("anatomy_hole_ready")), "hole gate closed without an act")
@@ -322,7 +321,7 @@ func run() -> void:
 	heat_anatomy.attach.setup(heat_anatomy, heat_pony, heat_facts)
 	heat_anatomy.attach.attached = true
 	heat_anatomy.attach.mesh = wink_mesh
-	heat_anatomy.shapes.set_mesh(wink_mesh, false)
+	heat_anatomy.shapes.set_mesh(wink_mesh)
 	heat_anatomy.attach.apply_visibility(true)
 	heat_facts.state = 2
 	heat_anatomy.call("_heat_idle_tick", 0.1)
@@ -365,99 +364,97 @@ func run() -> void:
 	check(is_equal_approx(ANATOMY.stable_lip_radius(0.030), 0.030),
 		"a nearby measured lip radius is kept")
 
-	# The refined winking mesh leaves the default closed shape alone and masks only the anal rim.
-	if ANATOMY.assets_exist():
-		var wink_scene: PackedScene = load(ANATOMY.WINKING_PATH)
-		var wink_root: Node = wink_scene.instantiate()
-		var wink_mi := wink_root as MeshInstance3D
-		var source_mesh := wink_mi.mesh as ArrayMesh
-		var refined_mesh := ANATOMY.refined_winking_mesh(source_mesh)
-		check(refined_mesh != null, "the winking mesh rebuilds")
-		if refined_mesh != null:
-			check(refined_mesh.get_blend_shape_count() >= 2, "the wink keeps its shape keys")
-			check(str(refined_mesh.get_blend_shape_name(0)) == "closed",
-				"the closed shape keeps its name")
-			check(wink_mi.find_blend_shape_by_name("wink") < 0,
-				"the original mesh has no wink key; closed carries the lips")
-			var src_base: PackedVector3Array = source_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-			var src_closed: PackedVector3Array = source_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
-			var ref_base: PackedVector3Array = refined_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-			var ref_closed: PackedVector3Array = refined_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
-			check(ref_base == src_base, "the default resting mesh is unchanged")
-			var anal_index := -1
-			for i in src_base.size():
-				if src_base[i].y > 0.06 and (src_closed[i] - src_base[i]).length() > 0.001:
-					anal_index = i
-					break
-			check(anal_index >= 0, "an anal rim vertex moves in the source shape")
-			if anal_index >= 0:
-				check((ref_closed[anal_index] - ref_base[anal_index]).length() < 0.0001,
-					"the anal rim no longer winks")
-		wink_root.free()
+	# The refined mare bits mesh leaves the default resting mesh alone and masks the anal rim out
+	# of the authored `closed` shape.
+	var wink_scene: PackedScene = load(ANATOMY.MARE_BITS_PATH)
+	var wink_root: Node = wink_scene.instantiate()
+	var wink_mi := wink_root as MeshInstance3D
+	var source_mesh := wink_mi.mesh as ArrayMesh
+	var refined_mesh := ANATOMY.refined_winking_mesh(source_mesh)
+	check(refined_mesh != null, "the winking mesh rebuilds")
+	if refined_mesh != null:
+		check(refined_mesh.get_blend_shape_count() >= 2, "the wink keeps its shape keys")
+		check(str(refined_mesh.get_blend_shape_name(0)) == "closed",
+			"the closed shape keeps its name")
+		check(wink_mi.find_blend_shape_by_name("wink") >= 0,
+			"the mare bits mesh has the clitoris wink key")
+		var src_base: PackedVector3Array = source_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+		var src_closed: PackedVector3Array = source_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
+		var ref_base: PackedVector3Array = refined_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+		var ref_closed: PackedVector3Array = refined_mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
+		check(ref_base == src_base, "the default resting mesh is unchanged")
+		var anal_index := -1
+		for i in src_base.size():
+			if src_base[i].y > 0.06 and (src_closed[i] - src_base[i]).length() > 0.001:
+				anal_index = i
+				break
+		check(anal_index >= 0, "an anal rim vertex moves in the source shape")
+		if anal_index >= 0:
+			check((ref_closed[anal_index] - ref_base[anal_index]).length() < 0.0001,
+				"the anal rim no longer winks")
+	wink_root.free()
 
-	# The V2 mesh owns the anal hole now: the cup/ring are gone.
-	if ResourceLoader.exists(ANATOMY.MARE_BITS_V2_PATH):
-		var v2_scene: PackedScene = load(ANATOMY.MARE_BITS_V2_PATH)
-		var v2_root: Node = v2_scene.instantiate()
-		var v2_mi := v2_root as MeshInstance3D
-		var v2_mesh := v2_mi.mesh as ArrayMesh
-		check(v2_mesh.get_blend_shape_count() >= 8, "the V2 mesh keeps its anal keys")
-		check(v2_mi.find_blend_shape_by_name("wink") >= 0,
-			"V2 has the clitoris wink key")
-		for shape_name: String in ["anal_open", "anal_stretch", "anal_overstretch",
-				"anal_extreme", "ponut_scale"]:
-			check(v2_mi.find_blend_shape_by_name(shape_name) >= 0,
-				"V2 has the %s key" % shape_name)
-		var v2_arrays: Array = v2_mesh.surface_get_arrays(0)
-		var v2_colors: Variant = v2_arrays[Mesh.ARRAY_COLOR]
-		check(v2_colors != null and (v2_colors as PackedColorArray).size()
-			== (v2_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size(),
-			"the V2 colours cover every vertex")
-		var folds := 0
-		var clits := 0
-		if v2_colors != null:
-			for c: Color in v2_colors:
-				if c.a > 0.9:
-					folds += 1
-				elif c.a > 0.4:
-					clits += 1
-		check(folds > 500, "the V2 inner folds keep their mask")
-		check(clits > 200, "the V2 clitoris keeps its mask")
-		get_root().add_child(v2_mi)
-		v2_mi.transform = Transform3D.IDENTITY
-		var v2_anatomy: Node = ANATOMY.new()
-		v2_anatomy.shapes.set_mesh(v2_mi, true)
-		check(v2_anatomy.shapes.v2_anal(), "the V2 shape state reports the anal mesh")
-		v2_anatomy.shapes.apply_anal_local(0.030)
-		var open_i := v2_mi.find_blend_shape_by_name("anal_open")
-		var stretch_i := v2_mi.find_blend_shape_by_name("anal_stretch")
-		var over_i := v2_mi.find_blend_shape_by_name("anal_overstretch")
-		var extreme_i := v2_mi.find_blend_shape_by_name("anal_extreme")
-		check(is_equal_approx(v2_mi.get_blend_shape_value(open_i), 1.0),
-			"30 mm opens the V2 anus")
-		check(is_equal_approx(v2_mi.get_blend_shape_value(stretch_i), 1.0),
-			"30 mm reaches the normal V2 stretch")
-		check(is_equal_approx(v2_mi.get_blend_shape_value(over_i), 1.0),
-			"30 mm reaches the V2 overstretch")
-		check(near(v2_mi.get_blend_shape_value(extreme_i), 0.0714, 0.002),
-			"30 mm starts the V2 extreme")
-		var mouth: Vector3 = v2_anatomy.shapes.anal_mouth()
-		check(mouth.y < 0.062 and mouth.y > 0.041,
-			"30 mm tracks the V2 ring down from the old cup point")
-		v2_anatomy.shapes.apply_anal_local(0.056)
-		mouth = v2_anatomy.shapes.anal_mouth()
-		check(near(mouth.y, GEOMETRY.V2_ANAL_RING_EXTREME.y, 0.001),
-			"56 mm puts the anal aim on the extreme ring")
-		var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
-		var aim_offset: Vector3 = v2_mi.global_transform.basis.y.normalized() \
-			* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
-		check(aim.distance_to(v2_mi.global_transform * GEOMETRY.V2_ANAL_RING_EXTREME
-			+ aim_offset) < 0.0001, "the anal act aims at the deformed V2 ring")
-		v2_anatomy.shapes.apply_anal_local(0.080)
-		check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,
-			"an oversized shaft extrapolates the V2 extreme")
-		v2_anatomy.free()
-		v2_root.free()
+	# The mare bits mesh owns the anal hole: the cup/ring are gone.
+	var v2_scene: PackedScene = load(ANATOMY.MARE_BITS_PATH)
+	var v2_root: Node = v2_scene.instantiate()
+	var v2_mi := v2_root as MeshInstance3D
+	var v2_mesh := v2_mi.mesh as ArrayMesh
+	check(v2_mesh.get_blend_shape_count() >= 8, "the mare bits mesh keeps its anal keys")
+	check(v2_mi.find_blend_shape_by_name("wink") >= 0,
+		"the mesh has the clitoris wink key")
+	for shape_name: String in ["anal_open", "anal_stretch", "anal_overstretch",
+			"anal_extreme", "ponut_scale"]:
+		check(v2_mi.find_blend_shape_by_name(shape_name) >= 0,
+			"the mesh has the %s key" % shape_name)
+	var v2_arrays: Array = v2_mesh.surface_get_arrays(0)
+	var v2_colors: Variant = v2_arrays[Mesh.ARRAY_COLOR]
+	check(v2_colors != null and (v2_colors as PackedColorArray).size()
+		== (v2_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size(),
+		"the mare bits colours cover every vertex")
+	var folds := 0
+	var clits := 0
+	if v2_colors != null:
+		for c: Color in v2_colors:
+			if c.a > 0.9:
+				folds += 1
+			elif c.a > 0.4:
+				clits += 1
+	check(folds > 500, "the inner folds keep their mask")
+	check(clits > 200, "the clitoris keeps its mask")
+	get_root().add_child(v2_mi)
+	v2_mi.transform = Transform3D.IDENTITY
+	var v2_anatomy: Node = ANATOMY.new()
+	v2_anatomy.shapes.set_mesh(v2_mi)
+	v2_anatomy.shapes.apply_anal_local(0.030)
+	var open_i := v2_mi.find_blend_shape_by_name("anal_open")
+	var stretch_i := v2_mi.find_blend_shape_by_name("anal_stretch")
+	var over_i := v2_mi.find_blend_shape_by_name("anal_overstretch")
+	var extreme_i := v2_mi.find_blend_shape_by_name("anal_extreme")
+	check(is_equal_approx(v2_mi.get_blend_shape_value(open_i), 1.0),
+		"30 mm opens the V2 anus")
+	check(is_equal_approx(v2_mi.get_blend_shape_value(stretch_i), 1.0),
+		"30 mm reaches the normal V2 stretch")
+	check(is_equal_approx(v2_mi.get_blend_shape_value(over_i), 1.0),
+		"30 mm reaches the V2 overstretch")
+	check(near(v2_mi.get_blend_shape_value(extreme_i), 0.0714, 0.002),
+		"30 mm starts the V2 extreme")
+	var mouth: Vector3 = v2_anatomy.shapes.anal_mouth()
+	check(mouth.y < 0.062 and mouth.y > 0.041,
+		"30 mm tracks the V2 ring down from the old cup point")
+	v2_anatomy.shapes.apply_anal_local(0.056)
+	mouth = v2_anatomy.shapes.anal_mouth()
+	check(near(mouth.y, GEOMETRY.V2_ANAL_RING_EXTREME.y, 0.001),
+		"56 mm puts the anal aim on the extreme ring")
+	var aim: Vector3 = v2_anatomy.call("hole_point", 1.0)
+	var aim_offset: Vector3 = v2_mi.global_transform.basis.y.normalized() \
+		* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
+	check(aim.distance_to(v2_mi.global_transform * GEOMETRY.V2_ANAL_RING_EXTREME
+		+ aim_offset) < 0.0001, "the anal act aims at the deformed V2 ring")
+	v2_anatomy.shapes.apply_anal_local(0.080)
+	check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,
+		"an oversized shaft extrapolates the V2 extreme")
+	v2_anatomy.free()
+	v2_root.free()
 
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
 	# the lips stay on the shaft through the climax instead of closing on nothing.
@@ -528,28 +525,27 @@ func run() -> void:
 
 	# A part built on a body that has left the tree is dropped and rebuilt on the current body,
 	# so a following act is not handed a mesh that can never be seen.
-	if PLAYER_PART.assets_exist():
-		var stale_part: Node = PLAYER_PART.new()
-		root.add_child(stale_part)
-		var stale_host := Node3D.new()
-		var stale_mesh := MeshInstance3D.new()
-		stale_mesh.mesh = BoxMesh.new()
-		stale_host.add_child(stale_mesh)
-		stale_part.set("_mesh", stale_mesh)
-		var fake_body := Node3D.new()
-		var fake_skeleton := Skeleton3D.new()
-		fake_skeleton.add_bone("Hips")
-		fake_body.add_child(fake_skeleton)
-		root.add_child(fake_body)
-		stale_part.set("player_body", fake_body)
-		check(bool(stale_part.call("prepare")), "a parted-out part rebuilds on the current body")
-		var rebuilt: Variant = stale_part.get("_mesh")
-		check(rebuilt is MeshInstance3D and rebuilt != stale_mesh
-			and (rebuilt as MeshInstance3D).is_inside_tree(),
-			"the rebuilt part is a new in-tree mesh")
-		stale_host.free()
-		stale_part.queue_free()
-		fake_body.queue_free()
+	var stale_part: Node = PLAYER_PART.new()
+	root.add_child(stale_part)
+	var stale_host := Node3D.new()
+	var stale_mesh := MeshInstance3D.new()
+	stale_mesh.mesh = BoxMesh.new()
+	stale_host.add_child(stale_mesh)
+	stale_part.set("_mesh", stale_mesh)
+	var fake_body := Node3D.new()
+	var fake_skeleton := Skeleton3D.new()
+	fake_skeleton.add_bone("Hips")
+	fake_body.add_child(fake_skeleton)
+	root.add_child(fake_body)
+	stale_part.set("player_body", fake_body)
+	check(bool(stale_part.call("prepare")), "a parted-out part rebuilds on the current body")
+	var rebuilt: Variant = stale_part.get("_mesh")
+	check(rebuilt is MeshInstance3D and rebuilt != stale_mesh
+		and (rebuilt as MeshInstance3D).is_inside_tree(),
+		"the rebuilt part is a new in-tree mesh")
+	stale_host.free()
+	stale_part.queue_free()
+	fake_body.queue_free()
 
 	# Her act wink: quiet at her lips, frequent once a climax has been pulled out of her.
 	check(ANATOMY_ACT.wink_mode(0.6, true, 2) == 0, "a thrusting shaft raises no wink")

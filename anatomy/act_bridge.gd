@@ -6,7 +6,6 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
@@ -62,7 +61,7 @@ func refresh() -> void:
 	var eligibility_service: Variant = _host("eligibility_service")
 	var target_ok: bool = eligibility_service != null \
 		and eligibility_service.call("eligible", pony, ELIGIBILITY.Target.ANATOMY)
-	if not SETTINGS.anatomy_on() or not target_ok or not ANATOMY.assets_exist():
+	if not SETTINGS.anatomy_on() or not target_ok:
 		if service != null and service.has_method("detach_controller"):
 			service.call("detach_controller", pony)
 		elif is_instance_valid(controller):

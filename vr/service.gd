@@ -1,5 +1,5 @@
 extends Node
-## integration: optional VR standing act, ported from PonyPussyParadise vr_act.gd. Desktop paths
+## integration: optional VR standing act. Desktop paths
 ## do not create it. It drives the same depth and anatomy actions as the desktop keys; the
 ## auto-speed/stroke-depth controls from the fork are deliberately not imported.
 

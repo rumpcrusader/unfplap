@@ -2,7 +2,7 @@ extends RefCounted
 ## The one settings module: every global setting, the settings file, and the per-mare profiles.
 ##
 ##   const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-##   if SETTINGS.act_vocals.get_bool(): ...
+##   if SETTINGS.act_climax.get_bool(): ...
 ##   SETTINGS.smack_raise.set(0.25)
 ##
 ## Every setting is declared once in the declarations block below: name, JSON path, label, help,
@@ -80,7 +80,7 @@ const WORLD := "world"
 
 # ---------------------------------------------------------------- settings
 ## One setting, declared once below. Call sites use the typed accessor on the named setting:
-## `SETTINGS.act_vocals.get_bool()`; the JSON path appears only in the declaration.
+## `SETTINGS.act_climax.get_bool()`; the JSON path appears only in the declaration.
 class Setting:
 	var name: String
 	var path: String
@@ -919,10 +919,6 @@ static var act_climax := flag("act_climax", "features.act_climax", false, "Play 
 	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
 	GENERAL, "") \
 	.as_debug()
-static var act_vocals := flag("act_vocals", "features.act_vocals", false, "Play act vocals",
-	"Add the pack moan only at her climax. Off keeps the pony breath, Ponese voice and current climax squeak unchanged.",
-	GENERAL, "") \
-	.as_debug()
 
 # -- Camera  (debug)
 static var bob := num("bob", "camera_thrust.bob", 0.35, "Bob",
@@ -1364,10 +1360,6 @@ static var coat_follow := num("coat_follow", "anatomy.coat_follow", 1.0,
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.6, "Skin tone",
 	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
-static var mare_bits := choice("mare_bits", "anatomy.mare_bits", "v2",
-	["original", "v2"], ["Original PPP", "V2"],
-	"Mare bits",
-	"Choose the full mare genitals mesh. V2 uses the smoothed model when its asset is present; otherwise the original PPP mesh is used.", ANATOMY, "")
 static var vulva_height := num("vulva_height", "anatomy.vulva_height", 0.75,
 	"Vulva height",
 	"Scale the vulva vertically around its opening. Below 1 shortens it; above 1 lengthens it.", ANATOMY, "") \
@@ -1831,6 +1823,8 @@ static var _deprecated := [
 	# The dock used to be hidden by a `true` switch; keep the player's choice across the rename.
 	deprecated("anatomy.hide_dock",
 		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),
+	# One mare bits mesh ships with the pack; the mesh choice is retired.
+	deprecated("anatomy.mare_bits", func(_value: Variant) -> Dictionary: return {}),
 	# The separate log switch folded into the debug switch.
 	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
 	# Missionary is one authored pose and one authored shot now; the correction stack, its neck
@@ -1901,6 +1895,8 @@ static var _deprecated := [
 		func(_value: Variant) -> Dictionary: return {}),
 	# Pack foley is always on; the switch is retired.
 	deprecated("features.act_foley", func(_value: Variant) -> Dictionary: return {}),
+	# The pack climax moan is gone; the wet finish keeps its own switch.
+	deprecated("features.act_vocals", func(_value: Variant) -> Dictionary: return {}),
 	# Bystander lines are always on and the body-yaw debug aid is gone; both switches are retired.
 	deprecated("features.act_bystanders", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("player.body_yaw_deg", func(_value: Variant) -> Dictionary: return {}),
@@ -2926,14 +2922,9 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 	if not anatomy is Dictionary:
 		return data
 	var block := anatomy as Dictionary
-	# The old `winking_model` choice became the full-genitals `mare_bits` choice.
-	if block.has("winking_model"):
-		var old_model := str(block["winking_model"])
-		if not block.has("mare_bits"):
-			block["mare_bits"] = "v2" if old_model == "sculpted" or old_model == "v2" else "original"
-		block.erase("winking_model")
-	if block.has("mare_bits") and str(block["mare_bits"]) == "sculpted":
-		block["mare_bits"] = "v2"
+	# Retired mesh choices: the file keeps only the one mesh the mod ships.
+	block.erase("winking_model")
+	block.erase("mare_bits")
 	var tone: Variant = block.get("skin_tone")
 	if tone is String:
 		block["skin_tone"] = float(LEGACY_SKIN_TONES.get(str(tone),

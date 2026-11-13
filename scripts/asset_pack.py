@@ -38,7 +38,6 @@ ARCHIVE_PATTERN = re.compile(r"^https://u\.pone\.rs/[a-z0-9]+\.zip$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 CRITICAL_RUNTIME = [
-    "assets/anatomy/mare/winking.scn",
     "assets/anatomy/mare/mare_bits_v2.scn",
     "assets/anatomy/mare/teats.scn",
     "assets/anatomy/mare/skin_bridge.scn",

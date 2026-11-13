@@ -277,7 +277,7 @@ lab keys.
 | `WORKFLOW.md` | commands, labs and release flow |
 | `README.md` | the player-facing summary; human-owned, do not edit |
 | `docs/api.md` | the stable cross-mod API |
-| `assets/README.md`, `AUDIO_CREDITS.md` | asset-pack and audio credits |
+| `assets/README.md`, `CREDITS.md` | asset-pack and external credits |
 
 Rules:
 

@@ -13,7 +13,8 @@ scripts/fetch_assets.sh --force    # overwrite local changes
 Run the fetch once in a fresh checkout, before `--mod-src`, `scripts/test_all.sh`,
 `scripts/smoke.sh`, a lab or `build.sh`. The download is verified against the archive hash and
 per-file manifest in `scripts/asset_pack.json`; a missing, stale or extra runtime file fails
-`build.sh` with the fetch hint.
+`build.sh` with the fetch hint. The runtime files are required: the mod has no missing-asset
+fallback.
 
 ## Two roots
 
@@ -42,9 +43,8 @@ unfplap-assets-<hash>.zip
 - `sources/` is editable material. `build.sh` and CI never stage or pack it.
 - `audio/cues.gd`, `audio/smack_cues.gd` and `audio/cue_sources.json` stay in git: they are code
   and credit metadata, not audio data.
-- `assets/audio/` is flat by cue group: `plap/`, `slide/`, `fabric/`, `mouth/`, `climax/`,
-  `vocals/` and `smack/`. The pool split (foley/vocals/climax) lives in `audio/cues.gd`, not in
-  the directory names.
+- `assets/audio/` is flat by cue group: `plap/`, `slide/`, `fabric/`, `mouth/`, `climax/` and
+  `smack/`. The pool split (foley/climax) lives in `audio/cues.gd`, not in the directory names.
 - The V2 Blender source is the only Blender file archived under `sources/anatomy/`. Winking
   iterations, `.blend1` files, `backups/` and reference renders stay local under `sources/work/`
   and out of the archive.
@@ -74,8 +74,7 @@ importer's headless check aborts the whole pass when the project contains `.blen
 ## Anatomy files
 
 ```text
-mare/winking.scn          original PPP mare anatomy mesh (closed/stretch blend shapes)
-mare/mare_bits_v2.scn     V2 mare genitals (closed/stretch/wink + anal_open/anal_stretch/
+mare/mare_bits_v2.scn     mare genitals (closed/stretch/wink + anal_open/anal_stretch/
                           anal_overstretch/anal_extreme/ponut_scale blend shapes)
 mare/teats.scn            skinned teats (mid/full blend shapes, 191 binds)
 mare/skin_bridge.scn      skinned midline strip
@@ -85,8 +84,9 @@ anon/anon_part_nrm.png    2048^2 normal map
 anon/anon_part_albedo.png 2048^2 albedo/detail
 ```
 
-At runtime the V2 mesh is optional: the Mare bits setting falls back to `winking.scn` when it is
-absent. The anatomy feature itself is optional in the settings.
+These runtime files are required: `build.sh` and `smoke.sh` refuse a set that does not match
+`scripts/asset_pack.json`, and the mod has no missing-asset fallback. The anatomy feature itself
+is optional in the settings.
 
 ## Recovering or replacing the files
 
@@ -95,4 +95,4 @@ file was edited, the fetch refuses to overwrite it; `scripts/fetch_assets.sh --f
 local copy and restores the archived one. To keep intentional asset edits, repack and upload them
 instead. The downloaded files are ignored; only `scripts/asset_pack.json` is committed.
 
-Redistribution is by permission of the PonyPussyParadise author; `mod.json` credits them.
+Redistribution is by permission of the mare-bits author; `CREDITS.md` names the source.

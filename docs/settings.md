@@ -43,7 +43,7 @@ catalog order is the panel order.
 ```gdscript
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-if SETTINGS.act_vocals.get_bool(): ...
+if SETTINGS.act_climax.get_bool(): ...
 var raise_m: float = SETTINGS.raise_m.get_num()
 var orientation: String = SETTINGS.orientation.get_choice()
 var ignored: Array = SETTINGS.ignore.get_list()
@@ -64,7 +64,7 @@ SETTINGS.radius.reset()
 Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`, `label`, `help`,
 `tab`, `group`, `default` and `debug`.
 
-A wrong accessor does not compile: `SETTINGS.act_vocals.get_num()` is a parse error, and so is a
+A wrong accessor does not compile: `SETTINGS.act_climax.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 
 **Per-act snapshot.** `SETTINGS.act_snapshot(pose_id)` returns one typed `ActSnapshot` with every
@@ -126,7 +126,7 @@ where a player would look for it, next to the setting it belongs to; do not add 
 ## Naming
 
 The identifier is the JSON path's last segment: `thrust.travel` → `travel`,
-`features.act_vocals` → `act_vocals`. Only on a collision with another setting does it gain the parent
+`features.act_climax` → `act_climax`. Only on a collision with another setting does it gain the parent
 segment as a prefix (`jiggle.intensity` → `intensity`; a second `intensity` would become
 `jiggle_intensity`). Keep names short; the panel group carries the context. Do not add group
 prefixes pre-emptively.
@@ -249,9 +249,9 @@ stores the choice.
 **Anatomy**
 
 The first rows have no heading: the **Anatomy** pill (**Never** / **During act only** / **Always**),
-**Show tail docks**, **Show skin strip**, **Show teats**, **Show fluids**, **Skin tone** and
-**Mare bits** (Original PPP or V2). **Show tail docks** only shows or hides the dock; it never
-moves the anatomy. The behavior behind these rows is in `docs/anatomy.md`.
+**Show tail docks**, **Show skin strip**, **Show teats**, **Show fluids** and **Skin tone**.
+**Show tail docks** only shows or hides the dock; it never moves the anatomy. The behavior behind
+these rows is in `docs/anatomy.md`.
 
 - **Anon**: size, length, base/mid/head radius, throb and the back-out gap.
 
@@ -327,7 +327,6 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_public_offer` | `false` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
-| `act_vocals` | `false` | pack climax moan only |
 | `act_climax` | `false` | pack wet finish layer |
 
 Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust

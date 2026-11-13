@@ -338,7 +338,7 @@ func clear_player() -> void:
 
 
 func refresh_player() -> void:
-	var enabled := SETTINGS.anatomy_on() and is_instance_valid(player) and PLAYER.assets_exist()
+	var enabled := SETTINGS.anatomy_on() and is_instance_valid(player)
 	if not enabled:
 		if is_instance_valid(_player_part):
 			_player_part.call("encounter", false)
@@ -476,14 +476,6 @@ func player_apply_live() -> void:
 
 
 # --------------------------------------------------------------------------- static helpers
-
-static func assets_exist() -> bool:
-	return CONTROLLER.assets_exist()
-
-
-static func selected_mare_bits_path() -> String:
-	return CONTROLLER.selected_mare_bits_path()
-
 
 static func pony_id(pony_node: Node) -> String:
 	return CONTROLLER.pony_id(pony_node)

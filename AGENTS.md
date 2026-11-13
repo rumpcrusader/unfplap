@@ -33,7 +33,8 @@ Do not start implementation until you have read the required files for the area 
 | Setting, flag or debug control | `docs/settings.md` |
 | Character profiles or preference | `docs/preferences.md`, `docs/settings.md` |
 | Cross-mod API | `docs/api.md`, `api.gd`, `registry/service.gd` |
-| Act audio or sound assets | `docs/audio.md`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
+| Act audio or sound assets | `docs/audio.md`, `CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
+| New external asset or credit | `CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
 | Act HUD text or `End` tint | `docs/hud.md` |
 | Debug actions, console or overlay | `docs/debug.md` |
 | Perf probes | `docs/perf.md` |
@@ -50,9 +51,10 @@ Do not start implementation until you have read the required files for the area 
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only; it never adds pregnancy or a body model. The anatomy is an optional, feature-gated
-  addition; it never replaces a pony's body or rig. The PPP anatomy meshes/textures and the act
+  addition; it never replaces a pony's body or rig. The anatomy meshes/textures and the act
   audio are fetched from one external resource pack before a build and packed with the mod; they
-  are not tracked. The act stays off-camera by framing. Modelled accessories are allowed.
+  are not tracked and the mod does not run without them. The act stays off-camera by framing.
+  Modelled accessories are allowed.
 - Anatomy attaches to every adult identity with `pony_hips`, including mares added by other mods;
   the base-game roster is not an attachment whitelist. Tail seating follows the same rule. Acts
   still need the game's relationship runtime and adult bond.
@@ -99,8 +101,9 @@ Work the change in one batch:
 - Start a fresh session once the context has grown past a few hundred thousand tokens; carry a
   short plan forward instead of appending to a long conversation.
 - A fresh checkout needs the external assets once (`scripts/fetch_assets.sh`), before source runs,
-  tests, labs or builds. The script also accepts `--sources` for the V2 Blender file and `--force`
-  to overwrite local changes.
+  tests, labs or builds. The pack ships them and the mod requires them; there is no runtime
+  fallback. The script also accepts `--sources` for the V2 Blender file and `--force` to overwrite
+  local changes.
 
 Run from source:
 
@@ -160,10 +163,11 @@ scripts/check.sh
   `scripts/build_manifest.py`, and `pack.gd` requires the packed files to match it. Build from the
   git checkout with the fetched assets. A failed check removes the pack. The mod has no script
   extension.
-- The PPP anatomy meshes, textures and act audio live in the external resource archive described
-  by `scripts/asset_pack.json`; the V2 `mare_bits_v2.scn` variant is one of the eight required
-  anatomy files. The V2 Blender source lives in `sources/anatomy/mare_bits_v2.blend`, is uploaded
-  in the archive's `sources/` tree and is never packed.
+- The anatomy meshes, textures and act audio live in the external resource archive described by
+  `scripts/asset_pack.json`; the mare bits mesh is one of the seven required anatomy files. The
+  V2 Blender source lives in `sources/anatomy/mare_bits_v2.blend`, is uploaded in the archive's
+  `sources/` tree and is never packed. They are required at runtime; see `CREDITS.md` for the
+  sources.
 - Change assets with `scripts/pack_assets.sh --upload`, then commit `scripts/asset_pack.json`. See
   `assets/README.md`.
 - CI builds on pushes and pull requests; only a `v*` tag publishes a release. Release preparation,
@@ -215,7 +219,7 @@ This is mandatory.
   service docs and does not restate them.
 - `docs/README.md` is the documentation index and the doc template.
 - Root-level docs are for players and agents: `README.md`, `AGENTS.md`, `WORKFLOW.md`,
-  `assets/README.md`, `AUDIO_CREDITS.md`. Service contracts do not live at the root.
+  `assets/README.md`, `CREDITS.md`. Service contracts do not live at the root.
 - Update the owning doc in the same commit as behaviour, settings, controls, debug actions or
   tests. Remove obsolete claims instead of keeping historical notes.
 - `README.md` is human-owned. Do not edit it; report needed player-facing changes to the user
@@ -274,7 +278,7 @@ mods/unfplap/
   stool/            the per-act stool handle and supply
   lines/            line scheduler and prompt formatting internals
   <service>/        the remaining service facades and private internals
-  AUDIO_CREDITS.md  audio credits; ships
+  CREDITS.md        external credits; ships
   README.md         player-facing summary; human-owned, do not edit
   WORKFLOW.md       commands, labs and release flow
 ```

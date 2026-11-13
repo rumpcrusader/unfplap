@@ -93,9 +93,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 Work the change in one batch:
 
-- Settle the design before touching files. Once it is settled, apply every edit first, then run
-  only the touched suites, then `scripts/test_all.sh` once. Do not re-run the full gate after each
-  file.
+- Settle the design before touching files. Once it is settled, apply every edit first, then check
+  the change. Gate once per task, not per commit: `scripts/test.sh <touched>` and
+  `scripts/check.sh` before each commit, `scripts/test_all.sh` once when the task is done.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - Start a fresh session once the context has grown past a few hundred thousand tokens; carry a
@@ -133,7 +133,13 @@ VR lab:
 ./lab-vr.sh [--no-service] [--vr-lab-autostart]
 ```
 
-Tests (manual, before every commit):
+Touched suites, before each commit:
+
+```bash
+scripts/test.sh <suite>...
+```
+
+Every suite, once per task:
 
 ```bash
 scripts/test_all.sh
@@ -151,9 +157,11 @@ Fast parse check for changed scripts:
 scripts/check.sh
 ```
 
-- `test_all.sh` runs every suite, prints each `RESULT` line and exits nonzero on any failure.
-- `check.sh --all` parses every mod script. It is a quick subset of `test_all.sh`, not a
-  replacement for the full gate.
+- `test.sh` runs the named suites, or every suite under a directory (`scripts/test.sh poses`), with
+  each suite's own throwaway `user://` and the gate's own prechecks. `--list` prints the suites.
+- `test_all.sh` runs every suite and ends in `TEST_ALL_PASS`.
+- `check.sh --all` parses every mod script. It is a quick subset of the gate, not a replacement for
+  it.
 - Build only when the user asks:
   ```bash
   ./build.sh [--out <file.pck>]

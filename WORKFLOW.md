@@ -28,13 +28,22 @@ is a separate repository; never commit game-source changes from the mod repo.
    every commit passes.
 5. Never mix unrelated work. Stage explicitly (`git add <path>` or `git add -p`), never
    `git add -A` or `git commit -a` while another task has edits.
-6. Run the checks that cover the change manually before every commit:
-   - `scripts/test_all.sh` for any code change;
+6. Check the change before each commit:
+   - `scripts/test.sh <suite>...` for the suites that cover it; use `--all` when it crosses
+     several services;
+   - `scripts/check.sh` for a quick parse check of the changed scripts;
    - `scripts/smoke.sh` for entry/runtime changes;
-   - `scripts/check.sh` for a quick parse check of changed scripts;
    - `./lab.sh` for camera/pose changes; the session is in `last-run.log`, and say it was manual.
-7. Commit with one scoped, imperative subject line and no body.
-8. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
+7. Run the full gate once per task, when the change is complete:
+
+   ```bash
+   scripts/test_all.sh
+   ```
+
+   It runs every suite and ends in `TEST_ALL_PASS`. Do not re-run it after every commit or every
+   file.
+8. Commit with one scoped, imperative subject line and no body.
+9. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
    CI builds and releases from the remote, but the agent never pushes.
 
 ## Commit messages

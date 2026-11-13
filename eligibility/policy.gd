@@ -29,7 +29,7 @@ static func level_ok(required: String, love_level: int) -> bool:
 	return need < 0 or love_level >= need
 
 
-## Starting Sex `try_luck` shows the start hint before she welcomes a kiss. It never skips the
+## The Show start button `try_luck` mode shows the start hint before she welcomes a kiss. It never skips the
 ## base kiss willingness for a start or an offer; the policy still checks that separately.
 static func hint_without_willingness(sex_start: String) -> bool:
 	return sex_start == "try_luck"

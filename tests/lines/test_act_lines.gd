@@ -117,7 +117,6 @@ func run() -> void:
 	}
 	facts.act_prompts = {"cue": "Cue: {cue}. {seed}"}
 	facts.features = {
-		"act_lines": true, "act_faces": true, "act_line_angles": true,
 		"act_speech_feel": false,
 	}
 	facts.director = Callable(host, "get_director")
@@ -149,6 +148,7 @@ func run() -> void:
 		"the prompt is formatted: %s" % request.purpose)
 	check(request.purpose.contains("private, not a script"),
 		"the cue seed is included")
+	check(request.purpose.contains("[face:"), "the cue carries the face hint")
 	check(request.valid.is_valid() and request.finished.is_valid(),
 		"the cue carries its validity and completion callbacks")
 

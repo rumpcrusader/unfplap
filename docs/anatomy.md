@@ -201,9 +201,9 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - The skin strip is `skin_bridge.scn`, also skinned to the mare. Its span is measured from the
   dock AABB and the teat strip end; its gap is measured from the hip bind and the authored slit.
   `strip_scale` scales the strip in model-space X around the midline.
-- The default dock colour is `genitals`: the dock copies the attached anatomy material with the
-  skin tones. `coat` keeps the game's coat material. With anatomy detached, the dock falls back to
-  the coat.
+- The default dock style is `genitals`: the dock copies the attached anatomy material with the
+  skin tones. `coat` keeps the game's coat material, and `hide` removes the dock. With anatomy
+  detached, the dock falls back to the coat.
 
 ## Placement
 
@@ -219,7 +219,7 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   resolved default are stored; saving a row equal to the default removes the block.
 - The anatomy mesh is placed at the saved offset plus the calibrated `0.03 m` lift, pitched and
   scaled, then mapped through the `pony_hips` bind. A princess profile scales the origin and basis
-  about the body. `show_dock` is visibility only and never moves the mesh.
+  about the body. `Dock style` is visibility/colour only and never moves the mesh.
 - `vulva_out_mm` pushes the whole mesh out along its own normal; it exists for a pose that tucks
   the anatomy into the coat.
 - Missionary adds the per-size vulva trims from `presentation.missionary.size.<preset>`:
@@ -472,8 +472,9 @@ body's own deformation across the whole mesh.
   the same guard.
 - `part_throb` scales a two-lobe heartbeat. It also lifts the visible shaft while it is outside
   her; the lift fades to nothing at full depth.
-- `back_out_m` is how far the tip rests behind her lips when pulled all the way out. It is
-  negative penetration, so the depth scale never counts it.
+- `back_out_m` is how far the tip rests past (positive) or inside (negative) her lips when pulled
+  all the way out. It is negative penetration, so the depth scale never counts a positive standoff;
+  the signed value still clamps the pull-out.
 - `track()` takes measured penetration in metres and places the tip exactly that far past her
   lips. The attached aim pulls his pelvis to `opening - normal × (shaft - penetration)`; the
   sliding aim puts the tip there; the bed holder sits `shaft - penetration` behind her. The
@@ -490,7 +491,7 @@ body's own deformation across the whole mesh.
 - `shaft_length_m()` is the visible placed length; the runtime's penetration reach is
   `shaft length - pelvis gap`. With the anatomy off the runtime uses `NOMINAL_SHAFT_M = 0.20`.
   The body-slap skin gap is measured from this same reach, so `Pelvis gap` already counts as
-  distance and is never double-counted against Contact gap.
+  distance and is never double-counted against the body slap's true-contact gate.
 
 ## Tail seating
 
@@ -580,20 +581,22 @@ settings page is built from the declarations, so the label, help, default and bo
 restated here.
 
 - `anatomy.anatomy_mode`: `never`, `act` or `always`; default `never`. It replaced the old master
-  switch and `act_only`, and drives `SETTINGS.anatomy_on()`.
-- `anatomy.teats`, `anatomy.skin_strip`: optional teats and the midline strip; both off by
+  switch and `act_only`, and drives `SETTINGS.anatomy_on()`. While `never` is selected the settings
+  page dims and disables every Anatomy row below the pill.
+- `anatomy.dock_style`: `hide`, `coat` or `genitals`; default `genitals`. The old `show_dock` and
+  `dock_color` keys migrate in that order, with a hidden dock winning over its colour.
+- `anatomy.teats`, `anatomy.skin_strip`: optional teats and the ventral midline strip; both off by
   default.
 - `features.anatomy_fluid`: climax, finish and idle droplets; default on.
 - `features.body_coat_deform`: runtime coat patch; debug, default on.
 - `anatomy.coat_follow`: how far the anatomy follows the body coat's leg skinning; debug,
   default `1.0`, `0` keeps it rigid.
-- `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.vulva_inner_color`,
+- `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
   `anatomy.clitoris_color`: material appearance.
-- `anatomy.show_dock`, `anatomy.dock_color`, `anatomy.reseat_tails`: dock visibility, colour and
-  seat; reseat is on by default.
+- `anatomy.reseat_tails`: dock/tail seat; on by default.
 - `anatomy.placement.default.*`, `anatomy.placement.anon.*`, `anatomy.placement.<id>.*` and
   `anatomy.placement_target`: the placement block and editor target.
-- `anatomy.anal_scale`, `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
+- `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
   `anatomy.lip_vertical`, `anatomy.strip_scale`: shape and grip tuning.
 - `anatomy.coat_spread`, `anatomy.coat_hole`, `anatomy.coat_hole_height`,
   `anatomy.coat_hole_depth_mm`,
@@ -605,14 +608,15 @@ restated here.
 - `anatomy.fluid_size`, `anatomy.fluid_y_speed`, `anatomy.drip`, `anatomy.fluid_alpha`: idle
   discharge.
 - `anatomy.player_scale`, `anatomy.part_base_scale`, `anatomy.part_mid_scale`,
-  `anatomy.part_head_scale`, `anatomy.part_length_scale`, `anatomy.part_throb`: player part.
-- `anatomy.back_out_m`, `anatomy.part_front_m`, `anatomy.pelvis_gap_m`: player-part standoff.
+  `anatomy.part_head_scale`, `anatomy.part_length_scale`, `anatomy.part_throb`: the **You** group.
+- `anatomy.back_out_m`, `anatomy.part_front_m`, `anatomy.pelvis_gap_m`: player-part standoff, in
+  the Anatomy Debug **You** group. Back-out is signed, `-5…5 cm`, default `0`.
 - `presentation.missionary.part_inset_m`: missionary-only part inset, added to `part_front_m`.
 - `presentation.missionary.size.<preset>.vulva_shift_mm`, `vulva_pitch_deg`,
   `vulva_depth_shift_mm` and `vulva_hug_mm`: the missionary-only placement and grip trims.
 - `features.anatomy_holes`, `features.anatomy_oral`, `features.anatomy_finish`: the V/N/B
   controls; hole on, oral off, finish off by default.
-- `features.anatomy_vr`: the optional VR standing act, default on.
+- The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
 - `features.debug_aim_points`: the three aim markers.
 
 ## Debug and performance

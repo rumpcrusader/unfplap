@@ -53,6 +53,7 @@ func run() -> void:
 	_check_sections()
 	_check_groups()
 	_check_panels()
+	_check_anatomy_gate()
 	_check_debug_actions()
 	_check_integrations_panel()
 	_check_section_folding()
@@ -81,19 +82,25 @@ func _check_registry() -> void:
 			complete = false
 		names[setting.name] = true
 		paths[setting.path] = true
-		# An empty group is legal: the setting then has no section heading.
-		if str(setting.label).is_empty() or str(setting.help).is_empty():
+		# An empty group is legal: the setting then has no section heading. An empty hint is
+		# legal too: the label alone can say what the row does.
+		if str(setting.label).is_empty():
 			complete = false
 		if str(setting.tab) not in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD,
 				SETTINGS.INTEGRATIONS]:
 			complete = false
 		tabs[setting.tab] = int(tabs.get(setting.tab, 0)) + 1
-	check(complete, "every setting has a unique name and path, a label, help and tab")
+	check(complete, "every setting has a unique name and path, a label and tab")
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD,
 			SETTINGS.INTEGRATIONS]:
 		check(int(tabs.get(tab, 0)) > 0, "%s tab has settings" % tab)
 	check(SETTINGS.by_name("hud_readouts") != null, "a setting is reachable by name")
 	check(SETTINGS.by_path("features.hud_readouts") != null, "a setting is reachable by path")
+	check(SETTINGS.by_path("features.act_faces") == null, "act faces are not a setting")
+	for name: String in ["act_lines", "act_line_angles", "caress_areas",
+			"allow_act_during_cuddle", "contact_gap_m", "standing_plant_feet",
+			"plant_spread_m", "anatomy_vr", "show_dock", "dock_color"]:
+		check(SETTINGS.by_name(name) == null, "%s is retired" % name)
 
 
 ## The declared defaults are the values a fresh file would give.
@@ -112,8 +119,14 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(not bool(SETTINGS.skeleton_overlay.get_bool()), "the skeleton overlay is off by default")
 	check(bool(SETTINGS.skeleton_overlay.debug), "the skeleton overlay is a debug setting")
-	check(bool(SETTINGS.kissing_reactions.default),
-		"the Kissing reaction bridge defaults on")
+	check(not bool(SETTINGS.kissing_reactions.default),
+		"the Kissing reaction bridge defaults off")
+	check(str(SETTINGS.dock_style.default) == "genitals", "dock style defaults to genitals")
+	check(near(float(SETTINGS.back_out_m.default), 0.0) and bool(SETTINGS.back_out_m.debug),
+		"back-out gap is a debug number at zero")
+	check(near(float(SETTINGS.back_out_m.low), -5.0)
+		and near(float(SETTINGS.back_out_m.high), 5.0),
+		"back-out gap keeps its signed range")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
 
@@ -376,6 +389,35 @@ func _check_panels() -> void:
 	SETTINGS.debug_mode.set_bool(debug_before)
 
 
+## Anatomy Never keeps the pill active while greying out and disabling everything it governs.
+func _check_anatomy_gate() -> void:
+	var before := SETTINGS.anatomy_mode.get_choice()
+	SETTINGS.anatomy_mode.set_choice("never")
+	var list := VBoxContainer.new()
+	SETTINGS_UI.build(list, SETTINGS.ANATOMY, 16, null, Callable())
+	SETTINGS_UI.refresh_debug_visibility()
+	var gate: Variant = _find_named(list, "AnatomyGateContent")
+	check(gate is VBoxContainer, "the Anatomy tab has a gated content container")
+	if gate is VBoxContainer:
+		var content := gate as VBoxContainer
+		check(is_equal_approx(content.modulate.a, 0.75), "Never dims the Anatomy content to 75%")
+		var pill := _find_button_text(list, "Never")
+		check(pill != null and not pill.disabled,
+			"the Anatomy pill stays active while Never")
+		var mare := _find_button_text(content, "Mare")
+		check(mare != null and mare.disabled, "Never disables the Mare section")
+		check(content.visible, "the gated content stays visible")
+		SETTINGS.anatomy_mode.set_choice("always")
+		SETTINGS_UI.refresh_debug_visibility()
+		check(is_equal_approx(content.modulate.a, 1.0),
+			"Act or Always restores the Anatomy content")
+		check(mare != null and not mare.disabled,
+			"Act or Always re-enables the Mare section")
+	SETTINGS.anatomy_mode.set_choice(before)
+	SETTINGS_UI.refresh_debug_visibility()
+	list.free()
+
+
 ## A section heading is drawn once, even when its declarations interleave another group.
 func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
@@ -426,19 +468,28 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	var labels: Array = []
 	_collect_labels(list, labels)
 	var missing: Array = []
-	var sections: Array = []
+	var player_headings := {}
+	var debug_headings := {}
 	for setting: Variant in SETTINGS.tab_settings(tab):
 		if bool(setting.hidden):
 			continue
 		if not labels.has(str(setting.label)):
 			missing.append(setting.path)
 		var heading := str(setting.group).split("›", true, 1)[0].strip_edges()
-		if not heading.is_empty() and not sections.has(heading):
-			sections.append(heading)
+		if heading.is_empty():
+			continue
+		if bool(setting.debug):
+			debug_headings[heading] = true
+		else:
+			player_headings[heading] = true
 	check(missing.is_empty(), "%s tab draws every setting (%s)" % [tab, str(missing)])
-	for heading: String in sections:
+	for heading: String in player_headings:
 		check(labels.has(heading), "%s tab heading for %s" % [tab, heading])
-		check(labels.count(heading) == 1, "%s draws the %s heading once" % [tab, heading])
+		var expected := 2 if debug_headings.has(heading) else 1
+		check(_count_text(list, heading) == expected,
+			"%s draws the %s heading once per block" % [tab, heading])
+	for heading: String in debug_headings:
+		check(labels.has(heading), "%s Debug heading for %s" % [tab, heading])
 	if debug_section == null:
 		check(SETTINGS.tab_settings(tab).is_empty(), "%s has no Debug block without debug settings" % tab)
 	else:
@@ -562,10 +613,23 @@ func _check_migration() -> void:
 	var always: Dictionary = SETTINGS._normalize_anatomy_visibility({
 		"features": {"anatomy": true}, "anatomy": {"act_only": false}})
 	check(str(always["anatomy"].get("anatomy_mode", "")) == "always", "on maps to always")
-	# The dock switch is inverted by the deprecation mapper.
+	# The dock visibility and colour switches fold into one style pill.
 	var dock: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
 		"anatomy": {"hide_dock": true}}, SETTINGS.SCHEMA_VERSION)
-	check(not bool(dock["anatomy"].get("show_dock", true)), "hide_dock true maps to show_dock false")
+	check(str(dock["anatomy"].get("dock_style", "")) == "hide",
+		"hide_dock true maps to dock style hide")
+	var dock_colour: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"anatomy": {"show_dock": true, "dock_color": "coat"}}, SETTINGS.SCHEMA_VERSION)
+	check(str(dock_colour["anatomy"].get("dock_style", "")) == "coat",
+		"a visible dock keeps its coat colour")
+	var dock_off: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"anatomy": {"show_dock": false, "dock_color": "coat"}}, SETTINGS.SCHEMA_VERSION)
+	check(str(dock_off["anatomy"].get("dock_style", "")) == "hide",
+		"a hidden dock wins over its colour")
+	var dock_none: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION},
+		SETTINGS.SCHEMA_VERSION)
+	check(not (dock_none.get("anatomy", {}) as Dictionary).has("dock_style"),
+		"no old dock keys leaves the genitals default")
 
 	# The old caress shoulder default detached the arm; migrate only the shipped 12 cm value.
 	var reach: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
@@ -612,16 +676,24 @@ func _check_migration() -> void:
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,
 		"features": {"act_chat": true, "act_vocals": true, "act_history": false,
-			"hud_readouts": true},
+			"act_faces": false, "hud_readouts": true, "act_lines": true,
+			"act_line_angles": true, "caress_areas": true,
+			"allow_act_during_cuddle": true, "standing_plant_feet": true,
+			"anatomy_vr": true},
 		"anatomy": {"anal_ring": false, "mare_bits": "original", "strip_width": 1.0},
 		"presentation": {"missionary": {}, "standing": {
-			"kiss": {"forelegs": "planted"}, "smack": {"sound": "pack"}}},
-		"thrust": {"camera_bob": true, "contact_gap_m": 0.0},
+			"kiss": {"forelegs": "planted"}, "smack": {"sound": "pack"},
+			"plant_spread_m": 0.4}},
+		"thrust": {"camera_bob": true, "contact_gap_m": 0.0, "travel": 0.5},
 		"auto_thrust": {"pace_step": 0.25}}, 3)
 	var dead_features: Dictionary = dead.get("features", {})
 	check(not dead_features.has("act_chat"), "a retired feature is erased")
 	check(not dead_features.has("act_vocals"), "the retired audio layer is erased")
 	check(not dead_features.has("act_history"), "the retired act-history switch is erased")
+	check(not dead_features.has("act_faces"), "the retired act-face switch is erased")
+	for name: String in ["act_lines", "act_line_angles", "caress_areas",
+			"allow_act_during_cuddle", "standing_plant_feet", "anatomy_vr"]:
+		check(not dead_features.has(name), "the retired feature %s is erased" % name)
 	check(bool(dead_features.get("hud_readouts", false)), "a live feature is kept")
 	check(not (dead.get("anatomy", {}) as Dictionary).has("anal_ring"),
 		"a retired anatomy key is erased")
@@ -632,7 +704,10 @@ func _check_migration() -> void:
 	var dead_standing: Dictionary = (dead.get("presentation", {}) as Dictionary).get("standing", {})
 	check(not dead_standing.has("kiss"), "an emptied retired sub-block is dropped")
 	check(not dead_standing.has("smack"), "an emptied retired smack block is dropped")
-	check((dead.get("thrust", {}) as Dictionary).has("contact_gap_m"),
+	check(not dead_standing.has("plant_spread_m"), "the retired planted stance is erased")
+	check(not (dead.get("thrust", {}) as Dictionary).has("contact_gap_m"),
+		"the retired contact gap is erased")
+	check(near(float((dead.get("thrust", {}) as Dictionary).get("travel", 0.0)), 0.5),
 		"a live neighbour of a retired key is kept")
 
 
@@ -844,3 +919,34 @@ func _collect_labels(node: Node, out: Array) -> void:
 		out.append(text)
 	for child: Node in node.get_children():
 		_collect_labels(child, out)
+
+
+func _count_text(node: Node, text: String) -> int:
+	var count := 0
+	if node is Button and (node as Button).text.strip_edges() == text:
+		count += 1
+	elif node is Label and (node as Label).text.strip_edges() == text:
+		count += 1
+	for child: Node in node.get_children():
+		count += _count_text(child, text)
+	return count
+
+
+func _find_named(node: Node, target: String) -> Node:
+	if str(node.name) == target:
+		return node
+	for child: Node in node.get_children():
+		var found := _find_named(child, target)
+		if found != null:
+			return found
+	return null
+
+
+func _find_button_text(node: Node, text: String) -> Button:
+	if node is Button and (node as Button).text.strip_edges() == text:
+		return node as Button
+	for child: Node in node.get_children():
+		var found := _find_button_text(child, text)
+		if found != null:
+			return found
+	return null

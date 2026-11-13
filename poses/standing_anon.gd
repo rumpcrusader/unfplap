@@ -1,6 +1,6 @@
 extends RefCounted
-## Standing Anon body: the hip thrust wrapper, planted lower body and palm scale. The runtime
-## owns readiness and scoring; this controller only poses the player rig.
+## Standing Anon body: the hip thrust wrapper and palm scale. The runtime owns readiness and
+## scoring; this controller only poses the player rig.
 
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -10,9 +10,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const THRUST_MAX_M := 0.045
-## Captured feet sit this far behind their first act frame spot so they are not between her
-## hind legs. The hips use the same capture, so the whole lower body translates as one.
-const PLANT_FEET_BACK_M := 0.15
 
 var facts: Variant
 var main: Variant
@@ -27,10 +24,6 @@ var _chest_back: SkeletonModifier3D
 var _lower_left := Transform3D.IDENTITY
 var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
-var _plant_left := Transform3D.IDENTITY
-var _plant_right := Transform3D.IDENTITY
-var _plant_hip := Transform3D.IDENTITY
-var _plant_captured := false
 ## The AnonBody that owns `_left_foot`/`_right_foot`. The HipsTarget sits under the skeleton,
 ## so walking up from the hip target must skip the skeleton and find the body node.
 var _lower_body: Node
@@ -77,10 +70,9 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	_hip_thrust.set("offset_world", forward * hip_offset(_hip_phase, scale, travel))
 
 
-## Phase-2 Anon body lean: the lower body stays exactly where the act started. The camera/head
-## moves forward, sideways or down, so the torso hinges over her while the feet and hips stay
-## planted. Pulling back moves the whole lower body away from her; the hips and both feet use the
-## same capture offset, so the legs keep their pose.
+## Phase-2 Anon body lean: the camera/head moves forward, sideways or down, so the torso hinges
+## over her. The game's stepping feet keep moving unless a lean is active; then both foot targets
+## are pinned so the legs keep their pose while the pelvis travels.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var kiss: Variant = facts.kiss_controller()
 	if str(facts.pose_id) != CATALOG.STANDING or not bool(facts.free_camera_active) or not is_instance_valid(hip):
@@ -91,34 +83,9 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	# A rig without the body's foot targets (tests, odd overrides) still gets the unplanted lean.
 	if body == null:
 		body = hip.get_parent()
-	var plant_basis := _rump_facing(_plant_hip.basis, forward)
 	if body != null:
 		var left: Variant = body.get("_left_foot")
 		var right: Variant = body.get("_right_foot")
-		# The capture happens on the first act frame, after the game placed the feet and hips
-		# from the act camera. Freeze that as the lower-body rest for the whole act.
-		if not _plant_captured and left is Node3D and right is Node3D:
-			_plant_left = (left as Node3D).global_transform
-			_plant_right = (right as Node3D).global_transform
-			var back := facing.z.normalized()
-			var spread := Vector3(facing.x.x, 0.0, facing.x.z).normalized() \
-				* (SETTINGS.plant_spread_m.get_num() * 0.5)
-			_plant_left.origin += back * PLANT_FEET_BACK_M + spread
-			_plant_right.origin += back * PLANT_FEET_BACK_M - spread
-			_plant_hip = hip.global_transform
-			_plant_captured = true
-			_log("standing feet pinned")
-		if _feature_on("standing_plant_feet") and _plant_captured:
-			# Every lean moves only the upper body; the captured lower body never travels.
-			var sway := _sway_offset()
-			var drop := Vector3.DOWN * _hip_drop()
-			if left is Node3D:
-				(left as Node3D).global_transform = _plant_left
-			if right is Node3D:
-				(right as Node3D).global_transform = _plant_right
-			hip.global_transform = Transform3D(
-				plant_basis, _plant_hip.origin + sway + drop)
-			return
 		var lean_scale: float = float(facts.standing_lean_scale)
 		var forward_shift: float = MOTION.lean_distance(maxf(float(facts.shot_lean_forward), 0.0), lean_scale) \
 			+ kiss.lean_distance() + float(facts.anon_torso_forward)
@@ -128,7 +95,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
 		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(facts.anon_torso_drop)
 		hip.global_position.y -= _hip_drop()
-		# Flag off: keep the game's stepping feet and only pin the lower body while leaning.
+		# Keep the game's stepping feet and only pin the lower body while leaning.
 		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
 			if not _lower_captured and left is Node3D and right is Node3D:
 				_lower_left = (left as Node3D).global_transform
@@ -154,45 +121,9 @@ func _anatomy_service() -> Variant:
 	return scene.get("anatomy")
 
 
-## Square his hips to her entrance every frame: his forward turns to face the opening, so the
-## shaft leaves his pelvis normal to her vulva instead of arriving at an angle. Using the opening
-## itself avoids depending on which way her mesh's rear axis happens to point.
-func _rump_facing(plant: Basis, forward: Vector3) -> Basis:
-	var service: Variant = _anatomy_service()
-	if service == null or not bool(service.call("player_showing")) \
-			or not facts.anatomy_opening.is_valid():
-		return plant
-	var toward := Vector3.ZERO
-	var normal: Vector3 = facts.call_value(facts.anatomy_normal, Vector3.ZERO)
-	if normal.length_squared() > 0.0001:
-		# Face straight into her opening, so his pelvis plane is parallel to her vulva.
-		toward = -Vector3(normal.x, 0.0, normal.z)
-	if toward.length_squared() < 0.0004:
-		var opening: Vector3 = facts.call_value(facts.anatomy_opening, Vector3.ZERO)
-		var pivot: Vector3 = service.call("player_root_now")
-		toward = Vector3(opening.x - pivot.x, 0.0, opening.z - pivot.z)
-	if toward.length_squared() < 0.0004:
-		return plant
-	var flat_forward := Vector3(forward.x, 0.0, forward.z)
-	if flat_forward.length_squared() < 0.0001:
-		return plant
-	var delta := flat_forward.normalized().signed_angle_to(toward.normalized(), Vector3.UP)
-	if is_zero_approx(delta):
-		return plant
-	return Basis(Vector3.UP, delta) * plant
-
-
+## Lower Anon's standing hips; use this when his body sits too high.
 func _hip_drop() -> float:
 	return SETTINGS.hip_drop_m.get_num()
-
-
-func _sway_offset() -> Vector3:
-	if facts == null:
-		return Vector3.ZERO
-	var raw: Variant = facts.standing_sway_offset
-	if raw is Vector3 and (raw as Vector3).is_finite():
-		return raw
-	return Vector3.ZERO
 
 
 ## The AnonBody above the hip target that owns both foot targets. `HipsTarget` is parented to the
@@ -293,7 +224,6 @@ func _remove_palm_scale() -> void:
 
 func _remove_anon_thrust() -> void:
 	_remove_palm_scale()
-	_plant_captured = false
 	_lower_captured = false
 	_lower_body = null
 	if is_instance_valid(_hip_thrust):
@@ -346,7 +276,6 @@ func _init(facts_context: Variant = null) -> void:
 
 func reset_phase() -> void:
 	_hip_phase = 0.0
-	_plant_captured = false
 	_lower_captured = false
 
 
@@ -377,9 +306,3 @@ func refresh_palm() -> void:
 func _log(text: String) -> void:
 	if facts != null:
 		facts.write_log(text)
-
-
-func _feature_on(name: String) -> bool:
-	if facts == null:
-		return false
-	return facts.feature(name, false)

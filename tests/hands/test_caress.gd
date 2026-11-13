@@ -553,9 +553,6 @@ func run() -> void:
 	stand_flank.normals = [Vector3.RIGHT, Vector3.LEFT]
 	stand_pony.add_child(stand_flank)
 	var standing_path: Variant = FLANK.new()
-	# Keep the authored-chain block below independent of the shipped caress_areas default.
-	var old_area_setting := bool(SETTINGS.caress_areas.get_bool())
-	SETTINGS.caress_areas.set_value(false)
 	standing_path.call("setup", stand_pony, null)
 	var left_shoulder: Dictionary = standing_path.call("shoulder_point", "left")
 	var right_shoulder: Dictionary = standing_path.call("shoulder_point", "right")
@@ -578,7 +575,7 @@ func run() -> void:
 	stand_context["lean"] = 1.0
 	var flank_end: Array = standing_path.call("candidates", "left", stand_context)
 	check(flank_start.size() == 1 and flank_end.size() == 1,
-		"the standing authored path returns one contact per hand")
+		"the standing area path returns one contact per hand")
 	if flank_start.size() == 1 and flank_end.size() == 1:
 		var start_point: Vector3 = flank_start[0]["point"]
 		var end_point: Vector3 = flank_end[0]["point"]
@@ -592,13 +589,12 @@ func run() -> void:
 		check(right_flank.size() == 1 and (right_flank[0]["point"] as Vector3).x > 0.0,
 			"the right hand stays on her right side")
 		var debug_anchors: Array = standing_path.call("debug_world", "left")
-		check(debug_anchors.size() == 3,
-			"the standing debug path shows flank, shoulder and neck")
+		check(debug_anchors.size() >= 3,
+			"the standing debug path shows the area chain")
 	stand_context["lean"] = -1.0
 	var rump: Array = standing_path.call("candidates", "left", stand_context)
-	check(rump.size() == 1, "backward lean still returns the rump contact")
-	# The `features.caress_areas` toggle replaces the authored chain with the marked area chain.
-	SETTINGS.caress_areas.set_value(true)
+	check(rump.size() == 1, "backward lean still returns a contact")
+	# The marked area chain is the standing path; no toggle remains.
 	standing_path.call("reset")
 	var area_context := {
 		"lean": 0.0, "size": 1.0, "profile": {},
@@ -637,7 +633,6 @@ func run() -> void:
 	check(area_back_candidates.size() == 1
 		and (area_back_candidates[0]["point"] as Vector3).x < 0.0,
 		"backward lean reaches the area flank_back")
-	SETTINGS.caress_areas.set_value(old_area_setting)
 	standing_path.call("reset")
 	head_root.free()
 

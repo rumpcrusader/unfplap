@@ -47,7 +47,7 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 | `sleeping` | both | she is not sleeping |
 | `sex_active` | both | no `sex_active` meta |
 | `aftercare` | both | no `sex_aftercare` meta |
-| `cuddle` | both | no active cuddle session, or the bed-side path / `allow_act_during_cuddle` |
+| `cuddle` | both | no active cuddle session, or the act starts through it |
 | `affection` | both | no live `Affection.kind` and no active hoof hold |
 | `player` | start | Anon is free, unseated where the pose requires, and beside the bed when seated |
 | `navigator` | start | she has a `Navigator` |

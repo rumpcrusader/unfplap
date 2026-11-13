@@ -172,7 +172,7 @@ prefixes pre-emptively.
   shipped default, then global default. The old `anatomy_place.json` and `anon_place.json` import
   once and are renamed `.migrated`. The old `anatomy.tail_seat.<id>` rows and the tail/dock
   millimetre globals migrate into the same block on load.
-- `anatomy.reseat_tails`, `anatomy.dock_color` and the tail/dock placement behavior are in
+- `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
 - `settings/service.gd` owns the file. It parses once per process into `_cache`, writes on save, and
@@ -240,35 +240,44 @@ bounds — and applies live.
 
 **General**
 
-One ungrouped list, in this order: **Starting Sex**, **Show controls**, **Show HUD readouts**,
-**Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Show act expressions**,
-**Caress quality** (`Fast` / `Precise`, default `Precise`), **Climax limit** (`0…20`,
-default `3`; `0` is unlimited), **Sensitivity** in pixels per centimetre of hip
-travel (`20…400`, default `50`), **Thrust direction** (which mouse direction deepens the stroke),
-**Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
-control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
+One ungrouped list, in this order: **Show start button**, **Show controls**, **Show HUD readouts**,
+**Move captions to top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`, default
+`Precise`), **Climax limit** (`0…20`, default `3`; `0` is unlimited), **Mouse sensitivity** in
+pixels per centimetre of hip travel (`20…400`, default `50`), **Thrust direction** (which mouse
+direction deepens the stroke), **Enable footstool**, **Enable hole switch**, **Enable oral sex**,
+**Allow finish control** and **Enable debug** (the switch that reveals the Debug sections) at the
+bottom.
+
+**Move captions to top** moves the explicit bottom dialogue caption only while an act is in
+`POSING_IN`, `ACTIVE` or `CLIMAX`; afterglow returns it to the bottom.
 
 The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
-waveforms), the body-slap **Contact gap** (`0…12 cm`, default `2 cm`), the hip
-back-off (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
+waveforms), the hip back-off (`0.25…2.0×`, default `0.5×`) and the standing debug rows live in
+General's Debug block. The body slap fires at true contact; the old **Contact gap** row is retired.
 
-**Starting Sex** chooses between When Available and Try Your Luck. The gate semantics — including
-what Try Your Luck does and does not lift — are in `docs/eligibility.md`. The setting itself only
-stores the choice.
+**Show start button** chooses between When Available and Try Your Luck. The gate semantics —
+including what Try Your Luck does and does not lift — are in `docs/eligibility.md`. The setting
+itself only stores the choice.
 
 **Anatomy**
 
-The first rows have no heading: the **Anatomy** pill (**Never** / **During act only** / **Always**),
-**Show tail docks**, **Show skin strip**, **Show teats**, **Show fluids** and **Skin tone**.
-**Show tail docks** only shows or hides the dock; it never moves the anatomy. The behavior behind
-these rows is in `docs/anatomy.md`.
+The first row has no heading: the **Anatomy** pill (**Never** / **During act only** / **Always**),
+with the hint **When to show it**. While **Never** is selected every row below the pill is dimmed
+to three-quarter opacity and disabled, with a short note under it; the game's disabled styling also
+applies to the controls. Choosing Act or Always restores the rows.
 
-- **Anon**: size, length, base/mid/head radius, throb and the back-out gap.
+- **Mare**: **Dock style** (`Hide` / `Coat` / `Genitals`, no hint), **Show ventral midline**,
+  **Show teats**, **Show fluids**, **Vulva height**, **Ponut scale**, **Skin tone**, **Inner folds
+  colour**, **Clitoris colour** and **Re-seat tails and docks**. Rows without a hint are
+  intentionally self-explanatory.
+- **You** (renamed from Anon): size, length, base/mid/head radius and throb.
+
+The dock and appearance behavior is in `docs/anatomy.md`.
 
 **World**
 
-No headings: **Promiscuity**, the **Estrus cycle** switch, **Allow public offers**,
-**Personalize lines during act** and **Add speech interjections**.
+No headings: **Promiscuity**, **Enable estrus cycle**, **Enable public offers** and **Enable speech
+interjections**.
 
 **Characters**
 
@@ -278,9 +287,10 @@ No headings: **Promiscuity**, the **Estrus cycle** switch, **Allow public offers
 **Integrations**
 
 - Every supported mod in `shared/integrations.gd`, in catalog order, whether or not the other mod
-  is installed: `Mod by Author`, the Faint `Verified with version: ...` hint, then its switches. The
-  Kissing entry and `Use Kissing reactions` are always listed; the behavior is in
-  `docs/integrations.md`.
+  is installed, gets its own collapsible section named `Mod by Author` and open by default. The
+  section body carries the Faint `Verified with version: ...` hint and its switches; its open state
+  is stored under `integrations/Mods/<mod id>`. The Kissing entry and `Use Kissing reactions` are
+  always listed; the behavior is in `docs/integrations.md`.
 
 **Debug sections**
 
@@ -294,8 +304,8 @@ tuning:
   cooldowns plus receptive window.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
-  still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
-  **Hide tails** and **Show skeleton overlay**.
+  still zones), **You** (back-out gap, cock forward, pelvis gap), plus the ungrouped skin-strip
+  scale, aim points, **Hide tails** and **Show skeleton overlay**.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
@@ -325,28 +335,25 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 |---|---|---|
 | `hud_readouts` | `true` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
 | `act_controls` | `true` | act control card; the cue and close prompt stay |
-| `act_lines` | `true` | cue lines and climax/early-end reactions; off keeps normal dialogue and the HUD cue |
-| `act_faces` | `true` | act face beats and `{face_note}` prompt hints; off keeps the current act faces; the blush arc and post-act mood face are separate |
 | `blush_arc` | `true` | readiness-ramped act blush; off restores full blush from the first frame |
 | `face_debug` | `false` | print act face changes, the climax score and the mood-face start/end |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
-| `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
+| `captions_on_top` | `true` | move the explicit bottom caption to the top during an act; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
 | `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
-| `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
 | `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
-| `act_line_angles` | `true` | personalizes cue lines with a fresh angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
 | `act_public_offer` | `false` | per-mare public consent affects offers; see `docs/eligibility.md` |
-| `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_climax` | `false` | pack wet finish layer |
-| `kissing_reactions` | `true` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
+| `kissing_reactions` | `false` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 
-Always on: act history and its per-act summary, standing afterglow stay-close window, lean-camera
-inertia smoothing and strong-thrust rump blush. Unknown settings keys are ignored. Caress feature
+Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
+unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,
+standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust rump blush.
+Unknown settings keys are ignored. Caress feature
 flags and debug values are in `docs/hands.md`; anatomy feature flags and debug values are in
 `docs/anatomy.md`.
 
@@ -376,11 +383,13 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   mare`), backed by the persisted hidden `anatomy.placement_target` setting. The Placement
   buttons then edit the selected target; Default stages a preview until Save, and Save writes the
   ten `anatomy.placement.default.*` settings.
-- **A boolean label starts with a verb**: Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch,
-  Remember, Mute. Label the action the switch performs, not the noun it controls
-  (“Show controls”, “Allow act lines”, “Use VR act”). Choices and numbers keep
+- **A boolean label starts with a verb**: Show, Enable, Move, Allow, Use, Play, Print, Hide, Pin,
+  Sway, Twitch, Remember, Mute. Label the action the switch performs, not the noun it controls
+  (“Show controls”, “Enable footstool”, “Move captions to top”). Choices and numbers keep
   their noun label. Push back if a verb label reads worse than the noun; say so in the review
   rather than forcing it.
+- **Help is optional.** The label carries the row when the action is self-explanatory; add help
+  when the row needs a reason, a range or a warning. An empty help string draws no Faint line.
 
 ## Debug actions and hotkeys
 

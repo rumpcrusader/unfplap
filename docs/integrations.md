@@ -97,12 +97,13 @@ One declaration per supported integration, in `settings/service.gd`:
 
 | Setting | Default | Behavior |
 |---|---|---|
-| `features.kissing_reactions` | `true` | run the Kissing reaction bridge during the act |
+| `features.kissing_reactions` | `false` | run the Kissing reaction bridge during the act |
 
-The **Integrations** tab is drawn from `shared/integrations.gd`, not from a hand-written list. Each
-provider shows `$mod_name by $author` and the hint `Verified with version: $verified_version`, then
-its feature flags. The tab has no Debug block, no installed/mismatch status and no buttons. A flag
-edit during an act starts or stops the provider live through `apply_live_settings()`.
+Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
+default. The section body carries the hint `Verified with version: $verified_version`, then that
+provider's feature flags; its open state is stored under `integrations/Mods/<mod id>`. The tab has
+no Debug block, no installed/mismatch status and no buttons. A flag edit during an act starts or
+stops the provider live through `apply_live_settings()`.
 
 ## Lifecycle
 

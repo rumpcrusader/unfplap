@@ -766,7 +766,7 @@ func run() -> void:
 	var plant_facts: RefCounted = ACT_FACTS.new()
 	plant_facts.pose_id = CATALOG.STANDING
 	plant_facts.free_camera_active = true
-	plant_facts.features = {"standing_plant_feet": true}
+	plant_facts.features = {}
 	var plant_kiss: RefCounted = KISS.new(plant_facts)
 	plant_facts.kiss = func() -> Variant: return plant_kiss
 	plant_facts.pony = Node3D.new()
@@ -774,59 +774,16 @@ func run() -> void:
 	var plant_anon := STANDING_ANON.new(plant_facts)
 	plant_anon.set("pony", plant_facts.pony)
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	var planted_left := plant_left.global_position
-	var planted_right := plant_right.global_position
-	var stance := SETTINGS.plant_spread_m.get_num() * 0.5
-	# `Hip drop` lowers the pinned pelvis, and it is on by default.
-	var plant_drop := Vector3.DOWN * SETTINGS.hip_drop_m.get_num()
-	check(planted_left.is_equal_approx(Vector3(0.2 + stance, 0.0, 0.15)),
-		"planted left foot sits 15 cm behind and half a stance out")
-	check(planted_right.is_equal_approx(Vector3(-0.2 - stance, 0.0, 0.15)),
-		"planted right foot sits 15 cm behind and half a stance out")
-	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
-	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
-	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
-	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_left.global_position.is_equal_approx(planted_left),
-		"planted left foot holds its act-start point")
-	check(plant_right.global_position.is_equal_approx(planted_right),
-		"planted right foot holds its act-start point")
-	check(plant_hip.global_position.is_equal_approx(plant_drop),
-		"planted hips hold their act-start point")
-	# A forward lean must not move the pinned lower body; the head/camera is what travels.
-	plant_facts.lean_view_forward = 1.0
-	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
-	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
-	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
-	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_hip.global_position.is_equal_approx(plant_drop),
-		"a forward lean keeps the planted hips at the act-start point")
-	check(plant_left.global_position.is_equal_approx(planted_left)
-		and plant_right.global_position.is_equal_approx(planted_right),
-		"a forward lean keeps the planted feet")
-	plant_facts.standing_sway_offset = Vector3(0.02, 0.0, 0.0)
-	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
-	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
-	plant_hip.global_position = Vector3(7.0, 7.0, 7.0)
-	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_hip.global_position.is_equal_approx(Vector3(0.02, 0.0, 0.0) + plant_drop),
-		"the body sway moves the pinned hip with her")
-	check(plant_left.global_position.is_equal_approx(planted_left)
-		and plant_right.global_position.is_equal_approx(planted_right),
-		"the body sway leaves the planted feet")
-	plant_facts.standing_sway_offset = Vector3.ZERO
-	plant_facts.lean_view_forward = 0.0
-	plant_facts.features = {"standing_plant_feet": false}
-	plant_left.global_position = Vector3(5.0, 0.0, 0.0)
-	plant_right.global_position = Vector3(-5.0, 0.0, 0.0)
-	plant_hip.global_position = Vector3.ZERO
-	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
-	check(plant_left.global_position.is_equal_approx(Vector3(5.0, 0.0, 0.0)),
-		"plant flag off releases the feet")
+	check(plant_left.global_position.is_equal_approx(Vector3(0.2, 0.0, 0.0))
+		and plant_right.global_position.is_equal_approx(Vector3(-0.2, 0.0, 0.0)),
+		"no lean leaves the game's stepping feet alone")
 	plant_facts.shot_lean_forward = 1.0
 	plant_anon.call("apply_anon_lean", plant_hip, Basis.IDENTITY)
 	check(not plant_hip.global_position.is_zero_approx(),
-		"plant flag off lets the forward lean move the pelvis")
+		"a forward lean moves the pelvis")
+	check(plant_left.global_position.is_equal_approx(Vector3(0.2, 0.0, 0.0))
+		and plant_right.global_position.is_equal_approx(Vector3(-0.2, 0.0, 0.0)),
+		"a lean pins the feet at their live stepping pose")
 	plant_facts.kiss = Callable()
 	plant_kiss = null
 	root.remove_child(plant_facts.pony)

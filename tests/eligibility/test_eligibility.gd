@@ -1,5 +1,5 @@
 extends SceneTree
-## Pure eligibility policy: adults, Promiscuity, willingness, Starting Sex, history, cycle and
+## Pure eligibility policy: adults, Promiscuity, willingness, the start button mode, history, cycle and
 ## per-mare consent. No world or user:// file is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
 
@@ -76,7 +76,7 @@ func run() -> void:
 	check(POLICY.hint_without_willingness("try_luck"), "Try Your Luck shows the hint early")
 	check(not POLICY.hint_without_willingness("when_available"),
 		"When Available waits for willingness")
-	check(not POLICY.hint_without_willingness(""), "unknown Starting Sex does not show early")
+	check(not POLICY.hint_without_willingness(""), "an unknown start button mode does not show early")
 
 	check(POLICY.adult_pony(facts()), "an identified adult pony")
 	check(POLICY.adult_mare(facts()), "an adult mare")

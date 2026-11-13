@@ -65,15 +65,12 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   Spine and both UpperLegs to their pre-offset global poses, so the torso, head and legs do not
   follow. There is no speed/strength attack and no return spring.
 - `presentation.standing.torso_angle_deg` (default `5`, experimental/unbounded) hinges Anon's
-  upper body forward over her. `apply_anon_lean()` keeps the lower body planted;
+  upper body forward over her. `apply_anon_lean()` keeps the pelvis through the hinge;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
-- With `standing_plant_feet` on (default off), the standing controller captures both foot targets
-  on the first act frame, moves them `PLANT_FEET_BACK_M = 0.15 m` behind Anon so they are not
-  between her hind legs, and captures the hip target. Every frame after the body places them it
-  rewrites all three to that capture. The torso, camera lean, hands, kiss and hip thrust still
-  move; the lower body does not. Off restores the game's stepping and lean foot motion; the
-  capture clears at act end.
+- With the lean active, the standing controller captures both foot targets and pins them at their
+  live stepping pose, so the legs do not walk through the lean. With no lean the game's stepping
+  feet are left alone. The capture clears at act end; the old planted-lower-body switch is retired.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
   speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `camera/service.gd` follows it with one critically damped
   response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward
@@ -238,7 +235,8 @@ takes effect when the panel closes.
 
 - Missionary: authored shot at rest, S/W/Q/E blends, Anon eyes, third-person debug, free look,
   kiss framing and restore.
-- Standing: lean, torso angle, hip depth, plant feet, glance, kiss yaw and the afterglow back-off.
+- Standing: lean, torso angle, hip depth, lean-time foot pin, glance, kiss yaw and the afterglow
+  back-off.
 
 ## Related docs
 

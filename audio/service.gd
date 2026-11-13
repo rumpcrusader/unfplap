@@ -241,14 +241,17 @@ func play_plap(tier: String, strength: float, at: Vector3, extra_db := 0.0) -> b
 
 ## Called from the tracker's impact event: the deepest point of the stroke, so it also catches
 ## shallow strokes that never crossed a fixed depth. `tier` is empty below the firm impact speed,
-## and `gap` is how far his skin still is from her coat in metres; `eps` is Contact gap. A stroke
-## outside it gets no plap, while the bed fabric and the slide still play.
+## and `gap` is how far his skin still is from her coat in metres; `eps` is the contact epsilon.
+## A stroke outside it gets no plap, while the bed fabric and the slide still play.
 func play_impact(pose: String, tier: String, strength: float, rump: Vector3,
 		bed_at: Vector3, soft_bed: bool, gap: float, eps: float) -> void:
 	var level := clampf(strength, 0.0, 1.0)
 	var limit := maxf(eps, 0.0)
 	if not tier.is_empty() and gap <= limit:
-		var contact := 1.0 - clampf(gap / maxf(limit, 0.001), 0.0, 1.0)
+		# A zero epsilon means true contact: a stroke that actually reaches zero is a full plap,
+		# not the quiet edge of a division by a guard value.
+		var contact := 1.0 if limit <= 0.0 and gap <= 0.0 \
+			else 1.0 - clampf(gap / maxf(limit, 0.001), 0.0, 1.0)
 		play_plap(tier, level, rump, plap_volume_db(level) + plap_contact_db(contact))
 	if uses_bed(pose):
 		play_bed(level, bed_at, soft_bed)
@@ -326,7 +329,7 @@ static func plap_volume_db(strength: float) -> float:
 
 
 ## A body slap that only just reaches her coat sits this many dB under a bottomed-out one.
-## `contact` is 0 at the Contact gap edge and 1 at the deepest point.
+## `contact` is 0 at the contact epsilon edge and 1 at the deepest point.
 static func plap_contact_db(contact: float) -> float:
 	return lerpf(-8.0, 0.0, clampf(contact, 0.0, 1.0))
 

@@ -48,8 +48,10 @@ The runtime keeps the call sites, the director/vocal prepare and the feature sna
   are the pack cues the runtime drives from the impact and kiss paths.
 - The body slap is decided from two physical facts. `play_impact` receives the impact tier
   (`firm`, `rough` or empty) and the skin gap in metres, and plays the plap only when the tier is
-  set and the gap is inside Contact gap. Standing and missionary share the two plap bags; only the
-  bed cues are pose-specific. The slide and the fabric are never gated.
+  set and the gap reaches true contact. A zero epsilon with a zero gap is full contact, not the
+  quiet edge; the generic epsilon still lets the tests drive a wider contact window. Standing and
+  missionary share the two plap bags; only the bed cues are pose-specific. The slide and the
+  fabric are never gated.
 - `climax(snout, dock)` plays the base-game squee at the snout and the optional wet layer at the
   dock.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at

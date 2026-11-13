@@ -42,8 +42,9 @@ var eligible := Callable()
 
 ## pony -> cached original values, target and live state. See `_prepare()`.
 var _rows: Dictionary = {}
-## Last applied values of Anatomy › Re-seat tails and docks and the two debug offsets.
+## Last applied values of Anatomy › Re-seat tails and docks, Dock style and the two debug offsets.
 var _enabled := true
+var _dock_style := ""
 static var _reference := Vector3.INF
 static var _reference_loaded := false
 var _perf_window := 0.0
@@ -185,6 +186,9 @@ func refresh_all() -> void:
 	var enabled := SETTINGS.reseat_tails.get_bool()
 	var toggle_changed := enabled != _enabled
 	_enabled = enabled
+	var dock_style := SETTINGS.dock_style.get_choice()
+	var style_changed := dock_style != _dock_style
+	_dock_style = dock_style
 	set_process(_perf_on())
 	var started := Time.get_ticks_usec()
 	var checked := 0
@@ -253,6 +257,10 @@ func refresh_all() -> void:
 	if _perf_on() and rebuilt > 0:
 		_log("tail perf refresh checked=%d rebuilt=%d usec=%d" % [
 			checked, rebuilt, Time.get_ticks_usec() - started])
+	if style_changed:
+		for pony: Variant in _rows.keys():
+			if is_instance_valid(pony):
+				refresh_dock_color(pony)
 
 ## Log every live mare's seat and the resolved placement; return a short summary.
 func report_all() -> String:
@@ -599,7 +607,7 @@ func _install_skin(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void:
 	# before the move. Only a visible dock gets that mark; return it to the anatomy's switch.
 	if dock.has_meta(&"far_hidden"):
 		dock.remove_meta(&"far_hidden")
-		dock.visible = SETTINGS.show_dock.get_bool()
+		dock.visible = SETTINGS.dock_style.get_choice() != "hide"
 	dock.set_surface_override_material(0, _dock_material(row))
 	row["attached"] = true
 	row["builds"] = int(row.get("builds", 0)) + 1
@@ -608,7 +616,7 @@ func _install_skin(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void:
 ## The dock's chosen colour. Genitals uses a copy of the live anatomy material, recoloured so the
 ## cuff matches her genital skin tone; otherwise the game's original coat material is kept.
 func _dock_material(row: Dictionary) -> Material:
-	if SETTINGS.dock_color.get_choice() == "genitals":
+	if SETTINGS.dock_style.get_choice() == "genitals":
 		var pony: Node = row.get("pony") as Node
 		if is_instance_valid(pony):
 			var skeleton: Variant = pony.get("skeleton")

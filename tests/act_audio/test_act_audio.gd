@@ -120,7 +120,7 @@ func run() -> void:
 	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a rough impact keeps the slide")
 	check(act.play_bed(0.7, Vector3.ZERO, true), "soft-bed fabric plays")
 	check(not act.play_bed(0.7, Vector3.ZERO, false), "a wood bed has no creak")
-	# The body slap needs his skin to reach her coat: 3 cm short of a 2 cm Contact gap is silent,
+	# The body slap needs his skin to reach her coat: 3 cm short of a 2 cm contact epsilon is silent,
 	# while a stroke at the epsilon edge still plays. The slide and the bed are never gated.
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
@@ -133,6 +133,10 @@ func run() -> void:
 	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.02, 0.02)
 	check(float(ready_at.get("plap_rough", 0.0)) > 0.0,
 		"a stroke at the contact edge plays the plap")
+	ready_at["plap_rough"] = 0.0
+	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
+	check(float(ready_at.get("plap_rough", 0.0)) > 0.0,
+		"true contact at a zero epsilon plays the plap")
 	check(act.play_plap("firm", 0.7, Vector3.ZERO), "foley plap starts a player")
 	check(not act.play_plap("firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")

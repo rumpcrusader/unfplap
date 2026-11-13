@@ -65,15 +65,14 @@ tree.
 
 `admit_cue()` applies the gates in this order, and the first failure is the logged reason:
 
-1. `features.act_lines` off → `act_lines_off`;
-2. a demand cue inside its budget → `demand`;
-3. the shared slot busy → `channel` (the scheduler owns a pending row) or `speech` (the director
+1. a demand cue inside its budget → `demand`;
+2. the shared slot busy → `channel` (the scheduler owns a pending row) or `speech` (the director
    or the pony is talking);
-4. scheduler stability, repeat and gap → the scheduler's `last_reason`.
+3. scheduler stability, repeat and gap → the scheduler's `last_reason`.
 
 A cue is queued only when the segment is not oral (`facts.oral_active`) and the act is `ACTIVE`.
 The prompt is formatted, then the face note, the code-owned context note, the cue-reaction note,
-the optional speech-feel note and the optional line-angle note are appended in that order. The
+the optional speech-feel note and the line-angle note are appended in that order. The
 shared-memory id is marked used only after the line was accepted.
 
 `readiness/service.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
@@ -125,9 +124,8 @@ The stored row itself is `shared/act_history.gd`; its tiers and wording are in `
 ## Cancelling
 
 `end_act()` calls `memory.cancel_act(event_id, keep_speaking)` and drops the scheduler's pending
-slot. It is called at every climax and afterglow boundary, every act end, and when
-`features.act_lines` is switched off mid-act. The early-stop line is queued after that cancel, so
-the normal restore must not cancel it again.
+slot. It is called at every climax and afterglow boundary and at every act end. The early-stop
+line is queued after that cancel, so the normal restore must not cancel it again.
 
 ## Pacing and context
 
@@ -174,11 +172,10 @@ peak memory quotes her answer only when she spoke during the act.
 Talk is scored when the player actually uses the game's talk turn. There is no act
 talk-invitation line or HUD hint.
 
-`features.act_lines` (default on) gates unprompted cue and reaction lines. Off keeps normal
-dialogue and the HUD cue. `features.act_line_angles` (**Personalize lines during act**, default on)
-adds one fresh angle and the shared-day/history hint to a cue line, and widens the recent-line
-anti-repeat window to eight. `features.act_speech_feel` (**Add speech interjections**, default off)
-adds the thrust-paced interjection instruction. They are independent.
+Unprompted cue and reaction lines are always on. The line-angle note adds one fresh angle and the
+shared-day/history hint to a cue line, and the recent-line anti-repeat window is eight. The
+optional `features.act_speech_feel` (**Enable speech interjections**, default off) adds the
+thrust-paced interjection instruction; the two are independent.
 
 The HUD cue is shorthand, not the line. `UTTERANCE.line_seed()` turns the same facts into a private
 second-person seed (`{seed}`): it states the need or the moment, never “She wants…”, and ends with

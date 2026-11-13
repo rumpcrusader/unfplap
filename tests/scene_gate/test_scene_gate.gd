@@ -219,7 +219,7 @@ func _fixture() -> Dictionary:
 	main.add_child(player)
 	main.add_child(game)
 	gate.bind(pony, main, pose)
-	gate.configure(STATE_IDLE, "rarity", {"allow_act_during_cuddle": true})
+	gate.configure(STATE_IDLE, "rarity", {})
 	gate.stool_need = Callable(stool, "stool_need")
 	gate.stool_count = Callable(stool, "stool_count")
 	gate.on_refusal_face = Callable(face, "on_face")
@@ -313,10 +313,10 @@ func _check_cuddle() -> void:
 	check(bool(gate.call("cuddle_start_override", CATALOG.MISSIONARY, "bed_side")),
 		"a bed-side missionary act overrides the cuddle gate")
 	check(bool(gate.call("cuddle_start_override", CATALOG.STANDING, "")),
-		"the feature flag lets an act start through a cuddle")
+		"an act always starts through a cuddle")
 	gate.configure(STATE_IDLE, "rarity", {})
 	check(bool(gate.call("cuddle_start_override", CATALOG.STANDING, "")),
-		"an empty snapshot still reads the setting")
+		"an empty snapshot still starts through a cuddle")
 	_free(made)
 
 
@@ -482,14 +482,14 @@ func _check_rows() -> void:
 			"nav_pose", "stool"]:
 		check(key in keys, "the standing start rows carry %s" % key)
 	check(rows.size() == keys.size(), "every row is typed")
-	gate.configure(STATE_ACTIVE, "rarity", {"allow_act_during_cuddle": true})
+	gate.configure(STATE_ACTIVE, "rarity", {})
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var state_ok := true
 	for row: ELIGIBILITY.Row in rows:
 		if row.key == "state":
 			state_ok = row.ok
 	check(not state_ok, "a running act fails the state row")
-	gate.configure(STATE_IDLE, "rarity", {"allow_act_during_cuddle": true})
+	gate.configure(STATE_IDLE, "rarity", {})
 	pony.set_meta("sex_aftercare", true)
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var aftercare_ok := true

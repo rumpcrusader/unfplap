@@ -61,7 +61,7 @@ func apply(missionary: bool, depth: float, bed_frame: Variant) -> void:
 func base_place() -> Transform3D:
 	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
 		.scaled(Vector3.ONE * _scale)
-	# Placement never follows the dock. `show_dock` is a visibility switch.
+	# Placement never follows the dock. `Dock style` is a visibility/colour switch.
 	var place := _pos + Vector3(0.0, LIFT, minf(LIFT, 0.0) * 0.2)
 	if not body.is_empty():
 		var size: float = body[2]

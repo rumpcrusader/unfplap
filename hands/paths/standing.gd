@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Standing caress path: the authored flank -> shoulder -> neck chain from `anchors2.json`, with
-## the old procedural flank/rump point as the fallback and the backward-lean reach.
+## Standing caress path: the marked-area chain from `hands/areas/areas.json`, with the old
+## procedural flank/rump point as the fallback and the backward-lean reach.
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -22,23 +22,19 @@ func candidates(hand_side: String, context: Dictionary) -> Array:
 	if not is_instance_valid(pony):
 		return []
 	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
-	var area_mode := bool(SETTINGS.caress_areas.get_bool())
-	if lean >= 0.0 or area_mode:
-		var authored := _authored_candidates(hand_side, context, lean)
-		if not authored.is_empty():
-			return authored
+	var authored := _authored_candidates(hand_side, context, lean)
+	if not authored.is_empty():
+		return authored
 	var candidate := _procedural_candidate(hand_side, context)
 	return [] if candidate.is_empty() else [candidate]
 
 
-## The authored path is the standing caress path. It moves from the flank at no lean through
+## The marked-area path is the standing caress path. It moves from the flank at no lean through
 ## the shoulder to the base of the neck at a full forward lean.
 func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -> Array:
-	var area_mode := bool(SETTINGS.caress_areas.get_bool())
-	# Anon stands behind her, so his left hand reaches her left side. The old authored body
-	# chain uses the missionary facing, where the hands cross; request its opposite side. The
-	# area JSON already stores the mare's own body sides, so it uses the hand side directly.
-	var anchor_hand := hand_side if area_mode else ("right" if hand_side == "left" else "left")
+	# Anon stands behind her, so his left hand reaches her left side, and the area JSON stores
+	# the mare's own body sides.
+	var anchor_hand := hand_side
 	var path: Variant = _path_for(anchor_hand)
 	if path == null:
 		return []
@@ -152,14 +148,13 @@ func _procedural_candidate(hand_side: String, context: Dictionary) -> Dictionary
 
 
 func _path_for(hand_side: String) -> Variant:
-	var area_mode := bool(SETTINGS.caress_areas.get_bool())
 	var pony_id: int = int(pony.get_instance_id()) if is_instance_valid(pony) else 0
 	if pony_id != _path_pony_id:
 		_paths.clear()
 		_path_failed.clear()
 		_last_world.clear()
 		_path_pony_id = pony_id
-	var key := hand_side + ("|areas" if area_mode else "|two")
+	var key := hand_side + "|areas"
 	if bool(_path_failed.get(key, false)):
 		return null
 	var path: Variant = _paths.get(key)
@@ -167,24 +162,13 @@ func _path_for(hand_side: String) -> Variant:
 		return path
 	var started := Time.get_ticks_usec()
 	path = PATH.new()
-	if area_mode:
-		if not bool(path.call("build_areas", pony, hand_side, "standing")):
-			_path_failed[key] = true
-			return null
-	else:
-		if not bool(path.call("build", pony, hand_side, _camera_position(), "two")):
-			_path_failed[key] = true
-			return null
-		var ids: Array = []
-		for anchor: Dictionary in (path.get("anchors") as Array):
-			ids.append(str(anchor.get("id", "")))
-		if ids != ["flank", "shoulder", "neck"]:
-			_path_failed[key] = true
-			return null
+	if not bool(path.call("build_areas", pony, hand_side, "standing")):
+		_path_failed[key] = true
+		return null
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s path=%s anchors=%d build_ms=%.1f" % [hand_side,
-			"areas" if area_mode else "two", (path.get("anchors") as Array).size(),
+		_log("caress path side=%s path=areas anchors=%d build_ms=%.1f" % [hand_side,
+			(path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 		for note: Variant in (path.get("debug_notes") as Array):
 			_log("caress " + str(note))
@@ -193,20 +177,6 @@ func _path_for(hand_side: String) -> Variant:
 			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],
 				str(anchor["position"]), str(anchor["normal"])])
 	return path
-
-
-func _camera_position() -> Vector3:
-	if facts == null:
-		return Vector3.INF
-	var value: Variant = facts.camera
-	if value is Camera3D and is_instance_valid(value):
-		return (value as Camera3D).global_position
-	var main: Variant = facts.main
-	if is_instance_valid(main) and main.has_method("camera"):
-		var cam: Variant = main.call("camera")
-		if cam is Camera3D and is_instance_valid(cam):
-			return (cam as Camera3D).global_position
-	return Vector3.INF
 
 
 func shoulder_point(side: String) -> Dictionary:

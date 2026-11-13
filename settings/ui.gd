@@ -29,6 +29,8 @@ const PILL_LABEL_CHARS := 18
 ## keeps the game's own sidebar buttons from fighting the injected tab.
 static var _injected: Array = []
 static var _debug_sections: Array = []
+## Anatomy tab content that depends on the visibility pill, so Never can grey it out live.
+static var _anatomy_gates: Array = []
 static var _switch_guard := false
 
 
@@ -47,12 +49,37 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 		if setting.hidden:
 			continue
 		(debug if setting.debug else player).append(setting)
-	_build_sections(list, tab, "", player, font_size, page, changed)
+	var gate: VBoxContainer = null
+	var gate_note: Label = null
+	if tab == SETTINGS.ANATOMY:
+		# The visibility pill stays interactive; everything it governs sits in one container.
+		for index: int in range(player.size() - 1, -1, -1):
+			var setting := player[index] as SETTINGS.Setting
+			if setting != null and setting.name == "anatomy_mode":
+				player.remove_at(index)
+				_add_row(list, setting, font_size, page, changed)
+				break
+		gate_note = STYLE.label(
+			"Choose During act only or Always to configure the anatomy.", "Faint",
+			font_size - 5)
+		gate_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		gate_note.visible = SETTINGS.anatomy_mode.get_choice() == "never"
+		list.add_child(gate_note)
+		gate = VBoxContainer.new()
+		gate.name = "AnatomyGateContent"
+		gate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gate.add_theme_constant_override("separation", 6)
+		list.add_child(gate)
+	_build_sections(gate if gate != null else list, tab, "", player, font_size, page, changed)
+	var host: VBoxContainer = gate if gate != null else list
+	var debug_section: Control = null
 	if debug.is_empty():
+		if gate != null:
+			_register_anatomy_gate(gate, gate_note)
 		return null
-	if list.get_child_count() > 0:
-		list.add_child(HSeparator.new())
-	var debug_section := VBoxContainer.new()
+	if host.get_child_count() > 0:
+		host.add_child(HSeparator.new())
+	debug_section = VBoxContainer.new()
 	debug_section.name = "DebugSection"
 	debug_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	debug_section.add_theme_constant_override("separation", 6)
@@ -68,17 +95,69 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 		body.visible = on)
 	debug_section.add_child(header)
 	debug_section.add_child(body)
-	list.add_child(debug_section)
+	host.add_child(debug_section)
 	_build_sections(body, tab, "Debug/", debug, font_size, page, changed)
 	if actions_builder.is_valid():
 		actions_builder.call(body, font_size, tab)
+	if gate != null:
+		_register_anatomy_gate(gate, gate_note)
 	return debug_section
 
 
-## The catalog-driven Integrations tab. Every supported mod is listed even when it is not installed:
-## the header names the mod and the version this adapter was verified with, then each feature flag
-## follows as an ordinary declaration row. Integrations have no Debug block and no installed/mismatch
-## status.
+static func _register_anatomy_gate(content: VBoxContainer, note: Label) -> void:
+	_anatomy_gates.append({"content": content, "note": note})
+	_set_enabled_deep(content, SETTINGS.anatomy_mode.get_choice() != "never")
+
+
+## Grey out and disable the Anatomy content while the visibility pill is Never. The stored
+## mouse filter and disabled state are restored when the pill moves to Act or Always.
+static func _refresh_anatomy_gates() -> void:
+	var enabled := SETTINGS.anatomy_mode.get_choice() != "never"
+	var live: Array = []
+	for entry: Dictionary in _anatomy_gates:
+		var content: Variant = entry.get("content")
+		var note: Variant = entry.get("note")
+		if not is_instance_valid(content):
+			continue
+		live.append(entry)
+		_set_enabled_deep(content as Node, enabled)
+		if is_instance_valid(note):
+			(note as CanvasItem).visible = not enabled
+	_anatomy_gates = live
+
+
+static func _set_enabled_deep(root: Node, enabled: bool) -> void:
+	if root is CanvasItem:
+		(root as CanvasItem).modulate = Color.WHITE if enabled else Color(1, 1, 1, 0.75)
+	for child: Node in root.get_children():
+		if child is Control:
+			var control := child as Control
+			if not control.has_meta("unfplap_mouse_filter"):
+				control.set_meta("unfplap_mouse_filter", control.mouse_filter)
+			control.mouse_filter = int(control.get_meta("unfplap_mouse_filter")) \
+				if enabled else Control.MOUSE_FILTER_IGNORE
+			if control is BaseButton:
+				var button := control as BaseButton
+				if not button.has_meta("unfplap_disabled"):
+					button.set_meta("unfplap_disabled", button.disabled)
+				button.disabled = bool(button.get_meta("unfplap_disabled")) \
+					if enabled else true
+			elif control is SpinBox:
+				var spin := control as SpinBox
+				if not spin.has_meta("unfplap_editable"):
+					spin.set_meta("unfplap_editable", spin.editable)
+				spin.editable = bool(spin.get_meta("unfplap_editable")) if enabled else false
+			elif control is Slider:
+				var slider := control as Slider
+				if not slider.has_meta("unfplap_editable"):
+					slider.set_meta("unfplap_editable", slider.editable)
+				slider.editable = bool(slider.get_meta("unfplap_editable")) if enabled else false
+		_set_enabled_deep(child, enabled)
+
+
+## The catalog-driven Integrations tab. Every supported mod gets its own collapsible section,
+## named after the mod and open by default. The section body carries the verified version and that
+## provider's feature flags. Integrations have no Debug block and no installed/mismatch status.
 static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 		changed: Callable) -> void:
 	var providers: Array[Dictionary] = INTEGRATIONS_CATALOG.all()
@@ -87,7 +166,24 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 			font_size - 5))
 	var drawn: Dictionary = {}
 	for provider: Dictionary in providers:
-		_add_integration_header(list, provider, font_size, page)
+		var mod_id := str(provider.get("mod_id", ""))
+		var title := "%s by %s" % [str(provider.get("mod_name", "")),
+			str(provider.get("author", ""))]
+		var section_key := "Mods/" + (mod_id if not mod_id.is_empty() else title)
+		var open := SETTINGS.section_open(SETTINGS.INTEGRATIONS, section_key)
+		if list.get_child_count() > 0:
+			list.add_child(HSeparator.new())
+		var header := _heading(title, font_size, false, open)
+		list.add_child(header)
+		var body := VBoxContainer.new()
+		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		body.add_theme_constant_override("separation", 6)
+		body.visible = open
+		header.toggled.connect(func(on: bool) -> void:
+			SETTINGS.set_section_open(SETTINGS.INTEGRATIONS, section_key, on)
+			body.visible = on)
+		list.add_child(body)
+		_add_integration_version(body, provider, font_size)
 		var features: Variant = provider.get("features", [])
 		if features is Array:
 			for raw: Variant in features as Array:
@@ -96,7 +192,7 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 				if setting == null or drawn.has(name):
 					continue
 				drawn[name] = true
-				_add_row(list, setting, font_size, page, changed)
+				_add_row(body, setting, font_size, page, changed)
 	# A declaration without a catalog entry must never become an invisible setting.
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
 		if drawn.has(setting.name):
@@ -105,22 +201,12 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 		_add_row(list, setting, font_size, page, changed)
 
 
-static func _add_integration_header(parent: VBoxContainer, provider: Dictionary, font_size: int,
-		page: Node) -> void:
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", _row_box(page, false))
-	parent.add_child(card)
-	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 2)
-	card.add_child(block)
-	var title := STYLE.label("%s by %s" % [str(provider.get("mod_name", "")),
-		str(provider.get("author", ""))], "", font_size)
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	block.add_child(title)
+static func _add_integration_version(parent: VBoxContainer, provider: Dictionary,
+		font_size: int) -> void:
 	var hint := STYLE.label("Verified with version: %s" % str(provider.get("verified_version", "")),
 		"Faint", font_size - 5)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	block.add_child(hint)
+	parent.add_child(hint)
 
 
 ## One section pass. `prefix` separates the Debug block's section state from the player sections.
@@ -398,6 +484,7 @@ static func refresh_debug_visibility() -> void:
 	for section: Variant in _debug_sections:
 		if is_instance_valid(section):
 			(section as Control).visible = on
+	_refresh_anatomy_gates()
 
 
 static func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
@@ -533,6 +620,7 @@ static func clear_pages() -> void:
 			(page as Node).remove_meta("unfplap_button")
 	_injected.clear()
 	_debug_sections.clear()
+	_anatomy_gates.clear()
 
 
 static func _groups_of(settings: Array) -> Array[String]:

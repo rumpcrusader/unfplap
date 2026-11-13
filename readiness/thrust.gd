@@ -40,7 +40,7 @@ const JIGGLE_SOFT_LOW := 0.18
 const JIGGLE_SOFT_HIGH := 0.42
 ## His skin meets her coat in the last few centimetres of the reachable stroke. The gap is a
 ## distance, so the contact point follows the shaft length, the `Pelvis gap` and the pose's reach
-## instead of being a fixed depth fraction. `thrust.contact_gap_m` is the epsilon the runtime
+## instead of being a fixed depth fraction. The runtime supplies the contact epsilon
 ## passes: a stroke inside it plaps, one outside it does not.
 ## Body-slap tier: the average inward speed over the deepest `PLAP_SPEED_WINDOW` of the stroke's
 ## travel. Depth units per second, the same scale as `STRENGTH_SPEED_REF`. Below firm the stroke is
@@ -97,7 +97,7 @@ static func skin_gap_m(penetration_m: float, reach_m: float) -> float:
 	return maxf(reach_m - penetration_m, 0.0)
 
 
-## True when the stroke came close enough to count as a body slap. `eps_m` is Contact gap.
+## True when the stroke came close enough to count as a body slap. `eps_m` is the contact epsilon.
 static func plap_touching(gap_m: float, eps_m: float) -> bool:
 	return gap_m <= maxf(eps_m, 0.0)
 

@@ -7,7 +7,7 @@ deliberately not imported.
 ## Ownership
 
 `vr/service.gd` is the VR controller, created by the anatomy bridge's `vr_start()` (called from the
-runtime's `_start_vr_act()`) when the VR flag is on and a `XRCamera3D`/`XROrigin3D` pair exists
+runtime's `_start_vr_act()`) when a headset is active and a `XRCamera3D`/`XROrigin3D` pair exists
 under the player. It is a scene adapter with typed handles, never the runtime node: the bridge
 handle (`toggle_hole`, `toggle_finish`, `toggle_oral`, `vr_forward`, `vr_depth`), the `align`
 write-back, the `touch` readiness event and a `pony_source` read. It also receives `player`,

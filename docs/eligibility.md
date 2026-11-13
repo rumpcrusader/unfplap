@@ -13,7 +13,7 @@ this contract.
 This contract covers:
 
 - the one adult predicate and the per-target capability answers;
-- the Promiscuity level and Starting Sex choice;
+- the Promiscuity level and Show start button choice;
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
 - history withdrawal and offer blocks;
 - the estrus cycle sex gate;
@@ -250,7 +250,7 @@ eligible + Promiscuity level pass.
 Rules:
 
 - `history_refuse` wins over `buck_refuse`; it does not require willingness.
-- `buck_refuse` ignores Starting Sex, cycle and history.
+- `buck_refuse` ignores the start button mode, cycle and history.
 - `stop` requires base + willing + cycle; history does not stop an act.
 - `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
   buck, a history refusal or a mood note. It is a boundary, not a mood beat.
@@ -348,7 +348,7 @@ bucked or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` 
 boundary) and holds the matching face in `face/mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
 she refuses kisses and offers for the note's 300 s freshness.
 
-## Starting Sex
+## Show start button
 
 `relationship.sex_start` decides whether the start hint waits for her to welcome a kiss:
 
@@ -393,7 +393,7 @@ Eligibility reads the resolved result. It never writes it. `public`, `anal` and 
 independent:
 
 - **Public** is an offer privacy override, never an act gate and never a refusal. It only matters
-  while the **Allow public offers** switch is on (off by default).
+  while the **Enable public offers** switch is on (off by default).
 - **Anal** gates `V`; **oral** gates `N`.
 - Feature flags (`features.anatomy_holes`, `features.anatomy_oral`) are capability gates, not
   consent.
@@ -422,7 +422,7 @@ contract is `docs/initiation.md`.
 - adult mare, adult player or romance eligibility;
 - Promiscuity level;
 - kiss willingness;
-- Starting Sex bypass;
+- the Show start button mode;
 - estrus cycle allows sex.
 
 `runtime._still_willing()` checks this every quarter second. A real tolerance stop is separate:
@@ -464,7 +464,7 @@ contract is `docs/initiation.md`.
 ## Tests
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, the one adulthood predicate,
-  capability targets, witness age, Promiscuity, willingness, Starting Sex, history, cycle,
+  capability targets, witness age, Promiscuity, willingness, Show start button, history, cycle,
   public/anal/oral, participation and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
   facts and verdict, capability targets, the no-stable-id boundary, the profile consent, the

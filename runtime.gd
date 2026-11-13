@@ -56,6 +56,8 @@ const READINESS_MAX := 100.0
 ## reaction while slow or shallow strokes stay lighter. Readiness scoring lives in
 ## `readiness/service.gd`.
 const THRUST_IMPACT_GAIN := 2.0
+## The body slap fires only when his skin has actually reached her coat.
+const CONTACT_GAP_M := 0.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
@@ -186,9 +188,7 @@ var _thrust_tracker
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
-## The body-slap contact epsilon and the pose standoff, taken from the act snapshot so a stroke
-## never reads a setting per impact.
-var _contact_gap_m := 0.02
+## The pose standoff, taken from the act snapshot so a stroke never reads a setting per impact.
 var _pelvis_gap_m := 0.025
 var _cue_gap := 12.0
 var _vocal_cooldown := 0.0
@@ -914,7 +914,6 @@ func _snapshot_settings() -> void:
 	_thrust_pixels_per_cm = snap.thrust_pixels_per_cm
 	_thrust_travel = snap.thrust_travel
 	_max_pony_climaxes = snap.max_pony_climaxes
-	_contact_gap_m = snap.contact_gap_m
 	_pelvis_gap_m = snap.pelvis_gap_m
 	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
 		snap.auto_min_depth)
@@ -956,12 +955,9 @@ func apply_live_settings() -> void:
 		_anatomy_refresh()
 		return
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
-	var previous_lines := bool(_features.get("act_lines", true))
 	_anatomy_refresh()
 	_sync_act_facts()
 	_integrations_controller().apply_live_settings()
-	if previous_lines and not bool(_features.get("act_lines", true)) and is_instance_valid(main) and is_instance_valid(main.game):
-		_end_act_lines(true)
 	var climax := _feature("act_climax")
 	_ensure_act_audio(climax)
 	_reactions.apply_radius()
@@ -1801,8 +1797,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		if not REST.release_managed(pony):
 			_abort_start()
 			return false
-	if _cuddle_active() and _feature("allow_act_during_cuddle") \
-			and source not in ["bed_side", "already_lying"]:
+	if _cuddle_active() and source not in ["bed_side", "already_lying"]:
 		_end_cuddle_session()
 		REST.release_managed(pony)
 	if not _claim_nav():
@@ -2437,9 +2432,10 @@ func penetration_reach() -> float:
 	return maxf(length, 0.02)
 
 
-## How far the tip rests behind her lips when pulled all the way out.
+## How far the tip rests past (positive) or inside (negative) her lips when pulled all the way
+## out.
 func _back_out_m() -> float:
-	return maxf(SETTINGS.back_out_m.get_num(), 0.0)
+	return SETTINGS.back_out_m.get_num()
 
 
 ## Move the physical penetration and mirror it into the public 0..1 depth. Travel behind the lips
@@ -2497,7 +2493,7 @@ func _add_heat(amount: float) -> void:
 
 ## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
 ## here, with the motion. Fired once per real thrust from the tracker's `impact` event. The body
-## slap needs two physical facts: his skin has to reach her coat (`gap <= Contact gap`), and the
+## slap needs two physical facts: his skin has to reach her coat (`gap <= the contact epsilon`), and the
 ## bottom has to be fast enough to be a slap rather than a slow press. Tier comes from the speed
 ## over the deepest part of the stroke, never from the readiness intensity band.
 func _on_impact(result: Dictionary) -> void:
@@ -2510,7 +2506,7 @@ func _on_impact(result: Dictionary) -> void:
 	var gap := THRUST.skin_gap_m(float(result.get("end_depth", 0.0)) * reach, reach)
 	var impact_speed := float(result.get("impact_speed", 0.0))
 	var tier := THRUST.plap_tier(impact_speed)
-	var plap := THRUST.plap_touching(gap, _contact_gap_m) and not tier.is_empty()
+	var plap := THRUST.plap_touching(gap, CONTACT_GAP_M) and not tier.is_empty()
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
 	_reactions.thrust(jiggle)
@@ -2525,7 +2521,7 @@ func _on_impact(result: Dictionary) -> void:
 	_play_vocal()
 	if is_instance_valid(_act_audio):
 		_act_audio.play_impact(pose_id, tier, strength, _reactions.rump_point(),
-			_bed_audio_point(), _bed_soft, gap, _contact_gap_m)
+			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M)
 	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		gap, impact_speed, tier if not tier.is_empty() else "-", 1 if plap else 0,
 		satisfaction, _readiness.thrusts_per_second(), strength, impact, jiggle,
@@ -2909,24 +2905,23 @@ func cancel() -> void:
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()
-		if bool(_features.get("act_lines", true)):
-			# Half the time she says nothing at all. When she does speak, it is a moment, not a
-			# review or a next-time list.
-			if randf() >= 0.5:
-				var act_id := _event_id
-				var expires := _now_s() + _cue_reaction_max_age_s
-				var valid := func() -> bool:
-					if not is_instance_valid(pony) or _event_id != act_id:
-						return false
-					if _now_s() <= expires:
-						return true
-					return main.memory.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
-				var key: String = _lines_service().reaction_line(MEMORY.Reaction.END_EARLY, act_id, ACT_SUMMARY.early_end_prompt(_summary_service.summary), valid)
-				_end_early_key = key
-				if not key.is_empty():
-					var now := _now_s()
-					_lines_service().note_reaction(key, "", now + _cue_reaction_max_age_s)
-					_log("utterance kind=reaction key=%s" % key)
+		# Half the time she says nothing at all. When she does speak, it is a moment, not a
+		# review or a next-time list.
+		if randf() >= 0.5:
+			var act_id := _event_id
+			var expires := _now_s() + _cue_reaction_max_age_s
+			var valid := func() -> bool:
+				if not is_instance_valid(pony) or _event_id != act_id:
+					return false
+				if _now_s() <= expires:
+					return true
+				return main.memory.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
+			var key: String = _lines_service().reaction_line(MEMORY.Reaction.END_EARLY, act_id, ACT_SUMMARY.early_end_prompt(_summary_service.summary), valid)
+			_end_early_key = key
+			if not key.is_empty():
+				var now := _now_s()
+				_lines_service().note_reaction(key, "", now + _cue_reaction_max_age_s)
+				_log("utterance kind=reaction key=%s" % key)
 			# The stopped act gets one post-act beat at most: suppress the later history line
 			# for the same act, even when the roll chose silence. A skipped summary must not
 			# clear an older act's pending reminder.
@@ -2972,7 +2967,7 @@ func _climax() -> void:
 
 
 func _queue_climax_reaction() -> void:
-	if not is_instance_valid(main) or not bool(_features.get("act_lines", true)):
+	if not is_instance_valid(main):
 		return
 	var act_id := _event_id
 	var count := pony_climaxes
@@ -3471,12 +3466,11 @@ func _bind_face() -> void:
 		_face.bind(pony, self)
 
 
-## One act face moment. The runtime gathers the act values; the facade applies the feature gate,
-## the debug flag and the beat table.
+## One act face moment. The runtime gathers the act values; the facade applies the debug flag and
+## the beat table.
 func _act_face_beat(moment: String) -> void:
 	_bind_face()
 	var ctx := {
-		"enabled": true,
 		"first_time": _first_time,
 		"tolerance": str(_preferences.get("tolerance", "normal")),
 	}
@@ -3485,7 +3479,7 @@ func _act_face_beat(moment: String) -> void:
 		ctx["quality"] = _climax_quality_inputs()
 	elif moment == "afterglow":
 		ctx["summary"] = _summary_service.summary
-	_face.act_beat(moment, ctx, _feature("act_faces"), _feature("face_debug"))
+	_face.act_beat(moment, ctx, _feature("face_debug"))
 
 
 func _current_dialogue_face() -> String:
@@ -3507,7 +3501,7 @@ func _end_act_face() -> void:
 
 func _sync_act_face_settings() -> void:
 	_bind_face()
-	_face.sync_settings(_feature("act_faces"), _feature("face_debug"))
+	_face.sync_settings(_feature("face_debug"))
 
 
 ## Debug preview: set one base-game face on the current act. A speaking line still wins.
@@ -3528,7 +3522,6 @@ func act_face_rows() -> Array[String]:
 		"state": state,
 		"hud_mood": mood,
 		"base_mood": base_mood,
-		"act_faces": _feature("act_faces"),
 		"climax_mode": _act_climax_mode,
 		"blush_arc": _feature("blush_arc"),
 	})
@@ -3599,9 +3592,8 @@ func _begin_camera_mode() -> void:
 		if not _anatomy_bridge.install_missionary_anon():
 			_anatomy_bridge.set_missionary_anon(null)
 			body.queue_free()
-	# integration: optional VR standing act; it uses the headset rig and no desktop camera.
-	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING \
-			and SETTINGS.anatomy_vr.get_bool():
+	# integration: the VR standing act; it uses the headset rig and no desktop camera.
+	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING:
 		_start_vr_act()
 	if _player_pony or _headset_view():
 		return

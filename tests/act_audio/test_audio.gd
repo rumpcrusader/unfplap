@@ -61,6 +61,10 @@ func run() -> void:
 		"a stroke 3 cm short is silent at a 2 cm contact gap")
 	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	check(float(ready.get("plap_rough", 0.0)) > 0.0, "a bottomed-out rough stroke plaps")
+	ready["plap_rough"] = 0.0
+	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
+	check(float(ready.get("plap_rough", 0.0)) > 0.0,
+		"true contact at a zero epsilon plays the plap")
 
 	audio.end()
 	check((audio.get("_pools") as Dictionary).is_empty(), "stopping the act clears every pool")

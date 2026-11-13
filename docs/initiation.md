@@ -169,7 +169,7 @@ public_offer   = heat or (features.act_public_offer and consent.public)
 
 "House alone" excludes the offering mare and counts every other mare in the house; outdoors,
 `others_near` counts every other mare within `30 m`. The public-offer part is the player's
-**Allow public offers** switch; it is off by default. A public offer is still an offer; the act
+**Enable public offers** switch; it is off by default. A public offer is still an offer; the act
 itself does not require privacy. The throttled `request privacy ...` log prints the player
 position, the house, every mare in the house, every mare within `30 m`, the target label, the
 public-offer flag and the resolved result.
@@ -250,8 +250,8 @@ runtime.
 
 `initiation/prompts.gd` builds every line from a `FACTS.Request`. The facade supplies
 `relation_note` (from `main.memory.cue_facts` + `relationship_cue`), `history_note` (from
-`act_history.ask_note`) and `face_note` (`act_face.prompt_note("ask"|"invite")`, only with
-`features.act_faces`). Wording mode is decided once per builder by
+`act_history.ask_note`) and `face_note` (`act_face.prompt_note("ask"|"invite")`). Wording mode is
+decided once per builder by
 `policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while
 other ponies are around. The heat line is appended only in heat and is empty otherwise. Prompts
 never suggest `[mood:...]`; the face hint is the only expression guidance.

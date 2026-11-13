@@ -40,6 +40,7 @@ var _visibility_init := false
 var _shown := false
 var _teats_shown := false
 var _strip_shown := false
+var _dock_style := ""
 
 
 func setup(controller_node: Node, pony_node: Node3D, facts_node: RefCounted) -> void:
@@ -151,8 +152,11 @@ func apply_visibility(act_visible: bool) -> void:
 	var show := not far and act_visible
 	var teats_show := show and teats_on
 	var strip_show := show and strip_on
+	var dock_style := SETTINGS.dock_style.get_choice()
+	var style_changed := dock_style != _dock_style
+	_dock_style = dock_style
 	if _visibility_init and show == _shown and teats_show == _teats_shown \
-			and strip_show == _strip_shown:
+			and strip_show == _strip_shown and not style_changed:
 		return
 	_visibility_init = true
 	_shown = show
@@ -211,7 +215,7 @@ func _apply_dock(anatomy_shown: bool) -> void:
 		return
 	# A dock the game hid before anatomy attached (the princesses' fitted body hides it) stays
 	# hidden: the anatomy must not re-show a dock the body art does not use.
-	dock.visible = dock_was_visible and SETTINGS.show_dock.get_bool()
+	dock.visible = dock_was_visible and SETTINGS.dock_style.get_choice() != "hide"
 
 
 func _hole_point() -> Vector3:

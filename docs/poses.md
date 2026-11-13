@@ -188,10 +188,10 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   correction small. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
   does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the
   camera rig with `_standing_transform()`.
-- Anon's lower body stays planted: `apply_anon_lean()` freezes the hip target and both foot
-  targets at their first act frame pose. The camera/head moves forward, sideways or down, so the
-  torso hinges over her instead of the whole body sliding into her rump. Pull-back translates
-  the hips and feet together, so the whole lower body moves away with the same leg pose.
+- `apply_anon_lean()` pins both foot targets at their live stepping pose while a lean moves the
+  hip and camera/head forward, sideways or down, so the torso hinges over her instead of walking
+  through the lean. With no lean the game's stepping feet are left alone; the capture clears on
+  the next non-leaning frame.
 - With `features.anatomy_oral` on and oral active, `oral_pitch`, `oral_yaw` and `oral_roll` swing
   the two neck bones and counter-rotate the head so her muzzle stays along the shaft. The keys are
   absent otherwise. `standing_camera.set_facing_override()` owns her turn while oral is active and

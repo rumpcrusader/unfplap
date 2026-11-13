@@ -191,7 +191,7 @@ and again on `start()`.
 
 ## Settings and debug
 
-- `features.standing_stool`, default on, label **Use footstool**.
+- `features.standing_stool`, default on, label **Enable footstool**.
 - `presentation.standing.stool_gap_m`, debug, default `0.20`, unit cm, Standing › Motion.
 - `presentation.standing.stool_height_m`, debug, default `0.20`, unit cm, Standing › Motion. Each
   placed stool adds this much height.

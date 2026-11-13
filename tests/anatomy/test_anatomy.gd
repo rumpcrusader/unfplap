@@ -221,7 +221,7 @@ func run() -> void:
 		float(default_place["offset_x"]),
 		float(default_place["offset_y"]),
 		float(default_place["offset_z"]))
-	# Show tail docks is visibility only. The old placement pinned the mesh top to the dock's
+	# Dock style is visibility/colour only. The old placement pinned the mesh top to the dock's
 	# buried base ring, which dropped a low-docked mare's anatomy by up to 9 cm.
 	var place := ANATOMY.new()
 	var place_mesh := MeshInstance3D.new()
@@ -231,17 +231,17 @@ func run() -> void:
 	place.placement.set("_pos", place_pos)
 	place.placement.set("_pitch", float(default_place["pitch_deg"]))
 	place.placement.set("_scale", float(default_place["scale"]))
-	var dock_before := SETTINGS.show_dock.get_bool()
-	SETTINGS.show_dock.set_bool(true)
+	var dock_before := SETTINGS.dock_style.get_choice()
+	SETTINGS.dock_style.set_choice("coat")
 	place.call("_apply_place")
 	var dock_on: Transform3D = place_mesh.transform
-	SETTINGS.show_dock.set_bool(false)
+	SETTINGS.dock_style.set_choice("hide")
 	place.call("_apply_place")
 	var dock_off: Transform3D = place_mesh.transform
 	check(dock_on.is_equal_approx(dock_off), "the dock switch never moves the anatomy")
 	check(near(dock_on.origin.y, place_pos.y + float(place.call("_tail_lift"))),
 		"placement uses the calibrated lift")
-	SETTINGS.show_dock.set_bool(dock_before)
+	SETTINGS.dock_style.set_choice(dock_before)
 	place.free()
 	# Saved placements migrate once onto the current default: v0 rows get all three shifts, v1 the
 	# lateral and forward steps, v2 the forward step, and a v3 row is left alone.

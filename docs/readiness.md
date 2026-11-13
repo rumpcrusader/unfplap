@@ -36,8 +36,8 @@ The auto surface:
 
 - Mouse vertical motion feeds the measured penetration in metres. `thrust.orientation` flips the
   direction; `"up"` (the default) means mouse up deepens. `thrust.pixels_per_cm` is the
-  sensitivity, default `50` (20–400), so a full stroke is his shaft length and the `Back-out gap`
-  sits below zero depth.
+  sensitivity, default `50` (20–400), so a full stroke is his shaft length and the signed
+  `Back-out gap` sets the resting depth (positive rests behind her, negative starts inside).
 - `X` toggles auto thrust in `ACTIVE`/`CLIMAX` on a tap. `readiness/auto_thrust.gd` drives
   `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`, and the
   runtime feeds the same depth tracker the mouse feeds. It adds no separate score or heat path:
@@ -61,13 +61,13 @@ The auto surface:
   is a separate `impact` event: it fires on the reversal or after `IMPACT_STALL_S = 0.04 s` of no
   real progress, and it drives the jiggle, wings, blush, ear twitch and the plap, so the sound
   lands with the motion instead of 180 ms late. The close only scores.
-- The **body slap is gated on contact and tiered by its speed**. At the bottom the tracker reports
-  `impact_speed`: the average inward speed over the deepest 10 % of the stroke's travel, counting
-  only intervals that actually deepened, so a pause or jitter at the bottom cannot dilute it. The
-  runtime measures `skin_gap_m = max(reach - penetration, 0)` and plaps only when the gap is inside
-  `thrust.contact_gap_m` (Contact gap). The bag is `firm` from `PLAP_FIRM_SPEED` and `rough` from
-  `PLAP_ROUGH_SPEED`; below firm a touching stroke is a slow press and stays silent. The slide and
-  the bed fabric play on every real thrust.
+- The **body slap is gated on true contact and tiered by its speed**. At the bottom the tracker
+  reports `impact_speed`: the average inward speed over the deepest 10 % of the stroke's travel,
+  counting only intervals that actually deepened, so a pause or jitter at the bottom cannot dilute
+  it. The runtime measures `skin_gap_m = max(reach - penetration, 0)` and plaps only when the gap
+  reaches zero. The bag is `firm` from `PLAP_FIRM_SPEED` and `rough` from `PLAP_ROUGH_SPEED`; below
+  firm a touching stroke is a slow press and stays silent. The slide and the bed fabric play on
+  every real thrust.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
   counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:
@@ -182,7 +182,7 @@ forgiving. The old `timid`/`neutral` values still resolve to `forgiving`/`normal
 
 Readiness queues at most one decision per frame (`take_tolerance_decision()`); the runtime presents
 it. A warning sets a HUD cue and queues one short spoken warning; a stop runs the runtime's
-`_stop_with_her`. Warnings and the stop line speak even when `features.act_lines` is off. The
+`_stop_with_her`. Warnings and the stop line always speak. The
 stop's summary, memory note, cooldown and mood are in `docs/summary.md`; its buck/push is
 `docs/scene_gate.md`.
 
@@ -218,7 +218,7 @@ testing.
 ## Settings
 
 Player-facing: `thrust.orientation`, `thrust.pixels_per_cm`, `thrust.travel`,
-`thrust.max_pony_climaxes`. Debug: `thrust.contact_gap_m`, `auto_thrust.pace`,
+`thrust.max_pony_climaxes`. Debug: `auto_thrust.pace`,
 `auto_thrust.min_depth`, `auto_thrust.max_depth`, `auto_thrust.curve`, the touch/talk cooldowns,
 the receptive window and the cue pacing under Talk & cues. See `docs/settings.md`; the values are
 declared once in `settings/service.gd`.

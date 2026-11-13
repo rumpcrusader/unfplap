@@ -117,9 +117,7 @@ func admit_cue(now: float) -> String:
 	var is_override := bool(facts.cue_override)
 	var admit := false
 	var reason := ""
-	if not _feature("act_lines", true):
-		reason = "act_lines_off"
-	elif demand and lines.demand_blocked(facts.cue, now):
+	if demand and lines.demand_blocked(facts.cue, now):
 		reason = "demand"
 	elif not channel_free():
 		reason = "channel" if not lines.channel_free() else "speech"
@@ -212,8 +210,7 @@ func bystander_tick(delta: float) -> void:
 		indoors = HOUSE.at(facts.pony.get_tree(), facts.pony.global_position) != null
 	var purpose := BYSTANDER_PROMPT % [facts.display_name,
 		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
-	if _feature("act_faces", true):
-		purpose += ACT_FACE.prompt_note("bystander")
+	purpose += ACT_FACE.prompt_note("bystander")
 	if _bystander_line(str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
 		_log("bystander line from %s" % row.id)
@@ -299,7 +296,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		_log("utterance missing prompt kind=%s" % kind)
 		return ""
 	var face_note := ""
-	if kind == "cue" and _feature("act_faces", true):
+	if kind == "cue":
 		face_note = ACT_FACE.prompt_note("cue", facts.mood)
 	var values := {
 		"state": UTTERANCE.state_line(
@@ -344,11 +341,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 			purpose += face_note
 		purpose += UTTERANCE.context_note(template, values)
 		purpose += CUE_REACTION_NOTE
-		# integration: optional line angles and speech feel, independent of each other.
+		# integration: optional speech feel, independent of the always-on line angles.
 		if _feature("act_speech_feel", false):
 			purpose += _speech_feel_note()
-		if _feature("act_line_angles", true):
-			purpose += _line_variety(values.recent)
+		purpose += _line_variety(values.recent)
 	_serial += 1
 	var suffix := "%s:%d" % [key_suffix, _serial]
 	var act_id: String = facts.event_id
@@ -474,7 +470,7 @@ func recent_lines() -> String:
 	if not spoken is Array or (spoken as Array).is_empty():
 		return ""
 	var recent: Array[String] = []
-	var limit := RECENT_LINES if _feature("act_line_angles", true) else 4
+	var limit := RECENT_LINES
 	var start := maxi(0, (spoken as Array).size() - limit)
 	for index in range(start, (spoken as Array).size()):
 		recent.append(str((spoken as Array)[index]))

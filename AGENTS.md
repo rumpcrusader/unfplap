@@ -94,6 +94,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   plan file in the repository.
 - Start a fresh session once the context has grown past a few hundred thousand tokens; carry a
   short plan forward instead of appending to a long conversation.
+- **Player-facing settings need the user's approval.** Agree the setting name, hint wording,
+  options and placement (tab, section and order) before implementing one. Debug settings are the
+  agent's call: choose those details and report them.
 
 ## Definition of done
 

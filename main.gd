@@ -276,10 +276,16 @@ func _on_world_closed(_host: Node) -> void:
 		hud.hide_all()
 
 
-## Move the game's bottom dialogue caption to the top only when the player chose the explicit
-## bottom-caption mode. "Over the pony's head" and "auto" are left untouched.
+## Move the game's bottom dialogue caption to the top only during an act and only when the player
+## chose the explicit bottom-caption mode. "Over the pony's head" and "auto" are left untouched,
+## and afterglow returns the caption to the bottom.
 func _caption_top_enabled() -> bool:
 	if not _captions_on_top:
+		return false
+	if not is_instance_valid(active_runtime):
+		return false
+	var state: int = int(active_runtime.get("state"))
+	if state not in [RUNTIME.State.POSING_IN, RUNTIME.State.ACTIVE, RUNTIME.State.CLIMAX]:
 		return false
 	var settings := get_node_or_null("/root/Settings")
 	if settings == null:

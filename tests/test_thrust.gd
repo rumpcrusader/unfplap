@@ -183,7 +183,7 @@ func run() -> void:
 		"the soft band fades the wobble in between")
 
 	# The body slap follows the model: the gap is a distance from the pose's deepest placement,
-	# and Contact gap is the epsilon that counts as touching.
+	# and the contact epsilon counts as touching.
 	var reach := 0.17
 	check(near(THRUST.skin_gap_m(reach, reach), 0.0), "bottomed out leaves no skin gap")
 	check(near(THRUST.skin_gap_m(reach - 0.03, reach), 0.03), "a stroke short leaves a gap")

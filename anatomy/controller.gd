@@ -261,7 +261,7 @@ func _heat_rest_open() -> float:
 
 ## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
 ## tails (Derpy's) sit lower and pulled the whole anatomy into the rump. Keep one value so the
-## anatomy's size and position are identical across mares; the Show tail docks switch only hides or
+## anatomy's size and position are identical across mares; the Dock style switch only hides or
 ## shows the dock and never moves the anatomy.
 func _tail_lift() -> float:
 	return PLACEMENT.LIFT

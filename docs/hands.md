@@ -41,7 +41,7 @@ This contract covers:
 | `hands/session.gd` | typed coordinator interface used by the smack action |
 | `hands/placement.gd` | pose-free placement engine: oval, posed-coat snap, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
-| `hands/paths/standing.gd` | standing path: authored flank -> shoulder -> neck, marked area chain behind `features.caress_areas`, procedural flank/rump fallback |
+| `hands/paths/standing.gd` | standing path: marked area chain, procedural flank/rump fallback |
 | `hands/paths/missionary.gd` | missionary path: authored one/two and reach filtering |
 | `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, act-camera anchors, rest fallback |
 | `hands/surface.gd` | stable posed body/head patch, local caress window and coat queries |
@@ -52,7 +52,7 @@ This contract covers:
 | `hands/smack.gd` | smack phases, impact audio and return to the live caress |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
 | `hands/paths/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
-| `hands/areas/areas.json` | marked caress areas from the Blender vertex groups; standing chain behind `features.caress_areas` |
+| `hands/areas/areas.json` | marked caress areas from the Blender vertex groups; standing chain |
 
 The pose boundary is deliberately small:
 
@@ -104,22 +104,16 @@ the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, 
 
 ### Standing
 
-- The standing path is the authored `anchors2.json` chain: flank -> shoulder -> neck.
-- No lean is the flank. W/lean walks through the shoulder to the base of the neck.
-- S keeps the procedural rump-top reach, reaching it at `CARESS_RUMP_LEAN = 0.5`.
-- The standing provider requests the opposite authored hand side because Anon is behind her and
-  his left hand reaches her left side. The path data is unchanged.
-- With `features.caress_areas` on (debug, default on), the standing path is built from the
-  standing order in `hands/areas/areas.json`: `flank_back -> flank_side` (the JSON `start`)
-  `-> flank_top -> back -> shoulder -> neck`. The same lean sampling moves along it: no lean is
-  the `start`, W walks toward the neck and S toward the `flank_back`. The points are the
-  representative rest points of the marked vertex groups, snapped to the body/head source.
+- The standing path is the marked-area chain from `hands/areas/areas.json`:
+  `flank_back -> flank_side` (the JSON `start`) `-> flank_top -> back -> shoulder -> neck`.
+- No lean is the `start`; W/lean walks through the shoulder to the neck, and S walks toward
+  `flank_back`. The points are the representative rest points of the marked vertex groups,
+  snapped to the body/head source.
 - The area JSON stores the mare's own body sides, so the standing hand side is used directly.
-  The default `anchors2.json` path keeps the old missionary-facing side flip.
 - The area's `region` field picks the body or head coat patch. This pass is lean-driven: W/S
   still leans and the hand follows the chain. The discrete area index, one-sided pause and
   slide/arc transition are not part of it.
-- The procedural flank/rump point is the fallback when the authored anchors cannot build; it is
+- The procedural flank/rump point is the fallback when the area chain cannot build; it is
   still snapped to the posed coat by the placement engine.
 - The oval uses the standing radii and the old across/up axes. The palm fingers point forward
   (`-pony.global_basis.z`).
@@ -181,7 +175,6 @@ With the flag off, both hands share the full region patch as before.
 | Setting | Default | Effect |
 |---|---|---|
 | `caress.quality` | precise | player-facing caress surface level; `precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts the intended point on a ray miss |
-| `features.caress_areas` | on | standing authored path from `hands/areas/areas.json` instead of `anchors2.json`; lean-driven chain |
 | `features.caress_local` | on | debug: skin and raycast only the coat window around each caress hand; off restores the full region patch |
 | `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |
 | `features.caress_reach_shoulder_m` | 0 m | missionary reach shoulder shift |
@@ -199,10 +192,9 @@ The three smoothing values apply to both poses. `0` restores the exact behaviour
 offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
 presets keep their authored values.
 
-`features.caress_areas` swaps only the standing authored chain. The old `anchors2.json` path
-and the procedural flank/rump fallback remain the default when the flag is off. The marked area
-JSON also stores `mode` and `roll`; the lean-driven standing provider uses `region`, but keeps its
-existing palm frame and roll. The `mode`/`roll` fields are data for the later discrete area pass.
+The marked area JSON also stores `mode` and `roll`; the lean-driven standing provider uses
+`region`, but keeps its existing palm frame and roll. The `mode`/`roll` fields are data for the
+later discrete area pass.
 
 Standing point profiles (`CARESS_PROFILES`, metres before body scale): Canon `up 0.08`,
 JRHNBR `up 0.16 / out 0.02`, Same Height `up 0.18 / out 0.03`, Hoers `up 0.20 / out 0.04`.
@@ -212,9 +204,8 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 - `features.caress_debug` logs one `precise caress` line per hand per act with `u`, target,
   normal, finger, roll, hover, surface and the ray hit/miss counts, and logs anchor builds/misses
-  and each anchor's world position/normal. The caress path line prints `path=areas` when the
-  marked standing chain is active and `path=two` for the default chain; the surface field reports
-  `faces=<window>/<patch>`.
+  and each anchor's world position/normal. The caress path line prints `path=areas`; the surface
+  field reports `faces=<window>/<patch>`.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
 - `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_ensure`,
@@ -284,8 +275,7 @@ selection and starts the swing.
 ## Tests
 
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
-  area path, side mapping, standing path and its `features.caress_areas` toggle, engine placement,
-  smoothing and reach.
+  area path, side mapping, standing path, engine placement, smoothing and reach.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
@@ -297,9 +287,8 @@ selection and starts the swing.
 - The local window follows the hand's intended point; a point that lands beyond the region source
   keeps the full patch for that hand. `ray()` (the authored anchor build) always uses the full
   patch, because it maps a soup face back to a source vertex.
-- The path builders cache per hand and pony; changing `path_id` or `features.caress_areas`
-  rebuilds the next caress path.
-- `features.caress_areas` is lean-driven: W/S still leans and the hand follows the JSON chain.
+- The path builders cache per hand and pony; changing `path_id` rebuilds the next caress path.
+- The area chain is lean-driven: W/S still leans and the hand follows the JSON chain.
   It does not add a discrete area index, a one-sided pause or the slide/arc transition.
 - The area JSON is global for the shared body/head. A missing side or fewer than three buildable
   areas makes the area chain fail and the standing provider falls back to the procedural

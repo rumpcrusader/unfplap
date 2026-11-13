@@ -86,8 +86,7 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF,
 
 ## Build a lean-sampled chain from the marked caress areas. The standing area order and the
 ## no-lean `start` come from `hands/areas/areas.json`; every area resolves to the nearest source
-## vertex on the body or head mesh, so the chain keeps the live skin weights. This is the
-## `features.caress_areas` path: the old authored chains remain the default.
+## vertex on the body or head mesh, so the chain keeps the live skin weights.
 func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bool:
 	valid = false
 	anchors.clear()

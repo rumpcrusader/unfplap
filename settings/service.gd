@@ -398,7 +398,6 @@ class ActSnapshot:
 	var auto_max_depth := 0.5
 	var auto_min_depth := 0.0
 	var auto_curve := "cosine"
-	var contact_gap_m := 0.02
 	var pelvis_gap_m := 0.025
 	var jiggle: Dictionary = {}
 	var camera_thrust: Dictionary = {}
@@ -432,7 +431,6 @@ static func act_snapshot(pose_id: String) -> ActSnapshot:
 	snap.auto_max_depth = max_depth.get_num()
 	snap.auto_min_depth = min_depth.get_num()
 	snap.auto_curve = curve.get_choice()
-	snap.contact_gap_m = contact_gap_m.get_num()
 	snap.pelvis_gap_m = pelvis_gap_m.get_num()
 	snap.jiggle = _block("jiggle.")
 	snap.camera_thrust = _block("camera_thrust.")
@@ -764,46 +762,41 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 # -- (ungrouped)
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"],
-	"Starting Sex",
-	"When to show the \u201cMake love\u201d button. When Available waits until she welcomes a kiss; Try Your Luck shows the hint earlier while she can still refuse. Neither drops the Promiscuity stage.", GENERAL, "")
+	"Show start button",
+	"When to show \"Make love\" button.", GENERAL, "")
 static var act_controls := flag("act_controls", "features.act_controls", true, "Show controls",
 	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
 static var hud_readouts := flag("hud_readouts", "features.hud_readouts", true, "Show HUD readouts",
 	"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.", GENERAL, "")
 static var captions_on_top := flag("captions_on_top", "features.captions_on_top", true,
-	"Show captions on top",
-	"Move the explicit bottom dialogue caption to the top. Overhead and auto captions are unchanged.", GENERAL, "")
+	"Move captions to top",
+	"Move the explicit bottom dialogue caption to the top during an act. Overhead and auto captions are unchanged.", GENERAL, "")
 static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_audio", true,
-	"Mute Ponese audio",
+	"Mute Ponese",
 	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
-static var act_lines := flag("act_lines", "features.act_lines", true, "Allow act lines",
-	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
-static var act_faces := flag("act_faces", "features.act_faces", true, "Show act expressions",
-	"Use the game's own faces during acts, offers and the afterglow. Off keeps the current act faces and stops asking act lines for a face; the blush arc and post-act mood face are separate.", GENERAL, "")
 static var quality := choice("quality", "caress.quality", "precise",
 	["fast", "precise"], ["Fast", "Precise"],
-	"Caress quality",
-	"Precise snaps the caress hand to the visible coat every tick. Fast refreshes the coat patch less often and narrows the normal blur, which can let the palm float by about the oval radius on a miss.", GENERAL, "")
+	"Caress surface quality",
+	"Fast is more performant, but hands may clip more often.", GENERAL, "")
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
 	"Climax limit", "How many times a mare can climax in one act. 0 is unlimited.", GENERAL, "") \
 	.with_step(1.0).with_range(0.0, 20.0)
 static var pixels_per_cm := num("pixels_per_cm", "thrust.pixels_per_cm", 50.0,
-	"Sensitivity",
+	"Mouse sensitivity",
 	"Mouse travel for each centimetre the cock moves. A full stroke is his shaft length, so a "
 	+ "longer part needs proportionally more travel.", GENERAL, "") \
 	.with_unit("px per cm").with_step(10.0).with_range(20.0, 400.0)
 static var orientation := choice("orientation", "thrust.orientation", "up", ["up", "down"],
 	["Mouse Up", "Mouse Down"], "Thrust direction",
 	"Which mouse direction deepens the thrust.", GENERAL, "")
-static var anatomy_vr := flag("anatomy_vr", "features.anatomy_vr", true, "Use VR act",
-	"The standing act in VR, with hip-tracker depth and controller actions. Untested on this build.", GENERAL, "")
 static var standing_stool := flag("standing_stool", "features.standing_stool", true,
-	"Use footstool",
+	"Enable footstool",
 	"A mare much taller than Anon needs a footstool for the standing act. Find one in a house or buy one at the shop.", GENERAL, "")
-static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true, "Allow hole switch",
+static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", true,
+	"Enable hole switch",
 	"Let V switch between the front and the anal cup.", GENERAL, "")
-static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", false, "Allow oral",
-	"Let N turn her round for oral in the standing pose.", GENERAL, "")
+static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", false, "Enable oral sex",
+	"Let N turn her round for oral in the standing pose. (buggy)", GENERAL, "")
 static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish", false,
 	"Allow finish control", "Let B choose whether Anon finishes inside or pulls out.", GENERAL, "")
 static var debug_mode := flag("debug_mode", "debug_mode", false, "Enable debug",
@@ -845,23 +838,11 @@ static var curve := choice("curve", "auto_thrust.curve", "thrust",
 	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
 	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth.", GENERAL, "") \
 	.as_debug()
-static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.02, "Contact gap",
-	"How close the stroke must come to its deepest point before his skin meets her coat and the "
-	+ "body slap plays. Raise it to hear plaps on shorter strokes.", GENERAL, "") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 0.12).as_debug()
 static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",
 	"How far the hips retreat between thrusts.", GENERAL, "") \
 	.with_unit("\u00d7").with_step(0.05).with_range(0.25, 2.0).as_debug()
-static var allow_act_during_cuddle := flag("allow_act_during_cuddle",
-	"features.allow_act_during_cuddle", true, "Allow acts during cuddles",
-	"End an active cuddle when an act starts instead of blocking it.", GENERAL, "") \
-	.as_debug()
 
 # -- Caress  (debug)
-static var caress_areas := flag("caress_areas", "features.caress_areas", true,
-	"Use area caress path",
-	"Standing caress follows the marked areas in hands/areas/areas.json as one continuous path. Off restores the old flank/shoulder/neck path.",
-	GENERAL, "Caress").as_debug()
 static var caress_local := flag("caress_local", "features.caress_local", true,
 	"Use local caress patch",
 	"Skin and raycast only the coat window around each caress hand instead of the whole body patch. Off restores the full patch for both hands.",
@@ -1208,11 +1189,6 @@ static var standing_body_sway := flag("standing_body_sway", "features.standing_b
 	"Move her body with the thrust while the hooves stay planted; Anon's hips follow so the contact rocks with her.",
 	GENERAL, "Standing › Motion") \
 	.as_debug()
-static var standing_plant_feet := flag("standing_plant_feet", "features.standing_plant_feet",
-	false, "Plant Anon's lower body",
-	"Hold Anon's hips and both feet at their act-start positions, 15 cm behind him. Off restores the game's stepping and lean foot motion.",
-	GENERAL, "Standing › Motion") \
-	.as_debug()
 static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_twitch", true,
 	"Twitch her ears", "Flick both ears on some thrusts.", GENERAL, "Standing › Motion") \
 	.as_debug()
@@ -1250,10 +1226,6 @@ static var glance_back_speed := num("glance_back_speed",
 static var hip_drop_m := num("hip_drop_m", "presentation.standing.hip_drop_m", 0.0, "Hip drop",
 	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", GENERAL,
 	"Standing › Motion") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var plant_spread_m := num("plant_spread_m", "presentation.standing.plant_spread_m", 0.4,
-	"Planted stance width", "How far apart Anon's planted feet are held during a standing act.",
-	GENERAL, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg",
 	5.0, "Anon torso lean",
@@ -1335,23 +1307,38 @@ static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity", 0
 # -- (ungrouped)
 static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode", "never",
 	["never", "act", "always"], ["Never", "During act only", "Always"], "Anatomy",
-	"Show the mare anatomy always, only while an act is running, or never.", ANATOMY, "")
-static var show_dock := flag("show_dock", "anatomy.show_dock", true, "Show tail docks",
-	"Show the tail dock while the anatomy is shown. Off hides it; the anatomy does not move.",
-	ANATOMY, "")
-static var dock_color := choice("dock_color", "anatomy.dock_color", "genitals",
-	["coat", "genitals"], ["Coat", "Genitals"], "Dock colour",
-	"Choose the standard dock's colour: her coat, or the same skin as her genitals.",
-	ANATOMY, "")
+	"When to show it", ANATOMY, "")
+
+# -- Mare
+static var dock_style := choice("dock_style", "anatomy.dock_style", "genitals",
+	["hide", "coat", "genitals"], ["Hide", "Coat", "Genitals"], "Dock style",
+	"", ANATOMY, "Mare")
+static var skin_strip := flag("skin_strip", "anatomy.skin_strip", false,
+	"Show ventral midline",
+	"Skin strip between teats and vulva.", ANATOMY, "Mare")
+static var teats := flag("teats", "anatomy.teats", false, "Show teats", "",
+	ANATOMY, "Mare")
+static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Show fluids",
+	"", ANATOMY, "Mare")
+static var vulva_height := num("vulva_height", "anatomy.vulva_height", 0.75,
+	"Vulva height", "", ANATOMY, "Mare") \
+	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
+static var anal_scale := num("anal_scale", "anatomy.anal_scale", 0.9,
+	"Ponut scale", "", ANATOMY, "Mare") \
+	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
+static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.6, "Skin tone",
+	"0% - same color as mare's coat, 100% - dark", ANATOMY, "Mare") \
+	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
+static var vulva_inner_color := color("vulva_inner_color", "anatomy.vulva_inner_color",
+	Color.from_string("#cf577d", Color.WHITE), "Inner folds colour",
+	"", ANATOMY, "Mare")
+static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color",
+	Color.from_string("#d87690", Color.WHITE), "Clitoris colour",
+	"", ANATOMY, "Mare")
 static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails", true,
 	"Re-seat tails and docks",
 	"Seat every mare's hair tail at the reference dock and snap the dock base to her rump. Off restores the game's original tail mount and dock.",
-	ANATOMY, "")
-static var skin_strip := flag("skin_strip", "anatomy.skin_strip", false, "Show skin strip",
-	"Show the midline skin strip that joins the teats toward the vulva.", ANATOMY, "")
-static var teats := flag("teats", "anatomy.teats", false, "Show teats", "Show the optional teats.", ANATOMY, "")
-static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", true, "Show fluids",
-	"Show the optional climax and finish droplets.", ANATOMY, "")
+	ANATOMY, "Mare")
 static var body_coat_deform := flag("body_coat_deform", "features.body_coat_deform", true,
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
@@ -1360,20 +1347,6 @@ static var coat_follow := num("coat_follow", "anatomy.coat_follow", 1.0,
 	"Coat follow",
 	"How far the anatomy follows the body coat when the hind legs move. 0 keeps it rigid; 1 follows fully.",
 	ANATOMY, "").with_range(0.0, 1.0).as_debug()
-static var skin_tone := num("skin_tone", "anatomy.skin_tone", 0.6, "Skin tone",
-	"0% keeps her coat; 50% is the old Darker tone; 100% is the old Dark tone.", ANATOMY, "") \
-	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
-static var vulva_height := num("vulva_height", "anatomy.vulva_height", 0.75,
-	"Vulva height",
-	"Scale the vulva vertically around its opening. Below 1 shortens it; above 1 lengthens it.", ANATOMY, "") \
-	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
-static var vulva_inner_color := color("vulva_inner_color", "anatomy.vulva_inner_color",
-	Color.from_string("#cf577d", Color.WHITE), "Vulva inner colour",
-	"Colour of the inner folds. The shader derives its shadow.", ANATOMY, "")
-static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color",
-	Color.from_string("#d87690", Color.WHITE), "Clitoris colour",
-	"Colour of the clitoris. The shader derives its shadow.", ANATOMY, "")
-
 # -- Placement  (debug)
 ## The anatomy place actions read this pill. It is hidden from the declaration rows because the
 ## pill above those actions owns the widget.
@@ -1427,39 +1400,39 @@ static var anon_scale := num("anon_scale", "anatomy.placement.anon.scale", 0.2,
 	"Anon scale", "Scale of the player part.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug()
 
-# -- Anon
+# -- You
 static var player_scale := num("player_scale", "anatomy.player_scale", 1.4, "Size",
-	"Scale the player part relative to its default size.", ANATOMY, "Anon") \
+	"Scale the player part relative to its default size.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0)
 static var part_length_scale := num("part_length_scale", "anatomy.part_length_scale", 1.0,
 	"Length",
-	"Stretch the shaft along its length. The head, hole grip and fluid point follow it.", ANATOMY, "Anon") \
+	"Stretch the shaft along its length. The head, hole grip and fluid point follow it.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
 static var part_base_scale := num("part_base_scale", "anatomy.part_base_scale", 1.3,
-	"Base radius", "Thickness of the cock where it leaves his body.", ANATOMY, "Anon") \
+	"Base radius", "Thickness of the cock where it leaves his body.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
 static var part_mid_scale := num("part_mid_scale", "anatomy.part_mid_scale", 0.75,
-	"Mid radius", "Thickness of the cock around its middle.", ANATOMY, "Anon") \
+	"Mid radius", "Thickness of the cock around its middle.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
 static var part_head_scale := num("part_head_scale", "anatomy.part_head_scale", 1.3,
-	"Head radius", "Thickness of the glans at the end of the shaft.", ANATOMY, "Anon") \
+	"Head radius", "Thickness of the glans at the end of the shaft.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
 static var part_throb := num("part_throb", "anatomy.part_throb", 1.2, "Throb",
 	"Heartbeat-like pulse of the shaft, with a slight upward beat while it is outside her. "
-	+ "1 is subtle; 0 turns it off.", ANATOMY, "Anon") \
+	+ "1 is subtle; 0 turns it off.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0)
-static var back_out_m := num("back_out_m", "anatomy.back_out_m", 0.0, "Back-out gap",
-	"How far the tip rests behind her lips before the first thrust. 0 keeps it at her entrance.",
-	ANATOMY, "Anon") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 5.0)
 
-# -- (ungrouped)  (debug)
+# -- You  (debug)
+static var back_out_m := num("back_out_m", "anatomy.back_out_m", 0.0, "Back-out gap",
+	"How far the tip rests behind her lips before the first thrust. Negative starts it inside her; 0 keeps it at her entrance.",
+	ANATOMY, "You") \
+	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-5.0, 5.0).as_debug()
 static var part_front_m := num("part_front_m", "anatomy.part_front_m", 0.02, "Cock forward",
-	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "") \
+	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "You") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-20.0, 20.0) \
 	.as_debug()
 static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", 0.025, "Pelvis gap",
-	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "") \
+	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "You") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 10.0) \
 	.as_debug()
 static var strip_scale := num("strip_scale", "anatomy.strip_scale", 1.0, "Skin strip scale",
@@ -1473,10 +1446,6 @@ static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", fals
 	.as_debug()
 
 # -- Holes  (debug)
-static var anal_scale := num("anal_scale", "anatomy.anal_scale", 0.9,
-	"Ponut scale",
-	"Scale the visible ponut mound. The vulva and the opening stay put.", ANATOMY, "") \
-	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
 static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm", 2.0,
 	"Vulva hug",
 	"Pad the gap between the cock and the vulva lips. Positive opens the lips wider; negative grips tighter.", ANATOMY, "Holes") \
@@ -1610,16 +1579,14 @@ static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
 	"Promiscuity", "Lowest relationship level for sex.", WORLD, "")
-static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle", false, "Use estrus cycle",
+static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle", false,
+	"Enable estrus cycle",
 	"Give mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
 static var act_public_offer := flag("act_public_offer", "features.act_public_offer", false,
-	"Allow public offers",
+	"Enable public offers",
 	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "")
-static var act_line_angles := flag("act_line_angles", "features.act_line_angles", true,
-	"Personalize lines during act",
-	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.", WORLD, "")
 static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel", false,
-	"Add speech interjections",
+	"Enable speech interjections",
 	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", WORLD, "")
 
 # -- History › Points  (debug)
@@ -1771,7 +1738,7 @@ static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1
 # ======================================================== Integrations
 
 # -- (ungrouped)
-static var kissing_reactions := flag("kissing_reactions", "features.kissing_reactions", true,
+static var kissing_reactions := flag("kissing_reactions", "features.kissing_reactions", false,
 	"Use Kissing reactions",
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")
@@ -1846,6 +1813,28 @@ static var _deprecated := [
 	# The dock used to be hidden by a `true` switch; keep the player's choice across the rename.
 	deprecated("anatomy.hide_dock",
 		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),
+	# The dock visibility and colour switches merged into one style pill. The colour lands first,
+	# then `show_dock` overrides it with Hide when the dock was off.
+	deprecated("anatomy.dock_color",
+		func(value: Variant) -> Dictionary: return {"anatomy.dock_style": str(value)}),
+	deprecated("anatomy.show_dock", func(value: Variant) -> Dictionary:
+		return {} if bool(value) else {"anatomy.dock_style": "hide"}),
+	# The marked-area caress path is the only standing path; the switch is retired.
+	deprecated("features.caress_areas", func(_value: Variant) -> Dictionary: return {}),
+	# Acts always end an active cuddle; the switch is retired.
+	deprecated("features.allow_act_during_cuddle",
+		func(_value: Variant) -> Dictionary: return {}),
+	# The body slap only fires at true contact; the gap epsilon is retired.
+	deprecated("thrust.contact_gap_m", func(_value: Variant) -> Dictionary: return {}),
+	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
+	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.standing.plant_spread_m",
+		func(_value: Variant) -> Dictionary: return {}),
+	# Unprompted act lines and their fresh-angle wording are always on; both switches are retired.
+	deprecated("features.act_lines", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_line_angles", func(_value: Variant) -> Dictionary: return {}),
+	# The standing VR act always starts on a headset; the switch is retired.
+	deprecated("features.anatomy_vr", func(_value: Variant) -> Dictionary: return {}),
 	# One mare bits mesh ships with the pack; the mesh choice is retired.
 	deprecated("anatomy.mare_bits", func(_value: Variant) -> Dictionary: return {}),
 	# The separate log switch folded into the debug switch.
@@ -1922,6 +1911,8 @@ static var _deprecated := [
 	deprecated("features.act_vocals", func(_value: Variant) -> Dictionary: return {}),
 	# Act history is always recorded; the switch is retired.
 	deprecated("features.act_history", func(_value: Variant) -> Dictionary: return {}),
+	# Act faces always play; the switch is retired.
+	deprecated("features.act_faces", func(_value: Variant) -> Dictionary: return {}),
 	# Bystander lines are always on and the body-yaw debug aid is gone; both switches are retired.
 	deprecated("features.act_bystanders", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("player.body_yaw_deg", func(_value: Variant) -> Dictionary: return {}),

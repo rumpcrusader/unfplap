@@ -498,13 +498,9 @@ func suppress_auto_cuddle() -> void:
 		pony.remove_meta("cuddle_active")
 
 
-## The stock cuddle gate is bypassable by feature flag. The normal bed-side paths remain.
-func cuddle_start_override(pose: String, act_source: String) -> bool:
-	if pose == CATALOG.MISSIONARY and act_source in ["bed_side", "already_lying"]:
-		return true
-	if features.is_empty():
-		return SETTINGS.allow_act_during_cuddle.get_bool()
-	return bool(features.get("allow_act_during_cuddle", false))
+## Starting an act always ends an active cuddle; the normal bed-side paths remain.
+func cuddle_start_override(_pose: String, _act_source: String) -> bool:
+	return true
 
 
 func cuddle_active() -> bool:

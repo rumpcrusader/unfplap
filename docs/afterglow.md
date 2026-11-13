@@ -3,16 +3,18 @@
 ## Scope
 
 `afterglow.gd` owns the held post-act phase: how long it lasts before she may end it, the game's
-`[stay: SECONDS]` hold, and the standing close window with its caress reward. It does not own the
-`AFTERGLOW` state value, the wings, the pose, the tail, the HUD or the memory commit.
+`[stay: SECONDS]` hold, the standing close window with its caress reward, and the presentation
+row the phase asks for. It does not own the `AFTERGLOW` state value, the scene calls themselves or
+the memory commit.
 
 The runtime still:
 
 - sets `State.AFTERGLOW` and calls `begin()`;
 - calls `advance()`, `self_end_tick()` and `close_tick()` from `_afterglow_tick()` in that order,
   with the anatomy afterglow tick between the first two;
-- presents the phase: `_set_face`, wing begin, pose/tail amounts, `_act_face_beat("afterglow")`,
-  the HUD state and the act summary;
+- applies `presentation()` in the built order through `_apply_afterglow_presentation()`: pose mode
+  and weight, tail target and flicks, HUD state, wings; then `_set_face`, `_act_face_beat` and the
+  act summary;
 - carries out the close reward: the `STAY_CLOSE` memory impression, the history repair, the
   content face, the heart burst and the cue clear;
 - calls `cancel_close()` from `end_afterglow()` and `_restore_begin()`.
@@ -45,6 +47,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 | Method | Meaning |
 |---|---|
 | `begin(pose_id, summary)` | start the phase, roll the private beat and open the standing close window |
+| `presentation()` | the afterglow presentation row: pose mode, tail target and flicks, HUD state and the wings flag |
 | `reset()` | clear every per-act value; the executor and callbacks stay |
 | `advance(delta)` | add to the elapsed time |
 | `self_end_tick(delta)` | one self-end roll |
@@ -116,5 +119,5 @@ Hold `Y`:
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the self-end
 gates (minimum time, hold, speech), the `[stay]` extension, the close window's timing, caress
-count and single reward, the early cancel, the missionary skip and the runtime forwards for the
-HUD and prompt note. Wing folding lives in `wing_control.gd` and is covered in the same suite.
+count and single reward, the early cancel, the missionary skip, the presentation row and the
+runtime forwards for the HUD and prompt note. Wing folding lives in `wing_control.gd` and is covered in the same suite.

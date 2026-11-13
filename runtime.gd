@@ -3398,7 +3398,6 @@ func _bind_action_executor() -> void:
 
 func _enter_afterglow() -> void:
 	_afterglow_begin()
-	_wings_controller().begin_afterglow()
 
 func _commit_afterglow() -> void:
 	if not is_instance_valid(main):
@@ -3429,21 +3428,27 @@ func _afterglow_begin() -> void:
 	_stare_release_until = 0.0
 	_set_face(0.85, FACE.AFTERGLOW_LIDS)
 	_act_face_beat("afterglow")
+	_apply_afterglow_presentation(_afterglow.presentation())
+
+
+## Apply the afterglow facade's presentation row in the built order: the pose mode and weight,
+## the tail, the HUD state, then the wings.
+func _apply_afterglow_presentation(row: Dictionary) -> void:
 	if is_instance_valid(_pose):
-		if pose_id == CATALOG.STANDING:
-			_pose.mode = "standing"
-		else:
-			_pose.mode = "afterglow"
-			_pose.afterglow_pose = pose_id
+		_pose.mode = str(row.get("pose_mode", "afterglow"))
+		var afterglow_pose := str(row.get("afterglow_pose", ""))
+		if not afterglow_pose.is_empty():
+			_pose.afterglow_pose = afterglow_pose
 		_pose.target_amount = 1.0
 		_pose.amount = 1.0
-	if pose_id == CATALOG.STANDING:
-		_pose_service().set_tail_target(0.55)
-		_pose_service().flick_tail(2)
-	else:
-		_pose_service().set_tail_target(0.35)
+	_pose_service().set_tail_target(float(row.get("tail_target", 0.35)))
+	var flicks := int(row.get("tail_flicks", 0))
+	if flicks > 0:
+		_pose_service().flick_tail(flicks)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.set_state("AFTERGLOW")
+		main.hud.set_state(str(row.get("hud_state", "AFTERGLOW")))
+	if bool(row.get("wings", false)):
+		_wings_controller().begin_afterglow()
 
 func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW:

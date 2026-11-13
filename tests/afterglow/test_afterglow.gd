@@ -193,6 +193,27 @@ func run() -> void:
 	check(str(runtime_hint.call("close_hint")) == "", "the runtime hides the missionary cue")
 	runtime_hint.free()
 
+	# The facade owns the presentation row; the runtime only applies it.
+	var standing_row: Dictionary = _facade("standing")["phase"].presentation()
+	check(str(standing_row.get("pose_mode", "")) == "standing",
+		"a standing afterglow keeps the standing pose")
+	check(str(standing_row.get("afterglow_pose", "x")).is_empty(),
+		"a standing afterglow carries no afterglow pose id")
+	check(near(float(standing_row.get("tail_target", 0.0)), 0.55),
+		"a standing afterglow lifts the tail")
+	check(int(standing_row.get("tail_flicks", 0)) == 2, "a standing afterglow flicks the tail")
+	check(str(standing_row.get("hud_state", "")) == "AFTERGLOW", "the row carries the HUD state")
+	check(bool(standing_row.get("wings", false)), "the row asks for the wing return")
+	var missionary_row: Dictionary = _facade("missionary")["phase"].presentation()
+	check(str(missionary_row.get("pose_mode", "")) == "afterglow",
+		"a missionary afterglow uses the afterglow pose")
+	check(str(missionary_row.get("afterglow_pose", "")) == "missionary",
+		"the afterglow pose id is the act's pose")
+	check(near(float(missionary_row.get("tail_target", 0.0)), 0.35),
+		"a missionary afterglow lowers the tail")
+	check(int(missionary_row.get("tail_flicks", 1)) == 0,
+		"a missionary afterglow does not flick the tail")
+
 	var wings := FakeWings.new()
 	root.add_child(wings)
 	var winged = WING.new()

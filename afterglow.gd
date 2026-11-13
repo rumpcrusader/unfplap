@@ -64,6 +64,21 @@ func begin(pose_id: String, summary: Dictionary) -> void:
 	close_left = STAY_CLOSE_SECONDS if pose_id == CATALOG.STANDING else 0.0
 
 
+## The presentation the runtime applies when the act enters the held afterglow. The facade owns
+## the phase decisions; the runtime applies the row in this order and owns the scene calls the
+## row cannot make (the wings, the face beat, the summary commit).
+func presentation() -> Dictionary:
+	var standing := pose == CATALOG.STANDING
+	return {
+		"pose_mode": "standing" if standing else "afterglow",
+		"afterglow_pose": "" if standing else pose,
+		"tail_target": 0.55 if standing else 0.35,
+		"tail_flicks": 2 if standing else 0,
+		"hud_state": "AFTERGLOW",
+		"wings": true,
+	}
+
+
 ## Clear every value for the next act. The executor and the callbacks stay.
 func reset() -> void:
 	pose = ""

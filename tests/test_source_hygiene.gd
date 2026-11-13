@@ -417,6 +417,7 @@ func _check_afterglow() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("afterglow.gd"))
 	check(facade.contains("func self_end_tick(") and facade.contains("func close_tick("),
 		"afterglow facade is present")
+	check(facade.contains("func presentation("), "the afterglow facade owns the presentation row")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",

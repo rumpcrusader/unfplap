@@ -814,9 +814,7 @@ static var debug_mode := flag("debug_mode", "debug_mode", false, "Enable debug",
 static var debug_perf := flag("debug_perf", "debug_perf", false, "Print perf logs",
 	"Print the per-second performance block: per-pony rows during an act, one aggregated block while idle. Requires Enable debug.", GENERAL, "") \
 	.as_debug()
-static var act_ear_pin := flag("act_ear_pin", "features.act_ear_pin", false, "Pin act ears",
-	"Debug: pin her ears back during acts. Off keeps the normal ear pose and still applies the act's blush, gaze and ear twitch.", GENERAL, "") \
-	.as_debug()
+
 # -- Act face  (debug)
 static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "wide",
 	["auto", "fluster", "ooo", "wide"],

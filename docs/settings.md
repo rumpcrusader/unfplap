@@ -324,7 +324,6 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
 | `standing_plant_feet` | `false` | hold Anon's hip and both foot targets at their act-start positions, feet 15 cm behind; true enables it |
 | `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
-| `act_ear_pin` | `false` | General debug rows: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
 | `act_line_angles` | `true` | personalizes cue lines with a fresh angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |

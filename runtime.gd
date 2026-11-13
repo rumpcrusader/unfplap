@@ -1016,11 +1016,6 @@ func _act_presentation(delta: float) -> void:
 	if boop != null and boop.has_method("sustain_blush"):
 		boop.call("sustain_blush", ACT_FACE.blush_for(_act_phase(), satisfaction,
 			_feature("blush_arc")))
-	# The optional debug pin reuses the boop-fluster response: it pins the ears back along the
-	# skull. Off keeps normal ears; the blush and stare() eyelids are independent.
-	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("fluster") and _feature("act_ear_pin"):
-		expressions.call("fluster", 1.2)
 	var wings_started := Time.get_ticks_usec()
 	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
 	_timed("wings_tick", wings_started)

@@ -8,7 +8,10 @@ const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 
 var mare: Node3D
-var runtime: Node
+## Host boundary: the pose writes no scene value back; it only reports a timed chunk and a
+## debug line. A pose built without a context is silent.
+var perf := Callable()
+var log := Callable()
 var mode := "missionary"
 var afterglow_pose := CATALOG.MISSIONARY
 var look_point := Vector3.ZERO
@@ -72,8 +75,8 @@ func _cache() -> void:
 func _process_modification_with_delta(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	_apply(delta)
-	if is_instance_valid(runtime):
-		runtime.call("perf_note", "pose_recipe", Time.get_ticks_usec() - started)
+	if perf.is_valid():
+		perf.call("pose_recipe", Time.get_ticks_usec() - started)
 
 
 func _apply(delta: float) -> void:
@@ -258,7 +261,7 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 	var text := "MISSIONARY"
 	for row: String in rows:
 		text += "\n\t" + row
-	# `runtime._log` is the one debug gate (Enable debug). A pose without a runtime has no
-	# console owner and stays silent.
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	# The runtime's `log` callback is the one debug gate (Enable debug). A pose without a
+	# context has no console owner and stays silent.
+	if log.is_valid():
+		log.call(text)

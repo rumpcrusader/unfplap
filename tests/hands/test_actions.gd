@@ -740,12 +740,11 @@ func run() -> void:
 		hair.set_bone_pose_position(i, Vector3(0.0, 0.0, -0.05))
 	var tail_mare := Node3D.new()
 	root.add_child(tail_mare)
-	var tail_runtime: Node = RUNTIME.new()
-	tail_runtime.depth = 0.0
-	root.add_child(tail_runtime)
+	var tail_facts: RefCounted = ACT_FACTS.new()
+	tail_facts.depth = 0.0
 	var tail := TAIL.new()
 	tail.mare = tail_mare
-	tail.runtime = tail_runtime
+	tail.facts = tail_facts
 	tail.amount = 1.0
 	tail.target_amount = 1.0
 	hair.add_child(tail)
@@ -767,7 +766,6 @@ func run() -> void:
 
 	hair.free()
 	tail_mare.free()
-	tail_runtime.free()
 
 	var plant_body := FakeBody.new()
 	root.add_child(plant_body)

@@ -136,7 +136,7 @@ func _attach_present_pose() -> void:
 		_present_tail = TAIL.new()
 		_present_tail.name = "UnfplapPresentTail"
 		_present_tail.mare = pony
-		_present_tail.runtime = self
+		_present_tail.facts = facts
 		_present_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
 		_present_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
 		_present_tail.amount = 0.0

@@ -13,7 +13,9 @@ const MOOD_CHECK_SECONDS := 0.5
 signal finished(reason: String)
 
 var pony: Node3D
-var runtime: Node
+## The scene handle the freshness check reads, and the debug log. Both are optional.
+var main: Variant = null
+var log := Callable()
 var mood := ""
 var face := ""
 var blush := 0.0
@@ -82,10 +84,7 @@ func _mood_still_ours() -> bool:
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
 		return true
-	if not is_instance_valid(runtime):
-		return true
-	var main: Variant = runtime.get("main")
-	if main == null or not is_instance_valid(main):
+	if not is_instance_valid(main):
 		return true
 	var game: Variant = main.get("game")
 	if game == null or not is_instance_valid(game):
@@ -136,8 +135,8 @@ func _finish(reason := "") -> void:
 func _log(text: String) -> void:
 	if not SETTINGS.face_debug.get_bool():
 		return
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if log.is_valid():
+		log.call(text)
 
 
 func _exit_tree() -> void:

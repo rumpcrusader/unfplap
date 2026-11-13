@@ -34,7 +34,8 @@ const JIGGLE_BASE_BOB_DELAY := 0.035
 const JIGGLE_BASE_NORMAL := 0.8
 
 var mare: Node3D
-var runtime: Node
+## The typed act view: the live depth and the perf callback. Absent outside an act.
+var facts: Variant
 var amount := 0.0
 var target_amount := 0.0
 ## Hinge the whole tail at `mTail1` and leave the rest of the chain rigid, instead of spreading
@@ -128,8 +129,8 @@ func _flick_angle(delta: float) -> float:
 func _process_modification_with_delta(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	_apply(delta)
-	if is_instance_valid(runtime):
-		runtime.call("perf_note", "tail_pose", Time.get_ticks_usec() - started)
+	if facts != null:
+		facts.perf("tail_pose", Time.get_ticks_usec() - started)
 
 
 func _apply(delta: float) -> void:
@@ -151,8 +152,8 @@ func _apply(delta: float) -> void:
 	# The body sway already rocks the spine; let the tail carry the same thrust cadence with a
 	# damped spring so it swings back/forth and slightly up/down instead of staying rigid.
 	var depth_value := 0.0
-	if is_instance_valid(runtime):
-		depth_value = clampf(float(runtime.get("depth")), 0.0, 1.0)
+	if facts != null:
+		depth_value = clampf(float(facts.depth), 0.0, 1.0)
 	var rock_target := -depth_value
 	var accel := -ROCK_STIFFNESS * (_rock - rock_target) - ROCK_DAMPING * _rock_velocity
 	_rock_velocity += accel * delta

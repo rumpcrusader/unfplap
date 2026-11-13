@@ -278,10 +278,28 @@ func _check_act_facts() -> void:
 		"hands/placement.gd": "hands engine",
 		"hands/surface.gd": "hands surface",
 		"hands/path_base.gd": "hands path base",
+		"poses/skeleton_pose.gd": "pose recipe",
+		"tail_pose.gd": "tail pose",
+		"tail_lay.gd": "tail lay",
+		"body_sway.gd": "body sway",
+		"prone_sway.gd": "prone sway",
+		"ear_twitch.gd": "ear twitch",
+		"mood_face.gd": "held mood face",
+		"vr_act.gd": "VR act",
+	}
+	var handles := {
+		"poses/skeleton_pose.gd": "var perf := Callable()",
+		"mood_face.gd": "var main: Variant = null",
+		"vr_act.gd": "var bridge: Variant = null",
 	}
 	for name: String in readers.keys():
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
-		check(text.contains("var facts: Variant"), "%s reads the act context" % readers[name])
+		if handles.has(name):
+			check(text.contains(str(handles[name])),
+				"%s reads its typed host handles" % readers[name])
+		else:
+			check(text.contains("var facts: Variant"),
+				"%s reads the act context" % readers[name])
 		for token: String in ["runtime.get(\"", "runtime.call(\"", "runtime.set(\"",
 				"preload(\"res://mods/unfplap/runtime.gd\")"]:
 			check(not text.contains(token),

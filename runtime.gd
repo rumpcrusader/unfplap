@@ -556,8 +556,13 @@ var _event_id := ""
 var _started_at := 0.0
 
 ## World-space hip sway published by `body_sway.gd`; the standing Anon controller adds it to its
-## pinned hip so the two bodies rock together.
-var _standing_sway_offset := Vector3.ZERO
+## pinned hip so the two bodies rock together. A read view over the typed act view, which is the
+## one owner: the sway modifier writes it during the skeleton pass.
+var _standing_sway_offset: Vector3:
+	get:
+		return _act_facts.standing_sway_offset
+	set(value):
+		_act_facts.standing_sway_offset = value
 ## The forced over-the-shoulder glance of a standing reach; the camera facade writes it back
 ## through the typed act view.
 var _forced_glance := ""
@@ -656,6 +661,7 @@ func _init() -> void:
 	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
 	_face.log = Callable(self, "_log")
 	_face.clock = Callable(self, "_now_s")
+	_face.main_source = Callable(self, "_main")
 	_reactions.log = Callable(self, "_log")
 	_pose_session.log = Callable(self, "_log")
 	_scene.stool_need = Callable(self, "stool_needed_count")
@@ -746,6 +752,8 @@ func _anatomy_host() -> Dictionary:
 		"set_penetration_m": Callable(self, "_set_penetration_m"),
 		"player_pony": Callable(self, "_player_pony_value"),
 		"headset_view": Callable(self, "_headset_view"),
+		"align": Callable(self, "apply_anon_align"),
+		"touch": Callable(self, "_on_touch"),
 	}
 	return _anatomy_host_cache
 
@@ -940,7 +948,6 @@ func _sync_act_facts() -> void:
 	facts.same_height_scale = _same_height_scale()
 	facts.anon_height_scale = _anon_height_scale()
 	facts.palm_scale_factor = _palm_scale_factor()
-	facts.standing_sway_offset = _standing_sway_offset
 	facts.bed = bed
 	facts.profile = _profile
 	facts.bob = cam.bob
@@ -1150,6 +1157,8 @@ func _pose_service() -> RefCounted:
 	_pose_session.id = _id
 	_pose_session.place_anon = Callable(self, "_place_missionary_anon")
 	_pose_session.eye_camera = Callable(self, "_missionary_eye_tick")
+	_pose_session.perf = Callable(self, "perf_note")
+	_pose_session.facts = _act_facts
 	return _pose_session
 
 

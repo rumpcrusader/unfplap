@@ -21,7 +21,9 @@ class FakePony extends Node3D:
 	var touch_body: Variant = null
 
 
-class FakeRuntime extends Node:
+## The anatomy bridge's side of the VR act: the action toggles, the headset forward and depth,
+## her node and the hip alignment write-back.
+class FakeBridge extends RefCounted:
 	var calls: Array[String] = []
 	var forward := Vector3(0.0, 0.0, -1.0)
 	var depth := -1.0
@@ -30,16 +32,16 @@ class FakeRuntime extends Node:
 	func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 		calls.append("align")
 
-	func toggle_anatomy_hole() -> void:
+	func toggle_hole() -> void:
 		calls.append("hole")
 
-	func toggle_anatomy_finish() -> void:
+	func toggle_finish() -> void:
 		calls.append("finish")
 
-	func toggle_anatomy_oral() -> void:
+	func toggle_oral() -> void:
 		calls.append("oral")
 
-	func _on_touch(kind: String) -> void:
+	func on_touch(kind: String) -> void:
 		calls.append("touch:" + kind)
 
 	func vr_forward() -> Vector3:
@@ -47,6 +49,9 @@ class FakeRuntime extends Node:
 
 	func vr_depth(value: float) -> void:
 		depth = value
+
+	func pony_node() -> Variant:
+		return pony
 
 
 func _initialize() -> void:
@@ -79,9 +84,9 @@ func _tick(act: Node, times := 1) -> void:
 		act.call("_physics_process", 0.02)
 
 
-func _count(runtime: FakeRuntime, call: String) -> int:
+func _count(bridge: FakeBridge, call: String) -> int:
 	var total := 0
-	for entry: String in runtime.calls:
+	for entry: String in bridge.calls:
 		if entry == call:
 			total += 1
 	return total
@@ -115,13 +120,15 @@ func run() -> void:
 	var pony := FakePony.new()
 	pony.touch_body = touch
 	root.add_child(pony)
-	var runtime := FakeRuntime.new()
-	runtime.pony = pony
-	root.add_child(runtime)
+	var bridge := FakeBridge.new()
+	bridge.pony = pony
 
 	var hip := Node3D.new()
 	var act := VR_ACT.new()
-	act.set("runtime", runtime)
+	act.set("bridge", bridge)
+	act.set("align", Callable(bridge, "apply_anon_align"))
+	act.set("touch", Callable(bridge, "on_touch"))
+	act.set("pony_source", Callable(bridge, "pony_node"))
 	act.set("player", player)
 	act.set("hip_target", hip)
 	act.set("camera", camera)
@@ -145,23 +152,23 @@ func run() -> void:
 	# The anatomy toggles fire on the press edge only.
 	right.set_input(&"ax_button", true)
 	_tick(act, 3)
-	check(_count(runtime, "hole") == 1, "ax button switches the hole once per press")
+	check(_count(bridge, "hole") == 1, "ax button switches the hole once per press")
 	right.set_input(&"ax_button", false)
 	_tick(act, 2)
-	check(_count(runtime, "hole") == 1, "holding ax does not repeat the hole switch")
+	check(_count(bridge, "hole") == 1, "holding ax does not repeat the hole switch")
 	right.set_input(&"ax_button", true)
 	_tick(act)
-	check(_count(runtime, "hole") == 2, "a second press switches the hole again")
+	check(_count(bridge, "hole") == 2, "a second press switches the hole again")
 
 	left.set_input(&"primary_click", true)
 	_tick(act, 2)
-	check(_count(runtime, "finish") == 1, "left primary click chooses the finish once")
+	check(_count(bridge, "finish") == 1, "left primary click chooses the finish once")
 	left.set_input(&"primary_click", false)
 	_tick(act)
 
 	left.set_input(&"by_button", true)
 	_tick(act, 2)
-	check(_count(runtime, "oral") == 1, "left by button turns her for oral once")
+	check(_count(bridge, "oral") == 1, "left by button turns her for oral once")
 	left.set_input(&"by_button", false)
 	_tick(act)
 
@@ -169,34 +176,33 @@ func run() -> void:
 	_tick(act)
 	_pose(waist, Vector3(0.0, 0.0, -0.08))
 	_tick(act)
-	check(is_equal_approx(runtime.depth, 0.5), "8 cm of waist travel is depth 0.5, got %f" % runtime.depth)
+	check(is_equal_approx(bridge.depth, 0.5), "8 cm of waist travel is depth 0.5, got %f" % bridge.depth)
 	_pose(waist, Vector3(0.0, 0.0, -0.32))
 	_tick(act)
-	check(is_equal_approx(runtime.depth, 1.0), "depth clamps at 1, got %f" % runtime.depth)
+	check(is_equal_approx(bridge.depth, 1.0), "depth clamps at 1, got %f" % bridge.depth)
 	_pose(waist, Vector3(0.0, 0.0, 0.5))
 	_tick(act)
-	check(is_equal_approx(runtime.depth, 0.0), "a waist behind the base is depth 0, got %f" % runtime.depth)
+	check(is_equal_approx(bridge.depth, 0.0), "a waist behind the base is depth 0, got %f" % bridge.depth)
 
 	# A tracked waist that never moves is depth 0: only a change counts.
 	_pose(waist, Vector3(0.0, 0.0, 0.0))
 	_tick(act, 2)
-	var settled := runtime.depth
+	var settled := bridge.depth
 	_tick(act, 5)
-	check(is_equal_approx(runtime.depth, settled), "a still waist keeps a constant depth")
+	check(is_equal_approx(bridge.depth, settled), "a still waist keeps a constant depth")
 
 	# The VR act also holds the anatomy part on the tracked hip and caresses from real petting.
 	act.call("_process", 0.02)
-	check(_count(runtime, "align") == 1, "process applies the hip alignment once")
+	check(_count(bridge, "align") == 1, "process applies the hip alignment once")
 	touch.petting = true
 	_tick(act)
-	check(_count(runtime, "touch:caress") == 1, "petting caresses through the act")
+	check(_count(bridge, "touch:caress") == 1, "petting caresses through the act")
 
 	XRServer.remove_tracker(left)
 	XRServer.remove_tracker(right)
 	XRServer.remove_tracker(waist)
 	act.free()
 	hip.free()
-	runtime.free()
 	pony.free()
 	player.free()
 	print("VR_ACT_RESULT checks=%d failures=%d" % [checks, failures])

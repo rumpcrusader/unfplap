@@ -13,8 +13,10 @@ orchestrator and the scene adapters.
   before it hands a presentation controller out. The second refresh exists because the idle
   standing invitation, the debug actions and the suites call the controllers outside the act tick.
 - The consumers are `missionary_anon.gd`, `missionary_camera.gd`, `standing_anon.gd`,
-  `standing_camera.gd`, `standing_presentation.gd`, `kiss_control.gd`, `hand_control.gd` and the
-  hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths).
+  `standing_camera.gd`, `standing_presentation.gd`, `kiss_control.gd`, `hand_control.gd`, the
+  hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
+  and the pose modifiers (`poses/skeleton_pose.gd` through its `perf`/`log` handles, plus
+  `tail_pose.gd`, `tail_lay.gd`, `body_sway.gd`, `prone_sway.gd`, `ear_twitch.gd`).
 - `anatomy/facts.gd` is the same pattern for the anatomy system.
 
 ## Fields

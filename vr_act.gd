@@ -7,7 +7,12 @@ const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5
 const STICK_REPEAT_S := 0.18
 
-var runtime: Node
+## Host boundary. The bridge owns the anatomy actions and the headset depth; the typed act view
+## supplies her node and the readiness touch. Missing callbacks are no-ops.
+var bridge: Variant = null
+var align := Callable()
+var touch := Callable()
+var pony_source := Callable()
 var player: Node3D
 var hip_target: Node3D
 var camera: XRCamera3D
@@ -34,8 +39,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if is_instance_valid(hip_target) and runtime.has_method("apply_anon_align"):
-		runtime.call("apply_anon_align", hip_target, Basis.IDENTITY)
+	if is_instance_valid(hip_target) and align.is_valid():
+		align.call(hip_target, Basis.IDENTITY)
 
 
 func _physics_process(delta: float) -> void:
@@ -43,16 +48,16 @@ func _physics_process(delta: float) -> void:
 	_drive_depth()
 	_read_hands()
 	var swap := is_instance_valid(_right) and _right.is_button_pressed("ax_button")
-	if swap and not _swap_held:
-		runtime.call("toggle_anatomy_hole")
+	if swap and not _swap_held and bridge != null:
+		bridge.toggle_hole()
 	_swap_held = swap
 	var finish := is_instance_valid(_left) and _left.is_button_pressed("primary_click")
-	if finish and not _finish_held:
-		runtime.call("toggle_anatomy_finish")
+	if finish and not _finish_held and bridge != null:
+		bridge.toggle_finish()
 	_finish_held = finish
 	var oral := is_instance_valid(_left) and _left.is_button_pressed("by_button")
-	if oral and not _oral_held:
-		runtime.call("toggle_anatomy_oral")
+	if oral and not _oral_held and bridge != null:
+		bridge.toggle_oral()
 	_oral_held = oral
 
 
@@ -84,15 +89,17 @@ func _drive_depth() -> void:
 		return
 	if _hip_base == Vector3.INF:
 		_hip_base = hips
-	var forward: Vector3 = runtime.call("vr_forward")
-	runtime.call("vr_depth", clampf((hips - _hip_base).dot(forward) / HIP_RANGE_M, 0.0, 1.0))
+	if bridge == null:
+		return
+	var forward: Vector3 = bridge.vr_forward()
+	bridge.vr_depth(clampf((hips - _hip_base).dot(forward) / HIP_RANGE_M, 0.0, 1.0))
 
 
 ## integration: real hands caress when the game's touch body reports petting.
 func _read_hands() -> void:
-	var pony: Variant = runtime.get("pony")
+	var pony: Variant = pony_source.call() if pony_source.is_valid() else null
 	if not is_instance_valid(pony):
 		return
-	var touch: Variant = pony.get("touch_body")
-	if touch != null and bool(touch.get("petting")):
-		runtime.call("_on_touch", "caress")
+	var body: Variant = pony.get("touch_body")
+	if body != null and bool(body.get("petting")) and touch.is_valid():
+		touch.call("caress")

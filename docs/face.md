@@ -112,7 +112,8 @@ The mood face node is `mood_face.gd`; the facade owns its `finished` signal, the
 and the `_left`/`face`/`mood` reads for the debug row.
 
 `start_upset()` starts the same node with the refusal face and no blush. `end_mood_face()` calls
-`_finish("replaced")` and clears the warm note. A new act clears the held face.
+`_finish("replaced")` and clears the warm note. A new act clears the held face. The node receives
+the main handle and the `log` callback from the facade; it never reads the runtime node.
 
 ## Tests
 

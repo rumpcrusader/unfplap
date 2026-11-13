@@ -13,7 +13,8 @@ const NOD_DAMPING := 15.0
 const SLIDE_SIGN := -1.0
 
 var mare: Node3D
-var runtime: Node
+## The typed act view: the live state and depth. Absent outside an act.
+var facts: Variant
 
 var _spine := -1
 var _base_local_origin := Vector3.ZERO
@@ -25,13 +26,11 @@ var _nod_velocity := 0.0
 
 
 func _process_modification_with_delta(delta: float) -> void:
-	if not is_instance_valid(mare) or not is_instance_valid(runtime):
+	if not is_instance_valid(mare) or facts == null:
 		return
-	if int(runtime.get("state")) not in [2, 3]: # ACTIVE / CLIMAX
+	if int(facts.state) not in [2, 3]: # ACTIVE / CLIMAX
 		return
-	var depth_value: Variant = runtime.get("depth")
-	if depth_value == null:
-		return
+	var depth_value: Variant = facts.depth
 	var depth := clampf(float(depth_value), 0.0, 1.0)
 	var slide_target := SLIDE_SIGN * depth * SLIDE_M
 	var slide_accel := -SLIDE_STIFFNESS * (_slide - slide_target) - SLIDE_DAMPING * _slide_velocity

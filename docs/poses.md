@@ -22,11 +22,15 @@ camera and lean state.
 ## Typed view
 
 The body wrappers that move with the pose (`missionary_anon.gd`, `standing_anon.gd`,
-`standing_presentation.gd`) read `act_facts.gd`, never the runtime node. The view carries the pose
-config, the presentation config, the per-mare profile, the pose id and state, the scene handles,
-the lean and thrust values and the callbacks they call back through. The field and callback
-contract is `docs/act_facts.md`; a body module that reaches into the runtime fails
-`tests/test_source_hygiene.gd`.
+`standing_presentation.gd`) and the pose modifiers the session installs (`poses/skeleton_pose.gd`,
+`tail_pose.gd`, `tail_lay.gd`, `body_sway.gd`, `prone_sway.gd`, `ear_twitch.gd`) read
+`act_facts.gd`, never the runtime node. The view carries the pose config, the presentation config,
+the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
+lean and thrust values and the callbacks they call back through. `body_sway.gd` publishes its
+world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
+runtime's `_standing_sway_offset` is a read view over it. The session binds `facts`, `perf` and
+`log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
+that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 
 ## Spaces and axes
 

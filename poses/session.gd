@@ -17,8 +17,8 @@ const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 
-## The runtime node the scene modifiers log and perf through. It is the host boundary; the
-## session never reads the runtime's fields.
+## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
+## host boundary; the session never reads the runtime's fields.
 var host: Variant = null
 var pony: Variant = null
 
@@ -59,6 +59,9 @@ var saved_hair_skeleton: Skeleton3D
 
 ## Host boundary. A missing callback is a no-op.
 var log := Callable()
+var perf := Callable()
+## The typed act view the pose modifiers read for the live depth, state and bed frame.
+var facts: Variant = null
 ## Park the game presentation and place the act's own Anon body, for `render_write()`.
 var place_anon := Callable()
 ## The eye-shot camera tick, which must run after the render write.
@@ -90,7 +93,8 @@ func begin(context: Dictionary) -> void:
 		pose_node = POSE.new()
 		pose_node.name = "UnfplapPose"
 		pose_node.mare = pony
-		pose_node.set("runtime", host)
+		pose_node.log = log
+		pose_node.perf = perf
 		pose_node.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
 		pose_node.pose_config = SETTINGS.pose(id, pose_id)
 		var look: Variant = context.get("look_point")
@@ -124,7 +128,7 @@ func begin(context: Dictionary) -> void:
 		tail = TAIL.new()
 		tail.name = "UnfplapTail"
 		tail.mare = pony
-		tail.runtime = host
+		tail.facts = facts
 		tail.aside_angle = float(pose_config.get("tail_aside", 0.55))
 		tail.lift_angle = float(pose_config.get("tail_lift", 0.42))
 		tail.amount = 0.0
@@ -356,7 +360,7 @@ func _install_tail_lay() -> void:
 	tail_lay = TAIL_LAY.new()
 	tail_lay.name = "UnfplapTailLay"
 	tail_lay.mare = pony
-	tail_lay.runtime = host
+	tail_lay.facts = facts
 	(hair as Skeleton3D).add_child(tail_lay)
 
 
@@ -366,7 +370,7 @@ func _install_body_sway(skeleton: Skeleton3D) -> void:
 	body_sway = BODY_SWAY.new()
 	body_sway.name = "UnfplapBodySway"
 	body_sway.set("mare", pony)
-	body_sway.set("runtime", host)
+	body_sway.set("facts", facts)
 	skeleton.add_child(body_sway)
 
 
@@ -374,7 +378,7 @@ func _install_prone_sway(skeleton: Skeleton3D) -> void:
 	prone_sway = PRONE_SWAY.new()
 	prone_sway.name = "UnfplapProneSway"
 	prone_sway.set("mare", pony)
-	prone_sway.set("runtime", host)
+	prone_sway.set("facts", facts)
 	skeleton.add_child(prone_sway)
 
 
@@ -388,7 +392,7 @@ func _install_ear_twitch() -> void:
 	ear_twitch = EAR_TWITCH.new()
 	ear_twitch.name = "UnfplapEarTwitch"
 	ear_twitch.set("mare", pony)
-	ear_twitch.set("runtime", host)
+	ear_twitch.set("facts", facts)
 	(head as Skeleton3D).add_child(ear_twitch)
 
 

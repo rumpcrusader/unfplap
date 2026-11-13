@@ -10,7 +10,8 @@ const SWAY_STIFFNESS := 90.0
 const SWAY_DAMPING := 16.0
 
 var mare: Node3D
-var runtime: Node
+## The typed act view: the live depth and the world-space sway the standing Anon reads.
+var facts: Variant
 
 var _hips := -1
 var _roots: Array[int] = []
@@ -23,21 +24,19 @@ var _velocity := 0.0
 func _process_modification_with_delta(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	_apply(delta)
-	if is_instance_valid(runtime):
-		runtime.call("perf_note", "body_sway", Time.get_ticks_usec() - started)
+	if facts != null:
+		facts.perf("body_sway", Time.get_ticks_usec() - started)
 
 
 func _exit_tree() -> void:
-	if is_instance_valid(runtime):
-		runtime.set("_standing_sway_offset", Vector3.ZERO)
+	if facts != null:
+		facts.standing_sway_offset = Vector3.ZERO
 
 
 func _apply(delta: float) -> void:
-	if not is_instance_valid(mare) or not is_instance_valid(runtime):
+	if not is_instance_valid(mare) or facts == null:
 		return
-	var depth_value: Variant = runtime.get("depth")
-	if depth_value == null:
-		return
+	var depth_value: Variant = facts.depth
 	# Inverted from the first pass: the body now rocks back on the inward stroke and forward on
 	# the outward stroke. The spring gives it inertia instead of following mouse depth directly;
 	# keep the exaggerated amplitude for this review.
@@ -76,9 +75,9 @@ func _apply(delta: float) -> void:
 		var body := sk.get_bone_global_pose(_hips)
 		body.origin += forward * _offset
 		sk.set_bone_global_pose(_hips, body)
-		runtime.set("_standing_sway_offset", sk.global_transform.basis * (forward * _offset))
+		facts.standing_sway_offset = sk.global_transform.basis * (forward * _offset)
 	else:
-		runtime.set("_standing_sway_offset", Vector3.ZERO)
+		facts.standing_sway_offset = Vector3.ZERO
 	# Restore every limb root after the pelvis move so the hooves stay on the ground.
 	for i: int in _roots.size():
 		var root := sk.get_bone_global_pose(_roots[i])

@@ -35,12 +35,14 @@ var warm_note := false
 ## Mirrors `features.face_debug` for the facade's own logs.
 var debug_enabled := false
 var pony: Variant = null
-## The runtime node that parents the mood face and receives its `runtime` field.
+## The runtime node that parents the mood face and the hold timer.
 var host: Node = null
 
 ## Host boundary. Missing callbacks are no-ops.
 var log := Callable()
 var clock := Callable()
+## The main node the held face reads the world context from.
+var main_source := Callable()
 
 
 ## Bind the pony and the runtime host once the runtime is ready.
@@ -342,7 +344,8 @@ func start_mood_face(mood: String, face: String, blush: float, warm_note_value: 
 	mood_face = MOOD_FACE.new()
 	mood_face.name = "UnfplapMoodFace"
 	mood_face.set("pony", pony)
-	mood_face.set("runtime", host)
+	mood_face.set("main", main_source.call() if main_source.is_valid() else null)
+	mood_face.set("log", log)
 	mood_face.set("mood", mood)
 	mood_face.set("face", face)
 	mood_face.set("blush", blush)

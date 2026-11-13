@@ -11,7 +11,8 @@ const BONE_NAMES := ["mTail1", "mTail2", "mTail3", "mTail4", "mTail5", "mTail6"]
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 
 var mare: Node3D
-var runtime: Node
+## The typed act view: the live bed frame. Absent outside a missionary act.
+var facts: Variant
 var amount := 0.0
 var target_amount := 1.0
 
@@ -62,7 +63,7 @@ func _process_modification_with_delta(delta: float) -> void:
 	if amount <= 0.001:
 		return
 	var world_back := Vector3.ZERO
-	var frame: Variant = runtime.get("_bed_pose_frame") if is_instance_valid(runtime) else null
+	var frame: Variant = facts.bed_frame if facts != null else null
 	if frame is Transform3D:
 		world_back = -(frame as Transform3D).basis.z
 	else:

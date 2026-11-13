@@ -429,7 +429,10 @@ func vr_start() -> void:
 		return
 	vr_act = VR_ACT.new()
 	vr_act.name = "UnfplapVrAct"
-	vr_act.set("runtime", runtime)
+	vr_act.set("bridge", self)
+	vr_act.set("align", _callback("align"))
+	vr_act.set("touch", _callback("touch"))
+	vr_act.set("pony_source", _callback("pony"))
 	vr_act.set("player", main.player)
 	vr_act.set("hip_target", avatar.get("_hip_target"))
 	vr_act.set("camera", cameras[0])

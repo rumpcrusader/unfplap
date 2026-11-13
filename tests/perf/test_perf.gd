@@ -25,6 +25,8 @@ class Sink extends RefCounted:
 			"pony": "fluttershy",
 			"pose": "standing",
 			"state": 2,
+			"lean": "0.40/0.00",
+			"hands": "LR",
 			"near_mesh": true,
 			"tier": "near",
 			"wings": "held",
@@ -79,6 +81,12 @@ func run() -> void:
 		"the header names the pony, pose and state")
 	check(sink.text.contains("near_mesh=true tier=near wings=held"),
 		"the header carries the mesh, tier and wing state")
+	check(sink.text.contains("lean=0.40/0.00 hands=LR"),
+		"the header carries the lean and the latched hands")
+	check(sink.text.contains("phys="), "the summary carries the sampled physics time")
+	check(sink.text.contains("draws=") and sink.text.contains("prims="),
+		"the summary carries the renderer's draw calls and primitives")
+	check(sink.text.contains("tick="), "the summary carries physics frames per frame")
 	check(sink.text.contains("pose_tick"), "the summary lists the recorded chunk")
 	check(sink.text.contains("max") and sink.text.contains("2.00ms"),
 		"the summary keeps the worst call")

@@ -1054,10 +1054,21 @@ func _perf_header() -> Dictionary:
 			wing_state = "held"
 		elif bool(wings.get("_winged")):
 			wing_state = "winged"
+	# The lean is what the drop was reported against, and the latched hands are what the caress
+	# costs, so both belong in the line the reader compares across windows.
+	var lean := "%.2f/%.2f" % [shot_lean_forward(), _lean_view_side]
+	var hands := "-"
+	var controller: Variant = _hand_controller()
+	if controller != null:
+		var left := bool(controller.call("active", "L"))
+		var right := bool(controller.call("active", "R"))
+		hands = "LR" if left and right else ("L" if left else ("R" if right else "-"))
 	return {
 		"pony": _id,
 		"pose": pose_id,
 		"state": state,
+		"lean": lean,
+		"hands": hands,
 		"near_mesh": near_mesh,
 		"tier": tier,
 		"wings": wing_state,
@@ -1497,7 +1508,9 @@ func _physics_process(delta: float) -> void:
 
 func _physics_tick(delta: float) -> void:
 	_clock_s += maxf(0.0, delta)
+	var facts_started := Time.get_ticks_usec()
 	_sync_act_facts()
+	_timed("runtime_facts", facts_started)
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		if _inventory_hud_hidden:
@@ -1519,9 +1532,13 @@ func _physics_tick(delta: float) -> void:
 	_hold_y_tick(delta)
 	_auto_layer_tick(delta)
 	_lean_tick(delta)
+	facts_started = Time.get_ticks_usec()
 	_sync_act_facts()
+	_timed("runtime_facts", facts_started)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		var presentation_started := Time.get_ticks_usec()
 		_act_presentation(delta)
+		_timed("runtime_presentation", presentation_started)
 	if state in [State.POSING_IN, State.ACTIVE]:
 		_tolerance_tick(delta)
 	_log_pose_settled()
@@ -1529,17 +1546,23 @@ func _physics_tick(delta: float) -> void:
 	_kiss_controller().tick(delta)
 	_timed("kiss_tick", kiss_started)
 	if state in [State.ACTIVE, State.CLIMAX]:
+		var ai_started := Time.get_ticks_usec()
 		_auto_tick(delta)
 		_thrust_tick()
+		_timed("runtime_ai", ai_started)
 		if _anatomy_bridge.act_available():
 			_anatomy_bridge.bind(_anatomy_host())
 			_anatomy_bridge.tick(delta)
 		if state == State.ACTIVE:
+			var talk_started := Time.get_ticks_usec()
 			_readiness_tick(delta)
 			_talk_tick(delta)
 			_bystander_tick(delta)
+			_timed("runtime_talk", talk_started)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
+		facts_started = Time.get_ticks_usec()
 		_sync_act_facts()
+		_timed("runtime_facts", facts_started)
 		_utterance_tick()
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
@@ -1560,6 +1583,7 @@ func _physics_tick(delta: float) -> void:
 		_restore_left -= delta
 		if _restore_left <= 0.0:
 			_finish_restore()
+	var camera_started := Time.get_ticks_usec()
 	_standing_camera_controller().lock_facing()
 	_standing_camera_controller().drive_glance(delta)
 	_suppress_auto_cuddle()
@@ -1568,12 +1592,15 @@ func _physics_tick(delta: float) -> void:
 	_standing_anon_controller().tick_phase(delta)
 	_reactions.blush_tick(delta)
 	apply_camera_motion()
+	_timed("runtime_camera", camera_started)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		_check_clock += delta
 		if _check_clock >= 0.25:
 			_check_clock = 0.0
 			_check_running()
+	var face_started := Time.get_ticks_usec()
 	_eyes_tick()
+	_timed("runtime_face", face_started)
 
 ## The act owns the lids outside a kiss. Set at every transition, then reasserted late so a
 ## climax return or fluster peek cannot leave her wide-eyed while leaning.

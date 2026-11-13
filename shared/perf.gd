@@ -10,12 +10,14 @@ const WINDOW_S := 1.0
 var _rows: Dictionary = {}
 var _clock := 0.0
 var _frames := 0
+## Physics frames at the start of the window; `-1` until the first tick after a reset.
+var _physics_mark := -1
 
 ## Host boundary. A missing callable keeps the probe off, so tests can build one without a runtime.
 var enabled := Callable()
 ## True while an act is running; the window clears outside it.
 var active := Callable()
-## Header facts for the summary line: pony, pose, state, near_mesh, tier, wings.
+## Header facts for the summary line: pony, pose, state, lean, hands, near_mesh, tier, wings.
 var header := Callable()
 var log := Callable()
 
@@ -44,6 +46,7 @@ func time(key: String, started_usec: int) -> void:
 func reset() -> void:
 	_clock = 0.0
 	_frames = 0
+	_physics_mark = -1
 	_rows.clear()
 
 
@@ -52,11 +55,16 @@ func tick(delta: float) -> void:
 	if not on() or (active.is_valid() and not bool(active.call())):
 		reset()
 		return
+	var physics := Engine.get_physics_frames()
+	if _physics_mark < 0:
+		_physics_mark = physics
 	_frames += 1
 	_clock += delta
 	if _clock < WINDOW_S:
 		return
 	var frames := maxi(1, _frames)
+	var ticks := float(maxi(0, physics - _physics_mark)) / float(frames)
+	_physics_mark = physics
 	_clock = 0.0
 	_frames = 0
 	var rows: Array = []
@@ -66,10 +74,14 @@ func tick(delta: float) -> void:
 	_rows.clear()
 	rows.sort_custom(func(a: Array, b: Array) -> bool: return float(a[2]) > float(b[2]))
 	var facts: Dictionary = header.call() if header.is_valid() else {}
-	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms near_mesh=%s tier=%s wings=%s" % [
+	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms phys=%.1fms lean=%s hands=%s tick=%.2f draws=%d prims=%d near_mesh=%s tier=%s wings=%s" % [
 		str(facts.get("pony", "?")), str(facts.get("pose", "")), int(facts.get("state", 0)),
 		Engine.get_frames_per_second(),
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		str(facts.get("lean", "?")), str(facts.get("hands", "?")), ticks,
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 		str(facts.get("near_mesh", "?")), str(facts.get("tier", "?")),
 		str(facts.get("wings", "no"))]
 	for row: Array in rows:

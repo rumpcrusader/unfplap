@@ -379,6 +379,7 @@ func _install_prone_sway(skeleton: Skeleton3D) -> void:
 	prone_sway.name = "UnfplapProneSway"
 	prone_sway.set("mare", pony)
 	prone_sway.set("facts", facts)
+	prone_sway.set("perf", perf)
 	skeleton.add_child(prone_sway)
 
 

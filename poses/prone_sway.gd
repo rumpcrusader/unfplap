@@ -15,6 +15,8 @@ const SLIDE_SIGN := -1.0
 var mare: Node3D
 ## The typed act view: the live state and depth. Absent outside an act.
 var facts: Variant
+## Host boundary: the modifier reports one timed chunk and writes no scene value back.
+var perf := Callable()
 
 var _spine := -1
 var _base_local_origin := Vector3.ZERO
@@ -30,6 +32,13 @@ func _process_modification_with_delta(delta: float) -> void:
 		return
 	if int(facts.state) not in [2, 3]: # ACTIVE / CLIMAX
 		return
+	var started := Time.get_ticks_usec()
+	_apply(delta)
+	if perf.is_valid():
+		perf.call("pose_prone", Time.get_ticks_usec() - started)
+
+
+func _apply(delta: float) -> void:
 	var depth_value: Variant = facts.depth
 	var depth := clampf(float(depth_value), 0.0, 1.0)
 	var slide_target := SLIDE_SIGN * depth * SLIDE_M

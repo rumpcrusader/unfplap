@@ -45,7 +45,7 @@ Do not start implementation until you have read the required files for the area 
 - Mod id `unfplap`; the current public version and target game are the `version` and
   `game_version` in `mod.json`.
 - Adult mares only. Human Anon and AnonPony.
-- All eligibility, consent, lover-bond and relationship-level gates are in `docs/eligibility.md`.
+- All eligibility, consent and relationship-level gates are in `docs/eligibility.md`.
 - Exactly two poses: `missionary` on a bed/couch and `standing` standing.
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue

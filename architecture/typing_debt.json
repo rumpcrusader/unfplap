@@ -56,46 +56,6 @@
       "signature": "func begin(features: Dictionary) -> void:"
     },
     {
-      "service": "bond",
-      "func": "bind",
-      "signature": "func bind(host_in: Dictionary) -> void:"
-    },
-    {
-      "service": "bond",
-      "func": "bonded",
-      "signature": "static func bonded(section: Dictionary, id: String) -> bool:"
-    },
-    {
-      "service": "bond",
-      "func": "clear",
-      "signature": "static func clear(section: Dictionary, id: String, reason: String) -> bool:"
-    },
-    {
-      "service": "bond",
-      "func": "grant",
-      "signature": "static func grant(section: Dictionary, id: String, stage: String, love_level: int, source: String, line: String) -> bool:"
-    },
-    {
-      "service": "bond",
-      "func": "records",
-      "signature": "static func records(section: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "bond",
-      "func": "row",
-      "signature": "static func row(section: Dictionary, id: String) -> Dictionary:"
-    },
-    {
-      "service": "bond",
-      "func": "section",
-      "signature": "static func section() -> Dictionary:"
-    },
-    {
-      "service": "bond",
-      "func": "set_stage",
-      "signature": "static func set_stage(section: Dictionary, id: String, stage: String) -> bool:"
-    },
-    {
       "service": "camera",
       "func": "bind",
       "signature": "func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant, standing_ctl: Variant, missionary_ctl: Variant) -> void:"

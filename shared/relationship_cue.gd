@@ -95,8 +95,14 @@ static func tone_line(tone_name: String) -> String:
 
 ## The mod's lover fact for normal dialogue. A relationship fact, not a permission or an
 ## invitation: the act gates and the dialogue classifier still decide what can happen.
-static func lover_note(bonded: bool) -> String:
-	return "- You and Anon are lovers." if bonded else "- You are not Anon's lover."
+static func lover_note(romantic: bool) -> String:
+	return "- You and Anon are lovers." if romantic else "- You are not Anon's lover."
+
+
+## True for the base game's romantic stages. The stage is the only source of the lovers fact;
+## the mod stores no bond.
+static func romantic_stage(stage: String) -> bool:
+	return stage in ["dating", "engaged", "married"]
 
 
 static func memory_line(text: String) -> String:

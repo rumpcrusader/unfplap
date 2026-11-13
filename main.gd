@@ -11,7 +11,6 @@ const INPUT := preload("res://mods/unfplap/input/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
-const DIALOGUE_CONSENT := preload("res://mods/unfplap/bond/dialogue_consent.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -67,7 +66,6 @@ var stool: Node
 var _anatomy_status_label: Label
 var initiation
 var classifier
-var dialogue_consent
 var active_runtime
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
@@ -79,8 +77,6 @@ var _runtimes: Dictionary = {}
 var _offer: Dictionary = {}
 var _offer_blocked: Dictionary = {}
 var _offer_clock := 0.0
-## Lover-bond maintenance: clear a stored bond once the loaded mare is no longer romantic.
-var _sex_bond_clock := 0.0
 var _interactor: Node
 var _desktop: Node
 var _camera_cache: Camera3D
@@ -161,10 +157,6 @@ func _ready() -> void:
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
-	dialogue_consent = DIALOGUE_CONSENT.new()
-	dialogue_consent.name = "UnfplapDialogueConsent"
-	dialogue_consent.main = self
-	add_child(dialogue_consent)
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.call("setup", self)
@@ -230,13 +222,10 @@ func _on_world(host: Node) -> void:
 	_camera_cache_at = 0.0
 	_offer = {}
 	_offer_blocked = {}
-	_sex_bond_clock = 0.0
 	if is_instance_valid(initiation):
 		initiation.reset()
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
-	if is_instance_valid(dialogue_consent):
-		dialogue_consent.call("reset")
 	if is_instance_valid(hud):
 		hud.hide_all()
 
@@ -250,8 +239,6 @@ func _on_world_closed(_host: Node) -> void:
 		initiation.reset()
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
-	if is_instance_valid(dialogue_consent):
-		dialogue_consent.call("reset")
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
@@ -1154,12 +1141,6 @@ func _clear_injected_settings() -> void:
 
 func _process(delta: float) -> void:
 	_caption_top_tick()
-	_sex_bond_clock += delta
-	if _sex_bond_clock >= 2.0:
-		_sex_bond_clock = 0.0
-		for runtime: Variant in _runtimes.values():
-			if is_instance_valid(runtime) and runtime.has_method("refresh_sex_bond"):
-				runtime.call("refresh_sex_bond")
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
 		if is_instance_valid(body):
@@ -1480,8 +1461,6 @@ func try_start() -> bool:
 	if started:
 		if is_instance_valid(classifier):
 			classifier.call("cancel_scope", "dialogue:")
-		if is_instance_valid(dialogue_consent):
-			dialogue_consent.call("clear_all")
 		_offer = {}
 		if is_instance_valid(hud):
 			hud.hide_prompt()
@@ -1562,14 +1541,6 @@ func _debug_offer_request(pose := "") -> String:
 		reason = result.reject
 	_debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
 	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
-
-
-func action_grant_lover_bond() -> String:
-	return _debug_bond_request(true)
-
-
-func action_clear_lover_bond() -> String:
-	return _debug_bond_request(false)
 
 
 ## Debug: re-read the hand-authored missionary base pose without restarting. A running act picks
@@ -1811,32 +1782,6 @@ func _debug_force_tolerance(kind: String) -> String:
 	if not bool(active_runtime.call("debug_force_tolerance", kind)):
 		return "Neglect forcing is only available during a live act."
 	return "Neglect %s queued. Close this panel to let the act apply it." % kind
-
-
-## Shared by the Debug actions: grant or clear the mod lover bond on the aimed or nearest mare.
-func _debug_bond_request(grant: bool) -> String:
-	if not is_instance_valid(player):
-		return "Act system not ready."
-	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime):
-		return "No runtime for %s." % str(target.name)
-	var ok := false
-	if grant:
-		ok = bool(runtime.call("grant_sex_bond", "debug", ""))
-	else:
-		ok = bool(runtime.call("end_sex_bond", "debug", ""))
-	var verb := "granted" if grant else "cleared"
-	if ok:
-		_debug("lover bond %s for %s" % [verb, str(target.name)])
-		return "Lover bond %s for %s." % [verb, str(target.name)]
-	return "Could not %s the lover bond for %s (relationship, consent or no bond)." % [
-		"grant" if grant else "clear", str(target.name)]
 
 
 ## integration: anatomy hooks used by the runtime and input.
@@ -2373,9 +2318,6 @@ func _exit_tree() -> void:
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
 		classifier.queue_free()
-	if is_instance_valid(dialogue_consent):
-		dialogue_consent.call("reset")
-		dialogue_consent.queue_free()
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null

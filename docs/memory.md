@@ -194,7 +194,7 @@ dropped.
 ## Cue facts and shared memory
 
 `cue_facts(id, event_id)` returns the private relationship facts for the cue prompt: the
-friendship and love names and levels, the bond stage, the anger, the mood, the first-time flag
+friendship and love names and levels, the relationship stage, the anger, the mood, the first-time flag
 (no prior intimacy event and no stored act) and the careful flag (the mood is `annoyed` or the
 anger is positive). The `event_id` is the act's own, so a prior event does not count as the
 first. The raw scores and counts never leave the `CueFacts`; `to_dict()` is only the bridge to

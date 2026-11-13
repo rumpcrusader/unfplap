@@ -31,10 +31,10 @@ func run() -> void:
 	_check_outside()
 	_check_act()
 	_check_afterglow()
-	check(ACT_LINES.new().lover_prompt_note(true) == "- You and Anon are lovers.",
-		"the facade forwards the bonded lover note")
-	check(ACT_LINES.new().lover_prompt_note(false) == "- You are not Anon's lover.",
-		"the facade forwards the unbonded lover note")
+	check(ACT_LINES.new().lover_prompt_note("dating") == "- You and Anon are lovers.",
+		"the facade forwards the dating lover note")
+	check(ACT_LINES.new().lover_prompt_note("crush") == "- You are not Anon's lover.",
+		"the facade forwards the non-romantic lover note")
 	print("PROMPT_NOTES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PROMPT_NOTES_PASS")

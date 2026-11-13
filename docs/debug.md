@@ -31,8 +31,6 @@ list.
 | Reload posed base | General | `F4` |
 | Trigger bed offer | General | — |
 | Trigger standing offer | General | — |
-| Grant lover bond | World | — |
-| Clear lover bond | World | — |
 | Reset act history | World | — |
 | Show act history | World | — |
 | Show prompt context | World | — |
@@ -58,7 +56,6 @@ list.
 - **Trigger bed/standing offer** forces a proactive ask for the aimed (or nearest) test mare. It
   bypasses the quiet, cooldown and AI-usage checks but keeps the eligibility gate, pose and
   free-bed gates. Because the settings page pauses the tree, an offer advances after it closes.
-- **Grant/Clear lover bond** use the eligibility service; see `docs/bond.md`.
 - **Reset/Show act history** and **Show prompt context** read the history and prompt state; see
   `docs/history.md` and `docs/lines.md`.
 - **Force heat/diestrus/Clear forced cycle** set the session-only estrus override; see the cycle
@@ -93,8 +90,7 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 - `Shift+[` / `Shift+]` cycles every adult mare the population catalogue can spawn. The eight
   starters stay live; a non-starter is spawned through the population streamer on demand and the
   previous extra is despawned.
-- `-`/`=` romance tier; `9`/`0` anger mood; Mouse4 bed invite; Mouse5 sex-ready (grants the lover
-  bond after the neutral mood reset).
+- `-`/`=` romance tier; `9`/`0` anger mood; Mouse4 bed invite; Mouse5 sex-ready.
 - `F4` reloads the posed base; `F10` toggles the skeleton overlay.
 - Backtick toggles the debug console with a temporary control-lock release.
 - `./lab.sh` uses the isolated `unfplap-test` world and writes `last-run.log`.

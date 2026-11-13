@@ -1,7 +1,7 @@
 extends RefCounted
 ## Public eligibility API and the only scene adapter. The rules live in
 ## `eligibility/policy.gd`; this file reads the live relationship runtime, settings profile,
-## lover bond, act history, cycle and per-mare consent, then discards its working snapshot.
+## act history, cycle and per-mare consent, then discards its working snapshot.
 ##
 ## The callable surface is deliberately small:
 ##   eligible()       one capability answer for a consumer
@@ -16,7 +16,6 @@ extends RefCounted
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const SEX_BOND := preload("res://mods/unfplap/bond/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -26,7 +25,7 @@ const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 ## provider assertion. See `docs/eligibility.md` (`## Capability targets`).
 enum Target { ACT, ANATOMY, TAIL, CHARACTER }
 ## Verdict modes. The mode is recorded; every verdict field is always computed.
-enum Mode { START, OFFER, BOND, MID_ACT }
+enum Mode { START, OFFER, MID_ACT }
 ## Row effects. `NONE` is a scene row; the rest mirror `eligibility/policy.gd`.
 enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
 ## Witness age categories.
@@ -44,7 +43,6 @@ const TARGET_KEYS := {
 const MODE_NAMES := {
 	Mode.START: "start",
 	Mode.OFFER: "offer",
-	Mode.BOND: "bond",
 	Mode.MID_ACT: "mid_act",
 }
 
@@ -116,8 +114,6 @@ class Facts extends RefCounted:
 	var stage := ""
 	var love_level := -1
 	var willing := false
-	var stored_bond := false
-	var bond_stage := ""
 	var promiscuity := "any"
 	var sex_start := "try_luck"
 	var public_feature := true
@@ -142,8 +138,6 @@ class Relations extends RefCounted:
 	var stage := ""
 	var love_level := -1
 	var willing := false
-	var stored_bond := false
-	var bond_stage := ""
 	var promiscuity := "any"
 	var sex_start := ""
 	var cycle_phase := "normal"
@@ -164,7 +158,6 @@ class Verdict extends RefCounted:
 	var show := false
 	var attempt := false
 	var offer := false
-	var bond := false
 	var buck_refuse := false
 	var history_refuse := false
 	var stop := true
@@ -257,7 +250,6 @@ func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict:
 	out.show = bool(policy.get("show", false))
 	out.attempt = bool(policy.get("attempt", false))
 	out.offer = bool(policy.get("offer", false))
-	out.bond = bool(policy.get("bond", false))
 	out.buck_refuse = bool(policy.get("buck_refuse", false))
 	out.history_refuse = bool(policy.get("history_refuse", false))
 	out.stop = bool(policy.get("stop", true))
@@ -344,10 +336,6 @@ func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 			var love: Variant = (ladder as Dictionary).get("love", {})
 			if love is Dictionary:
 				out["love_level"] = int((love as Dictionary).get("level", -1))
-	var section: Dictionary = SEX_BOND.section()
-	if SEX_BOND.bonded(section, id):
-		out["stored_bond"] = true
-		out["bond_stage"] = str(SEX_BOND.row(section, id).get("stage", ""))
 
 
 func _read_settings(out: Dictionary) -> void:
@@ -421,8 +409,6 @@ func _typed_facts(data: Dictionary) -> Facts:
 	out.stage = str(data.get("stage", ""))
 	out.love_level = int(data.get("love_level", -1))
 	out.willing = bool(data.get("willing", false))
-	out.stored_bond = bool(data.get("stored_bond", false))
-	out.bond_stage = str(data.get("bond_stage", ""))
 	out.promiscuity = str(data.get("promiscuity", "any"))
 	out.sex_start = str(data.get("sex_start", "try_luck"))
 	out.public_feature = bool(data.get("public_feature", true))
@@ -453,8 +439,6 @@ func _typed_relations(policy: Dictionary) -> Relations:
 	out.stage = str(data.get("stage", ""))
 	out.love_level = int(data.get("love_level", -1))
 	out.willing = bool(data.get("willing", false))
-	out.stored_bond = bool(data.get("stored_bond", false))
-	out.bond_stage = str(data.get("bond_stage", ""))
 	out.promiscuity = str(data.get("promiscuity", "any"))
 	out.sex_start = str(data.get("sex_start", ""))
 	out.cycle_phase = str(data.get("cycle_phase", "normal"))

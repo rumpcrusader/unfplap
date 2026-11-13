@@ -18,7 +18,7 @@ extends Node
 ##   9 / 0       lower / raise the pointed mare's anger mood (all test mares when not aiming)
 ##   Mouse 4     invite a test mare to the treebrary bed; a far mare is moved to the bed approach
 ##               first, and the log says why cuddling cannot start
-##   Mouse 5     make the pointed adult mare idle, grant the lover bond and qualify for sex
+##   Mouse 5     make the pointed adult mare idle and qualify for sex
 ##               without changing her romance tier
 ##   Shift+[ / ]  move the previous/next mare in front of Anon in a 3/4 rear view, standing idle.
 ##               The eight starters stay loaded and the previous starter returns to her saved
@@ -90,7 +90,6 @@ const SETUP_ACTIONS := [
 	"set friendship >= 500, neutral mood and idle for every test pony except the strangers",
 	"set romance tier and dating record only for the adult test mares that are not strangers",
 	"clear the adult test mares' long-term act history",
-	"leave lover bonds unset; Mouse5 grants one",
 	"spawn no bed; use the Golden Oak guest bed",
 ]
 
@@ -151,7 +150,7 @@ func run() -> void:
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
 	print("[unfplap test] E sit, Ctrl lie back; test ponies placed on their saved standing spots")
-	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready (grants lover bond), Shift+[ / ] cycle mares")
+	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready, Shift+[ / ] cycle mares")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -1190,11 +1189,6 @@ func _qualify_target() -> void:
 	rows.append("cleared=" + _clear_busy(target))
 	rows.append("record=" + _set_dating_record(target))
 	rows.append("mood=" + _set_mood(target, "neutral"))
-	var runtime: Node = target.get_node_or_null("UnfplapRuntime")
-	if runtime != null and runtime.has_method("grant_sex_bond"):
-		rows.append("bond=" + str(runtime.call("grant_sex_bond", "lab", "")))
-	else:
-		rows.append("bond=no runtime")
 	rows.append("romance untouched")
 	_log_action("Mouse5 " + id, rows)
 	_report_after_delay(target, "Mouse5 " + id)

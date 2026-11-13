@@ -25,14 +25,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "bond/dialogue_consent.gd",
-      "to": "initiation/classifier.gd",
-      "kind": "service-private",
-      "owner": "bond",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
       "from": "hands/smack.gd",
       "to": "audio/act/smack/catalogue.gd",
       "kind": "service-private",

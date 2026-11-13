@@ -98,7 +98,6 @@ venue:        player, mares, pony_id, region_of, camera_forward, private_at_play
 |---|---|---|
 | Request cooldown (`request_times`) | `Mods.state("unfplap")` | `initiation/cooldowns.gd` |
 | Live episode, cuddle edge, one-ask-per-cuddle, retry deadlines | memory only | this facade |
-| Lover bond | `Mods.state("unfplap").sex_bonds` | `bond/service.gd` |
 | Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Cycle phase | runtime, derived from the day | `shared/cycle.gd` |
 | Per-mare consent and public-offer flag | resolved verdict | `docs/eligibility.md` |

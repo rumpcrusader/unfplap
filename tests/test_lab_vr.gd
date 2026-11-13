@@ -295,11 +295,6 @@ func _qualify(pony: Node3D) -> void:
 	rows.append("cleared=" + _clear_busy(pony))
 	rows.append("record=" + _set_dating_record(pony))
 	rows.append("mood=" + _set_mood(pony, "neutral"))
-	var runtime: Node = (pony as Node).get_node_or_null("UnfplapRuntime")
-	if runtime != null and runtime.has_method("grant_sex_bond"):
-		rows.append("bond=" + str(runtime.call("grant_sex_bond", "lab", "")))
-	else:
-		rows.append("bond=no runtime")
 	_log_action("VR qualify " + _pony_id(pony), rows)
 
 

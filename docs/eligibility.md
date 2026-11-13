@@ -1,8 +1,8 @@
 # Eligibility and consent
 
 The eligibility system is the one gate for adult intimacy: adulthood, relationship level, kiss
-willingness, the lover bond, act history, the estrus cycle and per-mare action consent. This file
-is the single technical contract; other docs link here.
+willingness, act history, the estrus cycle and per-mare action consent. This file is the single
+technical contract; other docs link here.
 
 The internal API is `eligibility/service.gd`. The typed surface is `eligible`, `witness_age`, `get_verdict`,
 `get_profile` and `set_profile`. Cross-mod exposure stays `docs/api.md`, which is not changed by
@@ -15,7 +15,6 @@ This contract covers:
 - the adult identity predicates and the per-target capability answers;
 - the Promiscuity level and Starting Sex choice;
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
-- the stored mod lover bond;
 - history withdrawal and offer blocks;
 - the estrus cycle sex gate;
 - per-mare public, anal and oral consent;
@@ -31,7 +30,7 @@ contract: `docs/scene_gate.md`.
 
 | File | Role |
 |---|---|
-| `eligibility/service.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, lover bond, history, cycle and consent |
+| `eligibility/service.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, history, cycle and consent |
 | `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets and witness age |
 | `eligibility/facts.gd` | pure fact schema; the identity predicates stay private here |
 | `scene_gate/service.gd` | the live scene rows and the refusal executor; contract in `docs/scene_gate.md` |
@@ -41,12 +40,12 @@ The purity boundary is deliberate:
 
 - `policy.gd` has no `Node`, `Time`, `SceneTree`, `FileAccess`, `SETTINGS` preload or scene
   preload. It receives plain data and returns plain data.
-- `eligibility/service.gd` is read-only. It never saves settings, history or bonds.
+- `eligibility/service.gd` is read-only. It never saves settings, history or consent.
 - Only `eligibility/service.gd` reads `bonds.welcomes`, `bonds.adults`,
   `bonds.eligible_for_romance`, `SETTINGS.promiscuity`, `SETTINGS.sex_start`,
-  `SETTINGS.consent` for a gate, `SEX_BOND.bonded`, `ACT_HISTORY.blocks_start/blocks_offers/
+  `SETTINGS.consent` for a gate, `ACT_HISTORY.blocks_start/blocks_offers/
   offer_weight` or `CYCLE.allows_sex`.
-- `bond/service.gd`, `shared/act_history.gd`, `shared/cycle.gd` and `shared/consent.gd` remain the authorities for their
+- `shared/act_history.gd`, `shared/cycle.gd` and `shared/consent.gd` remain the authorities for their
   own data. Eligibility only composes their resolved results.
 - No file outside `eligibility/` preloads the pure core. Another system calls the facade, which
   answers `eligible(pony, target)` or `witness_age(pony)`; it never inspects age, sex or the
@@ -63,7 +62,6 @@ the per-character profile.
 | Per-mare consent (public, anal, oral) | `settings.json` -> `characters.<id>.consent` (differences only) | `settings/service.gd` plus the `shared/consent.gd` resolver |
 | Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `adult` is a provider layer | `settings/service.gd` plus the `shared/participation.gd` resolver |
 | Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
-| Lover bond | `Mods.state("unfplap").sex_bonds` | `bond/service.gd` |
 | Act history | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Request cooldown | `Mods.state("unfplap").request_times` | `initiation/cooldowns.gd` (contract: `docs/initiation.md`) |
 | Relationship stage, love, friendship, willingness | game save (`player_bonds`, impressions) | base game |
@@ -73,7 +71,7 @@ Rules:
 
 - No `characters.<id>.eligibility`, no eligibility block in `settings.json`, no eligibility block
   in `Mods.state("unfplap")`.
-- `eligibility/service.gd` never calls `SETTINGS.save_*`, `SEX_BOND.save`, `ACT_HISTORY.commit/save` or
+- `eligibility/service.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit/save` or
   `Mods.save_changed`.
 - `facts.consent` is a snapshot. `get_profile(id).consent` re-resolves live.
 - Preferences are not facts. Tolerance stays with `history/tolerance.gd`; eligibility never reads the
@@ -88,7 +86,7 @@ Rules:
 
 ```gdscript
 enum Target { ACT, ANATOMY, TAIL, CHARACTER }
-enum Mode { START, OFFER, BOND, MID_ACT }
+enum Mode { START, OFFER, MID_ACT }
 enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
 enum Age { NONE, YOUNG, ADULT }
 enum AdultAssertion { IDENTITY, ADULT, NOT_ADULT }
@@ -102,7 +100,7 @@ class Facts: id, adult, participation, has_relationship, ... (see `## Facts`)
 class Actions: public, public_offer, anal, oral
 class Relations: id, stage, love_level, ... (see `## Verdict`)
 class Row: key, ok, reason, effect
-class Verdict: mode, base, show, attempt, offer, bond, buck_refuse, history_refuse,
+class Verdict: mode, base, show, attempt, offer, buck_refuse, history_refuse,
                stop, offer_weight, facts, actions, relations, rows
                reasons() -> PackedStringArray
                rows_text() -> String
@@ -132,7 +130,6 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 | `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe `scene_gate/service.gd` rows |
 | `runtime.start()` | `start_verdict()` | none |
 | `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor |
-| `runtime.grant_sex_bond()` | `get_verdict(pony, Mode.BOND)` | IDLE, not sleeping |
 | `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
 | `main._refresh_offer()` | `runtime.start_verdict().show` | candidate discovery |
 | `main.try_start()` | `runtime.start()` | none |
@@ -140,7 +137,6 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 | `main.is_adult_mare()` | `eligible(pony, Target.ACT)` | none |
 | `main.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
 | `initiation` | `get_verdict(pony, Mode.OFFER)` | cooldown, approach, bed search, privacy, classifier; see `docs/initiation.md` |
-| `dialogue_consent` | `runtime.grant_sex_bond/end_sex_bond` | none |
 | `anatomy/act` | `get_profile(id).consent` | feature flags |
 | `anatomy` facade | `eligible(pony, Target.ANATOMY)` | rig, assets, dock; forwards to its controllers |
 | `tail_seat` | `eligible(pony, Target.TAIL)` through the anatomy facade | hair, dock |
@@ -175,7 +171,7 @@ assertion wins over the identity flag in both directions.
 ```text
 id, has_identity, is_player_pony, is_filly, is_stallion, adult, participation,
 has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
-stored_bond, bond_stage, promiscuity, sex_start, public_feature, player_young, player_pony,
+promiscuity, sex_start, public_feature, player_young, player_pony,
 cycle_phase, cycle_allows, heat, history, consent
 ```
 
@@ -202,14 +198,13 @@ base: bool
 show: bool             # the Make love hint appears
 attempt: bool          # Y starts the act
 offer: bool            # proactive offer allowed
-bond: bool             # a lover-bond dialogue grant is allowed
 buck_refuse: bool      # Y triggers refuse()
 history_refuse: bool   # Y triggers refuse_from_history()
 stop: bool             # mid-act withdrawal
 offer_weight: float
 facts: Facts
 actions: Actions       # public, public_offer, anal, oral
-relations: Relations   # id, stage, love_level, willing, stored_bond, bond_stage,
+relations: Relations   # id, stage, love_level, willing,
                        # promiscuity, sex_start, cycle_phase, heat, base
 rows: Array[Row]       # key, ok, reason, effect
 ```
@@ -228,32 +223,29 @@ Rows and effects:
 | `flag` | public/privacy flag; never a failure |
 
 Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `participation`,
-`relation`, `sex_bond`, `cycle`, `history`, `history_offers`, `public`.
+`relation`, `cycle`, `history`, `history_offers`, `public`.
 
 ## Modes and truth table
 
 `base` = valid adult mare + relationship runtime + registered adult + adult player + romance
 eligible + Promiscuity level pass.
 
-| Condition | `show` | `attempt` | `buck_refuse` | `history_refuse` | `offer` | `bond` | `stop` |
-|---|---|---|---|---|---|---|---|
-| not `base` | no | no | no | no | no | no | yes |
-| `participation.acts` false | no | no | no | no | no | no | no |
-| `!willing`, When Available | no | no | yes | — | no | no | yes |
-| `!willing`, Try Your Luck | yes | no | yes | — | no | no | yes |
-| `willing`, history withdrawn/stop | yes | no | no | yes | no | yes | no |
-| `willing`, history hurt (tier 2) | yes | yes | no | no | no | yes | no |
-| no stored bond, When Available | no | no | no | no | no | yes | yes |
-| no stored bond, Try Your Luck | yes | yes | no | no | yes | yes | no |
-| diestrus | no | no | — | — | no | yes | yes |
-| heat or public consent | — | — | — | — | privacy flag | — | — |
+| Condition | `show` | `attempt` | `buck_refuse` | `history_refuse` | `offer` | `stop` |
+|---|---|---|---|---|---|---|
+| not `base` | no | no | no | no | no | yes |
+| `participation.acts` false | no | no | no | no | no | no |
+| `!willing`, When Available | no | no | yes | — | no | yes |
+| `!willing`, Try Your Luck | yes | no | yes | — | no | yes |
+| `willing`, history withdrawn/stop | yes | no | no | yes | no | no |
+| `willing`, history hurt (tier 2) | yes | yes | no | no | no | no |
+| diestrus | no | no | — | — | no | yes |
+| heat or public consent | — | — | — | — | privacy flag | — |
 
 Rules:
 
 - `history_refuse` wins over `buck_refuse`; it does not require willingness.
-- `buck_refuse` ignores bond, cycle and history.
-- `bond` requires base + willing + participation; it does not need a stored bond.
-- `stop` requires base + willing + bond + cycle; history does not stop an act.
+- `buck_refuse` ignores Starting Sex, cycle and history.
+- `stop` requires base + willing + cycle; history does not stop an act.
 - `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
   buck, a history refusal or a mood note. It is a boundary, not a mood beat.
 - `show` and `attempt` are separate. Try Your Luck shows the hint while `attempt` is false.
@@ -278,7 +270,7 @@ Rules:
 - `witness_age()` returns `Age.YOUNG` for a filly/colt the provider has not asserted adult,
   `Age.ADULT` for an adult (or asserted adult), and `Age.NONE` for a pony who can be neither. It is
   the only age-shaped answer a consumer gets, and only for witness wording.
-- A young player blocks every act and every lover-bond grant.
+- A young player blocks every act.
 
 ## Participation
 
@@ -296,8 +288,8 @@ provider's default; it does not clear the provider's `adult` assertion.
 
 ## Promiscuity
 
-The selected `relationship.promiscuity` is the lowest love level that can start an act or grant a
-lover bond. The ladder is:
+The selected `relationship.promiscuity` is the lowest love level that can start an act. The ladder
+is:
 
 ```text
 Soulmates 4, Head Over Hooves 3, Marefriend/Coltfriend 2, New Couple 1, Crush 0, Any Adult -1
@@ -322,21 +314,17 @@ bucked or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` 
 boundary) and holds the matching face in `face/mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
 she refuses kisses and offers for the note's 300 s freshness.
 
-## Lover bond and Starting Sex
+## Starting Sex
 
-The stored bond is `Mods.state("unfplap").sex_bonds`. It never expires. A bond granted while
-dating/engaged/married is cleared when the base stage leaves those stages; a spoken withdrawal
-always clears it.
+`relationship.sex_start` decides whether the start hint waits for her to welcome a kiss:
 
-`relationship.sex_start`:
+- **When Available** requires kiss willingness. A mare who does not welcome a kiss has no hint and
+  no proactive offer.
+- **Try Your Luck** shows the hint before she welcomes the kiss. It **does not** drop the
+  Promiscuity level and it **does not** skip willingness at start. Pressing Y still refuses when
+  she does not.
 
-- **When Available** requires the stored bond. A willing mare below that has no hint and no
-  proactive offer.
-- **Try Your Luck** makes the stored bond optional. It **does not** drop the Promiscuity level and
-  it **does not** skip willingness at start. The hint can appear before she welcomes the kiss;
-  pressing Y still refuses when she does not.
-
-The old labels that said Try Your Luck drops the stage are corrected to this rule.
+Both modes use the same Promiscuity floor, the same base gate and the same willingness row.
 
 ## History and cycle
 
@@ -400,7 +388,7 @@ contract is `docs/initiation.md`.
 - adult mare, adult player or romance eligibility;
 - Promiscuity level;
 - kiss willingness;
-- stored lover bond (When Available) or Starting Sex bypass;
+- Starting Sex bypass;
 - estrus cycle allows sex.
 
 `runtime._still_willing()` checks this every quarter second. A real tolerance stop is separate:
@@ -411,8 +399,7 @@ contract is `docs/initiation.md`.
 - `runtime.debug_line()` prints `show`, `attempt`, `offer`, `buck`, `history`, the policy rows and
   the relation facts. It does not re-derive the gate.
 - `Verdict.rows_text()` returns the same policy view without scene rows.
-- The Debug actions **Grant lover bond**, **Clear lover bond**, **Trigger bed offer** and
-  **Trigger standing offer** use the same service.
+- The Debug actions **Trigger bed offer** and **Trigger standing offer** use the same service.
 - The Debug actions **Force heat** and **Force diestrus** feed `cycle_phase`; they do not bypass
   the gate.
 
@@ -422,7 +409,6 @@ contract is `docs/initiation.md`.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | bond | `bond/service.gd` | lover bond |
 | service | registry | `registry/service.gd` | provider layers and stable ids |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
@@ -440,14 +426,12 @@ contract is `docs/initiation.md`.
 ## Tests
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, identity predicates, capability
-  targets, witness age, Promiscuity, willingness, bond, history, cycle, public/anal/oral,
+  targets, witness age, Promiscuity, willingness, Starting Sex, history, cycle, public/anal/oral,
   participation and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
   facts and verdict, capability targets, the profile consent, the provider layer through
   `set_profile()`/`get_profile()` and clear/setup lifecycle.
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
-- `tests/bond/test_sex_bond.gd`: bond storage only; `tests/bond/test_bond_service.gd`: the service
-  gates, the event and the stale-bond sweep.
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
   the docs link.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
@@ -468,8 +452,6 @@ contract is `docs/initiation.md`.
 
 - The base game changes `bonds.welcomes()` over time; a mid-act mood swing can stop the act through
   the willingness row.
-- Stallion partners stored in an older save remain in `sex_bonds`, but they are no longer act
-  targets. No migration removes the row.
 - Public consent is not a general exhibitionism gate; it is an offer privacy override.
 - The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability reads
   `get_profile(id)` and writes `set_profile(owner, id, profile)`. A live eligibility verdict is

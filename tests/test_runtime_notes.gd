@@ -64,12 +64,12 @@ func run() -> void:
 	runtime._warm_note = false
 	runtime.free()
 
-	check(REL.lover_note(true) == "- You and Anon are lovers.", "bonded lover note")
-	check(REL.lover_note(false) == "- You are not Anon's lover.", "unbonded lover note")
+	check(REL.lover_note(true) == "- You and Anon are lovers.", "romantic lover note")
+	check(REL.lover_note(false) == "- You are not Anon's lover.", "non-romantic lover note")
 	check(not REL.lover_note(true).to_lower().contains("sex"),
-		"the bonded lover note has no sex word")
+		"the romantic lover note has no sex word")
 	check(not REL.lover_note(false).to_lower().contains("sex"),
-		"the unbonded lover note has no sex word")
+		"the non-romantic lover note has no sex word")
 
 	print("RUNTIME_NOTES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

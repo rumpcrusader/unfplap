@@ -56,7 +56,7 @@ tree.
 | `busy()` | the director or the pony is actually speaking |
 | `recent_lines()` / `last_spoken_line()` / `last_spoken_at()` | read the director's recent speech |
 | `prompt_note(values)` | the normal dialogue note: state, warm, history, beat, relation, caress/lean, pose |
-| `lover_prompt_note(stored_bond)` | the neutral lover wording; the runtime keeps the bond gates |
+| `lover_prompt_note(stage)` | the neutral lovers wording, from the base relationship stage |
 | `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
 
 ## Admission

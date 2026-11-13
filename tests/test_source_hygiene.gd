@@ -88,7 +88,6 @@ func run() -> void:
 	_check_rest_rejoin()
 	_check_act_audio()
 	_check_hud_lines()
-	_check_bond()
 	_check_scene_hold()
 	_check_docs_index(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
@@ -203,7 +202,7 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 				"preload(\"res://world/", "preload(\"res://mods/unfplap/settings/service.gd\")"]:
 			check(not text.contains(token), "%s stays pure: %s" % [name, token])
 	var shell := FileAccess.get_file_as_string(ROOT.path_join("eligibility/service.gd"))
-	for token: String in ["save_changed", "save_consent", "save_preferences", "SEX_BOND.save",
+	for token: String in ["save_changed", "save_consent", "save_preferences",
 			"ACT_HISTORY.commit", "ACT_HISTORY.save", "FileAccess"]:
 		check(not shell.contains(token), "eligibility shell is read-only: %s" % token)
 	# Only the facade is preloaded outside the system; the pure core stays private.
@@ -364,26 +363,6 @@ func _check_scene_hold() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/scene_hold.md"))
 	check(contract.contains("## Ownership and boundary"), "docs/scene_hold.md documents the boundary")
 	check(contract.contains("`scene_hold/service.gd`"), "docs/scene_hold.md names the facade")
-
-
-## The lover bond is a static store plus one per-pony service instance; the runtime only forwards.
-func _check_bond() -> void:
-	var text := FileAccess.get_file_as_string(ROOT.path_join("bond/service.gd"))
-	check(text.contains("func grant_bond(") and text.contains("func refresh_bond("),
-		"bond/service.gd owns the grant/end/refresh service")
-	for token: String in ["extends Node", "preload(\"res://mods/unfplap/runtime.gd\")",
-			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "main.get("]:
-		check(not text.contains(token), "sex bond has no host reach-in: %s" % token)
-	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
-	for token: String in ["SEX_BOND.grant(", "SEX_BOND.clear(", "SEX_BOND.set_stage(",
-			"SEX_BOND.bonded(", "SEX_BOND.row(", "sex_bonds_last_clear"]:
-		check(not runtime.contains(token), "runtime has no bond store calls: %s" % token)
-	for name: String in ["test_sex_bond.gd", "test_bond_service.gd"]:
-		check(FileAccess.file_exists(ROOT.path_join("tests/bond/" + name)),
-			"tests/bond/%s exists" % name)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/bond.md"))
-	check(contract.contains("## Ownership"), "docs/bond.md documents the owner")
-	check(contract.contains("grant_bond"), "docs/bond.md names the service API")
 
 
 ## The readiness facade is scene-free scoring state. Its contract is `docs/readiness.md`, and the
@@ -710,7 +689,6 @@ func _check_docs_index(files: Array[String]) -> void:
 		["docs/audio.md", "audio/service.gd", "tests/act_audio/"],
 		["docs/hud.md", "hud/service.gd", "tests/hud/"],
 		["docs/settings.md", "settings/service.gd", "tests/test_settings.gd"],
-		["docs/bond.md", "bond/service.gd", "tests/bond/"],
 		["docs/act_facts.md", "shared/act_facts.gd", "tests/act_facts/"],
 		["docs/perf.md", "shared/perf.gd", "tests/perf/"],
 		["docs/debug.md", "debug/service.gd", "tests/"],
@@ -890,9 +868,9 @@ func _check_initiation_isolation(files: Array[String]) -> void:
 		if relative == "initiation/service.gd" or relative.begins_with("initiation/"):
 			continue
 		# Migration debt: the shared classifier is still private to initiation. It becomes its
-		# own service in the boundary-cleanup phase; until then the orchestrator and the bond
-		# dialogue adapter are the known callers.
-		if relative == "main.gd" or relative == "bond/dialogue_consent.gd":
+		# own service in the boundary-cleanup phase; until then the orchestrator is the known
+		# caller.
+		if relative == "main.gd":
 			continue
 		var text := FileAccess.get_file_as_string(path)
 		var external := text.replace("mods/unfplap/initiation/service.gd", "")

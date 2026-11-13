@@ -103,10 +103,9 @@ func run() -> void:
 	check(bool(verdict.facts.willing), "facts read kiss willingness")
 	check(str(verdict.facts.stage) == "dating" and int(verdict.facts.love_level) == 2,
 		"facts read the ladder and stage")
-	check(not bool(verdict.facts.stored_bond), "no Mods node means no stored bond")
 
 	check(bool(verdict.show) and bool(verdict.attempt), "Try Your Luck starts a willing mare")
-	check(bool(verdict.offer) and bool(verdict.bond), "offers and bond grants pass")
+	check(bool(verdict.offer), "offers pass")
 	check(not bool(verdict.stop), "a willing mare continues an act")
 	check(verdict.rows_text().contains("adult"), "the typed rows are readable")
 	check(verdict.reasons().is_empty(), "a passing verdict has no reasons")
@@ -223,8 +222,12 @@ func run() -> void:
 	relation.bonds.welcome = true
 	SETTINGS.sex_start.set_choice("when_available")
 	var available: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(not bool(available.show), "When Available needs the stored bond")
-	check(bool(available.bond), "the bond mode does not need a stored bond")
+	check(bool(available.show), "When Available shows the hint for a willing mare")
+	relation.bonds.welcome = false
+	var available_unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(
+		pony, ELIGIBILITY.Mode.START)
+	check(not bool(available_unwilling.show), "When Available waits for kiss willingness")
+	relation.bonds.welcome = true
 	SETTINGS.sex_start.set_choice("try_luck")
 
 	main.eligibility.clear()
@@ -232,7 +235,7 @@ func run() -> void:
 	main.eligibility.setup(main)
 	check(main.eligibility.eligible(pony), "setup after clear restores the service")
 	var restored: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(bool(restored.bond), "setup after clear restores the verdict")
+	check(bool(restored.show), "setup after clear restores the verdict")
 
 	print("ELIGIBILITY_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

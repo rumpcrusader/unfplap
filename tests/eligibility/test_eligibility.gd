@@ -1,5 +1,5 @@
 extends SceneTree
-## Pure eligibility policy: adults, Promiscuity, willingness, lover bond, history, cycle and
+## Pure eligibility policy: adults, Promiscuity, willingness, Starting Sex, history, cycle and
 ## per-mare consent. No world or user:// file is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
 
@@ -34,8 +34,6 @@ func facts(over: Dictionary = {}) -> Dictionary:
 	out["stage"] = "dating"
 	out["love_level"] = 2
 	out["willing"] = true
-	out["stored_bond"] = true
-	out["bond_stage"] = "dating"
 	out["promiscuity"] = "any"
 	out["sex_start"] = "try_luck"
 	out["public_feature"] = true
@@ -75,9 +73,10 @@ func run() -> void:
 	check(POLICY.level_ok("any", -1), "Any Adult skips the love level")
 	check(POLICY.level_ok("", 2), "unknown Promiscuity falls back to Marefriend")
 	check(not POLICY.level_ok("", 1), "fallback still has a floor")
-	check(POLICY.bypasses_bond("try_luck"), "Try Your Luck bypasses the bond")
-	check(not POLICY.bypasses_bond("when_available"), "When Available requires the bond")
-	check(not POLICY.bypasses_bond(""), "unknown Starting Sex is not a bypass")
+	check(POLICY.hint_without_willingness("try_luck"), "Try Your Luck shows the hint early")
+	check(not POLICY.hint_without_willingness("when_available"),
+		"When Available waits for willingness")
+	check(not POLICY.hint_without_willingness(""), "unknown Starting Sex does not show early")
 
 	var identity: Variant = {"id": "rarity", "filly": false, "stallion": false}
 	check(FACTS.adult_pony_identity(identity), "adult identity")
@@ -117,7 +116,6 @@ func run() -> void:
 	check(bool(base.base), "steady adult mare has a base")
 	check(bool(base.show) and bool(base.attempt), "all gates pass in Try Your Luck")
 	check(bool(base.offer), "all gates allow an offer")
-	check(bool(base.bond), "a willing adult passes the bond mode")
 	check(not bool(base.stop), "all gates keep an act going")
 	check(bool(base.actions.anal) and bool(base.actions.oral), "action consent is read")
 	check(not bool(base.actions.public), "public consent defaults off")
@@ -127,7 +125,6 @@ func run() -> void:
 	check(not bool(opt_out.show), "a participation opt-out hides the hint")
 	check(not bool(opt_out.attempt), "a participation opt-out does not start")
 	check(not bool(opt_out.offer), "a participation opt-out does not offer")
-	check(not bool(opt_out.bond), "a participation opt-out does not grant a bond")
 	check(not bool(opt_out.buck_refuse), "a participation opt-out is not a refusal")
 	check(not bool(opt_out.history_refuse), "a participation opt-out is not a history refusal")
 	check(not bool(opt_out.stop), "a participation opt-out does not change the mid-act stop")
@@ -153,15 +150,13 @@ func run() -> void:
 	var no_romance := POLICY.evaluate(facts({"romance_eligible": false}), "start")
 	check(not bool(no_romance.show), "romance eligibility blocks")
 
-	var no_bond := POLICY.evaluate(facts({"stored_bond": false, "sex_start": "when_available"}), "start")
-	check(not bool(no_bond.show), "When Available needs the stored bond")
-	check(not bool(no_bond.offer), "When Available needs the stored bond for offers")
-	check(bool(no_bond.bond), "the bond mode does not need a stored bond")
-	check(bool(no_bond.stop), "a missing bond stops a mid-act check")
-	var no_bond_luck := POLICY.evaluate(facts({"stored_bond": false}), "start")
-	check(bool(no_bond_luck.show) and bool(no_bond_luck.attempt), "Try Your Luck skips the bond")
-	check(bool(no_bond_luck.offer), "Try Your Luck allows offers")
-	check(not bool(no_bond_luck.stop), "Try Your Luck keeps a mid-act check going")
+	var available := POLICY.evaluate(facts({"sex_start": "when_available"}), "start")
+	check(bool(available.show) and bool(available.attempt),
+		"When Available shows the hint for a willing mare")
+	var available_unwilling := POLICY.evaluate(
+		facts({"willing": false, "sex_start": "when_available"}), "start")
+	check(not bool(available_unwilling.show),
+		"When Available waits for kiss willingness")
 
 	var unwilling_luck := POLICY.evaluate(facts({"willing": false}), "start")
 	check(bool(unwilling_luck.show), "Try Your Luck still shows the hint when unwilling")
@@ -192,7 +187,6 @@ func run() -> void:
 	var cold := POLICY.evaluate(facts({"cycle_allows": false, "cycle_phase": "diestrus"}), "start")
 	check(not bool(cold.show), "diestrus hides the hint")
 	check(not bool(cold.offer), "diestrus blocks offers")
-	check(bool(cold.bond), "diestrus does not block a lover-bond dialogue grant")
 	check(bool(cold.stop), "diestrus stops a mid-act check")
 
 	var public_consent := POLICY.evaluate(facts({"consent": {"public": true}}), "offer")

@@ -385,9 +385,10 @@ func prompt_note(values: Dictionary) -> String:
 	return PROMPTS.note(values)
 
 
-## The lover-bond prompt note. The runtime keeps the bond/act/sleep gates; the wording is here.
-func lover_prompt_note(stored_bond: bool) -> String:
-	return RELATIONSHIP_CUE.lover_note(stored_bond)
+## The lovers prompt note. The runtime keeps the act/sleep gates; the base relationship stage
+## decides the wording.
+func lover_prompt_note(stage: String) -> String:
+	return RELATIONSHIP_CUE.lover_note(RELATIONSHIP_CUE.romantic_stage(stage))
 
 
 func recent_lines() -> String:

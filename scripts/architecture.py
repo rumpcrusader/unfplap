@@ -315,7 +315,6 @@ PURPOSE = {
     "reactions/service.gd": "jiggle, blush and hearts",
     "audio/service.gd": "act audio layers",
     "hud/service.gd": "act HUD card",
-    "bond/service.gd": "lover bond",
     "stool/service.gd": "footstool supply",
     "debug/service.gd": "debug action registry",
     "input/service.gd": "act input policy",
@@ -421,7 +420,6 @@ LIFECYCLES = {
     "stool": ("world + per-act handle", "`main._ready()`", "`setup()`/`new_act()`", "`shutdown()`", "yes"),
     "audio": ("per-pony", "`runtime`", "`begin()`", "`end()`", "yes"),
     "hud": ("world", "`main._ready()`", "`_ready()`", "freed with main", "yes"),
-    "bond": ("process + per-pony", "`main`/`runtime`", "`bind()`", "`end_bond()`", "yes"),
     "input": ("world", "`main._ready()`", "`_ready()`", "freed with main", "yes"),
     "debug": ("process", "static initialization", "none", "none", "yes"),
 }

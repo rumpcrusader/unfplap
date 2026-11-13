@@ -51,22 +51,6 @@ const ACTIONS := {
 		"row": "Cycle",
 		"short": "Clear",
 	},
-	"grant_lover_bond": {
-		"label": "Grant lover bond",
-		"help": "Give the aimed or nearest eligible mare the mod lover bond.",
-		"method": "action_grant_lover_bond",
-		"tab": "world",
-		"row": "Lover bond",
-		"short": "Grant",
-	},
-	"clear_lover_bond": {
-		"label": "Clear lover bond",
-		"help": "Clear the aimed or nearest mare's mod lover bond.",
-		"method": "action_clear_lover_bond",
-		"tab": "world",
-		"row": "Lover bond",
-		"short": "Clear",
-	},
 	"reset_act_history": {
 		"label": "Reset act history",
 		"help": "Clear the aimed or nearest mare's long-term act history and hurt.",

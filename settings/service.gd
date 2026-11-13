@@ -656,7 +656,7 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"],
 	"Starting Sex",
-	"When to show the \u201cMake love\u201d button. When Available needs the Promiscuity stage and a lover bond; Try Your Luck drops the lover bond and the start hint's kiss-willingness gate, but not the Promiscuity stage. She can still refuse.", GENERAL, "")
+	"When to show the \u201cMake love\u201d button. When Available waits until she welcomes a kiss; Try Your Luck shows the hint earlier while she can still refuse. Neither drops the Promiscuity stage.", GENERAL, "")
 static var act_controls := flag("act_controls", "features.act_controls", true, "Show controls",
 	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
 static var hud_readouts := flag("hud_readouts", "features.hud_readouts", true, "Show HUD readouts",
@@ -1496,7 +1496,7 @@ static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", 0.5, "Fluid 
 static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any",
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
-	"Promiscuity", "Lowest relationship level for a lover bond and sex.", WORLD, "")
+	"Promiscuity", "Lowest relationship level for sex.", WORLD, "")
 static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle", false, "Use estrus cycle",
 	"Give mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
 static var act_public_offer := flag("act_public_offer", "features.act_public_offer", false,

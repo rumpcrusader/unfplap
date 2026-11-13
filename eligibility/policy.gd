@@ -34,9 +34,9 @@ static func level_ok(required: String, love_level: int) -> bool:
 	return need < 0 or love_level >= need
 
 
-## Starting Sex `try_luck` makes the stored lover bond optional. It never skips the base kiss
-## willingness; the policy still checks that separately.
-static func bypasses_bond(sex_start: String) -> bool:
+## Starting Sex `try_luck` shows the start hint before she welcomes a kiss. It never skips the
+## base kiss willingness for a start or an offer; the policy still checks that separately.
+static func hint_without_willingness(sex_start: String) -> bool:
 	return sex_start == "try_luck"
 
 
@@ -108,8 +108,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	var level := level_ok(str(facts.get("promiscuity", "any")),
 		int(facts.get("love_level", -1)))
 	var willing := bool(facts.get("willing", false))
-	var bond_ok := bypasses_bond(str(facts.get("sex_start", ""))) \
-		or bool(facts.get("stored_bond", false))
 	var cycle_ok := bool(facts.get("cycle_allows", false))
 	var history := facts.get("history", {}) as Dictionary
 	var blocks_start := bool(history.get("blocks_start", false))
@@ -117,15 +115,14 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	var participation: Dictionary = facts.get("participation", {}) as Dictionary
 	var participates := bool(participation.get("acts", true))
 	var base := adult and relationship and player and romance and level
-	var try_luck := bypasses_bond(str(facts.get("sex_start", "")))
-	var show := base and participates and bond_ok and cycle_ok and (willing or try_luck)
+	var hint_early := hint_without_willingness(str(facts.get("sex_start", "")))
+	var show := base and participates and cycle_ok and (willing or hint_early)
 	var attempt := show and willing and not blocks_start
 	var buck_refuse := base and not willing
 	var history_refuse := base and blocks_start
-	var offer := base and participates and willing and bond_ok and cycle_ok \
+	var offer := base and participates and willing and cycle_ok \
 		and not blocks_offers and not blocks_start
-	var bond := base and participates and willing
-	var stop := not (base and willing and bond_ok and cycle_ok)
+	var stop := not (base and willing and cycle_ok)
 	var offer_weight := 0.0
 	if offer:
 		offer_weight = float(history.get("offer_weight", 0.0))
@@ -137,7 +134,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	_add_row(rows, "promiscuity", level, "promiscuity", EFFECT_BLOCK)
 	_add_row(rows, "participation", participates, "participation", EFFECT_BLOCK)
 	_add_row(rows, "relation", willing, "relation", EFFECT_REFUSE)
-	_add_row(rows, "sex_bond", bond_ok, "sex_bond", EFFECT_BLOCK)
 	_add_row(rows, "cycle", cycle_ok, "cycle", EFFECT_BLOCK)
 	_add_row(rows, "history", not blocks_start, "history", EFFECT_HISTORY_REFUSE)
 	_add_row(rows, "history_offers", not blocks_offers, "history_offers", EFFECT_OFFER_BLOCK)
@@ -158,8 +154,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 		"stage": str(facts.get("stage", "")),
 		"love_level": int(facts.get("love_level", -1)),
 		"willing": willing,
-		"stored_bond": bool(facts.get("stored_bond", false)),
-		"bond_stage": str(facts.get("bond_stage", "")),
 		"promiscuity": str(facts.get("promiscuity", "any")),
 		"sex_start": str(facts.get("sex_start", "")),
 		"cycle_phase": str(facts.get("cycle_phase", "normal")),
@@ -172,7 +166,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 		"show": show,
 		"attempt": attempt,
 		"offer": offer,
-		"bond": bond,
 		"buck_refuse": buck_refuse,
 		"history_refuse": history_refuse,
 		"stop": stop,

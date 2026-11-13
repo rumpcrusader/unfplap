@@ -230,8 +230,7 @@ navigator and blocks nothing; the gates above do that.
   close prompt in the cue and puts the summary on the readiness line. Early end shows no HUD.
 - `prompt_note()` carries the private history note while a hurt history is active, the 300 s
   warm note after a good or non-early neutral act (`_warm_note`), the relationship note during the
-  act and afterglow, and one short random afterglow beat (or none). `lover_prompt_note()` adds the
-  neutral lover fact when no other prompt note is present. It does not recite the summary or her
+  act and afterglow, and one short random afterglow beat (or none). It does not recite the summary or her
   first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts
   filter `last_wants` through `ACT_HISTORY.repair_wants()` and pass `last_text` through
   `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated act opening.

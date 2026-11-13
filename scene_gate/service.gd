@@ -224,11 +224,11 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null,
 	var bed_text := "n/a"
 	if pose == CATALOG.MISSIONARY:
 		bed_text = str(found_bed != null and bed_gate(pose, act_source, found_bed))
-	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level%d) welcomes=%s bond=%s start=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s bondrow=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level%d) welcomes=%s start=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
 		str(context.get("display", "?")), str(context.get("id", "")),
 		float(distance), float(dot), str(context.get("stage", "")),
 		str(context.get("love_name", "?")), int(context.get("love_level", 0)),
-		str(context.get("welcomes", false)), str(context.get("bond", false)),
+		str(context.get("welcomes", false)),
 		str(context.get("sex_start", "")), str(context.get("mood", "?")),
 		str(bool(gate.get("show", false))), str(bool(gate.get("attempt", false))),
 		str(policy != null and policy.offer), str(policy != null and policy.buck_refuse),
@@ -246,7 +246,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null,
 		str(context.get("mouse", "")), str(context.get("paused", false)),
 		str(_policy_row_ok(policy, "relation")), str(_policy_row_ok(policy, "form")),
 		str(_policy_row_ok(policy, "romance")), str(_policy_row_ok(policy, "promiscuity")),
-		str(_policy_row_ok(policy, "sex_bond")), str(_policy_row_ok(policy, "cycle")),
+		str(_policy_row_ok(policy, "cycle")),
 		str(_policy_row_ok(policy, "history")), str(conversation_ok()), str(free_of_affection()),
 		str(player_ready_for(pose, act_source, bed_in)), str(nav_owner_allows(pose, act_source)),
 		str(nav_pose_gate(pose, act_source)), bed_text, str(bool(gate.get("show", false))),

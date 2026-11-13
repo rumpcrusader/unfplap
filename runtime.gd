@@ -13,7 +13,6 @@ const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const SEX_BOND := preload("res://mods/unfplap/bond/service.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
@@ -238,8 +237,6 @@ var _anatomy: Node:
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
 ## reaching into this node. See `shared/act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
-## The mod-owned lover bond service. The store is static; this instance owns the gate wrappers.
-var _sex_bond: RefCounted = SEX_BOND.new()
 
 ## The act's line system: scheduler, prompt assembly, reactions and the bystander line.
 var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
@@ -698,15 +695,6 @@ func _init() -> void:
 	_act_facts.on_touch = Callable(self, "_on_touch")
 	_act_facts.on_smack = Callable(self, "_on_smack_impact")
 	_act_facts.pose_host = Callable(self, "_runtime")
-	_sex_bond.bind({
-		"id": Callable(self, "_bond_id"),
-		"state": Callable(self, "_state"),
-		"pony": Callable(self, "_pony"),
-		"bond_facts": Callable(self, "_bond_facts"),
-		"relationship": Callable(self, "_relationship_runtime"),
-		"event": Callable(self, "_record_sex_bond_event"),
-		"log": Callable(self, "_log"),
-	})
 	_perf_probe.enabled = Callable(self, "_perf_enabled")
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
@@ -1765,7 +1753,6 @@ func _debug_context() -> Dictionary:
 		"id": id, "display": display, "stage": relations.stage,
 		"love_name": love_name, "love_level": relations.love_level,
 		"welcomes": relations.willing,
-		"bond": relations.stored_bond or relations.sex_start == "try_luck",
 		"sex_start": relations.sex_start, "mood": mood,
 		"state": state,
 		"presenting": _standing_presentation_controller().presentation_active(),
@@ -3360,64 +3347,16 @@ func prompt_note() -> String:
 	})
 
 
-## Lover-bond context for the normal dialogue prompt. Empty during an act, where prompt_note
-## owns the line.
+## The lovers fact for the normal dialogue prompt. The base relationship stage owns it; empty
+## during an act, where prompt_note owns the line.
 func lover_prompt_note() -> String:
 	if not is_instance_valid(pony) or pony.sleeping:
 		return ""
-	var policy := _policy_verdict(ELIGIBILITY.Mode.BOND)
-	if policy == null or not policy.bond:
+	var policy := _policy_verdict(ELIGIBILITY.Mode.START)
+	if policy == null or not policy.base:
 		return ""
-	return _lines_service().lover_prompt_note(policy.relations.stored_bond)
+	return _lines_service().lover_prompt_note(policy.relations.stage)
 
-## Grant the mod lover bond. Dialogue_consent calls this after a clear spoken agreement; the
-## Debug action calls it for the aimed mare. The service owns the store and the event.
-func grant_sex_bond(source := "dialogue", line := "") -> bool:
-	return _sex_bond.grant_bond(source, line)
-
-
-## Clear the mod lover bond after a spoken withdrawal or from the Debug action.
-func end_sex_bond(source := "dialogue", line := "") -> bool:
-	return _sex_bond.end_bond(source, line)
-
-
-## Clear a stored bond once the base relationship has left the romantic stages.
-func refresh_sex_bond() -> void:
-	_sex_bond.refresh_bond()
-
-
-## The bond host boundary: the id (reading it if needed), the eligibility facts and the
-## relationship runtime.
-func _bond_id() -> String:
-	_read_id()
-	return _id
-
-
-func _bond_facts() -> Dictionary:
-	var policy := _policy_verdict(ELIGIBILITY.Mode.BOND)
-	if policy == null:
-		return {}
-	return {
-		"bond": policy.bond,
-		"stage": policy.relations.stage,
-		"love_level": policy.relations.love_level,
-		"stored": policy.relations.stored_bond,
-	}
-
-
-func _relationship_runtime() -> Variant:
-	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
-		return pony.get_meta("relationship_runtime")
-	return null
-
-func _record_sex_bond_event(text: String) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
-		return
-	var ctx: Variant = main.game.get("world_context")
-	if ctx == null or not is_instance_valid(ctx) or not ctx.has_method("record"):
-		return
-	ctx.call("record", "relationship", text, [_id, "player"], [_id, "player"],
-		"unfplap:sex_bond:%s:%d" % [_id, Time.get_ticks_usec()])
 
 func _player_is_caressing() -> bool:
 	return _hand_controller().any_active()

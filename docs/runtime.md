@@ -99,7 +99,7 @@ controller flags), so a failed start runs the same function and restores only wh
 ## Public surface
 
 The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.gd`, the labs, `initiation/service.gd`,
-`bond/dialogue_consent.gd`, `anatomy/service.gd`, `poses/standing_presentation.gd` and the tests. The stable
+`anatomy/service.gd`, `poses/standing_presentation.gd` and the tests. The stable
 cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.
@@ -107,7 +107,7 @@ callable.
 ## Tests
 
 - `tests/test_runtime_teardown.gd` — the one exit path and the ownership flags.
-- `tests/test_runtime_notes.gd` — the prompt and bond forwards.
+- `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/history/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions.
 - The service suites indexed in `docs/README.md`.

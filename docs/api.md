@@ -231,7 +231,7 @@ dictionary, including for an unknown id.
 }
 ```
 
-It excludes live state: satisfaction, act history, relationship, estrus phase, lover bond, the
+It excludes live state: satisfaction, act history, relationship, estrus phase, the
 current act and anatomy attachment. Use it on demand, not every frame; it resolves prompts and
 pose settings.
 

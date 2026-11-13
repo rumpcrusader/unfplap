@@ -53,7 +53,6 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Audio and voice | `audio/service.gd` | `docs/audio.md` | `tests/act_audio/` |
 | HUD | `hud/service.gd` | `docs/hud.md` | `tests/hud/` |
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` |
-| Lover bond | `bond/service.gd` | `docs/bond.md` | `tests/bond/` |
 | Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` |
 | Input | `input/service.gd` | `docs/input.md` | manual |
 | Debug tooling | `debug/service.gd` | `docs/debug.md` | manual |

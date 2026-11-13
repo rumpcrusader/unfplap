@@ -32,6 +32,7 @@ var vr_act: Node
 func bind(host_in: Dictionary) -> void:
 	host = host_in
 	facts.perf_note = host.get("perf_note", Callable())
+	facts.perf_on = bool(_host("perf_enabled", false))
 	facts.log = host.get("log", Callable())
 	facts.body_coat_smack = host.get("body_coat_smack", Callable())
 

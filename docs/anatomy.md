@@ -246,6 +246,9 @@ host callbacks; neither reads the runtime node. It returns the oral pose keys th
 `pose_config()` and the oral turn's camera facing through `facing()`; the runtime applies both in
 the same frame.
 
+The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
+no idle perf clock while the debug probe is off. See `docs/perf.md`.
+
 ## Act bridge
 
 `anatomy/act_bridge.gd` is the per-act handle the runtime owns. It is a `RefCounted`, created by
@@ -265,7 +268,8 @@ the orchestration. It owns:
 The host is a plain dictionary of callables. The runtime supplies `main`, `pony`, `runtime`,
 `reactions`, `anatomy_service`, `eligibility_service`, the live state (`state`, `pose_id`, `depth`,
 `penetration_m`, `penetration_reach`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`,
-`cycle_phase`, `bed_frame`), the callbacks (`log`, `perf_note`, `body_coat_smack`, `status`,
+`cycle_phase`, `bed_frame`), the callbacks (`log`, `perf_note`, `perf_enabled`, `body_coat_smack`,
+`status`,
 `anatomy_facing`, `missionary_camera`, `kiss_controller`, `pose`, `thrust_move`, `now_s`,
 `set_penetration_m`, `player_pony`, `headset_view`). A missing callable is a no-op.
 

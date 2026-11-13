@@ -50,6 +50,7 @@ func run() -> void:
 	check(facts.bed_frame == null, "bed frame starts null")
 	check(facts.cycle_phase == "normal", "cycle starts normal")
 	check(not facts.perf_note.is_valid(), "perf callback starts absent")
+	check(not facts.perf_on, "perf gate starts off")
 	check(not facts.log.is_valid(), "log callback starts absent")
 	check(not facts.body_coat_smack.is_valid(), "smack callback starts absent")
 

@@ -36,7 +36,7 @@ Do not start implementation until you have read the required files for the area 
 | Act audio or sound assets | `docs/audio.md`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
 | Act HUD text or `End` tint | `docs/hud.md` |
 | Debug actions, console or overlay | `docs/debug.md` |
-| Perf probe | `docs/perf.md` |
+| Perf probes | `docs/perf.md` |
 | Release | `.opencode/skills/release/SKILL.md` |
 | Sync local settings to shipped defaults | `.opencode/skills/sync-settings/SKILL.md` |
 
@@ -200,9 +200,9 @@ scripts/check.sh
 - **No global debug hotkeys.** `debug/service.gd` declares no hotkey; the game's dev keys
   (`F4` render breakdown, `F9` trace, `F10` FPS overlay, `F11` free camera) stay the game's. A
   debug action is a button in its Debug block.
-- **Performance check.** With **Enable debug** + **Print perf logs**, compare one act before and
-  after a phase that touches the tick, the pose or the camera; the extracted chunks must not add a
-  per-frame cost. See `docs/perf.md`.
+- **Performance check.** With **Enable debug** + **Print perf logs**, compare one act and one idle
+  window (outside an act) before and after a phase that touches the tick, the pose or the camera;
+  the extracted chunks must not add a per-frame cost. See `docs/perf.md`.
 
 ## Documentation discipline
 

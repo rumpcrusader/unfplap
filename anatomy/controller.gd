@@ -235,6 +235,9 @@ func _attach() -> void:
 
 
 func _process(delta: float) -> void:
+	# The idle probe times the whole process. `process_started` stays 0 during an act so the act
+	# probe keeps the rows it had before this chunk existed.
+	var process_started := Time.get_ticks_usec() if facts.perf_on and facts.state == 0 else 0
 	_heat_idle_tick(delta)
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
@@ -243,6 +246,7 @@ func _process(delta: float) -> void:
 	facts.perf("anatomy_coat_follow", Time.get_ticks_usec() - follow_started)
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
+		_note_process(process_started)
 		return
 	_visibility_clock = ATTACH.VISIBILITY_POLL_S
 	_apply_place()
@@ -254,6 +258,13 @@ func _process(delta: float) -> void:
 	facts.perf("anatomy_visibility", Time.get_ticks_usec() - started)
 	# After visibility, so the vulva coat cut opens and closes with the mesh in the same poll.
 	_apply_body_coat()
+	_note_process(process_started)
+
+
+## The idle probe's whole-process chunk. `started` is 0 outside idle, so an act reports no row.
+func _note_process(started: int) -> void:
+	if started > 0:
+		facts.perf("anatomy_process", Time.get_ticks_usec() - started)
 
 
 ## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,

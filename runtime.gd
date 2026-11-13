@@ -243,6 +243,9 @@ var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
 var _act_lines_main: Node
 ## Debug perf probe: timed chunks report here and one summary prints per window. See `shared/perf.gd`.
 var _perf_probe := PERF.new()
+## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
+## no tick reads the entry node's flags.
+var idle_perf := false
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _pose_in_left := 0.0
@@ -724,6 +727,7 @@ func _anatomy_host() -> Dictionary:
 		"bed_frame": Callable(self, "_bed_frame"),
 		"log": Callable(self, "_log"),
 		"perf_note": Callable(self, "perf_note"),
+		"perf_enabled": Callable(self, "_perf_enabled"),
 		"body_coat_smack": Callable(self, "body_coat_jiggle_target"),
 		"status": Callable(self, "_anatomy_status"),
 		"anatomy_facing": Callable(self, "anatomy_facing"),
@@ -806,6 +810,7 @@ func _anatomy_status(text: String, seconds := 2.0) -> void:
 func _ready() -> void:
 	set_process(true)
 	set_physics_process(true)
+	idle_perf = _perf_enabled()
 	# Run after locomotion/navigator/attention so the body facing lock and head glance win.
 	process_physics_priority = 100
 	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
@@ -1010,11 +1015,22 @@ func _perf_active() -> bool:
 ## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with logs off.
 func perf_note(key: String, usec: int) -> void:
 	_perf_probe.note(key, usec)
+	if idle_perf and state == State.IDLE:
+		_idle_perf_note(key, usec)
+
+
+## Forward one idle chunk to the entry's aggregator. Only reachable while the idle probe is on.
+func _idle_perf_note(key: String, usec: int) -> void:
+	if is_instance_valid(main) and main.has_method("perf_idle_note"):
+		main.call("perf_idle_note", key, usec, _id)
 
 
 ## Time one call site for the perf probe (callers take the start stamp themselves).
 func _timed(key: String, started: int) -> void:
-	_perf_probe.time(key, started)
+	var usec := Time.get_ticks_usec() - started
+	_perf_probe.note(key, usec)
+	if idle_perf and state == State.IDLE:
+		_idle_perf_note(key, usec)
 
 
 func _perf_tick(delta: float) -> void:
@@ -1239,6 +1255,7 @@ func _snapshot_settings() -> void:
 func apply_live_settings() -> void:
 	# Snapshot before the IDLE early return too, so mouse sensitivity and the other act tunables
 	# apply as soon as they are edited rather than only at the next act start.
+	idle_perf = _perf_enabled()
 	_snapshot_settings()
 	if state == State.IDLE:
 		# integration: the anatomy feature is live outside acts too.
@@ -1477,9 +1494,16 @@ func _hold_y_tick(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	var started := Time.get_ticks_usec()
+	var idle := idle_perf and state == State.IDLE
+	var sync_started := started if idle else 0
 	_sync_anatomy_facts()
+	var sync_split := Time.get_ticks_usec() if idle else 0
 	_physics_tick(delta)
+	var tick_done := Time.get_ticks_usec() if idle else 0
 	_sync_anatomy_facts()
+	if idle:
+		_idle_perf_note("runtime_anatomy_sync",
+			(sync_split - sync_started) + (Time.get_ticks_usec() - tick_done))
 	if _perf_probe.on():
 		perf_note("runtime_physics", Time.get_ticks_usec() - started)
 
@@ -1493,8 +1517,15 @@ func _physics_tick(delta: float) -> void:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		if _inventory_hud_hidden:
 			_set_inventory_hud_hidden(false)
+		var presentation_started := Time.get_ticks_usec() if idle_perf else 0
 		_standing_presentation_controller().physics(delta)
+		if idle_perf:
+			_idle_perf_note("runtime_presentation",
+				Time.get_ticks_usec() - presentation_started)
+		var history_started := Time.get_ticks_usec() if idle_perf else 0
 		_history_tick(delta)
+		if idle_perf:
+			_idle_perf_note("runtime_history", Time.get_ticks_usec() - history_started)
 		return
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		force_stop()

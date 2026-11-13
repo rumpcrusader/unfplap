@@ -10,6 +10,7 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
@@ -81,6 +82,8 @@ var _debug_face_index := -1
 var _captions: Dictionary = {}
 ## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
 var _captions_on_top := false
+## The idle (outside-act) debug perf probe; see docs/perf.md.
+var _perf_idle := PERF_IDLE.new()
 
 
 func debug(text: String) -> void:
@@ -117,6 +120,25 @@ func _debug(text: String) -> void:
 	debug(text)
 
 
+## Debug idle perf probe. Idle runtimes report their timed chunks here; `shared/perf_idle.gd` prints
+## one aggregated block a second while no act runs. See docs/perf.md.
+func perf_idle_note(key: String, usec: int, owner := "") -> void:
+	_perf_idle.note(key, usec, owner)
+
+
+func _perf_idle_on() -> bool:
+	return debug_logs and debug_perf and not is_instance_valid(active_runtime)
+
+
+## Header counts for one idle block. Read once per window, never per note.
+func _perf_idle_counts() -> Dictionary:
+	var runtimes := 0
+	for runtime: Variant in _runtimes.values():
+		if is_instance_valid(runtime):
+			runtimes += 1
+	return {"runtimes": runtimes, "mares": mares().size()}
+
+
 ## One entry per diagnostic action: identification first, then tab-indented rows.
 func _debug_block(title: String, rows: Array) -> void:
 	var text := title
@@ -134,6 +156,9 @@ func _ready() -> void:
 	add_to_group("pony_prompt_notes")
 	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
+	_perf_idle.enabled = Callable(self, "_perf_idle_on")
+	_perf_idle.counts = Callable(self, "_perf_idle_counts")
+	_perf_idle.log = Callable(self, "debug")
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
@@ -207,6 +232,7 @@ func _on_world(host: Node) -> void:
 	_camera_cache_at = 0.0
 	_offer = {}
 	_offer_blocked = {}
+	_perf_idle.reset()
 	if is_instance_valid(initiation):
 		initiation.reset()
 	if is_instance_valid(classifier):
@@ -231,6 +257,7 @@ func _on_world_closed(_host: Node) -> void:
 	player = null
 	_offer = {}
 	_offer_blocked = {}
+	_perf_idle.reset()
 	_last_blocked_key = ""
 	if is_instance_valid(stool):
 		stool.call("on_world_closed")
@@ -395,6 +422,17 @@ func _character_participation(id: String) -> Dictionary:
 
 
 func _process(delta: float) -> void:
+	var timed := _perf_idle.on()
+	var started := Time.get_ticks_usec() if timed else 0
+	_process_entry(delta)
+	if timed:
+		_perf_idle.note("entry_process", Time.get_ticks_usec() - started)
+	_perf_idle.tick(delta)
+
+
+## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
+## here is load-bearing.
+func _process_entry(delta: float) -> void:
 	_caption_top_tick()
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
@@ -419,7 +457,12 @@ func _process(delta: float) -> void:
 	_offer_clock += delta
 	if _offer_clock >= 0.15:
 		_offer_clock = 0.0
-		_refresh_offer()
+		if _perf_idle.on():
+			var offer_started := Time.get_ticks_usec()
+			_refresh_offer()
+			_perf_idle.note("offer_scan", Time.get_ticks_usec() - offer_started)
+		else:
+			_refresh_offer()
 	if is_instance_valid(initiation):
 		initiation.tick(delta)
 	var hint := ""
@@ -1591,6 +1634,7 @@ func _exit_tree() -> void:
 		anatomy.queue_free()
 		anatomy = null
 	_offer = {}
+	_perf_idle.reset()
 	if is_instance_valid(hud):
 		hud.queue_free()
 	if is_instance_valid(input):

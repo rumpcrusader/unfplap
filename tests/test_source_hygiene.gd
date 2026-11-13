@@ -288,9 +288,12 @@ func _check_act_facts() -> void:
 		check(not facts.contains(token), "act context has no scene reference: %s" % token)
 	var perf := FileAccess.get_file_as_string(ROOT.path_join("shared/perf.gd"))
 	check(perf.contains("func note(") and perf.contains("func tick("), "perf probe is present")
+	var idle := FileAccess.get_file_as_string(ROOT.path_join("shared/perf_idle.gd"))
+	check(idle.contains("func note(") and idle.contains("func tick("), "idle perf probe is present")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")"]:
 		check(not perf.contains(token), "perf probe has no scene access: %s" % token)
+		check(not idle.contains(token), "idle perf probe has no scene access: %s" % token)
 	var readers := {
 		"camera/standing_camera.gd": "standing camera",
 		"poses/missionary_anon.gd": "missionary Anon",
@@ -715,6 +718,7 @@ func _check_docs_index(files: Array[String]) -> void:
 		["docs/settings.md", "settings/service.gd", "tests/test_settings.gd"],
 		["docs/act_facts.md", "shared/act_facts.gd", "tests/act_facts/"],
 		["docs/perf.md", "shared/perf.gd", "tests/perf/"],
+		["docs/perf.md", "shared/perf_idle.gd", "tests/perf/"],
 		["docs/debug.md", "debug/service.gd", "tests/"],
 	]
 	for row: Array in docs:

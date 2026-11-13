@@ -1,18 +1,26 @@
-# Perf probe (`shared/perf.gd`)
+# Perf probes (`shared/perf.gd`, `shared/perf_idle.gd`)
 
-The act's debug performance probe. Timed chunks report microseconds and one summary prints per
-one-second window, so a pony-specific stall can be attributed to a modifier or a service without a
-live profiler.
+The mod's two debug performance probes. Both report timed chunks in microseconds and print one
+block per one-second window, so a stall can be attributed to a modifier, a service or a single
+pony without a live profiler. The act probe prints one summary per acting pony; the idle probe
+aggregates every idle runtime into one block.
 
 ## Ownership
 
-- `shared/perf.gd` is a pure `RefCounted` module owned by the runtime. It holds the window, the chunk
-  rows and the summary formatting.
-- The runtime supplies the two gates (`enabled`, `active`), the header facts and the log callback.
-- Timed call sites in the runtime and the skeleton modifiers call `perf_note(key, usec)`.
-- `**Print perf logs**` is a separate debug switch; it needs **Enable debug** on too.
+- `shared/perf.gd` is a pure `RefCounted` module owned by the runtime. It holds the act's window,
+  chunk rows, header facts and summary formatting.
+- `shared/perf_idle.gd` is a pure `RefCounted` module owned by `main.gd`. It holds the idle window,
+  aggregated rows, worst owner per chunk, counts and block formatting.
+- The runtime supplies the act probe's two gates (`enabled`, `active`), the header facts and the
+  log callback.
+- `main.gd` supplies the idle probe's gate (`enabled`), the header counts and the log callback.
+  Idle runtimes forward their chunks through `runtime.perf_note()`.
+- Timed call sites in the runtime, the anatomy controller and the skeleton modifiers report to the
+  runtime; `main.gd` times its own process body and the offer scan.
+- `**Print perf logs**` is a separate debug switch; it needs **Enable debug** on too. One switch
+  drives both probes.
 
-## API
+## Act probe API
 
 | Member | Contract |
 |---|---|
@@ -47,20 +55,66 @@ perf pony=<id> pose=<pose> state=<n> fps=<n> frame=<ms> phys=<ms> lean=<fwd>/<si
 
 Rows are sorted by total milliseconds per second, largest first.
 
-## Rules
+## Idle probe API
 
-- No scene access. The module reads no Node and no global Settings.
-- Off is allocation-free apart from the empty dictionary and the window counters.
-- The window resets whenever the runtime is `IDLE`, so nothing prints outside an act.
-- The probe is a debug tool, not a setting: no declaration and no persisted value.
+| Member | Contract |
+|---|---|
+| `enabled: Callable` | both debug switches are on and no act is running |
+| `counts: Callable` | returns `{runtimes, mares}` for the header, read once per window |
+| `log: Callable` | writes one block |
+| `on()` | the cheap gate |
+| `note(key, usec, owner)` | aggregate one chunk; the worst call keeps its owner id |
+| `reset()` | clear the window, the rows and the physics mark |
+| `tick(delta)` | accumulate a frame and print at the window boundary |
+
+The block is:
+
+```text
+perf idle runtimes=<n> mares=<n> fps=<n> frame=<ms> phys=<ms> tick=<n>
+    <chunk> <ms/s> <us/call> calls <n> max <ms> <owner>
+```
+
+`ms/s` is the window total (same convention as the act probe), `us/call` the average call and
+`max` the worst single call with the pony id that made it (`-` for a chunk without an owner). At
+`tick=2.00` every per-physics-tick chunk is paid twice per rendered frame. Rows are sorted by
+total, largest first, so the first row is the chunk to fix.
+
+### Idle chunks
+
+| Chunk | Source |
+|---|---|
+| `entry_process` | the whole `main._process` body |
+| `offer_scan` | the 0.15 s `_refresh_offer()` call |
+| `runtime_process` | one pony's idle `_process_tick` |
+| `runtime_physics` | one pony's idle `_physics_process` |
+| `runtime_anatomy_sync` | the two `_sync_anatomy_facts()` calls per physics tick, summed |
+| `runtime_facts` | `_sync_act_facts()` in the physics tick |
+| `runtime_presentation` | `_standing_presentation_controller().physics(delta)` |
+| `runtime_history` | `_history_tick(delta)` |
+| `anatomy_process` | the whole persistent `anatomy/controller.gd::_process`, reported outside an act |
+| `anatomy_coat_follow`, `anatomy_visibility`, `teat_jiggle` | reported through `facts.perf` |
+
+The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,
+which is the single forwarding point. Chunks nest: `anatomy_process` contains
+`anatomy_coat_follow` and `anatomy_visibility`; `entry_process` contains `offer_scan`.
+
+## Gate and reset
+
+- Both probes are off unless **Enable debug** and **Print perf logs** are on.
+- The act probe prints only while its runtime is not `IDLE`; its window resets outside an act.
+- The idle probe prints only while no act is running (`main.active_runtime` is null). It resets
+  when an act starts, when a switch goes off, on world start, on world close and on entry teardown.
+- With a switch off, no clock is taken in the idle path, the runtime's forward is one bool branch
+  and `note`/`tick` early-return. Rows are updated in place; nothing allocates per frame.
+- The probes are debug tools, not settings: no declaration and no persisted value.
 
 ## Debug
 
-**Enable debug** + **Print perf logs** in General's Debug block. The runtime also prints one-shot
-`tail perf attach`/`tail perf refresh` lines and a once-per-second
-`tail perf seats=… skinned=… builds=…/s` line when the probe is on.
+**Enable debug** + **Print perf logs** in General's Debug block. Standing in town outside an act
+prints one `perf idle` block a second. During an act the per-pony `perf` lines print instead and
+no idle block prints.
 
-The runtime's own chunks, in call order inside one physics tick: `runtime_facts`, `caress_tick`
+The act probe's own chunks, in call order inside one physics tick: `runtime_facts`, `caress_tick`
 (inside the lean), `runtime_presentation`, `kiss_tick`, `runtime_ai`, `anatomy_tick`,
 `runtime_talk`, `runtime_camera`, `runtime_face`, all inside `runtime_physics`. The skeleton
 modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone` (`UnfplapProneSway`);
@@ -68,13 +122,19 @@ modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone` (`UnfplapProneSw
 `wings_tick`, and `caress_tick` contains `caress_precise` → `caress_surface` →
 `caress_skin`/`caress_tri`/`caress_ray`.
 
+The runtime also prints one-shot `tail perf attach`/`tail perf refresh` lines and a
+once-per-second `tail perf seats=… skinned=… builds=…/s` line when the probe is on.
+
 ## Tests
 
-- `tests/perf/test_perf.gd` — the on/active gates, window reset, row aggregation and summary
-  formatting.
+- `tests/perf/test_perf.gd` — the act probe's on/active gates, window reset, row aggregation and
+  summary formatting.
+- `tests/perf/test_perf_idle.gd` — the idle probe's gate, window boundary, per-owner aggregation,
+  worst owner, block text and reset-on-disable.
 
 ## Related docs
 
 - `docs/settings.md` — the two debug switches.
+- `docs/debug.md` — the Debug block and the logging bullets.
 - `docs/act_facts.md` — the host callback the runtime binds.
 - `docs/anatomy.md` — the tail seat performance counters.

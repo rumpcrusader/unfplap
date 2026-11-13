@@ -331,6 +331,7 @@ PURPOSE = {
     "shared/hands_scale.gd": "palm scale",
     "shared/participation.gd": "participation defaults",
     "shared/perf.gd": "perf probe",
+    "shared/perf_idle.gd": "idle perf aggregate",
     "shared/pose_catalog.gd": "pose ids and defaults",
     "shared/relationship_cue.gd": "relationship prompt note",
     "shared/rump_cone.gd": "standing offer zone",

@@ -20,6 +20,9 @@ var bed_frame: Variant = null
 var cycle_phase := "normal"
 ## Host callbacks. A missing callback is a no-op, so tests can build a context without a runtime.
 var perf_note := Callable()
+## True while both debug perf switches are on; the persistent controller takes no idle clock when
+## it is false.
+var perf_on := false
 var log := Callable()
 var body_coat_smack := Callable()
 

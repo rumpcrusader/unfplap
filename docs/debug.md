@@ -81,7 +81,8 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 - Logging follows **Enable debug** (General's last row); there is no separate log switch and no
   hotkey. It controls logging only, not the HUD.
 - **Print perf logs** is a separate debug toggle, OFF by default. With **Enable debug** and
-  **Print perf logs** on, an act prints one `perf` block a second. See `docs/perf.md`.
+  **Print perf logs** on, an act prints one `perf` block a second and, outside an act, one
+  aggregated `perf idle` block a second. Either switch off stops both. See `docs/perf.md`.
 - `features.face_debug` prints one line per act face change, the climax score parts and the
   mood-face start/end.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...

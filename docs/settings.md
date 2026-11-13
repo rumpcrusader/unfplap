@@ -386,13 +386,15 @@ hotkeys, so the game's own dev keys (`F4`, `F9`, `F10`, `F11`) stay usable while
 `input/service.gd` still routes a declared `"hotkey"` for a future action that must fire while the
 world is unpaused. The action list and per-service debug actions are in `docs/debug.md`.
 
-## Perf probe
+## Perf probes
 
-**Print perf logs** (with **Enable debug**) turns on the act's probe. Timed chunks call
-`perf_note(chunk, usec)`; `shared/perf.gd` holds the window, the chunk rows and the header facts, and
-prints one `perf` summary a second. The probe is off and allocation-free when either switch is off,
-and its window resets outside an act. It is a debug tool, not a setting: no declaration, no
-persisted value. See `docs/perf.md`.
+**Print perf logs** (with **Enable debug**) turns on both debug probes. During an act, timed chunks
+call `perf_note(chunk, usec)`; `shared/perf.gd` holds the window, the chunk rows and the header
+facts and prints one per-pony `perf` summary a second. Outside an act, `shared/perf_idle.gd` prints
+one aggregated `perf idle` block a second with each chunk's total, average and worst pony. Both are
+off and allocation-free when either switch is off; the act window resets outside an act and the idle
+window resets when an act starts. They are debug tools, not settings: no declaration, no persisted
+value. See `docs/perf.md`.
 
 ## Dependencies
 

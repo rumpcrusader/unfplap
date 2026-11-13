@@ -65,7 +65,7 @@ only stable external surface is `docs/api.md`.
 | Module | Path | Contract | Tests |
 |---|---|---|---|
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
-| Perf probe | `shared/perf.gd` | `docs/perf.md` | `tests/perf/` |
+| Perf probes | `shared/perf.gd`, `shared/perf_idle.gd` | `docs/perf.md` | `tests/perf/` |
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |
 | Character templates | `shared/character_preferences.gd` | `docs/preferences.md` | `tests/test_character_preferences.gd` |
 | Cycle | `shared/cycle.gd` | `docs/eligibility.md` | `tests/test_cycle.gd` |

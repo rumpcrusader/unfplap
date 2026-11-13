@@ -375,8 +375,16 @@ func _check_lifecycle() -> void:
 	bridge.bind(_host(host, {"reactions": Callable()}))
 	bridge.controller = controller
 	check(bridge.available(), "a controller is available")
+	host.pose_id = CATALOG.MISSIONARY
 	bridge.apply_live()
 	check(controller.live == 1, "apply_live reaches the controller")
+	check(bridge.facts.pose_id == CATALOG.MISSIONARY,
+		"apply_live refreshes the pose facts before the controller reads them")
+	host.pose_id = ""
+	bridge.apply_live()
+	check(controller.live == 2, "apply_live reaches the controller again")
+	check(bridge.facts.pose_id.is_empty(),
+		"the end-of-act refresh clears the pose the controller sees")
 	bridge.react()
 	check(controller.reacts == 1, "react reaches the controller")
 	var act := FakeAct.new()

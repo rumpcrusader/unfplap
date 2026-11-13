@@ -190,7 +190,8 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   scale in the blend shape, so the shader's `anal_scale` stays at `1.0`; the setting drives the
   ponut and the body coat.
 - `disable_fold_coloring` is a missionary-only hack: it drops the vertex-alpha fold/clitoris
-  masks so the whole mesh uses her skin tones.
+  masks so the whole mesh uses her skin tones. It is applied per material build, so the next
+  non-missionary build restores the authored colors.
 - `coat_color` and `coat_shadow` on the anatomy material are her coat colours. The dock and the
   strip edges read that fallback; leaving it at zero made those vertices black.
 - Teats are a skinned part from `teats.scn`, bound to the mare's own skin. The id hash selects the
@@ -275,6 +276,11 @@ The host is a plain dictionary of callables. The runtime supplies `main`, `pony`
 The bridge never reads `runtime` or `main` private fields and never preloads either host. The
 action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
 bridge only routes them.
+
+`apply_live()` re-reads the host's `state`, `pose_id`, `depth`, `bed_frame` and `cycle_phase`
+before it refreshes the controller. The per-tick facts sync writes the same values, but it does
+not rebuild the anatomy material; the explicit refresh is what restores the pose-specific
+appearance, including the missionary-only fold hack, when the pose id changes.
 
 ### Shape drive
 

@@ -6,6 +6,7 @@ extends SceneTree
 
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0
@@ -70,6 +71,21 @@ func run() -> void:
 	appearance.apply_material(false)
 	check(mesh.get_surface_override_material(0) is ShaderMaterial,
 		"the material rebuilds on a re-set mesh")
+
+	# The missionary-only fold hack is per material build: the same appearance restores the
+	# authored fold and clitoris colors when the next build is not missionary.
+	var saved_fold := SETTINGS.disable_fold_coloring.get_bool()
+	SETTINGS.disable_fold_coloring.set_bool(true)
+	appearance.apply_material(true)
+	material = mesh.get_surface_override_material(0) as ShaderMaterial
+	check(material != null and is_zero_approx(float(material.get_shader_parameter("fold_coloring"))),
+		"the missionary build drops the fold coloring")
+	appearance.apply_material(false)
+	material = mesh.get_surface_override_material(0) as ShaderMaterial
+	check(material != null and is_equal_approx(
+		float(material.get_shader_parameter("fold_coloring")), 1.0),
+		"a non-missionary rebuild restores the fold coloring")
+	SETTINGS.disable_fold_coloring.set_bool(saved_fold)
 
 	pony.queue_free()
 	print("ANATOMY_APPEARANCE_RESULT checks=%d failures=%d" % [checks, failures])

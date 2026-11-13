@@ -185,8 +185,10 @@ func end() -> void:
 	vr_stop()
 
 
-## The facade's live refresh. The controller owns the settings and identity reads.
+## The facade's live refresh. The controller owns the settings and identity reads; the facts are
+## re-read first so a refresh after the act cannot rebuild the material for the old pose.
 func apply_live() -> void:
+	sync_facts()
 	if is_instance_valid(controller):
 		controller.call("apply_live")
 

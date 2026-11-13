@@ -570,7 +570,7 @@ static func save_anatomy_placement(id: String, values: Dictionary) -> void:
 	var base := anatomy_placement_default(id, false)
 	var current := PLACEMENT.sanitize(values, base)
 	var over := PLACEMENT.diff(current, base)
-	var data := _read()
+	var data := _draft()
 	var anatomy: Variant = data.get("anatomy", {})
 	var block: Dictionary = anatomy if anatomy is Dictionary else {}
 	var placement: Variant = block.get("placement", {})
@@ -696,7 +696,9 @@ static func _ensure_flat() -> void:
 		return
 	_flat_generation = generation
 	_flat.clear()
-	var data := _read()
+	# The flat table owns a detached copy of the values so a typed accessor can never hand a
+	# caller a live block of the settings cache.
+	var data := _draft()
 	for s: Setting in _registry:
 		_flat[s.path] = _read_path(data, s.path, s.default)
 
@@ -730,7 +732,7 @@ static func section_open(tab: String, group: String) -> bool:
 
 
 static func set_section_open(tab: String, group: String, open: bool) -> void:
-	var data := _read()
+	var data := _draft()
 	var ui: Variant = data.get("ui")
 	if not ui is Dictionary:
 		ui = {}
@@ -2018,7 +2020,7 @@ static func consent(id: String) -> Dictionary:
 ## integration: save only the consent block. Preferences, prompts and poses are preserved. Like
 ## preferences, only differences from her resolved consent defaults are stored.
 static func save_consent(id: String, values: Dictionary) -> void:
-	var data := _read()
+	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
 		characters = {}
@@ -2117,7 +2119,7 @@ static func default_participation(id: String) -> Dictionary:
 ## the keys that differ from her resolved default are stored, so a provider can update the rest
 ## later and a player's edit never pins a field they did not touch.
 static func save_participation(id: String, values: Dictionary) -> void:
-	var data := _read()
+	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
 		characters = {}
@@ -2155,7 +2157,7 @@ static func save_participation(id: String, values: Dictionary) -> void:
 ## Remove only the participation override; the provider's default returns. Preferences, consent,
 ## prompts and poses stay.
 static func reset_participation(id: String) -> void:
-	var data := _read()
+	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
 		characters = {}
@@ -2197,7 +2199,7 @@ static func character_name(id: String) -> String:
 ## keys that differ from her resolved default are stored, so a provider can update the rest later
 ## and a player's edit never pins fields they did not touch.
 static func save_preferences(id: String, preferences: Dictionary) -> void:
-	var data := _read()
+	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
 		characters = {}
@@ -2228,7 +2230,7 @@ static func save_preferences(id: String, preferences: Dictionary) -> void:
 
 ## Remove only the preference override; the generated/default preference returns. Prompts and poses stay.
 static func reset_preferences(id: String) -> void:
-	var data := _read()
+	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
 		characters = {}
@@ -2334,7 +2336,7 @@ static func _normalize_act_prompts(data: Dictionary) -> Dictionary:
 ## Remove saved prompt overrides and return to the built-in prompts. Preferences, poses, consent
 ## and event prompts are untouched.
 static func reset_act_prompts() -> bool:
-	var data := _read()
+	var data := _draft()
 	var changed := false
 	if data.get("default") is Dictionary and (data["default"] as Dictionary).has("act_prompts"):
 		(data["default"] as Dictionary).erase("act_prompts")
@@ -2560,9 +2562,10 @@ static func reload_file() -> void:
 	_loaded = false
 
 
-## The merged settings view.
+## The merged settings view, detached from the live cache. Public callers (the tools, the suites)
+## own the copy; the mod's internal readers use `_read()`.
 static func data() -> Dictionary:
-	return _read()
+	return _draft()
 
 
 ## Write one dotted path (`presentation.standing.smack.raise_m`) and save the file. Private: the
@@ -2570,7 +2573,7 @@ static func data() -> Dictionary:
 ## Not named `set_path`: `Script` already has `set_path(path)`, and a preloaded script constant
 ## resolves the built-in instead of a same-named static function.
 static func _write_setting(path: String, value: Variant) -> void:
-	var data := _read()
+	var data := _draft()
 	var parts := path.split(".", false)
 	if parts.is_empty():
 		return
@@ -2641,8 +2644,17 @@ static func pose(id: String, pose_id: String) -> Dictionary:
 
 
 ## The merged settings view. The first call parses the file, migrates it and writes the merged
-## result back once; later calls return a copy so a caller can stage edits for `_write`.
+## result back once. Read-only: callers must not mutate it or keep it across a write; the setters
+## start from `_draft()`.
 static func _read() -> Dictionary:
+	if not _loaded:
+		_load()
+	return _cache
+
+
+## A detached copy for a write. Only the settings setters start here, and they end at `_write()`,
+## so the live cache never carries a half-applied edit.
+static func _draft() -> Dictionary:
 	if not _loaded:
 		_load()
 	return _cache.duplicate(true)

@@ -39,6 +39,7 @@ func run() -> void:
 	_check_placement()
 	_check_tail_seat()
 	_check_write_round_trip()
+	_check_read_view()
 	_check_coercion()
 	_check_sections()
 	_check_groups()
@@ -248,6 +249,22 @@ func _check_write_round_trip() -> void:
 	check(near(SETTINGS.radius.get_num(), 0.31), "a write survives a reload")
 	SETTINGS.radius.set_num(before)
 	check(near(SETTINGS.radius.get_num(), before), "the original value is restored")
+
+
+## Reads share the live cached view. `data()` hands the tools and suites a detached copy, so a
+## caller cannot edit the live tree through it.
+func _check_read_view() -> void:
+	var live_flag := bool(SETTINGS._read().get("debug_mode", false))
+	var view := SETTINGS.data()
+	view["debug_mode"] = not live_flag
+	check(bool(SETTINGS._read().get("debug_mode", false)) == live_flag,
+		"the merged view is detached from the live cache")
+	var block: Variant = view.get("default")
+	var before := int(SETTINGS.template_for("fluttershy").get("aftercare_min", 0))
+	if block is Dictionary:
+		(block as Dictionary)["aftercare_min"] = before + 999
+	check(int(SETTINGS.template_for("fluttershy").get("aftercare_min", 0)) == before,
+		"nested blocks in the merged view are detached")
 
 
 ## Bounds, choices and lists are enforced at the setter, and debug numbers are not clamped.

@@ -215,8 +215,10 @@ prefixes pre-emptively.
 (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
 
 The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
-changes. Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, so a hand-edited file
-applies when the tab opens; otherwise it needs a restart.
+changes. A read shares that cached view and must not mutate it; every setter starts from a detached
+copy and ends at `_write()`, so a failed write never leaves a half-applied edit in the live cache.
+Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, so a hand-edited file applies when
+the tab opens; otherwise it needs a restart.
 
 Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `features`,
 `relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`,

@@ -74,9 +74,10 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 
 ## Action wheel
 
-**Hold the middle mouse button** in captured desktop play to open the wheel; release it to close.
-It is debug-only, does not pause the tree, does not dim the frame and claims no hotkey or setting.
-The ring is compact and the whole wheel is drawn at 75% opacity.
+**Hold the middle mouse button** in captured desktop play to open the wheel; release it on a slot
+to run that action. Releasing in the centre just closes. It is debug-only, does not pause the
+tree, does not dim the frame and claims no hotkey or setting. The ring is compact and the whole
+wheel is drawn at 75% opacity.
 
 | Page | Slots, clockwise from the top |
 |---|---|
@@ -90,18 +91,18 @@ The ring is compact and the whole wheel is drawn at 75% opacity.
 - The aimed mare is the one closest to the camera's forward ray: in front, within `8 m`, and
   within `1.5 m` of the ray. There is no nearest-pony fallback.
 - A virtual reticle follows mouse motion. Moving onto a slot plays the base game's
-  `prop_ui_confirm` UI click once; the centre, opening and closing are silent. **Left click** runs
-  the highlighted slot. **Releasing the middle button** closes the wheel without running a slot.
-  **Right click** and **Escape** close. The game's `F4`/`F9`/`F10`/`F11` dev keys close the wheel
-  and pass through.
+  `prop_ui_confirm` UI click once; the centre, opening and closing are silent. **Releasing the
+  middle button** runs the highlighted slot and closes the wheel; a release in the centre just
+  closes. **Left click** over a slot also runs it. **Right click** and **Escape** close. The
+  game's `F4`/`F9`/`F10`/`F11` dev keys close the wheel and pass through.
 - Opening needs **Enable debug**, captured desktop play, a focused window, no pause/menu/text
   field and the left mouse button released. With debug off the middle press is not consumed.
   While open, mouse motion, mouse buttons and keys are consumed; the act does not thrust or
   free-look.
 - An action closes the wheel, writes its one-line result to the HUD toast and its name/result to
   the debug log. Show data's multi-line block stays in the log.
-- The wheel closes on release, debug-off, pause, focus loss, a menu or headset, a mouse-mode
-  change, a world close or an act-context change.
+- The wheel closes on release (running the hovered slot first), debug-off, pause, focus loss, a
+  menu or headset, a mouse-mode change, a world close or an act-context change.
 
 ## Show data
 
@@ -170,7 +171,7 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 
 `tests/test_debug_wheel.gd` pins the wheel page order, the six-slot cap, the settings-only split,
 the retired action ids, the dynamic cycle labels and the hold-middle input contract (middle press
-opens, left click runs the hovered slot, middle release closes without running).
+opens, release over a slot runs it, release in the centre only closes).
 `tests/test_settings.gd` covers the skeleton flag and the Debug block labels. The overlay, the
 hover cue and the lab pass are manual.
 

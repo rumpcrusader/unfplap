@@ -60,11 +60,12 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 | `H` | consumed; a stock hug cannot end the act's kiss |
 | `V` / `N` / `B` | anatomy hole / oral / finish, gated by `docs/anatomy.md` |
 | Enter | the game chat during an act |
-| hold middle | the debug action wheel; release closes it; see `docs/debug.md` |
+| hold middle | the debug action wheel; release runs the highlighted action; see `docs/debug.md` |
 
 The debug wheel is desktop-only and does not pause the tree. While it is open the runtime ignores
-mouse motion, so the wheel's virtual reticle cannot thrust or free-look the act. The wheel closes
-when the middle button is released, and normal mouse input resumes then.
+mouse motion, so the wheel's virtual reticle cannot thrust or free-look the act. The wheel runs
+the highlighted action and closes when the middle button is released, and normal mouse input
+resumes then.
 
 The HUD card rows, the key caps and the `End` tint are `docs/hud.md`. The lab keys are
 `docs/debug.md`.

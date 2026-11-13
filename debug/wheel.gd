@@ -1,7 +1,7 @@
 extends CanvasLayer
 ## The debug action wheel: holding the middle mouse button in captured desktop play opens a ring
-## of the actions for the aimed mare, or for the live act. It does not pause the tree, claim a
-## hotkey or write a setting; see docs/debug.md.
+## of the actions for the aimed mare, or for the live act; releasing on a slot runs it. It does
+## not pause the tree, claim a hotkey or write a setting; see docs/debug.md.
 
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const SOUNDS := preload("res://world/audio/interaction_sounds.gd")
@@ -81,9 +81,9 @@ func close() -> void:
 	set_process(false)
 
 
-## Every event while open is ours. Releasing the middle button closes without running a slot;
-## Escape and right click close, left click runs the highlighted slot, and the game's dev F-keys
-## close and pass through.
+## Every event while open is ours. Releasing the middle button runs the highlighted slot, or
+## closes when the reticle is in the centre; Escape and right click close, left click runs the
+## highlighted slot, and the game's dev F-keys close and pass through.
 func handle_input(event: InputEvent) -> bool:
 	if not _open:
 		if event is InputEventMouseButton:
@@ -102,7 +102,7 @@ func handle_input(event: InputEvent) -> bool:
 		var button := event as InputEventMouseButton
 		if not button.pressed:
 			if button.button_index == MOUSE_BUTTON_MIDDLE:
-				close()
+				_activate()
 			return true
 		match button.button_index:
 			MOUSE_BUTTON_MIDDLE:
@@ -268,6 +268,6 @@ func _draw_wheel(canvas: Control) -> void:
 	canvas.draw_circle(tip, 4.0, Color(0.98, 0.7, 0.82, 0.95))
 	canvas.draw_arc(tip, 10.0, 0.0, TAU, 24, Color(0.98, 0.7, 0.82, 0.55), 1.5, true)
 	canvas.draw_string(font, center + Vector2(-outer, outer + 34.0),
-		"Hold middle · Left click select · Release closes · Right click / Esc close",
+		"Hold middle · Release on a slot · Right click / Esc close",
 		HORIZONTAL_ALIGNMENT_CENTER, outer * 2.0, maxi(10, font_size - 4),
 		Color(0.8, 0.72, 0.78, 0.8))

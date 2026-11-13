@@ -183,13 +183,19 @@ func _check_node() -> void:
 	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
 		"the wheel reopens on a middle press")
 	fake.last_action = ""
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, false))),
+		"the centre release is consumed")
+	check(not bool(wheel.call("is_open")), "the centre release closes the wheel")
+	check(fake.last_action.is_empty(), "the centre release does not run a slot")
+	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
+		"the wheel reopens after a centre release")
 	_hover_top(wheel)
 	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, false))),
-		"the middle release is consumed")
-	check(not bool(wheel.call("is_open")), "the middle release closes the wheel")
-	check(fake.last_action.is_empty(), "the middle release does not run a slot")
+		"the slot release is consumed")
+	check(not bool(wheel.call("is_open")), "the slot release closes the wheel")
+	check(fake.last_action == "show_data", "the middle release runs the hovered slot")
 	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
-		"the wheel reopens after a release")
+		"the wheel reopens after a slot release")
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true

@@ -1965,7 +1965,7 @@ static func default_preferences_for(base: Dictionary, id: String) -> Dictionary:
 
 static func default_preferences(id: String) -> Dictionary:
 	var data := _read()
-	return default_preferences_for(data.get("default", _filled_default()), id)
+	return default_preferences_for(_profile_base(data), id)
 
 
 ## Compare two preference profiles. Arrays are sets, so a reordered saved list still matches.
@@ -2029,7 +2029,7 @@ static func save_consent(id: String, values: Dictionary) -> void:
 	if not entry is Dictionary:
 		entry = {}
 	var character: Dictionary = entry
-	var base: Dictionary = data.get("default", _filled_default())
+	var base := _profile_base(data)
 	var defaults := _profile_consent(base, id)
 	var cleaned := CONSENT.clean(values)
 	var diff: Dictionary = {}
@@ -2074,17 +2074,26 @@ static func _profile_participation_raw(template: Dictionary) -> Variant:
 
 
 ## The identity half of a mare's resolved profile in one pass: the provider-only `adult`
-## assertion and the participation block. Discovery scans ask for both, and two separate calls
-## would resolve the whole profile twice.
+## assertion and the participation block. Discovery scans ask for both; the resolved result is
+## memoized per settings generation and provider revision, so a scan pays a dictionary lookup
+## instead of rebuilding the whole template for every mare.
 static func profile_identity(id: String) -> Dictionary:
 	var data := _read()
-	var template := profile_for(data.get("default", _filled_default()),
-		data.get("characters", {}), id)
+	if _identity_generation != generation or _identity_revision != placement_revision:
+		_identity_generation = generation
+		_identity_revision = placement_revision
+		_identity_cache.clear()
+	var cached: Variant = _identity_cache.get(id)
+	if cached is Dictionary:
+		return (cached as Dictionary).duplicate(true)
+	var template := profile_for(_profile_base(data), data.get("characters", {}), id)
 	var raw: Variant = template.get("adult", null)
-	return {
+	var resolved := {
 		"adult": raw if raw is bool else null,
 		"participation": PARTICIPATION.resolve(_profile_participation_raw(template)),
 	}
+	_identity_cache[id] = resolved
+	return resolved.duplicate(true)
 
 
 ## The resolved participation block for a mare: built-in default, provider layer, then the
@@ -2112,7 +2121,7 @@ static func default_participation_for(base: Dictionary, id: String) -> Dictionar
 
 static func default_participation(id: String) -> Dictionary:
 	var data := _read()
-	return default_participation_for(data.get("default", _filled_default()), id)
+	return default_participation_for(_profile_base(data), id)
 
 
 ## Save only the participation block. Preferences, consent, prompts and poses are preserved. Only
@@ -2128,7 +2137,7 @@ static func save_participation(id: String, values: Dictionary) -> void:
 	if not entry is Dictionary:
 		entry = {}
 	var character: Dictionary = entry
-	var base: Dictionary = data.get("default", _filled_default())
+	var base := _profile_base(data)
 	var defaults := _profile_participation(base, id)
 	var cleaned := PARTICIPATION.clean(values)
 	var diff: Dictionary = {}
@@ -2208,7 +2217,7 @@ static func save_preferences(id: String, preferences: Dictionary) -> void:
 	if not entry is Dictionary:
 		entry = {}
 	var character: Dictionary = entry
-	var base: Dictionary = data.get("default", _filled_default())
+	var base := _profile_base(data)
 	var defaults := default_preferences_for(base, id)
 	# A partial input changes only the keys it names; missing keys keep the resolved default.
 	var intended := PREFERENCES.resolve(_merge(defaults, preferences))
@@ -2402,8 +2411,7 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 		if entry.has("profile"):
 			var profile: Variant = entry["profile"]
 			if profile is Dictionary:
-				var cleaned_profile := _clean_profile(profile,
-					data.get("default", _filled_default()), id)
+				var cleaned_profile := _clean_profile(profile, _profile_base(data), id)
 				if cleaned_profile.is_empty():
 					entry.erase("profile")
 				else:
@@ -2537,6 +2545,14 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 ## when a value changes or when the merged defaults differ from what is on disk.
 static var _cache: Dictionary = {}
 static var _loaded := false
+## Built once from the catalogs. Read-only: `profile_for()` copies it before merging.
+static var _filled_default_cache: Dictionary = {}
+## Resolved identity facts per mare, rebuilt when the settings generation or the provider revision
+## changes. Discovery scans ask for every adult; resolving the whole template per mare per scan was
+## the idle offer scan's largest cost.
+static var _identity_cache: Dictionary = {}
+static var _identity_generation := -1
+static var _identity_revision := -1
 ## Bumped on every load and every write. The flat value table rebuilds when it
 ## changes, so a save anywhere invalidates the cached setting reads.
 static var generation := 0
@@ -2608,7 +2624,7 @@ static func cue_gap(id: String) -> float:
 static func template_for(id: String) -> Dictionary:
 	var data := _read()
 	return profile_for(
-		data.get("default", _filled_default()),
+		_profile_base(data),
 		data.get("characters", {}),
 		id)
 
@@ -2702,14 +2718,25 @@ static func _defaults() -> Dictionary:
 
 
 ## The default template plus catalog pose/preference/prompt defaults. Kept as a function so the
-## catalogs are read at run time instead of baked into a const expression.
+## catalogs are read at run time instead of baked into a const expression. Built once; callers
+## treat the result as read-only.
 static func _filled_default() -> Dictionary:
+	if not _filled_default_cache.is_empty():
+		return _filled_default_cache
 	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
 	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
 	out["preferences"] = PREFERENCES.defaults()
 	# Act prompts are code defaults; settings.json stores only overrides. `_fill_prompts()`
 	# supplies the current built-ins at read time so a release can update them.
-	return out
+	_filled_default_cache = out
+	return _filled_default_cache
+
+
+## The saved `default` template, or the built-in one when the file has none. The built-in fill is
+## not evaluated when the saved block exists.
+static func _profile_base(data: Dictionary) -> Dictionary:
+	var value: Variant = data.get("default")
+	return value if value is Dictionary else _filled_default()
 
 
 ## Retired settings, then the one-time structural steps. Add a step here for a renamed key and bump

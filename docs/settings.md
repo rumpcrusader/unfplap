@@ -15,6 +15,8 @@ participation semantics are in `docs/eligibility.md`.
 Per-character profiles (`default`/`characters` templates, preferences, prompts, consent) and the
 pose catalog overrides (`poses.*`) are not global settings: they live in the same file but are read
 through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other profile functions.
+The identity facts discovery scans read (`SETTINGS.profile_identity(id)`) are memoized per settings
+generation and provider revision, so a scan does not rebuild the whole template per mare.
 
 ## Ownership
 

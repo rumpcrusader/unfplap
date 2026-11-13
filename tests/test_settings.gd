@@ -721,9 +721,13 @@ func _check_participation() -> void:
 	check(not bool(saved_profile.get("acts", true)), "a saved opt-out is stored")
 	check(not saved_profile.has("anatomy"), "an unchanged participation is not stored")
 	check(not saved_profile.has("tail"), "an unchanged participation is not stored")
+	var opted_out := SETTINGS.profile_participation("fluttershy")
+	check(not bool(opted_out.get("acts", true)), "the memoized profile invalidates on a save")
 	SETTINGS.reset_participation("fluttershy")
 	var after: Variant = SETTINGS.data().get("characters", {})
 	check(not (after as Dictionary).has("fluttershy"), "reset removes the participation block")
+	var restored := SETTINGS.profile_participation("fluttershy")
+	check(bool(restored.get("acts", false)), "the memoized profile invalidates on a reset")
 
 
 func _collect_labels(node: Node, out: Array) -> void:

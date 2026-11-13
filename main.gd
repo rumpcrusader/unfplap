@@ -551,15 +551,14 @@ func _rump_cone_target(view: Camera3D) -> Node:
 	if not is_instance_valid(view):
 		return null
 	var eye: Vector3 = view.global_position
-	var best: Node = null
-	var best_distance := RUMP_CONE.REACH_M
+	# Geometry first: eligibility resolves a whole profile per mare, so only the in-cone
+	# candidates pay for it. Nearest first preserves the nearest eligible adult result.
+	var candidates: Array = []
 	for node: Variant in mares():
 		if not is_instance_valid(node):
 			continue
 		var actor: Node3D = node as Node3D
 		if actor == null or not actor.has_method("posture_status"):
-			continue
-		if not _is_act_target(actor):
 			continue
 		if str(actor.posture_status().get("requested", "")) != "stand":
 			continue
@@ -575,10 +574,19 @@ func _rump_cone_target(view: Camera3D) -> Node:
 		if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
 			continue
 		var flat := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
-		if flat.length() < best_distance:
-			best_distance = flat.length()
-			best = actor
-	return best
+		var distance := flat.length()
+		if distance >= RUMP_CONE.REACH_M:
+			continue
+		candidates.append([distance, actor])
+	if candidates.is_empty():
+		return null
+	candidates.sort_custom(func(a: Array, b: Array) -> bool:
+		return float(a[0]) < float(b[0]))
+	for candidate: Array in candidates:
+		var actor := candidate[1] as Node3D
+		if is_instance_valid(actor) and _is_act_target(actor):
+			return actor
+	return null
 
 
 func _native_row() -> HBoxContainer:

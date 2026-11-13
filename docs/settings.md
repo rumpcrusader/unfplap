@@ -236,8 +236,8 @@ live.
 **General**
 
 One ungrouped list, in this order: **Starting Sex**, **Show controls**, **Show HUD readouts**,
-**Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Remember acts**, **Climax
-limit** (`0…20`, default `3`; `0` is unlimited), **Sensitivity** in pixels per centimetre of hip
+**Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Climax limit** (`0…20`,
+default `3`; `0` is unlimited), **Sensitivity** in pixels per centimetre of hip
 travel (`20…400`, default `50`), **Thrust direction** (which mouse direction deepens the stroke),
 **Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish
 control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
@@ -316,7 +316,6 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_faces` | `true` | act face beats and `{face_note}` prompt hints; off keeps the current act faces; the blush arc and post-act mood face are separate |
 | `blush_arc` | `true` | readiness-ramped act blush; off restores full blush from the first frame |
 | `face_debug` | `false` | print act face changes, the climax score and the mood-face start/end |
-| `act_history` | `true` | per-act summary, hurt/comfort, reminders and offer weighting; off keeps the old aftercare behaviour |
 | `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
 | `captions_on_top` | `true` | move the explicit bottom caption to the top; applies immediately |
 | `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
@@ -332,9 +331,10 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_climax` | `false` | pack wet finish layer |
 
-Always on: standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust
-rump blush. Unknown settings keys are ignored. Caress feature flags and debug values are in
-`docs/hands.md`; anatomy feature flags and debug values are in `docs/anatomy.md`.
+Always on: act history and its per-act summary, standing afterglow stay-close window, lean-camera
+inertia smoothing and strong-thrust rump blush. Unknown settings keys are ignored. Caress feature
+flags and debug values are in `docs/hands.md`; anatomy feature flags and debug values are in
+`docs/anatomy.md`.
 
 ## Settings authoring rules for agents
 
@@ -364,7 +364,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   ten `anatomy.placement.default.*` settings.
 - **A boolean label starts with a verb**: Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch,
   Remember, Mute. Label the action the switch performs, not the noun it controls
-  (“Show controls”, “Allow act lines”, “Remember acts”, “Use VR act”). Choices and numbers keep
+  (“Show controls”, “Allow act lines”, “Use VR act”). Choices and numbers keep
   their noun label. Push back if a verb label reads worse than the noun; say so in the review
   rather than forcing it.
 

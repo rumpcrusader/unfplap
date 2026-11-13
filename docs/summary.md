@@ -83,9 +83,9 @@ what the profile shows as **Last impression**. An early end is stated once, not 
 reason. Witness text follows the same rule (`Anon and <name> were seen...`), because it can appear
 in the observer's Recent activities too.
 
-An intentional early end and a partner stop each record **one** event: the summary when history is
-on and the summary is not skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old
-flat `commit_climax` path is gone, so a bad act can no longer give `+2` romance.
+An intentional early end and a partner stop each record **one** event: the summary when it is not
+skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old flat `commit_climax`
+path is gone, so a bad act can no longer give `+2` romance.
 
 A completed act starts `face/mood_face.gd`: a good or non-early neutral act holds a relaxed face with
 the warm prompt note, and a bad act holds `sad`/`annoyed` instead. The 10 s aftercare hold always
@@ -233,12 +233,8 @@ navigator and blocks nothing; the gates above do that.
 
 ## Settings
 
-`features.act_history` is the master switch (General › Controls, default on). With it off, no summary is
-stored, no history note or refusal is used, and the warm note and aftercare fall back to the
-readiness threshold. It does not disable the per-mare mid-act neglect stop.
-
-The thresholds and weights live under `History` in World's Debug block. They are debug numbers,
-so stored values are never clamped. See `docs/settings.md`.
+Act history always records. The thresholds and weights live under `History` in World's Debug
+block. They are debug numbers, so stored values are never clamped. See `docs/settings.md`.
 
 ## Dependencies
 

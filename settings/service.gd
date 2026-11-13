@@ -783,8 +783,6 @@ static var quality := choice("quality", "caress.quality", "precise",
 	["precise", "balanced", "fast"], ["Precise", "Balanced", "Fast"],
 	"Caress quality",
 	"Precise snaps the hand to the visible coat every tick. Balanced accepts the intended oval point when the surface ray misses and refreshes the patch at 20 Hz. Fast also refreshes at 15 Hz and narrows the normal blur. Lower levels can let the palm float by about the oval radius on a miss.", GENERAL, "")
-static var act_history := flag("act_history", "features.act_history", true, "Remember acts",
-	"Remember how each act went; repeated good sex builds trust and desire, while repeated neglect makes her reluctant.", GENERAL, "")
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
 	"Climax limit", "How many times a mare can climax in one act. 0 is unlimited.", GENERAL, "") \
 	.with_step(1.0).with_range(0.0, 20.0)
@@ -1901,6 +1899,8 @@ static var _deprecated := [
 	deprecated("features.act_foley", func(_value: Variant) -> Dictionary: return {}),
 	# The pack climax moan is gone; the wet finish keeps its own switch.
 	deprecated("features.act_vocals", func(_value: Variant) -> Dictionary: return {}),
+	# Act history is always recorded; the switch is retired.
+	deprecated("features.act_history", func(_value: Variant) -> Dictionary: return {}),
 	# Bystander lines are always on and the body-yaw debug aid is gone; both switches are retired.
 	deprecated("features.act_bystanders", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("player.body_yaw_deg", func(_value: Variant) -> Dictionary: return {}),

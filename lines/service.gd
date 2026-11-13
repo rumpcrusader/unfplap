@@ -223,7 +223,7 @@ func bystander_tick(delta: float) -> void:
 ## complaint becomes one short line in a quiet moment. The runtime gathers the scene values; this
 ## owns the decisions and the line queueing.
 func history_tick(delta: float, context: Dictionary) -> void:
-	if facts == null or not ACT_HISTORY.enabled():
+	if facts == null:
 		return
 	var main_node: Variant = context.get("main")
 	var pony: Variant = context.get("pony")

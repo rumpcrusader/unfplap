@@ -515,7 +515,8 @@ func _check_migration() -> void:
 
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,
-		"features": {"act_chat": true, "act_vocals": true, "hud_readouts": true},
+		"features": {"act_chat": true, "act_vocals": true, "act_history": false,
+			"hud_readouts": true},
 		"anatomy": {"anal_ring": false, "mare_bits": "original", "strip_width": 1.0},
 		"presentation": {"missionary": {}, "standing": {
 			"kiss": {"forelegs": "planted"}, "smack": {"sound": "pack"}}},
@@ -524,6 +525,7 @@ func _check_migration() -> void:
 	var dead_features: Dictionary = dead.get("features", {})
 	check(not dead_features.has("act_chat"), "a retired feature is erased")
 	check(not dead_features.has("act_vocals"), "the retired audio layer is erased")
+	check(not dead_features.has("act_history"), "the retired act-history switch is erased")
 	check(bool(dead_features.get("hud_readouts", false)), "a live feature is kept")
 	check(not (dead.get("anatomy", {}) as Dictionary).has("anal_ring"),
 		"a retired anatomy key is erased")

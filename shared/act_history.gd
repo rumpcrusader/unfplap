@@ -93,10 +93,6 @@ static func rules() -> Dictionary:
 	return out
 
 
-static func enabled() -> bool:
-	return SETTINGS.act_history.get_bool()
-
-
 ## The live mod section for the current world, or an empty dictionary outside one.
 static func section() -> Dictionary:
 	var mods := _mods()
@@ -145,7 +141,7 @@ static func effective_row(section: Dictionary, id: String, now_day: float) -> Di
 
 static func commit(section: Dictionary, id: String, outcome: Dictionary,
 		now_day: float) -> Dictionary:
-	if id.is_empty() or not enabled():
+	if id.is_empty():
 		return out_noop(section, id)
 	var rows: Dictionary = records(section)
 	var stored: Variant = rows.get(id, {})
@@ -229,7 +225,7 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 
 ## Repair hurt from a good act, staying close, or another non-sexual kindness.
 static func repair(section: Dictionary, id: String, amount: int, now_day: float) -> bool:
-	if id.is_empty() or amount <= 0 or not enabled():
+	if id.is_empty() or amount <= 0:
 		return false
 	var rows: Dictionary = records(section)
 	var stored: Variant = rows.get(id, {})
@@ -249,7 +245,7 @@ static func repair(section: Dictionary, id: String, amount: int, now_day: float)
 
 ## A sincere apology repairs at most once per in-game day. The caller saves.
 static func apology_repair(section: Dictionary, id: String, now_day: float) -> bool:
-	if id.is_empty() or not enabled():
+	if id.is_empty():
 		return false
 	var rows: Dictionary = records(section)
 	var stored: Variant = rows.get(id, {})
@@ -317,8 +313,6 @@ static func tier_name(row: Dictionary) -> String:
 
 ## No proactive offers from the hurt tier onward.
 static func blocks_offers(row: Dictionary) -> bool:
-	if not enabled():
-		return false
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return true
 	return tier_index(row) >= 2
@@ -326,16 +320,12 @@ static func blocks_offers(row: Dictionary) -> bool:
 
 ## A hard spoken refusal at the withdrawn tier. The player may still ask; she says no.
 static func blocks_start(row: Dictionary) -> bool:
-	if not enabled():
-		return false
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return true
 	return tier_index(row) >= 3
 
 
 static func offer_weight(row: Dictionary) -> float:
-	if not enabled():
-		return 1.0
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return 0.0
 	if blocks_offers(row):
@@ -348,8 +338,6 @@ static func offer_weight(row: Dictionary) -> float:
 
 
 static func offer_cooldown(row: Dictionary, base_seconds := -1.0) -> float:
-	if not enabled():
-		return base_seconds if base_seconds >= 0.0 else float(DEFAULT_RULES["offer_base_s"])
 	var regular := rules()
 	var base := base_seconds if base_seconds >= 0.0 else float(regular.get("offer_base_s", 600.0))
 	var scale := float(regular.get("offer_comfort_scale", 0.05))
@@ -379,8 +367,6 @@ static func private_text(row: Dictionary) -> String:
 
 
 static func prompt_note(row: Dictionary) -> String:
-	if not enabled():
-		return ""
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return "- You stopped Anon and need a little space. You are not ready to try again yet."
 	var tier := tier_index(row)
@@ -409,8 +395,6 @@ static func prompt_note(row: Dictionary) -> String:
 
 
 static func ask_note(row: Dictionary) -> String:
-	if not enabled():
-		return ""
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return "You stopped Anon and are not ready to ask again yet."
 	if tier_index(row) <= 0:
@@ -458,7 +442,7 @@ static func refusal_purpose(row: Dictionary) -> String:
 
 
 static func mark_announced(section: Dictionary, id: String, kind: String) -> bool:
-	if id.is_empty() or not enabled():
+	if id.is_empty():
 		return false
 	var rows: Dictionary = records(section)
 	var stored: Variant = rows.get(id, {})
@@ -477,8 +461,6 @@ static func mark_announced(section: Dictionary, id: String, kind: String) -> boo
 
 ## Whether a reminder or complaint line is waiting for a quiet moment.
 static func pending_line(row: Dictionary) -> String:
-	if not enabled():
-		return ""
 	if bool(row.get("complaint_pending", false)):
 		return "complaint"
 	if bool(row.get("reminder_pending", false)):

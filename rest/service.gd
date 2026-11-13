@@ -264,8 +264,7 @@ func rejoin_note(rest: Node) -> String:
 
 
 ## A bed missionary end that can return to the cuddle: desktop human Anon at the unforced end of an
-## act that did not go badly. With act history off there is no summary, so the aftercare readiness
-## rule is the fallback.
+## act that did not go badly. A skipped summary falls back to the aftercare readiness rule.
 func rejoin_wanted(values: Dictionary) -> bool:
 	if bool(values.get("player_pony", false)) or bool(values.get("headset", false)):
 		return false

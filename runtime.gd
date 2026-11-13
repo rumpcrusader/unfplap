@@ -2574,8 +2574,8 @@ func _stop_with_her(reason: String) -> void:
 	var distress: float = _readiness.distress()
 	_cancel_tolerance_warning()
 	_commit_summary(false)
-	# The stopped summary already says why. The basic event is the fallback when no summary was
-	# written (features.act_history off), so one partner stop is never two memories.
+	# The stopped summary already says why. The basic event is the fallback when the summary was
+	# skipped, so one partner stop is never two memories.
 	if _summary_service.summary.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
 		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
 	if pose_id == CATALOG.MISSIONARY:
@@ -2586,7 +2586,7 @@ func _stop_with_her(reason: String) -> void:
 	if strict:
 		_request_space()
 		bool(_scene_gate().buck_or_push())
-	# The summary owns the impression, including features.act_history off and a skipped summary.
+	# The summary owns the impression, including a skipped summary.
 	if not _summary_service.summary.is_empty():
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
@@ -2678,8 +2678,8 @@ func cancel() -> void:
 	if state in [State.POSING_IN, State.ACTIVE]:
 		_act_ended_early = true
 		_commit_summary(false)
-		# The early summary already records this end. Keep the basic event only when history is
-		# off or the summary was skipped, so the story never holds the same end twice.
+		# The early summary already records this end. Keep the basic event only when the summary
+		# was skipped, so the story never holds the same end twice.
 		if _summary_service.summary.is_empty():
 			main.memory.note(MEMORY.NoteKind.CANCELLED, _id, _event_id)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.

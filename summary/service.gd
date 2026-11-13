@@ -71,7 +71,7 @@ func commit_summary(real_act: bool, context: Dictionary) -> void:
 		return
 	summary_done = true
 	var main: Variant = context.get("main")
-	if not ACT_HISTORY.enabled() or not _game_ok(main):
+	if not _game_ok(main):
 		return
 	var inputs: Dictionary = context.get("inputs", {})
 	var outcome: Dictionary = ACT_SUMMARY.evaluate(inputs, ACT_SUMMARY.rules())

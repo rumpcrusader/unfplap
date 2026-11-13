@@ -460,9 +460,14 @@ body's own deformation across the whole mesh.
   `part_throb` shape the mesh; `part_front_m` and `pelvis_gap_m` set the standoff. The shaped
   length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole grip, so
   geometry and collision stay together.
+- The part is created on player ready and its hidden mesh is warmed by a deferred, guarded
+  `prepare()`, so the first standing offer does not load `anon_part.scn`, its shader and three
+  textures inside the offer scan. The anatomy master must be on; a body that is not ready yet is
+  left to the gate's fallback.
 - `player_prepare()` builds the part mesh hidden so the standing footstool gate can measure its
-  natural root before an encounter. `player_root_now()` returns `Vector3.INF` until the mesh
-  exists; `root_now()` on the part does the same guard.
+  natural root before an encounter, and is the idempotent fallback/rebuild path after the warm.
+  `player_root_now()` returns `Vector3.INF` until the mesh exists; `root_now()` on the part does
+  the same guard.
 - `part_throb` scales a two-lobe heartbeat. It also lifts the visible shaft while it is outside
   her; the lift fades to nothing at full depth.
 - `back_out_m` is how far the tip rests behind her lips when pulled all the way out. It is
@@ -662,8 +667,8 @@ Current suites:
   live opening aim, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
-  idle heat, mesh refinement, act calls, player part, body coat, the vulva cut and still zones),
-  plus the provider's `adult` assertion and the participation gate.
+  idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, body coat, the
+  vulva cut and still zones), plus the provider's `adult` assertion and the participation gate.
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

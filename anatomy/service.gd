@@ -26,6 +26,9 @@ var tail_visibility: Node
 ## pony -> controller
 var _controllers: Dictionary = {}
 var _player_part: Node
+## The part whose hidden mesh is already built, and whether a deferred warm is queued.
+var _player_warm_part: Node = null
+var _player_warm_queued := false
 
 
 func setup(main_node: Node) -> void:
@@ -325,6 +328,9 @@ func shutdown() -> void:
 # --------------------------------------------------------------------------- player part
 
 func player_ready(body: Node) -> void:
+	if player != body:
+		_player_warm_part = null
+		_player_warm_queued = false
 	player = body
 	refresh_player()
 
@@ -334,6 +340,8 @@ func clear_player() -> void:
 		_player_part.call("encounter", false)
 		_player_part.queue_free()
 	_player_part = null
+	_player_warm_part = null
+	_player_warm_queued = false
 	player = null
 
 
@@ -344,6 +352,8 @@ func refresh_player() -> void:
 			_player_part.call("encounter", false)
 			_player_part.queue_free()
 			_player_part = null
+		_player_warm_part = null
+		_player_warm_queued = false
 		return
 	if not is_instance_valid(_player_part):
 		_player_part = PLAYER.new()
@@ -352,6 +362,27 @@ func refresh_player() -> void:
 	_player_part.set("player_body", _player_body())
 	if _player_part.has_method("apply_live"):
 		_player_part.call("apply_live")
+	# The first standing offer needs the part's natural root. Build the hidden mesh now, under the
+	# loading cover, instead of loading its scene, shader and textures inside the offer scan. The
+	# gate keeps `player_prepare()` as the idempotent fallback when this body is not ready yet.
+	_queue_player_warm()
+
+
+func _queue_player_warm() -> void:
+	if _player_warm_queued or not is_instance_valid(_player_part):
+		return
+	if is_instance_valid(_player_warm_part) and _player_warm_part == _player_part:
+		return
+	_player_warm_queued = true
+	_warm_player_part.call_deferred()
+
+
+func _warm_player_part() -> void:
+	_player_warm_queued = false
+	if not SETTINGS.anatomy_on() or not is_instance_valid(_player_part):
+		return
+	if bool(_player_part.call("prepare")):
+		_player_warm_part = _player_part
 
 
 ## The Anon body the player part binds to. The facade resolves it; the part never reads `main`.

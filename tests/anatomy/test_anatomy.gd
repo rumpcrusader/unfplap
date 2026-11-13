@@ -543,6 +543,10 @@ func run() -> void:
 	check(rebuilt is MeshInstance3D and rebuilt != stale_mesh
 		and (rebuilt as MeshInstance3D).is_inside_tree(),
 		"the rebuilt part is a new in-tree mesh")
+	var rebuilt_id := (rebuilt as Node).get_instance_id()
+	check(bool(stale_part.call("prepare")), "prepare stays true for a built part")
+	check((stale_part.get("_mesh") as Node).get_instance_id() == rebuilt_id,
+		"prepare is idempotent and keeps the built mesh")
 	stale_host.free()
 	stale_part.queue_free()
 	fake_body.queue_free()

@@ -99,6 +99,20 @@ Rules:
 | Settings contract | `tests/test_settings.gd` |
 | Manual lab | `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh` |
 
+## Documentation gate
+
+`tests/test_source_hygiene.gd` enforces this section, so a doc that drifts fails the full gate:
+
+- every doc under `docs/` is linked from this index;
+- every service facade has a `docs/<service>.md` that names the facade and its test path;
+- no root service contract remains, and no doc names a removed root path;
+- no presentation module reaches into `runtime.gd` for state: the typed act view
+  (`docs/act_facts.md`) is the boundary;
+- each facade's own doc headings the contract requires are present.
+
+The manual lab is the only check the gate cannot run: it needs a live world and a person at the
+keyboard. Record its result in the phase notes instead of assuming it passed.
+
 ## Related
 
 - `../AGENTS.md` — the required reading table and the cross-cutting rules.

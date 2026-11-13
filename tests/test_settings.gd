@@ -448,15 +448,25 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 			var expected: Array = []
 			match tab:
 				SETTINGS.GENERAL:
-					expected = ["Trigger bed offer", "Show data", "Reset act prompts"]
+					expected = ["Reload posed base", "Give footstool", "Reset act prompts"]
 				SETTINGS.ANATOMY:
 					expected = ["Pitch +", "Up", "Pointed mare", "Show skeleton overlay"]
 				SETTINGS.WORLD:
-					expected = ["Force heat", "Neglect warning"]
+					expected = ["Resume auto", "Reset"]
 			for action: String in expected:
 				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
 			check(not labels.has("Bed cuddle"),
 				"%s Debug block keeps the wheel-only bed cuddle off" % tab)
+			var wheeled: Array[String] = []
+			for page: String in ["mare", "act"]:
+				for name: String in DEBUG_ACTIONS.wheel_actions(page):
+					if not wheeled.has(name):
+						wheeled.append(name)
+			for name: String in wheeled:
+				check(not labels.has(DEBUG_ACTIONS.action_label(name, null)),
+					"%s Debug block leaves the wheel action %s off" % [tab, name])
+				check(not labels.has(DEBUG_ACTIONS.action_short(name, null)),
+					"%s Debug block leaves the wheel short label %s off" % [tab, name])
 	# An action lives in exactly one tab's block. "Heat" is also the Anatomy section heading, so
 	# the World guard uses its row caption "Cycle" instead of the action's short label.
 	if tab != SETTINGS.ANATOMY:

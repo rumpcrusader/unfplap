@@ -24,29 +24,31 @@ each Debug block. `main.gd` owns the console gate, the wheel gate and the skelet
 
 Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
 their `tab` names (`general` by default, `anatomy` or `world`). Adding an action is one entry plus
-one method. `panel: false` keeps an action off every settings block but leaves it on the wheel.
+one method. An action on a wheel page sets `panel: false`, so the settings blocks draw only the
+settings-only actions and the wheel is the only trigger for the rest; those wheel-backed actions
+are desktop-only.
 
 The registry declares no global hotkeys: the game's own dev keys (`F4` render breakdown, `F9`
 trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is loaded, so a Debug
 block button or the action wheel is the only trigger. `input/service.gd` still routes a declared
 `"hotkey"` for a future action that genuinely must fire while the world is unpaused.
 
-| Action | Tab | Wheel page |
+| Action | Settings block | Wheel page |
 |---|---|---|
 | Reload posed base | General | — |
-| Trigger bed offer | General | Mare |
-| Trigger standing offer | General | Mare |
-| Show data | General | Mare and Act |
-| Bed cuddle | wheel only (`panel: false`) | Mare |
+| Trigger bed offer | — | Mare |
+| Trigger standing offer | — | Mare |
+| Show data | — | Mare and Act |
+| Bed cuddle | — | Mare |
 | Give footstool | General | — |
 | Reset act prompts | General | — |
-| Force/Clear heat | World | Mare |
-| Force/Clear diestrus | World | Mare |
+| Force/Clear heat | — | Mare |
+| Force/Clear diestrus | — | Mare |
 | Resume automatic cycle | World | — |
 | Reset act history | World | — |
-| Force neglect warning | World | Act |
-| Force neglect stop | World | Act |
-| Force act face | General | Act |
+| Force neglect warning | — | Act |
+| Force neglect stop | — | Act |
+| Force act face | — | Act |
 | Placement up/down/forward/back/pitch/bigger/smaller | Anatomy | — |
 | Tail placement up/down/forward/back, tilt left/right | Anatomy | — |
 | Dock placement up/down/bigger/smaller | Anatomy | — |
@@ -56,8 +58,6 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   Actions block starts with the **Placement target** pill. See `docs/anatomy.md`.
 - **Trigger bed/standing offer** forces a proactive ask for the aimed test mare. It bypasses the
   quiet, cooldown and AI-usage checks but keeps the eligibility gate, pose and free-bed gates.
-  The "close settings" hint is printed only while the settings page paused the tree; the wheel's
-  toast does not claim it.
 - **Show data** replaces the old Show act history, Show stool state, Show act face, Show prompt
   context and Show pose state actions, and the lab's per-mare report. See below.
 - **Bed cuddle** is the stock bed invite migrated from the lab's Mouse4 key. It sits on the wheel
@@ -169,11 +169,12 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 
 ## Tests
 
-`tests/test_debug_wheel.gd` pins the wheel page order, the six-slot cap, the settings-only split,
-the retired action ids, the dynamic cycle labels and the hold-middle input contract (middle press
-opens, release over a slot runs it, release in the centre only closes).
-`tests/test_settings.gd` covers the skeleton flag and the Debug block labels. The overlay, the
-hover cue and the lab pass are manual.
+`tests/test_debug_wheel.gd` pins the wheel page order, the six-slot cap, the settings-only split
+(wheel actions are `panel: false`, settings-only actions stay on the panel), the retired action
+ids, the dynamic cycle labels and the hold-middle input contract (middle press opens, release over
+a slot runs it, release in the centre only closes). `tests/test_settings.gd` covers the skeleton
+flag, the Debug block labels that remain and the absence of every wheel action from the blocks.
+The overlay, the hover cue and the lab pass are manual.
 
 ## Related docs
 

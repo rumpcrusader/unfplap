@@ -387,18 +387,19 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
 Debug commands are entries in `debug/service.gd`:
 
 ```gdscript
-"bed_offer": {
-    "label": "Trigger bed offer",
-    "help": "Force a missionary offer for the aimed mare.",
-    "method": "action_bed_offer",
+"give_stool": {
+    "label": "Give footstool",
+    "help": "Add a footstool to Anon's briefcase.",
+    "method": "action_give_stool",
 },
 ```
 
 The **Debug** block of the tab named by the entry's `tab` (`general` by default, or `anatomy`/
-`world`) draws a button for it and calls `method` on the entry node. Entries that share `"row"` are
-drawn compactly on one line under that caption (`"short"` is the button text), so related actions
-stay together; adding an action is one entry plus one method. `"panel": false` keeps an action off
-every settings block but leaves it on the debug wheel. An entry with `"phase"` and
+`world`) draws a button for it and calls `method` on the entry node. An action on a wheel page sets
+`"panel": false`; the Debug block skips it, so the settings blocks draw only the settings-only
+actions. Entries that share `"row"` are drawn compactly on one line under that caption (`"short"`
+is the button text), so related settings-only actions stay together; adding an action is one entry
+plus one method. An entry with `"phase"` and
 `"match_label"`/`"match_short"` changes its label while the aimed mare is already in that phase;
 the settings buttons and the wheel both resolve it through `action_label()`/`action_short()`.
 

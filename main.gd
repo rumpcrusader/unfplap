@@ -913,8 +913,7 @@ func _debug_offer_request(pose := "") -> String:
 		label = " (standing)"
 	if started:
 		_debug("request button: %s%s" % [str(target.name), label])
-		var hint := " Close settings to let her approach." if get_tree().paused else ""
-		return "Offer started for %s%s.%s" % [str(target.name), label, hint]
+		return "Offer started for %s%s." % [str(target.name), label]
 	var reason := "unknown"
 	if result != null and not result.reject.is_empty():
 		reason = result.reject
@@ -1215,8 +1214,7 @@ func _debug_force_tolerance(kind: String) -> String:
 		return "The act cannot force a neglect warning."
 	if not bool(active_runtime.call("debug_force_tolerance", kind)):
 		return "Neglect forcing is only available during a live act."
-	var hint := " Close this panel to let the act apply it." if get_tree().paused else ""
-	return "Neglect %s queued.%s" % [kind, hint]
+	return "Neglect %s queued." % kind
 
 
 ## integration: anatomy hooks used by the runtime and input.

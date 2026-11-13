@@ -106,6 +106,12 @@ func _check_registry() -> void:
 		check(DEBUG_ACTIONS.ACTIONS.has(settings_only),
 			"the settings-only action %s stays registered" % settings_only)
 		check(not _wheel_has(settings_only), "the wheel leaves %s to settings" % settings_only)
+		check(bool(DEBUG_ACTIONS.ACTIONS[settings_only].get("panel", true)),
+			"the settings-only action %s stays on the panel" % settings_only)
+	for page: String in DEBUG_ACTIONS.WHEEL_PAGES:
+		for name: String in DEBUG_ACTIONS.wheel_actions(page):
+			check(not bool(DEBUG_ACTIONS.ACTIONS[name].get("panel", true)),
+				"the wheel action %s stays off the settings blocks" % name)
 	for name: String in DEBUG_ACTIONS.ACTIONS:
 		if name.begins_with("anatomy_") or name.begins_with("tail_") \
 				or name.begins_with("placement_"):
@@ -122,8 +128,8 @@ func _check_registry() -> void:
 		"the bed cuddle is wheel-only")
 	check(str(DEBUG_ACTIONS.ACTIONS["bed_cuddle"].get("short", "")) == "Bed cuddle",
 		"the bed cuddle has its wheel label")
-	check(DEBUG_ACTIONS.ACTIONS.has("force_act_face"),
-		"the Act page face action is still a panel action")
+	check(not bool(DEBUG_ACTIONS.ACTIONS["force_act_face"].get("panel", true)),
+		"the face action is wheel-only")
 
 
 func _check_labels() -> void:

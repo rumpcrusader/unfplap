@@ -5,7 +5,8 @@ extends RefCounted
 
 ## Debug actions. `method` is called on the entry node. `tab` places the button in that tab's
 ## Debug block (`general` by default, or `anatomy`/`world`); a missing tab means General.
-## `panel: false` keeps an action off every settings block but leaves it available to the wheel.
+## `panel: false` keeps an action off every settings block but leaves it available to the wheel;
+## every action on a wheel page sets it, so settings draw only the settings-only actions.
 ## Add an action here; it becomes a button in the matching Debug block automatically. Actions that
 ## share a `row` are drawn compactly on one line, captioned with `short`; consecutive entries with
 ## the same row must stay adjacent. A `phase` entry also carries `match_label`/`match_short`, used
@@ -22,18 +23,21 @@ const ACTIONS := {
 		"label": "Trigger bed offer",
 		"help": "Force a missionary offer for the aimed mare.",
 		"method": "action_bed_offer",
+		"panel": false,
 		"short": "Bed offer",
 	},
 	"standing_offer": {
 		"label": "Trigger standing offer",
 		"help": "Force a standing offer for the aimed mare.",
 		"method": "action_standing_offer",
+		"panel": false,
 		"short": "Standing offer",
 	},
 	"show_data": {
 		"label": "Show data",
 		"help": "Print the aimed mare's target, cycle, gate, act, stool, history, prompt and bed data to the debug log.",
 		"method": "action_show_data",
+		"panel": false,
 		"short": "Show data",
 	},
 	"bed_cuddle": {
@@ -57,6 +61,7 @@ const ACTIONS := {
 		"label": "Force heat",
 		"help": "Put the aimed mare in heat for this session, or clear heat when she is already in it.",
 		"method": "action_toggle_heat",
+		"panel": false,
 		"tab": "world",
 		"row": "Cycle",
 		"short": "Force heat",
@@ -68,6 +73,7 @@ const ACTIONS := {
 		"label": "Force diestrus",
 		"help": "Turn the aimed mare off for this session, or clear diestrus when she is already in it.",
 		"method": "action_toggle_diestrus",
+		"panel": false,
 		"tab": "world",
 		"row": "Cycle",
 		"short": "Force diestrus",
@@ -95,6 +101,7 @@ const ACTIONS := {
 		"label": "Force neglect warning",
 		"help": "Trigger the active act's next neglect warning.",
 		"method": "action_force_tolerance_warning",
+		"panel": false,
 		"tab": "world",
 		"row": "Neglect",
 		"short": "Neglect warning",
@@ -103,6 +110,7 @@ const ACTIONS := {
 		"label": "Force neglect stop",
 		"help": "Make the active mare stop the act through the neglect path.",
 		"method": "action_force_tolerance_stop",
+		"panel": false,
 		"tab": "world",
 		"row": "Neglect",
 		"short": "Neglect stop",
@@ -111,6 +119,7 @@ const ACTIONS := {
 		"label": "Force act face",
 		"help": "Cycle the game's expression faces on the active act or the aimed mare.",
 		"method": "action_force_act_face",
+		"panel": false,
 		"row": "Act face",
 		"short": "Next face",
 	},

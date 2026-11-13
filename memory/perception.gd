@@ -6,6 +6,7 @@ const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 
@@ -115,8 +116,4 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 
 
 static func _pony_id(observer: Node3D) -> String:
-	var id := str(observer.get_meta("relationship_id", ""))
-	if not id.is_empty():
-		return id
-	var identity: Variant = observer.get("identity")
-	return str(identity.get("id")) if identity != null else ""
+	return PONY_ID.from(str(observer.get_meta("relationship_id", "")), observer.get("identity"))

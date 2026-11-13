@@ -9,6 +9,7 @@ const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -1356,10 +1357,9 @@ func _policy_verdict(mode: ELIGIBILITY.Mode,
 ## The live act values the debug status line reads. The scene gate owns the string.
 func _debug_context() -> Dictionary:
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
-	var id := ""
+	var id := _id if not _id.is_empty() else PONY_ID.from("", identity)
 	var display := "?"
 	if identity != null:
-		id = str(identity.get("id"))
 		display = str(identity.get("display_name")) if identity.get("display_name") != null else id
 	var policy: ELIGIBILITY.Verdict = _policy_verdict(ELIGIBILITY.Mode.START)
 	var relations: ELIGIBILITY.Relations = policy.relations if policy != null \
@@ -1461,9 +1461,7 @@ func _read_id() -> bool:
 	if not meta_id.is_empty():
 		_id = meta_id
 	elif _id.is_empty():
-		var identity_id: Variant = pony.get("identity")
-		if identity_id != null:
-			_id = str(identity_id.get("id"))
+		_id = PONY_ID.from("", pony.get("identity"))
 	if _id.is_empty():
 		return false
 	var identity: Variant = pony.get("identity")

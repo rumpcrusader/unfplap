@@ -12,6 +12,7 @@ extends RefCounted
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
@@ -377,7 +378,7 @@ static func _validate_consent(raw: Variant, warnings: Array, errors: Array) -> D
 		return out
 	for key: Variant in (raw as Dictionary).keys():
 		var name := str(key)
-		if not name in ["public", "anal", "oral"]:
+		if not name in CONSENT.KEYS:
 			warnings.append("consent.%s: unknown key" % name)
 			continue
 		var value: Variant = (raw as Dictionary)[key]

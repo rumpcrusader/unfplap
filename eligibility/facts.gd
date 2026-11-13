@@ -5,6 +5,12 @@ extends RefCounted
 ## Facts are a per-call snapshot. They are never saved, cached across frames or added to the
 ## per-character profile. See `docs/eligibility.md`.
 
+const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
+
+## The pure age category. It matches the facade's public `Age` enum by value.
+enum AgeKind { NONE, YOUNG, ADULT }
+
 const KEYS := [
 	"id", "has_identity", "is_player_pony", "is_filly", "is_stallion",
 	"adult", "participation",
@@ -26,7 +32,7 @@ static func empty() -> Dictionary:
 		"is_filly": false,
 		"is_stallion": false,
 		"adult": null,
-		"participation": {"acts": true, "anatomy": true, "tail": true},
+		"participation": PARTICIPATION.defaults(),
 		"has_relationship": false,
 		"registered_adult": false,
 		"romance_eligible": false,
@@ -49,7 +55,7 @@ static func empty() -> Dictionary:
 			"blocks_offers": false,
 			"offer_weight": 0.0,
 		},
-		"consent": {"public": false, "anal": false, "oral": false},
+		"consent": CONSENT.empty(),
 	}
 
 
@@ -77,26 +83,36 @@ static func normalize(raw: Variant) -> Dictionary:
 
 ## An adult pony is any identified pony that is not a filly or colt (the game's `filly` age flag)
 ## and is not the player's own pony. A provider's `adult` assertion overrides the identity's age
-## flag; `null` means the identity decides. Stallions are adults here; use `adult_mare_identity`
-## for the act-target, anatomy and tail predicate.
-static func adult_pony_identity(identity: Variant, is_player_pony := false,
-		adult: Variant = null) -> bool:
-	if identity == null or is_player_pony:
+## flag; `null` means the identity decides. Stallions are adults here; use `adult_mare` for the
+## act-target, anatomy and tail predicate.
+static func adult_pony(has_identity: bool, is_player_pony: bool, is_filly: bool,
+		adult: Variant) -> bool:
+	if not has_identity or is_player_pony:
 		return false
 	if adult is bool:
 		return adult
-	return not bool(identity.get("filly"))
+	return not is_filly
 
 
 ## An adult mare is an adult pony that is not a stallion. This is the act target and the anatomy
 ## and tail seat target. The `adult` override changes age, not sex.
-static func adult_mare_identity(identity: Variant, is_player_pony := false,
-		adult: Variant = null) -> bool:
-	if not adult_pony_identity(identity, is_player_pony, adult):
+static func adult_mare(has_identity: bool, is_player_pony: bool, is_filly: bool,
+		is_stallion: bool, adult: Variant) -> bool:
+	if not adult_pony(has_identity, is_player_pony, is_filly, adult):
 		return false
-	return not bool(identity.get("stallion"))
+	return not is_stallion
 
 
-## True for the game's young age flag. Used for young witness wording, not for eligibility.
-static func young_identity(identity: Variant) -> bool:
-	return identity != null and bool(identity.get("filly"))
+## The witness age category, or `AgeKind.NONE` when she can be neither an adult nor a young
+## witness. A provider's `adult` assertion wins over the identity flag in both directions.
+static func age_kind(has_identity: bool, is_player_pony: bool, is_filly: bool,
+		adult: Variant) -> int:
+	if not has_identity or is_player_pony:
+		return AgeKind.NONE
+	if adult is bool and bool(adult):
+		return AgeKind.ADULT
+	if is_filly:
+		return AgeKind.YOUNG
+	if adult is bool:
+		return AgeKind.NONE
+	return AgeKind.ADULT

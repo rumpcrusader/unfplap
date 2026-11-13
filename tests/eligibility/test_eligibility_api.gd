@@ -5,6 +5,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
+const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
@@ -94,6 +97,10 @@ func run() -> void:
 	check(main.eligibility.eligible(pony), "an adult mare is an act target")
 	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
 		"an adult mare witnesses as an adult")
+	check(FACTS.AgeKind.NONE == ELIGIBILITY.Age.NONE
+		and FACTS.AgeKind.YOUNG == ELIGIBILITY.Age.YOUNG
+		and FACTS.AgeKind.ADULT == ELIGIBILITY.Age.ADULT,
+		"the pure age kind and the public witness age stay in step")
 
 	var verdict: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(str(verdict.facts.id) == "rarity", "facts take the relationship id")
@@ -125,6 +132,18 @@ func run() -> void:
 	check(main.eligibility.witness_age(stallion) == ELIGIBILITY.Age.ADULT,
 		"a stallion is an adult witness")
 
+	# The identity predicate is age and sex only; the capability also needs a stable id.
+	var nameless := FakePony.new()
+	nameless.name = "Nameless"
+	var nameless_identity := FakeIdentity.new()
+	nameless_identity.id = ""
+	nameless.identity = nameless_identity
+	root.add_child(nameless)
+	check(FACTS.adult_mare(true, false, false, false, null),
+		"the pure predicate accepts an adult identity")
+	check(not main.eligibility.eligible(nameless),
+		"an adult identity with no stable id is not an act target")
+
 	# Capability targets keep identity private: the three act-side targets accept an adult mare,
 	# the character target has no participation veto, and an opt-out stays editable.
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
@@ -147,6 +166,15 @@ func run() -> void:
 		and profile.consent.anal == bool(consent.get("anal", false))
 		and profile.consent.oral == bool(consent.get("oral", false)),
 		"the profile consent matches the resolver")
+	# The snapshots and target vetoes follow the shared key tables, so a new key cannot drift.
+	check(profile.consent.to_dict().keys() == CONSENT.KEYS,
+		"the consent snapshot covers the shared consent keys")
+	check(profile.participation.to_dict().keys() == PARTICIPATION.KEYS,
+		"the participation snapshot covers the shared participation keys")
+	for target: Variant in ELIGIBILITY.TARGET_KEYS:
+		var key := str(ELIGIBILITY.TARGET_KEYS[target])
+		check(key.is_empty() or key in PARTICIPATION.KEYS,
+			"every target veto is a participation key: %s" % key)
 
 	# The provider layer: set_profile writes the identity half, and the capability reads it.
 	var layer := ELIGIBILITY.Profile.new()

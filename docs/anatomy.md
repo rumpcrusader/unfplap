@@ -158,8 +158,9 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - The anatomy facade forwards the capability to its controllers and the tail seat as a callable;
   the runtime asks the eligibility service directly before it binds a controller. Rig readiness
   (`pony_hips`, the dock, the hair skeleton) stays here.
-- The stable id is `relationship_id` metadata first, then the identity id. Placement, the
-  per-mare profile and the act history all key off the same value.
+- The stable id is `relationship_id` metadata first, then the identity id; the one rule is
+  `shared/pony_id.gd:from()`. Placement, the per-mare profile and the act history all key off the
+  same value.
 - The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
   `character_id` to either. It supplies the body scale and the placement anchor; an ordinary
   off-roster mare uses the normal profile.
@@ -631,14 +632,16 @@ restated here.
 | service | vr | `vr/service.gd` | VR act controls |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 
 Current suites:
 
-- `tests/anatomy/test_identity.gd`: the stable id, the princess body profile and the off-roster
-  list. The adult capability is tested with the eligibility service in `tests/eligibility/`.
+- `tests/anatomy/test_identity.gd`: the princess body profile and the off-roster list; the stable
+  id is `tests/test_pony_id.gd`. The adult capability is tested with the eligibility service in
+  `tests/eligibility/`.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat weight grid/sampler and the coat-follow
   matrices.

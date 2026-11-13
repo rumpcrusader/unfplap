@@ -78,13 +78,20 @@ func run() -> void:
 		"When Available waits for willingness")
 	check(not POLICY.hint_without_willingness(""), "unknown Starting Sex does not show early")
 
-	var identity: Variant = {"id": "rarity", "filly": false, "stallion": false}
-	check(FACTS.adult_pony_identity(identity), "adult identity")
-	check(FACTS.adult_mare_identity(identity), "adult mare identity")
-	check(not FACTS.adult_mare_identity({"id": "x", "filly": false, "stallion": true}),
+	check(POLICY.adult_pony(facts()), "an identified adult pony")
+	check(POLICY.adult_mare(facts()), "an adult mare")
+	check(not POLICY.adult_mare(facts({"is_stallion": true})),
 		"stallion is not an adult mare")
-	check(not FACTS.adult_pony_identity({"id": "x", "filly": true}), "filly is not adult")
-	check(not FACTS.adult_pony_identity(identity, true), "player pony is not a target")
+	check(not POLICY.adult_pony(facts({"is_filly": true})), "filly is not adult")
+	check(not POLICY.adult_pony(facts({"is_player_pony": true})),
+		"player pony is not a target")
+	# The pure predicate takes values, so the live rule has exactly one definition.
+	check(FACTS.adult_mare(true, false, false, false, null),
+		"the pure predicate accepts an adult mare")
+	check(not FACTS.adult_mare(true, false, false, true, null),
+		"the pure predicate rejects a stallion")
+	check(not FACTS.adult_pony(false, false, false, null),
+		"the pure predicate needs an identity")
 
 	# Capability targets: an adult mare plus the named participation veto. An empty key is the
 	# identity-only character target, which must keep an opted-out mare editable.
@@ -103,13 +110,15 @@ func run() -> void:
 		"no identity is no target")
 
 	# Witness age categories. A provider's `adult` assertion wins over the identity flag.
-	check(POLICY.age_kind(mare) == "adult", "an adult mare witnesses as an adult")
-	check(POLICY.age_kind(facts({"is_filly": true})) == "young", "a filly witnesses as young")
-	check(POLICY.age_kind(facts({"is_filly": true, "adult": true})) == "adult",
+	check(POLICY.age_kind(mare) == FACTS.AgeKind.ADULT,
+		"an adult mare witnesses as an adult")
+	check(POLICY.age_kind(facts({"is_filly": true})) == FACTS.AgeKind.YOUNG,
+		"a filly witnesses as young")
+	check(POLICY.age_kind(facts({"is_filly": true, "adult": true})) == FACTS.AgeKind.ADULT,
 		"a provider's adult assertion makes a filly an adult witness")
-	check(POLICY.age_kind(facts({"adult": false})) == "",
+	check(POLICY.age_kind(facts({"adult": false})) == FACTS.AgeKind.NONE,
 		"a vetoed adult is neither an adult nor a young witness")
-	check(POLICY.age_kind(facts({"is_player_pony": true})) == "",
+	check(POLICY.age_kind(facts({"is_player_pony": true})) == FACTS.AgeKind.NONE,
 		"the player pony is not a witness")
 
 	var base := POLICY.evaluate(facts(), "start")

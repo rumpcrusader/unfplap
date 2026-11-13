@@ -6,7 +6,7 @@ extends RefCounted
 ## See `docs/anatomy.md` (`## Placement`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
@@ -180,5 +180,5 @@ func _apply_values(placement: Dictionary) -> void:
 
 
 func _pony_id() -> String:
-	return IDENTITY.id_for(str(pony.get_meta("relationship_id", "")),
+	return PONY_ID.from(str(pony.get_meta("relationship_id", "")),
 		pony.get("identity")) if is_instance_valid(pony) else ""

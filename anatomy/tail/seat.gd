@@ -15,6 +15,7 @@ extends Node
 ## per settings tick.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
@@ -322,11 +323,7 @@ func _eligible(pony: Node) -> bool:
 
 ## The mod's stable id for a pony: relationship metadata first, then the identity.
 func _id_for(pony: Node) -> String:
-	var meta_id := str(pony.get_meta("relationship_id", ""))
-	if not meta_id.is_empty():
-		return meta_id
-	var identity: Variant = pony.get("identity")
-	return str(identity.get("id")) if identity != null else ""
+	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 
 
 ## True when the tail/dock placement can ever move this pony, even while the seat is toggled off.

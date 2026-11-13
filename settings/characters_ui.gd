@@ -9,6 +9,7 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
 
 ## The tri-state preference row: one pill per state.
@@ -82,47 +83,23 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 			PREFERENCE_STATE_LABELS)
 	# integration: per-mare consent for the optional anatomy actions.
 	# One row of checks, the same widget the list settings (Ignore body parts) use.
-	var consent_public := CheckButton.new()
-	consent_public.text = "Public"
-	var consent_anal := CheckButton.new()
-	consent_anal.text = "Anal"
-	var consent_oral := CheckButton.new()
-	consent_oral.text = "Oral"
-	var consent_row := HBoxContainer.new()
-	consent_row.add_theme_constant_override("separation", 10)
-	consent_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
-		button.add_theme_font_size_override("font_size", font_size - 3)
-		consent_row.add_child(button)
-	form.add_child(_form_label("Okay with", font_size))
-	form.add_child(consent_row)
+	var consent_buttons := _check_row(form, "Okay with", "consent", CONSENT.KEYS,
+		CONSENT.LABELS, font_size)
 	# integration: per-mare participation. A subtractive capability layer; a provider's `adult`
 	# assertion is read-only and only shown when the provider overrides it.
-	var participation_acts := CheckButton.new()
-	participation_acts.text = "Acts"
-	var participation_anatomy := CheckButton.new()
-	participation_anatomy.text = "Anatomy"
-	var participation_tail := CheckButton.new()
-	participation_tail.text = "Tail"
-	var participation_row := HBoxContainer.new()
-	participation_row.add_theme_constant_override("separation", 10)
-	participation_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	for button: CheckButton in [participation_acts, participation_anatomy, participation_tail]:
-		button.add_theme_font_size_override("font_size", font_size - 3)
-		participation_row.add_child(button)
-	form.add_child(_form_label("Takes part in", font_size))
-	form.add_child(participation_row)
+	var participation_buttons := _check_row(form, "Takes part in", "participation",
+		PARTICIPATION.KEYS, PARTICIPATION.LABELS, font_size)
 	var participation_hint := STYLE.label("", "Faint", font_size - 6)
 	participation_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	participation_hint.visible = false
 	form.add_child(participation_hint)
-	var adult_label := _form_label("Adult", font_size)
-	adult_label.visible = false
-	var adult_hint := STYLE.label("", "Faint", font_size - 6)
-	adult_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	adult_hint.visible = false
-	form.add_child(adult_label)
-	form.add_child(adult_hint)
+	var assertion_label := _form_label("Provider assertion", font_size)
+	assertion_label.visible = false
+	var assertion_hint := STYLE.label("", "Faint", font_size - 6)
+	assertion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	assertion_hint.visible = false
+	form.add_child(assertion_label)
+	form.add_child(assertion_hint)
 	var notes := TextEdit.new()
 	notes.custom_minimum_size = Vector2(0.0, 76.0)
 	notes.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -140,15 +117,9 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 		"touch": touch,
 		"talk": talk,
 		"notes": notes,
-		"consent_public": consent_public,
-		"consent_anal": consent_anal,
-		"consent_oral": consent_oral,
-		"participation_acts": participation_acts,
-		"participation_anatomy": participation_anatomy,
-		"participation_tail": participation_tail,
 		"participation_hint": participation_hint,
-		"adult_label": adult_label,
-		"adult_hint": adult_hint,
+		"assertion_label": assertion_label,
+		"assertion_hint": assertion_hint,
 		"status": status,
 		"reset": reset,
 		"refreshing": false,
@@ -157,6 +128,8 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 		"changed": changed,
 		"debug": debug,
 	}
+	refs.merge(consent_buttons)
+	refs.merge(participation_buttons)
 	selector.item_selected.connect(func(index: int) -> void:
 		last_id = str(selector.get_item_metadata(index))
 		_refresh_preference_form(refs))
@@ -171,9 +144,9 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 				(pill as Button).pressed.connect(_choose_preference_pill.bind(
 					pills, str(pill.get_meta("value")), refs))
 	# integration: consent edits stage with the rest of the preset.
-	for button: CheckButton in [consent_public, consent_anal, consent_oral]:
+	for button: CheckButton in consent_buttons.values():
 		button.toggled.connect(func(_on: bool) -> void: _mark_preference_dirty(refs))
-	for button: CheckButton in [participation_acts, participation_anatomy, participation_tail]:
+	for button: CheckButton in participation_buttons.values():
 		button.toggled.connect(func(_on: bool) -> void: _mark_preference_dirty(refs))
 	notes.text_changed.connect(func() -> void: _mark_preference_dirty(refs))
 	notes.focus_exited.connect(func() -> void: _mark_preference_dirty(refs))
@@ -236,6 +209,26 @@ static func _form_label(text: String, font_size: int) -> Label:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return label
+
+
+## One form row of per-key checks. The refs are `<prefix>_<key>`, so the refresh and save code
+## follows the shared key table instead of a copied list.
+static func _check_row(form: GridContainer, label_text: String, prefix: String, keys: Array,
+		labels: Dictionary, font_size: int) -> Dictionary:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var out: Dictionary = {}
+	for key: Variant in keys:
+		var name := str(key)
+		var button := CheckButton.new()
+		button.text = str(labels.get(name, name.capitalize()))
+		button.add_theme_font_size_override("font_size", font_size - 3)
+		row.add_child(button)
+		out[prefix + "_" + name] = button
+	form.add_child(_form_label(label_text, font_size))
+	form.add_child(row)
+	return out
 
 
 ## A few short values as the page's Segment pills in one track; the chosen one is lit. A row label
@@ -329,12 +322,10 @@ static func _refresh_preference_form(refs: Dictionary) -> void:
 	if notes is TextEdit:
 		(notes as TextEdit).text = str(preferences.get("notes", ""))
 	var consent := SETTINGS.consent(id)
-	if refs.get("consent_public") is CheckButton:
-		(refs.get("consent_public") as CheckButton).set_pressed_no_signal(bool(consent.get("public", false)))
-	if refs.get("consent_anal") is CheckButton:
-		(refs.get("consent_anal") as CheckButton).set_pressed_no_signal(bool(consent.get("anal", false)))
-	if refs.get("consent_oral") is CheckButton:
-		(refs.get("consent_oral") as CheckButton).set_pressed_no_signal(bool(consent.get("oral", false)))
+	for key: String in CONSENT.KEYS:
+		var button: Variant = refs.get("consent_" + key)
+		if button is CheckButton:
+			(button as CheckButton).set_pressed_no_signal(bool(consent.get(key, false)))
 	var resolved: Dictionary = {}
 	var participation := refs["participation"] as Callable
 	if participation.is_valid():
@@ -351,18 +342,19 @@ static func _refresh_preference_form(refs: Dictionary) -> void:
 		(participation_hint as Label).visible = not sources.is_empty()
 		if not sources.is_empty():
 			(participation_hint as Label).text = "Overridden by %s" % ", ".join(sources)
-	var adult: Variant = SETTINGS.profile_adult(id)
-	var adult_label: Variant = refs.get("adult_label")
-	var adult_hint: Variant = refs.get("adult_hint")
-	var show_adult := adult is bool
-	if adult_label is Label:
-		(adult_label as Label).visible = show_adult
-		if show_adult:
-			(adult_label as Label).text = "Adult: %s" % ("yes" if adult else "no")
-	if adult_hint is Label:
-		(adult_hint as Label).visible = show_adult
-		if show_adult:
-			(adult_hint as Label).text = "Overridden by %s" % (
+	var assertion: Variant = SETTINGS.profile_adult(id)
+	var assertion_label: Variant = refs.get("assertion_label")
+	var assertion_hint: Variant = refs.get("assertion_hint")
+	var show_assertion := assertion is bool
+	if assertion_label is Label:
+		(assertion_label as Label).visible = show_assertion
+		if show_assertion:
+			(assertion_label as Label).text = "Provider assertion: %s" % (
+				"adult" if assertion else "not adult")
+	if assertion_hint is Label:
+		(assertion_hint as Label).visible = show_assertion
+		if show_assertion:
+			(assertion_hint as Label).text = "Overridden by %s" % (
 				", ".join(sources) if not sources.is_empty() else "a provider")
 	var status: Variant = refs.get("status")
 	if status is Label:
@@ -432,23 +424,16 @@ static func _preference_form_values(refs: Dictionary) -> Dictionary:
 
 
 static func _preference_consent_values(refs: Dictionary) -> Dictionary:
-	var public := false
-	var public_button: Variant = refs.get("consent_public")
-	if public_button is CheckButton:
-		public = (public_button as CheckButton).button_pressed
-	var anal := false
-	var anal_button: Variant = refs.get("consent_anal")
-	if anal_button is CheckButton:
-		anal = (anal_button as CheckButton).button_pressed
-	var oral := false
-	var oral_button: Variant = refs.get("consent_oral")
-	if oral_button is CheckButton:
-		oral = (oral_button as CheckButton).button_pressed
-	return {"public": public, "anal": anal, "oral": oral}
+	var out := CONSENT.empty()
+	for key: String in CONSENT.KEYS:
+		var button: Variant = refs.get("consent_" + key)
+		if button is CheckButton:
+			out[key] = (button as CheckButton).button_pressed
+	return out
 
 
 static func _preference_participation_values(refs: Dictionary) -> Dictionary:
-	var out: Dictionary = {}
+	var out := PARTICIPATION.defaults()
 	for key: String in PARTICIPATION.KEYS:
 		var button: Variant = refs.get("participation_" + key)
 		if button is CheckButton:

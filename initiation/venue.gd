@@ -6,6 +6,7 @@ extends Node
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 var main: Node
 
@@ -34,12 +35,7 @@ func mares() -> Array:
 func pony_id(pony: Node) -> String:
 	if not is_instance_valid(pony):
 		return ""
-	var id := str(pony.get_meta("relationship_id", ""))
-	if id.is_empty():
-		var identity: Variant = pony.get("identity")
-		if identity != null:
-			id = str(identity.get("id"))
-	return id
+	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 
 
 func region_of(at: Vector3) -> String:

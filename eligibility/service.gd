@@ -15,6 +15,9 @@ extends RefCounted
 
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
@@ -54,7 +57,10 @@ class Participation extends RefCounted:
 	var tail := true
 
 	func to_dict() -> Dictionary:
-		return {"acts": acts, "anatomy": anatomy, "tail": tail}
+		var out: Dictionary = {}
+		for key: String in PARTICIPATION.KEYS:
+			out[key] = bool(get(key))
+		return out
 
 
 class Consent extends RefCounted:
@@ -63,7 +69,10 @@ class Consent extends RefCounted:
 	var oral := false
 
 	func to_dict() -> Dictionary:
-		return {"public": public, "anal": anal, "oral": oral}
+		var out: Dictionary = {}
+		for key: String in CONSENT.KEYS:
+			out[key] = bool(get(key))
+		return out
 
 
 ## One mare's resolved provider/player profile. `adult` is the provider-only tri-state assertion.
@@ -228,9 +237,9 @@ func witness_age(pony: Node) -> Age:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return Age.NONE
 	match POLICY.age_kind(_identity_facts(pony)):
-		"adult":
+		FACTS.AgeKind.ADULT:
 			return Age.ADULT
-		"young":
+		FACTS.AgeKind.YOUNG:
 			return Age.YOUNG
 		_:
 			return Age.NONE
@@ -483,9 +492,8 @@ func _typed_participation(raw: Variant) -> Participation:
 	if not raw is Dictionary:
 		return out
 	var data: Dictionary = raw
-	out.acts = bool(data.get("acts", true))
-	out.anatomy = bool(data.get("anatomy", true))
-	out.tail = bool(data.get("tail", true))
+	for key: String in PARTICIPATION.KEYS:
+		out.set(key, bool(data.get(key, true)))
 	return out
 
 
@@ -494,9 +502,8 @@ func _typed_consent(raw: Variant) -> Consent:
 	if not raw is Dictionary:
 		return out
 	var data: Dictionary = raw
-	out.public = bool(data.get("public", false))
-	out.anal = bool(data.get("anal", false))
-	out.oral = bool(data.get("oral", false))
+	for key: String in CONSENT.KEYS:
+		out.set(key, bool(data.get(key, false)))
 	return out
 
 
@@ -568,11 +575,7 @@ func _owner_source(owner: Node) -> String:
 func _pony_id(pony: Node) -> String:
 	if not is_instance_valid(pony):
 		return ""
-	var id := str(pony.get_meta("relationship_id", ""))
-	if not id.is_empty():
-		return id
-	var identity: Variant = pony.get("identity")
-	return str(identity.get("id")) if identity != null else ""
+	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 
 
 func _is_player_pony(pony: Node) -> bool:

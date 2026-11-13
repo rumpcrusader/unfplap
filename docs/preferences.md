@@ -101,7 +101,8 @@ The form holds:
   talk action (praise, reassurance, dirty talk, playful);
 - public, anal and oral consent (`docs/eligibility.md`);
 - private notes;
-- the **Takes part in** row (`Acts`, `Anatomy`, `Tail`).
+- the **Takes part in** row (`Acts`, `Anatomy`, `Tail`);
+- a provider's `adult` assertion, shown only when a provider layer sets one.
 
 Preset changes are staged in the form and written only by **Save preset**, then applied live during
 an act. If the form matches the character's own preference template, Save preset removes the saved

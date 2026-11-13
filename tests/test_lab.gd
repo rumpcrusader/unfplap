@@ -28,6 +28,7 @@ extends Node
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LAB_POPULATION := preload("res://world/population/pony_population_config.gd")
 const MOD_SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack",
@@ -1316,12 +1317,8 @@ func _test_ponies() -> Array:
 func _pony_id(pony: Variant) -> String:
 	if not is_instance_valid(pony):
 		return ""
-	var id := str((pony as Node).get_meta("relationship_id", ""))
-	if id.is_empty():
-		var identity: Variant = (pony as Node).get("identity")
-		if identity != null:
-			id = str(identity.get("id"))
-	return id
+	return PONY_ID.from(str((pony as Node).get_meta("relationship_id", "")),
+		(pony as Node).get("identity"))
 
 
 ## The game's young flag: true for fillies and colts alike. Young test ponies never get a

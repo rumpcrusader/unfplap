@@ -238,11 +238,14 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 		var external := text.replace("mods/unfplap/eligibility/service.gd", "")
 		check(not external.contains("mods/unfplap/eligibility/"),
 			"%s uses the eligibility facade only" % relative)
-	# Age, sex and the provider assertion stay private: consumers ask a capability target.
+	# Age, sex and the provider assertion stay private: consumers ask a capability target. The pure
+	# eligibility core is the one place that calls the predicate itself.
 	for path: String in files:
 		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
 			continue
 		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative.begins_with("eligibility/"):
+			continue
 		var text := FileAccess.get_file_as_string(path)
 		for token: String in [".adult_mare(", ".adult_pony(", ".adult_player("]:
 			check(not text.contains(token),

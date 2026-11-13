@@ -72,6 +72,7 @@ only stable external surface is `docs/api.md`.
 | Cycle | `shared/cycle.gd` | `docs/eligibility.md` | `tests/test_cycle.gd` |
 | Participation | `shared/participation.gd` | `docs/eligibility.md` | `tests/test_participation.gd` |
 | Consent defaults | `shared/consent.gd` | `docs/eligibility.md` | `tests/eligibility/` |
+| Pony id | `shared/pony_id.gd` | `docs/eligibility.md` | `tests/test_pony_id.gd` |
 | History store | `shared/act_history.gd` | `docs/summary.md` | `tests/summary/` |
 | Face data | `shared/act_face.gd` | `docs/face.md` | `tests/face/` |
 | Relationship cue | `shared/relationship_cue.gd` | `docs/lines.md` | `tests/test_relationship_cue.gd` |

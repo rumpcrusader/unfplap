@@ -265,10 +265,11 @@ func _consider_start() -> void:
 		return
 	var cuddles: Array = []
 	var offers: Array = []
+	var eligibility := _eligibility()
 	for node: Variant in _venue.mares():
 		if not is_instance_valid(node):
 			continue
-		if main.has_method("is_adult_mare") and not bool(main.call("is_adult_mare", node)):
+		if eligibility == null or not eligibility.eligible(node, ELIGIBILITY.Target.ACT):
 			continue
 		var runtime: Variant = main.call("runtime_for", node)
 		if not is_instance_valid(runtime):

@@ -17,7 +17,10 @@ const LABELS := {
 
 ## The built-in default: every capability is allowed.
 static func defaults() -> Dictionary:
-	return {"acts": true, "anatomy": true, "tail": true}
+	var out: Dictionary = {}
+	for key: String in KEYS:
+		out[key] = true
+	return out
 
 
 ## A complete profile with the provider's partial values applied over the defaults.

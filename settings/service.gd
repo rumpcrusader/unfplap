@@ -2031,7 +2031,7 @@ static func save_consent(id: String, values: Dictionary) -> void:
 	var defaults := _profile_consent(base, id)
 	var cleaned := CONSENT.clean(values)
 	var diff: Dictionary = {}
-	for key: String in ["public", "anal", "oral"]:
+	for key: String in CONSENT.KEYS:
 		if cleaned.has(key) and bool(cleaned[key]) != bool(defaults.get(key, false)):
 			diff[key] = bool(cleaned[key])
 	if diff.is_empty():
@@ -2441,7 +2441,7 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 				var consent_defaults := CONSENT.resolve(id, template.get("consent", {}))
 				var saved := CONSENT.clean(saved_consent)
 				var diff: Dictionary = {}
-				for consent_key: String in ["public", "anal", "oral"]:
+				for consent_key: String in CONSENT.KEYS:
 					if saved.has(consent_key) \
 							and bool(saved[consent_key]) != bool(consent_defaults.get(consent_key, false)):
 						diff[consent_key] = bool(saved[consent_key])

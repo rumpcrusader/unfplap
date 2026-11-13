@@ -4,6 +4,7 @@ extends Node
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
@@ -66,8 +67,7 @@ static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
 static func pony_id(pony_node: Node) -> String:
 	if not is_instance_valid(pony_node):
 		return ""
-	return IDENTITY.id_for(str(pony_node.get_meta("relationship_id", "")),
-		pony_node.get("identity"))
+	return PONY_ID.from(str(pony_node.get_meta("relationship_id", "")), pony_node.get("identity"))
 
 
 ## The princess body scale and placement anchor for a known character.

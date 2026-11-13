@@ -26,9 +26,6 @@ class FakeMain extends Node:
 		var runtime: Variant = runtimes.get(pony)
 		return runtime if is_instance_valid(runtime) else null
 
-	func is_adult_mare(_pony: Variant) -> bool:
-		return true
-
 	func menu_open() -> bool:
 		return false
 

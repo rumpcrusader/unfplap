@@ -276,6 +276,7 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |

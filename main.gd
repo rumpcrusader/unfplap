@@ -10,6 +10,7 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
@@ -558,7 +559,7 @@ func _rump_cone_target(view: Camera3D) -> Node:
 		var actor: Node3D = node as Node3D
 		if actor == null or not actor.has_method("posture_status"):
 			continue
-		if not is_adult_mare(actor):
+		if not _is_act_target(actor):
 			continue
 		if str(actor.posture_status().get("requested", "")) != "stand":
 			continue
@@ -1054,12 +1055,7 @@ func _debug_history_target() -> Node:
 
 
 func _debug_pony_id(target: Node) -> String:
-	var id := str(target.get_meta("relationship_id", ""))
-	if id.is_empty():
-		var identity: Variant = target.get("identity")
-		if identity != null:
-			id = str(identity.get("id"))
-	return id
+	return PONY_ID.from(str(target.get_meta("relationship_id", "")), target.get("identity"))
 
 
 func action_force_tolerance_warning() -> String:
@@ -1386,7 +1382,7 @@ func mares() -> Array:
 
 ## The act-target capability. The eligibility service owns the rule; a scan uses this before
 ## building a runtime gate for a stallion or a young pony.
-func is_adult_mare(pony: Variant) -> bool:
+func _is_act_target(pony: Variant) -> bool:
 	return is_instance_valid(eligibility) \
 		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 
@@ -1566,7 +1562,7 @@ func _bedside_pony(view: Camera3D) -> Node:
 			var couch: Variant = seat.get_meta("couch")
 			if is_instance_valid(couch) and couch.has_method("partner"):
 				var partner: Variant = couch.call("partner", seat)
-				if partner is Node and is_instance_valid(partner) and is_adult_mare(partner):
+				if partner is Node and is_instance_valid(partner) and _is_act_target(partner):
 					return partner
 	return null
 
@@ -1583,7 +1579,7 @@ func nearest_lying(view: Camera3D) -> Node:
 		var actor: Node3D = node as Node3D
 		if actor == null or not actor.has_method("posture_status"):
 			continue
-		if not is_adult_mare(actor):
+		if not _is_act_target(actor):
 			continue
 		var status: Dictionary = actor.posture_status()
 		if str(status.get("requested", "")) != "lie_down":

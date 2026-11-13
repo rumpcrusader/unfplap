@@ -1,6 +1,7 @@
 extends RefCounted
-## Pure anatomy helpers: the stable pony id, the princess body profile and the off-roster id
-## list. It reads no Node, scene or settings file; `anatomy/service.gd` supplies the live values.
+## Pure anatomy helpers: the princess body profile and the off-roster id list. It reads no Node,
+## scene or settings file; `anatomy/service.gd` supplies the live values. The stable pony id is
+## `shared/pony_id.gd`.
 ##
 ## The adult capability is not here: the eligibility facade owns it and the anatomy facade asks
 ## `eligible(pony, Target.ANATOMY)`.
@@ -13,14 +14,6 @@ const WINKING_BODIES := {
 	"celestia": [0.853, 0.3329, 1.67],
 	"luna": [0.596, 0.2265, 1.095],
 }
-
-
-## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
-## `runtime._read_id()` so placement and preferences key off the same value.
-static func id_for(meta_id: String, identity: Variant) -> String:
-	if not meta_id.is_empty():
-		return meta_id
-	return str(identity.get("id")) if identity != null else ""
 
 
 ## The princess body profile, or an empty array for an ordinary body. A modded copy is matched by

@@ -84,6 +84,7 @@ cross-mod API.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
+| shared | consent | `shared/consent.gd` | consent keys and defaults |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |

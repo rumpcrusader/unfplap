@@ -21,11 +21,6 @@ const EFFECT_HISTORY_REFUSE := "history_refuse"
 const EFFECT_OFFER_BLOCK := "offer_block"
 const EFFECT_FLAG := "flag"
 
-## Witness age categories. `young` is the game's filly/colt flag; a provider's `adult` assertion
-## wins over it.
-const AGE_ADULT := "adult"
-const AGE_YOUNG := "young"
-
 
 ## True when `love_level` meets the selected Promiscuity floor. Unknown values fall back to
 ## Marefriend, the old hardcoded gate.
@@ -41,17 +36,15 @@ static func hint_without_willingness(sex_start: String) -> bool:
 
 
 static func adult_pony(facts: Dictionary) -> bool:
-	if not bool(facts.get("has_identity", false)) \
-			or bool(facts.get("is_player_pony", false)):
-		return false
-	var adult: Variant = facts.get("adult", null)
-	if adult is bool:
-		return adult
-	return not bool(facts.get("is_filly", false))
+	return FACTS.adult_pony(bool(facts.get("has_identity", false)),
+		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
+		facts.get("adult", null))
 
 
 static func adult_mare(facts: Dictionary) -> bool:
-	return adult_pony(facts) and not bool(facts.get("is_stallion", false))
+	return FACTS.adult_mare(bool(facts.get("has_identity", false)),
+		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
+		bool(facts.get("is_stallion", false)), facts.get("adult", null))
 
 
 static func adult_player(facts: Dictionary) -> bool:
@@ -69,19 +62,12 @@ static func participates(facts: Dictionary, key := "") -> bool:
 	return bool((facts.get("participation", {}) as Dictionary).get(key, true))
 
 
-## The witness age category, or empty when she can be neither an adult nor a young witness.
-## A provider's `adult` assertion wins over the identity flag in both directions.
-static func age_kind(facts: Dictionary) -> String:
-	if not bool(facts.get("has_identity", false)) or bool(facts.get("is_player_pony", false)):
-		return ""
-	var adult: Variant = facts.get("adult", null)
-	if adult is bool and bool(adult):
-		return AGE_ADULT
-	if bool(facts.get("is_filly", false)):
-		return AGE_YOUNG
-	if adult is bool:
-		return ""
-	return AGE_ADULT
+## The witness age category, or `FACTS.AgeKind.NONE` when she can be neither an adult nor a young
+## witness. A provider's `adult` assertion wins over the identity flag in both directions.
+static func age_kind(facts: Dictionary) -> int:
+	return FACTS.age_kind(bool(facts.get("has_identity", false)),
+		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
+		facts.get("adult", null))
 
 
 ## The shared base: an adult mare with a relationship runtime, a registered adult, an adult

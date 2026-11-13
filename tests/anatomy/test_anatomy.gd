@@ -534,6 +534,10 @@ func run() -> void:
 	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
 	# those hooks is left alone instead of being half-patched.
 	check(bool(SETTINGS.body_coat_deform.default), "body coat deform is on by default")
+	check(near(float(SETTINGS.coat_hole.default), 0.95),
+		"the coat hole uses 95% of the lip radius by default")
+	check(near(float(SETTINGS.coat_hole_depth_mm.default), 25.0),
+		"the coat hole reaches 25 mm behind the opening by default")
 	check(near(float(SETTINGS.anal_still.default), 0.0), "anal still zone is off by default")
 	check(near(float(SETTINGS.still_oval.default), 1.5),
 		"still zones are taller than they are wide")
@@ -595,17 +599,30 @@ func run() -> void:
 	patch_source.code = "shader_type spatial;\n" \
 		+ "#include \"includes/base-cel-shader.gdshaderinc\"\n" \
 		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
-		+ "void vertex() { VERTEX += flank_jiggle(VERTEX); }"
+		+ "void vertex() { VERTEX += flank_jiggle(VERTEX); }\n" \
+		+ "void fragment() { ALBEDO = vec3(1.0); }"
 	var patched := COAT_PATCH.patched(patch_source)
-	check(patched != null, "the coat shader patch finds its two hooks")
+	check(patched != null, "the coat shader patch finds its two required hooks")
 	if patched != null:
 		check(patched.code.contains("body_coat_deform.gdshaderinc"),
 			"the patch swaps the include")
 		check(patched.code.contains("body_coat_deform(VERTEX)"),
 			"the patch swaps the deform call")
-		check(patched.code.contains(
-			"res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"),
+		check(patched.code.contains("body_coat_vertex = VERTEX;"),
+			"the patch records the model-space coat position")
+		check(patched.code.contains("body_coat_vulva_cut(body_coat_vertex)"),
+			"the patch cuts the coat inside the vulva opening")
+		check(patched.code.contains("res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"),
 			"the patch makes the cel includes absolute")
+	var no_fragment := Shader.new()
+	no_fragment.code = "shader_type spatial;\n" \
+		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
+		+ "void vertex() { VERTEX += flank_jiggle(VERTEX); }"
+	var deform_only := COAT_PATCH.patched(no_fragment)
+	check(deform_only != null and deform_only.code.contains("body_coat_deform(VERTEX)"),
+		"a shader without a fragment hook still gets the coat deform")
+	check(deform_only == null or not deform_only.code.contains("body_coat_vulva_cut"),
+		"a shader without a fragment hook leaves the vulva cut out")
 	var unpatched := Shader.new()
 	unpatched.code = "shader_type spatial;"
 	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")

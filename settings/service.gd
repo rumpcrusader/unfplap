@@ -1403,6 +1403,16 @@ static var coat_spread := num("coat_spread", "anatomy.coat_spread", 2.0,
 	"Multiplier for the body coat stretching around the vulva as the opening widens.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
+static var coat_hole := num("coat_hole", "anatomy.coat_hole", 0.95,
+	"Coat hole",
+	"Share of the measured lip radius cut out of the body coat behind the vulva opening. Keep it at or below 1 so the cut stays under the lips; 0 turns the cut off.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.01).with_range(0.0, 1.2) \
+	.as_debug()
+static var coat_hole_depth_mm := num("coat_hole_depth_mm", "anatomy.coat_hole_depth_mm", 25.0,
+	"Coat hole depth",
+	"How far behind the vulva opening the coat cut reaches. Keep it shorter than the anatomy's inner cavity.", ANATOMY, "Holes") \
+	.with_unit("mm").with_step(1.0).with_range(0.0, 50.0) \
+	.as_debug()
 static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.5,
 	"Jiggle still zone",
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \

@@ -1,7 +1,7 @@
 extends RefCounted
-## The rig coat's runtime deform: the duplicate-and-patch, the vulva/anal spread, the two
-## no-jiggle zones and the debug overlay. It owns the coat material copies and restores the game
-## shaders exactly.
+## The rig coat's runtime deform: the duplicate-and-patch, the vulva/anal spread, the vulva cut,
+## the two no-jiggle zones and the debug overlay. It owns the coat material copies and restores
+## the game shaders exactly.
 ##
 ## See `docs/anatomy.md` (`## Body coat deform`).
 
@@ -214,6 +214,13 @@ func _apply_uniforms() -> void:
 	spread = 1.0 + (spread - 1.0) * SETTINGS.coat_spread.get_num()
 	var reach := maxf(shapes.lip_radius() * LIP_OUTER_FACTOR * scale * 1.1, 0.02)
 	var depth := (spread - 1.0) * VULVA_RELIEF_M
+	# Cut the coat behind the vulva opening so the silhouette cannot show through the closed lips.
+	# The anatomy mesh is pushed into the coat; the cut is the same body-local frame as the spread
+	# and follows the placement/scale. The gate closes when the anatomy is hidden (act-only mode).
+	var hole: float = maxf(SETTINGS.coat_hole.get_num(), 0.0)
+	var hole_radius: float = shapes.lip_radius() * scale * hole
+	var hole_depth: float = maxf(SETTINGS.coat_hole_depth_mm.get_num(), 0.0) / 1000.0
+	var hole_open: float = 1.0 if is_instance_valid(mesh) and mesh.is_visible_in_tree() else 0.0
 	var still_centre := centre + up_axis * (SETTINGS.still_height_mm.get_num() / 1000.0)
 	var still_radius := maxf(shapes.lip_radius() * LIP_OUTER_FACTOR * scale * 1.3,
 			JIGGLE_STILL_MIN_M) * SETTINGS.jiggle_still.get_num()
@@ -253,6 +260,9 @@ func _apply_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_vulva_scale", spread)
 		mat.set_shader_parameter("body_coat_vulva_reach", reach)
 		mat.set_shader_parameter("body_coat_vulva_depth", depth)
+		mat.set_shader_parameter("body_coat_vulva_hole", hole_radius)
+		mat.set_shader_parameter("body_coat_vulva_hole_depth", hole_depth)
+		mat.set_shader_parameter("body_coat_vulva_hole_open", hole_open)
 		mat.set_shader_parameter("body_coat_still_centre", still_centre)
 		mat.set_shader_parameter("body_coat_still_radius", still_radius)
 		mat.set_shader_parameter("body_coat_anal_still_centre", anal_still_centre)

@@ -259,8 +259,9 @@ tuning:
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
-- **Anatomy › Debug**: **Holes** (anal ring, anal height, lip vertical share), plus the ungrouped
-  cock forward, pelvis gap, skin-strip scale, aim points and **Hide tails**.
+- **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
+  still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points and
+  **Hide tails**.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.

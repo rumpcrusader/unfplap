@@ -218,6 +218,7 @@ func _attach() -> void:
 		_log("coat follow built %s" % str(coat_follow.summary()))
 	set_process(true)
 	attach.apply_visibility(_act_visible())
+	_apply_body_coat()
 	_log("anatomy attached lift=%.3f" % PLACEMENT.LIFT)
 	if shapes != null and bool(shapes.v2_anal()) and mesh.mesh is ArrayMesh:
 		var arrays: Array = (mesh.mesh as ArrayMesh).surface_get_arrays(0)
@@ -246,12 +247,13 @@ func _process(delta: float) -> void:
 	_visibility_clock = ATTACH.VISIBILITY_POLL_S
 	_apply_place()
 	shapes.refresh_anal()
-	_apply_body_coat()
 	if appearance != null:
 		appearance.apply_strip_scale()
 	var started := Time.get_ticks_usec()
 	attach.apply_visibility(_act_visible())
 	facts.perf("anatomy_visibility", Time.get_ticks_usec() - started)
+	# After visibility, so the vulva coat cut opens and closes with the mesh in the same poll.
+	_apply_body_coat()
 
 
 ## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,
@@ -381,8 +383,8 @@ func apply_live() -> void:
 	_apply_material()
 	_apply_place()
 	shapes.refresh_anal()
-	_apply_body_coat()
 	attach.apply_visibility(_act_visible())
+	_apply_body_coat()
 
 
 func detach() -> void:

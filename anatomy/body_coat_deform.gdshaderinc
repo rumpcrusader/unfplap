@@ -1,6 +1,7 @@
 // Mod-owned rig-coat deformation. `body_coat_patch.gd` keeps the game shader's flank_jiggle
-// include, adds this file after it, and swaps the `VERTEX += flank_jiggle(VERTEX);` call for
-// `VERTEX += body_coat_deform(VERTEX);`. The game include and the cel material stay untouched.
+// include, adds this file after it, swaps the `VERTEX += flank_jiggle(VERTEX);` call for
+// `VERTEX += body_coat_deform(VERTEX);`, and cuts the coat behind the vulva opening in the
+// fragment. The game include and the cel material stay untouched.
 // No nested #include here: Godot resolves the main shader's includes, and this file uses the
 // flank_jiggle function the game include already defined above it.
 
@@ -15,13 +16,26 @@ uniform vec3 body_coat_anal_out = vec3(0.0, 0.0, 1.0);
 uniform float body_coat_anal_depth = 0.0;
 uniform float body_coat_anal_hole_reach = 0.0;
 
-// The vulva's body-local frame and the no-jiggle zone under it. anatomy.gd converts them from
-// the anatomy's bone-local transform with the pony_hips bind pose, so poses do not move them.
+// Model-space fragment position, written after the deform. The fragment `VERTEX` built-in is
+// view space, so the vulva cut tests this instead.
+varying vec3 body_coat_vertex;
+
+// The vulva's body-local frame and the no-jiggle zone under it. anatomy/coat.gd converts them
+// from the anatomy's bone-local transform with the pony_hips bind pose, so poses do not move them.
 uniform vec3 body_coat_vulva_centre = vec3(0.0, 0.548, 0.292);
 uniform vec3 body_coat_vulva_out = vec3(0.0, 0.0, 1.0);
 uniform float body_coat_vulva_scale = 1.0;
 uniform float body_coat_vulva_reach = 0.04;
 uniform float body_coat_vulva_depth = 0.0;
+// The anatomy shell is pushed slightly into the coat, so the closed lips would otherwise show the
+// body surface behind them. Cut the coat away inside the lip ring, down to the anatomy's closed
+// inner cavity. `hole_open` is 0 while the anatomy mesh is hidden.
+uniform float body_coat_vulva_hole = 0.0;
+uniform float body_coat_vulva_hole_depth = 0.025;
+uniform float body_coat_vulva_hole_open = 0.0;
+// The coat may bulge a little in front of the opening plane; keep a small front margin. The depth
+// limit keeps the cut from reaching the far side of the body.
+const float BODY_COAT_VULVA_HOLE_FRONT_M = 0.01;
 uniform vec3 body_coat_still_centre = vec3(0.0);
 uniform float body_coat_still_radius = 0.0;
 // The visible anal cup is a separate overlay from the body ponut; its own still zone keeps the
@@ -47,6 +61,22 @@ float body_coat_still_mask(vec3 vertex, vec3 centre, float radius) {
 		dot(d, normalize(body_coat_vulva_out)) / radius);
 	float fade = clamp(body_coat_still_fade, 0.02, 0.95);
 	return smoothstep(1.0 - fade, 1.0, length(q));
+}
+
+// True when the coat fragment is inside the vulva opening's cavity: within the lip ring, from a
+// small margin in front of the opening plane to the configured depth behind it.
+bool body_coat_vulva_cut(vec3 vertex) {
+	if (body_coat_vulva_hole_open < 0.5 || body_coat_vulva_hole <= 0.0) {
+		return false;
+	}
+	vec3 d = vertex - body_coat_vulva_centre;
+	vec3 out_axis = normalize(body_coat_vulva_out);
+	float depth = dot(d, out_axis);
+	if (depth > BODY_COAT_VULVA_HOLE_FRONT_M || depth < -body_coat_vulva_hole_depth) {
+		return false;
+	}
+	vec3 lateral = d - out_axis * depth;
+	return dot(lateral, lateral) < body_coat_vulva_hole * body_coat_vulva_hole;
 }
 
 vec3 body_coat_deform(vec3 vertex) {

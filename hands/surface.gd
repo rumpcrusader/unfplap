@@ -9,9 +9,16 @@ const CACHE_LIMIT := 12
 ## The patch is skinned at most once per update_ms, and the blur walks blur_depth rings. The
 ## caress quality setting lowers both; the default keeps the exact miss fallback.
 const BLUR_RING_RADIUS_M := 0.03
+## `features.caress_local`: the region source stays stable, but each hand skins and raycasts only
+## a rest-space window around its intended point. The window re-centres when the point leaves its
+## core, so the contact never sees the window boundary. The cell size equals the window radius, so
+## one 3x3x3 cell block always covers the whole window.
+const LOCAL_RADIUS_M := 0.12
+const LOCAL_CORE_SCALE := 0.5
 var update_ms := 33
 var blur_depth := 2
 var accurate_miss := true
+var local_enabled := false
 
 static var _source_cache: Dictionary = {}
 
@@ -54,10 +61,24 @@ var _pose_serial := 0
 var _last_update := -1
 var _cache_order: Array = []
 
+## The local window. `_cells` buckets the stable rest-space faces; `_local_faces`/`_local_verts`
+## are the active window, `_mask` marks the skinned vertices for the normal blur, and
+## `_soup_dirty` forces the next update to rebuild the soup for a new window.
+var _cells: Dictionary = {}
+var _all_verts := PackedInt32Array()
+var _local_verts := PackedInt32Array()
+var _local_faces := PackedInt32Array()
+var _mask := PackedByteArray()
+var _local_center := Vector3.INF
+var _local_radius := LOCAL_RADIUS_M
+var _local_valid := false
+var _soup_dirty := true
 
-## Build a stable patch for a body region. The patch is anchored to the rig's rest pose, not to
-## the caller's query, so it does not change face sets while the hand moves. `region` is "torso",
-## "neck", "head" or "body". Returns false when the pony/rig/region is unavailable.
+
+## Build a stable patch for a body region. The full patch is anchored to the rig's rest pose, not
+## to the caller's query; `features.caress_local` then picks a window of that patch around the
+## intended point instead of skinning all of it. `region` is "torso", "neck", "head" or "body".
+## Returns false when the pony/rig/region is unavailable.
 func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
 
@@ -78,6 +99,43 @@ func set_quality(quality: String) -> void:
 			update_ms = 33
 			blur_depth = 2
 			accurate_miss = true
+
+
+## Enable or disable the local window. A change rebuilds the active soup on the next update.
+func set_local(on: bool) -> void:
+	if local_enabled == on:
+		return
+	local_enabled = on
+	if not on:
+		_local_valid = false
+	_soup_dirty = true
+
+
+## Pick the local window for one world query. Cheap when the point is still inside the current
+## window; a new window is skinned by the next `update_pose()`. Called before the pose update so
+## the first hand of the frame never skins the old window.
+func select(point: Vector3) -> void:
+	if not local_enabled or _cells.is_empty() or not is_instance_valid(skeleton):
+		if _local_valid:
+			_local_valid = false
+			_soup_dirty = true
+		return
+	var local_point: Vector3 = skeleton.global_transform.affine_inverse() * point
+	if _local_valid:
+		var core := _local_radius * LOCAL_CORE_SCALE
+		if local_point.distance_squared_to(_local_center) <= core * core:
+			return
+	var started := Time.get_ticks_usec()
+	var collected := _collect_faces(local_point)
+	if collected.is_empty():
+		# A point beyond the source keeps the full patch, which is the old behaviour.
+		if _local_valid:
+			_local_valid = false
+			_soup_dirty = true
+		_perf_note("caress_select", Time.get_ticks_usec() - started)
+		return
+	_build_local(collected, local_point)
+	_perf_note("caress_select", Time.get_ticks_usec() - started)
 
 
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
@@ -142,13 +200,14 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 func update_pose(force := false) -> void:
 	if source.is_empty() or not is_instance_valid(skeleton):
 		return
-	# One patch update per physics tick even if both hands ask: the second hand shares it.
+	# One patch update per physics tick per surface. Each hand owns its surface, so a local
+	# window is skinned at most once per tick.
 	var tick := Engine.get_physics_frames()
-	if not force and _update_tick == tick:
+	if not force and not _soup_dirty and _update_tick == tick:
 		return
 	_update_tick = tick
 	var now := Time.get_ticks_msec()
-	if not force and _last_update >= 0 and now - _last_update < update_ms:
+	if not force and not _soup_dirty and _last_update >= 0 and now - _last_update < update_ms:
 		return
 	var started := Time.get_ticks_usec()
 	var base := skeleton.global_transform
@@ -168,10 +227,11 @@ func update_pose(force := false) -> void:
 		transforms[i] = t
 		if not changed and not t.is_equal_approx(_transforms[i]):
 			changed = true
-	if not changed and not force:
+	if not changed and not force and not _soup_dirty:
 		return
 	_transforms = transforms
-	for i in _rest_positions.size():
+	var verts := _local_verts if _local_valid else _all_verts
+	for i: int in verts:
 		var p := Vector3.ZERO
 		var n := Vector3.ZERO
 		var rest := _rest_positions[i]
@@ -183,12 +243,8 @@ func update_pose(force := false) -> void:
 			n += (pose.basis * normal) * weight
 		_positions[i] = p
 		_normals[i] = n.normalized() if n.length_squared() > 0.000001 else Vector3.UP
-	faces.resize(_indices.size())
-	vertex_normals.resize(_indices.size())
-	for i in _indices.size():
-		var v := _indices[i]
-		faces[i] = _positions[v]
-		vertex_normals[i] = _normals[v]
+	_write_soup()
+	_soup_dirty = false
 	_pose_serial += 1
 	_tri = null
 	_tri_stamp = -1
@@ -196,6 +252,28 @@ func update_pose(force := false) -> void:
 	skin_us = Time.get_ticks_usec() - started
 	build_us = skin_us
 	_perf_note("caress_skin", skin_us)
+
+
+## Copy the active posed vertices into the triangle soup. Local mode only touches the window's
+## faces; full mode keeps the source index order the authored anchor build reads back.
+func _write_soup() -> void:
+	if _local_valid:
+		var count := _local_faces.size()
+		faces.resize(count * 3)
+		vertex_normals.resize(count * 3)
+		for k in count:
+			var i := _local_faces[k] * 3
+			for j in 3:
+				var v := _indices[i + j]
+				faces[k * 3 + j] = _positions[v]
+				vertex_normals[k * 3 + j] = _normals[v]
+		return
+	faces.resize(_indices.size())
+	vertex_normals.resize(_indices.size())
+	for i in _indices.size():
+		var v := _indices[i]
+		faces[i] = _positions[v]
+		vertex_normals[i] = _normals[v]
 
 
 ## Closest point on the posed patch. Returns {} when the patch is empty. `inside` is true when
@@ -247,6 +325,10 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	var normal := outward.normalized()
 	if normal.length_squared() < 0.5:
 		normal = Vector3.UP
+	# A direct caller may skip the placement's pre-update; a new window must be skinned first.
+	select(point)
+	if _soup_dirty:
+		update_pose(true)
 	var started := Time.get_ticks_usec()
 	var hit := _cast(point + normal * 0.20, point - normal * 0.20)
 	if hit.is_empty():
@@ -270,12 +352,14 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	if hit_normal.length_squared() < 0.5:
 		hit_normal = normal
 	hit_normal = hit_normal.normalized()
+	var face := int(hit.get("face_index", -1))
 	return {
 		"point": surface,
 		"normal": hit_normal,
 		"distance": point.distance_to(surface),
 		"inside": (point - surface).dot(hit_normal) < 0.0,
-		"face": int(hit.get("face_index", -1)),
+		"face": face,
+		"seed": _face_vertex(face, 0),
 	}
 
 
@@ -291,25 +375,23 @@ func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Ve
 		hint_normal = Vector3.UP
 	var r2 := radius * radius
 	var sum := Vector3.ZERO
-	var candidates := _blur_candidates(seed, radius)
-	if candidates.is_empty():
-		for i in _positions.size():
-			var distance := _positions[i].distance_squared_to(point)
-			if distance > r2:
-				continue
-			var normal: Vector3 = _normals[i]
-			if normal.dot(hint_normal) < 0.2:
-				continue
-			sum += normal * (1.0 - distance / r2)
-	else:
-		for i: int in candidates:
-			var distance := _positions[i].distance_squared_to(point)
-			if distance > r2:
-				continue
-			var normal: Vector3 = _normals[i]
-			if normal.dot(hint_normal) < 0.2:
-				continue
-			sum += normal * (1.0 - distance / r2)
+	var indices := _blur_candidates(seed, radius)
+	if indices.is_empty():
+		indices = _local_verts if _local_valid else _all_verts
+	# A hand-built test patch has positions but no index list; scan the stored normals.
+	var dense := indices.is_empty()
+	var count := _positions.size() if dense else indices.size()
+	for n in count:
+		var i := n if dense else indices[n]
+		if _local_valid and not dense and _mask[i] == 0:
+			continue
+		var distance := _positions[i].distance_squared_to(point)
+		if distance > r2:
+			continue
+		var normal: Vector3 = _normals[i]
+		if normal.dot(hint_normal) < 0.2:
+			continue
+		sum += normal * (1.0 - distance / r2)
 	blur_us = Time.get_ticks_usec() - started
 	_perf_note("caress_blur", blur_us)
 	if sum.length_squared() < 0.0001:
@@ -318,8 +400,13 @@ func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Ve
 
 
 ## Cast an arbitrary world segment against the posed patch. Returns the ray hit dictionary
-## (`position`, `normal`, `face_index`) or {}. `update_pose()` must have run for the current frame.
+## (`position`, `normal`, `face_index`) or {}. The authored-anchor build maps `face_index` back
+## to a source vertex, so this always uses the full patch, never a local window.
 func ray(from: Vector3, to: Vector3) -> Dictionary:
+	if _local_valid or _soup_dirty:
+		_local_valid = false
+		_soup_dirty = true
+		update_pose(true)
 	return _cast(from, to)
 
 
@@ -379,7 +466,27 @@ func _flatten() -> void:
 			_weights.append(float(influence.y))
 	_offsets.append(_bones.size())
 	_indices = source.get("indices", PackedInt32Array())
-	_build_rings()
+	# The rings and the face buckets depend only on the shared source, so the second hand's
+	# surface reuses them instead of building a second copy.
+	if source.has("rings"):
+		_rings = source["rings"]
+	else:
+		_build_rings()
+		source["rings"] = _rings
+	_all_verts.resize(_rest_positions.size())
+	for i in _all_verts.size():
+		_all_verts[i] = i
+	if source.has("cells"):
+		_cells = source["cells"]
+	else:
+		_build_cells()
+		source["cells"] = _cells
+	_local_faces = PackedInt32Array()
+	_local_verts = PackedInt32Array()
+	_mask.clear()
+	_local_center = Vector3.INF
+	_local_valid = false
+	_soup_dirty = true
 	_positions.resize(_rest_positions.size())
 	_normals.resize(_rest_positions.size())
 	faces = PackedVector3Array()
@@ -390,6 +497,97 @@ func _flatten() -> void:
 	_transforms.clear()
 	_last_update = -1
 	_update_tick = -1
+
+
+## Bucket the stable patch's faces by rest-space centroid. The cell size is the window radius,
+## so the 3x3x3 neighbourhood of a point always contains the whole window.
+func _build_cells() -> void:
+	_cells.clear()
+	var cell := maxf(_local_radius, 0.001)
+	for f in range(0, _indices.size(), 3):
+		var centroid := (_rest_positions[_indices[f]]
+			+ _rest_positions[_indices[f + 1]]
+			+ _rest_positions[_indices[f + 2]]) / 3.0
+		var key := Vector3i(floori(centroid.x / cell), floori(centroid.y / cell),
+			floori(centroid.z / cell))
+		var list: Variant = _cells.get(key)
+		if list == null:
+			list = []
+			_cells[key] = list
+		(list as Array).append(f / 3)
+
+
+## The window's face ids: the 3x3x3 rest-space cells around the point, filtered by the exact
+## centroid distance. Face ids index `_indices` in triples.
+func _collect_faces(local_point: Vector3) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if _indices.is_empty():
+		return out
+	var radius := maxf(_local_radius, 0.001)
+	var r2 := radius * radius
+	var base := Vector3i(floori(local_point.x / radius), floori(local_point.y / radius),
+		floori(local_point.z / radius))
+	for dx in 3:
+		for dy in 3:
+			for dz in 3:
+				var list: Variant = _cells.get(base + Vector3i(dx - 1, dy - 1, dz - 1))
+				if list == null:
+					continue
+				for f: int in (list as Array):
+					var i := f * 3
+					var centroid := (_rest_positions[_indices[i]]
+						+ _rest_positions[_indices[i + 1]]
+						+ _rest_positions[_indices[i + 2]]) / 3.0
+					if centroid.distance_squared_to(local_point) > r2:
+						continue
+					out.append(f)
+	return out
+
+
+## Build the active window from the collected faces. The vertex set carries one ring beyond the
+## faces so the normal blur never reads a posed vertex outside the window.
+func _build_local(face_ids: PackedInt32Array, center: Vector3) -> void:
+	var seen := {}
+	var verts := PackedInt32Array()
+	for f: int in face_ids:
+		var i := f * 3
+		for j in 3:
+			var v := _indices[i + j]
+			if seen.has(v):
+				continue
+			seen[v] = true
+			verts.append(v)
+	var face_verts := verts.size()
+	for n in face_verts:
+		for ring: int in _rings[verts[n]]:
+			if seen.has(ring):
+				continue
+			seen[ring] = true
+			verts.append(ring)
+	_local_faces = face_ids
+	_local_verts = verts
+	_local_center = center
+	_local_valid = true
+	_mask.resize(_rest_positions.size())
+	_mask.fill(0)
+	for v: int in verts:
+		_mask[v] = 1
+	_soup_dirty = true
+
+
+## Source vertex of one corner of a soup face. The soup face index is window-relative in local
+## mode, so map it back through `_local_faces` first.
+func _face_vertex(face: int, corner: int) -> int:
+	if face < 0:
+		return -1
+	if _local_valid:
+		if face >= _local_faces.size():
+			return -1
+		face = _local_faces[face]
+	var at := face * 3 + corner
+	if at < 0 or at >= _indices.size():
+		return -1
+	return _indices[at]
 
 
 ## Vertex adjacency of the flattened patch, built once per source. The blur walks only these
@@ -417,8 +615,8 @@ func _link_ring(a: int, b: int) -> void:
 
 
 ## The hit face's neighbours out to `blur_depth` rings. A seed outside the ring set or a radius
-## wider than the ring's proven reach returns an empty array so the caller keeps the full-scan
-## average, which is what a debug radius expects.
+## wider than the ring's proven reach returns an empty array so the caller keeps the full-patch
+## average (the window's vertices in local mode), which is what a debug radius expects.
 func _blur_candidates(seed: int, radius: float) -> PackedInt32Array:
 	if seed < 0 or seed >= _rings.size() or radius > BLUR_RING_RADIUS_M or _rings.is_empty():
 		return PackedInt32Array()
@@ -448,6 +646,11 @@ func _perf_note(chunk: String, usec: int) -> void:
 
 func face_count() -> int:
 	return faces.size() / 3
+
+
+## Faces in the stable region source, before the local window.
+func patch_face_count() -> int:
+	return _indices.size() / 3
 
 
 func _region_anchor(skeleton: Skeleton3D, region: String) -> Dictionary:

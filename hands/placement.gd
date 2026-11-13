@@ -142,7 +142,7 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
 		mode: String, roll: float, region: String, hover: float) -> Transform3D:
 	var surface_started := Time.get_ticks_usec()
-	var surface: Variant = _surface(pony, region)
+	var surface: Variant = _surface(pony, region, hand_side, intended)
 	if not is_instance_valid(surface):
 		_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
 		return _last_or_invalid(hand_side)
@@ -158,8 +158,9 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
 	var blur := maxf(float(SETTINGS.normal_blur_m.get_num()) * scale, 0.0)
 	var face := int(hit.get("face", -1))
+	var seed := int(hit.get("seed", -1))
 	if blur > 0.0 and face >= 0:
-		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal, face)
+		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal, seed)
 		if blurred.length_squared() > 0.5:
 			hit_normal = blurred.normalized()
 	_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
@@ -213,16 +214,30 @@ func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
 	return target
 
 
-func _surface(pony: Variant, region: String) -> Variant:
-	var surface: Variant = _surfaces.get(region)
+func _surface(pony: Variant, region: String, hand_side: String, point: Vector3) -> Variant:
+	# With the local window each hand keeps its own patch: the hands caress opposite flanks, so
+	# one shared window would re-centre on every tick. The stable source cache still shares the
+	# mesh gather. With the window off the hands share one full patch, as before.
+	var local := _local_patch()
+	var key := (region + "|" + hand_side) if local else region
+	var surface: Variant = _surfaces.get(key)
 	if not is_instance_valid(surface):
 		surface = SURFACE.new(facts)
-		_surfaces[region] = surface
+		_surfaces[key] = surface
 	if not bool(surface.call("ensure", pony, region)):
 		return null
+	surface.call("set_local", local)
+	surface.call("select", point)
 	surface.call("set_quality", str(SETTINGS.quality.get_choice()))
 	surface.call("update_pose")
 	return surface
+
+
+## `features.caress_local` from the act snapshot. A bare engine (tests) keeps the full patch.
+func _local_patch() -> bool:
+	if facts == null:
+		return false
+	return bool(facts.feature("caress_local", true))
 
 
 func _state(key: String) -> Dictionary:
@@ -353,10 +368,10 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 	_logged[hand_side] = true
 	var info := "anchors"
 	if is_instance_valid(surface) and surface is SURFACE:
-		info = "faces=%d build_us=%d query_us=%d ray_hit=%d ray_miss=%d" % [
-			int(surface.call("face_count")), int(surface.get("build_us")),
-			int(surface.get("query_us")), int(surface.get("ray_hits")),
-			int(surface.get("ray_misses"))]
+		info = "faces=%d/%d build_us=%d query_us=%d ray_hit=%d ray_miss=%d" % [
+			int(surface.call("face_count")), int(surface.call("patch_face_count")),
+			int(surface.get("build_us")), int(surface.get("query_us")),
+			int(surface.get("ray_hits")), int(surface.get("ray_misses"))]
 	_log("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
 		hand_side, mode, u, str(frame.origin), str(normal), str(finger), roll_deg, hover, info])
 

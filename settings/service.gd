@@ -760,6 +760,10 @@ static var caress_areas := flag("caress_areas", "features.caress_areas", true,
 	"Use area caress path",
 	"Standing caress follows the marked areas in hands/areas/areas.json as one continuous path. Off restores the old flank/shoulder/neck path.",
 	GENERAL, "Caress").as_debug()
+static var caress_local := flag("caress_local", "features.caress_local", true,
+	"Use local caress patch",
+	"Skin and raycast only the coat window around each caress hand instead of the whole body patch. Off restores the full patch for both hands.",
+	GENERAL, "Caress").as_debug()
 static var path_id := choice("path_id", "presentation.missionary.caress.path_id", "two",
 	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
 	"Missionary path",

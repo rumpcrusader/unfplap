@@ -44,7 +44,7 @@ This contract covers:
 | `hands/paths/standing.gd` | standing path: authored flank -> shoulder -> neck, marked area chain behind `features.caress_areas`, procedural flank/rump fallback |
 | `hands/paths/missionary.gd` | missionary path: authored one/two, reach filtering, legacy hull fallback |
 | `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, act-camera anchors, rest fallback |
-| `hands/surface.gd` | stable posed body/head patch and exact ray queries |
+| `hands/surface.gd` | stable posed body/head patch, local caress window and exact ray queries |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
 | `shared/hands_scale.gd` | shared per-preset hand-bone scale |
 | `shared/hands_reach_plan.gd` | pure two-bone reach plan for the missionary hand |
@@ -160,6 +160,13 @@ For one hand the engine:
 6. builds the single-point palm frame with `caress_hand.gd`;
 7. falls back to the last good target when the path or surface is unavailable.
 
+With `features.caress_local` on, the stable region patch stays the source, but each hand skins and
+raycasts only a rest-space window of its intended point. The window re-centres when the point
+leaves its inner half, so the contact and the normal blur's rings never see the window boundary;
+the mesh gather, the vertex rings and the face buckets are shared per source, while each hand owns
+its own window so opposite flanks never compete. A point beyond the source keeps the full patch.
+With the flag off, both hands share the full region patch as before.
+
 With `features.caress_surface` off, the standing candidate is a hull query through `coat.gd`: the
 FlankSurface patch first, then PonyTouchBody nearest, with source hysteresis, a maximum contact
 step and the same normal turn. The flank patch is skipped (its skinning and query) when the point
@@ -183,6 +190,7 @@ the hull path there is only the fallback when the authored chain cannot build.
 | `features.caress_surface` | off | player-facing Use precise caress for the standing pose: exact surface instead of the hull path; the missionary authored chain always uses the surface |
 | `caress.quality` | precise | player-facing hand quality; `balanced` accepts the oval point on a ray miss and refreshes at 20 Hz, `fast` also at 15 Hz with a 1-ring blur |
 | `features.caress_areas` | on | standing authored path from `hands/areas/areas.json` instead of `anchors2.json`; lean-driven chain |
+| `features.caress_local` | on | debug: skin and raycast only the coat window around each caress hand; off restores the full region patch |
 | `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |
 | `features.caress_reach_shoulder_m` | 0 m | missionary reach shoulder shift |
 | `presentation.missionary.caress.path_id` | two | authored chain `one` or `two` |
@@ -214,23 +222,26 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 - `features.caress_debug` logs one `precise caress` line per hand per act with `u`, target,
   normal, finger, roll, hover, surface and the ray hit/miss counts, and logs anchor builds/misses
   and each anchor's world position/normal. The caress path line prints `path=areas` when the
-  marked standing chain is active and `path=two` for the default chain.
+  marked standing chain is active and `path=two` for the default chain; the surface field reports
+  `faces=<window>/<patch>`.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
 - `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_ensure`,
-  `caress_skin`, `caress_tri`, `caress_ray`, `caress_blur`, `caress_closest` and `caress_arm`
-  chunks.
+  `caress_select`, `caress_skin`, `caress_tri`, `caress_ray`, `caress_blur`, `caress_closest` and
+  `caress_arm` chunks.
 - `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand
   on both the precise and hull paths (the precise surface is the separate `caress_surface` chunk);
   `caress_surface` covers the whole precise hand, `caress_ensure` the mesh/anchor cache check,
-  `caress_skin` the patch update (skinning plus the face and normal arrays), `caress_tri` the
-  `TriangleMesh` rebuild, `caress_ray` the segment query, `caress_blur` the normal average,
+  `caress_select` the window re-centre, `caress_skin` the patch update (skinning plus the face and
+  normal arrays), `caress_tri` the `TriangleMesh` rebuild, `caress_ray` the segment query (it also
+  contains the lazy `TriangleMesh` rebuild on a refresh), `caress_blur` the normal average,
   `caress_closest` the full-triangle fallback when the ray misses; `caress_arm` covers the
   missionary reach plan.
 - The patch is skinned and re-BVHed at most once per `caress.quality` refresh (33 ms precise,
-  50 ms balanced, 66 ms fast) and at most once per physics tick, and the normal blur averages the
-  hit face's ring (`BLUR_RING_RADIUS_M = 0.03 m`, 2 rings precise/balanced, 1 fast) instead of the
-  whole patch; a wider radius keeps the full-scan average.
+  50 ms balanced, 66 ms fast) and at most once per physics tick per hand; a window re-centre
+  forces one update regardless of the refresh. The normal blur averages the hit face's ring
+  (`BLUR_RING_RADIUS_M = 0.03 m`, 2 rings precise/balanced, 1 fast) instead of the whole patch; a
+  wider radius scans the whole active patch, which is the local window when the flag is on.
 
 ## Reach
 
@@ -289,6 +300,9 @@ selection and starts the swing.
 - The precise patch covers the body and head meshes (torso, neck, cheek). Hair, mane, wing and
   tail layers are not part of the exact patch; the standing `Ignore body parts` setting still
   filters the hull fallback.
+- The local window follows the hand's intended point; a point that lands beyond the region source
+  keeps the full patch for that hand. `ray()` (the authored anchor build) always uses the full
+  patch, because it maps a soup face back to a source vertex.
 - The path builders cache per hand and pony; changing `path_id` or `features.caress_areas`
   rebuilds the next caress path.
 - `features.caress_areas` is lean-driven: W/S still leans and the hand follows the JSON chain.

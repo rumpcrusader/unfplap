@@ -8,6 +8,7 @@ const ARM := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SYSTEM := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 class FlankPony extends Node3D:
@@ -405,6 +406,81 @@ func run() -> void:
 		var row: Variant = area_areas.get(area_name, {})
 		if row is Dictionary and (row as Dictionary).has("left"):
 			expected_left.append(str(area_name))
+	# Local caress window: the region source is unchanged, but each hand skins and raycasts only
+	# the coat around its intended point. Inside the window the contact matches the full patch.
+	var local_surface: Variant = SURFACE.new()
+	check(bool(local_surface.call("ensure", body_pony, "torso")),
+		"the local caress window source builds")
+	local_surface.call("set_quality", "precise")
+	local_surface.call("set_local", true)
+	var flank_centre := _json_position(area_areas, "flank_side", "left")
+	var flank_out := Vector3.LEFT
+	local_surface.call("select", flank_centre)
+	local_surface.call("update_pose", true)
+	var local_faces := int(local_surface.call("face_count"))
+	var full_faces := int(local_surface.call("patch_face_count"))
+	check(local_faces > 100 and local_faces * 2 < full_faces,
+		"the local window keeps a fraction of the patch")
+	var full_surface: Variant = SURFACE.new()
+	full_surface.call("ensure", body_pony, "torso")
+	full_surface.call("update_pose", true)
+	for point: Vector3 in [flank_centre, flank_centre + Vector3.UP * 0.03,
+			flank_centre + Vector3.BACK * 0.04,
+			flank_centre + Vector3.UP * 0.03 + Vector3.BACK * 0.03]:
+		var local_hit: Dictionary = local_surface.call("nearest", point, flank_out)
+		var full_hit: Dictionary = full_surface.call("nearest", point, flank_out)
+		check(not local_hit.is_empty() and not full_hit.is_empty(),
+			"the local and full patches both answer a nearby ray")
+		if local_hit.is_empty() or full_hit.is_empty():
+			continue
+		if int(local_hit.get("face", -1)) < 0 or int(full_hit.get("face", -1)) < 0:
+			continue
+		check((local_hit["point"] as Vector3).distance_to(full_hit["point"] as Vector3) < 0.0005,
+			"the local window keeps the exact contact point")
+		check((local_hit["normal"] as Vector3).dot(full_hit["normal"] as Vector3) > 0.999,
+			"the local window keeps the exact contact normal")
+	var seed_hit: Dictionary = local_surface.call("nearest", flank_centre + Vector3.UP * 0.03,
+		flank_out)
+	var seed := int(seed_hit.get("seed", -1))
+	var seed_face := int(seed_hit.get("face", -1))
+	var local_face_ids: PackedInt32Array = local_surface.get("_local_faces")
+	var source_indices: PackedInt32Array = local_surface.get("_indices")
+	check(seed >= 0, "the local hit reports a vertex seed")
+	if seed >= 0 and seed_face >= 0 and seed_face < local_face_ids.size():
+		var at := local_face_ids[seed_face] * 3
+		check(seed == source_indices[at] or seed == source_indices[at + 1]
+			or seed == source_indices[at + 2],
+			"the blur seed is a vertex of the hit face")
+	var first_center: Vector3 = local_surface.get("_local_center")
+	var neck_point := flank_centre + Vector3.FORWARD * 0.30
+	local_surface.call("select", neck_point)
+	local_surface.call("update_pose", true)
+	check(bool(local_surface.get("_local_valid")), "the re-centred window stays local")
+	check((local_surface.get("_local_center") as Vector3).distance_to(first_center) > 0.1,
+		"the window re-centres when the hand leaves its core")
+	check(not (local_surface.call("nearest", neck_point, flank_out) as Dictionary).is_empty(),
+		"the re-centred window still answers the ray")
+	local_surface.call("set_local", false)
+	local_surface.call("update_pose", true)
+	check(int(local_surface.call("face_count")) == full_faces,
+		"turning the local window off restores the full patch")
+	var local_facts := ACT_FACTS.new()
+	local_facts.features = {"caress_local": true}
+	var split_engine: Variant = SYSTEM.new(local_facts)
+	var left_surface: Variant = split_engine.call("_surface", body_pony, "torso", "left",
+		flank_centre)
+	var right_surface: Variant = split_engine.call("_surface", body_pony, "torso", "right",
+		flank_centre)
+	check(left_surface != null and right_surface != null and left_surface != right_surface,
+		"each hand owns its local caress window")
+	local_facts.features = {"caress_local": false}
+	var shared_engine: Variant = SYSTEM.new(local_facts)
+	var shared_left: Variant = shared_engine.call("_surface", body_pony, "torso", "left",
+		flank_centre)
+	var shared_right: Variant = shared_engine.call("_surface", body_pony, "torso", "right",
+		flank_centre)
+	check(shared_left != null and shared_left == shared_right,
+		"the full caress patch is shared by both hands")
 	var area_path: Variant = PATH.new()
 	check(bool(area_path.call("build_areas", body_pony, "left", "standing")),
 		"the marked area path builds for the left hand")

@@ -36,6 +36,7 @@ event_id, pony_id, display_name, act_seconds
 last_intensity, last_pattern, last_touch, last_talk
 thrust_pace, oral_active, anal_active, cue_override
 preferences, act_prompts, features
+caress_quality (the act's precise or fast caress surface level)
 ```
 
 Size and camera:

@@ -363,9 +363,8 @@ func _end_caress() -> void:
 	_caress_touch_seconds = 0.0
 
 
-## Hand-marker basis with the palm flat on the coat: local -Z is the fingers, and the palm
-## normal (local -X right / +X left) points inward along -outward. No custom roll.
-func _caress_ignore() -> Array:
+## Regions the smack's hull contact query skips. The caress always uses the coat surface.
+func _smack_ignore() -> Array:
 	return SETTINGS.ignore.get_list()
 
 
@@ -439,8 +438,6 @@ func _caress_context(side: String, hand_side: String) -> Dictionary:
 		"oval": oval,
 		"hover": _palm_clearance(),
 		"clearance": _palm_clearance(),
-		"precise": _precise_on(),
-		"ignore": _caress_ignore(),
 		"profile": _caress_profile(),
 		"reach": _caress_reach(hand_side),
 		"delta": float(facts.physics_delta),
@@ -478,18 +475,6 @@ func _caress_reach(hand_side: String) -> Dictionary:
 		if value is Dictionary:
 			return value
 	return {}
-
-
-func _precise_on() -> bool:
-	if facts == null:
-		return false
-	# The missionary base pose is authored in bed space, and the procedural hull path's palm
-	# frame is not valid on the lying body (the cheek ended up edge-on). The authored surface
-	# chain is the missionary path; the standing caress keeps the player-facing precise toggle
-	# and its hull fallback.
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
-		return true
-	return facts.feature("caress_surface", false)
 
 
 func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,
@@ -795,7 +780,7 @@ func _standing_smack_target(hand_side: String, hand_world: Vector3,
 		var across := up.cross(normal).normalized()
 		var angle := randf() * TAU
 		var shift := (up * cos(angle) + across * sin(angle)) * (sqrt(randf()) * radius)
-		var jittered := COAT.contact(pony, point_world + shift, normal, _caress_ignore())
+		var jittered := COAT.contact(pony, point_world + shift, normal, _smack_ignore())
 		if str(jittered.get("source", "")) == "flank":
 			point_world = jittered.get("point", point_world)
 			var jittered_normal: Variant = jittered.get("normal", normal)

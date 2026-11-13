@@ -387,6 +387,7 @@ static func _default_block(prefix: String) -> Dictionary:
 ## modules that already consume config dictionaries.
 class ActSnapshot:
 	var features: Dictionary = {}
+	var caress_quality := "precise"
 	var thrust_up := true
 	var thrust_pixels_per_cm := 100.0
 	var thrust_travel := 0.5
@@ -420,6 +421,7 @@ class ActSnapshot:
 static func act_snapshot(pose_id: String) -> ActSnapshot:
 	var snap := ActSnapshot.new()
 	snap.features = _block("features.")
+	snap.caress_quality = quality.get_choice()
 	snap.thrust_up = orientation.get_choice() == "up"
 	snap.thrust_pixels_per_cm = pixels_per_cm.get_num()
 	snap.thrust_travel = travel.get_num()
@@ -776,13 +778,10 @@ static var act_lines := flag("act_lines", "features.act_lines", true, "Allow act
 	"Let her speak unprompted lines during sex. Off keeps normal dialogue and the HUD cue.", GENERAL, "")
 static var act_faces := flag("act_faces", "features.act_faces", true, "Show act expressions",
 	"Use the game's own faces during acts, offers and the afterglow. Off keeps the current act faces and stops asking act lines for a face; the blush arc and post-act mood face are separate.", GENERAL, "")
-static var caress_surface := flag("caress_surface", "features.caress_surface", false,
-	"Use precise caress",
-	"Place the standing caress hand from the visible body/head surface instead of the capsule hull. The missionary authored chain always uses the surface. The quality below applies only while this is on.", GENERAL, "")
 static var quality := choice("quality", "caress.quality", "precise",
-	["precise", "balanced", "fast"], ["Precise", "Balanced", "Fast"],
+	["fast", "precise"], ["Fast", "Precise"],
 	"Caress quality",
-	"Precise snaps the hand to the visible coat every tick. Balanced accepts the intended oval point when the surface ray misses and refreshes the patch at 20 Hz. Fast also refreshes at 15 Hz and narrows the normal blur. Lower levels can let the palm float by about the oval radius on a miss.", GENERAL, "")
+	"Precise snaps the caress hand to the visible coat every tick. Fast refreshes the coat patch less often and narrows the normal blur, which can let the palm float by about the oval radius on a miss.", GENERAL, "")
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes", 3.0,
 	"Climax limit", "How many times a mare can climax in one act. 0 is unlimited.", GENERAL, "") \
 	.with_step(1.0).with_range(0.0, 20.0)
@@ -883,7 +882,7 @@ static var hover_m := num("hover_m", "caress.hover_m", 0.015, "Palm hover",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var ignore := list("ignore", "caress.ignore", ["tail", "wing"],
 	["tail", "mane", "wing", "leg"], "Ignore body parts",
-	"Regions the hull caress contact query skips. The precise surface uses fixed torso/head regions.",
+	"Regions the smack's hull contact query skips. The caress always uses the fixed torso/head coat surface.",
 	GENERAL, "Caress").as_debug()
 static var normal_blur_m := num("normal_blur_m", "caress.normal_blur_m", 0.02,
 	"Normal blur",
@@ -1780,7 +1779,7 @@ const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 8
+const SCHEMA_VERSION := 9
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -1811,7 +1810,10 @@ static var _deprecated := [
 		func(value: Variant) -> Dictionary: return {"caress.palm_scale.same height": value}),
 	deprecated("presentation.standing.caress.palm_scale.hoers",
 		func(value: Variant) -> Dictionary: return {"caress.palm_scale.hoers": value}),
-	# Retired caress switches and tuning with no replacement.
+	# Retired caress switches and tuning with no replacement. The caress always uses the posed
+	# coat surface now, so the old precise switch has no value to carry over.
+	deprecated("features.caress_surface",
+		func(_value: Variant) -> Dictionary: return {}),
 	deprecated("features.caress_hand_shape",
 		func(_value: Variant) -> Dictionary: return {}),
 	deprecated("features.caress_reach_body_m",
@@ -2511,6 +2513,16 @@ static func _normalize_caress_reach(data: Dictionary) -> Dictionary:
 	return data
 
 
+## `balanced` folded into `precise`: the caress always snaps to the coat now, so the middle
+## refresh had no meaning left. A stored `fast` keeps its cheaper refresh.
+static func _normalize_caress_quality(data: Dictionary) -> Dictionary:
+	var path := "caress.quality"
+	var value: Variant = _read_path(data, path, null)
+	if value is String and str(value) == "balanced":
+		_write_path(data, path, "precise")
+	return data
+
+
 static func _normalize_presentation(data: Dictionary) -> Dictionary:
 	var raw: Variant = data.get("presentation")
 	if not raw is Dictionary:
@@ -2760,6 +2772,7 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_feature_names(data)
 	data = _normalize_line_variety(data)
 	data = _normalize_caress_reach(data)
+	data = _normalize_caress_quality(data)
 	data = _normalize_presentation(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)

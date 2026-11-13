@@ -166,23 +166,6 @@ func _check_perf_probe() -> void:
 	fake_main.free()
 
 
-## A held caress must solve the hand through the regular arm pole and return to the authored
-## frame without the scaled-basis slerp error the first implementation logged every frame.
-func _check_caress_precise_pose() -> void:
-	var facts: RefCounted = ACT_FACTS.new()
-	var hands: RefCounted = HANDS.new(facts)
-	facts.pose_id = CATALOG.MISSIONARY
-	facts.features = {"caress_surface": false}
-	check(bool(hands.call("_precise_on")),
-		"missionary always uses the authored surface chain")
-	facts.pose_id = CATALOG.STANDING
-	check(not bool(hands.call("_precise_on")),
-		"standing precise caress stays off by default")
-	facts.features = {"caress_surface": true}
-	check(bool(hands.call("_precise_on")),
-		"standing precise caress follows the setting")
-
-
 func _check_missionary_hand_hold() -> void:
 	var anon: Node = MISSIONARY_ANON.new()
 	root.add_child(anon)
@@ -451,9 +434,6 @@ func run() -> void:
 	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
 	check(HANDS.caress_profile_for("") == HANDS.caress_profile_for("mounting"),
 		"unknown size falls back to JRHNBR caress")
-	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_TRAVEL_M, 0.12), "missionary caress travel")
-	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_LIFT_M, 0.18),
-		"missionary caress starts at the barrel radius")
 	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_PALM_ROLL_DEG, 30.0),
 		"missionary caress rolls the palm 30 degrees")
 	check(near(MISSIONARY_PATH.missionary_palm_roll_deg("right"), 30.0),
@@ -464,12 +444,13 @@ func run() -> void:
 		"the cheek path accepts a head hull")
 	check(not COAT.region_allowed("neck", ["head"]),
 		"the cheek filter does not take a neck hull")
-	check(COAT.region_allowed("back", MISSIONARY_PATH.MISSIONARY_TORSO_REGIONS),
-		"the missionary caress accepts a barrel hull")
-	check(not COAT.region_allowed("leg", MISSIONARY_PATH.MISSIONARY_TORSO_REGIONS),
-		"the missionary caress ignores a leg hull")
-	check(not COAT.region_allowed("head_Ears1", MISSIONARY_PATH.MISSIONARY_TORSO_REGIONS),
-		"the missionary caress ignores a head hull")
+	var torso_regions := ["back", "shoulder"]
+	check(COAT.region_allowed("back", torso_regions),
+		"a torso region filter accepts a barrel hull")
+	check(not COAT.region_allowed("leg", torso_regions),
+		"a torso region filter ignores a leg hull")
+	check(not COAT.region_allowed("head_Ears1", torso_regions),
+		"a torso region filter ignores a head hull")
 	check(COAT.region_allowed("anything", []), "an empty region filter allows every hull")
 	var hand_offset := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.07))
 	var palm_frame := Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 3.0))
@@ -911,7 +892,6 @@ func run() -> void:
 	_check_body_coat_jiggle_target()
 	_check_tail_tuning()
 	_check_perf_probe()
-	_check_caress_precise_pose()
 	_check_missionary_hand_hold()
 
 	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])

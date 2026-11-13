@@ -1,9 +1,9 @@
 extends RefCounted
 ## Posed triangle contact surface for the caress. It builds a small, region-filtered patch of
 ## the visible coat around a body anchor, skins it from the live skeleton, and answers closest
-## point/normal queries. The capsule hulls remain a broadphase/fallback; they are not the final
-## contact. The source arrays are shared per mesh/skin/region/window; the posed positions belong
-## to one patch.
+## point/normal queries. The caress always ends on this surface; the capsule hulls remain for
+## the smack and reach contacts. The source arrays are shared per mesh/skin/region/window; the
+## posed positions belong to one patch.
 
 const CACHE_LIMIT := 12
 ## The patch is skinned at most once per update_ms, and the blur walks blur_depth rings. The
@@ -93,14 +93,10 @@ func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
 
 
-## Apply the player's caress quality. Precise keeps the exact miss fallback; balanced and fast
-## accept the intended oval point on a ray miss and refresh the patch less often.
+## Apply the player's caress quality. Precise keeps the exact miss fallback; fast accepts the
+## intended oval point on a ray miss and refreshes the patch less often.
 func set_quality(quality: String) -> void:
 	match quality:
-		"balanced":
-			update_ms = 50
-			blur_depth = 2
-			accurate_miss = false
 		"fast":
 			update_ms = 66
 			blur_depth = 1

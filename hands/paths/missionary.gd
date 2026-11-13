@@ -1,17 +1,12 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Missionary caress path. The precise path is the authored surface chain in
-## `hands/paths/anchors.gd`; the legacy hull path remains when the precise feature is off.
+## Missionary caress path: the authored surface chain in `hands/paths/anchors.gd`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
-const COAT := preload("res://mods/unfplap/hands/contact.gd")
 
-const MISSIONARY_CARESS_TRAVEL_M := 0.12
 const MISSIONARY_CARESS_LATERAL_M := 0.045
-const MISSIONARY_CARESS_LIFT_M := 0.18
 const MISSIONARY_CARESS_PALM_ROLL_DEG := 30.0
-const MISSIONARY_TORSO_REGIONS := ["back", "withers", "shoulder", "barrel", "belly", "rump"]
 
 var _paths: Dictionary = {}
 var _last_world: Dictionary = {}
@@ -21,11 +16,7 @@ var _path_pony_id := 0
 func candidates(hand_side: String, context: Dictionary) -> Array:
 	if not is_instance_valid(pony):
 		return []
-	if bool(context.get("precise", true)):
-		var precise := _precise_candidates(hand_side, context)
-		if not precise.is_empty():
-			return precise
-	return _legacy_candidates(hand_side, context)
+	return _precise_candidates(hand_side, context)
 
 
 func debug_world(hand_side: String) -> Array:
@@ -128,156 +119,7 @@ func _precise_candidate(sample: Dictionary, hand_side: String, scale: float,
 		"mode": mode,
 		"roll": roll,
 		"region": str(sample.get("region", "torso")),
-		"precise": true,
 		"u": u,
-	}
-
-
-func _legacy_candidates(hand_side: String, context: Dictionary) -> Array:
-	var skeleton := _skeleton()
-	if not is_instance_valid(skeleton):
-		return []
-	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
-	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
-	var path := _legacy_path(skeleton, skeleton.global_transform, hand_side, lean, scale)
-	if path.is_empty():
-		return []
-	var centre: Vector3 = path["point"]
-	var hint: Vector3 = path["hint"]
-	var lift: float = path["lift"]
-	var regions: Array = path["regions"]
-	var lateral: float = path["lateral"]
-	var body_side: Vector3 = path["side"]
-	var finger: Vector3 = path["finger"]
-	centre += body_side * (MISSIONARY_CARESS_LATERAL_M * scale * lateral)
-	var along := finger - hint * finger.dot(hint)
-	if along.length_squared() < 0.0001:
-		along = Vector3.UP - hint * Vector3.UP.dot(hint)
-	if along.length_squared() < 0.0001:
-		along = Vector3.FORWARD - hint * Vector3.FORWARD.dot(hint)
-	along = along.normalized()
-	var across := along.cross(hint)
-	if across.length_squared() < 0.0001:
-		across = Vector3.RIGHT - hint * Vector3.RIGHT.dot(hint)
-	across = across.normalized()
-	var ignore: Array = context.get("ignore", []).duplicate() \
-		if context.get("ignore", []) is Array else []
-	if not ignore.has("leg"):
-		ignore.append("leg")
-	COAT.sync_touch(pony)
-	return [{
-		"point": centre,
-		"normal": hint,
-		"oval_x": along,
-		"oval_y": across,
-		"finger": finger,
-		"mode": "palm",
-		"roll": missionary_palm_roll_deg(hand_side) * float(path["roll"]),
-		"region": "torso",
-		"precise": false,
-		"hull_lift": lift,
-		"ignore": ignore,
-		"regions": regions,
-		"radial": false,
-	}]
-
-
-## Smooth caress path: lower belly -> belly -> chest -> side of the neck -> cheek. The returned
-## point is the centreline anchor before the hand-side offset and oval.
-func _legacy_path(skeleton: Skeleton3D, g: Transform3D, side: String,
-		lean: float, scale: float) -> Dictionary:
-	var hips_b := skeleton.find_bone("pony_hips")
-	var belly_b := skeleton.find_bone("pony_spine2")
-	var chest_b := skeleton.find_bone("pony_spine3")
-	var neck1_b := skeleton.find_bone("pony_neck1")
-	var neck2_b := skeleton.find_bone("pony_neck2")
-	var head_b := skeleton.find_bone("pony_head")
-	if hips_b < 0 or belly_b < 0 or head_b < 0:
-		return {}
-	var hips := g * skeleton.get_bone_global_pose(hips_b).origin
-	var belly := g * skeleton.get_bone_global_pose(belly_b).origin
-	var head_t := g * skeleton.get_bone_global_pose(head_b)
-	var head := head_t.origin
-	var chest := head.lerp(belly, 0.35)
-	if chest_b >= 0:
-		chest = g * skeleton.get_bone_global_pose(chest_b).origin
-	var neck := chest.lerp(head, 0.5)
-	if neck1_b >= 0 and neck2_b >= 0:
-		neck = (g * skeleton.get_bone_global_pose(neck1_b).origin).lerp(
-			g * skeleton.get_bone_global_pose(neck2_b).origin, 0.5)
-	var head_dir := head - hips
-	if head_dir.length_squared() < 0.0001:
-		head_dir = -pony.global_basis.z
-	head_dir = head_dir.normalized()
-	var side_axis := head_dir.cross(Vector3.UP)
-	if side_axis.length_squared() < 0.0001:
-		side_axis = pony.global_basis.x
-	side_axis = side_axis.normalized()
-	var side_sign := -1.0 if side == "left" else 1.0
-	var body_side := (side_axis * side_sign).normalized()
-	var path_len := maxf(belly.distance_to(head), 0.001)
-	var chest_t := clampf(belly.distance_to(chest) / path_len, 0.05, 0.70)
-	var neck_t := clampf(belly.distance_to(neck) / path_len, chest_t + 0.05, 0.92)
-	var travel := lean * path_len
-	if travel < 0.0:
-		var lower := clampf(travel, -MISSIONARY_CARESS_TRAVEL_M * scale, 0.0)
-		return {
-			"point": belly + head_dir * lower,
-			"hint": Vector3.UP,
-			"lift": MISSIONARY_CARESS_LIFT_M * scale,
-			"regions": MISSIONARY_TORSO_REGIONS,
-			"surface_region": "torso",
-			"mode": "palm",
-			"lateral": 1.0,
-			"roll": 1.0,
-			"side": body_side,
-			"finger": head_dir,
-		}
-	var t := clampf(travel / path_len, 0.0, 1.0)
-	var head_side := head_t.basis.x.normalized()
-	if head_side.dot(body_side) < 0.0:
-		head_side = -head_side
-	var point := belly
-	var hint := Vector3.UP
-	var lift := MISSIONARY_CARESS_LIFT_M * scale
-	var regions: Array = MISSIONARY_TORSO_REGIONS
-	var surface_region := "torso"
-	var mode := "palm"
-	var lateral := 1.0
-	var roll := 1.0
-	if t <= chest_t:
-		var u := t / maxf(chest_t, 0.001)
-		point = belly.lerp(chest, u)
-	elif t <= neck_t:
-		var u := (t - chest_t) / maxf(neck_t - chest_t, 0.001)
-		point = chest.lerp(neck, u)
-		hint = Vector3.UP.lerp(body_side, u).normalized()
-		lift = lerpf(MISSIONARY_CARESS_LIFT_M, 0.10, u) * scale
-		regions = MISSIONARY_TORSO_REGIONS + ["neck"]
-		surface_region = "neck" if u >= 0.5 else "torso"
-		lateral = 1.0 - u
-		roll = 1.0 - u
-	else:
-		var u := (t - neck_t) / maxf(1.0 - neck_t, 0.001)
-		point = neck.lerp(head, u)
-		hint = body_side.lerp(head_side, u).normalized()
-		lift = lerpf(0.10, 0.12, u) * scale
-		regions = ["neck", "head"]
-		surface_region = "head"
-		mode = "fingertip"
-		lateral = 0.0
-		roll = 0.0
-	return {
-		"point": point,
-		"hint": hint,
-		"lift": lift,
-		"regions": regions,
-		"surface_region": surface_region,
-		"mode": mode,
-		"lateral": lateral,
-		"roll": roll,
-		"side": body_side,
-		"finger": head_dir,
 	}
 
 

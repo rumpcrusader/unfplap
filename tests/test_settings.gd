@@ -109,6 +109,8 @@ func _check_snapshot() -> void:
 	check(snap.thrust_up == (SETTINGS.orientation.get_choice() == "up"),
 		"the act snapshot carries the thrust direction")
 	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
+	check(snap.caress_quality == SETTINGS.quality.get_choice(),
+		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
 	check(snap.climax_mode == SETTINGS.climax_mode.get_choice(),
 		"the act snapshot carries the climax face")
@@ -512,6 +514,19 @@ func _check_migration() -> void:
 		"the old palm scale maps to the shared block")
 	check(not caress_moved.has("along_m") and not caress_moved.has("oval_scale"),
 		"the retired caress tuning keys are erased")
+
+	# The precise switch is retired and `balanced` folds into `precise`; a stored `fast` survives.
+	var retired_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
+		"features": {"caress_surface": false},
+		"caress": {"quality": "balanced"}}, SETTINGS.SCHEMA_VERSION - 1)
+	check(not (retired_caress.get("features", {}) as Dictionary).has("caress_surface"),
+		"the retired precise caress switch is erased")
+	check(str((retired_caress.get("caress", {}) as Dictionary).get("quality", "")) == "precise",
+		"balanced caress quality folds into precise")
+	var fast_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
+		"caress": {"quality": "fast"}}, SETTINGS.SCHEMA_VERSION - 1)
+	check(str((fast_caress.get("caress", {}) as Dictionary).get("quality", "")) == "fast",
+		"a stored fast caress quality survives migration")
 
 	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
 	var dead: Dictionary = SETTINGS._migrate({"version": 3,

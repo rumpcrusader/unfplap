@@ -167,6 +167,8 @@ var _id := ""
 var _cycle_override := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
+## The act's caress surface level, snapshotted from the settings so the engine never reads them.
+var _caress_quality := "precise"
 var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
@@ -513,6 +515,7 @@ func _sync_act_facts() -> void:
 	facts.preferences = _preferences
 	facts.act_prompts = _act_prompts
 	facts.features = _features
+	facts.caress_quality = _caress_quality
 	if state == State.IDLE:
 		# No presentation module reads the derived values outside an act; skipping the settings and
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
@@ -711,6 +714,7 @@ func _bind_act_view() -> void:
 	facts.presentation_config = _presentation_cfg
 	facts.profile = _profile
 	facts.features = _features
+	facts.caress_quality = _caress_quality
 	facts.physics_delta = get_physics_process_delta_time()
 
 
@@ -831,6 +835,7 @@ func _configure_utterance_scheduler() -> void:
 func _snapshot_settings() -> void:
 	var snap := SETTINGS.act_snapshot(pose_id)
 	_features = snap.features
+	_caress_quality = snap.caress_quality
 	thrust_up = snap.thrust_up
 	_thrust_pixels_per_cm = snap.thrust_pixels_per_cm
 	_thrust_travel = snap.thrust_travel

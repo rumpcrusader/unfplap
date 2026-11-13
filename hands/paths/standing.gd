@@ -8,9 +8,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
-## Hull query regions for the area path's `body` areas. `flank` areas leave this empty so the
-## FlankSurface patch is used first.
-const TORSO_REGIONS := ["back", "withers", "shoulder", "flank", "barrel", "belly", "rump", "neck"]
 
 var _flank: Node
 var _paths: Dictionary = {}
@@ -24,14 +21,13 @@ var _last_normals: Dictionary = {}
 func candidates(hand_side: String, context: Dictionary) -> Array:
 	if not is_instance_valid(pony):
 		return []
-	var precise := bool(context.get("precise", true))
 	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
 	var area_mode := bool(SETTINGS.caress_areas.get_bool())
-	if (precise or area_mode) and (lean >= 0.0 or area_mode):
+	if lean >= 0.0 or area_mode:
 		var authored := _authored_candidates(hand_side, context, lean)
 		if not authored.is_empty():
 			return authored
-	var candidate := _procedural_candidate(hand_side, context, precise)
+	var candidate := _procedural_candidate(hand_side, context)
 	return [] if candidate.is_empty() else [candidate]
 
 
@@ -65,8 +61,6 @@ func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -
 	up = up.normalized()
 	var across := up.cross(normal).normalized()
 	_last_world[hand_side] = world
-	var precise_mode := bool(context.get("precise", true))
-	var hull := str(sample.get("hull", "body"))
 	return [{
 		"point": sample["point"],
 		"normal": normal,
@@ -76,19 +70,13 @@ func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -
 		"mode": "palm",
 		"roll": 0.0,
 		"region": str(sample.get("region", "torso")),
-		"precise": precise_mode if area_mode else true,
-		"hull_lift": 0.0,
-		"ignore": context.get("ignore", []),
-		"regions": _hull_regions(hull) if area_mode and not precise_mode else [],
-		"radial": true,
 		"u": u,
 	}]
 
 
-## The old flank/rump point: the backward-lean reach, the hull fallback and the last resort when
-## the authored anchors cannot be built.
-func _procedural_candidate(hand_side: String, context: Dictionary,
-		precise: bool) -> Dictionary:
+## The old flank/rump point: the backward-lean reach and the last resort when the authored
+## anchors cannot be built. It is still snapped to the posed coat by the placement engine.
+func _procedural_candidate(hand_side: String, context: Dictionary) -> Dictionary:
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(_flank):
@@ -160,11 +148,6 @@ func _procedural_candidate(hand_side: String, context: Dictionary,
 		"mode": "palm",
 		"roll": 0.0,
 		"region": "torso",
-		"precise": precise,
-		"hull_lift": 0.0,
-		"ignore": context.get("ignore", []),
-		"regions": [],
-		"radial": true,
 	}
 
 
@@ -268,16 +251,6 @@ func reset() -> void:
 	_last_world.clear()
 	_last_centres.clear()
 	_last_normals.clear()
-
-
-## Hull query regions for the area path. `flank` leaves the list empty so the FlankSurface
-## patch is used first; `body` uses the body hulls; `head` uses the head hulls.
-func _hull_regions(hull: String) -> Array:
-	if hull == "flank":
-		return []
-	if hull == "head":
-		return ["head"]
-	return TORSO_REGIONS
 
 
 func _log(text: String) -> void:

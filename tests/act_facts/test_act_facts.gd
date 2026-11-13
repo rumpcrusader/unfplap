@@ -108,6 +108,7 @@ func run() -> void:
 	check(facts.event_id == "" and facts.pony_id == "", "line ids start empty")
 	check(facts.features.is_empty() and facts.preferences.is_empty(),
 		"feature and preference blocks start empty")
+	check(facts.caress_quality == "precise", "the caress quality starts precise")
 	check(is_zero_approx(facts.clock()), "the line clock starts at zero")
 	check(not facts.director.is_valid(), "the director callback starts absent")
 	check(not facts.now.is_valid(), "the clock callback starts absent")

@@ -25,7 +25,7 @@ func _init(facts_context: Variant = null) -> void:
 
 
 ## Build the palm frame for one hand. `path` is a hand path (see hands/path_base.gd), and
-## `context` carries lean, oval phase/radii, hover and the exact/hull mode. Returns an invalid
+## `context` carries lean, oval phase/radii, hover and the snap state. Returns an invalid
 ## transform when the path and the last good target are both unavailable.
 func frame(pony: Variant, path: Variant, hand_side: String, context: Dictionary) -> Transform3D:
 	if not is_instance_valid(pony) or path == null:
@@ -131,11 +131,8 @@ func _place_candidate(pony: Variant, hand_side: String, candidate: Dictionary,
 	var roll := float(candidate.get("roll", 0.0))
 	var region := str(candidate.get("region", "torso"))
 	var hover := float(context.get("hover", 0.0))
-	if bool(candidate.get("precise", true)):
-		return _place_precise(pony, hand_side, candidate, context, intended, normal,
-			finger, mode, roll, region, hover)
-	return _place_hull(pony, hand_side, candidate, context, intended, normal, finger,
-		mode, roll)
+	return _place_precise(pony, hand_side, candidate, context, intended, normal,
+		finger, mode, roll, region, hover)
 
 
 func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
@@ -182,38 +179,6 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	return target
 
 
-func _place_hull(pony: Variant, hand_side: String, candidate: Dictionary,
-		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
-		mode: String, roll: float) -> Transform3D:
-	var query := intended + normal * float(candidate.get("hull_lift", 0.0))
-	var ignore: Variant = candidate.get("ignore", context.get("ignore", []))
-	var regions: Variant = candidate.get("regions", [])
-	var radial := bool(candidate.get("radial", true))
-	var hit := COAT.contact(pony, query, normal,
-		ignore if ignore is Array else [], regions if regions is Array else [])
-	var source := str(hit.get("source", "fallback"))
-	var hit_point: Vector3 = hit.get("point", query)
-	var hit_normal: Vector3 = hit.get("normal", normal)
-	if hit_normal.length_squared() < 0.5:
-		hit_normal = normal
-	hit_normal = COAT.stable_outward(pony, hit_point, hit_normal, radial)
-	var state := _state(hand_side)
-	var delta := maxf(float(context.get("delta", 0.001)), 0.001)
-	var smoothed := _smooth_hull(state, hit_point, hit_normal, source, delta)
-	var clearance := float(context.get("clearance", 0.02))
-	var target := HAND.place(smoothed["point"], smoothed["normal"], finger, hand_side, mode,
-		roll, clearance)
-	_debug[hand_side] = {
-		"candidate": candidate,
-		"intended": intended,
-		"contact": smoothed["point"],
-		"normal": smoothed["normal"],
-		"target": target,
-		"surface": null,
-	}
-	return target
-
-
 func _surface(pony: Variant, region: String, hand_side: String, point: Vector3) -> Variant:
 	# With the local window each hand keeps its own patch: the hands caress opposite flanks, so
 	# one shared window would re-centre on every tick. The stable source cache still shares the
@@ -228,9 +193,16 @@ func _surface(pony: Variant, region: String, hand_side: String, point: Vector3) 
 		return null
 	surface.call("set_local", local)
 	surface.call("select", point)
-	surface.call("set_quality", str(SETTINGS.quality.get_choice()))
+	surface.call("set_quality", _quality())
 	surface.call("update_pose")
 	return surface
+
+
+## `caress_quality` from the act snapshot. A bare engine (tests) keeps the precise default.
+func _quality() -> String:
+	if facts == null:
+		return "precise"
+	return str(facts.caress_quality)
 
 
 ## `features.caress_local` from the act snapshot. A bare engine (tests) keeps the full patch.

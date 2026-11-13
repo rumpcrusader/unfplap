@@ -236,7 +236,8 @@ live.
 **General**
 
 One ungrouped list, in this order: **Starting Sex**, **Show controls**, **Show HUD readouts**,
-**Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Climax limit** (`0…20`,
+**Show captions on top**, **Mute Ponese audio**, **Allow act lines**, **Show act expressions**,
+**Caress quality** (`Fast` / `Precise`, default `Precise`), **Climax limit** (`0…20`,
 default `3`; `0` is unlimited), **Sensitivity** in pixels per centimetre of hip
 travel (`20…400`, default `50`), **Thrust direction** (which mouse direction deepens the stroke),
 **Use Anon bed body**, **Use VR act**, **Allow hole switch**, **Allow oral**, **Allow finish

@@ -45,7 +45,6 @@ class FixedPath extends RefCounted:
 			"mode": "palm",
 			"roll": 0.0,
 			"region": "torso",
-			"precise": true,
 		}]
 
 	func debug_world(_hand_side: String) -> Array:
@@ -208,10 +207,10 @@ func run() -> void:
 	check(not bool(ray_hit.get("inside", true)), "the ray point outside the plane is outside")
 	check(surface.get("_tri") != null, "the first ray builds the ray mesh once")
 
-	# The player quality: precise still snaps a missed ray to the coat; balanced/fast keep the
-	# intended oval point and the path normal when the ray misses.
+	# The player quality: precise still snaps a missed ray to the coat; fast keeps the intended
+	# oval point and the path normal when the ray misses.
 	var lossy: Variant = _plane()
-	lossy.call("set_quality", "balanced")
+	lossy.call("set_quality", "fast")
 	var miss: Dictionary = lossy.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
 	check(int(miss.get("face", 0)) < 0, "the lossy miss reports no exact face")
 	check((miss.get("point", Vector3.ZERO) as Vector3).is_equal_approx(Vector3(0.2, 0.5, 0.1)),
@@ -221,6 +220,9 @@ func run() -> void:
 	var exact_miss: Dictionary = exact.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
 	var exact_point: Vector3 = exact_miss.get("point", Vector3.ZERO)
 	check(near(exact_point.y, 0.0), "precise still snaps a missed ray to the coat")
+	lossy.call("set_quality", "precise")
+	check(int(lossy.get("update_ms")) == 33 and int(lossy.get("blur_depth")) == 2,
+		"precise restores the full patch refresh and blur")
 	lossy.call("set_quality", "fast")
 	check(int(lossy.get("update_ms")) == 66 and int(lossy.get("blur_depth")) == 1,
 		"fast lowers the patch refresh and the blur ring")
@@ -533,12 +535,6 @@ func run() -> void:
 			"backward lean reaches the first JSON area")
 		check(str(area_neutral.get("id", "")) == area_start,
 			"the neutral area is the JSON start")
-		var area_first_hull := "body"
-		var area_first_row: Variant = area_areas.get(area_first, {})
-		if area_first_row is Dictionary:
-			area_first_hull = str((area_first_row as Dictionary).get("hull", "body"))
-		check(str(area_back.get("hull", "")) == area_first_hull,
-			"the first area keeps its JSON hull")
 	var area_right: Variant = PATH.new()
 	check(bool(area_right.call("build_areas", body_pony, "right", "standing")),
 		"the marked area path builds for the right hand")
@@ -577,7 +573,6 @@ func run() -> void:
 			"the standing shoulder outward hints point away from the body")
 	var stand_context := {
 		"lean": 0.0, "size": 1.0, "profile": {"up": 0.16, "back": 0.08, "out": 0.02},
-		"precise": true, "ignore": [],
 	}
 	var flank_start: Array = standing_path.call("candidates", "left", stand_context)
 	stand_context["lean"] = 1.0
@@ -606,7 +601,7 @@ func run() -> void:
 	SETTINGS.caress_areas.set_value(true)
 	standing_path.call("reset")
 	var area_context := {
-		"lean": 0.0, "size": 1.0, "profile": {}, "precise": true, "ignore": [],
+		"lean": 0.0, "size": 1.0, "profile": {},
 	}
 	var area_start_candidates: Array = standing_path.call("candidates", "left", area_context)
 	check(area_start_candidates.size() == 1,
@@ -618,8 +613,6 @@ func run() -> void:
 		check((area_candidate["point"] as Vector3).distance_to(
 			_json_position(area_areas, area_start, "left")) < 0.02,
 			"no lean starts the standing area path at the JSON start")
-		check(bool(area_candidate.get("precise", false)),
-			"the precise area standing path uses the exact surface")
 	area_context["hover"] = 0.02
 	area_context["clearance"] = 0.02
 	area_context["oval"] = Vector2.ZERO
@@ -644,14 +637,6 @@ func run() -> void:
 	check(area_back_candidates.size() == 1
 		and (area_back_candidates[0]["point"] as Vector3).x < 0.0,
 		"backward lean reaches the area flank_back")
-	area_context["lean"] = 0.0
-	area_context["precise"] = false
-	var area_hull_candidates: Array = standing_path.call("candidates", "left", area_context)
-	check(area_hull_candidates.size() == 1,
-		"the area standing path works in hull mode")
-	if area_hull_candidates.size() == 1:
-		check(not bool(area_hull_candidates[0].get("precise", true)),
-			"hull mode leaves the area standing contact on the hull")
 	SETTINGS.caress_areas.set_value(old_area_setting)
 	standing_path.call("reset")
 	head_root.free()
@@ -705,7 +690,7 @@ func run() -> void:
 	second_path.normal = first_path.normal
 	var context := {
 		"oval": Vector2.ZERO, "phase": 0.0, "hover": 0.02, "clearance": 0.02,
-		"scale": 1.0, "delta": 0.016, "precise": true,
+		"scale": 1.0, "delta": 0.016,
 	}
 	var first_frame: Transform3D = engine.call("frame", engine_pony, first_path, "right", context)
 	var second_frame: Transform3D = engine.call("frame", engine_pony, second_path, "right", context)
@@ -751,7 +736,6 @@ func run() -> void:
 	flank_path.call("setup", flank_pony, null)
 	var flank_candidates: Array = flank_path.call("candidates", "right", {
 		"lean": 0.0, "size": 1.0, "profile": {"up": 0.16, "back": 0.08, "out": 0.02},
-		"precise": true, "ignore": [],
 	})
 	check(flank_candidates.size() == 1, "the standing path returns one contact")
 	if flank_candidates.size() == 1:

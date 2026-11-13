@@ -28,7 +28,6 @@
       "region": "torso",
       "mode": "palm",
       "roll": 1.0,
-      "hull": "flank",
       "left": {
         "position": [
           -0.058039,
@@ -49,7 +48,6 @@
       "region": "torso",
       "mode": "palm",
       "roll": 1.0,
-      "hull": "flank",
       "left": {
         "position": [
           -0.125215,
@@ -70,7 +68,6 @@
       "region": "torso",
       "mode": "palm",
       "roll": 1.0,
-      "hull": "flank",
       "left": {
         "position": [
           -0.105318,
@@ -91,7 +88,6 @@
       "region": "torso",
       "mode": "palm",
       "roll": 0.7,
-      "hull": "body",
       "left": {
         "position": [
           -0.049594,
@@ -112,7 +108,6 @@
       "region": "torso",
       "mode": "palm",
       "roll": 0.7,
-      "hull": "body",
       "left": {
         "position": [
           -0.100413,
@@ -133,7 +128,6 @@
       "region": "torso",
       "mode": "fingertip",
       "roll": 0.2,
-      "hull": "body",
       "left": {
         "position": [
           -0.061851,

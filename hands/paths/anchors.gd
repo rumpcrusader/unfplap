@@ -129,7 +129,6 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 		if not position.is_finite():
 			continue
 		var region := str((entry as Dictionary).get("region", "torso"))
-		var hull := str((entry as Dictionary).get("hull", "body"))
 		var roll := float((entry as Dictionary).get("roll", 1.0))
 		if region == "head":
 			if head_source.is_empty():
@@ -142,7 +141,7 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 			if head_anchor.is_empty():
 				debug_notes.append("area %s miss" % slot)
 				continue
-			_anchor_meta(head_anchor, slot, 1.0, roll, region, hull)
+			_anchor_meta(head_anchor, slot, 1.0, roll, region)
 			anchors.append(head_anchor)
 		else:
 			if body_source.is_empty():
@@ -155,7 +154,7 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 			if body_anchor.is_empty():
 				debug_notes.append("area %s miss" % slot)
 				continue
-			_anchor_meta(body_anchor, slot, 1.0, roll, region, hull)
+			_anchor_meta(body_anchor, slot, 1.0, roll, region)
 			anchors.append(body_anchor)
 	if anchors.size() < 3:
 		return false
@@ -245,7 +244,6 @@ static func sample_world(world: Array, u: float, hand_side: String,
 		"roll": lerpf(float(a1["roll"]), float(a2["roll"]), t),
 		"region": str(a1["region"]) if t < 0.5 else str(a2["region"]),
 		"id": str(a1.get("id", "")) if t < 0.5 else str(a2.get("id", "")),
-		"hull": str(a1.get("hull", "body")) if t < 0.5 else str(a2.get("hull", "body")),
 	}
 
 
@@ -278,7 +276,6 @@ func skinned() -> Array:
 			"lateral": float(anchor.get("lateral", 1.0)),
 			"roll": float(anchor.get("roll", 1.0)),
 			"region": str(anchor.get("region", "torso")),
-			"hull": str(anchor.get("hull", "body")),
 		})
 	return world
 
@@ -718,12 +715,11 @@ func _build_anchors_rest(pony: Variant, body: Dictionary, head: Dictionary,
 
 
 static func _anchor_meta(anchor: Dictionary, id: String, lateral: float, roll: float,
-		region: String, hull := "body") -> void:
+		region: String) -> void:
 	anchor["id"] = id
 	anchor["lateral"] = lateral
 	anchor["roll"] = roll
 	anchor["region"] = region
-	anchor["hull"] = hull
 
 
 func _source_faces(source: Dictionary) -> PackedVector3Array:

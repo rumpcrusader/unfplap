@@ -534,10 +534,9 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var lower_len := hand_offset.length()
 	if upper_len < 0.001 or lower_len < 0.001:
 		return
-	var precise: bool = facts != null and facts.feature("caress_surface")
 	# Only the caressing hand may shift its shoulder or stretch. The two planted palms keep the
 	# authored arm and mattress contact.
-	var caress := natural and precise
+	var caress := natural
 	var stretch := 1.0
 	var arm_started := Time.get_ticks_usec()
 	if caress:

@@ -304,6 +304,7 @@ func _init() -> void:
 	_act_facts.anatomy_opening = Callable(self, "anatomy_opening")
 	_act_facts.authored_pose_asset = Callable(self, "authored_pose_asset")
 	_act_facts.missionary_face_point = Callable(self, "missionary_face_point")
+	_act_facts.gaze_point = Callable(self, "_missionary_gaze_point")
 	_act_facts.free_look_rotation = Callable(self, "free_look_rotation")
 	_act_facts.desktop_pose_driver = Callable(self, "_desktop_pose_driver")
 	_act_facts.cuddle_active = Callable(self, "_cuddle_active")
@@ -1051,35 +1052,7 @@ func _process_tick(delta: float) -> void:
 	_pose_render_write()
 	_pose_idle_sample()
 	_standing_camera_controller().clamp_look()
-	if is_instance_valid(_pose_session.pose()) and is_instance_valid(main):
-		var view: Camera3D = main.camera()
-		if pose_id == CATALOG.MISSIONARY and is_instance_valid(_missionary_camera_controller().view()):
-			view = _missionary_camera_controller().view()
-		var kiss: Variant = _kiss_controller()
-		var custom_kiss: bool = kiss.custom_visible()
-		var kiss_view: Camera3D = kiss.mouth_view()
-		if is_instance_valid(view):
-			if custom_kiss and is_instance_valid(kiss_view):
-				if pose_id == CATALOG.MISSIONARY:
-					# Best-effort lean: blend from his eyes to his mouth with the kiss's own 0.35 s
-					# fade, so the head leans in with the kiss instead of snapping to the mouth on
-					# the first frame. The pose solve still aims at the moving point every frame.
-					var mouth: Variant = kiss.target(kiss_view)
-					var gaze := _missionary_gaze_point()
-					if mouth is Vector3 and (mouth as Vector3).is_finite() and gaze.is_finite():
-						_pose_session.pose().look_point = gaze.lerp(mouth, clampf(float(kiss.amount()), 0.0, 1.0))
-					else:
-						_pose_session.pose().look_point = gaze
-				else:
-					_pose_session.pose().look_point = kiss.target(kiss_view)
-			elif pose_id == CATALOG.MISSIONARY:
-				# Look at the authored Anon, not at the game camera: his body is placed by the act,
-				# and the player rig the camera belongs to is standing off the bed.
-				_pose_session.pose().look_point = _missionary_gaze_point()
-			else:
-				_pose_session.pose().look_point = view.global_position
-		_pose_session.pose().kiss = kiss.amount() if custom_kiss else 0.0
-		_pose_session.pose().climaxing = state == State.CLIMAX
+	_camera_service().call("write_look_target", _pose_session.pose())
 	if state == State.CLIMAX:
 		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
 	_camera_service().call("tick_shot", delta, state,

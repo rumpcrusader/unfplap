@@ -17,6 +17,12 @@ helper the shot and the hands read.
 order, the start sequence, the shot targets (stroke speed, climax wave) and the one teardown
 ledger; `_restore_camera()` is that ledger and calls the facade's leaves in the built order.
 
+The look point is the camera's too: `write_look_target()` picks the missionary gaze, blends toward
+the kissing mouth by the kiss's own fade and writes the pose's `look_point`, `kiss` and `climaxing`
+for the rendered frame. The runtime calls it between the pose render write and the shot tick, so
+the head solves against this frame's lean. The gaze target itself comes from the anatomy bridge
+through `facts.gaze_point`.
+
 ## Typed view
 
 Every camera, shot and body module reads `shared/act_facts.gd` and never the runtime node. The runtime

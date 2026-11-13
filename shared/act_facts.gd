@@ -136,6 +136,8 @@ var anatomy_normal := Callable()
 var anatomy_opening := Callable()
 var authored_pose_asset := Callable()
 var missionary_face_point := Callable()
+## The missionary gaze target (the authored Anon's face), owned by the anatomy bridge.
+var gaze_point := Callable()
 var free_look_rotation := Callable()
 var desktop_pose_driver := Callable()
 var cuddle_active := Callable()

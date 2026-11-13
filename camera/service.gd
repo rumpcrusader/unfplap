@@ -109,6 +109,53 @@ func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant,
 	missionary_camera = missionary_ctl
 
 
+## Write the pose's look target for this rendered frame: the missionary gaze versus the kissing
+## mouth, the authored-Anon fallback and the pose's kiss/climax weights. The runtime calls this
+## after the pose session's render write and before the shot tick, so the head solves against
+## this frame's lean. See `docs/poses.md`.
+func write_look_target(pose: Node) -> void:
+	if not is_instance_valid(pose) or facts == null or not is_instance_valid(facts.main):
+		return
+	if not is_instance_valid(kiss):
+		return
+	var view: Camera3D = facts.main.camera()
+	if facts.pose_id == CATALOG.MISSIONARY and is_instance_valid(missionary_camera) \
+			and is_instance_valid(missionary_camera.view()):
+		view = missionary_camera.view()
+	var custom_kiss: bool = kiss.custom_visible()
+	var kiss_view: Camera3D = kiss.mouth_view()
+	if is_instance_valid(view):
+		if custom_kiss and is_instance_valid(kiss_view):
+			if facts.pose_id == CATALOG.MISSIONARY:
+				# Best-effort lean: blend from his eyes to his mouth with the kiss's own 0.35 s
+				# fade, so the head leans in with the kiss instead of snapping to the mouth on
+				# the first frame. The pose solve still aims at the moving point every frame.
+				var mouth: Variant = kiss.target(kiss_view)
+				var gaze := gaze_point()
+				if mouth is Vector3 and (mouth as Vector3).is_finite() and gaze.is_finite():
+					pose.set("look_point", gaze.lerp(mouth, clampf(float(kiss.amount()), 0.0, 1.0)))
+				else:
+					pose.set("look_point", gaze)
+			else:
+				pose.set("look_point", kiss.target(kiss_view))
+		elif facts.pose_id == CATALOG.MISSIONARY:
+			# Look at the authored Anon, not at the game camera: his body is placed by the act,
+			# and the player rig the camera belongs to is standing off the bed.
+			pose.set("look_point", gaze_point())
+		else:
+			pose.set("look_point", view.global_position)
+	pose.set("kiss", kiss.amount() if custom_kiss else 0.0)
+	pose.set("climaxing", int(facts.state) == STATE_CLIMAX)
+
+
+## The missionary gaze target the anatomy bridge resolves, or `INF` when no callback is bound.
+func gaze_point() -> Vector3:
+	if facts == null or not facts.gaze_point.is_valid():
+		return Vector3.INF
+	var point: Variant = facts.gaze_point.call()
+	return point if point is Vector3 else Vector3.INF
+
+
 ## Take the act's camera tuning from the runtime's settings snapshot.
 func configure(camera_block: Dictionary) -> void:
 	camera_surge = float(camera_block.get("surge", 1.0))

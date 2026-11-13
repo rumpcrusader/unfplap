@@ -110,6 +110,9 @@ static func _action_button(name: String, action: Dictionary, font_size: int, mai
 	button.pressed.connect(func() -> void:
 		var result := DEBUG_ACTIONS.run_action(name, main)
 		status.text = result
+		# The cycle slots change between Force and Clear after their own click.
+		button.text = DEBUG_ACTIONS.action_short(name, main) if compact \
+			else DEBUG_ACTIONS.action_label(name, main)
 		_debug(main, "action %s %s" % [name, result]))
 	return button
 

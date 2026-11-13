@@ -265,7 +265,7 @@ func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Labe
 func show_prompt(text: String, icon_name := "button_y") -> void:
 	if _prompt == null:
 		return
-	var key := icon_name + "\u0000" + text
+	var key := icon_name + "\u001f" + text
 	if key != _prompt_key:
 		_prompt_key = key
 		if is_instance_valid(_prompt_row):

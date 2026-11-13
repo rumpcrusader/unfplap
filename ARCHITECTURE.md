@@ -11,7 +11,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 
 | Part | Role |
 |---|---|
-| Entry | `main.gd`: the `Mods` hooks, world/player lifecycle, service construction, settings-tab injection and the top-level services. |
+| Entry | `main.gd`: the `Mods` hooks, world/player lifecycle, service construction and the top-level services. |
 | Orchestrator | `runtime.gd`: one per pony. The act state machine, tick order, start sequence, the single teardown ledger and the composition of act services. |
 | Service | An isolated unit that owns one authority over mutable state and exposes it through one facade. |
 | Service internals | Private modules under `<service>/`. Nothing outside the service imports them. |
@@ -117,7 +117,8 @@ grows. Removing a method from the debt is part of the change that types it.
   One writer per key. The service doc names the storage and the owner.
 - Per-character profile blocks are owned by the domain service that understands them. The
   settings service owns the file and the generic block storage, not the consent, preference,
-  participation or pose semantics.
+  participation or pose semantics. In this pass the settings service still stores those blocks
+  until a characters service owns them.
 - A per-act service receives its settings values once per act and receives them again on
   `apply_live_settings()`. New code does not read `Settings` every frame.
 
@@ -133,7 +134,6 @@ preloaded private file. The same applies to `runtime.gd` and `main.gd` from a se
 <service>/
   service.gd       # public contract
   internal.gd      # private implementation
-  settings.gd      # private declarations owned by this service
   ui.gd            # private scene adapter, if the service owns a panel
   data.json        # private data
 ```
@@ -172,7 +172,7 @@ act must release every node and subscription it created.
 - receives the `Mods` hooks and the world/player lifecycle;
 - constructs world services and exposes them to the game and the API;
 - creates per-pony runtimes and attaches them to ponies;
-- injects the settings page and the Characters form through the owning service;
+- delegates the settings-page injection and the Characters form to the settings service's UI files;
 - ticks world services and the active runtime;
 - does not own domain rules, debug action implementations or a service's private state.
 
@@ -236,28 +236,31 @@ callback is a no-op only where the service doc says so.
 
 ## Settings and debug ownership
 
-The settings service owns the framework:
+The settings service owns the catalog and the framework:
 
-- the declaration registry and typed `Setting` classes;
+- every declaration and its typed `Setting` handle in `settings/service.gd`;
 - `settings.json`, defaults, clamping, section state, migration and save;
-- the declaration-drawn settings panel and the tab injection.
+- the declaration-drawn settings panel and the tab injection in `settings/ui.gd`.
 
-Each owning service provides:
+The catalog is the settings service's **internal public API**. A service that needs a setting:
 
-- its declaration module (`<service>/settings.gd`), with keys, labels, bounds and debug flags;
-- typed handles or a typed config object for its own values;
-- its per-character profile block and migration hook;
-- its debug action descriptors registered with the debug service;
-- the settings and debug section of its contract doc.
+- contributes it with a literal declaration in `settings/service.gd`, in the owner/tab/group block
+  where the row belongs;
+- documents the setting's behavior in its own contract;
+- depends on `settings/service.gd` and reads or writes the typed handle.
 
-`main` registers every service's declarations in explicit order before the file is loaded and the
-panel is built. Static initialization order is not a registration mechanism. A per-act service
-receives a typed config snapshot at act start; `apply_live_settings()` re-pushes it. There is one
-writer to `settings.json`: the settings service.
+There is no per-service `settings.gd` module and no registration manifest. A consumer may read
+another service's contributed handle because the catalog is public inside the mod. It is not part
+of the cross-mod API: other mods still only see `api.gd`.
 
-The debug service owns the console, the panel, the skeleton overlay and the action registry. It
-does not own the action behavior. A service registers an action with a typed callable bound to its
-own facade; `main.gd` has no `action_*` methods.
+Panel order is declaration order. A per-act service receives its settings values once per act and
+receives them again on `apply_live_settings()`. There is one writer to `settings.json`: the
+settings service. Per-character profiles remain in the settings file until a characters service
+owns them.
+
+The debug service owns the console, the panel, the skeleton overlay, the action registry and the
+action-button builder (`debug/ui.gd`). It does not own the action behavior. The settings panel
+passes the debug action builder into its Debug block.
 
 `docs/settings.md` owns the framework and the declaration contract. Each service doc owns its
 settings, feature flags and debug actions. `docs/debug.md` owns the console, panel, overlay and
@@ -367,8 +370,8 @@ probe before and after, with **Enable debug** + **Print perf logs**.
    making the facade a namespace.
 4. Add `docs/<id>.md` with the standard sections, `## Lifecycle` and `## Dependencies`.
 5. Add `tests/<id>/`; keep pure-core tests separate from facade/API tests.
-6. Declare the service's settings and debug actions in its own directory and register them from
-   `main` in explicit order.
+6. Contribute the service's settings as declarations in `settings/service.gd` and its debug
+   actions to `debug/service.gd`; document the behavior in the service contract.
 7. Add the service and its facade to `docs/README.md`.
 8. Run the architecture checker and the full gate.
 9. Add an exception only if the boundary cannot be fixed in the same change. An exception needs

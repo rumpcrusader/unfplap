@@ -9,6 +9,7 @@ extends SceneTree
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
+const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 
 var failures := 0
@@ -326,9 +327,12 @@ func _check_panels() -> void:
 ## A section heading is drawn once, even when its declarations interleave another group.
 func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
-	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", [
-		"presentation.missionary.size.canon.gaze_offset_mm", "camera_thrust.bob",
-		"presentation.missionary.camera_mode"], 16, null, Callable())
+	var fold: Array = [
+		SETTINGS.by_path("presentation.missionary.size.canon.gaze_offset_mm"),
+		SETTINGS.by_path("camera_thrust.bob"),
+		SETTINGS.by_path("presentation.missionary.camera_mode"),
+	]
+	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", fold, 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
@@ -342,7 +346,9 @@ func _check_section_folding() -> void:
 func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	var list := VBoxContainer.new()
 	var owner := Node.new()
-	var debug_section: Control = SETTINGS_UI.build(list, tab, 16, null, Callable(), owner)
+	var builder := func(body: VBoxContainer, size: int, tab_name: String) -> void:
+		DEBUG_UI.build_actions(body, size, owner, tab_name)
+	var debug_section: Control = SETTINGS_UI.build(list, tab, 16, null, Callable(), builder)
 	var labels: Array = []
 	_collect_labels(list, labels)
 	var missing: Array = []
@@ -500,9 +506,9 @@ func _check_migration() -> void:
 ## exists on Script/GDScript would silently call the built-in instead of ours.
 func _check_api_names() -> void:
 	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "block",
-		"default_block", "get_value_at", "set_value_at", "default_at", "entry_view",
+		"default_block", "get_value_at", "set_value_at", "default_at", "to_row",
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "reload_file",
-		"write_setting", "preferences", "pose", "template_for", "get_bool", "set_bool",
+		"preferences", "pose", "template_for", "get_bool", "set_bool",
 		"get_num", "set_num", "get_choice", "set_choice", "get_list", "set_list", "build",
 		"build_actions"]
 	var clashes: Array = []

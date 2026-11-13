@@ -106,6 +106,32 @@ class Setting:
 	func reset() -> void:
 		set_value(default)
 
+	## Tool-only serialization: the settings snapshot and `/sync-settings` consume this shape.
+	## Gameplay code reads the typed accessor instead.
+	func to_row() -> Dictionary:
+		var out: Dictionary = {
+			"kind": "bool" if self is FlagSetting else "num" if self is NumSetting else
+				"choice" if self is ChoiceSetting else "color" if self is ColorSetting else "list",
+			"default": default, "label": label, "help": help, "group": group,
+			"tab": tab, "debug": debug, "hidden": hidden,
+		}
+		if self is NumSetting:
+			var n := self as NumSetting
+			out["unit"] = n.unit
+			out["step"] = n.step
+			out["scale"] = n.scale
+			out["low"] = n.low
+			out["high"] = n.high
+			out["clamp"] = not n.debug
+			out["slider"] = n.slider
+		if self is ChoiceSetting:
+			var c := self as ChoiceSetting
+			out["options"] = c.options
+			out["labels"] = c.labels
+		if self is ListSetting:
+			out["options"] = (self as ListSetting).options
+		return out
+
 	## A debug setting is shown only behind debug mode and never clamps its own value.
 	func as_debug() -> Setting:
 		debug = true
@@ -178,8 +204,8 @@ class NumSetting extends Setting:
 
 
 class ChoiceSetting extends Setting:
-	var options: Array = []
-	var labels: Array = []
+	var options: Array[String] = []
+	var labels: Array[String] = []
 
 	func get_choice() -> String:
 		var value := str(get_value())
@@ -199,14 +225,18 @@ class ChoiceSetting extends Setting:
 
 
 class ListSetting extends Setting:
-	var options: Array = []
+	var options: Array[String] = []
 
-	func get_list() -> Array:
+	func get_list() -> Array[String]:
 		var value: Variant = get_value()
-		return value if value is Array else []
+		var out: Array[String] = []
+		if value is Array:
+			for raw: Variant in value:
+				out.append(str(raw))
+		return out
 
 	func set_list(values: Array) -> void:
-		var out: Array = []
+		var out: Array[String] = []
 		for raw: Variant in values:
 			var name := str(raw).to_lower()
 			if options.has(name) and not out.has(name):
@@ -237,7 +267,7 @@ class ColorSetting extends Setting:
 		set_value(value)
 
 
-static var _registry: Array = []
+static var _registry: Array[Setting] = []
 static var _by_path: Dictionary = {}
 static var _by_name: Dictionary = {}
 ## One flat path -> value table, rebuilt only when the file's generation changes.
@@ -259,8 +289,9 @@ static func num(n: String, path: String, value: float, label: String, help: Stri
 	return s
 
 
-static func choice(n: String, path: String, value: String, options: Array, labels: Array,
-		label: String, help: String, tab: String, group: String) -> ChoiceSetting:
+static func choice(n: String, path: String, value: String, options: Array[String],
+		labels: Array[String], label: String, help: String, tab: String,
+		group: String) -> ChoiceSetting:
 	var s := ChoiceSetting.new()
 	s.options = options
 	s.labels = labels
@@ -268,8 +299,8 @@ static func choice(n: String, path: String, value: String, options: Array, label
 	return s
 
 
-static func list(n: String, path: String, value: Array, options: Array, label: String,
-		help: String, tab: String, group: String) -> ListSetting:
+static func list(n: String, path: String, value: Array[String], options: Array[String],
+		label: String, help: String, tab: String, group: String) -> ListSetting:
 	var s := ListSetting.new()
 	s.options = options
 	_bind(s, n, path, label, help, tab, group, value)
@@ -309,21 +340,23 @@ static func anatomy_on() -> bool:
 
 
 ## Every setting in declaration order.
-static func all_settings() -> Array:
+static func all_settings() -> Array[Setting]:
 	return _registry
 
 
 ## The setting at a JSON path, or null. Never use this from gameplay code.
-static func by_path(path: String) -> Variant:
-	return _by_path.get(path)
+static func by_path(path: String) -> Setting:
+	var found: Variant = _by_path.get(path)
+	return found as Setting
 
 
-static func by_name(n: String) -> Variant:
-	return _by_name.get(n)
+static func by_name(n: String) -> Setting:
+	var found: Variant = _by_name.get(n)
+	return found as Setting
 
 
 static func _default_at(path: String) -> Variant:
-	var s: Variant = _by_path.get(path)
+	var s := by_path(path)
 	return null if s == null else s.default
 
 
@@ -531,8 +564,8 @@ static func anatomy_placement_draft_values() -> Dictionary:
 
 
 ## Settings in one tab, in declaration order.
-static func tab_settings(tab: String) -> Array:
-	var out: Array = []
+static func tab_settings(tab: String) -> Array[Setting]:
+	var out: Array[Setting] = []
 	for s: Setting in _registry:
 		if s.tab == tab:
 			out.append(s)
@@ -555,7 +588,7 @@ static func _setting_value(s: Setting) -> Variant:
 
 
 static func _setting_write(s: Setting, value: Variant) -> void:
-	write_setting(s.path, _coerce(s, value))
+	_write_setting(s.path, _coerce(s, value))
 
 
 ## Validate one value against its setting. Bools take the truthiness, numbers take the contract
@@ -921,10 +954,10 @@ static var part_inset_m := num("part_inset_m", "presentation.missionary.part_ins
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is
 ## edited; the act always reads the size the game is currently set to. Every size starts at the old
 ## single default, so an unedited file behaves the same at every size.
-const MISSIONARY_SIZES := ["canon", "mounting", "same height", "hoers"]
-const MISSIONARY_SIZE_LABELS := ["Canon", "JRHNBR", "Same height", "Hoers"]
-const MISSIONARY_SIZE_BASES := ["vulva_shift_mm", "vulva_pitch_deg", "vulva_depth_shift_mm",
-	"vulva_hug_mm", "head_clearance_mm", "gaze_offset_mm"]
+const MISSIONARY_SIZES: Array[String] = ["canon", "mounting", "same height", "hoers"]
+const MISSIONARY_SIZE_LABELS: Array[String] = ["Canon", "JRHNBR", "Same height", "Hoers"]
+const MISSIONARY_SIZE_BASES: Array[String] = ["vulva_shift_mm", "vulva_pitch_deg",
+	"vulva_depth_shift_mm", "vulva_hug_mm", "head_clearance_mm", "gaze_offset_mm"]
 const MISSIONARY_SIZE_GROUP := "Missionary › Size"
 static var size_group := choice("size_group", "presentation.missionary.size_group", "canon",
 	MISSIONARY_SIZES, MISSIONARY_SIZE_LABELS, "Size",
@@ -2456,10 +2489,11 @@ static func data() -> Dictionary:
 	return _read()
 
 
-## Write one dotted path (`presentation.standing.smack.raise_m`) and save the file.
+## Write one dotted path (`presentation.standing.smack.raise_m`) and save the file. Private: the
+## public write path is `Setting.set_value()`, which validates against the declaration.
 ## Not named `set_path`: `Script` already has `set_path(path)`, and a preloaded script constant
 ## resolves the built-in instead of a same-named static function.
-static func write_setting(path: String, value: Variant) -> void:
+static func _write_setting(path: String, value: Variant) -> void:
 	var data := _read()
 	var parts := path.split(".", false)
 	if parts.is_empty():
@@ -2579,33 +2613,7 @@ static func _defaults() -> Dictionary:
 	return out
 
 
-## The old flat entry dictionary, for the compatibility layer only.
-static func entry_view(s: Setting) -> Dictionary:
-	var out: Dictionary = {
-		"kind": "bool" if s is FlagSetting else "num" if s is NumSetting else
-			"choice" if s is ChoiceSetting else "color" if s is ColorSetting else "list",
-		"default": s.default, "label": s.label, "help": s.help, "group": s.group,
-		"tab": s.tab, "debug": s.debug, "hidden": s.hidden,
-	}
-	if s is NumSetting:
-		var n := s as NumSetting
-		out["unit"] = n.unit
-		out["step"] = n.step
-		out["scale"] = n.scale
-		out["low"] = n.low
-		out["high"] = n.high
-		out["clamp"] = not n.debug
-		out["slider"] = n.slider
-	if s is ChoiceSetting:
-		var c := s as ChoiceSetting
-		out["options"] = c.options
-		out["labels"] = c.labels
-	if s is ListSetting:
-		out["options"] = (s as ListSetting).options
-	return out
-
-
-## Default template plus catalog pose/preference/prompt defaults. Kept as a function so the
+## The default template plus catalog pose/preference/prompt defaults. Kept as a function so the
 ## catalogs are read at run time instead of baked into a const expression.
 static func _filled_default() -> Dictionary:
 	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)

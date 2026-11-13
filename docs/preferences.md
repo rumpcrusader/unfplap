@@ -10,8 +10,10 @@ framework is `docs/settings.md`.
 `shared/preferences.gd` is the pure profile module: defaults, validation, merge, intensity/rhythm and the
 talk keyword map. `shared/character_preferences.gd` holds the display names, the selector order and every
 spawnable mare's built-in profile. `settings/service.gd` stores the per-mare overrides under
-`characters.<id>` and resolves the provider layer. `main.gd` builds the Characters form;
-`settings/ui.gd` owns the declaration rows for the global settings.
+`characters.<id>` and resolves the provider layer. `settings/characters_ui.gd` builds the Characters
+form (interim home until a characters service owns it); `settings/ui.gd` owns the declaration rows
+for the global settings. `main.gd` supplies the live-mares list and the resolved participation
+block through host callbacks.
 
 A known mare's base is her template in `shared/character_preferences.gd`, then any mod provider layer
 (`docs/api.md`), then the global `default`. Removing her saved override restores that chain rather

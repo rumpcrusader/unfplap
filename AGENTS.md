@@ -230,6 +230,8 @@ The full contract is `docs/settings.md`. The short version:
 
 - Add a setting with one declaration line in `settings/service.gd`, read it with its typed accessor, and
   run `scripts/test_all.sh`.
+- A service contributes a setting by editing the central catalog literally and documenting the
+  behavior in its own contract; there is no per-service settings module or registration list.
 - Never add a widget, a default constant, a path-keyed read or a save function anywhere else.
 - A group needs at least three related settings; otherwise leave `group` empty.
 - A debug setting uses `.as_debug()` and is never clamped.
@@ -245,14 +247,16 @@ mods/unfplap/
   mod.json          id, version, game_version, entry
   changelog.txt     player-facing release history; ships in the pack
   main.gd           Mods hooks, runtime attachment, offers, HUD/input creation,
-                    settings-tab injection, Characters preference editor, debug actions
+                    debug action implementations
   runtime.gd        per-pony act orchestrator: state machine, tick order, start,
                     teardown, service composition
   api.gd            stable cross-mod facade; docs/api.md
   registry/service.gd  in-memory provider layers for modded and base-game mares
   settings/service.gd       every global setting declared once; docs/settings.md
-  settings/ui.gd    the only file that builds settings widgets
+  settings/ui.gd    declaration rows, Debug block and settings-tab injection
+  settings/characters_ui.gd  the interim Characters preference form
   debug/service.gd  Debug block actions and hotkeys; docs/debug.md
+  debug/ui.gd       the Debug block's action buttons
   hud/service.gd            the act card; docs/hud.md
   input/service.gd          Y start/end, smack routing, key consumption, action hotkeys
   docs/             one contract per service; docs/README.md is the index

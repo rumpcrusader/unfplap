@@ -6,9 +6,11 @@ the log switches. The lab scripts are in `WORKFLOW.md`; the settings framework i
 
 ## Scope
 
-`debug/service.gd` owns the Debug block's action buttons and their hotkeys. `debug/skeleton.gd`
-owns the skeleton overlay. `main.gd` owns the console gate and the tab injection. The lab scripts
-are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; their keys are in `WORKFLOW.md`.
+`debug/service.gd` owns the Debug block's action buttons and their hotkeys, and `debug/ui.gd`
+draws the buttons. `debug/skeleton.gd` owns the skeleton overlay. `settings/ui.gd` injects the
+Unfplap settings tab and passes `debug/ui.gd`'s builder into each Debug block. `main.gd` owns the
+console gate. The lab scripts are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; their keys are in
+`WORKFLOW.md`.
 
 ## Console
 
@@ -103,6 +105,7 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | settings | `settings/service.gd` | action-button rows and the placement target pill |
 
 ## Lifecycle
 

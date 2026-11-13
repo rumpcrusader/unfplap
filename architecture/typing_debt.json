@@ -457,11 +457,6 @@
     },
     {
       "service": "settings",
-      "func": "all_settings",
-      "signature": "static func all_settings() -> Array:"
-    },
-    {
-      "service": "settings",
       "func": "anatomy_placement",
       "signature": "static func anatomy_placement(id: String) -> Dictionary:"
     },
@@ -484,21 +479,6 @@
       "service": "settings",
       "func": "block",
       "signature": "static func block(prefix: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "by_name",
-      "signature": "static func by_name(n: String) -> Variant:"
-    },
-    {
-      "service": "settings",
-      "func": "by_path",
-      "signature": "static func by_path(path: String) -> Variant:"
-    },
-    {
-      "service": "settings",
-      "func": "choice",
-      "signature": "static func choice(n: String, path: String, value: String, options: Array, labels: Array, label: String, help: String, tab: String, group: String) -> ChoiceSetting:"
     },
     {
       "service": "settings",
@@ -539,16 +519,6 @@
       "service": "settings",
       "func": "deprecated",
       "signature": "static func deprecated(path: String, map: Callable) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "entry_view",
-      "signature": "static func entry_view(s: Setting) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "list",
-      "signature": "static func list(n: String, path: String, value: Array, options: Array, label: String, help: String, tab: String, group: String) -> ListSetting:"
     },
     {
       "service": "settings",
@@ -617,18 +587,8 @@
     },
     {
       "service": "settings",
-      "func": "tab_settings",
-      "signature": "static func tab_settings(tab: String) -> Array:"
-    },
-    {
-      "service": "settings",
       "func": "template_for",
       "signature": "static func template_for(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "write_setting",
-      "signature": "static func write_setting(path: String, value: Variant) -> void:"
     },
     {
       "service": "stool",

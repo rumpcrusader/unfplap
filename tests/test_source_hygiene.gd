@@ -4,9 +4,10 @@ extends SceneTree
 
 const ROOT := "res://mods/unfplap"
 ## Files allowed to create settings widgets. The declaration panel is settings/ui.gd; the
-## character preference form in main.gd is the one hand-built exception. The tools are never
-## shipped and are not settings UI.
-const WIDGET_FILES := ["res://mods/unfplap/settings/ui.gd", "res://mods/unfplap/main.gd"]
+## character preference form is settings/characters_ui.gd. The tools are never shipped and are not
+## settings UI.
+const WIDGET_FILES := ["res://mods/unfplap/settings/ui.gd",
+	"res://mods/unfplap/settings/characters_ui.gd"]
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "ColorPickerButton.new("]
 var failures := 0
 var checks := 0
@@ -99,9 +100,30 @@ func run() -> void:
 ## The settings live in one module with one declaration per setting; settings widgets may only
 ## live in the declaration panel and the preference form.
 func _check_settings_module(files: Array[String]) -> void:
-	# The settings live in one module. These checks keep that true as the mod grows.
+	# The settings live in one central catalog. These checks keep that true as the mod grows.
 	var module := FileAccess.get_file_as_string(ROOT.path_join("settings/service.gd"))
-	check(module.contains("static func all_settings() -> Array"), "settings module present")
+	check(module.contains("static func all_settings() -> Array[Setting]"),
+		"settings catalog present")
+	var declaring: Array = []
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		if path.begins_with(ROOT.path_join("tools/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		check(not relative.ends_with("/settings.gd"),
+			"no per-service settings module: %s" % relative)
+		var text := FileAccess.get_file_as_string(path)
+		for call: String in ["flag(", "num(", "choice(", "list(", "color("]:
+			if text.contains("\nstatic var ") and text.contains(" := " + call):
+				if not declaring.has(relative):
+					declaring.append(relative)
+				break
+	check(declaring == ["settings/service.gd"],
+		"only the central catalog declares settings: %s" % str(declaring))
+	for root_file: String in ["settings_page.gd", "settings_layout.gd"]:
+		check(not FileAccess.file_exists(ROOT.path_join(root_file)),
+			"no root %s composition file" % root_file)
 	var stale: Array = []
 	var widget_ok := true
 	for path: String in files:
@@ -120,7 +142,7 @@ func _check_settings_module(files: Array[String]) -> void:
 					widget_ok = false
 					print("settings widget %s outside settings/ui.gd: %s" % [widget, path])
 	check(stale.is_empty(), "no file imports the removed tunable shims: %s" % str(stale))
-	check(widget_ok, "only settings/ui.gd (and the preference form) create settings widgets")
+	check(widget_ok, "only settings/ui.gd and characters_ui.gd create settings widgets")
 
 
 ## The sync-settings snapshot must keep the full shipped character templates even though the
@@ -231,10 +253,12 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 		"bonds.adults": ["eligibility/service.gd"],
 		"SETTINGS.promiscuity": ["eligibility/service.gd", "settings/service.gd"],
 		"SETTINGS.sex_start": ["eligibility/service.gd", "settings/service.gd"],
-		"SETTINGS.profile_adult": ["eligibility/service.gd", "main.gd", "api.gd"],
+		"SETTINGS.profile_adult": ["eligibility/service.gd", "settings/characters_ui.gd",
+			"main.gd", "api.gd"],
 		"SETTINGS.profile_participation": ["eligibility/service.gd", "main.gd", "api.gd"],
 		"SETTINGS.profile_identity": ["eligibility/service.gd"],
-		"SETTINGS.consent(": ["eligibility/service.gd", "main.gd", "api.gd"],
+		"SETTINGS.consent(": ["eligibility/service.gd", "settings/characters_ui.gd",
+			"main.gd", "api.gd"],
 		"CYCLE.allows_sex(": ["eligibility/service.gd", "shared/cycle.gd"],
 		"ACT_HISTORY.blocks_start(": ["eligibility/service.gd", "shared/act_history.gd"],
 		"ACT_HISTORY.blocks_offers(": ["eligibility/service.gd", "shared/act_history.gd"],

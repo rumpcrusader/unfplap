@@ -12,10 +12,10 @@ const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 
 func _initialize() -> void:
 	var settings: Array = []
-	for setting: Variant in SETTINGS.all_settings():
-		var row: Dictionary = SETTINGS.entry_view(setting)
-		row["name"] = str(setting.name)
-		row["path"] = str(setting.path)
+	for setting: SETTINGS.Setting in SETTINGS.all_settings():
+		var row: Dictionary = setting.to_row()
+		row["name"] = setting.name
+		row["path"] = setting.path
 		settings.append(row)
 	var defaults: Dictionary = SETTINGS._defaults()
 	# The profile file stores only per-mare differences now, but the sync analyzer still needs the

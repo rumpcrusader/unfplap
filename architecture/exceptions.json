@@ -71,14 +71,6 @@
       "owner": "settings",
       "reason": "migration baseline; fix in the boundary-cleanup phase",
       "expires": "phase-2"
-    },
-    {
-      "from": "settings/ui.gd",
-      "to": "debug/service.gd",
-      "kind": "layer",
-      "owner": "settings",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
     }
   ]
 }

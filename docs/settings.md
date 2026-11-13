@@ -6,8 +6,8 @@ anywhere else. The General, Anatomy and World panels are drawn from the declarat
 `settings/ui.gd` in the settings page's own menu style: row cards, `Faint` help, switch plus
 state, Segment pills for a few short choices and the `Tab` look for a collapsible section heading.
 The tab pills, sidebar row and the hand-built Characters preference tab are added by the injection
-in `main.gd`. The Characters form itself is in `docs/preferences.md`; the consent and participation
-semantics are in `docs/eligibility.md`.
+in `settings/ui.gd`. The Characters form itself is in `settings/characters_ui.gd`; the consent and
+participation semantics are in `docs/eligibility.md`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalise function or a save function for a setting, stop. Declare the setting instead.
@@ -18,10 +18,25 @@ through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other p
 
 ## Ownership
 
-`settings/service.gd` owns the declaration registry, the JSON file, the typed accessors and the per-mare
-profiles. `settings/ui.gd` is the only file that draws the declaration rows. `main.gd` owns the
-tab injection, the Characters form and the `_apply_settings_changed()` hook. The runtime owns the
-per-act snapshot (`_snapshot_settings()`); the settings file never reads a live act.
+`settings/service.gd` owns the declaration catalog, the JSON file, the typed accessors and the
+per-mare profiles. The catalog is the settings service's internal public API: a service contributes
+a setting with a literal declaration there and then reads the typed handle.
+
+`settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
+injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
+Characters form. `main.gd` keeps the `Mods` hook and the `_apply_settings_changed()` callback. The
+runtime owns the per-act snapshot (`_snapshot_settings()`); the settings file never reads a live
+act.
+
+## Contributing a setting
+
+1. Add the declaration in `settings/service.gd`, in the tab and group where the player should see
+   it. The declaration owns the path, default, label, help, bounds and debug flag.
+2. Document the behavior in the owning service's `## Settings` section.
+3. Depend on `settings/service.gd` and use the typed handle.
+
+There is no `<service>/settings.gd` module, no registration call and no second layout list. The
+catalog order is the panel order.
 
 ## Reading and writing
 
@@ -73,7 +88,8 @@ is the one place a path prefix is still used. Act code snapshots once per act in
    ```
 
 3. **Run `scripts/test_all.sh`.** It checks the registry, the file round-trip, coercion and that the
-   panel draws every declaration.
+   panel draws every declaration. Update the owning service's `## Settings` section in the same
+   commit; a setting contributed by a service is documented there, not only here.
 
 Nothing else exists to update: the widget, unit, save, default, persistence and placement all come
 from the declaration.
@@ -102,7 +118,6 @@ list(n, path, default, options, label, help, tab, group)
 | `with_slider` | draw a themed HSlider instead of a spin box |
 | `as_debug` | show it in the tab's Debug block only, and never clamp it |
 | `as_hidden` | keep it out of the declaration rows; a hand-built `settings/ui.gd` control (the placement target pill) owns the widget |
-
 Declarations render **in file order**, and a section is created where it first appears. Put a line
 where a player would look for it, next to the setting it belongs to; do not add a "misc" section.
 
@@ -321,8 +336,10 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 
 - Add a setting with one declaration line in `settings/service.gd` and read it with its typed accessor;
   never add a widget, a default constant, a path-keyed read or a save function anywhere else.
-- `SETTINGS.block(prefix)` is the only bulk read. Per-act snapshots stay in
-  `runtime._snapshot_settings()`; do not add another cache.
+- Contribute the setting from its owning service: edit the catalog literally, document it in that
+  service's contract and depend on the settings facade. Do not add a private settings module.
+- `SETTINGS.block(prefix)` is the one remaining path-keyed read; it is the per-act bulk snapshot.
+  Do not add a second cache or a new path-keyed gameplay read.
 - **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, defaults, the
   file round-trip, clamping versus debug bypass, validation, section state, the panel drawing every
@@ -332,9 +349,9 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 - **A group needs at least three related settings.** Fewer, and the setting goes directly in the
   tab (or its Debug block) with `group` empty and no heading; a subgroup that small merges into its
   parent section. `tests/test_settings.gd` enforces the rule.
-- The Debug block is gated by `debug_mode` and toggles live: `settings_ui.build()` returns the
-  block and `main.gd` keeps it to show or hide. Put new debug-only settings behind `.as_debug()`;
-  the Actions buttons live inside the Debug block of the action's tab.
+- The Debug block is gated by `debug_mode` and toggles live: `settings/ui.gd` keeps the block and
+  shows or hides it. Put new debug-only settings behind `.as_debug()`; the Actions buttons live
+  inside the Debug block of the action's tab.
 - A debug action that belongs with others shares a `row` caption and a `short` label in
   `debug/service.gd`; consecutive entries with the same row render on one line.
 - The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
@@ -396,8 +413,7 @@ persisted value. See `docs/perf.md`.
   choice/list validation, section state, the panel drawing every declaration in its tab (and the
   Debug block only in debug mode), built-in name clashes, and the per-mare merge.
 - `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
-  settings widget is created outside `settings/ui.gd` (the Characters form in `main.gd` is the one
-  allowed exception).
+  settings widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
 - Keep the feature-flag table in this file current when adding a flag.
 
 ## Related docs

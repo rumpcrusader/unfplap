@@ -10,8 +10,16 @@ extends SceneTree
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/shared/integrations.gd")
+
+
+class PhaseMain extends Node:
+	var phase := "heat"
+
+	func debug_cycle_phase() -> String:
+		return phase
 
 var failures := 0
 var checks := 0
@@ -45,6 +53,7 @@ func run() -> void:
 	_check_sections()
 	_check_groups()
 	_check_panels()
+	_check_debug_actions()
 	_check_integrations_panel()
 	_check_section_folding()
 	_check_migration()
@@ -101,6 +110,8 @@ func _check_defaults() -> void:
 	check(near(float(SETTINGS.tail_tilt_deg.default), 0.0) and bool(SETTINGS.tail_tilt_deg.debug),
 		"the default tail tilt is a debug number at zero")
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
+	check(not bool(SETTINGS.skeleton_overlay.get_bool()), "the skeleton overlay is off by default")
+	check(bool(SETTINGS.skeleton_overlay.debug), "the skeleton overlay is a debug setting")
 	check(bool(SETTINGS.kissing_reactions.default),
 		"the Kissing reaction bridge defaults on")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
@@ -437,13 +448,15 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 			var expected: Array = []
 			match tab:
 				SETTINGS.GENERAL:
-					expected = ["Trigger bed offer", "Reset act prompts"]
+					expected = ["Trigger bed offer", "Show data", "Reset act prompts"]
 				SETTINGS.ANATOMY:
-					expected = ["Pitch +", "Up", "Pointed mare"]
+					expected = ["Pitch +", "Up", "Pointed mare", "Show skeleton overlay"]
 				SETTINGS.WORLD:
-					expected = ["Heat", "Warning"]
+					expected = ["Force heat", "Neglect warning"]
 			for action: String in expected:
 				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
+			check(not labels.has("Bed cuddle"),
+				"%s Debug block keeps the wheel-only bed cuddle off" % tab)
 	# An action lives in exactly one tab's block. "Heat" is also the Anatomy section heading, so
 	# the World guard uses its row caption "Cycle" instead of the action's short label.
 	if tab != SETTINGS.ANATOMY:
@@ -453,6 +466,36 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	list.free()
 	if is_instance_valid(owner):
 		owner.free()
+
+
+## The cycle actions resolve Force/Clear from the aimed target's current phase. With no target
+## they keep the Force label; the wheel-only bed cuddle never joins a settings block.
+func _check_debug_actions() -> void:
+	var main := PhaseMain.new()
+	check(DEBUG_ACTIONS.action_label("cycle_heat", null) == "Force heat",
+		"cycle heat defaults to Force without a target")
+	check(DEBUG_ACTIONS.action_short("cycle_diestrus", null) == "Force diestrus",
+		"cycle diestrus defaults to Force without a target")
+	main.phase = "heat"
+	check(DEBUG_ACTIONS.action_label("cycle_heat", main) == "Clear heat",
+		"cycle heat shows Clear while she is in heat")
+	check(DEBUG_ACTIONS.action_short("cycle_heat", main) == "Clear heat",
+		"the compact cycle heat label also shows Clear")
+	check(DEBUG_ACTIONS.action_label("cycle_diestrus", main) == "Force diestrus",
+		"cycle diestrus stays Force while she is in heat")
+	main.phase = "diestrus"
+	check(DEBUG_ACTIONS.action_label("cycle_diestrus", main) == "Clear diestrus",
+		"cycle diestrus shows Clear while she is off")
+	check(DEBUG_ACTIONS.action_label("cycle_heat", main) == "Force heat",
+		"cycle heat returns to Force outside heat")
+	check(DEBUG_ACTIONS.action_short("bed_cuddle", main) == "Bed cuddle",
+		"the wheel bed cuddle has a short label")
+	check(not bool(DEBUG_ACTIONS.ACTIONS["bed_cuddle"].get("panel", true)),
+		"the bed cuddle stays off the settings blocks")
+	var overlay: SETTINGS.Setting = SETTINGS.by_path("anatomy.skeleton_overlay")
+	check(overlay != null and bool(overlay.debug) and not bool(overlay.default),
+		"the skeleton overlay is a debug flag, off by default")
+	main.free()
 
 
 ## A save from an older build migrates once; a retired key maps or is erased.

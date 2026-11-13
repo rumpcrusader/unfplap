@@ -624,8 +624,12 @@ restated here.
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
 - `anatomy.draw_still_zones` (**Draw still zones**) overlays the two still-zone ellipsoids and
   their fully-still cores on the body coat.
-- **Force heat**, **Force diestrus** and **Clear forced cycle** are cycle debug actions; their
-  effect on the idle heat display is described in `## Idle heat`.
+- **Show skeleton overlay** (`anatomy.skeleton_overlay`) is a persisted Anatomy → Debug flag. It
+  draws nearby ponies' body, face and hair/tail skeletons only while **Enable debug** is on; click
+  a joint to print its bone data. The overlay itself is `debug/skeleton.gd`; see `docs/debug.md`.
+- **Force/Clear heat** and **Force/Clear diestrus** are the cycle debug actions; their effect on
+  the idle heat display is described in `## Idle heat`. The cycle owner is
+  `docs/eligibility.md`.
 - With **Enable debug** and **Print perf logs** on, an act prints the runtime's `perf` block; the
   anatomy contributes `anatomy_visibility`, `anatomy_tick`, `anatomy_coat_follow` and
   `anatomy_afterglow` timings. Tail

@@ -153,8 +153,8 @@ Rarity, Octavia, Maud and Zecora, and the wider roster follows the same rule.
 ## Tests
 
 - The Characters form is the only per-mare editor; it writes only on **Save preset**.
-- The debug `Show prompt context` action prints the resolved prompt note, relationship line, cycle
-  note, history note and recent events.
+- The debug `Show data` action prints the resolved prompt note, relationship line, cycle note,
+  history note and recent events in its PROMPT section.
 - `tests/readiness/test_preferences.gd` covers profile merge, likes/dislikes and classification.
 - `tests/test_character_preferences.gd` covers the roster, display names and templates.
 - `tests/test_settings.gd` covers the per-mare merge and the Characters form contract.

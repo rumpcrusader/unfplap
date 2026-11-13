@@ -294,8 +294,8 @@ tuning:
   cooldowns plus receptive window.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
-  still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points and
-  **Hide tails**.
+  still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
+  **Hide tails** and **Show skeleton overlay**.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
   `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
   filtered thrust **speed**, not depth, with one smooth critically damped response.
@@ -397,10 +397,15 @@ Debug commands are entries in `debug/service.gd`:
 The **Debug** block of the tab named by the entry's `tab` (`general` by default, or `anatomy`/
 `world`) draws a button for it and calls `method` on the entry node. Entries that share `"row"` are
 drawn compactly on one line under that caption (`"short"` is the button text), so related actions
- stay together; adding an action is one entry plus one method. The registry declares no global
-hotkeys, so the game's own dev keys (`F4`, `F9`, `F10`, `F11`) stay usable while the mod is loaded;
-`input/service.gd` still routes a declared `"hotkey"` for a future action that must fire while the
-world is unpaused. The action list and per-service debug actions are in `docs/debug.md`.
+stay together; adding an action is one entry plus one method. `"panel": false` keeps an action off
+every settings block but leaves it on the debug wheel. An entry with `"phase"` and
+`"match_label"`/`"match_short"` changes its label while the aimed mare is already in that phase;
+the settings buttons and the wheel both resolve it through `action_label()`/`action_short()`.
+
+The registry declares no global hotkeys, so the game's own dev keys (`F4`, `F9`, `F10`, `F11`) stay
+usable while the mod is loaded; `input/service.gd` still routes a declared `"hotkey"` for a future
+action that must fire while the world is unpaused. The action list, the wheel pages and
+per-service debug actions are in `docs/debug.md`.
 
 ## Perf probes
 

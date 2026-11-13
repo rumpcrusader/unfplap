@@ -434,8 +434,9 @@ contract is `docs/initiation.md`.
   the relation facts. It does not re-derive the gate.
 - `Verdict.rows_text()` returns the same policy view without scene rows.
 - The Debug actions **Trigger bed offer** and **Trigger standing offer** use the same service.
-- The Debug actions **Force heat** and **Force diestrus** feed `cycle_phase`; they do not bypass
-  the gate.
+- The Debug actions **Force/Clear heat** and **Force/Clear diestrus** feed `cycle_phase`; Clear
+  sets the session phase to `normal`, and **Resume automatic cycle** clears the override. None of
+  them bypasses the gate.
 
 ## Dependencies
 

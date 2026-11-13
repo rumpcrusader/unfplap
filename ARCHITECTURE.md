@@ -263,9 +263,11 @@ receives them again on `apply_live_settings()`. There is one writer to `settings
 settings service. Per-character profiles remain in the settings file until a characters service
 owns them.
 
-The debug service owns the console, the panel, the skeleton overlay, the action registry and the
+The debug service owns the console, the panel, the action wheel (`debug/wheel.gd`), the stock bed
+cuddle helper (`debug/bed.gd`), the skeleton overlay and the action registry, including the
 action-button builder (`debug/ui.gd`). It does not own the action behavior. The settings panel
-passes the debug action builder into its Debug block.
+passes the debug action builder into its Debug block; `main` owns the wheel gate and the persisted
+skeleton flag's sync.
 
 `docs/settings.md` owns the framework and the declaration contract. Each service doc owns its
 settings, feature flags and debug actions. `docs/debug.md` owns the console, panel, overlay and

@@ -1,8 +1,8 @@
 # Input
 
 The input service owns the mod's act key and mouse policy. It runs in `_input` before the game's
-desktop input, consumes the act keys, keeps the mouse captured during an act, and routes any
-hotkey a debug action declares (none today).
+desktop input, consumes the act keys, keeps the mouse captured during an act, routes the debug
+action wheel, and routes any hotkey a debug action declares (none today).
 
 It does not own act behavior. It calls the active runtime's typed commands and `main.try_start()`.
 
@@ -11,6 +11,7 @@ It does not own act behavior. It calls the active runtime's typed commands and `
 - `Y` start/end and the act key consumption policy.
 - Mouse capture while an act is live, including the menu/alt-tab recapture path.
 - The seated-player `Q` guard and the movement hold during an act.
+- The debug action wheel: the middle-click trigger, and modal routing while it is open.
 - Any declared debug action hotkey (none today).
 - The focus guard: typed chat text is never an act key.
 
@@ -31,15 +32,16 @@ The service is a Node; its contract is the Node lifecycle and the input callback
 
 - `_ready()` — sets `PROCESS_MODE_ALWAYS` and the early physics priority;
 - `_physics_process(delta)` — keeps the mouse captured and the seated guard while an act is live;
-- `_input(event)` — consumes act keys, routes any declared debug hotkey, starts the hinted act and
-  opens the act chat.
+- `_input(event)` — routes the debug wheel first (a middle click opens it; while open it owns
+  every event), then consumes act keys, routes any declared debug hotkey, starts the hinted act
+  and opens the act chat.
 
 There is no public method other than the Node callbacks.
 
 ## Data ownership
 
-Nothing is saved. The service reads `main.active_runtime`, `main.player` and the viewport focus
-owner. It does not store runtime state.
+Nothing is saved. The service reads `main.active_runtime`, `main.player`, `main.debug_wheel_open()`
+and the viewport focus owner. It does not store runtime state.
 
 ## Lifecycle
 
@@ -56,8 +58,16 @@ behavior belongs to the owning service.
 
 ## Controls and debug
 
-The controls table is `docs/runtime.md`. Debug actions are in `docs/debug.md`. The input service
-consumes a key only when an action declares it and the focus is not a text field.
+The controls table is `docs/runtime.md`. Debug actions and the wheel are in `docs/debug.md`.
+
+- A **middle mouse click** is forwarded to `main.debug_wheel_input()`. The wheel decides whether
+  it may open; with debug off, or while a menu/text field/headset owns the input, the event is
+  not consumed.
+- While the wheel is open every event is forwarded to it first. When it consumes the event the
+  input service sets it handled and returns, so act keys, smack, recapture, the auto-thrust wheel
+  and the skeleton click never see it.
+- The input service consumes a key only when an action declares it and the focus is not a text
+  field.
 
 ## Dependencies
 

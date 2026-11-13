@@ -225,7 +225,8 @@ navigator and blocks nothing; the gates above do that.
 - The pending reminder/complaint line and the apology repair run in the idle history scan owned by
   lines; see `docs/lines.md`.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
-  comfort=...` line per act. The **Reset act history** debug action clears the row.
+  comfort=...` line per act. The **Reset act history** debug action clears the row; **Show data**
+  prints it in its HISTORY section.
 
 ## Lifecycle
 

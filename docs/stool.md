@@ -196,8 +196,9 @@ and again on `start()`.
 - `presentation.standing.stool_height_m`, debug, default `0.20`, unit cm, Standing › Motion. Each
   placed stool adds this much height.
 - **Give footstool** adds one to the briefcase.
-- **Show stool state** prints the aimed or nearest mare's opening, hoof and part heights, gap,
-  threshold, step height, required count, case count, owned count, free slots and active count.
+- **Show data** prints the aimed or nearest mare's stool state in its STOOL section: opening, hoof
+  and part heights, gap, threshold, step height, required count, case count, owned count, free
+  slots and active count.
 
 ## Dependencies
 

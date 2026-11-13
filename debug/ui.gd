@@ -18,6 +18,11 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab :
 	var heading := STYLE.label("ACTIONS", "Faint", maxi(12, font_size - 7))
 	heading.add_theme_constant_override("line_spacing", 0)
 	box.add_child(heading)
+	if tab == SETTINGS.GENERAL:
+		var hint := STYLE.label("Middle click in play: action wheel", "Faint",
+			maxi(11, font_size - 8))
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(hint)
 	if tab == SETTINGS.ANATOMY:
 		box.add_child(_placement_target_row(font_size))
 	var status := STYLE.label("", "Faint", font_size - 6)
@@ -96,8 +101,8 @@ static func _select_placement_target(value: String, buttons: Array) -> void:
 static func _action_button(name: String, action: Dictionary, font_size: int, main: Node,
 		status: Label, compact: bool) -> Button:
 	var button := Button.new()
-	button.text = str(action.get("short", action.get("label", name))) if compact \
-		else str(action.get("label", name))
+	button.text = DEBUG_ACTIONS.action_short(name, main) if compact \
+		else DEBUG_ACTIONS.action_label(name, main)
 	button.tooltip_text = str(action.get("help", ""))
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -1,16 +1,16 @@
 # Debug tooling
 
-The mod's debug surface: the console gate, the action buttons, the skeleton overlay and the log
-switches. The lab scripts are in `WORKFLOW.md`; the settings framework is `docs/settings.md`; the
-perf probe is `docs/perf.md`.
+The mod's debug surface: the console gate, the Debug block actions, the action wheel, the skeleton
+overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings framework is
+`docs/settings.md`; the perf probe is `docs/perf.md`.
 
 ## Scope
 
-`debug/service.gd` owns the Debug block's action buttons, and `debug/ui.gd`
-draws the buttons. `debug/skeleton.gd` owns the skeleton overlay. `settings/ui.gd` injects the
-Unfplap settings tab and passes `debug/ui.gd`'s builder into each Debug block. `main.gd` owns the
-console gate. The lab scripts are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; their keys are in
-`WORKFLOW.md`.
+`debug/service.gd` owns the action registry and the wheel page order. `debug/ui.gd` draws the
+Debug block buttons. `debug/wheel.gd` is the middle-click wheel. `debug/bed.gd` is the stock bed
+cuddle helper behind the wheel's Bed cuddle action and Show data's BED section. `debug/skeleton.gd`
+draws the skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for
+each Debug block. `main.gd` owns the console gate, the wheel gate and the skeleton-flag sync.
 
 ## Console
 
@@ -20,61 +20,100 @@ console gate. The lab scripts are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; the
 - The lab's backtick toggle releases the control lock temporarily so it also opens while Anon is
   lying down.
 
-## Actions
+## Debug actions
 
 Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
 their `tab` names (`general` by default, `anatomy` or `world`). Adding an action is one entry plus
-one method. The registry declares no global hotkeys: the game's own dev keys (`F4` render
-breakdown, `F9` trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is
-loaded, so a Debug block button is the only trigger. `input/service.gd` still routes a declared
+one method. `panel: false` keeps an action off every settings block but leaves it on the wheel.
+
+The registry declares no global hotkeys: the game's own dev keys (`F4` render breakdown, `F9`
+trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is loaded, so a Debug
+block button or the action wheel is the only trigger. `input/service.gd` still routes a declared
 `"hotkey"` for a future action that genuinely must fire while the world is unpaused.
 
-| Action | Tab | Hotkey |
+| Action | Tab | Wheel page |
 |---|---|---|
 | Reload posed base | General | — |
-| Trigger bed offer | General | — |
-| Trigger standing offer | General | — |
-| Reset act history | World | — |
-| Show act history | World | — |
-| Show prompt context | World | — |
-| Force heat | World | — |
-| Force diestrus | World | — |
-| Clear forced cycle | World | — |
-| Force neglect warning | World | — |
-| Force neglect stop | World | — |
+| Trigger bed offer | General | Mare |
+| Trigger standing offer | General | Mare |
+| Show data | General | Mare and Act |
+| Bed cuddle | wheel only (`panel: false`) | Mare |
 | Give footstool | General | — |
-| Show stool state | General | — |
 | Reset act prompts | General | — |
-| Show pose state | General | — |
-| Force act face | General | — |
-| Show act face | General | — |
-| Skeleton overlay | General | — |
+| Force/Clear heat | World | Mare |
+| Force/Clear diestrus | World | Mare |
+| Resume automatic cycle | World | — |
+| Reset act history | World | — |
+| Force neglect warning | World | Act |
+| Force neglect stop | World | Act |
+| Force act face | General | Act |
 | Placement up/down/forward/back/pitch/bigger/smaller | Anatomy | — |
 | Tail placement up/down/forward/back, tilt left/right | Anatomy | — |
 | Dock placement up/down/bigger/smaller | Anatomy | — |
-| Save placement, Reset placement | Anatomy | — |
+| Save placement, Reset placement, Show placement | Anatomy | — |
 
 - **Placement** actions edit the selected target (global default or pointed mare). The Anatomy
   Actions block starts with the **Placement target** pill. See `docs/anatomy.md`.
 - **Trigger bed/standing offer** forces a proactive ask for the aimed (or nearest) test mare. It
   bypasses the quiet, cooldown and AI-usage checks but keeps the eligibility gate, pose and
-  free-bed gates. Because the settings page pauses the tree, an offer advances after it closes.
-- **Reset/Show act history** and **Show prompt context** read the history and prompt state; see
-  `docs/summary.md` and `docs/lines.md`.
-- **Force heat/diestrus/Clear forced cycle** set the session-only estrus override; see the cycle
-  section of `docs/eligibility.md`.
-- **Force neglect warning/stop** act on the live act; they are consumed on the next unpaused frame.
-- **Force act face/Show act face** cycle the base-game faces and print the live act face; see
-  `docs/face.md`.
+  free-bed gates. The "close settings" hint is printed only while the settings page paused the
+  tree; the wheel's toast does not claim it.
+- **Show data** replaces the old Show act history, Show stool state, Show act face, Show prompt
+  context and Show pose state actions, and the lab's per-mare report. See below.
+- **Bed cuddle** is the stock bed invite migrated from the lab's Mouse4 key. It sits on the wheel
+  only; `debug/bed.gd` finds the player's bed, reclines Anon, moves a far mare to the bed approach
+  and calls the stock `accept()` path. The detailed result goes to the debug log.
+- **Force/Clear heat** and **Force/Clear diestrus** are one slot each. The label follows the
+  aimed or nearest mare's current phase; Clear sets the session phase to **normal**. **Resume
+  automatic cycle** clears the override and is settings-only. See the cycle section of
+  `docs/eligibility.md`.
+- **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
+  and are consumed on the next unpaused frame.
+- **Force act face** cycles the base-game faces; see `docs/face.md`.
 - **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
+
+## Action wheel
+
+One **middle mouse click** in captured desktop play opens the wheel. It is debug-only, does not
+pause the tree and claims no hotkey or setting.
+
+| Page | Slots, clockwise from the top |
+|---|---|
+| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Force/Clear heat · Force/Clear diestrus |
+| **Act** | Show data · Neglect warning · Neglect stop · Next face |
+
+- The page is chosen by the live act: **Act** while an act runs, **Mare** otherwise. There are no
+  subpages, so every action is at most one click from the open wheel.
+- The centre names the target (the act's mare on the Act page, else the aimed mare, else the
+  nearest) and says whether she was aimed, nearest or the live act. The hovered slot's help fills
+  the centre.
+- A virtual reticle follows mouse motion. **Left click** runs the highlighted slot; releasing in
+  the centre cancels. **Middle click** toggles, **right click** closes, **Escape** closes. The
+  game's `F4`/`F9`/`F10`/`F11` dev keys close the wheel and pass through.
+- Opening needs **Enable debug**, captured desktop play, a focused window, no pause/menu/text
+  field and the left mouse button released. With debug off the middle click is not consumed.
+  While open, mouse motion, mouse buttons and keys are consumed; the act does not thrust or
+  free-look.
+- An action closes the wheel, writes its one-line result to the HUD toast and its name/result to
+  the debug log. Show data's multi-line block stays in the log.
+- The wheel closes on debug-off, pause, focus loss, a menu or headset, a mouse-mode change, a
+  world close or an act-context change.
+
+## Show data
+
+`main.debug_data(target)` returns the stable sections `TARGET`, `CYCLE`, `GATE`, `ACT`, `STOOL`,
+`HISTORY`, `PROMPT` and `BED`; `ACT` is present only while this target owns the live act. The Show
+data action prints them as one tab-indented log entry. `BED` is the same row builder the Bed
+cuddle action uses. The old Show actions are gone; a future always-on overlay can render the same
+dictionary.
 
 ## Skeleton overlay
 
-**Skeleton overlay** in General's Debug block toggles the skeleton overlay for nearby ponies and
-reports `Skeleton overlay ON`/`OFF` in the block's status line. Lines are thin
-(`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red, then
-left-click to print its bone name, parent, world/local origin, rotation, scale and rest. Colors:
-body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
+**Show skeleton overlay** is a persisted Anatomy → Debug flag (`anatomy.skeleton_overlay`), not an
+action or a wheel slot. It draws only while **Enable debug** is on. Left-click a joint to print
+its bone name, parent, world/local origin, rotation, scale and rest. Lines are thin
+(`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red.
+Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 
 ## Logging
 
@@ -95,8 +134,10 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 - `Shift+[` / `Shift+]` cycles every adult mare the population catalogue can spawn. The eight
   starters stay live; a non-starter is spawned through the population streamer on demand and the
   previous extra is despawned.
-- `-`/`=` romance tier; `9`/`0` anger mood; Mouse4 bed invite; Mouse5 sex-ready.
-- Reload the posed base and toggle the skeleton overlay from General's Debug block.
+- `-`/`=` romance tier; `9`/`0` anger mood; Mouse5 sex-ready.
+- Middle click opens the action wheel; use **Bed cuddle** for the treebrary bed.
+- Reload the posed base from General's Debug block; the skeleton overlay is the Anatomy Debug
+  flag.
 - Backtick toggles the debug console with a temporary control-lock release.
 - `./lab.sh` uses the isolated `unfplap-test` world and writes `last-run.log`.
   `./lab-stress.sh` uses `unfplap-stress` and writes `last-run-stress.log`.
@@ -108,26 +149,28 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | settings | `settings/service.gd` | action-button rows and the placement target pill |
+| service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
+| shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
 
 ## Lifecycle
 
-- Scope: process
-- Constructed by: static initialization
-- Begin: none
-- End: none
+- Scope: process (registry), world (wheel node), pure static (bed helper)
+- Constructed by: static initialization; `main` creates the wheel lazily and the skeleton on the
+  first enabled sync
+- Begin: none for the registry; Node `_ready()` for the wheel
+- End: `main` closes the wheel on world close, debug-off and teardown
 - Idempotent: yes
-
 
 ## Tests
 
-The debug actions and overlay are manual. Their settings and action declarations are covered by
-`tests/test_source_hygiene.gd` and `tests/test_settings.gd`.
+`tests/test_debug_wheel.gd` pins the wheel page order, the six-slot cap, the settings-only split,
+the retired action ids and the dynamic cycle labels. `tests/test_settings.gd` covers the skeleton
+flag and the Debug block labels. The overlay and the lab pass are manual.
 
 ## Related docs
 
 - `docs/settings.md` — the Debug block and the declaration rules.
 - `docs/perf.md` — the act perf probe.
-- `docs/anatomy.md` — the placement actions.
+- `docs/anatomy.md` — the placement actions and the skeleton flag.
 - `docs/summary.md`, `docs/face.md`, `docs/eligibility.md` — the per-service debug actions.
 - `WORKFLOW.md` — the lab commands.

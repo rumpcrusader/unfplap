@@ -1551,6 +1551,10 @@ static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zone
 	"Draw still zones",
 	"Overlay the vulva and visible-ponut still-zone ellipsoids on the body coat.",
 	ANATOMY, "Holes").as_debug()
+static var skeleton_overlay := flag("skeleton_overlay", "anatomy.skeleton_overlay", false,
+	"Show skeleton overlay",
+	"Draw nearby ponies' body, face and hair/tail skeletons. Left-click a joint to print it. Requires Enable debug.",
+	ANATOMY, "").as_debug()
 
 # -- Heat  (debug)
 static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", 17.0, "Wink min gap",

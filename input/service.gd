@@ -106,6 +106,15 @@ func _hold_movement() -> void:
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(main):
 		return
+	# The debug wheel owns every event while it is open, and a middle click opens it. With debug
+	# off the wheel returns false, so the middle click is not consumed.
+	var wheel_middle := event is InputEventMouseButton \
+		and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_MIDDLE
+	if main.has_method("debug_wheel_input") \
+			and (bool(main.call("debug_wheel_open")) or wheel_middle):
+		if bool(main.call("debug_wheel_input", event)):
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey:
 		var debug_key := event as InputEventKey
 		# A debug action may declare a hotkey in DEBUG_ACTIONS.ACTIONS (none do today). Do not claim

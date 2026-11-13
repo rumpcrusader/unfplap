@@ -1,13 +1,17 @@
 extends RefCounted
-## The Debug block's action buttons. An action is one entry in `ACTIONS`; `method` is called on the
-## entry node. Actions are not settings: they run a one-off debug operation.
+## The Debug block's action buttons and the debug action wheel's pages. An action is one entry in
+## `ACTIONS`; `method` is called on the entry node. Actions are not settings: they run a one-off
+## debug operation.
 
 ## Debug actions. `method` is called on the entry node. `tab` places the button in that tab's
 ## Debug block (`general` by default, or `anatomy`/`world`); a missing tab means General.
-## Add an action here; it becomes a button in the matching Debug block automatically. Actions that share a
-## `row` are drawn compactly on one line, captioned with `short`; consecutive entries with the same
-## row must stay adjacent. The mod claims no global debug hotkeys: the game's F4/F9/F10/F11 dev
-## tools stay usable, and a Debug block button is the only trigger.
+## `panel: false` keeps an action off every settings block but leaves it available to the wheel.
+## Add an action here; it becomes a button in the matching Debug block automatically. Actions that
+## share a `row` are drawn compactly on one line, captioned with `short`; consecutive entries with
+## the same row must stay adjacent. A `phase` entry also carries `match_label`/`match_short`, used
+## by `action_label`/`action_short` when the target is already in that phase.
+## The mod claims no global debug hotkeys: the game's F4/F9/F10/F11 dev tools stay usable, and a
+## Debug block button or the action wheel is the only trigger.
 const ACTIONS := {
 	"reload_pose": {
 		"label": "Reload posed base",
@@ -18,35 +22,66 @@ const ACTIONS := {
 		"label": "Trigger bed offer",
 		"help": "Force a missionary offer for the aimed or nearest mare.",
 		"method": "action_bed_offer",
+		"short": "Bed offer",
 	},
 	"standing_offer": {
 		"label": "Trigger standing offer",
 		"help": "Force a standing offer for the aimed or nearest mare.",
 		"method": "action_standing_offer",
+		"short": "Standing offer",
 	},
-	"force_heat": {
+	"show_data": {
+		"label": "Show data",
+		"help": "Print the aimed or nearest mare's target, cycle, gate, act, stool, history, prompt and bed data to the debug log.",
+		"method": "action_show_data",
+		"short": "Show data",
+	},
+	"bed_cuddle": {
+		"label": "Bed cuddle",
+		"help": "Sit or lie Anon on the bed and invite the aimed or nearest mare to the stock cuddle.",
+		"method": "action_bed_cuddle",
+		"panel": false,
+		"short": "Bed cuddle",
+	},
+	"give_stool": {
+		"label": "Give footstool",
+		"help": "Add a footstool to Anon's briefcase.",
+		"method": "action_give_stool",
+	},
+	"reset_act_prompts": {
+		"label": "Reset act prompts",
+		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",
+		"method": "action_reset_act_prompts",
+	},
+	"cycle_heat": {
 		"label": "Force heat",
-		"help": "Put the aimed or nearest mare in heat for this session.",
-		"method": "action_force_heat",
+		"help": "Put the aimed or nearest mare in heat for this session, or clear heat when she is already in it.",
+		"method": "action_toggle_heat",
 		"tab": "world",
 		"row": "Cycle",
-		"short": "Heat",
+		"short": "Force heat",
+		"phase": "heat",
+		"match_label": "Clear heat",
+		"match_short": "Clear heat",
 	},
-	"force_diestrus": {
+	"cycle_diestrus": {
 		"label": "Force diestrus",
-		"help": "Turn the aimed or nearest mare off for this session.",
-		"method": "action_force_diestrus",
+		"help": "Turn the aimed or nearest mare off for this session, or clear diestrus when she is already in it.",
+		"method": "action_toggle_diestrus",
 		"tab": "world",
 		"row": "Cycle",
-		"short": "Diestrus",
+		"short": "Force diestrus",
+		"phase": "diestrus",
+		"match_label": "Clear diestrus",
+		"match_short": "Clear diestrus",
 	},
-	"clear_cycle_override": {
-		"label": "Clear forced cycle",
-		"help": "Resume the aimed or nearest mare's automatic estrus cycle.",
-		"method": "action_clear_cycle_override",
+	"cycle_auto": {
+		"label": "Resume automatic cycle",
+		"help": "Clear the aimed or nearest mare's session override and resume her automatic estrus cycle.",
+		"method": "action_cycle_auto",
 		"tab": "world",
 		"row": "Cycle",
-		"short": "Clear",
+		"short": "Resume auto",
 	},
 	"reset_act_history": {
 		"label": "Reset act history",
@@ -56,41 +91,13 @@ const ACTIONS := {
 		"row": "Act history",
 		"short": "Reset",
 	},
-	"show_act_history": {
-		"label": "Show act history",
-		"help": "Print the aimed or nearest mare's act history to the debug log.",
-		"method": "action_show_act_history",
-		"tab": "world",
-		"row": "Act history",
-		"short": "Show",
-	},
-	"show_prompt_context": {
-		"label": "Show prompt context",
-		"help": "Print the mod's normal-dialogue, memory and relationship context for the aimed or nearest mare.",
-		"method": "action_show_prompt_context",
-	},
-	"give_stool": {
-		"label": "Give footstool",
-		"help": "Add a footstool to Anon's briefcase.",
-		"method": "action_give_stool",
-	},
-	"show_stool": {
-		"label": "Show stool state",
-		"help": "Print the aimed or nearest mare's live reach gap and footstool state.",
-		"method": "action_show_stool",
-	},
-	"reset_act_prompts": {
-		"label": "Reset act prompts",
-		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",
-		"method": "action_reset_act_prompts",
-	},
 	"force_tolerance_warning": {
 		"label": "Force neglect warning",
 		"help": "Trigger the active act's next neglect warning.",
 		"method": "action_force_tolerance_warning",
 		"tab": "world",
 		"row": "Neglect",
-		"short": "Warning",
+		"short": "Neglect warning",
 	},
 	"force_tolerance_stop": {
 		"label": "Force neglect stop",
@@ -98,31 +105,14 @@ const ACTIONS := {
 		"method": "action_force_tolerance_stop",
 		"tab": "world",
 		"row": "Neglect",
-		"short": "Stop",
-	},
-	"pose_state": {
-		"label": "Show pose state",
-		"help": "Print which missionary base pose is in charge and where it put her.",
-		"method": "action_show_pose_state",
+		"short": "Neglect stop",
 	},
 	"force_act_face": {
 		"label": "Force act face",
 		"help": "Cycle the game's expression faces on the active act or the aimed mare.",
 		"method": "action_force_act_face",
 		"row": "Act face",
-		"short": "Next",
-	},
-	"show_act_face": {
-		"label": "Show act face",
-		"help": "Print the act face, director face, climax mode and mood face.",
-		"method": "action_show_act_face",
-		"row": "Act face",
-		"short": "Inspect",
-	},
-	"skeleton_overlay": {
-		"label": "Skeleton overlay",
-		"help": "Toggle the skeleton overlay for nearby ponies.",
-		"method": "toggle_skeleton_debug",
+		"short": "Next face",
 	},
 	# integration: one placement editor for anatomy, tail and dock. The target pill above the
 	# actions selects the global default or the pointed mare.
@@ -190,6 +180,78 @@ const ACTIONS := {
 		"method": "action_placement_show", "tab": "anatomy",
 		"row": "Placement file", "short": "Show"},
 }
+
+## The wheel's two context pages, clockwise from the top. `wheel_root` chooses the page; there are
+## no subpages, so every action is at most one click from the open wheel.
+const WHEEL_PAGES := {
+	"mare": {
+		"title": "Mare",
+		"help": "Actions for the aimed or nearest mare. Move the reticle, then left-click.",
+		"actions": ["show_data", "bed_offer", "bed_cuddle", "standing_offer", "cycle_heat",
+			"cycle_diestrus"],
+	},
+	"act": {
+		"title": "Act",
+		"help": "Actions for the live act. Move the reticle, then left-click.",
+		"actions": ["show_data", "force_tolerance_warning", "force_tolerance_stop",
+			"force_act_face"],
+	},
+}
+const WHEEL_MAX_SLOTS := 6
+
+
+## The wheel's root page for the current act state.
+static func wheel_root(act_live: bool) -> String:
+	return "act" if act_live else "mare"
+
+
+## The action ids on one wheel page, in clockwise order.
+static func wheel_actions(page: String) -> Array[String]:
+	var out: Array[String] = []
+	var entry: Variant = WHEEL_PAGES.get(page)
+	if not entry is Dictionary:
+		return out
+	var actions: Variant = (entry as Dictionary).get("actions", [])
+	if actions is Array:
+		for name: Variant in actions:
+			out.append(str(name))
+	return out
+
+
+static func wheel_title(page: String) -> String:
+	var entry: Variant = WHEEL_PAGES.get(page)
+	return str((entry as Dictionary).get("title", page)) if entry is Dictionary else page
+
+
+static func wheel_help(page: String) -> String:
+	var entry: Variant = WHEEL_PAGES.get(page)
+	return str((entry as Dictionary).get("help", "")) if entry is Dictionary else ""
+
+
+## The action's full label, or the match label when the target is already in its `phase`.
+static func action_label(name: String, main: Node) -> String:
+	return _action_text(name, main, "label", "match_label")
+
+
+## The action's compact label, or the match label when the target is already in its `phase`.
+static func action_short(name: String, main: Node) -> String:
+	return _action_text(name, main, "short", "match_short")
+
+
+static func _action_text(name: String, main: Node, key: String, match_key: String) -> String:
+	var entry: Variant = ACTIONS.get(name)
+	if not entry is Dictionary:
+		return name
+	var action: Dictionary = entry
+	var text := str(action.get(key, action.get("label", name)))
+	var phase := str(action.get("phase", ""))
+	if phase.is_empty():
+		return text
+	if not is_instance_valid(main) or not main.has_method("debug_cycle_phase"):
+		return text
+	if str(main.call("debug_cycle_phase")) != phase:
+		return text
+	return str(action.get(match_key, text))
 
 
 ## The action bound to a physical key code, or "" when none is. No action declares one today; the

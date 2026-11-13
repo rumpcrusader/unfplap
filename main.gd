@@ -14,6 +14,9 @@ const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
+const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
@@ -78,6 +81,7 @@ var _stool_hint_toast_shown := false
 var _native_hint_label: Control
 var _native_hint_text := ""
 var _debug_skeleton: Node3D
+var _debug_wheel: CanvasLayer
 var _debug_face_index := -1
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
@@ -157,6 +161,7 @@ func _ready() -> void:
 	add_to_group("pony_prompt_notes")
 	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
+	_sync_skeleton_overlay()
 	_perf_idle.enabled = Callable(self, "_perf_idle_on")
 	_perf_idle.counts = Callable(self, "_perf_idle_counts")
 	_perf_idle.log = Callable(self, "debug")
@@ -218,6 +223,7 @@ func _ready() -> void:
 
 
 func _on_world(host: Node) -> void:
+	close_debug_wheel()
 	_clear_native_hint()
 	game = host
 	if not is_instance_valid(eligibility):
@@ -244,6 +250,7 @@ func _on_world(host: Node) -> void:
 
 func _on_world_closed(_host: Node) -> void:
 	_debug("world closed")
+	close_debug_wheel()
 	if is_instance_valid(anatomy):
 		anatomy.call("clear_player")
 	_clear_native_hint()
@@ -332,6 +339,9 @@ func apply_settings_changed() -> void:
 func _apply_settings_changed() -> void:
 	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
+	if not debug_logs:
+		close_debug_wheel()
+	_sync_skeleton_overlay()
 	SETTINGS_UI.refresh_debug_visibility()
 	_apply_caption_top()
 	_apply_live_settings()
@@ -798,18 +808,67 @@ func action_standing_offer() -> String:
 	return _debug_offer_request(CATALOG.STANDING)
 
 
-## Debug-only estrus phase controls. The override is session-only and per pony; passing "" resumes
-## the automatic day/id cycle.
-func action_force_heat() -> String:
-	return _debug_cycle_request(CYCLE.HEAT)
+## Wheel-only: start the stock bed cuddle. The bed, recline and invite sequence runs after this
+## returns, so the wheel closes immediately and the debug log carries the detailed result.
+func action_bed_cuddle() -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	if not is_instance_valid(DEBUG_BED.find_bed(self)):
+		return "No bed found in this house."
+	_bed_cuddle_sequence(target)
+	return "Bed cuddle started for %s." % str(target.name)
 
 
-func action_force_diestrus() -> String:
-	return _debug_cycle_request(CYCLE.DIESTRUS)
+func _bed_cuddle_sequence(target: Node) -> void:
+	var result: String = await DEBUG_BED.invite(self, target)
+	_debug("bed cuddle: " + result)
 
 
-func action_clear_cycle_override() -> String:
+## Debug-only estrus phase controls. The override is session-only and per pony; `cycle_auto`
+## clears it and resumes the automatic day/id cycle. A toggle's label follows the target's phase.
+func action_toggle_heat() -> String:
+	return _debug_cycle_toggle(CYCLE.HEAT)
+
+
+func action_toggle_diestrus() -> String:
+	return _debug_cycle_toggle(CYCLE.DIESTRUS)
+
+
+func action_cycle_auto() -> String:
 	return _debug_cycle_request("")
+
+
+func _debug_cycle_toggle(phase_name: String) -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No mare under the crosshair or nearby."
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
+		return "No runtime for %s." % str(target.name)
+	var current := str(runtime.call("cycle_phase")) if runtime.has_method("cycle_phase") else ""
+	var next := CYCLE.NORMAL if current == phase_name else phase_name
+	runtime.call("set_cycle_override", next)
+	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
+	_debug("cycle %s %s=%s" % [phase_name, str(target.name), next])
+	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
+
+
+## The aimed or nearest mare's effective estrus phase, or "" when there is no target.
+func debug_cycle_phase() -> String:
+	if not is_instance_valid(player):
+		return ""
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return ""
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime) or not runtime.has_method("cycle_phase"):
+		return ""
+	return str(runtime.call("cycle_phase"))
 
 
 func _debug_cycle_request(phase_name: String) -> String:
@@ -854,8 +913,8 @@ func _debug_offer_request(pose := "") -> String:
 		label = " (standing)"
 	if started:
 		_debug("request button: %s%s" % [str(target.name), label])
-		return "Offer started for %s%s. Close settings to let her approach." % [
-			str(target.name), label]
+		var hint := " Close settings to let her approach." if get_tree().paused else ""
+		return "Offer started for %s%s.%s" % [str(target.name), label, hint]
 	var reason := "unknown"
 	if result != null and not result.reject.is_empty():
 		reason = result.reject
@@ -876,13 +935,119 @@ func action_reload_pose() -> String:
 	return "Reloaded the missionary posed base."
 
 
-## Debug: which missionary base pose is in charge, and where it actually put her.
-func action_show_pose_state() -> String:
-	if not is_instance_valid(active_runtime):
-		return "No act running."
-	var rows: Variant = active_runtime.call("pose_state_rows")
-	_debug_block("pose state", rows if rows is Array else [])
-	return "Pose state written to the debug log."
+## Debug: one structured dump for the aimed or nearest mare. Show data, and a future always-on
+## overlay, can render the same sections: TARGET, CYCLE, GATE, ACT, STOOL, HISTORY, PROMPT, BED.
+func action_show_data() -> String:
+	if not is_instance_valid(player):
+		return "Player not ready."
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No pony under the crosshair or nearby."
+	var data := debug_data(target)
+	var rows: Array[String] = []
+	for section: Variant in data.get("sections", []):
+		if not section is Dictionary:
+			continue
+		var item: Dictionary = section
+		rows.append(str(item.get("title", "")))
+		for row: Variant in item.get("rows", []):
+			rows.append("  " + str(row))
+	_debug_block("DATA " + str(target.name), rows)
+	return "Data written to the debug log for %s." % str(target.name)
+
+
+## The structured per-mare collector. `ACT` is present only while this target owns the live act.
+func debug_data(target: Node) -> Dictionary:
+	var data := {"target": target, "sections": []}
+	if not is_instance_valid(target):
+		return data
+	var runtime: Variant = runtime_for(target)
+	var id := _debug_pony_id(target)
+	var sections: Array = data["sections"]
+	sections.append(_debug_section("TARGET", _debug_target_rows(target, runtime, id)))
+	sections.append(_debug_section("CYCLE", _debug_cycle_rows(runtime)))
+	sections.append(_debug_section("GATE", _debug_gate_rows(target, runtime)))
+	if is_instance_valid(active_runtime) and runtime == active_runtime:
+		sections.append(_debug_section("ACT", _debug_act_rows(runtime)))
+	sections.append(_debug_section("STOOL", _debug_stool_rows(runtime)))
+	sections.append(_debug_section("HISTORY", _debug_history_rows(target)))
+	sections.append(_debug_section("PROMPT", _debug_prompt_rows(target)))
+	sections.append(_debug_section("BED", DEBUG_BED.rows(self, target)))
+	return data
+
+
+func _debug_section(title: String, rows: Array) -> Dictionary:
+	var lines: Array[String] = []
+	for row: Variant in rows:
+		lines.append(str(row))
+	return {"title": title, "rows": lines}
+
+
+func _debug_target_rows(target: Node, runtime: Variant, id: String) -> Array[String]:
+	var state := "none"
+	if is_instance_valid(runtime):
+		state = "live" if runtime == active_runtime else "idle"
+	return ["pony=%s id=%s" % [str(target.name), id if not id.is_empty() else "?"],
+		"runtime=%s" % state]
+
+
+func _debug_cycle_rows(runtime: Variant) -> Array[String]:
+	if not is_instance_valid(runtime):
+		return ["no runtime"]
+	var phase := str(runtime.call("cycle_phase")) if runtime.has_method("cycle_phase") else "?"
+	var override := str(runtime.call("cycle_override")) if runtime.has_method("cycle_override") else "?"
+	return ["phase=%s override=%s" % [phase, override if not override.is_empty() else "none"],
+		"heat=%s" % str(phase == CYCLE.HEAT)]
+
+
+func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
+	if not is_instance_valid(runtime):
+		return ["no runtime"]
+	var view: Camera3D = camera()
+	var dist := -1.0
+	var dot := -1.0
+	if is_instance_valid(view) and target is Node3D:
+		var delta: Vector3 = (target as Node3D).global_position + Vector3.UP * 0.9 \
+			- view.global_position
+		dist = delta.length()
+		if dist > 0.001:
+			dot = (-view.global_basis.z).dot(delta.normalized())
+	var pose := CATALOG.STANDING
+	var source := ""
+	var bed: Variant = null
+	var status: Dictionary = target.call("posture_status") if target.has_method("posture_status") else {}
+	if str(status.get("requested", "")) == "lie_down":
+		pose = CATALOG.MISSIONARY
+		source = "already_lying"
+		bed = runtime.call("find_bed_under")
+	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot)) \
+		if runtime.has_method("debug_line") else "no debug line"
+	return [line]
+
+
+func _debug_act_rows(runtime: Variant) -> Array[String]:
+	var rows: Array[String] = [
+		"state=%d pose=%s" % [int(runtime.get("state")), str(runtime.get("pose_id"))],
+		"climaxes=%d satisfaction=%.2f" % [
+			int(runtime.get("pony_climaxes")), float(runtime.get("satisfaction"))],
+	]
+	if runtime.has_method("act_face_rows"):
+		rows.append("face:")
+		for row: Variant in runtime.call("act_face_rows"):
+			rows.append("  " + str(row))
+	if runtime.has_method("pose_state_rows"):
+		rows.append("pose state:")
+		for row: Variant in runtime.call("pose_state_rows"):
+			rows.append("  " + str(row))
+	return rows
+
+
+func _debug_stool_rows(runtime: Variant) -> Array[String]:
+	if not is_instance_valid(runtime):
+		return ["no runtime"]
+	if not runtime.has_method("stool_state_text"):
+		return ["stool unavailable"]
+	return [str(runtime.call("stool_state_text"))]
 
 
 ## Debug: cycle the game's expression faces on the active act or the aimed/nearest mare.
@@ -908,24 +1073,6 @@ func action_force_act_face() -> String:
 		"" if shown else " (a spoken line owns the face)"]
 
 
-## Debug: print the live act face, director face, climax mode and mood face.
-func action_show_act_face() -> String:
-	if not is_instance_valid(player):
-		return "Act system not ready."
-	var view: Camera3D = camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		target = _nearest_pony(view)
-	if not is_instance_valid(target):
-		return "No mare under the crosshair or nearby."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("act_face_rows"):
-		return "No runtime for %s." % str(target.name)
-	var rows: Variant = runtime.call("act_face_rows")
-	_debug_block("act face", rows if rows is Array else [])
-	return "Act face written to the debug log."
-
-
 ## Debug: clear the aimed or nearest mare's long-term act history.
 func action_reset_act_history() -> String:
 	if not is_instance_valid(player):
@@ -944,23 +1091,19 @@ func action_reset_act_history() -> String:
 	return "Act history cleared for %s." % str(target.name)
 
 
-## Debug: print the aimed or nearest mare's stored act history.
-func action_show_act_history() -> String:
-	if not is_instance_valid(player):
-		return "Act system not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
+## The stored act history, as Show data's HISTORY section.
+func _debug_history_rows(target: Node) -> Array[String]:
 	var id := _debug_pony_id(target)
+	var rows: Array[String] = ["pony=%s id=%s" % [
+		str(target.name), id if not id.is_empty() else "?"]]
 	if id.is_empty():
-		return "No relationship id for %s." % str(target.name)
+		rows.append("no relationship id")
+		return rows
 	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
-	var rows: Array[String] = ["pony=%s id=%s" % [str(target.name), id]]
 	var acts := int(row.get("acts", 0))
 	if acts <= 0 and int(row.get("hurt", 0)) <= 0 and int(row.get("comfort", 0)) <= 0:
 		rows.append("no history stored")
-		_debug_block("ACT HISTORY", rows)
-		return "No act history for %s." % str(target.name)
+		return rows
 	rows.append("tier=%s hurt=%d comfort=%d acts=%d good=%d bad=%d neutral=%d" % [
 		ACT_HISTORY.tier_name(row), int(row.get("hurt", 0)), int(row.get("comfort", 0)),
 		acts, int(row.get("good", 0)), int(row.get("bad", 0)), int(row.get("neutral", 0))])
@@ -993,25 +1136,21 @@ func action_show_act_history() -> String:
 			rows.append("- %s %.2f %s %s" % [
 				str(item.get("grade", "")), float(item.get("quality", 0.0)), stamp,
 				str(item.get("text", "")).strip_edges()])
-	_debug_block("ACT HISTORY", rows)
-	return "Act history printed for %s." % str(target.name)
+	return rows
 
 
-## The mod-owned parts of the next dialogue request, so a "too eager" or "too quiet" report can
-## be checked against the actual text instead of guessed at.
-func action_show_prompt_context() -> String:
-	if not is_instance_valid(player):
-		return "Player not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
+## The mod-owned parts of the next dialogue request, as Show data's PROMPT section.
+func _debug_prompt_rows(target: Node) -> Array[String]:
 	var id := _debug_pony_id(target)
+	var rows: Array[String] = ["pony=%s id=%s" % [
+		str(target.name), id if not id.is_empty() else "?"]]
 	if id.is_empty():
-		return "No relationship id for %s." % str(target.name)
+		rows.append("no relationship id")
+		return rows
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime):
-		return "No runtime for %s." % str(target.name)
-	var rows: Array[String] = ["pony=%s id=%s" % [str(target.name), id]]
+		rows.append("no runtime")
+		return rows
 	rows.append("prompt_note: " + str(runtime.call("prompt_note")))
 	rows.append("lover_prompt_note: " + str(runtime.call("lover_prompt_note")))
 	rows.append("cycle_note: " + str(runtime.call("cycle_note")))
@@ -1030,8 +1169,7 @@ func action_show_prompt_context() -> String:
 		if impressions != null and is_instance_valid(impressions) \
 				and impressions.has_method("standing_line"):
 			rows.append("standing_line: " + str(impressions.call("standing_line", id)))
-	_debug_block("PROMPT CONTEXT", rows)
-	return "Prompt context printed for %s." % str(target.name)
+	return rows
 
 
 func action_reset_act_prompts() -> String:
@@ -1053,20 +1191,6 @@ func action_give_stool() -> String:
 		return "No room in the briefcase."
 	_debug("stool granted slot=%d" % slot)
 	return "Footstool added."
-
-
-func action_show_stool() -> String:
-	if not is_instance_valid(player):
-		return "Player not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No pony under the crosshair or nearby."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime):
-		return "No runtime for %s." % str(target.name)
-	var text := str(runtime.call("stool_state_text"))
-	_debug_block("STOOL", [text])
-	return "Stool state printed for %s." % str(target.name)
 
 
 func _debug_history_target() -> Node:
@@ -1096,7 +1220,8 @@ func _debug_force_tolerance(kind: String) -> String:
 		return "The act cannot force a neglect warning."
 	if not bool(active_runtime.call("debug_force_tolerance", kind)):
 		return "Neglect forcing is only available during a live act."
-	return "Neglect %s queued. Close this panel to let the act apply it." % kind
+	var hint := " Close this panel to let the act apply it." if get_tree().paused else ""
+	return "Neglect %s queued.%s" % [kind, hint]
 
 
 ## integration: anatomy hooks used by the runtime and input.
@@ -1259,16 +1384,114 @@ func _nearest_pony(view: Camera3D) -> Node:
 	return best
 
 
-func toggle_skeleton_debug() -> String:
-	if not is_instance_valid(_debug_skeleton):
-		_debug_skeleton = DEBUG_SKELETON.new()
-		_debug_skeleton.name = "UnfplapSkeleton"
-		_debug_skeleton.set("main", self)
-		add_child(_debug_skeleton)
-	var enabled := not bool(_debug_skeleton.get("enabled"))
-	_debug_skeleton.set("enabled", enabled)
-	_debug("skeleton overlay %s" % ("ON" if enabled else "OFF"))
-	return "Skeleton overlay %s" % ("ON" if enabled else "OFF")
+## The persisted Anatomy debug flag is the only switch; the overlay is live only while debug is on.
+func _sync_skeleton_overlay() -> void:
+	var enabled := debug_logs and SETTINGS.skeleton_overlay.get_bool()
+	if enabled:
+		if not is_instance_valid(_debug_skeleton):
+			_debug_skeleton = DEBUG_SKELETON.new()
+			_debug_skeleton.name = "UnfplapSkeleton"
+			_debug_skeleton.set("main", self)
+			add_child(_debug_skeleton)
+		_debug_skeleton.set("enabled", true)
+	elif is_instance_valid(_debug_skeleton):
+		_debug_skeleton.set("enabled", false)
+
+
+## The debug wheel is created lazily on the first middle click. The gate here keeps a pack with
+## debug off from creating the node at all.
+func debug_wheel_input(event: InputEvent) -> bool:
+	if not is_instance_valid(_debug_wheel):
+		if not debug_logs:
+			return false
+		if not event is InputEventMouseButton:
+			return false
+		var button := event as InputEventMouseButton
+		if button.button_index != MOUSE_BUTTON_MIDDLE or not button.pressed:
+			return false
+		_debug_wheel = DEBUG_WHEEL.new()
+		_debug_wheel.name = "UnfplapDebugWheel"
+		_debug_wheel.set("main", self)
+		add_child(_debug_wheel)
+	return bool(_debug_wheel.call("handle_input", event))
+
+
+func debug_wheel_open() -> bool:
+	return is_instance_valid(_debug_wheel) and bool(_debug_wheel.call("is_open"))
+
+
+func close_debug_wheel() -> void:
+	if is_instance_valid(_debug_wheel):
+		_debug_wheel.call("close")
+
+
+func debug_wheel_act_live() -> bool:
+	return is_instance_valid(active_runtime)
+
+
+## The wheel's open gate: debug on, desktop, captured, focused, unpaused, no menu or text field,
+## and the left button not held.
+func debug_wheel_allowed() -> bool:
+	if not debug_logs or DisplayServer.get_name() == "headless":
+		return false
+	if not is_instance_valid(player) or not is_instance_valid(game):
+		return false
+	if get_tree().paused or headset_view():
+		return false
+	if not DisplayServer.window_is_focused():
+		return false
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return false
+	if menu_open():
+		return false
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return false
+	return not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+
+
+## The wheel's target: the active act's pony while an act runs, else the aimed mare, else nearest.
+func debug_wheel_context() -> Dictionary:
+	var out := {"pony": null, "name": "No mare", "source": "none", "act": false}
+	if is_instance_valid(active_runtime):
+		out["act"] = true
+		var act_pony: Variant = active_runtime.get("pony")
+		if is_instance_valid(act_pony):
+			out["pony"] = act_pony
+			out["name"] = str((act_pony as Node).name)
+			out["source"] = "act"
+			return out
+		return out
+	var view: Camera3D = camera()
+	if not is_instance_valid(view):
+		return out
+	var target: Node = _debug_target(view)
+	if is_instance_valid(target):
+		out["pony"] = target
+		out["name"] = str(target.name)
+		out["source"] = "aimed"
+		return out
+	target = _nearest_pony(view)
+	if is_instance_valid(target):
+		out["pony"] = target
+		out["name"] = str(target.name)
+		out["source"] = "nearest"
+	return out
+
+
+## Run a wheel action, toast its one-line result and log it. Show data's multi-line block stays in
+## the log; the toast only carries the summary.
+func debug_wheel_action(name: String) -> String:
+	var result := DEBUG_ACTIONS.run_action(name, self)
+	_debug("wheel %s: %s" % [name, result])
+	if not result.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
+		hud.call("toast", result, 3.0)
+	return result
+
+
+## Public wrapper for the debug bed helper's multi-line report.
+func debug_block(title: String, rows: Array) -> void:
+	_debug_block(title, rows)
 
 
 func skeleton_click() -> bool:
@@ -1619,6 +1842,7 @@ func nearest_lying(view: Camera3D) -> Node:
 
 
 func _exit_tree() -> void:
+	close_debug_wheel()
 	if is_instance_valid(eligibility):
 		eligibility.clear()
 		eligibility = null

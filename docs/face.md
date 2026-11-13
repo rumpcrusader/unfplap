@@ -55,7 +55,7 @@ a runtime without entering the tree calls `_bind_face()` on the first facade cal
 | `dialogue_face()` | the face a director line currently owns, or empty |
 | `sync_settings(enabled, debug)` | apply the live feature flags; turning act faces off ends the act's face |
 | `force_face(face)` | debug preview: set one face for 3 s |
-| `rows(context)` | the "Show act face" debug rows |
+| `rows(context)` | the act-face rows in Show data's ACT section |
 | `start_post_act(context)` | start the held post-act face from the summary or the satisfaction |
 | `start_mood_face(mood, face, blush, warm)` | start or replace the held face |
 | `end_mood_face()` | free the held face and clear the warm note |

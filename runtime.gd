@@ -1142,6 +1142,11 @@ func _process_tick(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if state == State.IDLE:
 		return
+	# The debug wheel owns the mouse while it is open: its virtual reticle must not thrust or
+	# free-look the live act.
+	if is_instance_valid(main) and main.has_method("debug_wheel_open") \
+			and bool(main.call("debug_wheel_open")):
+		return
 	var motion := event as InputEventMouseMotion
 	if motion == null:
 		return
@@ -3029,6 +3034,11 @@ func cycle_phase() -> String:
 	if bonds == null or not is_instance_valid(bonds) or not bonds.has_method("day"):
 		return CYCLE.NORMAL
 	return CYCLE.phase(float(bonds.call("day")), _id)
+
+
+## The session override currently in force, or "" when the automatic cycle owns the phase.
+func cycle_override() -> String:
+	return _cycle_override
 
 
 ## Debug-only session override: heat, diestrus, normal, or "" to resume the automatic cycle.

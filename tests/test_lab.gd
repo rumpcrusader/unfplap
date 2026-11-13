@@ -16,16 +16,14 @@ extends Node
 ## Lab hotkeys (mouse must be captured, like normal play):
 ##   - / =       lower / raise the pointed mare's romance tier (all test mares when not aiming)
 ##   9 / 0       lower / raise the pointed mare's anger mood (all test mares when not aiming)
-##   Mouse 4     invite a test mare to the treebrary bed; a far mare is moved to the bed approach
-##               first, and the log says why cuddling cannot start
 ##   Mouse 5     make the pointed adult mare idle and qualify for sex
 ##               without changing her romance tier
+##   Middle click  the mod's action wheel; use Bed cuddle for the treebrary bed
 ##   Shift+[ / ]  move the previous/next mare in front of Anon in a 3/4 rear view, standing idle.
 ##               The eight starters stay loaded and the previous starter returns to her saved
 ##               spot; any other mare is spawned on demand and the previous non-starter is
 ##               despawned again, so only one extra is live.
 
-const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -151,7 +149,7 @@ func run() -> void:
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
 	print("[unfplap test] E sit, Ctrl lie back; test ponies placed on their saved standing spots")
-	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse4 bed invite, Mouse5 sex-ready, Shift+[ / ] cycle mares")
+	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse5 sex-ready, wheel Bed cuddle, Shift+[ / ] cycle mares")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -621,10 +619,7 @@ func _input(event: InputEvent) -> void:
 		var mouse := event as InputEventMouseButton
 		if not mouse.pressed:
 			return
-		if mouse.button_index == MOUSE_BUTTON_XBUTTON1:
-			_invite_target_to_bed()
-			get_viewport().set_input_as_handled()
-		elif mouse.button_index == MOUSE_BUTTON_XBUTTON2:
+		if mouse.button_index == MOUSE_BUTTON_XBUTTON2:
 			_qualify_target()
 			get_viewport().set_input_as_handled()
 
@@ -1063,119 +1058,6 @@ func _set_anger(pony: Node3D, step: int) -> String:
 		id, before, after, next, ANGER_MOODS.size() - 1, anger]
 
 
-func _invite_target_to_bed() -> void:
-	var target := _target_under_aim()
-	var bed := _treebrary_bed()
-	if not is_instance_valid(bed):
-		print("[unfplap test] Mouse4: no Golden Oak guest bed found")
-		return
-	var rest: Node3D = BED_REST.for_bed(bed)
-	rest.call("refresh")
-	var note := ""
-	if not is_instance_valid(target):
-		target = _nearest_test_pony(bed)
-		note = "no mare under the crosshair; nearest test mare"
-	if not is_instance_valid(target):
-		print("[unfplap test] Mouse4: no test pony loaded")
-		return
-	var id := _pony_id(target)
-	if _is_young(target):
-		# A young pony is never a bed guest. Bring her to the bed front so she can witness an act
-		# there, and stop before the invite.
-		var rows := PackedStringArray()
-		if _needs_bed_transport(target, bed):
-			rows.append("transport=" + _bring_to_bed(target, rest))
-			await get_tree().create_timer(0.7).timeout
-			if not is_instance_valid(target) or not is_instance_valid(rest) or not is_inside_tree():
-				return
-			rows.append("grounded=" + _make_idle(target, true))
-			rows.append("front=" + _bring_to_bed(target, rest))
-		else:
-			rows.append("idle=" + _make_idle(target, true))
-		rows.append("young: witness position only, no invite")
-		_log_action("Mouse4 " + id, rows)
-		return
-	var idle := _make_idle(target, true)
-	var rows := PackedStringArray()
-	if not note.is_empty():
-		rows.append(note)
-	rows.append("idle=" + idle)
-	if _needs_bed_transport(target, bed):
-		rows.append("transport=" + _bring_to_bed(target, rest))
-		await get_tree().create_timer(0.7).timeout
-		if not is_instance_valid(target) or not is_instance_valid(rest) or not is_inside_tree():
-			return
-		idle = _make_idle(target, true)
-		rows.append("grounded=" + idle)
-		# Recompute once she is inside: the first pass ran while she was outside the house,
-		# where the bed-front height test cannot match her floor.
-		rows.append("front=" + _bring_to_bed(target, rest))
-	var lying := _ensure_player_lying(rest)
-	rows.append("player=" + lying)
-	if _player_lying():
-		# Let the reclined avatar settle before inviting: the snuggle support takes its
-		# landing height from the avatar's hip/head targets.
-		await get_tree().create_timer(1.2).timeout
-		if not is_instance_valid(target) or not is_instance_valid(rest) or not is_inside_tree():
-			return
-	rows.append_array(_report_rows(_cuddle_state(target, rest), "cuddle "))
-	if not _player_lying():
-		rows.append("Anon must be lying on the bed to cuddle")
-		_log_action("Mouse4 " + id, rows)
-		return
-	var accepted := bool(rest.call("accept", target))
-	rows.append("invite=" + str(accepted))
-	_log_action("Mouse4 " + id, rows)
-	_follow_cuddle(id, target, rest)
-
-
-## The lab starts the mares outside the library. Bed eligibility needs the same floor and a
-## short walk, so move the pointed mare to the guest-bed approach before inviting her.
-func _needs_bed_transport(pony: Node3D, bed: Node3D) -> bool:
-	var to_bed := pony.global_position - bed.global_position
-	return Vector2(to_bed.x, to_bed.z).length() > 8.0 or absf(to_bed.y) > 0.5
-
-
-func _nearest_test_pony(bed: Node3D) -> Node3D:
-	var best: Node3D = null
-	var best_distance := INF
-	for node: Variant in _adult_test_ponies():
-		var pony: Node3D = node as Node3D
-		if not is_instance_valid(pony):
-			continue
-		var distance := pony.global_position.distance_to(bed.global_position)
-		if distance < best_distance:
-			best = pony
-			best_distance = distance
-	return best
-
-
-func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
-	var front: Vector3 = rest.call("_front_for", pony)
-	if not front.is_finite():
-		var exit_at: Variant = rest.get("_exit")
-		if exit_at is Vector3:
-			front = exit_at
-	if not front.is_finite():
-		return "no floor beside the bed"
-	pony.global_position = front
-	if pony.get("velocity") != null:
-		pony.set("velocity", Vector3.ZERO)
-	if pony.get("motion_paused") != null:
-		pony.set("motion_paused", false)
-	_upright(pony)
-	pony.reset_physics_interpolation()
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav != null:
-		var travel: Variant = nav.get("house_travel")
-		if travel != null and is_instance_valid(travel):
-			travel.call("clear", pony)
-		nav.call("stay")
-		nav.set("command_owner", "")
-		nav.set("wander_enabled", false)
-	return str(front)
-
-
 func _qualify_target() -> void:
 	var target := _target_under_aim()
 	if not is_instance_valid(target):
@@ -1230,67 +1112,6 @@ func _report_line(pony: Node3D, label: String) -> void:
 	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot))
 	_log_action(label + " report", _report_rows(line, "report "))
 
-
-func _follow_cuddle(id: String, pony: Node3D, rest: Node3D) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(rest) or not is_inside_tree():
-		return
-	await get_tree().create_timer(3.0).timeout
-	if not is_instance_valid(pony) or not is_instance_valid(rest) or not is_inside_tree():
-		return
-	var state := _guest_state(rest)
-	var rows := _cuddle_follow_rows(pony, rest)
-	if _cuddle_active(pony):
-		_log_action("Mouse4 follow " + id, rows)
-		return
-	if state == "joining":
-		rows.append("still walking to the bed; checking again")
-		_log_action("Mouse4 follow " + id, rows)
-		await get_tree().create_timer(6.0).timeout
-		if not is_instance_valid(pony) or not is_instance_valid(rest) or not is_inside_tree():
-			return
-		var later := _cuddle_follow_rows(pony, rest)
-		if _cuddle_active(pony):
-			_log_action("Mouse4 follow " + id, later)
-			return
-		later.append_array(_report_rows(_cuddle_state(pony, rest), "cuddle "))
-		_log_action("Mouse4 follow " + id, later)
-		return
-	rows.append_array(_report_rows(_cuddle_state(pony, rest), "cuddle "))
-	_log_action("Mouse4 follow " + id, rows)
-
-
-func _cuddle_follow_rows(pony: Node3D, rest: Node3D) -> PackedStringArray:
-	return PackedStringArray([
-		"guest=%s cuddle_active=%s couch_cuddle=%s session=%s" % [
-			_guest_state(rest), str(_cuddle_active(pony)),
-			str(pony.get_meta("couch_cuddle", false)), str(_cuddle_session(pony))],
-	])
-
-
-func _guest_state(rest: Node3D) -> String:
-	var guest: Variant = rest.get("_guest") if rest != null else null
-	return str((guest as Dictionary).get("state", "none")) \
-		if guest is Dictionary and not (guest as Dictionary).is_empty() else "none"
-
-
-func _cuddle_active(pony: Node3D) -> bool:
-	if pony.get_meta("cuddle_active", false):
-		return true
-	var session: Node = pony.get_node_or_null("CuddleSession")
-	if session == null:
-		return false
-	var blend := 0.0
-	if session.get("blend") != null:
-		blend = float(session.get("blend"))
-	return bool(session.get("enabled")) or blend > 0.0
-
-
-func _cuddle_session(pony: Node3D) -> bool:
-	var session: Node = pony.get_node_or_null("CuddleSession")
-	return session != null and bool(session.get("enabled"))
-
-
-# --------------------------------------------------------------------------- test helpers
 
 func _test_ponies() -> Array:
 	var out: Array = []
@@ -1491,38 +1312,6 @@ func _clear_busy(pony: Node3D) -> String:
 	return "none" if notes.is_empty() else ", ".join(notes)
 
 
-func _player_lying() -> bool:
-	var body: Variant = game.get("player") if is_instance_valid(game) else null
-	return is_instance_valid(body) and bool((body as Node).get_meta("couch_sleeping", false))
-
-
-## Mouse4 is the cuddle setup key: sit Anon on the bed's player seat and lie him back if needed.
-## The normal sit path still enforces its 3 m reach, so the log asks the player to step closer
-## rather than teleporting the rig.
-func _ensure_player_lying(rest: Node3D) -> String:
-	if _player_lying():
-		return "already lying"
-	var body: Variant = game.get("player") if is_instance_valid(game) else null
-	if not is_instance_valid(body):
-		return "no player"
-	var seats: Variant = rest.get("seats") if rest != null else null
-	if not seats is Array or (seats as Array).is_empty():
-		return "bed has no player seat"
-	var seat: Variant = (seats as Array)[0]
-	if not is_instance_valid(seat):
-		return "bed player seat invalid"
-	if body.get("seat") != seat:
-		if not body.has_method("sit_on"):
-			return "player cannot sit"
-		if not bool(body.call("sit_on", seat)):
-			return "sit failed: move within 3 m of the bed"
-	if not body.has_method("toggle_couch_sleep"):
-		return "player cannot lie down"
-	if not bool(body.call("toggle_couch_sleep")):
-		return "lie-down failed"
-	return "Anon sat and lay down"
-
-
 func _library_home() -> Node3D:
 	for node: Node in get_tree().get_nodes_in_group("house_interiors"):
 		if not is_instance_valid(node) or not node is Node3D:
@@ -1651,88 +1440,6 @@ func _aim_cone_target(view: Camera3D) -> Node3D:
 			best_score = score
 			best = pony
 	return best
-
-
-func _cuddle_state(pony: Node3D, rest: Node3D) -> String:
-	var id := _pony_id(pony)
-	var bed: Variant = rest.get("_bed") if rest != null else null
-	var nav: Node = pony.get_node_or_null("Navigator")
-	var guest: Variant = rest.get("_guest") if rest != null else null
-	var sleeper: Variant = rest.get("_sleeper") if rest != null else null
-	var seats: Variant = rest.get("seats") if rest != null else null
-	var seat_free := false
-	if seats is Array and (seats as Array).size() > 1:
-		var seat: Variant = (seats as Array)[1]
-		seat_free = is_instance_valid(seat) and bool(seat.call("free_for", pony))
-	var dist := -1.0
-	if is_instance_valid(bed):
-		dist = pony.global_position.distance_to((bed as Node3D).global_position)
-	var body_scale := 1.0
-	if pony.get("body_scale") != null:
-		body_scale = float(pony.get("body_scale"))
-	var reasons := PackedStringArray()
-	if not is_instance_valid(bed):
-		reasons.append("no_bed")
-	elif Vector2(pony.global_position.x - (bed as Node3D).global_position.x,
-			pony.global_position.z - (bed as Node3D).global_position.z).length() > 8.0 \
-			or absf(pony.global_position.y - (bed as Node3D).global_position.y) > 0.5:
-		reasons.append("too_far")
-	if pony.get("sleeping") == true:
-		reasons.append("sleeping")
-	if pony.get("_held") == true:
-		reasons.append("held")
-	if pony.get("motion_paused") == true:
-		reasons.append("motion_paused")
-	for meta: String in ["seating", "fishing_companion", "balloon_passenger", "cuddle_active"]:
-		if pony.has_meta(meta):
-			reasons.append("meta:" + meta)
-	if pony.get_meta("affection_active", false):
-		reasons.append("affection")
-	if pony.has_method("action_interruption_reason") \
-			and not str(pony.call("action_interruption_reason")).is_empty():
-		reasons.append("interrupt")
-	if pony.get("flight") != null and bool(pony.get("flight").active()):
-		reasons.append("flight")
-	if body_scale > 1.05:
-		reasons.append("too_big")
-	if nav == null:
-		reasons.append("no_navigator")
-	else:
-		var owner := str(nav.get("command_owner"))
-		var routine := owner.is_empty() or owner == "rest_after_command" \
-			or owner.begins_with("life:") or owner.begins_with("bond:") or owner.begins_with("day:")
-		if str(nav.get("reserved_by")) != "":
-			reasons.append("nav_reserved")
-		if bool(nav.get("_has_target")):
-			reasons.append("nav_target")
-		if not routine:
-			reasons.append("nav_owner=" + owner)
-	var willing := bool(rest.call("_willing", pony)) if rest != null else false
-	if not willing:
-		reasons.append("unwilling")
-	if rest == null or not bool(rest.get("_mare_fits")):
-		reasons.append("mare_fits")
-	if is_instance_valid(sleeper):
-		reasons.append("sleeper=" + str((sleeper as Node).name))
-	if guest is Dictionary and not (guest as Dictionary).is_empty():
-		reasons.append("guest=" + str((guest as Dictionary).get("state", "?")))
-	if not seat_free:
-		reasons.append("seat_busy")
-	if not _player_lying():
-		reasons.append("player_not_lying")
-	return ("pony=%s bed=%s dist=%.2f eligible=%s player_lying=%s willing=%s mare_fits=%s "
-		+ "seat_free=%s guest=%s sleeper=%s | nav owner=%s target=%s reserved=%s | reasons=%s") % [
-		id, str((bed as Node).name) if is_instance_valid(bed) else "none", dist,
-		str(rest.call("eligible", pony)) if rest != null else "no_rest", str(_player_lying()),
-		str(willing), str(rest.get("_mare_fits")) if rest != null else "?",
-		str(seat_free),
-		str((guest as Dictionary).get("state", "?")) if guest is Dictionary \
-			and not (guest as Dictionary).is_empty() else "none",
-		str((sleeper as Node).name) if is_instance_valid(sleeper) else "none",
-		str(nav.get("command_owner")) if nav != null else "?",
-		str(bool(nav.get("_has_target"))) if nav != null else "?",
-		str(nav.get("reserved_by")) if nav != null else "?",
-		"none" if reasons.is_empty() else ", ".join(reasons)]
 
 
 func _exit_tree() -> void:

@@ -1525,7 +1525,9 @@ func _offer_impressions() -> Variant:
 	return context.get("impressions")
 
 
-func _on_offer_facts_changed() -> void:
+## The game's bonds and impressions nodes emit `changed(id: String)`; the id is not read, and
+## the default keeps a zero-argument `changed` working.
+func _on_offer_facts_changed(_id: String = "") -> void:
 	_offer_policy_dirty = true
 
 

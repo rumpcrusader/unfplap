@@ -22,7 +22,7 @@ class FakeIdentity extends RefCounted:
 
 
 class FakeBonds extends RefCounted:
-	signal changed
+	signal changed(id: String)
 	var adults := {"rarity": true}
 	var stage := "dating"
 	var welcome := true
@@ -129,7 +129,7 @@ func run() -> void:
 	check(after_history != after_registry, "a history revision bump rebuilds the snapshot")
 	ACT_HISTORY.revision = history_revision
 
-	bonds.changed.emit()
+	bonds.changed.emit("rarity")
 	var after_signal: ELIGIBILITY.Verdict = runtime.offer_policy_verdict()
 	check(after_signal != after_history, "the relationship change signal rebuilds the snapshot")
 

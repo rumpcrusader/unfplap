@@ -54,10 +54,8 @@ func _callback(key: String) -> Callable:
 ## handle. A missing or ineligible controller detaches the old one.
 func refresh() -> void:
 	var pony: Variant = _host("pony")
-	var reactions: Variant = _host("reactions")
 	if not is_instance_valid(pony):
-		if reactions is Callable:
-			reactions.call("bind_scene", pony, null)
+		_bind_reactions(pony, null)
 		return
 	var service: Variant = _host("anatomy_service")
 	var eligibility_service: Variant = _host("eligibility_service")
@@ -70,19 +68,24 @@ func refresh() -> void:
 			controller.call("detach")
 			controller.queue_free()
 		controller = null
-		if reactions is Callable:
-			reactions.call("bind_scene", pony, controller)
+		_bind_reactions(pony, null)
 		return
 	if service == null or not service.has_method("controller_for"):
 		controller = null
-		if reactions is Callable:
-			reactions.call("bind_scene", pony, controller)
+		_bind_reactions(pony, null)
 		return
 	controller = service.call("controller_for", pony, _host("runtime"))
-	if reactions is Callable:
-		reactions.call("bind_scene", pony, controller)
+	_bind_reactions(pony, controller)
 	if is_instance_valid(controller):
 		controller.call("refresh")
+
+
+## Hand the reactions facade her node and the anatomy controller. The facade keeps the scene it
+## jiggles and smacks; the runtime's rump anchor and the standing offer read it outside an act.
+func _bind_reactions(pony_node: Variant, controller_in: Variant) -> void:
+	var reactions: Variant = _host("reactions")
+	if reactions != null and reactions.has_method("bind_scene"):
+		reactions.call("bind_scene", pony_node, controller_in)
 
 
 ## The persistent controller is online. The facade's `controller_for` is the only owner.
@@ -160,8 +163,8 @@ func apply_facing() -> void:
 		return
 	var value: Dictionary = facing
 	var basis: Basis = value.get("basis", Basis.IDENTITY)
-	var facing_cb: Variant = _host("anatomy_facing")
-	if facing_cb is Callable:
+	var facing_cb: Callable = _callback("anatomy_facing")
+	if facing_cb.is_valid():
 		facing_cb.call(basis, float(value.get("amount", 0.0)))
 
 
@@ -300,15 +303,15 @@ func rear() -> Vector3:
 
 ## The standing camera's facing override. The host's `anatomy_facing` owns the call.
 func facing(basis: Basis, amount: float) -> void:
-	var facing_cb: Variant = _host("anatomy_facing")
-	if facing_cb is Callable:
+	var facing_cb: Callable = _callback("anatomy_facing")
+	if facing_cb.is_valid():
 		facing_cb.call(basis, amount)
 
 
 ## The status label. The host's `anatomy_status` owns the label.
 func status(text: String, seconds := 2.0) -> void:
-	var status_cb: Variant = _host("status")
-	if status_cb is Callable:
+	var status_cb: Callable = _callback("status")
+	if status_cb.is_valid():
 		status_cb.call(text, seconds)
 
 

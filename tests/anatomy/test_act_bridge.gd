@@ -105,6 +105,38 @@ class FakeController extends Node:
 		pose_configs.append(cfg)
 
 
+class FakeReactions extends RefCounted:
+	var bindings: Array = []
+
+	func bind_scene(pony_node: Variant, controller: Variant) -> void:
+		bindings.append([pony_node, controller])
+
+
+class FakeService extends RefCounted:
+	var detaches := 0
+
+	func detach_controller(_pony: Variant) -> void:
+		detaches += 1
+
+	func controller_for(_pony: Variant, _runtime: Variant) -> Variant:
+		return null
+
+	func eligible(_pony: Variant, _target: int) -> bool:
+		return true
+
+
+class FakeMissionaryAnon extends Node:
+	var installed: Variant = null
+	var applied := 0
+
+	func install(context: Variant) -> bool:
+		installed = context
+		return true
+
+	func apply(_frame: Transform3D, _body_scale: float) -> void:
+		applied += 1
+
+
 class FakeHost extends RefCounted:
 	var values: Dictionary = {}
 	var state := STATE_IDLE
@@ -211,6 +243,7 @@ func run() -> void:
 	_check_action_reads()
 	_check_vectors()
 	_check_lifecycle()
+	_check_host_callbacks()
 	_check_vr()
 	print("ANATOMY_ACT_BRIDGE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -363,6 +396,51 @@ func _check_lifecycle() -> void:
 	bridge.act = direct
 	bridge.end()
 	check(direct.ends == 1 and direct.teardowns == 1, "with no controller the bridge closes the act")
+
+
+## The host callbacks that take arguments are raw callables, not zero-argument value reads: the
+## reactions scene bind, the standing facing override, the status label and the missionary body.
+func _check_host_callbacks() -> void:
+	var host := FakeHost.new()
+	var reactions := FakeReactions.new()
+	var service := FakeService.new()
+	var missionary := FakeMissionaryAnon.new()
+	var pony := Node3D.new()
+	root.add_child(pony)
+	var act_facts := FACTS.new()
+	host.values["pony"] = pony
+	host.values["reactions"] = reactions
+	host.values["anatomy_service"] = service
+	host.values["eligibility_service"] = service
+	host.values["act_facts"] = act_facts
+	var bridge: RefCounted = BRIDGE.new()
+	bridge.bind(_host(host, {
+		"pony": Callable(host, "call_host").bind("pony"),
+		"reactions": Callable(host, "call_host").bind("reactions"),
+		"anatomy_service": Callable(host, "call_host").bind("anatomy_service"),
+		"eligibility_service": Callable(host, "call_host").bind("eligibility_service"),
+		"act_facts": Callable(host, "call_host").bind("act_facts"),
+	}))
+	bridge.refresh()
+	check(reactions.bindings.size() == 1, "the refresh binds the reactions scene")
+	if not reactions.bindings.is_empty():
+		check(reactions.bindings[0][0] == pony, "the reactions facade receives her node")
+	bridge.facing(Basis.IDENTITY, 0.5)
+	check(host.facing_calls.size() == 1, "the standing facing override reaches the host")
+	if not host.facing_calls.is_empty():
+		check(is_equal_approx(float(host.facing_calls[0][1]), 0.5),
+			"the facing override carries its amount")
+	bridge.status("Anatomy", 1.5)
+	check(host.statuses.size() == 1, "the status label reaches the host")
+	if not host.statuses.is_empty():
+		check(str(host.statuses[0][0]) == "Anatomy", "the status carries its text")
+	bridge.set_missionary_anon(missionary)
+	check(bridge.install_missionary_anon(), "the missionary body installs")
+	check(missionary.installed == act_facts, "the missionary body receives the typed act view")
+	bridge.set_missionary_anon(null)
+	missionary.free()
+	root.remove_child(pony)
+	pony.free()
 
 
 func _check_vr() -> void:

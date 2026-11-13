@@ -754,6 +754,7 @@ func _anatomy_host() -> Dictionary:
 		"headset_view": Callable(self, "_headset_view"),
 		"align": Callable(self, "apply_anon_align"),
 		"touch": Callable(self, "_on_touch"),
+		"act_facts": Callable(self, "_act_facts_value"),
 	}
 	return _anatomy_host_cache
 

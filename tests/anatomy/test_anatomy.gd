@@ -249,6 +249,18 @@ func run() -> void:
 	check(not bool(runtime.call("anatomy_oral_ready")), "oral gate closed without an act")
 	check(not bool(runtime.call("anatomy_finish_ready")), "finish gate closed without an act")
 	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
+	# The refresh binds the reactions facade to her node, which is what the standing offer's rump
+	# anchor reads. Without it the Y hint never appears.
+	var rump_pony := Node3D.new()
+	get_root().add_child(rump_pony)
+	runtime.pony = rump_pony
+	check(not runtime.call("rump_anchor").is_finite(),
+		"no refresh leaves the rump anchor unbound")
+	runtime.call("_anatomy_refresh")
+	check(runtime.call("rump_anchor").is_finite(),
+		"the anatomy refresh binds the reactions scene for the rump anchor")
+	get_root().remove_child(rump_pony)
+	rump_pony.free()
 	runtime.free()
 
 	# Idle heat: active act states suppress the display, idle allows it, and a due timer winks.

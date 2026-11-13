@@ -5,8 +5,6 @@ shader_type spatial;
 // which places the lip band and contour.
 #include "res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"
 
-#include "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
-
 uniform vec4 skin_color: source_color;
 uniform vec4 skin_shadow: source_color;
 uniform vec4 inner_color: source_color;
@@ -123,7 +121,6 @@ void vertex() {
 		VERTEX.x *= strip_scale;
 	}
 	apply_coat_follow(VERTEX, NORMAL, CUSTOM0);
-	VERTEX += flank_jiggle(VERTEX);
 	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
 	if (hole_target > lip_radius) {
 		vec3 spread = VERTEX - vulva_centre;

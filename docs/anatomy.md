@@ -443,6 +443,8 @@ body's own deformation across the whole mesh.
   works with the game coat shader untouched. It skips when the body has no `MareBody`, no
   skinned `ARRAY_BONES`/`ARRAY_WEIGHTS`, or no `pony_hips` bind; the anatomy then keeps its rigid
   attachment. A missing `pony_flank`/`pony_femur` bone leaves that leg's contribution zero.
+- The anatomy follows leg skinning only. A stock flank smack jiggles the body coat; the anatomy
+  shader does not call the game's `flank_jiggle`.
 - The weighted mesh is per pony and is rebuilt when the selected anatomy mesh changes, the
   placement changes, or the body mesh or skin is replaced. The body weight grid is cached per
   body mesh and skin. The mesh swap keeps the anatomy's blend-shape values and the surface

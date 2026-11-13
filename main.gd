@@ -353,6 +353,7 @@ func _on_player(body: Node) -> void:
 	if not is_instance_valid(hud):
 		hud = HUD.new()
 		hud.name = "UnfplapHUD"
+		hud.log = Callable(self, "debug")
 		add_child(hud)
 	if is_instance_valid(anatomy):
 		anatomy.call("player_ready", body)
@@ -443,11 +444,8 @@ func _process_entry(delta: float) -> void:
 		active_runtime.apply_camera_motion()
 		active_runtime.call("perf_note", "camera_motion", Time.get_ticks_usec() - camera_started)
 		if is_instance_valid(hud):
-			var show_readouts := true
-			if active_runtime.has_method("hud_readouts"):
-				show_readouts = bool(active_runtime.call("hud_readouts"))
 			var hud_started := Time.get_ticks_usec()
-			hud.update_from(active_runtime, show_readouts)
+			hud.update_from(active_runtime.call("act_view"))
 			active_runtime.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
 		_offer = {}
 		_offer_blocked = {}

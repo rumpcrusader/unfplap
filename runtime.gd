@@ -17,6 +17,7 @@ const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
+const DEBUG := preload("res://mods/unfplap/debug/service.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -139,6 +140,9 @@ var idle_perf := false
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _pose_in_left := 0.0
+## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
+## the HUD card reads the cached flag.
+var _cycle_heat := false
 var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
@@ -208,10 +212,6 @@ var _started_at := 0.0
 ## through the typed act view.
 var _forced_glance := ""
 var _presentation_cfg: Dictionary = {}
-var _inventory_hud_hidden := false
-var _inventory_hud_saved := false
-var _inventory_hotbar_visible := true
-var _inventory_hud_layer_visible := true
 ## This act's footstool handle: the case loans, the placed stack and the player lift. See
 ## `stool/act.gd` and docs/stool.md.
 var _stool: RefCounted = null
@@ -897,7 +897,8 @@ func apply_live_settings() -> void:
 	if previous_mute != _feature("mute_ponese_audio"):
 		_refresh_live_voice()
 	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.update_from(self, hud_readouts())
+		_sync_hud_facts()
+		main.hud.update_from(_act_facts)
 
 func _refresh_live_modifiers() -> void:
 	if not is_instance_valid(pony):
@@ -922,24 +923,64 @@ func _refresh_live_voice() -> void:
 func hud_readouts() -> bool:
 	return bool(_features.get("hud_readouts", true))
 
+
 ## Optional act control card, separate from the pony state readouts.
 func hud_controls() -> bool:
 	return bool(_features.get("act_controls", true))
 
+
+## The typed act view `main.gd` and `hud/service.gd` read. The runtime owns it; the HUD never
+## probes this node for a method.
+func act_view() -> RefCounted:
+	return _act_facts
+
+
+## Gather the HUD card's live values into the act view. `main.gd` calls `apply_camera_motion()`
+## once per rendered frame just before `hud.update_from()`, so this runs once a frame and the card
+## reads fields instead of calling back into the runtime. The accessors below refresh it on demand
+## for the suites.
+func _sync_hud_facts() -> void:
+	var facts := _act_facts
+	facts.max_pony_climaxes = _max_pony_climaxes
+	facts.close_hint = close_hint()
+	facts.summary_hud = str(_summary_service.summary.get("hud", ""))
+	facts.cycle_heat = _cycle_heat
+	facts.y_pink = HUD_LINES.y_pink(pose_id == CATALOG.STANDING, state == State.AFTERGLOW,
+		_afterglow.close_caress_earned, pony_climaxes, _max_pony_climaxes)
+	facts.hud_readouts = hud_readouts()
+	facts.hud_controls = hud_controls()
+	facts.finish_pull_out = _anatomy_bridge.finish_pull_out()
+	facts.hole_ready = _anatomy_bridge.hole_ready()
+	facts.oral_ready = _anatomy_bridge.oral_ready()
+	facts.finish_ready = _anatomy_bridge.finish_ready()
+	facts.auto_on = _readiness.auto_active()
+	if facts.auto_on:
+		facts.auto_min_depth = _readiness.auto_min_depth()
+		facts.auto_max_depth = _readiness.auto_max_depth()
+		facts.auto_pace = _readiness.auto_pace()
+		facts.auto_shape = auto_shape_name()
+	facts.auto_layer_open = _readiness.auto_panel_open()
+
+
 ## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
 ## always kept in afterglow even when the optional readouts are off.
 func hud_cue_line(show_readouts := true) -> String:
-	var close_text := close_hint() if state == State.AFTERGLOW else ""
-	return HUD_LINES.cue_line(state, pony_climaxes, _max_pony_climaxes, cue, close_text,
-		str(_summary_service.summary.get("hud", "")), show_readouts)
+	_sync_hud_facts()
+	return HUD_LINES.cue_line(state, pony_climaxes, _max_pony_climaxes, cue,
+		_act_facts.close_hint, _act_facts.summary_hud, show_readouts)
 
 
 ## Separate readiness/preference line under the cue. In the afterglow it carries the act summary
 ## when the cue already shows the standing close prompt.
 func hud_readiness_line(show_readouts := true) -> String:
-	return HUD_LINES.readiness_line(state, show_readouts, _readiness.last_intensity, _readiness.last_pattern,
+	# Estrus is derived from the world day and her relationship, so it is resolved here rather
+	# than once per facts pass; `_physics_tick` caches the same value for the frame.
+	_cycle_heat = cycle_phase() == CYCLE.HEAT
+	_sync_hud_facts()
+	return HUD_LINES.readiness_line(state, show_readouts, _readiness.last_intensity,
+		_readiness.last_pattern,
 		str(_preferences.get("intensity", "firm")), str(_preferences.get("pattern", "steady")),
-		cycle_phase() == CYCLE.HEAT, close_hint(), str(_summary_service.summary.get("hud", "")))
+		_cycle_heat, _act_facts.close_hint, _act_facts.summary_hud)
 
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
@@ -950,16 +991,17 @@ func auto_active() -> bool:
 ## Pink shade for the control card's `End`: one step per climax, capped below full so only the
 ## earned standing afterglow caress turns it fully pink.
 func hud_y_pink() -> float:
-	return HUD_LINES.y_pink(pose_id == CATALOG.STANDING, state == State.AFTERGLOW,
-		_afterglow.close_caress_earned, pony_climaxes, _max_pony_climaxes)
+	_sync_hud_facts()
+	return _act_facts.y_pink
 
 
 ## HUD control readout under the Wants/You line. Empty while manual.
 func auto_hud_text() -> String:
-	if not auto_active():
+	_sync_hud_facts()
+	if not _act_facts.auto_on:
 		return ""
-	return HUD_LINES.auto_text(_readiness.auto_min_depth(), _readiness.auto_max_depth(),
-		_readiness.auto_pace(), auto_shape_name())
+	return HUD_LINES.auto_text(_act_facts.auto_min_depth, _act_facts.auto_max_depth,
+		_act_facts.auto_pace, _act_facts.auto_shape)
 
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
@@ -1127,7 +1169,7 @@ func _physics_tick(delta: float) -> void:
 	_timed("runtime_facts", facts_started)
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
-		if _inventory_hud_hidden:
+		if is_instance_valid(main) and is_instance_valid(main.hud) and main.hud.inventory_hidden():
 			_set_inventory_hud_hidden(false)
 		var presentation_started := Time.get_ticks_usec() if idle_perf else 0
 		_standing_presentation_controller().physics(delta)
@@ -1142,6 +1184,7 @@ func _physics_tick(delta: float) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		force_stop()
 		return
+	_cycle_heat = cycle_phase() == CYCLE.HEAT
 	_sync_bed_pose_frame()
 	if pony.sleeping:
 		pony.sleeping = false
@@ -1639,7 +1682,8 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_pose_in_left = POSE_IN_SECONDS
 	main.set_active(self)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.show_act(self, hud_readouts())
+		_sync_hud_facts()
+		main.hud.show_act(_act_facts)
 		main.hud.hide_prompt()
 	_log("started pose=%s source=%s pony=%s eye=%.2f" % [pose, act_source, str(pony.name), _act_camera.camera_target_eye])
 	return true
@@ -1816,29 +1860,11 @@ func _keep_chin_last() -> void:
 	_pose_service().keep_chin_last()
 
 func _log_chin() -> void:
-	if not is_instance_valid(pony):
+	var rows := DEBUG.chin_rows(pony, _debug_chin_deg)
+	if rows.is_empty() or not is_instance_valid(main) or not main.has_method("_debug_block"):
 		return
-	var rows: Array[String] = []
-	rows.append("pony=%s angle=%+.1f°" % [str(pony.name), _debug_chin_deg])
-	var body: Variant = pony.get("skeleton")
-	if body is Skeleton3D:
-		var head_bone := (body as Skeleton3D).find_bone("pony_head")
-		if head_bone >= 0:
-			var head_pose := (body as Skeleton3D).get_bone_global_pose(head_bone)
-			rows.append("head origin=%s dir=%s" % [
-				str((body as Skeleton3D).global_transform * head_pose.origin),
-				str(head_pose.basis.z)])
-	var boop: Variant = pony.get("boop_node")
-	var head_sk: Variant = boop.get("head_skeleton") if boop != null else null
-	if head_sk is Skeleton3D:
-		var chin_bone := (head_sk as Skeleton3D).find_bone("mFaceChin")
-		if chin_bone >= 0:
-			var chin_pose := (head_sk as Skeleton3D).get_bone_global_pose(chin_bone)
-			rows.append("chin world=%s" % str((head_sk as Skeleton3D).global_transform * chin_pose.origin))
-		if boop.has_method("nose_world"):
-			rows.append("snout world=%s" % str(boop.call("nose_world")))
-	if is_instance_valid(main) and main.has_method("_debug_block"):
-		main.call("_debug_block", "CHIN", rows)
+	main.call("_debug_block", "CHIN", rows)
+
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
@@ -2194,42 +2220,11 @@ func _restore_voice_volume() -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.restore_voice_policy()
 
+## The act hides the game's quick-slot card for its whole run. `hud/service.gd` owns the borrowed
+## state and restores exactly what it found, so every exit path can call this unconditionally.
 func _set_inventory_hud_hidden(hidden: bool) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
-		return
-	var inventory: Variant = main.game.get("inventory")
-	if not is_instance_valid(inventory):
-		return
-	var bar: Variant = inventory.get("hotbar")
-	if hidden:
-		if _inventory_hud_hidden:
-			return
-		_inventory_hud_hidden = true
-		_inventory_hud_saved = bool(inventory.get("hud_hidden"))
-		inventory.set("hud_hidden", true)
-		if is_instance_valid(bar):
-			_inventory_hotbar_visible = bool(bar.get("visible"))
-			var layer: Variant = bar.get("_hud")
-			if layer is CanvasLayer:
-				_inventory_hud_layer_visible = bool((layer as CanvasLayer).visible)
-			bar.call("set_hud_visible", false)
-			bar.set("visible", false)
-		return
-	if not _inventory_hud_hidden:
-		return
-	inventory.set("hud_hidden", _inventory_hud_saved)
-	if is_instance_valid(bar):
-		bar.set("visible", _inventory_hotbar_visible)
-		var layer: Variant = bar.get("_hud")
-		if layer is CanvasLayer:
-			(layer as CanvasLayer).visible = _inventory_hud_layer_visible
-	# Let the inventory re-evaluate its own HUD state after restoring `hud_hidden`: a stale
-	# saved layer flag from a bed/menu start must not keep the quick slots hidden.
-	if inventory.has_method("_place_hotbar"):
-		inventory.call("_place_hotbar")
-	_inventory_hud_hidden = false
-	_log("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s" % [
-		str(_inventory_hud_saved), str(_inventory_hotbar_visible), str(_inventory_hud_layer_visible)])
+	if is_instance_valid(main) and is_instance_valid(main.hud):
+		main.hud.set_inventory_hidden(hidden)
 
 ## Anon's visible shaft length in metres, measured from the placed part. With the anatomy off the
 ## nominal length keeps the mouse feel identical.
@@ -3547,6 +3542,7 @@ func _body_scale_value() -> float:
 ## Dispatch the act shot through the camera facade. The facts are refreshed first so the shot
 ## reads this frame's lean and look.
 func apply_camera_motion() -> void:
+	_sync_hud_facts()
 	if not bool(_camera_service().call("motion_ready")):
 		return
 	_sync_act_facts()

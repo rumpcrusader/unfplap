@@ -210,3 +210,31 @@ static func run_action(name: String, target: Node) -> String:
 		return ""
 	var result: Variant = target.call(method)
 	return str(result) if result is String else ""
+
+
+## The debug chin readout for one pony: her name and the applied angle, the head bone's world
+## origin and direction, the chin bone and the snout. Pure formatting; the runtime applies the
+## pose and prints the block.
+static func chin_rows(pony: Node, angle_deg: float) -> Array[String]:
+	var rows: Array[String] = []
+	if not is_instance_valid(pony):
+		return rows
+	rows.append("pony=%s angle=%+.1f\u00b0" % [str(pony.name), angle_deg])
+	var body: Variant = pony.get("skeleton")
+	if body is Skeleton3D:
+		var head_bone := (body as Skeleton3D).find_bone("pony_head")
+		if head_bone >= 0:
+			var head_pose := (body as Skeleton3D).get_bone_global_pose(head_bone)
+			rows.append("head origin=%s dir=%s" % [
+				str((body as Skeleton3D).global_transform * head_pose.origin),
+				str(head_pose.basis.z)])
+	var boop: Variant = pony.get("boop_node")
+	var head_sk: Variant = boop.get("head_skeleton") if boop != null else null
+	if head_sk is Skeleton3D:
+		var chin_bone := (head_sk as Skeleton3D).find_bone("mFaceChin")
+		if chin_bone >= 0:
+			var chin_pose := (head_sk as Skeleton3D).get_bone_global_pose(chin_bone)
+			rows.append("chin world=%s" % str((head_sk as Skeleton3D).global_transform * chin_pose.origin))
+		if boop.has_method("nose_world"):
+			rows.append("snout world=%s" % str(boop.call("nose_world")))
+	return rows

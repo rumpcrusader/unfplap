@@ -8,14 +8,16 @@ readiness values are `docs/readiness.md`; the close window is `docs/afterglow.md
 
 | File | Role |
 |---|---|
-| `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink` |
-| `hud/service.gd` | the scene card: rows, key caps, prompt row, visibility and the act wiring |
+| `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink`, `auto_panel_label` |
+| `hud/service.gd` | the scene card: rows, key caps, prompt row, visibility, the act wiring and the borrowed quick-slot card |
 | `docs/hud.md` | this contract |
 
-The runtime gathers the live values (state, climax count and limit, cue, close hint, summary,
-preference axes, heat) and reads the auto values from `readiness/service.gd`; it then calls
-`hud/lines.gd`. The pure module has no Node,
-tree, `Settings` or game access, so the formats are testable without a scene.
+The runtime gathers the live values into the typed act view (`shared/act_facts.gd`): state, climax
+count and limit, cue, close hint, summary, the preference axes, heat, the `End` tint, the auto
+readout and the anatomy row gates. `main.gd` calls `runtime.act_view()` once per rendered frame and
+passes that object to `hud/service.gd`, which reads fields and never probes the runtime for a
+method. The pure module has no Node, tree, `Settings` or game access, so the formats are testable
+without a scene.
 
 ## Lines
 
@@ -107,7 +109,9 @@ caption line.
   prompt stay.
 - The afterglow summary is independent of `hud_readouts` and is always shown.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
-  hotbar's `set_hud_visible(false)`; the runtime restores it on every exit path.
+  hotbar's `set_hud_visible(false)`. `hud/service.gd` owns the borrowed state
+  (`set_inventory_hidden()`, `inventory_hidden()`) and restores exactly what it found, so every exit
+  path and the idle safety check can call it unconditionally.
 
 ## Dependencies
 

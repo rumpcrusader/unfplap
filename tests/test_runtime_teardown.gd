@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 const CATALOG_STANDING := "standing"
 var failures := 0
 var checks := 0
@@ -104,6 +105,10 @@ func _fixture() -> Dictionary:
 	runtime.add_child(main)
 	main.add_child(player)
 	main.add_child(game)
+	var hud: CanvasLayer = HUD.new()
+	hud.name = "UnfplapHUD"
+	main.add_child(hud)
+	main.hud = hud
 	runtime.pony = pony
 	runtime.main = main
 	runtime._id = "test_mare"
@@ -124,10 +129,8 @@ func _fixture() -> Dictionary:
 	nav.wander_enabled = false
 	runtime._hold.nav_old_wander = false
 	runtime._hold.token = "unfplap:test_mare"
-	runtime._inventory_hud_hidden = true
-	runtime._inventory_hud_saved = false
-	game.inventory.hud_hidden = true
-	return {"runtime": runtime, "pony": pony, "player": player, "main": main}
+	hud.set_inventory_hidden(true)
+	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud}
 
 
 func run() -> void:
@@ -147,7 +150,7 @@ func run() -> void:
 	check(not runtime._hold.locked_player, "player lock released")
 	check(not player.has_meta("kiss_hold"), "kiss hold removed when the act set it")
 	check(not pony.has_meta("sex_active"), "sex_active cleared")
-	check(not runtime._inventory_hud_hidden, "inventory HUD restored")
+	check(not (f["hud"] as CanvasLayer).inventory_hidden(), "inventory HUD restored")
 	check(not inventory.hud_hidden, "inventory hud_hidden restored")
 	check(inventory.placed == 1, "inventory re-places the hotbar")
 	check(pony.posture_requests.size() == 1 and pony.posture_requests[0] == "stand",

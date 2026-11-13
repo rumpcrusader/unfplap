@@ -7,6 +7,7 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
 ## The offer words are the mod's pink accent, like the control card's earned-caress `End`.
 const ACCENT := Color("ffa8c7")
@@ -44,6 +45,13 @@ var _layer_rows := {}
 var _layer_labels := {}
 var _toast_label: Label
 var _toast_serial := 0
+## The act's debug logger. Invalid outside an act; the restore message is then dropped.
+var log := Callable()
+## The act borrowed the game's quick-slot card: what it found, so it can be put back.
+var _inventory_hidden := false
+var _inventory_hud_saved := false
+var _inventory_hotbar_visible := true
+var _inventory_hud_layer_visible := true
 
 
 func _ready() -> void:
@@ -281,9 +289,9 @@ func hide_prompt() -> void:
 		_prompt.visible = false
 
 
-func show_act(runtime: Node, show_readouts := true) -> void:
+func show_act(view: RefCounted) -> void:
 	_hint.visible = true
-	update_from(runtime, show_readouts)
+	update_from(view)
 
 
 func hide_act() -> void:
@@ -330,13 +338,16 @@ func set_state(_kind: String) -> void:
 		return
 
 
-func update_from(runtime: Node, show_readouts := true) -> void:
-	if _hint == null or not is_instance_valid(runtime):
+## Refresh the card from the typed act view the runtime owns. The view carries every value the
+## card draws, so this reads fields and never probes the runtime for a method.
+func update_from(view: RefCounted) -> void:
+	if _hint == null or view == null:
 		return
-	var state := int(runtime.get("state"))
-	var climaxes := int(runtime.get("pony_climaxes"))
+	var state := int(view.state)
+	var climaxes := int(view.pony_climaxes)
+	var readouts := bool(view.hud_readouts)
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
-	_apply_control_visibility(state, runtime)
+	_apply_control_visibility(state, view)
 	if _y_label != null:
 		var y_text := ""
 		if state == STATE_ACTIVE:
@@ -345,62 +356,106 @@ func update_from(runtime: Node, show_readouts := true) -> void:
 			y_text = "End"
 		_y_label.text = y_text
 		var pink := 0.0
-		if y_text == "End" and runtime.has_method("hud_y_pink"):
-			pink = clampf(float(runtime.call("hud_y_pink")), 0.0, 1.0)
+		if y_text == "End":
+			pink = clampf(float(view.y_pink), 0.0, 1.0)
 		_y_label.add_theme_color_override("font_color", INK.lerp(ACCENT, pink))
 
 	var line := ""
-	if _hint.visible and runtime.has_method("hud_cue_line"):
-		line = str(runtime.call("hud_cue_line", show_readouts))
+	if _hint.visible:
+		line = HUD_LINES.cue_line(state, climaxes, int(view.max_pony_climaxes), str(view.cue),
+			str(view.close_hint), str(view.summary_hud), readouts)
 	_hint_status.text = line
 	_hint_status.visible = not line.is_empty()
 	var readiness_line := ""
-	if _hint.visible and runtime.has_method("hud_readiness_line"):
-		readiness_line = str(runtime.call("hud_readiness_line", show_readouts))
+	if _hint.visible:
+		readiness_line = HUD_LINES.readiness_line(state, readouts, str(view.last_intensity),
+			str(view.last_pattern), str(view.preferences.get("intensity", "firm")),
+			str(view.preferences.get("pattern", "steady")), bool(view.cycle_heat),
+			str(view.close_hint), str(view.summary_hud))
 	_hint_readiness.text = readiness_line
 	_hint_readiness.visible = not readiness_line.is_empty()
 	var auto_text := ""
-	if _hint.visible and runtime.has_method("auto_hud_text"):
-		auto_text = str(runtime.call("auto_hud_text"))
+	if _hint.visible and bool(view.auto_on):
+		auto_text = HUD_LINES.auto_text(float(view.auto_min_depth), float(view.auto_max_depth),
+			float(view.auto_pace), str(view.auto_shape))
 	_hint_auto.text = auto_text
 	_hint_auto.visible = not auto_text.is_empty()
-	var auto_on := false
-	if runtime.has_method("auto_active"):
-		auto_on = bool(runtime.call("auto_active"))
 	if _auto_label != null:
-		_auto_label.text = "Switch to manual" if auto_on else "Switch to auto"
-	var finish_out := false
-	if runtime.has_method("anatomy_finish_pull_out"):
-		finish_out = bool(runtime.call("anatomy_finish_pull_out"))
+		_auto_label.text = "Switch to manual" if bool(view.auto_on) else "Switch to auto"
 	if _finish_label != null:
-		_finish_label.text = "Finish: out" if finish_out else "Finish: in"
-	var layer := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
-	if layer and runtime.has_method("auto_panel_label"):
+		_finish_label.text = "Finish: out" if bool(view.finish_pull_out) else "Finish: in"
+	if bool(view.auto_layer_open):
 		for kind: String in ["min", "max", "pace", "shape"]:
 			var label := _layer_labels.get(kind) as Label
 			if label != null:
-				label.text = str(runtime.call("auto_panel_label", kind))
+				label.text = HUD_LINES.auto_panel_label(kind, float(view.auto_min_depth),
+					float(view.auto_max_depth), float(view.auto_pace), str(view.auto_shape))
 
 
-## The act setting that shows or hides the control card. The cue and readiness line are
-## separate.
-func _controls_hints_on(runtime: Node) -> bool:
-	return not runtime.has_method("hud_controls") or bool(runtime.call("hud_controls"))
+## Hide or restore the game's quick-slot card for the act. Idempotent, and it gives back exactly
+## the state it found, so a start that failed early runs the same call.
+func set_inventory_hidden(hidden: bool) -> void:
+	var main := get_parent()
+	if not is_instance_valid(main):
+		return
+	var game: Variant = main.get("game")
+	if not is_instance_valid(game):
+		return
+	var inventory: Variant = game.get("inventory")
+	if not is_instance_valid(inventory):
+		return
+	var bar: Variant = inventory.get("hotbar")
+	if hidden:
+		if _inventory_hidden:
+			return
+		_inventory_hidden = true
+		_inventory_hud_saved = bool(inventory.get("hud_hidden"))
+		inventory.set("hud_hidden", true)
+		if is_instance_valid(bar):
+			_inventory_hotbar_visible = bool(bar.get("visible"))
+			var layer: Variant = bar.get("_hud")
+			if layer is CanvasLayer:
+				_inventory_hud_layer_visible = bool((layer as CanvasLayer).visible)
+			bar.call("set_hud_visible", false)
+			bar.set("visible", false)
+		return
+	if not _inventory_hidden:
+		return
+	inventory.set("hud_hidden", _inventory_hud_saved)
+	if is_instance_valid(bar):
+		bar.set("visible", _inventory_hotbar_visible)
+		var layer: Variant = bar.get("_hud")
+		if layer is CanvasLayer:
+			(layer as CanvasLayer).visible = _inventory_hud_layer_visible
+	# Let the inventory re-evaluate its own HUD state after restoring `hud_hidden`: a stale saved
+	# layer flag from a bed/menu start must not keep the quick slots hidden.
+	if inventory.has_method("_place_hotbar"):
+		inventory.call("_place_hotbar")
+	_inventory_hidden = false
+	if log.is_valid():
+		log.call("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s" % [
+			str(_inventory_hud_saved), str(_inventory_hotbar_visible),
+			str(_inventory_hud_layer_visible)])
+
+
+## True while the act has the quick-slot card hidden. The idle safety check reads it.
+func inventory_hidden() -> bool:
+	return _inventory_hidden
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
 ## afterglow keeps lean, caress and Y; standing keeps lean, reach, caress, kiss and Y.
-func _apply_control_visibility(state: int, runtime: Node) -> void:
-	var hints_on := _controls_hints_on(runtime)
+func _apply_control_visibility(state: int, view: RefCounted) -> void:
+	var hints_on := bool(view.hud_controls)
 	if _controls != null:
 		_controls.visible = hints_on and _hint.visible
 	if _hint_gap != null:
 		_hint_gap.visible = hints_on and _hint.visible
-	var standing := str(runtime.get("pose_id")) == CATALOG.STANDING
-	var missionary := str(runtime.get("pose_id")) == CATALOG.MISSIONARY
+	var standing := str(view.pose_id) == CATALOG.STANDING
+	var missionary := str(view.pose_id) == CATALOG.MISSIONARY
 	var afterglow := state == STATE_AFTERGLOW
-	var layer := runtime.has_method("auto_panel_open") and bool(runtime.call("auto_panel_open"))
-	var auto_on := runtime.has_method("auto_active") and bool(runtime.call("auto_active"))
+	var layer := bool(view.auto_layer_open)
+	var auto_on := bool(view.auto_on)
 	for key: String in _control_rows:
 		var control := _control_rows[key] as Control
 		if control == null:
@@ -417,7 +472,7 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 			show = true
 		# integration: anatomy rows exist only while their feature is live.
 		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish"]:
-			show = _extra_row_visible(key, state, standing, runtime)
+			show = _extra_row_visible(key, state, standing, view)
 		# Auto owns the stroke, so the mouse no longer sets its depth: hide the thrust row there.
 		if key == "thrust" and auto_on:
 			show = false
@@ -435,15 +490,14 @@ func _apply_control_visibility(state: int, runtime: Node) -> void:
 			row.visible = layer and hints_on and _hint.visible
 
 
-func _extra_row_visible(key: String, state: int, standing: bool, runtime: Node) -> bool:
+func _extra_row_visible(key: String, state: int, standing: bool, view: RefCounted) -> bool:
 	if state == STATE_AFTERGLOW:
 		return false
-	# The runtime's precise readiness keeps the rows on the feature and consent gates.
 	match key:
 		"anatomy_hole":
-			return runtime.has_method("anatomy_hole_ready") and bool(runtime.call("anatomy_hole_ready"))
+			return bool(view.hole_ready)
 		"anatomy_oral":
-			return runtime.has_method("anatomy_oral_ready") and bool(runtime.call("anatomy_oral_ready"))
+			return bool(view.oral_ready)
 		"anatomy_finish":
-			return runtime.has_method("anatomy_finish_ready") and bool(runtime.call("anatomy_finish_ready"))
+			return bool(view.finish_ready)
 	return false

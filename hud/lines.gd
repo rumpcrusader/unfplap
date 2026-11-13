@@ -65,3 +65,18 @@ static func y_pink(standing: bool, afterglow: bool, close_earned: bool, pony_cli
 		return 1.0
 	var reference := float(max_climaxes) if max_climaxes > 0 else 3.0
 	return clampf(float(pony_climaxes) / reference, 0.0, 1.0) * Y_END_TINT_MAX
+
+
+## One hold-X layer row's live text.
+static func auto_panel_label(kind: String, min_depth: float, max_depth: float, pace: float,
+		shape_name: String) -> String:
+	match kind:
+		"min":
+			return "Min depth %d%%" % roundi(min_depth * 100.0)
+		"max":
+			return "Max depth %d%%" % roundi(max_depth * 100.0)
+		"pace":
+			return "Pace %.2f/s" % pace
+		"shape":
+			return "Shape: %s" % shape_name
+	return ""

@@ -3,45 +3,30 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud.gd
 
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
 var failures := 0
 var checks := 0
 
 
-class Stub extends Node:
-	var state := 2
-	var pony_climaxes := 0
-	var pose_id := "standing"
-	var satisfaction := 40.0
-	var auto_on := false
-	var controls_on := true
-	var y_pink := 0.0
-
-	func hud_cue_line(_readouts := true) -> String:
-		return "❤ 1/3 | She is close."
-
-	func hud_readiness_line(_readouts := true) -> String:
-		return "Wants: soft & steady | You: firm"
-
-	func auto_active() -> bool:
-		return auto_on
-
-	func auto_hud_text() -> String:
-		return "Auto · 20–90% · 1.5/s · Normal" if auto_on else ""
-
-	func hud_y_pink() -> float:
-		return y_pink
-
-	func hud_controls() -> bool:
-		return controls_on
-
-	var layer_open := false
-
-	func auto_panel_open() -> bool:
-		return layer_open
-
-	func auto_panel_label(kind: String) -> String:
-		return "Min depth 20%" if kind == "min" else kind.capitalize()
+## The typed act view the card reads. The runtime writes the same fields; the test sets them.
+func _view() -> RefCounted:
+	var facts: RefCounted = ACT_FACTS.new()
+	facts.state = 2
+	facts.pose_id = "standing"
+	facts.max_pony_climaxes = 3
+	facts.pony_climaxes = 0
+	facts.cue = "She is close."
+	facts.last_intensity = "firm"
+	facts.last_pattern = "steady"
+	facts.preferences = {"intensity": "soft", "pattern": "steady"}
+	facts.hud_readouts = true
+	facts.hud_controls = true
+	facts.auto_shape = "Normal"
+	facts.auto_min_depth = 0.2
+	facts.auto_max_depth = 0.9
+	facts.auto_pace = 1.5
+	return facts
 
 
 func _initialize() -> void:
@@ -98,22 +83,22 @@ func _check_controls() -> void:
 	check(hud.get("_hint_title") == null, "act card has no separate title")
 	var y_label := hud.get("_y_label") as Label
 	check(y_label != null and y_label.text.is_empty(), "Y description starts empty")
-	var stub := Stub.new()
-	hud.call("update_from", stub, true)
+	var view := _view()
+	hud.call("update_from", view)
 	check(y_label.text == "End early", "Y offers an early end before the first climax")
 	check(y_label.get_theme_color("font_color") == HUD.INK, "early end is ink")
 	var status := hud.get("_hint_status") as Label
-	check(status.text.begins_with("❤ 1/3"), "cue line reaches the HUD")
+	check(status.text.begins_with("❤ 0/3"), "cue line reaches the HUD")
 	var readiness := hud.get("_hint_readiness") as Label
 	check(readiness.text.begins_with("Wants:"), "readiness line reaches the HUD")
 	var controls := hud.get("_controls") as Control
 	check(controls != null and controls.visible, "control card shows while active")
-	stub.controls_on = false
-	hud.call("update_from", stub, true)
+	view.hud_controls = false
+	hud.call("update_from", view)
 	check(not controls.visible, "control hints switch hides the card")
 	check((hud.get("_hint_readiness") as Control).visible, "readouts stay when hints are off")
-	stub.controls_on = true
-	hud.call("update_from", stub, true)
+	view.hud_controls = true
+	hud.call("update_from", view)
 	check(controls.visible, "control hints switch shows the card")
 	var rows: Dictionary = hud.get("_control_rows")
 	var kiss := rows.get("kiss") as Control
@@ -136,8 +121,8 @@ func _check_controls() -> void:
 	var auto_row := rows.get("auto") as Control
 	check(auto_row != null and auto_row.visible, "auto thrust row shows while active")
 	check(not (hud.get("_hint_auto") as Control).visible, "auto readout hides while manual")
-	stub.auto_on = true
-	hud.call("update_from", stub, true)
+	view.auto_on = true
+	hud.call("update_from", view)
 	check((hud.get("_hint_auto") as Control).visible, "auto readout shows while auto is on")
 	check(not (rows.get("thrust") as Control).visible,
 		"auto hides the mouse thrust row, which no longer sets depth")
@@ -145,12 +130,12 @@ func _check_controls() -> void:
 		"the hold-X hint shows while auto runs")
 	check((hud.get("_auto_label") as Label).text == "Switch to manual",
 		"X offers manual while auto runs")
-	stub.auto_on = false
-	stub.state = 4
-	hud.call("update_from", stub, true)
+	view.auto_on = false
+	view.state = 4
+	hud.call("update_from", view)
 	check(auto_row.visible == false, "afterglow hides auto thrust")
-	stub.state = 2
-	hud.call("update_from", stub, true)
+	view.state = 2
+	hud.call("update_from", view)
 	check((hud.get("_auto_label") as Label).text == "Switch to auto",
 		"X offers auto while manual")
 	check(not (rows.get("auto_settings") as Control).visible,
@@ -160,9 +145,9 @@ func _check_controls() -> void:
 	var layer_rows: Dictionary = hud.get("_layer_rows")
 	check(not (layer_rows.get("min") as Control).visible,
 		"the auto settings layer is hidden while closed")
-	stub.auto_on = true
-	stub.layer_open = true
-	hud.call("update_from", stub, true)
+	view.auto_on = true
+	view.auto_layer_open = true
+	hud.call("update_from", view)
 	check((layer_rows.get("min") as Control).visible,
 		"the layer replaces the card while X is held")
 	check(not (rows.get("lean") as Control).visible,
@@ -170,45 +155,46 @@ func _check_controls() -> void:
 	var layer_labels: Dictionary = hud.get("_layer_labels")
 	check((layer_labels.get("min") as Label).text == "Min depth 20%",
 		"the layer row shows its live value")
-	check((layer_labels.get("shape") as Label).text == "Shape", "the shape row shows its value")
-	stub.layer_open = false
-	stub.auto_on = false
-	hud.call("update_from", stub, true)
+	check((layer_labels.get("shape") as Label).text.begins_with("Shape"),
+		"the shape row shows its value")
+	view.auto_layer_open = false
+	view.auto_on = false
+	hud.call("update_from", view)
 	check(not (layer_rows.get("min") as Control).visible,
 		"closing the layer hides its rows")
 	check((rows.get("lean") as Control).visible, "the normal card returns")
-	stub.pony_climaxes = 1
-	stub.y_pink = 0.25
-	hud.call("update_from", stub, true)
+	view.pony_climaxes = 1
+	view.y_pink = 0.25
+	hud.call("update_from", view)
 	check(y_label.text == "End", "Y offers the end after a climax")
 	check(not y_label.get_theme_color("font_color").is_equal_approx(HUD.INK),
 		"End warms after a climax")
-	stub.y_pink = 1.0
-	hud.call("update_from", stub, true)
+	view.y_pink = 1.0
+	hud.call("update_from", view)
 	check(y_label.get_theme_color("font_color").is_equal_approx(HUD.ACCENT),
 		"an earned caress turns End fully pink")
-	stub.state = 3
-	hud.call("update_from", stub, true)
+	view.state = 3
+	hud.call("update_from", view)
 	check(y_label.text == "End", "Y ends during a climax")
-	stub.state = 4
-	hud.call("update_from", stub, true)
+	view.state = 4
+	hud.call("update_from", view)
 	check(y_label.text == "End", "Y ends the afterglow")
 	check((rows.get("smack") as Control).visible == false, "standing afterglow hides the smack")
 	check((rows.get("y") as Control).visible, "afterglow keeps Y")
-	stub.pose_id = "missionary"
-	hud.call("update_from", stub, true)
+	view.pose_id = "missionary"
+	hud.call("update_from", view)
 	check((rows.get("lean") as Control).visible, "missionary afterglow keeps the lean")
 	check((rows.get("caress") as Control).visible, "missionary afterglow keeps the caress")
 	check((rows.get("caress_move") as Control).visible,
 		"missionary afterglow keeps caress movement")
 	check((rows.get("kiss") as Control).visible == false, "missionary afterglow hides the kiss")
-	stub.state = 2
-	hud.call("update_from", stub, true)
+	view.state = 2
+	hud.call("update_from", view)
 	check((rows.get("kiss") as Control).visible, "missionary shows the kiss (front lean)")
 	check((rows.get("anatomy_finish") as Control).visible == false,
 		"the finish control is hidden for now")
-	stub.pose_id = "standing"
-	hud.call("update_from", stub, true)
+	view.pose_id = "standing"
+	hud.call("update_from", view)
 	check((rows.get("kiss") as Control).visible, "standing shows the kiss")
 	hud.call("show_prompt", "Make love")
 	check((hud.get("_prompt") as Control).visible, "fallback prompt shows")

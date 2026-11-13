@@ -82,6 +82,25 @@ var profile: Dictionary = {}
 ## The physics delta the hand and reach easing uses, so a controller never asks the tree.
 var physics_delta := 0.016
 
+# HUD card values. `hud/service.gd` reads these instead of calling back into the runtime.
+var max_pony_climaxes := 0
+var close_hint := ""
+var summary_hud := ""
+var cycle_heat := false
+var y_pink := 0.0
+var auto_on := false
+var auto_layer_open := false
+var auto_min_depth := 0.0
+var auto_max_depth := 0.0
+var auto_pace := 0.0
+var auto_shape := ""
+var finish_pull_out := false
+var hole_ready := false
+var oral_ready := false
+var finish_ready := false
+var hud_readouts := true
+var hud_controls := true
+
 # Scene handles the act owns. Presentation modules are scene adapters, so they receive the nodes
 # they work on rather than reading the runtime's fields.
 var main: Variant = null

@@ -1,12 +1,12 @@
 # Debug tooling
 
-The mod's debug surface: the console gate, the action buttons and hotkeys, the skeleton overlay and
-the log switches. The lab scripts are in `WORKFLOW.md`; the settings framework is
-`docs/settings.md`; the perf probe is `docs/perf.md`.
+The mod's debug surface: the console gate, the action buttons, the skeleton overlay and the log
+switches. The lab scripts are in `WORKFLOW.md`; the settings framework is `docs/settings.md`; the
+perf probe is `docs/perf.md`.
 
 ## Scope
 
-`debug/service.gd` owns the Debug block's action buttons and their hotkeys, and `debug/ui.gd`
+`debug/service.gd` owns the Debug block's action buttons, and `debug/ui.gd`
 draws the buttons. `debug/skeleton.gd` owns the skeleton overlay. `settings/ui.gd` injects the
 Unfplap settings tab and passes `debug/ui.gd`'s builder into each Debug block. `main.gd` owns the
 console gate. The lab scripts are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; their keys are in
@@ -23,14 +23,15 @@ console gate. The lab scripts are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; the
 ## Actions
 
 Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
-their `tab` names (`general` by default, `anatomy` or `world`). Adding an action is one entry; give
-it a `hotkey` only when it must fire while the world is unpaused and you are looking at the scene.
-A hotkey-less action is the default. `panel: false` keeps a hotkey-only action out of the button
-list.
+their `tab` names (`general` by default, `anatomy` or `world`). Adding an action is one entry plus
+one method. The registry declares no global hotkeys: the game's own dev keys (`F4` render
+breakdown, `F9` trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is
+loaded, so a Debug block button is the only trigger. `input/service.gd` still routes a declared
+`"hotkey"` for a future action that genuinely must fire while the world is unpaused.
 
 | Action | Tab | Hotkey |
 |---|---|---|
-| Reload posed base | General | `F4` |
+| Reload posed base | General | — |
 | Trigger bed offer | General | — |
 | Trigger standing offer | General | — |
 | Reset act history | World | — |
@@ -47,7 +48,7 @@ list.
 | Show pose state | General | — |
 | Force act face | General | — |
 | Show act face | General | — |
-| Skeleton overlay | General | `F10` (hotkey only) |
+| Skeleton overlay | General | — |
 | Placement up/down/forward/back/pitch/bigger/smaller | Anatomy | — |
 | Tail placement up/down/forward/back, tilt left/right | Anatomy | — |
 | Dock placement up/down/bigger/smaller | Anatomy | — |
@@ -69,7 +70,8 @@ list.
 
 ## Skeleton overlay
 
-`F10` toggles the skeleton overlay for nearby ponies. Lines are thin
+**Skeleton overlay** in General's Debug block toggles the skeleton overlay for nearby ponies and
+reports `Skeleton overlay ON`/`OFF` in the block's status line. Lines are thin
 (`LINE_HALF_WIDTH = 0.0015`) and joint circles remain visible; hover a joint to turn it red, then
 left-click to print its bone name, parent, world/local origin, rotation, scale and rest. Colors:
 body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
@@ -93,7 +95,7 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
   starters stay live; a non-starter is spawned through the population streamer on demand and the
   previous extra is despawned.
 - `-`/`=` romance tier; `9`/`0` anger mood; Mouse4 bed invite; Mouse5 sex-ready.
-- `F4` reloads the posed base; `F10` toggles the skeleton overlay.
+- Reload the posed base and toggle the skeleton overlay from General's Debug block.
 - Backtick toggles the debug console with a temporary control-lock release.
 - `./lab.sh` uses the isolated `unfplap-test` world and writes `last-run.log`.
   `./lab-stress.sh` uses `unfplap-stress` and writes `last-run-stress.log`.
@@ -123,7 +125,7 @@ The debug actions and overlay are manual. Their settings and action declarations
 
 ## Related docs
 
-- `docs/settings.md` — the Debug block, hotkeys and the declaration rules.
+- `docs/settings.md` — the Debug block and the declaration rules.
 - `docs/perf.md` — the act perf probe.
 - `docs/anatomy.md` — the placement actions.
 - `docs/summary.md`, `docs/face.md`, `docs/eligibility.md` — the per-service debug actions.

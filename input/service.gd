@@ -108,8 +108,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey:
 		var debug_key := event as InputEventKey
-		# Debug actions declare their own hotkey in DEBUG_ACTIONS.ACTIONS. Do not claim one in a text
-		# field; leave modified keys (Shift+\ is the game's dev noclip) to the game.
+		# A debug action may declare a hotkey in DEBUG_ACTIONS.ACTIONS (none do today). Do not claim
+		# one in a text field; leave modified keys (Shift+\ is the game's dev noclip) to the game.
 		if debug_key.pressed and not debug_key.echo and not debug_key.ctrl_pressed \
 				and not debug_key.shift_pressed and not debug_key.alt_pressed:
 			var focus := get_viewport().gui_get_focus_owner()

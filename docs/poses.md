@@ -168,8 +168,8 @@ Missionary is its own state, not the game's bed rest:
   or no bed frame (the floating pose preview) means no pose is applied, and the act's `pose_asset`
   gate refuses the start with `missionary pose unavailable: <reason>` in the log. The anatomy's
   `pelvis_curl_deg`/`legs_wrap`/`bed_lift_m` keys are gone with the stack.
-- **Reload.** The asset is shared for the process; the **Reload posed base** debug action (and
-  `F4`) re-reads the file in place, so the lab export → game reload loop works mid-act.
+- **Reload.** The asset is shared for the process; the **Reload posed base** Debug block action
+  re-reads the file in place, so the lab export → game reload loop works mid-act.
 
 ## Standing
 
@@ -306,8 +306,9 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ## Verification / lab
 
-- Missionary on the Golden Oak guest bed: start, pose, a moving bed, `F4` reload, `F10` overlay,
-  hold-Y end and the bone restore on the next animation frame.
+- Missionary on the Golden Oak guest bed: start, pose, a moving bed, the **Reload posed base**
+  action, the **Skeleton overlay** action, hold-Y end and the bone restore on the next animation
+  frame.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
 

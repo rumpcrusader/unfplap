@@ -1199,7 +1199,7 @@ func _nearest_pony(view: Camera3D) -> Node:
 	return best
 
 
-func toggle_skeleton_debug() -> void:
+func toggle_skeleton_debug() -> String:
 	if not is_instance_valid(_debug_skeleton):
 		_debug_skeleton = DEBUG_SKELETON.new()
 		_debug_skeleton.name = "UnfplapSkeleton"
@@ -1208,6 +1208,7 @@ func toggle_skeleton_debug() -> void:
 	var enabled := not bool(_debug_skeleton.get("enabled"))
 	_debug_skeleton.set("enabled", enabled)
 	_debug("skeleton overlay %s" % ("ON" if enabled else "OFF"))
+	return "Skeleton overlay %s" % ("ON" if enabled else "OFF")
 
 
 func skeleton_click() -> bool:

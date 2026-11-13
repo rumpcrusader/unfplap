@@ -197,6 +197,9 @@ scripts/check.sh
   `git ls-files`.
 - **Do not chase line count.** A correct service boundary is more important than the size of
   `runtime.gd`; report size only as information.
+- **No global debug hotkeys.** `debug/service.gd` declares no hotkey; the game's dev keys
+  (`F4` render breakdown, `F9` trace, `F10` FPS overlay, `F11` free camera) stay the game's. A
+  debug action is a button in its Debug block.
 - **Performance check.** With **Enable debug** + **Print perf logs**, compare one act before and
   after a phase that touches the tick, the pose or the camera; the extracted chunks must not add a
   per-frame cost. See `docs/perf.md`.
@@ -255,10 +258,10 @@ mods/unfplap/
   settings/service.gd       every global setting declared once; docs/settings.md
   settings/ui.gd    declaration rows, Debug block and settings-tab injection
   settings/characters_ui.gd  the interim Characters preference form
-  debug/service.gd  Debug block actions and hotkeys; docs/debug.md
+  debug/service.gd  Debug block actions; docs/debug.md
   debug/ui.gd       the Debug block's action buttons
   hud/service.gd            the act card; docs/hud.md
-  input/service.gd          Y start/end, smack routing, key consumption, action hotkeys
+  input/service.gd          Y start/end, smack routing, key consumption
   docs/             one contract per service; docs/README.md is the index
   tests/            unit/source-hygiene tests and the manual labs
   scripts/          asset pack, build manifest, release checks, test runners
@@ -316,7 +319,7 @@ The per-file service map with contracts and suites is `docs/README.md`.
 
 - The backtick console is gated by `DEV.enabled()`; a player build unlocks it with **Settings →
   Updates** pressed five times. Acts own `controls_locked`, so it is not available during an act.
-- The Debug block, actions, hotkeys, skeleton overlay and lab keys are in `docs/debug.md`.
+- The Debug block, actions, skeleton overlay and lab keys are in `docs/debug.md`.
 - The perf probe is in `docs/perf.md`.
 - Run the full gate and the phase's manual lab before a commit. If a lab cannot run in the current
   environment, say so in the phase notes rather than claiming it passed.

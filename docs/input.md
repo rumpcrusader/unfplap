@@ -1,8 +1,8 @@
 # Input
 
 The input service owns the mod's act key and mouse policy. It runs in `_input` before the game's
-desktop input, consumes the act keys, keeps the mouse captured during an act, and routes the debug
-hotkeys declared by `debug/service.gd`.
+desktop input, consumes the act keys, keeps the mouse captured during an act, and routes any
+hotkey a debug action declares (none today).
 
 It does not own act behavior. It calls the active runtime's typed commands and `main.try_start()`.
 
@@ -11,7 +11,7 @@ It does not own act behavior. It calls the active runtime's typed commands and `
 - `Y` start/end and the act key consumption policy.
 - Mouse capture while an act is live, including the menu/alt-tab recapture path.
 - The seated-player `Q` guard and the movement hold during an act.
-- The debug action hotkeys.
+- Any declared debug action hotkey (none today).
 - The focus guard: typed chat text is never an act key.
 
 ## Ownership
@@ -23,7 +23,7 @@ saved data. Its state is transient:
 - `_mouse_recapture_logged` — the one recapture log per act.
 
 `main.gd` owns construction, the service list and world teardown. `runtime.gd` owns act state.
-`debug/service.gd` owns the action registry and the hotkey table.
+`debug/service.gd` owns the action registry.
 
 ## Internal API
 
@@ -31,8 +31,8 @@ The service is a Node; its contract is the Node lifecycle and the input callback
 
 - `_ready()` — sets `PROCESS_MODE_ALWAYS` and the early physics priority;
 - `_physics_process(delta)` — keeps the mouse captured and the seated guard while an act is live;
-- `_input(event)` — consumes act keys, routes debug hotkeys, starts the hinted act and opens the
-  act chat.
+- `_input(event)` — consumes act keys, routes any declared debug hotkey, starts the hinted act and
+  opens the act chat.
 
 There is no public method other than the Node callbacks.
 
@@ -51,13 +51,13 @@ owner. It does not store runtime state.
 
 ## Settings
 
-No settings. Debug hotkeys are declared by `debug/service.gd`; the action behavior belongs to the
-owning service.
+No settings. A debug action declares its own hotkey in `debug/service.gd` (none today); the action
+behavior belongs to the owning service.
 
 ## Controls and debug
 
-The controls table is `docs/runtime.md`. Debug hotkeys are in `docs/debug.md`. The input service
-consumes a key only when the action is declared and the focus is not a text field.
+The controls table is `docs/runtime.md`. Debug actions are in `docs/debug.md`. The input service
+consumes a key only when an action declares it and the focus is not a text field.
 
 ## Dependencies
 
@@ -75,5 +75,5 @@ seated-player guard. The architecture checker covers the facade-only import rule
 ## Related docs
 
 - `docs/runtime.md` — act controls, state and tick order.
-- `docs/debug.md` — the action registry, hotkeys and lab keys.
+- `docs/debug.md` — the action registry and lab keys.
 - `docs/settings.md` — settings widgets and the settings panel.

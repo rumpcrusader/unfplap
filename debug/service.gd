@@ -1,21 +1,18 @@
 extends RefCounted
-## The Debug block's action buttons and their hotkeys. An action is one entry in `ACTIONS`; `method`
-## is called on the entry node. Actions are not settings: they run a one-off debug operation.
-## Add a hotkey only when the action must fire while the world is unpaused.
+## The Debug block's action buttons. An action is one entry in `ACTIONS`; `method` is called on the
+## entry node. Actions are not settings: they run a one-off debug operation.
 
 ## Debug actions. `method` is called on the entry node. `tab` places the button in that tab's
 ## Debug block (`general` by default, or `anatomy`/`world`); a missing tab means General.
 ## Add an action here; it becomes a button in the matching Debug block automatically. Actions that share a
 ## `row` are drawn compactly on one line, captioned with `short`; consecutive entries with the same
-## row must stay adjacent. A hotkey is the exception, not the default: only add one when the action
-## must fire while the world is unpaused and you are looking at the scene (the skeleton overlay is
-## the example). `panel: false` keeps a hotkey-only action out of the button list.
+## row must stay adjacent. The mod claims no global debug hotkeys: the game's F4/F9/F10/F11 dev
+## tools stay usable, and a Debug block button is the only trigger.
 const ACTIONS := {
 	"reload_pose": {
 		"label": "Reload posed base",
 		"help": "Re-read poses/missionary_pose.json without restarting the game. A running act picks it up.",
 		"method": "action_reload_pose",
-		"hotkey": KEY_F4,
 	},
 	"bed_offer": {
 		"label": "Trigger bed offer",
@@ -124,10 +121,8 @@ const ACTIONS := {
 	},
 	"skeleton_overlay": {
 		"label": "Skeleton overlay",
-		"help": "Toggle the F10 skeleton overlay.",
+		"help": "Toggle the skeleton overlay for nearby ponies.",
 		"method": "toggle_skeleton_debug",
-		"hotkey": KEY_F10,
-		"panel": false,
 	},
 	# integration: one placement editor for anatomy, tail and dock. The target pill above the
 	# actions selects the global default or the pointed mare.
@@ -197,7 +192,8 @@ const ACTIONS := {
 }
 
 
-## The action bound to a physical key code, or "" when none is.
+## The action bound to a physical key code, or "" when none is. No action declares one today; the
+## route stays for a future action that must fire while the world is unpaused.
 static func hotkey_action(keycode: int) -> String:
 	for name: String in ACTIONS:
 		if int(ACTIONS[name].get("hotkey", 0)) == keycode:

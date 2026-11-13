@@ -162,7 +162,7 @@ func _check_hands_docs() -> void:
 	check(not contract.is_empty(), "docs/hands.md exists")
 	check(contract.contains("## Controls") and contract.contains("## Contact engine"),
 		"docs/hands.md has the controls and contact contract")
-	for name: String in ["AGENTS.md", "docs/README.md", "README.md"]:
+	for name: String in ["AGENTS.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/hands.md"), "%s links to docs/hands.md" % name)
 
@@ -734,7 +734,7 @@ func _check_eligibility_docs() -> void:
 	for heading: String in ["## Data ownership", "## Public API", "## Modes and truth table",
 			"## Tests"]:
 		check(contract.contains(heading), "docs/eligibility.md has %s" % heading)
-	for name: String in ["AGENTS.md", "docs/README.md", "README.md"]:
+	for name: String in ["AGENTS.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/eligibility.md"), "%s links to docs/eligibility.md" % name)
 
@@ -794,7 +794,7 @@ func _check_anatomy_docs() -> void:
 	for heading: String in ["## Scope", "## Architecture", "## Controls", "## Act anatomy",
 			"## Act bridge", "## Tail seating", "## Tests", "## Migration target"]:
 		check(contract.contains(heading), "docs/anatomy.md has %s" % heading)
-	for name: String in ["AGENTS.md", "README.md", "docs/README.md"]:
+	for name: String in ["AGENTS.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/anatomy.md"), "%s links to docs/anatomy.md" % name)
 	check(FileAccess.file_exists(ROOT.path_join("tests/anatomy/test_act_bridge.gd")),
@@ -829,7 +829,7 @@ func _check_stool_docs() -> void:
 			"## Gate and hint", "## Act flow", "## Supply", "## Settings and debug",
 			"## Tests and limits"]:
 		check(contract.contains(heading), "docs/stool.md has %s" % heading)
-	for name: String in ["AGENTS.md", "README.md", "docs/README.md"]:
+	for name: String in ["AGENTS.md", "docs/README.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/stool.md"), "%s links to docs/stool.md" % name)
 	var act := FileAccess.get_file_as_string(ROOT.path_join("stool/act.gd"))

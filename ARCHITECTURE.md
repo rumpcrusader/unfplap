@@ -272,7 +272,7 @@ lab keys.
 | `docs/<service>.md` | the service contract: scope, ownership, API, data, settings, controls, dependencies, tests |
 | `AGENTS.md` | agent rules, the required reading table and the workflow pointers |
 | `WORKFLOW.md` | commands, labs and release flow |
-| `README.md` | the player-facing summary, CONTROLS and FEATURES |
+| `README.md` | the player-facing summary; human-owned, do not edit |
 | `docs/api.md` | the stable cross-mod API |
 | `assets/README.md`, `AUDIO_CREDITS.md` | asset-pack and audio credits |
 

@@ -397,8 +397,7 @@ persisted value. See `docs/perf.md`.
 - `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
   settings widget is created outside `settings/ui.gd` (the Characters form in `main.gd` is the one
   allowed exception).
-- Keep the feature-flag table in this file current when adding a flag, and update `README.md`
-  CONTROLS or FEATURES only for player-facing changes.
+- Keep the feature-flag table in this file current when adding a flag.
 
 ## Related docs
 

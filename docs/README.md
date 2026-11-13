@@ -11,7 +11,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Doc | Owns |
 |---|---|
 | `../ARCHITECTURE.md` | the service model, layers, lifecycle, dependency policy and enforcement |
-| `../README.md` | the player-facing summary, CONTROLS and FEATURES |
+| `../README.md` | the player-facing summary; human-owned, do not edit |
 | `../AGENTS.md` | project-wide agent rules and the reading table |
 | `../WORKFLOW.md` | commands, the lab scripts and the release flow |
 | `../assets/README.md` | the resource pack layout and the asset-change workflow |

@@ -29,7 +29,7 @@ Do not start implementation until you have read the required files for the area 
 | Pose, skeleton, camera, act actions | `docs/poses.md`, `docs/camera.md` |
 | Kiss | `docs/kiss.md` |
 | VR act | `docs/vr.md` |
-| Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
+| Player-facing README | human-owned; do not edit |
 | Setting, flag or debug control | `docs/settings.md` |
 | Character profiles or preference | `docs/preferences.md`, `docs/settings.md` |
 | Cross-mod API | `docs/api.md`, `api.gd`, `registry/service.gd` |
@@ -215,9 +215,8 @@ This is mandatory.
   `assets/README.md`, `AUDIO_CREDITS.md`. Service contracts do not live at the root.
 - Update the owning doc in the same commit as behaviour, settings, controls, debug actions or
   tests. Remove obsolete claims instead of keeping historical notes.
-- `README.md` rule: only update **CONTROLS** and **FEATURES** unless the user explicitly asks for
-  another section. Do not list debug controls. Features are concise, high-level and one sentence
-  each. Do not rewrite or reformat the rest of README.
+- `README.md` is human-owned. Do not edit it; report needed player-facing changes to the user
+  instead.
 - `docs/api.md` is the only cross-mod API contract. Internal service APIs never go there by
   accident.
 - A system contract lives only in its owning doc. Other docs link to it and do not restate its
@@ -268,7 +267,7 @@ mods/unfplap/
   lines/            line scheduler and prompt formatting internals
   <service>/        the remaining service facades and private internals
   AUDIO_CREDITS.md  audio credits; ships
-  README.md         player-facing CONTROLS and FEATURES
+  README.md         player-facing summary; human-owned, do not edit
   WORKFLOW.md       commands, labs and release flow
 ```
 

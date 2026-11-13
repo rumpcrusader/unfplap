@@ -273,7 +273,7 @@ lab keys.
 | `ARCHITECTURE.md` | concepts, layers, service definition, lifecycle, dependency policy, enforcement, migration policy |
 | `docs/README.md` | the service/shared/orchestrator index, the doc template and the verification matrix |
 | `docs/<service>.md` | the service contract: scope, ownership, API, data, settings, controls, dependencies, tests |
-| `AGENTS.md` | agent rules, the required reading table and the workflow pointers |
+| `AGENTS.md` | agent rules, the path router and the workflow pointers |
 | `WORKFLOW.md` | commands, labs and release flow |
 | `README.md` | the player-facing summary; human-owned, do not edit |
 | `docs/api.md` | the stable cross-mod API |
@@ -350,6 +350,8 @@ is typed.
 one `_end_session`, settings widgets only in the owning UI files, no removed shims, no host
 preloads, no private runtime reach-ins in presentation modules.
 
+Suites are not services: their layout, isolation, discovery and runner are `docs/tests.md`.
+
 The full gate remains:
 
 ```bash
@@ -395,7 +397,7 @@ target; the exception and typing-debt files record the temporary gaps.
 ## Related
 
 - `docs/README.md` — the service index, the doc template and the verification matrix.
-- `AGENTS.md` — the required reading table and the project-wide rules.
+- `AGENTS.md` — the path router and the project-wide rules.
 - `WORKFLOW.md` — commands, labs and release flow.
 - `docs/runtime.md` — the act state machine, start, tick and teardown order.
 - `docs/api.md` — the stable cross-mod contract.

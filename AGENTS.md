@@ -1,45 +1,69 @@
 # unfplap — mod-specific agent guide
 
 Read `res://mods/AGENTS.md` first and follow its general Home: Equestria mod rules. This file adds
-the working knowledge for `unfplap` only. It holds project-wide rules and the reading table; the
+the working knowledge for `unfplap` only. It holds project-wide rules and the path router; the
 concepts are in `ARCHITECTURE.md`, the service index is `docs/README.md`, and the per-service
 contracts are under `docs/`.
 
-## Required reading by task
+## Required reading by path
 
-Do not start implementation until you have read the required files for the area you are touching.
+Do not start implementation until you have read the owning doc for the files you will touch. The
+table is the router: a doc not listed here is reached from `docs/README.md`, and this file does not
+restate a contract.
 
-| Task | Read first |
+| Paths | Read |
 |---|---|
-| Any task | `res://mods/AGENTS.md`, then this file, `ARCHITECTURE.md`, `WORKFLOW.md` |
-| Architecture, service boundary or dependency | `ARCHITECTURE.md`, `docs/README.md`, the owning contract |
-| Hands, caress or smack | `docs/hands.md` |
-| Eligibility, consent, offer or relationship level | `docs/eligibility.md` |
-| Scene gate, refusal, bed/player/navigator gate | `docs/scene_gate.md` |
-| Act scene ownership, navigator, player lock | `docs/scene_hold.md` |
-| Bed anchor, cuddle rejoin or post-act restore | `docs/rest.md` |
-| Anatomy, player part, tail seat or dock | `docs/anatomy.md` |
-| Proactive request, privacy, offer flow or consent classifier | `docs/initiation.md` |
-| Act cue line, reaction or bystander line | `docs/lines.md` |
-| Jiggle, smack impact, rump blush or climax hearts | `docs/reactions.md` |
-| Standing footstool or stool supply | `docs/stool.md` |
-| Readiness, preference or strength | `docs/readiness.md`, `docs/preferences.md` |
-| Act summary, grade, long-term history, reluctance | `docs/summary.md` |
-| Act face, mood or voice emotion | `docs/face.md` |
-| Pose, skeleton, camera, act actions | `docs/poses.md`, `docs/camera.md` |
-| Kiss | `docs/kiss.md` |
-| VR act | `docs/vr.md` |
-| Player-facing README | human-owned; do not edit |
-| Setting, flag or debug control | `docs/settings.md` |
-| Character profiles or preference | `docs/preferences.md`, `docs/settings.md` |
-| Cross-mod API | `docs/api.md`, `api.gd`, `registry/service.gd` |
-| Act audio or sound assets | `docs/audio.md`, `CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
-| New external asset or credit | `CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
-| Act HUD text or `End` tint | `docs/hud.md` |
-| Debug actions, console or overlay | `docs/debug.md` |
-| Perf probes | `docs/perf.md` |
+| `main.gd` | `ARCHITECTURE.md`, `docs/runtime.md` |
+| `runtime.gd` | `docs/runtime.md` |
+| `api.gd` | `docs/api.md` |
+| `tests/**` | `docs/tests.md` |
+| `shared/act_facts.gd` | `docs/act_facts.md` |
+| `shared/act_face.gd` | `docs/face.md` |
+| `shared/act_history.gd` | `docs/summary.md` |
+| `shared/act_motion.gd` | `docs/camera.md` |
+| `shared/anatomy_placement.gd` | `docs/anatomy.md` |
+| `shared/character_preferences.gd`, `shared/preferences.gd` | `docs/preferences.md` |
+| `shared/hands_*.gd` | `docs/hands.md` |
+| `shared/perf.gd`, `shared/perf_idle.gd` | `docs/perf.md` |
+| `shared/pose_catalog.gd` | `docs/poses.md` |
+| `shared/relationship_cue.gd` | `docs/lines.md` |
+| `shared/rump_cone.gd` | `docs/scene_gate.md` |
+| `afterglow/**` | `docs/afterglow.md` |
+| `anatomy/**` | `docs/anatomy.md` |
+| `audio/**` | `docs/audio.md` |
+| `camera/**` | `docs/camera.md` |
+| `debug/**` | `docs/debug.md` |
+| `eligibility/**` | `docs/eligibility.md` |
+| `face/**` | `docs/face.md` |
+| `hands/**` | `docs/hands.md` |
+| `hud/**` | `docs/hud.md` |
+| `initiation/**` | `docs/initiation.md` |
+| `input/**` | `docs/input.md` |
+| `kiss/**` | `docs/kiss.md` |
+| `lines/**` | `docs/lines.md` |
+| `memory/**` | `docs/memory.md` |
+| `poses/**` | `docs/poses.md` |
+| `reactions/**` | `docs/reactions.md` |
+| `readiness/**` | `docs/readiness.md` |
+| `registry/**` | `docs/registry.md` |
+| `rest/**` | `docs/rest.md` |
+| `scene_gate/**` | `docs/scene_gate.md` |
+| `scene_hold/**` | `docs/scene_hold.md` |
+| `settings/**` | `docs/settings.md` |
+| `stool/**` | `docs/stool.md` |
+| `summary/**` | `docs/summary.md` |
+| `vr/**` | `docs/vr.md` |
+| `assets/**`, `scripts/asset_pack*` | `assets/README.md`, `CREDITS.md` |
+| any | `res://mods/AGENTS.md`, this file, `ARCHITECTURE.md`, `WORKFLOW.md` |
+
+Non-code tasks:
+
+| Task | Read |
+|---|---|
+| Architecture, boundary or dependency edge | `ARCHITECTURE.md`, `docs/README.md` |
 | Release | `.opencode/skills/release/SKILL.md` |
 | Sync local settings to shipped defaults | `.opencode/skills/sync-settings/SKILL.md` |
+| Player-facing summary | `README.md` is human-owned; do not edit, report the change |
 
 ## Identity and scope
 
@@ -223,7 +247,7 @@ This is mandatory.
 - Every service has exactly one doc under `docs/`, linked from `docs/README.md`. That doc is the
   single source of truth for the service's purpose, ownership, API, state, settings, controls,
   debug actions, dependencies, tests and lab check.
-- `AGENTS.md` holds project-wide rules, the reading table and the service index. It links to the
+- `AGENTS.md` holds project-wide rules, the path router and the service index. It links to the
   service docs and does not restate them.
 - `docs/README.md` is the documentation index and the doc template.
 - Root-level docs are for players and agents: `README.md`, `AGENTS.md`, `WORKFLOW.md`,

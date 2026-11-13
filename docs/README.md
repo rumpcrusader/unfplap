@@ -12,11 +12,12 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 |---|---|
 | `../ARCHITECTURE.md` | the service model, layers, lifecycle, dependency policy and enforcement |
 | `../README.md` | the player-facing summary; human-owned, do not edit |
-| `../AGENTS.md` | project-wide agent rules and the reading table |
+| `../AGENTS.md` | project-wide agent rules and the path router |
 | `../WORKFLOW.md` | commands, the lab scripts and the release flow |
 | `../assets/README.md` | the resource pack layout and the asset-change workflow |
 | `../CREDITS.md` | external credits: anatomy and act audio |
 | `api.md` | the stable cross-mod API |
+| `tests.md` | the suite layout, conventions and the runner |
 
 ## Orchestrators
 
@@ -164,6 +165,7 @@ Rules:
 |---|---|
 | Architecture gate | `scripts/architecture.py --check` |
 | Parse all scripts | `scripts/check.sh --all` |
+| Touched suites | `scripts/test.sh <suite>...` |
 | Full headless gate | `scripts/test_all.sh` |
 | Source smoke | `scripts/smoke.sh` |
 | Source hygiene | `tests/test_source_hygiene.gd` |
@@ -187,5 +189,5 @@ keyboard. Record its result in the phase notes instead of assuming it passed.
 ## Related
 
 - `../ARCHITECTURE.md` — the service model, layers, lifecycle and enforcement.
-- `../AGENTS.md` — the required reading table and the cross-cutting rules.
+- `../AGENTS.md` — the path router and the cross-cutting rules.
 - `../WORKFLOW.md` — the commands and the release flow.

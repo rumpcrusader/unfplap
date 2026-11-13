@@ -10,8 +10,9 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 `history/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
 context shape the pure scorer reads (`summary_inputs()`, `summary_context()`), the peak-memory
-record, the per-mare row reads, the idle apology/reminder decisions and the pure
-`history/tolerance.gd` meter. The runtime keeps the act state machine, gathers the action counters and
+record, the idle apology/reminder decisions and the pure
+`history/tolerance.gd` meter. The stored ledger is read from `shared/act_history.gd` directly, by
+this facade and by every other consumer. The runtime keeps the act state machine, gathers the action counters and
 the scene values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release,
 session end, space, buck, tail tuck) and owns the face and line presentation. `history/summary.gd` and
 `shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade.

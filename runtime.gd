@@ -2920,7 +2920,8 @@ func _summary_inputs() -> Dictionary:
 
 
 func _history_note() -> String:
-	return _history.prompt_note(_id)
+	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id, ACT_HISTORY.day_now())
+	return ACT_HISTORY.prompt_note(row)
 
 
 ## Called by main before a normal Y start. A withdrawn mare still shows the offer; pressing Y
@@ -2929,7 +2930,7 @@ func history_blocks_start() -> bool:
 	if state != State.IDLE:
 		return false
 	var verdict := _policy_verdict(ELIGIBILITY.Mode.START)
-	return _history.blocks_start(verdict)
+	return verdict != null and bool(verdict.history_refuse)
 
 
 func refuse_from_history(_pose: String, source: String, _bed: Variant = null) -> bool:
@@ -2941,7 +2942,8 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 		return true
 	_history.mark_refusal(now)
 	if is_instance_valid(main) and is_instance_valid(main.game):
-		var row: Dictionary = _history.row(_id)
+		var row: Dictionary = ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id,
+			ACT_HISTORY.day_now())
 		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
 		var valid := func() -> bool:
 			return is_instance_valid(pony) and state == State.IDLE

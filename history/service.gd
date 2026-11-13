@@ -135,7 +135,7 @@ func commit_summary(real_act: bool, context: Dictionary) -> void:
 		return
 	summary_done = true
 	var main: Variant = context.get("main")
-	if not history_enabled() or not _game_ok(main):
+	if not ACT_HISTORY.enabled() or not _game_ok(main):
 		return
 	var inputs: Dictionary = context.get("inputs", {})
 	var outcome: Dictionary = ACT_SUMMARY.evaluate(inputs, ACT_SUMMARY.rules())
@@ -213,26 +213,6 @@ func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:
 	main.memory.record_peak(peak)
 
 
-func history_enabled() -> bool:
-	return ACT_HISTORY.enabled()
-
-
-func row(pony_id: String) -> Dictionary:
-	return ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
-
-
-func prompt_note(pony_id: String) -> String:
-	if not history_enabled():
-		return ""
-	return ACT_HISTORY.prompt_note(row(pony_id))
-
-
-## A withdrawn mare still shows the offer; pressing Y gives one gentle refusal instead of a
-## silent no.
-func blocks_start(verdict: Variant) -> bool:
-	return verdict != null and bool(verdict.history_refuse)
-
-
 func refusal_ready(now: float) -> bool:
 	return now - _refusal_at >= 4.0
 
@@ -244,7 +224,7 @@ func mark_refusal(now: float) -> void:
 ## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
 ## complaint becomes one short line in a quiet moment.
 func tick_idle(delta: float, context: Dictionary) -> void:
-	if not history_enabled():
+	if not ACT_HISTORY.enabled():
 		return
 	var main: Variant = context.get("main")
 	var pony: Variant = context.get("pony")
@@ -282,7 +262,7 @@ func tick_idle(delta: float, context: Dictionary) -> void:
 	if float(context.get("distance", 0.0)) > 5.0:
 		return
 	var id := str(context.get("pony_id", ""))
-	var current := row(id)
+	var current := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 	var kind := ACT_HISTORY.pending_line(current)
 	if kind.is_empty():
 		return

@@ -52,10 +52,6 @@ class FakePony extends Node3D:
 	pass
 
 
-class FakeVerdict extends RefCounted:
-	var history_refuse := false
-
-
 class Host extends RefCounted:
 	var text := ""
 	var calls := 0
@@ -256,11 +252,6 @@ func run() -> void:
 	check(history.take_debug() == "warning", "the debug request is consumed once")
 	check(history.take_debug() == "", "the debug request clears")
 
-	var blocks := FakeVerdict.new()
-	check(not history.blocks_start(blocks), "a normal verdict does not block the start")
-	blocks.history_refuse = true
-	check(history.blocks_start(blocks), "a withdrawn verdict blocks the start")
-	check(history.blocks_start(null) == false, "a missing verdict does not block")
 	check(history.refusal_ready(10.0), "a fresh refusal is ready")
 	history.mark_refusal(10.0)
 	check(not history.refusal_ready(11.0), "the refusal rate limit holds")

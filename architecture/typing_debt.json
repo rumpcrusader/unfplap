@@ -137,11 +137,6 @@
     },
     {
       "service": "history",
-      "func": "blocks_start",
-      "signature": "func blocks_start(verdict: Variant) -> bool:"
-    },
-    {
-      "service": "history",
       "func": "commit_summary",
       "signature": "func commit_summary(real_act: bool, context: Dictionary) -> void:"
     },
@@ -159,11 +154,6 @@
       "service": "history",
       "func": "reset_act",
       "signature": "func reset_act(profile: Dictionary) -> void:"
-    },
-    {
-      "service": "history",
-      "func": "row",
-      "signature": "func row(pony_id: String) -> Dictionary:"
     },
     {
       "service": "history",

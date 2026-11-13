@@ -1,5 +1,5 @@
 extends Node
-## Unfplap: adult intimacy for consenting adult ponies at the Marefriend stage.
+## unfplap mod entry.
 ## The entry node owns the player HUD/input and one lightweight runtime per pony. It never edits
 ## game files; it only reads the game's pony, relationship, memory and bed APIs.
 

@@ -46,6 +46,10 @@ The runtime keeps the call sites, the director/vocal prepare and the feature sna
   so the mute policy can still give the voice player its volume back on a later settings edit.
 - `play_impact`/`play_plap`/`play_bed`/`play_slide`/`withdraw_crossed`/`crossed`/`play_mouth_kiss`
   are the pack cues the runtime drives from the impact and kiss paths.
+- The body slap is decided from two physical facts. `play_impact` receives the impact tier
+  (`firm`, `rough` or empty) and the skin gap in metres, and plays the plap only when the tier is
+  set and the gap is inside Contact gap. Standing and missionary share the two plap bags; only the
+  bed cues are pose-specific. The slide and the fabric are never gated.
 - `climax(snout, dock)` plays the base-game squee at the snout and the optional wet layer at the
   dock.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at

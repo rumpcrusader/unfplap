@@ -395,6 +395,8 @@ class ActSnapshot:
 	var auto_max_depth := 0.5
 	var auto_min_depth := 0.0
 	var auto_curve := "cosine"
+	var contact_gap_m := 0.02
+	var pelvis_gap_m := 0.025
 	var jiggle: Dictionary = {}
 	var camera_thrust: Dictionary = {}
 	var cue_override_seconds := 10.0
@@ -426,6 +428,8 @@ static func act_snapshot(pose_id: String) -> ActSnapshot:
 	snap.auto_max_depth = max_depth.get_num()
 	snap.auto_min_depth = min_depth.get_num()
 	snap.auto_curve = curve.get_choice()
+	snap.contact_gap_m = contact_gap_m.get_num()
+	snap.pelvis_gap_m = pelvis_gap_m.get_num()
 	snap.jiggle = _block("jiggle.")
 	snap.camera_thrust = _block("camera_thrust.")
 	snap.cue_override_seconds = override_seconds.get_num()
@@ -842,9 +846,9 @@ static var curve := choice("curve", "auto_thrust.curve", "thrust",
 	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
 	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth.", GENERAL, "") \
 	.as_debug()
-static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.0, "Contact gap",
-	"How close a stroke must come to its deepest point before his skin meets her coat and the body "
-	+ "slap plays. Raise it to hear plaps on shorter strokes.", GENERAL, "") \
+static var contact_gap_m := num("contact_gap_m", "thrust.contact_gap_m", 0.02, "Contact gap",
+	"How close the stroke must come to its deepest point before his skin meets her coat and the "
+	+ "body slap plays. Raise it to hear plaps on shorter strokes.", GENERAL, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 0.12).as_debug()
 static var travel := num("travel", "thrust.travel", 1.0, "Hip back-off",
 	"How far the hips retreat between thrusts.", GENERAL, "") \

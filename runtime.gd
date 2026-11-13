@@ -364,6 +364,10 @@ var _thrust_tracker
 var _thrust_pixels_per_cm := 100.0
 var _thrust_travel := 1.0
 var _max_pony_climaxes := 3
+## The body-slap contact epsilon and the pose standoff, taken from the act snapshot so a stroke
+## never reads a setting per impact.
+var _contact_gap_m := 0.02
+var _pelvis_gap_m := 0.025
 var _last_intensity: String:
 	get:
 		return _readiness.last_intensity
@@ -1222,6 +1226,8 @@ func _snapshot_settings() -> void:
 	_thrust_pixels_per_cm = snap.thrust_pixels_per_cm
 	_thrust_travel = snap.thrust_travel
 	_max_pony_climaxes = snap.max_pony_climaxes
+	_contact_gap_m = snap.contact_gap_m
+	_pelvis_gap_m = snap.pelvis_gap_m
 	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
 		snap.auto_min_depth)
 	_reactions.configure({
@@ -2691,7 +2697,7 @@ func _shaft_length_m() -> float:
 func penetration_reach() -> float:
 	var length := _shaft_length_m()
 	if pose_id in [CATALOG.STANDING, CATALOG.MISSIONARY]:
-		return maxf(length - SETTINGS.pelvis_gap_m.get_num(), 0.02)
+		return maxf(length - _pelvis_gap_m, 0.02)
 	return maxf(length, 0.02)
 
 
@@ -2754,9 +2760,10 @@ func _add_heat(amount: float) -> void:
 
 
 ## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
-## here, with the motion. Fired once per real thrust from the tracker's `impact` event. Only the
-## body slap checks contact: his skin has to reach her coat, so a shallow thrust stays silent
-## while the slide and the bed still play.
+## here, with the motion. Fired once per real thrust from the tracker's `impact` event. The body
+## slap needs two physical facts: his skin has to reach her coat (`gap <= Contact gap`), and the
+## bottom has to be fast enough to be a slap rather than a slow press. Tier comes from the speed
+## over the deepest part of the stroke, never from the readiness intensity band.
 func _on_impact(result: Dictionary) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
@@ -2764,9 +2771,10 @@ func _on_impact(result: Dictionary) -> void:
 	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
 	var jiggle := THRUST.jiggle_amount(float(result.get("travel", 0.0)), strength)
 	var reach := penetration_reach()
-	var contact := THRUST.contact_amount(float(result.get("end_depth", 0.0)) * reach, reach,
-		maxf(SETTINGS.contact_gap_m.get_num(), 0.0))
-	var plap := PREFERENCES.intensity_for(strength) != "soft" and contact > 0.001
+	var gap := THRUST.skin_gap_m(float(result.get("end_depth", 0.0)) * reach, reach)
+	var impact_speed := float(result.get("impact_speed", 0.0))
+	var tier := THRUST.plap_tier(impact_speed)
+	var plap := THRUST.plap_touching(gap, _contact_gap_m) and not tier.is_empty()
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
 	_reactions.thrust(jiggle)
@@ -2780,10 +2788,11 @@ func _on_impact(result: Dictionary) -> void:
 		_readiness.thrust_times.pop_front()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
-		_act_audio.play_impact(pose_id, strength, _reactions.rump_point(),
-			_bed_audio_point(), _bed_soft, contact)
-	_log("thrust impact contact=%.2f plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
-		contact, 1 if plap else 0, satisfaction, _thrusts_per_second(), strength, impact, jiggle,
+		_act_audio.play_impact(pose_id, tier, strength, _reactions.rump_point(),
+			_bed_audio_point(), _bed_soft, gap, _contact_gap_m)
+	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+		gap, impact_speed, tier if not tier.is_empty() else "-", 1 if plap else 0,
+		satisfaction, _thrusts_per_second(), strength, impact, jiggle,
 		_last_intensity, _last_pattern])
 
 func _play_vocal() -> void:

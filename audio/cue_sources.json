@@ -191,24 +191,6 @@
 		"prepared_rate": 48000,
 		"seconds": 0.303
 	},
-	"vocals/climax_01.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan2.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.572
-	},
-	"vocals/climax_02.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan9.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.74
-	},
-	"vocals/climax_03.wav": {
-		"source": "Cum/Internal/Intense Coom Sound Pack (That1LewdDude)/Extras/Moans/moan12.wav",
-		"original_rate": 48000,
-		"prepared_rate": 48000,
-		"seconds": 0.531
-	},
 	"plap/firm_01.wav": {
 		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-001.wav",
 		"original_rate": 96000,
@@ -250,54 +232,6 @@
 		"original_rate": 96000,
 		"prepared_rate": 48000,
 		"seconds": 0.134
-	},
-	"plap/standing_01.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-001.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.136
-	},
-	"plap/standing_02.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-002.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.151
-	},
-	"plap/standing_03.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-003.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.15
-	},
-	"plap/standing_04.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-005.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.152
-	},
-	"plap/standing_05.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-008.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.144
-	},
-	"plap/standing_06.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-009.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.128
-	},
-	"plap/standing_07.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-012.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.134
-	},
-	"plap/standing_08.wav": {
-		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-014.wav",
-		"original_rate": 96000,
-		"prepared_rate": 48000,
-		"seconds": 0.145
 	},
 	"plap/rough_01.wav": {
 		"source": "Plaps/SquishSuccubus/Riding Plaps/Riding Plaps - Hard/Squish - Riding Plaps Hard-004.wav",
@@ -343,13 +277,19 @@
 	},
 	"smack/hand_02.wav": {
 		"source": "Mix: Plaps/That1LewdDude/Mini Backshot Sound Pack/Live Recording/Big Ass Dry Hump Plaps/BigBooty_Dry_Hump_Stereo (5).wav + Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-006.wav",
-		"original_rates": [44100, 96000],
+		"original_rates": [
+			44100,
+			96000
+		],
 		"prepared_rate": 48000,
 		"seconds": 0.169
 	},
 	"smack/hand_03.wav": {
 		"source": "Mix: Plaps/That1LewdDude/Mini Backshot Sound Pack/Live Recording/Big Ass Dry Hump Plaps/BigBooty_Dry_Hump_Stereo (14).wav + Slaps & Impacts/Spanks & Slaps/Spanks (SquishSuccubus)/Squish - Spanks-030.wav",
-		"original_rates": [44100, 96000],
+		"original_rates": [
+			44100,
+			96000
+		],
 		"prepared_rate": 48000,
 		"seconds": 0.246
 	}

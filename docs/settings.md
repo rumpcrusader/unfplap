@@ -239,7 +239,7 @@ travel (`20…400`, default `50`), **Thrust direction** (which mouse direction d
 control** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 
 The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
-waveforms), the body-slap **Contact gap** (`0…12 cm`, default `0 cm`), the hip
+waveforms), the body-slap **Contact gap** (`0…12 cm`, default `2 cm`), the hip
 back-off (`0.25…2.0×`, default `0.5×`) and acts during cuddles live in General's Debug block.
 
 **Starting Sex** chooses between When Available and Try Your Luck. The gate semantics — including

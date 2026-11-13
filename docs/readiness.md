@@ -61,10 +61,13 @@ The auto surface:
   is a separate `impact` event: it fires on the reversal or after `IMPACT_STALL_S = 0.04 s` of no
   real progress, and it drives the jiggle, wings, blush, ear twitch and the plap, so the sound
   lands with the motion instead of 180 ms late. The close only scores.
-- The **body slap is gated on contact**: `THRUST.contact_amount()` compares the stroke's peak
-  penetration with `reach` and fades in over `thrust.contact_gap_m` (Contact gap, default `0 cm`),
-  so only a stroke that actually brings his skin to her coat plaps, quieter the shorter it is. The
-  slide and the bed fabric still play on every real thrust.
+- The **body slap is gated on contact and tiered by its speed**. At the bottom the tracker reports
+  `impact_speed`: the average inward speed over the deepest 10 % of the stroke's travel, counting
+  only intervals that actually deepened, so a pause or jitter at the bottom cannot dilute it. The
+  runtime measures `skin_gap_m = max(reach - penetration, 0)` and plaps only when the gap is inside
+  `thrust.contact_gap_m` (Contact gap). The bag is `firm` from `PLAP_FIRM_SPEED` and `rough` from
+  `PLAP_ROUGH_SPEED`; below firm a touching stroke is a slow press and stays silent. The slide and
+  the bed fabric play on every real thrust.
 - A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
   `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
   counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:
@@ -75,8 +78,8 @@ The auto surface:
   cannot saturate it by itself.
 - The **intensity preference** is read from the stroke's travel: `soft` (< 0.35), `firm`
   (< 0.65), `rough`. The depth and tempo axes are independent, so a deep slow stroke is rough and
-  a shallow fast stroke is soft. The physical strength above stays the plap/foley/impact/wobble
-  value.
+  a shallow fast stroke is soft. The physical strength above stays the foley/impact/wobble value;
+  the body slap's bag comes from `impact_speed`, not from this band.
 - Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned wing, ear
   and blush response while slow or shallow strokes stay lighter; the foley scales from `strength`
   directly. The rump/tail wobble is separate: `THRUST.jiggle_amount(travel, strength)` follows
@@ -215,7 +218,7 @@ testing.
 ## Settings
 
 Player-facing: `thrust.orientation`, `thrust.pixels_per_cm`, `thrust.travel`,
-`thrust.max_pony_climaxes`, `thrust.contact_gap_m`. Debug: `auto_thrust.pace`,
+`thrust.max_pony_climaxes`. Debug: `thrust.contact_gap_m`, `auto_thrust.pace`,
 `auto_thrust.min_depth`, `auto_thrust.max_depth`, `auto_thrust.curve`, the touch/talk cooldowns,
 the receptive window and the cue pacing under Talk & cues. See `docs/settings.md`; the values are
 declared once in `settings/service.gd`.

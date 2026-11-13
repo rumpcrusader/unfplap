@@ -1,4 +1,5 @@
 v0.4.0
+- Body slap — a plap now plays only when he actually reaches her coat, and the sample bag is firm or rough from how fast the stroke bottoms out; a slow press stays silent.
 - Modded mares: a provider's adult assertion now satisfies unfplap's own adult registration; base-game kissing, willingness and romance still use the game's identity.
 - Reworked: caress — both hands on authored paths with exact coat contact in both poses, a new Caress quality setting, Z/C to pause each caress oval, and a much cheaper per-frame cost.
 - Tail seating — every adult mare's hair tail is seated at the reference dock, and the dock rides under the tail base as a short cuff that follows the tail and takes her coat or genital colour.

@@ -470,6 +470,8 @@ body's own deformation across the whole mesh.
   part is fully reset by `encounter(false)` and `encounter(true)`.
 - `shaft_length_m()` is the visible placed length; the runtime's penetration reach is
   `shaft length - pelvis gap`. With the anatomy off the runtime uses `NOMINAL_SHAFT_M = 0.20`.
+  The body-slap skin gap is measured from this same reach, so `Pelvis gap` already counts as
+  distance and is never double-counted against Contact gap.
 
 ## Tail seating
 

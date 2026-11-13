@@ -22,17 +22,6 @@ const PLAP_ROUGH := [
 	preload("res://mods/unfplap/assets/audio/plap/rough_07.wav"),
 ]
 
-const PLAP_STANDING := [
-	preload("res://mods/unfplap/assets/audio/plap/standing_01.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_02.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_03.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_04.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_05.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_06.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_07.wav"),
-	preload("res://mods/unfplap/assets/audio/plap/standing_08.wav"),
-]
-
 const SLIDE_IN := [
 	preload("res://mods/unfplap/assets/audio/slide/in_01.wav"),
 	preload("res://mods/unfplap/assets/audio/slide/in_02.wav"),
@@ -90,11 +79,6 @@ const CUES := {
 	},
 	"plap_rough": {
 		"group": "foley", "streams": PLAP_ROUGH, "voices": 4,
-		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
-		"pitch_min": 0.98, "pitch_max": 1.02,
-	},
-	"plap_standing": {
-		"group": "foley", "streams": PLAP_STANDING, "voices": 4,
 		"volume_db": -12.0, "cooldown": 0.05, "distance": 6.0,
 		"pitch_min": 0.98, "pitch_max": 1.02,
 	},

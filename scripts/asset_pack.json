@@ -1,9 +1,9 @@
 {
 	"schema": 1,
 	"archive": {
-		"url": "https://u.pone.rs/oarokzwx.zip",
-		"sha256": "7c706ba321c6d6d7164e8b19230c85c4c5346bc748f20131859babf077bb7043",
-		"size": 10500467
+		"url": "https://u.pone.rs/rsuixcaj.zip",
+		"sha256": "1bcc893640222cf84d284077293a047fc8065790f5f3032d5d48845d9b471010",
+		"size": 10428815
 	},
 	"runtime": {
 		"assets/anatomy/anon/anon_part.scn": {
@@ -317,70 +317,6 @@
 		"assets/audio/plap/rough_07.wav.import": {
 			"size": 513,
 			"sha256": "dd8c821a842911a2f3253fa28703ff0c718e3e8a2f47d6a175d19fe62a733b9f"
-		},
-		"assets/audio/plap/standing_01.wav": {
-			"size": 13074,
-			"sha256": "d910ed4d6dd2ffff2e774cf973bd77b7e1cf6ca7f3fb6ed251176dd14e24b5d3"
-		},
-		"assets/audio/plap/standing_01.wav.import": {
-			"size": 522,
-			"sha256": "d5ac99df35b542bc18863736d044483f3a1dd2398f142754a5d91c4b1ce9722f"
-		},
-		"assets/audio/plap/standing_02.wav": {
-			"size": 14498,
-			"sha256": "280362d01687a997b841462772e8d9c05960f44bdf4aba9d1dd4392db551e813"
-		},
-		"assets/audio/plap/standing_02.wav.import": {
-			"size": 522,
-			"sha256": "b17bb7231852f6b485056edb41d323ccb0e93af41edae8fe3b8abb8138275fdc"
-		},
-		"assets/audio/plap/standing_03.wav": {
-			"size": 14444,
-			"sha256": "f622fb4cedf104184938315655695766637f160e59988721f2eed4b5e45d0aa4"
-		},
-		"assets/audio/plap/standing_03.wav.import": {
-			"size": 522,
-			"sha256": "80d1d94108955a196600f8f0cc634db20bd23c416a6cb3d30cc9150f7f7d1e78"
-		},
-		"assets/audio/plap/standing_04.wav": {
-			"size": 14616,
-			"sha256": "f51302f0843b073286e8412d4ed511a1fd81aba7009b2e8ca9d9370fb4a4e387"
-		},
-		"assets/audio/plap/standing_04.wav.import": {
-			"size": 522,
-			"sha256": "3a1efb9aeeeac81618270720c926be88c0a56571878e1247962afea02e337235"
-		},
-		"assets/audio/plap/standing_05.wav": {
-			"size": 13908,
-			"sha256": "c6d2615f9e50e8f0c6c02dcfdc2d95eee8b872034acb2f290b1404efd2b4c7f4"
-		},
-		"assets/audio/plap/standing_05.wav.import": {
-			"size": 522,
-			"sha256": "f5864c20b7559ddb33bd52c51964e1315eb6a616e5b4bdd520f1fe5aa9696abe"
-		},
-		"assets/audio/plap/standing_06.wav": {
-			"size": 12378,
-			"sha256": "d8ef99d96285cb032c8fdd0f8fdfc5ed166b1ed9e9be11f9cd852686fc98fe82"
-		},
-		"assets/audio/plap/standing_06.wav.import": {
-			"size": 522,
-			"sha256": "fcf3c2165ba8e66dc3c198938854c1b83e0c4dbfc43745fa298c3a484f0e4b1c"
-		},
-		"assets/audio/plap/standing_07.wav": {
-			"size": 12954,
-			"sha256": "13b9c0038c499d165b9d90e255245fe09c034068c96226e02b5d2fbd6a19f929"
-		},
-		"assets/audio/plap/standing_07.wav.import": {
-			"size": 522,
-			"sha256": "64440a0dc588bbc4a7823ff94040e618ad87a2b180f37465ef0ca1ddfd5d9378"
-		},
-		"assets/audio/plap/standing_08.wav": {
-			"size": 13988,
-			"sha256": "625b7d4884e3d2d2a3b3fe6d385a59d5c7d19ed1b04f8d16f89ce1c4414a9392"
-		},
-		"assets/audio/plap/standing_08.wav.import": {
-			"size": 521,
-			"sha256": "3a2ca5649c097564fd076cfd5d025531d8c7cc138c6355692166d4a25215224e"
 		},
 		"assets/audio/slide/in_01.wav": {
 			"size": 19328,

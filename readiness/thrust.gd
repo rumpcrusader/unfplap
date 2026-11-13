@@ -38,10 +38,19 @@ const JIGGLE_TRAVEL_REF := 0.9
 const JIGGLE_SOFT_FLOOR := 0.04
 const JIGGLE_SOFT_LOW := 0.18
 const JIGGLE_SOFT_HIGH := 0.42
-## His skin meets her coat in the last few centimetres of the reachable stroke. The margin is a
+## His skin meets her coat in the last few centimetres of the reachable stroke. The gap is a
 ## distance, so the contact point follows the shaft length, the `Pelvis gap` and the pose's reach
-## instead of being a fixed depth fraction. `thrust.contact_gap_m` overrides it at the call site.
-const CONTACT_COMPRESSION_M := 0.05
+## instead of being a fixed depth fraction. `thrust.contact_gap_m` is the epsilon the runtime
+## passes: a stroke inside it plaps, one outside it does not.
+## Body-slap tier: the average inward speed over the deepest `PLAP_SPEED_WINDOW` of the stroke's
+## travel. Depth units per second, the same scale as `STRENGTH_SPEED_REF`. Below firm the stroke is
+## a slow press and stays silent; the lab pass sets the final values.
+const PLAP_FIRM_SPEED := 2.5
+const PLAP_ROUGH_SPEED := 5.5
+const PLAP_SPEED_WINDOW := 0.10
+const PLAP_SPEED_MIN_WINDOW := 0.015
+## Sub-frame intervals are not a speed measurement.
+const PLAP_SAMPLE_DT := 1.0 / 240.0
 
 var depth := 0.0
 
@@ -82,13 +91,26 @@ static func jiggle_amount(travel: float, strength: float) -> float:
 	return depth_factor * lerpf(JIGGLE_SOFT_FLOOR, 1.0, soft)
 
 
-## How much of his skin actually meets her coat at a stroke bottom, 0..1. It is 1 at the model's
-## deepest point and 0 once the stroke stopped `margin_m` short of it, so a shallow thrust has no
-## body slap while a bottomed-out one does, whatever the shaft length or gap is.
-static func contact_amount(penetration_m: float, reach_m: float,
-		margin_m := CONTACT_COMPRESSION_M) -> float:
-	var remaining := maxf(reach_m - penetration_m, 0.0)
-	return 1.0 - smoothstep(0.0, maxf(margin_m, 0.001), remaining)
+## How far his skin still is from her coat at a stroke bottom, in metres. `reach` is the pose's
+## deepest placement (it already excludes `Pelvis gap`), so a bottomed-out stroke leaves zero.
+static func skin_gap_m(penetration_m: float, reach_m: float) -> float:
+	return maxf(reach_m - penetration_m, 0.0)
+
+
+## True when the stroke came close enough to count as a body slap. `eps_m` is Contact gap.
+static func plap_touching(gap_m: float, eps_m: float) -> bool:
+	return gap_m <= maxf(eps_m, 0.0)
+
+
+## The sample bag for an impact, from its bottom speed: empty below firm, then firm or rough.
+## Speed is depth units per second, the same units as `STRENGTH_SPEED_REF`.
+static func plap_tier(speed: float, firm_speed := PLAP_FIRM_SPEED,
+		rough_speed := PLAP_ROUGH_SPEED) -> String:
+	if speed < firm_speed:
+		return ""
+	if speed < rough_speed:
+		return "firm"
+	return "rough"
 
 
 func reset() -> void:
@@ -223,8 +245,37 @@ func _impact_event() -> Dictionary:
 		"duration": duration,
 		"speed": speed,
 		"peak_speed": speed,
+		"impact_speed": _bottom_speed(travel, duration),
 		"strength": clampf(travel * speed_factor, 0.0, 1.0),
 	}
+
+
+## Average inward speed over the deepest `PLAP_SPEED_WINDOW` of the stroke's travel. Only
+## intervals that actually deepened count, so a pause or pixel jitter at the bottom cannot dilute
+## the impact. Falls back to the whole-stroke average when the window holds no measurable movement
+## (a stroke that arrived in one event).
+func _bottom_speed(travel: float, duration: float) -> float:
+	var average := travel / maxf(MIN_THRUST_DURATION, duration)
+	if travel <= 0.0 or _samples.size() < 2:
+		return average
+	var window := maxf(travel * PLAP_SPEED_WINDOW, PLAP_SPEED_MIN_WINDOW)
+	var floor_depth := _peak_depth - window
+	var index := _samples.size() - 1
+	# The last entries can be a pullback or jitter below the peak; they are not the impact.
+	while index > 0 and _samples[index].y < floor_depth:
+		index -= 1
+	var moved := 0.0
+	var elapsed := 0.0
+	while index > 0 and _samples[index].y >= floor_depth:
+		var step := _samples[index].y - _samples[index - 1].y
+		var dt := _samples[index].x - _samples[index - 1].x
+		if step > 0.0 and dt > PLAP_SAMPLE_DT:
+			moved += step
+			elapsed += dt
+		index -= 1
+	if moved <= 0.0 or elapsed <= 0.0:
+		return average
+	return moved / elapsed
 
 
 func _append_sample(now: float, value: float) -> void:

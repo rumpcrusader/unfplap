@@ -34,12 +34,9 @@ func run() -> void:
 	for value: float in [0.0, 0.1, 0.33, 0.5, 0.66, 0.9, 1.0]:
 		check(ACT.tier_for(value) == PREFERENCES.intensity_for(value),
 			"tier matches preferences at %.2f" % value)
-	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "soft") == "",
-		"soft has no plap cue")
-	check(ACT.cue_for_plap(CATALOG.MISSIONARY, "rough") == "plap_rough",
-		"missionary rough cue")
-	check(ACT.cue_for_plap(CATALOG.STANDING, "firm") == "plap_standing",
-		"standing uses its own plap pool")
+	check(ACT.cue_for_plap("") == "", "no impact tier has no plap cue")
+	check(ACT.cue_for_plap("firm") == "plap_firm", "firm cue")
+	check(ACT.cue_for_plap("rough") == "plap_rough", "rough cue")
 	check(ACT.uses_bed(CATALOG.MISSIONARY), "missionary uses bed cues")
 	check(not ACT.uses_bed(CATALOG.STANDING), "standing skips bed cues")
 	check(ACT.pitch_for(0.0) < ACT.pitch_for(1.0), "pitch rises with strength")
@@ -48,18 +45,12 @@ func run() -> void:
 		"gain rises with strength")
 	check(near(ACT.gain_db(0.0), -10.0), "soft gain floor")
 	check(near(ACT.gain_db(1.0), 0.0), "full-strength gain")
-	check(ACT.plap_volume_db(0.2) == -80.0, "soft emits no plap")
-	check(ACT.plap_volume_db(0.33) < ACT.plap_volume_db(0.5), "firm plap fades in")
-	check(ACT.plap_volume_db(0.5) < ACT.plap_volume_db(PREFERENCES.FIRM_MAX - 0.01),
-		"firm plap keeps rising")
-	check(ACT.plap_volume_db(PREFERENCES.FIRM_MAX) == 0.0,
-		"rough starts at full plap volume")
-	check(ACT.plap_volume_db(PREFERENCES.FIRM_MAX - 0.01) < 0.0,
-		"the top of firm is still below full plap volume")
-	check(ACT.plap_volume_db(1.0) == 0.0, "rough stays at full plap volume")
-	check(near(ACT.plap_contact_db(0.0), -14.0), "no body contact is the quiet end")
+	check(near(ACT.plap_volume_db(0.0), -10.0), "soft plap floor")
+	check(ACT.plap_volume_db(0.2) < ACT.plap_volume_db(0.5), "plap volume rises with strength")
+	check(near(ACT.plap_volume_db(1.0), 0.0), "full-strength plap volume")
+	check(near(ACT.plap_contact_db(0.0), -8.0), "the contact edge is the quiet end")
 	check(near(ACT.plap_contact_db(1.0), 0.0), "full body contact is the loud end")
-	check(ACT.plap_contact_db(0.5) > -14.0 and ACT.plap_contact_db(0.5) < 0.0,
+	check(ACT.plap_contact_db(0.5) > -8.0 and ACT.plap_contact_db(0.5) < 0.0,
 		"a partial body contact fades in")
 
 	check(ACT.next_index(1, 0, 0) == 0, "single variant index")
@@ -71,7 +62,7 @@ func run() -> void:
 	check(ACT.next_index(4, 2, 2) == 3, "repeat rolls forward")
 
 	var expected := {
-		"plap_firm": 7, "plap_rough": 7, "plap_standing": 8,
+		"plap_firm": 7, "plap_rough": 7,
 		"slide_in": 6, "slide_out": 6,
 		"fabric": 8, "mouth_kiss": 8, "climax_wet": 4,
 	}
@@ -112,36 +103,38 @@ func run() -> void:
 	root.add_child(parent)
 	parent.add_child(act)
 	act.set_enabled(false)
-	act.play_impact(CATALOG.MISSIONARY, 0.2, Vector3.ZERO, Vector3.ZERO, false)
+	# A slow bottom that touches still stays silent: the tier is the impact speed.
+	act.play_impact(CATALOG.MISSIONARY, "", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	var ready_at: Dictionary = act.get("_ready_at")
-	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "soft impact emits no plap")
-	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "soft impact keeps the slide")
+	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "a slow bottom emits no plap")
+	check(float(ready_at.get("plap_rough", 0.0)) == 0.0, "a slow bottom emits no rough plap")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a slow impact keeps the slide")
 	check(float(ready_at.get("fabric", 0.0)) == 0.0, "a wood bed has no bed cue")
-	check(not act.play_plap(CATALOG.MISSIONARY, "soft", 0.2, Vector3.ZERO),
-		"soft plap call is refused")
+	check(not act.play_plap("", 0.2, Vector3.ZERO), "a plap call without a tier is refused")
 	act.set_enabled(false)
 	ready_at = act.get("_ready_at")
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false)
-	check(float(ready_at.get("plap_rough", 0.0)) > 0.0, "rough impact plays the plap")
-	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "rough impact keeps the slide")
+	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	check(float(ready_at.get("plap_rough", 0.0)) > 0.0, "a bottomed-out rough impact plays the plap")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a rough impact keeps the slide")
 	check(act.play_bed(0.7, Vector3.ZERO, true), "soft-bed fabric plays")
 	check(not act.play_bed(0.7, Vector3.ZERO, false), "a wood bed has no creak")
-	# The body slap needs his skin to reach her coat; a stroke that stopped short is silent, but
-	# the slide and the bed still play.
+	# The body slap needs his skin to reach her coat: 3 cm short of a 2 cm Contact gap is silent,
+	# while a stroke at the epsilon edge still plays. The slide and the bed are never gated.
 	ready_at["plap_rough"] = 0.0
-	ready_at["plap_firm"] = 0.0
 	ready_at["slide_in"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0)
-	check(float(ready_at.get("plap_rough", 0.0)) == 0.0, "a stroke short of contact has no plap")
-	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a stroke short of contact keeps the slide")
+	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
+	check(float(ready_at.get("plap_rough", 0.0)) == 0.0,
+		"a stroke past the contact gap has no plap")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0,
+		"a stroke past the contact gap keeps the slide")
 	ready_at["plap_rough"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.5)
-	check(float(ready_at.get("plap_rough", 0.0)) > 0.0, "a partial contact plays the plap")
-	check(act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
-		"foley plap starts a player")
-	check(not act.play_plap(CATALOG.MISSIONARY, "firm", 0.7, Vector3.ZERO),
+	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.02, 0.02)
+	check(float(ready_at.get("plap_rough", 0.0)) > 0.0,
+		"a stroke at the contact edge plays the plap")
+	check(act.play_plap("firm", 0.7, Vector3.ZERO), "foley plap starts a player")
+	check(not act.play_plap("firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
 	check(not CATALOGUE.CUES.has("smack"), "flank smack stays out of the optional cue table")
@@ -157,8 +150,8 @@ func run() -> void:
 	act.play_climax_wet(Vector3.ZERO)
 	check(act.climax_enabled(), "the wet layer is accepted after a live toggle")
 	ready_at = act.get("_ready_at")
-	ready_at["plap_standing"] = 0.0
-	check(act.play_plap(CATALOG.STANDING, "rough", 0.9, Vector3.ZERO),
+	ready_at["plap_rough"] = 0.0
+	check(act.play_plap("rough", 0.9, Vector3.ZERO),
 		"foley plap stays on after a live toggle")
 	act.stop()
 	parent.remove_child(act)

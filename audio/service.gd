@@ -231,28 +231,25 @@ func _take_player(cue: String) -> AudioStreamPlayer3D:
 	return null
 
 
-func play_plap(pose: String, intensity: String, strength: float, at: Vector3,
-		extra_db := 0.0) -> bool:
-	if intensity == "soft":
+## The body slap: `tier` is `firm` or `rough`, already chosen from the impact speed. There is no
+## pose branch: standing and missionary play the same bags.
+func play_plap(tier: String, strength: float, at: Vector3, extra_db := 0.0) -> bool:
+	if tier.is_empty():
 		return false
-	var cue := cue_for_plap(pose, intensity)
-	var pitch := pitch_for(strength)
-	if pose == CATALOG.STANDING:
-		pitch *= 0.96
-	return play(cue, at, 1.0, extra_db, pitch)
+	return play(cue_for_plap(tier), at, 1.0, extra_db, pitch_for(strength))
 
 
 ## Called from the tracker's impact event: the deepest point of the stroke, so it also catches
-## shallow strokes that never crossed a fixed depth. `contact` is how much of his skin actually
-## meets her coat there; below it only the slide and the bed play, because a stroke that stopped
-## short has no body slap. The bed fabric and the slide are not gated.
-func play_impact(pose: String, strength: float, rump: Vector3,
-		bed_at: Vector3, soft_bed: bool, contact := 1.0) -> void:
+## shallow strokes that never crossed a fixed depth. `tier` is empty below the firm impact speed,
+## and `gap` is how far his skin still is from her coat in metres; `eps` is Contact gap. A stroke
+## outside it gets no plap, while the bed fabric and the slide still play.
+func play_impact(pose: String, tier: String, strength: float, rump: Vector3,
+		bed_at: Vector3, soft_bed: bool, gap: float, eps: float) -> void:
 	var level := clampf(strength, 0.0, 1.0)
-	var touch := clampf(contact, 0.0, 1.0)
-	var intensity := PREFERENCES.intensity_for(level)
-	if intensity != "soft" and touch > 0.001:
-		play_plap(pose, intensity, level, rump, plap_volume_db(level) + plap_contact_db(touch))
+	var limit := maxf(eps, 0.0)
+	if not tier.is_empty() and gap <= limit:
+		var contact := 1.0 - clampf(gap / maxf(limit, 0.001), 0.0, 1.0)
+		play_plap(tier, level, rump, plap_volume_db(level) + plap_contact_db(contact))
 	if uses_bed(pose):
 		play_bed(level, bed_at, soft_bed)
 	play_slide("in", level, rump, -12.0)
@@ -308,12 +305,10 @@ func stop() -> void:
 	_ready_at.clear()
 
 
-static func cue_for_plap(pose: String, intensity: String) -> String:
-	if intensity == "soft":
+static func cue_for_plap(tier: String) -> String:
+	if tier.is_empty():
 		return ""
-	if pose == CATALOG.STANDING:
-		return "plap_standing"
-	return "plap_" + intensity
+	return "plap_" + tier
 
 
 ## Bed and fabric only belong to the missionary shot. The standing pose has no bed under her.
@@ -325,20 +320,15 @@ static func tier_for(strength: float) -> String:
 	return PREFERENCES.intensity_for(strength)
 
 
-## Plaps start only in the firm range. Firm fades in from -18 dB to full; rough is full.
+## Plap level follows the physical strength; the gate above already decided speed and contact.
 static func plap_volume_db(strength: float) -> float:
-	var level := clampf(strength, 0.0, 1.0)
-	if level < PREFERENCES.SOFT_MAX:
-		return -80.0
-	if level < PREFERENCES.FIRM_MAX:
-		return lerpf(-18.0, 0.0, (level - PREFERENCES.SOFT_MAX)
-			/ (PREFERENCES.FIRM_MAX - PREFERENCES.SOFT_MAX))
-	return 0.0
+	return lerpf(-10.0, 0.0, clampf(strength, 0.0, 1.0))
 
 
 ## A body slap that only just reaches her coat sits this many dB under a bottomed-out one.
+## `contact` is 0 at the Contact gap edge and 1 at the deepest point.
 static func plap_contact_db(contact: float) -> float:
-	return lerpf(-14.0, 0.0, clampf(contact, 0.0, 1.0))
+	return lerpf(-8.0, 0.0, clampf(contact, 0.0, 1.0))
 
 
 static func pitch_for(strength: float) -> float:

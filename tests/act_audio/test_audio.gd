@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/act_audio/test_audio.gd
 
 const AUDIO := preload("res://mods/unfplap/audio/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0
@@ -49,6 +50,17 @@ func run() -> void:
 	audio.tick(0.1, "", 0.0, Vector3.ZERO)
 	audio.climax(Vector3.ZERO, Vector3.ZERO)
 	audio.call("stop_breath")
+
+	# The body slap gates on contact and takes its tier from the impact speed.
+	var ready: Dictionary = audio.get("_ready_at")
+	audio.play_impact(CATALOG.MISSIONARY, "", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	check(float(ready.get("plap_firm", 0.0)) == 0.0, "a slow bottom stays silent")
+	ready["plap_rough"] = 0.0
+	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
+	check(float(ready.get("plap_rough", 0.0)) == 0.0,
+		"a stroke 3 cm short is silent at a 2 cm contact gap")
+	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	check(float(ready.get("plap_rough", 0.0)) > 0.0, "a bottomed-out rough stroke plaps")
 
 	audio.end()
 	check((audio.get("_pools") as Dictionary).is_empty(), "stopping the act clears every pool")

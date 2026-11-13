@@ -182,21 +182,57 @@ func run() -> void:
 	check(THRUST.jiggle_amount(0.45, 0.30) > 0.20 and THRUST.jiggle_amount(0.45, 0.30) < 0.40,
 		"the soft band fades the wobble in between")
 
-	# The body slap follows the model: full contact at the deepest point, none a compression
-	# margin short of it, whatever shaft length and pelvis gap make the reach.
+	# The body slap follows the model: the gap is a distance from the pose's deepest placement,
+	# and Contact gap is the epsilon that counts as touching.
 	var reach := 0.17
-	check(near(THRUST.contact_amount(reach, reach), 1.0), "bottomed out is full body contact")
-	check(near(THRUST.contact_amount(reach - THRUST.CONTACT_COMPRESSION_M, reach), 0.0),
-		"a stroke a margin short has no body contact")
-	var half := THRUST.contact_amount(reach - THRUST.CONTACT_COMPRESSION_M * 0.5, reach)
-	check(half > 0.4 and half < 0.6, "body contact fades in over the compression margin")
-	check(THRUST.contact_amount(0.17, 0.17) > THRUST.contact_amount(0.17, 0.19),
-		"a shorter reach moves the contact point with it")
-	check(near(THRUST.contact_amount(-0.05, reach), 0.0), "the back-out standoff has no contact")
-	check(THRUST.contact_amount(reach - 0.03, reach, 0.05) > 0.0,
-		"a wider contact gap catches a shorter stroke")
-	check(near(THRUST.contact_amount(reach - 0.03, reach, 0.01), 0.0),
-		"a narrow contact gap needs a deeper stroke")
+	check(near(THRUST.skin_gap_m(reach, reach), 0.0), "bottomed out leaves no skin gap")
+	check(near(THRUST.skin_gap_m(reach - 0.03, reach), 0.03), "a stroke short leaves a gap")
+	check(near(THRUST.skin_gap_m(-0.05, reach), reach + 0.05),
+		"the back-out standoff is a full gap")
+	check(THRUST.plap_touching(0.0, 0.02), "a bottomed-out stroke touches")
+	check(THRUST.plap_touching(0.02, 0.02), "the epsilon edge still touches")
+	check(not THRUST.plap_touching(0.021, 0.02), "a stroke past the epsilon is silent")
+	check(not THRUST.plap_touching(0.01, 0.0), "a zero epsilon needs the deepest point")
+
+	# The tier is the impact speed, not the readiness intensity band. A slow bottom is silent even
+	# when it touches; the same travel in less time is firm, and a hard bottom is rough.
+	check(THRUST.plap_tier(THRUST.PLAP_FIRM_SPEED - 0.01) == "", "below firm is silent")
+	check(THRUST.plap_tier(THRUST.PLAP_FIRM_SPEED) == "firm", "firm speed picks firm")
+	check(THRUST.plap_tier(THRUST.PLAP_ROUGH_SPEED - 0.01) == "firm", "the top of firm stays firm")
+	check(THRUST.plap_tier(THRUST.PLAP_ROUGH_SPEED) == "rough", "rough speed picks rough")
+
+	var slow_bottom: RefCounted = THRUST.new()
+	slow_bottom.move(0.25, 0.0)
+	slow_bottom.move(0.25, 1.0)
+	events = slow_bottom.move(-0.30, 1.1)
+	var slow_speed := float((_only(events, "impact")[0] as Dictionary).get("impact_speed", 0.0))
+	check(near(slow_speed, 0.25), "a slow bottom reads its bottom speed")
+	check(THRUST.plap_tier(slow_speed) == "", "a slow bottomed-out stroke stays silent")
+
+	var fast_bottom: RefCounted = THRUST.new()
+	fast_bottom.move(0.25, 0.0)
+	fast_bottom.move(0.25, 0.05)
+	events = fast_bottom.move(-0.30, 0.1)
+	var fast := float((_only(events, "impact")[0] as Dictionary).get("impact_speed", 0.0))
+	check(near(fast, 5.0), "a normal bottom reads its bottom speed")
+	check(THRUST.plap_tier(fast) == "firm", "a normal bottomed-out stroke plaps firm")
+
+	var hard_bottom: RefCounted = THRUST.new()
+	hard_bottom.move(0.25, 0.0)
+	hard_bottom.move(0.25, 0.02)
+	events = hard_bottom.move(-0.30, 0.03)
+	var hard := float((_only(events, "impact")[0] as Dictionary).get("impact_speed", 0.0))
+	check(hard > fast, "a hard bottom reads faster than a normal one")
+	check(THRUST.plap_tier(hard) == "rough", "a hard bottomed-out stroke plaps rough")
+
+	# A pause at the bottom is not an impact: the deepest-window average ignores the flat samples.
+	var dwelled: RefCounted = THRUST.new()
+	dwelled.move(0.25, 0.0)
+	dwelled.move(0.25, 0.05)
+	dwelled.tick(0.07)
+	events = dwelled.move(-0.30, 0.2)
+	var dwell_speed := float((_only(events, "impact")[0] as Dictionary).get("impact_speed", 0.0))
+	check(near(dwell_speed, fast), "a dwell at the bottom does not dilute the impact speed")
 
 	print("THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

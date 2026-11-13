@@ -111,7 +111,7 @@ func run() -> void:
 	var climax_readiness: float = runtime.satisfaction
 	runtime._on_stroke({
 		"direction": 1, "thrust": true, "travel": 0.5, "duration": 0.5,
-		"speed": 1.0, "peak_speed": 1.0, "strength": 0.5,
+		"speed": 1.0, "peak_speed": 1.0, "impact_speed": 1.0, "strength": 0.5,
 	})
 	check(near(runtime.satisfaction, climax_readiness), "thrusting during climax does not score")
 	check(int(runtime.state) == 3, "thrusting during climax does not end it")

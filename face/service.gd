@@ -115,12 +115,10 @@ func eyes_tick(context: Dictionary) -> void:
 		expressions.call("stare", true, lids)
 
 
-## One act moment, with the feature gate and the debug flag applied before the beat table runs.
-## The runtime gathers the act values in `context`; the facade owns the gate.
-func act_beat(moment: String, context: Dictionary, enabled: bool, debug: bool) -> void:
+## One act moment, with the debug flag applied before the beat table runs. The runtime gathers the
+## act values in `context`; the facade owns the beat table.
+func act_beat(moment: String, context: Dictionary, debug: bool) -> void:
 	debug_enabled = debug
-	if not enabled:
-		return
 	beat(moment, context)
 
 
@@ -164,9 +162,9 @@ func _timer() -> Timer:
 
 
 ## Apply the beat table for one moment. The context is gathered by the runtime:
-## `enabled`, `debug`, `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary`.
+## `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary`.
 func beat(moment: String, context: Dictionary) -> void:
-	if not bool(context.get("enabled", true)) or not is_instance_valid(pony):
+	if not is_instance_valid(pony):
 		return
 	var data := {
 		"first_time": bool(context.get("first_time", false)),
@@ -262,12 +260,9 @@ func dialogue_face() -> String:
 	return ""
 
 
-## The live settings gate. Turning act faces off ends the act's own face; the post-act mood face
-## stays independent.
-func sync_settings(enabled: bool, debug: bool) -> void:
+## The live debug flag. Act faces always play; the post-act mood face stays independent.
+func sync_settings(debug: bool) -> void:
 	debug_enabled = debug
-	if not enabled:
-		end_face()
 
 
 ## Debug preview: set one base-game face on the current act. A speaking line still wins.
@@ -276,7 +271,7 @@ func force_face(face: String) -> bool:
 
 
 ## Debug view for the "Show act face" action. Context: `state`, `hud_mood`, `base_mood`,
-## `act_faces`, `climax_mode`, `blush_arc`.
+## `climax_mode`, `blush_arc`.
 func rows(context: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	result.append("pony=%s state=%d hud_mood=%s base_mood=%s" % [
@@ -291,9 +286,8 @@ func rows(context: Dictionary) -> Array[String]:
 			var value: Variant = expressions.get("fluster_amount")
 			if value is float or value is int:
 				fluster = float(value)
-	result.append("act_faces=%s climax_mode=%s blush_arc=%s fluster=%.2f" % [
-		str(context.get("act_faces", true)), str(context.get("climax_mode", "auto")),
-		str(context.get("blush_arc", true)), fluster])
+	result.append("climax_mode=%s blush_arc=%s fluster=%.2f" % [
+		str(context.get("climax_mode", "auto")), str(context.get("blush_arc", true)), fluster])
 	if is_instance_valid(mood_face):
 		var left: Variant = mood_face.get("_left")
 		result.append("mood_face face=%s mood=%s left=%.1f warm=%s" % [

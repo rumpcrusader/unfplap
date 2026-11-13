@@ -84,8 +84,7 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
 - The kiss does not move the authored missionary shot; the `front` shot is the kiss framing.
   `KISS_CLEARANCE_M` (0.45 m × body scale) only keeps the Anon-eyes view out of her face.
 - The mouth kiss sound repeats at `KISS_SOUND_MIN = 2.0`–`KISS_SOUND_MAX = 3.4 s`.
-- The `features.act_faces` flag gates the face beats; the kiss's own lid layer is not overridden by
-  the act stare.
+- The kiss's own lid layer is not overridden by the act stare.
 
 ## Lifecycle
 

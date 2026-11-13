@@ -175,7 +175,7 @@ runs the same test and writes one row per observer:
 
 | Kind | Purpose source | Key |
 |---|---|---|
-| `REACTION` | the `act_prompts.event_<name>` override, or the caller's fallback; the climax adds a first-person thought instruction and the face note when `act_faces` is on | `unfplap:<event_id>:reply:<name>` |
+| `REACTION` | the `act_prompts.event_<name>` override, or the caller's fallback; the climax adds a first-person thought instruction and the face note | `unfplap:<event_id>:reply:<name>` |
 | `UTTERANCE` | the ready cue prompt | `unfplap:<event_id>:line:<suffix>` |
 | `BYSTANDER` | the ready bystander prompt | `unfplap:<event_id>:bystander:<id>` |
 

@@ -78,7 +78,7 @@
     {
       "service": "face",
       "func": "act_beat",
-      "signature": "func act_beat(moment: String, context: Dictionary, enabled: bool, debug: bool) -> void:"
+      "signature": "func act_beat(moment: String, context: Dictionary, debug: bool) -> void:"
     },
     {
       "service": "face",

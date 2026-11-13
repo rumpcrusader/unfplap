@@ -1348,7 +1348,7 @@ func _request(face_moment := "") -> FACTS.Request:
 	out.heat = _in_heat(_episode.runtime)
 	out.relation_note = _relationship_ask_note()
 	out.history_note = _history_ask_note()
-	if not face_moment.is_empty() and SETTINGS.act_faces.get_bool():
+	if not face_moment.is_empty():
 		out.face_note = ACT_FACE.prompt_note(face_moment)
 	return out
 

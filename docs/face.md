@@ -44,8 +44,8 @@ a runtime without entering the tree calls `_bind_face()` on the first facade cal
 | Method | Meaning |
 |---|---|
 | `bind(pony, host)` | bind the pony and the runtime node that parents the mood face and the hold timer |
-| `beat(moment, context)` | run the beat table for one moment; `context` carries `enabled`, `debug`, `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary` |
-| `act_beat(moment, context, enabled, debug)` | the runtime's beat call: applies the `act_faces` gate and the debug flag, then the beat table |
+| `beat(moment, context)` | run the beat table for one moment; `context` carries `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary` |
+| `act_beat(moment, context, debug)` | the runtime's beat call: applies the debug flag, then the beat table |
 | `set_face(smile, lids, hold_seconds)` | write the act's smile and lids; a hold starts the face timer |
 | `clear_face()` | stop the hold, release the stare and release the act's touch layer |
 | `eyes_tick(context)` | the late lid owner; `context` carries `state`, `close_rewarded` and `eyes_active` |
@@ -53,7 +53,7 @@ a runtime without entering the tree calls `_bind_face()` on the first facade cal
 | `set_act_face(face, hold_s)` | set one face unless a spoken line owns it; returns whether it applied |
 | `end_face()` | clear only the face this owner set; a spoken line face is never cleared |
 | `dialogue_face()` | the face a director line currently owns, or empty |
-| `sync_settings(enabled, debug)` | apply the live feature flags; turning act faces off ends the act's face |
+| `sync_settings(debug)` | apply the live debug flag |
 | `force_face(face)` | debug preview: set one face for 3 s |
 | `rows(context)` | the act-face rows in Show data's ACT section |
 | `start_post_act(context)` | start the held post-act face from the summary or the satisfaction |
@@ -88,10 +88,8 @@ calls `finish_dialogue(hold_s)`. A climax with `release_stare` sets `stare_relea
   runtime's `_set_act_face()` and `_end_act_face()` are the same call; the `end_face()` rule only
   clears the face the act set, so a director line survives teardown.
 - `_act_face_beat()` is the only place the runtime writes a beat. It gathers the act values and
-  calls `act_beat()`, which reads `_feature("act_faces")`/`_feature("face_debug")`, sets
-  `debug_enabled` and returns before the beat table when act faces are off.
-- `sync_settings()` ends the act face when `act_faces` is off; the post-act mood face stays
-  independent.
+  calls `act_beat()`, which reads `_feature("face_debug")`, sets `debug_enabled` and runs the beat
+  table. The post-act mood face stays independent.
 
 ## Stare and blush
 

@@ -79,7 +79,7 @@ func _fixture() -> Dictionary:
 	pony.expressions = expressions
 	root.add_child(pony)
 	runtime.pony = pony
-	runtime._features = {"act_faces": true}
+	runtime._features = {}
 	runtime._preferences = {"tolerance": "normal", "intensity": "firm",
 		"pattern": "steady", "touch": [], "talk": []}
 	runtime._readiness.tolerance = FakeTolerance.new()
@@ -211,13 +211,6 @@ func run() -> void:
 		check(quality.has(key), "climax quality carries %s" % key)
 	check(is_equal_approx(float(quality.get("intensity_total", -1.0)), 6.0),
 		"climax quality keeps the gathered intensity")
-
-	# The act-face gate is the facade's: act_faces off skips the beat.
-	runtime._features = {"act_faces": false}
-	expressions.dialogue_face = ""
-	runtime.call("_act_face_beat", "start")
-	check(expressions.dialogue_face == "", "act faces off skips the beat")
-	runtime._features = {"act_faces": true}
 
 	root.remove_child(runtime)
 

@@ -125,7 +125,7 @@ func line(request: LineRequest) -> Line:
 			var purpose := custom if not custom.is_empty() else request.purpose
 			if request.reaction == Reaction.CLIMAX:
 				purpose += " Include a private first-person [thought: ...] impression of this moment in your reply."
-			if SETTINGS.act_faces.get_bool() and not purpose.contains("[face"):
+			if not purpose.contains("[face"):
 				purpose += ACT_FACE.prompt_note(name)
 			out.key = TEXT.key(request.event_id, "reply", name)
 			out.queued = DIALOGUE.queue(game, request.id, purpose, out.key, request.valid,

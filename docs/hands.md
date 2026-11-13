@@ -315,7 +315,7 @@ selection and starts the swing.
   flank/rump point.
 - The area chain uses one representative point per group (the vertex nearest the group mean). It
   does not roam the whole marked region; the oval remains the local stroke.
-- `hands/service.gd` is the facade and the coordinator in one file. It still reads runtime
-  presentation fields (`_lean_forward`, `_presentation_cfg`, `_profile`, `_size_scale`) and
-  calls runtime internals (`_on_touch`, `_log`, `perf_note`). New hand code uses the coordinator's
-  methods; do not add another host read.
+- `hands/service.gd` is the facade and the coordinator in one file. It reads the typed act view
+  (`facts.lean_forward`, `facts.size_scale`) and its own copies of the presentation config and the
+  per-mare profile, and calls callbacks the runtime injects (`_on_touch`, `_log`, `perf_note`).
+  New hand code uses the coordinator's methods; do not add another host read.

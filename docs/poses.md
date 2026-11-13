@@ -11,8 +11,8 @@ the caress paths and palm holders are `docs/hands.md`.
 missionary base, the bed frame and its follow, the extra modifiers (tail, tail lay, body sway,
 prone sway, ear twitch, chin debug), the pony bone snapshots, the pose rig check and the pose
 diagnostics. The runtime owns the act state, the start ordering and the one teardown ledger; it
-binds the session and calls the render-time write. `runtime._pose`, `runtime._pose_cfg` and
-`runtime._bed_pose_frame` are read views over the session for presentation modules and tests.
+binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly. Presentation
+modules read the same values from `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
 `poses/missionary_pose.json`. `shared/pose_catalog.gd` holds the pose defaults; `poses/service.gd` owns
@@ -28,7 +28,7 @@ The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/st
 the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
 lean and thrust values and the callbacks they call back through. `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
-runtime's `_standing_sway_offset` is a read view over it. The session binds `facts`, `perf` and
+runtime reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
 that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 
@@ -63,7 +63,7 @@ Missionary is its own state, not the game's bed rest:
 - **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
 - **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
-- **The bed frame follows the bed.** The session's `bed_frame` (`runtime._bed_pose_frame` for
+- **The bed frame follows the bed.** The session's `bed_frame` (`facts.bed_frame` for
   presentation modules) is updated each tick by the bed's rigid delta; a moving bed (the
   Cloudominium's CloudDrift) carries the authored pose, the act body and the shot instead of
   leaving them at the world transform where the act started. The mattress top is not re-measured.
@@ -243,7 +243,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 ### Missionary kiss
 
 `kiss_control.lean_kiss_tick()` runs for both poses. Missionary kisses when F is held and
-`_lean_forward >= MISSIONARY_KISS_LEAN` (0.90) **and** W is held: `lean_targets` adds `|side|` to
+`lean_forward >= MISSIONARY_KISS_LEAN` (0.90) **and** W is held: `lean_targets` adds `|side|` to
 the forward lean, so without the W test a pure side lean would pull the kiss. The kiss itself uses
 the custom head-aim path (the stock pose is authored for a standing pony); `Q`/`E` no longer kiss,
 and `lean_action_kind()` only fires the standing shoulder reach. Instead of aiming at his mouth on

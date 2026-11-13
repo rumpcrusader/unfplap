@@ -43,8 +43,8 @@ reach.
   zero before the base kiss; `kiss/legs.gd` captures both foreleg tips before the kiss and runs last
   to CCD them back to those positions, because the base kiss's chest flex would otherwise drag the
   legs after `body_sway`'s upper-arm pin.
-- The side is latched at the start from the input lean (`_lean_side`, falling back to
-  `_lean_action_side`), not the lagging camera view. `_pin_base_kiss_side()` pins her head tilt to
+- The side is latched at the start from the input lean (`lean_side`, falling back to
+  `lean_action_side`), not the lagging camera view. `_pin_base_kiss_side()` pins her head tilt to
   the complementary side (`KISS_PONY_SIDE_SIGN = 1`) so their heads interlock instead of colliding;
   the deep-kiss side switch is disabled for the act.
 - Lateral offset crossfades from the lean's `0.18 m` to the kiss's `0.18 m` instead of adding both.

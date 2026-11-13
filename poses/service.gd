@@ -27,7 +27,7 @@ var pose_id := ""
 var id := ""
 var features: Dictionary = {}
 var bed_node: Variant = null
-## Live pose config. The runtime reads it through its `_pose_cfg` property.
+## Live pose config. The runtime reads it through `_pose_session.pose_config`.
 var pose_config: Dictionary = {}
 
 ## The pose modifier and the extra scene modifiers the act installs.
@@ -39,7 +39,7 @@ var prone_sway: SkeletonModifier3D
 var ear_twitch: SkeletonModifier3D
 var chin_modifier: SkeletonModifier3D
 
-## Bed space for the authored pose. The runtime reads it through its `_bed_pose_frame` property.
+## Bed space for the authored pose. The runtime reads it through `_pose_session.bed_frame`.
 var bed_frame: Variant = null
 var bed_frame_source := Transform3D.IDENTITY
 var bed_frame_source_saved := false

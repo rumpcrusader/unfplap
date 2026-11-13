@@ -82,7 +82,7 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow forward rock
   (`0.010`). It is a **separate offset** (`runtime.shot_lean_forward()`), never added into
-  `_lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
+  `lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
   crept while nobody was leaning. There is no side sway. Pressing `S` arms a gradual side return,
   so the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
@@ -93,7 +93,7 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   remains the game's flight key.
 - Teardown order in `_restore_camera()`: free-camera lock, Anon wrapper and palm scale, eye override
   and avatar, missionary view, standing camera, then player look. `_restore_look()` only runs when
-  it captured the player (`_look_captured`), so a forced stop at `IDLE` cannot reset the player's
+  it captured the player (`look_captured`), so a forced stop at `IDLE` cannot reset the player's
   facing.
 
 ## Missionary camera

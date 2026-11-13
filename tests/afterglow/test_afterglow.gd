@@ -91,10 +91,10 @@ func run() -> void:
 	note_caress._caress_active = {"L": true, "R": false}
 	check(note_runtime.prompt_note().contains("caressing your flank"), "caress note")
 	note_caress._caress_active = {"L": false, "R": false}
-	note_runtime._lean_forward = 0.8
+	note_runtime._act_camera.lean_forward = 0.8
 	check(note_runtime.prompt_note().contains("leaning in close"), "lean note")
 	note_runtime.state = 2 # ACTIVE
-	note_runtime._lean_forward = 0.0
+	note_runtime._act_camera.lean_forward = 0.0
 	check(note_runtime.prompt_note().contains("middle of sex"), "active prompt note")
 	note_runtime.free()
 
@@ -145,8 +145,8 @@ func run() -> void:
 	var active: Node = _runtime("standing")
 	active.state = 2 # ACTIVE
 	active.cue = "She is close."
-	active._last_intensity = "firm"
-	active._last_pattern = "steady"
+	active._readiness.last_intensity = "firm"
+	active._readiness.last_pattern = "steady"
 	check(active.hud_cue_line(true) == "❤ 0/3 | She is close.", "HUD cue line")
 	check(active.hud_cue_line(false) == "❤ 0/3", "HUD cue line without optional segments")
 	check(active.hud_readiness_line(true) ==

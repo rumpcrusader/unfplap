@@ -37,8 +37,8 @@ func _runtime() -> Node:
 	})
 	runtime._thrust_tracker = THRUST.new()
 	runtime.state = 2 # ACTIVE
-	runtime._last_touch_at = -1000.0
-	runtime._last_talk_at = -1000.0
+	runtime._readiness.last_touch_at = -1000.0
+	runtime._readiness.last_talk_at = -1000.0
 	runtime._reset_thrust_state()
 	return runtime
 
@@ -47,25 +47,25 @@ func run() -> void:
 	var runtime: Node = _runtime()
 	runtime._thrust_move(0.10, 0.0)
 	runtime._thrust_move(-0.15, 0.1)
-	check(str(runtime._last_intensity).is_empty(), "tiny stroke does not feed the axes")
+	check(str(runtime._readiness.last_intensity).is_empty(), "tiny stroke does not feed the axes")
 	runtime._thrust_move(0.5, 0.2)
 	runtime._thrust_move(-0.5, 0.45)
-	check(not str(runtime._last_intensity).is_empty(), "real thrust classifies intensity")
+	check(not str(runtime._readiness.last_intensity).is_empty(), "real thrust classifies intensity")
 	check(near(runtime.satisfaction, 0.7), "a single matching axis adds only the one-axis chunk")
 
-	runtime._last_intensity = "firm"
-	runtime._last_pattern = "steady"
-	runtime._last_stroke_at = runtime._now_s()
-	runtime._last_thrust_score_at = -1000.0
+	runtime._readiness.last_intensity = "firm"
+	runtime._readiness.last_pattern = "steady"
+	runtime._readiness.last_stroke_at = runtime._now_s()
+	runtime._readiness.last_thrust_score_at = -1000.0
 	runtime._score_thrust()
 	check(runtime.satisfaction > 1.0, "matching both axes adds readiness")
 	# Heat multiplies the same matching chunk; the debug override bypasses the world day.
 	runtime._cycle_override = "heat"
 	runtime.satisfaction = 0.0
-	runtime._last_intensity = "firm"
-	runtime._last_pattern = "steady"
-	runtime._last_thrust_score_at = -1000.0
-	runtime._receptive_until = 0.0
+	runtime._readiness.last_intensity = "firm"
+	runtime._readiness.last_pattern = "steady"
+	runtime._readiness.last_thrust_score_at = -1000.0
+	runtime._readiness.receptive_until = 0.0
 	runtime._score_thrust()
 	check(near(runtime.satisfaction, 1.4 * 1.6), "heat multiplies the thrust chunk")
 	check(runtime.hud_readiness_line(true).contains("In heat"), "heat shows on the readiness line")
@@ -84,24 +84,24 @@ func run() -> void:
 	before = runtime.satisfaction
 	runtime._on_touch("smack")
 	check(near(runtime.satisfaction, before), "shared touch cooldown blocks a second chunk")
-	runtime._last_touch_at = -1000.0
+	runtime._readiness.last_touch_at = -1000.0
 	before = runtime.satisfaction
 	runtime._on_touch("kiss")
 	check(near(runtime.satisfaction, before), "neutral touch does not change readiness")
-	runtime._last_touch_at = -1000.0
+	runtime._readiness.last_touch_at = -1000.0
 	before = runtime.satisfaction
 	runtime._on_touch("smack")
 	check(runtime.satisfaction < before, "disliked touch lowers readiness")
 
 	runtime.satisfaction = 59.0
-	runtime._last_touch_at = -1000.0
+	runtime._readiness.last_touch_at = -1000.0
 	runtime._on_touch("caress")
 	check(near(runtime.satisfaction, 60.0), "liked touch clamps at the assist cap")
 	before = runtime.satisfaction
-	runtime._last_touch_at = -1000.0
+	runtime._readiness.last_touch_at = -1000.0
 	runtime._on_touch("caress")
 	check(near(runtime.satisfaction, before), "caress cannot pass the assist cap")
-	check(runtime._receptive_until > runtime._now_s(), "liked touch opens the receptive window")
+	check(runtime._readiness.receptive_until > runtime._now_s(), "liked touch opens the receptive window")
 
 	runtime._add_heat(999.0)
 	check(near(runtime.satisfaction, 100.0), "readiness clamps at 100")
@@ -147,14 +147,14 @@ func run() -> void:
 	runtime.state = 2
 	runtime._readiness.configure_auto(1.5, 0.9, "cosine", 0.0)
 	runtime._reset_thrust_state()
-	var auto_thrusts := int(runtime._act_intensity_total)
+	var auto_thrusts := int(runtime._readiness.act_intensity_total)
 	runtime.toggle_auto_thrust()
 	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
 	for _i: int in 240:
 		runtime._clock_s += 1.0 / 60.0
 		runtime._auto_tick(1.0 / 60.0)
-	check(int(runtime._act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
-	check(not str(runtime._last_intensity).is_empty(), "auto thrust classifies intensity")
+	check(int(runtime._readiness.act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
+	check(not str(runtime._readiness.last_intensity).is_empty(), "auto thrust classifies intensity")
 	runtime._stop_auto()
 	check(not runtime.auto_active(), "stopping auto clears the mode")
 	runtime._reset_thrust_state()

@@ -122,12 +122,12 @@ func _check_tail_tuning() -> void:
 	tail_runtime.set("pose_id", CATALOG.STANDING)
 	tail_runtime.set("_presentation_cfg", {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}})
 	tail_runtime.call("_sync_standing_pose_config")
-	var cfg: Dictionary = tail_runtime.get("_pose_cfg")
+	var cfg: Dictionary = tail_runtime._pose_session.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
 	tail_runtime.set("_presentation_cfg", {})
 	tail_runtime.call("_sync_standing_pose_config")
-	cfg = tail_runtime.get("_pose_cfg")
+	cfg = tail_runtime._pose_session.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
 	tail_pony.free()
@@ -556,7 +556,7 @@ func run() -> void:
 	live_runtime.pose_id = CATALOG.STANDING
 	live_runtime.call("apply_live_settings")
 	check(live_runtime._features.has("hud_readouts"), "live settings refresh feature flags")
-	check(live_runtime._camera_surge >= 0.0 and live_runtime._camera_surge <= 1.0,
+	check(live_runtime._act_camera.camera_surge >= 0.0 and live_runtime._act_camera.camera_surge <= 1.0,
 		"live settings refresh camera thrust")
 	live_runtime.free()
 
@@ -879,20 +879,20 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.state = 2 # ACTIVE
 	runtime.pose_id = CATALOG.MISSIONARY
-	runtime._lean_side = 0.74
+	runtime._act_camera.lean_side = 0.74
 	runtime._lean_action_tick()
-	check(not bool(runtime._lean_action_active), "below 75 percent does not fire")
-	runtime._lean_side = -0.75
+	check(not bool(runtime._act_camera.lean_action_active), "below 75 percent does not fire")
+	runtime._act_camera.lean_side = -0.75
 	runtime._lean_action_tick()
-	check(bool(runtime._lean_action_active), "75 percent fires")
-	check(str(runtime._lean_action_kind) == "",
+	check(bool(runtime._act_camera.lean_action_active), "75 percent fires")
+	check(str(runtime._act_camera.lean_action_kind) == "",
 		"missionary Q fires no action; the kiss is F at a full forward lean")
-	runtime._lean_side = -0.65
+	runtime._act_camera.lean_side = -0.65
 	runtime._lean_action_tick()
-	check(bool(runtime._lean_action_active), "action stays above 60 percent")
-	runtime._lean_side = -0.60
+	check(bool(runtime._act_camera.lean_action_active), "action stays above 60 percent")
+	runtime._act_camera.lean_side = -0.60
 	runtime._lean_action_tick()
-	check(not bool(runtime._lean_action_active), "action releases at 60 percent")
+	check(not bool(runtime._act_camera.lean_action_active), "action releases at 60 percent")
 	runtime.free()
 
 	var cuddle_runtime: Node = RUNTIME.new()

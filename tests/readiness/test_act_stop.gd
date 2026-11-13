@@ -214,19 +214,19 @@ func fixture(kind: String) -> Dictionary:
 	runtime._event_id = "intimacy_stop_test"
 	runtime._preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
-	runtime._summary_done = false
+	runtime._summary_service.summary_done = false
 	runtime.state = 2 # ACTIVE
 	runtime.pose_id = "standing"
 	runtime.pony_climaxes = 1
 	runtime._act_seconds = 90.0
-	runtime._act_thrusts = 10
+	runtime._readiness.act_thrusts = 10
 	runtime._posture_owned = true
-	runtime._nav = nav
-	runtime._token = "unfplap:test"
+	runtime._hold.nav = nav
+	runtime._hold.token = "unfplap:test"
 	nav.command_owner = "unfplap:test"
 	pony.face_turn_rate = 0.0
-	runtime._face_turn_rate_saved = 0.45
-	runtime._face_turn_rate_owned = true
+	runtime._hold.face_turn_rate_saved = 0.45
+	runtime._hold.face_turn_rate_owned = true
 	pony.set_meta("sex_active", true)
 	return {
 		"runtime": runtime, "pony": pony, "main": main, "game": game,
@@ -241,7 +241,7 @@ func run() -> void:
 	normal_runtime.call("_stop_with_her", "smack")
 	check(int(normal_runtime.state) == 0, "a normal stop ends the act")
 	check(bool(normal_runtime.get("_stopped_by_her")), "a normal stop is flagged")
-	var normal_summary: Dictionary = normal_runtime.get("_summary")
+	var normal_summary: Dictionary = normal_runtime._summary_service.summary
 	check(str(normal_summary.get("grade", "")) == "bad", "a normal stop commits a bad summary")
 	check(int(normal["bonds"].requests) == 0, "a normal stop does not request space")
 	check(int(normal["affection"].bucks) == 0, "a normal stop does not buck")
@@ -265,7 +265,7 @@ func run() -> void:
 	var strict_runtime: Node = strict["runtime"]
 	strict_runtime.call("_stop_with_her", "smack")
 	check(bool(strict_runtime.get("_stopped_by_her")), "a strict stop is flagged")
-	var strict_summary: Dictionary = strict_runtime.get("_summary")
+	var strict_summary: Dictionary = strict_runtime._summary_service.summary
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")
 	var strict_events: Array = strict["context"].events
 	check(strict_events.size() == 1, "a strict partner stop also writes one world event")
@@ -295,7 +295,7 @@ func run() -> void:
 	var bucked: Dictionary = (refused["impressions"] as Node).calls[-1]
 	check(str((bucked["data"] as Dictionary).get("mood", "")) == "angry", "a buck is angry")
 	check(int(refused["bonds"].unwanted) == 2, "each refusal costs trust once")
-	check(refused_runtime.get("_mood_face") == null,
+	check(refused_runtime._face.mood_face == null,
 		"the face waits for a runtime in the tree")
 	check(MOOD_FACE.DURATION == 300.0, "the mood face matches the 300 s impression freshness")
 	check(str(MOOD_FACE.MOOD_FACES.get("annoyed", "")) == "annoyed"

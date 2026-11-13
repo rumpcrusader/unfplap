@@ -707,7 +707,7 @@ The anatomy migration is complete:
   debug logger are injected into the anatomy modules.
 - The act and the persistent controller receive the typed `anatomy/facts.gd` context from the
   runtime instead of reading runtime private fields, and return the oral pose delta and facing
-  instead of writing `runtime._pose_cfg`.
+  instead of writing the runtime's pose config.
 - Tests live under `tests/anatomy/`, split pure vs facade. The boundary is enforced by
   `tests/test_source_hygiene.gd`.
 

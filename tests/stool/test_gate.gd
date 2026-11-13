@@ -80,8 +80,8 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.main = main
 	runtime.pony = pony
-	runtime.set("_anatomy", FakeController.new())
-	var controller: Node = runtime.get("_anatomy")
+	runtime._anatomy_bridge.controller = FakeController.new()
+	var controller: Node = runtime._anatomy_bridge.controller
 	controller.set("opening_y", 1.30)
 
 	check(runtime.stool_applies(), "the gate applies with anatomy and a human player")

@@ -202,15 +202,15 @@ func _log_tick(delta: float) -> void:
 	if state != _seen_state:
 		_seen_state = state
 		print("[unfplap vr] state=%s thrusts=%d readiness=%d" % [
-			state_name, int(runtime.get("_act_thrusts")), int(runtime.get("satisfaction"))])
+			state_name, int(runtime._readiness.act_thrusts), int(runtime.get("satisfaction"))])
 	var wants: Variant = runtime.get("_preferences")
 	var wanted_intensity := str((wants as Dictionary).get("intensity", "")) if wants is Dictionary else ""
 	var wanted_pattern := str((wants as Dictionary).get("pattern", "")) if wants is Dictionary else ""
 	print("[unfplap vr] waist depth=%.0f%% auto=%s state=%s thrusts=%d readiness=%d wants=%s/%s you=%s/%s" % [
 		_depth_m / HIP_RANGE_M * 100.0, str(_auto), state_name,
-		int(runtime.get("_act_thrusts")), int(runtime.get("satisfaction")),
+		int(runtime._readiness.act_thrusts), int(runtime.get("satisfaction")),
 		wanted_intensity, wanted_pattern,
-		str(runtime.get("_last_intensity")), str(runtime.get("_last_pattern"))])
+		str(runtime._readiness.last_intensity), str(runtime._readiness.last_pattern)])
 
 
 ## F9: the offer cone needs Anon on the ground behind her rump, and XR locomotion is stick-only

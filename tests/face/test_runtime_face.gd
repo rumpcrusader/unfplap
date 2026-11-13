@@ -82,7 +82,7 @@ func _fixture() -> Dictionary:
 	runtime._features = {"act_faces": true}
 	runtime._preferences = {"tolerance": "normal", "intensity": "firm",
 		"pattern": "steady", "touch": [], "talk": []}
-	runtime._tolerance = FakeTolerance.new()
+	runtime._readiness.tolerance = FakeTolerance.new()
 	runtime._act_climax_mode = "auto"
 	runtime._first_time = true
 	runtime.state = 2 # ACTIVE
@@ -108,22 +108,22 @@ func run() -> void:
 	runtime.call("_act_face_beat", "warning")
 	check(expressions.dialogue_face == "sad", "forgiving warning is sad")
 
-	runtime._summary = {"grade": "great", "positive": true, "reward": true,
+	runtime._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
 	runtime.call("_act_face_beat", "afterglow")
 	check(expressions.dialogue_face == "affectionate", "positive afterglow is affectionate")
 
 	runtime._preferences["tolerance"] = "normal"
-	runtime._act_intensity_total = 6
-	runtime._act_intensity_right = 6
-	runtime._act_pattern_total = 6
-	runtime._act_pattern_right = 6
-	runtime._act_both_matches = 6
-	runtime._act_liked_touch = 1
+	runtime._readiness.act_intensity_total = 6
+	runtime._readiness.act_intensity_right = 6
+	runtime._readiness.act_pattern_total = 6
+	runtime._readiness.act_pattern_right = 6
+	runtime._readiness.act_both_matches = 6
+	runtime._readiness.act_liked_touch = 1
 	runtime.call("_act_face_beat", "climax")
 	check(expressions.dialogue_face == "shy", "warm climax uses shy")
 	check(int(expressions.fluster_calls) == 1, "warm climax calls fluster")
-	check(float(runtime._stare_release_until) > float(runtime.call("_now_s")),
+	check(float(runtime._face.stare_release_until) > float(runtime.call("_now_s")),
 		"warm climax releases the stare")
 
 	runtime._act_climax_mode = "wide"
@@ -135,7 +135,7 @@ func run() -> void:
 		"a spoken line keeps its face")
 
 	expressions.dialogue_face = ""
-	runtime._act_face = ""
+	runtime._face.act_face = ""
 	check(bool(runtime.call("_set_act_face", "relaxed", 1.0)), "an idle face can be set")
 	expressions.dialogue_face = "amused"
 	runtime.call("_end_act_face")
@@ -147,27 +147,27 @@ func run() -> void:
 	expressions.dialogue_face = ""
 	runtime.satisfaction = 100.0
 	runtime._aftercare_min = 10
-	runtime._summary = {"grade": "great", "positive": true, "reward": true,
+	runtime._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
 	runtime.call("_start_post_act_face")
-	check(is_instance_valid(runtime._mood_face), "positive act starts the mood face")
+	check(is_instance_valid(runtime._face.mood_face), "positive act starts the mood face")
 	check(expressions.dialogue_face == "relaxed", "positive mood face is relaxed")
-	check(bool(runtime._warm_note), "positive mood face sets the warm note")
-	if is_instance_valid(runtime._mood_face):
-		runtime._mood_face.set_physics_process(false)
+	check(bool(runtime._face.warm_note), "positive mood face sets the warm note")
+	if is_instance_valid(runtime._face.mood_face):
+		runtime._face.mood_face.set_physics_process(false)
 	runtime.call("_end_mood_face")
-	check(runtime._mood_face == null and not bool(runtime._warm_note),
+	check(runtime._face.mood_face == null and not bool(runtime._face.warm_note),
 		"mood face clears on a new act")
 
 	expressions.dialogue_face = ""
-	runtime._summary = {"grade": "bad", "positive": false, "reward": false,
+	runtime._summary_service.summary = {"grade": "bad", "positive": false, "reward": false,
 		"severe": false, "early": false, "mood": "sad"}
 	runtime.call("_start_post_act_face")
-	check(is_instance_valid(runtime._mood_face), "bad act starts the mood face")
+	check(is_instance_valid(runtime._face.mood_face), "bad act starts the mood face")
 	check(expressions.dialogue_face == "sad", "bad mood face is sad")
-	check(not bool(runtime._warm_note), "bad mood face has no warm note")
-	if is_instance_valid(runtime._mood_face):
-		runtime._mood_face.set_physics_process(false)
+	check(not bool(runtime._face.warm_note), "bad mood face has no warm note")
+	if is_instance_valid(runtime._face.mood_face):
+		runtime._face.mood_face.set_physics_process(false)
 	runtime.call("_end_mood_face")
 
 	# The lids and the smile live in the facade: the runtime only gathers the state.
@@ -182,12 +182,12 @@ func run() -> void:
 	check(expressions.stare_on and is_equal_approx(expressions.stare_lids, FACE.CLIMAX_LIDS),
 		"CLIMAX opens the lids")
 	runtime.state = 4 # AFTERGLOW
-	runtime._close_rewarded = true
+	runtime._afterglow.close_rewarded = true
 	expressions.stare_lids = -1.0
 	runtime.call("_eyes_tick")
 	check(is_equal_approx(expressions.stare_lids, FACE.AFTERGLOW_CLOSE_LIDS),
 		"a rewarded close uses the sleepier afterglow lids")
-	runtime._close_rewarded = false
+	runtime._afterglow.close_rewarded = false
 	runtime.state = 0 # IDLE
 	expressions.stare_calls = 0
 	runtime.call("_eyes_tick")

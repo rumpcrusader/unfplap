@@ -68,9 +68,10 @@ The HUD card rows, the key caps and the `End` tint are `docs/hud.md`. The lab ke
 `_end_session(rejoin_cuddle)` is the only exit path. It gives back, in order: the inventory HUD,
 request face, kiss forelegs, face-turn rate, eye override, face and wings, player lock, camera,
 `sex_active`, navigator, player look, posture/cuddle, pose, audio, HUD and the active runtime. Every
-step checks the ownership flag it restores (`_camera_owned`, `_look_captured`, `_posture_owned`,
-`_locked_player`, `_eye_override`, `_face_turn_rate_owned`, `_inventory_hud_hidden`, `_nav`, the
-controller flags), so a failed start runs the same function and restores only what it took.
+step checks the ownership flag it restores (`_act_camera.camera_owned`, `_act_camera.look_captured`,
+`_act_camera.eye_override`, `_hold.locked_player`, `_hold.face_turn_rate_owned`, `_hold.nav`, the
+runtime's own `_posture_owned` and `_inventory_hud_hidden`, the controller flags), so a failed start
+runs the same function and restores only what it took.
 
 - `_finalize_session(real_act)` runs the post-act bookkeeping once and is idempotent.
 - `_end_act_lines()` is deliberately outside the teardown: `cancel()` queues the early-stop reaction
@@ -103,6 +104,11 @@ The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.
 cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.
+
+The runtime does not mirror a service's act state. It reads it through the owning facade
+(`_readiness`, `_act_camera`, `_afterglow`, `_hold`, `_pose_session`, `_summary_service`, `_face`)
+at the call site, so a suite that needs `act_thrusts`, `camera_owned`, `close_left` or `summary`
+reads that facade too.
 
 ## Tests
 

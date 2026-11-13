@@ -107,7 +107,7 @@ func _fixture() -> Dictionary:
 	runtime.pony = pony
 	runtime.main = main
 	runtime._id = "test_mare"
-	runtime._face_turn_rate_saved = 0.45
+	runtime._hold.face_turn_rate_saved = 0.45
 	runtime._hold.face_turn_rate_owned = true
 	pony.face_turn_rate = 0.0
 	runtime._hold.locked_player = true
@@ -122,8 +122,8 @@ func _fixture() -> Dictionary:
 	runtime._hold.nav = nav
 	nav.command_owner = "unfplap:test_mare"
 	nav.wander_enabled = false
-	runtime._nav_old_wander = false
-	runtime._token = "unfplap:test_mare"
+	runtime._hold.nav_old_wander = false
+	runtime._hold.token = "unfplap:test_mare"
 	runtime._inventory_hud_hidden = true
 	runtime._inventory_hud_saved = false
 	game.inventory.hud_hidden = true
@@ -170,7 +170,7 @@ func run() -> void:
 	var runtime2: Node = f2["runtime"]
 	var player2: FakePlayer = f2["player"]
 	runtime2.state = 0
-	runtime2._look_captured = false
+	runtime2._act_camera.look_captured = false
 	player2.rotation.y = 0.7
 	runtime2.force_stop()
 	check(absf(player2.rotation.y - 0.7) < 0.0001,
@@ -180,11 +180,11 @@ func run() -> void:
 	var f3 := _fixture()
 	var runtime3: Node = f3["runtime"]
 	var player3: FakePlayer = f3["player"]
-	runtime3._camera_owned = false
-	runtime3._look_captured = false
-	runtime3._eye_override = true
-	runtime3._saved_stand_eye = 1.6
-	runtime3._saved_eye_height = 1.6
+	runtime3._act_camera.camera_owned = false
+	runtime3._act_camera.look_captured = false
+	runtime3._act_camera.eye_override = true
+	runtime3._act_camera.saved_stand_eye = 1.6
+	runtime3._act_camera.saved_eye_height = 1.6
 	player3._stand_eye = 2.1
 	player3._eye_height = 2.1
 	runtime3._end_session(false)
@@ -236,8 +236,8 @@ func run() -> void:
 		"standing start places Anon behind her at the act gap")
 	var placed6: Transform3D = player6.global_transform
 	var placed_yaw6 := player6.rotation.y
-	runtime6._look_captured = true
-	runtime6._look_restore_yaw = false
+	runtime6._act_camera.look_captured = true
+	runtime6._act_camera.look_restore_yaw = false
 	runtime6.call("_restore_look")
 	check(player6.global_position.is_equal_approx(placed6.origin),
 		"standing end leaves Anon in place")

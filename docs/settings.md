@@ -18,6 +18,8 @@ pose catalog overrides (`poses.*`) are not global settings: they live in the sam
 through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other profile functions.
 The identity facts discovery scans read (`SETTINGS.profile_identity(id)`) are memoized per settings
 generation and provider registry revision, so a scan does not rebuild the whole template per mare.
+The resolved consent block (`SETTINGS.consent(id)`) is memoized on the same two keys and returns a
+detached copy, so an act gate pays a lookup instead of a template build.
 
 ## Ownership
 
@@ -429,7 +431,8 @@ value. See `docs/perf.md`.
 - `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/
   label/help on every declaration, defaults, the file round-trip, clamping and debug bypass,
   choice/list validation, section state, the panel drawing every declaration in its tab (and the
-  Debug block only in debug mode), built-in name clashes, and the per-mare merge.
+  Debug block only in debug mode), built-in name clashes, the per-mare merge and the consent
+  cache's detached copy/invalidation.
 - `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
   settings widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
 - `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes

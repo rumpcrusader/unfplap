@@ -2021,10 +2021,23 @@ static func _same_set(a: Variant, b: Variant) -> bool:
 
 
 ## integration: her consent for the optional anatomy actions. A per-character override wins;
-## otherwise the deterministic id defaults apply.
+## otherwise the deterministic id defaults apply. The resolved block is memoized per settings
+## generation and provider revision, like `profile_identity`, so an act gate does not rebuild the
+## whole template for one mare on every scan.
 static func consent(id: String) -> Dictionary:
+	# A pending `reload_file()` must bump the generation before the cache check, not after.
+	_read()
+	if _consent_generation != generation or _consent_revision != MARE_REGISTRY.revision:
+		_consent_generation = generation
+		_consent_revision = MARE_REGISTRY.revision
+		_consent_cache.clear()
+	var cached: Variant = _consent_cache.get(id)
+	if cached is Dictionary:
+		return (cached as Dictionary).duplicate(true)
 	var template := template_for(id)
-	return CONSENT.resolve(id, template.get("consent", {}))
+	var resolved := CONSENT.resolve(id, template.get("consent", {}))
+	_consent_cache[id] = resolved
+	return resolved.duplicate(true)
 
 
 ## integration: save only the consent block. Preferences, prompts and poses are preserved. Like
@@ -2573,6 +2586,11 @@ static var _filled_default_cache: Dictionary = {}
 static var _identity_cache: Dictionary = {}
 static var _identity_generation := -1
 static var _identity_revision := -1
+## Resolved consent per mare, rebuilt with the same two keys. A returned dictionary is always a
+## detached copy, so a caller cannot change the cache.
+static var _consent_cache: Dictionary = {}
+static var _consent_generation := -1
+static var _consent_revision := -1
 ## Bumped on every load and every write. The flat value table rebuilds when it
 ## changes, so a save anywhere invalidates the cached setting reads.
 static var generation := 0

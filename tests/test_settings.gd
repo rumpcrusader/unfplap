@@ -724,6 +724,10 @@ func _check_character_overrides() -> void:
 	SETTINGS.reset_preferences("fluttershy")
 
 	var consent := SETTINGS.consent("fluttershy")
+	var mutated := consent.duplicate(true)
+	mutated["anal"] = not bool(consent.get("anal", false))
+	check(SETTINGS.consent("fluttershy") == consent,
+		"a consent caller cannot mutate the memoized block")
 	SETTINGS.save_consent("fluttershy", consent)
 	saved = SETTINGS.data().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
@@ -736,6 +740,8 @@ func _check_character_overrides() -> void:
 	var consent_diff: Dictionary = entry.get("consent", {})
 	check(consent_diff.has("public") and not consent_diff.has("anal"),
 		"a consent save stores only the changed key")
+	check(SETTINGS.consent("fluttershy").get("public") == changed.get("public"),
+		"a consent save invalidates the memoized block")
 	SETTINGS.save_consent("fluttershy", consent)
 
 

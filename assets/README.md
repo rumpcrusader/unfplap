@@ -95,4 +95,4 @@ file was edited, the fetch refuses to overwrite it; `scripts/fetch_assets.sh --f
 local copy and restores the archived one. To keep intentional asset edits, repack and upload them
 instead. The downloaded files are ignored; only `scripts/asset_pack.json` is committed.
 
-Redistribution is by permission of the mare-bits author; `CREDITS.md` names the source.
+Redistribution is by permission of the author; `CREDITS.md` names the source.

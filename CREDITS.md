@@ -6,12 +6,12 @@ run without them. The pack layout is in `assets/README.md`.
 
 ## Anatomy
 
-**PonyPussyParadise** — the mare bits mesh, the teats, the skin strip, the player part mesh and
-its albedo/AO/normal maps, the V2 Blender source and the runtime code ported from it.
-Redistributed by permission of the author.
+**PonyPussyParadise** — the teats, the skin strip, the player part mesh with its albedo/AO/normal
+maps, and the runtime code ported from it, including the VR standing act. The mare bits mesh is
+adapted and modified from the pack's mesh, and its Blender source is
+`sources/anatomy/mare_bits_v2.blend`. Redistributed by permission of the author.
 
-Runtime: `assets/anatomy/mare/`, `assets/anatomy/anon/` · Source:
-`sources/anatomy/mare_bits_v2.blend`
+Runtime: `assets/anatomy/mare/`, `assets/anatomy/anon/`
 
 ## Act audio
 

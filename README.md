@@ -34,9 +34,9 @@ Godot's imported data. The packer then verifies the packed files against the run
 (tracked files plus the resource pack manifest), rejects development files and broken import data,
 and writes a `.sha256` beside the pck; a failed check removes the pack. Repository docs, tests,
 scripts, tools, skills, `.git`, `dist/`, `sources/` and `*.uid` do not enter the pack.
-`AUDIO_CREDITS.md` does, for credit.
+`CREDITS.md` does, for credit.
 
-The PPP anatomy meshes, textures and act audio are listed in `scripts/asset_pack.json` and fetched
-before the build; they are not tracked. Every build includes all eight anatomy files and the
+The anatomy meshes, textures and act audio are listed in `scripts/asset_pack.json` and fetched
+before the build; they are not tracked. Every build includes all seven anatomy files and the
 complete audio catalogue; the anatomy feature itself remains optional in the settings. See
 `assets/README.md` for the archive layout and the asset-change workflow.

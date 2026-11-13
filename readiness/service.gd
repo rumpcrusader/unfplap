@@ -184,9 +184,11 @@ func auto_panel_tick(delta: float, x_down: bool, keys: Array,
 			"pace_up", "pace_down":
 				auto_thrust.nudge_pace(AUTO_PANEL.PACE_STEP if action == "pace_up"
 					else -AUTO_PANEL.PACE_STEP)
-	_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s shape=%s" % [
-		",".join(actions), auto_thrust.min_depth * 100.0, auto_thrust.max_depth * 100.0,
-		auto_thrust.pace, auto_thrust.shape])
+	# One line per player adjustment, never per frame: the policy ticks every physics frame.
+	if not actions.is_empty():
+		_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s" % [
+			",".join(actions), auto_thrust.min_depth * 100.0, auto_thrust.max_depth * 100.0,
+			auto_thrust.pace])
 	return actions
 
 
@@ -197,7 +199,10 @@ func auto_shape() -> String:
 
 func auto_set_shape(name: String) -> void:
 	auto_default_shape = name
+	var before: String = auto_thrust.shape
 	auto_thrust.set_shape(name)
+	if auto_thrust.shape != before:
+		_log("auto shape %s" % auto_thrust.shape)
 
 
 func auto_pace() -> float:

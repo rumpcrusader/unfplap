@@ -166,6 +166,8 @@ The afterglow phase and the standing close window are `docs/afterglow.md`.
   and the generated depth. The mouse does nothing while auto is on. The wheel sets pace.
 - The panel's `toggle` and min/max/pace nudges are applied inside readiness. The one remaining
   action is `shape_next`: the runtime writes `SETTINGS.curve` and calls `auto_set_shape()`.
+- The debug log prints one `auto layer` line per player adjustment, never per frame; a shape
+  change adds its own `auto shape` line.
 - `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
   stop it, and `_reset_thrust_state()` restores the act-start defaults.
 - The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).

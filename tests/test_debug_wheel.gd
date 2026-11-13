@@ -49,7 +49,7 @@ func run() -> void:
 	_check_pages()
 	_check_registry()
 	_check_labels()
-	_check_node()
+	await _check_node()
 	print("DEBUG_WHEEL_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DEBUG_WHEEL_PASS")
@@ -159,6 +159,7 @@ func _check_node() -> void:
 	wheel.set("main", fake)
 	check(bool(wheel.call("open")), "the wheel opens with a valid context")
 	check(bool(wheel.call("is_open")), "the wheel reports open")
+	await process_frame
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true

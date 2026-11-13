@@ -46,6 +46,25 @@ is a separate repository; never commit game-source changes from the mod repo.
 9. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
    CI builds and releases from the remote, but the agent never pushes.
 
+## Build
+
+Build only when the user asks:
+
+```bash
+./build.sh [--out <file.pck>]
+```
+
+Success prints `PACK_VERIFY`, `PCK_SHA256` and `MOD_BUILT <path>`. `build.sh` verifies the fetched
+runtime set with `scripts/asset_pack.py`, generates the required runtime list with
+`scripts/build_manifest.py`, and `pack.gd` requires the packed files to match it. Build from the git
+checkout with the fetched assets; a failed check removes the pack. The mod has no script extension.
+
+- `res://tools/modding/build_mod.gd` is not a release path: it ignores `.pckignore` and recurses
+  the whole mod folder. Use `build.sh` for anything you ship.
+- Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it
+  shadows source edits.
+- New `.gd` files must be tracked before a build; the pack manifest reads `git ls-files`.
+
 ## Commit messages
 
 ```text

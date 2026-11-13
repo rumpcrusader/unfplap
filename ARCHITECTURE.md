@@ -60,6 +60,11 @@ Rules:
 - No per-frame allocation in a facade or read model. Reuse context and event objects. The perf
   probe must not show added per-frame cost.
 
+`settings` is infrastructure: it may import shared pure modules and nothing else. The one existing
+upward edge, `settings -> registry/service.gd` (provider defaults and per-mare rows), is recorded in
+`architecture/exceptions.json` and must shrink. Do not add a second upward edge, and do not treat
+the recorded row as a pattern.
+
 ## The service contract
 
 A service has one job and one authority. "One mod aspect" is not enough: two aspects can share

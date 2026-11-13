@@ -19,6 +19,10 @@ const MAX_WANTS := 120
 const DROP_WANTS := ["take me softer", "take me harder", "take me firmer", "tease me more",
 	"keep it quicker", "keep a steadier rhythm", "keep doing what you did"]
 
+## Bumped by every stored-row write, so a read-only policy snapshot can tell when its history
+## facts are stale. Reads and decay never bump it.
+static var revision := 0
+
 const DEFAULT_RULES := {
 	"reminder_hurt": 2,
 	"offer_block_hurt": 4,
@@ -219,6 +223,7 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 	row["announced_tier"] = maxi(int(row.get("announced_tier", 0)), current)
 	rows[id] = row
 	section[KEY] = rows
+	revision += 1
 	return {"row": row.duplicate(true), "previous_tier": previous, "tier": current,
 	"events": events}
 
@@ -240,7 +245,10 @@ static func repair(section: Dictionary, id: String, amount: int, now_day: float)
 	_tidy_pending(row)
 	rows[id] = row
 	section[KEY] = rows
-	return int(row["hurt"]) < before
+	var repaired := int(row["hurt"]) < before
+	if repaired:
+		revision += 1
+	return repaired
 
 
 ## A sincere apology repairs at most once per in-game day. The caller saves.
@@ -265,7 +273,10 @@ static func apology_repair(section: Dictionary, id: String, now_day: float) -> b
 	_tidy_pending(row)
 	rows[id] = row
 	section[KEY] = rows
-	return int(row["hurt"]) < before
+	var repaired := int(row["hurt"]) < before
+	if repaired:
+		revision += 1
+	return repaired
 
 
 static func reset(section: Dictionary, id: String) -> bool:
@@ -276,6 +287,7 @@ static func reset(section: Dictionary, id: String) -> bool:
 		return false
 	rows.erase(id)
 	section[KEY] = rows
+	revision += 1
 	return true
 
 
@@ -456,6 +468,7 @@ static func mark_announced(section: Dictionary, id: String, kind: String) -> boo
 		row["reminder_pending"] = false
 	rows[id] = row
 	section[KEY] = rows
+	revision += 1
 	return true
 
 

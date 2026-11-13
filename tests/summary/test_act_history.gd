@@ -276,6 +276,41 @@ func run() -> void:
 	check(int(HISTORY.row(reset_section, "rarity").get("acts", -1)) == 0,
 		"reset leaves a clean row")
 
+	# The revision is the cache key for read-only policy snapshots: every stored-row write bumps
+	# it, and reads or decay do not.
+	var revision_section: Dictionary = {}
+	var before_revision := HISTORY.revision
+	HISTORY.effective_row(revision_section, "rarity", 10.0)
+	HISTORY.row(revision_section, "rarity")
+	check(HISTORY.revision == before_revision, "history reads do not bump the revision")
+	HISTORY.commit(revision_section, "rarity", outcome("good"), 10.0)
+	check(HISTORY.revision == before_revision + 1, "a committed act bumps the revision")
+	var after_commit := HISTORY.revision
+	HISTORY.commit(revision_section, "rarity", outcome("bad"), 10.0)
+	check(HISTORY.revision == after_commit + 1, "a bad act bumps the revision")
+	check(not HISTORY.repair(revision_section, "missing", 1, 10.0),
+		"repairing an absent row does nothing")
+	check(HISTORY.revision == after_commit + 1, "a no-op repair does not bump the revision")
+	check(HISTORY.repair(revision_section, "rarity", 8, 10.0),
+		"repair removes the remaining hurt")
+	check(HISTORY.revision == after_commit + 2, "a repair bumps the revision")
+	var after_repair := HISTORY.revision
+	check(not HISTORY.apology_repair(revision_section, "missing", 10.0),
+		"an absent apology does nothing")
+	check(HISTORY.revision == after_repair, "a no-op apology does not bump the revision")
+	HISTORY.commit(revision_section, "rarity", outcome("bad"), 11.0)
+	check(HISTORY.apology_repair(revision_section, "rarity", 11.0),
+		"an apology repairs hurt")
+	check(HISTORY.revision == after_repair + 2, "an apology bumps the revision")
+	var after_apology := HISTORY.revision
+	HISTORY.mark_announced(revision_section, "rarity", "complaint")
+	check(HISTORY.revision == after_apology + 1, "clearing a pending line bumps the revision")
+	check(HISTORY.reset(revision_section, "rarity"), "a second reset removes the row")
+	check(HISTORY.revision == after_apology + 2, "a reset bumps the revision")
+	var after_reset := HISTORY.revision
+	check(not HISTORY.reset(revision_section, "rarity"), "an absent reset does nothing")
+	check(HISTORY.revision == after_reset, "a no-op reset does not bump the revision")
+
 	print("ACT_HISTORY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_HISTORY_PASS")

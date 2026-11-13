@@ -135,6 +135,11 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 }
 ```
 
+`shared/act_history.gd` also keeps a process-wide `revision`, bumped by every stored-row write
+(`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads, sanitising and time
+decay do not bump it. The runtime's idle offer hint uses it to drop a stale policy snapshot; see
+`docs/eligibility.md`.
+
 Only good and bad acts move the points. Neutral acts change no history.
 
 | Event | Effect |
@@ -254,7 +259,7 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
   neutrality, severe handling, early end, stopped-by-her severe outcome, forced stop, short act,
   motion and touch misses.
 - `tests/summary/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
-  sanitising, pending lines, reset.
+  sanitising, pending lines, reset and the write revision.
 - `tests/summary/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
 - `tests/summary/test_history.gd` — facade: summary commit and peak memory.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.

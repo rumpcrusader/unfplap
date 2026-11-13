@@ -120,4 +120,6 @@ Hold `Y`:
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the self-end
 gates (minimum time, hold, speech), the `[stay]` extension, the close window's timing, caress
 count and single reward, the early cancel, the missionary skip, the presentation row and the
-runtime forwards for the HUD and prompt note. Wing folding lives in `wing_control.gd` and is covered in the same suite.
+runtime forwards for the HUD and prompt note. Wing folding lives in `wing_control.gd` and is covered in the same suite;
+the wing controller reads the typed act view (`facts.pony`, `facts.clock()`) and a `log`
+callback, never the runtime node.

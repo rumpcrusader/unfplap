@@ -1508,9 +1508,14 @@ static var coat_spread := num("coat_spread", "anatomy.coat_spread", 2.0,
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
 static var coat_hole := num("coat_hole", "anatomy.coat_hole", 0.95,
-	"Coat hole",
-	"Share of the measured lip radius cut out of the body coat behind the vulva opening. Keep it at or below 1 so the cut stays under the lips; 0 turns the cut off.", ANATOMY, "Holes") \
+	"Coat hole width",
+	"Lateral radius of the ellipse cut out of the body coat behind the vulva opening, as a share of the measured lip radius. Keep it at or below 1 so the cut stays under the lips; 0 turns the cut off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.0, 1.2) \
+	.as_debug()
+static var coat_hole_height := num("coat_hole_height", "anatomy.coat_hole_height", 1.19,
+	"Coat hole height",
+	"Vertical radius of the coat cut, as a share of the measured lip radius. The lips reach further up and down than they do sideways, so this sits above the width; matching the width makes the cut round.", ANATOMY, "Holes") \
+	.with_unit("×").with_step(0.01).with_range(0.0, 1.5) \
 	.as_debug()
 static var coat_hole_depth_mm := num("coat_hole_depth_mm", "anatomy.coat_hole_depth_mm", 25.0,
 	"Coat hole depth",

@@ -393,18 +393,20 @@ appearance, including the missionary-only fold hack, when the pose id changes.
   shader alone. The `void fragment()` hook is optional; without it the deform still applies and
   only the vulva cut is left out.
 - The anatomy shell is pushed slightly into the coat, so without the cut the closed lips show the
-  body surface behind them. The patch discards coat fragments within `coat_hole` × the measured
-  lip radius, up to `coat_hole_depth_mm` behind the opening plane, in the same body-local frame
-  as the spread. The cut is gated on the anatomy mesh being visible, so `act` mode leaves the coat
-  whole while she is hidden. `coat_hole` 0 turns the cut off.
+  body surface behind them. The patch discards coat fragments inside an ellipse behind the opening:
+  the radii are `coat_hole` (lateral) and `coat_hole_height` (vertical) × the measured lip radius,
+  up to `coat_hole_depth_mm` behind the opening plane, in the same body-local frame as the spread.
+  The cut is taller than it is wide because the measured lip radius is radial while the lips reach
+  further up and down. The cut is gated on the anatomy mesh being visible, so `act` mode leaves the
+  coat whole while she is hidden. Either radius at 0 turns the cut off.
 - The patch drives the vulva spread, the V2 anal mound and hole, the vulva cut and two no-jiggle
   ellipsoids: one around the vulva and one around the visible ponut. The uniforms are body-local,
   mapped through the `pony_hips` bind.
-- `coat_spread` scales the vulva spread, `coat_hole` the cut radius, `coat_hole_depth_mm` the cut
-  depth, `jiggle_still` the vulva still zone, `anal_still` the anal zone, `still_oval` the vertical
-  half-axis, `still_fade` the rim fade, `still_height_mm` the vulva zone's vertical placement and
-  `vulva_out_mm` the mesh push. `draw_still_zones` overlays the two ellipsoids and their
-  fully-still cores.
+- `coat_spread` scales the vulva spread, `coat_hole` and `coat_hole_height` the cut's lateral and
+  vertical radii, `coat_hole_depth_mm` the cut depth, `jiggle_still` the vulva still zone,
+  `anal_still` the anal zone, `still_oval` the vertical half-axis, `still_fade` the rim fade,
+  `still_height_mm` the vulva zone's vertical placement and `vulva_out_mm` the mesh push.
+  `draw_still_zones` overlays the two ellipsoids and their fully-still cores.
 - The per-pony material duplicate and its outline are added back to the game's jiggle target list
   after every `_start_jiggle()`. The anatomy also re-adds them on a stock flank smack through
   `physical_reaction("flank_smack")`.
@@ -593,7 +595,8 @@ restated here.
   `anatomy.placement_target`: the placement block and editor target.
 - `anatomy.anal_scale`, `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
   `anatomy.lip_vertical`, `anatomy.strip_scale`: shape and grip tuning.
-- `anatomy.coat_spread`, `anatomy.coat_hole`, `anatomy.coat_hole_depth_mm`,
+- `anatomy.coat_spread`, `anatomy.coat_hole`, `anatomy.coat_hole_height`,
+  `anatomy.coat_hole_depth_mm`,
   `anatomy.jiggle_still`, `anatomy.anal_still`, `anatomy.still_oval`, `anatomy.still_fade`,
   `anatomy.still_height_mm`, `anatomy.vulva_out_mm`, `anatomy.draw_still_zones`: body coat,
   vulva cut and still-zone debug values.

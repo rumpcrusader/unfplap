@@ -579,7 +579,9 @@ func run() -> void:
 	# those hooks is left alone instead of being half-patched.
 	check(bool(SETTINGS.body_coat_deform.default), "body coat deform is on by default")
 	check(near(float(SETTINGS.coat_hole.default), 0.95),
-		"the coat hole uses 95% of the lip radius by default")
+		"the coat hole uses 95% of the lip radius across by default")
+	check(near(float(SETTINGS.coat_hole_height.default), 1.19, 0.001),
+		"the coat hole is a taller-than-wide ellipse by default")
 	check(near(float(SETTINGS.coat_hole_depth_mm.default), 25.0),
 		"the coat hole reaches 25 mm behind the opening by default")
 	check(near(float(SETTINGS.anal_still.default), 0.0), "anal still zone is off by default")

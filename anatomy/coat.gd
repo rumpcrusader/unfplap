@@ -213,10 +213,14 @@ func _apply_uniforms() -> void:
 	var reach := maxf(shapes.lip_radius() * LIP_OUTER_FACTOR * scale * 1.1, 0.02)
 	var depth := (spread - 1.0) * VULVA_RELIEF_M
 	# Cut the coat behind the vulva opening so the silhouette cannot show through the closed lips.
-	# The anatomy mesh is pushed into the coat; the cut is the same body-local frame as the spread
-	# and follows the placement/scale. The gate closes when the anatomy is hidden (act-only mode).
+	# The anatomy mesh is pushed into the coat; the cut is an ellipse in the same body-local frame
+	# as the spread and follows the placement/scale. It is taller than it is wide: the measured lip
+	# radius is radial, while the lips reach further up and down than they do sideways. The gate
+	# closes when the anatomy is hidden (act-only mode).
 	var hole: float = maxf(SETTINGS.coat_hole.get_num(), 0.0)
+	var hole_height: float = maxf(SETTINGS.coat_hole_height.get_num(), 0.0)
 	var hole_radius: float = shapes.lip_radius() * scale * hole
+	var hole_vertical: float = shapes.lip_radius() * scale * hole_height
 	var hole_depth: float = maxf(SETTINGS.coat_hole_depth_mm.get_num(), 0.0) / 1000.0
 	var hole_open: float = 1.0 if is_instance_valid(mesh) and mesh.is_visible_in_tree() else 0.0
 	var still_centre := centre + up_axis * (SETTINGS.still_height_mm.get_num() / 1000.0)
@@ -257,6 +261,8 @@ func _apply_uniforms() -> void:
 		mat.set_shader_parameter("body_coat_vulva_reach", reach)
 		mat.set_shader_parameter("body_coat_vulva_depth", depth)
 		mat.set_shader_parameter("body_coat_vulva_hole", hole_radius)
+		mat.set_shader_parameter("body_coat_vulva_hole_height", hole_vertical)
+		mat.set_shader_parameter("body_coat_vulva_hole_up", up_axis)
 		mat.set_shader_parameter("body_coat_vulva_hole_depth", hole_depth)
 		mat.set_shader_parameter("body_coat_vulva_hole_open", hole_open)
 		mat.set_shader_parameter("body_coat_still_centre", still_centre)

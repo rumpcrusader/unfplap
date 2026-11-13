@@ -29,8 +29,12 @@ uniform float body_coat_vulva_reach = 0.04;
 uniform float body_coat_vulva_depth = 0.0;
 // The anatomy shell is pushed slightly into the coat, so the closed lips would otherwise show the
 // body surface behind them. Cut the coat away inside the lip ring, down to the anatomy's closed
-// inner cavity. `hole_open` is 0 while the anatomy mesh is hidden.
+// inner cavity. The cut is an ellipse in the body-local frame: `hole` is its lateral radius and
+// `hole_height` its vertical one, so the lips stay covered top and bottom. `hole_open` is 0 while
+// the anatomy mesh is hidden.
 uniform float body_coat_vulva_hole = 0.0;
+uniform float body_coat_vulva_hole_height = 0.0;
+uniform vec3 body_coat_vulva_hole_up = vec3(0.0, 1.0, 0.0);
 uniform float body_coat_vulva_hole_depth = 0.025;
 uniform float body_coat_vulva_hole_open = 0.0;
 // The coat may bulge a little in front of the opening plane; keep a small front margin. The depth
@@ -63,10 +67,13 @@ float body_coat_still_mask(vec3 vertex, vec3 centre, float radius) {
 	return smoothstep(1.0 - fade, 1.0, length(q));
 }
 
-// True when the coat fragment is inside the vulva opening's cavity: within the lip ring, from a
-// small margin in front of the opening plane to the configured depth behind it.
+// True when the coat fragment is inside the vulva opening's cavity: inside the lip ring's ellipse,
+// from a small margin in front of the opening plane to the configured depth behind it. The two
+// radii are the lateral and the vertical half-axes; the vertical axis of `body_coat_vulva_hole_up`
+// is projected into the opening plane, and the lateral one completes the frame.
 bool body_coat_vulva_cut(vec3 vertex) {
-	if (body_coat_vulva_hole_open < 0.5 || body_coat_vulva_hole <= 0.0) {
+	if (body_coat_vulva_hole_open < 0.5 || body_coat_vulva_hole <= 0.0
+			|| body_coat_vulva_hole_height <= 0.0) {
 		return false;
 	}
 	vec3 d = vertex - body_coat_vulva_centre;
@@ -76,7 +83,13 @@ bool body_coat_vulva_cut(vec3 vertex) {
 		return false;
 	}
 	vec3 lateral = d - out_axis * depth;
-	return dot(lateral, lateral) < body_coat_vulva_hole * body_coat_vulva_hole;
+	vec3 up_projected = body_coat_vulva_hole_up
+		- out_axis * dot(body_coat_vulva_hole_up, out_axis);
+	vec3 up_axis = normalize(up_projected);
+	vec3 right_axis = normalize(cross(up_axis, out_axis));
+	vec2 q = vec2(dot(lateral, right_axis) / body_coat_vulva_hole,
+		dot(lateral, up_axis) / body_coat_vulva_hole_height);
+	return dot(q, q) < 1.0;
 }
 
 vec3 body_coat_deform(vec3 vertex) {

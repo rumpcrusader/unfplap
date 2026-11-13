@@ -103,10 +103,11 @@ func anal_active() -> bool:
 	return is_instance_valid(act) and bool(act.get("_anal"))
 
 
-## The pose config the controller's appearance reads. The runtime owns the live config.
+## The pose config the per-act handle adjusts with the oral turn's delta. The runtime owns the
+## live config; the persistent controller has no pose override outside an act.
 func pose_config(cfg: Dictionary) -> void:
-	if is_instance_valid(controller):
-		controller.call("pose_config", cfg)
+	if is_instance_valid(act):
+		act.call("pose_config", cfg)
 
 
 ## The per-act handle. The controller's `begin_act` creates it; the bridge resets the facts first.

@@ -31,6 +31,10 @@ class FakeAct extends Node:
 	var normal: Variant = Vector3.ZERO
 	var point: Variant = Vector3.ZERO
 	var rear: Variant = Vector3.ZERO
+	var pose_configs: Array = []
+
+	func pose_config(cfg: Dictionary) -> void:
+		pose_configs.append(cfg)
 
 	func toggle_hole(_state: int) -> void:
 		toggles.append("hole")
@@ -84,7 +88,6 @@ class FakeController extends Node:
 	var reacts := 0
 	var ends := 0
 	var detaches := 0
-	var pose_configs: Array = []
 
 	func refresh() -> void:
 		refreshes += 1
@@ -100,9 +103,6 @@ class FakeController extends Node:
 
 	func detach() -> void:
 		detaches += 1
-
-	func pose_config(cfg: Dictionary) -> void:
-		pose_configs.append(cfg)
 
 
 class FakeReactions extends RefCounted:
@@ -379,9 +379,13 @@ func _check_lifecycle() -> void:
 	check(controller.live == 1, "apply_live reaches the controller")
 	bridge.react()
 	check(controller.reacts == 1, "react reaches the controller")
-	bridge.pose_config({"a": 1})
-	check(controller.pose_configs.size() == 1, "pose_config reaches the controller")
 	var act := FakeAct.new()
+	bridge.act = act
+	bridge.pose_config({"a": 1})
+	check(act.pose_configs.size() == 1, "pose_config reaches the per-act handle")
+	bridge.act = null
+	bridge.pose_config({"b": 2})
+	check(act.pose_configs.size() == 1, "pose_config without an act is a no-op")
 	bridge.act = act
 	bridge.end()
 	check(controller.ends == 1, "end closes the controller act")

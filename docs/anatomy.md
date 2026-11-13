@@ -258,8 +258,8 @@ the orchestration. It owns:
 - the action gates (`hole_ready`, `oral_ready`, `finish_ready`, `actions_ready`), the toggles,
   the oral/finish reads and the placement controls;
 - the aim/gaze reads (`gaze_point`, `aim_eyes`, `normal`, `opening`, `rear`);
-- the act hooks (`tick`, `withdraw`, `on_climax`, `on_finish`, `afterglow_tick`, `end`,
-  `apply_live`, `detach`);
+- the act hooks (`tick`, `pose_config`, `withdraw`, `on_climax`, `on_finish`, `afterglow_tick`,
+  `end`, `apply_live`, `detach`);
 - the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
 
 The host is a plain dictionary of callables. The runtime supplies `main`, `pony`, `runtime`,

@@ -508,9 +508,9 @@ body's own deformation across the whole mesh.
   `tail_seat_trims.json` row and marks her with the `tail_seated` meta. The pony build runs
   before `Mods.on_node`, so the mod's `attach()` measures the **already seated** tail: its delta
   is `anatomy.placement` minus the game trim, and the placement therefore replaces the game's
-  trim rather than stacking on it. The shipped placement defaults and the game trim table carry
-  the same values; only `tail_tilt_deg` is mod-only. Turning `reseat_tails` off restores the
-  game-seated tail, which is the stock result.
+  trim rather than stacking on it. `MARE_DEFAULTS` is the mod's tuned seat and may differ from the
+  stock `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only. Turning `reseat_tails` off
+  restores the game-seated tail, which is the stock result.
 - `profile.participation.tail` gates the seat. A `false` value skips the attach and restores the
   row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `adult`
   assertion applies to the tail seat too, so a provider can make a character an adult without

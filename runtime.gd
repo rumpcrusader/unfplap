@@ -3041,6 +3041,8 @@ func _stop_with_her(reason: String) -> void:
 		return
 	_stopped_by_her = true
 	var strict := str(_preferences.get("tolerance", "normal")) == "strict"
+	# The teardown resets readiness; keep the value that caused the stop for the log below.
+	var distress: float = _readiness.distress()
 	_cancel_tolerance_warning()
 	_commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when no summary was
@@ -3060,7 +3062,7 @@ func _stop_with_her(reason: String) -> void:
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_preferences.get("tolerance", "normal")), _readiness.distress(),
+		str(_preferences.get("tolerance", "normal")), distress,
 		reason, str(strict)])
 
 

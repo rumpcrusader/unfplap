@@ -598,6 +598,10 @@ func _check_refusal() -> void:
 	verdict.buck_refuse = false
 	check(not bool(gate.call("refuse_available", "standing", "", null, gate_dict)),
 		"a willing gate cannot refuse")
+	check(bool(gate.call("refusal_ready", 10.0)), "a fresh refusal is ready")
+	gate.call("mark_refusal", 10.0)
+	check(not bool(gate.call("refusal_ready", 11.0)), "the refusal rate limit holds")
+	check(bool(gate.call("refusal_ready", 15.0)), "the refusal rate limit clears")
 	_free(made)
 	root.remove_child(view)
 	view.free()

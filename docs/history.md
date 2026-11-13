@@ -291,8 +291,8 @@ settings.
 - `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
   sanitising, pending lines, reset.
 - `tests/history/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
-- `tests/history/test_history.gd` — facade: summary commit, peak memory, tolerance decisions,
-  refusal gate and the idle apology/reminder scan.
+- `tests/history/test_history.gd` — facade: summary commit, peak memory, tolerance decisions and
+  the idle apology/reminder scan.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
 - `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.
 

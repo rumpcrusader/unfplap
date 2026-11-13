@@ -2938,9 +2938,9 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 	if not history_blocks_start():
 		return false
 	var now := _now_s()
-	if not _history.refusal_ready(now):
+	if not _scene.refusal_ready(now):
 		return true
-	_history.mark_refusal(now)
+	_scene.mark_refusal(now)
 	if is_instance_valid(main) and is_instance_valid(main.game):
 		var row: Dictionary = ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id,
 			ACT_HISTORY.day_now())

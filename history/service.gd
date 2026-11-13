@@ -22,7 +22,6 @@ var debug_request := ""
 var _turn := -1
 var _scan_clock := 0.0
 var _reminder_at := -1000.0
-var _refusal_at := -1000.0
 
 ## Host boundary. A missing callable is a no-op.
 var log := Callable()
@@ -211,14 +210,6 @@ func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:
 	peak.text = text
 	peak.score = score
 	main.memory.record_peak(peak)
-
-
-func refusal_ready(now: float) -> bool:
-	return now - _refusal_at >= 4.0
-
-
-func mark_refusal(now: float) -> void:
-	_refusal_at = now
 
 
 ## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or

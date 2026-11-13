@@ -252,11 +252,6 @@ func run() -> void:
 	check(history.take_debug() == "warning", "the debug request is consumed once")
 	check(history.take_debug() == "", "the debug request clears")
 
-	check(history.refusal_ready(10.0), "a fresh refusal is ready")
-	history.mark_refusal(10.0)
-	check(not history.refusal_ready(11.0), "the refusal rate limit holds")
-	check(history.refusal_ready(15.0), "the refusal rate limit clears")
-
 	var pony := FakePony.new()
 	root.add_child(pony)
 	var director := Node.new()

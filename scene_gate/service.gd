@@ -23,6 +23,8 @@ var pose_session: Variant = null
 var state := 0
 var id := ""
 var features: Dictionary = {}
+## The last spoken-refusal stamp. The line is paced, not repeated every frame.
+var _refusal_at := -1000.0
 
 ## Host boundary. A missing callback is a no-op.
 var stool_need := Callable()
@@ -307,6 +309,16 @@ func note_refusal(bucked: bool) -> void:
 	refuse_trust()
 	if on_refusal_face.is_valid():
 		on_refusal_face.call(bucked)
+
+
+## The spoken refusal line is paced: one gentle refusal per 4 s, so a held or repeated Y press
+## does not queue a line per frame. The runtime owns the line itself.
+func refusal_ready(now: float) -> bool:
+	return now - _refusal_at >= 4.0
+
+
+func mark_refusal(now: float) -> void:
+	_refusal_at = now
 
 
 ## The game's own unwelcome-contact hook: a little trust lost and the boundary signal. It never

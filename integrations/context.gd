@@ -6,6 +6,12 @@ extends RefCounted
 var state := 0
 var pose_id := ""
 var satisfaction := 0.0
+## The act's mood band: warming, wanting, close, climax or overwhelmed.
+var mood := ""
+## Seconds since the last real inward stroke; the act's activity gate.
+var seconds_since_stroke := 0.0
+## The provider's bond-stage ceiling for the reaction level, 0..1.
+var reaction_cap := 1.0
 var act_seconds := 0.0
 ## True once the act has entered afterglow.
 var afterglow := false

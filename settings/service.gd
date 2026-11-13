@@ -806,6 +806,10 @@ static var debug_mode := flag("debug_mode", "debug_mode", false, "Enable debug",
 static var debug_perf := flag("debug_perf", "debug_perf", false, "Print perf logs",
 	"Print the per-second performance block: per-pony rows during an act, one aggregated block while idle. Requires Enable debug.", GENERAL, "") \
 	.as_debug()
+static var kissing_full_fidgets := flag("kissing_full_fidgets",
+	"features.kissing_full_fidgets", false, "Play full Kissing fidgets",
+	"At her climax, also run Kissing's weight shift and hoof taps. Requires Use Kissing reactions; they can move the skeleton root or lift a planted hoof.", GENERAL, "") \
+	.as_debug()
 
 # -- Act face  (debug)
 static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "wide",

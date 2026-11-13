@@ -95,6 +95,7 @@ func run() -> void:
 	check(facts.pose_id == "", "pose starts empty")
 	check(facts.source == "", "source starts empty")
 	check(is_zero_approx(facts.satisfaction), "satisfaction starts at zero")
+	check(is_zero_approx(facts.seconds_since_stroke), "time since the last stroke starts at zero")
 	check(facts.mood == "" and facts.cue == "", "mood and cue start empty")
 	check(facts.pony_climaxes == 0, "climaxes start at zero")
 	check(is_zero_approx(facts.depth) and is_zero_approx(facts.penetration_m),

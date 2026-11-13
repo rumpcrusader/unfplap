@@ -540,6 +540,7 @@ func _sync_act_facts() -> void:
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
 		return
 	facts.act_seconds = _act_seconds
+	facts.seconds_since_stroke = maxf(0.0, _clock_s - _readiness.last_stroke_at)
 	facts.last_intensity = _readiness.last_intensity
 	facts.last_pattern = _readiness.last_pattern
 	facts.last_touch = _readiness.last_touch

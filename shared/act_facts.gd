@@ -12,6 +12,8 @@ var pose_id := ""
 var source := ""
 var satisfaction := 0.0
 var mood := ""
+## Seconds since the last real inward stroke; the integration activity gate reads it.
+var seconds_since_stroke := 0.0
 var cue := ""
 var pony_climaxes := 0
 var depth := 0.0

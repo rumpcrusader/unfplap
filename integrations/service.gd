@@ -32,6 +32,8 @@ class ProviderState:
 	var pending: Array = []
 	var active := false
 	var held_excitement := false
+	## The verified mod's bond-stage ceiling, read once at start.
+	var reaction_cap := 1.0
 
 
 ## One original property value saved before the facade wrote it.
@@ -276,6 +278,7 @@ func _start(provider: ProviderState) -> bool:
 	if not _apply(provider, _actions):
 		_stop(provider, "start failed")
 		return false
+	provider.reaction_cap = _read_reaction_cap(provider)
 	_hold_excitement(provider)
 	return true
 
@@ -325,6 +328,11 @@ func _apply(provider: ProviderState, actions: Array) -> bool:
 				continue
 			_write(provider, bound as Node, property, action.get("value"))
 			continue
+		if kind == ACTION.RESTORE:
+			var restored := _binding(provider, binding)
+			if restored is Node:
+				_restore_saved(provider, restored as Node, property)
+			continue
 		var node := _binding(provider, binding)
 		if not node is Node:
 			return false
@@ -369,6 +377,18 @@ func _write(provider: ProviderState, node: Node, property: String, value: Varian
 	return true
 
 
+## Put one saved original back without dropping the record, so a later write still keeps the
+## act-start value and the final reset restores it again.
+func _restore_saved(provider: ProviderState, node: Node, property: String) -> void:
+	for raw: Variant in _saved:
+		var saved := raw as Saved
+		if saved.provider_id == provider.id and saved.node == node \
+				and saved.property == property:
+			if is_instance_valid(saved.node) and _has_property(saved.node, saved.property):
+				saved.node.set(saved.property, saved.value)
+			return
+
+
 ## Restore one provider's saved values in reverse write order, or every provider's for "".
 func _restore_provider(provider_id: String) -> void:
 	var i := _saved.size() - 1
@@ -411,12 +431,31 @@ func _sync_context(provider: ProviderState) -> void:
 	context.state = int(_facts.get("state")) if _facts != null else 0
 	context.pose_id = str(_facts.get("pose_id")) if _facts != null else ""
 	context.satisfaction = float(_facts.get("satisfaction")) if _facts != null else 0.0
+	context.mood = str(_facts.get("mood")) if _facts != null else ""
+	context.seconds_since_stroke = float(_facts.get("seconds_since_stroke")) \
+		if _facts != null else 0.0
+	context.reaction_cap = provider.reaction_cap
 	context.act_seconds = float(_facts.get("act_seconds")) if _facts != null else 0.0
 	context.afterglow = _afterglow
 	context.affection_kind = _affection_kind()
 	var features: Variant = _facts.get("features") if _facts != null else null
 	context.features = features if features is Dictionary else {}
 	context.bindings = provider.flags
+
+
+## The verified mod's bond-stage ceiling. Kissing exposes it as `Feelings._peak()`; a missing
+## method leaves the provider uncapped.
+func _read_reaction_cap(provider: ProviderState) -> float:
+	var feelings: Variant = provider.bindings.get("feelings")
+	if not feelings is Node or not is_instance_valid(feelings):
+		return 1.0
+	var node := feelings as Node
+	if not node.has_method("_peak"):
+		return 1.0
+	var value: Variant = node.call("_peak")
+	if not (value is float or value is int):
+		return 1.0
+	return clampf(float(value), 0.0, 1.0)
 
 
 func _log(text: String) -> void:

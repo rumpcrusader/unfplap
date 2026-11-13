@@ -349,6 +349,7 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_climax` | `false` | pack wet finish layer |
 | `kissing_reactions` | `false` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
+| `kissing_full_fidgets` | `false` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,

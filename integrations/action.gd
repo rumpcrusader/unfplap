@@ -5,6 +5,7 @@ extends RefCounted
 
 const SET := "set"
 const BIND := "bind"
+const RESTORE := "restore"
 
 class Value:
 	var kind := SET
@@ -33,4 +34,14 @@ static func bind_value(binding: String, property: String, value: Variant,
 	action.property = property
 	action.value = value
 	action.optional = optional
+	return action
+
+
+## Put `property` back to the value the facade saved before this provider first wrote it. The
+## save record stays, so a later write still restores the act-start value at the final reset.
+static func restore_value(binding: String, property: String) -> Value:
+	var action := Value.new()
+	action.kind = RESTORE
+	action.binding = binding
+	action.property = property
 	return action

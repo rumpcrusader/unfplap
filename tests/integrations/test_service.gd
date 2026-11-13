@@ -12,7 +12,9 @@ var checks := 0
 class FakeFacts extends RefCounted:
 	var state := 2
 	var pose_id := "standing"
-	var satisfaction := 25.0
+	var satisfaction := 75.0
+	var mood := "close"
+	var seconds_since_stroke := 0.0
 	var act_seconds := 1.0
 	var pony: Variant = null
 	var features: Dictionary = {}
@@ -48,6 +50,13 @@ class FakePony extends Node3D:
 
 class FakeExcitement extends Node:
 	var _until := 1.25
+
+
+class FakeFeelings extends Node:
+	var level := 0.4
+
+	func _peak() -> float:
+		return 0.85
 
 
 class FakeAffection extends Node:
@@ -88,7 +97,7 @@ func _setup(feature := true) -> Dictionary:
 	skeleton.name = "Skeleton"
 	pony.add_child(skeleton)
 	pony.skeleton = skeleton
-	var feelings := Node.new()
+	var feelings := FakeFeelings.new()
 	feelings.name = "KissingFeelings"
 	pony.add_child(feelings)
 	var affection := FakeAffection.new()
@@ -131,6 +140,7 @@ func run() -> void:
 	_check_live_toggle()
 	_check_two_owners()
 	_check_missing_mid_act()
+	_check_full_fidgets()
 	print("INTEGRATIONS_SERVICE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -142,31 +152,41 @@ func _check_basic() -> void:
 	var beat: Timer = scene["beat"]
 	var excitement: Variant = scene["excitement"]
 	var affection: Variant = scene["affection"]
+	var feelings: FakeFeelings = scene["feelings"]
 	service.begin()
 	service.begin()
 	check(service.active_ids().has("kissing"), "the Kissing provider starts")
 	check(beat.paused, "start takes the shared excitement hold")
 	check(facts.beat_holders.has("kissing"), "the provider owns the hold while it runs")
 	check(near(excitement._until, 0.0), "start clears the game's excitement cause")
+	check(near(feelings.level, 0.4), "start leaves the level to the act")
 	check(facts.logs.has("integration kissing on"), "activation is logged once")
 	service.tick(0.1)
 	check(near(excitement._until, 0.5), "tick gives Kissing the acted cause")
+	check(feelings.level > 0.0 and feelings.level <= 0.85,
+		"the close tick raises the level under the bond cap")
 	affection.kind = "kiss"
 	excitement._until = 0.0
+	var before_kiss := feelings.level
 	service.tick(0.1)
 	check(near(excitement._until, 0.0), "an Affection kiss keeps its own cause")
+	check(near(feelings.level, before_kiss), "an Affection kiss owns the level")
 	affection.kind = ""
 	service.tick(0.1)
 	check(near(excitement._until, 0.5), "the acted cause resumes after the kiss")
+	check(feelings.level > before_kiss, "the level resumes after the kiss")
 	service.afterglow()
 	check(near(excitement._until, 0.0), "afterglow clears the acted cause")
+	var afterglow_level := feelings.level
 	service.tick(0.1)
 	check(near(excitement._until, 0.0), "afterglow tick does not restart the cause")
+	check(near(feelings.level, afterglow_level), "afterglow leaves the fade to Kissing")
 	service.reset()
 	check(service.active_ids().is_empty(), "reset stops the provider")
 	check(not beat.paused, "reset releases the shared hold")
 	check(facts.beat_holders.is_empty(), "reset drops the provider hold")
 	check(near(excitement._until, 1.25), "reset restores the saved cause")
+	check(near(feelings.level, 0.4), "reset restores the saved level")
 	check(facts.logs.has("integration kissing off"), "deactivation is logged")
 	service.reset()
 	check(near(excitement._until, 1.25), "reset is idempotent")
@@ -282,10 +302,43 @@ func _check_missing_mid_act() -> void:
 	var excitement: Variant = scene["excitement"]
 	var feelings: Node = scene["feelings"]
 	service.begin()
+	service.tick(0.1)
 	check(service.active_ids().has("kissing"), "the provider starts before the node disappears")
 	feelings.free()
 	service.tick(0.1)
 	check(service.active_ids().is_empty(), "losing a required binding stops the provider")
 	check(not beat.paused, "losing a required binding releases the hold")
 	check(near(excitement._until, 1.25), "losing a required binding restores the saved cause")
+	_free_scene(scene)
+
+
+## The debug feature restores Kissing's root sway and hoof taps for the climax only.
+func _check_full_fidgets() -> void:
+	var scene := _setup()
+	var facts: FakeFacts = scene["facts"]
+	var service := SERVICE.new(facts)
+	var skeleton: Node = scene["skeleton"]
+	var fidgets := _add_fidgets(skeleton)
+	facts.state = 3
+	facts.mood = "climax"
+	facts.satisfaction = 100.0
+	facts.features = {"kissing_reactions": true, "kissing_full_fidgets": true}
+	service.begin()
+	service.tick(0.1)
+	check(int(fidgets._root) == 7, "the climax restores the root sway")
+	check(near(float(fidgets._tap_next), 0.25), "the climax restores the hoof taps")
+	facts.state = 2
+	facts.mood = "close"
+	service.tick(0.1)
+	check(int(fidgets._root) == -1, "leaving the climax suppresses the root sway")
+	check(near(float(fidgets._tap_next), 1.0e9), "leaving the climax suppresses the hoof taps")
+	facts.state = 3
+	facts.mood = "climax"
+	service.tick(0.1)
+	service.afterglow()
+	check(int(fidgets._root) == -1, "afterglow suppresses the full fidgets")
+	check(near(float(fidgets._tap_next), 1.0e9), "afterglow restores the tap clock")
+	service.reset()
+	check(int(fidgets._root) == 7, "reset restores the act-start root")
+	check(near(float(fidgets._tap_next), 0.25), "reset restores the act-start tap clock")
 	_free_scene(scene)

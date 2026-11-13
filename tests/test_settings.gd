@@ -121,6 +121,9 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.skeleton_overlay.debug), "the skeleton overlay is a debug setting")
 	check(not bool(SETTINGS.kissing_reactions.default),
 		"the Kissing reaction bridge defaults off")
+	check(not bool(SETTINGS.kissing_full_fidgets.default)
+		and bool(SETTINGS.kissing_full_fidgets.debug),
+		"full Kissing fidgets are an off-by-default debug feature")
 	check(str(SETTINGS.dock_style.default) == "genitals", "dock style defaults to genitals")
 	check(near(float(SETTINGS.back_out_m.default), 0.0) and bool(SETTINGS.back_out_m.debug),
 		"back-out gap is a debug number at zero")
@@ -139,6 +142,8 @@ func _check_snapshot() -> void:
 	check(snap.thrust_up == (SETTINGS.orientation.get_choice() == "up"),
 		"the act snapshot carries the thrust direction")
 	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
+	check(snap.features.has("kissing_full_fidgets"),
+		"the act snapshot carries the Kissing debug feature")
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")

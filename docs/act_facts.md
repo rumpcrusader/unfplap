@@ -25,7 +25,7 @@ Session and scoring:
 
 ```
 state, pose_id, source
-satisfaction, mood, cue, pony_climaxes
+satisfaction, mood, seconds_since_stroke, cue, pony_climaxes
 depth, penetration_m, penetration_reach
 ```
 

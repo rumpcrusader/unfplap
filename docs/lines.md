@@ -120,7 +120,7 @@ them in one context dictionary.
 - The scan checks once per second. A queued line marks the row announced through
   `ACT_HISTORY.mark_announced()`, so the same act does not speak twice.
 
-The stored row itself is `shared/act_history.gd`; its tiers and wording are in `docs/history.md`.
+The stored row itself is `shared/act_history.gd`; its tiers and wording are in `docs/summary.md`.
 
 ## Cancelling
 

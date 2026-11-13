@@ -187,7 +187,7 @@ prefixes pre-emptively.
   The loader reads the old path once, merges the returned dictionary and erases the old key, so a
   retired setting cannot linger in the file.
 - `history.*` holds the act-history score weights, thresholds, decay and offer weighting; the
-  contract is `docs/history.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier
+  contract is `docs/summary.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier
   itself is a per-mare `preferences.tolerance`, not a global setting.
 - Built-in act prompts live in `SETTINGS.DEFAULT_ACT_PROMPTS`; `act_prompts` stores only overrides.
   **Reset act prompts** (General › Enable debug › Debug › Actions) clears them.

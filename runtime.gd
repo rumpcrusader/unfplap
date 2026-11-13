@@ -7,7 +7,7 @@ const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
-const ACT_SUMMARY := preload("res://mods/unfplap/history/summary.gd")
+const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -35,7 +35,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_LINES := preload("res://mods/unfplap/lines/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
-const HISTORY := preload("res://mods/unfplap/history/service.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
@@ -523,18 +523,18 @@ var _talk_cooldown_s := 8.0
 var _receptive_seconds := 8.0
 var _act_spoken_at := -1e9
 var _act_ended_early := false
-## The act's summary, history and tolerance system; see `history/service.gd`. The act values below forward.
-var _history: RefCounted = HISTORY.new()
+## The act's summary, grade and peak record; see `summary/service.gd`. The act values below forward.
+var _summary_service: RefCounted = SUMMARY.new()
 var _summary: Dictionary:
 	get:
-		return _history.summary
+		return _summary_service.summary
 	set(value):
-		_history.summary = value
+		_summary_service.summary = value
 var _summary_done: bool:
 	get:
-		return _history.summary_done
+		return _summary_service.summary_done
 	set(value):
-		_history.summary_done = value
+		_summary_service.summary_done = value
 ## Compatibility read for the face suite: the live pure tolerance meter.
 var _tolerance:
 	get:
@@ -642,7 +642,7 @@ func _init() -> void:
 	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
 	_readiness.heat_cycle = Callable(self, "_readiness_heat")
 	_readiness.on_cue = Callable(self, "_readiness_cue")
-	_history.log = Callable(self, "_log")
+	_summary_service.log = Callable(self, "_log")
 	_afterglow.log = Callable(self, "_log")
 	_afterglow.clock = Callable(self, "_now_s")
 	_afterglow.in_phase = Callable(self, "_afterglow_active")
@@ -1936,7 +1936,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
 	_end_tail_tuck()
-	_history.reset_act()
+	_summary_service.reset_act()
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
@@ -2871,7 +2871,7 @@ func _last_spoken_at() -> float:
 
 ## One summary per act. The history system scores it and owns the stored row.
 func _commit_summary(real_act: bool) -> void:
-	_history.commit_summary(real_act, _summary_context())
+	_summary_service.commit_summary(real_act, _summary_context())
 
 
 ## The scene values the summary scores. The history facade owns the shape; this only gathers.
@@ -2899,11 +2899,11 @@ func _summary_values() -> Dictionary:
 
 
 func _summary_context() -> Dictionary:
-	return _history.summary_context(_summary_values())
+	return _summary_service.summary_context(_summary_values())
 
 
 func _summary_inputs() -> Dictionary:
-	return _history.summary_inputs(_summary_values())
+	return _summary_service.summary_inputs(_summary_values())
 
 
 func _history_note() -> String:
@@ -3116,7 +3116,7 @@ func debug_force_tolerance(kind: String) -> bool:
 
 ## Store the strongest clean act per mare. The history system owns the eligibility and the text.
 func _record_peak_memory() -> void:
-	_history.record_peak_memory({
+	_summary_service.record_peak_memory({
 		"main": main,
 		"pony_id": _id,
 		"event_id": _event_id,

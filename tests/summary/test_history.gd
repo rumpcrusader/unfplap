@@ -1,9 +1,9 @@
 extends SceneTree
-## The history facade: the summary commit and peak memory. No live world is needed.
+## The summary facade: the act grade and peak memory. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/history/test_history.gd
+##     --script res://mods/unfplap/tests/summary/test_history.gd
 
-const HISTORY := preload("res://mods/unfplap/history/service.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
@@ -119,13 +119,13 @@ func run() -> void:
 	var mods := _mods()
 	var main := _main()
 	var host := Host.new()
-	var history := HISTORY.new()
-	history.log = Callable(host, "write")
+	var summary := SUMMARY.new()
+	summary.log = Callable(host, "write")
 
-	check(history.summary.is_empty(), "the summary starts empty")
-	check(not history.summary_done, "the summary flag starts clear")
-	check(not history.peak_recorded, "the peak flag starts clear")
-	history.reset_act()
+	check(summary.summary.is_empty(), "the summary starts empty")
+	check(not summary.summary_done, "the summary flag starts clear")
+	check(not summary.peak_recorded, "the peak flag starts clear")
+	summary.reset_act()
 
 	# The facade owns the summary input and context shape; the runtime only gathers.
 	var gathered: Dictionary = {
@@ -148,7 +148,7 @@ func run() -> void:
 		"ended_early": false,
 		"stopped_by_her": true,
 	}
-	var built: Dictionary = history.summary_inputs(gathered)
+	var built: Dictionary = summary.summary_inputs(gathered)
 	check(is_equal_approx(float(built.get("seconds", 0.0)), 42.5), "the input keeps the act seconds")
 	check(int(built.get("thrusts", 0)) == 7, "the input keeps the real thrusts")
 	check(int((built.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 1,
@@ -157,31 +157,31 @@ func run() -> void:
 		"the tolerance comes from the gathered preferences")
 	check(bool(built.get("stopped_by_her", false)), "the input keeps the partner stop")
 	check(not bool(built.get("forced", false)), "a missing forced flag reads false")
-	var wrapped: Dictionary = history.summary_context(gathered)
+	var wrapped: Dictionary = summary.summary_context(gathered)
 	check(str(wrapped.get("pony_id", "")) == "rarity" and str(wrapped.get("event_id", "")) == "intimacy_test",
 		"the context keeps the ids")
 	check((wrapped.get("inputs", {}) as Dictionary).has("touch_dislikes"),
 		"the context wraps the built inputs")
 
-	history.commit_summary(true, _context(main, _inputs()))
-	check(not history.summary.is_empty(), "a summary is committed once")
-	check(str(history.summary.get("grade", "")) == "good", "a clean act is good")
-	check(int(history.summary.get("romance", 0)) == 2, "a good act gives romance +2")
+	summary.commit_summary(true, _context(main, _inputs()))
+	check(not summary.summary.is_empty(), "a summary is committed once")
+	check(str(summary.summary.get("grade", "")) == "good", "a clean act is good")
+	check(int(summary.summary.get("romance", 0)) == 2, "a good act gives romance +2")
 	check(main.memory.impressions.size() == 1, "the impression is written once")
 	check(mods.saves >= 1, "the history row is saved")
 	var row: Dictionary = (mods.data["unfplap"].get("act_history", {}) as Dictionary).get("rarity", {})
 	check(int(row.get("acts", 0)) == 1, "the history row counts the act once")
-	history.commit_summary(true, _context(main, _inputs()))
+	summary.commit_summary(true, _context(main, _inputs()))
 	check(main.memory.impressions.size() == 1, "a second commit is a no-op")
 
-	history.summary_done = false
-	history.summary = {}
-	history.commit_summary(false, _context(main, _inputs(1.0, 0)))
-	check(history.summary.is_empty(), "a short act with no thrusts is skipped")
+	summary.summary_done = false
+	summary.summary = {}
+	summary.commit_summary(false, _context(main, _inputs(1.0, 0)))
+	check(summary.summary.is_empty(), "a short act with no thrusts is skipped")
 
-	history.reset_act()
-	history.summary = {"positive": true, "grade": "good"}
-	history.record_peak_memory({
+	summary.reset_act()
+	summary.summary = {"positive": true, "grade": "good"}
+	summary.record_peak_memory({
 		"main": main,
 		"pony_id": "rarity",
 		"event_id": "intimacy_test",
@@ -200,10 +200,10 @@ func run() -> void:
 		check(peak.text.contains("you are perfect") and peak.text.contains("I know."),
 			"the peak quotes the act's exchange")
 		check(peak.score > 0.0, "the peak keeps its score")
-	history.record_peak_memory({"main": main}, 0.0)
+	summary.record_peak_memory({"main": main}, 0.0)
 	check(main.memory.peaks.size() == 1, "the peak is stored once per act")
 
-	print("HISTORY_RESULT checks=%d failures=%d" % [checks, failures])
+	print("SUMMARY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
-		print("HISTORY_PASS")
+		print("SUMMARY_PASS")
 	quit(0 if failures == 0 else 1)

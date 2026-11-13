@@ -59,7 +59,7 @@ list.
   bypasses the quiet, cooldown and AI-usage checks but keeps the eligibility gate, pose and
   free-bed gates. Because the settings page pauses the tree, an offer advances after it closes.
 - **Reset/Show act history** and **Show prompt context** read the history and prompt state; see
-  `docs/history.md` and `docs/lines.md`.
+  `docs/summary.md` and `docs/lines.md`.
 - **Force heat/diestrus/Clear forced cycle** set the session-only estrus override; see the cycle
   section of `docs/eligibility.md`.
 - **Force neglect warning/stop** act on the live act; they are consumed on the next unpaused frame.
@@ -126,5 +126,5 @@ The debug actions and overlay are manual. Their settings and action declarations
 - `docs/settings.md` — the Debug block, hotkeys and the declaration rules.
 - `docs/perf.md` — the act perf probe.
 - `docs/anatomy.md` — the placement actions.
-- `docs/history.md`, `docs/face.md`, `docs/eligibility.md` — the per-service debug actions.
+- `docs/summary.md`, `docs/face.md`, `docs/eligibility.md` — the per-service debug actions.
 - `WORKFLOW.md` — the lab commands.

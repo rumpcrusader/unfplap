@@ -5,7 +5,7 @@ extends RefCounted
 ## decisions. Contract: `docs/afterglow.md`.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const ACT_SUMMARY := preload("res://mods/unfplap/history/summary.gd")
+const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 
 ## After this long the mare may choose to end the afterglow herself. Being held or caressed
 ## lowers the chance; an accepted `[stay]` pauses the roll entirely.

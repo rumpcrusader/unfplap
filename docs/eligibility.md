@@ -328,7 +328,7 @@ Both modes use the same Promiscuity floor, the same base gate and the same willi
 
 ## History and cycle
 
-`shared/act_history.gd` owns the point math and tiers (`docs/history.md`). `history/service.gd` owns the runtime-side
+`shared/act_history.gd` owns the point math and tiers (`docs/summary.md`). `summary/service.gd` owns the runtime-side
 summary/tolerance decisions and the refusal gate; the runtime still exposes
 `refuse_from_history()`. Eligibility consumes:
 

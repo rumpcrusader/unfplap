@@ -162,5 +162,5 @@ Rarity, Octavia, Maud and Zecora, and the wider roster follows the same rule.
 
 - `docs/readiness.md` — the scoring loop and the auto stroke.
 - `docs/eligibility.md` — consent, participation and the per-mare gates.
-- `docs/history.md` — the act summary, tolerance and the history tiers.
+- `docs/summary.md` — the act summary, tolerance and the history tiers.
 - `docs/settings.md` — the settings framework and the Characters tab.

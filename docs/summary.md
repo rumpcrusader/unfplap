@@ -8,19 +8,19 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 ## Ownership
 
-`history/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
+`summary/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
 context shape the pure scorer reads (`summary_inputs()`, `summary_context()`) and the peak-memory
 record. The stored ledger is read from `shared/act_history.gd` directly, by this facade and by every
 other consumer. The runtime keeps the act state machine, gathers the action counters and the scene
 values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release, session
-end, space, buck, tail tuck) and owns the face and line presentation. `history/summary.gd` and
+end, space, buck, tail tuck) and owns the face and line presentation. `summary/score.gd` and
 `shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade. The
 neglect-tolerance meter is readiness and the idle history scan is lines; see `docs/readiness.md`
 and `docs/lines.md`.
 
 ## Per-act score
 
-`history/summary.gd` is pure. It scores one act from the action counters the runtime collected:
+`summary/score.gd` is pure. It scores one act from the action counters the runtime collected:
 
 | Component | Weight | Passes when | Applies |
 |---|---:|---|---|
@@ -254,13 +254,13 @@ so stored values are never clamped. See `docs/settings.md`.
 
 ## Tests
 
-- `tests/history/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike
+- `tests/summary/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike
   neutrality, severe handling, early end, stopped-by-her severe outcome, forced stop, short act,
   motion and touch misses.
-- `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
+- `tests/summary/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
   sanitising, pending lines, reset.
-- `tests/history/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
-- `tests/history/test_history.gd` — facade: summary commit and peak memory.
+- `tests/summary/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
+- `tests/summary/test_history.gd` — facade: summary commit and peak memory.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
 - `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.
 

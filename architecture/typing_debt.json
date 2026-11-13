@@ -136,26 +136,6 @@
       "signature": "func smack_presentation() -> Dictionary:"
     },
     {
-      "service": "history",
-      "func": "commit_summary",
-      "signature": "func commit_summary(real_act: bool, context: Dictionary) -> void:"
-    },
-    {
-      "service": "history",
-      "func": "record_peak_memory",
-      "signature": "func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:"
-    },
-    {
-      "service": "history",
-      "func": "summary_context",
-      "signature": "func summary_context(context: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "history",
-      "func": "summary_inputs",
-      "signature": "func summary_inputs(context: Dictionary) -> Dictionary:"
-    },
-    {
       "service": "lines",
       "func": "configure",
       "signature": "func configure(pacing: Dictionary) -> void:"
@@ -589,6 +569,26 @@
       "service": "stool",
       "func": "writable",
       "signature": "func writable(store: Variant) -> bool:"
+    },
+    {
+      "service": "summary",
+      "func": "commit_summary",
+      "signature": "func commit_summary(real_act: bool, context: Dictionary) -> void:"
+    },
+    {
+      "service": "summary",
+      "func": "record_peak_memory",
+      "signature": "func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:"
+    },
+    {
+      "service": "summary",
+      "func": "summary_context",
+      "signature": "func summary_context(context: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "summary",
+      "func": "summary_inputs",
+      "signature": "func summary_inputs(context: Dictionary) -> Dictionary:"
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 This is the contract for the act's readiness loop: the measured stroke, the physical strength
 value, satisfaction/mood/cues, the pony climax count, the touch/talk assist and the automatic
-stroke. The long-term summary and history are `docs/history.md`; cue admission and prompt assembly
+stroke. The long-term summary and history are `docs/summary.md`; cue admission and prompt assembly
 are `docs/lines.md`; the HUD text is `docs/hud.md`; the camera response is `docs/camera.md`.
 
 ## Ownership
@@ -180,7 +180,7 @@ forgiving. The old `timid`/`neutral` values still resolve to `forgiving`/`normal
 Readiness queues at most one decision per frame (`take_tolerance_decision()`); the runtime presents
 it. A warning sets a HUD cue and queues one short spoken warning; a stop runs the runtime's
 `_stop_with_her`. Warnings and the stop line speak even when `features.act_lines` is off. The
-stop's summary, memory note, cooldown and mood are in `docs/history.md`; its buck/push is
+stop's summary, memory note, cooldown and mood are in `docs/summary.md`; its buck/push is
 `docs/scene_gate.md`.
 
 The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for
@@ -261,5 +261,5 @@ settings.
 - `docs/lines.md` — cue admission, prompt assembly, reactions.
 - `docs/hud.md` — cue, readiness and auto text.
 - `docs/preferences.md` — the per-mare profile and the two axes.
-- `docs/history.md` — the act summary and the long-term history.
+- `docs/summary.md` — the act summary and the long-term history.
 - `docs/afterglow.md` — the post-act phase.

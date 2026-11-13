@@ -82,7 +82,7 @@ controller flags), so a failed start runs the same function and restores only wh
   the retry waits out aftercare and the guest cooldown, and every failure is logged before she is
   left standing.
 - The afterglow, close window and aftercare are `docs/afterglow.md`; the face and mood are
-  `docs/face.md`; the summary is `docs/history.md`.
+  `docs/face.md`; the summary is `docs/summary.md`.
 
 ## Tick order
 
@@ -108,7 +108,7 @@ callable.
 
 - `tests/test_runtime_teardown.gd` — the one exit path and the ownership flags.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
-- `tests/history/test_act_flow.gd` — the state flow and the afterglow HUD summary.
+- `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions.
 - The service suites indexed in `docs/README.md`.
 
@@ -125,4 +125,4 @@ callable.
 - `docs/README.md` — the service index.
 - `docs/eligibility.md`, `docs/scene_gate.md`, `docs/scene_hold.md` — the start gates and scene.
 - `docs/poses.md`, `docs/camera.md` — the tick-time pose and camera.
-- `docs/afterglow.md`, `docs/face.md`, `docs/history.md` — the post-act phases.
+- `docs/afterglow.md`, `docs/face.md`, `docs/summary.md` — the post-act phases.

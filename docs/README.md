@@ -45,7 +45,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Poses and skeleton | `poses/service.gd` | `docs/poses.md` | `tests/poses/` |
 | Act camera and shots | `camera/service.gd` | `docs/camera.md` | `tests/act_camera/` |
 | Kiss | `kiss/service.gd` | `docs/kiss.md` | `tests/act_camera/`, `tests/face/`, `tests/hands/` |
-| History and tolerance | `history/service.gd` | `docs/history.md` | `tests/history/` |
+| Act summary | `summary/service.gd` | `docs/summary.md` | `tests/summary/` |
 | Afterglow | `afterglow/service.gd` | `docs/afterglow.md` | `tests/afterglow/` |
 | Face and mood | `face/service.gd` | `docs/face.md` | `tests/face/` |
 | Reactions | `reactions/service.gd` | `docs/reactions.md` | `tests/reactions/` |
@@ -71,7 +71,7 @@ only stable external surface is `docs/api.md`.
 | Cycle | `shared/cycle.gd` | `docs/eligibility.md` | `tests/test_cycle.gd` |
 | Participation | `shared/participation.gd` | `docs/eligibility.md` | `tests/test_participation.gd` |
 | Consent defaults | `shared/consent.gd` | `docs/eligibility.md` | `tests/eligibility/` |
-| History store | `shared/act_history.gd` | `docs/history.md` | `tests/history/` |
+| History store | `shared/act_history.gd` | `docs/summary.md` | `tests/summary/` |
 | Face data | `shared/act_face.gd` | `docs/face.md` | `tests/face/` |
 | Relationship cue | `shared/relationship_cue.gd` | `docs/lines.md` | `tests/test_relationship_cue.gd` |
 | Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/test_catalog.gd` |
@@ -140,7 +140,7 @@ checker parses `Uses` and compares it with the preload graph. `Kind` is one of `
 | shared | preferences | `shared/preferences.gd` | tolerance tier |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 | read model | act_view | `shared/act_facts.gd` | act state for presentation |
-| host | runtime | `bind(HistoryHost)` | clock, idle state, scene callbacks |
+| host | runtime | `bind(SummaryHost)` | clock, idle state, scene callbacks |
 | game | pony_director | `res://world/ai/...` | speak one line |
 ```
 

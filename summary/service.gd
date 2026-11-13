@@ -1,9 +1,10 @@
 extends RefCounted
-## The act's summary and long-term history. The runtime owns the act state, the scene stop
-## executor and the line/face presentation; this system owns the scoring trigger, the grade-aware
-## commit and the peak-memory record. The idle apology/reminder scan is lines. See docs/history.md.
+## Service: summary. The act's grade and its post-act record. The runtime owns the act state, the
+## scene stop executor and the line/face presentation; this system owns the scoring trigger, the
+## grade-aware commit and the peak-memory record. The idle apology/reminder scan is lines and the
+## neglect meter is readiness. See docs/summary.md.
 
-const ACT_SUMMARY := preload("res://mods/unfplap/history/summary.gd")
+const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -26,7 +27,7 @@ func reset_act() -> void:
 
 
 ## The summary inputs the pure scorer reads. The runtime gathers its act counters and the scene
-## values; the facade owns the shape `history/summary.gd` scores, so a new input lands in one place.
+## values; the facade owns the shape `summary/score.gd` scores, so a new input lands in one place.
 func summary_inputs(context: Dictionary) -> Dictionary:
 	var preference_value: Variant = context.get("preferences", {})
 	var preferences: Dictionary = preference_value if preference_value is Dictionary else {}

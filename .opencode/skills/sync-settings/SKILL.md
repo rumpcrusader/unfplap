@@ -141,7 +141,7 @@ Edit that mare's block in `shared/character_preferences.gd` `TEMPLATES`. Preserv
 ### Docs
 
 Update the matching contract text in `docs/settings.md` and the owning service doc
-(`docs/readiness.md`, `docs/history.md`, `docs/poses.md`, `docs/camera.md`, ...). `AGENTS.md` only
+(`docs/readiness.md`, `docs/summary.md`, `docs/poses.md`, `docs/camera.md`, ...). `AGENTS.md` only
 holds the service index. Do not leave an old default in the docs.
 
 ## 6. Verify

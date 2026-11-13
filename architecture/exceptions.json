@@ -10,7 +10,7 @@
     },
     {
       "from": "afterglow/service.gd",
-      "to": "history/summary.gd",
+      "to": "summary/score.gd",
       "kind": "service-private",
       "owner": "afterglow",
       "reason": "migration baseline; fix in the boundary-cleanup phase",

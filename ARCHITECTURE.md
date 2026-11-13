@@ -316,7 +316,7 @@ Rules:
 | shared | preferences | `shared/preferences.gd` | tolerance tier |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 | read model | act_view | `shared/act_view.gd` | act state for presentation |
-| host | runtime | `bind(HistoryHost)` | clock, idle state, scene callbacks |
+| host | runtime | `bind(SummaryHost)` | clock, idle state, scene callbacks |
 | game | pony_director | `res://world/ai/...` | speak one line |
 ```
 

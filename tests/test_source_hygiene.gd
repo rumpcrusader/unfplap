@@ -79,7 +79,7 @@ func run() -> void:
 	_check_act_facts()
 	_check_act_lines()
 	_check_readiness()
-	_check_history()
+	_check_summary()
 	_check_afterglow()
 	_check_face()
 	_check_reactions()
@@ -415,24 +415,24 @@ func _check_readiness() -> void:
 			"tests/readiness/%s exists" % name)
 
 
-## The history facade owns the summary decisions and reads only its pure modules.
-## Its contract is `docs/history.md`, and the runtime keeps the scene stop executor.
-func _check_history() -> void:
-	var facade := FileAccess.get_file_as_string(ROOT.path_join("history/service.gd"))
-	check(facade.contains("func commit_summary("), "history facade is present")
+## The summary facade owns the act grade and reads only its pure modules.
+## Its contract is `docs/summary.md`, and the runtime keeps the scene stop executor.
+func _check_summary() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("summary/service.gd"))
+	check(facade.contains("func commit_summary("), "summary facade is present")
 	check(facade.contains("func summary_inputs(") and facade.contains("func summary_context("),
-		"the history facade owns the summary input and context shape")
+		"the summary facade owns the summary input and context shape")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get("]:
-		check(not facade.contains(token), "history has no scene reference: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/history.md"))
-	check(contract.contains("## Ownership"), "docs/history.md documents the history owner")
-	check(contract.contains("`history/service.gd`"), "docs/history.md names history/service.gd")
+		check(not facade.contains(token), "summary has no scene reference: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/summary.md"))
+	check(contract.contains("## Ownership"), "docs/summary.md documents the summary owner")
+	check(contract.contains("`summary/service.gd`"), "docs/summary.md names summary/service.gd")
 	for name: String in ["test_act_flow.gd", "test_act_summary.gd",
 			"test_act_history.gd", "test_history.gd"]:
-		check(FileAccess.file_exists(ROOT.path_join("tests/history/" + name)),
-			"tests/history/%s exists" % name)
+		check(FileAccess.file_exists(ROOT.path_join("tests/summary/" + name)),
+			"tests/summary/%s exists" % name)
 
 
 ## The afterglow facade owns the phase timers and the close-window decision; it reads plain
@@ -705,7 +705,7 @@ func _check_docs_index(files: Array[String]) -> void:
 		["docs/poses.md", "poses/service.gd", "tests/poses/"],
 		["docs/camera.md", "camera/service.gd", "tests/act_camera/"],
 		["docs/kiss.md", "kiss/service.gd", "tests/act_camera/"],
-		["docs/history.md", "history/service.gd", "tests/history/"],
+		["docs/summary.md", "summary/service.gd", "tests/summary/"],
 		["docs/afterglow.md", "afterglow/service.gd", "tests/afterglow/"],
 		["docs/face.md", "face/service.gd", "tests/face/"],
 		["docs/reactions.md", "reactions/service.gd", "tests/reactions/"],
@@ -955,7 +955,7 @@ func _check_memory_docs() -> void:
 			"## Impressions and events", "## Witness pass", "## Line channel",
 			"## Cue facts and shared memory", "## Tests", "## Known limits"]:
 		check(contract.contains(heading), "docs/memory.md has %s" % heading)
-	for name: String in ["docs/README.md", "docs/history.md", "docs/initiation.md"]:
+	for name: String in ["docs/README.md", "docs/summary.md", "docs/initiation.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/memory.md"), "%s links to docs/memory.md" % name)
 

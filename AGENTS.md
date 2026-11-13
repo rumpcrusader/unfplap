@@ -24,7 +24,7 @@ Do not start implementation until you have read the required files for the area 
 | Jiggle, smack impact, rump blush or climax hearts | `docs/reactions.md` |
 | Standing footstool or stool supply | `docs/stool.md` |
 | Readiness, preference or strength | `docs/readiness.md`, `docs/preferences.md` |
-| Act summary, long-term history, reluctance | `docs/history.md` |
+| Act summary, grade, long-term history, reluctance | `docs/summary.md` |
 | Act face, mood or voice emotion | `docs/face.md` |
 | Pose, skeleton, camera, act actions | `docs/poses.md`, `docs/camera.md` |
 | Kiss | `docs/kiss.md` |

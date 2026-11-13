@@ -14,26 +14,43 @@ climax, and the Ponese mute policy.
 | `docs/audio.md` | this contract |
 
 `act_audio.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the
-process: `start(features)` opens an act's layers, `stop_act()` closes them. It never preloads
+process: `begin(features)` opens an act's layers, `end()` closes them. It never preloads
 `runtime.gd` or `main.gd`; the runtime passes the pony, the id, the feature snapshot and the
 classified voice info as arguments.
 
+## Bridge
+
+The runtime calls one typed bridge, never a private field or a raw player:
+
+| Method | Call site |
+|---|---|
+| `begin(features)` | the start sequence, after the vocal prepare |
+| `end()` | the one teardown ledger |
+| `climax(snout, dock)` | the climax fan-out |
+| `tick(delta, phase, rate, snout)` | the breath path in the tick |
+| `apply_voice_policy(pony, id, mute, info)` | the act start and every live settings edit |
+| `restore_voice_policy()` | the act end and a mute-policy change |
+| `stop_breath()` | the restore begin |
+| `set_enabled(vocals, climax)` | `apply_live_settings()` |
+| `play_impact`, `play_plap`, `play_bed`, `play_slide`, `crossed`, `withdraw_crossed`, `play_mouth_kiss` | the impact and kiss paths |
+
+The runtime keeps the call sites, the director/vocal prepare and the feature snapshot.
+
 ## Act lifecycle
 
-- `start(features)` randomises the variant picker, builds the always-on `foley` group and the
+- `begin(features)` randomises the variant picker, builds the always-on `foley` group and the
   optional `vocals`/`climax` groups from the feature flags, then creates and starts the
   `act_sound` child.
 - `set_enabled(vocals, climax)` rebuilds only the optional group that changed; the foley group
   stays built. `apply_live_settings()` calls it while the act runs.
-- `stop_act()` stops and clears every pack pool and frees the sound child. The facade itself
-  survives, so the mute policy can still give the voice player its volume back on a later
-  settings edit.
+- `end()` stops and clears every pack pool and frees the sound child. The facade itself survives,
+  so the mute policy can still give the voice player its volume back on a later settings edit.
 - `play_impact`/`play_plap`/`play_bed`/`play_slide`/`withdraw_crossed`/`crossed`/`play_mouth_kiss`
   are the pack cues the runtime drives from the impact and kiss paths.
-- `play_climax(snout, dock)` plays the base-game squee at the snout, the wet layer at the dock and
-  the optional pack vocal at the snout.
-- `breath_tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences
-  it at the restore begin.
+- `climax(snout, dock)` plays the base-game squee at the snout, the wet layer at the dock and the
+  optional pack vocal at the snout.
+- `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at
+  the restore begin.
 
 ## Voice policy
 

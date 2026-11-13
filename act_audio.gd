@@ -1,7 +1,7 @@
 extends Node
 ## The act audio facade: the OpenNSFW foley/vocal/wet layers, the base-game breath and squee
 ## climax, and the Ponese mute policy. The runtime creates one node and keeps it for the process;
-## `start()` opens the layers for an act and `stop_act()` closes them.
+## `begin()` opens the layers for an act and `end()` closes them.
 ##
 ## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `vocals` covers only the pack
 ## climax moan. `climax` is the separate wet finish layer. The base-game breath, Ponese voice and
@@ -40,7 +40,7 @@ var log := Callable()
 
 
 ## Open the act's layers. The foley group is always built; `vocals` and `climax` are optional.
-func start(features: Dictionary) -> void:
+func begin(features: Dictionary) -> void:
 	_rng.randomize()
 	set_enabled(bool(features.get("act_vocals", false)),
 		bool(features.get("act_climax", false)))
@@ -52,7 +52,7 @@ func start(features: Dictionary) -> void:
 
 
 ## Close the act's layers but keep the facade (and the voice policy state) alive for the process.
-func stop_act() -> void:
+func end() -> void:
 	stop()
 	if is_instance_valid(_sound):
 		_sound.call("stop")
@@ -66,7 +66,7 @@ func stop_breath() -> void:
 
 
 ## The squee climax plus the pack wet and vocal layers.
-func play_climax(snout: Vector3, dock: Vector3) -> void:
+func climax(snout: Vector3, dock: Vector3) -> void:
 	if is_instance_valid(_sound):
 		_sound.call("play_climax", snout)
 	play_climax_wet(dock)
@@ -74,7 +74,8 @@ func play_climax(snout: Vector3, dock: Vector3) -> void:
 
 
 ## Breath follows the plap rate and the act phase. `phase` is empty outside the act.
-func breath_tick(delta: float, phase: String, rate: float, snout: Vector3) -> void:
+## One breath frame: `phase` is `active`, `climax`, `afterglow` or empty for silence.
+func tick(delta: float, phase: String, rate: float, snout: Vector3) -> void:
 	if is_instance_valid(_sound):
 		_sound.call("breath_tick", delta, phase, rate, snout)
 

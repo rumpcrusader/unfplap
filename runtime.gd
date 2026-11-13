@@ -616,7 +616,7 @@ var _missionary_camera_ctl
 var _standing_camera_ctl
 var _standing_anon_ctl
 var _standing_presentation_ctl
-var _act_audio: Node
+var _act_audio: Variant = null
 var _bed_soft := false
 
 func _init() -> void:
@@ -2583,13 +2583,13 @@ func voice_status_line() -> String:
 func _apply_voice_policy() -> void:
 	var audio: Variant = _audio_service()
 	if audio != null:
-		audio.call("apply_voice_policy", pony, _id, _feature("mute_ponese_audio"),
+		audio.apply_voice_policy(pony, _id, _feature("mute_ponese_audio"),
 			_classify_voice())
 
 
 func _restore_voice_volume() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.call("restore_voice_policy")
+		_act_audio.restore_voice_policy()
 
 func _set_inventory_hud_hidden(hidden: bool) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(main.game):
@@ -4191,7 +4191,7 @@ func _restore_camera() -> void:
 
 # --------------------------------------------------------------------------- audio
 
-## The act audio node. One per runtime for the process; `start()` opens an act and `stop_act()`
+## The act audio node. One per runtime for the process; `begin()` opens an act and `end()`
 ## closes it, so the Ponese mute policy keeps its saved volume across the act boundary.
 func _audio_service() -> Node:
 	if is_instance_valid(_act_audio):
@@ -4209,7 +4209,7 @@ func _audio_service() -> Node:
 ## Rebuild the optional pack layers after a settings edit. The node is never created outside an act.
 func _ensure_act_audio(vocals: bool, climax: bool) -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.call("set_enabled", vocals, climax)
+		_act_audio.set_enabled(vocals, climax)
 
 
 func _start_audio() -> void:
@@ -4219,22 +4219,22 @@ func _start_audio() -> void:
 			or "cloth" in bed.name.to_lower())
 	var audio: Variant = _audio_service()
 	if audio != null:
-		audio.call("start", _features)
+		audio.begin(_features)
 
 
 func _stop_audio() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.call("stop_act")
+		_act_audio.end()
 
 
 func _stop_breath() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.call("stop_breath")
+		_act_audio.stop_breath()
 
 
 func _play_climax() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.call("play_climax", _snout(), _reactions.dock_point())
+		_act_audio.climax(_snout(), _reactions.dock_point())
 
 
 func _breath_tick(delta: float) -> void:
@@ -4246,7 +4246,7 @@ func _breath_tick(delta: float) -> void:
 	elif state == State.AFTERGLOW:
 		phase = "afterglow"
 	if is_instance_valid(_act_audio):
-		_act_audio.call("breath_tick", delta, phase, _thrusts_per_second(), _snout())
+		_act_audio.tick(delta, phase, _thrusts_per_second(), _snout())
 
 
 func _thrusts_per_second() -> float:

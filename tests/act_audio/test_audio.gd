@@ -33,7 +33,7 @@ func run() -> void:
 	var audio: Node = AUDIO.new()
 	root.add_child(audio)
 
-	audio.call("start", {"act_vocals": false, "act_climax": false})
+	audio.begin({"act_vocals": false, "act_climax": false})
 	var pools: Dictionary = audio.get("_pools")
 	check(pools.has("plap_firm"), "the foley layer opens with the act")
 	check(not pools.has("climax_voice"), "the optional vocal layer stays off")
@@ -45,12 +45,12 @@ func run() -> void:
 	check(audio.find_child("UnfplapClimax", true, false) != null,
 		"the squee player is started")
 
-	audio.call("breath_tick", 0.1, "active", 2.0, Vector3.ZERO)
-	audio.call("breath_tick", 0.1, "", 0.0, Vector3.ZERO)
-	audio.call("play_climax", Vector3.ZERO, Vector3.ZERO)
+	audio.tick(0.1, "active", 2.0, Vector3.ZERO)
+	audio.tick(0.1, "", 0.0, Vector3.ZERO)
+	audio.climax(Vector3.ZERO, Vector3.ZERO)
 	audio.call("stop_breath")
 
-	audio.call("stop_act")
+	audio.end()
 	check((audio.get("_pools") as Dictionary).is_empty(), "stopping the act clears every pool")
 	check(not is_instance_valid(audio.get("_sound")), "stopping the act frees the sound node")
 
@@ -76,14 +76,14 @@ func run() -> void:
 	audio.call("apply_voice_policy", pony, "rarity", true, {"effective_ponese": false})
 	check(not audio.call("voice_text_only"), "a generated-voice pony is not muted")
 
-	audio.call("start", {"act_vocals": true, "act_climax": true})
+	audio.begin({"act_vocals": true, "act_climax": true})
 	pools = audio.get("_pools")
 	check(pools.has("climax_voice") and pools.has("climax_wet"),
 		"the optional layers rebuild on a new act")
 	audio.call("set_enabled", false, false)
 	check(not (audio.get("_pools") as Dictionary).has("climax_wet"),
 		"a live settings edit clears the optional layer")
-	audio.call("stop_act")
+	audio.end()
 
 	root.remove_child(pony)
 	pony.free()

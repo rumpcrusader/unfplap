@@ -597,13 +597,17 @@ func _check_rest_rejoin() -> void:
 ## policy. Its contract is `docs/audio.md`; its suites are `tests/act_audio/`.
 func _check_act_audio() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("act_audio.gd"))
-	check(facade.contains("func start(") and facade.contains("func apply_voice_policy("),
+	check(facade.contains("func begin(") and facade.contains("func apply_voice_policy("),
 		"act audio facade is present")
+	for name: String in ["func begin(", "func end(", "func climax(", "func tick(",
+			"func apply_voice_policy(", "func stop_breath("]:
+		check(facade.contains(name), "act audio bridge exposes %s" % name)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/audio.md"))
+	check(contract.contains("## Bridge"), "docs/audio.md documents the bridge")
 	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
 			"main.get(", "main.call(\""]:
 		check(not facade.contains(token), "act audio has no host reach-in: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/audio.md"))
 	check(contract.contains("## Ownership"), "docs/audio.md documents the owner")
 	check(contract.contains("`act_audio.gd`"), "docs/audio.md names the facade")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("AGENTS.md"))

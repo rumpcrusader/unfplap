@@ -25,8 +25,8 @@ a setting with a literal declaration there and then reads the typed handle.
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
 Characters form. `main.gd` keeps the `Mods` hook and the `_apply_settings_changed()` callback. The
-runtime owns the per-act snapshot (`_snapshot_settings()`); the settings file never reads a live
-act.
+runtime takes the settings service's typed `ActSnapshot` in `_snapshot_settings()`; the settings
+file never reads a live act.
 
 ## Contributing a setting
 
@@ -47,7 +47,7 @@ if SETTINGS.act_vocals.get_bool(): ...
 var raise_m: float = SETTINGS.raise_m.get_num()
 var orientation: String = SETTINGS.orientation.get_choice()
 var ignored: Array = SETTINGS.ignore.get_list()
-var snapshot: Dictionary = SETTINGS.block("features.")   # per-act snapshot, see below
+var snapshot := SETTINGS.act_snapshot("missionary")   # typed per-act snapshot, see below
 
 SETTINGS.raise_m.set_num(0.25)
 SETTINGS.orientation.set_choice("down")
@@ -67,9 +67,11 @@ Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`,
 A wrong accessor does not compile: `SETTINGS.act_vocals.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 
-**Bulk snapshots.** `SETTINGS.block(prefix)` returns the nested dictionary under a dotted prefix and
-is the one place a path prefix is still used. Act code snapshots once per act in
-`runtime._snapshot_settings()` and re-runs it in `apply_live_settings()`; do not add a second cache.
+**Per-act snapshot.** `SETTINGS.act_snapshot(pose_id)` returns one typed `ActSnapshot` with every
+value an act reads per stroke or per frame: the feature dictionary, thrust, auto stroke, cue/talk
+pacing, jiggle, camera thrust, the pose presentation block and the climax face. The runtime takes
+it in `_snapshot_settings()` and re-runs it in `apply_live_settings()`. There is no path-keyed read
+outside the settings service and no second cache.
 
 ## Adding a setting: one line, then one read
 
@@ -338,8 +340,8 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   never add a widget, a default constant, a path-keyed read or a save function anywhere else.
 - Contribute the setting from its owning service: edit the catalog literally, document it in that
   service's contract and depend on the settings facade. Do not add a private settings module.
-- `SETTINGS.block(prefix)` is the one remaining path-keyed read; it is the per-act bulk snapshot.
-  Do not add a second cache or a new path-keyed gameplay read.
+- `SETTINGS.act_snapshot(pose_id)` is the one bulk read. There is no path-keyed gameplay read and
+  no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
 - **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, defaults, the
   file round-trip, clamping versus debug bypass, validation, section state, the panel drawing every

@@ -181,8 +181,8 @@ scripts/check.sh
 - **One teardown.** `_end_session` stays in `runtime.gd` and is the only exit path;
   `tests/test_source_hygiene.gd` enforces one `_end_session`. Do not add a second exit sequence.
 - **Settings snapshot.** Services receive values once per act; `apply_live_settings()` pushes
-  changes. No per-frame `Settings` reads in new code. `SETTINGS.block(prefix)` is the only bulk
-  read.
+  changes. No per-frame `Settings` reads in new code. `SETTINGS.act_snapshot(pose_id)` is the only
+  bulk read.
 - **No reach-ins.** A system must not preload `runtime.gd` or `main.gd`, and must not call
   `runtime.get("_…")` / `runtime.call("_…")`. Presentation modules read `shared/act_facts.gd` or the
   owning facade.

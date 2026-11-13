@@ -477,11 +477,6 @@
     },
     {
       "service": "settings",
-      "func": "block",
-      "signature": "static func block(prefix: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
       "func": "consent",
       "signature": "static func consent(id: String) -> Dictionary:"
     },
@@ -489,11 +484,6 @@
       "service": "settings",
       "func": "data",
       "signature": "static func data() -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "default_block",
-      "signature": "static func default_block(prefix: String) -> Dictionary:"
     },
     {
       "service": "settings",

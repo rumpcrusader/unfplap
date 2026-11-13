@@ -35,6 +35,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func run() -> void:
 	_check_registry()
 	_check_defaults()
+	_check_snapshot()
 	_check_placement()
 	_check_tail_seat()
 	_check_write_round_trip()
@@ -97,6 +98,21 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
+
+
+## The act snapshot carries the typed values the runtime reads per stroke or per frame.
+func _check_snapshot() -> void:
+	var snap := SETTINGS.act_snapshot("missionary")
+	check(near(snap.thrust_pixels_per_cm, SETTINGS.pixels_per_cm.get_num()),
+		"the act snapshot carries sensitivity")
+	check(snap.thrust_up == (SETTINGS.orientation.get_choice() == "up"),
+		"the act snapshot carries the thrust direction")
+	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
+	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
+	check(snap.climax_mode == SETTINGS.climax_mode.get_choice(),
+		"the act snapshot carries the climax face")
+	check(near(SETTINGS.palm_scale_for("canon"), SETTINGS.canon.get_num()),
+		"the palm scale resolves a size without a path read")
 
 
 ## Anatomy placement is one default block plus partial per-mare overrides.
@@ -505,8 +521,8 @@ func _check_migration() -> void:
 ## A script constant resolves a built-in before a same-named static function, so an API name that
 ## exists on Script/GDScript would silently call the built-in instead of ours.
 func _check_api_names() -> void:
-	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "block",
-		"default_block", "get_value_at", "set_value_at", "default_at", "to_row",
+	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "act_snapshot",
+		"get_value_at", "set_value_at", "default_at", "to_row",
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "reload_file",
 		"preferences", "pose", "template_for", "get_bool", "set_bool",
 		"get_num", "set_num", "get_choice", "set_choice", "get_list", "set_list", "build",

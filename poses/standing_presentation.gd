@@ -112,7 +112,7 @@ func _attach_present_pose() -> void:
 	_pose_cfg["foreleg"] = 0.0
 	_pose_cfg["foreleg_spread"] = 0.172
 	_pose_cfg["hind_spread"] = 0.0
-	var presentation_cfg: Dictionary = SETTINGS.block("presentation.standing.")
+	var presentation_cfg: Dictionary = SETTINGS.act_snapshot(CATALOG.STANDING).presentation
 	_pose_cfg["chin_up_deg"] = float(presentation_cfg.get("chin_up_deg", 30.0))
 	_pose_cfg["neck_down_deg"] = float(presentation_cfg.get("neck_down_deg", 15.0))
 	var tail_cfg: Variant = presentation_cfg.get("tail", {})

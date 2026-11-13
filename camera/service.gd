@@ -607,8 +607,7 @@ func same_height_scale() -> float:
 
 ## Absolute hand scale for the current body preset, from the per-size caress setting.
 func palm_scale_factor() -> float:
-	var scales := SETTINGS.block("caress.palm_scale.")
-	return float(scales.get(size_name(), 1.0))
+	return SETTINGS.palm_scale_for(size_name())
 
 
 func player_eye_height() -> float:

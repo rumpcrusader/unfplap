@@ -1205,43 +1205,38 @@ func _configure_utterance_scheduler() -> void:
 ## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
 ## it so a settings edit applies without a new act.
 func _snapshot_settings() -> void:
-	_features = SETTINGS.block("features.")
-	var thrust_block := SETTINGS.block("thrust.")
-	thrust_up = str(thrust_block.get("orientation", "up")).to_lower() == "up"
-	_thrust_pixels_per_cm = float(thrust_block.get("pixels_per_cm", 100.0))
-	_thrust_travel = float(thrust_block.get("travel", 0.5))
-	_max_pony_climaxes = int(thrust_block.get("max_pony_climaxes", 3))
-	var auto_block := SETTINGS.block("auto_thrust.")
-	_readiness.configure_auto(float(auto_block.get("pace", 1.0)),
-		float(auto_block.get("max_depth", 0.5)), str(auto_block.get("curve", "cosine")),
-		float(auto_block.get("min_depth", 0.0)))
-	var jiggle_block := SETTINGS.block("jiggle.")
+	var snap := SETTINGS.act_snapshot(pose_id)
+	_features = snap.features
+	thrust_up = snap.thrust_up
+	_thrust_pixels_per_cm = snap.thrust_pixels_per_cm
+	_thrust_travel = snap.thrust_travel
+	_max_pony_climaxes = snap.max_pony_climaxes
+	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
+		snap.auto_min_depth)
 	_reactions.configure({
-		"jiggle": jiggle_block,
+		"jiggle": snap.jiggle,
 		"pose_id": pose_id,
 		"size_scale": _camera_service().call("jiggle_size_scale"),
 		"climax_seconds": CLIMAX_SECONDS,
 	})
-	_camera_service().call("configure", SETTINGS.block("camera_thrust."))
-	var cue_block := SETTINGS.block("cues.")
-	_cue_override_seconds = float(cue_block.get("override_seconds", 10.0))
-	_cue_base_stable_s = float(cue_block.get("base_stable_seconds", 2.0))
-	_cue_override_stable_s = float(cue_block.get("override_stable_seconds", 0.5))
-	_cue_utterance_gap_s = float(cue_block.get("utterance_gap_seconds", 18.0))
-	_cue_demand_gap_s = float(cue_block.get("demand_gap_seconds", 28.0))
-	_cue_demand_repeat_s = float(cue_block.get("demand_repeat_seconds", 45.0))
-	_cue_max_age_s = float(cue_block.get("max_age_seconds", 20.0))
-	_cue_reaction_max_age_s = float(cue_block.get("reaction_max_age_seconds", 30.0))
-	_cue_release_hold_s = float(cue_block.get("release_hold_seconds", 1.0))
-	_cue_overwhelmed_s = float(cue_block.get("overwhelmed_seconds", 1.2))
-	var talk_block := SETTINGS.block("talk.")
-	_touch_cooldown_s = float(talk_block.get("touch_cooldown_seconds", 4.0))
-	_talk_cooldown_s = float(talk_block.get("talk_cooldown_seconds", 8.0))
-	_receptive_seconds = float(talk_block.get("receptive_seconds", 8.0))
+	_camera_service().call("configure", snap.camera_thrust)
+	_cue_override_seconds = snap.cue_override_seconds
+	_cue_base_stable_s = snap.cue_base_stable_s
+	_cue_override_stable_s = snap.cue_override_stable_s
+	_cue_utterance_gap_s = snap.cue_utterance_gap_s
+	_cue_demand_gap_s = snap.cue_demand_gap_s
+	_cue_demand_repeat_s = snap.cue_demand_repeat_s
+	_cue_max_age_s = snap.cue_max_age_s
+	_cue_reaction_max_age_s = snap.cue_reaction_max_age_s
+	_cue_release_hold_s = snap.cue_release_hold_s
+	_cue_overwhelmed_s = snap.cue_overwhelmed_s
+	_touch_cooldown_s = snap.touch_cooldown_s
+	_talk_cooldown_s = snap.talk_cooldown_s
+	_receptive_seconds = snap.receptive_seconds
 	_readiness.configure(_preferences, _cue_override_seconds, _cue_overwhelmed_s,
 		_touch_cooldown_s, _talk_cooldown_s, _receptive_seconds)
-	_presentation_cfg = SETTINGS.block("presentation." + pose_id + ".")
-	_act_climax_mode = str(SETTINGS.climax_mode.get_choice())
+	_presentation_cfg = snap.presentation
+	_act_climax_mode = snap.climax_mode
 	_configure_utterance_scheduler()
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are

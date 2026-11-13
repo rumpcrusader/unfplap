@@ -360,9 +360,9 @@ static func _default_at(path: String) -> Variant:
 	return null if s == null else s.default
 
 
-## Nested dictionary of every value under a dotted prefix, e.g. `block("features.")` for a
-## per-act snapshot.
-static func block(prefix: String) -> Dictionary:
+## Nested dictionary of every value under a dotted prefix, e.g. `_block("features.")` for the
+## per-act snapshot. Private: `act_snapshot()` is the public bulk read.
+static func _block(prefix: String) -> Dictionary:
 	_ensure_flat()
 	var out: Dictionary = {}
 	for path: String in _by_path.keys():
@@ -371,13 +371,79 @@ static func block(prefix: String) -> Dictionary:
 	return out
 
 
-## The default block under a dotted prefix.
-static func default_block(prefix: String) -> Dictionary:
+## The default block under a dotted prefix. Private to the migration and snapshot code.
+static func _default_block(prefix: String) -> Dictionary:
 	var out: Dictionary = {}
 	for path: String in _by_path.keys():
 		if path.begins_with(prefix):
 			_write_path(out, path.substr(prefix.length()), (_by_path[path] as Setting).default)
 	return out
+
+
+# ---------------------------------------------------------------- per-act snapshot
+## The typed values an act reads per stroke or per frame. The settings service owns the fields;
+## the runtime takes one snapshot at act start and refreshes it on `apply_live_settings()`.
+## `features`, `jiggle`, `camera_thrust` and `presentation` stay dictionaries for the presentation
+## modules that already consume config dictionaries.
+class ActSnapshot:
+	var features: Dictionary = {}
+	var thrust_up := true
+	var thrust_pixels_per_cm := 100.0
+	var thrust_travel := 0.5
+	var max_pony_climaxes := 3
+	var auto_pace := 1.0
+	var auto_max_depth := 0.5
+	var auto_min_depth := 0.0
+	var auto_curve := "cosine"
+	var jiggle: Dictionary = {}
+	var camera_thrust: Dictionary = {}
+	var cue_override_seconds := 10.0
+	var cue_base_stable_s := 2.0
+	var cue_override_stable_s := 0.5
+	var cue_utterance_gap_s := 18.0
+	var cue_demand_gap_s := 28.0
+	var cue_demand_repeat_s := 45.0
+	var cue_max_age_s := 20.0
+	var cue_reaction_max_age_s := 30.0
+	var cue_release_hold_s := 1.0
+	var cue_overwhelmed_s := 1.2
+	var touch_cooldown_s := 4.0
+	var talk_cooldown_s := 8.0
+	var receptive_seconds := 8.0
+	var presentation: Dictionary = {}
+	var climax_mode := "wide"
+
+
+## Every act-tunable value in one typed snapshot. `pose_id` selects the presentation block.
+static func act_snapshot(pose_id: String) -> ActSnapshot:
+	var snap := ActSnapshot.new()
+	snap.features = _block("features.")
+	snap.thrust_up = orientation.get_choice() == "up"
+	snap.thrust_pixels_per_cm = pixels_per_cm.get_num()
+	snap.thrust_travel = travel.get_num()
+	snap.max_pony_climaxes = int(max_pony_climaxes.get_num())
+	snap.auto_pace = pace.get_num()
+	snap.auto_max_depth = max_depth.get_num()
+	snap.auto_min_depth = min_depth.get_num()
+	snap.auto_curve = curve.get_choice()
+	snap.jiggle = _block("jiggle.")
+	snap.camera_thrust = _block("camera_thrust.")
+	snap.cue_override_seconds = override_seconds.get_num()
+	snap.cue_base_stable_s = base_stable_seconds.get_num()
+	snap.cue_override_stable_s = override_stable_seconds.get_num()
+	snap.cue_utterance_gap_s = utterance_gap_seconds.get_num()
+	snap.cue_demand_gap_s = demand_gap_seconds.get_num()
+	snap.cue_demand_repeat_s = demand_repeat_seconds.get_num()
+	snap.cue_max_age_s = max_age_seconds.get_num()
+	snap.cue_reaction_max_age_s = reaction_max_age_seconds.get_num()
+	snap.cue_release_hold_s = release_hold_seconds.get_num()
+	snap.cue_overwhelmed_s = overwhelmed_seconds.get_num()
+	snap.touch_cooldown_s = touch_cooldown_seconds.get_num()
+	snap.talk_cooldown_s = talk_cooldown_seconds.get_num()
+	snap.receptive_seconds = receptive_seconds.get_num()
+	snap.presentation = _block("presentation." + pose_id + ".")
+	snap.climax_mode = climax_mode.get_choice()
+	return snap
 
 
 # ---------------------------------------------------------------- anatomy placement
@@ -1112,6 +1178,16 @@ static func gaze_offset_mm_for(size: String) -> float:
 		"same height": return gaze_offset_mm_same_height.get_num()
 		"hoers": return gaze_offset_mm_hoers.get_num()
 	return gaze_offset_mm_canon.get_num()
+
+## The caress palm scale for one pony-size preset. Typed: the camera reads it every tick.
+static func palm_scale_for(size: String) -> float:
+	match size:
+		"canon": return canon.get_num()
+		"mounting": return mounting.get_num()
+		"same height": return same_height.get_num()
+		"hoers": return hoers.get_num()
+	return 1.0
+
 
 # -- Standing  (debug)
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg", 30.0,
@@ -2439,7 +2515,7 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 			block.erase(key)
 		data["presentation"] = block
 		return data
-	var out: Dictionary = default_block("presentation.")
+	var out: Dictionary = _default_block("presentation.")
 	var missionary: Dictionary = out["missionary"]
 	var standing: Dictionary = out["standing"]
 	for old_key: String in LEGACY_PRESENTATION_KEYS:
@@ -2792,7 +2868,7 @@ static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
 
 
 static func _legacy_placement_default(data: Dictionary, path: String) -> Dictionary:
-	var base := default_block(path + ".")
+	var base := _default_block(path + ".")
 	var raw: Variant = _read_path(data, path, null)
 	if raw is Dictionary:
 		base = PLACEMENT.merge(base, raw)

@@ -80,9 +80,9 @@ Providers must stay scene-free. `tests/test_source_hygiene.gd` rejects `extends 
 ## Kissing provider
 
 `integrations/kissing.gd` runs when `features.kissing_reactions` is on and the required bindings
-exist. It exists to keep Kissing's build-up, which is driven by `Feelings.level`, while the act
-supplies the cause and suppresses the game's own burst excitement. The act owns the level instead of
-giving Kissing a permanent cause:
+exist. It exists to keep Kissing's build-up, which is driven by `Feelings.level`, under act control
+while suppressing the game's own burst excitement. The act owns the level instead of giving Kissing
+a permanent cause:
 
 - Start: clear `excitement._until`, take the shared excitement Beat hold, and suppress the optional
   `KissingFidgets` weight shift and hoof taps (`_root = -1`, `_tap_next = 1e9`).

@@ -302,6 +302,8 @@ tuning:
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
+- **Kissing**: **Play full Kissing fidgets**, the optional weight shift and hoof taps at her
+  climax; see `docs/integrations.md`.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), **You** (back-out gap, cock forward, pelvis gap), plus the ungrouped skin-strip

@@ -525,7 +525,7 @@ def command_pack(args) -> int:
     if args.local:
         path = write_local_contract(root, archive, runtime, sources)
         rel = display_path(root, path)
-        print(f"Next: {LOCAL_CONTRACT_ENV}={rel} scripts/test_all.sh")
+        print(f"Next: ./lab.sh, or {LOCAL_CONTRACT_ENV}={rel} scripts/test_all.sh")
         return 0
 
     if not args.upload:

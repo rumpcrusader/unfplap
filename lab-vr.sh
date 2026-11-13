@@ -14,6 +14,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$ROOT/../.." && pwd)"
+
+# A local contract is an explicit opt-in by `pack_assets.sh --local`; the manual labs use it
+# automatically so an unuploaded mesh can be tested without prefixing every lab command.
+LOCAL_ASSET_CONTRACT="$ROOT/dist/asset_pack.local.json"
+if [ -z "${UNFPLAP_ASSET_CONTRACT:-}" ] && [ -f "$LOCAL_ASSET_CONTRACT" ]; then
+	export UNFPLAP_ASSET_CONTRACT="$LOCAL_ASSET_CONTRACT"
+	printf 'Using local asset contract: %s\n' "$LOCAL_ASSET_CONTRACT"
+fi
+
 RUNTIME_JSON="${XR_RUNTIME_JSON:-/usr/share/openxr/1/openxr_monado.json}"
 SERVICE_LOG="$ROOT/last-run-vr-monado.log"
 SESSION_LOG="$ROOT/last-run-vr.log"

@@ -78,9 +78,10 @@ UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
 ```
 
 `--local` writes `dist/asset_pack.local.json` beside the archive. Both live under the ignored
-`dist/`. The variable is explicit: without it every gate keeps reading `scripts/asset_pack.json`.
-`fetch` and `--upload` always use the release contract, and `check_release.sh` clears the variable,
-so a local contract cannot reach a release.
+`dist/`. The manual labs (`lab.sh`, `lab-vr.sh`, `lab-stress.sh`) use it automatically when it
+exists. Tests and builds use it only when `UNFPLAP_ASSET_CONTRACT` is set: without the variable
+every gate keeps reading `scripts/asset_pack.json`. `fetch` and `--upload` always use the release
+contract, and `check_release.sh` clears the variable, so a local contract cannot reach a release.
 
 The import pass is `godot --headless --xr-mode off --path <project> --import`. The Blender
 importer's headless check aborts the whole pass when the project contains `.blend` files, so move

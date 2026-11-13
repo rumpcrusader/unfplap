@@ -66,8 +66,9 @@ scripts/pack_assets.sh --local
 UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
 ```
 
-The same variable prefixes `scripts/test_all.sh`, `scripts/check.sh`, `scripts/smoke.sh` and the
-labs. `fetch_assets.sh` and `--upload` always use `scripts/asset_pack.json`, and
+The same variable prefixes `scripts/test_all.sh`, `scripts/check.sh` and `scripts/smoke.sh`. The
+manual labs use the local contract automatically when `dist/asset_pack.local.json` exists.
+`fetch_assets.sh` and `--upload` always use `scripts/asset_pack.json`, and
 `scripts/check_release.sh` clears the variable. See `assets/README.md`.
 
 - `res://tools/modding/build_mod.gd` is not a release path: it ignores `.pckignore` and recurses

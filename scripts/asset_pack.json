@@ -1,9 +1,9 @@
 {
 	"schema": 1,
 	"archive": {
-		"url": "https://u.pone.rs/dunusfms.zip",
-		"sha256": "cafad87acf86a12c1d575232eba2e776466d45b1ea43519ebf9c44f8d2175b4e",
-		"size": 10438351
+		"url": "https://u.pone.rs/dhnzdnvt.zip",
+		"sha256": "6b971e862bf343dc5f42d16d523055100d5693910254af42e75dff4a987d2c7c",
+		"size": 10446472
 	},
 	"runtime": {
 		"assets/anatomy/anon/anon_part.scn": {
@@ -36,7 +36,7 @@
 		},
 		"assets/anatomy/mare/mare_bits_v2.scn": {
 			"size": 626654,
-			"sha256": "067742ae106a7947de2b3dbe48d5bb20bc93206c6a20095f8eeffa739eb9d26b"
+			"sha256": "a440ddc62116b98201c00f1de914c027d0db23a132ef06023825f49962e38a9d"
 		},
 		"assets/anatomy/mare/skin_bridge.scn": {
 			"size": 115864,
@@ -433,8 +433,8 @@
 	},
 	"sources": {
 		"anatomy/mare_bits_v2.blend": {
-			"size": 1587164,
-			"sha256": "18e05877e387e8290104bbc5beff5cbd007c6ba91c1f8ae1faf868b9b6582fc4"
+			"size": 1586420,
+			"sha256": "1d1268cd87817ca51425e202ec939844debef7a0aac1442c11e651e2a3fa5a0e"
 		},
 		"voice/rarity/07faa28ca7564749a8f2f8241925e10d.wav": {
 			"size": 92204,

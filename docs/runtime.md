@@ -77,8 +77,8 @@ request face, kiss forelegs, face-turn rate, eye override, face and wings, playe
 `sex_active`, navigator, player look, posture/cuddle, pose, audio, HUD and the active runtime. Every
 step checks the ownership flag it restores (`_act_camera.camera_owned`, `_act_camera.look_captured`,
 `_act_camera.eye_override`, `_hold.locked_player`, `_hold.face_turn_rate_owned`, `_hold.nav`, the
-runtime's own `_posture_owned` and `_inventory_hud_hidden`, the controller flags), so a failed start
-runs the same function and restores only what it took.
+runtime's own `_posture_owned` and the HUD's borrowed quick-slot state, the controller flags), so a
+failed start runs the same function and restores only what it took.
 
 - `_finalize_session(real_act)` runs the post-act bookkeeping once and is idempotent.
 - `_end_act_lines()` is deliberately outside the teardown: `cancel()` queues the early-stop reaction

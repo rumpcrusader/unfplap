@@ -1221,8 +1221,7 @@ func _physics_tick(delta: float) -> void:
 	_timed("runtime_facts", facts_started)
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
-		if is_instance_valid(main) and is_instance_valid(main.hud) and main.hud.inventory_hidden():
-			_set_inventory_hud_hidden(false)
+		_restore_stray_inventory_hud()
 		var presentation_started := Time.get_ticks_usec() if idle_perf else 0
 		_standing_presentation_controller().physics(delta)
 		if idle_perf:
@@ -2404,6 +2403,20 @@ func _apply_voice_policy() -> void:
 func _restore_voice_volume() -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.restore_voice_policy()
+
+## The idle safety check. `hud/service.gd` owns the borrowed quick-slot state, so every idle
+## sibling runtime sees the same hidden flag; only restore it when no other runtime is mid-act.
+func _restore_stray_inventory_hud() -> void:
+	if not is_instance_valid(main) or not is_instance_valid(main.hud):
+		return
+	if not main.hud.inventory_hidden():
+		return
+	var owner: Variant = main.get("active_runtime")
+	if is_instance_valid(owner) and owner != self:
+		var owner_state: Variant = owner.get("state")
+		if owner_state != null and int(owner_state) != State.IDLE:
+			return
+	_set_inventory_hud_hidden(false)
 
 ## The act hides the game's quick-slot card for its whole run. `hud/service.gd` owns the borrowed
 ## state and restores exactly what it found, so every exit path can call this unconditionally.

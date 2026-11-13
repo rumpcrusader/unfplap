@@ -68,6 +68,7 @@ class FakeMain extends Node:
 	var player: Variant = null
 	var hud: Variant = null
 	var game: Variant = null
+	var active_runtime: Variant = null
 	var cleared: Array = []
 
 	func clear_active(runtime: Node) -> void:
@@ -247,7 +248,27 @@ func run() -> void:
 	check(is_equal_approx(player6.rotation.y, placed_yaw6),
 		"standing end leaves Anon's yaw alone")
 
-	for item: Dictionary in [f, f2, f3, f4, f5, f6]:
+	# An idle sibling runtime must not take the borrowed quick slots from the act.
+	var f7 := _fixture()
+	var idle7: Node = f7["runtime"]
+	var main7: FakeMain = f7["main"]
+	var hud7: CanvasLayer = f7["hud"]
+	var acting7: Node = RUNTIME.new()
+	acting7.main = main7
+	acting7.state = 2 # ACTIVE
+	main7.active_runtime = acting7
+	idle7.call("_restore_stray_inventory_hud")
+	check(hud7.inventory_hidden(), "idle sibling leaves the active act's inventory HUD hidden")
+	acting7.state = 0 # IDLE
+	idle7.call("_restore_stray_inventory_hud")
+	check(not hud7.inventory_hidden(), "idle safety restores the HUD once no act is active")
+	hud7.set_inventory_hidden(true)
+	main7.active_runtime = null
+	idle7.call("_restore_stray_inventory_hud")
+	check(not hud7.inventory_hidden(), "idle safety restores the HUD with no active runtime")
+	acting7.free()
+
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7]:
 		(item["runtime"] as Node).free()
 	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

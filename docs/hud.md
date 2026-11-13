@@ -115,7 +115,8 @@ caption line.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`. `hud/service.gd` owns the borrowed state
   (`set_inventory_hidden()`, `inventory_hidden()`) and restores exactly what it found, so every exit
-  path and the idle safety check can call it unconditionally.
+  path can call it unconditionally. The runtime's idle safety check restores it only while no other
+  runtime is mid-act, because every idle sibling sees the same borrowed flag.
 
 ## Dependencies
 

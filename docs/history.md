@@ -10,12 +10,13 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 `history/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
 context shape the pure scorer reads (`summary_inputs()`, `summary_context()`), the peak-memory
-record, the idle apology/reminder decisions and the pure
-`history/tolerance.gd` meter. The stored ledger is read from `shared/act_history.gd` directly, by
-this facade and by every other consumer. The runtime keeps the act state machine, gathers the action counters and
-the scene values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release,
-session end, space, buck, tail tuck) and owns the face and line presentation. `history/summary.gd` and
-`shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade.
+record and the idle apology/reminder decisions. The stored ledger is read from
+`shared/act_history.gd` directly, by this facade and by every other consumer. The runtime keeps the
+act state machine, gathers the action counters and the scene values into one dictionary, runs the
+scene stop executor (`_stop_with_her`: bed release, session end, space, buck, tail tuck) and owns
+the face and line presentation. `history/summary.gd` and `shared/act_history.gd` remain the pure
+scoring and stored-row modules behind the facade. The neglect-tolerance meter is readiness; see
+`docs/readiness.md`.
 
 ## Per-act score
 
@@ -164,31 +165,10 @@ refusal is in `docs/eligibility.md`.
 There is **no break-up path**. The highest tier's act gate is in `docs/eligibility.md`; it never
 calls `player_bonds.break_up()`.
 
-## Neglect tolerance and the mid-act stop
+## The mid-act stop
 
-`preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab edits
-it as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is forgiving.
-The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
-
-A pure `history/tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
-
-- every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
-- every actual liked touch/talk subtracts `tolerance.like_relief` (1);
-- a held caress is a discrete action; its five-second meter is in `docs/hands.md`;
-- passive decay subtracts 1 every 25 s;
-- warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
-  not replay a warning.
-
-| Tier | Warnings | Stop |
-|---|---|---|
-| Forgiving | one at 4 | never |
-| Normal | at 1, then 4 | 10 |
-| Strict | at 1 | 3 |
-
-A warning sets a HUD cue and queues one short spoken warning. Warnings and the stop line speak
-even when `features.act_lines` is off.
-
-A stop is a dedicated path, not `cancel()`:
+The neglect-tolerance meter that triggers a stop is owned by readiness; its rules, tiers and
+settings are in `docs/readiness.md`. A stop is a dedicated path, not `cancel()`:
 
 - it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
 - it records `main.memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
@@ -200,8 +180,8 @@ A stop is a dedicated path, not `cancel()`:
   tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a
   new act starts.
 
-The neglect settings live under **Neglect tolerance** in World's Debug block. The **Force neglect
-warning** and **Force neglect stop** debug actions drive the live act for testing.
+The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for
+testing.
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
@@ -263,10 +243,6 @@ readiness threshold. It does not disable the per-mare mid-act neglect stop.
 The thresholds and weights live under `History` in World's Debug block. They are debug numbers,
 so stored values are never clamped. See `docs/settings.md`.
 
-The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
-**Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
-settings.
-
 ## Dependencies
 
 ### Uses
@@ -281,18 +257,14 @@ settings.
 
 ## Tests
 
-- `tests/history/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief, 25 s
-  decay, warning monotonicity and stop cooldowns.
-- `tests/history/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck and
-  request space.
 - `tests/history/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike
   neutrality, severe handling, early end, stopped-by-her severe outcome, forced stop, short act,
   motion and touch misses.
 - `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
   sanitising, pending lines, reset.
 - `tests/history/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
-- `tests/history/test_history.gd` — facade: summary commit, peak memory, tolerance decisions and
-  the idle apology/reminder scan.
+- `tests/history/test_history.gd` — facade: summary commit, peak memory and the idle
+  apology/reminder scan.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
 - `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.
 

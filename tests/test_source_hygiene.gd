@@ -409,12 +409,13 @@ func _check_readiness() -> void:
 	check(contract.contains("## Ownership"), "docs/readiness.md documents the readiness owner")
 	check(contract.contains("`readiness/service.gd`"), "docs/readiness.md names readiness/service.gd")
 	for name: String in ["test_readiness.gd", "test_runtime_thrust.gd", "test_preferences.gd",
-			"test_auto_thrust.gd", "test_auto_panel.gd", "test_readiness_auto.gd"]:
+			"test_auto_thrust.gd", "test_auto_panel.gd", "test_readiness_auto.gd",
+			"test_act_tolerance.gd", "test_act_stop.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/readiness/" + name)),
 			"tests/readiness/%s exists" % name)
 
 
-## The history facade owns the summary/tolerance decisions and reads only its pure modules.
+## The history facade owns the summary decisions and reads only its pure modules.
 ## Its contract is `docs/history.md`, and the runtime keeps the scene stop executor.
 func _check_history() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("history/service.gd"))
@@ -429,8 +430,8 @@ func _check_history() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/history.md"))
 	check(contract.contains("## Ownership"), "docs/history.md documents the history owner")
 	check(contract.contains("`history/service.gd`"), "docs/history.md names history/service.gd")
-	for name: String in ["test_act_flow.gd", "test_act_stop.gd", "test_act_summary.gd",
-			"test_act_history.gd", "test_act_tolerance.gd", "test_history.gd"]:
+	for name: String in ["test_act_flow.gd", "test_act_summary.gd",
+			"test_act_history.gd", "test_history.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/history/" + name)),
 			"tests/history/%s exists" % name)
 

@@ -7,14 +7,15 @@ are `docs/lines.md`; the HUD text is `docs/hud.md`; the camera response is `docs
 
 ## Ownership
 
-`readiness/service.gd` is the system facade. It owns the scoring state and the public act values
-`satisfaction`, `mood`, `cue` and `pony_climaxes`; the runtime forwards them and keeps the act
-state machine, the climax transition, the face beats and the tolerance meter. The runtime calls
-`readiness.stroke()`, `touch()`, `talk()` and `tick()`; readiness owns the counters the summary
-reads and the one-second impact window. It also owns the auto-thrust generator, the hold-X panel
-policy and their defaults.
+`readiness/service.gd` is the system facade. It owns the scoring state, the public act values
+`satisfaction`, `mood`, `cue` and `pony_climaxes`, and the neglect-tolerance meter; the runtime
+forwards the values and keeps the act state machine, the climax transition, the face beats and the
+presentation of a tolerance decision. The runtime calls `readiness.stroke()`, `touch()`, `talk()`
+and `tick()`; readiness owns the counters the summary reads and the one-second impact window. It
+also owns the auto-thrust generator, the hold-X panel policy and their defaults.
 
-`readiness/thrust.gd`, `readiness/auto_thrust.gd` and `readiness/auto_panel.gd` are pure modules behind the facade. The runtime
+`readiness/thrust.gd`, `readiness/auto_thrust.gd`, `readiness/auto_panel.gd` and
+`readiness/tolerance.gd` are pure modules behind the facade. The runtime
 keeps the input reads (`Input`, mouse motion, wheel, the shape key) and applies the depth through
 `_thrust_move` so audio, camera, jiggle and presentation keep one path.
 
@@ -155,6 +156,36 @@ overwhelmed   a disliked touch/talk landed recently
 
 The afterglow phase and the standing close window are `docs/afterglow.md`.
 
+## Neglect tolerance
+
+`preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab
+edits it as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is
+forgiving. The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
+
+`readiness/tolerance.gd` is a pure per-act meter. It runs only during `POSING_IN`/`ACTIVE`:
+
+- every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
+- every actual liked touch/talk subtracts `tolerance.like_relief` (1);
+- a held caress is a discrete action; its five-second meter is in `docs/hands.md`;
+- passive decay subtracts 1 every 25 s;
+- warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
+  not replay a warning.
+
+| Tier | Warnings | Stop |
+|---|---|---|
+| Forgiving | one at 4 | never |
+| Normal | at 1, then 4 | 10 |
+| Strict | at 1 | 3 |
+
+Readiness queues at most one decision per frame (`take_tolerance_decision()`); the runtime presents
+it. A warning sets a HUD cue and queues one short spoken warning; a stop runs the runtime's
+`_stop_with_her`. Warnings and the stop line speak even when `features.act_lines` is off. The
+stop's summary, memory note, cooldown and mood are in `docs/history.md`; its buck/push is
+`docs/scene_gate.md`.
+
+The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for
+testing.
+
 ## Auto thrust
 
 - `readiness/auto_thrust.gd` is a pure generator: `pace` (1.0–3.75/s), `min_depth` (0–0.82),
@@ -189,18 +220,27 @@ Player-facing: `thrust.orientation`, `thrust.pixels_per_cm`, `thrust.travel`,
 the receptive window and the cue pacing under Talk & cues. See `docs/settings.md`; the values are
 declared once in `settings/service.gd`.
 
+The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
+**Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
+settings.
+
 ## Dependencies
 
 ### Uses
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Tests
 
 - `tests/readiness/test_readiness.gd` — facade: stroke scoring, both/one/neither axes, rated
-  limit, touch/talk, receptive window, overwhelmed, climax count and reset.
+  limit, touch/talk, receptive window, overwhelmed, climax count, the tolerance meter and reset.
+- `tests/readiness/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief,
+  25 s decay, warning monotonicity and stop cooldowns.
+- `tests/readiness/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck
+  and request space.
 - `tests/readiness/test_thrust.gd` — reversal hysteresis, impact stall, travel, speed, strength,
   contact and jiggle amount.
 - `tests/readiness/test_preferences.gd` — profile merge, likes/dislikes, classification.

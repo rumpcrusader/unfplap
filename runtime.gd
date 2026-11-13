@@ -538,9 +538,9 @@ var _summary_done: bool:
 ## Compatibility read for the face suite: the live pure tolerance meter.
 var _tolerance:
 	get:
-		return _history.tolerance
+		return _readiness.tolerance
 	set(value):
-		_history.tolerance = value
+		_readiness.tolerance = value
 var _stopped_by_her := false
 var _tolerance_warning_key := ""
 var _end_early_key := ""
@@ -640,9 +640,6 @@ func _init() -> void:
 	_readiness.on_close = Callable(self, "_readiness_close")
 	_readiness.on_face = Callable(self, "_act_face_beat")
 	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
-	_readiness.tolerance_dislike = Callable(self, "_tolerance_dislike")
-	_readiness.tolerance_like = Callable(self, "_tolerance_like")
-	_readiness.tolerance_event = Callable(self, "_tolerance_event")
 	_readiness.heat_cycle = Callable(self, "_readiness_heat")
 	_readiness.on_cue = Callable(self, "_readiness_cue")
 	_history.log = Callable(self, "_log")
@@ -1941,7 +1938,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
 	_end_tail_tuck()
-	_history.reset_act(_preferences)
+	_history.reset_act()
 	_prepare_vocal()
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
@@ -2823,14 +2820,6 @@ func _readiness_cue(mood_value: String, cue_value: String, is_override: bool) ->
 	_lines_service().admit_cue(_now_s())
 
 
-func _tolerance_dislike(kind: String) -> Dictionary:
-	return _history.observe_dislike(kind)
-
-
-func _tolerance_like(kind: String) -> void:
-	_history.observe_like(kind)
-
-
 ## True while the director or the pony is actually speaking.
 func _speech_busy() -> bool:
 	return _lines_service().busy()
@@ -2990,25 +2979,25 @@ func _history_is_idle() -> bool:
 
 
 ## The meter only advances during an act. A forced debug warning or stop runs here so it lands
-## on the next frame after the Debug panel is closed.
+## on the next frame after the Debug panel is closed. The readiness system owns the meter and the
+## policy; this only carries out the cue, the face beat and the stop.
 func _tolerance_tick(delta: float) -> void:
 	if state not in [State.POSING_IN, State.ACTIVE]:
 		return
-	var action: String = _history.take_debug()
+	var action: String = _readiness.take_debug()
 	if not action.is_empty():
 		if action == "warning":
 			_tolerance_warn(1)
 		elif action == "stop":
 			_stop_with_her("debug")
 		return
-	_history.tolerance_tick(delta)
+	_readiness.tolerance_tick(delta)
+	_present_tolerance(_readiness.take_tolerance_decision())
 
 
-func _tolerance_event(event: Dictionary) -> void:
-	if event.is_empty() or _stopped_by_her:
-		return
-	var decision: Dictionary = _history.tolerance_decision(event)
-	if decision.is_empty():
+## Present one collected tolerance decision.
+func _present_tolerance(decision: Dictionary) -> void:
+	if decision.is_empty() or _stopped_by_her:
 		return
 	var warning := int(decision.get("warning", 0))
 	if warning > 0:
@@ -3025,7 +3014,7 @@ func _tolerance_warn(level: int) -> void:
 	_queue_tolerance_warning(level)
 	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
 		level, str(_preferences.get("tolerance", "normal")),
-		_history.distress(), _history.last_dislike()])
+		_readiness.distress(), _readiness.last_dislike()])
 
 
 func _queue_tolerance_warning(level: int) -> void:
@@ -3076,7 +3065,7 @@ func _stop_with_her(reason: String) -> void:
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_preferences.get("tolerance", "normal")), _history.distress(),
+		str(_preferences.get("tolerance", "normal")), _readiness.distress(),
 		reason, str(strict)])
 
 
@@ -3126,7 +3115,7 @@ func _end_tail_tuck() -> void:
 func debug_force_tolerance(kind: String) -> bool:
 	if state not in [State.POSING_IN, State.ACTIVE]:
 		return false
-	_history.request_debug(kind)
+	_readiness.request_debug(kind)
 	return true
 
 
@@ -3726,7 +3715,7 @@ func _climax_quality_inputs() -> Dictionary:
 		"liked_talk": _act_liked_talk,
 		"touch_dislikes": _act_touch_dislikes,
 		"talk_dislikes": _act_talk_dislikes,
-		"distress": _history.distress(),
+		"distress": _readiness.distress(),
 		"preferences": _preferences,
 		"overwhelmed": _overwhelmed > 0.0,
 	})

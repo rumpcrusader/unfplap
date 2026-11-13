@@ -142,18 +142,8 @@
     },
     {
       "service": "history",
-      "func": "observe_dislike",
-      "signature": "func observe_dislike(kind: String) -> Dictionary:"
-    },
-    {
-      "service": "history",
       "func": "record_peak_memory",
       "signature": "func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:"
-    },
-    {
-      "service": "history",
-      "func": "reset_act",
-      "signature": "func reset_act(profile: Dictionary) -> void:"
     },
     {
       "service": "history",
@@ -169,16 +159,6 @@
       "service": "history",
       "func": "tick_idle",
       "signature": "func tick_idle(delta: float, context: Dictionary) -> void:"
-    },
-    {
-      "service": "history",
-      "func": "tolerance_controller",
-      "signature": "func tolerance_controller():"
-    },
-    {
-      "service": "history",
-      "func": "tolerance_decision",
-      "signature": "func tolerance_decision(event: Dictionary) -> Dictionary:"
     },
     {
       "service": "lines",
@@ -324,6 +304,11 @@
       "service": "readiness",
       "func": "stroke",
       "signature": "func stroke(event: Dictionary) -> void:"
+    },
+    {
+      "service": "readiness",
+      "func": "take_tolerance_decision",
+      "signature": "func take_tolerance_decision() -> Dictionary:"
     },
     {
       "service": "registry",

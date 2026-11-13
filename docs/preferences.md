@@ -36,7 +36,7 @@ than the global default. The file stores only the player's differences.
 
 - `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
 - `tolerance` (Neglect tolerance) sets mid-act warnings and the stop threshold; see
-  `docs/history.md`. The old `timid`/`neutral` values resolve to `forgiving`/`normal`.
+  `docs/readiness.md`. The old `timid`/`neutral` values resolve to `forgiving`/`normal`.
 - `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 - `notes` is the private attitude. The AI prompt receives the mood, the preference summary and the
   last concrete input, never a speed or depth dump.

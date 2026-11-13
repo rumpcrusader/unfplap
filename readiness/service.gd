@@ -1,13 +1,14 @@
 extends RefCounted
-## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input and the
-## counters the act summary reads. The runtime owns the act state and supplies the clock, the
-## climax transition, the face beats, the tolerance meter and the cue admission; this module owns
-## only the scoring state. See docs/readiness.md.
+## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input, the
+## neglect-tolerance meter and the counters the act summary reads. The runtime owns the act state
+## and supplies the clock, the climax transition, the face beats and the cue admission; this
+## module owns the scoring and tolerance state. See docs/readiness.md.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/lines/utterance_scheduler.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
+const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 
 const READINESS_MAX := 100.0
 const PONY_CLIMAX_AT := READINESS_MAX
@@ -29,6 +30,12 @@ var satisfaction := 0.0
 var mood := "warming"
 var cue := ""
 var pony_climaxes := 0
+
+## The pure per-act tolerance meter and the decision the runtime presents on its next tick.
+var tolerance
+var _tolerance_pending: Dictionary = {}
+## A paused Debug-panel request, consumed by the runtime on its next tick.
+var debug_request := ""
 
 ## The live scoring window.
 var last_intensity := ""
@@ -82,9 +89,6 @@ var on_climax := Callable()
 var on_close := Callable()
 var on_face := Callable()
 var on_anatomy_react := Callable()
-var tolerance_dislike := Callable()
-var tolerance_like := Callable()
-var tolerance_event := Callable()
 var heat_cycle := Callable()
 ## `(mood, cue, is_override)` after the cue changed. The runtime syncs its act view and admits.
 var on_cue := Callable()
@@ -253,6 +257,9 @@ func reset(profile: Dictionary) -> void:
 	act_intensity_right = 0
 	act_pattern_total = 0
 	act_pattern_right = 0
+	_tolerance_controller().reset(profile)
+	_tolerance_pending = {}
+	debug_request = ""
 
 
 func configure(profile: Dictionary, override_s: float, overwhelmed_s: float,
@@ -398,13 +405,13 @@ func touch(kind: String) -> void:
 	var event: Dictionary = {}
 	if kind in preferences.get("dislikes", []):
 		act_touch_dislikes[kind] = int(act_touch_dislikes.get(kind, 0)) + 1
-		event = _tolerance_dislike(kind)
+		event = _observe_dislike(kind)
 	elif kind in preferences.get("touch", []):
-		_tolerance_like(kind)
+		_observe_like(kind)
 	var now := _now()
 	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
 	if now - last_touch_at < touch_cooldown:
-		_tolerance_event(event)
+		_queue_tolerance(event)
 		return
 	last_touch_at = now
 	last_touch = kind
@@ -426,7 +433,7 @@ func touch(kind: String) -> void:
 		set_cue_override("She doesn't like that.")
 		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
 	# A neutral touch sets no override; the live base cue stays on screen.
-	_tolerance_event(event)
+	_queue_tolerance(event)
 
 
 ## The player's own words are a concrete input. The AI still writes her reply; this only
@@ -440,12 +447,12 @@ func talk(text: String) -> void:
 	var event: Dictionary = {}
 	if category in preferences.get("dislikes", []):
 		act_talk_dislikes += 1
-		event = _tolerance_dislike(category)
+		event = _observe_dislike(category)
 	elif category in preferences.get("talk", []):
-		_tolerance_like(category)
+		_observe_like(category)
 	var now := _now()
 	if now - last_talk_at < talk_cooldown:
-		_tolerance_event(event)
+		_queue_tolerance(event)
 		return
 	last_talk_at = now
 	last_talk = category
@@ -468,7 +475,7 @@ func talk(text: String) -> void:
 		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
 	else:
 		set_cue_override("She listens.")
-	_tolerance_event(event)
+	_queue_tolerance(event)
 
 
 ## Watch the director for a new player turn. No new control: the game's T key already
@@ -512,21 +519,61 @@ func _climax() -> void:
 		on_climax.call()
 
 
-func _tolerance_dislike(kind: String) -> Dictionary:
-	if not tolerance_dislike.is_valid():
-		return {}
-	var result: Variant = tolerance_dislike.call(kind)
-	return result if result is Dictionary else {}
+## The meter is created lazily so a suite can build the facade without a profile.
+func _tolerance_controller():
+	if tolerance == null:
+		tolerance = TOLERANCE.new()
+	return tolerance
 
 
-func _tolerance_like(kind: String) -> void:
-	if tolerance_like.is_valid():
-		tolerance_like.call(kind)
+## One meter frame. The runtime calls this in POSING_IN and ACTIVE.
+func tolerance_tick(delta: float) -> void:
+	if tolerance != null:
+		tolerance.tick(delta)
 
 
-func _tolerance_event(event: Dictionary) -> void:
-	if tolerance_event.is_valid():
-		tolerance_event.call(event)
+## Every actual disliked touch/talk adds to the meter and may produce a warning or a stop.
+func _observe_dislike(kind: String) -> Dictionary:
+	return _tolerance_controller().observe_dislike(kind)
+
+
+## Every actual liked touch/talk buys back some tolerance. It never replays an old warning.
+func _observe_like(kind: String) -> void:
+	if tolerance != null:
+		tolerance.observe_like(kind)
+
+
+## The decision the runtime presents on its next tick, or empty. One decision per frame.
+func take_tolerance_decision() -> Dictionary:
+	var decision := _tolerance_pending
+	_tolerance_pending = {}
+	return decision
+
+
+func distress() -> float:
+	return float(tolerance.distress) if tolerance != null else 0.0
+
+
+func last_dislike() -> String:
+	return str(tolerance.last_dislike) if tolerance != null else ""
+
+
+## Debug actions run from the paused settings page; the request is consumed on the next frame.
+func request_debug(kind: String) -> void:
+	debug_request = kind
+
+
+## Take and clear one pending debug request.
+func take_debug() -> String:
+	var action := debug_request
+	debug_request = ""
+	return action
+
+
+func _queue_tolerance(event: Dictionary) -> void:
+	if event.is_empty():
+		return
+	_tolerance_pending = event
 
 
 func _state() -> int:

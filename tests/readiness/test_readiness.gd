@@ -19,7 +19,6 @@ class Host extends RefCounted:
 	var climaxes := 0
 	var closes := 0
 	var faces: Array[String] = []
-	var tolerance_events: Array = []
 	var cue_calls := 0
 	var last_mood := ""
 	var last_cue := ""
@@ -45,15 +44,6 @@ class Host extends RefCounted:
 		last_mood = mood
 		last_cue = cue
 		last_override = override
-
-	func dislikes(kind: String) -> Dictionary:
-		return {"kind": kind, "source": "test"}
-
-	func likes(_kind: String) -> void:
-		pass
-
-	func tolerance(event: Dictionary) -> void:
-		tolerance_events.append(event)
 
 	func is_heat() -> bool:
 		return heat
@@ -87,9 +77,6 @@ func run() -> void:
 	readiness.on_close = Callable(host, "on_close")
 	readiness.on_face = Callable(host, "on_face")
 	readiness.on_cue = Callable(host, "on_cue")
-	readiness.tolerance_dislike = Callable(host, "dislikes")
-	readiness.tolerance_like = Callable(host, "likes")
-	readiness.tolerance_event = Callable(host, "tolerance")
 	readiness.heat_cycle = Callable(host, "is_heat")
 	var preferences := PREF.resolve({
 		"intensity": "firm", "pattern": "steady", "touch": ["caress"],
@@ -104,6 +91,9 @@ func run() -> void:
 	check(readiness.pony_climaxes == 0, "reset clears the climax count")
 	check(readiness.mood == "warming", "reset leaves the caller's mood alone")
 	check(readiness.cue == "", "reset leaves the caller's cue alone")
+	check(readiness.tolerance != null and readiness.tolerance.tier == "normal",
+		"reset binds the tolerance tier")
+	check(near(readiness.distress(), 0.0), "the tolerance meter starts at zero")
 
 	readiness.add_heat(59.0)
 	check(near(readiness.satisfaction, 59.0), "heat raises satisfaction")
@@ -141,7 +131,8 @@ func run() -> void:
 	readiness.touch("caress")
 	check(readiness.satisfaction > 0.0, "a liked touch adds heat")
 	check(readiness.act_liked_touch == 1, "the liked-touch counter increments")
-	check(host.tolerance_events.size() == 1, "the touch reports its tolerance event")
+	check(readiness.take_tolerance_decision().is_empty(),
+		"a liked touch queues no tolerance decision")
 	var before := readiness.satisfaction
 	readiness.touch("caress")
 	check(near(readiness.satisfaction, before), "the shared touch cooldown blocks a second chunk")
@@ -149,6 +140,10 @@ func run() -> void:
 	readiness.touch("smack")
 	check(readiness.satisfaction < before, "a disliked touch lowers readiness")
 	check(host.faces.has("overwhelmed"), "a disliked touch asks for the overwhelmed face")
+	var warning: Dictionary = readiness.take_tolerance_decision()
+	check(int(warning.get("warning", 0)) == 1, "the first dislike queues a warning")
+	check(readiness.take_tolerance_decision().is_empty(), "the decision is consumed once")
+	check(near(readiness.distress(), 1.0), "the meter counts the dislike")
 
 	readiness.last_talk_at = -1000.0
 	before = readiness.satisfaction
@@ -176,6 +171,12 @@ func run() -> void:
 	readiness.tick(0.1)
 	check(host.climaxes > 0, "a full meter asks the host to climax")
 	check(near(readiness.peak_satisfaction, 100.0), "the peak stays for the summary")
+
+	readiness.tolerance_tick(26.0)
+	check(near(readiness.distress(), 0.0), "decay cannot go below zero")
+	readiness.request_debug("warning")
+	check(readiness.take_debug() == "warning", "the debug request is consumed once")
+	check(readiness.take_debug() == "", "the debug request clears")
 
 	print("READINESS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

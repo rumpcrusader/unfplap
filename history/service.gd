@@ -1,12 +1,10 @@
 extends RefCounted
-## The act's summary, long-term history and neglect tolerance. The runtime owns the act state,
-## the scene stop executor and the line/face presentation; this system owns the scoring trigger,
-## the grade-aware commit, the peak-memory record, the idle history scan's decisions and the
-## tolerance meter. See docs/history.md.
+## The act's summary and long-term history. The runtime owns the act state, the scene stop
+## executor and the line/face presentation; this system owns the scoring trigger, the grade-aware
+## commit, the peak-memory record and the idle history scan's decisions. See docs/history.md.
 
 const ACT_SUMMARY := preload("res://mods/unfplap/history/summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const ACT_TOLERANCE := preload("res://mods/unfplap/history/tolerance.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
@@ -15,9 +13,6 @@ const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd
 var summary: Dictionary = {}
 var summary_done := false
 var peak_recorded := false
-## The pure tolerance meter for the current act.
-var tolerance
-var debug_request := ""
 
 var _turn := -1
 var _scan_clock := 0.0
@@ -31,62 +26,12 @@ var reaction_line := Callable()
 var idle := Callable()
 
 
-## Start a fresh act: clear the summary, the peak flag, the debug request and the tolerance meter.
-## The pacing and history-scan clocks persist because they belong to the mare, not one act.
-func reset_act(profile: Dictionary) -> void:
+## Start a fresh act: clear the summary and the peak flag. The pacing and history-scan clocks
+## persist because they belong to the mare, not one act.
+func reset_act() -> void:
 	summary = {}
 	summary_done = false
 	peak_recorded = false
-	debug_request = ""
-	tolerance_controller().reset(profile)
-
-
-func tolerance_controller():
-	if tolerance == null:
-		tolerance = ACT_TOLERANCE.new()
-	return tolerance
-
-
-func tolerance_tick(delta: float) -> void:
-	if tolerance == null:
-		return
-	tolerance.tick(delta)
-
-
-func observe_dislike(kind: String) -> Dictionary:
-	return tolerance_controller().observe_dislike(kind)
-
-
-func observe_like(kind: String) -> void:
-	if tolerance != null:
-		tolerance.observe_like(kind)
-
-
-## The tolerance event the runtime should present, or nothing when there is no meter yet.
-func tolerance_decision(event: Dictionary) -> Dictionary:
-	if event.is_empty() or tolerance == null:
-		return {}
-	return event
-
-
-func distress() -> float:
-	return float(tolerance.distress) if tolerance != null else 0.0
-
-
-func last_dislike() -> String:
-	return str(tolerance.last_dislike) if tolerance != null else ""
-
-
-## Debug actions run from the paused settings page; the request is consumed on the next frame.
-func request_debug(kind: String) -> void:
-	debug_request = kind
-
-
-## Take and clear one pending debug request.
-func take_debug() -> String:
-	var action := debug_request
-	debug_request = ""
-	return action
 
 
 ## The summary inputs the pure scorer reads. The runtime gathers its act counters and the scene

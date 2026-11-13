@@ -3,7 +3,7 @@ extends SceneTree
 ## strict requests space and bucks. A refusal writes the game's angry/annoyed impression and
 ## holds the matching face. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/history/test_act_stop.gd
+##     --script res://mods/unfplap/tests/readiness/test_act_stop.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")

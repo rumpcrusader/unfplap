@@ -1,6 +1,6 @@
 extends SceneTree
-## The history facade: the summary commit, peak memory, the tolerance meter, the idle scan
-## decisions and the refusal gate. No live world is needed.
+## The history facade: the summary commit, peak memory and the idle scan decisions. No live world
+## is needed.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/history/test_history.gd
 
@@ -149,10 +149,7 @@ func run() -> void:
 	check(history.summary.is_empty(), "the summary starts empty")
 	check(not history.summary_done, "the summary flag starts clear")
 	check(not history.peak_recorded, "the peak flag starts clear")
-	history.reset_act({"tolerance": "strict"})
-	check(history.tolerance != null and history.tolerance.tier == "strict",
-		"reset binds the tolerance tier")
-	check(is_zero_approx(history.distress()), "the tolerance meter starts at zero")
+	history.reset_act()
 
 	# The facade owns the summary input and context shape; the runtime only gathers.
 	var gathered: Dictionary = {
@@ -206,7 +203,7 @@ func run() -> void:
 	history.commit_summary(false, _context(main, _inputs(1.0, 0)))
 	check(history.summary.is_empty(), "a short act with no thrusts is skipped")
 
-	history.reset_act({"tolerance": "normal"})
+	history.reset_act()
 	history.summary = {"positive": true, "grade": "good"}
 	history.record_peak_memory({
 		"main": main,
@@ -229,28 +226,6 @@ func run() -> void:
 		check(peak.score > 0.0, "the peak keeps its score")
 	history.record_peak_memory({"main": main}, 0.0)
 	check(main.memory.peaks.size() == 1, "the peak is stored once per act")
-
-	var disliked: Dictionary = history.observe_dislike("smack")
-	check(not disliked.is_empty() and int(disliked.get("warning", 0)) == 1,
-		"the first dislike warns")
-	check(is_equal_approx(history.distress(), 1.0), "the meter counts the dislike")
-	history.observe_like("caress")
-	check(is_zero_approx(history.distress()), "a liked touch relieves the meter")
-	history.tolerance_tick(26.0)
-	check(is_zero_approx(history.distress()), "decay cannot go below zero")
-
-	history.reset_act({"tolerance": "strict"})
-	history.observe_dislike("smack")
-	history.observe_dislike("smack")
-	var stopped: Dictionary = history.observe_dislike("smack")
-	check(bool(stopped.get("stop", false)), "the strict tier stops at three")
-	var decision: Dictionary = history.tolerance_decision(stopped)
-	check(bool(decision.get("stop", false)), "the stop event survives the decision")
-	check(not history.tolerance_decision({}).has("stop"), "an empty event is no decision")
-
-	history.request_debug("warning")
-	check(history.take_debug() == "warning", "the debug request is consumed once")
-	check(history.take_debug() == "", "the debug request clears")
 
 	var pony := FakePony.new()
 	root.add_child(pony)

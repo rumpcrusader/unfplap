@@ -74,7 +74,7 @@ Rules:
 - `eligibility/service.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit/save` or
   `Mods.save_changed`.
 - `facts.consent` is a snapshot. `get_profile(id).consent` re-resolves live.
-- Preferences are not facts. Tolerance stays with `history/tolerance.gd`; eligibility never reads the
+- Preferences are not facts. Tolerance stays with `readiness/tolerance.gd`; eligibility never reads the
   preference profile.
 - `api.describe_mare()` keeps its static shape and is not extended with live eligibility.
 
@@ -392,7 +392,7 @@ contract is `docs/initiation.md`.
 - estrus cycle allows sex.
 
 `runtime._still_willing()` checks this every quarter second. A real tolerance stop is separate:
-`history/tolerance.gd` owns disliked-touch distress and its warning/stop thresholds.
+`readiness/tolerance.gd` owns disliked-touch distress and its warning/stop thresholds.
 
 ## Debug
 

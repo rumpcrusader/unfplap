@@ -57,6 +57,16 @@ bed_frame (the live missionary bed frame, or null), bed, profile
 physics_delta (the physics tick delta the hand and reach easing uses)
 ```
 
+HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
+calling back into the runtime):
+
+```
+max_pony_climaxes, close_hint, summary_hud, cycle_heat
+y_pink, hud_readouts, hud_controls
+auto_on, auto_layer_open, auto_min_depth, auto_max_depth, auto_pace, auto_shape
+finish_pull_out, hole_ready, oral_ready, finish_ready
+```
+
 Scene handles:
 
 ```
@@ -91,6 +101,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `standing_camera`, `missionary_anon` | the pose bodies |
 | `anatomy_normal`, `anatomy_opening` | the anatomy reads |
 | `authored_pose_asset`, `missionary_face_point` | the shot targets |
+| `gaze_point` | the missionary gaze target the camera's look write uses |
 | `free_look_rotation` | the debug view rotation |
 | `desktop_pose_driver` | the game's pose driver |
 | `pose_host` | the node that answers the Anon pose-driver write-backs |

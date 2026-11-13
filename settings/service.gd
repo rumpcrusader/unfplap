@@ -2704,7 +2704,7 @@ static func _defaults() -> Dictionary:
 	# saved `characters` block holds only the player's real differences. That is what lets a
 	# provider pack update a default mare without overwriting a player's edits.
 	var out: Dictionary = {
-		"default": _filled_default(),
+		"default": _filled_default().duplicate(true),
 		"ui": {"sections": {}},
 	}
 	for s: Setting in _registry:
@@ -2718,8 +2718,8 @@ static func _defaults() -> Dictionary:
 
 
 ## The default template plus catalog pose/preference/prompt defaults. Kept as a function so the
-## catalogs are read at run time instead of baked into a const expression. Built once; callers
-## treat the result as read-only.
+## catalogs are read at run time instead of baked into a const expression. Built once and shared
+## read-only; `_defaults()` and `profile_for()` copy it before handing it out or mutating it.
 static func _filled_default() -> Dictionary:
 	if not _filled_default_cache.is_empty():
 		return _filled_default_cache

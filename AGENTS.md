@@ -317,40 +317,6 @@ mods/unfplap/
 
 The per-file service map with contracts and suites is `docs/README.md`.
 
-## Known cross-cutting constraints
-
-- The stock bed is size-aware. `eligible()` measures the joining pony's own `body_scale` with
-  `scale_fits()`: her barrel beside Anon's inside the mattress width and her whole length inside
-  its length. Anon's half of the lane and his head/sit offsets scale with
-  `Settings.anon_height_scale()`; hers scale with her own body. A bed too short for a Hoers or
-  Same Height mare is refused; that is stock behavior, not a mod override.
-- `[go_to_bed]` keeps a `sleep:` navigator lease even while she lies awake by day. A bed-side offer
-  through that lease is valid only for `bed_side`/`already_lying` when she is not sleeping and
-  `posture_status().requested == "lie_down"`; walking to bed or sleeping is not. See
-  `docs/eligibility.md`.
-- "Same Height as Anon" follows Anon's `player/height_cm`. The mod's lean scale, standing gap and
-  caress offsets follow the same multiplier; see `docs/hands.md`.
-- Standing kiss offsets, the missionary virtual mouth and kiss lean distances scale with Anon's
-  chosen height (`Settings.anon_height_scale()`), matching `player/player_mouth.gd`. See
-  `docs/kiss.md`.
-- `captions_on_top` is mod-owned: `main.gd` finds `SpeechCaption` through `Mods.on_node`, then
-  moves its private `_card` to the top margin after the caption's own layout pass. It skips the
-  settings-page preview and quietly does nothing if the card fields disappear.
-- The stock bed captures a snuggle guest's rest transform at invite time from the player's
-  reclined hip/head targets. Inviting before that blend settles puts the target at standing
-  height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying
-  down before inviting; the rejoin waits `CUDDLE_REJOIN_SETTLE_S`. See `docs/rest.md`.
-- `SharedBed.accept()` is the stock "her AI chose to join" entry. It sets `_accepting` so a
-  `social:talk` navigator lease counts as routine, then calls `invite(actor, null)`; `invite()`
-  ignores its seat argument and lays her spot out at her own `body_scale` (`_lay_mare`). Use
-  `invite(actor, seats[1])` to re-invite a mare who is already standing beside the bed.
-- A mare from another mod needs the game's pony locomotion and hybrid rig: an adult identity, a
-  stable id, `pony_hips` for the anatomy mesh, `MareBody` for teats/strip/body-coat deform, and
-  `hair_skeleton` plus `OpenPonyDock` for tail seating. Acts still need the eligibility runtime
-  described in `docs/eligibility.md`.
-- The act's quick-slot inventory HUD is hidden for the whole act and restored on every exit path;
-  see `docs/hud.md`.
-
 ## Debug and testing
 
 - The backtick console is gated by `DEV.enabled()`; a player build unlocks it with **Settings →

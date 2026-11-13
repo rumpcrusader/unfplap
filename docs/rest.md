@@ -35,6 +35,13 @@ act, a forced stop or a stood-up player cancels the rejoin instead of acting on 
 mattress top (the drawn bedding via `mattress.visible_top()` or the `mattress_top` meta) shifted
 0.25 m toward Anon's side, facing along the bed's `-Z` (or toward Anon when the bed is gone).
 
+## Stock accept path
+
+`SharedBed.accept()` is the game's "her AI chose to join" entry. It sets `_accepting` so a
+`social:talk` navigator lease counts as routine, then calls `invite(actor, null)`; `invite()`
+ignores its seat argument and lays her spot out at her own `body_scale` (`_lay_mare`). The rejoin
+therefore calls `invite(pony, seats[1])` explicitly.
+
 ## Placement and restore
 
 - `place_on_start()` is the cradle start: reset her onto the anchor, wait up to three physics

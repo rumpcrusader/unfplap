@@ -87,7 +87,10 @@ caress. An unlimited limit uses the 3-climax reference.
   standing keeps lean, reach, caress, caress movement, kiss and Y; thrust, auto and smack are
   hidden.
 - Captions can move to the top of the screen when the game's speech setting is the explicit bottom
-  caption; `captions_on_top` defaults to `true`.
+  caption; `captions_on_top` defaults to `true`. The mod owns this: `main.gd` finds each
+  `SpeechCaption` through `Mods.on_node`, then moves its private `_card` to the top margin after
+  the caption's own layout pass (process priority 100), scaled by the caption's own `_scale`. It
+  leaves the settings-page preview alone and does nothing if the card fields disappear.
 - **Enable debug** gates the detailed overlay and the mod's logging, not the HUD.
   **Print perf logs** separately gates the per-second performance block and needs it on too.
 

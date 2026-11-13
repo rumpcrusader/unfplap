@@ -59,6 +59,15 @@ The footstool rule lives in the per-act handle `stool/act.gd` (`docs/stool.md`);
 through the runtime's `stool_needed_count` / `stool_case_count` forwards. The pose rows reach the
 pose session facade.
 
+### Bed size
+
+The stock bed admits a guest through `SharedBed.eligible()`, which measures her own `body_scale`
+with `scale_fits()`: her barrel beside Anon must sit inside the mattress width and her whole length
+inside its length. Anon's half of the lane and his head/sit offsets scale with
+`Settings.anon_height_scale()`; hers scale with her own body. A bed too short for a Hoers or Same
+Height mare is refused. This is stock behaviour, not a mod override, and the `bed` / `bed_gate`
+rows report it.
+
 ## Navigator owners
 
 | Owner prefix | Verdict |

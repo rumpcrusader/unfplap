@@ -85,6 +85,11 @@ total, largest first, so the first row is the chunk to fix.
 |---|---|
 | `entry_process` | the whole `main._process` body |
 | `offer_scan` | the 0.15 s `_refresh_offer()` call |
+| `offer_cone` | the standing candidate search in `_refresh_offer()` |
+| `offer_gate` | the standing hint's `runtime.hint_start_verdict()` |
+| `offer_policy` | the cached eligibility policy inside that gate |
+| `offer_scene` | the live scene rows inside that gate |
+| `offer_stool` | the blocked-hint footstool check |
 | `runtime_process` | one pony's idle `_process_tick` |
 | `runtime_physics` | one pony's idle `_physics_process` |
 | `runtime_anatomy_sync` | the two `_sync_anatomy_facts()` calls per physics tick, summed |
@@ -96,7 +101,10 @@ total, largest first, so the first row is the chunk to fix.
 
 The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,
 which is the single forwarding point. Chunks nest: `anatomy_process` contains
-`anatomy_coat_follow` and `anatomy_visibility`; `entry_process` contains `offer_scan`.
+`anatomy_coat_follow` and `anatomy_visibility`; `entry_process` contains `offer_scan`, which
+contains `offer_cone`, `offer_gate` and `offer_stool`; `offer_gate` contains `offer_policy` and
+`offer_scene`. A steady `offer_policy` near zero means the hint reused its snapshot; a full
+`offer_policy` row means the key changed or the fallback TTL expired. See `docs/eligibility.md`.
 
 ## Gate and reset
 

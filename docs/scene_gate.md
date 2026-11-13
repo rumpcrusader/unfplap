@@ -29,6 +29,11 @@ buck flag.
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body.
 
+`start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint
+supplies the runtime's cached `Mode.START` verdict this way (`docs/eligibility.md`); the gate still
+builds and evaluates every live scene row on every call. The stool-blocked hint reuses that same
+gate result through `runtime.stool_blocks_verdict()` instead of running the start gate twice.
+
 ## Row sets
 
 A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe subset. `forced`
@@ -127,7 +132,8 @@ runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in 
 ## Tests
 
 `tests/scene_gate/test_scene_gate.gd` covers the conversation, cuddle, affection, navigator,
-player, bed and row sets, the structural rows, the policy/scene merge, the start/offer verdicts,
-the debug line, the reason list, the refusal executor and the auto-cuddle suppression with fake
-scene nodes. `tests/eligibility/` keeps the pure policy suites. The runtime suite
-(`tests/test_runtime_teardown.gd`) and the history stop suite drive the public forwards.
+player, bed and row sets, the structural rows, the policy/scene merge (including a supplied
+`verdict_in` snapshot), the start/offer verdicts, the debug line, the reason list, the refusal
+executor and the auto-cuddle suppression with fake scene nodes. `tests/eligibility/` keeps the
+pure policy suites. The runtime suite (`tests/test_runtime_teardown.gd`) and the history stop
+suite drive the public forwards.

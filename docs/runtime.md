@@ -23,7 +23,8 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 ## Start
 
 `main.try_start()` is the only act-start path. It composes the eligibility policy verdict with the
-scene rows (`docs/eligibility.md`, `docs/scene_gate.md`) and calls `runtime.start()`. The start
+scene rows (`docs/eligibility.md`, `docs/scene_gate.md`) and calls `runtime.start()`. The idle hint
+may reuse a per-runtime policy snapshot, but this path always builds a fresh verdict. The start
 sequence:
 
 1. re-read the identity, gate and refusal;
@@ -116,6 +117,8 @@ reads that facade too.
 
 - `tests/test_runtime_teardown.gd` — the one exit path and the ownership flags.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
+- `tests/test_runtime_offer_policy.gd` — the idle hint's policy snapshot, its invalidation keys
+  and the fresh gate path.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions.
 - The service suites indexed in `docs/README.md`.

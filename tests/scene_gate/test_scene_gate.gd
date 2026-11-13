@@ -538,6 +538,20 @@ func _check_verdicts() -> void:
 	check(bool(start.get("buck_refuse", false)), "the start verdict follows the policy")
 	check(bool(start.get("history_refuse", false)), "the start verdict follows the policy")
 	check(policy.calls == 1, "the policy callback runs once")
+	# The idle hint supplies its cached policy; the gate must skip the callback and still run
+	# every live scene row.
+	var reused := ELIGIBILITY.Verdict.new()
+	reused.show = true
+	reused.attempt = true
+	var calls_before := policy.calls
+	var reused_start: Dictionary = gate.call("start_verdict", "standing", "", null, reused)
+	check(policy.calls == calls_before, "a supplied verdict skips the policy callback")
+	check(bool(reused_start.get("show", false)), "a supplied verdict still shows through the gate")
+	pony.set_meta("sex_aftercare", true)
+	var reused_blocked: Dictionary = gate.call("start_verdict", "standing", "", null, reused)
+	check(not bool(reused_blocked.get("show", false)),
+		"a supplied verdict still runs the live scene rows")
+	pony.remove_meta("sex_aftercare")
 	var keys: Array[String] = []
 	for entry: ELIGIBILITY.Row in start.get("rows", []):
 		keys.append(entry.key)

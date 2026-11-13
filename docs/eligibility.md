@@ -54,8 +54,10 @@ The purity boundary is deliberate:
 
 ## Data ownership
 
-Eligibility stores nothing. Facts are a per-call snapshot and are never cached, saved or added to
-the per-character profile.
+Eligibility stores nothing. Facts are a per-call snapshot and are never saved or added to the
+per-character profile. The runtime's idle hint may reuse a typed `Verdict` in memory (`## Offer
+hint snapshot`); that cache is never written, is not part of this service and always keeps the
+live scene rows.
 
 | Data | Stored where | Owner |
 |---|---|---|
@@ -135,7 +137,7 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 | `runtime.start()` | `start_verdict()` | none |
 | `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor |
 | `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
-| `main._refresh_offer()` | `runtime.start_verdict().show` | candidate discovery |
+| `main._refresh_offer()` | `runtime.hint_start_verdict().show` | candidate discovery; reuses the policy snapshot, runs live scene rows |
 | `main.try_start()` | `runtime.start()` | none |
 | `main._try_refusal()` | `runtime.refuse_available()` | none |
 | `main` candidate scan | `eligible(pony, Target.ACT)` through `_is_act_target()` | candidate discovery |
@@ -253,6 +255,30 @@ Rules:
 - `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
   buck, a history refusal or a mood note. It is a boundary, not a mood beat.
 - `show` and `attempt` are separate. Try Your Luck shows the hint while `attempt` is false.
+
+## Offer hint snapshot
+
+`main._refresh_offer()` runs at the 0.15 s hint cadence. It calls
+`runtime.hint_start_verdict()`, which reuses one cached `Verdict` for `Mode.START` and still runs
+every live scene row. Only the hint uses the snapshot: `runtime.start_verdict()`,
+`runtime.offer_verdict()`, `runtime.start()`, the refusal path, `debug_line()` and the initiation
+service build a fresh verdict.
+
+The runtime stores the snapshot per pony with its last key and a 0.5 s fallback TTL. It rebuilds
+when any of these changes:
+
+- settings `generation` or the provider registry `revision`;
+- `ACT_HISTORY.revision` (bumped by every stored history write);
+- the player form kind or age;
+- the cycle phase;
+- the pony id, relationship runtime or bonds node;
+- a `bonds.changed` or `impressions.changed` signal, where available;
+- the TTL expiring, so a missed signal cannot stale the hint forever.
+
+The scene gate receives the snapshot through its `verdict_in` argument, appends its live rows and
+evaluates them normally. A cached `show` therefore never bypasses a closed door, a sleep, a cuddle,
+a navigator lease or a footstool shortage. `runtime.stool_blocks_verdict()` reuses the same gate's
+rows for the blocked hint instead of running the gate a second time.
 
 ## Adults
 

@@ -9,6 +9,7 @@ const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -164,6 +165,14 @@ var _y_hold := 0.0
 var _y_hold_ready := false
 var _y_hold_fired := false
 var _id := ""
+## The idle offer hint's cached policy verdict. The scene rows still run on every scan; only the
+## eligibility half is reused. A real start, refusal, debug line or initiation gate never reads it.
+## See `docs/eligibility.md`.
+const OFFER_POLICY_TTL_USEC := 500_000
+var _offer_policy: ELIGIBILITY.Verdict = null
+var _offer_policy_at_usec := 0
+var _offer_policy_key: Array = []
+var _offer_policy_dirty := true
 ## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
 var _cycle_override := ""
 var _profile: Dictionary = {}
@@ -1392,6 +1401,18 @@ func stool_blocks_start(pose: String, act_source: String, bed_in: Variant = null
 		return false
 	return bool(act.call("blocks_start", _start_reasons(pose, act_source, bed_in)))
 
+
+## The blocked-hint variant: reuse the gate the hint already built instead of running the whole
+## start gate a second time. The handle still re-reads the live need and case count.
+func stool_blocks_verdict(verdict: Dictionary) -> bool:
+	var act: Variant = _stool_act()
+	if act == null:
+		return false
+	var value: Variant = verdict.get("rows", [])
+	var rows: Array = value if value is Array else []
+	return bool(act.call("blocks_start", _scene_gate().report_reasons(rows)))
+
+
 func stool_state_text() -> String:
 	var act: Variant = _stool_act()
 	return str(act.call("state_text")) if act != null else "stool unavailable"
@@ -1407,6 +1428,124 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
 	_read_id()
 	return _scene_gate().offer_verdict(pose, act_source, bed_in, forced, verdict_in)
+
+
+## The idle hint's start verdict: a reused policy snapshot plus live scene rows. Only
+## `main._refresh_offer()` uses this; a real start, refusal, debug line or initiation gate calls
+## `start_verdict()`/`offer_verdict()` and builds a fresh policy. See `docs/eligibility.md`.
+func hint_start_verdict(pose: String, act_source: String, bed_in: Variant = null) -> Dictionary:
+	_read_id()
+	var started := Time.get_ticks_usec() if idle_perf else 0
+	var policy: ELIGIBILITY.Verdict = offer_policy_verdict()
+	if idle_perf:
+		_idle_perf_note("offer_policy", Time.get_ticks_usec() - started)
+	started = Time.get_ticks_usec() if idle_perf else 0
+	var out: Dictionary = _scene_gate().start_verdict(pose, act_source, bed_in, policy)
+	if idle_perf:
+		_idle_perf_note("offer_scene", Time.get_ticks_usec() - started)
+	return out
+
+
+## The START policy snapshot reused by the idle hint. It is rebuilt only when its key changes or
+## the fallback TTL expires, so a scan does not re-read relationship, consent, cycle and history
+## seven times a second. The returned verdict is read-only for consumers.
+func offer_policy_verdict() -> ELIGIBILITY.Verdict:
+	_read_id()
+	var key := _offer_key()
+	var now := Time.get_ticks_usec()
+	if _offer_policy != null and not _offer_policy_dirty \
+			and now - _offer_policy_at_usec < OFFER_POLICY_TTL_USEC \
+			and key == _offer_policy_key:
+		return _offer_policy
+	_offer_policy = _policy_verdict(ELIGIBILITY.Mode.START)
+	_offer_policy_at_usec = now
+	_offer_policy_key = key
+	_offer_policy_dirty = false
+	_bind_offer_signals()
+	return _offer_policy
+
+
+## Everything the policy snapshot depends on that is cheap to read. The relationship and
+## impressions nodes also emit `changed`, which marks the snapshot dirty; the key catches a
+## runtime swap or a missed signal.
+func _offer_key() -> Array:
+	var form: Dictionary = PLAYER_FORM.active(get_tree()) if is_inside_tree() else {}
+	var relationship: Variant = null
+	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
+		relationship = pony.get_meta("relationship_runtime")
+	var relationship_id := 0
+	var bonds_id := 0
+	if relationship is Object and is_instance_valid(relationship):
+		relationship_id = (relationship as Object).get_instance_id()
+		var bonds: Variant = relationship.get("bonds")
+		if bonds is Object and is_instance_valid(bonds):
+			bonds_id = (bonds as Object).get_instance_id()
+	return [
+		_id,
+		int(SETTINGS.generation),
+		int(MARE_REGISTRY.revision),
+		int(ACT_HISTORY.revision),
+		str(form.get("kind", "human")),
+		str(form.get("age", "adult")),
+		cycle_phase(),
+		relationship_id,
+		bonds_id,
+	]
+
+
+func _bind_offer_signals() -> void:
+	var callback := Callable(self, "_on_offer_facts_changed")
+	var relationship: Variant = null
+	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
+		relationship = pony.get_meta("relationship_runtime")
+	if relationship is Object and is_instance_valid(relationship):
+		var bonds: Variant = relationship.get("bonds")
+		if bonds is Object and is_instance_valid(bonds) \
+				and bonds.has_signal("changed") \
+				and not bonds.is_connected("changed", callback):
+			bonds.connect("changed", callback)
+	var impressions: Variant = _offer_impressions()
+	if impressions is Object and is_instance_valid(impressions) \
+			and impressions.has_signal("changed") \
+			and not impressions.is_connected("changed", callback):
+		impressions.connect("changed", callback)
+
+
+func _offer_impressions() -> Variant:
+	if not is_instance_valid(main) or not is_instance_valid(main.game):
+		return null
+	var context: Variant = main.game.get("world_context")
+	if context == null or not is_instance_valid(context):
+		return null
+	return context.get("impressions")
+
+
+func _on_offer_facts_changed() -> void:
+	_offer_policy_dirty = true
+
+
+func _unbind_offer_signals() -> void:
+	var callback := Callable(self, "_on_offer_facts_changed")
+	var relationship: Variant = null
+	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
+		relationship = pony.get_meta("relationship_runtime")
+	if relationship is Object and is_instance_valid(relationship):
+		var bonds: Variant = relationship.get("bonds")
+		if bonds is Object and is_instance_valid(bonds) \
+				and bonds.has_signal("changed") and bonds.is_connected("changed", callback):
+			bonds.disconnect("changed", callback)
+	var impressions: Variant = _offer_impressions()
+	if impressions is Object and is_instance_valid(impressions) \
+			and impressions.has_signal("changed") \
+			and impressions.is_connected("changed", callback):
+		impressions.disconnect("changed", callback)
+
+
+func _invalidate_offer_policy() -> void:
+	_offer_policy = null
+	_offer_policy_at_usec = 0
+	_offer_policy_key = []
+	_offer_policy_dirty = true
 
 
 ## The policy verdict. The runtime reads the eligibility service; the scene gate composes it.
@@ -3080,6 +3219,7 @@ func _restore_begin() -> void:
 ## `cancel()` queues the early-stop reaction after `_restore_begin()`, and `_finish_restore()` must
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
+	_invalidate_offer_policy()
 	_stop_auto()
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
@@ -3705,6 +3845,8 @@ func _snout() -> Vector3:
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
+	_invalidate_offer_policy()
+	_unbind_offer_signals()
 	_kiss_controller().restore_forelegs()
 	_release_stool()
 	_end_tail_tuck()

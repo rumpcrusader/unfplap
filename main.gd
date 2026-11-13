@@ -518,21 +518,36 @@ func _refresh_offer() -> void:
 					_log_offer()
 					return
 
-	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed.
+	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed. The gate
+	# reuses the runtime's offer-policy snapshot; the scene rows still run on every scan. See
+	# `docs/eligibility.md`.
+	var timed := _perf_idle.on()
+	var cone_started := Time.get_ticks_usec() if timed else 0
 	var standing: Node = _rump_cone_target(view)
+	if timed:
+		_perf_idle.note("offer_cone", Time.get_ticks_usec() - cone_started)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and runtime.can_show_start(CATALOG.STANDING, "", null):
-			_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
-				"source": "", "bed": null}
-			_log_offer()
-		elif is_instance_valid(runtime) \
-				and bool(runtime.call("stool_blocks_start", CATALOG.STANDING, "", null)):
-			var need := maxi(1, int(runtime.call("stool_needed_count")))
-			var hint := _stool_hint_for(need)
-			_offer_blocked = {"runtime": runtime, "pony": standing,
-				"need": need, "hint": hint}
-			_log_blocked_offer(runtime, standing, need)
+		if is_instance_valid(runtime):
+			var gate_started := Time.get_ticks_usec() if timed else 0
+			var gate: Dictionary = runtime.hint_start_verdict(CATALOG.STANDING, "", null)
+			if timed:
+				_perf_idle.note("offer_gate", Time.get_ticks_usec() - gate_started)
+			if bool(gate.get("show", false)):
+				_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
+					"source": "", "bed": null}
+				_log_offer()
+			else:
+				var stool_started := Time.get_ticks_usec() if timed else 0
+				var blocked := bool(runtime.stool_blocks_verdict(gate))
+				if timed:
+					_perf_idle.note("offer_stool", Time.get_ticks_usec() - stool_started)
+				if blocked:
+					var need := maxi(1, int(runtime.call("stool_needed_count")))
+					var hint := _stool_hint_for(need)
+					_offer_blocked = {"runtime": runtime, "pony": standing,
+						"need": need, "hint": hint}
+					_log_blocked_offer(runtime, standing, need)
 
 
 ## The current offer's pony, for the request service's cuddle check. It refreshes the offer the

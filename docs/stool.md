@@ -89,8 +89,10 @@ target; `release()` frees the prop, lowers the player and returns every case uni
 `runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read
 a controller's private state. The live opening comes from the per-pony anatomy controller, the
 part root from `main.anatomy.player_root_now()`, and `main.anatomy.player_prepare()` builds the
-hidden part first. The handle reads `main.stool` for the settings/item/measure calls and
-`main.anatomy` for the player part.
+hidden part first. The part is normally warmed when the player part is created, so the first
+standing offer does not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent
+fallback. The handle reads `main.stool` for the settings/item/measure calls and `main.anatomy` for
+the player part.
 
 ## Rule
 
@@ -133,6 +135,9 @@ and again on `start()`.
 - `main._refresh_offer()` shows **Make love** when the start is possible and **Needs a footstool**
   or **Needs N footstools** when the stack is the only missing thing. The blocked note has no Y
   icon. A one-time toast points at houses.
+- The blocked hint reuses the gate the scan already built (`runtime.stool_blocks_verdict()`): it
+  reads that gate's failed reasons and re-reads only the live need and case count. It never runs
+  the full start gate a second time.
 - Pressing Y on the blocked note does not start an act.
 - The normal start path takes exactly the required number of case units. A short or unwritable
   case blocks the start.
@@ -210,7 +215,8 @@ and again on `start()`.
   loans.
 - `tests/stool/test_stool_api.gd`: the facade's setting reads, threshold, step height, count, gap
   and item id.
-- `tests/stool/test_gate.gd`: the runtime forwards' live gap, two-step requirement and case count.
+- `tests/stool/test_gate.gd`: the runtime forwards' live gap, two-step requirement, case count and
+  the blocked hint's reuse of the first gate's rows.
 - `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
   reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision

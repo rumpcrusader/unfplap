@@ -1,8 +1,8 @@
 # Act lines
 
 The line system owns what the mod makes the ponies say during an act: cue admission, the cue
-prompt, the shared utterance slot, reaction lines and the bystander line. The runtime
-keeps the act state machine; this system decides whether and how a line is queued.
+prompt, the shared utterance slot, reaction lines, the bystander line and the idle history scan.
+The runtime keeps the act state machine; this system decides whether and how a line is queued.
 
 ## Scope
 
@@ -15,6 +15,7 @@ This contract covers:
   the history and relationship lines and the caress/lean reads;
 - reaction lines for climax, early end, history refusal and tolerance events;
 - the bystander line and its observer pass;
+- the idle history scan: the apology repair and the pending reminder/complaint line;
 - the recent-line text and the director's last-spoken time;
 - cancelling the act's lines at climax, afterglow and act end.
 
@@ -26,7 +27,7 @@ face beats (`docs/face.md`).
 
 | File | Role |
 |---|---|
-| `lines/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, bystander and recent-line reads |
+| `lines/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, the idle history scan, bystander and recent-line reads |
 | `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
 | `lines/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
 | `lines/utterance.gd` | pure prompt formatting and the private line seed |
@@ -50,6 +51,7 @@ tree.
 | `admit_cue(now)` | observe the cue, apply the gates in order, log a change, queue one cue prompt; returns the key or `""` |
 | `tick()` | release a delivered line, drop an absent row and expire a queued/generating row at its max age |
 | `bystander_tick(delta)` | one adult observer line per interval, at most three per act |
+| `history_tick(delta, context)` | the idle history scan: repair on a sincere apology, queue one pending reminder/complaint line |
 | `end_act(event_id, keep_speaking)` | cancel the act's queued/generating lines; a speaking line may finish |
 | `reaction_line(reaction, event_id, fallback, valid)` | queue a reaction through the memory channel |
 | `note_reaction(key, cue_text, until)` | reserve the shared slot for that reaction |
@@ -102,6 +104,23 @@ The bystander pass is always on. It uses `memory.observers()` and the modern wit
 It starts after 12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity
 closure checks the observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/outdoors wording comes from
 `house_interior.gd`.
+
+## Idle history scan
+
+`history_tick()` runs only while the runtime is `IDLE`; the runtime gathers the scene values (the
+director, the paused tree, the player turn, the distance and the conversation target) and passes
+them in one context dictionary.
+
+- A sincere apology is detected locally by `preferences.apology_intent()`; only the pony currently
+  in conversation with the player repairs, and only once per in-game day. The repair is
+  `ACT_HISTORY.apology_repair()`, followed by `save()` and one `APOLOGY` memory note.
+- A pending complaint (tier 2/3) is queued as one short line after a 45 s delay, when the player is
+  within 5 m and the director is idle. Tier 1 uses a deterministic rare hint (about one act in
+  four) and a vague line with no wants list. One line per tier rise.
+- The scan checks once per second. A queued line marks the row announced through
+  `ACT_HISTORY.mark_announced()`, so the same act does not speak twice.
+
+The stored row itself is `shared/act_history.gd`; its tiers and wording are in `docs/history.md`.
 
 ## Cancelling
 
@@ -175,6 +194,7 @@ second-person seed (`{seed}`): it states the need or the moment, never “She wa
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
+| store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Lifecycle
 
@@ -193,6 +213,8 @@ second-person seed (`{seed}`): it states the need or the moment, never “She wa
   the memory channel, reactions, the recent-line reads, busy state and act-end cancellation.
 - `tests/lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the
   caress/lean reads and the two facade forwarders.
+- `tests/lines/test_history_scan.gd`: the idle apology repair, the pending reminder line and the
+  announced mark.
 
 Run:
 

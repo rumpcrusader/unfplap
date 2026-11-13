@@ -14,6 +14,7 @@ const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
 const CUE_REACTION_NOTE := "\nDo not turn the private moment into a repeated command; say it as your own reaction or preference."
 const RECENT_LINES := 8
@@ -59,6 +60,9 @@ var _used_memory_ids: Array[String] = []
 var _bystander_event := ""
 var _bystander_spoken: Array[String] = []
 var _bystander_wait := 0.0
+var _history_turn := -1
+var _history_scan := 0.0
+var _history_reminder_at := -1000.0
 var _last_cue_log_text := ""
 var _last_cue_log_reason := ""
 
@@ -213,6 +217,71 @@ func bystander_tick(delta: float) -> void:
 	if _bystander_line(str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
 		_log("bystander line from %s" % row.id)
+
+
+## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
+## complaint becomes one short line in a quiet moment. The runtime gathers the scene values; this
+## owns the decisions and the line queueing.
+func history_tick(delta: float, context: Dictionary) -> void:
+	if facts == null or not ACT_HISTORY.enabled():
+		return
+	var main_node: Variant = context.get("main")
+	var pony: Variant = context.get("pony")
+	if not is_instance_valid(main_node) or not is_instance_valid(pony):
+		return
+	if bool(context.get("paused", false)):
+		return
+	var director: Variant = context.get("director")
+	if director == null:
+		return
+	var now := float(context.get("now", 0.0))
+	var turn := int(context.get("turn", 0))
+	var text := str(context.get("text", "")).strip_edges()
+	if _history_turn < 0:
+		_history_turn = turn
+	elif turn != _history_turn:
+		_history_turn = turn
+		if not text.is_empty() and PREFERENCES.apology_intent(text) \
+				and bool(context.get("target_is_player", false)):
+			var id := str(context.get("pony_id", ""))
+			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), id, ACT_HISTORY.day_now()):
+				ACT_HISTORY.save()
+				if is_instance_valid(main_node.game):
+					main_node.memory.note(MEMORY.NoteKind.APOLOGY, id,
+						str(context.get("event_id", "")))
+				_log("history apology id=%s" % id)
+	_history_scan += delta
+	if _history_scan < 1.0:
+		return
+	_history_scan = 0.0
+	if now - _history_reminder_at < 15.0 or bool(context.get("speech_busy", false)):
+		return
+	if str(context.get("director_state", "")) != "idle":
+		return
+	if float(context.get("distance", 0.0)) > 5.0:
+		return
+	var id := str(context.get("pony_id", ""))
+	var current := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+	var kind := ACT_HISTORY.pending_line(current)
+	if kind.is_empty():
+		return
+	if Time.get_unix_time_from_system() - float(current.get("last_at", 0.0)) < 45.0:
+		return
+	var event_id := "history_%s_%d" % [id, Time.get_ticks_usec()]
+	var valid := func() -> bool:
+		if not is_instance_valid(pony):
+			return false
+		return facts != null and facts.state == STATE_IDLE
+	var reaction := MEMORY.Reaction.HISTORY_REMINDER if kind == "reminder" \
+		else MEMORY.Reaction.HISTORY_COMPLAINT
+	var key: String = reaction_line(reaction, event_id,
+		ACT_HISTORY.line_purpose(current, kind), valid)
+	if key.is_empty():
+		return
+	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), id, kind)
+	ACT_HISTORY.save()
+	_history_reminder_at = now
+	_log("history line kind=%s key=%s" % [kind, key])
 
 
 func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> String:

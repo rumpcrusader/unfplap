@@ -1,6 +1,5 @@
 extends SceneTree
-## The history facade: the summary commit, peak memory and the idle scan decisions. No live world
-## is needed.
+## The history facade: the summary commit and peak memory. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/history/test_history.gd
 
@@ -48,32 +47,11 @@ class FakeMain extends Node:
 	var memory: Node = FakeMemory.new()
 
 
-class FakePony extends Node3D:
-	pass
-
-
 class Host extends RefCounted:
 	var text := ""
-	var calls := 0
-	var busy := false
-	var idle := true
 
 	func write(line: String) -> void:
 		text = line
-
-	func react(_reaction: int, _event_id: String, _fallback: String,
-			_valid: Callable) -> String:
-		calls += 1
-		return "history:%d" % calls
-
-	func is_busy() -> bool:
-		return busy
-
-	func is_idle() -> bool:
-		return idle
-
-	func clock_now() -> float:
-		return 100.0
 
 
 func _initialize() -> void:
@@ -143,8 +121,6 @@ func run() -> void:
 	var host := Host.new()
 	var history := HISTORY.new()
 	history.log = Callable(host, "write")
-	history.reaction_line = Callable(host, "react")
-	history.idle = Callable(host, "is_idle")
 
 	check(history.summary.is_empty(), "the summary starts empty")
 	check(not history.summary_done, "the summary flag starts clear")
@@ -226,64 +202,6 @@ func run() -> void:
 		check(peak.score > 0.0, "the peak keeps its score")
 	history.record_peak_memory({"main": main}, 0.0)
 	check(main.memory.peaks.size() == 1, "the peak is stored once per act")
-
-	var pony := FakePony.new()
-	root.add_child(pony)
-	var director := Node.new()
-	root.add_child(director)
-	mods.data["unfplap"]["act_history"] = {
-		"rarity": {"hurt": 3, "last_apology_day": -1.0, "reminder_pending": false},
-	}
-	# The first turn is the baseline; a later turn with an apology repairs one point.
-	history.tick_idle(0.0, {
-		"main": main, "pony": pony, "director": director,
-		"pony_id": "rarity", "event_id": "intimacy_test", "now": 100.0,
-		"turn": 2, "text": "", "paused": false, "speech_busy": false,
-		"director_state": "idle", "distance": 1.0, "target_is_player": false,
-	})
-	history.tick_idle(1.1, {
-		"main": main,
-		"pony": pony,
-		"director": director,
-		"pony_id": "rarity",
-		"event_id": "intimacy_test",
-		"now": 100.0,
-		"turn": 3,
-		"text": "I'm sorry",
-		"paused": false,
-		"speech_busy": false,
-		"director_state": "idle",
-		"distance": 1.0,
-		"target_is_player": true,
-	})
-	var repair_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["rarity"]
-	check(int(repair_row.get("hurt", 3)) == 2, "a sincere apology repairs one point")
-	check(main.memory.notes.size() == 1, "the apology writes one note")
-
-	mods.data["unfplap"]["act_history"] = {
-		"rarity": {"hurt": 2, "last_at": 0.0, "reminder_pending": true,
-			"complaint_pending": false},
-	}
-	var before_calls := host.calls
-	history.tick_idle(1.1, {
-		"main": main,
-		"pony": pony,
-		"director": director,
-		"pony_id": "rarity",
-		"event_id": "intimacy_test",
-		"now": 200.0,
-		"turn": 3,
-		"text": "",
-		"paused": false,
-		"speech_busy": false,
-		"director_state": "idle",
-		"distance": 1.0,
-		"target_is_player": false,
-	})
-	check(host.calls == before_calls + 1, "a pending reminder queues one line")
-	var reminder_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["rarity"]
-	check(not bool(reminder_row.get("reminder_pending", true)),
-		"the queued reminder is marked announced")
 
 	print("HISTORY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

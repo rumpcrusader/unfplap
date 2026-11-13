@@ -1,7 +1,7 @@
 extends RefCounted
 ## The act's summary and long-term history. The runtime owns the act state, the scene stop
 ## executor and the line/face presentation; this system owns the scoring trigger, the grade-aware
-## commit, the peak-memory record and the idle history scan's decisions. See docs/history.md.
+## commit and the peak-memory record. The idle apology/reminder scan is lines. See docs/history.md.
 
 const ACT_SUMMARY := preload("res://mods/unfplap/history/summary.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
@@ -14,20 +14,11 @@ var summary: Dictionary = {}
 var summary_done := false
 var peak_recorded := false
 
-var _turn := -1
-var _scan_clock := 0.0
-var _reminder_at := -1000.0
-
 ## Host boundary. A missing callable is a no-op.
 var log := Callable()
-## Queue one mod reaction line: `(reaction, event_id, fallback, valid) -> String`.
-var reaction_line := Callable()
-## True while the runtime is IDLE. Used by the queued line's validity closure.
-var idle := Callable()
 
 
-## Start a fresh act: clear the summary and the peak flag. The pacing and history-scan clocks
-## persist because they belong to the mare, not one act.
+## Start a fresh act: clear the summary and the peak flag.
 func reset_act() -> void:
 	summary = {}
 	summary_done = false
@@ -155,74 +146,6 @@ func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:
 	peak.text = text
 	peak.score = score
 	main.memory.record_peak(peak)
-
-
-## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
-## complaint becomes one short line in a quiet moment.
-func tick_idle(delta: float, context: Dictionary) -> void:
-	if not ACT_HISTORY.enabled():
-		return
-	var main: Variant = context.get("main")
-	var pony: Variant = context.get("pony")
-	if not is_instance_valid(main) or not is_instance_valid(pony):
-		return
-	if bool(context.get("paused", false)):
-		return
-	var director: Variant = context.get("director")
-	if director == null:
-		return
-	var now := float(context.get("now", 0.0))
-	var turn := int(context.get("turn", 0))
-	var text := str(context.get("text", "")).strip_edges()
-	if _turn < 0:
-		_turn = turn
-	elif turn != _turn:
-		_turn = turn
-		if not text.is_empty() and PREFERENCES.apology_intent(text) \
-				and bool(context.get("target_is_player", false)):
-			var id := str(context.get("pony_id", ""))
-			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), id, ACT_HISTORY.day_now()):
-				ACT_HISTORY.save()
-				if is_instance_valid(main.game):
-					main.memory.note(MEMORY.NoteKind.APOLOGY, id,
-						str(context.get("event_id", "")))
-				_write_log("history apology id=%s" % id)
-	_scan_clock += delta
-	if _scan_clock < 1.0:
-		return
-	_scan_clock = 0.0
-	if now - _reminder_at < 15.0 or bool(context.get("speech_busy", false)):
-		return
-	if str(context.get("director_state", "")) != "idle":
-		return
-	if float(context.get("distance", 0.0)) > 5.0:
-		return
-	var id := str(context.get("pony_id", ""))
-	var current := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
-	var kind := ACT_HISTORY.pending_line(current)
-	if kind.is_empty():
-		return
-	if Time.get_unix_time_from_system() - float(current.get("last_at", 0.0)) < 45.0:
-		return
-	if not reaction_line.is_valid():
-		return
-	var event_id := "history_%s_%d" % [id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
-		if not is_instance_valid(pony):
-			return false
-		if idle.is_valid() and not bool(idle.call()):
-			return false
-		return true
-	var reaction := MEMORY.Reaction.HISTORY_REMINDER if kind == "reminder" \
-		else MEMORY.Reaction.HISTORY_COMPLAINT
-	var key: String = reaction_line.call(reaction, event_id,
-		ACT_HISTORY.line_purpose(current, kind), valid)
-	if key.is_empty():
-		return
-	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), id, kind)
-	ACT_HISTORY.save()
-	_reminder_at = now
-	_write_log("history line kind=%s key=%s" % [kind, key])
 
 
 func _reasons(outcome: Dictionary) -> String:

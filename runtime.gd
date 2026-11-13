@@ -643,8 +643,6 @@ func _init() -> void:
 	_readiness.heat_cycle = Callable(self, "_readiness_heat")
 	_readiness.on_cue = Callable(self, "_readiness_cue")
 	_history.log = Callable(self, "_log")
-	_history.reaction_line = Callable(self, "_reaction_line")
-	_history.idle = Callable(self, "_history_is_idle")
 	_afterglow.log = Callable(self, "_log")
 	_afterglow.clock = Callable(self, "_now_s")
 	_afterglow.in_phase = Callable(self, "_afterglow_active")
@@ -2947,7 +2945,8 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 	return true
 
 
-## Idle-only history scan. The scene values are gathered here; `history/service.gd` owns the decisions.
+## Idle-only history scan. The scene values are gathered here; `lines/service.gd` owns the
+## decisions and the line queueing.
 func _history_tick(delta: float) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
 			or not is_instance_valid(main.player):
@@ -2957,7 +2956,7 @@ func _history_tick(delta: float) -> void:
 		return
 	var target: Variant = pony.get("conversation_target")
 	var body: Variant = main.player_body()
-	_history.tick_idle(delta, {
+	_lines_service().history_tick(delta, {
 		"main": main,
 		"pony": pony,
 		"director": director,
@@ -2972,10 +2971,6 @@ func _history_tick(delta: float) -> void:
 		"distance": main.player.global_position.distance_to(pony.global_position),
 		"target_is_player": target == main.player or target == body,
 	})
-
-
-func _history_is_idle() -> bool:
-	return state == State.IDLE
 
 
 ## The meter only advances during an act. A forced debug warning or stop runs here so it lands

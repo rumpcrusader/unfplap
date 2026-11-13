@@ -9,14 +9,14 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 ## Ownership
 
 `history/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
-context shape the pure scorer reads (`summary_inputs()`, `summary_context()`), the peak-memory
-record and the idle apology/reminder decisions. The stored ledger is read from
-`shared/act_history.gd` directly, by this facade and by every other consumer. The runtime keeps the
-act state machine, gathers the action counters and the scene values into one dictionary, runs the
-scene stop executor (`_stop_with_her`: bed release, session end, space, buck, tail tuck) and owns
-the face and line presentation. `history/summary.gd` and `shared/act_history.gd` remain the pure
-scoring and stored-row modules behind the facade. The neglect-tolerance meter is readiness; see
-`docs/readiness.md`.
+context shape the pure scorer reads (`summary_inputs()`, `summary_context()`) and the peak-memory
+record. The stored ledger is read from `shared/act_history.gd` directly, by this facade and by every
+other consumer. The runtime keeps the act state machine, gathers the action counters and the scene
+values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release, session
+end, space, buck, tail tuck) and owns the face and line presentation. `history/summary.gd` and
+`shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade. The
+neglect-tolerance meter is readiness and the idle history scan is lines; see `docs/readiness.md`
+and `docs/lines.md`.
 
 ## Per-act score
 
@@ -217,11 +217,8 @@ navigator and blocks nothing; the gates above do that.
   `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated act opening.
 - An intentional early end gives one short reaction 50% of the time and marks its pending history
   line announced, so the same act does not speak twice.
-- A pending complaint (tier 2/3) is queued as one short line after a 45 s delay, when the player is
-  within 5 m and the director is idle. Tier 1 uses a deterministic rare hint (about one act in
-  four) and a vague line with no wants list. One line per tier rise.
-- A sincere apology is detected locally by `preferences.apology_intent()`; only the pony currently
-  in conversation with the player repairs.
+- The pending reminder/complaint line and the apology repair run in the idle history scan owned by
+  lines; see `docs/lines.md`.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act. The **Reset act history** debug action clears the row.
 
@@ -263,8 +260,7 @@ so stored values are never clamped. See `docs/settings.md`.
 - `tests/history/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
   sanitising, pending lines, reset.
 - `tests/history/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
-- `tests/history/test_history.gd` — facade: summary commit, peak memory and the idle
-  apology/reminder scan.
+- `tests/history/test_history.gd` — facade: summary commit and peak memory.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
 - `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.
 

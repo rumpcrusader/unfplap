@@ -156,14 +156,14 @@
       "signature": "func summary_inputs(context: Dictionary) -> Dictionary:"
     },
     {
-      "service": "history",
-      "func": "tick_idle",
-      "signature": "func tick_idle(delta: float, context: Dictionary) -> void:"
-    },
-    {
       "service": "lines",
       "func": "configure",
       "signature": "func configure(pacing: Dictionary) -> void:"
+    },
+    {
+      "service": "lines",
+      "func": "history_tick",
+      "signature": "func history_tick(delta: float, context: Dictionary) -> void:"
     },
     {
       "service": "lines",

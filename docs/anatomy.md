@@ -449,7 +449,10 @@ body's own deformation across the whole mesh.
 - The hip-offset handshake is two-way: the part publishes `hip_offset_wanted` and accepts
   `hip_offset_applied` after the pose moves his pelvis. `reset_state()` clears the offset, aim,
   bend, squash, shader squish, throb, bed inset and the smoothed penetration, so a following act
-  never inherits the previous transform.
+  never inherits the previous transform. A closing world removes the player body, and the part
+  with it, from the tree before `world_closed` reaches the facade, so the part never reads a mesh
+  world transform outside the tree: that reset only collects the bed holder, and the next
+  `prepare()` or encounter rebuilds a detached part on the current body.
 - `poses/missionary_anon.gd` adds the act-only `bed_inset_m` to `part_front_m` for the bed pose. The
   part is fully reset by `encounter(false)` and `encounter(true)`.
 - `shaft_length_m()` is the visible placed length; the runtime's penetration reach is

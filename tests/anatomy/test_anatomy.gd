@@ -454,6 +454,59 @@ func run() -> void:
 		"the player root is invalid before the part mesh is prepared")
 	part.free()
 
+	# A closing world removes the player body, and the part under its Hips, from the tree before
+	# `world_closed` reaches the facade. That teardown reset must not read or write world
+	# transforms, and it still collects the bed holder.
+	var detached_host := Node3D.new()
+	root.add_child(detached_host)
+	var detached_part: Node = PLAYER_PART.new()
+	root.add_child(detached_part)
+	var detached_mesh := MeshInstance3D.new()
+	detached_mesh.mesh = BoxMesh.new()
+	detached_mesh.set_surface_override_material(0, ShaderMaterial.new())
+	detached_host.add_child(detached_mesh)
+	var detached_holder := Node3D.new()
+	detached_host.add_child(detached_holder)
+	detached_part.set("_mesh", detached_mesh)
+	detached_part.set("_bed_holder", detached_holder)
+	detached_part.set("_ready_amount", 1.0)
+	var detached_place := detached_mesh.transform
+	root.remove_child(detached_host)
+	check(not bool(detached_part.call("showing")), "a parted-out mesh is not showing")
+	check(not (detached_part.call("root_now") as Vector3).is_finite(),
+		"a parted-out part reports no root")
+	detached_part.call("reset_state")
+	check(detached_part.get("_bed_holder") == null, "a parted-out reset collects the bed holder")
+	check(detached_mesh.transform.is_equal_approx(detached_place),
+		"a parted-out reset leaves the mesh placement alone")
+	detached_part.queue_free()
+	detached_host.free()
+
+	# A part built on a body that has left the tree is dropped and rebuilt on the current body,
+	# so a following act is not handed a mesh that can never be seen.
+	if PLAYER_PART.assets_exist():
+		var stale_part: Node = PLAYER_PART.new()
+		root.add_child(stale_part)
+		var stale_host := Node3D.new()
+		var stale_mesh := MeshInstance3D.new()
+		stale_mesh.mesh = BoxMesh.new()
+		stale_host.add_child(stale_mesh)
+		stale_part.set("_mesh", stale_mesh)
+		var fake_body := Node3D.new()
+		var fake_skeleton := Skeleton3D.new()
+		fake_skeleton.add_bone("Hips")
+		fake_body.add_child(fake_skeleton)
+		root.add_child(fake_body)
+		stale_part.set("player_body", fake_body)
+		check(bool(stale_part.call("prepare")), "a parted-out part rebuilds on the current body")
+		var rebuilt: Variant = stale_part.get("_mesh")
+		check(rebuilt is MeshInstance3D and rebuilt != stale_mesh
+			and (rebuilt as MeshInstance3D).is_inside_tree(),
+			"the rebuilt part is a new in-tree mesh")
+		stale_host.free()
+		stale_part.queue_free()
+		fake_body.queue_free()
+
 	# Her act wink: quiet at her lips, frequent once a climax has been pulled out of her.
 	check(ANATOMY_ACT.wink_mode(0.6, true, 2) == 0, "a thrusting shaft raises no wink")
 	check(ANATOMY_ACT.wink_mode(0.0, true, 0) == 1, "the tip at her lips winks on its own")

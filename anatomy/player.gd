@@ -116,6 +116,8 @@ func _ensure() -> bool:
 	var form: Variant = PLAYER_FORM.active(get_tree())
 	if PLAYER_FORM.is_young(form) or PLAYER_FORM.is_pony(form):
 		return false
+	if is_instance_valid(_mesh) and not _mesh.is_inside_tree():
+		_drop_mesh()
 	if is_instance_valid(_mesh):
 		return true
 	if not assets_exist():
@@ -161,6 +163,24 @@ func _ensure() -> bool:
 	_apply_ready()
 	_mesh.visible = false
 	return true
+
+
+## Drop a part built on a body that has left the tree, so the next `prepare()` or encounter
+## rebuilds it on the current player body instead of returning a mesh that can never be seen.
+func _drop_mesh() -> void:
+	if _tween != null:
+		_tween.kill()
+		_tween = null
+	if _legs_swapped and is_instance_valid(_skeleton):
+		_swap_legs(false)
+	if is_instance_valid(_bed_holder):
+		_bed_holder.queue_free()
+	_bed_holder = null
+	_home = null
+	if is_instance_valid(_mesh):
+		_mesh.queue_free()
+	_mesh = null
+	_skeleton = null
 
 
 func _apply_material() -> void:
@@ -223,6 +243,12 @@ func _apply_place() -> void:
 	_mesh.transform = _placed()
 
 
+## The part is a child of the player's Hips, so a closing world takes it out of the tree before
+## `world_closed` reaches the facade. A world transform only reads while it is inside.
+func _in_tree() -> bool:
+	return is_instance_valid(_mesh) and _mesh.is_inside_tree()
+
+
 ## The shader multiplies each cross-section; keep the reported girth in step with it so the holes
 ## stretch to the visible size.
 func _apply_girth() -> void:
@@ -250,9 +276,10 @@ func _apply_throb() -> void:
 
 
 ## World up expressed in the mesh's own frame. The bed placement turns the shaft flat onto the
-## mattress, so a fixed local axis would lift it sideways there.
+## mattress, so a fixed local axis would lift it sideways there. With no world placement there is
+## no axis to lift along; a unit value keeps the uniform finite.
 func _throb_up() -> Vector3:
-	if not is_instance_valid(_mesh):
+	if not _in_tree():
 		return Vector3.UP
 	var up := _mesh.global_basis.inverse() * Vector3.UP
 	return up.normalized() if up.length_squared() > 0.000001 else Vector3.UP
@@ -302,7 +329,7 @@ func _smooth_penetration(penetration_m: float, delta: float, target: Vector3,
 func apply_live() -> void:
 	_read_settings()
 	_load_place()
-	if is_instance_valid(_mesh):
+	if _in_tree():
 		_apply_place()
 		_apply_girth()
 
@@ -312,7 +339,7 @@ func apply_live() -> void:
 ## `Back-out gap` standoff, so the placement never needs a separate depth fraction.
 func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, penetration_m: float,
 		delta: float, mare_anchor: Node3D, attached := true) -> void:
-	if not is_instance_valid(_mesh) or not _mesh.visible or placing:
+	if not _in_tree() or not _mesh.visible or placing:
 		return
 	_throb_tick(delta, penetration_m / maxf(shaft_length_m(), 0.001))
 	var shown := _smooth_penetration(penetration_m, delta, target, attached and not bed)
@@ -478,7 +505,7 @@ func _end_bed() -> void:
 
 ## integration: how far the tip has passed her opening, 0 to 1 of its length.
 func entry(opening: Vector3, rear: Vector3) -> float:
-	if not is_instance_valid(_mesh) or not _mesh.visible:
+	if not _in_tree() or not _mesh.visible:
 		return -1.0
 	var length := _part_length() * _mesh.global_transform.basis.get_scale().x
 	return clampf((length - (_mesh.global_transform * PIVOT).distance_to(opening)
@@ -487,7 +514,7 @@ func entry(opening: Vector3, rear: Vector3) -> float:
 
 ## integration: world radius of the shaft where it passes through `opening`.
 func girth_at(opening: Vector3) -> float:
-	if not is_instance_valid(_mesh) or not _mesh.visible:
+	if not _in_tree() or not _mesh.visible:
 		return -1.0
 	var along := root_now().distance_to(opening) / (_part_length() * _world_scale())
 	if along >= 1.0:
@@ -505,17 +532,19 @@ func _straighten() -> Basis:
 
 
 func showing() -> bool:
-	return is_instance_valid(_mesh) and _mesh.visible and not placing
+	return _in_tree() and _mesh.visible and not placing
 
 
 func tip_world() -> Vector3:
+	if not _in_tree():
+		return Vector3.INF
 	return _mesh.global_transform * (_visible_tip_local() + Vector3(0.0, TIP_LIFT_M, 0.0))
 
 
 ## The modelled tip on the shaft axis, without the debug aim lift `tip_world()` carries. The act
 ## measures the tip against her lips with this, so a tuning offset cannot make a touch look far.
 func tip_center() -> Vector3:
-	if not is_instance_valid(_mesh):
+	if not _in_tree():
 		return Vector3.INF
 	return _mesh.global_transform * _visible_tip_local()
 
@@ -542,7 +571,7 @@ func depth_for(metres: float) -> float:
 
 
 func root_now() -> Vector3:
-	if not is_instance_valid(_mesh):
+	if not _in_tree():
 		return Vector3.INF
 	return _mesh.global_transform * PIVOT
 
@@ -581,7 +610,7 @@ func _world_scale() -> float:
 
 ## Debug: the visible part's world scale. A stretch shows up here before it is visible in the scene.
 func debug_scale() -> Vector3:
-	return _mesh.global_transform.basis.get_scale() if is_instance_valid(_mesh) else Vector3.ZERO
+	return _mesh.global_transform.basis.get_scale() if _in_tree() else Vector3.ZERO
 
 
 func _set_ready(value: float) -> void:
@@ -653,6 +682,14 @@ func reset_state() -> void:
 	_p_smooth = 0.0
 	_p_started = false
 	if not is_instance_valid(_mesh):
+		return
+	if not _in_tree():
+		# A closing world has already taken the player body, and the part with it, out of the
+		# tree. Reparenting and world transforms would error, and the mesh is gone anyway, so only
+		# the bed holder needs collecting.
+		if is_instance_valid(_bed_holder):
+			_bed_holder.queue_free()
+			_bed_holder = null
 		return
 	_end_bed()
 	_set_bend(Vector3.ZERO)

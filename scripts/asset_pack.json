@@ -1,9 +1,9 @@
 {
 	"schema": 1,
 	"archive": {
-		"url": "https://u.pone.rs/rsuixcaj.zip",
-		"sha256": "1bcc893640222cf84d284077293a047fc8065790f5f3032d5d48845d9b471010",
-		"size": 10428815
+		"url": "https://u.pone.rs/dunusfms.zip",
+		"sha256": "cafad87acf86a12c1d575232eba2e776466d45b1ea43519ebf9c44f8d2175b4e",
+		"size": 10438351
 	},
 	"runtime": {
 		"assets/anatomy/anon/anon_part.scn": {
@@ -35,8 +35,8 @@
 			"sha256": "99e7d4bf5ec5f3e35c307a06935ceaedb4918d75a9c18b89e97f549a86cad787"
 		},
 		"assets/anatomy/mare/mare_bits_v2.scn": {
-			"size": 626896,
-			"sha256": "43113716849c4906a03e02fa68ffff4f823bb0e5cec0e743adebe51957c527ec"
+			"size": 626654,
+			"sha256": "067742ae106a7947de2b3dbe48d5bb20bc93206c6a20095f8eeffa739eb9d26b"
 		},
 		"assets/anatomy/mare/skin_bridge.scn": {
 			"size": 115864,
@@ -433,8 +433,8 @@
 	},
 	"sources": {
 		"anatomy/mare_bits_v2.blend": {
-			"size": 1605812,
-			"sha256": "e3348a50eaeb9b958355cc8858c66530a07859d0b83c45fb3f82ec42cd604780"
+			"size": 1587164,
+			"sha256": "18e05877e387e8290104bbc5beff5cbd007c6ba91c1f8ae1faf868b9b6582fc4"
 		},
 		"voice/rarity/07faa28ca7564749a8f2f8241925e10d.wav": {
 			"size": 92204,

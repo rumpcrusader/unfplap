@@ -1088,7 +1088,9 @@ func _bind_act_view() -> void:
 ## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
 func _wings_controller():
 	if _wings == null:
-		_wings = WING.new(self)
+		_wings = WING.new(_act_facts)
+		_wings.log = Callable(self, "_log")
+	_bind_act_view()
 	return _wings
 
 func _hand_controller():

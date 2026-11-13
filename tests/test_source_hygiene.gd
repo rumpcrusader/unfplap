@@ -286,11 +286,13 @@ func _check_act_facts() -> void:
 		"ear_twitch.gd": "ear twitch",
 		"mood_face.gd": "held mood face",
 		"vr_act.gd": "VR act",
+		"wing_control.gd": "wing control",
 	}
 	var handles := {
 		"poses/skeleton_pose.gd": "var perf := Callable()",
 		"mood_face.gd": "var main: Variant = null",
 		"vr_act.gd": "var bridge: Variant = null",
+		"wing_control.gd": "var facts: Variant",
 	}
 	for name: String in readers.keys():
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))

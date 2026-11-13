@@ -23,7 +23,9 @@ const WING_AFTERGLOW_RETURN_SECONDS := 6.0
 const WING_FLUTTER_COOLDOWN_S := 1.80
 const WING_SWEEP_DEG := 10.0
 
-var runtime: Node
+## The typed act view: her node and the act clock. The perf/log hooks stay callbacks.
+var facts: Variant
+var log := Callable()
 
 var _winged := false
 var _wing_clock := 0.0
@@ -46,12 +48,12 @@ var _wing_return_from_tuck := 0.0
 var _wing_return_from_half := 0.0
 
 
-func _init(runtime_node: Node = null) -> void:
-	runtime = runtime_node
+func _init(facts_context: Variant = null) -> void:
+	facts = facts_context
 
 
 func reset() -> void:
-	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+	var pony: Variant = facts.pony if facts != null else null
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
 	_winged = identity != null and identity.has_method("has_wings") \
 		and bool(identity.call("has_wings"))
@@ -77,7 +79,7 @@ func reset() -> void:
 func tick(delta: float, pose_id: String, satisfaction: float, act_seconds: float) -> void:
 	if not _winged:
 		return
-	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+	var pony: Variant = facts.pony if facts != null else null
 	if not is_instance_valid(pony):
 		return
 	if _wing_returning:
@@ -122,7 +124,7 @@ func tick(delta: float, pose_id: String, satisfaction: float, act_seconds: float
 		return
 	_flutter_clock -= delta
 	if _flutter_clock <= 0.0 and excitement.has_method("flutter"):
-		var now := float(runtime.call("_now_s"))
+		var now: float = facts.clock() if facts != null else 0.0
 		if now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
 			excitement.call("flutter")
 			_last_wing_flutter = now
@@ -135,10 +137,10 @@ func on_thrust(impact: float) -> void:
 	_wing_flick = lerpf(WING_FLICK_MIN, WING_FLICK_MAX, impact)
 	if not _winged or _wing_hold:
 		return
-	var now := float(runtime.call("_now_s"))
+	var now: float = facts.clock() if facts != null else 0.0
 	if now - _last_wing_flutter < WING_FLUTTER_COOLDOWN_S:
 		return
-	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+	var pony: Variant = facts.pony if facts != null else null
 	var excitement: Variant = pony.get("excitement") if is_instance_valid(pony) else null
 	if excitement != null and excitement.has_method("flutter"):
 		excitement.call("flutter")
@@ -215,7 +217,7 @@ func _wing_return_tick(delta: float) -> void:
 
 
 func _ensure_wing_sweep(pose_id: String) -> void:
-	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+	var pony: Variant = facts.pony if facts != null else null
 	if pose_id != CATALOG.STANDING or not _wing_hold or not is_instance_valid(pony):
 		_clear_wing_sweep()
 		return
@@ -243,5 +245,5 @@ func _clear_wing_sweep() -> void:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(runtime) and runtime.has_method("_log"):
-		runtime.call("_log", text)
+	if log.is_valid():
+		log.call(text)

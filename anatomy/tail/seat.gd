@@ -1,8 +1,8 @@
 extends Node
 ## Re-seats every adult mare's hair tail at the game's exact reference dock and moves the
 ## OpenPonyDock with it. One controller under the anatomy facade; it never touches the body,
-## skeleton, mane or act systems. Mares from other mods use the fallback dock visibility and the
-## global placement until a per-mare override is saved.
+## skeleton, mane or act systems. Mares from other mods use the game's tail seat and the global
+## placement until a per-mare override is saved.
 ##
 ## The reference is the body-space anchor of the game's reference dock, read from
 ## `dock_tail_mounts.json`. The per-mare row under `anatomy.placement.<id>` moves the tail, trims
@@ -24,9 +24,6 @@ const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.
 
 const DOCK_NAME := "OpenPonyDock"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
-const DOCK_VISIBILITY_PATH := "res://world/characters/hybrid_mare/dock_visibility_fits.json"
-## Mirrors `hybrid_dock.VISIBILITY_FALLBACK`: the median of the hand fits.
-const DOCK_VISIBILITY_FALLBACK := Vector3(0.0, 0.0, 0.04)
 ## The reference's cap sits just below and in front of the body's own tail root. This fallback is
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
@@ -48,7 +45,6 @@ var _rows: Dictionary = {}
 var _enabled := true
 static var _reference := Vector3.INF
 static var _reference_loaded := false
-static var _visibility: Dictionary = {}
 var _perf_window := 0.0
 ## Rows whose dock mesh is stale after a placement edit; rebuilt when the settle timer fires.
 var _dirty: Array[Dictionary] = []
@@ -146,35 +142,6 @@ static func _bind_for(mesh: MeshInstance3D, bone_name: String) -> Transform3D:
 		if sk.get_bone_name(bone) == bone_name:
 			return mesh.skin.get_bind_pose(i)
 	return Transform3D.IDENTITY
-
-
-## The per-mare visibility offset `hybrid_dock.effective_fit()` adds to the reference fit, so the
-## seat can remove it. Zero when the user has a custom dock fit or the mare is Rainbow Dash.
-static func _visibility_offset(pony: Node, fit: Dictionary) -> Vector3:
-	if not is_instance_valid(pony):
-		return Vector3.ZERO
-	if _visibility.is_empty():
-		if not FileAccess.file_exists(DOCK_VISIBILITY_PATH):
-			return Vector3.ZERO
-		var parsed: Variant = JSON.parse_string(
-			FileAccess.get_file_as_string(DOCK_VISIBILITY_PATH))
-		if not parsed is Dictionary:
-			return Vector3.ZERO
-		_visibility = parsed
-	var reference_fit: Variant = _visibility.get("reference_fit")
-	if not reference_fit is Dictionary or not HYBRID_DOCK.same_fit(fit, reference_fit):
-		return Vector3.ZERO
-	var identity: Variant = pony.get("identity")
-	if identity == null or str(identity.get("id")) == "rainbow_dash":
-		return Vector3.ZERO
-	var offsets: Variant = _visibility.get("offsets")
-	if offsets is Dictionary and (offsets as Dictionary).has(str(identity.get("id"))):
-		var raw: Variant = (offsets as Dictionary)[str(identity.get("id"))]
-		if raw is Array and (raw as Array).size() == 3:
-			return Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
-	if bool(identity.get("filly")):
-		return Vector3.ZERO
-	return DOCK_VISIBILITY_FALLBACK
 
 
 ## Called by main when a pony is ready. Idempotent.
@@ -383,21 +350,9 @@ func _prepare(pony: Node) -> Dictionary:
 	if not anchor.is_finite():
 		_log("tail seat: non-finite anchor for %s" % pony.name)
 		return {}
+	# `effective_fit()` adds the game's seat shift for a seated tail; the seat delta below cancels
+	# it, so the dock keeps the player's fit.
 	var fit: Dictionary = HYBRID_DOCK.effective_fit(pony, HYBRID_DOCK.read_fit())
-	# `effective_fit()` also applies the per-mare visibility offset (up to +60 mm back) that was
-	# fitted for the mare's *own* tail. The seat already moves her tail to the reference anchor,
-	# so that offset puts the cuff above and behind the tail base: the sliver that read as "dock
-	# above tail". Keep the tail-mount part (the seat delta cancels it) and drop the visibility
-	# part.
-	var visible := _visibility_offset(pony, HYBRID_DOCK.read_fit())
-	if visible != Vector3.ZERO:
-		var position: Variant = fit.get("position")
-		if position is Array and (position as Array).size() == 3:
-			fit["position"] = [
-				float(position[0]) - visible.x,
-				float(position[1]) - visible.y,
-				float(position[2]) - visible.z,
-			]
 	if fit.is_empty():
 		_log("tail seat: no dock fit for %s" % pony.name)
 		return {}

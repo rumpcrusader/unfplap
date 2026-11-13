@@ -5,6 +5,6 @@
 	"author": "Anon",
 	"description": "Plap your mares!",
 	"credits": "SFX: OpenNSFW Sound Pack (@OpenNSFWSP); see AUDIO_CREDITS.md. Anatomy: PonyPussyParadise, by permission.",
-	"game_version": "0.3.0-maredev",
+	"game_version": "0.3.1-maredev",
 	"entry": "res://mods/unfplap/main.gd"
 }

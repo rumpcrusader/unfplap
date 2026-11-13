@@ -63,7 +63,7 @@ var contract: Dictionary = api.contract()
 	"api_major": 1,
 	"api_minor": 1,
 	"mod_version": "0.4.0",
-	"game_version": "0.3.0-maredev",
+	"game_version": "0.3.1-maredev",
 	"schemas": {"mare": 1, "preferences": 1, "placement": 1},
 	"capabilities": {
 		"registry.mare": 1,

@@ -473,21 +473,27 @@ body's own deformation across the whole mesh.
   mare's hair tail base to the game's exact reference anchor from
   `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's
   canonical dock seat, derived from the body's own tail root (`pony_tail_01`). Mares added by
-  other mods use the same seat: they are not gated by `SETTINGS.CHARACTER_ORDER`, an id with no
-  `dock_visibility_fits.json` row gets `DOCK_VISIBILITY_FALLBACK`, and its
+  other mods use the same seat: they are not gated by `SETTINGS.CHARACTER_ORDER`, and their
   `tail_y`/`tail_z`/`dock_y`/`dock_scale`/`tail_tilt_deg` come from the global
   `anatomy.placement.default.*`; the princesses' fitted bodies have no hair skeleton, so their
   tail seat is unavailable and their pre-hidden dock stays hidden.
+- The stock game seats tails itself since 0.3.1: `hybrid_dock.apply()` calls
+  `dock_tail_mount.seat()`, which moves the hair link to the reference plus the mare's
+  `tail_seat_trims.json` row and marks her with the `tail_seated` meta. The pony build runs
+  before `Mods.on_node`, so the mod's `attach()` measures the **already seated** tail: its delta
+  is `anatomy.placement` minus the game trim, and the placement therefore replaces the game's
+  trim rather than stacking on it. The shipped placement defaults and the game trim table carry
+  the same values; only `tail_tilt_deg` is mod-only. Turning `reseat_tails` off restores the
+  game-seated tail, which is the stock result.
 - `profile.participation.tail` gates the seat. A `false` value skips the attach and restores the
   row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `adult`
   assertion applies to the tail seat too, so a provider can make a character an adult without
   giving her a tail seat.
-- The `OpenPonyDock` uses the game reference fit, not `effective_fit()`: the per-mare
-  `dock_visibility_fits.json` offset was fitted for the mare's *own* tail and, once the seat moves
-  that tail to the reference, pushes the cuff above and behind the tail base. The fit is re-reached
-  with `hybrid_dock`; its base ring is snapped to `hybrid_dock.rump_z(y) - 4 mm` by
-  `anatomy/tail/dock_seat.gd`. The 4 mm embed and a falloff over the first 35% of the dock keep the
-  base in the coat without creasing. The body, skeleton, mane and anatomy placement are untouched.
+- The `OpenPonyDock` is rebuilt from the game reference fit, not from `effective_fit()`'s seat
+  shift, and re-reached with `hybrid_dock`; its base ring is snapped to
+  `hybrid_dock.rump_z(y) - 4 mm` by `anatomy/tail/dock_seat.gd`. The 4 mm embed and a falloff over
+  the first 35% of the dock keep the base in the coat without creasing. The body, skeleton, mane
+  and anatomy placement are untouched.
 - The dock's outer opening is seated on the pinned tail cap's vertical centre.
   `anatomy/tail/seat.gd` measures the cap low/high in body bind space and the fitted dock's top,
   then applies `cap_centre - dock_top` through `anatomy/tail/dock_attach.gd`; there is no fixed

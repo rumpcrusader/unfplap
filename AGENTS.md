@@ -275,9 +275,11 @@ The per-file service map with contracts and suites is `docs/README.md`.
 
 ## Known cross-cutting constraints
 
-- The stock 0.3.0 bed is size-aware: `eligible()` accepts up to `1.05 * Settings.pony_scale()` and
-  `_mare_fits` scales her half of the lane and her length with her size. A bed too short for a
-  Hoers or Same Height mare is refused; that is stock behavior, not a mod override.
+- The stock bed is size-aware. `eligible()` measures the joining pony's own `body_scale` with
+  `scale_fits()`: her barrel beside Anon's inside the mattress width and her whole length inside
+  its length. Anon's half of the lane and his head/sit offsets scale with
+  `Settings.anon_height_scale()`; hers scale with her own body. A bed too short for a Hoers or
+  Same Height mare is refused; that is stock behavior, not a mod override.
 - `[go_to_bed]` keeps a `sleep:` navigator lease even while she lies awake by day. A bed-side offer
   through that lease is valid only for `bed_side`/`already_lying` when she is not sleeping and
   `posture_status().requested == "lie_down"`; walking to bed or sleeping is not. See
@@ -294,8 +296,10 @@ The per-file service map with contracts and suites is `docs/README.md`.
   reclined hip/head targets. Inviting before that blend settles puts the target at standing
   height, so `hop_clear` fails and the guest never climbs on. The lab waits `1.2 s` after lying
   down before inviting; the rejoin waits `CUDDLE_REJOIN_SETTLE_S`. See `docs/rest.md`.
-- `SharedBed.accept()` is dead code in this game version: it calls `invite(actor, null)` and
-  `invite()` rejects a null seat. Re-invite a mare into a bed with `invite(actor, seats[1])`.
+- `SharedBed.accept()` is the stock "her AI chose to join" entry. It sets `_accepting` so a
+  `social:talk` navigator lease counts as routine, then calls `invite(actor, null)`; `invite()`
+  ignores its seat argument and lays her spot out at her own `body_scale` (`_lay_mare`). Use
+  `invite(actor, seats[1])` to re-invite a mare who is already standing beside the bed.
 - A mare from another mod needs the game's pony locomotion and hybrid rig: an adult identity, a
   stable id, `pony_hips` for the anatomy mesh, `MareBody` for teats/strip/body-coat deform, and
   `hair_skeleton` plus `OpenPonyDock` for tail seating. Acts still need the eligibility runtime

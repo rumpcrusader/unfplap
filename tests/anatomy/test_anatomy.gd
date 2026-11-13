@@ -189,14 +189,6 @@ func run() -> void:
 	check(near(float(default_place["scale"]), 0.682), "global anatomy scale")
 	var modded_place := SETTINGS.anatomy_placement_default("not_a_base_mare")
 	check(modded_place == default_place, "an off-roster mare uses the global anatomy placement")
-	var visibility: Variant = JSON.parse_string(FileAccess.get_file_as_string(
-		TAIL_SEAT.DOCK_VISIBILITY_PATH))
-	if visibility is Dictionary:
-		var reference: Variant = (visibility as Dictionary).get("reference_fit")
-		if reference is Dictionary:
-			check(TAIL_SEAT._visibility_offset(off_roster, reference)
-				== TAIL_SEAT.DOCK_VISIBILITY_FALLBACK,
-				"an off-roster mare gets the fallback dock visibility")
 
 	# Tail seat: with Re-seat tails and docks off, attach only remembers her id. A disabled seat
 	# must not measure the tail or rebuild the dock, and a settings tick must not write either.

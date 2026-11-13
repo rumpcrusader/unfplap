@@ -225,6 +225,24 @@ func run() -> void:
 	check(int(lossy.get("update_ms")) == 66 and int(lossy.get("blur_depth")) == 1,
 		"fast lowers the patch refresh and the blur ring")
 
+	# The refresh gate: a still body keeps the last skinned patch instead of paying for the skin,
+	# the soup write and the BVH rebuild.
+	var identity := Transform3D.IDENTITY
+	check(SURFACE._pose_close(identity, identity),
+		"the refresh gate accepts an unchanged pose")
+	check(SURFACE._pose_close(identity,
+		Transform3D(Basis(), Vector3(0.0005, 0.0, 0.0))),
+		"the refresh gate accepts a sub-millimetre shift")
+	check(not SURFACE._pose_close(identity,
+		Transform3D(Basis(), Vector3(0.003, 0.0, 0.0))),
+		"the refresh gate rejects a 3 mm shift")
+	check(not SURFACE._pose_close(identity,
+		Transform3D(Basis(Vector3.UP, deg_to_rad(2.0)), Vector3.ZERO)),
+		"the refresh gate rejects a 2 degree turn")
+	check(not SURFACE._pose_close(identity,
+		Transform3D(Basis(Vector3.RIGHT, deg_to_rad(2.0)), Vector3.ZERO)),
+		"the refresh gate catches a turn about a second axis")
+
 	var palm := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm", 0.0, 0.0)
 	var hovered := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm",
 		0.0, 0.03)

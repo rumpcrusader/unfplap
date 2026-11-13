@@ -239,9 +239,12 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
   missionary reach plan.
 - The patch is skinned and re-BVHed at most once per `caress.quality` refresh (33 ms precise,
   50 ms balanced, 66 ms fast) and at most once per physics tick per hand; a window re-centre
-  forces one update regardless of the refresh. The normal blur averages the hit face's ring
-  (`BLUR_RING_RADIUS_M = 0.03 m`, 2 rings precise/balanced, 1 fast) instead of the whole patch; a
-  wider radius scans the whole active patch, which is the local window when the flag is on.
+  forces one update regardless of the refresh. A refresh is also skipped while every bound bone
+  is within `POSE_EPS_M` (0.8 mm) and `POSE_EPS_SIN` (0.15°) of the last skinned pose, so a still
+  body does not pay for the skin, the soup write and the BVH rebuild; the retry costs one bone
+  compare per tick. The normal blur averages the hit face's ring (`BLUR_RING_RADIUS_M = 0.03 m`,
+  2 rings precise/balanced, 1 fast) instead of the whole patch; a wider radius scans the whole
+  active patch, which is the local window when the flag is on.
 
 ## Reach
 

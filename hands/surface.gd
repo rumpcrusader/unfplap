@@ -15,6 +15,13 @@ const BLUR_RING_RADIUS_M := 0.03
 ## one 3x3x3 cell block always covers the whole window.
 const LOCAL_RADIUS_M := 0.12
 const LOCAL_CORE_SCALE := 0.5
+## A refresh is skipped while every bound bone is within these of the last skinned pose. The
+## patch is skinned at most once per `update_ms` anyway, so this only stops a still body from
+## paying for a skin, a soup write and a BVH rebuild: at `update_ms` = 33 ms the existing cadence
+## already allows 33 ms of contact lag, and 0.8 mm is what a slow thrust covers in that time.
+const POSE_EPS_M := 0.0008
+## 0.15 degrees, as the sine of the basis-axis difference.
+const POSE_EPS_SIN := 0.002618
 var update_ms := 33
 var blur_depth := 2
 var accurate_miss := true
@@ -47,6 +54,9 @@ var _skeleton_id := 0
 var _update_tick := -1
 var _bindings: Array = []
 var _transforms: Array[Transform3D] = []
+## The candidate transforms of the current refresh; swapped with `_transforms` on a commit so a
+## skipped refresh allocates nothing.
+var _scratch: Array[Transform3D] = []
 var _rest_positions := PackedVector3Array()
 var _rest_normals := PackedVector3Array()
 var _offsets := PackedInt32Array()
@@ -212,8 +222,8 @@ func update_pose(force := false) -> void:
 	var started := Time.get_ticks_usec()
 	var base := skeleton.global_transform
 	var count := _bindings.size()
-	var transforms: Array[Transform3D] = []
-	transforms.resize(count)
+	if _scratch.size() != count:
+		_scratch.resize(count)
 	var changed := _transforms.size() != count
 	for i in count:
 		var binding: Dictionary = _bindings[i]
@@ -224,21 +234,31 @@ func update_pose(force := false) -> void:
 		else:
 			t = base * skeleton.get_bone_global_pose(bone) \
 				* (binding["bind"] as Transform3D)
-		transforms[i] = t
-		if not changed and not t.is_equal_approx(_transforms[i]):
+		_scratch[i] = t
+		if not changed and not _pose_close(t, _transforms[i]):
 			changed = true
 	if not changed and not force and not _soup_dirty:
+		# The body barely moved since the last skin; keep the posed patch and retry next tick.
 		return
-	_transforms = transforms
+	var previous := _transforms
+	_transforms = _scratch
+	_scratch = previous
 	var verts := _local_verts if _local_valid else _all_verts
+	var rest_positions := _rest_positions
+	var rest_normals := _rest_normals
+	var offsets := _offsets
+	var bones := _bones
+	var weights := _weights
+	var transforms := _transforms
 	for i: int in verts:
 		var p := Vector3.ZERO
 		var n := Vector3.ZERO
-		var rest := _rest_positions[i]
-		var normal := _rest_normals[i]
-		for k in range(_offsets[i], _offsets[i + 1]):
-			var pose: Transform3D = _transforms[_bones[k]]
-			var weight := _weights[k]
+		var rest := rest_positions[i]
+		var normal := rest_normals[i]
+		var to := offsets[i + 1]
+		for k in range(offsets[i], to):
+			var pose: Transform3D = transforms[bones[k]]
+			var weight := weights[k]
 			p += (pose * rest) * weight
 			n += (pose.basis * normal) * weight
 		_positions[i] = p
@@ -254,26 +274,43 @@ func update_pose(force := false) -> void:
 	_perf_note("caress_skin", skin_us)
 
 
+## True when two bound-bone transforms differ by less than the refresh tolerance. Two basis axes
+## are enough: any rotation of more than the tolerance changes at least one of them.
+static func _pose_close(a: Transform3D, b: Transform3D) -> bool:
+	if a.origin.distance_squared_to(b.origin) > POSE_EPS_M * POSE_EPS_M:
+		return false
+	if a.basis.x.distance_squared_to(b.basis.x) > POSE_EPS_SIN * POSE_EPS_SIN:
+		return false
+	return a.basis.y.distance_squared_to(b.basis.y) <= POSE_EPS_SIN * POSE_EPS_SIN
+
+
 ## Copy the active posed vertices into the triangle soup. Local mode only touches the window's
 ## faces; full mode keeps the source index order the authored anchor build reads back.
 func _write_soup() -> void:
 	if _local_valid:
 		var count := _local_faces.size()
+		var local_faces := _local_faces
+		var indices := _indices
+		var positions := _positions
+		var normals := _normals
 		faces.resize(count * 3)
 		vertex_normals.resize(count * 3)
 		for k in count:
-			var i := _local_faces[k] * 3
+			var i := local_faces[k] * 3
 			for j in 3:
-				var v := _indices[i + j]
-				faces[k * 3 + j] = _positions[v]
-				vertex_normals[k * 3 + j] = _normals[v]
+				var v := indices[i + j]
+				faces[k * 3 + j] = positions[v]
+				vertex_normals[k * 3 + j] = normals[v]
 		return
-	faces.resize(_indices.size())
-	vertex_normals.resize(_indices.size())
-	for i in _indices.size():
-		var v := _indices[i]
-		faces[i] = _positions[v]
-		vertex_normals[i] = _normals[v]
+	var indices := _indices
+	var positions := _positions
+	var normals := _normals
+	faces.resize(indices.size())
+	vertex_normals.resize(indices.size())
+	for i in indices.size():
+		var v := indices[i]
+		faces[i] = positions[v]
+		vertex_normals[i] = normals[v]
 
 
 ## Closest point on the posed patch. Returns {} when the patch is empty. `inside` is true when
@@ -495,6 +532,7 @@ func _flatten() -> void:
 	_tri_stamp = -1
 	_pose_serial += 1
 	_transforms.clear()
+	_scratch.clear()
 	_last_update = -1
 	_update_tick = -1
 
